@@ -36,7 +36,7 @@
       "miterAngle": 28.96
     }
   ],
-  "exportPacketCount": 48,
+  "exportPacketCount": 36,
   "boundaryDomainIntervalIds": [
     "interval:0",
     "interval:1",
@@ -68,19 +68,7 @@
     "interval:27",
     "interval:28",
     "interval:29",
-    "interval:30",
-    "interval:31",
-    "interval:32",
-    "interval:33",
-    "interval:34",
-    "interval:35",
-    "interval:36",
-    "interval:37",
-    "interval:38",
-    "interval:39",
-    "interval:40",
-    "interval:41",
-    "interval:42"
+    "interval:30"
   ],
   "boundaryDomainPackets": [
     {
@@ -164,7 +152,7 @@
           "boundaryTotalLength": 79.17911049691465
         },
         {
-          "intervalId": "interval:26",
+          "intervalId": "interval:18",
           "splitRangeId": "split-range:11",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 163.4803605912281,
@@ -255,115 +243,6 @@
         "interval:1"
       ],
       "debugIntervalId": "interval:1",
-      "startDistance": 26.089555248457323,
-      "endDistance": 53.08955524845732,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:0",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 79.17911049691465,
-      "figmaLikeSplitRangeSourceSegmentIndex": 0,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 153.72916211635828,
-          "y": 71.28525584458582
-        },
-        {
-          "x": 188.1928217922337,
-          "y": 0
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 79.17911049691465,
-      "figmaLikeBoundaryTotalLength": 79.17911049691465,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:1",
-          "splitRangeId": "split-range:0",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 79.17911049691465,
-          "terminalRole": "middle",
-          "startDistance": 26.089555248457323,
-          "endDistance": 53.08955524845732,
-          "sourceSegmentIndex": 0,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 153.72916211635828,
-              "y": 71.28525584458582
-            },
-            {
-              "x": 188.1928217922337,
-              "y": 0
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 79.17911049691465,
-          "boundaryTotalLength": 79.17911049691465
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
-        [
-          {
-            "x": 179.013339,
-            "y": 18.987007
-          },
-          {
-            "x": 162.908644,
-            "y": 52.298248
-          },
-          {
-            "x": 153.905606,
-            "y": 47.945628
-          },
-          {
-            "x": 170.010301,
-            "y": 14.634387
-          }
-        ]
-      ],
-      "bounds": {
-        "minX": 153.905606,
-        "minY": 14.634387,
-        "maxX": 179.013339,
-        "maxY": 52.298248
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:2",
-      "intervalIds": [
-        "interval:2"
-      ],
-      "debugIntervalId": "interval:2",
       "startDistance": 65.67911049691465,
       "endDistance": 79.17911049691465,
       "geometryFamily": "constrained-dashed",
@@ -412,7 +291,7 @@
       "figmaLikeBoundaryTotalLength": 79.17911049691465,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:2",
+          "intervalId": "interval:1",
           "splitRangeId": "split-range:0",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 79.17911049691465,
@@ -439,7 +318,7 @@
           "boundaryTotalLength": 79.17911049691465
         },
         {
-          "intervalId": "interval:40",
+          "intervalId": "interval:29",
           "splitRangeId": "split-range:19",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 94.17037908298788,
@@ -517,11 +396,11 @@
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:3",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:2",
       "intervalIds": [
-        "interval:3"
+        "interval:2"
       ],
-      "debugIntervalId": "interval:3",
+      "debugIntervalId": "interval:2",
       "startDistance": 0,
       "endDistance": 13.5,
       "geometryFamily": "constrained-dashed",
@@ -570,7 +449,7 @@
       "figmaLikeBoundaryTotalLength": 234.5450442336336,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:3",
+          "intervalId": "interval:2",
           "splitRangeId": "split-range:3",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 234.5450442336336,
@@ -597,7 +476,7 @@
           "boundaryTotalLength": 234.5450442336336
         },
         {
-          "intervalId": "interval:14",
+          "intervalId": "interval:9",
           "splitRangeId": "split-range:4",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 214.2318039969792,
@@ -681,13 +560,122 @@
       }
     },
     {
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:3",
+      "intervalIds": [
+        "interval:3"
+      ],
+      "debugIntervalId": "interval:3",
+      "startDistance": 64.6816814112112,
+      "endDistance": 91.6816814112112,
+      "geometryFamily": "constrained-dashed",
+      "resolutionStatus": "exact-constrained",
+      "runtimeStatus": "accepted",
+      "sourceTopology": "self-intersecting",
+      "finalCoverageBuilderStatus": "product-final",
+      "visualOverlapCollapseStatus": null,
+      "strokePosition": "outside",
+      "strokeWidth": 10,
+      "solidMaskModelMaskApplication": null,
+      "solidMaskModelVisibleRender": null,
+      "solidMaskModelCoverageOracle": null,
+      "solidMaskModelMaskSide": null,
+      "solidMaskModelInsideMaskMode": null,
+      "solidMaskModelRejectedMaskMode": null,
+      "solidMaskModelVisibleMaskMode": null,
+      "solidMaskModelJoinGeometrySource": null,
+      "solidMaskModelRejectedVisibleMaskMode": null,
+      "solidMaskModelInternalCornerJoinMode": null,
+      "solidMaskModelJoinEligibilityMode": null,
+      "solidMaskModelRejectedInternalCornerJoinMode": null,
+      "solidMaskModelAdjacencyProbe": [],
+      "solidMaskModelFaceOwnershipTrace": [],
+      "figmaLikeSplitRangeId": "split-range:3",
+      "figmaLikeSplitRangeStartDistance": 0,
+      "figmaLikeSplitRangeEndDistance": 234.5450442336336,
+      "figmaLikeSplitRangeSourceSegmentIndex": 0,
+      "figmaLikeTerminalRole": "middle",
+      "figmaLikeSelectedSide": -1,
+      "figmaLikeFilledSide": 1,
+      "figmaLikeUnfilledSide": -1,
+      "figmaLikeBoundaryRole": "outer",
+      "figmaLikeBoundaryPoints": [
+        {
+          "x": 11.358174406717296,
+          "y": 365.76797704068724
+        },
+        {
+          "x": 113.4467244346451,
+          "y": 154.6061771626022
+        }
+      ],
+      "figmaLikeBoundaryStartDistance": 0,
+      "figmaLikeBoundaryEndDistance": 234.5450442336336,
+      "figmaLikeBoundaryTotalLength": 234.5450442336336,
+      "figmaLikeSplitRangeTerminals": [
+        {
+          "intervalId": "interval:3",
+          "splitRangeId": "split-range:3",
+          "splitRangeStartDistance": 0,
+          "splitRangeEndDistance": 234.5450442336336,
+          "terminalRole": "middle",
+          "startDistance": 64.6816814112112,
+          "endDistance": 91.6816814112112,
+          "sourceSegmentIndex": 0,
+          "selectedSide": -1,
+          "filledSide": 1,
+          "unfilledSide": -1,
+          "boundaryRole": "outer",
+          "boundaryPoints": [
+            {
+              "x": 11.358174406717296,
+              "y": 365.76797704068724
+            },
+            {
+              "x": 113.4467244346451,
+              "y": 154.6061771626022
+            }
+          ],
+          "boundaryStartDistance": 0,
+          "boundaryEndDistance": 234.5450442336336,
+          "boundaryTotalLength": 234.5450442336336
+        }
+      ],
+      "polygonCount": 1,
+      "polygons": [
+        [
+          {
+            "x": 53.440037,
+            "y": 278.725089
+          },
+          {
+            "x": 37.335343,
+            "y": 312.03633
+          },
+          {
+            "x": 28.332305,
+            "y": 307.683711
+          },
+          {
+            "x": 44.437,
+            "y": 274.372469
+          }
+        ]
+      ],
+      "bounds": {
+        "minX": 28.332305,
+        "minY": 274.372469,
+        "maxX": 53.440037,
+        "maxY": 312.03633
+      }
+    },
+    {
       "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:4",
       "intervalIds": [
         "interval:4"
       ],
       "debugIntervalId": "interval:4",
-      "startDistance": 33.40900884672672,
-      "endDistance": 60.40900884672672,
+      "startDistance": 142.8633628224224,
+      "endDistance": 169.8633628224224,
       "geometryFamily": "constrained-dashed",
       "resolutionStatus": "exact-constrained",
       "runtimeStatus": "accepted",
@@ -739,8 +727,8 @@
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 234.5450442336336,
           "terminalRole": "middle",
-          "startDistance": 33.40900884672672,
-          "endDistance": 60.40900884672672,
+          "startDistance": 142.8633628224224,
+          "endDistance": 169.8633628224224,
           "sourceSegmentIndex": 0,
           "selectedSide": -1,
           "filledSide": 1,
@@ -765,28 +753,28 @@
       "polygons": [
         [
           {
-            "x": 39.828231,
-            "y": 306.879995
+            "x": 87.469554,
+            "y": 208.337822
           },
           {
-            "x": 23.723536,
-            "y": 340.191237
+            "x": 71.36486,
+            "y": 241.649065
           },
           {
-            "x": 14.720499,
-            "y": 335.838618
+            "x": 62.361822,
+            "y": 237.296444
           },
           {
-            "x": 30.825194,
-            "y": 302.527376
+            "x": 78.466517,
+            "y": 203.985203
           }
         ]
       ],
       "bounds": {
-        "minX": 14.720499,
-        "minY": 302.527376,
-        "maxX": 39.828231,
-        "maxY": 340.191237
+        "minX": 62.361822,
+        "minY": 203.985203,
+        "maxX": 87.469554,
+        "maxY": 241.649065
       }
     },
     {
@@ -795,333 +783,6 @@
         "interval:5"
       ],
       "debugIntervalId": "interval:5",
-      "startDistance": 80.31801769345344,
-      "endDistance": 107.31801769345344,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:3",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 234.5450442336336,
-      "figmaLikeSplitRangeSourceSegmentIndex": 0,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 11.358174406717296,
-          "y": 365.76797704068724
-        },
-        {
-          "x": 113.4467244346451,
-          "y": 154.6061771626022
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 234.5450442336336,
-      "figmaLikeBoundaryTotalLength": 234.5450442336336,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:5",
-          "splitRangeId": "split-range:3",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 234.5450442336336,
-          "terminalRole": "middle",
-          "startDistance": 80.31801769345344,
-          "endDistance": 107.31801769345344,
-          "sourceSegmentIndex": 0,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 11.358174406717296,
-              "y": 365.76797704068724
-            },
-            {
-              "x": 113.4467244346451,
-              "y": 154.6061771626022
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 234.5450442336336,
-          "boundaryTotalLength": 234.5450442336336
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
-        [
-          {
-            "x": 60.245941,
-            "y": 264.647635
-          },
-          {
-            "x": 44.141246,
-            "y": 297.958877
-          },
-          {
-            "x": 35.138209,
-            "y": 293.606258
-          },
-          {
-            "x": 51.242904,
-            "y": 260.295016
-          }
-        ]
-      ],
-      "bounds": {
-        "minX": 35.138209,
-        "minY": 260.295016,
-        "maxX": 60.245941,
-        "maxY": 297.958877
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:6",
-      "intervalIds": [
-        "interval:6"
-      ],
-      "debugIntervalId": "interval:6",
-      "startDistance": 127.22702654018016,
-      "endDistance": 154.22702654018016,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:3",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 234.5450442336336,
-      "figmaLikeSplitRangeSourceSegmentIndex": 0,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 11.358174406717296,
-          "y": 365.76797704068724
-        },
-        {
-          "x": 113.4467244346451,
-          "y": 154.6061771626022
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 234.5450442336336,
-      "figmaLikeBoundaryTotalLength": 234.5450442336336,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:6",
-          "splitRangeId": "split-range:3",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 234.5450442336336,
-          "terminalRole": "middle",
-          "startDistance": 127.22702654018016,
-          "endDistance": 154.22702654018016,
-          "sourceSegmentIndex": 0,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 11.358174406717296,
-              "y": 365.76797704068724
-            },
-            {
-              "x": 113.4467244346451,
-              "y": 154.6061771626022
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 234.5450442336336,
-          "boundaryTotalLength": 234.5450442336336
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
-        [
-          {
-            "x": 80.663651,
-            "y": 222.415275
-          },
-          {
-            "x": 64.558956,
-            "y": 255.726517
-          },
-          {
-            "x": 55.555919,
-            "y": 251.373898
-          },
-          {
-            "x": 71.660614,
-            "y": 218.062656
-          }
-        ]
-      ],
-      "bounds": {
-        "minX": 55.555919,
-        "minY": 218.062656,
-        "maxX": 80.663651,
-        "maxY": 255.726517
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:7",
-      "intervalIds": [
-        "interval:7"
-      ],
-      "debugIntervalId": "interval:7",
-      "startDistance": 174.13603538690688,
-      "endDistance": 201.13603538690688,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:3",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 234.5450442336336,
-      "figmaLikeSplitRangeSourceSegmentIndex": 0,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 11.358174406717296,
-          "y": 365.76797704068724
-        },
-        {
-          "x": 113.4467244346451,
-          "y": 154.6061771626022
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 234.5450442336336,
-      "figmaLikeBoundaryTotalLength": 234.5450442336336,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:7",
-          "splitRangeId": "split-range:3",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 234.5450442336336,
-          "terminalRole": "middle",
-          "startDistance": 174.13603538690688,
-          "endDistance": 201.13603538690688,
-          "sourceSegmentIndex": 0,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 11.358174406717296,
-              "y": 365.76797704068724
-            },
-            {
-              "x": 113.4467244346451,
-              "y": 154.6061771626022
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 234.5450442336336,
-          "boundaryTotalLength": 234.5450442336336
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
-        [
-          {
-            "x": 101.081361,
-            "y": 180.182915
-          },
-          {
-            "x": 84.976666,
-            "y": 213.494157
-          },
-          {
-            "x": 75.973629,
-            "y": 209.141538
-          },
-          {
-            "x": 92.078324,
-            "y": 175.830296
-          }
-        ]
-      ],
-      "bounds": {
-        "minX": 75.973629,
-        "minY": 175.830296,
-        "maxX": 101.081361,
-        "maxY": 213.494157
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:8",
-      "intervalIds": [
-        "interval:8"
-      ],
-      "debugIntervalId": "interval:8",
       "startDistance": 221.0450442336336,
       "endDistance": 234.5450442336336,
       "geometryFamily": "constrained-dashed",
@@ -1170,7 +831,7 @@
       "figmaLikeBoundaryTotalLength": 234.5450442336336,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:8",
+          "intervalId": "interval:5",
           "splitRangeId": "split-range:3",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 234.5450442336336,
@@ -1197,7 +858,7 @@
           "boundaryTotalLength": 234.5450442336336
         },
         {
-          "intervalId": "interval:27",
+          "intervalId": "interval:19",
           "splitRangeId": "split-range:12",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 179.3703186791147,
@@ -1283,11 +944,11 @@
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:9",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:6",
       "intervalIds": [
-        "interval:9"
+        "interval:6"
       ],
-      "debugIntervalId": "interval:9",
+      "debugIntervalId": "interval:6",
       "startDistance": 0,
       "endDistance": 13.5,
       "geometryFamily": "constrained-dashed",
@@ -1336,7 +997,7 @@
       "figmaLikeBoundaryTotalLength": 214.2318039969792,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:9",
+          "intervalId": "interval:6",
           "splitRangeId": "split-range:4",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 214.2318039969792,
@@ -1363,7 +1024,7 @@
           "boundaryTotalLength": 214.2318039969792
         },
         {
-          "intervalId": "interval:35",
+          "intervalId": "interval:25",
           "splitRangeId": "split-range:15",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 123.31901945516438,
@@ -1441,13 +1102,13 @@
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:10",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:7",
       "intervalIds": [
-        "interval:10"
+        "interval:7"
       ],
-      "debugIntervalId": "interval:10",
-      "startDistance": 29.346360799395843,
-      "endDistance": 56.34636079939584,
+      "debugIntervalId": "interval:7",
+      "startDistance": 57.9106013323264,
+      "endDistance": 84.9106013323264,
       "geometryFamily": "constrained-dashed",
       "resolutionStatus": "exact-constrained",
       "runtimeStatus": "accepted",
@@ -1494,13 +1155,13 @@
       "figmaLikeBoundaryTotalLength": 214.2318039969792,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:10",
+          "intervalId": "interval:7",
           "splitRangeId": "split-range:4",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 214.2318039969792,
           "terminalRole": "middle",
-          "startDistance": 29.346360799395843,
-          "endDistance": 56.34636079939584,
+          "startDistance": 57.9106013323264,
+          "endDistance": 84.9106013323264,
           "sourceSegmentIndex": 1,
           "selectedSide": -1,
           "filledSide": 1,
@@ -1525,38 +1186,38 @@
       "polygons": [
         [
           {
-            "x": 177.331204,
-            "y": 272.980937
+            "x": 153.166166,
+            "y": 288.211392
           },
           {
-            "x": 146.029605,
-            "y": 292.709339
+            "x": 121.864567,
+            "y": 307.939794
           },
           {
-            "x": 140.697604,
-            "y": 284.249448
+            "x": 116.532566,
+            "y": 299.479903
           },
           {
-            "x": 171.999204,
-            "y": 264.521045
+            "x": 147.834165,
+            "y": 279.7515
           }
         ]
       ],
       "bounds": {
-        "minX": 140.697604,
-        "minY": 264.521045,
-        "maxX": 177.331204,
-        "maxY": 292.709339
+        "minX": 116.532566,
+        "minY": 279.7515,
+        "maxX": 153.166166,
+        "maxY": 307.939794
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:11",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:8",
       "intervalIds": [
-        "interval:11"
+        "interval:8"
       ],
-      "debugIntervalId": "interval:11",
-      "startDistance": 72.19272159879168,
-      "endDistance": 99.19272159879168,
+      "debugIntervalId": "interval:8",
+      "startDistance": 129.3212026646528,
+      "endDistance": 156.3212026646528,
       "geometryFamily": "constrained-dashed",
       "resolutionStatus": "exact-constrained",
       "runtimeStatus": "accepted",
@@ -1603,13 +1264,13 @@
       "figmaLikeBoundaryTotalLength": 214.2318039969792,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:11",
+          "intervalId": "interval:8",
           "splitRangeId": "split-range:4",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 214.2318039969792,
           "terminalRole": "middle",
-          "startDistance": 72.19272159879168,
-          "endDistance": 99.19272159879168,
+          "startDistance": 129.3212026646528,
+          "endDistance": 156.3212026646528,
           "sourceSegmentIndex": 1,
           "selectedSide": -1,
           "filledSide": 1,
@@ -1634,254 +1295,36 @@
       "polygons": [
         [
           {
-            "x": 141.083647,
-            "y": 295.826619
+            "x": 92.75357,
+            "y": 326.28753
           },
           {
-            "x": 109.782048,
-            "y": 315.555022
+            "x": 61.451971,
+            "y": 346.015932
           },
           {
-            "x": 104.450047,
-            "y": 307.09513
+            "x": 56.11997,
+            "y": 337.556041
           },
           {
-            "x": 135.751646,
-            "y": 287.366728
+            "x": 87.42157,
+            "y": 317.827638
           }
         ]
       ],
       "bounds": {
-        "minX": 104.450047,
-        "minY": 287.366728,
-        "maxX": 141.083647,
-        "maxY": 315.555022
+        "minX": 56.11997,
+        "minY": 317.827638,
+        "maxX": 92.75357,
+        "maxY": 346.015932
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:12",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:9",
       "intervalIds": [
-        "interval:12"
+        "interval:9"
       ],
-      "debugIntervalId": "interval:12",
-      "startDistance": 115.03908239818753,
-      "endDistance": 142.03908239818753,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:4",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 214.2318039969792,
-      "figmaLikeSplitRangeSourceSegmentIndex": 1,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 192.59596125498675,
-          "y": 251.53956349072428
-        },
-        {
-          "x": 11.358174406717296,
-          "y": 365.76797704068724
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 214.2318039969792,
-      "figmaLikeBoundaryTotalLength": 214.2318039969792,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:12",
-          "splitRangeId": "split-range:4",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 214.2318039969792,
-          "terminalRole": "middle",
-          "startDistance": 115.03908239818753,
-          "endDistance": 142.03908239818753,
-          "sourceSegmentIndex": 1,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 192.59596125498675,
-              "y": 251.53956349072428
-            },
-            {
-              "x": 11.358174406717296,
-              "y": 365.76797704068724
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 214.2318039969792,
-          "boundaryTotalLength": 214.2318039969792
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
-        [
-          {
-            "x": 104.83609,
-            "y": 318.672302
-          },
-          {
-            "x": 73.53449,
-            "y": 338.400705
-          },
-          {
-            "x": 68.202489,
-            "y": 329.940813
-          },
-          {
-            "x": 99.504089,
-            "y": 310.21241
-          }
-        ]
-      ],
-      "bounds": {
-        "minX": 68.202489,
-        "minY": 310.21241,
-        "maxX": 104.83609,
-        "maxY": 338.400705
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:13",
-      "intervalIds": [
-        "interval:13"
-      ],
-      "debugIntervalId": "interval:13",
-      "startDistance": 157.88544319758336,
-      "endDistance": 184.88544319758336,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:4",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 214.2318039969792,
-      "figmaLikeSplitRangeSourceSegmentIndex": 1,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 192.59596125498675,
-          "y": 251.53956349072428
-        },
-        {
-          "x": 11.358174406717296,
-          "y": 365.76797704068724
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 214.2318039969792,
-      "figmaLikeBoundaryTotalLength": 214.2318039969792,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:13",
-          "splitRangeId": "split-range:4",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 214.2318039969792,
-          "terminalRole": "middle",
-          "startDistance": 157.88544319758336,
-          "endDistance": 184.88544319758336,
-          "sourceSegmentIndex": 1,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 192.59596125498675,
-              "y": 251.53956349072428
-            },
-            {
-              "x": 11.358174406717296,
-              "y": 365.76797704068724
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 214.2318039969792,
-          "boundaryTotalLength": 214.2318039969792
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
-        [
-          {
-            "x": 68.588532,
-            "y": 341.517985
-          },
-          {
-            "x": 37.286933,
-            "y": 361.246387
-          },
-          {
-            "x": 31.954932,
-            "y": 352.786496
-          },
-          {
-            "x": 63.256531,
-            "y": 333.058093
-          }
-        ]
-      ],
-      "bounds": {
-        "minX": 31.954932,
-        "minY": 333.058093,
-        "maxX": 68.588532,
-        "maxY": 361.246387
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:14",
-      "intervalIds": [
-        "interval:14"
-      ],
-      "debugIntervalId": "interval:14",
+      "debugIntervalId": "interval:9",
       "startDistance": 200.7318039969792,
       "endDistance": 214.2318039969792,
       "geometryFamily": "constrained-dashed",
@@ -1930,7 +1373,7 @@
       "figmaLikeBoundaryTotalLength": 214.2318039969792,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:14",
+          "intervalId": "interval:9",
           "splitRangeId": "split-range:4",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 214.2318039969792,
@@ -1957,7 +1400,7 @@
           "boundaryTotalLength": 214.2318039969792
         },
         {
-          "intervalId": "interval:3",
+          "intervalId": "interval:2",
           "splitRangeId": "split-range:3",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 234.5450442336336,
@@ -2039,11 +1482,11 @@
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:15",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:10",
       "intervalIds": [
-        "interval:15"
+        "interval:10"
       ],
-      "debugIntervalId": "interval:15",
+      "debugIntervalId": "interval:10",
       "startDistance": 0,
       "endDistance": 13.5,
       "geometryFamily": "constrained-dashed",
@@ -2092,7 +1535,7 @@
       "figmaLikeBoundaryTotalLength": 141.1458102097434,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:15",
+          "intervalId": "interval:10",
           "splitRangeId": "split-range:7",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 141.1458102097434,
@@ -2119,7 +1562,7 @@
           "boundaryTotalLength": 141.1458102097434
         },
         {
-          "intervalId": "interval:22",
+          "intervalId": "interval:15",
           "splitRangeId": "split-range:8",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 159.70065283653614,
@@ -2203,13 +1646,13 @@
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:16",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:11",
       "intervalIds": [
-        "interval:16"
+        "interval:11"
       ],
-      "debugIntervalId": "interval:16",
-      "startDistance": 33.548603403247796,
-      "endDistance": 60.548603403247796,
+      "debugIntervalId": "interval:11",
+      "startDistance": 57.072905104871694,
+      "endDistance": 84.0729051048717,
       "geometryFamily": "constrained-dashed",
       "resolutionStatus": "exact-constrained",
       "runtimeStatus": "accepted",
@@ -2256,13 +1699,13 @@
       "figmaLikeBoundaryTotalLength": 141.1458102097434,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:16",
+          "intervalId": "interval:11",
           "splitRangeId": "split-range:7",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 141.1458102097434,
           "terminalRole": "middle",
-          "startDistance": 33.548603403247796,
-          "endDistance": 60.548603403247796,
+          "startDistance": 57.072905104871694,
+          "endDistance": 84.0729051048717,
           "sourceSegmentIndex": 1,
           "selectedSide": -1,
           "filledSide": 1,
@@ -2287,145 +1730,36 @@
       "polygons": [
         [
           {
-            "x": 341.301133,
-            "y": 169.635905
+            "x": 321.399828,
+            "y": 182.179064
           },
           {
-            "x": 309.999533,
-            "y": 189.364308
+            "x": 290.098229,
+            "y": 201.907467
           },
           {
-            "x": 304.667533,
-            "y": 180.904416
+            "x": 284.766228,
+            "y": 193.447575
           },
           {
-            "x": 335.969132,
-            "y": 161.176013
+            "x": 316.067828,
+            "y": 173.719173
           }
         ]
       ],
       "bounds": {
-        "minX": 304.667533,
-        "minY": 161.176013,
-        "maxX": 341.301133,
-        "maxY": 189.364308
+        "minX": 284.766228,
+        "minY": 173.719173,
+        "maxX": 321.399828,
+        "maxY": 201.907467
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:17",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:12",
       "intervalIds": [
-        "interval:17"
+        "interval:12"
       ],
-      "debugIntervalId": "interval:17",
-      "startDistance": 80.59720680649559,
-      "endDistance": 107.59720680649559,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:7",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 141.1458102097434,
-      "figmaLikeSplitRangeSourceSegmentIndex": 1,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 360.12094148356584,
-          "y": 145.95389587539378
-        },
-        {
-          "x": 240.71311412997423,
-          "y": 221.21285219595248
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 141.1458102097434,
-      "figmaLikeBoundaryTotalLength": 141.1458102097434,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:17",
-          "splitRangeId": "split-range:7",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 141.1458102097434,
-          "terminalRole": "middle",
-          "startDistance": 80.59720680649559,
-          "endDistance": 107.59720680649559,
-          "sourceSegmentIndex": 1,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 360.12094148356584,
-              "y": 145.95389587539378
-            },
-            {
-              "x": 240.71311412997423,
-              "y": 221.21285219595248
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 141.1458102097434,
-          "boundaryTotalLength": 141.1458102097434
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
-        [
-          {
-            "x": 301.498524,
-            "y": 194.722224
-          },
-          {
-            "x": 270.196924,
-            "y": 214.450627
-          },
-          {
-            "x": 264.864924,
-            "y": 205.990735
-          },
-          {
-            "x": 296.166523,
-            "y": 186.262332
-          }
-        ]
-      ],
-      "bounds": {
-        "minX": 264.864924,
-        "minY": 186.262332,
-        "maxX": 301.498524,
-        "maxY": 214.450627
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:18",
-      "intervalIds": [
-        "interval:18"
-      ],
-      "debugIntervalId": "interval:18",
+      "debugIntervalId": "interval:12",
       "startDistance": 127.64581020974339,
       "endDistance": 141.1458102097434,
       "geometryFamily": "constrained-dashed",
@@ -2474,7 +1808,7 @@
       "figmaLikeBoundaryTotalLength": 141.1458102097434,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:18",
+          "intervalId": "interval:12",
           "splitRangeId": "split-range:7",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 141.1458102097434,
@@ -2501,7 +1835,7 @@
           "boundaryTotalLength": 141.1458102097434
         },
         {
-          "intervalId": "interval:36",
+          "intervalId": "interval:26",
           "splitRangeId": "split-range:16",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 129.3458162776832,
@@ -2587,11 +1921,11 @@
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:19",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:13",
       "intervalIds": [
-        "interval:19"
+        "interval:13"
       ],
-      "debugIntervalId": "interval:19",
+      "debugIntervalId": "interval:13",
       "startDistance": 0,
       "endDistance": 13.5,
       "geometryFamily": "constrained-dashed",
@@ -2640,7 +1974,7 @@
       "figmaLikeBoundaryTotalLength": 159.70065283653614,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:19",
+          "intervalId": "interval:13",
           "splitRangeId": "split-range:8",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 159.70065283653614,
@@ -2667,7 +2001,7 @@
           "boundaryTotalLength": 159.70065283653614
         },
         {
-          "intervalId": "interval:42",
+          "intervalId": "interval:30",
           "splitRangeId": "split-range:19",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 94.17037908298788,
@@ -2753,13 +2087,13 @@
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:20",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:14",
       "intervalIds": [
-        "interval:20"
+        "interval:14"
       ],
-      "debugIntervalId": "interval:20",
-      "startDistance": 39.73355094551205,
-      "endDistance": 66.73355094551205,
+      "debugIntervalId": "interval:14",
+      "startDistance": 66.35032641826807,
+      "endDistance": 93.35032641826807,
       "geometryFamily": "constrained-dashed",
       "resolutionStatus": "exact-constrained",
       "runtimeStatus": "accepted",
@@ -2806,13 +2140,13 @@
       "figmaLikeBoundaryTotalLength": 159.70065283653614,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:20",
+          "intervalId": "interval:14",
           "splitRangeId": "split-range:8",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 159.70065283653614,
           "terminalRole": "middle",
-          "startDistance": 39.73355094551205,
-          "endDistance": 66.73355094551205,
+          "startDistance": 66.35032641826807,
+          "endDistance": 93.35032641826807,
           "sourceSegmentIndex": 2,
           "selectedSide": -1,
           "filledSide": 1,
@@ -2837,145 +2171,36 @@
       "polygons": [
         [
           {
-            "x": 280.802877,
-            "y": 106.623811
+            "x": 305.832027,
+            "y": 115.678884
           },
           {
-            "x": 277.400859,
-            "y": 116.027335
+            "x": 302.43001,
+            "y": 125.082408
           },
           {
-            "x": 242.607818,
-            "y": 103.439871
+            "x": 267.636968,
+            "y": 112.494944
           },
           {
-            "x": 246.009835,
-            "y": 94.036347
+            "x": 271.038986,
+            "y": 103.09142
           }
         ]
       ],
       "bounds": {
-        "minX": 242.607818,
-        "minY": 94.036347,
-        "maxX": 280.802877,
-        "maxY": 116.027335
+        "minX": 267.636968,
+        "minY": 103.09142,
+        "maxX": 305.832027,
+        "maxY": 125.082408
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:21",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:15",
       "intervalIds": [
-        "interval:21"
+        "interval:15"
       ],
-      "debugIntervalId": "interval:21",
-      "startDistance": 92.9671018910241,
-      "endDistance": 119.9671018910241,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:8",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 159.70065283653614,
-      "figmaLikeSplitRangeSourceSegmentIndex": 2,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 209.94603691883103,
-          "y": 91.62345730373646
-        },
-        {
-          "x": 360.12094148356584,
-          "y": 145.95389587539378
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 159.70065283653614,
-      "figmaLikeBoundaryTotalLength": 159.70065283653614,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:21",
-          "splitRangeId": "split-range:8",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 159.70065283653614,
-          "terminalRole": "middle",
-          "startDistance": 92.9671018910241,
-          "endDistance": 119.9671018910241,
-          "sourceSegmentIndex": 2,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 209.94603691883103,
-              "y": 91.62345730373646
-            },
-            {
-              "x": 360.12094148356584,
-              "y": 145.95389587539378
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 159.70065283653614,
-          "boundaryTotalLength": 159.70065283653614
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
-        [
-          {
-            "x": 330.861178,
-            "y": 124.733957
-          },
-          {
-            "x": 327.459161,
-            "y": 134.137482
-          },
-          {
-            "x": 292.666119,
-            "y": 121.550017
-          },
-          {
-            "x": 296.068136,
-            "y": 112.146493
-          }
-        ]
-      ],
-      "bounds": {
-        "minX": 292.666119,
-        "minY": 112.146493,
-        "maxX": 330.861178,
-        "maxY": 134.137482
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:22",
-      "intervalIds": [
-        "interval:22"
-      ],
-      "debugIntervalId": "interval:22",
+      "debugIntervalId": "interval:15",
       "startDistance": 146.20065283653614,
       "endDistance": 159.70065283653614,
       "geometryFamily": "constrained-dashed",
@@ -3024,7 +2249,7 @@
       "figmaLikeBoundaryTotalLength": 159.70065283653614,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:22",
+          "intervalId": "interval:15",
           "splitRangeId": "split-range:8",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 159.70065283653614,
@@ -3051,7 +2276,7 @@
           "boundaryTotalLength": 159.70065283653614
         },
         {
-          "intervalId": "interval:15",
+          "intervalId": "interval:10",
           "splitRangeId": "split-range:7",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 141.1458102097434,
@@ -3125,11 +2350,11 @@
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:23",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:16",
       "intervalIds": [
-        "interval:23"
+        "interval:16"
       ],
-      "debugIntervalId": "interval:23",
+      "debugIntervalId": "interval:16",
       "startDistance": 0,
       "endDistance": 13.5,
       "geometryFamily": "constrained-dashed",
@@ -3178,7 +2403,7 @@
       "figmaLikeBoundaryTotalLength": 163.4803605912281,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:23",
+          "intervalId": "interval:16",
           "splitRangeId": "split-range:11",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 163.4803605912281,
@@ -3205,7 +2430,7 @@
           "boundaryTotalLength": 163.4803605912281
         },
         {
-          "intervalId": "interval:31",
+          "intervalId": "interval:22",
           "splitRangeId": "split-range:12",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 179.3703186791147,
@@ -3289,13 +2514,13 @@
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:24",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:17",
       "intervalIds": [
-        "interval:24"
+        "interval:17"
       ],
-      "debugIntervalId": "interval:24",
-      "startDistance": 40.99345353040937,
-      "endDistance": 67.99345353040937,
+      "debugIntervalId": "interval:17",
+      "startDistance": 68.24018029561405,
+      "endDistance": 95.24018029561405,
       "geometryFamily": "constrained-dashed",
       "resolutionStatus": "exact-constrained",
       "runtimeStatus": "accepted",
@@ -3342,13 +2567,13 @@
       "figmaLikeBoundaryTotalLength": 163.4803605912281,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:24",
+          "intervalId": "interval:17",
           "splitRangeId": "split-range:11",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 163.4803605912281,
           "terminalRole": "middle",
-          "startDistance": 40.99345353040937,
-          "endDistance": 67.99345353040937,
+          "startDistance": 68.24018029561405,
+          "endDistance": 95.24018029561405,
           "sourceSegmentIndex": 2,
           "selectedSide": -1,
           "filledSide": 1,
@@ -3373,145 +2598,36 @@
       "polygons": [
         [
           {
-            "x": 72.041592,
-            "y": 31.097929
+            "x": 97.663119,
+            "y": 40.367312
           },
           {
-            "x": 68.639575,
-            "y": 40.501453
+            "x": 94.261102,
+            "y": 49.770837
           },
           {
-            "x": 33.846533,
-            "y": 27.913989
+            "x": 59.46806,
+            "y": 37.183372
           },
           {
-            "x": 37.248551,
-            "y": 18.510465
+            "x": 62.870078,
+            "y": 27.779848
           }
         ]
       ],
       "bounds": {
-        "minX": 33.846533,
-        "minY": 18.510465,
-        "maxX": 72.041592,
-        "maxY": 40.501453
+        "minX": 59.46806,
+        "minY": 27.779848,
+        "maxX": 97.663119,
+        "maxY": 49.770837
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:25",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:18",
       "intervalIds": [
-        "interval:25"
+        "interval:18"
       ],
-      "debugIntervalId": "interval:25",
-      "startDistance": 95.48690706081874,
-      "endDistance": 122.48690706081874,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:11",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 163.4803605912281,
-      "figmaLikeSplitRangeSourceSegmentIndex": 2,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 0,
-          "y": 15.668954151283657
-        },
-        {
-          "x": 153.72916211635828,
-          "y": 71.28525584458582
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 163.4803605912281,
-      "figmaLikeBoundaryTotalLength": 163.4803605912281,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:25",
-          "splitRangeId": "split-range:11",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 163.4803605912281,
-          "terminalRole": "middle",
-          "startDistance": 95.48690706081874,
-          "endDistance": 122.48690706081874,
-          "sourceSegmentIndex": 2,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 0,
-              "y": 15.668954151283657
-            },
-            {
-              "x": 153.72916211635828,
-              "y": 71.28525584458582
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 163.4803605912281,
-          "boundaryTotalLength": 163.4803605912281
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
-        [
-          {
-            "x": 123.284646,
-            "y": 49.636696
-          },
-          {
-            "x": 119.882629,
-            "y": 59.04022
-          },
-          {
-            "x": 85.089587,
-            "y": 46.452756
-          },
-          {
-            "x": 88.491605,
-            "y": 37.049232
-          }
-        ]
-      ],
-      "bounds": {
-        "minX": 85.089587,
-        "minY": 37.049232,
-        "maxX": 123.284646,
-        "maxY": 59.04022
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:26",
-      "intervalIds": [
-        "interval:26"
-      ],
-      "debugIntervalId": "interval:26",
+      "debugIntervalId": "interval:18",
       "startDistance": 149.9803605912281,
       "endDistance": 163.4803605912281,
       "geometryFamily": "constrained-dashed",
@@ -3560,7 +2676,7 @@
       "figmaLikeBoundaryTotalLength": 163.4803605912281,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:26",
+          "intervalId": "interval:18",
           "splitRangeId": "split-range:11",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 163.4803605912281,
@@ -3665,11 +2781,11 @@
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:27",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:19",
       "intervalIds": [
-        "interval:27"
+        "interval:19"
       ],
-      "debugIntervalId": "interval:27",
+      "debugIntervalId": "interval:19",
       "startDistance": 0,
       "endDistance": 13.5,
       "geometryFamily": "constrained-dashed",
@@ -3718,7 +2834,7 @@
       "figmaLikeBoundaryTotalLength": 179.3703186791147,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:27",
+          "intervalId": "interval:19",
           "splitRangeId": "split-range:12",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 179.3703186791147,
@@ -3745,7 +2861,7 @@
           "boundaryTotalLength": 179.3703186791147
         },
         {
-          "intervalId": "interval:8",
+          "intervalId": "interval:5",
           "splitRangeId": "split-range:3",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 234.5450442336336,
@@ -3831,13 +2947,13 @@
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:28",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:20",
       "intervalIds": [
-        "interval:28"
+        "interval:20"
       ],
-      "debugIntervalId": "interval:28",
-      "startDistance": 31.342579669778672,
-      "endDistance": 58.34257966977867,
+      "debugIntervalId": "interval:20",
+      "startDistance": 46.29010622637156,
+      "endDistance": 73.29010622637156,
       "geometryFamily": "constrained-dashed",
       "resolutionStatus": "exact-constrained",
       "runtimeStatus": "accepted",
@@ -3884,13 +3000,13 @@
       "figmaLikeBoundaryTotalLength": 179.3703186791147,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:28",
+          "intervalId": "interval:20",
           "splitRangeId": "split-range:12",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 179.3703186791147,
           "terminalRole": "middle",
-          "startDistance": 31.342579669778672,
-          "endDistance": 58.34257966977867,
+          "startDistance": 46.29010622637156,
+          "endDistance": 73.29010622637156,
           "sourceSegmentIndex": 3,
           "selectedSide": -1,
           "filledSide": 1,
@@ -3915,38 +3031,42 @@
       "polygons": [
         [
           {
-            "x": 96.785777,
-            "y": 134.201659
+            "x": 77.410426,
+            "y": 110.472835
           },
           {
-            "x": 89.039946,
-            "y": 140.52638
+            "x": 87.331883,
+            "y": 122.623557
           },
           {
-            "x": 65.638478,
-            "y": 111.866805
+            "x": 79.586052,
+            "y": 128.948279
           },
           {
-            "x": 73.384309,
-            "y": 105.542083
+            "x": 56.184584,
+            "y": 100.288703
+          },
+          {
+            "x": 63.930416,
+            "y": 93.963982
           }
         ]
       ],
       "bounds": {
-        "minX": 65.638478,
-        "minY": 105.542083,
-        "maxX": 96.785777,
-        "maxY": 140.52638
+        "minX": 56.184584,
+        "minY": 93.963982,
+        "maxX": 87.331883,
+        "maxY": 128.948279
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:29",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:21",
       "intervalIds": [
-        "interval:29"
+        "interval:21"
       ],
-      "debugIntervalId": "interval:29",
-      "startDistance": 76.18515933955734,
-      "endDistance": 103.18515933955734,
+      "debugIntervalId": "interval:21",
+      "startDistance": 106.08021245274313,
+      "endDistance": 133.08021245274313,
       "geometryFamily": "constrained-dashed",
       "resolutionStatus": "exact-constrained",
       "runtimeStatus": "accepted",
@@ -3993,13 +3113,13 @@
       "figmaLikeBoundaryTotalLength": 179.3703186791147,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:29",
+          "intervalId": "interval:21",
           "splitRangeId": "split-range:12",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 179.3703186791147,
           "terminalRole": "middle",
-          "startDistance": 76.18515933955734,
-          "endDistance": 103.18515933955734,
+          "startDistance": 106.08021245274313,
+          "endDistance": 133.08021245274313,
           "sourceSegmentIndex": 3,
           "selectedSide": -1,
           "filledSide": 1,
@@ -4024,145 +3144,36 @@
       "polygons": [
         [
           {
-            "x": 68.424096,
-            "y": 99.467354
+            "x": 49.516309,
+            "y": 76.31115
           },
           {
-            "x": 60.678265,
-            "y": 105.792075
+            "x": 41.770478,
+            "y": 82.635871
           },
           {
-            "x": 37.276797,
-            "y": 77.132499
+            "x": 18.369009,
+            "y": 53.976295
           },
           {
-            "x": 45.022628,
-            "y": 70.807778
+            "x": 26.114841,
+            "y": 47.651574
           }
         ]
       ],
       "bounds": {
-        "minX": 37.276797,
-        "minY": 70.807778,
-        "maxX": 68.424096,
-        "maxY": 105.792075
+        "minX": 18.369009,
+        "minY": 47.651574,
+        "maxX": 49.516309,
+        "maxY": 82.635871
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:30",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:22",
       "intervalIds": [
-        "interval:30"
+        "interval:22"
       ],
-      "debugIntervalId": "interval:30",
-      "startDistance": 121.02773900933602,
-      "endDistance": 148.02773900933602,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:12",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 179.3703186791147,
-      "figmaLikeSplitRangeSourceSegmentIndex": 3,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 113.4467244346451,
-          "y": 154.6061771626022
-        },
-        {
-          "x": 0,
-          "y": 15.668954151283657
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 179.3703186791147,
-      "figmaLikeBoundaryTotalLength": 179.3703186791147,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:30",
-          "splitRangeId": "split-range:12",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 179.3703186791147,
-          "terminalRole": "middle",
-          "startDistance": 121.02773900933602,
-          "endDistance": 148.02773900933602,
-          "sourceSegmentIndex": 3,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 113.4467244346451,
-              "y": 154.6061771626022
-            },
-            {
-              "x": 0,
-              "y": 15.668954151283657
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 179.3703186791147,
-          "boundaryTotalLength": 179.3703186791147
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
-        [
-          {
-            "x": 40.062415,
-            "y": 64.733048
-          },
-          {
-            "x": 32.316584,
-            "y": 71.057769
-          },
-          {
-            "x": 8.915116,
-            "y": 42.398193
-          },
-          {
-            "x": 16.660947,
-            "y": 36.073472
-          }
-        ]
-      ],
-      "bounds": {
-        "minX": 8.915116,
-        "minY": 36.073472,
-        "maxX": 40.062415,
-        "maxY": 71.057769
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:31",
-      "intervalIds": [
-        "interval:31"
-      ],
-      "debugIntervalId": "interval:31",
+      "debugIntervalId": "interval:22",
       "startDistance": 165.8703186791147,
       "endDistance": 179.3703186791147,
       "geometryFamily": "constrained-dashed",
@@ -4211,7 +3222,7 @@
       "figmaLikeBoundaryTotalLength": 179.3703186791147,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:31",
+          "intervalId": "interval:22",
           "splitRangeId": "split-range:12",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 179.3703186791147,
@@ -4238,7 +3249,7 @@
           "boundaryTotalLength": 179.3703186791147
         },
         {
-          "intervalId": "interval:23",
+          "intervalId": "interval:16",
           "splitRangeId": "split-range:11",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 163.4803605912281,
@@ -4312,11 +3323,11 @@
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:32",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:23",
       "intervalIds": [
-        "interval:32"
+        "interval:23"
       ],
-      "debugIntervalId": "interval:32",
+      "debugIntervalId": "interval:23",
       "startDistance": 0,
       "endDistance": 13.5,
       "geometryFamily": "constrained-dashed",
@@ -4365,7 +3376,7 @@
       "figmaLikeBoundaryTotalLength": 123.31901945516438,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:32",
+          "intervalId": "interval:23",
           "splitRangeId": "split-range:15",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 123.31901945516438,
@@ -4392,7 +3403,7 @@
           "boundaryTotalLength": 123.31901945516438
         },
         {
-          "intervalId": "interval:39",
+          "intervalId": "interval:28",
           "splitRangeId": "split-range:16",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 129.3458162776832,
@@ -4476,13 +3487,13 @@
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:33",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:24",
       "intervalIds": [
-        "interval:33"
+        "interval:24"
       ],
-      "debugIntervalId": "interval:33",
-      "startDistance": 27.60633981838813,
-      "endDistance": 54.60633981838813,
+      "debugIntervalId": "interval:24",
+      "startDistance": 48.15950972758219,
+      "endDistance": 75.15950972758219,
       "geometryFamily": "constrained-dashed",
       "resolutionStatus": "exact-constrained",
       "runtimeStatus": "accepted",
@@ -4529,13 +3540,13 @@
       "figmaLikeBoundaryTotalLength": 123.31901945516438,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:33",
+          "intervalId": "interval:24",
           "splitRangeId": "split-range:15",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 123.31901945516438,
           "terminalRole": "middle",
-          "startDistance": 27.60633981838813,
-          "endDistance": 54.60633981838813,
+          "startDistance": 48.15950972758219,
+          "endDistance": 75.15950972758219,
           "sourceSegmentIndex": 3,
           "selectedSide": -1,
           "filledSide": 1,
@@ -4560,145 +3571,36 @@
       "polygons": [
         [
           {
-            "x": 256.293922,
-            "y": 329.549906
+            "x": 243.294615,
+            "y": 313.629767
           },
           {
-            "x": 248.548091,
-            "y": 335.874627
+            "x": 235.548784,
+            "y": 319.954489
           },
           {
-            "x": 225.146623,
-            "y": 307.215051
+            "x": 212.147316,
+            "y": 291.294913
           },
           {
-            "x": 232.892454,
-            "y": 300.89033
+            "x": 219.893148,
+            "y": 284.970192
           }
         ]
       ],
       "bounds": {
-        "minX": 225.146623,
-        "minY": 300.89033,
-        "maxX": 256.293922,
-        "maxY": 335.874627
+        "minX": 212.147316,
+        "minY": 284.970192,
+        "maxX": 243.294615,
+        "maxY": 319.954489
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:34",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:25",
       "intervalIds": [
-        "interval:34"
+        "interval:25"
       ],
-      "debugIntervalId": "interval:34",
-      "startDistance": 68.71267963677626,
-      "endDistance": 95.71267963677626,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:15",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 123.31901945516438,
-      "figmaLikeSplitRangeSourceSegmentIndex": 3,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 270.59180204238254,
-          "y": 347.0603956649177
-        },
-        {
-          "x": 192.59596125498675,
-          "y": 251.53956349072428
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 123.31901945516438,
-      "figmaLikeBoundaryTotalLength": 123.31901945516438,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:34",
-          "splitRangeId": "split-range:15",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 123.31901945516438,
-          "terminalRole": "middle",
-          "startDistance": 68.71267963677626,
-          "endDistance": 95.71267963677626,
-          "sourceSegmentIndex": 3,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 270.59180204238254,
-              "y": 347.0603956649177
-            },
-            {
-              "x": 192.59596125498675,
-              "y": 251.53956349072428
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 123.31901945516438,
-          "boundaryTotalLength": 123.31901945516438
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
-        [
-          {
-            "x": 230.295309,
-            "y": 297.709629
-          },
-          {
-            "x": 222.549478,
-            "y": 304.03435
-          },
-          {
-            "x": 199.148009,
-            "y": 275.374774
-          },
-          {
-            "x": 206.893841,
-            "y": 269.050053
-          }
-        ]
-      ],
-      "bounds": {
-        "minX": 199.148009,
-        "minY": 269.050053,
-        "maxX": 230.295309,
-        "maxY": 304.03435
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:35",
-      "intervalIds": [
-        "interval:35"
-      ],
-      "debugIntervalId": "interval:35",
+      "debugIntervalId": "interval:25",
       "startDistance": 109.81901945516438,
       "endDistance": 123.31901945516438,
       "geometryFamily": "constrained-dashed",
@@ -4747,7 +3649,7 @@
       "figmaLikeBoundaryTotalLength": 123.31901945516438,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:35",
+          "intervalId": "interval:25",
           "splitRangeId": "split-range:15",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 123.31901945516438,
@@ -4774,7 +3676,7 @@
           "boundaryTotalLength": 123.31901945516438
         },
         {
-          "intervalId": "interval:9",
+          "intervalId": "interval:6",
           "splitRangeId": "split-range:4",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 214.2318039969792,
@@ -4848,11 +3750,11 @@
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:36",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:26",
       "intervalIds": [
-        "interval:36"
+        "interval:26"
       ],
-      "debugIntervalId": "interval:36",
+      "debugIntervalId": "interval:26",
       "startDistance": 0,
       "endDistance": 13.5,
       "geometryFamily": "constrained-dashed",
@@ -4901,7 +3803,7 @@
       "figmaLikeBoundaryTotalLength": 129.3458162776832,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:36",
+          "intervalId": "interval:26",
           "splitRangeId": "split-range:16",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 129.3458162776832,
@@ -4928,7 +3830,7 @@
           "boundaryTotalLength": 129.3458162776832
         },
         {
-          "intervalId": "interval:18",
+          "intervalId": "interval:12",
           "splitRangeId": "split-range:7",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 141.1458102097434,
@@ -5006,13 +3908,13 @@
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:37",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:27",
       "intervalIds": [
-        "interval:37"
+        "interval:27"
       ],
-      "debugIntervalId": "interval:37",
-      "startDistance": 29.61527209256107,
-      "endDistance": 56.61527209256107,
+      "debugIntervalId": "interval:27",
+      "startDistance": 51.172908138841606,
+      "endDistance": 78.1729081388416,
       "geometryFamily": "constrained-dashed",
       "resolutionStatus": "exact-constrained",
       "runtimeStatus": "accepted",
@@ -5059,13 +3961,13 @@
       "figmaLikeBoundaryTotalLength": 129.3458162776832,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:37",
+          "intervalId": "interval:27",
           "splitRangeId": "split-range:16",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 129.3458162776832,
           "terminalRole": "middle",
-          "startDistance": 29.61527209256107,
-          "endDistance": 56.61527209256107,
+          "startDistance": 51.172908138841606,
+          "endDistance": 78.1729081388416,
           "sourceSegmentIndex": 4,
           "selectedSide": -1,
           "filledSide": 1,
@@ -5090,145 +3992,36 @@
       "polygons": [
         [
           {
-            "x": 264.67569,
-            "y": 278.8517
+            "x": 269.655471,
+            "y": 299.82629
           },
           {
-            "x": 254.946149,
-            "y": 281.161684
+            "x": 259.92593,
+            "y": 302.136275
           },
           {
-            "x": 246.399205,
-            "y": 245.162382
+            "x": 251.378986,
+            "y": 266.136973
           },
           {
-            "x": 256.128746,
-            "y": 242.852397
+            "x": 261.108527,
+            "y": 263.826988
           }
         ]
       ],
       "bounds": {
-        "minX": 246.399205,
-        "minY": 242.852397,
-        "maxX": 264.67569,
-        "maxY": 281.161684
+        "minX": 251.378986,
+        "minY": 263.826988,
+        "maxX": 269.655471,
+        "maxY": 302.136275
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:38",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:28",
       "intervalIds": [
-        "interval:38"
+        "interval:28"
       ],
-      "debugIntervalId": "interval:38",
-      "startDistance": 72.73054418512214,
-      "endDistance": 99.73054418512214,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:16",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 129.3458162776832,
-      "figmaLikeSplitRangeSourceSegmentIndex": 4,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 240.71311412997423,
-          "y": 221.21285219595248
-        },
-        {
-          "x": 270.59180204238254,
-          "y": 347.0603956649177
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 129.3458162776832,
-      "figmaLikeBoundaryTotalLength": 129.3458162776832,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:38",
-          "splitRangeId": "split-range:16",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 129.3458162776832,
-          "terminalRole": "middle",
-          "startDistance": 72.73054418512214,
-          "endDistance": 99.73054418512214,
-          "sourceSegmentIndex": 4,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 240.71311412997423,
-              "y": 221.21285219595248
-            },
-            {
-              "x": 270.59180204238254,
-              "y": 347.0603956649177
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 129.3458162776832,
-          "boundaryTotalLength": 129.3458162776832
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
-        [
-          {
-            "x": 274.635253,
-            "y": 320.800881
-          },
-          {
-            "x": 264.905711,
-            "y": 323.110866
-          },
-          {
-            "x": 256.358767,
-            "y": 287.111563
-          },
-          {
-            "x": 266.088308,
-            "y": 284.801579
-          }
-        ]
-      ],
-      "bounds": {
-        "minX": 256.358767,
-        "minY": 284.801579,
-        "maxX": 274.635253,
-        "maxY": 323.110866
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:39",
-      "intervalIds": [
-        "interval:39"
-      ],
-      "debugIntervalId": "interval:39",
+      "debugIntervalId": "interval:28",
       "startDistance": 115.84581627768321,
       "endDistance": 129.3458162776832,
       "geometryFamily": "constrained-dashed",
@@ -5277,7 +4070,7 @@
       "figmaLikeBoundaryTotalLength": 129.3458162776832,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:39",
+          "intervalId": "interval:28",
           "splitRangeId": "split-range:16",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 129.3458162776832,
@@ -5304,7 +4097,7 @@
           "boundaryTotalLength": 129.3458162776832
         },
         {
-          "intervalId": "interval:32",
+          "intervalId": "interval:23",
           "splitRangeId": "split-range:15",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 123.31901945516438,
@@ -5378,11 +4171,11 @@
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:40",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:29",
       "intervalIds": [
-        "interval:40"
+        "interval:29"
       ],
-      "debugIntervalId": "interval:40",
+      "debugIntervalId": "interval:29",
       "startDistance": 0,
       "endDistance": 13.5,
       "geometryFamily": "constrained-dashed",
@@ -5431,7 +4224,7 @@
       "figmaLikeBoundaryTotalLength": 94.17037908298788,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:40",
+          "intervalId": "interval:29",
           "splitRangeId": "split-range:19",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 94.17037908298788,
@@ -5458,7 +4251,7 @@
           "boundaryTotalLength": 94.17037908298788
         },
         {
-          "intervalId": "interval:2",
+          "intervalId": "interval:1",
           "splitRangeId": "split-range:0",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 79.17911049691465,
@@ -5542,120 +4335,11 @@
       }
     },
     {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:41",
+      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:30",
       "intervalIds": [
-        "interval:41"
+        "interval:30"
       ],
-      "debugIntervalId": "interval:41",
-      "startDistance": 33.58518954149394,
-      "endDistance": 60.58518954149394,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:19",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 94.17037908298788,
-      "figmaLikeSplitRangeSourceSegmentIndex": 4,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 188.1928217922337,
-          "y": 0
-        },
-        {
-          "x": 209.94603691883103,
-          "y": 91.62345730373646
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 94.17037908298788,
-      "figmaLikeBoundaryTotalLength": 94.17037908298788,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:41",
-          "splitRangeId": "split-range:19",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 94.17037908298788,
-          "terminalRole": "middle",
-          "startDistance": 33.58518954149394,
-          "endDistance": 60.58518954149394,
-          "sourceSegmentIndex": 4,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 188.1928217922337,
-              "y": 0
-            },
-            {
-              "x": 209.94603691883103,
-              "y": 91.62345730373646
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 94.17037908298788,
-          "boundaryTotalLength": 94.17037908298788
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
-        [
-          {
-            "x": 213.072442,
-            "y": 61.501395
-          },
-          {
-            "x": 203.342901,
-            "y": 63.811379
-          },
-          {
-            "x": 194.795957,
-            "y": 27.812075
-          },
-          {
-            "x": 204.525498,
-            "y": 25.502093
-          }
-        ]
-      ],
-      "bounds": {
-        "minX": 194.795957,
-        "minY": 25.502093,
-        "maxX": 213.072442,
-        "maxY": 63.811379
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:interval:42",
-      "intervalIds": [
-        "interval:42"
-      ],
-      "debugIntervalId": "interval:42",
+      "debugIntervalId": "interval:30",
       "startDistance": 80.67037908298788,
       "endDistance": 94.17037908298788,
       "geometryFamily": "constrained-dashed",
@@ -5704,7 +4388,7 @@
       "figmaLikeBoundaryTotalLength": 94.17037908298788,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:42",
+          "intervalId": "interval:30",
           "splitRangeId": "split-range:19",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 94.17037908298788,
@@ -5731,7 +4415,7 @@
           "boundaryTotalLength": 94.17037908298788
         },
         {
-          "intervalId": "interval:19",
+          "intervalId": "interval:13",
           "splitRangeId": "split-range:8",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 159.70065283653614,
@@ -5823,10 +4507,10 @@
     {
       "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:1:0",
       "intervalIds": [
-        "interval:3",
-        "interval:14"
+        "interval:2",
+        "interval:9"
       ],
-      "debugIntervalId": "interval:3",
+      "debugIntervalId": "interval:2",
       "startDistance": 0,
       "endDistance": 214.2318039969792,
       "geometryFamily": "constrained-dashed",
@@ -5875,7 +4559,7 @@
       "figmaLikeBoundaryTotalLength": 234.5450442336336,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:3",
+          "intervalId": "interval:2",
           "splitRangeId": "split-range:3",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 234.5450442336336,
@@ -5902,7 +4586,7 @@
           "boundaryTotalLength": 234.5450442336336
         },
         {
-          "intervalId": "interval:14",
+          "intervalId": "interval:9",
           "splitRangeId": "split-range:4",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 214.2318039969792,
@@ -5929,7 +4613,7 @@
           "boundaryTotalLength": 214.2318039969792
         },
         {
-          "intervalId": "interval:14",
+          "intervalId": "interval:9",
           "splitRangeId": "split-range:4",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 214.2318039969792,
@@ -5956,7 +4640,7 @@
           "boundaryTotalLength": 214.2318039969792
         },
         {
-          "intervalId": "interval:3",
+          "intervalId": "interval:2",
           "splitRangeId": "split-range:3",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 234.5450442336336,
@@ -6014,10 +4698,10 @@
     {
       "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:2:1",
       "intervalIds": [
-        "interval:15",
-        "interval:22"
+        "interval:10",
+        "interval:15"
       ],
-      "debugIntervalId": "interval:15",
+      "debugIntervalId": "interval:10",
       "startDistance": 0,
       "endDistance": 159.70065283653614,
       "geometryFamily": "constrained-dashed",
@@ -6066,7 +4750,7 @@
       "figmaLikeBoundaryTotalLength": 141.1458102097434,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:15",
+          "intervalId": "interval:10",
           "splitRangeId": "split-range:7",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 141.1458102097434,
@@ -6093,34 +4777,7 @@
           "boundaryTotalLength": 141.1458102097434
         },
         {
-          "intervalId": "interval:22",
-          "splitRangeId": "split-range:8",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 159.70065283653614,
-          "terminalRole": "end",
-          "startDistance": 146.20065283653614,
-          "endDistance": 159.70065283653614,
-          "sourceSegmentIndex": 2,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 209.94603691883103,
-              "y": 91.62345730373646
-            },
-            {
-              "x": 360.12094148356584,
-              "y": 145.95389587539378
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 159.70065283653614,
-          "boundaryTotalLength": 159.70065283653614
-        },
-        {
-          "intervalId": "interval:22",
+          "intervalId": "interval:15",
           "splitRangeId": "split-range:8",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 159.70065283653614,
@@ -6148,6 +4805,33 @@
         },
         {
           "intervalId": "interval:15",
+          "splitRangeId": "split-range:8",
+          "splitRangeStartDistance": 0,
+          "splitRangeEndDistance": 159.70065283653614,
+          "terminalRole": "end",
+          "startDistance": 146.20065283653614,
+          "endDistance": 159.70065283653614,
+          "sourceSegmentIndex": 2,
+          "selectedSide": -1,
+          "filledSide": 1,
+          "unfilledSide": -1,
+          "boundaryRole": "outer",
+          "boundaryPoints": [
+            {
+              "x": 209.94603691883103,
+              "y": 91.62345730373646
+            },
+            {
+              "x": 360.12094148356584,
+              "y": 145.95389587539378
+            }
+          ],
+          "boundaryStartDistance": 0,
+          "boundaryEndDistance": 159.70065283653614,
+          "boundaryTotalLength": 159.70065283653614
+        },
+        {
+          "intervalId": "interval:10",
           "splitRangeId": "split-range:7",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 141.1458102097434,
@@ -6205,10 +4889,10 @@
     {
       "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:3:2",
       "intervalIds": [
-        "interval:23",
-        "interval:31"
+        "interval:16",
+        "interval:22"
       ],
-      "debugIntervalId": "interval:23",
+      "debugIntervalId": "interval:16",
       "startDistance": 0,
       "endDistance": 179.3703186791147,
       "geometryFamily": "constrained-dashed",
@@ -6257,7 +4941,7 @@
       "figmaLikeBoundaryTotalLength": 163.4803605912281,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:23",
+          "intervalId": "interval:16",
           "splitRangeId": "split-range:11",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 163.4803605912281,
@@ -6284,7 +4968,7 @@
           "boundaryTotalLength": 163.4803605912281
         },
         {
-          "intervalId": "interval:31",
+          "intervalId": "interval:22",
           "splitRangeId": "split-range:12",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 179.3703186791147,
@@ -6311,7 +4995,7 @@
           "boundaryTotalLength": 179.3703186791147
         },
         {
-          "intervalId": "interval:31",
+          "intervalId": "interval:22",
           "splitRangeId": "split-range:12",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 179.3703186791147,
@@ -6338,7 +5022,7 @@
           "boundaryTotalLength": 179.3703186791147
         },
         {
-          "intervalId": "interval:23",
+          "intervalId": "interval:16",
           "splitRangeId": "split-range:11",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 163.4803605912281,
@@ -6396,10 +5080,10 @@
     {
       "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:4:3",
       "intervalIds": [
-        "interval:32",
-        "interval:39"
+        "interval:23",
+        "interval:28"
       ],
-      "debugIntervalId": "interval:32",
+      "debugIntervalId": "interval:23",
       "startDistance": 0,
       "endDistance": 129.3458162776832,
       "geometryFamily": "constrained-dashed",
@@ -6448,7 +5132,7 @@
       "figmaLikeBoundaryTotalLength": 123.31901945516438,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:32",
+          "intervalId": "interval:23",
           "splitRangeId": "split-range:15",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 123.31901945516438,
@@ -6475,7 +5159,7 @@
           "boundaryTotalLength": 123.31901945516438
         },
         {
-          "intervalId": "interval:39",
+          "intervalId": "interval:28",
           "splitRangeId": "split-range:16",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 129.3458162776832,
@@ -6502,7 +5186,7 @@
           "boundaryTotalLength": 129.3458162776832
         },
         {
-          "intervalId": "interval:39",
+          "intervalId": "interval:28",
           "splitRangeId": "split-range:16",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 129.3458162776832,
@@ -6529,7 +5213,7 @@
           "boundaryTotalLength": 129.3458162776832
         },
         {
-          "intervalId": "interval:32",
+          "intervalId": "interval:23",
           "splitRangeId": "split-range:15",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 123.31901945516438,
@@ -6587,10 +5271,10 @@
     {
       "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:0:4",
       "intervalIds": [
-        "interval:40",
-        "interval:2"
+        "interval:29",
+        "interval:1"
       ],
-      "debugIntervalId": "interval:40",
+      "debugIntervalId": "interval:29",
       "startDistance": 0,
       "endDistance": 79.17911049691465,
       "geometryFamily": "constrained-dashed",
@@ -6639,7 +5323,7 @@
       "figmaLikeBoundaryTotalLength": 94.17037908298788,
       "figmaLikeSplitRangeTerminals": [
         {
-          "intervalId": "interval:40",
+          "intervalId": "interval:29",
           "splitRangeId": "split-range:19",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 94.17037908298788,
@@ -6666,7 +5350,7 @@
           "boundaryTotalLength": 94.17037908298788
         },
         {
-          "intervalId": "interval:2",
+          "intervalId": "interval:1",
           "splitRangeId": "split-range:0",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 79.17911049691465,
@@ -6693,7 +5377,7 @@
           "boundaryTotalLength": 79.17911049691465
         },
         {
-          "intervalId": "interval:2",
+          "intervalId": "interval:1",
           "splitRangeId": "split-range:0",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 79.17911049691465,
@@ -6720,7 +5404,7 @@
           "boundaryTotalLength": 79.17911049691465
         },
         {
-          "intervalId": "interval:40",
+          "intervalId": "interval:29",
           "splitRangeId": "split-range:19",
           "splitRangeStartDistance": 0,
           "splitRangeEndDistance": 94.17037908298788,

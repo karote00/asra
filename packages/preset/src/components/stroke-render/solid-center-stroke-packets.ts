@@ -231,6 +231,7 @@ export interface SolidCenterStrokeGeometryDebugMeta {
   figmaLikeFilledSide?: 1 | -1
   figmaLikeUnfilledSide?: 1 | -1
   figmaLikeBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
+  figmaLikeDomainMode?: string
   figmaLikeSideResolutionStatus?: 'resolved' | 'blocked'
   figmaLikeSideResolutionReason?: string
   figmaLikeSplitRangeTerminals?: {

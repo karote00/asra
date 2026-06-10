@@ -114,7 +114,7 @@ const resolveFigmaParity = ({
       status: 'verified-slice',
       requiredForCompletion: true,
       evidence: [
-        'Asyra open-path stroke alignment is center-equivalent, and current app gates cover open constrained solid and dashed visibility after inside/outside selection.'
+        'Simple open networks without bounded filled-region domains are center-equivalent. Open self-intersecting networks are promoted by the stroke domain plan when resolved bounded domains exist.'
       ],
       gaps: []
     }

@@ -1,6 +1,7 @@
 import type { StrokeAttrs } from '@asyra/utils'
 import type { PathTopologyFamily } from './path-topology-model'
 import type {
+  StrokeDomainMode,
   StrokeIntervalDomainKind,
   StrokeSideAuthority
 } from './stroke-domain-plan'
@@ -25,6 +26,7 @@ export interface OneSidedCandidateFlowInput {
   stroke: Pick<StrokeAttrs, 'style' | 'position'>
   boundaryContourCount?: number
   strokeDomainPlan?: {
+    domainMode?: StrokeDomainMode
     intervalDomainKind: StrokeIntervalDomainKind
     sideAuthority: StrokeSideAuthority
     splitRangeDomainCount?: number
@@ -38,7 +40,8 @@ export interface OneSidedCandidateFlow {
   requiresOneSidedCandidates: boolean
   reason:
     | 'native-center'
-    | 'open-constrained-center-equivalent'
+    | 'simple-open-center-product'
+    | 'open-constrained-domain-plan'
     | 'closed-constrained-one-sided'
     | 'unsupported-stroke-family'
 }
@@ -61,11 +64,28 @@ export const resolveOneSidedCandidateFlow = (
     !closed &&
     (stroke.position === 'inside' || stroke.position === 'outside')
   ) {
+    if (
+      input.strokeDomainPlan?.domainMode === 'open-contour-constrained-domain' ||
+      input.strokeDomainPlan?.domainMode ===
+        'open-dangling-outside-both-sides'
+    ) {
+      return {
+        mode: 'one-sided-constrained',
+        domainKind:
+          input.strokeDomainPlan.intervalDomainKind ===
+          'figma-like-split-range'
+            ? 'split-range'
+            : 'source-path',
+        requiresOneSidedCandidates: true,
+        reason: 'open-constrained-domain-plan'
+      }
+    }
+
     return {
       mode: 'center-equivalent',
       domainKind: 'center-equivalent',
       requiresOneSidedCandidates: false,
-      reason: 'open-constrained-center-equivalent'
+      reason: 'simple-open-center-product'
     }
   }
 

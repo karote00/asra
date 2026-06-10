@@ -1640,6 +1640,109 @@ const getRuleDrivenSplitRangeGapCoverageFailures = ({
   )
 }
 
+const getTerminalFrameFromBoundaryPointsForTest = (
+  boundaryPoints: readonly { x: number; y: number }[],
+  edge: 'start' | 'end'
+) => {
+  if (boundaryPoints.length < 2) {
+    return null
+  }
+  const point =
+    edge === 'start'
+      ? boundaryPoints[0]
+      : boundaryPoints[boundaryPoints.length - 1]
+  const neighbor =
+    edge === 'start'
+      ? boundaryPoints[1]
+      : boundaryPoints[boundaryPoints.length - 2]
+  const tangent =
+    edge === 'start'
+      ? normalizeVector({
+          x: neighbor.x - point.x,
+          y: neighbor.y - point.y
+        })
+      : normalizeVector({
+          x: point.x - neighbor.x,
+          y: point.y - neighbor.y
+        })
+  return tangent ? { point, tangent } : null
+}
+
+const getOutsideSquareTerminalEndpointOverhangFailures = (
+  packets: ReturnType<typeof buildConstrainedDashedStrokeResolvedPackets>,
+  tolerance = 0.5
+) =>
+  packets.flatMap((packet) => {
+    const meta = packet.geometry.debugMeta
+    if (
+      meta?.strokePosition !== 'outside' ||
+      meta.strokeCap !== 'square' ||
+      meta.figmaLikeSplitRangeId === undefined ||
+      !meta.figmaLikeBoundaryPoints ||
+      meta.figmaLikeBoundaryPoints.length < 2 ||
+      (meta.figmaLikeTerminalRole !== 'start' &&
+        meta.figmaLikeTerminalRole !== 'end' &&
+        meta.figmaLikeTerminalRole !== 'start-end')
+    ) {
+      return []
+    }
+
+    const terminalEdges: ('start' | 'end')[] = [
+      ...(meta.figmaLikeTerminalRole === 'start' ||
+      meta.figmaLikeTerminalRole === 'start-end'
+        ? (['start'] as const)
+        : []),
+      ...(meta.figmaLikeTerminalRole === 'end' ||
+      meta.figmaLikeTerminalRole === 'start-end'
+        ? (['end'] as const)
+        : [])
+    ]
+
+    return terminalEdges.flatMap((edge) => {
+      const frame = getTerminalFrameFromBoundaryPointsForTest(
+        meta.figmaLikeBoundaryPoints ?? [],
+        edge
+      )
+      if (!frame) {
+        return []
+      }
+
+      const overhangingPoints = packet.geometry.polygons
+        .flat()
+        .flatMap((point) => {
+          const projection =
+            (point.x - frame.point.x) * frame.tangent.x +
+            (point.y - frame.point.y) * frame.tangent.y
+          const isOverhanging =
+            edge === 'start'
+              ? projection < -tolerance
+              : projection > tolerance
+          return isOverhanging
+            ? [
+                {
+                  x: Math.round(point.x * 100) / 100,
+                  y: Math.round(point.y * 100) / 100,
+                  projection: Math.round(projection * 100) / 100
+                }
+              ]
+            : []
+        })
+
+      return overhangingPoints.length === 0
+        ? []
+        : [
+            {
+              geometryId: packet.geometry.geometryId,
+              intervalId: meta.intervalId,
+              splitRangeId: meta.figmaLikeSplitRangeId,
+              terminalRole: meta.figmaLikeTerminalRole,
+              edge,
+              overhangingPoints: overhangingPoints.slice(0, 4)
+            }
+          ]
+    })
+  })
+
 const getRuleDrivenBoundaryHugFailures = ({
   sourcePath,
   intervals,
@@ -3188,12 +3291,12 @@ const expectOpenSelfIntersectingContourDashIntervals = (
   if (stroke.position === 'inside') {
     expect(
       strokeDomainPlan.diagnostics.includes(
-        'source-span-fallback-domains-added'
+        'source-span-product-domains-added'
       )
     ).toBe(false)
     expect(
       intervals.some((interval) =>
-        interval.figmaLikeSplitRangeId?.startsWith('source-span-fallback:')
+        interval.figmaLikeSplitRangeId?.startsWith('source-span-product-domain:')
       )
     ).toBe(false)
     expect(
@@ -3206,25 +3309,26 @@ const expectOpenSelfIntersectingContourDashIntervals = (
     return
   }
 
-  const sourceSpanFallbackIntervals = intervals.filter((interval) =>
-    interval.figmaLikeSplitRangeId?.startsWith('source-span-fallback:')
+  const danglingSourceSpanIntervals = intervals.filter((interval) =>
+    interval.figmaLikeSplitRangeId?.startsWith('dangling-source-span-domain:')
   )
-  expect(sourceSpanFallbackIntervals.length).toBeGreaterThan(0)
-  const fallbackSourceSegmentIndexes = new Set(
-    sourceSpanFallbackIntervals.map(
+  expect(danglingSourceSpanIntervals.length).toBeGreaterThan(0)
+  const danglingSourceSegmentIndexes = new Set(
+    danglingSourceSpanIntervals.map(
       (interval) => interval.figmaLikeSplitRangeSourceSegmentIndex
     )
   )
-  expect(fallbackSourceSegmentIndexes.has(0)).toBe(true)
-  expect(fallbackSourceSegmentIndexes.has(sourcePath.segments.length - 1)).toBe(
+  expect(danglingSourceSegmentIndexes.has(0)).toBe(true)
+  expect(danglingSourceSegmentIndexes.has(sourcePath.segments.length - 1)).toBe(
     true
   )
   expect(
-    sourceSpanFallbackIntervals.every(
+    danglingSourceSpanIntervals.every(
       (interval) =>
+        interval.figmaLikeDomainMode === 'open-dangling-outside-both-sides' &&
         interval.figmaLikeBoundaryRole === 'ambiguous' &&
         interval.figmaLikeSelectedSide === undefined &&
-        interval.figmaLikeSideResolutionReason === 'open-source-span-both-sides'
+        interval.figmaLikeSideResolutionReason === 'open-dangling-outside-both-sides'
     )
   ).toBe(true)
   expect(
@@ -4182,21 +4286,41 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
       options
     )
 
-    expect(visualEntries?.length ?? 0).toBe(1)
-    const [visualEntry] = visualEntries ?? []
+    expect(visualEntries).not.toBeNull()
+    expect(visualEntries?.length).toBe(1)
+    const visualEntry = visualEntries?.[0]
+    expect(visualEntry?.debugMeta?.geometryFamily).toBe('constrained-dashed')
     expect(visualEntry?.debugMeta?.strokePosition).toBe('outside')
-    expect(visualEntry?.debugMeta?.sourceTopology).toBe('self-intersecting')
+    expect(visualEntry?.debugMeta?.intervalId).toBe('product-visual-mask')
     expect(visualEntry?.debugMeta?.finalCoverageBuilderStatus).toBe(
       'product-final'
     )
-    expect(visualEntry?.clipPolygons?.length ?? 0).toBeGreaterThan(0)
+    expect(visualEntry?.polygons?.length ?? 0).toBeGreaterThan(0)
     expect(visualEntry?.strokePaths?.length ?? 0).toBeGreaterThan(0)
+    expect(visualEntry?.strokePathStyle?.cap).toBe('butt')
+    expect(visualEntry?.strokePathStyle?.width).toBe(stroke.width * 2)
+    expect(
+      visualEntry?.debugMeta?.figmaLikeSplitRangeTerminals?.some((record) =>
+        record.splitRangeId.startsWith('dangling-source-span-domain:')
+      )
+    ).toBe(true)
     expect(packets.length).toBeGreaterThan(0)
     expect(
       packets.every(
         (packet) => packet.geometry.debugMeta?.strokePosition === 'outside'
       )
     ).toBe(true)
+    expect(
+      packets.some((packet) =>
+        packet.geometry.geometryId.includes('source-vertex-join')
+      )
+    ).toBe(false)
+    const endpointOverhangFailures =
+      getOutsideSquareTerminalEndpointOverhangFailures(packets)
+    expect(
+      endpointOverhangFailures,
+      JSON.stringify(endpointOverhangFailures, null, 2)
+    ).toEqual([])
     expect(
       packets.some(
         (packet) =>
@@ -4208,6 +4332,14 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
         (packet) =>
           packet.geometry.debugMeta?.finalCoverageBuilderStatus ===
           'product-final'
+      )
+    ).toBe(true)
+    expect(
+      packets.some((packet) =>
+        packet.geometry.debugMeta?.figmaLikeSplitRangeTerminals?.some(
+          (record) =>
+            record.splitRangeId.startsWith('dangling-source-span-domain:')
+        )
       )
     ).toBe(true)
   })
@@ -4271,30 +4403,32 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
           packets.some(
             (packet) =>
               packet.geometry.debugMeta?.figmaLikeSplitRangeId?.startsWith(
-                'source-span-fallback:'
+                'source-span-product-domain:'
               ) === true
           )
         ).toBe(false)
       } else {
-        const fallbackPackets = packets.filter(
+        const danglingPackets = packets.filter(
           (packet) =>
+            packet.geometry.debugMeta?.figmaLikeDomainMode ===
+              'open-dangling-outside-both-sides' &&
             packet.geometry.debugMeta?.figmaLikeSideResolutionReason ===
-            'open-source-span-both-sides'
+            'open-dangling-outside-both-sides'
         )
         expect(
-          fallbackPackets.length
+          danglingPackets.length
         ).toBeGreaterThan(0)
-        const fallbackSourceSegmentIndexes = new Set(
-          fallbackPackets.map(
+        const danglingSourceSegmentIndexes = new Set(
+          danglingPackets.map(
             (packet) =>
               packet.geometry.debugMeta?.figmaLikeSplitRangeSourceSegmentIndex
           )
         )
-        expect(fallbackSourceSegmentIndexes.has(0)).toBe(true)
+        expect(danglingSourceSegmentIndexes.has(0)).toBe(true)
         expect(
-          fallbackSourceSegmentIndexes.has(sourcePath.segments.length - 1)
+          danglingSourceSegmentIndexes.has(sourcePath.segments.length - 1)
         ).toBe(true)
-        const contourOverlapFailures = fallbackPackets.flatMap((packet) => {
+        const contourOverlapFailures = danglingPackets.flatMap((packet) => {
           const meta = packet.geometry.debugMeta
           if (
             meta?.figmaLikeSplitRangeSourceSegmentIndex === undefined ||
@@ -4303,11 +4437,11 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
           ) {
             return [`${packet.id}:missing-source-range-metadata`]
           }
-          const fallbackStart = Math.min(
+          const danglingStart = Math.min(
             meta.figmaLikeSplitRangeStartDistance,
             meta.figmaLikeSplitRangeEndDistance
           )
-          const fallbackEnd = Math.max(
+          const danglingEnd = Math.max(
             meta.figmaLikeSplitRangeStartDistance,
             meta.figmaLikeSplitRangeEndDistance
           )
@@ -4343,15 +4477,15 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
                 range.sourceEndDistance
               )
               const overlap =
-                Math.min(fallbackEnd, contourEnd) -
-                Math.max(fallbackStart, contourStart)
+                Math.min(danglingEnd, contourEnd) -
+                Math.max(danglingStart, contourStart)
               return overlap > 0.25
             })
             .map(
               (range) =>
-                `${packet.id}:${meta.figmaLikeSplitRangeSourceSegmentIndex}:${fallbackStart.toFixed(
+                `${packet.id}:${meta.figmaLikeSplitRangeSourceSegmentIndex}:${danglingStart.toFixed(
                   2
-                )}-${fallbackEnd.toFixed(2)} overlaps ${range.rangeId}`
+                )}-${danglingEnd.toFixed(2)} overlaps ${range.rangeId}`
             )
         })
 
@@ -4387,7 +4521,7 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
           return Math.max(...projections) - Math.min(...projections)
         }
         const maxFallbackNormalSpan = Math.max(
-          ...fallbackPackets.map(sourceSegmentNormalSpan)
+          ...danglingPackets.map(sourceSegmentNormalSpan)
         )
         expect(maxFallbackNormalSpan).toBeGreaterThan(stroke.width * 1.45)
       }

@@ -3807,6 +3807,7 @@ test.describe('Vector render invariants', () => {
                         meta.figmaLikeSplitRangeSourceSegmentIndex,
                       selectedSide: meta.figmaLikeSelectedSide,
                       boundaryRole: meta.figmaLikeBoundaryRole,
+                      domainMode: meta.figmaLikeDomainMode,
                       sideResolutionReason: meta.figmaLikeSideResolutionReason,
                       terminalRole: meta.figmaLikeTerminalRole
                     }
@@ -3821,9 +3822,18 @@ test.describe('Vector render invariants', () => {
                   sourceSegmentIndex: terminal.sourceSegmentIndex,
                   selectedSide: terminal.selectedSide,
                   boundaryRole: terminal.boundaryRole,
+                  domainMode:
+                    terminal.domainMode ??
+                    (terminal.splitRangeId?.startsWith(
+                      'dangling-source-span-domain:'
+                    )
+                      ? 'open-dangling-outside-both-sides'
+                      : undefined),
                   sideResolutionReason:
-                    terminal.splitRangeId?.startsWith('source-span-fallback:')
-                      ? 'open-source-span-both-sides'
+                    terminal.splitRangeId?.startsWith(
+                      'dangling-source-span-domain:'
+                    )
+                      ? 'open-dangling-outside-both-sides'
                       : undefined,
                   terminalRole: terminal.terminalRole
                 })
@@ -3849,18 +3859,19 @@ test.describe('Vector render invariants', () => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (meta: any) => meta?.figmaLikeSplitRangeId !== undefined
           ).length,
-          sourceSpanFallbackPacketCount: splitRangeMetas.filter(
-            (meta) => meta.splitRangeId?.startsWith('source-span-fallback:')
+          danglingSourceSpanPacketCount: splitRangeMetas.filter(
+            (meta) => meta.splitRangeId?.startsWith('dangling-source-span-domain:')
           ).length,
-          sourceSpanFallbackMetas: splitRangeMetas
+          danglingSourceSpanMetas: splitRangeMetas
             .filter(
-              (meta) => meta.splitRangeId?.startsWith('source-span-fallback:')
+              (meta) => meta.splitRangeId?.startsWith('dangling-source-span-domain:')
             )
             .map((meta) => ({
               splitRangeId: meta.splitRangeId,
               sourceSegmentIndex: meta.sourceSegmentIndex,
               selectedSide: meta.selectedSide,
               boundaryRole: meta.boundaryRole,
+              domainMode: meta.domainMode,
               sideResolutionReason: meta.sideResolutionReason
             })),
           splitRangeTerminalRoles: splitRangeMetas
@@ -3954,38 +3965,40 @@ test.describe('Vector render invariants', () => {
           )}`
         ).toBeGreaterThan(0.18)
         expect(
-          runtimeSnapshot.sourceSpanFallbackPacketCount,
-          `open self-intersecting outside dashed stroke did not keep open source-span fallback metadata\n${JSON.stringify(
+          runtimeSnapshot.danglingSourceSpanPacketCount,
+          `open self-intersecting outside dashed stroke did not keep dangling source-span product metadata\n${JSON.stringify(
             { stats, segmentRecall, runtimeSnapshot },
             null,
             2
           )}`
         ).toBeGreaterThan(0)
         expect(
-          runtimeSnapshot.sourceSpanFallbackMetas.every(
+          runtimeSnapshot.danglingSourceSpanMetas.every(
             (meta: {
               sourceSegmentIndex?: number
               selectedSide?: number
               boundaryRole?: string
+              domainMode?: string
               sideResolutionReason?: string
             }) =>
               meta.selectedSide === undefined &&
               meta.boundaryRole === 'ambiguous' &&
-              meta.sideResolutionReason === 'open-source-span-both-sides'
+              meta.domainMode === 'open-dangling-outside-both-sides' &&
+              meta.sideResolutionReason === 'open-dangling-outside-both-sides'
           ),
-          `open self-intersecting outside dashed source-span fallback must be both-side, not selected-side\n${JSON.stringify(
+          `open self-intersecting outside dashed dangling source-span product must be both-side, not selected-side\n${JSON.stringify(
             { stats, segmentRecall, runtimeSnapshot },
             null,
             2
           )}`
         ).toBe(true)
-        const fallbackSourceSegmentIndexes = new Set(
-          runtimeSnapshot.sourceSpanFallbackMetas.map(
+        const danglingSourceSegmentIndexes = new Set(
+          runtimeSnapshot.danglingSourceSpanMetas.map(
             (meta: { sourceSegmentIndex?: number }) => meta.sourceSegmentIndex
           )
         )
         expect(
-          fallbackSourceSegmentIndexes.has(0),
+          danglingSourceSegmentIndexes.has(0),
           `open self-intersecting outside dashed stroke did not paint the first dangling open branch\n${JSON.stringify(
             { stats, segmentRecall, runtimeSnapshot },
             null,
@@ -3993,7 +4006,7 @@ test.describe('Vector render invariants', () => {
           )}`
         ).toBe(true)
         expect(
-          fallbackSourceSegmentIndexes.has(3),
+          danglingSourceSegmentIndexes.has(3),
           `open self-intersecting outside dashed stroke did not paint the last dangling open branch\n${JSON.stringify(
             { stats, segmentRecall, runtimeSnapshot },
             null,
@@ -4200,6 +4213,7 @@ test.describe('Vector render invariants', () => {
                         meta.figmaLikeSplitRangeSourceSegmentIndex,
                       selectedSide: meta.figmaLikeSelectedSide,
                       boundaryRole: meta.figmaLikeBoundaryRole,
+                      domainMode: meta.figmaLikeDomainMode,
                       sideResolutionReason: meta.figmaLikeSideResolutionReason
                     }
                   ]
@@ -4213,9 +4227,18 @@ test.describe('Vector render invariants', () => {
                   sourceSegmentIndex: terminal.sourceSegmentIndex,
                   selectedSide: terminal.selectedSide,
                   boundaryRole: terminal.boundaryRole,
+                  domainMode:
+                    terminal.domainMode ??
+                    (terminal.splitRangeId?.startsWith(
+                      'dangling-source-span-domain:'
+                    )
+                      ? 'open-dangling-outside-both-sides'
+                      : undefined),
                   sideResolutionReason:
-                    terminal.splitRangeId?.startsWith('source-span-fallback:')
-                      ? 'open-source-span-both-sides'
+                    terminal.splitRangeId?.startsWith(
+                      'dangling-source-span-domain:'
+                    )
+                      ? 'open-dangling-outside-both-sides'
                       : undefined
                 })
               )
@@ -4233,15 +4256,16 @@ test.describe('Vector render invariants', () => {
               meta?.strokePosition === strokePosition &&
               meta?.sourceTopology === 'self-intersecting'
           ).length,
-          sourceSpanFallbackMetas: splitRangeMetas
+          danglingSourceSpanMetas: splitRangeMetas
             .filter(
-              (meta) => meta.splitRangeId?.startsWith('source-span-fallback:')
+              (meta) => meta.splitRangeId?.startsWith('dangling-source-span-domain:')
             )
             .map((meta) => ({
               splitRangeId: meta.splitRangeId,
               sourceSegmentIndex: meta.sourceSegmentIndex,
               selectedSide: meta.selectedSide,
               boundaryRole: meta.boundaryRole,
+              domainMode: meta.domainMode,
               sideResolutionReason: meta.sideResolutionReason
             })),
           centerPacketCount: allMetas.filter(
@@ -4302,17 +4326,19 @@ test.describe('Vector render invariants', () => {
           )}`
         ).toBeGreaterThan(0.18)
         expect(
-          runtimeSnapshot.sourceSpanFallbackMetas.every(
+          runtimeSnapshot.danglingSourceSpanMetas.every(
             (meta: {
               selectedSide?: number
               boundaryRole?: string
+              domainMode?: string
               sideResolutionReason?: string
             }) =>
               meta.selectedSide === undefined &&
               meta.boundaryRole === 'ambiguous' &&
-              meta.sideResolutionReason === 'open-source-span-both-sides'
+              meta.domainMode === 'open-dangling-outside-both-sides' &&
+              meta.sideResolutionReason === 'open-dangling-outside-both-sides'
           ),
-          `open self-intersecting outside dashed drag frame source-span fallback must be both-side, not selected-side\n${JSON.stringify(
+          `open self-intersecting outside dashed drag frame dangling source-span product must be both-side, not selected-side\n${JSON.stringify(
             { stats, segmentRecall, runtimeSnapshot },
             null,
             2
@@ -4328,8 +4354,8 @@ test.describe('Vector render invariants', () => {
           )}`
         ).toBeGreaterThan(0.18)
         expect(
-          runtimeSnapshot.sourceSpanFallbackMetas.length,
-          `open self-intersecting inside dashed drag frame must not paint dangling source-span fallback domains\n${JSON.stringify(
+          runtimeSnapshot.danglingSourceSpanMetas.length,
+          `open self-intersecting inside dashed drag frame must not paint dangling source-span domains\n${JSON.stringify(
             { stats, segmentRecall, runtimeSnapshot },
             null,
             2

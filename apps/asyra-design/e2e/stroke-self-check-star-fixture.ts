@@ -4084,6 +4084,48 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           probes
         }
       }
+      const countRedOffsetCoverageNearRecordDistance = (
+        record: { boundaryPoints?: { x: number; y: number }[] },
+        distance: number,
+        selectedSide: 1 | -1 | null,
+        offsets: number[],
+        radius = 2
+      ) => {
+        const sample = getRecordSample(record, distance)
+        if (!sample) {
+          return {
+            maxRedPixels: 0,
+            coveredOffsetCount: 0,
+            offsetProbes: []
+          }
+        }
+        const sides =
+          selectedSide === 1 || selectedSide === -1 ? [selectedSide] : [-1, 1]
+        const offsetProbes = offsets.flatMap((offset) =>
+          sides.map((side) => {
+            const point = {
+              x: sample.point.x - sample.tangent.y * offset * side,
+              y: sample.point.y + sample.tangent.x * offset * side
+            }
+            return {
+              point,
+              offset,
+              side,
+              redPixelCount: countRedPixelsNearLocalPoint(point, radius)
+            }
+          })
+        )
+        return {
+          maxRedPixels: Math.max(
+            0,
+            ...offsetProbes.map((probe) => probe.redPixelCount)
+          ),
+          coveredOffsetCount: offsetProbes.filter(
+            (probe) => probe.redPixelCount >= 2
+          ).length,
+          offsetProbes
+        }
+      }
       const countSameSplitRangeCoverageNearRecordDistance = (
         record: { boundaryPoints?: { x: number; y: number }[] },
         splitRangeId: string,
@@ -4257,14 +4299,12 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
       ) => {
         const points = getRecordPath(record)
         if (points.length < 2) return null
-        let best:
-          | {
-              point: { x: number; y: number }
-              tangent: { x: number; y: number }
-              distanceAlong: number
-              distance: number
-            }
-          | null = null
+        let best: {
+          point: { x: number; y: number }
+          tangent: { x: number; y: number }
+          distanceAlong: number
+          distance: number
+        } | null = null
         let cumulativeDistance = 0
         for (let index = 1; index < points.length; index += 1) {
           const start = points[index - 1]
@@ -4285,7 +4325,10 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
             x: start.x + dx * t,
             y: start.y + dy * t
           }
-          const distance = Math.hypot(point.x - projected.x, point.y - projected.y)
+          const distance = Math.hypot(
+            point.x - projected.x,
+            point.y - projected.y
+          )
           if (!best || distance < best.distance) {
             best = {
               point: projected,
@@ -4352,7 +4395,10 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           : null
         return sample ? isSmoothContinuityBoundaryPoint(sample.point) : false
       }
-      const isSelfIntersectionBoundaryPoint = (point: { x: number; y: number }) => {
+      const isSelfIntersectionBoundaryPoint = (point: {
+        x: number
+        y: number
+      }) => {
         const samePointTolerance = 1.5
         const isAuthoredAnchor = sourceAnchorPoints.some(
           (anchor) =>
@@ -4386,9 +4432,7 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
         const wrapsSeam =
           nearSegmentIndexes.includes(0) &&
           nearSegmentIndexes.includes(sourcePath.length - 1)
-        return wrapsSeam
-          ? separatedGroupCount > 2
-          : separatedGroupCount > 1
+        return wrapsSeam ? separatedGroupCount > 2 : separatedGroupCount > 1
       }
       const isSelfIntersectionSplitRangeEdge = (
         records: typeof uniqueTerminalRecords,
@@ -4422,7 +4466,10 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           )
           const rangeLength = rangeEnd - rangeStart
           const failures: string[] = []
-          if (rangeLength <= dashPattern[0] + minimumCenterlineGapLength + 1e-4) {
+          if (
+            rangeLength <=
+            dashPattern[0] + minimumCenterlineGapLength + 1e-4
+          ) {
             const startEnd = sorted.find(
               (record) => record.terminalRole === 'start-end'
             )
@@ -4611,8 +4658,10 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
         if (selectedSide !== 1 && selectedSide !== -1) {
           return null
         }
-        const endpoint = edge === 'start' ? points[0] : points[points.length - 1]
-        const adjacent = edge === 'start' ? points[1] : points[points.length - 2]
+        const endpoint =
+          edge === 'start' ? points[0] : points[points.length - 1]
+        const adjacent =
+          edge === 'start' ? points[1] : points[points.length - 2]
         if (!endpoint || !adjacent) {
           return null
         }
@@ -4629,20 +4678,13 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           x: -tangent.y * selectedSide,
           y: tangent.x * selectedSide
         }
-        const alongOffsets =
-          edge === 'start' ? [-2.5, -5, -7.5] : [2.5, 5, 7.5]
+        const alongOffsets = edge === 'start' ? [-2.5, -5, -7.5] : [2.5, 5, 7.5]
         const normalOffsets = [2.5, 5, 7.5]
         const probes = alongOffsets.flatMap((alongOffset) =>
           normalOffsets.map((normalOffset) => {
             const point = {
-              x:
-                endpoint.x +
-                tangent.x * alongOffset +
-                normal.x * normalOffset,
-              y:
-                endpoint.y +
-                tangent.y * alongOffset +
-                normal.y * normalOffset
+              x: endpoint.x + tangent.x * alongOffset + normal.x * normalOffset,
+              y: endpoint.y + tangent.y * alongOffset + normal.y * normalOffset
             }
             const coveringSplitRangeIds = getPrimaryCoveringSplitRangeIds(point)
             const redPixelCount = countRedPixelsNearLocalPoint(point, 3)
@@ -4692,8 +4734,10 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
         if (selectedSide !== 1 && selectedSide !== -1) {
           return null
         }
-        const endpoint = edge === 'start' ? points[0] : points[points.length - 1]
-        const adjacent = edge === 'start' ? points[1] : points[points.length - 2]
+        const endpoint =
+          edge === 'start' ? points[0] : points[points.length - 1]
+        const adjacent =
+          edge === 'start' ? points[1] : points[points.length - 2]
         if (!endpoint || !adjacent) {
           return null
         }
@@ -4779,8 +4823,10 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
         if (selectedSide !== 1 && selectedSide !== -1) {
           return null
         }
-        const endpoint = edge === 'start' ? points[0] : points[points.length - 1]
-        const adjacent = edge === 'start' ? points[1] : points[points.length - 2]
+        const endpoint =
+          edge === 'start' ? points[0] : points[points.length - 1]
+        const adjacent =
+          edge === 'start' ? points[1] : points[points.length - 2]
         if (!endpoint || !adjacent) {
           return null
         }
@@ -5010,6 +5056,55 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
             ...record,
             distance,
             ...countRedNearRecordDistance(record, distance, record.selectedSide)
+          }
+        }
+      )
+      const dashBodyWidthProbeResults = pixelProbeTerminalRecords.map(
+        (record) => {
+          const intervalLength = record.endDistance - record.startDistance
+          const edgeInset = Math.min(
+            Math.max(2, Math.min(4, intervalLength / 3)),
+            Math.max(0.25, intervalLength * 0.4)
+          )
+          const probeDistances =
+            intervalLength <= edgeInset * 2 + 0.5
+              ? [(record.startDistance + record.endDistance) / 2]
+              : [
+                  record.startDistance + edgeInset,
+                  (record.startDistance + record.endDistance) / 2,
+                  record.endDistance - edgeInset
+                ]
+          const offsets =
+            expectedPosition === 'outside'
+              ? [
+                  primaryStrokeWidth * 0.25,
+                  primaryStrokeWidth * 0.5,
+                  primaryStrokeWidth * 0.75
+                ]
+              : [primaryStrokeWidth * 0.2, primaryStrokeWidth * 0.4]
+          const distanceResults = probeDistances.map((distance) => ({
+            distance,
+            ...countRedOffsetCoverageNearRecordDistance(
+              record,
+              distance,
+              record.selectedSide,
+              offsets
+            )
+          }))
+          const requiredCoveredOffsetCount =
+            expectedPosition === 'outside' ? 2 : 1
+          const coveredDistanceCount = distanceResults.filter(
+            (result) => result.coveredOffsetCount >= requiredCoveredOffsetCount
+          ).length
+          return {
+            ...record,
+            shouldCheckBodyWidth:
+              intervalLength >= Math.max(6, primaryStrokeWidth * 0.6),
+            probeDistances,
+            distanceResults,
+            requiredCoveredOffsetCount,
+            requiredCoveredDistanceCount: Math.min(2, distanceResults.length),
+            coveredDistanceCount
           }
         }
       )
@@ -5315,6 +5410,11 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
         visibleDashProbeFailures: visibleDashProbeResults.filter(
           (result) => result.maxRedPixels < 8
         ),
+        dashBodyWidthProbeFailures: dashBodyWidthProbeResults.filter(
+          (result) =>
+            result.shouldCheckBodyWidth &&
+            result.coveredDistanceCount < result.requiredCoveredDistanceCount
+        ),
         debugRawPacketProbeResults,
         debugRawPacketProbeFailures: debugRawPacketProbeResults.filter(
           (result) => result.maxRedPixels < 8
@@ -5370,6 +5470,7 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
         sourceFillDomainLeakComponents,
         terminalBoundaryProbeResults,
         visibleDashProbeResults,
+        dashBodyWidthProbeResults,
         intervalContinuityProbeResults,
         terminalAdjacentGapProbeResults,
         terminalAdjacentGapHits: terminalAdjacentGapProbeResults.filter(

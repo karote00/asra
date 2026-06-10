@@ -1132,12 +1132,7 @@ const patchSelectedVectorToReportedStar = async (
       'seg-60-56'
     ]
     const openPointIds = ['tp-57', 'tp-58', 'tp-59', 'tp-60', 'tp-56']
-    const openSegmentIds = [
-      'seg-57-58',
-      'seg-58-59',
-      'seg-59-60',
-      'seg-60-56'
-    ]
+    const openSegmentIds = ['seg-57-58', 'seg-58-59', 'seg-59-60', 'seg-60-56']
     const isOpenSelfIntersecting = nextPathKind === 'open-self-intersecting'
     const pointIds = isOpenSelfIntersecting ? openPointIds : closedPointIds
     const segmentIds = isOpenSelfIntersecting
@@ -1823,11 +1818,7 @@ const assertRuleDrivenStrokeProbes = async (
   strokeCase: StrokeCase
 ) => {
   const isDuringDragProbe = label.includes(':during-drag')
-  const probes = await buildRuleDrivenStrokeProbes(
-    page,
-    strokeCase,
-    false
-  )
+  const probes = await buildRuleDrivenStrokeProbes(page, strokeCase, false)
   if (probes.body.length === 0) {
     return
   }
@@ -2021,13 +2012,14 @@ const captureSelectedElementStrokeDiagnostics = async (page: Page) => {
       : undefined
     const cacheEntries = Array.from(
       graphic?.__asyraStrokeMeshCache?.entries?.() ?? []
-    ).map(([key, entry]: [string, Record<string, any>]) => ({
+    ).map(([key, entry]: [string, Record<string, unknown>]) => ({
       key,
-      kind: entry?.kind,
+      kind: entry.kind,
       visible:
-        entry?.container?.visible ??
-        entry?.graphics?.visible ??
-        entry?.projection?.mesh?.visible ??
+        (entry.container as { visible?: boolean } | undefined)?.visible ??
+        (entry.graphics as { visible?: boolean } | undefined)?.visible ??
+        (entry.projection as { mesh?: { visible?: boolean } } | undefined)?.mesh
+          ?.visible ??
         null,
       childCount: entry?.container?.children?.length ?? null
     }))
@@ -2718,6 +2710,14 @@ test.describe('stroke drag render performance UX gate', () => {
       )
     }
     metrics.forEach(assertRequiredPhaseCoverage)
+    for (const metric of metrics) {
+      expect(
+        metric.counters[
+          'constrained-dashed-butt-drag-resolved-geometry-fill-only'
+        ] ?? 0,
+        `${metric.label} must not use fill-only resolved geometry for constrained dashed drag frames`
+      ).toBe(0)
+    }
     assertVectorPointDragPerformanceBudget(metrics)
     for (const burstMetric of burstMetrics) {
       expect(
@@ -2788,19 +2788,14 @@ test.describe('stroke drag render performance UX gate', () => {
             renderFlushPhaseCount: burstMetric.renderFlushPhaseCount,
             vectorCommitCount: burstMetric.vectorCommitCount,
             computedPatchCount: burstMetric.computedPatchCount,
-            computedMirrorCommitCount:
-              burstMetric.computedMirrorCommitCount,
+            computedMirrorCommitCount: burstMetric.computedMirrorCommitCount,
             productRenderPerObservedPaint:
               burstMetric.productRenderPerObservedPaint,
-            pixiRenderPerObservedPaint:
-              burstMetric.pixiRenderPerObservedPaint,
+            pixiRenderPerObservedPaint: burstMetric.pixiRenderPerObservedPaint,
             frameCoordinatorCounters: {
-              renderFrameCount:
-                burstMetric.counters['render-frame-count'] ?? 0,
-              renderFrameIdCount:
-                burstMetric.counters['render-frame-id'] ?? 0,
-              dirtyChangeCount:
-                burstMetric.counters['dirty-change-count'] ?? 0,
+              renderFrameCount: burstMetric.counters['render-frame-count'] ?? 0,
+              renderFrameIdCount: burstMetric.counters['render-frame-id'] ?? 0,
+              dirtyChangeCount: burstMetric.counters['dirty-change-count'] ?? 0,
               dirtyElementCount:
                 burstMetric.counters['dirty-element-count'] ?? 0,
               dirtyChangeCoalescedCount:
@@ -2811,9 +2806,8 @@ test.describe('stroke drag render performance UX gate', () => {
             freshnessProbe: burstMetric.freshnessProbe,
             selectedPhaseTotals: {
               'feature:event:input.drag.update':
-                burstMetric.phaseTotalMs[
-                  'feature:event:input.drag.update'
-                ] ?? 0,
+                burstMetric.phaseTotalMs['feature:event:input.drag.update'] ??
+                0,
               'render-scene-tree:flush':
                 burstMetric.phaseTotalMs['render-scene-tree:flush'] ?? 0,
               'render-layer:strategy:vector':

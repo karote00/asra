@@ -900,7 +900,8 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
 
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
-    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(1)
+    expect(getProjectionMeshes(graphic)).toHaveLength(0)
+    expect(getProjectionGraphics(graphic).length).toBeGreaterThan(1)
     expect(exportPackets.length).toBeGreaterThan(1)
     expect(
       exportPackets.every(
@@ -1433,7 +1434,8 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
 
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
-    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(1)
+    expect(getProjectionMeshes(graphic)).toHaveLength(0)
+    expect(getProjectionGraphics(graphic).length).toBeGreaterThan(1)
     expect(exportPackets.length).toBeGreaterThan(1)
     expect(
       exportPackets.every(
@@ -2679,7 +2681,8 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
 
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
-    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(1)
+    expect(getProjectionMeshes(graphic)).toHaveLength(0)
+    expect(getProjectionGraphics(graphic).length).toBeGreaterThan(1)
     expect(exportPackets.length).toBeGreaterThan(1)
     expect(
       exportPackets.every(
@@ -2873,7 +2876,8 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
 
     const exportPackets = graphic.__asyraSolidCenterStrokeExportPackets ?? []
-    expect(getProjectionMeshes(graphic).length).toBeGreaterThan(1)
+    expect(getProjectionMeshes(graphic)).toHaveLength(0)
+    expect(getProjectionGraphics(graphic).length).toBeGreaterThan(1)
     expect(exportPackets.length).toBeGreaterThan(1)
     expect(
       exportPackets.every(
@@ -2941,7 +2945,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     { label: 'inside', position: StrokePositions.INSIDE },
     { label: 'outside', position: StrokePositions.OUTSIDE }
   ].forEach(({ label, position }) => {
-    it(`should run: render open-path ${label} dashed vectors as center geometry`, () => {
+    it(`should run: render simple open ${label} dashed vectors without bounded domains as center product geometry`, () => {
       const graphic = runVectorRenderStrategy({
         id: `vector-constrained-dashed-open-${label}`,
         x: 0,
@@ -2999,7 +3003,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
   })
 
-  it('should run: render self-intersecting open dashed inside vectors as center geometry', () => {
+  it('should run: keep unsupported open self-intersecting inside dashed vectors off the simple-open center path', () => {
     const graphic = runVectorRenderStrategy({
       id: 'vector-constrained-dashed-open-self-intersecting',
       x: 0,
@@ -3028,29 +3032,21 @@ describe('vector constrained dashed stroke product wiring', () => {
       ]
     })
 
+    expect(getProjectionMeshes(graphic)).toHaveLength(0)
+    expect(getProjectionGraphics(graphic)).toHaveLength(0)
+    expect(graphic.__asyraSolidCenterStrokeExportPackets ?? []).toHaveLength(0)
+    expect(graphic.hitArea?.contains(20, 20) ?? false).toBe(false)
     expect(
-      getProjectionMeshes(graphic).length +
-        getProjectionGraphics(graphic).length
-    ).toBeGreaterThan(0)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.length
-    ).toBeGreaterThan(0)
-    expect(
-      graphic.__asyraSolidCenterStrokeExportPackets?.every(
-        (packet) =>
-          packet.debugMeta?.geometryFamily === 'dashed-center' &&
-          packet.debugMeta?.resolutionStatus === 'native-center' &&
-          packet.debugMeta?.runtimeStatus === 'not-applicable'
-      )
-    ).toBe(true)
-    expect(graphic.hitArea?.contains(20, 20) ?? false).toBe(true)
-    expect(graphic.__asyraConstrainedDashedRuntimeDiagnostics).toBeUndefined()
+      graphic.__asyraConstrainedDashedRuntimeDiagnostics?.entries?.some(
+        (entry) => entry.reason === 'simple-open-center-product'
+      ) ?? false
+    ).toBe(false)
   })
   ;[
     { label: 'inside', position: StrokePositions.INSIDE },
     { label: 'outside', position: StrokePositions.OUTSIDE }
   ].forEach(({ label, position }) => {
-    it(`should run: keep open-path dashed center geometry when switching position to ${label}`, () => {
+    it(`should run: keep simple open dashed center product geometry when switching position to ${label}`, () => {
       const strategy = renderStrategyRegistry.get('vector')
       expect(strategy).toBeTypeOf('function')
 

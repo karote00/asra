@@ -3,7 +3,7 @@ import { StrokePositions, StrokeStyles } from '@asyra/utils'
 import { resolveOneSidedCandidateFlow } from '../components/stroke-render/stroke-candidate-flow'
 
 describe('stroke candidate flow', () => {
-  it('should run: resolve open constrained solid strokes before one-sided candidate construction', () => {
+  it('should run: resolve simple open constrained solid strokes as center-equivalent before one-sided candidate construction', () => {
     expect(
       resolveOneSidedCandidateFlow({
         closed: false,
@@ -17,7 +17,7 @@ describe('stroke candidate flow', () => {
       mode: 'center-equivalent',
       domainKind: 'center-equivalent',
       requiresOneSidedCandidates: false,
-      reason: 'open-constrained-center-equivalent'
+      reason: 'simple-open-center-product'
     })
     expect(
       resolveOneSidedCandidateFlow({
@@ -29,6 +29,30 @@ describe('stroke candidate flow', () => {
         }
       }).mode
     ).toBe('center-equivalent')
+  })
+
+  it('should run: keep open self-intersecting constrained strokes on domain-plan-owned candidates', () => {
+    expect(
+      resolveOneSidedCandidateFlow({
+        closed: false,
+        topologyFamily: 'self-intersecting',
+        stroke: {
+          style: StrokeStyles.DASHED,
+          position: StrokePositions.OUTSIDE
+        },
+        strokeDomainPlan: {
+          domainMode: 'open-dangling-outside-both-sides',
+          intervalDomainKind: 'figma-like-split-range',
+          sideAuthority: 'implicit-fill-hole-domain',
+          splitRangeDomainCount: 3
+        }
+      })
+    ).toEqual({
+      mode: 'one-sided-constrained',
+      domainKind: 'split-range',
+      requiresOneSidedCandidates: true,
+      reason: 'open-constrained-domain-plan'
+    })
   })
 
   it('should run: keep closed constrained paths on one-sided candidate construction', () => {
@@ -60,6 +84,7 @@ describe('stroke candidate flow', () => {
           position: StrokePositions.OUTSIDE
         },
         strokeDomainPlan: {
+          domainMode: 'closed-constrained-domain',
           intervalDomainKind: 'figma-like-split-range',
           sideAuthority: 'implicit-fill-hole-domain',
           splitRangeDomainCount: 2

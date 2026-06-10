@@ -38,6 +38,15 @@ export type StrokeSideAuthority =
   | 'implicit-fill-hole-domain'
   | 'center-equivalent'
 
+export type StrokeDomainMode =
+  | 'center-product'
+  | 'simple-open-center-product'
+  | 'closed-constrained-domain'
+  | 'open-contour-constrained-domain'
+  | 'open-dangling-outside-both-sides'
+  | 'inside-excluded-open-span'
+  | 'unsupported'
+
 export type StrokeDomainBlockedReason =
   | ResolvedSourceFamily['blockedReason']
   | 'missing-source-path'
@@ -71,6 +80,7 @@ export interface StrokeDomainPlan {
   totalLength: number
   strokeStyle: RenderableStroke['style']
   strokePosition: RenderableStroke['position']
+  domainMode: StrokeDomainMode
   intervalDomainKind: StrokeIntervalDomainKind
   sideAuthority: StrokeSideAuthority
   requiresImplicitFillHoleSideResolution: boolean
@@ -508,7 +518,8 @@ const buildSharedSplitRangeDashDomains = ({
     ]
   })
 
-const SOURCE_SPAN_FALLBACK_MIN_LENGTH = SOURCE_PATH_DASH_SLICE_TOLERANCE
+const SOURCE_SPAN_PRODUCT_DOMAIN_MIN_LENGTH =
+  SOURCE_PATH_DASH_SLICE_TOLERANCE
 
 const getDomainRange = (domain: FigmaLikeSplitRangeDashDomain) => ({
   startDistance: Math.min(domain.startDistance, domain.endDistance),
@@ -549,9 +560,9 @@ const isOpenEndpointTerminalSourceRange = ({
   const totalLength = getSourcePathTotalLength(sourcePath)
   return (
     (sourceSegmentIndex === 0 &&
-      startDistance <= SOURCE_SPAN_FALLBACK_MIN_LENGTH) ||
+      startDistance <= SOURCE_SPAN_PRODUCT_DOMAIN_MIN_LENGTH) ||
     (sourceSegmentIndex === sourcePath.segments.length - 1 &&
-      endDistance >= totalLength - SOURCE_SPAN_FALLBACK_MIN_LENGTH)
+      endDistance >= totalLength - SOURCE_SPAN_PRODUCT_DOMAIN_MIN_LENGTH)
   )
 }
 
@@ -605,14 +616,15 @@ const subtractCoveredSourceRanges = ({
     }))
     .filter(
       (range) =>
-        range.endDistance - range.startDistance > SOURCE_SPAN_FALLBACK_MIN_LENGTH
+        range.endDistance - range.startDistance >
+        SOURCE_SPAN_PRODUCT_DOMAIN_MIN_LENGTH
     )
     .sort((left, right) => left.startDistance - right.startDistance)
 
   const uncoveredRanges: { startDistance: number; endDistance: number }[] = []
   let cursor = sourceRange.startDistance
   coveredRanges.forEach((range) => {
-    if (range.startDistance - cursor > SOURCE_SPAN_FALLBACK_MIN_LENGTH) {
+    if (range.startDistance - cursor > SOURCE_SPAN_PRODUCT_DOMAIN_MIN_LENGTH) {
       uncoveredRanges.push({
         startDistance: cursor,
         endDistance: range.startDistance
@@ -621,7 +633,7 @@ const subtractCoveredSourceRanges = ({
     cursor = Math.max(cursor, range.endDistance)
   })
 
-  if (sourceRange.endDistance - cursor > SOURCE_SPAN_FALLBACK_MIN_LENGTH) {
+  if (sourceRange.endDistance - cursor > SOURCE_SPAN_PRODUCT_DOMAIN_MIN_LENGTH) {
     uncoveredRanges.push({
       startDistance: cursor,
       endDistance: sourceRange.endDistance
@@ -698,7 +710,7 @@ const buildContourOwnedSourceCoverages = (
     .filter(
       (range) =>
         range.endDistance - range.startDistance >
-        SOURCE_SPAN_FALLBACK_MIN_LENGTH
+        SOURCE_SPAN_PRODUCT_DOMAIN_MIN_LENGTH
     )
 
 const subtractContourOwnedSourceRanges = ({
@@ -727,14 +739,15 @@ const supplementInsideDashedSourceSpanDomains = ({
   splitRangeDomains: FigmaLikeSplitRangeDashDomain[]
 }): FigmaLikeSplitRangeDashDomain[] => {
   const sourceDomains = buildSourcePathSegmentSpanDomains(sourcePath)
-  let fallbackDomainIndex = 0
-  const fallbackDomains = sourceDomains.flatMap((sourceDomain) =>
+  let productDomainIndex = 0
+  const productDomains = sourceDomains.flatMap((sourceDomain) =>
     subtractCoveredSourceRanges({
       sourceDomain,
       coveredDomains: splitRangeDomains
     }).map((range) => {
       const domain: FigmaLikeSplitRangeDashDomain = {
-        domainId: `source-span-fallback:${sourceDomain.domainId}:${fallbackDomainIndex}`,
+        domainId: `source-span-product-domain:${sourceDomain.domainId}:${productDomainIndex}`,
+        domainMode: 'closed-constrained-domain',
         startDistance: range.startDistance,
         endDistance: range.endDistance,
         sourceSegmentIndex: sourceDomain.sourceSegmentIndex,
@@ -743,15 +756,15 @@ const supplementInsideDashedSourceSpanDomains = ({
         unfilledSide: -1,
         boundaryRole: 'ambiguous',
         sideResolutionStatus: 'resolved',
-        sideResolutionReason: 'source-span-fallback'
+        sideResolutionReason: 'source-span-product-domain'
       }
-      fallbackDomainIndex += 1
+      productDomainIndex += 1
       return domain
     })
   )
 
-  return fallbackDomains.length > 0
-    ? [...splitRangeDomains, ...fallbackDomains]
+  return productDomains.length > 0
+    ? [...splitRangeDomains, ...productDomains]
     : splitRangeDomains
 }
 
@@ -778,8 +791,8 @@ const supplementOutsideDashedOpenSourceSpanDomains = ({
     sourcePath,
     sharedSourceSplitRanges
   )
-  let fallbackDomainIndex = 0
-  const fallbackDomains = sourceDomains.flatMap((sourceDomain) =>
+  let danglingDomainIndex = 0
+  const danglingDomains = sourceDomains.flatMap((sourceDomain) =>
     subtractCoveredSourceRanges({
       sourceDomain,
       coveredDomains: contourSplitRangeSourceCoverages
@@ -793,7 +806,8 @@ const supplementOutsideDashedOpenSourceSpanDomains = ({
       )
       .map((range) => {
         const domain: FigmaLikeSplitRangeDashDomain = {
-          domainId: `source-span-fallback:${sourceDomain.domainId}:${fallbackDomainIndex}`,
+          domainId: `dangling-source-span-domain:${sourceDomain.domainId}:${danglingDomainIndex}`,
+          domainMode: 'open-dangling-outside-both-sides',
           startDistance: range.startDistance,
           endDistance: range.endDistance,
           sourceStartDistance: range.startDistance,
@@ -801,15 +815,15 @@ const supplementOutsideDashedOpenSourceSpanDomains = ({
           sourceSegmentIndex: sourceDomain.sourceSegmentIndex,
           boundaryRole: 'ambiguous',
           sideResolutionStatus: 'resolved',
-          sideResolutionReason: 'open-source-span-both-sides'
+          sideResolutionReason: 'open-dangling-outside-both-sides'
         }
-        fallbackDomainIndex += 1
+        danglingDomainIndex += 1
         return domain
       })
   )
 
-  return fallbackDomains.length > 0
-    ? [...contourSplitRangeDomains, ...fallbackDomains]
+  return danglingDomains.length > 0
+    ? [...contourSplitRangeDomains, ...danglingDomains]
     : contourSplitRangeDomains
 }
 
@@ -842,6 +856,7 @@ export const resolveStrokeDomains = ({
     return {
       ...basePlan,
       blockedReason: sourceFamily.blockedReason,
+      domainMode: 'unsupported',
       intervalDomainKind: 'none',
       sideAuthority: 'none',
       requiresImplicitFillHoleSideResolution: false,
@@ -865,12 +880,13 @@ export const resolveStrokeDomains = ({
     return {
       ...basePlan,
       blockedReason: sourceFamily.blockedReason,
+      domainMode: 'simple-open-center-product',
       intervalDomainKind: 'topology-arc-length',
       sideAuthority: 'center-equivalent',
       requiresImplicitFillHoleSideResolution: false,
       splitRangeDomains: [],
       legalBoundaryDomains: [],
-      diagnostics: ['constrained-open-stroke-is-center-equivalent']
+      diagnostics: ['simple-open-stroke-is-center-equivalent']
     }
   }
 
@@ -883,6 +899,7 @@ export const resolveStrokeDomains = ({
         ...basePlan,
         supportState: 'blocked',
         blockedReason: 'missing-normalized-legal-domain',
+        domainMode: 'unsupported',
         intervalDomainKind: 'none',
         sideAuthority: 'implicit-fill-hole-domain',
         requiresImplicitFillHoleSideResolution: true,
@@ -895,6 +912,9 @@ export const resolveStrokeDomains = ({
     return {
       ...basePlan,
       intervalDomainKind: 'legal-boundary-span',
+      domainMode: topology.closed
+        ? 'closed-constrained-domain'
+        : 'open-contour-constrained-domain',
       sideAuthority: 'implicit-fill-hole-domain',
       requiresImplicitFillHoleSideResolution: true,
       splitRangeDomains: [],
@@ -922,6 +942,7 @@ export const resolveStrokeDomains = ({
         ...basePlan,
         supportState: 'blocked',
         blockedReason: 'missing-source-path',
+        domainMode: 'unsupported',
         intervalDomainKind: 'none',
         sideAuthority: 'none',
         requiresImplicitFillHoleSideResolution: false,
@@ -935,6 +956,7 @@ export const resolveStrokeDomains = ({
         ...basePlan,
         supportState: 'blocked',
         blockedReason: 'missing-source-segments',
+        domainMode: 'unsupported',
         intervalDomainKind: 'none',
         sideAuthority: 'none',
         requiresImplicitFillHoleSideResolution: false,
@@ -966,6 +988,7 @@ export const resolveStrokeDomains = ({
         ...basePlan,
         supportState: 'blocked',
         blockedReason: 'missing-shared-source-split-ranges',
+        domainMode: 'unsupported',
         intervalDomainKind: 'none',
         sideAuthority: 'implicit-fill-hole-domain',
         requiresImplicitFillHoleSideResolution: true,
@@ -1011,6 +1034,7 @@ export const resolveStrokeDomains = ({
         ...basePlan,
         supportState: 'blocked',
         blockedReason: 'ambiguous-side-resolution',
+        domainMode: 'unsupported',
         intervalDomainKind: 'none',
         sideAuthority: 'implicit-fill-hole-domain',
         requiresImplicitFillHoleSideResolution: true,
@@ -1034,6 +1058,16 @@ export const resolveStrokeDomains = ({
         }) || hasSharedSelfIntersectingSplitRanges
           ? 'figma-like-split-range'
           : 'source-path',
+      domainMode: topology.closed
+        ? 'closed-constrained-domain'
+        : stroke.position === 'inside'
+          ? 'open-contour-constrained-domain'
+          : supplementedSplitRangeDomains.some(
+                (domain) =>
+                  domain.domainMode === 'open-dangling-outside-both-sides'
+              )
+            ? 'open-dangling-outside-both-sides'
+            : 'open-contour-constrained-domain',
       sideAuthority: 'implicit-fill-hole-domain',
       requiresImplicitFillHoleSideResolution: true,
       splitRangeDomains: supplementedSplitRangeDomains,
@@ -1043,7 +1077,11 @@ export const resolveStrokeDomains = ({
         'dash-domains-follow-boundary-domains',
         'side-authority-is-implicit-fill-hole-domain',
         ...(supplementedSplitRangeDomains.length > splitRangeDomains.length
-          ? ['source-span-fallback-domains-added']
+          ? [
+              topology.closed
+                ? 'source-span-product-domains-added'
+                : 'dangling-source-span-domains-added'
+            ]
           : [])
       ]
     }
@@ -1053,6 +1091,7 @@ export const resolveStrokeDomains = ({
     return {
       ...basePlan,
       intervalDomainKind: 'source-path',
+      domainMode: 'closed-constrained-domain',
       sideAuthority: 'source-path-orientation',
       requiresImplicitFillHoleSideResolution: false,
       splitRangeDomains: [],
@@ -1064,6 +1103,7 @@ export const resolveStrokeDomains = ({
   return {
     ...basePlan,
     intervalDomainKind: 'topology-arc-length',
+    domainMode: stroke.position === 'center' ? 'center-product' : 'center-product',
     sideAuthority: 'none',
     requiresImplicitFillHoleSideResolution: false,
     splitRangeDomains: [],

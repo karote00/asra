@@ -23,13 +23,24 @@ const getRenderVectorGraphicPrefix = (source: string) => {
   return source.slice(start, firstDomainStage)
 }
 
+const getRestyleStrokePathStyleBody = (source: string) => {
+  const start = source.indexOf('const restyleStrokePathStyle = (')
+  const end = source.indexOf('\n\nconst restyleStrokeRenderDescriptor', start)
+
+  expect(start).toBeGreaterThanOrEqual(0)
+  expect(end).toBeGreaterThan(start)
+
+  return source.slice(start, end)
+}
+
 describe('vector render strategy entry', () => {
   it('should run: keep vectorRenderStrategy as an orchestration-only entry wrapper', () => {
     const body = getVectorRenderStrategyBody(vectorComponentSource())
 
-    expect(body.trim()).toBe(
+    expect(body).toContain(
       'renderVectorGraphic(graphic, data as unknown as VectorComputedData)'
     )
+    expect(body).toContain('renderSolidCenterStrokeEntries(graphic, [])')
     expect(body).not.toMatch(
       /buildPathTopologyModel|buildConstrained|Ownership|ownerSet|legality|paint|geometryId/
     )
@@ -64,5 +75,14 @@ describe('vector render strategy entry', () => {
     expect(source).not.toContain(
       "rawData.fillRule === 'nonzero' ? 'nonzero' : null"
     )
+  })
+
+  it('should run: preserve descriptor geometry width when replaying stroke style', () => {
+    const body = getRestyleStrokePathStyleBody(vectorComponentSource())
+
+    expect(body).not.toContain('width: stroke.width')
+    expect(body).toContain('cap: stroke.cap')
+    expect(body).toContain('join: stroke.join')
+    expect(body).toContain('miterLimit: stroke.miterLimit')
   })
 })

@@ -722,10 +722,11 @@ const hasOpenImplicitConstrainedDashedFaces = (
       debugMeta?.geometryFamily === 'constrained-dashed' &&
       debugMeta.sourceTopology === 'self-intersecting' &&
       (debugMeta.topologyFamily === 'open' ||
+        debugMeta.figmaLikeDomainMode === 'open-dangling-outside-both-sides' ||
         debugMeta.figmaLikeSideResolutionReason ===
-          'open-source-span-both-sides' ||
+          'open-dangling-outside-both-sides' ||
         debugMeta.figmaLikeSplitRangeId?.startsWith(
-          'source-span-fallback:'
+          'dangling-source-span-domain:'
         ) === true)
     )
   })
@@ -1136,7 +1137,7 @@ const invertConstrainedStrokePositionForHole = (
   })
 }
 
-const mapOpenPathStrokePositionToCenter = (
+const mapSimpleOpenPathStrokePositionToCenter = (
   strokes: StrokeAttrs[] | undefined
 ): StrokeAttrs[] | undefined =>
   strokes?.map((stroke) =>
@@ -2561,7 +2562,6 @@ const restyleStrokePathStyle = (
   style
     ? {
         ...style,
-        width: stroke.width,
         cap: stroke.cap,
         join: stroke.join,
         miterLimit: stroke.miterLimit
@@ -2958,7 +2958,7 @@ const renderVectorGraphic = (
     networkPaths.every(({ topology }) => {
       const renderStrokesForNetwork = topology.closed
         ? renderData.strokes
-        : mapOpenPathStrokePositionToCenter(renderData.strokes)
+        : mapSimpleOpenPathStrokePositionToCenter(renderData.strokes)
       const strokes = getRenderableStrokes(renderStrokesForNetwork)
       return (
         strokes.length > 0 && strokes.every(isCenterDashedPathMaskVisualStroke)
@@ -3049,23 +3049,7 @@ const renderVectorGraphic = (
     hasOnlyCenterDashedPathMaskDragStrokes &&
     !hasConstrainedDashedIntent &&
     !hasConstrainedSolidIntent
-  const canUseFillOnlyResolvedGeometryForButtConstrainedDashedDrag =
-    isMouseDragging &&
-    !shouldAttachFullStrokeDiagnostics &&
-    hasConstrainedDashedIntent &&
-    !hasConstrainedSolidIntent &&
-    networkPaths.every(({ topology }) => {
-      const renderStrokesForNetwork = topology.closed
-        ? renderData.strokes
-        : mapOpenPathStrokePositionToCenter(renderData.strokes)
-      const strokes = getRenderableStrokes(renderStrokesForNetwork)
-      return strokes.every(
-        (stroke) =>
-          stroke.style === 'dashed' &&
-          (stroke.position === 'inside' || stroke.position === 'outside') &&
-          stroke.cap === 'butt'
-      )
-    })
+  const canUseFillOnlyResolvedGeometryForButtConstrainedDashedDrag = false
   if (canSkipResolvedGeometryForCenterDashedDrag) {
     emitStrokePipelineCounter('center-dashed-drag-resolved-geometry-skip')
   }
@@ -3173,34 +3157,33 @@ const renderVectorGraphic = (
       compoundRole?.role
     )
   }
-  const hasOpenSelfIntersectingImplicitFillDomain = (
+  const hasOpenBoundedFilledRegionDomain = (
     network: VectorNetwork,
     topology: PathTopologyModel
   ) =>
     !topology.closed &&
     (resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting?.fillRegions
       .length ?? 0) > 0
-  const shouldUseConstrainedStrokePositionForNetwork = (
+  const shouldUseConstrainedDomainPlanForNetwork = (
     network: VectorNetwork,
     topology: PathTopologyModel
-  ) =>
-    topology.closed || hasOpenSelfIntersectingImplicitFillDomain(network, topology)
-  const getRenderableStrokesForConstrainedNetwork = (
+  ) => topology.closed || hasOpenBoundedFilledRegionDomain(network, topology)
+  const getRenderableStrokesForDomainPlanNetwork = (
     network: VectorNetwork,
     topology: PathTopologyModel
   ) => {
     const strokesForNetwork = getStrokesForNetwork(network)
-    return shouldUseConstrainedStrokePositionForNetwork(network, topology)
+    return shouldUseConstrainedDomainPlanForNetwork(network, topology)
       ? strokesForNetwork
-      : mapOpenPathStrokePositionToCenter(strokesForNetwork)
+      : mapSimpleOpenPathStrokePositionToCenter(strokesForNetwork)
   }
   const hasConstrainedDashedStrokeForNetwork = (
     network: VectorNetwork,
     topology: PathTopologyModel
   ) =>
-    shouldUseConstrainedStrokePositionForNetwork(network, topology) &&
+    shouldUseConstrainedDomainPlanForNetwork(network, topology) &&
     getRenderableStrokes(
-      getRenderableStrokesForConstrainedNetwork(network, topology)
+      getRenderableStrokesForDomainPlanNetwork(network, topology)
     ).some(
       (stroke) =>
         stroke.style === 'dashed' &&
@@ -3261,11 +3244,11 @@ const renderVectorGraphic = (
     () =>
       isMouseDragging && !shouldAttachFullStrokeDiagnostics
         ? networkPaths.flatMap(({ network, path, topology }) => {
-            if (!shouldUseConstrainedStrokePositionForNetwork(network, topology)) {
+            if (!shouldUseConstrainedDomainPlanForNetwork(network, topology)) {
               return []
             }
             const compoundRole = compoundRoleByNetworkId.get(network.id)
-            const strokesForNetwork = getRenderableStrokesForConstrainedNetwork(
+            const strokesForNetwork = getRenderableStrokesForDomainPlanNetwork(
               network,
               topology
             )
@@ -3325,7 +3308,7 @@ const renderVectorGraphic = (
                   clipInsideToFillDomain:
                     path.closed === true ||
                     hasRenderableFill ||
-                    hasOpenSelfIntersectingImplicitFillDomain(network, topology)
+                    hasOpenBoundedFilledRegionDomain(network, topology)
                 }
               ) ?? []
             )
@@ -3369,14 +3352,14 @@ const renderVectorGraphic = (
               if (!constrainedDashedFallbackNetworkIdSet.has(network.id)) {
                 return []
               }
-              if (!shouldUseConstrainedStrokePositionForNetwork(network, topology)) {
+              if (
+                !shouldUseConstrainedDomainPlanForNetwork(network, topology)
+              ) {
                 return []
               }
               const compoundRole = compoundRoleByNetworkId.get(network.id)
-              const strokesForNetwork = getRenderableStrokesForConstrainedNetwork(
-                network,
-                topology
-              )
+              const strokesForNetwork =
+                getRenderableStrokesForDomainPlanNetwork(network, topology)
               const resolvedSelfIntersectingGeometry =
                 resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
               const isSelfIntersectingSourcePath =
@@ -3396,7 +3379,7 @@ const renderVectorGraphic = (
               const clipInsideToFillDomain =
                 path.closed === true ||
                 hasRenderableFill ||
-                hasOpenSelfIntersectingImplicitFillDomain(network, topology)
+                hasOpenBoundedFilledRegionDomain(network, topology)
               const constrainedDashedVisualMode =
                 shouldDisableVisualOverlapCollapse ||
                 !isSelfIntersectingSourcePath
@@ -3784,7 +3767,7 @@ const renderVectorGraphic = (
                       packet.geometry.debugMeta?.networkId === network.id
                   )
                 const constrainedDashedRuntimeStatus =
-                  shouldUseConstrainedStrokePositionForNetwork(network, topology)
+                  shouldUseConstrainedDomainPlanForNetwork(network, topology)
                     ? classifyConstrainedDashedRuntimeStatus({
                         points: topology.normalizedPoints,
                         closed: topology.closed,
@@ -3852,7 +3835,7 @@ const renderVectorGraphic = (
     topology: PathTopologyModel
   ) =>
     !topology.closed && !hasConstrainedDashedStrokeForNetwork(network, topology)
-      ? mapOpenPathStrokePositionToCenter(renderData.strokes)
+      ? mapSimpleOpenPathStrokePositionToCenter(renderData.strokes)
       : renderData.strokes
   const nativeCenterSolidVisualStrokeGroups: NativeCenterSolidVisualStrokeGroup[] =
     shouldDisableVisualOverlapCollapse
@@ -4122,7 +4105,9 @@ const renderVectorGraphic = (
         return finishCollapse([])
       }
 
-      if (hasOpenImplicitConstrainedDashedFaces(collapseInputStrokeFinalFaces)) {
+      if (
+        hasOpenImplicitConstrainedDashedFaces(collapseInputStrokeFinalFaces)
+      ) {
         emitStrokePipelineCounter(
           'visual-overlap-collapse-open-implicit-dashed-direct'
         )
@@ -4535,9 +4520,7 @@ const renderVectorGraphic = (
   )
   ;(
     graphic as typeof graphic & {
-      __asyraStrokeRenderFaceDebugMetas?: Array<
-        SolidCenterStrokeRenderEntry['debugMeta']
-      >
+      __asyraStrokeRenderFaceDebugMetas?: SolidCenterStrokeRenderEntry['debugMeta'][]
     }
   ).__asyraStrokeRenderFaceDebugMetas = [
     ...constrainedDashedProductVisualEntries.map((entry) => entry.debugMeta),
@@ -4552,7 +4535,10 @@ const renderVectorGraphic = (
     (strokeFinalFaces.length > 0 || strokeRenderEntries.length > 0)
   ) {
     const styleReplayable = canUseMiterStyleReplayableProductGeometrySignature
-      ? isMiterStyleReplayableStrokeProduct(strokeFinalFaces, strokeRenderEntries)
+      ? isMiterStyleReplayableStrokeProduct(
+          strokeFinalFaces,
+          strokeRenderEntries
+        )
       : false
     if (
       !canUseMiterStyleReplayableProductGeometrySignature ||

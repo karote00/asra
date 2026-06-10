@@ -25,7 +25,7 @@ import {
 } from './stroke-self-check-star-fixture'
 import type { SelfCheckJoinType, Vec2 } from './stroke-self-check-star-fixture'
 
-type SelfIntersectionSquareTerminalTangentHit = {
+interface SelfIntersectionSquareTerminalTangentHit {
   intersectionSplitBoundary?: boolean
   maxRedPixels?: number
   sameSplitRangeCovered?: boolean
@@ -36,7 +36,7 @@ const SPLIT_RANGE_VISUAL_GAP_RATIO_OVERRIDE =
   '__ASYRA_STROKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO__'
 
 type SelfCheckMetadata = Awaited<ReturnType<typeof getSelfCheckMetadata>>
-type SplitRangeVisualGapRecord = {
+interface SplitRangeVisualGapRecord {
   splitRangeId: string
   terminalRole: string
   startDistance: number
@@ -51,7 +51,8 @@ const getSplitRangeVisualGapMetrics = (
   const dashGap = 20
   const strokeWidth =
     metadata.boundaryDomainPackets.find(
-      (packet) => typeof packet.strokeWidth === 'number' && packet.strokeWidth > 0
+      (packet) =>
+        typeof packet.strokeWidth === 'number' && packet.strokeWidth > 0
     )?.strokeWidth ?? 10
   const capExtension = capType === 'butt' ? 0 : strokeWidth
   const minimumVisualGap = dashGap * minimumGapRatio
@@ -88,10 +89,7 @@ const getSplitRangeVisualGapMetrics = (
     const sorted = records
       .slice()
       .sort((left, right) => left.startDistance - right.startDistance)
-    if (
-      sorted.length === 1 &&
-      sorted[0]?.terminalRole === 'start-end'
-    ) {
+    if (sorted.length === 1 && sorted[0]?.terminalRole === 'start-end') {
       collapsedStartEndCount += 1
       return
     }
@@ -286,6 +284,10 @@ const expectLegalSelfIntersectionSquareTangentDiagnostics = (
       JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
     ).toEqual([])
     expect(
+      boundaryDomainAnalysis.dashBodyWidthProbeFailures,
+      JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
+    ).toEqual([])
+    expect(
       boundaryDomainAnalysis.splitRangeSideConsistencyFailures,
       JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
     ).toEqual([])
@@ -463,6 +465,10 @@ const expectLegalSelfIntersectionSquareTangentDiagnostics = (
       JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
     ).toEqual([])
     expect(
+      boundaryDomainAnalysis.dashBodyWidthProbeFailures,
+      JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
+    ).toEqual([])
+    expect(
       boundaryDomainAnalysis.splitRangeSideConsistencyFailures,
       JSON.stringify({ capType, boundaryDomainAnalysis }, null, 2)
     ).toEqual([])
@@ -557,7 +563,10 @@ test('self-check: split-range visual gap ratio sweep keeps capped dash groups le
         metrics
       })
       await page.evaluate((key) => {
-        delete (window as unknown as Record<string, unknown>)[key]
+        Reflect.deleteProperty(
+          window as unknown as Record<string, unknown>,
+          key
+        )
       }, SPLIT_RANGE_VISUAL_GAP_RATIO_OVERRIDE)
       await testInfo.attach(`split-range-gap-ratio-${position}-${ratioLabel}`, {
         path: screenshotPath,
@@ -580,7 +589,7 @@ test('self-check: split-range visual gap ratio sweep keeps capped dash groups le
   }
 
   await page.evaluate((key) => {
-    delete (window as unknown as Record<string, unknown>)[key]
+    Reflect.deleteProperty(window as unknown as Record<string, unknown>, key)
   }, SPLIT_RANGE_VISUAL_GAP_RATIO_OVERRIDE)
 
   const summaryPath = path.join(
@@ -665,17 +674,17 @@ test('self-check: self-intersecting outside dashed square cap with miter join ke
       )
       return packets.length > 0
         ? [
-          {
-            anchorId,
-            packetCount: packets.length,
-            geometryIds: packets.map((packet) => packet.geometryId),
-            packetShapes: packets.map((packet) => ({
-              geometryId: packet.geometryId,
-              polygonCount: packet.polygonCount,
-              polygonSizes: packet.polygons.map((polygon) => polygon.length)
-            }))
-          }
-        ]
+            {
+              anchorId,
+              packetCount: packets.length,
+              geometryIds: packets.map((packet) => packet.geometryId),
+              packetShapes: packets.map((packet) => ({
+                geometryId: packet.geometryId,
+                polygonCount: packet.polygonCount,
+                polygonSizes: packet.polygons.map((polygon) => polygon.length)
+              }))
+            }
+          ]
         : []
     })
   const analysis = {
@@ -685,26 +694,9 @@ test('self-check: self-intersecting outside dashed square cap with miter join ke
   fs.writeFileSync(paths.analysis, `${JSON.stringify(analysis, null, 2)}\n`)
 
   expect(
-    sourceVertexJoinPackets.map((entry) => entry.anchorId).sort(),
+    sourceVertexJoinPackets,
     JSON.stringify({ sourceVertexJoinPackets }, null, 2)
-  ).toEqual(
-    Object.keys(SELF_CHECK_SOURCE_POINTS)
-      .filter((anchorId) => /^tp-\d+$/.test(anchorId))
-      .sort()
-  )
-  expect(
-    sourceVertexJoinPackets.every(
-      (entry) =>
-        entry.packetCount === 1 &&
-        entry.packetShapes.every(
-          (shape) =>
-            shape.polygonCount === 1 &&
-            shape.polygonSizes.length === 1 &&
-            shape.polygonSizes[0] === 4
-        )
-    ),
-    JSON.stringify({ sourceVertexJoinPackets }, null, 2)
-  ).toBe(true)
+  ).toEqual([])
   expect(
     boundaryDomainAnalysis.terminalProbeFailures,
     JSON.stringify(boundaryDomainAnalysis, null, 2)
@@ -1111,22 +1103,28 @@ test('self-check: right-bottom high-curvature outside dashed terminal remains ca
   ) =>
     Math.max(
       0,
-      ...(
-        localSourceVertexJoinPolygonSizes.find(
-          (entry) => entry.joinType === joinType
-        )?.[sourcePointId] ?? []
-      )
+      ...(localSourceVertexJoinPolygonSizes.find(
+        (entry) => entry.joinType === joinType
+      )?.[sourcePointId] ?? [])
     )
   expect(
     {
-      rightTopRoundJoinPacketSize:
-        getLocalSourceVertexJoinMaxPolygonSize('round', 'tp14'),
-      rightTopMiterJoinPacketSize:
-        getLocalSourceVertexJoinMaxPolygonSize('miter', 'tp14'),
-      leftTopRoundJoinPacketSize:
-        getLocalSourceVertexJoinMaxPolygonSize('round', 'tp15'),
-      leftTopMiterJoinPacketSize:
-        getLocalSourceVertexJoinMaxPolygonSize('miter', 'tp15')
+      rightTopRoundJoinPacketSize: getLocalSourceVertexJoinMaxPolygonSize(
+        'round',
+        'tp14'
+      ),
+      rightTopMiterJoinPacketSize: getLocalSourceVertexJoinMaxPolygonSize(
+        'miter',
+        'tp14'
+      ),
+      leftTopRoundJoinPacketSize: getLocalSourceVertexJoinMaxPolygonSize(
+        'round',
+        'tp15'
+      ),
+      leftTopMiterJoinPacketSize: getLocalSourceVertexJoinMaxPolygonSize(
+        'miter',
+        'tp15'
+      )
     },
     JSON.stringify(
       {
@@ -1317,138 +1315,173 @@ test('self-check: outside dashed star captures Cmd+1 and app-zoom coverage-unit 
     JSON.stringify({ crossIntervalArrangedPackets }, null, 2)
   ).toEqual([])
 })
+;(['butt', 'square'] as const).forEach((capType) => {
+  test(`self-check: outside dashed ${capType} no-fill keeps terminal dash bodies on selected outside side`, async ({
+    page
+  }, testInfo) => {
+    fs.mkdirSync(ARTIFACT_DIR, { recursive: true })
 
-test('self-check: outside dashed square no-fill keeps terminal caps on selected outside side', async ({
-  page
-}, testInfo) => {
-  fs.mkdirSync(ARTIFACT_DIR, { recursive: true })
+    await createSelfCheckStar(page, {
+      capType,
+      joinType: 'miter',
+      position: 'outside',
+      includeFill: false,
+      diagnosticsMode: 'off'
+    })
+    const productScreenshotPath = path.join(
+      ARTIFACT_DIR,
+      `self-check-outside-dashed-${capType}-no-fill-product.png`
+    )
+    const productMetadataPath = path.join(
+      ARTIFACT_DIR,
+      `self-check-outside-dashed-${capType}-no-fill-product.json`
+    )
+    const productScreenshot = await page.screenshot({
+      path: productScreenshotPath,
+      fullPage: false
+    })
+    const productMetadata = await getSelfCheckMetadata(page)
+    fs.writeFileSync(
+      productMetadataPath,
+      `${JSON.stringify(productMetadata, null, 2)}\n`
+    )
+    await testInfo.attach(`outside-${capType}-no-fill-product`, {
+      body: productScreenshot,
+      contentType: 'image/png'
+    })
 
-  await createSelfCheckStar(page, {
-    capType: 'square',
-    joinType: 'miter',
-    position: 'outside',
-    includeFill: false
-  })
-  await page.waitForFunction(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
-    const selectedId =
-      core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
-    const element = selectedId
-      ? core?.deps?.sceneTree?.getElementById?.(selectedId)
-      : null
-    const computed = element?.getAllComputedData?.()
-    return Boolean(computed?.strokes?.length && !computed?.fills?.length)
-  })
-  await page.waitForTimeout(1000)
+    await createSelfCheckStar(page, {
+      capType,
+      joinType: 'miter',
+      position: 'outside',
+      includeFill: false,
+      diagnosticsMode: 'full'
+    })
+    await page.waitForFunction(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      const element = selectedId
+        ? core?.deps?.sceneTree?.getElementById?.(selectedId)
+        : null
+      const computed = element?.getAllComputedData?.()
+      return Boolean(computed?.strokes?.length && !computed?.fills?.length)
+    })
+    await page.waitForTimeout(1000)
 
-  const metadata = await getSelfCheckMetadata(page)
-  const screenshotPath = path.join(
-    ARTIFACT_DIR,
-    'self-check-outside-dashed-square-no-fill.png'
-  )
-  const metadataPath = path.join(
-    ARTIFACT_DIR,
-    'self-check-outside-dashed-square-no-fill.json'
-  )
-  const analysisPath = path.join(
-    ARTIFACT_DIR,
-    'self-check-outside-dashed-square-no-fill-analysis.json'
-  )
-  fs.writeFileSync(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`)
-  const screenshot = await page.screenshot({
-    path: screenshotPath,
-    fullPage: false
-  })
-  const boundaryDomainAnalysis = await analyzeSelfCheckBoundaryDomainOracle(
-    page,
-    screenshot,
-    metadata,
-    SELF_CHECK_SOURCE_PATH,
-    {
-      capType: 'square',
-      expectedPosition: 'outside'
-    }
-  )
-  fs.writeFileSync(
-    analysisPath,
-    `${JSON.stringify({ boundaryDomainAnalysis }, null, 2)}\n`
-  )
+    const metadata = await getSelfCheckMetadata(page)
+    const screenshotPath = path.join(
+      ARTIFACT_DIR,
+      `self-check-outside-dashed-${capType}-no-fill.png`
+    )
+    const metadataPath = path.join(
+      ARTIFACT_DIR,
+      `self-check-outside-dashed-${capType}-no-fill.json`
+    )
+    const analysisPath = path.join(
+      ARTIFACT_DIR,
+      `self-check-outside-dashed-${capType}-no-fill-analysis.json`
+    )
+    fs.writeFileSync(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`)
+    const screenshot = await page.screenshot({
+      path: screenshotPath,
+      fullPage: false
+    })
+    const boundaryDomainAnalysis = await analyzeSelfCheckBoundaryDomainOracle(
+      page,
+      screenshot,
+      metadata,
+      SELF_CHECK_SOURCE_PATH,
+      {
+        capType,
+        expectedPosition: 'outside'
+      }
+    )
+    fs.writeFileSync(
+      analysisPath,
+      `${JSON.stringify({ boundaryDomainAnalysis }, null, 2)}\n`
+    )
 
-  expect(metadata.exportPacketCount).toBeGreaterThan(0)
-  expect(boundaryDomainAnalysis.packetCount).toBe(metadata.exportPacketCount)
-  expect(
-    boundaryDomainAnalysis.intervalPacketFailureCount,
-    JSON.stringify(boundaryDomainAnalysis.intervalPacketFailures, null, 2)
-  ).toBe(0)
-  expect(
-    boundaryDomainAnalysis.coverageProbeFailures,
-    JSON.stringify(boundaryDomainAnalysis, null, 2)
-  ).toEqual([])
-  expect(
-    boundaryDomainAnalysis.terminalProbeFailures,
-    JSON.stringify(boundaryDomainAnalysis, null, 2)
-  ).toEqual([])
-  expect(
-    boundaryDomainAnalysis.terminalBoundaryProbeFailures,
-    JSON.stringify(boundaryDomainAnalysis, null, 2)
-  ).toEqual([])
-  expect(
-    boundaryDomainAnalysis.visibleDashProbeFailures,
-    JSON.stringify(boundaryDomainAnalysis, null, 2)
-  ).toEqual([])
-  expect(
-    boundaryDomainAnalysis.debugRawPacketProbeFailures,
-    JSON.stringify(boundaryDomainAnalysis, null, 2)
-  ).toEqual([])
-  expect(
-    boundaryDomainAnalysis.splitRangeSideConsistencyFailures,
-    JSON.stringify(boundaryDomainAnalysis, null, 2)
-  ).toEqual([])
-  expect(
-    boundaryDomainAnalysis.intervalContinuityFailures,
-    JSON.stringify(boundaryDomainAnalysis, null, 2)
-  ).toEqual([])
-  expect(
-    boundaryDomainAnalysis.distributionFailures,
-    JSON.stringify(boundaryDomainAnalysis, null, 2)
-  ).toEqual([])
-  expect(
-    boundaryDomainAnalysis.oppositeSideProbeHits,
-    JSON.stringify(boundaryDomainAnalysis, null, 2)
-  ).toEqual([])
-  expect(
-    boundaryDomainAnalysis.selfIntersectionTerminalOppositeSideProbeHits,
-    JSON.stringify(boundaryDomainAnalysis, null, 2)
-  ).toEqual([])
-  expectLegalSelfIntersectionSquareTangentDiagnostics(
-    boundaryDomainAnalysis.selfIntersectionSquareTerminalTangentOverhangHits,
-    { capType: 'square', variant: 'no-fill' }
-  )
-  expect(
-    boundaryDomainAnalysis.selfIntersectionSquareTerminalWrongSideHits,
-    JSON.stringify(boundaryDomainAnalysis, null, 2)
-  ).toEqual([])
-  expect(
-    boundaryDomainAnalysis.selfIntersectionSquareTerminalShortBodyCollarHits,
-    JSON.stringify(boundaryDomainAnalysis, null, 2)
-  ).toEqual([])
-  expect(
-    boundaryDomainAnalysis.maxSourceFillDomainLeakComponentArea,
-    JSON.stringify(boundaryDomainAnalysis, null, 2)
-  ).toBeLessThan(4)
+    expect(metadata.exportPacketCount).toBeGreaterThan(0)
+    expect(boundaryDomainAnalysis.packetCount).toBe(metadata.exportPacketCount)
+    expect(
+      boundaryDomainAnalysis.intervalPacketFailureCount,
+      JSON.stringify(boundaryDomainAnalysis.intervalPacketFailures, null, 2)
+    ).toBe(0)
+    expect(
+      boundaryDomainAnalysis.coverageProbeFailures,
+      JSON.stringify(boundaryDomainAnalysis, null, 2)
+    ).toEqual([])
+    expect(
+      boundaryDomainAnalysis.terminalProbeFailures,
+      JSON.stringify(boundaryDomainAnalysis, null, 2)
+    ).toEqual([])
+    expect(
+      boundaryDomainAnalysis.terminalBoundaryProbeFailures,
+      JSON.stringify(boundaryDomainAnalysis, null, 2)
+    ).toEqual([])
+    expect(
+      boundaryDomainAnalysis.visibleDashProbeFailures,
+      JSON.stringify(boundaryDomainAnalysis, null, 2)
+    ).toEqual([])
+    expect(
+      boundaryDomainAnalysis.dashBodyWidthProbeFailures,
+      JSON.stringify(boundaryDomainAnalysis, null, 2)
+    ).toEqual([])
+    expect(
+      boundaryDomainAnalysis.debugRawPacketProbeFailures,
+      JSON.stringify(boundaryDomainAnalysis, null, 2)
+    ).toEqual([])
+    expect(
+      boundaryDomainAnalysis.splitRangeSideConsistencyFailures,
+      JSON.stringify(boundaryDomainAnalysis, null, 2)
+    ).toEqual([])
+    expect(
+      boundaryDomainAnalysis.intervalContinuityFailures,
+      JSON.stringify(boundaryDomainAnalysis, null, 2)
+    ).toEqual([])
+    expect(
+      boundaryDomainAnalysis.distributionFailures,
+      JSON.stringify(boundaryDomainAnalysis, null, 2)
+    ).toEqual([])
+    expect(
+      boundaryDomainAnalysis.oppositeSideProbeHits,
+      JSON.stringify(boundaryDomainAnalysis, null, 2)
+    ).toEqual([])
+    expect(
+      boundaryDomainAnalysis.selfIntersectionTerminalOppositeSideProbeHits,
+      JSON.stringify(boundaryDomainAnalysis, null, 2)
+    ).toEqual([])
+    expectLegalSelfIntersectionSquareTangentDiagnostics(
+      boundaryDomainAnalysis.selfIntersectionSquareTerminalTangentOverhangHits,
+      { capType, variant: 'no-fill' }
+    )
+    expect(
+      boundaryDomainAnalysis.selfIntersectionSquareTerminalWrongSideHits,
+      JSON.stringify(boundaryDomainAnalysis, null, 2)
+    ).toEqual([])
+    expect(
+      boundaryDomainAnalysis.selfIntersectionSquareTerminalShortBodyCollarHits,
+      JSON.stringify(boundaryDomainAnalysis, null, 2)
+    ).toEqual([])
+    expect(
+      boundaryDomainAnalysis.maxSourceFillDomainLeakComponentArea,
+      JSON.stringify(boundaryDomainAnalysis, null, 2)
+    ).toBeLessThan(4)
 
-  await testInfo.attach('outside-square-no-fill-screenshot', {
-    path: screenshotPath,
-    contentType: 'image/png'
-  })
-  await testInfo.attach('outside-square-no-fill-metadata', {
-    path: metadataPath,
-    contentType: 'application/json'
-  })
-  await testInfo.attach('outside-square-no-fill-analysis', {
-    path: analysisPath,
-    contentType: 'application/json'
+    await testInfo.attach(`outside-${capType}-no-fill-screenshot`, {
+      path: screenshotPath,
+      contentType: 'image/png'
+    })
+    await testInfo.attach(`outside-${capType}-no-fill-metadata`, {
+      path: metadataPath,
+      contentType: 'application/json'
+    })
+    await testInfo.attach(`outside-${capType}-no-fill-analysis`, {
+      path: analysisPath,
+      contentType: 'application/json'
+    })
   })
 })
 
@@ -1577,7 +1610,10 @@ test('self-check: self-intersecting inside dashed round star satisfies rule-driv
   fs.writeFileSync(
     NO_FILL_ANALYSIS_PATH,
     `${JSON.stringify(
-      { boundaryDomainAnalysis: noFillAnalysis, sourcePathAnalysis: noFillSourcePathAnalysis },
+      {
+        boundaryDomainAnalysis: noFillAnalysis,
+        sourcePathAnalysis: noFillSourcePathAnalysis
+      },
       null,
       2
     )}\n`
@@ -1614,6 +1650,10 @@ test('self-check: self-intersecting inside dashed round star satisfies rule-driv
   ).toEqual([])
   expect(
     noFillAnalysis.visibleDashProbeFailures,
+    JSON.stringify(noFillAnalysis, null, 2)
+  ).toEqual([])
+  expect(
+    noFillAnalysis.dashBodyWidthProbeFailures,
     JSON.stringify(noFillAnalysis, null, 2)
   ).toEqual([])
   expect(

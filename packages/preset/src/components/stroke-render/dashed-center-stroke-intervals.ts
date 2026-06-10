@@ -25,6 +25,7 @@ export interface DashedCenterStrokeIntervalRecord {
   figmaLikeFilledSide?: 1 | -1
   figmaLikeUnfilledSide?: 1 | -1
   figmaLikeBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
+  figmaLikeDomainMode?: string
   figmaLikeSideResolutionStatus?: 'resolved' | 'blocked'
   figmaLikeSideResolutionReason?: string
   openPathTerminalRole?: 'path-start' | 'path-end' | 'start-end' | 'middle'
@@ -68,6 +69,7 @@ export interface FigmaLikeSplitRangeVisualGapOptions {
 
 export interface FigmaLikeSplitRangeDashDomain {
   domainId: string
+  domainMode?: string
   boundaryDomainId?: string
   boundaryPoints?: { x: number; y: number }[]
   boundaryStartDistance?: number
@@ -844,6 +846,7 @@ export const allocateFigmaLikeSplitRangeDashedIntervals = ({
         figmaLikeFilledSide: domain.filledSide,
         figmaLikeUnfilledSide: domain.unfilledSide,
         figmaLikeBoundaryRole: domain.boundaryRole,
+        figmaLikeDomainMode: domain.domainMode,
         figmaLikeSideResolutionStatus: domain.sideResolutionStatus,
         figmaLikeSideResolutionReason: domain.sideResolutionReason
       }))

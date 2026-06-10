@@ -121,6 +121,13 @@ the planar arrangement of the real open source segments only; the renderer must
 not add an invisible closing edge for domain, dash, hit-test, export, or product
 output.
 
+Stroke domain plan is the single product routing entry point for open/closed
+semantics. Vector render code and packet builders must not independently map
+open constrained strokes to center; they consume domain modes such as
+`simple-open-center-product`, `closed-constrained-domain`,
+`open-contour-constrained-domain`, and
+`open-dangling-outside-both-sides`.
+
 Open self-intersecting `inside` dashed output follows the closed contour rule:
 only source spans that participate in a resolved filled contour may produce
 inside dash pixels. Dangling open branches and source spans that do not form a
@@ -169,9 +176,11 @@ one fill domain and one stroke style, same-visual overlap collapse is not
 required; diagnostics/export may still keep per-interval evidence, but visible
 render must consume the exact descriptor. When resolved self-intersection
 metadata already provides boundary-domain split ranges, product-visible
-descriptor routing must reuse that metadata. Source-span fallback domains may
-fill uncovered source segment spans, but they must not retrace the whole source
-path or recompute source intersections inside the drag/render product stage.
+descriptor routing must reuse that metadata. Resolved source-span product
+domains may fill uncovered source segment spans, but they must not retrace the
+whole source path or recompute source intersections inside the drag/render
+product stage. Dangling open-branch spans for outside are explicit dangling
+source-span domains, not diagnostic fallback.
 
 For product-visible constrained `outside` dashed render, drag-time visible
 render may use the same exact descriptor model with an exterior clip mask:

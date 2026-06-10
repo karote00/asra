@@ -649,6 +649,7 @@ describe('stroke domain plan', () => {
 
       if (entry.strokePosition === StrokePositions.CENTER) {
         expect(plan).toMatchObject({
+          domainMode: 'center-product',
           intervalDomainKind: 'topology-arc-length',
           sideAuthority: 'none',
           requiresImplicitFillHoleSideResolution: false
@@ -659,6 +660,7 @@ describe('stroke domain plan', () => {
       if (entry.familyScope === 'open') {
         expect(plan).toMatchObject({
           supportState: 'center-equivalent',
+          domainMode: 'simple-open-center-product',
           intervalDomainKind: 'topology-arc-length',
           sideAuthority: 'center-equivalent'
         })
@@ -667,6 +669,7 @@ describe('stroke domain plan', () => {
 
       if (entry.familyScope === 'compound-closed') {
         expect(plan).toMatchObject({
+          domainMode: 'closed-constrained-domain',
           intervalDomainKind: 'legal-boundary-span',
           sideAuthority: 'implicit-fill-hole-domain',
           requiresImplicitFillHoleSideResolution: true
@@ -691,6 +694,7 @@ describe('stroke domain plan', () => {
 
       if (entry.familyScope === 'self-intersecting-closed') {
         expect(plan).toMatchObject({
+          domainMode: 'closed-constrained-domain',
           sideAuthority: 'implicit-fill-hole-domain',
           requiresImplicitFillHoleSideResolution: true
         })
@@ -754,6 +758,7 @@ describe('stroke domain plan', () => {
     expect(pathTopology.topologyFamily).toBe('self-intersecting')
     expect(plan).toMatchObject({
       supportState: 'supported',
+      domainMode: 'closed-constrained-domain',
       intervalDomainKind: 'figma-like-split-range',
       sideAuthority: 'implicit-fill-hole-domain',
       requiresImplicitFillHoleSideResolution: true
@@ -874,21 +879,24 @@ describe('stroke domain plan', () => {
     const coveredSegmentIndexes = new Set(
       plan.splitRangeDomains.map((domain) => domain.sourceSegmentIndex)
     )
-    const fallbackDomains = plan.splitRangeDomains.filter((domain) =>
-      domain.domainId.startsWith('source-span-fallback:')
+    const productDomains = plan.splitRangeDomains.filter((domain) =>
+      domain.domainId.startsWith('source-span-product-domain:')
     )
 
     expect(pathTopology.topologyFamily).toBe('self-intersecting')
+    expect(plan.domainMode).toBe('closed-constrained-domain')
     expect(plan.intervalDomainKind).toBe('figma-like-split-range')
     expect(plan.diagnostics).toContain(
-      'source-span-fallback-domains-added'
+      'source-span-product-domains-added'
     )
     expect(coveredSegmentIndexes).toEqual(new Set([0, 1, 2, 3, 4]))
-    expect(fallbackDomains.length).toBeGreaterThan(0)
+    expect(productDomains.length).toBeGreaterThan(0)
     expect(
-      fallbackDomains.every(
+      productDomains.every(
         (domain) =>
+          domain.domainMode === 'closed-constrained-domain' &&
           domain.sideResolutionStatus === 'resolved' &&
+          domain.sideResolutionReason === 'source-span-product-domain' &&
           domain.selectedSide === domain.filledSide &&
           domain.filledSide !== domain.unfilledSide &&
           domain.boundaryRole === 'ambiguous'
@@ -1203,10 +1211,185 @@ describe('stroke domain plan', () => {
 
     expect(plan).toMatchObject({
       supportState: 'center-equivalent',
+      domainMode: 'simple-open-center-product',
       intervalDomainKind: 'topology-arc-length',
       sideAuthority: 'center-equivalent',
       splitRangeDomains: []
     })
     expect(plan.blockedReason).toBeUndefined()
+  })
+
+  it('should run: split open self-intersecting dashed domains into contour and dangling rules', () => {
+    const points = {
+      'tp-36': {
+        id: 'tp-36',
+        kind: 'anchor',
+        x: 672.1796903067977,
+        y: -25.577192537243718,
+        anchorType: 'sharp',
+        handleMode: 'none'
+      },
+      'tp-39': {
+        id: 'tp-39',
+        kind: 'anchor',
+        x: 494.0219478943302,
+        y: 383.5816904608811,
+        anchorType: 'smooth',
+        handleMode: 'none'
+      },
+      'tp-36:in': {
+        id: 'tp-36:in',
+        kind: 'control',
+        x: 672.1796903067977,
+        y: -25.577192537243718,
+        controlForId: 'tp-36',
+        controlRole: 'in'
+      },
+      'tp-39:out': {
+        id: 'tp-39:out',
+        kind: 'control',
+        x: 420.04119045186485,
+        y: 382.0718790845042,
+        controlForId: 'tp-39',
+        controlRole: 'out'
+      },
+      'tp-39:in': {
+        id: 'tp-39:in',
+        kind: 'control',
+        x: 568.0027053367955,
+        y: 385.09150183725797,
+        controlForId: 'tp-39',
+        controlRole: 'in'
+      },
+      'tp-40': {
+        id: 'tp-40',
+        kind: 'anchor',
+        x: 847.3178099665117,
+        y: 155.6001726279776,
+        anchorType: 'sharp',
+        handleMode: 'none'
+      },
+      'tp-41': {
+        id: 'tp-41',
+        kind: 'anchor',
+        x: 486.47289101244587,
+        y: 158.61979538073132,
+        anchorType: 'sharp',
+        handleMode: 'none'
+      },
+      'tp-42': {
+        id: 'tp-42',
+        kind: 'anchor',
+        x: 823.1608279444822,
+        y: 344.32659467508313,
+        anchorType: 'sharp',
+        handleMode: 'none'
+      }
+    } satisfies Record<string, VectorPointNode>
+    const segments = {
+      'ts-55': {
+        id: 'ts-55',
+        startId: 'tp-39',
+        endId: 'tp-36',
+        outControlId: 'tp-39:out',
+        inControlId: 'tp-36:in'
+      },
+      'ts-56': {
+        id: 'ts-56',
+        startId: 'tp-40',
+        endId: 'tp-39',
+        outControlId: null,
+        inControlId: 'tp-39:in'
+      },
+      'ts-57': {
+        id: 'ts-57',
+        startId: 'tp-41',
+        endId: 'tp-40',
+        outControlId: null,
+        inControlId: null
+      },
+      'ts-58': {
+        id: 'ts-58',
+        startId: 'tp-42',
+        endId: 'tp-41',
+        outControlId: null,
+        inControlId: null
+      }
+    } satisfies Record<string, VectorSegment>
+    const network = {
+      id: 'open-self-intersecting-pentagram',
+      pointIds: ['tp-42', 'tp-41', 'tp-40', 'tp-39', 'tp-36'],
+      segmentIds: ['ts-58', 'ts-57', 'ts-56', 'ts-55'],
+      closed: false
+    } satisfies VectorNetwork
+    const sourcePath = buildVectorGeometryModelPath(network, points, segments)
+    const pathTopology = buildPathTopologyModel({
+      pathId: 'stroke-domain:open-self-intersecting-pentagram',
+      sourceId: 'vector:stroke-domain-open-self-intersecting',
+      networkId: network.id,
+      sourceRevision: 'source-revision:stroke-domain-open-self-intersecting',
+      sourceFamily: 'vector',
+      points: sourcePath.sampledPoints,
+      closed: network.closed
+    })
+    const resolvedGeometry = buildResolvedVectorGeometryModel({
+      modelId: 'stroke-domain:open-self-intersecting:resolved-geometry',
+      fillRule: pathTopology.fillRule,
+      networks: [
+        {
+          networkId: pathTopology.networkId,
+          path: sourcePath,
+          topology: pathTopology
+        }
+      ]
+    })
+    const selfIntersecting = resolvedGeometry.networks[0]?.selfIntersecting
+
+    expect(pathTopology.closed).toBe(false)
+    expect(selfIntersecting?.fillRegions.length ?? 0).toBeGreaterThan(0)
+
+    const resolveOpenPlan = (position: 'inside' | 'outside') => {
+      const renderableStroke = stroke(StrokeStyles.DASHED, position)
+      return resolveStrokeDomains({
+        topology: pathTopology,
+        sourceFamily: resolveSourceFamily({
+          topology: pathTopology,
+          stroke: renderableStroke
+        }),
+        stroke: renderableStroke,
+        sourcePath,
+        implicitFillRegions: selfIntersecting?.fillRegions ?? [],
+        sharedSourceSplitRanges: selfIntersecting?.sourceSplitRanges ?? [],
+        sharedStrokeBoundaryDomains:
+          selfIntersecting?.strokeBoundaryDomains ?? []
+      })
+    }
+
+    const insidePlan = resolveOpenPlan(StrokePositions.INSIDE)
+    expect(insidePlan.domainMode).toBe('open-contour-constrained-domain')
+    expect(insidePlan.intervalDomainKind).toBe('figma-like-split-range')
+    expect(
+      insidePlan.splitRangeDomains.some(
+        (domain) =>
+          domain.domainMode === 'open-dangling-outside-both-sides' ||
+          domain.domainId.startsWith('dangling-source-span-domain:')
+      )
+    ).toBe(false)
+
+    const outsidePlan = resolveOpenPlan(StrokePositions.OUTSIDE)
+    expect(outsidePlan.domainMode).toBe('open-dangling-outside-both-sides')
+    expect(outsidePlan.intervalDomainKind).toBe('figma-like-split-range')
+    expect(outsidePlan.diagnostics).toContain(
+      'dangling-source-span-domains-added'
+    )
+    expect(
+      outsidePlan.splitRangeDomains.some(
+        (domain) =>
+          domain.domainMode === 'open-dangling-outside-both-sides' &&
+          domain.sideResolutionReason ===
+            'open-dangling-outside-both-sides' &&
+          domain.domainId.startsWith('dangling-source-span-domain:')
+      )
+    ).toBe(true)
   })
 })
