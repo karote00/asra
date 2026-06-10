@@ -427,16 +427,27 @@ const buildSharedSplitRangeDashDomains = ({
   stroke: Pick<RenderableStroke, 'position' | 'width'>
 }): FigmaLikeSplitRangeDashDomain[] =>
   sharedStrokeBoundaryDomains.flatMap((range) => {
+    const isOpenContourOwnedOutsideDomain =
+      stroke.position === 'outside' &&
+      sourceFamily.legalDomainHints.closed === false &&
+      range.boundaryRole !== 'ambiguous' &&
+      ((range.contourIds?.length ?? 0) > 0 ||
+        (range.legalFaceIds?.length ?? 0) > 0)
     if (stroke.position === 'inside' && !range.insideEligible) {
       return []
     }
-    if (stroke.position === 'outside' && !range.outsideEligible) {
+    if (
+      stroke.position === 'outside' &&
+      !range.outsideEligible &&
+      !isOpenContourOwnedOutsideDomain
+    ) {
       return []
     }
     const selectedSide =
       stroke.position === 'inside'
         ? range.insideSelectedSide
-        : range.outsideSelectedSide
+        : (range.outsideSelectedSide ??
+          (isOpenContourOwnedOutsideDomain ? range.unfilledSide : null))
     if (selectedSide === null) {
       return []
     }
@@ -753,18 +764,12 @@ const supplementOutsideDashedOpenSourceSpanDomains = ({
   splitRangeDomains: FigmaLikeSplitRangeDashDomain[]
   sharedSourceSplitRanges?: ResolvedVectorSourceSplitRange[]
 }): FigmaLikeSplitRangeDashDomain[] => {
-  const sourceDomains = buildFigmaLikeSplitRangeDashDomains(sourcePath)
+  const sourceDomains = buildSourcePathSegmentSpanDomains(sourcePath)
   const contourSplitRangeDomains = splitRangeDomains.filter((domain) => {
-    const sourceRange = getSourceRange(domain)
-    return isContourOwnedSourceRange({
-      sourcePath,
-      sourceSegmentIndex: domain.sourceSegmentIndex,
-      startDistance: sourceRange.startDistance,
-      endDistance: sourceRange.endDistance,
-      boundaryRole: domain.boundaryRole,
-      contourIds: domain.contourIds,
-      legalFaceIds: domain.legalDomainIds
-    })
+    return (
+      domain.sideResolutionStatus === 'resolved' &&
+      domain.boundaryRole !== 'ambiguous'
+    )
   })
   const contourSplitRangeSourceCoverages = contourSplitRangeDomains.map(
     toSourceCoverageDomain

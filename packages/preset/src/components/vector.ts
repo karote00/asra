@@ -3272,9 +3272,6 @@ const renderVectorGraphic = (
             if (!hasConstrainedDashedStrokeForNetwork(network, topology)) {
               return []
             }
-            if (hasOpenSelfIntersectingImplicitFillDomain(network, topology)) {
-              return []
-            }
             const resolvedSelfIntersectingGeometry =
               resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
             const isSelfIntersectingSourcePath =

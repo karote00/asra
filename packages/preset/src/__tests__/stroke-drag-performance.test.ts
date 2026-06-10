@@ -253,12 +253,28 @@ const isConstrainedDashedStroke = (
     stroke.position === StrokePositions.OUTSIDE) &&
   stroke.width > 0
 
-const getClosedNetworkIds = (data: Record<string, unknown>) =>
-  Object.values(
-    (data.networks ?? {}) as Record<string, { id: string; closed?: boolean }>
+const getRequiredConstrainedDashedNetworkIds = (
+  data: Record<string, unknown>,
+  stroke: ReturnType<typeof createDefaultStroke>
+) => {
+  if (!isConstrainedDashedStroke(stroke)) {
+    return []
+  }
+
+  const networks = Object.values(
+    (data.networks ?? {}) as Record<
+      string,
+      { id: string; closed?: boolean; segmentIds?: string[] }
+    >
   )
-    .filter((network) => network.closed === true)
+  return networks
+    .filter(
+      (network) =>
+        network.closed === true ||
+        (network.closed === false && (network.segmentIds?.length ?? 0) >= 3)
+    )
     .map((network) => network.id)
+}
 
 const hasRequiredConstrainedDashedNetworkOutput = (
   graphic: RecordingVectorGraphic,
@@ -270,8 +286,8 @@ const hasRequiredConstrainedDashedNetworkOutput = (
   }
 
   const actualNetworkIds = getConstrainedDashedProductNetworkIds(graphic)
-  return getClosedNetworkIds(data).every((networkId) =>
-    actualNetworkIds.has(networkId)
+  return getRequiredConstrainedDashedNetworkIds(data, stroke).every(
+    (networkId) => actualNetworkIds.has(networkId)
   )
 }
 
@@ -374,12 +390,15 @@ const getPercentile = (values: number[], percentile: number) => {
   return sorted[index] ?? 0
 }
 
-const createStroke = (capType: 'butt' | 'square' | 'round') =>
+const createStroke = (
+  capType: 'butt' | 'square' | 'round',
+  position: StrokePositions = StrokePositions.INSIDE
+) =>
   createDefaultStroke({
-    id: `drag-inside-dashed-${capType}`,
+    id: `drag-${position}-dashed-${capType}`,
     width: 10,
     style: StrokeStyles.DASHED,
-    position: StrokePositions.INSIDE,
+    position,
     capType,
     dashPattern: [20, 20],
     dashOffset: 0,
@@ -502,11 +521,34 @@ const createMixedDescriptorAndFallbackInsideDashedData = () => {
   }
 }
 
+const createOpenSelfIntersectingDashedStarVectorData = () => {
+  const base = createReportedRoundInsideDashedStarVectorData()
+  const network = base.networks[REPORTED_ROUND_INSIDE_DASHED_STAR_NETWORK_ID]
+
+  return {
+    ...base,
+    id: 'open-self-intersecting-dashed-drag',
+    networks: {
+      [network.id]: {
+        ...network,
+        pointIds: ['tp-49', 'tp-50', 'tp-51', 'tp-52', 'tp-48'],
+        segmentIds: ['ts-82', 'ts-83', 'ts-84', 'ts-85'],
+        closed: false
+      }
+    },
+    closed: false
+  }
+}
+
 const mutateDragFrame = (
   frame: number,
-  kind: 'anchor' | 'in-control' | 'out-control'
+  kind: 'anchor' | 'in-control' | 'out-control',
+  pathKind: 'closed' | 'open-self-intersecting' = 'closed'
 ) => {
-  const base = createReportedRoundInsideDashedStarVectorData()
+  const base =
+    pathKind === 'open-self-intersecting'
+      ? createOpenSelfIntersectingDashedStarVectorData()
+      : createReportedRoundInsideDashedStarVectorData()
   const deltaX = Math.sin(frame / 7) * 18
   const deltaY = Math.cos(frame / 9) * 14
   const points = { ...base.points } as Record<
@@ -533,7 +575,7 @@ const mutateDragFrame = (
 
   return {
     ...base,
-    id: `drag-profile:${kind}`,
+    id: `drag-profile:${pathKind}:${kind}`,
     points,
     strokeDebugOptions: {
       disableVisualOverlapCollapse: false
@@ -544,13 +586,17 @@ const mutateDragFrame = (
 const measureDragScenario = (
   label: string,
   kind: 'anchor' | 'in-control' | 'out-control',
-  stroke: ReturnType<typeof createDefaultStroke>
+  stroke: ReturnType<typeof createDefaultStroke>,
+  pathKind: 'closed' | 'open-self-intersecting' = 'closed'
 ) => {
   const strategy = renderStrategyRegistry.get('vector')
   expect(strategy).toBeTypeOf('function')
 
   const graphic = new RecordingVectorGraphic()
-  core.setSystemProperty('pathEditingVectorId', `drag-profile:${kind}`)
+  core.setSystemProperty(
+    'pathEditingVectorId',
+    `drag-profile:${pathKind}:${kind}`
+  )
   core.setSystemProperty('pathEditingMode', true)
   core.setSystemProperty('mouseDragging', true)
   core.setSystemProperty('mouseDown', true)
@@ -558,9 +604,28 @@ const measureDragScenario = (
   const frameTimes: number[] = []
   let incompleteFrameCount = 0
   const phaseTotals: Record<string, number> = {}
+  let measuredPhaseFrameCount = 0
+  const phaseSink = (phaseName: string, durationMs: number) => {
+    if (measuredPhaseFrameCount <= 0) {
+      return
+    }
+    phaseTotals[phaseName] = (phaseTotals[phaseName] ?? 0) + durationMs
+  }
 
   for (let frame = 0; frame < FRAME_COUNT; frame += 1) {
-    const data = mutateDragFrame(frame, kind)
+    const shouldMeasureFrame = frame >= WARMUP_FRAMES
+    ;(
+      globalThis as typeof globalThis & {
+        __asyraVectorRenderPhaseSink?: (
+          phaseName: string,
+          durationMs: number
+        ) => void
+      }
+    ).__asyraVectorRenderPhaseSink = shouldMeasureFrame ? phaseSink : undefined
+    if (shouldMeasureFrame) {
+      measuredPhaseFrameCount += 1
+    }
+    const data = mutateDragFrame(frame, kind, pathKind)
     const start = performance.now()
     renderVectorFrame(graphic, data, stroke)
     const end = performance.now()
@@ -574,22 +639,6 @@ const measureDragScenario = (
     if (!hasRequiredConstrainedDashedNetworkOutput(graphic, data, stroke)) {
       incompleteFrameCount += 1
     }
-  }
-
-  const phaseFrameCount = Math.min(24, FRAME_COUNT)
-  ;(
-    globalThis as typeof globalThis & {
-      __asyraVectorRenderPhaseSink?: (
-        phaseName: string,
-        durationMs: number
-      ) => void
-    }
-  ).__asyraVectorRenderPhaseSink = (phaseName, durationMs) => {
-    phaseTotals[phaseName] = (phaseTotals[phaseName] ?? 0) + durationMs
-  }
-  for (let frame = 0; frame < phaseFrameCount; frame += 1) {
-    const data = mutateDragFrame(frame, kind)
-    renderVectorFrame(graphic, data, stroke)
   }
 
   clearInteractionState()
@@ -615,7 +664,7 @@ const measureDragScenario = (
     phases: Object.fromEntries(
       Object.entries(phaseTotals).map(([phaseName, totalMs]) => [
         phaseName,
-        totalMs / phaseFrameCount
+        totalMs / Math.max(1, measuredPhaseFrameCount)
       ])
     )
   }
@@ -661,6 +710,31 @@ describe('stroke drag complete render contract', () => {
     expect(hasCurrentStrokeProductOutput(graphic)).toBe(true)
     clearInteractionState()
   })
+
+  it.each([
+    ['inside', StrokePositions.INSIDE],
+    ['outside', StrokePositions.OUTSIDE]
+  ] as const)(
+    'should keep open self-intersecting %s dashed output visible during drag',
+    (_label, position) => {
+      const graphic = new RecordingVectorGraphic()
+      const data = createOpenSelfIntersectingDashedStarVectorData()
+      const stroke = createStroke('round', position)
+      setPathEditingState({
+        vectorId: data.id,
+        mouseDragging: true,
+        mouseDown: true
+      })
+
+      renderVectorFrame(graphic, data, stroke)
+
+      expectConstrainedDashedProductNetworks(graphic, [
+        REPORTED_ROUND_INSIDE_DASHED_STAR_NETWORK_ID
+      ])
+      expect(hasCurrentStrokeProductOutput(graphic)).toBe(true)
+      clearInteractionState()
+    }
+  )
 
   it('should render the full constrained dashed stroke pipeline during path editing drag', () => {
     const graphic = new RecordingVectorGraphic()
@@ -897,15 +971,61 @@ describe('stroke drag complete render contract', () => {
 describeProfile('stroke drag performance profile', () => {
   it('should profile: render anchor and curve-handle drag CPU updates with complete stroke geometry', () => {
     const dragKinds = ['anchor', 'in-control', 'out-control'] as const
-    const strokes = [
-      createStroke('butt'),
-      createStroke('square'),
-      createStroke('round'),
-      createCenterSolidStroke()
+    const strokeScenarios = [
+      {
+        label: 'closed-inside-dashed-butt',
+        stroke: createStroke('butt', StrokePositions.INSIDE),
+        pathKind: 'closed' as const
+      },
+      {
+        label: 'closed-inside-dashed-square',
+        stroke: createStroke('square', StrokePositions.INSIDE),
+        pathKind: 'closed' as const
+      },
+      {
+        label: 'closed-inside-dashed-round',
+        stroke: createStroke('round', StrokePositions.INSIDE),
+        pathKind: 'closed' as const
+      },
+      {
+        label: 'closed-center-dashed-round',
+        stroke: createStroke('round', StrokePositions.CENTER),
+        pathKind: 'closed' as const
+      },
+      {
+        label: 'closed-outside-dashed-round',
+        stroke: createStroke('round', StrokePositions.OUTSIDE),
+        pathKind: 'closed' as const
+      },
+      {
+        label: 'open-center-dashed-round',
+        stroke: createStroke('round', StrokePositions.CENTER),
+        pathKind: 'open-self-intersecting' as const
+      },
+      {
+        label: 'open-inside-dashed-round',
+        stroke: createStroke('round', StrokePositions.INSIDE),
+        pathKind: 'open-self-intersecting' as const
+      },
+      {
+        label: 'open-outside-dashed-round',
+        stroke: createStroke('round', StrokePositions.OUTSIDE),
+        pathKind: 'open-self-intersecting' as const
+      },
+      {
+        label: 'closed-center-solid-round',
+        stroke: createCenterSolidStroke(),
+        pathKind: 'closed' as const
+      }
     ]
     const metrics = dragKinds.flatMap((kind) =>
-      strokes.map((stroke) =>
-        measureDragScenario(`${kind}:${stroke.id}`, kind, stroke)
+      strokeScenarios.map((scenario) =>
+        measureDragScenario(
+          `${scenario.label}:${kind}`,
+          kind,
+          scenario.stroke,
+          scenario.pathKind
+        )
       )
     )
 

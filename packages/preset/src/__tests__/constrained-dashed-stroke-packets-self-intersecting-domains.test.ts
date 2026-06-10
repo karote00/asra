@@ -4087,7 +4087,15 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
       options
     )
 
-    expect(visualEntries?.length ?? 0).toBe(0)
+    expect(visualEntries?.length ?? 0).toBe(1)
+    const [visualEntry] = visualEntries ?? []
+    expect(visualEntry?.debugMeta?.strokePosition).toBe('inside')
+    expect(visualEntry?.debugMeta?.sourceTopology).toBe('self-intersecting')
+    expect(visualEntry?.debugMeta?.finalCoverageBuilderStatus).toBe(
+      'product-final'
+    )
+    expect(visualEntry?.fillClipPolygons?.length ?? 0).toBeGreaterThan(0)
+    expect(visualEntry?.strokePaths?.length ?? 0).toBeGreaterThan(0)
     expect(packets.length).toBeGreaterThan(0)
     expect(
       packets.every(
@@ -4174,7 +4182,15 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
       options
     )
 
-    expect(visualEntries?.length ?? 0).toBe(0)
+    expect(visualEntries?.length ?? 0).toBe(1)
+    const [visualEntry] = visualEntries ?? []
+    expect(visualEntry?.debugMeta?.strokePosition).toBe('outside')
+    expect(visualEntry?.debugMeta?.sourceTopology).toBe('self-intersecting')
+    expect(visualEntry?.debugMeta?.finalCoverageBuilderStatus).toBe(
+      'product-final'
+    )
+    expect(visualEntry?.clipPolygons?.length ?? 0).toBeGreaterThan(0)
+    expect(visualEntry?.strokePaths?.length ?? 0).toBeGreaterThan(0)
     expect(packets.length).toBeGreaterThan(0)
     expect(
       packets.every(

@@ -3792,6 +3792,45 @@ test.describe('Vector render invariants', () => {
         const renderFaceMetas =
           renderElement?.__asyraStrokeRenderFaceDebugMetas ?? []
         const allMetas = [...metas, ...renderFaceMetas]
+        const splitRangeMetas = allMetas.flatMap(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (meta: any) => {
+            const terminalMetas = Array.isArray(meta?.figmaLikeSplitRangeTerminals)
+              ? meta.figmaLikeSplitRangeTerminals
+              : []
+            const directMeta =
+              typeof meta?.figmaLikeSplitRangeId === 'string'
+                ? [
+                    {
+                      splitRangeId: meta.figmaLikeSplitRangeId,
+                      sourceSegmentIndex:
+                        meta.figmaLikeSplitRangeSourceSegmentIndex,
+                      selectedSide: meta.figmaLikeSelectedSide,
+                      boundaryRole: meta.figmaLikeBoundaryRole,
+                      sideResolutionReason: meta.figmaLikeSideResolutionReason,
+                      terminalRole: meta.figmaLikeTerminalRole
+                    }
+                  ]
+                : []
+            return [
+              ...directMeta,
+              ...terminalMetas.map(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (terminal: any) => ({
+                  splitRangeId: terminal.splitRangeId,
+                  sourceSegmentIndex: terminal.sourceSegmentIndex,
+                  selectedSide: terminal.selectedSide,
+                  boundaryRole: terminal.boundaryRole,
+                  sideResolutionReason:
+                    terminal.splitRangeId?.startsWith('source-span-fallback:')
+                      ? 'open-source-span-both-sides'
+                      : undefined,
+                  terminalRole: terminal.terminalRole
+                })
+              )
+            ]
+          }
+        )
         return {
           selectedId,
           constrainedDashedProductNetworkIds:
@@ -3810,38 +3849,25 @@ test.describe('Vector render invariants', () => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (meta: any) => meta?.figmaLikeSplitRangeId !== undefined
           ).length,
-          sourceSpanFallbackPacketCount: allMetas.filter(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (meta: any) =>
-              typeof meta?.figmaLikeSplitRangeId === 'string' &&
-              meta.figmaLikeSplitRangeId.startsWith('source-span-fallback:')
+          sourceSpanFallbackPacketCount: splitRangeMetas.filter(
+            (meta) => meta.splitRangeId?.startsWith('source-span-fallback:')
           ).length,
-          sourceSpanFallbackMetas: allMetas
+          sourceSpanFallbackMetas: splitRangeMetas
             .filter(
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (meta: any) =>
-                typeof meta?.figmaLikeSplitRangeId === 'string' &&
-                meta.figmaLikeSplitRangeId.startsWith('source-span-fallback:')
+              (meta) => meta.splitRangeId?.startsWith('source-span-fallback:')
             )
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .map((meta: any) => ({
-              splitRangeId: meta.figmaLikeSplitRangeId,
-              sourceSegmentIndex: meta.figmaLikeSplitRangeSourceSegmentIndex,
-              selectedSide: meta.figmaLikeSelectedSide,
-              boundaryRole: meta.figmaLikeBoundaryRole,
-              sideResolutionReason: meta.figmaLikeSideResolutionReason
+            .map((meta) => ({
+              splitRangeId: meta.splitRangeId,
+              sourceSegmentIndex: meta.sourceSegmentIndex,
+              selectedSide: meta.selectedSide,
+              boundaryRole: meta.boundaryRole,
+              sideResolutionReason: meta.sideResolutionReason
             })),
-          splitRangeTerminalRoles: allMetas
-            .filter(
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (meta: any) =>
-                meta?.geometryFamily === 'constrained-dashed' &&
-                meta?.figmaLikeSplitRangeId !== undefined
-            )
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .map((meta: any) => ({
-              splitRangeId: meta.figmaLikeSplitRangeId,
-              terminalRole: meta.figmaLikeTerminalRole
+          splitRangeTerminalRoles: splitRangeMetas
+            .filter((meta) => meta.terminalRole !== undefined)
+            .map((meta) => ({
+              splitRangeId: meta.splitRangeId,
+              terminalRole: meta.terminalRole
             })),
           sampleMetas: allMetas
             .filter(
@@ -4028,102 +4054,435 @@ test.describe('Vector render invariants', () => {
         )}`
       ).toBe(0)
     })
+
+    test(`keeps open self-intersecting ${strokePosition} dashed stroke correct after anchor drag`, async ({
+      page
+    }, testInfo) => {
+      await page.evaluate(
+        ({ topology, strokePosition }) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const elementApis = (window as any).__AsyraE2E__?.elementApis
+          if (!core || !elementApis) {
+            throw new Error('Missing E2E core or element APIs')
+          }
+
+          const stroke = {
+            id: `open-self-intersecting-${strokePosition}-drag-stroke`,
+            kind: 'solid',
+            style: 'dashed',
+            position: strokePosition,
+            width: 10,
+            dashPattern: [27, 20],
+            dashOffset: 0,
+            fill: null,
+            defaultColorFormat: 'hex',
+            colorFormat: 'hex',
+            color: '#f40606',
+            opacity: 1,
+            visible: true,
+            gradient: null,
+            joinType: 'miter',
+            capType: 'square',
+            miterAngle: 28.96
+          }
+          const createdId = elementApis.createElement(
+            {
+              type: 'vector',
+              points: topology.points,
+              segments: topology.segments,
+              networks: topology.networks,
+              closed: false,
+              pointCoordinateSpace: 'workspace',
+              fills: [],
+              strokes: [stroke]
+            },
+            { undoable: false }
+          )
+          if (!createdId) {
+            throw new Error('Failed to create open self-intersecting vector')
+          }
+
+          elementApis.changeComputedData(
+            [createdId],
+            {
+              x: topology.x,
+              y: topology.y,
+              width: topology.width,
+              height: topology.height,
+              points: topology.points,
+              segments: topology.segments,
+              networks: topology.networks,
+              closed: false,
+              pointCoordinateSpace: 'workspace',
+              fills: [],
+              strokes: [stroke]
+            },
+            { undoable: false }
+          )
+          core.selectElements?.([createdId], { undoable: false })
+          core.setSystemProperty?.('pathEditingMode', true)
+          core.setSystemProperty?.('pathEditingVectorId', createdId)
+          core.setSystemProperty?.('mouseDragging', true)
+          core.setSystemProperty?.('zoom', 1)
+          core.setSystemProperty?.('viewportPosition', { x: -120, y: 140 })
+
+          const topPoint = topology.points['tp-36']
+          elementApis.updateVectorAnchorPointPosition(
+            createdId,
+            'tp-36',
+            {
+              x: topPoint.x + 420,
+              y: topPoint.y + 420
+            },
+            { undoable: false, skipResult: true }
+          )
+        },
+        {
+          topology: createOpenSelfIntersectingPentagramTopology(),
+          strokePosition
+        }
+      )
+      await page.waitForTimeout(300)
+
+      const pageScreenshot = await page.screenshot({
+        path: testInfo.outputPath(
+          `open-self-intersecting-${strokePosition}-dashed-after-drag-page.png`
+        ),
+        fullPage: true
+      })
+      await testInfo.attach(
+        `open-self-intersecting-${strokePosition}-dashed-after-drag-page`,
+        {
+          body: pageScreenshot,
+          contentType: 'image/png'
+        }
+      )
+      const raster = await captureSelectedVectorFullRaster(page, 96)
+      await testInfo.attach(
+        `open-self-intersecting-${strokePosition}-dashed-after-drag`,
+        {
+          body: Buffer.from(raster.base64, 'base64'),
+          contentType: 'image/png'
+        }
+      )
+
+      const stats = await analyzeRedStrokeRaster(page, raster.base64)
+      const segmentRecall = await analyzeOpenPathSegmentDashRecall(page, raster)
+      const runtimeSnapshot = await page.evaluate((strokePosition) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const selectedId =
+          core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+        const renderElement = selectedId
+          ? core?.deps?.render?.getElementById?.(selectedId)
+          : null
+        const exportPackets =
+          renderElement?.__asyraSolidCenterStrokeExportPackets ?? []
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const metas = exportPackets.map((packet: any) => packet.debugMeta)
+        const renderFaceMetas =
+          renderElement?.__asyraStrokeRenderFaceDebugMetas ?? []
+        const allMetas = [...metas, ...renderFaceMetas]
+        const splitRangeMetas = allMetas.flatMap(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (meta: any) => {
+            const terminalMetas = Array.isArray(meta?.figmaLikeSplitRangeTerminals)
+              ? meta.figmaLikeSplitRangeTerminals
+              : []
+            const directMeta =
+              typeof meta?.figmaLikeSplitRangeId === 'string'
+                ? [
+                    {
+                      splitRangeId: meta.figmaLikeSplitRangeId,
+                      sourceSegmentIndex:
+                        meta.figmaLikeSplitRangeSourceSegmentIndex,
+                      selectedSide: meta.figmaLikeSelectedSide,
+                      boundaryRole: meta.figmaLikeBoundaryRole,
+                      sideResolutionReason: meta.figmaLikeSideResolutionReason
+                    }
+                  ]
+                : []
+            return [
+              ...directMeta,
+              ...terminalMetas.map(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (terminal: any) => ({
+                  splitRangeId: terminal.splitRangeId,
+                  sourceSegmentIndex: terminal.sourceSegmentIndex,
+                  selectedSide: terminal.selectedSide,
+                  boundaryRole: terminal.boundaryRole,
+                  sideResolutionReason:
+                    terminal.splitRangeId?.startsWith('source-span-fallback:')
+                      ? 'open-source-span-both-sides'
+                      : undefined
+                })
+              )
+            ]
+          }
+        )
+        return {
+          selectedId,
+          constrainedDashedProductNetworkIds:
+            renderElement?.__asyraConstrainedDashedProductNetworkIds ?? null,
+          matchingConstrainedPacketCount: allMetas.filter(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (meta: any) =>
+              meta?.geometryFamily === 'constrained-dashed' &&
+              meta?.strokePosition === strokePosition &&
+              meta?.sourceTopology === 'self-intersecting'
+          ).length,
+          sourceSpanFallbackMetas: splitRangeMetas
+            .filter(
+              (meta) => meta.splitRangeId?.startsWith('source-span-fallback:')
+            )
+            .map((meta) => ({
+              splitRangeId: meta.splitRangeId,
+              sourceSegmentIndex: meta.sourceSegmentIndex,
+              selectedSide: meta.selectedSide,
+              boundaryRole: meta.boundaryRole,
+              sideResolutionReason: meta.sideResolutionReason
+            })),
+          centerPacketCount: allMetas.filter(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (meta: any) => meta?.geometryFamily === 'dashed-center'
+          ).length
+        }
+      }, strokePosition)
+
+      expect(
+        stats.strokeCoverage,
+        `open self-intersecting ${strokePosition} dashed drag frame missing raster output\n${JSON.stringify(
+          { stats, segmentRecall, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBeGreaterThan(strokePosition === 'inside' ? 0.008 : 0.015)
+      expect(
+        stats.connectedComponentCount,
+        `open self-intersecting ${strokePosition} dashed drag frame collapsed into too few visible dash components\n${JSON.stringify(
+          { stats, segmentRecall, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBeGreaterThan(6)
+      expect(
+        segmentRecall.maxConsecutiveHitRatio,
+        `open self-intersecting ${strokePosition} dashed drag frame visually collapsed into a solid-like run\n${JSON.stringify(
+          { stats, segmentRecall, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBeLessThan(0.72)
+      expect(
+        segmentRecall.implicitClosingEdge?.recall ?? 1,
+        `open self-intersecting ${strokePosition} dashed drag frame painted the invisible closing edge\n${JSON.stringify(
+          { stats, segmentRecall, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBeLessThan(0.22)
+
+      if (strokePosition === 'outside') {
+        expect(
+          segmentRecall.minRecall,
+          `open self-intersecting outside dashed drag frame is missing open branch or contour segment coverage\n${JSON.stringify(
+            { stats, segmentRecall, runtimeSnapshot },
+            null,
+            2
+          )}`
+        ).toBeGreaterThan(0.18)
+        expect(
+          segmentRecall.maxBothSideRecall,
+          `open self-intersecting outside dashed drag frame never paints both sides of an open source branch\n${JSON.stringify(
+            { stats, segmentRecall, runtimeSnapshot },
+            null,
+            2
+          )}`
+        ).toBeGreaterThan(0.18)
+        expect(
+          runtimeSnapshot.sourceSpanFallbackMetas.every(
+            (meta: {
+              selectedSide?: number
+              boundaryRole?: string
+              sideResolutionReason?: string
+            }) =>
+              meta.selectedSide === undefined &&
+              meta.boundaryRole === 'ambiguous' &&
+              meta.sideResolutionReason === 'open-source-span-both-sides'
+          ),
+          `open self-intersecting outside dashed drag frame source-span fallback must be both-side, not selected-side\n${JSON.stringify(
+            { stats, segmentRecall, runtimeSnapshot },
+            null,
+            2
+          )}`
+        ).toBe(true)
+      } else {
+        expect(
+          segmentRecall.maxRecall,
+          `open self-intersecting inside dashed drag frame is missing contour-owned dash output\n${JSON.stringify(
+            { stats, segmentRecall, runtimeSnapshot },
+            null,
+            2
+          )}`
+        ).toBeGreaterThan(0.18)
+        expect(
+          runtimeSnapshot.sourceSpanFallbackMetas.length,
+          `open self-intersecting inside dashed drag frame must not paint dangling source-span fallback domains\n${JSON.stringify(
+            { stats, segmentRecall, runtimeSnapshot },
+            null,
+            2
+          )}`
+        ).toBe(0)
+      }
+
+      expect(
+        runtimeSnapshot.centerPacketCount,
+        `open self-intersecting ${strokePosition} dashed drag frame should not emit center dashed packets\n${JSON.stringify(
+          { stats, segmentRecall, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBe(0)
+    })
   })
 
   test('clears stale inside dashed open-path cap render entries after cap switch and viewport pan', async ({
     page
   }, testInfo) => {
-    await page.evaluate(({ topology }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elementApis = (window as any).__AsyraE2E__?.elementApis
-      if (!core || !elementApis) {
-        throw new Error('Missing E2E core or element APIs')
-      }
+    const runReloadedCapSwitch = async (scenario: {
+      initialCapType: 'round' | 'square'
+      finalCapType: 'round' | 'square'
+      viewportPosition: { x: number; y: number }
+      artifact: string
+    }) => {
+      await resetCanvas(page)
+      const createdId = await page.evaluate(({ topology, initialCapType }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const elementApis = (window as any).__AsyraE2E__?.elementApis
+        if (!core || !elementApis) {
+          throw new Error('Missing E2E core or element APIs')
+        }
 
-      const stroke = {
-        id: 'open-self-intersecting-inside-cap-switch-stroke',
-        kind: 'solid',
-        style: 'dashed',
-        position: 'inside',
-        width: 10,
-        dashPattern: [27, 20],
-        dashOffset: 0,
-        fill: null,
-        defaultColorFormat: 'hex',
-        colorFormat: 'hex',
-        color: '#cccccc',
-        opacity: 1,
-        visible: true,
-        gradient: null,
-        joinType: 'round',
-        capType: 'square',
-        miterAngle: 28.96
-      }
-      const createdId = elementApis.createElement(
-        {
-          type: 'vector',
-          x: topology.x,
-          y: topology.y,
-          width: topology.width,
-          height: topology.height,
-          points: topology.points,
-          segments: topology.segments,
-          networks: topology.networks,
-          closed: false,
-          pointCoordinateSpace: 'workspace',
-          fills: [],
-          strokes: [stroke]
-        },
-        { undoable: false }
+        const stroke = {
+          id: 'open-self-intersecting-inside-cap-switch-stroke',
+          kind: 'solid',
+          style: 'dashed',
+          position: 'inside',
+          width: 10,
+          dashPattern: [27, 20],
+          dashOffset: 0,
+          fill: null,
+          defaultColorFormat: 'hex',
+          colorFormat: 'hex',
+          color: '#cccccc',
+          opacity: 1,
+          visible: true,
+          gradient: null,
+          joinType: 'round',
+          capType: initialCapType,
+          miterAngle: 28.96
+        }
+        const createdId = elementApis.createElement(
+          {
+            type: 'vector',
+            x: topology.x,
+            y: topology.y,
+            width: topology.width,
+            height: topology.height,
+            points: topology.points,
+            segments: topology.segments,
+            networks: topology.networks,
+            closed: false,
+            pointCoordinateSpace: 'workspace',
+            fills: [],
+            strokes: [stroke]
+          },
+          { undoable: false }
+        )
+        if (!createdId) {
+          throw new Error('Failed to create open cap-switch vector')
+        }
+
+        elementApis.changeComputedData(
+          [createdId],
+          {
+            x: topology.x,
+            y: topology.y,
+            width: topology.width,
+            height: topology.height,
+            points: topology.points,
+            segments: topology.segments,
+            networks: topology.networks,
+            closed: false,
+            pointCoordinateSpace: 'workspace',
+            fills: [],
+            strokes: [stroke]
+          },
+          { undoable: false }
+        )
+        core.selectElements?.([createdId], { undoable: false })
+        core.setSystemProperty?.('pathEditingMode', true)
+        core.setSystemProperty?.('pathEditingVectorId', createdId)
+        core.setSystemProperty?.('selectedVectorPoint', null)
+        core.setSystemProperty?.('zoom', 1)
+        core.setSystemProperty?.('viewportPosition', { x: -80, y: 130 })
+        return createdId
+      }, {
+        topology: createOpenSelfIntersectingPentagramTopology(),
+        initialCapType: scenario.initialCapType
+      })
+      await page.evaluate(async () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        localStorage.setItem('FILE', JSON.stringify(await core.save()))
+      })
+      await page.reload()
+      await waitForAppReady(page)
+      await page.evaluate((createdId) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        core.selectElements?.([createdId], { undoable: false })
+        core.setSystemProperty?.('pathEditingMode', true)
+        core.setSystemProperty?.('pathEditingVectorId', createdId)
+        core.setSystemProperty?.('selectedVectorPoint', null)
+        core.setSystemProperty?.('zoom', 1)
+        core.setSystemProperty?.('viewportPosition', { x: -80, y: 130 })
+      }, createdId)
+      await page.waitForTimeout(250)
+
+      await page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        core?.setSystemProperty?.('selectedVectorPoint', null)
+      })
+      await page.getByTestId('prop-stroke-cap-0').selectOption(scenario.finalCapType)
+      await page.evaluate(
+        () => new Promise((resolve) => requestAnimationFrame(resolve))
       )
-      if (!createdId) {
-        throw new Error('Failed to create open cap-switch vector')
-      }
-
-      elementApis.changeComputedData(
-        [createdId],
-        {
-          x: topology.x,
-          y: topology.y,
-          width: topology.width,
-          height: topology.height,
-          points: topology.points,
-          segments: topology.segments,
-          networks: topology.networks,
-          closed: false,
-          pointCoordinateSpace: 'workspace',
-          fills: [],
-          strokes: [stroke]
-        },
-        { undoable: false }
+      await page.evaluate(
+        () => new Promise((resolve) => requestAnimationFrame(resolve))
       )
-      core.selectElements?.([createdId], { undoable: false })
-      core.setSystemProperty?.('pathEditingMode', true)
-      core.setSystemProperty?.('pathEditingVectorId', createdId)
-      core.setSystemProperty?.('zoom', 1)
-      core.setSystemProperty?.('viewportPosition', { x: -80, y: 130 })
-    }, { topology: createOpenSelfIntersectingPentagramTopology() })
-    await page.waitForTimeout(250)
-
-    const transitions = [
-      {
-        capType: 'round',
-        viewportPosition: { x: 210, y: 80 },
-        artifact: 'inside-open-cap-square-to-round-pan.png',
-        expectCurrentStrokeVisible: true
-      },
-      {
-        capType: 'square',
-        viewportPosition: { x: -1100, y: 130 },
-        artifact: 'inside-open-cap-round-to-square-pan.png',
-        expectCurrentStrokeVisible: false
-      }
-    ] as const
-
-    for (const transition of transitions) {
-      await page.getByTestId('prop-stroke-cap-0').selectOption(transition.capType)
+      await page.evaluate((topology) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const selectedId =
+          core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+        if (!selectedId) {
+          throw new Error('Missing selected vector after cap switch')
+        }
+        core.setSystemProperty?.('selectedVectorPoint', {
+          elementId: selectedId,
+          pointId: 'tp-36',
+          index: 4,
+          target: 'anchor',
+          x: topology.points['tp-36'].x,
+          y: topology.points['tp-36'].y
+        })
+      }, createOpenSelfIntersectingPentagramTopology())
       const canvasBox = await page
         .locator('#viewport-anchor')
         .boundingBox()
@@ -4140,8 +4499,8 @@ test.describe('Vector render invariants', () => {
         return core?.getSystemProperty?.('viewportPosition') ?? { x: 0, y: 0 }
       })
       const targetDelta = {
-        x: transition.viewportPosition.x - startViewport.x,
-        y: transition.viewportPosition.y - startViewport.y
+        x: scenario.viewportPosition.x - startViewport.x,
+        y: scenario.viewportPosition.y - startViewport.y
       }
       for (let frameIndex = 0; frameIndex < 12; frameIndex += 1) {
         await page.mouse.wheel(
@@ -4150,31 +4509,24 @@ test.describe('Vector render invariants', () => {
         )
         await page.waitForTimeout(16)
       }
-      await page.waitForFunction(
-        ({ expectedX, expectedY }) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const core = (window as any).__Core__
-          const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
-            x: 0,
-            y: 0
-          }
-          return (
-            Math.abs(viewport.x - expectedX) < 2 &&
-            Math.abs(viewport.y - expectedY) < 2
-          )
-        },
-        {
-          expectedX: transition.viewportPosition.x,
-          expectedY: transition.viewportPosition.y
-        }
-      )
+      for (let frameIndex = 0; frameIndex < 24; frameIndex += 1) {
+        const direction = frameIndex % 2 === 0 ? 1 : -1
+        await page.mouse.wheel(
+          direction * 9,
+          direction * -7
+        )
+        await page.waitForTimeout(8)
+      }
       await page.waitForTimeout(250)
+      await page.evaluate(
+        () => new Promise((resolve) => requestAnimationFrame(resolve))
+      )
 
       const screenshot = await page.screenshot({
-        path: testInfo.outputPath(transition.artifact),
+        path: testInfo.outputPath(scenario.artifact),
         fullPage: true
       })
-      await testInfo.attach(transition.artifact, {
+      await testInfo.attach(scenario.artifact, {
         body: screenshot,
         contentType: 'image/png'
       })
@@ -4199,6 +4551,12 @@ test.describe('Vector render invariants', () => {
         const childCount = Array.isArray(renderElement?.children)
           ? renderElement.children.length
           : null
+        const strokeRenderCacheKinds =
+          meshCache instanceof Map
+            ? Array.from(meshCache.values()).map(
+                (entry: { kind?: string }) => entry.kind ?? 'unknown'
+              )
+            : null
         return {
           selectedId,
           capType: computed?.strokes?.[0]?.capType ?? null,
@@ -4210,15 +4568,16 @@ test.describe('Vector render invariants', () => {
             renderElement?.__asyraSolidCenterStrokeExportPackets?.length ?? 0,
           strokeRenderCacheSize:
             meshCache instanceof Map ? meshCache.size : null,
+          strokeRenderCacheKinds,
           renderChildCount: childCount
         }
       })
 
-      expect(runtimeSnapshot.capType).toBe(transition.capType)
+      expect(runtimeSnapshot.capType).toBe(scenario.finalCapType)
       expect(
         runtimeSnapshot.strokeRenderCacheSize,
         `cap switch leaked stale stroke render cache entries\n${JSON.stringify(
-          { transition, runtimeSnapshot },
+          { scenario, runtimeSnapshot },
           null,
           2
         )}`
@@ -4226,30 +4585,51 @@ test.describe('Vector render invariants', () => {
       expect(
         runtimeSnapshot.renderChildCount,
         `cap switch leaked stale Pixi render children\n${JSON.stringify(
-          { transition, runtimeSnapshot },
+          { scenario, runtimeSnapshot },
           null,
           2
         )}`
       ).toBe(runtimeSnapshot.strokeRenderCacheSize)
-      if (transition.expectCurrentStrokeVisible) {
-        expect(
-          staleStats.strokePixels,
-          `cap switch produced no current inside dashed stroke\n${JSON.stringify(
-            { transition, staleStats, runtimeSnapshot },
-            null,
-            2
-          )}`
-        ).toBeGreaterThan(150)
-      }
+      expect(
+        runtimeSnapshot.strokeRenderCacheKinds?.every(
+          (kind) => kind !== 'solid'
+        ),
+        `constrained dashed cap switch must not use MeshProjection render entries after reload\n${JSON.stringify(
+          { scenario, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBe(true)
+      expect(
+        staleStats.strokePixels,
+        `cap switch produced no current inside dashed stroke\n${JSON.stringify(
+          { scenario, staleStats, runtimeSnapshot },
+          null,
+          2
+        )}`
+      ).toBeGreaterThan(150)
       expect(
         staleStats.outsideRatio,
         `cap switch left stale red stroke outside the current vector bounds after pan\n${JSON.stringify(
-          { transition, staleStats, runtimeSnapshot },
+          { scenario, staleStats, runtimeSnapshot },
           null,
           2
         )}`
       ).toBeLessThan(0.01)
     }
+
+    await runReloadedCapSwitch({
+      initialCapType: 'round',
+      finalCapType: 'square',
+      viewportPosition: { x: 60, y: 115 },
+      artifact: 'inside-open-cap-reload-round-to-square-pan.png'
+    })
+    await runReloadedCapSwitch({
+      initialCapType: 'square',
+      finalCapType: 'round',
+      viewportPosition: { x: 210, y: 80 },
+      artifact: 'inside-open-cap-reload-square-to-round-pan.png'
+    })
   })
 
   test('keeps reported inside dashed drag network visible across every segment', async ({

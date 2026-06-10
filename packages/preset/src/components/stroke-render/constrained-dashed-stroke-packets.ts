@@ -292,6 +292,10 @@ const boundaryDomainPathCache = new WeakMap<
     path: PathGeometry | null
   }
 >()
+const boundaryDomainSlicingContextCache = new WeakMap<
+  PathGeometry,
+  SourcePathSlicingContext
+>()
 
 const buildBoundaryDomainPathForInterval = (
   interval: Pick<
@@ -8762,7 +8766,8 @@ const buildInsideDoubledCenterDashedRenderMaskDescriptor = (
     'position' | 'width' | 'join' | 'miterLimit' | 'cap'
   >,
   slicingContext: SourcePathSlicingContext,
-  implicitFillRegions: PolygonRegion[]
+  implicitFillRegions: PolygonRegion[],
+  preferBoundaryDomainPath = false
 ) => {
   if (
     authoredStroke.position !== 'inside' ||
@@ -8777,12 +8782,11 @@ const buildInsideDoubledCenterDashedRenderMaskDescriptor = (
   const strokePaths = measureStrokePipelinePhase(
     'constrained dashed product visual entries: inside mask stroke paths',
     () =>
-      intervals.flatMap((interval) =>
-        buildInsideDoubledCenterDashedIntervalStrokePath(
-          path,
-          interval,
-          slicingContext
-        )
+      buildConstrainedDashedIntervalStrokePaths(
+        path,
+        intervals,
+        slicingContext,
+        preferBoundaryDomainPath
       )
   )
   if (strokePaths.length === 0) {
@@ -8870,14 +8874,25 @@ const buildConstrainedDashedIntervalStrokePaths = (
       ? buildBoundaryDomainPathForInterval(interval)
       : null
     const effectivePath = boundaryPath ?? sourcePath
-    const effectiveSlicingContext = boundaryPath
-      ? createSourcePathSlicingContext(
+    let effectiveSlicingContext = sourcePathSlicingContext
+    if (boundaryPath) {
+      const cachedSlicingContext =
+        boundaryDomainSlicingContextCache.get(boundaryPath)
+      effectiveSlicingContext =
+        cachedSlicingContext ??
+        createSourcePathSlicingContext(
           boundaryPath,
           DRAG_SOURCE_PATH_DASH_SLICE_TOLERANCE,
           DRAG_SOURCE_PATH_DASH_SLICE_SAMPLING,
           DRAG_ROUND_CAP_VISUAL_MAX_LENGTH
         )
-      : sourcePathSlicingContext
+      if (!cachedSlicingContext) {
+        boundaryDomainSlicingContextCache.set(
+          boundaryPath,
+          effectiveSlicingContext
+        )
+      }
+    }
 
     return buildInsideDoubledCenterDashedIntervalStrokePath(
       effectivePath,
@@ -8885,6 +8900,47 @@ const buildConstrainedDashedIntervalStrokePaths = (
       effectiveSlicingContext
     )
   })
+
+const buildFigmaLikeSplitRangeTerminalDebugRecords = (
+  intervals: VisibleDashedTopologyInterval[]
+): SolidCenterStrokeGeometryDebugMeta['figmaLikeSplitRangeTerminals'] => {
+  const records = intervals.flatMap((interval) => {
+    if (
+      !interval.figmaLikeSplitRangeId ||
+      interval.figmaLikeSplitRangeStartDistance === undefined ||
+      interval.figmaLikeSplitRangeEndDistance === undefined ||
+      !interval.figmaLikeTerminalRole
+    ) {
+      return []
+    }
+
+    return [
+      {
+        intervalId: interval.intervalId,
+        boundaryDomainId: interval.figmaLikeBoundaryDomainId,
+        boundaryPoints: interval.figmaLikeBoundaryPoints
+          ? interval.figmaLikeBoundaryPoints.map((point) => ({ ...point }))
+          : undefined,
+        boundaryStartDistance: interval.figmaLikeBoundaryStartDistance,
+        boundaryEndDistance: interval.figmaLikeBoundaryEndDistance,
+        boundaryTotalLength: interval.figmaLikeBoundaryTotalLength,
+        splitRangeId: interval.figmaLikeSplitRangeId,
+        splitRangeStartDistance: interval.figmaLikeSplitRangeStartDistance,
+        splitRangeEndDistance: interval.figmaLikeSplitRangeEndDistance,
+        terminalRole: interval.figmaLikeTerminalRole,
+        startDistance: interval.startDistance,
+        endDistance: interval.endDistance,
+        sourceSegmentIndex: interval.figmaLikeSplitRangeSourceSegmentIndex,
+        selectedSide: interval.figmaLikeSelectedSide,
+        filledSide: interval.figmaLikeFilledSide,
+        unfilledSide: interval.figmaLikeUnfilledSide,
+        boundaryRole: interval.figmaLikeBoundaryRole
+      }
+    ]
+  })
+
+  return records.length > 0 ? records : undefined
+}
 
 const buildOutsideDoubledCenterDashedRenderMaskDescriptor = (
   path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
@@ -9319,9 +9375,6 @@ export const buildConstrainedDashedStrokeProductVisualEntries = (
     }
 
     if (options.visualOnly === true) {
-      if (usesOpenImplicitFillDomain) {
-        continue
-      }
       const hasSourceSpanFallbackIntervals =
         stroke.position === 'inside' &&
         visibleIntervals.some(isSourceSpanFallbackVisibleInterval)
@@ -9337,7 +9390,8 @@ export const buildConstrainedDashedStrokeProductVisualEntries = (
                 visibleIntervals,
                 stroke,
                 visualSlicingContext,
-                options.implicitFillRegions ?? []
+                options.implicitFillRegions ?? [],
+                usesOpenSelfIntersectingImplicitDomain
               )
             : buildOutsideDoubledCenterDashedRenderMaskDescriptor(
                 sourcePath,
@@ -9346,7 +9400,7 @@ export const buildConstrainedDashedStrokeProductVisualEntries = (
                 visualSlicingContext,
                 options.implicitFillRegions ?? [],
                 [topologyPoints],
-                !usesOpenSelfIntersectingImplicitDomain
+                true
               )
 
       if (descriptor) {
@@ -9399,6 +9453,8 @@ export const buildConstrainedDashedStrokeProductVisualEntries = (
           intervalTopology: classification.intervalTopology,
           finalCoverageBuilderStatus: 'product-final',
           intervalSweepSpanCount: visibleIntervals.length,
+          figmaLikeSplitRangeTerminals:
+            buildFigmaLikeSplitRangeTerminalDebugRecords(visibleIntervals),
           terminalCapCount:
             stroke.cap === 'round' ? visibleIntervals.length * 2 : undefined,
           revisionSet

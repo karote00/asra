@@ -732,9 +732,7 @@ const shouldRenderPlainSolidWithGraphics = (
   const hasKnownNonSolidCenterFamily =
     geometryFamily !== undefined && geometryFamily !== 'solid-center'
   const canProjectExactPolygonsWithGraphics =
-    geometryFamily === 'solid-center' ||
-    (geometryFamily === 'constrained-dashed' &&
-      entry.debugMeta?.finalCoverageBuilderStatus === 'product-final')
+    geometryFamily === 'solid-center' || geometryFamily === 'constrained-dashed'
 
   return (
     entry.stroke.kind !== 'gradient' &&
