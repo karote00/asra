@@ -667,6 +667,50 @@ describeProfile('stroke parameter switch performance profile', () => {
           visible: frame % 2 === 0,
           color: '#d51a1a'
         })
+      ),
+      measureScenario('inside solid cap cycle', (frame) =>
+        createDefaultStroke({
+          id: 'pp-312',
+          width: 10,
+          style: StrokeStyles.SOLID,
+          position: StrokePositions.INSIDE,
+          capType: [
+            StrokeCapTypes.BUTT,
+            StrokeCapTypes.SQUARE,
+            StrokeCapTypes.ROUND
+          ][frame % 3],
+          joinType: StrokeJoinTypes.ROUND,
+          color: '#d51a1a',
+          opacity: 0.5
+        })
+      ),
+      measureScenario('inside solid join cycle', (frame) =>
+        createDefaultStroke({
+          id: 'pp-312',
+          width: 10,
+          style: StrokeStyles.SOLID,
+          position: StrokePositions.INSIDE,
+          capType: StrokeCapTypes.ROUND,
+          joinType: [
+            StrokeJoinTypes.MITER,
+            StrokeJoinTypes.BEVEL,
+            StrokeJoinTypes.ROUND
+          ][frame % 3],
+          color: '#d51a1a',
+          opacity: 0.5
+        })
+      ),
+      measureScenario('inside solid opacity slider', (frame) =>
+        createDefaultStroke({
+          id: 'pp-312',
+          width: 10,
+          style: StrokeStyles.SOLID,
+          position: StrokePositions.INSIDE,
+          capType: StrokeCapTypes.ROUND,
+          joinType: StrokeJoinTypes.ROUND,
+          color: '#d51a1a',
+          opacity: 30 + (frame % 70)
+        })
       )
     ]
 
@@ -722,6 +766,16 @@ describeProfile('stroke parameter switch performance profile', () => {
         'stroke-stage-cache:render-output-hidden'
       ] ?? 0
     ).toBeGreaterThanOrEqual(Math.floor(FRAME_COUNT / 2))
+    expect(
+      getMetric('inside solid cap cycle').counters[
+        'resolved-geometry-frame-cache-reused'
+      ] ?? 0
+    ).toBeGreaterThan(0)
+    expect(
+      getMetric('inside solid opacity slider').counters[
+        'stroke-stage-cache:product-geometry-hit'
+      ] ?? 0
+    ).toBeGreaterThanOrEqual(FRAME_COUNT - 1)
     if (SHOULD_ENFORCE_PARAMETER_P95) {
       const maxP95Ms = Math.max(...metrics.map((metric) => metric.p95Ms))
       expect(maxP95Ms).toBeLessThanOrEqual(PARAMETER_SWITCH_P95_BUDGET_MS)

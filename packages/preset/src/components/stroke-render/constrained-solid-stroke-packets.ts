@@ -98,6 +98,7 @@ interface ConstrainedSolidStrokePacketOptions {
   >
   fillRule?: PathTopologyFillRule
   candidateMode?: 'exact-arrangement' | 'direct-local-side-exact'
+  preferRenderMaskProductFinal?: boolean
 }
 
 interface SourceSegmentRange {
@@ -4403,7 +4404,8 @@ const buildSolidMaskModelPolygons = ({
   unfilledFaceBoundaries = [],
   legalBoundaryContours = [],
   exactBackend,
-  sourcePath
+  sourcePath,
+  preferRenderMaskProductFinal = false
 }: {
   topology: PathTopologyModel
   stroke: ReturnType<typeof getRenderableStrokes>[number]
@@ -4416,6 +4418,7 @@ const buildSolidMaskModelPolygons = ({
     PathGeometry,
     'segments' | 'closed' | 'totalLength' | 'sampledPoints'
   >
+  preferRenderMaskProductFinal?: boolean
 }): SolidMaskModelPolygonResult | null => {
   if (topology.topologyFamily === 'self-intersecting' && !sourcePath) {
     return null
@@ -4445,6 +4448,29 @@ const buildSolidMaskModelPolygons = ({
   const fillMaskPolygons = flattenRegionPolygons(fillRegions)
   if (fillMaskPolygons.length === 0) {
     return null
+  }
+
+  if (stroke.position === 'inside' && sourcePath && preferRenderMaskProductFinal) {
+    const renderStrokePaths = closeSourcePathForStrokeRender(sourcePath)
+    if (renderStrokePaths.length === 0) {
+      return null
+    }
+
+    return {
+      polygons: centerStrokePolygons,
+      maskApplication: 'render-fill-mask',
+      visibleRender: 'masked-source-stroke',
+      coverageOracle: 'render-mask',
+      maskSide: 'inside-fill',
+      renderClipPolygons: fillMaskPolygons,
+      renderStrokePaths,
+      renderStrokePathStyle: {
+        width: stroke.width * 2,
+        cap: stroke.cap,
+        join: stroke.join,
+        miterLimit: stroke.miterLimit
+      }
+    }
   }
 
   const backend = hasExactSolidMaskBackend(exactBackend)
@@ -4781,7 +4807,8 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
         unfilledFaceBoundaries: options.implicitUnfilledFaceBoundaries ?? [],
         legalBoundaryContours: options.implicitLegalBoundaryContours ?? [],
         exactBackend: options.exactBackend,
-        sourcePath
+        sourcePath,
+        preferRenderMaskProductFinal: options.preferRenderMaskProductFinal
       })
       if (!solidMaskModelPolygons) {
         return []

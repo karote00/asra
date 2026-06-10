@@ -3432,6 +3432,8 @@ const renderVectorGraphic = (
       (stroke.position === 'inside' || stroke.position === 'outside') &&
       stroke.width > 0
   ).length
+  const shouldPreferConstrainedSolidRenderMaskProductFinal =
+    isMouseDragging && !shouldAttachFullStrokeDiagnostics
   const canUseDirectConstrainedSolidFastPath =
     constrainedSolidRenderableStrokeCount === 1 &&
     closedNetworkPaths.length === 1 &&
@@ -3500,7 +3502,9 @@ const renderVectorGraphic = (
                 ),
                 exactBackend: constrainedSolidExactBackend ?? undefined,
                 fillRule: topology.fillRule,
-                candidateMode: getConstrainedSolidCandidateMode(topology)
+                candidateMode: getConstrainedSolidCandidateMode(topology),
+                preferRenderMaskProductFinal:
+                  shouldPreferConstrainedSolidRenderMaskProductFinal
               }
             )
           }
@@ -3592,7 +3596,9 @@ const renderVectorGraphic = (
             ),
             exactBackend: constrainedSolidExactBackend ?? undefined,
             fillRule: topology.fillRule,
-            candidateMode: getConstrainedSolidCandidateMode(topology)
+            candidateMode: getConstrainedSolidCandidateMode(topology),
+            preferRenderMaskProductFinal:
+              shouldPreferConstrainedSolidRenderMaskProductFinal
           }
         )
 
@@ -4071,7 +4077,9 @@ const renderVectorGraphic = (
                 ),
                 exactBackend: constrainedSolidExactBackend ?? undefined,
                 fillRule: topology.fillRule,
-                candidateMode: getConstrainedSolidCandidateMode(topology)
+                candidateMode: getConstrainedSolidCandidateMode(topology),
+                preferRenderMaskProductFinal:
+                  shouldPreferConstrainedSolidRenderMaskProductFinal
               }
             ))
           : [])

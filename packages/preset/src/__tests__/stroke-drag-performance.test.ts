@@ -7,6 +7,7 @@ import Clipper2ZFactory from 'clipper2-wasm'
 import core, { renderStrategyRegistry } from '@asyra/core'
 import {
   StrokeCapTypes,
+  StrokeJoinTypes,
   StrokePositions,
   StrokeStyles,
   createDefaultStroke
@@ -414,6 +415,18 @@ const createCenterSolidStroke = (opacity = 1) =>
     capType: StrokeCapTypes.ROUND,
     opacity,
     color: '#d51a1a'
+  })
+
+const createConstrainedSolidStroke = (position: StrokePositions) =>
+  createDefaultStroke({
+    id: `drag-${position}-solid`,
+    width: 10,
+    style: StrokeStyles.SOLID,
+    position,
+    capType: StrokeCapTypes.ROUND,
+    joinType: StrokeJoinTypes.ROUND,
+    color: '#d51a1a',
+    opacity: 0.5
   })
 
 const createMixedDescriptorAndFallbackInsideDashedData = () => {
@@ -934,6 +947,28 @@ describe('stroke drag complete render contract', () => {
     clearInteractionState()
   })
 
+  it('should use render-mask product final for inside solid self-intersecting drag frames', () => {
+    const graphic = new RecordingVectorGraphic()
+    const stroke = createConstrainedSolidStroke(StrokePositions.INSIDE)
+    const data = mutateDragFrame(8, 'anchor')
+
+    setPathEditingState({
+      vectorId: 'drag-profile:inside-solid-anchor',
+      mouseDragging: true,
+      mouseDown: true
+    })
+    const phases = collectRenderPhases(() => {
+      renderVectorFrame(graphic, data, stroke)
+    })
+
+    expect(phases.has('constrained-solid:self-intersecting-solid-mask-model-packets')).toBe(true)
+    expect(phases.has('constrained-solid:solid-mask-model-inside-face-owned-mask')).toBe(false)
+    expect(phases.has('constrained-solid:solid-mask-model-inside-exact-source-stroke')).toBe(false)
+    expect(phases.has('constrained-solid:solid-mask-model-inside-stroke-mask-intersection')).toBe(false)
+    expect(hasCurrentStrokeProductOutput(graphic)).toBe(true)
+    clearInteractionState()
+  })
+
   it('should run: keep full self-intersecting path precision during drag', () => {
     const graphic = new RecordingVectorGraphic()
     const stroke = createStroke('round')
@@ -1015,6 +1050,16 @@ describeProfile('stroke drag performance profile', () => {
       {
         label: 'closed-center-solid-round',
         stroke: createCenterSolidStroke(),
+        pathKind: 'closed' as const
+      },
+      {
+        label: 'closed-inside-solid-round',
+        stroke: createConstrainedSolidStroke(StrokePositions.INSIDE),
+        pathKind: 'closed' as const
+      },
+      {
+        label: 'closed-outside-solid-round',
+        stroke: createConstrainedSolidStroke(StrokePositions.OUTSIDE),
         pathKind: 'closed' as const
       }
     ]

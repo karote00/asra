@@ -19,7 +19,7 @@ type StrokeCase =
   | {
       label: string
       style: 'solid'
-      position: 'center'
+      position: 'center' | 'inside' | 'outside'
       cap: 'round'
       pathKind?: PathKind
     }
@@ -214,6 +214,12 @@ const STROKE_CASES: StrokeCase[] = [
     label: 'center-solid-round',
     style: 'solid',
     position: 'center',
+    cap: 'round'
+  },
+  {
+    label: 'inside-solid-round',
+    style: 'solid',
+    position: 'inside',
     cap: 'round'
   }
 ]

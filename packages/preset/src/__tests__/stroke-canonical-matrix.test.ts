@@ -119,6 +119,21 @@ const SOURCE_JOIN_SHAPE_TURN_ANGLE_FOR_TEST = Math.PI / 24
 const SOURCE_JOIN_ROUND_MIN_VISIBLE_ARC_POINTS_FOR_TEST = 8
 const SOURCE_JOIN_MIN_SIGNATURE_DIFFERENCES_FOR_TEST = 5
 const SELF_CHECK_DASH_PATTERN_FOR_TEST = [27, 20] as const
+const CANONICAL_PERFORMANCE_SAMPLE_COUNT = Number(
+  process.env.ASYRA_STROKE_CANONICAL_PERFORMANCE_SAMPLE_COUNT ?? 4
+)
+const CANONICAL_STATIC_P95_BUDGET_MS = Number(
+  process.env.ASYRA_STROKE_CANONICAL_STATIC_P95_BUDGET_MS ?? 75
+)
+const CANONICAL_DRAG_P95_BUDGET_MS = Number(
+  process.env.ASYRA_STROKE_CANONICAL_DRAG_P95_BUDGET_MS ?? 75
+)
+const CANONICAL_SOLID_STATIC_P95_BUDGET_MS = Number(
+  process.env.ASYRA_STROKE_CANONICAL_SOLID_STATIC_P95_BUDGET_MS ?? 16.7
+)
+const CANONICAL_SOLID_DRAG_P95_BUDGET_MS = Number(
+  process.env.ASYRA_STROKE_CANONICAL_SOLID_DRAG_P95_BUDGET_MS ?? 8.33
+)
 
 const SOLID_MATRIX_CASES = STROKE_POSITIONS.flatMap((position) =>
   SOLID_JOINS.map((joinType) => ({
@@ -554,6 +569,28 @@ const getFinitePolygonFailures = (polygons: Vec2[][]) =>
     }))
     .filter((entry) => entry.pointCount < 3 || entry.nonFinite.length > 0)
 
+const getPercentile = (values: number[], percentile: number) => {
+  const sorted = [...values].sort((left, right) => left - right)
+  const index = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.ceil(sorted.length * percentile) - 1)
+  )
+  return sorted[index] ?? 0
+}
+
+const buildCanonicalDragPoints = (frame: number) => {
+  const deltaX = Math.sin(frame / 3) * 18
+  const deltaY = Math.cos(frame / 4) * 14
+  return SELF_CHECK_STAR_POINTS.map((point, index) =>
+    index === 0
+      ? {
+          x: point.x + deltaX,
+          y: point.y + deltaY
+        }
+      : point
+  )
+}
+
 const getBoundsArea = (bounds: {
   minX: number
   minY: number
@@ -949,10 +986,14 @@ const getRenderStrokeJoinStylesFromPackets = (
 
 const buildSolidPackets = ({
   position,
-  joinType
+  joinType,
+  points = SELF_CHECK_STAR_POINTS,
+  preferRenderMaskProductFinal = false
 }: {
   position: StrokePosition
   joinType: StrokeJoin
+  points?: Vec2[]
+  preferRenderMaskProductFinal?: boolean
 }) => {
   const stroke = createDefaultStroke({
     style: 'solid',
@@ -965,17 +1006,20 @@ const buildSolidPackets = ({
   if (position === 'center') {
     return buildSolidCenterStrokeResolvedPackets(
       `canonical:solid:${position}:${joinType}`,
-      SELF_CHECK_STAR_POINTS,
+      points,
       true,
       [stroke]
     )
   }
   return buildConstrainedSolidStrokeResolvedPackets(
     `canonical:solid:${position}:${joinType}`,
-    SELF_CHECK_STAR_POINTS,
+    points,
     true,
     [stroke],
-    getSelfIntersectingOptions(SELF_CHECK_STAR_POINTS)
+    {
+      ...getSelfIntersectingOptions(points),
+      preferRenderMaskProductFinal
+    }
   )
 }
 
@@ -1042,6 +1086,74 @@ const buildDashedPacketsForSelfCheckSourceFixture = ({
     joinType,
     useCurvedSelfCheckSource: sourceFixture.useCurvedSourcePath
   })
+
+const buildCanonicalPerformancePackets = ({
+  caseDef,
+  frame,
+  mode
+}: {
+  caseDef: (typeof SOLID_MATRIX_CASES)[number] | (typeof DASHED_MATRIX_CASES)[number]
+  frame: number
+  mode: 'static' | 'drag'
+}) => {
+  const points =
+    mode === 'drag' ? buildCanonicalDragPoints(frame) : SELF_CHECK_STAR_POINTS
+
+  return 'joinType' in caseDef
+    ? buildSolidPackets({
+        position: caseDef.position,
+        joinType: caseDef.joinType,
+        points,
+        preferRenderMaskProductFinal: mode === 'drag'
+      })
+    : buildDashedPackets({
+        position: caseDef.position,
+        capType: caseDef.capType,
+        points
+      })
+}
+
+const measureCanonicalPerformanceCase = ({
+  caseDef,
+  mode
+}: {
+  caseDef: (typeof SOLID_MATRIX_CASES)[number] | (typeof DASHED_MATRIX_CASES)[number]
+  mode: 'static' | 'drag'
+}) => {
+  const samples: number[] = []
+
+  for (let frame = 0; frame < CANONICAL_PERFORMANCE_SAMPLE_COUNT; frame += 1) {
+    const start = performance.now()
+    const packets = buildCanonicalPerformancePackets({ caseDef, frame, mode })
+    samples.push(performance.now() - start)
+    assertPipelineCompleteness({
+      key: `${caseDef.key}:${mode}:performance`,
+      packets
+    })
+  }
+
+  return {
+    key: caseDef.key,
+    p95Ms: getPercentile(samples, 0.95),
+    maxMs: Math.max(...samples),
+    averageMs: samples.reduce((total, sample) => total + sample, 0) / samples.length
+  }
+}
+
+const getCanonicalPerformanceBudgetMs = ({
+  caseDef,
+  mode
+}: {
+  caseDef: (typeof SOLID_MATRIX_CASES)[number] | (typeof DASHED_MATRIX_CASES)[number]
+  mode: 'static' | 'drag'
+}) =>
+  'joinType' in caseDef
+    ? mode === 'static'
+      ? CANONICAL_SOLID_STATIC_P95_BUDGET_MS
+      : CANONICAL_SOLID_DRAG_P95_BUDGET_MS
+    : mode === 'static'
+      ? CANONICAL_STATIC_P95_BUDGET_MS
+      : CANONICAL_DRAG_P95_BUDGET_MS
 
 const getSelfCheckLegalRegionsForSourceFixture = (
   sourceFixture: (typeof CANONICAL_SELF_CHECK_SOURCE_FIXTURES)[number]
@@ -2143,6 +2255,74 @@ describe('canonical stroke 18-combination matrix', () => {
       }
     }
   )
+
+  it('should run: static canonical matrix performance covers all 18 stroke combinations', () => {
+    const metrics = [...SOLID_MATRIX_CASES, ...DASHED_MATRIX_CASES].map(
+      (caseDef) =>
+        ({
+          ...measureCanonicalPerformanceCase({
+            caseDef,
+            mode: 'static'
+          }),
+          budgetMs: getCanonicalPerformanceBudgetMs({
+            caseDef,
+            mode: 'static'
+          })
+        })
+    )
+    const failures = metrics.filter(
+      (metric) => metric.p95Ms > metric.budgetMs
+    )
+
+    expect(metrics).toHaveLength(18)
+    expect(
+      failures,
+      JSON.stringify(
+        {
+          defaultBudgetMs: CANONICAL_STATIC_P95_BUDGET_MS,
+          solidBudgetMs: CANONICAL_SOLID_STATIC_P95_BUDGET_MS,
+          failures,
+          metrics
+        },
+        null,
+        2
+      )
+    ).toEqual([])
+  })
+
+  it('should run: drag canonical matrix performance covers all 18 stroke combinations', () => {
+    const metrics = [...SOLID_MATRIX_CASES, ...DASHED_MATRIX_CASES].map(
+      (caseDef) =>
+        ({
+          ...measureCanonicalPerformanceCase({
+            caseDef,
+            mode: 'drag'
+          }),
+          budgetMs: getCanonicalPerformanceBudgetMs({
+            caseDef,
+            mode: 'drag'
+          })
+        })
+    )
+    const failures = metrics.filter(
+      (metric) => metric.p95Ms > metric.budgetMs
+    )
+
+    expect(metrics).toHaveLength(18)
+    expect(
+      failures,
+      JSON.stringify(
+        {
+          defaultBudgetMs: CANONICAL_DRAG_P95_BUDGET_MS,
+          solidBudgetMs: CANONICAL_SOLID_DRAG_P95_BUDGET_MS,
+          failures,
+          metrics
+        },
+        null,
+        2
+      )
+    ).toEqual([])
+  })
 
   it.each(DASHED_OUTSIDE_SOURCE_JOIN_CASES)(
     'should run: dashed outside source join $joinType preserves authored source-vertex geometry on $sourceFixture.key',
