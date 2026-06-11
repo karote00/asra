@@ -4450,7 +4450,12 @@ const buildSolidMaskModelPolygons = ({
     return null
   }
 
-  if (stroke.position === 'inside' && sourcePath && preferRenderMaskProductFinal) {
+  if (
+    stroke.position === 'inside' &&
+    sourcePath &&
+    preferRenderMaskProductFinal &&
+    topology.topologyFamily !== 'self-intersecting'
+  ) {
     const renderStrokePaths = closeSourcePathForStrokeRender(sourcePath)
     if (renderStrokePaths.length === 0) {
       return null
@@ -4512,6 +4517,50 @@ const buildSolidMaskModelPolygons = ({
   }
 
   try {
+    if (
+      stroke.position === 'inside' &&
+      sourcePath &&
+      preferRenderMaskProductFinal &&
+      topology.topologyFamily === 'self-intersecting'
+    ) {
+      const renderClipPolygons = flattenRegionPolygons(
+        fillRegions.filter(hasRegionGeometry)
+      )
+      const renderStrokePathGroups = buildInsideAdjacencyStrokePathGroups(
+        legalBoundaryContours,
+        legalFaceBoundaries,
+        stroke
+      )
+      if (
+        renderClipPolygons.length === 0 ||
+        renderStrokePathGroups.length === 0
+      ) {
+        return null
+      }
+
+      return {
+        polygons: renderClipPolygons,
+        maskApplication: 'render-fill-mask',
+        visibleRender: 'masked-source-stroke',
+        coverageOracle: 'render-mask',
+        maskSide: 'inside-fill',
+        insideMaskMode: 'face-occupancy-inside-fill',
+        visibleMaskMode: 'inside-fill-source-stroke-clip',
+        joinGeometrySource: 'authored-doubled-source-stroke',
+        internalCornerJoinMode: 'stroke-join-aware-face-corner',
+        joinEligibilityMode: 'internal-face-only',
+        adjacencyProbe: INSIDE_SOLID_ADJACENCY_PROBES,
+        renderClipPolygons,
+        renderStrokePathGroups,
+        renderStrokePathStyle: {
+          width: stroke.width * 2,
+          cap: 'butt',
+          join: stroke.join,
+          miterLimit: stroke.miterLimit
+        }
+      }
+    }
+
     const strokeRegions = measureConstrainedSolidPhase(
       'solid-mask-model-stroke-region-union',
       () =>

@@ -947,7 +947,7 @@ describe('stroke drag complete render contract', () => {
     clearInteractionState()
   })
 
-  it('should use render-mask product final for inside solid self-intersecting drag frames', () => {
+  it('should keep face-owned render-mask product final for inside solid self-intersecting drag frames', () => {
     const graphic = new RecordingVectorGraphic()
     const stroke = createConstrainedSolidStroke(StrokePositions.INSIDE)
     const data = mutateDragFrame(8, 'anchor')
@@ -961,10 +961,20 @@ describe('stroke drag complete render contract', () => {
       renderVectorFrame(graphic, data, stroke)
     })
 
-    expect(phases.has('constrained-solid:self-intersecting-solid-mask-model-packets')).toBe(true)
-    expect(phases.has('constrained-solid:solid-mask-model-inside-face-owned-mask')).toBe(false)
-    expect(phases.has('constrained-solid:solid-mask-model-inside-exact-source-stroke')).toBe(false)
-    expect(phases.has('constrained-solid:solid-mask-model-inside-stroke-mask-intersection')).toBe(false)
+    expect(
+      phases.has('constrained-solid:self-intersecting-solid-mask-model-packets')
+    ).toBe(true)
+    expect(
+      phases.has('constrained-solid:solid-mask-model-inside-face-owned-mask')
+    ).toBe(false)
+    expect(
+      phases.has('constrained-solid:solid-mask-model-inside-exact-source-stroke')
+    ).toBe(false)
+    expect(
+      phases.has(
+        'constrained-solid:solid-mask-model-inside-stroke-mask-intersection'
+      )
+    ).toBe(false)
     expect(hasCurrentStrokeProductOutput(graphic)).toBe(true)
     clearInteractionState()
   })
