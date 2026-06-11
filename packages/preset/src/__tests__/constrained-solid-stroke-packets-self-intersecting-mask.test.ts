@@ -182,9 +182,12 @@ const buildSelfIntersectingSolidDomainFixture = () => {
 }
 
 const buildSelfCheckStarSolidDomainFixture = (
-  options: { seamStartSegmentId?: string } = {}
+  options: {
+    seamStartSegmentId?: string
+    pointOverrides?: Record<string, Partial<Vec2>>
+  } = {}
 ) => {
-  const points = {
+  const basePoints = {
     'tp-12': {
       id: 'tp-12',
       kind: 'anchor',
@@ -269,6 +272,15 @@ const buildSelfCheckStarSolidDomainFixture = (
       controlRole: 'out'
     }
   } as const
+  const points = Object.fromEntries(
+    Object.entries(basePoints).map(([pointId, point]) => [
+      pointId,
+      {
+        ...point,
+        ...(options.pointOverrides?.[pointId] ?? {})
+      }
+    ])
+  ) as typeof basePoints
   const segments = {
     'ts-23': {
       id: 'ts-23',
@@ -2748,6 +2760,63 @@ const getRenderEntryVisiblePolygonsForTest = ({
   )
 }
 
+const getInsideSolidFaceEdgeCoverageFailuresForTest = ({
+  legalFaceBoundaries,
+  polygons,
+  strokeWidth
+}: {
+  legalFaceBoundaries: { faceId: string; edges: EvenOddLegalFaceBoundaryEdge[] }[]
+  polygons: Vec2[][]
+  strokeWidth: number
+}) => {
+  const sampleOffset = Math.max(1, Math.min(strokeWidth * 0.3, 3))
+  const minimumSampleLength = Math.max(strokeWidth * 1.5, 12)
+  const failures: {
+    faceId: string
+    edgeId: string
+    sourceSegmentIndex?: number
+    sample: Vec2
+    edgeLength: number
+    oppositeFaceLegal: boolean
+  }[] = []
+
+  legalFaceBoundaries.forEach((face) => {
+    face.edges.forEach((edge) => {
+      const dx = edge.end.x - edge.start.x
+      const dy = edge.end.y - edge.start.y
+      const edgeLength = Math.hypot(dx, dy)
+      if (edgeLength < minimumSampleLength) {
+        return
+      }
+      const tangent = { x: dx / edgeLength, y: dy / edgeLength }
+      const legalNormal =
+        edge.legalSide === 'left'
+          ? { x: -tangent.y, y: tangent.x }
+          : { x: tangent.y, y: -tangent.x }
+      const sample = {
+        x: (edge.start.x + edge.end.x) / 2 + legalNormal.x * sampleOffset,
+        y: (edge.start.y + edge.end.y) / 2 + legalNormal.y * sampleOffset
+      }
+      if (polygonListContainsPointWithWinding(polygons, sample)) {
+        return
+      }
+      failures.push({
+        faceId: face.faceId,
+        edgeId: edge.edgeId,
+        sourceSegmentIndex: edge.sourceSegmentIndex,
+        sample: {
+          x: Number(sample.x.toFixed(3)),
+          y: Number(sample.y.toFixed(3))
+        },
+        edgeLength: Number(edgeLength.toFixed(3)),
+        oppositeFaceLegal: edge.oppositeFaceLegal
+      })
+    })
+  })
+
+  return failures.slice(0, 24)
+}
+
 const isInternalPentagonLikeFaceForTest = (face: {
   edges: EvenOddLegalFaceBoundaryEdge[]
 }) => {
@@ -4901,6 +4970,87 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
       probePairs,
       strokeWidth
     })
+  })
+
+  it('should run: keep all inside solid filled-face contours visible after dragging the top anchor inward', async () => {
+    const {
+      sourcePath,
+      topology,
+      fillRegions,
+      legalFaceBoundaries,
+      legalBoundaryContours,
+      sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains
+    } = buildSelfCheckStarSolidDomainFixture({
+      pointOverrides: {
+        'tp-12': { y: 130 },
+        'tp-12:out': { y: 270 }
+      }
+    })
+    const backend = createClipper2GeometryBackend(await loadClipperModule())
+    const strokeWidth = 10
+
+    expect(topology.topologyFamily).toBe('self-intersecting')
+    expect(legalFaceBoundaries.length).toBeGreaterThan(1)
+
+    const packets = withStrokeDiagnosticsMode('full', () =>
+      buildConstrainedSolidStrokeResolvedPackets(
+        'self-check-star-solid-domain:inside-dragged-top-anchor',
+        topology.normalizedPoints,
+        true,
+        [
+          createDefaultStroke({
+            width: strokeWidth,
+            style: 'solid',
+            position: 'inside',
+            joinType: 'miter',
+            capType: 'round'
+          })
+        ],
+        {
+          topology,
+          sourcePath,
+          implicitFillRegions: fillRegions,
+          implicitLegalFaceBoundaries: legalFaceBoundaries,
+          implicitLegalBoundaryContours: legalBoundaryContours,
+          sharedSourceSplitRanges,
+          sharedStrokeBoundaryDomains,
+          exactBackend: backend,
+          candidateMode: 'exact-arrangement'
+        }
+      )
+    )
+    const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
+    const renderEntries =
+      toSolidCenterStrokeRenderEntriesFromFinalFaces(finalFaces)
+    const renderVisiblePolygons = renderEntries.flatMap((entry) =>
+      getRenderEntryVisiblePolygonsForTest({
+        backend,
+        entry,
+        sourcePath,
+        join: 'miter',
+        strokeWidth
+      })
+    )
+    const failures = getInsideSolidFaceEdgeCoverageFailuresForTest({
+      legalFaceBoundaries,
+      polygons: renderVisiblePolygons,
+      strokeWidth
+    })
+
+    expect(
+      failures,
+      JSON.stringify(
+        {
+          faceCount: legalFaceBoundaries.length,
+          renderEntryCount: renderEntries.length,
+          renderVisiblePolygonCount: renderVisiblePolygons.length,
+          failures
+        },
+        null,
+        2
+      )
+    ).toEqual([])
   })
 
   it('should run: require self-intersecting outside solidMaskModel packets without internal-adjacency or dashed terminal metadata', async () => {

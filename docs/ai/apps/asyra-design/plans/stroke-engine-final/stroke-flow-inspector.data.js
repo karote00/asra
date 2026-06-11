@@ -604,7 +604,7 @@
         'Do not collapse all stroke parameters back into one broad strokeSpec helper; each parameter must retain its own reuse boundary.',
       relatedTests: [
         'packages/preset/src/__tests__/stroke-dirty-keys.test.ts',
-        'apps/asyra-design/e2e/stroke-drag-render-performance.spec.ts'
+        'apps/asyra-design/e2e/stroke-drag-render-performance-*.spec.ts'
       ],
       tags: ['performance', 'truth', 'critical']
     },

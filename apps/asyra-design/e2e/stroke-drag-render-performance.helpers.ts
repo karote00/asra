@@ -155,7 +155,7 @@ const STROKE_OPACITY_PERCENT = '50'
 const STROKE_WIDTH = 10
 const PERFORMANCE_STROKE_COLOR = '#18d42a'
 
-const STROKE_CASES: StrokeCase[] = [
+const CENTER_DASHED_STROKE_CASES: StrokeCase[] = [
   {
     label: 'center-dashed-butt',
     style: 'dashed',
@@ -173,7 +173,10 @@ const STROKE_CASES: StrokeCase[] = [
     style: 'dashed',
     position: 'center',
     cap: 'round'
-  },
+  }
+]
+
+const INSIDE_DASHED_STROKE_CASES: StrokeCase[] = [
   {
     label: 'inside-dashed-butt',
     style: 'dashed',
@@ -191,7 +194,10 @@ const STROKE_CASES: StrokeCase[] = [
     style: 'dashed',
     position: 'inside',
     cap: 'round'
-  },
+  }
+]
+
+const OUTSIDE_DASHED_STROKE_CASES: StrokeCase[] = [
   {
     label: 'outside-dashed-butt',
     style: 'dashed',
@@ -209,7 +215,10 @@ const STROKE_CASES: StrokeCase[] = [
     style: 'dashed',
     position: 'outside',
     cap: 'round'
-  },
+  }
+]
+
+const SOLID_STROKE_CASES: StrokeCase[] = [
   {
     label: 'center-solid-round',
     style: 'solid',
@@ -222,6 +231,13 @@ const STROKE_CASES: StrokeCase[] = [
     position: 'inside',
     cap: 'round'
   }
+]
+
+const STROKE_CASES: StrokeCase[] = [
+  ...CENTER_DASHED_STROKE_CASES,
+  ...INSIDE_DASHED_STROKE_CASES,
+  ...OUTSIDE_DASHED_STROKE_CASES,
+  ...SOLID_STROKE_CASES
 ]
 
 const DRAG_TARGETS: DragTarget[] = [
@@ -237,13 +253,32 @@ const OPEN_SELF_INTERSECTING_DRAG_TARGETS: DragTarget[] = [
   'first-anchor-in-control'
 ]
 
-const OPEN_SELF_INTERSECTING_STROKE_CASES: StrokeCase[] = STROKE_CASES.map(
-  (strokeCase) => ({
+const createOpenSelfIntersectingStrokeCases = (strokeCases: StrokeCase[]) =>
+  strokeCases.map((strokeCase) => ({
     ...strokeCase,
     label: `open-${strokeCase.label}`,
-    pathKind: 'open-self-intersecting'
-  })
-)
+    pathKind: 'open-self-intersecting' as const
+  }))
+
+const OPEN_SELF_INTERSECTING_STROKE_CASES: StrokeCase[] =
+  createOpenSelfIntersectingStrokeCases(STROKE_CASES)
+
+export const STROKE_DRAG_PERFORMANCE_CASE_GROUPS = {
+  centerDashed: CENTER_DASHED_STROKE_CASES,
+  insideDashed: INSIDE_DASHED_STROKE_CASES,
+  outsideDashed: OUTSIDE_DASHED_STROKE_CASES,
+  solid: SOLID_STROKE_CASES,
+  openCenterDashed: createOpenSelfIntersectingStrokeCases(
+    CENTER_DASHED_STROKE_CASES
+  ),
+  openInsideDashed: createOpenSelfIntersectingStrokeCases(
+    INSIDE_DASHED_STROKE_CASES
+  ),
+  openOutsideDashed: createOpenSelfIntersectingStrokeCases(
+    OUTSIDE_DASHED_STROKE_CASES
+  ),
+  openSolid: createOpenSelfIntersectingStrokeCases(SOLID_STROKE_CASES)
+} satisfies Record<string, StrokeCase[]>
 
 const getDragTargetsForStrokeCase = (strokeCase: StrokeCase) =>
   strokeCase.pathKind === 'open-self-intersecting'
@@ -303,6 +338,8 @@ const BURST_DRAG_STROKE_CASES: StrokeCase[] = [
     pathKind: 'open-self-intersecting'
   }
 ]
+
+export const STROKE_DRAG_PERFORMANCE_BURST_CASES = BURST_DRAG_STROKE_CASES
 
 const getPercentile = (values: number[], percentile: number) => {
   const sorted = [...values].sort((left, right) => left - right)
@@ -835,6 +872,9 @@ const assertVectorPointDragPerformanceBudget = (metrics: DragMetrics[]) => {
   const pointDragMetrics = metrics.filter(
     (metric) => !metric.label.startsWith('move-vector:')
   )
+  if (pointDragMetrics.length === 0) {
+    return
+  }
   const resolvedGeometryP95Values = pointDragMetrics.map(
     (metric) => metric.phaseP95Ms['resolved vector geometry model'] ?? 0
   )
@@ -2661,24 +2701,34 @@ const measureBurstDrag = async (
   }
 }
 
-test.describe('stroke drag render performance UX gate', () => {
-  test.setTimeout(300000)
+interface StrokeDragRenderPerformanceSuiteOptions {
+  suiteLabel: string
+  strokeCases: StrokeCase[]
+  burstStrokeCases?: StrokeCase[]
+  includeMoveVector?: boolean
+}
 
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/')
-    await waitForAppReady(page)
-  })
+export const runStrokeDragRenderPerformanceUXGate = ({
+  suiteLabel,
+  strokeCases,
+  burstStrokeCases = [],
+  includeMoveVector = false
+}: StrokeDragRenderPerformanceSuiteOptions) => {
+  test.describe(`stroke drag render performance UX gate: ${suiteLabel}`, () => {
+    test.setTimeout(300000)
 
-  test('measures real browser point and handle drag rendering with complete stroke render probes', async ({
-    page
-  }, testInfo) => {
-    const metrics: DragMetrics[] = []
-    const schedulingBaseline = await measureSchedulingBaseline(page)
+    test.beforeEach(async ({ page }) => {
+      await page.goto('/')
+      await waitForAppReady(page)
+    })
 
-    for (const strokeCase of [
-      ...STROKE_CASES,
-      ...OPEN_SELF_INTERSECTING_STROKE_CASES
-    ]) {
+    test(`measures ${suiteLabel} real browser drag rendering with complete stroke render probes`, async ({
+      page
+    }, testInfo) => {
+      const metrics: DragMetrics[] = []
+      const schedulingBaseline = await measureSchedulingBaseline(page)
+
+    for (const strokeCase of strokeCases) {
       for (const target of getDragTargetsForStrokeCase(strokeCase)) {
         const scenarioLabel = `${strokeCase.label}:${target}`
         if (!matchesScenarioFilter(scenarioLabel)) {
@@ -2696,12 +2746,12 @@ test.describe('stroke drag render performance UX gate', () => {
         )
       }
     }
-    if (DEBUG_SCENARIO_FILTERS.length === 0) {
+    if (includeMoveVector && DEBUG_SCENARIO_FILTERS.length === 0) {
       await setupReportedStarForMove(page)
       metrics.push(await measureMoveVectorElement(page, schedulingBaseline))
     }
     const burstMetrics: BurstDragMetrics[] = []
-    for (const burstStrokeCase of BURST_DRAG_STROKE_CASES) {
+    for (const burstStrokeCase of burstStrokeCases) {
       const burstTarget: DragTarget =
         burstStrokeCase.pathKind === 'open-self-intersecting'
           ? 'first-anchor-in-control'
@@ -2744,6 +2794,7 @@ test.describe('stroke drag render performance UX gate', () => {
         `${burstMetric.label} should visibly update the product stroke`
       ).toBe(true)
     }
+    expect(metrics.length + burstMetrics.length).toBeGreaterThan(0)
     const visualReviewRaster = await captureSelectedElementRaster(page, 72)
     const visualReviewRasterBuffer = Buffer.from(
       visualReviewRaster.base64,
@@ -2758,20 +2809,30 @@ test.describe('stroke drag render performance UX gate', () => {
       contentType: 'image/png'
     })
 
-    const maxP95Ms = Math.max(...metrics.map((metric) => metric.p95Ms))
+    const maxP95Ms =
+      metrics.length > 0
+        ? Math.max(...metrics.map((metric) => metric.p95Ms))
+        : 0
     const pointDragMetrics = metrics.filter(
       (metric) => !metric.label.startsWith('move-vector:')
     )
-    const maxVectorRenderPhaseP95 = Math.max(
-      ...pointDragMetrics.map(
-        (metric) => metric.phaseP95Ms['render-layer:strategy:vector'] ?? 0
-      )
-    )
-    const maxRenderFlushPhaseP95 = Math.max(
-      ...pointDragMetrics.map(
-        (metric) => metric.phaseP95Ms['render:flush-frame'] ?? 0
-      )
-    )
+    const maxVectorRenderPhaseP95 =
+      pointDragMetrics.length > 0
+        ? Math.max(
+            ...pointDragMetrics.map(
+              (metric) =>
+                metric.phaseP95Ms['render-layer:strategy:vector'] ?? 0
+            )
+          )
+        : 0
+    const maxRenderFlushPhaseP95 =
+      pointDragMetrics.length > 0
+        ? Math.max(
+            ...pointDragMetrics.map(
+              (metric) => metric.phaseP95Ms['render:flush-frame'] ?? 0
+            )
+          )
+        : 0
     const totalDroppedFrameCount = metrics.reduce(
       (total, metric) => total + metric.droppedFrameCount,
       0
@@ -2930,8 +2991,11 @@ test.describe('stroke drag render performance UX gate', () => {
       })}`
     )
 
-    expect(maxP95Ms).toBeGreaterThan(0)
-    expect(maxVectorRenderPhaseP95).toBeGreaterThan(0)
-    expect(maxRenderFlushPhaseP95).toBeGreaterThan(0)
+      if (metrics.length > 0) {
+        expect(maxP95Ms).toBeGreaterThan(0)
+        expect(maxVectorRenderPhaseP95).toBeGreaterThan(0)
+        expect(maxRenderFlushPhaseP95).toBeGreaterThan(0)
+      }
+    })
   })
-})
+}

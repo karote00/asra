@@ -2835,6 +2835,16 @@ const isJoinReactiveInsideFaceBoundary = (face: EvenOddLegalFaceBoundary) => {
   )
 }
 
+const isVisibleInsideStrokeFaceBoundary = (
+  face: EvenOddLegalFaceBoundary
+) =>
+  face.edges.some(
+    (edge) =>
+      edge.oppositeFaceLegal ||
+      edge.startNodeDegree > 2 ||
+      edge.endNodeDegree > 2
+  )
+
 const getNormalizedInsideFacePolygon = (
   face: EvenOddLegalFaceBoundary
 ): Vec2[] | null => {
@@ -2887,8 +2897,8 @@ const buildInsideAdjacencyStrokePathGroups = (
     }))
   )
 
-  const joinReactiveFaceGroups = legalFaceBoundaries.flatMap((face) => {
-    if (!isJoinReactiveInsideFaceBoundary(face)) {
+  const faceStrokeGroups = legalFaceBoundaries.flatMap((face) => {
+    if (!isVisibleInsideStrokeFaceBoundary(face)) {
       return []
     }
     const normalizedFacePolygon = getNormalizedInsideFacePolygon(face)
@@ -2909,7 +2919,7 @@ const buildInsideAdjacencyStrokePathGroups = (
     )
   })
 
-  return [...boundaryGroups, ...joinReactiveFaceGroups]
+  return [...boundaryGroups, ...faceStrokeGroups]
 }
 
 const buildOutsideExteriorRenderMaskPolygons = (

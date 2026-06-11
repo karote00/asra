@@ -681,6 +681,8 @@ interface Vec2 {
   y: number
 }
 
+type ReportedVector6PointOverrides = Record<string, Partial<Vec2>>
+
 const cubicPoint = (p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: number) => {
   const oneMinusT = 1 - t
   const a = oneMinusT * oneMinusT * oneMinusT
@@ -975,76 +977,83 @@ const reportedVector6ForbiddenBridgeProbes: ReportedVector6PointProbe[] = [
   }
 ]
 
-const getReportedVector6DenseSegmentCoverageProbes =
-  (): ReportedVector6PointProbe[] => {
-    const points: Record<string, Vec2> = {
-      'tp-12': { x: 192.42083700791653, y: 0 },
-      'tp-13': { x: 11.358174406717296, y: 364.1297089212308 },
-      'tp-12:out': { x: 170.10536493824844, y: 119.07041481724248 },
-      'tp-13:in': { x: -42.09205809548172, y: 343.2841182453731 },
-      'tp-13:out': { x: 78.17096503446606, y: 390.18669726605293 },
-      'tp-14': { x: 360.120941483566, y: 144.31562775593738 },
-      'tp-15': { x: 0, y: 14.030686031827244 },
-      'tp-15:out': { x: 0, y: 14.030686031827244 },
-      'tp-16': { x: 270.59180204238254, y: 345.42212754546125 },
-      'tp-16:in': { x: 263.9105229796076, y: 362.79345310867603 },
-      'tp-16:out': { x: 277.2730811051575, y: 328.05080198224647 }
-    }
-    const segments = [
-      {
-        id: 'ts-23',
-        start: 'tp-12',
-        end: 'tp-13',
-        out: 'tp-12:out',
-        in: 'tp-13:in'
-      },
-      {
-        id: 'ts-24',
-        start: 'tp-13',
-        end: 'tp-14',
-        out: 'tp-13:out',
-        in: null
-      },
-      {
-        id: 'ts-25',
-        start: 'tp-14',
-        end: 'tp-15',
-        out: null,
-        in: null
-      },
-      {
-        id: 'ts-26',
-        start: 'tp-15',
-        end: 'tp-16',
-        out: 'tp-15:out',
-        in: 'tp-16:in'
-      },
-      {
-        id: 'ts-27',
-        start: 'tp-16',
-        end: 'tp-12',
-        out: 'tp-16:out',
-        in: null
-      }
-    ]
-    const ratios = [
-      0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65,
-      0.7, 0.75, 0.8, 0.85, 0.9, 0.95
-    ]
-
-    return segments.flatMap((segment) => {
-      const p0 = points[segment.start]
-      const p3 = points[segment.end]
-      const p1 = segment.out ? points[segment.out] : p0
-      const p2 = segment.in ? points[segment.in] : p3
-      return ratios.map((ratio) => ({
-        label: `${segment.id} dense source coverage ${ratio}`,
-        point: cubicPoint(p0, p1, p2, p3, ratio),
-        size: 10,
-        minCoverage: 0.04
-      }))
-    })
+const getReportedVector6DenseSegmentCoverageProbes = (
+  pointOverrides: ReportedVector6PointOverrides = {}
+): ReportedVector6PointProbe[] => {
+  const basePoints: Record<string, Vec2> = {
+    'tp-12': { x: 192.42083700791653, y: 0 },
+    'tp-13': { x: 11.358174406717296, y: 364.1297089212308 },
+    'tp-12:out': { x: 170.10536493824844, y: 119.07041481724248 },
+    'tp-13:in': { x: -42.09205809548172, y: 343.2841182453731 },
+    'tp-13:out': { x: 78.17096503446606, y: 390.18669726605293 },
+    'tp-14': { x: 360.120941483566, y: 144.31562775593738 },
+    'tp-15': { x: 0, y: 14.030686031827244 },
+    'tp-15:out': { x: 0, y: 14.030686031827244 },
+    'tp-16': { x: 270.59180204238254, y: 345.42212754546125 },
+    'tp-16:in': { x: 263.9105229796076, y: 362.79345310867603 },
+    'tp-16:out': { x: 277.2730811051575, y: 328.05080198224647 }
   }
+  const points = Object.fromEntries(
+    Object.entries(basePoints).map(([pointId, point]) => [
+      pointId,
+      { ...point, ...(pointOverrides[pointId] ?? {}) }
+    ])
+  ) as Record<string, Vec2>
+  const segments = [
+    {
+      id: 'ts-23',
+      start: 'tp-12',
+      end: 'tp-13',
+      out: 'tp-12:out',
+      in: 'tp-13:in'
+    },
+    {
+      id: 'ts-24',
+      start: 'tp-13',
+      end: 'tp-14',
+      out: 'tp-13:out',
+      in: null
+    },
+    {
+      id: 'ts-25',
+      start: 'tp-14',
+      end: 'tp-15',
+      out: null,
+      in: null
+    },
+    {
+      id: 'ts-26',
+      start: 'tp-15',
+      end: 'tp-16',
+      out: 'tp-15:out',
+      in: 'tp-16:in'
+    },
+    {
+      id: 'ts-27',
+      start: 'tp-16',
+      end: 'tp-12',
+      out: 'tp-16:out',
+      in: null
+    }
+  ]
+  const ratios = [
+    0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65,
+    0.7, 0.75, 0.8, 0.85, 0.9, 0.95
+  ]
+
+  return segments.flatMap((segment) => {
+    const p0 = points[segment.start]
+    const p3 = points[segment.end]
+    const p1 = segment.out ? points[segment.out] : p0
+    const p2 = segment.in ? points[segment.in] : p3
+    return ratios.map((ratio) => ({
+      label: `${segment.id} dense source coverage ${ratio}`,
+      point: cubicPoint(p0, p1, p2, p3, ratio),
+      size: 10,
+      minCoverage: 0.04
+    }))
+  })
+}
 
 const getOvalProbeRegions = (raster: RasterCapture) => {
   const centerColumn = raster.padding + raster.elementWidth / 2 - 2
@@ -1794,13 +1803,17 @@ const _setSelectedVectorReportedSolidStroke = async (
 
 const createReportedVector6InsideSolid = async (
   page: Page,
-  options: { color?: string; opacity?: number } = {}
+  options: {
+    color?: string
+    opacity?: number
+    pointOverrides?: ReportedVector6PointOverrides
+  } = {}
 ) => {
   await page.evaluate(
-    ({ color, opacity }) => {
+    ({ color, opacity, pointOverrides }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
-      const points = {
+      const basePoints = {
         'tp-12': {
           id: 'tp-12',
           kind: 'anchor',
@@ -1885,6 +1898,26 @@ const createReportedVector6InsideSolid = async (
           controlRole: 'out'
         }
       }
+      const origin = { x: 220, y: 159 }
+      const localPoints = Object.fromEntries(
+        Object.entries(basePoints).map(([pointId, point]) => [
+          pointId,
+          {
+            ...point,
+            ...(pointOverrides?.[pointId] ?? {})
+          }
+        ])
+      )
+      const points = Object.fromEntries(
+        Object.entries(localPoints).map(([pointId, point]) => [
+          pointId,
+          {
+            ...point,
+            x: point.x + origin.x,
+            y: point.y + origin.y
+          }
+        ])
+      )
       const segments = {
         'ts-23': {
           id: 'ts-23',
@@ -1937,7 +1970,8 @@ const createReportedVector6InsideSolid = async (
               closed: true
             }
           },
-          closed: true
+          closed: true,
+          pointCoordinateSpace: 'workspace'
         },
         { undoable: false }
       )
@@ -1947,8 +1981,8 @@ const createReportedVector6InsideSolid = async (
       elementApis?.changeComputedData?.(
         [createdId],
         {
-          x: 220,
-          y: 159,
+          x: origin.x,
+          y: origin.y,
           width: 360.120941483566,
           height: 366.06359840210007,
           points,
@@ -1962,6 +1996,7 @@ const createReportedVector6InsideSolid = async (
             }
           },
           closed: true,
+          pointCoordinateSpace: 'workspace',
           fills: [],
           strokes: [
             {
@@ -1991,7 +2026,8 @@ const createReportedVector6InsideSolid = async (
     },
     {
       color: options.color ?? STROKE_COLOR,
-      opacity: options.opacity
+      opacity: options.opacity,
+      pointOverrides: options.pointOverrides ?? {}
     }
   )
 
@@ -2070,7 +2106,11 @@ const clearVectorOverlayState = async (page: Page) => {
 
 const prepareReportedVector6InsideSolid = async (
   page: Page,
-  options: { color?: string; opacity?: number } = {}
+  options: {
+    color?: string
+    opacity?: number
+    pointOverrides?: ReportedVector6PointOverrides
+  } = {}
 ) => {
   await createReportedVector6InsideSolid(page, options)
   if (process.env.ASYRA_DEBUG_REPORTED_VECTOR6 === '1') {
@@ -2572,5 +2612,44 @@ test.describe('Constrained Solid Stroke Primitive Visual Benchmarks', () => {
 
     expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
     expect(leftOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+  })
+
+  test('benchmark: reported vector-6 inside solid keeps all source contours visible after dragging the top anchor inward', async ({
+    page
+  }, testInfo) => {
+    const draggedTopPointOverrides: ReportedVector6PointOverrides = {
+      'tp-12': { y: 130 },
+      'tp-12:out': { y: 270 }
+    }
+
+    await prepareReportedVector6InsideSolid(page, {
+      color: REPORTED_VECTOR_6_PRODUCT_STROKE_COLOR,
+      opacity: 100,
+      pointOverrides: draggedTopPointOverrides
+    })
+
+    const packetSummary = await getSelectedSolidStrokeRenderPacketSummary(page)
+    expect(packetSummary.exportPacketCount).toBeGreaterThan(0)
+
+    const raster = await captureSelectedElementRaster(page, STROKE_WIDTH, 48)
+    await attachPng(
+      'reported-vector-6-inside-solid-dragged-top-anchor-full.png',
+      raster.base64,
+      testInfo
+    )
+
+    const wholeRedCoverage = await getRedCoverage(page, raster, {
+      x: 0,
+      y: 0,
+      width: raster.width,
+      height: raster.height
+    })
+    expect(wholeRedCoverage).toBeGreaterThan(0.045)
+
+    await assertReportedVector6RedPointProbes(
+      page,
+      raster,
+      getReportedVector6DenseSegmentCoverageProbes(draggedTopPointOverrides)
+    )
   })
 })

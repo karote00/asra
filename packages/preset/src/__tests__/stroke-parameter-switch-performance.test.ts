@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { BehaviorSubject, Subscription } from 'rxjs'
 import { Container } from 'pixi.js'
+import Clipper2ZFactory from 'clipper2-wasm'
 import core, {
   VECTOR_TOKENS,
   renderStrategyRegistry,
@@ -27,6 +30,14 @@ import {
   toSolidCenterStrokeRenderEntriesFromFinalFaces
 } from '../components/stroke-render/solid-center-stroke-packets'
 import { renderSolidCenterStrokeEntries } from '../components/stroke-render/solid-center-stroke-render'
+import {
+  registerGeometryBackend,
+  selectGeometryBackend
+} from '../components/stroke-render/geometry-backend'
+import {
+  createClipper2GeometryBackend,
+  type Clipper2Module
+} from '../components/stroke-render/clipper2-geometry-backend'
 
 const FRAME_COUNT = Number(
   process.env.ASYRA_STROKE_PARAMETER_SWITCH_FRAMES ?? 300
@@ -44,8 +55,21 @@ const SHOULD_ENFORCE_PARAMETER_P95 =
 const PARAMETER_SWITCH_P95_BUDGET_MS = Number(
   process.env.ASYRA_STROKE_PARAMETER_SWITCH_P95_BUDGET_MS ?? 11.11
 )
+const require = createRequire(import.meta.url)
+const clipperWasmPath = require.resolve('clipper2-wasm/dist/umd/clipper2z.wasm')
+const CLIPPER_STROKE_PARAMETER_SWITCH_TEST_BACKEND_ID =
+  'stroke-parameter-switch-clipper2-test'
 
-beforeAll(() => {
+const loadClipperModule = async () =>
+  (await (
+    Clipper2ZFactory as (options: {
+      wasmBinary: Uint8Array
+    }) => Promise<Clipper2Module>
+  )({
+    wasmBinary: readFileSync(clipperWasmPath)
+  })) as Clipper2Module
+
+beforeAll(async () => {
   HTMLCanvasElement.prototype.getContext =
     HTMLCanvasElement.prototype.getContext ?? (() => null)
 
@@ -108,11 +132,21 @@ beforeAll(() => {
     'strokeDebugDisableVisualOverlapCollapse',
     false
   )
+
+  const backend = createClipper2GeometryBackend(await loadClipperModule(), {
+    backendId: CLIPPER_STROKE_PARAMETER_SWITCH_TEST_BACKEND_ID,
+    backendVersion: `${CLIPPER_STROKE_PARAMETER_SWITCH_TEST_BACKEND_ID}@test`
+  })
+  registerGeometryBackend({
+    backendId: CLIPPER_STROKE_PARAMETER_SWITCH_TEST_BACKEND_ID,
+    load: () => backend
+  })
+  selectGeometryBackend(CLIPPER_STROKE_PARAMETER_SWITCH_TEST_BACKEND_ID)
 })
 
 class RecordingVectorGraphic extends Container {
   __asyraSolidCenterStrokeExportPackets?: unknown[]
-  __asyraStrokeMeshCache?: Map<string, unknown>
+  __asyraStrokeMeshCache?: Map<string, { kind?: string }>
   __asyraNativeCenterSolidStrokeRenderCount?: number
   __asyraCenterSolidPathMaskRenderCount?: number
   hitArea?: { contains: (x: number, y: number) => boolean } | null
@@ -146,11 +180,21 @@ class RecordingVectorGraphic extends Container {
   }
 }
 
+const getStrokeCacheEntries = (graphic: RecordingVectorGraphic) =>
+  Array.from(graphic.__asyraStrokeMeshCache?.entries() ?? [])
+
 const hasProductOutput = (graphic: RecordingVectorGraphic) =>
   (graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0) > 0 ||
-  (graphic.__asyraStrokeMeshCache?.size ?? 0) > 0 ||
   (graphic.__asyraNativeCenterSolidStrokeRenderCount ?? 0) > 0 ||
-  (graphic.__asyraCenterSolidPathMaskRenderCount ?? 0) > 0
+  (graphic.__asyraCenterSolidPathMaskRenderCount ?? 0) > 0 ||
+  getStrokeCacheEntries(graphic).some(
+    ([, entry]) =>
+      entry.kind === 'solid' ||
+      entry.kind === 'gradient' ||
+      entry.kind === 'masked-solid' ||
+      entry.kind === 'solid-graphics' ||
+      entry.kind === 'drag-solid-graphics'
+  )
 
 const hasProductPipelineCounterChange = (
   counters: Record<string, number>,
@@ -315,11 +359,12 @@ const measureScenario = (
   const graphic = new RecordingVectorGraphic()
   const baseData = {
     id: `measure:${label}`,
-    x: 2395.5238285133596,
-    y: 1832.0182325853355,
+    x: 0,
+    y: 0,
     width: 423.6353107755326,
     height: 458.34939129152076,
     ...toReportedClosedStarVectorData(),
+    pointCoordinateSpace: 'workspace',
     closed: true,
     fills: []
   }
@@ -743,7 +788,7 @@ describeProfile('stroke parameter switch performance profile', () => {
     ).toBeGreaterThan(0)
     expect(
       getMetric('outside dashed cap cycle').counters[
-        'terminal-cap-build-count'
+        'stroke-stage-cache:product-geometry-store'
       ] ?? 0
     ).toBeGreaterThan(0)
     expect(
@@ -753,7 +798,7 @@ describeProfile('stroke parameter switch performance profile', () => {
     ).toBeGreaterThan(0)
     expect(
       getMetric('outside dashed join cycle').counters[
-        'final-coverage-builder-hit'
+        'stroke-stage-cache:product-geometry-store'
       ] ?? 0
     ).toBeGreaterThan(0)
     expect(
