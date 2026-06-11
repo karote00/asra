@@ -828,7 +828,8 @@ export const renderSolidCenterStrokeEntries = (
       !geometryDirty &&
       compatibleEntry.signature === signature
     ) {
-      if (paintDirty) {
+      const paintChanged = compatibleEntry.paintKey !== paintKey
+      if (paintDirty || paintChanged) {
         if (compatibleEntry.kind === 'solid') {
           compatibleEntry.projection.updatePaint({
             kind: 'solid',

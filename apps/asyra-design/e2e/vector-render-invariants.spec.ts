@@ -2603,6 +2603,191 @@ test.describe('Vector render invariants', () => {
     expect(browserErrors).toEqual([])
   })
 
+  test('repaints cached vector stroke immediately after color and opacity changes without reload', async ({
+    page
+  }, testInfo) => {
+    await page.evaluate((topology) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!core || !elementApis) {
+        throw new Error('Missing E2E core or element APIs')
+      }
+
+      const createdId = elementApis.createElement(
+        {
+          type: 'vector',
+          points: topology.points,
+          segments: topology.segments,
+          networks: topology.networks,
+          closed: true,
+          pointCoordinateSpace: 'workspace',
+          fills: []
+        },
+        { undoable: false }
+      )
+      if (!createdId) {
+        throw new Error('Failed to create repaint regression vector')
+      }
+
+      elementApis.changeComputedData(
+        [createdId],
+        {
+          strokes: [
+            {
+              id: 'paint-repaint-regression-stroke',
+              kind: 'solid',
+              style: 'solid',
+              position: 'center',
+              width: 14,
+              dashPattern: [],
+              dashOffset: 0,
+              fill: null,
+              defaultColorFormat: 'hex',
+              colorFormat: 'hex',
+              color: '#cccccc',
+              opacity: 0.5,
+              visible: true,
+              gradient: null,
+              joinType: 'round',
+              capType: 'round',
+              miterAngle: 28.96
+            }
+          ]
+        },
+        { undoable: false }
+      )
+      core.selectElements?.([createdId], { undoable: false })
+      core.setSystemProperty?.('zoom', 1)
+      core.setSystemProperty?.('viewportPosition', { x: 120, y: 120 })
+    }, createPentagramTopology())
+
+    await page.waitForTimeout(250)
+    const beforeRaster = await captureSelectedElementRaster(page, 90)
+    const beforeStats = await analyzeRedStrokeRaster(page, beforeRaster.base64)
+    expect(beforeStats.strokeCoverage).toBeLessThan(0.002)
+
+    const propertiesPanel = page.getByTestId('properties-panel')
+    await propertiesPanel.getByTestId('prop-stroke-color-0').fill('#df0606')
+    await propertiesPanel.getByTestId('prop-stroke-color-0').press('Enter')
+    await propertiesPanel.getByTestId('prop-stroke-opacity-0').fill('100')
+    await propertiesPanel.getByTestId('prop-stroke-opacity-0').press('Enter')
+
+    await page.waitForTimeout(250)
+    const afterRaster = await captureSelectedElementRaster(page, 90)
+    const afterStats = await analyzeRedStrokeRaster(page, afterRaster.base64)
+    await testInfo.attach('vector-stroke-paint-repaint-review', {
+      body: Buffer.from(afterRaster.base64, 'base64'),
+      contentType: 'image/png'
+    })
+    expect(
+      afterStats.strokeCoverage,
+      `paint-only vector stroke red coverage\n${JSON.stringify(
+        {
+          beforeStats,
+          afterStats,
+          diagnostics: await readSelectedVectorDiagnostics(page)
+        },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(0.015)
+    expect(afterStats.visualSignal).toBeGreaterThan(2)
+  })
+
+  test('repaints center solid vector stroke after color picker commit without reload', async ({
+    page
+  }, testInfo) => {
+    await page.evaluate((topology) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!core || !elementApis) {
+        throw new Error('Missing E2E core or element APIs')
+      }
+
+      const createdId = elementApis.createElement(
+        {
+          type: 'vector',
+          points: topology.points,
+          segments: topology.segments,
+          networks: topology.networks,
+          closed: true,
+          pointCoordinateSpace: 'workspace',
+          fills: []
+        },
+        { undoable: false }
+      )
+      if (!createdId) {
+        throw new Error('Failed to create picker repaint regression vector')
+      }
+
+      elementApis.changeComputedData(
+        [createdId],
+        {
+          strokes: [
+            {
+              id: 'paint-picker-regression-stroke',
+              kind: 'solid',
+              style: 'solid',
+              position: 'center',
+              width: 10,
+              dashPattern: [],
+              dashOffset: 0,
+              fill: null,
+              defaultColorFormat: 'hex',
+              colorFormat: 'hex',
+              color: '#cccccc',
+              opacity: 1,
+              visible: true,
+              gradient: null,
+              joinType: 'bevel',
+              capType: 'butt',
+              miterAngle: 28.96
+            }
+          ]
+        },
+        { undoable: false }
+      )
+      core.selectElements?.([createdId], { undoable: false })
+      core.setSystemProperty?.('zoom', 1)
+      core.setSystemProperty?.('viewportPosition', { x: 120, y: 120 })
+    }, createPentagramTopology())
+
+    await page.waitForTimeout(250)
+    const beforeRaster = await captureSelectedElementRaster(page, 90)
+    const beforeStats = await analyzeRedStrokeRaster(page, beforeRaster.base64)
+    expect(beforeStats.strokeCoverage).toBeLessThan(0.002)
+
+    const propertiesPanel = page.getByTestId('properties-panel')
+    await propertiesPanel.getByTestId('prop-stroke-color-picker-0').click()
+    await page.getByTestId('prop-stroke-color-picker-0-hex').fill('DF0606')
+    await page.getByTestId('prop-stroke-color-picker-0-hex').press('Enter')
+
+    await page.waitForTimeout(250)
+    const afterRaster = await captureSelectedElementRaster(page, 90)
+    const afterStats = await analyzeRedStrokeRaster(page, afterRaster.base64)
+    await testInfo.attach('vector-stroke-picker-repaint-review', {
+      body: Buffer.from(afterRaster.base64, 'base64'),
+      contentType: 'image/png'
+    })
+    expect(
+      afterStats.strokeCoverage,
+      `color-picker vector stroke red coverage\n${JSON.stringify(
+        {
+          beforeStats,
+          afterStats,
+          diagnostics: await readSelectedVectorDiagnostics(page)
+        },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(0.015)
+    expect(afterStats.visualSignal).toBeGreaterThan(2)
+  })
+
   test('keeps scene-tree, render graphic, and path-editing overlay aligned after star create and point update', async ({
     page
   }) => {

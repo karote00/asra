@@ -740,6 +740,81 @@ describe('solid center stroke render', () => {
     expect(getProjectionGraphics(host)[0]).toBe(graphics)
   })
 
+  it('should run: repaint reused graphics when cached geometry revision is unchanged but paint key changes', () => {
+    const host = new MeshTestHost()
+    const revisionSet = buildStrokeRuntimeRevisionSet({
+      points: [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+        { x: 10, y: 4 },
+        { x: 0, y: 4 }
+      ],
+      closed: true,
+      stroke: {
+        style: 'solid',
+        position: 'center',
+        width: 4,
+        join: 'miter',
+        miterLimit: 4,
+        cap: 'butt',
+        color: 0x3366ff,
+        alpha: 0.5
+      },
+      geometryFamily: 'solid-center',
+      resolutionStatus: 'native-center',
+      runtimeStatus: 'not-applicable',
+      runtimeReason: 'center-stroke',
+      ownerKey: 'rect:a:stroke:0',
+      strokeId: 'stroke:0'
+    })
+    const entry = {
+      cacheKey: 'solid_center_cached_paint_0',
+      stroke: {
+        color: 0x3366ff,
+        alpha: 0.5,
+        paintKey: 'solid:3366ff:0.5'
+      },
+      polygons: [
+        [
+          { x: 0, y: 0 },
+          { x: 10, y: 0 },
+          { x: 10, y: 4 },
+          { x: 0, y: 4 }
+        ]
+      ],
+      revisionSet
+    }
+
+    renderSolidCenterStrokeEntries(host, [entry])
+    const graphics = getProjectionGraphics(host)[0]
+    const clearSpy = vi.spyOn(Graphics.prototype, 'clear')
+
+    try {
+      renderSolidCenterStrokeEntries(host, [
+        {
+          ...entry,
+          stroke: {
+            color: 0xff0000,
+            alpha: 1,
+            paintKey: 'solid:ff0000:1'
+          }
+        }
+      ])
+
+      const cacheEntry = (
+        host as typeof host & {
+          __asyraStrokeMeshCache?: Map<string, { paintKey?: string }>
+        }
+      ).__asyraStrokeMeshCache?.get('solid_center_cached_paint_0')
+
+      expect(getProjectionGraphics(host)[0]).toBe(graphics)
+      expect(clearSpy).toHaveBeenCalled()
+      expect(cacheEntry?.paintKey).toBe('solid:ff0000:1')
+    } finally {
+      clearSpy.mockRestore()
+    }
+  })
+
   it('should run: record runtime dirty keys from packet revisions', () => {
     const host = new MeshTestHost()
     const baseRevisionSet = buildStrokeRuntimeRevisionSet({

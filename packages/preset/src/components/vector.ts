@@ -2989,8 +2989,7 @@ const renderVectorGraphic = (
       : undefined
   const hasReplayableCachedProduct =
     cachedProduct &&
-    (cachedProduct.finalFaces.length > 0 ||
-      cachedProduct.renderEntries.length > 0) &&
+    cachedProduct.renderEntries.length > 0 &&
     (!canUseMiterStyleReplayableProductGeometrySignature ||
       cachedProduct.styleReplayable === true)
 
@@ -4540,7 +4539,7 @@ const renderVectorGraphic = (
     fillPayload.length === 0 &&
     singleSolidRenderableStroke &&
     strokeProductGeometrySignature &&
-    (strokeFinalFaces.length > 0 || strokeRenderEntries.length > 0)
+    strokeRenderEntries.length > 0
   ) {
     const styleReplayable = canUseMiterStyleReplayableProductGeometrySignature
       ? isMiterStyleReplayableStrokeProduct(
