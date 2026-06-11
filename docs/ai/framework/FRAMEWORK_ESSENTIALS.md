@@ -54,6 +54,7 @@ The framework guarantees:
 - App-level should use `core.xxx`/approved app APIs, not internal package singletons.
 - Cross-package imports must use `@asyra/package-name`.
 - `create-app/*` is generated output; do not hand-edit it directly.
+- Pre-release legacy behavior must be upgraded or deleted; do not keep unreleased old flows as product fallbacks. See `rules/pre-release-legacy-removal.md`.
 
 ## Implementation Checklist (Every Change)
 
@@ -63,4 +64,5 @@ The framework guarantees:
 - keep runtime flow deterministic
 - expose extension via registration, not branching
 - preserve load validation/fallback semantics
+- remove stale pre-release branches instead of keeping them as compatibility fallbacks
 - update framework docs when contracts change

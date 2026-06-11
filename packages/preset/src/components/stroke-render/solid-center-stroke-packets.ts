@@ -504,9 +504,8 @@ const doBoundsOverlap = (left: Bounds, right: Bounds) =>
 export const hasSolidCenterStrokeIntent = (
   strokes: StrokeAttrs[] | undefined
 ) =>
-  strokes?.some(
+  getRenderableStrokes(strokes).some(
     (stroke) =>
-      stroke.visible !== false &&
       stroke.style === 'solid' &&
       stroke.position === 'center' &&
       stroke.width > 0
@@ -541,8 +540,7 @@ const isNearRenderProjectionCollinearPoint = (
   const by = next.y - point.y
   const scale = Math.max(Math.hypot(ax, ay) + Math.hypot(bx, by), 1)
   return (
-    Math.abs(ax * by - ay * bx) / scale <=
-    RENDER_PROJECTION_COLLINEAR_TOLERANCE
+    Math.abs(ax * by - ay * bx) / scale <= RENDER_PROJECTION_COLLINEAR_TOLERANCE
   )
 }
 
@@ -593,7 +591,8 @@ const cleanRenderProjectionPolygon = (polygon: Vec2[]) => {
     }
 
     const simplified = compacted.filter((point, index) => {
-      const previous = compacted[(index - 1 + compacted.length) % compacted.length]
+      const previous =
+        compacted[(index - 1 + compacted.length) % compacted.length]
       const next = compacted[(index + 1) % compacted.length]
       return (
         getPointDistance(previous, point) >
@@ -1259,52 +1258,53 @@ const collectOutsideSquareSplitTerminalResidueContexts = (
     }
 
     const strokeWidth = debugMeta.strokeWidth
-    const terminalRecords =
-      debugMeta.figmaLikeSplitRangeTerminals?.length
-        ? debugMeta.figmaLikeSplitRangeTerminals
-        : debugMeta.figmaLikeSplitRangeId &&
-            debugMeta.figmaLikeTerminalRole &&
-            debugMeta.figmaLikeTerminalRole !== 'middle'
-          ? [
-              {
-                intervalId: debugMeta.intervalId ?? face.faceId,
-                splitRangeId: debugMeta.figmaLikeSplitRangeId,
-                splitRangeStartDistance:
-                  debugMeta.figmaLikeSplitRangeStartDistance ?? 0,
-                splitRangeEndDistance:
-                  debugMeta.figmaLikeSplitRangeEndDistance ?? 0,
-                terminalRole: debugMeta.figmaLikeTerminalRole,
-                startDistance: debugMeta.startDistance ?? 0,
-                endDistance: debugMeta.endDistance ?? 0,
-                boundaryPoints: debugMeta.figmaLikeBoundaryPoints
-              }
-            ]
-          : []
+    const terminalRecords = debugMeta.figmaLikeSplitRangeTerminals?.length
+      ? debugMeta.figmaLikeSplitRangeTerminals
+      : debugMeta.figmaLikeSplitRangeId &&
+          debugMeta.figmaLikeTerminalRole &&
+          debugMeta.figmaLikeTerminalRole !== 'middle'
+        ? [
+            {
+              intervalId: debugMeta.intervalId ?? face.faceId,
+              splitRangeId: debugMeta.figmaLikeSplitRangeId,
+              splitRangeStartDistance:
+                debugMeta.figmaLikeSplitRangeStartDistance ?? 0,
+              splitRangeEndDistance:
+                debugMeta.figmaLikeSplitRangeEndDistance ?? 0,
+              terminalRole: debugMeta.figmaLikeTerminalRole,
+              startDistance: debugMeta.startDistance ?? 0,
+              endDistance: debugMeta.endDistance ?? 0,
+              boundaryPoints: debugMeta.figmaLikeBoundaryPoints
+            }
+          ]
+        : []
 
     return terminalRecords.flatMap((terminal) => {
       const boundaryPoints =
         terminal.boundaryPoints ?? debugMeta.figmaLikeBoundaryPoints
       return [
         ...(terminal.terminalRole === 'start' ||
-	        terminal.terminalRole === 'start-end'
-	          ? [
-	              {
-	                point: getTerminalEndpoint(boundaryPoints, 'start'),
-	                strokeWidth
-	              }
-	            ]
+        terminal.terminalRole === 'start-end'
+          ? [
+              {
+                point: getTerminalEndpoint(boundaryPoints, 'start'),
+                strokeWidth
+              }
+            ]
           : []),
         ...(terminal.terminalRole === 'end' ||
-	        terminal.terminalRole === 'start-end'
-	          ? [
-	              {
-	                point: getTerminalEndpoint(boundaryPoints, 'end'),
-	                strokeWidth
-	              }
-	            ]
+        terminal.terminalRole === 'start-end'
+          ? [
+              {
+                point: getTerminalEndpoint(boundaryPoints, 'end'),
+                strokeWidth
+              }
+            ]
           : [])
       ].flatMap((context) =>
-        context.point ? [{ point: context.point, strokeWidth: context.strokeWidth }] : []
+        context.point
+          ? [{ point: context.point, strokeWidth: context.strokeWidth }]
+          : []
       )
     })
   })
@@ -1323,7 +1323,9 @@ const filterOutsideSquareSplitTerminalRenderProjectionResidue = (
 
   const polygonAreas = polygons.map(getPolygonCoverageArea)
   const touchesEndpoint = (polygon: Vec2[], point: Vec2, tolerance: number) =>
-    polygon.some((polygonPoint) => getPointDistance(polygonPoint, point) <= tolerance)
+    polygon.some(
+      (polygonPoint) => getPointDistance(polygonPoint, point) <= tolerance
+    )
 
   return polygons.filter((polygon, polygonIndex) => {
     const area = polygonAreas[polygonIndex] ?? 0
@@ -1333,11 +1335,14 @@ const filterOutsideSquareSplitTerminalRenderProjectionResidue = (
         return false
       }
 
-      const maxEndpointArea = polygons.reduce((maxArea, candidate, candidateIndex) => {
-        return touchesEndpoint(candidate, point, endpointTolerance)
-          ? Math.max(maxArea, polygonAreas[candidateIndex] ?? 0)
-          : maxArea
-      }, 0)
+      const maxEndpointArea = polygons.reduce(
+        (maxArea, candidate, candidateIndex) => {
+          return touchesEndpoint(candidate, point, endpointTolerance)
+            ? Math.max(maxArea, polygonAreas[candidateIndex] ?? 0)
+            : maxArea
+        },
+        0
+      )
       const fragmentAreaLimit = strokeWidth * strokeWidth * 0.75
       return (
         area <= fragmentAreaLimit &&

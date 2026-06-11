@@ -242,10 +242,7 @@ const createGeometry = (model: GeometryModel) => {
   })
 }
 
-const updateGeometry = (
-  geometry: MeshGeometry,
-  model: GeometryModel
-) => {
+const updateGeometry = (geometry: MeshGeometry, model: GeometryModel) => {
   const meshData = buildProjectionMeshData(model)
   if (!meshData) {
     return false

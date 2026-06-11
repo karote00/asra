@@ -544,7 +544,7 @@ class SceneTree {
     Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
       const computedKey = key as keyof ComputedAttrs
       const currentRecord = cloneRecord(computedSnapshot[key])
-      const nextRecord = { ...currentRecord }
+      let nextRecord = { ...currentRecord }
       const nextRecordPatch: NonNullable<
         ComputedDataPatchChange['records']
       >[string] = {}
@@ -560,7 +560,6 @@ class SceneTree {
         nextRecordPatch.set[recordId] =
           before === undefined ? { after } : { before, after }
       })
-
       ;(recordPatch.remove ?? []).forEach((recordId) => {
         if (!(recordId in currentRecord)) {
           return
@@ -570,7 +569,8 @@ class SceneTree {
         nextRecordPatch.remove[recordId] = {
           before: currentRecord[recordId]
         }
-        delete nextRecord[recordId]
+        const { [recordId]: _removed, ...withoutRecord } = nextRecord
+        nextRecord = withoutRecord
       })
 
       if (

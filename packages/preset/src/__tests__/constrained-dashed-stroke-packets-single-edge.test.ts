@@ -4156,8 +4156,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
           selectedSideGuardPoints: guardPoints,
           clipInsideToFillDomain: true
         }
-      )
-        .flatMap((joinPacket) => joinPacket.geometry.polygons)
+      ).flatMap((joinPacket) => joinPacket.geometry.polygons)
     const highCurvatureJoinCoverageFailures = (
       ['miter', 'bevel', 'round'] as const
     ).flatMap((joinType) =>

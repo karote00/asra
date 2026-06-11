@@ -41,8 +41,7 @@ describe('dashed center stroke packets', () => {
         minX: packet.geometry.bounds.minX,
         maxX: packet.geometry.bounds.maxX,
         dashPlacementMode: packet.geometry.debugMeta?.dashPlacementMode,
-        intervalTerminalRole:
-          packet.geometry.debugMeta?.intervalTerminalRole
+        intervalTerminalRole: packet.geometry.debugMeta?.intervalTerminalRole
       }))
     ).toEqual([
       {
@@ -134,8 +133,7 @@ describe('dashed center stroke packets', () => {
       packets.map((packet) => ({
         startDistance: packet.geometry.debugMeta?.startDistance,
         endDistance: packet.geometry.debugMeta?.endDistance,
-        intervalTerminalRole:
-          packet.geometry.debugMeta?.intervalTerminalRole
+        intervalTerminalRole: packet.geometry.debugMeta?.intervalTerminalRole
       }))
     ).toEqual([
       {
@@ -360,7 +358,7 @@ describe('dashed center stroke packets', () => {
     expect(
       Math.max(
         ...packets.map((packet) => packet.geometry.polygons[0]?.length ?? 0)
-    )
+      )
     ).toBeLessThan(900)
   })
 
@@ -430,8 +428,7 @@ describe('dashed center stroke packets', () => {
       }
     )
     const pathEndPacket = packets.find(
-      (packet) =>
-        packet.geometry.debugMeta?.intervalTerminalRole === 'path-end'
+      (packet) => packet.geometry.debugMeta?.intervalTerminalRole === 'path-end'
     )
 
     expect(sourcePath.totalLength).toBeGreaterThan(

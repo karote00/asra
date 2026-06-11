@@ -6,11 +6,6 @@ import { resetCanvas, waitForAppReady } from './test-utils'
 
 type JoinType = 'miter' | 'bevel' | 'round'
 
-interface Vec2 {
-  x: number
-  y: number
-}
-
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const ARTIFACT_DIR = path.resolve(
@@ -355,7 +350,6 @@ test.beforeEach(async ({ page }) => {
 test.afterEach(async ({ page }) => {
   await setStrokeDebugDisableVisualOverlapCollapse(page, false)
 })
-
 ;(['miter', 'bevel', 'round'] as const).forEach((joinType) => {
   test(`visual review: vector-6 computed data inside solid ${joinType}`, async ({
     page

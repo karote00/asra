@@ -70,6 +70,16 @@ Stroke-related behavior is inspected as one deterministic system flow:
    without changing stroke semantics. Visible render must not use diagnostic or
    helper geometry as product output.
 
+Stroke paint data has one canonical model shape. Element `fills` and
+`strokes[n].fill` both use `FillAttrs`; a stroke owns exactly one fill payload
+whose `id` matches the stroke id. Stroke root fields such as `color`,
+`opacity`, `visible`, `kind`, `colorFormat`, `defaultColorFormat`, and
+`gradient` are legacy load-boundary input only and must not be written back to
+computed data. Stroke visibility is `strokes[n].fill.visible`. Render compares
+`computed.strokes` by stroke id and fill signature: if only `stroke.fill`
+changes, the renderer dirties `paint` / `renderOutput` and reuses cached
+semantic product geometry.
+
 ## Asyra Solid Rule
 
 Constrained solid strokes follow Asyra's doubled authored center-stroke mask
@@ -301,10 +311,10 @@ doubled authored center stroke.
 Stroke parameter changes must not share one coarse geometry invalidation helper.
 The renderer classifies changes through the stage dirty matrix:
 
-- paint-only fields (`color`, `opacity`, solid fill, gradient paint) dirty paint
-  payload and render output only;
+- paint-only fields live under `stroke.fill` (`fill.color`, `fill.opacity`,
+  `fill.kind`, `fill.gradient`) and dirty paint payload and render output only;
 - display-format fields that do not change actual paint must not dirty render;
-- `visible` dirtys render output only;
+- `fill.visible` dirties render output only;
 - `style` and `position` select stroke family/domain but reuse source
   path/topology;
 - `width` reuses source path/topology and dash schedule, then rebuilds domain,
@@ -331,12 +341,13 @@ The dirty matrix is not sufficient by itself. Normal render must also keep a
 
 - cache keys include element, network, source revision, and geometry-affecting
   stroke signature;
-- cached final semantic descriptors may be retinted for paint-only changes and
+- cached final semantic descriptors may be retinted for `stroke.fill`-only
+  changes and
   restyled for style-only descriptor changes; replaying an old `miterLimit`,
   cap, or join value is invalid;
 - constrained dashed drag descriptors reuse resolved split/domain metadata and
   must not run source-intersection tracing as part of visible product output;
-- `visible:false` clears render/hit/export output through a render-output
+- `stroke.fill.visible:false` clears render/hit/export output through a render-output
   hidden path without rebuilding source or stroke geometry;
 - diagnostics/export polygon evidence may be materialized lazily, but must not
   become a prerequisite for normal visible parameter switching;

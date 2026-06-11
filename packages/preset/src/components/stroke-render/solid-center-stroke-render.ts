@@ -556,8 +556,7 @@ const applyMaskedSolidPaint = (
 
   const hasFillPolygons = fillPolygons && fillPolygons.length > 0
   const hasClipPolygons = clipPolygons && clipPolygons.length > 0
-  const hasFillClipPolygons =
-    fillClipPolygons && fillClipPolygons.length > 0
+  const hasFillClipPolygons = fillClipPolygons && fillClipPolygons.length > 0
   const hasStrokeMaskPolygons =
     strokeMaskPolygons && strokeMaskPolygons.length > 0
   const hasStrokePaths =

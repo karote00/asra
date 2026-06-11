@@ -3262,14 +3262,8 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
           const normalOffsets = [2, 5, 8]
           const probes = alongOffsets.flatMap((alongOffset) =>
             normalOffsets.map((normalOffset) => ({
-              x:
-                endpoint.x +
-                tangent.x * alongOffset +
-                normal.x * normalOffset,
-              y:
-                endpoint.y +
-                tangent.y * alongOffset +
-                normal.y * normalOffset,
+              x: endpoint.x + tangent.x * alongOffset + normal.x * normalOffset,
+              y: endpoint.y + tangent.y * alongOffset + normal.y * normalOffset,
               alongOffset,
               normalOffset
             }))
@@ -3281,14 +3275,10 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
             covered.map((probe) => probe.normalOffset)
           )
           const coveredCapProbes = covered.filter((probe) =>
-            edge === 'start'
-              ? probe.alongOffset < 0
-              : probe.alongOffset > 0
+            edge === 'start' ? probe.alongOffset < 0 : probe.alongOffset > 0
           )
           const coveredBodyProbes = covered.filter((probe) =>
-            edge === 'start'
-              ? probe.alongOffset > 0
-              : probe.alongOffset < 0
+            edge === 'start' ? probe.alongOffset > 0 : probe.alongOffset < 0
           )
           const coveredBodyNormalOffsets = new Set(
             coveredBodyProbes.map((probe) => probe.normalOffset)

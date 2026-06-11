@@ -228,7 +228,9 @@ const measureParameterSwitch = async (
       const root = core?.deps?.render?.viewport?.view as
         | { label?: string; children?: unknown[] }
         | undefined
-      const stack: { label?: string; children?: unknown[] }[] = root ? [root] : []
+      const stack: { label?: string; children?: unknown[] }[] = root
+        ? [root]
+        : []
       let renderObjectCount = 0
       while (stack.length > 0) {
         const current = stack.pop()

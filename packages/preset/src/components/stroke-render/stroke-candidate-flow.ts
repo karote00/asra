@@ -65,15 +65,14 @@ export const resolveOneSidedCandidateFlow = (
     (stroke.position === 'inside' || stroke.position === 'outside')
   ) {
     if (
-      input.strokeDomainPlan?.domainMode === 'open-contour-constrained-domain' ||
       input.strokeDomainPlan?.domainMode ===
-        'open-dangling-outside-both-sides'
+        'open-contour-constrained-domain' ||
+      input.strokeDomainPlan?.domainMode === 'open-dangling-outside-both-sides'
     ) {
       return {
         mode: 'one-sided-constrained',
         domainKind:
-          input.strokeDomainPlan.intervalDomainKind ===
-          'figma-like-split-range'
+          input.strokeDomainPlan.intervalDomainKind === 'figma-like-split-range'
             ? 'split-range'
             : 'source-path',
         requiresOneSidedCandidates: true,

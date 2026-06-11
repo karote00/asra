@@ -559,10 +559,7 @@ const createSyntheticHandlePosition = (
   const mirroredLength = isVisibleHandlePosition(anchor, mirroredHandle)
     ? getDistance(anchor, mirroredHandle)
     : segmentLength / 3
-  const handleLength = clampSyntheticHandleLength(
-    mirroredLength,
-    segmentLength
-  )
+  const handleLength = clampSyntheticHandleLength(mirroredLength, segmentLength)
   if (handleLength <= SYNTHETIC_HANDLE_POINT_EPSILON) {
     return null
   }
@@ -688,9 +685,7 @@ const getPathEditingVectorDataWithDeps = (
         computedPoints[handleRefs.inControlId]?.kind ===
           VECTOR_TOKENS.POINT.KIND.CONTROL
           ? computedPoints[handleRefs.inControlId]
-          : computedPoints[
-              getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)
-            ]
+          : computedPoints[getControlId(pointId, VECTOR_TOKENS.CONTROL.ROLE.IN)]
       const outHandle =
         handleRefs?.outControlId &&
         computedPoints[handleRefs.outControlId]?.kind ===
@@ -1176,10 +1171,7 @@ const appendVisibleHandleAnchorIdsForSelection = (
     for (const subpath of subpaths) {
       const pointCount = subpath.points.length
       const flatEndIndex = flatStartIndex + pointCount
-      if (
-        selection.index >= flatStartIndex &&
-        selection.index < flatEndIndex
-      ) {
+      if (selection.index >= flatStartIndex && selection.index < flatEndIndex) {
         const index = selection.index - flatStartIndex
         const selectedPoint = subpath.points[index]
         if (selectedPoint?.id === selectedAnchorId) {
@@ -1328,9 +1320,8 @@ export const registerVectorPathEditingRenderLayer = (
           'selectedVectorPoint'
         ) ?? null
       const selectedVectorPointSelectionIds = Array.from(
-        deps
-          .getSelection(SelectionChannels.VECTOR_POINT)
-          ?.getSelectedIds() ?? []
+        deps.getSelection(SelectionChannels.VECTOR_POINT)?.getSelectedIds() ??
+          []
       ).sort()
       const hoveredVectorPoint =
         deps.systemContext.getManagedProperty<SelectedVectorPointState | null>(

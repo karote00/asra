@@ -105,6 +105,9 @@ const isFillPayload = (value: unknown): boolean => {
   )
 }
 
+const isRequiredFillPayload = (value: unknown): boolean =>
+  value !== null && isFillPayload(value)
+
 const fillDefaults = createDefaultFill()
 const strokeDefaults = createDefaultStroke()
 
@@ -172,13 +175,6 @@ const strokeSchema: PropertySchema = {
   type: PropertyTypes.STROKE,
   fields: [
     {
-      key: 'kind',
-      kind: 'string',
-      validate: (value) =>
-        value === FillKinds.SOLID || value === FillKinds.GRADIENT,
-      defaultValue: strokeDefaults.kind
-    },
-    {
       key: 'style',
       kind: 'string',
       validate: (value) =>
@@ -218,43 +214,8 @@ const strokeSchema: PropertySchema = {
     {
       key: 'fill',
       kind: 'object',
-      validate: isFillPayload,
+      validate: isRequiredFillPayload,
       defaultValue: strokeDefaults.fill
-    },
-    {
-      key: 'defaultColorFormat',
-      kind: 'string',
-      validate: isFillColorFormat,
-      defaultValue: strokeDefaults.defaultColorFormat
-    },
-    {
-      key: 'colorFormat',
-      kind: 'string',
-      validate: isFillColorFormat,
-      defaultValue: strokeDefaults.colorFormat
-    },
-    {
-      key: 'color',
-      kind: 'string',
-      validate: (value) => typeof value === 'string' && value.length > 0,
-      defaultValue: strokeDefaults.color
-    },
-    {
-      key: 'opacity',
-      kind: 'number',
-      validate: isOpacity,
-      defaultValue: strokeDefaults.opacity
-    },
-    {
-      key: 'visible',
-      kind: 'boolean',
-      defaultValue: strokeDefaults.visible
-    },
-    {
-      key: 'gradient',
-      kind: 'object',
-      validate: isGradientData,
-      defaultValue: strokeDefaults.gradient
     },
     {
       key: 'joinType',

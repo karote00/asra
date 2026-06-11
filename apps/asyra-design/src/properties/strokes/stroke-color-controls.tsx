@@ -33,8 +33,8 @@ const StrokeColorControls = ({
     <div className="flex items-center flex-1 min-w-0 h-full">
       <div className="flex items-center flex-1 min-w-0 h-full">
         <ColorPicker
-          color={stroke.color}
-          opacity={stroke.opacity}
+          color={stroke.fill.color}
+          opacity={stroke.fill.opacity}
           onChange={onColorPickerChange}
           onChangeStart={onColorPickerChangeStart}
           onChangeEnd={onColorPickerChangeEnd}

@@ -1,12 +1,5 @@
 import type { BasePropertyAttrs } from './instanceTypes'
-import {
-  FillColorFormats,
-  FillKinds,
-  type FillColorFormat,
-  type FillAttrs,
-  type FillGradientData,
-  type FillKind
-} from './fills'
+import { type FillAttrs, createDefaultFill } from './fills'
 
 export const StrokeStyles = {
   SOLID: 'solid',
@@ -47,17 +40,25 @@ export interface StrokeAttrs extends BasePropertyAttrs {
   width: number
   dashPattern: number[]
   dashOffset: number
-  fill?: FillAttrs | null
-  defaultColorFormat: FillColorFormat
-  colorFormat: FillColorFormat
-  kind: FillKind
-  color: string
-  opacity: number
-  visible: boolean
-  gradient: FillGradientData | null
+  fill: FillAttrs
   joinType: StrokeJoinType
   capType: StrokeCapType
   miterAngle: number
+}
+
+export type LegacyStrokePaintAttrs = Partial<
+  Pick<
+    FillAttrs,
+    | 'kind'
+    | 'defaultColorFormat'
+    | 'colorFormat'
+    | 'color'
+    | 'opacity'
+    | 'visible'
+    | 'gradient'
+  >
+> & {
+  fill?: Partial<FillAttrs> | null
 }
 
 export interface StrokeRowAttrs
@@ -70,30 +71,59 @@ export interface StrokesAttrs extends BasePropertyAttrs {
   strokes: string[]
 }
 
+const isFillPayload = (value: unknown): value is Partial<FillAttrs> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const compactDefined = <T extends Record<string, unknown>>(value: T) =>
+  Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined)
+  ) as Partial<T>
+
+const resolveStrokeFill = (
+  strokeId: string,
+  overrides: Partial<StrokeAttrs> & LegacyStrokePaintAttrs
+): FillAttrs => {
+  const legacyPaint = compactDefined({
+    kind: overrides.kind,
+    defaultColorFormat: overrides.defaultColorFormat,
+    colorFormat: overrides.colorFormat,
+    color: overrides.color,
+    opacity: overrides.opacity,
+    visible: overrides.visible,
+    gradient: overrides.gradient
+  })
+  const fillOverrides = isFillPayload(overrides.fill)
+    ? overrides.fill
+    : legacyPaint
+
+  return createDefaultFill({
+    color: '#000000',
+    ...compactDefined(fillOverrides),
+    id: strokeId,
+    type: 'fill'
+  })
+}
+
 export const createDefaultStroke = (
-  overrides: Partial<StrokeAttrs> = {}
-): StrokeAttrs => ({
-  id: '',
-  type: 'stroke',
-  style: StrokeStyles.SOLID,
-  position: StrokePositions.CENTER,
-  width: 1,
-  dashPattern: [20, 20],
-  dashOffset: 0,
-  fill: null,
-  defaultColorFormat: FillColorFormats.HEX,
-  colorFormat: FillColorFormats.HEX,
-  kind: FillKinds.SOLID,
-  color: '#000000',
-  opacity: 1,
-  visible: true,
-  gradient: null,
-  joinType: StrokeJoinTypes.MITER,
-  capType: StrokeCapTypes.BUTT,
-  miterAngle: 28.96,
-  ...overrides
-})
+  overrides: Partial<StrokeAttrs> & LegacyStrokePaintAttrs = {}
+): StrokeAttrs => {
+  const id = overrides.id ?? ''
+
+  return {
+    id,
+    type: 'stroke',
+    style: overrides.style ?? StrokeStyles.SOLID,
+    position: overrides.position ?? StrokePositions.CENTER,
+    width: overrides.width ?? 1,
+    dashPattern: overrides.dashPattern ?? [20, 20],
+    dashOffset: overrides.dashOffset ?? 0,
+    fill: resolveStrokeFill(id, overrides),
+    joinType: overrides.joinType ?? StrokeJoinTypes.MITER,
+    capType: overrides.capType ?? StrokeCapTypes.BUTT,
+    miterAngle: overrides.miterAngle ?? 28.96
+  }
+}
 
 export const createDefaultStrokes = (
-  strokeOverrides: Partial<StrokeAttrs> = {}
+  strokeOverrides: Partial<StrokeAttrs> & LegacyStrokePaintAttrs = {}
 ): StrokeAttrs[] => [createDefaultStroke(strokeOverrides)]

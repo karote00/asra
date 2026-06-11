@@ -28,6 +28,7 @@
 - Getter paths should not mutate state.
 - Validation belongs to system layer, not UI-only handlers.
 - Prefer one API boundary per concern (feature -> app/common API -> framework package API).
+- Do not keep pre-release legacy mutation or render branches as product fallbacks; remove or migrate them per `rules/pre-release-legacy-removal.md`.
 
 ## Validation Standards
 

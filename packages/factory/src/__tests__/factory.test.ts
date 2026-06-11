@@ -171,9 +171,7 @@ describe('Factory', () => {
         event.type === EventTypes.UPDATE_COMPUTED_DATA_PATCH &&
         'payload' in event
       ) {
-        observedPatches.push(
-          (event.payload as { patch: unknown }).patch
-        )
+        observedPatches.push((event.payload as { patch: unknown }).patch)
       }
     })
     observedPatches.length = 0

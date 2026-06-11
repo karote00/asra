@@ -830,8 +830,7 @@ describe('stroke domain plan', () => {
 
   it('should run: supplement reported inside dashed drag split ranges so every source segment has product domain coverage', () => {
     const data = createReportedVector10InsideDashedDragData()
-    const network =
-      data.networks[REPORTED_VECTOR_10_INSIDE_DASHED_NETWORK_ID]
+    const network = data.networks[REPORTED_VECTOR_10_INSIDE_DASHED_NETWORK_ID]
     const renderableStroke = normalizeStrokeSpec(data.strokes).strokes[0]
 
     expect(network).toBeDefined()
@@ -886,9 +885,7 @@ describe('stroke domain plan', () => {
     expect(pathTopology.topologyFamily).toBe('self-intersecting')
     expect(plan.domainMode).toBe('closed-constrained-domain')
     expect(plan.intervalDomainKind).toBe('figma-like-split-range')
-    expect(plan.diagnostics).toContain(
-      'source-span-product-domains-added'
-    )
+    expect(plan.diagnostics).toContain('source-span-product-domains-added')
     expect(coveredSegmentIndexes).toEqual(new Set([0, 1, 2, 3, 4]))
     expect(productDomains.length).toBeGreaterThan(0)
     expect(
@@ -1386,8 +1383,7 @@ describe('stroke domain plan', () => {
       outsidePlan.splitRangeDomains.some(
         (domain) =>
           domain.domainMode === 'open-dangling-outside-both-sides' &&
-          domain.sideResolutionReason ===
-            'open-dangling-outside-both-sides' &&
+          domain.sideResolutionReason === 'open-dangling-outside-both-sides' &&
           domain.domainId.startsWith('dangling-source-span-domain:')
       )
     ).toBe(true)

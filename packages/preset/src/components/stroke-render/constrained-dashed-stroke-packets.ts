@@ -542,8 +542,7 @@ const buildOpenSquareCapPhysicalSpans = (
       ? 0
       : capLength
   const endCapLength =
-    constrainedTerminalRole === 'end' ||
-    constrainedTerminalRole === 'start-end'
+    constrainedTerminalRole === 'end' || constrainedTerminalRole === 'start-end'
       ? 0
       : capLength
   const startDistance = Math.max(0, interval.startDistance - startCapLength)
@@ -831,24 +830,15 @@ export const supportsConstrainedDashedStroke = (
   stroke.miterLimit >= 1 &&
   (stroke.cap === 'butt' || stroke.cap === 'square' || stroke.cap === 'round')
 
-const hasPositiveRawDashPattern = (stroke: StrokeAttrs) => {
-  const sourcePattern = Array.isArray(stroke.dashPattern)
-    ? stroke.dashPattern
-    : []
-
-  return sourcePattern.some((entry) => Number.isFinite(entry) && entry > 0)
-}
-
 export const hasConstrainedDashedStrokeIntent = (
   strokes: StrokeAttrs[] | undefined
 ) =>
-  strokes?.some(
+  getRenderableStrokes(strokes).some(
     (stroke) =>
-      stroke.visible !== false &&
       stroke.style === 'dashed' &&
       (stroke.position === 'inside' || stroke.position === 'outside') &&
       stroke.width > 0 &&
-      hasPositiveRawDashPattern(stroke)
+      stroke.dashPattern.length > 0
   ) === true
 
 const isFullLoopVisibleInterval = (
@@ -4592,18 +4582,17 @@ const buildOutsideSquareSplitTerminalFootprintPolygons = (
     )
   }
 
-  const sourceVertexTerminalEdges = (['start', 'end'] as const).filter(
-    (edge) =>
-      isTerminalEdgeEndpointAtAuthoredSourceVertex(
-        path,
-        interval,
-        edge,
-        Math.max(
-          1.5,
-          SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE,
-          authoredStroke.width * 0.35
-        )
+  const sourceVertexTerminalEdges = (['start', 'end'] as const).filter((edge) =>
+    isTerminalEdgeEndpointAtAuthoredSourceVertex(
+      path,
+      interval,
+      edge,
+      Math.max(
+        1.5,
+        SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE,
+        authoredStroke.width * 0.35
       )
+    )
   )
   const terminalBodyEdges =
     sourceVertexTerminalEdges.length === 1
@@ -4618,9 +4607,12 @@ const buildOutsideSquareSplitTerminalFootprintPolygons = (
             ? (['start'] as const)
             : []
 
-  return terminalBodyEdges.map(build).filter(
-    (polygon) => polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON
-  )
+  return terminalBodyEdges
+    .map(build)
+    .filter(
+      (polygon) =>
+        polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON
+    )
 }
 
 const clipOutsideSquareSplitTerminalFootprintPolygonsToBoundarySide = (
@@ -7975,18 +7967,17 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
       candidateIntervalStroke: Pick<RenderableStroke, 'position' | 'width'>,
       candidateRenderRange: SourceSegmentIntervalRange
     ) => {
-      const rangeCapOwnership =
-        isOutsideSquareSplitTerminalHalfDash
-          ? {
-              ...capOwnership,
-              stroke: {
-                ...capOwnership.stroke,
-                cap: 'butt' as const
-              },
-              roundCapStart: false,
-              roundCapEnd: false
-            }
-          : capOwnership
+      const rangeCapOwnership = isOutsideSquareSplitTerminalHalfDash
+        ? {
+            ...capOwnership,
+            stroke: {
+              ...capOwnership.stroke,
+              cap: 'butt' as const
+            },
+            roundCapStart: false,
+            roundCapEnd: false
+          }
+        : capOwnership
       const resolvedCapStroke = {
         ...rangeCapOwnership.stroke,
         position: candidateIntervalStroke.position

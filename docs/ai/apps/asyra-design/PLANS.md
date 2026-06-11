@@ -230,6 +230,15 @@ Stroke-related behavior must be observed as one deterministic system flow:
    descriptors, but visible render must not use diagnostic/helper geometry as
    product output.
 
+Stroke paint uses the same canonical `FillAttrs` payload shape as element
+fills. A stroke owns one paint payload at `strokes[n].fill`, and that fill id
+matches the stroke id. Root stroke paint fields such as `color`, `opacity`,
+`visible`, `kind`, `colorFormat`, `defaultColorFormat`, and `gradient` are
+legacy load-boundary input only; app UI, common APIs, scene-tree computed data,
+and render mirror output must not write them back. A `stroke.fill`-only change
+is a paint/renderOutput change and must reuse existing semantic stroke product
+geometry.
+
 ### Inspector Flow Requirements
 
 - Lanes must read as Interaction, Model Commit, Data Channel, Render Mirror,
@@ -249,6 +258,9 @@ Stroke-related behavior must be observed as one deterministic system flow:
   evidence for source-path reuse, topology/domain reuse, dash schedule reuse,
   terminal cap rebuild, join rebuild, paint-only update, and drag source-path
   updates with static stroke parameters.
+- Paint-only update means `stroke.fill` changed. It must not trigger vector
+  bounds repair, source topology rebuild, stroke domain rebuild, dash schedule
+  rebuild, terminal cap rebuild, or join rebuild.
 - Render Mirror / Stroke Geometry must expose stage product cache evidence:
   product-geometry hit, miss, store, and render-output hidden counters. Cached
   descriptors are exact product descriptors; diagnostics/export polygons remain

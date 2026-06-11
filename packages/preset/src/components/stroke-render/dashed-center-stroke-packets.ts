@@ -185,14 +185,6 @@ const buildVisibleIntervalSignature = (
     )
     .join('|')
 
-const hasPositiveRawDashPattern = (stroke: StrokeAttrs) => {
-  const sourcePattern = Array.isArray(stroke.dashPattern)
-    ? stroke.dashPattern
-    : []
-
-  return sourcePattern.some((entry) => Number.isFinite(entry) && entry > 0)
-}
-
 interface DashedCenterStrokePacketOptions {
   metadata?: {
     ownerKeyPrefix?: string
@@ -242,13 +234,12 @@ export const supportsDashedCenterStroke = (
 export const hasDashedCenterStrokeIntent = (
   strokes: StrokeAttrs[] | undefined
 ) =>
-  strokes?.some(
+  getRenderableStrokes(strokes).some(
     (stroke) =>
-      stroke.visible !== false &&
       stroke.style === 'dashed' &&
       stroke.position === 'center' &&
       stroke.width > 0 &&
-      hasPositiveRawDashPattern(stroke)
+      stroke.dashPattern.length > 0
   ) === true
 
 export const buildDashedCenterStrokeResolvedPackets = (

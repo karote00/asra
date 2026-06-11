@@ -2811,33 +2811,7 @@ const closeSourcePathForStrokeRender = (
   ]
 }
 
-const isJoinReactiveInsideFaceBoundary = (face: EvenOddLegalFaceBoundary) => {
-  const sharedEdgeCount = face.edges.filter(
-    (edge) => edge.oppositeFaceLegal
-  ).length
-  const highDegreeVertices = new Set<string>()
-  const addHighDegreeVertex = (point: Vec2) => {
-    highDegreeVertices.add(`${point.x.toFixed(2)}:${point.y.toFixed(2)}`)
-  }
-  face.edges.forEach((edge) => {
-    if (edge.startNodeDegree > 2) {
-      addHighDegreeVertex(edge.start)
-    }
-    if (edge.endNodeDegree > 2) {
-      addHighDegreeVertex(edge.end)
-    }
-  })
-
-  return (
-    sharedEdgeCount >= 5 &&
-    sharedEdgeCount / Math.max(1, face.edges.length) >= 0.8 &&
-    highDegreeVertices.size >= 5
-  )
-}
-
-const isVisibleInsideStrokeFaceBoundary = (
-  face: EvenOddLegalFaceBoundary
-) =>
+const isVisibleInsideStrokeFaceBoundary = (face: EvenOddLegalFaceBoundary) =>
   face.edges.some(
     (edge) =>
       edge.oppositeFaceLegal ||
@@ -5031,9 +5005,8 @@ const getDirectLocalSideSourceSpanIds = (
 export const hasConstrainedSolidStrokeIntent = (
   strokes: StrokeAttrs[] | undefined
 ) =>
-  strokes?.some(
+  getRenderableStrokes(strokes).some(
     (stroke) =>
-      stroke.visible !== false &&
       stroke.style === 'solid' &&
       (stroke.position === 'inside' || stroke.position === 'outside') &&
       stroke.width > 0
@@ -5069,7 +5042,7 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
         stroke
       })
       if (
-        stroke.visible !== false &&
+        stroke.fill?.visible !== false &&
         stroke.style === 'solid' &&
         candidateFlow.mode === 'center-equivalent'
       ) {

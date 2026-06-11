@@ -62,8 +62,7 @@ const toStrokeRows = (strokes: StrokeAttrs[]): StrokeRowAttrs[] =>
     }
 
     rows.push({
-      ...createDefaultStroke(),
-      ...stroke,
+      ...createDefaultStroke(stroke),
       ids: [stroke.id]
     })
 
@@ -173,15 +172,9 @@ const areStrokesEqual = (a: StrokeAttrs, b: StrokeAttrs) =>
   a.dashPattern.length === b.dashPattern.length &&
   a.dashPattern.every((entry, index) => entry === b.dashPattern[index]) &&
   areStrokeFillPayloadsEqual(a.fill, b.fill) &&
-  a.defaultColorFormat === b.defaultColorFormat &&
-  a.colorFormat === b.colorFormat &&
-  a.kind === b.kind &&
-  a.color === b.color &&
-  a.opacity === b.opacity &&
-  a.visible === b.visible &&
   a.joinType === b.joinType &&
   a.miterAngle === b.miterAngle &&
-  (a.kind === 'gradient' ? areGradientsEqual(a.gradient, b.gradient) : true)
+  a.capType === b.capType
 
 const computeFillsValue = ({
   selectedIds,

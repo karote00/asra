@@ -36,6 +36,7 @@ Actions:
 - define owner per concern (core, feature-system, props-manager, render, app)
 - state what must stay unchanged
 - identify compatibility expectations (breaking vs non-breaking)
+- identify whether old behavior is released compatibility or pre-release legacy; pre-release legacy must follow `rules/pre-release-legacy-removal.md`
 - identify generated-output boundaries (`create-app/*`) and keep source-of-truth edits outside generated folders
 
 Checklist:
@@ -65,6 +66,7 @@ Checklist:
 - [ ] state change path is deterministic
 - [ ] no Pixi dependency leaks outside `@asyra/render`
 - [ ] migration/deprecation story is clear when behavior changes
+- [ ] pre-release legacy branches are removed or isolated to load migration/diagnostics
 
 ## Phase 3: Implement in Thin Slices
 

@@ -164,7 +164,9 @@ const CANONICAL_SELF_CHECK_SOURCE_FIXTURES = [
 
 const requiresAuthoredSourceVertexJoinOracle = (
   sourceFixture: (typeof CANONICAL_SELF_CHECK_SOURCE_FIXTURES)[number]
-) => sourceFixture.key === 'polyline-self-check-star' || sourceFixture.useCurvedSourcePath
+) =>
+  sourceFixture.key === 'polyline-self-check-star' ||
+  sourceFixture.useCurvedSourcePath
 
 const DASHED_INSIDE_LEGAL_DOMAIN_CASES =
   CANONICAL_SELF_CHECK_SOURCE_FIXTURES.flatMap((sourceFixture) =>
@@ -1092,7 +1094,9 @@ const buildCanonicalPerformancePackets = ({
   frame,
   mode
 }: {
-  caseDef: (typeof SOLID_MATRIX_CASES)[number] | (typeof DASHED_MATRIX_CASES)[number]
+  caseDef:
+    | (typeof SOLID_MATRIX_CASES)[number]
+    | (typeof DASHED_MATRIX_CASES)[number]
   frame: number
   mode: 'static' | 'drag'
 }) => {
@@ -1117,7 +1121,9 @@ const measureCanonicalPerformanceCase = ({
   caseDef,
   mode
 }: {
-  caseDef: (typeof SOLID_MATRIX_CASES)[number] | (typeof DASHED_MATRIX_CASES)[number]
+  caseDef:
+    | (typeof SOLID_MATRIX_CASES)[number]
+    | (typeof DASHED_MATRIX_CASES)[number]
   mode: 'static' | 'drag'
 }) => {
   const samples: number[] = []
@@ -1136,7 +1142,8 @@ const measureCanonicalPerformanceCase = ({
     key: caseDef.key,
     p95Ms: getPercentile(samples, 0.95),
     maxMs: Math.max(...samples),
-    averageMs: samples.reduce((total, sample) => total + sample, 0) / samples.length
+    averageMs:
+      samples.reduce((total, sample) => total + sample, 0) / samples.length
   }
 }
 
@@ -1144,7 +1151,9 @@ const getCanonicalPerformanceBudgetMs = ({
   caseDef,
   mode
 }: {
-  caseDef: (typeof SOLID_MATRIX_CASES)[number] | (typeof DASHED_MATRIX_CASES)[number]
+  caseDef:
+    | (typeof SOLID_MATRIX_CASES)[number]
+    | (typeof DASHED_MATRIX_CASES)[number]
   mode: 'static' | 'drag'
 }) =>
   'joinType' in caseDef
@@ -2258,21 +2267,18 @@ describe('canonical stroke 18-combination matrix', () => {
 
   it('should run: static canonical matrix performance covers all 18 stroke combinations', () => {
     const metrics = [...SOLID_MATRIX_CASES, ...DASHED_MATRIX_CASES].map(
-      (caseDef) =>
-        ({
-          ...measureCanonicalPerformanceCase({
-            caseDef,
-            mode: 'static'
-          }),
-          budgetMs: getCanonicalPerformanceBudgetMs({
-            caseDef,
-            mode: 'static'
-          })
+      (caseDef) => ({
+        ...measureCanonicalPerformanceCase({
+          caseDef,
+          mode: 'static'
+        }),
+        budgetMs: getCanonicalPerformanceBudgetMs({
+          caseDef,
+          mode: 'static'
         })
+      })
     )
-    const failures = metrics.filter(
-      (metric) => metric.p95Ms > metric.budgetMs
-    )
+    const failures = metrics.filter((metric) => metric.p95Ms > metric.budgetMs)
 
     expect(metrics).toHaveLength(18)
     expect(
@@ -2292,21 +2298,18 @@ describe('canonical stroke 18-combination matrix', () => {
 
   it('should run: drag canonical matrix performance covers all 18 stroke combinations', () => {
     const metrics = [...SOLID_MATRIX_CASES, ...DASHED_MATRIX_CASES].map(
-      (caseDef) =>
-        ({
-          ...measureCanonicalPerformanceCase({
-            caseDef,
-            mode: 'drag'
-          }),
-          budgetMs: getCanonicalPerformanceBudgetMs({
-            caseDef,
-            mode: 'drag'
-          })
+      (caseDef) => ({
+        ...measureCanonicalPerformanceCase({
+          caseDef,
+          mode: 'drag'
+        }),
+        budgetMs: getCanonicalPerformanceBudgetMs({
+          caseDef,
+          mode: 'drag'
         })
+      })
     )
-    const failures = metrics.filter(
-      (metric) => metric.p95Ms > metric.budgetMs
-    )
+    const failures = metrics.filter((metric) => metric.p95Ms > metric.budgetMs)
 
     expect(metrics).toHaveLength(18)
     expect(
@@ -2365,11 +2368,12 @@ describe('canonical stroke 18-combination matrix', () => {
         (expectation) =>
           shouldAssertAuthoredSourceVertexJoin &&
           expectation.hasVisibleDashCoverage &&
-          expectation.outside.turnAngle >=
-            SOURCE_JOIN_SHAPE_TURN_ANGLE_FOR_TEST
+          expectation.outside.turnAngle >= SOURCE_JOIN_SHAPE_TURN_ANGLE_FOR_TEST
       )
       const sourceJoinShapeExpectationVertexIndexes = new Set(
-        sourceJoinShapeExpectations.map((expectation) => expectation.vertexIndex)
+        sourceJoinShapeExpectations.map(
+          (expectation) => expectation.vertexIndex
+        )
       )
       const missingSourceVertexJoins = sourceJoinShapeExpectations.filter(
         (expectation) => !sourceVertexJoinIndexes.has(expectation.vertexIndex)

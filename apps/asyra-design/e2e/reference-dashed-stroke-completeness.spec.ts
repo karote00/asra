@@ -1169,7 +1169,9 @@ const sampleRenderMeshAtWorkspacePoints = async (
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const elementApis = (window as any).__AsyraE2E__?.elementApis
       if (!elementApis) {
-        throw new Error('Missing element APIs for reference geometry materialize')
+        throw new Error(
+          'Missing element APIs for reference geometry materialize'
+        )
       }
       const renderElement =
         core?.deps?.render?.getElementById?.(targetElementId)
@@ -4378,8 +4380,7 @@ const setVectorPositionFromReference = async (page: Page) => {
       throw new Error('Missing vector geometry for position update')
     }
 
-    const usesWorkspacePoints =
-      computed.pointCoordinateSpace === 'workspace'
+    const usesWorkspacePoints = computed.pointCoordinateSpace === 'workspace'
     const nextPoints = Object.fromEntries(
       Object.entries(computed.points).map(([pointId, point]) => {
         const currentPoint = point as {
@@ -5611,9 +5612,7 @@ const runCompletenessScenario = async (
   expect(worstSegmentDashRecall).toBeGreaterThanOrEqual(
     config.worstSegmentRecallMin
   )
-  expect(longestExpectedMissSpan).toBeLessThanOrEqual(
-    config.longestMissSpanMax
-  )
+  expect(longestExpectedMissSpan).toBeLessThanOrEqual(config.longestMissSpanMax)
 }
 
 test.describe('Reference Dashed Stroke Completeness', () => {

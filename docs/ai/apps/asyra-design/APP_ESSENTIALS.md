@@ -41,6 +41,7 @@ App code should:
 ## Framework Extension Contract
 
 Asyra Design follows the framework extensible runtime guarantees in `docs/ai/framework/design-principles/extensible-runtime-guarantees.md`.
+Asyra Design also follows the framework pre-release legacy removal rule in `docs/ai/framework/rules/pre-release-legacy-removal.md`: app-specific unreleased flows must be upgraded or deleted, not kept as product fallbacks.
 
 App features should prove their own behavior through `src/common-apis/*` and core facade APIs without depending on unrelated framework or preset internals.
 
@@ -53,3 +54,4 @@ Preset-provided behavior may be used as the default, but app-specific workflow c
 - Keep feature names centralized in `src/constants/feature-names.ts` (`FeatureNames`).
 - Keep key combinations centralized in `src/config/key-combinations.ts`.
 - Keep reusable mutation/query logic in `src/common-apis/*`.
+- Do not preserve stale app workflow, render, or property-panel paths as compatibility behavior unless they are released public contracts.

@@ -767,8 +767,11 @@ const analyzeRedStrokeRaster = async (page: Page, screenshotBase64: string) =>
       queue.length = 0
       queue.push(pixelIndex)
       let componentPixels = 0
-      for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
-        const current = queue[queueIndex]
+      while (queue.length > 0) {
+        const current = queue.shift()
+        if (current === undefined) {
+          continue
+        }
         componentPixels += 1
         const x = current % canvas.width
         const y = Math.floor(current / canvas.width)
@@ -822,7 +825,9 @@ const analyzeBrightStrokeOutsideCurrentVectorBounds = async (
       const selectedId =
         core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
       const computed = selectedId
-        ? core?.deps?.sceneTree?.getElementById?.(selectedId)?.getAllComputedData?.()
+        ? core?.deps?.sceneTree
+            ?.getElementById?.(selectedId)
+            ?.getAllComputedData?.()
         : null
       const points = Object.values(computed?.points ?? {}) as {
         x?: number
@@ -879,7 +884,10 @@ const analyzeBrightStrokeOutsideCurrentVectorBounds = async (
       const canvasReviewRegion = {
         minX: Math.min(240, Math.floor(canvas.width * 0.2)),
         minY: 40,
-        maxX: Math.max(0, canvas.width - Math.min(240, Math.floor(canvas.width * 0.2))),
+        maxX: Math.max(
+          0,
+          canvas.width - Math.min(240, Math.floor(canvas.width * 0.2))
+        ),
         maxY: canvas.height
       }
 
@@ -926,8 +934,7 @@ const analyzeBrightStrokeOutsideCurrentVectorBounds = async (
         selectedId,
         strokePixels,
         outsideStrokePixels,
-        outsideRatio:
-          strokePixels > 0 ? outsideStrokePixels / strokePixels : 0,
+        outsideRatio: strokePixels > 0 ? outsideStrokePixels / strokePixels : 0,
         reviewBounds,
         canvasReviewRegion
       }
@@ -1217,9 +1224,7 @@ const captureSelectedVectorFullRaster = async (page: Page, padding = 56) => {
           id: segmentId,
           start: start ? { x: start.x, y: start.y } : null,
           end: end ? { x: end.x, y: end.y } : null,
-          outControl: outControl
-            ? { x: outControl.x, y: outControl.y }
-            : null,
+          outControl: outControl ? { x: outControl.x, y: outControl.y } : null,
           inControl: inControl ? { x: inControl.x, y: inControl.y } : null
         }
       })
@@ -1381,8 +1386,12 @@ const analyzeOpenPathSegmentDashRecall = async (
           for (let tangentOffset = -2; tangentOffset <= 2; tangentOffset += 2) {
             if (
               isRedPixel(
-                point.x + normal.x * normalOffset * side + tangentUnit.x * tangentOffset,
-                point.y + normal.y * normalOffset * side + tangentUnit.y * tangentOffset
+                point.x +
+                  normal.x * normalOffset * side +
+                  tangentUnit.x * tangentOffset,
+                point.y +
+                  normal.y * normalOffset * side +
+                  tangentUnit.y * tangentOffset
               )
             ) {
               return true
@@ -1413,8 +1422,12 @@ const analyzeOpenPathSegmentDashRecall = async (
         for (let tangentOffset = -2; tangentOffset <= 2; tangentOffset += 2) {
           if (
             isRedPixel(
-              point.x + normal.x * normalOffset * side + tangentUnit.x * tangentOffset,
-              point.y + normal.y * normalOffset * side + tangentUnit.y * tangentOffset
+              point.x +
+                normal.x * normalOffset * side +
+                tangentUnit.x * tangentOffset,
+              point.y +
+                normal.y * normalOffset * side +
+                tangentUnit.y * tangentOffset
             )
           ) {
             return true
@@ -1436,9 +1449,15 @@ const analyzeOpenPathSegmentDashRecall = async (
       }
       const t = Math.max(
         0,
-        Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared)
+        Math.min(
+          1,
+          ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared
+        )
       )
-      return Math.hypot(point.x - (start.x + dx * t), point.y - (start.y + dy * t))
+      return Math.hypot(
+        point.x - (start.x + dx * t),
+        point.y - (start.y + dy * t)
+      )
     }
     const segments = target.segments
       .filter((segment) => segment.start && segment.end)
@@ -1448,7 +1467,9 @@ const analyzeOpenPathSegmentDashRecall = async (
         const outControl = segment.outControl
           ? toImagePoint(segment.outControl)
           : null
-        const inControl = segment.inControl ? toImagePoint(segment.inControl) : null
+        const inControl = segment.inControl
+          ? toImagePoint(segment.inControl)
+          : null
         const control1 = outControl ?? start
         const control2 = inControl ?? end
         const roughLength = Math.hypot(end.x - start.x, end.y - start.y)
@@ -1527,7 +1548,8 @@ const analyzeOpenPathSegmentDashRecall = async (
               if (
                 authoredImageSegments.some(
                   (segment) =>
-                    distanceToLineSegment(point, segment.start, segment.end) < 24
+                    distanceToLineSegment(point, segment.start, segment.end) <
+                    24
                 )
               ) {
                 continue
@@ -1616,17 +1638,14 @@ const analyzePentagramDashSegmentCoverage = async (
       c: { x: number; y: number },
       d: { x: number; y: number }
     ) => {
-      const denominator =
-        (b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x)
+      const denominator = (b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x)
       if (Math.abs(denominator) <= 1e-6) {
         return null
       }
       const t =
-        ((c.x - a.x) * (d.y - c.y) - (c.y - a.y) * (d.x - c.x)) /
-        denominator
+        ((c.x - a.x) * (d.y - c.y) - (c.y - a.y) * (d.x - c.x)) / denominator
       const u =
-        ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x)) /
-        denominator
+        ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x)) / denominator
       if (t <= 1e-5 || t >= 1 - 1e-5 || u <= 1e-5 || u >= 1 - 1e-5) {
         return null
       }
@@ -1883,7 +1902,11 @@ const analyzePentagramDashSegmentCoverage = async (
             distance <= intervalEnd - localTransitionMargin;
             distance += sampleStep
           ) {
-            if (!segment.start || !segment.end || segment.workspaceLength <= 0) {
+            if (
+              !segment.start ||
+              !segment.end ||
+              segment.workspaceLength <= 0
+            ) {
               continue
             }
             const t = distance / segment.workspaceLength
@@ -2010,7 +2033,10 @@ const analyzeReportedInsideDashedSegmentCoverage = async (
           t * t * t * end.y
       }
     }
-    const samplePathPoint = (segment: (typeof target.segments)[number], t: number) => {
+    const samplePathPoint = (
+      segment: (typeof target.segments)[number],
+      t: number
+    ) => {
       if (!segment.start || !segment.end) {
         return null
       }
@@ -3538,10 +3564,18 @@ test.describe('Vector render invariants', () => {
           geometryId: packet.geometryId ?? null,
           debugMeta: packet.debugMeta ?? null
         }))
+      interface StrokeMeshCacheDebugEntry {
+        kind?: unknown
+        lastDirtyKeys?: unknown
+        paintKey?: unknown
+        signature?: unknown
+      }
       const meshCacheEntries = Array.from(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (renderElement?.__asyraStrokeMeshCache as Map<string, any> | undefined)
-          ?.entries?.() ?? []
+        (
+          renderElement?.__asyraStrokeMeshCache as
+            | Map<string, StrokeMeshCacheDebugEntry>
+            | undefined
+        )?.entries?.() ?? []
       ).map(([key, entry]) => ({
         key,
         kind: entry?.kind ?? null,
@@ -3858,7 +3892,6 @@ test.describe('Vector render invariants', () => {
       alignmentStats.blueBounds.y + alignmentStats.blueBounds.height + tolerance
     )
   })
-
   ;(['inside', 'outside'] as const).forEach((strokePosition) => {
     test(`renders open self-intersecting ${strokePosition} dashed stroke through constrained domain`, async ({
       page
@@ -3953,13 +3986,10 @@ test.describe('Vector render invariants', () => {
         }
       )
       const raster = await captureSelectedVectorFullRaster(page, 96)
-      await testInfo.attach(
-        `open-self-intersecting-${strokePosition}-dashed`,
-        {
-          body: Buffer.from(raster.base64, 'base64'),
-          contentType: 'image/png'
-        }
-      )
+      await testInfo.attach(`open-self-intersecting-${strokePosition}-dashed`, {
+        body: Buffer.from(raster.base64, 'base64'),
+        contentType: 'image/png'
+      })
       const stats = await analyzeRedStrokeRaster(page, raster.base64)
       const segmentRecall = await analyzeOpenPathSegmentDashRecall(page, raster)
       const runtimeSnapshot = await page.evaluate((strokePosition) => {
@@ -3980,7 +4010,9 @@ test.describe('Vector render invariants', () => {
         const splitRangeMetas = allMetas.flatMap(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (meta: any) => {
-            const terminalMetas = Array.isArray(meta?.figmaLikeSplitRangeTerminals)
+            const terminalMetas = Array.isArray(
+              meta?.figmaLikeSplitRangeTerminals
+            )
               ? meta.figmaLikeSplitRangeTerminals
               : []
             const directMeta =
@@ -4014,12 +4046,11 @@ test.describe('Vector render invariants', () => {
                     )
                       ? 'open-dangling-outside-both-sides'
                       : undefined),
-                  sideResolutionReason:
-                    terminal.splitRangeId?.startsWith(
-                      'dangling-source-span-domain:'
-                    )
-                      ? 'open-dangling-outside-both-sides'
-                      : undefined,
+                  sideResolutionReason: terminal.splitRangeId?.startsWith(
+                    'dangling-source-span-domain:'
+                  )
+                    ? 'open-dangling-outside-both-sides'
+                    : undefined,
                   terminalRole: terminal.terminalRole
                 })
               )
@@ -4044,12 +4075,12 @@ test.describe('Vector render invariants', () => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (meta: any) => meta?.figmaLikeSplitRangeId !== undefined
           ).length,
-          danglingSourceSpanPacketCount: splitRangeMetas.filter(
-            (meta) => meta.splitRangeId?.startsWith('dangling-source-span-domain:')
+          danglingSourceSpanPacketCount: splitRangeMetas.filter((meta) =>
+            meta.splitRangeId?.startsWith('dangling-source-span-domain:')
           ).length,
           danglingSourceSpanMetas: splitRangeMetas
-            .filter(
-              (meta) => meta.splitRangeId?.startsWith('dangling-source-span-domain:')
+            .filter((meta) =>
+              meta.splitRangeId?.startsWith('dangling-source-span-domain:')
             )
             .map((meta) => ({
               splitRangeId: meta.splitRangeId,
@@ -4386,7 +4417,9 @@ test.describe('Vector render invariants', () => {
         const splitRangeMetas = allMetas.flatMap(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (meta: any) => {
-            const terminalMetas = Array.isArray(meta?.figmaLikeSplitRangeTerminals)
+            const terminalMetas = Array.isArray(
+              meta?.figmaLikeSplitRangeTerminals
+            )
               ? meta.figmaLikeSplitRangeTerminals
               : []
             const directMeta =
@@ -4419,12 +4452,11 @@ test.describe('Vector render invariants', () => {
                     )
                       ? 'open-dangling-outside-both-sides'
                       : undefined),
-                  sideResolutionReason:
-                    terminal.splitRangeId?.startsWith(
-                      'dangling-source-span-domain:'
-                    )
-                      ? 'open-dangling-outside-both-sides'
-                      : undefined
+                  sideResolutionReason: terminal.splitRangeId?.startsWith(
+                    'dangling-source-span-domain:'
+                  )
+                    ? 'open-dangling-outside-both-sides'
+                    : undefined
                 })
               )
             ]
@@ -4442,8 +4474,8 @@ test.describe('Vector render invariants', () => {
               meta?.sourceTopology === 'self-intersecting'
           ).length,
           danglingSourceSpanMetas: splitRangeMetas
-            .filter(
-              (meta) => meta.splitRangeId?.startsWith('dangling-source-span-domain:')
+            .filter((meta) =>
+              meta.splitRangeId?.startsWith('dangling-source-span-domain:')
             )
             .map((meta) => ({
               splitRangeId: meta.splitRangeId,
@@ -4569,83 +4601,86 @@ test.describe('Vector render invariants', () => {
       artifact: string
     }) => {
       await resetCanvas(page)
-      const createdId = await page.evaluate(({ topology, initialCapType }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const core = (window as any).__Core__
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const elementApis = (window as any).__AsyraE2E__?.elementApis
-        if (!core || !elementApis) {
-          throw new Error('Missing E2E core or element APIs')
-        }
+      const createdId = await page.evaluate(
+        ({ topology, initialCapType }) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const elementApis = (window as any).__AsyraE2E__?.elementApis
+          if (!core || !elementApis) {
+            throw new Error('Missing E2E core or element APIs')
+          }
 
-        const stroke = {
-          id: 'open-self-intersecting-inside-cap-switch-stroke',
-          kind: 'solid',
-          style: 'dashed',
-          position: 'inside',
-          width: 10,
-          dashPattern: [27, 20],
-          dashOffset: 0,
-          fill: null,
-          defaultColorFormat: 'hex',
-          colorFormat: 'hex',
-          color: '#cccccc',
-          opacity: 1,
-          visible: true,
-          gradient: null,
-          joinType: 'round',
-          capType: initialCapType,
-          miterAngle: 28.96
-        }
-        const createdId = elementApis.createElement(
-          {
-            type: 'vector',
-            x: topology.x,
-            y: topology.y,
-            width: topology.width,
-            height: topology.height,
-            points: topology.points,
-            segments: topology.segments,
-            networks: topology.networks,
-            closed: false,
-            pointCoordinateSpace: 'workspace',
-            fills: [],
-            strokes: [stroke]
-          },
-          { undoable: false }
-        )
-        if (!createdId) {
-          throw new Error('Failed to create open cap-switch vector')
-        }
+          const stroke = {
+            id: 'open-self-intersecting-inside-cap-switch-stroke',
+            kind: 'solid',
+            style: 'dashed',
+            position: 'inside',
+            width: 10,
+            dashPattern: [27, 20],
+            dashOffset: 0,
+            fill: null,
+            defaultColorFormat: 'hex',
+            colorFormat: 'hex',
+            color: '#cccccc',
+            opacity: 1,
+            visible: true,
+            gradient: null,
+            joinType: 'round',
+            capType: initialCapType,
+            miterAngle: 28.96
+          }
+          const createdId = elementApis.createElement(
+            {
+              type: 'vector',
+              x: topology.x,
+              y: topology.y,
+              width: topology.width,
+              height: topology.height,
+              points: topology.points,
+              segments: topology.segments,
+              networks: topology.networks,
+              closed: false,
+              pointCoordinateSpace: 'workspace',
+              fills: [],
+              strokes: [stroke]
+            },
+            { undoable: false }
+          )
+          if (!createdId) {
+            throw new Error('Failed to create open cap-switch vector')
+          }
 
-        elementApis.changeComputedData(
-          [createdId],
-          {
-            x: topology.x,
-            y: topology.y,
-            width: topology.width,
-            height: topology.height,
-            points: topology.points,
-            segments: topology.segments,
-            networks: topology.networks,
-            closed: false,
-            pointCoordinateSpace: 'workspace',
-            fills: [],
-            strokes: [stroke]
-          },
-          { undoable: false }
-        )
-        core.selectElements?.([createdId], { undoable: false })
-        core.setSystemProperty?.('pathEditingMode', true)
-        core.setSystemProperty?.('pathEditingVectorId', createdId)
-        core.setSystemProperty?.('selectedVectorPoint', null)
-        core.setSystemProperty?.('zoom', 1)
-        core.setSystemProperty?.('viewportPosition', { x: -80, y: 130 })
-        return createdId
-      }, {
-        topology: createOpenSelfIntersectingPentagramTopology(),
-        initialCapType: scenario.initialCapType
-      })
+          elementApis.changeComputedData(
+            [createdId],
+            {
+              x: topology.x,
+              y: topology.y,
+              width: topology.width,
+              height: topology.height,
+              points: topology.points,
+              segments: topology.segments,
+              networks: topology.networks,
+              closed: false,
+              pointCoordinateSpace: 'workspace',
+              fills: [],
+              strokes: [stroke]
+            },
+            { undoable: false }
+          )
+          core.selectElements?.([createdId], { undoable: false })
+          core.setSystemProperty?.('pathEditingMode', true)
+          core.setSystemProperty?.('pathEditingVectorId', createdId)
+          core.setSystemProperty?.('selectedVectorPoint', null)
+          core.setSystemProperty?.('zoom', 1)
+          core.setSystemProperty?.('viewportPosition', { x: -80, y: 130 })
+          return createdId
+        },
+        {
+          topology: createOpenSelfIntersectingPentagramTopology(),
+          initialCapType: scenario.initialCapType
+        }
+      )
       await page.evaluate(async () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const core = (window as any).__Core__
@@ -4670,7 +4705,9 @@ test.describe('Vector render invariants', () => {
         const core = (window as any).__Core__
         core?.setSystemProperty?.('selectedVectorPoint', null)
       })
-      await page.getByTestId('prop-stroke-cap-0').selectOption(scenario.finalCapType)
+      await page
+        .getByTestId('prop-stroke-cap-0')
+        .selectOption(scenario.finalCapType)
       await page.evaluate(
         () => new Promise((resolve) => requestAnimationFrame(resolve))
       )
@@ -4694,9 +4731,7 @@ test.describe('Vector render invariants', () => {
           y: topology.points['tp-36'].y
         })
       }, createOpenSelfIntersectingPentagramTopology())
-      const canvasBox = await page
-        .locator('#viewport-anchor')
-        .boundingBox()
+      const canvasBox = await page.locator('#viewport-anchor').boundingBox()
       if (!canvasBox) {
         throw new Error('Missing viewport anchor for wheel pan regression')
       }
@@ -4714,18 +4749,12 @@ test.describe('Vector render invariants', () => {
         y: scenario.viewportPosition.y - startViewport.y
       }
       for (let frameIndex = 0; frameIndex < 12; frameIndex += 1) {
-        await page.mouse.wheel(
-          -targetDelta.x / 12,
-          -targetDelta.y / 12
-        )
+        await page.mouse.wheel(-targetDelta.x / 12, -targetDelta.y / 12)
         await page.waitForTimeout(16)
       }
       for (let frameIndex = 0; frameIndex < 24; frameIndex += 1) {
         const direction = frameIndex % 2 === 0 ? 1 : -1
-        await page.mouse.wheel(
-          direction * 9,
-          direction * -7
-        )
+        await page.mouse.wheel(direction * 9, direction * -7)
         await page.waitForTimeout(8)
       }
       await page.waitForTimeout(250)

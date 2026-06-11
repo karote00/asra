@@ -205,11 +205,15 @@ describe('stroke renderable normalization', () => {
       {
         ...createDefaultStroke({
           id: 'invalid-paint-stroke',
-          color: '#000000'
+          fill: createDefaultFill({
+            color: '#000000'
+          })
         }),
-        color: 'not-a-color',
-        colorFormat: FillColorFormats.HEX,
-        defaultColorFormat: FillColorFormats.HEX
+        fill: createDefaultFill({
+          color: 'not-a-color',
+          colorFormat: FillColorFormats.HEX,
+          defaultColorFormat: FillColorFormats.HEX
+        })
       },
       null
     ])
@@ -218,7 +222,7 @@ describe('stroke renderable normalization', () => {
     expect(result.diagnostics).toEqual([
       {
         index: 0,
-        reason: 'invisible-stroke',
+        reason: 'invisible-paint',
         strokeId: 'hidden-stroke'
       },
       {

@@ -49,6 +49,9 @@ const getChangedPatchEntries = (
       : ([[key, nextValue]] as const)
   })
 
+const hasGeometryAffectingStrokePatch = (patch: StrokePatch) =>
+  STROKE_PATCH_KEYS.some((key) => key !== 'fill' && key in patch)
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value)
 
@@ -123,7 +126,9 @@ export const strokeApis = {
       return
     }
 
-    const vectorBoundsRepairPatch = getVectorBoundsRepairPatch(elementId)
+    const vectorBoundsRepairPatch = hasGeometryAffectingStrokePatch(patch)
+      ? getVectorBoundsRepairPatch(elementId)
+      : null
     if (vectorBoundsRepairPatch) {
       core.changeComputedData([elementId], vectorBoundsRepairPatch, options)
     }

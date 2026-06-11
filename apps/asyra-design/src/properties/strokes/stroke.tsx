@@ -153,26 +153,26 @@ const StrokeItem = ({
           index={index}
           stroke={strokeAttrs}
           displayColor={displayColor}
-          colorFormat={stroke.colorFormat}
+          colorFormat={stroke.fill.colorFormat}
           onColorValueChange={handleColorValueChange}
           onColorPickerChange={handleColorPickerChange}
           onColorPickerChangeStart={handleColorPickerChangeStart}
           onColorPickerChangeEnd={handleColorPickerChangeEnd}
           onFormatChange={handleFormatChange}
-          opacity={stroke.opacity}
+          opacity={stroke.fill.opacity}
           onOpacityChange={handleOpacityChange}
           opacityTestId={`prop-stroke-opacity-${index}`}
         />
 
         <button
           type="button"
-          onClick={() => handleVisibleChange(!stroke.visible)}
+          onClick={() => handleVisibleChange(!stroke.fill.visible)}
           className="flex items-center justify-center h-6 w-6 rounded hover:bg-panel-surface-hover text-white/60 hover:text-white transition-colors"
           data-testid={`prop-stroke-visible-${index}`}
-          title={stroke.visible ? 'Hide stroke' : 'Show stroke'}
+          title={stroke.fill.visible ? 'Hide stroke' : 'Show stroke'}
           style={{ width: '24px', height: '24px' }}
         >
-          {stroke.visible ? <EyeOpenIcon /> : <EyeClosedIcon />}
+          {stroke.fill.visible ? <EyeOpenIcon /> : <EyeClosedIcon />}
         </button>
 
         <button

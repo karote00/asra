@@ -2,6 +2,7 @@ import {
   StrokeStyles,
   type EVENT_OPTIONS,
   type FillColorFormat,
+  type FillAttrs,
   type StrokeAttrs
 } from '@asyra/utils'
 import { isEqual } from 'lodash'
@@ -26,7 +27,8 @@ const applyStrokePatch = (
   patch: StrokePatch
 ): StrokeAttrs => ({
   ...sourceStroke,
-  ...patch
+  ...patch,
+  fill: patch.fill ?? sourceStroke.fill
 })
 
 const getChangedStrokePatch = (
@@ -42,12 +44,26 @@ const getChangedStrokePatch = (
     return patch
   }, {})
 
+const createFillPatch = (
+  sourceStroke: StrokeAttrs,
+  fillPatch: Partial<FillAttrs>
+): StrokePatch => {
+  const nextFill: FillAttrs = {
+    ...sourceStroke.fill,
+    ...fillPatch,
+    id: sourceStroke.id,
+    type: 'fill'
+  }
+
+  return isEqual(sourceStroke.fill, nextFill) ? {} : { fill: nextFill }
+}
+
 const createColorPatch = (
   sourceStroke: StrokeAttrs,
   color: string
 ): StrokePatch => {
-  if (!isEqual(sourceStroke.color, color)) {
-    return { color }
+  if (!isEqual(sourceStroke.fill.color, color)) {
+    return createFillPatch(sourceStroke, { color })
   }
 
   return {}
@@ -60,13 +76,20 @@ const createPickerPatch = (
 ): StrokePatch => {
   const nextColor = convertUserColorToDefault(
     color,
-    sourceStroke.defaultColorFormat,
-    sourceStroke.color
+    sourceStroke.fill.defaultColorFormat,
+    sourceStroke.fill.color
   )
 
   const patch = createColorPatch(sourceStroke, nextColor)
-  if (!isEqual(sourceStroke.opacity, opacity)) {
-    patch.opacity = opacity
+  if (!isEqual(sourceStroke.fill.opacity, opacity)) {
+    const nextFill = patch.fill ?? sourceStroke.fill
+    return createFillPatch(
+      {
+        ...sourceStroke,
+        fill: nextFill
+      },
+      { opacity }
+    )
   }
 
   return patch
@@ -97,7 +120,7 @@ export const useStrokeInteractions = ({
       return ''
     }
 
-    return convertToHexUpper(stroke.color)
+    return convertToHexUpper(stroke.fill.color)
   }, [stroke])
 
   const commitStrokePatch = (
@@ -180,13 +203,13 @@ export const useStrokeInteractions = ({
   }
 
   const handleVisibleChange = (nextVisible: boolean) => {
-    if (!stroke || isEqual(stroke.visible, nextVisible)) {
+    if (!stroke || isEqual(stroke.fill.visible, nextVisible)) {
       return
     }
 
-    commitStrokeInteractionPatch({
-      visible: nextVisible
-    })
+    commitStrokeInteractionPatch(
+      createFillPatch(stroke, { visible: nextVisible })
+    )
   }
 
   const handleOpacityChange = (value: string): boolean => {
@@ -196,18 +219,18 @@ export const useStrokeInteractions = ({
     }
 
     const nextOpacity = Math.max(0, Math.min(100, parsed)) / 100
-    if (!stroke || isEqual(stroke.opacity, nextOpacity)) {
+    if (!stroke || isEqual(stroke.fill.opacity, nextOpacity)) {
       return false
     }
 
-    commitStrokeInteractionPatch({
-      opacity: nextOpacity
-    })
+    commitStrokeInteractionPatch(
+      createFillPatch(stroke, { opacity: nextOpacity })
+    )
     return true
   }
 
   const handleFormatChange = (nextFormat: FillColorFormat) => {
-    if (!stroke || isEqual(stroke.colorFormat, nextFormat)) {
+    if (!stroke || isEqual(stroke.fill.colorFormat, nextFormat)) {
       return
     }
 
@@ -215,9 +238,11 @@ export const useStrokeInteractions = ({
       return
     }
 
-    commitStrokeInteractionPatch({
-      colorFormat: nextFormat
-    })
+    commitStrokeInteractionPatch(
+      createFillPatch(stroke, {
+        colorFormat: nextFormat
+      })
+    )
   }
 
   const handleColorValueChange = (value: string): boolean => {
@@ -227,8 +252,8 @@ export const useStrokeInteractions = ({
 
     const nextColor = convertUserColorToDefault(
       value,
-      stroke.defaultColorFormat,
-      stroke.color
+      stroke.fill.defaultColorFormat,
+      stroke.fill.color
     )
 
     const patch = createColorPatch(stroke, nextColor)

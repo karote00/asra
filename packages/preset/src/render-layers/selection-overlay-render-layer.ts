@@ -542,7 +542,11 @@ export const registerSelectionOverlayRenderLayer = (
             hoveredElementId
           ) as RenderElementShape | null
         )
-        appendVectorComputedSignature(drawSignatureParts, deps, hoveredElementId)
+        appendVectorComputedSignature(
+          drawSignatureParts,
+          deps,
+          hoveredElementId
+        )
       }
       const drawSignature = drawSignatureParts.join('|')
       if (drawSignature === lastDrawSignature) {

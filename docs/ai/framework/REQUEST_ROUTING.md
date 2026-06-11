@@ -55,6 +55,11 @@ Use this file to route a new framework request to the right docs first.
   - `rules/deprecation-lifecycle.md`
   - deprecated package doc in `packages/*`
 
+- pre-release legacy branch, fallback, or stale internal behavior cleanup
+  - `rules/pre-release-legacy-removal.md`
+  - `WORKFLOW.md`
+  - affected owner package doc in `packages/*`
+
 ## Escalation Rule
 
 If a request touches more than one owner package, treat it as cross-cutting:

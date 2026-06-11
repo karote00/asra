@@ -385,10 +385,7 @@ const buildSourcePathRevision = (points: readonly Vec2[], closed: boolean) =>
 const buildStrokeSpecRevision = (stroke: StrokeRevisionStrokeInput) =>
   hashRevision(
     'stroke-spec',
-    [
-      stroke.style ?? '',
-      stroke.position ?? ''
-    ].join('|')
+    [stroke.style ?? '', stroke.position ?? ''].join('|')
   )
 
 const buildPaintRevision = (stroke: StrokeRevisionStrokeInput) =>
@@ -937,7 +934,8 @@ export const updateStrokeRuntimeRevisionSetFromMetadata = (
     legalityRevision: buildLegalityRevision(metadata),
     resolvedRegionRevision: buildResolvedRegionRevision(metadata),
     renderOutputRevision:
-      revisionSet.renderOutputRevision ?? buildRenderOutputRevision({
+      revisionSet.renderOutputRevision ??
+      buildRenderOutputRevision({
         stroke: {},
         ...metadata
       })

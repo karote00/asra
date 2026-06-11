@@ -518,8 +518,7 @@ const buildSharedSplitRangeDashDomains = ({
     ]
   })
 
-const SOURCE_SPAN_PRODUCT_DOMAIN_MIN_LENGTH =
-  SOURCE_PATH_DASH_SLICE_TOLERANCE
+const SOURCE_SPAN_PRODUCT_DOMAIN_MIN_LENGTH = SOURCE_PATH_DASH_SLICE_TOLERANCE
 
 const getDomainRange = (domain: FigmaLikeSplitRangeDashDomain) => ({
   startDistance: Math.min(domain.startDistance, domain.endDistance),
@@ -529,7 +528,10 @@ const getDomainRange = (domain: FigmaLikeSplitRangeDashDomain) => ({
 const getSourceRange = (
   domain: Pick<
     FigmaLikeSplitRangeDashDomain,
-    'startDistance' | 'endDistance' | 'sourceStartDistance' | 'sourceEndDistance'
+    | 'startDistance'
+    | 'endDistance'
+    | 'sourceStartDistance'
+    | 'sourceEndDistance'
   >
 ) => {
   const startDistance = domain.sourceStartDistance ?? domain.startDistance
@@ -633,7 +635,10 @@ const subtractCoveredSourceRanges = ({
     cursor = Math.max(cursor, range.endDistance)
   })
 
-  if (sourceRange.endDistance - cursor > SOURCE_SPAN_PRODUCT_DOMAIN_MIN_LENGTH) {
+  if (
+    sourceRange.endDistance - cursor >
+    SOURCE_SPAN_PRODUCT_DOMAIN_MIN_LENGTH
+  ) {
     uncoveredRanges.push({
       startDistance: cursor,
       endDistance: sourceRange.endDistance
@@ -702,10 +707,7 @@ const buildContourOwnedSourceCoverages = (
         range.sourceStartDistance,
         range.sourceEndDistance
       ),
-      endDistance: Math.max(
-        range.sourceStartDistance,
-        range.sourceEndDistance
-      )
+      endDistance: Math.max(range.sourceStartDistance, range.sourceEndDistance)
     }))
     .filter(
       (range) =>
@@ -735,7 +737,8 @@ const supplementInsideDashedSourceSpanDomains = ({
   sourcePath,
   splitRangeDomains
 }: {
-  sourcePath: Pick<PathGeometry, 'segments'> & Partial<Pick<PathGeometry, 'closed'>>
+  sourcePath: Pick<PathGeometry, 'segments'> &
+    Partial<Pick<PathGeometry, 'closed'>>
   splitRangeDomains: FigmaLikeSplitRangeDashDomain[]
 }): FigmaLikeSplitRangeDashDomain[] => {
   const sourceDomains = buildSourcePathSegmentSpanDomains(sourcePath)
@@ -773,7 +776,8 @@ const supplementOutsideDashedOpenSourceSpanDomains = ({
   splitRangeDomains,
   sharedSourceSplitRanges
 }: {
-  sourcePath: Pick<PathGeometry, 'segments'> & Partial<Pick<PathGeometry, 'closed'>>
+  sourcePath: Pick<PathGeometry, 'segments'> &
+    Partial<Pick<PathGeometry, 'closed'>>
   splitRangeDomains: FigmaLikeSplitRangeDashDomain[]
   sharedSourceSplitRanges?: ResolvedVectorSourceSplitRange[]
 }): FigmaLikeSplitRangeDashDomain[] => {
@@ -1103,7 +1107,8 @@ export const resolveStrokeDomains = ({
   return {
     ...basePlan,
     intervalDomainKind: 'topology-arc-length',
-    domainMode: stroke.position === 'center' ? 'center-product' : 'center-product',
+    domainMode:
+      stroke.position === 'center' ? 'center-product' : 'center-product',
     sideAuthority: 'none',
     requiresImplicitFillHoleSideResolution: false,
     splitRangeDomains: [],

@@ -2765,7 +2765,10 @@ const getInsideSolidFaceEdgeCoverageFailuresForTest = ({
   polygons,
   strokeWidth
 }: {
-  legalFaceBoundaries: { faceId: string; edges: EvenOddLegalFaceBoundaryEdge[] }[]
+  legalFaceBoundaries: {
+    faceId: string
+    edges: EvenOddLegalFaceBoundaryEdge[]
+  }[]
   polygons: Vec2[][]
   strokeWidth: number
 }) => {

@@ -11,7 +11,9 @@ const appDir = fileURLToPath(new URL('.', import.meta.url))
 const visualReviewEnvPath = resolve(appDir, '.env')
 
 if (existsSync(visualReviewEnvPath)) {
-  for (const rawLine of readFileSync(visualReviewEnvPath, 'utf8').split(/\r?\n/)) {
+  for (const rawLine of readFileSync(visualReviewEnvPath, 'utf8').split(
+    /\r?\n/
+  )) {
     const line = rawLine.trim()
     if (!line || line.startsWith('#')) {
       continue

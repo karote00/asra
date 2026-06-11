@@ -233,13 +233,6 @@ const SOLID_STROKE_CASES: StrokeCase[] = [
   }
 ]
 
-const STROKE_CASES: StrokeCase[] = [
-  ...CENTER_DASHED_STROKE_CASES,
-  ...INSIDE_DASHED_STROKE_CASES,
-  ...OUTSIDE_DASHED_STROKE_CASES,
-  ...SOLID_STROKE_CASES
-]
-
 const DRAG_TARGETS: DragTarget[] = [
   'anchor',
   'in-control',
@@ -259,9 +252,6 @@ const createOpenSelfIntersectingStrokeCases = (strokeCases: StrokeCase[]) =>
     label: `open-${strokeCase.label}`,
     pathKind: 'open-self-intersecting' as const
   }))
-
-const OPEN_SELF_INTERSECTING_STROKE_CASES: StrokeCase[] =
-  createOpenSelfIntersectingStrokeCases(STROKE_CASES)
 
 export const STROKE_DRAG_PERFORMANCE_CASE_GROUPS = {
   centerDashed: CENTER_DASHED_STROKE_CASES,
@@ -2728,268 +2718,274 @@ export const runStrokeDragRenderPerformanceUXGate = ({
       const metrics: DragMetrics[] = []
       const schedulingBaseline = await measureSchedulingBaseline(page)
 
-    for (const strokeCase of strokeCases) {
-      for (const target of getDragTargetsForStrokeCase(strokeCase)) {
-        const scenarioLabel = `${strokeCase.label}:${target}`
+      for (const strokeCase of strokeCases) {
+        for (const target of getDragTargetsForStrokeCase(strokeCase)) {
+          const scenarioLabel = `${strokeCase.label}:${target}`
+          if (!matchesScenarioFilter(scenarioLabel)) {
+            continue
+          }
+          await setupReportedStar(page, strokeCase)
+          metrics.push(
+            await measureDrag(
+              page,
+              strokeCase,
+              target,
+              schedulingBaseline,
+              target === 'in-control'
+            )
+          )
+        }
+      }
+      if (includeMoveVector && DEBUG_SCENARIO_FILTERS.length === 0) {
+        await setupReportedStarForMove(page)
+        metrics.push(await measureMoveVectorElement(page, schedulingBaseline))
+      }
+      const burstMetrics: BurstDragMetrics[] = []
+      for (const burstStrokeCase of burstStrokeCases) {
+        const burstTarget: DragTarget =
+          burstStrokeCase.pathKind === 'open-self-intersecting'
+            ? 'first-anchor-in-control'
+            : 'out-control'
+        const scenarioLabel = `${burstStrokeCase.label}:${burstTarget}`
         if (!matchesScenarioFilter(scenarioLabel)) {
           continue
         }
-        await setupReportedStar(page, strokeCase)
-        metrics.push(
-          await measureDrag(
-            page,
-            strokeCase,
-            target,
-            schedulingBaseline,
-            target === 'in-control'
-          )
+        await setupReportedStar(page, burstStrokeCase)
+        burstMetrics.push(
+          await measureBurstDrag(page, burstStrokeCase, burstTarget)
         )
       }
-    }
-    if (includeMoveVector && DEBUG_SCENARIO_FILTERS.length === 0) {
-      await setupReportedStarForMove(page)
-      metrics.push(await measureMoveVectorElement(page, schedulingBaseline))
-    }
-    const burstMetrics: BurstDragMetrics[] = []
-    for (const burstStrokeCase of burstStrokeCases) {
-      const burstTarget: DragTarget =
-        burstStrokeCase.pathKind === 'open-self-intersecting'
-          ? 'first-anchor-in-control'
-          : 'out-control'
-      const scenarioLabel = `${burstStrokeCase.label}:${burstTarget}`
-      if (!matchesScenarioFilter(scenarioLabel)) {
-        continue
+      metrics.forEach(assertRequiredPhaseCoverage)
+      for (const metric of metrics) {
+        expect(
+          metric.counters[
+            'constrained-dashed-butt-drag-resolved-geometry-fill-only'
+          ] ?? 0,
+          `${metric.label} must not use fill-only resolved geometry for constrained dashed drag frames`
+        ).toBe(0)
       }
-      await setupReportedStar(page, burstStrokeCase)
-      burstMetrics.push(
-        await measureBurstDrag(page, burstStrokeCase, burstTarget)
+      assertVectorPointDragPerformanceBudget(metrics)
+      for (const burstMetric of burstMetrics) {
+        expect(
+          burstMetric.productRenderPhaseCount,
+          `${burstMetric.label} should observe vector renders`
+        ).toBeGreaterThan(0)
+        expect(
+          (burstMetric.counters['product-render-per-render-frame'] ?? 0) /
+            Math.max(1, burstMetric.counters['render-frame-count'] ?? 0),
+          `${burstMetric.label} should not perform more than one complete product render per render frame for the selected vector`
+        ).toBeLessThanOrEqual(1)
+        expect(
+          burstMetric.freshnessProbe.sourceMoved,
+          `${burstMetric.label} should move the edited source point`
+        ).toBe(true)
+        expect(
+          burstMetric.freshnessProbe.visualChanged,
+          `${burstMetric.label} should visibly update the product stroke`
+        ).toBe(true)
+      }
+      expect(metrics.length + burstMetrics.length).toBeGreaterThan(0)
+      const visualReviewRaster = await captureSelectedElementRaster(page, 72)
+      const visualReviewRasterBuffer = Buffer.from(
+        visualReviewRaster.base64,
+        'base64'
       )
-    }
-    metrics.forEach(assertRequiredPhaseCoverage)
-    for (const metric of metrics) {
-      expect(
-        metric.counters[
-          'constrained-dashed-butt-drag-resolved-geometry-fill-only'
-        ] ?? 0,
-        `${metric.label} must not use fill-only resolved geometry for constrained dashed drag frames`
-      ).toBe(0)
-    }
-    assertVectorPointDragPerformanceBudget(metrics)
-    for (const burstMetric of burstMetrics) {
-      expect(
-        burstMetric.productRenderPhaseCount,
-        `${burstMetric.label} should observe vector renders`
-      ).toBeGreaterThan(0)
-      expect(
-        (burstMetric.counters['product-render-per-render-frame'] ?? 0) /
-          Math.max(1, burstMetric.counters['render-frame-count'] ?? 0),
-        `${burstMetric.label} should not perform more than one complete product render per render frame for the selected vector`
-      ).toBeLessThanOrEqual(1)
-      expect(
-        burstMetric.freshnessProbe.sourceMoved,
-        `${burstMetric.label} should move the edited source point`
-      ).toBe(true)
-      expect(
-        burstMetric.freshnessProbe.visualChanged,
-        `${burstMetric.label} should visibly update the product stroke`
-      ).toBe(true)
-    }
-    expect(metrics.length + burstMetrics.length).toBeGreaterThan(0)
-    const visualReviewRaster = await captureSelectedElementRaster(page, 72)
-    const visualReviewRasterBuffer = Buffer.from(
-      visualReviewRaster.base64,
-      'base64'
-    )
-    const visualReviewPath = testInfo.outputPath(
-      'stroke-drag-visual-review.png'
-    )
-    await writeFile(visualReviewPath, visualReviewRasterBuffer)
-    await testInfo.attach('stroke-drag-visual-review.png', {
-      path: visualReviewPath,
-      contentType: 'image/png'
-    })
+      const visualReviewPath = testInfo.outputPath(
+        'stroke-drag-visual-review.png'
+      )
+      await writeFile(visualReviewPath, visualReviewRasterBuffer)
+      await testInfo.attach('stroke-drag-visual-review.png', {
+        path: visualReviewPath,
+        contentType: 'image/png'
+      })
 
-    const maxP95Ms =
-      metrics.length > 0
-        ? Math.max(...metrics.map((metric) => metric.p95Ms))
-        : 0
-    const pointDragMetrics = metrics.filter(
-      (metric) => !metric.label.startsWith('move-vector:')
-    )
-    const maxVectorRenderPhaseP95 =
-      pointDragMetrics.length > 0
-        ? Math.max(
-            ...pointDragMetrics.map(
-              (metric) =>
-                metric.phaseP95Ms['render-layer:strategy:vector'] ?? 0
+      const maxP95Ms =
+        metrics.length > 0
+          ? Math.max(...metrics.map((metric) => metric.p95Ms))
+          : 0
+      const pointDragMetrics = metrics.filter(
+        (metric) => !metric.label.startsWith('move-vector:')
+      )
+      const maxVectorRenderPhaseP95 =
+        pointDragMetrics.length > 0
+          ? Math.max(
+              ...pointDragMetrics.map(
+                (metric) =>
+                  metric.phaseP95Ms['render-layer:strategy:vector'] ?? 0
+              )
             )
-          )
-        : 0
-    const maxRenderFlushPhaseP95 =
-      pointDragMetrics.length > 0
-        ? Math.max(
-            ...pointDragMetrics.map(
-              (metric) => metric.phaseP95Ms['render:flush-frame'] ?? 0
+          : 0
+      const maxRenderFlushPhaseP95 =
+        pointDragMetrics.length > 0
+          ? Math.max(
+              ...pointDragMetrics.map(
+                (metric) => metric.phaseP95Ms['render:flush-frame'] ?? 0
+              )
             )
-          )
-        : 0
-    const totalDroppedFrameCount = metrics.reduce(
-      (total, metric) => total + metric.droppedFrameCount,
-      0
-    )
-    if (burstMetrics.length > 0) {
+          : 0
+      const totalDroppedFrameCount = metrics.reduce(
+        (total, metric) => total + metric.droppedFrameCount,
+        0
+      )
+      if (burstMetrics.length > 0) {
+        console.log(
+          `STROKE_DRAG_E2E_BURST_METRICS ${JSON.stringify({
+            measurementScope: 'browser-ux',
+            rendererCoverage: 'real',
+            paintObservationWindow: 3,
+            burstMetrics: burstMetrics.map((burstMetric) => ({
+              label: burstMetric.label,
+              moveEventCount: burstMetric.moveEventCount,
+              paintFrameCount: burstMetric.paintFrameCount,
+              elapsedToFirstPaintMs: burstMetric.elapsedToFirstPaintMs,
+              elapsedToLastObservedPaintMs:
+                burstMetric.elapsedToLastObservedPaintMs,
+              productRenderPhaseCount: burstMetric.productRenderPhaseCount,
+              pixiRenderPhaseCount: burstMetric.pixiRenderPhaseCount,
+              renderFlushPhaseCount: burstMetric.renderFlushPhaseCount,
+              vectorCommitCount: burstMetric.vectorCommitCount,
+              computedPatchCount: burstMetric.computedPatchCount,
+              computedMirrorCommitCount: burstMetric.computedMirrorCommitCount,
+              productRenderPerObservedPaint:
+                burstMetric.productRenderPerObservedPaint,
+              pixiRenderPerObservedPaint:
+                burstMetric.pixiRenderPerObservedPaint,
+              frameCoordinatorCounters: {
+                renderFrameCount:
+                  burstMetric.counters['render-frame-count'] ?? 0,
+                renderFrameIdCount:
+                  burstMetric.counters['render-frame-id'] ?? 0,
+                dirtyChangeCount:
+                  burstMetric.counters['dirty-change-count'] ?? 0,
+                dirtyElementCount:
+                  burstMetric.counters['dirty-element-count'] ?? 0,
+                dirtyChangeCoalescedCount:
+                  burstMetric.counters['dirty-change-coalesced-count'] ?? 0,
+                productRenderPerRenderFrame:
+                  burstMetric.counters['product-render-per-render-frame'] ?? 0
+              },
+              freshnessProbe: burstMetric.freshnessProbe,
+              selectedPhaseTotals: {
+                'feature:event:input.drag.update':
+                  burstMetric.phaseTotalMs['feature:event:input.drag.update'] ??
+                  0,
+                'render-scene-tree:flush':
+                  burstMetric.phaseTotalMs['render-scene-tree:flush'] ?? 0,
+                'render-layer:strategy:vector':
+                  burstMetric.phaseTotalMs['render-layer:strategy:vector'] ?? 0,
+                'render:pixi-app-render':
+                  burstMetric.phaseTotalMs['render:pixi-app-render'] ?? 0,
+                'browser:paint-wait':
+                  burstMetric.phaseTotalMs['browser:paint-wait'] ?? 0
+              }
+            }))
+          })}`
+        )
+      }
       console.log(
-        `STROKE_DRAG_E2E_BURST_METRICS ${JSON.stringify({
+        `STROKE_DRAG_E2E_METRICS ${JSON.stringify({
           measurementScope: 'browser-ux',
           rendererCoverage: 'real',
+          phaseMeasurementPaintIndex: 0,
           paintObservationWindow: 3,
-          burstMetrics: burstMetrics.map((burstMetric) => ({
-            label: burstMetric.label,
-            moveEventCount: burstMetric.moveEventCount,
-            paintFrameCount: burstMetric.paintFrameCount,
-            elapsedToFirstPaintMs: burstMetric.elapsedToFirstPaintMs,
-            elapsedToLastObservedPaintMs:
-              burstMetric.elapsedToLastObservedPaintMs,
-            productRenderPhaseCount: burstMetric.productRenderPhaseCount,
-            pixiRenderPhaseCount: burstMetric.pixiRenderPhaseCount,
-            renderFlushPhaseCount: burstMetric.renderFlushPhaseCount,
-            vectorCommitCount: burstMetric.vectorCommitCount,
-            computedPatchCount: burstMetric.computedPatchCount,
-            computedMirrorCommitCount: burstMetric.computedMirrorCommitCount,
-            productRenderPerObservedPaint:
-              burstMetric.productRenderPerObservedPaint,
-            pixiRenderPerObservedPaint: burstMetric.pixiRenderPerObservedPaint,
-            frameCoordinatorCounters: {
-              renderFrameCount: burstMetric.counters['render-frame-count'] ?? 0,
-              renderFrameIdCount: burstMetric.counters['render-frame-id'] ?? 0,
-              dirtyChangeCount: burstMetric.counters['dirty-change-count'] ?? 0,
-              dirtyElementCount:
-                burstMetric.counters['dirty-element-count'] ?? 0,
-              dirtyChangeCoalescedCount:
-                burstMetric.counters['dirty-change-coalesced-count'] ?? 0,
-              productRenderPerRenderFrame:
-                burstMetric.counters['product-render-per-render-frame'] ?? 0
-            },
-            freshnessProbe: burstMetric.freshnessProbe,
-            selectedPhaseTotals: {
-              'feature:event:input.drag.update':
-                burstMetric.phaseTotalMs['feature:event:input.drag.update'] ??
-                0,
-              'render-scene-tree:flush':
-                burstMetric.phaseTotalMs['render-scene-tree:flush'] ?? 0,
-              'render-layer:strategy:vector':
-                burstMetric.phaseTotalMs['render-layer:strategy:vector'] ?? 0,
-              'render:pixi-app-render':
-                burstMetric.phaseTotalMs['render:pixi-app-render'] ?? 0,
-              'browser:paint-wait':
-                burstMetric.phaseTotalMs['browser:paint-wait'] ?? 0
-            }
+          frameBudgetMs: FRAME_BUDGET_120FPS_MS,
+          vectorPointDragResolvedGeometryP95BudgetMs:
+            VECTOR_POINT_DRAG_RESOLVED_GEOMETRY_P95_BUDGET_MS,
+          enforce120fps: SHOULD_ENFORCE_120FPS,
+          schedulingBaseline,
+          maxP95Ms,
+          maxVectorRenderPhaseP95,
+          maxRenderFlushPhaseP95,
+          totalDroppedFrameCount,
+          metrics,
+          burstMetrics
+        })}`
+      )
+      console.log(
+        `STROKE_DRAG_E2E_PHASE_METRICS ${JSON.stringify({
+          measurementScope: 'browser-ux',
+          rendererCoverage: 'real',
+          phaseMeasurementPaintIndex: 0,
+          paintObservationWindow: 3,
+          schedulingBaseline,
+          maxP95Ms,
+          maxVectorRenderPhaseP95,
+          maxRenderFlushPhaseP95,
+          totalDroppedFrameCount,
+          scenarios: metrics.map((metric) => ({
+            label: metric.label,
+            frameCount: metric.frameCount,
+            paintFrameCount: metric.paintFrameCount,
+            p95Ms: metric.p95Ms,
+            maxMs: metric.maxMs,
+            droppedFrameCount: metric.droppedFrameCount,
+            dominantPhase: metric.dominantPhase,
+            productRenderObserved: metric.productRenderObserved,
+            computedPatchFrameCount: metric.computedPatchFrameCount,
+            sceneTreeVectorRenderFrameCount:
+              metric.sceneTreeVectorRenderFrameCount,
+            productVectorRenderFrameCount: metric.productVectorRenderFrameCount,
+            pixiRenderFrameCount: metric.pixiRenderFrameCount,
+            productRenderLatencyP95Ms: metric.productRenderLatencyP95Ms,
+            pixiRenderLatencyP95Ms: metric.pixiRenderLatencyP95Ms,
+            renderFlushFrameCount: metric.renderFlushFrameCount,
+            directRenderPropertyFrameCount:
+              metric.directRenderPropertyFrameCount,
+            overlayRenderFrameCount: metric.overlayRenderFrameCount,
+            overlayOnlyFrameCount: metric.overlayOnlyFrameCount,
+            lateProductRenderFrameCount: metric.lateProductRenderFrameCount,
+            paintSchedulingP95MinusBaseline:
+              metric.paintSchedulingP95MinusBaseline,
+            instrumentationGaps: metric.instrumentationGaps,
+            instrumentationErrors: metric.instrumentationErrors,
+            freshnessProbe: metric.freshnessProbe,
+            phaseP95Ms: metric.phaseP95Ms,
+            phaseAverageMs: metric.phaseAverageMs,
+            counters: metric.counters
           }))
         })}`
       )
-    }
-    console.log(
-      `STROKE_DRAG_E2E_METRICS ${JSON.stringify({
-        measurementScope: 'browser-ux',
-        rendererCoverage: 'real',
-        phaseMeasurementPaintIndex: 0,
-        paintObservationWindow: 3,
-        frameBudgetMs: FRAME_BUDGET_120FPS_MS,
-        vectorPointDragResolvedGeometryP95BudgetMs:
-          VECTOR_POINT_DRAG_RESOLVED_GEOMETRY_P95_BUDGET_MS,
-        enforce120fps: SHOULD_ENFORCE_120FPS,
-        schedulingBaseline,
-        maxP95Ms,
-        maxVectorRenderPhaseP95,
-        maxRenderFlushPhaseP95,
-        totalDroppedFrameCount,
-        metrics,
-        burstMetrics
-      })}`
-    )
-    console.log(
-      `STROKE_DRAG_E2E_PHASE_METRICS ${JSON.stringify({
-        measurementScope: 'browser-ux',
-        rendererCoverage: 'real',
-        phaseMeasurementPaintIndex: 0,
-        paintObservationWindow: 3,
-        schedulingBaseline,
-        maxP95Ms,
-        maxVectorRenderPhaseP95,
-        maxRenderFlushPhaseP95,
-        totalDroppedFrameCount,
-        scenarios: metrics.map((metric) => ({
-          label: metric.label,
-          frameCount: metric.frameCount,
-          paintFrameCount: metric.paintFrameCount,
-          p95Ms: metric.p95Ms,
-          maxMs: metric.maxMs,
-          droppedFrameCount: metric.droppedFrameCount,
-          dominantPhase: metric.dominantPhase,
-          productRenderObserved: metric.productRenderObserved,
-          computedPatchFrameCount: metric.computedPatchFrameCount,
-          sceneTreeVectorRenderFrameCount:
-            metric.sceneTreeVectorRenderFrameCount,
-          productVectorRenderFrameCount: metric.productVectorRenderFrameCount,
-          pixiRenderFrameCount: metric.pixiRenderFrameCount,
-          productRenderLatencyP95Ms: metric.productRenderLatencyP95Ms,
-          pixiRenderLatencyP95Ms: metric.pixiRenderLatencyP95Ms,
-          renderFlushFrameCount: metric.renderFlushFrameCount,
-          directRenderPropertyFrameCount: metric.directRenderPropertyFrameCount,
-          overlayRenderFrameCount: metric.overlayRenderFrameCount,
-          overlayOnlyFrameCount: metric.overlayOnlyFrameCount,
-          lateProductRenderFrameCount: metric.lateProductRenderFrameCount,
-          paintSchedulingP95MinusBaseline:
-            metric.paintSchedulingP95MinusBaseline,
-          instrumentationGaps: metric.instrumentationGaps,
-          instrumentationErrors: metric.instrumentationErrors,
-          freshnessProbe: metric.freshnessProbe,
-          phaseP95Ms: metric.phaseP95Ms,
-          phaseAverageMs: metric.phaseAverageMs,
-          counters: metric.counters
-        }))
-      })}`
-    )
-    console.log(
-      `STROKE_DRAG_E2E_FRAME_ALIGNED_METRICS ${JSON.stringify({
-        measurementScope: 'browser-ux',
-        rendererCoverage: 'real',
-        paintObservationWindow: 3,
-        schedulingBaseline,
-        scenarios: metrics.map((metric) => ({
-          label: metric.label,
-          frameCount: metric.frameCount,
-          paintFrameCount: metric.paintFrameCount,
-          productRenderObserved: metric.productRenderObserved,
-          computedPatchFrameCount: metric.computedPatchFrameCount,
-          sceneTreeVectorRenderFrameCount:
-            metric.sceneTreeVectorRenderFrameCount,
-          productVectorRenderFrameCount: metric.productVectorRenderFrameCount,
-          pixiRenderFrameCount: metric.pixiRenderFrameCount,
-          productRenderLatencyP95Ms: metric.productRenderLatencyP95Ms,
-          pixiRenderLatencyP95Ms: metric.pixiRenderLatencyP95Ms,
-          directRenderPropertyFrameCount: metric.directRenderPropertyFrameCount,
-          overlayOnlyFrameCount: metric.overlayOnlyFrameCount,
-          lateProductRenderFrameCount: metric.lateProductRenderFrameCount,
-          paintSchedulingP95MinusBaseline:
-            metric.paintSchedulingP95MinusBaseline,
-          dominantPhase: metric.dominantPhase,
-          freshnessProbe: metric.freshnessProbe,
-          frameCoordinatorCounters: {
-            renderFrameCount: metric.counters['render-frame-count'] ?? 0,
-            renderFrameIdCount: metric.counters['render-frame-id'] ?? 0,
-            dirtyChangeCount: metric.counters['dirty-change-count'] ?? 0,
-            dirtyElementCount: metric.counters['dirty-element-count'] ?? 0,
-            dirtyChangeCoalescedCount:
-              metric.counters['dirty-change-coalesced-count'] ?? 0,
-            productRenderPerRenderFrame:
-              metric.counters['product-render-per-render-frame'] ?? 0
-          },
-          instrumentationGaps: metric.instrumentationGaps,
-          instrumentationErrors: metric.instrumentationErrors
-        }))
-      })}`
-    )
+      console.log(
+        `STROKE_DRAG_E2E_FRAME_ALIGNED_METRICS ${JSON.stringify({
+          measurementScope: 'browser-ux',
+          rendererCoverage: 'real',
+          paintObservationWindow: 3,
+          schedulingBaseline,
+          scenarios: metrics.map((metric) => ({
+            label: metric.label,
+            frameCount: metric.frameCount,
+            paintFrameCount: metric.paintFrameCount,
+            productRenderObserved: metric.productRenderObserved,
+            computedPatchFrameCount: metric.computedPatchFrameCount,
+            sceneTreeVectorRenderFrameCount:
+              metric.sceneTreeVectorRenderFrameCount,
+            productVectorRenderFrameCount: metric.productVectorRenderFrameCount,
+            pixiRenderFrameCount: metric.pixiRenderFrameCount,
+            productRenderLatencyP95Ms: metric.productRenderLatencyP95Ms,
+            pixiRenderLatencyP95Ms: metric.pixiRenderLatencyP95Ms,
+            directRenderPropertyFrameCount:
+              metric.directRenderPropertyFrameCount,
+            overlayOnlyFrameCount: metric.overlayOnlyFrameCount,
+            lateProductRenderFrameCount: metric.lateProductRenderFrameCount,
+            paintSchedulingP95MinusBaseline:
+              metric.paintSchedulingP95MinusBaseline,
+            dominantPhase: metric.dominantPhase,
+            freshnessProbe: metric.freshnessProbe,
+            frameCoordinatorCounters: {
+              renderFrameCount: metric.counters['render-frame-count'] ?? 0,
+              renderFrameIdCount: metric.counters['render-frame-id'] ?? 0,
+              dirtyChangeCount: metric.counters['dirty-change-count'] ?? 0,
+              dirtyElementCount: metric.counters['dirty-element-count'] ?? 0,
+              dirtyChangeCoalescedCount:
+                metric.counters['dirty-change-coalesced-count'] ?? 0,
+              productRenderPerRenderFrame:
+                metric.counters['product-render-per-render-frame'] ?? 0
+            },
+            instrumentationGaps: metric.instrumentationGaps,
+            instrumentationErrors: metric.instrumentationErrors
+          }))
+        })}`
+      )
 
       if (metrics.length > 0) {
         expect(maxP95Ms).toBeGreaterThan(0)

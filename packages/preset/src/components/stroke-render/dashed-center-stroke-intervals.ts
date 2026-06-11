@@ -257,8 +257,6 @@ const getBestOpenPathMiddleDashCandidate = ({
   totalLength: number
 }) => {
   const minimumVisualGapLength = gapLength * minimumVisualGapRatio
-  const minimumCenterlineGapLength =
-    minimumVisualGapLength + capExtension * 2
   const remainingLengthAfterTerminals = totalLength - dashLength
   const maxMiddleDashCount = Math.max(
     0,
@@ -412,13 +410,11 @@ const allocateOpenPathBalancedTerminalRawIntervals = (
     minimumVisualGapRatio,
     offset
   })
-  const visibleRanges: Array<{
+  const visibleRanges: {
     startDistance: number
     endDistance: number
-    role: NonNullable<
-      DashedCenterStrokeIntervalRecord['openPathTerminalRole']
-    >
-  }> = [
+    role: NonNullable<DashedCenterStrokeIntervalRecord['openPathTerminalRole']>
+  }[] = [
     {
       startDistance: 0,
       endDistance: halfDashLength,
@@ -495,10 +491,7 @@ export const allocateDashedCenterStrokeIntervals = (
     return []
   }
 
-  if (
-    !closed &&
-    options.openPathPolicy === 'network-balanced-terminals'
-  ) {
+  if (!closed && options.openPathPolicy === 'network-balanced-terminals') {
     return withVisibleIntervalLinks(
       allocateOpenPathBalancedTerminalRawIntervals(
         totalLength,
@@ -574,7 +567,10 @@ const getBestFigmaLikeSplitRangeDashUnitCount = (
     return 1
   }
 
-  const maxDashUnitCountByDash = Math.max(1, Math.floor(rangeLength / dashLength))
+  const maxDashUnitCountByDash = Math.max(
+    1,
+    Math.floor(rangeLength / dashLength)
+  )
   const maxDashUnitCountByGap =
     minimumCenterlineGapLength > 0
       ? Math.max(

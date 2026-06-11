@@ -3665,8 +3665,7 @@ describe('vector constrained dashed stroke product wiring', () => {
         (packet) =>
           packet.debugMeta?.sourceTopology === 'self-intersecting' &&
           (packet.debugMeta?.finalCoverageBuilderStatus === 'debug-raw' ||
-            packet.debugMeta?.finalCoverageBuilderStatus ===
-              'product-final') &&
+            packet.debugMeta?.finalCoverageBuilderStatus === 'product-final') &&
           typeof packet.debugMeta?.intervalId === 'string' &&
           packet.debugMeta.intervalId.startsWith('interval:') &&
           packet.intervalIds.every((intervalId) =>

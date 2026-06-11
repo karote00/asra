@@ -54,10 +54,7 @@ const normalizeStrokeEntry = (value: unknown): StrokeAttrs | null => {
   }
 
   const rawStroke = value as Partial<StrokeAttrs>
-  const normalizedStroke = {
-    ...createDefaultStroke(),
-    ...rawStroke
-  }
+  const normalizedStroke = createDefaultStroke(rawStroke)
   if (!Array.isArray(rawStroke.dashPattern)) {
     normalizedStroke.dashPattern = []
   }
@@ -97,26 +94,12 @@ const normalizeDashOffset = (offset: number, pattern: number[]) => {
   return normalized >= 0 ? normalized : normalized + patternLength
 }
 
-const isStrokeFillPayload = (value: unknown): value is Partial<FillAttrs> =>
-  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-
 const resolveStrokePaint = (stroke: StrokeAttrs): FillAttrs =>
-  isStrokeFillPayload(stroke.fill)
-    ? createDefaultFill({
-        ...stroke.fill,
-        id: stroke.id,
-        type: 'fill'
-      })
-    : createDefaultFill({
-        id: stroke.id,
-        kind: stroke.kind,
-        defaultColorFormat: stroke.defaultColorFormat,
-        colorFormat: stroke.colorFormat,
-        color: stroke.color,
-        opacity: stroke.opacity,
-        visible: stroke.visible,
-        gradient: stroke.gradient
-      })
+  createDefaultFill({
+    ...stroke.fill,
+    id: stroke.id,
+    type: 'fill'
+  })
 
 const getStrokeJoin = (
   joinType: StrokeAttrs['joinType']
@@ -155,15 +138,6 @@ const getRenderableStroke = (
 ):
   | { stroke: RenderableStroke }
   | { diagnostic: Omit<StrokeSpecRejectionDiagnostic, 'index'> } => {
-  if (!stroke.visible) {
-    return {
-      diagnostic: {
-        reason: 'invisible-stroke',
-        strokeId: stroke.id
-      }
-    }
-  }
-
   if (!Number.isFinite(stroke.width) || stroke.width <= 0) {
     return {
       diagnostic: {
@@ -204,7 +178,7 @@ const getRenderableStroke = (
           colorFormat: paint.colorFormat,
           color: paint.color,
           opacity: paint.opacity,
-          visible: stroke.visible,
+          visible: paint.visible,
           gradient: paint.gradient
         })
       : null

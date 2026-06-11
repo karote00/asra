@@ -42,11 +42,13 @@ Before coding:
 - define panel/provider impact
 - define E2E/manual verification path
 - for canvas/vector/rendering/geometry work, define the `app-visual-review-sync` path before final completion claims
+- identify stale pre-release app or preset branches and remove them instead of keeping compatibility fallbacks; follow `docs/ai/framework/rules/pre-release-legacy-removal.md`
 
 Checklist:
 - [ ] deterministic behavior order is defined
 - [ ] no direct deep package mutation in feature handlers
 - [ ] any new property is registered intentionally
+- [ ] no unreleased legacy path remains reachable from product behavior
 
 ## Phase 3: Implement
 

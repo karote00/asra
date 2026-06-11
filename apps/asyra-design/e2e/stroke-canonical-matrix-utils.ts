@@ -556,8 +556,8 @@ export const captureCanonicalCrops = async (
     selectedRect: { x: number; y: number }
     zoom: number
     viewport: { x: number; y: number }
-    computedStrokes?: Array<{ style?: string; position?: string }>
-    boundaryDomainPackets?: Array<{
+    computedStrokes?: { style?: string; position?: string }[]
+    boundaryDomainPackets?: {
       finalCoverageBuilderStatus?: string
       bounds?: {
         minX: number
@@ -566,7 +566,7 @@ export const captureCanonicalCrops = async (
         maxY: number
       }
       polygons?: Vec2[][]
-    }>
+    }[]
   },
   cropDir: string
 ) => {
@@ -1722,9 +1722,6 @@ export const captureCanonicalRuleOverlay = async (
         }
         return count
       }
-      const totalRedAround = (sample: CanonicalRuleSample) =>
-        countAlong(actualData, isRed, sample, 1, 1, 24) +
-        countAlong(actualData, isRed, sample, -1, 1, 24)
       const countAround = (
         data: Uint8ClampedArray,
         predicate: (pixel: ReturnType<typeof read>) => boolean,

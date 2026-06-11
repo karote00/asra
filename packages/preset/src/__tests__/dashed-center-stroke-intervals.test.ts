@@ -749,8 +749,9 @@ describe('dashed center stroke interval allocation', () => {
       })
 
       const visible =
-        allocation?.intervals.filter((interval) => interval.kind === 'visible') ??
-        []
+        allocation?.intervals.filter(
+          (interval) => interval.kind === 'visible'
+        ) ?? []
       const centerlineGaps = visible.slice(0, -1).flatMap((interval, index) => {
         const next = visible[index + 1]
         return next ? [next.startDistance - interval.endDistance] : []
@@ -759,7 +760,7 @@ describe('dashed center stroke interval allocation', () => {
       expect(visualGaps).toEqual([expect.closeTo(100, 6)])
     } finally {
       if (previousOverride === undefined) {
-        delete target[overrideKey]
+        Reflect.deleteProperty(target, overrideKey)
       } else {
         target[overrideKey] = previousOverride
       }

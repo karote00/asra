@@ -23,6 +23,8 @@
     'Render is a downstream consumer. Render mirror/cache applies committed patches exactly once and derives render data from committed state.',
     'Stroke geometry stages consume normalized render data only; they must not depend on feature-local state, undo payload cleanup, or direct app-to-render synchronization.',
     'Stroke invalidation is stage-based. Source path/topology, stroke family, stroke domain, dash schedule, terminal cap, join/miter shape, paint, and render output use separate internal revisions.',
+    'Stroke paint model data is canonicalized as stroke.fill using the same FillAttrs format as element fills. Stroke root paint fields such as color, opacity, visible, kind, colorFormat, defaultColorFormat, and gradient are legacy load-boundary input only and must not be written back.',
+    'A stroke.fill-only change dirties paint and render output only. It must not trigger vector bounds repair, source topology rebuild, domain rebuild, dash schedule rebuild, terminal cap rebuild, or join rebuild.',
     'Static stroke parameter changes dirty only the stages they affect; vector drag dirties source path data without mutating static stroke parameter or paint revisions.',
     'Stroke performance diagnostics must expose stage dirty counters such as paint-only update and drag source-path-with-static-stroke.',
     'Dirty classification must feed a real stroke stage product cache. Reusable semantic product descriptors may be stored by element, network, stroke, source revision, and geometry-affecting stroke signature, then retinted for paint-only changes.',
@@ -51,12 +53,12 @@
   ]
 
   const currentExecutionState = {
-      totalSteps: 34,
-      planStatus: 'active-stage-cache-performance-validation',
-      nextExecutableStepId: 'stage-product-cache',
-      nextExecutableStepNumber: 16,
-      nextExecutableStepStatus: 'stage-cache-validation-active',
-      stopRule:
+    totalSteps: 34,
+    planStatus: 'active-stage-cache-performance-validation',
+    nextExecutableStepId: 'stage-product-cache',
+    nextExecutableStepNumber: 16,
+    nextExecutableStepStatus: 'stage-cache-validation-active',
+    stopRule:
       'The framework-native vector operation flow is the baseline. Do not claim stage-cache performance completion until static parameter CPU profile, app parameter E2E, canonical correctness, and visual review evidence pass.',
     requiredImplementationSequence: [
       'Keep the three authority files synchronized before runtime implementation changes are claimed.',
@@ -66,6 +68,7 @@
       'Render Mirror must apply each committed patch once and derive render data downstream.',
       'Stroke Geometry must consume normalized render data and preserve model-separated stroke semantics.',
       'Stage product cache must preserve exact semantic descriptors and must not make diagnostic/export polygon evidence a normal visible-render prerequisite.',
+      'Stroke paint updates must flow as computed.strokes[n].fill changes and be consumed as render-side paint-only updates.',
       'Product Output and Diagnostics must pass rule-driven probes and reviewed screenshots before completion claims.'
     ],
     currentCompletionEvidence: [
@@ -279,7 +282,7 @@
       'Render Mirror',
       3,
       'Dirty revision graph',
-      'Classify stroke parameter and drag changes into stage-specific dirty revisions.'
+      'Classify stroke parameter, stroke.fill, and drag changes into stage-specific dirty revisions.'
     ],
     [
       'stage-product-cache',
@@ -307,7 +310,7 @@
       'Stroke Geometry',
       4,
       'Normalize stroke spec',
-      'Normalize width, position, cap, join, miter, dash, opacity, and paint.'
+      'Normalize width, position, cap, join, miter, dash, and canonical stroke.fill paint.'
     ],
     [
       'shared-geometry-model',

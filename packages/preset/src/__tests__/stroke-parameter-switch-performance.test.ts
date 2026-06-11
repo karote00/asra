@@ -211,7 +211,9 @@ const hasProductPipelineCounterChange = (
     'visual-overlap-collapse-exact-direct',
     'visual-overlap-collapse-inside-dashed-mask-direct',
     'visual-overlap-collapse-no-union-backend'
-  ].some((counterName) => (counters[counterName] ?? 0) > (before[counterName] ?? 0))
+  ].some(
+    (counterName) => (counters[counterName] ?? 0) > (before[counterName] ?? 0)
+  )
 
 const getPercentile = (values: number[], percentile: number) => {
   const sorted = [...values].sort((left, right) => left - right)

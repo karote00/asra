@@ -1575,10 +1575,7 @@ const getSelectedSolidStrokeRenderPacketSummary = async (page: Page) =>
       strokeMeshCacheSummary: Array.from(
         renderElement?.__asyraStrokeMeshCache?.entries?.() ?? []
       ).map(
-        ([
-          cacheKey,
-          entry
-        ]: [
+        ([cacheKey, entry]: [
           string,
           {
             kind?: string

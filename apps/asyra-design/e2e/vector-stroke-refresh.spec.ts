@@ -14,6 +14,12 @@ interface VectorStrokeRenderSnapshot {
   computedStrokeCount: number
   computedStrokeStyle: string | null
   computedStrokePosition: string | null
+  computedStrokeFillColor: string | null
+  computedStrokeFillOpacity: number | null
+  computedStrokeFillVisible: boolean | null
+  hasLegacyStrokeColor: boolean
+  hasLegacyStrokeOpacity: boolean
+  hasLegacyStrokeVisible: boolean
   strokeCacheSize: number
   acceptedConstrainedSolidCount: number
   blockedConstrainedSolidCount: number
@@ -46,6 +52,117 @@ const clearVectorOverlayState = async (page: Page) => {
     core?.setSystemProperty?.('pathEditingVectorId', null)
     core?.setSystemProperty?.('pathEditingMode', false)
   })
+}
+
+const createSimpleStrokeVector = async (page: Page) => {
+  await page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const elementApis = (window as any).__AsyraE2E__?.elementApis
+    if (!core || !elementApis) {
+      throw new Error('Missing E2E core or element APIs')
+    }
+    const points = {
+      'paint-p0': {
+        id: 'paint-p0',
+        kind: 'anchor',
+        x: 180,
+        y: 160,
+        anchorType: 'sharp'
+      },
+      'paint-p1': {
+        id: 'paint-p1',
+        kind: 'anchor',
+        x: 320,
+        y: 230,
+        anchorType: 'sharp'
+      },
+      'paint-p2': {
+        id: 'paint-p2',
+        kind: 'anchor',
+        x: 190,
+        y: 300,
+        anchorType: 'sharp'
+      }
+    }
+    const segments = {
+      'paint-s0': {
+        id: 'paint-s0',
+        startId: 'paint-p0',
+        endId: 'paint-p1',
+        outControlId: null,
+        inControlId: null
+      },
+      'paint-s1': {
+        id: 'paint-s1',
+        startId: 'paint-p1',
+        endId: 'paint-p2',
+        outControlId: null,
+        inControlId: null
+      },
+      'paint-s2': {
+        id: 'paint-s2',
+        startId: 'paint-p2',
+        endId: 'paint-p0',
+        outControlId: null,
+        inControlId: null
+      }
+    }
+    const createdId = elementApis.createElement(
+      {
+        type: 'vector',
+        points,
+        segments,
+        networks: {
+          'paint-network': {
+            id: 'paint-network',
+            pointIds: ['paint-p0', 'paint-p1', 'paint-p2'],
+            segmentIds: ['paint-s0', 'paint-s1', 'paint-s2'],
+            closed: true
+          }
+        },
+        closed: true,
+        pointCoordinateSpace: 'workspace',
+        fills: [],
+        strokes: [
+          {
+            id: 'paint-stroke',
+            style: 'solid',
+            position: 'center',
+            width: 4,
+            dashPattern: [],
+            dashOffset: 0,
+            fill: {
+              id: 'paint-stroke',
+              type: 'fill',
+              kind: 'solid',
+              defaultColorFormat: 'hex',
+              colorFormat: 'hex',
+              color: '#000000',
+              opacity: 1,
+              visible: true,
+              gradient: null
+            },
+            joinType: 'round',
+            capType: 'round',
+            miterAngle: 28.96
+          }
+        ]
+      },
+      { undoable: false }
+    )
+    if (!createdId) {
+      throw new Error('Failed to create vector')
+    }
+    core.selectElements?.([createdId], { undoable: false })
+    core.setSystemProperty?.('zoom', 1)
+    core.setSystemProperty?.('viewportPosition', { x: 120, y: 80 })
+  })
+  await page.waitForTimeout(150)
+  await expect(
+    getPropertiesPanel(page).getByTestId('prop-strokes-section')
+  ).toBeVisible()
 }
 
 const drawSelfIntersectingStarWithPen = async (page: Page) => {
@@ -647,6 +764,14 @@ const getVectorStrokeRenderSnapshot = async (
       | {
           style?: unknown
           position?: unknown
+          color?: unknown
+          opacity?: unknown
+          visible?: unknown
+          fill?: {
+            color?: unknown
+            opacity?: unknown
+            visible?: unknown
+          } | null
         }
       | undefined
 
@@ -658,6 +783,27 @@ const getVectorStrokeRenderSnapshot = async (
         typeof firstStroke?.style === 'string' ? firstStroke.style : null,
       computedStrokePosition:
         typeof firstStroke?.position === 'string' ? firstStroke.position : null,
+      computedStrokeFillColor:
+        typeof firstStroke?.fill?.color === 'string'
+          ? firstStroke.fill.color
+          : null,
+      computedStrokeFillOpacity:
+        typeof firstStroke?.fill?.opacity === 'number'
+          ? firstStroke.fill.opacity
+          : null,
+      computedStrokeFillVisible:
+        typeof firstStroke?.fill?.visible === 'boolean'
+          ? firstStroke.fill.visible
+          : null,
+      hasLegacyStrokeColor: firstStroke
+        ? Object.hasOwn(firstStroke, 'color')
+        : false,
+      hasLegacyStrokeOpacity: firstStroke
+        ? Object.hasOwn(firstStroke, 'opacity')
+        : false,
+      hasLegacyStrokeVisible: firstStroke
+        ? Object.hasOwn(firstStroke, 'visible')
+        : false,
       strokeCacheSize: renderElement?.__asyraStrokeMeshCache?.size ?? 0,
       acceptedConstrainedSolidCount:
         renderElement?.__asyraConstrainedSolidRuntimeDiagnostics
@@ -874,6 +1020,70 @@ test.describe('vector stroke refresh rendering', () => {
         blockedConstrainedDashedCount: 0,
         topologyModelCount: 1,
         geometryModelCount: 1
+      })
+    const afterReload = await getVectorStrokeRenderSnapshot(page)
+    expect(afterReload?.strokeCacheSize).toBeGreaterThan(0)
+    expect(consoleErrors).toEqual([])
+  })
+
+  test('should run: keep a newly created vector visible when changing stroke fill color and after refresh', async ({
+    page
+  }, testInfo) => {
+    const consoleErrors: string[] = []
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        consoleErrors.push(message.text())
+      }
+    })
+
+    await createSimpleStrokeVector(page)
+
+    const propertiesPanel = getPropertiesPanel(page)
+    await propertiesPanel
+      .getByTestId('prop-stroke-style-0')
+      .selectOption('solid')
+    await propertiesPanel.getByTestId('prop-stroke-width-0').fill('10')
+    await propertiesPanel.getByTestId('prop-stroke-width-0').press('Enter')
+    await propertiesPanel.getByTestId('prop-stroke-color-0').fill('D90909')
+    await propertiesPanel.getByTestId('prop-stroke-color-0').press('Enter')
+
+    await expect
+      .poll(() => getVectorStrokeRenderSnapshot(page))
+      .toMatchObject({
+        renderObjectCount: 1,
+        computedStrokeCount: 1,
+        computedStrokeStyle: 'solid',
+        computedStrokeFillColor: '#d90909',
+        computedStrokeFillOpacity: 1,
+        computedStrokeFillVisible: true,
+        hasLegacyStrokeColor: false,
+        hasLegacyStrokeOpacity: false,
+        hasLegacyStrokeVisible: false
+      })
+    const beforeReload = await getVectorStrokeRenderSnapshot(page)
+    expect(beforeReload?.strokeCacheSize).toBeGreaterThan(0)
+    await page.screenshot({
+      path: testInfo.outputPath('stroke-fill-color-after-change.png'),
+      fullPage: true
+    })
+
+    await saveCurrentFileToLocalStorage(page)
+    await page.reload()
+    await waitForAppReady(page)
+
+    await expect
+      .poll(() => getVectorStrokeRenderSnapshot(page))
+      .toMatchObject({
+        vectorId: beforeReload?.vectorId,
+        renderObjectCount: 1,
+        computedStrokeCount: 1,
+        computedStrokeStyle: 'solid',
+        computedStrokeFillColor: '#d90909',
+        computedStrokeFillOpacity: 1,
+        computedStrokeFillVisible: true,
+        hasLegacyStrokeColor: false,
+        hasLegacyStrokeOpacity: false,
+        hasLegacyStrokeVisible: false
       })
     const afterReload = await getVectorStrokeRenderSnapshot(page)
     expect(afterReload?.strokeCacheSize).toBeGreaterThan(0)

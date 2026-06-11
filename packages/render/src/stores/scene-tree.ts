@@ -160,7 +160,7 @@ class ComputedDataMirror {
 
     Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
       const currentRecord = entry.computedDataSnapshot[key]
-      const nextRecord =
+      let nextRecord =
         currentRecord &&
         typeof currentRecord === 'object' &&
         !Array.isArray(currentRecord)
@@ -176,7 +176,8 @@ class ComputedDataMirror {
       })
 
       Object.keys(recordPatch.remove ?? {}).forEach((recordId) => {
-        delete nextRecord[recordId]
+        const { [recordId]: _removed, ...withoutRecord } = nextRecord
+        nextRecord = withoutRecord
         changeCount += 1
       })
 
@@ -185,7 +186,10 @@ class ComputedDataMirror {
         nextRecord
     })
 
-    emitStrokePipelineCounter('computed-mirror-staged-change-count', changeCount)
+    emitStrokePipelineCounter(
+      'computed-mirror-staged-change-count',
+      changeCount
+    )
     emitStrokePipelineCounter('computed-mirror-patch-apply-count')
     return true
   }
@@ -408,7 +412,8 @@ class RenderSceneTree {
       if (!hasComputedFullUpdate) {
         measureBrowserDragPhase(
           'render-scene-tree:update-direct-property',
-          () => render.updateElement(elementId, key, change.before, change.after)
+          () =>
+            render.updateElement(elementId, key, change.before, change.after)
         )
         this.pendingFrameFlush = true
       }

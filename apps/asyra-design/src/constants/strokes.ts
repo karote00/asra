@@ -8,11 +8,7 @@ export const STROKE_PATCH_KEYS = [
   'width',
   'dashPattern',
   'dashOffset',
-  'defaultColorFormat',
-  'colorFormat',
-  'color',
-  'opacity',
-  'visible',
+  'fill',
   'joinType',
   'capType',
   'miterAngle'

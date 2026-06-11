@@ -968,7 +968,9 @@ describe('stroke drag complete render contract', () => {
       phases.has('constrained-solid:solid-mask-model-inside-face-owned-mask')
     ).toBe(false)
     expect(
-      phases.has('constrained-solid:solid-mask-model-inside-exact-source-stroke')
+      phases.has(
+        'constrained-solid:solid-mask-model-inside-exact-source-stroke'
+      )
     ).toBe(false)
     expect(
       phases.has(

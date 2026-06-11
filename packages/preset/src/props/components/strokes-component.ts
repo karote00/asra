@@ -15,26 +15,16 @@ definePropertyComponent({
         return null
       }
 
-      return {
-        ...createDefaultStroke(),
-        ...item
-      }
+      return createDefaultStroke(item) as unknown as Record<string, unknown>
     },
     toValue: (child, childId) => ({
       id: childId,
-      kind: child.get('kind'),
       style: child.get('style'),
       position: child.get('position'),
       width: child.get('width'),
       dashPattern: child.get('dashPattern'),
       dashOffset: child.get('dashOffset'),
       fill: child.get('fill'),
-      defaultColorFormat: child.get('defaultColorFormat'),
-      colorFormat: child.get('colorFormat'),
-      color: child.get('color'),
-      opacity: child.get('opacity'),
-      visible: child.get('visible'),
-      gradient: child.get('gradient'),
       joinType: child.get('joinType'),
       capType: child.get('capType'),
       miterAngle: child.get('miterAngle')

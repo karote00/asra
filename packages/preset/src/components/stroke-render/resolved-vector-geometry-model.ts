@@ -1154,12 +1154,12 @@ const buildSelfIntersectingGeometry = (
     domainTracedSegments,
     topology.fillRule,
     {
-          previousCache: splitResult?.cache ?? previousCache?.selfIntersectionCache,
-          segmentSignatures: tracedSegmentSignatures,
-          legalFacePolicy: path.closed ? 'fill-rule' : 'bounded-faces',
-          preSplitResult: splitResult ?? undefined
-        }
-      )
+      previousCache: splitResult?.cache ?? previousCache?.selfIntersectionCache,
+      segmentSignatures: tracedSegmentSignatures,
+      legalFacePolicy: path.closed ? 'fill-rule' : 'bounded-faces',
+      preSplitResult: splitResult ?? undefined
+    }
+  )
   const fallbackResolvedGeometry =
     path.closed && resolvedGeometry.legalBoundaryContours.length === 0
       ? buildSelfIntersectingResolvedGeometry(

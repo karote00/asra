@@ -11,18 +11,16 @@ const caseDef = {
   joinType: 'bevel' as const
 }
 
-test('canonical stroke matrix: dashed outside source vertex bevel join', async (
-  { page },
-  testInfo
-) => {
+test('canonical stroke matrix: dashed outside source vertex bevel join', async ({
+  page
+}, testInfo) => {
   testInfo.setTimeout(90_000)
   await runCanonicalDashedOutsideSourceJoinMatrixCase(page, caseDef)
 })
 
-test('canonical stroke matrix: dashed outside source vertex bevel join closeups', async (
-  { page },
-  testInfo
-) => {
+test('canonical stroke matrix: dashed outside source vertex bevel join closeups', async ({
+  page
+}, testInfo) => {
   testInfo.setTimeout(90_000)
   await runCanonicalDashedOutsideSourceJoinReviewCase(page, caseDef)
 })

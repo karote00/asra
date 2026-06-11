@@ -1135,9 +1135,7 @@ const expectInsideDashedSplitRangeIntervalAllocation = ({
       const minimumVisualGapLength =
         capExtension > 0 ? Math.max(0, targetGapLength * 0.6) : 0
       const minimumCenterlineGapLength =
-        capExtension > 0
-          ? minimumVisualGapLength + capExtension * 2
-          : 0
+        capExtension > 0 ? minimumVisualGapLength + capExtension * 2 : 0
       const allowsCollapsedCapAwareRange =
         capExtension > 0 &&
         sorted.length === 1 &&
@@ -1183,10 +1181,7 @@ const expectInsideDashedSplitRangeIntervalAllocation = ({
                 }
               ]
             }
-            if (
-              capExtension > 0 &&
-              visualGap < minimumVisualGapLength - 1e-4
-            ) {
+            if (capExtension > 0 && visualGap < minimumVisualGapLength - 1e-4) {
               return [
                 {
                   reason: 'visual-gap-over-compressed-by-cap',
