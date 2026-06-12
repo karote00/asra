@@ -380,8 +380,8 @@ const solidPacketHasDashedTerminalMetadata = (
 ) => {
   const meta = getSolidPacketMeta(packet)
   return (
-    meta?.figmaLikeTerminalRole !== undefined ||
-    (meta?.figmaLikeSplitRangeTerminals?.length ?? 0) > 0
+    meta?.domainPlanTerminalRole !== undefined ||
+    (meta?.domainPlanSplitRangeTerminals?.length ?? 0) > 0
   )
 }
 
@@ -1078,11 +1078,12 @@ const chooseSegmentSideOffsetForTest = (
   position: 'inside' | 'outside',
   strokeWidth: number
 ) => {
-  const fallbackOffset = getClosedContourInsideOffsetForTest(
+  const defaultOffset = getClosedContourInsideOffsetForTest(
     sourcePath,
     strokeWidth
   )
-  const fallback = position === 'inside' ? fallbackOffset : -fallbackOffset
+  const defaultOffsetValue =
+    position === 'inside' ? defaultOffset : -defaultOffset
   let leftVotes = 0
   let rightVotes = 0
 
@@ -1118,7 +1119,7 @@ const chooseSegmentSideOffsetForTest = (
   }
 
   if (leftVotes === rightVotes) {
-    return fallback
+    return defaultOffsetValue
   }
 
   return leftVotes > rightVotes ? strokeWidth : -strokeWidth
@@ -4640,15 +4641,15 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
           packet.geometry.debugMeta?.sourceTopology === 'self-intersecting' &&
           packet.geometry.debugMeta?.resolutionStatus === 'exact-constrained' &&
           packet.geometry.debugMeta?.runtimeStatus === 'accepted' &&
-          packet.geometry.debugMeta?.figmaLikeSideAuthority ===
+          packet.geometry.debugMeta?.domainPlanSideAuthority ===
             'implicit-fill-hole-domain'
       )
     ).toBe(true)
     expect(
       packets.every(
         (packet) =>
-          packet.geometry.debugMeta?.figmaLikeSelectedSide ===
-          packet.geometry.debugMeta?.figmaLikeFilledSide
+          packet.geometry.debugMeta?.domainPlanSelectedSide ===
+          packet.geometry.debugMeta?.domainPlanFilledSide
       )
     ).toBe(true)
     expect(packets.some(solidPacketCarriesSourceVertexProvenance)).toBe(true)
@@ -5096,15 +5097,15 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
     expect(
       packets.some(
         (packet) =>
-          packet.geometry.debugMeta?.figmaLikeBoundaryRole === 'filled-face'
+          packet.geometry.debugMeta?.domainPlanBoundaryRole === 'filled-face'
       )
     ).toBe(false)
     expect(
       packets.every(
         (packet) =>
-          packet.geometry.debugMeta?.figmaLikeBoundaryRole === 'outer' &&
-          packet.geometry.debugMeta?.figmaLikeSelectedSide ===
-            packet.geometry.debugMeta?.figmaLikeUnfilledSide &&
+          packet.geometry.debugMeta?.domainPlanBoundaryRole === 'outer' &&
+          packet.geometry.debugMeta?.domainPlanSelectedSide ===
+            packet.geometry.debugMeta?.domainPlanUnfilledSide &&
           packet.geometry.debugMeta?.resolutionStatus === 'exact-constrained'
       )
     ).toBe(true)

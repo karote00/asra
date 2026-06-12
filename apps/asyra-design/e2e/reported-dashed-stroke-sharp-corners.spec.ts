@@ -2756,7 +2756,7 @@ test.describe('Reported Dashed Stroke Sharp Corners', () => {
     ).toBe(0)
   })
 
-  test('captures the reported smooth high-curvature outside ending corner with native app zoom', async ({
+  test('captures the reported smooth high-curvature outside ending corner with app zoom', async ({
     page
   }, testInfo) => {
     const initialCount = await getElementCount(page)
@@ -2827,11 +2827,11 @@ test.describe('Reported Dashed Stroke Sharp Corners', () => {
       LOCAL_CORNER_CLIP_RADIUS
     )
     const attachmentPath = testInfo.outputPath(
-      'reported-dashed-stroke-tp-52-outside-native-app-zoom-corner.png'
+      'reported-dashed-stroke-tp-52-outside-app-zoom-corner.png'
     )
     await page.screenshot({ path: attachmentPath, clip: raster.clip })
     await testInfo.attach(
-      'reported-dashed-stroke-tp-52-outside-native-app-zoom-corner',
+      'reported-dashed-stroke-tp-52-outside-app-zoom-corner',
       {
         path: attachmentPath,
         contentType: 'image/png'
@@ -2917,7 +2917,7 @@ test.describe('Reported Dashed Stroke Sharp Corners', () => {
     ).toBeGreaterThan(0)
   })
 
-  test('captures the original vector-6 tp-16 outside super high-curvature crop with native app zoom', async ({
+  test('captures the original vector-6 tp-16 outside super high-curvature crop with app zoom', async ({
     page
   }, testInfo) => {
     const snapshot = await createOriginalVector6Fixture(page, {
@@ -3220,7 +3220,7 @@ test.describe('Reported Dashed Stroke Sharp Corners', () => {
                 geometryId: packet.geometryId,
                 sourceGeometryIds,
                 sourceBoundaryJoinCount,
-                terminalRole: debugMeta.figmaLikeTerminalRole
+                terminalRole: debugMeta.domainPlanTerminalRole
               }
             ]
           : []

@@ -3,4 +3,4 @@ export {
   buildConstrainedSolidStrokePolygons,
   supportsConstrainedSolidStroke,
   type ClosedConstrainedStrokePolygonEntry
-} from './constrained-local-side-stroke-geometry'
+} from './constrained-domain-stroke-geometry'

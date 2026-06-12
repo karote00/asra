@@ -8,7 +8,7 @@ import {
   buildConstrainedSolidStrokePolygons,
   supportsConstrainedSolidStroke
 } from '../components/stroke-render/constrained-solid-stroke-geometry'
-import { buildSelfIntersectingClosedConstrainedDashedLocalSidePolygons } from '../components/stroke-render/constrained-dashed-local-side-geometry'
+import { buildSelfIntersectingClosedConstrainedDashedDomainPolygons } from '../components/stroke-render/constrained-dashed-domain-geometry'
 import { buildVectorGeometryModelPath } from '../components/stroke-render/path-geometry'
 import {
   createClipper2GeometryBackend,
@@ -239,7 +239,7 @@ describe('constrained solid stroke geometry', () => {
     ).toBe(true)
   })
 
-  it('should not run: reject unsupported constrained solid slices', () => {
+  it('should not run: reject non-product constrained solid slices', () => {
     expect(
       supportsConstrainedSolidStroke(
         createStroke({
@@ -300,7 +300,7 @@ describe('constrained solid stroke geometry', () => {
     ])
   })
 
-  it('should run: keep self-intersecting open constrained solid paths visible as local-side geometry', () => {
+  it('should run: keep self-intersecting open constrained solid paths visible as domain-plan geometry', () => {
     const polygons = buildConstrainedSolidStrokePolygons(
       [
         { x: 0, y: 0 },
@@ -651,7 +651,7 @@ describe('constrained solid stroke geometry', () => {
     })
   })
 
-  it('should run: reject closed self-intersecting constrained paths from the product solid geometry helper and keep dashed local-side isolated', () => {
+  it('should run: reject closed self-intersecting constrained paths from the product solid geometry helper and keep dashed domain-plan isolated', () => {
     const points = [
       { x: 0, y: 0 },
       { x: 20, y: 20 },
@@ -667,10 +667,7 @@ describe('constrained solid stroke geometry', () => {
     expect(polygons).toEqual([])
 
     const dashedApproximation =
-      buildSelfIntersectingClosedConstrainedDashedLocalSidePolygons(
-        points,
-        stroke
-      )
+      buildSelfIntersectingClosedConstrainedDashedDomainPolygons(points, stroke)
     expect(dashedApproximation).toHaveLength(8)
     expect(getBounds(dashedApproximation)).toEqual({
       minX: -9.656854249492383,
@@ -680,7 +677,7 @@ describe('constrained solid stroke geometry', () => {
     })
   })
 
-  it('should run: keep reported inside-solid self-intersecting geometry out of the local-side helper when exact backend is available', async () => {
+  it('should run: keep reported inside-solid self-intersecting geometry out of the domain-plan helper when exact backend is available', async () => {
     const exactBackend = createClipper2GeometryBackend(
       await loadClipperModule()
     )

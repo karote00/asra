@@ -1,0 +1,172 @@
+[
+  {
+    "position": "inside",
+    "ratio": 0.5,
+    "screenshotPath": "/Users/asa/Desktop/workspace/asra/docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/self-check-split-range-gap-ratio-inside-0-50.png",
+    "metrics": {
+      "capExtension": 10,
+      "minimumGapRatio": 0.5,
+      "minimumVisualGap": 10,
+      "splitRangeCount": 20,
+      "gapCount": 33,
+      "collapsedStartEndCount": 2,
+      "minVisualGap": 10.803812316652511,
+      "averageVisualGap": 25.88712995565854,
+      "maxVisualGap": 65.76801744115892,
+      "overCompressedVisualGaps": []
+    }
+  },
+  {
+    "position": "inside",
+    "ratio": 0.55,
+    "screenshotPath": "/Users/asa/Desktop/workspace/asra/docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/self-check-split-range-gap-ratio-inside-0-55.png",
+    "metrics": {
+      "capExtension": 10,
+      "minimumGapRatio": 0.55,
+      "minimumVisualGap": 11,
+      "splitRangeCount": 20,
+      "gapCount": 32,
+      "collapsedStartEndCount": 2,
+      "minVisualGap": 12.449584907358997,
+      "averageVisualGap": 28.16485276677287,
+      "maxVisualGap": 65.76801744115892,
+      "overCompressedVisualGaps": []
+    }
+  },
+  {
+    "position": "inside",
+    "ratio": 0.6,
+    "screenshotPath": "/Users/asa/Desktop/workspace/asra/docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/self-check-split-range-gap-ratio-inside-0-60.png",
+    "metrics": {
+      "capExtension": 10,
+      "minimumGapRatio": 0.6,
+      "minimumVisualGap": 12,
+      "splitRangeCount": 20,
+      "gapCount": 32,
+      "collapsedStartEndCount": 2,
+      "minVisualGap": 12.449584907358997,
+      "averageVisualGap": 28.16485276677287,
+      "maxVisualGap": 65.76801744115892,
+      "overCompressedVisualGaps": []
+    }
+  },
+  {
+    "position": "inside",
+    "ratio": 0.65,
+    "screenshotPath": "/Users/asa/Desktop/workspace/asra/docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/self-check-split-range-gap-ratio-inside-0-65.png",
+    "metrics": {
+      "capExtension": 10,
+      "minimumGapRatio": 0.65,
+      "minimumVisualGap": 13,
+      "splitRangeCount": 20,
+      "gapCount": 31,
+      "collapsedStartEndCount": 2,
+      "minVisualGap": 13.473349969748256,
+      "averageVisualGap": 30.58952543666877,
+      "maxVisualGap": 65.76801744115892,
+      "overCompressedVisualGaps": []
+    }
+  },
+  {
+    "position": "inside",
+    "ratio": 0.7,
+    "screenshotPath": "/Users/asa/Desktop/workspace/asra/docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/self-check-split-range-gap-ratio-inside-0-70.png",
+    "metrics": {
+      "capExtension": 10,
+      "minimumGapRatio": 0.7,
+      "minimumVisualGap": 14,
+      "splitRangeCount": 20,
+      "gapCount": 29,
+      "collapsedStartEndCount": 4,
+      "minVisualGap": 15.01684291031529,
+      "averageVisualGap": 31.76995133093915,
+      "maxVisualGap": 65.76801744115892,
+      "overCompressedVisualGaps": []
+    }
+  },
+  {
+    "position": "outside",
+    "ratio": 0.5,
+    "screenshotPath": "/Users/asa/Desktop/workspace/asra/docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/self-check-split-range-gap-ratio-outside-0-50.png",
+    "metrics": {
+      "capExtension": 10,
+      "minimumGapRatio": 0.5,
+      "minimumVisualGap": 10,
+      "splitRangeCount": 10,
+      "gapCount": 17,
+      "collapsedStartEndCount": 0,
+      "minVisualGap": 10.803812316652639,
+      "averageVisualGap": 21.01652557232108,
+      "maxVisualGap": 48.83405257550845,
+      "overCompressedVisualGaps": []
+    }
+  },
+  {
+    "position": "outside",
+    "ratio": 0.55,
+    "screenshotPath": "/Users/asa/Desktop/workspace/asra/docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/self-check-split-range-gap-ratio-outside-0-55.png",
+    "metrics": {
+      "capExtension": 10,
+      "minimumGapRatio": 0.55,
+      "minimumVisualGap": 11,
+      "splitRangeCount": 10,
+      "gapCount": 16,
+      "collapsedStartEndCount": 0,
+      "minVisualGap": 12.449342234788787,
+      "averageVisualGap": 25.267558420591147,
+      "maxVisualGap": 48.83405257550845,
+      "overCompressedVisualGaps": []
+    }
+  },
+  {
+    "position": "outside",
+    "ratio": 0.6,
+    "screenshotPath": "/Users/asa/Desktop/workspace/asra/docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/self-check-split-range-gap-ratio-outside-0-60.png",
+    "metrics": {
+      "capExtension": 10,
+      "minimumGapRatio": 0.6,
+      "minimumVisualGap": 12,
+      "splitRangeCount": 10,
+      "gapCount": 16,
+      "collapsedStartEndCount": 0,
+      "minVisualGap": 12.449342234788787,
+      "averageVisualGap": 25.267558420591147,
+      "maxVisualGap": 48.83405257550845,
+      "overCompressedVisualGaps": []
+    }
+  },
+  {
+    "position": "outside",
+    "ratio": 0.65,
+    "screenshotPath": "/Users/asa/Desktop/workspace/asra/docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/self-check-split-range-gap-ratio-outside-0-65.png",
+    "metrics": {
+      "capExtension": 10,
+      "minimumGapRatio": 0.65,
+      "minimumVisualGap": 13,
+      "splitRangeCount": 10,
+      "gapCount": 15,
+      "collapsedStartEndCount": 0,
+      "minVisualGap": 15.016442247995236,
+      "averageVisualGap": 28.764299154524135,
+      "maxVisualGap": 48.83405257550845,
+      "overCompressedVisualGaps": []
+    }
+  },
+  {
+    "position": "outside",
+    "ratio": 0.7,
+    "screenshotPath": "/Users/asa/Desktop/workspace/asra/docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/self-check-split-range-gap-ratio-outside-0-70.png",
+    "metrics": {
+      "capExtension": 10,
+      "minimumGapRatio": 0.7,
+      "minimumVisualGap": 14,
+      "splitRangeCount": 10,
+      "gapCount": 15,
+      "collapsedStartEndCount": 0,
+      "minVisualGap": 15.016442247995236,
+      "averageVisualGap": 28.764299154524135,
+      "maxVisualGap": 48.83405257550845,
+      "overCompressedVisualGaps": []
+    }
+  }
+]

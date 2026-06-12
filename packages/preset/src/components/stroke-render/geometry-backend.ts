@@ -262,27 +262,27 @@ export const getGeometryBackendCacheSignature = (backend: GeometryBackend) =>
     `epsilon:${backend.coordinatePolicy.epsilon}`
   ].join('@')
 
-const throwUnsupportedBackend = (operation: string): never => {
+const throwMissingBackend = (operation: string): never => {
   throw new Error(
     `GeometryBackend operation "${operation}" requires an exact geometry backend`
   )
 }
 
-export const createUnsupportedGeometryBackend = (
-  backendId = 'unsupported-exact-geometry-backend'
+export const createMissingGeometryBackend = (
+  backendId = 'diagnostic-missing-exact-geometry-backend'
 ): GeometryBackend => ({
   backendId,
-  backendVersion: '0.0.0-unsupported',
+  backendVersion: '0.0.0-diagnostic-missing',
   capabilities: createGeometryBackendCapabilities(false),
   coordinatePolicy: DEFAULT_GEOMETRY_BACKEND_COORDINATE_POLICY,
-  union: () => throwUnsupportedBackend('union'),
-  difference: () => throwUnsupportedBackend('difference'),
-  intersection: () => throwUnsupportedBackend('intersection'),
-  offset: () => throwUnsupportedBackend('offset'),
-  buildArrangement: () => throwUnsupportedBackend('buildArrangement')
+  union: () => throwMissingBackend('union'),
+  difference: () => throwMissingBackend('difference'),
+  intersection: () => throwMissingBackend('intersection'),
+  offset: () => throwMissingBackend('offset'),
+  buildArrangement: () => throwMissingBackend('buildArrangement')
 })
 
-const UNSUPPORTED_BACKEND_ID = 'unsupported-exact-geometry-backend'
+const MISSING_BACKEND_ID = 'diagnostic-missing-exact-geometry-backend'
 
 const validateBackendId = (backendId: string) => {
   if (!backendId.trim()) {
@@ -334,13 +334,13 @@ const createCachedRegistration = (
 }
 
 export const createGeometryBackendRegistry = (
-  unsupportedBackendId = UNSUPPORTED_BACKEND_ID
+  missingBackendId = MISSING_BACKEND_ID
 ): GeometryBackendRegistry => {
   const registrations = new Map<
     string,
     ReturnType<typeof createCachedRegistration>
   >()
-  let activeBackendId = unsupportedBackendId
+  let activeBackendId = missingBackendId
 
   const registry: GeometryBackendRegistry = {
     register: (registration) => {
@@ -371,8 +371,8 @@ export const createGeometryBackendRegistry = (
   }
 
   registry.register({
-    backendId: unsupportedBackendId,
-    load: () => createUnsupportedGeometryBackend(unsupportedBackendId)
+    backendId: missingBackendId,
+    load: () => createMissingGeometryBackend(missingBackendId)
   })
 
   return registry

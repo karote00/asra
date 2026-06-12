@@ -167,7 +167,7 @@ const createReportedVector6Fixture = () => {
 }
 
 describe('reported vector-6 outside solid packet contract', () => {
-  it('should run: emit bounded outside solidMaskModel packets without boundary-domain fallback', async () => {
+  it('should run: emit bounded outside solidMaskModel packets through bounded boundary-domain', async () => {
     const { network, points, segments } = createReportedVector6Fixture()
     const sourcePath = buildVectorGeometryModelPath(network, points, segments)
     const topology = buildPathTopologyModel({
@@ -274,8 +274,8 @@ describe('reported vector-6 outside solid packet contract', () => {
       packets.every(
         (packet) =>
           !packet.geometry.geometryId.includes(':boundary-domain:') &&
-          packet.geometry.debugMeta?.figmaLikeTerminalRole === undefined &&
-          packet.geometry.debugMeta?.figmaLikeSplitRangeTerminals === undefined
+          packet.geometry.debugMeta?.domainPlanTerminalRole === undefined &&
+          packet.geometry.debugMeta?.domainPlanSplitRangeTerminals === undefined
       )
     ).toBe(true)
   })

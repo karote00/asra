@@ -39,15 +39,15 @@ describe('stroke legality application', () => {
               intervalId: 'interval:typed'
             }
           ],
-          figmaLikeSplitRangeId: 'split-range:typed',
-          figmaLikeSplitRangeStartDistance: 0,
-          figmaLikeSplitRangeEndDistance: 20,
-          figmaLikeTerminalRole: 'start',
-          figmaLikeSideAuthority: 'implicit-fill-hole-domain',
-          figmaLikeSelectedSide: 1,
-          figmaLikeSideResolutionStatus: 'resolved',
-          figmaLikeSideResolutionReason: 'legal-domain-probe',
-          figmaLikeSplitRangeTerminals: [
+          domainPlanSplitRangeId: 'split-range:typed',
+          domainPlanSplitRangeStartDistance: 0,
+          domainPlanSplitRangeEndDistance: 20,
+          domainPlanTerminalRole: 'start',
+          domainPlanSideAuthority: 'implicit-fill-hole-domain',
+          domainPlanSelectedSide: 1,
+          domainPlanSideResolutionStatus: 'resolved',
+          domainPlanSideResolutionReason: 'legal-domain-probe',
+          domainPlanSplitRangeTerminals: [
             {
               intervalId: 'interval:typed',
               splitRangeId: 'split-range:typed',
@@ -110,9 +110,9 @@ describe('stroke legality application', () => {
       ownerSet: packet.geometry.debugMeta?.ownerSet,
       sourceSpanIds: ['span:a'],
       legalDomainIds: ['legal:typed'],
-      figmaLikeSplitRangeId: 'split-range:typed',
-      figmaLikeTerminalRole: 'start',
-      figmaLikeSplitRangeTerminals: [
+      domainPlanSplitRangeId: 'split-range:typed',
+      domainPlanTerminalRole: 'start',
+      domainPlanSplitRangeTerminals: [
         {
           intervalId: 'interval:typed',
           splitRangeId: 'split-range:typed',

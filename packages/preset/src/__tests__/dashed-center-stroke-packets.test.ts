@@ -241,7 +241,7 @@ describe('dashed center stroke packets', () => {
       faceId: packets[0]?.geometry.geometryId,
       sourceGeometryIds: [packets[0]?.geometry.geometryId],
       geometryFamily: 'dashed-center',
-      resolutionStatus: 'native-center',
+      resolutionStatus: 'center-product',
       runtimeStatus: 'not-applicable',
       sourceTopology: 'open',
       intervalIds: ['interval:0'],
@@ -563,8 +563,22 @@ describe('dashed center stroke packets', () => {
 
     expect(packets.length).toBeGreaterThan(2)
     expect(
-      packets.map((packet) => packet.geometry.debugMeta?.ribbonValidityStatus)
-    ).toEqual(packets.map(() => 'backend-offset'))
+      packets.map((packet) => ({
+        terminalRole: packet.geometry.debugMeta?.intervalTerminalRole,
+        ribbonValidityStatus: packet.geometry.debugMeta?.ribbonValidityStatus
+      }))
+    ).toEqual(
+      packets.map((packet) => {
+        const terminalRole = packet.geometry.debugMeta?.intervalTerminalRole
+        return {
+          terminalRole,
+          ribbonValidityStatus:
+            terminalRole === 'path-start' || terminalRole === 'path-end'
+              ? 'simple-outline'
+              : 'backend-offset'
+        }
+      })
+    )
     expect(calls.every((call) => call.cap === 'round')).toBe(true)
   })
 
@@ -645,9 +659,9 @@ describe('dashed center stroke packets', () => {
     expect(sharpJoinFrame?.sharpJoin).toBe(true)
   })
 
-  it('should not run: emit any packets for unsupported dashed slices', () => {
+  it('should not run: emit any packets for non-product dashed slices', () => {
     const packets = buildDashedCenterStrokeResolvedPackets(
-      'unsupported',
+      'non-product',
       [
         { x: 0, y: 0 },
         { x: 90, y: 0 }

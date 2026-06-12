@@ -131,7 +131,7 @@ beforeAll(async () => {
 
 class RecordingVectorGraphic extends Container {
   __asyraSolidCenterStrokeExportPackets?: unknown[]
-  __asyraNativeCenterSolidStrokeRenderCount?: number
+  __asyraCenterPathSolidStrokeRenderCount?: number
   __asyraCenterSolidPathMaskRenderCount?: number
   __asyraConstrainedDashedProductNetworkIds?: string[]
   __asyraStrokeMeshCache?: Map<string, { kind?: string }>
@@ -293,7 +293,7 @@ const hasRequiredConstrainedDashedNetworkOutput = (
 }
 
 const hasCurrentStrokeProductOutput = (graphic: RecordingVectorGraphic) =>
-  (graphic.__asyraNativeCenterSolidStrokeRenderCount ?? 0) > 0 ||
+  (graphic.__asyraCenterPathSolidStrokeRenderCount ?? 0) > 0 ||
   (graphic.__asyraCenterSolidPathMaskRenderCount ?? 0) > 0 ||
   (graphic.__asyraConstrainedDashedProductNetworkIds?.length ?? 0) > 0 ||
   (graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0) > 0 ||
@@ -438,29 +438,29 @@ const createMixedDescriptorAndFallbackInsideDashedData = () => {
     height: 640,
     points: {
       ...base.points,
-      'fallback-rect-a': {
-        id: 'fallback-rect-a',
+      'secondary-rect-a': {
+        id: 'secondary-rect-a',
         kind: 'anchor',
         x: 540,
         y: 80,
         anchorType: 'sharp'
       },
-      'fallback-rect-b': {
-        id: 'fallback-rect-b',
+      'secondary-rect-b': {
+        id: 'secondary-rect-b',
         kind: 'anchor',
         x: 720,
         y: 80,
         anchorType: 'sharp'
       },
-      'fallback-rect-c': {
-        id: 'fallback-rect-c',
+      'secondary-rect-c': {
+        id: 'secondary-rect-c',
         kind: 'anchor',
         x: 720,
         y: 240,
         anchorType: 'sharp'
       },
-      'fallback-rect-d': {
-        id: 'fallback-rect-d',
+      'secondary-rect-d': {
+        id: 'secondary-rect-d',
         kind: 'anchor',
         x: 540,
         y: 240,
@@ -469,50 +469,50 @@ const createMixedDescriptorAndFallbackInsideDashedData = () => {
     },
     segments: {
       ...base.segments,
-      'fallback-rect-ab': {
-        id: 'fallback-rect-ab',
-        startId: 'fallback-rect-a',
-        endId: 'fallback-rect-b',
+      'secondary-rect-ab': {
+        id: 'secondary-rect-ab',
+        startId: 'secondary-rect-a',
+        endId: 'secondary-rect-b',
         outControlId: null,
         inControlId: null
       },
-      'fallback-rect-bc': {
-        id: 'fallback-rect-bc',
-        startId: 'fallback-rect-b',
-        endId: 'fallback-rect-c',
+      'secondary-rect-bc': {
+        id: 'secondary-rect-bc',
+        startId: 'secondary-rect-b',
+        endId: 'secondary-rect-c',
         outControlId: null,
         inControlId: null
       },
-      'fallback-rect-cd': {
-        id: 'fallback-rect-cd',
-        startId: 'fallback-rect-c',
-        endId: 'fallback-rect-d',
+      'secondary-rect-cd': {
+        id: 'secondary-rect-cd',
+        startId: 'secondary-rect-c',
+        endId: 'secondary-rect-d',
         outControlId: null,
         inControlId: null
       },
-      'fallback-rect-da': {
-        id: 'fallback-rect-da',
-        startId: 'fallback-rect-d',
-        endId: 'fallback-rect-a',
+      'secondary-rect-da': {
+        id: 'secondary-rect-da',
+        startId: 'secondary-rect-d',
+        endId: 'secondary-rect-a',
         outControlId: null,
         inControlId: null
       }
     },
     networks: {
       ...base.networks,
-      'fallback-rect-network': {
-        id: 'fallback-rect-network',
+      'secondary-rect-network': {
+        id: 'secondary-rect-network',
         pointIds: [
-          'fallback-rect-a',
-          'fallback-rect-b',
-          'fallback-rect-c',
-          'fallback-rect-d'
+          'secondary-rect-a',
+          'secondary-rect-b',
+          'secondary-rect-c',
+          'secondary-rect-d'
         ],
         segmentIds: [
-          'fallback-rect-ab',
-          'fallback-rect-bc',
-          'fallback-rect-cd',
-          'fallback-rect-da'
+          'secondary-rect-ab',
+          'secondary-rect-bc',
+          'secondary-rect-cd',
+          'secondary-rect-da'
         ],
         closed: true
       }
@@ -705,7 +705,7 @@ describe('stroke drag complete render contract', () => {
     clearInteractionState()
   })
 
-  it('should fallback per network when only one constrained dashed descriptor succeeds', () => {
+  it('should route per network when only one constrained dashed descriptor succeeds', () => {
     const graphic = new RecordingVectorGraphic()
     const data = createMixedDescriptorAndFallbackInsideDashedData()
     setPathEditingState({
@@ -718,7 +718,7 @@ describe('stroke drag complete render contract', () => {
 
     expectConstrainedDashedProductNetworks(graphic, [
       REPORTED_ROUND_INSIDE_DASHED_STAR_NETWORK_ID,
-      'fallback-rect-network'
+      'secondary-rect-network'
     ])
     expect(hasCurrentStrokeProductOutput(graphic)).toBe(true)
     clearInteractionState()
@@ -882,7 +882,7 @@ describe('stroke drag complete render contract', () => {
     clearInteractionState()
   })
 
-  it('should use native center solid visible render during drag without visible polygon packets', () => {
+  it('should use center path solid visible render during drag without visible polygon packets', () => {
     const graphic = new RecordingVectorGraphic()
     const stroke = createCenterSolidStroke()
     const data = mutateDragFrame(8, 'anchor')
@@ -896,9 +896,9 @@ describe('stroke drag complete render contract', () => {
       renderVectorFrame(graphic, data, stroke)
     })
 
-    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
+    expect(graphic.__asyraCenterPathSolidStrokeRenderCount).toBe(1)
     expect(
-      dragCounters['native-center-solid-visible-packet-skip']
+      dragCounters['center-product-solid-visible-packet-skip']
     ).toBeGreaterThan(0)
     expect(graphic.__asyraSolidCenterStrokeExportPackets ?? []).toHaveLength(0)
     expect(hasCurrentStrokeProductOutput(graphic)).toBe(true)
@@ -910,7 +910,7 @@ describe('stroke drag complete render contract', () => {
     })
     renderVectorFrame(graphic, data, stroke)
 
-    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(1)
+    expect(graphic.__asyraCenterPathSolidStrokeRenderCount).toBe(1)
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0
     ).toBeGreaterThan(0)
@@ -931,7 +931,7 @@ describe('stroke drag complete render contract', () => {
       renderVectorFrame(graphic, data, stroke)
     })
 
-    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(graphic.__asyraCenterPathSolidStrokeRenderCount).toBe(0)
     expect(graphic.__asyraCenterSolidPathMaskRenderCount).toBe(1)
     expect(
       dragCounters['path-mask-center-solid-visible-packet-skip']

@@ -194,7 +194,7 @@ const flushSelectedVectorPointMirror = (
   systemContextApis.setSelectedVectorPoint(next)
 }
 
-const computeFigmaStyleHandles = (
+const computeFirstSegmentStyleHandles = (
   connectedPoint: VectorAnchorPoint,
   currentPoint: VectorAnchorPoint,
   mouse: Vec2
@@ -484,23 +484,27 @@ const applyBezierDragForNewPoint = (
     state.connectionSide
   )
 
-  const figmaHandles =
+  const firstSegmentHandles =
     state.autoUpdateConnectedHandleTarget ===
       VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE &&
     state.connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.END
-      ? computeFigmaStyleHandles(connectedPoint, newPoint, mouseWorkspacePos)
+      ? computeFirstSegmentStyleHandles(
+          connectedPoint,
+          newPoint,
+          mouseWorkspacePos
+        )
       : null
 
-  const connectedHandle = figmaHandles
-    ? figmaHandles.connectedOutHandle
+  const connectedHandle = firstSegmentHandles
+    ? firstSegmentHandles.connectedOutHandle
     : state.connectionSide === VECTOR_TOKENS.ENDPOINT.SIDE.START
       ? computeConnectedInHandle(connectedPoint)
       : computeConnectedOutHandle(connectedPoint)
-  const currentSegmentHandle = figmaHandles
-    ? figmaHandles.currentInHandle
+  const currentSegmentHandle = firstSegmentHandles
+    ? firstSegmentHandles.currentInHandle
     : symmetric.inHandle
-  const currentOppositeHandle = figmaHandles
-    ? figmaHandles.currentOutHandle
+  const currentOppositeHandle = firstSegmentHandles
+    ? firstSegmentHandles.currentOutHandle
     : symmetric.outHandle
 
   elementApis.updateVectorAnchorPointHandles(

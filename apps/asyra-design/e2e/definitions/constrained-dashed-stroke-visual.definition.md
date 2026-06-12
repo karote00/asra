@@ -15,7 +15,7 @@ It answers:
 > constrained dashed stroke whose visible interval either covers the full
 > closed loop, stays within one legal edge span, or crosses one supported legal
 > corner, does the real app/runtime path render the supported slices while
-> keeping the remaining unsupported round/paint slices blocked?
+> keeping the remaining non-product diagnostic round/paint slices blocked?
 
 ## Current supported scope
 
@@ -206,7 +206,7 @@ It answers:
 
 - shape-generated `rect` with multiple eligible constrained dashed strokes
   renders both selected-side bands through typed multi-stroke ownership while
-  leaving unsupported center coverage absent
+  leaving non-product center coverage absent
 - open-path constrained dashed `vector` paths keep authored `inside` /
   `outside` in scene data and render through exact interval-local one-sided
   geometry for supported simple open paths
@@ -222,13 +222,13 @@ It answers:
   intervals keep authored `inside` / `outside` in scene data after switching
   from `center`, and route through constrained multi-interval placement when
   the sampled closed legality domain is valid
-- self-intersecting constrained dashed full-loop `vector` paths remain visually
-  absent until that unsupported exact topology is supported
+- self-intersecting constrained dashed full-loop `vector` paths must render only
+  through explicit domain-plan contour or dangling-span product entries
 - the reported closed star-like single-network `vector` with repeated dash
   intervals keeps authored `inside` / `outside` in scene data after switching
   from `center`, and routes through constrained multi-interval placement when
   its sampled closed legality domain is valid; true self-intersecting
-  fill-rule legality remains unsupported
+  fill-rule legality remains domain-plan classified before product output
 - multi-network constrained dashed `vector` paths render each disjoint network
   through typed per-network ownership while keeping the inter-network gap absent
 - corner-spanning constrained dashed slices are not part of this benchmark and
@@ -677,7 +677,7 @@ It answers:
   lower bounded threshold of `> 0.25` on the first 4px rectangle-equivalent
   representative
 - supported corner-spanning edge coverage must be `> 0.55`
-- unsupported same-edge gap coverage must be `< 0.03`
+- non-product same-edge gap coverage must be `< 0.03`
 - supported interior leakage for the outside slice must be `< 0.12`
 - shape/vector inside-band coverage delta must be `< 0.08`
 - shape/vector outside-band coverage delta must be `< 0.08`

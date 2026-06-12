@@ -942,6 +942,7 @@ const getVectorSnapshot = async (
     })
 
     const stroke = computed.strokes?.[0] ?? null
+    const strokeFill = stroke?.fill ?? null
 
     return {
       elementId: selectedId,
@@ -966,8 +967,8 @@ const getVectorSnapshot = async (
             gap: Array.isArray(stroke.dashPattern)
               ? (stroke.dashPattern[1] ?? null)
               : null,
-            color: stroke.color ?? null,
-            opacity: stroke.opacity ?? null,
+            color: strokeFill?.color ?? null,
+            opacity: strokeFill?.opacity ?? null,
             joinType: stroke.joinType ?? null,
             miterAngle: stroke.miterAngle ?? null
           }

@@ -29,7 +29,7 @@ The inspector flow is now the Stroke / Vector System Inspector Flow. It covers
 the complete stroke-related data path from feature intent through common API
 vector operations, canonical computed patches, transaction/data-channel
 publication, render mirror updates, stroke geometry, product packets, and final
-visual review. The framework-native vector operation flow is the baseline:
+visual review. The framework-aligned vector operation flow is the baseline:
 point/handle drag and structural operations commit canonical workspace/world
 vector data through computed patches, while render remains a downstream
 consumer.
@@ -74,7 +74,7 @@ Stroke paint data has one canonical model shape. Element `fills` and
 `strokes[n].fill` both use `FillAttrs`; a stroke owns exactly one fill payload
 whose `id` matches the stroke id. Stroke root fields such as `color`,
 `opacity`, `visible`, `kind`, `colorFormat`, `defaultColorFormat`, and
-`gradient` are legacy load-boundary input only and must not be written back to
+`gradient` are load-boundary normalization input only and must not be written back to
 computed data. Stroke visibility is `strokes[n].fill.visible`. Render compares
 `computed.strokes` by stroke id and fill signature: if only `stroke.fill`
 changes, the renderer dirties `paint` / `renderOutput` and reuses cached
@@ -127,8 +127,8 @@ cap footprint. If the open network cannot hold endpoint half-dashes plus a
 legible cap-aware visual gap, it may collapse into one `start-end` visible dash
 instead of producing crowded dash groups.
 
-Open authored dashed `inside` / `outside` strokes are center-equivalent only
-when the open network has no bounded filled-region domain. If an open
+Open authored dashed `inside` / `outside` strokes use the formal unbounded open
+center product only when the open network has no bounded filled-region domain. If an open
 self-intersecting network resolves bounded filled regions from its real authored
 source segments, dashed `inside` and `outside` for that network own a
 constrained domain even though its true endpoints remain open. The filled-region
@@ -139,8 +139,8 @@ product output.
 Stroke domain plan is the single product routing entry point for open/closed
 semantics. Vector render code and packet builders must not independently map
 open constrained strokes to center; they consume domain modes such as
-`simple-open-center-product`, `closed-constrained-domain`,
-`open-contour-constrained-domain`, and
+`center-product`, `closed-constrained-domain`,
+`open-contour-constrained-domain`,
 `open-dangling-outside-both-sides`.
 
 Open self-intersecting `inside` dashed output follows the resolved closed
@@ -150,8 +150,8 @@ for `inside`. Open self-intersecting `outside` dashed output follows the
 resolved exterior contour rule for contour-owned spans and additionally keeps
 dangling open-branch endpoint/cap/dash semantics by rendering those dangling
 spans on both sides of the source path. Their visible normal span is
-approximately `stroke.width * 2`; they are not center-equivalent ribbons. This
-rule is a product contract, not a diagnostic fallback: product output must not
+approximately `stroke.width * 2`; they are not unbounded open center strokes. This
+rule is a product contract: product output must not
 normalize these networks to center, must not inherit continuous open-network
 dash phase across independent constrained spans, must not synthesize a closing
 edge, and must not paint dangling branches for `inside`.
@@ -176,7 +176,7 @@ metadata from the resolved geometry model. Explicit source-span product domains
 may cover source segment spans that the resolved boundary domains did not
 cover; they must not retrace the full path or rediscover source intersections
 during drag-time product rendering. Dangling open-branch spans for outside are
-explicit dangling source-span domains, not diagnostic fallback.
+explicit dangling source-span domains.
 
 For constrained `outside` dashed render, drag-time visible render may use an
 exact grouped descriptor with authored doubled center-dashed `strokePaths`,
@@ -232,7 +232,7 @@ dashed stroke geometry: each split source range keeps half-dash
 terminals at both cut ends and evenly distributed middle gaps, then each visible
 interval is stroked on the authored centerline at `stroke.width * 2` with the
 authored cap, join, and miter limit, and finally clipped by the inside
-filled-region mask. Direct one-sided ribbons, local-side fallback strips, and
+filled-region mask. Direct one-sided ribbons, domain-plan derivation strips, and
 diagnostic derivation fragments are not product-visible geometry for inside
 dashed strokes.
 
@@ -247,9 +247,9 @@ footprint, so a configured gap of `20` must not redistribute into visual gaps
 below roughly `12`. Changes must be covered by rule-driven tests and visual
 review.
 
-Open path dashed allocation uses the same cap-aware readability floor, but its
-center-equivalent domain is the continuous open network rather than a
-constrained split range. Open self-intersecting networks with bounded filled
+Open path dashed allocation uses the same cap-aware readability floor. Its
+unbounded open center product domain is the continuous open network rather than
+a constrained split range. Open self-intersecting networks with bounded filled
 regions formed by real authored source segments are constrained-domain products
 for dashed `inside` / `outside`, so their visible output is contour-ownership
 driven: `inside` excludes dangling open branches, while `outside` preserves

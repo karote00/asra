@@ -8,7 +8,7 @@ import {
   type allocateDashedCenterStrokeIntervals
 } from './dashed-center-stroke-intervals'
 import { createStrokeIntervalPointSlicer } from './stroke-interval-frames'
-import { buildConstrainedDashedLocalSideStrokePolygons } from './constrained-dashed-local-side-geometry'
+import { buildConstrainedDashedDomainStrokePolygons } from './constrained-dashed-domain-geometry'
 import { buildExactArrangementCandidatePolygons } from './constrained-solid-stroke-packets'
 import {
   isSimpleClosedPolygon,
@@ -170,9 +170,9 @@ export type ConstrainedDashedRuntimeReason =
   | 'single-owner'
   | 'typed-owners'
   | 'no-candidate-packets'
-  | 'unsupported-open-topology'
-  | 'unsupported-overlap-ownership'
-  | 'unsupported-topology'
+  | 'missing-open-domain-plan'
+  | 'unresolved-overlap-ownership'
+  | 'missing-domain-plan'
   | ConstrainedDashedOwnershipReason
 
 export interface ConstrainedDashedRuntimeStatusInput {
@@ -221,71 +221,87 @@ type DashedTopologyInterval = ReturnType<
 
 export type VisibleDashedTopologyInterval = DashedTopologyInterval & {
   kind: 'visible'
-  figmaLikeBoundaryDomainId?: string
-  figmaLikeBoundaryPoints?: Vec2[]
-  figmaLikeBoundaryStartDistance?: number
-  figmaLikeBoundaryEndDistance?: number
-  figmaLikeBoundaryTotalLength?: number
-  figmaLikeSplitRangeId?: string
-  figmaLikeSplitRangeStartDistance?: number
-  figmaLikeSplitRangeEndDistance?: number
-  figmaLikeTerminalRole?: 'start' | 'end' | 'start-end' | 'middle'
-  figmaLikeSplitRangeSourceSegmentIndex?: number
-  figmaLikeSideAuthority?: 'implicit-fill-hole-domain'
-  figmaLikeSelectedSide?: 1 | -1
-  figmaLikeFilledSide?: 1 | -1
-  figmaLikeUnfilledSide?: 1 | -1
-  figmaLikeBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
-  figmaLikeDomainMode?: string
-  figmaLikeSideResolutionStatus?: 'resolved' | 'blocked'
-  figmaLikeSideResolutionReason?: string
+  domainPlanBoundaryDomainId?: string
+  domainPlanBoundaryPoints?: Vec2[]
+  domainPlanBoundaryStartDistance?: number
+  domainPlanBoundaryEndDistance?: number
+  domainPlanBoundaryTotalLength?: number
+  domainPlanSplitRangeId?: string
+  domainPlanSplitRangeStartDistance?: number
+  domainPlanSplitRangeEndDistance?: number
+  domainPlanTerminalRole?: 'start' | 'end' | 'start-end' | 'middle'
+  domainPlanSplitRangeSourceSegmentIndex?: number
+  domainPlanSideAuthority?: 'implicit-fill-hole-domain'
+  domainPlanSelectedSide?: 1 | -1
+  domainPlanFilledSide?: 1 | -1
+  domainPlanUnfilledSide?: 1 | -1
+  domainPlanBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
+  domainPlanDomainMode?: string
+  domainPlanSideResolutionStatus?: 'resolved' | 'blocked'
+  domainPlanSideResolutionReason?: string
 }
 
 interface ConstrainedDashedVisibleIntervalsOptions {
   preferOpenPathNetworkIntervals?: boolean
 }
 
+const shouldSuppressOpenPathStartCap = (
+  path: Pick<PathGeometry, 'closed'>,
+  interval: Pick<VisibleDashedTopologyInterval, 'openPathTerminalRole'>
+) =>
+  !path.closed &&
+  (interval.openPathTerminalRole === 'path-start' ||
+    interval.openPathTerminalRole === 'start-end')
+
+const shouldSuppressOpenPathEndCap = (
+  path: Pick<PathGeometry, 'closed'>,
+  interval: Pick<VisibleDashedTopologyInterval, 'openPathTerminalRole'>
+) =>
+  !path.closed &&
+  (interval.openPathTerminalRole === 'path-end' ||
+    interval.openPathTerminalRole === 'start-end')
+
 const isSourceSpanProductDomainVisibleInterval = (
   interval: Pick<
     VisibleDashedTopologyInterval,
-    | 'figmaLikeSplitRangeId'
-    | 'figmaLikeSideResolutionReason'
-    | 'figmaLikeDomainMode'
+    | 'domainPlanSplitRangeId'
+    | 'domainPlanSideResolutionReason'
+    | 'domainPlanDomainMode'
   >
 ) =>
-  interval.figmaLikeSideResolutionReason === 'source-span-product-domain' ||
-  interval.figmaLikeSplitRangeId?.startsWith('source-span-product-domain:') ===
+  interval.domainPlanSideResolutionReason === 'source-span-product-domain' ||
+  interval.domainPlanSplitRangeId?.startsWith('source-span-product-domain:') ===
     true
 
 const isOpenDanglingOutsideBothSidesVisibleInterval = (
   interval: Pick<
     VisibleDashedTopologyInterval,
-    'figmaLikeSideResolutionReason' | 'figmaLikeDomainMode'
+    'domainPlanSideResolutionReason' | 'domainPlanDomainMode'
   >
 ) =>
-  interval.figmaLikeDomainMode === 'open-dangling-outside-both-sides' ||
-  interval.figmaLikeSideResolutionReason === 'open-dangling-outside-both-sides'
+  interval.domainPlanDomainMode === 'open-dangling-outside-both-sides' ||
+  interval.domainPlanSideResolutionReason === 'open-dangling-outside-both-sides'
 
 const isSquareSplitTerminalHalfDashInterval = (
   interval: Pick<
     VisibleDashedTopologyInterval,
-    'figmaLikeSplitRangeId' | 'figmaLikeTerminalRole'
+    'domainPlanSplitRangeId' | 'domainPlanTerminalRole'
   >,
   stroke: Pick<RenderableStroke, 'cap'>
 ) =>
   stroke.cap === 'square' &&
-  interval.figmaLikeSplitRangeId !== undefined &&
-  (interval.figmaLikeTerminalRole === 'start' ||
-    interval.figmaLikeTerminalRole === 'end' ||
-    interval.figmaLikeTerminalRole === 'start-end')
+  interval.domainPlanSplitRangeId !== undefined &&
+  (interval.domainPlanTerminalRole === 'start' ||
+    interval.domainPlanTerminalRole === 'end' ||
+    interval.domainPlanTerminalRole === 'start-end')
 
 const buildBoundaryDomainPathForIntervalUncached = (
   interval: Pick<
     VisibleDashedTopologyInterval,
-    'figmaLikeBoundaryPoints' | 'figmaLikeBoundaryTotalLength'
+    'domainPlanBoundaryPoints' | 'domainPlanBoundaryTotalLength'
   >
 ): PathGeometry | null => {
-  const points = interval.figmaLikeBoundaryPoints
+  const points = interval.domainPlanBoundaryPoints
   if (!points || points.length < 2) {
     return null
   }
@@ -296,9 +312,9 @@ const buildBoundaryDomainPathForIntervalUncached = (
   }
 
   if (
-    interval.figmaLikeBoundaryTotalLength !== undefined &&
-    Math.abs(path.totalLength - interval.figmaLikeBoundaryTotalLength) >
-      Math.max(1, interval.figmaLikeBoundaryTotalLength * 0.05)
+    interval.domainPlanBoundaryTotalLength !== undefined &&
+    Math.abs(path.totalLength - interval.domainPlanBoundaryTotalLength) >
+      Math.max(1, interval.domainPlanBoundaryTotalLength * 0.05)
   ) {
     return null
   }
@@ -321,10 +337,10 @@ const boundaryDomainSlicingContextCache = new WeakMap<
 const buildBoundaryDomainPathForInterval = (
   interval: Pick<
     VisibleDashedTopologyInterval,
-    'figmaLikeBoundaryPoints' | 'figmaLikeBoundaryTotalLength'
+    'domainPlanBoundaryPoints' | 'domainPlanBoundaryTotalLength'
   >
 ): PathGeometry | null => {
-  const points = interval.figmaLikeBoundaryPoints
+  const points = interval.domainPlanBoundaryPoints
   if (!points || points.length < 2) {
     return null
   }
@@ -332,14 +348,14 @@ const buildBoundaryDomainPathForInterval = (
   const cached = boundaryDomainPathCache.get(points)
   if (
     cached &&
-    cached.expectedTotalLength === interval.figmaLikeBoundaryTotalLength
+    cached.expectedTotalLength === interval.domainPlanBoundaryTotalLength
   ) {
     return cached.path
   }
 
   const path = buildBoundaryDomainPathForIntervalUncached(interval)
   boundaryDomainPathCache.set(points, {
-    expectedTotalLength: interval.figmaLikeBoundaryTotalLength,
+    expectedTotalLength: interval.domainPlanBoundaryTotalLength,
     path
   })
   return path
@@ -348,23 +364,23 @@ const buildBoundaryDomainPathForInterval = (
 const getBoundaryDomainPathCacheKey = (
   interval: Pick<
     VisibleDashedTopologyInterval,
-    | 'figmaLikeBoundaryDomainId'
-    | 'figmaLikeBoundaryPoints'
-    | 'figmaLikeBoundaryTotalLength'
+    | 'domainPlanBoundaryDomainId'
+    | 'domainPlanBoundaryPoints'
+    | 'domainPlanBoundaryTotalLength'
   >
 ) => {
   if (
-    !interval.figmaLikeBoundaryDomainId ||
-    !interval.figmaLikeBoundaryPoints ||
-    interval.figmaLikeBoundaryPoints.length < 2
+    !interval.domainPlanBoundaryDomainId ||
+    !interval.domainPlanBoundaryPoints ||
+    interval.domainPlanBoundaryPoints.length < 2
   ) {
     return null
   }
 
   return [
-    interval.figmaLikeBoundaryDomainId,
-    interval.figmaLikeBoundaryPoints.length,
-    interval.figmaLikeBoundaryTotalLength?.toFixed(6) ?? 'unknown'
+    interval.domainPlanBoundaryDomainId,
+    interval.domainPlanBoundaryPoints.length,
+    interval.domainPlanBoundaryTotalLength?.toFixed(6) ?? 'unknown'
   ].join('|')
 }
 
@@ -532,9 +548,9 @@ const buildOpenSquareCapPhysicalSpans = (
   }
 
   const constrainedTerminalRole =
-    interval.figmaLikeSplitRangeId !== undefined ||
-    interval.figmaLikeBoundaryDomainId !== undefined
-      ? interval.figmaLikeTerminalRole
+    interval.domainPlanSplitRangeId !== undefined ||
+    interval.domainPlanBoundaryDomainId !== undefined
+      ? interval.domainPlanTerminalRole
       : undefined
   const startCapLength =
     constrainedTerminalRole === 'start' ||
@@ -580,8 +596,8 @@ const getIntervalPhysicalSpans = (
     stroke.cap === 'square' &&
     !topology.closed &&
     stroke.width > EPSILON &&
-    (interval.figmaLikeSplitRangeId !== undefined ||
-      interval.figmaLikeBoundaryDomainId !== undefined)
+    (interval.domainPlanSplitRangeId !== undefined ||
+      interval.domainPlanBoundaryDomainId !== undefined)
   ) {
     return buildOpenSquareCapPhysicalSpans(
       interval,
@@ -660,7 +676,7 @@ export const getConstrainedDashedVisibleIntervals = (
   }
 
   if (
-    strokeDomainPlan?.intervalDomainKind === 'figma-like-split-range' &&
+    strokeDomainPlan?.intervalDomainKind === 'domain-plan-split-range' &&
     strokeDomainPlan.splitRangeDomains.length > 0
   ) {
     let visibleIntervalIndex = 0
@@ -1372,7 +1388,7 @@ export const classifyConstrainedDashedRuntimeStatus = ({
   ) {
     return {
       status: 'blocked',
-      reason: blockedReason ?? 'unsupported-topology',
+      reason: blockedReason ?? 'missing-domain-plan',
       sourceTopology,
       ownership
     }
@@ -1439,15 +1455,15 @@ const isSupportedConstrainedDashedInterval = (
 const getConstrainedDashedResolutionStatus = (
   sourceTopology: ConstrainedDashedSourceTopology,
   intervalTopology?: ConstrainedDashedIntervalTopology,
-  forceLocalSideApproximation = false
+  forceDomainPlanApproximation = false
 ): Exclude<
   SolidCenterStrokeGeometryDebugMeta['resolutionStatus'],
   undefined
 > =>
-  forceLocalSideApproximation ||
+  forceDomainPlanApproximation ||
   (sourceTopology === 'sampled-simple-closed' &&
     intervalTopology !== 'full-loop')
-    ? 'local-side-approximation'
+    ? 'domain-plan-selected-side'
     : 'exact-constrained'
 
 const getIntervalStrokeForSourceDirection = (
@@ -1728,6 +1744,9 @@ interface SourcePathSlicingContext {
   >
   splitRangeCache: Map<string, SourceSegmentIntervalRange[]>
   pointSliceCache: Map<string, Vec2[]>
+  exactLineRibbonRangeCache: Map<string, PathSampleFrame[]>
+  exactOffsetLineRibbonRangeCache: Map<string, OffsetPathSampleFrame[]>
+  exactLineRibbonRangeDirectCounterEmitted: boolean
   ribbonPolygonCache: Map<string, Vec2[][] | null>
   segmentBoundaryCache: Map<number, Vec2[]>
   segmentBoundaryClipCache: Map<string, SourceSegmentBoundaryClipData>
@@ -2238,6 +2257,9 @@ const createSourcePathSlicingContext = (
     offsetRibbonSegmentFrames: new Map(),
     splitRangeCache: new Map(),
     pointSliceCache: new Map(),
+    exactLineRibbonRangeCache: new Map(),
+    exactOffsetLineRibbonRangeCache: new Map(),
+    exactLineRibbonRangeDirectCounterEmitted: false,
     ribbonPolygonCache: new Map(),
     segmentBoundaryCache: new Map(),
     segmentBoundaryClipCache: new Map(),
@@ -2512,8 +2534,8 @@ const splitVisibleIntervalBySourceSegments = (
     | 'startDistance'
     | 'endDistance'
     | 'wrapsSeam'
-    | 'figmaLikeSelectedSide'
-    | 'figmaLikeSideResolutionStatus'
+    | 'domainPlanSelectedSide'
+    | 'domainPlanSideResolutionStatus'
   >,
   slicingContext?: SourcePathSlicingContext
 ) => {
@@ -2846,15 +2868,15 @@ const getSourcePathRangeRoundCapOwnership = (
     | 'startDistance'
     | 'endDistance'
     | 'wrapsSeam'
-    | 'figmaLikeSplitRangeId'
-    | 'figmaLikeSplitRangeStartDistance'
-    | 'figmaLikeSplitRangeEndDistance'
-    | 'figmaLikeTerminalRole'
-    | 'figmaLikeSelectedSide'
-    | 'figmaLikeBoundaryRole'
-    | 'figmaLikeSideResolutionStatus'
-    | 'figmaLikeSideResolutionReason'
-    | 'figmaLikeBoundaryPoints'
+    | 'domainPlanSplitRangeId'
+    | 'domainPlanSplitRangeStartDistance'
+    | 'domainPlanSplitRangeEndDistance'
+    | 'domainPlanTerminalRole'
+    | 'domainPlanSelectedSide'
+    | 'domainPlanBoundaryRole'
+    | 'domainPlanSideResolutionStatus'
+    | 'domainPlanSideResolutionReason'
+    | 'domainPlanBoundaryPoints'
   >,
   stroke: Pick<
     RenderableStroke,
@@ -2922,15 +2944,15 @@ const buildDashedSourcePathIntervalSweep = (
     | 'startDistance'
     | 'endDistance'
     | 'wrapsSeam'
-    | 'figmaLikeSplitRangeId'
-    | 'figmaLikeSplitRangeStartDistance'
-    | 'figmaLikeSplitRangeEndDistance'
-    | 'figmaLikeTerminalRole'
-    | 'figmaLikeSelectedSide'
-    | 'figmaLikeBoundaryRole'
-    | 'figmaLikeSideResolutionStatus'
-    | 'figmaLikeSideResolutionReason'
-    | 'figmaLikeBoundaryPoints'
+    | 'domainPlanSplitRangeId'
+    | 'domainPlanSplitRangeStartDistance'
+    | 'domainPlanSplitRangeEndDistance'
+    | 'domainPlanTerminalRole'
+    | 'domainPlanSelectedSide'
+    | 'domainPlanBoundaryRole'
+    | 'domainPlanSideResolutionStatus'
+    | 'domainPlanSideResolutionReason'
+    | 'domainPlanBoundaryPoints'
   >,
   stroke: Pick<
     RenderableStroke,
@@ -3605,7 +3627,6 @@ const sliceExactLineRibbonSegmentFrames = (
   localStartDistance: number,
   localEndDistance: number
 ): PathSampleFrame[] => {
-  emitStrokePipelineCounter('source-path-ribbon-line-segment-range-direct')
   if (localEndDistance - localStartDistance <= EPSILON) {
     return []
   }
@@ -3627,6 +3648,47 @@ const sliceExactLineRibbonSegmentFrames = (
       tangent
     }
   ])
+}
+
+const buildLineRibbonRangeCacheKey = (
+  segmentIndex: number,
+  localStartDistance: number,
+  localEndDistance: number
+) =>
+  `${segmentIndex}:${formatSourcePathRangeKeyDistance(
+    localStartDistance
+  )}:${formatSourcePathRangeKeyDistance(localEndDistance)}`
+
+const sliceExactLineRibbonSegmentFramesForContext = (
+  segment: Extract<PathSegment, { type: 'line' }>,
+  segmentIndex: number,
+  localStartDistance: number,
+  localEndDistance: number,
+  slicingContext: SourcePathSlicingContext
+): PathSampleFrame[] => {
+  const cacheKey = buildLineRibbonRangeCacheKey(
+    segmentIndex,
+    localStartDistance,
+    localEndDistance
+  )
+  const cached = slicingContext.exactLineRibbonRangeCache.get(cacheKey)
+  if (cached) {
+    emitStrokePipelineCounter('source-path-ribbon-line-segment-range-cache-hit')
+    return cached
+  }
+
+  if (!slicingContext.exactLineRibbonRangeDirectCounterEmitted) {
+    slicingContext.exactLineRibbonRangeDirectCounterEmitted = true
+    emitStrokePipelineCounter('source-path-ribbon-line-segment-range-direct')
+  }
+
+  const frames = sliceExactLineRibbonSegmentFrames(
+    segment,
+    localStartDistance,
+    localEndDistance
+  )
+  slicingContext.exactLineRibbonRangeCache.set(cacheKey, frames)
+  return frames
 }
 
 const sliceExactOffsetRibbonSegmentFrames = (
@@ -3703,17 +3765,41 @@ const offsetLineRibbonFrame = (
 
 const sliceExactOffsetLineRibbonSegmentFrames = (
   segment: Extract<PathSegment, { type: 'line' }>,
+  segmentIndex: number,
   localStartDistance: number,
   localEndDistance: number,
-  stroke: Pick<RenderableStroke, 'position' | 'width'>
-): OffsetPathSampleFrame[] =>
-  dedupeOffsetRibbonFrames(
-    sliceExactLineRibbonSegmentFrames(
-      segment,
+  stroke: Pick<RenderableStroke, 'position' | 'width'>,
+  slicingContext: SourcePathSlicingContext
+): OffsetPathSampleFrame[] => {
+  const cacheKey = [
+    buildLineRibbonRangeCacheKey(
+      segmentIndex,
       localStartDistance,
       localEndDistance
+    ),
+    stroke.position,
+    stroke.width.toFixed(4)
+  ].join(':')
+  const cached = slicingContext.exactOffsetLineRibbonRangeCache.get(cacheKey)
+  if (cached) {
+    emitStrokePipelineCounter(
+      'source-path-ribbon-offset-line-segment-range-cache-hit'
+    )
+    return cached
+  }
+
+  const frames = dedupeOffsetRibbonFrames(
+    sliceExactLineRibbonSegmentFramesForContext(
+      segment,
+      segmentIndex,
+      localStartDistance,
+      localEndDistance,
+      slicingContext
     ).map((frame) => offsetLineRibbonFrame(frame, stroke))
   )
+  slicingContext.exactOffsetLineRibbonRangeCache.set(cacheKey, frames)
+  return frames
+}
 
 const sliceExactRibbonRangeFrames = (
   path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
@@ -3747,10 +3833,12 @@ const sliceExactRibbonRangeFrames = (
       segmentRange.endDistance - currentBaseRange.startDistance
     const segmentFrames =
       segment.type === 'line'
-        ? sliceExactLineRibbonSegmentFrames(
+        ? sliceExactLineRibbonSegmentFramesForContext(
             segment,
+            segmentRange.segmentIndex,
             localStartDistance,
-            localEndDistance
+            localEndDistance,
+            slicingContext
           )
         : (() => {
             const segmentFrame = getExactRibbonSegmentFrameForContext(
@@ -3818,9 +3906,11 @@ const sliceExactOffsetRibbonRangeFrames = (
       segment.type === 'line'
         ? sliceExactOffsetLineRibbonSegmentFrames(
             segment,
+            segmentRange.segmentIndex,
             localStartDistance,
             localEndDistance,
-            stroke
+            stroke,
+            slicingContext
           )
         : (() => {
             const segmentFrame = getOffsetRibbonSegmentFrameForContext(
@@ -4445,10 +4535,10 @@ const rangeContainsDistance = (
   distance <= range.endDistance + EPSILON
 
 const getBoundaryDomainTerminalFrame = (
-  interval: Pick<VisibleDashedTopologyInterval, 'figmaLikeBoundaryPoints'>,
+  interval: Pick<VisibleDashedTopologyInterval, 'domainPlanBoundaryPoints'>,
   edge: 'start' | 'end'
 ) => {
-  const boundaryPoints = interval.figmaLikeBoundaryPoints
+  const boundaryPoints = interval.domainPlanBoundaryPoints
   if (!boundaryPoints || boundaryPoints.length < 2) {
     return null
   }
@@ -4533,26 +4623,26 @@ const buildOutsideSquareSplitTerminalFootprintPolygons = (
     | 'startDistance'
     | 'endDistance'
     | 'wrapsSeam'
-    | 'figmaLikeSplitRangeId'
-    | 'figmaLikeTerminalRole'
-    | 'figmaLikeSideAuthority'
-    | 'figmaLikeSelectedSide'
-    | 'figmaLikeBoundaryPoints'
+    | 'domainPlanSplitRangeId'
+    | 'domainPlanTerminalRole'
+    | 'domainPlanSideAuthority'
+    | 'domainPlanSelectedSide'
+    | 'domainPlanBoundaryPoints'
   >,
   authoredStroke: Pick<RenderableStroke, 'position' | 'cap' | 'width'>,
   intervalStroke: Pick<RenderableStroke, 'position' | 'width'>,
   slicingContext: SourcePathSlicingContext
 ) => {
-  const selectedSide = interval.figmaLikeSelectedSide
+  const selectedSide = interval.domainPlanSelectedSide
   if (
     authoredStroke.position !== 'outside' ||
     authoredStroke.cap !== 'square' ||
     authoredStroke.width <= EPSILON ||
-    interval.figmaLikeSplitRangeId === undefined ||
-    interval.figmaLikeSideAuthority !== 'implicit-fill-hole-domain' ||
+    interval.domainPlanSplitRangeId === undefined ||
+    interval.domainPlanSideAuthority !== 'implicit-fill-hole-domain' ||
     selectedSide === undefined ||
-    !interval.figmaLikeBoundaryPoints ||
-    interval.figmaLikeBoundaryPoints.length < 2
+    !interval.domainPlanBoundaryPoints ||
+    interval.domainPlanBoundaryPoints.length < 2
   ) {
     return []
   }
@@ -4601,9 +4691,9 @@ const buildOutsideSquareSplitTerminalFootprintPolygons = (
         : (['start'] as const)
       : sourceVertexTerminalEdges.length > 1
         ? []
-        : interval.figmaLikeTerminalRole === 'start'
+        : interval.domainPlanTerminalRole === 'start'
           ? (['end'] as const)
-          : interval.figmaLikeTerminalRole === 'end'
+          : interval.domainPlanTerminalRole === 'end'
             ? (['start'] as const)
             : []
 
@@ -4619,11 +4709,11 @@ const clipOutsideSquareSplitTerminalFootprintPolygonsToBoundarySide = (
   polygons: Vec2[][],
   interval: Pick<
     VisibleDashedTopologyInterval,
-    'figmaLikeSelectedSide' | 'figmaLikeBoundaryPoints'
+    'domainPlanSelectedSide' | 'domainPlanBoundaryPoints'
   >
 ) => {
-  const boundaryPoints = interval.figmaLikeBoundaryPoints
-  const selectedSide = interval.figmaLikeSelectedSide
+  const boundaryPoints = interval.domainPlanBoundaryPoints
+  const selectedSide = interval.domainPlanSelectedSide
   if (
     polygons.length === 0 ||
     selectedSide === undefined ||
@@ -4698,7 +4788,7 @@ const _clipOutsideSourceVertexJoinPolygonsToAdjacentBoundarySides = (
   polygons: Vec2[][],
   intervals: readonly Pick<
     VisibleDashedTopologyInterval,
-    'figmaLikeSelectedSide' | 'figmaLikeBoundaryPoints'
+    'domainPlanSelectedSide' | 'domainPlanBoundaryPoints'
   >[]
 ) => {
   if (polygons.length === 0 || intervals.length === 0) {
@@ -4707,8 +4797,8 @@ const _clipOutsideSourceVertexJoinPolygonsToAdjacentBoundarySides = (
 
   const sideContexts = intervals
     .map((interval) => ({
-      selectedSide: interval.figmaLikeSelectedSide,
-      boundaryPoints: interval.figmaLikeBoundaryPoints
+      selectedSide: interval.domainPlanSelectedSide,
+      boundaryPoints: interval.domainPlanBoundaryPoints
     }))
     .filter(
       (
@@ -4776,9 +4866,9 @@ const clipOutsideSquareSplitTerminalFootprintPolygonsToStrokeBoundaryDomains = (
   polygons: Vec2[][],
   interval: Pick<
     VisibleDashedTopologyInterval,
-    | 'figmaLikeBoundaryDomainId'
-    | 'figmaLikeSelectedSide'
-    | 'figmaLikeBoundaryPoints'
+    | 'domainPlanBoundaryDomainId'
+    | 'domainPlanSelectedSide'
+    | 'domainPlanBoundaryPoints'
   >,
   sharedStrokeBoundaryDomains: ResolvedVectorStrokeBoundaryDomain[] = []
 ) =>
@@ -4794,9 +4884,9 @@ const clipOutsideSquareSplitTerminalFootprintPolygonsToLegalDomain = (
   polygons: Vec2[][],
   interval: Pick<
     VisibleDashedTopologyInterval,
-    | 'figmaLikeBoundaryDomainId'
-    | 'figmaLikeSelectedSide'
-    | 'figmaLikeBoundaryPoints'
+    | 'domainPlanBoundaryDomainId'
+    | 'domainPlanSelectedSide'
+    | 'domainPlanBoundaryPoints'
   >,
   sourcePath: SourcePathWithOptionalSamples,
   implicitFillRegions: PolygonRegion[],
@@ -4882,10 +4972,10 @@ const _clipOutsideSquareSplitTerminalPolygonsToTerminalBodySide = (
   path: Pick<PathGeometry, 'segments'>,
   interval: Pick<
     VisibleDashedTopologyInterval,
-    | 'figmaLikeBoundaryPoints'
-    | 'figmaLikeTerminalRole'
-    | 'figmaLikeSplitRangeId'
-    | 'figmaLikeSelectedSide'
+    | 'domainPlanBoundaryPoints'
+    | 'domainPlanTerminalRole'
+    | 'domainPlanSplitRangeId'
+    | 'domainPlanSelectedSide'
   >,
   authoredStroke: Pick<RenderableStroke, 'position' | 'cap' | 'width'>
 ) => {
@@ -4894,18 +4984,18 @@ const _clipOutsideSquareSplitTerminalPolygonsToTerminalBodySide = (
     authoredStroke.position !== 'outside' ||
     authoredStroke.cap !== 'square' ||
     authoredStroke.width <= EPSILON ||
-    interval.figmaLikeSplitRangeId === undefined
+    interval.domainPlanSplitRangeId === undefined
   ) {
     return polygons
   }
 
   const terminalEdges: ('start' | 'end')[] = [
-    ...(interval.figmaLikeTerminalRole === 'start' ||
-    interval.figmaLikeTerminalRole === 'start-end'
+    ...(interval.domainPlanTerminalRole === 'start' ||
+    interval.domainPlanTerminalRole === 'start-end'
       ? (['start'] as const)
       : []),
-    ...(interval.figmaLikeTerminalRole === 'end' ||
-    interval.figmaLikeTerminalRole === 'start-end'
+    ...(interval.domainPlanTerminalRole === 'end' ||
+    interval.domainPlanTerminalRole === 'start-end'
       ? (['end'] as const)
       : [])
   ]
@@ -4963,29 +5053,29 @@ const _clipOutsideSquareSplitTerminalPolygonsToTerminalBodySide = (
 
 type OutsideSquareTerminalClipInterval = Pick<
   VisibleDashedTopologyInterval,
-  | 'figmaLikeBoundaryPoints'
-  | 'figmaLikeBoundaryRole'
-  | 'figmaLikeSplitRangeId'
-  | 'figmaLikeTerminalRole'
+  | 'domainPlanBoundaryPoints'
+  | 'domainPlanBoundaryRole'
+  | 'domainPlanSplitRangeId'
+  | 'domainPlanTerminalRole'
 >
 
 const getOutsideSquareTerminalClipEdges = (
   interval: OutsideSquareTerminalClipInterval
 ) => {
   if (
-    interval.figmaLikeBoundaryRole === 'hole' ||
-    interval.figmaLikeSplitRangeId === undefined
+    interval.domainPlanBoundaryRole === 'hole' ||
+    interval.domainPlanSplitRangeId === undefined
   ) {
     return []
   }
 
   return [
-    ...(interval.figmaLikeTerminalRole === 'start' ||
-    interval.figmaLikeTerminalRole === 'start-end'
+    ...(interval.domainPlanTerminalRole === 'start' ||
+    interval.domainPlanTerminalRole === 'start-end'
       ? (['start'] as const)
       : []),
-    ...(interval.figmaLikeTerminalRole === 'end' ||
-    interval.figmaLikeTerminalRole === 'start-end'
+    ...(interval.domainPlanTerminalRole === 'end' ||
+    interval.domainPlanTerminalRole === 'start-end'
       ? (['end'] as const)
       : [])
   ]
@@ -4994,17 +5084,17 @@ const getOutsideSquareTerminalClipEdges = (
 const getOutsideSquareTerminalEndpointClipEdges = (
   interval: OutsideSquareTerminalClipInterval
 ) => {
-  if (interval.figmaLikeSplitRangeId === undefined) {
+  if (interval.domainPlanSplitRangeId === undefined) {
     return []
   }
 
   return [
-    ...(interval.figmaLikeTerminalRole === 'start' ||
-    interval.figmaLikeTerminalRole === 'start-end'
+    ...(interval.domainPlanTerminalRole === 'start' ||
+    interval.domainPlanTerminalRole === 'start-end'
       ? (['start'] as const)
       : []),
-    ...(interval.figmaLikeTerminalRole === 'end' ||
-    interval.figmaLikeTerminalRole === 'start-end'
+    ...(interval.domainPlanTerminalRole === 'end' ||
+    interval.domainPlanTerminalRole === 'start-end'
       ? (['end'] as const)
       : [])
   ]
@@ -5050,7 +5140,7 @@ const clipOutsideSquareSplitTerminalEndpointOverhang = (
     polygons.length === 0 ||
     stroke.position !== 'outside' ||
     stroke.cap !== 'square' ||
-    interval.figmaLikeSplitRangeId === undefined
+    interval.domainPlanSplitRangeId === undefined
   ) {
     return polygons
   }
@@ -5086,7 +5176,7 @@ const _clipOutsideSquarePolygonsToPeerCrossingTerminalBodySides = (
     authoredStroke.position !== 'outside' ||
     authoredStroke.cap !== 'square' ||
     authoredStroke.width <= EPSILON ||
-    interval.figmaLikeSplitRangeId === undefined
+    interval.domainPlanSplitRangeId === undefined
   ) {
     return polygons
   }
@@ -5125,7 +5215,7 @@ const _clipOutsideSquarePolygonsToPeerCrossingTerminalBodySides = (
   for (const peerInterval of peerIntervals) {
     if (
       peerInterval === interval ||
-      peerInterval.figmaLikeSplitRangeId === interval.figmaLikeSplitRangeId
+      peerInterval.domainPlanSplitRangeId === interval.domainPlanSplitRangeId
     ) {
       continue
     }
@@ -5194,7 +5284,7 @@ const getLocalPointSegmentDistance = (point: Vec2, start: Vec2, end: Vec2) => {
 
 const isOutsideSquareTerminalAtSourceSelfIntersection = (
   path: Pick<PathGeometry, 'segments' | 'sampledSegmentPoints'>,
-  interval: Pick<VisibleDashedTopologyInterval, 'figmaLikeBoundaryPoints'>,
+  interval: Pick<VisibleDashedTopologyInterval, 'domainPlanBoundaryPoints'>,
   edge: 'start' | 'end',
   tolerance: number
 ) => {
@@ -5238,10 +5328,10 @@ const _filterOutsideSquareSplitTerminalFragmentsByTangentSpan = (
     | 'startDistance'
     | 'endDistance'
     | 'wrapsSeam'
-    | 'figmaLikeBoundaryPoints'
-    | 'figmaLikeTerminalRole'
-    | 'figmaLikeSplitRangeId'
-    | 'figmaLikeSelectedSide'
+    | 'domainPlanBoundaryPoints'
+    | 'domainPlanTerminalRole'
+    | 'domainPlanSplitRangeId'
+    | 'domainPlanSelectedSide'
   >,
   authoredStroke: Pick<
     RenderableStroke,
@@ -5253,18 +5343,18 @@ const _filterOutsideSquareSplitTerminalFragmentsByTangentSpan = (
     authoredStroke.position !== 'outside' ||
     authoredStroke.cap !== 'square' ||
     authoredStroke.width <= EPSILON ||
-    interval.figmaLikeSplitRangeId === undefined
+    interval.domainPlanSplitRangeId === undefined
   ) {
     return polygons
   }
 
   const terminalEdges: ('start' | 'end')[] = [
-    ...(interval.figmaLikeTerminalRole === 'start' ||
-    interval.figmaLikeTerminalRole === 'start-end'
+    ...(interval.domainPlanTerminalRole === 'start' ||
+    interval.domainPlanTerminalRole === 'start-end'
       ? (['start'] as const)
       : []),
-    ...(interval.figmaLikeTerminalRole === 'end' ||
-    interval.figmaLikeTerminalRole === 'start-end'
+    ...(interval.domainPlanTerminalRole === 'end' ||
+    interval.domainPlanTerminalRole === 'start-end'
       ? (['end'] as const)
       : [])
   ]
@@ -5290,9 +5380,9 @@ const _filterOutsideSquareSplitTerminalFragmentsByTangentSpan = (
       const frame = getBoundaryDomainTerminalFrame(interval, edge)
       const tangent = frame ? normalizeVector(frame.tangent) : null
       const selectedSide =
-        interval.figmaLikeSelectedSide === 1 ||
-        interval.figmaLikeSelectedSide === -1
-          ? interval.figmaLikeSelectedSide
+        interval.domainPlanSelectedSide === 1 ||
+        interval.domainPlanSelectedSide === -1
+          ? interval.domainPlanSelectedSide
           : undefined
       return frame && tangent && selectedSide !== undefined
         ? {
@@ -5407,20 +5497,20 @@ const filterOutsideSquareBoundaryDomainWrongSideFragments = (
   polygons: Vec2[][],
   interval: Pick<
     VisibleDashedTopologyInterval,
-    | 'figmaLikeSelectedSide'
-    | 'figmaLikeBoundaryPoints'
-    | 'figmaLikeSplitRangeId'
+    | 'domainPlanSelectedSide'
+    | 'domainPlanBoundaryPoints'
+    | 'domainPlanSplitRangeId'
   >,
   authoredStroke: Pick<RenderableStroke, 'position' | 'cap' | 'width'>
 ) => {
-  const boundaryPoints = interval.figmaLikeBoundaryPoints
-  const selectedSide = interval.figmaLikeSelectedSide
+  const boundaryPoints = interval.domainPlanBoundaryPoints
+  const selectedSide = interval.domainPlanSelectedSide
   if (
     polygons.length === 0 ||
     authoredStroke.position !== 'outside' ||
     authoredStroke.cap !== 'square' ||
     authoredStroke.width <= EPSILON ||
-    interval.figmaLikeSplitRangeId === undefined ||
+    interval.domainPlanSplitRangeId === undefined ||
     selectedSide === undefined ||
     !boundaryPoints ||
     boundaryPoints.length < 2
@@ -6463,7 +6553,7 @@ const getBoundaryDomainTerminalPoint = (
   terminal: 'start' | 'end',
   sampleDistance = 0
 ) => {
-  const boundaryPoints = interval.figmaLikeBoundaryPoints
+  const boundaryPoints = interval.domainPlanBoundaryPoints
   if (!boundaryPoints || boundaryPoints.length < 2) {
     return null
   }
@@ -6654,31 +6744,31 @@ const getSourceVertexRecords = (
 const getTerminalBoundaryEndpoints = (
   interval: Pick<
     VisibleDashedTopologyInterval,
-    'figmaLikeBoundaryPoints' | 'figmaLikeTerminalRole'
+    'domainPlanBoundaryPoints' | 'domainPlanTerminalRole'
   >
 ) => {
-  const boundaryPoints = interval.figmaLikeBoundaryPoints
+  const boundaryPoints = interval.domainPlanBoundaryPoints
   if (!boundaryPoints || boundaryPoints.length < 2) {
     return []
   }
 
   return [
-    ...(interval.figmaLikeTerminalRole === 'start' ||
-    interval.figmaLikeTerminalRole === 'start-end'
+    ...(interval.domainPlanTerminalRole === 'start' ||
+    interval.domainPlanTerminalRole === 'start-end'
       ? [boundaryPoints[0]]
       : []),
-    ...(interval.figmaLikeTerminalRole === 'end' ||
-    interval.figmaLikeTerminalRole === 'start-end'
+    ...(interval.domainPlanTerminalRole === 'end' ||
+    interval.domainPlanTerminalRole === 'start-end'
       ? [boundaryPoints[boundaryPoints.length - 1]]
       : [])
   ]
 }
 
 const getTerminalBoundaryEndpoint = (
-  interval: Pick<VisibleDashedTopologyInterval, 'figmaLikeBoundaryPoints'>,
+  interval: Pick<VisibleDashedTopologyInterval, 'domainPlanBoundaryPoints'>,
   edge: 'start' | 'end'
 ) => {
-  const boundaryPoints = interval.figmaLikeBoundaryPoints
+  const boundaryPoints = interval.domainPlanBoundaryPoints
   if (!boundaryPoints || boundaryPoints.length < 2) {
     return null
   }
@@ -6689,7 +6779,7 @@ const getTerminalBoundaryEndpoint = (
 
 const isTerminalEdgeEndpointAtAuthoredSourceVertex = (
   path: Pick<PathGeometry, 'segments'>,
-  interval: Pick<VisibleDashedTopologyInterval, 'figmaLikeBoundaryPoints'>,
+  interval: Pick<VisibleDashedTopologyInterval, 'domainPlanBoundaryPoints'>,
   edge: 'start' | 'end',
   tolerance: number
 ) => {
@@ -6714,7 +6804,7 @@ const hasTerminalEndpointAtAuthoredSourceVertex = (
   path: Pick<PathGeometry, 'segments' | 'closed'>,
   interval: Pick<
     VisibleDashedTopologyInterval,
-    'figmaLikeBoundaryPoints' | 'figmaLikeTerminalRole'
+    'domainPlanBoundaryPoints' | 'domainPlanTerminalRole'
   >,
   tolerance: number
 ) => {
@@ -6773,8 +6863,8 @@ const getSmoothSourceVertexContinuityRecords = (
 const getBoundaryDomainJoinDomainKey = (
   interval: VisibleDashedTopologyInterval
 ) =>
-  getBoundaryDomainFaceKey(interval.figmaLikeBoundaryDomainId) ??
-  interval.figmaLikeBoundaryDomainId
+  getBoundaryDomainFaceKey(interval.domainPlanBoundaryDomainId) ??
+  interval.domainPlanBoundaryDomainId
 
 const collectSourceVertexBoundaryTerminalRecords = (
   visibleIntervals: VisibleDashedTopologyInterval[],
@@ -6786,10 +6876,10 @@ const collectSourceVertexBoundaryTerminalRecords = (
     terminal: 'start' | 'end'
   ) => {
     if (
-      interval.figmaLikeBoundaryRole !== 'outer' ||
-      interval.figmaLikeSelectedSide !== -1 ||
-      interval.figmaLikeSideResolutionStatus === 'blocked' ||
-      interval.figmaLikeSplitRangeSourceSegmentIndex === undefined
+      interval.domainPlanBoundaryRole !== 'outer' ||
+      interval.domainPlanSelectedSide !== -1 ||
+      interval.domainPlanSideResolutionStatus === 'blocked' ||
+      interval.domainPlanSplitRangeSourceSegmentIndex === undefined
     ) {
       return
     }
@@ -6808,21 +6898,21 @@ const collectSourceVertexBoundaryTerminalRecords = (
       terminal,
       endpoint: terminalPoint.endpoint,
       neighbor: terminalPoint.neighbor,
-      sourceSegmentIndex: interval.figmaLikeSplitRangeSourceSegmentIndex,
+      sourceSegmentIndex: interval.domainPlanSplitRangeSourceSegmentIndex,
       domainKey: getBoundaryDomainJoinDomainKey(interval)
     })
   }
 
   visibleIntervals.forEach((interval) => {
     if (
-      interval.figmaLikeTerminalRole === 'start' ||
-      interval.figmaLikeTerminalRole === 'start-end'
+      interval.domainPlanTerminalRole === 'start' ||
+      interval.domainPlanTerminalRole === 'start-end'
     ) {
       pushTerminal(interval, 'start')
     }
     if (
-      interval.figmaLikeTerminalRole === 'end' ||
-      interval.figmaLikeTerminalRole === 'start-end'
+      interval.domainPlanTerminalRole === 'end' ||
+      interval.domainPlanTerminalRole === 'start-end'
     ) {
       pushTerminal(interval, 'end')
     }
@@ -6900,15 +6990,16 @@ const isSameOutsideSmoothContinuityCoverage = (
     previousInterval.intervalId !== nextInterval.intervalId &&
     previousTerminal.domainKey !== undefined &&
     previousTerminal.domainKey === nextTerminal.domainKey &&
-    previousInterval.figmaLikeBoundaryRole === 'outer' &&
-    nextInterval.figmaLikeBoundaryRole === 'outer' &&
-    previousInterval.figmaLikeSelectedSide === -1 &&
-    nextInterval.figmaLikeSelectedSide === -1 &&
-    previousInterval.figmaLikeFilledSide === nextInterval.figmaLikeFilledSide &&
-    previousInterval.figmaLikeUnfilledSide ===
-      nextInterval.figmaLikeUnfilledSide &&
-    previousInterval.figmaLikeSideResolutionStatus !== 'blocked' &&
-    nextInterval.figmaLikeSideResolutionStatus !== 'blocked'
+    previousInterval.domainPlanBoundaryRole === 'outer' &&
+    nextInterval.domainPlanBoundaryRole === 'outer' &&
+    previousInterval.domainPlanSelectedSide === -1 &&
+    nextInterval.domainPlanSelectedSide === -1 &&
+    previousInterval.domainPlanFilledSide ===
+      nextInterval.domainPlanFilledSide &&
+    previousInterval.domainPlanUnfilledSide ===
+      nextInterval.domainPlanUnfilledSide &&
+    previousInterval.domainPlanSideResolutionStatus !== 'blocked' &&
+    nextInterval.domainPlanSideResolutionStatus !== 'blocked'
   )
 }
 
@@ -7013,23 +7104,23 @@ const buildOutsideSmoothSourceVertexContinuityInterval = (
       wrapsSeam: false,
       previousVisibleIntervalId: null,
       nextVisibleIntervalId: null,
-      figmaLikeBoundaryPoints: boundaryPoints,
-      figmaLikeBoundaryStartDistance: 0,
-      figmaLikeBoundaryEndDistance: boundaryTotalLength,
-      figmaLikeBoundaryTotalLength: boundaryTotalLength,
-      figmaLikeSplitRangeId: undefined,
-      figmaLikeSplitRangeStartDistance: undefined,
-      figmaLikeSplitRangeEndDistance: undefined,
-      figmaLikeTerminalRole: undefined,
-      figmaLikeSplitRangeSourceSegmentIndex: undefined,
-      figmaLikeBoundaryRole: 'outer',
-      figmaLikeSelectedSide: -1,
-      figmaLikeSideResolutionStatus:
-        previousInterval.figmaLikeSideResolutionStatus ??
-        nextInterval.figmaLikeSideResolutionStatus,
-      figmaLikeSideResolutionReason:
-        previousInterval.figmaLikeSideResolutionReason ??
-        nextInterval.figmaLikeSideResolutionReason
+      domainPlanBoundaryPoints: boundaryPoints,
+      domainPlanBoundaryStartDistance: 0,
+      domainPlanBoundaryEndDistance: boundaryTotalLength,
+      domainPlanBoundaryTotalLength: boundaryTotalLength,
+      domainPlanSplitRangeId: undefined,
+      domainPlanSplitRangeStartDistance: undefined,
+      domainPlanSplitRangeEndDistance: undefined,
+      domainPlanTerminalRole: undefined,
+      domainPlanSplitRangeSourceSegmentIndex: undefined,
+      domainPlanBoundaryRole: 'outer',
+      domainPlanSelectedSide: -1,
+      domainPlanSideResolutionStatus:
+        previousInterval.domainPlanSideResolutionStatus ??
+        nextInterval.domainPlanSideResolutionStatus,
+      domainPlanSideResolutionReason:
+        previousInterval.domainPlanSideResolutionReason ??
+        nextInterval.domainPlanSideResolutionReason
     }
   }
 }
@@ -7163,9 +7254,9 @@ const isOutsideJoinNeutralBoundaryInterval = (
   interval: Pick<
     VisibleDashedTopologyInterval,
     | 'intervalId'
-    | 'figmaLikeSideAuthority'
-    | 'figmaLikeBoundaryRole'
-    | 'figmaLikeSelectedSide'
+    | 'domainPlanSideAuthority'
+    | 'domainPlanBoundaryRole'
+    | 'domainPlanSelectedSide'
   >
 ) => interval.intervalId.includes(':smooth-source-continuity:')
 
@@ -7175,9 +7266,9 @@ const resolveOutsideBoundaryIntervalJoinStroke = <
   interval: Pick<
     VisibleDashedTopologyInterval,
     | 'intervalId'
-    | 'figmaLikeSideAuthority'
-    | 'figmaLikeBoundaryRole'
-    | 'figmaLikeSelectedSide'
+    | 'domainPlanSideAuthority'
+    | 'domainPlanBoundaryRole'
+    | 'domainPlanSelectedSide'
   >,
   stroke: TStroke
 ): TStroke =>
@@ -7295,9 +7386,9 @@ const buildOutsideSourceVertexBoundaryJoinRecords = (
       stroke.width * 2.5
     )
     const referencePoints = [
-      ...(previousTerminal?.interval.figmaLikeBoundaryPoints ?? []),
-      ...(nextTerminal?.interval.figmaLikeBoundaryPoints ?? []),
-      ...(crossingInterval?.figmaLikeBoundaryPoints ?? [])
+      ...(previousTerminal?.interval.domainPlanBoundaryPoints ?? []),
+      ...(nextTerminal?.interval.domainPlanBoundaryPoints ?? []),
+      ...(crossingInterval?.domainPlanBoundaryPoints ?? [])
     ].filter(
       (point) =>
         distanceBetween(point, sourceVertex.vertex) >
@@ -7387,7 +7478,7 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
   if (!touchesSegmentStart && !touchesSegmentEnd) {
     return areaValidPolygons.filter((polygon) => isValidPolygon(polygon))
   }
-  const fallbackPolygons = areaValidPolygons.filter((polygon) =>
+  const sourcePolygons = areaValidPolygons.filter((polygon) =>
     isValidPolygon(polygon)
   )
 
@@ -7663,8 +7754,8 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
     const sourceEdge =
       options?.sourceEdge ??
       sliceSourcePathRangePoints(path, range, physicalSpanRole, slicingContext)
-    const fallbackSourceEdgeCount = countSourceEdgeVertices(
-      fallbackPolygons,
+    const sourcePolygonSourceEdgeCount = countSourceEdgeVertices(
+      sourcePolygons,
       sourceEdge
     )
     const clippedSourceEdgeCount = countSourceEdgeVertices(
@@ -7672,16 +7763,16 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
       sourceEdge
     )
     if (
-      fallbackSourceEdgeCount >= 3 &&
-      clippedSourceEdgeCount < Math.min(3, fallbackSourceEdgeCount)
+      sourcePolygonSourceEdgeCount >= 3 &&
+      clippedSourceEdgeCount < Math.min(3, sourcePolygonSourceEdgeCount)
     ) {
-      return fallbackPolygons
+      return sourcePolygons
     }
 
     return clippedPolygons
   }
 
-  return fallbackPolygons
+  return sourcePolygons
 }
 
 const shouldClipSourceSegmentRangeForInsideBoundary = (
@@ -7815,7 +7906,7 @@ const buildOpenSourceSpanBothSidesPolygons = (
 
   return (['inside', 'outside'] as const)
     .flatMap((position) =>
-      buildConstrainedDashedLocalSideStrokePolygons(
+      buildConstrainedDashedDomainStrokePolygons(
         points,
         false,
         {
@@ -7847,17 +7938,17 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
     | 'startDistance'
     | 'endDistance'
     | 'wrapsSeam'
-    | 'figmaLikeSplitRangeId'
-    | 'figmaLikeTerminalRole'
-    | 'figmaLikeSplitRangeStartDistance'
-    | 'figmaLikeSplitRangeEndDistance'
-    | 'figmaLikeSideAuthority'
-    | 'figmaLikeBoundaryDomainId'
-    | 'figmaLikeSelectedSide'
-    | 'figmaLikeBoundaryRole'
-    | 'figmaLikeSideResolutionStatus'
-    | 'figmaLikeSideResolutionReason'
-    | 'figmaLikeBoundaryPoints'
+    | 'domainPlanSplitRangeId'
+    | 'domainPlanTerminalRole'
+    | 'domainPlanSplitRangeStartDistance'
+    | 'domainPlanSplitRangeEndDistance'
+    | 'domainPlanSideAuthority'
+    | 'domainPlanBoundaryDomainId'
+    | 'domainPlanSelectedSide'
+    | 'domainPlanBoundaryRole'
+    | 'domainPlanSideResolutionStatus'
+    | 'domainPlanSideResolutionReason'
+    | 'domainPlanBoundaryPoints'
   >,
   authoredStroke: Pick<
     RenderableStroke,
@@ -7905,11 +7996,11 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
           position: 'center' as const,
           width: intervalStroke.width
         }
-      : interval.figmaLikeSideResolutionStatus === 'resolved' &&
-          interval.figmaLikeSelectedSide !== undefined
+      : interval.domainPlanSideResolutionStatus === 'resolved' &&
+          interval.domainPlanSelectedSide !== undefined
         ? {
             position:
-              interval.figmaLikeSelectedSide > 0
+              interval.domainPlanSelectedSide > 0
                 ? ('inside' as const)
                 : ('outside' as const),
             width: intervalStroke.width
@@ -7939,14 +8030,14 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
     shouldResolveSelfIntersectingLegalSide &&
     authoredStroke.position === 'outside' &&
     authoredStroke.cap === 'square' &&
-    interval.figmaLikeSplitRangeId !== undefined &&
-    (interval.figmaLikeTerminalRole === 'start' ||
-      interval.figmaLikeTerminalRole === 'end' ||
-      interval.figmaLikeTerminalRole === 'start-end')
+    interval.domainPlanSplitRangeId !== undefined &&
+    (interval.domainPlanTerminalRole === 'start' ||
+      interval.domainPlanTerminalRole === 'end' ||
+      interval.domainPlanTerminalRole === 'start-end')
   const shouldClipOutsideSquareSplitTerminalFootprints =
     isOutsideSquareSplitTerminalHalfDash &&
     clipInsideToFillDomain &&
-    interval.figmaLikeBoundaryRole !== 'hole'
+    interval.domainPlanBoundaryRole !== 'hole'
   const hasOutsideSquareSplitTerminalAuthoredSourceVertex =
     shouldClipOutsideSquareSplitTerminalFootprints
       ? hasTerminalEndpointAtAuthoredSourceVertex(
@@ -7958,7 +8049,7 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
   const shouldClipOutsideSquareSplitTerminalPolygonsToBoundaryDomains =
     shouldClipOutsideSquareSplitTerminalFootprints &&
     !hasOutsideSquareSplitTerminalAuthoredSourceVertex &&
-    interval.figmaLikeSplitRangeId !== undefined
+    interval.domainPlanSplitRangeId !== undefined
   const appendRangeForOffsetRibbonFrame = (
     currentIntervalStroke: Pick<RenderableStroke, 'position' | 'width'>,
     shouldApplySourceBoundaryClip: boolean
@@ -8119,7 +8210,7 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
     const shouldRestoreOutsideSubjectBoundary = !(
       authoredStroke.position === 'outside' &&
       authoredStroke.cap === 'square' &&
-      interval.figmaLikeSplitRangeId !== undefined
+      interval.domainPlanSplitRangeId !== undefined
     )
     let appendedSquareSplitTerminalFootprints = false
     if (
@@ -8127,7 +8218,7 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
       !shouldRenderOpenSourceSpanAsBothSides &&
       authoredStroke.position === 'outside' &&
       clipInsideToFillDomain &&
-      interval.figmaLikeBoundaryRole !== 'hole' &&
+      interval.domainPlanBoundaryRole !== 'hole' &&
       !interval.intervalId.includes(':smooth-source-continuity:') &&
       finalRangePolygons.length > 0 &&
       (implicitFillRegions.length > 0 ||
@@ -8202,10 +8293,10 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
       !shouldRenderOpenSourceSpanAsBothSides &&
       authoredStroke.position === 'outside' &&
       authoredStroke.cap === 'square' &&
-      interval.figmaLikeBoundaryRole !== 'hole' &&
-      (interval.figmaLikeTerminalRole === 'start' ||
-        interval.figmaLikeTerminalRole === 'end' ||
-        interval.figmaLikeTerminalRole === 'start-end')
+      interval.domainPlanBoundaryRole !== 'hole' &&
+      (interval.domainPlanTerminalRole === 'start' ||
+        interval.domainPlanTerminalRole === 'end' ||
+        interval.domainPlanTerminalRole === 'start-end')
     ) {
       const terminalFootprints = appendedSquareSplitTerminalFootprints
         ? []
@@ -8222,7 +8313,7 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
       !shouldRenderOpenSourceSpanAsBothSides &&
       authoredStroke.position === 'outside' &&
       authoredStroke.cap === 'square' &&
-      interval.figmaLikeSplitRangeId !== undefined
+      interval.domainPlanSplitRangeId !== undefined
     ) {
       finalRangePolygons = filterOutsideSquareBoundaryDomainWrongSideFragments(
         finalRangePolygons,
@@ -8304,7 +8395,9 @@ const buildInsideDoubledCenterDashedIntervalProductPolygons = (
     })),
     doubledCenterStroke,
     {
-      allowRoundCapBackendOffset: true
+      allowRoundCapBackendOffset: true,
+      suppressStartCap: shouldSuppressOpenPathStartCap(path, interval),
+      suppressEndCap: shouldSuppressOpenPathEndCap(path, interval)
     }
   )
   const doubledCenterPolygons =
@@ -8436,7 +8529,9 @@ const buildInsideDoubledCenterDashedIntervalSubjectPolygons = (
     })),
     doubledCenterStroke,
     {
-      allowRoundCapBackendOffset: true
+      allowRoundCapBackendOffset: true,
+      suppressStartCap: shouldSuppressOpenPathStartCap(path, interval),
+      suppressEndCap: shouldSuppressOpenPathEndCap(path, interval)
     }
   )
   const doubledCenterPolygons =
@@ -8462,7 +8557,8 @@ const buildInsideDoubledCenterDashedIntervalSubjectPolygons = (
 const buildInsideDoubledCenterDashedIntervalStrokePath = (
   path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   interval: VisibleDashedTopologyInterval,
-  slicingContext: SourcePathSlicingContext
+  slicingContext: SourcePathSlicingContext,
+  useIntervalStrokePathCache = true
 ) => {
   const intervalRanges =
     interval.wrapsSeam && path.closed
@@ -8480,15 +8576,19 @@ const buildInsideDoubledCenterDashedIntervalStrokePath = (
           }
         ]
 
-  const cacheKey = buildSourcePathIntervalStrokePathCacheKey(
-    path,
-    interval,
-    intervalRanges,
-    slicingContext
-  )
-  const cached = getCachedSourcePathIntervalStrokePaths(cacheKey)
-  if (cached) {
-    return cached
+  const cacheKey = useIntervalStrokePathCache
+    ? buildSourcePathIntervalStrokePathCacheKey(
+        path,
+        interval,
+        intervalRanges,
+        slicingContext
+      )
+    : null
+  if (cacheKey) {
+    const cached = getCachedSourcePathIntervalStrokePaths(cacheKey)
+    if (cached) {
+      return cached
+    }
   }
 
   const strokePaths = intervalRanges.flatMap((range) => {
@@ -8517,7 +8617,9 @@ const buildInsideDoubledCenterDashedIntervalStrokePath = (
     const points = dedupeRibbonFrames(frames).map((frame) => frame.point)
     return points.length >= 2 ? [points] : []
   })
-  setCachedSourcePathIntervalStrokePaths(cacheKey, strokePaths)
+  if (cacheKey) {
+    setCachedSourcePathIntervalStrokePaths(cacheKey, strokePaths)
+  }
   return strokePaths
 }
 
@@ -8630,7 +8732,8 @@ const buildConstrainedDashedIntervalStrokePaths = (
   sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   intervals: VisibleDashedTopologyInterval[],
   sourcePathSlicingContext: SourcePathSlicingContext,
-  preferBoundaryDomainPath: boolean
+  preferBoundaryDomainPath: boolean,
+  useIntervalStrokePathCache = true
 ) =>
   intervals.flatMap((interval) => {
     const boundaryPath = preferBoundaryDomainPath
@@ -8660,7 +8763,8 @@ const buildConstrainedDashedIntervalStrokePaths = (
     return buildInsideDoubledCenterDashedIntervalStrokePath(
       effectivePath,
       interval,
-      effectiveSlicingContext
+      effectiveSlicingContext,
+      useIntervalStrokePathCache
     )
   })
 
@@ -8669,7 +8773,8 @@ const buildConstrainedDashedPhysicalIntervalStrokePaths = (
   intervals: VisibleDashedTopologyInterval[],
   authoredStroke: Pick<RenderableStroke, 'cap' | 'width'>,
   sourcePathSlicingContext: SourcePathSlicingContext,
-  preferBoundaryDomainPath: boolean
+  preferBoundaryDomainPath: boolean,
+  useIntervalStrokePathCache = true
 ) =>
   intervals.flatMap((interval) => {
     const boundaryPath = preferBoundaryDomainPath
@@ -8714,20 +8819,21 @@ const buildConstrainedDashedPhysicalIntervalStrokePaths = (
           wrapsSeam: span.wrapsSeam,
           intervalLength: span.intervalLength
         },
-        effectiveSlicingContext
+        effectiveSlicingContext,
+        useIntervalStrokePathCache
       )
     )
   })
 
-const buildFigmaLikeSplitRangeTerminalDebugRecords = (
+const buildDomainPlanSplitRangeTerminalDebugRecords = (
   intervals: VisibleDashedTopologyInterval[]
-): SolidCenterStrokeGeometryDebugMeta['figmaLikeSplitRangeTerminals'] => {
+): SolidCenterStrokeGeometryDebugMeta['domainPlanSplitRangeTerminals'] => {
   const records = intervals.flatMap((interval) => {
     if (
-      !interval.figmaLikeSplitRangeId ||
-      interval.figmaLikeSplitRangeStartDistance === undefined ||
-      interval.figmaLikeSplitRangeEndDistance === undefined ||
-      !interval.figmaLikeTerminalRole
+      !interval.domainPlanSplitRangeId ||
+      interval.domainPlanSplitRangeStartDistance === undefined ||
+      interval.domainPlanSplitRangeEndDistance === undefined ||
+      !interval.domainPlanTerminalRole
     ) {
       return []
     }
@@ -8735,24 +8841,24 @@ const buildFigmaLikeSplitRangeTerminalDebugRecords = (
     return [
       {
         intervalId: interval.intervalId,
-        boundaryDomainId: interval.figmaLikeBoundaryDomainId,
-        boundaryPoints: interval.figmaLikeBoundaryPoints
-          ? interval.figmaLikeBoundaryPoints.map((point) => ({ ...point }))
+        boundaryDomainId: interval.domainPlanBoundaryDomainId,
+        boundaryPoints: interval.domainPlanBoundaryPoints
+          ? interval.domainPlanBoundaryPoints.map((point) => ({ ...point }))
           : undefined,
-        boundaryStartDistance: interval.figmaLikeBoundaryStartDistance,
-        boundaryEndDistance: interval.figmaLikeBoundaryEndDistance,
-        boundaryTotalLength: interval.figmaLikeBoundaryTotalLength,
-        splitRangeId: interval.figmaLikeSplitRangeId,
-        splitRangeStartDistance: interval.figmaLikeSplitRangeStartDistance,
-        splitRangeEndDistance: interval.figmaLikeSplitRangeEndDistance,
-        terminalRole: interval.figmaLikeTerminalRole,
+        boundaryStartDistance: interval.domainPlanBoundaryStartDistance,
+        boundaryEndDistance: interval.domainPlanBoundaryEndDistance,
+        boundaryTotalLength: interval.domainPlanBoundaryTotalLength,
+        splitRangeId: interval.domainPlanSplitRangeId,
+        splitRangeStartDistance: interval.domainPlanSplitRangeStartDistance,
+        splitRangeEndDistance: interval.domainPlanSplitRangeEndDistance,
+        terminalRole: interval.domainPlanTerminalRole,
         startDistance: interval.startDistance,
         endDistance: interval.endDistance,
-        sourceSegmentIndex: interval.figmaLikeSplitRangeSourceSegmentIndex,
-        selectedSide: interval.figmaLikeSelectedSide,
-        filledSide: interval.figmaLikeFilledSide,
-        unfilledSide: interval.figmaLikeUnfilledSide,
-        boundaryRole: interval.figmaLikeBoundaryRole
+        sourceSegmentIndex: interval.domainPlanSplitRangeSourceSegmentIndex,
+        selectedSide: interval.domainPlanSelectedSide,
+        filledSide: interval.domainPlanFilledSide,
+        unfilledSide: interval.domainPlanUnfilledSide,
+        boundaryRole: interval.domainPlanBoundaryRole
       }
     ]
   })
@@ -8769,7 +8875,7 @@ const buildOutsideDoubledCenterDashedRenderMaskDescriptor = (
   >,
   slicingContext: SourcePathSlicingContext,
   implicitFillRegions: PolygonRegion[],
-  fallbackFillPolygons: Vec2[][],
+  domainFillPolygons: Vec2[][],
   preferBoundaryDomainPath = true
 ) => {
   if (
@@ -8787,13 +8893,15 @@ const buildOutsideDoubledCenterDashedRenderMaskDescriptor = (
           intervals,
           authoredStroke,
           slicingContext,
-          preferBoundaryDomainPath
+          preferBoundaryDomainPath,
+          false
         )
       : buildConstrainedDashedIntervalStrokePaths(
           path,
           intervals,
           slicingContext,
-          preferBoundaryDomainPath
+          preferBoundaryDomainPath,
+          false
         )
   if (strokePaths.length === 0) {
     return null
@@ -8802,7 +8910,7 @@ const buildOutsideDoubledCenterDashedRenderMaskDescriptor = (
   const fillPolygons = (
     implicitFillRegions.length > 0
       ? getCoveragePolygonsFromRegions(implicitFillRegions)
-      : fallbackFillPolygons
+      : domainFillPolygons
   )
     .map(cleanPolygon)
     .filter(hasPolygonGeometry)
@@ -9289,8 +9397,8 @@ export const buildConstrainedDashedStrokeProductVisualEntries = (
           intervalTopology: classification.intervalTopology,
           finalCoverageBuilderStatus: 'product-final',
           intervalSweepSpanCount: visibleIntervals.length,
-          figmaLikeSplitRangeTerminals:
-            buildFigmaLikeSplitRangeTerminalDebugRecords(visibleIntervals),
+          domainPlanSplitRangeTerminals:
+            buildDomainPlanSplitRangeTerminalDebugRecords(visibleIntervals),
           terminalCapCount:
             stroke.cap === 'round' ? visibleIntervals.length * 2 : undefined,
           revisionSet
@@ -9598,8 +9706,8 @@ export const buildConstrainedDashedStrokeProductVisualEntries = (
       intervalTopology: classification.intervalTopology,
       finalCoverageBuilderStatus: 'product-final',
       intervalSweepSpanCount: visibleIntervals.length,
-      figmaLikeSplitRangeTerminals:
-        buildFigmaLikeSplitRangeTerminalDebugRecords(visibleIntervals),
+      domainPlanSplitRangeTerminals:
+        buildDomainPlanSplitRangeTerminalDebugRecords(visibleIntervals),
       terminalCapCount:
         stroke.cap === 'round' ? visibleIntervals.length * 2 : undefined,
       revisionSet
@@ -11448,9 +11556,9 @@ const pointSegmentDistanceSquared = (point: Vec2, start: Vec2, end: Vec2) => {
   const dy = end.y - start.y
   const lengthSquared = dx * dx + dy * dy
   if (lengthSquared <= EPSILON * EPSILON) {
-    const fallbackDx = point.x - start.x
-    const fallbackDy = point.y - start.y
-    return fallbackDx * fallbackDx + fallbackDy * fallbackDy
+    const defaultDx = point.x - start.x
+    const defaultDy = point.y - start.y
+    return defaultDx * defaultDx + defaultDy * defaultDy
   }
 
   const t = Math.max(
@@ -11924,10 +12032,10 @@ const getSourceSegmentBoundaryClipData = (
 const getSelectedSideTowardPoint = (
   boundary: Vec2[],
   point: Vec2 | undefined,
-  fallback: 1 | -1
+  defaultSide: 1 | -1
 ): 1 | -1 => {
   if (!point || boundary.length < 2) {
-    return fallback
+    return defaultSide
   }
 
   let nearestCross = 0
@@ -11950,7 +12058,7 @@ const getSelectedSideTowardPoint = (
   }
 
   if (Math.abs(nearestCross) <= EPSILON) {
-    return fallback
+    return defaultSide
   }
   return nearestCross > 0 ? 1 : -1
 }
@@ -12690,24 +12798,24 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
     const intervalHasStartTerminal = (
       interval: VisibleDashedTopologyInterval
     ) =>
-      interval.figmaLikeTerminalRole === 'start' ||
-      interval.figmaLikeTerminalRole === 'start-end'
+      interval.domainPlanTerminalRole === 'start' ||
+      interval.domainPlanTerminalRole === 'start-end'
     const intervalHasEndTerminal = (interval: VisibleDashedTopologyInterval) =>
-      interval.figmaLikeTerminalRole === 'end' ||
-      interval.figmaLikeTerminalRole === 'start-end'
+      interval.domainPlanTerminalRole === 'end' ||
+      interval.domainPlanTerminalRole === 'start-end'
 
     const getBoundaryTerminalGroupKey = (
       interval: VisibleDashedTopologyInterval,
       terminal: 'start' | 'end'
     ) => {
       const terminalPoint = getBoundaryDomainTerminalPoint(interval, terminal)
-      if (!terminalPoint || interval.figmaLikeSelectedSide === undefined) {
+      if (!terminalPoint || interval.domainPlanSelectedSide === undefined) {
         return null
       }
 
       return [
-        interval.figmaLikeSelectedSide,
-        interval.figmaLikeBoundaryRole ?? 'unknown',
+        interval.domainPlanSelectedSide,
+        interval.domainPlanBoundaryRole ?? 'unknown',
         getBoundaryDomainTerminalKey(terminalPoint.endpoint)
       ].join('|')
     }
@@ -12738,26 +12846,26 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
       }
     })
 
-    const buildFigmaLikeSplitRangeTerminalRecords = (
+    const buildDomainPlanSplitRangeTerminalRecords = (
       interval: VisibleDashedTopologyInterval
     ) => {
       const terminals: NonNullable<
-        SolidCenterStrokeGeometryDebugMeta['figmaLikeSplitRangeTerminals']
+        SolidCenterStrokeGeometryDebugMeta['domainPlanSplitRangeTerminals']
       > = []
       const seenTerminalKeys = new Set<string>()
       const pushTerminal = (terminal: VisibleDashedTopologyInterval) => {
         if (
-          !terminal.figmaLikeSplitRangeId ||
-          terminal.figmaLikeSplitRangeStartDistance === undefined ||
-          terminal.figmaLikeSplitRangeEndDistance === undefined ||
-          !terminal.figmaLikeTerminalRole
+          !terminal.domainPlanSplitRangeId ||
+          terminal.domainPlanSplitRangeStartDistance === undefined ||
+          terminal.domainPlanSplitRangeEndDistance === undefined ||
+          !terminal.domainPlanTerminalRole
         ) {
           return
         }
         const key = [
           terminal.intervalId,
-          terminal.figmaLikeSplitRangeId,
-          terminal.figmaLikeTerminalRole,
+          terminal.domainPlanSplitRangeId,
+          terminal.domainPlanTerminalRole,
           terminal.startDistance,
           terminal.endDistance
         ].join('|')
@@ -12767,24 +12875,24 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
         seenTerminalKeys.add(key)
         terminals.push({
           intervalId: terminal.intervalId,
-          boundaryDomainId: terminal.figmaLikeBoundaryDomainId,
-          boundaryPoints: terminal.figmaLikeBoundaryPoints
-            ? terminal.figmaLikeBoundaryPoints.map((point) => ({ ...point }))
+          boundaryDomainId: terminal.domainPlanBoundaryDomainId,
+          boundaryPoints: terminal.domainPlanBoundaryPoints
+            ? terminal.domainPlanBoundaryPoints.map((point) => ({ ...point }))
             : undefined,
-          boundaryStartDistance: terminal.figmaLikeBoundaryStartDistance,
-          boundaryEndDistance: terminal.figmaLikeBoundaryEndDistance,
-          boundaryTotalLength: terminal.figmaLikeBoundaryTotalLength,
-          splitRangeId: terminal.figmaLikeSplitRangeId,
-          splitRangeStartDistance: terminal.figmaLikeSplitRangeStartDistance,
-          splitRangeEndDistance: terminal.figmaLikeSplitRangeEndDistance,
-          terminalRole: terminal.figmaLikeTerminalRole,
+          boundaryStartDistance: terminal.domainPlanBoundaryStartDistance,
+          boundaryEndDistance: terminal.domainPlanBoundaryEndDistance,
+          boundaryTotalLength: terminal.domainPlanBoundaryTotalLength,
+          splitRangeId: terminal.domainPlanSplitRangeId,
+          splitRangeStartDistance: terminal.domainPlanSplitRangeStartDistance,
+          splitRangeEndDistance: terminal.domainPlanSplitRangeEndDistance,
+          terminalRole: terminal.domainPlanTerminalRole,
           startDistance: terminal.startDistance,
           endDistance: terminal.endDistance,
-          sourceSegmentIndex: terminal.figmaLikeSplitRangeSourceSegmentIndex,
-          selectedSide: terminal.figmaLikeSelectedSide,
-          filledSide: terminal.figmaLikeFilledSide,
-          unfilledSide: terminal.figmaLikeUnfilledSide,
-          boundaryRole: terminal.figmaLikeBoundaryRole
+          sourceSegmentIndex: terminal.domainPlanSplitRangeSourceSegmentIndex,
+          selectedSide: terminal.domainPlanSelectedSide,
+          filledSide: terminal.domainPlanFilledSide,
+          unfilledSide: terminal.domainPlanUnfilledSide,
+          boundaryRole: terminal.domainPlanBoundaryRole
         })
       }
 
@@ -13209,51 +13317,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                       )
                     }
                   )
-                  if (
-                    productFinalPolygons.length > 0 ||
-                    stroke.position === 'inside' ||
-                    !boundaryDomainPath ||
-                    interval.figmaLikeSideResolutionStatus !== 'resolved' ||
-                    interval.figmaLikeSelectedSide === undefined
-                  ) {
-                    return productFinalPolygons
-                  }
-
-                  const resolvedBoundaryIntervalStroke = {
-                    position:
-                      interval.figmaLikeSelectedSide > 0
-                        ? ('inside' as const)
-                        : ('outside' as const),
-                    width: intervalStroke.width
-                  }
-                  return measureStrokePipelinePhase(
-                    'constrained dashed interval: local fallback',
-                    () =>
-                      intervalSweep.ranges.flatMap(
-                        ({ renderRange, span, capOwnership }) =>
-                          buildConstrainedDashedLocalSideStrokePolygons(
-                            sliceSourcePathRangePoints(
-                              resolvedEffectiveSourcePath,
-                              renderRange,
-                              span.role,
-                              resolvedEffectiveSourcePathSlicingContext
-                            ),
-                            false,
-                            {
-                              ...capOwnership.stroke,
-                              position: resolvedBoundaryIntervalStroke.position,
-                              width: resolvedBoundaryIntervalStroke.width
-                            },
-                            {
-                              assumeSimpleOpen: true,
-                              assumeSimpleClosed: undefined,
-                              assumeNormalizedOpen: true,
-                              roundCapStart: capOwnership.roundCapStart,
-                              roundCapEnd: capOwnership.roundCapEnd
-                            }
-                          )
-                      )
-                  )
+                  return productFinalPolygons
                 }
                 finalCoverageBuilderStatus = 'debug-raw'
 
@@ -13399,9 +13463,9 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                           ? {
                               ...capOwnership.stroke,
                               position:
-                                interval.figmaLikeSelectedSide === 1
+                                interval.domainPlanSelectedSide === 1
                                   ? ('inside' as const)
-                                  : interval.figmaLikeSelectedSide === -1
+                                  : interval.domainPlanSelectedSide === -1
                                     ? ('outside' as const)
                                     : capOwnership.stroke.position
                             }
@@ -13416,30 +13480,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                         capOwnership.roundCapEnd,
                         sourcePathSlicingContext
                       )
-                    const rangePolygons =
-                      sourcePathRibbonPolygons ??
-                      (() => {
-                        emitStrokePipelineCounter(
-                          'generic-local-side-builder-fallback-count'
-                        )
-                        return buildConstrainedDashedLocalSideStrokePolygons(
-                          sliceSourcePathRangePoints(
-                            sourcePath,
-                            renderRange,
-                            span.role,
-                            sourcePathSlicingContext
-                          ),
-                          false,
-                          rangeImplicitDomainStroke,
-                          {
-                            assumeSimpleOpen: true,
-                            assumeSimpleClosed: undefined,
-                            assumeNormalizedOpen: true,
-                            roundCapStart: capOwnership.roundCapStart,
-                            roundCapEnd: capOwnership.roundCapEnd
-                          }
-                        )
-                      })()
+                    const rangePolygons = sourcePathRibbonPolygons ?? []
                     return clipSourceSegmentRangePolygonsToAdjacentBoundaries(
                       rangePolygons,
                       sourcePath,
@@ -13477,7 +13518,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                     interval.endDistance >= totalLength - EPSILON &&
                     span.endDistance >= totalLength - EPSILON
                   return [
-                    ...buildConstrainedDashedLocalSideStrokePolygons(
+                    ...buildConstrainedDashedDomainStrokePolygons(
                       spanPoints,
                       false,
                       squareCapPhysicalStroke,
@@ -13522,14 +13563,15 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                   return spanPolygons
                 }
 
-                const fallbackSourcePath = buildPolylineGeometryModelPath(
-                  topologyPoints,
-                  topology.closed
-                )
+                const sourcePathForIntervalJoins =
+                  buildPolylineGeometryModelPath(
+                    topologyPoints,
+                    topology.closed
+                  )
                 return [
                   ...spanPolygons,
                   ...buildSourcePathIntervalJoinPolygons(
-                    fallbackSourcePath,
+                    sourcePathForIntervalJoins,
                     physicalSpans,
                     {
                       position: intervalStroke.position,
@@ -13698,11 +13740,11 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                       )
                     const shouldClipOutsideSquareBoundarySide =
                       stroke.cap === 'square' &&
-                      interval.figmaLikeSplitRangeId !== undefined &&
-                      interval.figmaLikeBoundaryRole !== 'hole' &&
-                      (interval.figmaLikeTerminalRole === 'start' ||
-                        interval.figmaLikeTerminalRole === 'end' ||
-                        interval.figmaLikeTerminalRole === 'start-end')
+                      interval.domainPlanSplitRangeId !== undefined &&
+                      interval.domainPlanBoundaryRole !== 'hole' &&
+                      (interval.domainPlanTerminalRole === 'start' ||
+                        interval.domainPlanTerminalRole === 'end' ||
+                        interval.domainPlanTerminalRole === 'start-end')
                     const clippedBodyPolygons = clippedPolygons
                     const terminalOutput = shouldClipOutsideSquareBoundarySide
                       ? clipOutsideSquareSplitTerminalFootprintPolygonsToBoundarySide(
@@ -13723,11 +13765,11 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 stroke.position === 'outside' &&
                 !isOpenDanglingOutsideBothSidesVisibleInterval(interval) &&
                 stroke.cap === 'square' &&
-                interval.figmaLikeSplitRangeId !== undefined &&
-                interval.figmaLikeBoundaryRole !== 'hole' &&
-                (interval.figmaLikeTerminalRole === 'start' ||
-                  interval.figmaLikeTerminalRole === 'end' ||
-                  interval.figmaLikeTerminalRole === 'start-end')
+                interval.domainPlanSplitRangeId !== undefined &&
+                interval.domainPlanBoundaryRole !== 'hole' &&
+                (interval.domainPlanTerminalRole === 'start' ||
+                  interval.domainPlanTerminalRole === 'end' ||
+                  interval.domainPlanTerminalRole === 'start-end')
               ) {
                 const terminalOutput = appendedSquareSplitTerminalFootprints
                   ? []
@@ -13745,7 +13787,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 stroke.position === 'outside' &&
                 !isOpenDanglingOutsideBothSidesVisibleInterval(interval) &&
                 stroke.cap === 'square' &&
-                interval.figmaLikeSplitRangeId !== undefined
+                interval.domainPlanSplitRangeId !== undefined
               ) {
                 processedPolygons =
                   filterOutsideSquareBoundaryDomainWrongSideFragments(
@@ -13768,7 +13810,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             return []
           }
 
-          const { geometryId, figmaLikeSplitRangeTerminals } =
+          const { geometryId, domainPlanSplitRangeTerminals } =
             measureStrokePipelinePhase(
               'constrained dashed interval: packet metadata',
               () => {
@@ -13777,9 +13819,9 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                   options.omitDiagnosticMetadata !== true
                 return {
                   geometryId: resolvedGeometryId,
-                  figmaLikeSplitRangeTerminals:
+                  domainPlanSplitRangeTerminals:
                     shouldAttachPacketDiagnosticDetails
-                      ? buildFigmaLikeSplitRangeTerminalRecords(interval)
+                      ? buildDomainPlanSplitRangeTerminalRecords(interval)
                       : undefined
                 }
               }
@@ -13838,32 +13880,33 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                   finalCoverageBuilderStatus,
                   intervalSweepSpanCount,
                   terminalCapCount,
-                  figmaLikeBoundaryDomainId: interval.figmaLikeBoundaryDomainId,
-                  figmaLikeBoundaryStartDistance:
-                    interval.figmaLikeBoundaryStartDistance,
-                  figmaLikeBoundaryEndDistance:
-                    interval.figmaLikeBoundaryEndDistance,
-                  figmaLikeBoundaryTotalLength:
-                    interval.figmaLikeBoundaryTotalLength,
-                  figmaLikeSplitRangeId: interval.figmaLikeSplitRangeId,
-                  figmaLikeSplitRangeStartDistance:
-                    interval.figmaLikeSplitRangeStartDistance,
-                  figmaLikeSplitRangeEndDistance:
-                    interval.figmaLikeSplitRangeEndDistance,
-                  figmaLikeTerminalRole: interval.figmaLikeTerminalRole,
-                  figmaLikeSplitRangeSourceSegmentIndex:
-                    interval.figmaLikeSplitRangeSourceSegmentIndex,
-                  figmaLikeSideAuthority: interval.figmaLikeSideAuthority,
-                  figmaLikeSelectedSide: interval.figmaLikeSelectedSide,
-                  figmaLikeFilledSide: interval.figmaLikeFilledSide,
-                  figmaLikeUnfilledSide: interval.figmaLikeUnfilledSide,
-                  figmaLikeBoundaryRole: interval.figmaLikeBoundaryRole,
-                  figmaLikeDomainMode: interval.figmaLikeDomainMode,
-                  figmaLikeSideResolutionStatus:
-                    interval.figmaLikeSideResolutionStatus,
-                  figmaLikeSideResolutionReason:
-                    interval.figmaLikeSideResolutionReason,
-                  figmaLikeSplitRangeTerminals,
+                  domainPlanBoundaryDomainId:
+                    interval.domainPlanBoundaryDomainId,
+                  domainPlanBoundaryStartDistance:
+                    interval.domainPlanBoundaryStartDistance,
+                  domainPlanBoundaryEndDistance:
+                    interval.domainPlanBoundaryEndDistance,
+                  domainPlanBoundaryTotalLength:
+                    interval.domainPlanBoundaryTotalLength,
+                  domainPlanSplitRangeId: interval.domainPlanSplitRangeId,
+                  domainPlanSplitRangeStartDistance:
+                    interval.domainPlanSplitRangeStartDistance,
+                  domainPlanSplitRangeEndDistance:
+                    interval.domainPlanSplitRangeEndDistance,
+                  domainPlanTerminalRole: interval.domainPlanTerminalRole,
+                  domainPlanSplitRangeSourceSegmentIndex:
+                    interval.domainPlanSplitRangeSourceSegmentIndex,
+                  domainPlanSideAuthority: interval.domainPlanSideAuthority,
+                  domainPlanSelectedSide: interval.domainPlanSelectedSide,
+                  domainPlanFilledSide: interval.domainPlanFilledSide,
+                  domainPlanUnfilledSide: interval.domainPlanUnfilledSide,
+                  domainPlanBoundaryRole: interval.domainPlanBoundaryRole,
+                  domainPlanDomainMode: interval.domainPlanDomainMode,
+                  domainPlanSideResolutionStatus:
+                    interval.domainPlanSideResolutionStatus,
+                  domainPlanSideResolutionReason:
+                    interval.domainPlanSideResolutionReason,
+                  domainPlanSplitRangeTerminals,
                   paintBounds: sourcePaintBounds,
                   revisionSet: getRevisionSet(classification)
                 }
@@ -13906,37 +13949,38 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                   ),
                   previousVisibleIntervalId: interval.previousVisibleIntervalId,
                   nextVisibleIntervalId: interval.nextVisibleIntervalId,
-                  figmaLikeBoundaryDomainId: interval.figmaLikeBoundaryDomainId,
-                  figmaLikeBoundaryPoints: interval.figmaLikeBoundaryPoints
-                    ? interval.figmaLikeBoundaryPoints.map((point) => ({
+                  domainPlanBoundaryDomainId:
+                    interval.domainPlanBoundaryDomainId,
+                  domainPlanBoundaryPoints: interval.domainPlanBoundaryPoints
+                    ? interval.domainPlanBoundaryPoints.map((point) => ({
                         ...point
                       }))
                     : undefined,
-                  figmaLikeBoundaryStartDistance:
-                    interval.figmaLikeBoundaryStartDistance,
-                  figmaLikeBoundaryEndDistance:
-                    interval.figmaLikeBoundaryEndDistance,
-                  figmaLikeBoundaryTotalLength:
-                    interval.figmaLikeBoundaryTotalLength,
-                  figmaLikeSplitRangeId: interval.figmaLikeSplitRangeId,
-                  figmaLikeSplitRangeStartDistance:
-                    interval.figmaLikeSplitRangeStartDistance,
-                  figmaLikeSplitRangeEndDistance:
-                    interval.figmaLikeSplitRangeEndDistance,
-                  figmaLikeTerminalRole: interval.figmaLikeTerminalRole,
-                  figmaLikeSplitRangeSourceSegmentIndex:
-                    interval.figmaLikeSplitRangeSourceSegmentIndex,
-                  figmaLikeSideAuthority: interval.figmaLikeSideAuthority,
-                  figmaLikeSelectedSide: interval.figmaLikeSelectedSide,
-                  figmaLikeFilledSide: interval.figmaLikeFilledSide,
-                  figmaLikeUnfilledSide: interval.figmaLikeUnfilledSide,
-                  figmaLikeBoundaryRole: interval.figmaLikeBoundaryRole,
-                  figmaLikeDomainMode: interval.figmaLikeDomainMode,
-                  figmaLikeSideResolutionStatus:
-                    interval.figmaLikeSideResolutionStatus,
-                  figmaLikeSideResolutionReason:
-                    interval.figmaLikeSideResolutionReason,
-                  figmaLikeSplitRangeTerminals,
+                  domainPlanBoundaryStartDistance:
+                    interval.domainPlanBoundaryStartDistance,
+                  domainPlanBoundaryEndDistance:
+                    interval.domainPlanBoundaryEndDistance,
+                  domainPlanBoundaryTotalLength:
+                    interval.domainPlanBoundaryTotalLength,
+                  domainPlanSplitRangeId: interval.domainPlanSplitRangeId,
+                  domainPlanSplitRangeStartDistance:
+                    interval.domainPlanSplitRangeStartDistance,
+                  domainPlanSplitRangeEndDistance:
+                    interval.domainPlanSplitRangeEndDistance,
+                  domainPlanTerminalRole: interval.domainPlanTerminalRole,
+                  domainPlanSplitRangeSourceSegmentIndex:
+                    interval.domainPlanSplitRangeSourceSegmentIndex,
+                  domainPlanSideAuthority: interval.domainPlanSideAuthority,
+                  domainPlanSelectedSide: interval.domainPlanSelectedSide,
+                  domainPlanFilledSide: interval.domainPlanFilledSide,
+                  domainPlanUnfilledSide: interval.domainPlanUnfilledSide,
+                  domainPlanBoundaryRole: interval.domainPlanBoundaryRole,
+                  domainPlanDomainMode: interval.domainPlanDomainMode,
+                  domainPlanSideResolutionStatus:
+                    interval.domainPlanSideResolutionStatus,
+                  domainPlanSideResolutionReason:
+                    interval.domainPlanSideResolutionReason,
+                  domainPlanSplitRangeTerminals,
                   geometryFamily: 'constrained-dashed',
                   resolutionStatus,
                   runtimeStatus: 'candidate',
@@ -14062,39 +14106,41 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
               previousVisibleIntervalId:
                 previousInterval.previousVisibleIntervalId,
               nextVisibleIntervalId: nextInterval.nextVisibleIntervalId,
-              figmaLikeBoundaryDomainId:
-                previousInterval.figmaLikeBoundaryDomainId,
-              figmaLikeBoundaryPoints:
-                previousInterval.figmaLikeBoundaryPoints?.map((point) => ({
+              domainPlanBoundaryDomainId:
+                previousInterval.domainPlanBoundaryDomainId,
+              domainPlanBoundaryPoints:
+                previousInterval.domainPlanBoundaryPoints?.map((point) => ({
                   ...point
                 })),
-              figmaLikeBoundaryStartDistance:
-                previousInterval.figmaLikeBoundaryStartDistance,
-              figmaLikeBoundaryEndDistance:
-                nextInterval.figmaLikeBoundaryEndDistance,
-              figmaLikeBoundaryTotalLength:
-                previousInterval.figmaLikeBoundaryTotalLength,
-              figmaLikeSplitRangeId: previousInterval.figmaLikeSplitRangeId,
-              figmaLikeSplitRangeStartDistance:
-                previousInterval.figmaLikeSplitRangeStartDistance,
-              figmaLikeSplitRangeEndDistance:
-                nextInterval.figmaLikeSplitRangeEndDistance,
-              figmaLikeTerminalRole: 'middle',
-              figmaLikeSplitRangeSourceSegmentIndex:
-                previousInterval.figmaLikeSplitRangeSourceSegmentIndex,
-              figmaLikeSideAuthority: previousInterval.figmaLikeSideAuthority,
-              figmaLikeSelectedSide: previousInterval.figmaLikeSelectedSide,
-              figmaLikeFilledSide: previousInterval.figmaLikeFilledSide,
-              figmaLikeUnfilledSide: previousInterval.figmaLikeUnfilledSide,
-              figmaLikeBoundaryRole: previousInterval.figmaLikeBoundaryRole,
-              figmaLikeSideResolutionStatus:
-                previousInterval.figmaLikeSideResolutionStatus,
-              figmaLikeSideResolutionReason:
-                previousInterval.figmaLikeSideResolutionReason,
-              figmaLikeSplitRangeTerminals: [
-                ...(buildFigmaLikeSplitRangeTerminalRecords(previousInterval) ??
-                  []),
-                ...(buildFigmaLikeSplitRangeTerminalRecords(nextInterval) ?? [])
+              domainPlanBoundaryStartDistance:
+                previousInterval.domainPlanBoundaryStartDistance,
+              domainPlanBoundaryEndDistance:
+                nextInterval.domainPlanBoundaryEndDistance,
+              domainPlanBoundaryTotalLength:
+                previousInterval.domainPlanBoundaryTotalLength,
+              domainPlanSplitRangeId: previousInterval.domainPlanSplitRangeId,
+              domainPlanSplitRangeStartDistance:
+                previousInterval.domainPlanSplitRangeStartDistance,
+              domainPlanSplitRangeEndDistance:
+                nextInterval.domainPlanSplitRangeEndDistance,
+              domainPlanTerminalRole: 'middle',
+              domainPlanSplitRangeSourceSegmentIndex:
+                previousInterval.domainPlanSplitRangeSourceSegmentIndex,
+              domainPlanSideAuthority: previousInterval.domainPlanSideAuthority,
+              domainPlanSelectedSide: previousInterval.domainPlanSelectedSide,
+              domainPlanFilledSide: previousInterval.domainPlanFilledSide,
+              domainPlanUnfilledSide: previousInterval.domainPlanUnfilledSide,
+              domainPlanBoundaryRole: previousInterval.domainPlanBoundaryRole,
+              domainPlanSideResolutionStatus:
+                previousInterval.domainPlanSideResolutionStatus,
+              domainPlanSideResolutionReason:
+                previousInterval.domainPlanSideResolutionReason,
+              domainPlanSplitRangeTerminals: [
+                ...(buildDomainPlanSplitRangeTerminalRecords(
+                  previousInterval
+                ) ?? []),
+                ...(buildDomainPlanSplitRangeTerminalRecords(nextInterval) ??
+                  [])
               ],
               geometryFamily: 'constrained-dashed',
               resolutionStatus: getConstrainedDashedResolutionStatus(

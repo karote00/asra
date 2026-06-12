@@ -11,18 +11,18 @@ import {
   type PathGeometry
 } from '../components/stroke-render/path-geometry'
 import {
-  allocateFigmaLikeSplitRangeDashedIntervals,
-  type FigmaLikeSplitRangeDashDomain
+  allocateDomainPlanSplitRangeDashedIntervals,
+  type DomainPlanSplitRangeDashDomain
 } from '../components/stroke-render/dashed-center-stroke-intervals'
 import { normalizeStrokeSpec } from '../components/stroke-render/renderable-stroke'
 import {
-  getFigmaStrokeFamilyMatrix,
+  getStrokeProductFamilyMatrix,
   resolveSourceFamily,
-  type FigmaStrokeFamilyMatrixEntry,
-  type FigmaStrokeFamilyScope
+  type StrokeProductFamilyMatrixEntry,
+  type StrokeProductFamilyScope
 } from '../components/stroke-render/resolved-source-family'
 import {
-  buildFigmaLikeSplitRangeDashDomains,
+  buildDomainPlanSplitRangeDashDomains,
   resolveStrokeDomains
 } from '../components/stroke-render/stroke-domain-plan'
 import { buildResolvedVectorGeometryModel } from '../components/stroke-render/resolved-vector-geometry-model'
@@ -276,7 +276,7 @@ const buildExpectedSplitBreakpointsForOracle = (sourcePath: PathGeometry) => {
 
 const expectSplitRangeDomainsMatchSourceIntersectionCuts = (
   sourcePath: PathGeometry,
-  domains: FigmaLikeSplitRangeDashDomain[]
+  domains: DomainPlanSplitRangeDashDomain[]
 ) => {
   const expectedBreakpointsBySegment =
     buildExpectedSplitBreakpointsForOracle(sourcePath)
@@ -318,10 +318,10 @@ const expectSplitRangeDomainsMatchSourceIntersectionCuts = (
 }
 
 const expectSplitRangesAllocateTerminalHalfDash = (
-  domains: FigmaLikeSplitRangeDashDomain[],
+  domains: DomainPlanSplitRangeDashDomain[],
   dashPattern = [27, 20]
 ) => {
-  const allocations = allocateFigmaLikeSplitRangeDashedIntervals({
+  const allocations = allocateDomainPlanSplitRangeDashedIntervals({
     domains,
     dashPattern
   })
@@ -343,7 +343,7 @@ const expectSplitRangesAllocateTerminalHalfDash = (
     }
     const rangeLength = domain.endDistance - domain.startDistance
     if (rangeLength <= dashLength) {
-      return first.figmaLikeTerminalRole === 'start-end' &&
+      return first.domainPlanTerminalRole === 'start-end' &&
         Math.abs(first.startDistance - domain.startDistance) <= 1e-6 &&
         Math.abs(first.endDistance - domain.endDistance) <= 1e-6
         ? []
@@ -351,12 +351,12 @@ const expectSplitRangesAllocateTerminalHalfDash = (
     }
     const halfDash = dashLength / 2
     return [
-      first.figmaLikeTerminalRole === 'start' &&
+      first.domainPlanTerminalRole === 'start' &&
       Math.abs(first.startDistance - domain.startDistance) <= 1e-6 &&
       Math.abs(first.endDistance - (domain.startDistance + halfDash)) <= 1e-6
         ? null
         : { domainId: allocation.domainId, reason: 'bad-start-half-dash' },
-      last.figmaLikeTerminalRole === 'end' &&
+      last.domainPlanTerminalRole === 'end' &&
       Math.abs(last.endDistance - domain.endDistance) <= 1e-6 &&
       Math.abs(last.startDistance - (domain.endDistance - halfDash)) <= 1e-6
         ? null
@@ -422,7 +422,7 @@ const compoundLegalDomain = (
 })
 
 const topologyForFamilyScope = (
-  familyScope: FigmaStrokeFamilyScope
+  familyScope: StrokeProductFamilyScope
 ): PathTopologyModel => {
   if (familyScope === 'open') {
     return topology(
@@ -595,7 +595,7 @@ const createReportedMixedStarSourcePath = () => {
   return buildVectorGeometryModelPath(network, points, segments)
 }
 
-const resolvePlanForMatrixEntry = (entry: FigmaStrokeFamilyMatrixEntry) => {
+const resolvePlanForMatrixEntry = (entry: StrokeProductFamilyMatrixEntry) => {
   const pathTopology = topologyForFamilyScope(entry.familyScope)
   const renderableStroke = stroke(entry.strokeStyle, entry.strokePosition)
   const sourcePath = buildPolylineGeometryModelPath(
@@ -641,7 +641,7 @@ const resolvePlanForMatrixEntry = (entry: FigmaStrokeFamilyMatrixEntry) => {
 
 describe('stroke domain plan', () => {
   it('should run: resolve every Asyra canonical family matrix entry to an explicit Step14 domain classification', () => {
-    getFigmaStrokeFamilyMatrix().forEach((entry) => {
+    getStrokeProductFamilyMatrix().forEach((entry) => {
       const plan = resolvePlanForMatrixEntry(entry)
 
       expect(plan.intervalDomainKind, JSON.stringify(entry)).not.toBe('none')
@@ -659,10 +659,10 @@ describe('stroke domain plan', () => {
 
       if (entry.familyScope === 'open') {
         expect(plan).toMatchObject({
-          supportState: 'center-equivalent',
-          domainMode: 'simple-open-center-product',
+          supportState: 'simple-open-unbounded',
+          domainMode: 'center-product',
           intervalDomainKind: 'topology-arc-length',
-          sideAuthority: 'center-equivalent'
+          sideAuthority: 'none'
         })
         return
       }
@@ -759,7 +759,7 @@ describe('stroke domain plan', () => {
     expect(plan).toMatchObject({
       supportState: 'supported',
       domainMode: 'closed-constrained-domain',
-      intervalDomainKind: 'figma-like-split-range',
+      intervalDomainKind: 'domain-plan-split-range',
       sideAuthority: 'implicit-fill-hole-domain',
       requiresImplicitFillHoleSideResolution: true
     })
@@ -884,7 +884,7 @@ describe('stroke domain plan', () => {
 
     expect(pathTopology.topologyFamily).toBe('self-intersecting')
     expect(plan.domainMode).toBe('closed-constrained-domain')
-    expect(plan.intervalDomainKind).toBe('figma-like-split-range')
+    expect(plan.intervalDomainKind).toBe('domain-plan-split-range')
     expect(plan.diagnostics).toContain('source-span-product-domains-added')
     expect(coveredSegmentIndexes).toEqual(new Set([0, 1, 2, 3, 4]))
     expect(productDomains.length).toBeGreaterThan(0)
@@ -947,7 +947,7 @@ describe('stroke domain plan', () => {
 
     expect(plan).toMatchObject({
       supportState: 'supported',
-      intervalDomainKind: 'figma-like-split-range',
+      intervalDomainKind: 'domain-plan-split-range',
       sideAuthority: 'implicit-fill-hole-domain',
       requiresImplicitFillHoleSideResolution: true
     })
@@ -1052,7 +1052,7 @@ describe('stroke domain plan', () => {
       true
     )
 
-    const domains = buildFigmaLikeSplitRangeDashDomains(sourcePath)
+    const domains = buildDomainPlanSplitRangeDashDomains(sourcePath)
     const sourceTopologySegmentBoundaries = new Set(
       sourcePath.segments
         .reduce<
@@ -1086,7 +1086,7 @@ describe('stroke domain plan', () => {
       ],
       true
     )
-    const domains = buildFigmaLikeSplitRangeDashDomains(sourcePath)
+    const domains = buildDomainPlanSplitRangeDashDomains(sourcePath)
 
     expectSplitRangeDomainsMatchSourceIntersectionCuts(sourcePath, domains)
     expectSplitRangesAllocateTerminalHalfDash(domains)
@@ -1094,7 +1094,7 @@ describe('stroke domain plan', () => {
 
   it('should run: apply the same generic split-domain oracle to mixed curve/line self-intersecting vectors', () => {
     const sourcePath = createReportedMixedStarSourcePath()
-    const domains = buildFigmaLikeSplitRangeDashDomains(sourcePath)
+    const domains = buildDomainPlanSplitRangeDashDomains(sourcePath)
 
     expectSplitRangeDomainsMatchSourceIntersectionCuts(sourcePath, domains)
     expectSplitRangesAllocateTerminalHalfDash(domains, [27, 20])
@@ -1187,7 +1187,7 @@ describe('stroke domain plan', () => {
     )
   })
 
-  it('should run: mark open inside/outside strokes as center-equivalent without split-range domains', () => {
+  it('should run: mark simple open inside/outside strokes as unbounded center product without split-range domains', () => {
     const pathTopology = topology(
       [
         { x: 0, y: 0 },
@@ -1207,10 +1207,10 @@ describe('stroke domain plan', () => {
     })
 
     expect(plan).toMatchObject({
-      supportState: 'center-equivalent',
-      domainMode: 'simple-open-center-product',
+      supportState: 'simple-open-unbounded',
+      domainMode: 'center-product',
       intervalDomainKind: 'topology-arc-length',
-      sideAuthority: 'center-equivalent',
+      sideAuthority: 'none',
       splitRangeDomains: []
     })
     expect(plan.blockedReason).toBeUndefined()
@@ -1364,7 +1364,7 @@ describe('stroke domain plan', () => {
 
     const insidePlan = resolveOpenPlan(StrokePositions.INSIDE)
     expect(insidePlan.domainMode).toBe('open-contour-constrained-domain')
-    expect(insidePlan.intervalDomainKind).toBe('figma-like-split-range')
+    expect(insidePlan.intervalDomainKind).toBe('domain-plan-split-range')
     expect(
       insidePlan.splitRangeDomains.some(
         (domain) =>
@@ -1375,7 +1375,7 @@ describe('stroke domain plan', () => {
 
     const outsidePlan = resolveOpenPlan(StrokePositions.OUTSIDE)
     expect(outsidePlan.domainMode).toBe('open-dangling-outside-both-sides')
-    expect(outsidePlan.intervalDomainKind).toBe('figma-like-split-range')
+    expect(outsidePlan.intervalDomainKind).toBe('domain-plan-split-range')
     expect(outsidePlan.diagnostics).toContain(
       'dangling-source-span-domains-added'
     )

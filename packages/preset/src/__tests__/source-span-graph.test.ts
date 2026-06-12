@@ -250,7 +250,7 @@ describe('source span graph', () => {
       graph.cuts.map((cut) => cut.distance.toFixed(6))
     )
 
-    expect(domainPlan.intervalDomainKind).toBe('figma-like-split-range')
+    expect(domainPlan.intervalDomainKind).toBe('domain-plan-split-range')
     expect(domainPlan.splitRangeDomains.length).toBeGreaterThan(
       sourcePath.segments.length
     )

@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
   allocateDashedCenterStrokeIntervals,
-  allocateFigmaLikeSplitRangeDashedIntervals,
+  allocateDomainPlanSplitRangeDashedIntervals,
   allocateStrokeIntervals,
   allocateStrokeIntervalsForDomainPlan
 } from '../components/stroke-render/dashed-center-stroke-intervals'
 
 describe('dashed center stroke interval allocation', () => {
-  const expectBalancedFigmaLikeSplitRange = (
+  const expectBalancedDomainPlanSplitRange = (
     intervals: NonNullable<
-      ReturnType<typeof allocateFigmaLikeSplitRangeDashedIntervals>[number]
+      ReturnType<typeof allocateDomainPlanSplitRangeDashedIntervals>[number]
     >['intervals'],
     {
       dashLength,
@@ -27,21 +27,21 @@ describe('dashed center stroke interval allocation', () => {
       expect(visible).toHaveLength(1)
       expect(visible[0]?.startDistance).toBeCloseTo(rangeStart, 6)
       expect(visible[0]?.endDistance).toBeCloseTo(rangeEnd, 6)
-      expect(visible[0]?.figmaLikeTerminalRole).toBe('start-end')
+      expect(visible[0]?.domainPlanTerminalRole).toBe('start-end')
       return
     }
 
     const halfDash = dashLength / 2
     expect(visible[0]?.startDistance).toBeCloseTo(rangeStart, 6)
     expect(visible[0]?.endDistance).toBeCloseTo(rangeStart + halfDash, 6)
-    expect(visible[0]?.figmaLikeTerminalRole).toBe('start')
+    expect(visible[0]?.domainPlanTerminalRole).toBe('start')
     expect(visible.at(-1)?.startDistance).toBeCloseTo(rangeEnd - halfDash, 6)
     expect(visible.at(-1)?.endDistance).toBeCloseTo(rangeEnd, 6)
-    expect(visible.at(-1)?.figmaLikeTerminalRole).toBe('end')
+    expect(visible.at(-1)?.domainPlanTerminalRole).toBe('end')
 
     const middle = visible.slice(1, -1)
     for (const interval of middle) {
-      expect(interval.figmaLikeTerminalRole).toBe('middle')
+      expect(interval.domainPlanTerminalRole).toBe('middle')
       expect(interval.endDistance - interval.startDistance).toBeCloseTo(
         dashLength,
         6
@@ -348,7 +348,7 @@ describe('dashed center stroke interval allocation', () => {
     ])
   })
 
-  it('should run: allocate legacy independent topology domains without making them self-intersecting dash product authority', () => {
+  it('should run: allocate independent topology domains without making them self-intersecting dash product authority', () => {
     const allocations = allocateStrokeIntervals({
       domains: [
         { domainId: 'source-domain', totalLength: 50, closed: true },
@@ -409,7 +409,7 @@ describe('dashed center stroke interval allocation', () => {
   })
 
   it('should run: allocate Asyra canonical split ranges with half dashes at both ends and balanced interior gaps', () => {
-    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+    const [allocation] = allocateDomainPlanSplitRangeDashedIntervals({
       domains: [
         {
           domainId: 'split:0',
@@ -434,14 +434,14 @@ describe('dashed center stroke interval allocation', () => {
       startDistance: 0,
       endDistance: 10,
       wrapsSeam: false,
-      figmaLikeSplitRangeId: 'split:0',
-      figmaLikeSplitRangeStartDistance: 0,
-      figmaLikeSplitRangeEndDistance: 100,
-      figmaLikeTerminalRole: 'start',
-      figmaLikeSplitRangeSourceSegmentIndex: 0,
-      figmaLikeSideAuthority: 'implicit-fill-hole-domain',
-      figmaLikeSelectedSide: 1,
-      figmaLikeSideResolutionStatus: 'resolved'
+      domainPlanSplitRangeId: 'split:0',
+      domainPlanSplitRangeStartDistance: 0,
+      domainPlanSplitRangeEndDistance: 100,
+      domainPlanTerminalRole: 'start',
+      domainPlanSplitRangeSourceSegmentIndex: 0,
+      domainPlanSideAuthority: 'implicit-fill-hole-domain',
+      domainPlanSelectedSide: 1,
+      domainPlanSideResolutionStatus: 'resolved'
     })
     expect(visible?.[1]?.startDistance).toBeCloseTo(23.333333, 5)
     expect(visible?.[1]?.endDistance).toBeCloseTo(43.333333, 5)
@@ -452,17 +452,17 @@ describe('dashed center stroke interval allocation', () => {
       startDistance: 90,
       endDistance: 100,
       wrapsSeam: false,
-      figmaLikeSplitRangeId: 'split:0',
-      figmaLikeSplitRangeStartDistance: 0,
-      figmaLikeSplitRangeEndDistance: 100,
-      figmaLikeTerminalRole: 'end',
-      figmaLikeSplitRangeSourceSegmentIndex: 0,
-      figmaLikeSideAuthority: 'implicit-fill-hole-domain',
-      figmaLikeSelectedSide: 1,
-      figmaLikeSideResolutionStatus: 'resolved'
+      domainPlanSplitRangeId: 'split:0',
+      domainPlanSplitRangeStartDistance: 0,
+      domainPlanSplitRangeEndDistance: 100,
+      domainPlanTerminalRole: 'end',
+      domainPlanSplitRangeSourceSegmentIndex: 0,
+      domainPlanSideAuthority: 'implicit-fill-hole-domain',
+      domainPlanSelectedSide: 1,
+      domainPlanSideResolutionStatus: 'resolved'
     })
-    expect(visible?.[1]?.figmaLikeTerminalRole).toBe('middle')
-    expect(visible?.[2]?.figmaLikeTerminalRole).toBe('middle')
+    expect(visible?.[1]?.domainPlanTerminalRole).toBe('middle')
+    expect(visible?.[2]?.domainPlanTerminalRole).toBe('middle')
 
     const gaps = allocation?.intervals.filter(
       (interval) => interval.kind === 'gap'
@@ -471,7 +471,7 @@ describe('dashed center stroke interval allocation', () => {
     for (const gap of gaps ?? []) {
       expect(gap.intervalLength).toBeCloseTo(13.333333, 5)
     }
-    expectBalancedFigmaLikeSplitRange(allocation?.intervals ?? [], {
+    expectBalancedDomainPlanSplitRange(allocation?.intervals ?? [], {
       dashLength: 20,
       rangeStart: 0,
       rangeEnd: 100
@@ -479,7 +479,7 @@ describe('dashed center stroke interval allocation', () => {
   })
 
   it('should run: distribute every middle dash and gap evenly inside one long Asyra canonical split range', () => {
-    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+    const [allocation] = allocateDomainPlanSplitRangeDashedIntervals({
       domains: [
         {
           domainId: 'split:long',
@@ -497,7 +497,7 @@ describe('dashed center stroke interval allocation', () => {
     const visible =
       allocation?.intervals.filter((interval) => interval.kind === 'visible') ??
       []
-    expect(visible.map((interval) => interval.figmaLikeTerminalRole)).toEqual([
+    expect(visible.map((interval) => interval.domainPlanTerminalRole)).toEqual([
       'start',
       'middle',
       'middle',
@@ -505,7 +505,7 @@ describe('dashed center stroke interval allocation', () => {
       'middle',
       'end'
     ])
-    expectBalancedFigmaLikeSplitRange(allocation?.intervals ?? [], {
+    expectBalancedDomainPlanSplitRange(allocation?.intervals ?? [], {
       dashLength: 27,
       rangeStart: 100,
       rangeEnd: 340
@@ -528,7 +528,7 @@ describe('dashed center stroke interval allocation', () => {
     const rangeStart = 12
     const rangeEnd = 185.411
     const dashLength = 27
-    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+    const [allocation] = allocateDomainPlanSplitRangeDashedIntervals({
       domains: [
         {
           domainId: 'split:formula',
@@ -543,7 +543,7 @@ describe('dashed center stroke interval allocation', () => {
     const visible =
       allocation?.intervals.filter((interval) => interval.kind === 'visible') ??
       []
-    expect(visible.map((interval) => interval.figmaLikeTerminalRole)).toEqual([
+    expect(visible.map((interval) => interval.domainPlanTerminalRole)).toEqual([
       'start',
       'middle',
       'middle',
@@ -585,7 +585,7 @@ describe('dashed center stroke interval allocation', () => {
   })
 
   it('should run: choose the middle dash count whose balanced gap is nearest to the authored gap', () => {
-    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+    const [allocation] = allocateDomainPlanSplitRangeDashedIntervals({
       domains: [
         {
           domainId: 'split:compressed-gap',
@@ -600,14 +600,14 @@ describe('dashed center stroke interval allocation', () => {
     const visible =
       allocation?.intervals.filter((interval) => interval.kind === 'visible') ??
       []
-    expect(visible.map((interval) => interval.figmaLikeTerminalRole)).toEqual([
+    expect(visible.map((interval) => interval.domainPlanTerminalRole)).toEqual([
       'start',
       'middle',
       'middle',
       'middle',
       'end'
     ])
-    expectBalancedFigmaLikeSplitRange(allocation?.intervals ?? [], {
+    expectBalancedDomainPlanSplitRange(allocation?.intervals ?? [], {
       dashLength: 27,
       rangeStart: 0,
       rangeEnd: 186
@@ -623,7 +623,7 @@ describe('dashed center stroke interval allocation', () => {
   })
 
   it('should run: reduce the middle dash when a short split range would over-compress gaps', () => {
-    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+    const [allocation] = allocateDomainPlanSplitRangeDashedIntervals({
       domains: [
         {
           domainId: 'split:short-visible-gap',
@@ -638,11 +638,11 @@ describe('dashed center stroke interval allocation', () => {
     const visible =
       allocation?.intervals.filter((interval) => interval.kind === 'visible') ??
       []
-    expect(visible.map((interval) => interval.figmaLikeTerminalRole)).toEqual([
+    expect(visible.map((interval) => interval.domainPlanTerminalRole)).toEqual([
       'start',
       'end'
     ])
-    expectBalancedFigmaLikeSplitRange(allocation?.intervals ?? [], {
+    expectBalancedDomainPlanSplitRange(allocation?.intervals ?? [], {
       dashLength: 27,
       rangeStart: 0,
       rangeEnd: 70
@@ -658,7 +658,7 @@ describe('dashed center stroke interval allocation', () => {
   })
 
   it('should run: keep split-range visual gaps from being over-compressed by cap footprint', () => {
-    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+    const [allocation] = allocateDomainPlanSplitRangeDashedIntervals({
       domains: [
         {
           domainId: 'split:cap-visual-gap',
@@ -676,7 +676,7 @@ describe('dashed center stroke interval allocation', () => {
     const visible =
       allocation?.intervals.filter((interval) => interval.kind === 'visible') ??
       []
-    expect(visible.map((interval) => interval.figmaLikeTerminalRole)).toEqual([
+    expect(visible.map((interval) => interval.domainPlanTerminalRole)).toEqual([
       'start',
       'middle',
       'end'
@@ -698,7 +698,7 @@ describe('dashed center stroke interval allocation', () => {
   })
 
   it('should run: keep configured gap 20 from shrinking below 12 after cap footprint', () => {
-    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+    const [allocation] = allocateDomainPlanSplitRangeDashedIntervals({
       domains: [
         {
           domainId: 'split:cap-gap-20',
@@ -733,7 +733,7 @@ describe('dashed center stroke interval allocation', () => {
     const previousOverride = target[overrideKey]
     try {
       target[overrideKey] = 2
-      const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+      const [allocation] = allocateDomainPlanSplitRangeDashedIntervals({
         domains: [
           {
             domainId: 'split:cap-gap-override',
@@ -768,7 +768,7 @@ describe('dashed center stroke interval allocation', () => {
   })
 
   it('should run: collapse very short cap-aware split ranges instead of squeezing terminal gaps', () => {
-    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+    const [allocation] = allocateDomainPlanSplitRangeDashedIntervals({
       domains: [
         {
           domainId: 'split:cap-short',
@@ -790,12 +790,12 @@ describe('dashed center stroke interval allocation', () => {
     expect(visible[0]).toMatchObject({
       startDistance: 12,
       endDistance: 52,
-      figmaLikeTerminalRole: 'start-end'
+      domainPlanTerminalRole: 'start-end'
     })
   })
 
   it('should run: use normal split ranges as the reference gap for shorter split ranges', () => {
-    const allocations = allocateFigmaLikeSplitRangeDashedIntervals({
+    const allocations = allocateDomainPlanSplitRangeDashedIntervals({
       domains: [
         {
           domainId: 'split:normal',
@@ -828,14 +828,14 @@ describe('dashed center stroke interval allocation', () => {
         (interval) => interval.kind === 'visible'
       ) ?? []
     expect(
-      shortVisible.map((interval) => interval.figmaLikeTerminalRole)
+      shortVisible.map((interval) => interval.domainPlanTerminalRole)
     ).toEqual(['start', 'end'])
     expect(shortVisible[0]?.endDistance).toBeCloseTo(253.5, 6)
     expect(shortVisible[1]?.startDistance).toBeCloseTo(296.5, 6)
   })
 
   it('should run: allocate adjacent Asyra canonical split ranges independently instead of carrying a cumulative schedule across the boundary', () => {
-    const allocations = allocateFigmaLikeSplitRangeDashedIntervals({
+    const allocations = allocateDomainPlanSplitRangeDashedIntervals({
       domains: [
         {
           domainId: 'split:0',
@@ -887,21 +887,21 @@ describe('dashed center stroke interval allocation', () => {
     )
     expect(
       visibleIntervals.filter(
-        (interval) => interval.figmaLikeTerminalRole === 'start'
+        (interval) => interval.domainPlanTerminalRole === 'start'
       )
     ).toHaveLength(2)
     expect(
       visibleIntervals.filter(
-        (interval) => interval.figmaLikeTerminalRole === 'middle'
+        (interval) => interval.domainPlanTerminalRole === 'middle'
       )
     ).toHaveLength(2)
     expect(
       visibleIntervals.filter(
-        (interval) => interval.figmaLikeTerminalRole === 'end'
+        (interval) => interval.domainPlanTerminalRole === 'end'
       )
     ).toHaveLength(2)
     allocations.forEach((allocation, index) => {
-      expectBalancedFigmaLikeSplitRange(allocation.intervals, {
+      expectBalancedDomainPlanSplitRange(allocation.intervals, {
         dashLength: 20,
         rangeStart: index * 50,
         rangeEnd: index * 50 + 50
@@ -910,14 +910,14 @@ describe('dashed center stroke interval allocation', () => {
     expect(
       visibleIntervals.every(
         (interval) =>
-          interval.figmaLikeSplitRangeId === 'split:0' ||
-          interval.figmaLikeSplitRangeId === 'split:1'
+          interval.domainPlanSplitRangeId === 'split:0' ||
+          interval.domainPlanSplitRangeId === 'split:1'
       )
     ).toBe(true)
   })
 
   it('should run: collapse an Asyra canonical split range shorter than one dash into one visible range', () => {
-    const [allocation] = allocateFigmaLikeSplitRangeDashedIntervals({
+    const [allocation] = allocateDomainPlanSplitRangeDashedIntervals({
       domains: [
         {
           domainId: 'split:short',
@@ -936,11 +936,11 @@ describe('dashed center stroke interval allocation', () => {
         startDistance: 25,
         endDistance: 37,
         wrapsSeam: false,
-        figmaLikeSplitRangeId: 'split:short',
-        figmaLikeSplitRangeStartDistance: 25,
-        figmaLikeSplitRangeEndDistance: 37,
-        figmaLikeTerminalRole: 'start-end',
-        figmaLikeSplitRangeSourceSegmentIndex: 2
+        domainPlanSplitRangeId: 'split:short',
+        domainPlanSplitRangeStartDistance: 25,
+        domainPlanSplitRangeEndDistance: 37,
+        domainPlanTerminalRole: 'start-end',
+        domainPlanSplitRangeSourceSegmentIndex: 2
       })
     ])
   })
@@ -949,7 +949,7 @@ describe('dashed center stroke interval allocation', () => {
     const allocations = allocateStrokeIntervalsForDomainPlan({
       domainPlan: {
         planId: 'plan:self-intersecting',
-        intervalDomainKind: 'figma-like-split-range',
+        intervalDomainKind: 'domain-plan-split-range',
         totalLength: 100,
         closed: true,
         legalBoundaryDomains: [],
@@ -987,8 +987,8 @@ describe('dashed center stroke interval allocation', () => {
             domainId: allocation.domainId,
             startDistance: interval.startDistance,
             endDistance: interval.endDistance,
-            terminalRole: interval.figmaLikeTerminalRole,
-            selectedSide: interval.figmaLikeSelectedSide
+            terminalRole: interval.domainPlanTerminalRole,
+            selectedSide: interval.domainPlanSelectedSide
           }))
       )
     ).toEqual([

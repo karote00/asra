@@ -519,50 +519,6 @@ const createReportedVector12OpenDashedSwitchData = () => ({
 const getStarWorkspacePoints = () =>
   Object.values(createStarTopology().points) as { x: number; y: number }[]
 
-const createLegacyLocalStarData = () => {
-  const topology = createStarTopology()
-  const points = Object.values(topology.points) as {
-    id: string
-    kind: string
-    anchorType: string
-    x: number
-    y: number
-  }[]
-  const bounds = points.reduce(
-    (current, point) => ({
-      minX: Math.min(current.minX, point.x),
-      minY: Math.min(current.minY, point.y),
-      maxX: Math.max(current.maxX, point.x),
-      maxY: Math.max(current.maxY, point.y)
-    }),
-    {
-      minX: Number.POSITIVE_INFINITY,
-      minY: Number.POSITIVE_INFINITY,
-      maxX: Number.NEGATIVE_INFINITY,
-      maxY: Number.NEGATIVE_INFINITY
-    }
-  )
-
-  return {
-    x: bounds.minX,
-    y: bounds.minY,
-    width: bounds.maxX - bounds.minX,
-    height: bounds.maxY - bounds.minY,
-    points: Object.fromEntries(
-      Object.entries(topology.points).map(([pointId, point]) => [
-        pointId,
-        {
-          ...point,
-          x: point.x - bounds.minX,
-          y: point.y - bounds.minY
-        }
-      ])
-    ),
-    segments: topology.segments,
-    networks: topology.networks
-  }
-}
-
 const workspaceToClient = async (page: Page, point: { x: number; y: number }) =>
   page.evaluate((workspacePoint) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -813,7 +769,10 @@ const analyzeRedStrokeRaster = async (page: Page, screenshotBase64: string) =>
     }
   }, screenshotBase64)
 
-const analyzeBrightStrokeRaster = async (page: Page, screenshotBase64: string) =>
+const analyzeBrightStrokeRaster = async (
+  page: Page,
+  screenshotBase64: string
+) =>
   page.evaluate(async (base64) => {
     const response = await fetch(`data:image/png;base64,${base64}`)
     const blob = await response.blob()
@@ -1135,9 +1094,33 @@ const analyzeSelectedVectorBluePathOverlayRaster = async (
           ?.getElementById?.(selectedId)
           ?.getAllComputedData?.()
       : null
-    const points = computed?.points ?? null
-    const segments = computed?.segments ?? null
-    const networks = computed?.networks ?? null
+    interface VectorPointSnapshot {
+      kind?: string
+      x: number
+      y: number
+    }
+    interface VectorSegmentSnapshot {
+      startId: string
+      endId: string
+      outControlId?: string | null
+      inControlId?: string | null
+    }
+    interface VectorNetworkSnapshot {
+      segmentIds?: string[]
+    }
+
+    const points = (computed?.points ?? null) as Record<
+      string,
+      VectorPointSnapshot
+    > | null
+    const segments = (computed?.segments ?? null) as Record<
+      string,
+      VectorSegmentSnapshot
+    > | null
+    const networks = (computed?.networks ?? null) as Record<
+      string,
+      VectorNetworkSnapshot
+    > | null
     if (!selectedId || !points || !segments || !networks) {
       return {
         selectedId,
@@ -1161,8 +1144,10 @@ const analyzeSelectedVectorBluePathOverlayRaster = async (
     context.drawImage(bitmap, 0, 0)
     const image = context.getImageData(0, 0, canvas.width, canvas.height).data
     const zoom = Number(core?.getSystemProperty?.('zoom') ?? 1)
-    const viewportPosition =
-      core?.getSystemProperty?.('viewportPosition') ?? { x: 0, y: 0 }
+    const viewportPosition = core?.getSystemProperty?.('viewportPosition') ?? {
+      x: 0,
+      y: 0
+    }
     const usesWorkspacePoints = computed.pointCoordinateSpace === 'workspace'
     const toWorkspace = (point: { x: number; y: number }) => ({
       x: point.x + (usesWorkspacePoints ? 0 : (computed.x ?? 0)),
@@ -1225,7 +1210,7 @@ const analyzeSelectedVectorBluePathOverlayRaster = async (
     let bluePixelsNearPath = 0
     let segmentCount = 0
     const sampleTimes = [0.25, 0.5, 0.75]
-    Object.values(networks).forEach((network: any) => {
+    Object.values(networks).forEach((network) => {
       ;(network.segmentIds ?? []).forEach((segmentId: string) => {
         const segment = segments[segmentId]
         if (!segment) {
@@ -1233,7 +1218,12 @@ const analyzeSelectedVectorBluePathOverlayRaster = async (
         }
         const start = points[segment.startId]
         const end = points[segment.endId]
-        if (!start || !end || start.kind !== 'anchor' || end.kind !== 'anchor') {
+        if (
+          !start ||
+          !end ||
+          start.kind !== 'anchor' ||
+          end.kind !== 'anchor'
+        ) {
           return
         }
         segmentCount += 1
@@ -1242,13 +1232,17 @@ const analyzeSelectedVectorBluePathOverlayRaster = async (
         const outControl = segment.outControlId
           ? points[segment.outControlId]
           : null
-        const inControl = segment.inControlId ? points[segment.inControlId] : null
+        const inControl = segment.inControlId
+          ? points[segment.inControlId]
+          : null
         const p1 =
           outControl && outControl.kind === 'control'
             ? toWorkspace(outControl)
             : p0
         const p2 =
-          inControl && inControl.kind === 'control' ? toWorkspace(inControl) : p3
+          inControl && inControl.kind === 'control'
+            ? toWorkspace(inControl)
+            : p3
 
         sampleTimes.forEach((time) => {
           const sample = toScreen(cubic(p0, p1, p2, p3, time))
@@ -2535,10 +2529,18 @@ const readSelectedVectorDiagnostics = async (page: Page) =>
             solidPacketCount:
               renderElement.__asyraSolidCenterStrokeExportPackets?.length ??
               null,
-            nativeCenterSolidStrokeRenderCount:
-              renderElement.__asyraNativeCenterSolidStrokeRenderCount ?? null,
+            centerPathSolidStrokeRenderCount:
+              renderElement.__asyraCenterPathSolidStrokeRenderCount ?? null,
+            centerSolidPathMaskRenderCount:
+              renderElement.__asyraCenterSolidPathMaskRenderCount ?? null,
             constrainedDashedProductNetworkIds:
               renderElement.__asyraConstrainedDashedProductNetworkIds ?? null,
+            strokeRenderCacheKinds:
+              renderElement.__asyraStrokeMeshCache instanceof Map
+                ? Array.from(renderElement.__asyraStrokeMeshCache.values()).map(
+                    (entry: { kind?: string }) => entry.kind ?? 'unknown'
+                  )
+                : null,
             constrainedDashedRuntimeDiagnostics:
               renderElement.__asyraConstrainedDashedRuntimeDiagnostics ?? null,
             vectorGeometryModelCount:
@@ -4449,13 +4451,188 @@ test.describe('Vector render invariants', () => {
     ).not.toBeNull()
     expect(
       (diagnostics.render?.solidPacketCount ?? 0) +
-        (diagnostics.render?.nativeCenterSolidStrokeRenderCount ?? 0),
+        (diagnostics.render?.centerPathSolidStrokeRenderCount ?? 0),
       `UI pen-created open center solid render did not produce product stroke output\n${JSON.stringify(
         { runtimeSnapshot, productStats, diagnostics, alignmentStats },
         null,
         2
       )}`
     ).toBeGreaterThan(0)
+  })
+
+  test('keeps UI pen-created simple open dashed vector aligned after switching stroke style', async ({
+    page
+  }, testInfo) => {
+    await page.keyboard.press('p')
+    await expect(page.getByTestId('tool-pen')).toHaveAttribute(
+      'data-active',
+      'true'
+    )
+
+    const points = await Promise.all([
+      getCanvasPosition(page, 0.66, 0.68),
+      getCanvasPosition(page, 0.78, 0.58),
+      getCanvasPosition(page, 0.88, 0.72)
+    ])
+
+    for (const point of points) {
+      await page.mouse.click(point.x, point.y)
+      await page.waitForTimeout(80)
+    }
+
+    await page.keyboard.press('Escape')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(250)
+
+    await expect(page.getByTestId('prop-stroke-width-0')).toBeVisible()
+    await page.getByTestId('prop-stroke-width-0').fill('10')
+    await page.getByTestId('prop-stroke-width-0').press('Enter')
+    await page.getByTestId('prop-stroke-style-0').selectOption('dashed')
+    await page.getByTestId('prop-stroke-dash-0').fill('20')
+    await page.getByTestId('prop-stroke-dash-0').press('Enter')
+    await page.getByTestId('prop-stroke-gap-0').fill('20')
+    await page.getByTestId('prop-stroke-gap-0').press('Enter')
+    await page.waitForTimeout(400)
+
+    const selectedIdBeforeReload = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+    })
+    expect(selectedIdBeforeReload).not.toBeNull()
+    const movedBounds = await page.evaluate((selectedId) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      const computed = selectedId
+        ? core?.deps?.sceneTree
+            ?.getElementById?.(selectedId)
+            ?.getAllComputedData?.()
+        : null
+      if (
+        !selectedId ||
+        !elementApis ||
+        typeof computed?.x !== 'number' ||
+        typeof computed?.y !== 'number'
+      ) {
+        throw new Error('Missing selected simple open dashed vector to move')
+      }
+      const nextPosition = {
+        x: computed.x + 180,
+        y: computed.y + 160
+      }
+      elementApis.setElementPositions(
+        {
+          [selectedId]: nextPosition
+        },
+        { undoable: false }
+      )
+      const moved = core?.deps?.sceneTree
+        ?.getElementById?.(selectedId)
+        ?.getAllComputedData?.()
+      return {
+        x: moved?.x,
+        y: moved?.y,
+        width: moved?.width,
+        height: moved?.height
+      }
+    }, selectedIdBeforeReload)
+    expect(movedBounds.x).toBeGreaterThan(0)
+
+    await page.reload()
+    await waitForAppReady(page)
+    await page.evaluate((selectedId) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      core.selectElements?.([selectedId], { undoable: false })
+      core.setSystemProperty?.('pathEditingMode', false)
+      core.setSystemProperty?.('pathEditingVectorId', null)
+      core.setSystemProperty?.('zoom', 1)
+      core.setSystemProperty?.('viewportPosition', { x: 0, y: 0 })
+    }, selectedIdBeforeReload)
+    await page.waitForTimeout(400)
+
+    const productRaster = await captureSelectedElementRaster(page, 48)
+    expect(productRaster).not.toBeNull()
+    if (!productRaster) {
+      return
+    }
+    await testInfo.attach('ui-pen-created-simple-open-dashed-after-reload', {
+      body: Buffer.from(productRaster.base64, 'base64'),
+      contentType: 'image/png'
+    })
+
+    const productStats = await analyzeBrightStrokeRaster(
+      page,
+      productRaster.base64
+    )
+    const diagnostics = await readSelectedVectorDiagnostics(page)
+    const runtimeSnapshot = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      const computed = selectedId
+        ? core?.deps?.sceneTree
+            ?.getElementById?.(selectedId)
+            ?.getAllComputedData?.()
+        : null
+      return {
+        selectedId,
+        pathEditingMode: core?.getSystemProperty?.('pathEditingMode') ?? null,
+        computed: computed
+          ? {
+              x: computed.x,
+              y: computed.y,
+              width: computed.width,
+              height: computed.height,
+              pointCoordinateSpace: computed.pointCoordinateSpace,
+              anchorBounds: Object.values(computed.points ?? {})
+                .filter(
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (point: any) => point?.kind === 'anchor'
+                )
+                .reduce(
+                  (
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    bounds: any,
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    point: any
+                  ) => ({
+                    minX: Math.min(bounds.minX, point.x),
+                    minY: Math.min(bounds.minY, point.y),
+                    maxX: Math.max(bounds.maxX, point.x),
+                    maxY: Math.max(bounds.maxY, point.y)
+                  }),
+                  {
+                    minX: Number.POSITIVE_INFINITY,
+                    minY: Number.POSITIVE_INFINITY,
+                    maxX: Number.NEGATIVE_INFINITY,
+                    maxY: Number.NEGATIVE_INFINITY
+                  }
+                ),
+              strokes: computed.strokes
+            }
+          : null
+      }
+    })
+
+    expect(
+      productStats.strokeCoverage,
+      `UI pen-created simple open dashed vector lost stroke inside selected bounds after reload\n${JSON.stringify(
+        { runtimeSnapshot, diagnostics, productStats, productRaster },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(0.002)
+    expect(runtimeSnapshot.computed?.pointCoordinateSpace).toBe('workspace')
+    expect(runtimeSnapshot.computed?.anchorBounds.minX).toBeGreaterThanOrEqual(
+      (runtimeSnapshot.computed?.x ?? 0) - 1
+    )
+    expect(runtimeSnapshot.computed?.anchorBounds.minY).toBeGreaterThanOrEqual(
+      (runtimeSnapshot.computed?.y ?? 0) - 1
+    )
   })
 
   test('keeps UI pen-dragged first curve segment visible after finishing path editing', async ({
@@ -4567,7 +4744,7 @@ test.describe('Vector render invariants', () => {
     ).toBeGreaterThan(0)
     expect(
       (diagnostics.render?.solidPacketCount ?? 0) +
-        (diagnostics.render?.nativeCenterSolidStrokeRenderCount ?? 0),
+        (diagnostics.render?.centerPathSolidStrokeRenderCount ?? 0),
       `UI pen-dragged first curve render did not produce product stroke output\n${JSON.stringify(
         { runtimeSnapshot, productStats, diagnostics },
         null,
@@ -4577,7 +4754,12 @@ test.describe('Vector render invariants', () => {
     expect(
       selectedPathOverlayStats.sampleCount,
       `UI pen-dragged first curve selected path outline probe did not find vector segments\n${JSON.stringify(
-        { runtimeSnapshot, productStats, diagnostics, selectedPathOverlayStats },
+        {
+          runtimeSnapshot,
+          productStats,
+          diagnostics,
+          selectedPathOverlayStats
+        },
         null,
         2
       )}`
@@ -4585,7 +4767,12 @@ test.describe('Vector render invariants', () => {
     expect(
       selectedPathOverlayStats.coveredSamples,
       `UI pen-dragged first curve selected path outline is missing after finishing path editing\n${JSON.stringify(
-        { runtimeSnapshot, productStats, diagnostics, selectedPathOverlayStats },
+        {
+          runtimeSnapshot,
+          productStats,
+          diagnostics,
+          selectedPathOverlayStats
+        },
         null,
         2
       )}`
@@ -4770,7 +4957,7 @@ test.describe('Vector render invariants', () => {
     expect(diagnostics.render).not.toBeNull()
     expect(
       (diagnostics.render?.solidPacketCount ?? 0) +
-        (diagnostics.render?.nativeCenterSolidStrokeRenderCount ?? 0),
+        (diagnostics.render?.centerPathSolidStrokeRenderCount ?? 0),
       `current pen-created open vector has no center solid product output\n${JSON.stringify(
         { diagnostics, alignmentStats },
         null,
@@ -4952,7 +5139,7 @@ test.describe('Vector render invariants', () => {
     expect(diagnostics.computed?.pointCoordinateSpace).toBe('workspace')
     expect(
       (diagnostics.render?.solidPacketCount ?? 0) +
-        (diagnostics.render?.nativeCenterSolidStrokeRenderCount ?? 0),
+        (diagnostics.render?.centerPathSolidStrokeRenderCount ?? 0),
       `pen-created open vector lost product output after existing cache entries\n${JSON.stringify(
         { diagnostics, alignmentStats },
         null,
@@ -5464,22 +5651,22 @@ test.describe('Vector render invariants', () => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (meta: any) => {
             const terminalMetas = Array.isArray(
-              meta?.figmaLikeSplitRangeTerminals
+              meta?.domainPlanSplitRangeTerminals
             )
-              ? meta.figmaLikeSplitRangeTerminals
+              ? meta.domainPlanSplitRangeTerminals
               : []
             const directMeta =
-              typeof meta?.figmaLikeSplitRangeId === 'string'
+              typeof meta?.domainPlanSplitRangeId === 'string'
                 ? [
                     {
-                      splitRangeId: meta.figmaLikeSplitRangeId,
+                      splitRangeId: meta.domainPlanSplitRangeId,
                       sourceSegmentIndex:
-                        meta.figmaLikeSplitRangeSourceSegmentIndex,
-                      selectedSide: meta.figmaLikeSelectedSide,
-                      boundaryRole: meta.figmaLikeBoundaryRole,
-                      domainMode: meta.figmaLikeDomainMode,
-                      sideResolutionReason: meta.figmaLikeSideResolutionReason,
-                      terminalRole: meta.figmaLikeTerminalRole
+                        meta.domainPlanSplitRangeSourceSegmentIndex,
+                      selectedSide: meta.domainPlanSelectedSide,
+                      boundaryRole: meta.domainPlanBoundaryRole,
+                      domainMode: meta.domainPlanDomainMode,
+                      sideResolutionReason: meta.domainPlanSideResolutionReason,
+                      terminalRole: meta.domainPlanTerminalRole
                     }
                   ]
                 : []
@@ -5526,7 +5713,7 @@ test.describe('Vector render invariants', () => {
           ).length,
           splitRangePacketCount: allMetas.filter(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (meta: any) => meta?.figmaLikeSplitRangeId !== undefined
+            (meta: any) => meta?.domainPlanSplitRangeId !== undefined
           ).length,
           danglingSourceSpanPacketCount: splitRangeMetas.filter((meta) =>
             meta.splitRangeId?.startsWith('dangling-source-span-domain:')
@@ -5566,8 +5753,8 @@ test.describe('Vector render invariants', () => {
               finalCoverageBuilderStatus: meta?.finalCoverageBuilderStatus,
               resolutionStatus: meta?.resolutionStatus,
               runtimeStatus: meta?.runtimeStatus,
-              splitRangeId: meta?.figmaLikeSplitRangeId,
-              sideReason: meta?.figmaLikeSideResolutionReason
+              splitRangeId: meta?.domainPlanSplitRangeId,
+              sideReason: meta?.domainPlanSideResolutionReason
             })),
           centerPacketCount: allMetas.filter(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -5871,21 +6058,21 @@ test.describe('Vector render invariants', () => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (meta: any) => {
             const terminalMetas = Array.isArray(
-              meta?.figmaLikeSplitRangeTerminals
+              meta?.domainPlanSplitRangeTerminals
             )
-              ? meta.figmaLikeSplitRangeTerminals
+              ? meta.domainPlanSplitRangeTerminals
               : []
             const directMeta =
-              typeof meta?.figmaLikeSplitRangeId === 'string'
+              typeof meta?.domainPlanSplitRangeId === 'string'
                 ? [
                     {
-                      splitRangeId: meta.figmaLikeSplitRangeId,
+                      splitRangeId: meta.domainPlanSplitRangeId,
                       sourceSegmentIndex:
-                        meta.figmaLikeSplitRangeSourceSegmentIndex,
-                      selectedSide: meta.figmaLikeSelectedSide,
-                      boundaryRole: meta.figmaLikeBoundaryRole,
-                      domainMode: meta.figmaLikeDomainMode,
-                      sideResolutionReason: meta.figmaLikeSideResolutionReason
+                        meta.domainPlanSplitRangeSourceSegmentIndex,
+                      selectedSide: meta.domainPlanSelectedSide,
+                      boundaryRole: meta.domainPlanBoundaryRole,
+                      domainMode: meta.domainPlanDomainMode,
+                      sideResolutionReason: meta.domainPlanSideResolutionReason
                     }
                   ]
                 : []
@@ -6440,6 +6627,172 @@ test.describe('Vector render invariants', () => {
     ).toBeGreaterThanOrEqual(0.25)
   })
 
+  test('keeps translucent open center solid stroke stable while dragging a point', async ({
+    page
+  }, testInfo) => {
+    const topology = createOpenSelfIntersectingPentagramTopology()
+
+    await page.evaluate((data) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!core || !elementApis) {
+        throw new Error('Missing E2E core or element APIs')
+      }
+
+      const createdId = elementApis.createElement(
+        {
+          type: 'vector',
+          x: data.x,
+          y: data.y,
+          width: data.width,
+          height: data.height,
+          points: data.points,
+          segments: data.segments,
+          networks: data.networks,
+          closed: false,
+          pointCoordinateSpace: 'workspace',
+          fills: []
+        },
+        { undoable: false }
+      )
+      if (!createdId) {
+        throw new Error('Failed to create open center solid vector')
+      }
+
+      elementApis.changeComputedData(
+        [createdId],
+        {
+          fills: [],
+          strokes: [
+            {
+              id: 'open-center-solid-alpha-stroke',
+              kind: 'solid',
+              style: 'solid',
+              position: 'center',
+              width: 10,
+              dashPattern: [],
+              dashOffset: 0,
+              fill: {
+                id: 'open-center-solid-alpha-stroke',
+                type: 'fill',
+                kind: 'solid',
+                defaultColorFormat: 'hex',
+                colorFormat: 'hex',
+                color: '#df0606',
+                opacity: 0.5,
+                visible: true,
+                gradient: null
+              },
+              defaultColorFormat: 'hex',
+              colorFormat: 'hex',
+              color: '#df0606',
+              opacity: 0.5,
+              visible: true,
+              gradient: null,
+              joinType: 'round',
+              capType: 'round',
+              miterAngle: 28.96
+            }
+          ]
+        },
+        { undoable: false }
+      )
+      core.selectElements?.([createdId], { undoable: false })
+      core.setSystemProperty?.('pathEditingVectorId', createdId)
+      core.setSystemProperty?.('pathEditingMode', true)
+      core.setSystemProperty?.('zoom', 0.9)
+      core.setSystemProperty?.('viewportPosition', { x: 230, y: 155 })
+    }, topology)
+
+    await page.waitForTimeout(350)
+
+    const start = await workspaceToClient(page, {
+      x: 672.1796903067977,
+      y: -25.577192537243718
+    })
+    const mid = await workspaceToClient(page, { x: 618, y: 76 })
+    const end = await workspaceToClient(page, { x: 590, y: 118 })
+
+    await page.mouse.move(start.x, start.y)
+    await page.mouse.down()
+    await page.mouse.move(mid.x, mid.y, { steps: 8 })
+    await page.waitForTimeout(80)
+
+    const duringRaster = await captureSelectedVectorFullRaster(page, 96)
+    await page.screenshot({
+      path: testInfo.outputPath('open-center-solid-alpha-during-page.png'),
+      fullPage: true
+    })
+    await testInfo.attach('open-center-solid-alpha-during-drag.png', {
+      body: Buffer.from(duringRaster.base64, 'base64'),
+      contentType: 'image/png'
+    })
+    const duringStats = await analyzeRedStrokeRaster(page, duringRaster.base64)
+    const duringDiagnostics = await readSelectedVectorDiagnostics(page)
+    const duringStrokeCacheKinds =
+      duringDiagnostics.render.strokeRenderCacheKinds ?? []
+    expect(
+      duringDiagnostics.render.centerSolidPathMaskRenderCount,
+      `translucent open center solid drag must use path-mask product\n${JSON.stringify(
+        { duringStats, duringDiagnostics },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(0)
+    expect(duringDiagnostics.render.centerPathSolidStrokeRenderCount).toBe(0)
+    expect(duringStrokeCacheKinds).not.toContain('solid')
+    expect(duringDiagnostics.computed?.fills).toEqual([])
+    expect(
+      duringStats.strokeCoverage,
+      `translucent open center solid stroke disappeared during drag\n${JSON.stringify(
+        { duringStats, duringDiagnostics },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(0.01)
+    expect(
+      duringStats.strokeCoverage,
+      `translucent open center solid stroke rendered as a filled area during drag\n${JSON.stringify(
+        { duringStats, duringDiagnostics },
+        null,
+        2
+      )}`
+    ).toBeLessThan(0.22)
+
+    await page.mouse.move(end.x, end.y, { steps: 8 })
+    await page.mouse.up()
+    await page.waitForTimeout(350)
+
+    const afterRaster = await captureSelectedVectorFullRaster(page, 96)
+    await page.screenshot({
+      path: testInfo.outputPath('open-center-solid-alpha-after-page.png'),
+      fullPage: true
+    })
+    await testInfo.attach('open-center-solid-alpha-after-drag.png', {
+      body: Buffer.from(afterRaster.base64, 'base64'),
+      contentType: 'image/png'
+    })
+    const afterStats = await analyzeRedStrokeRaster(page, afterRaster.base64)
+    const afterDiagnostics = await readSelectedVectorDiagnostics(page)
+    const afterStrokeCacheKinds =
+      afterDiagnostics.render.strokeRenderCacheKinds ?? []
+    expect(
+      afterStrokeCacheKinds,
+      `translucent open center solid after drag must keep an exact masked product route\n${JSON.stringify(
+        { afterStats, afterDiagnostics },
+        null,
+        2
+      )}`
+    ).toContain('masked-solid')
+    expect(afterDiagnostics.render.centerPathSolidStrokeRenderCount).toBe(0)
+    expect(afterStrokeCacheKinds).not.toContain('solid')
+    expect(afterDiagnostics.computed?.fills).toEqual([])
+    expect(afterStats.strokeCoverage).toBeGreaterThan(0.01)
+    expect(afterStats.strokeCoverage).toBeLessThan(0.22)
+  })
+
   test('keeps scene-tree, render graphic, and path-editing overlay aligned after pen-created star', async ({
     page
   }) => {
@@ -6487,152 +6840,6 @@ test.describe('Vector render invariants', () => {
     const dragEnd = await workspaceToClient(page, {
       x: starPoints[0].x + 36,
       y: starPoints[0].y + 24
-    })
-    await page.mouse.move(dragStart.x, dragStart.y)
-    await page.mouse.down()
-    await page.mouse.move(dragEnd.x, dragEnd.y, { steps: 12 })
-    await page.mouse.up()
-    await page.waitForTimeout(350)
-
-    const dragged = await vectorInvariantProbe(page)
-    expect(dragged.computed.pointCoordinateSpace).toBe('workspace')
-    expect(dragged.computed.x).toBeCloseTo(dragged.geometryBounds.x, 4)
-    expect(dragged.computed.y).toBeCloseTo(dragged.geometryBounds.y, 4)
-    expect(dragged.computed.width).toBeCloseTo(dragged.geometryBounds.width, 4)
-    expect(dragged.computed.height).toBeCloseTo(
-      dragged.geometryBounds.height,
-      4
-    )
-    expect(dragged.overlayBounds).toEqual(dragged.anchorBounds)
-    expect(dragged.render.exists).toBe(true)
-    expect(dragged.render.visible).toBe(true)
-    expect(dragged.render.x).toBeCloseTo(dragged.computed.x, 4)
-    expect(dragged.render.y).toBeCloseTo(dragged.computed.y, 4)
-    expect(dragged.render.vectorGeometryModelCount).toBeGreaterThan(0)
-    expect(dragged.render.vectorTopologyModelCount).toBeGreaterThan(0)
-    await expectVisibleRedStroke(page)
-  })
-
-  test('migrates legacy local vector data during first point drag without render or overlay drift', async ({
-    page
-  }) => {
-    await page.evaluate(
-      async ({ topology, legacyData }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const core = (window as any).__Core__
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const elementApis = (window as any).__AsyraE2E__?.elementApis
-        if (!core || !elementApis) {
-          throw new Error('Missing E2E core or element APIs')
-        }
-
-        const createdId = elementApis.createElement(
-          {
-            type: 'vector',
-            points: topology.points,
-            segments: topology.segments,
-            networks: topology.networks,
-            closed: true
-          },
-          { undoable: false }
-        )
-        if (!createdId) {
-          throw new Error('Failed to create vector before legacy load fixture')
-        }
-        elementApis.changeComputedData(
-          [createdId],
-          {
-            strokes: [
-              {
-                id: 'legacy-vector-invariant-stroke',
-                kind: 'solid',
-                style: 'solid',
-                position: 'center',
-                width: 12,
-                dashPattern: [],
-                dashOffset: 0,
-                fill: null,
-                defaultColorFormat: 'hex',
-                colorFormat: 'hex',
-                color: '#df0606',
-                opacity: 0.75,
-                visible: true,
-                gradient: null,
-                joinType: 'miter',
-                capType: 'butt',
-                miterAngle: 28.96
-              }
-            ]
-          },
-          { undoable: false }
-        )
-
-        const saved = await core.save()
-        const elementRaw = saved.sceneTree.elements?.[createdId]
-        const props = elementRaw?.props ?? {}
-        const savedProps = saved.props ?? {}
-        const positionProp = props.position ? savedProps[props.position] : null
-        const dimensionProp = props.dimension
-          ? savedProps[props.dimension]
-          : null
-        const pointsProp = props.points ? savedProps[props.points] : null
-        const pointCoordinateSpaceProp = props.pointCoordinateSpace
-          ? savedProps[props.pointCoordinateSpace]
-          : null
-
-        if (!positionProp || !dimensionProp || !pointsProp) {
-          throw new Error('Missing vector persisted property components')
-        }
-
-        positionProp.x = legacyData.x
-        positionProp.y = legacyData.y
-        dimensionProp.width = legacyData.width
-        dimensionProp.height = legacyData.height
-        Object.entries(legacyData.points).forEach(([pointId, localPoint]) => {
-          const pointComponent = savedProps[pointId]
-          if (!pointComponent) {
-            throw new Error(`Missing point property component ${pointId}`)
-          }
-          pointComponent.x = localPoint.x
-          pointComponent.y = localPoint.y
-        })
-        if (pointCoordinateSpaceProp) {
-          delete pointCoordinateSpaceProp.pointCoordinateSpace
-        }
-        core.load({
-          ...saved
-        })
-        core.selectElements?.([createdId], { undoable: false })
-        core.setSystemProperty?.('pathEditingVectorId', createdId)
-        core.setSystemProperty?.('pathEditingMode', true)
-      },
-      {
-        topology: createStarTopology(),
-        legacyData: createLegacyLocalStarData()
-      }
-    )
-
-    await page.waitForTimeout(350)
-
-    const created = await vectorInvariantProbe(page)
-    expect(created.computed.pointCoordinateSpace).not.toBe('workspace')
-    expect(created.computed.x).toBeCloseTo(created.overlayBounds.x, 4)
-    expect(created.computed.y).toBeCloseTo(created.overlayBounds.y, 4)
-    expect(created.render.exists).toBe(true)
-    expect(created.render.visible).toBe(true)
-    expect(created.render.x).toBeCloseTo(created.computed.x, 4)
-    expect(created.render.y).toBeCloseTo(created.computed.y, 4)
-    expect(created.render.vectorGeometryModelCount).toBeGreaterThan(0)
-    await expectVisibleRedStroke(page)
-
-    await page.keyboard.press('v')
-    await page.waitForTimeout(100)
-
-    const firstPoint = getStarWorkspacePoints()[0]
-    const dragStart = await workspaceToClient(page, firstPoint)
-    const dragEnd = await workspaceToClient(page, {
-      x: firstPoint.x + 36,
-      y: firstPoint.y + 24
     })
     await page.mouse.move(dragStart.x, dragStart.y)
     await page.mouse.down()

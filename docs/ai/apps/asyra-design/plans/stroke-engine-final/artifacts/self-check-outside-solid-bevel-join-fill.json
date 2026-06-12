@@ -15,7 +15,6 @@
   "computedStrokes": [
     {
       "id": "self-check-outside-solid-round-bevel",
-      "kind": "solid",
       "style": "solid",
       "position": "outside",
       "width": 10,
@@ -24,13 +23,17 @@
         20
       ],
       "dashOffset": 0,
-      "fill": null,
-      "defaultColorFormat": "hex",
-      "colorFormat": "hex",
-      "color": "#df0606",
-      "opacity": 0.5,
-      "visible": true,
-      "gradient": null,
+      "fill": {
+        "id": "self-check-outside-solid-round-bevel",
+        "type": "fill",
+        "kind": "solid",
+        "defaultColorFormat": "hex",
+        "colorFormat": "hex",
+        "color": "#df0606",
+        "opacity": 0.5,
+        "visible": true,
+        "gradient": null
+      },
       "joinType": "bevel",
       "capType": "round",
       "miterAngle": 28.96

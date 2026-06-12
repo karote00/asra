@@ -48,7 +48,7 @@ export const initApp = (): void => {
   initLoadDiagnostics()
 
   // Derived-state syncs.
-  // Keep legacy selectedVectorPoint mirrored from SelectionManager-driven UI state.
+  // Keep selectedVectorPoint mirrored from SelectionManager-driven UI state.
   initSelectionCompatibility()
   initPathEditingContinuation()
 

@@ -290,7 +290,7 @@ describe('clipper2 geometry backend adapter', () => {
           strokeIndex: 0,
           intervalId: 'interval:0',
           geometryFamily: 'constrained-dashed',
-          resolutionStatus: 'local-side-approximation',
+          resolutionStatus: 'domain-plan-selected-side',
           runtimeStatus: 'accepted',
           sourceTopology: 'self-intersecting',
           strokePosition: 'inside'

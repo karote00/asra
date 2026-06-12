@@ -809,7 +809,7 @@ export const renderSolidCenterStrokeEntries = (
       const descriptorSignature = shouldUseMaskedSolid
         ? getMaskedSolidDescriptorSignature(entry, polygons)
         : null
-      emitStrokePipelineCounter('stroke-render-coordinate-signature-fallback')
+      emitStrokePipelineCounter('stroke-render-coordinate-signature-rebuilt')
       return descriptorSignature ?? getSignature(polygons)
     }
     const signature = getGeometrySignature()

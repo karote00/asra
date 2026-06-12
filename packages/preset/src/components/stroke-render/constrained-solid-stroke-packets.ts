@@ -1,10 +1,7 @@
 import type { StrokeAttrs } from '@asyra/utils'
 import type { GeometryBackend, PolygonRegion } from './geometry-backend'
 import { getRenderableStrokes } from './renderable-stroke'
-import {
-  buildSolidCenterStrokeResolvedPackets,
-  type SolidCenterStrokeResolvedPacket
-} from './solid-center-stroke-packets'
+import type { SolidCenterStrokeResolvedPacket } from './solid-center-stroke-packets'
 import type { StrokeGeometrySourceTopology } from './solid-center-stroke-packets'
 import { buildSolidCenterStrokePolygons } from './solid-center-stroke-geometry'
 import { buildStrokeRuntimeRevisionSet } from './stroke-dirty-keys'
@@ -20,8 +17,6 @@ import {
   type PathGeometry,
   type PathSegment
 } from './path-geometry'
-import { buildClosedConstrainedStrokePolygonEntriesForSource } from './constrained-solid-stroke-geometry'
-import { resolveOneSidedCandidateFlow } from './stroke-candidate-flow'
 import { resolveSourceFamily } from './resolved-source-family'
 import { resolveStrokeDomains } from './stroke-domain-plan'
 import { shouldEmitFullStrokeDiagnostics } from './stroke-diagnostics-mode'
@@ -97,7 +92,7 @@ interface ConstrainedSolidStrokePacketOptions {
     'capabilities' | 'union' | 'difference' | 'intersection' | 'offset'
   >
   fillRule?: PathTopologyFillRule
-  candidateMode?: 'exact-arrangement' | 'direct-local-side-exact'
+  candidateMode?: 'exact-arrangement'
   preferRenderMaskProductFinal?: boolean
 }
 
@@ -690,14 +685,14 @@ const chooseSourceSegmentSideOffsetDistance = (
     'position' | 'width'
   >,
   range: SourceSegmentRange,
-  fallbackOffsetDistance: number
+  defaultOffsetDistance: number
 ) => {
   if (
     topologyPoints.length < 3 ||
     sourcePath.closed !== true ||
     (stroke.position !== 'inside' && stroke.position !== 'outside')
   ) {
-    return fallbackOffsetDistance
+    return defaultOffsetDistance
   }
 
   const probeDistances = [
@@ -751,7 +746,7 @@ const chooseSourceSegmentSideOffsetDistance = (
   }
 
   if (leftVotes === rightVotes) {
-    return fallbackOffsetDistance
+    return defaultOffsetDistance
   }
 
   const fillDomainSideOffsetDistance =
@@ -768,7 +763,7 @@ const buildSelfIntersectingAuthoredSourceSpanOffsetDistances = (
     'position' | 'width'
   >,
   fillRule: PathTopologyFillRule,
-  fallbackOffsetDistance: number
+  defaultOffsetDistance: number
 ): number[] | null => {
   if (
     sourcePath.closed !== true ||
@@ -791,9 +786,9 @@ const buildSelfIntersectingAuthoredSourceSpanOffsetDistances = (
           fillRule,
           stroke,
           range,
-          fallbackOffsetDistance
+          defaultOffsetDistance
         )
-      : fallbackOffsetDistance
+      : defaultOffsetDistance
   })
 }
 
@@ -806,7 +801,7 @@ const buildOneSidedOffsetDistanceBySourceSegment = (
   >,
   fillRule: PathTopologyFillRule
 ) => {
-  const fallbackOffsetDistance = getClosedContourSideOffsetDistance(
+  const defaultOffsetDistance = getClosedContourSideOffsetDistance(
     topologyPoints,
     stroke
   )
@@ -817,7 +812,7 @@ const buildOneSidedOffsetDistanceBySourceSegment = (
       topologyPoints,
       stroke,
       fillRule,
-      fallbackOffsetDistance
+      defaultOffsetDistance
     )
   if (selfIntersectingAuthoredOffsets) {
     return selfIntersectingAuthoredOffsets
@@ -834,9 +829,9 @@ const buildOneSidedOffsetDistanceBySourceSegment = (
           fillRule,
           stroke,
           range,
-          fallbackOffsetDistance
+          defaultOffsetDistance
         )
-      : fallbackOffsetDistance
+      : defaultOffsetDistance
   })
 }
 
@@ -1801,18 +1796,18 @@ const buildSourcePathSegmentCandidatePolygonsForRange = (
       chunkBodyPolygons.length > 0 &&
       !bodyPolygonsCoverSourceSegment(bodyPolygons, rawSegmentPoints)
     ) {
-      const fallbackCells = buildCellBodyCells().filter(
+      const supplementalCells = buildCellBodyCells().filter(
         (cell) =>
           !polygonListContainsPointIncludingBoundary(
             bodyPolygons,
             cell.sourceReferencePoint
           )
       )
-      const compactedFallbackPolygons =
-        buildCompactedOneSidedSegmentBodyCellPolygons(fallbackCells)
+      const compactedSupplementalPolygons =
+        buildCompactedOneSidedSegmentBodyCellPolygons(supplementalCells)
       const compactedBodyPolygons = [
         ...bodyPolygons,
-        ...clipBodyPolygons(compactedFallbackPolygons)
+        ...clipBodyPolygons(compactedSupplementalPolygons)
       ]
 
       bodyPolygons = bodyPolygonsCoverSourceSegment(
@@ -1822,7 +1817,7 @@ const buildSourcePathSegmentCandidatePolygonsForRange = (
         ? compactedBodyPolygons
         : [
             ...bodyPolygons,
-            ...clipBodyPolygons(fallbackCells.map((cell) => cell.polygon))
+            ...clipBodyPolygons(supplementalCells.map((cell) => cell.polygon))
           ]
     }
     if (bodyPolygons.length === 0) {
@@ -3103,11 +3098,11 @@ const buildFaceOwnedInsideMaskPolygons = (
     face: EvenOddLegalFaceBoundary,
     previousEdgeIndex: number,
     direction: 'previous' | 'next',
-    fallbackDirection: Vec2
+    defaultDirection: Vec2
   ) => {
     const edgeCount = face.edges.length
     if (edgeCount === 0) {
-      return normalizeVector(fallbackDirection)
+      return normalizeVector(defaultDirection)
     }
 
     const nextEdgeIndex = (previousEdgeIndex + 1) % edgeCount
@@ -3115,7 +3110,7 @@ const buildFaceOwnedInsideMaskPolygons = (
       direction === 'previous' ? previousEdgeIndex : nextEdgeIndex
     const baseEdge = face.edges[baseIndex]
     if (!baseEdge) {
-      return normalizeVector(fallbackDirection)
+      return normalizeVector(defaultDirection)
     }
 
     const anchor = direction === 'previous' ? baseEdge.end : baseEdge.start
@@ -3160,7 +3155,7 @@ const buildFaceOwnedInsideMaskPolygons = (
       y:
         direction === 'previous' ? anchor.y - farPoint.y : farPoint.y - anchor.y
     })
-    return stableDirection ?? normalizeVector(fallbackDirection)
+    return stableDirection ?? normalizeVector(defaultDirection)
   }
 
   const getHighDegreeVertexKey = (point: Vec2) =>
@@ -3754,7 +3749,7 @@ const buildFaceOwnedInsideMaskPolygons = (
     }
 
     const buildMiterCornerPolygon = () => {
-      const buildMiterFallbackCornerPolygon = () =>
+      const buildMiterBaseCornerPolygon = () =>
         buildCornerEnvelope([nextOffsetPoint]) ?? buildBevelCornerPolygon()
       const previousLineEnd = addPoint(previousOffsetPoint, previousDirection)
       const nextLineEnd = addPoint(nextOffsetPoint, nextDirection)
@@ -3769,17 +3764,17 @@ const buildFaceOwnedInsideMaskPolygons = (
         distanceBetween(vertex, miterPoint) >
           stroke.miterLimit * strokeWidth + EPSILON
       ) {
-        return buildMiterFallbackCornerPolygon()
+        return buildMiterBaseCornerPolygon()
       }
 
       return (
         buildCornerEnvelope([nextOffsetPoint, miterPoint]) ??
-        buildMiterFallbackCornerPolygon()
+        buildMiterBaseCornerPolygon()
       )
     }
 
     const buildMiterRenderClipPolygon = () => {
-      const fallback = buildMiterCornerPolygon()
+      const baseCornerPolygon = buildMiterCornerPolygon()
       const previousLineEnd = addPoint(previousOffsetPoint, previousDirection)
       const nextLineEnd = addPoint(nextOffsetPoint, nextDirection)
       const miterPoint = lineIntersection(
@@ -3793,7 +3788,7 @@ const buildFaceOwnedInsideMaskPolygons = (
         distanceBetween(vertex, miterPoint) >
           stroke.miterLimit * strokeWidth + EPSILON
       ) {
-        return fallback
+        return baseCornerPolygon
       }
 
       const miterDistance = distanceBetween(vertex, miterPoint)
@@ -3811,7 +3806,8 @@ const buildFaceOwnedInsideMaskPolygons = (
           : miterPoint
 
       return (
-        buildCornerEnvelope([nextOffsetPoint, miterEnvelopePoint]) ?? fallback
+        buildCornerEnvelope([nextOffsetPoint, miterEnvelopePoint]) ??
+        baseCornerPolygon
       )
     }
 
@@ -4907,22 +4903,22 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
               startDistance: 0,
               endDistance: sourcePath.totalLength,
               wrapsSeam: true,
-              figmaLikeBoundaryPoints: shouldAttachFullDiagnostics
+              domainPlanBoundaryPoints: shouldAttachFullDiagnostics
                 ? (evidenceDomain.boundaryPoints ?? []).map((point) => ({
                     ...point
                   }))
                 : undefined,
-              figmaLikeBoundaryStartDistance:
+              domainPlanBoundaryStartDistance:
                 evidenceDomain.boundaryStartDistance,
-              figmaLikeBoundaryEndDistance: evidenceDomain.boundaryEndDistance,
-              figmaLikeBoundaryTotalLength: evidenceDomain.boundaryTotalLength,
-              figmaLikeSideAuthority: 'implicit-fill-hole-domain',
-              figmaLikeSelectedSide: evidenceDomain.selectedSide,
-              figmaLikeFilledSide: evidenceDomain.filledSide,
-              figmaLikeUnfilledSide: evidenceDomain.unfilledSide,
-              figmaLikeBoundaryRole:
+              domainPlanBoundaryEndDistance: evidenceDomain.boundaryEndDistance,
+              domainPlanBoundaryTotalLength: evidenceDomain.boundaryTotalLength,
+              domainPlanSideAuthority: 'implicit-fill-hole-domain',
+              domainPlanSelectedSide: evidenceDomain.selectedSide,
+              domainPlanFilledSide: evidenceDomain.filledSide,
+              domainPlanUnfilledSide: evidenceDomain.unfilledSide,
+              domainPlanBoundaryRole:
                 stroke.position === 'inside' ? 'filled-face' : 'outer',
-              figmaLikeSideResolutionStatus:
+              domainPlanSideResolutionStatus:
                 evidenceDomain.sideResolutionStatus,
               geometryFamily: 'constrained-solid',
               resolutionStatus: 'exact-constrained',
@@ -4975,33 +4971,6 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
   )
 }
 
-const supportsDirectLocalSideExactTopology = (topology: PathTopologyModel) =>
-  topology.topologyFamily === 'rectangle-equivalent' ||
-  topology.topologyFamily === 'sampled-simple-closed'
-
-const getDirectLocalSideSourceSpanIds = (
-  entry: ReturnType<
-    typeof buildClosedConstrainedStrokePolygonEntriesForSource
-  >[number]
-) => {
-  if (entry.role === 'segment') {
-    return [`segment:${entry.sourceSegmentIndex ?? entry.index}`]
-  }
-
-  const vertexIndex = entry.sourceVertexIndex ?? entry.index
-  const spanIds = [`vertex:${vertexIndex}`]
-  const previousSegmentIndex = entry.sourcePreviousSegmentIndex
-  const nextSegmentIndex = entry.sourceNextSegmentIndex
-  if (previousSegmentIndex !== undefined) {
-    spanIds.push(`segment:${previousSegmentIndex}`)
-  }
-  if (nextSegmentIndex !== undefined) {
-    spanIds.push(`segment:${nextSegmentIndex}`)
-  }
-
-  return spanIds
-}
-
 export const hasConstrainedSolidStrokeIntent = (
   strokes: StrokeAttrs[] | undefined
 ) =>
@@ -5035,41 +5004,7 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
   const sourceTopology = mapTopologyFamilyToSourceTopology(topology)
 
   if (!topology.closed) {
-    const centerEquivalentStrokes = strokes?.map((stroke) => {
-      const candidateFlow = resolveOneSidedCandidateFlow({
-        closed: topology.closed,
-        topologyFamily: topology.topologyFamily,
-        stroke
-      })
-      if (
-        stroke.fill?.visible !== false &&
-        stroke.style === 'solid' &&
-        candidateFlow.mode === 'center-equivalent'
-      ) {
-        return {
-          ...stroke,
-          position: 'center' as const
-        }
-      }
-
-      return stroke
-    })
-
-    return buildSolidCenterStrokeResolvedPackets(
-      cachePrefix,
-      topologyPoints,
-      false,
-      centerEquivalentStrokes,
-      options.metadata
-        ? {
-            metadata: {
-              ownerKeyPrefix: options.metadata.ownerKeyPrefix,
-              networkId: options.metadata.networkId
-            },
-            topology
-          }
-        : { topology }
-    )
+    return []
   }
 
   return getRenderableStrokes(strokes).flatMap((stroke, index) => {
@@ -5094,82 +5029,6 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
     }
     if (topology.topologyFamily === 'self-intersecting') {
       return []
-    }
-
-    const candidateMode = options.candidateMode ?? 'exact-arrangement'
-    if (candidateMode === 'direct-local-side-exact') {
-      if (!supportsDirectLocalSideExactTopology(topology)) {
-        return []
-      }
-
-      const directLocalSideEntries =
-        buildClosedConstrainedStrokePolygonEntriesForSource(
-          topologyPoints,
-          stroke
-        )
-
-      return directLocalSideEntries.map((entry, entryIndex) => {
-        const geometryId = `${cachePrefix}:${index}:direct:${entry.role}:${entry.index}:${entryIndex}`
-        const ownerKey = options.metadata?.ownerKeyPrefix
-          ? `${options.metadata.ownerKeyPrefix}:stroke:${index}`
-          : undefined
-
-        return {
-          geometry: {
-            geometryId,
-            polygons: [entry.polygon],
-            bounds: getBounds([entry.polygon]),
-            debugMeta: {
-              sourcePathId: cachePrefix,
-              ownerKey,
-              networkId: options.metadata?.networkId,
-              strokeId: `stroke:${index}`,
-              strokeIndex: index,
-              contourId,
-              legalDomainId,
-              strokePosition: stroke.position,
-              geometryFamily: 'constrained-solid' as const,
-              resolutionStatus: 'exact-constrained' as const,
-              runtimeStatus: 'accepted' as const,
-              runtimeReason: 'constrained-solid-exact' as const,
-              visualOverlapCollapseStatus: 'exact-union' as const,
-              sourceTopology,
-              topologyFamily: topology.topologyFamily,
-              strokeWidth: stroke.width,
-              strokeJoin: stroke.join,
-              strokeCap: stroke.cap,
-              strokeMiterLimit: stroke.miterLimit,
-              sourceSpanIds: getDirectLocalSideSourceSpanIds(entry),
-              authoredVisibleIntervalIndex:
-                entry.sourceSegmentIndex ??
-                entry.sourceVertexIndex ??
-                entry.index,
-              revisionSet: buildStrokeRuntimeRevisionSet({
-                points: topologyPoints,
-                closed: topology.closed,
-                stroke,
-                geometryFamily: 'constrained-solid',
-                resolutionStatus: 'exact-constrained',
-                runtimeStatus: 'accepted',
-                runtimeReason: 'constrained-solid-exact',
-                ownerKey,
-                networkId: options.metadata?.networkId,
-                strokeId: `stroke:${index}`,
-                sourceTopology: topology.topologyFamily,
-                previewMode: 'exact'
-              })
-            }
-          },
-          paint: {
-            geometryId,
-            kind: stroke.kind,
-            color: stroke.color,
-            alpha: stroke.alpha,
-            gradientStyle: stroke.gradientStyle,
-            paintKey: stroke.paintKey
-          }
-        }
-      })
     }
 
     const exactArrangementCandidatePolygons =

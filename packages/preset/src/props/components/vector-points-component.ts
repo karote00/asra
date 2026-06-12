@@ -9,8 +9,8 @@ import { defineChildrenMapPropertyComponent } from './children-map-property-comp
 
 type VectorPointKind = VectorPointNode['kind']
 
-const toNumber = (value: unknown, fallback = 0) =>
-  typeof value === 'number' ? value : fallback
+const toNumber = (value: unknown, defaultValue = 0) =>
+  typeof value === 'number' ? value : defaultValue
 
 const toAnchorType = (value: unknown): 'smooth' | 'sharp' =>
   value === 'smooth' ? 'smooth' : 'sharp'

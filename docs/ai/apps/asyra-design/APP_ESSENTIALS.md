@@ -41,7 +41,7 @@ App code should:
 ## Framework Extension Contract
 
 Asyra Design follows the framework extensible runtime guarantees in `docs/ai/framework/design-principles/extensible-runtime-guarantees.md`.
-Asyra Design also follows the framework pre-release legacy removal rule in `docs/ai/framework/rules/pre-release-legacy-removal.md`: app-specific unreleased flows must be upgraded or deleted, not kept as product fallbacks.
+Asyra Design also follows the framework pre-release legacy removal rule in `docs/ai/framework/rules/pre-release-legacy-removal.md`: app-specific unreleased flows must be upgraded or deleted, not kept as alternate product branches.
 
 App features should prove their own behavior through `src/common-apis/*` and core facade APIs without depending on unrelated framework or preset internals.
 

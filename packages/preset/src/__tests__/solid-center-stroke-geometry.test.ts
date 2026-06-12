@@ -191,7 +191,7 @@ describe('solid center stroke geometry', () => {
     ).toBe(true)
   })
 
-  it('should not run: reject unsupported stroke modes from the solid-center slice', () => {
+  it('should not run: reject non-product stroke modes from the solid-center slice', () => {
     expect(
       supportsSolidCenterStroke(
         createStroke({

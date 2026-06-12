@@ -10,24 +10,24 @@ export interface DashedCenterStrokeIntervalRecord {
   wrapsSeam: boolean
   previousVisibleIntervalId: string | null
   nextVisibleIntervalId: string | null
-  figmaLikeBoundaryDomainId?: string
-  figmaLikeBoundaryPoints?: { x: number; y: number }[]
-  figmaLikeBoundaryStartDistance?: number
-  figmaLikeBoundaryEndDistance?: number
-  figmaLikeBoundaryTotalLength?: number
-  figmaLikeSplitRangeId?: string
-  figmaLikeSplitRangeStartDistance?: number
-  figmaLikeSplitRangeEndDistance?: number
-  figmaLikeTerminalRole?: 'start' | 'end' | 'start-end' | 'middle'
-  figmaLikeSplitRangeSourceSegmentIndex?: number
-  figmaLikeSideAuthority?: 'implicit-fill-hole-domain'
-  figmaLikeSelectedSide?: 1 | -1
-  figmaLikeFilledSide?: 1 | -1
-  figmaLikeUnfilledSide?: 1 | -1
-  figmaLikeBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
-  figmaLikeDomainMode?: string
-  figmaLikeSideResolutionStatus?: 'resolved' | 'blocked'
-  figmaLikeSideResolutionReason?: string
+  domainPlanBoundaryDomainId?: string
+  domainPlanBoundaryPoints?: { x: number; y: number }[]
+  domainPlanBoundaryStartDistance?: number
+  domainPlanBoundaryEndDistance?: number
+  domainPlanBoundaryTotalLength?: number
+  domainPlanSplitRangeId?: string
+  domainPlanSplitRangeStartDistance?: number
+  domainPlanSplitRangeEndDistance?: number
+  domainPlanTerminalRole?: 'start' | 'end' | 'start-end' | 'middle'
+  domainPlanSplitRangeSourceSegmentIndex?: number
+  domainPlanSideAuthority?: 'implicit-fill-hole-domain'
+  domainPlanSelectedSide?: 1 | -1
+  domainPlanFilledSide?: 1 | -1
+  domainPlanUnfilledSide?: 1 | -1
+  domainPlanBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
+  domainPlanDomainMode?: string
+  domainPlanSideResolutionStatus?: 'resolved' | 'blocked'
+  domainPlanSideResolutionReason?: string
   openPathTerminalRole?: 'path-start' | 'path-end' | 'start-end' | 'middle'
 }
 
@@ -42,12 +42,12 @@ export interface StrokeIntervalDomainPlanInput {
   intervalDomainKind:
     | 'topology-arc-length'
     | 'source-path'
-    | 'figma-like-split-range'
+    | 'domain-plan-split-range'
     | 'legal-boundary-span'
     | 'none'
   totalLength: number
   closed: boolean
-  splitRangeDomains: FigmaLikeSplitRangeDashDomain[]
+  splitRangeDomains: DomainPlanSplitRangeDashDomain[]
   legalBoundaryDomains: {
     domainId: string
     totalLength: number
@@ -61,13 +61,13 @@ export interface StrokeIntervalAllocation {
   intervals: DashedCenterStrokeIntervalRecord[]
 }
 
-export interface FigmaLikeSplitRangeVisualGapOptions {
+export interface DomainPlanSplitRangeVisualGapOptions {
   capExtension: number
   minimumGapRatio?: number
   tolerance?: number
 }
 
-export interface FigmaLikeSplitRangeDashDomain {
+export interface DomainPlanSplitRangeDashDomain {
   domainId: string
   domainMode?: string
   boundaryDomainId?: string
@@ -109,14 +109,14 @@ const OPEN_PATH_MIN_VISUAL_GAP_RATIO_TEST_OVERRIDE =
   '__ASYRA_STROKE_OPEN_PATH_MIN_VISUAL_GAP_RATIO__'
 
 export interface DashedCenterStrokeIntervalAllocationOptions {
-  openPathPolicy?: 'legacy-pattern' | 'network-balanced-terminals'
+  openPathPolicy?: 'network-balanced-terminals'
   strokeWidth?: number
   cap?: 'butt' | 'round' | 'square' | 'none'
   minimumVisualGapRatio?: number
 }
 
-const getFigmaLikeSplitRangeMinimumVisualGapRatio = (
-  options?: FigmaLikeSplitRangeVisualGapOptions
+const getDomainPlanSplitRangeMinimumVisualGapRatio = (
+  options?: DomainPlanSplitRangeVisualGapOptions
 ) => {
   if (
     typeof options?.minimumGapRatio === 'number' &&
@@ -556,7 +556,7 @@ export const allocateDashedCenterStrokeIntervals = (
   return withVisibleIntervalLinks(mergedIntervals)
 }
 
-const getBestFigmaLikeSplitRangeDashUnitCount = (
+const getBestDomainPlanSplitRangeDashUnitCount = (
   rangeLength: number,
   dashLength: number,
   referenceGapLength: number,
@@ -595,7 +595,7 @@ const getBestFigmaLikeSplitRangeDashUnitCount = (
   )
 }
 
-const getFigmaLikeSplitRangeGapLength = (
+const getDomainPlanSplitRangeGapLength = (
   rangeLength: number,
   dashLength: number,
   dashUnitCount: number
@@ -607,8 +607,8 @@ const getFigmaLikeSplitRangeGapLength = (
   return (rangeLength - dashUnitCount * dashLength) / dashUnitCount
 }
 
-const getFigmaLikeSplitRangeReferenceGapLength = (
-  domains: FigmaLikeSplitRangeDashDomain[],
+const getDomainPlanSplitRangeReferenceGapLength = (
+  domains: DomainPlanSplitRangeDashDomain[],
   dashLength: number,
   targetGapLength: number
 ) => {
@@ -617,12 +617,12 @@ const getFigmaLikeSplitRangeReferenceGapLength = (
     .map((domain) => Math.abs(domain.endDistance - domain.startDistance))
     .filter((rangeLength) => rangeLength >= normalRangeMinLength)
     .map((rangeLength) => {
-      const dashUnitCount = getBestFigmaLikeSplitRangeDashUnitCount(
+      const dashUnitCount = getBestDomainPlanSplitRangeDashUnitCount(
         rangeLength,
         dashLength,
         targetGapLength
       )
-      return getFigmaLikeSplitRangeGapLength(
+      return getDomainPlanSplitRangeGapLength(
         rangeLength,
         dashLength,
         dashUnitCount
@@ -638,7 +638,7 @@ const getFigmaLikeSplitRangeReferenceGapLength = (
   return referenceGaps[Math.floor(referenceGaps.length / 2)] ?? targetGapLength
 }
 
-const allocateFigmaLikeSplitRangeRawIntervals = (
+const allocateDomainPlanSplitRangeRawIntervals = (
   rangeLength: number,
   dashPattern: number[],
   referenceGapLength?: number,
@@ -672,7 +672,7 @@ const allocateFigmaLikeSplitRangeRawIntervals = (
   }
 
   const halfDashLength = dashLength / 2
-  const dashUnitCount = getBestFigmaLikeSplitRangeDashUnitCount(
+  const dashUnitCount = getBestDomainPlanSplitRangeDashUnitCount(
     rangeLength,
     dashLength,
     referenceGapLength ?? targetGapLength,
@@ -732,14 +732,14 @@ const allocateFigmaLikeSplitRangeRawIntervals = (
   return rawIntervals
 }
 
-export const allocateFigmaLikeSplitRangeDashedIntervals = ({
+export const allocateDomainPlanSplitRangeDashedIntervals = ({
   domains,
   dashPattern,
   visualGap
 }: {
-  domains: FigmaLikeSplitRangeDashDomain[]
+  domains: DomainPlanSplitRangeDashDomain[]
   dashPattern: number[]
-  visualGap?: FigmaLikeSplitRangeVisualGapOptions
+  visualGap?: DomainPlanSplitRangeVisualGapOptions
 }): StrokeIntervalAllocation[] => {
   const dashLength = dashPattern[0] ?? 0
   const targetGapLength = dashPattern[1] ?? dashLength
@@ -752,7 +752,7 @@ export const allocateFigmaLikeSplitRangeDashedIntervals = ({
       ? Math.max(
           0,
           targetGapLength *
-            getFigmaLikeSplitRangeMinimumVisualGapRatio(visualGap) -
+            getDomainPlanSplitRangeMinimumVisualGapRatio(visualGap) -
             (visualGap?.tolerance ??
               DEFAULT_FIGMA_LIKE_SPLIT_RANGE_VISUAL_GAP_TOLERANCE)
         )
@@ -761,7 +761,7 @@ export const allocateFigmaLikeSplitRangeDashedIntervals = ({
     capExtension > 0 ? minimumVisualGapLength + capExtension * 2 : 0
   const referenceGapLength =
     isValidPattern(dashPattern) && dashLength > 0
-      ? getFigmaLikeSplitRangeReferenceGapLength(
+      ? getDomainPlanSplitRangeReferenceGapLength(
           domains,
           dashLength,
           targetGapLength
@@ -778,7 +778,7 @@ export const allocateFigmaLikeSplitRangeDashedIntervals = ({
         DashedCenterStrokeIntervalRecord,
         'kind' | 'startDistance' | 'endDistance'
       >
-    ): DashedCenterStrokeIntervalRecord['figmaLikeTerminalRole'] => {
+    ): DashedCenterStrokeIntervalRecord['domainPlanTerminalRole'] => {
       if (interval.kind !== 'visible') {
         return undefined
       }
@@ -807,7 +807,7 @@ export const allocateFigmaLikeSplitRangeDashedIntervals = ({
       }
       return 'middle'
     }
-    const rawIntervals = allocateFigmaLikeSplitRangeRawIntervals(
+    const rawIntervals = allocateDomainPlanSplitRangeRawIntervals(
       rangeLength,
       dashPattern,
       referenceGapLength,
@@ -825,26 +825,26 @@ export const allocateFigmaLikeSplitRangeDashedIntervals = ({
         `${domain.domainId}:interval`
       ).map((interval) => ({
         ...interval,
-        figmaLikeBoundaryDomainId: domain.boundaryDomainId,
-        figmaLikeBoundaryPoints: domain.boundaryPoints
+        domainPlanBoundaryDomainId: domain.boundaryDomainId,
+        domainPlanBoundaryPoints: domain.boundaryPoints
           ? domain.boundaryPoints.map((point) => ({ ...point }))
           : undefined,
-        figmaLikeBoundaryStartDistance: domain.boundaryStartDistance,
-        figmaLikeBoundaryEndDistance: domain.boundaryEndDistance,
-        figmaLikeBoundaryTotalLength: domain.boundaryTotalLength,
-        figmaLikeSplitRangeId: domain.domainId,
-        figmaLikeSplitRangeStartDistance: startDistance,
-        figmaLikeSplitRangeEndDistance: endDistance,
-        figmaLikeTerminalRole: getTerminalRole(interval),
-        figmaLikeSplitRangeSourceSegmentIndex: domain.sourceSegmentIndex,
-        figmaLikeSideAuthority: domain.sideAuthority,
-        figmaLikeSelectedSide: domain.selectedSide,
-        figmaLikeFilledSide: domain.filledSide,
-        figmaLikeUnfilledSide: domain.unfilledSide,
-        figmaLikeBoundaryRole: domain.boundaryRole,
-        figmaLikeDomainMode: domain.domainMode,
-        figmaLikeSideResolutionStatus: domain.sideResolutionStatus,
-        figmaLikeSideResolutionReason: domain.sideResolutionReason
+        domainPlanBoundaryStartDistance: domain.boundaryStartDistance,
+        domainPlanBoundaryEndDistance: domain.boundaryEndDistance,
+        domainPlanBoundaryTotalLength: domain.boundaryTotalLength,
+        domainPlanSplitRangeId: domain.domainId,
+        domainPlanSplitRangeStartDistance: startDistance,
+        domainPlanSplitRangeEndDistance: endDistance,
+        domainPlanTerminalRole: getTerminalRole(interval),
+        domainPlanSplitRangeSourceSegmentIndex: domain.sourceSegmentIndex,
+        domainPlanSideAuthority: domain.sideAuthority,
+        domainPlanSelectedSide: domain.selectedSide,
+        domainPlanFilledSide: domain.filledSide,
+        domainPlanUnfilledSide: domain.unfilledSide,
+        domainPlanBoundaryRole: domain.boundaryRole,
+        domainPlanDomainMode: domain.domainMode,
+        domainPlanSideResolutionStatus: domain.sideResolutionStatus,
+        domainPlanSideResolutionReason: domain.sideResolutionReason
       }))
     }
   })
@@ -906,14 +906,14 @@ export const allocateStrokeIntervalsForDomainPlan = ({
   domainPlan: StrokeIntervalDomainPlanInput
   dashPattern: number[]
   dashOffset: number
-  visualGap?: FigmaLikeSplitRangeVisualGapOptions
+  visualGap?: DomainPlanSplitRangeVisualGapOptions
 }): StrokeIntervalAllocation[] => {
   if (domainPlan.intervalDomainKind === 'none') {
     return []
   }
 
-  if (domainPlan.intervalDomainKind === 'figma-like-split-range') {
-    return allocateFigmaLikeSplitRangeDashedIntervals({
+  if (domainPlan.intervalDomainKind === 'domain-plan-split-range') {
+    return allocateDomainPlanSplitRangeDashedIntervals({
       domains: domainPlan.splitRangeDomains,
       dashPattern,
       visualGap

@@ -647,15 +647,15 @@ const getLocalPacketDebug = (
       intervalSweepSpanCount: packet.geometry.debugMeta?.intervalSweepSpanCount,
       startDistance: packet.geometry.debugMeta?.startDistance,
       endDistance: packet.geometry.debugMeta?.endDistance,
-      figmaLikeSplitRangeStartDistance:
-        packet.geometry.debugMeta?.figmaLikeSplitRangeStartDistance,
-      figmaLikeSplitRangeEndDistance:
-        packet.geometry.debugMeta?.figmaLikeSplitRangeEndDistance,
-      figmaLikeSplitRangeSourceSegmentIndex:
-        packet.geometry.debugMeta?.figmaLikeSplitRangeSourceSegmentIndex,
-      figmaLikeTerminalRole: packet.geometry.debugMeta?.figmaLikeTerminalRole,
-      figmaLikeBoundaryRole: packet.geometry.debugMeta?.figmaLikeBoundaryRole,
-      figmaLikeSelectedSide: packet.geometry.debugMeta?.figmaLikeSelectedSide,
+      domainPlanSplitRangeStartDistance:
+        packet.geometry.debugMeta?.domainPlanSplitRangeStartDistance,
+      domainPlanSplitRangeEndDistance:
+        packet.geometry.debugMeta?.domainPlanSplitRangeEndDistance,
+      domainPlanSplitRangeSourceSegmentIndex:
+        packet.geometry.debugMeta?.domainPlanSplitRangeSourceSegmentIndex,
+      domainPlanTerminalRole: packet.geometry.debugMeta?.domainPlanTerminalRole,
+      domainPlanBoundaryRole: packet.geometry.debugMeta?.domainPlanBoundaryRole,
+      domainPlanSelectedSide: packet.geometry.debugMeta?.domainPlanSelectedSide,
       finalCoverageBuilderStatus:
         packet.geometry.debugMeta?.finalCoverageBuilderStatus
     }))
@@ -742,10 +742,10 @@ const getStrokeWidthContourPaths = (
   packets.forEach((packet) => {
     const debugMeta = packet.geometry.debugMeta
     pushBoundaryPath(
-      debugMeta?.figmaLikeBoundaryPoints,
-      debugMeta?.figmaLikeSelectedSide
+      debugMeta?.domainPlanBoundaryPoints,
+      debugMeta?.domainPlanSelectedSide
     )
-    debugMeta?.figmaLikeSplitRangeTerminals?.forEach((terminal) =>
+    debugMeta?.domainPlanSplitRangeTerminals?.forEach((terminal) =>
       pushBoundaryPath(terminal.boundaryPoints, terminal.selectedSide)
     )
   })
@@ -822,8 +822,8 @@ const getLocalHighCurvatureProductEdgeStats = (
       isSmoothContinuityGeometryId(packet.geometry.geometryId)
     )
     .flatMap((packet) => {
-      const boundaryPoints = packet.geometry.debugMeta?.figmaLikeBoundaryPoints
-      const selectedSide = packet.geometry.debugMeta?.figmaLikeSelectedSide
+      const boundaryPoints = packet.geometry.debugMeta?.domainPlanBoundaryPoints
+      const selectedSide = packet.geometry.debugMeta?.domainPlanSelectedSide
       if (
         !boundaryPoints ||
         boundaryPoints.length < 2 ||
@@ -1088,7 +1088,7 @@ describe('constrained dashed Vector-6 high-curvature pipeline diagnostics', () =
       JSON.stringify(
         {
           message:
-            'tp16 is a smooth high-curvature endpoint; coverage must survive packet, FinalFace, and render projection without a forced round-join fallback oracle',
+            'tp16 is a smooth high-curvature endpoint; coverage must survive packet, FinalFace, and render projection without a forced round-join oracle',
           coverageCounts,
           localPackets: {
             miter: getLocalPacketDebug(
@@ -1395,28 +1395,28 @@ describe('constrained dashed Vector-6 high-curvature pipeline diagnostics', () =
     )
     const targetIntervals = intervals.filter(
       (interval) =>
-        interval.figmaLikeSplitRangeId !== undefined &&
-        highCurvatureDomainIds.has(interval.figmaLikeSplitRangeId) &&
+        interval.domainPlanSplitRangeId !== undefined &&
+        highCurvatureDomainIds.has(interval.domainPlanSplitRangeId) &&
         interval.intervalLength >= Math.max(6, stroke.width * 0.75)
     )
 
     const failures = targetIntervals.flatMap((interval) => {
-      const boundaryPoints = interval.figmaLikeBoundaryPoints ?? []
-      const selectedSide = interval.figmaLikeSelectedSide
+      const boundaryPoints = interval.domainPlanBoundaryPoints ?? []
+      const selectedSide = interval.domainPlanSelectedSide
       if (boundaryPoints.length < 2 || !selectedSide) {
         return [
           {
             intervalId: interval.intervalId,
-            splitRangeId: interval.figmaLikeSplitRangeId,
+            splitRangeId: interval.domainPlanSplitRangeId,
             reason: 'missing-boundary-or-side'
           }
         ]
       }
 
       const sampleRatios =
-        interval.figmaLikeTerminalRole === 'start'
+        interval.domainPlanTerminalRole === 'start'
           ? [0.03, 0.1, 0.25, 0.5, 0.75]
-          : interval.figmaLikeTerminalRole === 'end'
+          : interval.domainPlanTerminalRole === 'end'
             ? [0.25, 0.5, 0.75, 0.9, 0.97]
             : [0.25, 0.5, 0.75]
       const sampleDistances = sampleRatios.map(
@@ -1472,11 +1472,11 @@ describe('constrained dashed Vector-6 high-curvature pipeline diagnostics', () =
             : [
                 {
                   intervalId: interval.intervalId,
-                  splitRangeId: interval.figmaLikeSplitRangeId,
-                  terminalRole: interval.figmaLikeTerminalRole,
-                  boundaryRole: interval.figmaLikeBoundaryRole,
+                  splitRangeId: interval.domainPlanSplitRangeId,
+                  terminalRole: interval.domainPlanTerminalRole,
+                  boundaryRole: interval.domainPlanBoundaryRole,
                   sourceSegmentIndex:
-                    interval.figmaLikeSplitRangeSourceSegmentIndex,
+                    interval.domainPlanSplitRangeSourceSegmentIndex,
                   startDistance:
                     Math.round(interval.startDistance * 1000) / 1000,
                   endDistance: Math.round(interval.endDistance * 1000) / 1000,
@@ -1516,13 +1516,13 @@ describe('constrained dashed Vector-6 high-curvature pipeline diagnostics', () =
           })),
           targetIntervals: targetIntervals.map((interval) => ({
             intervalId: interval.intervalId,
-            splitRangeId: interval.figmaLikeSplitRangeId,
-            sourceSegmentIndex: interval.figmaLikeSplitRangeSourceSegmentIndex,
-            terminalRole: interval.figmaLikeTerminalRole,
+            splitRangeId: interval.domainPlanSplitRangeId,
+            sourceSegmentIndex: interval.domainPlanSplitRangeSourceSegmentIndex,
+            terminalRole: interval.domainPlanTerminalRole,
             startDistance: Math.round(interval.startDistance * 1000) / 1000,
             endDistance: Math.round(interval.endDistance * 1000) / 1000,
             length: Math.round(interval.intervalLength * 1000) / 1000,
-            boundaryPointCount: interval.figmaLikeBoundaryPoints?.length ?? 0
+            boundaryPointCount: interval.domainPlanBoundaryPoints?.length ?? 0
           })),
           packetPolygonCount: packetPolygons.length,
           noClipPacketPolygonCount: noClipPacketPolygons.length,

@@ -10,7 +10,7 @@ const square = () => [
 ]
 
 describe('stroke ownership resolution', () => {
-  it('should run: resolve ownerSet from typed metadata before fallback owner fields', () => {
+  it('should run: resolve ownerSet from typed metadata before secondary owner fields', () => {
     const ownership = resolveStrokeOwnership({
       ownerSet: [
         {
@@ -21,8 +21,8 @@ describe('stroke ownership resolution', () => {
         }
       ],
       owner: {
-        ownerKey: 'fallback-owner',
-        networkId: 'fallback-network'
+        ownerKey: 'secondary-owner',
+        networkId: 'secondary-network'
       }
     })
 
@@ -46,7 +46,7 @@ describe('stroke ownership resolution', () => {
     })
   })
 
-  it('should run: derive fallback ownership from typed fields without parsing geometry ids', () => {
+  it('should run: derive secondary ownership from typed fields without parsing geometry ids', () => {
     const [face] = buildStrokeFinalFacesFromResolvedPackets([
       {
         geometry: {

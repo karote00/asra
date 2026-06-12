@@ -276,18 +276,18 @@ test('self-check: self-intersecting inside solid uses solidMaskModel with filled
   )
 
   const boundaryRoles = metadata.boundaryDomainPackets.flatMap((packet) => [
-    packet.figmaLikeBoundaryRole,
-    ...packet.figmaLikeSplitRangeTerminals.map(
+    packet.domainPlanBoundaryRole,
+    ...packet.domainPlanSplitRangeTerminals.map(
       (terminal) => terminal.boundaryRole
     )
   ])
   const sideRecords = metadata.boundaryDomainPackets.flatMap((packet) => [
     {
-      selectedSide: packet.figmaLikeSelectedSide,
-      filledSide: packet.figmaLikeFilledSide,
-      unfilledSide: packet.figmaLikeUnfilledSide
+      selectedSide: packet.domainPlanSelectedSide,
+      filledSide: packet.domainPlanFilledSide,
+      unfilledSide: packet.domainPlanUnfilledSide
     },
-    ...packet.figmaLikeSplitRangeTerminals.map((terminal) => ({
+    ...packet.domainPlanSplitRangeTerminals.map((terminal) => ({
       selectedSide: terminal.selectedSide,
       filledSide: terminal.filledSide,
       unfilledSide: terminal.unfilledSide
@@ -349,7 +349,7 @@ test('self-check: self-intersecting inside solid uses solidMaskModel with filled
       (packet) =>
         packet.geometryFamily === 'constrained-solid' &&
         packet.sourceTopology === 'self-intersecting' &&
-        packet.resolutionStatus !== 'local-side-approximation' &&
+        packet.resolutionStatus !== 'domain-plan-selected-side' &&
         packet.runtimeStatus !== 'candidate'
     ),
     JSON.stringify(metadata.boundaryDomainPackets, null, 2)
@@ -358,8 +358,8 @@ test('self-check: self-intersecting inside solid uses solidMaskModel with filled
     metadata.boundaryDomainPackets.some(
       (packet) =>
         packet.geometryId?.includes(':boundary-domain:') === true ||
-        packet.figmaLikeTerminalRole !== null ||
-        packet.figmaLikeSplitRangeTerminals.length > 0
+        packet.domainPlanTerminalRole !== null ||
+        packet.domainPlanSplitRangeTerminals.length > 0
     ),
     JSON.stringify(metadata.boundaryDomainPackets, null, 2)
   ).toBe(false)
@@ -601,14 +601,14 @@ test('self-check: self-intersecting inside solid uses solidMaskModel with filled
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const core = (window as any).__Core__
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const fallbackRect = (window as any).__selfCheckVectorRect
+        const secondaryRect = (window as any).__selfCheckVectorRect
         const targetRect =
-          fallbackRect &&
-          typeof fallbackRect.x === 'number' &&
-          typeof fallbackRect.y === 'number' &&
-          typeof fallbackRect.width === 'number' &&
-          typeof fallbackRect.height === 'number'
-            ? fallbackRect
+          secondaryRect &&
+          typeof secondaryRect.x === 'number' &&
+          typeof secondaryRect.y === 'number' &&
+          typeof secondaryRect.width === 'number' &&
+          typeof secondaryRect.height === 'number'
+            ? secondaryRect
             : rect
         if (!core) {
           throw new Error('Missing app core')
@@ -665,14 +665,14 @@ test('self-check: self-intersecting inside solid uses solidMaskModel with filled
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const core = (window as any).__Core__
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const fallbackRect = (window as any).__selfCheckVectorRect
+        const secondaryRect = (window as any).__selfCheckVectorRect
         const targetRect =
-          fallbackRect &&
-          typeof fallbackRect.x === 'number' &&
-          typeof fallbackRect.y === 'number' &&
-          typeof fallbackRect.width === 'number' &&
-          typeof fallbackRect.height === 'number'
-            ? fallbackRect
+          secondaryRect &&
+          typeof secondaryRect.x === 'number' &&
+          typeof secondaryRect.y === 'number' &&
+          typeof secondaryRect.width === 'number' &&
+          typeof secondaryRect.height === 'number'
+            ? secondaryRect
             : rect
         if (!core) {
           throw new Error('Missing app core')
@@ -725,14 +725,14 @@ test('self-check: self-intersecting inside solid uses solidMaskModel with filled
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const core = (window as any).__Core__
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const fallbackRect = (window as any).__selfCheckVectorRect
+        const secondaryRect = (window as any).__selfCheckVectorRect
         const targetRect =
-          fallbackRect &&
-          typeof fallbackRect.x === 'number' &&
-          typeof fallbackRect.y === 'number' &&
-          typeof fallbackRect.width === 'number' &&
-          typeof fallbackRect.height === 'number'
-            ? fallbackRect
+          secondaryRect &&
+          typeof secondaryRect.x === 'number' &&
+          typeof secondaryRect.y === 'number' &&
+          typeof secondaryRect.width === 'number' &&
+          typeof secondaryRect.height === 'number'
+            ? secondaryRect
             : rect
         if (!core) {
           throw new Error('Missing app core')
@@ -971,8 +971,8 @@ test('self-check: self-intersecting inside solid reload stays on the bounded mas
         ).length,
         dashedTerminalPacketCount: metadata.boundaryDomainPackets.filter(
           (packet) =>
-            packet.figmaLikeTerminalRole !== null ||
-            packet.figmaLikeSplitRangeTerminals.length > 0
+            packet.domainPlanTerminalRole !== null ||
+            packet.domainPlanSplitRangeTerminals.length > 0
         ).length
       }
     })
@@ -1086,18 +1086,18 @@ test('self-check: self-intersecting outside solid uses solidMaskModel and exclud
   )
 
   const boundaryRoles = metadata.boundaryDomainPackets.flatMap((packet) => [
-    packet.figmaLikeBoundaryRole,
-    ...packet.figmaLikeSplitRangeTerminals.map(
+    packet.domainPlanBoundaryRole,
+    ...packet.domainPlanSplitRangeTerminals.map(
       (terminal) => terminal.boundaryRole
     )
   ])
   const sideRecords = metadata.boundaryDomainPackets.flatMap((packet) => [
     {
-      selectedSide: packet.figmaLikeSelectedSide,
-      filledSide: packet.figmaLikeFilledSide,
-      unfilledSide: packet.figmaLikeUnfilledSide
+      selectedSide: packet.domainPlanSelectedSide,
+      filledSide: packet.domainPlanFilledSide,
+      unfilledSide: packet.domainPlanUnfilledSide
     },
-    ...packet.figmaLikeSplitRangeTerminals.map((terminal) => ({
+    ...packet.domainPlanSplitRangeTerminals.map((terminal) => ({
       selectedSide: terminal.selectedSide,
       filledSide: terminal.filledSide,
       unfilledSide: terminal.unfilledSide
@@ -1114,7 +1114,7 @@ test('self-check: self-intersecting outside solid uses solidMaskModel and exclud
       (packet) =>
         packet.geometryFamily === 'constrained-solid' &&
         packet.sourceTopology === 'self-intersecting' &&
-        packet.resolutionStatus !== 'local-side-approximation' &&
+        packet.resolutionStatus !== 'domain-plan-selected-side' &&
         packet.runtimeStatus !== 'candidate'
     ),
     JSON.stringify(metadata.boundaryDomainPackets, null, 2)
@@ -1123,8 +1123,8 @@ test('self-check: self-intersecting outside solid uses solidMaskModel and exclud
     metadata.boundaryDomainPackets.some(
       (packet) =>
         packet.geometryId?.includes(':boundary-domain:') === true ||
-        packet.figmaLikeTerminalRole !== null ||
-        packet.figmaLikeSplitRangeTerminals.length > 0
+        packet.domainPlanTerminalRole !== null ||
+        packet.domainPlanSplitRangeTerminals.length > 0
     ),
     JSON.stringify(metadata.boundaryDomainPackets, null, 2)
   ).toBe(false)
@@ -1202,14 +1202,14 @@ test('self-check: self-intersecting outside solid uses solidMaskModel and exclud
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const core = (window as any).__Core__
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const fallbackRect = (window as any).__selfCheckVectorRect
+        const secondaryRect = (window as any).__selfCheckVectorRect
         const targetRect =
-          fallbackRect &&
-          typeof fallbackRect.x === 'number' &&
-          typeof fallbackRect.y === 'number' &&
-          typeof fallbackRect.width === 'number' &&
-          typeof fallbackRect.height === 'number'
-            ? fallbackRect
+          secondaryRect &&
+          typeof secondaryRect.x === 'number' &&
+          typeof secondaryRect.y === 'number' &&
+          typeof secondaryRect.width === 'number' &&
+          typeof secondaryRect.height === 'number'
+            ? secondaryRect
             : rect
         if (!core) {
           throw new Error('Missing app core')
@@ -1364,10 +1364,10 @@ test('self-check: self-intersecting outside solid uses solidMaskModel and exclud
       productPackets.every(
         (packet) =>
           packet.sourceTopology === 'self-intersecting' &&
-          packet.resolutionStatus !== 'local-side-approximation' &&
+          packet.resolutionStatus !== 'domain-plan-selected-side' &&
           packet.runtimeStatus !== 'candidate' &&
-          packet.figmaLikeTerminalRole === null &&
-          packet.figmaLikeSplitRangeTerminals.length === 0
+          packet.domainPlanTerminalRole === null &&
+          packet.domainPlanSplitRangeTerminals.length === 0
       ),
       JSON.stringify({ position, joinType, productPackets }, null, 2)
     ).toBe(true)
@@ -1447,14 +1447,14 @@ test('self-check: self-intersecting inside solid internal corner join shapes fol
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const core = (window as any).__Core__
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const fallbackRect = (window as any).__selfCheckVectorRect
+        const secondaryRect = (window as any).__selfCheckVectorRect
         const targetRect =
-          fallbackRect &&
-          typeof fallbackRect.x === 'number' &&
-          typeof fallbackRect.y === 'number' &&
-          typeof fallbackRect.width === 'number' &&
-          typeof fallbackRect.height === 'number'
-            ? fallbackRect
+          secondaryRect &&
+          typeof secondaryRect.x === 'number' &&
+          typeof secondaryRect.y === 'number' &&
+          typeof secondaryRect.width === 'number' &&
+          typeof secondaryRect.height === 'number'
+            ? secondaryRect
             : rect
         if (!core) {
           throw new Error('Missing app core')

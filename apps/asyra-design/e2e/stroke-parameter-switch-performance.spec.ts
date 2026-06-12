@@ -220,7 +220,7 @@ const measureParameterSwitch = async (
               products?: Map<string, unknown>
             }
             __asyraSolidCenterStrokeExportPackets?: unknown[]
-            __asyraNativeCenterSolidStrokeRenderCount?: number
+            __asyraCenterPathSolidStrokeRenderCount?: number
             __asyraCenterSolidPathMaskRenderCount?: number
             hitArea?: unknown
           }
@@ -251,7 +251,7 @@ const measureParameterSwitch = async (
         (renderElement?.__asyraStrokeMeshCache?.size ?? 0) +
         (renderElement?.__asyraStrokePipelineStageCache?.products?.size ?? 0) +
         (renderElement?.__asyraSolidCenterStrokeExportPackets?.length ?? 0) +
-        (renderElement?.__asyraNativeCenterSolidStrokeRenderCount ?? 0) +
+        (renderElement?.__asyraCenterPathSolidStrokeRenderCount ?? 0) +
         (renderElement?.__asyraCenterSolidPathMaskRenderCount ?? 0) +
         (renderElement?.hitArea ? 1 : 0) +
         (counters['stroke-stage-cache:product-geometry-hit'] ?? 0) +

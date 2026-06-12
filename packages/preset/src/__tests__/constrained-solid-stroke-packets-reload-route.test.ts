@@ -368,8 +368,8 @@ const solidPacketHasDashedTerminalMetadata = (
 ) => {
   const meta = getSolidPacketMeta(packet)
   return (
-    meta?.figmaLikeTerminalRole !== undefined ||
-    (meta?.figmaLikeSplitRangeTerminals?.length ?? 0) > 0
+    meta?.domainPlanTerminalRole !== undefined ||
+    (meta?.domainPlanSplitRangeTerminals?.length ?? 0) > 0
   )
 }
 
@@ -1066,11 +1066,12 @@ const chooseSegmentSideOffsetForTest = (
   position: 'inside' | 'outside',
   strokeWidth: number
 ) => {
-  const fallbackOffset = getClosedContourInsideOffsetForTest(
+  const defaultOffset = getClosedContourInsideOffsetForTest(
     sourcePath,
     strokeWidth
   )
-  const fallback = position === 'inside' ? fallbackOffset : -fallbackOffset
+  const defaultOffsetValue =
+    position === 'inside' ? defaultOffset : -defaultOffset
   let leftVotes = 0
   let rightVotes = 0
 
@@ -1106,7 +1107,7 @@ const chooseSegmentSideOffsetForTest = (
   }
 
   if (leftVotes === rightVotes) {
-    return fallback
+    return defaultOffsetValue
   }
 
   return leftVotes > rightVotes ? strokeWidth : -strokeWidth
@@ -4506,7 +4507,7 @@ const expectAllInsideSolidSharedEdgesForTest = ({
   })
 }
 
-describe('constrained solid stroke packets: reload and fallback guards', () => {
+describe('constrained solid stroke packets: reload and route guards', () => {
   it('should run: keep all internal pentagon corners on masked authored source stroke', async () => {
     const {
       sourcePath,
@@ -4630,7 +4631,7 @@ describe('constrained solid stroke packets: reload and fallback guards', () => {
     )
   })
 
-  it('should run: reject self-intersecting solid local-side fallback without face-owned mask evidence', async () => {
+  it('should run: reject self-intersecting solid domain-plan product route without face-owned mask evidence', async () => {
     const { sourcePath, topology } = buildSelfCheckStarSolidDomainFixture()
     const backend = createClipper2GeometryBackend(await loadClipperModule())
 

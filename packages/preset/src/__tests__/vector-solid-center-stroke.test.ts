@@ -95,7 +95,7 @@ beforeAll(() => {
 
 class RecordingVectorGraphic extends Container {
   __asyraSolidCenterStrokeExportPackets?: SolidCenterStrokeExportPacket[]
-  __asyraNativeCenterSolidStrokeRenderCount?: number
+  __asyraCenterPathSolidStrokeRenderCount?: number
   hitArea?: { contains: (x: number, y: number) => boolean } | null
   instructions: { action: string; args: unknown[] }[] = []
 
@@ -326,7 +326,7 @@ describe('vector solid-center stroke product wiring', () => {
     { label: 'inside', position: StrokePositions.INSIDE },
     { label: 'outside', position: StrokePositions.OUTSIDE }
   ].forEach(({ label, position }) => {
-    it(`should run: render open-vector solid ${label} placement as center-equivalent final-face geometry`, () => {
+    it(`should run: render simple open-vector solid ${label} placement through the unbounded open center product`, () => {
       const graphic = runVectorRenderStrategy({
         id: `vector-solid-open-${label}`,
         x: 0,
@@ -354,7 +354,7 @@ describe('vector solid-center stroke product wiring', () => {
       })
 
       expect(getProjectionMeshes(graphic)).toHaveLength(1)
-      expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+      expect(graphic.__asyraCenterPathSolidStrokeRenderCount).toBe(0)
       expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
       expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual(
         {
@@ -368,7 +368,7 @@ describe('vector solid-center stroke product wiring', () => {
         graphic.__asyraSolidCenterStrokeExportPackets?.[0].debugMeta
       ).toMatchObject({
         geometryFamily: 'solid-center',
-        resolutionStatus: 'native-center',
+        resolutionStatus: 'center-product',
         sourceTopology: 'open'
       })
       expect(graphic.hitArea?.contains(20, 10)).toBe(true)
@@ -405,7 +405,7 @@ describe('vector solid-center stroke product wiring', () => {
     })
 
     expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(graphic.__asyraCenterPathSolidStrokeRenderCount).toBe(0)
     expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
     expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual({
       minX: -3,
@@ -446,7 +446,7 @@ describe('vector solid-center stroke product wiring', () => {
     })
 
     expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(graphic.__asyraCenterPathSolidStrokeRenderCount).toBe(0)
     expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
     expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual({
       minX: -3,
@@ -493,7 +493,7 @@ describe('vector solid-center stroke product wiring', () => {
     })
 
     expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(graphic.__asyraCenterPathSolidStrokeRenderCount).toBe(0)
     expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
   })
 })

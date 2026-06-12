@@ -5,7 +5,7 @@ import {
 } from '../components/stroke-render/path-topology-model'
 import { normalizeStrokeSpec } from '../components/stroke-render/renderable-stroke'
 import {
-  getFigmaStrokeFamilyMatrix,
+  getStrokeProductFamilyMatrix,
   resolveSourceFamily
 } from '../components/stroke-render/resolved-source-family'
 import {
@@ -63,7 +63,7 @@ const withCompoundLegalDomains = (
 })
 
 describe('resolved source family', () => {
-  it('should run: classify open inside and outside strokes as center-equivalent runtime support with verified Asyra canonical slice evidence', () => {
+  it('should run: classify simple open inside and outside strokes as formal unbounded open support', () => {
     const openTopology = topology(
       [
         { x: 0, y: 0 },
@@ -79,8 +79,8 @@ describe('resolved source family', () => {
       })
     ).toMatchObject({
       topologyFamily: 'open',
-      supportState: 'center-equivalent',
-      figmaParity: {
+      supportState: 'simple-open-unbounded',
+      productRuleEvidence: {
         familyScope: 'open',
         status: 'verified-slice',
         requiredForCompletion: true,
@@ -97,7 +97,7 @@ describe('resolved source family', () => {
         topology: openTopology,
         stroke: stroke(StrokeStyles.DASHED, StrokePositions.OUTSIDE)
       }).supportState
-    ).toBe('center-equivalent')
+    ).toBe('simple-open-unbounded')
   })
 
   it('should run: classify simple closed solid and dashed constrained strokes as supported with legal-domain hints', () => {
@@ -119,7 +119,7 @@ describe('resolved source family', () => {
     ).toMatchObject({
       topologyFamily: 'rectangle-equivalent',
       supportState: 'supported',
-      figmaParity: {
+      productRuleEvidence: {
         familyScope: 'simple-closed',
         status: 'verified-slice',
         requiredForCompletion: true
@@ -158,7 +158,7 @@ describe('resolved source family', () => {
       })
     ).toMatchObject({
       supportState: 'supported',
-      figmaParity: {
+      productRuleEvidence: {
         familyScope: 'compound-closed',
         status: 'verified-slice',
         requiredForCompletion: true
@@ -188,7 +188,7 @@ describe('resolved source family', () => {
     ).toMatchObject({
       topologyFamily: 'self-intersecting',
       supportState: 'supported',
-      figmaParity: {
+      productRuleEvidence: {
         familyScope: 'self-intersecting-closed',
         status: 'verified-slice',
         requiredForCompletion: true
@@ -205,7 +205,7 @@ describe('resolved source family', () => {
     ).toMatchObject({
       topologyFamily: 'self-intersecting',
       supportState: 'supported',
-      figmaParity: {
+      productRuleEvidence: {
         familyScope: 'self-intersecting-closed',
         status: 'verified-slice',
         requiredForCompletion: true
@@ -223,7 +223,7 @@ describe('resolved source family', () => {
       topologyFamily: 'degenerate',
       supportState: 'blocked',
       blockedReason: 'degenerate-topology',
-      figmaParity: {
+      productRuleEvidence: {
         familyScope: 'degenerate',
         status: 'not-applicable',
         requiredForCompletion: false
@@ -245,7 +245,7 @@ describe('resolved source family', () => {
   })
 
   it('should run: expose full Asyra stroke-family matrix instead of hiding parity gaps as complete support', () => {
-    const matrix = getFigmaStrokeFamilyMatrix()
+    const matrix = getStrokeProductFamilyMatrix()
 
     expect(matrix).toHaveLength(24)
     expect(

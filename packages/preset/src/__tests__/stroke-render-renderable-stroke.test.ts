@@ -99,7 +99,7 @@ describe('stroke renderable normalization', () => {
     expect(createRenderGradientFillStyle).toHaveBeenCalledTimes(1)
   })
 
-  it('should run: prefer stroke fill payload over legacy flat paint fields', () => {
+  it('should run: prefer stroke fill payload over removed flat paint fields', () => {
     const [stroke] = getRenderableStrokes([
       createDefaultStroke({
         color: '#000000',

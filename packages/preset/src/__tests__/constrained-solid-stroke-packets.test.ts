@@ -368,8 +368,8 @@ const solidPacketHasDashedTerminalMetadata = (
 ) => {
   const meta = getSolidPacketMeta(packet)
   return (
-    meta?.figmaLikeTerminalRole !== undefined ||
-    (meta?.figmaLikeSplitRangeTerminals?.length ?? 0) > 0
+    meta?.domainPlanTerminalRole !== undefined ||
+    (meta?.domainPlanSplitRangeTerminals?.length ?? 0) > 0
   )
 }
 
@@ -1066,11 +1066,12 @@ const chooseSegmentSideOffsetForTest = (
   position: 'inside' | 'outside',
   strokeWidth: number
 ) => {
-  const fallbackOffset = getClosedContourInsideOffsetForTest(
+  const defaultOffset = getClosedContourInsideOffsetForTest(
     sourcePath,
     strokeWidth
   )
-  const fallback = position === 'inside' ? fallbackOffset : -fallbackOffset
+  const defaultOffsetValue =
+    position === 'inside' ? defaultOffset : -defaultOffset
   let leftVotes = 0
   let rightVotes = 0
 
@@ -1106,7 +1107,7 @@ const chooseSegmentSideOffsetForTest = (
   }
 
   if (leftVotes === rightVotes) {
-    return fallback
+    return defaultOffsetValue
   }
 
   return leftVotes > rightVotes ? strokeWidth : -strokeWidth
@@ -4429,46 +4430,6 @@ describe('constrained solid stroke packets: base render hit export', () => {
     ).toBe(false)
   })
 
-  it('should run: emit direct local-side exact packets without exact arrangement metadata', () => {
-    const packets = buildConstrainedSolidStrokeResolvedPackets(
-      'rect:direct',
-      [
-        { x: 0, y: 0 },
-        { x: 20, y: 0 },
-        { x: 20, y: 20 },
-        { x: 0, y: 20 }
-      ],
-      true,
-      [createDefaultStroke({ width: 4, style: 'solid', position: 'inside' })],
-      { candidateMode: 'direct-local-side-exact' }
-    )
-
-    expect(packets.length).toBeGreaterThan(1)
-    expect(
-      packets.every((packet) =>
-        expect
-          .objectContaining({
-            geometryFamily: 'constrained-solid',
-            resolutionStatus: 'exact-constrained',
-            runtimeStatus: 'accepted',
-            runtimeReason: 'constrained-solid-exact',
-            visualOverlapCollapseStatus: 'exact-union'
-          })
-          .asymmetricMatch(packet.geometry.debugMeta)
-      )
-    ).toBe(true)
-    expect(
-      packets.some(
-        (packet) => packet.geometry.debugMeta?.arrangementStatus === 'exact'
-      )
-    ).toBe(false)
-    expect(
-      packets.flatMap(
-        (packet) => packet.geometry.debugMeta?.sourceSpanIds ?? []
-      )
-    ).toEqual(expect.arrayContaining(['segment:0', 'vertex:0']))
-  })
-
   it('should run: derive render, hit, and export packets from the same constrained final geometry source', () => {
     const packets = buildConstrainedSolidStrokeResolvedPackets(
       'rect:test',
@@ -4540,7 +4501,7 @@ describe('constrained solid stroke packets: base render hit export', () => {
     ])
   })
 
-  it('should run: resolve open constrained solid packet construction to center-equivalent geometry', () => {
+  it('should not run: let constrained solid packet construction route simple open paths as center product', () => {
     const packets = buildConstrainedSolidStrokeResolvedPackets(
       'line:test',
       [
@@ -4551,22 +4512,7 @@ describe('constrained solid stroke packets: base render hit export', () => {
       [createDefaultStroke({ width: 4, style: 'solid', position: 'inside' })]
     )
 
-    expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'solid-center',
-      sourceTopology: 'open',
-      topologyFamily: 'open',
-      strokePosition: 'center',
-      runtimeStatus: 'not-applicable',
-      runtimeReason: 'center-stroke',
-      resolutionStatus: 'native-center'
-    })
-    expect(packets[0]?.geometry.bounds).toMatchObject({
-      minX: 0,
-      maxX: 20,
-      minY: -2,
-      maxY: 2
-    })
+    expect(packets).toHaveLength(0)
   })
 
   it('should run: attach typed owner and network metadata to constrained solid packets', () => {
@@ -4669,7 +4615,7 @@ describe('constrained solid stroke packets: base render hit export', () => {
     expect(hitArea?.contains(-1, -1)).toBe(false)
   })
 
-  it('should run: resolve open constrained solid hit packets to center-equivalent geometry', () => {
+  it('should not run: let constrained solid hit packets route simple open paths as center product', () => {
     const insidePackets = buildConstrainedSolidStrokeResolvedPackets(
       'line:test:inside',
       [
@@ -4689,32 +4635,8 @@ describe('constrained solid stroke packets: base render hit export', () => {
       [createDefaultStroke({ width: 4, style: 'solid', position: 'outside' })]
     )
 
-    expect(insidePackets).toHaveLength(1)
-    expect(outsidePackets).toHaveLength(1)
-    expect(insidePackets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'solid-center',
-      sourceTopology: 'open',
-      strokePosition: 'center',
-      runtimeStatus: 'not-applicable'
-    })
-    expect(outsidePackets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'solid-center',
-      sourceTopology: 'open',
-      strokePosition: 'center',
-      runtimeStatus: 'not-applicable'
-    })
-    expect(createSolidCenterStrokeHitArea(insidePackets)?.contains(10, 0)).toBe(
-      true
-    )
-    expect(
-      createSolidCenterStrokeHitArea(outsidePackets)?.contains(10, 0)
-    ).toBe(true)
-    expect(createSolidCenterStrokeHitArea(insidePackets)?.contains(10, 5)).toBe(
-      false
-    )
-    expect(
-      createSolidCenterStrokeHitArea(outsidePackets)?.contains(10, 5)
-    ).toBe(false)
+    expect(insidePackets).toHaveLength(0)
+    expect(outsidePackets).toHaveLength(0)
   })
 
   it('should run: build a closed outside miter at a source-path seam without an explicit closing segment', () => {
@@ -4855,7 +4777,7 @@ describe('constrained solid stroke packets: base render hit export', () => {
     expect(sourceSpanIds).not.toContain('smooth-join:2')
   })
 
-  it('should run: keep self-intersecting open solid paths on center-equivalent geometry', () => {
+  it('should not run: let constrained solid packet construction route open self-intersecting paths as center product', () => {
     const packets = buildConstrainedSolidStrokeResolvedPackets(
       'open-self-intersecting:test',
       [
@@ -4868,15 +4790,6 @@ describe('constrained solid stroke packets: base render hit export', () => {
       [createDefaultStroke({ width: 4, style: 'solid', position: 'inside' })]
     )
 
-    expect(packets).toHaveLength(1)
-    expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'solid-center',
-      sourceTopology: 'open',
-      topologyFamily: 'open',
-      strokePosition: 'center',
-      runtimeStatus: 'not-applicable',
-      runtimeReason: 'center-stroke',
-      resolutionStatus: 'native-center'
-    })
+    expect(packets).toHaveLength(0)
   })
 })

@@ -147,7 +147,7 @@ beforeAll(async () => {
 class RecordingVectorGraphic extends Container {
   __asyraSolidCenterStrokeExportPackets?: unknown[]
   __asyraStrokeMeshCache?: Map<string, { kind?: string }>
-  __asyraNativeCenterSolidStrokeRenderCount?: number
+  __asyraCenterPathSolidStrokeRenderCount?: number
   __asyraCenterSolidPathMaskRenderCount?: number
   hitArea?: { contains: (x: number, y: number) => boolean } | null
 
@@ -185,7 +185,7 @@ const getStrokeCacheEntries = (graphic: RecordingVectorGraphic) =>
 
 const hasProductOutput = (graphic: RecordingVectorGraphic) =>
   (graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0) > 0 ||
-  (graphic.__asyraNativeCenterSolidStrokeRenderCount ?? 0) > 0 ||
+  (graphic.__asyraCenterPathSolidStrokeRenderCount ?? 0) > 0 ||
   (graphic.__asyraCenterSolidPathMaskRenderCount ?? 0) > 0 ||
   getStrokeCacheEntries(graphic).some(
     ([, entry]) =>
@@ -203,7 +203,7 @@ const hasProductPipelineCounterChange = (
   [
     'interval-sweep-count',
     'final-coverage-builder-hit',
-    'native-center-solid-stroke-render-count',
+    'center-product-solid-stroke-render-count',
     'path-mask-center-solid-stroke-render-count',
     'stroke-stage-cache:product-geometry-hit',
     'stroke-stage-cache:product-geometry-store',

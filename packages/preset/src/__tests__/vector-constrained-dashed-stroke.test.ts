@@ -38,7 +38,8 @@ import { buildVectorGeometryModelPath } from '../components/stroke-render/path-g
 import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
 import type { StrokeDiagnosticsMode } from '../components/stroke-render/stroke-diagnostics-mode'
 
-const UNSUPPORTED_BACKEND_ID = 'unsupported-exact-geometry-backend'
+const DIAGNOSTIC_MISSING_BACKEND_ID =
+  'diagnostic-missing-exact-geometry-backend'
 const require = createRequire(import.meta.url)
 const clipperWasmPath = require.resolve('clipper2-wasm/dist/umd/clipper2z.wasm')
 
@@ -171,7 +172,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  selectGeometryBackend(UNSUPPORTED_BACKEND_ID)
+  selectGeometryBackend(DIAGNOSTIC_MISSING_BACKEND_ID)
   core.setSystemProperty('strokeDebugDisableVisualOverlapCollapse', false)
   delete (globalThis as StrokeDiagnosticsTestGlobal)
     .__ASYRA_STROKE_DIAGNOSTICS_MODE__
@@ -2989,7 +2990,7 @@ describe('vector constrained dashed stroke product wiring', () => {
         graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
       ).toMatchObject({
         geometryFamily: 'dashed-center',
-        resolutionStatus: 'native-center',
+        resolutionStatus: 'center-product',
         runtimeStatus: 'not-applicable',
         runtimeReason: 'center-stroke',
         sourceTopology: 'open',
@@ -3003,7 +3004,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
   })
 
-  it('should run: keep unsupported open self-intersecting inside dashed vectors off the simple-open center path', () => {
+  it('should run: keep domain-plan open self-intersecting inside dashed vectors off the simple-open center path', () => {
     const graphic = runVectorRenderStrategy({
       id: 'vector-constrained-dashed-open-self-intersecting',
       x: 0,
@@ -3038,7 +3039,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     expect(graphic.hitArea?.contains(20, 20) ?? false).toBe(false)
     expect(
       graphic.__asyraConstrainedDashedRuntimeDiagnostics?.entries?.some(
-        (entry) => entry.reason === 'simple-open-center-product'
+        (entry) => entry.reason === 'simple-open-unbounded-center-product'
       ) ?? false
     ).toBe(false)
   })
@@ -3091,7 +3092,7 @@ describe('vector constrained dashed stroke product wiring', () => {
         graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
       ).toMatchObject({
         geometryFamily: 'dashed-center',
-        resolutionStatus: 'native-center'
+        resolutionStatus: 'center-product'
       })
       expect(graphic.hitArea?.contains(20, 10)).toBe(true)
       expect(graphic.__asyraConstrainedDashedRuntimeDiagnostics).toBeUndefined()
@@ -3118,7 +3119,7 @@ describe('vector constrained dashed stroke product wiring', () => {
         graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
       ).toMatchObject({
         geometryFamily: 'dashed-center',
-        resolutionStatus: 'native-center',
+        resolutionStatus: 'center-product',
         runtimeStatus: 'not-applicable',
         runtimeReason: 'center-stroke',
         sourceTopology: 'open'
@@ -3198,7 +3199,7 @@ describe('vector constrained dashed stroke product wiring', () => {
         graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
       ).toMatchObject({
         geometryFamily: 'dashed-center',
-        resolutionStatus: 'native-center'
+        resolutionStatus: 'center-product'
       })
       expect(graphic.hitArea?.contains(10, 0)).toBe(true)
       ;(
@@ -3301,7 +3302,7 @@ describe('vector constrained dashed stroke product wiring', () => {
         graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
       ).toMatchObject({
         geometryFamily: 'dashed-center',
-        resolutionStatus: 'native-center'
+        resolutionStatus: 'center-product'
       })
       expect(graphic.hitArea?.contains(40, 0)).toBe(true)
       ;(
@@ -3331,7 +3332,8 @@ describe('vector constrained dashed stroke product wiring', () => {
       expect(
         constrainedPackets.every(
           (packet) =>
-            packet.debugMeta?.resolutionStatus === 'local-side-approximation' &&
+            packet.debugMeta?.resolutionStatus ===
+              'domain-plan-selected-side' &&
             packet.debugMeta?.runtimeStatus === 'accepted' &&
             packet.debugMeta?.sourceTopology === 'sampled-simple-closed'
         )
@@ -3351,7 +3353,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     })
   })
 
-  it('should run: keep high-curvature sampled-simple local-side constrained dashed vectors local when a backend is selected', () => {
+  it('should run: keep high-curvature sampled-simple domain-plan constrained dashed vectors local when a backend is selected', () => {
     const backendId = 'vector-constrained-dashed-high-curvature-exact-backend'
     let buildArrangementCallCount = 0
     registerGeometryBackend({
@@ -3398,7 +3400,7 @@ describe('vector constrained dashed stroke product wiring', () => {
       constrainedPackets.every(
         (packet) =>
           packet.debugMeta?.sourceTopology === 'sampled-simple-closed' &&
-          packet.debugMeta?.resolutionStatus === 'local-side-approximation' &&
+          packet.debugMeta?.resolutionStatus === 'domain-plan-selected-side' &&
           packet.debugMeta?.runtimeStatus === 'accepted' &&
           packet.debugMeta?.arrangementStatus === undefined
       )
@@ -3451,7 +3453,7 @@ describe('vector constrained dashed stroke product wiring', () => {
       constrainedPackets.every(
         (packet) =>
           packet.debugMeta?.sourceTopology === 'sampled-simple-closed' &&
-          packet.debugMeta?.resolutionStatus === 'local-side-approximation' &&
+          packet.debugMeta?.resolutionStatus === 'domain-plan-selected-side' &&
           packet.debugMeta?.runtimeStatus === 'accepted' &&
           packet.debugMeta?.arrangementStatus === undefined &&
           packet.debugMeta?.arrangementFaceId === undefined
@@ -3462,7 +3464,7 @@ describe('vector constrained dashed stroke product wiring', () => {
     ).toBe(true)
   })
 
-  it('should run: keep high-curvature inside and outside local-side Clipper2 paths side-specific', async () => {
+  it('should run: keep high-curvature inside and outside domain-plan Clipper2 paths side-specific', async () => {
     await selectClipper2TestBackend(
       'vector-constrained-dashed-high-curvature-side-specific-clipper2-backend'
     )
@@ -3496,14 +3498,14 @@ describe('vector constrained dashed stroke product wiring', () => {
     expect(
       insidePackets.every(
         (packet) =>
-          packet.debugMeta?.resolutionStatus === 'local-side-approximation' &&
+          packet.debugMeta?.resolutionStatus === 'domain-plan-selected-side' &&
           packet.debugMeta?.strokePosition === 'inside'
       )
     ).toBe(true)
     expect(
       outsidePackets.every(
         (packet) =>
-          packet.debugMeta?.resolutionStatus === 'local-side-approximation' &&
+          packet.debugMeta?.resolutionStatus === 'domain-plan-selected-side' &&
           packet.debugMeta?.strokePosition === 'outside'
       )
     ).toBe(true)
@@ -3561,7 +3563,7 @@ describe('vector constrained dashed stroke product wiring', () => {
         graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
       ).toMatchObject({
         geometryFamily: 'dashed-center',
-        resolutionStatus: 'native-center'
+        resolutionStatus: 'center-product'
       })
       ;(
         strategy as unknown as (

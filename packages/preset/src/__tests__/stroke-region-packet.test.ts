@@ -40,15 +40,15 @@ describe('stroke region packets', () => {
             topologyFamily: 'simple-closed',
             intervalTopology: 'full-loop',
             strokePosition: 'inside',
-            figmaLikeSplitRangeId: 'split-range:a',
-            figmaLikeSplitRangeStartDistance: 0,
-            figmaLikeSplitRangeEndDistance: 20,
-            figmaLikeTerminalRole: 'start',
-            figmaLikeSplitRangeSourceSegmentIndex: 1,
-            figmaLikeSideAuthority: 'implicit-fill-hole-domain',
-            figmaLikeSelectedSide: 1,
-            figmaLikeSideResolutionStatus: 'resolved',
-            figmaLikeSplitRangeTerminals: [
+            domainPlanSplitRangeId: 'split-range:a',
+            domainPlanSplitRangeStartDistance: 0,
+            domainPlanSplitRangeEndDistance: 20,
+            domainPlanTerminalRole: 'start',
+            domainPlanSplitRangeSourceSegmentIndex: 1,
+            domainPlanSideAuthority: 'implicit-fill-hole-domain',
+            domainPlanSelectedSide: 1,
+            domainPlanSideResolutionStatus: 'resolved',
+            domainPlanSplitRangeTerminals: [
               {
                 intervalId: 'interval-a',
                 splitRangeId: 'split-range:a',
@@ -109,15 +109,15 @@ describe('stroke region packets', () => {
       topologyFamily: 'simple-closed',
       intervalTopology: 'full-loop',
       strokePosition: 'inside',
-      figmaLikeSplitRangeId: 'split-range:a',
-      figmaLikeSplitRangeStartDistance: 0,
-      figmaLikeSplitRangeEndDistance: 20,
-      figmaLikeTerminalRole: 'start',
-      figmaLikeSplitRangeSourceSegmentIndex: 1,
-      figmaLikeSideAuthority: 'implicit-fill-hole-domain',
-      figmaLikeSelectedSide: 1,
-      figmaLikeSideResolutionStatus: 'resolved',
-      figmaLikeSplitRangeTerminals: [
+      domainPlanSplitRangeId: 'split-range:a',
+      domainPlanSplitRangeStartDistance: 0,
+      domainPlanSplitRangeEndDistance: 20,
+      domainPlanTerminalRole: 'start',
+      domainPlanSplitRangeSourceSegmentIndex: 1,
+      domainPlanSideAuthority: 'implicit-fill-hole-domain',
+      domainPlanSelectedSide: 1,
+      domainPlanSideResolutionStatus: 'resolved',
+      domainPlanSplitRangeTerminals: [
         {
           intervalId: 'interval-a',
           splitRangeId: 'split-range:a',
@@ -178,7 +178,7 @@ describe('stroke region packets', () => {
           outsideFillDomain: false
         },
         strokePosition: 'outside',
-        figmaLikeSplitRangeTerminals: [
+        domainPlanSplitRangeTerminals: [
           {
             intervalId: 'interval:a',
             splitRangeId: 'split-range:face-a',
@@ -218,7 +218,7 @@ describe('stroke region packets', () => {
         outsideFillDomain: false
       },
       strokePosition: 'outside',
-      figmaLikeSplitRangeTerminals: [
+      domainPlanSplitRangeTerminals: [
         {
           intervalId: 'interval:a',
           splitRangeId: 'split-range:face-a',

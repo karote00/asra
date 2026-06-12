@@ -7,8 +7,8 @@ import {
   type AnchorPointType
 } from '@asyra/utils'
 
-const toNumber = (value: unknown, fallback = 0) =>
-  typeof value === 'number' ? value : fallback
+const toNumber = (value: unknown, defaultValue = 0) =>
+  typeof value === 'number' ? value : defaultValue
 
 const toPointType = (value: unknown): AnchorPointType =>
   isAnchorPointType(value) ? value : AnchorPointTypes.SHARP

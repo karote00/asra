@@ -22,20 +22,20 @@ export type {
   StrokeSpecRejectionReason
 } from './components/stroke-render/renderable-stroke'
 export {
-  getFigmaStrokeFamilyMatrix,
+  getStrokeProductFamilyMatrix,
   resolveSourceFamily
 } from './components/stroke-render/resolved-source-family'
 export type {
-  FigmaStrokeFamilyMatrixEntry,
-  FigmaStrokeFamilyParity,
-  FigmaStrokeFamilyScope,
-  FigmaStrokeParityStatus,
+  StrokeProductFamilyMatrixEntry,
+  StrokeProductFamilyRuleEvidence,
+  StrokeProductFamilyScope,
+  StrokeProductFamilyStatus,
   ResolvedSourceBlockedReason,
   ResolvedSourceFamily,
   ResolvedSourceSupportState
 } from './components/stroke-render/resolved-source-family'
 export {
-  buildFigmaLikeSplitRangeDashDomains,
+  buildDomainPlanSplitRangeDashDomains,
   resolveStrokeDomains
 } from './components/stroke-render/stroke-domain-plan'
 export type {

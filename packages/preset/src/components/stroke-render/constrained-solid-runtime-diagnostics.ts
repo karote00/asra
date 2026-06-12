@@ -10,8 +10,8 @@ export type ConstrainedSolidRuntimeStatus = 'accepted' | 'blocked'
 export type ConstrainedSolidRuntimeReason =
   | 'accepted'
   | 'degenerate-topology'
-  | 'unsupported-overlap-ownership'
-  | 'unsupported-topology'
+  | 'unresolved-overlap-ownership'
+  | 'missing-domain-plan'
   | 'no-candidate-packets'
 
 export interface ConstrainedSolidRuntimeDiagnosticEntry {

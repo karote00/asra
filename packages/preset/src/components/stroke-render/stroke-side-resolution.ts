@@ -19,10 +19,7 @@ export type StrokeSideResolutionResult =
     }
   | {
       status: 'blocked'
-      reason:
-        | 'unsupported-input'
-        | 'ambiguous-fill-side'
-        | 'missing-probe-frame'
+      reason: 'invalid-input' | 'ambiguous-fill-side' | 'missing-probe-frame'
       leftVotes: number
       rightVotes: number
     }
@@ -36,7 +33,7 @@ export type StrokeOrientationSideResolutionResult =
     }
   | {
       status: 'blocked'
-      reason: 'unsupported-input' | 'degenerate-orientation'
+      reason: 'invalid-input' | 'degenerate-orientation'
       signedArea: number
     }
 
@@ -99,7 +96,7 @@ export const resolveSourcePathOrientationStrokeSide = ({
   ) {
     return {
       status: 'blocked',
-      reason: 'unsupported-input',
+      reason: 'invalid-input',
       signedArea: 0
     }
   }
@@ -352,7 +349,7 @@ export const resolveSourcePathStrokeSide = ({
   ) {
     return {
       status: 'blocked',
-      reason: 'unsupported-input',
+      reason: 'invalid-input',
       leftVotes: 0,
       rightVotes: 0
     }

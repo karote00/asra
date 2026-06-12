@@ -1375,7 +1375,7 @@ test.describe('Dashed Center Stroke Visual Benchmarks', () => {
     expect(lowerRightCornerContinuityB).toBeGreaterThan(0.22)
   })
 
-  test('benchmark: unsupported constrained dashed stroke remains visually absent', async ({
+  test('benchmark: non-product constrained dashed stroke remains visually absent', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)

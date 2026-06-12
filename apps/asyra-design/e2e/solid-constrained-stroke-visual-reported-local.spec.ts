@@ -801,7 +801,7 @@ const reportedVector6SegmentBodyVisualTargets: ReportedVector6LocalVisualTarget[
       center: { x: 210.79, y: 263.99 },
       minCoverage: 0.08,
       // Asyra canonical filled-face solid domains legitimately cover this crop a bit
-      // more than the retired source-path local-side approximation.
+      // more than the retired domain-plan selected-side product.
       maxCoverage: 0.88
     },
     {

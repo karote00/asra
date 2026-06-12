@@ -38,20 +38,21 @@ This definition file describes the screenshot-level oracle for
 - closed non-self-intersecting `vector inside/outside miter`
 - closed constrained `inside/outside round` joins on supported simple paths
 - closed constrained `round` cap equivalence on supported simple paths
-- open `vector inside/outside` authored placement through exact one-sided
-  constrained geometry
+- simple open vector placement through the formal unbounded open center product
+- open self-intersecting contour placement through constrained domain entries
 
 These supported slices must visibly render the constrained stroke band on the
 expected side of the source shape while keeping the opposite side mostly clean.
 
-### Unsupported or rejected constrained slices
+### Domain-plan excluded slices
 
-- open constrained vector clipping
-- self-intersecting constrained vector paths
+- inside dangling spans on open self-intersecting paths
+- malformed constrained domains rejected by source/domain validation
 
-These slices must not render a partial constrained stroke band. Open vectors
-are the exception at the product render layer: authored `inside` / `outside`
-must stay stored, but visible stroke placement falls back to centered rendering.
+These slices must not render a partial constrained stroke band. The only open
+path center product is the formal simple-open unbounded case; contour-forming
+open paths use constrained domain entries, and dangling outside spans use their
+own both-side product entry.
 
 ### Closed constrained cap equivalence
 
@@ -80,7 +81,7 @@ the selected element.
 - supported oval benchmarks:
   - required inside coverage `> 0.45`
   - opposite-side leak `< 0.12`
-- unsupported / rejected slices:
+- domain-plan excluded slices:
   - sampled coverage `< 0.03`
 - closed constrained `butt` / `square` equivalence:
   - absolute sampled-band delta `< 0.12`
@@ -93,8 +94,7 @@ the selected element.
   constrained band is underfilled or routed through the wrong geometry.
 - If the opposite-side leak threshold fails, the legality clipping or placement
   boundary is leaking outside the allowed domain.
-- If an unsupported or rejected slice appears, the phase boundary has been
-  broken and product-facing constrained geometry is leaking into a blocked
-  slice.
+- If a domain-plan excluded slice appears, the phase boundary has been broken
+  and product-facing constrained geometry is leaking into a non-product slice.
 - If the closed-loop cap equivalence fails, closed constrained geometry is
   incorrectly depending on terminal cap behavior.

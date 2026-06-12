@@ -801,7 +801,7 @@ const reportedVector6SegmentBodyVisualTargets: ReportedVector6LocalVisualTarget[
       center: { x: 210.79, y: 263.99 },
       minCoverage: 0.08,
       // Asyra canonical filled-face solid domains legitimately cover this crop a bit
-      // more than the retired source-path local-side approximation.
+      // more than the retired domain-plan selected-side product.
       maxCoverage: 0.88
     },
     {
@@ -2322,7 +2322,7 @@ test.describe('Constrained Solid Stroke Reported Vector Global Visual Benchmarks
       height: raster.elementHeight
     })
 
-    const unsupportedCoverages = {
+    const nonProductCoverages = {
       topSharpLeftExterior,
       topSharpRightExterior,
       leftSharpExterior,
@@ -2332,7 +2332,7 @@ test.describe('Constrained Solid Stroke Reported Vector Global Visual Benchmarks
       topRightVoidCoverage,
       bridgedUpperVoid
     }
-    for (const [label, coverage] of Object.entries(unsupportedCoverages)) {
+    for (const [label, coverage] of Object.entries(nonProductCoverages)) {
       expect(coverage, label).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
     }
 
@@ -2427,7 +2427,7 @@ test.describe('Constrained Solid Stroke Reported Vector Global Visual Benchmarks
       doubleRedCoverage,
       'red alpha double-opacity visual overlap coverage'
       // The self-intersecting solid path now follows Asyra canonical filled-face
-      // domains instead of the retired local-side source-path approximation.
+      // domains instead of the retired domain-plan source-path approximation.
       // Small alpha overlap remains legal at exact-union mask edges.
     ).toBeLessThan(0.03)
     expect(
@@ -2449,10 +2449,10 @@ test.describe('Constrained Solid Stroke Reported Vector Global Visual Benchmarks
           debugMeta.resolutionStatus === 'exact-constrained' &&
           debugMeta.runtimeStatus === 'accepted' &&
           debugMeta.sourceTopology === 'self-intersecting' &&
-          debugMeta.figmaLikeSideAuthority === 'implicit-fill-hole-domain' &&
-          debugMeta.figmaLikeBoundaryRole === 'filled-face' &&
-          debugMeta.figmaLikeTerminalRole === undefined &&
-          debugMeta.figmaLikeSplitRangeTerminals === undefined
+          debugMeta.domainPlanSideAuthority === 'implicit-fill-hole-domain' &&
+          debugMeta.domainPlanBoundaryRole === 'filled-face' &&
+          debugMeta.domainPlanTerminalRole === undefined &&
+          debugMeta.domainPlanSplitRangeTerminals === undefined
       ),
       JSON.stringify(packetSummary.exportPacketDebugMeta, null, 2)
     ).toBe(true)

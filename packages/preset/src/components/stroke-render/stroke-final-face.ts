@@ -45,32 +45,32 @@ export interface StrokeFinalFaceDebugMetaBase {
     insideFillDomain: boolean
     outsideFillDomain: boolean
   }
-  figmaLikeBoundaryDomainId?: string
-  figmaLikeSplitRangeId?: string
-  figmaLikeSplitRangeStartDistance?: number
-  figmaLikeSplitRangeEndDistance?: number
-  figmaLikeTerminalRole?: 'start' | 'end' | 'start-end' | 'middle'
-  figmaLikeSplitRangeSourceSegmentIndex?: number
-  figmaLikeSideAuthority?: 'implicit-fill-hole-domain'
-  figmaLikeSelectedSide?: 1 | -1
-  figmaLikeFilledSide?: 1 | -1
-  figmaLikeUnfilledSide?: 1 | -1
-  figmaLikeBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
-  figmaLikeSideResolutionStatus?: 'resolved' | 'blocked'
-  figmaLikeSideResolutionReason?: string
-  figmaLikeBoundaryPoints?: Vec2[]
-  figmaLikeBoundaryStartDistance?: number
-  figmaLikeBoundaryEndDistance?: number
-  figmaLikeBoundaryTotalLength?: number
+  domainPlanBoundaryDomainId?: string
+  domainPlanSplitRangeId?: string
+  domainPlanSplitRangeStartDistance?: number
+  domainPlanSplitRangeEndDistance?: number
+  domainPlanTerminalRole?: 'start' | 'end' | 'start-end' | 'middle'
+  domainPlanSplitRangeSourceSegmentIndex?: number
+  domainPlanSideAuthority?: 'implicit-fill-hole-domain'
+  domainPlanSelectedSide?: 1 | -1
+  domainPlanFilledSide?: 1 | -1
+  domainPlanUnfilledSide?: 1 | -1
+  domainPlanBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
+  domainPlanSideResolutionStatus?: 'resolved' | 'blocked'
+  domainPlanSideResolutionReason?: string
+  domainPlanBoundaryPoints?: Vec2[]
+  domainPlanBoundaryStartDistance?: number
+  domainPlanBoundaryEndDistance?: number
+  domainPlanBoundaryTotalLength?: number
   visualOverlapCollapseStatus?:
     | 'exact-union'
     | 'exact-arrangement'
-    | 'local-side-arrangement'
+    | 'domain-plan-selected-side-arrangement'
     | 'render-projection-merged'
     | 'render-projection-arrangement'
   visualOverlapSourceFaceIds?: string[]
   visualOverlapSourceGeometryIds?: string[]
-  figmaLikeSplitRangeTerminals?: {
+  domainPlanSplitRangeTerminals?: {
     intervalId: string
     boundaryDomainId?: string
     boundaryPoints?: Vec2[]
@@ -199,10 +199,10 @@ const pushUnique = <T>(items: T[], value: T) => {
 
 const pushUniqueSplitRangeTerminal = (
   terminals: NonNullable<
-    StrokeFinalFaceDebugMetaBase['figmaLikeSplitRangeTerminals']
+    StrokeFinalFaceDebugMetaBase['domainPlanSplitRangeTerminals']
   >,
   terminal: NonNullable<
-    StrokeFinalFaceDebugMetaBase['figmaLikeSplitRangeTerminals']
+    StrokeFinalFaceDebugMetaBase['domainPlanSplitRangeTerminals']
   >[number]
 ) => {
   const exists = terminals.some(
@@ -261,27 +261,27 @@ const mergeFaceDebugMeta = (
     ;(target[typedKey] as string[] | undefined) = targetValues
   })
 
-  if (source.figmaLikeSplitRangeTerminals) {
+  if (source.domainPlanSplitRangeTerminals) {
     const targetTerminals = [
-      ...(target.figmaLikeSplitRangeTerminals ?? [])
+      ...(target.domainPlanSplitRangeTerminals ?? [])
     ] satisfies NonNullable<
-      StrokeFinalFaceDebugMetaBase['figmaLikeSplitRangeTerminals']
+      StrokeFinalFaceDebugMetaBase['domainPlanSplitRangeTerminals']
     >
-    source.figmaLikeSplitRangeTerminals.forEach((terminal) =>
+    source.domainPlanSplitRangeTerminals.forEach((terminal) =>
       pushUniqueSplitRangeTerminal(targetTerminals, terminal)
     )
-    target.figmaLikeSplitRangeTerminals = targetTerminals
+    target.domainPlanSplitRangeTerminals = targetTerminals
   }
 
-  if (source.figmaLikeBoundaryPoints) {
-    target.figmaLikeBoundaryPoints = source.figmaLikeBoundaryPoints.map(
+  if (source.domainPlanBoundaryPoints) {
+    target.domainPlanBoundaryPoints = source.domainPlanBoundaryPoints.map(
       (point) => ({ ...point })
     )
   }
-  target.figmaLikeBoundaryStartDistance ??=
-    source.figmaLikeBoundaryStartDistance
-  target.figmaLikeBoundaryEndDistance ??= source.figmaLikeBoundaryEndDistance
-  target.figmaLikeBoundaryTotalLength ??= source.figmaLikeBoundaryTotalLength
+  target.domainPlanBoundaryStartDistance ??=
+    source.domainPlanBoundaryStartDistance
+  target.domainPlanBoundaryEndDistance ??= source.domainPlanBoundaryEndDistance
+  target.domainPlanBoundaryTotalLength ??= source.domainPlanBoundaryTotalLength
 }
 
 const buildPolygonSignature = (polygon: Vec2[]) => {
@@ -587,28 +587,28 @@ const buildDebugMetaFromPaintAttachedRegion = (
     ? [...region.arrangementCandidateIds]
     : undefined,
   arrangementLegalState: region.arrangementLegalState,
-  figmaLikeBoundaryDomainId: region.figmaLikeBoundaryDomainId,
-  figmaLikeSplitRangeId: region.figmaLikeSplitRangeId,
-  figmaLikeSplitRangeStartDistance: region.figmaLikeSplitRangeStartDistance,
-  figmaLikeSplitRangeEndDistance: region.figmaLikeSplitRangeEndDistance,
-  figmaLikeTerminalRole: region.figmaLikeTerminalRole,
-  figmaLikeSplitRangeSourceSegmentIndex:
-    region.figmaLikeSplitRangeSourceSegmentIndex,
-  figmaLikeSideAuthority: region.figmaLikeSideAuthority,
-  figmaLikeSelectedSide: region.figmaLikeSelectedSide,
-  figmaLikeFilledSide: region.figmaLikeFilledSide,
-  figmaLikeUnfilledSide: region.figmaLikeUnfilledSide,
-  figmaLikeBoundaryRole: region.figmaLikeBoundaryRole,
-  figmaLikeSideResolutionStatus: region.figmaLikeSideResolutionStatus,
-  figmaLikeSideResolutionReason: region.figmaLikeSideResolutionReason,
-  figmaLikeBoundaryPoints: region.figmaLikeBoundaryPoints
-    ? region.figmaLikeBoundaryPoints.map((point) => ({ ...point }))
+  domainPlanBoundaryDomainId: region.domainPlanBoundaryDomainId,
+  domainPlanSplitRangeId: region.domainPlanSplitRangeId,
+  domainPlanSplitRangeStartDistance: region.domainPlanSplitRangeStartDistance,
+  domainPlanSplitRangeEndDistance: region.domainPlanSplitRangeEndDistance,
+  domainPlanTerminalRole: region.domainPlanTerminalRole,
+  domainPlanSplitRangeSourceSegmentIndex:
+    region.domainPlanSplitRangeSourceSegmentIndex,
+  domainPlanSideAuthority: region.domainPlanSideAuthority,
+  domainPlanSelectedSide: region.domainPlanSelectedSide,
+  domainPlanFilledSide: region.domainPlanFilledSide,
+  domainPlanUnfilledSide: region.domainPlanUnfilledSide,
+  domainPlanBoundaryRole: region.domainPlanBoundaryRole,
+  domainPlanSideResolutionStatus: region.domainPlanSideResolutionStatus,
+  domainPlanSideResolutionReason: region.domainPlanSideResolutionReason,
+  domainPlanBoundaryPoints: region.domainPlanBoundaryPoints
+    ? region.domainPlanBoundaryPoints.map((point) => ({ ...point }))
     : undefined,
-  figmaLikeBoundaryStartDistance: region.figmaLikeBoundaryStartDistance,
-  figmaLikeBoundaryEndDistance: region.figmaLikeBoundaryEndDistance,
-  figmaLikeBoundaryTotalLength: region.figmaLikeBoundaryTotalLength,
-  figmaLikeSplitRangeTerminals: region.figmaLikeSplitRangeTerminals
-    ? region.figmaLikeSplitRangeTerminals.map((terminal) => ({ ...terminal }))
+  domainPlanBoundaryStartDistance: region.domainPlanBoundaryStartDistance,
+  domainPlanBoundaryEndDistance: region.domainPlanBoundaryEndDistance,
+  domainPlanBoundaryTotalLength: region.domainPlanBoundaryTotalLength,
+  domainPlanSplitRangeTerminals: region.domainPlanSplitRangeTerminals
+    ? region.domainPlanSplitRangeTerminals.map((terminal) => ({ ...terminal }))
     : undefined,
   revisionSet: {
     ...region.revisionSet,

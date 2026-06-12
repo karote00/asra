@@ -8,7 +8,7 @@ const entry = {
   sourceId: 'vector:solid:network-0',
   networkId: 'network-0',
   status: 'blocked' as const,
-  reason: 'unsupported-topology' as const,
+  reason: 'missing-domain-plan' as const,
   candidatePacketCount: 0,
   topologyFamily: 'self-intersecting' as const,
   closed: true,
@@ -36,7 +36,7 @@ describe('constrained solid runtime diagnostics', () => {
       {
         branchId: 'product:constrained-solid:vector:solid:network-0:network-0',
         supportState: 'blocked',
-        blockedReason: 'unsupported-topology',
+        blockedReason: 'missing-domain-plan',
         ownerProvenance: {
           primaryOwner: 'vector:solid:network-0:stroke:0',
           ownerSet: ['vector:solid:network-0:stroke:0'],

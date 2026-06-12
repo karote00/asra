@@ -1599,8 +1599,8 @@ const getSelectedSolidStrokeRenderPacketSummary = async (page: Page) =>
           hasProjection: entry.projection !== undefined
         })
       ),
-      nativeCenterSolidStrokeRenderCount:
-        renderElement?.__asyraNativeCenterSolidStrokeRenderCount ?? 0,
+      centerPathSolidStrokeRenderCount:
+        renderElement?.__asyraCenterPathSolidStrokeRenderCount ?? 0,
       exportPacketDebugMeta: exportPackets.map(
         (packet: { debugMeta?: Record<string, unknown> }) =>
           packet.debugMeta ?? {}
@@ -1631,7 +1631,7 @@ test.describe('Reported Vector-6 Inside Solid Visual Regression', () => {
       crossingRaster.base64
     )
     expect(packetSummary.debugDisableVisualOverlapCollapse).toBe(false)
-    expect(packetSummary.nativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(packetSummary.centerPathSolidStrokeRenderCount).toBe(0)
     expect(
       packetSummary.strokeMeshCacheSummary.some(
         (entry) => entry.kind === 'masked-solid'
@@ -1646,7 +1646,7 @@ test.describe('Reported Vector-6 Inside Solid Visual Regression', () => {
 
     await setStrokeDebugDisableVisualOverlapCollapse(page, true)
     const debugSummary = await getSelectedSolidStrokeRenderPacketSummary(page)
-    expect(debugSummary.nativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(debugSummary.centerPathSolidStrokeRenderCount).toBe(0)
     expect(debugSummary.strokeMeshCacheSummary.length).toBeGreaterThan(0)
   })
 
@@ -1682,10 +1682,10 @@ test.describe('Reported Vector-6 Inside Solid Visual Regression', () => {
           debugMeta.resolutionStatus === 'exact-constrained' &&
           debugMeta.runtimeStatus === 'accepted' &&
           debugMeta.sourceTopology === 'self-intersecting' &&
-          debugMeta.figmaLikeSideAuthority === 'implicit-fill-hole-domain' &&
-          debugMeta.figmaLikeBoundaryRole === 'filled-face' &&
-          debugMeta.figmaLikeTerminalRole === undefined &&
-          debugMeta.figmaLikeSplitRangeTerminals === undefined
+          debugMeta.domainPlanSideAuthority === 'implicit-fill-hole-domain' &&
+          debugMeta.domainPlanBoundaryRole === 'filled-face' &&
+          debugMeta.domainPlanTerminalRole === undefined &&
+          debugMeta.domainPlanSplitRangeTerminals === undefined
       ),
       JSON.stringify(packetSummary.exportPacketDebugMeta, null, 2)
     ).toBe(true)
@@ -1729,7 +1729,7 @@ test.describe('Reported Vector-6 Inside Solid Visual Regression', () => {
 
     expect(switchMs).toBeLessThan(2000)
     expect(packetSummary.exportPacketCount).toBe(1)
-    expect(packetSummary.nativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(packetSummary.centerPathSolidStrokeRenderCount).toBe(0)
     expect(
       packetSummary.strokeMeshCacheSummary.some(
         (entry) => entry.kind === 'masked-solid'
@@ -1822,7 +1822,7 @@ test.describe('Reported Vector-6 Inside Solid Visual Regression', () => {
       packetSummary.exportPacketDebugMeta.every(
         (debugMeta) =>
           debugMeta.geometryFamily === 'solid-center' &&
-          debugMeta.resolutionStatus === 'native-center' &&
+          debugMeta.resolutionStatus === 'center-product' &&
           debugMeta.runtimeReason === 'center-stroke' &&
           debugMeta.strokePosition === 'center' &&
           debugMeta.visualOverlapCollapseStatus === 'exact-union'

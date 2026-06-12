@@ -36,6 +36,8 @@ export interface DashedCenterRibbonGeometryOptions {
   allowRoundCapBackendOffset?: boolean
   disableBackendOffset?: boolean
   skipSimpleOutlineValidation?: boolean
+  suppressStartCap?: boolean
+  suppressEndCap?: boolean
 }
 
 const EPSILON = 1e-6
@@ -150,8 +152,8 @@ const resolveMiterPoint = (
   const previousTangent = normalize(subtract(point, previousPoint))
   const nextTangent = normalize(subtract(nextPoint, point))
   if (!previousTangent || !nextTangent) {
-    const fallbackTangent = previousTangent ?? nextTangent ?? { x: 1, y: 0 }
-    return getOffsetPoint(point, fallbackTangent, offset)
+    const defaultTangent = previousTangent ?? nextTangent ?? { x: 1, y: 0 }
+    return getOffsetPoint(point, defaultTangent, offset)
   }
 
   const previousStart = getOffsetPoint(previousPoint, previousTangent, offset)
@@ -330,17 +332,25 @@ const applySquareCaps = (
   frames: DashedCenterRibbonFrame[],
   left: Vec2[],
   right: Vec2[],
-  halfWidth: number
+  halfWidth: number,
+  options: Pick<
+    DashedCenterRibbonGeometryOptions,
+    'suppressStartCap' | 'suppressEndCap'
+  > = {}
 ) => {
   const startTangent = getFrameTangent(frames, 0)
   const endTangent = getFrameTangent(frames, frames.length - 1)
   const startShift = scale(startTangent, -halfWidth)
   const endShift = scale(endTangent, halfWidth)
 
-  left[0] = add(left[0], startShift)
-  right[0] = add(right[0], startShift)
-  left[left.length - 1] = add(left[left.length - 1], endShift)
-  right[right.length - 1] = add(right[right.length - 1], endShift)
+  if (options.suppressStartCap !== true) {
+    left[0] = add(left[0], startShift)
+    right[0] = add(right[0], startShift)
+  }
+  if (options.suppressEndCap !== true) {
+    left[left.length - 1] = add(left[left.length - 1], endShift)
+    right[right.length - 1] = add(right[right.length - 1], endShift)
+  }
 }
 
 const normalizeOutputPolygons = (polygons: Vec2[][]) =>
@@ -359,6 +369,10 @@ const buildBackendOffsetPolygons = (
   stroke: Pick<RenderableStroke, 'width' | 'join' | 'miterLimit' | 'cap'>,
   options: DashedCenterRibbonGeometryOptions = {}
 ) => {
+  if (options.suppressStartCap === true || options.suppressEndCap === true) {
+    return []
+  }
+
   if (options.disableBackendOffset === true) {
     return []
   }
@@ -416,26 +430,30 @@ export const buildDashedCenterRibbonGeometry = (
 
   const halfWidth = stroke.width / 2
   if (stroke.cap === 'square') {
-    applySquareCaps(frames, left, right, halfWidth)
+    applySquareCaps(frames, left, right, halfWidth, options)
   }
 
   const outline =
     stroke.cap === 'round'
       ? [
           ...left,
-          ...buildRoundCapArcPoints(
-            frames[frames.length - 1].point,
-            left[left.length - 1],
-            right[right.length - 1],
-            -1
-          ).slice(1),
+          ...(options.suppressEndCap === true
+            ? [right[right.length - 1]]
+            : buildRoundCapArcPoints(
+                frames[frames.length - 1].point,
+                left[left.length - 1],
+                right[right.length - 1],
+                -1
+              ).slice(1)),
           ...[...right].reverse().slice(1),
-          ...buildRoundCapArcPoints(
-            frames[0].point,
-            right[0],
-            left[0],
-            -1
-          ).slice(1)
+          ...(options.suppressStartCap === true
+            ? [left[0]]
+            : buildRoundCapArcPoints(
+                frames[0].point,
+                right[0],
+                left[0],
+                -1
+              ).slice(1))
         ]
       : [...left, ...[...right].reverse()]
 

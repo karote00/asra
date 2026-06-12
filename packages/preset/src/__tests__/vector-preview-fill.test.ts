@@ -276,7 +276,7 @@ describe('vector preview fill during drag', () => {
     expect(pathContainsPoint(updatedInstructions, basePoints[0])).toBe(false)
   })
 
-  it('should run: consume shared self-intersecting fill regions before legacy fill fallback', () => {
+  it('should run: consume shared self-intersecting fill regions before shared fill-domain geometry', () => {
     expect(renderStrategyRegistry.has('vector')).toBe(true)
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()

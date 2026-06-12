@@ -744,9 +744,9 @@ test.describe('Reported Vector-6 Outside Solid Switch Regression', () => {
           debugMeta.runtimeStatus === 'accepted' &&
           debugMeta.sourceTopology === 'self-intersecting' &&
           debugMeta.strokePosition === 'outside' &&
-          debugMeta.figmaLikeBoundaryRole === 'outer' &&
-          debugMeta.figmaLikeTerminalRole === undefined &&
-          debugMeta.figmaLikeSplitRangeTerminals === undefined
+          debugMeta.domainPlanBoundaryRole === 'outer' &&
+          debugMeta.domainPlanTerminalRole === undefined &&
+          debugMeta.domainPlanSplitRangeTerminals === undefined
       ),
       JSON.stringify(packetSummary.exportPacketDebugMeta, null, 2)
     ).toBe(true)

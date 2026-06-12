@@ -1,15 +1,15 @@
 import type { RenderableStroke } from './renderable-stroke'
 import {
   buildClosedConstrainedStrokePolygonEntriesForSource,
-  buildConstrainedLocalSideStrokePolygons
-} from './constrained-local-side-stroke-geometry'
+  buildConstrainedDomainStrokePolygons
+} from './constrained-domain-stroke-geometry'
 
 interface Vec2 {
   x: number
   y: number
 }
 
-export const buildConstrainedDashedLocalSideStrokePolygons = (
+export const buildConstrainedDashedDomainStrokePolygons = (
   points: Vec2[],
   closed: boolean,
   stroke: Pick<
@@ -24,9 +24,9 @@ export const buildConstrainedDashedLocalSideStrokePolygons = (
     roundCapEnd?: boolean
   } = {}
 ): Vec2[][] =>
-  buildConstrainedLocalSideStrokePolygons(points, closed, stroke, options)
+  buildConstrainedDomainStrokePolygons(points, closed, stroke, options)
 
-export const buildSelfIntersectingClosedConstrainedDashedLocalSidePolygons = (
+export const buildSelfIntersectingClosedConstrainedDashedDomainPolygons = (
   points: Vec2[],
   stroke: Pick<
     RenderableStroke,

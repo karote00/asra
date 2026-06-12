@@ -57,7 +57,7 @@ Use this file to quickly map a user request to app docs and source owners.
   - `modules/controllers-and-state.md`
   - `ARCHITECTURE.md`
 
-- stale pre-release app flow, product fallback, or legacy render/property behavior
+- stale pre-release app flow, legacy product branch, or legacy render/property behavior
   - `docs/ai/framework/rules/pre-release-legacy-removal.md`
   - affected `features/*`, `modules/*`, or `rules/*`
   - `PLANS.md` if an active plan/inspector workflow is involved

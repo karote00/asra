@@ -6,35 +6,36 @@ import type { RenderableStroke } from './renderable-stroke'
 
 export type ResolvedSourceSupportState =
   | 'supported'
-  | 'center-equivalent'
+  | 'simple-open-unbounded'
   | 'blocked'
 
 export type ResolvedSourceBlockedReason =
   | 'degenerate-topology'
   | 'missing-legal-domain'
 
-export type FigmaStrokeParityStatus =
+export type StrokeProductFamilyStatus =
   | 'verified-slice'
   | 'unverified-reference'
   | 'implementation-gap'
   | 'not-applicable'
 
-export type FigmaStrokeFamilyScope =
+export type StrokeProductFamilyScope =
   | 'degenerate'
   | 'open'
   | 'simple-closed'
   | 'compound-closed'
   | 'self-intersecting-closed'
 
-export interface FigmaStrokeFamilyParity {
-  familyScope: FigmaStrokeFamilyScope
-  status: FigmaStrokeParityStatus
+export interface StrokeProductFamilyRuleEvidence {
+  familyScope: StrokeProductFamilyScope
+  status: StrokeProductFamilyStatus
   requiredForCompletion: boolean
   evidence: string[]
   gaps: string[]
 }
 
-export interface FigmaStrokeFamilyMatrixEntry extends FigmaStrokeFamilyParity {
+export interface StrokeProductFamilyMatrixEntry
+  extends StrokeProductFamilyRuleEvidence {
   strokeStyle: RenderableStroke['style']
   strokePosition: RenderableStroke['position']
 }
@@ -46,7 +47,7 @@ export interface ResolvedSourceFamily {
   topologyFamily: PathTopologyFamily
   supportState: ResolvedSourceSupportState
   blockedReason?: ResolvedSourceBlockedReason
-  figmaParity: FigmaStrokeFamilyParity
+  productRuleEvidence: StrokeProductFamilyRuleEvidence
   legalDomainHints: {
     fillRule: PathTopologyModel['fillRule']
     contourIds: string[]
@@ -73,7 +74,7 @@ const resolveFamilyScope = ({
   topology: PathTopologyModel
   compound: boolean
   selfIntersecting: boolean
-}): FigmaStrokeFamilyScope => {
+}): StrokeProductFamilyScope => {
   if (topology.topologyFamily === 'degenerate') {
     return 'degenerate'
   }
@@ -89,13 +90,13 @@ const resolveFamilyScope = ({
   return 'simple-closed'
 }
 
-const resolveFigmaParity = ({
+const resolveProductFamilyRuleEvidence = ({
   familyScope,
   stroke
 }: {
-  familyScope: FigmaStrokeFamilyScope
+  familyScope: StrokeProductFamilyScope
   stroke: Pick<RenderableStroke, 'style' | 'position'>
-}): FigmaStrokeFamilyParity => {
+}): StrokeProductFamilyRuleEvidence => {
   if (familyScope === 'degenerate') {
     return {
       familyScope,
@@ -114,7 +115,7 @@ const resolveFigmaParity = ({
       status: 'verified-slice',
       requiredForCompletion: true,
       evidence: [
-        'Simple open networks without bounded filled-region domains are center-equivalent. Open self-intersecting networks are promoted by the stroke domain plan when resolved bounded domains exist.'
+        'Simple open networks without bounded filled-region domains use the formal center product. Open self-intersecting networks are promoted by the stroke domain plan when resolved bounded domains exist.'
       ],
       gaps: []
     }
@@ -162,13 +163,16 @@ export const resolveSourceFamily = ({
     compound,
     selfIntersecting
   })
-  const figmaParity = resolveFigmaParity({ familyScope, stroke })
+  const productRuleEvidence = resolveProductFamilyRuleEvidence({
+    familyScope,
+    stroke
+  })
   const baseResult = {
     sourceId: topology.sourceId,
     networkId: topology.networkId,
     sourceFamily: topology.sourceFamily,
     topologyFamily: topology.topologyFamily,
-    figmaParity,
+    productRuleEvidence,
     legalDomainHints: {
       fillRule: topology.fillRule,
       contourIds,
@@ -197,7 +201,7 @@ export const resolveSourceFamily = ({
   if (!topology.closed) {
     return {
       ...baseResult,
-      supportState: 'center-equivalent'
+      supportState: 'simple-open-unbounded'
     }
   }
 
@@ -215,7 +219,7 @@ export const resolveSourceFamily = ({
   }
 }
 
-const MATRIX_FAMILY_SCOPES: FigmaStrokeFamilyScope[] = [
+const MATRIX_FAMILY_SCOPES: StrokeProductFamilyScope[] = [
   'open',
   'simple-closed',
   'compound-closed',
@@ -229,19 +233,20 @@ const MATRIX_STROKE_POSITIONS: RenderableStroke['position'][] = [
   'outside'
 ]
 
-export const getFigmaStrokeFamilyMatrix = (): FigmaStrokeFamilyMatrixEntry[] =>
-  MATRIX_FAMILY_SCOPES.flatMap((familyScope) =>
-    MATRIX_STROKE_STYLES.flatMap((strokeStyle) =>
-      MATRIX_STROKE_POSITIONS.map((strokePosition) => ({
-        strokeStyle,
-        strokePosition,
-        ...resolveFigmaParity({
-          familyScope,
-          stroke: {
-            style: strokeStyle,
-            position: strokePosition
-          }
-        })
-      }))
+export const getStrokeProductFamilyMatrix =
+  (): StrokeProductFamilyMatrixEntry[] =>
+    MATRIX_FAMILY_SCOPES.flatMap((familyScope) =>
+      MATRIX_STROKE_STYLES.flatMap((strokeStyle) =>
+        MATRIX_STROKE_POSITIONS.map((strokePosition) => ({
+          strokeStyle,
+          strokePosition,
+          ...resolveProductFamilyRuleEvidence({
+            familyScope,
+            stroke: {
+              style: strokeStyle,
+              position: strokePosition
+            }
+          })
+        }))
+      )
     )
-  )

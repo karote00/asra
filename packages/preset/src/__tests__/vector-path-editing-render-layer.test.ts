@@ -218,7 +218,7 @@ describe('vector path editing handle visibility', () => {
 })
 
 describe('vector topology mutation intent', () => {
-  it('routes vector mutation APIs through topology-native operation adapters', () => {
+  it('routes vector mutation APIs through topology operation adapters', () => {
     const source = vectorApisSource()
 
     expect(source).toContain('appendVectorAnchorPoint:')
@@ -249,14 +249,15 @@ describe('vector topology mutation intent', () => {
     expect(source).toContain("type: 'setHandleMode'")
     expect(source).toContain("type: 'setHandles'")
     expect(source).toContain("type: 'removeLastSinglePointSubpath'")
-    expect(source).toContain(
-      'commitVectorTopology(elementId, nextTopology, options)'
-    )
+    expect(source).toContain('assertVectorTopologyOperationCanPatch(elementId)')
     expect(source).not.toContain(
       'commitVectorTopology(elementId, splitResult.topology)'
     )
     expect(source).not.toContain(
       'commitVectorTopology(elementId, nextTopology)'
+    )
+    expect(source).not.toContain(
+      'commitVectorTopology(elementId, nextTopology, options)'
     )
 
     expect(source).not.toMatch(/\banchorPoints\s*:/)

@@ -13,7 +13,7 @@ export type LegalDomainNormalizationMode =
   | 'backend-boolean'
 
 export type LegalDomainNormalizationBlockedReason =
-  | 'unsupported-source-topology'
+  | 'source-topology-not-normalized'
   | 'requires-exact-backend'
   | 'missing-shell-or-hole'
 
@@ -308,7 +308,7 @@ export const buildCompoundLegalDomainNormalization = (
   if (eligibleTopologies.length !== topologies.length) {
     return {
       status: 'blocked',
-      reason: 'unsupported-source-topology',
+      reason: 'source-topology-not-normalized',
       classifications: []
     }
   }

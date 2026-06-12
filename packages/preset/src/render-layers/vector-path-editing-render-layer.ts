@@ -417,7 +417,7 @@ const buildOverlayVectorDataSignature = (
 ) => {
   const parts = [
     'o',
-    computed.pointCoordinateSpace ?? 'legacy-local',
+    computed.pointCoordinateSpace ?? 'missing-workspace',
     String(offsetX),
     String(offsetY)
   ]
@@ -613,14 +613,17 @@ const getPathEditingVectorDataWithDeps = (
     }
     return null
   }
+  if (computed.pointCoordinateSpace !== 'workspace') {
+    if (cache) {
+      cache.current = null
+    }
+    return null
+  }
   const computedPoints = computed.points
   const computedSegments = computed.segments
   const computedNetworks = computed.networks
-  const usesWorkspacePoints = computed.pointCoordinateSpace === 'workspace'
-  const offsetX =
-    usesWorkspacePoints || typeof computed.x !== 'number' ? 0 : computed.x
-  const offsetY =
-    usesWorkspacePoints || typeof computed.y !== 'number' ? 0 : computed.y
+  const offsetX = 0
+  const offsetY = 0
   const signature = measureVectorEditingOverlayPhase(
     'editing-overlay:model-signature',
     () =>

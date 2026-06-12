@@ -10,8 +10,8 @@ const toStringArray = (value: unknown): string[] => {
   return value.filter((item): item is string => typeof item === 'string')
 }
 
-const toBoolean = (value: unknown, fallback = false) =>
-  typeof value === 'boolean' ? value : fallback
+const toBoolean = (value: unknown, defaultValue = false) =>
+  typeof value === 'boolean' ? value : defaultValue
 
 defineChildrenMapPropertyComponent({
   type: PropertyTypes.VECTOR_NETWORKS,

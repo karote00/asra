@@ -104,7 +104,7 @@ describe('constrained dashed runtime diagnostics', () => {
       {
         ...entry,
         status: 'blocked',
-        reason: 'unsupported-open-topology',
+        reason: 'missing-open-domain-plan',
         candidatePacketCount: 0,
         ownership: {
           status: 'blocked',
@@ -117,7 +117,7 @@ describe('constrained dashed runtime diagnostics', () => {
 
     expect(diagnostics.branches[0]).toMatchObject({
       supportState: 'blocked',
-      blockedReason: 'unsupported-open-topology',
+      blockedReason: 'missing-open-domain-plan',
       ownerProvenance: {
         ownerSet: [],
         ownerCount: 0,

@@ -117,7 +117,7 @@ describe('stroke final faces', () => {
   it('should run: collapse exact duplicate FinalFace geometry while preserving typed provenance', () => {
     const first = buildRegion('a', {
       sourceGeometryIds: ['candidate:a'],
-      figmaLikeSplitRangeTerminals: [
+      domainPlanSplitRangeTerminals: [
         {
           intervalId: 'interval:a',
           splitRangeId: 'split-range:shared',
@@ -138,7 +138,7 @@ describe('stroke final faces', () => {
       legalDomainIds: ['legal:b'],
       arrangementFaceId: 'face:b',
       arrangementCandidateIds: ['candidate:b'],
-      figmaLikeSplitRangeTerminals: [
+      domainPlanSplitRangeTerminals: [
         {
           intervalId: 'interval:b',
           splitRangeId: 'split-range:shared',
@@ -169,7 +169,7 @@ describe('stroke final faces', () => {
     expect(face?.sourceSpanIds).toEqual(['span:a', 'span:b'])
     expect(face?.sourceContourIds).toEqual(['contour:a', 'contour:b'])
     expect(face?.legalDomainIds).toEqual(['legal:a', 'legal:b'])
-    expect(face?.debugMeta?.figmaLikeSplitRangeTerminals).toEqual([
+    expect(face?.debugMeta?.domainPlanSplitRangeTerminals).toEqual([
       {
         intervalId: 'interval:a',
         splitRangeId: 'split-range:shared',

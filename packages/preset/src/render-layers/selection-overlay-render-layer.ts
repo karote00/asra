@@ -88,10 +88,6 @@ const getVectorPointLocalPosition = (
   computed: VectorComputedData,
   point: PositionData
 ): PositionData => {
-  if (computed.pointCoordinateSpace !== 'workspace') {
-    return { x: point.x, y: point.y }
-  }
-
   return {
     x: point.x - (computed.x ?? 0),
     y: point.y - (computed.y ?? 0)
@@ -235,7 +231,12 @@ const drawVectorHoverOutline = (
   const points = computed.points
   const segments = computed.segments
   const networks = computed.networks
-  if (!points || !segments || !networks) {
+  if (
+    computed.pointCoordinateSpace !== 'workspace' ||
+    !points ||
+    !segments ||
+    !networks
+  ) {
     return false
   }
 
@@ -457,7 +458,7 @@ const appendVectorComputedSignature = (
 
   const computed = sceneElement.getAllComputedData() as VectorComputedData
   parts.push(
-    computed.pointCoordinateSpace ?? 'local',
+    computed.pointCoordinateSpace ?? 'missing-workspace',
     String(computed.x ?? ''),
     String(computed.y ?? ''),
     String(computed.width ?? ''),

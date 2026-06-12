@@ -186,14 +186,14 @@ describe('solid center stroke packets', () => {
           runtimeStatus: 'accepted' as const,
           sourceTopology: 'self-intersecting' as const,
           strokePosition: 'inside' as const,
-          figmaLikeSplitRangeId: 'split-range:terminal',
-          figmaLikeSplitRangeStartDistance: 0,
-          figmaLikeSplitRangeEndDistance: 30,
-          figmaLikeTerminalRole: 'start' as const,
-          figmaLikeSideAuthority: 'implicit-fill-hole-domain' as const,
-          figmaLikeSelectedSide: 1 as const,
-          figmaLikeSideResolutionStatus: 'resolved' as const,
-          figmaLikeSplitRangeTerminals: [
+          domainPlanSplitRangeId: 'split-range:terminal',
+          domainPlanSplitRangeStartDistance: 0,
+          domainPlanSplitRangeEndDistance: 30,
+          domainPlanTerminalRole: 'start' as const,
+          domainPlanSideAuthority: 'implicit-fill-hole-domain' as const,
+          domainPlanSelectedSide: 1 as const,
+          domainPlanSideResolutionStatus: 'resolved' as const,
+          domainPlanSplitRangeTerminals: [
             {
               intervalId: 'interval:terminal-start',
               splitRangeId: 'split-range:terminal',
@@ -230,22 +230,24 @@ describe('solid center stroke packets', () => {
       const [diagnosticExport] =
         buildSolidCenterStrokeExportPacketsFromFinalFaces(faces)
 
-      expect(diagnosticRender.debugMeta?.figmaLikeSplitRangeTerminals).toEqual([
-        {
-          intervalId: 'interval:terminal-start',
-          splitRangeId: 'split-range:terminal',
-          splitRangeStartDistance: 0,
-          splitRangeEndDistance: 30,
-          terminalRole: 'start',
-          startDistance: 0,
-          endDistance: 8
-        }
-      ])
-      expect(diagnosticHit.debugMeta?.figmaLikeSplitRangeTerminals).toBe(
-        diagnosticRender.debugMeta?.figmaLikeSplitRangeTerminals
+      expect(diagnosticRender.debugMeta?.domainPlanSplitRangeTerminals).toEqual(
+        [
+          {
+            intervalId: 'interval:terminal-start',
+            splitRangeId: 'split-range:terminal',
+            splitRangeStartDistance: 0,
+            splitRangeEndDistance: 30,
+            terminalRole: 'start',
+            startDistance: 0,
+            endDistance: 8
+          }
+        ]
       )
-      expect(diagnosticExport.debugMeta?.figmaLikeSplitRangeTerminals).toBe(
-        diagnosticRender.debugMeta?.figmaLikeSplitRangeTerminals
+      expect(diagnosticHit.debugMeta?.domainPlanSplitRangeTerminals).toBe(
+        diagnosticRender.debugMeta?.domainPlanSplitRangeTerminals
+      )
+      expect(diagnosticExport.debugMeta?.domainPlanSplitRangeTerminals).toBe(
+        diagnosticRender.debugMeta?.domainPlanSplitRangeTerminals
       )
     })
     expect(hit.intervalIds).toBe(faces[0]?.intervalIds)
@@ -413,7 +415,7 @@ describe('solid center stroke packets', () => {
           intervalId: `interval:${index}`,
           sourceSpanIds: [`span:${index}`],
           geometryFamily: 'dashed-center' as const,
-          resolutionStatus: 'native-center' as const,
+          resolutionStatus: 'center-product' as const,
           runtimeStatus: 'not-applicable' as const,
           runtimeReason: 'center-stroke' as const
         }
@@ -465,7 +467,7 @@ describe('solid center stroke packets', () => {
     ])
   })
 
-  it('should not run: emit packets for unsupported constrained slices', () => {
+  it('should not run: emit packets for non-product constrained slices', () => {
     const packets = buildSolidCenterStrokeResolvedPackets(
       'rect:test',
       [
@@ -524,7 +526,7 @@ describe('solid center stroke packets', () => {
       faceId: packets[0]?.geometry.geometryId,
       sourceGeometryIds: [packets[0]?.geometry.geometryId],
       geometryFamily: 'solid-center',
-      resolutionStatus: 'native-center',
+      resolutionStatus: 'center-product',
       runtimeStatus: 'not-applicable',
       sourceTopology: 'open'
     })
@@ -542,7 +544,7 @@ describe('solid center stroke packets', () => {
     expect(face?.visualPacketKey).toContain(face?.strokeSpecKey)
   })
 
-  it('should not run: collapse local-side approximation duplicate final faces', () => {
+  it('should not run: collapse domain-plan selected-side product duplicate final faces', () => {
     const polygon = [
       { x: 0, y: 0 },
       { x: 20, y: 0 },
@@ -564,7 +566,7 @@ describe('solid center stroke packets', () => {
           intervalId: 'interval-a',
           sourceSpanIds: ['span-a'],
           geometryFamily: 'constrained-dashed',
-          resolutionStatus: 'local-side-approximation',
+          resolutionStatus: 'domain-plan-selected-side',
           runtimeStatus: 'accepted',
           revisionSet: {
             strokeSpecRevision: 'stroke-spec:shared',

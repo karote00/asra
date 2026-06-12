@@ -1,11 +1,11 @@
 {
   "width": 1400,
   "height": 1100,
-  "redPixelCount": 41793,
-  "legalRedPixelCount": 41793,
+  "redPixelCount": 26381,
+  "legalRedPixelCount": 26381,
   "outsideRedPixelCount": 0,
-  "strictLegalRedPixelCount": 26983,
-  "strictOutsideRedPixelCount": 14810,
+  "strictLegalRedPixelCount": 16850,
+  "strictOutsideRedPixelCount": 9531,
   "darkOverdrawPixelCount": 0,
   "maxDarkOverdrawComponentArea": 0,
   "darkOverdrawComponentAreas": [],
@@ -13,101 +13,74 @@
   "maxOutsideComponentArea": 0,
   "outsideComponentAreas": [],
   "outsideComponents": [],
-  "maxStrictInsideComponentArea": 4354,
-  "maxStrictOutsideComponentArea": 5173,
+  "maxStrictInsideComponentArea": 3253,
+  "maxStrictOutsideComponentArea": 549,
   "strictInsideComponentAreas": [
-    4354,
-    3717,
-    2763,
-    1938,
-    1098,
-    963,
+    3253,
+    1130,
+    969,
     957,
-    949,
-    946,
-    759
+    950,
+    938,
+    759,
+    695,
+    476,
+    474
   ],
   "strictInsideComponents": [
     {
-      "area": 4354,
-      "minX": 444,
-      "minY": 295,
-      "maxX": 732,
-      "maxY": 413,
-      "centerX": 621.208773541571,
-      "centerY": 358.8096003674782
-    },
-    {
-      "area": 3717,
-      "minX": 582,
-      "minY": 484,
-      "maxX": 759,
-      "maxY": 680,
-      "centerX": 662.7043314500942,
-      "centerY": 583.0115684691956
-    },
-    {
-      "area": 2763,
-      "minX": 585,
-      "minY": 525,
-      "maxX": 725,
-      "maxY": 699,
-      "centerX": 658.2953311617807,
-      "centerY": 608.9670647846543
-    },
-    {
-      "area": 1938,
-      "minX": 611,
-      "minY": 416,
-      "maxX": 661,
-      "maxY": 482,
-      "centerX": 636.2765737874097,
-      "centerY": 448.85345717234264
-    },
-    {
-      "area": 1098,
-      "minX": 715,
-      "minY": 376,
+      "area": 3253,
+      "minX": 639,
+      "minY": 352,
       "maxX": 757,
       "maxY": 442,
-      "centerX": 735.6584699453551,
-      "centerY": 409.88433515482694
+      "centerX": 701.9652628343068,
+      "centerY": 396.7798954810944
     },
     {
-      "area": 963,
-      "minX": 761,
-      "minY": 446,
-      "maxX": 789,
-      "maxY": 515,
-      "centerX": 776.2533748701973,
-      "centerY": 479.45482866043614
+      "area": 1130,
+      "minX": 582,
+      "minY": 484,
+      "maxX": 623,
+      "maxY": 543,
+      "centerX": 608.546017699115,
+      "centerY": 507.84601769911507
+    },
+    {
+      "area": 969,
+      "minX": 635,
+      "minY": 575,
+      "maxX": 684,
+      "maxY": 633,
+      "centerX": 657.0546955624355,
+      "centerY": 606.3777089783282
     },
     {
       "area": 957,
-      "minX": 780,
-      "minY": 521,
-      "maxX": 808,
-      "maxY": 590,
-      "centerX": 795.1546499477533,
-      "centerY": 554.080459770115
+      "minX": 771,
+      "minY": 483,
+      "maxX": 798,
+      "maxY": 553,
+      "centerX": 785.7189132706374,
+      "centerY": 516.4461859979101
     },
     {
-      "area": 949,
-      "minX": 768,
-      "minY": 521,
-      "maxX": 795,
-      "maxY": 591,
-      "centerX": 780.3329820864068,
-      "centerY": 557.3814541622761
+      "area": 950,
+      "minX": 758,
+      "minY": 484,
+      "maxX": 786,
+      "maxY": 553,
+      "centerX": 771.0094736842105,
+      "centerY": 520.2863157894736
     },
     {
-      "area": 946,
-      "minX": 749,
-      "minY": 447,
-      "maxX": 777,
-      "maxY": 516,
-      "centerX": 761.5095137420719,
-      "centerY": 483.1723044397463
+      "area": 938,
+      "minX": 642,
+      "minY": 571,
+      "maxX": 691,
+      "maxY": 629,
+      "centerX": 669.0607675906183,
+      "centerY": 597.0202558635394
     },
     {
       "area": 759,
@@ -117,19 +90,46 @@
       "maxY": 651,
       "centerX": 790.1225296442688,
       "centerY": 624.6627140974967
+    },
+    {
+      "area": 695,
+      "minX": 710,
+      "minY": 656,
+      "maxX": 759,
+      "maxY": 680,
+      "centerX": 733.6273381294964,
+      "centerY": 667.3812949640288
+    },
+    {
+      "area": 476,
+      "minX": 830,
+      "minY": 445,
+      "maxX": 893,
+      "maxY": 470,
+      "centerX": 860.0651260504202,
+      "centerY": 458.953781512605
+    },
+    {
+      "area": 474,
+      "minX": 512,
+      "minY": 330,
+      "maxX": 575,
+      "maxY": 355,
+      "centerX": 542.3502109704641,
+      "centerY": 344.0084388185654
     }
   ],
   "strictOutsideComponentAreas": [
-    5173,
-    543,
+    549,
     536,
-    536,
-    535,
-    532,
+    533,
     530,
+    528,
+    527,
+    522,
     518,
-    514,
-    509
+    501,
+    500
   ],
-  "boundaryDomainPacketCount": 141
+  "boundaryDomainPacketCount": 113
 }

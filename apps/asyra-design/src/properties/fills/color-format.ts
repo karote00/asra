@@ -84,11 +84,11 @@ export const convertStoredColorToFormat = (
 export const convertUserColorToDefault = (
   value: string,
   defaultFormat: FillColorFormat,
-  fallback: string
+  defaultColorValue: string
 ): string => {
   const parsed = parseColor(value, { allowBrowser: true })
   if (!parsed) {
-    return fallback
+    return defaultColorValue
   }
 
   return rgbaToFormat(parsed, defaultFormat)
@@ -97,11 +97,11 @@ export const convertUserColorToDefault = (
 export const toCssColorWithOpacity = (
   value: string,
   opacity = 1,
-  fallback = 'rgba(0, 0, 0, 1)'
+  defaultColorValue = 'rgba(0, 0, 0, 1)'
 ): string => {
   const parsed = parseColor(value, { allowBrowser: true })
   if (!parsed) {
-    return fallback
+    return defaultColorValue
   }
 
   return rgbaToCssColor(parsed, clampOpacity(opacity))

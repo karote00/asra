@@ -33,7 +33,7 @@ import {
   slicePathGeometryPoints
 } from '../components/stroke-render/path-geometry'
 import { resolveSourcePathStrokeSide } from '../components/stroke-render/stroke-side-resolution'
-import { buildConstrainedDashedLocalSideStrokePolygons } from '../components/stroke-render/constrained-dashed-local-side-geometry'
+import { buildConstrainedDashedDomainStrokePolygons } from '../components/stroke-render/constrained-dashed-domain-geometry'
 import { buildDashedCenterRibbonGeometry } from '../components/stroke-render/dashed-center-ribbon-geometry'
 import { isSimpleClosedPolygon } from '../components/stroke-render/solid-stroke-geometry-core'
 import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
@@ -283,8 +283,8 @@ const getClippedPolygonQualityFailures = (
     packets.map((packet) => ({
       polygons: packet.geometry.polygons,
       intervalId: packet.geometry.debugMeta?.intervalId,
-      splitRangeId: packet.geometry.debugMeta?.figmaLikeSplitRangeId,
-      terminalRole: packet.geometry.debugMeta?.figmaLikeTerminalRole
+      splitRangeId: packet.geometry.debugMeta?.domainPlanSplitRangeId,
+      terminalRole: packet.geometry.debugMeta?.domainPlanTerminalRole
     }))
   )
 
@@ -919,13 +919,13 @@ interface StrokeEventMap {
 }
 
 type RuleDrivenDashInterval = StrokeEventMap['dashIntervals'][number] & {
-  figmaLikeSplitRangeId?: string
-  figmaLikeSelectedSide?: 1 | -1
-  figmaLikeBoundaryRole?: string
-  figmaLikeBoundaryPoints?: { x: number; y: number }[]
-  figmaLikeBoundaryTotalLength?: number
-  figmaLikeBoundaryStartDistance?: number
-  figmaLikeBoundaryEndDistance?: number
+  domainPlanSplitRangeId?: string
+  domainPlanSelectedSide?: 1 | -1
+  domainPlanBoundaryRole?: string
+  domainPlanBoundaryPoints?: { x: number; y: number }[]
+  domainPlanBoundaryTotalLength?: number
+  domainPlanBoundaryStartDistance?: number
+  domainPlanBoundaryEndDistance?: number
 }
 
 const normalizeLoopDistanceForTest = (distance: number, totalLength: number) =>
@@ -1414,24 +1414,25 @@ const getRuleDrivenIntervalProbeDistances = (
   )
 
 const getRuleDrivenIntervalSelectedSide = (interval: {
-  figmaLikeSelectedSide?: number
+  domainPlanSelectedSide?: number
 }) =>
-  interval.figmaLikeSelectedSide === 1 || interval.figmaLikeSelectedSide === -1
-    ? interval.figmaLikeSelectedSide
+  interval.domainPlanSelectedSide === 1 ||
+  interval.domainPlanSelectedSide === -1
+    ? interval.domainPlanSelectedSide
     : undefined
 
 const getRuleDrivenPathForInterval = (
   sourcePath: ReturnType<typeof buildVectorGeometryModelPath>,
   interval: RuleDrivenDashInterval
 ) =>
-  interval.figmaLikeBoundaryPoints &&
-  interval.figmaLikeBoundaryPoints.length > 1
-    ? buildPolylineGeometryModelPath(interval.figmaLikeBoundaryPoints, false)
+  interval.domainPlanBoundaryPoints &&
+  interval.domainPlanBoundaryPoints.length > 1
+    ? buildPolylineGeometryModelPath(interval.domainPlanBoundaryPoints, false)
     : sourcePath
 
 const requiresRuleDrivenIntervalProductCoverage = (
   _stroke: ReturnType<typeof createDefaultStroke>,
-  _interval: { figmaLikeBoundaryRole?: string }
+  _interval: { domainPlanBoundaryRole?: string }
 ) => true
 
 const hasRuleDrivenIntervalSpatialCoverage = ({
@@ -1533,17 +1534,17 @@ const getRuleDrivenSplitRangeGapCoverageFailures = ({
   const intervalsBySplitRange = new Map<string, RuleDrivenDashInterval[]>()
   intervals.forEach((interval) => {
     if (
-      !interval.figmaLikeSplitRangeId ||
-      interval.figmaLikeBoundaryPoints === undefined ||
-      interval.figmaLikeBoundaryPoints.length < 2 ||
-      interval.figmaLikeBoundaryStartDistance === undefined ||
-      interval.figmaLikeBoundaryEndDistance === undefined
+      !interval.domainPlanSplitRangeId ||
+      interval.domainPlanBoundaryPoints === undefined ||
+      interval.domainPlanBoundaryPoints.length < 2 ||
+      interval.domainPlanBoundaryStartDistance === undefined ||
+      interval.domainPlanBoundaryEndDistance === undefined
     ) {
       return
     }
 
-    intervalsBySplitRange.set(interval.figmaLikeSplitRangeId, [
-      ...(intervalsBySplitRange.get(interval.figmaLikeSplitRangeId) ?? []),
+    intervalsBySplitRange.set(interval.domainPlanSplitRangeId, [
+      ...(intervalsBySplitRange.get(interval.domainPlanSplitRangeId) ?? []),
       interval
     ])
   })
@@ -1563,7 +1564,7 @@ const getRuleDrivenSplitRangeGapCoverageFailures = ({
           return []
         }
 
-        const boundaryPoints = interval.figmaLikeBoundaryPoints ?? []
+        const boundaryPoints = interval.domainPlanBoundaryPoints ?? []
         const boundaryPath = buildPolylineGeometryModelPath(
           boundaryPoints,
           false
@@ -1609,7 +1610,7 @@ const getRuleDrivenSplitRangeGapCoverageFailures = ({
                 gapEnd: Math.round(gapEnd * 100) / 100,
                 gapLength: Math.round(gapLength * 100) / 100,
                 selectedSide,
-                boundaryRole: interval.figmaLikeBoundaryRole,
+                boundaryRole: interval.domainPlanBoundaryRole,
                 coveredProbeCount: coveredProbes.length,
                 firstCoveredProbe: {
                   distance: Math.round(coveredProbes[0].distance * 100) / 100,
@@ -1643,11 +1644,11 @@ const getRuleDrivenBoundaryHugFailures = ({
 }) =>
   intervals.flatMap((interval) => {
     if (
-      !interval.figmaLikeSplitRangeId ||
-      !interval.figmaLikeBoundaryPoints ||
-      interval.figmaLikeBoundaryPoints.length < 2 ||
-      interval.figmaLikeBoundaryStartDistance === undefined ||
-      interval.figmaLikeBoundaryEndDistance === undefined
+      !interval.domainPlanSplitRangeId ||
+      !interval.domainPlanBoundaryPoints ||
+      interval.domainPlanBoundaryPoints.length < 2 ||
+      interval.domainPlanBoundaryStartDistance === undefined ||
+      interval.domainPlanBoundaryEndDistance === undefined
     ) {
       return []
     }
@@ -1670,7 +1671,7 @@ const getRuleDrivenBoundaryHugFailures = ({
     }
 
     const boundaryPath = buildPolylineGeometryModelPath(
-      interval.figmaLikeBoundaryPoints,
+      interval.domainPlanBoundaryPoints,
       false
     )
     return sampleDistances.flatMap((distance) => {
@@ -1689,9 +1690,9 @@ const getRuleDrivenBoundaryHugFailures = ({
             {
               contextLabel,
               intervalIndex: interval.index,
-              splitRangeId: interval.figmaLikeSplitRangeId,
-              boundaryRole: interval.figmaLikeBoundaryRole,
-              selectedSide: interval.figmaLikeSelectedSide,
+              splitRangeId: interval.domainPlanSplitRangeId,
+              boundaryRole: interval.domainPlanBoundaryRole,
+              selectedSide: interval.domainPlanSelectedSide,
               distance: Math.round(distance * 100) / 100,
               boundaryDistance: Math.round(boundaryDistance * 100) / 100,
               point: {
@@ -1821,10 +1822,11 @@ const getVisibleIntervalsWithoutRuleDrivenSpatialCoverage = ({
             crossingBoundaryCount: interval.crossingBoundaryCount,
             squareEffectiveCrossingBoundaryCount:
               interval.squareEffectiveCrossingBoundaryCount,
-            figmaLikeSelectedSide: interval.figmaLikeSelectedSide,
-            figmaLikeBoundaryRole: interval.figmaLikeBoundaryRole,
-            figmaLikeBoundaryPoints: interval.figmaLikeBoundaryPoints,
-            figmaLikeBoundaryTotalLength: interval.figmaLikeBoundaryTotalLength
+            domainPlanSelectedSide: interval.domainPlanSelectedSide,
+            domainPlanBoundaryRole: interval.domainPlanBoundaryRole,
+            domainPlanBoundaryPoints: interval.domainPlanBoundaryPoints,
+            domainPlanBoundaryTotalLength:
+              interval.domainPlanBoundaryTotalLength
           }))
         })()
       : null
@@ -1877,9 +1879,9 @@ const getVisibleIntervalsWithoutRuleDrivenSpatialCoverage = ({
               crossingBoundaryCount: interval.crossingBoundaryCount,
               squareEffectiveCrossingBoundaryCount:
                 interval.squareEffectiveCrossingBoundaryCount,
-              figmaLikeBoundaryRole: interval.figmaLikeBoundaryRole,
-              figmaLikeSplitRangeId: interval.figmaLikeSplitRangeId,
-              figmaLikeSelectedSide: interval.figmaLikeSelectedSide,
+              domainPlanBoundaryRole: interval.domainPlanBoundaryRole,
+              domainPlanSplitRangeId: interval.domainPlanSplitRangeId,
+              domainPlanSelectedSide: interval.domainPlanSelectedSide,
               metadataGeometryArea:
                 Math.round(
                   getRuleDrivenIntervalGeometryPolygons(
@@ -3214,9 +3216,9 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
     ) =>
       terminalPackets.flatMap((packet) => {
         const debugMeta = packet.geometry.debugMeta
-        const role = debugMeta?.figmaLikeTerminalRole
-        const boundaryPoints = debugMeta?.figmaLikeBoundaryPoints
-        const selectedSide = debugMeta?.figmaLikeSelectedSide
+        const role = debugMeta?.domainPlanTerminalRole
+        const boundaryPoints = debugMeta?.domainPlanBoundaryPoints
+        const selectedSide = debugMeta?.domainPlanSelectedSide
         if (
           debugMeta?.strokePosition !== 'outside' ||
           (role !== 'start' && role !== 'end' && role !== 'start-end') ||
@@ -3316,12 +3318,12 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
                   stage,
                   geometryId: packet.geometry.geometryId,
                   intervalId: debugMeta?.intervalId,
-                  splitRangeId: debugMeta?.figmaLikeSplitRangeId,
+                  splitRangeId: debugMeta?.domainPlanSplitRangeId,
                   startDistance: debugMeta?.startDistance,
                   endDistance: debugMeta?.endDistance,
-                  boundaryTotalLength: debugMeta?.figmaLikeBoundaryTotalLength,
+                  boundaryTotalLength: debugMeta?.domainPlanBoundaryTotalLength,
                   selectedSide,
-                  boundaryRole: debugMeta?.figmaLikeBoundaryRole,
+                  boundaryRole: debugMeta?.domainPlanBoundaryRole,
                   terminalRole: role,
                   ...probe
                 }
@@ -3334,7 +3336,7 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
       ;(['miter', 'bevel', 'round'] as const).forEach((joinType) => {
         const packets = buildPackets(capType, joinType)
         const terminalPackets = packets.filter((packet) => {
-          const role = packet.geometry.debugMeta?.figmaLikeTerminalRole
+          const role = packet.geometry.debugMeta?.domainPlanTerminalRole
           return (
             packet.geometry.debugMeta?.strokePosition === 'outside' &&
             packet.geometry.debugMeta?.finalCoverageBuilderStatus ===
@@ -3345,9 +3347,9 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
         const missingButtTerminalEndpointCoverage =
           capType === 'butt'
             ? terminalPackets.flatMap((packet) => {
-                const role = packet.geometry.debugMeta?.figmaLikeTerminalRole
+                const role = packet.geometry.debugMeta?.domainPlanTerminalRole
                 const boundaryPoints =
-                  packet.geometry.debugMeta?.figmaLikeBoundaryPoints
+                  packet.geometry.debugMeta?.domainPlanBoundaryPoints
                 if (!boundaryPoints || boundaryPoints.length < 2) {
                   return []
                 }
@@ -3383,7 +3385,7 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
                           geometryId: packet.geometry.geometryId,
                           intervalId: packet.geometry.debugMeta?.intervalId,
                           splitRangeId:
-                            packet.geometry.debugMeta?.figmaLikeSplitRangeId,
+                            packet.geometry.debugMeta?.domainPlanSplitRangeId,
                           terminalRole: role,
                           terminal,
                           endpoint: point
@@ -3445,7 +3447,7 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
                       packet.geometry.debugMeta
                     ),
                     terminalRole:
-                      packet.geometry.debugMeta?.figmaLikeTerminalRole
+                      packet.geometry.debugMeta?.domainPlanTerminalRole
                   }
                 ]
               : []
@@ -3462,7 +3464,7 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
                     sourceBoundaryJoinCount: getSourceBoundaryJoinCount(
                       face.debugMeta
                     ),
-                    terminalRole: face.debugMeta?.figmaLikeTerminalRole
+                    terminalRole: face.debugMeta?.domainPlanTerminalRole
                   }
                 ]
               : []
@@ -3479,7 +3481,7 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
                     sourceBoundaryJoinCount: getSourceBoundaryJoinCount(
                       face.debugMeta
                     ),
-                    terminalRole: face.debugMeta?.figmaLikeTerminalRole
+                    terminalRole: face.debugMeta?.domainPlanTerminalRole
                   }
                 ]
               : []
@@ -3497,7 +3499,7 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
                     sourceBoundaryJoinCount: getSourceBoundaryJoinCount(
                       entry.debugMeta
                     ),
-                    terminalRole: entry.debugMeta?.figmaLikeTerminalRole
+                    terminalRole: entry.debugMeta?.domainPlanTerminalRole
                   }
                 ]
               : []
@@ -3516,7 +3518,7 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
                     sourceBoundaryJoinCount: getSourceBoundaryJoinCount(
                       packet.debugMeta
                     ),
-                    terminalRole: packet.debugMeta?.figmaLikeTerminalRole
+                    terminalRole: packet.debugMeta?.domainPlanTerminalRole
                   }
                 ]
               : []
@@ -3531,7 +3533,7 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
                     sourceBoundaryJoinCount: getSourceBoundaryJoinCount(
                       packet.debugMeta
                     ),
-                    terminalRole: packet.debugMeta?.figmaLikeTerminalRole
+                    terminalRole: packet.debugMeta?.domainPlanTerminalRole
                   }
                 ]
               : []
@@ -4029,14 +4031,14 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
               stageGeometryId: record.stageGeometryId,
               intervalId: record.debugMeta?.intervalId,
               intervalIds: record.debugMeta?.intervalIds,
-              terminalRole: record.debugMeta?.figmaLikeTerminalRole,
-              splitRangeId: record.debugMeta?.figmaLikeSplitRangeId,
+              terminalRole: record.debugMeta?.domainPlanTerminalRole,
+              splitRangeId: record.debugMeta?.domainPlanSplitRangeId,
               splitRangeSourceSegmentIndex:
-                record.debugMeta?.figmaLikeSplitRangeSourceSegmentIndex,
+                record.debugMeta?.domainPlanSplitRangeSourceSegmentIndex,
               splitRangeStartDistance:
-                record.debugMeta?.figmaLikeSplitRangeStartDistance,
+                record.debugMeta?.domainPlanSplitRangeStartDistance,
               splitRangeEndDistance:
-                record.debugMeta?.figmaLikeSplitRangeEndDistance,
+                record.debugMeta?.domainPlanSplitRangeEndDistance,
               polygonIndex,
               edgeIndex,
               edgeLength: Math.round(edge.length * 100) / 100,
@@ -4105,9 +4107,9 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
         packets.flatMap((packet) => {
           if (
             !anchor.point ||
-            (packet.geometry.debugMeta?.figmaLikeTerminalRole !== 'start' &&
-              packet.geometry.debugMeta?.figmaLikeTerminalRole !== 'end' &&
-              packet.geometry.debugMeta?.figmaLikeTerminalRole !== 'start-end')
+            (packet.geometry.debugMeta?.domainPlanTerminalRole !== 'start' &&
+              packet.geometry.debugMeta?.domainPlanTerminalRole !== 'end' &&
+              packet.geometry.debugMeta?.domainPlanTerminalRole !== 'start-end')
           ) {
             return []
           }
@@ -4121,15 +4123,18 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
                   anchorId: anchor.id,
                   geometryId: packet.geometry.geometryId,
                   intervalId: packet.geometry.debugMeta.intervalId,
-                  terminalRole: packet.geometry.debugMeta.figmaLikeTerminalRole,
-                  splitRangeId: packet.geometry.debugMeta.figmaLikeSplitRangeId,
+                  terminalRole:
+                    packet.geometry.debugMeta.domainPlanTerminalRole,
+                  splitRangeId:
+                    packet.geometry.debugMeta.domainPlanSplitRangeId,
                   sourceSegmentIndex:
                     packet.geometry.debugMeta
-                      .figmaLikeSplitRangeSourceSegmentIndex,
+                      .domainPlanSplitRangeSourceSegmentIndex,
                   boundaryDomainId:
-                    packet.geometry.debugMeta.figmaLikeBoundaryDomainId,
-                  boundaryRole: packet.geometry.debugMeta.figmaLikeBoundaryRole,
-                  selectedSide: packet.geometry.debugMeta.figmaLikeSelectedSide
+                    packet.geometry.debugMeta.domainPlanBoundaryDomainId,
+                  boundaryRole:
+                    packet.geometry.debugMeta.domainPlanBoundaryRole,
+                  selectedSide: packet.geometry.debugMeta.domainPlanSelectedSide
                 }
               ]
             : []
@@ -4154,7 +4159,8 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
                   geometryId: packet.geometry.geometryId,
                   intervalId: packet.geometry.debugMeta?.intervalId,
                   intervalIds: packet.geometry.debugMeta?.intervalIds,
-                  terminalRole: packet.geometry.debugMeta?.figmaLikeTerminalRole
+                  terminalRole:
+                    packet.geometry.debugMeta?.domainPlanTerminalRole
                 }
               ]
             : []
@@ -4491,7 +4497,7 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
     })
   })
 
-  it('should run: keep inside sharp source vertices out of boundary-terminal join fallback', () => {
+  it('should run: keep inside sharp source vertices out of boundary-terminal join source', () => {
     const {
       sourcePath,
       topology,
@@ -4955,9 +4961,9 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
     const packetRecords = packets.map((packet) => ({
       polygons: packet.geometry.polygons,
       intervalId: packet.geometry.debugMeta?.intervalId,
-      splitRangeId: packet.geometry.debugMeta?.figmaLikeSplitRangeId,
-      terminalRole: packet.geometry.debugMeta?.figmaLikeTerminalRole,
-      boundaryRole: packet.geometry.debugMeta?.figmaLikeBoundaryRole
+      splitRangeId: packet.geometry.debugMeta?.domainPlanSplitRangeId,
+      terminalRole: packet.geometry.debugMeta?.domainPlanTerminalRole,
+      boundaryRole: packet.geometry.debugMeta?.domainPlanBoundaryRole
     }))
     const oversizedPacketEdges =
       collectOversizedHighCurvatureEdges(packetRecords)
@@ -5006,9 +5012,9 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
     const renderRecords = renderEntries.map((entry) => ({
       polygons: entry.polygons,
       intervalId: entry.debugMeta?.intervalId,
-      splitRangeId: entry.debugMeta?.figmaLikeSplitRangeId,
-      terminalRole: entry.debugMeta?.figmaLikeTerminalRole,
-      boundaryRole: entry.debugMeta?.figmaLikeBoundaryRole,
+      splitRangeId: entry.debugMeta?.domainPlanSplitRangeId,
+      terminalRole: entry.debugMeta?.domainPlanTerminalRole,
+      boundaryRole: entry.debugMeta?.domainPlanBoundaryRole,
       projectionStatus: entry.debugMeta?.visualOverlapCollapseStatus
     }))
     const oversizedRenderEdges =
@@ -5129,8 +5135,8 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
             {
               faceId: face.faceId,
               intervalIds,
-              splitRangeId: face.debugMeta?.figmaLikeSplitRangeId,
-              terminalRole: face.debugMeta?.figmaLikeTerminalRole,
+              splitRangeId: face.debugMeta?.domainPlanSplitRangeId,
+              terminalRole: face.debugMeta?.domainPlanTerminalRole,
               sourceGeometryIds: face.sourceGeometryIds
             }
           ]
@@ -5200,8 +5206,8 @@ describe('constrained dashed stroke packets: outside high-curvature domains', ()
       arrangedTerminalJoinFaces.map((face) => ({
         faceId: face.faceId,
         intervalIds: face.intervalIds,
-        splitRangeId: face.debugMeta?.figmaLikeSplitRangeId,
-        terminalRole: face.debugMeta?.figmaLikeTerminalRole
+        splitRangeId: face.debugMeta?.domainPlanSplitRangeId,
+        terminalRole: face.debugMeta?.domainPlanTerminalRole
       })),
       JSON.stringify(
         {

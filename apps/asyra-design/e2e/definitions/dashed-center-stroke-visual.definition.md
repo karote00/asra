@@ -33,7 +33,7 @@ It answers:
 - open vector center dashed `round` cap renders half-circle dash terminals
   without filling square-cap corner probes
 
-## Required unsupported behavior
+## Required non-product behavior
 
 - constrained dashed stroke remains absent
 - constrained `inside` / `outside` round geometry remains outside this center
@@ -49,4 +49,4 @@ The spec passes only when:
    silhouettes
 4. supported `round` join and `round` cap probes show curved coverage without
    square or miter overfill
-5. unsupported constrained probes remain below the absence threshold
+5. non-product constrained probes remain below the absence threshold

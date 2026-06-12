@@ -315,7 +315,7 @@ export const buildDashedCenterStrokeResolvedPackets = (
         closed: topology.closed,
         stroke,
         geometryFamily: 'dashed-center',
-        resolutionStatus: 'native-center',
+        resolutionStatus: 'center-product',
         runtimeStatus: 'not-applicable',
         runtimeReason: 'center-stroke',
         sourceTopology,
@@ -341,6 +341,18 @@ export const buildDashedCenterStrokeResolvedPackets = (
         !interval.wrapsSeam &&
         Math.abs(interval.startDistance) <= EPSILON &&
         Math.abs(interval.endDistance - totalLength) <= EPSILON
+      const intervalTerminalRole = getIntervalTerminalRole(
+        interval,
+        totalLength,
+        topology.closed
+      )
+      const suppressOpenStartCap =
+        !topology.closed &&
+        (intervalTerminalRole === 'path-start' ||
+          intervalTerminalRole === 'both')
+      const suppressOpenEndCap =
+        !topology.closed &&
+        (intervalTerminalRole === 'path-end' || intervalTerminalRole === 'both')
       const intervalFrames = options.sourcePath
         ? slicePathGeometryFrames(
             options.sourcePath,
@@ -382,7 +394,9 @@ export const buildDashedCenterStrokeResolvedPackets = (
                 cap: stroke.cap
               },
               {
-                allowRoundCapBackendOffset: true
+                allowRoundCapBackendOffset: true,
+                suppressStartCap: suppressOpenStartCap,
+                suppressEndCap: suppressOpenEndCap
               }
             )
           : null
@@ -405,11 +419,6 @@ export const buildDashedCenterStrokeResolvedPackets = (
         return []
       }
 
-      const intervalTerminalRole = getIntervalTerminalRole(
-        interval,
-        totalLength,
-        topology.closed
-      )
       const intervalStartCutKind = getIntervalEndpointCutKind(
         sourceSpanGraph,
         interval.startDistance,
@@ -451,7 +460,7 @@ export const buildDashedCenterStrokeResolvedPackets = (
         ribbonValidityStatus: ribbonGeometry?.validityStatus,
         dashPlacementMode,
         geometryFamily: 'dashed-center',
-        resolutionStatus: 'native-center',
+        resolutionStatus: 'center-product',
         runtimeStatus: 'not-applicable',
         runtimeReason: 'center-stroke',
         sourceTopology,

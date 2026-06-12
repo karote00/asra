@@ -34,7 +34,7 @@ import {
   slicePathGeometryPoints
 } from '../components/stroke-render/path-geometry'
 import { resolveSourcePathStrokeSide } from '../components/stroke-render/stroke-side-resolution'
-import { buildConstrainedDashedLocalSideStrokePolygons } from '../components/stroke-render/constrained-dashed-local-side-geometry'
+import { buildConstrainedDashedDomainStrokePolygons } from '../components/stroke-render/constrained-dashed-domain-geometry'
 import { buildDashedCenterRibbonGeometry } from '../components/stroke-render/dashed-center-ribbon-geometry'
 import { buildSolidCenterStrokePolygons } from '../components/stroke-render/solid-center-stroke-geometry'
 import { isSimpleClosedPolygon } from '../components/stroke-render/solid-stroke-geometry-core'
@@ -289,8 +289,8 @@ const getClippedPolygonQualityFailures = (
     packets.map((packet) => ({
       polygons: packet.geometry.polygons,
       intervalId: packet.geometry.debugMeta?.intervalId,
-      splitRangeId: packet.geometry.debugMeta?.figmaLikeSplitRangeId,
-      terminalRole: packet.geometry.debugMeta?.figmaLikeTerminalRole
+      splitRangeId: packet.geometry.debugMeta?.domainPlanSplitRangeId,
+      terminalRole: packet.geometry.debugMeta?.domainPlanTerminalRole
     }))
   )
 
@@ -1096,22 +1096,22 @@ const expectInsideDashedSplitRangeIntervalAllocation = ({
   >()
   intervals.forEach((interval) => {
     if (
-      !interval.figmaLikeSplitRangeId ||
-      interval.figmaLikeSplitRangeStartDistance === undefined ||
-      interval.figmaLikeSplitRangeEndDistance === undefined
+      !interval.domainPlanSplitRangeId ||
+      interval.domainPlanSplitRangeStartDistance === undefined ||
+      interval.domainPlanSplitRangeEndDistance === undefined
     ) {
       return
     }
 
-    intervalsBySplitRange.set(interval.figmaLikeSplitRangeId, [
-      ...(intervalsBySplitRange.get(interval.figmaLikeSplitRangeId) ?? []),
+    intervalsBySplitRange.set(interval.domainPlanSplitRangeId, [
+      ...(intervalsBySplitRange.get(interval.domainPlanSplitRangeId) ?? []),
       {
         startDistance: interval.startDistance,
         endDistance: interval.endDistance,
-        splitRangeStartDistance: interval.figmaLikeSplitRangeStartDistance,
-        splitRangeEndDistance: interval.figmaLikeSplitRangeEndDistance,
-        terminalRole: interval.figmaLikeTerminalRole,
-        boundaryTotalLength: interval.figmaLikeBoundaryTotalLength,
+        splitRangeStartDistance: interval.domainPlanSplitRangeStartDistance,
+        splitRangeEndDistance: interval.domainPlanSplitRangeEndDistance,
+        terminalRole: interval.domainPlanTerminalRole,
+        boundaryTotalLength: interval.domainPlanBoundaryTotalLength,
         intervalIndex: interval.index
       }
     ])
@@ -1419,7 +1419,7 @@ const expectInsideDashedSplitRangeGapPreserved = ({
     fillRegions,
     getPolygonsForSplitRange: (splitRangeId) =>
       packets.flatMap((packet) =>
-        packet.geometry.debugMeta?.figmaLikeSplitRangeId === splitRangeId
+        packet.geometry.debugMeta?.domainPlanSplitRangeId === splitRangeId
           ? packet.geometry.polygons
           : []
       )
@@ -1625,17 +1625,17 @@ interface StrokeEventMap {
 }
 
 type RuleDrivenDashInterval = StrokeEventMap['dashIntervals'][number] & {
-  figmaLikeSplitRangeId?: string
-  figmaLikeSelectedSide?: 1 | -1
-  figmaLikeBoundaryRole?: string
-  figmaLikeBoundaryPoints?: { x: number; y: number }[]
-  figmaLikeBoundaryTotalLength?: number
-  figmaLikeBoundaryStartDistance?: number
-  figmaLikeBoundaryEndDistance?: number
-  figmaLikeSplitRangeId?: string
-  figmaLikeSplitRangeStartDistance?: number
-  figmaLikeSplitRangeEndDistance?: number
-  figmaLikeTerminalRole?: 'start' | 'end' | 'start-end' | 'middle'
+  domainPlanSplitRangeId?: string
+  domainPlanSelectedSide?: 1 | -1
+  domainPlanBoundaryRole?: string
+  domainPlanBoundaryPoints?: { x: number; y: number }[]
+  domainPlanBoundaryTotalLength?: number
+  domainPlanBoundaryStartDistance?: number
+  domainPlanBoundaryEndDistance?: number
+  domainPlanSplitRangeId?: string
+  domainPlanSplitRangeStartDistance?: number
+  domainPlanSplitRangeEndDistance?: number
+  domainPlanTerminalRole?: 'start' | 'end' | 'start-end' | 'middle'
 }
 
 const normalizeLoopDistanceForTest = (distance: number, totalLength: number) =>
@@ -1748,16 +1748,17 @@ const buildVisibleDashIntervalsForTest = (
     endDistance: interval.endDistance,
     wrapsSeam: interval.wrapsSeam,
     length: interval.intervalLength,
-    figmaLikeSelectedSide: interval.figmaLikeSelectedSide,
-    figmaLikeBoundaryRole: interval.figmaLikeBoundaryRole,
-    figmaLikeBoundaryPoints: interval.figmaLikeBoundaryPoints,
-    figmaLikeBoundaryTotalLength: interval.figmaLikeBoundaryTotalLength,
-    figmaLikeBoundaryStartDistance: interval.figmaLikeBoundaryStartDistance,
-    figmaLikeBoundaryEndDistance: interval.figmaLikeBoundaryEndDistance,
-    figmaLikeSplitRangeId: interval.figmaLikeSplitRangeId,
-    figmaLikeSplitRangeStartDistance: interval.figmaLikeSplitRangeStartDistance,
-    figmaLikeSplitRangeEndDistance: interval.figmaLikeSplitRangeEndDistance,
-    figmaLikeTerminalRole: interval.figmaLikeTerminalRole
+    domainPlanSelectedSide: interval.domainPlanSelectedSide,
+    domainPlanBoundaryRole: interval.domainPlanBoundaryRole,
+    domainPlanBoundaryPoints: interval.domainPlanBoundaryPoints,
+    domainPlanBoundaryTotalLength: interval.domainPlanBoundaryTotalLength,
+    domainPlanBoundaryStartDistance: interval.domainPlanBoundaryStartDistance,
+    domainPlanBoundaryEndDistance: interval.domainPlanBoundaryEndDistance,
+    domainPlanSplitRangeId: interval.domainPlanSplitRangeId,
+    domainPlanSplitRangeStartDistance:
+      interval.domainPlanSplitRangeStartDistance,
+    domainPlanSplitRangeEndDistance: interval.domainPlanSplitRangeEndDistance,
+    domainPlanTerminalRole: interval.domainPlanTerminalRole
   }))
 }
 
@@ -2138,9 +2139,9 @@ const getRuleDrivenIntervalProbeDistances = (
   totalLength: number
 ) => {
   const startDistance =
-    interval.figmaLikeSplitRangeStartDistance ?? interval.startDistance
+    interval.domainPlanSplitRangeStartDistance ?? interval.startDistance
   const endDistance =
-    interval.figmaLikeSplitRangeEndDistance ?? interval.endDistance
+    interval.domainPlanSplitRangeEndDistance ?? interval.endDistance
   const intervalLength = Math.max(0, endDistance - startDistance)
   return [0.15, 0.35, 0.5, 0.65, 0.85].map((factor) =>
     normalizeLoopDistanceForTest(
@@ -2152,31 +2153,32 @@ const getRuleDrivenIntervalProbeDistances = (
 
 const getRuleDrivenIntervalLocalStartDistance = (
   interval: RuleDrivenDashInterval
-) => interval.figmaLikeSplitRangeStartDistance ?? interval.startDistance
+) => interval.domainPlanSplitRangeStartDistance ?? interval.startDistance
 
 const getRuleDrivenIntervalLocalEndDistance = (
   interval: RuleDrivenDashInterval
-) => interval.figmaLikeSplitRangeEndDistance ?? interval.endDistance
+) => interval.domainPlanSplitRangeEndDistance ?? interval.endDistance
 
 const getRuleDrivenIntervalSelectedSide = (interval: {
-  figmaLikeSelectedSide?: number
+  domainPlanSelectedSide?: number
 }) =>
-  interval.figmaLikeSelectedSide === 1 || interval.figmaLikeSelectedSide === -1
-    ? interval.figmaLikeSelectedSide
+  interval.domainPlanSelectedSide === 1 ||
+  interval.domainPlanSelectedSide === -1
+    ? interval.domainPlanSelectedSide
     : undefined
 
 const getRuleDrivenPathForInterval = (
   sourcePath: ReturnType<typeof buildVectorGeometryModelPath>,
   interval: RuleDrivenDashInterval
 ) =>
-  interval.figmaLikeBoundaryPoints &&
-  interval.figmaLikeBoundaryPoints.length > 1
-    ? buildPolylineGeometryModelPath(interval.figmaLikeBoundaryPoints, false)
+  interval.domainPlanBoundaryPoints &&
+  interval.domainPlanBoundaryPoints.length > 1
+    ? buildPolylineGeometryModelPath(interval.domainPlanBoundaryPoints, false)
     : sourcePath
 
 const requiresRuleDrivenIntervalProductCoverage = (
   _stroke: ReturnType<typeof createDefaultStroke>,
-  _interval: { figmaLikeBoundaryRole?: string }
+  _interval: { domainPlanBoundaryRole?: string }
 ) => true
 
 const hasRuleDrivenIntervalSpatialCoverage = ({
@@ -2278,17 +2280,17 @@ const getRuleDrivenSplitRangeGapCoverageFailures = ({
   const intervalsBySplitRange = new Map<string, RuleDrivenDashInterval[]>()
   intervals.forEach((interval) => {
     if (
-      !interval.figmaLikeSplitRangeId ||
-      interval.figmaLikeBoundaryPoints === undefined ||
-      interval.figmaLikeBoundaryPoints.length < 2 ||
-      interval.figmaLikeBoundaryStartDistance === undefined ||
-      interval.figmaLikeBoundaryEndDistance === undefined
+      !interval.domainPlanSplitRangeId ||
+      interval.domainPlanBoundaryPoints === undefined ||
+      interval.domainPlanBoundaryPoints.length < 2 ||
+      interval.domainPlanBoundaryStartDistance === undefined ||
+      interval.domainPlanBoundaryEndDistance === undefined
     ) {
       return
     }
 
-    intervalsBySplitRange.set(interval.figmaLikeSplitRangeId, [
-      ...(intervalsBySplitRange.get(interval.figmaLikeSplitRangeId) ?? []),
+    intervalsBySplitRange.set(interval.domainPlanSplitRangeId, [
+      ...(intervalsBySplitRange.get(interval.domainPlanSplitRangeId) ?? []),
       interval
     ])
   })
@@ -2312,7 +2314,7 @@ const getRuleDrivenSplitRangeGapCoverageFailures = ({
           return []
         }
 
-        const boundaryPoints = interval.figmaLikeBoundaryPoints ?? []
+        const boundaryPoints = interval.domainPlanBoundaryPoints ?? []
         const boundaryPath = buildPolylineGeometryModelPath(
           boundaryPoints,
           false
@@ -2358,7 +2360,7 @@ const getRuleDrivenSplitRangeGapCoverageFailures = ({
                 gapEnd: Math.round(gapEnd * 100) / 100,
                 gapLength: Math.round(gapLength * 100) / 100,
                 selectedSide,
-                boundaryRole: interval.figmaLikeBoundaryRole,
+                boundaryRole: interval.domainPlanBoundaryRole,
                 coveredProbeCount: coveredProbes.length,
                 firstCoveredProbe: {
                   distance: Math.round(coveredProbes[0].distance * 100) / 100,
@@ -2392,11 +2394,11 @@ const getRuleDrivenBoundaryHugFailures = ({
 }) =>
   intervals.flatMap((interval) => {
     if (
-      !interval.figmaLikeSplitRangeId ||
-      !interval.figmaLikeBoundaryPoints ||
-      interval.figmaLikeBoundaryPoints.length < 2 ||
-      interval.figmaLikeBoundaryStartDistance === undefined ||
-      interval.figmaLikeBoundaryEndDistance === undefined
+      !interval.domainPlanSplitRangeId ||
+      !interval.domainPlanBoundaryPoints ||
+      interval.domainPlanBoundaryPoints.length < 2 ||
+      interval.domainPlanBoundaryStartDistance === undefined ||
+      interval.domainPlanBoundaryEndDistance === undefined
     ) {
       return []
     }
@@ -2421,7 +2423,7 @@ const getRuleDrivenBoundaryHugFailures = ({
     }
 
     const boundaryPath = buildPolylineGeometryModelPath(
-      interval.figmaLikeBoundaryPoints,
+      interval.domainPlanBoundaryPoints,
       false
     )
     return sampleDistances.flatMap((distance) => {
@@ -2440,9 +2442,9 @@ const getRuleDrivenBoundaryHugFailures = ({
             {
               contextLabel,
               intervalIndex: interval.index,
-              splitRangeId: interval.figmaLikeSplitRangeId,
-              boundaryRole: interval.figmaLikeBoundaryRole,
-              selectedSide: interval.figmaLikeSelectedSide,
+              splitRangeId: interval.domainPlanSplitRangeId,
+              boundaryRole: interval.domainPlanBoundaryRole,
+              selectedSide: interval.domainPlanSelectedSide,
               distance: Math.round(distance * 100) / 100,
               boundaryDistance: Math.round(boundaryDistance * 100) / 100,
               point: {
@@ -2572,19 +2574,21 @@ const getVisibleIntervalsWithoutRuleDrivenSpatialCoverage = ({
             crossingBoundaryCount: interval.crossingBoundaryCount,
             squareEffectiveCrossingBoundaryCount:
               interval.squareEffectiveCrossingBoundaryCount,
-            figmaLikeSelectedSide: interval.figmaLikeSelectedSide,
-            figmaLikeBoundaryRole: interval.figmaLikeBoundaryRole,
-            figmaLikeBoundaryPoints: interval.figmaLikeBoundaryPoints,
-            figmaLikeBoundaryTotalLength: interval.figmaLikeBoundaryTotalLength,
-            figmaLikeBoundaryStartDistance:
-              interval.figmaLikeBoundaryStartDistance,
-            figmaLikeBoundaryEndDistance: interval.figmaLikeBoundaryEndDistance,
-            figmaLikeSplitRangeId: interval.figmaLikeSplitRangeId,
-            figmaLikeSplitRangeStartDistance:
-              interval.figmaLikeSplitRangeStartDistance,
-            figmaLikeSplitRangeEndDistance:
-              interval.figmaLikeSplitRangeEndDistance,
-            figmaLikeTerminalRole: interval.figmaLikeTerminalRole
+            domainPlanSelectedSide: interval.domainPlanSelectedSide,
+            domainPlanBoundaryRole: interval.domainPlanBoundaryRole,
+            domainPlanBoundaryPoints: interval.domainPlanBoundaryPoints,
+            domainPlanBoundaryTotalLength:
+              interval.domainPlanBoundaryTotalLength,
+            domainPlanBoundaryStartDistance:
+              interval.domainPlanBoundaryStartDistance,
+            domainPlanBoundaryEndDistance:
+              interval.domainPlanBoundaryEndDistance,
+            domainPlanSplitRangeId: interval.domainPlanSplitRangeId,
+            domainPlanSplitRangeStartDistance:
+              interval.domainPlanSplitRangeStartDistance,
+            domainPlanSplitRangeEndDistance:
+              interval.domainPlanSplitRangeEndDistance,
+            domainPlanTerminalRole: interval.domainPlanTerminalRole
           }))
         })()
       : null
@@ -2637,9 +2641,9 @@ const getVisibleIntervalsWithoutRuleDrivenSpatialCoverage = ({
               crossingBoundaryCount: interval.crossingBoundaryCount,
               squareEffectiveCrossingBoundaryCount:
                 interval.squareEffectiveCrossingBoundaryCount,
-              figmaLikeBoundaryRole: interval.figmaLikeBoundaryRole,
-              figmaLikeSplitRangeId: interval.figmaLikeSplitRangeId,
-              figmaLikeSelectedSide: interval.figmaLikeSelectedSide,
+              domainPlanBoundaryRole: interval.domainPlanBoundaryRole,
+              domainPlanSplitRangeId: interval.domainPlanSplitRangeId,
+              domainPlanSelectedSide: interval.domainPlanSelectedSide,
               metadataGeometryArea:
                 Math.round(
                   getRuleDrivenIntervalGeometryPolygons(
@@ -3990,8 +3994,8 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
     )
   })
 
-  it('should run: ignore legacy dash and gap fields when dashPattern is missing', () => {
-    const legacyOnlyStroke = {
+  it('should run: ignore removed dash and gap fields when dashPattern is missing', () => {
+    const removedDashGapOnlyStroke = {
       ...createDefaultStroke({
         width: 4,
         style: 'dashed',
@@ -4000,13 +4004,19 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
       dash: 20,
       gap: 10
     }
-    delete (legacyOnlyStroke as Partial<typeof legacyOnlyStroke>).dashPattern
+    delete (
+      removedDashGapOnlyStroke as Partial<typeof removedDashGapOnlyStroke>
+    ).dashPattern
 
-    expect(hasConstrainedDashedStrokeIntent([legacyOnlyStroke])).toBe(false)
-    expect(getRenderableStrokes([legacyOnlyStroke])[0]?.dashPattern).toEqual([])
+    expect(hasConstrainedDashedStrokeIntent([removedDashGapOnlyStroke])).toBe(
+      false
+    )
+    expect(
+      getRenderableStrokes([removedDashGapOnlyStroke])[0]?.dashPattern
+    ).toEqual([])
     expect(
       buildConstrainedDashedStrokeResolvedPackets(
-        'legacy-dash-gap:test',
+        'removed-dash-gap:test',
         [
           { x: 0, y: 0 },
           { x: 80, y: 0 },
@@ -4014,7 +4024,7 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
           { x: 0, y: 40 }
         ],
         true,
-        [legacyOnlyStroke]
+        [removedDashGapOnlyStroke]
       )
     ).toEqual([])
   })
@@ -4318,7 +4328,7 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
       strokeDomainPlan.splitRangeDomains[0]?.boundaryTotalLength ?? 0
     const visibleOnFirstSplitRange = intervals.filter(
       (interval) =>
-        interval.figmaLikeSplitRangeId ===
+        interval.domainPlanSplitRangeId ===
           strokeDomainPlan.splitRangeDomains[0]?.domainId &&
         interval.startDistance >= -1e-4 &&
         interval.endDistance <= firstSplitEnd + 1e-4
@@ -4329,9 +4339,9 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
     expect(visibleOnFirstSplitRange[0]?.startDistance).toBeCloseTo(0, 4)
     expect(visibleOnFirstSplitRange[0]?.endDistance).toBeCloseTo(10, 4)
     expect(visibleOnFirstSplitRange[0]).toMatchObject({
-      figmaLikeSplitRangeId: 'split-range:0',
-      figmaLikeSplitRangeStartDistance: 0,
-      figmaLikeTerminalRole: 'start'
+      domainPlanSplitRangeId: 'split-range:0',
+      domainPlanSplitRangeStartDistance: 0,
+      domainPlanTerminalRole: 'start'
     })
     expect(
       visibleOnFirstSplitRange[visibleOnFirstSplitRange.length - 1]
@@ -4343,17 +4353,17 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
     expect(
       visibleOnFirstSplitRange[visibleOnFirstSplitRange.length - 1]
     ).toMatchObject({
-      figmaLikeSplitRangeId: 'split-range:0',
-      figmaLikeTerminalRole: 'end'
+      domainPlanSplitRangeId: 'split-range:0',
+      domainPlanTerminalRole: 'end'
     })
     expect(
       visibleOnFirstSplitRange[visibleOnFirstSplitRange.length - 1]
-        ?.figmaLikeSplitRangeEndDistance
+        ?.domainPlanSplitRangeEndDistance
     ).toBeCloseTo(firstSplitEnd, 4)
     expect(
       intervals.some(
         (interval) =>
-          interval.figmaLikeSplitRangeId ===
+          interval.domainPlanSplitRangeId ===
             strokeDomainPlan.splitRangeDomains[0]?.domainId &&
           interval.startDistance < firstSplitEnd - 1e-4 &&
           interval.endDistance > firstSplitEnd + 1e-4
@@ -4362,25 +4372,26 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
     expect(
       intervals.every(
         (interval) =>
-          interval.figmaLikeSplitRangeId !== undefined &&
-          interval.figmaLikeSplitRangeStartDistance !== undefined &&
-          interval.figmaLikeSplitRangeEndDistance !== undefined &&
-          interval.figmaLikeTerminalRole !== undefined
+          interval.domainPlanSplitRangeId !== undefined &&
+          interval.domainPlanSplitRangeStartDistance !== undefined &&
+          interval.domainPlanSplitRangeEndDistance !== undefined &&
+          interval.domainPlanTerminalRole !== undefined
       )
     ).toBe(true)
     const selectedSidesBySplitRange = new Map<string, Set<1 | -1>>()
     intervals.forEach((interval) => {
       if (
-        interval.figmaLikeSplitRangeId &&
-        (interval.figmaLikeSelectedSide === 1 ||
-          interval.figmaLikeSelectedSide === -1)
+        interval.domainPlanSplitRangeId &&
+        (interval.domainPlanSelectedSide === 1 ||
+          interval.domainPlanSelectedSide === -1)
       ) {
         selectedSidesBySplitRange.set(
-          interval.figmaLikeSplitRangeId,
+          interval.domainPlanSplitRangeId,
           new Set([
-            ...(selectedSidesBySplitRange.get(interval.figmaLikeSplitRangeId) ??
-              []),
-            interval.figmaLikeSelectedSide
+            ...(selectedSidesBySplitRange.get(
+              interval.domainPlanSplitRangeId
+            ) ?? []),
+            interval.domainPlanSelectedSide
           ])
         )
       }
@@ -4716,7 +4727,7 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
         label: 'packets',
         getPolygonsForSplitRange: (splitRangeId: string) =>
           packets.flatMap((packet) =>
-            packet.geometry.debugMeta?.figmaLikeSplitRangeId === splitRangeId
+            packet.geometry.debugMeta?.domainPlanSplitRangeId === splitRangeId
               ? packet.geometry.polygons
               : []
           )
@@ -4725,7 +4736,7 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
         label: 'final-faces',
         getPolygonsForSplitRange: (splitRangeId: string) =>
           finalFaces.flatMap((face) =>
-            face.debugMeta?.figmaLikeSplitRangeId === splitRangeId
+            face.debugMeta?.domainPlanSplitRangeId === splitRangeId
               ? face.polygons
               : []
           )
@@ -4734,7 +4745,7 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
         label: 'collapsed-faces',
         getPolygonsForSplitRange: (splitRangeId: string) =>
           collapsedFaces.flatMap((face) =>
-            face.debugMeta?.figmaLikeSplitRangeId === splitRangeId
+            face.debugMeta?.domainPlanSplitRangeId === splitRangeId
               ? face.polygons
               : []
           )
@@ -4743,7 +4754,7 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
         label: 'render-entries',
         getPolygonsForSplitRange: (splitRangeId: string) =>
           renderEntries.flatMap((entry) =>
-            entry.debugMeta?.figmaLikeSplitRangeId === splitRangeId
+            entry.debugMeta?.domainPlanSplitRangeId === splitRangeId
               ? entry.polygons
               : []
           )
@@ -5037,16 +5048,17 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
       )
       const firstOutsidePacket = packets.find(
         (packet) =>
-          packet.geometry.debugMeta?.figmaLikeSplitRangeSourceSegmentIndex ===
+          packet.geometry.debugMeta?.domainPlanSplitRangeSourceSegmentIndex ===
             3 &&
-          (packet.geometry.debugMeta?.figmaLikeTerminalRole === 'start' ||
-            packet.geometry.debugMeta?.figmaLikeTerminalRole === 'start-end') &&
-          packet.geometry.debugMeta?.figmaLikeBoundaryRole === 'outer'
+          (packet.geometry.debugMeta?.domainPlanTerminalRole === 'start' ||
+            packet.geometry.debugMeta?.domainPlanTerminalRole ===
+              'start-end') &&
+          packet.geometry.debugMeta?.domainPlanBoundaryRole === 'outer'
       )
       const sourceSegmentPackets = packets.filter(
         (packet) =>
-          packet.geometry.debugMeta?.figmaLikeSplitRangeSourceSegmentIndex ===
-            3 && packet.geometry.debugMeta?.figmaLikeBoundaryRole === 'outer'
+          packet.geometry.debugMeta?.domainPlanSplitRangeSourceSegmentIndex ===
+            3 && packet.geometry.debugMeta?.domainPlanBoundaryRole === 'outer'
       )
 
       if (capType === 'square') {
@@ -5058,12 +5070,12 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
               packets: packets.map((packet) => ({
                 geometryId: packet.geometry.geometryId,
                 intervalId: packet.geometry.debugMeta?.intervalId,
-                terminalRole: packet.geometry.debugMeta?.figmaLikeTerminalRole,
-                boundaryRole: packet.geometry.debugMeta?.figmaLikeBoundaryRole,
-                splitRangeId: packet.geometry.debugMeta?.figmaLikeSplitRangeId,
+                terminalRole: packet.geometry.debugMeta?.domainPlanTerminalRole,
+                boundaryRole: packet.geometry.debugMeta?.domainPlanBoundaryRole,
+                splitRangeId: packet.geometry.debugMeta?.domainPlanSplitRangeId,
                 splitRangeSourceSegmentIndex:
                   packet.geometry.debugMeta
-                    ?.figmaLikeSplitRangeSourceSegmentIndex,
+                    ?.domainPlanSplitRangeSourceSegmentIndex,
                 polygonCount: packet.geometry.polygons.length,
                 finalCoverageBuilderStatus:
                   packet.geometry.debugMeta?.finalCoverageBuilderStatus
@@ -5082,12 +5094,12 @@ describe('constrained dashed stroke packets: source-path split ranges', () => {
               packets: packets.map((packet) => ({
                 geometryId: packet.geometry.geometryId,
                 intervalId: packet.geometry.debugMeta?.intervalId,
-                terminalRole: packet.geometry.debugMeta?.figmaLikeTerminalRole,
-                boundaryRole: packet.geometry.debugMeta?.figmaLikeBoundaryRole,
-                splitRangeId: packet.geometry.debugMeta?.figmaLikeSplitRangeId,
+                terminalRole: packet.geometry.debugMeta?.domainPlanTerminalRole,
+                boundaryRole: packet.geometry.debugMeta?.domainPlanBoundaryRole,
+                splitRangeId: packet.geometry.debugMeta?.domainPlanSplitRangeId,
                 splitRangeSourceSegmentIndex:
                   packet.geometry.debugMeta
-                    ?.figmaLikeSplitRangeSourceSegmentIndex,
+                    ?.domainPlanSplitRangeSourceSegmentIndex,
                 polygonCount: packet.geometry.polygons.length,
                 finalCoverageBuilderStatus:
                   packet.geometry.debugMeta?.finalCoverageBuilderStatus

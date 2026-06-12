@@ -167,7 +167,7 @@ describe('stroke dirty keys', () => {
         alpha: 1
       },
       geometryFamily: 'solid-center',
-      resolutionStatus: 'native-center',
+      resolutionStatus: 'center-product',
       runtimeStatus: 'not-applicable',
       runtimeReason: 'center-stroke',
       ownerKey: 'shape:a:stroke:0',
@@ -190,7 +190,7 @@ describe('stroke dirty keys', () => {
         alpha: 1
       },
       geometryFamily: 'solid-center',
-      resolutionStatus: 'native-center',
+      resolutionStatus: 'center-product',
       runtimeStatus: 'not-applicable',
       runtimeReason: 'center-stroke',
       ownerKey: 'shape:a:stroke:0',

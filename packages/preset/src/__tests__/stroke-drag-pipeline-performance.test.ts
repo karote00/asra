@@ -165,7 +165,7 @@ beforeAll(() => {
 
 class RecordingVectorGraphic extends Container {
   __asyraSolidCenterStrokeExportPackets?: unknown[]
-  __asyraNativeCenterSolidStrokeRenderCount?: number
+  __asyraCenterPathSolidStrokeRenderCount?: number
   __asyraCenterSolidPathMaskRenderCount?: number
   __asyraStrokeMeshCache?: Map<string, { kind?: string }>
 
@@ -202,7 +202,7 @@ const getStrokeCacheEntries = (graphic: RecordingVectorGraphic) =>
   Array.from(graphic.__asyraStrokeMeshCache?.entries() ?? [])
 
 const hasCurrentStrokeProductOutput = (graphic: RecordingVectorGraphic) =>
-  (graphic.__asyraNativeCenterSolidStrokeRenderCount ?? 0) > 0 ||
+  (graphic.__asyraCenterPathSolidStrokeRenderCount ?? 0) > 0 ||
   (graphic.__asyraCenterSolidPathMaskRenderCount ?? 0) > 0 ||
   (graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0) > 0 ||
   getStrokeCacheEntries(graphic).some(
@@ -573,7 +573,7 @@ describeProfile('stroke drag full pipeline performance profile', () => {
     expect(
       metrics.every(
         (metric) =>
-          (metric.counters['stroke-render-coordinate-signature-fallback'] ??
+          (metric.counters['stroke-render-coordinate-signature-rebuilt'] ??
             0) === 0
       )
     ).toBe(true)
@@ -589,7 +589,7 @@ describeProfile('stroke drag full pipeline performance profile', () => {
       metrics.every(
         (metric) =>
           (metric.counters[
-            'visual-overlap-collapse-polygon-cache-key-fallback'
+            'visual-overlap-collapse-polygon-cache-key-rebuilt'
           ] ?? 0) === 0
       )
     ).toBe(true)
@@ -602,13 +602,13 @@ describeProfile('stroke drag full pipeline performance profile', () => {
     expect(
       centerSolidMetrics.every(
         (metric) =>
-          (metric.counters['native-center-solid-stroke-render-count'] ?? 0) > 0
+          (metric.counters['center-product-solid-stroke-render-count'] ?? 0) > 0
       )
     ).toBe(true)
     expect(
       centerSolidMetrics.every(
         (metric) =>
-          (metric.counters['native-center-solid-visible-packet-skip'] ?? 0) > 0
+          (metric.counters['center-product-solid-visible-packet-skip'] ?? 0) > 0
       )
     ).toBe(true)
     expect(

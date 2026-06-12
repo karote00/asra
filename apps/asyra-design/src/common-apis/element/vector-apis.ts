@@ -33,7 +33,6 @@ import {
   setAnchorHandleInTopology,
   setAnchorTypeInTopology,
   setTopologyClosed,
-  toWorkspaceTopology,
   vectorTopologyToAnchorPoints,
   vectorTopologyToAnchorSubpaths
 } from './vector-topology'
@@ -337,6 +336,11 @@ const canReadTransientWorkspaceTopologyCache = () => {
   return core.getSystemProperty<boolean>('mouseDragging') ?? false
 }
 
+const getVectorOffset = (computed: { x?: number; y?: number }) => ({
+  x: typeof computed.x === 'number' ? computed.x : 0,
+  y: typeof computed.y === 'number' ? computed.y : 0
+})
+
 const getVectorComputed = (elementId: string) => {
   const element = sceneTree.getElementById(elementId)
   if (!element) {
@@ -396,41 +400,24 @@ const updateTransientComputedSnapshotFromPatch = (
   transientComputedSnapshotCache.set(elementId, nextSnapshot)
 }
 
-const getVectorOffset = (computed: { x?: number; y?: number }) => ({
-  x: typeof computed.x === 'number' ? computed.x : 0,
-  y: typeof computed.y === 'number' ? computed.y : 0
-})
-
-const usesWorkspacePointCoordinates = (
-  computed: Pick<VectorComputedData, 'pointCoordinateSpace'>
-) => computed.pointCoordinateSpace === 'workspace'
-
 const getVectorTopologyLocal = (elementId: string): VectorTopology => {
   const computed = getVectorComputed(elementId)
   if (!computed) {
     return createEmptyVectorTopology()
   }
 
-  if (usesWorkspacePointCoordinates(computed)) {
-    const offset = getVectorOffset(computed)
-    return {
-      points: Object.fromEntries(
-        Object.entries(computed.points).map(([pointId, point]) => [
-          pointId,
-          {
-            ...point,
-            x: point.x - offset.x,
-            y: point.y - offset.y
-          }
-        ])
-      ),
-      segments: computed.segments,
-      networks: computed.networks
-    }
-  }
-
+  const offset = getVectorOffset(computed)
   return {
-    points: computed.points,
+    points: Object.fromEntries(
+      Object.entries(computed.points).map(([pointId, point]) => [
+        pointId,
+        {
+          ...point,
+          x: point.x - offset.x,
+          y: point.y - offset.y
+        }
+      ])
+    ),
     segments: computed.segments,
     networks: computed.networks
   }
@@ -456,22 +443,11 @@ const getVectorTopologyWorkspace = (elementId: string): VectorTopology => {
       transientComputedSnapshotCache.set(elementId, computed)
     }
 
-    if (usesWorkspacePointCoordinates(computed)) {
-      return {
-        points: computed.points,
-        segments: computed.segments,
-        networks: computed.networks
-      }
+    return {
+      points: computed.points,
+      segments: computed.segments,
+      networks: computed.networks
     }
-
-    return toWorkspaceTopology(
-      {
-        points: computed.points,
-        segments: computed.segments,
-        networks: computed.networks
-      },
-      getVectorOffset(computed)
-    )
   })
 }
 
@@ -605,92 +581,17 @@ const reconcileVectorSelectionAfterTopologyChange = (
   }
 }
 
-const commitVectorTopology = (
-  elementId: string,
-  topologyInWorkspace: VectorTopology,
-  options?: EVENT_OPTIONS & {
-    closed?: boolean
-  }
-) => {
-  measureBrowserDragPhase('vector-api:commit', () => {
-    const transientVectorPointDrag = isTransientVectorPointDragUpdate(options)
-    emitStrokePipelineCounter('vector-api-commit-enter-count')
-    emitStrokePipelineCounter(
-      transientVectorPointDrag
-        ? 'vector-api-commit-transient-count'
-        : 'vector-api-commit-non-transient-count'
-    )
-    const previousTopology = getVectorTopologyWorkspace(elementId)
-    let patch: ComputedDataPatch
-    try {
-      patch = measureBrowserDragPhase('vector-api:commit:build-patch', () => {
-        vectorGeometry.validate(topologyInWorkspace, 'commitVectorTopology')
-        return createVectorTopologyMutationPatch(
-          elementId,
-          previousTopology,
-          topologyInWorkspace,
-          options?.closed
-        )
-      })
-      emitStrokePipelineCounter('vector-api-commit-build-patch-observed')
-    } catch (error) {
-      emitStrokePipelineCounter('vector-api-commit-build-patch-error-count')
-      recordVectorCommitError(error)
-      throw error
-    }
-
-    const patchKeyCount = getComputedDataPatchOperationCount(patch)
-    emitStrokePipelineCounter('vector-api-commit-patch-key-count-observed')
-    emitStrokePipelineCounter(
-      'vector-api-commit-patch-key-count',
-      patchKeyCount
-    )
-    if (!transientVectorPointDrag) {
-      clearTransientVectorCaches(elementId)
-    }
-    if (!hasComputedDataPatchOperations(patch)) {
-      emitStrokePipelineCounter('vector-api-commit-empty-patch-count')
-      return
-    }
-
-    startTransaction()
-    if (!transientVectorPointDrag) {
-      reconcileVectorSelectionAfterTopologyChange(
-        elementId,
-        previousTopology,
-        topologyInWorkspace
-      )
-    }
-    core.changeComputedDataPatch(
-      [elementId],
-      patch,
-      toVectorEventOptions(options)
-    )
-    endTransaction()
-    if (transientVectorPointDrag) {
-      transientWorkspaceTopologyCache.set(elementId, topologyInWorkspace)
-      updateTransientComputedSnapshotFromPatch(elementId, patch)
-    }
-  })
-}
-
 const createVectorPointMutationPatch = (
   elementId: string,
   previousTopology: VectorTopology,
   nextTopology: VectorTopology,
   closed?: boolean
 ): ComputedDataPatch => {
-  const computed = getVectorComputed(elementId)
-  const mustMigrateAllPoints =
-    !computed || !usesWorkspacePointCoordinates(computed)
   const bounds = calculateVectorBounds(nextTopology)
   const pointsSet: Record<string, DataTypes> = {}
 
   Object.entries(nextTopology.points).forEach(([pointId, point]) => {
-    if (
-      mustMigrateAllPoints ||
-      !isEqual(previousTopology.points[pointId], point)
-    ) {
+    if (!isEqual(previousTopology.points[pointId], point)) {
       pointsSet[pointId] = point as unknown as DataTypes
     }
   })
@@ -702,10 +603,6 @@ const createVectorPointMutationPatch = (
     height: bounds.height,
     closed: closed ?? isClosedVectorTopology(nextTopology)
   }
-  if (mustMigrateAllPoints) {
-    values.pointCoordinateSpace = 'workspace'
-  }
-
   return {
     values,
     records:
@@ -727,8 +624,6 @@ const createVectorTopologyMutationPatch = (
 ): ComputedDataPatch => {
   const computed = getVectorComputed(elementId)
   const patch: ComputedDataPatch = {}
-  const mustMigrateAllPoints =
-    !computed || !usesWorkspacePointCoordinates(computed)
   const mustSetAllRecords = !computed
   const bounds = calculateVectorBounds(nextTopology)
 
@@ -742,16 +637,11 @@ const createVectorTopologyMutationPatch = (
     'closed',
     closed ?? isClosedVectorTopology(nextTopology)
   )
-  if (mustMigrateAllPoints) {
-    patch.values ??= {}
-    patch.values.pointCoordinateSpace = 'workspace'
-  }
-
   const pointsPatch = createRecordComputedPatch(
     previousTopology.points,
     nextTopology.points,
     {
-      setAll: mustMigrateAllPoints
+      setAll: mustSetAllRecords
     }
   )
   const segmentsPatch = createRecordComputedPatch(
@@ -887,9 +777,13 @@ const createVectorTopologyOperationPatch = (
   return patch
 }
 
-const shouldUseVectorTopologyFallback = (elementId: string) => {
+const assertVectorTopologyOperationCanPatch = (elementId: string) => {
   const computed = getVectorComputed(elementId)
-  return !computed || !usesWorkspacePointCoordinates(computed)
+  if (!computed) {
+    throw new Error(
+      `Vector topology operation requires existing computed vector data for "${elementId}".`
+    )
+  }
 }
 
 const commitVectorTopologyOperation = (
@@ -903,11 +797,7 @@ const commitVectorTopologyOperation = (
 ) => {
   measureBrowserDragPhase(`vector-api:operation:${operation.type}`, () => {
     const transientVectorPointDrag = isTransientVectorPointDragUpdate(options)
-    if (shouldUseVectorTopologyFallback(elementId)) {
-      emitStrokePipelineCounter('vector-api-operation-fallback-count')
-      commitVectorTopology(elementId, nextTopology, options)
-      return
-    }
+    assertVectorTopologyOperationCanPatch(elementId)
 
     emitStrokePipelineCounter('vector-api-operation-commit-count')
     let patch: ComputedDataPatch
@@ -1692,6 +1582,46 @@ export const vectorApis = {
       return true
     }
     return vectorApis.getVectorAnchorPointById(elementId, pointId)
+  },
+
+  setVectorElementPosition: (
+    elementId: string,
+    position: PositionData,
+    options?: EVENT_OPTIONS
+  ): boolean => {
+    const computed = getVectorComputed(elementId)
+    if (
+      !computed ||
+      typeof computed.x !== 'number' ||
+      typeof computed.y !== 'number'
+    ) {
+      return false
+    }
+
+    const dx = position.x - computed.x
+    const dy = position.y - computed.y
+    if (dx === 0 && dy === 0) {
+      return false
+    }
+
+    const topology = getVectorTopologyWorkspace(elementId)
+    const nextTopology: VectorTopology = {
+      points: Object.fromEntries(
+        Object.entries(topology.points).map(([pointId, point]) => [
+          pointId,
+          {
+            ...point,
+            x: point.x + dx,
+            y: point.y + dy
+          }
+        ])
+      ),
+      segments: topology.segments,
+      networks: topology.networks
+    }
+
+    commitVectorPointMutation(elementId, topology, nextTopology, options)
+    return true
   },
 
   updateVectorAnchorPointType: (

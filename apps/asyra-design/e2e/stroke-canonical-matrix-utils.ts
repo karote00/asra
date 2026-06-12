@@ -878,7 +878,7 @@ export const captureOpenPathTerminalCrop = async (
 ) => {
   fs.mkdirSync(cropDir, { recursive: true })
   const target = await page.evaluate(
-    (fallbackRect) => {
+    (secondaryRect) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
       const zoom = core?.getSystemProperty?.('zoom') ?? 1
@@ -888,7 +888,7 @@ export const captureOpenPathTerminalCrop = async (
       }
       const rect =
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (window as any).__canonicalOpenVectorRect ?? fallbackRect
+        (window as any).__canonicalOpenVectorRect ?? secondaryRect
       return {
         x: rect.x * zoom + viewport.x,
         y: (rect.y + 120) * zoom + viewport.y
@@ -919,6 +919,29 @@ export const captureOpenPathTerminalCrop = async (
       ? classifyPixel(pixel.red, pixel.green, pixel.blue).isRedStroke
       : false
   }
+  const sampleAnyRed = (
+    center: { x: number; y: number },
+    offsets: { x: number; y: number }[]
+  ) =>
+    offsets.some((offset) =>
+      sampleRed(center.x + offset.x, center.y + offset.y)
+    )
+  const crossSectionOffsets = [-8, -5, 5, 8].map((distance) => ({
+    x: normal.x * distance,
+    y: normal.y * distance
+  }))
+  const segmentBodyPoint = {
+    x: terminal.x + tangent.x * 16,
+    y: terminal.y + tangent.y * 16
+  }
+  const endpointOutsidePoint = {
+    x: terminal.x - tangent.x * 8,
+    y: terminal.y - tangent.y * 8
+  }
+  const endpointOutsideCornerPoint = {
+    x: terminal.x - tangent.x * 8 + normal.x * 8,
+    y: terminal.y - tangent.y * 8 + normal.y * 8
+  }
   return {
     id: name,
     path: cropPath,
@@ -934,7 +957,16 @@ export const captureOpenPathTerminalCrop = async (
       backwardCornerRed: sampleRed(
         terminal.x - tangent.x * 9 + normal.x * 9,
         terminal.y - tangent.y * 9 + normal.y * 9
-      )
+      ),
+      segmentBodyRed: sampleAnyRed(segmentBodyPoint, crossSectionOffsets),
+      endpointOutsideRed: sampleAnyRed(
+        endpointOutsidePoint,
+        crossSectionOffsets
+      ),
+      endpointOutsideCornerRed: sampleAnyRed(endpointOutsideCornerPoint, [
+        { x: 0, y: 0 },
+        ...crossSectionOffsets
+      ])
     },
     ...(await analyzeSingleScreenshot(page, crop))
   }
@@ -1836,15 +1868,15 @@ export const captureCanonicalRuleOverlay = async (
           debugIntervalId?: unknown
           startDistance?: unknown
           endDistance?: unknown
-          figmaLikeSplitRangeSourceSegmentIndex?: unknown
-          figmaLikeSelectedSide?: unknown
-          figmaLikeSplitRangeStartDistance?: unknown
-          figmaLikeSplitRangeEndDistance?: unknown
-          figmaLikeBoundaryStartDistance?: unknown
-          figmaLikeBoundaryEndDistance?: unknown
-          figmaLikeBoundaryPoints?: unknown
-          figmaLikeSplitRangeId?: unknown
-          figmaLikeTerminalRole?: unknown
+          domainPlanSplitRangeSourceSegmentIndex?: unknown
+          domainPlanSelectedSide?: unknown
+          domainPlanSplitRangeStartDistance?: unknown
+          domainPlanSplitRangeEndDistance?: unknown
+          domainPlanBoundaryStartDistance?: unknown
+          domainPlanBoundaryEndDistance?: unknown
+          domainPlanBoundaryPoints?: unknown
+          domainPlanSplitRangeId?: unknown
+          domainPlanTerminalRole?: unknown
           geometryFamily?: unknown
           finalCoverageBuilderStatus?: unknown
           polygons?: unknown
@@ -1860,33 +1892,33 @@ export const captureCanonicalRuleOverlay = async (
                   startDistance: packet.startDistance,
                   endDistance: packet.endDistance,
                   sourceSegmentIndex:
-                    typeof packet.figmaLikeSplitRangeSourceSegmentIndex ===
+                    typeof packet.domainPlanSplitRangeSourceSegmentIndex ===
                     'number'
-                      ? packet.figmaLikeSplitRangeSourceSegmentIndex
+                      ? packet.domainPlanSplitRangeSourceSegmentIndex
                       : null,
                   selectedSide:
-                    packet.figmaLikeSelectedSide === 1 ||
-                    packet.figmaLikeSelectedSide === -1
-                      ? packet.figmaLikeSelectedSide
+                    packet.domainPlanSelectedSide === 1 ||
+                    packet.domainPlanSelectedSide === -1
+                      ? packet.domainPlanSelectedSide
                       : null,
                   splitRangeStartDistance:
-                    typeof packet.figmaLikeSplitRangeStartDistance === 'number'
-                      ? packet.figmaLikeSplitRangeStartDistance
+                    typeof packet.domainPlanSplitRangeStartDistance === 'number'
+                      ? packet.domainPlanSplitRangeStartDistance
                       : null,
                   splitRangeEndDistance:
-                    typeof packet.figmaLikeSplitRangeEndDistance === 'number'
-                      ? packet.figmaLikeSplitRangeEndDistance
+                    typeof packet.domainPlanSplitRangeEndDistance === 'number'
+                      ? packet.domainPlanSplitRangeEndDistance
                       : null,
                   boundaryStartDistance:
-                    typeof packet.figmaLikeBoundaryStartDistance === 'number'
-                      ? packet.figmaLikeBoundaryStartDistance
+                    typeof packet.domainPlanBoundaryStartDistance === 'number'
+                      ? packet.domainPlanBoundaryStartDistance
                       : null,
                   boundaryEndDistance:
-                    typeof packet.figmaLikeBoundaryEndDistance === 'number'
-                      ? packet.figmaLikeBoundaryEndDistance
+                    typeof packet.domainPlanBoundaryEndDistance === 'number'
+                      ? packet.domainPlanBoundaryEndDistance
                       : null,
-                  boundaryPoints: Array.isArray(packet.figmaLikeBoundaryPoints)
-                    ? packet.figmaLikeBoundaryPoints.flatMap((point) => {
+                  boundaryPoints: Array.isArray(packet.domainPlanBoundaryPoints)
+                    ? packet.domainPlanBoundaryPoints.flatMap((point) => {
                         if (
                           typeof point === 'object' &&
                           point !== null &&
@@ -1904,8 +1936,8 @@ export const captureCanonicalRuleOverlay = async (
                       })
                     : [],
                   splitRangeId:
-                    typeof packet.figmaLikeSplitRangeId === 'string'
-                      ? packet.figmaLikeSplitRangeId
+                    typeof packet.domainPlanSplitRangeId === 'string'
+                      ? packet.domainPlanSplitRangeId
                       : null,
                   polygons: Array.isArray(packet.polygons)
                     ? packet.polygons.flatMap((polygon) => {
@@ -1932,8 +1964,8 @@ export const captureCanonicalRuleOverlay = async (
                       })
                     : [],
                   terminalRole:
-                    typeof packet.figmaLikeTerminalRole === 'string'
-                      ? packet.figmaLikeTerminalRole
+                    typeof packet.domainPlanTerminalRole === 'string'
+                      ? packet.domainPlanTerminalRole
                       : null,
                   geometryFamily:
                     typeof packet.geometryFamily === 'string'
@@ -3042,8 +3074,10 @@ export const captureCanonicalRuleOverlay = async (
         }
       }
       const terminalRecordCount = metadata.boundaryDomainPackets.reduce(
-        (count: number, packet: { figmaLikeSplitRangeTerminals?: unknown[] }) =>
-          count + (packet.figmaLikeSplitRangeTerminals?.length ?? 0),
+        (
+          count: number,
+          packet: { domainPlanSplitRangeTerminals?: unknown[] }
+        ) => count + (packet.domainPlanSplitRangeTerminals?.length ?? 0),
         0
       )
       const splitTerminalRecordCount = terminalRecordCount
@@ -3333,6 +3367,9 @@ const expectOpenTerminalCoverage = (
       forwardRed: boolean
       backwardRed: boolean
       backwardCornerRed: boolean
+      segmentBodyRed?: boolean
+      endpointOutsideRed?: boolean
+      endpointOutsideCornerRed?: boolean
     }
   },
   capType?: SelfCheckCapType
@@ -3348,25 +3385,17 @@ const expectOpenTerminalCoverage = (
   ).toBeGreaterThan(80)
   if (capType) {
     expect(
-      openTerminalAnalysis.terminalCapFootprint?.forwardRed,
+      openTerminalAnalysis.terminalCapFootprint?.segmentBodyRed,
       JSON.stringify({ caseKey, openTerminalAnalysis }, null, 2)
     ).toBe(true)
     expect(
-      openTerminalAnalysis.terminalCapFootprint?.backwardRed,
+      openTerminalAnalysis.terminalCapFootprint?.endpointOutsideRed,
       JSON.stringify({ caseKey, openTerminalAnalysis }, null, 2)
-    ).toBe(capType !== 'butt')
-    if (capType === 'square') {
-      expect(
-        openTerminalAnalysis.terminalCapFootprint?.backwardCornerRed,
-        JSON.stringify({ caseKey, openTerminalAnalysis }, null, 2)
-      ).toBe(true)
-    }
-    if (capType === 'round') {
-      expect(
-        openTerminalAnalysis.terminalCapFootprint?.backwardCornerRed,
-        JSON.stringify({ caseKey, openTerminalAnalysis }, null, 2)
-      ).toBe(false)
-    }
+    ).toBe(false)
+    expect(
+      openTerminalAnalysis.terminalCapFootprint?.endpointOutsideCornerRed,
+      JSON.stringify({ caseKey, openTerminalAnalysis }, null, 2)
+    ).toBe(false)
   }
 }
 
@@ -3800,8 +3829,8 @@ export const runCanonicalDashedOutsideNoFillSourceJoinMatrixCase = async (
                   {
                     anchorId,
                     geometryId: packet.geometryId,
-                    terminalRole: packet.figmaLikeTerminalRole,
-                    boundaryRole: packet.figmaLikeBoundaryRole,
+                    terminalRole: packet.domainPlanTerminalRole,
+                    boundaryRole: packet.domainPlanBoundaryRole,
                     finalCoverageBuilderStatus:
                       packet.finalCoverageBuilderStatus
                   }

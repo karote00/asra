@@ -8,7 +8,6 @@ export type StrokeRuntimeDiagnosticSupportState =
   | 'accepted'
   | 'blocked'
   | 'deferred'
-  | 'fallback'
   | 'not-applicable'
 
 export interface StrokeRuntimeDiagnosticOwnerProvenance {

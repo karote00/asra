@@ -47,7 +47,8 @@ const require = createRequire(import.meta.url)
 const clipperWasmPath = require.resolve('clipper2-wasm/dist/umd/clipper2z.wasm')
 const CLIPPER_VECTOR_COMPONENT_TEST_BACKEND_ID =
   'vector-component-clipper2-test'
-const UNSUPPORTED_EXACT_BACKEND_ID = 'unsupported-exact-geometry-backend'
+const DIAGNOSTIC_MISSING_EXACT_BACKEND_ID =
+  'diagnostic-missing-exact-geometry-backend'
 
 const loadClipperModule = async () =>
   (await (
@@ -83,7 +84,7 @@ beforeEach(() => {
 afterEach(() => {
   delete (globalThis as StrokeDiagnosticsGlobal)
     .__ASYRA_STROKE_DIAGNOSTICS_MODE__
-  selectGeometryBackend(UNSUPPORTED_EXACT_BACKEND_ID)
+  selectGeometryBackend(DIAGNOSTIC_MISSING_EXACT_BACKEND_ID)
 })
 
 beforeAll(() => {
@@ -336,7 +337,7 @@ const createSelfIntersectingStarsVectorData = (starCount: number) => {
 
 class RecordingGraphic extends Container {
   __asyraSolidCenterStrokeExportPackets?: SolidCenterStrokeExportPacket[]
-  __asyraNativeCenterSolidStrokeRenderCount?: number
+  __asyraCenterPathSolidStrokeRenderCount?: number
   __asyraConstrainedDashedRuntimeDiagnostics?: {
     acceptedCount: number
     blockedCount: number
@@ -506,7 +507,7 @@ describe('Vector Component', () => {
     expect(countInstructions(mockGraphic, 'bezierCurveTo')).toHaveLength(0)
     expect(getProjectionMeshes(mockGraphic)).toHaveLength(1)
     expect(countInstructions(mockGraphic, 'stroke')).toHaveLength(0)
-    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(mockGraphic.__asyraCenterPathSolidStrokeRenderCount).toBe(0)
     expect(mockGraphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
   })
 
@@ -607,7 +608,7 @@ describe('Vector Component', () => {
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
     expect(getProjectionMeshes(mockGraphic)).toHaveLength(1)
-    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(mockGraphic.__asyraCenterPathSolidStrokeRenderCount).toBe(0)
     expect(mockGraphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
   })
 
@@ -639,7 +640,7 @@ describe('Vector Component', () => {
     runRenderStrategy(renderStrategy, mockGraphic, mockData)
 
     expect(getProjectionMeshes(mockGraphic)).toHaveLength(1)
-    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(mockGraphic.__asyraCenterPathSolidStrokeRenderCount).toBe(0)
     expect(mockGraphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
   })
 
@@ -1351,7 +1352,7 @@ describe('Vector Component', () => {
     expect(mockGraphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(0)
   })
 
-  it('should not run: convert legacy anchorPoints into renderable topology during normalization', () => {
+  it('should not run: convert removed anchorPoints into renderable topology during normalization', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1360,7 +1361,7 @@ describe('Vector Component', () => {
 
     expect(() =>
       runRenderStrategy(renderStrategy, mockGraphic, {
-        id: 'vector-legacy-anchor-points',
+        id: 'vector-removed-anchor-points',
         x: 0,
         y: 0,
         width: 100,
@@ -1397,7 +1398,7 @@ describe('Vector Component', () => {
     expect(mockGraphic.y).toBe(0)
   })
 
-  it('should run: render simple solid-center vectors through final-face projection when native fast path is not needed', () => {
+  it('should run: render simple solid-center vectors through final-face projection when renderer path is not needed', () => {
     const renderStrategy = renderStrategyRegistry.get('vector')
     expect(renderStrategy).toBeDefined()
 
@@ -1438,7 +1439,7 @@ describe('Vector Component', () => {
 
     expect(getProjectionMeshes(mockGraphic)).toHaveLength(1)
     expect(countInstructions(mockGraphic, 'stroke')).toHaveLength(0)
-    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(mockGraphic.__asyraCenterPathSolidStrokeRenderCount).toBe(0)
     expect(mockGraphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
   })
 
@@ -1564,7 +1565,7 @@ describe('Vector Component', () => {
     const initialProjectionMeshes = getProjectionMeshes(mockGraphic)
     expect(initialProjectionMeshes).toHaveLength(1)
     expect(countInstructions(mockGraphic, 'stroke')).toHaveLength(0)
-    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(mockGraphic.__asyraCenterPathSolidStrokeRenderCount).toBe(0)
 
     runRenderStrategy(renderStrategy, mockGraphic, {
       ...supportedData,
@@ -1586,7 +1587,7 @@ describe('Vector Component', () => {
       mockGraphic.__asyraSolidCenterStrokeExportPackets ?? []
     expect(nextProjectionMeshes.length).toBeGreaterThan(0)
     expect(exportPackets.length).toBe(nextProjectionMeshes.length)
-    expect(mockGraphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(mockGraphic.__asyraCenterPathSolidStrokeRenderCount).toBe(0)
     expect(
       exportPackets.every((packet) =>
         Boolean(

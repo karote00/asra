@@ -519,10 +519,10 @@ const getRuleDrivenPacketSummary = async (page: Page) =>
         const polygons = Array.isArray(packet.polygons)
           ? packet.polygons.filter((entry) => Array.isArray(entry))
           : []
-        const figmaLikeSplitRangeTerminals = Array.isArray(
-          debugMeta.figmaLikeSplitRangeTerminals
+        const domainPlanSplitRangeTerminals = Array.isArray(
+          debugMeta.domainPlanSplitRangeTerminals
         )
-          ? debugMeta.figmaLikeSplitRangeTerminals.flatMap((entry) => {
+          ? debugMeta.domainPlanSplitRangeTerminals.flatMap((entry) => {
               if (!entry || typeof entry !== 'object') {
                 return []
               }
@@ -546,33 +546,33 @@ const getRuleDrivenPacketSummary = async (page: Page) =>
                       selectedSide:
                         record.selectedSide === 1 || record.selectedSide === -1
                           ? record.selectedSide
-                          : debugMeta.figmaLikeSelectedSide === 1 ||
-                              debugMeta.figmaLikeSelectedSide === -1
-                            ? debugMeta.figmaLikeSelectedSide
+                          : debugMeta.domainPlanSelectedSide === 1 ||
+                              debugMeta.domainPlanSelectedSide === -1
+                            ? debugMeta.domainPlanSelectedSide
                             : null,
                       boundaryPoints: getPoints(record.boundaryPoints).length
                         ? getPoints(record.boundaryPoints)
-                        : getPoints(debugMeta.figmaLikeBoundaryPoints),
+                        : getPoints(debugMeta.domainPlanBoundaryPoints),
                       boundaryStartDistance:
                         typeof record.boundaryStartDistance === 'number'
                           ? record.boundaryStartDistance
-                          : typeof debugMeta.figmaLikeBoundaryStartDistance ===
+                          : typeof debugMeta.domainPlanBoundaryStartDistance ===
                               'number'
-                            ? debugMeta.figmaLikeBoundaryStartDistance
+                            ? debugMeta.domainPlanBoundaryStartDistance
                             : null,
                       boundaryEndDistance:
                         typeof record.boundaryEndDistance === 'number'
                           ? record.boundaryEndDistance
-                          : typeof debugMeta.figmaLikeBoundaryEndDistance ===
+                          : typeof debugMeta.domainPlanBoundaryEndDistance ===
                               'number'
-                            ? debugMeta.figmaLikeBoundaryEndDistance
+                            ? debugMeta.domainPlanBoundaryEndDistance
                             : null,
                       boundaryTotalLength:
                         typeof record.boundaryTotalLength === 'number'
                           ? record.boundaryTotalLength
-                          : typeof debugMeta.figmaLikeBoundaryTotalLength ===
+                          : typeof debugMeta.domainPlanBoundaryTotalLength ===
                               'number'
-                            ? debugMeta.figmaLikeBoundaryTotalLength
+                            ? debugMeta.domainPlanBoundaryTotalLength
                             : null
                     }
                   ]
@@ -596,43 +596,43 @@ const getRuleDrivenPacketSummary = async (page: Page) =>
               typeof debugMeta.endDistance === 'number'
                 ? debugMeta.endDistance
                 : null,
-            figmaLikeSplitRangeId:
-              typeof debugMeta.figmaLikeSplitRangeId === 'string'
-                ? debugMeta.figmaLikeSplitRangeId
+            domainPlanSplitRangeId:
+              typeof debugMeta.domainPlanSplitRangeId === 'string'
+                ? debugMeta.domainPlanSplitRangeId
                 : null,
-            figmaLikeSplitRangeStartDistance:
-              typeof debugMeta.figmaLikeSplitRangeStartDistance === 'number'
-                ? debugMeta.figmaLikeSplitRangeStartDistance
+            domainPlanSplitRangeStartDistance:
+              typeof debugMeta.domainPlanSplitRangeStartDistance === 'number'
+                ? debugMeta.domainPlanSplitRangeStartDistance
                 : null,
-            figmaLikeSplitRangeEndDistance:
-              typeof debugMeta.figmaLikeSplitRangeEndDistance === 'number'
-                ? debugMeta.figmaLikeSplitRangeEndDistance
+            domainPlanSplitRangeEndDistance:
+              typeof debugMeta.domainPlanSplitRangeEndDistance === 'number'
+                ? debugMeta.domainPlanSplitRangeEndDistance
                 : null,
-            figmaLikeTerminalRole:
-              typeof debugMeta.figmaLikeTerminalRole === 'string'
-                ? debugMeta.figmaLikeTerminalRole
+            domainPlanTerminalRole:
+              typeof debugMeta.domainPlanTerminalRole === 'string'
+                ? debugMeta.domainPlanTerminalRole
                 : null,
-            figmaLikeSelectedSide:
-              debugMeta.figmaLikeSelectedSide === 1 ||
-              debugMeta.figmaLikeSelectedSide === -1
-                ? debugMeta.figmaLikeSelectedSide
+            domainPlanSelectedSide:
+              debugMeta.domainPlanSelectedSide === 1 ||
+              debugMeta.domainPlanSelectedSide === -1
+                ? debugMeta.domainPlanSelectedSide
                 : null,
-            figmaLikeBoundaryPoints: getPoints(
-              debugMeta.figmaLikeBoundaryPoints
+            domainPlanBoundaryPoints: getPoints(
+              debugMeta.domainPlanBoundaryPoints
             ),
-            figmaLikeBoundaryStartDistance:
-              typeof debugMeta.figmaLikeBoundaryStartDistance === 'number'
-                ? debugMeta.figmaLikeBoundaryStartDistance
+            domainPlanBoundaryStartDistance:
+              typeof debugMeta.domainPlanBoundaryStartDistance === 'number'
+                ? debugMeta.domainPlanBoundaryStartDistance
                 : null,
-            figmaLikeBoundaryEndDistance:
-              typeof debugMeta.figmaLikeBoundaryEndDistance === 'number'
-                ? debugMeta.figmaLikeBoundaryEndDistance
+            domainPlanBoundaryEndDistance:
+              typeof debugMeta.domainPlanBoundaryEndDistance === 'number'
+                ? debugMeta.domainPlanBoundaryEndDistance
                 : null,
-            figmaLikeBoundaryTotalLength:
-              typeof debugMeta.figmaLikeBoundaryTotalLength === 'number'
-                ? debugMeta.figmaLikeBoundaryTotalLength
+            domainPlanBoundaryTotalLength:
+              typeof debugMeta.domainPlanBoundaryTotalLength === 'number'
+                ? debugMeta.domainPlanBoundaryTotalLength
                 : null,
-            figmaLikeSplitRangeTerminals,
+            domainPlanSplitRangeTerminals,
             productFinal:
               debugMeta.sourceTopology === 'self-intersecting' &&
               debugMeta.finalCoverageBuilderStatus === 'product-final',
@@ -652,7 +652,7 @@ const getRuleDrivenPacketSummary = async (page: Page) =>
               typeof debugMeta.geometryFamily === 'string'
                 ? debugMeta.geometryFamily
                 : null,
-            legacyBoundaryEvidence: [
+            boundaryEvidence: [
               packet.geometryId,
               debugMeta.geometryId,
               debugMeta.sourceContourId,
@@ -814,7 +814,7 @@ const getSameSplitRangeGapGeometryHits = (
       probe.distance
     )
     return packetSummary.constrainedPackets.flatMap((packet) => {
-      if (packet.figmaLikeSplitRangeId !== probe.splitRangeId) {
+      if (packet.domainPlanSplitRangeId !== probe.splitRangeId) {
         return []
       }
       const coveredCandidates = candidates.filter((candidate) =>
@@ -926,7 +926,7 @@ const buildSplitRangeDashDistributionProbes = (
     }[]
   >()
   for (const packet of packetSummary.constrainedPackets) {
-    for (const terminal of packet.figmaLikeSplitRangeTerminals) {
+    for (const terminal of packet.domainPlanSplitRangeTerminals) {
       grouped.set(terminal.splitRangeId, [
         ...(grouped.get(terminal.splitRangeId) ?? []),
         {
@@ -1004,7 +1004,7 @@ const buildSplitBoundaryAdjacencyProbes = (
   packetSummary: Awaited<ReturnType<typeof getRuleDrivenPacketSummary>>
 ) => {
   const terminalEdges = packetSummary.constrainedPackets.flatMap((packet) =>
-    packet.figmaLikeSplitRangeTerminals.flatMap((terminal) => {
+    packet.domainPlanSplitRangeTerminals.flatMap((terminal) => {
       const points = terminal.boundaryPoints
       if (!points || points.length < 2) {
         return []
@@ -1085,23 +1085,23 @@ const getSplitRangeTerminalContractFailures = (
   >()
   for (const packet of packetSummary.constrainedPackets) {
     const directRecords =
-      packet.figmaLikeSplitRangeId &&
-      typeof packet.figmaLikeSplitRangeStartDistance === 'number' &&
-      typeof packet.figmaLikeSplitRangeEndDistance === 'number' &&
+      packet.domainPlanSplitRangeId &&
+      typeof packet.domainPlanSplitRangeStartDistance === 'number' &&
+      typeof packet.domainPlanSplitRangeEndDistance === 'number' &&
       typeof packet.startDistance === 'number' &&
       typeof packet.endDistance === 'number' &&
-      typeof packet.figmaLikeTerminalRole === 'string'
+      typeof packet.domainPlanTerminalRole === 'string'
         ? [
             {
-              terminalRole: packet.figmaLikeTerminalRole,
+              terminalRole: packet.domainPlanTerminalRole,
               startDistance: packet.startDistance,
               endDistance: packet.endDistance,
-              splitRangeStartDistance: packet.figmaLikeSplitRangeStartDistance,
-              splitRangeEndDistance: packet.figmaLikeSplitRangeEndDistance
+              splitRangeStartDistance: packet.domainPlanSplitRangeStartDistance,
+              splitRangeEndDistance: packet.domainPlanSplitRangeEndDistance
             }
           ]
         : []
-    const terminalRecords = packet.figmaLikeSplitRangeTerminals.map(
+    const terminalRecords = packet.domainPlanSplitRangeTerminals.map(
       (terminal) => ({
         splitRangeId: terminal.splitRangeId,
         terminalRole: terminal.terminalRole,
@@ -1113,7 +1113,7 @@ const getSplitRangeTerminalContractFailures = (
     )
     for (const record of [
       ...directRecords.map((record) => ({
-        splitRangeId: packet.figmaLikeSplitRangeId ?? '',
+        splitRangeId: packet.domainPlanSplitRangeId ?? '',
         ...record
       })),
       ...terminalRecords
@@ -1341,12 +1341,12 @@ const getProbeCoverage = async (
         (packet) =>
           packet.productFinal &&
           packet.polygonCount > 0 &&
-          !packet.legacyBoundaryEvidence &&
+          !packet.boundaryEvidence &&
           packet.geometryFamily === 'constrained-dashed' &&
           packet.intervalId?.startsWith('interval:') === true &&
-          packet.figmaLikeSplitRangeId?.startsWith('split-range:') === true &&
-          packet.figmaLikeTerminalRole !== null &&
-          packet.figmaLikeSplitRangeTerminals.length > 0 &&
+          packet.domainPlanSplitRangeId?.startsWith('split-range:') === true &&
+          packet.domainPlanTerminalRole !== null &&
+          packet.domainPlanSplitRangeTerminals.length > 0 &&
           typeof packet.startDistance === 'number' &&
           typeof packet.endDistance === 'number' &&
           packet.intervalIds.every((intervalId) =>
@@ -1530,7 +1530,7 @@ test('rule: focused split segment renders terminal half-dashes and adjacent gaps
       terminalCoverages,
       visibleDashProbes,
       splitRange2Packets: packetSummary.constrainedPackets.filter((packet) =>
-        packet.figmaLikeSplitRangeTerminals.some(
+        packet.domainPlanSplitRangeTerminals.some(
           (terminal) =>
             terminal.splitRangeId === 'split-range:2' &&
             terminal.terminalRole === 'end'

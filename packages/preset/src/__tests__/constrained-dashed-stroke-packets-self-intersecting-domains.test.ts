@@ -33,7 +33,7 @@ import {
   slicePathGeometryPoints
 } from '../components/stroke-render/path-geometry'
 import { resolveSourcePathStrokeSide } from '../components/stroke-render/stroke-side-resolution'
-import { buildConstrainedDashedLocalSideStrokePolygons } from '../components/stroke-render/constrained-dashed-local-side-geometry'
+import { buildConstrainedDashedDomainStrokePolygons } from '../components/stroke-render/constrained-dashed-domain-geometry'
 import { buildDashedCenterRibbonGeometry } from '../components/stroke-render/dashed-center-ribbon-geometry'
 import { isSimpleClosedPolygon } from '../components/stroke-render/solid-stroke-geometry-core'
 import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
@@ -283,8 +283,8 @@ const getClippedPolygonQualityFailures = (
     packets.map((packet) => ({
       polygons: packet.geometry.polygons,
       intervalId: packet.geometry.debugMeta?.intervalId,
-      splitRangeId: packet.geometry.debugMeta?.figmaLikeSplitRangeId,
-      terminalRole: packet.geometry.debugMeta?.figmaLikeTerminalRole
+      splitRangeId: packet.geometry.debugMeta?.domainPlanSplitRangeId,
+      terminalRole: packet.geometry.debugMeta?.domainPlanTerminalRole
     }))
   )
 
@@ -919,13 +919,13 @@ interface StrokeEventMap {
 }
 
 type RuleDrivenDashInterval = StrokeEventMap['dashIntervals'][number] & {
-  figmaLikeSplitRangeId?: string
-  figmaLikeSelectedSide?: 1 | -1
-  figmaLikeBoundaryRole?: string
-  figmaLikeBoundaryPoints?: { x: number; y: number }[]
-  figmaLikeBoundaryTotalLength?: number
-  figmaLikeBoundaryStartDistance?: number
-  figmaLikeBoundaryEndDistance?: number
+  domainPlanSplitRangeId?: string
+  domainPlanSelectedSide?: 1 | -1
+  domainPlanBoundaryRole?: string
+  domainPlanBoundaryPoints?: { x: number; y: number }[]
+  domainPlanBoundaryTotalLength?: number
+  domainPlanBoundaryStartDistance?: number
+  domainPlanBoundaryEndDistance?: number
 }
 
 const normalizeLoopDistanceForTest = (distance: number, totalLength: number) =>
@@ -1414,34 +1414,35 @@ const getRuleDrivenIntervalProbeDistances = (
   )
 
 const getRuleDrivenIntervalSelectedSide = (interval: {
-  figmaLikeSelectedSide?: number
+  domainPlanSelectedSide?: number
 }) =>
-  interval.figmaLikeSelectedSide === 1 || interval.figmaLikeSelectedSide === -1
-    ? interval.figmaLikeSelectedSide
+  interval.domainPlanSelectedSide === 1 ||
+  interval.domainPlanSelectedSide === -1
+    ? interval.domainPlanSelectedSide
     : undefined
 
 const getRuleDrivenPathForInterval = (
   sourcePath: ReturnType<typeof buildVectorGeometryModelPath>,
   interval: RuleDrivenDashInterval
 ) =>
-  interval.figmaLikeBoundaryPoints &&
-  interval.figmaLikeBoundaryPoints.length > 1
-    ? buildPolylineGeometryModelPath(interval.figmaLikeBoundaryPoints, false)
+  interval.domainPlanBoundaryPoints &&
+  interval.domainPlanBoundaryPoints.length > 1
+    ? buildPolylineGeometryModelPath(interval.domainPlanBoundaryPoints, false)
     : sourcePath
 
 const requiresRuleDrivenIntervalProductCoverage = (
   stroke: ReturnType<typeof createDefaultStroke>,
-  interval: { figmaLikeBoundaryRole?: string }
+  interval: { domainPlanBoundaryRole?: string }
 ) => {
   if (
     stroke.position === 'inside' &&
-    interval.figmaLikeBoundaryRole === 'outer'
+    interval.domainPlanBoundaryRole === 'outer'
   ) {
     return false
   }
   if (
     stroke.position === 'outside' &&
-    interval.figmaLikeBoundaryRole === 'filled-face'
+    interval.domainPlanBoundaryRole === 'filled-face'
   ) {
     return false
   }
@@ -1547,17 +1548,17 @@ const getRuleDrivenSplitRangeGapCoverageFailures = ({
   const intervalsBySplitRange = new Map<string, RuleDrivenDashInterval[]>()
   intervals.forEach((interval) => {
     if (
-      !interval.figmaLikeSplitRangeId ||
-      interval.figmaLikeBoundaryPoints === undefined ||
-      interval.figmaLikeBoundaryPoints.length < 2 ||
-      interval.figmaLikeBoundaryStartDistance === undefined ||
-      interval.figmaLikeBoundaryEndDistance === undefined
+      !interval.domainPlanSplitRangeId ||
+      interval.domainPlanBoundaryPoints === undefined ||
+      interval.domainPlanBoundaryPoints.length < 2 ||
+      interval.domainPlanBoundaryStartDistance === undefined ||
+      interval.domainPlanBoundaryEndDistance === undefined
     ) {
       return
     }
 
-    intervalsBySplitRange.set(interval.figmaLikeSplitRangeId, [
-      ...(intervalsBySplitRange.get(interval.figmaLikeSplitRangeId) ?? []),
+    intervalsBySplitRange.set(interval.domainPlanSplitRangeId, [
+      ...(intervalsBySplitRange.get(interval.domainPlanSplitRangeId) ?? []),
       interval
     ])
   })
@@ -1577,7 +1578,7 @@ const getRuleDrivenSplitRangeGapCoverageFailures = ({
           return []
         }
 
-        const boundaryPoints = interval.figmaLikeBoundaryPoints ?? []
+        const boundaryPoints = interval.domainPlanBoundaryPoints ?? []
         const boundaryPath = buildPolylineGeometryModelPath(
           boundaryPoints,
           false
@@ -1623,7 +1624,7 @@ const getRuleDrivenSplitRangeGapCoverageFailures = ({
                 gapEnd: Math.round(gapEnd * 100) / 100,
                 gapLength: Math.round(gapLength * 100) / 100,
                 selectedSide,
-                boundaryRole: interval.figmaLikeBoundaryRole,
+                boundaryRole: interval.domainPlanBoundaryRole,
                 coveredProbeCount: coveredProbes.length,
                 firstCoveredProbe: {
                   distance: Math.round(coveredProbes[0].distance * 100) / 100,
@@ -1677,30 +1678,30 @@ const getOutsideSquareTerminalEndpointOverhangFailures = (
     if (
       meta?.strokePosition !== 'outside' ||
       meta.strokeCap !== 'square' ||
-      meta.figmaLikeSplitRangeId === undefined ||
-      !meta.figmaLikeBoundaryPoints ||
-      meta.figmaLikeBoundaryPoints.length < 2 ||
-      (meta.figmaLikeTerminalRole !== 'start' &&
-        meta.figmaLikeTerminalRole !== 'end' &&
-        meta.figmaLikeTerminalRole !== 'start-end')
+      meta.domainPlanSplitRangeId === undefined ||
+      !meta.domainPlanBoundaryPoints ||
+      meta.domainPlanBoundaryPoints.length < 2 ||
+      (meta.domainPlanTerminalRole !== 'start' &&
+        meta.domainPlanTerminalRole !== 'end' &&
+        meta.domainPlanTerminalRole !== 'start-end')
     ) {
       return []
     }
 
     const terminalEdges: ('start' | 'end')[] = [
-      ...(meta.figmaLikeTerminalRole === 'start' ||
-      meta.figmaLikeTerminalRole === 'start-end'
+      ...(meta.domainPlanTerminalRole === 'start' ||
+      meta.domainPlanTerminalRole === 'start-end'
         ? (['start'] as const)
         : []),
-      ...(meta.figmaLikeTerminalRole === 'end' ||
-      meta.figmaLikeTerminalRole === 'start-end'
+      ...(meta.domainPlanTerminalRole === 'end' ||
+      meta.domainPlanTerminalRole === 'start-end'
         ? (['end'] as const)
         : [])
     ]
 
     return terminalEdges.flatMap((edge) => {
       const frame = getTerminalFrameFromBoundaryPointsForTest(
-        meta.figmaLikeBoundaryPoints ?? [],
+        meta.domainPlanBoundaryPoints ?? [],
         edge
       )
       if (!frame) {
@@ -1732,8 +1733,8 @@ const getOutsideSquareTerminalEndpointOverhangFailures = (
             {
               geometryId: packet.geometry.geometryId,
               intervalId: meta.intervalId,
-              splitRangeId: meta.figmaLikeSplitRangeId,
-              terminalRole: meta.figmaLikeTerminalRole,
+              splitRangeId: meta.domainPlanSplitRangeId,
+              terminalRole: meta.domainPlanTerminalRole,
               edge,
               overhangingPoints: overhangingPoints.slice(0, 4)
             }
@@ -1758,11 +1759,11 @@ const getRuleDrivenBoundaryHugFailures = ({
 }) =>
   intervals.flatMap((interval) => {
     if (
-      !interval.figmaLikeSplitRangeId ||
-      !interval.figmaLikeBoundaryPoints ||
-      interval.figmaLikeBoundaryPoints.length < 2 ||
-      interval.figmaLikeBoundaryStartDistance === undefined ||
-      interval.figmaLikeBoundaryEndDistance === undefined
+      !interval.domainPlanSplitRangeId ||
+      !interval.domainPlanBoundaryPoints ||
+      interval.domainPlanBoundaryPoints.length < 2 ||
+      interval.domainPlanBoundaryStartDistance === undefined ||
+      interval.domainPlanBoundaryEndDistance === undefined
     ) {
       return []
     }
@@ -1785,7 +1786,7 @@ const getRuleDrivenBoundaryHugFailures = ({
     }
 
     const boundaryPath = buildPolylineGeometryModelPath(
-      interval.figmaLikeBoundaryPoints,
+      interval.domainPlanBoundaryPoints,
       false
     )
     return sampleDistances.flatMap((distance) => {
@@ -1804,9 +1805,9 @@ const getRuleDrivenBoundaryHugFailures = ({
             {
               contextLabel,
               intervalIndex: interval.index,
-              splitRangeId: interval.figmaLikeSplitRangeId,
-              boundaryRole: interval.figmaLikeBoundaryRole,
-              selectedSide: interval.figmaLikeSelectedSide,
+              splitRangeId: interval.domainPlanSplitRangeId,
+              boundaryRole: interval.domainPlanBoundaryRole,
+              selectedSide: interval.domainPlanSelectedSide,
               distance: Math.round(distance * 100) / 100,
               boundaryDistance: Math.round(boundaryDistance * 100) / 100,
               point: {
@@ -1936,14 +1937,16 @@ const getVisibleIntervalsWithoutRuleDrivenSpatialCoverage = ({
             crossingBoundaryCount: interval.crossingBoundaryCount,
             squareEffectiveCrossingBoundaryCount:
               interval.squareEffectiveCrossingBoundaryCount,
-            figmaLikeSplitRangeId: interval.figmaLikeSplitRangeId,
-            figmaLikeSelectedSide: interval.figmaLikeSelectedSide,
-            figmaLikeBoundaryRole: interval.figmaLikeBoundaryRole,
-            figmaLikeBoundaryPoints: interval.figmaLikeBoundaryPoints,
-            figmaLikeBoundaryStartDistance:
-              interval.figmaLikeBoundaryStartDistance,
-            figmaLikeBoundaryEndDistance: interval.figmaLikeBoundaryEndDistance,
-            figmaLikeBoundaryTotalLength: interval.figmaLikeBoundaryTotalLength
+            domainPlanSplitRangeId: interval.domainPlanSplitRangeId,
+            domainPlanSelectedSide: interval.domainPlanSelectedSide,
+            domainPlanBoundaryRole: interval.domainPlanBoundaryRole,
+            domainPlanBoundaryPoints: interval.domainPlanBoundaryPoints,
+            domainPlanBoundaryStartDistance:
+              interval.domainPlanBoundaryStartDistance,
+            domainPlanBoundaryEndDistance:
+              interval.domainPlanBoundaryEndDistance,
+            domainPlanBoundaryTotalLength:
+              interval.domainPlanBoundaryTotalLength
           }))
         })()
       : null
@@ -1996,9 +1999,9 @@ const getVisibleIntervalsWithoutRuleDrivenSpatialCoverage = ({
               crossingBoundaryCount: interval.crossingBoundaryCount,
               squareEffectiveCrossingBoundaryCount:
                 interval.squareEffectiveCrossingBoundaryCount,
-              figmaLikeBoundaryRole: interval.figmaLikeBoundaryRole,
-              figmaLikeSplitRangeId: interval.figmaLikeSplitRangeId,
-              figmaLikeSelectedSide: interval.figmaLikeSelectedSide,
+              domainPlanBoundaryRole: interval.domainPlanBoundaryRole,
+              domainPlanSplitRangeId: interval.domainPlanSplitRangeId,
+              domainPlanSelectedSide: interval.domainPlanSelectedSide,
               metadataGeometryArea:
                 Math.round(
                   getRuleDrivenIntervalGeometryPolygons(
@@ -3260,24 +3263,24 @@ const expectOpenSelfIntersectingContourDashIntervals = (
   )
 
   expect(intervals.length).toBeGreaterThan(2)
-  expect(strokeDomainPlan.intervalDomainKind).toBe('figma-like-split-range')
+  expect(strokeDomainPlan.intervalDomainKind).toBe('domain-plan-split-range')
   expect(
-    intervals.every((interval) => interval.figmaLikeSplitRangeId !== undefined)
+    intervals.every((interval) => interval.domainPlanSplitRangeId !== undefined)
   ).toBe(true)
   expect(
     intervals.every((interval) => interval.openPathTerminalRole === undefined)
   ).toBe(true)
   const visibleRolesBySplitRange = intervals.reduce<Map<string, Set<string>>>(
     (rolesByRange, interval) => {
-      if (!interval.figmaLikeSplitRangeId) {
+      if (!interval.domainPlanSplitRangeId) {
         return rolesByRange
       }
       const roles =
-        rolesByRange.get(interval.figmaLikeSplitRangeId) ?? new Set()
-      if (interval.figmaLikeTerminalRole) {
-        roles.add(interval.figmaLikeTerminalRole)
+        rolesByRange.get(interval.domainPlanSplitRangeId) ?? new Set()
+      if (interval.domainPlanTerminalRole) {
+        roles.add(interval.domainPlanTerminalRole)
       }
-      rolesByRange.set(interval.figmaLikeSplitRangeId, roles)
+      rolesByRange.set(interval.domainPlanSplitRangeId, roles)
       return rolesByRange
     },
     new Map()
@@ -3294,7 +3297,7 @@ const expectOpenSelfIntersectingContourDashIntervals = (
     ).toBe(false)
     expect(
       intervals.some((interval) =>
-        interval.figmaLikeSplitRangeId?.startsWith(
+        interval.domainPlanSplitRangeId?.startsWith(
           'source-span-product-domain:'
         )
       )
@@ -3302,20 +3305,20 @@ const expectOpenSelfIntersectingContourDashIntervals = (
     expect(
       intervals.every(
         (interval) =>
-          interval.figmaLikeSelectedSide === interval.figmaLikeFilledSide &&
-          interval.figmaLikeSelectedSide !== interval.figmaLikeUnfilledSide
+          interval.domainPlanSelectedSide === interval.domainPlanFilledSide &&
+          interval.domainPlanSelectedSide !== interval.domainPlanUnfilledSide
       )
     ).toBe(true)
     return
   }
 
   const danglingSourceSpanIntervals = intervals.filter((interval) =>
-    interval.figmaLikeSplitRangeId?.startsWith('dangling-source-span-domain:')
+    interval.domainPlanSplitRangeId?.startsWith('dangling-source-span-domain:')
   )
   expect(danglingSourceSpanIntervals.length).toBeGreaterThan(0)
   const danglingSourceSegmentIndexes = new Set(
     danglingSourceSpanIntervals.map(
-      (interval) => interval.figmaLikeSplitRangeSourceSegmentIndex
+      (interval) => interval.domainPlanSplitRangeSourceSegmentIndex
     )
   )
   expect(danglingSourceSegmentIndexes.has(0)).toBe(true)
@@ -3325,19 +3328,19 @@ const expectOpenSelfIntersectingContourDashIntervals = (
   expect(
     danglingSourceSpanIntervals.every(
       (interval) =>
-        interval.figmaLikeDomainMode === 'open-dangling-outside-both-sides' &&
-        interval.figmaLikeBoundaryRole === 'ambiguous' &&
-        interval.figmaLikeSelectedSide === undefined &&
-        interval.figmaLikeSideResolutionReason ===
+        interval.domainPlanDomainMode === 'open-dangling-outside-both-sides' &&
+        interval.domainPlanBoundaryRole === 'ambiguous' &&
+        interval.domainPlanSelectedSide === undefined &&
+        interval.domainPlanSideResolutionReason ===
           'open-dangling-outside-both-sides'
     )
   ).toBe(true)
   expect(
     intervals.some(
       (interval) =>
-        interval.figmaLikeBoundaryRole === 'outer' &&
-        interval.figmaLikeSelectedSide === interval.figmaLikeUnfilledSide &&
-        interval.figmaLikeSelectedSide !== interval.figmaLikeFilledSide
+        interval.domainPlanBoundaryRole === 'outer' &&
+        interval.domainPlanSelectedSide === interval.domainPlanUnfilledSide &&
+        interval.domainPlanSelectedSide !== interval.domainPlanFilledSide
     )
   ).toBe(true)
 }
@@ -3706,7 +3709,7 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
     ).toBe('self-intersecting')
     expect(sharedSourceSplitRanges.length).toBeGreaterThan(6)
     expect(strokeDomainPlan).toMatchObject({
-      intervalDomainKind: 'figma-like-split-range',
+      intervalDomainKind: 'domain-plan-split-range',
       supportState: 'supported'
     })
     expect(visibleIntervals.length).toBeGreaterThan(0)
@@ -3720,31 +3723,31 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
     expect(
       visibleIntervals.some(
         (interval) =>
-          interval.figmaLikeTerminalRole === 'start' &&
-          interval.figmaLikeSplitRangeId !== undefined &&
-          interval.figmaLikeSelectedSide === interval.figmaLikeFilledSide
+          interval.domainPlanTerminalRole === 'start' &&
+          interval.domainPlanSplitRangeId !== undefined &&
+          interval.domainPlanSelectedSide === interval.domainPlanFilledSide
       )
     ).toBe(true)
     expect(
       visibleIntervals.some(
         (interval) =>
-          interval.figmaLikeTerminalRole === 'end' &&
-          interval.figmaLikeSplitRangeId !== undefined &&
-          interval.figmaLikeSelectedSide === interval.figmaLikeFilledSide
+          interval.domainPlanTerminalRole === 'end' &&
+          interval.domainPlanSplitRangeId !== undefined &&
+          interval.domainPlanSelectedSide === interval.domainPlanFilledSide
       )
     ).toBe(true)
     expect(packets.length).toBeGreaterThan(0)
     const invalidImplicitSidePackets = packets.filter((packet) => {
       const meta = packet.geometry.debugMeta
-      if (meta?.figmaLikeSideAuthority !== 'implicit-fill-hole-domain') {
+      if (meta?.domainPlanSideAuthority !== 'implicit-fill-hole-domain') {
         return false
       }
       return !(
-        meta.figmaLikeSelectedSide === meta.figmaLikeFilledSide &&
-        meta.figmaLikeSelectedSide !== meta.figmaLikeUnfilledSide &&
-        (meta.figmaLikeBoundaryRole === 'outer' ||
-          meta.figmaLikeBoundaryRole === 'hole' ||
-          meta.figmaLikeBoundaryRole === 'filled-face')
+        meta.domainPlanSelectedSide === meta.domainPlanFilledSide &&
+        meta.domainPlanSelectedSide !== meta.domainPlanUnfilledSide &&
+        (meta.domainPlanBoundaryRole === 'outer' ||
+          meta.domainPlanBoundaryRole === 'hole' ||
+          meta.domainPlanBoundaryRole === 'filled-face')
       )
     })
     expect(
@@ -3764,10 +3767,11 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
             endDistance: interval.endDistance,
             length: interval.intervalLength,
             wrapsSeam: interval.wrapsSeam,
-            figmaLikeSelectedSide: interval.figmaLikeSelectedSide,
-            figmaLikeBoundaryRole: interval.figmaLikeBoundaryRole,
-            figmaLikeBoundaryPoints: interval.figmaLikeBoundaryPoints,
-            figmaLikeBoundaryTotalLength: interval.figmaLikeBoundaryTotalLength
+            domainPlanSelectedSide: interval.domainPlanSelectedSide,
+            domainPlanBoundaryRole: interval.domainPlanBoundaryRole,
+            domainPlanBoundaryPoints: interval.domainPlanBoundaryPoints,
+            domainPlanBoundaryTotalLength:
+              interval.domainPlanBoundaryTotalLength
           },
           polygons: packetPolygons,
           tolerance: 1,
@@ -3782,14 +3786,14 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
                 intervalIndex,
                 startDistance: Math.round(interval.startDistance * 100) / 100,
                 endDistance: Math.round(interval.endDistance * 100) / 100,
-                selectedSide: interval.figmaLikeSelectedSide,
-                boundaryRole: interval.figmaLikeBoundaryRole,
+                selectedSide: interval.domainPlanSelectedSide,
+                boundaryRole: interval.domainPlanBoundaryRole,
                 boundaryPointCount:
-                  interval.figmaLikeBoundaryPoints?.length ?? 0,
+                  interval.domainPlanBoundaryPoints?.length ?? 0,
                 boundaryTotalLength:
-                  interval.figmaLikeBoundaryTotalLength === undefined
+                  interval.domainPlanBoundaryTotalLength === undefined
                     ? undefined
-                    : Math.round(interval.figmaLikeBoundaryTotalLength * 100) /
+                    : Math.round(interval.domainPlanBoundaryTotalLength * 100) /
                       100,
                 packets: packets
                   .filter(
@@ -3799,9 +3803,9 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
                   )
                   .map((packet) => ({
                     splitRangeId:
-                      packet.geometry.debugMeta?.figmaLikeSplitRangeId,
+                      packet.geometry.debugMeta?.domainPlanSplitRangeId,
                     intervalId: packet.geometry.debugMeta?.intervalId,
-                    side: packet.geometry.debugMeta?.figmaLikeSelectedSide,
+                    side: packet.geometry.debugMeta?.domainPlanSelectedSide,
                     polygonCount: packet.geometry.polygons.length,
                     vertexCount: packet.geometry.polygons.reduce(
                       (sum, polygon) => sum + polygon.length,
@@ -3865,40 +3869,40 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
     expect(
       packets.some(
         (packet) =>
-          packet.geometry.debugMeta?.figmaLikeBoundaryRole === 'filled-face'
+          packet.geometry.debugMeta?.domainPlanBoundaryRole === 'filled-face'
       )
     ).toBe(true)
     expect(
       packets.every((packet) => {
         const meta = packet.geometry.debugMeta
-        if (meta?.figmaLikeSideAuthority !== 'implicit-fill-hole-domain') {
+        if (meta?.domainPlanSideAuthority !== 'implicit-fill-hole-domain') {
           return true
         }
         return (
-          meta.figmaLikeFilledSide !== undefined &&
-          meta.figmaLikeUnfilledSide !== undefined &&
-          meta.figmaLikeFilledSide !== meta.figmaLikeUnfilledSide &&
-          (meta.figmaLikeBoundaryRole === 'outer' ||
-            meta.figmaLikeBoundaryRole === 'filled-face')
+          meta.domainPlanFilledSide !== undefined &&
+          meta.domainPlanUnfilledSide !== undefined &&
+          meta.domainPlanFilledSide !== meta.domainPlanUnfilledSide &&
+          (meta.domainPlanBoundaryRole === 'outer' ||
+            meta.domainPlanBoundaryRole === 'filled-face')
         )
       })
     ).toBe(true)
     const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
     expect(
       finalFaces.some(
-        (face) => face.debugMeta?.figmaLikeBoundaryRole === 'filled-face'
+        (face) => face.debugMeta?.domainPlanBoundaryRole === 'filled-face'
       )
     ).toBe(true)
     expect(
       finalFaces.every((face) => {
         const meta = face.debugMeta
-        if (meta?.figmaLikeSideAuthority !== 'implicit-fill-hole-domain') {
+        if (meta?.domainPlanSideAuthority !== 'implicit-fill-hole-domain') {
           return true
         }
         return (
-          meta.figmaLikeFilledSide !== undefined &&
-          meta.figmaLikeUnfilledSide !== undefined &&
-          meta.figmaLikeBoundaryRole !== undefined
+          meta.domainPlanFilledSide !== undefined &&
+          meta.domainPlanUnfilledSide !== undefined &&
+          meta.domainPlanBoundaryRole !== undefined
         )
       })
     ).toBe(true)
@@ -3965,12 +3969,12 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
           packet.geometry.debugMeta?.sourceTopology === 'self-intersecting' &&
           packet.geometry.debugMeta?.intervalId?.startsWith('interval:') ===
             true &&
-          packet.geometry.debugMeta?.figmaLikeSideAuthority ===
+          packet.geometry.debugMeta?.domainPlanSideAuthority ===
             'implicit-fill-hole-domain' &&
-          packet.geometry.debugMeta?.figmaLikeSideResolutionStatus ===
+          packet.geometry.debugMeta?.domainPlanSideResolutionStatus ===
             'resolved' &&
-          (packet.geometry.debugMeta?.figmaLikeSelectedSide === 1 ||
-            packet.geometry.debugMeta?.figmaLikeSelectedSide === -1)
+          (packet.geometry.debugMeta?.domainPlanSelectedSide === 1 ||
+            packet.geometry.debugMeta?.domainPlanSelectedSide === -1)
       )
     ).toBe(true)
     const noFillMissingCoverageIntervals =
@@ -3984,7 +3988,7 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
       })
     expect(
       noFillMissingCoverageIntervals.every(
-        (interval) => interval.figmaLikeBoundaryRole !== 'outer'
+        (interval) => interval.domainPlanBoundaryRole !== 'outer'
       )
     ).toBe(true)
     expect(noFillMissingCoverageIntervals).toHaveLength(28)
@@ -4028,12 +4032,12 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
     )
     const implicitSidePackets = packets.filter(
       (packet) =>
-        packet.geometry.debugMeta?.figmaLikeSideAuthority ===
+        packet.geometry.debugMeta?.domainPlanSideAuthority ===
         'implicit-fill-hole-domain'
     )
     const filledFacePackets = implicitSidePackets.filter(
       (packet) =>
-        packet.geometry.debugMeta?.figmaLikeBoundaryRole === 'filled-face'
+        packet.geometry.debugMeta?.domainPlanBoundaryRole === 'filled-face'
     )
 
     expect(implicitSidePackets.length).toBeGreaterThan(0)
@@ -4046,12 +4050,12 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
           filledFacePackets: filledFacePackets.map((packet) => ({
             geometryId: packet.geometry.geometryId,
             intervalId: packet.geometry.debugMeta?.intervalId,
-            boundaryRole: packet.geometry.debugMeta?.figmaLikeBoundaryRole,
-            selectedSide: packet.geometry.debugMeta?.figmaLikeSelectedSide,
-            filledSide: packet.geometry.debugMeta?.figmaLikeFilledSide,
-            unfilledSide: packet.geometry.debugMeta?.figmaLikeUnfilledSide,
+            boundaryRole: packet.geometry.debugMeta?.domainPlanBoundaryRole,
+            selectedSide: packet.geometry.debugMeta?.domainPlanSelectedSide,
+            filledSide: packet.geometry.debugMeta?.domainPlanFilledSide,
+            unfilledSide: packet.geometry.debugMeta?.domainPlanUnfilledSide,
             sideResolutionStatus:
-              packet.geometry.debugMeta?.figmaLikeSideResolutionStatus,
+              packet.geometry.debugMeta?.domainPlanSideResolutionStatus,
             finalCoverageBuilderStatus:
               packet.geometry.debugMeta?.finalCoverageBuilderStatus
           }))
@@ -4064,9 +4068,9 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
       implicitSidePackets.every((packet) => {
         const meta = packet.geometry.debugMeta
         return (
-          meta?.figmaLikeSelectedSide === meta?.figmaLikeUnfilledSide &&
-          meta?.figmaLikeSelectedSide !== meta?.figmaLikeFilledSide &&
-          meta?.figmaLikeBoundaryRole === 'outer'
+          meta?.domainPlanSelectedSide === meta?.domainPlanUnfilledSide &&
+          meta?.domainPlanSelectedSide !== meta?.domainPlanFilledSide &&
+          meta?.domainPlanBoundaryRole === 'outer'
         )
       })
     ).toBe(true)
@@ -4079,7 +4083,7 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
 
     expect(
       finalFaces.filter(
-        (face) => face.debugMeta?.figmaLikeBoundaryRole === 'filled-face'
+        (face) => face.debugMeta?.domainPlanBoundaryRole === 'filled-face'
       )
     ).toEqual([])
     expect(getClippedPolygonQualityFailures(packets)).toEqual([])
@@ -4088,8 +4092,8 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
         renderEntries.map((entry) => ({
           polygons: entry.polygons,
           intervalId: entry.debugMeta?.intervalId,
-          splitRangeId: entry.debugMeta?.figmaLikeSplitRangeId,
-          terminalRole: entry.debugMeta?.figmaLikeTerminalRole
+          splitRangeId: entry.debugMeta?.domainPlanSplitRangeId,
+          terminalRole: entry.debugMeta?.domainPlanTerminalRole
         }))
       )
     ).toEqual([])
@@ -4098,9 +4102,9 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
         renderEntries.map((entry) => ({
           polygons: entry.polygons,
           intervalId: entry.debugMeta?.intervalId,
-          splitRangeId: entry.debugMeta?.figmaLikeSplitRangeId,
-          terminalRole: entry.debugMeta?.figmaLikeTerminalRole,
-          boundaryRole: entry.debugMeta?.figmaLikeBoundaryRole,
+          splitRangeId: entry.debugMeta?.domainPlanSplitRangeId,
+          terminalRole: entry.debugMeta?.domainPlanTerminalRole,
+          boundaryRole: entry.debugMeta?.domainPlanBoundaryRole,
           strokePosition: entry.debugMeta?.strokePosition
         }))
       )
@@ -4110,9 +4114,9 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
         exportPackets.map((packet) => ({
           polygons: packet.polygons,
           intervalId: packet.debugMeta?.intervalId,
-          splitRangeId: packet.debugMeta?.figmaLikeSplitRangeId,
-          terminalRole: packet.debugMeta?.figmaLikeTerminalRole,
-          boundaryRole: packet.debugMeta?.figmaLikeBoundaryRole,
+          splitRangeId: packet.debugMeta?.domainPlanSplitRangeId,
+          terminalRole: packet.debugMeta?.domainPlanTerminalRole,
+          boundaryRole: packet.debugMeta?.domainPlanBoundaryRole,
           strokePosition: packet.debugMeta?.strokePosition
         }))
       )
@@ -4122,9 +4126,9 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
         hitPackets.map((packet) => ({
           polygons: packet.polygons,
           intervalId: packet.debugMeta?.intervalId,
-          splitRangeId: packet.debugMeta?.figmaLikeSplitRangeId,
-          terminalRole: packet.debugMeta?.figmaLikeTerminalRole,
-          boundaryRole: packet.debugMeta?.figmaLikeBoundaryRole,
+          splitRangeId: packet.debugMeta?.domainPlanSplitRangeId,
+          terminalRole: packet.debugMeta?.domainPlanTerminalRole,
+          boundaryRole: packet.debugMeta?.domainPlanBoundaryRole,
           strokePosition: packet.debugMeta?.strokePosition
         }))
       )
@@ -4305,7 +4309,7 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
     expect(visualEntry?.strokePathStyle?.cap).toBe('butt')
     expect(visualEntry?.strokePathStyle?.width).toBe(stroke.width * 2)
     expect(
-      visualEntry?.debugMeta?.figmaLikeSplitRangeTerminals?.some((record) =>
+      visualEntry?.debugMeta?.domainPlanSplitRangeTerminals?.some((record) =>
         record.splitRangeId.startsWith('dangling-source-span-domain:')
       )
     ).toBe(true)
@@ -4341,7 +4345,7 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
     ).toBe(true)
     expect(
       packets.some((packet) =>
-        packet.geometry.debugMeta?.figmaLikeSplitRangeTerminals?.some(
+        packet.geometry.debugMeta?.domainPlanSplitRangeTerminals?.some(
           (record) =>
             record.splitRangeId.startsWith('dangling-source-span-domain:')
         )
@@ -4406,7 +4410,7 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
         expect(
           packets.some(
             (packet) =>
-              packet.geometry.debugMeta?.figmaLikeSplitRangeId?.startsWith(
+              packet.geometry.debugMeta?.domainPlanSplitRangeId?.startsWith(
                 'source-span-product-domain:'
               ) === true
           )
@@ -4414,16 +4418,16 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
       } else {
         const danglingPackets = packets.filter(
           (packet) =>
-            packet.geometry.debugMeta?.figmaLikeDomainMode ===
+            packet.geometry.debugMeta?.domainPlanDomainMode ===
               'open-dangling-outside-both-sides' &&
-            packet.geometry.debugMeta?.figmaLikeSideResolutionReason ===
+            packet.geometry.debugMeta?.domainPlanSideResolutionReason ===
               'open-dangling-outside-both-sides'
         )
         expect(danglingPackets.length).toBeGreaterThan(0)
         const danglingSourceSegmentIndexes = new Set(
           danglingPackets.map(
             (packet) =>
-              packet.geometry.debugMeta?.figmaLikeSplitRangeSourceSegmentIndex
+              packet.geometry.debugMeta?.domainPlanSplitRangeSourceSegmentIndex
           )
         )
         expect(danglingSourceSegmentIndexes.has(0)).toBe(true)
@@ -4433,19 +4437,19 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
         const contourOverlapFailures = danglingPackets.flatMap((packet) => {
           const meta = packet.geometry.debugMeta
           if (
-            meta?.figmaLikeSplitRangeSourceSegmentIndex === undefined ||
-            meta.figmaLikeSplitRangeStartDistance === undefined ||
-            meta.figmaLikeSplitRangeEndDistance === undefined
+            meta?.domainPlanSplitRangeSourceSegmentIndex === undefined ||
+            meta.domainPlanSplitRangeStartDistance === undefined ||
+            meta.domainPlanSplitRangeEndDistance === undefined
           ) {
             return [`${packet.id}:missing-source-range-metadata`]
           }
           const danglingStart = Math.min(
-            meta.figmaLikeSplitRangeStartDistance,
-            meta.figmaLikeSplitRangeEndDistance
+            meta.domainPlanSplitRangeStartDistance,
+            meta.domainPlanSplitRangeEndDistance
           )
           const danglingEnd = Math.max(
-            meta.figmaLikeSplitRangeStartDistance,
-            meta.figmaLikeSplitRangeEndDistance
+            meta.domainPlanSplitRangeStartDistance,
+            meta.domainPlanSplitRangeEndDistance
           )
           return sharedSourceSplitRanges
             .filter((range) => {
@@ -4467,7 +4471,7 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
             .filter(
               (range) =>
                 range.sourceSegmentIndex ===
-                meta.figmaLikeSplitRangeSourceSegmentIndex
+                meta.domainPlanSplitRangeSourceSegmentIndex
             )
             .filter((range) => {
               const contourStart = Math.min(
@@ -4485,7 +4489,7 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
             })
             .map(
               (range) =>
-                `${packet.id}:${meta.figmaLikeSplitRangeSourceSegmentIndex}:${danglingStart.toFixed(
+                `${packet.id}:${meta.domainPlanSplitRangeSourceSegmentIndex}:${danglingStart.toFixed(
                   2
                 )}-${danglingEnd.toFixed(2)} overlaps ${range.rangeId}`
             )
@@ -4495,7 +4499,7 @@ describe('constrained dashed stroke packets: self-intersecting bounded source do
 
         const sourceSegmentNormalSpan = (packet: (typeof packets)[number]) => {
           const meta = packet.geometry.debugMeta
-          const segmentIndex = meta?.figmaLikeSplitRangeSourceSegmentIndex
+          const segmentIndex = meta?.domainPlanSplitRangeSourceSegmentIndex
           const segment =
             segmentIndex === undefined
               ? undefined

@@ -133,7 +133,7 @@ afterEach(() => {
 class RecordingVectorGraphic extends Container {
   __asyraVectorPathGeometryModelCount?: number
   __asyraVectorPathTopologyModelCount?: number
-  __asyraNativeCenterSolidStrokeRenderCount?: number
+  __asyraCenterPathSolidStrokeRenderCount?: number
   __asyraSolidCenterStrokeExportPackets?: SolidCenterStrokeExportPacket[]
   __asyraConstrainedSolidOwnershipDiagnostics?: {
     candidates: {
@@ -817,7 +817,7 @@ describe('vector constrained solid stroke product wiring', () => {
     { label: 'inside', position: StrokePositions.INSIDE },
     { label: 'outside', position: StrokePositions.OUTSIDE }
   ].forEach(({ label, position }) => {
-    it(`should run: render open-path solid ${label} vectors as center-equivalent final-face geometry`, () => {
+    it(`should run: render simple open-path solid ${label} vectors through the unbounded open center product`, () => {
       const graphic = runVectorRenderStrategy({
         id: `vector-open-${label}`,
         x: 0,
@@ -843,13 +843,13 @@ describe('vector constrained solid stroke product wiring', () => {
       })
 
       expect(getProjectionMeshes(graphic)).toHaveLength(1)
-      expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+      expect(graphic.__asyraCenterPathSolidStrokeRenderCount).toBe(0)
       expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
       expect(
         graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
       ).toMatchObject({
         geometryFamily: 'solid-center',
-        resolutionStatus: 'native-center',
+        resolutionStatus: 'center-product',
         runtimeStatus: 'not-applicable',
         runtimeReason: 'center-stroke',
         sourceTopology: 'open',
@@ -917,7 +917,7 @@ describe('vector constrained solid stroke product wiring', () => {
         graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
       ).toMatchObject({
         geometryFamily: 'solid-center',
-        resolutionStatus: 'native-center',
+        resolutionStatus: 'center-product',
         runtimeStatus: 'not-applicable'
       })
       ;(
@@ -941,7 +941,7 @@ describe('vector constrained solid stroke product wiring', () => {
         graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
       ).toMatchObject({
         geometryFamily: 'solid-center',
-        resolutionStatus: 'native-center',
+        resolutionStatus: 'center-product',
         runtimeStatus: 'not-applicable',
         runtimeReason: 'center-stroke',
         sourceTopology: 'open'
@@ -963,7 +963,7 @@ describe('vector constrained solid stroke product wiring', () => {
     })
   })
 
-  it('should run: render open self-intersecting constrained solid vectors as center-equivalent final-face geometry', () => {
+  it('should run: render open self-intersecting constrained solid vectors through the constrained domain product', () => {
     const graphic = runVectorRenderStrategy({
       id: 'vector-open-self-intersecting-constrained-solid',
       x: 0,
@@ -991,13 +991,13 @@ describe('vector constrained solid stroke product wiring', () => {
     })
 
     expect(getProjectionMeshes(graphic)).toHaveLength(1)
-    expect(graphic.__asyraNativeCenterSolidStrokeRenderCount).toBe(0)
+    expect(graphic.__asyraCenterPathSolidStrokeRenderCount).toBe(0)
     expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
     ).toMatchObject({
       geometryFamily: 'solid-center',
-      resolutionStatus: 'native-center',
+      resolutionStatus: 'center-product',
       runtimeStatus: 'not-applicable',
       runtimeReason: 'center-stroke',
       sourceTopology: 'open',
@@ -1226,8 +1226,8 @@ describe('vector constrained solid stroke product wiring', () => {
       exportPackets.every(
         (packet) =>
           !packet.geometryId.includes(':boundary-domain:') &&
-          packet.debugMeta?.figmaLikeTerminalRole === undefined &&
-          packet.debugMeta?.figmaLikeSplitRangeTerminals === undefined
+          packet.debugMeta?.domainPlanTerminalRole === undefined &&
+          packet.debugMeta?.domainPlanSplitRangeTerminals === undefined
       )
     ).toBe(true)
     expect(missingAuthoredSegmentIds).toEqual([])
@@ -1345,7 +1345,7 @@ describe('vector constrained solid stroke product wiring', () => {
     })
   })
 
-  it('should run: render simple constrained solid slider updates through the direct exact fast path', () => {
+  it('should run: render simple constrained solid slider updates through exact arrangement product routing', () => {
     const baseData = {
       id: 'vector-constrained-solid-slider-direct-exact',
       x: 0,
@@ -1399,7 +1399,7 @@ describe('vector constrained solid stroke product wiring', () => {
       firstExportPackets.some(
         (packet) => packet.debugMeta?.arrangementStatus === 'exact'
       )
-    ).toBe(false)
+    ).toBe(true)
 
     runVectorRenderStrategyIntoGraphic(graphic, {
       ...baseData,
@@ -1427,7 +1427,7 @@ describe('vector constrained solid stroke product wiring', () => {
       nextExportPackets.some(
         (packet) => packet.debugMeta?.arrangementStatus === 'exact'
       )
-    ).toBe(false)
+    ).toBe(true)
   })
 
   it('should run: switch reported vector-6 from inside solid to center solid without blocking render', () => {
@@ -1518,7 +1518,7 @@ describe('vector constrained solid stroke product wiring', () => {
         expect
           .objectContaining({
             geometryFamily: 'solid-center',
-            resolutionStatus: 'native-center',
+            resolutionStatus: 'center-product',
             runtimeStatus: 'not-applicable',
             runtimeReason: 'center-stroke',
             strokePosition: 'center',

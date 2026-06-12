@@ -487,26 +487,6 @@ export const vectorTopologyToAnchorPoints = (
   return points
 }
 
-export const toWorkspaceTopology = (
-  topology: VectorTopologyLike,
-  offset: PositionData
-): VectorTopology => {
-  const points: Record<string, VectorPointNode> = {}
-  Object.entries(topology.points).forEach(([pointId, point]) => {
-    points[pointId] = {
-      ...point,
-      x: point.x + offset.x,
-      y: point.y + offset.y
-    }
-  })
-
-  return {
-    points,
-    segments: { ...topology.segments },
-    networks: { ...topology.networks }
-  }
-}
-
 export const toLocalTopology = (
   topology: VectorTopologyLike,
   offset: PositionData

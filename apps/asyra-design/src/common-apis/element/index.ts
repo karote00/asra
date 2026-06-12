@@ -445,6 +445,11 @@ export const elementApis = {
           return
         }
 
+        if (elementApis.getElementType(elementId) === 'vector') {
+          vectorApis.setVectorElementPosition(elementId, position, options)
+          return
+        }
+
         core.changeComputedData(
           [elementId],
           {

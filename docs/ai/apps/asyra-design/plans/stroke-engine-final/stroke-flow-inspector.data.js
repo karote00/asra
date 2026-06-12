@@ -23,13 +23,13 @@
     'Render is a downstream consumer. Render mirror/cache applies committed patches exactly once and derives render data from committed state.',
     'Stroke geometry stages consume normalized render data only; they must not depend on feature-local state, undo payload cleanup, or direct app-to-render synchronization.',
     'Stroke invalidation is stage-based. Source path/topology, stroke family, stroke domain, dash schedule, terminal cap, join/miter shape, paint, and render output use separate internal revisions.',
-    'Stroke paint model data is canonicalized as stroke.fill using the same FillAttrs format as element fills. Stroke root paint fields such as color, opacity, visible, kind, colorFormat, defaultColorFormat, and gradient are legacy load-boundary input only and must not be written back.',
+    'Stroke paint model data is canonicalized as stroke.fill using the same FillAttrs format as element fills. Stroke root paint fields such as color, opacity, visible, kind, colorFormat, defaultColorFormat, and gradient are load-boundary normalization input only and must not be written back.',
     'A stroke.fill-only change dirties paint and render output only. It must not trigger vector bounds repair, source topology rebuild, domain rebuild, dash schedule rebuild, terminal cap rebuild, or join rebuild.',
     'Static stroke parameter changes dirty only the stages they affect; vector drag dirties source path data without mutating static stroke parameter or paint revisions.',
     'Stroke performance diagnostics must expose stage dirty counters such as paint-only update and drag source-path-with-static-stroke.',
     'Dirty classification must feed a real stroke stage product cache. Reusable semantic product descriptors may be stored by element, network, stroke, source revision, and geometry-affecting stroke signature, then retinted for paint-only changes.',
     'Static stroke parameter switches must report stage cache hit, miss, store, and hidden-output counters so inspector review can distinguish geometry rebuilds from product descriptor reuse.',
-    'Center solid visible render is the authored center stroke. Self-intersecting center solid vectors may use authored stroke path descriptors while preserving strokeJoin, strokeCap, and strokeMiterLimit; native projection is allowed only when alpha-safe, while translucent self-intersections require single-composite descriptor output.',
+    'Center solid visible render is the authored center stroke. Self-intersecting center solid vectors may use authored stroke path descriptors while preserving strokeJoin, strokeCap, and strokeMiterLimit; renderer path projection is allowed only when alpha-safe, while translucent self-intersections require single-composite descriptor output.',
     'Diagnostics for translucent self-intersecting center solid strokes must include same-paint alpha-overlap probes at self-crossings; global red coverage alone is insufficient.',
     'Constrained solid visible render uses the Asyra doubled authored center-stroke mask model: build the authored center stroke at twice the requested stroke width, apply strokeJoin and strokeMiterLimit there, then clip by the inside filled-region mask or outside exterior mask.',
     'Self-intersecting inside solid visible pixels must come from the doubled authored center stroke clipped by a face, winding, and adjacency-aware filled-region mask.',
@@ -40,12 +40,12 @@
     'Dashed constrained strokes remain interval-domain based. Dash intervals, terminal half-dashes, and caps must stay separate from solid visible geometry.',
     'Split-range dash allocation is cap-aware: round and square caps extend the painted footprint, so the allocator must avoid producing many dash groups whose visual gaps after caps are much smaller than the configured gap. The current floor is configuredGap * 0.6 after cap footprint; short cap-aware ranges may collapse into one start-end dash.',
     'Open center dashed allocation is continuous-network based: the two true open network endpoints own half-dash terminals, middle dashes keep authored length, segment boundaries do not reset phase, and cap-aware visual gaps use the same configuredGap * 0.6 readability floor.',
-    'Open authored dashed inside/outside strokes are center-equivalent only when no bounded filled-region domain exists. Open self-intersecting networks with bounded filled regions formed by real authored source segments use constrained dashed products with position-specific ownership: inside paints only filled-contour source spans and excludes dangling open branches, while outside paints exterior contour spans and renders dangling open-branch spans on both sides of the source path with a visible normal span near stroke.width * 2. Each independent constrained source span owns its own half-terminal dash allocation; continuous open-network dash phase must not carry across those spans. No invisible closing edge may be added for domain, dash, hit-test, export, or product output.',
-    'Stroke domain plan is the single product routing entry point for open/closed semantics. Vector render code and packet builders must not independently map open constrained strokes to center; they consume domain modes such as simple-open-center-product, closed-constrained-domain, open-contour-constrained-domain, and open-dangling-outside-both-sides.',
+    'Open authored dashed inside/outside strokes use the formal unbounded open center product only when no bounded filled-region domain exists. Open self-intersecting networks with bounded filled regions formed by real authored source segments use constrained dashed products with position-specific ownership: inside paints only filled-contour source spans and excludes dangling open branches, while outside paints exterior contour spans and renders dangling open-branch spans on both sides of the source path with a visible normal span near stroke.width * 2. Each independent constrained source span owns its own half-terminal dash allocation; continuous open-network dash phase must not carry across those spans. No invisible closing edge may be added for domain, dash, hit-test, export, or product output.',
+    'Stroke domain plan is the single product routing entry point for open/closed semantics. Vector render code and packet builders must not independently map open constrained strokes to center; they consume domain modes such as center-product, closed-constrained-domain, open-contour-constrained-domain, and open-dangling-outside-both-sides.',
     'Center dashed visible render is the authored center dashed stroke. Drag frames may use exact authored centerline strokePath descriptors for visible dash intervals and must not require center dashed polygon packets or resolved self-intersection geometry unless diagnostics, hit/export, or another exact rule needs that evidence.',
     'Constrained inside dashed product-visible render may use one exact grouped mask descriptor: fillClipPolygons plus authored dashed strokePaths and strokePathStyle. That descriptor is the product path, not preview or helper geometry.',
     'A single exact constrained inside dashed mask descriptor for one fill domain and one stroke style may bypass same-visual overlap collapse; per-interval polygons may remain diagnostics/export evidence but must not be required for visible drag frames.',
-    'Constrained dashed descriptor routing must reuse resolved self-intersection split/domain metadata. Resolved source-span product domains may cover uncovered source segment spans, and outside dangling open-branch spans use explicit dangling source-span domains; visible product output must not retrace the source path, recompute source intersections during drag, or label product-visible domains as diagnostic fallback.',
+    'Constrained dashed descriptor routing must reuse resolved self-intersection split/domain metadata. Resolved source-span product domains may cover uncovered source segment spans, and outside dangling open-branch spans use explicit dangling source-span domains; visible product output must not retrace the source path, recompute source intersections during drag, or label product-visible domains as diagnostics.',
     'Constrained outside dashed product-visible drag render may use one exact grouped exterior-mask descriptor: authored doubled center-dashed strokePaths plus authored cap, join, and miter style clipped to the outside legal domain. Square and round caps keep full terminal/cap metadata; butt-cap outside dashed drag may use fill-only resolved geometry only when terminal rules do not require full stroke-boundary metadata.',
     'Product output may emit render, hit, export, and diagnostic descriptors, but visible render must not use diagnostic/helper geometry as product output.',
     'The outside dashed square visual gate has current self-intersecting star rule probes and reviewed screenshots passing; this is slice evidence, not a whole-engine completion claim.',
@@ -59,7 +59,7 @@
     nextExecutableStepNumber: 16,
     nextExecutableStepStatus: 'stage-cache-validation-active',
     stopRule:
-      'The framework-native vector operation flow is the baseline. Do not claim stage-cache performance completion until static parameter CPU profile, app parameter E2E, canonical correctness, and visual review evidence pass.',
+      'The framework-aligned vector operation flow is the baseline. Do not claim stage-cache performance completion until static parameter CPU profile, app parameter E2E, canonical correctness, and visual review evidence pass.',
     requiredImplementationSequence: [
       'Keep the three authority files synchronized before runtime implementation changes are claimed.',
       'Interaction must express intent only and never synchronize render state directly.',
@@ -75,7 +75,7 @@
       '2026-05-31: document authority cleanup removed stale stroke rule files.',
       '2026-05-31: focused numeric probes alone were proven insufficient and the e2e fragment gate was tightened.',
       '2026-05-31: reported inside-solid slice passed focused probes, full e2e file, build, lint, and manual screenshot review.',
-      '2026-06-06: point/handle drag and structural vector operations were refactored to framework-native computed patch flow with model/render/undo invariants passing.',
+      '2026-06-06: point/handle drag and structural vector operations were refactored to framework-aligned computed patch flow with model/render/undo invariants passing.',
       '2026-06-07: stroke dirty matrix gained parameter-specific revision counters; stage cache validation is active for static parameter switches and drag.',
       '2026-06-08: center, inside, and outside dashed drag frames use exact visible descriptors with canonical/e2e/visual review passing and the full drag 120fps gate passing.',
       '2026-06-09: open center dashed allocation moved to continuous-network half-terminal rules with cap-aware gap floor; focused unit and visual gates must cover open line, polyline, curve, and multi-network cases.'
@@ -100,7 +100,7 @@
 
   const strokeCompletionMatrix = [
     {
-      row: 'framework-native-vector-operations',
+      row: 'framework-aligned-vector-operations',
       requiredEvidence:
         'Feature code sends explicit point/handle or structural operation intent; common APIs produce canonical workspace/world computed patches; one action creates one undo commit; render consumes downstream state only.',
       status:
@@ -123,9 +123,9 @@
     {
       row: 'self-intersecting-solid-center',
       requiredEvidence:
-        'Authored center stroke path is the visible product; descriptor/native projection preserves cap, join, and miter semantics, translucent crossings do not accumulate alpha, and polygon packets stay available for hit/export/diagnostics when needed.',
+        'Authored center stroke path is the visible product; descriptor/renderer path projection preserves cap, join, and miter semantics, translucent crossings do not accumulate alpha, and polygon packets stay available for hit/export/diagnostics when needed.',
       status:
-        'center solid drag performance slice: opaque alpha-safe frames may use native projection; translucent self-intersecting frames use single-composite descriptor output'
+        'center solid drag performance slice: opaque alpha-safe frames may use renderer path projection; translucent self-intersecting frames use single-composite descriptor output'
     },
     {
       row: 'self-intersecting-solid-outside',
@@ -137,7 +137,7 @@
     {
       row: 'dashed-constrained-strokes',
       requiredEvidence:
-        'Interval-domain dash allocation, terminal half-dashes, cap behavior, and provenance remain separate from solid visible geometry; closed constrained inside/outside dashed visible product geometry is doubled authored center-dashed stroke clipped by the selected legal-domain mask, encoded either as exact final faces or one exact grouped mask descriptor. Open self-intersecting networks with bounded filled regions from real authored source segments are constrained dashed products, not center fallback: inside keeps only filled-contour source spans, outside keeps exterior contour spans plus dangling open-branch spans materialized on both sides of the source path, each independent constrained span owns its own half-terminal dash allocation, and no synthesized closing edge may become domain evidence or product stroke output. Cap-aware allocation must keep visual gaps legible after round/square cap footprint or collapse short ranges into one start-end dash.',
+        'Interval-domain dash allocation, terminal half-dashes, cap behavior, and provenance remain separate from solid visible geometry; closed constrained inside/outside dashed visible product geometry is doubled authored center-dashed stroke clipped by the selected legal-domain mask, encoded either as exact final faces or one exact grouped mask descriptor. Open self-intersecting networks with bounded filled regions from real authored source segments are constrained dashed products: inside keeps only filled-contour source spans, outside keeps exterior contour spans plus dangling open-branch spans materialized on both sides of the source path, each independent constrained span owns its own half-terminal dash allocation, and no synthesized closing edge may become domain evidence or product stroke output. Cap-aware allocation must keep visual gaps legible after round/square cap footprint or collapse short ranges into one start-end dash.',
       status:
         'center/inside/outside dashed drag performance slice passed: exact descriptor paths are visible product encodings, with outside dashed square reviewed screenshots passing for the self-intersecting star slice'
     },
@@ -387,7 +387,7 @@
       'Product Output',
       5,
       'Render entries',
-      'Prepare renderer-ready visible descriptors; exact center solid alpha-safe native strokes, translucent center solid single-composite descriptors, center dashed strokePath descriptors, and constrained dashed mask descriptors may bypass visible polygon projection because each descriptor already represents product-visible geometry.'
+      'Prepare renderer-ready visible descriptors; exact center solid alpha-safe renderer path strokes, translucent center solid single-composite descriptors, center dashed strokePath descriptors, and constrained dashed mask descriptors may bypass visible polygon projection because each descriptor already represents product-visible geometry.'
     ],
     [
       'renderer-projection',
@@ -433,7 +433,7 @@
         'apps/asyra-design/e2e/undo-redo.spec.ts',
         'apps/asyra-design/e2e/vector-render-invariants.spec.ts'
       ],
-      tags: ['framework-native', 'critical']
+      tags: ['framework-aligned', 'critical']
     },
     'path-editing-intent': {
       latestRule:
@@ -444,7 +444,7 @@
         'Escape/release and selection cleanup are tested through path-editing E2E invariants.',
       requiredAdjustment:
         'Do not let path-editing overlays become model or render authorities.',
-      tags: ['framework-native']
+      tags: ['framework-aligned']
     },
     'point-handle-drag-operation': {
       latestRule:
@@ -459,7 +459,7 @@
         'apps/asyra-design/e2e/undo-redo.spec.ts',
         'packages/preset/src/__tests__/vector-path-editing-render-layer.test.ts'
       ],
-      tags: ['framework-native', 'critical']
+      tags: ['framework-aligned', 'critical']
     },
     'structural-vector-operation': {
       latestRule:
@@ -473,13 +473,13 @@
       currentImplementation:
         'Append, remove, split, connect, close, anchor type, handle mode, and handle updates use internal operation adapters.',
       requiredAdjustment:
-        'Keep full topology repair as fallback only; normal structural operations must not rewrite unrelated records.',
+        'Keep full topology repair as explicit migration/repair only; normal structural operations must not rewrite unrelated records.',
       relatedTests: [
         'apps/asyra-design/e2e/vector-render-invariants.spec.ts',
         'apps/asyra-design/e2e/undo-redo.spec.ts',
         'packages/preset/src/__tests__/vector-path-editing-render-layer.test.ts'
       ],
-      tags: ['framework-native', 'critical']
+      tags: ['framework-aligned', 'critical']
     },
     'common-api-domain-adapter': {
       latestRule:
@@ -494,7 +494,7 @@
         'apps/asyra-design/e2e/vector-render-invariants.spec.ts',
         'packages/preset/src/__tests__/vector-path-editing-render-layer.test.ts'
       ],
-      tags: ['framework-native', 'critical']
+      tags: ['framework-aligned', 'critical']
     },
     'canonical-workspace-data': {
       latestRule:
@@ -502,10 +502,10 @@
       inputs: ['previous vector computed data', 'operation target positions'],
       outputs: ['workspace canonical vector topology'],
       currentImplementation:
-        'Legacy local data may migrate through fallback, but normal operations preserve workspace points.',
+        'Legacy local data may migrate before runtime model consumption, but normal operations preserve workspace points.',
       requiredAdjustment:
         'Do not normalize points into bounds-local model data during normal operation commits.',
-      tags: ['framework-native', 'truth']
+      tags: ['framework-aligned', 'truth']
     },
     'computed-patch-builder': {
       latestRule:
@@ -520,7 +520,7 @@
         'apps/asyra-design/e2e/vector-render-invariants.spec.ts',
         'apps/asyra-design/e2e/undo-redo.spec.ts'
       ],
-      tags: ['framework-native', 'critical']
+      tags: ['framework-aligned', 'critical']
     },
     'transaction-undo-boundary': {
       latestRule: 'One intended user action maps to one intended undo unit.',
@@ -534,7 +534,7 @@
         'apps/asyra-design/e2e/undo-redo.spec.ts',
         'docs/ai/framework/rules/generated-artifacts.md'
       ],
-      tags: ['framework-native', 'critical']
+      tags: ['framework-aligned', 'critical']
     },
     'scene-tree-commit': {
       latestRule:
@@ -546,7 +546,7 @@
       relatedTests: [
         'packages/scene-tree/src/__tests__/transaction-options.test.ts'
       ],
-      tags: ['framework-native']
+      tags: ['framework-aligned']
     },
     'computed-patch-event': {
       latestRule:
@@ -555,7 +555,7 @@
       outputs: ['computed patch reactive event'],
       currentImplementation:
         'Patch events remain the downstream render/UI synchronization contract.',
-      tags: ['framework-native']
+      tags: ['framework-aligned']
     },
     'downstream-subscriber-routing': {
       latestRule:
@@ -566,7 +566,7 @@
         'Render mirror and UI consumers subscribe downstream from data-channel updates.',
       requiredAdjustment:
         'Any direct app-to-render synchronization reopens this step.',
-      tags: ['framework-native', 'risk']
+      tags: ['framework-aligned', 'risk']
     },
     'render-mirror-patch-apply': {
       latestRule:
@@ -576,7 +576,7 @@
       currentImplementation:
         'Render scene-tree store tests cover computed patch mirror updates.',
       relatedTests: ['packages/render/src/__tests__/scene-tree-store.test.ts'],
-      tags: ['framework-native', 'critical']
+      tags: ['framework-aligned', 'critical']
     },
     'render-data-derivation': {
       latestRule:
@@ -586,7 +586,7 @@
       currentImplementation:
         'Vector render invariant tests compare model, render graphic, hover outline, and editing overlay.',
       relatedTests: ['apps/asyra-design/e2e/vector-render-invariants.spec.ts'],
-      tags: ['framework-native', 'truth']
+      tags: ['framework-aligned', 'truth']
     },
     'dirty-revision-graph': {
       latestRule:
@@ -650,7 +650,7 @@
       latestRule:
         'Center solid and center dashed visible candidates may be authored stroke path descriptors; constrained solid candidates remain doubled authored center-stroke candidates with join and miter semantics before masking; constrained dashed candidates keep interval ownership, side-domain evidence, and inside/outside product descriptors.',
       currentImplementation:
-        'Center solid drag frames may use native authored stroke projection when alpha-safe; center dashed drag frames use exact authored centerline strokePath descriptors; closed constrained dashed drag frames may use exact inside/outside mask descriptors and reuse resolved split/domain metadata instead of rerunning source-intersection tracing. Open self-intersecting constrained dashed must use contour-ownership routing: inside excludes dangling branches, outside renders dangling branches as true both-side spans rather than center fallback.',
+        'Center solid drag frames may use authored stroke projection only when alpha-safe; center dashed drag frames use exact authored centerline strokePath descriptors; closed constrained dashed drag frames may use exact inside/outside mask descriptors and reuse resolved split/domain metadata instead of rerunning source-intersection tracing. Open self-intersecting constrained dashed must use contour-ownership routing: inside excludes dangling branches, outside renders dangling branches as true both-side spans rather than unbounded open center output.',
       requiredAdjustment:
         'Keep center, constrained solid, and dashed candidate models separate; do not turn face strips or helper polygons into visible solid geometry, and do not recompute source intersections in visible product output when resolved metadata already owns them.',
       tags: ['canonical', 'guarded']
@@ -688,9 +688,9 @@
     'render-entries': {
       alignmentStatus: 'guarded',
       latestRule:
-        'Render entries are projection-only and must not create constrained stroke semantics; center solid alpha-safe native descriptors, translucent center solid single-composite descriptors, exact center dashed descriptors, and exact constrained dashed inside/outside mask descriptors may skip visible polygon projection/collapse.',
+        'Render entries are projection-only and must not create constrained stroke semantics; center solid alpha-safe renderer path descriptors, translucent center solid single-composite descriptors, exact center dashed descriptors, and exact constrained dashed inside/outside mask descriptors may skip visible polygon projection/collapse.',
       currentImplementation:
-        'Center solid drag render uses native projection only for alpha-safe cases and single-composite descriptor output for translucent self-intersections. Center dashed drag render skips visible packet/geometry rebuilds through exact authored strokePath descriptors; constrained dashed drag render consumes exact inside/outside mask descriptors so visible frames avoid per-interval product intersection while preserving the doubled center-dashed legal-domain rule.',
+        'Center solid drag render uses renderer path projection only for alpha-safe cases and single-composite descriptor output for translucent self-intersections. Center dashed drag render skips visible packet/geometry rebuilds through exact authored strokePath descriptors; constrained dashed drag render consumes exact inside/outside mask descriptors so visible frames avoid per-interval product intersection while preserving the doubled center-dashed legal-domain rule.',
       tags: ['risk']
     },
     'renderer-projection': {
@@ -719,18 +719,18 @@
     return row
   }
 
-  const getLaneIndex = (group, legacyLane) => {
+  const getLaneIndex = (group, laneHint) => {
     const laneIndex = lanes.indexOf(group)
     if (laneIndex >= 0) {
       return laneIndex
     }
-    return Number.isFinite(legacyLane) ? legacyLane : 0
+    return Number.isFinite(laneHint) ? laneHint : 0
   }
 
-  const defaultStepData = (id, group, legacyLane, title, summary, index) => {
+  const defaultStepData = (id, group, laneHint, title, summary, index) => {
     const override = stepOverrides[id] ?? {}
     const alignmentStatus = override.alignmentStatus ?? 'aligned'
-    const lane = getLaneIndex(group, legacyLane)
+    const lane = getLaneIndex(group, laneHint)
     const row = nextRowForLane(lane)
     const defaultLatestRule =
       id === 'shared-geometry-model'

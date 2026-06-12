@@ -430,8 +430,8 @@ const collectMergedFaceMetadata = (faces: ArrangedStrokeFinalFace[]) => {
   const sourceSpanIds: string[] = []
   const sourceContourIds: string[] = []
   const legalDomainIds: string[] = []
-  const figmaLikeSplitRangeTerminals: NonNullable<
-    SolidCenterStrokeGeometryDebugMeta['figmaLikeSplitRangeTerminals']
+  const domainPlanSplitRangeTerminals: NonNullable<
+    SolidCenterStrokeGeometryDebugMeta['domainPlanSplitRangeTerminals']
   > = []
   const terminalKeys = new Set<string>()
 
@@ -442,7 +442,7 @@ const collectMergedFaceMetadata = (faces: ArrangedStrokeFinalFace[]) => {
     face.sourceSpanIds.forEach((id) => pushUnique(sourceSpanIds, id))
     face.sourceContourIds.forEach((id) => pushUnique(sourceContourIds, id))
     face.legalDomainIds.forEach((id) => pushUnique(legalDomainIds, id))
-    face.debugMeta?.figmaLikeSplitRangeTerminals?.forEach((terminal) => {
+    face.debugMeta?.domainPlanSplitRangeTerminals?.forEach((terminal) => {
       const key = [
         terminal.intervalId,
         terminal.splitRangeId,
@@ -454,7 +454,7 @@ const collectMergedFaceMetadata = (faces: ArrangedStrokeFinalFace[]) => {
         return
       }
       terminalKeys.add(key)
-      figmaLikeSplitRangeTerminals.push({ ...terminal })
+      domainPlanSplitRangeTerminals.push({ ...terminal })
     })
   })
 
@@ -465,15 +465,15 @@ const collectMergedFaceMetadata = (faces: ArrangedStrokeFinalFace[]) => {
     sourceSpanIds,
     sourceContourIds,
     legalDomainIds,
-    figmaLikeSplitRangeTerminals
+    domainPlanSplitRangeTerminals
   }
 }
 
 const getCandidatePosition = (
   face: ArrangedStrokeFinalFace,
-  fallback?: StrokeArrangementPosition
+  defaultPosition?: StrokeArrangementPosition
 ): StrokeArrangementPosition => {
-  const position = face.debugMeta?.strokePosition ?? fallback
+  const position = face.debugMeta?.strokePosition ?? defaultPosition
   if (!position) {
     throw new Error(
       `Cannot build arrangement candidate "${face.faceId}" without typed strokePosition`
@@ -692,9 +692,7 @@ const serializeFinalFaceForCache = (face: ArrangedStrokeFinalFace) => {
     }
   }
 
-  emitStrokePipelineCounter(
-    'visual-overlap-collapse-polygon-cache-key-fallback'
-  )
+  emitStrokePipelineCounter('visual-overlap-collapse-polygon-cache-key-rebuilt')
   return {
     faceId: face.faceId,
     sourceGeometryIds: face.sourceGeometryIds,
@@ -833,7 +831,7 @@ const mergeArrangedFaceGroup = (
     sourceSpanIds,
     sourceContourIds,
     legalDomainIds,
-    figmaLikeSplitRangeTerminals
+    domainPlanSplitRangeTerminals
   } = collectMergedFaceMetadata(group.faces)
 
   const candidateIds = group.candidates.map(
@@ -870,7 +868,7 @@ const mergeArrangedFaceGroup = (
       arrangementLegalState: arrangementFace.legalState,
       resolutionStatus: 'exact-constrained',
       runtimeStatus: 'accepted',
-      figmaLikeSplitRangeTerminals
+      domainPlanSplitRangeTerminals
     },
     paint: primaryFace.paint
   }
@@ -963,7 +961,7 @@ const groupFinalFacesByVisualPacket = (faces: ArrangedStrokeFinalFace[]) => {
   return [...groups.values()]
 }
 
-const isLocalSideConstrainedSolidFace = (face: ArrangedStrokeFinalFace) =>
+const isDomainPlanConstrainedSolidFace = (face: ArrangedStrokeFinalFace) =>
   face.geometryFamily === 'constrained-solid' &&
   face.resolutionStatus !== 'exact-constrained'
 
@@ -995,11 +993,11 @@ const getSelfIntersectingConstrainedDashedCoverageUnitKey = (
   return [
     'self-intersecting-constrained-dash-coverage-unit',
     'interval',
-    face.debugMeta?.figmaLikeBoundaryDomainId ?? 'unknown-boundary-domain',
-    face.debugMeta?.figmaLikeSplitRangeId ?? 'unknown-split-range',
+    face.debugMeta?.domainPlanBoundaryDomainId ?? 'unknown-boundary-domain',
+    face.debugMeta?.domainPlanSplitRangeId ?? 'unknown-split-range',
     stableStringify(intervalIds),
-    face.debugMeta?.figmaLikeTerminalRole ?? 'unknown-terminal-role',
-    face.debugMeta?.figmaLikeSelectedSide ?? 'unknown-selected-side'
+    face.debugMeta?.domainPlanTerminalRole ?? 'unknown-terminal-role',
+    face.debugMeta?.domainPlanSelectedSide ?? 'unknown-selected-side'
   ].join('|')
 }
 
@@ -1036,7 +1034,7 @@ const hasSelfIntersectingConstrainedSolidMaskModelFace = (
 const canCollapseVisualOverlapExactly = (faces: ArrangedStrokeFinalFace[]) =>
   faces.every(
     (face) =>
-      !isLocalSideConstrainedSolidFace(face) &&
+      !isDomainPlanConstrainedSolidFace(face) &&
       !(
         isSelfIntersectingConstrainedSolidFace(face) &&
         face.debugMeta?.arrangementStatus !== 'exact' &&
@@ -1044,7 +1042,7 @@ const canCollapseVisualOverlapExactly = (faces: ArrangedStrokeFinalFace[]) =>
       )
   )
 
-const canCollapseLocalSideConstrainedSolidVisualOverlapByUnion = (
+const canCollapseDomainPlanConstrainedSolidVisualOverlapByUnion = (
   faces: ArrangedStrokeFinalFace[]
 ) => {
   if (faces.length < 2) {
@@ -1058,9 +1056,10 @@ const canCollapseLocalSideConstrainedSolidVisualOverlapByUnion = (
     strokeIds.size <= 1 &&
     faces.every(
       (face) =>
-        isLocalSideConstrainedSolidFace(face) &&
+        isDomainPlanConstrainedSolidFace(face) &&
         isSelfIntersectingConstrainedSolidFace(face) &&
-        face.debugMeta?.visualOverlapCollapseStatus !== 'local-side-arrangement'
+        face.debugMeta?.visualOverlapCollapseStatus !==
+          'domain-plan-selected-side-arrangement'
     )
   )
 }
@@ -1090,14 +1089,14 @@ const canTrustExactArrangementPartition = (
   })
 }
 
-const isNativeCenterSelfIntersectingSingleFaceCollapse = (
+const isCenterPathSelfIntersectingSingleFaceCollapse = (
   faces: ArrangedStrokeFinalFace[]
 ) => {
   const [face] = faces
   return (
     faces.length === 1 &&
     face?.geometryFamily === 'solid-center' &&
-    face.resolutionStatus === 'native-center' &&
+    face.resolutionStatus === 'center-product' &&
     face.sourceTopology === 'self-intersecting'
   )
 }
@@ -1118,7 +1117,7 @@ const mergeVisualOverlapFaceGroup = (
     sourceSpanIds,
     sourceContourIds,
     legalDomainIds,
-    figmaLikeSplitRangeTerminals
+    domainPlanSplitRangeTerminals
   } = collectMergedFaceMetadata(faces)
   const polygons = unionRegions.flatMap(getRegionCoveragePolygons)
   const faceId = hashStableString(
@@ -1144,9 +1143,9 @@ const mergeVisualOverlapFaceGroup = (
       sourceSpanIds,
       sourceContourIds,
       legalDomainIds,
-      figmaLikeSplitRangeTerminals:
-        figmaLikeSplitRangeTerminals.length > 0
-          ? figmaLikeSplitRangeTerminals
+      domainPlanSplitRangeTerminals:
+        domainPlanSplitRangeTerminals.length > 0
+          ? domainPlanSplitRangeTerminals
           : undefined,
       visualOverlapCollapseStatus: 'exact-union',
       visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
@@ -1155,14 +1154,14 @@ const mergeVisualOverlapFaceGroup = (
   }
 }
 
-const mergeNativeCenterVisualOverlapFaceGroup = (
+const mergeCenterPathVisualOverlapFaceGroup = (
   faces: ArrangedStrokeFinalFace[],
   unionRegions: PolygonRegion[]
 ): ArrangedStrokeFinalFace => {
   const [primaryFace] = faces
   if (!primaryFace) {
     throw new Error(
-      'Cannot collapse native center visual overlap for an empty face group'
+      'Cannot collapse center path visual overlap for an empty face group'
     )
   }
 
@@ -1173,11 +1172,11 @@ const mergeNativeCenterVisualOverlapFaceGroup = (
     sourceSpanIds,
     sourceContourIds,
     legalDomainIds,
-    figmaLikeSplitRangeTerminals
+    domainPlanSplitRangeTerminals
   } = collectMergedFaceMetadata(faces)
   const polygons = unionRegions.flatMap(getRegionCoveragePolygons)
   const faceId = hashStableString(
-    'native-center-visual-overlap-face',
+    'center-product-visual-overlap-face',
     `${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`
   )
 
@@ -1199,7 +1198,7 @@ const mergeNativeCenterVisualOverlapFaceGroup = (
       sourceSpanIds,
       sourceContourIds,
       legalDomainIds,
-      figmaLikeSplitRangeTerminals,
+      domainPlanSplitRangeTerminals,
       visualOverlapCollapseStatus: 'exact-union',
       visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
       visualOverlapSourceGeometryIds: sourceGeometryIds
@@ -1225,7 +1224,7 @@ const mergeVisualOverlapArrangementFaceGroup = (
     sourceSpanIds,
     sourceContourIds,
     legalDomainIds,
-    figmaLikeSplitRangeTerminals
+    domainPlanSplitRangeTerminals
   } = collectMergedFaceMetadata(faces)
   const polygons = getRegionCoveragePolygons(arrangementFace.geometry)
   const faceId = hashStableString(
@@ -1251,7 +1250,7 @@ const mergeVisualOverlapArrangementFaceGroup = (
       sourceSpanIds,
       sourceContourIds,
       legalDomainIds,
-      figmaLikeSplitRangeTerminals,
+      domainPlanSplitRangeTerminals,
       visualOverlapCollapseStatus: 'exact-arrangement',
       visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
       visualOverlapSourceGeometryIds: sourceGeometryIds,
@@ -1264,14 +1263,14 @@ const mergeVisualOverlapArrangementFaceGroup = (
   }
 }
 
-const mergeLocalSideVisualOverlapArrangementFaceGroup = (
+const mergeDomainPlanVisualOverlapArrangementFaceGroup = (
   arrangementFace: ArrangementFace,
   faces: ArrangedStrokeFinalFace[]
 ): ArrangedStrokeFinalFace => {
   const [primaryFace] = faces
   if (!primaryFace) {
     throw new Error(
-      'Cannot collapse local-side visual overlap arrangement face for an empty face group'
+      'Cannot collapse domain-plan visual overlap arrangement face for an empty face group'
     )
   }
 
@@ -1282,11 +1281,11 @@ const mergeLocalSideVisualOverlapArrangementFaceGroup = (
     sourceSpanIds,
     sourceContourIds,
     legalDomainIds,
-    figmaLikeSplitRangeTerminals
+    domainPlanSplitRangeTerminals
   } = collectMergedFaceMetadata(faces)
   const polygons = getRegionCoveragePolygons(arrangementFace.geometry)
   const faceId = hashStableString(
-    'local-side-visual-overlap-arranged-face',
+    'domain-plan-visual-overlap-arranged-face',
     `${arrangementFace.faceId}|${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`
   )
 
@@ -1308,8 +1307,8 @@ const mergeLocalSideVisualOverlapArrangementFaceGroup = (
       sourceSpanIds,
       sourceContourIds,
       legalDomainIds,
-      figmaLikeSplitRangeTerminals,
-      visualOverlapCollapseStatus: 'local-side-arrangement',
+      domainPlanSplitRangeTerminals,
+      visualOverlapCollapseStatus: 'domain-plan-selected-side-arrangement',
       visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
       visualOverlapSourceGeometryIds: sourceGeometryIds,
       arrangementFaceId: arrangementFace.faceId,
@@ -1368,7 +1367,7 @@ const collapseVisualOverlapFaceGroupByArrangement = (
   ])
 }
 
-const collapseLocalSideVisualOverlapFaceGroupByArrangement = (
+const collapseDomainPlanVisualOverlapFaceGroupByArrangement = (
   faces: ArrangedStrokeFinalFace[],
   backend: Pick<GeometryBackend, 'buildArrangement'>
 ): ArrangedStrokeFinalFace[] => {
@@ -1401,7 +1400,7 @@ const collapseLocalSideVisualOverlapFaceGroupByArrangement = (
       return []
     }
 
-    return mergeLocalSideVisualOverlapArrangementFaceGroup(
+    return mergeDomainPlanVisualOverlapArrangementFaceGroup(
       arrangementFace,
       claimedFaces
     )
@@ -1440,7 +1439,7 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
     }
 
     const shouldUseUnionOnlyCollapse =
-      canCollapseLocalSideConstrainedSolidVisualOverlapByUnion(group)
+      canCollapseDomainPlanConstrainedSolidVisualOverlapByUnion(group)
     if (
       !shouldUseUnionOnlyCollapse &&
       !canCollapseVisualOverlapExactly(group)
@@ -1487,7 +1486,7 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
     }
 
     const shouldUseUnionOnlyCollapse =
-      canCollapseLocalSideConstrainedSolidVisualOverlapByUnion(group)
+      canCollapseDomainPlanConstrainedSolidVisualOverlapByUnion(group)
     if (
       !shouldUseUnionOnlyCollapse &&
       !canCollapseVisualOverlapExactly(group)
@@ -1514,7 +1513,7 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
       )
     }
 
-    if (isNativeCenterSelfIntersectingSingleFaceCollapse(group)) {
+    if (isCenterPathSelfIntersectingSingleFaceCollapse(group)) {
       const unionRegions = measureVectorRenderPhase(
         'visual overlap collapse: union',
         () =>
@@ -1530,17 +1529,17 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
         return group
       }
 
-      return [mergeNativeCenterVisualOverlapFaceGroup(group, unionRegions)]
+      return [mergeCenterPathVisualOverlapFaceGroup(group, unionRegions)]
     }
 
     const buildArrangement = options.backend.buildArrangement
     if (shouldUseUnionOnlyCollapse && typeof buildArrangement === 'function') {
-      const localSideArrangedCollapse =
-        collapseLocalSideVisualOverlapFaceGroupByArrangement(group, {
+      const domainPlanArrangedCollapse =
+        collapseDomainPlanVisualOverlapFaceGroupByArrangement(group, {
           buildArrangement
         })
-      if (localSideArrangedCollapse.length > 0) {
-        return localSideArrangedCollapse
+      if (domainPlanArrangedCollapse.length > 0) {
+        return domainPlanArrangedCollapse
       }
     }
 

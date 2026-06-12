@@ -1339,10 +1339,10 @@ const getBoundaryTailReferencePoint = (boundary: Vec2[], reach: number) => {
 const getSelectedSideTowardPoint = (
   boundary: Vec2[],
   point: Vec2 | undefined,
-  fallback: 1 | -1
+  defaultSide: 1 | -1
 ): 1 | -1 => {
   if (!point || boundary.length < 2) {
-    return fallback
+    return defaultSide
   }
 
   let nearestCross = 0
@@ -1361,7 +1361,7 @@ const getSelectedSideTowardPoint = (
   }
 
   if (Math.abs(nearestCross) <= EPS) {
-    return fallback
+    return defaultSide
   }
 
   return nearestCross > 0 ? 1 : -1
@@ -2286,5 +2286,5 @@ export const buildConstrainedSolidStrokePolygons = (
   )
 }
 
-export const buildConstrainedLocalSideStrokePolygons =
+export const buildConstrainedDomainStrokePolygons =
   buildConstrainedSolidStrokePolygons

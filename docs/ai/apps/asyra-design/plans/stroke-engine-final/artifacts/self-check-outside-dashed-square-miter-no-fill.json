@@ -15,7 +15,6 @@
   "computedStrokes": [
     {
       "id": "self-check-outside-dashed-square-miter",
-      "kind": "solid",
       "style": "dashed",
       "position": "outside",
       "width": 10,
@@ -24,19 +23,23 @@
         20
       ],
       "dashOffset": 0,
-      "fill": null,
-      "defaultColorFormat": "hex",
-      "colorFormat": "hex",
-      "color": "#df0606",
-      "opacity": 0.5,
-      "visible": true,
-      "gradient": null,
+      "fill": {
+        "id": "self-check-outside-dashed-square-miter",
+        "type": "fill",
+        "kind": "solid",
+        "defaultColorFormat": "hex",
+        "colorFormat": "hex",
+        "color": "#df0606",
+        "opacity": 0.5,
+        "visible": true,
+        "gradient": null
+      },
       "joinType": "miter",
       "capType": "square",
       "miterAngle": 28.96
     }
   ],
-  "exportPacketCount": 36,
+  "exportPacketCount": 31,
   "boundaryDomainIntervalIds": [
     "interval:0",
     "interval:1",
@@ -101,16 +104,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:0",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 79.17911049691465,
-      "figmaLikeSplitRangeSourceSegmentIndex": 0,
-      "figmaLikeTerminalRole": "start",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:0",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 79.17911049691465,
+      "domainPlanSplitRangeSourceSegmentIndex": 0,
+      "domainPlanTerminalRole": "start",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 153.72916211635828,
           "y": 71.28525584458582
@@ -120,10 +123,10 @@
           "y": 0
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 79.17911049691465,
-      "figmaLikeBoundaryTotalLength": 79.17911049691465,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 79.17911049691465,
+      "domainPlanBoundaryTotalLength": 79.17911049691465,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:0",
           "splitRangeId": "split-range:0",
@@ -187,24 +190,12 @@
             "y": 54.629634
           },
           {
-            "x": 159.605198,
-            "y": 59.131153
-          },
-          {
-            "x": 159.605199,
-            "y": 59.131154
-          },
-          {
             "x": 153.729162,
             "y": 71.285256
           },
           {
-            "x": 144.275341,
-            "y": 67.865042
-          },
-          {
-            "x": 150.602161,
-            "y": 54.778534
+            "x": 144.726124,
+            "y": 66.932636
           },
           {
             "x": 152.778471,
@@ -221,8 +212,8 @@
             "y": 71.285256
           },
           {
-            "x": 144.275341,
-            "y": 67.865042
+            "x": 144.7261234789774,
+            "y": 66.93263543281496
           },
           {
             "x": 150.602161,
@@ -231,7 +222,7 @@
         ]
       ],
       "bounds": {
-        "minX": 144.275341,
+        "minX": 144.7261234789774,
         "minY": 50.277015,
         "maxX": 161.781509,
         "maxY": 71.285256
@@ -267,16 +258,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:0",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 79.17911049691465,
-      "figmaLikeSplitRangeSourceSegmentIndex": 0,
-      "figmaLikeTerminalRole": "end",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:0",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 79.17911049691465,
+      "domainPlanSplitRangeSourceSegmentIndex": 0,
+      "domainPlanTerminalRole": "end",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 153.72916211635828,
           "y": 71.28525584458582
@@ -286,10 +277,10 @@
           "y": 0
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 79.17911049691465,
-      "figmaLikeBoundaryTotalLength": 79.17911049691465,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 79.17911049691465,
+      "domainPlanBoundaryTotalLength": 79.17911049691465,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:1",
           "splitRangeId": "split-range:0",
@@ -345,15 +336,29 @@
           "boundaryTotalLength": 94.17037908298788
         }
       ],
-      "polygonCount": 2,
+      "polygonCount": 3,
       "polygons": [
         [
           {
-            "x": 190.369132,
-            "y": -4.501519
+            "x": 159.605199,
+            "y": 59.131154
           },
           {
-            "x": 188.192821,
+            "x": 153.729162,
+            "y": 71.285256
+          },
+          {
+            "x": 144.275341,
+            "y": 67.865042
+          },
+          {
+            "x": 150.602161,
+            "y": 54.778534
+          }
+        ],
+        [
+          {
+            "x": 188.192822,
             "y": 0
           },
           {
@@ -365,34 +370,34 @@
             "y": 12.303001
           },
           {
-            "x": 173.313746,
-            "y": 7.801481
-          },
-          {
-            "x": 181.366094,
-            "y": -8.854139
+            "x": 179.189784,
+            "y": -4.35262
           }
         ],
         [
           {
-            "x": 190.36913187359087,
-            "y": -4.501519061113953
+            "x": 159.605199,
+            "y": 59.131154
           },
           {
-            "x": 188.1928219315729,
-            "y": 0
+            "x": 153.729162,
+            "y": 71.285256
           },
           {
-            "x": 186.703296,
-            "y": -6.273809
+            "x": 144.275341,
+            "y": 67.865042
+          },
+          {
+            "x": 150.602161,
+            "y": 54.778534
           }
         ]
       ],
       "bounds": {
-        "minX": 171.137436,
-        "minY": -8.854139,
-        "maxX": 190.369132,
-        "maxY": 16.655621
+        "minX": 144.275341,
+        "minY": -4.35262,
+        "maxX": 188.192822,
+        "maxY": 71.285256
       }
     },
     {
@@ -425,16 +430,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:3",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 234.5450442336336,
-      "figmaLikeSplitRangeSourceSegmentIndex": 0,
-      "figmaLikeTerminalRole": "start",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:3",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 234.5450442336336,
+      "domainPlanSplitRangeSourceSegmentIndex": 0,
+      "domainPlanTerminalRole": "start",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 11.358174406717296,
           "y": 365.76797704068724
@@ -444,10 +449,10 @@
           "y": 154.6061771626022
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 234.5450442336336,
-      "figmaLikeBoundaryTotalLength": 234.5450442336336,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 234.5450442336336,
+      "domainPlanBoundaryTotalLength": 234.5450442336336,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:2",
           "splitRangeId": "split-range:3",
@@ -503,22 +508,8 @@
           "boundaryTotalLength": 214.2318039969792
         }
       ],
-      "polygonCount": 3,
+      "polygonCount": 1,
       "polygons": [
-        [
-          {
-            "x": 9.181864,
-            "y": 370.269496
-          },
-          {
-            "x": 6.371613,
-            "y": 368.910848
-          },
-          {
-            "x": 11.358174,
-            "y": 365.767977
-          }
-        ],
         [
           {
             "x": 19.410521,
@@ -536,27 +527,13 @@
             "x": 10.407484,
             "y": 344.759736
           }
-        ],
-        [
-          {
-            "x": 9.181864,
-            "y": 370.269496
-          },
-          {
-            "x": 6.371613,
-            "y": 368.910848
-          },
-          {
-            "x": 11.358174,
-            "y": 365.767977
-          }
         ]
       ],
       "bounds": {
         "minX": 2.355136,
         "minY": 344.759736,
         "maxX": 19.410521,
-        "maxY": 370.269496
+        "maxY": 365.767977
       }
     },
     {
@@ -589,16 +566,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:3",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 234.5450442336336,
-      "figmaLikeSplitRangeSourceSegmentIndex": 0,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:3",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 234.5450442336336,
+      "domainPlanSplitRangeSourceSegmentIndex": 0,
+      "domainPlanTerminalRole": "middle",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 11.358174406717296,
           "y": 365.76797704068724
@@ -608,10 +585,10 @@
           "y": 154.6061771626022
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 234.5450442336336,
-      "figmaLikeBoundaryTotalLength": 234.5450442336336,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 234.5450442336336,
+      "domainPlanBoundaryTotalLength": 234.5450442336336,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:3",
           "splitRangeId": "split-range:3",
@@ -640,8 +617,26 @@
           "boundaryTotalLength": 234.5450442336336
         }
       ],
-      "polygonCount": 1,
+      "polygonCount": 3,
       "polygons": [
+        [
+          {
+            "x": 23.110248,
+            "y": 341.459773
+          },
+          {
+            "x": 9.181864,
+            "y": 370.269496
+          },
+          {
+            "x": 0.178826,
+            "y": 365.916876
+          },
+          {
+            "x": 14.107211,
+            "y": 337.107154
+          }
+        ],
         [
           {
             "x": 53.440037,
@@ -659,13 +654,27 @@
             "x": 44.437,
             "y": 274.372469
           }
+        ],
+        [
+          {
+            "x": 9.181864,
+            "y": 370.269496
+          },
+          {
+            "x": 6.371613,
+            "y": 368.910848
+          },
+          {
+            "x": 11.358174,
+            "y": 365.767977
+          }
         ]
       ],
       "bounds": {
-        "minX": 28.332305,
+        "minX": 0.178826,
         "minY": 274.372469,
         "maxX": 53.440037,
-        "maxY": 312.03633
+        "maxY": 370.269496
       }
     },
     {
@@ -698,16 +707,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:3",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 234.5450442336336,
-      "figmaLikeSplitRangeSourceSegmentIndex": 0,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:3",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 234.5450442336336,
+      "domainPlanSplitRangeSourceSegmentIndex": 0,
+      "domainPlanTerminalRole": "middle",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 11.358174406717296,
           "y": 365.76797704068724
@@ -717,10 +726,10 @@
           "y": 154.6061771626022
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 234.5450442336336,
-      "figmaLikeBoundaryTotalLength": 234.5450442336336,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 234.5450442336336,
+      "domainPlanBoundaryTotalLength": 234.5450442336336,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:4",
           "splitRangeId": "split-range:3",
@@ -749,8 +758,26 @@
           "boundaryTotalLength": 234.5450442336336
         }
       ],
-      "polygonCount": 1,
+      "polygonCount": 3,
       "polygons": [
+        [
+          {
+            "x": 23.110248,
+            "y": 341.459773
+          },
+          {
+            "x": 9.181864,
+            "y": 370.269496
+          },
+          {
+            "x": 0.178826,
+            "y": 365.916876
+          },
+          {
+            "x": 14.107211,
+            "y": 337.107154
+          }
+        ],
         [
           {
             "x": 87.469554,
@@ -768,13 +795,27 @@
             "x": 78.466517,
             "y": 203.985203
           }
+        ],
+        [
+          {
+            "x": 9.181864,
+            "y": 370.269496
+          },
+          {
+            "x": 6.371613,
+            "y": 368.910848
+          },
+          {
+            "x": 11.358174,
+            "y": 365.767977
+          }
         ]
       ],
       "bounds": {
-        "minX": 62.361822,
+        "minX": 0.178826,
         "minY": 203.985203,
         "maxX": 87.469554,
-        "maxY": 241.649065
+        "maxY": 370.269496
       }
     },
     {
@@ -807,16 +848,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:3",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 234.5450442336336,
-      "figmaLikeSplitRangeSourceSegmentIndex": 0,
-      "figmaLikeTerminalRole": "end",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:3",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 234.5450442336336,
+      "domainPlanSplitRangeSourceSegmentIndex": 0,
+      "domainPlanTerminalRole": "end",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 11.358174406717296,
           "y": 365.76797704068724
@@ -826,10 +867,10 @@
           "y": 154.6061771626022
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 234.5450442336336,
-      "figmaLikeBoundaryTotalLength": 234.5450442336336,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 234.5450442336336,
+      "domainPlanBoundaryTotalLength": 234.5450442336336,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:5",
           "splitRangeId": "split-range:3",
@@ -885,20 +926,30 @@
           "boundaryTotalLength": 179.3703186791147
         }
       ],
-      "polygonCount": 2,
+      "polygonCount": 3,
       "polygons": [
+        [
+          {
+            "x": 17.234211,
+            "y": 353.613874
+          },
+          {
+            "x": 9.181864,
+            "y": 370.269496
+          },
+          {
+            "x": 0.178826,
+            "y": 365.916876
+          },
+          {
+            "x": 8.231173,
+            "y": 349.261255
+          }
+        ],
         [
           {
             "x": 113.446724,
             "y": 154.606177
-          },
-          {
-            "x": 107.570687,
-            "y": 166.760279
-          },
-          {
-            "x": 107.570686,
-            "y": 166.760278
           },
           {
             "x": 105.394376,
@@ -911,36 +962,28 @@
           {
             "x": 104.443686,
             "y": 150.253557
-          },
-          {
-            "x": 106.470136,
-            "y": 146.06201
           }
         ],
         [
           {
-            "x": 113.446724,
-            "y": 154.606177
+            "x": 9.181864,
+            "y": 370.269496
           },
           {
-            "x": 107.570687,
-            "y": 166.760279
+            "x": 6.371613,
+            "y": 368.910848
           },
           {
-            "x": 98.567649,
-            "y": 162.407659
-          },
-          {
-            "x": 106.470136,
-            "y": 146.06201
+            "x": 11.358174,
+            "y": 365.767977
           }
         ]
       ],
       "bounds": {
-        "minX": 96.391339,
-        "minY": 146.06201,
+        "minX": 0.178826,
+        "minY": 150.253557,
         "maxX": 113.446724,
-        "maxY": 171.261797
+        "maxY": 370.269496
       }
     },
     {
@@ -973,16 +1016,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:4",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 214.2318039969792,
-      "figmaLikeSplitRangeSourceSegmentIndex": 1,
-      "figmaLikeTerminalRole": "start",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:4",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 214.2318039969792,
+      "domainPlanSplitRangeSourceSegmentIndex": 1,
+      "domainPlanTerminalRole": "start",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 192.59596125498675,
           "y": 251.53956349072428
@@ -992,10 +1035,10 @@
           "y": 365.76797704068724
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 214.2318039969792,
-      "figmaLikeBoundaryTotalLength": 214.2318039969792,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 214.2318039969792,
+      "domainPlanBoundaryTotalLength": 214.2318039969792,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:6",
           "splitRangeId": "split-range:4",
@@ -1055,12 +1098,8 @@
       "polygons": [
         [
           {
-            "x": 198.968328,
-            "y": 259.343746
-          },
-          {
-            "x": 191.499343,
-            "y": 264.051209
+            "x": 197.927962,
+            "y": 259.999455
           },
           {
             "x": 182.277162,
@@ -1081,8 +1120,8 @@
             "y": 251.53956343009347
           },
           {
-            "x": 198.968328,
-            "y": 259.343746
+            "x": 197.92796213419516,
+            "y": 259.9994554632069
           },
           {
             "x": 186.507108,
@@ -1097,7 +1136,7 @@
       "bounds": {
         "minX": 176.945162,
         "minY": 251.539563,
-        "maxX": 198.968328,
+        "maxX": 197.92796213419516,
         "maxY": 269.863657
       }
     },
@@ -1131,16 +1170,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:4",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 214.2318039969792,
-      "figmaLikeSplitRangeSourceSegmentIndex": 1,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:4",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 214.2318039969792,
+      "domainPlanSplitRangeSourceSegmentIndex": 1,
+      "domainPlanTerminalRole": "middle",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 192.59596125498675,
           "y": 251.53956349072428
@@ -1150,10 +1189,10 @@
           "y": 365.76797704068724
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 214.2318039969792,
-      "figmaLikeBoundaryTotalLength": 214.2318039969792,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 214.2318039969792,
+      "domainPlanBoundaryTotalLength": 214.2318039969792,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:7",
           "splitRangeId": "split-range:4",
@@ -1182,7 +1221,7 @@
           "boundaryTotalLength": 214.2318039969792
         }
       ],
-      "polygonCount": 1,
+      "polygonCount": 3,
       "polygons": [
         [
           {
@@ -1201,12 +1240,48 @@
             "x": 147.834165,
             "y": 279.7515
           }
+        ],
+        [
+          {
+            "x": 198.968327,
+            "y": 259.343745
+          },
+          {
+            "x": 175.086254,
+            "y": 274.395857
+          },
+          {
+            "x": 169.754254,
+            "y": 265.935965
+          },
+          {
+            "x": 192.595961,
+            "y": 251.539563
+          }
+        ],
+        [
+          {
+            "x": 198.968328,
+            "y": 259.343746
+          },
+          {
+            "x": 175.086254,
+            "y": 274.395857
+          },
+          {
+            "x": 169.754254,
+            "y": 265.935965
+          },
+          {
+            "x": 192.595961,
+            "y": 251.539563
+          }
         ]
       ],
       "bounds": {
         "minX": 116.532566,
-        "minY": 279.7515,
-        "maxX": 153.166166,
+        "minY": 251.539563,
+        "maxX": 198.968328,
         "maxY": 307.939794
       }
     },
@@ -1240,16 +1315,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:4",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 214.2318039969792,
-      "figmaLikeSplitRangeSourceSegmentIndex": 1,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:4",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 214.2318039969792,
+      "domainPlanSplitRangeSourceSegmentIndex": 1,
+      "domainPlanTerminalRole": "middle",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 192.59596125498675,
           "y": 251.53956349072428
@@ -1259,10 +1334,10 @@
           "y": 365.76797704068724
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 214.2318039969792,
-      "figmaLikeBoundaryTotalLength": 214.2318039969792,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 214.2318039969792,
+      "domainPlanBoundaryTotalLength": 214.2318039969792,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:8",
           "splitRangeId": "split-range:4",
@@ -1291,7 +1366,7 @@
           "boundaryTotalLength": 214.2318039969792
         }
       ],
-      "polygonCount": 1,
+      "polygonCount": 3,
       "polygons": [
         [
           {
@@ -1310,12 +1385,48 @@
             "x": 87.42157,
             "y": 317.827638
           }
+        ],
+        [
+          {
+            "x": 198.968327,
+            "y": 259.343745
+          },
+          {
+            "x": 175.086254,
+            "y": 274.395857
+          },
+          {
+            "x": 169.754254,
+            "y": 265.935965
+          },
+          {
+            "x": 192.595961,
+            "y": 251.539563
+          }
+        ],
+        [
+          {
+            "x": 198.968328,
+            "y": 259.343746
+          },
+          {
+            "x": 175.086254,
+            "y": 274.395857
+          },
+          {
+            "x": 169.754254,
+            "y": 265.935965
+          },
+          {
+            "x": 192.595961,
+            "y": 251.539563
+          }
         ]
       ],
       "bounds": {
         "minX": 56.11997,
-        "minY": 317.827638,
-        "maxX": 92.75357,
+        "minY": 251.539563,
+        "maxX": 198.968328,
         "maxY": 346.015932
       }
     },
@@ -1349,16 +1460,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:4",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 214.2318039969792,
-      "figmaLikeSplitRangeSourceSegmentIndex": 1,
-      "figmaLikeTerminalRole": "end",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:4",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 214.2318039969792,
+      "domainPlanSplitRangeSourceSegmentIndex": 1,
+      "domainPlanTerminalRole": "end",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 192.59596125498675,
           "y": 251.53956349072428
@@ -1368,10 +1479,10 @@
           "y": 365.76797704068724
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 214.2318039969792,
-      "figmaLikeBoundaryTotalLength": 214.2318039969792,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 214.2318039969792,
+      "domainPlanBoundaryTotalLength": 214.2318039969792,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:9",
           "splitRangeId": "split-range:4",
@@ -1427,7 +1538,7 @@
           "boundaryTotalLength": 234.5450442336336
         }
       ],
-      "polygonCount": 2,
+      "polygonCount": 3,
       "polygons": [
         [
           {
@@ -1435,24 +1546,12 @@
             "y": 364.363667
           },
           {
-            "x": 28.111028,
-            "y": 367.029667
+            "x": 16.690175,
+            "y": 374.227869
           },
           {
-            "x": 28.111029,
-            "y": 367.029668
-          },
-          {
-            "x": 12.460229,
-            "y": 376.893869
-          },
-          {
-            "x": 7.128229,
-            "y": 368.433977
-          },
-          {
-            "x": 22.779028,
-            "y": 358.569776
+            "x": 11.358174,
+            "y": 365.767977
           },
           {
             "x": 27.008974,
@@ -1461,24 +1560,46 @@
         ],
         [
           {
-            "x": 11.358173793465035,
-            "y": 365.76797742720066
+            "x": 198.968327,
+            "y": 259.343745
           },
           {
-            "x": 8.792585,
-            "y": 371.074689
+            "x": 186.507108,
+            "y": 267.197656
           },
           {
-            "x": 7.1282290518905445,
-            "y": 368.43397708233095
+            "x": 181.175107,
+            "y": 258.737764
+          },
+          {
+            "x": 192.595961,
+            "y": 251.539563
+          }
+        ],
+        [
+          {
+            "x": 192.59596135118517,
+            "y": 251.53956343009347
+          },
+          {
+            "x": 198.968328,
+            "y": 259.343746
+          },
+          {
+            "x": 186.507108,
+            "y": 267.197656
+          },
+          {
+            "x": 181.17510733187214,
+            "y": 258.73776452655704
           }
         ]
       ],
       "bounds": {
-        "minX": 7.128229,
-        "minY": 355.903776,
-        "maxX": 32.340975,
-        "maxY": 376.893869
+        "minX": 11.358174,
+        "minY": 251.539563,
+        "maxX": 198.968328,
+        "maxY": 374.227869
       }
     },
     {
@@ -1511,16 +1632,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:7",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 141.1458102097434,
-      "figmaLikeSplitRangeSourceSegmentIndex": 1,
-      "figmaLikeTerminalRole": "start",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:7",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 141.1458102097434,
+      "domainPlanSplitRangeSourceSegmentIndex": 1,
+      "domainPlanTerminalRole": "start",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 360.12094148356584,
           "y": 145.95389587539378
@@ -1530,10 +1651,10 @@
           "y": 221.21285219595248
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 141.1458102097434,
-      "figmaLikeBoundaryTotalLength": 141.1458102097434,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 141.1458102097434,
+      "domainPlanBoundaryTotalLength": 141.1458102097434,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:10",
           "splitRangeId": "split-range:7",
@@ -1589,7 +1710,7 @@
           "boundaryTotalLength": 159.70065283653614
         }
       ],
-      "polygonCount": 3,
+      "polygonCount": 1,
       "polygons": [
         [
           {
@@ -1608,40 +1729,12 @@
             "x": 360.120941,
             "y": 145.953896
           }
-        ],
-        [
-          {
-            "x": 367.776884,
-            "y": 148.723671
-          },
-          {
-            "x": 360.120941,
-            "y": 145.953896
-          },
-          {
-            "x": 364.350887,
-            "y": 143.287896
-          }
-        ],
-        [
-          {
-            "x": 367.776884,
-            "y": 148.723671
-          },
-          {
-            "x": 360.1209411816137,
-            "y": 145.9538960657046
-          },
-          {
-            "x": 364.350887,
-            "y": 143.287896
-          }
         ]
       ],
       "bounds": {
         "minX": 344.470142,
-        "minY": 143.287896,
-        "maxX": 367.776884,
+        "minY": 145.953896,
+        "maxX": 365.452942,
         "maxY": 164.277989
       }
     },
@@ -1675,16 +1768,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:7",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 141.1458102097434,
-      "figmaLikeSplitRangeSourceSegmentIndex": 1,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:7",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 141.1458102097434,
+      "domainPlanSplitRangeSourceSegmentIndex": 1,
+      "domainPlanTerminalRole": "middle",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 360.12094148356584,
           "y": 145.95389587539378
@@ -1694,10 +1787,10 @@
           "y": 221.21285219595248
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 141.1458102097434,
-      "figmaLikeBoundaryTotalLength": 141.1458102097434,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 141.1458102097434,
+      "domainPlanBoundaryTotalLength": 141.1458102097434,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:11",
           "splitRangeId": "split-range:7",
@@ -1726,7 +1819,7 @@
           "boundaryTotalLength": 141.1458102097434
         }
       ],
-      "polygonCount": 1,
+      "polygonCount": 3,
       "polygons": [
         [
           {
@@ -1745,12 +1838,44 @@
             "x": 316.067828,
             "y": 173.719173
           }
+        ],
+        [
+          {
+            "x": 369.682888,
+            "y": 151.747787
+          },
+          {
+            "x": 342.611235,
+            "y": 168.81019
+          },
+          {
+            "x": 337.279234,
+            "y": 160.350298
+          },
+          {
+            "x": 364.350887,
+            "y": 143.287896
+          }
+        ],
+        [
+          {
+            "x": 367.776884,
+            "y": 148.723671
+          },
+          {
+            "x": 360.120941,
+            "y": 145.953896
+          },
+          {
+            "x": 364.350887,
+            "y": 143.287896
+          }
         ]
       ],
       "bounds": {
         "minX": 284.766228,
-        "minY": 173.719173,
-        "maxX": 321.399828,
+        "minY": 143.287896,
+        "maxX": 369.682888,
         "maxY": 201.907467
       }
     },
@@ -1784,16 +1909,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:7",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 141.1458102097434,
-      "figmaLikeSplitRangeSourceSegmentIndex": 1,
-      "figmaLikeTerminalRole": "end",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:7",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 141.1458102097434,
+      "domainPlanSplitRangeSourceSegmentIndex": 1,
+      "domainPlanTerminalRole": "end",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 360.12094148356584,
           "y": 145.95389587539378
@@ -1803,10 +1928,10 @@
           "y": 221.21285219595248
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 141.1458102097434,
-      "figmaLikeBoundaryTotalLength": 141.1458102097434,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 141.1458102097434,
+      "domainPlanBoundaryTotalLength": 141.1458102097434,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:12",
           "splitRangeId": "split-range:7",
@@ -1862,7 +1987,7 @@
           "boundaryTotalLength": 129.3458162776832
         }
       ],
-      "polygonCount": 2,
+      "polygonCount": 3,
       "polygons": [
         [
           {
@@ -1874,20 +1999,8 @@
             "y": 229.672744
           },
           {
-            "x": 246.045114,
-            "y": 229.672743
-          },
-          {
-            "x": 243.154243,
-            "y": 231.494767
-          },
-          {
             "x": 240.713114,
             "y": 221.212852
-          },
-          {
-            "x": 252.133968,
-            "y": 214.014651
           },
           {
             "x": 256.363914,
@@ -1896,28 +2009,42 @@
         ],
         [
           {
-            "x": 252.13396808732034,
-            "y": 214.01465113854468
+            "x": 369.682888,
+            "y": 151.747787
           },
           {
-            "x": 257.465969,
-            "y": 222.474543
+            "x": 354.032088,
+            "y": 161.611989
           },
           {
-            "x": 243.154244,
-            "y": 231.494768
+            "x": 348.700088,
+            "y": 153.152097
           },
           {
-            "x": 240.7131140573851,
-            "y": 221.2128522417031
+            "x": 364.350887,
+            "y": 143.287896
+          }
+        ],
+        [
+          {
+            "x": 367.776884,
+            "y": 148.723671
+          },
+          {
+            "x": 360.1209411816137,
+            "y": 145.9538960657046
+          },
+          {
+            "x": 364.350887,
+            "y": 143.287896
           }
         ]
       ],
       "bounds": {
         "minX": 240.713114,
-        "minY": 211.348651,
-        "maxX": 261.695915,
-        "maxY": 231.494768
+        "minY": 143.287896,
+        "maxX": 369.682888,
+        "maxY": 229.672744
       }
     },
     {
@@ -1950,16 +2077,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:8",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 159.70065283653614,
-      "figmaLikeSplitRangeSourceSegmentIndex": 2,
-      "figmaLikeTerminalRole": "start",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:8",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 159.70065283653614,
+      "domainPlanSplitRangeSourceSegmentIndex": 2,
+      "domainPlanTerminalRole": "start",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 209.94603691883103,
           "y": 91.62345730373646
@@ -1969,10 +2096,10 @@
           "y": 145.95389587539378
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 159.70065283653614,
-      "figmaLikeBoundaryTotalLength": 159.70065283653614,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 159.70065283653614,
+      "domainPlanBoundaryTotalLength": 159.70065283653614,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:13",
           "splitRangeId": "split-range:8",
@@ -2032,10 +2159,6 @@
       "polygons": [
         [
           {
-            "x": 226.042813,
-            "y": 86.812656
-          },
-          {
             "x": 230.744575,
             "y": 88.513665
           },
@@ -2048,15 +2171,15 @@
             "y": 91.623457
           },
           {
-            "x": 207.839235,
-            "y": 82.749712
-          },
-          {
-            "x": 208.646292,
-            "y": 80.518924
+            "x": 213.348054,
+            "y": 82.219933
           }
         ],
         [
+          {
+            "x": 213.34805421573222,
+            "y": 82.21993257025062
+          },
           {
             "x": 226.042813,
             "y": 86.812656
@@ -2068,20 +2191,12 @@
           {
             "x": 209.946037,
             "y": 91.623457
-          },
-          {
-            "x": 207.839235,
-            "y": 82.749712
-          },
-          {
-            "x": 208.646292,
-            "y": 80.518924
           }
         ]
       ],
       "bounds": {
-        "minX": 207.839235,
-        "minY": 80.518924,
+        "minX": 209.946037,
+        "minY": 82.21993257025062,
         "maxX": 230.744575,
         "maxY": 97.917189
       }
@@ -2116,16 +2231,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:8",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 159.70065283653614,
-      "figmaLikeSplitRangeSourceSegmentIndex": 2,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:8",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 159.70065283653614,
+      "domainPlanSplitRangeSourceSegmentIndex": 2,
+      "domainPlanTerminalRole": "middle",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 209.94603691883103,
           "y": 91.62345730373646
@@ -2135,10 +2250,10 @@
           "y": 145.95389587539378
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 159.70065283653614,
-      "figmaLikeBoundaryTotalLength": 159.70065283653614,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 159.70065283653614,
+      "domainPlanBoundaryTotalLength": 159.70065283653614,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:14",
           "splitRangeId": "split-range:8",
@@ -2167,7 +2282,7 @@
           "boundaryTotalLength": 159.70065283653614
         }
       ],
-      "polygonCount": 1,
+      "polygonCount": 3,
       "polygons": [
         [
           {
@@ -2186,11 +2301,55 @@
             "x": 271.038986,
             "y": 103.09142
           }
+        ],
+        [
+          {
+            "x": 238.737571,
+            "y": 91.405379
+          },
+          {
+            "x": 235.335554,
+            "y": 100.808904
+          },
+          {
+            "x": 209.946037,
+            "y": 91.623457
+          },
+          {
+            "x": 207.839235,
+            "y": 82.749712
+          },
+          {
+            "x": 208.646292,
+            "y": 80.518924
+          }
+        ],
+        [
+          {
+            "x": 238.737571,
+            "y": 91.405379
+          },
+          {
+            "x": 235.335554,
+            "y": 100.808904
+          },
+          {
+            "x": 209.946037,
+            "y": 91.623457
+          },
+          {
+            "x": 207.839235,
+            "y": 82.749712
+          },
+          {
+            "x": 208.646292,
+            "y": 80.518924
+          }
         ]
       ],
       "bounds": {
-        "minX": 267.636968,
-        "minY": 103.09142,
+        "minX": 207.839235,
+        "minY": 80.518924,
         "maxX": 305.832027,
         "maxY": 125.082408
       }
@@ -2225,16 +2384,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:8",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 159.70065283653614,
-      "figmaLikeSplitRangeSourceSegmentIndex": 2,
-      "figmaLikeTerminalRole": "end",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:8",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 159.70065283653614,
+      "domainPlanSplitRangeSourceSegmentIndex": 2,
+      "domainPlanTerminalRole": "end",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 209.94603691883103,
           "y": 91.62345730373646
@@ -2244,10 +2403,10 @@
           "y": 145.95389587539378
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 159.70065283653614,
-      "figmaLikeBoundaryTotalLength": 159.70065283653614,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 159.70065283653614,
+      "domainPlanBoundaryTotalLength": 159.70065283653614,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:15",
           "splitRangeId": "split-range:8",
@@ -2303,7 +2462,7 @@
           "boundaryTotalLength": 141.1458102097434
         }
       ],
-      "polygonCount": 2,
+      "polygonCount": 3,
       "polygons": [
         [
           {
@@ -2311,12 +2470,8 @@
             "y": 136.550371
           },
           {
-            "x": 368.224721,
-            "y": 138.25138
-          },
-          {
-            "x": 364.822704,
-            "y": 147.654905
+            "x": 360.120941,
+            "y": 145.953896
           },
           {
             "x": 342.724421,
@@ -2329,24 +2484,54 @@
         ],
         [
           {
-            "x": 364.82270413500146,
-            "y": 147.65490462684082
+            "x": 226.042813,
+            "y": 86.812656
           },
           {
-            "x": 360.1209413019523,
-            "y": 145.95389580968944
+            "x": 222.640795,
+            "y": 96.21618
           },
           {
-            "x": 367.008619,
-            "y": 141.612812
+            "x": 209.946037,
+            "y": 91.623457
+          },
+          {
+            "x": 207.839235,
+            "y": 82.749712
+          },
+          {
+            "x": 208.646292,
+            "y": 80.518924
+          }
+        ],
+        [
+          {
+            "x": 226.042813,
+            "y": 86.812656
+          },
+          {
+            "x": 222.640795,
+            "y": 96.21618
+          },
+          {
+            "x": 209.946037,
+            "y": 91.623457
+          },
+          {
+            "x": 207.839235,
+            "y": 82.749712
+          },
+          {
+            "x": 208.646292,
+            "y": 80.518924
           }
         ]
       ],
       "bounds": {
-        "minX": 342.724421,
-        "minY": 130.256639,
-        "maxX": 368.224721,
-        "maxY": 147.654905
+        "minX": 207.839235,
+        "minY": 80.518924,
+        "maxX": 363.522959,
+        "maxY": 145.953896
       }
     },
     {
@@ -2379,16 +2564,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:11",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 163.4803605912281,
-      "figmaLikeSplitRangeSourceSegmentIndex": 2,
-      "figmaLikeTerminalRole": "start",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:11",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 163.4803605912281,
+      "domainPlanSplitRangeSourceSegmentIndex": 2,
+      "domainPlanTerminalRole": "start",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 0,
           "y": 15.668954151283657
@@ -2398,10 +2583,10 @@
           "y": 71.28525584458582
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 163.4803605912281,
-      "figmaLikeBoundaryTotalLength": 163.4803605912281,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 163.4803605912281,
+      "domainPlanBoundaryTotalLength": 163.4803605912281,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:16",
           "splitRangeId": "split-range:11",
@@ -2457,7 +2642,7 @@
           "boundaryTotalLength": 179.3703186791147
         }
       ],
-      "polygonCount": 3,
+      "polygonCount": 1,
       "polygons": [
         [
           {
@@ -2476,38 +2661,10 @@
             "x": 3.402017,
             "y": 6.265429
           }
-        ],
-        [
-          {
-            "x": 0,
-            "y": 15.668954
-          },
-          {
-            "x": -4.701762,
-            "y": 13.967945
-          },
-          {
-            "x": -3.684613,
-            "y": 11.15644
-          }
-        ],
-        [
-          {
-            "x": 0,
-            "y": 15.668954
-          },
-          {
-            "x": -4.701762,
-            "y": 13.967945
-          },
-          {
-            "x": -3.684613,
-            "y": 11.15644
-          }
         ]
       ],
       "bounds": {
-        "minX": -4.701762,
+        "minX": 0,
         "minY": 6.265429,
         "maxX": 20.798538,
         "maxY": 21.962686
@@ -2543,16 +2700,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:11",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 163.4803605912281,
-      "figmaLikeSplitRangeSourceSegmentIndex": 2,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:11",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 163.4803605912281,
+      "domainPlanSplitRangeSourceSegmentIndex": 2,
+      "domainPlanTerminalRole": "middle",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 0,
           "y": 15.668954151283657
@@ -2562,10 +2719,10 @@
           "y": 71.28525584458582
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 163.4803605912281,
-      "figmaLikeBoundaryTotalLength": 163.4803605912281,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 163.4803605912281,
+      "domainPlanBoundaryTotalLength": 163.4803605912281,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:17",
           "splitRangeId": "split-range:11",
@@ -2594,7 +2751,7 @@
           "boundaryTotalLength": 163.4803605912281
         }
       ],
-      "polygonCount": 1,
+      "polygonCount": 3,
       "polygons": [
         [
           {
@@ -2613,11 +2770,43 @@
             "x": 62.870078,
             "y": 27.779848
           }
+        ],
+        [
+          {
+            "x": 28.791534,
+            "y": 15.450876
+          },
+          {
+            "x": 25.389517,
+            "y": 24.854401
+          },
+          {
+            "x": -4.701762,
+            "y": 13.967945
+          },
+          {
+            "x": -1.299745,
+            "y": 4.564421
+          }
+        ],
+        [
+          {
+            "x": 0,
+            "y": 15.668954
+          },
+          {
+            "x": -4.701762,
+            "y": 13.967945
+          },
+          {
+            "x": -3.684613,
+            "y": 11.15644
+          }
         ]
       ],
       "bounds": {
-        "minX": 59.46806,
-        "minY": 27.779848,
+        "minX": -4.701762,
+        "minY": 4.564421,
         "maxX": 97.663119,
         "maxY": 49.770837
       }
@@ -2652,16 +2841,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:11",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 163.4803605912281,
-      "figmaLikeSplitRangeSourceSegmentIndex": 2,
-      "figmaLikeTerminalRole": "end",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:11",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 163.4803605912281,
+      "domainPlanSplitRangeSourceSegmentIndex": 2,
+      "domainPlanTerminalRole": "end",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 0,
           "y": 15.668954151283657
@@ -2671,10 +2860,10 @@
           "y": 71.28525584458582
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 163.4803605912281,
-      "figmaLikeBoundaryTotalLength": 163.4803605912281,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 163.4803605912281,
+      "domainPlanBoundaryTotalLength": 163.4803605912281,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:18",
           "splitRangeId": "split-range:11",
@@ -2730,16 +2919,12 @@
           "boundaryTotalLength": 79.17911049691465
         }
       ],
-      "polygonCount": 2,
+      "polygonCount": 3,
       "polygons": [
         [
           {
-            "x": 150.914793,
-            "y": 59.63276
-          },
-          {
-            "x": 158.105062,
-            "y": 62.234063
+            "x": 157.131179,
+            "y": 61.881731
           },
           {
             "x": 153.729162,
@@ -2756,27 +2941,41 @@
         ],
         [
           {
-            "x": 141.034404,
-            "y": 66.692532
+            "x": 16.096776,
+            "y": 10.858153
           },
           {
-            "x": 144.436421,
-            "y": 57.289008
+            "x": 12.694758,
+            "y": 20.261677
           },
           {
-            "x": 158.105062,
-            "y": 62.234063
+            "x": -4.701762,
+            "y": 13.967945
           },
           {
-            "x": 153.72916208127333,
-            "y": 71.28525583189275
+            "x": -1.299745,
+            "y": 4.564421
+          }
+        ],
+        [
+          {
+            "x": 0,
+            "y": 15.668954
+          },
+          {
+            "x": -4.701762,
+            "y": 13.967945
+          },
+          {
+            "x": -3.684613,
+            "y": 11.15644
           }
         ]
       ],
       "bounds": {
-        "minX": 136.332641,
-        "minY": 55.587999,
-        "maxX": 158.105062,
+        "minX": -4.701762,
+        "minY": 4.564421,
+        "maxX": 157.131179,
         "maxY": 71.285256
       }
     },
@@ -2810,16 +3009,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:12",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 179.3703186791147,
-      "figmaLikeSplitRangeSourceSegmentIndex": 3,
-      "figmaLikeTerminalRole": "start",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:12",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 179.3703186791147,
+      "domainPlanSplitRangeSourceSegmentIndex": 3,
+      "domainPlanTerminalRole": "start",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 113.4467244346451,
           "y": 154.6061771626022
@@ -2829,10 +3028,10 @@
           "y": 15.668954151283657
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 179.3703186791147,
-      "figmaLikeBoundaryTotalLength": 179.3703186791147,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 179.3703186791147,
+      "domainPlanBoundaryTotalLength": 179.3703186791147,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:19",
           "splitRangeId": "split-range:12",
@@ -2892,20 +3091,8 @@
       "polygons": [
         [
           {
-            "x": 106.381857,
-            "y": 145.953896
-          },
-          {
-            "x": 106.910329,
-            "y": 146.60111
-          },
-          {
             "x": 113.446724,
             "y": 154.606177
-          },
-          {
-            "x": 108.645494,
-            "y": 164.537126
           },
           {
             "x": 105.700893,
@@ -2926,8 +3113,8 @@
             "y": 154.606177
           },
           {
-            "x": 108.645494,
-            "y": 164.537126
+            "x": 105.70089302096015,
+            "y": 160.93089837740544
           },
           {
             "x": 97.16252,
@@ -2943,7 +3130,7 @@
         "minX": 94.000159,
         "minY": 140.276389,
         "maxX": 113.446724,
-        "maxY": 164.537126
+        "maxY": 160.93089837740544
       }
     },
     {
@@ -2976,16 +3163,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:12",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 179.3703186791147,
-      "figmaLikeSplitRangeSourceSegmentIndex": 3,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:12",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 179.3703186791147,
+      "domainPlanSplitRangeSourceSegmentIndex": 3,
+      "domainPlanTerminalRole": "middle",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 113.4467244346451,
           "y": 154.6061771626022
@@ -2995,10 +3182,10 @@
           "y": 15.668954151283657
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 179.3703186791147,
-      "figmaLikeBoundaryTotalLength": 179.3703186791147,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 179.3703186791147,
+      "domainPlanBoundaryTotalLength": 179.3703186791147,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:20",
           "splitRangeId": "split-range:12",
@@ -3027,8 +3214,26 @@
           "boundaryTotalLength": 179.3703186791147
         }
       ],
-      "polygonCount": 1,
+      "polygonCount": 3,
       "polygons": [
+        [
+          {
+            "x": 113.446724,
+            "y": 154.606177
+          },
+          {
+            "x": 108.645494,
+            "y": 164.537126
+          },
+          {
+            "x": 88.624146,
+            "y": 140.017154
+          },
+          {
+            "x": 96.369977,
+            "y": 133.692433
+          }
+        ],
         [
           {
             "x": 77.410426,
@@ -3050,13 +3255,31 @@
             "x": 63.930416,
             "y": 93.963982
           }
+        ],
+        [
+          {
+            "x": 113.446724,
+            "y": 154.606177
+          },
+          {
+            "x": 108.645494,
+            "y": 164.537126
+          },
+          {
+            "x": 88.624146,
+            "y": 140.017154
+          },
+          {
+            "x": 96.369977,
+            "y": 133.692433
+          }
         ]
       ],
       "bounds": {
         "minX": 56.184584,
         "minY": 93.963982,
-        "maxX": 87.331883,
-        "maxY": 128.948279
+        "maxX": 113.446724,
+        "maxY": 164.537126
       }
     },
     {
@@ -3089,16 +3312,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:12",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 179.3703186791147,
-      "figmaLikeSplitRangeSourceSegmentIndex": 3,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:12",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 179.3703186791147,
+      "domainPlanSplitRangeSourceSegmentIndex": 3,
+      "domainPlanTerminalRole": "middle",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 113.4467244346451,
           "y": 154.6061771626022
@@ -3108,10 +3331,10 @@
           "y": 15.668954151283657
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 179.3703186791147,
-      "figmaLikeBoundaryTotalLength": 179.3703186791147,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 179.3703186791147,
+      "domainPlanBoundaryTotalLength": 179.3703186791147,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:21",
           "splitRangeId": "split-range:12",
@@ -3140,8 +3363,26 @@
           "boundaryTotalLength": 179.3703186791147
         }
       ],
-      "polygonCount": 1,
+      "polygonCount": 3,
       "polygons": [
+        [
+          {
+            "x": 113.446724,
+            "y": 154.606177
+          },
+          {
+            "x": 108.645494,
+            "y": 164.537126
+          },
+          {
+            "x": 88.624146,
+            "y": 140.017154
+          },
+          {
+            "x": 96.369977,
+            "y": 133.692433
+          }
+        ],
         [
           {
             "x": 49.516309,
@@ -3159,13 +3400,31 @@
             "x": 26.114841,
             "y": 47.651574
           }
+        ],
+        [
+          {
+            "x": 113.446724,
+            "y": 154.606177
+          },
+          {
+            "x": 108.645494,
+            "y": 164.537126
+          },
+          {
+            "x": 88.624146,
+            "y": 140.017154
+          },
+          {
+            "x": 96.369977,
+            "y": 133.692433
+          }
         ]
       ],
       "bounds": {
         "minX": 18.369009,
         "minY": 47.651574,
-        "maxX": 49.516309,
-        "maxY": 82.635871
+        "maxX": 113.446724,
+        "maxY": 164.537126
       }
     },
     {
@@ -3198,16 +3457,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:12",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 179.3703186791147,
-      "figmaLikeSplitRangeSourceSegmentIndex": 3,
-      "figmaLikeTerminalRole": "end",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:12",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 179.3703186791147,
+      "domainPlanSplitRangeSourceSegmentIndex": 3,
+      "domainPlanTerminalRole": "end",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 113.4467244346451,
           "y": 154.6061771626022
@@ -3217,10 +3476,10 @@
           "y": 15.668954151283657
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 179.3703186791147,
-      "figmaLikeBoundaryTotalLength": 179.3703186791147,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 179.3703186791147,
+      "domainPlanBoundaryTotalLength": 179.3703186791147,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:22",
           "splitRangeId": "split-range:12",
@@ -3276,13 +3535,27 @@
           "boundaryTotalLength": 163.4803605912281
         }
       ],
-      "polygonCount": 2,
+      "polygonCount": 3,
       "polygons": [
         [
           {
-            "x": 0,
-            "y": 15.668954
+            "x": 113.446724,
+            "y": 154.606177
           },
+          {
+            "x": 108.645494,
+            "y": 164.537126
+          },
+          {
+            "x": 97.16252,
+            "y": 150.474026
+          },
+          {
+            "x": 104.908351,
+            "y": 144.149305
+          }
+        ],
+        [
           {
             "x": 11.700734,
             "y": 29.998742
@@ -3292,34 +3565,38 @@
             "y": 36.323463
           },
           {
-            "x": -10.908192,
-            "y": 18.12076
+            "x": -7.745831,
+            "y": 21.993675
           },
           {
-            "x": -3.162361,
-            "y": 11.796038
+            "x": 0,
+            "y": 15.668954
           }
         ],
         [
           {
-            "x": 0,
-            "y": 15.668953936573297
+            "x": 113.446724,
+            "y": 154.606177
           },
           {
-            "x": -5.478242,
-            "y": 13.68703
+            "x": 108.645494,
+            "y": 164.537126
           },
           {
-            "x": -3.162361,
-            "y": 11.796038
+            "x": 97.16252,
+            "y": 150.474026
+          },
+          {
+            "x": 104.908351,
+            "y": 144.149305
           }
         ]
       ],
       "bounds": {
-        "minX": -10.908192,
-        "minY": 11.796038,
-        "maxX": 11.700734,
-        "maxY": 36.323463
+        "minX": -7.745831,
+        "minY": 15.668954,
+        "maxX": 113.446724,
+        "maxY": 164.537126
       }
     },
     {
@@ -3352,16 +3629,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:15",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 123.31901945516438,
-      "figmaLikeSplitRangeSourceSegmentIndex": 3,
-      "figmaLikeTerminalRole": "start",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:15",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 123.31901945516438,
+      "domainPlanSplitRangeSourceSegmentIndex": 3,
+      "domainPlanTerminalRole": "start",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 270.59180204238254,
           "y": 347.0603956649177
@@ -3371,10 +3648,10 @@
           "y": 251.53956349072428
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 123.31901945516438,
-      "figmaLikeBoundaryTotalLength": 123.31901945516438,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 123.31901945516438,
+      "domainPlanBoundaryTotalLength": 123.31901945516438,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:23",
           "splitRangeId": "split-range:15",
@@ -3430,7 +3707,7 @@
           "boundaryTotalLength": 129.3458162776832
         }
       ],
-      "polygonCount": 3,
+      "polygonCount": 1,
       "polygons": [
         [
           {
@@ -3449,40 +3726,12 @@
             "x": 258.891068,
             "y": 332.730608
           }
-        ],
-        [
-          {
-            "x": 273.754163,
-            "y": 350.933311
-          },
-          {
-            "x": 271.875506,
-            "y": 352.467295
-          },
-          {
-            "x": 270.591802,
-            "y": 347.060396
-          }
-        ],
-        [
-          {
-            "x": 273.7541626077534,
-            "y": 350.93331132028555
-          },
-          {
-            "x": 271.875506,
-            "y": 352.467295
-          },
-          {
-            "x": 270.591802,
-            "y": 347.060396
-          }
         ]
       ],
       "bounds": {
         "minX": 251.145237,
         "minY": 332.730608,
-        "maxX": 273.754163,
+        "maxX": 270.591802,
         "maxY": 353.385117
       }
     },
@@ -3516,16 +3765,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:15",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 123.31901945516438,
-      "figmaLikeSplitRangeSourceSegmentIndex": 3,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:15",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 123.31901945516438,
+      "domainPlanSplitRangeSourceSegmentIndex": 3,
+      "domainPlanTerminalRole": "middle",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 270.59180204238254,
           "y": 347.0603956649177
@@ -3535,10 +3784,10 @@
           "y": 251.53956349072428
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 123.31901945516438,
-      "figmaLikeBoundaryTotalLength": 123.31901945516438,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 123.31901945516438,
+      "domainPlanBoundaryTotalLength": 123.31901945516438,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:24",
           "splitRangeId": "split-range:15",
@@ -3567,8 +3816,34 @@
           "boundaryTotalLength": 123.31901945516438
         }
       ],
-      "polygonCount": 1,
+      "polygonCount": 3,
       "polygons": [
+        [
+          {
+            "x": 270.591802,
+            "y": 347.060396
+          },
+          {
+            "x": 270.591801,
+            "y": 347.060394
+          },
+          {
+            "x": 273.754163,
+            "y": 350.933311
+          },
+          {
+            "x": 266.008331,
+            "y": 357.258032
+          },
+          {
+            "x": 245.769224,
+            "y": 332.471372
+          },
+          {
+            "x": 253.515055,
+            "y": 326.146651
+          }
+        ],
         [
           {
             "x": 243.294615,
@@ -3586,13 +3861,27 @@
             "x": 219.893148,
             "y": 284.970192
           }
+        ],
+        [
+          {
+            "x": 273.754163,
+            "y": 350.933311
+          },
+          {
+            "x": 271.875506,
+            "y": 352.467295
+          },
+          {
+            "x": 270.591802,
+            "y": 347.060396
+          }
         ]
       ],
       "bounds": {
         "minX": 212.147316,
         "minY": 284.970192,
-        "maxX": 243.294615,
-        "maxY": 319.954489
+        "maxX": 273.754163,
+        "maxY": 357.258032
       }
     },
     {
@@ -3625,16 +3914,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:15",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 123.31901945516438,
-      "figmaLikeSplitRangeSourceSegmentIndex": 3,
-      "figmaLikeTerminalRole": "end",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:15",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 123.31901945516438,
+      "domainPlanSplitRangeSourceSegmentIndex": 3,
+      "domainPlanTerminalRole": "end",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 270.59180204238254,
           "y": 347.0603956649177
@@ -3644,10 +3933,10 @@
           "y": 251.53956349072428
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 123.31901945516438,
-      "figmaLikeBoundaryTotalLength": 123.31901945516438,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 123.31901945516438,
+      "domainPlanBoundaryTotalLength": 123.31901945516438,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:25",
           "splitRangeId": "split-range:15",
@@ -3703,8 +3992,26 @@
           "boundaryTotalLength": 214.2318039969792
         }
       ],
-      "polygonCount": 2,
+      "polygonCount": 3,
       "polygons": [
+        [
+          {
+            "x": 273.754163,
+            "y": 350.933311
+          },
+          {
+            "x": 266.008331,
+            "y": 357.258032
+          },
+          {
+            "x": 254.307597,
+            "y": 342.928245
+          },
+          {
+            "x": 262.053428,
+            "y": 336.603523
+          }
+        ],
         [
           {
             "x": 204.296695,
@@ -3715,8 +4022,8 @@
             "y": 272.194073
           },
           {
-            "x": 184.072338,
-            "y": 256.911731
+            "x": 184.85013,
+            "y": 257.864285
           },
           {
             "x": 192.595961,
@@ -3725,28 +4032,24 @@
         ],
         [
           {
-            "x": 201.13433498636752,
-            "y": 261.9964360111314
+            "x": 273.7541626077534,
+            "y": 350.93331132028555
           },
           {
-            "x": 193.388503,
-            "y": 268.321157
+            "x": 271.875506,
+            "y": 352.467295
           },
           {
-            "x": 184.072339,
-            "y": 256.911731
-          },
-          {
-            "x": 192.59596090380154,
-            "y": 251.5395630606308
+            "x": 270.591802,
+            "y": 347.060396
           }
         ]
       ],
       "bounds": {
-        "minX": 184.072338,
+        "minX": 184.85013,
         "minY": 251.539563,
-        "maxX": 204.296695,
-        "maxY": 272.194073
+        "maxX": 273.754163,
+        "maxY": 357.258032
       }
     },
     {
@@ -3779,16 +4082,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:16",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 129.3458162776832,
-      "figmaLikeSplitRangeSourceSegmentIndex": 4,
-      "figmaLikeTerminalRole": "start",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:16",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 129.3458162776832,
+      "domainPlanSplitRangeSourceSegmentIndex": 4,
+      "domainPlanTerminalRole": "start",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 240.71311412997423,
           "y": 221.21285219595248
@@ -3798,10 +4101,10 @@
           "y": 347.0603956649177
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 129.3458162776832,
-      "figmaLikeBoundaryTotalLength": 129.3458162776832,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 129.3458162776832,
+      "domainPlanBoundaryTotalLength": 129.3458162776832,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:26",
           "splitRangeId": "split-range:16",
@@ -3861,10 +4164,6 @@
       "polygons": [
         [
           {
-            "x": 250.442655,
-            "y": 218.902867
-          },
-          {
             "x": 254.716127,
             "y": 236.902518
           },
@@ -3877,8 +4176,8 @@
             "y": 221.212852
           },
           {
-            "x": 249.653299,
-            "y": 215.578138
+            "x": 250.442655,
+            "y": 218.902867
           }
         ],
         [
@@ -3887,8 +4186,8 @@
             "y": 221.21285195424937
           },
           {
-            "x": 249.653299,
-            "y": 215.578138
+            "x": 250.44265530079994,
+            "y": 218.90286730343274
           },
           {
             "x": 253.561135,
@@ -3902,7 +4201,7 @@
       ],
       "bounds": {
         "minX": 240.713114,
-        "minY": 215.578138,
+        "minY": 218.902867,
         "maxX": 254.716127,
         "maxY": 239.212503
       }
@@ -3937,16 +4236,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:16",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 129.3458162776832,
-      "figmaLikeSplitRangeSourceSegmentIndex": 4,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:16",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 129.3458162776832,
+      "domainPlanSplitRangeSourceSegmentIndex": 4,
+      "domainPlanTerminalRole": "middle",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 240.71311412997423,
           "y": 221.21285219595248
@@ -3956,10 +4255,10 @@
           "y": 347.0603956649177
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 129.3458162776832,
-      "figmaLikeBoundaryTotalLength": 129.3458162776832,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 129.3458162776832,
+      "domainPlanBoundaryTotalLength": 129.3458162776832,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:27",
           "splitRangeId": "split-range:16",
@@ -3988,7 +4287,7 @@
           "boundaryTotalLength": 129.3458162776832
         }
       ],
-      "polygonCount": 1,
+      "polygonCount": 3,
       "polygons": [
         [
           {
@@ -4007,11 +4306,47 @@
             "x": 261.108527,
             "y": 263.826988
           }
+        ],
+        [
+          {
+            "x": 256.679614,
+            "y": 245.172628
+          },
+          {
+            "x": 246.950073,
+            "y": 247.482613
+          },
+          {
+            "x": 240.713114,
+            "y": 221.212851
+          },
+          {
+            "x": 249.653299,
+            "y": 215.578137
+          }
+        ],
+        [
+          {
+            "x": 256.679614,
+            "y": 245.172628
+          },
+          {
+            "x": 246.950073,
+            "y": 247.482613
+          },
+          {
+            "x": 240.713114,
+            "y": 221.212852
+          },
+          {
+            "x": 249.653299,
+            "y": 215.578138
+          }
         ]
       ],
       "bounds": {
-        "minX": 251.378986,
-        "minY": 263.826988,
+        "minX": 240.713114,
+        "minY": 215.578137,
         "maxX": 269.655471,
         "maxY": 302.136275
       }
@@ -4046,16 +4381,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:16",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 129.3458162776832,
-      "figmaLikeSplitRangeSourceSegmentIndex": 4,
-      "figmaLikeTerminalRole": "end",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:16",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 129.3458162776832,
+      "domainPlanSplitRangeSourceSegmentIndex": 4,
+      "domainPlanTerminalRole": "end",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 240.71311412997423,
           "y": 221.21285219595248
@@ -4065,10 +4400,10 @@
           "y": 347.0603956649177
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 129.3458162776832,
-      "figmaLikeBoundaryTotalLength": 129.3458162776832,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 129.3458162776832,
+      "domainPlanBoundaryTotalLength": 129.3458162776832,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:28",
           "splitRangeId": "split-range:16",
@@ -4124,20 +4459,16 @@
           "boundaryTotalLength": 123.31901945516438
         }
       ],
-      "polygonCount": 2,
+      "polygonCount": 3,
       "polygons": [
         [
           {
-            "x": 277.202863,
-            "y": 331.61553
+            "x": 280.321343,
+            "y": 344.750411
           },
           {
-            "x": 281.476336,
-            "y": 349.615181
-          },
-          {
-            "x": 271.746794,
-            "y": 351.925166
+            "x": 270.591802,
+            "y": 347.060396
           },
           {
             "x": 266.31833,
@@ -4150,24 +4481,46 @@
         ],
         [
           {
-            "x": 270.5918021719283,
-            "y": 347.0603962105579
+            "x": 253.561135,
+            "y": 232.037748
           },
           {
-            "x": 274.106575,
-            "y": 351.364908
+            "x": 243.831594,
+            "y": 234.347733
           },
           {
-            "x": 271.74679440630683,
-            "y": 351.92516590353705
+            "x": 240.713114,
+            "y": 221.212851
+          },
+          {
+            "x": 249.653299,
+            "y": 215.578137
+          }
+        ],
+        [
+          {
+            "x": 240.71311407258915,
+            "y": 221.21285195424937
+          },
+          {
+            "x": 249.653299,
+            "y": 215.578138
+          },
+          {
+            "x": 253.561135,
+            "y": 232.037748
+          },
+          {
+            "x": 243.831594,
+            "y": 234.347733
           }
         ]
       ],
       "bounds": {
-        "minX": 266.31833,
-        "minY": 326.75076,
-        "maxX": 281.476336,
-        "maxY": 351.925166
+        "minX": 240.713114,
+        "minY": 215.578137,
+        "maxX": 280.321343,
+        "maxY": 347.060396
       }
     },
     {
@@ -4200,16 +4553,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:19",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 94.17037908298788,
-      "figmaLikeSplitRangeSourceSegmentIndex": 4,
-      "figmaLikeTerminalRole": "start",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:19",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 94.17037908298788,
+      "domainPlanSplitRangeSourceSegmentIndex": 4,
+      "domainPlanTerminalRole": "start",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 188.1928217922337,
           "y": 0
@@ -4219,10 +4572,10 @@
           "y": 91.62345730373646
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 94.17037908298788,
-      "figmaLikeBoundaryTotalLength": 94.17037908298788,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 94.17037908298788,
+      "domainPlanBoundaryTotalLength": 94.17037908298788,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:29",
           "splitRangeId": "split-range:19",
@@ -4278,7 +4631,7 @@
           "boundaryTotalLength": 79.17911049691465
         }
       ],
-      "polygonCount": 3,
+      "polygonCount": 1,
       "polygons": [
         [
           {
@@ -4297,39 +4650,11 @@
             "x": 197.922363,
             "y": -2.309985
           }
-        ],
-        [
-          {
-            "x": 188.192822,
-            "y": 0
-          },
-          {
-            "x": 187.037829,
-            "y": -4.864771
-          },
-          {
-            "x": 190.999481,
-            "y": -5.805345
-          }
-        ],
-        [
-          {
-            "x": 188.192822,
-            "y": 0
-          },
-          {
-            "x": 187.03782923433374,
-            "y": -4.864771055635436
-          },
-          {
-            "x": 190.999481,
-            "y": -5.805345
-          }
         ]
       ],
       "bounds": {
-        "minX": 187.037829,
-        "minY": -5.805345,
+        "minX": 188.192822,
+        "minY": -2.309985,
         "maxX": 202.195835,
         "maxY": 17.999651
       }
@@ -4364,16 +4689,16 @@
       "solidMaskModelRejectedInternalCornerJoinMode": null,
       "solidMaskModelAdjacencyProbe": [],
       "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:19",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 94.17037908298788,
-      "figmaLikeSplitRangeSourceSegmentIndex": 4,
-      "figmaLikeTerminalRole": "end",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
+      "domainPlanSplitRangeId": "split-range:19",
+      "domainPlanSplitRangeStartDistance": 0,
+      "domainPlanSplitRangeEndDistance": 94.17037908298788,
+      "domainPlanSplitRangeSourceSegmentIndex": 4,
+      "domainPlanTerminalRole": "end",
+      "domainPlanSelectedSide": -1,
+      "domainPlanFilledSide": 1,
+      "domainPlanUnfilledSide": -1,
+      "domainPlanBoundaryRole": "outer",
+      "domainPlanBoundaryPoints": [
         {
           "x": 188.1928217922337,
           "y": 0
@@ -4383,10 +4708,10 @@
           "y": 91.62345730373646
         }
       ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 94.17037908298788,
-      "figmaLikeBoundaryTotalLength": 94.17037908298788,
-      "figmaLikeSplitRangeTerminals": [
+      "domainPlanBoundaryStartDistance": 0,
+      "domainPlanBoundaryEndDistance": 94.17037908298788,
+      "domainPlanBoundaryTotalLength": 94.17037908298788,
+      "domainPlanSplitRangeTerminals": [
         {
           "intervalId": "interval:30",
           "splitRangeId": "split-range:19",
@@ -4442,7 +4767,7 @@
           "boundaryTotalLength": 159.70065283653614
         }
       ],
-      "polygonCount": 2,
+      "polygonCount": 3,
       "polygons": [
         [
           {
@@ -4450,20 +4775,8 @@
             "y": 89.313472
           },
           {
-            "x": 220.83057,
-            "y": 94.178243
-          },
-          {
-            "x": 218.522442,
-            "y": 94.726238
-          },
-          {
             "x": 209.946037,
             "y": 91.623457
-          },
-          {
-            "x": 206.827557,
-            "y": 78.488576
           },
           {
             "x": 205.672565,
@@ -4476,987 +4789,42 @@
         ],
         [
           {
-            "x": 206.82755713465576,
-            "y": 78.48857596803008
+            "x": 201.040842,
+            "y": 10.824896
           },
           {
-            "x": 216.557098,
-            "y": 76.178592
+            "x": 191.311301,
+            "y": 13.13488
           },
           {
-            "x": 220.83057,
-            "y": 94.178243
+            "x": 187.037829,
+            "y": -4.864771
           },
           {
-            "x": 218.522442,
-            "y": 94.726238
-          },
-          {
-            "x": 209.946037,
-            "y": 91.623457
+            "x": 196.76737,
+            "y": -7.174755
           }
-        ]
-      ],
-      "bounds": {
-        "minX": 205.672565,
-        "minY": 71.313821,
-        "maxX": 220.83057,
-        "maxY": 94.726238
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:1:0",
-      "intervalIds": [
-        "interval:2",
-        "interval:9"
-      ],
-      "debugIntervalId": "interval:2",
-      "startDistance": 0,
-      "endDistance": 214.2318039969792,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:3",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 214.2318039969792,
-      "figmaLikeSplitRangeSourceSegmentIndex": 0,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 11.358174406717296,
-          "y": 365.76797704068724
-        },
-        {
-          "x": 113.4467244346451,
-          "y": 154.6061771626022
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 214.2318039969792,
-      "figmaLikeBoundaryTotalLength": 234.5450442336336,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:2",
-          "splitRangeId": "split-range:3",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 234.5450442336336,
-          "terminalRole": "start",
-          "startDistance": 0,
-          "endDistance": 13.5,
-          "sourceSegmentIndex": 0,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 11.358174406717296,
-              "y": 365.76797704068724
-            },
-            {
-              "x": 113.4467244346451,
-              "y": 154.6061771626022
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 234.5450442336336,
-          "boundaryTotalLength": 234.5450442336336
-        },
-        {
-          "intervalId": "interval:9",
-          "splitRangeId": "split-range:4",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 214.2318039969792,
-          "terminalRole": "end",
-          "startDistance": 200.7318039969792,
-          "endDistance": 214.2318039969792,
-          "sourceSegmentIndex": 1,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 192.59596125498675,
-              "y": 251.53956349072428
-            },
-            {
-              "x": 11.358174406717296,
-              "y": 365.76797704068724
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 214.2318039969792,
-          "boundaryTotalLength": 214.2318039969792
-        },
-        {
-          "intervalId": "interval:9",
-          "splitRangeId": "split-range:4",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 214.2318039969792,
-          "terminalRole": "end",
-          "startDistance": 200.7318039969792,
-          "endDistance": 214.2318039969792,
-          "sourceSegmentIndex": 1,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 192.59596125498675,
-              "y": 251.53956349072428
-            },
-            {
-              "x": 11.358174406717296,
-              "y": 365.76797704068724
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 214.2318039969792,
-          "boundaryTotalLength": 214.2318039969792
-        },
-        {
-          "intervalId": "interval:2",
-          "splitRangeId": "split-range:3",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 234.5450442336336,
-          "terminalRole": "start",
-          "startDistance": 0,
-          "endDistance": 13.5,
-          "sourceSegmentIndex": 0,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 11.358174406717296,
-              "y": 365.76797704068724
-            },
-            {
-              "x": 113.4467244346451,
-              "y": 154.6061771626022
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 234.5450442336336,
-          "boundaryTotalLength": 234.5450442336336
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
+        ],
         [
-          {
-            "x": 11.358174,
-            "y": 365.767977
-          },
-          {
-            "x": 16.690175,
-            "y": 374.227869
-          },
-          {
-            "x": -12.836209,
-            "y": 392.83741
-          },
-          {
-            "x": 2.355136,
-            "y": 361.415357
-          }
-        ]
-      ],
-      "bounds": {
-        "minX": -12.836209,
-        "minY": 361.415357,
-        "maxX": 16.690175,
-        "maxY": 392.83741
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:2:1",
-      "intervalIds": [
-        "interval:10",
-        "interval:15"
-      ],
-      "debugIntervalId": "interval:10",
-      "startDistance": 0,
-      "endDistance": 159.70065283653614,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:7",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 159.70065283653614,
-      "figmaLikeSplitRangeSourceSegmentIndex": 1,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 360.12094148356584,
-          "y": 145.95389587539378
-        },
-        {
-          "x": 240.71311412997423,
-          "y": 221.21285219595248
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 159.70065283653614,
-      "figmaLikeBoundaryTotalLength": 141.1458102097434,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:10",
-          "splitRangeId": "split-range:7",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 141.1458102097434,
-          "terminalRole": "start",
-          "startDistance": 0,
-          "endDistance": 13.5,
-          "sourceSegmentIndex": 1,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 360.12094148356584,
-              "y": 145.95389587539378
-            },
-            {
-              "x": 240.71311412997423,
-              "y": 221.21285219595248
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 141.1458102097434,
-          "boundaryTotalLength": 141.1458102097434
-        },
-        {
-          "intervalId": "interval:15",
-          "splitRangeId": "split-range:8",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 159.70065283653614,
-          "terminalRole": "end",
-          "startDistance": 146.20065283653614,
-          "endDistance": 159.70065283653614,
-          "sourceSegmentIndex": 2,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 209.94603691883103,
-              "y": 91.62345730373646
-            },
-            {
-              "x": 360.12094148356584,
-              "y": 145.95389587539378
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 159.70065283653614,
-          "boundaryTotalLength": 159.70065283653614
-        },
-        {
-          "intervalId": "interval:15",
-          "splitRangeId": "split-range:8",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 159.70065283653614,
-          "terminalRole": "end",
-          "startDistance": 146.20065283653614,
-          "endDistance": 159.70065283653614,
-          "sourceSegmentIndex": 2,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 209.94603691883103,
-              "y": 91.62345730373646
-            },
-            {
-              "x": 360.12094148356584,
-              "y": 145.95389587539378
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 159.70065283653614,
-          "boundaryTotalLength": 159.70065283653614
-        },
-        {
-          "intervalId": "interval:10",
-          "splitRangeId": "split-range:7",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 141.1458102097434,
-          "terminalRole": "start",
-          "startDistance": 0,
-          "endDistance": 13.5,
-          "sourceSegmentIndex": 1,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 360.12094148356584,
-              "y": 145.95389587539378
-            },
-            {
-              "x": 240.71311412997423,
-              "y": 221.21285219595248
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 141.1458102097434,
-          "boundaryTotalLength": 141.1458102097434
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
-        [
-          {
-            "x": 382.755697,
-            "y": 143.508412
-          },
-          {
-            "x": 365.452942,
-            "y": 154.413788
-          },
-          {
-            "x": 360.120941,
-            "y": 145.953896
-          },
-          {
-            "x": 363.522959,
-            "y": 136.550371
-          }
-        ]
-      ],
-      "bounds": {
-        "minX": 360.120941,
-        "minY": 136.550371,
-        "maxX": 382.755697,
-        "maxY": 154.413788
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:3:2",
-      "intervalIds": [
-        "interval:16",
-        "interval:22"
-      ],
-      "debugIntervalId": "interval:16",
-      "startDistance": 0,
-      "endDistance": 179.3703186791147,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:11",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 179.3703186791147,
-      "figmaLikeSplitRangeSourceSegmentIndex": 2,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 0,
-          "y": 15.668954151283657
-        },
-        {
-          "x": 153.72916211635828,
-          "y": 71.28525584458582
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 179.3703186791147,
-      "figmaLikeBoundaryTotalLength": 163.4803605912281,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:16",
-          "splitRangeId": "split-range:11",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 163.4803605912281,
-          "terminalRole": "start",
-          "startDistance": 0,
-          "endDistance": 13.5,
-          "sourceSegmentIndex": 2,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 0,
-              "y": 15.668954151283657
-            },
-            {
-              "x": 153.72916211635828,
-              "y": 71.28525584458582
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 163.4803605912281,
-          "boundaryTotalLength": 163.4803605912281
-        },
-        {
-          "intervalId": "interval:22",
-          "splitRangeId": "split-range:12",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 179.3703186791147,
-          "terminalRole": "end",
-          "startDistance": 165.8703186791147,
-          "endDistance": 179.3703186791147,
-          "sourceSegmentIndex": 3,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 113.4467244346451,
-              "y": 154.6061771626022
-            },
-            {
-              "x": 0,
-              "y": 15.668954151283657
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 179.3703186791147,
-          "boundaryTotalLength": 179.3703186791147
-        },
-        {
-          "intervalId": "interval:22",
-          "splitRangeId": "split-range:12",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 179.3703186791147,
-          "terminalRole": "end",
-          "startDistance": 165.8703186791147,
-          "endDistance": 179.3703186791147,
-          "sourceSegmentIndex": 3,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 113.4467244346451,
-              "y": 154.6061771626022
-            },
-            {
-              "x": 0,
-              "y": 15.668954151283657
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 179.3703186791147,
-          "boundaryTotalLength": 179.3703186791147
-        },
-        {
-          "intervalId": "interval:16",
-          "splitRangeId": "split-range:11",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 163.4803605912281,
-          "terminalRole": "start",
-          "startDistance": 0,
-          "endDistance": 13.5,
-          "sourceSegmentIndex": 2,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 0,
-              "y": 15.668954151283657
-            },
-            {
-              "x": 153.72916211635828,
-              "y": 71.28525584458582
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 163.4803605912281,
-          "boundaryTotalLength": 163.4803605912281
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
-        [
-          {
-            "x": 3.402017,
-            "y": 6.265429
-          },
-          {
-            "x": 0,
-            "y": 15.668954
-          },
-          {
-            "x": -7.745831,
-            "y": 21.993675
-          },
-          {
-            "x": -30.646621,
-            "y": -6.052723
-          }
-        ]
-      ],
-      "bounds": {
-        "minX": -30.646621,
-        "minY": -6.052723,
-        "maxX": 3.402017,
-        "maxY": 21.993675
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:4:3",
-      "intervalIds": [
-        "interval:23",
-        "interval:28"
-      ],
-      "debugIntervalId": "interval:23",
-      "startDistance": 0,
-      "endDistance": 129.3458162776832,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:15",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 129.3458162776832,
-      "figmaLikeSplitRangeSourceSegmentIndex": 3,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 270.59180204238254,
-          "y": 347.0603956649177
-        },
-        {
-          "x": 192.59596125498675,
-          "y": 251.53956349072428
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 129.3458162776832,
-      "figmaLikeBoundaryTotalLength": 123.31901945516438,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:23",
-          "splitRangeId": "split-range:15",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 123.31901945516438,
-          "terminalRole": "start",
-          "startDistance": 0,
-          "endDistance": 13.5,
-          "sourceSegmentIndex": 3,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 270.59180204238254,
-              "y": 347.0603956649177
-            },
-            {
-              "x": 192.59596125498675,
-              "y": 251.53956349072428
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 123.31901945516438,
-          "boundaryTotalLength": 123.31901945516438
-        },
-        {
-          "intervalId": "interval:28",
-          "splitRangeId": "split-range:16",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 129.3458162776832,
-          "terminalRole": "end",
-          "startDistance": 115.84581627768321,
-          "endDistance": 129.3458162776832,
-          "sourceSegmentIndex": 4,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 240.71311412997423,
-              "y": 221.21285219595248
-            },
-            {
-              "x": 270.59180204238254,
-              "y": 347.0603956649177
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 129.3458162776832,
-          "boundaryTotalLength": 129.3458162776832
-        },
-        {
-          "intervalId": "interval:28",
-          "splitRangeId": "split-range:16",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 129.3458162776832,
-          "terminalRole": "end",
-          "startDistance": 115.84581627768321,
-          "endDistance": 129.3458162776832,
-          "sourceSegmentIndex": 4,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 240.71311412997423,
-              "y": 221.21285219595248
-            },
-            {
-              "x": 270.59180204238254,
-              "y": 347.0603956649177
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 129.3458162776832,
-          "boundaryTotalLength": 129.3458162776832
-        },
-        {
-          "intervalId": "interval:23",
-          "splitRangeId": "split-range:15",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 123.31901945516438,
-          "terminalRole": "start",
-          "startDistance": 0,
-          "endDistance": 13.5,
-          "sourceSegmentIndex": 3,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 270.59180204238254,
-              "y": 347.0603956649177
-            },
-            {
-              "x": 192.59596125498675,
-              "y": 251.53956349072428
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 123.31901945516438,
-          "boundaryTotalLength": 123.31901945516438
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
-        [
-          {
-            "x": 288.308106,
-            "y": 382.915585
-          },
-          {
-            "x": 262.845971,
-            "y": 353.385117
-          },
-          {
-            "x": 270.591802,
-            "y": 347.060396
-          },
-          {
-            "x": 280.321343,
-            "y": 344.750411
-          }
-        ]
-      ],
-      "bounds": {
-        "minX": 262.845971,
-        "minY": 344.750411,
-        "maxX": 288.308106,
-        "maxY": 382.915585
-      }
-    },
-    {
-      "geometryId": "vector:vector-1:tn-4:constrained-dashed:0:source-vertex-join:0:4",
-      "intervalIds": [
-        "interval:29",
-        "interval:1"
-      ],
-      "debugIntervalId": "interval:29",
-      "startDistance": 0,
-      "endDistance": 79.17911049691465,
-      "geometryFamily": "constrained-dashed",
-      "resolutionStatus": "exact-constrained",
-      "runtimeStatus": "accepted",
-      "sourceTopology": "self-intersecting",
-      "finalCoverageBuilderStatus": "product-final",
-      "visualOverlapCollapseStatus": null,
-      "strokePosition": "outside",
-      "strokeWidth": 10,
-      "solidMaskModelMaskApplication": null,
-      "solidMaskModelVisibleRender": null,
-      "solidMaskModelCoverageOracle": null,
-      "solidMaskModelMaskSide": null,
-      "solidMaskModelInsideMaskMode": null,
-      "solidMaskModelRejectedMaskMode": null,
-      "solidMaskModelVisibleMaskMode": null,
-      "solidMaskModelJoinGeometrySource": null,
-      "solidMaskModelRejectedVisibleMaskMode": null,
-      "solidMaskModelInternalCornerJoinMode": null,
-      "solidMaskModelJoinEligibilityMode": null,
-      "solidMaskModelRejectedInternalCornerJoinMode": null,
-      "solidMaskModelAdjacencyProbe": [],
-      "solidMaskModelFaceOwnershipTrace": [],
-      "figmaLikeSplitRangeId": "split-range:19",
-      "figmaLikeSplitRangeStartDistance": 0,
-      "figmaLikeSplitRangeEndDistance": 79.17911049691465,
-      "figmaLikeSplitRangeSourceSegmentIndex": 4,
-      "figmaLikeTerminalRole": "middle",
-      "figmaLikeSelectedSide": -1,
-      "figmaLikeFilledSide": 1,
-      "figmaLikeUnfilledSide": -1,
-      "figmaLikeBoundaryRole": "outer",
-      "figmaLikeBoundaryPoints": [
-        {
-          "x": 188.1928217922337,
-          "y": 0
-        },
-        {
-          "x": 209.94603691883103,
-          "y": 91.62345730373646
-        }
-      ],
-      "figmaLikeBoundaryStartDistance": 0,
-      "figmaLikeBoundaryEndDistance": 79.17911049691465,
-      "figmaLikeBoundaryTotalLength": 94.17037908298788,
-      "figmaLikeSplitRangeTerminals": [
-        {
-          "intervalId": "interval:29",
-          "splitRangeId": "split-range:19",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 94.17037908298788,
-          "terminalRole": "start",
-          "startDistance": 0,
-          "endDistance": 13.5,
-          "sourceSegmentIndex": 4,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 188.1928217922337,
-              "y": 0
-            },
-            {
-              "x": 209.94603691883103,
-              "y": 91.62345730373646
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 94.17037908298788,
-          "boundaryTotalLength": 94.17037908298788
-        },
-        {
-          "intervalId": "interval:1",
-          "splitRangeId": "split-range:0",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 79.17911049691465,
-          "terminalRole": "end",
-          "startDistance": 65.67911049691465,
-          "endDistance": 79.17911049691465,
-          "sourceSegmentIndex": 0,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 153.72916211635828,
-              "y": 71.28525584458582
-            },
-            {
-              "x": 188.1928217922337,
-              "y": 0
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 79.17911049691465,
-          "boundaryTotalLength": 79.17911049691465
-        },
-        {
-          "intervalId": "interval:1",
-          "splitRangeId": "split-range:0",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 79.17911049691465,
-          "terminalRole": "end",
-          "startDistance": 65.67911049691465,
-          "endDistance": 79.17911049691465,
-          "sourceSegmentIndex": 0,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 153.72916211635828,
-              "y": 71.28525584458582
-            },
-            {
-              "x": 188.1928217922337,
-              "y": 0
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 79.17911049691465,
-          "boundaryTotalLength": 79.17911049691465
-        },
-        {
-          "intervalId": "interval:29",
-          "splitRangeId": "split-range:19",
-          "splitRangeStartDistance": 0,
-          "splitRangeEndDistance": 94.17037908298788,
-          "terminalRole": "start",
-          "startDistance": 0,
-          "endDistance": 13.5,
-          "sourceSegmentIndex": 4,
-          "selectedSide": -1,
-          "filledSide": 1,
-          "unfilledSide": -1,
-          "boundaryRole": "outer",
-          "boundaryPoints": [
-            {
-              "x": 188.1928217922337,
-              "y": 0
-            },
-            {
-              "x": 209.94603691883103,
-              "y": 91.62345730373646
-            }
-          ],
-          "boundaryStartDistance": 0,
-          "boundaryEndDistance": 94.17037908298788,
-          "boundaryTotalLength": 94.17037908298788
-        }
-      ],
-      "polygonCount": 1,
-      "polygons": [
-        [
-          {
-            "x": 197.922363,
-            "y": -2.309985
-          },
           {
             "x": 188.192822,
             "y": 0
           },
           {
-            "x": 179.189784,
-            "y": -4.35262
+            "x": 187.03782923433374,
+            "y": -4.864771055635436
           },
           {
-            "x": 191.42761,
-            "y": -29.665561
+            "x": 190.999481,
+            "y": -5.805345
           }
         ]
       ],
       "bounds": {
-        "minX": 179.189784,
-        "minY": -29.665561,
-        "maxX": 197.922363,
-        "maxY": 0
+        "minX": 187.037829,
+        "minY": -7.174755,
+        "maxX": 219.675578,
+        "maxY": 91.623457
       }
     }
   ],

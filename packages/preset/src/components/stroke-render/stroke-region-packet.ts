@@ -47,25 +47,25 @@ export interface StrokeRegionPacket {
   topologyFamily?: string
   intervalTopology?: string
   strokePosition?: 'center' | 'inside' | 'outside'
-  figmaLikeBoundaryDomainId?: string
-  figmaLikeBoundaryPoints?: StrokeFinalFaceDebugMetaBase['figmaLikeBoundaryPoints']
-  figmaLikeBoundaryStartDistance?: number
-  figmaLikeBoundaryEndDistance?: number
-  figmaLikeBoundaryTotalLength?: number
-  figmaLikeSplitRangeId?: string
-  figmaLikeSplitRangeStartDistance?: number
-  figmaLikeSplitRangeEndDistance?: number
-  figmaLikeTerminalRole?: 'start' | 'end' | 'start-end' | 'middle'
-  figmaLikeSplitRangeSourceSegmentIndex?: number
-  figmaLikeSideAuthority?: 'implicit-fill-hole-domain'
-  figmaLikeSelectedSide?: 1 | -1
-  figmaLikeFilledSide?: 1 | -1
-  figmaLikeUnfilledSide?: 1 | -1
-  figmaLikeBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
-  figmaLikeSideResolutionStatus?: 'resolved' | 'blocked'
-  figmaLikeSideResolutionReason?: string
-  figmaLikeSplitRangeTerminals?: NonNullable<
-    StrokeFinalFaceDebugMetaBase['figmaLikeSplitRangeTerminals']
+  domainPlanBoundaryDomainId?: string
+  domainPlanBoundaryPoints?: StrokeFinalFaceDebugMetaBase['domainPlanBoundaryPoints']
+  domainPlanBoundaryStartDistance?: number
+  domainPlanBoundaryEndDistance?: number
+  domainPlanBoundaryTotalLength?: number
+  domainPlanSplitRangeId?: string
+  domainPlanSplitRangeStartDistance?: number
+  domainPlanSplitRangeEndDistance?: number
+  domainPlanTerminalRole?: 'start' | 'end' | 'start-end' | 'middle'
+  domainPlanSplitRangeSourceSegmentIndex?: number
+  domainPlanSideAuthority?: 'implicit-fill-hole-domain'
+  domainPlanSelectedSide?: 1 | -1
+  domainPlanFilledSide?: 1 | -1
+  domainPlanUnfilledSide?: 1 | -1
+  domainPlanBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
+  domainPlanSideResolutionStatus?: 'resolved' | 'blocked'
+  domainPlanSideResolutionReason?: string
+  domainPlanSplitRangeTerminals?: NonNullable<
+    StrokeFinalFaceDebugMetaBase['domainPlanSplitRangeTerminals']
   >
   arrangementStatus?: 'exact'
   arrangementFaceId?: string
@@ -109,33 +109,35 @@ export const buildStrokeRegionPacketsFromFinalFaces = (
     topologyFamily: face.debugMeta?.topologyFamily,
     intervalTopology: face.debugMeta?.intervalTopology,
     strokePosition: face.debugMeta?.strokePosition,
-    figmaLikeBoundaryDomainId: face.debugMeta?.figmaLikeBoundaryDomainId,
-    figmaLikeBoundaryPoints: face.debugMeta?.figmaLikeBoundaryPoints
-      ? face.debugMeta.figmaLikeBoundaryPoints.map((point) => ({ ...point }))
+    domainPlanBoundaryDomainId: face.debugMeta?.domainPlanBoundaryDomainId,
+    domainPlanBoundaryPoints: face.debugMeta?.domainPlanBoundaryPoints
+      ? face.debugMeta.domainPlanBoundaryPoints.map((point) => ({ ...point }))
       : undefined,
-    figmaLikeBoundaryStartDistance:
-      face.debugMeta?.figmaLikeBoundaryStartDistance,
-    figmaLikeBoundaryEndDistance: face.debugMeta?.figmaLikeBoundaryEndDistance,
-    figmaLikeBoundaryTotalLength: face.debugMeta?.figmaLikeBoundaryTotalLength,
-    figmaLikeSplitRangeId: face.debugMeta?.figmaLikeSplitRangeId,
-    figmaLikeSplitRangeStartDistance:
-      face.debugMeta?.figmaLikeSplitRangeStartDistance,
-    figmaLikeSplitRangeEndDistance:
-      face.debugMeta?.figmaLikeSplitRangeEndDistance,
-    figmaLikeTerminalRole: face.debugMeta?.figmaLikeTerminalRole,
-    figmaLikeSplitRangeSourceSegmentIndex:
-      face.debugMeta?.figmaLikeSplitRangeSourceSegmentIndex,
-    figmaLikeSideAuthority: face.debugMeta?.figmaLikeSideAuthority,
-    figmaLikeSelectedSide: face.debugMeta?.figmaLikeSelectedSide,
-    figmaLikeFilledSide: face.debugMeta?.figmaLikeFilledSide,
-    figmaLikeUnfilledSide: face.debugMeta?.figmaLikeUnfilledSide,
-    figmaLikeBoundaryRole: face.debugMeta?.figmaLikeBoundaryRole,
-    figmaLikeSideResolutionStatus:
-      face.debugMeta?.figmaLikeSideResolutionStatus,
-    figmaLikeSideResolutionReason:
-      face.debugMeta?.figmaLikeSideResolutionReason,
-    figmaLikeSplitRangeTerminals: face.debugMeta?.figmaLikeSplitRangeTerminals
-      ? face.debugMeta.figmaLikeSplitRangeTerminals.map((terminal) => ({
+    domainPlanBoundaryStartDistance:
+      face.debugMeta?.domainPlanBoundaryStartDistance,
+    domainPlanBoundaryEndDistance:
+      face.debugMeta?.domainPlanBoundaryEndDistance,
+    domainPlanBoundaryTotalLength:
+      face.debugMeta?.domainPlanBoundaryTotalLength,
+    domainPlanSplitRangeId: face.debugMeta?.domainPlanSplitRangeId,
+    domainPlanSplitRangeStartDistance:
+      face.debugMeta?.domainPlanSplitRangeStartDistance,
+    domainPlanSplitRangeEndDistance:
+      face.debugMeta?.domainPlanSplitRangeEndDistance,
+    domainPlanTerminalRole: face.debugMeta?.domainPlanTerminalRole,
+    domainPlanSplitRangeSourceSegmentIndex:
+      face.debugMeta?.domainPlanSplitRangeSourceSegmentIndex,
+    domainPlanSideAuthority: face.debugMeta?.domainPlanSideAuthority,
+    domainPlanSelectedSide: face.debugMeta?.domainPlanSelectedSide,
+    domainPlanFilledSide: face.debugMeta?.domainPlanFilledSide,
+    domainPlanUnfilledSide: face.debugMeta?.domainPlanUnfilledSide,
+    domainPlanBoundaryRole: face.debugMeta?.domainPlanBoundaryRole,
+    domainPlanSideResolutionStatus:
+      face.debugMeta?.domainPlanSideResolutionStatus,
+    domainPlanSideResolutionReason:
+      face.debugMeta?.domainPlanSideResolutionReason,
+    domainPlanSplitRangeTerminals: face.debugMeta?.domainPlanSplitRangeTerminals
+      ? face.debugMeta.domainPlanSplitRangeTerminals.map((terminal) => ({
           ...terminal
         }))
       : undefined,

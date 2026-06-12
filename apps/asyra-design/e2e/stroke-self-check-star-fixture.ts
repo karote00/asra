@@ -810,20 +810,20 @@ export const getSelfCheckMetadata = async (page: Page) =>
           solidMaskModelRejectedInternalCornerJoinMode?: unknown
           solidMaskModelAdjacencyProbe?: unknown
           solidMaskModelFaceOwnershipTrace?: unknown
-          figmaLikeSplitRangeId?: unknown
-          figmaLikeSplitRangeStartDistance?: unknown
-          figmaLikeSplitRangeEndDistance?: unknown
-          figmaLikeSplitRangeSourceSegmentIndex?: unknown
-          figmaLikeTerminalRole?: unknown
-          figmaLikeSelectedSide?: unknown
-          figmaLikeFilledSide?: unknown
-          figmaLikeUnfilledSide?: unknown
-          figmaLikeBoundaryRole?: unknown
-          figmaLikeBoundaryPoints?: unknown
-          figmaLikeBoundaryStartDistance?: unknown
-          figmaLikeBoundaryEndDistance?: unknown
-          figmaLikeBoundaryTotalLength?: unknown
-          figmaLikeSplitRangeTerminals?: unknown
+          domainPlanSplitRangeId?: unknown
+          domainPlanSplitRangeStartDistance?: unknown
+          domainPlanSplitRangeEndDistance?: unknown
+          domainPlanSplitRangeSourceSegmentIndex?: unknown
+          domainPlanTerminalRole?: unknown
+          domainPlanSelectedSide?: unknown
+          domainPlanFilledSide?: unknown
+          domainPlanUnfilledSide?: unknown
+          domainPlanBoundaryRole?: unknown
+          domainPlanBoundaryPoints?: unknown
+          domainPlanBoundaryStartDistance?: unknown
+          domainPlanBoundaryEndDistance?: unknown
+          domainPlanBoundaryTotalLength?: unknown
+          domainPlanSplitRangeTerminals?: unknown
         }
         geometryId?: unknown
         intervalIds?: unknown
@@ -1018,150 +1018,157 @@ export const getSelfCheckMetadata = async (page: Page) =>
                 }
               )
             : [],
-          figmaLikeSplitRangeId:
-            typeof packet.debugMeta?.figmaLikeSplitRangeId === 'string'
-              ? packet.debugMeta.figmaLikeSplitRangeId
+          domainPlanSplitRangeId:
+            typeof packet.debugMeta?.domainPlanSplitRangeId === 'string'
+              ? packet.debugMeta.domainPlanSplitRangeId
               : null,
-          figmaLikeSplitRangeStartDistance:
-            typeof packet.debugMeta?.figmaLikeSplitRangeStartDistance ===
+          domainPlanSplitRangeStartDistance:
+            typeof packet.debugMeta?.domainPlanSplitRangeStartDistance ===
             'number'
-              ? packet.debugMeta.figmaLikeSplitRangeStartDistance
+              ? packet.debugMeta.domainPlanSplitRangeStartDistance
               : null,
-          figmaLikeSplitRangeEndDistance:
-            typeof packet.debugMeta?.figmaLikeSplitRangeEndDistance === 'number'
-              ? packet.debugMeta.figmaLikeSplitRangeEndDistance
-              : null,
-          figmaLikeSplitRangeSourceSegmentIndex:
-            typeof packet.debugMeta?.figmaLikeSplitRangeSourceSegmentIndex ===
+          domainPlanSplitRangeEndDistance:
+            typeof packet.debugMeta?.domainPlanSplitRangeEndDistance ===
             'number'
-              ? packet.debugMeta.figmaLikeSplitRangeSourceSegmentIndex
+              ? packet.debugMeta.domainPlanSplitRangeEndDistance
               : null,
-          figmaLikeTerminalRole:
-            typeof packet.debugMeta?.figmaLikeTerminalRole === 'string'
-              ? packet.debugMeta.figmaLikeTerminalRole
+          domainPlanSplitRangeSourceSegmentIndex:
+            typeof packet.debugMeta?.domainPlanSplitRangeSourceSegmentIndex ===
+            'number'
+              ? packet.debugMeta.domainPlanSplitRangeSourceSegmentIndex
               : null,
-          figmaLikeSelectedSide:
-            packet.debugMeta?.figmaLikeSelectedSide === 1 ||
-            packet.debugMeta?.figmaLikeSelectedSide === -1
-              ? packet.debugMeta.figmaLikeSelectedSide
+          domainPlanTerminalRole:
+            typeof packet.debugMeta?.domainPlanTerminalRole === 'string'
+              ? packet.debugMeta.domainPlanTerminalRole
               : null,
-          figmaLikeFilledSide:
-            packet.debugMeta?.figmaLikeFilledSide === 1 ||
-            packet.debugMeta?.figmaLikeFilledSide === -1
-              ? packet.debugMeta.figmaLikeFilledSide
+          domainPlanSelectedSide:
+            packet.debugMeta?.domainPlanSelectedSide === 1 ||
+            packet.debugMeta?.domainPlanSelectedSide === -1
+              ? packet.debugMeta.domainPlanSelectedSide
               : null,
-          figmaLikeUnfilledSide:
-            packet.debugMeta?.figmaLikeUnfilledSide === 1 ||
-            packet.debugMeta?.figmaLikeUnfilledSide === -1
-              ? packet.debugMeta.figmaLikeUnfilledSide
+          domainPlanFilledSide:
+            packet.debugMeta?.domainPlanFilledSide === 1 ||
+            packet.debugMeta?.domainPlanFilledSide === -1
+              ? packet.debugMeta.domainPlanFilledSide
               : null,
-          figmaLikeBoundaryRole:
-            packet.debugMeta?.figmaLikeBoundaryRole === 'outer' ||
-            packet.debugMeta?.figmaLikeBoundaryRole === 'filled-face' ||
-            packet.debugMeta?.figmaLikeBoundaryRole === 'hole' ||
-            packet.debugMeta?.figmaLikeBoundaryRole === 'ambiguous'
-              ? packet.debugMeta.figmaLikeBoundaryRole
+          domainPlanUnfilledSide:
+            packet.debugMeta?.domainPlanUnfilledSide === 1 ||
+            packet.debugMeta?.domainPlanUnfilledSide === -1
+              ? packet.debugMeta.domainPlanUnfilledSide
               : null,
-          figmaLikeBoundaryPoints: getPoints(
-            packet.debugMeta?.figmaLikeBoundaryPoints
+          domainPlanBoundaryRole:
+            packet.debugMeta?.domainPlanBoundaryRole === 'outer' ||
+            packet.debugMeta?.domainPlanBoundaryRole === 'filled-face' ||
+            packet.debugMeta?.domainPlanBoundaryRole === 'hole' ||
+            packet.debugMeta?.domainPlanBoundaryRole === 'ambiguous'
+              ? packet.debugMeta.domainPlanBoundaryRole
+              : null,
+          domainPlanBoundaryPoints: getPoints(
+            packet.debugMeta?.domainPlanBoundaryPoints
           ),
-          figmaLikeBoundaryStartDistance:
-            typeof packet.debugMeta?.figmaLikeBoundaryStartDistance === 'number'
-              ? packet.debugMeta.figmaLikeBoundaryStartDistance
+          domainPlanBoundaryStartDistance:
+            typeof packet.debugMeta?.domainPlanBoundaryStartDistance ===
+            'number'
+              ? packet.debugMeta.domainPlanBoundaryStartDistance
               : null,
-          figmaLikeBoundaryEndDistance:
-            typeof packet.debugMeta?.figmaLikeBoundaryEndDistance === 'number'
-              ? packet.debugMeta.figmaLikeBoundaryEndDistance
+          domainPlanBoundaryEndDistance:
+            typeof packet.debugMeta?.domainPlanBoundaryEndDistance === 'number'
+              ? packet.debugMeta.domainPlanBoundaryEndDistance
               : null,
-          figmaLikeBoundaryTotalLength:
-            typeof packet.debugMeta?.figmaLikeBoundaryTotalLength === 'number'
-              ? packet.debugMeta.figmaLikeBoundaryTotalLength
+          domainPlanBoundaryTotalLength:
+            typeof packet.debugMeta?.domainPlanBoundaryTotalLength === 'number'
+              ? packet.debugMeta.domainPlanBoundaryTotalLength
               : null,
-          figmaLikeSplitRangeTerminals: Array.isArray(
-            packet.debugMeta?.figmaLikeSplitRangeTerminals
+          domainPlanSplitRangeTerminals: Array.isArray(
+            packet.debugMeta?.domainPlanSplitRangeTerminals
           )
-            ? packet.debugMeta.figmaLikeSplitRangeTerminals.flatMap((entry) => {
-                if (!entry || typeof entry !== 'object') {
-                  return []
+            ? packet.debugMeta.domainPlanSplitRangeTerminals.flatMap(
+                (entry) => {
+                  if (!entry || typeof entry !== 'object') {
+                    return []
+                  }
+                  const record = entry as Record<string, unknown>
+                  return typeof record.intervalId === 'string' &&
+                    typeof record.splitRangeId === 'string' &&
+                    typeof record.splitRangeStartDistance === 'number' &&
+                    typeof record.splitRangeEndDistance === 'number' &&
+                    typeof record.terminalRole === 'string' &&
+                    typeof record.startDistance === 'number' &&
+                    typeof record.endDistance === 'number'
+                    ? [
+                        {
+                          intervalId: record.intervalId,
+                          splitRangeId: record.splitRangeId,
+                          splitRangeStartDistance:
+                            record.splitRangeStartDistance,
+                          splitRangeEndDistance: record.splitRangeEndDistance,
+                          terminalRole: record.terminalRole,
+                          startDistance: record.startDistance,
+                          endDistance: record.endDistance,
+                          sourceSegmentIndex:
+                            typeof record.sourceSegmentIndex === 'number'
+                              ? record.sourceSegmentIndex
+                              : typeof packet.debugMeta
+                                    ?.domainPlanSplitRangeSourceSegmentIndex ===
+                                  'number'
+                                ? packet.debugMeta
+                                    .domainPlanSplitRangeSourceSegmentIndex
+                                : null,
+                          selectedSide:
+                            record.selectedSide === 1 ||
+                            record.selectedSide === -1
+                              ? record.selectedSide
+                              : null,
+                          filledSide:
+                            record.filledSide === 1 || record.filledSide === -1
+                              ? record.filledSide
+                              : null,
+                          unfilledSide:
+                            record.unfilledSide === 1 ||
+                            record.unfilledSide === -1
+                              ? record.unfilledSide
+                              : null,
+                          boundaryRole:
+                            record.boundaryRole === 'outer' ||
+                            record.boundaryRole === 'filled-face' ||
+                            record.boundaryRole === 'hole' ||
+                            record.boundaryRole === 'ambiguous'
+                              ? record.boundaryRole
+                              : null,
+                          boundaryPoints:
+                            getPoints(record.boundaryPoints).length > 0
+                              ? getPoints(record.boundaryPoints)
+                              : getPoints(
+                                  packet.debugMeta?.domainPlanBoundaryPoints
+                                ),
+                          boundaryStartDistance:
+                            typeof record.boundaryStartDistance === 'number'
+                              ? record.boundaryStartDistance
+                              : typeof packet.debugMeta
+                                    ?.domainPlanBoundaryStartDistance ===
+                                  'number'
+                                ? packet.debugMeta
+                                    .domainPlanBoundaryStartDistance
+                                : null,
+                          boundaryEndDistance:
+                            typeof record.boundaryEndDistance === 'number'
+                              ? record.boundaryEndDistance
+                              : typeof packet.debugMeta
+                                    ?.domainPlanBoundaryEndDistance === 'number'
+                                ? packet.debugMeta.domainPlanBoundaryEndDistance
+                                : null,
+                          boundaryTotalLength:
+                            typeof record.boundaryTotalLength === 'number'
+                              ? record.boundaryTotalLength
+                              : typeof packet.debugMeta
+                                    ?.domainPlanBoundaryTotalLength === 'number'
+                                ? packet.debugMeta.domainPlanBoundaryTotalLength
+                                : null
+                        }
+                      ]
+                    : []
                 }
-                const record = entry as Record<string, unknown>
-                return typeof record.intervalId === 'string' &&
-                  typeof record.splitRangeId === 'string' &&
-                  typeof record.splitRangeStartDistance === 'number' &&
-                  typeof record.splitRangeEndDistance === 'number' &&
-                  typeof record.terminalRole === 'string' &&
-                  typeof record.startDistance === 'number' &&
-                  typeof record.endDistance === 'number'
-                  ? [
-                      {
-                        intervalId: record.intervalId,
-                        splitRangeId: record.splitRangeId,
-                        splitRangeStartDistance: record.splitRangeStartDistance,
-                        splitRangeEndDistance: record.splitRangeEndDistance,
-                        terminalRole: record.terminalRole,
-                        startDistance: record.startDistance,
-                        endDistance: record.endDistance,
-                        sourceSegmentIndex:
-                          typeof record.sourceSegmentIndex === 'number'
-                            ? record.sourceSegmentIndex
-                            : typeof packet.debugMeta
-                                  ?.figmaLikeSplitRangeSourceSegmentIndex ===
-                                'number'
-                              ? packet.debugMeta
-                                  .figmaLikeSplitRangeSourceSegmentIndex
-                              : null,
-                        selectedSide:
-                          record.selectedSide === 1 ||
-                          record.selectedSide === -1
-                            ? record.selectedSide
-                            : null,
-                        filledSide:
-                          record.filledSide === 1 || record.filledSide === -1
-                            ? record.filledSide
-                            : null,
-                        unfilledSide:
-                          record.unfilledSide === 1 ||
-                          record.unfilledSide === -1
-                            ? record.unfilledSide
-                            : null,
-                        boundaryRole:
-                          record.boundaryRole === 'outer' ||
-                          record.boundaryRole === 'filled-face' ||
-                          record.boundaryRole === 'hole' ||
-                          record.boundaryRole === 'ambiguous'
-                            ? record.boundaryRole
-                            : null,
-                        boundaryPoints:
-                          getPoints(record.boundaryPoints).length > 0
-                            ? getPoints(record.boundaryPoints)
-                            : getPoints(
-                                packet.debugMeta?.figmaLikeBoundaryPoints
-                              ),
-                        boundaryStartDistance:
-                          typeof record.boundaryStartDistance === 'number'
-                            ? record.boundaryStartDistance
-                            : typeof packet.debugMeta
-                                  ?.figmaLikeBoundaryStartDistance === 'number'
-                              ? packet.debugMeta.figmaLikeBoundaryStartDistance
-                              : null,
-                        boundaryEndDistance:
-                          typeof record.boundaryEndDistance === 'number'
-                            ? record.boundaryEndDistance
-                            : typeof packet.debugMeta
-                                  ?.figmaLikeBoundaryEndDistance === 'number'
-                              ? packet.debugMeta.figmaLikeBoundaryEndDistance
-                              : null,
-                        boundaryTotalLength:
-                          typeof record.boundaryTotalLength === 'number'
-                            ? record.boundaryTotalLength
-                            : typeof packet.debugMeta
-                                  ?.figmaLikeBoundaryTotalLength === 'number'
-                              ? packet.debugMeta.figmaLikeBoundaryTotalLength
-                              : null
-                      }
-                    ]
-                  : []
-              })
+              )
             : [],
           polygonCount: polygons.length,
           polygons,
@@ -1171,7 +1178,7 @@ export const getSelfCheckMetadata = async (page: Page) =>
     )
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fallbackRect = (window as any).__selfCheckVectorRect
+    const secondaryRect = (window as any).__selfCheckVectorRect
     const selectedRect = computed
       ? {
           x: computed.x,
@@ -1179,16 +1186,16 @@ export const getSelfCheckMetadata = async (page: Page) =>
           width: computed.width,
           height: computed.height
         }
-      : fallbackRect &&
-          typeof fallbackRect.x === 'number' &&
-          typeof fallbackRect.y === 'number' &&
-          typeof fallbackRect.width === 'number' &&
-          typeof fallbackRect.height === 'number'
+      : secondaryRect &&
+          typeof secondaryRect.x === 'number' &&
+          typeof secondaryRect.y === 'number' &&
+          typeof secondaryRect.width === 'number' &&
+          typeof secondaryRect.height === 'number'
         ? {
-            x: fallbackRect.x,
-            y: fallbackRect.y,
-            width: fallbackRect.width,
-            height: fallbackRect.height
+            x: secondaryRect.x,
+            y: secondaryRect.y,
+            width: secondaryRect.width,
+            height: secondaryRect.height
           }
         : { ...selfCheckRect }
 
@@ -1253,8 +1260,8 @@ export const getBoundaryDomainPolygonQualityFailures = (
         {
           geometryId: packet.geometryId,
           intervalId: packet.debugIntervalId,
-          splitRangeId: packet.figmaLikeSplitRangeId,
-          terminalRole: packet.figmaLikeTerminalRole,
+          splitRangeId: packet.domainPlanSplitRangeId,
+          terminalRole: packet.domainPlanTerminalRole,
           vertexCount: polygon.length,
           microEdgeCount,
           fifthPercentileEdge: Math.round(fifthPercentileEdge * 1000) / 1000,
@@ -1280,8 +1287,8 @@ export const getBoundaryDomainOversizedProductFailures = (
             {
               geometryId: packet.geometryId,
               intervalId: packet.debugIntervalId,
-              splitRangeId: packet.figmaLikeSplitRangeId,
-              terminalRole: packet.figmaLikeTerminalRole,
+              splitRangeId: packet.domainPlanSplitRangeId,
+              terminalRole: packet.domainPlanTerminalRole,
               polygonCount: packet.polygonCount,
               maxAllowedDimension,
               bounds
@@ -1901,11 +1908,11 @@ export const analyzeSolidBoundaryContinuity = async (
         if (
           packet.geometryFamily !== 'constrained-solid' ||
           packet.strokePosition !== expectedPosition ||
-          packet.figmaLikeSelectedSide === null
+          packet.domainPlanSelectedSide === null
         ) {
           continue
         }
-        const boundaryPoints = packet.figmaLikeBoundaryPoints
+        const boundaryPoints = packet.domainPlanBoundaryPoints
         if (boundaryPoints.length < 2) {
           continue
         }
@@ -1939,8 +1946,8 @@ export const analyzeSolidBoundaryContinuity = async (
             continue
           }
           const normal = {
-            x: -tangent.y * packet.figmaLikeSelectedSide,
-            y: tangent.x * packet.figmaLikeSelectedSide
+            x: -tangent.y * packet.domainPlanSelectedSide,
+            y: tangent.x * packet.domainPlanSelectedSide
           }
 
           for (const distance of distances) {
@@ -3773,13 +3780,13 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           )
         )
       const getPacketSplitRangeIds = (packet: {
-        figmaLikeSplitRangeId: string | null
-        figmaLikeSplitRangeTerminals: { splitRangeId: string }[]
+        domainPlanSplitRangeId: string | null
+        domainPlanSplitRangeTerminals: { splitRangeId: string }[]
       }) =>
         new Set(
           [
-            packet.figmaLikeSplitRangeId,
-            ...packet.figmaLikeSplitRangeTerminals.map(
+            packet.domainPlanSplitRangeId,
+            ...packet.domainPlanSplitRangeTerminals.map(
               (terminal) => terminal.splitRangeId
             )
           ].filter((id): id is string => typeof id === 'string')
@@ -3809,8 +3816,8 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
               insidePolygon(point, polygon) || onPolygonBoundary(point, polygon)
           )
           if (!isCovered) continue
-          if (typeof packet.figmaLikeSplitRangeId === 'string') {
-            ids.add(packet.figmaLikeSplitRangeId)
+          if (typeof packet.domainPlanSplitRangeId === 'string') {
+            ids.add(packet.domainPlanSplitRangeId)
           }
         }
         return ids
@@ -4169,19 +4176,21 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
         }
       }
       const terminalRecords = metadata.boundaryDomainPackets.flatMap((packet) =>
-        packet.figmaLikeSplitRangeTerminals.map((terminal) => ({
+        packet.domainPlanSplitRangeTerminals.map((terminal) => ({
           ...terminal,
           boundaryPoints:
             terminal.boundaryPoints && terminal.boundaryPoints.length >= 2
               ? terminal.boundaryPoints
-              : packet.figmaLikeBoundaryPoints,
+              : packet.domainPlanBoundaryPoints,
           boundaryStartDistance:
             terminal.boundaryStartDistance ??
-            packet.figmaLikeBoundaryStartDistance,
+            packet.domainPlanBoundaryStartDistance,
           boundaryEndDistance:
-            terminal.boundaryEndDistance ?? packet.figmaLikeBoundaryEndDistance,
+            terminal.boundaryEndDistance ??
+            packet.domainPlanBoundaryEndDistance,
           boundaryTotalLength:
-            terminal.boundaryTotalLength ?? packet.figmaLikeBoundaryTotalLength,
+            terminal.boundaryTotalLength ??
+            packet.domainPlanBoundaryTotalLength,
           packetGeometryId: packet.geometryId
         }))
       )

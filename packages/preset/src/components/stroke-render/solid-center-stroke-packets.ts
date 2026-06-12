@@ -87,7 +87,7 @@ export interface SolidCenterStrokeRuntimeMeta {
   visualOverlapCollapseStatus?:
     | 'exact-union'
     | 'exact-arrangement'
-    | 'local-side-arrangement'
+    | 'domain-plan-selected-side-arrangement'
     | 'render-projection-merged'
     | 'render-projection-arrangement'
   revisionSet?: StrokeRevisionSet
@@ -146,8 +146,8 @@ export type StrokeGeometryFamily =
   | 'constrained-dashed'
 
 export type StrokeGeometryResolutionStatus =
-  | 'native-center'
-  | 'local-side-approximation'
+  | 'center-product'
+  | 'domain-plan-selected-side'
   | 'exact-constrained'
 
 export type StrokeGeometryRuntimeStatus =
@@ -159,15 +159,15 @@ export type StrokeGeometryRuntimeStatus =
 export type StrokeGeometryRuntimeReason =
   | 'center-stroke'
   | 'constrained-solid-exact'
-  | 'local-side-constrained-solid'
+  | 'domain-plan-constrained-solid'
   | 'single-owner'
   | 'typed-owners'
   | 'missing-owner-metadata'
   | 'no-packets'
   | 'no-candidate-packets'
-  | 'unsupported-open-topology'
-  | 'unsupported-overlap-ownership'
-  | 'unsupported-topology'
+  | 'missing-open-domain-plan'
+  | 'unresolved-overlap-ownership'
+  | 'missing-domain-plan'
 
 export type StrokeGeometrySourceTopology =
   | 'rectangle-equivalent'
@@ -216,25 +216,25 @@ export interface SolidCenterStrokeGeometryDebugMeta {
   previousVisibleIntervalId?: string | null
   nextVisibleIntervalId?: string | null
   intervalTerminalRole?: 'none' | 'path-start' | 'path-end' | 'both'
-  figmaLikeBoundaryDomainId?: string
-  figmaLikeBoundaryPoints?: Vec2[]
-  figmaLikeBoundaryStartDistance?: number
-  figmaLikeBoundaryEndDistance?: number
-  figmaLikeBoundaryTotalLength?: number
-  figmaLikeSplitRangeId?: string
-  figmaLikeSplitRangeStartDistance?: number
-  figmaLikeSplitRangeEndDistance?: number
-  figmaLikeTerminalRole?: 'start' | 'end' | 'start-end' | 'middle'
-  figmaLikeSplitRangeSourceSegmentIndex?: number
-  figmaLikeSideAuthority?: 'implicit-fill-hole-domain'
-  figmaLikeSelectedSide?: 1 | -1
-  figmaLikeFilledSide?: 1 | -1
-  figmaLikeUnfilledSide?: 1 | -1
-  figmaLikeBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
-  figmaLikeDomainMode?: string
-  figmaLikeSideResolutionStatus?: 'resolved' | 'blocked'
-  figmaLikeSideResolutionReason?: string
-  figmaLikeSplitRangeTerminals?: {
+  domainPlanBoundaryDomainId?: string
+  domainPlanBoundaryPoints?: Vec2[]
+  domainPlanBoundaryStartDistance?: number
+  domainPlanBoundaryEndDistance?: number
+  domainPlanBoundaryTotalLength?: number
+  domainPlanSplitRangeId?: string
+  domainPlanSplitRangeStartDistance?: number
+  domainPlanSplitRangeEndDistance?: number
+  domainPlanTerminalRole?: 'start' | 'end' | 'start-end' | 'middle'
+  domainPlanSplitRangeSourceSegmentIndex?: number
+  domainPlanSideAuthority?: 'implicit-fill-hole-domain'
+  domainPlanSelectedSide?: 1 | -1
+  domainPlanFilledSide?: 1 | -1
+  domainPlanUnfilledSide?: 1 | -1
+  domainPlanBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
+  domainPlanDomainMode?: string
+  domainPlanSideResolutionStatus?: 'resolved' | 'blocked'
+  domainPlanSideResolutionReason?: string
+  domainPlanSplitRangeTerminals?: {
     intervalId: string
     boundaryDomainId?: string
     boundaryPoints?: Vec2[]
@@ -311,7 +311,7 @@ export interface SolidCenterStrokeGeometryDebugMeta {
   visualOverlapCollapseStatus?:
     | 'exact-union'
     | 'exact-arrangement'
-    | 'local-side-arrangement'
+    | 'domain-plan-selected-side-arrangement'
     | 'render-projection-merged'
     | 'render-projection-arrangement'
   visualOverlapSourceFaceIds?: string[]
@@ -784,7 +784,7 @@ export const buildSolidCenterStrokeResolvedPackets = (
             strokeIndex: index,
             strokePosition: 'center',
             geometryFamily: 'solid-center',
-            resolutionStatus: 'native-center',
+            resolutionStatus: 'center-product',
             runtimeStatus: 'not-applicable',
             runtimeReason: 'center-stroke',
             visualOverlapCollapseStatus:
@@ -798,7 +798,7 @@ export const buildSolidCenterStrokeResolvedPackets = (
               closed: topology.closed,
               stroke,
               geometryFamily: 'solid-center',
-              resolutionStatus: 'native-center',
+              resolutionStatus: 'center-product',
               runtimeStatus: 'not-applicable',
               runtimeReason: 'center-stroke',
               sourceTopology,
@@ -884,11 +884,11 @@ const getUniqueStrings = (values: string[]) => [...new Set(values)]
 
 const flattenFacePolygons = (
   regions: PolygonRegion[],
-  fallbackPolygons: Vec2[][]
+  sourcePolygons: Vec2[][]
 ) => {
   const polygons = regions.flatMap((region) => region.polygons)
   return cleanRenderProjectionPolygons(
-    polygons.length > 0 ? polygons : fallbackPolygons
+    polygons.length > 0 ? polygons : sourcePolygons
   )
 }
 
@@ -1177,7 +1177,7 @@ const buildRenderEntryFromFinalFace = (
 type RenderProjectionCollapseStatus =
   | 'exact-union'
   | 'exact-arrangement'
-  | 'local-side-arrangement'
+  | 'domain-plan-selected-side-arrangement'
   | 'render-projection-merged'
   | 'render-projection-arrangement'
 
@@ -1218,8 +1218,8 @@ const buildRenderProjectionArrangementCandidates = (
         sourceSpanIds: face.sourceSpanIds,
         sourceContourIds: face.sourceContourIds,
         requiresBoundaryPreservingArrangement:
-          face.debugMeta?.figmaLikeBoundaryRole === 'filled-face' ||
-          face.debugMeta?.figmaLikeSplitRangeTerminals?.some(
+          face.debugMeta?.domainPlanBoundaryRole === 'filled-face' ||
+          face.debugMeta?.domainPlanSplitRangeTerminals?.some(
             (terminal) => terminal.boundaryRole === 'filled-face'
           ) === true
       }
@@ -1258,30 +1258,30 @@ const collectOutsideSquareSplitTerminalResidueContexts = (
     }
 
     const strokeWidth = debugMeta.strokeWidth
-    const terminalRecords = debugMeta.figmaLikeSplitRangeTerminals?.length
-      ? debugMeta.figmaLikeSplitRangeTerminals
-      : debugMeta.figmaLikeSplitRangeId &&
-          debugMeta.figmaLikeTerminalRole &&
-          debugMeta.figmaLikeTerminalRole !== 'middle'
+    const terminalRecords = debugMeta.domainPlanSplitRangeTerminals?.length
+      ? debugMeta.domainPlanSplitRangeTerminals
+      : debugMeta.domainPlanSplitRangeId &&
+          debugMeta.domainPlanTerminalRole &&
+          debugMeta.domainPlanTerminalRole !== 'middle'
         ? [
             {
               intervalId: debugMeta.intervalId ?? face.faceId,
-              splitRangeId: debugMeta.figmaLikeSplitRangeId,
+              splitRangeId: debugMeta.domainPlanSplitRangeId,
               splitRangeStartDistance:
-                debugMeta.figmaLikeSplitRangeStartDistance ?? 0,
+                debugMeta.domainPlanSplitRangeStartDistance ?? 0,
               splitRangeEndDistance:
-                debugMeta.figmaLikeSplitRangeEndDistance ?? 0,
-              terminalRole: debugMeta.figmaLikeTerminalRole,
+                debugMeta.domainPlanSplitRangeEndDistance ?? 0,
+              terminalRole: debugMeta.domainPlanTerminalRole,
               startDistance: debugMeta.startDistance ?? 0,
               endDistance: debugMeta.endDistance ?? 0,
-              boundaryPoints: debugMeta.figmaLikeBoundaryPoints
+              boundaryPoints: debugMeta.domainPlanBoundaryPoints
             }
           ]
         : []
 
     return terminalRecords.flatMap((terminal) => {
       const boundaryPoints =
-        terminal.boundaryPoints ?? debugMeta.figmaLikeBoundaryPoints
+        terminal.boundaryPoints ?? debugMeta.domainPlanBoundaryPoints
       return [
         ...(terminal.terminalRole === 'start' ||
         terminal.terminalRole === 'start-end'
@@ -1628,7 +1628,7 @@ const buildCollapsedRenderEntry = (
     return faces.map(buildRenderEntryFromFinalFace)
   }
 
-  const fallbackPolygons = faces.flatMap((face) => face.polygons)
+  const sourcePolygons = faces.flatMap((face) => face.polygons)
   const unionRegions = (() => {
     try {
       return backend.union(faces.map(toCoverageFaceRegion), 'nonzero')
@@ -1637,7 +1637,7 @@ const buildCollapsedRenderEntry = (
     }
   })()
   const polygons = filterOutsideSquareSplitTerminalRenderProjectionResidue(
-    flattenFacePolygons(unionRegions, fallbackPolygons),
+    flattenFacePolygons(unionRegions, sourcePolygons),
     faces
   )
   const sourceGeometryIds = getUniqueStrings(
@@ -1655,8 +1655,8 @@ const buildCollapsedRenderEntry = (
   const legalDomainIds = getUniqueStrings(
     faces.flatMap((face) => face.legalDomainIds)
   )
-  const figmaLikeSplitRangeTerminals = faces.flatMap(
-    (face) => face.debugMeta?.figmaLikeSplitRangeTerminals ?? []
+  const domainPlanSplitRangeTerminals = faces.flatMap(
+    (face) => face.debugMeta?.domainPlanSplitRangeTerminals ?? []
   )
   const primaryEntry = buildRenderEntryFromFinalFace(primaryFace)
 
@@ -1680,9 +1680,9 @@ const buildCollapsedRenderEntry = (
             sourceSpanIds,
             sourceContourIds,
             legalDomainIds,
-            figmaLikeSplitRangeTerminals:
-              figmaLikeSplitRangeTerminals.length > 0
-                ? figmaLikeSplitRangeTerminals
+            domainPlanSplitRangeTerminals:
+              domainPlanSplitRangeTerminals.length > 0
+                ? domainPlanSplitRangeTerminals
                 : undefined,
             visualOverlapCollapseStatus: collapseStatus,
             visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
@@ -1720,8 +1720,8 @@ const buildMergedRenderEntry = (
   const legalDomainIds = getUniqueStrings(
     faces.flatMap((face) => face.legalDomainIds)
   )
-  const figmaLikeSplitRangeTerminals = faces.flatMap(
-    (face) => face.debugMeta?.figmaLikeSplitRangeTerminals ?? []
+  const domainPlanSplitRangeTerminals = faces.flatMap(
+    (face) => face.debugMeta?.domainPlanSplitRangeTerminals ?? []
   )
   const primaryEntry = buildRenderEntryFromFinalFace(primaryFace)
   const polygons = filterOutsideSquareSplitTerminalRenderProjectionResidue(
@@ -1756,9 +1756,9 @@ const buildMergedRenderEntry = (
             sourceSpanIds,
             sourceContourIds,
             legalDomainIds,
-            figmaLikeSplitRangeTerminals:
-              figmaLikeSplitRangeTerminals.length > 0
-                ? figmaLikeSplitRangeTerminals
+            domainPlanSplitRangeTerminals:
+              domainPlanSplitRangeTerminals.length > 0
+                ? domainPlanSplitRangeTerminals
                 : undefined,
             visualOverlapCollapseStatus: 'render-projection-merged' as const,
             visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
@@ -1791,7 +1791,7 @@ const buildRenderProjectionArrangementEntry = (
     return faces.map(buildRenderEntryFromFinalFace)
   }
 
-  const fallbackPolygons = faces.flatMap((face) => face.polygons)
+  const sourcePolygons = faces.flatMap((face) => face.polygons)
   const polygons = (() => {
     try {
       const arrangedPolygons = buildRenderProjectionArrangementPolygons(
@@ -1799,9 +1799,9 @@ const buildRenderProjectionArrangementEntry = (
         backend,
         arrangementOptions
       )
-      return arrangedPolygons.length > 0 ? arrangedPolygons : fallbackPolygons
+      return arrangedPolygons.length > 0 ? arrangedPolygons : sourcePolygons
     } catch {
-      return fallbackPolygons
+      return sourcePolygons
     }
   })()
   const sourceGeometryIds = getUniqueStrings(
@@ -1819,8 +1819,8 @@ const buildRenderProjectionArrangementEntry = (
   const legalDomainIds = getUniqueStrings(
     faces.flatMap((face) => face.legalDomainIds)
   )
-  const figmaLikeSplitRangeTerminals = faces.flatMap(
-    (face) => face.debugMeta?.figmaLikeSplitRangeTerminals ?? []
+  const domainPlanSplitRangeTerminals = faces.flatMap(
+    (face) => face.debugMeta?.domainPlanSplitRangeTerminals ?? []
   )
   const primaryEntry = buildRenderEntryFromFinalFace(primaryFace)
   const shouldRenderAsSingleMask = faces.some(
@@ -1851,9 +1851,9 @@ const buildRenderProjectionArrangementEntry = (
             sourceSpanIds,
             sourceContourIds,
             legalDomainIds,
-            figmaLikeSplitRangeTerminals:
-              figmaLikeSplitRangeTerminals.length > 0
-                ? figmaLikeSplitRangeTerminals
+            domainPlanSplitRangeTerminals:
+              domainPlanSplitRangeTerminals.length > 0
+                ? domainPlanSplitRangeTerminals
                 : undefined,
             visualOverlapCollapseStatus:
               'render-projection-arrangement' as const,
@@ -2063,8 +2063,8 @@ const hasFilledFaceBoundaryRole = (
 ) =>
   faces.some(
     (face) =>
-      face.debugMeta?.figmaLikeBoundaryRole === 'filled-face' ||
-      face.debugMeta?.figmaLikeSplitRangeTerminals?.some(
+      face.debugMeta?.domainPlanBoundaryRole === 'filled-face' ||
+      face.debugMeta?.domainPlanSplitRangeTerminals?.some(
         (terminal) => terminal.boundaryRole === 'filled-face'
       ) === true
   )

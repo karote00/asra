@@ -408,8 +408,8 @@ const getSelfCheckMetadata = async (page: Page) =>
           solidMaskModelVisibleRender?: unknown
           solidMaskModelCoverageOracle?: unknown
           solidMaskModelMaskSide?: unknown
-          figmaLikeTerminalRole?: unknown
-          figmaLikeSplitRangeTerminals?: unknown
+          domainPlanTerminalRole?: unknown
+          domainPlanSplitRangeTerminals?: unknown
         }
         geometryId?: unknown
       }) => ({
@@ -446,17 +446,17 @@ const getSelfCheckMetadata = async (page: Page) =>
           packet.debugMeta?.solidMaskModelMaskSide === 'inside-fill'
             ? packet.debugMeta.solidMaskModelMaskSide
             : null,
-        figmaLikeTerminalRole:
-          typeof packet.debugMeta?.figmaLikeTerminalRole === 'string'
-            ? packet.debugMeta.figmaLikeTerminalRole
+        domainPlanTerminalRole:
+          typeof packet.debugMeta?.domainPlanTerminalRole === 'string'
+            ? packet.debugMeta.domainPlanTerminalRole
             : null,
-        figmaLikeSplitRangeTerminals: getStringArray(
-          packet.debugMeta?.figmaLikeSplitRangeTerminals
+        domainPlanSplitRangeTerminals: getStringArray(
+          packet.debugMeta?.domainPlanSplitRangeTerminals
         )
       })
     )
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fallbackRect = (window as any).__selfCheckVectorRect
+    const secondaryRect = (window as any).__selfCheckVectorRect
     const selectedRect = computed
       ? {
           x: computed.x,
@@ -464,12 +464,12 @@ const getSelfCheckMetadata = async (page: Page) =>
           width: computed.width,
           height: computed.height
         }
-      : fallbackRect &&
-          typeof fallbackRect.x === 'number' &&
-          typeof fallbackRect.y === 'number' &&
-          typeof fallbackRect.width === 'number' &&
-          typeof fallbackRect.height === 'number'
-        ? { ...fallbackRect }
+      : secondaryRect &&
+          typeof secondaryRect.x === 'number' &&
+          typeof secondaryRect.y === 'number' &&
+          typeof secondaryRect.width === 'number' &&
+          typeof secondaryRect.height === 'number'
+        ? { ...secondaryRect }
         : { ...selfCheckRect }
     return {
       selectedRect,
@@ -646,8 +646,8 @@ test('outside solid bevel switch updates masked-source-stroke join pixels', asyn
       solidMaskModelVisibleRender: packet.solidMaskModelVisibleRender,
       solidMaskModelCoverageOracle: packet.solidMaskModelCoverageOracle,
       solidMaskModelMaskSide: packet.solidMaskModelMaskSide,
-      figmaLikeTerminalRole: packet.figmaLikeTerminalRole,
-      terminalCount: packet.figmaLikeSplitRangeTerminals.length
+      domainPlanTerminalRole: packet.domainPlanTerminalRole,
+      terminalCount: packet.domainPlanSplitRangeTerminals.length
     }))
   const getComputedJoinType = (metadata: typeof miterMetadata) =>
     metadata.computedStrokes[0]?.joinType ?? null
@@ -676,8 +676,8 @@ test('outside solid bevel switch updates masked-source-stroke join pixels', asyn
         packet.solidMaskModelVisibleRender === 'masked-source-stroke' &&
         packet.solidMaskModelCoverageOracle === 'exact-boolean' &&
         packet.solidMaskModelMaskSide === 'outside-exterior' &&
-        packet.figmaLikeTerminalRole === null &&
-        packet.figmaLikeSplitRangeTerminals.length === 0
+        packet.domainPlanTerminalRole === null &&
+        packet.domainPlanSplitRangeTerminals.length === 0
     ),
     JSON.stringify({ bevelPackets: getProductPackets(bevelMetadata) }, null, 2)
   ).toBe(true)

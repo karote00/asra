@@ -2097,8 +2097,8 @@ const captureSelectedElementStrokeDiagnostics = async (page: Page) => {
             childCount: graphic.children?.length ?? null,
             exportPacketCount:
               graphic.__asyraSolidCenterStrokeExportPackets?.length ?? null,
-            nativeCenterSolidStrokeRenderCount:
-              graphic.__asyraNativeCenterSolidStrokeRenderCount ?? null,
+            centerPathSolidStrokeRenderCount:
+              graphic.__asyraCenterPathSolidStrokeRenderCount ?? null,
             centerSolidPathMaskRenderCount:
               graphic.__asyraCenterSolidPathMaskRenderCount ?? null,
             cacheEntries
@@ -2125,8 +2125,8 @@ const getSelectedElementCenterSolidRenderRoute = async (page: Page) =>
       : undefined
     return {
       selectedId,
-      nativeCenterSolidStrokeRenderCount:
-        graphic?.__asyraNativeCenterSolidStrokeRenderCount ?? 0,
+      centerPathSolidStrokeRenderCount:
+        graphic?.__asyraCenterPathSolidStrokeRenderCount ?? 0,
       centerSolidPathMaskRenderCount:
         graphic?.__asyraCenterSolidPathMaskRenderCount ?? 0
     }
@@ -2445,8 +2445,8 @@ const measureMoveVectorElement = async (
       expect(stats.doubleAlphaCoverage).toBeLessThan(0.08)
       const route = await getSelectedElementCenterSolidRenderRoute(page)
       expect(
-        route.nativeCenterSolidStrokeRenderCount,
-        'translucent self-intersecting center solid drag must not use native self-composited stroke output'
+        route.centerPathSolidStrokeRenderCount,
+        'translucent self-intersecting center solid drag must not use renderer self-composited stroke output'
       ).toBe(0)
       expect(
         route.centerSolidPathMaskRenderCount,
@@ -2467,8 +2467,8 @@ const measureMoveVectorElement = async (
   ).toBeLessThan(0.08)
   const finalRoute = await getSelectedElementCenterSolidRenderRoute(page)
   expect(
-    finalRoute.nativeCenterSolidStrokeRenderCount,
-    'translucent self-intersecting center solid after mouseup must not use native self-composited stroke output'
+    finalRoute.centerPathSolidStrokeRenderCount,
+    'translucent self-intersecting center solid after mouseup must not use renderer self-composited stroke output'
   ).toBe(0)
   expect(
     finalRoute.centerSolidPathMaskRenderCount,

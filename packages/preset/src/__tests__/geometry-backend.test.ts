@@ -4,7 +4,7 @@ import {
   createGeometryBackendCapabilities,
   createGeometryBackendCoordinateMapper,
   createGeometryBackendRegistry,
-  createUnsupportedGeometryBackend,
+  createMissingGeometryBackend,
   getGeometryBackendCacheSignature,
   registerGeometryBackend,
   selectGeometryBackend,
@@ -20,10 +20,10 @@ import {
 
 describe('geometry backend contract', () => {
   it('should not run: hide missing exact boolean support behind silent empty output', () => {
-    const backend = createUnsupportedGeometryBackend('test-backend')
+    const backend = createMissingGeometryBackend('test-backend')
 
     expect(backend.backendId).toBe('test-backend')
-    expect(backend.backendVersion).toBe('0.0.0-unsupported')
+    expect(backend.backendVersion).toBe('0.0.0-diagnostic-missing')
     expect(backend.capabilities).toEqual({
       union: false,
       difference: false,
@@ -146,7 +146,7 @@ describe('geometry backend contract', () => {
     })
 
     expect(registry.listBackendIds()).toEqual([
-      'unsupported-exact-geometry-backend',
+      'diagnostic-missing-exact-geometry-backend',
       'mock-exact'
     ])
     expect(loadCount).toBe(0)
@@ -195,19 +195,19 @@ describe('geometry backend contract', () => {
 
     registerGeometryBackend({
       backendId: 'selection-listener-exact',
-      load: () => createUnsupportedGeometryBackend('selection-listener-exact')
+      load: () => createMissingGeometryBackend('selection-listener-exact')
     })
 
     selectGeometryBackend('selection-listener-exact')
     selectGeometryBackend('selection-listener-exact')
-    selectGeometryBackend('unsupported-exact-geometry-backend')
+    selectGeometryBackend('diagnostic-missing-exact-geometry-backend')
     unsubscribe()
     selectGeometryBackend('selection-listener-exact')
-    selectGeometryBackend('unsupported-exact-geometry-backend')
+    selectGeometryBackend('diagnostic-missing-exact-geometry-backend')
 
     expect(selectedBackendIds).toEqual([
       'selection-listener-exact',
-      'unsupported-exact-geometry-backend'
+      'diagnostic-missing-exact-geometry-backend'
     ])
   })
 
@@ -220,7 +220,7 @@ describe('geometry backend contract', () => {
 
     registry.register({
       backendId: 'declared',
-      load: () => createUnsupportedGeometryBackend('actual')
+      load: () => createMissingGeometryBackend('actual')
     })
     registry.select('declared')
 

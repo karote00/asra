@@ -122,13 +122,13 @@ const buildOutsideConstrainedDashedFace = (
     strokeIndex: 0,
     intervalId,
     strokePosition: 'outside',
-    figmaLikeBoundaryDomainId: 'boundary:outside',
-    figmaLikeBoundaryPoints: [
+    domainPlanBoundaryDomainId: 'boundary:outside',
+    domainPlanBoundaryPoints: [
       { x: -2, y: 0 },
       { x: 20, y: 0 }
     ],
-    figmaLikeSelectedSide: -1,
-    figmaLikeSplitRangeTerminals: [
+    domainPlanSelectedSide: -1,
+    domainPlanSplitRangeTerminals: [
       {
         intervalId,
         boundaryDomainId: 'boundary:outside',
@@ -471,7 +471,7 @@ describe('solid center stroke render', () => {
     }
   })
 
-  it('should run: paint constrained dashed fill polygons and native stroke paths together under the legal mask', () => {
+  it('should run: paint constrained dashed fill polygons and renderer stroke paths together under the legal mask', () => {
     const host = new MeshTestHost()
     const polySpy = vi.spyOn(Graphics.prototype, 'poly')
     const strokeSpy = vi.spyOn(Graphics.prototype, 'stroke')
@@ -537,7 +537,7 @@ describe('solid center stroke render', () => {
     }
   })
 
-  it('should run: prefer seam-free masked source stroke paths over fallback polygon masks', () => {
+  it('should run: prefer seam-free masked source stroke paths over source polygon masks', () => {
     const host = new MeshTestHost()
     const strokeSpy = vi.spyOn(Graphics.prototype, 'stroke')
 
@@ -761,7 +761,7 @@ describe('solid center stroke render', () => {
         alpha: 0.5
       },
       geometryFamily: 'solid-center',
-      resolutionStatus: 'native-center',
+      resolutionStatus: 'center-product',
       runtimeStatus: 'not-applicable',
       runtimeReason: 'center-stroke',
       ownerKey: 'rect:a:stroke:0',
@@ -836,7 +836,7 @@ describe('solid center stroke render', () => {
         alpha: 0.75
       },
       geometryFamily: 'solid-center',
-      resolutionStatus: 'native-center',
+      resolutionStatus: 'center-product',
       runtimeStatus: 'not-applicable',
       runtimeReason: 'center-stroke',
       ownerKey: 'rect:a:stroke:0',
@@ -861,7 +861,7 @@ describe('solid center stroke render', () => {
         alpha: 1
       },
       geometryFamily: 'solid-center',
-      resolutionStatus: 'native-center',
+      resolutionStatus: 'center-product',
       runtimeStatus: 'not-applicable',
       runtimeReason: 'center-stroke',
       ownerKey: 'rect:a:stroke:0',

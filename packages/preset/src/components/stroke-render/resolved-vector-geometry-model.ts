@@ -293,7 +293,7 @@ const resolveFilledSideFromFillRegions = ({
   path: Pick<PathGeometry, 'segments'>
   sourceSegmentStartDistance?: number
 }) => {
-  const fallbackFilledSide =
+  const defaultFilledSide =
     boundaryRole === 'hole' ? (legalSide === 1 ? -1 : 1) : legalSide
 
   if (
@@ -302,7 +302,7 @@ const resolveFilledSideFromFillRegions = ({
     boundaryRole === 'filled-face'
   ) {
     return {
-      filledSide: fallbackFilledSide,
+      filledSide: defaultFilledSide,
       status: 'resolved' as const
     }
   }
@@ -314,7 +314,7 @@ const resolveFilledSideFromFillRegions = ({
     domain.sourceEndDistance === undefined
   ) {
     return {
-      filledSide: fallbackFilledSide,
+      filledSide: defaultFilledSide,
       status: 'resolved' as const
     }
   }
@@ -419,7 +419,7 @@ const resolveFilledSideFromFillRegions = ({
   }
 
   return {
-    filledSide: fallbackFilledSide,
+    filledSide: defaultFilledSide,
     status: 'resolved' as const
   }
 }
@@ -484,14 +484,14 @@ const getPolylineArea = (points: Vec2[]) => {
   return area / 2
 }
 
-const buildFallbackBoundaryContourFromTracedSegments = (
+const buildSourceBoundaryContourFromTracedSegments = (
   segments: TracedLineSegment[]
 ): EvenOddBoundaryContour[] => {
   if (segments.length < 3) {
     return []
   }
 
-  const contourId = 'fallback-source-boundary:0'
+  const contourId = 'source-boundary:0'
   const points = [
     ...segments.map((segment) => segment.start),
     segments[segments.length - 1].end
@@ -1160,7 +1160,7 @@ const buildSelfIntersectingGeometry = (
       preSplitResult: splitResult ?? undefined
     }
   )
-  const fallbackResolvedGeometry =
+  const sourceBoundaryResolvedGeometry =
     path.closed && resolvedGeometry.legalBoundaryContours.length === 0
       ? buildSelfIntersectingResolvedGeometry(
           buildClosedTopologyPointTracedSegments(topology.normalizedPoints),
@@ -1170,7 +1170,7 @@ const buildSelfIntersectingGeometry = (
   const fillRegions =
     resolvedGeometry.fillRegions.length > 0
       ? resolvedGeometry.fillRegions
-      : (fallbackResolvedGeometry?.fillRegions ?? [])
+      : (sourceBoundaryResolvedGeometry?.fillRegions ?? [])
   const outputCache = {
     tracedSegmentSignatures,
     selfIntersectionCache:
@@ -1202,25 +1202,25 @@ const buildSelfIntersectingGeometry = (
     }
   }
 
-  const fallbackLegalBoundaryContours =
+  const resolvedLegalBoundaryContours =
     resolvedGeometry.legalBoundaryContours.length > 0
       ? resolvedGeometry.legalBoundaryContours
-      : (fallbackResolvedGeometry?.legalBoundaryContours ?? [])
+      : (sourceBoundaryResolvedGeometry?.legalBoundaryContours ?? [])
   const legalBoundaryContours =
-    fallbackLegalBoundaryContours.length > 0
-      ? fallbackLegalBoundaryContours
+    resolvedLegalBoundaryContours.length > 0
+      ? resolvedLegalBoundaryContours
       : path.closed
-        ? buildFallbackBoundaryContourFromTracedSegments(tracedSegments)
+        ? buildSourceBoundaryContourFromTracedSegments(tracedSegments)
         : []
 
   const legalFaceBoundaries =
     resolvedGeometry.legalFaceBoundaries.length > 0
       ? resolvedGeometry.legalFaceBoundaries
-      : (fallbackResolvedGeometry?.legalFaceBoundaries ?? [])
+      : (sourceBoundaryResolvedGeometry?.legalFaceBoundaries ?? [])
   const unfilledFaceBoundaries =
     resolvedGeometry.unfilledFaceBoundaries.length > 0
       ? resolvedGeometry.unfilledFaceBoundaries
-      : (fallbackResolvedGeometry?.unfilledFaceBoundaries ?? [])
+      : (sourceBoundaryResolvedGeometry?.unfilledFaceBoundaries ?? [])
 
   const sourceSplitRanges = measureResolvedVectorGeometryPhase(
     'resolved self-intersecting geometry: source split ranges',
@@ -1230,7 +1230,7 @@ const buildSelfIntersectingGeometry = (
         legalBoundaryContours,
         resolvedGeometry.fillRegions.length > 0
           ? resolvedGeometry.fillRegions
-          : (fallbackResolvedGeometry?.fillRegions ?? []),
+          : (sourceBoundaryResolvedGeometry?.fillRegions ?? []),
         path
       )
   )

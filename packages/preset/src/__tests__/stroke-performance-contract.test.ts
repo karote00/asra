@@ -6,7 +6,9 @@ import {
 } from '@asyra/utils'
 import { buildConstrainedDashedStrokeResolvedPackets } from '../components/stroke-render/constrained-dashed-stroke-packets'
 import { buildConstrainedSolidStrokeResolvedPackets } from '../components/stroke-render/constrained-solid-stroke-packets'
+import { buildDashedCenterStrokeResolvedPackets } from '../components/stroke-render/dashed-center-stroke-packets'
 import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
+import { buildSolidCenterStrokeResolvedPackets } from '../components/stroke-render/solid-center-stroke-packets'
 
 interface Vec2 {
   x: number
@@ -27,6 +29,14 @@ const solidStroke = createDefaultStroke({
   capType: StrokeCapTypes.ROUND
 })
 
+const solidOpenCenterStroke = createDefaultStroke({
+  width: 4,
+  style: 'solid',
+  position: 'center',
+  joinType: StrokeJoinTypes.ROUND,
+  capType: StrokeCapTypes.ROUND
+})
+
 const dashedStroke = createDefaultStroke({
   width: 4,
   style: 'dashed',
@@ -34,6 +44,26 @@ const dashedStroke = createDefaultStroke({
   joinType: StrokeJoinTypes.ROUND,
   capType: StrokeCapTypes.ROUND,
   dashPattern: [18, 10],
+  dashOffset: 0
+})
+
+const dashedOpenCenterStroke = createDefaultStroke({
+  width: 4,
+  style: 'dashed',
+  position: 'center',
+  joinType: StrokeJoinTypes.ROUND,
+  capType: StrokeCapTypes.ROUND,
+  dashPattern: [18, 10],
+  dashOffset: 0
+})
+
+const q8DashedOpenCenterStroke = createDefaultStroke({
+  width: 4,
+  style: 'dashed',
+  position: 'center',
+  joinType: StrokeJoinTypes.ROUND,
+  capType: StrokeCapTypes.ROUND,
+  dashPattern: [10, 6],
   dashOffset: 0
 })
 
@@ -301,18 +331,18 @@ describe('stroke performance contract', () => {
         closed: false
       })
 
-      const solidPackets = buildConstrainedSolidStrokeResolvedPackets(
+      const solidPackets = buildSolidCenterStrokeResolvedPackets(
         'benchmark:100-point-open:solid',
         points,
         false,
-        [solidStroke],
+        [solidOpenCenterStroke],
         { topology }
       )
-      const dashedPackets = buildConstrainedDashedStrokeResolvedPackets(
+      const dashedPackets = buildDashedCenterStrokeResolvedPackets(
         'benchmark:100-point-open:dashed',
         points,
         false,
-        [dashedStroke],
+        [dashedOpenCenterStroke],
         { topology }
       )
 
@@ -348,11 +378,11 @@ describe('stroke performance contract', () => {
         points,
         closed: false
       })
-      const packets = buildConstrainedDashedStrokeResolvedPackets(
+      const packets = buildDashedCenterStrokeResolvedPackets(
         'benchmark:high-curvature-cubic:dashed',
         points,
         false,
-        [dashedStroke],
+        [dashedOpenCenterStroke],
         { topology }
       )
 
@@ -434,18 +464,18 @@ describe('stroke performance contract', () => {
       })
       topologyBuildCount += 1
 
-      const solidPackets = buildConstrainedSolidStrokeResolvedPackets(
+      const solidPackets = buildSolidCenterStrokeResolvedPackets(
         'q8:sine-solid:solid',
         sineSolid,
         false,
-        [solidStroke],
+        [solidOpenCenterStroke],
         { topology: sineSolidTopology }
       )
-      const dashedPackets = buildConstrainedDashedStrokeResolvedPackets(
+      const dashedPackets = buildDashedCenterStrokeResolvedPackets(
         'q8:sine-dashed:dashed',
         sineDashed,
         false,
-        [q8DashedStroke],
+        [q8DashedOpenCenterStroke],
         { topology: sineDashedTopology }
       )
       if (solidPackets.length === 0 || dashedPackets.length === 0) {

@@ -165,7 +165,7 @@ The rule is:
 5. Preserve authored `capType`, `joinType`, and `miterLimit`.
 6. Clip the visible product to the inside filled/even-odd legal domain.
 7. Drop empty clipped fragments.
-8. Do not replace dropped fragments with one-sided ribbons, local-side strips, or diagnostic helper geometry.
+8. Do not replace dropped fragments with one-sided ribbons, domain-plan strips, or diagnostic helper geometry.
 
 The overlay must show:
 
@@ -219,8 +219,8 @@ For `dashed center *`:
 - Gap samples on both sides must remain empty.
 - Cap footprints must match `butt`, `square`, or `round`.
 - There must be no inside-only or outside-only collapse unless the geometry is clipped by a documented path/open-domain rule.
-- Open authored dashed `inside` / `outside` strokes are center-equivalent only
-  when the open network has no bounded filled-region domain. Open
+- Open authored dashed `inside` / `outside` strokes use the formal unbounded
+  open center product only when the open network has no bounded filled-region domain. Open
   self-intersecting networks with bounded filled regions formed by real authored
   source segments must be reviewed as constrained-domain dashed strokes.
   `inside` must follow the resolved filled contour rule: only contour-owned
@@ -228,8 +228,8 @@ For `dashed center *`:
   remain unpainted. `outside` must follow the resolved exterior contour rule
   while rendering dangling open-branch endpoint/cap/dash spans on both sides of
   the authored source path. Those dangling outside spans must have an actual
-  visible normal span near `stroke.width * 2`, not a single center-equivalent
-  ribbon. No invisible closing edge may be added for domain, dash pixels, hit
+  visible normal span near `stroke.width * 2`, not a single unbounded open
+  center stroke. No invisible closing edge may be added for domain, dash pixels, hit
   coverage, export packets, or endpoint terminal ownership.
 
 ## Dashed Outside Rules

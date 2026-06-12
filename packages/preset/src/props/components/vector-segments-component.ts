@@ -2,8 +2,8 @@ import { VECTOR_TOPOLOGY_SEGMENT_ID_TYPE } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
 import { defineChildrenMapPropertyComponent } from './children-map-property-component'
 
-const toString = (value: unknown, fallback = '') =>
-  typeof value === 'string' ? value : fallback
+const toString = (value: unknown, defaultValue = '') =>
+  typeof value === 'string' ? value : defaultValue
 
 const toNullableString = (value: unknown): string | null =>
   typeof value === 'string' ? value : null

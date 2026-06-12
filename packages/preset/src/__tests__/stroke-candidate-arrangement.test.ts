@@ -85,8 +85,8 @@ const makePacket = (
     polygons?: { x: number; y: number }[][]
     sourceSpanIds?: string[]
     intervalId?: string
-    figmaLikeSplitRangeTerminals?: NonNullable<
-      SolidCenterStrokeGeometryDebugMeta['figmaLikeSplitRangeTerminals']
+    domainPlanSplitRangeTerminals?: NonNullable<
+      SolidCenterStrokeGeometryDebugMeta['domainPlanSplitRangeTerminals']
     >
     geometryFamily?: SolidCenterStrokeGeometryDebugMeta['geometryFamily']
     resolutionStatus?: SolidCenterStrokeGeometryDebugMeta['resolutionStatus']
@@ -113,11 +113,11 @@ const makePacket = (
         legalDomainId: `legal:${id}`,
         intervalId: options.intervalId ?? `interval:${id}`,
         sourceSpanIds: options.sourceSpanIds ?? [`span:${id}`],
-        figmaLikeSplitRangeTerminals: options.figmaLikeSplitRangeTerminals,
+        domainPlanSplitRangeTerminals: options.domainPlanSplitRangeTerminals,
         strokePosition: options.strokePosition ?? 'inside',
         geometryFamily: options.geometryFamily ?? 'constrained-dashed',
         resolutionStatus:
-          options.resolutionStatus ?? 'local-side-approximation',
+          options.resolutionStatus ?? 'domain-plan-selected-side',
         runtimeStatus: options.runtimeStatus ?? 'accepted',
         sourceTopology: options.sourceTopology ?? 'self-intersecting',
         revisionSet: options.revisionSet
@@ -241,7 +241,7 @@ describe('stroke candidate arrangement', () => {
     expect(secondFaces).toBe(firstFaces)
   })
 
-  it('should run: reuse local-side visual overlap collapse for identical final faces', () => {
+  it('should run: reuse domain-plan visual overlap collapse for identical final faces', () => {
     const packets = [
       makePacket('candidate:collapse-cache-a', {
         geometryFamily: 'constrained-solid',
@@ -421,7 +421,7 @@ describe('stroke candidate arrangement', () => {
       counters['visual-overlap-collapse-input-point-count']
     ).toBeGreaterThan(0)
     expect(
-      counters['visual-overlap-collapse-polygon-cache-key-fallback'] ?? 0
+      counters['visual-overlap-collapse-polygon-cache-key-rebuilt'] ?? 0
     ).toBe(0)
   })
 
@@ -742,7 +742,7 @@ describe('stroke candidate arrangement', () => {
       makePacket('candidate:terminal-start', {
         intervalId: 'interval:start',
         sourceSpanIds: ['span:start'],
-        figmaLikeSplitRangeTerminals: [
+        domainPlanSplitRangeTerminals: [
           {
             intervalId: 'interval:start',
             splitRangeId: 'split:a',
@@ -757,7 +757,7 @@ describe('stroke candidate arrangement', () => {
       makePacket('candidate:terminal-end', {
         intervalId: 'interval:end',
         sourceSpanIds: ['span:end'],
-        figmaLikeSplitRangeTerminals: [
+        domainPlanSplitRangeTerminals: [
           {
             intervalId: 'interval:end',
             splitRangeId: 'split:a',
@@ -791,7 +791,7 @@ describe('stroke candidate arrangement', () => {
     expect(faces[0]?.intervalIds).toEqual(['interval:start', 'interval:end'])
     expect(faces[0]?.sourceSpanIds).toEqual(['span:start', 'span:end'])
     expect(
-      faces[0]?.debugMeta?.figmaLikeSplitRangeTerminals?.map((terminal) => ({
+      faces[0]?.debugMeta?.domainPlanSplitRangeTerminals?.map((terminal) => ({
         intervalId: terminal.intervalId,
         terminalRole: terminal.terminalRole,
         startDistance: terminal.startDistance,
@@ -970,7 +970,7 @@ describe('stroke candidate arrangement', () => {
         ownerKey: 'owner:center-dash',
         intervalId: 'interval:a',
         geometryFamily: 'dashed-center',
-        resolutionStatus: 'native-center',
+        resolutionStatus: 'center-product',
         runtimeStatus: 'not-applicable',
         strokePosition: 'center',
         polygon: square(0, 0, 10)
@@ -979,7 +979,7 @@ describe('stroke candidate arrangement', () => {
         ownerKey: 'owner:center-dash',
         intervalId: 'interval:b',
         geometryFamily: 'dashed-center',
-        resolutionStatus: 'native-center',
+        resolutionStatus: 'center-product',
         runtimeStatus: 'not-applicable',
         strokePosition: 'center',
         polygon: square(5, 0, 10)
@@ -1014,7 +1014,7 @@ describe('stroke candidate arrangement', () => {
         ownerKey: 'owner:center-dash',
         intervalId: 'interval:single',
         geometryFamily: 'dashed-center',
-        resolutionStatus: 'native-center',
+        resolutionStatus: 'center-product',
         runtimeStatus: 'not-applicable',
         strokePosition: 'center',
         polygons: [square(0, 0, 10), square(5, 0, 10)]

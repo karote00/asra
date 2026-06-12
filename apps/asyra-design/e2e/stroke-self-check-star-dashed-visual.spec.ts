@@ -59,7 +59,7 @@ const getSplitRangeVisualGapMetrics = (
   const recordsByKey = new Map<string, SplitRangeVisualGapRecord>()
 
   metadata.boundaryDomainPackets.forEach((packet) => {
-    packet.figmaLikeSplitRangeTerminals.forEach((record) => {
+    packet.domainPlanSplitRangeTerminals.forEach((record) => {
       const key = [
         record.splitRangeId,
         record.terminalRole,
@@ -213,17 +213,17 @@ const expectLegalSelfIntersectionSquareTangentDiagnostics = (
     expect(metadata.exportPacketCount).toBeGreaterThan(0)
     const insideFilledFaceBoundaryPackets =
       metadata.boundaryDomainPackets.filter(
-        (packet) => packet.figmaLikeBoundaryRole === 'filled-face'
+        (packet) => packet.domainPlanBoundaryRole === 'filled-face'
       )
     expect(
       insideFilledFaceBoundaryPackets.length,
       JSON.stringify(
         metadata.boundaryDomainPackets.map((packet) => ({
           geometryId: packet.geometryId,
-          role: packet.figmaLikeBoundaryRole,
-          selectedSide: packet.figmaLikeSelectedSide,
-          filledSide: packet.figmaLikeFilledSide,
-          unfilledSide: packet.figmaLikeUnfilledSide,
+          role: packet.domainPlanBoundaryRole,
+          selectedSide: packet.domainPlanSelectedSide,
+          filledSide: packet.domainPlanFilledSide,
+          unfilledSide: packet.domainPlanUnfilledSide,
           polygonCount: packet.polygonCount
         })),
         null,
@@ -232,16 +232,16 @@ const expectLegalSelfIntersectionSquareTangentDiagnostics = (
     ).toBeGreaterThan(0)
     expect(
       metadata.boundaryDomainPackets.every((packet) => {
-        if (packet.figmaLikeBoundaryRole === 'filled-face') {
+        if (packet.domainPlanBoundaryRole === 'filled-face') {
           return (
-            packet.figmaLikeSelectedSide === packet.figmaLikeFilledSide &&
-            packet.figmaLikeSelectedSide !== packet.figmaLikeUnfilledSide
+            packet.domainPlanSelectedSide === packet.domainPlanFilledSide &&
+            packet.domainPlanSelectedSide !== packet.domainPlanUnfilledSide
           )
         }
         return (
-          packet.figmaLikeBoundaryRole === 'outer' &&
-          packet.figmaLikeSelectedSide === packet.figmaLikeFilledSide &&
-          packet.figmaLikeSelectedSide !== packet.figmaLikeUnfilledSide
+          packet.domainPlanBoundaryRole === 'outer' &&
+          packet.domainPlanSelectedSide === packet.domainPlanFilledSide &&
+          packet.domainPlanSelectedSide !== packet.domainPlanUnfilledSide
         )
       }),
       JSON.stringify(metadata.boundaryDomainPackets, null, 2)
@@ -375,17 +375,17 @@ const expectLegalSelfIntersectionSquareTangentDiagnostics = (
     expect(metadata.exportPacketCount).toBeGreaterThan(0)
     const outsideFilledFaceBoundaryPackets =
       metadata.boundaryDomainPackets.filter(
-        (packet) => packet.figmaLikeBoundaryRole === 'filled-face'
+        (packet) => packet.domainPlanBoundaryRole === 'filled-face'
       )
     expect(
       outsideFilledFaceBoundaryPackets,
       JSON.stringify(
         metadata.boundaryDomainPackets.map((packet) => ({
           geometryId: packet.geometryId,
-          role: packet.figmaLikeBoundaryRole,
-          selectedSide: packet.figmaLikeSelectedSide,
-          filledSide: packet.figmaLikeFilledSide,
-          unfilledSide: packet.figmaLikeUnfilledSide,
+          role: packet.domainPlanBoundaryRole,
+          selectedSide: packet.domainPlanSelectedSide,
+          filledSide: packet.domainPlanFilledSide,
+          unfilledSide: packet.domainPlanUnfilledSide,
           polygonCount: packet.polygonCount
         })),
         null,
@@ -403,8 +403,8 @@ const expectLegalSelfIntersectionSquareTangentDiagnostics = (
           packet.intervalIds.every((intervalId) =>
             intervalId.startsWith('interval:')
           ) &&
-          packet.figmaLikeSelectedSide === packet.figmaLikeUnfilledSide &&
-          packet.figmaLikeSelectedSide !== packet.figmaLikeFilledSide
+          packet.domainPlanSelectedSide === packet.domainPlanUnfilledSide &&
+          packet.domainPlanSelectedSide !== packet.domainPlanFilledSide
       ),
       JSON.stringify(metadata.boundaryDomainPackets, null, 2)
     ).toBe(true)
@@ -793,7 +793,7 @@ test('self-check: right-bottom high-curvature outside dashed terminal remains ca
                 joinType,
                 geometryId: packet.geometryId,
                 intervalIds: packet.intervalIds,
-                terminalRole: packet.figmaLikeTerminalRole
+                terminalRole: packet.domainPlanTerminalRole
               }
             ]
           : []
@@ -803,7 +803,7 @@ test('self-check: right-bottom high-curvature outside dashed terminal remains ca
     ([joinType, joinMetadata]) => ({
       joinType,
       count: (joinMetadata?.boundaryDomainPackets ?? []).filter((packet) => {
-        const role = packet.figmaLikeTerminalRole
+        const role = packet.domainPlanTerminalRole
         return (
           packet.strokePosition === 'outside' &&
           packet.finalCoverageBuilderStatus === 'product-final' &&
@@ -915,12 +915,12 @@ test('self-check: right-bottom high-curvature outside dashed terminal remains ca
         return {
           geometryId: packet.geometryId,
           intervalIds: packet.intervalIds,
-          terminalRole: packet.figmaLikeTerminalRole,
-          splitRangeId: packet.figmaLikeSplitRangeId,
+          terminalRole: packet.domainPlanTerminalRole,
+          splitRangeId: packet.domainPlanSplitRangeId,
           splitRangeSourceSegmentIndex:
-            packet.figmaLikeSplitRangeSourceSegmentIndex,
-          boundaryRole: packet.figmaLikeBoundaryRole,
-          selectedSide: packet.figmaLikeSelectedSide,
+            packet.domainPlanSplitRangeSourceSegmentIndex,
+          boundaryRole: packet.domainPlanBoundaryRole,
+          selectedSide: packet.domainPlanSelectedSide,
           finalCoverageBuilderStatus: packet.finalCoverageBuilderStatus,
           polygonCount: packet.polygonCount,
           polygonSizes: packet.polygons.map((polygon) => polygon.length),
@@ -1223,14 +1223,14 @@ test('self-check: outside dashed star captures Cmd+1 and app-zoom coverage-unit 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const core = (window as any).__Core__
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const fallbackRect = (window as any).__selfCheckVectorRect
+        const secondaryRect = (window as any).__selfCheckVectorRect
         const targetRect =
-          fallbackRect &&
-          typeof fallbackRect.x === 'number' &&
-          typeof fallbackRect.y === 'number' &&
-          typeof fallbackRect.width === 'number' &&
-          typeof fallbackRect.height === 'number'
-            ? fallbackRect
+          secondaryRect &&
+          typeof secondaryRect.x === 'number' &&
+          typeof secondaryRect.y === 'number' &&
+          typeof secondaryRect.width === 'number' &&
+          typeof secondaryRect.height === 'number'
+            ? secondaryRect
             : rect
         if (!core) {
           throw new Error('Missing app core')
@@ -1298,8 +1298,8 @@ test('self-check: outside dashed star captures Cmd+1 and app-zoom coverage-unit 
             {
               geometryId: packet.geometryId,
               intervalIds,
-              splitRangeId: packet.figmaLikeSplitRangeId,
-              terminalRole: packet.figmaLikeTerminalRole
+              splitRangeId: packet.domainPlanSplitRangeId,
+              terminalRole: packet.domainPlanTerminalRole
             }
           ]
         : []
@@ -1625,7 +1625,7 @@ test('self-check: self-intersecting inside dashed round star satisfies rule-driv
       (packet) =>
         packet.intervalIds.length > 0 ||
         packet.debugIntervalId !== null ||
-        packet.figmaLikeSplitRangeTerminals.length > 0
+        packet.domainPlanSplitRangeTerminals.length > 0
     ),
     JSON.stringify(noFillMetadata.boundaryDomainPackets, null, 2)
   ).toBe(true)
