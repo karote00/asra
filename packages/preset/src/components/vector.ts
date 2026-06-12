@@ -474,6 +474,74 @@ const toLocalPointNodeMap = (
     ])
   )
 
+const getAnchorPointBounds = (points: Record<string, VectorPointNode>) => {
+  let minX = Number.POSITIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+  let count = 0
+
+  Object.values(points).forEach((point) => {
+    if (point.kind !== VECTOR_TOKENS.POINT.KIND.ANCHOR) {
+      return
+    }
+    minX = Math.min(minX, point.x)
+    minY = Math.min(minY, point.y)
+    maxX = Math.max(maxX, point.x)
+    maxY = Math.max(maxY, point.y)
+    count += 1
+  })
+
+  return count > 0 ? { minX, minY, maxX, maxY } : null
+}
+
+const shouldTreatUnmarkedPointsAsWorkspace = (
+  points: Record<string, VectorPointNode>,
+  rect: { x: number; y: number; width: number; height: number }
+) => {
+  const bounds = getAnchorPointBounds(points)
+  if (!bounds) {
+    return false
+  }
+
+  const tolerance = Math.max(2, Math.max(rect.width, rect.height) * 0.01)
+  return (
+    bounds.minX >= rect.x - tolerance &&
+    bounds.minY >= rect.y - tolerance &&
+    bounds.maxX <= rect.x + rect.width + tolerance &&
+    bounds.maxY <= rect.y + rect.height + tolerance
+  )
+}
+
+const toCanonicalWorkspacePointNodeMap = (
+  points: Record<string, VectorPointNode>,
+  input: {
+    x: number
+    y: number
+    width: number
+    height: number
+    pointCoordinateSpace?: unknown
+  }
+): Record<string, VectorPointNode> => {
+  if (input.pointCoordinateSpace === 'workspace') {
+    return points
+  }
+  if (
+    shouldTreatUnmarkedPointsAsWorkspace(points, {
+      x: input.x,
+      y: input.y,
+      width: input.width,
+      height: input.height
+    })
+  ) {
+    emitStrokePipelineCounter(
+      'vector-render-normalize-unmarked-workspace-points-count'
+    )
+    return points
+  }
+  return toWorkspacePointNodeMap(points, { x: input.x, y: input.y })
+}
+
 interface NormalizedVectorRenderDataInput {
   id: string
   x: number
@@ -541,10 +609,7 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
     const rawStrokeDebugOptions = isRecord(data.strokeDebugOptions)
       ? data.strokeDebugOptions
       : {}
-    const points =
-      data.pointCoordinateSpace === 'workspace'
-        ? data.points
-        : toWorkspacePointNodeMap(data.points, { x: data.x, y: data.y })
+    const points = toCanonicalWorkspacePointNodeMap(data.points, data)
     emitStrokePipelineCounter('vector-render-normalize-fast-path-hit')
     return {
       ...data,
@@ -564,11 +629,16 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
   const rawData = isRecord(data) ? data : {}
   const rawX = toFiniteNumber(rawData.x)
   const rawY = toFiniteNumber(rawData.y)
+  const rawWidth = Math.max(0, toFiniteNumber(rawData.width))
+  const rawHeight = Math.max(0, toFiniteNumber(rawData.height))
   const rawPoints = normalizeVectorPointNodeMap(rawData.points)
-  const points =
-    rawData.pointCoordinateSpace === 'workspace'
-      ? rawPoints
-      : toWorkspacePointNodeMap(rawPoints, { x: rawX, y: rawY })
+  const points = toCanonicalWorkspacePointNodeMap(rawPoints, {
+    x: rawX,
+    y: rawY,
+    width: rawWidth,
+    height: rawHeight,
+    pointCoordinateSpace: rawData.pointCoordinateSpace
+  })
   const segments = normalizeVectorSegmentMap(rawData.segments)
   const rawStrokeDebugOptions = isRecord(rawData.strokeDebugOptions)
     ? rawData.strokeDebugOptions
@@ -578,8 +648,8 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
     id: typeof rawData.id === 'string' ? rawData.id : 'vector:invalid',
     x: rawX,
     y: rawY,
-    width: Math.max(0, toFiniteNumber(rawData.width)),
-    height: Math.max(0, toFiniteNumber(rawData.height)),
+    width: rawWidth,
+    height: rawHeight,
     points,
     pointCoordinateSpace: 'workspace',
     segments,

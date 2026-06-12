@@ -533,6 +533,7 @@ export const registerSelectionOverlayRenderLayer = (
           selectedId,
           deps.render.getElementById(selectedId) as RenderElementShape | null
         )
+        appendVectorComputedSignature(drawSignatureParts, deps, selectedId)
       })
       if (hoveredElementId) {
         appendElementTransformSignature(
@@ -568,6 +569,14 @@ export const registerSelectionOverlayRenderLayer = (
               SELECTION_STROKE_COLOR,
               STROKE_WIDTH
             )
+            if (getElementType(deps, selectedElementId) === 'vector') {
+              drawVectorHoverOutline(
+                canvas,
+                deps,
+                selectedElementId,
+                selectedElement.worldTransform
+              )
+            }
           }
         } else {
           const bounds = getMultiSelectionBounds(deps, selectedIds)

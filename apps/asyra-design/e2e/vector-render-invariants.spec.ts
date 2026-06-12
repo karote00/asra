@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { resetCanvas, waitForAppReady } from './test-utils'
+import { getCanvasPosition, resetCanvas, waitForAppReady } from './test-utils'
 
 interface BrowserTestInfo {
   browserErrors?: string[]
@@ -813,6 +813,72 @@ const analyzeRedStrokeRaster = async (page: Page, screenshotBase64: string) =>
     }
   }, screenshotBase64)
 
+const analyzeBrightStrokeRaster = async (page: Page, screenshotBase64: string) =>
+  page.evaluate(async (base64) => {
+    const response = await fetch(`data:image/png;base64,${base64}`)
+    const blob = await response.blob()
+    const bitmap = await createImageBitmap(blob)
+    const canvas = document.createElement('canvas')
+    canvas.width = bitmap.width
+    canvas.height = bitmap.height
+    const context = canvas.getContext('2d')
+    if (!context) {
+      throw new Error('Canvas 2D context unavailable')
+    }
+    context.drawImage(bitmap, 0, 0)
+    const image = context.getImageData(0, 0, canvas.width, canvas.height).data
+    let strokePixels = 0
+    let visualSignal = 0
+    const bounds = {
+      minX: Number.POSITIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY
+    }
+
+    for (let index = 0; index < image.length; index += 4) {
+      const red = image[index] ?? 0
+      const green = image[index + 1] ?? 0
+      const blue = image[index + 2] ?? 0
+      const alpha = image[index + 3] ?? 0
+      const isBrightStrokePixel =
+        alpha > 128 &&
+        red > 150 &&
+        green > 150 &&
+        blue > 150 &&
+        Math.abs(red - green) < 48 &&
+        Math.abs(red - blue) < 48
+      if (!isBrightStrokePixel) {
+        continue
+      }
+      const pixelIndex = index / 4
+      const x = pixelIndex % canvas.width
+      const y = Math.floor(pixelIndex / canvas.width)
+      strokePixels += 1
+      visualSignal += (red + green + blue) / 3
+      bounds.minX = Math.min(bounds.minX, x)
+      bounds.minY = Math.min(bounds.minY, y)
+      bounds.maxX = Math.max(bounds.maxX, x)
+      bounds.maxY = Math.max(bounds.maxY, y)
+    }
+
+    const totalPixels = canvas.width * canvas.height
+    return {
+      strokeCoverage: strokePixels / totalPixels,
+      strokePixels,
+      visualSignal: visualSignal / totalPixels,
+      bounds:
+        strokePixels > 0
+          ? {
+              x: bounds.minX,
+              y: bounds.minY,
+              width: bounds.maxX - bounds.minX,
+              height: bounds.maxY - bounds.minY
+            }
+          : null
+    }
+  }, screenshotBase64)
+
 const analyzeBrightStrokeOutsideCurrentVectorBounds = async (
   page: Page,
   screenshotBase64: string,
@@ -1052,6 +1118,164 @@ const analyzeSelectedBrightStrokeAlignmentRaster = async (
       blueBounds: toBounds(blueBounds),
       strokeBounds: toBounds(brightBounds),
       strokePixels
+    }
+  }, screenshotBase64)
+
+const analyzeSelectedVectorBluePathOverlayRaster = async (
+  page: Page,
+  screenshotBase64: string
+) =>
+  page.evaluate(async (base64) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId =
+      core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+    const computed = selectedId
+      ? core?.deps?.sceneTree
+          ?.getElementById?.(selectedId)
+          ?.getAllComputedData?.()
+      : null
+    const points = computed?.points ?? null
+    const segments = computed?.segments ?? null
+    const networks = computed?.networks ?? null
+    if (!selectedId || !points || !segments || !networks) {
+      return {
+        selectedId,
+        sampleCount: 0,
+        coveredSamples: 0,
+        bluePixelsNearPath: 0,
+        segmentCount: 0
+      }
+    }
+
+    const response = await fetch(`data:image/png;base64,${base64}`)
+    const blob = await response.blob()
+    const bitmap = await createImageBitmap(blob)
+    const canvas = document.createElement('canvas')
+    canvas.width = bitmap.width
+    canvas.height = bitmap.height
+    const context = canvas.getContext('2d')
+    if (!context) {
+      throw new Error('Canvas 2D context unavailable')
+    }
+    context.drawImage(bitmap, 0, 0)
+    const image = context.getImageData(0, 0, canvas.width, canvas.height).data
+    const zoom = Number(core?.getSystemProperty?.('zoom') ?? 1)
+    const viewportPosition =
+      core?.getSystemProperty?.('viewportPosition') ?? { x: 0, y: 0 }
+    const usesWorkspacePoints = computed.pointCoordinateSpace === 'workspace'
+    const toWorkspace = (point: { x: number; y: number }) => ({
+      x: point.x + (usesWorkspacePoints ? 0 : (computed.x ?? 0)),
+      y: point.y + (usesWorkspacePoints ? 0 : (computed.y ?? 0))
+    })
+    const toScreen = (point: { x: number; y: number }) => ({
+      x: point.x * zoom + viewportPosition.x,
+      y: point.y * zoom + viewportPosition.y
+    })
+    const cubic = (
+      p0: { x: number; y: number },
+      p1: { x: number; y: number },
+      p2: { x: number; y: number },
+      p3: { x: number; y: number },
+      t: number
+    ) => {
+      const mt = 1 - t
+      const mt2 = mt * mt
+      const t2 = t * t
+      return {
+        x:
+          mt2 * mt * p0.x +
+          3 * mt2 * t * p1.x +
+          3 * mt * t2 * p2.x +
+          t2 * t * p3.x,
+        y:
+          mt2 * mt * p0.y +
+          3 * mt2 * t * p1.y +
+          3 * mt * t2 * p2.y +
+          t2 * t * p3.y
+      }
+    }
+    const isSelectionBlueAt = (x: number, y: number) => {
+      if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) {
+        return false
+      }
+      const index = (Math.floor(y) * canvas.width + Math.floor(x)) * 4
+      const red = image[index] ?? 0
+      const green = image[index + 1] ?? 0
+      const blue = image[index + 2] ?? 0
+      const alpha = image[index + 3] ?? 0
+      return alpha > 128 && blue > 150 && green > 80 && red < 100
+    }
+    const hasBlueNear = (point: { x: number; y: number }) => {
+      for (let dy = -3; dy <= 3; dy += 1) {
+        for (let dx = -3; dx <= 3; dx += 1) {
+          if (dx * dx + dy * dy > 9) {
+            continue
+          }
+          if (isSelectionBlueAt(point.x + dx, point.y + dy)) {
+            return true
+          }
+        }
+      }
+      return false
+    }
+
+    let sampleCount = 0
+    let coveredSamples = 0
+    let bluePixelsNearPath = 0
+    let segmentCount = 0
+    const sampleTimes = [0.25, 0.5, 0.75]
+    Object.values(networks).forEach((network: any) => {
+      ;(network.segmentIds ?? []).forEach((segmentId: string) => {
+        const segment = segments[segmentId]
+        if (!segment) {
+          return
+        }
+        const start = points[segment.startId]
+        const end = points[segment.endId]
+        if (!start || !end || start.kind !== 'anchor' || end.kind !== 'anchor') {
+          return
+        }
+        segmentCount += 1
+        const p0 = toWorkspace(start)
+        const p3 = toWorkspace(end)
+        const outControl = segment.outControlId
+          ? points[segment.outControlId]
+          : null
+        const inControl = segment.inControlId ? points[segment.inControlId] : null
+        const p1 =
+          outControl && outControl.kind === 'control'
+            ? toWorkspace(outControl)
+            : p0
+        const p2 =
+          inControl && inControl.kind === 'control' ? toWorkspace(inControl) : p3
+
+        sampleTimes.forEach((time) => {
+          const sample = toScreen(cubic(p0, p1, p2, p3, time))
+          sampleCount += 1
+          if (hasBlueNear(sample)) {
+            coveredSamples += 1
+          }
+          for (let dy = -3; dy <= 3; dy += 1) {
+            for (let dx = -3; dx <= 3; dx += 1) {
+              if (
+                dx * dx + dy * dy <= 9 &&
+                isSelectionBlueAt(sample.x + dx, sample.y + dy)
+              ) {
+                bluePixelsNearPath += 1
+              }
+            }
+          }
+        })
+      })
+    })
+
+    return {
+      selectedId,
+      sampleCount,
+      coveredSamples,
+      bluePixelsNearPath,
+      segmentCount
     }
   }, screenshotBase64)
 
@@ -2295,6 +2519,9 @@ const readSelectedVectorDiagnostics = async (page: Page) =>
             segmentCount: Object.keys(computed.segments ?? {}).length,
             networkCount: Object.keys(computed.networks ?? {}).length,
             closed: computed.closed,
+            strokeCount: Array.isArray(computed.strokes)
+              ? computed.strokes.length
+              : 0,
             strokes: computed.strokes,
             fills: computed.fills
           }
@@ -3891,6 +4118,1232 @@ test.describe('Vector render invariants', () => {
     ).toBeLessThanOrEqual(
       alignmentStats.blueBounds.y + alignmentStats.blueBounds.height + tolerance
     )
+  })
+
+  test('keeps pen-created open center solid vector stroke aligned after completion', async ({
+    page
+  }, testInfo) => {
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!core || !elementApis) {
+        throw new Error('Missing E2E core or element APIs')
+      }
+
+      const pointOrder = [
+        { id: 'pen-open-0', x: 1104.72, y: -202.67 },
+        { id: 'pen-open-1', x: 923.31, y: 258.44 },
+        { id: 'pen-open-2', x: 1320.05, y: 62.18 },
+        { id: 'pen-open-3', x: 878.42, y: 70.76 },
+        { id: 'pen-open-4', x: 1267.92, y: 260.32 }
+      ]
+      const firstPoint = pointOrder[0]
+      const createdId = elementApis.createVectorElementFromSinglePoint(
+        firstPoint.id,
+        { x: firstPoint.x, y: firstPoint.y },
+        { undoable: false }
+      )
+      if (!createdId) {
+        throw new Error('Failed to create pen open vector')
+      }
+
+      pointOrder.slice(1).forEach((point) => {
+        const result = elementApis.appendVectorAnchorPoint(createdId, {
+          id: point.id,
+          type: 'sharp',
+          x: point.x,
+          y: point.y,
+          isMove: undefined,
+          inHandle: null,
+          outHandle: null
+        })
+        if (!result) {
+          throw new Error(`Failed to append ${point.id}`)
+        }
+      })
+
+      core.selectElements?.([createdId], { undoable: false })
+      core.setSystemProperty?.('pathEditingMode', false)
+      core.setSystemProperty?.('pathEditingVectorId', null)
+      core.setSystemProperty?.('zoom', 1)
+      core.setSystemProperty?.('viewportPosition', { x: -640, y: 300 })
+    })
+
+    await page.waitForTimeout(400)
+
+    const pageScreenshot = await page.screenshot({
+      path: testInfo.outputPath('pen-created-open-solid-alignment-page.png'),
+      fullPage: true
+    })
+    await testInfo.attach('pen-created-open-solid-alignment-page', {
+      body: pageScreenshot,
+      contentType: 'image/png'
+    })
+
+    const alignmentStats = await analyzeSelectedBrightStrokeAlignmentRaster(
+      page,
+      pageScreenshot.toString('base64')
+    )
+    const runtimeSnapshot = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      const computed = selectedId
+        ? core?.deps?.sceneTree
+            ?.getElementById?.(selectedId)
+            ?.getAllComputedData?.()
+        : null
+      const anchors = Object.values(computed?.points ?? {}).filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (point: any) => point?.kind === 'anchor'
+      ) as { id: string; x: number; y: number }[]
+      const anchorBounds = anchors.reduce(
+        (bounds, point) => ({
+          minX: Math.min(bounds.minX, point.x),
+          minY: Math.min(bounds.minY, point.y),
+          maxX: Math.max(bounds.maxX, point.x),
+          maxY: Math.max(bounds.maxY, point.y)
+        }),
+        {
+          minX: Number.POSITIVE_INFINITY,
+          minY: Number.POSITIVE_INFINITY,
+          maxX: Number.NEGATIVE_INFINITY,
+          maxY: Number.NEGATIVE_INFINITY
+        }
+      )
+      return {
+        selectedId,
+        computed: computed
+          ? {
+              x: computed.x,
+              y: computed.y,
+              width: computed.width,
+              height: computed.height,
+              pointCoordinateSpace: computed.pointCoordinateSpace,
+              anchorBounds,
+              strokes: computed.strokes
+            }
+          : null
+      }
+    })
+
+    expect(
+      runtimeSnapshot.computed,
+      `pen-created open vector missing computed data\n${JSON.stringify(
+        { runtimeSnapshot, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+    expect(
+      alignmentStats.blueBounds,
+      `pen-created open vector missing selected bounds\n${JSON.stringify(
+        { runtimeSnapshot, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+    expect(
+      alignmentStats.strokeBounds,
+      `pen-created open center solid stroke is not painted near selected bounds\n${JSON.stringify(
+        { runtimeSnapshot, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+    if (
+      !runtimeSnapshot.computed ||
+      !alignmentStats.blueBounds ||
+      !alignmentStats.strokeBounds
+    ) {
+      return
+    }
+
+    expect(runtimeSnapshot.computed.pointCoordinateSpace).toBe('workspace')
+    expect(runtimeSnapshot.computed.x).toBeCloseTo(
+      runtimeSnapshot.computed.anchorBounds.minX,
+      1
+    )
+    expect(runtimeSnapshot.computed.y).toBeCloseTo(
+      runtimeSnapshot.computed.anchorBounds.minY,
+      1
+    )
+    const tolerance = 48
+    expect(
+      alignmentStats.strokeBounds.x,
+      `pen-created open center solid stroke shifted left\n${JSON.stringify(
+        { runtimeSnapshot, alignmentStats },
+        null,
+        2
+      )}`
+    ).toBeGreaterThanOrEqual(alignmentStats.blueBounds.x - tolerance)
+    expect(
+      alignmentStats.strokeBounds.y,
+      `pen-created open center solid stroke shifted above\n${JSON.stringify(
+        { runtimeSnapshot, alignmentStats },
+        null,
+        2
+      )}`
+    ).toBeGreaterThanOrEqual(alignmentStats.blueBounds.y - tolerance)
+    expect(
+      alignmentStats.strokeBounds.x + alignmentStats.strokeBounds.width,
+      `pen-created open center solid stroke shifted right\n${JSON.stringify(
+        { runtimeSnapshot, alignmentStats },
+        null,
+        2
+      )}`
+    ).toBeLessThanOrEqual(
+      alignmentStats.blueBounds.x + alignmentStats.blueBounds.width + tolerance
+    )
+    expect(
+      alignmentStats.strokeBounds.y + alignmentStats.strokeBounds.height,
+      `pen-created open center solid stroke shifted below\n${JSON.stringify(
+        { runtimeSnapshot, alignmentStats },
+        null,
+        2
+      )}`
+    ).toBeLessThanOrEqual(
+      alignmentStats.blueBounds.y + alignmentStats.blueBounds.height + tolerance
+    )
+  })
+
+  test('keeps UI pen-created open center solid vector visible after finishing path editing', async ({
+    page
+  }, testInfo) => {
+    await page.keyboard.press('p')
+    await expect(page.getByTestId('tool-pen')).toHaveAttribute(
+      'data-active',
+      'true'
+    )
+
+    const points = await Promise.all([
+      getCanvasPosition(page, 0.54, 0.14),
+      getCanvasPosition(page, 0.38, 0.74),
+      getCanvasPosition(page, 0.78, 0.4),
+      getCanvasPosition(page, 0.28, 0.36),
+      getCanvasPosition(page, 0.66, 0.78)
+    ])
+
+    for (const point of points) {
+      await page.mouse.click(point.x, point.y)
+      await page.waitForTimeout(80)
+    }
+
+    await page.keyboard.press('Escape')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(400)
+
+    const pageScreenshot = await page.screenshot({
+      path: testInfo.outputPath('ui-pen-created-open-solid-page.png'),
+      fullPage: true
+    })
+    await testInfo.attach('ui-pen-created-open-solid-page', {
+      body: pageScreenshot,
+      contentType: 'image/png'
+    })
+
+    const productRaster = await captureSelectedElementRaster(page, 96)
+    await testInfo.attach('ui-pen-created-open-solid-product-raster', {
+      body: Buffer.from(productRaster.base64, 'base64'),
+      contentType: 'image/png'
+    })
+    const productStats = await analyzeBrightStrokeRaster(
+      page,
+      productRaster.base64
+    )
+    const selectedPathOverlayStats =
+      await analyzeSelectedVectorBluePathOverlayRaster(
+        page,
+        pageScreenshot.toString('base64')
+      )
+    const alignmentStats = await analyzeSelectedBrightStrokeAlignmentRaster(
+      page,
+      pageScreenshot.toString('base64')
+    )
+    const diagnostics = await readSelectedVectorDiagnostics(page)
+    const runtimeSnapshot = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      const computed = selectedId
+        ? core?.deps?.sceneTree
+            ?.getElementById?.(selectedId)
+            ?.getAllComputedData?.()
+        : null
+      return {
+        selectedId,
+        pathEditingMode: core?.getSystemProperty?.('pathEditingMode') ?? null,
+        computed: computed
+          ? {
+              x: computed.x,
+              y: computed.y,
+              width: computed.width,
+              height: computed.height,
+              pointCoordinateSpace: computed.pointCoordinateSpace,
+              strokeCount: Array.isArray(computed.strokes)
+                ? computed.strokes.length
+                : 0,
+              strokes: computed.strokes
+            }
+          : null
+      }
+    })
+
+    expect(
+      runtimeSnapshot.computed,
+      `UI pen-created open vector missing computed data\n${JSON.stringify(
+        { runtimeSnapshot, productStats, diagnostics, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+    expect(runtimeSnapshot.pathEditingMode).toBe(false)
+    expect(runtimeSnapshot.computed?.strokeCount).toBeGreaterThan(0)
+    expect(
+      alignmentStats.blueBounds,
+      `UI pen-created open vector missing selected bounds\n${JSON.stringify(
+        { runtimeSnapshot, productStats, diagnostics, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+    expect(
+      selectedPathOverlayStats.sampleCount,
+      `UI pen-created open selected path outline probe did not find vector segments\n${JSON.stringify(
+        {
+          runtimeSnapshot,
+          productStats,
+          diagnostics,
+          alignmentStats,
+          selectedPathOverlayStats
+        },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(0)
+    expect(
+      selectedPathOverlayStats.coveredSamples,
+      `UI pen-created open selected path outline is missing after finishing path editing\n${JSON.stringify(
+        {
+          runtimeSnapshot,
+          productStats,
+          diagnostics,
+          alignmentStats,
+          selectedPathOverlayStats
+        },
+        null,
+        2
+      )}`
+    ).toBeGreaterThanOrEqual(selectedPathOverlayStats.sampleCount)
+    expect(
+      diagnostics.render,
+      `UI pen-created open center solid render element missing\n${JSON.stringify(
+        { runtimeSnapshot, productStats, diagnostics, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+    expect(
+      (diagnostics.render?.solidPacketCount ?? 0) +
+        (diagnostics.render?.nativeCenterSolidStrokeRenderCount ?? 0),
+      `UI pen-created open center solid render did not produce product stroke output\n${JSON.stringify(
+        { runtimeSnapshot, productStats, diagnostics, alignmentStats },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(0)
+  })
+
+  test('keeps UI pen-dragged first curve segment visible after finishing path editing', async ({
+    page
+  }, testInfo) => {
+    await page.keyboard.press('p')
+    await expect(page.getByTestId('tool-pen')).toHaveAttribute(
+      'data-active',
+      'true'
+    )
+
+    const firstPoint = await getCanvasPosition(page, 0.54, 0.52)
+    const secondPoint = await getCanvasPosition(page, 0.66, 0.28)
+    const dragPoint = await getCanvasPosition(page, 0.74, 0.18)
+
+    await page.mouse.click(firstPoint.x, firstPoint.y)
+    await page.waitForTimeout(80)
+    await page.mouse.move(secondPoint.x, secondPoint.y)
+    await page.mouse.down()
+    await page.mouse.move(dragPoint.x, dragPoint.y, { steps: 8 })
+    await page.mouse.up()
+    await page.waitForTimeout(120)
+
+    await page.keyboard.press('Escape')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(400)
+
+    const pageScreenshot = await page.screenshot({
+      path: testInfo.outputPath('ui-pen-dragged-first-curve-page.png'),
+      fullPage: true
+    })
+    await testInfo.attach('ui-pen-dragged-first-curve-page', {
+      body: pageScreenshot,
+      contentType: 'image/png'
+    })
+
+    const productRaster = await captureSelectedElementRaster(page, 96)
+    await testInfo.attach('ui-pen-dragged-first-curve-product-raster', {
+      body: Buffer.from(productRaster.base64, 'base64'),
+      contentType: 'image/png'
+    })
+    const productStats = await analyzeBrightStrokeRaster(
+      page,
+      productRaster.base64
+    )
+    const selectedPathOverlayStats =
+      await analyzeSelectedVectorBluePathOverlayRaster(
+        page,
+        pageScreenshot.toString('base64')
+      )
+    const diagnostics = await readSelectedVectorDiagnostics(page)
+    const runtimeSnapshot = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      const computed = selectedId
+        ? core?.deps?.sceneTree
+            ?.getElementById?.(selectedId)
+            ?.getAllComputedData?.()
+        : null
+
+      return {
+        selectedId,
+        pathEditingMode: core?.getSystemProperty?.('pathEditingMode') ?? null,
+        computed: computed
+          ? {
+              x: computed.x,
+              y: computed.y,
+              width: computed.width,
+              height: computed.height,
+              pointCoordinateSpace: computed.pointCoordinateSpace,
+              strokeCount: Array.isArray(computed.strokes)
+                ? computed.strokes.length
+                : 0,
+              pointCount: Object.keys(computed.points ?? {}).length,
+              segmentCount: Object.keys(computed.segments ?? {}).length,
+              networkCount: Object.keys(computed.networks ?? {}).length,
+              strokes: computed.strokes
+            }
+          : null
+      }
+    })
+
+    expect(
+      runtimeSnapshot.computed,
+      `UI pen-dragged first curve missing computed data\n${JSON.stringify(
+        { runtimeSnapshot, productStats, diagnostics },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+    expect(runtimeSnapshot.pathEditingMode).toBe(false)
+    expect(runtimeSnapshot.computed?.strokeCount).toBeGreaterThan(0)
+    expect(runtimeSnapshot.computed?.pointCount).toBeGreaterThanOrEqual(4)
+    expect(runtimeSnapshot.computed?.segmentCount).toBe(1)
+    expect(
+      diagnostics.render?.childCount ?? 0,
+      `UI pen-dragged first curve vector has no render child\n${JSON.stringify(
+        {
+          runtimeSnapshot,
+          productStats,
+          productRaster: { ...productRaster, base64: '<omitted>' },
+          diagnostics
+        },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(0)
+    expect(
+      (diagnostics.render?.solidPacketCount ?? 0) +
+        (diagnostics.render?.nativeCenterSolidStrokeRenderCount ?? 0),
+      `UI pen-dragged first curve render did not produce product stroke output\n${JSON.stringify(
+        { runtimeSnapshot, productStats, diagnostics },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(0)
+    expect(
+      selectedPathOverlayStats.sampleCount,
+      `UI pen-dragged first curve selected path outline probe did not find vector segments\n${JSON.stringify(
+        { runtimeSnapshot, productStats, diagnostics, selectedPathOverlayStats },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(0)
+    expect(
+      selectedPathOverlayStats.coveredSamples,
+      `UI pen-dragged first curve selected path outline is missing after finishing path editing\n${JSON.stringify(
+        { runtimeSnapshot, productStats, diagnostics, selectedPathOverlayStats },
+        null,
+        2
+      )}`
+    ).toBeGreaterThanOrEqual(selectedPathOverlayStats.sampleCount)
+  })
+
+  test('keeps UI pen-created open center solid vector visible after finishing path editing at low zoom', async ({
+    page
+  }, testInfo) => {
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      core?.setSystemProperty?.('zoom', 0.48)
+      core?.setSystemProperty?.('viewportPosition', { x: 220, y: 120 })
+    })
+    await page.keyboard.press('p')
+    await expect(page.getByTestId('tool-pen')).toHaveAttribute(
+      'data-active',
+      'true'
+    )
+
+    const points = await Promise.all([
+      getCanvasPosition(page, 0.54, 0.14),
+      getCanvasPosition(page, 0.38, 0.74),
+      getCanvasPosition(page, 0.78, 0.4),
+      getCanvasPosition(page, 0.28, 0.36),
+      getCanvasPosition(page, 0.66, 0.78)
+    ])
+
+    for (const point of points) {
+      await page.mouse.click(point.x, point.y)
+      await page.waitForTimeout(80)
+    }
+
+    await page.keyboard.press('Escape')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(400)
+
+    const pageScreenshot = await page.screenshot({
+      path: testInfo.outputPath('ui-pen-created-open-solid-low-zoom-page.png'),
+      fullPage: true
+    })
+    await testInfo.attach('ui-pen-created-open-solid-low-zoom-page', {
+      body: pageScreenshot,
+      contentType: 'image/png'
+    })
+
+    const productRaster = await captureSelectedElementRaster(page, 96)
+    await testInfo.attach('ui-pen-created-open-solid-low-zoom-product-raster', {
+      body: Buffer.from(productRaster.base64, 'base64'),
+      contentType: 'image/png'
+    })
+    const productStats = await analyzeBrightStrokeRaster(
+      page,
+      productRaster.base64
+    )
+    const selectedPathOverlayStats =
+      await analyzeSelectedVectorBluePathOverlayRaster(
+        page,
+        pageScreenshot.toString('base64')
+      )
+    const diagnostics = await readSelectedVectorDiagnostics(page)
+    const runtimeSnapshot = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      const computed = selectedId
+        ? core?.deps?.sceneTree
+            ?.getElementById?.(selectedId)
+            ?.getAllComputedData?.()
+        : null
+
+      return {
+        selectedId,
+        zoom: core?.getSystemProperty?.('zoom') ?? null,
+        pathEditingMode: core?.getSystemProperty?.('pathEditingMode') ?? null,
+        computed: computed
+          ? {
+              x: computed.x,
+              y: computed.y,
+              width: computed.width,
+              height: computed.height,
+              pointCoordinateSpace: computed.pointCoordinateSpace,
+              strokeCount: Array.isArray(computed.strokes)
+                ? computed.strokes.length
+                : 0,
+              strokes: computed.strokes
+            }
+          : null
+      }
+    })
+
+    expect(runtimeSnapshot.pathEditingMode).toBe(false)
+    expect(runtimeSnapshot.computed?.strokeCount).toBeGreaterThan(0)
+    expect(
+      diagnostics.render?.childCount ?? 0,
+      `low-zoom UI pen-created open center solid vector has no render child\n${JSON.stringify(
+        {
+          runtimeSnapshot,
+          productStats,
+          productRaster: { ...productRaster, base64: '<omitted>' },
+          diagnostics
+        },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(0)
+    expect(
+      diagnostics.render?.solidPacketCount ?? 0,
+      `low-zoom UI pen-created open center solid vector has no stroke packet\n${JSON.stringify(
+        { runtimeSnapshot, productStats, diagnostics },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(0)
+    expect(
+      selectedPathOverlayStats.sampleCount,
+      `low-zoom selected open vector path outline probe did not find vector segments\n${JSON.stringify(
+        { runtimeSnapshot, selectedPathOverlayStats, diagnostics },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(0)
+    expect(
+      selectedPathOverlayStats.coveredSamples,
+      `low-zoom selected open vector path outline is missing after finishing path editing\n${JSON.stringify(
+        {
+          runtimeSnapshot,
+          productStats,
+          selectedPathOverlayStats,
+          diagnostics
+        },
+        null,
+        2
+      )}`
+    ).toBeGreaterThanOrEqual(selectedPathOverlayStats.sampleCount)
+  })
+
+  test('keeps current UI pen-created open center solid vector visible while pen continuation is active', async ({
+    page
+  }, testInfo) => {
+    await page.keyboard.press('p')
+    await expect(page.getByTestId('tool-pen')).toHaveAttribute(
+      'data-active',
+      'true'
+    )
+
+    const points = await Promise.all([
+      getCanvasPosition(page, 0.54, 0.14),
+      getCanvasPosition(page, 0.38, 0.74),
+      getCanvasPosition(page, 0.78, 0.4),
+      getCanvasPosition(page, 0.28, 0.36),
+      getCanvasPosition(page, 0.66, 0.78)
+    ])
+
+    for (const point of points) {
+      await page.mouse.click(point.x, point.y)
+      await page.waitForTimeout(80)
+    }
+
+    await page.waitForTimeout(400)
+
+    const pageScreenshot = await page.screenshot({
+      path: testInfo.outputPath('ui-pen-current-open-solid-page.png'),
+      fullPage: true
+    })
+    await testInfo.attach('ui-pen-current-open-solid-page', {
+      body: pageScreenshot,
+      contentType: 'image/png'
+    })
+
+    const alignmentStats = await analyzeSelectedBrightStrokeAlignmentRaster(
+      page,
+      pageScreenshot.toString('base64')
+    )
+    const diagnostics = await readSelectedVectorDiagnostics(page)
+
+    expect(diagnostics.computed).not.toBeNull()
+    expect(diagnostics.computed?.pointCoordinateSpace).toBe('workspace')
+    expect(diagnostics.computed?.strokeCount ?? 0).toBeGreaterThan(0)
+    expect(diagnostics.render).not.toBeNull()
+    expect(
+      (diagnostics.render?.solidPacketCount ?? 0) +
+        (diagnostics.render?.nativeCenterSolidStrokeRenderCount ?? 0),
+      `current pen-created open vector has no center solid product output\n${JSON.stringify(
+        { diagnostics, alignmentStats },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(0)
+    expect(
+      alignmentStats.blueBounds,
+      `current pen-created open vector missing selected bounds\n${JSON.stringify(
+        { diagnostics, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+    expect(
+      alignmentStats.strokeBounds,
+      `current pen-created open center solid stroke is not painted near selected bounds\n${JSON.stringify(
+        { diagnostics, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+  })
+
+  test('keeps pen-created open vector visible after existing vector stroke cache entries', async ({
+    page
+  }, testInfo) => {
+    await page.evaluate((topology) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!core || !elementApis) {
+        throw new Error('Missing E2E core or element APIs')
+      }
+
+      const styles = [
+        { style: 'solid', position: 'center', color: '#888888' },
+        { style: 'dashed', position: 'center', color: '#cccccc' },
+        { style: 'dashed', position: 'inside', color: '#aa1111' },
+        { style: 'dashed', position: 'outside', color: '#11aa88' }
+      ]
+
+      styles.forEach((style, index) => {
+        const dx = index * 140
+        const translatedPoints = Object.fromEntries(
+          Object.entries(topology.points).map(([pointId, point]) => [
+            `${pointId}-${index}`,
+            {
+              ...point,
+              id: `${pointId}-${index}`,
+              x: point.x + dx,
+              y: point.y + index * 60
+            }
+          ])
+        )
+        const translatedSegments = Object.fromEntries(
+          Object.entries(topology.segments).map(([segmentId, segment]) => [
+            `${segmentId}-${index}`,
+            {
+              ...segment,
+              id: `${segmentId}-${index}`,
+              startId: `${segment.startId}-${index}`,
+              endId: `${segment.endId}-${index}`,
+              outControlId: segment.outControlId
+                ? `${segment.outControlId}-${index}`
+                : null,
+              inControlId: segment.inControlId
+                ? `${segment.inControlId}-${index}`
+                : null
+            }
+          ])
+        )
+        const translatedNetworks = Object.fromEntries(
+          Object.entries(topology.networks).map(([networkId, network]) => [
+            `${networkId}-${index}`,
+            {
+              ...network,
+              id: `${networkId}-${index}`,
+              pointIds: network.pointIds.map(
+                (pointId) => `${pointId}-${index}`
+              ),
+              segmentIds: network.segmentIds.map(
+                (segmentId) => `${segmentId}-${index}`
+              )
+            }
+          ])
+        )
+        const createdId = elementApis.createElement(
+          {
+            type: 'vector',
+            points: translatedPoints,
+            segments: translatedSegments,
+            networks: translatedNetworks,
+            closed: true,
+            pointCoordinateSpace: 'workspace',
+            fills: []
+          },
+          { undoable: false }
+        )
+        if (!createdId) {
+          throw new Error(`Failed to create existing vector ${index}`)
+        }
+
+        elementApis.changeComputedData(
+          [createdId],
+          {
+            strokes: [
+              {
+                id: `existing-vector-stroke-${index}`,
+                kind: 'solid',
+                style: style.style,
+                position: style.position,
+                width: 10,
+                dashPattern: [20, 20],
+                dashOffset: 0,
+                fill: {
+                  id: `existing-vector-stroke-${index}`,
+                  type: 'fill',
+                  kind: 'solid',
+                  defaultColorFormat: 'hex',
+                  colorFormat: 'hex',
+                  color: style.color,
+                  opacity: 1,
+                  visible: true,
+                  gradient: null
+                },
+                joinType: 'miter',
+                capType: 'butt',
+                miterAngle: 28.96
+              }
+            ]
+          },
+          { undoable: false }
+        )
+      })
+      core.setSystemProperty?.('zoom', 1)
+      core.setSystemProperty?.('viewportPosition', { x: 0, y: 0 })
+    }, createPentagramTopology())
+
+    await page.waitForTimeout(250)
+    await page.keyboard.press('p')
+    await expect(page.getByTestId('tool-pen')).toHaveAttribute(
+      'data-active',
+      'true'
+    )
+
+    const points = await Promise.all([
+      getCanvasPosition(page, 0.75, 0.18),
+      getCanvasPosition(page, 0.61, 0.78),
+      getCanvasPosition(page, 0.9, 0.44),
+      getCanvasPosition(page, 0.55, 0.42),
+      getCanvasPosition(page, 0.86, 0.78)
+    ])
+
+    for (const point of points) {
+      await page.mouse.click(point.x, point.y)
+      await page.waitForTimeout(80)
+    }
+
+    await page.waitForTimeout(400)
+
+    const pageScreenshot = await page.screenshot({
+      path: testInfo.outputPath('ui-pen-open-solid-after-cache-page.png'),
+      fullPage: true
+    })
+    await testInfo.attach('ui-pen-open-solid-after-cache-page', {
+      body: pageScreenshot,
+      contentType: 'image/png'
+    })
+
+    const alignmentStats = await analyzeSelectedBrightStrokeAlignmentRaster(
+      page,
+      pageScreenshot.toString('base64')
+    )
+    const diagnostics = await readSelectedVectorDiagnostics(page)
+
+    expect(diagnostics.computed).not.toBeNull()
+    expect(diagnostics.computed?.pointCoordinateSpace).toBe('workspace')
+    expect(
+      (diagnostics.render?.solidPacketCount ?? 0) +
+        (diagnostics.render?.nativeCenterSolidStrokeRenderCount ?? 0),
+      `pen-created open vector lost product output after existing cache entries\n${JSON.stringify(
+        { diagnostics, alignmentStats },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(0)
+    expect(
+      alignmentStats.strokeBounds,
+      `pen-created open vector after cache entries is not painted near selected bounds\n${JSON.stringify(
+        { diagnostics, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+  })
+
+  test('keeps UI pen-created open center solid vector visible after page reload', async ({
+    page
+  }, testInfo) => {
+    await page.keyboard.press('p')
+    await expect(page.getByTestId('tool-pen')).toHaveAttribute(
+      'data-active',
+      'true'
+    )
+
+    const points = await Promise.all([
+      getCanvasPosition(page, 0.54, 0.14),
+      getCanvasPosition(page, 0.38, 0.74),
+      getCanvasPosition(page, 0.78, 0.4),
+      getCanvasPosition(page, 0.28, 0.36),
+      getCanvasPosition(page, 0.66, 0.78)
+    ])
+
+    for (const point of points) {
+      await page.mouse.click(point.x, point.y)
+      await page.waitForTimeout(80)
+    }
+
+    await page.keyboard.press('Escape')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(250)
+
+    const selectedIdBeforeReload = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+    })
+    expect(selectedIdBeforeReload).not.toBeNull()
+
+    await page.reload()
+    await waitForAppReady(page)
+    await page.evaluate((selectedId) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      if (selectedId) {
+        core?.selectElements?.([selectedId], { undoable: false })
+      }
+      core?.setSystemProperty?.('zoom', 1)
+      core?.setSystemProperty?.('viewportPosition', { x: 120, y: 120 })
+    }, selectedIdBeforeReload)
+    await page.waitForTimeout(500)
+
+    const pageScreenshot = await page.screenshot({
+      path: testInfo.outputPath('ui-pen-open-solid-after-reload-page.png'),
+      fullPage: true
+    })
+    await testInfo.attach('ui-pen-open-solid-after-reload-page', {
+      body: pageScreenshot,
+      contentType: 'image/png'
+    })
+
+    const alignmentStats = await analyzeSelectedBrightStrokeAlignmentRaster(
+      page,
+      pageScreenshot.toString('base64')
+    )
+    const diagnostics = await readSelectedVectorDiagnostics(page)
+
+    expect(diagnostics.selectedId).toBe(selectedIdBeforeReload)
+    expect(diagnostics.computed).not.toBeNull()
+    expect(
+      diagnostics.computed?.pointCoordinateSpace,
+      `persisted pen-created open vector lost canonical point coordinate space\n${JSON.stringify(
+        { diagnostics },
+        null,
+        2
+      )}`
+    ).toBe('workspace')
+    expect(
+      alignmentStats.blueBounds,
+      `reloaded pen-created open vector missing selected bounds\n${JSON.stringify(
+        { diagnostics, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+    expect(
+      alignmentStats.strokeBounds,
+      `reloaded pen-created open center solid stroke is not painted near selected bounds\n${JSON.stringify(
+        { diagnostics, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+  })
+
+  test('keeps unmarked workspace vector points visible after load normalization', async ({
+    page
+  }, testInfo) => {
+    await page.evaluate(async (topology) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      if (!core || !elementApis) {
+        throw new Error('Missing E2E core or element APIs')
+      }
+
+      const createdId = elementApis.createElement(
+        {
+          type: 'vector',
+          x: topology.x,
+          y: topology.y,
+          width: topology.width,
+          height: topology.height,
+          points: topology.points,
+          segments: topology.segments,
+          networks: topology.networks,
+          closed: false,
+          pointCoordinateSpace: 'workspace',
+          fills: [],
+          strokes: [
+            {
+              id: 'unmarked-workspace-open-stroke',
+              kind: 'solid',
+              style: 'solid',
+              position: 'center',
+              width: 10,
+              dashPattern: [],
+              dashOffset: 0,
+              fill: {
+                id: 'unmarked-workspace-open-stroke',
+                type: 'fill',
+                kind: 'solid',
+                defaultColorFormat: 'hex',
+                colorFormat: 'hex',
+                color: '#cccccc',
+                opacity: 1,
+                visible: true,
+                gradient: null
+              },
+              joinType: 'miter',
+              capType: 'butt',
+              miterAngle: 28.96
+            }
+          ]
+        },
+        { undoable: false }
+      )
+      if (!createdId) {
+        throw new Error('Failed to create unmarked workspace vector fixture')
+      }
+
+      const saved = await core.save()
+      const elementRaw = saved.sceneTree.elements?.[createdId]
+      const props = elementRaw?.props ?? {}
+      const pointCoordinateSpaceProp = props.pointCoordinateSpace
+        ? saved.props?.[props.pointCoordinateSpace]
+        : null
+      if (pointCoordinateSpaceProp) {
+        delete pointCoordinateSpaceProp.pointCoordinateSpace
+      }
+      core.load(saved)
+      core.selectElements?.([createdId], { undoable: false })
+      core.setSystemProperty?.('pathEditingMode', false)
+      core.setSystemProperty?.('pathEditingVectorId', null)
+      core.setSystemProperty?.('zoom', 0.48)
+      core.setSystemProperty?.('viewportPosition', { x: 195, y: 259 })
+    }, createOpenSelfIntersectingPentagramTopology())
+
+    await page.waitForTimeout(500)
+
+    const pageScreenshot = await page.screenshot({
+      path: testInfo.outputPath('unmarked-workspace-open-vector-page.png'),
+      fullPage: true
+    })
+    await testInfo.attach('unmarked-workspace-open-vector-page', {
+      body: pageScreenshot,
+      contentType: 'image/png'
+    })
+
+    const alignmentStats = await analyzeSelectedBrightStrokeAlignmentRaster(
+      page,
+      pageScreenshot.toString('base64')
+    )
+    const diagnostics = await readSelectedVectorDiagnostics(page)
+
+    expect(diagnostics.computed).not.toBeNull()
+    expect(
+      alignmentStats.blueBounds,
+      `unmarked workspace vector missing selected bounds\n${JSON.stringify(
+        { diagnostics, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+    expect(
+      alignmentStats.strokeBounds,
+      `unmarked workspace vector stroke was treated as local and shifted away\n${JSON.stringify(
+        { diagnostics, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+    if (!alignmentStats.blueBounds || !alignmentStats.strokeBounds) {
+      return
+    }
+
+    const tolerance = 48
+    expect(alignmentStats.strokeBounds.x).toBeGreaterThanOrEqual(
+      alignmentStats.blueBounds.x - tolerance
+    )
+    expect(alignmentStats.strokeBounds.y).toBeGreaterThanOrEqual(
+      alignmentStats.blueBounds.y - tolerance
+    )
+    expect(
+      alignmentStats.strokeBounds.x + alignmentStats.strokeBounds.width
+    ).toBeLessThanOrEqual(
+      alignmentStats.blueBounds.x + alignmentStats.blueBounds.width + tolerance
+    )
+    expect(
+      alignmentStats.strokeBounds.y + alignmentStats.strokeBounds.height
+    ).toBeLessThanOrEqual(
+      alignmentStats.blueBounds.y + alignmentStats.blueBounds.height + tolerance
+    )
+  })
+
+  test('keeps UI pen-created large negative-y open vector visible at zoomed viewport', async ({
+    page
+  }, testInfo) => {
+    const zoom = 0.48
+    const viewport = { x: 195, y: 259 }
+    await page.evaluate(
+      ({ zoom, viewport }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        core?.setSystemProperty?.('zoom', zoom)
+        core?.setSystemProperty?.('viewportPosition', viewport)
+      },
+      { zoom, viewport }
+    )
+
+    await page.keyboard.press('p')
+    await expect(page.getByTestId('tool-pen')).toHaveAttribute(
+      'data-active',
+      'true'
+    )
+
+    const workspacePoints = [
+      { x: 1104.72, y: -202.67 },
+      { x: 923.31, y: 258.44 },
+      { x: 1320.05, y: 62.18 },
+      { x: 878.42, y: 70.76 },
+      { x: 1267.92, y: 260.32 }
+    ]
+    const screenPoints = workspacePoints.map((point) => ({
+      x: point.x * zoom + viewport.x,
+      y: point.y * zoom + viewport.y
+    }))
+
+    for (const point of screenPoints) {
+      await page.mouse.click(point.x, point.y)
+      await page.waitForTimeout(80)
+    }
+
+    await page.keyboard.press('Escape')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(400)
+
+    const pageScreenshot = await page.screenshot({
+      path: testInfo.outputPath('ui-pen-large-negative-open-solid-page.png'),
+      fullPage: true
+    })
+    await testInfo.attach('ui-pen-large-negative-open-solid-page', {
+      body: pageScreenshot,
+      contentType: 'image/png'
+    })
+
+    const alignmentStats = await analyzeSelectedBrightStrokeAlignmentRaster(
+      page,
+      pageScreenshot.toString('base64')
+    )
+    const diagnostics = await readSelectedVectorDiagnostics(page)
+
+    expect(diagnostics.computed).not.toBeNull()
+    expect(diagnostics.computed?.pointCoordinateSpace).toBe('workspace')
+    expect(
+      Math.abs((diagnostics.computed?.x ?? 0) - 878.42)
+    ).toBeLessThanOrEqual(3)
+    expect(
+      Math.abs((diagnostics.computed?.y ?? 0) + 202.67)
+    ).toBeLessThanOrEqual(3)
+    expect(
+      alignmentStats.blueBounds,
+      `large negative-y pen-created open vector missing selected bounds\n${JSON.stringify(
+        { diagnostics, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+    expect(
+      alignmentStats.strokeBounds,
+      `large negative-y pen-created open center solid stroke is not painted near selected bounds\n${JSON.stringify(
+        { diagnostics, alignmentStats },
+        null,
+        2
+      )}`
+    ).not.toBeNull()
+  })
+
+  test('repaints UI pen-created open vector after stroke width and color changes without reload', async ({
+    page
+  }, testInfo) => {
+    await page.keyboard.press('p')
+    await expect(page.getByTestId('tool-pen')).toHaveAttribute(
+      'data-active',
+      'true'
+    )
+
+    const points = await Promise.all([
+      getCanvasPosition(page, 0.54, 0.14),
+      getCanvasPosition(page, 0.38, 0.74),
+      getCanvasPosition(page, 0.78, 0.4),
+      getCanvasPosition(page, 0.28, 0.36),
+      getCanvasPosition(page, 0.66, 0.78)
+    ])
+
+    for (const point of points) {
+      await page.mouse.click(point.x, point.y)
+      await page.waitForTimeout(80)
+    }
+
+    await page.keyboard.press('Escape')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(250)
+
+    const propertiesPanel = page.getByTestId('properties-panel')
+    await propertiesPanel.getByTestId('prop-stroke-width-0').fill('10')
+    await propertiesPanel.getByTestId('prop-stroke-width-0').press('Enter')
+    await propertiesPanel.getByTestId('prop-stroke-color-0').fill('#df0606')
+    await propertiesPanel.getByTestId('prop-stroke-color-0').press('Enter')
+    await page.waitForTimeout(350)
+
+    const raster = await captureSelectedElementRaster(page, 96)
+    const stats = await analyzeRedStrokeRaster(page, raster.base64)
+    const runtimeSnapshot = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const selectedId =
+        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+      const computed = selectedId
+        ? core?.deps?.sceneTree
+            ?.getElementById?.(selectedId)
+            ?.getAllComputedData?.()
+        : null
+      return {
+        selectedId,
+        computed: computed
+          ? {
+              x: computed.x,
+              y: computed.y,
+              width: computed.width,
+              height: computed.height,
+              strokes: computed.strokes
+            }
+          : null
+      }
+    })
+
+    await testInfo.attach('ui-pen-open-stroke-color-repaint-review', {
+      body: Buffer.from(raster.base64, 'base64'),
+      contentType: 'image/png'
+    })
+    expect(
+      stats.strokeCoverage,
+      `UI pen-created open vector red stroke missing after width/color changes\n${JSON.stringify(
+        { stats, runtimeSnapshot },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(0.006)
+    expect(stats.visualSignal).toBeGreaterThan(1.5)
   })
   ;(['inside', 'outside'] as const).forEach((strokePosition) => {
     test(`renders open self-intersecting ${strokePosition} dashed stroke through constrained domain`, async ({
