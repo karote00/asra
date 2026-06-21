@@ -361,6 +361,98 @@ const normalizeOutputPolygons = (polygons: Vec2[][]) =>
         polygon.length >= 3 && Math.abs(polygonArea(polygon)) > MIN_POLYGON_AREA
     )
 
+const clipPolygonToEndpointHalfPlane = (
+  polygon: Vec2[],
+  endpoint: Vec2,
+  tangent: Vec2,
+  directionSign: 1 | -1
+) => {
+  if (polygon.length < 3) {
+    return polygon
+  }
+
+  const signedDistance = (point: Vec2) =>
+    ((point.x - endpoint.x) * tangent.x + (point.y - endpoint.y) * tangent.y) *
+    directionSign
+  const isInside = (point: Vec2) => signedDistance(point) >= -EPSILON
+  const output: Vec2[] = []
+
+  for (let currentIndex = 0; currentIndex < polygon.length; currentIndex += 1) {
+    const current = polygon[currentIndex]
+    const previous =
+      polygon[(currentIndex - 1 + polygon.length) % polygon.length]
+    const currentInside = isInside(current)
+    const previousInside = isInside(previous)
+
+    if (currentInside !== previousInside) {
+      const previousDistance = signedDistance(previous)
+      const currentDistance = signedDistance(current)
+      const denominator = previousDistance - currentDistance
+      if (Math.abs(denominator) > EPSILON) {
+        const t = previousDistance / denominator
+        output.push({
+          x: previous.x + (current.x - previous.x) * t,
+          y: previous.y + (current.y - previous.y) * t
+        })
+      }
+    }
+
+    if (currentInside) {
+      output.push(current)
+    }
+  }
+
+  return dedupeClosed(output)
+}
+
+const clipPolygonsToSuppressedEndpointCaps = (
+  polygons: Vec2[][],
+  frames: DashedCenterRibbonFrame[],
+  options: Pick<
+    DashedCenterRibbonGeometryOptions,
+    'suppressStartCap' | 'suppressEndCap'
+  >
+) => {
+  if (polygons.length === 0) {
+    return polygons
+  }
+
+  const startEndpoint = frames[0]?.point
+  const startTangent =
+    options.suppressStartCap === true ? getFrameTangent(frames, 0) : null
+  const endIndex = frames.length - 1
+  const endEndpoint = frames[endIndex]?.point
+  const endTangent =
+    options.suppressEndCap === true ? getFrameTangent(frames, endIndex) : null
+
+  if (!startEndpoint && !endEndpoint) {
+    return polygons
+  }
+
+  return normalizeOutputPolygons(
+    polygons.map((polygon) => {
+      let clipped = polygon
+      if (startEndpoint && startTangent) {
+        clipped = clipPolygonToEndpointHalfPlane(
+          clipped,
+          startEndpoint,
+          startTangent,
+          1
+        )
+      }
+      if (endEndpoint && endTangent) {
+        clipped = clipPolygonToEndpointHalfPlane(
+          clipped,
+          endEndpoint,
+          endTangent,
+          -1
+        )
+      }
+      return clipped
+    })
+  )
+}
+
 const toBackendCap = (cap: RenderableStroke['cap']): StrokeOffsetCap =>
   cap === 'none' ? 'butt' : cap
 
@@ -458,7 +550,11 @@ export const buildDashedCenterRibbonGeometry = (
       : [...left, ...[...right].reverse()]
 
   const polygon = dedupeClosed(outline)
-  const outlinePolygons = normalizeOutputPolygons([polygon])
+  const outlinePolygons = clipPolygonsToSuppressedEndpointCaps(
+    normalizeOutputPolygons([polygon]),
+    frames,
+    options
+  )
   if (options.skipSimpleOutlineValidation === true) {
     return outlinePolygons.length > 0
       ? { polygons: outlinePolygons, validityStatus: 'simple-outline' }

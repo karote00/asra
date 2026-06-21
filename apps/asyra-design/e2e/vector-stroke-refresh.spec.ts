@@ -17,14 +17,10 @@ interface VectorStrokeRenderSnapshot {
   computedStrokeFillColor: string | null
   computedStrokeFillOpacity: number | null
   computedStrokeFillVisible: boolean | null
-  hasLegacyStrokeColor: boolean
-  hasLegacyStrokeOpacity: boolean
-  hasLegacyStrokeVisible: boolean
+  hasObsoleteRootStrokeColor: boolean
+  hasObsoleteRootStrokeOpacity: boolean
+  hasObsoleteRootStrokeVisible: boolean
   strokeCacheSize: number
-  acceptedConstrainedSolidCount: number
-  blockedConstrainedSolidCount: number
-  acceptedConstrainedDashedCount: number
-  blockedConstrainedDashedCount: number
   topologyModelCount: number
   geometryModelCount: number
 }
@@ -38,8 +34,6 @@ interface VectorStrokeRenderSummary {
   closedVectorCount: number
   openVectorCount: number
   totalStrokeCacheSize: number
-  acceptedConstrainedDashedCount: number
-  blockedConstrainedDashedCount: number
   topologyModelCount: number
   geometryModelCount: number
 }
@@ -745,14 +739,6 @@ const getVectorStrokeRenderSnapshot = async (
     const renderElement = core?.deps?.render?.getElementById?.(vectorId) as
       | {
           __asyraStrokeMeshCache?: Map<string, unknown>
-          __asyraConstrainedSolidRuntimeDiagnostics?: {
-            acceptedCount?: number
-            blockedCount?: number
-          }
-          __asyraConstrainedDashedRuntimeDiagnostics?: {
-            acceptedCount?: number
-            blockedCount?: number
-          }
           __asyraVectorPathTopologyModelCount?: number
           __asyraVectorPathGeometryModelCount?: number
         }
@@ -795,28 +781,16 @@ const getVectorStrokeRenderSnapshot = async (
         typeof firstStroke?.fill?.visible === 'boolean'
           ? firstStroke.fill.visible
           : null,
-      hasLegacyStrokeColor: firstStroke
+      hasObsoleteRootStrokeColor: firstStroke
         ? Object.hasOwn(firstStroke, 'color')
         : false,
-      hasLegacyStrokeOpacity: firstStroke
+      hasObsoleteRootStrokeOpacity: firstStroke
         ? Object.hasOwn(firstStroke, 'opacity')
         : false,
-      hasLegacyStrokeVisible: firstStroke
+      hasObsoleteRootStrokeVisible: firstStroke
         ? Object.hasOwn(firstStroke, 'visible')
         : false,
       strokeCacheSize: renderElement?.__asyraStrokeMeshCache?.size ?? 0,
-      acceptedConstrainedSolidCount:
-        renderElement?.__asyraConstrainedSolidRuntimeDiagnostics
-          ?.acceptedCount ?? 0,
-      blockedConstrainedSolidCount:
-        renderElement?.__asyraConstrainedSolidRuntimeDiagnostics
-          ?.blockedCount ?? 0,
-      acceptedConstrainedDashedCount:
-        renderElement?.__asyraConstrainedDashedRuntimeDiagnostics
-          ?.acceptedCount ?? 0,
-      blockedConstrainedDashedCount:
-        renderElement?.__asyraConstrainedDashedRuntimeDiagnostics
-          ?.blockedCount ?? 0,
       topologyModelCount:
         renderElement?.__asyraVectorPathTopologyModelCount ?? 0,
       geometryModelCount:
@@ -897,10 +871,6 @@ const getVectorStrokeRenderSummary = async (
         const renderElement = core?.deps?.render?.getElementById?.(vectorId) as
           | {
               __asyraStrokeMeshCache?: Map<string, unknown>
-              __asyraConstrainedDashedRuntimeDiagnostics?: {
-                acceptedCount?: number
-                blockedCount?: number
-              }
               __asyraVectorPathTopologyModelCount?: number
               __asyraVectorPathGeometryModelCount?: number
             }
@@ -932,12 +902,6 @@ const getVectorStrokeRenderSummary = async (
 
         summary.totalStrokeCacheSize +=
           renderElement?.__asyraStrokeMeshCache?.size ?? 0
-        summary.acceptedConstrainedDashedCount +=
-          renderElement?.__asyraConstrainedDashedRuntimeDiagnostics
-            ?.acceptedCount ?? 0
-        summary.blockedConstrainedDashedCount +=
-          renderElement?.__asyraConstrainedDashedRuntimeDiagnostics
-            ?.blockedCount ?? 0
         summary.topologyModelCount +=
           renderElement?.__asyraVectorPathTopologyModelCount ?? 0
         summary.geometryModelCount +=
@@ -953,8 +917,6 @@ const getVectorStrokeRenderSummary = async (
         closedVectorCount: 0,
         openVectorCount: 0,
         totalStrokeCacheSize: 0,
-        acceptedConstrainedDashedCount: 0,
-        blockedConstrainedDashedCount: 0,
         topologyModelCount: 0,
         geometryModelCount: 0
       }
@@ -996,8 +958,6 @@ test.describe('vector stroke refresh rendering', () => {
         computedStrokeCount: 1,
         computedStrokeStyle: 'dashed',
         computedStrokePosition: 'inside',
-        acceptedConstrainedDashedCount: 1,
-        blockedConstrainedDashedCount: 0,
         topologyModelCount: 1,
         geometryModelCount: 1
       })
@@ -1016,8 +976,6 @@ test.describe('vector stroke refresh rendering', () => {
         computedStrokeCount: 1,
         computedStrokeStyle: 'dashed',
         computedStrokePosition: 'inside',
-        acceptedConstrainedDashedCount: 1,
-        blockedConstrainedDashedCount: 0,
         topologyModelCount: 1,
         geometryModelCount: 1
       })
@@ -1056,9 +1014,9 @@ test.describe('vector stroke refresh rendering', () => {
         computedStrokeFillColor: '#d90909',
         computedStrokeFillOpacity: 1,
         computedStrokeFillVisible: true,
-        hasLegacyStrokeColor: false,
-        hasLegacyStrokeOpacity: false,
-        hasLegacyStrokeVisible: false
+        hasObsoleteRootStrokeColor: false,
+        hasObsoleteRootStrokeOpacity: false,
+        hasObsoleteRootStrokeVisible: false
       })
     const beforeReload = await getVectorStrokeRenderSnapshot(page)
     expect(beforeReload?.strokeCacheSize).toBeGreaterThan(0)
@@ -1081,9 +1039,9 @@ test.describe('vector stroke refresh rendering', () => {
         computedStrokeFillColor: '#d90909',
         computedStrokeFillOpacity: 1,
         computedStrokeFillVisible: true,
-        hasLegacyStrokeColor: false,
-        hasLegacyStrokeOpacity: false,
-        hasLegacyStrokeVisible: false
+        hasObsoleteRootStrokeColor: false,
+        hasObsoleteRootStrokeOpacity: false,
+        hasObsoleteRootStrokeVisible: false
       })
     const afterReload = await getVectorStrokeRenderSnapshot(page)
     expect(afterReload?.strokeCacheSize).toBeGreaterThan(0)
@@ -1121,8 +1079,6 @@ test.describe('vector stroke refresh rendering', () => {
         computedStrokeCount: 1,
         computedStrokeStyle: 'dashed',
         computedStrokePosition: 'inside',
-        acceptedConstrainedDashedCount: 1,
-        blockedConstrainedDashedCount: 0,
         topologyModelCount: 1,
         geometryModelCount: 1
       })
@@ -1143,8 +1099,6 @@ test.describe('vector stroke refresh rendering', () => {
         computedStrokeCount: 1,
         computedStrokeStyle: 'dashed',
         computedStrokePosition: 'inside',
-        acceptedConstrainedDashedCount: 1,
-        blockedConstrainedDashedCount: 0,
         topologyModelCount: 1,
         geometryModelCount: 1
       })
@@ -1185,8 +1139,6 @@ test.describe('vector stroke refresh rendering', () => {
         computedStrokeCount: 1,
         computedStrokeStyle: 'solid',
         computedStrokePosition: 'inside',
-        acceptedConstrainedSolidCount: 1,
-        blockedConstrainedSolidCount: 0,
         topologyModelCount: 1,
         geometryModelCount: 1
       })
@@ -1207,8 +1159,6 @@ test.describe('vector stroke refresh rendering', () => {
         computedStrokeCount: 1,
         computedStrokeStyle: 'solid',
         computedStrokePosition: 'inside',
-        acceptedConstrainedSolidCount: 1,
-        blockedConstrainedSolidCount: 0,
         topologyModelCount: 1,
         geometryModelCount: 1
       })
@@ -1240,8 +1190,6 @@ test.describe('vector stroke refresh rendering', () => {
         computedStrokeCount: 1,
         computedStrokeStyle: 'dashed',
         computedStrokePosition: 'inside',
-        acceptedConstrainedDashedCount: 12,
-        blockedConstrainedDashedCount: 0,
         topologyModelCount: 12,
         geometryModelCount: 12
       })
@@ -1262,8 +1210,6 @@ test.describe('vector stroke refresh rendering', () => {
         computedStrokeCount: 1,
         computedStrokeStyle: 'dashed',
         computedStrokePosition: 'inside',
-        acceptedConstrainedDashedCount: 12,
-        blockedConstrainedDashedCount: 0,
         topologyModelCount: 12,
         geometryModelCount: 12
       })
@@ -1298,8 +1244,6 @@ test.describe('vector stroke refresh rendering', () => {
       .toMatchObject({
         vectorCount: 12,
         renderObjectCount: 12,
-        acceptedConstrainedDashedCount: 12,
-        blockedConstrainedDashedCount: 0,
         topologyModelCount: 12,
         geometryModelCount: 12
       })
@@ -1349,8 +1293,6 @@ test.describe('vector stroke refresh rendering', () => {
         dashedOutsideCount: 3,
         closedVectorCount: 10,
         openVectorCount: 1,
-        acceptedConstrainedDashedCount: 7,
-        blockedConstrainedDashedCount: 0,
         topologyModelCount: 11,
         geometryModelCount: 11
       })

@@ -63,7 +63,7 @@ const withCompoundLegalDomains = (
 })
 
 describe('resolved source family', () => {
-  it('should run: classify simple open inside and outside strokes as formal unbounded open support', () => {
+  it('should run: classify simple open inside and outside strokes as formal unbounded open product evidence', () => {
     const openTopology = topology(
       [
         { x: 0, y: 0 },
@@ -79,7 +79,6 @@ describe('resolved source family', () => {
       })
     ).toMatchObject({
       topologyFamily: 'open',
-      supportState: 'simple-open-unbounded',
       productRuleEvidence: {
         familyScope: 'open',
         status: 'verified-slice',
@@ -96,11 +95,11 @@ describe('resolved source family', () => {
       resolveSourceFamily({
         topology: openTopology,
         stroke: stroke(StrokeStyles.DASHED, StrokePositions.OUTSIDE)
-      }).supportState
-    ).toBe('simple-open-unbounded')
+      }).legalDomainHints.closed
+    ).toBe(false)
   })
 
-  it('should run: classify simple closed solid and dashed constrained strokes as supported with legal-domain hints', () => {
+  it('should run: classify simple closed solid and dashed constrained strokes as formal with legal-domain hints', () => {
     const closedTopology = topology(
       [
         { x: 0, y: 0 },
@@ -118,7 +117,6 @@ describe('resolved source family', () => {
       })
     ).toMatchObject({
       topologyFamily: 'rectangle-equivalent',
-      supportState: 'supported',
       productRuleEvidence: {
         familyScope: 'simple-closed',
         status: 'verified-slice',
@@ -134,11 +132,11 @@ describe('resolved source family', () => {
       resolveSourceFamily({
         topology: closedTopology,
         stroke: stroke(StrokeStyles.DASHED, StrokePositions.OUTSIDE)
-      }).supportState
-    ).toBe('supported')
+      }).legalDomainHints.legalDomainIds
+    ).toHaveLength(1)
   })
 
-  it('should run: classify compound dashed domains as supported implementation slices with parity gaps explicit', () => {
+  it('should run: classify compound dashed domains as formal implementation slices with parity gaps explicit', () => {
     const compoundTopology = withCompoundLegalDomains(
       topology(
         [
@@ -157,7 +155,6 @@ describe('resolved source family', () => {
         stroke: stroke(StrokeStyles.DASHED, StrokePositions.INSIDE)
       })
     ).toMatchObject({
-      supportState: 'supported',
       productRuleEvidence: {
         familyScope: 'compound-closed',
         status: 'verified-slice',
@@ -169,7 +166,7 @@ describe('resolved source family', () => {
     })
   })
 
-  it('should run: classify self-intersecting dashed and solid constrained support as implemented slices with parity gaps explicit', () => {
+  it('should run: classify self-intersecting dashed and solid constrained products as implemented slices with parity gaps explicit', () => {
     const selfIntersectingTopology = topology(
       [
         { x: 0, y: 0 },
@@ -187,7 +184,6 @@ describe('resolved source family', () => {
       })
     ).toMatchObject({
       topologyFamily: 'self-intersecting',
-      supportState: 'supported',
       productRuleEvidence: {
         familyScope: 'self-intersecting-closed',
         status: 'verified-slice',
@@ -204,7 +200,6 @@ describe('resolved source family', () => {
       })
     ).toMatchObject({
       topologyFamily: 'self-intersecting',
-      supportState: 'supported',
       productRuleEvidence: {
         familyScope: 'self-intersecting-closed',
         status: 'verified-slice',
@@ -213,7 +208,7 @@ describe('resolved source family', () => {
     })
   })
 
-  it('should run: classify center strokes as supported independent of constrained legal-domain policy', () => {
+  it('should run: classify center strokes as formal independent of constrained legal-domain policy', () => {
     expect(
       resolveSourceFamily({
         topology: topology([{ x: 0, y: 0 }], false),
@@ -221,15 +216,12 @@ describe('resolved source family', () => {
       })
     ).toMatchObject({
       topologyFamily: 'degenerate',
-      supportState: 'blocked',
-      blockedReason: 'degenerate-topology',
       productRuleEvidence: {
         familyScope: 'degenerate',
         status: 'not-applicable',
         requiredForCompletion: false
       }
     })
-
     expect(
       resolveSourceFamily({
         topology: topology(
@@ -240,11 +232,11 @@ describe('resolved source family', () => {
           false
         ),
         stroke: stroke(StrokeStyles.SOLID, StrokePositions.CENTER)
-      }).supportState
-    ).toBe('supported')
+      }).topologyFamily
+    ).toBe('open')
   })
 
-  it('should run: expose full Asyra stroke-family matrix instead of hiding parity gaps as complete support', () => {
+  it('should run: expose full Asyra stroke-family matrix instead of hiding parity gaps as complete product evidence', () => {
     const matrix = getStrokeProductFamilyMatrix()
 
     expect(matrix).toHaveLength(24)

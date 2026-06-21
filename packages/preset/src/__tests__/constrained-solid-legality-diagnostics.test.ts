@@ -4,7 +4,7 @@ import { buildConstrainedSolidLegalityDiagnostics } from '../components/stroke-r
 import { buildConstrainedSolidStrokeResolvedPackets } from '../components/stroke-render/constrained-solid-stroke-packets'
 
 describe('constrained solid legality diagnostics', () => {
-  it('should run: supported closed constrained packets produce canonical legality diagnostics without rewriting packet identity', () => {
+  it('should run: formal closed constrained packets produce canonical legality diagnostics without rewriting packet identity', () => {
     const packets = buildConstrainedSolidStrokeResolvedPackets(
       'constrained-solid-legality',
       [

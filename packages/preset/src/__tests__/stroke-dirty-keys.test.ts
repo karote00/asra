@@ -8,15 +8,22 @@ import {
 const baseRevisionSet: StrokeRevisionSet = {
   sourcePathRevision: 1,
   strokeSpecRevision: 1,
-  topologyClassificationRevision: 1,
+  domainPlanRevision: 1,
   sharedGeometryRevision: 1,
-  sourceFamilyRevision: 1,
+  strokeProductRevision: 1,
   strokeDomainRevision: 1,
   intervalAllocationRevision: 1,
   ownershipRevision: 1,
   legalityRevision: 1,
   paintRevision: 1,
-  previewModeRevision: 1
+  strokeFamilyRevision: 1,
+  dashScheduleRevision: 1,
+  terminalCapRevision: 1,
+  joinShapeRevision: 1,
+  smoothContinuityRevision: 1,
+  productMaterializationRevision: 1,
+  resolvedRegionRevision: 1,
+  renderOutputRevision: 1
 }
 
 const buildParameterRevisionSet = (
@@ -45,23 +52,27 @@ const buildParameterRevisionSet = (
       alpha: 1,
       ...strokeOverrides
     },
-    geometryFamily: options.geometryFamily ?? 'constrained-dashed',
-    resolutionStatus: options.resolutionStatus ?? 'exact-constrained',
-    runtimeStatus: options.runtimeStatus ?? 'accepted',
-    runtimeReason: options.runtimeReason ?? 'single-owner',
+    productMode: options.productMode ?? 'closed-constrained-domain',
+    domainMode: options.domainMode ?? 'closed-constrained-domain',
     ownerKey: options.ownerKey ?? 'network-a:stroke:0',
     networkId: options.networkId ?? 'network-a',
     strokeId: options.strokeId ?? 'stroke:0',
     intervalSignature: options.intervalSignature ?? 'interval:0',
-    sourceTopology: options.sourceTopology ?? 'broader-simple-closed',
-    intervalTopology: options.intervalTopology ?? 'single-edge',
-    ownershipStatus: options.ownershipStatus ?? 'accepted',
+    endpointCapPolicySignature:
+      options.endpointCapPolicySignature ?? 'terminal-policy:0',
+    joinOwnershipSignature:
+      options.joinOwnershipSignature ?? 'join-ownership:0',
+    strokeProductSignature:
+      options.strokeProductSignature ?? 'stroke-product:0',
     ownerCount: options.ownerCount ?? 1,
-    previewMode: options.previewMode ?? 'exact'
+    smoothContinuitySignature:
+      options.smoothContinuitySignature ?? 'smooth-group:0',
+    productMaterializationSignature:
+      options.productMaterializationSignature ?? 'product:0'
   })
 
 describe('stroke dirty keys', () => {
-  it('should run: keep paint-only changes out of geometry stages', () => {
+  it('keeps paint-only changes out of geometry stages', () => {
     expect(
       computeStrokeDirtyKeys(baseRevisionSet, {
         ...baseRevisionSet,
@@ -73,7 +84,7 @@ describe('stroke dirty keys', () => {
     })
   })
 
-  it('should run: invalidate interval and later stages for dash schedule changes', () => {
+  it('invalidates dash product intervals and downstream stages for interval allocation changes', () => {
     expect(
       computeStrokeDirtyKeys(baseRevisionSet, {
         ...baseRevisionSet,
@@ -83,18 +94,19 @@ describe('stroke dirty keys', () => {
       changedRevisionKeys: ['intervalAllocationRevision'],
       dirtyKeys: [
         'interval-allocation',
-        'one-sided-candidates',
-        'arrangement-faces',
-        'ownership',
+        'dash-product-intervals',
+        'endpoint-cap-policy',
+        'join-ownership',
+        'smooth-continuity',
+        'product-materialization',
         'legality',
         'resolved-regions',
-        'paint-payload',
         'render-hit-export'
       ]
     })
   })
 
-  it('should run: invalidate every dependent stage for source path changes', () => {
+  it('invalidates every dependent stage for source path changes', () => {
     expect(
       computeStrokeDirtyKeys(baseRevisionSet, {
         ...baseRevisionSet,
@@ -105,22 +117,23 @@ describe('stroke dirty keys', () => {
       dirtyKeys: [
         'path-topology',
         'shared-geometry',
-        'source-topology-classification',
-        'source-family',
+        'domain-plan',
+        'stroke-product',
         'stroke-domain',
         'interval-allocation',
-        'one-sided-candidates',
-        'arrangement-faces',
-        'ownership',
+        'dash-product-intervals',
+        'endpoint-cap-policy',
+        'join-ownership',
+        'smooth-continuity',
+        'product-materialization',
         'legality',
         'resolved-regions',
-        'paint-payload',
         'render-hit-export'
       ]
     })
   })
 
-  it('should not run: accept missing or non-comparable revision fields', () => {
+  it('rejects missing required revision fields', () => {
     expect(() =>
       computeStrokeDirtyKeys(
         { ...baseRevisionSet, paintRevision: undefined },
@@ -129,124 +142,47 @@ describe('stroke dirty keys', () => {
     ).toThrow('Invalid previous.paintRevision')
   })
 
-  it('should run: invalidate geometry and later stages for preview-to-exact transitions', () => {
-    expect(
-      computeStrokeDirtyKeys(baseRevisionSet, {
-        ...baseRevisionSet,
-        previewModeRevision: 2
-      })
-    ).toEqual({
-      changedRevisionKeys: ['previewModeRevision'],
-      dirtyKeys: [
-        'one-sided-candidates',
-        'arrangement-faces',
-        'ownership',
-        'legality',
-        'resolved-regions',
-        'paint-payload',
-        'render-hit-export'
-      ]
-    })
-  })
-
-  it('should run: derive revisions from real stroke inputs instead of cache ids', () => {
-    const base = buildStrokeRuntimeRevisionSet({
-      points: [
-        { x: 0, y: 0 },
-        { x: 10, y: 0 }
-      ],
-      closed: false,
-      stroke: {
-        style: 'solid',
-        position: 'center',
-        width: 4,
-        join: 'miter',
-        miterLimit: 4,
-        cap: 'round',
-        color: 0x3366ff,
-        alpha: 1
-      },
-      geometryFamily: 'solid-center',
-      resolutionStatus: 'center-product',
-      runtimeStatus: 'not-applicable',
-      runtimeReason: 'center-stroke',
-      ownerKey: 'shape:a:stroke:0',
-      strokeId: 'stroke:0'
-    })
-    const paintOnly = buildStrokeRuntimeRevisionSet({
-      points: [
-        { x: 0, y: 0 },
-        { x: 10, y: 0 }
-      ],
-      closed: false,
-      stroke: {
-        style: 'solid',
-        position: 'center',
-        width: 4,
-        join: 'miter',
-        miterLimit: 4,
-        cap: 'round',
-        color: 0xff0000,
-        alpha: 1
-      },
-      geometryFamily: 'solid-center',
-      resolutionStatus: 'center-product',
-      runtimeStatus: 'not-applicable',
-      runtimeReason: 'center-stroke',
-      ownerKey: 'shape:a:stroke:0',
-      strokeId: 'stroke:0'
+  it('builds explicit revisions for new product contract stages', () => {
+    const revisionSet = buildParameterRevisionSet({
+      cap: 'round',
+      join: 'round',
+      dashPattern: [8, 4]
     })
 
-    expect(computeStrokeDirtyKeys(base, paintOnly)).toEqual({
-      changedRevisionKeys: ['paintRevision'],
-      dirtyKeys: ['paint-payload', 'render-hit-export']
-    })
-  })
-
-  it('should run: build explicit revisions for candidate, arrangement, region, and render output stages', () => {
-    const revisionSet = buildStrokeRuntimeRevisionSet({
-      points: [
-        { x: 0, y: 0 },
-        { x: 10, y: 0 },
-        { x: 10, y: 10 }
-      ],
-      closed: true,
-      stroke: {
-        style: 'dashed',
-        position: 'inside',
-        width: 4,
-        join: 'round',
-        miterLimit: 4,
-        cap: 'round',
-        dashPattern: [8, 4],
-        dashOffset: 0,
-        color: 0x3366ff,
-        alpha: 1
-      },
-      geometryFamily: 'constrained-dashed',
-      resolutionStatus: 'exact-constrained',
-      runtimeStatus: 'accepted',
-      runtimeReason: 'single-owner',
-      ownerKey: 'network-a:stroke:0',
-      networkId: 'network-a',
-      strokeId: 'stroke:0',
-      intervalSignature: 'interval:0',
-      sourceTopology: 'broader-simple-closed',
-      intervalTopology: 'single-edge',
-      ownershipStatus: 'accepted',
-      ownerCount: 1
-    })
-
-    expect(revisionSet.candidateRevision).toMatch(/^candidate:/)
-    expect(revisionSet.arrangementRevision).toMatch(/^arrangement:/)
+    expect(revisionSet.dashScheduleRevision).toMatch(/^dash-schedule:/)
+    expect(revisionSet.terminalCapRevision).toMatch(/^terminal-cap:/)
+    expect(revisionSet.joinShapeRevision).toMatch(/^join-shape:/)
+    expect(revisionSet.smoothContinuityRevision).toMatch(/^smooth-continuity:/)
+    expect(revisionSet.productMaterializationRevision).toMatch(
+      /^product-materialization:/
+    )
     expect(revisionSet.resolvedRegionRevision).toMatch(/^resolved-region:/)
     expect(revisionSet.renderOutputRevision).toMatch(/^render-output:/)
-    expect(revisionSet.sharedGeometryRevision).toMatch(/^shared-geometry:/)
-    expect(revisionSet.sourceFamilyRevision).toMatch(/^source-family:/)
-    expect(revisionSet.strokeDomainRevision).toMatch(/^stroke-domain:/)
+    expect(Object.keys(revisionSet).sort()).toEqual(
+      [
+        'dashScheduleRevision',
+        'intervalAllocationRevision',
+        'joinShapeRevision',
+        'legalityRevision',
+        'ownershipRevision',
+        'paintRevision',
+        'productMaterializationRevision',
+        'renderOutputRevision',
+        'resolvedRegionRevision',
+        'sharedGeometryRevision',
+        'smoothContinuityRevision',
+        'sourcePathRevision',
+        'strokeProductRevision',
+        'strokeFamilyRevision',
+        'strokeDomainRevision',
+        'strokeSpecRevision',
+        'terminalCapRevision',
+        'domainPlanRevision'
+      ].sort()
+    )
   })
 
-  it('should run: classify shared geometry, source family, and stroke domain revisions before interval reuse', () => {
+  it('classifies shared geometry, stroke product, and stroke domain revisions before interval reuse', () => {
     expect(
       computeStrokeDirtyKeys(baseRevisionSet, {
         ...baseRevisionSet,
@@ -256,15 +192,16 @@ describe('stroke dirty keys', () => {
       changedRevisionKeys: ['sharedGeometryRevision'],
       dirtyKeys: [
         'shared-geometry',
-        'source-family',
+        'stroke-product',
         'stroke-domain',
         'interval-allocation',
-        'one-sided-candidates',
-        'arrangement-faces',
-        'ownership',
+        'dash-product-intervals',
+        'endpoint-cap-policy',
+        'join-ownership',
+        'smooth-continuity',
+        'product-materialization',
         'legality',
         'resolved-regions',
-        'paint-payload',
         'render-hit-export'
       ]
     })
@@ -272,20 +209,21 @@ describe('stroke dirty keys', () => {
     expect(
       computeStrokeDirtyKeys(baseRevisionSet, {
         ...baseRevisionSet,
-        sourceFamilyRevision: 2
+        strokeProductRevision: 2
       })
     ).toEqual({
-      changedRevisionKeys: ['sourceFamilyRevision'],
+      changedRevisionKeys: ['strokeProductRevision'],
       dirtyKeys: [
-        'source-family',
+        'stroke-product',
         'stroke-domain',
         'interval-allocation',
-        'one-sided-candidates',
-        'arrangement-faces',
-        'ownership',
+        'dash-product-intervals',
+        'endpoint-cap-policy',
+        'join-ownership',
+        'smooth-continuity',
+        'product-materialization',
         'legality',
         'resolved-regions',
-        'paint-payload',
         'render-hit-export'
       ]
     })
@@ -300,44 +238,43 @@ describe('stroke dirty keys', () => {
       dirtyKeys: [
         'stroke-domain',
         'interval-allocation',
-        'one-sided-candidates',
-        'arrangement-faces',
-        'ownership',
+        'dash-product-intervals',
+        'endpoint-cap-policy',
+        'join-ownership',
+        'smooth-continuity',
+        'product-materialization',
         'legality',
         'resolved-regions',
-        'paint-payload',
         'render-hit-export'
       ]
     })
   })
 
-  it('should run: classify stage-specific revision changes before render-entry reuse', () => {
+  it('classifies product-stage revision changes before render-entry reuse', () => {
     expect(
       computeStrokeDirtyKeys(
         {
           ...baseRevisionSet,
-          candidateRevision: 'candidate:1',
-          arrangementRevision: 'arrangement:1',
+          smoothContinuityRevision: 'smooth:1',
+          productMaterializationRevision: 'product:1',
           resolvedRegionRevision: 'region:1',
           renderOutputRevision: 'output:1'
         },
         {
           ...baseRevisionSet,
-          candidateRevision: 'candidate:2',
-          arrangementRevision: 'arrangement:1',
+          smoothContinuityRevision: 'smooth:2',
+          productMaterializationRevision: 'product:1',
           resolvedRegionRevision: 'region:1',
           renderOutputRevision: 'output:1'
         }
       )
     ).toEqual({
-      changedRevisionKeys: ['candidateRevision'],
+      changedRevisionKeys: ['smoothContinuityRevision'],
       dirtyKeys: [
-        'one-sided-candidates',
-        'arrangement-faces',
-        'ownership',
+        'smooth-continuity',
+        'product-materialization',
         'legality',
         'resolved-regions',
-        'paint-payload',
         'render-hit-export'
       ]
     })
@@ -346,189 +283,90 @@ describe('stroke dirty keys', () => {
       computeStrokeDirtyKeys(
         {
           ...baseRevisionSet,
-          candidateRevision: 'candidate:1',
-          arrangementRevision: 'arrangement:1',
+          smoothContinuityRevision: 'smooth:1',
+          productMaterializationRevision: 'product:1',
           resolvedRegionRevision: 'region:1',
           renderOutputRevision: 'output:1'
         },
         {
           ...baseRevisionSet,
-          candidateRevision: 'candidate:1',
-          arrangementRevision: 'arrangement:2',
+          smoothContinuityRevision: 'smooth:1',
+          productMaterializationRevision: 'product:2',
           resolvedRegionRevision: 'region:2',
           renderOutputRevision: 'output:2'
         }
       )
     ).toEqual({
       changedRevisionKeys: [
-        'arrangementRevision',
+        'productMaterializationRevision',
         'resolvedRegionRevision',
         'renderOutputRevision'
       ],
       dirtyKeys: [
-        'arrangement-faces',
-        'ownership',
+        'product-materialization',
         'legality',
         'resolved-regions',
-        'paint-payload',
         'render-hit-export'
       ]
     })
   })
 
-  it('should run: keep owner changes scoped to ownership and later stages', () => {
-    const base = buildStrokeRuntimeRevisionSet({
-      points: [
-        { x: 0, y: 0 },
-        { x: 10, y: 0 }
-      ],
-      closed: false,
-      stroke: {
-        style: 'solid',
-        position: 'inside',
-        width: 4,
-        join: 'miter',
-        miterLimit: 4,
-        cap: 'butt',
-        color: 0x3366ff,
-        alpha: 1
-      },
-      geometryFamily: 'constrained-solid',
-      resolutionStatus: 'exact-constrained',
-      runtimeStatus: 'accepted',
-      runtimeReason: 'constrained-solid-exact',
-      ownerKey: 'network-a:stroke:0',
-      networkId: 'network-a',
-      strokeId: 'stroke:0'
-    })
-    const ownerChanged = buildStrokeRuntimeRevisionSet({
-      points: [
-        { x: 0, y: 0 },
-        { x: 10, y: 0 }
-      ],
-      closed: false,
-      stroke: {
-        style: 'solid',
-        position: 'inside',
-        width: 4,
-        join: 'miter',
-        miterLimit: 4,
-        cap: 'butt',
-        color: 0x3366ff,
-        alpha: 1
-      },
-      geometryFamily: 'constrained-solid',
-      resolutionStatus: 'exact-constrained',
-      runtimeStatus: 'accepted',
-      runtimeReason: 'constrained-solid-exact',
-      ownerKey: 'network-b:stroke:0',
-      networkId: 'network-b',
-      strokeId: 'stroke:0'
-    })
-
-    expect(computeStrokeDirtyKeys(base, ownerChanged)).toEqual({
+  it('keeps owner changes scoped to join ownership and later stages', () => {
+    expect(
+      computeStrokeDirtyKeys(baseRevisionSet, {
+        ...baseRevisionSet,
+        ownershipRevision: 2
+      })
+    ).toEqual({
       changedRevisionKeys: ['ownershipRevision'],
       dirtyKeys: [
-        'ownership',
+        'join-ownership',
+        'smooth-continuity',
+        'product-materialization',
         'legality',
         'resolved-regions',
-        'paint-payload',
         'render-hit-export'
       ]
     })
   })
 
-  it('should run: keep miter limit changes scoped to join geometry and later stages', () => {
-    const base = buildStrokeRuntimeRevisionSet({
-      points: [
-        { x: 0, y: 0 },
-        { x: 10, y: 0 },
-        { x: 10, y: 10 }
-      ],
-      closed: false,
-      stroke: {
-        style: 'dashed',
-        position: 'inside',
-        width: 4,
-        join: 'miter',
-        miterLimit: 4,
-        cap: 'butt',
-        dashPattern: [10, 5],
-        dashOffset: 0,
-        color: 0x3366ff,
-        alpha: 1
-      },
-      geometryFamily: 'constrained-dashed',
-      resolutionStatus: 'exact-constrained',
-      runtimeStatus: 'accepted',
-      runtimeReason: 'single-owner',
-      ownerKey: 'network-a:stroke:0',
-      networkId: 'network-a',
-      strokeId: 'stroke:0',
-      intervalSignature: 'interval:0'
-    })
-    const miterChanged = buildStrokeRuntimeRevisionSet({
-      points: [
-        { x: 0, y: 0 },
-        { x: 10, y: 0 },
-        { x: 10, y: 10 }
-      ],
-      closed: false,
-      stroke: {
-        style: 'dashed',
-        position: 'inside',
-        width: 4,
-        join: 'miter',
-        miterLimit: 1,
-        cap: 'butt',
-        dashPattern: [10, 5],
-        dashOffset: 0,
-        color: 0x3366ff,
-        alpha: 1
-      },
-      geometryFamily: 'constrained-dashed',
-      resolutionStatus: 'exact-constrained',
-      runtimeStatus: 'accepted',
-      runtimeReason: 'single-owner',
-      ownerKey: 'network-a:stroke:0',
-      networkId: 'network-a',
-      strokeId: 'stroke:0',
-      intervalSignature: 'interval:0'
+  it('keeps miter limit changes scoped to join ownership and downstream product stages', () => {
+    const base = buildParameterRevisionSet({ join: 'miter', miterLimit: 4 })
+    const miterChanged = buildParameterRevisionSet({
+      join: 'miter',
+      miterLimit: 1
     })
 
     expect(computeStrokeDirtyKeys(base, miterChanged)).toEqual({
       changedRevisionKeys: ['joinShapeRevision', 'renderOutputRevision'],
       dirtyKeys: [
-        'one-sided-candidates',
-        'arrangement-faces',
-        'ownership',
+        'join-ownership',
+        'smooth-continuity',
+        'product-materialization',
         'legality',
         'resolved-regions',
-        'paint-payload',
         'render-hit-export'
       ]
     })
   })
 
-  it('should run: keep cap changes out of source, domain, and dash schedule stages for closed paths', () => {
+  it('keeps cap changes out of source, domain, and dash schedule stages', () => {
     const base = buildParameterRevisionSet({ cap: 'butt' })
     const capChanged = buildParameterRevisionSet({ cap: 'round' })
 
     expect(computeStrokeDirtyKeys(base, capChanged)).toEqual({
       changedRevisionKeys: ['terminalCapRevision', 'renderOutputRevision'],
       dirtyKeys: [
-        'one-sided-candidates',
-        'arrangement-faces',
-        'ownership',
+        'endpoint-cap-policy',
+        'product-materialization',
         'legality',
         'resolved-regions',
-        'paint-payload',
         'render-hit-export'
       ]
     })
   })
 
-  it('should run: conservatively invalidate dash schedule for open path cap changes', () => {
+  it('keeps open path cap changes out of dash schedule stages', () => {
     const base = buildParameterRevisionSet({ cap: 'butt' }, { closed: false })
     const capChanged = buildParameterRevisionSet(
       { cap: 'square' },
@@ -536,26 +374,18 @@ describe('stroke dirty keys', () => {
     )
 
     expect(computeStrokeDirtyKeys(base, capChanged)).toEqual({
-      changedRevisionKeys: [
-        'intervalAllocationRevision',
-        'dashScheduleRevision',
-        'terminalCapRevision',
-        'renderOutputRevision'
-      ],
+      changedRevisionKeys: ['terminalCapRevision', 'renderOutputRevision'],
       dirtyKeys: [
-        'interval-allocation',
-        'one-sided-candidates',
-        'arrangement-faces',
-        'ownership',
+        'endpoint-cap-policy',
+        'product-materialization',
         'legality',
         'resolved-regions',
-        'paint-payload',
         'render-hit-export'
       ]
     })
   })
 
-  it('should run: keep dash pattern and offset changes out of source and join stages', () => {
+  it('keeps dash pattern and offset changes out of source and join policy inputs', () => {
     const base = buildParameterRevisionSet({
       dashPattern: [10, 5],
       dashOffset: 0
@@ -573,18 +403,19 @@ describe('stroke dirty keys', () => {
       ],
       dirtyKeys: [
         'interval-allocation',
-        'one-sided-candidates',
-        'arrangement-faces',
-        'ownership',
+        'dash-product-intervals',
+        'endpoint-cap-policy',
+        'join-ownership',
+        'smooth-continuity',
+        'product-materialization',
         'legality',
         'resolved-regions',
-        'paint-payload',
         'render-hit-export'
       ]
     })
   })
 
-  it('should run: keep join changes scoped to join geometry and later stages', () => {
+  it('keeps join changes scoped to join ownership and downstream product stages', () => {
     const base = buildParameterRevisionSet({ join: 'miter', miterLimit: 4 })
     const joinChanged = buildParameterRevisionSet({
       join: 'round',
@@ -594,18 +425,17 @@ describe('stroke dirty keys', () => {
     expect(computeStrokeDirtyKeys(base, joinChanged)).toEqual({
       changedRevisionKeys: ['joinShapeRevision', 'renderOutputRevision'],
       dirtyKeys: [
-        'one-sided-candidates',
-        'arrangement-faces',
-        'ownership',
+        'join-ownership',
+        'smooth-continuity',
+        'product-materialization',
         'legality',
         'resolved-regions',
-        'paint-payload',
         'render-hit-export'
       ]
     })
   })
 
-  it('should run: keep width changes out of source topology and dash schedule', () => {
+  it('keeps width changes out of source topology and dash schedule', () => {
     const base = buildParameterRevisionSet({ width: 4 })
     const widthChanged = buildParameterRevisionSet({ width: 8 })
 
@@ -619,31 +449,19 @@ describe('stroke dirty keys', () => {
       dirtyKeys: [
         'stroke-domain',
         'interval-allocation',
-        'one-sided-candidates',
-        'arrangement-faces',
-        'ownership',
+        'dash-product-intervals',
+        'endpoint-cap-policy',
+        'join-ownership',
+        'smooth-continuity',
+        'product-materialization',
         'legality',
         'resolved-regions',
-        'paint-payload',
         'render-hit-export'
       ]
     })
   })
 
-  it('should run: keep paint changes out of every geometry stage', () => {
-    const base = buildParameterRevisionSet({ color: 0x3366ff, alpha: 1 })
-    const paintChanged = buildParameterRevisionSet({
-      color: 0xff3366,
-      alpha: 0.5
-    })
-
-    expect(computeStrokeDirtyKeys(base, paintChanged)).toEqual({
-      changedRevisionKeys: ['paintRevision'],
-      dirtyKeys: ['paint-payload', 'render-hit-export']
-    })
-  })
-
-  it('should run: keep visibility changes scoped to render output', () => {
+  it('keeps visibility changes scoped to render output', () => {
     const base = buildParameterRevisionSet({ visible: true })
     const hidden = buildParameterRevisionSet({ visible: false })
 
@@ -653,7 +471,7 @@ describe('stroke dirty keys', () => {
     })
   })
 
-  it('should run: keep drag path changes from mutating stroke parameter revisions', () => {
+  it('keeps drag path changes from mutating stroke parameter revisions', () => {
     const base = buildParameterRevisionSet({})
     const dragged = buildParameterRevisionSet(
       {},
@@ -670,10 +488,13 @@ describe('stroke dirty keys', () => {
     expect(result.changedRevisionKeys).toContain('sourcePathRevision')
     expect(result.changedRevisionKeys).toContain('dashScheduleRevision')
     expect(result.changedRevisionKeys).not.toContain('strokeSpecRevision')
+    expect(result.changedRevisionKeys).not.toContain('terminalCapRevision')
+    expect(result.changedRevisionKeys).not.toContain('joinShapeRevision')
     expect(result.changedRevisionKeys).not.toContain('paintRevision')
+    expect(result.dirtyKeys).not.toContain('paint-payload')
   })
 
-  it('should run: emit counters for cache observability when a sink is installed', () => {
+  it('emits counters for cache observability when a sink is installed', () => {
     const counters: Record<string, number> = {}
     ;(
       globalThis as typeof globalThis & {
@@ -714,7 +535,7 @@ describe('stroke dirty keys', () => {
 
     expect(counters['stroke-cache:paint-only-update']).toBe(1)
     expect(counters['stroke-cache:drag-source-path-with-static-stroke']).toBe(1)
-    expect(counters['stroke-dirty-key:paint-payload']).toBeGreaterThan(0)
+    expect(counters['stroke-dirty-key:paint-payload']).toBe(1)
     expect(counters['stroke-revision-change:sourcePathRevision']).toBe(1)
   })
 })

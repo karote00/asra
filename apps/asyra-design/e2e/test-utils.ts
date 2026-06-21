@@ -109,8 +109,12 @@ export async function resetCanvas(page: Page) {
     resetButton = page.getByTestId('reset-button')
   }
 
+  const reloadPromise = page
+    .waitForEvent('load', { timeout: 10_000 })
+    .catch(() => undefined)
   await resetButton.click()
-  await page.waitForTimeout(500)
+  await reloadPromise
+  await waitForAppReady(page)
 }
 
 export function parseStrokeDashGapPattern(pattern: string): {

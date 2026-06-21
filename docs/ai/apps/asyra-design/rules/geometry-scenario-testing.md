@@ -77,7 +77,7 @@ Bounded expansion must stop when either of the following becomes true:
 1. the next uncovered family requires a different algorithm class
    - for example general polygon boolean, arbitrary non-convex subtraction, or
      arbitrary mixed-topology owner-domain construction
-2. the next slice no longer reduces the unsupported scenario frontier in a
+2. the next slice no longer reduces the uncovered scenario frontier in a
    meaningful way relative to the complexity it adds
 
 When bounded expansion stops, the owner must not keep adding more micro-slices
@@ -249,7 +249,7 @@ Examples:
   - visible/gap alternation
   - corner continuity
   - join/cap silhouette
-  - absence of unsupported slices
+  - absence of uncovered slices inside the declared supported scope
 - shadow:
   - correct offset direction
   - blur falloff shape

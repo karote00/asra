@@ -3,6 +3,7 @@ import {
   resolveStrokeOwnership
 } from './stroke-ownership'
 import type { PaintAttachedStrokeRegion } from './stroke-paint-payload'
+import type { StrokeRevisionSet } from './stroke-dirty-keys'
 
 export interface Vec2 {
   x: number
@@ -20,19 +21,17 @@ export interface StrokeFinalFaceDebugMetaBase {
   sourcePathId?: string
   ownerKey?: string
   networkId?: string
+  sourceNetworkIds?: string[]
   strokeId?: string
   strokeIndex?: number
   contourId?: string
   legalDomainId?: string | null
   intervalId?: string
   sourceSpanIds?: string[]
-  geometryFamily?: string
-  resolutionStatus?: string
-  runtimeStatus?: string
-  runtimeReason?: string
-  sourceTopology?: string
+  productMode?: string
+  productSignature?: string
+  domainMode?: string
   topologyFamily?: string
-  intervalTopology?: string
   strokePosition?: 'center' | 'inside' | 'outside'
   ownerSet?: StrokeOwnerKey[]
   intervalIds?: string[]
@@ -56,6 +55,7 @@ export interface StrokeFinalFaceDebugMetaBase {
   domainPlanFilledSide?: 1 | -1
   domainPlanUnfilledSide?: 1 | -1
   domainPlanBoundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
+  domainPlanDomainMode?: string
   domainPlanSideResolutionStatus?: 'resolved' | 'blocked'
   domainPlanSideResolutionReason?: string
   domainPlanBoundaryPoints?: Vec2[]
@@ -89,19 +89,40 @@ export interface StrokeFinalFaceDebugMetaBase {
     unfilledSide?: 1 | -1
     boundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
   }[]
+  dashProductIntervals?: {
+    intervalId: string
+    splitRangeId?: string
+    terminalRole?: 'start' | 'end' | 'start-end' | 'middle'
+    startDistance?: number
+    endDistance?: number
+    effectiveStartDistance?: number
+    effectiveEndDistance?: number
+    capReachDistance?: number
+    boundaryDomainId?: string
+    boundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
+    selectedSide?: 1 | -1
+    filledSide?: 1 | -1
+    unfilledSide?: 1 | -1
+    sourceSegmentIndex?: number
+    endpointCapPolicySignature?: string
+    joinOwnershipSignature?: string
+    smoothContinuityGroupId?: string
+  }[]
+  dashEndpointCapPolicySignatures?: string[]
+  dashEndpointCapPolicyTerminalRoles?: (
+    | 'middle'
+    | 'start'
+    | 'end'
+    | 'start-end'
+  )[]
+  joinOwnershipSignatures?: string[]
+  smoothContinuityGroupIds?: string[]
+  domainPlanBoundaryRoles?: ('outer' | 'hole' | 'filled-face' | 'ambiguous')[]
+  domainPlanSplitRangeIds?: string[]
+  domainPlanSelectedSides?: (1 | -1)[]
+  domainPlanSourceSegmentIndexes?: number[]
   visualContext?: Partial<StrokeVisualContext>
-  revisionSet?: {
-    strokeSpecRevision?: string | number
-    strokeFamilyRevision?: string | number
-    strokeDomainRevision?: string | number
-    dashScheduleRevision?: string | number
-    intervalAllocationRevision?: string | number
-    terminalCapRevision?: string | number
-    joinShapeRevision?: string | number
-    renderOutputRevision?: string | number
-    paintRevision?: string | number
-    legalityRevision?: string | number
-  }
+  revisionSet?: Partial<StrokeRevisionSet>
 }
 
 interface StrokeResolvedPacketLike<
@@ -163,12 +184,13 @@ export interface StrokeFinalFace<
   ownerSet: StrokeOwnerKey[]
   intervalIds: string[]
   sourceSpanIds: string[]
+  sourceNetworkIds: string[]
   sourceContourIds: string[]
   legalDomainIds: string[]
-  geometryFamily?: string
-  resolutionStatus?: string
-  runtimeStatus?: string
-  sourceTopology?: string
+  productMode?: string
+  productSignature?: string
+  domainMode?: string
+  topologyFamily?: string
   debugMeta?: TDebugMeta
   renderDescriptor?: unknown
   paint: TPaint
@@ -197,6 +219,174 @@ const pushUnique = <T>(items: T[], value: T) => {
   }
 }
 
+const FINAL_FACE_MICRO_EDGE_TOLERANCE = 0.03
+const FINAL_FACE_COLLINEAR_TOLERANCE = 0.0075
+
+const distanceBetween = (first: Vec2, second: Vec2) =>
+  Math.hypot(first.x - second.x, first.y - second.y)
+
+const getCrossProduct = (first: Vec2, second: Vec2) =>
+  first.x * second.y - second.x * first.y
+
+const getPolygonDoubleArea = (polygon: Vec2[]) =>
+  polygon.reduce((sum, point, index) => {
+    const next = polygon[(index + 1) % polygon.length]
+    return sum + getCrossProduct(point, next)
+  }, 0)
+
+const getPolygonArea = (polygon: Vec2[]) => getPolygonDoubleArea(polygon) / 2
+
+const getPolygonsBounds = (
+  polygons: Vec2[][],
+  defaultBounds: Bounds
+): Bounds => {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  let hasPoint = false
+
+  for (const polygon of polygons) {
+    for (const point of polygon) {
+      hasPoint = true
+      minX = Math.min(minX, point.x)
+      minY = Math.min(minY, point.y)
+      maxX = Math.max(maxX, point.x)
+      maxY = Math.max(maxY, point.y)
+    }
+  }
+
+  if (!hasPoint) {
+    return defaultBounds
+  }
+
+  return { minX, minY, maxX, maxY }
+}
+
+const isNearCollinearPoint = (previous: Vec2, point: Vec2, next: Vec2) => {
+  const ax = point.x - previous.x
+  const ay = point.y - previous.y
+  const bx = next.x - point.x
+  const by = next.y - point.y
+  const cross = Math.abs(ax * by - ay * bx)
+  const scale = Math.max(Math.hypot(ax, ay) + Math.hypot(bx, by), 1)
+  return cross / scale <= FINAL_FACE_COLLINEAR_TOLERANCE
+}
+
+const isFinalFacePolygonAlreadyClean = (polygon: Vec2[]) => {
+  for (let index = 0; index < polygon.length; index += 1) {
+    const previous = polygon[(index - 1 + polygon.length) % polygon.length]
+    const point = polygon[index]
+    const next = polygon[(index + 1) % polygon.length]
+    if (
+      distanceBetween(previous, point) <= FINAL_FACE_MICRO_EDGE_TOLERANCE ||
+      distanceBetween(point, next) <= FINAL_FACE_MICRO_EDGE_TOLERANCE ||
+      isNearCollinearPoint(previous, point, next)
+    ) {
+      return false
+    }
+  }
+
+  return true
+}
+
+const cleanFinalFacePolygon = (polygon: Vec2[]) => {
+  if (polygon.length < 4) {
+    return polygon
+  }
+  if (isFinalFacePolygonAlreadyClean(polygon)) {
+    return polygon
+  }
+
+  const nextIndexes = polygon.map((_, index) => (index + 1) % polygon.length)
+  const previousIndexes = polygon.map(
+    (_, index) => (index - 1 + polygon.length) % polygon.length
+  )
+  let headIndex = 0
+  let aliveCount = polygon.length
+  let scanStartIndex = headIndex
+  let doubleArea = getPolygonDoubleArea(polygon)
+  let hasRemovedPoint = false
+
+  for (let pass = 0; pass < 120 && aliveCount >= 4; pass += 1) {
+    let removeIndex = -1
+    let index = scanStartIndex
+    while (true) {
+      const point = polygon[index]
+      const previous = polygon[previousIndexes[index]]
+      const next = polygon[nextIndexes[index]]
+      if (
+        distanceBetween(previous, point) <= FINAL_FACE_MICRO_EDGE_TOLERANCE ||
+        distanceBetween(point, next) <= FINAL_FACE_MICRO_EDGE_TOLERANCE ||
+        isNearCollinearPoint(previous, point, next)
+      ) {
+        removeIndex = index
+        break
+      }
+      const nextIndex = nextIndexes[index]
+      if (nextIndex === headIndex) {
+        break
+      }
+      index = nextIndex
+    }
+    if (removeIndex < 0) {
+      break
+    }
+
+    const compactedLength = aliveCount - 1
+    const point = polygon[removeIndex]
+    const previousIndex = previousIndexes[removeIndex]
+    const nextIndex = nextIndexes[removeIndex]
+    const previous = polygon[previousIndex]
+    const next = polygon[nextIndex]
+    const nextDoubleArea =
+      doubleArea -
+      getCrossProduct(previous, point) -
+      getCrossProduct(point, next) +
+      getCrossProduct(previous, next)
+    if (compactedLength < 3 || Math.abs(nextDoubleArea / 2) <= 1e-6) {
+      break
+    }
+
+    const removedHeadPoint = removeIndex === headIndex
+    const removedLastPoint = nextIndex === headIndex
+    nextIndexes[previousIndex] = nextIndex
+    previousIndexes[nextIndex] = previousIndex
+    aliveCount = compactedLength
+    doubleArea = nextDoubleArea
+    hasRemovedPoint = true
+    if (removedHeadPoint) {
+      headIndex = nextIndex
+    }
+    scanStartIndex =
+      removedHeadPoint || removedLastPoint ? headIndex : previousIndex
+  }
+
+  if (!hasRemovedPoint) {
+    return polygon
+  }
+
+  const cleaned: Vec2[] = []
+  let index = headIndex
+  for (let count = 0; count < aliveCount; count += 1) {
+    cleaned.push(polygon[index])
+    index = nextIndexes[index]
+  }
+
+  return cleaned
+}
+
+const cleanFinalFacePolygons = (polygons: Vec2[][]) => {
+  const cleanedPolygons: Vec2[][] = []
+  for (const polygon of polygons) {
+    const cleaned = cleanFinalFacePolygon(polygon)
+    if (cleaned.length >= 3 && Math.abs(getPolygonArea(cleaned)) > 1e-6) {
+      cleanedPolygons.push(cleaned)
+    }
+  }
+  return cleanedPolygons
+}
+
 const pushUniqueSplitRangeTerminal = (
   terminals: NonNullable<
     StrokeFinalFaceDebugMetaBase['domainPlanSplitRangeTerminals']
@@ -216,6 +406,31 @@ const pushUniqueSplitRangeTerminal = (
 
   if (!exists) {
     terminals.push({ ...terminal })
+  }
+}
+
+const pushUniqueDashProductInterval = (
+  intervals: NonNullable<StrokeFinalFaceDebugMetaBase['dashProductIntervals']>,
+  interval: NonNullable<
+    StrokeFinalFaceDebugMetaBase['dashProductIntervals']
+  >[number]
+) => {
+  const exists = intervals.some(
+    (existing) =>
+      existing.intervalId === interval.intervalId &&
+      existing.splitRangeId === interval.splitRangeId &&
+      existing.terminalRole === interval.terminalRole &&
+      existing.startDistance === interval.startDistance &&
+      existing.endDistance === interval.endDistance &&
+      existing.boundaryDomainId === interval.boundaryDomainId &&
+      existing.endpointCapPolicySignature ===
+        interval.endpointCapPolicySignature &&
+      existing.joinOwnershipSignature === interval.joinOwnershipSignature &&
+      existing.smoothContinuityGroupId === interval.smoothContinuityGroupId
+  )
+
+  if (!exists) {
+    intervals.push({ ...interval })
   }
 }
 
@@ -239,6 +454,12 @@ const mergeFaceDebugMeta = (
     'sourceSpanIds',
     'sourceContourIds',
     'legalDomainIds',
+    'dashEndpointCapPolicySignatures',
+    'dashEndpointCapPolicyTerminalRoles',
+    'joinOwnershipSignatures',
+    'smoothContinuityGroupIds',
+    'domainPlanBoundaryRoles',
+    'domainPlanSplitRangeIds',
     'visualOverlapSourceFaceIds',
     'visualOverlapSourceGeometryIds'
   ].forEach((key) => {
@@ -248,6 +469,12 @@ const mergeFaceDebugMeta = (
       | 'sourceSpanIds'
       | 'sourceContourIds'
       | 'legalDomainIds'
+      | 'dashEndpointCapPolicySignatures'
+      | 'dashEndpointCapPolicyTerminalRoles'
+      | 'joinOwnershipSignatures'
+      | 'smoothContinuityGroupIds'
+      | 'domainPlanBoundaryRoles'
+      | 'domainPlanSplitRangeIds'
       | 'visualOverlapSourceFaceIds'
       | 'visualOverlapSourceGeometryIds'
     >
@@ -260,6 +487,22 @@ const mergeFaceDebugMeta = (
     sourceValues.forEach((value) => pushUnique(targetValues, value))
     ;(target[typedKey] as string[] | undefined) = targetValues
   })
+  ;['domainPlanSelectedSides', 'domainPlanSourceSegmentIndexes'].forEach(
+    (key) => {
+      const typedKey = key as keyof Pick<
+        StrokeFinalFaceDebugMetaBase,
+        'domainPlanSelectedSides' | 'domainPlanSourceSegmentIndexes'
+      >
+      const sourceValues = source[typedKey]
+      if (!sourceValues) {
+        return
+      }
+
+      const targetValues = [...(target[typedKey] ?? [])]
+      sourceValues.forEach((value) => pushUnique(targetValues, value))
+      ;(target[typedKey] as number[] | undefined) = targetValues
+    }
+  )
 
   if (source.domainPlanSplitRangeTerminals) {
     const targetTerminals = [
@@ -271,6 +514,18 @@ const mergeFaceDebugMeta = (
       pushUniqueSplitRangeTerminal(targetTerminals, terminal)
     )
     target.domainPlanSplitRangeTerminals = targetTerminals
+  }
+
+  if (source.dashProductIntervals) {
+    const targetIntervals = [
+      ...(target.dashProductIntervals ?? [])
+    ] satisfies NonNullable<
+      StrokeFinalFaceDebugMetaBase['dashProductIntervals']
+    >
+    source.dashProductIntervals.forEach((interval) =>
+      pushUniqueDashProductInterval(targetIntervals, interval)
+    )
+    target.dashProductIntervals = targetIntervals
   }
 
   if (source.domainPlanBoundaryPoints) {
@@ -341,13 +596,13 @@ const buildVisualContext = <
     stackingGroupKey: context?.stackingGroupKey ?? 'stack:default',
     visibilityKey:
       context?.visibilityKey ??
-      `visibility:${packet.geometry.debugMeta?.runtimeStatus ?? 'unknown'}`,
+      `visibility:${packet.geometry.debugMeta?.productMode ?? 'unknown'}`,
     runtimeFamilyKey:
       context?.runtimeFamilyKey ??
       [
-        packet.geometry.debugMeta?.geometryFamily ?? 'family:unknown',
-        packet.geometry.debugMeta?.resolutionStatus ?? 'resolution:unknown',
-        packet.geometry.debugMeta?.runtimeStatus ?? 'runtime:unknown'
+        packet.geometry.debugMeta?.productMode ?? 'product:unknown',
+        packet.geometry.debugMeta?.productSignature ?? 'signature:unknown',
+        packet.geometry.debugMeta?.domainMode ?? 'domain:unknown'
       ].join(':')
   }
 }
@@ -365,6 +620,8 @@ const buildStrokeSpecKey = <
     revisionSet?.dashScheduleRevision !== undefined ||
     revisionSet?.terminalCapRevision !== undefined ||
     revisionSet?.joinShapeRevision !== undefined ||
+    revisionSet?.smoothContinuityRevision !== undefined ||
+    revisionSet?.productMaterializationRevision !== undefined ||
     revisionSet?.renderOutputRevision !== undefined
   const revisionKey =
     revisionSet && hasFineGrainedStrokeRevisions
@@ -374,7 +631,9 @@ const buildStrokeSpecKey = <
               revisionSet.strokeFamilyRevision ??
                 revisionSet.strokeSpecRevision,
               revisionSet.terminalCapRevision,
-              revisionSet.joinShapeRevision
+              revisionSet.joinShapeRevision,
+              revisionSet.smoothContinuityRevision,
+              revisionSet.productMaterializationRevision
             ]
               .filter((value) => value !== undefined)
               .join('|')
@@ -385,24 +644,24 @@ const buildStrokeSpecKey = <
     revisionKey ||
       revisionSet?.strokeSpecRevision ||
       [
-        packet.geometry.debugMeta?.geometryFamily ?? 'unknown-family',
+        packet.geometry.debugMeta?.productMode ?? 'unknown-product',
         packet.geometry.debugMeta?.strokeId ?? 'unknown-stroke',
-        packet.geometry.debugMeta?.resolutionStatus ?? 'unknown-resolution'
+        packet.geometry.debugMeta?.productSignature ?? 'unknown-signature'
       ].join(':')
   )
 }
 
-const buildVisualPacketKey = <
+const buildVisualPacketKeyFromParts = <
   TDebugMeta extends StrokeFinalFaceDebugMetaBase,
   TPaint extends StrokeFinalFacePaint
 >(
-  packet: StrokeResolvedPacketLike<TDebugMeta, TPaint>
+  packet: StrokeResolvedPacketLike<TDebugMeta, TPaint>,
+  paintKey: string,
+  strokeSpecKey: string
 ) => {
   const visualContext = buildVisualContext(packet)
-  const paintKey = buildPaintKey(packet)
   const paintRevision =
     packet.geometry.debugMeta?.revisionSet?.paintRevision ?? 'paint:unknown'
-  const strokeSpecKey = buildStrokeSpecKey(packet)
 
   return [
     `paintKey:${paintKey}`,
@@ -418,6 +677,18 @@ const buildVisualPacketKey = <
     `runtimeFamilyKey:${visualContext.runtimeFamilyKey}`
   ].join('|')
 }
+
+const buildVisualPacketKey = <
+  TDebugMeta extends StrokeFinalFaceDebugMetaBase,
+  TPaint extends StrokeFinalFacePaint
+>(
+  packet: StrokeResolvedPacketLike<TDebugMeta, TPaint>
+) =>
+  buildVisualPacketKeyFromParts(
+    packet,
+    buildPaintKey(packet),
+    buildStrokeSpecKey(packet)
+  )
 
 const buildOwnerKey = (
   debugMeta: StrokeFinalFaceDebugMetaBase | undefined
@@ -441,7 +712,13 @@ const buildFaceFromPacket = <
   const debugMeta = packet.geometry.debugMeta
   const paintKey = buildPaintKey(packet)
   const strokeSpecKey = buildStrokeSpecKey(packet)
-  const visualPacketKey = buildVisualPacketKey(packet)
+  const visualPacketKey = buildVisualPacketKeyFromParts(
+    packet,
+    paintKey,
+    strokeSpecKey
+  )
+  const polygons = cleanFinalFacePolygons(packet.geometry.polygons)
+  const bounds = getPolygonsBounds(polygons, packet.geometry.bounds)
   const legalDomainIds =
     debugMeta?.legalDomainIds ??
     (debugMeta?.legalDomainId === undefined || debugMeta.legalDomainId === null
@@ -451,6 +728,9 @@ const buildFaceFromPacket = <
     debugMeta?.intervalIds ??
     (debugMeta?.intervalId ? [debugMeta.intervalId] : [])
   const sourceSpanIds = debugMeta?.sourceSpanIds ?? []
+  const sourceNetworkIds =
+    debugMeta?.sourceNetworkIds ??
+    (debugMeta?.networkId ? [debugMeta.networkId] : [])
   const sourceContourIds =
     debugMeta?.sourceContourIds ??
     (debugMeta?.contourId ? [debugMeta.contourId] : [])
@@ -461,25 +741,26 @@ const buildFaceFromPacket = <
 
   return {
     collapseKey: options.includeCollapseKey
-      ? `${visualPacketKey}|${buildPolygonsSignature(packet.geometry.polygons)}`
+      ? `${visualPacketKey}|${buildPolygonsSignature(polygons)}`
       : packet.geometry.geometryId,
     face: {
       faceId: packet.geometry.geometryId,
       sourceGeometryIds: [packet.geometry.geometryId],
-      polygons: packet.geometry.polygons,
-      bounds: packet.geometry.bounds,
+      polygons,
+      bounds,
       visualPacketKey,
       paintKey,
       strokeSpecKey,
       ownerSet: ownership.ownerSet,
       intervalIds,
       sourceSpanIds,
+      sourceNetworkIds,
       sourceContourIds,
       legalDomainIds,
-      geometryFamily: debugMeta?.geometryFamily,
-      resolutionStatus: debugMeta?.resolutionStatus,
-      runtimeStatus: debugMeta?.runtimeStatus,
-      sourceTopology: debugMeta?.sourceTopology,
+      productMode: debugMeta?.productMode,
+      productSignature: debugMeta?.productSignature,
+      domainMode: debugMeta?.domainMode,
+      topologyFamily: debugMeta?.topologyFamily,
       debugMeta,
       renderDescriptor: packet.geometry.renderDescriptor,
       paint: packet.paint
@@ -494,8 +775,8 @@ const isExactCollapsibleFace = <
   face: StrokeFinalFace<TDebugMeta, TPaint>
 ) =>
   face.debugMeta?.arrangementStatus === 'exact' &&
-  face.resolutionStatus === 'exact-constrained' &&
-  face.runtimeStatus === 'accepted'
+  face.debugMeta.productMode !== undefined &&
+  face.debugMeta.productMode !== 'center-product'
 
 const mergeFace = <
   TDebugMeta extends StrokeFinalFaceDebugMetaBase,
@@ -512,6 +793,9 @@ const mergeFace = <
   )
   source.intervalIds.forEach((id) => pushUnique(target.intervalIds, id))
   source.sourceSpanIds.forEach((id) => pushUnique(target.sourceSpanIds, id))
+  source.sourceNetworkIds.forEach((id) =>
+    pushUnique(target.sourceNetworkIds, id)
+  )
   source.sourceContourIds.forEach((id) =>
     pushUnique(target.sourceContourIds, id)
   )
@@ -545,8 +829,8 @@ export const buildStrokeFinalFacesFromResolvedPackets = <
       includeCollapseKey:
         shouldCollapse &&
         packet.geometry.debugMeta?.arrangementStatus === 'exact' &&
-        packet.geometry.debugMeta?.resolutionStatus === 'exact-constrained' &&
-        packet.geometry.debugMeta?.runtimeStatus === 'accepted'
+        packet.geometry.debugMeta?.productMode !== undefined &&
+        packet.geometry.debugMeta.productMode !== 'center-product'
     })
     if (!shouldCollapse || !isExactCollapsibleFace(face)) {
       facesByCollapseKey.set(face.faceId, face)
@@ -568,17 +852,15 @@ export const buildStrokeFinalFacesFromResolvedPackets = <
 const buildDebugMetaFromPaintAttachedRegion = (
   region: PaintAttachedStrokeRegion
 ): StrokeFinalFaceDebugMetaBase => ({
-  geometryFamily: region.geometryFamily,
-  resolutionStatus: region.resolutionStatus,
-  runtimeStatus: region.runtimeStatus,
-  runtimeReason: region.runtimeReason,
-  sourceTopology: region.sourceTopology,
+  productMode: region.productMode,
+  productSignature: region.productSignature,
+  domainMode: region.domainMode,
   topologyFamily: region.topologyFamily,
-  intervalTopology: region.intervalTopology,
   strokePosition: region.strokePosition,
   ownerSet: [...region.ownerSet],
   intervalIds: [...region.intervalIds],
   sourceSpanIds: [...region.sourceSpanIds],
+  sourceNetworkIds: [...(region.sourceNetworkIds ?? [])],
   sourceContourIds: [...region.sourceContourIds],
   legalDomainIds: [...region.legalDomainIds],
   arrangementStatus: region.arrangementStatus,
@@ -649,12 +931,9 @@ export const buildStrokeFinalFacesFromPaintAttachedRegions = (
       ownerSet: [...region.ownerSet],
       intervalIds: [...region.intervalIds],
       sourceSpanIds: [...region.sourceSpanIds],
+      sourceNetworkIds: [...(region.sourceNetworkIds ?? [])],
       sourceContourIds: [...region.sourceContourIds],
       legalDomainIds: [...region.legalDomainIds],
-      geometryFamily: region.geometryFamily,
-      resolutionStatus: region.resolutionStatus,
-      runtimeStatus: region.runtimeStatus,
-      sourceTopology: region.sourceTopology,
       debugMeta,
       paint: region.paint
     } satisfies StrokeFinalFace<

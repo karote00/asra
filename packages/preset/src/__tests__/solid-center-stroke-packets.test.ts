@@ -61,14 +61,26 @@ describe('solid center stroke packets', () => {
     expect(render.cacheKey).toBe(resolved.geometry.geometryId)
     expect(hit.geometryId).toBe(resolved.geometry.geometryId)
     expect(exportPacket.geometryId).toBe(resolved.geometry.geometryId)
-    expect(render.polygons).toBe(resolved.geometry.polygons)
-    expect(hit.polygons).toBe(resolved.geometry.polygons)
-    expect(exportPacket.polygons).toBe(resolved.geometry.polygons)
+    expect(render.polygons).toEqual(resolved.geometry.polygons)
+    expect(hit.polygons).toEqual(resolved.geometry.polygons)
+    expect(exportPacket.polygons).toEqual(resolved.geometry.polygons)
     expect(hit.bounds).toEqual(resolved.geometry.bounds)
     expect(exportPacket.bounds).toEqual(resolved.geometry.bounds)
-    expect(render.debugMeta).toBeUndefined()
-    expect(hit.debugMeta).toBeUndefined()
-    expect(exportPacket.debugMeta).toBeUndefined()
+    expect(render.debugMeta).toMatchObject({
+      productMode: 'center-product',
+      productSignature: 'center-product:solid',
+      domainMode: 'center-product'
+    })
+    expect(hit.debugMeta).toMatchObject({
+      productMode: 'center-product',
+      productSignature: 'center-product:solid',
+      domainMode: 'center-product'
+    })
+    expect(exportPacket.debugMeta).toMatchObject({
+      productMode: 'center-product',
+      productSignature: 'center-product:solid',
+      domainMode: 'center-product'
+    })
     withStrokeDiagnosticsMode('full', () => {
       expect(toSolidCenterStrokeRenderEntries(packets)[0]?.debugMeta).toBe(
         resolved.geometry.debugMeta
@@ -85,11 +97,13 @@ describe('solid center stroke packets', () => {
       sourcePathRevision: expect.any(String),
       strokeSpecRevision: expect.any(String),
       intervalAllocationRevision: expect.any(String),
-      topologyClassificationRevision: expect.any(String),
+      domainPlanRevision: expect.any(String),
       ownershipRevision: expect.any(String),
       legalityRevision: expect.any(String),
       paintRevision: expect.any(String),
-      previewModeRevision: 'preview:exact'
+      strokeProductRevision: expect.any(String),
+      smoothContinuityRevision: expect.any(String),
+      productMaterializationRevision: expect.any(String)
     })
   })
 
@@ -121,9 +135,21 @@ describe('solid center stroke packets', () => {
     expect(exportPacket.polygons).toBe(face?.polygons)
     expect(hit.bounds).toBe(face?.bounds)
     expect(exportPacket.bounds).toBe(face?.bounds)
-    expect(render.debugMeta).toBeUndefined()
-    expect(hit.debugMeta).toBeUndefined()
-    expect(exportPacket.debugMeta).toBeUndefined()
+    expect(render.debugMeta).toMatchObject({
+      productMode: 'center-product',
+      productSignature: 'center-product:solid',
+      domainMode: 'center-product'
+    })
+    expect(hit.debugMeta).toMatchObject({
+      productMode: 'center-product',
+      productSignature: 'center-product:solid',
+      domainMode: 'center-product'
+    })
+    expect(exportPacket.debugMeta).toMatchObject({
+      productMode: 'center-product',
+      productSignature: 'center-product:solid',
+      domainMode: 'center-product'
+    })
     withStrokeDiagnosticsMode('full', () => {
       expect(
         toSolidCenterStrokeRenderEntriesFromFinalFaces(faces)[0]?.debugMeta
@@ -181,10 +207,10 @@ describe('solid center stroke packets', () => {
           sourceSpanIds: ['span:terminal'],
           sourceContourIds: ['contour:terminal'],
           legalDomainIds: ['legal:terminal'],
-          geometryFamily: 'constrained-dashed' as const,
-          resolutionStatus: 'exact-constrained' as const,
-          runtimeStatus: 'accepted' as const,
-          sourceTopology: 'self-intersecting' as const,
+          productMode: 'closed-constrained-domain' as const,
+          productSignature: 'constrained-dashed:inside' as const,
+          domainMode: 'closed-constrained-domain' as const,
+          topologyFamily: 'self-intersecting' as const,
           strokePosition: 'inside' as const,
           domainPlanSplitRangeId: 'split-range:terminal',
           domainPlanSplitRangeStartDistance: 0,
@@ -219,9 +245,36 @@ describe('solid center stroke packets', () => {
     const [exportPacket] =
       buildSolidCenterStrokeExportPacketsFromFinalFaces(faces)
 
-    expect(render.debugMeta).toBeUndefined()
-    expect(hit.debugMeta).toBeUndefined()
-    expect(exportPacket.debugMeta).toBeUndefined()
+    expect(render.debugMeta).toMatchObject({
+      productMode: 'closed-constrained-domain',
+      productSignature: 'constrained-dashed:inside',
+      domainMode: 'closed-constrained-domain',
+      intervalIds: ['interval:terminal-start'],
+      sourceSpanIds: ['span:terminal'],
+      sourceContourIds: ['contour:terminal'],
+      legalDomainIds: ['legal:terminal'],
+      domainPlanSplitRangeTerminals: [
+        {
+          intervalId: 'interval:terminal-start',
+          splitRangeId: 'split-range:terminal',
+          splitRangeStartDistance: 0,
+          splitRangeEndDistance: 30,
+          terminalRole: 'start',
+          startDistance: 0,
+          endDistance: 8
+        }
+      ]
+    })
+    expect(hit.debugMeta).toMatchObject({
+      productMode: 'closed-constrained-domain',
+      productSignature: 'constrained-dashed:inside',
+      domainMode: 'closed-constrained-domain'
+    })
+    expect(exportPacket.debugMeta).toMatchObject({
+      productMode: 'closed-constrained-domain',
+      productSignature: 'constrained-dashed:inside',
+      domainMode: 'closed-constrained-domain'
+    })
     withStrokeDiagnosticsMode('full', () => {
       const [diagnosticRender] =
         toSolidCenterStrokeRenderEntriesFromFinalFaces(faces)
@@ -243,10 +296,10 @@ describe('solid center stroke packets', () => {
           }
         ]
       )
-      expect(diagnosticHit.debugMeta?.domainPlanSplitRangeTerminals).toBe(
+      expect(diagnosticHit.debugMeta?.domainPlanSplitRangeTerminals).toEqual(
         diagnosticRender.debugMeta?.domainPlanSplitRangeTerminals
       )
-      expect(diagnosticExport.debugMeta?.domainPlanSplitRangeTerminals).toBe(
+      expect(diagnosticExport.debugMeta?.domainPlanSplitRangeTerminals).toEqual(
         diagnosticRender.debugMeta?.domainPlanSplitRangeTerminals
       )
     })
@@ -273,10 +326,9 @@ describe('solid center stroke packets', () => {
           polygons: [validPolygon, invalidPolygon],
           bounds: { minX: 0, minY: 0, maxX: 20, maxY: 20 },
           debugMeta: {
-            geometryFamily: 'constrained-solid' as const,
-            resolutionStatus: 'exact-constrained' as const,
-            runtimeStatus: 'accepted' as const,
-            runtimeReason: 'constrained-solid-exact' as const
+            productMode: 'closed-constrained-domain' as const,
+            productSignature: 'constrained-solid:inside' as const,
+            domainMode: 'closed-constrained-domain' as const
           }
         },
         paint: {
@@ -331,10 +383,18 @@ describe('solid center stroke packets', () => {
     })
     expect(
       buildSolidCenterStrokeHitTestPackets(packets)[0]?.debugMeta
-    ).toBeUndefined()
+    ).toMatchObject({
+      productMode: 'center-product',
+      productSignature: 'center-product:solid',
+      domainMode: 'center-product'
+    })
     expect(
       buildSolidCenterStrokeExportPackets(packets)[0]?.debugMeta
-    ).toBeUndefined()
+    ).toMatchObject({
+      productMode: 'center-product',
+      productSignature: 'center-product:solid',
+      domainMode: 'center-product'
+    })
     withStrokeDiagnosticsMode('full', () => {
       expect(buildSolidCenterStrokeHitTestPackets(packets)[0]?.debugMeta).toBe(
         packets[0]?.geometry.debugMeta
@@ -414,10 +474,9 @@ describe('solid center stroke packets', () => {
           strokeIndex: 0,
           intervalId: `interval:${index}`,
           sourceSpanIds: [`span:${index}`],
-          geometryFamily: 'dashed-center' as const,
-          resolutionStatus: 'center-product' as const,
-          runtimeStatus: 'not-applicable' as const,
-          runtimeReason: 'center-stroke' as const
+          productMode: 'center-product' as const,
+          productSignature: 'center-product:dashed' as const,
+          domainMode: 'center-product' as const
         }
       },
       paint: {
@@ -445,7 +504,15 @@ describe('solid center stroke packets', () => {
 
     expect(renderEntries).toHaveLength(1)
     expect(renderEntries[0]?.polygons).toEqual([unionPolygon])
-    expect(renderEntries[0]?.debugMeta).toBeUndefined()
+    expect(renderEntries[0]?.debugMeta).toMatchObject({
+      productMode: 'center-product',
+      productSignature: 'center-product:dashed',
+      domainMode: 'center-product',
+      intervalIds: ['interval:0', 'interval:1'],
+      sourceSpanIds: ['span:0', 'span:1'],
+      visualOverlapCollapseStatus: 'exact-union',
+      visualOverlapSourceGeometryIds: ['dashed-center:0', 'dashed-center:1']
+    })
     withStrokeDiagnosticsMode('full', () => {
       expect(
         toSolidCenterStrokeRenderEntries(packets, {
@@ -524,11 +591,13 @@ describe('solid center stroke packets', () => {
 
     expect(face).toMatchObject({
       faceId: packets[0]?.geometry.geometryId,
-      sourceGeometryIds: [packets[0]?.geometry.geometryId],
-      geometryFamily: 'solid-center',
-      resolutionStatus: 'center-product',
-      runtimeStatus: 'not-applicable',
-      sourceTopology: 'open'
+      sourceGeometryIds: [packets[0]?.geometry.geometryId]
+    })
+    expect(face?.debugMeta).toMatchObject({
+      productMode: 'center-product',
+      productSignature: 'center-product:solid',
+      domainMode: 'center-product',
+      topologyFamily: 'open'
     })
     expect(face?.ownerSet).toEqual([
       {
@@ -565,11 +634,13 @@ describe('solid center stroke packets', () => {
           contourId: 'contour-a',
           intervalId: 'interval-a',
           sourceSpanIds: ['span-a'],
-          geometryFamily: 'constrained-dashed',
-          resolutionStatus: 'domain-plan-selected-side',
-          runtimeStatus: 'accepted',
+          productMode: 'closed-constrained-domain',
+          productSignature: 'constrained-dashed:inside',
+          domainMode: 'closed-constrained-domain',
           revisionSet: {
+            domainPlanRevision: 'domain-plan:shared',
             strokeSpecRevision: 'stroke-spec:shared',
+            strokeProductRevision: 'stroke-product:shared',
             paintRevision: 'paint:shared'
           }
         }
@@ -644,9 +715,9 @@ describe('solid center stroke packets', () => {
           contourId: 'contour-a',
           intervalId: 'interval-a',
           sourceSpanIds: ['span-a'],
-          geometryFamily: 'constrained-dashed' as const,
-          resolutionStatus: 'exact-constrained' as const,
-          runtimeStatus: 'accepted' as const,
+          productMode: 'closed-constrained-domain' as const,
+          productSignature: 'constrained-dashed:inside' as const,
+          domainMode: 'closed-constrained-domain' as const,
           arrangementStatus: 'exact' as const,
           arrangementFaceId: 'face:a',
           arrangementCandidateIds: ['duplicate:a'],
@@ -655,7 +726,9 @@ describe('solid center stroke packets', () => {
             outsideFillDomain: false
           },
           revisionSet: {
+            domainPlanRevision: 'domain-plan:shared',
             strokeSpecRevision: 'stroke-spec:shared',
+            strokeProductRevision: 'stroke-product:shared',
             paintRevision: 'paint:shared'
           }
         }
@@ -722,8 +795,12 @@ describe('solid center stroke packets', () => {
         bounds: { minX: 0, minY: 0, maxX: 20, maxY: 20 },
         debugMeta: {
           ownerKey: 'owner:a',
-          geometryFamily: 'constrained-dashed',
+          productMode: 'closed-constrained-domain',
+          productSignature: 'constrained-dashed:inside',
+          domainMode: 'closed-constrained-domain',
           revisionSet: {
+            domainPlanRevision: 'domain-plan:shared',
+            strokeProductRevision: 'stroke-product:shared',
             strokeSpecRevision: 'stroke-spec:shared'
           }
         }
@@ -774,10 +851,13 @@ describe('solid center stroke packets', () => {
         bounds: { minX: 0, minY: 0, maxX: 20, maxY: 20 },
         debugMeta: {
           ownerKey: 'owner:a',
-          geometryFamily: 'constrained-dashed',
-          runtimeStatus: 'accepted',
+          productMode: 'closed-constrained-domain',
+          productSignature: 'constrained-dashed:inside',
+          domainMode: 'closed-constrained-domain',
           revisionSet: {
+            domainPlanRevision: 'domain-plan:shared',
             strokeSpecRevision: 'stroke-spec:shared',
+            strokeProductRevision: 'stroke-product:shared',
             paintRevision: 'paint:shared'
           }
         }
@@ -828,8 +908,9 @@ describe('solid center stroke packets', () => {
         bounds: { minX: 0, minY: 0, maxX: 20, maxY: 20 },
         debugMeta: {
           ownerKey: 'owner:a',
-          geometryFamily: 'constrained-dashed',
-          runtimeStatus: 'accepted',
+          productMode: 'closed-constrained-domain',
+          productSignature: 'constrained-dashed:inside',
+          domainMode: 'closed-constrained-domain',
           visualContext: {
             blendMode: 'normal',
             stackingGroupKey: 'stack:a',
@@ -838,7 +919,9 @@ describe('solid center stroke packets', () => {
             effectKey: 'effect:none'
           },
           revisionSet: {
+            domainPlanRevision: 'domain-plan:shared',
             strokeSpecRevision: 'stroke-spec:shared',
+            strokeProductRevision: 'stroke-product:shared',
             paintRevision: 'paint:shared'
           }
         }

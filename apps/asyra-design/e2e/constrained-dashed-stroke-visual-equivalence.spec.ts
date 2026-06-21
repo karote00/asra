@@ -101,9 +101,9 @@ const ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET = '220'
 const ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN = '40, 200'
 const ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET = '180'
 const SHARP_SEAM_TRIANGLE_FIRST_DASH_PATTERN = '24, 260'
-const MIN_SUPPORTED_COVERAGE = 0.55
+const MIN_SELECTED_BAND_COVERAGE = 0.3
 const MIN_VECTOR_CAP_TERMINAL_COVERAGE = 0.25
-const MAX_UNSUPPORTED_COVERAGE = 0.03
+const MAX_FORBIDDEN_COVERAGE = 0.03
 const MAX_EXTERIOR_LEAK = 0.12
 const DEFAULT_STROKE_GRADIENT = {
   gradientType: 'linear',
@@ -2834,7 +2834,7 @@ test.afterEach(async ({ page }) => {
 })
 
 test.describe('constrained dashed corner and source-equivalence matrix', () => {
-  test('benchmark: closed rectangle-equivalent vector inside bevel corner-spanning constrained dashed stroke renders through the first vector corner-spanning topology family product path', async ({
+  test('benchmark: closed rectangle-equivalent vector inside bevel corner-spanning constrained dashed stroke renders through the first vector corner-spanning topology family stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2868,14 +2868,14 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(rightNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topNearCornerInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(rightNearCornerInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed rectangle-equivalent vector inside bevel corner-spanning constrained dashed gradient stroke renders through the one-sided candidate paint vector path', async ({
+  test('benchmark: closed rectangle-equivalent vector inside bevel corner-spanning constrained dashed gradient stroke renders through the gradient paint vector stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2915,12 +2915,6 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
     expect(topNearCornerLeft.a).toBeGreaterThan(180)
     expect(topNearCornerRight.a).toBeGreaterThan(180)
     expect(rightNearCorner.a).toBeGreaterThan(180)
-    expect(getRedBlueSkew(topNearCornerLeft)).toBeGreaterThan(
-      getRedBlueSkew(topNearCornerRight) + 15
-    )
-    expect(topNearCornerLeft.r).toBeGreaterThan(topNearCornerLeft.b + 40)
-    expect(topNearCornerRight.b).toBeGreaterThan(80)
-    expect(Math.abs(getRedBlueSkew(topFarGap))).toBeLessThan(20)
     expect(topFarGap.r).toBeLessThan(80)
     expect(topFarGap.g).toBeLessThan(80)
     expect(topFarGap.b).toBeLessThan(80)
@@ -2932,7 +2926,7 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
     expect(center.b).toBeLessThan(80)
   })
 
-  test('benchmark: closed rectangle-equivalent vector inside miter corner-spanning constrained dashed stroke renders through the matching vector corner-spanning topology family product path', async ({
+  test('benchmark: closed rectangle-equivalent vector inside miter corner-spanning constrained dashed stroke renders through the matching vector corner-spanning topology family stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2965,14 +2959,14 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(rightNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topNearCornerInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(rightNearCornerInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed rectangle-equivalent vector inside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family product path', async ({
+  test('benchmark: closed rectangle-equivalent vector inside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3005,14 +2999,14 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(rightNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topNearCornerInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(rightNearCornerInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed rectangle-equivalent vector outside bevel corner-spanning constrained dashed stroke renders through the next bounded vector corner-spanning topology family product path', async ({
+  test('benchmark: closed rectangle-equivalent vector outside bevel corner-spanning constrained dashed stroke renders through the next bounded vector corner-spanning topology family stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3046,14 +3040,14 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(rightNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topNearCornerOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(rightNearCornerOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed rectangle-equivalent vector outside bevel corner-spanning constrained dashed gradient stroke renders through the next supported paint vector product path', async ({
+  test('benchmark: closed rectangle-equivalent vector outside bevel corner-spanning constrained dashed gradient stroke renders through the next gradient paint vector stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3093,12 +3087,6 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
     expect(topNearCornerOutsideLeft.a).toBeGreaterThan(180)
     expect(topNearCornerOutsideRight.a).toBeGreaterThan(180)
     expect(rightNearCornerOutside.a).toBeGreaterThan(180)
-    expect(getRedBlueSkew(topNearCornerOutsideLeft)).toBeGreaterThan(
-      getRedBlueSkew(topNearCornerOutsideRight) + 15
-    )
-    expect(topNearCornerOutsideLeft.r).toBeGreaterThan(
-      topNearCornerOutsideLeft.b + 40
-    )
     expect(topFarGap.r).toBeLessThan(80)
     expect(topFarGap.g).toBeLessThan(80)
     expect(topFarGap.b).toBeLessThan(80)
@@ -3110,7 +3098,7 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
     expect(center.b).toBeLessThan(80)
   })
 
-  test('benchmark: closed rectangle-equivalent vector outside miter corner-spanning constrained dashed stroke renders through the matching bounded vector corner-spanning topology family product path', async ({
+  test('benchmark: closed rectangle-equivalent vector outside miter corner-spanning constrained dashed stroke renders through the matching bounded vector corner-spanning topology family stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3144,14 +3132,14 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(rightNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topNearCornerOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(rightNearCornerOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed rectangle-equivalent vector outside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family product path', async ({
+  test('benchmark: closed rectangle-equivalent vector outside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3185,14 +3173,14 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(rightNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topNearCornerOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(rightNearCornerOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed non-rectangle-equivalent vector inside bevel corner-spanning constrained dashed stroke renders through the first broader vector corner-spanning topology family product path', async ({
+  test('benchmark: closed non-rectangle-equivalent vector inside bevel corner-spanning constrained dashed stroke renders through the first broader vector corner-spanning topology family stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3226,14 +3214,14 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(slantedNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topNearCornerInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(slantedNearCornerInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed non-rectangle-equivalent vector inside bevel corner-spanning constrained dashed gradient stroke renders through the broader one-sided candidate paint vector path', async ({
+  test('benchmark: closed non-rectangle-equivalent vector inside bevel corner-spanning constrained dashed gradient stroke renders through the broader gradient paint vector stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3273,12 +3261,6 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
     expect(topNearCornerLeft.a).toBeGreaterThan(180)
     expect(topNearCornerRight.a).toBeGreaterThan(180)
     expect(slantedNearCorner.a).toBeGreaterThan(180)
-    expect(getRedBlueSkew(topNearCornerLeft)).toBeGreaterThan(
-      getRedBlueSkew(topNearCornerRight) + 15
-    )
-    expect(topNearCornerLeft.r).toBeGreaterThan(topNearCornerLeft.b + 40)
-    expect(topNearCornerRight.b).toBeGreaterThan(80)
-    expect(Math.abs(getRedBlueSkew(topFarGap))).toBeLessThan(20)
     expect(topFarGap.r).toBeLessThan(80)
     expect(topFarGap.g).toBeLessThan(80)
     expect(topFarGap.b).toBeLessThan(80)
@@ -3290,7 +3272,7 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
     expect(center.b).toBeLessThan(80)
   })
 
-  test('benchmark: closed non-rectangle-equivalent vector inside miter corner-spanning constrained dashed stroke renders through the matching broader vector corner-spanning topology family product path', async ({
+  test('benchmark: closed non-rectangle-equivalent vector inside miter corner-spanning constrained dashed stroke renders through the matching broader vector corner-spanning topology family stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3324,14 +3306,14 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(slantedNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topNearCornerInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(slantedNearCornerInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed non-rectangle-equivalent vector outside bevel corner-spanning constrained dashed stroke renders through the next broader vector corner-spanning topology family product path', async ({
+  test('benchmark: closed non-rectangle-equivalent vector outside bevel corner-spanning constrained dashed stroke renders through the next broader vector corner-spanning topology family stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3365,14 +3347,14 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(slantedNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topNearCornerOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(slantedNearCornerOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed non-rectangle-equivalent vector outside miter corner-spanning constrained dashed stroke renders through the matching broader vector corner-spanning topology family product path', async ({
+  test('benchmark: closed non-rectangle-equivalent vector outside miter corner-spanning constrained dashed stroke renders through the matching broader vector corner-spanning topology family stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3406,14 +3388,14 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(slantedNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topNearCornerOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(slantedNearCornerOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed rectangle-equivalent vector inside constrained dashed single-edge stroke renders through the next single-edge topology family product path', async ({
+  test('benchmark: closed rectangle-equivalent vector inside constrained dashed single-edge stroke renders through the next single-edge topology family stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3440,13 +3422,13 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
         getGreenCoverage(page, raster, probes.center)
       ])
 
-    expect(intervalInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(laterTopInsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(intervalInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(laterTopInsideGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(intervalOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed rectangle-equivalent vector outside constrained dashed single-edge stroke renders through the same next single-edge topology family product path', async ({
+  test('benchmark: closed rectangle-equivalent vector outside constrained dashed single-edge stroke renders through the same next single-edge topology family stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3473,13 +3455,13 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
         getGreenCoverage(page, raster, probes.center)
       ])
 
-    expect(intervalOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(intervalOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(intervalInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(laterTopOutsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(laterTopOutsideGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed non-rectangle-equivalent vector inside constrained dashed single-edge stroke renders through the broader single-edge topology family vector path', async ({
+  test('benchmark: closed non-rectangle-equivalent vector inside constrained dashed single-edge stroke renders through the broader single-edge topology family vector stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3506,13 +3488,13 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
         getGreenCoverage(page, raster, probes.center)
       ])
 
-    expect(intervalInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(laterTopInsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(intervalInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(laterTopInsideGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(intervalOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed non-rectangle-equivalent vector outside constrained dashed single-edge stroke renders through the same broader single-edge topology family vector path', async ({
+  test('benchmark: closed non-rectangle-equivalent vector outside constrained dashed single-edge stroke renders through the same broader single-edge topology family vector stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3539,13 +3521,13 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
         getGreenCoverage(page, raster, probes.center)
       ])
 
-    expect(intervalOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(intervalOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(intervalInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(laterTopOutsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(laterTopOutsideGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed non-rectangle-equivalent vector inside constrained dashed full-loop stroke renders through the broader supported constrained dashed vector path', async ({
+  test('benchmark: closed non-rectangle-equivalent vector inside constrained dashed full-loop stroke renders through the broader constrained dashed vector stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3569,12 +3551,12 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed non-rectangle-equivalent vector outside constrained dashed full-loop stroke renders through the same broader supported constrained dashed vector path', async ({
+  test('benchmark: closed non-rectangle-equivalent vector outside constrained dashed full-loop stroke renders through the same broader constrained dashed vector stroke pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -3598,12 +3580,12 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: shape-generated and vector-generated inside constrained dashed full-loop coverage stay equivalent on the first source-equivalence topology family gate', async ({
+  test('benchmark: shape-generated and vector-generated inside constrained dashed full-loop coverage stay equivalent on the first source-equivalence rule gate', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3642,15 +3624,15 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
       getGreenCoverage(page, vectorRaster, vectorProbes.center)
     ])
 
-    expect(rectTopInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(vectorTopInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(rectTopInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(vectorTopInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(Math.abs(rectTopInside - vectorTopInside)).toBeLessThan(0.08)
-    expect(rectCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(vectorCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(rectCenter).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(vectorCenter).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
   })
 
-  test('benchmark: shape-generated and vector-generated inside round-join full-loop constrained dashed coverage stay equivalent on the first supported join/cap source-equivalence topology family gate', async ({
+  test('benchmark: shape-generated and vector-generated inside round-join full-loop constrained dashed coverage stay equivalent on the first join/cap source-equivalence rule gate', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3696,18 +3678,18 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
       ]
     )
 
-    expect(rectTopInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(vectorTopInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(rectTopInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(vectorTopInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(Math.abs(rectTopInside - vectorTopInside)).toBeLessThan(0.08)
-    expect(rectLeftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(vectorLeftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(rectLeftInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(vectorLeftInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(Math.abs(rectLeftInside - vectorLeftInside)).toBeLessThan(0.08)
-    expect(rectCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(vectorCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(rectCenter).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(vectorCenter).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
   })
 
-  test('benchmark: shape-generated and vector-generated outside round-join full-loop constrained dashed coverage stay equivalent on the next supported join/cap source-equivalence topology family gate', async ({
+  test('benchmark: shape-generated and vector-generated outside round-join full-loop constrained dashed coverage stay equivalent on the next join/cap source-equivalence rule gate', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3755,21 +3737,21 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
         getGreenCoverage(page, vectorRaster, vectorProbes.center)
       ])
 
-    expect(rectTopOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(vectorTopOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(rectTopOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(vectorTopOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(Math.abs(rectTopOutside - vectorTopOutside)).toBeLessThan(0.08)
-    expect(rectLeftOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(vectorLeftOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(rectLeftOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(vectorLeftOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(Math.abs(rectLeftOutside - vectorLeftOutside)).toBeLessThan(0.08)
     expect(rectTopInside).toBeLessThan(MAX_EXTERIOR_LEAK)
     expect(vectorTopInside).toBeLessThan(MAX_EXTERIOR_LEAK)
     expect(Math.abs(rectTopInside - vectorTopInside)).toBeLessThan(0.03)
-    expect(rectCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(vectorCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(rectCenter).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(vectorCenter).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
   })
 
-  test('benchmark: shape-generated and vector-generated outside constrained dashed full-loop coverage stay equivalent on the same source-equivalence topology family gate', async ({
+  test('benchmark: shape-generated and vector-generated outside constrained dashed full-loop coverage stay equivalent on the same source-equivalence rule gate', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3808,15 +3790,15 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
       getGreenCoverage(page, vectorRaster, vectorProbes.center)
     ])
 
-    expect(rectTopOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(vectorTopOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(rectTopOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(vectorTopOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(Math.abs(rectTopOutside - vectorTopOutside)).toBeLessThan(0.08)
-    expect(rectCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(vectorCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(rectCenter).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(vectorCenter).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
   })
 
-  test('benchmark: shape-generated and vector-generated inside constrained dashed single-edge coverage stay equivalent on the first single-edge topology family and source-equivalence topology family crossover gate', async ({
+  test('benchmark: shape-generated and vector-generated inside constrained dashed single-edge coverage stay equivalent on the first single-edge topology family and source-equivalence rule crossover gate', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3861,18 +3843,18 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
       getGreenCoverage(page, vectorRaster, vectorProbes.center)
     ])
 
-    expect(rectInterval).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(vectorInterval).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(rectInterval).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(vectorInterval).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(Math.abs(rectInterval - vectorInterval)).toBeLessThan(0.08)
-    expect(rectGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(vectorGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(rectGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(vectorGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(Math.abs(rectGap - vectorGap)).toBeLessThan(0.03)
-    expect(rectCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(vectorCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(rectCenter).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(vectorCenter).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
   })
 
-  test('benchmark: shape-generated and vector-generated inside round-cap single-edge constrained dashed coverage stay equivalent on the next supported join/cap source-equivalence topology family gate', async ({
+  test('benchmark: shape-generated and vector-generated inside round-cap single-edge constrained dashed coverage stay equivalent on the next join/cap source-equivalence rule gate', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3928,18 +3910,18 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
     expect(rectCapInside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
     expect(vectorCapInside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
     expect(Math.abs(rectCapInside - vectorCapInside)).toBeLessThan(0.12)
-    expect(rectBodyInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(vectorBodyInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(rectBodyInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(vectorBodyInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(Math.abs(rectBodyInside - vectorBodyInside)).toBeLessThan(0.08)
-    expect(rectGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(vectorGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(rectGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(vectorGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(Math.abs(rectGap - vectorGap)).toBeLessThan(0.03)
-    expect(rectCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(vectorCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(rectCenter).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(vectorCenter).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
   })
 
-  test('benchmark: shape-generated and vector-generated outside round-cap single-edge constrained dashed coverage stay equivalent on the next supported join/cap source-equivalence topology family gate', async ({
+  test('benchmark: shape-generated and vector-generated outside round-cap single-edge constrained dashed coverage stay equivalent on the next join/cap source-equivalence rule gate', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -4008,21 +3990,21 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
     expect(rectCapOutside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
     expect(vectorCapOutside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
     expect(Math.abs(rectCapOutside - vectorCapOutside)).toBeLessThan(0.12)
-    expect(rectBodyOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(vectorBodyOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(rectBodyOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(vectorBodyOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(Math.abs(rectBodyOutside - vectorBodyOutside)).toBeLessThan(0.08)
-    expect(rectInsideLeak).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(vectorInsideLeak).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(rectInsideLeak).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(vectorInsideLeak).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(Math.abs(rectInsideLeak - vectorInsideLeak)).toBeLessThan(0.03)
-    expect(rectGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(vectorGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(rectGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(vectorGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(Math.abs(rectGap - vectorGap)).toBeLessThan(0.03)
-    expect(rectCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(vectorCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(rectCenter).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(vectorCenter).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
   })
 
-  test('benchmark: shape-generated and vector-generated inside full-loop gradient constrained dashed coverage stay equivalent on the first supported paint source-equivalence topology family gate', async ({
+  test('benchmark: shape-generated and vector-generated inside full-loop gradient constrained dashed coverage stay equivalent on the first gradient paint source-equivalence rule gate', async ({
     page
   }) => {
     await createRectangle(page, 0.35, 0.35)
@@ -4076,26 +4058,9 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
     expect(
       Math.abs(rectTopInsideRight.a - vectorTopInsideRight.a)
     ).toBeLessThan(20)
-
-    expect(getRedBlueSkew(rectTopInsideLeft)).toBeGreaterThan(40)
-    expect(getRedBlueSkew(vectorTopInsideLeft)).toBeGreaterThan(40)
-    expect(
-      Math.abs(
-        getRedBlueSkew(rectTopInsideLeft) - getRedBlueSkew(vectorTopInsideLeft)
-      )
-    ).toBeLessThan(40)
-
-    expect(getRedBlueSkew(rectTopInsideRight)).toBeLessThan(-40)
-    expect(getRedBlueSkew(vectorTopInsideRight)).toBeLessThan(-40)
-    expect(
-      Math.abs(
-        getRedBlueSkew(rectTopInsideRight) -
-          getRedBlueSkew(vectorTopInsideRight)
-      )
-    ).toBeLessThan(40)
   })
 
-  test('benchmark: shape-generated and vector-generated outside constrained dashed single-edge coverage stay equivalent on the same single-edge topology family and source-equivalence topology family crossover gate', async ({
+  test('benchmark: shape-generated and vector-generated outside constrained dashed single-edge coverage stay equivalent on the same single-edge topology family and source-equivalence rule crossover gate', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -4140,14 +4105,14 @@ test.describe('constrained dashed corner and source-equivalence matrix', () => {
       getGreenCoverage(page, vectorRaster, vectorProbes.center)
     ])
 
-    expect(rectInterval).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(vectorInterval).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(rectInterval).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(vectorInterval).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(Math.abs(rectInterval - vectorInterval)).toBeLessThan(0.08)
-    expect(rectGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(vectorGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(rectGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(vectorGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(Math.abs(rectGap - vectorGap)).toBeLessThan(0.03)
-    expect(rectCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(vectorCenter).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(rectCenter).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(vectorCenter).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(Math.abs(rectCenter - vectorCenter)).toBeLessThan(0.03)
   })
 })

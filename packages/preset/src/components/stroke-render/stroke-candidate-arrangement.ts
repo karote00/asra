@@ -51,8 +51,14 @@ export interface StrokeCandidateArrangementOptions {
 
 export interface StrokeVisualOverlapCollapseOptions {
   backend: Pick<GeometryBackend, 'union'> &
-    Partial<Pick<GeometryBackend, 'buildArrangement'>>
+    Partial<
+      Pick<
+        GeometryBackend,
+        'buildArrangement' | 'capabilities' | 'difference' | 'intersection'
+      >
+    >
   fillRule?: FillRule
+  legalDomains?: ArrangementLegalDomain[]
 }
 
 const MAX_ARRANGEMENT_CACHE_ENTRIES = 64
@@ -66,6 +72,16 @@ const visualOverlapCollapseResultCache = new WeakMap<
   object,
   Map<string, ArrangedStrokeFinalFace[]>
 >()
+
+const canUseVisualOverlapUnion = (
+  backend: StrokeVisualOverlapCollapseOptions['backend']
+) => backend.capabilities?.union !== false
+
+const canUseVisualOverlapArrangement = (
+  backend: StrokeVisualOverlapCollapseOptions['backend']
+) =>
+  typeof backend.buildArrangement === 'function' &&
+  backend.capabilities?.buildArrangement !== false
 
 const emitStrokePipelineCounter = (counterName: string, value = 1) => {
   ;(
@@ -428,6 +444,7 @@ const collectMergedFaceMetadata = (faces: ArrangedStrokeFinalFace[]) => {
   const ownerSet: StrokeOwnerKey[] = []
   const intervalIds: string[] = []
   const sourceSpanIds: string[] = []
+  const sourceNetworkIds: string[] = []
   const sourceContourIds: string[] = []
   const legalDomainIds: string[] = []
   const domainPlanSplitRangeTerminals: NonNullable<
@@ -440,6 +457,9 @@ const collectMergedFaceMetadata = (faces: ArrangedStrokeFinalFace[]) => {
     face.ownerSet.forEach((owner) => pushUniqueStrokeOwner(ownerSet, owner))
     face.intervalIds.forEach((id) => pushUnique(intervalIds, id))
     face.sourceSpanIds.forEach((id) => pushUnique(sourceSpanIds, id))
+    ;(face.sourceNetworkIds ?? []).forEach((id) =>
+      pushUnique(sourceNetworkIds, id)
+    )
     face.sourceContourIds.forEach((id) => pushUnique(sourceContourIds, id))
     face.legalDomainIds.forEach((id) => pushUnique(legalDomainIds, id))
     face.debugMeta?.domainPlanSplitRangeTerminals?.forEach((terminal) => {
@@ -463,11 +483,41 @@ const collectMergedFaceMetadata = (faces: ArrangedStrokeFinalFace[]) => {
     ownerSet,
     intervalIds,
     sourceSpanIds,
+    sourceNetworkIds,
     sourceContourIds,
     legalDomainIds,
     domainPlanSplitRangeTerminals
   }
 }
+
+const getFaceProductMode = (face: ArrangedStrokeFinalFace) =>
+  face.debugMeta?.productMode
+
+const getFaceProductSignature = (face: ArrangedStrokeFinalFace) =>
+  face.debugMeta?.productSignature
+
+const isCenterProductFace = (face: ArrangedStrokeFinalFace) =>
+  getFaceProductMode(face) === 'center-product'
+
+const isDashedCenterProductFace = (face: ArrangedStrokeFinalFace) =>
+  isCenterProductFace(face) &&
+  getFaceProductSignature(face) === 'center-product:dashed'
+
+const isSolidCenterProductFace = (face: ArrangedStrokeFinalFace) =>
+  isCenterProductFace(face) &&
+  getFaceProductSignature(face) === 'center-product:solid'
+
+const isConstrainedSolidProductFace = (face: ArrangedStrokeFinalFace) =>
+  getFaceProductSignature(face)?.startsWith('constrained-solid:') === true
+
+const isConstrainedDashedProductFace = (face: ArrangedStrokeFinalFace) =>
+  getFaceProductSignature(face)?.startsWith('constrained-dashed:') === true
+
+const isSelfIntersectingProductFace = (face: ArrangedStrokeFinalFace) =>
+  face.debugMeta?.topologyFamily === 'self-intersecting'
+
+const isExactArrangementFace = (face: ArrangedStrokeFinalFace) =>
+  face.debugMeta?.arrangementStatus === 'exact'
 
 const getCandidatePosition = (
   face: ArrangedStrokeFinalFace,
@@ -508,6 +558,7 @@ export const buildStrokeArrangementCandidates = (
       paintKey: face.paintKey,
       strokeSpecKey: face.strokeSpecKey,
       sourceSpanIds: face.sourceSpanIds,
+      sourceNetworkIds: face.sourceNetworkIds,
       sourceContourIds: face.sourceContourIds
     }
   })
@@ -538,9 +589,8 @@ const selectOwnedArrangementCandidates = (
     faceByCandidateId.get(candidate.candidateId)
   )
   if (
-    !faces.every(
-      (face): face is ArrangedStrokeFinalFace =>
-        face?.geometryFamily === 'constrained-solid'
+    !faces.every((face): face is ArrangedStrokeFinalFace =>
+      Boolean(face && isConstrainedSolidProductFace(face))
     )
   ) {
     return candidates
@@ -605,15 +655,20 @@ const groupByVisualPacket = (
 }
 
 const canClipLegalDomains = (
-  backend: StrokeCandidateArrangementOptions['backend']
+  backend: Partial<
+    Pick<
+      GeometryBackend,
+      'buildArrangement' | 'difference' | 'intersection' | 'union'
+    >
+  >
 ): backend is Pick<
   GeometryBackend,
   'buildArrangement' | 'difference' | 'intersection' | 'union'
 > =>
+  typeof backend.buildArrangement === 'function' &&
   typeof backend.difference === 'function' &&
   typeof backend.intersection === 'function' &&
   typeof backend.union === 'function'
-
 const getBackendSignature = (backend: object) =>
   'backendId' in backend &&
   'backendVersion' in backend &&
@@ -669,8 +724,41 @@ const buildArrangementResultCacheKey = (
 const getFacePointCount = (face: ArrangedStrokeFinalFace) =>
   face.polygons.reduce((sum, polygon) => sum + polygon.length, 0)
 
-const serializeFinalFaceForCache = (face: ArrangedStrokeFinalFace) => {
+const serializeRevisionSetForVisualOverlapCache = (
+  face: ArrangedStrokeFinalFace
+) => {
   const revisionSet = face.debugMeta?.revisionSet
+  if (!revisionSet) {
+    return undefined
+  }
+
+  if (!isConstrainedDashedProductFace(face)) {
+    return revisionSet
+  }
+
+  return {
+    sourcePathRevision: revisionSet.sourcePathRevision,
+    domainPlanRevision: revisionSet.domainPlanRevision,
+    sharedGeometryRevision: revisionSet.sharedGeometryRevision,
+    strokeProductRevision: revisionSet.strokeProductRevision,
+    strokeDomainRevision: revisionSet.strokeDomainRevision,
+    intervalAllocationRevision: revisionSet.intervalAllocationRevision,
+    ownershipRevision: revisionSet.ownershipRevision,
+    legalityRevision: revisionSet.legalityRevision,
+    paintRevision: revisionSet.paintRevision,
+    strokeFamilyRevision: revisionSet.strokeFamilyRevision,
+    dashScheduleRevision: revisionSet.dashScheduleRevision,
+    terminalCapRevision: revisionSet.terminalCapRevision,
+    joinShapeRevision: revisionSet.joinShapeRevision,
+    smoothContinuityRevision: revisionSet.smoothContinuityRevision,
+    productMaterializationRevision: revisionSet.productMaterializationRevision,
+    resolvedRegionRevision: revisionSet.resolvedRegionRevision,
+    renderOutputRevision: revisionSet.renderOutputRevision
+  }
+}
+
+const serializeFinalFaceForCache = (face: ArrangedStrokeFinalFace) => {
+  const revisionSet = serializeRevisionSetForVisualOverlapCache(face)
   if (revisionSet) {
     return {
       faceId: face.faceId,
@@ -682,12 +770,12 @@ const serializeFinalFaceForCache = (face: ArrangedStrokeFinalFace) => {
       ownerSet: face.ownerSet,
       intervalIds: face.intervalIds,
       sourceSpanIds: face.sourceSpanIds,
+      sourceNetworkIds: face.sourceNetworkIds,
       sourceContourIds: face.sourceContourIds,
       legalDomainIds: face.legalDomainIds,
-      geometryFamily: face.geometryFamily,
-      resolutionStatus: face.resolutionStatus,
-      runtimeStatus: face.runtimeStatus,
-      sourceTopology: face.sourceTopology,
+      productMode: face.debugMeta?.productMode,
+      productSignature: face.debugMeta?.productSignature,
+      domainMode: face.debugMeta?.domainMode,
       revisionSet
     }
   }
@@ -703,12 +791,12 @@ const serializeFinalFaceForCache = (face: ArrangedStrokeFinalFace) => {
     ownerSet: face.ownerSet,
     intervalIds: face.intervalIds,
     sourceSpanIds: face.sourceSpanIds,
+    sourceNetworkIds: face.sourceNetworkIds,
     sourceContourIds: face.sourceContourIds,
     legalDomainIds: face.legalDomainIds,
-    geometryFamily: face.geometryFamily,
-    resolutionStatus: face.resolutionStatus,
-    runtimeStatus: face.runtimeStatus,
-    sourceTopology: face.sourceTopology,
+    productMode: face.debugMeta?.productMode,
+    productSignature: face.debugMeta?.productSignature,
+    domainMode: face.debugMeta?.domainMode,
     paint: face.paint,
     debugMeta: face.debugMeta
   }
@@ -732,6 +820,12 @@ const buildVisualOverlapCollapseCacheKey = (
     stableStringify({
       backend: getBackendSignature(options.backend as object),
       fillRule: options.fillRule ?? 'nonzero',
+      legalDomains:
+        options.legalDomains?.map((domain) => ({
+          legalDomainId: domain.legalDomainId ?? null,
+          fillRule: domain.fillRule,
+          regions: domain.regions.map(serializeRegion)
+        })) ?? [],
       faces: faces.map(serializeFinalFaceForCache)
     })
   )
@@ -829,6 +923,7 @@ const mergeArrangedFaceGroup = (
     ownerSet,
     intervalIds,
     sourceSpanIds,
+    sourceNetworkIds,
     sourceContourIds,
     legalDomainIds,
     domainPlanSplitRangeTerminals
@@ -854,20 +949,18 @@ const mergeArrangedFaceGroup = (
     ownerSet,
     intervalIds,
     sourceSpanIds,
+    sourceNetworkIds,
     sourceContourIds,
     legalDomainIds,
-    geometryFamily: primaryFace.geometryFamily,
-    resolutionStatus: 'exact-constrained',
-    runtimeStatus: 'accepted',
-    sourceTopology: primaryFace.sourceTopology,
     debugMeta: {
       ...primaryFace.debugMeta,
+      productMode: primaryFace.debugMeta?.productMode,
+      productSignature: primaryFace.debugMeta?.productSignature,
+      domainMode: primaryFace.debugMeta?.domainMode,
       arrangementStatus: 'exact',
       arrangementFaceId: arrangementFace.faceId,
       arrangementCandidateIds: candidateIds,
       arrangementLegalState: arrangementFace.legalState,
-      resolutionStatus: 'exact-constrained',
-      runtimeStatus: 'accepted',
       domainPlanSplitRangeTerminals
     },
     paint: primaryFace.paint
@@ -939,11 +1032,11 @@ const groupFinalFacesByVisualPacket = (faces: ArrangedStrokeFinalFace[]) => {
   const groups = new Map<string, ArrangedStrokeFinalFace[]>()
 
   faces.forEach((face) => {
-    const constrainedDashCoverageUnitKey =
-      getSelfIntersectingConstrainedDashedCoverageUnitKey(face)
-    const groupKey = constrainedDashCoverageUnitKey
-      ? [face.visualPacketKey, constrainedDashCoverageUnitKey].join('|')
-      : face.geometryFamily === 'dashed-center'
+    const constrainedDashVisualCoverageKey =
+      getConstrainedDashedVisualCoverageKey(face)
+    const groupKey = constrainedDashVisualCoverageKey
+      ? constrainedDashVisualCoverageKey
+      : isDashedCenterProductFace(face)
         ? [
             face.visualPacketKey,
             'dashed-center-interval',
@@ -962,51 +1055,34 @@ const groupFinalFacesByVisualPacket = (faces: ArrangedStrokeFinalFace[]) => {
 }
 
 const isDomainPlanConstrainedSolidFace = (face: ArrangedStrokeFinalFace) =>
-  face.geometryFamily === 'constrained-solid' &&
-  face.resolutionStatus !== 'exact-constrained'
+  isConstrainedSolidProductFace(face) && !isExactArrangementFace(face)
 
-const isSelfIntersectingConstrainedDashedProductFace = (
-  face: ArrangedStrokeFinalFace
-) =>
-  face.geometryFamily === 'constrained-dashed' &&
-  face.sourceTopology === 'self-intersecting' &&
-  face.debugMeta?.finalCoverageBuilderStatus === 'product-final'
-
-const getSelfIntersectingConstrainedDashedCoverageUnitKey = (
+const getConstrainedDashedVisualCoverageKey = (
   face: ArrangedStrokeFinalFace
 ) => {
-  if (!isSelfIntersectingConstrainedDashedProductFace(face)) {
+  if (!isConstrainedDashedProductFace(face)) {
     return null
   }
 
-  if (face.debugMeta?.strokePosition === 'inside') {
-    return null
-  }
-
-  const intervalIds =
-    face.intervalIds.length > 0
-      ? face.intervalIds
-      : face.debugMeta?.intervalId
-        ? [face.debugMeta.intervalId]
-        : []
-
+  const debugMeta = face.debugMeta
   return [
-    'self-intersecting-constrained-dash-coverage-unit',
-    'interval',
-    face.debugMeta?.domainPlanBoundaryDomainId ?? 'unknown-boundary-domain',
-    face.debugMeta?.domainPlanSplitRangeId ?? 'unknown-split-range',
-    stableStringify(intervalIds),
-    face.debugMeta?.domainPlanTerminalRole ?? 'unknown-terminal-role',
-    face.debugMeta?.domainPlanSelectedSide ?? 'unknown-selected-side'
+    'constrained-dashed-visual-coverage',
+    face.paintKey,
+    debugMeta?.networkId ?? 'unknown-network',
+    debugMeta?.strokeId ?? 'unknown-stroke',
+    debugMeta?.strokeIndex ?? 'unknown-stroke-index',
+    debugMeta?.strokePosition ?? 'unknown-stroke-position',
+    debugMeta?.strokeWidth ?? 'unknown-stroke-width',
+    debugMeta?.strokeCap ?? 'unknown-stroke-cap',
+    debugMeta?.strokeJoin ?? 'unknown-stroke-join'
   ].join('|')
 }
 
 const hasDashedCenterFace = (faces: ArrangedStrokeFinalFace[]) =>
-  faces.some((face) => face.geometryFamily === 'dashed-center')
+  faces.some(isDashedCenterProductFace)
 
-const hasSelfIntersectingConstrainedDashedProductFace = (
-  faces: ArrangedStrokeFinalFace[]
-) => faces.some(isSelfIntersectingConstrainedDashedProductFace)
+const hasConstrainedDashedFace = (faces: ArrangedStrokeFinalFace[]) =>
+  faces.some(isConstrainedDashedProductFace)
 
 const hasGradientPaintFace = (faces: ArrangedStrokeFinalFace[]) =>
   faces.some(
@@ -1016,15 +1092,13 @@ const hasGradientPaintFace = (faces: ArrangedStrokeFinalFace[]) =>
 
 const isSelfIntersectingConstrainedSolidFace = (
   face: ArrangedStrokeFinalFace
-) =>
-  face.geometryFamily === 'constrained-solid' &&
-  face.sourceTopology === 'self-intersecting'
+) => isConstrainedSolidProductFace(face) && isSelfIntersectingProductFace(face)
 
 const isSelfIntersectingConstrainedSolidMaskModelFace = (
   face: ArrangedStrokeFinalFace
 ) =>
   isSelfIntersectingConstrainedSolidFace(face) &&
-  face.resolutionStatus === 'exact-constrained' &&
+  isExactArrangementFace(face) &&
   face.debugMeta?.solidMaskModelMaskApplication !== undefined
 
 const hasSelfIntersectingConstrainedSolidMaskModelFace = (
@@ -1037,8 +1111,7 @@ const canCollapseVisualOverlapExactly = (faces: ArrangedStrokeFinalFace[]) =>
       !isDomainPlanConstrainedSolidFace(face) &&
       !(
         isSelfIntersectingConstrainedSolidFace(face) &&
-        face.debugMeta?.arrangementStatus !== 'exact' &&
-        face.resolutionStatus !== 'exact-constrained'
+        !isExactArrangementFace(face)
       )
   )
 
@@ -1073,14 +1146,11 @@ const canTrustExactArrangementPartition = (
 
   const networkIds = new Set<string>()
   return faces.every((face) => {
-    if (
-      face.resolutionStatus !== 'exact-constrained' ||
-      face.debugMeta?.arrangementStatus !== 'exact'
-    ) {
+    if (!isExactArrangementFace(face)) {
       return false
     }
 
-    const networkId = face.debugMeta.networkId
+    const networkId = face.debugMeta?.networkId
     if (networkId) {
       networkIds.add(networkId)
     }
@@ -1095,9 +1165,8 @@ const isCenterPathSelfIntersectingSingleFaceCollapse = (
   const [face] = faces
   return (
     faces.length === 1 &&
-    face?.geometryFamily === 'solid-center' &&
-    face.resolutionStatus === 'center-product' &&
-    face.sourceTopology === 'self-intersecting'
+    Boolean(face && isSolidCenterProductFace(face)) &&
+    Boolean(face && isSelfIntersectingProductFace(face))
   )
 }
 
@@ -1115,6 +1184,7 @@ const mergeVisualOverlapFaceGroup = (
     ownerSet,
     intervalIds,
     sourceSpanIds,
+    sourceNetworkIds,
     sourceContourIds,
     legalDomainIds,
     domainPlanSplitRangeTerminals
@@ -1131,6 +1201,7 @@ const mergeVisualOverlapFaceGroup = (
     sourceGeometryIds,
     polygons,
     bounds: getBounds(polygons),
+    renderDescriptor: undefined,
     ownerSet,
     intervalIds,
     sourceSpanIds,
@@ -1141,6 +1212,7 @@ const mergeVisualOverlapFaceGroup = (
       ownerSet,
       intervalIds,
       sourceSpanIds,
+      sourceNetworkIds,
       sourceContourIds,
       legalDomainIds,
       domainPlanSplitRangeTerminals:
@@ -1170,6 +1242,7 @@ const mergeCenterPathVisualOverlapFaceGroup = (
     ownerSet,
     intervalIds,
     sourceSpanIds,
+    sourceNetworkIds,
     sourceContourIds,
     legalDomainIds,
     domainPlanSplitRangeTerminals
@@ -1186,9 +1259,11 @@ const mergeCenterPathVisualOverlapFaceGroup = (
     sourceGeometryIds,
     polygons,
     bounds: getBounds(polygons),
+    renderDescriptor: undefined,
     ownerSet,
     intervalIds,
     sourceSpanIds,
+    sourceNetworkIds,
     sourceContourIds,
     legalDomainIds,
     debugMeta: {
@@ -1196,6 +1271,7 @@ const mergeCenterPathVisualOverlapFaceGroup = (
       ownerSet,
       intervalIds,
       sourceSpanIds,
+      sourceNetworkIds,
       sourceContourIds,
       legalDomainIds,
       domainPlanSplitRangeTerminals,
@@ -1222,6 +1298,7 @@ const mergeVisualOverlapArrangementFaceGroup = (
     ownerSet,
     intervalIds,
     sourceSpanIds,
+    sourceNetworkIds,
     sourceContourIds,
     legalDomainIds,
     domainPlanSplitRangeTerminals
@@ -1238,9 +1315,11 @@ const mergeVisualOverlapArrangementFaceGroup = (
     sourceGeometryIds,
     polygons,
     bounds: getBounds(polygons),
+    renderDescriptor: undefined,
     ownerSet,
     intervalIds,
     sourceSpanIds,
+    sourceNetworkIds,
     sourceContourIds,
     legalDomainIds,
     debugMeta: {
@@ -1248,6 +1327,7 @@ const mergeVisualOverlapArrangementFaceGroup = (
       ownerSet,
       intervalIds,
       sourceSpanIds,
+      sourceNetworkIds,
       sourceContourIds,
       legalDomainIds,
       domainPlanSplitRangeTerminals,
@@ -1279,6 +1359,7 @@ const mergeDomainPlanVisualOverlapArrangementFaceGroup = (
     ownerSet,
     intervalIds,
     sourceSpanIds,
+    sourceNetworkIds,
     sourceContourIds,
     legalDomainIds,
     domainPlanSplitRangeTerminals
@@ -1295,9 +1376,11 @@ const mergeDomainPlanVisualOverlapArrangementFaceGroup = (
     sourceGeometryIds,
     polygons,
     bounds: getBounds(polygons),
+    renderDescriptor: undefined,
     ownerSet,
     intervalIds,
     sourceSpanIds,
+    sourceNetworkIds,
     sourceContourIds,
     legalDomainIds,
     debugMeta: {
@@ -1305,6 +1388,7 @@ const mergeDomainPlanVisualOverlapArrangementFaceGroup = (
       ownerSet,
       intervalIds,
       sourceSpanIds,
+      sourceNetworkIds,
       sourceContourIds,
       legalDomainIds,
       domainPlanSplitRangeTerminals,
@@ -1369,7 +1453,7 @@ const collapseVisualOverlapFaceGroupByArrangement = (
 
 const collapseDomainPlanVisualOverlapFaceGroupByArrangement = (
   faces: ArrangedStrokeFinalFace[],
-  backend: Pick<GeometryBackend, 'buildArrangement'>
+  options: Pick<StrokeVisualOverlapCollapseOptions, 'backend' | 'legalDomains'>
 ): ArrangedStrokeFinalFace[] => {
   const normalizedFaces = faces.map((face) => ({
     ...face,
@@ -1380,15 +1464,42 @@ const collapseDomainPlanVisualOverlapFaceGroupByArrangement = (
     normalizedFaces.map((face) => [face.faceId, face])
   )
   const claimedFaceIds = new Set<string>()
-  const collapsedFaces = measureVectorRenderPhase(
+  const arrangementFaces = measureVectorRenderPhase(
     'visual overlap collapse: arrangement',
+    () => {
+      const rawFaces = options.backend.buildArrangement?.(candidates) ?? []
+      return options.legalDomains &&
+        canClipLegalDomains(options.backend) &&
+        options.legalDomains.length > 0
+        ? clipArrangementFacesByLegalDomain(
+            rawFaces,
+            options.legalDomains,
+            options.backend
+          )
+        : rawFaces
+    }
+  )
+  const collapsedFaces = measureVectorRenderPhase(
+    'visual overlap collapse: domain-plan merge',
     () =>
-      backend
-        .buildArrangement(candidates)
-        .filter((face) => hasRegionGeometry(face.geometry))
+      arrangementFaces.filter(
+        (face) =>
+          hasRegionGeometry(face.geometry) &&
+          face.claimedBy.some((candidate) =>
+            isLegalForPosition(candidate.strokePosition, face.legalState)
+          )
+      )
   ).flatMap((arrangementFace) => {
     const claimedFaces: ArrangedStrokeFinalFace[] = []
     arrangementFace.claimedBy.forEach((candidate) => {
+      if (
+        !isLegalForPosition(
+          candidate.strokePosition,
+          arrangementFace.legalState
+        )
+      ) {
+        return
+      }
       const sourceFace = faceByCandidateId.get(candidate.candidateId)
       if (sourceFace) {
         claimedFaces.push(sourceFace)
@@ -1424,9 +1535,34 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
     return faces
   }
 
+  const canUseUnion = canUseVisualOverlapUnion(options.backend)
+  const canUseArrangement = canUseVisualOverlapArrangement(options.backend)
   const groups = groupFinalFacesByVisualPacket(faces)
+  const partitionedGroups = groups.map((group) => [group])
+  if (partitionedGroups.some((group) => group.length > 1)) {
+    emitStrokePipelineCounter(
+      'visual-overlap-collapse-bounds-partitioned',
+      partitionedGroups.reduce((total, group) => total + group.length, 0)
+    )
+    return groups.flatMap((group, index) => {
+      const partitions = partitionedGroups[index] ?? [group]
+      return partitions.length > 1
+        ? partitions.flatMap((partition) =>
+            collapseStrokeFinalFaceVisualOverlaps(partition, options)
+          )
+        : collapseStrokeFinalFaceVisualOverlaps(group, options)
+    })
+  }
   const hasCollapsibleGroup = groups.some((group) => {
+    if (!canUseUnion && !canUseArrangement) {
+      return false
+    }
+
     if (hasDashedCenterFace(group)) {
+      return false
+    }
+
+    if (hasConstrainedDashedFace(group)) {
       return false
     }
 
@@ -1440,6 +1576,9 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
 
     const shouldUseUnionOnlyCollapse =
       canCollapseDomainPlanConstrainedSolidVisualOverlapByUnion(group)
+    if (shouldUseUnionOnlyCollapse && !canUseUnion && !canUseArrangement) {
+      return false
+    }
     if (
       !shouldUseUnionOnlyCollapse &&
       !canCollapseVisualOverlapExactly(group)
@@ -1477,6 +1616,10 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
       return group
     }
 
+    if (hasConstrainedDashedFace(group)) {
+      return group
+    }
+
     if (hasGradientPaintFace(group)) {
       return group
     }
@@ -1487,6 +1630,9 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
 
     const shouldUseUnionOnlyCollapse =
       canCollapseDomainPlanConstrainedSolidVisualOverlapByUnion(group)
+    if (shouldUseUnionOnlyCollapse && !canUseUnion && !canUseArrangement) {
+      return group
+    }
     if (
       !shouldUseUnionOnlyCollapse &&
       !canCollapseVisualOverlapExactly(group)
@@ -1514,6 +1660,10 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
     }
 
     if (isCenterPathSelfIntersectingSingleFaceCollapse(group)) {
+      if (!canUseUnion) {
+        return group
+      }
+
       const unionRegions = measureVectorRenderPhase(
         'visual overlap collapse: union',
         () =>
@@ -1533,10 +1683,11 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
     }
 
     const buildArrangement = options.backend.buildArrangement
-    if (shouldUseUnionOnlyCollapse && typeof buildArrangement === 'function') {
+    if (shouldUseUnionOnlyCollapse && canUseArrangement && buildArrangement) {
       const domainPlanArrangedCollapse =
         collapseDomainPlanVisualOverlapFaceGroupByArrangement(group, {
-          buildArrangement
+          backend: { ...options.backend, buildArrangement },
+          legalDomains: options.legalDomains
         })
       if (domainPlanArrangedCollapse.length > 0) {
         return domainPlanArrangedCollapse
@@ -1546,25 +1697,22 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
     if (
       !shouldUseUnionOnlyCollapse &&
       group.length >= 2 &&
-      typeof buildArrangement === 'function'
+      canUseArrangement &&
+      buildArrangement
     ) {
       const arrangedCollapse = collapseVisualOverlapFaceGroupByArrangement(
         group,
         { buildArrangement }
       )
-      const shouldTrustExactArrangement =
-        hasSelfIntersectingConstrainedDashedProductFace(group) &&
-        canTrustExactArrangementPartition(arrangedCollapse)
       if (
         arrangedCollapse.length > 0 &&
-        (shouldTrustExactArrangement ||
-          !shouldAttemptVisualOverlapCollapse(arrangedCollapse))
+        !shouldAttemptVisualOverlapCollapse(arrangedCollapse)
       ) {
         return arrangedCollapse
       }
     }
 
-    if (hasSelfIntersectingConstrainedDashedProductFace(group)) {
+    if (!canUseUnion) {
       return group
     }
 

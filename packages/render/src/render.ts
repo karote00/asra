@@ -301,6 +301,11 @@ class Render {
     this.requestRender()
   }
 
+  clearElements() {
+    this.viewport.clearElements()
+    this.requestRender()
+  }
+
   addContainer(containerData: RenderContainerData) {
     const container = this.viewport.addContainer(containerData)
     this.requestRender()

@@ -10,6 +10,10 @@ import {
   type PathGeometry
 } from '../components/stroke-render/path-geometry'
 import { buildResolvedVectorGeometryModel } from '../components/stroke-render/resolved-vector-geometry-model'
+import {
+  splitTracedSegmentsByIntersections,
+  type TracedLineSegment
+} from '../components/stroke-render/self-intersecting-legal-domain'
 import type { Vec2 } from '../components/stroke-render/solid-stroke-geometry-core'
 import {
   REPORTED_ROUND_INSIDE_DASHED_STAR_NETWORK_ID,
@@ -151,6 +155,34 @@ const buildReportedStarGeometryInput = (
   })
 
   return { path, topology, networkId: network.id }
+}
+
+const collectStrokePipelineCounters = (run: () => void) => {
+  const globalWithCounterSink = globalThis as typeof globalThis & {
+    __asyraStrokePipelineCounterSink?: (
+      counterName: string,
+      value: number
+    ) => void
+  }
+  const previousCounterSink =
+    globalWithCounterSink.__asyraStrokePipelineCounterSink
+  const counters = new Map<string, number>()
+
+  globalWithCounterSink.__asyraStrokePipelineCounterSink = (
+    counterName,
+    value
+  ) => {
+    previousCounterSink?.(counterName, value)
+    counters.set(counterName, (counters.get(counterName) ?? 0) + value)
+  }
+
+  try {
+    run()
+  } finally {
+    globalWithCounterSink.__asyraStrokePipelineCounterSink = previousCounterSink
+  }
+
+  return counters
 }
 
 describe('resolved vector geometry model', () => {
@@ -466,6 +498,114 @@ describe('resolved vector geometry model', () => {
       )
       previousCache = cachedModel.cache
     })
+  })
+
+  it('should run: reuse unchanged source segment traces across cached drag frames', () => {
+    const initialInput = buildReportedStarGeometryInput(0, 'anchor')
+    const initialModel = buildResolvedVectorGeometryModel({
+      modelId: 'trace-cache-initial',
+      fillRule: initialInput.topology.fillRule,
+      networks: [
+        {
+          networkId: initialInput.networkId,
+          path: initialInput.path,
+          topology: initialInput.topology
+        }
+      ]
+    })
+    const nextInput = buildReportedStarGeometryInput(1, 'anchor')
+    const networks = [
+      {
+        networkId: nextInput.networkId,
+        path: nextInput.path,
+        topology: nextInput.topology
+      }
+    ]
+    const fullModel = buildResolvedVectorGeometryModel({
+      modelId: 'trace-cache-next-full',
+      fillRule: nextInput.topology.fillRule,
+      networks
+    })
+    let cachedModel:
+      | ReturnType<typeof buildResolvedVectorGeometryModel>
+      | undefined
+    const counters = collectStrokePipelineCounters(() => {
+      cachedModel = buildResolvedVectorGeometryModel({
+        modelId: 'trace-cache-next-cached',
+        fillRule: nextInput.topology.fillRule,
+        networks,
+        previousCache: initialModel.cache
+      })
+    })
+
+    expect(cachedModel?.networks[0]?.selfIntersecting).toEqual(
+      fullModel.networks[0]?.selfIntersecting
+    )
+    expect(
+      counters.get('resolved-geometry-source-segment-trace-cache-hit') ?? 0
+    ).toBeGreaterThan(0)
+    expect(
+      counters.get('resolved-geometry-source-segment-trace-cache-miss') ?? 0
+    ).toBeGreaterThan(0)
+  })
+
+  it('should run: reuse self-intersection pairs when traced indexes shift across drag frames', () => {
+    const crossingA: TracedLineSegment = {
+      start: { x: 0, y: 0 },
+      end: { x: 10, y: 10 },
+      sourceSegmentIndex: 0,
+      sourceStartDistance: 0,
+      sourceEndDistance: 10
+    }
+    const crossingB: TracedLineSegment = {
+      start: { x: 0, y: 10 },
+      end: { x: 10, y: 0 },
+      sourceSegmentIndex: 1,
+      sourceStartDistance: 10,
+      sourceEndDistance: 20
+    }
+    const stableTail: TracedLineSegment = {
+      start: { x: 20, y: 0 },
+      end: { x: 30, y: 0 },
+      sourceSegmentIndex: 2,
+      sourceStartDistance: 20,
+      sourceEndDistance: 30
+    }
+    const previous = splitTracedSegmentsByIntersections(
+      [crossingA, crossingB, stableTail],
+      { returnCache: true }
+    )
+    const insertedDirtySegment: TracedLineSegment = {
+      start: { x: 0, y: 5 },
+      end: { x: 10, y: 5 },
+      sourceSegmentIndex: 99,
+      sourceStartDistance: 99,
+      sourceEndDistance: 109
+    }
+    const shiftedSegments = [
+      insertedDirtySegment,
+      crossingA,
+      crossingB,
+      stableTail
+    ]
+    const full = splitTracedSegmentsByIntersections(shiftedSegments, {
+      returnCache: true
+    })
+    let cached: { splitSegments: TracedLineSegment[] } | undefined
+    const counters = collectStrokePipelineCounters(() => {
+      cached = splitTracedSegmentsByIntersections(shiftedSegments, {
+        previousCache: previous.cache,
+        returnCache: true
+      })
+    })
+
+    expect(cached?.splitSegments).toEqual(full.splitSegments)
+    expect(
+      counters.get('self-intersection-pair-cache-signature-hit') ?? 0
+    ).toBeGreaterThan(0)
+    expect(
+      counters.get('self-intersection-pair-cache-miss') ?? 0
+    ).toBeGreaterThan(0)
   })
 
   it('should run: keep vector fill and stroke consumers wired to the same resolved geometry map', () => {

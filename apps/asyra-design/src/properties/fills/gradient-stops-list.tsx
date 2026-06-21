@@ -126,6 +126,8 @@ const GradientStopsList = ({
             }
             fillId={`gradient-stop-${index}-${stopIndex}`}
             ownerElementId={null}
+            colorPickerTestId={`prop-fill-gradient-stop-color-picker-${index}-${stopIndex}`}
+            colorPickerOpen={openStopIndex === stopIndex}
             displayColor={convertToHexUpper(stop.color)}
             gradientData={null}
             colorFormat={fillColorFormat}
@@ -142,7 +144,10 @@ const GradientStopsList = ({
             onColorPickerChangeEnd={(next: {
               color: string
               opacity: number
-            }) => onStopColorChange(stopIndex, next)}
+            }) => {
+              onStopColorChange(stopIndex, next)
+              onColorPickerEnd()
+            }}
             onGradientEditorOpenChange={(open: boolean) =>
               onOpenStopChange(stopIndex, open)
             }

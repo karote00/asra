@@ -918,7 +918,7 @@ test.describe('Constrained Solid Legality Visual', () => {
     await setStrokeDiagnosticsMode(page, 'full')
   })
 
-  test('shows inside legality overlay for a selected rectangle with a supported constrained solid stroke', async ({
+  test('shows inside legality overlay for a selected rectangle with a formal constrained solid stroke', async ({
     page
   }) => {
     await ensureDebugFlag(page, true)
@@ -931,7 +931,7 @@ test.describe('Constrained Solid Legality Visual', () => {
     expect(overlayCoverage).toBeGreaterThan(0.01)
   })
 
-  test('shows outside legality overlay for a selected rectangle with a supported constrained solid stroke', async ({
+  test('shows outside legality overlay for a selected rectangle with a formal constrained solid stroke', async ({
     page
   }) => {
     await ensureDebugFlag(page, true)
@@ -966,7 +966,7 @@ test.describe('Constrained Solid Legality Visual', () => {
     expect(outsideCoverage).toBeLessThan(0.002)
   })
 
-  test('shows ownership overlay for overlapping supported constrained solid strokes', async ({
+  test('shows ownership overlay for overlapping formal constrained solid strokes', async ({
     page
   }) => {
     await ensureOwnershipDebugFlag(page, true)

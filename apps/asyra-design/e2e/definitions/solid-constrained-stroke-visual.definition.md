@@ -36,12 +36,12 @@ This definition file describes the screenshot-level oracle for
 - `oval inside/outside miter`
 - closed non-self-intersecting `vector inside/outside bevel`
 - closed non-self-intersecting `vector inside/outside miter`
-- closed constrained `inside/outside round` joins on supported simple paths
-- closed constrained `round` cap equivalence on supported simple paths
+- closed constrained `inside/outside round` joins on formal simple paths
+- closed constrained `round` cap equivalence on formal simple paths
 - simple open vector placement through the formal unbounded open center product
 - open self-intersecting contour placement through constrained domain entries
 
-These supported slices must visibly render the constrained stroke band on the
+These formal slices must visibly render the constrained stroke band on the
 expected side of the source shape while keeping the opposite side mostly clean.
 
 ### Domain-plan excluded slices
@@ -74,11 +74,11 @@ the selected element.
 
 ## Pass Conditions
 
-- supported rectangle / vector benchmarks:
-  - required supported-side coverage `> 0.6`
+- formal rectangle / vector benchmarks:
+  - required formal-side coverage `> 0.6`
   - opposite-side leak `< 0.12`
   - center `< 0.03`
-- supported oval benchmarks:
+- formal oval benchmarks:
   - required inside coverage `> 0.45`
   - opposite-side leak `< 0.12`
 - domain-plan excluded slices:
@@ -90,7 +90,7 @@ the selected element.
 
 ## Failure Meaning
 
-- If a supported slice fails the supported-side coverage threshold, the
+- If a formal slice fails the formal-side coverage threshold, the
   constrained band is underfilled or routed through the wrong geometry.
 - If the opposite-side leak threshold fails, the legality clipping or placement
   boundary is leaking outside the allowed domain.

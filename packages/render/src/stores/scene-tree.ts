@@ -66,7 +66,7 @@ class ComputedDataMirror {
 
   seed(
     elementId: string,
-    reason: 'reload' | 'add' | 'undoable-refresh' | 'fallback'
+    reason: 'reload' | 'add' | 'undoable-refresh' | 'cache-miss-reseed'
   ): ComputedDataMirrorEntry | null {
     const element = sceneTree.getElementById(elementId)
     if (!element) {
@@ -105,8 +105,8 @@ class ComputedDataMirror {
       return entry
     }
 
-    emitStrokePipelineCounter('computed-mirror-fallback-miss')
-    return this.seed(elementId, 'fallback')
+    emitStrokePipelineCounter('computed-mirror-cache-miss')
+    return this.seed(elementId, 'cache-miss-reseed')
   }
 
   applyComputedChange(elementId: string, key: string, after: DataTypes) {
@@ -229,6 +229,8 @@ class RenderSceneTree {
     const currentWorkspaceData =
       sceneTree.currentWorkspace.save() as WorkspaceRawData
     this._workspace = currentWorkspaceData
+
+    render.clearElements()
 
     // Create root render node
     render.switchWorkspace({

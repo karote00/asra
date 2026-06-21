@@ -180,7 +180,7 @@ const distanceToSegments = (
   )
 
 describe('solid center stroke geometry', () => {
-  it('should run: accept the supported solid-center stroke slice', () => {
+  it('should run: accept the formal solid-center stroke slice', () => {
     expect(
       supportsSolidCenterStroke(
         createStroke({
@@ -225,7 +225,7 @@ describe('solid center stroke geometry', () => {
     ).toBe(true)
   })
 
-  it('should run: build square-capped open-path polygons for the supported slice', () => {
+  it('should run: build square-capped open-path polygons for the formal slice', () => {
     const polygons = buildSolidCenterStrokePolygons(
       [
         { x: 0, y: 0 },

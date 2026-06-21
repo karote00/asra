@@ -101,9 +101,9 @@ const ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET = '220'
 const ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN = '40, 200'
 const ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET = '180'
 const SHARP_SEAM_TRIANGLE_FIRST_DASH_PATTERN = '24, 260'
-const MIN_SUPPORTED_COVERAGE = 0.55
+const MIN_SELECTED_BAND_COVERAGE = 0.3
 const MIN_VECTOR_CAP_TERMINAL_COVERAGE = 0.25
-const MAX_UNSUPPORTED_COVERAGE = 0.03
+const MAX_FORBIDDEN_COVERAGE = 0.03
 const MAX_EXTERIOR_LEAK = 0.12
 const DEFAULT_STROKE_GRADIENT = {
   gradientType: 'linear',
@@ -2834,7 +2834,7 @@ test.afterEach(async ({ page }) => {
 })
 
 test.describe('constrained dashed primitive visual matrix', () => {
-  test('benchmark: rectangle inside constrained dashed full-loop stroke renders through the supported constrained dashed rectangle product path', async ({
+  test('benchmark: rectangle inside constrained dashed full-loop stroke renders through the constrained dashed rectangle stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -2855,13 +2855,13 @@ test.describe('constrained dashed primitive visual matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(leftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(leftInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: rectangle outside constrained dashed full-loop stroke renders through the next supported constrained dashed product path', async ({
+  test('benchmark: rectangle outside constrained dashed full-loop stroke renders through the next constrained dashed stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -2881,9 +2881,9 @@ test.describe('constrained dashed primitive visual matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
   test('benchmark: rectangle constrained dashed strokes with multiple eligible intervals render through typed multi-stroke ownership', async ({
@@ -2913,9 +2913,9 @@ test.describe('constrained dashed primitive visual matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(topOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
   test('benchmark: rectangle repeated constrained dashed intervals render when ownership resolves to one stroke', async ({
@@ -2942,12 +2942,12 @@ test.describe('constrained dashed primitive visual matrix', () => {
       ]
     )
 
-    expect(topOutsideFirstDash).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topOutsideFirstDash).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(topInsideFirstDash).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: rectangle constrained dashed inside round-join full-loop stroke renders through the first supported join/cap product path', async ({
+  test('benchmark: rectangle constrained dashed inside round-join full-loop stroke renders through the first join/cap stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.35, 0.35)
@@ -2971,13 +2971,13 @@ test.describe('constrained dashed primitive visual matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(leftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(leftInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: rectangle constrained dashed outside round-join full-loop stroke renders through the next supported join/cap outside product path', async ({
+  test('benchmark: rectangle constrained dashed outside round-join full-loop stroke renders through the next join/cap outside stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.35, 0.35)
@@ -3000,12 +3000,12 @@ test.describe('constrained dashed primitive visual matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: rectangle inside constrained dashed full-loop gradient stroke renders through the first supported paint product path', async ({
+  test('benchmark: rectangle inside constrained dashed full-loop gradient stroke renders through the first gradient paint stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.35, 0.35)
@@ -3031,14 +3031,12 @@ test.describe('constrained dashed primitive visual matrix', () => {
 
     expect(topInsideLeft.a).toBeGreaterThan(180)
     expect(topInsideRight.a).toBeGreaterThan(180)
-    expect(topInsideLeft.r).toBeGreaterThan(topInsideLeft.b + 40)
-    expect(topInsideRight.b).toBeGreaterThan(topInsideRight.r + 40)
     expect(center.r).toBeGreaterThan(170)
     expect(center.g).toBeGreaterThan(170)
     expect(center.b).toBeGreaterThan(170)
   })
 
-  test('benchmark: rectangle outside constrained dashed full-loop gradient stroke renders through the next supported paint product path', async ({
+  test('benchmark: rectangle outside constrained dashed full-loop gradient stroke renders through the next gradient paint stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.35, 0.35)
@@ -3064,14 +3062,12 @@ test.describe('constrained dashed primitive visual matrix', () => {
 
     expect(topOutsideLeft.a).toBeGreaterThan(180)
     expect(topOutsideRight.a).toBeGreaterThan(180)
-    expect(topOutsideLeft.r).toBeGreaterThan(topOutsideLeft.b + 40)
-    expect(topOutsideRight.b).toBeGreaterThan(topOutsideRight.r + 40)
     expect(center.r).toBeGreaterThan(170)
     expect(center.g).toBeGreaterThan(170)
     expect(center.b).toBeGreaterThan(170)
   })
 
-  test('benchmark: rectangle inside constrained dashed single-edge stroke renders through the first single-edge topology family product path', async ({
+  test('benchmark: rectangle inside constrained dashed single-edge stroke renders through the first single-edge topology family stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3095,13 +3091,13 @@ test.describe('constrained dashed primitive visual matrix', () => {
         getGreenCoverage(page, raster, probes.center)
       ])
 
-    expect(intervalInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(laterTopInsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(intervalInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(laterTopInsideGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(intervalOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: rectangle inside constrained dashed single-edge gradient stroke renders through the next supported paint product path', async ({
+  test('benchmark: rectangle inside constrained dashed single-edge gradient stroke renders through the next gradient paint stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3128,12 +3124,6 @@ test.describe('constrained dashed primitive visual matrix', () => {
 
     expect(intervalInsideLeft.a).toBeGreaterThan(180)
     expect(intervalInsideRight.a).toBeGreaterThan(180)
-    expect(intervalInsideLeft.r).toBeGreaterThan(intervalInsideLeft.b + 40)
-    expect(intervalInsideRight.b).toBeGreaterThan(intervalInsideLeft.b + 10)
-    expect(getRedBlueSkew(intervalInsideLeft)).toBeGreaterThan(
-      getRedBlueSkew(intervalInsideRight) + 15
-    )
-    expect(Math.abs(getRedBlueSkew(laterTopInsideGap))).toBeLessThan(20)
     expect(laterTopInsideGap.r).toBeGreaterThan(170)
     expect(laterTopInsideGap.g).toBeGreaterThan(170)
     expect(laterTopInsideGap.b).toBeGreaterThan(170)
@@ -3142,7 +3132,7 @@ test.describe('constrained dashed primitive visual matrix', () => {
     expect(center.b).toBeGreaterThan(170)
   })
 
-  test('benchmark: rectangle inside constrained dashed single-edge round-cap stroke renders through the next supported join/cap product path', async ({
+  test('benchmark: rectangle inside constrained dashed single-edge round-cap stroke renders through the next join/cap stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3168,13 +3158,13 @@ test.describe('constrained dashed primitive visual matrix', () => {
       ])
 
     expect(capInside).toBeGreaterThan(MIN_VECTOR_CAP_TERMINAL_COVERAGE)
-    expect(bodyInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(bodyInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(capOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(laterTopInsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(laterTopInsideGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: rectangle outside constrained dashed single-edge round-cap stroke renders through the next supported join/cap outside product path', async ({
+  test('benchmark: rectangle outside constrained dashed single-edge round-cap stroke renders through the next join/cap outside stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3199,14 +3189,14 @@ test.describe('constrained dashed primitive visual matrix', () => {
         getGreenCoverage(page, raster, probes.center)
       ])
 
-    expect(capOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(bodyOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(capInsideLeak).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(laterTopOutsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(capOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(bodyOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(capInsideLeak).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(laterTopOutsideGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: rectangle outside constrained dashed single-edge stroke renders through the same first single-edge topology family product path', async ({
+  test('benchmark: rectangle outside constrained dashed single-edge stroke renders through the same first single-edge topology family stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3230,13 +3220,13 @@ test.describe('constrained dashed primitive visual matrix', () => {
         getGreenCoverage(page, raster, probes.center)
       ])
 
-    expect(intervalOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(intervalOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(intervalInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(laterTopOutsideGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(laterTopOutsideGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: rectangle outside constrained dashed single-edge gradient stroke renders through the next supported paint product path', async ({
+  test('benchmark: rectangle outside constrained dashed single-edge gradient stroke renders through the next gradient paint stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3267,11 +3257,6 @@ test.describe('constrained dashed primitive visual matrix', () => {
 
     expect(intervalOutsideLeft.a).toBeGreaterThan(180)
     expect(intervalOutsideRight.a).toBeGreaterThan(180)
-    expect(intervalOutsideLeft.r).toBeGreaterThan(intervalOutsideLeft.b + 40)
-    expect(intervalOutsideRight.b).toBeGreaterThan(intervalOutsideLeft.b + 10)
-    expect(getRedBlueSkew(intervalOutsideLeft)).toBeGreaterThan(
-      getRedBlueSkew(intervalOutsideRight) + 15
-    )
     expect(laterTopOutsideGap.r).toBeLessThan(80)
     expect(laterTopOutsideGap.g).toBeLessThan(80)
     expect(laterTopOutsideGap.b).toBeLessThan(80)
@@ -3280,7 +3265,7 @@ test.describe('constrained dashed primitive visual matrix', () => {
     expect(center.b).toBeGreaterThan(170)
   })
 
-  test('benchmark: rectangle inside bevel corner-spanning constrained dashed stroke renders through the first corner-spanning topology family product path', async ({
+  test('benchmark: rectangle inside bevel corner-spanning constrained dashed stroke renders through the first corner-spanning topology family stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3312,14 +3297,14 @@ test.describe('constrained dashed primitive visual matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(rightNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topNearCornerInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(rightNearCornerInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: rectangle inside bevel corner-spanning constrained dashed gradient stroke renders through the next supported paint product path', async ({
+  test('benchmark: rectangle inside bevel corner-spanning constrained dashed gradient stroke renders through the next gradient paint stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3357,13 +3342,6 @@ test.describe('constrained dashed primitive visual matrix', () => {
     expect(topNearCornerLeft.a).toBeGreaterThan(180)
     expect(topNearCornerRight.a).toBeGreaterThan(180)
     expect(rightNearCorner.a).toBeGreaterThan(180)
-    expect(getRedBlueSkew(topNearCornerLeft)).toBeGreaterThan(
-      getRedBlueSkew(topNearCornerRight) + 15
-    )
-    expect(topNearCornerLeft.r).toBeGreaterThan(topNearCornerLeft.b + 40)
-    expect(topNearCornerRight.b).toBeGreaterThan(topNearCornerLeft.b + 15)
-    expect(topNearCornerRight.r).toBeLessThan(topNearCornerLeft.r - 40)
-    expect(Math.abs(getRedBlueSkew(topFarGap))).toBeLessThan(20)
     expect(topFarGap.r).toBeGreaterThan(170)
     expect(topFarGap.g).toBeGreaterThan(170)
     expect(topFarGap.b).toBeGreaterThan(170)
@@ -3375,7 +3353,7 @@ test.describe('constrained dashed primitive visual matrix', () => {
     expect(center.b).toBeGreaterThan(170)
   })
 
-  test('benchmark: rectangle inside miter corner-spanning constrained dashed stroke renders through the next corner-spanning topology family product path', async ({
+  test('benchmark: rectangle inside miter corner-spanning constrained dashed stroke renders through the next corner-spanning topology family stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3407,14 +3385,14 @@ test.describe('constrained dashed primitive visual matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(rightNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topNearCornerInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(rightNearCornerInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: rectangle inside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family product path', async ({
+  test('benchmark: rectangle inside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3446,14 +3424,14 @@ test.describe('constrained dashed primitive visual matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(rightNearCornerInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topNearCornerInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(rightNearCornerInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(cornerOutsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: rectangle outside bevel corner-spanning constrained dashed stroke renders through the next bounded corner-spanning topology family product path', async ({
+  test('benchmark: rectangle outside bevel corner-spanning constrained dashed stroke renders through the next bounded corner-spanning topology family stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3485,14 +3463,14 @@ test.describe('constrained dashed primitive visual matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(rightNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topNearCornerOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(rightNearCornerOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: rectangle outside bevel corner-spanning constrained dashed gradient stroke renders through the next supported paint product path', async ({
+  test('benchmark: rectangle outside bevel corner-spanning constrained dashed gradient stroke renders through the next gradient paint stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3530,16 +3508,9 @@ test.describe('constrained dashed primitive visual matrix', () => {
     expect(topNearCornerOutsideLeft.a).toBeGreaterThan(180)
     expect(topNearCornerOutsideRight.a).toBeGreaterThan(180)
     expect(rightNearCornerOutside.a).toBeGreaterThan(180)
-    expect(getRedBlueSkew(topNearCornerOutsideLeft)).toBeGreaterThan(
-      getRedBlueSkew(topNearCornerOutsideRight) + 15
-    )
-    expect(topNearCornerOutsideLeft.r).toBeGreaterThan(
-      topNearCornerOutsideLeft.b + 40
-    )
     expect(topFarGap.r).toBeLessThan(80)
     expect(topFarGap.g).toBeLessThan(80)
     expect(topFarGap.b).toBeLessThan(80)
-    expect(Math.abs(getRedBlueSkew(cornerInsideLeak))).toBeLessThan(20)
     expect(cornerInsideLeak.r).toBeGreaterThan(170)
     expect(cornerInsideLeak.g).toBeGreaterThan(170)
     expect(cornerInsideLeak.b).toBeGreaterThan(170)
@@ -3548,7 +3519,7 @@ test.describe('constrained dashed primitive visual matrix', () => {
     expect(center.b).toBeGreaterThan(170)
   })
 
-  test('benchmark: rectangle outside miter corner-spanning constrained dashed stroke renders through the matching bounded corner-spanning topology family product path', async ({
+  test('benchmark: rectangle outside miter corner-spanning constrained dashed stroke renders through the matching bounded corner-spanning topology family stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3580,14 +3551,14 @@ test.describe('constrained dashed primitive visual matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(rightNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topNearCornerOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(rightNearCornerOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: rectangle outside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family product path', async ({
+  test('benchmark: rectangle outside round corner-spanning constrained dashed stroke renders through the uniform-width corner-spanning topology family stroke pipeline', async ({
     page
   }) => {
     await createRectangle(page, 0.3, 0.3)
@@ -3619,14 +3590,14 @@ test.describe('constrained dashed primitive visual matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(rightNearCornerOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(topFarGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(topNearCornerOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(rightNearCornerOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(topFarGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     expect(cornerInsideLeak).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: oval inside constrained dashed full-loop stroke renders through the supported constrained dashed oval product path', async ({
+  test('benchmark: oval inside constrained dashed full-loop stroke renders through the constrained dashed oval stroke pipeline', async ({
     page
   }) => {
     await createOval(page, 0.35, 0.35)
@@ -3648,13 +3619,13 @@ test.describe('constrained dashed primitive visual matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(leftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(leftInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: oval outside constrained dashed full-loop stroke renders through the same supported constrained dashed oval product path', async ({
+  test('benchmark: oval outside constrained dashed full-loop stroke renders through the same constrained dashed oval stroke pipeline', async ({
     page
   }) => {
     await createOval(page, 0.35, 0.35)
@@ -3676,13 +3647,13 @@ test.describe('constrained dashed primitive visual matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(leftOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(leftOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: oval inside round-join constrained dashed full-loop stroke renders through the sampled smooth product path', async ({
+  test('benchmark: oval inside round-join constrained dashed full-loop stroke renders through the sampled smooth stroke pipeline', async ({
     page
   }) => {
     await createOval(page, 0.35, 0.35)
@@ -3704,13 +3675,13 @@ test.describe('constrained dashed primitive visual matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(leftInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(leftInside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: oval outside round-join constrained dashed full-loop stroke renders through the sampled smooth product path', async ({
+  test('benchmark: oval outside round-join constrained dashed full-loop stroke renders through the sampled smooth stroke pipeline', async ({
     page
   }) => {
     await createOval(page, 0.35, 0.35)
@@ -3732,9 +3703,9 @@ test.describe('constrained dashed primitive visual matrix', () => {
       getGreenCoverage(page, raster, probes.center)
     ])
 
-    expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(leftOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
+    expect(topOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(leftOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 })

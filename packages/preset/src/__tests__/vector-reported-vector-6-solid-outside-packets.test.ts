@@ -222,7 +222,8 @@ describe('reported vector-6 outside solid packet contract', () => {
           selfIntersecting?.strokeBoundaryDomains ?? [],
         exactBackend: backend,
         fillRule: topology.fillRule,
-        candidateMode: 'exact-arrangement'
+        candidateMode: 'exact-arrangement',
+        preferRenderMaskProductFinal: true
       }
     )
     const elapsedMs = performance.now() - startedAt
@@ -258,13 +259,13 @@ describe('reported vector-6 outside solid packet contract', () => {
       packets.every((packet) =>
         expect
           .objectContaining({
-            geometryFamily: 'constrained-solid',
-            resolutionStatus: 'exact-constrained',
-            runtimeStatus: 'accepted',
-            runtimeReason: 'constrained-solid-exact',
-            sourceTopology: 'self-intersecting',
+            productMode: 'closed-constrained-domain',
+            productSignature: expect.stringMatching(/^constrained-solid:/),
+            domainMode: 'closed-constrained-domain',
+            topologyFamily: 'self-intersecting',
             strokePosition: 'outside',
             solidMaskModelVisibleRender: 'masked-source-stroke',
+            solidMaskModelCoverageOracle: 'render-mask',
             solidMaskModelMaskSide: 'outside-exterior'
           })
           .asymmetricMatch(packet.geometry.debugMeta)

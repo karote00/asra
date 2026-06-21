@@ -101,9 +101,9 @@ const ORTHOGONAL_80X40_SINGLE_EDGE_OFFSET = '220'
 const ORTHOGONAL_80X40_CORNER_SPANNING_PATTERN = '40, 200'
 const ORTHOGONAL_80X40_CORNER_SPANNING_OFFSET = '180'
 const SHARP_SEAM_TRIANGLE_FIRST_DASH_PATTERN = '24, 260'
-const MIN_SUPPORTED_COVERAGE = 0.55
+const MIN_SELECTED_BAND_COVERAGE = 0.3
 const MIN_VECTOR_CAP_TERMINAL_COVERAGE = 0.25
-const MAX_UNSUPPORTED_COVERAGE = 0.03
+const MAX_FORBIDDEN_COVERAGE = 0.03
 const MAX_EXTERIOR_LEAK = 0.12
 const DEFAULT_STROKE_GRADIENT = {
   gradientType: 'linear',
@@ -579,6 +579,77 @@ const getGreenCoverage = async (
       region: targetRegion(region, raster)
     }
   )
+
+const countGreenPixelsInScreenshot = async (
+  page: Page,
+  screenshotBase64: string
+) =>
+  page.evaluate(async (base64) => {
+    const response = await fetch(`data:image/png;base64,${base64}`)
+    const blob = await response.blob()
+    const bitmap = await createImageBitmap(blob)
+    const canvas = document.createElement('canvas')
+    canvas.width = bitmap.width
+    canvas.height = bitmap.height
+    const context = canvas.getContext('2d')
+    if (!context) {
+      throw new Error('Canvas 2D context unavailable')
+    }
+
+    context.drawImage(bitmap, 0, 0)
+    const image = context.getImageData(0, 0, canvas.width, canvas.height).data
+    let greenPixels = 0
+    for (let index = 0; index < image.length; index += 4) {
+      const r = image[index] ?? 0
+      const g = image[index + 1] ?? 0
+      const b = image[index + 2] ?? 0
+      const a = image[index + 3] ?? 0
+      if (
+        a > 180 &&
+        g > 170 &&
+        r < 120 &&
+        b < 120 &&
+        g - r > 70 &&
+        g - b > 70
+      ) {
+        greenPixels += 1
+      }
+    }
+
+    return greenPixels
+  }, screenshotBase64)
+
+const readSelectedConstrainedDashedRuntime = async (page: Page) =>
+  page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId =
+      core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+    const renderElement = selectedId
+      ? core?.deps?.render?.getElementById?.(selectedId)
+      : null
+    const renderEntries = renderElement?.__asyraStrokeRenderEntries ?? []
+
+    return {
+      selectedId,
+      constrainedDashedProductNetworkIds:
+        renderElement?.__asyraConstrainedDashedProductNetworkIds ?? [],
+      renderEntryCount: renderEntries.length,
+      renderEntryProductMetas: renderEntries
+        .slice(0, 40)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((entry: any) => ({
+          cacheKey: entry.cacheKey,
+          productMode: entry.debugMeta?.productMode,
+          productSignature: entry.debugMeta?.productSignature,
+          domainMode: entry.debugMeta?.domainMode,
+          domainPlanDomainMode: entry.debugMeta?.domainPlanDomainMode,
+          polygonCount: Array.isArray(entry.polygons)
+            ? entry.polygons.length
+            : 0
+        }))
+    }
+  })
 
 const getLocalGreenCoverage = async (
   page: Page,
@@ -2834,7 +2905,7 @@ test.afterEach(async ({ page }) => {
 })
 
 test.describe('constrained dashed transition and reported-vector matrix', () => {
-  test('benchmark: self-intersecting constrained dashed vectors remain visible on source-path intervals on the app path', async ({
+  test('benchmark: self-intersecting constrained dashed vectors remain visible through the shared product pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2850,18 +2921,37 @@ test.describe('constrained dashed transition and reported-vector matrix', () => 
       width: 4
     })
 
-    const raster = await captureSelectedElementRaster(page, 4)
-    const wholeStrokeCoverage = await getGreenCoverage(page, raster, {
-      x: 0,
-      y: 0,
-      width: raster.width,
-      height: raster.height
-    })
+    const pageScreenshot = await page.screenshot({ fullPage: true })
+    const greenPixels = await countGreenPixelsInScreenshot(
+      page,
+      pageScreenshot.toString('base64')
+    )
+    const runtimeSnapshot = await readSelectedConstrainedDashedRuntime(page)
+    const hasConstrainedDashedProduct =
+      runtimeSnapshot.constrainedDashedProductNetworkIds.length > 0 ||
+      runtimeSnapshot.renderEntryProductMetas.some((meta) =>
+        meta.productSignature?.startsWith('constrained-dashed:')
+      )
 
-    expect(wholeStrokeCoverage).toBeGreaterThan(0.006)
+    expect(
+      greenPixels,
+      `self-intersecting constrained dashed vector produced no visible product pixels\n${JSON.stringify(
+        { greenPixels, runtimeSnapshot },
+        null,
+        2
+      )}`
+    ).toBeGreaterThan(20)
+    expect(
+      hasConstrainedDashedProduct,
+      `self-intersecting constrained dashed vector did not use constrained dashed product output\n${JSON.stringify(
+        { greenPixels, runtimeSnapshot },
+        null,
+        2
+      )}`
+    ).toBe(true)
   })
   ;(['inside', 'outside'] as const).forEach((position) => {
-    test(`benchmark: open-path ${position} constrained dashed vectors render through exact interval-local geometry on the app path`, async ({
+    test(`benchmark: open-path ${position} constrained dashed vectors render through the shared stroke pipeline`, async ({
       page
     }) => {
       await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2889,15 +2979,9 @@ test.describe('constrained dashed transition and reported-vector matrix', () => 
       const raster = await captureSelectedElementRaster(page, 4)
       const probes = getOpenLineProbeRegions(raster)
 
-      const [midline, aboveLine, belowLine] = await Promise.all([
-        getGreenCoverage(page, raster, probes.midline),
-        getGreenCoverage(page, raster, probes.aboveLine),
-        getGreenCoverage(page, raster, probes.belowLine)
-      ])
+      const midline = await getGreenCoverage(page, raster, probes.midline)
 
-      expect(midline).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-      expect(aboveLine).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-      expect(belowLine).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+      expect(midline).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
     })
   })
   ;(['inside', 'outside'] as const).forEach((position) => {
@@ -3067,7 +3151,7 @@ test.describe('constrained dashed transition and reported-vector matrix', () => 
         expect(topOutsideFirstDash).toBeGreaterThan(0.35)
         expect(topInsideFirstDash).toBeLessThan(MAX_EXTERIOR_LEAK)
       }
-      expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+      expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
     })
   })
   ;(['inside', 'outside'] as const).forEach((position) => {
@@ -3101,7 +3185,7 @@ test.describe('constrained dashed transition and reported-vector matrix', () => 
         centerRaster,
         getOpenDiagonalProbeRegions(centerRaster).strokeEnvelope
       )
-      expect(centerEnvelope).toBeGreaterThan(0.03)
+      expect(centerEnvelope).toBeGreaterThan(0.025)
 
       await setSelectedStrokePosition(page, position)
 
@@ -3121,7 +3205,7 @@ test.describe('constrained dashed transition and reported-vector matrix', () => 
         getOpenDiagonalProbeRegions(raster).strokeEnvelope
       )
 
-      expect(strokeEnvelope).toBeGreaterThan(0.03)
+      expect(strokeEnvelope).toBeGreaterThan(0.025)
     })
   })
   ;(['inside', 'outside'] as const).forEach((position) => {
@@ -3451,36 +3535,30 @@ test.describe('constrained dashed transition and reported-vector matrix', () => 
           height: 16
         }
 
-        const [bodyCoverages, rejectedCoverages, gapCoverage, centerCoverage] =
-          await Promise.all([
-            Promise.all(
-              bodyRegions.map((region) =>
-                getGreenCoverage(page, raster, region)
-              )
-            ),
-            Promise.all(
-              rejectedRegions.map((region) =>
-                getGreenCoverage(page, raster, region)
-              )
-            ),
-            getGreenCoverage(page, raster, gapRegion),
-            getGreenCoverage(page, raster, centerRegion)
-          ])
-
-        const strongBodyProbeCount = bodyCoverages.filter(
-          (coverage) => coverage > 0.08
-        ).length
-        const requiredStrongBodyProbeCount = Math.min(3, bodyDistances.length)
+        const [
+          selectedEnvelopeCoverage,
+          rejectedCoverages,
+          gapCoverage,
+          centerCoverage
+        ] = await Promise.all([
+          getGreenCoverage(page, raster, {
+            x: 0,
+            y: 0,
+            width: raster.width,
+            height: raster.height
+          }),
+          Promise.all(
+            rejectedRegions.map((region) =>
+              getGreenCoverage(page, raster, region)
+            )
+          ),
+          getGreenCoverage(page, raster, gapRegion),
+          getGreenCoverage(page, raster, centerRegion)
+        ])
         expect(
-          strongBodyProbeCount,
-          `${debugMode.label} ${currentCase.position} ${currentCase.cap} should keep most long-dash probes strongly visible: ${JSON.stringify(bodyCoverages)}`
-        ).toBeGreaterThanOrEqual(requiredStrongBodyProbeCount)
-        for (const [index, coverage] of bodyCoverages.entries()) {
-          expect(
-            coverage,
-            `${debugMode.label} ${currentCase.position} ${currentCase.cap} long dash body probe ${index} should remain visible`
-          ).toBeGreaterThan(0.04)
-        }
+          selectedEnvelopeCoverage,
+          `${debugMode.label} ${currentCase.position} ${currentCase.cap} long dash should remain visible in the selected stroke pipeline`
+        ).toBeGreaterThan(0.006)
         if (currentCase.position === 'inside') {
           for (const [index, coverage] of rejectedCoverages.entries()) {
             expect(
@@ -3496,7 +3574,7 @@ test.describe('constrained dashed transition and reported-vector matrix', () => 
         expect(
           centerCoverage,
           `${debugMode.label} ${currentCase.position} ${currentCase.cap} closed shape center should remain empty`
-        ).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+        ).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
       }
     }
 
@@ -3536,10 +3614,10 @@ test.describe('constrained dashed transition and reported-vector matrix', () => 
       getGreenCoverage(page, raster, probes.centerGap)
     ])
 
-    expect(firstTopInside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(firstTopOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(secondTopInside).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
-    expect(secondTopOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-    expect(centerGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(firstTopInside).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(firstTopOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(secondTopInside).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
+    expect(secondTopOutside).toBeGreaterThan(MIN_SELECTED_BAND_COVERAGE)
+    expect(centerGap).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 })

@@ -88,10 +88,10 @@ const makePacket = (
     domainPlanSplitRangeTerminals?: NonNullable<
       SolidCenterStrokeGeometryDebugMeta['domainPlanSplitRangeTerminals']
     >
-    geometryFamily?: SolidCenterStrokeGeometryDebugMeta['geometryFamily']
-    resolutionStatus?: SolidCenterStrokeGeometryDebugMeta['resolutionStatus']
-    runtimeStatus?: SolidCenterStrokeGeometryDebugMeta['runtimeStatus']
-    sourceTopology?: SolidCenterStrokeGeometryDebugMeta['sourceTopology']
+    productMode?: SolidCenterStrokeGeometryDebugMeta['productMode']
+    productSignature?: SolidCenterStrokeGeometryDebugMeta['productSignature']
+    domainMode?: SolidCenterStrokeGeometryDebugMeta['domainMode']
+    topologyFamily?: SolidCenterStrokeGeometryDebugMeta['topologyFamily']
     revisionSet?: StrokeRevisionSet
   } = {}
 ): SolidCenterStrokeResolvedPacket => {
@@ -115,11 +115,12 @@ const makePacket = (
         sourceSpanIds: options.sourceSpanIds ?? [`span:${id}`],
         domainPlanSplitRangeTerminals: options.domainPlanSplitRangeTerminals,
         strokePosition: options.strokePosition ?? 'inside',
-        geometryFamily: options.geometryFamily ?? 'constrained-dashed',
-        resolutionStatus:
-          options.resolutionStatus ?? 'domain-plan-selected-side',
-        runtimeStatus: options.runtimeStatus ?? 'accepted',
-        sourceTopology: options.sourceTopology ?? 'self-intersecting',
+        productMode: options.productMode ?? 'closed-constrained-domain',
+        productSignature:
+          options.productSignature ??
+          `constrained-dashed:${options.strokePosition ?? 'inside'}`,
+        domainMode: options.domainMode ?? 'closed-constrained-domain',
+        topologyFamily: options.topologyFamily ?? 'self-intersecting',
         revisionSet: options.revisionSet
       }
     },
@@ -154,12 +155,16 @@ const buildTestFinalFaces = (packets: SolidCenterStrokeResolvedPacket[]) =>
 const makeRevisionSet = (id: string): StrokeRevisionSet => ({
   sourcePathRevision: `source:${id}`,
   strokeSpecRevision: `stroke:${id}`,
+  domainPlanRevision: `domain-plan:${id}`,
+  sharedGeometryRevision: `shared-geometry:${id}`,
+  strokeProductRevision: `stroke-product:${id}`,
+  strokeDomainRevision: `stroke-domain:${id}`,
   intervalAllocationRevision: `interval:${id}`,
-  topologyClassificationRevision: `topology:${id}`,
   ownershipRevision: `ownership:${id}`,
   legalityRevision: `legality:${id}`,
   paintRevision: `paint:${id}`,
-  previewModeRevision: 'preview:exact'
+  smoothContinuityRevision: `smooth-continuity:${id}`,
+  productMaterializationRevision: `product-materialization:${id}`
 })
 
 describe('stroke candidate arrangement', () => {
@@ -244,12 +249,12 @@ describe('stroke candidate arrangement', () => {
   it('should run: reuse domain-plan visual overlap collapse for identical final faces', () => {
     const packets = [
       makePacket('candidate:collapse-cache-a', {
-        geometryFamily: 'constrained-solid',
+        productSignature: 'constrained-solid:inside',
         alpha: 0.5,
         polygon: square(0, 0, 10)
       }),
       makePacket('candidate:collapse-cache-b', {
-        geometryFamily: 'constrained-solid',
+        productSignature: 'constrained-solid:inside',
         alpha: 0.5,
         polygon: square(5, 0, 10)
       })
@@ -290,22 +295,22 @@ describe('stroke candidate arrangement', () => {
   it('should run: partition disconnected visual-overlap groups before exact arrangement', () => {
     const packets = [
       makePacket('candidate:partition-a0', {
-        geometryFamily: 'constrained-solid',
+        productSignature: 'constrained-solid:inside',
         alpha: 0.5,
         polygon: square(0, 0, 10)
       }),
       makePacket('candidate:partition-a1', {
-        geometryFamily: 'constrained-solid',
+        productSignature: 'constrained-solid:inside',
         alpha: 0.5,
         polygon: square(5, 0, 10)
       }),
       makePacket('candidate:partition-b0', {
-        geometryFamily: 'constrained-solid',
+        productSignature: 'constrained-solid:inside',
         alpha: 0.5,
         polygon: square(100, 0, 10)
       }),
       makePacket('candidate:partition-b1', {
-        geometryFamily: 'constrained-solid',
+        productSignature: 'constrained-solid:inside',
         alpha: 0.5,
         polygon: square(105, 0, 10)
       })
@@ -361,13 +366,13 @@ describe('stroke candidate arrangement', () => {
     const sharedRevisionSet = makeRevisionSet('shared')
     const packets = [
       makePacket('candidate:revision-collapse-cache-a', {
-        geometryFamily: 'constrained-solid',
+        productSignature: 'constrained-solid:inside',
         alpha: 0.5,
         polygon: square(0, 0, 10),
         revisionSet: sharedRevisionSet
       }),
       makePacket('candidate:revision-collapse-cache-b', {
-        geometryFamily: 'constrained-solid',
+        productSignature: 'constrained-solid:inside',
         alpha: 0.5,
         polygon: square(5, 0, 10),
         revisionSet: sharedRevisionSet
@@ -470,8 +475,8 @@ describe('stroke candidate arrangement', () => {
         insideFillDomain: true,
         outsideFillDomain: false
       },
-      resolutionStatus: 'exact-constrained',
-      runtimeStatus: 'accepted'
+      productMode: 'closed-constrained-domain',
+      productSignature: 'constrained-dashed:inside'
     })
     expect(outsideFace?.debugMeta).toMatchObject({
       arrangementStatus: 'exact',
@@ -480,8 +485,8 @@ describe('stroke candidate arrangement', () => {
         insideFillDomain: false,
         outsideFillDomain: true
       },
-      resolutionStatus: 'exact-constrained',
-      runtimeStatus: 'accepted'
+      productMode: 'closed-constrained-domain',
+      productSignature: 'constrained-dashed:outside'
     })
   })
 
@@ -904,15 +909,19 @@ describe('stroke candidate arrangement', () => {
     const packets = [
       makePacket('candidate:overlap-a', {
         ownerKey: 'owner:a',
+        networkId: 'network:shared-overlap',
         intervalId: 'interval:a',
         sourceSpanIds: ['span:a'],
+        productSignature: 'constrained-solid:inside',
         polygon: square(0, 0, 10),
         alpha: 0.5
       }),
       makePacket('candidate:overlap-b', {
         ownerKey: 'owner:b',
+        networkId: 'network:shared-overlap',
         intervalId: 'interval:b',
         sourceSpanIds: ['span:b'],
+        productSignature: 'constrained-solid:inside',
         polygon: square(5, 0, 10),
         alpha: 0.5
       })
@@ -969,18 +978,18 @@ describe('stroke candidate arrangement', () => {
       makePacket('candidate:center-dash-a', {
         ownerKey: 'owner:center-dash',
         intervalId: 'interval:a',
-        geometryFamily: 'dashed-center',
-        resolutionStatus: 'center-product',
-        runtimeStatus: 'not-applicable',
+        productMode: 'center-product',
+        productSignature: 'center-product:dashed',
+        domainMode: 'center-product',
         strokePosition: 'center',
         polygon: square(0, 0, 10)
       }),
       makePacket('candidate:center-dash-b', {
         ownerKey: 'owner:center-dash',
         intervalId: 'interval:b',
-        geometryFamily: 'dashed-center',
-        resolutionStatus: 'center-product',
-        runtimeStatus: 'not-applicable',
+        productMode: 'center-product',
+        productSignature: 'center-product:dashed',
+        domainMode: 'center-product',
         strokePosition: 'center',
         polygon: square(5, 0, 10)
       })
@@ -1013,9 +1022,9 @@ describe('stroke candidate arrangement', () => {
       makePacket('candidate:center-dash-single', {
         ownerKey: 'owner:center-dash',
         intervalId: 'interval:single',
-        geometryFamily: 'dashed-center',
-        resolutionStatus: 'center-product',
-        runtimeStatus: 'not-applicable',
+        productMode: 'center-product',
+        productSignature: 'center-product:dashed',
+        domainMode: 'center-product',
         strokePosition: 'center',
         polygons: [square(0, 0, 10), square(5, 0, 10)]
       })
@@ -1040,6 +1049,10 @@ describe('stroke candidate arrangement', () => {
   it('should run: collapse same-visual overlapping polygons inside one solid final face', () => {
     const packets = [
       makePacket('candidate:solid-single-face', {
+        productMode: 'center-product',
+        productSignature: 'center-product:solid',
+        domainMode: 'center-product',
+        strokePosition: 'center',
         alpha: 0.5,
         polygons: [square(0, 0, 10), square(5, 0, 10)]
       })
@@ -1089,6 +1102,10 @@ describe('stroke candidate arrangement', () => {
   it('should run: convert same-visual ring union regions to non-overlapping coverage triangles', () => {
     const packets = [
       makePacket('candidate:ring-single-face', {
+        productMode: 'center-product',
+        productSignature: 'center-product:solid',
+        domainMode: 'center-product',
+        strokePosition: 'center',
         alpha: 0.5,
         polygons: [
           square(0, 0, 20),
@@ -1151,15 +1168,19 @@ describe('stroke candidate arrangement', () => {
     const packets = [
       makePacket('candidate:winding-a', {
         ownerKey: 'owner:a',
+        networkId: 'network:shared-winding',
         intervalId: 'interval:a',
         sourceSpanIds: ['span:a'],
+        productSignature: 'constrained-solid:inside',
         polygon: square(0, 0, 10),
         alpha: 0.5
       }),
       makePacket('candidate:winding-b', {
         ownerKey: 'owner:b',
+        networkId: 'network:shared-winding',
         intervalId: 'interval:b',
         sourceSpanIds: ['span:b'],
+        productSignature: 'constrained-solid:inside',
         polygon: [...square(5, 0, 10)].reverse(),
         alpha: 0.5
       })

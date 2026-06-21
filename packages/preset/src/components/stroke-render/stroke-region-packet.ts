@@ -37,15 +37,13 @@ export interface StrokeRegionPacket {
   ownerSet: StrokeOwnerKey[]
   intervalIds: string[]
   sourceSpanIds: string[]
+  sourceNetworkIds: string[]
   sourceContourIds: string[]
   legalDomainIds: string[]
-  geometryFamily?: string
-  resolutionStatus?: string
-  runtimeStatus?: string
-  runtimeReason?: string
-  sourceTopology?: string
+  productMode?: string
+  productSignature?: string
+  domainMode?: string
   topologyFamily?: string
-  intervalTopology?: string
   strokePosition?: 'center' | 'inside' | 'outside'
   domainPlanBoundaryDomainId?: string
   domainPlanBoundaryPoints?: StrokeFinalFaceDebugMetaBase['domainPlanBoundaryPoints']
@@ -99,15 +97,13 @@ export const buildStrokeRegionPacketsFromFinalFaces = (
     ownerSet: [...face.ownerSet],
     intervalIds: [...face.intervalIds],
     sourceSpanIds: [...face.sourceSpanIds],
+    sourceNetworkIds: [...(face.sourceNetworkIds ?? [])],
     sourceContourIds: [...face.sourceContourIds],
     legalDomainIds: [...face.legalDomainIds],
-    geometryFamily: face.geometryFamily,
-    resolutionStatus: face.resolutionStatus,
-    runtimeStatus: face.runtimeStatus,
-    runtimeReason: face.debugMeta?.runtimeReason,
-    sourceTopology: face.sourceTopology,
+    productMode: face.debugMeta?.productMode,
+    productSignature: face.debugMeta?.productSignature,
+    domainMode: face.debugMeta?.domainMode,
     topologyFamily: face.debugMeta?.topologyFamily,
-    intervalTopology: face.debugMeta?.intervalTopology,
     strokePosition: face.debugMeta?.strokePosition,
     domainPlanBoundaryDomainId: face.debugMeta?.domainPlanBoundaryDomainId,
     domainPlanBoundaryPoints: face.debugMeta?.domainPlanBoundaryPoints
@@ -132,6 +128,7 @@ export const buildStrokeRegionPacketsFromFinalFaces = (
     domainPlanFilledSide: face.debugMeta?.domainPlanFilledSide,
     domainPlanUnfilledSide: face.debugMeta?.domainPlanUnfilledSide,
     domainPlanBoundaryRole: face.debugMeta?.domainPlanBoundaryRole,
+    domainPlanDomainMode: face.debugMeta?.domainPlanDomainMode,
     domainPlanSideResolutionStatus:
       face.debugMeta?.domainPlanSideResolutionStatus,
     domainPlanSideResolutionReason:

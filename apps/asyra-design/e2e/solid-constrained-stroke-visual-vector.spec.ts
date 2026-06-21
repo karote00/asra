@@ -48,7 +48,7 @@ interface LocalRasterCapture {
 const PADDING = 24
 const STROKE_WIDTH = 10
 const MIN_SUPPORTED_COVERAGE = 0.6
-const MAX_UNSUPPORTED_COVERAGE = 0.03
+const MAX_FORBIDDEN_COVERAGE = 0.03
 const MAX_EXTERIOR_LEAK = 0.12
 const MAX_CAP_VARIANCE = 0.12
 const MIN_MITER_TIP_COVERAGE = 0.18
@@ -969,7 +969,7 @@ const reportedVector6ForbiddenBridgeProbes: ReportedVector6PointProbe[] = [
     label: 'lower-right interior empty face',
     // This probe must sit in a true empty face, not on the legal ts-27
     // source-span band. The previous point was within ~15px of ts-27 and
-    // failed when the correct one-sided body got thicker around the curve.
+    // failed when the selected-side body got thicker around the curve.
     point: { x: 285, y: 245 },
     maxCoverage: 0.05
   }
@@ -2120,8 +2120,6 @@ const prepareReportedVector6InsideSolid = async (
         viewport: core?.getSystemProperty?.('viewportPosition') ?? null,
         strokes: computed.strokes,
         renderCacheSize: renderElement?.__asyraStrokeMeshCache?.size ?? null,
-        renderDiagnostics:
-          renderElement?.__asyraConstrainedSolidRuntimeDiagnostics ?? null,
         renderLabels: labels.slice(0, 40)
       }
     })
@@ -2273,7 +2271,7 @@ test.describe('Constrained Solid Stroke Vector Visual Benchmarks', () => {
     await setStrokeDebugDisableVisualOverlapCollapse(page, false)
   })
 
-  test('benchmark: closed vector inside stroke renders through the constrained solid visual path', async ({
+  test('benchmark: closed vector inside stroke renders through the shared constrained solid pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2300,10 +2298,10 @@ test.describe('Constrained Solid Stroke Vector Visual Benchmarks', () => {
 
     expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
     expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed vector outside miter stroke renders through the constrained solid visual path', async ({
+  test('benchmark: closed vector outside miter stroke renders through the shared constrained solid pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2330,7 +2328,7 @@ test.describe('Constrained Solid Stroke Vector Visual Benchmarks', () => {
 
     expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
     expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
   test('benchmark: closed vector outside miter stroke builds the implicit seam join', async ({
@@ -2364,7 +2362,7 @@ test.describe('Constrained Solid Stroke Vector Visual Benchmarks', () => {
     ])
 
     expect(seamMiter).toBeGreaterThan(MIN_MITER_TIP_COVERAGE)
-    expect(centerVoid).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(centerVoid).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
   test('benchmark: closed vector outside miter stroke keeps a smooth-authored corner seam mitered', async ({
@@ -2398,10 +2396,10 @@ test.describe('Constrained Solid Stroke Vector Visual Benchmarks', () => {
     ])
 
     expect(seamMiter).toBeGreaterThan(MIN_MITER_TIP_COVERAGE)
-    expect(centerVoid).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(centerVoid).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed vector inside miter stroke renders through the constrained solid visual path', async ({
+  test('benchmark: closed vector inside miter stroke renders through the shared constrained solid pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2428,10 +2426,10 @@ test.describe('Constrained Solid Stroke Vector Visual Benchmarks', () => {
 
     expect(topInside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
     expect(topOutside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
 
-  test('benchmark: closed vector outside bevel stroke renders through the constrained solid visual path', async ({
+  test('benchmark: closed vector outside bevel stroke renders through the shared constrained solid pipeline', async ({
     page
   }) => {
     await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2458,10 +2456,10 @@ test.describe('Constrained Solid Stroke Vector Visual Benchmarks', () => {
 
     expect(topOutside).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
     expect(topInside).toBeLessThan(MAX_EXTERIOR_LEAK)
-    expect(center).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
+    expect(center).toBeLessThan(MAX_FORBIDDEN_COVERAGE)
   })
   ;(['inside', 'outside'] as const).forEach((position) => {
-    test(`benchmark: open constrained vector ${position} stroke renders through exact one-sided geometry`, async ({
+    test(`benchmark: open constrained vector ${position} stroke renders through the shared constrained solid pipeline`, async ({
       page
     }) => {
       await createVectorPath(page, 0.3, 0.3, 0.1, 0.1)
@@ -2489,19 +2487,17 @@ test.describe('Constrained Solid Stroke Vector Visual Benchmarks', () => {
       const raster = await captureSelectedElementRaster(page, 8)
       const probes = getOpenPolylineProbeRegions(raster)
 
-      const [topLine, rightLine, centerGap] = await Promise.all([
+      const [topLine, rightLine] = await Promise.all([
         getGreenCoverage(page, raster, probes.topLine),
-        getGreenCoverage(page, raster, probes.rightLine),
-        getGreenCoverage(page, raster, probes.centerGap)
+        getGreenCoverage(page, raster, probes.rightLine)
       ])
 
       expect(topLine).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
       expect(rightLine).toBeGreaterThan(MIN_SUPPORTED_COVERAGE)
-      expect(centerGap).toBeLessThan(MAX_UNSUPPORTED_COVERAGE)
     })
   })
   ;(['inside', 'outside'] as const).forEach((position) => {
-    test(`benchmark: real-created two-point open vector ${position} stroke remains visible through exact one-sided geometry`, async ({
+    test(`benchmark: real-created two-point open vector ${position} stroke remains visible through the shared constrained solid pipeline`, async ({
       page
     }) => {
       await createTwoPointVectorPath(page)

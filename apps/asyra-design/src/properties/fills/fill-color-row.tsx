@@ -14,6 +14,8 @@ interface FillColorRowProps {
   fill: FillAttrs
   fillId: string
   ownerElementId: string | null
+  colorPickerTestId?: string
+  colorPickerOpen?: boolean
   displayColor: string
   gradientData: FillAttrs['gradient']
   previewSwatchStyle?: CSSProperties
@@ -43,6 +45,8 @@ const FillColorRow = ({
   fill,
   fillId,
   ownerElementId,
+  colorPickerTestId,
+  colorPickerOpen,
   displayColor,
   gradientData,
   previewSwatchStyle,
@@ -69,6 +73,8 @@ const FillColorRow = ({
           fill={fill}
           fillId={fillId}
           ownerElementId={ownerElementId}
+          colorPickerTestId={colorPickerTestId}
+          colorPickerOpen={colorPickerOpen}
           displayColor={displayColor}
           gradientData={gradientData}
           previewSwatchStyle={previewSwatchStyle}

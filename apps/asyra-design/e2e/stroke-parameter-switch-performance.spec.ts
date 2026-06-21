@@ -256,7 +256,6 @@ const measureParameterSwitch = async (
         (renderElement?.hitArea ? 1 : 0) +
         (counters['stroke-stage-cache:product-geometry-hit'] ?? 0) +
         (counters['stroke-stage-cache:product-geometry-store'] ?? 0) +
-        (counters['visual-overlap-collapse-inside-dashed-mask-direct'] ?? 0) +
         (counters['visual-overlap-collapse-no-union-backend'] ?? 0)
 
       return {

@@ -143,6 +143,56 @@ interface RenderProjectionCacheEntrySnapshot {
   signatureLength: number
 }
 
+interface RenderStrokeMeshCacheEntrySnapshot {
+  key: string
+  kind: string
+  paintKey: string | null
+  signatureLength: number
+  lastDirtyKeys: string[]
+}
+
+interface RenderStrokeEntrySnapshot {
+  cacheKey: string
+  kind: string | null
+  color: number | null
+  alpha: number | null
+  paintKey: string | null
+  productMode: string | null
+  productSignature: string | null
+  domainMode: string | null
+  strokePosition: string | null
+}
+
+interface RenderDataStrokeSnapshot {
+  id: string | null
+  type: string | null
+  keys: string[]
+  style: string | null
+  position: string | null
+  width: number | null
+  fillKind: string | null
+  fillColor: string | null
+  fillOpacity: number | null
+  fillVisible: boolean | null
+}
+
+interface VectorRenderableStrokeSnapshot {
+  rawStrokeCount: number
+  renderableStrokeCount: number
+  diagnosticReasons: string[]
+  paintKey: string | null
+  color: number | null
+  alpha: number | null
+}
+
+interface VectorRenderRouteTraceSnapshot {
+  id: string | null
+  type: string | null
+  rawNetworkCount: number
+  rawStrokeCount: number
+  normalized: boolean
+}
+
 interface RenderExportPacketSnapshot {
   geometryId: string | null
   polygonCount: number
@@ -153,7 +203,10 @@ interface RenderExportPacketSnapshot {
     maxX: number
     maxY: number
   } | null
-  geometryFamily: string | null
+  productMode: string | null
+  productSignature: string | null
+  domainMode: string | null
+  topologyFamily: string | null
   strokePosition: string | null
 }
 
@@ -1081,6 +1134,167 @@ const getRenderProjectionCacheSnapshot = async (
     }))
   }, elementId)
 
+const getRenderStrokeMeshCacheSnapshot = async (
+  page: Page,
+  elementId: string
+): Promise<RenderStrokeMeshCacheEntrySnapshot[]> =>
+  page.evaluate((targetElementId) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const renderElement = core?.deps?.render?.getElementById?.(targetElementId)
+    const rawCache = renderElement?.__asyraStrokeMeshCache
+
+    if (!rawCache || typeof rawCache.entries !== 'function') {
+      return []
+    }
+
+    return Array.from(rawCache.entries()).map(([key, entry]) => ({
+      key,
+      kind: typeof entry?.kind === 'string' ? entry.kind : 'unknown',
+      paintKey: typeof entry?.paintKey === 'string' ? entry.paintKey : null,
+      signatureLength:
+        typeof entry?.signature === 'string' ? entry.signature.length : 0,
+      lastDirtyKeys: Array.isArray(entry?.lastDirtyKeys)
+        ? entry.lastDirtyKeys
+        : []
+    }))
+  }, elementId)
+
+const getRenderStrokeEntrySnapshot = async (
+  page: Page,
+  elementId: string
+): Promise<RenderStrokeEntrySnapshot[]> =>
+  page.evaluate((targetElementId) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const renderElement = core?.deps?.render?.getElementById?.(targetElementId)
+    const entries = renderElement?.__asyraStrokeRenderEntries ?? []
+
+    return entries.map(
+      (entry: {
+        cacheKey?: string
+        stroke?: {
+          kind?: string
+          color?: number
+          alpha?: number
+          paintKey?: string
+        }
+        debugMeta?: {
+          productMode?: string
+          productSignature?: string
+          domainMode?: string
+          strokePosition?: string
+        }
+      }) => ({
+        cacheKey: entry.cacheKey ?? '',
+        kind: entry.stroke?.kind ?? null,
+        color:
+          typeof entry.stroke?.color === 'number' ? entry.stroke.color : null,
+        alpha:
+          typeof entry.stroke?.alpha === 'number' ? entry.stroke.alpha : null,
+        paintKey:
+          typeof entry.stroke?.paintKey === 'string'
+            ? entry.stroke.paintKey
+            : null,
+        productMode: entry.debugMeta?.productMode ?? null,
+        productSignature: entry.debugMeta?.productSignature ?? null,
+        domainMode: entry.debugMeta?.domainMode ?? null,
+        strokePosition: entry.debugMeta?.strokePosition ?? null
+      })
+    )
+  }, elementId)
+
+const getRenderDataStrokeSnapshot = async (
+  page: Page,
+  elementId: string
+): Promise<RenderDataStrokeSnapshot | null> =>
+  page.evaluate((targetElementId) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const renderElement = core?.deps?.render?.getElementById?.(targetElementId)
+    const stroke =
+      renderElement?.__asyraLastRenderDataSnapshot?.strokes?.[0] ?? null
+    const renderData = renderElement?.__asyraLastRenderDataSnapshot ?? null
+
+    if (!stroke) {
+      return null
+    }
+
+    return {
+      id: typeof renderData?.id === 'string' ? renderData.id : null,
+      type: typeof renderData?.type === 'string' ? renderData.type : null,
+      keys:
+        renderData && typeof renderData === 'object'
+          ? Object.keys(renderData).sort()
+          : [],
+      style: typeof stroke.style === 'string' ? stroke.style : null,
+      position: typeof stroke.position === 'string' ? stroke.position : null,
+      width: typeof stroke.width === 'number' ? stroke.width : null,
+      fillKind: typeof stroke.fill?.kind === 'string' ? stroke.fill.kind : null,
+      fillColor:
+        typeof stroke.fill?.color === 'string' ? stroke.fill.color : null,
+      fillOpacity:
+        typeof stroke.fill?.opacity === 'number' ? stroke.fill.opacity : null,
+      fillVisible:
+        typeof stroke.fill?.visible === 'boolean' ? stroke.fill.visible : null
+    }
+  }, elementId)
+
+const getVectorRenderableStrokeSnapshot = async (
+  page: Page,
+  elementId: string
+): Promise<VectorRenderableStrokeSnapshot | null> =>
+  page.evaluate((targetElementId) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const renderElement = core?.deps?.render?.getElementById?.(targetElementId)
+    const stroke = renderElement?.__asyraVectorRenderableStrokeSnapshot ?? null
+
+    if (!stroke) {
+      return null
+    }
+
+    return {
+      rawStrokeCount:
+        typeof stroke.rawStrokeCount === 'number' ? stroke.rawStrokeCount : 0,
+      renderableStrokeCount:
+        typeof stroke.renderableStrokeCount === 'number'
+          ? stroke.renderableStrokeCount
+          : 0,
+      diagnosticReasons: Array.isArray(stroke.diagnosticReasons)
+        ? stroke.diagnosticReasons
+        : [],
+      paintKey: typeof stroke.paintKey === 'string' ? stroke.paintKey : null,
+      color: typeof stroke.color === 'number' ? stroke.color : null,
+      alpha: typeof stroke.alpha === 'number' ? stroke.alpha : null
+    }
+  }, elementId)
+
+const getVectorRenderRouteTraceSnapshot = async (
+  page: Page,
+  elementId: string
+): Promise<VectorRenderRouteTraceSnapshot | null> =>
+  page.evaluate((targetElementId) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const renderElement = core?.deps?.render?.getElementById?.(targetElementId)
+    const trace = renderElement?.__asyraVectorRenderRouteTrace ?? null
+
+    if (!trace) {
+      return null
+    }
+
+    return {
+      id: typeof trace.id === 'string' ? trace.id : null,
+      type: typeof trace.type === 'string' ? trace.type : null,
+      rawNetworkCount:
+        typeof trace.rawNetworkCount === 'number' ? trace.rawNetworkCount : 0,
+      rawStrokeCount:
+        typeof trace.rawStrokeCount === 'number' ? trace.rawStrokeCount : 0,
+      normalized: trace.normalized === true
+    }
+  }, elementId)
+
 const findVisibleGraphicsNode = (
   snapshot: RenderMeshSnapshot | null
 ): RenderMeshNodeSnapshot | undefined => {
@@ -1124,7 +1338,10 @@ const getRenderExportPacketSnapshot = async (
           maxY: number
         }
         debugMeta?: {
-          geometryFamily?: string
+          productMode?: string
+          productSignature?: string
+          domainMode?: string
+          topologyFamily?: string
           strokePosition?: string
         }
       }) => ({
@@ -1136,7 +1353,10 @@ const getRenderExportPacketSnapshot = async (
             0
           ) ?? 0,
         bounds: packet.bounds ?? null,
-        geometryFamily: packet.debugMeta?.geometryFamily ?? null,
+        productMode: packet.debugMeta?.productMode ?? null,
+        productSignature: packet.debugMeta?.productSignature ?? null,
+        domainMode: packet.debugMeta?.domainMode ?? null,
+        topologyFamily: packet.debugMeta?.topologyFamily ?? null,
         strokePosition: packet.debugMeta?.strokePosition ?? null
       })
     )
@@ -2014,6 +2234,20 @@ test.describe('Reference Dashed Stroke Rendering', () => {
     const renderMeshSnapshot = await getRenderMeshSnapshot(page, vectorId)
     const renderProjectionCacheSnapshot =
       await getRenderProjectionCacheSnapshot(page, vectorId)
+    const renderStrokeMeshCacheSnapshot =
+      await getRenderStrokeMeshCacheSnapshot(page, vectorId)
+    const renderStrokeEntrySnapshot = await getRenderStrokeEntrySnapshot(
+      page,
+      vectorId
+    )
+    const renderDataStrokeSnapshot = await getRenderDataStrokeSnapshot(
+      page,
+      vectorId
+    )
+    const vectorRenderRouteTraceSnapshot =
+      await getVectorRenderRouteTraceSnapshot(page, vectorId)
+    const vectorRenderableStrokeSnapshot =
+      await getVectorRenderableStrokeSnapshot(page, vectorId)
     const renderExportPacketSnapshot = await getRenderExportPacketSnapshot(
       page,
       vectorId
@@ -2185,6 +2419,9 @@ test.describe('Reference Dashed Stroke Rendering', () => {
     const debugMessages = consoleMessages.filter((message) =>
       /\[(?:.*Debug|Polyline Debug|VectorRender Debug)/.test(message)
     )
+    const renderErrorMessages = consoleMessages.filter((message) =>
+      message.includes('[RenderLayer] Element render strategy failed')
+    )
     const benchmarkMetrics: BenchmarkMetric[] = [
       {
         label: 'first_dash_start_distance_vs_mesh',
@@ -2251,6 +2488,12 @@ test.describe('Reference Dashed Stroke Rendering', () => {
         actual: debugMessages.length,
         expected: '0',
         passed: debugMessages.length === 0
+      },
+      {
+        label: 'render_strategy_errors',
+        actual: renderErrorMessages.length,
+        expected: '0',
+        passed: renderErrorMessages.length === 0
       }
     ]
     const benchmarkReport = buildBenchmarkReport(benchmarkMetrics)
@@ -2279,8 +2522,14 @@ test.describe('Reference Dashed Stroke Rendering', () => {
       meshOutsideStroke,
       renderMeshSnapshot,
       renderProjectionCacheSnapshot,
+      renderStrokeMeshCacheSnapshot,
+      renderStrokeEntrySnapshot,
+      renderDataStrokeSnapshot,
+      vectorRenderRouteTraceSnapshot,
+      vectorRenderableStrokeSnapshot,
       renderExportPacketSnapshot,
       debugMessages,
+      renderErrorMessages,
       screenshotPath
     }
     const reportPath = testInfo.outputPath(
@@ -2319,7 +2568,7 @@ test.describe('Reference Dashed Stroke Rendering', () => {
     const strokeGraphicNode = findVisibleGraphicsNode(renderMeshSnapshot)
     const constrainedDashedExportPackets = renderExportPacketSnapshot.filter(
       (packet) =>
-        packet.geometryFamily === 'constrained-dashed' &&
+        packet.productSignature?.startsWith('constrained-dashed:') === true &&
         packet.strokePosition === 'inside'
     )
     expect(strokeGraphicNode?.visible).toBe(true)
@@ -2349,6 +2598,7 @@ test.describe('Reference Dashed Stroke Rendering', () => {
     expect(snapshot.stroke?.opacity).toBeCloseTo(0.5, 2)
     expect(snapshot.stroke?.color).toBe('#d90909')
     expect(debugMessages).toEqual([])
+    expect(renderErrorMessages).toEqual([])
     expect(benchmarkMetrics.every((metric) => metric.passed)).toBe(true)
   })
 })

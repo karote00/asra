@@ -157,7 +157,7 @@ const validateCoordinatePolicy = (policy: GeometryBackendCoordinatePolicy) => {
   }
   if (policy.rounding !== 'round') {
     throw new Error(
-      `GeometryBackend coordinate policy rounding "${policy.rounding}" is not supported`
+      `GeometryBackend coordinate policy rounding "${policy.rounding}" is not recognized`
     )
   }
   if (

@@ -55,7 +55,7 @@ Current benchmark scope:
 - the overlay must come from the runtime-selected element diagnostics, not from
   a mocked legality helper
 - when the debug flag is disabled, the overlay must disappear
-- when ownership mode is enabled, overlapping supported constrained solid
+- when ownership mode is enabled, overlapping formal constrained solid
   strokes must show a visible ownership overlay
 - when exact foreign-owned outside polygons are removed by owner-domain
   clipping, the final render must keep the owner stroke visible while the
@@ -116,7 +116,7 @@ Current benchmark scope:
 ## Probe Strategy
 
 - create a rectangle
-- configure one supported constrained-solid stroke
+- configure one formal constrained-solid stroke
 - switch between `inside` and `outside`
 - capture the selected element raster
 - measure legality-overlay color coverage inside the raster
@@ -153,12 +153,12 @@ Current benchmark scope:
 - measure primary-owner / secondary-blue coverage on:
   - a shape-generated rectangle
   - a vector-generated closed rectangle
-  under the same bevel-vs-miter local-remainder subtraction semantics
+    under the same bevel-vs-miter local-remainder subtraction semantics
 - measure primary-owner / secondary-blue coverage on:
   - a canonical mixed-topology vector with one non-orthogonal non-convex
     disconnected sub-packet
   - an equivalent reordered/reversed vector for the same path
-  under the same bevel-vs-miter local-remainder subtraction semantics
+    under the same bevel-vs-miter local-remainder subtraction semantics
 
 ## Pass Thresholds
 

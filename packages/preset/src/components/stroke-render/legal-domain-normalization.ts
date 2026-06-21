@@ -21,6 +21,7 @@ export interface NormalizedBoundarySpan {
   boundarySpanId: string
   role: 'fill-exterior-edge' | 'fill-interior-edge'
   geometry: Vec2[]
+  sourceNetworkIds: string[]
   sourceContourIds: string[]
   sourceSpanIds: string[]
   seamPoint: Vec2 | null
@@ -215,6 +216,7 @@ const buildContainmentBoundarySpans = (
             ? 'fill-exterior-edge'
             : 'fill-interior-edge',
         geometry,
+        sourceNetworkIds: [classification.networkId],
         sourceContourIds: [classification.contourId],
         sourceSpanIds: getSourceSpanIds(topology),
         seamPoint: geometry[0] ?? null
@@ -226,6 +228,7 @@ const buildBackendBoundarySpans = (
   legalDomainId: string,
   regions: PolygonRegion[],
   sourceContourIds: string[],
+  sourceNetworkIds: string[],
   sourceSpanIds: string[]
 ): NormalizedBoundarySpan[] =>
   regions.flatMap((region, regionIndex) =>
@@ -240,6 +243,7 @@ const buildBackendBoundarySpans = (
         boundarySpanId: `${legalDomainId}:normalized-boundary:${regionIndex}:${polygonIndex}`,
         role: isNestedBoundary ? 'fill-interior-edge' : 'fill-exterior-edge',
         geometry,
+        sourceNetworkIds,
         sourceContourIds,
         sourceSpanIds,
         seamPoint: geometry[0] ?? null
@@ -391,6 +395,9 @@ export const buildCompoundLegalDomainNormalization = (
   const sourceContourIds = classifications.map(
     (classification) => classification.contourId
   )
+  const sourceNetworkIds = classifications.map(
+    (classification) => classification.networkId
+  )
   const sourceSpanIds = eligibleTopologies.flatMap(getSourceSpanIds)
 
   return {
@@ -404,6 +411,7 @@ export const buildCompoundLegalDomainNormalization = (
         options.legalDomainId,
         normalizedRegions,
         sourceContourIds,
+        sourceNetworkIds,
         sourceSpanIds
       ).sort(byBoundaryLengthThenId),
       classifications: classifications.map((classification) => ({

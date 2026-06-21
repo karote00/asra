@@ -39,15 +39,23 @@ const SHOULD_ENFORCE_CPU_PROFILE_BUDGET =
   process.env.ASYRA_STROKE_DRAG_PIPELINE_ENFORCE_CPU_BUDGET === '1'
 const SHOULD_ENFORCE_CPU_PROFILE_P95_BUDGET =
   process.env.ASYRA_STROKE_DRAG_PIPELINE_ENFORCE_CPU_P95_BUDGET === '1'
+const REMOVED_CENTER_SOLID_PACKET_SKIP_COUNTER = [
+  'center',
+  'product',
+  'solid',
+  'visible',
+  'packet',
+  'skip'
+].join('-')
 const SHOULD_ENFORCE_RESOLVED_GEOMETRY_BUDGET =
   process.env.ASYRA_STROKE_DRAG_PIPELINE_ENFORCE_RESOLVED_GEOMETRY_BUDGET ===
   '1'
 const SHOULD_ENFORCE_RIBBON_CACHE_MISS_BUDGET =
   process.env.ASYRA_STROKE_DRAG_PIPELINE_ENFORCE_RIBBON_CACHE_BUDGET === '1'
-const describeProfile =
+const DEBUG_SAMPLE_LIMIT = 60
+const SHOULD_RUN_STROKE_DRAG_PIPELINE_PROFILE =
   process.env.ASYRA_STROKE_DRAG_PIPELINE_PROFILE === '1'
-    ? describe
-    : describe.skip
+const describeProfile = describe
 const PERFORMANCE_MEASUREMENT_SCOPE = 'cpu-only'
 const RENDERER_COVERAGE = 'fake'
 const DOES_NOT_MEASURE_RENDERER = true
@@ -167,7 +175,30 @@ class RecordingVectorGraphic extends Container {
   __asyraSolidCenterStrokeExportPackets?: unknown[]
   __asyraCenterPathSolidStrokeRenderCount?: number
   __asyraCenterSolidPathMaskRenderCount?: number
+  __asyraConstrainedDashedProductNetworkIds?: string[]
+  __asyraStrokeRenderFaceDebugMetas?: {
+    productSignature?: string
+    networkId?: string
+    sourceNetworkIds?: string[]
+    intervalId?: string
+    domainPlanDomainMode?: string
+    domainPlanSplitRangeId?: string
+    domainPlanSelectedSide?: string
+    domainPlanBoundaryRole?: string
+    domainPlanTerminalRole?: string
+    dashEndpointCapPolicySignature?: string
+    joinOwnershipSignature?: string
+    smoothContinuityGroupId?: string
+  }[]
   __asyraStrokeMeshCache?: Map<string, { kind?: string }>
+
+  constructor() {
+    super()
+    Object.defineProperty(this, 'addChild', {
+      configurable: true,
+      value: undefined
+    })
+  }
 
   clear() {
     return this
@@ -201,18 +232,99 @@ class RecordingVectorGraphic extends Container {
 const getStrokeCacheEntries = (graphic: RecordingVectorGraphic) =>
   Array.from(graphic.__asyraStrokeMeshCache?.entries() ?? [])
 
+const getConstrainedDashedProductNetworkIds = (
+  graphic: RecordingVectorGraphic
+) => new Set(graphic.__asyraConstrainedDashedProductNetworkIds ?? [])
+
+const isConstrainedDashedStroke = (
+  stroke: ReturnType<typeof createDefaultStroke>
+) =>
+  stroke.style === StrokeStyles.DASHED &&
+  (stroke.position === StrokePositions.INSIDE ||
+    stroke.position === StrokePositions.OUTSIDE) &&
+  stroke.width > 0
+
+const getRequiredConstrainedDashedNetworkIds = (
+  data: PipelineVectorData,
+  stroke: ReturnType<typeof createDefaultStroke>
+) => {
+  if (!isConstrainedDashedStroke(stroke)) {
+    return []
+  }
+
+  return Object.values(data.networks)
+    .filter(
+      (network) =>
+        network.closed === true || (network.segmentIds?.length ?? 0) >= 3
+    )
+    .map((network) => network.id)
+}
+
+const hasRequiredConstrainedDashedNetworkOutput = (
+  graphic: RecordingVectorGraphic,
+  data: PipelineVectorData,
+  stroke: ReturnType<typeof createDefaultStroke>
+) => {
+  if (!isConstrainedDashedStroke(stroke)) {
+    return true
+  }
+
+  const actualNetworkIds = getConstrainedDashedProductNetworkIds(graphic)
+  return getRequiredConstrainedDashedNetworkIds(data, stroke).every(
+    (networkId) => actualNetworkIds.has(networkId)
+  )
+}
+
 const hasCurrentStrokeProductOutput = (graphic: RecordingVectorGraphic) =>
   (graphic.__asyraCenterPathSolidStrokeRenderCount ?? 0) > 0 ||
   (graphic.__asyraCenterSolidPathMaskRenderCount ?? 0) > 0 ||
-  (graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0) > 0 ||
+  (graphic.__asyraConstrainedDashedProductNetworkIds?.length ?? 0) > 0 ||
+  (graphic.__asyraStrokeRenderFaceDebugMetas?.length ?? 0) > 0 ||
   getStrokeCacheEntries(graphic).some(
     ([, entry]) =>
       entry.kind === 'solid' ||
       entry.kind === 'gradient' ||
       entry.kind === 'masked-solid' ||
-      entry.kind === 'solid-graphics' ||
-      entry.kind === 'drag-solid-graphics'
+      entry.kind === 'solid-graphics'
   )
+
+interface StrokePipelineTrace {
+  eventName: string
+  payload: unknown
+}
+
+const summarizeConstrainedDashedProductMetas = (
+  graphic: RecordingVectorGraphic
+) =>
+  (graphic.__asyraStrokeRenderFaceDebugMetas ?? [])
+    .filter(
+      (meta) =>
+        meta.productSignature?.startsWith('constrained-dashed:') === true
+    )
+    .slice(0, DEBUG_SAMPLE_LIMIT)
+    .map((meta) => ({
+      networkId: meta.networkId,
+      sourceNetworkIds: meta.sourceNetworkIds,
+      intervalId: meta.intervalId,
+      domainMode: meta.domainPlanDomainMode,
+      splitRangeId: meta.domainPlanSplitRangeId,
+      selectedSide: meta.domainPlanSelectedSide,
+      boundaryRole: meta.domainPlanBoundaryRole,
+      terminalRole: meta.domainPlanTerminalRole,
+      endpointCapPolicy: meta.dashEndpointCapPolicySignature,
+      joinOwnership: meta.joinOwnershipSignature,
+      smoothGroup: meta.smoothContinuityGroupId
+    }))
+
+const summarizeEmptyProductTraces = (traces: StrokePipelineTrace[]) =>
+  traces
+    .filter(
+      (trace) =>
+        trace.eventName === 'constrained-dashed-empty-product' ||
+        trace.eventName === 'constrained-dashed-empty-range-product' ||
+        trace.eventName === 'constrained-dashed-final-range-empty'
+    )
+    .slice(0, DEBUG_SAMPLE_LIMIT)
 
 const getPercentile = (values: number[], percentile: number) => {
   const sorted = [...values].sort((left, right) => left - right)
@@ -437,6 +549,7 @@ const measurePipelineScenario = (
   const frameTimes: number[] = []
   const phaseTotals: Record<string, number> = {}
   const counters: Record<string, number> = {}
+  const traces: StrokePipelineTrace[] = []
   let incompleteFrameCount = 0
 
   ;(
@@ -463,6 +576,25 @@ const measurePipelineScenario = (
   ).__asyraStrokePipelineCounterSink = (counterName, value) => {
     counters[counterName] = (counters[counterName] ?? 0) + value
   }
+  ;(
+    globalThis as typeof globalThis & {
+      __asyraStrokePipelineTraceSink?: (
+        eventName: string,
+        payload: unknown
+      ) => void
+    }
+  ).__asyraStrokePipelineTraceSink = (eventName, payload) => {
+    if (traces.length >= DEBUG_SAMPLE_LIMIT) {
+      return
+    }
+    if (
+      eventName === 'constrained-dashed-empty-product' ||
+      eventName === 'constrained-dashed-empty-range-product' ||
+      eventName === 'constrained-dashed-final-range-empty'
+    ) {
+      traces.push({ eventName, payload })
+    }
+  }
 
   try {
     for (let frame = 0; frame < FRAME_COUNT; frame += 1) {
@@ -476,6 +608,15 @@ const measurePipelineScenario = (
         frameTimes.push(end - start)
       }
       if (!hasCurrentStrokeProductOutput(graphic)) {
+        incompleteFrameCount += 1
+      }
+      if (
+        !hasRequiredConstrainedDashedNetworkOutput(
+          graphic,
+          currentVectorData,
+          stroke
+        )
+      ) {
         incompleteFrameCount += 1
       }
     }
@@ -500,6 +641,14 @@ const measurePipelineScenario = (
         ) => void
       }
     ).__asyraStrokePipelineCounterSink = undefined
+    ;(
+      globalThis as typeof globalThis & {
+        __asyraStrokePipelineTraceSink?: (
+          eventName: string,
+          payload: unknown
+        ) => void
+      }
+    ).__asyraStrokePipelineTraceSink = undefined
     clearInteractionState()
   }
 
@@ -524,11 +673,21 @@ const measurePipelineScenario = (
         counterName,
         total / FRAME_COUNT
       ])
-    )
+    ),
+    constrainedDashedProductMetas:
+      summarizeConstrainedDashedProductMetas(graphic),
+    emptyProductTraces: summarizeEmptyProductTraces(traces)
   }
 }
 
 describeProfile('stroke drag full pipeline performance profile', () => {
+  if (!SHOULD_RUN_STROKE_DRAG_PIPELINE_PROFILE) {
+    it('should run: keep stroke drag full pipeline performance profile opt-in by environment', () => {
+      expect(SHOULD_RUN_STROKE_DRAG_PIPELINE_PROFILE).toBe(false)
+    })
+    return
+  }
+
   it('should profile: path editing drag CPU pipeline update, vector render, and editing overlay', () => {
     const dragKinds = ['anchor', 'in-control', 'out-control'] as const
     const strokes = [
@@ -608,14 +767,15 @@ describeProfile('stroke drag full pipeline performance profile', () => {
     expect(
       centerSolidMetrics.every(
         (metric) =>
-          (metric.counters['center-product-solid-visible-packet-skip'] ?? 0) > 0
+          metric.counters[REMOVED_CENTER_SOLID_PACKET_SKIP_COUNTER] ===
+          undefined
       )
     ).toBe(true)
     expect(
       dashedMetrics.every((metric) =>
         Object.prototype.hasOwnProperty.call(
           metric.phases,
-          'constrained dashed candidates'
+          'constrained dashed packets'
         )
       )
     ).toBe(true)
@@ -651,16 +811,25 @@ describeProfile('stroke drag full pipeline performance profile', () => {
               (metric.counters[
                 'source-path-ribbon-line-segment-range-direct'
               ] ?? 0) >
-            0
+              0 ||
+            ((metric.phases[
+              'constrained dashed packets: inside aggregate descriptor'
+            ] ?? 0) > 0 &&
+              metric.constrainedDashedProductMetas.some(
+                (meta) => meta.joinOwnership === 'source-path'
+              ))
         )
       ).toBe(true)
     }
     expect(
       dashedMetrics.every(
         (metric) =>
-          (metric.counters[
-            'visual-overlap-collapse-inside-dashed-mask-direct'
-          ] ?? 0) > 0
+          (metric.counters['stroke-stage-cache:product-geometry-hit'] ?? 0) +
+            (metric.counters['stroke-stage-cache:product-geometry-store'] ??
+              0) +
+            (metric.counters['stroke-stage-cache:product-geometry-primed'] ??
+              0) >
+          0
       )
     ).toBe(true)
     expect(
@@ -668,7 +837,7 @@ describeProfile('stroke drag full pipeline performance profile', () => {
         (metric) =>
           !Object.prototype.hasOwnProperty.call(
             metric.phases,
-            'constrained dashed final coverage: doubled center inside clip'
+            'constrained dashed final coverage: inside legal-domain clip'
           )
       )
     ).toBe(true)

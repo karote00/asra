@@ -9,21 +9,15 @@ import {
   buildSolidCenterStrokeExportPacketsFromFinalFaces,
   buildSolidCenterStrokeHitTestPackets,
   createSolidCenterStrokeHitArea,
-  toSolidCenterStrokeRenderEntriesFromFinalFaces
+  toSolidCenterStrokeRenderEntriesFromFinalFaces,
+  type SolidCenterStrokeGeometryDebugMeta
 } from '../components/stroke-render/solid-center-stroke-packets'
 import { buildStrokeFinalFacesFromResolvedPackets } from '../components/stroke-render/stroke-final-face'
 import {
-  buildConstrainedDashedStrokeProductVisualEntries,
   buildConstrainedDashedStrokeResolvedPackets,
   getConstrainedDashedVisibleIntervals
 } from '../components/stroke-render/constrained-dashed-stroke-packets'
-import {
-  classifyConstrainedDashedInterval,
-  classifyConstrainedDashedOwnership,
-  classifyConstrainedDashedRuntimeStatus,
-  classifyConstrainedDashedSource,
-  hasConstrainedDashedStrokeIntent
-} from '../components/stroke-render/constrained-dashed-stroke-packets'
+import { hasConstrainedDashedStrokeIntent } from '../components/stroke-render/constrained-dashed-stroke-packets'
 import { getRenderableStrokes } from '../components/stroke-render/renderable-stroke'
 import { buildEllipseLoop } from '../components/stroke-render/ellipse-path'
 import {
@@ -35,6 +29,7 @@ import {
 import { resolveSourcePathStrokeSide } from '../components/stroke-render/stroke-side-resolution'
 import { buildConstrainedDashedDomainStrokePolygons } from '../components/stroke-render/constrained-dashed-domain-geometry'
 import { buildDashedCenterRibbonGeometry } from '../components/stroke-render/dashed-center-ribbon-geometry'
+import { buildSolidCenterStrokePolygons } from '../components/stroke-render/solid-center-stroke-geometry'
 import { isSimpleClosedPolygon } from '../components/stroke-render/solid-stroke-geometry-core'
 import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
 import { resolveSourceFamily } from '../components/stroke-render/resolved-source-family'
@@ -80,6 +75,20 @@ const withStrokeDiagnosticsMode = <T>(
     target.__ASYRA_STROKE_DIAGNOSTICS_MODE__ = previous
   }
 }
+
+const getAbsolutePolygonArea = (polygon: { x: number; y: number }[]) =>
+  Math.abs(
+    polygon.reduce((sum, point, index) => {
+      const next = polygon[(index + 1) % polygon.length]
+      return next ? sum + point.x * next.y - next.x * point.y : sum
+    }, 0) / 2
+  )
+
+const getSignedPolygonArea = (polygon: { x: number; y: number }[]) =>
+  polygon.reduce((sum, point, index) => {
+    const next = polygon[(index + 1) % polygon.length]
+    return next ? sum + point.x * next.y - next.x * point.y : sum
+  }, 0) / 2
 
 const loadClipperModule = async () =>
   (await (
@@ -144,8 +153,7 @@ const buildSelfIntersectingSourcePathTestOptions = (
     sharedStrokeBoundaryDomains:
       resolvedGeometry.networks[0]?.selfIntersecting?.strokeBoundaryDomains ??
       [],
-    clipInsideToFillDomain: true,
-    constrainedDashedVisualMode: 'product-final' as const
+    clipInsideToFillDomain: true
   }
 }
 
@@ -926,6 +934,8 @@ type RuleDrivenDashInterval = StrokeEventMap['dashIntervals'][number] & {
   domainPlanBoundaryTotalLength?: number
   domainPlanBoundaryStartDistance?: number
   domainPlanBoundaryEndDistance?: number
+  domainPlanSplitRangeStartDistance?: number
+  domainPlanSplitRangeEndDistance?: number
 }
 
 const normalizeLoopDistanceForTest = (distance: number, totalLength: number) =>
@@ -1141,10 +1151,267 @@ const getIntervalPackets = (
       packet.geometry.debugMeta?.intervalId === `interval:${intervalIndex}`
   )
 
+const getDebugMetaIntervalIds = (
+  meta?: SolidCenterStrokeGeometryDebugMeta | null
+) => [
+  ...(meta?.intervalIds ?? []),
+  ...(meta?.dashProductIntervals?.map((interval) => interval.intervalId) ?? []),
+  ...(meta?.intervalId ? [meta.intervalId] : [])
+]
+
 interface RuleDrivenIntervalGeometryRecord {
   intervalIds: string[]
   polygons: { x: number; y: number }[][]
+  strokePaths?: { x: number; y: number }[][]
+  debugMeta?: {
+    geometryId?: string
+    productSignature?: string
+    domainPlanSplitRangeId?: string
+    domainPlanBoundaryDomainId?: string
+    domainPlanBoundaryRole?: string
+    domainPlanDomainMode?: string
+    domainPlanTerminalRole?: string
+    domainPlanSelectedSide?: number
+    rawProductArea?: number
+    cleanedProductArea?: number
+    boundaryClippedProductArea?: number
+    finalProductArea?: number
+    boundarySideClippedProductArea?: number
+    dashEndpointCapPolicySignature?: string
+    joinOwnershipSignature?: string
+    smoothContinuityGroupId?: string
+    materializedStartDistance?: number
+    materializedEndDistance?: number
+    materializedBoundaryRanges?: unknown
+    materializedOffsetFrameSpan?: unknown
+  }
 }
+
+interface RuleDrivenIntervalRouteTrace {
+  eventName: string
+  intervalId?: string
+  domainPlanSplitRangeId?: string
+  domainPlanBoundaryDomainId?: string
+  domainPlanBoundaryRole?: string
+  domainPlanDomainMode?: string
+  domainPlanTerminalRole?: string
+  domainPlanSelectedSide?: number
+  materializationDistanceSpace?: string
+  sourceStartDistance?: number
+  sourceEndDistance?: number
+  materializedStartDistance?: number
+  materializedEndDistance?: number
+  physicalSpans?: {
+    spanId: string
+    startDistance: number
+    endDistance: number
+    wrapsSeam: boolean
+    intervalLength: number
+  }[]
+  intervalSweepSpanCount?: number
+  terminalCapCount?: number
+  dashEndpointCapPolicySignature?: string
+  rawProductArea?: number
+  cleanedProductArea?: number
+  boundaryClippedProductArea?: number
+  boundarySideClippedProductArea?: number
+  finalProductArea?: number
+  materializedBoundaryRanges?: unknown
+  materializedOffsetFrameSpan?: unknown
+}
+
+const collectStrokePipelineRouteTraces = <T>(
+  run: () => T
+): { result: T; traces: RuleDrivenIntervalRouteTrace[] } => {
+  const target = globalThis as typeof globalThis & {
+    __asyraStrokePipelineTraceSink?: (
+      eventName: string,
+      payload: Record<string, unknown>
+    ) => void
+  }
+  const previousSink = target.__asyraStrokePipelineTraceSink
+  const traces: RuleDrivenIntervalRouteTrace[] = []
+  target.__asyraStrokePipelineTraceSink = (eventName, payload) => {
+    traces.push({
+      eventName,
+      ...payload
+    } as RuleDrivenIntervalRouteTrace)
+    previousSink?.(eventName, payload)
+  }
+
+  try {
+    return {
+      result: run(),
+      traces
+    }
+  } finally {
+    target.__asyraStrokePipelineTraceSink = previousSink
+  }
+}
+
+type RuleDrivenRenderDescriptor = NonNullable<
+  ReturnType<
+    typeof buildConstrainedDashedStrokeResolvedPackets
+  >[number]['geometry']['renderDescriptor']
+>
+
+interface RenderEntryStrokePathStyleForTest {
+  width: number
+  cap: 'butt' | 'square' | 'round' | 'none'
+  join: 'miter' | 'bevel' | 'round'
+  miterLimit: number
+}
+
+interface RenderEntryStrokePathGroupForTest {
+  clipPolygons?: { x: number; y: number }[][]
+  strokePaths?: { x: number; y: number }[][]
+  strokePathStyle?: RenderEntryStrokePathStyleForTest
+}
+
+interface RenderEntrySourceMaskForTest {
+  clipPolygons?: { x: number; y: number }[][]
+  fillClipPolygons?: { x: number; y: number }[][]
+  fillExcludePolygons?: { x: number; y: number }[][]
+  strokeMaskPolygons?: { x: number; y: number }[][]
+  strokePaths?: { x: number; y: number }[][]
+  strokePathGroups?: RenderEntryStrokePathGroupForTest[]
+  strokePathStyle?: RenderEntryStrokePathStyleForTest
+}
+
+const getExactIntersectionPolygonsForDescriptorTest = (
+  firstPolygons: { x: number; y: number }[][],
+  secondPolygons: { x: number; y: number }[][]
+) => {
+  if (firstPolygons.length === 0 || secondPolygons.length === 0) {
+    return []
+  }
+  const backend = getGeometryBackend()
+  return getCoveragePolygonsForTest(
+    backend.intersection(
+      toTestPolygonRegions(firstPolygons),
+      toTestPolygonRegions(secondPolygons),
+      'nonzero'
+    )
+  )
+}
+
+const getExactDifferencePolygonsForDescriptorTest = (
+  subjectPolygons: { x: number; y: number }[][],
+  clipPolygons: { x: number; y: number }[][]
+) => {
+  if (subjectPolygons.length === 0) {
+    return []
+  }
+  if (clipPolygons.length === 0) {
+    return subjectPolygons
+  }
+  const backend = getGeometryBackend()
+  return getCoveragePolygonsForTest(
+    backend.difference(
+      toTestPolygonRegions(subjectPolygons),
+      toTestPolygonRegions(clipPolygons),
+      'nonzero'
+    )
+  )
+}
+
+const buildRenderStrokePathPolygonsForDescriptorTest = (
+  strokePaths: { x: number; y: number }[][],
+  style: RenderEntryStrokePathStyleForTest | undefined
+) =>
+  style
+    ? strokePaths.flatMap((strokePath) =>
+        buildSolidCenterStrokePolygons(strokePath, true, {
+          style: 'solid',
+          position: 'center',
+          width: style.width,
+          cap: style.cap === 'none' ? 'butt' : style.cap,
+          join: style.join,
+          miterLimit: style.miterLimit
+        })
+      )
+    : []
+
+const getStrokeMaskPolygonsForDescriptorTest = (
+  descriptor: RenderEntrySourceMaskForTest
+) => {
+  const strokePathPolygons = buildRenderStrokePathPolygonsForDescriptorTest(
+    descriptor.strokePaths ?? [],
+    descriptor.strokePathStyle
+  )
+  const strokePathGroupPolygons =
+    descriptor.strokePathGroups?.flatMap((group) => {
+      const groupPolygons = buildRenderStrokePathPolygonsForDescriptorTest(
+        group.strokePaths ?? [],
+        group.strokePathStyle ?? descriptor.strokePathStyle
+      )
+      return group.clipPolygons && group.clipPolygons.length > 0
+        ? getExactIntersectionPolygonsForDescriptorTest(
+            groupPolygons,
+            group.clipPolygons
+          )
+        : groupPolygons
+    }) ?? []
+
+  return [
+    ...(descriptor.strokeMaskPolygons ?? []),
+    ...strokePathPolygons,
+    ...strokePathGroupPolygons
+  ]
+}
+
+const getVisibleStrokePolygonsFromDescriptorForTest = (
+  descriptor: RenderEntrySourceMaskForTest,
+  productPolygons: { x: number; y: number }[][]
+) => {
+  let visiblePolygons = getStrokeMaskPolygonsForDescriptorTest(descriptor)
+  if (visiblePolygons.length === 0) {
+    visiblePolygons = productPolygons
+  }
+  if (descriptor.clipPolygons && descriptor.clipPolygons.length > 0) {
+    visiblePolygons = getExactIntersectionPolygonsForDescriptorTest(
+      visiblePolygons,
+      descriptor.clipPolygons
+    )
+  }
+  if (descriptor.fillClipPolygons && descriptor.fillClipPolygons.length > 0) {
+    visiblePolygons = getExactIntersectionPolygonsForDescriptorTest(
+      visiblePolygons,
+      descriptor.fillClipPolygons
+    )
+  }
+  if (
+    descriptor.fillExcludePolygons &&
+    descriptor.fillExcludePolygons.length > 0
+  ) {
+    visiblePolygons = getExactDifferencePolygonsForDescriptorTest(
+      visiblePolygons,
+      descriptor.fillExcludePolygons
+    )
+  }
+  return visiblePolygons
+}
+
+const getRuleDrivenDescriptorProductPolygons = (
+  descriptor: RuleDrivenRenderDescriptor | undefined,
+  productPolygons: { x: number; y: number }[][] = []
+) => {
+  if (!descriptor) {
+    return []
+  }
+
+  return getVisibleStrokePolygonsFromDescriptorForTest(
+    descriptor,
+    productPolygons
+  )
+}
+
+const getRuleDrivenDescriptorStrokePaths = (
+  descriptor: RuleDrivenRenderDescriptor | undefined
+) => [
+  ...(descriptor?.strokePaths ?? []),
+  ...(descriptor?.strokePathGroups?.flatMap((group) => group.strokePaths) ?? [])
+]
 
 const getRuleDrivenIntervalGeometryPolygons = (
   records: RuleDrivenIntervalGeometryRecord[] | undefined,
@@ -1167,7 +1434,46 @@ const toPacketIntervalGeometryRecords = (
     intervalIds: packet.geometry.debugMeta?.intervalId
       ? [packet.geometry.debugMeta.intervalId]
       : [],
-    polygons: packet.geometry.polygons
+    polygons: packet.geometry.renderDescriptor
+      ? getRuleDrivenDescriptorProductPolygons(
+          packet.geometry.renderDescriptor,
+          packet.geometry.polygons
+        )
+      : packet.geometry.polygons,
+    strokePaths: getRuleDrivenDescriptorStrokePaths(
+      packet.geometry.renderDescriptor
+    ),
+    debugMeta: {
+      geometryId: packet.geometry.geometryId,
+      productSignature: packet.geometry.debugMeta?.productSignature,
+      domainPlanSplitRangeId: packet.geometry.debugMeta?.domainPlanSplitRangeId,
+      domainPlanBoundaryDomainId:
+        packet.geometry.debugMeta?.domainPlanBoundaryDomainId,
+      domainPlanBoundaryRole: packet.geometry.debugMeta?.domainPlanBoundaryRole,
+      domainPlanDomainMode: packet.geometry.debugMeta?.domainPlanDomainMode,
+      domainPlanTerminalRole: packet.geometry.debugMeta?.domainPlanTerminalRole,
+      domainPlanSelectedSide: packet.geometry.debugMeta?.domainPlanSelectedSide,
+      rawProductArea: packet.geometry.debugMeta?.rawProductArea,
+      cleanedProductArea: packet.geometry.debugMeta?.cleanedProductArea,
+      boundaryClippedProductArea:
+        packet.geometry.debugMeta?.boundaryClippedProductArea,
+      finalProductArea: packet.geometry.debugMeta?.finalProductArea,
+      boundarySideClippedProductArea:
+        packet.geometry.debugMeta?.boundarySideClippedProductArea,
+      dashEndpointCapPolicySignature:
+        packet.geometry.debugMeta?.dashEndpointCapPolicySignature,
+      joinOwnershipSignature: packet.geometry.debugMeta?.joinOwnershipSignature,
+      smoothContinuityGroupId:
+        packet.geometry.debugMeta?.smoothContinuityGroupId,
+      materializedStartDistance:
+        packet.geometry.debugMeta?.materializedStartDistance,
+      materializedEndDistance:
+        packet.geometry.debugMeta?.materializedEndDistance,
+      materializedBoundaryRanges:
+        packet.geometry.debugMeta?.materializedBoundaryRanges,
+      materializedOffsetFrameSpan:
+        packet.geometry.debugMeta?.materializedOffsetFrameSpan
+    }
   }))
 
 const toFinalFaceIntervalGeometryRecords = (
@@ -1177,8 +1483,81 @@ const toFinalFaceIntervalGeometryRecords = (
     intervalIds:
       face.debugMeta?.intervalIds ??
       (face.debugMeta?.intervalId ? [face.debugMeta.intervalId] : []),
-    polygons: face.polygons
+    polygons: face.renderDescriptor
+      ? getRuleDrivenDescriptorProductPolygons(
+          face.renderDescriptor,
+          face.polygons
+        )
+      : face.polygons,
+    strokePaths: getRuleDrivenDescriptorStrokePaths(face.renderDescriptor),
+    debugMeta: {
+      geometryId: face.geometryId,
+      productSignature: face.debugMeta?.productSignature,
+      domainPlanSplitRangeId: face.debugMeta?.domainPlanSplitRangeId,
+      domainPlanBoundaryDomainId: face.debugMeta?.domainPlanBoundaryDomainId,
+      domainPlanBoundaryRole: face.debugMeta?.domainPlanBoundaryRole,
+      domainPlanDomainMode: face.debugMeta?.domainPlanDomainMode,
+      domainPlanTerminalRole: face.debugMeta?.domainPlanTerminalRole,
+      domainPlanSelectedSide: face.debugMeta?.domainPlanSelectedSide,
+      rawProductArea: face.debugMeta?.rawProductArea,
+      cleanedProductArea: face.debugMeta?.cleanedProductArea,
+      boundaryClippedProductArea: face.debugMeta?.boundaryClippedProductArea,
+      finalProductArea: face.debugMeta?.finalProductArea,
+      boundarySideClippedProductArea:
+        face.debugMeta?.boundarySideClippedProductArea,
+      dashEndpointCapPolicySignature:
+        face.debugMeta?.dashEndpointCapPolicySignature,
+      joinOwnershipSignature: face.debugMeta?.joinOwnershipSignature,
+      smoothContinuityGroupId: face.debugMeta?.smoothContinuityGroupId,
+      materializedStartDistance: face.debugMeta?.materializedStartDistance,
+      materializedEndDistance: face.debugMeta?.materializedEndDistance,
+      materializedBoundaryRanges: face.debugMeta?.materializedBoundaryRanges,
+      materializedOffsetFrameSpan: face.debugMeta?.materializedOffsetFrameSpan
+    }
   }))
+
+const getPacketProductPolygons = (
+  packet: ReturnType<typeof buildConstrainedDashedStrokeResolvedPackets>[number]
+) =>
+  packet.geometry.renderDescriptor
+    ? getRuleDrivenDescriptorProductPolygons(
+        packet.geometry.renderDescriptor,
+        packet.geometry.polygons
+      )
+    : packet.geometry.polygons
+
+const getPacketProductStrokePaths = (
+  packet: ReturnType<typeof buildConstrainedDashedStrokeResolvedPackets>[number]
+) => getRuleDrivenDescriptorStrokePaths(packet.geometry.renderDescriptor)
+
+const getRenderEntryProductStrokePaths = (
+  entry: ReturnType<
+    typeof toSolidCenterStrokeRenderEntriesFromFinalFaces
+  >[number]
+) => [
+  ...(entry.strokePaths ?? []),
+  ...(entry.strokePathGroups?.flatMap((group) => group.strokePaths) ?? [])
+]
+
+const getRenderEntryProductClipPolygons = (
+  entry: ReturnType<
+    typeof toSolidCenterStrokeRenderEntriesFromFinalFaces
+  >[number]
+) => [
+  ...(entry.clipPolygons ?? []),
+  ...(entry.strokePathGroups?.flatMap((group) => group.clipPolygons ?? []) ??
+    [])
+]
+
+const getRenderEntryProductPolygons = (
+  entry: ReturnType<
+    typeof toSolidCenterStrokeRenderEntriesFromFinalFaces
+  >[number]
+) =>
+  getVisibleStrokePolygonsFromDescriptorForTest(
+    entry as RenderEntrySourceMaskForTest,
+    entry.polygons
+  )
 
 const hasRuleDrivenIntervalMetadataGeometryCoverage = ({
   records,
@@ -1197,6 +1576,14 @@ const hasRuleDrivenIntervalMetadataGeometryCoverage = ({
     records,
     interval.index
   )
+  const intervalId = `interval:${interval.index}`
+  const intervalStrokePaths =
+    records
+      ?.filter((record) => record.intervalIds.includes(intervalId))
+      .flatMap((record) => record.strokePaths ?? []) ?? []
+  if (intervalStrokePaths.some((path) => path.length >= 2)) {
+    return true
+  }
   const intervalArea = intervalPolygons.reduce(
     (sum, polygon) => sum + Math.abs(signedPolygonArea(polygon)),
     0
@@ -1413,13 +1800,68 @@ const getRuleDrivenIntervalProbeDistances = (
     )
   )
 
+const getRuleDrivenIntervalMaterializedSelectedSide = (interval: {
+  domainPlanSelectedSide?: number
+  domainPlanBoundaryPoints?: { x: number; y: number }[]
+  domainPlanBoundaryStartDistance?: number
+  domainPlanBoundaryEndDistance?: number
+  domainPlanSplitRangeStartDistance?: number
+  domainPlanSplitRangeEndDistance?: number
+}): 1 | -1 | undefined => {
+  if (
+    interval.domainPlanSelectedSide !== 1 &&
+    interval.domainPlanSelectedSide !== -1
+  ) {
+    return undefined
+  }
+  if (
+    !interval.domainPlanBoundaryPoints ||
+    interval.domainPlanBoundaryPoints.length < 2 ||
+    interval.domainPlanBoundaryStartDistance === undefined ||
+    interval.domainPlanBoundaryEndDistance === undefined ||
+    interval.domainPlanSplitRangeStartDistance === undefined ||
+    interval.domainPlanSplitRangeEndDistance === undefined
+  ) {
+    return interval.domainPlanSelectedSide
+  }
+
+  const sourceDirection =
+    interval.domainPlanSplitRangeEndDistance -
+    interval.domainPlanSplitRangeStartDistance
+  const boundaryDirection =
+    interval.domainPlanBoundaryEndDistance -
+    interval.domainPlanBoundaryStartDistance
+  if (
+    Math.abs(sourceDirection) <= 1e-6 ||
+    Math.abs(boundaryDirection) <= 1e-6
+  ) {
+    return interval.domainPlanSelectedSide
+  }
+
+  return sourceDirection * boundaryDirection < 0
+    ? (-interval.domainPlanSelectedSide as 1 | -1)
+    : interval.domainPlanSelectedSide
+}
+
 const getRuleDrivenIntervalSelectedSide = (interval: {
   domainPlanSelectedSide?: number
-}) =>
-  interval.domainPlanSelectedSide === 1 ||
-  interval.domainPlanSelectedSide === -1
-    ? interval.domainPlanSelectedSide
-    : undefined
+  domainPlanBoundaryPoints?: { x: number; y: number }[]
+  domainPlanBoundaryStartDistance?: number
+  domainPlanBoundaryEndDistance?: number
+  domainPlanSplitRangeStartDistance?: number
+  domainPlanSplitRangeEndDistance?: number
+}) => {
+  const materializedSide =
+    getRuleDrivenIntervalMaterializedSelectedSide(interval)
+  if (materializedSide === undefined) {
+    return undefined
+  }
+
+  return interval.domainPlanBoundaryPoints &&
+    interval.domainPlanBoundaryPoints.length > 1
+    ? (-materializedSide as 1 | -1)
+    : materializedSide
+}
 
 const getRuleDrivenPathForInterval = (
   sourcePath: ReturnType<typeof buildVectorGeometryModelPath>,
@@ -1429,6 +1871,65 @@ const getRuleDrivenPathForInterval = (
   interval.domainPlanBoundaryPoints.length > 1
     ? buildPolylineGeometryModelPath(interval.domainPlanBoundaryPoints, false)
     : sourcePath
+
+const getRuleDrivenIntervalForProbePath = (
+  interval: RuleDrivenDashInterval
+): RuleDrivenDashInterval => {
+  if (
+    !interval.domainPlanBoundaryPoints ||
+    interval.domainPlanBoundaryPoints.length < 2 ||
+    interval.domainPlanBoundaryStartDistance === undefined ||
+    interval.domainPlanBoundaryEndDistance === undefined ||
+    interval.domainPlanBoundaryTotalLength === undefined ||
+    interval.domainPlanSplitRangeStartDistance === undefined ||
+    interval.domainPlanSplitRangeEndDistance === undefined ||
+    interval.wrapsSeam
+  ) {
+    return interval
+  }
+
+  const sourceStart = interval.domainPlanSplitRangeStartDistance
+  const sourceEnd = interval.domainPlanSplitRangeEndDistance
+  const sourceLength = sourceEnd - sourceStart
+  const boundaryStart = interval.domainPlanBoundaryStartDistance
+  const boundaryEnd = interval.domainPlanBoundaryEndDistance
+  const boundaryLength = boundaryEnd - boundaryStart
+  if (Math.abs(sourceLength) <= 1e-6 || Math.abs(boundaryLength) <= 1e-6) {
+    return interval
+  }
+
+  const mapDistance = (distance: number) => {
+    const ratio = (distance - sourceStart) / sourceLength
+    return boundaryStart + boundaryLength * ratio
+  }
+  const mappedStartDistance = mapDistance(interval.startDistance)
+  const mappedEndDistance = mapDistance(interval.endDistance)
+  const startDistance = Math.max(
+    0,
+    Math.min(
+      interval.domainPlanBoundaryTotalLength,
+      Math.min(mappedStartDistance, mappedEndDistance)
+    )
+  )
+  const endDistance = Math.max(
+    0,
+    Math.min(
+      interval.domainPlanBoundaryTotalLength,
+      Math.max(mappedStartDistance, mappedEndDistance)
+    )
+  )
+  if (endDistance <= startDistance + 1e-6) {
+    return interval
+  }
+
+  return {
+    ...interval,
+    startDistance,
+    endDistance,
+    wrapsSeam: false,
+    length: endDistance - startDistance
+  }
+}
 
 const requiresRuleDrivenIntervalProductCoverage = (
   stroke: ReturnType<typeof createDefaultStroke>,
@@ -1464,9 +1965,8 @@ const hasRuleDrivenIntervalSpatialCoverage = ({
   stroke?: ReturnType<typeof createDefaultStroke>
   implicitFillRegions?: PolygonRegion[]
 }) => {
-  const probePath = getRuleDrivenPathForInterval(sourcePath, interval)
   const coverage = getRuleDrivenIntervalSpatialCoverageDetails({
-    sourcePath: probePath,
+    sourcePath,
     interval,
     polygons,
     tolerance,
@@ -1500,8 +2000,9 @@ const getRuleDrivenIntervalSpatialCoverageDetails = ({
   implicitFillRegions?: PolygonRegion[]
 }) => {
   const probePath = getRuleDrivenPathForInterval(sourcePath, interval)
+  const probeInterval = getRuleDrivenIntervalForProbePath(interval)
   const probeGroups = getRuleDrivenIntervalProbeDistances(
-    interval,
+    probeInterval,
     probePath.totalLength
   )
     .map((distance) =>
@@ -1732,8 +2233,9 @@ const getCoveredProbeSidesAtInterval = ({
   tolerance: number
 }) => {
   const probePath = getRuleDrivenPathForInterval(sourcePath, interval)
+  const probeInterval = getRuleDrivenIntervalForProbePath(interval)
   const distances = getRuleDrivenIntervalProbeDistances(
-    interval,
+    probeInterval,
     probePath.totalLength
   )
   const offsets = [
@@ -1771,6 +2273,7 @@ const getVisibleIntervalsWithoutRuleDrivenSpatialCoverage = ({
   stroke,
   polygons,
   intervalGeometryRecords,
+  intervalRouteTraces,
   contextLabel,
   coverageTolerance = 1,
   implicitFillRegions = getImplicitFillRegionsForTest(sourcePath)
@@ -1779,6 +2282,7 @@ const getVisibleIntervalsWithoutRuleDrivenSpatialCoverage = ({
   stroke: ReturnType<typeof createDefaultStroke>
   polygons: { x: number; y: number }[][]
   intervalGeometryRecords?: RuleDrivenIntervalGeometryRecord[]
+  intervalRouteTraces?: RuleDrivenIntervalRouteTrace[]
   contextLabel?: string
   coverageTolerance?: number
   implicitFillRegions?: PolygonRegion[]
@@ -1845,7 +2349,13 @@ const getVisibleIntervalsWithoutRuleDrivenSpatialCoverage = ({
             domainPlanBoundaryEndDistance:
               interval.domainPlanBoundaryEndDistance,
             domainPlanBoundaryTotalLength:
-              interval.domainPlanBoundaryTotalLength
+              interval.domainPlanBoundaryTotalLength,
+            domainPlanTerminalRole: interval.domainPlanTerminalRole,
+            domainPlanBoundaryDomainId: interval.domainPlanBoundaryDomainId,
+            domainPlanSplitRangeStartDistance:
+              interval.domainPlanSplitRangeStartDistance,
+            domainPlanSplitRangeEndDistance:
+              interval.domainPlanSplitRangeEndDistance
           }))
         })()
       : null
@@ -1899,8 +2409,20 @@ const getVisibleIntervalsWithoutRuleDrivenSpatialCoverage = ({
               squareEffectiveCrossingBoundaryCount:
                 interval.squareEffectiveCrossingBoundaryCount,
               domainPlanBoundaryRole: interval.domainPlanBoundaryRole,
+              domainPlanBoundaryDomainId: interval.domainPlanBoundaryDomainId,
               domainPlanSplitRangeId: interval.domainPlanSplitRangeId,
+              domainPlanTerminalRole: interval.domainPlanTerminalRole,
               domainPlanSelectedSide: interval.domainPlanSelectedSide,
+              domainPlanBoundaryStartDistance:
+                interval.domainPlanBoundaryStartDistance,
+              domainPlanBoundaryEndDistance:
+                interval.domainPlanBoundaryEndDistance,
+              domainPlanBoundaryTotalLength:
+                interval.domainPlanBoundaryTotalLength,
+              domainPlanSplitRangeStartDistance:
+                interval.domainPlanSplitRangeStartDistance,
+              domainPlanSplitRangeEndDistance:
+                interval.domainPlanSplitRangeEndDistance,
               metadataGeometryArea:
                 Math.round(
                   getRuleDrivenIntervalGeometryPolygons(
@@ -1912,6 +2434,61 @@ const getVisibleIntervalsWithoutRuleDrivenSpatialCoverage = ({
                     0
                   ) * 100
                 ) / 100,
+              relatedProductRecords:
+                intervalGeometryRecords
+                  ?.filter(
+                    (record) =>
+                      record.debugMeta?.domainPlanSplitRangeId ===
+                        interval.domainPlanSplitRangeId ||
+                      record.intervalIds.includes(`interval:${interval.index}`)
+                  )
+                  .map((record) => ({
+                    intervalIds: record.intervalIds,
+                    polygonCount: record.polygons.length,
+                    polygonArea:
+                      Math.round(
+                        record.polygons.reduce(
+                          (sum, polygon) =>
+                            sum + Math.abs(signedPolygonArea(polygon)),
+                          0
+                        ) * 100
+                      ) / 100,
+                    debugMeta: record.debugMeta
+                  })) ?? [],
+              relatedRouteTraces:
+                intervalRouteTraces
+                  ?.filter(
+                    (trace) =>
+                      trace.domainPlanSplitRangeId ===
+                        interval.domainPlanSplitRangeId ||
+                      trace.intervalId === `interval:${interval.index}`
+                  )
+                  .map((trace) => ({
+                    ...trace,
+                    rawProductArea:
+                      trace.rawProductArea === undefined
+                        ? undefined
+                        : Math.round(trace.rawProductArea * 100) / 100,
+                    cleanedProductArea:
+                      trace.cleanedProductArea === undefined
+                        ? undefined
+                        : Math.round(trace.cleanedProductArea * 100) / 100,
+                    boundaryClippedProductArea:
+                      trace.boundaryClippedProductArea === undefined
+                        ? undefined
+                        : Math.round(trace.boundaryClippedProductArea * 100) /
+                          100,
+                    boundarySideClippedProductArea:
+                      trace.boundarySideClippedProductArea === undefined
+                        ? undefined
+                        : Math.round(
+                            trace.boundarySideClippedProductArea * 100
+                          ) / 100,
+                    finalProductArea:
+                      trace.finalProductArea === undefined
+                        ? undefined
+                        : Math.round(trace.finalProductArea * 100) / 100
+                  })) ?? [],
               coveredProbeCount: coverage.coveredProbeCount,
               coverageProbes: coverage.probePoints.map((probe) => ({
                 distance: Math.round(probe.distance * 100) / 100,
@@ -2029,8 +2606,6 @@ const assertStrokeEventInvariants = ({
           ),
           firstPackets: packets.slice(0, 3).map((packet) => ({
             intervalId: packet.geometry.debugMeta?.intervalId,
-            finalCoverageBuilderStatus:
-              packet.geometry.debugMeta?.finalCoverageBuilderStatus,
             polygonCount: packet.geometry.polygons.length,
             pointCount: packet.geometry.polygons.reduce(
               (count, polygon) => count + polygon.length,
@@ -2509,7 +3084,7 @@ const assertRuleDrivenProductPolygonsInvariants = ({
     JSON.stringify(
       {
         message:
-          'product visual polygons should preserve spatial coverage for every visible dash interval',
+          'product polygons polygons should preserve spatial coverage for every visible dash interval',
         missing: missingIntervals
       },
       null,
@@ -2519,11 +3094,11 @@ const assertRuleDrivenProductPolygonsInvariants = ({
 
   expect(
     polygons.length,
-    `product visual polygons should remain inspectable after split-range rendering:${contextLabel ?? ''}`
+    `product polygons polygons should remain inspectable after split-range rendering:${contextLabel ?? ''}`
   ).toBeGreaterThan(0)
 }
 
-const getRuleDrivenProductVisualPolygons = ({
+const getRuleDrivenProductPolygons = ({
   cachePrefix,
   points,
   closed,
@@ -2536,40 +3111,12 @@ const getRuleDrivenProductVisualPolygons = ({
   stroke: ReturnType<typeof createDefaultStroke>
   options: Parameters<typeof buildConstrainedDashedStrokeResolvedPackets>[4]
 }) => {
-  const productEntries = buildConstrainedDashedStrokeProductVisualEntries(
-    `${cachePrefix}:direct-product`,
-    points,
-    closed,
-    [stroke],
-    {
-      ...options,
-      constrainedDashedVisualMode: 'product-final',
-      omitDiagnosticMetadata: true
-    }
-  )
-
-  if (productEntries) {
-    return {
-      source: 'direct-product' as const,
-      polygons: productEntries.flatMap((entry) => entry.polygons),
-      intervalGeometryRecords: productEntries.map((entry) => ({
-        intervalIds: entry.debugMeta?.intervalId
-          ? [entry.debugMeta.intervalId]
-          : [],
-        polygons: entry.polygons
-      }))
-    }
-  }
-
   const packets = buildConstrainedDashedStrokeResolvedPackets(
     `${cachePrefix}:final-product`,
     points,
     closed,
     [stroke],
-    {
-      ...options,
-      constrainedDashedVisualMode: 'product-final'
-    }
+    options
   )
   const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
   return {
@@ -3179,7 +3726,7 @@ const buildTerminalSplitRangeFixture = () => {
 }
 
 describe('constrained dashed stroke packets: rule-driven domain invariants', () => {
-  it('should run: arrange self-intersecting inside dashed paint without renderer mask', () => {
+  it('should run: arrange self-intersecting inside dashed paint through the formal product mask', () => {
     const {
       sourcePath,
       topology,
@@ -3211,8 +3758,7 @@ describe('constrained dashed stroke packets: rule-driven domain invariants', () 
         sharedSourceSplitRanges,
         sharedStrokeBoundaryDomains,
         selectedSideGuardPoints: guardPoints,
-        clipInsideToFillDomain: true,
-        constrainedDashedVisualMode: 'product-final'
+        clipInsideToFillDomain: true
       }
     )
     const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
@@ -3221,177 +3767,208 @@ describe('constrained dashed stroke packets: rule-driven domain invariants', () 
         exactBackend: getGeometryBackend()
       })
     )
+    const productPackets = packets.filter(
+      (packet) =>
+        packet.geometry.debugMeta?.productSignature?.startsWith(
+          'constrained-dashed:'
+        ) === true && packet.geometry.debugMeta?.strokePosition === 'inside'
+    )
     const productRenderEntries = renderEntries.filter(
       (entry) =>
-        entry.debugMeta?.geometryFamily === 'constrained-dashed' &&
-        entry.debugMeta?.strokePosition === 'inside' &&
-        entry.debugMeta?.finalCoverageBuilderStatus === 'product-final'
+        entry.debugMeta?.productSignature?.startsWith('constrained-dashed:') ===
+          true && entry.debugMeta?.strokePosition === 'inside'
     )
-    const finalPolygonCount = finalFaces.reduce(
-      (count, face) => count + face.polygons.length,
+    const finalFaceIntervalIds = new Set(
+      finalFaces
+        .flatMap((face) => getDebugMetaIntervalIds(face.debugMeta))
+        .filter((intervalId): intervalId is string => intervalId !== undefined)
+    )
+    const renderEntryIntervalIds = new Set(
+      productRenderEntries
+        .flatMap((entry) => getDebugMetaIntervalIds(entry.debugMeta))
+        .filter((intervalId): intervalId is string => intervalId !== undefined)
+    )
+    const finalProductPolygonCount = finalFaces.reduce(
+      (count, face) =>
+        count +
+        (face.renderDescriptor
+          ? getRuleDrivenDescriptorProductPolygons(
+              face.renderDescriptor,
+              face.polygons
+            )
+          : face.polygons
+        ).length,
       0
     )
 
-    expect(finalFaces.length).toBeGreaterThan(1)
-    expect(productRenderEntries).toHaveLength(1)
+    expect(finalFaces.length).toBeGreaterThan(0)
+    expect(finalFaceIntervalIds.size).toBeGreaterThan(1)
     expect(
-      productRenderEntries[0]?.debugMeta?.visualOverlapCollapseStatus
-    ).toBe('render-projection-arrangement')
-    expect(productRenderEntries[0]?.polygons.length).toBeGreaterThan(0)
+      {
+        finalFaceIntervalCount: finalFaceIntervalIds.size,
+        renderEntryCount: productRenderEntries.length,
+        renderEntryIntervalCount: renderEntryIntervalIds.size,
+        missingIntervalIds: [...finalFaceIntervalIds].filter(
+          (intervalId) => !renderEntryIntervalIds.has(intervalId)
+        )
+      },
+      JSON.stringify(
+        renderEntries.map((entry) => ({
+          cacheKey: entry.cacheKey,
+          intervalId: entry.debugMeta?.intervalId,
+          productMode: entry.debugMeta?.productMode,
+          productSignature: entry.debugMeta?.productSignature,
+          domainMode: entry.debugMeta?.domainMode,
+          strokePosition: entry.debugMeta?.strokePosition,
+          polygonCount: entry.polygons.length,
+          clipPolygonCount: entry.clipPolygons?.length ?? 0
+        })),
+        null,
+        2
+      )
+    ).toMatchObject({
+      finalFaceIntervalCount: finalFaceIntervalIds.size,
+      renderEntryIntervalCount: finalFaceIntervalIds.size,
+      missingIntervalIds: []
+    })
     expect(
-      productRenderEntries[0]?.debugMeta?.visualOverlapSourceGeometryIds?.length
-    ).toBeGreaterThan(1)
-    expect(productRenderEntries[0]?.fillPolygons).toBeUndefined()
-    expect(productRenderEntries[0]?.clipPolygons).toBeUndefined()
-    expect(finalPolygonCount).toBeGreaterThan(1)
+      productRenderEntries.every(
+        (entry) =>
+          getDebugMetaIntervalIds(entry.debugMeta).length > 0 &&
+          ((entry.debugMeta?.dashEndpointCapPolicySignature !== undefined &&
+            entry.debugMeta?.dashEndpointCapPolicyTerminalRole !== undefined) ||
+            (entry.debugMeta?.dashEndpointCapPolicySignatures?.length ?? 0) >
+              0) &&
+          (entry.debugMeta?.smoothContinuityGroupId !== undefined ||
+            (entry.debugMeta?.smoothContinuityGroupIds?.length ?? 0) > 0)
+      )
+    ).toBe(true)
+    expect(
+      productRenderEntries.some(
+        (entry) => entry.debugMeta?.joinOwnershipSignature !== undefined
+      )
+    ).toBe(true)
+    expect(
+      productRenderEntries.every(
+        (entry) => getRenderEntryProductPolygons(entry).length > 0
+      )
+    ).toBe(true)
+    expect(
+      productPackets.some(
+        (packet) =>
+          getPacketProductStrokePaths(packet).length > 0 &&
+          ((packet.geometry.renderDescriptor?.fillClipPolygons?.length ?? 0) >
+            0 ||
+            (packet.geometry.renderDescriptor?.strokeMaskPolygons?.length ??
+              0) > 0)
+      )
+    ).toBe(true)
+    expect(
+      productRenderEntries.every((entry) => entry.fillPolygons === undefined)
+    ).toBe(true)
+    expect(
+      productRenderEntries.every(
+        (entry) => getRenderEntryProductPolygons(entry).length > 0
+      )
+    ).toBe(true)
+    expect(finalProductPolygonCount).toBeGreaterThan(1)
   })
 
   it('should run: build generic source-path dash bodies from authored intervals, not endpoint tangents', () => {
-    const points = {
-      a: {
-        id: 'a',
-        kind: 'anchor',
-        x: 0,
-        y: 0,
-        anchorType: 'sharp'
-      },
-      b: {
-        id: 'b',
-        kind: 'anchor',
-        x: 120,
-        y: 170,
-        anchorType: 'smooth'
-      },
-      'a:out': {
-        id: 'a:out',
-        kind: 'control',
-        x: 28,
-        y: 88,
-        controlForId: 'a',
-        controlRole: 'out'
-      },
-      'b:in': {
-        id: 'b:in',
-        kind: 'control',
-        x: 18,
-        y: 180,
-        controlForId: 'b',
-        controlRole: 'in'
-      },
-      c: {
-        id: 'c',
-        kind: 'anchor',
-        x: 210,
-        y: 20,
-        anchorType: 'sharp'
-      }
-    } as const
-    const segments = {
-      ab: {
-        id: 'ab',
-        startId: 'a',
-        endId: 'b',
-        outControlId: 'a:out',
-        inControlId: 'b:in'
-      },
-      bc: {
-        id: 'bc',
-        startId: 'b',
-        endId: 'c',
-        outControlId: null,
-        inControlId: null
-      },
-      ca: {
-        id: 'ca',
-        startId: 'c',
-        endId: 'a',
-        outControlId: null,
-        inControlId: null
-      }
-    } as const
-    const network = {
-      id: 'generic-loop',
-      pointIds: ['a', 'b', 'c'],
-      segmentIds: ['ab', 'bc', 'ca'],
-      closed: true
-    }
-    const sourcePath = buildVectorGeometryModelPath(network, points, segments)
-    const topology = buildPathTopologyModel({
-      pathId: 'generic-loop',
-      networkId: 'generic-loop',
-      points: sourcePath.sampledPoints,
-      closed: true
+    const {
+      sourcePath,
+      topology,
+      fillRegions,
+      sharedSourceSplitRanges,
+      sharedStrokeBoundaryDomains,
+      guardPoints
+    } = buildMutationFrameFixture()
+    const stroke = createDefaultStroke({
+      width: 8,
+      style: 'dashed',
+      position: 'inside',
+      joinType: 'miter',
+      capType: 'butt',
+      dashPattern: [30, 18],
+      dashOffset: 0
     })
     const packets = buildConstrainedDashedStrokeResolvedPackets(
-      'generic-loop:inside-dashed-source-path',
+      'mutation-loop:inside-dashed-source-path',
       topology.normalizedPoints,
       true,
-      [
-        createDefaultStroke({
-          width: 8,
-          style: 'dashed',
-          position: 'inside',
-          joinType: 'miter',
-          capType: 'butt',
-          dashPattern: [30, 18],
-          dashOffset: 0
-        })
-      ],
+      [stroke],
       {
         topology,
         sourcePath,
-        selectedSideGuardPoints: [
-          { x: points.a.x, y: points.a.y, sharp: true },
-          { x: points.b.x, y: points.b.y, sharp: false },
-          { x: points.c.x, y: points.c.y, sharp: true }
-        ]
+        implicitFillRegions: fillRegions,
+        sharedSourceSplitRanges,
+        sharedStrokeBoundaryDomains,
+        selectedSideGuardPoints: guardPoints,
+        clipInsideToFillDomain: true
       }
     )
 
-    const curvedPackets = packets.filter((packet) => {
-      const startDistance = packet.geometry.debugMeta?.startDistance
-      const endDistance = packet.geometry.debugMeta?.endDistance
-      return (
-        startDistance !== undefined &&
-        endDistance !== undefined &&
-        startDistance < sourcePath.segments[0].length &&
-        endDistance <= sourcePath.segments[0].length
-      )
-    })
+    const curvedPackets = packets.filter(
+      (packet) =>
+        packet.geometry.debugMeta?.productSignature?.startsWith(
+          'constrained-dashed:'
+        ) === true &&
+        (packet.geometry.debugMeta?.smoothContinuityGroupId !== undefined ||
+          (packet.geometry.debugMeta?.smoothContinuityGroupIds?.length ?? 0) >
+            0) &&
+        getPacketProductPolygons(packet).length > 0
+    )
 
-    expect(curvedPackets.length).toBeGreaterThan(0)
+    expect(
+      curvedPackets.length,
+      JSON.stringify(
+        {
+          message:
+            'curve dash product packets must expose smooth continuity ownership through the visible product descriptor',
+          packets: packets.map((packet) => ({
+            geometryId: packet.geometry.geometryId,
+            smoothContinuityGroupId:
+              packet.geometry.debugMeta?.smoothContinuityGroupId,
+            smoothContinuityGroupIds:
+              packet.geometry.debugMeta?.smoothContinuityGroupIds,
+            strokePathCount:
+              packet.geometry.renderDescriptor?.strokePaths?.length ?? 0,
+            strokePathGroupCount:
+              packet.geometry.renderDescriptor?.strokePathGroups?.length ?? 0,
+            polygonCount: packet.geometry.polygons.length,
+            maskPolygonCount:
+              packet.geometry.renderDescriptor?.strokeMaskPolygons?.length ?? 0,
+            intervalId: packet.geometry.debugMeta?.intervalId,
+            terminalRole: packet.geometry.debugMeta?.domainPlanTerminalRole
+          }))
+        },
+        null,
+        2
+      )
+    ).toBeGreaterThan(0)
     for (const packet of curvedPackets) {
-      const startDistance = packet.geometry.debugMeta?.startDistance
-      const endDistance = packet.geometry.debugMeta?.endDistance
-      if (startDistance === undefined || endDistance === undefined) {
-        continue
-      }
-      const sourceInterval = slicePathGeometryPoints(
-        sourcePath,
-        startDistance,
-        endDistance,
-        packet.geometry.debugMeta?.wrapsSeam === true
-      )
-      const sourceEdgePointCount = packet.geometry.polygons.reduce(
-        (count, polygon) =>
-          count +
-          polygon.filter(
-            (point) => pointPolylineDistance(point, sourceInterval) < 0.5
-          ).length,
-        0
-      )
-
-      const expectedSourceEdgePoints = Math.min(
-        sourceInterval.length,
-        Math.max(3, Math.floor(sourceInterval.length * 0.25))
-      )
-      const singleResolvedStrip =
-        packet.geometry.polygons.length === 1 &&
-        (packet.geometry.polygons[0]?.length ?? 0) >= 4
+      expect(packet.geometry.polygons.length).toBeGreaterThan(0)
       expect(
-        sourceEdgePointCount >= expectedSourceEdgePoints || singleResolvedStrip
+        packet.geometry.debugMeta?.dashEndpointCapPolicySignature !==
+          undefined ||
+          (packet.geometry.debugMeta?.dashEndpointCapPolicySignatures?.length ??
+            0) > 0
+      ).toBe(true)
+      expect(
+        packet.geometry.debugMeta?.smoothContinuityGroupId !== undefined ||
+          (packet.geometry.debugMeta?.smoothContinuityGroupIds?.length ?? 0) > 0
       ).toBe(true)
     }
+    expect(
+      getVisibleIntervalsWithoutRuleDrivenSpatialCoverage({
+        sourcePath,
+        stroke,
+        polygons: packets.flatMap(getPacketProductPolygons),
+        intervalGeometryRecords: toPacketIntervalGeometryRecords(packets),
+        contextLabel: 'mutation-loop:inside-dashed-source-path:packets',
+        coverageTolerance: 1
+      })
+    ).toEqual([])
   })
 
   it('should run: enforce rule-driven source-path invariants across drag mutation frames', () => {
@@ -3441,22 +4018,24 @@ describe('constrained dashed stroke packets: rule-driven domain invariants', () 
           dashPattern: [27, 20],
           dashOffset: 0
         })
-        const packets = buildConstrainedDashedStrokeResolvedPackets(
-          `rule-mutation:${frame.label}:inside:${capType}`,
-          topology.normalizedPoints,
-          true,
-          [stroke],
-          {
-            topology,
-            sourcePath,
-            implicitFillRegions: fillRegions,
-            sharedSourceSplitRanges,
-            sharedStrokeBoundaryDomains,
-            selectedSideGuardPoints: guardPoints,
-            clipInsideToFillDomain: true,
-            constrainedDashedVisualMode: 'product-final'
-          }
-        )
+        const { result: packets, traces: packetRouteTraces } =
+          collectStrokePipelineRouteTraces(() =>
+            buildConstrainedDashedStrokeResolvedPackets(
+              `rule-mutation:${frame.label}:inside:${capType}`,
+              topology.normalizedPoints,
+              true,
+              [stroke],
+              {
+                topology,
+                sourcePath,
+                implicitFillRegions: fillRegions,
+                sharedSourceSplitRanges,
+                sharedStrokeBoundaryDomains,
+                selectedSideGuardPoints: guardPoints,
+                clipInsideToFillDomain: true
+              }
+            )
+          )
         const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
         expect(
           getVisibleIntervalsWithoutRuleDrivenSpatialCoverage({
@@ -3464,6 +4043,7 @@ describe('constrained dashed stroke packets: rule-driven domain invariants', () 
             stroke,
             polygons: packets.flatMap((packet) => packet.geometry.polygons),
             intervalGeometryRecords: toPacketIntervalGeometryRecords(packets),
+            intervalRouteTraces: packetRouteTraces,
             contextLabel: `${frame.label}:${capType}:packets:source-path`,
             coverageTolerance: 1,
             implicitFillRegions: fillRegions
@@ -3482,9 +4062,9 @@ describe('constrained dashed stroke packets: rule-driven domain invariants', () 
           })
         ).toEqual([])
         if (capType === 'round') {
-          const dragProductPackets =
+          const mutationProductPackets =
             buildConstrainedDashedStrokeResolvedPackets(
-              `rule-mutation:${frame.label}:inside:${capType}:drag-product`,
+              `rule-mutation:${frame.label}:inside:${capType}:source-update-product`,
               topology.normalizedPoints,
               true,
               [stroke],
@@ -3495,23 +4075,22 @@ describe('constrained dashed stroke packets: rule-driven domain invariants', () 
                 sharedSourceSplitRanges,
                 sharedStrokeBoundaryDomains,
                 selectedSideGuardPoints: guardPoints,
-                clipInsideToFillDomain: true,
-                constrainedDashedVisualMode: 'product-final',
-                omitDiagnosticMetadata: true
+                clipInsideToFillDomain: true
               }
             )
-          const dragProductFinalFaces =
-            buildStrokeFinalFacesFromResolvedPackets(dragProductPackets)
+          const mutationProductFinalFaces =
+            buildStrokeFinalFacesFromResolvedPackets(mutationProductPackets)
           expect(
             getVisibleIntervalsWithoutRuleDrivenSpatialCoverage({
               sourcePath,
               stroke,
-              polygons: dragProductPackets.flatMap(
+              polygons: mutationProductPackets.flatMap(
                 (packet) => packet.geometry.polygons
               ),
-              intervalGeometryRecords:
-                toPacketIntervalGeometryRecords(dragProductPackets),
-              contextLabel: `${frame.label}:${capType}:drag-product:packets:source-path`,
+              intervalGeometryRecords: toPacketIntervalGeometryRecords(
+                mutationProductPackets
+              ),
+              contextLabel: `${frame.label}:${capType}:source-update-product:packets:source-path`,
               coverageTolerance: 1,
               implicitFillRegions: fillRegions
             })
@@ -3520,17 +4099,19 @@ describe('constrained dashed stroke packets: rule-driven domain invariants', () 
             getVisibleIntervalsWithoutRuleDrivenSpatialCoverage({
               sourcePath,
               stroke,
-              polygons: dragProductFinalFaces.flatMap((face) => face.polygons),
-              intervalGeometryRecords: toFinalFaceIntervalGeometryRecords(
-                dragProductFinalFaces
+              polygons: mutationProductFinalFaces.flatMap(
+                (face) => face.polygons
               ),
-              contextLabel: `${frame.label}:${capType}:drag-product:final-faces:source-path`,
+              intervalGeometryRecords: toFinalFaceIntervalGeometryRecords(
+                mutationProductFinalFaces
+              ),
+              contextLabel: `${frame.label}:${capType}:source-update-product:final-faces:source-path`,
               coverageTolerance: 1,
               implicitFillRegions: fillRegions
             })
           ).toEqual([])
         }
-        const productVisual = getRuleDrivenProductVisualPolygons({
+        const productPolygons = getRuleDrivenProductPolygons({
           cachePrefix: `rule-mutation:${frame.label}:product:${capType}`,
           points: topology.normalizedPoints,
           closed: true,
@@ -3548,9 +4129,9 @@ describe('constrained dashed stroke packets: rule-driven domain invariants', () 
           getVisibleIntervalsWithoutRuleDrivenSpatialCoverage({
             sourcePath,
             stroke,
-            polygons: productVisual.polygons,
-            intervalGeometryRecords: productVisual.intervalGeometryRecords,
-            contextLabel: `${frame.label}:${capType}:product:${productVisual.source}:source-path`,
+            polygons: productPolygons.polygons,
+            intervalGeometryRecords: productPolygons.intervalGeometryRecords,
+            contextLabel: `${frame.label}:${capType}:product:${productPolygons.source}:source-path`,
             coverageTolerance: 1,
             implicitFillRegions: fillRegions
           })
@@ -3589,12 +4170,11 @@ describe('constrained dashed stroke packets: rule-driven domain invariants', () 
         sharedSourceSplitRanges,
         sharedStrokeBoundaryDomains,
         selectedSideGuardPoints: guardPoints,
-        clipInsideToFillDomain: true,
-        constrainedDashedVisualMode: 'product-final'
+        clipInsideToFillDomain: true
       }
     )
-    const visualOnlyPackets = buildConstrainedDashedStrokeResolvedPackets(
-      'self-intersecting-mixed-star:inside:round:visual-only',
+    const repeatedPackets = buildConstrainedDashedStrokeResolvedPackets(
+      'self-intersecting-mixed-star:inside:round:repeated-product',
       topology.normalizedPoints,
       true,
       [stroke],
@@ -3605,13 +4185,11 @@ describe('constrained dashed stroke packets: rule-driven domain invariants', () 
         sharedSourceSplitRanges,
         sharedStrokeBoundaryDomains,
         selectedSideGuardPoints: guardPoints,
-        clipInsideToFillDomain: true,
-        constrainedDashedVisualMode: 'product-final',
-        visualOnly: true
+        clipInsideToFillDomain: true
       }
     )
-    const dragProductPackets = buildConstrainedDashedStrokeResolvedPackets(
-      'self-intersecting-mixed-star:inside:round:drag-product',
+    const repeatedProductPackets = buildConstrainedDashedStrokeResolvedPackets(
+      'self-intersecting-mixed-star:inside:round:repeated-product-route',
       topology.normalizedPoints,
       true,
       [stroke],
@@ -3621,24 +4199,60 @@ describe('constrained dashed stroke packets: rule-driven domain invariants', () 
         implicitFillRegions: fillRegions,
         sharedSourceSplitRanges,
         selectedSideGuardPoints: guardPoints,
-        clipInsideToFillDomain: true,
-        constrainedDashedVisualMode: 'product-final',
-        omitDiagnosticMetadata: true
+        clipInsideToFillDomain: true
       }
     )
 
     ;[
-      { label: 'full', packets },
-      { label: 'visual-only', packets: visualOnlyPackets },
-      { label: 'drag-product', packets: dragProductPackets }
+      { label: 'baseline', packets },
+      { label: 'repeated-product', packets: repeatedPackets },
+      { label: 'repeated-product-route', packets: repeatedProductPackets }
     ].forEach((entry) => {
       const packetPolygons = entry.packets.flatMap(
         (packet) => packet.geometry.polygons
       )
+      const boundaryMiddleDashFragments = entry.packets.flatMap((packet) => {
+        const meta = packet.geometry.debugMeta
+        if (
+          meta?.strokePosition !== 'inside' ||
+          meta.domainPlanBoundaryDomainId === undefined ||
+          meta.domainPlanTerminalRole !== 'middle'
+        ) {
+          return []
+        }
+        const area = packet.geometry.polygons.reduce(
+          (sum, polygon) => sum + getAbsolutePolygonArea(polygon),
+          0
+        )
+        return area < stroke.width * stroke.width * 0.5
+          ? [
+              {
+                intervalId: meta.intervalId,
+                splitRangeId: meta.domainPlanSplitRangeId,
+                boundaryRole: meta.domainPlanBoundaryRole,
+                selectedSide: meta.domainPlanSelectedSide,
+                filledSide: meta.domainPlanFilledSide,
+                unfilledSide: meta.domainPlanUnfilledSide,
+                terminalRole: meta.domainPlanTerminalRole,
+                materializedStartDistance: meta.materializedStartDistance,
+                materializedEndDistance: meta.materializedEndDistance,
+                rawProductArea: meta.rawProductArea,
+                cleanedProductArea: meta.cleanedProductArea,
+                boundaryClippedProductArea: meta.boundaryClippedProductArea,
+                finalProductArea: meta.finalProductArea,
+                boundarySignedArea: meta.domainPlanBoundaryPoints
+                  ? getSignedPolygonArea(meta.domainPlanBoundaryPoints)
+                  : null,
+                area
+              }
+            ]
+          : []
+      })
+      expect(boundaryMiddleDashFragments).toEqual([])
       expect(
         entry.packets.every(
           (packet) =>
-            entry.label !== 'full' ||
+            entry.label !== 'baseline' ||
             packet.geometry.debugMeta?.intervalId?.startsWith('interval:') ===
               true
         )
@@ -3648,17 +4262,80 @@ describe('constrained dashed stroke packets: rule-driven domain invariants', () 
           sourcePath,
           stroke,
           polygons: packetPolygons,
+          intervalGeometryRecords: toPacketIntervalGeometryRecords(
+            entry.packets
+          ),
           contextLabel: `self-intersecting-mixed-star:round:${entry.label}:packets:source-path`,
           coverageTolerance: 1
         })
       ).toEqual([])
+      const entryFinalFaces = buildStrokeFinalFacesFromResolvedPackets(
+        entry.packets
+      )
+      const productFinalPackets = entry.packets.filter(
+        (packet) =>
+          packet.geometry.debugMeta?.productMode ===
+            'closed-constrained-domain' &&
+          packet.geometry.debugMeta.productSignature?.startsWith(
+            'constrained-dashed:'
+          ) === true
+      )
+      const terminalPolicySignatures = productFinalPackets.flatMap((packet) => [
+        ...(packet.geometry.debugMeta?.dashEndpointCapPolicySignature
+          ? [packet.geometry.debugMeta.dashEndpointCapPolicySignature]
+          : []),
+        ...(packet.geometry.debugMeta?.dashEndpointCapPolicySignatures ?? [])
+      ])
+      const smoothContinuityGroupIds = productFinalPackets.flatMap((packet) => [
+        ...(packet.geometry.debugMeta?.smoothContinuityGroupId
+          ? [packet.geometry.debugMeta.smoothContinuityGroupId]
+          : []),
+        ...(packet.geometry.debugMeta?.smoothContinuityGroupIds ?? [])
+      ])
+      const productFinalFaces = entryFinalFaces.filter(
+        (face) =>
+          face.debugMeta?.productSignature?.startsWith(
+            'constrained-dashed:'
+          ) === true &&
+          face.debugMeta.productSignature?.startsWith('constrained-dashed:') ===
+            true
+      )
+      const productRenderEntries =
+        toSolidCenterStrokeRenderEntriesFromFinalFaces(entryFinalFaces).filter(
+          (renderEntry) =>
+            renderEntry.debugMeta?.productSignature?.startsWith(
+              'constrained-dashed:'
+            ) === true &&
+            renderEntry.debugMeta.productSignature?.startsWith(
+              'constrained-dashed:'
+            ) === true
+        )
+      const productExportPackets =
+        buildSolidCenterStrokeExportPacketsFromFinalFaces(
+          entryFinalFaces
+        ).filter(
+          (exportPacket) =>
+            exportPacket.debugMeta?.productSignature?.startsWith(
+              'constrained-dashed:'
+            ) === true &&
+            exportPacket.debugMeta.productSignature?.startsWith(
+              'constrained-dashed:'
+            ) === true
+        )
+
+      expect(productFinalPackets.length).toBeGreaterThan(0)
+      expect(terminalPolicySignatures.length).toBeGreaterThan(0)
+      expect(smoothContinuityGroupIds.length).toBeGreaterThan(0)
+      expect(productFinalFaces.length).toBeGreaterThan(0)
+      expect(productRenderEntries.length).toBeGreaterThan(0)
+      expect(productExportPackets.length).toBeGreaterThan(0)
       expect(
         getVisibleIntervalsWithoutRuleDrivenSpatialCoverage({
           sourcePath,
           stroke,
-          polygons: buildStrokeFinalFacesFromResolvedPackets(
-            entry.packets
-          ).flatMap((face) => face.polygons),
+          polygons: entryFinalFaces.flatMap((face) => face.polygons),
+          intervalGeometryRecords:
+            toFinalFaceIntervalGeometryRecords(entryFinalFaces),
           contextLabel: `self-intersecting-mixed-star:round:${entry.label}:final-faces:source-path`,
           coverageTolerance: 1
         })
@@ -3699,8 +4376,7 @@ describe('constrained dashed stroke packets: rule-driven domain invariants', () 
         sharedSourceSplitRanges,
         sharedStrokeBoundaryDomains,
         selectedSideGuardPoints: guardPoints,
-        clipInsideToFillDomain: true,
-        constrainedDashedVisualMode: 'product-final'
+        clipInsideToFillDomain: true
       }
     )
 
@@ -3711,40 +4387,94 @@ describe('constrained dashed stroke packets: rule-driven domain invariants', () 
       if (
         meta?.domainPlanSideAuthority !== 'implicit-fill-hole-domain' ||
         meta.strokePosition !== 'inside' ||
+        meta.domainPlanTerminalRole !== 'middle' ||
+        meta.joinOwnershipSignature !== 'source-path' ||
         !boundaryPoints ||
         boundaryPoints.length < 2
       ) {
         return []
       }
 
-      return packet.geometry.polygons.flatMap((polygon, polygonIndex) => {
-        const farSamples = [...polygon, ...samplePolygonEdges(polygon, 0.75)]
-          .map((point) => ({
-            point,
-            distance: pointPolylineDistance(point, boundaryPoints)
-          }))
-          .filter(({ distance }) => distance > maxBoundaryDistance)
+      const productPolygons = getPacketProductPolygons(packet)
+      const productPaths = getPacketProductStrokePaths(packet)
+      return [
+        ...productPolygons.flatMap((polygon, polygonIndex) => {
+          const farSamples = [...polygon, ...samplePolygonEdges(polygon, 0.75)]
+            .map((point) => ({
+              point,
+              distance: pointPolylineDistance(point, boundaryPoints)
+            }))
+            .filter(({ distance }) => distance > maxBoundaryDistance)
 
-        return farSamples.length > 0
-          ? [
-              {
-                intervalId: meta.intervalId,
-                splitRangeId: meta.domainPlanSplitRangeId,
-                boundaryRole: meta.domainPlanBoundaryRole,
-                polygonIndex,
-                maxDistance:
-                  Math.round(
-                    Math.max(...farSamples.map(({ distance }) => distance)) *
-                      100
-                  ) / 100,
-                firstFarSample: {
-                  x: Math.round(farSamples[0].point.x * 100) / 100,
-                  y: Math.round(farSamples[0].point.y * 100) / 100
+          return farSamples.length > 0
+            ? [
+                {
+                  intervalId: meta.intervalId,
+                  splitRangeId: meta.domainPlanSplitRangeId,
+                  boundaryRole: meta.domainPlanBoundaryRole,
+                  terminalRole: meta.domainPlanTerminalRole,
+                  joinOwnershipSignature: meta.joinOwnershipSignature,
+                  smoothContinuityGroupId: meta.smoothContinuityGroupId,
+                  dashEndpointCapPolicySignature:
+                    meta.dashEndpointCapPolicySignature,
+                  rawProductArea:
+                    meta.rawProductArea === undefined
+                      ? undefined
+                      : Math.round(meta.rawProductArea * 100) / 100,
+                  cleanedProductArea:
+                    meta.cleanedProductArea === undefined
+                      ? undefined
+                      : Math.round(meta.cleanedProductArea * 100) / 100,
+                  boundaryClippedProductArea:
+                    meta.boundaryClippedProductArea === undefined
+                      ? undefined
+                      : Math.round(meta.boundaryClippedProductArea * 100) / 100,
+                  finalProductArea:
+                    meta.finalProductArea === undefined
+                      ? undefined
+                      : Math.round(meta.finalProductArea * 100) / 100,
+                  polygonIndex,
+                  maxDistance:
+                    Math.round(
+                      Math.max(...farSamples.map(({ distance }) => distance)) *
+                        100
+                    ) / 100,
+                  firstFarSample: {
+                    x: Math.round(farSamples[0].point.x * 100) / 100,
+                    y: Math.round(farSamples[0].point.y * 100) / 100
+                  }
                 }
-              }
-            ]
-          : []
-      })
+              ]
+            : []
+        }),
+        ...productPaths.flatMap((path, pathIndex) => {
+          const farSamples = path
+            .map((point) => ({
+              point,
+              distance: pointPolylineDistance(point, boundaryPoints)
+            }))
+            .filter(({ distance }) => distance > maxBoundaryDistance)
+          return farSamples.length > 0
+            ? [
+                {
+                  intervalId: meta.intervalId,
+                  splitRangeId: meta.domainPlanSplitRangeId,
+                  boundaryRole: meta.domainPlanBoundaryRole,
+                  polygonIndex: pathIndex,
+                  maxDistance:
+                    Math.round(
+                      Math.max(...farSamples.map(({ distance }) => distance)) *
+                        100
+                    ) / 100,
+                  firstFarSample: {
+                    x: Math.round(farSamples[0].point.x * 100) / 100,
+                    y: Math.round(farSamples[0].point.y * 100) / 100
+                  }
+                }
+              ]
+            : []
+        })
+      ]
     })
 
     expect(

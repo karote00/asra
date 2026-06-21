@@ -7,6 +7,7 @@ import type {
 import type { PathTopologyModel } from './path-topology-model'
 import {
   samplePathSegmentFramesByLengthStep,
+  slicePathGeometryPoints,
   type PathGeometry,
   type PathSliceSamplingOptions
 } from './path-geometry'
@@ -16,6 +17,7 @@ import type {
   ResolvedVectorStrokeBoundaryDomain
 } from './resolved-vector-geometry-model'
 import type { ResolvedSourceFamily } from './resolved-source-family'
+import { resolveSourcePathStrokeSide } from './stroke-side-resolution'
 
 const EPSILON = 1e-6
 const SOURCE_PATH_DASH_SLICE_TOLERANCE = 0.25
@@ -43,15 +45,6 @@ export type StrokeDomainMode =
   | 'open-contour-constrained-domain'
   | 'open-dangling-outside-both-sides'
   | 'inside-excluded-open-span'
-  | 'diagnostic-no-product'
-
-export type StrokeDomainBlockedReason =
-  | ResolvedSourceFamily['blockedReason']
-  | 'missing-source-path'
-  | 'missing-source-segments'
-  | 'missing-shared-source-split-ranges'
-  | 'missing-normalized-legal-domain'
-  | 'ambiguous-side-resolution'
 
 export interface StrokeLegalBoundaryDomain {
   domainId: string
@@ -70,15 +63,13 @@ export interface StrokeDomainPlan {
   planId: string
   sourceId: string
   networkId: string
-  supportState: ResolvedSourceFamily['supportState']
-  blockedReason?: StrokeDomainBlockedReason
   topologyFamily: PathTopologyModel['topologyFamily']
   fillRule: PathTopologyModel['fillRule']
   closed: boolean
   totalLength: number
   strokeStyle: RenderableStroke['style']
   strokePosition: RenderableStroke['position']
-  domainMode: StrokeDomainMode
+  domainMode: StrokeDomainMode | null
   intervalDomainKind: StrokeIntervalDomainKind
   sideAuthority: StrokeSideAuthority
   requiresImplicitFillHoleSideResolution: boolean
@@ -125,7 +116,9 @@ export interface ResolveStrokeDomainsInput {
   >
 }
 
-const isConstrainedPosition = (position: RenderableStroke['position']) =>
+const isConstrainedPosition = (
+  position: RenderableStroke['position']
+): position is 'inside' | 'outside' =>
   position === 'inside' || position === 'outside'
 
 const isSelfIntersectingConstrainedDashed = ({
@@ -255,8 +248,8 @@ export const buildDomainPlanSplitRangeDashDomains = (
     end: { x: number; y: number }
     startDistance: number
     endDistance: number
-    sourceTopologyStartDistance: number
-    sourceTopologyEndDistance: number
+    sourcePathStartDistance: number
+    sourcePathEndDistance: number
   }[] = []
 
   sourcePath.segments.forEach((segment, segmentIndex) => {
@@ -301,8 +294,8 @@ export const buildDomainPlanSplitRangeDashDomains = (
         segmentIndex,
         startDistance: sourceStartDistance,
         endDistance: sourceEndDistance,
-        sourceTopologyStartDistance: segmentSourceStart,
-        sourceTopologyEndDistance: segmentSourceEnd
+        sourcePathStartDistance: segmentSourceStart,
+        sourcePathEndDistance: segmentSourceEnd
       })
     }
   })
@@ -344,19 +337,19 @@ export const buildDomainPlanSplitRangeDashDomains = (
       const rightDistance =
         right.startDistance +
         (right.endDistance - right.startDistance) * intersection.rightRatio
-      const adjacentSourceTopologySegments = isAdjacentSourceTopologySegment(
+      const adjacentSourcePathSegments = isAdjacentSourceTopologySegment(
         left.segmentIndex,
         right.segmentIndex,
         sourcePath.segments.length,
         sourcePath.closed
       )
-      const onlySharedSourceTopologyEndpoint =
-        adjacentSourceTopologySegments &&
-        (leftDistance <= left.sourceTopologyStartDistance + EPSILON ||
-          leftDistance >= left.sourceTopologyEndDistance - EPSILON) &&
-        (rightDistance <= right.sourceTopologyStartDistance + EPSILON ||
-          rightDistance >= right.sourceTopologyEndDistance - EPSILON)
-      if (onlySharedSourceTopologyEndpoint) {
+      const onlySharedSourcePathEndpoint =
+        adjacentSourcePathSegments &&
+        (leftDistance <= left.sourcePathStartDistance + EPSILON ||
+          leftDistance >= left.sourcePathEndDistance - EPSILON) &&
+        (rightDistance <= right.sourcePathStartDistance + EPSILON ||
+          rightDistance >= right.sourcePathEndDistance - EPSILON)
+      if (onlySharedSourcePathEndpoint) {
         continue
       }
 
@@ -364,14 +357,14 @@ export const buildDomainPlanSplitRangeDashDomains = (
         {
           segmentIndex: left.segmentIndex,
           distance: leftDistance,
-          startDistance: left.sourceTopologyStartDistance,
-          endDistance: left.sourceTopologyEndDistance
+          startDistance: left.sourcePathStartDistance,
+          endDistance: left.sourcePathEndDistance
         },
         {
           segmentIndex: right.segmentIndex,
           distance: rightDistance,
-          startDistance: right.sourceTopologyStartDistance,
-          endDistance: right.sourceTopologyEndDistance
+          startDistance: right.sourcePathStartDistance,
+          endDistance: right.sourcePathEndDistance
         }
       ].forEach((cut) => {
         if (
@@ -433,88 +426,177 @@ const buildSharedSplitRangeDashDomains = ({
   sharedStrokeBoundaryDomains: ResolvedVectorStrokeBoundaryDomain[]
   sourceFamily: ResolvedSourceFamily
   stroke: Pick<RenderableStroke, 'position' | 'width'>
-}): DomainPlanSplitRangeDashDomain[] =>
-  sharedStrokeBoundaryDomains.flatMap((range) => {
-    const isOpenContourOwnedOutsideDomain =
-      stroke.position === 'outside' &&
-      sourceFamily.legalDomainHints.closed === false &&
-      range.boundaryRole !== 'ambiguous' &&
-      ((range.contourIds?.length ?? 0) > 0 ||
-        (range.legalFaceIds?.length ?? 0) > 0)
-    if (stroke.position === 'inside' && !range.insideEligible) {
-      return []
+}): DomainPlanSplitRangeDashDomain[] => {
+  const getProductSourceSide = (
+    domain: Pick<
+      DomainPlanSplitRangeDashDomain,
+      | 'selectedSide'
+      | 'sourceStartDistance'
+      | 'sourceEndDistance'
+      | 'startDistance'
+      | 'endDistance'
+      | 'boundaryStartDistance'
+      | 'boundaryEndDistance'
+    >
+  ) => {
+    if (domain.selectedSide !== 1 && domain.selectedSide !== -1) {
+      return null
     }
+    const sourceStart = domain.sourceStartDistance ?? domain.startDistance
+    const sourceEnd = domain.sourceEndDistance ?? domain.endDistance
+    const sourceDirection = sourceEnd - sourceStart
+    const boundaryDirection =
+      domain.boundaryStartDistance !== undefined &&
+      domain.boundaryEndDistance !== undefined
+        ? domain.boundaryEndDistance - domain.boundaryStartDistance
+        : sourceDirection
     if (
-      stroke.position === 'outside' &&
-      !range.outsideEligible &&
-      !isOpenContourOwnedOutsideDomain
+      Math.abs(sourceDirection) <= EPSILON ||
+      Math.abs(boundaryDirection) <= EPSILON
     ) {
-      return []
+      return domain.selectedSide
     }
-    const selectedSide =
+
+    return sourceDirection * boundaryDirection < 0
+      ? (-domain.selectedSide as 1 | -1)
+      : domain.selectedSide
+  }
+
+  const getProductOwnershipKey = (domain: DomainPlanSplitRangeDashDomain) => {
+    const sourceRange = getSourceRange(domain)
+    const sideKey =
       stroke.position === 'inside'
-        ? range.insideSelectedSide
-        : (range.outsideSelectedSide ??
-          (isOpenContourOwnedOutsideDomain ? range.unfilledSide : null))
-    if (selectedSide === null) {
-      return []
-    }
-
-    const dashDomainStartDistance =
-      sourceFamily.legalDomainHints.closed === false
-        ? range.boundaryStartDistance
-        : stroke.position === 'inside'
-          ? range.sourceStartDistance
-          : range.boundaryStartDistance
-    const dashDomainEndDistance =
-      sourceFamily.legalDomainHints.closed === false
-        ? range.boundaryEndDistance
-        : stroke.position === 'inside'
-          ? range.sourceEndDistance
-          : range.boundaryEndDistance
-
+        ? 'inside'
+        : (getProductSourceSide(domain) ?? 'unknown')
     return [
-      {
-        domainId: range.rangeId,
-        boundaryDomainId: range.boundaryDomainId,
-        boundaryPoints: range.boundaryPoints,
-        boundaryStartDistance: range.boundaryStartDistance,
-        boundaryEndDistance: range.boundaryEndDistance,
-        boundaryTotalLength: range.boundaryTotalLength,
-        startDistance: dashDomainStartDistance,
-        endDistance: dashDomainEndDistance,
-        sourceStartDistance: Math.min(
-          range.sourceStartDistance,
-          range.sourceEndDistance
-        ),
-        sourceEndDistance: Math.max(
-          range.sourceStartDistance,
-          range.sourceEndDistance
-        ),
-        sourceSegmentIndex: range.sourceSegmentIndex,
-        sideAuthority: 'implicit-fill-hole-domain',
-        selectedSide,
-        filledSide: range.filledSide,
-        unfilledSide: range.unfilledSide,
-        boundaryRole: range.boundaryRole,
-        offsetDistance: stroke.width / 2,
-        sideResolutionStatus:
-          range.sideResolutionStatus === 'resolved' ? 'resolved' : 'blocked',
-        sideResolutionReason:
-          range.sideResolutionStatus === 'resolved'
-            ? undefined
-            : 'shared-source-split-range-side-conflict',
-        contourIds:
-          range.contourIds.length > 0
-            ? range.contourIds
-            : sourceFamily.legalDomainHints.contourIds,
-        legalDomainIds:
-          range.legalFaceIds.length > 0
-            ? range.legalFaceIds
-            : sourceFamily.legalDomainHints.legalDomainIds
-      }
-    ]
+      domain.sourceSegmentIndex,
+      sourceRange.startDistance.toFixed(6),
+      sourceRange.endDistance.toFixed(6),
+      sideKey
+    ].join(':')
+  }
+
+  const mergeMetadata = (
+    existing: DomainPlanSplitRangeDashDomain,
+    next: DomainPlanSplitRangeDashDomain
+  ): DomainPlanSplitRangeDashDomain => ({
+    ...existing,
+    contourIds: Array.from(
+      new Set([...(existing.contourIds ?? []), ...(next.contourIds ?? [])])
+    ),
+    legalDomainIds: Array.from(
+      new Set([
+        ...(existing.legalDomainIds ?? []),
+        ...(next.legalDomainIds ?? [])
+      ])
+    ),
+    sideResolutionStatus:
+      existing.sideResolutionStatus === 'resolved' ||
+      next.sideResolutionStatus !== 'resolved'
+        ? existing.sideResolutionStatus
+        : next.sideResolutionStatus,
+    sideResolutionReason:
+      existing.sideResolutionStatus === 'resolved' ||
+      next.sideResolutionStatus !== 'resolved'
+        ? existing.sideResolutionReason
+        : next.sideResolutionReason
   })
+
+  const rawDomains: DomainPlanSplitRangeDashDomain[] =
+    sharedStrokeBoundaryDomains.flatMap((range) => {
+      const isOpenContourOwnedOutsideDomain =
+        stroke.position === 'outside' &&
+        sourceFamily.legalDomainHints.closed === false &&
+        range.boundaryRole !== 'ambiguous' &&
+        ((range.contourIds?.length ?? 0) > 0 ||
+          (range.legalFaceIds?.length ?? 0) > 0)
+      if (stroke.position === 'inside' && !range.insideEligible) {
+        return []
+      }
+      if (
+        stroke.position === 'outside' &&
+        !range.outsideEligible &&
+        !isOpenContourOwnedOutsideDomain
+      ) {
+        return []
+      }
+      const selectedSide =
+        stroke.position === 'inside'
+          ? range.insideSelectedSide
+          : (range.outsideSelectedSide ??
+            (isOpenContourOwnedOutsideDomain ? range.unfilledSide : null))
+      if (selectedSide === null) {
+        return []
+      }
+
+      const dashDomainStartDistance =
+        sourceFamily.legalDomainHints.closed === false
+          ? range.boundaryStartDistance
+          : stroke.position === 'inside'
+            ? range.sourceStartDistance
+            : range.boundaryStartDistance
+      const dashDomainEndDistance =
+        sourceFamily.legalDomainHints.closed === false
+          ? range.boundaryEndDistance
+          : stroke.position === 'inside'
+            ? range.sourceEndDistance
+            : range.boundaryEndDistance
+
+      return [
+        {
+          domainId: range.rangeId,
+          boundaryDomainId: range.boundaryDomainId,
+          boundaryPoints: range.boundaryPoints,
+          boundaryStartDistance: range.boundaryStartDistance,
+          boundaryEndDistance: range.boundaryEndDistance,
+          boundaryTotalLength: range.boundaryTotalLength,
+          startDistance: dashDomainStartDistance,
+          endDistance: dashDomainEndDistance,
+          sourceStartDistance: Math.min(
+            range.sourceStartDistance,
+            range.sourceEndDistance
+          ),
+          sourceEndDistance: Math.max(
+            range.sourceStartDistance,
+            range.sourceEndDistance
+          ),
+          sourceSegmentIndex: range.sourceSegmentIndex,
+          sideAuthority: 'implicit-fill-hole-domain',
+          selectedSide,
+          filledSide: range.filledSide,
+          unfilledSide: range.unfilledSide,
+          boundaryRole: range.boundaryRole,
+          offsetDistance: stroke.width / 2,
+          sideResolutionStatus:
+            range.sideResolutionStatus === 'resolved' ? 'resolved' : 'blocked',
+          sideResolutionReason:
+            range.sideResolutionStatus === 'resolved'
+              ? undefined
+              : 'shared-source-split-range-side-conflict',
+          contourIds:
+            range.contourIds.length > 0
+              ? range.contourIds
+              : sourceFamily.legalDomainHints.contourIds,
+          legalDomainIds:
+            range.legalFaceIds.length > 0
+              ? range.legalFaceIds
+              : sourceFamily.legalDomainHints.legalDomainIds
+        }
+      ]
+    })
+
+  const domainsByProduct = new Map<string, DomainPlanSplitRangeDashDomain>()
+  rawDomains.forEach((domain) => {
+    const productKey = getProductOwnershipKey(domain)
+    const existing = domainsByProduct.get(productKey)
+    domainsByProduct.set(
+      productKey,
+      existing ? mergeMetadata(existing, domain) : domain
+    )
+  })
+
+  return Array.from(domainsByProduct.values())
+}
 
 const SOURCE_SPAN_PRODUCT_DOMAIN_MIN_LENGTH = SOURCE_PATH_DASH_SLICE_TOLERANCE
 
@@ -595,6 +677,16 @@ const buildSourcePathSegmentSpanDomains = (
         ]
       : []
   })
+}
+
+const getPolylineLength = (points: { x: number; y: number }[]) => {
+  let total = 0
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1]
+    const current = points[index]
+    total += Math.hypot(current.x - previous.x, current.y - previous.y)
+  }
+  return total
 }
 
 const subtractCoveredSourceRanges = ({
@@ -731,45 +823,7 @@ const subtractContourOwnedSourceRanges = ({
     coveredDomains: contourOwnedRanges
   })
 
-const supplementInsideDashedSourceSpanDomains = ({
-  sourcePath,
-  splitRangeDomains
-}: {
-  sourcePath: Pick<PathGeometry, 'segments'> &
-    Partial<Pick<PathGeometry, 'closed'>>
-  splitRangeDomains: DomainPlanSplitRangeDashDomain[]
-}): DomainPlanSplitRangeDashDomain[] => {
-  const sourceDomains = buildSourcePathSegmentSpanDomains(sourcePath)
-  let productDomainIndex = 0
-  const productDomains = sourceDomains.flatMap((sourceDomain) =>
-    subtractCoveredSourceRanges({
-      sourceDomain,
-      coveredDomains: splitRangeDomains
-    }).map((range) => {
-      const domain: DomainPlanSplitRangeDashDomain = {
-        domainId: `source-span-product-domain:${sourceDomain.domainId}:${productDomainIndex}`,
-        domainMode: 'closed-constrained-domain',
-        startDistance: range.startDistance,
-        endDistance: range.endDistance,
-        sourceSegmentIndex: sourceDomain.sourceSegmentIndex,
-        selectedSide: 1,
-        filledSide: 1,
-        unfilledSide: -1,
-        boundaryRole: 'ambiguous',
-        sideResolutionStatus: 'resolved',
-        sideResolutionReason: 'source-span-product-domain'
-      }
-      productDomainIndex += 1
-      return domain
-    })
-  )
-
-  return productDomains.length > 0
-    ? [...splitRangeDomains, ...productDomains]
-    : splitRangeDomains
-}
-
-const supplementOutsideDashedOpenSourceSpanDomains = ({
+const supplementOutsideDashedOpenDanglingDomains = ({
   sourcePath,
   splitRangeDomains,
   sharedSourceSplitRanges
@@ -780,12 +834,17 @@ const supplementOutsideDashedOpenSourceSpanDomains = ({
   sharedSourceSplitRanges?: ResolvedVectorSourceSplitRange[]
 }): DomainPlanSplitRangeDashDomain[] => {
   const sourceDomains = buildSourcePathSegmentSpanDomains(sourcePath)
-  const contourSplitRangeDomains = splitRangeDomains.filter((domain) => {
-    return (
-      domain.sideResolutionStatus === 'resolved' &&
-      domain.boundaryRole !== 'ambiguous'
-    )
-  })
+  const contourSplitRangeDomains = splitRangeDomains
+    .filter((domain) => {
+      return (
+        domain.sideResolutionStatus === 'resolved' &&
+        domain.boundaryRole !== 'ambiguous'
+      )
+    })
+    .map((domain) => ({
+      ...domain,
+      domainMode: 'open-contour-constrained-domain' as const
+    }))
   const contourSplitRangeSourceCoverages = contourSplitRangeDomains.map(
     toSourceCoverageDomain
   )
@@ -808,7 +867,7 @@ const supplementOutsideDashedOpenSourceSpanDomains = ({
       )
       .map((range) => {
         const domain: DomainPlanSplitRangeDashDomain = {
-          domainId: `dangling-source-span-domain:${sourceDomain.domainId}:${danglingDomainIndex}`,
+          domainId: `open-dangling-outside-domain:${sourceDomain.domainId}:${danglingDomainIndex}`,
           domainMode: 'open-dangling-outside-both-sides',
           startDistance: range.startDistance,
           endDistance: range.endDistance,
@@ -829,6 +888,191 @@ const supplementOutsideDashedOpenSourceSpanDomains = ({
     : contourSplitRangeDomains
 }
 
+const supplementInsideDashedOpenExcludedDomains = ({
+  sourcePath,
+  splitRangeDomains,
+  sharedSourceSplitRanges
+}: {
+  sourcePath: Pick<PathGeometry, 'segments'> &
+    Partial<Pick<PathGeometry, 'closed'>>
+  splitRangeDomains: DomainPlanSplitRangeDashDomain[]
+  sharedSourceSplitRanges?: ResolvedVectorSourceSplitRange[]
+}): DomainPlanSplitRangeDashDomain[] => {
+  const sourceDomains = buildSourcePathSegmentSpanDomains(sourcePath)
+  const contourSplitRangeDomains = splitRangeDomains
+    .filter((domain) => {
+      return (
+        domain.sideResolutionStatus === 'resolved' &&
+        domain.boundaryRole !== 'ambiguous'
+      )
+    })
+    .map((domain) => ({
+      ...domain,
+      domainMode: 'open-contour-constrained-domain' as const
+    }))
+  const contourSplitRangeSourceCoverages = contourSplitRangeDomains.map(
+    toSourceCoverageDomain
+  )
+  const contourOwnedRanges = buildContourOwnedSourceCoverages(
+    sourcePath,
+    sharedSourceSplitRanges
+  )
+  let excludedDomainIndex = 0
+  const excludedDomains = sourceDomains.flatMap((sourceDomain) =>
+    subtractCoveredSourceRanges({
+      sourceDomain,
+      coveredDomains: contourSplitRangeSourceCoverages
+    })
+      .flatMap((range) =>
+        subtractContourOwnedSourceRanges({
+          sourceDomain,
+          candidateRange: range,
+          contourOwnedRanges
+        })
+      )
+      .map((range) => {
+        const domain: DomainPlanSplitRangeDashDomain = {
+          domainId: `inside-excluded-open-domain:${sourceDomain.domainId}:${excludedDomainIndex}`,
+          domainMode: 'inside-excluded-open-span',
+          startDistance: range.startDistance,
+          endDistance: range.endDistance,
+          sourceStartDistance: range.startDistance,
+          sourceEndDistance: range.endDistance,
+          sourceSegmentIndex: sourceDomain.sourceSegmentIndex,
+          boundaryRole: 'ambiguous',
+          sideResolutionStatus: 'resolved',
+          sideResolutionReason: 'inside-excluded-open-span'
+        }
+        excludedDomainIndex += 1
+        return domain
+      })
+  )
+
+  return excludedDomains.length > 0
+    ? [...contourSplitRangeDomains, ...excludedDomains]
+    : contourSplitRangeDomains
+}
+
+const supplementClosedConstrainedSourceCoverageDomains = ({
+  topology,
+  sourceFamily,
+  stroke,
+  sourcePath,
+  splitRangeDomains,
+  implicitFillRegions
+}: {
+  topology: ResolveStrokeDomainsInput['topology']
+  sourceFamily: ResolvedSourceFamily
+  stroke: Pick<RenderableStroke, 'style' | 'position' | 'width'>
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>
+  splitRangeDomains: DomainPlanSplitRangeDashDomain[]
+  implicitFillRegions?: PolygonRegion[]
+}): DomainPlanSplitRangeDashDomain[] => {
+  if (
+    !topology.closed ||
+    stroke.style !== 'dashed' ||
+    !isConstrainedPosition(stroke.position) ||
+    stroke.position !== 'inside' ||
+    sourcePath.segments.length === 0
+  ) {
+    return splitRangeDomains
+  }
+  const constrainedPosition = stroke.position
+
+  const coveredDomains = splitRangeDomains
+    .filter((domain) => domain.sideResolutionStatus === 'resolved')
+    .map(toSourceCoverageDomain)
+  const sourceDomains = buildSourcePathSegmentSpanDomains(sourcePath)
+  let coverageIndex = 0
+  const coverageDomains = sourceDomains.flatMap((sourceDomain) =>
+    subtractCoveredSourceRanges({
+      sourceDomain,
+      coveredDomains
+    }).flatMap((range) => {
+      const sourceRange = {
+        segmentIndex: sourceDomain.sourceSegmentIndex,
+        startDistance: range.startDistance,
+        endDistance: range.endDistance
+      }
+      const fillRegionSideResolution = resolveSourcePathStrokeSide({
+        sourcePath,
+        topologyPoints: topology.normalizedPoints,
+        fillRule: sourceFamily.legalDomainHints.fillRule,
+        position: constrainedPosition,
+        width: stroke.width,
+        range: sourceRange,
+        fillRegions: implicitFillRegions
+      })
+      const sideResolution =
+        fillRegionSideResolution.status === 'resolved'
+          ? fillRegionSideResolution
+          : resolveSourcePathStrokeSide({
+              sourcePath,
+              topologyPoints: topology.normalizedPoints,
+              fillRule: sourceFamily.legalDomainHints.fillRule,
+              position: constrainedPosition,
+              width: stroke.width,
+              range: sourceRange
+            })
+      if (sideResolution.status !== 'resolved') {
+        return []
+      }
+
+      const boundaryPoints = slicePathGeometryPoints(
+        sourcePath,
+        range.startDistance,
+        range.endDistance,
+        false,
+        SOURCE_PATH_DASH_SLICE_TOLERANCE,
+        SOURCE_PATH_DASH_SLICE_SAMPLING
+      )
+      const boundaryTotalLength = getPolylineLength(boundaryPoints)
+      if (
+        boundaryPoints.length < 2 ||
+        boundaryTotalLength <= SOURCE_SPAN_PRODUCT_DOMAIN_MIN_LENGTH
+      ) {
+        return []
+      }
+
+      const domain: DomainPlanSplitRangeDashDomain = {
+        domainId: `closed-constrained-source-coverage-domain:${sourceDomain.domainId}:${coverageIndex}`,
+        domainMode: 'closed-constrained-domain',
+        boundaryDomainId: `closed-constrained-source-coverage-boundary:${sourceDomain.domainId}:${coverageIndex}`,
+        boundaryPoints,
+        boundaryStartDistance: 0,
+        boundaryEndDistance: boundaryTotalLength,
+        boundaryTotalLength,
+        startDistance: range.startDistance,
+        endDistance: range.endDistance,
+        sourceStartDistance: range.startDistance,
+        sourceEndDistance: range.endDistance,
+        sourceSegmentIndex: sourceDomain.sourceSegmentIndex,
+        sideAuthority: 'implicit-fill-hole-domain',
+        selectedSide: sideResolution.selectedSide,
+        filledSide:
+          stroke.position === 'inside'
+            ? sideResolution.selectedSide
+            : (-sideResolution.selectedSide as 1 | -1),
+        unfilledSide:
+          stroke.position === 'inside'
+            ? (-sideResolution.selectedSide as 1 | -1)
+            : sideResolution.selectedSide,
+        boundaryRole: stroke.position === 'inside' ? 'filled-face' : 'outer',
+        offsetDistance: stroke.width / 2,
+        sideResolutionStatus: 'resolved',
+        contourIds: sourceFamily.legalDomainHints.contourIds,
+        legalDomainIds: sourceFamily.legalDomainHints.legalDomainIds
+      }
+      coverageIndex += 1
+      return [domain]
+    })
+  )
+
+  return coverageDomains.length > 0
+    ? [...splitRangeDomains, ...coverageDomains]
+    : splitRangeDomains
+}
+
 export const resolveStrokeDomains = ({
   topology,
   sourceFamily,
@@ -843,7 +1087,6 @@ export const resolveStrokeDomains = ({
     planId: `${sourceFamily.sourceId}:stroke-domain:${stroke.style}:${stroke.position}`,
     sourceId: sourceFamily.sourceId,
     networkId: sourceFamily.networkId,
-    supportState: sourceFamily.supportState,
     topologyFamily: sourceFamily.topologyFamily,
     fillRule: sourceFamily.legalDomainHints.fillRule,
     closed: sourceFamily.legalDomainHints.closed,
@@ -854,17 +1097,16 @@ export const resolveStrokeDomains = ({
     legalDomainIds: sourceFamily.legalDomainHints.legalDomainIds
   }
 
-  if (sourceFamily.supportState === 'blocked') {
+  if (sourceFamily.topologyFamily === 'degenerate') {
     return {
       ...basePlan,
-      blockedReason: sourceFamily.blockedReason,
-      domainMode: 'diagnostic-no-product',
+      domainMode: null,
       intervalDomainKind: 'none',
       sideAuthority: 'none',
       requiresImplicitFillHoleSideResolution: false,
       splitRangeDomains: [],
       legalBoundaryDomains: [],
-      diagnostics: ['source-family-blocked']
+      diagnostics: ['degenerate-topology-has-no-product']
     }
   }
 
@@ -876,19 +1118,19 @@ export const resolveStrokeDomains = ({
       (sharedSourceSplitRanges?.length ?? 0) > 0)
 
   if (
-    sourceFamily.supportState === 'simple-open-unbounded' &&
+    !topology.closed &&
+    isConstrainedPosition(stroke.position) &&
     !hasOpenSelfIntersectingImplicitSplitRanges
   ) {
     return {
       ...basePlan,
-      blockedReason: sourceFamily.blockedReason,
       domainMode: 'center-product',
       intervalDomainKind: 'topology-arc-length',
       sideAuthority: 'none',
       requiresImplicitFillHoleSideResolution: false,
       splitRangeDomains: [],
       legalBoundaryDomains: [],
-      diagnostics: ['simple-open-unbounded-uses-center-product']
+      diagnostics: ['unbounded-open-center-product']
     }
   }
 
@@ -899,9 +1141,7 @@ export const resolveStrokeDomains = ({
     if (!normalizedLegalDomain) {
       return {
         ...basePlan,
-        supportState: 'blocked',
-        blockedReason: 'missing-normalized-legal-domain',
-        domainMode: 'diagnostic-no-product',
+        domainMode: null,
         intervalDomainKind: 'none',
         sideAuthority: 'implicit-fill-hole-domain',
         requiresImplicitFillHoleSideResolution: true,
@@ -935,6 +1175,7 @@ export const resolveStrokeDomains = ({
     isConstrainedPosition(stroke.position) &&
     ((sharedStrokeBoundaryDomains?.length ?? 0) > 0 ||
       (sharedSourceSplitRanges?.length ?? 0) > 0)
+
   if (
     isSelfIntersectingConstrained({ topology, stroke }) ||
     hasSharedSelfIntersectingSplitRanges
@@ -942,9 +1183,7 @@ export const resolveStrokeDomains = ({
     if (!sourcePath) {
       return {
         ...basePlan,
-        supportState: 'blocked',
-        blockedReason: 'missing-source-path',
-        domainMode: 'diagnostic-no-product',
+        domainMode: null,
         intervalDomainKind: 'none',
         sideAuthority: 'none',
         requiresImplicitFillHoleSideResolution: false,
@@ -956,9 +1195,7 @@ export const resolveStrokeDomains = ({
     if (sourcePath.segments.length === 0) {
       return {
         ...basePlan,
-        supportState: 'blocked',
-        blockedReason: 'missing-source-segments',
-        domainMode: 'diagnostic-no-product',
+        domainMode: null,
         intervalDomainKind: 'none',
         sideAuthority: 'none',
         requiresImplicitFillHoleSideResolution: false,
@@ -981,16 +1218,54 @@ export const resolveStrokeDomains = ({
         adjacentFilledFaceIds: range.legalFaceIds,
         adjacentUnfilledFaceIds: range.oppositeFaceIds
       }))
+    const constrainedDomainMode: StrokeDomainMode = topology.closed
+      ? 'closed-constrained-domain'
+      : 'open-contour-constrained-domain'
+    const sideResolutionContext: StrokeDomainSideResolutionContext = {
+      sourcePath,
+      topologyPoints: topology.normalizedPoints,
+      fillRule: sourceFamily.legalDomainHints.fillRule,
+      strokePosition: stroke.position as 'inside' | 'outside',
+      strokeWidth: stroke.width,
+      implicitFillRegions
+    }
 
     if (
       !resolvedStrokeBoundaryDomains ||
       resolvedStrokeBoundaryDomains.length === 0
     ) {
+      const sourceCoverageDomains =
+        topology.closed && stroke.position === 'inside'
+          ? supplementClosedConstrainedSourceCoverageDomains({
+              topology,
+              sourceFamily,
+              stroke,
+              sourcePath,
+              splitRangeDomains: [],
+              implicitFillRegions
+            })
+          : []
+      if (sourceCoverageDomains.length > 0) {
+        return {
+          ...basePlan,
+          domainMode: constrainedDomainMode,
+          intervalDomainKind: 'domain-plan-split-range',
+          sideAuthority: 'implicit-fill-hole-domain',
+          requiresImplicitFillHoleSideResolution: true,
+          splitRangeDomains: sourceCoverageDomains,
+          legalBoundaryDomains: [],
+          sideResolutionContext,
+          diagnostics: [
+            'constrained-domains-use-stroke-domain-plan',
+            'side-authority-is-implicit-fill-hole-domain',
+            'closed-constrained-source-coverage-domains-added'
+          ]
+        }
+      }
+
       return {
         ...basePlan,
-        supportState: 'blocked',
-        blockedReason: 'missing-shared-source-split-ranges',
-        domainMode: 'diagnostic-no-product',
+        domainMode: null,
         intervalDomainKind: 'none',
         sideAuthority: 'implicit-fill-hole-domain',
         requiresImplicitFillHoleSideResolution: true,
@@ -1007,36 +1282,39 @@ export const resolveStrokeDomains = ({
       sourceFamily,
       stroke
     })
-    const supplementedSplitRangeDomains =
-      stroke.position === 'inside' && topology.closed
-        ? supplementInsideDashedSourceSpanDomains({
+    const sourceCoveredSplitRangeDomains = topology.closed
+      ? supplementClosedConstrainedSourceCoverageDomains({
+          topology,
+          sourceFamily,
+          stroke,
+          sourcePath,
+          splitRangeDomains,
+          implicitFillRegions
+        })
+      : splitRangeDomains
+    const insideExcludedSplitRangeDomains =
+      stroke.position === 'inside' && !topology.closed
+        ? supplementInsideDashedOpenExcludedDomains({
             sourcePath,
-            splitRangeDomains
+            splitRangeDomains: sourceCoveredSplitRangeDomains,
+            sharedSourceSplitRanges
           })
-        : stroke.position === 'outside' && !topology.closed
-          ? supplementOutsideDashedOpenSourceSpanDomains({
-              sourcePath,
-              splitRangeDomains,
-              sharedSourceSplitRanges
-            })
-          : splitRangeDomains
-    const sideResolutionContext: StrokeDomainSideResolutionContext = {
-      sourcePath,
-      topologyPoints: topology.normalizedPoints,
-      fillRule: sourceFamily.legalDomainHints.fillRule,
-      strokePosition: stroke.position as 'inside' | 'outside',
-      strokeWidth: stroke.width,
-      implicitFillRegions
-    }
+        : sourceCoveredSplitRangeDomains
+    const supplementedSplitRangeDomains =
+      stroke.position === 'outside' && !topology.closed
+        ? supplementOutsideDashedOpenDanglingDomains({
+            sourcePath,
+            splitRangeDomains: insideExcludedSplitRangeDomains,
+            sharedSourceSplitRanges
+          })
+        : insideExcludedSplitRangeDomains
     const blockedSideDomain = supplementedSplitRangeDomains.find(
       (domain) => domain.sideResolutionStatus !== 'resolved'
     )
     if (blockedSideDomain) {
       return {
         ...basePlan,
-        supportState: 'blocked',
-        blockedReason: 'ambiguous-side-resolution',
-        domainMode: 'diagnostic-no-product',
+        domainMode: null,
         intervalDomainKind: 'none',
         sideAuthority: 'implicit-fill-hole-domain',
         requiresImplicitFillHoleSideResolution: true,
@@ -1044,12 +1322,19 @@ export const resolveStrokeDomains = ({
         legalBoundaryDomains: [],
         sideResolutionContext,
         diagnostics: [
-          'dash-domains-follow-boundary-domains',
+          'constrained-domains-use-stroke-domain-plan',
           'side-authority-is-implicit-fill-hole-domain',
           `split-range-side-resolution-blocked:${blockedSideDomain.domainId}`
         ]
       }
     }
+
+    const contractedSplitRangeDomains = supplementedSplitRangeDomains.map(
+      (domain) => ({
+        ...domain,
+        domainMode: domain.domainMode ?? constrainedDomainMode
+      })
+    )
 
     return {
       ...basePlan,
@@ -1060,29 +1345,22 @@ export const resolveStrokeDomains = ({
         }) || hasSharedSelfIntersectingSplitRanges
           ? 'domain-plan-split-range'
           : 'source-path',
-      domainMode: topology.closed
-        ? 'closed-constrained-domain'
-        : stroke.position === 'inside'
-          ? 'open-contour-constrained-domain'
-          : supplementedSplitRangeDomains.some(
-                (domain) =>
-                  domain.domainMode === 'open-dangling-outside-both-sides'
-              )
-            ? 'open-dangling-outside-both-sides'
-            : 'open-contour-constrained-domain',
+      domainMode: constrainedDomainMode,
       sideAuthority: 'implicit-fill-hole-domain',
       requiresImplicitFillHoleSideResolution: true,
-      splitRangeDomains: supplementedSplitRangeDomains,
+      splitRangeDomains: contractedSplitRangeDomains,
       legalBoundaryDomains: [],
       sideResolutionContext,
       diagnostics: [
-        'dash-domains-follow-boundary-domains',
+        'constrained-domains-use-stroke-domain-plan',
         'side-authority-is-implicit-fill-hole-domain',
         ...(supplementedSplitRangeDomains.length > splitRangeDomains.length
           ? [
               topology.closed
-                ? 'source-span-product-domains-added'
-                : 'dangling-source-span-domains-added'
+                ? 'closed-constrained-source-coverage-domains-added'
+                : stroke.position === 'inside'
+                  ? 'inside-excluded-open-spans-added'
+                  : 'open-dangling-outside-domains-added'
             ]
           : [])
       ]
@@ -1105,8 +1383,7 @@ export const resolveStrokeDomains = ({
   return {
     ...basePlan,
     intervalDomainKind: 'topology-arc-length',
-    domainMode:
-      stroke.position === 'center' ? 'center-product' : 'center-product',
+    domainMode: 'center-product',
     sideAuthority: 'none',
     requiresImplicitFillHoleSideResolution: false,
     splitRangeDomains: [],

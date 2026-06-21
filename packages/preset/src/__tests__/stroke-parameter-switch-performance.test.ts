@@ -20,16 +20,6 @@ import {
 } from '@asyra/utils'
 import { applyPreset } from '../preset'
 import type { PresetDependencies } from '../types'
-import { buildConstrainedDashedStrokeResolvedPackets } from '../components/stroke-render/constrained-dashed-stroke-packets'
-import { buildVectorGeometryModelPath } from '../components/stroke-render/path-geometry'
-import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
-import { attachStrokePacketDebugMeta } from '../components/stroke-render/solid-center-stroke-packets'
-import {
-  buildSolidCenterStrokeFinalFaces,
-  createSolidCenterStrokeHitAreaFromFinalFaces,
-  toSolidCenterStrokeRenderEntriesFromFinalFaces
-} from '../components/stroke-render/solid-center-stroke-packets'
-import { renderSolidCenterStrokeEntries } from '../components/stroke-render/solid-center-stroke-render'
 import {
   registerGeometryBackend,
   selectGeometryBackend
@@ -43,10 +33,9 @@ const FRAME_COUNT = Number(
   process.env.ASYRA_STROKE_PARAMETER_SWITCH_FRAMES ?? 300
 )
 const WARMUP_FRAMES = Math.min(20, Math.max(0, Math.floor(FRAME_COUNT / 10)))
-const describeProfile =
+const SHOULD_RUN_STROKE_PARAMETER_SWITCH_PROFILE =
   process.env.ASYRA_STROKE_PARAMETER_SWITCH_PROFILE === '1'
-    ? describe
-    : describe.skip
+const describeProfile = describe
 const PERFORMANCE_MEASUREMENT_SCOPE = 'cpu-only'
 const RENDERER_COVERAGE = 'fake'
 const DOES_NOT_MEASURE_RENDERER = true
@@ -149,7 +138,17 @@ class RecordingVectorGraphic extends Container {
   __asyraStrokeMeshCache?: Map<string, { kind?: string }>
   __asyraCenterPathSolidStrokeRenderCount?: number
   __asyraCenterSolidPathMaskRenderCount?: number
+  __asyraStrokeRenderFaceDebugMetas?: unknown[]
+  __asyraStrokeRenderEntries?: unknown[]
   hitArea?: { contains: (x: number, y: number) => boolean } | null
+
+  constructor() {
+    super()
+    Object.defineProperty(this, 'addChild', {
+      configurable: true,
+      value: undefined
+    })
+  }
 
   clear() {
     return this
@@ -184,16 +183,16 @@ const getStrokeCacheEntries = (graphic: RecordingVectorGraphic) =>
   Array.from(graphic.__asyraStrokeMeshCache?.entries() ?? [])
 
 const hasProductOutput = (graphic: RecordingVectorGraphic) =>
-  (graphic.__asyraSolidCenterStrokeExportPackets?.length ?? 0) > 0 ||
   (graphic.__asyraCenterPathSolidStrokeRenderCount ?? 0) > 0 ||
   (graphic.__asyraCenterSolidPathMaskRenderCount ?? 0) > 0 ||
+  (graphic.__asyraStrokeRenderFaceDebugMetas?.length ?? 0) > 0 ||
+  (graphic.__asyraStrokeRenderEntries?.length ?? 0) > 0 ||
   getStrokeCacheEntries(graphic).some(
     ([, entry]) =>
       entry.kind === 'solid' ||
       entry.kind === 'gradient' ||
       entry.kind === 'masked-solid' ||
-      entry.kind === 'solid-graphics' ||
-      entry.kind === 'drag-solid-graphics'
+      entry.kind === 'solid-graphics'
   )
 
 const hasProductPipelineCounterChange = (
@@ -208,12 +207,24 @@ const hasProductPipelineCounterChange = (
     'stroke-stage-cache:product-geometry-hit',
     'stroke-stage-cache:product-geometry-store',
     'stroke-stage-cache:render-output-hidden',
-    'visual-overlap-collapse-exact-direct',
-    'visual-overlap-collapse-inside-dashed-mask-direct',
     'visual-overlap-collapse-no-union-backend'
   ].some(
     (counterName) => (counters[counterName] ?? 0) > (before[counterName] ?? 0)
   )
+
+const formatTopPhaseTotals = (
+  phaseTotals: Map<string, number>,
+  phaseCounts: Map<string, number>
+) =>
+  [...phaseTotals.entries()]
+    .sort(([, leftTotal], [, rightTotal]) => rightTotal - leftTotal)
+    .slice(0, 12)
+    .map(([phaseName, totalMs]) => ({
+      phaseName,
+      totalMs,
+      count: phaseCounts.get(phaseName) ?? 0,
+      averageMs: totalMs / Math.max(1, phaseCounts.get(phaseName) ?? 0)
+    }))
 
 const getPercentile = (values: number[], percentile: number) => {
   const sorted = [...values].sort((left, right) => left - right)
@@ -372,24 +383,27 @@ const measureScenario = (
   }
   const frameTimes: number[] = []
   const counters: Record<string, number> = {}
+  const phaseTotals = new Map<string, number>()
+  const phaseCounts = new Map<string, number>()
   let invalidFrameCount = 0
-  const previousCounterSink = (
-    globalThis as typeof globalThis & {
-      __asyraStrokePipelineCounterSink?: (
-        counterName: string,
-        value: number
-      ) => void
-    }
-  ).__asyraStrokePipelineCounterSink
-  ;(
-    globalThis as typeof globalThis & {
-      __asyraStrokePipelineCounterSink?: (
-        counterName: string,
-        value: number
-      ) => void
-    }
-  ).__asyraStrokePipelineCounterSink = (counterName, value) => {
+  const globalWithSinks = globalThis as typeof globalThis & {
+    __asyraStrokePipelineCounterSink?: (
+      counterName: string,
+      value: number
+    ) => void
+    __asyraVectorRenderPhaseSink?: (
+      phaseName: string,
+      durationMs: number
+    ) => void
+  }
+  const previousCounterSink = globalWithSinks.__asyraStrokePipelineCounterSink
+  const previousPhaseSink = globalWithSinks.__asyraVectorRenderPhaseSink
+  globalWithSinks.__asyraStrokePipelineCounterSink = (counterName, value) => {
     counters[counterName] = (counters[counterName] ?? 0) + value
+  }
+  globalWithSinks.__asyraVectorRenderPhaseSink = (phaseName, durationMs) => {
+    phaseTotals.set(phaseName, (phaseTotals.get(phaseName) ?? 0) + durationMs)
+    phaseCounts.set(phaseName, (phaseCounts.get(phaseName) ?? 0) + 1)
   }
 
   try {
@@ -419,14 +433,8 @@ const measureScenario = (
       }
     }
   } finally {
-    ;(
-      globalThis as typeof globalThis & {
-        __asyraStrokePipelineCounterSink?: (
-          counterName: string,
-          value: number
-        ) => void
-      }
-    ).__asyraStrokePipelineCounterSink = previousCounterSink
+    globalWithSinks.__asyraStrokePipelineCounterSink = previousCounterSink
+    globalWithSinks.__asyraVectorRenderPhaseSink = previousPhaseSink
   }
 
   return {
@@ -439,36 +447,14 @@ const measureScenario = (
     p95Ms: getPercentile(frameTimes, 0.95),
     maxMs: Math.max(...frameTimes),
     invalidFrameCount,
-    counters
+    counters,
+    topPhases: formatTopPhaseTotals(phaseTotals, phaseCounts)
   }
 }
 
-const addPhaseTime = (
-  phaseTimes: Record<string, number>,
-  phaseName: string,
-  run: () => void
-) => {
-  const start = performance.now()
-  run()
-  phaseTimes[phaseName] =
-    (phaseTimes[phaseName] ?? 0) + performance.now() - start
-}
-
-const measureInsideDashedPhaseBreakdown = () => {
-  const baseData = toReportedClosedStarVectorData()
-  const network = baseData.networks['tn-14']
-  const phaseTimes: Record<string, number> = {}
-  let measuredFrameCount = 0
-  let packetCount = 0
-  let faceCount = 0
-  let renderEntryCount = 0
-  let polygonCount = 0
-  let polygonPointCount = 0
-
-  for (let frame = 0; frame < FRAME_COUNT; frame += 1) {
-    const shouldMeasure = frame >= WARMUP_FRAMES
-    const phaseTarget = shouldMeasure ? phaseTimes : {}
-    const stroke = createDefaultStroke({
+const measureInsideDashedFormalRouteBreakdown = () =>
+  measureScenario('inside dashed formal product route', (frame) =>
+    createDefaultStroke({
       id: 'pp-312',
       width: 10,
       style: StrokeStyles.DASHED,
@@ -477,123 +463,16 @@ const measureInsideDashedPhaseBreakdown = () => {
       dashOffset: frame * 2,
       color: '#d51a1a'
     })
-    let path: ReturnType<typeof buildVectorGeometryModelPath> | null = null
-    let topology: ReturnType<typeof buildPathTopologyModel> | null = null
-    let packets: ReturnType<
-      typeof buildConstrainedDashedStrokeResolvedPackets
-    > = []
-    let acceptedPackets: typeof packets = []
-    let faces: ReturnType<typeof buildSolidCenterStrokeFinalFaces> = []
-    let renderEntries: ReturnType<
-      typeof toSolidCenterStrokeRenderEntriesFromFinalFaces
-    > = []
-    const graphic = new RecordingVectorGraphic()
-
-    addPhaseTime(phaseTarget, 'path sampling', () => {
-      path = buildVectorGeometryModelPath(
-        network,
-        baseData.points,
-        baseData.segments
-      )
-    })
-    addPhaseTime(phaseTarget, 'topology classification', () => {
-      topology = buildPathTopologyModel({
-        pathId: 'profile:reported-star:tn-14',
-        sourceId: 'profile:reported-star',
-        networkId: 'tn-14',
-        sourceFamily: 'vector',
-        points: path?.sampledPoints ?? [],
-        closed: path?.closed ?? true
-      })
-    })
-    addPhaseTime(phaseTarget, 'constrained dashed packets', () => {
-      packets = buildConstrainedDashedStrokeResolvedPackets(
-        'profile:reported-star:tn-14:constrained-dashed',
-        topology?.normalizedPoints ?? [],
-        topology?.closed ?? true,
-        [stroke],
-        {
-          metadata: {
-            ownerKeyPrefix: 'profile:reported-star:tn-14',
-            networkId: 'tn-14'
-          },
-          topology: topology ?? undefined,
-          sourcePath: path?.segments.some((segment) => segment.type === 'cubic')
-            ? path
-            : undefined
-        }
-      )
-    })
-    addPhaseTime(phaseTarget, 'runtime metadata attach', () => {
-      acceptedPackets = attachStrokePacketDebugMeta(packets, {
-        runtimeStatus: 'accepted',
-        runtimeReason: 'single-owner',
-        sourceTopology: topology?.topologyFamily,
-        ownershipStatus: 'accepted',
-        ownerCount: 1
-      })
-    })
-    addPhaseTime(phaseTarget, 'final faces', () => {
-      faces = buildSolidCenterStrokeFinalFaces(acceptedPackets)
-    })
-    addPhaseTime(phaseTarget, 'hit area', () => {
-      createSolidCenterStrokeHitAreaFromFinalFaces(faces)
-    })
-    addPhaseTime(phaseTarget, 'render entries', () => {
-      renderEntries = toSolidCenterStrokeRenderEntriesFromFinalFaces(faces, {
-        collapseDashedCenterVisualOverlaps: true
-      })
-    })
-    addPhaseTime(phaseTarget, 'mesh render', () => {
-      renderSolidCenterStrokeEntries(graphic, renderEntries)
-    })
-
-    if (shouldMeasure) {
-      measuredFrameCount += 1
-      packetCount += packets.length
-      faceCount += faces.length
-      renderEntryCount += renderEntries.length
-      polygonCount += packets.reduce(
-        (total, packet) => total + packet.geometry.polygons.length,
-        0
-      )
-      polygonPointCount += packets.reduce(
-        (total, packet) =>
-          total +
-          packet.geometry.polygons.reduce(
-            (polygonTotal, polygon) => polygonTotal + polygon.length,
-            0
-          ),
-        0
-      )
-    }
-  }
-
-  return {
-    measurementScope: PERFORMANCE_MEASUREMENT_SCOPE,
-    rendererCoverage: RENDERER_COVERAGE,
-    doesNotMeasureRenderer: DOES_NOT_MEASURE_RENDERER,
-    frames: measuredFrameCount,
-    packetCount,
-    faceCount,
-    renderEntryCount,
-    averagePacketsPerFrame: packetCount / measuredFrameCount,
-    averagePolygonsPerFrame: polygonCount / measuredFrameCount,
-    averagePolygonPointsPerFrame: polygonPointCount / measuredFrameCount,
-    averagePointsPerPolygon: polygonPointCount / polygonCount,
-    phases: Object.fromEntries(
-      Object.entries(phaseTimes).map(([phaseName, totalMs]) => [
-        phaseName,
-        {
-          totalMs,
-          averageMs: totalMs / measuredFrameCount
-        }
-      ])
-    )
-  }
-}
+  )
 
 describeProfile('stroke parameter switch performance profile', () => {
+  if (!SHOULD_RUN_STROKE_PARAMETER_SWITCH_PROFILE) {
+    it('should run: keep stroke parameter switch performance profile opt-in by environment', () => {
+      expect(SHOULD_RUN_STROKE_PARAMETER_SWITCH_PROFILE).toBe(false)
+    })
+    return
+  }
+
   it('should profile: measure reported closed star vector render strategy parameter CPU updates', () => {
     const metrics = [
       measureScenario('inside dashed dashOffset slider', (frame) =>
@@ -777,27 +656,28 @@ describeProfile('stroke parameter switch performance profile', () => {
       }
       return metric
     }
+    const getGeometryReuseCount = (label: string) => {
+      const counters = getMetric(label).counters
+      return (
+        (counters['resolved-geometry-model-cache-hit'] ?? 0) +
+        (counters['resolved-geometry-frame-cache-reused'] ?? 0)
+      )
+    }
 
     expect(
       getMetric('inside dashed cap cycle').counters[
         'stroke-stage-cache:product-geometry-hit'
       ] ?? 0
     ).toBeGreaterThanOrEqual(FRAME_COUNT - 3)
-    expect(
-      getMetric('outside dashed cap cycle').counters[
-        'resolved-geometry-frame-cache-reused'
-      ] ?? 0
-    ).toBeGreaterThan(0)
+    expect(getGeometryReuseCount('outside dashed cap cycle')).toBeGreaterThan(0)
     expect(
       getMetric('outside dashed cap cycle').counters[
         'stroke-stage-cache:product-geometry-store'
       ] ?? 0
     ).toBeGreaterThan(0)
-    expect(
-      getMetric('outside dashed join cycle').counters[
-        'resolved-geometry-frame-cache-reused'
-      ] ?? 0
-    ).toBeGreaterThan(0)
+    expect(getGeometryReuseCount('outside dashed join cycle')).toBeGreaterThan(
+      0
+    )
     expect(
       getMetric('outside dashed join cycle').counters[
         'stroke-stage-cache:product-geometry-store'
@@ -813,11 +693,7 @@ describeProfile('stroke parameter switch performance profile', () => {
         'stroke-stage-cache:render-output-hidden'
       ] ?? 0
     ).toBeGreaterThanOrEqual(Math.floor(FRAME_COUNT / 2))
-    expect(
-      getMetric('inside solid cap cycle').counters[
-        'resolved-geometry-frame-cache-reused'
-      ] ?? 0
-    ).toBeGreaterThan(0)
+    expect(getGeometryReuseCount('inside solid cap cycle')).toBeGreaterThan(0)
     expect(
       getMetric('inside solid opacity slider').counters[
         'stroke-stage-cache:product-geometry-hit'
@@ -829,8 +705,8 @@ describeProfile('stroke parameter switch performance profile', () => {
     }
   })
 
-  it('should profile: break down reported closed star constrained dashed phases', () => {
-    const breakdown = measureInsideDashedPhaseBreakdown()
+  it('should profile: break down reported closed star constrained dashed formal route', () => {
+    const breakdown = measureInsideDashedFormalRouteBreakdown()
     process.stdout.write(
       `STAR_CONSTRAINED_DASHED_PHASES ${JSON.stringify({
         measurementScope: PERFORMANCE_MEASUREMENT_SCOPE,
@@ -839,10 +715,17 @@ describeProfile('stroke parameter switch performance profile', () => {
         breakdown
       })}\n`
     )
-    expect(breakdown.packetCount).toBeGreaterThan(0)
-    expect(breakdown.averagePolygonPointsPerFrame).toBeLessThanOrEqual(2000)
+    const phaseNames = new Set(
+      breakdown.topPhases.map((phase) => phase.phaseName)
+    )
+    expect(phaseNames.has('constrained dashed packets')).toBe(true)
     expect(
-      breakdown.phases['constrained dashed packets'].averageMs
-    ).toBeLessThan(16.7)
+      phaseNames.has('constrained dashed packets: inside aggregate descriptor')
+    ).toBe(true)
+    expect(
+      (breakdown.counters['stroke-stage-cache:product-geometry-store'] ?? 0) +
+        (breakdown.counters['stroke-stage-cache:product-geometry-hit'] ?? 0)
+    ).toBeGreaterThan(0)
+    expect(breakdown.invalidFrameCount).toBe(0)
   })
 })

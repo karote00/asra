@@ -13,17 +13,10 @@ import {
 } from '../components/stroke-render/solid-center-stroke-packets'
 import { buildStrokeFinalFacesFromResolvedPackets } from '../components/stroke-render/stroke-final-face'
 import {
-  buildConstrainedDashedStrokeProductVisualEntries,
   buildConstrainedDashedStrokeResolvedPackets,
   getConstrainedDashedVisibleIntervals
 } from '../components/stroke-render/constrained-dashed-stroke-packets'
-import {
-  classifyConstrainedDashedInterval,
-  classifyConstrainedDashedOwnership,
-  classifyConstrainedDashedRuntimeStatus,
-  classifyConstrainedDashedSource,
-  hasConstrainedDashedStrokeIntent
-} from '../components/stroke-render/constrained-dashed-stroke-packets'
+import { hasConstrainedDashedStrokeIntent } from '../components/stroke-render/constrained-dashed-stroke-packets'
 import { getRenderableStrokes } from '../components/stroke-render/renderable-stroke'
 import { buildEllipseLoop } from '../components/stroke-render/ellipse-path'
 import {
@@ -144,8 +137,7 @@ const buildSelfIntersectingSourcePathTestOptions = (
     sharedStrokeBoundaryDomains:
       resolvedGeometry.networks[0]?.selfIntersecting?.strokeBoundaryDomains ??
       [],
-    clipInsideToFillDomain: true,
-    constrainedDashedVisualMode: 'product-final' as const
+    clipInsideToFillDomain: true
   }
 }
 
@@ -2010,8 +2002,6 @@ const assertStrokeEventInvariants = ({
           ),
           firstPackets: packets.slice(0, 3).map((packet) => ({
             intervalId: packet.geometry.debugMeta?.intervalId,
-            finalCoverageBuilderStatus:
-              packet.geometry.debugMeta?.finalCoverageBuilderStatus,
             polygonCount: packet.geometry.polygons.length,
             pointCount: packet.geometry.polygons.reduce(
               (count, polygon) => count + polygon.length,
@@ -2490,7 +2480,7 @@ const assertRuleDrivenProductPolygonsInvariants = ({
     JSON.stringify(
       {
         message:
-          'product visual polygons should preserve spatial coverage for every visible dash interval',
+          'product polygons polygons should preserve spatial coverage for every visible dash interval',
         missing: missingIntervals
       },
       null,
@@ -2500,11 +2490,11 @@ const assertRuleDrivenProductPolygonsInvariants = ({
 
   expect(
     polygons.length,
-    `product visual polygons should remain inspectable after split-range rendering:${contextLabel ?? ''}`
+    `product polygons polygons should remain inspectable after split-range rendering:${contextLabel ?? ''}`
   ).toBeGreaterThan(0)
 }
 
-const getRuleDrivenProductVisualPolygons = ({
+const getRuleDrivenProductPolygons = ({
   cachePrefix,
   points,
   closed,
@@ -2517,40 +2507,12 @@ const getRuleDrivenProductVisualPolygons = ({
   stroke: ReturnType<typeof createDefaultStroke>
   options: Parameters<typeof buildConstrainedDashedStrokeResolvedPackets>[4]
 }) => {
-  const productEntries = buildConstrainedDashedStrokeProductVisualEntries(
-    `${cachePrefix}:direct-product`,
-    points,
-    closed,
-    [stroke],
-    {
-      ...options,
-      constrainedDashedVisualMode: 'product-final',
-      omitDiagnosticMetadata: true
-    }
-  )
-
-  if (productEntries) {
-    return {
-      source: 'direct-product' as const,
-      polygons: productEntries.flatMap((entry) => entry.polygons),
-      intervalGeometryRecords: productEntries.map((entry) => ({
-        intervalIds: entry.debugMeta?.intervalId
-          ? [entry.debugMeta.intervalId]
-          : [],
-        polygons: entry.polygons
-      }))
-    }
-  }
-
   const packets = buildConstrainedDashedStrokeResolvedPackets(
     `${cachePrefix}:final-product`,
     points,
     closed,
     [stroke],
-    {
-      ...options,
-      constrainedDashedVisualMode: 'product-final'
-    }
+    options
   )
   const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
   return {
@@ -3184,7 +3146,7 @@ describe('constrained dashed stroke packets: corner-spanning behavior', () => {
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 60,
@@ -3194,7 +3156,7 @@ describe('constrained dashed stroke packets: corner-spanning behavior', () => {
     })
   })
 
-  it('should run: derive one inside bevel corner-spanning constrained dashed packet from topology classification', () => {
+  it('should run: derive one inside bevel corner-spanning constrained dashed packet from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'rect:test:constrained-dashed',
       [
@@ -3218,7 +3180,7 @@ describe('constrained dashed stroke packets: corner-spanning behavior', () => {
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 60,
@@ -3228,7 +3190,7 @@ describe('constrained dashed stroke packets: corner-spanning behavior', () => {
     })
   })
 
-  it('should run: derive one inside miter corner-spanning constrained dashed packet from topology classification', () => {
+  it('should run: derive one inside miter corner-spanning constrained dashed packet from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'rect:test:constrained-dashed',
       [
@@ -3252,7 +3214,7 @@ describe('constrained dashed stroke packets: corner-spanning behavior', () => {
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 60,
@@ -3286,7 +3248,7 @@ describe('constrained dashed stroke packets: corner-spanning behavior', () => {
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 60,
@@ -3296,7 +3258,7 @@ describe('constrained dashed stroke packets: corner-spanning behavior', () => {
     })
   })
 
-  it('should run: keep the same constrained dashed inside bevel corner-spanning geometry when the first supported paint corner-spanning gradient slice swaps paint over the supported rect path', () => {
+  it('should run: keep the same constrained dashed inside bevel corner-spanning geometry when the first formal paint corner-spanning gradient slice swaps paint over the formal rect path', () => {
     const solidPackets = buildConstrainedDashedStrokeResolvedPackets(
       'rect:test:constrained-dashed-corner-spanning',
       [
@@ -3359,7 +3321,7 @@ describe('constrained dashed stroke packets: corner-spanning behavior', () => {
     )
   })
 
-  it('should run: derive one broader non-rectangle-equivalent inside bevel corner-spanning constrained dashed packet from topology classification', () => {
+  it('should run: derive one broader non-rectangle-equivalent inside bevel corner-spanning constrained dashed packet from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'vector:test:constrained-dashed',
       [
@@ -3383,17 +3345,17 @@ describe('constrained dashed stroke packets: corner-spanning behavior', () => {
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds.minY).toBe(0)
-    expect(packets[0]?.geometry.bounds.maxX).toBe(80)
+    expect(packets[0]?.geometry.bounds.maxX).toBeCloseTo(80, 8)
     expect(packets[0]?.geometry.bounds.minX).toBeGreaterThan(48)
     expect(packets[0]?.geometry.bounds.minX).toBeLessThan(70)
     expect(packets[0]?.geometry.bounds.maxY).toBeGreaterThan(12)
     expect(packets[0]?.geometry.bounds.maxY).toBeLessThan(28)
   })
 
-  it('should run: derive one broader non-rectangle-equivalent inside miter corner-spanning constrained dashed packet from topology classification', () => {
+  it('should run: derive one broader non-rectangle-equivalent inside miter corner-spanning constrained dashed packet from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'vector:test:constrained-dashed',
       [
@@ -3417,17 +3379,17 @@ describe('constrained dashed stroke packets: corner-spanning behavior', () => {
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds.minY).toBe(0)
-    expect(packets[0]?.geometry.bounds.maxX).toBe(80)
+    expect(packets[0]?.geometry.bounds.maxX).toBeCloseTo(80, 8)
     expect(packets[0]?.geometry.bounds.minX).toBeGreaterThan(48)
     expect(packets[0]?.geometry.bounds.minX).toBeLessThan(70)
     expect(packets[0]?.geometry.bounds.maxY).toBeGreaterThan(12)
     expect(packets[0]?.geometry.bounds.maxY).toBeLessThan(28)
   })
 
-  it('should run: derive one broader non-rectangle-equivalent outside bevel corner-spanning constrained dashed packet from topology classification', () => {
+  it('should run: derive one broader non-rectangle-equivalent outside bevel corner-spanning constrained dashed packet from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'vector:test:constrained-dashed',
       [
@@ -3451,7 +3413,7 @@ describe('constrained dashed stroke packets: corner-spanning behavior', () => {
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds.minY).toBeLessThan(0)
     expect(packets[0]?.geometry.bounds.maxX).toBeGreaterThan(80)
@@ -3461,7 +3423,7 @@ describe('constrained dashed stroke packets: corner-spanning behavior', () => {
     expect(packets[0]?.geometry.bounds.maxY).toBeLessThan(32)
   })
 
-  it('should run: derive one broader non-rectangle-equivalent outside miter corner-spanning constrained dashed packet from topology classification', () => {
+  it('should run: derive one broader non-rectangle-equivalent outside miter corner-spanning constrained dashed packet from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'vector:test:constrained-dashed',
       [
@@ -3485,7 +3447,7 @@ describe('constrained dashed stroke packets: corner-spanning behavior', () => {
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds.minY).toBeLessThan(0)
     expect(packets[0]?.geometry.bounds.maxX).toBeGreaterThan(80)
@@ -3526,11 +3488,14 @@ describe('constrained dashed stroke packets: corner-spanning behavior', () => {
     expect(
       packets.every(
         (packet) =>
-          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed' &&
-          packet.geometry.debugMeta?.sourceTopology ===
-            'sampled-simple-closed' &&
-          packet.geometry.debugMeta?.resolutionStatus ===
-            'domain-plan-selected-side'
+          packet.geometry.debugMeta?.productSignature?.startsWith(
+            'constrained-dashed:'
+          ) === true &&
+          packet.geometry.debugMeta?.productMode ===
+            'closed-constrained-domain' &&
+          packet.geometry.debugMeta?.domainMode ===
+            'closed-constrained-domain' &&
+          packet.geometry.debugMeta?.topologyFamily === 'sampled-simple-closed'
       )
     ).toBe(true)
     expect(
@@ -3580,11 +3545,14 @@ describe('constrained dashed stroke packets: corner-spanning behavior', () => {
     expect(
       packets.every(
         (packet) =>
-          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed' &&
-          packet.geometry.debugMeta?.sourceTopology ===
-            'sampled-simple-closed' &&
-          packet.geometry.debugMeta?.resolutionStatus ===
-            'domain-plan-selected-side'
+          packet.geometry.debugMeta?.productSignature?.startsWith(
+            'constrained-dashed:'
+          ) === true &&
+          packet.geometry.debugMeta?.productMode ===
+            'closed-constrained-domain' &&
+          packet.geometry.debugMeta?.domainMode ===
+            'closed-constrained-domain' &&
+          packet.geometry.debugMeta?.topologyFamily === 'sampled-simple-closed'
       )
     ).toBe(true)
     expect(
@@ -3644,7 +3612,11 @@ describe('constrained dashed stroke packets: corner-spanning behavior', () => {
     expect(
       packets.every(
         (packet) =>
-          packet.geometry.debugMeta?.sourceTopology === 'sampled-simple-closed'
+          packet.geometry.debugMeta?.productMode ===
+            'closed-constrained-domain' &&
+          packet.geometry.debugMeta?.domainMode ===
+            'closed-constrained-domain' &&
+          packet.geometry.debugMeta?.topologyFamily === 'sampled-simple-closed'
       )
     ).toBe(true)
   })

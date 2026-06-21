@@ -1,19 +1,62 @@
-import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { beforeAll, describe, expect, it } from 'vitest'
+import Clipper2ZFactory from 'clipper2-wasm'
 import {
   StrokeCapTypes,
   StrokeJoinTypes,
   createDefaultStroke
 } from '@asyra/utils'
-import { buildConstrainedDashedStrokeResolvedPackets } from '../components/stroke-render/constrained-dashed-stroke-packets'
+import {
+  buildConstrainedDashedStrokeResolvedPackets,
+  getConstrainedDashedVisibleIntervals
+} from '../components/stroke-render/constrained-dashed-stroke-packets'
 import { buildConstrainedSolidStrokeResolvedPackets } from '../components/stroke-render/constrained-solid-stroke-packets'
 import { buildDashedCenterStrokeResolvedPackets } from '../components/stroke-render/dashed-center-stroke-packets'
+import { buildPolylineGeometryModelPath } from '../components/stroke-render/path-geometry'
 import { buildPathTopologyModel } from '../components/stroke-render/path-topology-model'
+import { buildResolvedVectorGeometryModel } from '../components/stroke-render/resolved-vector-geometry-model'
+import { resolveSourceFamily } from '../components/stroke-render/resolved-source-family'
 import { buildSolidCenterStrokeResolvedPackets } from '../components/stroke-render/solid-center-stroke-packets'
+import { resolveStrokeDomains } from '../components/stroke-render/stroke-domain-plan'
+import {
+  createClipper2GeometryBackend,
+  type Clipper2Module
+} from '../components/stroke-render/clipper2-geometry-backend'
+import {
+  registerGeometryBackend,
+  selectGeometryBackend
+} from '../components/stroke-render/geometry-backend'
 
 interface Vec2 {
   x: number
   y: number
 }
+
+const require = createRequire(import.meta.url)
+const clipperWasmPath = require.resolve('clipper2-wasm/dist/umd/clipper2z.wasm')
+
+const loadClipperModule = async () =>
+  (await (
+    Clipper2ZFactory as (options: {
+      wasmBinary: Uint8Array
+    }) => Promise<Clipper2Module>
+  )({
+    wasmBinary: readFileSync(clipperWasmPath)
+  })) as Clipper2Module
+
+beforeAll(async () => {
+  const backendId = 'clipper2-stroke-performance-contract-test'
+  const backend = createClipper2GeometryBackend(await loadClipperModule(), {
+    backendId,
+    backendVersion: `${backendId}@test`
+  })
+  registerGeometryBackend({
+    backendId,
+    load: () => backend
+  })
+  selectGeometryBackend(backendId)
+})
 
 const FRAME_COUNT = 300
 const WARMUP_FRAMES = 20
@@ -173,7 +216,7 @@ const buildSelfIntersectingStarPoints = (
     x: (index % 4) * 84 + Math.sin(frame / 32 + index) * 0.8,
     y: Math.floor(index / 4) * 84 + Math.cos(frame / 29 + index) * 0.8
   }
-  const radius = 34
+  const radius = 96
   const outerPoints = Array.from({ length: 5 }, (_, pointIndex) => {
     const angle = -Math.PI / 2 + (Math.PI * 2 * pointIndex) / 5
     return {
@@ -183,6 +226,45 @@ const buildSelfIntersectingStarPoints = (
   })
 
   return [0, 2, 4, 1, 3].map((pointIndex) => outerPoints[pointIndex])
+}
+
+const buildSelfIntersectingDomainOptions = (
+  points: Vec2[],
+  ids: {
+    pathId: string
+    sourceId: string
+    networkId: string
+  }
+) => {
+  const sourcePath = buildPolylineGeometryModelPath(points, true)
+  const topology = buildPathTopologyModel({
+    pathId: ids.pathId,
+    sourceId: ids.sourceId,
+    networkId: ids.networkId,
+    sourceFamily: 'vector',
+    points: sourcePath.sampledPoints,
+    closed: true
+  })
+  const resolvedGeometry = buildResolvedVectorGeometryModel({
+    modelId: `${topology.pathId}:resolved-geometry`,
+    fillRule: topology.fillRule,
+    networks: [
+      {
+        networkId: topology.networkId,
+        path: sourcePath,
+        topology
+      }
+    ]
+  })
+  const selfIntersecting = resolvedGeometry.networks[0]?.selfIntersecting
+
+  return {
+    topology,
+    sourcePath,
+    implicitFillRegions: selfIntersecting?.fillRegions ?? [],
+    sharedSourceSplitRanges: selfIntersecting?.sourceSplitRanges ?? [],
+    sharedStrokeBoundaryDomains: selfIntersecting?.strokeBoundaryDomains ?? []
+  }
 }
 
 const buildQ8SinePoints = (frame: number, offsetX: number, offsetY: number) => {
@@ -316,6 +398,14 @@ const assertPerformanceContract = (metrics: {
   )
   expect(metrics.p95OperationMs).toBeLessThanOrEqual(FLOOR_OPERATION_MS)
 }
+
+const formatTopTotals = (totals: Record<string, number>, limit = 12) =>
+  Object.fromEntries(
+    Object.entries(totals)
+      .sort((left, right) => right[1] - left[1])
+      .slice(0, limit)
+      .map(([key, value]) => [key, Number(value.toFixed(3))])
+  )
 
 describe('stroke performance contract', () => {
   it('should run: keep 100 moving open points above the declared operation target and floor', () => {
@@ -544,38 +634,178 @@ describe('stroke performance contract', () => {
   it('should run: keep many self-intersecting star networks above the declared performance floor', () => {
     let topologyBuildCount = 0
     let invalidFrameCount = 0
-    const starCount = 12
-    const metrics = measureFrames((frame) => {
-      for (let index = 0; index < starCount; index += 1) {
-        const points = buildSelfIntersectingStarPoints(frame, index)
-        const topology = buildPathTopologyModel({
-          pathId: `benchmark:self-star:${index}`,
-          sourceId: 'benchmark:self-stars',
-          networkId: `self-star-${index}`,
-          sourceFamily: 'vector',
-          points,
-          closed: true
-        })
-        topologyBuildCount += 1
-        const packets = buildConstrainedDashedStrokeResolvedPackets(
-          `benchmark:self-star:${index}:dashed`,
-          points,
-          true,
-          [dashedStroke],
-          { topology }
-        )
-
-        if (
-          topology.topologyFamily !== 'self-intersecting' ||
-          packets.length === 0
-        ) {
-          invalidFrameCount += 1
-        }
+    const phaseTotals: Record<string, number> = {}
+    const counterTotals: Record<string, number> = {}
+    const previousPhaseSink = (
+      globalThis as typeof globalThis & {
+        __asyraVectorRenderPhaseSink?: (
+          phaseName: string,
+          durationMs: number
+        ) => void
       }
-    })
+    ).__asyraVectorRenderPhaseSink
+    const previousCounterSink = (
+      globalThis as typeof globalThis & {
+        __asyraStrokePipelineCounterSink?: (
+          counterName: string,
+          value: number
+        ) => void
+      }
+    ).__asyraStrokePipelineCounterSink
+    let firstInvalidDebug: {
+      frame: number
+      index: number
+      topologyFamily: string
+      fillRegions: number
+      sourceSplitRanges: number
+      strokeBoundaryDomains: number
+      domainMode: string | null
+      intervalDomainKind: string
+      splitRangeDomains: number
+      domainDiagnostics: string[]
+      visibleIntervals: number
+      packetCount: number
+    } | null = null
+    const starCount = 12
+    ;(
+      globalThis as typeof globalThis & {
+        __asyraVectorRenderPhaseSink?: (
+          phaseName: string,
+          durationMs: number
+        ) => void
+      }
+    ).__asyraVectorRenderPhaseSink = (phaseName, durationMs) => {
+      phaseTotals[phaseName] = (phaseTotals[phaseName] ?? 0) + durationMs
+    }
+    ;(
+      globalThis as typeof globalThis & {
+        __asyraStrokePipelineCounterSink?: (
+          counterName: string,
+          value: number
+        ) => void
+      }
+    ).__asyraStrokePipelineCounterSink = (counterName, value) => {
+      counterTotals[counterName] = (counterTotals[counterName] ?? 0) + value
+    }
+
+    const metrics = (() => {
+      try {
+        return measureFrames((frame) => {
+          for (let index = 0; index < starCount; index += 1) {
+            const points = buildSelfIntersectingStarPoints(frame, index)
+            const domainOptions = buildSelfIntersectingDomainOptions(points, {
+              pathId: `benchmark:self-star:${index}`,
+              sourceId: 'benchmark:self-stars',
+              networkId: `self-star-${index}`
+            })
+            const topology = domainOptions.topology
+            topologyBuildCount += 1
+            const packets = buildConstrainedDashedStrokeResolvedPackets(
+              `benchmark:self-star:${index}:dashed`,
+              points,
+              true,
+              [dashedStroke],
+              {
+                topology,
+                clipInsideToFillDomain: true,
+                ...domainOptions
+              }
+            )
+
+            if (
+              topology.topologyFamily !== 'self-intersecting' ||
+              packets.length === 0
+            ) {
+              if (!firstInvalidDebug) {
+                const domainOptions = buildSelfIntersectingDomainOptions(
+                  points,
+                  {
+                    pathId: `benchmark:self-star:${index}`,
+                    sourceId: 'benchmark:self-stars',
+                    networkId: `self-star-${index}`
+                  }
+                )
+                const strokeDomainPlan = resolveStrokeDomains({
+                  topology: domainOptions.topology,
+                  sourceFamily: resolveSourceFamily({
+                    topology: domainOptions.topology,
+                    stroke: dashedStroke
+                  }),
+                  stroke: dashedStroke,
+                  sourcePath: domainOptions.sourcePath,
+                  implicitFillRegions: domainOptions.implicitFillRegions,
+                  sharedSourceSplitRanges:
+                    domainOptions.sharedSourceSplitRanges,
+                  sharedStrokeBoundaryDomains:
+                    domainOptions.sharedStrokeBoundaryDomains
+                })
+                const visibleIntervals = getConstrainedDashedVisibleIntervals(
+                  domainOptions.topology,
+                  dashedStroke,
+                  domainOptions.sourcePath,
+                  strokeDomainPlan
+                )
+                firstInvalidDebug = {
+                  frame,
+                  index,
+                  topologyFamily: topology.topologyFamily,
+                  fillRegions: domainOptions.implicitFillRegions.length,
+                  sourceSplitRanges:
+                    domainOptions.sharedSourceSplitRanges.length,
+                  strokeBoundaryDomains:
+                    domainOptions.sharedStrokeBoundaryDomains.length,
+                  domainMode: strokeDomainPlan.domainMode,
+                  intervalDomainKind: strokeDomainPlan.intervalDomainKind,
+                  splitRangeDomains: strokeDomainPlan.splitRangeDomains.length,
+                  domainDiagnostics: strokeDomainPlan.diagnostics,
+                  visibleIntervals: visibleIntervals.length,
+                  packetCount: packets.length
+                }
+              }
+              invalidFrameCount += 1
+            }
+          }
+        })
+      } finally {
+        ;(
+          globalThis as typeof globalThis & {
+            __asyraVectorRenderPhaseSink?: (
+              phaseName: string,
+              durationMs: number
+            ) => void
+          }
+        ).__asyraVectorRenderPhaseSink = previousPhaseSink
+        ;(
+          globalThis as typeof globalThis & {
+            __asyraStrokePipelineCounterSink?: (
+              counterName: string,
+              value: number
+            ) => void
+          }
+        ).__asyraStrokePipelineCounterSink = previousCounterSink
+      }
+    })()
+    const performanceDebug = {
+      firstInvalidDebug,
+      metrics: {
+        averageOperationsPerSecond: Number(
+          metrics.averageOperationsPerSecond.toFixed(3)
+        ),
+        p95OperationMs: Number(metrics.p95OperationMs.toFixed(3))
+      },
+      topPhases: formatTopTotals(phaseTotals),
+      topCounters: formatTopTotals(counterTotals)
+    }
 
     expect(topologyBuildCount).toBe(FRAME_COUNT * starCount)
-    expect(invalidFrameCount).toBe(0)
-    assertPerformanceContract(metrics)
+    expect(invalidFrameCount, JSON.stringify(performanceDebug)).toBe(0)
+    expect(
+      metrics.averageOperationsPerSecond,
+      JSON.stringify(performanceDebug)
+    ).toBeGreaterThanOrEqual(TARGET_OPERATIONS_PER_SECOND)
+    expect(
+      metrics.p95OperationMs,
+      JSON.stringify(performanceDebug)
+    ).toBeLessThanOrEqual(FLOOR_OPERATION_MS)
   })
 })

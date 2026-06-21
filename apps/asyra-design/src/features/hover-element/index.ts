@@ -39,6 +39,12 @@ export const hoverElementRenderHoverFeature = defineFeature(
       const elementId = payload?.elementId
 
       if (elementId) {
+        const pathEditingVectorId = systemContextApis.getPathEditingVectorId()
+        if (pathEditingVectorId && elementId !== pathEditingVectorId) {
+          systemContextApis.updateHoveredElementId(null)
+          return { hoveredId: null }
+        }
+
         if (
           elementApis.isElementLocked(elementId) ||
           !elementApis.isElementVisible(elementId)

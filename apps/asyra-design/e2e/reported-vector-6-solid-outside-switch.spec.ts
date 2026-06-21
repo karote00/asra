@@ -635,26 +635,31 @@ test.describe('Reported Vector-6 Outside Solid Switch Regression', () => {
 
     const switchStartedAt = Date.now()
     await strokePositionSelect.selectOption('outside')
-    await page.waitForFunction(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      const selectedId =
-        core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
-      const renderElement = selectedId
-        ? core?.deps?.render?.getElementById?.(selectedId)
-        : null
-      const exportPackets =
-        renderElement?.__asyraSolidCenterStrokeExportPackets ?? []
+    await page.waitForFunction(
+      () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const selectedId =
+          core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+        const renderElement = selectedId
+          ? core?.deps?.render?.getElementById?.(selectedId)
+          : null
+        const exportPackets =
+          renderElement?.__asyraSolidCenterStrokeExportPackets ?? []
 
-      return (
-        exportPackets.length > 0 &&
-        exportPackets.every(
-          (packet: { debugMeta?: Record<string, unknown> }) =>
-            packet.debugMeta?.geometryFamily === 'constrained-solid' &&
-            packet.debugMeta?.strokePosition === 'outside'
+        return (
+          exportPackets.length > 0 &&
+          exportPackets.every(
+            (packet: { debugMeta?: Record<string, unknown> }) =>
+              packet.debugMeta?.productSignature?.startsWith(
+                'constrained-solid:'
+              ) === true && packet.debugMeta?.strokePosition === 'outside'
+          )
         )
-      )
-    })
+      },
+      undefined,
+      { timeout: 5_000 }
+    )
     const switchMs = Date.now() - switchStartedAt
     const packetSummary = await getSelectedSolidStrokeRenderPacketSummary(page)
 
@@ -739,10 +744,11 @@ test.describe('Reported Vector-6 Outside Solid Switch Regression', () => {
     expect(
       packetSummary.exportPacketDebugMeta.every(
         (debugMeta) =>
-          debugMeta.geometryFamily === 'constrained-solid' &&
-          debugMeta.resolutionStatus === 'exact-constrained' &&
-          debugMeta.runtimeStatus === 'accepted' &&
-          debugMeta.sourceTopology === 'self-intersecting' &&
+          debugMeta.productSignature?.startsWith('constrained-solid:') ===
+            true &&
+          debugMeta.productMode === 'closed-constrained-domain' &&
+          debugMeta.domainMode === 'closed-constrained-domain' &&
+          debugMeta.topologyFamily === 'self-intersecting' &&
           debugMeta.strokePosition === 'outside' &&
           debugMeta.domainPlanBoundaryRole === 'outer' &&
           debugMeta.domainPlanTerminalRole === undefined &&

@@ -4,15 +4,6 @@ import type {
 } from './path-topology-model'
 import type { RenderableStroke } from './renderable-stroke'
 
-export type ResolvedSourceSupportState =
-  | 'supported'
-  | 'simple-open-unbounded'
-  | 'blocked'
-
-export type ResolvedSourceBlockedReason =
-  | 'degenerate-topology'
-  | 'missing-legal-domain'
-
 export type StrokeProductFamilyStatus =
   | 'verified-slice'
   | 'unverified-reference'
@@ -45,8 +36,6 @@ export interface ResolvedSourceFamily {
   networkId: string
   sourceFamily: PathTopologyModel['sourceFamily']
   topologyFamily: PathTopologyFamily
-  supportState: ResolvedSourceSupportState
-  blockedReason?: ResolvedSourceBlockedReason
   productRuleEvidence: StrokeProductFamilyRuleEvidence
   legalDomainHints: {
     fillRule: PathTopologyModel['fillRule']
@@ -115,7 +104,7 @@ const resolveProductFamilyRuleEvidence = ({
       status: 'verified-slice',
       requiredForCompletion: true,
       evidence: [
-        'Simple open networks without bounded filled-region domains use the formal center product. Open self-intersecting networks are promoted by the stroke domain plan when resolved bounded domains exist.'
+        'Simple open networks without bounded filled-region domains use the formal simple-open center product. Open self-intersecting networks consume bounded-domain entries from the stroke domain plan when they exist.'
       ],
       gaps: []
     }
@@ -142,7 +131,7 @@ const resolveProductFamilyRuleEvidence = ({
     status: 'verified-slice',
     requiredForCompletion: true,
     evidence: [
-      'Current runtime has targeted support, projection, and visual evidence for this family slice.'
+      'Current runtime has targeted product projection and visual evidence for this family slice.'
     ],
     gaps: []
   }
@@ -181,42 +170,9 @@ export const resolveSourceFamily = ({
       compound,
       selfIntersecting
     }
-  } satisfies Omit<ResolvedSourceFamily, 'supportState' | 'blockedReason'>
+  } satisfies ResolvedSourceFamily
 
-  if (topology.topologyFamily === 'degenerate') {
-    return {
-      ...baseResult,
-      supportState: 'blocked',
-      blockedReason: 'degenerate-topology'
-    }
-  }
-
-  if (!isConstrainedPosition(stroke.position)) {
-    return {
-      ...baseResult,
-      supportState: 'supported'
-    }
-  }
-
-  if (!topology.closed) {
-    return {
-      ...baseResult,
-      supportState: 'simple-open-unbounded'
-    }
-  }
-
-  if (legalDomainIds.length === 0) {
-    return {
-      ...baseResult,
-      supportState: 'blocked',
-      blockedReason: 'missing-legal-domain'
-    }
-  }
-
-  return {
-    ...baseResult,
-    supportState: 'supported'
-  }
+  return baseResult
 }
 
 const MATRIX_FAMILY_SCOPES: StrokeProductFamilyScope[] = [

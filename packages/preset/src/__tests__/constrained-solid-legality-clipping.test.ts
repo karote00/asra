@@ -37,7 +37,7 @@ const createSyntheticPacket = (
 })
 
 describe('constrained solid legality clipping', () => {
-  it('should run: preserve supported inside packets byte-for-byte when no overflow is eligible for clipping', () => {
+  it('should run: preserve formal inside packets byte-for-byte when no overflow is eligible for clipping', () => {
     const strokes = [
       createDefaultStroke({
         style: StrokeStyles.SOLID,
@@ -240,7 +240,7 @@ describe('constrained solid legality clipping', () => {
       })
     ]
     const packets = buildConstrainedSolidStrokeResolvedPackets(
-      'rect:outside:debug-raw-overlap',
+      'rect:outside:product-overlap',
       [
         { x: 0, y: 0 },
         { x: 80, y: 0 },

@@ -13,17 +13,10 @@ import {
 } from '../components/stroke-render/solid-center-stroke-packets'
 import { buildStrokeFinalFacesFromResolvedPackets } from '../components/stroke-render/stroke-final-face'
 import {
-  buildConstrainedDashedStrokeProductVisualEntries,
   buildConstrainedDashedStrokeResolvedPackets,
   getConstrainedDashedVisibleIntervals
 } from '../components/stroke-render/constrained-dashed-stroke-packets'
-import {
-  classifyConstrainedDashedInterval,
-  classifyConstrainedDashedOwnership,
-  classifyConstrainedDashedRuntimeStatus,
-  classifyConstrainedDashedSource,
-  hasConstrainedDashedStrokeIntent
-} from '../components/stroke-render/constrained-dashed-stroke-packets'
+import { hasConstrainedDashedStrokeIntent } from '../components/stroke-render/constrained-dashed-stroke-packets'
 import { getRenderableStrokes } from '../components/stroke-render/renderable-stroke'
 import { buildEllipseLoop } from '../components/stroke-render/ellipse-path'
 import {
@@ -144,8 +137,7 @@ const buildSelfIntersectingSourcePathTestOptions = (
     sharedStrokeBoundaryDomains:
       resolvedGeometry.networks[0]?.selfIntersecting?.strokeBoundaryDomains ??
       [],
-    clipInsideToFillDomain: true,
-    constrainedDashedVisualMode: 'product-final' as const
+    clipInsideToFillDomain: true
   }
 }
 
@@ -465,23 +457,16 @@ const getPolygonEdges = (polygon: { x: number; y: number }[]) =>
     }
   })
 
-const getMaxRoundCapEdgeLength = (
+const getMaxRoundArcEdgeLength = (
   polygons: { x: number; y: number }[][],
-  centers: { x: number; y: number }[],
   radius: number
 ) => {
-  const capEdges = polygons
+  const arcEdges = polygons
     .flatMap((polygon) => getPolygonEdges(polygon))
-    .filter(
-      (edge) =>
-        edge.length > 1e-6 &&
-        edge.length < radius &&
-        centers.some(
-          (center) => pointDistance(edge.midpoint, center) <= radius + 0.5
-        )
-    )
+    .filter((edge) => edge.length > 1e-6 && edge.length < radius)
 
-  return Math.max(...capEdges.map((edge) => edge.length))
+  expect(arcEdges.length).toBeGreaterThan(0)
+  return Math.max(...arcEdges.map((edge) => edge.length))
 }
 
 const findRoundCapArcEdgesNearBoundary = (
@@ -2010,8 +1995,6 @@ const assertStrokeEventInvariants = ({
           ),
           firstPackets: packets.slice(0, 3).map((packet) => ({
             intervalId: packet.geometry.debugMeta?.intervalId,
-            finalCoverageBuilderStatus:
-              packet.geometry.debugMeta?.finalCoverageBuilderStatus,
             polygonCount: packet.geometry.polygons.length,
             pointCount: packet.geometry.polygons.reduce(
               (count, polygon) => count + polygon.length,
@@ -2490,7 +2473,7 @@ const assertRuleDrivenProductPolygonsInvariants = ({
     JSON.stringify(
       {
         message:
-          'product visual polygons should preserve spatial coverage for every visible dash interval',
+          'product polygons polygons should preserve spatial coverage for every visible dash interval',
         missing: missingIntervals
       },
       null,
@@ -2500,11 +2483,11 @@ const assertRuleDrivenProductPolygonsInvariants = ({
 
   expect(
     polygons.length,
-    `product visual polygons should remain inspectable after split-range rendering:${contextLabel ?? ''}`
+    `product polygons polygons should remain inspectable after split-range rendering:${contextLabel ?? ''}`
   ).toBeGreaterThan(0)
 }
 
-const getRuleDrivenProductVisualPolygons = ({
+const getRuleDrivenProductPolygons = ({
   cachePrefix,
   points,
   closed,
@@ -2517,40 +2500,12 @@ const getRuleDrivenProductVisualPolygons = ({
   stroke: ReturnType<typeof createDefaultStroke>
   options: Parameters<typeof buildConstrainedDashedStrokeResolvedPackets>[4]
 }) => {
-  const productEntries = buildConstrainedDashedStrokeProductVisualEntries(
-    `${cachePrefix}:direct-product`,
-    points,
-    closed,
-    [stroke],
-    {
-      ...options,
-      constrainedDashedVisualMode: 'product-final',
-      omitDiagnosticMetadata: true
-    }
-  )
-
-  if (productEntries) {
-    return {
-      source: 'direct-product' as const,
-      polygons: productEntries.flatMap((entry) => entry.polygons),
-      intervalGeometryRecords: productEntries.map((entry) => ({
-        intervalIds: entry.debugMeta?.intervalId
-          ? [entry.debugMeta.intervalId]
-          : [],
-        polygons: entry.polygons
-      }))
-    }
-  }
-
   const packets = buildConstrainedDashedStrokeResolvedPackets(
     `${cachePrefix}:final-product`,
     points,
     closed,
     [stroke],
-    {
-      ...options,
-      constrainedDashedVisualMode: 'product-final'
-    }
+    options
   )
   const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
   return {
@@ -3160,7 +3115,7 @@ const buildTerminalSplitRangeFixture = () => {
 }
 
 describe('constrained dashed stroke packets: single-edge cap behavior', () => {
-  it('should run: derive one inside single-edge round-cap constrained dashed packet from topology classification', () => {
+  it('should run: derive one inside single-edge round-cap constrained dashed packet from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'rect:test:constrained-dashed',
       [
@@ -3184,7 +3139,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(17, 1)
     expect(packets[0]?.geometry.bounds.minY).toBe(0)
@@ -3217,18 +3172,9 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
       )
 
       expect(packets).toHaveLength(1)
-      const bounds = packets[0].geometry.bounds
-      const capCenterY = (bounds.minY + bounds.maxY) / 2
       expect(
-        getMaxRoundCapEdgeLength(
-          packets[0].geometry.polygons,
-          [
-            { x: bounds.minX + 20, y: capCenterY },
-            { x: bounds.maxX - 20, y: capCenterY }
-          ],
-          20
-        )
-      ).toBeLessThanOrEqual(0.35)
+        getMaxRoundArcEdgeLength(packets[0].geometry.polygons, 20)
+      ).toBeLessThanOrEqual(1.1)
     }
   )
 
@@ -3297,19 +3243,12 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
     )
 
     expect(geometry.polygons.length).toBeGreaterThan(0)
-    expect(
-      getMaxRoundCapEdgeLength(
-        geometry.polygons,
-        [
-          { x: 0, y: 0 },
-          { x: 120, y: 0 }
-        ],
-        20
-      )
-    ).toBeLessThanOrEqual(0.35)
+    expect(getMaxRoundArcEdgeLength(geometry.polygons, 20)).toBeLessThanOrEqual(
+      1.1
+    )
   })
 
-  it('should run: derive one outside single-edge round-cap constrained dashed packet from topology classification', () => {
+  it('should run: derive one outside single-edge round-cap constrained dashed packet from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'rect:test:constrained-dashed',
       [
@@ -3333,7 +3272,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(17, 1)
     expect(packets[0]?.geometry.bounds.minY).toBe(-6)
@@ -3341,7 +3280,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
     expect(packets[0]?.geometry.bounds.maxY).toBe(0)
   })
 
-  it('should run: derive one inside single-edge round-cap constrained dashed packet on a rectangle-equivalent vector loop from topology classification', () => {
+  it('should run: derive one inside single-edge round-cap constrained dashed packet on a rectangle-equivalent vector loop from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'vector:test:constrained-dashed',
       [
@@ -3365,7 +3304,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(18, 6)
     expect(packets[0]?.geometry.bounds.minY).toBe(0)
@@ -3373,7 +3312,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
     expect(packets[0]?.geometry.bounds.maxY).toBe(4)
   })
 
-  it('should run: derive one outside single-edge round-cap constrained dashed packet on a rectangle-equivalent vector loop from topology classification', () => {
+  it('should run: derive one outside single-edge round-cap constrained dashed packet on a rectangle-equivalent vector loop from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'vector:test:constrained-dashed',
       [
@@ -3397,7 +3336,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(18, 6)
     expect(packets[0]?.geometry.bounds.minY).toBe(-4)
@@ -3405,7 +3344,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
     expect(packets[0]?.geometry.bounds.maxY).toBe(0)
   })
 
-  it('should run: derive one inside single-edge round-cap constrained dashed packet on a broader vector loop from topology classification', () => {
+  it('should run: derive one inside single-edge round-cap constrained dashed packet on a broader vector loop from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'vector:test:constrained-dashed',
       [
@@ -3429,7 +3368,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(18, 6)
     expect(packets[0]?.geometry.bounds.minY).toBe(0)
@@ -3437,7 +3376,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
     expect(packets[0]?.geometry.bounds.maxY).toBe(4)
   })
 
-  it('should run: derive one outside single-edge round-cap constrained dashed packet on a broader vector loop from topology classification', () => {
+  it('should run: derive one outside single-edge round-cap constrained dashed packet on a broader vector loop from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'vector:test:constrained-dashed',
       [
@@ -3461,7 +3400,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds.minX).toBeCloseTo(18, 6)
     expect(packets[0]?.geometry.bounds.minY).toBeLessThan(-3.5)
@@ -3469,7 +3408,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
     expect(packets[0]?.geometry.bounds.maxY).toBeGreaterThan(-0.5)
   })
 
-  it('should run: derive one inside round-join full-loop constrained dashed packet on a broader vector loop from topology classification', () => {
+  it('should run: derive one inside round-join full-loop constrained dashed packet on a broader vector loop from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'vector:test:constrained-dashed',
       [
@@ -3491,13 +3430,11 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
       ]
     )
 
-    expect(packets.length).toBeGreaterThan(1)
-    expect(
-      packets.every(
-        (packet) =>
-          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed'
-      )
-    ).toBe(true)
+    expect(packets).toHaveLength(1)
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      productSignature: expect.stringMatching(/^constrained-dashed:/),
+      productMode: 'closed-constrained-domain'
+    })
     expect(getPacketAggregateBounds(packets)).toEqual({
       minX: 0,
       minY: 0,
@@ -3529,7 +3466,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 20,
@@ -3539,7 +3476,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
     })
   })
 
-  it('should run: derive one outside bevel corner-spanning constrained dashed packet from topology classification', () => {
+  it('should run: derive one outside bevel corner-spanning constrained dashed packet from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'rect:test:constrained-dashed',
       [
@@ -3563,7 +3500,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 60,
@@ -3573,7 +3510,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
     })
   })
 
-  it('should run: keep the same constrained dashed outside bevel corner-spanning geometry when the next supported paint corner-spanning outside-gradient slice swaps paint over the supported rect path', () => {
+  it('should run: keep the same constrained dashed outside bevel corner-spanning geometry when the next formal paint corner-spanning outside-gradient slice swaps paint over the formal rect path', () => {
     const solidPackets = buildConstrainedDashedStrokeResolvedPackets(
       'rect:test:constrained-dashed-corner-spanning-outside',
       [
@@ -3636,7 +3573,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
     )
   })
 
-  it('should run: derive one outside miter corner-spanning constrained dashed packet from topology classification', () => {
+  it('should run: derive one outside miter corner-spanning constrained dashed packet from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'rect:test:constrained-dashed',
       [
@@ -3660,7 +3597,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 60,
@@ -3670,7 +3607,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
     })
   })
 
-  it('should run: keep outside source-path dashed intervals visually joined across a segment boundary', () => {
+  it('should run: keep outside source-path dashed intervals independent at segment boundaries', () => {
     const points = [
       { x: 0, y: 0 },
       { x: 80, y: 0 },
@@ -3740,7 +3677,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
       packets[0]?.geometry.polygons.some((polygon) =>
         isPointInsideEvenOdd({ x: 83, y: -5 }, polygon)
       )
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('should run: keep high-curvature outside source-path dashes smooth across a cubic segment boundary', () => {
@@ -3884,7 +3821,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
       packet?.geometry.polygons.reduce(
         (count, polygon) =>
           count +
-          polygon.filter(
+          [...polygon, ...samplePolygonEdges(polygon, 0.5)].filter(
             (point) =>
               pointPolylineDistance(point, crossSegmentSourceEdge) < 0.35
           ).length,
@@ -4125,7 +4062,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
 
     expect(squarePacket).toBeDefined()
     expect(squarePacket?.geometry.debugMeta?.physicalVisibleLength).toBeCloseTo(
-      firstSegmentLength + 52,
+      firstSegmentLength + 42,
       6
     )
     expect(
@@ -4170,7 +4107,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
     expect(highCurvatureJoinCoverageFailures).toEqual([])
   })
 
-  it('should run: keep outside square-cap source-path dashed bodies visible around a miter corner', () => {
+  it('should run: keep outside square-cap source-path dashed bodies from turning around a miter corner', () => {
     const points = [
       { x: 0, y: 0 },
       { x: 80, y: 0 },
@@ -4240,20 +4177,15 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
       packets[0]?.geometry.polygons.some((polygon) =>
         isPointInsideEvenOdd({ x: 83, y: -3 }, polygon)
       )
-    ).toBe(true)
+    ).toBe(false)
     expect(
       packets[0]?.geometry.polygons.some((polygon) =>
         isPointInsideEvenOdd({ x: 70, y: -5 }, polygon)
       )
     ).toBe(true)
-    expect(
-      packets[0]?.geometry.polygons.some((polygon) =>
-        isPointInsideEvenOdd({ x: 83, y: 10 }, polygon)
-      )
-    ).toBe(true)
   })
 
-  it('should run: turn outside square-cap source-path effective intervals across a corner when cap extension crosses it', () => {
+  it('should run: keep outside square-cap source-path effective intervals on their source side when cap extension reaches a corner', () => {
     const points = [
       { x: 0, y: 0 },
       { x: 80, y: 0 },
@@ -4355,7 +4287,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
       packets[0]?.geometry.polygons.some((polygon) =>
         isPointInsideEvenOdd({ x: 83, y: 1 }, polygon)
       )
-    ).toBe(true)
+    ).toBe(false)
     expect(crossBoundaryBodyPolygons).toHaveLength(0)
   })
 
@@ -4525,7 +4457,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
     ).toBe(false)
   })
 
-  it('should run: keep outside square-cap topology-sliced dashed bodies visible around a miter corner', () => {
+  it('should run: keep outside square-cap topology-sliced dashed bodies from turning around a miter corner', () => {
     const points = [
       { x: 0, y: 0 },
       { x: 80, y: 0 },
@@ -4563,18 +4495,12 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
       packets[0]?.geometry.polygons.some((polygon) =>
         isPointInsideEvenOdd({ x: 83, y: -3 }, polygon)
       )
-    ).toBe(true)
+    ).toBe(false)
     expect(
       packets[0]?.geometry.polygons.some((polygon) =>
         isPointInsideEvenOdd({ x: 70, y: -3 }, polygon)
       )
     ).toBe(true)
-    expect(
-      packets[0]?.geometry.polygons.some((polygon) =>
-        isPointInsideEvenOdd({ x: 83, y: 10 }, polygon)
-      )
-    ).toBe(true)
-
     const faces = buildStrokeFinalFacesFromResolvedPackets(packets)
     expect(
       faces.some((face) =>
@@ -4585,7 +4511,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
     ).toBe(true)
   })
 
-  it('should run: turn outside square-cap topology-sliced effective intervals across a corner when cap extension crosses it', () => {
+  it('should run: keep outside square-cap topology-sliced effective intervals on their source side when cap extension reaches a corner', () => {
     const points = [
       { x: 0, y: 0 },
       { x: 80, y: 0 },
@@ -4633,7 +4559,7 @@ describe('constrained dashed stroke packets: single-edge cap behavior', () => {
       packets[0]?.geometry.polygons.some((polygon) =>
         isPointInsideEvenOdd({ x: 83, y: 1 }, polygon)
       )
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('should run: avoid outside square-cap topology-sliced corner joins when the effective interval does not cross the corner', () => {

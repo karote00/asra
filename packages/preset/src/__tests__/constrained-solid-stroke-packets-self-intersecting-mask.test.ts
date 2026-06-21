@@ -4637,10 +4637,14 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
     expect(
       packets.every(
         (packet) =>
-          packet.geometry.debugMeta?.geometryFamily === 'constrained-solid' &&
-          packet.geometry.debugMeta?.sourceTopology === 'self-intersecting' &&
-          packet.geometry.debugMeta?.resolutionStatus === 'exact-constrained' &&
-          packet.geometry.debugMeta?.runtimeStatus === 'accepted' &&
+          packet.geometry.debugMeta?.productSignature?.startsWith(
+            'constrained-solid:'
+          ) === true &&
+          packet.geometry.debugMeta?.productMode ===
+            'closed-constrained-domain' &&
+          packet.geometry.debugMeta?.domainMode ===
+            'closed-constrained-domain' &&
+          packet.geometry.debugMeta?.topologyFamily === 'self-intersecting' &&
           packet.geometry.debugMeta?.domainPlanSideAuthority ===
             'implicit-fill-hole-domain'
       )
@@ -4709,8 +4713,14 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
           (entry.strokeMaskPolygons?.length ?? 0) === 0 &&
           (entry.fillPolygons?.length ?? 0) === 0 &&
           (entry.clipPolygons?.length ?? 0) > 0 &&
-          entry.debugMeta === undefined &&
-          entry.runtimeMeta?.geometryFamily === 'constrained-solid'
+          entry.debugMeta?.productMode === 'closed-constrained-domain' &&
+          entry.debugMeta?.domainMode === 'closed-constrained-domain' &&
+          entry.debugMeta?.productSignature?.startsWith(
+            'constrained-solid:'
+          ) === true &&
+          entry.runtimeMeta?.productSignature?.startsWith(
+            'constrained-solid:'
+          ) === true
       ),
       JSON.stringify(
         renderEntries.map((entry) => ({
@@ -5106,7 +5116,9 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
           packet.geometry.debugMeta?.domainPlanBoundaryRole === 'outer' &&
           packet.geometry.debugMeta?.domainPlanSelectedSide ===
             packet.geometry.debugMeta?.domainPlanUnfilledSide &&
-          packet.geometry.debugMeta?.resolutionStatus === 'exact-constrained'
+          packet.geometry.debugMeta?.productMode ===
+            'closed-constrained-domain' &&
+          packet.geometry.debugMeta?.domainMode === 'closed-constrained-domain'
       )
     ).toBe(true)
     expect(packets.some(solidPacketCarriesSourceVertexProvenance)).toBe(true)
@@ -5271,10 +5283,14 @@ describe('constrained solid stroke packets: self-intersecting mask model', () =>
       expect(
         packets.every(
           (packet) =>
-            packet.geometry.debugMeta?.geometryFamily === 'constrained-solid' &&
-            packet.geometry.debugMeta?.resolutionStatus ===
-              'exact-constrained' &&
-            packet.geometry.debugMeta?.sourceTopology === 'self-intersecting'
+            packet.geometry.debugMeta?.productSignature?.startsWith(
+              'constrained-solid:'
+            ) === true &&
+            packet.geometry.debugMeta?.productMode ===
+              'closed-constrained-domain' &&
+            packet.geometry.debugMeta?.domainMode ===
+              'closed-constrained-domain' &&
+            packet.geometry.debugMeta?.topologyFamily === 'self-intersecting'
         )
       ).toBe(true)
       expect(packets.some(solidPacketHasDashedTerminalMetadata)).toBe(false)

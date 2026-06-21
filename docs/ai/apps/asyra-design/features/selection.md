@@ -20,8 +20,8 @@
   - this prevents selecting non-editing elements while path editing is active
 - if drag start is on an unlocked element (selected or not), move ownership is handled by `move-elements` (higher-priority exclusive feature)
 - if drag start is inside the current selection bounds, move ownership is handled by `move-elements` (even if the hit-test target is unselected)
-- resolves hovered element id from render hover state, with renderer geometry
-  hit-test fallback on drag start
+- resolves hovered element id from render hover state, and may confirm the
+  drag-start target with renderer geometry hit testing
 - locked or hidden elements are ignored for canvas click selection
 - with Shift: toggle selection
 - without Shift: replace selection

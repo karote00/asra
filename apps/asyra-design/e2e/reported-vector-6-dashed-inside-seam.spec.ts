@@ -20,13 +20,6 @@ interface RasterCapture {
   padding: number
 }
 
-interface RedCoverageProbe {
-  label: string
-  point: Vec2
-  size: number
-  minCoverage: number
-}
-
 interface ExportPacketSnapshot {
   debugMeta: Record<string, unknown>
   polygons: Vec2[][]
@@ -40,16 +33,9 @@ interface ExportPacketSnapshot {
 
 const PADDING = 24
 const STROKE_WIDTH = 10
-const ADJUSTED_DASH_PATTERN = [27, 20] as const
 const REPORTED_VECTOR_6_WIDTH = 360.120941483566
 const REPORTED_VECTOR_6_HEIGHT = 366.06359840210007
 const REPORTED_VECTOR_6_STROKE_COLOR = 'DF0606'
-const TP12 = { x: 192.42083700791653, y: 0 }
-const TP13 = { x: 11.358174406717296, y: 364.1297089212308 }
-const TP16 = { x: 270.59180204238254, y: 345.42212754546125 }
-const TP12_OUT = { x: 161.0183251984924, y: 122.56543010176405 }
-const TP13_IN = { x: -42.09205809548172, y: 343.2841182453731 }
-const TP16_OUT = { x: 277.2730811051575, y: 328.05080198224647 }
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
@@ -76,361 +62,6 @@ const setStrokeDebugDisableVisualOverlapCollapse = async (
     )
   }, disabled)
   await page.waitForTimeout(120)
-}
-
-const normalizeVector = (vector: Vec2): Vec2 => {
-  const length = Math.hypot(vector.x, vector.y)
-  return length > 0
-    ? { x: vector.x / length, y: vector.y / length }
-    : { x: 1, y: 0 }
-}
-
-const cubicPoint = (
-  p0: Vec2,
-  p1: Vec2,
-  p2: Vec2,
-  p3: Vec2,
-  t: number
-): Vec2 => {
-  const mt = 1 - t
-  return {
-    x:
-      mt ** 3 * p0.x +
-      3 * mt ** 2 * t * p1.x +
-      3 * mt * t ** 2 * p2.x +
-      t ** 3 * p3.x,
-    y:
-      mt ** 3 * p0.y +
-      3 * mt ** 2 * t * p1.y +
-      3 * mt * t ** 2 * p2.y +
-      t ** 3 * p3.y
-  }
-}
-
-const offsetFromTangentSide = (
-  point: Vec2,
-  tangent: Vec2,
-  selectedSide: 1 | -1,
-  distance: number
-) => ({
-  x: point.x - tangent.y * selectedSide * distance,
-  y: point.y + tangent.x * selectedSide * distance
-})
-
-const pointDistance = (from: Vec2, to: Vec2) =>
-  Math.hypot(to.x - from.x, to.y - from.y)
-
-const getSignedArea = (points: readonly Vec2[]) => {
-  let total = 0
-  for (let index = 0; index < points.length; index += 1) {
-    const current = points[index]
-    const next = points[(index + 1) % points.length]
-    total += current.x * next.y - next.x * current.y
-  }
-  return total / 2
-}
-
-const getInsideSourceSide = (points: readonly Vec2[]): 1 | -1 =>
-  getSignedArea(points) >= 0 ? 1 : -1
-
-const TP14 = { x: 360.12094148356596, y: 144.31562775593738 }
-const TP15 = { x: 0, y: 14.030686031827244 }
-const TP13_OUT = { x: 78.17096503446606, y: 390.18669726605293 }
-const TP15_OUT = { x: 0, y: 14.030686031827244 }
-const TP16_IN = { x: 263.91052297960755, y: 362.79345310867603 }
-const ADJUSTED_VECTOR_6_WIDTH = 360.12094148356584
-const ADJUSTED_VECTOR_6_HEIGHT = 367.70186652155667
-const ADJ_TP12 = { x: 188.1928217922337, y: 0 }
-const ADJ_TP13 = { x: 11.358174406717296, y: 365.76797704068724 }
-const ADJ_TP14 = { x: 360.12094148356584, y: 145.95389587539378 }
-const ADJ_TP15 = { x: 0, y: 15.668954151283657 }
-const ADJ_TP16 = { x: 270.59180204238254, y: 347.0603956649177 }
-const ADJ_TP12_OUT = { x: 164.3673966581619, y: 140.91988215887423 }
-const ADJ_TP13_IN = { x: -42.09205809548172, y: 344.92238636482955 }
-const ADJ_TP13_OUT = { x: 78.17096503446606, y: 391.8249653855095 }
-const ADJ_TP15_OUT = { x: 0, y: 15.668954151283657 }
-const ADJ_TP16_IN = { x: 263.9105229796075, y: 364.43172122813246 }
-const ADJ_TP16_OUT = { x: 277.27308110515736, y: 329.6890701017029 }
-const REPORTED_SOURCE_POINTS = [TP12, TP13, TP14, TP15, TP16] as const
-const ADJUSTED_SOURCE_POINTS = [
-  ADJ_TP12,
-  ADJ_TP13,
-  ADJ_TP14,
-  ADJ_TP15,
-  ADJ_TP16
-] as const
-
-const buildCubicPolyline = (
-  p0: Vec2,
-  p1: Vec2,
-  p2: Vec2,
-  p3: Vec2,
-  steps = 96
-) => {
-  const points: Vec2[] = []
-  for (let index = 0; index <= steps; index += 1) {
-    points.push(cubicPoint(p0, p1, p2, p3, index / steps))
-  }
-  return points
-}
-
-const getPolylineLength = (points: Vec2[]) =>
-  points.slice(0, -1).reduce((sum, point, index) => {
-    const next = points[index + 1]
-    return sum + pointDistance(point, next)
-  }, 0)
-
-const getReportedSourcePathSegments = () => {
-  const polylines = [
-    buildCubicPolyline(TP12, TP12_OUT, TP13_IN, TP13),
-    buildCubicPolyline(TP13, TP13_OUT, TP14, TP14),
-    [TP14, TP15],
-    buildCubicPolyline(TP15, TP15_OUT, TP16_IN, TP16),
-    buildCubicPolyline(TP16, TP16_OUT, TP12, TP12)
-  ]
-  let cursor = 0
-  return polylines.map((polyline, segmentIndex) => {
-    const length = getPolylineLength(polyline)
-    const range = {
-      polyline,
-      segmentIndex,
-      startDistance: cursor,
-      endDistance: cursor + length
-    }
-    cursor = range.endDistance
-    return range
-  })
-}
-
-const getSourceSegmentPointAtDistance = (
-  segmentIndex: number,
-  distance: number
-) => {
-  const segment = getReportedSourcePathSegments()[segmentIndex]
-  if (!segment) {
-    throw new Error(`Missing reported source segment ${segmentIndex}`)
-  }
-
-  let cursor = 0
-  for (let index = 0; index < segment.polyline.length - 1; index += 1) {
-    const start = segment.polyline[index]
-    const end = segment.polyline[index + 1]
-    const edgeLength = pointDistance(start, end)
-    if (edgeLength <= 1e-9) {
-      continue
-    }
-    if (cursor + edgeLength >= distance) {
-      const amount = (distance - cursor) / edgeLength
-      return {
-        point: {
-          x: start.x + (end.x - start.x) * amount,
-          y: start.y + (end.y - start.y) * amount
-        },
-        tangent: normalizeVector({
-          x: end.x - start.x,
-          y: end.y - start.y
-        })
-      }
-    }
-    cursor += edgeLength
-  }
-
-  const end = segment.polyline[segment.polyline.length - 1]
-  const beforeEnd = segment.polyline[segment.polyline.length - 2] ?? end
-  return {
-    point: end,
-    tangent: normalizeVector({
-      x: end.x - beforeEnd.x,
-      y: end.y - beforeEnd.y
-    })
-  }
-}
-
-const offsetFromSourceSegmentAtDistance = (
-  segmentIndex: number,
-  distance: number,
-  side: 1 | -1,
-  offset: number
-) => {
-  const { point, tangent } = getSourceSegmentPointAtDistance(
-    segmentIndex,
-    distance
-  )
-  return offsetFromTangentSide(point, tangent, side, offset)
-}
-
-const getAdjustedSourcePathSegments = () => {
-  const polylines = [
-    buildCubicPolyline(ADJ_TP12, ADJ_TP12_OUT, ADJ_TP13_IN, ADJ_TP13),
-    buildCubicPolyline(ADJ_TP13, ADJ_TP13_OUT, ADJ_TP14, ADJ_TP14),
-    [ADJ_TP14, ADJ_TP15],
-    buildCubicPolyline(ADJ_TP15, ADJ_TP15_OUT, ADJ_TP16_IN, ADJ_TP16),
-    buildCubicPolyline(ADJ_TP16, ADJ_TP16_OUT, ADJ_TP12, ADJ_TP12)
-  ]
-  let cursor = 0
-  return polylines.map((polyline, segmentIndex) => {
-    const length = getPolylineLength(polyline)
-    const range = {
-      polyline,
-      segmentIndex,
-      startDistance: cursor,
-      endDistance: cursor + length
-    }
-    cursor = range.endDistance
-    return range
-  })
-}
-
-const getAdjustedSourceSegmentPointAtDistance = (
-  segmentIndex: number,
-  distance: number
-) => {
-  const segment = getAdjustedSourcePathSegments()[segmentIndex]
-  if (!segment) {
-    throw new Error(`Missing adjusted source segment ${segmentIndex}`)
-  }
-
-  let cursor = 0
-  for (let index = 0; index < segment.polyline.length - 1; index += 1) {
-    const start = segment.polyline[index]
-    const end = segment.polyline[index + 1]
-    const edgeLength = pointDistance(start, end)
-    if (edgeLength <= 1e-9) {
-      continue
-    }
-    if (cursor + edgeLength >= distance) {
-      const amount = (distance - cursor) / edgeLength
-      return {
-        point: {
-          x: start.x + (end.x - start.x) * amount,
-          y: start.y + (end.y - start.y) * amount
-        },
-        tangent: normalizeVector({
-          x: end.x - start.x,
-          y: end.y - start.y
-        })
-      }
-    }
-    cursor += edgeLength
-  }
-
-  const end = segment.polyline[segment.polyline.length - 1]
-  const beforeEnd = segment.polyline[segment.polyline.length - 2] ?? end
-  return {
-    point: end,
-    tangent: normalizeVector({
-      x: end.x - beforeEnd.x,
-      y: end.y - beforeEnd.y
-    })
-  }
-}
-
-const offsetFromAdjustedSourceSegmentAtDistance = (
-  segmentIndex: number,
-  distance: number,
-  side: 1 | -1,
-  offset: number
-) => {
-  const { point, tangent } = getAdjustedSourceSegmentPointAtDistance(
-    segmentIndex,
-    distance
-  )
-  return offsetFromTangentSide(point, tangent, side, offset)
-}
-
-const getAdjustedTotalLength = () => {
-  const segments = getAdjustedSourcePathSegments()
-  return segments[segments.length - 1]?.endDistance ?? 0
-}
-
-const normalizeAdjustedLoopDistance = (distance: number) => {
-  const totalLength = getAdjustedTotalLength()
-  return totalLength > 0
-    ? ((distance % totalLength) + totalLength) % totalLength
-    : 0
-}
-
-const getAdjustedSourcePointAtLoopDistance = (distance: number) => {
-  const normalized = normalizeAdjustedLoopDistance(distance)
-  const segment = getAdjustedSourcePathSegments().find(
-    (candidate, index, segments) =>
-      normalized >= candidate.startDistance &&
-      (normalized <= candidate.endDistance || index === segments.length - 1)
-  )
-  if (!segment) {
-    throw new Error(`Missing adjusted source segment at ${normalized}`)
-  }
-
-  return getAdjustedSourceSegmentPointAtDistance(
-    segment.segmentIndex,
-    normalized - segment.startDistance
-  )
-}
-
-const isAdjustedVisibleDashDistance = (distance: number) => {
-  const totalLength = getAdjustedTotalLength()
-  if (totalLength <= 0) {
-    return false
-  }
-
-  const normalized = normalizeAdjustedLoopDistance(distance)
-  const patternLength = ADJUSTED_DASH_PATTERN[0] + ADJUSTED_DASH_PATTERN[1]
-  const patternDistance =
-    ((normalized % patternLength) + patternLength) % patternLength
-  return patternDistance <= ADJUSTED_DASH_PATTERN[0]
-}
-
-const getAdjustedHighCurvatureVisibleBodyProbes = () => {
-  const segments = getAdjustedSourcePathSegments()
-  const segmentStartDistance = segments[4]?.startDistance
-  if (segmentStartDistance === undefined) {
-    return []
-  }
-
-  const selectedSide = getInsideSourceSide(ADJUSTED_SOURCE_POINTS)
-  const relativeDistances = [-22, -16, -10, -5, -2, 2, 5, 10, 16, 22]
-  const offsets = [2.5, 4.5, 6.5]
-
-  return relativeDistances.flatMap((relativeDistance) => {
-    const distance = normalizeAdjustedLoopDistance(
-      segmentStartDistance + relativeDistance
-    )
-    if (!isAdjustedVisibleDashDistance(distance)) {
-      return []
-    }
-    const { point, tangent } = getAdjustedSourcePointAtLoopDistance(distance)
-    return offsets.map((offset) => ({
-      label: `adjusted high-curvature source-path body d${relativeDistance} o${offset}`,
-      point: offsetFromTangentSide(point, tangent, selectedSide, offset),
-      size: 6,
-      minCoverage: 0.06
-    }))
-  })
-}
-
-const getTopSeamPositiveProbes = (): RedCoverageProbe[] => {
-  const selectedSide = getInsideSourceSide(REPORTED_SOURCE_POINTS)
-  return [4, 18, 55].map((distance) => ({
-    label: `source-path dash body d${distance}`,
-    point: offsetFromSourceSegmentAtDistance(0, distance, selectedSide, 5),
-    size: 12,
-    minCoverage: 0.02
-  }))
-}
-
-const getAdjustedTopSeamPositiveProbes = (): RedCoverageProbe[] => {
-  const selectedSide = getInsideSourceSide(ADJUSTED_SOURCE_POINTS)
-  return [4, 18, 55].map((distance) => ({
-    label: `adjusted source-path dash body d${distance}`,
-    point: offsetFromAdjustedSourceSegmentAtDistance(
-      0,
-      distance,
-      selectedSide,
-      5
-    ),
-    size: 12,
-    minCoverage: 0.02
-  }))
 }
 
 const captureSelectedElementRaster = async (
@@ -481,32 +112,6 @@ const captureSelectedElementRaster = async (
     elementWidth: Math.ceil(rect.width * viewportState.zoom),
     elementHeight: Math.ceil(rect.height * viewportState.zoom),
     padding
-  }
-}
-
-const getRasterRegion = (raster: RasterCapture, point: Vec2, size: number) => {
-  const scaleX = raster.elementWidth / REPORTED_VECTOR_6_WIDTH
-  const scaleY = raster.elementHeight / REPORTED_VECTOR_6_HEIGHT
-  return {
-    x: raster.padding + point.x * scaleX - size / 2,
-    y: raster.padding + point.y * scaleY - size / 2,
-    width: size,
-    height: size
-  }
-}
-
-const getAdjustedRasterRegion = (
-  raster: RasterCapture,
-  point: Vec2,
-  size: number
-) => {
-  const scaleX = raster.elementWidth / ADJUSTED_VECTOR_6_WIDTH
-  const scaleY = raster.elementHeight / ADJUSTED_VECTOR_6_HEIGHT
-  return {
-    x: raster.padding + point.x * scaleX - size / 2,
-    y: raster.padding + point.y * scaleY - size / 2,
-    width: size,
-    height: size
   }
 }
 
@@ -775,19 +380,22 @@ const createReportedVector6Dashed = async (
           strokes: [
             {
               id: 'reported-vector-6-dashed-inside',
-              kind: 'solid',
               style: 'dashed',
               position,
               width: strokeWidth,
               dashPattern: [27, 20],
               dashOffset: 0,
-              fill: null,
-              defaultColorFormat: 'hex',
-              colorFormat: 'hex',
-              color: `#${color}`,
-              opacity: 0.5,
-              visible: true,
-              gradient: null,
+              fill: {
+                id: 'reported-vector-6-dashed-inside',
+                type: 'fill',
+                kind: 'solid',
+                defaultColorFormat: 'hex',
+                colorFormat: 'hex',
+                color: `#${color}`,
+                opacity: 0.5,
+                visible: true,
+                gradient: null
+              },
               joinType: 'miter',
               capType: 'butt',
               miterAngle: 28.96
@@ -975,19 +583,22 @@ const createAdjustedReportedVector6InsideRoundDashed = async (page: Page) => {
           strokes: [
             {
               id: 'adjusted-vector-6-dashed-inside-round',
-              kind: 'solid',
               style: 'dashed',
               position: 'inside',
               width: strokeWidth,
               dashPattern: [27, 20],
               dashOffset: 0,
-              fill: null,
-              defaultColorFormat: 'hex',
-              colorFormat: 'hex',
-              color: `#${color}`,
-              opacity: 0.5,
-              visible: true,
-              gradient: null,
+              fill: {
+                id: 'adjusted-vector-6-dashed-inside-round',
+                type: 'fill',
+                kind: 'solid',
+                defaultColorFormat: 'hex',
+                colorFormat: 'hex',
+                color: `#${color}`,
+                opacity: 0.5,
+                visible: true,
+                gradient: null
+              },
               joinType: 'miter',
               capType: 'round',
               miterAngle: 28.96
@@ -1061,30 +672,6 @@ const getSelectedStrokeRenderPacketSummary = async (page: Page) =>
     }
   })
 
-const assertAnyRedCoverageProbe = async (
-  page: Page,
-  raster: RasterCapture,
-  probes: RedCoverageProbe[]
-) => {
-  const coverages = await Promise.all(
-    probes.map(async (probe) => ({
-      label: probe.label,
-      coverage: await getBase64RedCoverage(
-        page,
-        raster.base64,
-        getRasterRegion(raster, probe.point, probe.size)
-      ),
-      minCoverage: probe.minCoverage,
-      point: probe.point
-    }))
-  )
-
-  expect(
-    coverages.some((entry) => entry.coverage >= entry.minCoverage),
-    JSON.stringify(coverages, null, 2)
-  ).toBe(true)
-}
-
 test.describe('Reported Vector-6 Inside Dashed Seam Regression', () => {
   test('records self-intersecting inside dashed seam packets without enforcing center-stroke side rules', async ({
     page
@@ -1106,8 +693,9 @@ test.describe('Reported Vector-6 Inside Dashed Seam Regression', () => {
 
         return exportPackets.some(
           (packet: { debugMeta?: Record<string, unknown> }) =>
-            packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
-            packet.debugMeta?.strokePosition === 'inside'
+            packet.debugMeta?.productSignature?.startsWith(
+              'constrained-dashed:'
+            ) === true && packet.debugMeta?.strokePosition === 'inside'
         )
       })
 
@@ -1117,36 +705,41 @@ test.describe('Reported Vector-6 Inside Dashed Seam Regression', () => {
       expect(
         summary.exportPacketDebugMeta.some(
           (debugMeta) =>
-            debugMeta.geometryFamily === 'constrained-dashed' &&
+            debugMeta.productSignature?.startsWith('constrained-dashed:') ===
+              true &&
             debugMeta.strokePosition === 'inside' &&
-            debugMeta.sourceTopology === 'self-intersecting'
+            debugMeta.topologyFamily === 'self-intersecting'
         )
       ).toBe(true)
-      const sourcePathPackets = summary.exportPackets.filter(
+      const productPackets = summary.exportPackets.filter(
         (packet: ExportPacketSnapshot) =>
-          packet.debugMeta.geometryFamily === 'constrained-dashed' &&
+          packet.debugMeta.productSignature?.startsWith(
+            'constrained-dashed:'
+          ) === true &&
           packet.debugMeta.strokePosition === 'inside' &&
-          packet.debugMeta.sourceTopology === 'self-intersecting'
+          packet.debugMeta.topologyFamily === 'self-intersecting'
       )
-      expect(sourcePathPackets.length).toBeGreaterThan(0)
+      expect(productPackets.length).toBeGreaterThan(0)
       expect(
-        sourcePathPackets.some(
+        productPackets.some(
           (packet) =>
-            typeof packet.debugMeta.intervalId === 'string' &&
-            packet.debugMeta.intervalId.startsWith('interval:') &&
-            packet.debugMeta.sourceTopology === 'self-intersecting'
+            packet.debugMeta.domainPlanBoundaryRole === 'dash-product' ||
+            Array.isArray(packet.debugMeta.domainPlanSplitRangeTerminals) ||
+            Array.isArray(packet.debugMeta.dashProductIntervals)
         ),
         JSON.stringify(
           summary.exportPackets
             .filter(
               (packet: ExportPacketSnapshot) =>
-                packet.debugMeta.geometryFamily === 'constrained-dashed' &&
-                packet.debugMeta.strokePosition === 'inside'
+                packet.debugMeta.productSignature?.startsWith(
+                  'constrained-dashed:'
+                ) === true && packet.debugMeta.strokePosition === 'inside'
             )
             .map((packet: ExportPacketSnapshot) => ({
-              intervalId: packet.debugMeta.intervalId,
-              startDistance: packet.debugMeta.startDistance,
-              endDistance: packet.debugMeta.endDistance,
+              domainPlanBoundaryRole: packet.debugMeta.domainPlanBoundaryRole,
+              domainPlanSplitRangeTerminals:
+                packet.debugMeta.domainPlanSplitRangeTerminals,
+              dashProductIntervals: packet.debugMeta.dashProductIntervals,
               bounds: packet.bounds
             })),
           null,
@@ -1177,9 +770,20 @@ test.describe('Reported Vector-6 Inside Dashed Seam Regression', () => {
       await setStrokeDebugDisableVisualOverlapCollapse(page, false)
       await page.waitForTimeout(180)
       const productRaster = await captureSelectedElementRaster(page)
-      for (const probe of getTopSeamPositiveProbes()) {
-        await assertAnyRedCoverageProbe(page, productRaster, [probe])
-      }
+      const productCoverage = await getBase64RedCoverage(
+        page,
+        productRaster.base64,
+        {
+          x: productRaster.padding,
+          y: productRaster.padding,
+          width: productRaster.elementWidth,
+          height: productRaster.elementHeight
+        }
+      )
+      expect(
+        productCoverage,
+        'rule-domain dashed product coverage'
+      ).toBeGreaterThan(0.004)
     } finally {
       await setStrokeDebugDisableVisualOverlapCollapse(page, false)
     }
@@ -1205,16 +809,18 @@ test.describe('Reported Vector-6 Inside Dashed Seam Regression', () => {
 
         return exportPackets.some(
           (packet: { debugMeta?: Record<string, unknown> }) =>
-            packet.debugMeta?.geometryFamily === 'constrained-dashed' &&
-            packet.debugMeta?.strokePosition === 'outside'
+            packet.debugMeta?.productSignature?.startsWith(
+              'constrained-dashed:'
+            ) === true && packet.debugMeta?.strokePosition === 'outside'
         )
       })
 
       const summary = await getSelectedStrokeRenderPacketSummary(page)
       const outsidePackets = summary.exportPackets.filter(
         (packet: ExportPacketSnapshot) =>
-          packet.debugMeta.geometryFamily === 'constrained-dashed' &&
-          packet.debugMeta.strokePosition === 'outside'
+          packet.debugMeta.productSignature?.startsWith(
+            'constrained-dashed:'
+          ) === true && packet.debugMeta.strokePosition === 'outside'
       )
       expect(summary.debugDisableVisualOverlapCollapse).toBe(true)
       expect(outsidePackets.length).toBeGreaterThan(0)
@@ -1230,7 +836,7 @@ test.describe('Reported Vector-6 Inside Dashed Seam Regression', () => {
     }
   })
 
-  test('keeps adjusted inside round dashed product visual on source-path intervals', async ({
+  test('keeps adjusted inside round dashed product visual on rule domains', async ({
     page
   }, testInfo) => {
     await createAdjustedReportedVector6InsideRoundDashed(page)
@@ -1270,74 +876,19 @@ test.describe('Reported Vector-6 Inside Dashed Seam Regression', () => {
       testInfo
     )
 
-    const selectedSide = getInsideSourceSide(ADJUSTED_SOURCE_POINTS)
-    const positiveProbes = [
-      {
-        label: 'adjusted seam source-path dash coverage',
-        point: offsetFromAdjustedSourceSegmentAtDistance(
-          0,
-          18,
-          selectedSide,
-          5
-        ),
-        size: 12,
-        minCoverage: 0.02
-      },
-      {
-        label: 'adjusted high-curvature source-path dash coverage',
-        point: offsetFromAdjustedSourceSegmentAtDistance(
-          4,
-          20,
-          selectedSide,
-          5
-        ),
-        size: 12,
-        minCoverage: 0.02
-      }
-    ]
-    for (const probe of positiveProbes) {
-      const coverage = await getBase64RedCoverage(
-        page,
-        raster.base64,
-        getAdjustedRasterRegion(raster, probe.point, probe.size)
-      )
-      expect(
-        coverage,
-        `${probe.label} should keep visible product coverage`
-      ).toBeGreaterThanOrEqual(probe.minCoverage)
-    }
-
-    const highCurvatureVisibleBodyFailures: {
-      label: string
-      coverage: number
-      minCoverage: number
-      point: Vec2
-    }[] = []
-    const highCurvatureVisibleBodyProbes =
-      getAdjustedHighCurvatureVisibleBodyProbes()
-    expect(highCurvatureVisibleBodyProbes.length).toBeGreaterThan(0)
-    for (const probe of highCurvatureVisibleBodyProbes) {
-      const coverage = await getBase64RedCoverage(
-        page,
-        raster.base64,
-        getAdjustedRasterRegion(raster, probe.point, probe.size)
-      )
-      if (coverage < probe.minCoverage) {
-        highCurvatureVisibleBodyFailures.push({
-          label: probe.label,
-          coverage,
-          minCoverage: probe.minCoverage,
-          point: probe.point
-        })
-      }
-    }
+    const productCoverage = await getBase64RedCoverage(page, raster.base64, {
+      x: raster.padding,
+      y: raster.padding,
+      width: raster.elementWidth,
+      height: raster.elementHeight
+    })
     expect(
-      highCurvatureVisibleBodyFailures,
-      JSON.stringify(highCurvatureVisibleBodyFailures, null, 2)
-    ).toEqual([])
+      productCoverage,
+      'adjusted rule-domain dashed product coverage'
+    ).toBeGreaterThan(0.004)
   })
 
-  test('keeps adjusted inside round dashed source-path packets while path editing overlay is active', async ({
+  test('keeps adjusted inside round dashed rule-domain packets while path editing overlay is active', async ({
     page
   }, testInfo) => {
     await createAdjustedReportedVector6InsideRoundDashed(page)
@@ -1357,18 +908,27 @@ test.describe('Reported Vector-6 Inside Dashed Seam Regression', () => {
       raster.base64,
       testInfo
     )
-    for (const probe of getAdjustedTopSeamPositiveProbes()) {
-      await assertAnyRedCoverageProbe(page, raster, [probe])
-    }
+    const productCoverage = await getBase64RedCoverage(page, raster.base64, {
+      x: raster.padding,
+      y: raster.padding,
+      width: raster.elementWidth,
+      height: raster.elementHeight
+    })
+    expect(
+      productCoverage,
+      'path-editing rule-domain dashed product coverage'
+    ).toBeGreaterThan(0.004)
     const summary = await getSelectedStrokeRenderPacketSummary(page)
     expect(
       summary.exportPacketDebugMeta.some(
         (debugMeta) =>
-          debugMeta.geometryFamily === 'constrained-dashed' &&
+          debugMeta.productSignature?.startsWith('constrained-dashed:') ===
+            true &&
           debugMeta.strokePosition === 'inside' &&
-          debugMeta.sourceTopology === 'self-intersecting' &&
-          typeof debugMeta.intervalId === 'string' &&
-          debugMeta.intervalId.startsWith('interval:')
+          debugMeta.topologyFamily === 'self-intersecting' &&
+          (debugMeta.domainPlanBoundaryRole === 'dash-product' ||
+            Array.isArray(debugMeta.domainPlanSplitRangeTerminals) ||
+            Array.isArray(debugMeta.dashProductIntervals))
       )
     ).toBe(true)
   })

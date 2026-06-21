@@ -11,6 +11,7 @@ const renderMock = {
   addElement: vi.fn(),
   removeElement: vi.fn(),
   updateElement: vi.fn(),
+  clearElements: vi.fn(),
   flushFrame: vi.fn(),
   requestRender: vi.fn(),
   registerLayer: vi.fn(
@@ -70,6 +71,50 @@ describe('RenderSceneTree computed data mirror', () => {
     }
     await Promise.resolve()
   }
+
+  it('should run: clear stale render elements before rebuilding a scene-tree reload', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const vector = createElement(
+      'vector-1',
+      {
+        type: 'vector',
+        visible: true,
+        name: 'Vector'
+      },
+      {
+        points: { p1: { x: 0, y: 0 } },
+        segments: {},
+        networks: {}
+      }
+    )
+    sceneTreeMock.currentWorkspace = {
+      save: () => ({
+        id: 'workspace-1',
+        type: EntityTypes.WORKSPACE
+      })
+    }
+    sceneTreeMock.getAllElements.mockReturnValue(
+      new Map([['vector-1', vector]])
+    )
+    sceneTreeMock.getElementById.mockReturnValue(vector)
+
+    store.reload()
+
+    expect(renderMock.clearElements).toHaveBeenCalledTimes(1)
+    expect(renderMock.switchWorkspace).toHaveBeenCalledWith({
+      label: 'workspace-1',
+      x: 0,
+      y: 0
+    })
+    expect(renderMock.addElement).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'vector-1',
+        type: 'vector',
+        points: { p1: { x: 0, y: 0 } }
+      })
+    )
+  })
 
   it('should run: stage multiple computed changes and render once from the mirror', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
@@ -372,6 +417,65 @@ describe('RenderSceneTree computed data mirror', () => {
     )
     expect(renderMock.requestRender).toHaveBeenCalled()
     expect(renderMock.flushFrame).not.toHaveBeenCalled()
+  })
+
+  it('should run: mirror computed stroke fill changes into the next render snapshot', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const initialStrokes = [
+      {
+        id: 'stroke-1',
+        style: 'dashed',
+        position: 'inside',
+        width: 10,
+        fill: {
+          kind: 'solid',
+          color: '#cccccc',
+          opacity: 1
+        }
+      }
+    ]
+    const nextStrokes = [
+      {
+        ...initialStrokes[0],
+        fill: {
+          kind: 'solid',
+          color: '#d90909',
+          opacity: 0.5
+        }
+      }
+    ]
+    const element = createElement(
+      'vector-1',
+      {
+        type: 'vector',
+        visible: true,
+        name: 'Vector'
+      },
+      {
+        points: { p1: { x: 0, y: 0 } },
+        segments: {},
+        networks: {},
+        strokes: initialStrokes
+      }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+
+    store.updateElement('vector-1', 'strokes', initialStrokes, nextStrokes, {
+      undoable: false
+    })
+    store.commitPendingComputedDataChanges()
+    await flushScheduledFrame()
+
+    expect(renderMock.updateElement).toHaveBeenCalledWith(
+      'vector-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({
+        strokes: nextStrokes
+      })
+    )
   })
 
   it('should run: reseed the computed mirror before undoable updates to prevent cache drift', async () => {

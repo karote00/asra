@@ -198,7 +198,7 @@ const createReportedVector6Fixture = () => {
 }
 
 describe('constrained solid stroke geometry', () => {
-  it('should run: accept supported constrained solid slices on closed paths', () => {
+  it('should run: accept formal constrained solid slices on closed paths', () => {
     expect(
       supportsConstrainedSolidStroke(
         createStroke({

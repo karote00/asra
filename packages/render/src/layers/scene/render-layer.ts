@@ -72,6 +72,25 @@ export class RenderLayer {
     return this._elements
   }
 
+  clearElements() {
+    this._elements.forEach((element) => {
+      this.interactionHandler.unbindElementEvents(element)
+      if (element.parent) {
+        element.parent.removeChild(element)
+      }
+      element.destroy({ children: true })
+    })
+    this._deleteMap.forEach((element) => {
+      if (element.parent) {
+        element.parent.removeChild(element)
+      }
+      element.destroy({ children: true })
+    })
+    this._elements.clear()
+    this._deleteMap.clear()
+    this.currentWorkspace.removeChildren()
+  }
+
   getElementById(elementId: string): SceneElement | undefined {
     return this._elements.get(elementId)
   }
@@ -87,6 +106,11 @@ export class RenderLayer {
   }
 
   private renderGraphic(graphic: Graphics, data: RenderElementData) {
+    ;(
+      graphic as Graphics & {
+        __asyraLastRenderDataSnapshot?: RenderElementData
+      }
+    ).__asyraLastRenderDataSnapshot = data
     const strategy = renderStrategyRegistry.get(data.type) || defaultStrategy
     try {
       measureBrowserDragPhase(`render-layer:strategy:${data.type}`, () =>

@@ -178,7 +178,7 @@ interface StrokeExportPacketProbeSummary {
       maxY: number
     }
   }[]
-  geometryFamilies: Record<string, number>
+  productSignatures: Record<string, number>
 }
 
 interface ArcLengthSample {
@@ -2680,20 +2680,20 @@ const getStrokeExportPacketProbeSummary = async (
       )
     }
 
-    const geometryFamilies: Record<string, number> = {}
+    const productSignatures: Record<string, number> = {}
     const probeRecords = exportPackets.flatMap(
       (
         packet: {
           polygons?: WorkspacePoint[][]
           debugMeta?: {
-            geometryFamily?: string
+            productSignature?: string
           }
         },
         packetIndex: number
       ) => {
-        const geometryFamily = packet.debugMeta?.geometryFamily ?? 'unknown'
-        geometryFamilies[geometryFamily] =
-          (geometryFamilies[geometryFamily] ?? 0) + 1
+        const productSignature = packet.debugMeta?.productSignature ?? 'unknown'
+        productSignatures[productSignature] =
+          (productSignatures[productSignature] ?? 0) + 1
         return (packet.polygons ?? [])
           .filter((polygon) => polygon.length >= 3)
           .map((polygon, polygonIndex) => {
@@ -2747,7 +2747,7 @@ const getStrokeExportPacketProbeSummary = async (
       skippedSubpixelProbeCount:
         probeRecords.length - visibleProbeRecords.length,
       probeRecords: visibleProbeRecords,
-      geometryFamilies
+      productSignatures
     }
   }, elementId)
 

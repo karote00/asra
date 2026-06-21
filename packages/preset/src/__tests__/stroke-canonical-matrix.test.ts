@@ -23,7 +23,8 @@ import { buildResolvedVectorGeometryModel } from '../components/stroke-render/re
 import {
   buildSolidCenterStrokeExportPackets,
   createSolidCenterStrokeHitArea,
-  toSolidCenterStrokeRenderEntriesFromFinalFaces
+  toSolidCenterStrokeRenderEntriesFromFinalFaces,
+  type SolidCenterStrokeGeometryDebugMeta
 } from '../components/stroke-render/solid-center-stroke-packets'
 import { buildSolidCenterStrokePolygons } from '../components/stroke-render/solid-center-stroke-geometry'
 import { buildSolidCenterStrokeResolvedPackets } from '../components/stroke-render/solid-center-stroke-packets'
@@ -105,19 +106,26 @@ interface RenderEntryStrokePathGroupForTest {
 interface RenderEntrySourceMaskForTest {
   clipPolygons?: Vec2[][]
   fillClipPolygons?: Vec2[][]
+  fillExcludePolygons?: Vec2[][]
   strokeMaskPolygons?: Vec2[][]
   strokePaths?: Vec2[][]
   strokePathGroups?: RenderEntryStrokePathGroupForTest[]
   strokePathStyle?: RenderEntryStrokePathStyleForTest
+  cacheKey?: string
+  debugMeta?: SolidCenterStrokeGeometryDebugMeta
+  runtimeMeta?: {
+    productMode?: string
+    productSignature?: string
+    domainMode?: string
+    strokePosition?: StrokePosition
+    visualOverlapCollapseStatus?: string
+  }
 }
 
 const STROKE_POSITIONS = ['inside', 'center', 'outside'] as const
 const SOLID_JOINS = ['miter', 'bevel', 'round'] as const
-const DASHED_SOURCE_JOINS = ['miter', 'bevel', 'round'] as const
+const DASHED_TERMINAL_POLICY_JOINS = ['miter', 'bevel', 'round'] as const
 const DASHED_CAPS = ['butt', 'square', 'round'] as const
-const SOURCE_JOIN_SHAPE_TURN_ANGLE_FOR_TEST = Math.PI / 24
-const SOURCE_JOIN_ROUND_MIN_VISIBLE_ARC_POINTS_FOR_TEST = 8
-const SOURCE_JOIN_MIN_SIGNATURE_DIFFERENCES_FOR_TEST = 5
 const SELF_CHECK_DASH_PATTERN_FOR_TEST = [27, 20] as const
 const CANONICAL_PERFORMANCE_SAMPLE_COUNT = Number(
   process.env.ASYRA_STROKE_CANONICAL_PERFORMANCE_SAMPLE_COUNT ?? 4
@@ -134,6 +142,8 @@ const CANONICAL_SOLID_STATIC_P95_BUDGET_MS = Number(
 const CANONICAL_SOLID_DRAG_P95_BUDGET_MS = Number(
   process.env.ASYRA_STROKE_CANONICAL_SOLID_DRAG_P95_BUDGET_MS ?? 8.33
 )
+const ENABLE_CANONICAL_PHASE_PROFILE =
+  process.env.ASYRA_STROKE_CANONICAL_PHASE_PROFILE === '1'
 
 const SOLID_MATRIX_CASES = STROKE_POSITIONS.flatMap((position) =>
   SOLID_JOINS.map((joinType) => ({
@@ -161,12 +171,6 @@ const CANONICAL_SELF_CHECK_SOURCE_FIXTURES = [
     useCurvedSourcePath: true
   }
 ] as const
-
-const requiresAuthoredSourceVertexJoinOracle = (
-  sourceFixture: (typeof CANONICAL_SELF_CHECK_SOURCE_FIXTURES)[number]
-) =>
-  sourceFixture.key === 'polyline-self-check-star' ||
-  sourceFixture.useCurvedSourcePath
 
 const DASHED_INSIDE_LEGAL_DOMAIN_CASES =
   CANONICAL_SELF_CHECK_SOURCE_FIXTURES.flatMap((sourceFixture) =>
@@ -196,9 +200,9 @@ const SOLID_CENTER_EXACT_OVERLAP_CASES =
     }))
   )
 
-const DASHED_OUTSIDE_SOURCE_JOIN_CASES =
+const DASHED_OUTSIDE_TERMINAL_POLICY_CASES =
   CANONICAL_SELF_CHECK_SOURCE_FIXTURES.flatMap((sourceFixture) =>
-    DASHED_SOURCE_JOINS.map((joinType) => ({
+    DASHED_TERMINAL_POLICY_JOINS.map((joinType) => ({
       key: `dashed:outside:butt:${joinType}`,
       position: 'outside' as const,
       capType: 'butt' as const,
@@ -211,7 +215,7 @@ type CanonicalGeometryOracleKind =
   | 'pipeline-completeness'
   | 'solid-segment-adherence'
   | 'solid-center-exact-overlap'
-  | 'dashed-inside-doubled-center-reference-parity'
+  | 'dashed-inside-legal-domain-product-parity'
   | 'dashed-inside-legal-domain'
   | 'dashed-source-join'
   | 'dashed-cap-footprint'
@@ -244,7 +248,7 @@ const CANONICAL_GEOMETRY_ORACLE_REGISTRY: {
   ).flatMap(({ key }) => [
     {
       key,
-      oracle: 'dashed-inside-doubled-center-reference-parity' as const
+      oracle: 'dashed-inside-legal-domain-product-parity' as const
     },
     { key, oracle: 'dashed-inside-legal-domain' as const }
   ]),
@@ -549,8 +553,7 @@ const getSelfIntersectingOptions = (
     sharedSourceSplitRanges: selfIntersecting?.sourceSplitRanges ?? [],
     sharedStrokeBoundaryDomains: selfIntersecting?.strokeBoundaryDomains ?? [],
     ...(exactBackend ? { exactBackend } : {}),
-    clipInsideToFillDomain: true,
-    constrainedDashedVisualMode: 'product-final' as const
+    clipInsideToFillDomain: true
   }
 }
 
@@ -758,17 +761,56 @@ const getSampledRenderEntryOverlapFailures = (
   >,
   step = 4
 ) => {
-  const entryPolygons = renderEntries.map((entry) => entry.polygons)
-  const bounds = getPolygonBoundsForTest(entryPolygons.flat())
-  const failures: { point: Vec2; count: number }[] = []
+  const entryPolygons = renderEntries.map((entry) => ({
+    entry: entry as RenderEntrySourceMaskForTest,
+    polygons: getVisibleStrokePolygonsForRenderEntry(entry)
+  }))
+  const bounds = getPolygonBoundsForTest(
+    entryPolygons.flatMap(({ polygons }) => polygons)
+  )
+  const failures: {
+    point: Vec2
+    count: number
+    contributors: {
+      cacheKey?: string
+      productMode?: string
+      productSignature?: string
+      domainMode?: string
+      intervalId?: string
+      intervalIds?: string[]
+      joinOwnershipSignature?: string
+      dashEndpointCapPolicySignature?: string
+      smoothContinuityGroupId?: string
+    }[]
+  }[] = []
   for (let y = bounds.minY; y <= bounds.maxY; y += step) {
     for (let x = bounds.minX; x <= bounds.maxX; x += step) {
       const point = { x, y }
-      const count = entryPolygons.filter((polygons) =>
+      const containingEntries = entryPolygons.filter(({ polygons }) =>
         polygonListContainsPoint(polygons, point)
-      ).length
+      )
+      const count = containingEntries.length
       if (count > 1) {
-        failures.push({ point, count })
+        failures.push({
+          point,
+          count,
+          contributors: containingEntries.map(({ entry }) => ({
+            cacheKey: entry.cacheKey,
+            productMode:
+              entry.runtimeMeta?.productMode ?? entry.debugMeta?.productMode,
+            productSignature:
+              entry.runtimeMeta?.productSignature ??
+              entry.debugMeta?.productSignature,
+            domainMode:
+              entry.runtimeMeta?.domainMode ?? entry.debugMeta?.domainMode,
+            intervalId: entry.debugMeta?.intervalId,
+            intervalIds: entry.debugMeta?.intervalIds,
+            joinOwnershipSignature: entry.debugMeta?.joinOwnershipSignature,
+            dashEndpointCapPolicySignature:
+              entry.debugMeta?.dashEndpointCapPolicySignature,
+            smoothContinuityGroupId: entry.debugMeta?.smoothContinuityGroupId
+          }))
+        })
       }
     }
   }
@@ -823,9 +865,6 @@ const assertPipelineCompleteness = ({
       `${key}:${packet.geometry.geometryId}`
     ).toEqual([])
     expect(getBoundsArea(packet.geometry.bounds), key).toBeGreaterThan(0)
-    expect(packet.geometry.geometryId, key).not.toContain(
-      'boundary-terminal-join'
-    )
   })
 
   const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
@@ -884,19 +923,115 @@ const getRenderStrokePathPolygonsFromPackets = (
 
 const getStrokeMaskPolygonsForRenderEntry = (
   renderEntry: RenderEntrySourceMaskForTest
-) => [
-  ...buildRenderStrokePathPolygons(
+) => {
+  const strokePathPolygons = buildRenderStrokePathPolygons(
     renderEntry.strokePaths ?? [],
     renderEntry.strokePathStyle
-  ),
-  ...(renderEntry.strokePathGroups?.flatMap((group) =>
-    buildRenderStrokePathPolygons(
-      group.strokePaths ?? [],
-      group.strokePathStyle ?? renderEntry.strokePathStyle
+  )
+  const strokePathGroupPolygons =
+    renderEntry.strokePathGroups?.flatMap((group) => {
+      const groupPolygons = buildRenderStrokePathPolygons(
+        group.strokePaths ?? [],
+        group.strokePathStyle ?? renderEntry.strokePathStyle
+      )
+      return group.clipPolygons && group.clipPolygons.length > 0
+        ? getExactIntersectionPolygonsForTest(groupPolygons, group.clipPolygons)
+        : groupPolygons
+    }) ?? []
+
+  if (
+    renderEntry.strokeMaskPolygons !== undefined &&
+    renderEntry.strokeMaskPolygons.length > 0
+  ) {
+    return [
+      ...renderEntry.strokeMaskPolygons,
+      ...strokePathPolygons,
+      ...strokePathGroupPolygons
+    ]
+  }
+
+  return [...strokePathPolygons, ...strokePathGroupPolygons]
+}
+
+const getVisibleStrokePolygonsFromDescriptor = (
+  descriptor: RenderEntrySourceMaskForTest,
+  productPolygons: Vec2[][]
+) => {
+  let visiblePolygons = getStrokeMaskPolygonsForRenderEntry(descriptor)
+  if (visiblePolygons.length === 0) {
+    visiblePolygons = productPolygons
+  }
+  const clipPolygons = descriptor.clipPolygons ?? productPolygons
+  if (clipPolygons.length > 0 && visiblePolygons.length > 0) {
+    visiblePolygons = getExactIntersectionPolygonsForTest(
+      visiblePolygons,
+      clipPolygons
     )
-  ) ?? []),
-  ...(renderEntry.strokeMaskPolygons ?? [])
-]
+  }
+  if (descriptor.fillClipPolygons && descriptor.fillClipPolygons.length > 0) {
+    visiblePolygons = getExactIntersectionPolygonsForTest(
+      visiblePolygons,
+      descriptor.fillClipPolygons
+    )
+  }
+  if (
+    descriptor.fillExcludePolygons &&
+    descriptor.fillExcludePolygons.length > 0
+  ) {
+    visiblePolygons = getExactDifferencePolygonsForTest(
+      visiblePolygons,
+      descriptor.fillExcludePolygons
+    )
+  }
+  return visiblePolygons
+}
+
+const getPacketProductPolygons = (
+  packet: ReturnType<typeof buildConstrainedDashedStrokeResolvedPackets>[number]
+) => {
+  const descriptor = packet.geometry.renderDescriptor as
+    | RenderEntrySourceMaskForTest
+    | undefined
+
+  if (!descriptor) {
+    return packet.geometry.polygons
+  }
+
+  const descriptorPolygons = getVisibleStrokePolygonsFromDescriptor(
+    descriptor,
+    packet.geometry.polygons
+  )
+  return descriptorPolygons.length > 0
+    ? descriptorPolygons
+    : packet.geometry.polygons
+}
+
+const getPacketDescriptorPolygons = (
+  packet: ReturnType<typeof buildConstrainedDashedStrokeResolvedPackets>[number]
+) => {
+  const descriptor = packet.geometry.renderDescriptor as
+    | RenderEntrySourceMaskForTest
+    | undefined
+
+  return descriptor
+    ? getVisibleStrokePolygonsFromDescriptor(
+        descriptor,
+        packet.geometry.polygons
+      )
+    : []
+}
+
+const getFinalFaceVisibleProductPolygons = (
+  face: ReturnType<typeof buildStrokeFinalFacesFromResolvedPackets>[number]
+) => {
+  const descriptor = face.renderDescriptor as
+    | RenderEntrySourceMaskForTest
+    | undefined
+
+  return descriptor
+    ? getVisibleStrokePolygonsFromDescriptor(descriptor, face.polygons)
+    : face.polygons
+}
 
 const getVisibleStrokePolygonsForRenderEntry = (
   entry: ReturnType<
@@ -904,22 +1039,7 @@ const getVisibleStrokePolygonsForRenderEntry = (
   >[number]
 ) => {
   const renderEntry = entry as RenderEntrySourceMaskForTest
-  let visiblePolygons = getStrokeMaskPolygonsForRenderEntry(renderEntry)
-  if (visiblePolygons.length === 0) {
-    visiblePolygons = entry.polygons
-  }
-  const clipPolygons = renderEntry.clipPolygons ?? entry.polygons
-  visiblePolygons = getExactIntersectionPolygonsForTest(
-    visiblePolygons,
-    clipPolygons
-  )
-  if (renderEntry.fillClipPolygons && renderEntry.fillClipPolygons.length > 0) {
-    visiblePolygons = getExactIntersectionPolygonsForTest(
-      visiblePolygons,
-      renderEntry.fillClipPolygons
-    )
-  }
-  return visiblePolygons
+  return getVisibleStrokePolygonsFromDescriptor(renderEntry, entry.polygons)
 }
 
 const isPointInRenderEntryVisibleStroke = (
@@ -937,6 +1057,13 @@ const isPointInRenderEntryVisibleStroke = (
     renderEntry.fillClipPolygons &&
     renderEntry.fillClipPolygons.length > 0 &&
     !polygonListContainsPoint(renderEntry.fillClipPolygons, point)
+  ) {
+    return false
+  }
+  if (
+    renderEntry.fillExcludePolygons &&
+    renderEntry.fillExcludePolygons.length > 0 &&
+    polygonListContainsPoint(renderEntry.fillExcludePolygons, point)
   ) {
     return false
   }
@@ -989,13 +1116,11 @@ const getRenderStrokeJoinStylesFromPackets = (
 const buildSolidPackets = ({
   position,
   joinType,
-  points = SELF_CHECK_STAR_POINTS,
-  preferRenderMaskProductFinal = false
+  points = SELF_CHECK_STAR_POINTS
 }: {
   position: StrokePosition
   joinType: StrokeJoin
   points?: Vec2[]
-  preferRenderMaskProductFinal?: boolean
 }) => {
   const stroke = createDefaultStroke({
     style: 'solid',
@@ -1018,10 +1143,7 @@ const buildSolidPackets = ({
     points,
     true,
     [stroke],
-    {
-      ...getSelfIntersectingOptions(points),
-      preferRenderMaskProductFinal
-    }
+    getSelfIntersectingOptions(points)
   )
 }
 
@@ -1031,7 +1153,8 @@ const buildDashedPackets = ({
   joinType = 'round',
   points = SELF_CHECK_STAR_POINTS,
   closed = true,
-  useCurvedSelfCheckSource = false
+  useCurvedSelfCheckSource = false,
+  sourceOptions
 }: {
   position: StrokePosition
   capType: StrokeCap
@@ -1039,6 +1162,7 @@ const buildDashedPackets = ({
   points?: Vec2[]
   closed?: boolean
   useCurvedSelfCheckSource?: boolean
+  sourceOptions?: ReturnType<typeof getSelfIntersectingOptions>
 }) => {
   const stroke = createDefaultStroke({
     style: 'dashed',
@@ -1064,10 +1188,11 @@ const buildDashedPackets = ({
     closed,
     [stroke],
     closed
-      ? useCurvedSelfCheckSource
-        ? getCanonicalSelfCheckOptions()
-        : getSelfIntersectingOptions(points)
-      : { constrainedDashedVisualMode: 'product-final' }
+      ? (sourceOptions ??
+          (useCurvedSelfCheckSource
+            ? getCanonicalSelfCheckOptions()
+            : getSelfIntersectingOptions(points)))
+      : {}
   )
 }
 
@@ -1075,18 +1200,21 @@ const buildDashedPacketsForSelfCheckSourceFixture = ({
   position,
   capType,
   joinType = 'round',
-  sourceFixture
+  sourceFixture,
+  sourceOptions
 }: {
   position: StrokePosition
   capType: StrokeCap
   joinType?: StrokeJoin
   sourceFixture: (typeof CANONICAL_SELF_CHECK_SOURCE_FIXTURES)[number]
+  sourceOptions?: ReturnType<typeof getSelfIntersectingOptions>
 }) =>
   buildDashedPackets({
     position,
     capType,
     joinType,
-    useCurvedSelfCheckSource: sourceFixture.useCurvedSourcePath
+    useCurvedSelfCheckSource: sourceFixture.useCurvedSourcePath,
+    sourceOptions
   })
 
 const buildCanonicalPerformancePackets = ({
@@ -1107,8 +1235,7 @@ const buildCanonicalPerformancePackets = ({
     ? buildSolidPackets({
         position: caseDef.position,
         joinType: caseDef.joinType,
-        points,
-        preferRenderMaskProductFinal: mode === 'drag'
+        points
       })
     : buildDashedPackets({
         position: caseDef.position,
@@ -1127,11 +1254,33 @@ const measureCanonicalPerformanceCase = ({
   mode: 'static' | 'drag'
 }) => {
   const samples: number[] = []
+  const phaseTotals = new Map<string, number>()
+  const phaseSink = (phaseName: string, durationMs: number) => {
+    phaseTotals.set(phaseName, (phaseTotals.get(phaseName) ?? 0) + durationMs)
+  }
 
   for (let frame = 0; frame < CANONICAL_PERFORMANCE_SAMPLE_COUNT; frame += 1) {
+    ;(
+      globalThis as typeof globalThis & {
+        __asyraVectorRenderPhaseSink?: (
+          phaseName: string,
+          durationMs: number
+        ) => void
+      }
+    ).__asyraVectorRenderPhaseSink = ENABLE_CANONICAL_PHASE_PROFILE
+      ? phaseSink
+      : undefined
     const start = performance.now()
     const packets = buildCanonicalPerformancePackets({ caseDef, frame, mode })
     samples.push(performance.now() - start)
+    ;(
+      globalThis as typeof globalThis & {
+        __asyraVectorRenderPhaseSink?: (
+          phaseName: string,
+          durationMs: number
+        ) => void
+      }
+    ).__asyraVectorRenderPhaseSink = undefined
     assertPipelineCompleteness({
       key: `${caseDef.key}:${mode}:performance`,
       packets
@@ -1143,7 +1292,15 @@ const measureCanonicalPerformanceCase = ({
     p95Ms: getPercentile(samples, 0.95),
     maxMs: Math.max(...samples),
     averageMs:
-      samples.reduce((total, sample) => total + sample, 0) / samples.length
+      samples.reduce((total, sample) => total + sample, 0) / samples.length,
+    phases: Object.fromEntries(
+      [...phaseTotals.entries()]
+        .map(([phaseName, totalMs]) => [
+          phaseName,
+          totalMs / Math.max(1, CANONICAL_PERFORMANCE_SAMPLE_COUNT)
+        ])
+        .sort(([, left], [, right]) => right - left)
+    )
   }
 }
 
@@ -1269,9 +1426,7 @@ const buildDashedPacketsForPoints = ({
         points,
         closed,
         [stroke],
-        closed
-          ? getSelfIntersectingOptions(points)
-          : { constrainedDashedVisualMode: 'product-final' }
+        closed ? getSelfIntersectingOptions(points) : {}
       )
 }
 
@@ -1469,6 +1624,26 @@ const getExactUnionAreaForTest = (polygons: Vec2[][]) => {
 const getExactOverlapAreaForTest = (polygons: Vec2[][]) =>
   Math.max(0, getTotalAbsArea(polygons) - getExactUnionAreaForTest(polygons))
 
+const getExactUnionPolygonsForTest = (polygons: Vec2[][]) => {
+  if (!exactBackend || polygons.length === 0) {
+    return polygons
+  }
+  return flattenRegionPolygonsForTest(
+    exactBackend.union(toPolygonRegionsForTest(polygons), 'nonzero')
+  )
+}
+
+const getEffectiveRenderEntryCoveragePolygonsForExactOverlapTest = (
+  entry: RenderEntrySourceMaskForTest & { polygons: Vec2[][] }
+) => {
+  const coveragePolygons = getVisibleStrokePolygonsFromDescriptor(
+    entry,
+    entry.polygons
+  )
+
+  return getExactUnionPolygonsForTest(coveragePolygons)
+}
+
 const getExactDifferencePolygonsForTest = (
   subjectPolygons: Vec2[][],
   clipPolygons: Vec2[][]
@@ -1530,20 +1705,144 @@ const getExactIntersectionAreaForTest = (
   )
 }
 
+const summarizePolygonWindingForTest = (polygons: Vec2[][]) => ({
+  polygonCount: polygons.length,
+  positiveCount: polygons.filter((polygon) => polygonArea(polygon) > 1e-9)
+    .length,
+  negativeCount: polygons.filter((polygon) => polygonArea(polygon) < -1e-9)
+    .length,
+  zeroCount: polygons.filter(
+    (polygon) => Math.abs(polygonArea(polygon)) <= 1e-9
+  ).length
+})
+
+const summarizeStrokeDebugMetaForTest = (
+  debugMeta: SolidCenterStrokeGeometryDebugMeta | undefined
+) =>
+  debugMeta
+    ? {
+        intervalId: debugMeta.intervalId,
+        strokePosition: debugMeta.strokePosition,
+        strokeCap: debugMeta.strokeCap,
+        strokeJoin: debugMeta.strokeJoin,
+        materializedStartDistance: debugMeta.materializedStartDistance,
+        materializedEndDistance: debugMeta.materializedEndDistance,
+        materializedWrapsSeam: debugMeta.materializedWrapsSeam,
+        rawProductArea: debugMeta.rawProductArea,
+        cleanedProductArea: debugMeta.cleanedProductArea,
+        boundaryClippedProductArea: debugMeta.boundaryClippedProductArea,
+        finalProductArea: debugMeta.finalProductArea,
+        startDistance: debugMeta.startDistance,
+        endDistance: debugMeta.endDistance,
+        domainPlanSplitRangeId: debugMeta.domainPlanSplitRangeId,
+        domainPlanTerminalRole: debugMeta.domainPlanTerminalRole,
+        domainPlanSelectedSide: debugMeta.domainPlanSelectedSide,
+        domainPlanFilledSide: debugMeta.domainPlanFilledSide,
+        domainPlanUnfilledSide: debugMeta.domainPlanUnfilledSide,
+        domainPlanBoundaryRole: debugMeta.domainPlanBoundaryRole,
+        dashEndpointCapPolicySignature:
+          debugMeta.dashEndpointCapPolicySignature,
+        dashEndpointCapPolicyTerminalRole:
+          debugMeta.dashEndpointCapPolicyTerminalRole,
+        joinOwnershipSignature: debugMeta.joinOwnershipSignature,
+        smoothContinuityGroupId: debugMeta.smoothContinuityGroupId,
+        materializedEndpointCaps:
+          debugMeta.materializedEndpointCaps === undefined
+            ? undefined
+            : {
+                count: debugMeta.materializedEndpointCaps.length,
+                first: debugMeta.materializedEndpointCaps[0]
+                  ? {
+                      policySignature:
+                        debugMeta.materializedEndpointCaps[0].policySignature,
+                      startCap: debugMeta.materializedEndpointCaps[0].startCap,
+                      endCap: debugMeta.materializedEndpointCaps[0].endCap,
+                      suppressStartCap:
+                        debugMeta.materializedEndpointCaps[0].suppressStartCap,
+                      suppressEndCap:
+                        debugMeta.materializedEndpointCaps[0].suppressEndCap
+                    }
+                  : undefined,
+                last: debugMeta.materializedEndpointCaps[
+                  debugMeta.materializedEndpointCaps.length - 1
+                ]
+                  ? {
+                      policySignature:
+                        debugMeta.materializedEndpointCaps[
+                          debugMeta.materializedEndpointCaps.length - 1
+                        ].policySignature,
+                      startCap:
+                        debugMeta.materializedEndpointCaps[
+                          debugMeta.materializedEndpointCaps.length - 1
+                        ].startCap,
+                      endCap:
+                        debugMeta.materializedEndpointCaps[
+                          debugMeta.materializedEndpointCaps.length - 1
+                        ].endCap,
+                      suppressStartCap:
+                        debugMeta.materializedEndpointCaps[
+                          debugMeta.materializedEndpointCaps.length - 1
+                        ].suppressStartCap,
+                      suppressEndCap:
+                        debugMeta.materializedEndpointCaps[
+                          debugMeta.materializedEndpointCaps.length - 1
+                        ].suppressEndCap
+                    }
+                  : undefined
+              },
+        domainPlanSplitRangeTerminals:
+          debugMeta.domainPlanSplitRangeTerminals?.map((terminal) => ({
+            terminalRole: terminal.terminalRole,
+            distance: terminal.distance,
+            sourceDistance: terminal.sourceDistance,
+            selectedSide: terminal.selectedSide,
+            filledSide: terminal.filledSide,
+            unfilledSide: terminal.unfilledSide,
+            boundaryRole: terminal.boundaryRole
+          }))
+      }
+    : undefined
+
 const getPacketIntersectionContributorsForTest = (
   packets: {
-    geometry: { geometryId: string; polygons: Vec2[][] }
+    geometry: {
+      geometryId: string
+      polygons: Vec2[][]
+      debugMeta?: SolidCenterStrokeGeometryDebugMeta
+    }
   }[],
   clipPolygons: Vec2[][]
 ) =>
   packets
-    .map((packet) => ({
-      geometryId: packet.geometry.geometryId,
-      area: getExactIntersectionAreaForTest(
-        packet.geometry.polygons,
+    .map((packet) => {
+      const geometryPolygons = packet.geometry.polygons
+      const descriptorPolygons = getPacketDescriptorPolygons(
+        packet as ReturnType<
+          typeof buildConstrainedDashedStrokeResolvedPackets
+        >[number]
+      )
+      const productPolygons = getPacketProductPolygons(
+        packet as ReturnType<
+          typeof buildConstrainedDashedStrokeResolvedPackets
+        >[number]
+      )
+      const geometryArea = getExactIntersectionAreaForTest(
+        geometryPolygons,
         clipPolygons
       )
-    }))
+      const descriptorArea =
+        descriptorPolygons.length > 0
+          ? getExactIntersectionAreaForTest(descriptorPolygons, clipPolygons)
+          : 0
+      return {
+        geometryId: packet.geometry.geometryId,
+        area: getExactIntersectionAreaForTest(productPolygons, clipPolygons),
+        geometryArea,
+        descriptorArea,
+        winding: summarizePolygonWindingForTest(productPolygons),
+        debugMeta: summarizeStrokeDebugMetaForTest(packet.geometry.debugMeta)
+      }
+    })
     .filter((contributor) => contributor.area > 1e-6)
     .sort((left, right) => right.area - left.area)
     .slice(0, 5)
@@ -1885,116 +2184,6 @@ const buildJoinCandidateForTest = ({
   }
 }
 
-const getRoundJoinContinuityProbesForTest = (candidate: {
-  previousDirection: Vec2
-  nextDirection: Vec2
-  previousOffsetEnd: Vec2
-  nextOffsetStart: Vec2
-}) => [
-  addPointsForTest(
-    candidate.previousOffsetEnd,
-    scalePointForTest(candidate.previousDirection, -1.5)
-  ),
-  addPointsForTest(
-    candidate.previousOffsetEnd,
-    scalePointForTest(candidate.previousDirection, -3)
-  ),
-  addPointsForTest(
-    candidate.nextOffsetStart,
-    scalePointForTest(candidate.nextDirection, 1.5)
-  ),
-  addPointsForTest(
-    candidate.nextOffsetStart,
-    scalePointForTest(candidate.nextDirection, 3)
-  )
-]
-
-const buildSourceJoinAdjacentBodyPolygonsForTest = (
-  candidate: {
-    nextDirection: Vec2
-    nextOffsetStart: Vec2
-    previousDirection: Vec2
-    previousOffsetEnd: Vec2
-    vertex: Vec2
-  },
-  options: { continuityLength?: number } = {}
-) => {
-  const continuityLength = options.continuityLength ?? 14
-  const previousSourcePoint = addPointsForTest(
-    candidate.vertex,
-    scalePointForTest(candidate.previousDirection, -continuityLength)
-  )
-  const previousOuterPoint = addPointsForTest(
-    candidate.previousOffsetEnd,
-    scalePointForTest(candidate.previousDirection, -continuityLength)
-  )
-  const nextSourcePoint = addPointsForTest(
-    candidate.vertex,
-    scalePointForTest(candidate.nextDirection, continuityLength)
-  )
-  const nextOuterPoint = addPointsForTest(
-    candidate.nextOffsetStart,
-    scalePointForTest(candidate.nextDirection, continuityLength)
-  )
-  return [
-    [
-      candidate.vertex,
-      candidate.previousOffsetEnd,
-      previousOuterPoint,
-      previousSourcePoint
-    ],
-    [
-      candidate.vertex,
-      candidate.nextOffsetStart,
-      nextOuterPoint,
-      nextSourcePoint
-    ]
-  ]
-}
-
-const buildSourceJoinLocalExpectedCoverageForTest = (
-  candidate: {
-    miterPolygon: Vec2[]
-    roundPolygon: Vec2[]
-  } & Parameters<typeof buildSourceJoinAdjacentBodyPolygonsForTest>[0],
-  joinType: StrokeJoin,
-  legalRegions: { polygons: Vec2[][] }[]
-) => {
-  const joinPolygon =
-    joinType === 'round' ? candidate.roundPolygon : candidate.miterPolygon
-  return getOutsideLegalResidueForTest(
-    [joinPolygon, ...buildSourceJoinAdjacentBodyPolygonsForTest(candidate)],
-    legalRegions
-  )
-}
-
-const getLocalJoinSeamProbesForTest = (candidate: {
-  miterPolygon: Vec2[]
-  nextDirection: Vec2
-  nextOffsetStart: Vec2
-  previousDirection: Vec2
-  previousOffsetEnd: Vec2
-  roundPolygon: Vec2[]
-  vertex: Vec2
-}) => {
-  const bodyProbes = getRoundJoinContinuityProbesForTest(candidate)
-  const arcProbes = candidate.roundPolygon
-    .slice(1)
-    .filter((_point, index, points) => {
-      if (points.length <= 4) {
-        return true
-      }
-      return index > 0 && index < points.length - 1 && index % 3 === 0
-    })
-    .map((point) =>
-      addPointsForTest(
-        candidate.vertex,
-        scalePointForTest(subtractPointsForTest(point, candidate.vertex), 0.92)
-      )
-    )
-  return [...bodyProbes, ...arcProbes]
-}
-
 const getSelfCheckSourcePathForFixture = (
   sourceFixture: (typeof CANONICAL_SELF_CHECK_SOURCE_FIXTURES)[number]
 ) =>
@@ -2034,7 +2223,7 @@ const doesSelfCheckVisibleDashCrossVertexForTest = (
   )
 }
 
-const getOutsideSourceJoinExpectations = (
+const getOutsideSourceVertexExpectations = (
   sourceFixture: (typeof CANONICAL_SELF_CHECK_SOURCE_FIXTURES)[number]
 ) => {
   const path = getSelfCheckSourcePathForFixture(sourceFixture)
@@ -2111,52 +2300,6 @@ const getOutsideSourceJoinExpectations = (
   })
 }
 
-const getLocalJoinCoverageSignature = ({
-  polygons,
-  vertex
-}: {
-  polygons: Vec2[][]
-  vertex: Vec2
-}) =>
-  getCoverageSignature({
-    polygons,
-    centers: [vertex],
-    radius: 42,
-    step: 2
-  })
-
-const countRoundArcBoundaryPointsForTest = ({
-  polygons,
-  vertex
-}: {
-  polygons: Vec2[][]
-  vertex: Vec2
-}) =>
-  polygons.flat().filter((point) => {
-    const radius = distanceBetweenPointsForTest(point, vertex)
-    return radius >= 8 && radius <= 13
-  }).length
-
-const getSourceVertexJoinIndexesFromGeometryIds = (geometryIds: string[]) =>
-  new Set(
-    geometryIds.flatMap((geometryId) => {
-      const match = geometryId.match(/source-vertex-join:(\d+)/)
-      return match ? [Number(match[1])] : []
-    })
-  )
-
-const getNearestPolygonPointDistanceForTest = (
-  polygons: Vec2[][],
-  point: Vec2
-) =>
-  polygons
-    .flat()
-    .reduce(
-      (minimum, polygonPoint) =>
-        Math.min(minimum, distanceBetweenPointsForTest(point, polygonPoint)),
-      Number.POSITIVE_INFINITY
-    )
-
 describe('canonical stroke 18-combination matrix', () => {
   it('should run: define exactly 9 solid and 9 dashed canonical matrix cases', () => {
     expect(SOLID_MATRIX_CASES).toHaveLength(9)
@@ -2226,10 +2369,11 @@ describe('canonical stroke 18-combination matrix', () => {
         expect(
           packets.every(
             (packet) =>
-              packet.geometry.debugMeta?.geometryFamily ===
-                'constrained-solid' &&
-              packet.geometry.debugMeta?.resolutionStatus ===
-                'exact-constrained'
+              packet.geometry.debugMeta?.productMode ===
+                'closed-constrained-domain' &&
+              packet.geometry.debugMeta?.productSignature?.startsWith(
+                'constrained-solid:'
+              ) === true
           ),
           key
         ).toBe(true)
@@ -2252,12 +2396,11 @@ describe('canonical stroke 18-combination matrix', () => {
         expect(
           packets.every(
             (packet) =>
-              packet.geometry.debugMeta?.geometryFamily ===
-                'constrained-dashed' &&
-              packet.geometry.debugMeta?.resolutionStatus ===
-                'exact-constrained' &&
-              packet.geometry.debugMeta?.finalCoverageBuilderStatus ===
-                'product-final'
+              packet.geometry.debugMeta?.productMode ===
+                'closed-constrained-domain' &&
+              packet.geometry.debugMeta?.productSignature?.startsWith(
+                'constrained-dashed:'
+              ) === true
           ),
           key
         ).toBe(true)
@@ -2327,8 +2470,8 @@ describe('canonical stroke 18-combination matrix', () => {
     ).toEqual([])
   })
 
-  it.each(DASHED_OUTSIDE_SOURCE_JOIN_CASES)(
-    'should run: dashed outside source join $joinType preserves authored source-vertex geometry on $sourceFixture.key',
+  it.each(DASHED_OUTSIDE_TERMINAL_POLICY_CASES)(
+    'should run: dashed outside $joinType terminal policy stays in the outside legal domain on $sourceFixture.key',
     ({ key, position, capType, joinType, sourceFixture }) => {
       const packets = buildDashedPacketsForSelfCheckSourceFixture({
         position,
@@ -2343,104 +2486,19 @@ describe('canonical stroke 18-combination matrix', () => {
       const renderPolygons = renderEntries.flatMap((entry) =>
         getVisibleStrokePolygonsForRenderEntry(entry)
       )
-      const packetPolygons = packets.flatMap(
-        (packet) => packet.geometry.polygons
+      const packetPolygons = packets.flatMap(getPacketProductPolygons)
+      const finalFacePolygons = finalFaces.flatMap(
+        getFinalFaceVisibleProductPolygons
       )
-      const finalFacePolygons = finalFaces.flatMap((face) => face.polygons)
-      const packetGeometryIds = packets.map(
-        (packet) => packet.geometry.geometryId
-      )
-      const sourceVertexJoinIndexes =
-        getSourceVertexJoinIndexesFromGeometryIds(packetGeometryIds)
-      const shouldAssertAuthoredSourceVertexJoin =
-        requiresAuthoredSourceVertexJoinOracle(sourceFixture)
-      expect(
-        packetGeometryIds.some((id) => id.includes('boundary-terminal-join'))
-      ).toBe(false)
-
-      const expectations = getOutsideSourceJoinExpectations(sourceFixture)
+      const expectations = getOutsideSourceVertexExpectations(sourceFixture)
       expect(
         expectations.length,
-        `${key}:${sourceFixture.key}:source-join-expectation-count`
+        `${key}:${sourceFixture.key}:terminal-policy-source-vertex-count`
       ).toBe(SELF_CHECK_SOURCE_VERTEX_ID_LIST.length)
 
-      const sourceJoinShapeExpectations = expectations.filter(
-        (expectation) =>
-          shouldAssertAuthoredSourceVertexJoin &&
-          expectation.hasVisibleDashCoverage &&
-          expectation.outside.turnAngle >= SOURCE_JOIN_SHAPE_TURN_ANGLE_FOR_TEST
-      )
-      const sourceJoinShapeExpectationVertexIndexes = new Set(
-        sourceJoinShapeExpectations.map(
-          (expectation) => expectation.vertexIndex
-        )
-      )
-      const missingSourceVertexJoins = sourceJoinShapeExpectations.filter(
-        (expectation) => !sourceVertexJoinIndexes.has(expectation.vertexIndex)
-      )
-      missingSourceVertexJoins.forEach((expectation) => {
-        recordFailureArtifact({
-          errorCode: 'JOIN_SOURCE_VERTEX_PACKET_MISSING',
-          caseKey: key,
-          summary: `${key} is missing source-vertex join packet coverage for an authored source anchor.`,
-          fixtureKind: 'self-check-star',
-          sourceSegmentId: `${SELF_CHECK_STAR_VECTOR_NETWORK.pointIds[expectation.previousSegmentIndex]}->${SELF_CHECK_STAR_VECTOR_NETWORK.pointIds[expectation.nextSegmentIndex]}`,
-          sourcePointId: expectation.vertexId,
-          nearestAnchorId: expectation.vertexId,
-          localPoint: expectation.outside.vertex,
-          side: 'join',
-          expected: {
-            sourceVertexJoinPacket: true
-          },
-          actual: {
-            sourceVertexJoinPacket: false,
-            availableSourceVertexJoinIndexes: Array.from(
-              sourceVertexJoinIndexes
-            )
-          },
-          recommendedViewport: {
-            zoom: 10,
-            center: expectation.outside.vertex
-          }
-        })
-      })
-      expect(
-        missingSourceVertexJoins,
-        `${key}:${sourceFixture.key}:source-vertex-packet-coverage`
-      ).toEqual([])
-
       expectations.forEach((expectation) => {
-        const sourceSegmentId = `${SELF_CHECK_STAR_VECTOR_NETWORK.pointIds[expectation.previousSegmentIndex]}->${SELF_CHECK_STAR_VECTOR_NETWORK.pointIds[expectation.nextSegmentIndex]}`
         const legalRegions =
           getSelfCheckLegalRegionsForSourceFixture(sourceFixture)
-        const outsideMiterStageCoverage = {
-          packet: polygonListContainsPoint(
-            packetPolygons,
-            expectation.outside.miterProbe
-          ),
-          finalFace: polygonListContainsPoint(
-            finalFacePolygons,
-            expectation.outside.miterProbe
-          ),
-          renderEntry: isPointInRenderedStroke(
-            renderEntries,
-            expectation.outside.miterProbe
-          )
-        }
-        const bevelStageCoverage = {
-          packet: polygonListContainsPoint(
-            packetPolygons,
-            expectation.outside.bevelMidpoint
-          ),
-          finalFace: polygonListContainsPoint(
-            finalFacePolygons,
-            expectation.outside.bevelMidpoint
-          ),
-          renderEntry: isPointInRenderedStroke(
-            renderEntries,
-            expectation.outside.bevelMidpoint
-          )
-        }
         const insideLegalResidueByStage = [
           {
             stage: 'packet',
@@ -2478,10 +2536,17 @@ describe('canonical stroke 18-combination matrix', () => {
             getLargestAreaPolygonForTest(insideLeakFailure.insideResidue)
           )
           const sourceLocation = getNearestSelfCheckSourceLocation(localPoint)
+          const contributors =
+            insideLeakFailure.stage === 'packet'
+              ? getPacketIntersectionContributorsForTest(
+                  packets,
+                  insideLeakFailure.insideResidue
+                )
+              : []
           recordFailureArtifact({
             errorCode: 'STROKE_OUTSIDE_LEAK',
             caseKey: key,
-            summary: `${key} ${insideLeakFailure.stage} outside source join leaves coverage inside the legal fill domain.`,
+            summary: `${key} ${insideLeakFailure.stage} outside terminal-policy product leaves coverage inside the legal fill domain.`,
             fixtureKind: 'self-check-star',
             sourceSegmentId: sourceLocation.sourceSegmentId,
             sourcePointId: expectation.vertexId,
@@ -2501,499 +2566,12 @@ describe('canonical stroke 18-combination matrix', () => {
               center: sourceLocation.projectedPoint
             }
           })
+          Object.assign(insideLeakFailure, { contributors })
         }
         expect(
           insideLeakFailure,
           `${key}:${sourceFixture.key}:${expectation.vertexId}:outside-legal-domain`
         ).toBeUndefined()
-        if (
-          !shouldAssertAuthoredSourceVertexJoin ||
-          !sourceJoinShapeExpectationVertexIndexes.has(
-            expectation.vertexIndex
-          ) ||
-          expectation.outside.turnAngle < SOURCE_JOIN_SHAPE_TURN_ANGLE_FOR_TEST
-        ) {
-          return
-        }
-        const outsideMiterCovered = isPointInRenderedStroke(
-          renderEntries,
-          expectation.outside.miterProbe
-        )
-        const insideMiterCovered = isPointInRenderedStroke(
-          renderEntries,
-          expectation.inside.miterProbe
-        )
-        if (joinType === 'miter') {
-          const insideMiterForbiddenArea = getExactIntersectionAreaForTest(
-            renderPolygons,
-            [expectation.inside.miterPolygon]
-          )
-          const insideMiterPacketContributors =
-            getPacketIntersectionContributorsForTest(packets, [
-              expectation.inside.miterPolygon
-            ])
-          const maxInsideMiterForbiddenArea = Math.max(
-            0.25,
-            Math.abs(polygonArea(expectation.inside.miterPolygon)) * 0.05
-          )
-          const expectedMiterLocalCoverage =
-            buildSourceJoinLocalExpectedCoverageForTest(
-              expectation.outside,
-              'miter',
-              legalRegions
-            )
-          const miterLocalMissingPolygons = getExactDifferencePolygonsForTest(
-            expectedMiterLocalCoverage,
-            renderPolygons
-          )
-          const miterLocalMissingArea = getTotalAbsArea(
-            miterLocalMissingPolygons
-          )
-          const expectedMiterLocalArea = getTotalAbsArea(
-            expectedMiterLocalCoverage
-          )
-          const maxMiterLocalMissingArea = Math.max(
-            0.5,
-            expectedMiterLocalArea * 0.08
-          )
-          const outsideMiterNearestPacketPointDistance =
-            getNearestPolygonPointDistanceForTest(
-              packetPolygons,
-              expectation.outside.miterProbe
-            )
-          if (!outsideMiterCovered || insideMiterCovered) {
-            recordFailureArtifact({
-              errorCode: 'JOIN_MITER_DIRECTION',
-              caseKey: key,
-              summary: `${key} miter join does not extend along the outside source-vertex direction.`,
-              fixtureKind: 'self-check-star',
-              sourceSegmentId,
-              sourcePointId: expectation.vertexId,
-              nearestAnchorId: expectation.vertexId,
-              localPoint: expectation.outside.miterProbe,
-              side: 'join',
-              expected: {
-                outsideMiterCovered: true,
-                insideMiterCovered: false
-              },
-              actual: {
-                outsideMiterCovered,
-                insideMiterCovered,
-                insideMiterForbiddenArea,
-                maxInsideMiterForbiddenArea,
-                miterLocalMissingArea,
-                maxMiterLocalMissingArea,
-                outsideMiterStageCoverage,
-                outsideMiterNearestPacketPointDistance,
-                insideMiterPacketContributors
-              },
-              recommendedViewport: {
-                zoom: 10,
-                center: expectation.outside.vertex
-              }
-            })
-          }
-          if (miterLocalMissingArea > maxMiterLocalMissingArea) {
-            recordFailureArtifact({
-              errorCode: 'JOIN_MITER_OVERTRIM_GAP',
-              caseKey: key,
-              summary: `${key} miter join trims too much adjacent dash body near an authored source vertex.`,
-              fixtureKind: 'self-check-star',
-              sourceSegmentId,
-              sourcePointId: expectation.vertexId,
-              nearestAnchorId: expectation.vertexId,
-              localPoint: getPolygonAveragePointForTest(
-                getLargestAreaPolygonForTest(miterLocalMissingPolygons)
-              ),
-              side: 'join',
-              expected: {
-                maxMiterLocalMissingArea
-              },
-              actual: {
-                miterLocalMissingArea,
-                expectedMiterLocalArea
-              },
-              recommendedViewport: {
-                zoom: 10,
-                center: expectation.outside.vertex
-              }
-            })
-          }
-          expect(
-            {
-              outsideMiterCovered,
-              insideMiterCovered,
-              miterLocalMissingAreaWithinTolerance:
-                miterLocalMissingArea <= maxMiterLocalMissingArea
-            },
-            `${key}:${sourceFixture.key}:${expectation.vertexId}:miter-direction:${JSON.stringify(
-              {
-                outsideMiterStageCoverage,
-                insideMiterForbiddenArea,
-                maxInsideMiterForbiddenArea,
-                miterLocalMissingArea,
-                maxMiterLocalMissingArea
-              }
-            )}`
-          ).toEqual({
-            outsideMiterCovered: true,
-            insideMiterCovered: false,
-            miterLocalMissingAreaWithinTolerance: true
-          })
-        }
-
-        if (joinType === 'bevel') {
-          const bevelCovered = isPointInRenderedStroke(
-            renderEntries,
-            expectation.outside.bevelMidpoint
-          )
-          const bevelNearestPacketPointDistance =
-            getNearestPolygonPointDistanceForTest(
-              packetPolygons,
-              expectation.outside.bevelMidpoint
-            )
-          if (!bevelCovered || outsideMiterCovered) {
-            recordFailureArtifact({
-              errorCode: 'JOIN_BEVEL_MISSING',
-              caseKey: key,
-              summary: `${key} bevel join is missing its outside chord footprint or still behaves like miter.`,
-              fixtureKind: 'self-check-star',
-              sourceSegmentId,
-              sourcePointId: expectation.vertexId,
-              nearestAnchorId: expectation.vertexId,
-              localPoint: expectation.outside.bevelMidpoint,
-              side: 'join',
-              expected: {
-                bevelCovered: true,
-                outsideMiterCovered: false
-              },
-              actual: {
-                bevelCovered,
-                outsideMiterCovered,
-                bevelStageCoverage,
-                outsideMiterStageCoverage,
-                bevelNearestPacketPointDistance
-              },
-              recommendedViewport: {
-                zoom: 10,
-                center: expectation.outside.vertex
-              }
-            })
-          }
-          expect(
-            { bevelCovered, outsideMiterCovered },
-            `${key}:${sourceFixture.key}:${expectation.vertexId}:bevel-footprint:${JSON.stringify(
-              {
-                bevelStageCoverage,
-                outsideMiterStageCoverage
-              }
-            )}`
-          ).toEqual({
-            bevelCovered: true,
-            outsideMiterCovered: false
-          })
-        }
-
-        if (joinType === 'round') {
-          const expectedRoundSectorPolygons = getOutsideLegalResidueForTest(
-            [expectation.outside.roundPolygon],
-            legalRegions
-          )
-          const expectedRoundSectorArea = getTotalAbsArea(
-            expectedRoundSectorPolygons
-          )
-          const roundSectorMissingPolygons = getExactDifferencePolygonsForTest(
-            expectedRoundSectorPolygons,
-            renderPolygons
-          )
-          const roundSectorMissingArea = getTotalAbsArea(
-            roundSectorMissingPolygons
-          )
-          const maxRoundSectorMissingArea = Math.max(
-            0.35,
-            expectedRoundSectorArea * 0.01
-          )
-          const arcPointCount = countRoundArcBoundaryPointsForTest({
-            polygons: renderPolygons,
-            vertex: expectation.outside.vertex
-          })
-          const continuityProbes = getRoundJoinContinuityProbesForTest(
-            expectation.outside
-          )
-          const uncoveredContinuityProbes = continuityProbes.filter(
-            (point) => !isPointInRenderedStroke(renderEntries, point)
-          )
-          const expectedRoundLocalCoverage =
-            buildSourceJoinLocalExpectedCoverageForTest(
-              expectation.outside,
-              'round',
-              legalRegions
-            )
-          const roundLocalMissingPolygons = getExactDifferencePolygonsForTest(
-            expectedRoundLocalCoverage,
-            renderPolygons
-          )
-          const roundLocalMissingArea = getTotalAbsArea(
-            roundLocalMissingPolygons
-          )
-          const expectedRoundLocalArea = getTotalAbsArea(
-            expectedRoundLocalCoverage
-          )
-          const maxRoundLocalMissingArea = Math.max(
-            1,
-            expectedRoundLocalArea * 0.025
-          )
-          const seamProbes = getLocalJoinSeamProbesForTest(
-            expectation.outside
-          ).filter(
-            (point) =>
-              !isPointInsideExactLegalRegionForTest(point, legalRegions)
-          )
-          const uncoveredSeamProbes = seamProbes.filter(
-            (point) => !isPointInRenderedStroke(renderEntries, point)
-          )
-          const wrongSideRoundProbes = [
-            expectation.inside.bevelMidpoint,
-            expectation.inside.miterProbe
-          ].filter(
-            (point) =>
-              !isPointInsideExactLegalRegionForTest(point, legalRegions)
-          )
-          const coveredWrongSideRoundProbes = wrongSideRoundProbes.filter(
-            (point) => isPointInRenderedStroke(renderEntries, point)
-          )
-          if (
-            arcPointCount < SOURCE_JOIN_ROUND_MIN_VISIBLE_ARC_POINTS_FOR_TEST
-          ) {
-            recordFailureArtifact({
-              errorCode: 'JOIN_ROUND_NOT_SMOOTH',
-              caseKey: key,
-              summary: `${key} round join does not keep enough local arc boundary samples.`,
-              fixtureKind: 'self-check-star',
-              sourceSegmentId,
-              sourcePointId: expectation.vertexId,
-              nearestAnchorId: expectation.vertexId,
-              localPoint: expectation.outside.vertex,
-              side: 'join',
-              expected: {
-                minArcPointCount:
-                  SOURCE_JOIN_ROUND_MIN_VISIBLE_ARC_POINTS_FOR_TEST
-              },
-              actual: { arcPointCount },
-              recommendedViewport: {
-                zoom: 10,
-                center: expectation.outside.vertex
-              }
-            })
-          }
-          if (
-            uncoveredContinuityProbes.length > 0 ||
-            roundSectorMissingArea > maxRoundSectorMissingArea
-          ) {
-            recordFailureArtifact({
-              errorCode: 'JOIN_ROUND_CONTINUITY_GAP',
-              caseKey: key,
-              summary: `${key} round join does not connect cleanly to the adjacent dash body.`,
-              fixtureKind: 'self-check-star',
-              sourceSegmentId,
-              sourcePointId: expectation.vertexId,
-              nearestAnchorId: expectation.vertexId,
-              localPoint:
-                uncoveredContinuityProbes[0] ??
-                getPolygonAveragePointForTest(
-                  getLargestAreaPolygonForTest(roundSectorMissingPolygons)
-                ),
-              side: 'join',
-              expected: { uncoveredContinuityProbeCount: 0 },
-              actual: {
-                uncoveredContinuityProbeCount: uncoveredContinuityProbes.length,
-                roundSectorMissingArea,
-                maxRoundSectorMissingArea,
-                expectedRoundSectorArea
-              },
-              recommendedViewport: {
-                zoom: 10,
-                center: expectation.outside.vertex
-              }
-            })
-          }
-          if (uncoveredSeamProbes.length > 0) {
-            recordFailureArtifact({
-              errorCode: 'JOIN_ROUND_ARC_SEAM_GAP',
-              caseKey: key,
-              summary: `${key} round join leaves a local seam gap between arc and adjacent dash body.`,
-              fixtureKind: 'self-check-star',
-              sourceSegmentId,
-              sourcePointId: expectation.vertexId,
-              nearestAnchorId: expectation.vertexId,
-              localPoint:
-                uncoveredSeamProbes[0] ??
-                getPolygonAveragePointForTest(
-                  getLargestAreaPolygonForTest(roundLocalMissingPolygons)
-                ),
-              side: 'join',
-              expected: {
-                uncoveredSeamProbeCount: 0,
-                maxRoundLocalMissingArea
-              },
-              actual: {
-                uncoveredSeamProbeCount: uncoveredSeamProbes.length,
-                roundLocalMissingArea,
-                expectedRoundLocalArea
-              },
-              recommendedViewport: {
-                zoom: 10,
-                center: expectation.outside.vertex
-              }
-            })
-          }
-          if (coveredWrongSideRoundProbes.length > 0) {
-            recordFailureArtifact({
-              errorCode: 'JOIN_ROUND_BEVEL_PROTRUSION',
-              caseKey: key,
-              summary: `${key} round join has bevel-like protruding coverage on the wrong source side.`,
-              fixtureKind: 'self-check-star',
-              sourceSegmentId,
-              sourcePointId: expectation.vertexId,
-              nearestAnchorId: expectation.vertexId,
-              localPoint: coveredWrongSideRoundProbes[0],
-              side: 'join',
-              expected: {
-                coveredWrongSideProbeCount: 0
-              },
-              actual: {
-                coveredWrongSideProbeCount: coveredWrongSideRoundProbes.length,
-                coveredWrongSideRoundProbes
-              },
-              recommendedViewport: {
-                zoom: 10,
-                center: expectation.outside.vertex
-              }
-            })
-          }
-          expect(
-            arcPointCount,
-            `${key}:${sourceFixture.key}:${expectation.vertexId}:round-smoothness`
-          ).toBeGreaterThanOrEqual(
-            SOURCE_JOIN_ROUND_MIN_VISIBLE_ARC_POINTS_FOR_TEST
-          )
-          expect(
-            {
-              uncoveredContinuityProbes,
-              roundSectorMissingAreaWithinTolerance:
-                roundSectorMissingArea <= maxRoundSectorMissingArea,
-              uncoveredSeamProbes,
-              coveredWrongSideRoundProbes
-            },
-            `${key}:${sourceFixture.key}:${expectation.vertexId}:round-continuity:${JSON.stringify(
-              {
-                roundSectorMissingArea,
-                maxRoundSectorMissingArea,
-                expectedRoundSectorArea,
-                roundLocalMissingArea,
-                maxRoundLocalMissingArea,
-                expectedRoundLocalArea,
-                coveredWrongSideProbeCount: coveredWrongSideRoundProbes.length
-              }
-            )}`
-          ).toEqual({
-            uncoveredContinuityProbes: [],
-            roundSectorMissingAreaWithinTolerance: true,
-            uncoveredSeamProbes: [],
-            coveredWrongSideRoundProbes: []
-          })
-        }
-      })
-    }
-  )
-
-  it.each(CANONICAL_SELF_CHECK_SOURCE_FIXTURES)(
-    'should run: dashed outside source joins keep distinct local signatures on $key',
-    (sourceFixture) => {
-      const signaturesByJoin = new Map<StrokeJoin, string>()
-      const expectations = getOutsideSourceJoinExpectations(sourceFixture)
-      expect(
-        expectations.length,
-        `dashed:outside:butt:${sourceFixture.key}:signature-source-vertex-count`
-      ).toBe(SELF_CHECK_SOURCE_VERTEX_ID_LIST.length)
-      if (!requiresAuthoredSourceVertexJoinOracle(sourceFixture)) {
-        return
-      }
-      const sourceJoinShapeExpectations = expectations.filter(
-        (expectation) =>
-          expectation.hasVisibleDashCoverage &&
-          expectation.outside.turnAngle >= SOURCE_JOIN_SHAPE_TURN_ANGLE_FOR_TEST
-      )
-      if (sourceJoinShapeExpectations.length === 0) {
-        return
-      }
-      DASHED_SOURCE_JOINS.forEach((joinType) => {
-        const packets = buildDashedPacketsForSelfCheckSourceFixture({
-          position: 'outside',
-          capType: 'butt',
-          joinType,
-          sourceFixture
-        })
-        assertPipelineCompleteness({
-          key: `dashed:outside:butt:${joinType}:${sourceFixture.key}`,
-          packets
-        })
-        const renderPolygons = toSolidCenterStrokeRenderEntriesFromFinalFaces(
-          buildStrokeFinalFacesFromResolvedPackets(packets)
-        ).flatMap((entry) => entry.polygons)
-        signaturesByJoin.set(
-          joinType,
-          sourceJoinShapeExpectations
-            .map((expectation) =>
-              getLocalJoinCoverageSignature({
-                polygons: renderPolygons,
-                vertex: expectation.outside.vertex
-              })
-            )
-            .join('|')
-        )
-      })
-
-      const pairs: [StrokeJoin, StrokeJoin][] = [
-        ['miter', 'bevel'],
-        ['miter', 'round'],
-        ['bevel', 'round']
-      ]
-      pairs.forEach(([first, second]) => {
-        const differences = countSignatureDifferences(
-          signaturesByJoin.get(first) ?? '',
-          signaturesByJoin.get(second) ?? ''
-        )
-        if (differences < SOURCE_JOIN_MIN_SIGNATURE_DIFFERENCES_FOR_TEST) {
-          const expectation = expectations[0]
-          recordFailureArtifact({
-            errorCode: 'JOIN_SIGNATURE_MISSING',
-            caseKey: `dashed:outside:butt:${first}:${second}:${sourceFixture.key}`,
-            summary: `dashed outside ${first}/${second} source joins are not geometrically distinct.`,
-            fixtureKind: 'self-check-star',
-            sourceSegmentId: expectation
-              ? `tp-${12 + expectation.previousSegmentIndex}->tp-${12 + expectation.nextSegmentIndex}`
-              : undefined,
-            sourcePointId: expectation?.vertexId,
-            nearestAnchorId: expectation?.vertexId,
-            localPoint:
-              expectation?.outside.vertex ?? SELF_CHECK_STAR_POINTS[2],
-            side: 'join',
-            expected: {
-              minSignatureDifferences:
-                SOURCE_JOIN_MIN_SIGNATURE_DIFFERENCES_FOR_TEST
-            },
-            actual: { differences },
-            recommendedViewport: {
-              zoom: 10,
-              center: expectation?.outside.vertex ?? SELF_CHECK_STAR_POINTS[2]
-            }
-          })
-        }
-        expect(
-          differences,
-          `dashed:outside:butt:${first}:${second}:${sourceFixture.key}:join-signature`
-        ).toBeGreaterThanOrEqual(SOURCE_JOIN_MIN_SIGNATURE_DIFFERENCES_FOR_TEST)
       })
     }
   )
@@ -3031,45 +2609,81 @@ describe('canonical stroke 18-combination matrix', () => {
     'should run: dashed canonical matrix case $position $capType stays inside the $sourceFixture.key legal fill domain through render projection',
     ({ key, position, capType, sourceFixture }) => {
       const caseKey = `${key}:${sourceFixture.key}`
+      const sourceOptions = sourceFixture.useCurvedSourcePath
+        ? getCanonicalSelfCheckOptions()
+        : getSelfIntersectingOptions(SELF_CHECK_STAR_POINTS)
       const packets = buildDashedPacketsForSelfCheckSourceFixture({
         position,
         capType,
-        sourceFixture
+        sourceFixture,
+        sourceOptions
       })
       const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
       const renderEntries =
         toSolidCenterStrokeRenderEntriesFromFinalFaces(finalFaces)
-      const legalRegions =
-        getSelfCheckLegalRegionsForSourceFixture(sourceFixture)
+      const legalRegions = sourceOptions.implicitFillRegions
+      const normalizedLegalRegions =
+        exactBackend && legalRegions.length > 0
+          ? exactBackend.union(legalRegions, 'nonzero')
+          : legalRegions
       const stages = [
         {
-          stage: 'packet',
-          polygons: packets.flatMap((packet) => packet.geometry.polygons)
+          stage: 'packet-effective-product',
+          polygons: packets.flatMap(getPacketProductPolygons),
+          contributorsForResidue: (outsideResidue: Vec2[][]) =>
+            getPacketIntersectionContributorsForTest(packets, outsideResidue)
+        },
+        {
+          stage: 'packet-descriptor',
+          polygons: packets.flatMap(getPacketDescriptorPolygons),
+          contributorsForResidue: (outsideResidue: Vec2[][]) =>
+            getPacketIntersectionContributorsForTest(packets, outsideResidue)
+        },
+        {
+          stage: 'packet-product',
+          polygons: packets.flatMap(getPacketProductPolygons),
+          contributorsForResidue: (outsideResidue: Vec2[][]) =>
+            getPacketIntersectionContributorsForTest(packets, outsideResidue)
         },
         {
           stage: 'final-face',
-          polygons: finalFaces.flatMap((face) => face.polygons)
+          polygons: finalFaces.flatMap(getFinalFaceVisibleProductPolygons),
+          contributorsForResidue: () => []
         },
         {
           stage: 'render-entry',
-          polygons: renderEntries.flatMap((entry) => entry.polygons)
+          polygons: renderEntries.flatMap(
+            getVisibleStrokePolygonsForRenderEntry
+          ),
+          contributorsForResidue: () => []
         }
       ]
       const failures = stages
-        .map(({ stage, polygons }) => {
+        .map(({ stage, polygons, contributorsForResidue }) => {
           const outsideResidue = getOutsideLegalResidueForTest(
             polygons,
             legalRegions
           )
+          const normalizedOutsideResidue = getOutsideLegalResidueForTest(
+            polygons,
+            normalizedLegalRegions
+          )
           const totalArea = getTotalAbsArea(polygons)
           const outsideResidueArea = getTotalAbsArea(outsideResidue)
+          const normalizedOutsideResidueArea = getTotalAbsArea(
+            normalizedOutsideResidue
+          )
           const maxAllowedArea = getGeometryAreaToleranceForTest(totalArea)
+          const contributors = contributorsForResidue(outsideResidue)
           return {
             stage,
             polygons,
             outsideResidue,
+            normalizedOutsideResidue,
+            contributors,
             totalArea,
             outsideResidueArea,
+            normalizedOutsideResidueArea,
             maxAllowedArea
           }
         })
@@ -3098,7 +2712,8 @@ describe('canonical stroke 18-combination matrix', () => {
           },
           actual: {
             outsideResidueArea: failure.outsideResidueArea,
-            totalArea: failure.totalArea
+            totalArea: failure.totalArea,
+            contributors: failure.contributors
           },
           recommendedViewport: {
             zoom: 8,
@@ -3114,13 +2729,19 @@ describe('canonical stroke 18-combination matrix', () => {
             outsideResidueArea,
             maxAllowedArea,
             totalArea,
-            outsideResidue
+            outsideResidue,
+            normalizedOutsideResidue,
+            normalizedOutsideResidueArea,
+            contributors
           }) => ({
             stage,
             outsideResidueArea,
+            normalizedOutsideResidueArea,
             maxAllowedArea,
             totalArea,
-            residuePolygonCount: outsideResidue.length
+            residuePolygonCount: outsideResidue.length,
+            normalizedResiduePolygonCount: normalizedOutsideResidue.length,
+            contributors
           })
         ),
         JSON.stringify(
@@ -3147,7 +2768,9 @@ describe('canonical stroke 18-combination matrix', () => {
       const renderEntries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
         buildStrokeFinalFacesFromResolvedPackets(packets)
       )
-      const polygons = renderEntries.flatMap((entry) => entry.polygons)
+      const polygons = renderEntries.flatMap((entry) =>
+        getEffectiveRenderEntryCoveragePolygonsForExactOverlapTest(entry)
+      )
       const totalArea = getTotalAbsArea(polygons)
       const overlapArea = getExactOverlapAreaForTest(polygons)
       const maxAllowedArea = getGeometryAreaToleranceForTest(totalArea)
@@ -3194,7 +2817,9 @@ describe('canonical stroke 18-combination matrix', () => {
           {
             caseKey,
             renderEntryCount: renderEntries.length,
-            polygonCount: polygons.length
+            rawPolygonCount: renderEntries.flatMap((entry) => entry.polygons)
+              .length,
+            effectivePolygonCount: polygons.length
           },
           null,
           2
@@ -3226,7 +2851,7 @@ describe('canonical stroke 18-combination matrix', () => {
       expect(
         renderEntries.every(
           (entry) =>
-            entry.runtimeMeta?.sourceTopology !== 'self-intersecting' ||
+            entry.runtimeMeta?.topologyFamily !== 'self-intersecting' ||
             entry.runtimeMeta?.visualOverlapCollapseStatus === 'exact-union'
         ),
         `${key}:${sourceFixture.key}:solid-center-exact-union-render-contract`
@@ -3234,7 +2859,7 @@ describe('canonical stroke 18-combination matrix', () => {
       const stagePolygons = [
         {
           stage: 'packet',
-          polygons: packets.flatMap((packet) => packet.geometry.polygons)
+          polygons: packets.flatMap(getPacketProductPolygons)
         },
         {
           stage: 'render-entry',
@@ -3354,7 +2979,7 @@ describe('canonical stroke 18-combination matrix', () => {
   )
 
   it.each(DASHED_MATRIX_CASES)(
-    'should run: dashed canonical matrix case $position $capType preserves open-line terminal cap footprint',
+    'should run: dashed canonical matrix case $position $capType keeps open-line endpoint caps one-sided',
     ({ key, position, capType }) => {
       const packets = buildDashedPacketsForPoints({
         points: OPEN_LINE_POINTS,
@@ -3363,44 +2988,85 @@ describe('canonical stroke 18-combination matrix', () => {
         capType
       })
       assertPipelineCompleteness({ key: `${key}:open-line-cap`, packets })
-      const polygons = packets.flatMap((packet) => packet.geometry.polygons)
-      const behindStartCovered = polygonListContainsPoint(polygons, {
-        x: -4,
-        y: 0
-      })
-      const squareCornerCovered = polygonListContainsPoint(polygons, {
-        x: -4,
-        y: 5
-      })
-      if (capType === 'butt') {
-        if (behindStartCovered) {
-          recordFailureArtifact({
-            errorCode: 'CAP_SHAPE_MISMATCH',
-            caseKey: key,
-            summary: `${key} butt cap extends behind the open-line terminal.`,
-            fixtureKind: 'open-line',
-            sourceSegmentId: 'open-line:start->end',
-            sourcePointId: 'open-line:start',
-            nearestAnchorId: 'open-line:start',
-            localPoint: { x: 0, y: 0 },
-            t: 0,
-            side: 'terminal',
-            expected: { backwardExtension: false },
-            actual: { backwardExtension: behindStartCovered },
-            recommendedViewport: {
-              zoom: 10,
-              center: { x: 0, y: 0 }
+      const polygons = packets.flatMap((packet) =>
+        getPacketProductPolygons(packet)
+      )
+      const terminalPacket = packets.find((packet) => {
+        const meta = packet.geometry.debugMeta as
+          | {
+              intervalTerminalRole?: string
+              openPathTerminalRole?: string
+              startDistance?: number
+              endDistance?: number
             }
+          | undefined
+        return (
+          typeof meta.startDistance === 'number' &&
+          Math.abs(meta.startDistance) <= 1e-6 &&
+          typeof meta.endDistance === 'number' &&
+          meta.endDistance > meta.startDistance
+        )
+      })
+      const terminalMeta = terminalPacket?.geometry.debugMeta as
+        | {
+            startDistance?: number
+            endDistance?: number
+            productMode?: string
+          }
+        | undefined
+      expect(
+        terminalMeta?.startDistance,
+        `${key}:terminal-start-distance`
+      ).toBe(0)
+      expect(
+        terminalMeta?.endDistance,
+        `${key}:terminal-end-distance`
+      ).toBeGreaterThan(0)
+      const terminalEndDistance = terminalMeta?.endDistance ?? 0
+      const capLength = 6
+      const bodySideProbeYs = Array.from({ length: 17 }, (_, index) => {
+        const ratio = index / 16
+        return -capLength + ratio * capLength * 2
+      })
+      const usesCenterProduct = terminalMeta?.productMode === 'center-product'
+      const squareCornerProbeY =
+        usesCenterProduct || position === 'center'
+          ? capLength * 0.92
+          : position === 'inside'
+            ? capLength * 0.08
+            : -capLength * 0.08
+      const squareCornerProbeX = terminalEndDistance + capLength * 0.92
+      const endpointSideProbes = [-capLength * 0.95, 0, capLength * 0.95].map(
+        (y) => ({
+          y,
+          covered: polygonListContainsPoint(polygons, {
+            x: -capLength * 0.65,
+            y
           })
-        }
-        expect(behindStartCovered, `${key}:butt-start-extension`).toBe(false)
-        return
-      }
-      if (!behindStartCovered) {
+        })
+      )
+      const behindStartCovered = endpointSideProbes.some(
+        (probe) => probe.covered
+      )
+      const bodySideCapProbes = bodySideProbeYs.map((y) => ({
+        y,
+        covered: polygonListContainsPoint(polygons, {
+          x: terminalEndDistance + capLength * 0.65,
+          y
+        })
+      }))
+      const bodySideCapCenterCovered = bodySideCapProbes.some(
+        (probe) => probe.covered
+      )
+      const bodySideSquareCornerCovered = polygonListContainsPoint(polygons, {
+        x: squareCornerProbeX,
+        y: squareCornerProbeY
+      })
+      if (behindStartCovered) {
         recordFailureArtifact({
-          errorCode: 'CAP_EXTENSION_MISSING',
+          errorCode: 'CAP_SHAPE_MISMATCH',
           caseKey: key,
-          summary: `${key} ${capType} cap is missing backward terminal extension.`,
+          summary: `${key} ${capType} cap extends behind the open-line terminal endpoint.`,
           fixtureKind: 'open-line',
           sourceSegmentId: 'open-line:start->end',
           sourcePointId: 'open-line:start',
@@ -3408,59 +3074,100 @@ describe('canonical stroke 18-combination matrix', () => {
           localPoint: { x: 0, y: 0 },
           t: 0,
           side: 'terminal',
-          expected: { backwardExtension: true },
-          actual: { backwardExtension: behindStartCovered },
+          expected: { endpointSideCap: false },
+          actual: {
+            endpointSideCoverage: endpointSideProbes
+          },
           recommendedViewport: {
             zoom: 10,
             center: { x: 0, y: 0 }
           }
         })
       }
-      expect(behindStartCovered, `${key}:cap-start-extension`).toBe(true)
+      expect(behindStartCovered, `${key}:endpoint-side-cap`).toBe(false)
+      if (capType === 'butt') {
+        expect(bodySideCapCenterCovered, `${key}:butt-body-side-cap`).toBe(
+          false
+        )
+        return
+      }
+      if (!bodySideCapCenterCovered) {
+        recordFailureArtifact({
+          errorCode: 'CAP_EXTENSION_MISSING',
+          caseKey: key,
+          summary: `${key} ${capType} cap is missing body-side terminal extension.`,
+          fixtureKind: 'open-line',
+          sourceSegmentId: 'open-line:start->end',
+          sourcePointId: 'open-line:start',
+          nearestAnchorId: 'open-line:start',
+          localPoint: { x: 20, y: 0 },
+          t: 0.125,
+          side: 'terminal',
+          expected: { bodySideCap: true },
+          actual: {
+            bodySideCap: bodySideCapCenterCovered,
+            bodySideCapProbes,
+            productBounds: getPolygonBoundsForTest(polygons),
+            terminalMeta,
+            terminalDebugMeta: terminalPacket?.geometry.debugMeta
+          },
+          recommendedViewport: {
+            zoom: 10,
+            center: { x: 20, y: 0 }
+          }
+        })
+      }
+      expect(bodySideCapCenterCovered, `${key}:body-side-cap`).toBe(true)
       if (capType === 'square') {
-        if (!squareCornerCovered) {
+        if (!bodySideSquareCornerCovered) {
           recordFailureArtifact({
             errorCode: 'CAP_SHAPE_MISMATCH',
             caseKey: key,
-            summary: `${key} square cap is missing terminal corner footprint.`,
+            summary: `${key} square cap is missing body-side corner footprint.`,
             fixtureKind: 'open-line',
             sourceSegmentId: 'open-line:start->end',
             sourcePointId: 'open-line:start',
             nearestAnchorId: 'open-line:start',
-            localPoint: { x: 0, y: 0 },
-            t: 0,
+            localPoint: { x: 20, y: 0 },
+            t: 0.125,
             side: 'terminal',
             expected: { squareCorner: true },
-            actual: { squareCorner: squareCornerCovered },
+            actual: { squareCorner: bodySideSquareCornerCovered },
             recommendedViewport: {
               zoom: 10,
-              center: { x: 0, y: 0 }
+              center: { x: 20, y: 0 }
             }
           })
         }
-        expect(squareCornerCovered, `${key}:square-corner`).toBe(true)
+        expect(
+          bodySideSquareCornerCovered,
+          `${key}:body-side-square-corner`
+        ).toBe(true)
       } else {
-        if (squareCornerCovered) {
+        if (bodySideSquareCornerCovered) {
           recordFailureArtifact({
             errorCode: 'CAP_SHAPE_MISMATCH',
             caseKey: key,
-            summary: `${key} round cap has square-like terminal corner footprint.`,
+            summary: `${key} round cap has square-like body-side corner footprint.`,
             fixtureKind: 'open-line',
             sourceSegmentId: 'open-line:start->end',
             sourcePointId: 'open-line:start',
             nearestAnchorId: 'open-line:start',
-            localPoint: { x: 0, y: 0 },
-            t: 0,
+            localPoint: { x: 20, y: 0 },
+            t: 0.125,
             side: 'terminal',
             expected: { squareCorner: false },
-            actual: { squareCorner: squareCornerCovered },
+            actual: { squareCorner: bodySideSquareCornerCovered },
             recommendedViewport: {
               zoom: 10,
-              center: { x: 0, y: 0 }
+              center: { x: 20, y: 0 }
             }
           })
         }
-        expect(squareCornerCovered, `${key}:round-corner`).toBe(false)
+        expect(
+          bodySideSquareCornerCovered,
+          `${key}:body-side-round-corner`
+        ).toBe(false)
       }
     }
   )

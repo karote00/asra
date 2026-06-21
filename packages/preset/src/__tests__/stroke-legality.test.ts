@@ -58,9 +58,10 @@ describe('stroke legality application', () => {
               endDistance: 5
             }
           ],
-          geometryFamily: 'constrained-solid',
-          resolutionStatus: 'exact-constrained',
-          runtimeStatus: 'accepted',
+          productMode: 'closed-constrained-domain',
+          productSignature: 'constrained-solid:inside',
+          domainMode: 'closed-constrained-domain',
+          topologyFamily: 'simple-closed',
           strokePosition: 'inside'
         }
       },
@@ -150,9 +151,10 @@ describe('stroke legality application', () => {
           networkId: 'network:outside',
           strokeId: 'stroke:0',
           strokeIndex: 0,
-          geometryFamily: 'constrained-solid',
-          resolutionStatus: 'exact-constrained',
-          runtimeStatus: 'accepted',
+          productMode: 'closed-constrained-domain',
+          productSignature: 'constrained-solid:outside',
+          domainMode: 'closed-constrained-domain',
+          topologyFamily: 'simple-closed',
           strokePosition: 'outside'
         }
       },

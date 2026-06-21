@@ -34,6 +34,13 @@ export const deleteElementFeature = defineFeature(
           return null
         }
 
+        const hoveredAfterDelete = elementApis.getElementIdAtClientPos(
+          snapshot.mousePosition
+        )
+        systemContextApis.updateHoveredElementId(
+          hoveredAfterDelete === elementId ? null : hoveredAfterDelete
+        )
+
         return { deletedElementId: elementId }
       } finally {
         endTransaction()

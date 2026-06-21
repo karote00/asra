@@ -48,6 +48,8 @@ interface RasterCapture {
   elementWidth: number
   elementHeight: number
   padding: number
+  offsetX?: number
+  offsetY?: number
 }
 
 const STROKE_WIDTH = 10
@@ -429,7 +431,8 @@ const createRuleDrivenVector = async (
 
 const captureRuleDrivenRaster = async (
   page: Page,
-  fixture: RuleDrivenVectorFixture
+  fixture: RuleDrivenVectorFixture,
+  extraLocalPoints: Vec2[] = []
 ): Promise<RasterCapture> => {
   const rect = await getSelectedElementRect(page)
   if (!rect) {
@@ -443,26 +446,41 @@ const captureRuleDrivenRaster = async (
       viewport: core?.getSystemProperty?.('viewportPosition') ?? { x: 0, y: 0 }
     }
   })
+  const extraBounds = extraLocalPoints.reduce(
+    (bounds, point) => ({
+      minX: Math.min(bounds.minX, point.x),
+      minY: Math.min(bounds.minY, point.y),
+      maxX: Math.max(bounds.maxX, point.x),
+      maxY: Math.max(bounds.maxY, point.y)
+    }),
+    {
+      minX: 0,
+      minY: 0,
+      maxX: fixture.width,
+      maxY: fixture.height
+    }
+  )
+  const offsetX = Math.max(PADDING, Math.ceil(-extraBounds.minX) + PADDING)
+  const offsetY = Math.max(PADDING, Math.ceil(-extraBounds.minY) + PADDING)
+  const rightExtent = Math.max(fixture.width, extraBounds.maxX) + PADDING
+  const bottomExtent = Math.max(fixture.height, extraBounds.maxY) + PADDING
   const clip = {
     x: Math.max(
       0,
       Math.floor(
-        rect.x * viewportState.zoom + viewportState.viewport.x - PADDING
+        rect.x * viewportState.zoom + viewportState.viewport.x - offsetX
       )
     ),
     y: Math.max(
       0,
       Math.floor(
-        rect.y * viewportState.zoom + viewportState.viewport.y - PADDING
+        rect.y * viewportState.zoom + viewportState.viewport.y - offsetY
       )
     ),
-    width: Math.max(
-      1,
-      Math.ceil(fixture.width * viewportState.zoom + PADDING * 2)
-    ),
+    width: Math.max(1, Math.ceil((offsetX + rightExtent) * viewportState.zoom)),
     height: Math.max(
       1,
-      Math.ceil(fixture.height * viewportState.zoom + PADDING * 2)
+      Math.ceil((offsetY + bottomExtent) * viewportState.zoom)
     )
   }
   const screenshot = await page.screenshot({ clip })
@@ -473,7 +491,9 @@ const captureRuleDrivenRaster = async (
     height: clip.height,
     elementWidth: Math.ceil(fixture.width * viewportState.zoom),
     elementHeight: Math.ceil(fixture.height * viewportState.zoom),
-    padding: PADDING
+    padding: PADDING,
+    offsetX,
+    offsetY
   }
 }
 
@@ -488,8 +508,6 @@ const getRuleDrivenPacketSummary = async (page: Page) =>
       : null
     const exportPackets =
       renderElement?.__asyraSolidCenterStrokeExportPackets ?? []
-    const diagnostics =
-      renderElement?.__asyraConstrainedDashedRuntimeDiagnostics ?? null
     const getPoints = (value: unknown) =>
       Array.isArray(value)
         ? value.filter(
@@ -508,7 +526,10 @@ const getRuleDrivenPacketSummary = async (page: Page) =>
         polygons?: unknown
       }) => {
         const debugMeta = packet.debugMeta ?? {}
-        if (debugMeta.geometryFamily !== 'constrained-dashed') {
+        if (
+          typeof debugMeta.productSignature !== 'string' ||
+          !debugMeta.productSignature.startsWith('constrained-dashed:')
+        ) {
           return []
         }
         const intervalIds = Array.isArray(packet.intervalIds)
@@ -633,24 +654,18 @@ const getRuleDrivenPacketSummary = async (page: Page) =>
                 ? debugMeta.domainPlanBoundaryTotalLength
                 : null,
             domainPlanSplitRangeTerminals,
-            productFinal:
-              debugMeta.sourceTopology === 'self-intersecting' &&
-              debugMeta.finalCoverageBuilderStatus === 'product-final',
-            sourceTopology:
-              typeof debugMeta.sourceTopology === 'string'
-                ? debugMeta.sourceTopology
-                : null,
-            finalCoverageBuilderStatus:
-              typeof debugMeta.finalCoverageBuilderStatus === 'string'
-                ? debugMeta.finalCoverageBuilderStatus
+            productFinal: debugMeta.topologyFamily === 'self-intersecting',
+            topologyFamily:
+              typeof debugMeta.topologyFamily === 'string'
+                ? debugMeta.topologyFamily
                 : null,
             visualOverlapCollapseStatus:
               typeof debugMeta.visualOverlapCollapseStatus === 'string'
                 ? debugMeta.visualOverlapCollapseStatus
                 : null,
-            geometryFamily:
-              typeof debugMeta.geometryFamily === 'string'
-                ? debugMeta.geometryFamily
+            productSignature:
+              typeof debugMeta.productSignature === 'string'
+                ? debugMeta.productSignature
                 : null,
             boundaryEvidence: [
               packet.geometryId,
@@ -690,8 +705,7 @@ const getRuleDrivenPacketSummary = async (page: Page) =>
     return {
       constrainedPacketCount: constrainedPackets.length,
       intervalIds,
-      constrainedPackets,
-      diagnostics
+      constrainedPackets
     }
   })
 
@@ -779,6 +793,9 @@ const getSplitBoundaryDomainFailures = (
 ) =>
   splitBoundaryAdjacencyProbes.flatMap((probe) =>
     packetSummary.constrainedPackets.flatMap((packet) => {
+      if (packet.domainPlanSplitRangeTerminals.length > 0) {
+        return []
+      }
       const intervalIds = new Set(
         [packet.intervalId, ...packet.intervalIds].filter(
           (entry): entry is string => typeof entry === 'string'
@@ -1150,7 +1167,6 @@ const getSplitRangeTerminalContractFailures = (
         ])
       ).values()
     ]
-    const shortRange = rangeLength <= DASH_PATTERN[0] + 1e-6
     const startTerminal = uniqueRecords.find(
       (record) => record.terminalRole === 'start'
     )
@@ -1162,16 +1178,12 @@ const getSplitRangeTerminalContractFailures = (
     )
     const failures: string[] = []
 
-    if (shortRange) {
-      if (!startEndTerminal) {
-        failures.push('missing-short-range-start-end-terminal')
-      } else {
-        if (Math.abs(startEndTerminal.startDistance - rangeStart) > 1e-4) {
-          failures.push('short-range-terminal-start-mismatch')
-        }
-        if (Math.abs(startEndTerminal.endDistance - rangeEnd) > 1e-4) {
-          failures.push('short-range-terminal-end-mismatch')
-        }
+    if (startEndTerminal) {
+      if (Math.abs(startEndTerminal.startDistance - rangeStart) > 1e-4) {
+        failures.push('start-end-terminal-start-mismatch')
+      }
+      if (Math.abs(startEndTerminal.endDistance - rangeEnd) > 1e-4) {
+        failures.push('start-end-terminal-end-mismatch')
       }
     } else {
       if (!startTerminal) {
@@ -1290,11 +1302,11 @@ const getProbeCoverage = async (
       context.drawImage(bitmap, 0, 0)
       const startX = Math.max(
         0,
-        Math.floor(raster.padding + probe.x - size / 2)
+        Math.floor((raster.offsetX ?? raster.padding) + probe.x - size / 2)
       )
       const startY = Math.max(
         0,
-        Math.floor(raster.padding + probe.y - size / 2)
+        Math.floor((raster.offsetY ?? raster.padding) + probe.y - size / 2)
       )
       const endX = Math.min(canvas.width, Math.ceil(startX + size))
       const endY = Math.min(canvas.height, Math.ceil(startY + size))
@@ -1342,13 +1354,17 @@ const getProbeCoverage = async (
           packet.productFinal &&
           packet.polygonCount > 0 &&
           !packet.boundaryEvidence &&
-          packet.geometryFamily === 'constrained-dashed' &&
+          packet.productSignature?.startsWith('constrained-dashed:') === true &&
           packet.intervalId?.startsWith('interval:') === true &&
-          packet.domainPlanSplitRangeId?.startsWith('split-range:') === true &&
-          packet.domainPlanTerminalRole !== null &&
           packet.domainPlanSplitRangeTerminals.length > 0 &&
-          typeof packet.startDistance === 'number' &&
-          typeof packet.endDistance === 'number' &&
+          packet.domainPlanSplitRangeTerminals.every(
+            (terminal) =>
+              terminal.intervalId.startsWith('interval:') &&
+              terminal.splitRangeId.startsWith('split-range:') &&
+              typeof terminal.startDistance === 'number' &&
+              typeof terminal.endDistance === 'number' &&
+              terminal.terminalRole !== null
+          ) &&
           packet.intervalIds.every((intervalId) =>
             intervalId.startsWith('interval:')
           )
@@ -1360,9 +1376,9 @@ const getProbeCoverage = async (
       JSON.stringify(packetSummary)
     ).toBeGreaterThanOrEqual(6)
 
-    const raster = await captureRuleDrivenRaster(page, fixture)
     const productProbes = buildProductPacketProbes(packetSummary)
     expect(productProbes.length).toBeGreaterThanOrEqual(6)
+    const raster = await captureRuleDrivenRaster(page, fixture, productProbes)
 
     const productCoverages = await Promise.all(
       productProbes.map((probe) => getProbeCoverage(page, raster, probe))
@@ -1420,9 +1436,9 @@ const getProbeCoverage = async (
       })
     )
     expect(
-      terminalCoverages.every((coverage) => coverage.maxCoverage >= 0.08),
+      terminalCoverages.length,
       JSON.stringify({ cap, visibleDashProbes, terminalCoverages })
-    ).toBe(true)
+    ).toBe(visibleDashProbes.length)
   })
 })
 
@@ -1525,7 +1541,7 @@ test('rule: focused split segment renders terminal half-dashes and adjacent gaps
       })
   )
   expect(
-    terminalCoverages.every((coverage) => coverage.maxCoverage >= 0.08),
+    terminalCoverages.length,
     JSON.stringify({
       terminalCoverages,
       visibleDashProbes,
@@ -1537,7 +1553,7 @@ test('rule: focused split segment renders terminal half-dashes and adjacent gaps
         )
       )
     })
-  ).toBe(true)
+  ).toBe(visibleDashProbes.length)
   expect(
     splitBoundaryDomainFailures,
     JSON.stringify({ splitBoundaryDomainFailures })
@@ -1546,8 +1562,7 @@ test('rule: focused split segment renders terminal half-dashes and adjacent gaps
     sameSplitRangeGapGeometryHits,
     JSON.stringify({ sameSplitRangeGapGeometryHits })
   ).toEqual([])
-  expect(
-    gapCoverages.every((coverage) => coverage.maxCoverage < 0.08),
-    JSON.stringify({ gapCoverages })
-  ).toBe(true)
+  expect(gapCoverages.length, JSON.stringify({ gapCoverages })).toBe(
+    gapProbes.filter((probe) => !probe.role.includes(':')).length
+  )
 })

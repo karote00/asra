@@ -245,6 +245,24 @@ const getTracedSegmentSignature = (segment: TracedLineSegment) =>
 const getPairCacheKey = (leftIndex: number, rightIndex: number) =>
   `${leftIndex}:${rightIndex}`
 
+const buildUniqueSignatureIndex = (signatures: string[]) => {
+  const indexBySignature = new Map<string, number>()
+  const duplicatedSignatures = new Set<string>()
+
+  signatures.forEach((signature, index) => {
+    if (indexBySignature.has(signature)) {
+      duplicatedSignatures.add(signature)
+      indexBySignature.delete(signature)
+      return
+    }
+    if (!duplicatedSignatures.has(signature)) {
+      indexBySignature.set(signature, index)
+    }
+  })
+
+  return indexBySignature
+}
+
 const areSourceDistancesConsecutive = (
   left: TracedLineSegment,
   right: TracedLineSegment
@@ -298,33 +316,54 @@ const splitTracedSegmentsByIntersectionsInternal = <
     segments.map((segment) => getTracedSegmentSignature(segment))
   const pairEntries = new Map<string, SelfIntersectionPairCacheEntry>()
   const previousSegmentSignatures = options.previousCache?.segmentSignatures
-  const canReusePreviousPairs =
-    previousSegmentSignatures !== undefined &&
-    previousSegmentSignatures.length === segmentSignatures.length
-  const dirtySegmentIndexes = new Set<number>()
+  const canReusePreviousPairs = previousSegmentSignatures !== undefined
   if (canReusePreviousPairs) {
-    segmentSignatures.forEach((signature, index) => {
-      if (previousSegmentSignatures[index] !== signature) {
-        dirtySegmentIndexes.add(index)
-      }
-    })
+    const currentIndexBySignature = buildUniqueSignatureIndex(segmentSignatures)
     options.previousCache?.pairEntries.forEach((cachedPair, pairKey) => {
-      const leftIndex = cachedPair.leftIndex
-      const rightIndex = cachedPair.rightIndex
+      const currentCachedLeftIndex = currentIndexBySignature.get(
+        cachedPair.leftSignature
+      )
+      const currentCachedRightIndex = currentIndexBySignature.get(
+        cachedPair.rightSignature
+      )
       if (
-        !Number.isInteger(leftIndex) ||
-        !Number.isInteger(rightIndex) ||
-        dirtySegmentIndexes.has(leftIndex) ||
-        dirtySegmentIndexes.has(rightIndex) ||
-        cachedPair.leftSignature !== (segmentSignatures[leftIndex] ?? '') ||
-        cachedPair.rightSignature !== (segmentSignatures[rightIndex] ?? '')
+        currentCachedLeftIndex === undefined ||
+        currentCachedRightIndex === undefined ||
+        currentCachedLeftIndex === currentCachedRightIndex
       ) {
         return
       }
 
-      splitParams[leftIndex].push(...cachedPair.leftParams)
-      splitParams[rightIndex].push(...cachedPair.rightParams)
-      pairEntries.set(pairKey, cachedPair)
+      const leftIndex = Math.min(
+        currentCachedLeftIndex,
+        currentCachedRightIndex
+      )
+      const rightIndex = Math.max(
+        currentCachedLeftIndex,
+        currentCachedRightIndex
+      )
+      const currentPairKey = getPairCacheKey(leftIndex, rightIndex)
+      const leftUsesCachedLeft = leftIndex === currentCachedLeftIndex
+      const leftParams = leftUsesCachedLeft
+        ? cachedPair.leftParams
+        : cachedPair.rightParams
+      const rightParams = leftUsesCachedLeft
+        ? cachedPair.rightParams
+        : cachedPair.leftParams
+
+      splitParams[leftIndex].push(...leftParams)
+      splitParams[rightIndex].push(...rightParams)
+      pairEntries.set(currentPairKey, {
+        leftIndex,
+        rightIndex,
+        leftSignature: segmentSignatures[leftIndex] ?? '',
+        rightSignature: segmentSignatures[rightIndex] ?? '',
+        leftParams,
+        rightParams
+      })
+      if (currentPairKey !== pairKey) {
+        emitStrokePipelineCounter('self-intersection-pair-cache-signature-hit')
+      }
       emitStrokePipelineCounter('self-intersection-pair-cache-hit')
     })
   }
@@ -339,6 +378,11 @@ const splitTracedSegmentsByIntersectionsInternal = <
     if (leftIndex === undefined) {
       return
     }
+    const pairKey = getPairCacheKey(leftIndex, rightIndex)
+    if (pairEntries.has(pairKey)) {
+      return
+    }
+
     const leftBounds = segmentBounds[leftIndex]
     if (!leftBounds) {
       return
@@ -357,14 +401,6 @@ const splitTracedSegmentsByIntersectionsInternal = <
       return
     }
 
-    const pairKey = getPairCacheKey(leftIndex, rightIndex)
-    if (
-      canReusePreviousPairs &&
-      !dirtySegmentIndexes.has(leftIndex) &&
-      !dirtySegmentIndexes.has(rightIndex)
-    ) {
-      return
-    }
     const leftSignature = segmentSignatures[leftIndex] ?? ''
     const rightSignature = segmentSignatures[rightIndex] ?? ''
     const cachedPair = options.previousCache?.pairEntries.get(pairKey)

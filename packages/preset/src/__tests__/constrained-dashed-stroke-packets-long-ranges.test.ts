@@ -13,17 +13,10 @@ import {
 } from '../components/stroke-render/solid-center-stroke-packets'
 import { buildStrokeFinalFacesFromResolvedPackets } from '../components/stroke-render/stroke-final-face'
 import {
-  buildConstrainedDashedStrokeProductVisualEntries,
   buildConstrainedDashedStrokeResolvedPackets,
   getConstrainedDashedVisibleIntervals
 } from '../components/stroke-render/constrained-dashed-stroke-packets'
-import {
-  classifyConstrainedDashedInterval,
-  classifyConstrainedDashedOwnership,
-  classifyConstrainedDashedRuntimeStatus,
-  classifyConstrainedDashedSource,
-  hasConstrainedDashedStrokeIntent
-} from '../components/stroke-render/constrained-dashed-stroke-packets'
+import { hasConstrainedDashedStrokeIntent } from '../components/stroke-render/constrained-dashed-stroke-packets'
 import { getRenderableStrokes } from '../components/stroke-render/renderable-stroke'
 import { buildEllipseLoop } from '../components/stroke-render/ellipse-path'
 import {
@@ -144,8 +137,7 @@ const buildSelfIntersectingSourcePathTestOptions = (
     sharedStrokeBoundaryDomains:
       resolvedGeometry.networks[0]?.selfIntersecting?.strokeBoundaryDomains ??
       [],
-    clipInsideToFillDomain: true,
-    constrainedDashedVisualMode: 'product-final' as const
+    clipInsideToFillDomain: true
   }
 }
 
@@ -2010,8 +2002,6 @@ const assertStrokeEventInvariants = ({
           ),
           firstPackets: packets.slice(0, 3).map((packet) => ({
             intervalId: packet.geometry.debugMeta?.intervalId,
-            finalCoverageBuilderStatus:
-              packet.geometry.debugMeta?.finalCoverageBuilderStatus,
             polygonCount: packet.geometry.polygons.length,
             pointCount: packet.geometry.polygons.reduce(
               (count, polygon) => count + polygon.length,
@@ -2490,7 +2480,7 @@ const assertRuleDrivenProductPolygonsInvariants = ({
     JSON.stringify(
       {
         message:
-          'product visual polygons should preserve spatial coverage for every visible dash interval',
+          'product polygons polygons should preserve spatial coverage for every visible dash interval',
         missing: missingIntervals
       },
       null,
@@ -2500,11 +2490,11 @@ const assertRuleDrivenProductPolygonsInvariants = ({
 
   expect(
     polygons.length,
-    `product visual polygons should remain inspectable after split-range rendering:${contextLabel ?? ''}`
+    `product polygons polygons should remain inspectable after split-range rendering:${contextLabel ?? ''}`
   ).toBeGreaterThan(0)
 }
 
-const getRuleDrivenProductVisualPolygons = ({
+const getRuleDrivenProductPolygons = ({
   cachePrefix,
   points,
   closed,
@@ -2517,40 +2507,12 @@ const getRuleDrivenProductVisualPolygons = ({
   stroke: ReturnType<typeof createDefaultStroke>
   options: Parameters<typeof buildConstrainedDashedStrokeResolvedPackets>[4]
 }) => {
-  const productEntries = buildConstrainedDashedStrokeProductVisualEntries(
-    `${cachePrefix}:direct-product`,
-    points,
-    closed,
-    [stroke],
-    {
-      ...options,
-      constrainedDashedVisualMode: 'product-final',
-      omitDiagnosticMetadata: true
-    }
-  )
-
-  if (productEntries) {
-    return {
-      source: 'direct-product' as const,
-      polygons: productEntries.flatMap((entry) => entry.polygons),
-      intervalGeometryRecords: productEntries.map((entry) => ({
-        intervalIds: entry.debugMeta?.intervalId
-          ? [entry.debugMeta.intervalId]
-          : [],
-        polygons: entry.polygons
-      }))
-    }
-  }
-
   const packets = buildConstrainedDashedStrokeResolvedPackets(
     `${cachePrefix}:final-product`,
     points,
     closed,
     [stroke],
-    {
-      ...options,
-      constrainedDashedVisualMode: 'product-final'
-    }
+    options
   )
   const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
   return {
@@ -3211,8 +3173,7 @@ describe('constrained dashed stroke packets: long split ranges', () => {
           sourcePath: fixture.sourcePath,
           implicitFillRegions: fixture.fillRegions,
           selectedSideGuardPoints: fixture.guardPoints,
-          clipInsideToFillDomain: position === 'inside',
-          constrainedDashedVisualMode: 'product-final'
+          clipInsideToFillDomain: position === 'inside'
         }
       )
       const eventMap = buildStrokeEventMap(fixture.sourcePath, stroke)
@@ -3260,7 +3221,7 @@ describe('constrained dashed stroke packets: long split ranges', () => {
       })
 
       if (position === 'inside') {
-        const productVisual = getRuleDrivenProductVisualPolygons({
+        const productPolygons = getRuleDrivenProductPolygons({
           cachePrefix: `long-short:${dashCase.label}:${position}:${capType}:product`,
           points: fixture.topology.normalizedPoints,
           closed: true,
@@ -3275,8 +3236,8 @@ describe('constrained dashed stroke packets: long split ranges', () => {
         assertRuleDrivenProductPolygonsInvariants({
           sourcePath: fixture.sourcePath,
           stroke,
-          polygons: productVisual.polygons,
-          contextLabel: `long-short:${dashCase.label}:${position}:${capType}:product:${productVisual.source}`,
+          polygons: productPolygons.polygons,
+          contextLabel: `long-short:${dashCase.label}:${position}:${capType}:product:${productPolygons.source}`,
           implicitFillRegions: fixture.fillRegions,
           edgeSampleStep: 2.5,
           exhaustiveInsideLegalSamples: false

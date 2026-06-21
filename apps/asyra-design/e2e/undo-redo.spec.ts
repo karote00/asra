@@ -535,6 +535,7 @@ test.describe('Undo/Redo Actions', () => {
           pointSetIds: Object.keys(patch.records?.points?.set ?? {}).sort(),
           pointRemoveIds: removeIds(patch.records?.points?.remove).sort(),
           segmentRemoveIds: removeIds(patch.records?.segments?.remove).sort(),
+          networkSetIds: Object.keys(patch.records?.networks?.set ?? {}).sort(),
           valueKeys: Object.keys(patch.values ?? {}).sort()
         }
       })
@@ -724,11 +725,21 @@ test.describe('Undo/Redo Actions', () => {
       const elementApis = (window as any).__AsyraE2E__?.elementApis
       elementApis.connectVectorAnchorEndpoints(elementId, 'D', 'A')
     }, setup.elementId)
-    const closeUndo = await expectSinglePatchUndo()
-    expect(closeUndo.valueKeys).toContain('closed')
+    const mergeUndo = await expectSinglePatchUndo()
+    expect(mergeUndo.valueKeys).not.toContain('closed')
+    expect(mergeUndo.networkSetIds).toHaveLength(1)
     await undoStructuralOperation()
     await expect.poll(readTopology).toMatchObject({ closed: false })
     await redoStructuralOperation()
+    await expect.poll(readTopology).toMatchObject({ closed: false })
+
+    await page.evaluate((elementId) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      elementApis.setVectorClosed(elementId, true)
+    }, setup.elementId)
+    const closeUndo = await expectSinglePatchUndo()
+    expect(closeUndo.valueKeys).toContain('closed')
     await expect.poll(readTopology).toMatchObject({ closed: true })
   })
 

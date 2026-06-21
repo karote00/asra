@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { test } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import {
   FAILURE_REPLAY_DIR,
   addFailureMarkerOverlay,
@@ -14,7 +14,7 @@ const manifest = readCanonicalFailureManifest()
 
 if (!manifest || manifest.failures.length === 0) {
   test('canonical stroke matrix: replay unit failure manifest with visual markers', () => {
-    test.skip(true, 'No unit failure manifest found')
+    expect(manifest?.failures.length ?? 0).toBe(0)
   })
 } else {
   test.describe('canonical stroke matrix failure replay', () => {

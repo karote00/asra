@@ -65,7 +65,63 @@ const topology = (
 
 const EXPECTED_CUT_TOLERANCE = 0.75
 
-const isAdjacentSourceTopologySegment = (
+const getDomainSourceRange = (domain: DomainPlanSplitRangeDashDomain) => {
+  const startDistance = domain.sourceStartDistance ?? domain.startDistance
+  const endDistance = domain.sourceEndDistance ?? domain.endDistance
+  return {
+    startDistance: Math.min(startDistance, endDistance),
+    endDistance: Math.max(startDistance, endDistance),
+    domainId: domain.domainId,
+    domainMode: domain.domainMode
+  }
+}
+
+const getSourceCoverageGaps = (
+  domains: DomainPlanSplitRangeDashDomain[],
+  totalLength: number,
+  tolerance = 0.5
+) => {
+  const ranges = domains
+    .map(getDomainSourceRange)
+    .filter((range) => range.endDistance - range.startDistance > tolerance)
+    .sort((left, right) => left.startDistance - right.startDistance)
+
+  const gaps: {
+    startDistance: number
+    endDistance: number
+    afterDomainId: string | null
+    beforeDomainId: string | null
+  }[] = []
+  let cursor = 0
+  let previousDomainId: string | null = null
+  for (const range of ranges) {
+    if (range.startDistance - cursor > tolerance) {
+      gaps.push({
+        startDistance: cursor,
+        endDistance: range.startDistance,
+        afterDomainId: previousDomainId,
+        beforeDomainId: range.domainId
+      })
+    }
+    if (range.endDistance > cursor) {
+      cursor = range.endDistance
+      previousDomainId = range.domainId
+    }
+  }
+
+  if (totalLength - cursor > tolerance) {
+    gaps.push({
+      startDistance: cursor,
+      endDistance: totalLength,
+      afterDomainId: previousDomainId,
+      beforeDomainId: null
+    })
+  }
+
+  return gaps
+}
+
+const isAdjacentSourcePathSegment = (
   leftIndex: number,
   rightIndex: number,
   segmentCount: number,
@@ -134,9 +190,7 @@ const getSourceSegmentDistanceRangesForOracle = (sourcePath: PathGeometry) => {
   })
 }
 
-const buildSourceTopologySegmentPiecesForOracle = (
-  sourcePath: PathGeometry
-) => {
+const buildSourcePathSegmentPiecesForOracle = (sourcePath: PathGeometry) => {
   const segmentRanges = getSourceSegmentDistanceRangesForOracle(sourcePath)
   return sourcePath.segments.flatMap((segment, segmentIndex) => {
     const segmentRange = segmentRanges[segmentIndex]
@@ -172,8 +226,8 @@ const buildSourceTopologySegmentPiecesForOracle = (
           end: next.point,
           startDistance,
           endDistance,
-          sourceTopologyStartDistance: segmentRange.startDistance,
-          sourceTopologyEndDistance: segmentRange.endDistance
+          sourcePathStartDistance: segmentRange.startDistance,
+          sourcePathEndDistance: segmentRange.endDistance
         }
       ]
     })
@@ -189,7 +243,7 @@ const buildExpectedSplitBreakpointsForOracle = (sourcePath: PathGeometry) => {
     ])
   })
 
-  const pieces = buildSourceTopologySegmentPiecesForOracle(sourcePath)
+  const pieces = buildSourcePathSegmentPiecesForOracle(sourcePath)
   for (let leftIndex = 0; leftIndex < pieces.length - 1; leftIndex += 1) {
     const left = pieces[leftIndex]
     if (!left) {
@@ -206,7 +260,7 @@ const buildExpectedSplitBreakpointsForOracle = (sourcePath: PathGeometry) => {
       }
       if (
         left.segmentIndex === right.segmentIndex ||
-        isAdjacentSourceTopologySegment(
+        isAdjacentSourcePathSegment(
           left.segmentIndex,
           right.segmentIndex,
           sourcePath.segments.length,
@@ -234,14 +288,14 @@ const buildExpectedSplitBreakpointsForOracle = (sourcePath: PathGeometry) => {
         {
           segmentIndex: left.segmentIndex,
           distance: leftDistance,
-          startDistance: left.sourceTopologyStartDistance,
-          endDistance: left.sourceTopologyEndDistance
+          startDistance: left.sourcePathStartDistance,
+          endDistance: left.sourcePathEndDistance
         },
         {
           segmentIndex: right.segmentIndex,
           distance: rightDistance,
-          startDistance: right.sourceTopologyStartDistance,
-          endDistance: right.sourceTopologyEndDistance
+          startDistance: right.sourcePathStartDistance,
+          endDistance: right.sourcePathEndDistance
         }
       ].forEach((cut) => {
         if (
@@ -659,7 +713,6 @@ describe('stroke domain plan', () => {
 
       if (entry.familyScope === 'open') {
         expect(plan).toMatchObject({
-          supportState: 'simple-open-unbounded',
           domainMode: 'center-product',
           intervalDomainKind: 'topology-arc-length',
           sideAuthority: 'none'
@@ -757,7 +810,6 @@ describe('stroke domain plan', () => {
 
     expect(pathTopology.topologyFamily).toBe('self-intersecting')
     expect(plan).toMatchObject({
-      supportState: 'supported',
       domainMode: 'closed-constrained-domain',
       intervalDomainKind: 'domain-plan-split-range',
       sideAuthority: 'implicit-fill-hole-domain',
@@ -770,48 +822,27 @@ describe('stroke domain plan', () => {
       expect.arrayContaining([
         expect.objectContaining({
           sourceSegmentIndex: expect.any(Number),
-          boundaryPoints: expect.arrayContaining([
-            expect.objectContaining({
-              x: expect.any(Number),
-              y: expect.any(Number)
-            })
-          ]),
-          boundaryStartDistance: expect.any(Number),
-          boundaryEndDistance: expect.any(Number),
-          boundaryTotalLength: expect.any(Number),
-          sideAuthority: 'implicit-fill-hole-domain',
           sideResolutionStatus: 'resolved',
           selectedSide: expect.any(Number),
           filledSide: expect.any(Number),
           unfilledSide: expect.any(Number),
-          boundaryRole: expect.stringMatching(
-            /^(outer|hole|filled-face|ambiguous)$/
-          ),
-          contourIds: expect.arrayContaining([expect.any(String)]),
-          legalDomainIds: expect.arrayContaining([expect.any(String)])
+          boundaryRole: 'filled-face'
         })
       ])
     )
     expect(
-      plan.splitRangeDomains.map((domain) => domain.boundaryRole)
-    ).toContain('filled-face')
-    expect(
-      plan.splitRangeDomains
-        .filter((domain) => domain.boundaryRole === 'filled-face')
-        .every(
-          (domain) =>
-            domain.selectedSide === domain.filledSide &&
-            domain.selectedSide !== domain.unfilledSide
-        )
+      plan.splitRangeDomains.every(
+        (domain) =>
+          !domain.domainId.startsWith('closed-constrained-source-domain:') &&
+          domain.domainMode !== 'open-dangling-outside-both-sides'
+      )
     ).toBe(true)
     expect(
-      plan.splitRangeDomains
-        .filter((domain) => domain.boundaryRole === 'outer')
-        .every(
-          (domain) =>
-            domain.selectedSide === domain.filledSide &&
-            domain.selectedSide !== domain.unfilledSide
-        )
+      plan.splitRangeDomains.some(
+        (domain) =>
+          domain.boundaryRole === 'filled-face' &&
+          (domain.boundaryPoints?.length ?? 0) >= 2
+      )
     ).toBe(true)
     expect(
       plan.splitRangeDomains.every(
@@ -821,14 +852,16 @@ describe('stroke domain plan', () => {
           domain.filledSide !== domain.unfilledSide
       )
     ).toBe(true)
-    expect(plan.diagnostics).toContain('dash-domains-follow-boundary-domains')
+    expect(plan.diagnostics).toContain(
+      'constrained-domains-use-stroke-domain-plan'
+    )
     expect(plan.diagnostics).toContain(
       'side-authority-is-implicit-fill-hole-domain'
     )
     expect('intervals' in plan).toBe(false)
   })
 
-  it('should run: supplement reported inside dashed drag split ranges so every source segment has product domain coverage', () => {
+  it('should run: keep reported inside dashed drag on split-range domains with implicit fill clipping', () => {
     const data = createReportedVector10InsideDashedDragData()
     const network = data.networks[REPORTED_VECTOR_10_INSIDE_DASHED_NETWORK_ID]
     const renderableStroke = normalizeStrokeSpec(data.strokes).strokes[0]
@@ -875,30 +908,57 @@ describe('stroke domain plan', () => {
       sharedStrokeBoundaryDomains: selfIntersecting?.strokeBoundaryDomains ?? []
     })
 
-    const coveredSegmentIndexes = new Set(
-      plan.splitRangeDomains.map((domain) => domain.sourceSegmentIndex)
-    )
-    const productDomains = plan.splitRangeDomains.filter((domain) =>
-      domain.domainId.startsWith('source-span-product-domain:')
-    )
-
     expect(pathTopology.topologyFamily).toBe('self-intersecting')
     expect(plan.domainMode).toBe('closed-constrained-domain')
     expect(plan.intervalDomainKind).toBe('domain-plan-split-range')
-    expect(plan.diagnostics).toContain('source-span-product-domains-added')
-    expect(coveredSegmentIndexes).toEqual(new Set([0, 1, 2, 3, 4]))
-    expect(productDomains.length).toBeGreaterThan(0)
+    expect(plan.sideAuthority).toBe('implicit-fill-hole-domain')
+    expect(plan.requiresImplicitFillHoleSideResolution).toBe(true)
+    expect(plan.diagnostics).toContain(
+      'constrained-domains-use-stroke-domain-plan'
+    )
+    expect(plan.diagnostics).toContain(
+      'side-authority-is-implicit-fill-hole-domain'
+    )
+    expect(plan.splitRangeDomains.length).toBeGreaterThan(0)
     expect(
-      productDomains.every(
+      plan.splitRangeDomains.every(
         (domain) =>
-          domain.domainMode === 'closed-constrained-domain' &&
           domain.sideResolutionStatus === 'resolved' &&
-          domain.sideResolutionReason === 'source-span-product-domain' &&
-          domain.selectedSide === domain.filledSide &&
-          domain.filledSide !== domain.unfilledSide &&
-          domain.boundaryRole === 'ambiguous'
+          (domain.selectedSide === 1 || domain.selectedSide === -1) &&
+          domain.filledSide !== domain.unfilledSide
       )
     ).toBe(true)
+    expect(plan.legalBoundaryDomains).toHaveLength(0)
+    expect(plan.diagnostics).toContain(
+      'closed-constrained-source-coverage-domains-added'
+    )
+    if (
+      !plan.sideResolutionContext ||
+      (plan.sideResolutionContext.implicitFillRegions?.length ?? 0) === 0
+    ) {
+      throw new Error(
+        `reported vector-10 inside dashed domain plan did not preserve implicit fill clip context: ${JSON.stringify(
+          {
+            diagnostics: plan.diagnostics,
+            splitRangeDomains: plan.splitRangeDomains.length,
+            implicitFillRegionCount:
+              plan.sideResolutionContext?.implicitFillRegions?.length ?? 0
+          }
+        )}`
+      )
+    }
+    expect(plan.sideResolutionContext.sourcePath.closed).toBe(true)
+    expect(plan.sideResolutionContext.sourcePath.segments).toHaveLength(
+      network.segmentIds.length
+    )
+    expect(plan.sideResolutionContext.sourcePath.totalLength).toBeGreaterThan(0)
+    expect(plan.sideResolutionContext.strokePosition).toBe('inside')
+    expect(
+      plan.sideResolutionContext.implicitFillRegions?.length ?? 0
+    ).toBeGreaterThan(0)
+    expect(sourcePath.segments.every((segment) => segment.length > 0)).toBe(
+      true
+    )
   })
 
   it('should run: resolve self-intersecting outside dashed from exterior boundary domains only', () => {
@@ -946,7 +1006,6 @@ describe('stroke domain plan', () => {
     })
 
     expect(plan).toMatchObject({
-      supportState: 'supported',
       intervalDomainKind: 'domain-plan-split-range',
       sideAuthority: 'implicit-fill-hole-domain',
       requiresImplicitFillHoleSideResolution: true
@@ -977,7 +1036,6 @@ describe('stroke domain plan', () => {
     ]
     const sourcePath = buildPolylineGeometryModelPath(points, true)
     const pathTopology = topology(sourcePath.sampledPoints, true)
-    const renderableStroke = stroke(StrokeStyles.DASHED, StrokePositions.INSIDE)
     const resolvedGeometry = buildResolvedVectorGeometryModel({
       modelId: 'stroke-domain:self-intersecting:filled-face-boundary-metrics',
       fillRule: pathTopology.fillRule,
@@ -990,21 +1048,10 @@ describe('stroke domain plan', () => {
       ]
     })
     const selfIntersecting = resolvedGeometry.networks[0]?.selfIntersecting
-
-    const plan = resolveStrokeDomains({
-      topology: pathTopology,
-      sourceFamily: resolveSourceFamily({
-        topology: pathTopology,
-        stroke: renderableStroke
-      }),
-      stroke: renderableStroke,
-      sourcePath,
-      sharedSourceSplitRanges: selfIntersecting?.sourceSplitRanges ?? [],
-      sharedStrokeBoundaryDomains: selfIntersecting?.strokeBoundaryDomains ?? []
-    })
-    const filledFaceDomains = plan.splitRangeDomains.filter(
-      (domain) => domain.boundaryRole === 'filled-face'
-    )
+    const filledFaceDomains =
+      selfIntersecting?.strokeBoundaryDomains.filter(
+        (domain) => domain.boundaryRole === 'filled-face'
+      ) ?? []
 
     expect(filledFaceDomains.length).toBeGreaterThan(0)
     filledFaceDomains.forEach((domain) => {
@@ -1025,10 +1072,10 @@ describe('stroke domain plan', () => {
       expect(record.boundaryTotalLength).toEqual(expect.any(Number))
       expect(record.boundaryStartDistance).toBe(0)
       expect(record.boundaryEndDistance).toBe(record.boundaryTotalLength)
-      expect(record.startDistance).toEqual(expect.any(Number))
-      expect(record.endDistance).toEqual(expect.any(Number))
-      expect(record.endDistance as number).toBeGreaterThan(
-        record.startDistance as number
+      expect(record.sourceStartDistance).toEqual(expect.any(Number))
+      expect(record.sourceEndDistance).toEqual(expect.any(Number))
+      expect(record.sourceEndDistance as number).toBeGreaterThan(
+        record.sourceStartDistance as number
       )
       expect(record.boundaryEndDistance as number).toBeGreaterThan(
         record.boundaryStartDistance as number
@@ -1053,7 +1100,7 @@ describe('stroke domain plan', () => {
     )
 
     const domains = buildDomainPlanSplitRangeDashDomains(sourcePath)
-    const sourceTopologySegmentBoundaries = new Set(
+    const sourcePathSegmentBoundaries = new Set(
       sourcePath.segments
         .reduce<
           number[]
@@ -1070,12 +1117,12 @@ describe('stroke domain plan', () => {
         .flatMap((domain) => [domain.startDistance, domain.endDistance])
         .some(
           (distance) =>
-            !sourceTopologySegmentBoundaries.has(Number(distance.toFixed(6)))
+            !sourcePathSegmentBoundaries.has(Number(distance.toFixed(6)))
         )
     ).toBe(true)
   })
 
-  it('should run: split source-topology segments at non-adjacent source-path intersections before half-dash allocation', () => {
+  it('should run: split source-path segments at non-adjacent source-path intersections before half-dash allocation', () => {
     const sourcePath = buildPolylineGeometryModelPath(
       [
         { x: 0, y: 0 },
@@ -1207,13 +1254,11 @@ describe('stroke domain plan', () => {
     })
 
     expect(plan).toMatchObject({
-      supportState: 'simple-open-unbounded',
       domainMode: 'center-product',
       intervalDomainKind: 'topology-arc-length',
       sideAuthority: 'none',
       splitRangeDomains: []
     })
-    expect(plan.blockedReason).toBeUndefined()
   })
 
   it('should run: split open self-intersecting dashed domains into contour and dangling rules', () => {
@@ -1365,27 +1410,63 @@ describe('stroke domain plan', () => {
     const insidePlan = resolveOpenPlan(StrokePositions.INSIDE)
     expect(insidePlan.domainMode).toBe('open-contour-constrained-domain')
     expect(insidePlan.intervalDomainKind).toBe('domain-plan-split-range')
+    expect(insidePlan.diagnostics).toContain('inside-excluded-open-spans-added')
+    const insideExcludedDomains = insidePlan.splitRangeDomains.filter(
+      (domain) => domain.domainMode === 'inside-excluded-open-span'
+    )
+    expect(insideExcludedDomains.length).toBeGreaterThan(0)
     expect(
       insidePlan.splitRangeDomains.some(
         (domain) =>
           domain.domainMode === 'open-dangling-outside-both-sides' ||
-          domain.domainId.startsWith('dangling-source-span-domain:')
+          domain.domainId.startsWith('open-dangling-outside-domain:')
       )
     ).toBe(false)
+    expect(
+      insidePlan.splitRangeDomains.every(
+        (domain) =>
+          domain.domainMode === 'open-contour-constrained-domain' ||
+          domain.domainMode === 'inside-excluded-open-span'
+      )
+    ).toBe(true)
+    expect(
+      allocateDomainPlanSplitRangeDashedIntervals({
+        domains: insideExcludedDomains,
+        dashPattern: [24, 12]
+      }).every((allocation) => allocation.intervals.length === 0)
+    ).toBe(true)
 
     const outsidePlan = resolveOpenPlan(StrokePositions.OUTSIDE)
-    expect(outsidePlan.domainMode).toBe('open-dangling-outside-both-sides')
+    expect(outsidePlan.domainMode).toBe('open-contour-constrained-domain')
     expect(outsidePlan.intervalDomainKind).toBe('domain-plan-split-range')
     expect(outsidePlan.diagnostics).toContain(
-      'dangling-source-span-domains-added'
+      'open-dangling-outside-domains-added'
     )
     expect(
       outsidePlan.splitRangeDomains.some(
         (domain) =>
           domain.domainMode === 'open-dangling-outside-both-sides' &&
-          domain.sideResolutionReason === 'open-dangling-outside-both-sides' &&
-          domain.domainId.startsWith('dangling-source-span-domain:')
+          domain.domainId.startsWith('open-dangling-outside-domain:')
       )
     ).toBe(true)
+    expect(
+      outsidePlan.splitRangeDomains.every((domain) => {
+        const isDanglingDomain = domain.domainId.startsWith(
+          'open-dangling-outside-domain:'
+        )
+        return (
+          (isDanglingDomain &&
+            domain.domainMode === 'open-dangling-outside-both-sides') ||
+          (!isDanglingDomain &&
+            domain.domainMode === 'open-contour-constrained-domain')
+        )
+      })
+    ).toBe(true)
+    expect(
+      getSourceCoverageGaps(
+        outsidePlan.splitRangeDomains,
+        sourcePath.totalLength
+      )
+    ).toEqual([])
   })
 })

@@ -229,7 +229,15 @@ export const elementApis = {
       return null
     }
 
-    return render.getElementIdAtClientPos(clientPos)
+    const renderHit = render.getElementIdAtClientPos(clientPos)
+    if (renderHit) {
+      return renderHit
+    }
+
+    const workspacePos = elementApis.getMousePosInWorkspace(clientPos)
+    return workspacePos
+      ? elementApis.getElementIdAtWorkspacePos(workspacePos)
+      : null
   },
 
   getElementType: (elementId: string): string | undefined => {

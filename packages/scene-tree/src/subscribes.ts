@@ -18,8 +18,7 @@ import {
   UNDO,
   type ComputedDataPatch,
   type ComputedDataPatchChange,
-  type ComputedAttrs,
-  DataTypes
+  type ComputedAttrs
 } from '@asyra/utils'
 import sceneTree from './sceneTree'
 
@@ -200,21 +199,11 @@ export const initSceneTreeSubscribes = () => {
         : ''
 
     if (ownerElementId && ownerPropertyName) {
-      const ownerElement = sceneTree.getElementById(ownerElementId)
-      const ownerPropId = ownerElement?.props.getPropId(ownerPropertyName)
-      const ownerPropComponent = ownerPropId
-        ? propsManager.getPropertyById(ownerPropId)
-        : undefined
-
-      if (ownerPropComponent && ownerPropId) {
-        ownerPropComponent.emitChange({
-          id: ownerPropId,
-          key: payload.key,
-          before: payload.before as DataTypes,
-          after: payload.after as DataTypes,
-          options: sceneTreeOptions
-        })
-      }
+      sceneTree.refreshComputedDataFromProperty(
+        ownerElementId,
+        ownerPropertyName,
+        sceneTreeOptions
+      )
     }
 
     sceneTree.commitSceneTreeTransaction(sceneTreeOptions)

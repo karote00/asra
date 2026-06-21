@@ -23,15 +23,19 @@ import {
   resetIdCounter,
   type ElementRawData
 } from '@asyra/utils'
-import { SceneTree } from '../sceneTree'
+import sceneTreeSingleton, { SceneTree } from '../sceneTree'
 import Element from '../components/element'
 import Workspace from '../components/workspace'
 import componentRegistry from '../component-registry'
+import { createDynamicComponent } from '../create-dynamic-component'
+import { initSceneTreeSubscribes } from '../subscribes'
 import {
   EventTypes,
   subscribeToEvents,
   type UpdateTransactionEvent
 } from '@asyra/reactive-events'
+
+initSceneTreeSubscribes()
 
 // Create a mock Rectangle component for testing
 class MockRectangle extends Element {
@@ -108,6 +112,111 @@ class TestDimensionComponent extends BasePropertyComponent<DimensionAttrs> {
   }
 }
 
+interface TestPaint {
+  kind: 'solid'
+  color: string
+  opacity: number
+}
+
+interface TestStrokeAttrs {
+  id: string
+  type: string
+  fill: TestPaint
+  width: number
+}
+
+interface TestStrokesAttrs {
+  id: string
+  type: string
+  strokes: string[]
+}
+
+const TEST_STROKE_PROPERTY_TYPE = 'test-stroke'
+const TEST_STROKES_PROPERTY_TYPE = 'test-strokes'
+const TEST_VECTOR_TYPE = 'test-vector'
+
+class TestStrokeComponent extends BasePropertyComponent<TestStrokeAttrs> {
+  data: TestStrokeAttrs = {
+    id: '',
+    type: TEST_STROKE_PROPERTY_TYPE,
+    fill: { kind: 'solid', color: '#cccccc', opacity: 1 },
+    width: 10
+  }
+
+  constructor(data: Partial<TestStrokeAttrs>) {
+    super()
+    this.load(data)
+  }
+
+  load(data: Partial<TestStrokeAttrs>): void {
+    this.data.id = typeof data.id === 'string' ? data.id : this.data.id
+    this.data.type =
+      typeof data.type === 'string' ? data.type : TEST_STROKE_PROPERTY_TYPE
+    if (data.fill && typeof data.fill === 'object') {
+      this.data.fill = data.fill
+    }
+    this.assignLoadedValue('width', data.width)
+  }
+
+  getValue(): Record<string, DataTypes> {
+    return {
+      fill: this.data.fill as unknown as DataTypes,
+      width: this.data.width
+    }
+  }
+
+  getUnit(): Record<string, Unit> {
+    return {}
+  }
+}
+
+class TestStrokesComponent extends BasePropertyComponent<TestStrokesAttrs> {
+  data: TestStrokesAttrs = {
+    id: '',
+    type: TEST_STROKES_PROPERTY_TYPE,
+    strokes: []
+  }
+
+  constructor(data: Partial<TestStrokesAttrs>) {
+    super()
+    this.load(data)
+  }
+
+  load(data: Partial<TestStrokesAttrs>): void {
+    this.data.id = typeof data.id === 'string' ? data.id : this.data.id
+    this.data.type =
+      typeof data.type === 'string' ? data.type : TEST_STROKES_PROPERTY_TYPE
+    this.data.strokes = Array.isArray(data.strokes) ? data.strokes : []
+  }
+
+  getValue(): Record<string, DataTypes> {
+    const strokes: Record<string, unknown> = {}
+
+    this.data.strokes.forEach((strokeId) => {
+      const stroke = propsManager.getPropertyById(strokeId) as
+        | TestStrokeComponent
+        | undefined
+      if (!stroke) {
+        return
+      }
+
+      strokes[strokeId] = {
+        id: strokeId,
+        fill: stroke.get('fill'),
+        width: stroke.get('width')
+      }
+    })
+
+    return {
+      strokes: strokes as unknown as DataTypes
+    }
+  }
+
+  getUnit(): Record<string, Unit> {
+    return {}
+  }
+}
+
 describe('SceneTree', () => {
   let sceneTree: SceneTree
 
@@ -116,10 +225,13 @@ describe('SceneTree', () => {
 
     resetIdCounter()
     sceneTree = new SceneTree()
+    sceneTreeSingleton.reset()
     propsManager.reset()
     propertyComponentRegistry.clear()
     registerPropertyComponent(PropertyTypes.POSITION, TestPositionComponent)
     registerPropertyComponent(PropertyTypes.DIMENSION, TestDimensionComponent)
+    registerPropertyComponent(TEST_STROKE_PROPERTY_TYPE, TestStrokeComponent)
+    registerPropertyComponent(TEST_STROKES_PROPERTY_TYPE, TestStrokesComponent)
 
     // Clear any existing registrations before adding our test component
     componentRegistry.getAll().forEach((_, type) => {
@@ -135,6 +247,21 @@ describe('SceneTree', () => {
         data?: Partial<ElementRawData>
       ) => Element,
       properties: [],
+      defaults: {}
+    })
+
+    componentRegistry.register({
+      type: TEST_VECTOR_TYPE,
+      idPrefix: TEST_VECTOR_TYPE,
+      namePrefix: 'Test Vector',
+      constructor: createDynamicComponent(
+        TEST_VECTOR_TYPE,
+        TEST_VECTOR_TYPE,
+        'Test Vector',
+        [{ name: 'strokes', type: TEST_STROKES_PROPERTY_TYPE }],
+        {}
+      ),
+      properties: [{ name: 'strokes', type: TEST_STROKES_PROPERTY_TYPE }],
       defaults: {}
     })
   })
@@ -355,6 +482,144 @@ describe('SceneTree', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     propsManager.updatePropsData(positionId, 'xUnit' as any, Unit.PERCENT)
     expect(element.computed.get('x')).toBe(120)
+  })
+
+  it('refreshes owner computed data from a nested stroke property snapshot', () => {
+    const initialFill: TestPaint = {
+      kind: 'solid',
+      color: '#cccccc',
+      opacity: 1
+    }
+    const nextFill: TestPaint = {
+      kind: 'solid',
+      color: '#d90909',
+      opacity: 0.5
+    }
+
+    const stroke = propsManager.createProperty({
+      id: 'stroke-1',
+      type: TEST_STROKE_PROPERTY_TYPE,
+      fill: initialFill,
+      width: 10
+    }) as TestStrokeComponent
+    propsManager.addToMap(stroke)
+    const strokes = propsManager.createProperty({
+      id: 'strokes-1',
+      type: TEST_STROKES_PROPERTY_TYPE,
+      strokes: ['stroke-1']
+    })
+    propsManager.addToMap(strokes)
+
+    const element = sceneTreeSingleton.createElement({
+      id: 'vector-1',
+      type: TEST_VECTOR_TYPE,
+      props: {
+        strokes: 'strokes-1'
+      } as unknown as ElementRawData['props']
+    }) as ElementInstanceTypes
+    sceneTreeSingleton.addToMap(element)
+    sceneTreeSingleton.cleanChanges()
+
+    stroke.data.fill = nextFill
+    sceneTreeSingleton.refreshComputedDataFromProperty('vector-1', 'strokes', {
+      undoable: false
+    })
+
+    expect(element.computed.get('strokes')).toEqual({
+      'stroke-1': {
+        id: 'stroke-1',
+        fill: nextFill,
+        width: 10
+      }
+    })
+    expect(sceneTreeSingleton.changes).toContainEqual(
+      expect.objectContaining({
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+        id: 'vector-1',
+        key: 'strokes',
+        after: {
+          'stroke-1': {
+            id: 'stroke-1',
+            fill: nextFill,
+            width: 10
+          }
+        }
+      })
+    )
+  })
+
+  it('publishes owner computed data when a nested stroke property transaction commits', () => {
+    const events: UpdateTransactionEvent[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (event.type === EventTypes.UPDATE_TRANSACTION) {
+        events.push(event as UpdateTransactionEvent)
+      }
+    })
+    events.length = 0
+
+    const nextFill: TestPaint = {
+      kind: 'solid',
+      color: '#d90909',
+      opacity: 0.5
+    }
+    const stroke = propsManager.createProperty({
+      id: 'stroke-1',
+      type: TEST_STROKE_PROPERTY_TYPE,
+      fill: { kind: 'solid', color: '#cccccc', opacity: 1 },
+      width: 10
+    })
+    propsManager.addToMap(stroke)
+    const strokes = propsManager.createProperty({
+      id: 'strokes-1',
+      type: TEST_STROKES_PROPERTY_TYPE,
+      strokes: ['stroke-1']
+    })
+    propsManager.addToMap(strokes)
+
+    const element = sceneTreeSingleton.createElement({
+      id: 'vector-1',
+      type: TEST_VECTOR_TYPE,
+      props: {
+        strokes: 'strokes-1'
+      } as unknown as ElementRawData['props']
+    }) as ElementInstanceTypes
+    sceneTreeSingleton.addToMap(element)
+    sceneTreeSingleton.cleanChanges()
+
+    propsManager.updatePropertyById(
+      'stroke-1',
+      'fill',
+      nextFill,
+      {
+        ownerElementId: 'vector-1',
+        ownerPropertyName: 'strokes'
+      },
+      { undoable: false }
+    )
+    expect((stroke as TestStrokeComponent).get('fill')).toEqual(nextFill)
+    propsManager.commitChanges({ undoable: false })
+
+    expect(element.computed.get('strokes')).toEqual({
+      'stroke-1': {
+        id: 'stroke-1',
+        fill: nextFill,
+        width: 10
+      }
+    })
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: EventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        options: expect.objectContaining({
+          shared: SharedDataChannelNames.SCENE_TREE
+        }),
+        payload: expect.objectContaining({
+          id: 'vector-1'
+        })
+      })
+    )
+
+    subscription.unsubscribe()
   })
 
   it('batches transient vector computed-data key deltas in order', () => {

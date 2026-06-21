@@ -135,7 +135,7 @@ describe('constrained solid ownership diagnostics', () => {
     })
   })
 
-  it('should run: overlapping supported constrained solid packets build deterministic ownership regions', () => {
+  it('should run: overlapping formal constrained solid packets build deterministic ownership regions', () => {
     const packets = buildConstrainedSolidStrokeResolvedPackets(
       'rect:ownership',
       [

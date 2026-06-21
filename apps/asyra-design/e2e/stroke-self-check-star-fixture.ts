@@ -747,6 +747,7 @@ export const getSelfCheckMetadata = async (page: Page) =>
     const computed = element?.getAllComputedData?.() ?? null
     const exportPackets =
       renderElement?.__asyraSolidCenterStrokeExportPackets ?? []
+    const strokeRenderEntries = renderElement?.__asyraStrokeRenderEntries ?? []
     const meshCache = renderElement?.__asyraStrokeMeshCache ?? null
     const zoom = core?.getSystemProperty?.('zoom') ?? 1
     const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
@@ -781,6 +782,139 @@ export const getSelfCheckMetadata = async (page: Page) =>
               typeof (point as { y?: unknown }).y === 'number'
           )
         : []
+    const getBoundsFromPolygons = (polygons: { x: number; y: number }[][]) => {
+      const points = polygons.flat()
+      return points.length > 0
+        ? {
+            minX: Math.min(...points.map((point) => point.x)),
+            minY: Math.min(...points.map((point) => point.y)),
+            maxX: Math.max(...points.map((point) => point.x)),
+            maxY: Math.max(...points.map((point) => point.y))
+          }
+        : null
+    }
+    const summarizePolygons = (value: unknown) => {
+      const polygons = getPolygons(value)
+      return {
+        polygonCount: polygons.length,
+        pointCount: polygons.reduce((sum, polygon) => sum + polygon.length, 0),
+        bounds: getBoundsFromPolygons(polygons),
+        polygons
+      }
+    }
+    const summarizePaths = (value: unknown) => {
+      const paths = getPolygons(value)
+      return {
+        pathCount: paths.length,
+        pointCount: paths.reduce((sum, path) => sum + path.length, 0),
+        bounds: getBoundsFromPolygons(paths),
+        paths
+      }
+    }
+    const renderEntrySummaries = strokeRenderEntries.map(
+      (entry: {
+        cacheKey?: unknown
+        polygons?: unknown
+        fillPolygons?: unknown
+        clipPolygons?: unknown
+        fillClipPolygons?: unknown
+        strokeMaskPolygons?: unknown
+        strokePaths?: unknown
+        strokePathGroups?: unknown
+        strokePathStyle?: unknown
+        debugMeta?: {
+          intervalId?: unknown
+          productMode?: unknown
+          productSignature?: unknown
+          domainMode?: unknown
+          topologyFamily?: unknown
+          strokePosition?: unknown
+          domainPlanSplitRangeId?: unknown
+          domainPlanTerminalRole?: unknown
+          domainPlanBoundaryRole?: unknown
+          domainPlanSplitRangeSourceSegmentIndex?: unknown
+        }
+      }) => ({
+        cacheKey: typeof entry.cacheKey === 'string' ? entry.cacheKey : null,
+        productMode:
+          typeof entry.debugMeta?.productMode === 'string'
+            ? entry.debugMeta.productMode
+            : null,
+        productSignature:
+          typeof entry.debugMeta?.productSignature === 'string'
+            ? entry.debugMeta.productSignature
+            : null,
+        domainMode:
+          typeof entry.debugMeta?.domainMode === 'string'
+            ? entry.debugMeta.domainMode
+            : null,
+        topologyFamily:
+          typeof entry.debugMeta?.topologyFamily === 'string'
+            ? entry.debugMeta.topologyFamily
+            : null,
+        strokePosition:
+          entry.debugMeta?.strokePosition === 'inside' ||
+          entry.debugMeta?.strokePosition === 'outside' ||
+          entry.debugMeta?.strokePosition === 'center'
+            ? entry.debugMeta.strokePosition
+            : null,
+        debugIntervalId:
+          typeof entry.debugMeta?.intervalId === 'string'
+            ? entry.debugMeta.intervalId
+            : null,
+        domainPlanSplitRangeId:
+          typeof entry.debugMeta?.domainPlanSplitRangeId === 'string'
+            ? entry.debugMeta.domainPlanSplitRangeId
+            : null,
+        domainPlanTerminalRole:
+          typeof entry.debugMeta?.domainPlanTerminalRole === 'string'
+            ? entry.debugMeta.domainPlanTerminalRole
+            : null,
+        domainPlanBoundaryRole:
+          typeof entry.debugMeta?.domainPlanBoundaryRole === 'string'
+            ? entry.debugMeta.domainPlanBoundaryRole
+            : null,
+        domainPlanSplitRangeSourceSegmentIndex:
+          typeof entry.debugMeta?.domainPlanSplitRangeSourceSegmentIndex ===
+          'number'
+            ? entry.debugMeta.domainPlanSplitRangeSourceSegmentIndex
+            : null,
+        polygons: summarizePolygons(entry.polygons),
+        fillPolygons: summarizePolygons(entry.fillPolygons),
+        clipPolygons: summarizePolygons(entry.clipPolygons),
+        fillClipPolygons: summarizePolygons(entry.fillClipPolygons),
+        strokeMaskPolygons: summarizePolygons(entry.strokeMaskPolygons),
+        strokePaths: summarizePaths(entry.strokePaths),
+        strokePathGroups: Array.isArray(entry.strokePathGroups)
+          ? entry.strokePathGroups.map((group) => {
+              const typedGroup = group as {
+                clipPolygons?: unknown
+                strokePaths?: unknown
+                strokePathStyle?: unknown
+              }
+              return {
+                clipPolygons: summarizePolygons(typedGroup.clipPolygons),
+                strokePaths: summarizePaths(typedGroup.strokePaths),
+                strokePathStyle: typedGroup.strokePathStyle ?? null
+              }
+            })
+          : [],
+        strokePathStyle: entry.strokePathStyle ?? null
+      })
+    )
+    const cacheEntries =
+      meshCache && typeof meshCache.forEach === 'function'
+        ? (() => {
+            const entries: { key: string; kind: string | null }[] = []
+            meshCache.forEach((entry: { kind?: unknown }, key: string) => {
+              entries.push({
+                key,
+                kind: typeof entry.kind === 'string' ? entry.kind : null
+              })
+            })
+            return entries
+          })()
+        : []
     const boundaryDomainPackets = exportPackets.map(
       (packet: {
         bounds?: unknown
@@ -788,11 +922,10 @@ export const getSelfCheckMetadata = async (page: Page) =>
           intervalId?: unknown
           startDistance?: unknown
           endDistance?: unknown
-          geometryFamily?: unknown
-          resolutionStatus?: unknown
-          runtimeStatus?: unknown
-          sourceTopology?: unknown
-          finalCoverageBuilderStatus?: unknown
+          productMode?: unknown
+          productSignature?: unknown
+          domainMode?: unknown
+          topologyFamily?: unknown
           visualOverlapCollapseStatus?: unknown
           strokePosition?: unknown
           strokeWidth?: unknown
@@ -824,6 +957,7 @@ export const getSelfCheckMetadata = async (page: Page) =>
           domainPlanBoundaryEndDistance?: unknown
           domainPlanBoundaryTotalLength?: unknown
           domainPlanSplitRangeTerminals?: unknown
+          dashProductIntervals?: unknown
         }
         geometryId?: unknown
         intervalIds?: unknown
@@ -847,21 +981,22 @@ export const getSelfCheckMetadata = async (page: Page) =>
             typeof packet.debugMeta?.endDistance === 'number'
               ? packet.debugMeta.endDistance
               : null,
-          geometryFamily:
-            typeof packet.debugMeta?.geometryFamily === 'string'
-              ? packet.debugMeta.geometryFamily
+          productMode:
+            typeof packet.debugMeta?.productMode === 'string'
+              ? packet.debugMeta.productMode
               : null,
-          resolutionStatus:
-            typeof packet.debugMeta?.resolutionStatus === 'string'
-              ? packet.debugMeta.resolutionStatus
+          productSignature:
+            typeof packet.debugMeta?.productSignature === 'string'
+              ? packet.debugMeta.productSignature
               : null,
-          runtimeStatus:
-            typeof packet.debugMeta?.runtimeStatus === 'string'
-              ? packet.debugMeta.runtimeStatus
+          domainMode:
+            typeof packet.debugMeta?.domainMode === 'string'
+              ? packet.debugMeta.domainMode
               : null,
-          sourceTopology: packet.debugMeta?.sourceTopology ?? null,
-          finalCoverageBuilderStatus:
-            packet.debugMeta?.finalCoverageBuilderStatus ?? null,
+          topologyFamily:
+            typeof packet.debugMeta?.topologyFamily === 'string'
+              ? packet.debugMeta.topologyFamily
+              : null,
           visualOverlapCollapseStatus:
             packet.debugMeta?.visualOverlapCollapseStatus ?? null,
           strokePosition:
@@ -1170,9 +1305,161 @@ export const getSelfCheckMetadata = async (page: Page) =>
                 }
               )
             : [],
+          dashProductIntervals: Array.isArray(
+            packet.debugMeta?.dashProductIntervals
+          )
+            ? packet.debugMeta.dashProductIntervals.flatMap((entry) => {
+                if (!entry || typeof entry !== 'object') {
+                  return []
+                }
+                const record = entry as Record<string, unknown>
+                return typeof record.intervalId === 'string' &&
+                  typeof record.startDistance === 'number' &&
+                  typeof record.endDistance === 'number'
+                  ? [
+                      {
+                        intervalId: record.intervalId,
+                        splitRangeId:
+                          typeof record.splitRangeId === 'string'
+                            ? record.splitRangeId
+                            : null,
+                        terminalRole:
+                          record.terminalRole === 'start' ||
+                          record.terminalRole === 'end' ||
+                          record.terminalRole === 'start-end' ||
+                          record.terminalRole === 'middle'
+                            ? record.terminalRole
+                            : null,
+                        startDistance: record.startDistance,
+                        endDistance: record.endDistance,
+                        effectiveStartDistance:
+                          typeof record.effectiveStartDistance === 'number'
+                            ? record.effectiveStartDistance
+                            : null,
+                        effectiveEndDistance:
+                          typeof record.effectiveEndDistance === 'number'
+                            ? record.effectiveEndDistance
+                            : null,
+                        capReachDistance:
+                          typeof record.capReachDistance === 'number'
+                            ? record.capReachDistance
+                            : null,
+                        boundaryDomainId:
+                          typeof record.boundaryDomainId === 'string'
+                            ? record.boundaryDomainId
+                            : null,
+                        boundaryRole:
+                          record.boundaryRole === 'outer' ||
+                          record.boundaryRole === 'filled-face' ||
+                          record.boundaryRole === 'hole' ||
+                          record.boundaryRole === 'ambiguous'
+                            ? record.boundaryRole
+                            : null,
+                        selectedSide:
+                          record.selectedSide === 1 ||
+                          record.selectedSide === -1
+                            ? record.selectedSide
+                            : null,
+                        filledSide:
+                          record.filledSide === 1 || record.filledSide === -1
+                            ? record.filledSide
+                            : null,
+                        unfilledSide:
+                          record.unfilledSide === 1 ||
+                          record.unfilledSide === -1
+                            ? record.unfilledSide
+                            : null,
+                        sourceSegmentIndex:
+                          typeof record.sourceSegmentIndex === 'number'
+                            ? record.sourceSegmentIndex
+                            : null
+                      }
+                    ]
+                  : []
+              })
+            : [],
           polygonCount: polygons.length,
           polygons,
           bounds: packet.bounds ?? null
+        }
+      }
+    )
+    const normalizedBoundaryDomainPackets = boundaryDomainPackets.map(
+      (packet) => {
+        const boundaryRoles = Array.from(
+          new Set(
+            [
+              packet.domainPlanBoundaryRole,
+              ...packet.domainPlanSplitRangeTerminals.map(
+                (terminal) => terminal.boundaryRole
+              ),
+              ...packet.dashProductIntervals.map(
+                (interval) => interval.boundaryRole
+              )
+            ].filter(
+              (role): role is 'outer' | 'hole' | 'filled-face' | 'ambiguous' =>
+                role === 'outer' ||
+                role === 'hole' ||
+                role === 'filled-face' ||
+                role === 'ambiguous'
+            )
+          )
+        )
+        const selectedSides = Array.from(
+          new Set(
+            [
+              packet.domainPlanSelectedSide,
+              ...packet.domainPlanSplitRangeTerminals.map(
+                (terminal) => terminal.selectedSide
+              ),
+              ...packet.dashProductIntervals.map(
+                (interval) => interval.selectedSide
+              )
+            ].filter((side): side is 1 | -1 => side === 1 || side === -1)
+          )
+        )
+        const filledSides = Array.from(
+          new Set(
+            [
+              packet.domainPlanFilledSide,
+              ...packet.domainPlanSplitRangeTerminals.map(
+                (terminal) => terminal.filledSide
+              ),
+              ...packet.dashProductIntervals.map(
+                (interval) => interval.filledSide
+              )
+            ].filter((side): side is 1 | -1 => side === 1 || side === -1)
+          )
+        )
+        const unfilledSides = Array.from(
+          new Set(
+            [
+              packet.domainPlanUnfilledSide,
+              ...packet.domainPlanSplitRangeTerminals.map(
+                (terminal) => terminal.unfilledSide
+              ),
+              ...packet.dashProductIntervals.map(
+                (interval) => interval.unfilledSide
+              )
+            ].filter((side): side is 1 | -1 => side === 1 || side === -1)
+          )
+        )
+
+        return {
+          ...packet,
+          domainPlanBoundaryRole:
+            packet.domainPlanBoundaryRole ??
+            (boundaryRoles.includes('filled-face')
+              ? 'filled-face'
+              : (boundaryRoles[0] ?? null)),
+          domainPlanSelectedSide:
+            packet.domainPlanSelectedSide ?? selectedSides[0] ?? null,
+          domainPlanFilledSide:
+            packet.domainPlanFilledSide ?? filledSides[0] ?? null,
+          domainPlanUnfilledSide:
+            packet.domainPlanUnfilledSide ?? unfilledSides[0] ?? null,
+          domainPlanBoundaryRoles: boundaryRoles,
+          domainPlanSelectedSides: selectedSides
         }
       }
     )
@@ -1209,16 +1496,17 @@ export const getSelfCheckMetadata = async (page: Page) =>
       exportPacketCount: exportPackets.length,
       boundaryDomainIntervalIds: Array.from(
         new Set(
-          boundaryDomainPackets.flatMap((packet) => [
+          normalizedBoundaryDomainPackets.flatMap((packet) => [
             ...packet.intervalIds,
             ...(packet.debugIntervalId ? [packet.debugIntervalId] : [])
           ])
         )
       ),
-      boundaryDomainPackets,
-      cacheKinds: meshCache ? Object.keys(meshCache) : [],
-      screenshotPath:
-        'docs/ai/apps/asyra-design/plans/stroke-engine-final/artifacts/self-check-inside-dashed-round-fill.png'
+      boundaryDomainPackets: normalizedBoundaryDomainPackets,
+      strokeRenderEntries: renderEntrySummaries,
+      cacheKinds: cacheEntries.map((entry) => entry.kind).filter(Boolean),
+      cacheEntries,
+      screenshotPath: null
     }
   }, SELF_CHECK_VECTOR_RECT)
 
@@ -1906,7 +2194,7 @@ export const analyzeSolidBoundaryContinuity = async (
 
       for (const packet of metadata.boundaryDomainPackets) {
         if (
-          packet.geometryFamily !== 'constrained-solid' ||
+          packet.productSignature?.startsWith('constrained-solid:') !== true ||
           packet.strokePosition !== expectedPosition ||
           packet.domainPlanSelectedSide === null
         ) {
@@ -2684,7 +2972,7 @@ export const getInsideSolidMaskOnlyCornerProbesFromMetadata = (
     metadata.boundaryDomainPackets.find(
       (packet) =>
         packet.strokePosition === 'inside' &&
-        packet.geometryFamily === 'constrained-solid'
+        packet.productSignature?.startsWith('constrained-solid:') === true
     )?.strokeWidth ?? 10
   const tracesByFaceId = new Map<
     string,
@@ -2829,7 +3117,7 @@ export const compareInsideSolidInternalCornerJoinPixels = async (
         metadata.boundaryDomainPackets.find(
           (packet) =>
             packet.strokePosition === 'inside' &&
-            packet.geometryFamily === 'constrained-solid'
+            packet.productSignature?.startsWith('constrained-solid:') === true
         )?.strokeWidth ?? 10
       const radius = Math.max(12, strokeWidth * metadata.zoom * 1.9)
       let comparedPixelCount = 0
@@ -3485,8 +3773,8 @@ export const analyzeInsideSolidSourcePathContinuity = async (
       const strokeWidth =
         metadata.boundaryDomainPackets.find(
           (packet) =>
-            packet.geometryFamily === 'constrained-solid' &&
-            packet.strokePosition === 'inside'
+            packet.productSignature?.startsWith('constrained-solid:') ===
+              true && packet.strokePosition === 'inside'
         )?.strokeWidth ?? 10
       const sourceOffsetScalars = [
         -1.1, -0.8, -0.55, -0.35, -0.15, 0, 0.15, 0.35, 0.55, 0.8, 1.1
@@ -3791,12 +4079,16 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
             )
           ].filter((id): id is string => typeof id === 'string')
         )
-      const getCoveringSplitRangeIds = (point: { x: number; y: number }) => {
+      const getCoveringSplitRangeIds = (
+        point: { x: number; y: number },
+        boundaryTolerance = 1
+      ) => {
         const ids = new Set<string>()
         for (const packet of metadata.boundaryDomainPackets) {
           const isCovered = packet.polygons.some(
             (polygon) =>
-              insidePolygon(point, polygon) || onPolygonBoundary(point, polygon)
+              insidePolygon(point, polygon) ||
+              onPolygonBoundary(point, polygon, boundaryTolerance)
           )
           if (!isCovered) continue
           for (const id of getPacketSplitRangeIds(packet)) {
@@ -3882,6 +4174,76 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           }
         }
         return redCount
+      }
+      const countRedPixelsInPacketRasterFootprint = (
+        geometryId: string | null
+      ) => {
+        if (typeof geometryId !== 'string') {
+          return {
+            packetGeometryId: geometryId,
+            redPixelCount: 0,
+            screenBounds: null
+          }
+        }
+        const packet = metadata.boundaryDomainPackets.find(
+          (candidate) => candidate.geometryId === geometryId
+        )
+        if (!packet) {
+          return {
+            packetGeometryId: geometryId,
+            redPixelCount: 0,
+            screenBounds: null
+          }
+        }
+        const points = packet.polygons.flat()
+        if (points.length === 0) {
+          return {
+            packetGeometryId: geometryId,
+            redPixelCount: 0,
+            screenBounds: null
+          }
+        }
+        const screenPoints = points.map(toScreenPoint)
+        const padding = Math.max(2, Math.ceil(metadata.zoom))
+        const minX = Math.max(
+          canvasBounds.left,
+          Math.min(...screenPoints.map((point) => point.x)) - padding
+        )
+        const minY = Math.max(
+          canvasBounds.top,
+          Math.min(...screenPoints.map((point) => point.y)) - padding
+        )
+        const maxX = Math.min(
+          canvasBounds.right - 1,
+          Math.max(...screenPoints.map((point) => point.x)) + padding
+        )
+        const maxY = Math.min(
+          canvasBounds.bottom - 1,
+          Math.max(...screenPoints.map((point) => point.y)) + padding
+        )
+        let redPixelCount = 0
+        const boundaryTolerance = Math.max(0.5, 1 / Math.max(metadata.zoom, 1))
+        for (let y = minY; y <= maxY; y += 1) {
+          for (let x = minX; x <= maxX; x += 1) {
+            if (!isInCanvas(x, y) || !isRedStrokePixel(x, y)) {
+              continue
+            }
+            const localPoint = fromScreenPoint({ x, y })
+            const coveredByPacket = packet.polygons.some(
+              (polygon) =>
+                insidePolygon(localPoint, polygon) ||
+                onPolygonBoundary(localPoint, polygon, boundaryTolerance)
+            )
+            if (coveredByPacket) {
+              redPixelCount += 1
+            }
+          }
+        }
+        return {
+          packetGeometryId: geometryId,
+          redPixelCount,
+          screenBounds: { minX, minY, maxX, maxY }
+        }
       }
       const getMaskComponents = (mask: Uint8Array) => {
         const visited = new Uint8Array(width * height)
@@ -4149,13 +4511,17 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
         const offsets = [2.5, 5, 7.5]
         const sides =
           selectedSide === 1 || selectedSide === -1 ? [selectedSide] : [-1, 1]
+        const ownershipBoundaryTolerance = 2
         const sameSplitRangeProbes = offsets.flatMap((offset) =>
           sides.map((side) => {
             const point = {
               x: sample.point.x - sample.tangent.y * offset * side,
               y: sample.point.y + sample.tangent.x * offset * side
             }
-            const coveringSplitRangeIds = getCoveringSplitRangeIds(point)
+            const coveringSplitRangeIds = getCoveringSplitRangeIds(
+              point,
+              ownershipBoundaryTolerance
+            )
             return {
               point,
               packetCovered: coveringSplitRangeIds.has(splitRangeId),
@@ -4458,10 +4824,6 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
       const splitRangeCapExtension = capType === 'butt' ? 0 : primaryStrokeWidth
       const minimumVisualGapLength =
         splitRangeCapExtension > 0 ? dashPattern[1] * 0.6 : 0
-      const minimumCenterlineGapLength =
-        splitRangeCapExtension > 0
-          ? minimumVisualGapLength + splitRangeCapExtension * 2
-          : 0
       const distributionFailures = [...recordsBySplitRange.entries()].flatMap(
         ([splitRangeId, records]) => {
           const sorted = records
@@ -4473,16 +4835,17 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           const rangeEnd = Math.max(
             ...sorted.map((record) => record.splitRangeEndDistance)
           )
-          const rangeLength = rangeEnd - rangeStart
           const failures: string[] = []
-          if (
-            rangeLength <=
-            dashPattern[0] + minimumCenterlineGapLength + 1e-4
-          ) {
-            const startEnd = sorted.find(
-              (record) => record.terminalRole === 'start-end'
-            )
-            if (!startEnd) failures.push('missing-short-range-start-end')
+          const startEnd = sorted.find(
+            (record) => record.terminalRole === 'start-end'
+          )
+          if (startEnd) {
+            if (
+              Math.abs(startEnd.startDistance - rangeStart) > 1e-4 ||
+              Math.abs(startEnd.endDistance - rangeEnd) > 1e-4
+            ) {
+              failures.push('start-end-terminal-range-mismatch')
+            }
           } else {
             const start = sorted.find(
               (record) => record.terminalRole === 'start'
@@ -4586,10 +4949,23 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
         )
         .map((record) => {
           const distance = (record.startDistance + record.endDistance) / 2
+          const directProbe = countRedNearRecordDistance(
+            record,
+            distance,
+            record.selectedSide
+          )
+          const packetRasterFootprint = countRedPixelsInPacketRasterFootprint(
+            record.packetGeometryId
+          )
           return {
             ...record,
             distance,
-            ...countRedNearRecordDistance(record, distance, record.selectedSide)
+            ...directProbe,
+            maxRedPixels: Math.max(
+              directProbe.maxRedPixels,
+              packetRasterFootprint.redPixelCount
+            ),
+            packetRasterFootprint
           }
         })
       const oppositeSideProbeResults =
@@ -4637,20 +5013,9 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
         }
         return false
       }
-      const isLegalSquareSelfIntersectionSharedTerminalCoverage = (
-        result: (typeof oppositeSideProbeResults)[number]
-      ) =>
-        expectedPosition === 'outside' &&
-        capType === 'square' &&
-        result.sameSplitRangeCovered &&
-        result.otherSplitRangeCovered &&
-        isIntersectionSplitBoundaryTerminalResult(result)
       const selfIntersectionTerminalOppositeSideProbeHits =
         oppositeSideProbeResults.filter((result) => {
           if (!(result.sameSplitRangeCovered && result.maxRedPixels >= 8)) {
-            return false
-          }
-          if (isLegalSquareSelfIntersectionSharedTerminalCoverage(result)) {
             return false
           }
           return isIntersectionSplitBoundaryTerminalResult(result)
@@ -5061,10 +5426,23 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
       const visibleDashProbeResults = pixelProbeTerminalRecords.map(
         (record) => {
           const distance = (record.startDistance + record.endDistance) / 2
+          const directProbe = countRedNearRecordDistance(
+            record,
+            distance,
+            record.selectedSide
+          )
+          const packetRasterFootprint = countRedPixelsInPacketRasterFootprint(
+            record.packetGeometryId
+          )
           return {
             ...record,
             distance,
-            ...countRedNearRecordDistance(record, distance, record.selectedSide)
+            ...directProbe,
+            maxRedPixels: Math.max(
+              directProbe.maxRedPixels,
+              packetRasterFootprint.redPixelCount
+            ),
+            packetRasterFootprint
           }
         }
       )
@@ -5105,52 +5483,35 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           const coveredDistanceCount = distanceResults.filter(
             (result) => result.coveredOffsetCount >= requiredCoveredOffsetCount
           ).length
+          const packetRasterFootprint = countRedPixelsInPacketRasterFootprint(
+            record.packetGeometryId
+          )
+          const packetRasterWidthEvidenceThreshold = Math.max(
+            8,
+            Math.ceil(primaryStrokeWidth * metadata.zoom * 2)
+          )
+          const packetRasterCoveredDistanceCount =
+            packetRasterFootprint.redPixelCount >=
+            packetRasterWidthEvidenceThreshold
+              ? Math.min(2, distanceResults.length)
+              : 0
           return {
             ...record,
             shouldCheckBodyWidth:
               intervalLength >= Math.max(6, primaryStrokeWidth * 0.6),
             probeDistances,
             distanceResults,
+            packetRasterFootprint,
+            packetRasterWidthEvidenceThreshold,
             requiredCoveredOffsetCount,
             requiredCoveredDistanceCount: Math.min(2, distanceResults.length),
-            coveredDistanceCount
+            coveredDistanceCount: Math.max(
+              coveredDistanceCount,
+              packetRasterCoveredDistanceCount
+            )
           }
         }
       )
-      const hasProbeablePacketBounds = (packet: {
-        bounds?: {
-          minX: number
-          minY: number
-          maxX: number
-          maxY: number
-        } | null
-      }) => {
-        const bounds = packet.bounds
-        if (!bounds) {
-          return true
-        }
-        return (
-          Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) >= 2
-        )
-      }
-      const debugRawPacketProbeResults = metadata.boundaryDomainPackets
-        .filter(
-          (packet) =>
-            packet.finalCoverageBuilderStatus === 'debug-raw' &&
-            typeof packet.startDistance === 'number' &&
-            typeof packet.endDistance === 'number' &&
-            hasProbeablePacketBounds(packet)
-        )
-        .map((packet) => {
-          const distance = (packet.startDistance + packet.endDistance) / 2
-          return {
-            geometryId: packet.geometryId,
-            intervalIds: packet.intervalIds,
-            debugIntervalId: packet.debugIntervalId,
-            distance,
-            ...countRedNearRecordDistance(packet, distance, null)
-          }
-        })
       const intervalContinuityProbeResults = pixelProbeTerminalRecords.map(
         (record) => {
           const intervalLength = record.endDistance - record.startDistance
@@ -5159,6 +5520,15 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           const isAuthoredPathEnd =
             record.terminalRole === 'end' &&
             record.endDistance >= sourceTotalLength - 1e-4
+          const startIsSplitBoundary =
+            isSmoothContinuitySplitRangeEdge([record], record.startDistance) ||
+            isSelfIntersectionSplitRangeEdge([record], record.startDistance)
+          const endIsSplitBoundary =
+            isSmoothContinuitySplitRangeEdge([record], record.endDistance) ||
+            isSelfIntersectionSplitRangeEdge([record], record.endDistance)
+          const shouldCheckPositionBoundaryContinuity =
+            expectedPosition !== 'inside' ||
+            record.boundaryRole === 'filled-face'
           const edgeInset = Math.min(
             Math.max(2, Math.min(4, intervalLength / 3)),
             Math.max(0.25, intervalLength * 0.4)
@@ -5195,7 +5565,12 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           ).runCount
           return {
             ...record,
-            shouldCheckContinuity: !isAuthoredPathStart && !isAuthoredPathEnd,
+            shouldCheckContinuity:
+              shouldCheckPositionBoundaryContinuity &&
+              !isAuthoredPathStart &&
+              !isAuthoredPathEnd &&
+              !startIsSplitBoundary &&
+              !endIsSplitBoundary,
             probeResults,
             coveredProbeCount: probeResults.filter(
               (probe) => probe.maxRedPixels >= 2
@@ -5363,9 +5738,8 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
       const intervalPacketFailures = metadata.boundaryDomainPackets.filter(
         (packet) =>
           packet.polygonCount === 0 ||
-          packet.sourceTopology !== 'self-intersecting' ||
-          (packet.finalCoverageBuilderStatus !== 'product-final' &&
-            packet.finalCoverageBuilderStatus !== 'debug-raw') ||
+          packet.topologyFamily !== 'self-intersecting' ||
+          packet.productSignature?.startsWith('constrained-dashed:') !== true ||
           packet.debugIntervalId?.startsWith('interval:') !== true ||
           packet.intervalIds.some(
             (intervalId) => !intervalId.startsWith('interval:')
@@ -5424,10 +5798,6 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
             result.shouldCheckBodyWidth &&
             result.coveredDistanceCount < result.requiredCoveredDistanceCount
         ),
-        debugRawPacketProbeResults,
-        debugRawPacketProbeFailures: debugRawPacketProbeResults.filter(
-          (result) => result.maxRedPixels < 8
-        ),
         splitRangeSideConsistencyFailures,
         intervalContinuityFailures: intervalContinuityProbeResults.filter(
           (result) => {
@@ -5455,7 +5825,6 @@ export const analyzeSelfCheckBoundaryDomainOracle = async (
           (result) =>
             result.sameSplitRangeCovered &&
             result.maxRedPixels >= 8 &&
-            !isLegalSquareSelfIntersectionSharedTerminalCoverage(result) &&
             !isAuthoredSourceVertexTerminalResult(result)
         ),
         sourceVertexOppositeSideProbeResults: oppositeSideProbeResults.filter(

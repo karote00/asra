@@ -77,6 +77,8 @@ interface FillColorControlsProps {
   fill: FillAttrs
   fillId: string
   ownerElementId: string | null
+  colorPickerTestId?: string
+  colorPickerOpen?: boolean
   displayColor: string
   gradientData: FillAttrs['gradient']
   previewSwatchStyle?: CSSProperties
@@ -102,6 +104,8 @@ const FillColorControls = ({
   fill,
   fillId,
   ownerElementId,
+  colorPickerTestId,
+  colorPickerOpen,
   displayColor,
   gradientData,
   previewSwatchStyle,
@@ -148,6 +152,7 @@ const FillColorControls = ({
         <ColorPicker
           color={fill.color}
           opacity={fill.opacity}
+          open={colorPickerOpen}
           onChange={onColorPickerChange}
           onChangeStart={onColorPickerChangeStart}
           onChangeEnd={onColorPickerChangeEnd}
@@ -175,7 +180,7 @@ const FillColorControls = ({
             borderRadius: '3px 0 0 3px',
             borderRight: 'none'
           }}
-          data-testid={`prop-fill-color-picker-${index}`}
+          data-testid={colorPickerTestId ?? `prop-fill-color-picker-${index}`}
         >
           {gradientData ? (
             <GradientEditor

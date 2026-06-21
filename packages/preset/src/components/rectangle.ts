@@ -9,13 +9,8 @@ import { createRectangleHitArea, mergeHitAreas } from './shape-hit-area'
 import { DEFAULT_RECTANGLE_STROKES } from './stroke-render/constants'
 import {
   buildConstrainedDashedStrokeResolvedPackets,
-  classifyConstrainedDashedRuntimeStatus,
   hasConstrainedDashedStrokeIntent
 } from './stroke-render/constrained-dashed-stroke-packets'
-import {
-  clearConstrainedDashedRuntimeDiagnostics,
-  setConstrainedDashedRuntimeDiagnostics
-} from './stroke-render/constrained-dashed-runtime-diagnostics'
 import {
   applyCenterDashedOverlapDiagnostics,
   clearCenterDashedOverlapDiagnostics
@@ -26,7 +21,6 @@ import {
   setConstrainedSolidLegalityDiagnostics
 } from './stroke-render/constrained-solid-legality-diagnostics'
 import {
-  buildConstrainedSolidOwnershipDiagnostics,
   clearConstrainedSolidOwnershipDiagnostics,
   createEmptyConstrainedSolidOwnershipDiagnostics,
   setConstrainedSolidOwnershipDiagnostics
@@ -42,7 +36,6 @@ import {
 import { renderSolidCenterStrokeEntries } from './stroke-render/solid-center-stroke-render'
 import { buildPathTopologyModel } from './stroke-render/path-topology-model'
 import {
-  attachStrokePacketDebugMeta,
   applySolidCenterStrokeExportPackets,
   buildSolidCenterStrokeResolvedPackets,
   createSolidCenterStrokeHitArea,
@@ -136,43 +129,7 @@ defineComponent({
           }
         )
       : []
-    const constrainedDashedRuntimeStatus = hasConstrainedDashedIntent
-      ? classifyConstrainedDashedRuntimeStatus({
-          points: pathPoints,
-          closed: true,
-          topology: pathTopology,
-          candidatePackets: constrainedDashedCandidatePackets
-        })
-      : null
-    const constrainedDashedPackets =
-      constrainedDashedRuntimeStatus?.status === 'accepted'
-        ? attachStrokePacketDebugMeta(constrainedDashedCandidatePackets, {
-            runtimeStatus: constrainedDashedRuntimeStatus.status,
-            runtimeReason: constrainedDashedRuntimeStatus.reason,
-            sourceTopology: constrainedDashedRuntimeStatus.sourceTopology,
-            ownershipStatus: constrainedDashedRuntimeStatus.ownership.status,
-            ownerCount:
-              constrainedDashedRuntimeStatus.ownership.ownerKeys.length
-          })
-        : []
-    if (shouldAttachFullStrokeDiagnostics && constrainedDashedRuntimeStatus) {
-      setConstrainedDashedRuntimeDiagnostics(
-        graphic,
-        [
-          {
-            sourceId: `rect:${data.id ?? 'anonymous'}`,
-            candidatePacketCount: constrainedDashedCandidatePackets.length,
-            ...constrainedDashedRuntimeStatus
-          }
-        ],
-        () =>
-          buildConstrainedSolidOwnershipDiagnostics(
-            constrainedDashedCandidatePackets
-          )
-      )
-    } else {
-      clearConstrainedDashedRuntimeDiagnostics(graphic)
-    }
+    const constrainedDashedPackets = constrainedDashedCandidatePackets
     const hasConstrainedSolidIntent = hasConstrainedSolidStrokeIntent(
       data.strokes
     )

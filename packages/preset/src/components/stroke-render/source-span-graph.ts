@@ -35,9 +35,7 @@ export interface SourceSpanDomainPlanInput {
   }[]
 }
 
-export type SourceSpanProvenanceUnavailableReason =
-  | 'visual-only'
-  | 'diagnostic-metadata-omitted'
+export type SourceSpanProvenanceUnavailableReason = 'product-provenance-omitted'
 
 export type SourceSpanProvenanceAvailability =
   | {
@@ -50,18 +48,14 @@ export type SourceSpanProvenanceAvailability =
     }
 
 export interface SourceSpanProvenanceOptions {
-  visualOnly?: boolean
-  omitDiagnosticMetadata?: boolean
+  omitProductProvenance?: boolean
 }
 
 export const resolveSourceSpanProvenanceAvailability = (
   options: SourceSpanProvenanceOptions = {}
 ): SourceSpanProvenanceAvailability => {
-  if (options.visualOnly === true) {
-    return { available: false, reason: 'visual-only' }
-  }
-  if (options.omitDiagnosticMetadata === true) {
-    return { available: false, reason: 'diagnostic-metadata-omitted' }
+  if (options.omitProductProvenance === true) {
+    return { available: false, reason: 'product-provenance-omitted' }
   }
   return { available: true, reason: 'available' }
 }

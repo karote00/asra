@@ -40,9 +40,11 @@ export interface SolidCenterStrokeRenderEntry {
   fillPolygons?: Vec2[][]
   clipPolygons?: Vec2[][]
   fillClipPolygons?: Vec2[][]
+  fillExcludePolygons?: Vec2[][]
   strokeMaskPolygons?: Vec2[][]
   strokePaths?: Vec2[][]
   strokePathGroups?: {
+    clipPolygons?: Vec2[][]
     strokePaths: Vec2[][]
     strokePathStyle?: Pick<
       RenderableStroke,
@@ -67,6 +69,7 @@ interface SolidStrokeCacheSolidEntry {
   paintKey: string
   revisionSet?: StrokeRevisionSet
   lastDirtyKeys?: StrokeDirtyKey[]
+  lastUsedRenderGeneration?: number
 }
 
 interface SolidStrokeCacheGradientEntry {
@@ -77,6 +80,7 @@ interface SolidStrokeCacheGradientEntry {
   paintKey: string
   revisionSet?: StrokeRevisionSet
   lastDirtyKeys?: StrokeDirtyKey[]
+  lastUsedRenderGeneration?: number
 }
 
 interface SolidStrokeCacheMaskedSolidEntry {
@@ -90,39 +94,49 @@ interface SolidStrokeCacheMaskedSolidEntry {
   strokeMask: Graphics
   signature: string
   paintKey: string
+  color: number
+  alpha: number
   revisionSet?: StrokeRevisionSet
   lastDirtyKeys?: StrokeDirtyKey[]
+  lastUsedRenderGeneration?: number
 }
 
-interface SolidStrokeCacheDragSolidGraphicsEntry {
-  kind: 'drag-solid-graphics' | 'solid-graphics'
+interface SolidStrokeCacheSolidGraphicsEntry {
+  kind: 'solid-graphics'
   graphics: Graphics
   signature: string
+  coordinateSignature?: string
   paintKey: string
+  color: number
+  alpha: number
   revisionSet?: StrokeRevisionSet
   lastDirtyKeys?: StrokeDirtyKey[]
+  lastUsedRenderGeneration?: number
 }
 
 interface SolidCenterStrokeRenderGraphic {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   addChild?: (...args: any[]) => unknown
+  __asyraStrokeMeshCacheRenderGeneration?: number
   __asyraStrokeMeshCache?: Map<
     string,
     | SolidStrokeCacheSolidEntry
     | SolidStrokeCacheGradientEntry
     | SolidStrokeCacheMaskedSolidEntry
-    | SolidStrokeCacheDragSolidGraphicsEntry
+    | SolidStrokeCacheSolidGraphicsEntry
   >
 }
+
+const STROKE_MESH_INACTIVE_RETAIN_GENERATIONS = 32
 
 const isSolidGraphicsCacheEntry = (
   entry:
     | SolidStrokeCacheSolidEntry
     | SolidStrokeCacheGradientEntry
     | SolidStrokeCacheMaskedSolidEntry
-    | SolidStrokeCacheDragSolidGraphicsEntry
-): entry is SolidStrokeCacheDragSolidGraphicsEntry =>
-  entry.kind === 'drag-solid-graphics' || entry.kind === 'solid-graphics'
+    | SolidStrokeCacheSolidGraphicsEntry
+): entry is SolidStrokeCacheSolidGraphicsEntry =>
+  entry.kind === 'solid-graphics'
 
 const buildGeometryModel = (polygons: Vec2[][]): GeometryModel => {
   const normalizedPolygons = polygons.map((polygon) =>
@@ -178,61 +192,6 @@ const getStrokePathStyleSignature = (
       ].join(':')
     : ''
 
-const getPolygonSummarySignature = (polygons: Vec2[][] | undefined) => {
-  if (!polygons || polygons.length === 0) {
-    return '0:0'
-  }
-
-  let pointCount = 0
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-  polygons.forEach((polygon) => {
-    pointCount += polygon.length
-    polygon.forEach((point) => {
-      minX = Math.min(minX, point.x)
-      minY = Math.min(minY, point.y)
-      maxX = Math.max(maxX, point.x)
-      maxY = Math.max(maxY, point.y)
-    })
-  })
-
-  return [
-    polygons.length,
-    pointCount,
-    Number.isFinite(minX) ? minX.toFixed(3) : 'NaN',
-    Number.isFinite(minY) ? minY.toFixed(3) : 'NaN',
-    Number.isFinite(maxX) ? maxX.toFixed(3) : 'NaN',
-    Number.isFinite(maxY) ? maxY.toFixed(3) : 'NaN'
-  ].join(':')
-}
-
-const getMaskedSolidDescriptorSummarySignature = (
-  entry: SolidCenterStrokeRenderEntry,
-  polygons: Vec2[][]
-) =>
-  [
-    'masked-solid-descriptor-summary',
-    getPolygonSummarySignature(polygons),
-    getPolygonSummarySignature(entry.fillPolygons),
-    getPolygonSummarySignature(entry.clipPolygons),
-    getPolygonSummarySignature(entry.fillClipPolygons),
-    getPolygonSummarySignature(entry.strokeMaskPolygons),
-    getPolygonSummarySignature(entry.strokePaths),
-    entry.strokePathGroups
-      ?.map((group) =>
-        [
-          getPolygonSummarySignature(group.strokePaths),
-          getStrokePathStyleSignature(
-            group.strokePathStyle ?? entry.strokePathStyle
-          )
-        ].join('~')
-      )
-      .join(';') ?? '',
-    getStrokePathStyleSignature(entry.strokePathStyle)
-  ].join('|')
-
 const getMaskedSolidDescriptorSignature = (
   entry: SolidCenterStrokeRenderEntry,
   polygons: Vec2[][]
@@ -243,12 +202,14 @@ const getMaskedSolidDescriptorSignature = (
     getSignature(entry.fillPolygons ?? []),
     getSignature(entry.clipPolygons ?? []),
     getSignature(entry.fillClipPolygons ?? []),
+    getSignature(entry.fillExcludePolygons ?? []),
     getSignature(entry.strokeMaskPolygons ?? []),
     getSignature(entry.strokePaths ?? []),
     entry.strokePathGroups
       ?.map((group) =>
         [
           getSignature(group.strokePaths),
+          getSignature(group.clipPolygons ?? []),
           getStrokePathStyleSignature(
             group.strokePathStyle ?? entry.strokePathStyle
           )
@@ -266,19 +227,21 @@ const getRevisionGeometrySignature = (
     ? [
         revisionSet.sourcePathRevision,
         revisionSet.strokeSpecRevision,
+        revisionSet.domainPlanRevision,
+        revisionSet.sharedGeometryRevision,
+        revisionSet.strokeProductRevision,
+        revisionSet.strokeDomainRevision,
         revisionSet.strokeFamilyRevision ?? '',
         revisionSet.intervalAllocationRevision,
         revisionSet.dashScheduleRevision ?? '',
         revisionSet.terminalCapRevision ?? '',
         revisionSet.joinShapeRevision ?? '',
-        revisionSet.topologyClassificationRevision,
-        revisionSet.candidateRevision ?? '',
-        revisionSet.arrangementRevision ?? '',
+        revisionSet.smoothContinuityRevision ?? '',
+        revisionSet.productMaterializationRevision ?? '',
         revisionSet.ownershipRevision,
         revisionSet.legalityRevision,
         revisionSet.resolvedRegionRevision ?? '',
-        revisionSet.renderOutputRevision ?? '',
-        revisionSet.previewModeRevision
+        revisionSet.renderOutputRevision ?? ''
       ].join('|')
     : null
 
@@ -293,6 +256,12 @@ const getSignedPolygonArea = (polygon: Vec2[]) =>
     const next = polygon[(index + 1) % polygon.length]
     return sum + point.x * next.y - next.x * point.y
   }, 0) / 2
+
+const ensurePositivePolygonWinding = (polygon: Vec2[]) =>
+  getSignedPolygonArea(polygon) >= 0 ? polygon : [...polygon].reverse()
+
+const ensureNegativePolygonWinding = (polygon: Vec2[]) =>
+  getSignedPolygonArea(polygon) < 0 ? polygon : [...polygon].reverse()
 
 const getPolygonReferencePoint = (polygon: Vec2[]) => ({
   x: polygon.reduce((sum, point) => sum + point.x, 0) / polygon.length,
@@ -436,6 +405,80 @@ const drawStrokePaths = (
   })
 }
 
+interface StrokePathGroupClipLayer {
+  stroke: Graphics
+  mask: Graphics
+}
+
+interface StrokePathGroupClipContainer extends Container {
+  __asyraStrokePathGroupClipLayers?: StrokePathGroupClipLayer[]
+}
+const resetUnusedStrokePathGroupClipLayers = (
+  container: Container,
+  usedCount: number
+) => {
+  const owner = container as StrokePathGroupClipContainer
+  owner.__asyraStrokePathGroupClipLayers?.slice(usedCount).forEach((layer) => {
+    layer.stroke.clear()
+    layer.mask.clear()
+    layer.stroke.mask = null
+    layer.stroke.visible = false
+    layer.mask.visible = false
+  })
+}
+
+const drawClippedStrokePathGroups = (
+  container: Container,
+  groups: NonNullable<SolidCenterStrokeRenderEntry['strokePathGroups']>,
+  baseStyle: SolidCenterStrokeRenderEntry['strokePathStyle'],
+  color: number,
+  alpha: number
+) => {
+  const owner = container as StrokePathGroupClipContainer
+  if (!owner.__asyraStrokePathGroupClipLayers) {
+    owner.__asyraStrokePathGroupClipLayers = []
+  }
+
+  let usedLayerCount = 0
+  groups.forEach((group) => {
+    if (!group.clipPolygons || group.clipPolygons.length === 0) {
+      return
+    }
+    const groupStyle = group.strokePathStyle ?? baseStyle
+    if (!groupStyle || group.strokePaths.length === 0) {
+      return
+    }
+
+    let layer = owner.__asyraStrokePathGroupClipLayers?.[usedLayerCount]
+    if (!layer) {
+      layer = { stroke: new Graphics(), mask: new Graphics() }
+      owner.__asyraStrokePathGroupClipLayers?.push(layer)
+      container.addChild(layer.stroke)
+      container.addChild(layer.mask)
+    } else {
+      if (layer.stroke.parent !== container) {
+        container.addChild(layer.stroke)
+      }
+      if (layer.mask.parent !== container) {
+        container.addChild(layer.mask)
+      }
+      layer.stroke.clear()
+      layer.mask.clear()
+    }
+
+    drawStrokePaths(layer.stroke, group.strokePaths, groupStyle, color, alpha)
+    drawPolygonsWithCutouts(layer.mask, group.clipPolygons, {
+      color: 0xffffff,
+      alpha: 1
+    })
+    layer.stroke.mask = layer.mask
+    layer.stroke.visible = true
+    layer.mask.visible = true
+    usedLayerCount += 1
+  })
+  resetUnusedStrokePathGroupClipLayers(container, usedLayerCount)
+}
+
 type PaintDomainGradientStyle = RenderFillStyle & {
   __asyraGradientOptions?: CreateRenderGradientFillOptions
 }
@@ -532,6 +575,7 @@ const applyMaskedSolidPaint = (
   fillPolygons?: Vec2[][],
   clipPolygons?: Vec2[][],
   fillClipPolygons?: Vec2[][],
+  fillExcludePolygons?: Vec2[][],
   strokeMaskPolygons?: Vec2[][],
   strokePaths?: Vec2[][],
   strokePathGroups?: SolidCenterStrokeRenderEntry['strokePathGroups'],
@@ -540,35 +584,47 @@ const applyMaskedSolidPaint = (
     'width' | 'cap' | 'join' | 'miterLimit'
   >
 ) => {
-  const maskPolygons = clipPolygons ?? polygons
-  const bounds = getPolygonBounds(maskPolygons)
+  const hasStrokeMaskPolygons =
+    strokeMaskPolygons && strokeMaskPolygons.length > 0
+  content.alpha = alpha
   fill.clear()
   mask.clear()
   fillMask.clear()
   strokeMask.clear()
-  fill.alpha = alpha
+  fill.alpha = 1
   mask.alpha = 1
   fillMask.alpha = 1
-
-  if (!bounds) {
-    return
-  }
 
   const hasFillPolygons = fillPolygons && fillPolygons.length > 0
   const hasClipPolygons = clipPolygons && clipPolygons.length > 0
   const hasFillClipPolygons = fillClipPolygons && fillClipPolygons.length > 0
-  const hasStrokeMaskPolygons =
-    strokeMaskPolygons && strokeMaskPolygons.length > 0
+  const hasFillExcludePolygons =
+    fillExcludePolygons !== undefined && fillExcludePolygons.length > 0
   const hasStrokePaths =
     strokePaths && strokePaths.length > 0 && strokePathStyle
   const hasStrokePathGroups =
     strokePathGroups !== undefined && strokePathGroups.length > 0
+  const clippedStrokePathGroups =
+    strokePathGroups?.filter(
+      (group) => group.clipPolygons && group.clipPolygons.length > 0
+    ) ?? []
+  const unclippedStrokePathGroups =
+    strokePathGroups?.filter(
+      (group) => !group.clipPolygons || group.clipPolygons.length === 0
+    ) ?? []
   const canUseStrokePathAsExactMask =
-    (hasStrokePaths || hasStrokePathGroups) &&
+    (hasStrokePaths || hasStrokePathGroups || hasStrokeMaskPolygons) &&
     !hasClipPolygons &&
     !hasFillClipPolygons &&
+    !hasFillExcludePolygons &&
+    !hasFillPolygons
+  const canDrawStrokeGeometryDirectlyWithFillClip =
+    hasFillClipPolygons &&
     !hasFillPolygons &&
-    !hasStrokeMaskPolygons
+    !hasClipPolygons &&
+    !hasFillExcludePolygons &&
+    clippedStrokePathGroups.length === 0 &&
+    (hasStrokePaths || hasStrokePathGroups || hasStrokeMaskPolygons)
 
   content.mask = null
   clipContent.mask = null
@@ -576,6 +632,40 @@ const applyMaskedSolidPaint = (
   mask.mask = null
   fillMask.mask = null
   strokeMask.mask = null
+  resetUnusedStrokePathGroupClipLayers(clipContent, 0)
+
+  if (canDrawStrokeGeometryDirectlyWithFillClip) {
+    if (hasStrokePaths) {
+      drawStrokePaths(fill, strokePaths, strokePathStyle, color, 1)
+    }
+    if (unclippedStrokePathGroups.length > 0) {
+      unclippedStrokePathGroups.forEach((group) => {
+        const groupStyle = group.strokePathStyle ?? strokePathStyle
+        if (!groupStyle) {
+          return
+        }
+        drawStrokePaths(fill, group.strokePaths, groupStyle, color, 1)
+      })
+    }
+    if (hasStrokeMaskPolygons) {
+      drawPolygonsWithCutouts(fill, strokeMaskPolygons, { color, alpha: 1 })
+    }
+    drawPolygonsWithCutouts(fillMask, fillClipPolygons, {
+      color: 0xffffff,
+      alpha: 1
+    })
+    content.mask = fillMask
+    return
+  }
+
+  const maskPolygons = clipPolygons ?? polygons
+  const paintBoundsPolygons =
+    clipPolygons ?? (hasStrokeMaskPolygons ? strokeMaskPolygons : polygons)
+  const bounds = getPolygonBounds(paintBoundsPolygons)
+  if (!bounds) {
+    return
+  }
+
   if (!hasStrokePaths && hasFillPolygons) {
     drawPolygonsWithCutouts(fill, fillPolygons, { color, alpha: 1 })
     fill.beginPath()
@@ -593,14 +683,23 @@ const applyMaskedSolidPaint = (
   if (hasStrokePaths) {
     drawStrokePaths(strokeMask, strokePaths, strokePathStyle, 0xffffff, 1)
   }
-  if (hasStrokePathGroups) {
-    strokePathGroups.forEach((group) => {
+  if (unclippedStrokePathGroups.length > 0) {
+    unclippedStrokePathGroups.forEach((group) => {
       const groupStyle = group.strokePathStyle ?? strokePathStyle
       if (!groupStyle) {
         return
       }
       drawStrokePaths(strokeMask, group.strokePaths, groupStyle, 0xffffff, 1)
     })
+  }
+  if (clippedStrokePathGroups.length > 0) {
+    drawClippedStrokePathGroups(
+      clipContent,
+      clippedStrokePathGroups,
+      strokePathStyle,
+      color,
+      1
+    )
   }
   if (hasStrokeMaskPolygons) {
     drawOpaqueMaskPolygons(strokeMask, strokeMaskPolygons)
@@ -615,8 +714,19 @@ const applyMaskedSolidPaint = (
   if (!canUseStrokePathAsExactMask) {
     drawPolygonsWithCutouts(mask, maskPolygons, { color: 0xffffff, alpha: 1 })
   }
-  if (hasFillClipPolygons) {
-    drawPolygonsWithCutouts(fillMask, fillClipPolygons, {
+  if (hasFillClipPolygons || hasFillExcludePolygons) {
+    const fillMaskPolygons = hasFillClipPolygons
+      ? fillClipPolygons
+      : [
+          ensurePositivePolygonWinding([
+            { x: bounds.minX, y: bounds.minY },
+            { x: bounds.maxX, y: bounds.minY },
+            { x: bounds.maxX, y: bounds.maxY },
+            { x: bounds.minX, y: bounds.maxY }
+          ]),
+          ...(fillExcludePolygons ?? []).map(ensureNegativePolygonWinding)
+        ]
+    drawPolygonsWithCutouts(fillMask, fillMaskPolygons, {
       color: 0xffffff,
       alpha: 1
     })
@@ -640,7 +750,7 @@ const disposeCacheEntry = (
     | SolidStrokeCacheSolidEntry
     | SolidStrokeCacheGradientEntry
     | SolidStrokeCacheMaskedSolidEntry
-    | SolidStrokeCacheDragSolidGraphicsEntry
+    | SolidStrokeCacheSolidGraphicsEntry
 ) => {
   if (entry.kind === 'solid') {
     entry.projection.dispose()
@@ -667,11 +777,35 @@ const disposeCacheEntry = (
   entry.container.destroy()
 }
 
+const setCacheEntryVisible = (
+  entry:
+    | SolidStrokeCacheSolidEntry
+    | SolidStrokeCacheGradientEntry
+    | SolidStrokeCacheMaskedSolidEntry
+    | SolidStrokeCacheSolidGraphicsEntry,
+  visible: boolean
+) => {
+  if (entry.kind === 'solid') {
+    entry.projection.setVisible(visible)
+    return
+  }
+
+  if (isSolidGraphicsCacheEntry(entry)) {
+    entry.graphics.visible = visible
+    return
+  }
+
+  entry.container.visible = visible
+}
+
 const syncMaskedFillClipLayer = (
   entry: SolidStrokeCacheMaskedSolidEntry,
-  fillClipPolygons?: Vec2[][]
+  fillClipPolygons?: Vec2[][],
+  fillExcludePolygons?: Vec2[][]
 ) => {
-  const shouldAttach = fillClipPolygons && fillClipPolygons.length > 0
+  const shouldAttach =
+    (fillClipPolygons !== undefined && fillClipPolygons.length > 0) ||
+    (fillExcludePolygons !== undefined && fillExcludePolygons.length > 0)
   if (shouldAttach && entry.fillMask.parent !== entry.container) {
     entry.container.addChild(entry.fillMask)
     return
@@ -705,6 +839,8 @@ const hasPaintDirtyKey = (dirtyKeys: StrokeDirtyKey[] | null) =>
 const shouldRenderSolidWithMask = (entry: SolidCenterStrokeRenderEntry) =>
   (entry.clipPolygons !== undefined && entry.clipPolygons.length > 0) ||
   (entry.fillPolygons !== undefined && entry.fillPolygons.length > 0) ||
+  (entry.fillExcludePolygons !== undefined &&
+    entry.fillExcludePolygons.length > 0) ||
   (entry.strokeMaskPolygons !== undefined &&
     entry.strokeMaskPolygons.length > 0) ||
   (entry.strokePaths !== undefined &&
@@ -712,32 +848,25 @@ const shouldRenderSolidWithMask = (entry: SolidCenterStrokeRenderEntry) =>
     entry.strokePathStyle !== undefined) ||
   (entry.strokePathGroups !== undefined && entry.strokePathGroups.length > 0)
 
-const shouldRenderDragVisualWithGraphics = (
-  entry: SolidCenterStrokeRenderEntry
-) =>
-  entry.stroke.kind !== 'gradient' &&
-  (
-    entry.revisionSet ??
-    entry.runtimeMeta?.revisionSet ??
-    entry.debugMeta?.revisionSet
-  )?.previewModeRevision === 'drag-visual'
-
 const shouldRenderPlainSolidWithGraphics = (
   entry: SolidCenterStrokeRenderEntry,
   shouldUseMaskedSolid: boolean
 ) => {
-  const geometryFamily =
-    entry.debugMeta?.geometryFamily ?? entry.runtimeMeta?.geometryFamily
-  const hasKnownNonSolidCenterFamily =
-    geometryFamily !== undefined && geometryFamily !== 'solid-center'
+  const productMode =
+    entry.debugMeta?.productMode ?? entry.runtimeMeta?.productMode
+  const productSignature =
+    entry.debugMeta?.productSignature ?? entry.runtimeMeta?.productSignature
+  const hasKnownNonCenterProduct =
+    productMode !== undefined && productMode !== 'center-product'
   const canProjectExactPolygonsWithGraphics =
-    geometryFamily === 'solid-center' || geometryFamily === 'constrained-dashed'
+    productMode === 'center-product' ||
+    productSignature?.startsWith('constrained-dashed:') === true
 
   return (
     entry.stroke.kind !== 'gradient' &&
     !shouldUseMaskedSolid &&
     entry.preferSolidGraphics !== false &&
-    (canProjectExactPolygonsWithGraphics || !hasKnownNonSolidCenterFamily)
+    (canProjectExactPolygonsWithGraphics || !hasKnownNonCenterProduct)
   )
 }
 
@@ -759,6 +888,9 @@ export const renderSolidCenterStrokeEntries = (
   if (!graphic.__asyraStrokeMeshCache) {
     graphic.__asyraStrokeMeshCache = new Map()
   }
+  const renderGeneration =
+    (graphic.__asyraStrokeMeshCacheRenderGeneration ?? 0) + 1
+  graphic.__asyraStrokeMeshCacheRenderGeneration = renderGeneration
 
   const active = new Set<string>()
 
@@ -774,36 +906,25 @@ export const renderSolidCenterStrokeEntries = (
       return
     }
 
-    const existing = graphic.__asyraStrokeMeshCache?.get(entry.cacheKey)
     const revisionSet =
       entry.revisionSet ??
       entry.runtimeMeta?.revisionSet ??
       entry.debugMeta?.revisionSet
-    const dirtyKeys = getRevisionDirtyKeys(existing?.revisionSet, revisionSet)
-    const geometryDirty = hasGeometryDirtyKey(dirtyKeys)
-    const paintDirty = hasPaintDirtyKey(dirtyKeys)
     const strokeKind = entry.stroke.kind ?? 'solid'
     const shouldUseMaskedSolid =
       strokeKind === 'solid' && shouldRenderSolidWithMask(entry)
     const targetCacheKind = shouldUseMaskedSolid
       ? 'masked-solid'
-      : shouldRenderDragVisualWithGraphics(entry)
-        ? 'drag-solid-graphics'
-        : shouldRenderPlainSolidWithGraphics(entry, shouldUseMaskedSolid)
-          ? 'solid-graphics'
-          : strokeKind
+      : shouldRenderPlainSolidWithGraphics(entry, shouldUseMaskedSolid)
+        ? 'solid-graphics'
+        : strokeKind
     const paintKey =
       entry.stroke.paintKey ??
       `solid:${entry.stroke.color}:${entry.stroke.alpha}`
     const revisionGeometrySignature = getRevisionGeometrySignature(revisionSet)
     const getGeometrySignature = () => {
       if (revisionGeometrySignature) {
-        return shouldUseMaskedSolid
-          ? `${revisionGeometrySignature}|${getMaskedSolidDescriptorSummarySignature(
-              entry,
-              polygons
-            )}`
-          : revisionGeometrySignature
+        return revisionGeometrySignature
       }
 
       const descriptorSignature = shouldUseMaskedSolid
@@ -813,13 +934,18 @@ export const renderSolidCenterStrokeEntries = (
       return descriptorSignature ?? getSignature(polygons)
     }
     const signature = getGeometrySignature()
+    const renderCacheKey = entry.cacheKey
+    const existing = graphic.__asyraStrokeMeshCache?.get(renderCacheKey)
+    const dirtyKeys = getRevisionDirtyKeys(existing?.revisionSet, revisionSet)
+    const geometryDirty = hasGeometryDirtyKey(dirtyKeys)
+    const paintDirty = hasPaintDirtyKey(dirtyKeys)
 
     if (existing && existing.kind !== targetCacheKind) {
       disposeCacheEntry(existing)
-      graphic.__asyraStrokeMeshCache?.delete(entry.cacheKey)
+      graphic.__asyraStrokeMeshCache?.delete(renderCacheKey)
     }
 
-    const compatibleEntry = graphic.__asyraStrokeMeshCache?.get(entry.cacheKey)
+    const compatibleEntry = graphic.__asyraStrokeMeshCache?.get(renderCacheKey)
 
     if (
       compatibleEntry &&
@@ -846,25 +972,36 @@ export const renderSolidCenterStrokeEntries = (
             )
           }
         } else if (compatibleEntry.kind === 'masked-solid') {
-          syncMaskedFillClipLayer(compatibleEntry, entry.fillClipPolygons)
-          applyMaskedSolidPaint(
-            compatibleEntry.content,
-            compatibleEntry.clipContent,
-            compatibleEntry.fill,
-            compatibleEntry.mask,
-            compatibleEntry.fillMask,
-            compatibleEntry.strokeMask,
-            polygons,
-            entry.stroke.color,
-            entry.stroke.alpha,
-            entry.fillPolygons,
-            entry.clipPolygons,
-            entry.fillClipPolygons,
-            entry.strokeMaskPolygons,
-            entry.strokePaths,
-            entry.strokePathGroups,
-            entry.strokePathStyle
-          )
+          if (compatibleEntry.color === entry.stroke.color) {
+            compatibleEntry.content.alpha = entry.stroke.alpha
+          } else {
+            syncMaskedFillClipLayer(
+              compatibleEntry,
+              entry.fillClipPolygons,
+              entry.fillExcludePolygons
+            )
+            applyMaskedSolidPaint(
+              compatibleEntry.content,
+              compatibleEntry.clipContent,
+              compatibleEntry.fill,
+              compatibleEntry.mask,
+              compatibleEntry.fillMask,
+              compatibleEntry.strokeMask,
+              polygons,
+              entry.stroke.color,
+              entry.stroke.alpha,
+              entry.fillPolygons,
+              entry.clipPolygons,
+              entry.fillClipPolygons,
+              entry.fillExcludePolygons,
+              entry.strokeMaskPolygons,
+              entry.strokePaths,
+              entry.strokePathGroups,
+              entry.strokePathStyle
+            )
+            compatibleEntry.color = entry.stroke.color
+          }
+          compatibleEntry.alpha = entry.stroke.alpha
         } else if (isSolidGraphicsCacheEntry(compatibleEntry)) {
           applySolidGraphicsPaint(
             compatibleEntry.graphics,
@@ -887,7 +1024,7 @@ export const renderSolidCenterStrokeEntries = (
           compatibleEntry.container.visible = true
         }
       }
-      active.add(entry.cacheKey)
+      active.add(renderCacheKey)
       return
     }
 
@@ -910,7 +1047,7 @@ export const renderSolidCenterStrokeEntries = (
       } else {
         compatibleEntry.projection.setVisible(true)
       }
-      active.add(entry.cacheKey)
+      active.add(renderCacheKey)
       return
     }
 
@@ -929,7 +1066,7 @@ export const renderSolidCenterStrokeEntries = (
         compatibleEntry.revisionSet = revisionSet
         compatibleEntry.lastDirtyKeys = dirtyKeys ?? []
         compatibleEntry.container.visible = true
-        active.add(entry.cacheKey)
+        active.add(renderCacheKey)
         return
       }
 
@@ -942,7 +1079,11 @@ export const renderSolidCenterStrokeEntries = (
           compatibleEntry.signature !== signature ||
           compatibleEntry.paintKey !== paintKey)
       ) {
-        syncMaskedFillClipLayer(compatibleEntry, entry.fillClipPolygons)
+        syncMaskedFillClipLayer(
+          compatibleEntry,
+          entry.fillClipPolygons,
+          entry.fillExcludePolygons
+        )
         applyMaskedSolidPaint(
           compatibleEntry.content,
           compatibleEntry.clipContent,
@@ -956,6 +1097,7 @@ export const renderSolidCenterStrokeEntries = (
           entry.fillPolygons,
           entry.clipPolygons,
           entry.fillClipPolygons,
+          entry.fillExcludePolygons,
           entry.strokeMaskPolygons,
           entry.strokePaths,
           entry.strokePathGroups,
@@ -963,10 +1105,12 @@ export const renderSolidCenterStrokeEntries = (
         )
         compatibleEntry.signature = signature
         compatibleEntry.paintKey = paintKey
+        compatibleEntry.color = entry.stroke.color
+        compatibleEntry.alpha = entry.stroke.alpha
         compatibleEntry.revisionSet = revisionSet
         compatibleEntry.lastDirtyKeys = dirtyKeys ?? []
         compatibleEntry.container.visible = true
-        active.add(entry.cacheKey)
+        active.add(renderCacheKey)
         return
       }
 
@@ -982,7 +1126,10 @@ export const renderSolidCenterStrokeEntries = (
       container.addChild(content)
       container.addChild(mask)
       container.addChild(strokeMask)
-      if (entry.fillClipPolygons && entry.fillClipPolygons.length > 0) {
+      if (
+        (entry.fillClipPolygons && entry.fillClipPolygons.length > 0) ||
+        (entry.fillExcludePolygons && entry.fillExcludePolygons.length > 0)
+      ) {
         container.addChild(fillMask)
       }
       applyMaskedSolidPaint(
@@ -998,6 +1145,7 @@ export const renderSolidCenterStrokeEntries = (
         entry.fillPolygons,
         entry.clipPolygons,
         entry.fillClipPolygons,
+        entry.fillExcludePolygons,
         entry.strokeMaskPolygons,
         entry.strokePaths,
         entry.strokePathGroups,
@@ -1009,7 +1157,7 @@ export const renderSolidCenterStrokeEntries = (
         return
       }
 
-      graphic.__asyraStrokeMeshCache?.set(entry.cacheKey, {
+      graphic.__asyraStrokeMeshCache?.set(renderCacheKey, {
         kind: 'masked-solid',
         container,
         content,
@@ -1020,17 +1168,35 @@ export const renderSolidCenterStrokeEntries = (
         strokeMask,
         signature,
         paintKey,
+        color: entry.stroke.color,
+        alpha: entry.stroke.alpha,
         revisionSet,
         lastDirtyKeys: []
       })
-      active.add(entry.cacheKey)
+      active.add(renderCacheKey)
       return
     }
 
-    if (
-      targetCacheKind === 'drag-solid-graphics' ||
-      targetCacheKind === 'solid-graphics'
-    ) {
+    if (targetCacheKind === 'solid-graphics') {
+      const coordinateSignature = getSignature(polygons)
+      if (
+        compatibleEntry &&
+        compatibleEntry.kind === targetCacheKind &&
+        compatibleEntry.coordinateSignature === coordinateSignature &&
+        compatibleEntry.color === entry.stroke.color &&
+        compatibleEntry.alpha !== entry.stroke.alpha
+      ) {
+        compatibleEntry.graphics.alpha = entry.stroke.alpha
+        compatibleEntry.signature = signature
+        compatibleEntry.paintKey = paintKey
+        compatibleEntry.alpha = entry.stroke.alpha
+        compatibleEntry.revisionSet = revisionSet
+        compatibleEntry.lastDirtyKeys = dirtyKeys ?? ['paint-payload']
+        compatibleEntry.graphics.visible = true
+        active.add(renderCacheKey)
+        return
+      }
+
       if (
         compatibleEntry &&
         compatibleEntry.kind === targetCacheKind &&
@@ -1045,7 +1211,7 @@ export const renderSolidCenterStrokeEntries = (
         compatibleEntry.revisionSet = revisionSet
         compatibleEntry.lastDirtyKeys = dirtyKeys ?? []
         compatibleEntry.graphics.visible = true
-        active.add(entry.cacheKey)
+        active.add(renderCacheKey)
         return
       }
 
@@ -1058,18 +1224,28 @@ export const renderSolidCenterStrokeEntries = (
           compatibleEntry.signature !== signature ||
           compatibleEntry.paintKey !== paintKey)
       ) {
-        applySolidGraphicsPaint(
-          compatibleEntry.graphics,
-          polygons,
-          entry.stroke.color,
-          entry.stroke.alpha
-        )
+        if (
+          compatibleEntry.coordinateSignature === coordinateSignature &&
+          compatibleEntry.color === entry.stroke.color
+        ) {
+          compatibleEntry.graphics.alpha = entry.stroke.alpha
+        } else {
+          applySolidGraphicsPaint(
+            compatibleEntry.graphics,
+            polygons,
+            entry.stroke.color,
+            entry.stroke.alpha
+          )
+          compatibleEntry.coordinateSignature = coordinateSignature
+          compatibleEntry.color = entry.stroke.color
+        }
         compatibleEntry.signature = signature
         compatibleEntry.paintKey = paintKey
+        compatibleEntry.alpha = entry.stroke.alpha
         compatibleEntry.revisionSet = revisionSet
         compatibleEntry.lastDirtyKeys = dirtyKeys ?? []
         compatibleEntry.graphics.visible = true
-        active.add(entry.cacheKey)
+        active.add(renderCacheKey)
         return
       }
 
@@ -1086,15 +1262,18 @@ export const renderSolidCenterStrokeEntries = (
         return
       }
 
-      graphic.__asyraStrokeMeshCache?.set(entry.cacheKey, {
+      graphic.__asyraStrokeMeshCache?.set(renderCacheKey, {
         kind: targetCacheKind,
         graphics,
         signature,
+        coordinateSignature,
         paintKey,
+        color: entry.stroke.color,
+        alpha: entry.stroke.alpha,
         revisionSet,
         lastDirtyKeys: []
       })
-      active.add(entry.cacheKey)
+      active.add(renderCacheKey)
       return
     }
 
@@ -1115,7 +1294,7 @@ export const renderSolidCenterStrokeEntries = (
         compatibleEntry.revisionSet = revisionSet
         compatibleEntry.lastDirtyKeys = dirtyKeys ?? []
         compatibleEntry.container.visible = true
-        active.add(entry.cacheKey)
+        active.add(renderCacheKey)
         return
       }
 
@@ -1139,7 +1318,7 @@ export const renderSolidCenterStrokeEntries = (
         compatibleEntry.revisionSet = revisionSet
         compatibleEntry.lastDirtyKeys = dirtyKeys ?? []
         compatibleEntry.container.visible = true
-        active.add(entry.cacheKey)
+        active.add(renderCacheKey)
         return
       }
 
@@ -1158,7 +1337,7 @@ export const renderSolidCenterStrokeEntries = (
         return
       }
 
-      graphic.__asyraStrokeMeshCache?.set(entry.cacheKey, {
+      graphic.__asyraStrokeMeshCache?.set(renderCacheKey, {
         kind: 'gradient',
         container,
         graphics: gradientGraphic,
@@ -1167,7 +1346,7 @@ export const renderSolidCenterStrokeEntries = (
         revisionSet,
         lastDirtyKeys: []
       })
-      active.add(entry.cacheKey)
+      active.add(renderCacheKey)
       return
     }
 
@@ -1187,7 +1366,7 @@ export const renderSolidCenterStrokeEntries = (
         return
       }
 
-      graphic.__asyraStrokeMeshCache?.set(entry.cacheKey, {
+      graphic.__asyraStrokeMeshCache?.set(renderCacheKey, {
         kind: 'solid',
         projection,
         signature,
@@ -1195,7 +1374,7 @@ export const renderSolidCenterStrokeEntries = (
         revisionSet,
         lastDirtyKeys: []
       })
-      active.add(entry.cacheKey)
+      active.add(renderCacheKey)
       return
     }
 
@@ -1235,11 +1414,18 @@ export const renderSolidCenterStrokeEntries = (
     } else if (isSolidGraphicsCacheEntry(compatibleEntry)) {
       compatibleEntry.graphics.visible = true
     }
-    active.add(entry.cacheKey)
+    active.add(renderCacheKey)
   })
 
   graphic.__asyraStrokeMeshCache.forEach((entry, key) => {
     if (active.has(key)) {
+      entry.lastUsedRenderGeneration = renderGeneration
+      return
+    }
+
+    const inactiveAge = renderGeneration - (entry.lastUsedRenderGeneration ?? 0)
+    if (inactiveAge <= STROKE_MESH_INACTIVE_RETAIN_GENERATIONS) {
+      setCacheEntryVisible(entry, false)
       return
     }
 

@@ -2,7 +2,6 @@ import type { StrokeAttrs } from '@asyra/utils'
 import type { GeometryBackend, PolygonRegion } from './geometry-backend'
 import { getRenderableStrokes } from './renderable-stroke'
 import type { SolidCenterStrokeResolvedPacket } from './solid-center-stroke-packets'
-import type { StrokeGeometrySourceTopology } from './solid-center-stroke-packets'
 import { buildSolidCenterStrokePolygons } from './solid-center-stroke-geometry'
 import { buildStrokeRuntimeRevisionSet } from './stroke-dirty-keys'
 import {
@@ -2247,21 +2246,6 @@ export const buildExactArrangementCandidatePolygons = (
   return [...segmentCandidates, ...joinCandidates, ...smoothJoinCandidates]
 }
 
-const mapTopologyFamilyToSourceTopology = (
-  topology: PathTopologyModel
-): StrokeGeometrySourceTopology | undefined => {
-  switch (topology.topologyFamily) {
-    case 'open':
-    case 'rectangle-equivalent':
-    case 'broader-simple-closed':
-    case 'sampled-simple-closed':
-    case 'self-intersecting':
-      return topology.topologyFamily
-    default:
-      return undefined
-  }
-}
-
 const hasExactSolidMaskBackend = (
   backend: ConstrainedSolidStrokePacketOptions['exactBackend'] | undefined
 ): backend is NonNullable<
@@ -2762,6 +2746,7 @@ interface SolidMaskModelPolygonResult {
       cap: 'butt' | 'square' | 'round' | 'none'
       join: 'miter' | 'bevel' | 'round'
       miterLimit: number
+      closed?: boolean
     }
   }[]
   renderStrokePathStyle?: {
@@ -2769,6 +2754,7 @@ interface SolidMaskModelPolygonResult {
     cap: 'butt' | 'square' | 'round' | 'none'
     join: 'miter' | 'bevel' | 'round'
     miterLimit: number
+    closed?: boolean
   }
 }
 
@@ -2851,6 +2837,7 @@ const buildInsideAdjacencyStrokePathGroups = (
     cap: 'butt'
     join: 'miter' | 'bevel' | 'round'
     miterLimit: number
+    closed: true
   }
 }[] => {
   const boundaryGroups = legalBoundaryContours.flatMap((contour) =>
@@ -2861,7 +2848,8 @@ const buildInsideAdjacencyStrokePathGroups = (
         width: stroke.width * 2,
         cap: 'butt' as const,
         join: stroke.join,
-        miterLimit: stroke.miterLimit
+        miterLimit: stroke.miterLimit,
+        closed: true as const
       }
     }))
   )
@@ -2882,7 +2870,8 @@ const buildInsideAdjacencyStrokePathGroups = (
           width: stroke.width,
           cap: 'butt' as const,
           join: stroke.join,
-          miterLimit: stroke.miterLimit
+          miterLimit: stroke.miterLimit,
+          closed: true as const
         }
       })
     )
@@ -2933,6 +2922,49 @@ const INSIDE_SOLID_ADJACENCY_PROBES = [
   'internal-pentagon-round-corners-smooth',
   'internal-pentagon-round-corners-source-envelope',
   'inside-solid-right-bottom-source-segment-adherence'
+]
+
+const INSIDE_SOLID_RENDER_MASK_PROBES = [
+  'top-triangle-mask-integrity',
+  'inside-solid-outer-source-vertices-no-gap',
+  'inside-solid-right-bottom-source-segment-adherence'
+]
+
+const INSIDE_SOLID_FACE_OWNERSHIP_PROBES = INSIDE_SOLID_ADJACENCY_PROBES.filter(
+  (probe) =>
+    !INSIDE_SOLID_RENDER_MASK_PROBES.includes(probe) &&
+    ![
+      'all-internal-pentagon-corner-join-shapes',
+      'internal-pentagon-corner-join-shapes-only',
+      'outer-triangle-corners-join-invariant',
+      'non-pentagon-mask-corners-no-miter-spikes',
+      'internal-pentagon-bevel-corners-no-overreach-crack',
+      'internal-pentagon-round-corners-smooth',
+      'internal-pentagon-round-corners-source-envelope'
+    ].includes(probe)
+)
+
+const INSIDE_SOLID_INTERNAL_CORNER_JOIN_PROBES = [
+  'all-internal-pentagon-corner-join-shapes',
+  'internal-pentagon-corner-join-shapes-only',
+  'outer-triangle-corners-join-invariant',
+  'non-pentagon-mask-corners-no-miter-spikes',
+  'internal-pentagon-bevel-corners-no-overreach-crack',
+  'internal-pentagon-round-corners-smooth',
+  'internal-pentagon-round-corners-source-envelope'
+]
+
+const buildInsideSolidAdjacencyProbeNames = (
+  faceOwnershipTrace: NonNullable<
+    SolidMaskModelPolygonResult['faceOwnershipTrace']
+  >,
+  internalCornerJoinPolygonCount: number
+) => [
+  ...INSIDE_SOLID_RENDER_MASK_PROBES,
+  ...(faceOwnershipTrace.length > 0 ? INSIDE_SOLID_FACE_OWNERSHIP_PROBES : []),
+  ...(internalCornerJoinPolygonCount > 0
+    ? INSIDE_SOLID_INTERNAL_CORNER_JOIN_PROBES
+    : [])
 ]
 
 const getJoinReactiveCornerEnvelopeRadius = (ownedWidth: number) => ownedWidth
@@ -4404,6 +4436,57 @@ const buildSolidMaskModelPolygons = ({
     return null
   }
 
+  const fillMaskPolygons = measureConstrainedSolidPhase(
+    'solid-mask-model-fill-mask-polygons',
+    () => flattenRegionPolygons(fillRegions)
+  )
+  if (fillMaskPolygons.length === 0) {
+    return null
+  }
+
+  if (
+    stroke.position === 'inside' &&
+    sourcePath &&
+    preferRenderMaskProductFinal &&
+    topology.topologyFamily === 'self-intersecting'
+  ) {
+    const renderClipPolygons = flattenRegionPolygons(
+      fillRegions.filter(hasRegionGeometry)
+    )
+    const renderStrokePathGroups = buildInsideAdjacencyStrokePathGroups(
+      legalBoundaryContours,
+      legalFaceBoundaries,
+      stroke
+    )
+    if (
+      renderClipPolygons.length === 0 ||
+      renderStrokePathGroups.length === 0
+    ) {
+      return null
+    }
+
+    return {
+      polygons: renderClipPolygons,
+      maskApplication: 'render-fill-mask',
+      visibleRender: 'masked-source-stroke',
+      coverageOracle: 'render-mask',
+      maskSide: 'inside-fill',
+      insideMaskMode: 'face-occupancy-inside-fill',
+      visibleMaskMode: 'inside-fill-source-stroke-clip',
+      joinGeometrySource: 'authored-doubled-source-stroke',
+      adjacencyProbe: buildInsideSolidAdjacencyProbeNames([], 0),
+      renderClipPolygons,
+      renderStrokePathGroups,
+      renderStrokePathStyle: {
+        width: stroke.width * 2,
+        cap: 'butt',
+        join: stroke.join,
+        miterLimit: stroke.miterLimit,
+        closed: sourcePath.closed
+      }
+    }
+  }
+
   const doubledCenterStroke = {
     ...stroke,
     style: 'solid' as const,
@@ -4411,23 +4494,68 @@ const buildSolidMaskModelPolygons = ({
     width: stroke.width * 2
   }
   const sourceCenterStrokePolygons = sourcePath
-    ? buildSolidMaskModelSourceCenterStrokePolygons(sourcePath, stroke)
+    ? measureConstrainedSolidPhase(
+        'solid-mask-model-source-center-stroke-polygons',
+        () => buildSolidMaskModelSourceCenterStrokePolygons(sourcePath, stroke)
+      )
     : []
   const centerStrokePolygons =
     sourceCenterStrokePolygons.length > 0
       ? sourceCenterStrokePolygons
-      : buildSolidCenterStrokePolygons(
-          topology.normalizedPoints,
-          topology.closed,
-          doubledCenterStroke
+      : measureConstrainedSolidPhase(
+          'solid-mask-model-topology-center-stroke-polygons',
+          () =>
+            buildSolidCenterStrokePolygons(
+              topology.normalizedPoints,
+              topology.closed,
+              doubledCenterStroke
+            )
         )
   if (centerStrokePolygons.length === 0) {
     return null
   }
 
-  const fillMaskPolygons = flattenRegionPolygons(fillRegions)
-  if (fillMaskPolygons.length === 0) {
-    return null
+  if (
+    stroke.position === 'outside' &&
+    sourcePath &&
+    preferRenderMaskProductFinal
+  ) {
+    const renderStrokePaths = measureConstrainedSolidPhase(
+      'solid-mask-model-render-stroke-paths',
+      () => closeSourcePathForStrokeRender(sourcePath)
+    )
+    if (renderStrokePaths.length === 0) {
+      return null
+    }
+    const renderClipPolygons = measureConstrainedSolidPhase(
+      'solid-mask-model-outside-render-mask-polygons',
+      () =>
+        buildOutsideExteriorRenderMaskPolygons(
+          centerStrokePolygons,
+          fillMaskPolygons,
+          stroke.width
+        )
+    )
+    if (renderClipPolygons.length === 0) {
+      return null
+    }
+
+    return {
+      polygons: renderClipPolygons,
+      maskApplication: 'render-fill-mask',
+      visibleRender: 'masked-source-stroke',
+      coverageOracle: 'render-mask',
+      maskSide: 'outside-exterior',
+      renderClipPolygons,
+      renderStrokePaths,
+      renderStrokePathStyle: {
+        width: stroke.width * 2,
+        cap: stroke.cap,
+        join: stroke.join,
+        miterLimit: stroke.miterLimit,
+        closed: sourcePath.closed
+      }
+    }
   }
 
   if (
@@ -4453,7 +4581,8 @@ const buildSolidMaskModelPolygons = ({
         width: stroke.width * 2,
         cap: stroke.cap,
         join: stroke.join,
-        miterLimit: stroke.miterLimit
+        miterLimit: stroke.miterLimit,
+        closed: sourcePath.closed
       }
     }
   }
@@ -4469,9 +4598,11 @@ const buildSolidMaskModelPolygons = ({
     return null
   }
   if (stroke.position === 'inside' && (!backend || fillRegions.length === 0)) {
-    const renderStrokePaths = sourcePath
-      ? closeSourcePathForStrokeRender(sourcePath)
-      : []
+    if (!sourcePath) {
+      return null
+    }
+
+    const renderStrokePaths = closeSourcePathForStrokeRender(sourcePath)
     if (renderStrokePaths.length === 0) {
       return null
     }
@@ -4488,7 +4619,8 @@ const buildSolidMaskModelPolygons = ({
         width: stroke.width * 2,
         cap: stroke.cap,
         join: stroke.join,
-        miterLimit: stroke.miterLimit
+        miterLimit: stroke.miterLimit,
+        closed: sourcePath.closed
       }
     }
   }
@@ -4497,50 +4629,6 @@ const buildSolidMaskModelPolygons = ({
   }
 
   try {
-    if (
-      stroke.position === 'inside' &&
-      sourcePath &&
-      preferRenderMaskProductFinal &&
-      topology.topologyFamily === 'self-intersecting'
-    ) {
-      const renderClipPolygons = flattenRegionPolygons(
-        fillRegions.filter(hasRegionGeometry)
-      )
-      const renderStrokePathGroups = buildInsideAdjacencyStrokePathGroups(
-        legalBoundaryContours,
-        legalFaceBoundaries,
-        stroke
-      )
-      if (
-        renderClipPolygons.length === 0 ||
-        renderStrokePathGroups.length === 0
-      ) {
-        return null
-      }
-
-      return {
-        polygons: renderClipPolygons,
-        maskApplication: 'render-fill-mask',
-        visibleRender: 'masked-source-stroke',
-        coverageOracle: 'render-mask',
-        maskSide: 'inside-fill',
-        insideMaskMode: 'face-occupancy-inside-fill',
-        visibleMaskMode: 'inside-fill-source-stroke-clip',
-        joinGeometrySource: 'authored-doubled-source-stroke',
-        internalCornerJoinMode: 'stroke-join-aware-face-corner',
-        joinEligibilityMode: 'internal-face-only',
-        adjacencyProbe: INSIDE_SOLID_ADJACENCY_PROBES,
-        renderClipPolygons,
-        renderStrokePathGroups,
-        renderStrokePathStyle: {
-          width: stroke.width * 2,
-          cap: 'butt',
-          join: stroke.join,
-          miterLimit: stroke.miterLimit
-        }
-      }
-    }
-
     const strokeRegions = measureConstrainedSolidPhase(
       'solid-mask-model-stroke-region-union',
       () =>
@@ -4665,9 +4753,7 @@ const buildSolidMaskModelPolygons = ({
         renderStrokePathGroups.length > 0 ? [] : sourceRenderStrokePaths
       const isJoinAwareFaceOwnedMask =
         isFaceOwnedMask &&
-        (faceOwnedInsideMask.internalCornerJoinPolygonCount > 0 ||
-          (topology.topologyFamily === 'self-intersecting' &&
-            renderStrokePaths.length > 0))
+        faceOwnedInsideMask.internalCornerJoinPolygonCount > 0
       const hasRenderMask = renderClipPolygons.length > 0
       return polygons.length > 0 && hasRenderMask
         ? {
@@ -4685,7 +4771,10 @@ const buildSolidMaskModelPolygons = ({
             joinEligibilityMode: isJoinAwareFaceOwnedMask
               ? 'internal-face-only'
               : undefined,
-            adjacencyProbe: INSIDE_SOLID_ADJACENCY_PROBES,
+            adjacencyProbe: buildInsideSolidAdjacencyProbeNames(
+              faceOwnedInsideMask.faceOwnershipTrace,
+              faceOwnedInsideMask.internalCornerJoinPolygonCount
+            ),
             faceOwnershipTrace: faceOwnedInsideMask.faceOwnershipTrace,
             renderClipPolygons,
             renderFillClipPolygons,
@@ -4702,7 +4791,11 @@ const buildSolidMaskModelPolygons = ({
                     cap:
                       renderStrokePathGroups.length > 0 ? 'butt' : stroke.cap,
                     join: stroke.join,
-                    miterLimit: stroke.miterLimit
+                    miterLimit: stroke.miterLimit,
+                    closed:
+                      renderStrokePathGroups.length > 0
+                        ? true
+                        : sourcePath?.closed
                   }
                 : undefined
           }
@@ -4748,7 +4841,8 @@ const buildSolidMaskModelPolygons = ({
                   width: stroke.width * 2,
                   cap: stroke.cap,
                   join: stroke.join,
-                  miterLimit: stroke.miterLimit
+                  miterLimit: stroke.miterLimit,
+                  closed: sourcePath?.closed
                 }
               : undefined
         }
@@ -4803,7 +4897,7 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
   )
 
   if (
-    strokeDomainPlan.supportState === 'blocked' ||
+    strokeDomainPlan.domainMode === null ||
     strokeDomainPlan.sideAuthority !== 'implicit-fill-hole-domain' ||
     strokeDomainPlan.splitRangeDomains.length === 0
   ) {
@@ -4861,14 +4955,33 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
         points: topology.normalizedPoints,
         closed: topology.closed,
         stroke,
-        geometryFamily: 'constrained-solid',
-        resolutionStatus: 'exact-constrained',
-        runtimeStatus: 'accepted',
-        runtimeReason: 'constrained-solid-exact',
+        productMode: 'closed-constrained-domain',
+        domainMode: 'closed-constrained-domain',
+        strokeProductSignature: `constrained-solid:${stroke.position}`,
+        strokeDomainSignature: [
+          strokeDomainPlan.domainMode,
+          stroke.position,
+          legalDomainIds.join(','),
+          contourIds.join(',')
+        ].join(':'),
+        endpointCapPolicySignature: [
+          'solid-constrained',
+          stroke.position,
+          stroke.cap,
+          stroke.width
+        ].join(':'),
+        joinOwnershipSignature: [
+          'solid-constrained',
+          stroke.position,
+          stroke.join,
+          stroke.miterLimit
+        ].join(':'),
+        smoothContinuitySignature: `solid-constrained:${stroke.position}`,
+        productMaterializationSignature: `solid-mask:${stroke.position}`,
+        ownerCount: Math.max(legalDomainIds.length, contourIds.length, 1),
         ownerKey,
         networkId: options.metadata?.networkId,
         strokeId,
-        sourceTopology: topology.topologyFamily,
         intervalSignature: `solid-mask:${stroke.position}`
       })
 
@@ -4920,11 +5033,9 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
                 stroke.position === 'inside' ? 'filled-face' : 'outer',
               domainPlanSideResolutionStatus:
                 evidenceDomain.sideResolutionStatus,
-              geometryFamily: 'constrained-solid',
-              resolutionStatus: 'exact-constrained',
-              runtimeStatus: 'accepted',
-              runtimeReason: 'constrained-solid-exact',
-              sourceTopology: 'self-intersecting',
+              productMode: 'closed-constrained-domain',
+              productSignature: `constrained-solid:${stroke.position}:mask-model`,
+              domainMode: 'closed-constrained-domain',
               topologyFamily: topology.topologyFamily,
               strokePosition: stroke.position,
               strokeWidth: stroke.width,
@@ -5001,8 +5112,6 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
   const contourId = options.metadata?.contourId ?? primaryContour?.contourId
   const legalDomainId =
     options.metadata?.legalDomainId ?? primaryContour?.legalDomainId
-  const sourceTopology = mapTopologyFamilyToSourceTopology(topology)
-
   if (!topology.closed) {
     return []
   }
@@ -5047,9 +5156,6 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
       return []
     }
 
-    const resolutionStatus = 'exact-constrained' as const
-    const runtimeStatus = 'accepted'
-    const runtimeReason = 'constrained-solid-exact'
     const shouldEmitArrangementCandidates =
       options.candidateMode === 'exact-arrangement'
     const candidateRecords = shouldEmitArrangementCandidates
@@ -5084,11 +5190,9 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
             contourId,
             legalDomainId,
             strokePosition: stroke.position,
-            geometryFamily: 'constrained-solid',
-            resolutionStatus,
-            runtimeStatus,
-            runtimeReason,
-            sourceTopology,
+            productMode: 'closed-constrained-domain',
+            productSignature: `constrained-solid:${stroke.position}`,
+            domainMode: 'closed-constrained-domain',
             topologyFamily: topology.topologyFamily,
             strokeWidth: stroke.width,
             strokeJoin: stroke.join,
@@ -5100,16 +5204,33 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
               points: topologyPoints,
               closed: topology.closed,
               stroke,
-              geometryFamily: 'constrained-solid',
-              resolutionStatus,
-              runtimeStatus,
-              runtimeReason,
+              productMode: 'closed-constrained-domain',
+              domainMode: 'closed-constrained-domain',
+              strokeProductSignature: `constrained-solid:${stroke.position}`,
+              strokeDomainSignature: [
+                stroke.position,
+                contourId ?? 'contour:none',
+                legalDomainId ?? 'domain:none'
+              ].join(':'),
+              endpointCapPolicySignature: [
+                'solid-constrained',
+                stroke.position,
+                stroke.cap,
+                stroke.width
+              ].join(':'),
+              joinOwnershipSignature: [
+                'solid-constrained',
+                stroke.position,
+                stroke.join,
+                stroke.miterLimit
+              ].join(':'),
+              smoothContinuitySignature: `solid-constrained:${stroke.position}`,
+              productMaterializationSignature: `solid-constrained:${stroke.position}`,
               ownerKey: options.metadata?.ownerKeyPrefix
                 ? `${options.metadata.ownerKeyPrefix}:stroke:${index}`
                 : undefined,
               networkId: options.metadata?.networkId,
-              strokeId: `stroke:${index}`,
-              sourceTopology: topology.topologyFamily
+              strokeId: `stroke:${index}`
             })
           }
         },

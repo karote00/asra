@@ -35,7 +35,7 @@ This definition file describes the screenshot-level oracle for
 
 - The center stroke band must remain visible across the top and left samples.
 - The fill interior must remain empty at the center probe.
-- The extreme miter-tip probe must remain absent, because the supported round
+- The extreme miter-tip probe must remain absent, because the formal round
   join follows curved corner coverage instead of filling the miter spike.
 
 ## Measured Observables
@@ -74,7 +74,7 @@ the selected rectangle.
   away or underfilled.
 - If `bevel` fails the corner-square assertion, the corner is behaving like a
   square/miter join instead of a bevel cut.
-- If either supported join fails the band assertions, the rendered stroke width
+- If either formal join fails the band assertions, the rendered stroke width
   or placement is visually incorrect.
 - If `round` fills the miter-tip probe like a miter join, the curved
   corner semantics have regressed.

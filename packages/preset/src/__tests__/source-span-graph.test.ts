@@ -84,27 +84,20 @@ describe('source span graph', () => {
       reason: 'available'
     })
     expect(
-      resolveSourceSpanProvenanceAvailability({ visualOnly: true })
-    ).toEqual({
-      available: false,
-      reason: 'visual-only'
-    })
-    expect(
       resolveSourceSpanProvenanceAvailability({
-        omitDiagnosticMetadata: true
+        omitProductProvenance: true
       })
     ).toEqual({
       available: false,
-      reason: 'diagnostic-metadata-omitted'
+      reason: 'product-provenance-omitted'
     })
     expect(
       resolveSourceSpanProvenanceAvailability({
-        visualOnly: true,
-        omitDiagnosticMetadata: true
+        omitProductProvenance: true
       })
     ).toEqual({
       available: false,
-      reason: 'visual-only'
+      reason: 'product-provenance-omitted'
     })
   })
 

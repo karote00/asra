@@ -2,7 +2,7 @@
 
 ## Scope
 
-This benchmark validates the first visible supported overlap diagnostics debug surface on the real
+This benchmark validates the first visible formal overlap diagnostics debug surface on the real
 app/runtime path.
 
 Current benchmark scope:
@@ -15,7 +15,7 @@ Current benchmark scope:
 
 ## Expected Behavior
 
-- when supported overlap diagnostics debug mode is enabled, the selected element must show a visible
+- when formal overlap diagnostics debug mode is enabled, the selected element must show a visible
   overlap-component overlay
 - when ownership mode is enabled, the selected element must show visible
   ownership regions derived from the same real packet diagnostics

@@ -30,9 +30,7 @@ export type {
   StrokeProductFamilyRuleEvidence,
   StrokeProductFamilyScope,
   StrokeProductFamilyStatus,
-  ResolvedSourceBlockedReason,
-  ResolvedSourceFamily,
-  ResolvedSourceSupportState
+  ResolvedSourceFamily
 } from './components/stroke-render/resolved-source-family'
 export {
   buildDomainPlanSplitRangeDashDomains,
@@ -40,7 +38,6 @@ export {
 } from './components/stroke-render/stroke-domain-plan'
 export type {
   ResolveStrokeDomainsInput,
-  StrokeDomainBlockedReason,
   StrokeDomainPlan,
   StrokeIntervalDomainKind,
   StrokeLegalBoundaryDomain,
@@ -74,12 +71,3 @@ export type {
   StrokeFinalFace,
   StrokeFinalFaceDebugMetaBase
 } from './components/stroke-render/stroke-final-face'
-export { buildStrokeRuntimeDiagnosticBranch } from './components/stroke-render/stroke-runtime-diagnostics'
-export type {
-  BuildStrokeRuntimeDiagnosticBranchInput,
-  StrokeRuntimeDiagnosticBranch,
-  StrokeRuntimeDiagnosticDirtyStageTrace,
-  StrokeRuntimeDiagnosticLegalDomainProvenance,
-  StrokeRuntimeDiagnosticOwnerProvenance,
-  StrokeRuntimeDiagnosticSupportState
-} from './components/stroke-render/stroke-runtime-diagnostics'

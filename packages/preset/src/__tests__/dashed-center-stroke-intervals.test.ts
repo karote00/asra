@@ -727,44 +727,32 @@ describe('dashed center stroke interval allocation', () => {
     }
   })
 
-  it('should run: allow tests to compare split-range visual gap ratios without changing product API', () => {
-    const overrideKey = '__ASYRA_STROKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO__'
-    const target = globalThis as Record<string, unknown>
-    const previousOverride = target[overrideKey]
-    try {
-      target[overrideKey] = 2
-      const [allocation] = allocateDomainPlanSplitRangeDashedIntervals({
-        domains: [
-          {
-            domainId: 'split:cap-gap-override',
-            startDistance: 0,
-            endDistance: 140,
-            sourceSegmentIndex: 0
-          }
-        ],
-        dashPattern: [20, 20],
-        visualGap: {
-          capExtension: 10
+  it('should run: compare split-range visual gap ratios through explicit interval options', () => {
+    const [allocation] = allocateDomainPlanSplitRangeDashedIntervals({
+      domains: [
+        {
+          domainId: 'split:cap-gap-explicit-ratio',
+          startDistance: 0,
+          endDistance: 140,
+          sourceSegmentIndex: 0
         }
-      })
-
-      const visible =
-        allocation?.intervals.filter(
-          (interval) => interval.kind === 'visible'
-        ) ?? []
-      const centerlineGaps = visible.slice(0, -1).flatMap((interval, index) => {
-        const next = visible[index + 1]
-        return next ? [next.startDistance - interval.endDistance] : []
-      })
-      const visualGaps = centerlineGaps.map((gap) => gap - 20)
-      expect(visualGaps).toEqual([expect.closeTo(100, 6)])
-    } finally {
-      if (previousOverride === undefined) {
-        Reflect.deleteProperty(target, overrideKey)
-      } else {
-        target[overrideKey] = previousOverride
+      ],
+      dashPattern: [20, 20],
+      visualGap: {
+        capExtension: 10,
+        minimumGapRatio: 2
       }
-    }
+    })
+
+    const visible =
+      allocation?.intervals.filter((interval) => interval.kind === 'visible') ??
+      []
+    const centerlineGaps = visible.slice(0, -1).flatMap((interval, index) => {
+      const next = visible[index + 1]
+      return next ? [next.startDistance - interval.endDistance] : []
+    })
+    const visualGaps = centerlineGaps.map((gap) => gap - 20)
+    expect(visualGaps).toEqual([expect.closeTo(100, 6)])
   })
 
   it('should run: collapse very short cap-aware split ranges instead of squeezing terminal gaps', () => {

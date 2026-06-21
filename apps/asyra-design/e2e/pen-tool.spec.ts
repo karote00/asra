@@ -256,6 +256,25 @@ test.describe('Pen Tool - Editing Flow', () => {
         page.evaluate(() => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const core = (window as any).__Core__
+          return {
+            pathEditingVectorId:
+              core?.getSystemProperty?.('pathEditingVectorId') ?? null,
+            startNewSubpath:
+              core?.getSystemProperty?.('pathEditingStartNewSubpath') ?? null
+          }
+        })
+      )
+      .toMatchObject({
+        pathEditingVectorId: firstPointRuntime.vectorId,
+        startNewSubpath: true
+      })
+
+    await page.keyboard.press('Escape')
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
           return core?.getSystemProperty?.('pathEditingVectorId') ?? null
         })
       )
@@ -496,8 +515,6 @@ test.describe('Pen Tool - Editing Flow', () => {
       const element =
         core?.deps?.sceneTree?.getElementById?.(pathEditingVectorId)
       const computed = element?.getAllComputedData?.() ?? {}
-      const offsetX = typeof computed.x === 'number' ? computed.x : 0
-      const offsetY = typeof computed.y === 'number' ? computed.y : 0
       const pointId = selected.pointId as string
       const anchor = computed.points?.[pointId]
       const inHandle = computed.points?.[`${pointId}:in`]
@@ -509,15 +526,15 @@ test.describe('Pen Tool - Editing Flow', () => {
 
       return {
         pointId,
-        anchorX: anchor.x + offsetX,
-        anchorY: anchor.y + offsetY,
+        anchorX: anchor.x,
+        anchorY: anchor.y,
         inHandle:
           inHandle && inHandle.kind === 'control'
-            ? { x: inHandle.x + offsetX, y: inHandle.y + offsetY }
+            ? { x: inHandle.x, y: inHandle.y }
             : null,
         outHandle:
           outHandle && outHandle.kind === 'control'
-            ? { x: outHandle.x + offsetX, y: outHandle.y + offsetY }
+            ? { x: outHandle.x, y: outHandle.y }
             : null,
         zoom,
         viewport
@@ -557,8 +574,6 @@ test.describe('Pen Tool - Editing Flow', () => {
             const element =
               core?.deps?.sceneTree?.getElementById?.(pathEditingVectorId)
             const computed = element?.getAllComputedData?.() ?? {}
-            const offsetX = typeof computed.x === 'number' ? computed.x : 0
-            const offsetY = typeof computed.y === 'number' ? computed.y : 0
             const anchorAfter = computed.points?.[pointId]
             const inHandleAfter = computed.points?.[`${pointId}:in`]
             const outHandleAfter = computed.points?.[`${pointId}:out`]
@@ -566,23 +581,21 @@ test.describe('Pen Tool - Editing Flow', () => {
               return null
             }
 
-            const actualAnchorX = anchorAfter.x + offsetX
+            const actualAnchorX = anchorAfter.x
             const actualDeltaX = actualAnchorX - anchorX
             const epsilon = 0.001
             const inHandleFollowed =
               !inHandle ||
               (inHandleAfter?.kind === 'control' &&
-                Math.abs(
-                  inHandleAfter.x + offsetX - inHandle.x - actualDeltaX
-                ) < epsilon &&
-                Math.abs(inHandleAfter.y + offsetY - inHandle.y) < epsilon)
+                Math.abs(inHandleAfter.x - inHandle.x - actualDeltaX) <
+                  epsilon &&
+                Math.abs(inHandleAfter.y - inHandle.y) < epsilon)
             const outHandleFollowed =
               !outHandle ||
               (outHandleAfter?.kind === 'control' &&
-                Math.abs(
-                  outHandleAfter.x + offsetX - outHandle.x - actualDeltaX
-                ) < epsilon &&
-                Math.abs(outHandleAfter.y + offsetY - outHandle.y) < epsilon)
+                Math.abs(outHandleAfter.x - outHandle.x - actualDeltaX) <
+                  epsilon &&
+                Math.abs(outHandleAfter.y - outHandle.y) < epsilon)
 
             return {
               anchorMovedAsExpected:
@@ -639,8 +652,6 @@ test.describe('Pen Tool - Editing Flow', () => {
       const element =
         core?.deps?.sceneTree?.getElementById?.(pathEditingVectorId)
       const computed = element?.getAllComputedData?.() ?? {}
-      const offsetX = typeof computed.x === 'number' ? computed.x : 0
-      const offsetY = typeof computed.y === 'number' ? computed.y : 0
       const pointId = selected.pointId as string
       const anchor = computed.points?.[pointId]
       const outHandle = computed.points?.[`${pointId}:out`]
@@ -654,10 +665,10 @@ test.describe('Pen Tool - Editing Flow', () => {
 
       return {
         pointId,
-        anchorX: anchor.x + offsetX,
-        anchorY: anchor.y + offsetY,
-        outHandleX: outHandle.x + offsetX,
-        outHandleY: outHandle.y + offsetY,
+        anchorX: anchor.x,
+        anchorY: anchor.y,
+        outHandleX: outHandle.x,
+        outHandleY: outHandle.y,
         zoom,
         viewport
       }
@@ -711,8 +722,6 @@ test.describe('Pen Tool - Editing Flow', () => {
             const element =
               core?.deps?.sceneTree?.getElementById?.(pathEditingVectorId)
             const computed = element?.getAllComputedData?.() ?? {}
-            const offsetX = typeof computed.x === 'number' ? computed.x : 0
-            const offsetY = typeof computed.y === 'number' ? computed.y : 0
             const anchorAfter = computed.points?.[pointId]
             const outHandleAfter = computed.points?.[`${pointId}:out`]
             if (!anchorAfter || anchorAfter.kind !== 'anchor') {
@@ -725,21 +734,19 @@ test.describe('Pen Tool - Editing Flow', () => {
 
             const epsilon = 0.001
             const anchorStable =
-              Math.abs(anchorAfter.x + offsetX - anchorX) < epsilon &&
-              Math.abs(anchorAfter.y + offsetY - anchorY) < epsilon
+              Math.abs(anchorAfter.x - anchorX) < epsilon &&
+              Math.abs(anchorAfter.y - anchorY) < epsilon
             const outHandleMoved =
-              Math.abs(outHandleAfter.x + offsetX - outHandleX - delta.x) <
-                epsilon &&
-              Math.abs(outHandleAfter.y + offsetY - outHandleY - delta.y) <
-                epsilon
+              Math.abs(outHandleAfter.x - outHandleX - delta.x) < epsilon &&
+              Math.abs(outHandleAfter.y - outHandleY - delta.y) < epsilon
 
             return {
               selectedTarget: selected?.target ?? null,
               selectedMatchesOutHandle:
                 typeof selected?.x === 'number' &&
                 typeof selected?.y === 'number' &&
-                Math.abs(selected.x - (outHandleAfter.x + offsetX)) < epsilon &&
-                Math.abs(selected.y - (outHandleAfter.y + offsetY)) < epsilon,
+                Math.abs(selected.x - outHandleAfter.x) < epsilon &&
+                Math.abs(selected.y - outHandleAfter.y) < epsilon,
               anchorStable,
               outHandleMoved
             }

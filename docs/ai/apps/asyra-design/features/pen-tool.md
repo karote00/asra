@@ -55,7 +55,7 @@
   - ignore micro pointer movement below pen feature drag threshold (`3` client px); no bezier handles are created in that case
   - drag motion updates bezier handles for both points
   - connected point `outHandle` update rule:
-    - default (majority): preserve existing `p1` (`outHandle`) if present; otherwise use anchor fallback
+    - default (majority): preserve existing `p1` (`outHandle`) if present; otherwise use the connected anchor position
     - special case: only when dragging point is the second point of the subpath, and connected point is first point with no user-defined handle, auto-compute product-standard handles:
       - `p2 = B - 0.8 * (M - B)` (new point `inHandle`)
       - `p1.x = A.x - 0.334 * (M.x - B.x)` (connected point `outHandle.x`)

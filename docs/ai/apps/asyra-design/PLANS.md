@@ -4,7 +4,17 @@ Never record completed plans here.
 
 ## In Progress
 
-1. Stroke engine final implementation
+No in-progress app plans.
+
+## Current Stroke Authority
+
+The stroke engine final implementation was completed on 2026-06-21 as an
+architecture closure. The completed record is
+`docs/ai/apps/asyra-design/plans/completed/stroke-engine-final-architecture-closure.md`.
+
+Pixel-level stroke defects may still be opened as separate bugfix work, but
+they must use the closed architecture below. They must not reopen alternate
+product routes.
 
 ### Authority
 
@@ -23,29 +33,30 @@ specification files must not remain in the docs tree.
 
 ### Status
 
-- Reopened on 2026-05-31 for grid/vector-network self-intersecting inside
-  solid rule correctness.
-- The inspector flow is now scoped as the Stroke / Vector System Inspector
-  Flow. It must cover the full upstream-to-output path: feature intent, vector
-  common API/domain adapter, canonical computed patch, transaction/data
-  channel, render mirror, stroke geometry, product packets, and final visual
-  review.
-- The framework-aligned vector operation flow is the current baseline: point and
-  handle drag plus structural vector operations must express explicit
-  operations, write canonical workspace/world vector data through computed
-  patches, and let render consume committed downstream state.
-- The outside dashed square visual gate has current rule-driven probes and
-  reviewed screenshots passing for the self-intersecting star slice. This is
-  slice evidence, not a whole-engine completion claim.
-- No whole-engine completion claim is active.
-- The 2026-05-31 reported self-intersecting inside solid slice now has focused
-  unit probes, e2e pixel gates, and manual app screenshot review passing for
-  shared-edge half-width, fill clipping, join-matrix differences, and absence of
-  fragmented internal pentagon output.
-- The final Diagnostics / visual review step may be treated as passed only for
-  the reported inside-solid slice. No whole-matrix or whole-engine completion
-  claim is active until the broader matrix is revalidated with the same
-  screenshot-review standard.
+- Completed on 2026-06-21 for stroke architecture closure.
+- The only formal product pipeline is:
+  `computed patch -> render mirror -> StrokeDomainPlan -> DashProductInterval /
+  solid product contract -> endpoint cap policy / join ownership / smooth
+  continuity -> product descriptors / render entries`.
+- The inspector flow is the Stroke / Vector System Inspector Flow. It covers
+  the full upstream-to-output path: feature intent, vector common API/domain
+  adapter, canonical computed patch, transaction/data channel, render mirror,
+  stroke geometry, product packets, product descriptors, render entries, and
+  final visual review.
+- The framework-aligned vector operation flow is the baseline: point and handle
+  drag plus structural vector operations express explicit operations, write
+  canonical workspace/world vector data through computed patches, and let render
+  consume committed downstream state.
+- `vector.ts` is a render input assembler. It builds source path/topology and
+  normalized stroke input, then delegates product semantics to
+  `StrokeDomainPlan` and product builders.
+- Diagnostics, export packet details, performance counters, and screenshot
+  artifacts are evidence only. They do not decide whether visible product
+  output exists.
+- The 2026-06-21 closure gates passed static route guards, product contract
+  suites, preset build, React build, focused app e2e, performance gates, and
+  manual screenshot review. Pixel-level dashed/join defects can be filed after
+  closure, but they must stay on this product pipeline.
 
 ### Required Stroke Rule
 
@@ -75,7 +86,7 @@ For self-intersecting inside solid shapes in grid/vector-network state:
 - the five internal pentagon corners must change with `strokeJoin` and
   `strokeMiterLimit`;
 - the internal pentagon must not fragment, break into helper-like slivers, or
-  use fixed corner patches that ignore the authored join envelope;
+  use fixed corner shapes that ignore the authored join envelope;
 - derivation fragments, face strips, domain ribbons, endpoint helper polygons,
   and coverage probes are evidence only and must not become product-visible
   stroke geometry.
@@ -95,7 +106,7 @@ center dashed stroke itself. Drag-time visible render may encode visible dash
 intervals as authored centerline `strokePaths` with the authored `strokeCap`,
 `strokeJoin`, `strokeMiterLimit`, and dash allocation already resolved. This
 path descriptor is the exact center dashed product for visible render; it is
-not a preview. Normal drag frames must not require rebuilding center dashed
+not a simplified drag route. Normal drag frames must not require rebuilding center dashed
 polygon packets or resolved self-intersection geometry when no diagnostics,
 hit/export materialization, or constrained-domain rule needs those polygons.
 
@@ -125,7 +136,7 @@ semantics. Vector render code and packet builders must not independently map
 open constrained strokes to center; they consume domain modes such as
 `center-product`, `closed-constrained-domain`,
 `open-contour-constrained-domain`,
-`open-dangling-outside-both-sides`.
+`open-dangling-outside-both-sides`, and `inside-excluded-open-span`.
 
 Open self-intersecting `inside` dashed output follows the closed contour rule:
 only source spans that participate in a resolved filled contour may produce
@@ -145,16 +156,14 @@ The product must not synthesize a closing edge and must not route through center
 substitution merely because `network.closed` is false.
 
 Dashed constrained strokes remain a separate interval-domain model for dash
-allocation, but constrained `inside` dashed visible geometry follows the same
-Asyra doubled center-stroke mask rule as constrained solid geometry. For each split source
-range, allocate visible intervals with half-dash terminals at both cut ends and
-evenly distributed middle gaps; then build the authored center dashed stroke at
-twice the requested stroke width, preserving `strokeCap`, `strokeJoin`, and
-`strokeMiterLimit`, and clip that doubled center-stroke product with the
-filled-region mask for `inside`. The clipped result is the visible product
-geometry. Direct selected-side ribbons, domain-plan derivation strips, and
-derivation helpers are evidence only and must not define product-visible inside
-dashed pixels.
+allocation, but constrained `inside` dashed visible geometry is owned by the
+inside legal-domain product route. For each split source range, allocate visible
+intervals with half-dash terminals at both cut ends and evenly distributed
+middle gaps; then materialize the authored dashed interval product with the
+requested cap, join, and miter limit and clip it with the filled-region mask for
+`inside`. The clipped result is the visible product geometry. Direct
+selected-side ribbons, domain-plan derivation strips, and derivation helpers are
+evidence only and must not define product-visible inside dashed pixels.
 
 Dash allocation must also respect a cap-aware visual gap floor. When round or
 square dash caps extend the painted dash footprint, split-range allocation must
@@ -166,29 +175,55 @@ is a heuristic Asyra readability rule and may be tuned, but the current floor is
 must not be redistributed into visual gaps below roughly `12`. Tests must
 measure the gap after cap footprint, not only the centerline dash/gap distances.
 
-For product-visible constrained `inside` dashed render, the same exact product
-may be encoded as a grouped render descriptor containing the inside
-`fillClipPolygons`, the authored dashed `strokePaths`, and the
-`strokePathStyle`. This descriptor is the visible product path, not a preview
-or approximation. When a frame has one exact inside dashed mask descriptor for
-one fill domain and one stroke style, same-visual overlap collapse is not
-required; diagnostics/export may still keep per-interval evidence, but visible
-render must consume the exact descriptor. When resolved self-intersection
-metadata already provides boundary-domain split ranges, product-visible
-descriptor routing must reuse that metadata. Resolved source-span product
-domains may fill uncovered source segment spans, but they must not retrace the
-whole source path or recompute source intersections inside the drag/render
-product stage. Dangling open-branch spans for outside are explicit dangling
-source-span domains.
+Terminal dash cap ownership is a first-class product rule. `middle` intervals
+own authored caps on both ends. `start` intervals suppress the start endpoint
+cap and only apply the authored cap on the body-side end. `end` intervals apply
+the authored cap only on the body-side start and suppress the endpoint cap.
+`start-end` intervals suppress both endpoint caps. This applies to butt, round,
+and square caps, static render, drag render, product output descriptors, and
+hit/export materialization; no downstream builder may re-add an endpoint-side
+cap after allocation.
 
-For product-visible constrained `outside` dashed render, drag-time visible
-render may use the same exact descriptor model with an exterior clip mask:
-authored doubled center-dashed `strokePaths`, authored cap/join/miter style,
-and clip polygons representing the outside legal domain. Square and round caps
-remain terminal-sensitive; their domain/cap rules must stay exact and must not
-be replaced by a simplified side ribbon. Butt-cap outside dashed drag may use a
-fill-only resolved geometry model only when no terminal/cap rule depends on
-full self-intersection stroke-boundary metadata.
+Terminal cap ownership does not replace join ownership. When a terminal sits on
+a contour corner, a self-intersection split, or any authored vertex with
+`joinType` ownership, the endpoint-side dash cap is still suppressed, but the
+corner must be completed by the authored join (`miter`, `bevel`, or `round`).
+Visual review must therefore distinguish true dangling/open endpoints from
+contour/join terminals: dangling endpoints forbid endpoint-side caps, while
+contour terminals require the correct join footprint and must not be judged by a
+generic "red pixel beyond endpoint" cap probe.
+
+Curve dash smoothness is a top-level stroke product rule. A visible dash on a
+Bezier or high-curvature source span must be one continuous smooth footprint
+following the authored curve and its selected domain. Sampling frames,
+split-range materialization, terminal policy clipping, and polygon cleanup must
+not leave comb-like seams, radial slices, or disconnected strip fragments inside
+one dash. Any optimization or cleanup that turns a curved dash into many small
+unjoined pieces is invalid even if the rough coverage area is present.
+
+Constrained dashed render has one product pipeline for static render, drag,
+cap/style switches, reload, hit/export, and render entries. The pipeline starts
+from the `StrokeDomainPlan`, allocates `DashProductInterval` records, attaches
+endpoint cap policy, join ownership, and smooth-continuity group metadata, then
+materializes body/cap/join geometry into product descriptors. A descriptor is
+only an output encoding of that same product builder; it is not a separate
+inside/outside, static/drag, or simplified route.
+
+For constrained `inside`, the product descriptor clips the authored dashed
+stroke body, cap footprints, and join footprints by the inside filled-region
+domain. For constrained `outside`, the product descriptor clips the same
+materialized product to the exterior domain, while open dangling outside spans
+are materialized as explicit both-side source-span domains. The descriptor
+must be able to express one-sided terminal cap suppression by carrying explicit
+cap/join footprints and endpoint policy metadata; no downstream render builder
+may infer or re-add endpoint caps.
+
+Resolved self-intersection metadata and boundary-domain split ranges are shared
+inputs to the single product builder. Resolved closed constrained source domains
+may cover uncovered closed contour spans, but visible product output must not
+retrace the whole source path, recompute source intersections inside render, or
+switch to any drag-specific geometry path. Drag only changes source point data;
+it dirties source/domain/product cache and reruns this same product pipeline.
 
 ### Required Stroke / Vector System Flow
 
@@ -200,7 +235,7 @@ Stroke-related behavior must be observed as one deterministic system flow:
    workspace/world computed data patches for point/handle drag and structural
    vector operations.
 3. Each intended user action is committed through one transaction boundary and
-   one intended undo unit. Drag preview remains non-undoable; mouseup/final
+   one intended undo unit. Drag updates remain non-undoable; mouseup/final
    edits are undoable.
 4. Scene-tree and data-channel publish computed patch updates. Payloads must
    identify changed scalar values and record ids instead of forcing unrelated
@@ -266,10 +301,10 @@ geometry.
   lazy evidence and must not become normal visible-render prerequisites.
 - Product Output steps own render/hit/export packet projection and renderer
   draw entries without changing stroke semantics.
-- Diagnostics and final visual review are the only completion gates. Current
-  outside dashed square slice evidence is passed for the current reviewed
-  screenshots and rule-driven probes, but whole-engine completion remains
-  guarded until the broader matrix and performance gates are validated.
+- Diagnostics and final visual review are completion gates. The 2026-06-21
+  architecture closure passed the broader matrix and performance gates listed in
+  the completed record. Future stroke changes must rerun the relevant subset and
+  inspect generated screenshots before claiming closure.
 - Diagnostics for translucent self-intersecting center solid strokes must include
   same-paint alpha-overlap probes. A screenshot passes only when self-crossings
   have the same paint strength as adjacent body stroke samples and do not become
@@ -277,10 +312,10 @@ geometry.
 
 ### Validation Gates
 
-Before claiming this plan is complete:
+For future stroke architecture changes:
 
 - the three authority files above must state the same rule;
-- no deleted stroke report, BDD feature, completed copy, or old spec file may
+- no removed stroke report, BDD feature, completed copy, or old spec file may
   remain as a rule source;
 - `stroke-flow-inspector.data.js` must pass `node --check`;
 - search must show no old rule references outside decision history and ignored

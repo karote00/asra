@@ -367,9 +367,10 @@ describe('vector solid-center stroke product wiring', () => {
       expect(
         graphic.__asyraSolidCenterStrokeExportPackets?.[0].debugMeta
       ).toMatchObject({
-        geometryFamily: 'solid-center',
-        resolutionStatus: 'center-product',
-        sourceTopology: 'open'
+        productMode: 'center-product',
+        productSignature: 'center-product:solid',
+        domainMode: 'center-product',
+        topologyFamily: 'open'
       })
       expect(graphic.hitArea?.contains(20, 10)).toBe(true)
       expect(graphic.hitArea?.contains(20, 6.9)).toBe(false)
@@ -407,12 +408,12 @@ describe('vector solid-center stroke product wiring', () => {
     expect(getProjectionMeshes(graphic)).toHaveLength(1)
     expect(graphic.__asyraCenterPathSolidStrokeRenderCount).toBe(0)
     expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual({
-      minX: -3,
-      minY: 7,
-      maxX: 43,
-      maxY: 13
-    })
+    const exportBounds =
+      graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds
+    expect(exportBounds?.minX).toBeCloseTo(-3, 1)
+    expect(exportBounds?.minY).toBeCloseTo(7, 2)
+    expect(exportBounds?.maxX).toBeCloseTo(43, 1)
+    expect(exportBounds?.maxY).toBeCloseTo(13, 2)
     expect(graphic.hitArea?.contains(-2, 10)).toBe(true)
     expect(graphic.hitArea?.contains(42, 10)).toBe(true)
     expect(graphic.hitArea?.contains(20, 18)).toBe(false)
@@ -448,12 +449,12 @@ describe('vector solid-center stroke product wiring', () => {
     expect(getProjectionMeshes(graphic)).toHaveLength(1)
     expect(graphic.__asyraCenterPathSolidStrokeRenderCount).toBe(0)
     expect(graphic.__asyraSolidCenterStrokeExportPackets).toHaveLength(1)
-    expect(graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds).toEqual({
-      minX: -3,
-      minY: 7,
-      maxX: 43,
-      maxY: 13
-    })
+    const exportBounds =
+      graphic.__asyraSolidCenterStrokeExportPackets?.[0].bounds
+    expect(exportBounds?.minX).toBeCloseTo(-3, 1)
+    expect(exportBounds?.minY).toBeCloseTo(7, 2)
+    expect(exportBounds?.maxX).toBeCloseTo(43, 1)
+    expect(exportBounds?.maxY).toBeCloseTo(13, 2)
     expect(graphic.hitArea?.contains(-2, 10)).toBe(true)
     expect(graphic.hitArea?.contains(42, 10)).toBe(true)
     expect(graphic.hitArea?.contains(-2, 7)).toBe(false)

@@ -1,10 +1,26 @@
+import { test } from '@playwright/test'
 import {
-  runStrokeDragRenderPerformanceUXGate,
+  createStrokeDragRenderPerformanceUXGateCases,
+  runStrokeDragRenderPerformanceUXGateCase,
   STROKE_DRAG_PERFORMANCE_BURST_CASES
 } from './stroke-drag-render-performance.helpers'
 
-runStrokeDragRenderPerformanceUXGate({
+const dragPerformanceCases = createStrokeDragRenderPerformanceUXGateCases({
   suiteLabel: 'burst coalescing',
   strokeCases: [],
   burstStrokeCases: STROKE_DRAG_PERFORMANCE_BURST_CASES
+})
+
+test.describe('stroke drag render performance UX gate: burst coalescing', () => {
+  test.setTimeout(300000)
+
+  for (const dragPerformanceCase of dragPerformanceCases) {
+    test(dragPerformanceCase.title, async ({ page }, testInfo) => {
+      await runStrokeDragRenderPerformanceUXGateCase(
+        page,
+        testInfo,
+        dragPerformanceCase
+      )
+    })
+  }
 })

@@ -142,7 +142,7 @@ const runRenderStrategy = (
 }
 
 describe('primitive shape solid-center stroke wiring', () => {
-  it('should run: rectangle render strategy emits solid-center mesh for supported stroke', () => {
+  it('should run: rectangle render strategy emits solid-center mesh for formal stroke', () => {
     const graphic = runRenderStrategy('rect', {
       id: 'rect-1',
       x: 12,
@@ -212,7 +212,7 @@ describe('primitive shape solid-center stroke wiring', () => {
     })
   })
 
-  it('should run: rectangle render strategy emits dashed-center mesh for supported dashed stroke slices', () => {
+  it('should run: rectangle render strategy emits dashed-center mesh for formal dashed stroke slices', () => {
     const graphic = runRenderStrategy('rect', {
       id: 'rect-1',
       x: 12,
@@ -255,7 +255,7 @@ describe('primitive shape solid-center stroke wiring', () => {
     expect(getProjectionMeshes(graphic)).toHaveLength(0)
   })
 
-  it('should run: oval render strategy emits solid-center mesh for supported stroke', () => {
+  it('should run: oval render strategy emits solid-center mesh for formal stroke', () => {
     const graphic = runRenderStrategy('oval', {
       id: 'oval-1',
       x: 8,
@@ -397,13 +397,13 @@ describe('primitive shape solid-center stroke wiring', () => {
     expect(
       graphic.__asyraSolidCenterStrokeExportPackets?.[0]?.debugMeta
     ).toMatchObject({
-      geometryFamily: 'constrained-solid',
-      resolutionStatus: 'exact-constrained',
-      runtimeStatus: 'accepted'
+      productMode: 'closed-constrained-domain',
+      productSignature: expect.stringMatching(/^constrained-solid:/),
+      domainMode: 'closed-constrained-domain'
     })
   })
 
-  it('should run: rectangle render strategy keeps full corner coverage for supported closed solid stroke', () => {
+  it('should run: rectangle render strategy keeps full corner coverage for formal closed solid stroke', () => {
     const graphic = runRenderStrategy('rect', {
       id: 'rect-corner-coverage',
       x: 0,

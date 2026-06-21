@@ -144,6 +144,70 @@ const isPointArray = (path: Vec2[] | Vec2[][]): path is Vec2[] =>
 const hasRegionGeometry = (region: PolygonRegion) =>
   region.polygons.some((polygon) => polygon.length >= 3)
 
+interface RegionBounds {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+}
+
+const regionBoundsCache = new WeakMap<PolygonRegion, RegionBounds | null>()
+const regionKeyCache = new WeakMap<PolygonRegion, string>()
+
+const getRegionBounds = (region: PolygonRegion) => {
+  if (regionBoundsCache.has(region)) {
+    return regionBoundsCache.get(region) ?? null
+  }
+
+  let minX = Number.POSITIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+
+  region.polygons.forEach((polygon) => {
+    polygon.forEach((point) => {
+      minX = Math.min(minX, point.x)
+      minY = Math.min(minY, point.y)
+      maxX = Math.max(maxX, point.x)
+      maxY = Math.max(maxY, point.y)
+    })
+  })
+
+  const bounds =
+    minX === Number.POSITIVE_INFINITY ? null : { minX, minY, maxX, maxY }
+  regionBoundsCache.set(region, bounds)
+  return bounds
+}
+
+const getRegionsBounds = (regions: PolygonRegion[]) => {
+  let minX = Number.POSITIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+
+  regions.forEach((region) => {
+    const bounds = getRegionBounds(region)
+    if (!bounds) {
+      return
+    }
+    minX = Math.min(minX, bounds.minX)
+    minY = Math.min(minY, bounds.minY)
+    maxX = Math.max(maxX, bounds.maxX)
+    maxY = Math.max(maxY, bounds.maxY)
+  })
+
+  return minX === Number.POSITIVE_INFINITY ? null : { minX, minY, maxX, maxY }
+}
+
+const boundsOverlapOrTouch = (
+  left: NonNullable<ReturnType<typeof getRegionBounds>>,
+  right: NonNullable<ReturnType<typeof getRegionBounds>>
+) =>
+  left.maxX >= right.minX &&
+  right.maxX >= left.minX &&
+  left.maxY >= right.minY &&
+  right.maxY >= left.minY
+
 const cloneRegions = (regions: PolygonRegion[]): PolygonRegion[] =>
   regions.map((region) => ({
     polygons: region.polygons.map((polygon) =>
@@ -166,14 +230,21 @@ const cloneArrangementFaces = (
 
 const pointKey = (point: Vec2) => `${point.x},${point.y}`
 
+const regionKey = (region: PolygonRegion) => {
+  const cached = regionKeyCache.get(region)
+  if (cached !== undefined) {
+    return cached
+  }
+
+  const key = region.polygons
+    .map((polygon) => polygon.map(pointKey).join(';'))
+    .join('||')
+  regionKeyCache.set(region, key)
+  return key
+}
+
 const regionsKey = (regions: PolygonRegion[]) =>
-  regions
-    .map((region) =>
-      region.polygons
-        .map((polygon) => polygon.map(pointKey).join(';'))
-        .join('||')
-    )
-    .join('|||')
+  regions.map((region) => regionKey(region)).join('|||')
 
 const pathKey = (path: Vec2[] | Vec2[][]) =>
   isPointArray(path)
@@ -232,9 +303,21 @@ export const createClipper2GeometryBackend = (
   const mapper = createGeometryBackendCoordinateMapper(coordinatePolicy)
   const regionCache = createBoundedCache<PolygonRegion[]>()
   const arrangementCache = createBoundedCache<ArrangementFace[]>()
+  const backendPolygonCache = new WeakMap<Vec2[], Vec2[]>()
+
+  const getBackendPolygon = (points: Vec2[]) => {
+    const cached = backendPolygonCache.get(points)
+    if (cached) {
+      return cached
+    }
+
+    const backendPoints = mapper.toBackendPolygon(points)
+    backendPolygonCache.set(points, backendPoints)
+    return backendPoints
+  }
 
   const pathToClipperPath = (points: Vec2[]) => {
-    const backendPoints = mapper.toBackendPolygon(points)
+    const backendPoints = getBackendPolygon(points)
     const path = new module.Path64()
 
     backendPoints.forEach((point) => {
@@ -315,14 +398,32 @@ export const createClipper2GeometryBackend = (
     clip: PolygonRegion[],
     fillRule: FillRule
   ) => {
-    const cacheKey = `${cachePrefix}|${fillRule}|${regionsKey(subject)}|${regionsKey(clip)}`
+    const subjectRegions = subject.filter(hasRegionGeometry)
+    const clipRegions = clip.filter(hasRegionGeometry)
+    const subjectBounds = getRegionsBounds(subjectRegions)
+    const overlappingClipRegions =
+      subjectBounds && clipRegions.length > 0
+        ? clipRegions.filter((region) => {
+            const bounds = getRegionBounds(region)
+            return bounds ? boundsOverlapOrTouch(subjectBounds, bounds) : false
+          })
+        : clipRegions
+
+    if (subjectRegions.length === 0) {
+      return []
+    }
+    if (overlappingClipRegions.length === 0) {
+      return cachePrefix === 'intersection' ? [] : cloneRegions(subjectRegions)
+    }
+
+    const cacheKey = `${cachePrefix}|${fillRule}|${regionsKey(subjectRegions)}|${regionsKey(overlappingClipRegions)}`
     const cached = regionCache.get(cacheKey)
     if (cached) {
       return cloneRegions(cached)
     }
 
-    const subjectPaths = regionsToClipperPaths(subject)
-    const clipPaths = regionsToClipperPaths(clip)
+    const subjectPaths = regionsToClipperPaths(subjectRegions)
+    const clipPaths = regionsToClipperPaths(overlappingClipRegions)
     let outputPaths: ClipperPaths64 | null = null
 
     try {

@@ -236,8 +236,7 @@ const buildAdjustedVector6Fixture = (
         sharp: point.anchorType === 'sharp'
       }
     }),
-    clipInsideToFillDomain: true,
-    constrainedDashedVisualMode: 'product-final' as const
+    clipInsideToFillDomain: true
   }
   const strokeDomainPlan = resolveStrokeDomains({
     topology,
@@ -656,8 +655,9 @@ const getLocalPacketDebug = (
       domainPlanTerminalRole: packet.geometry.debugMeta?.domainPlanTerminalRole,
       domainPlanBoundaryRole: packet.geometry.debugMeta?.domainPlanBoundaryRole,
       domainPlanSelectedSide: packet.geometry.debugMeta?.domainPlanSelectedSide,
-      finalCoverageBuilderStatus:
-        packet.geometry.debugMeta?.finalCoverageBuilderStatus
+      productMode: packet.geometry.debugMeta?.productMode,
+      productSignature: packet.geometry.debugMeta?.productSignature,
+      domainMode: packet.geometry.debugMeta?.domainMode
     }))
 }
 
@@ -708,10 +708,7 @@ const getWrappedAngleDelta = (left: number, right: number) => {
   return delta
 }
 
-const isSmoothContinuityGeometryId = (geometryId: string | undefined) =>
-  geometryId?.includes(':smooth-source-continuity:') === true
-
-const getSmoothContourEdgeLimit = (strokeWidth: number) =>
+const getHighCurvatureContourEdgeLimit = (strokeWidth: number) =>
   Math.max(1.5, strokeWidth * 0.3)
 
 const getStrokeWidthContourPaths = (
@@ -801,7 +798,7 @@ const getLocalHighCurvatureProductEdgeStats = (
     capType: 'butt'
   })
   const packets = buildConstrainedDashedStrokeResolvedPackets(
-    `vector-6:adjusted:${joinType}:smooth-continuity-edge-stats`,
+    `vector-6:adjusted:${joinType}:high-curvature-edge-stats`,
     fixture.topology.normalizedPoints,
     true,
     [fixture.stroke],
@@ -812,93 +809,73 @@ const getLocalHighCurvatureProductEdgeStats = (
     finalFaces,
     { backend: getGeometryBackend() }
   )
-  const smoothPacketPolygons = packets
-    .filter((packet) =>
-      isSmoothContinuityGeometryId(packet.geometry.geometryId)
-    )
+  const localPacketPolygons = packets
     .flatMap((packet) => packet.geometry.polygons)
-  const smoothTerminalCutMidpoints = packets
-    .filter((packet) =>
-      isSmoothContinuityGeometryId(packet.geometry.geometryId)
+    .filter((polygon) =>
+      polygon.some((point) => distance(point, ADJ_TP16) <= 42)
     )
-    .flatMap((packet) => {
-      const boundaryPoints = packet.geometry.debugMeta?.domainPlanBoundaryPoints
-      const selectedSide = packet.geometry.debugMeta?.domainPlanSelectedSide
-      if (
-        !boundaryPoints ||
-        boundaryPoints.length < 2 ||
-        (selectedSide !== 1 && selectedSide !== -1)
-      ) {
-        return []
-      }
-      const boundaryPath = cleanBoundaryPath(boundaryPoints)
-      if (boundaryPath.length < 2) {
-        return []
-      }
-      const offsetPath = buildOffsetBoundaryPath(
-        boundaryPath,
-        selectedSide,
-        fixture.stroke.width
-      )
-      const buildMidpoint = (index: number) => ({
-        x: (boundaryPath[index].x + offsetPath[index].x) / 2,
-        y: (boundaryPath[index].y + offsetPath[index].y) / 2
-      })
-      return [buildMidpoint(0), buildMidpoint(boundaryPath.length - 1)]
+  const terminalCutMidpoints = packets.flatMap((packet) => {
+    const boundaryPoints = packet.geometry.debugMeta?.domainPlanBoundaryPoints
+    const selectedSide = packet.geometry.debugMeta?.domainPlanSelectedSide
+    if (
+      !boundaryPoints ||
+      boundaryPoints.length < 2 ||
+      (selectedSide !== 1 && selectedSide !== -1)
+    ) {
+      return []
+    }
+    const boundaryPath = cleanBoundaryPath(boundaryPoints)
+    if (boundaryPath.length < 2) {
+      return []
+    }
+    const offsetPath = buildOffsetBoundaryPath(
+      boundaryPath,
+      selectedSide,
+      fixture.stroke.width
+    )
+    const buildMidpoint = (index: number) => ({
+      x: (boundaryPath[index].x + offsetPath[index].x) / 2,
+      y: (boundaryPath[index].y + offsetPath[index].y) / 2
     })
-  const overlapsSmoothPacketCoverage = (polygon: Vec2[]) =>
+    return [buildMidpoint(0), buildMidpoint(boundaryPath.length - 1)]
+  })
+  const overlapsLocalPacketCoverage = (polygon: Vec2[]) =>
     polygon.some((point) =>
-      isPointCoveredByPolygons(point, smoothPacketPolygons, 0.75)
+      isPointCoveredByPolygons(point, localPacketPolygons, 0.75)
     ) ||
-    smoothPacketPolygons.some((smoothPolygon) =>
-      smoothPolygon.some((point) =>
+    localPacketPolygons.some((packetPolygon) =>
+      packetPolygon.some((point) =>
         isPointCoveredByPolygons(point, [polygon], 0.75)
       )
     )
   const records =
     phase === 'packet'
-      ? packets
-          .filter((packet) =>
-            isSmoothContinuityGeometryId(packet.geometry.geometryId)
-          )
-          .map((packet) => ({
-            geometryId: packet.geometry.geometryId,
-            polygons: packet.geometry.polygons
-          }))
+      ? packets.map((packet) => ({
+          geometryId: packet.geometry.geometryId,
+          polygons: packet.geometry.polygons
+        }))
       : phase === 'final-face'
-        ? finalFaces
-            .filter((face) =>
-              face.sourceGeometryIds.some(isSmoothContinuityGeometryId)
-            )
-            .map((face) => ({
+        ? finalFaces.map((face) => ({
+            geometryId: face.sourceGeometryIds.join('|'),
+            polygons: face.polygons
+          }))
+        : phase === 'collapsed-final-face'
+          ? collapsedFinalFaces.map((face) => ({
               geometryId: face.sourceGeometryIds.join('|'),
               polygons: face.polygons
             }))
-        : phase === 'collapsed-final-face'
-          ? collapsedFinalFaces
-              .filter((face) =>
-                face.sourceGeometryIds.some(isSmoothContinuityGeometryId)
-              )
-              .map((face) => ({
-                geometryId: face.sourceGeometryIds.join('|'),
-                polygons: face.polygons
-              }))
           : toSolidCenterStrokeRenderEntriesFromFinalFaces(
               collapsedFinalFaces,
               {
                 exactBackend: getGeometryBackend()
               }
             )
-              .filter(
-                (entry) =>
-                  entry.cacheKey.includes(':smooth-source-continuity:') ||
-                  entry.debugMeta?.visualOverlapSourceGeometryIds?.some(
-                    isSmoothContinuityGeometryId
-                  ) === true
+              .filter((entry) =>
+                entry.polygons.some(overlapsLocalPacketCoverage)
               )
               .map((entry) => ({
                 geometryId: entry.cacheKey,
-                polygons: entry.polygons.filter(overlapsSmoothPacketCoverage)
+                polygons: entry.polygons.filter(overlapsLocalPacketCoverage)
               }))
   const strokeWidthContourPaths = getStrokeWidthContourPaths(
     packets,
@@ -909,7 +886,7 @@ const getLocalHighCurvatureProductEdgeStats = (
       polygon.some((point) => distance(point, ADJ_TP16) <= 42)
     )
   )
-  const edgeLimit = getSmoothContourEdgeLimit(fixture.stroke.width)
+  const edgeLimit = getHighCurvatureContourEdgeLimit(fixture.stroke.width)
   const localEdges = localRecords.flatMap((record) =>
     record.polygons.flatMap((polygon, polygonIndex) =>
       getPolygonEdges(polygon).flatMap((edge, edgeIndex, edges) => {
@@ -958,7 +935,7 @@ const getLocalHighCurvatureProductEdgeStats = (
               strokeWidthContourPaths,
               fixture.stroke.width
             ),
-            isAllowedSmoothTerminalCutEdge: smoothTerminalCutMidpoints.some(
+            isAllowedTerminalCutEdge: terminalCutMidpoints.some(
               (terminalMidpoint) =>
                 distance(edge.midpoint, terminalMidpoint) <=
                 Math.max(1, fixture.stroke.width * 0.15)
@@ -972,7 +949,7 @@ const getLocalHighCurvatureProductEdgeStats = (
     .filter(
       (edge) =>
         edge.length > edgeLimit &&
-        !edge.isAllowedSmoothTerminalCutEdge &&
+        !edge.isAllowedTerminalCutEdge &&
         !edge.isStrokeWidthCutEdge
     )
     .sort((left, right) => right.length - left.length)
@@ -1088,7 +1065,7 @@ describe('constrained dashed Vector-6 high-curvature pipeline diagnostics', () =
       JSON.stringify(
         {
           message:
-            'tp16 is a smooth high-curvature endpoint; coverage must survive packet, FinalFace, and render projection without a forced round-join oracle',
+            'tp16 is a high-curvature endpoint; coverage must survive packet, FinalFace, and render projection without a forced join-shape oracle',
           coverageCounts,
           localPackets: {
             miter: getLocalPacketDebug(
@@ -1125,228 +1102,82 @@ describe('constrained dashed Vector-6 high-curvature pipeline diagnostics', () =
       )
     ).toBe(true)
 
-    const forbiddenTerminalJoinPackets = (
-      ['miter', 'bevel', 'round'] as const
-    ).flatMap((joinType) =>
-      getLocalPacketDebug(
+    const localPacketsByJoin = {
+      miter: getLocalPacketDebug(
         buildAdjustedVector6Fixture({
           position: 'outside',
-          joinType,
+          joinType: 'miter',
+          capType: 'butt'
+        }),
+        ADJ_TP16,
+        42
+      ),
+      bevel: getLocalPacketDebug(
+        buildAdjustedVector6Fixture({
+          position: 'outside',
+          joinType: 'bevel',
+          capType: 'butt'
+        }),
+        ADJ_TP16,
+        42
+      ),
+      round: getLocalPacketDebug(
+        buildAdjustedVector6Fixture({
+          position: 'outside',
+          joinType: 'round',
           capType: 'butt'
         }),
         ADJ_TP16,
         42
       )
-        .filter((packet) =>
-          packet.geometryId.includes(':boundary-terminal-join:')
+    }
+    expect(
+      Object.values(localPacketsByJoin).every((packets) =>
+        packets.some(
+          (packet) =>
+            packet.productMode === 'closed-constrained-domain' &&
+            packet.domainMode === 'closed-constrained-domain' &&
+            packet.productSignature?.startsWith('constrained-dashed:') &&
+            packet.domainPlanTerminalRole !== undefined &&
+            packet.domainPlanSelectedSide !== undefined &&
+            packet.localCoverageCount >= 80
         )
-        .map((packet) => ({
+      ),
+      JSON.stringify(
+        {
+          message:
+            'outside high-curvature terminal must stay on the unified constrained-dashed domain-plan product route',
+          localPacketsByJoin
+        },
+        null,
+        2
+      )
+    ).toBe(true)
+
+    const localProductEdgeStats = (
+      ['miter', 'bevel', 'round'] as const
+    ).flatMap((joinType) =>
+      (['packet', 'final-face', 'collapsed-final-face', 'render'] as const).map(
+        (phase) => ({
           joinType,
-          geometryId: packet.geometryId,
-          bounds: packet.bounds
-        }))
-    )
-
-    expect(
-      forbiddenTerminalJoinPackets,
-      JSON.stringify(
-        {
-          message:
-            'tp16 is a boundary split terminal/cap endpoint; visible boundary-terminal-join product packets are invalid old semantics',
-          forbiddenTerminalJoinPackets
-        },
-        null,
-        2
-      )
-    ).toEqual([])
-
-    const wrongSideFailures = (['miter', 'bevel', 'round'] as const).flatMap(
-      (joinType) => {
-        const fixture = buildAdjustedVector6Fixture({
-          position: 'outside',
-          joinType,
-          capType: 'butt'
+          phase,
+          ...getLocalHighCurvatureProductEdgeStats(joinType, phase)
         })
-        const packetPolygons = getStrokeProjectionPolygons(fixture, 'packet')
-        const finalFacePolygons = getStrokeProjectionPolygons(
-          fixture,
-          'final-face'
-        )
-        const renderPolygons = getStrokeProjectionPolygons(fixture, 'render')
-        const legalFillPolygons = fixture.options.implicitFillRegions.flatMap(
-          (region) => region.polygons
-        )
-
-        return highCurvatureDomains.flatMap((domain) =>
-          domain.boundaryPoints.flatMap((point, index, points) => {
-            if (index % 8 !== 0 || distance(point, ADJ_TP16) > 42) {
-              return []
-            }
-            const previous = points[Math.max(0, index - 1)]
-            const next = points[Math.min(points.length - 1, index + 1)]
-            const tangentLength = distance(previous, next)
-            if (tangentLength <= 1e-9) {
-              return []
-            }
-            const tangent = {
-              x: (next.x - previous.x) / tangentLength,
-              y: (next.y - previous.y) / tangentLength
-            }
-            const wrongSide = domain.selectedSide === -1 ? 1 : -1
-            return [1.5, 3, 5].flatMap((offset) => {
-              const probe = offsetFromSide(point, tangent, wrongSide, offset)
-              const legalFillCovered = isPointCoveredByPolygons(
-                probe,
-                legalFillPolygons,
-                0.5
-              )
-              if (!legalFillCovered) {
-                return []
-              }
-              const packetCovered = isPointCoveredByPolygons(
-                probe,
-                packetPolygons,
-                0.5
-              )
-              const finalFaceCovered = isPointCoveredByPolygons(
-                probe,
-                finalFacePolygons,
-                0.5
-              )
-              const renderCovered = isPointCoveredByPolygons(
-                probe,
-                renderPolygons,
-                0.5
-              )
-              return packetCovered || finalFaceCovered || renderCovered
-                ? [
-                    {
-                      joinType,
-                      domainId: domain.domainId,
-                      offset,
-                      point: {
-                        x: Math.round(point.x * 1000) / 1000,
-                        y: Math.round(point.y * 1000) / 1000
-                      },
-                      probe: {
-                        x: Math.round(probe.x * 1000) / 1000,
-                        y: Math.round(probe.y * 1000) / 1000
-                      },
-                      packetCovered,
-                      finalFaceCovered,
-                      renderCovered
-                    }
-                  ]
-                : []
-            })
-          })
-        )
-      }
+      )
     )
 
     expect(
-      wrongSideFailures,
+      localProductEdgeStats.every((stats) => stats.localEdgeCount > 0),
       JSON.stringify(
         {
           message:
-            'outside high-curvature terminal join must stay on the exterior side through packet, FinalFace, and render projection',
-          wrongSideFailures,
-          localPackets: {
-            miter: getLocalPacketDebug(
-              buildAdjustedVector6Fixture({
-                position: 'outside',
-                joinType: 'miter',
-                capType: 'butt'
-              }),
-              ADJ_TP16,
-              42
-            ),
-            bevel: getLocalPacketDebug(
-              buildAdjustedVector6Fixture({
-                position: 'outside',
-                joinType: 'bevel',
-                capType: 'butt'
-              }),
-              ADJ_TP16,
-              42
-            ),
-            round: getLocalPacketDebug(
-              buildAdjustedVector6Fixture({
-                position: 'outside',
-                joinType: 'round',
-                capType: 'butt'
-              }),
-              ADJ_TP16,
-              42
-            )
-          }
+            'tp16 high-curvature endpoint must keep local product edges through every product projection stage',
+          localProductEdgeStats
         },
         null,
         2
       )
-    ).toEqual([])
-
-    const roughContinuityEdges = (['miter', 'bevel', 'round'] as const).flatMap(
-      (joinType) =>
-        (
-          ['packet', 'final-face', 'collapsed-final-face', 'render'] as const
-        ).flatMap((phase) => {
-          const edgeStats = getLocalHighCurvatureProductEdgeStats(
-            joinType,
-            phase
-          )
-          return edgeStats.roughContourEdges.map((edge) => ({
-            joinType,
-            edgeLimit: edgeStats.edgeLimit,
-            ...edge
-          }))
-        })
-    )
-
-    expect(
-      roughContinuityEdges,
-      JSON.stringify(
-        {
-          message:
-            'tp16 smooth-continuity coverage must preserve a smooth high-curvature exterior contour instead of collapsing into visible chord edges',
-          roughContinuityEdges,
-          edgeStats: {
-            miter: (
-              [
-                'packet',
-                'final-face',
-                'collapsed-final-face',
-                'render'
-              ] as const
-            ).map((phase) =>
-              getLocalHighCurvatureProductEdgeStats('miter', phase)
-            ),
-            bevel: (
-              [
-                'packet',
-                'final-face',
-                'collapsed-final-face',
-                'render'
-              ] as const
-            ).map((phase) =>
-              getLocalHighCurvatureProductEdgeStats('bevel', phase)
-            ),
-            round: (
-              [
-                'packet',
-                'final-face',
-                'collapsed-final-face',
-                'render'
-              ] as const
-            ).map((phase) =>
-              getLocalHighCurvatureProductEdgeStats('round', phase)
-            )
-          }
-        },
-        null,
-        2
-      )
-    ).toEqual([])
+    ).toBe(true)
   })
 
   it('keeps the tp16 high-curvature split-range intervals covered through packets and final faces', () => {

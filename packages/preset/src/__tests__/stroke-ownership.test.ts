@@ -62,9 +62,10 @@ describe('stroke ownership resolution', () => {
             strokeIndex: 3,
             contourId: 'contour:typed',
             intervalId: 'interval:typed',
-            geometryFamily: 'constrained-dashed',
-            resolutionStatus: 'exact-constrained',
-            runtimeStatus: 'accepted'
+            productMode: 'closed-constrained-domain',
+            productSignature: 'constrained-dashed:inside',
+            domainMode: 'closed-constrained-domain',
+            topologyFamily: 'self-intersecting'
           }
         },
         paint: {

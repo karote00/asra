@@ -151,7 +151,7 @@ describe('dashed center stroke scenarios', () => {
     expect(isPointInPolygons({ x: 84, y: -4 }, polygons)).toBe(false)
   })
 
-  it('should run: open vector center dashed round caps extend each visible dash terminal without square corners', () => {
+  it('should run: open vector center dashed round caps stay one-sided at endpoint half-dashes', () => {
     const packets = buildDashedCenterStrokeResolvedPackets(
       'scenario:open:round-cap',
       [
@@ -173,7 +173,7 @@ describe('dashed center stroke scenarios', () => {
 
     const polygons = packets[0]?.geometry.polygons ?? []
     expect(packets).toHaveLength(2)
-    expect(isPointInPolygons({ x: -4, y: 0 }, polygons)).toBe(true)
+    expect(isPointInPolygons({ x: -4, y: 0 }, polygons)).toBe(false)
     expect(isPointInPolygons({ x: -4, y: -4 }, polygons)).toBe(false)
     expect(isPointInPolygons({ x: 14, y: 0 }, polygons)).toBe(true)
     expect(isPointInPolygons({ x: 14, y: 4 }, polygons)).toBe(false)

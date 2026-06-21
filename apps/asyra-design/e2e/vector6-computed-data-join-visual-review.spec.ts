@@ -25,14 +25,16 @@ const VECTOR_6_COMPUTED_DATA = {
       kind: 'anchor',
       x: 188.1928217922337,
       y: 0,
-      anchorType: 'smooth'
+      anchorType: 'smooth',
+      handleMode: 'none'
     },
     'tp-13': {
       id: 'tp-13',
       kind: 'anchor',
       x: 11.358174406717296,
       y: 365.76797704068724,
-      anchorType: 'smooth'
+      anchorType: 'smooth',
+      handleMode: 'none'
     },
     'tp-12:out': {
       id: 'tp-12:out',
@@ -63,21 +65,24 @@ const VECTOR_6_COMPUTED_DATA = {
       kind: 'anchor',
       x: 360.12094148356584,
       y: 145.95389587539378,
-      anchorType: 'sharp'
+      anchorType: 'sharp',
+      handleMode: 'none'
     },
     'tp-15': {
       id: 'tp-15',
       kind: 'anchor',
       x: 0,
       y: 15.668954151283657,
-      anchorType: 'sharp'
+      anchorType: 'sharp',
+      handleMode: 'none'
     },
     'tp-16': {
       id: 'tp-16',
       kind: 'anchor',
       x: 270.59180204238254,
       y: 347.0603956649177,
-      anchorType: 'smooth'
+      anchorType: 'smooth',
+      handleMode: 'none'
     },
     'tp-15:out': {
       id: 'tp-15:out',
@@ -165,19 +170,22 @@ const VECTOR_6_COMPUTED_DATA = {
   strokes: [
     {
       id: 'pp-41',
-      kind: 'solid',
       style: 'solid',
       position: 'inside',
       width: 10,
       dashPattern: [27, 20],
       dashOffset: 0,
-      fill: null,
-      defaultColorFormat: 'hex',
-      colorFormat: 'hex',
-      color: '#df0606',
-      opacity: 0.5,
-      visible: true,
-      gradient: null,
+      fill: {
+        id: 'pp-41',
+        type: 'fill',
+        kind: 'solid',
+        defaultColorFormat: 'hex',
+        colorFormat: 'hex',
+        color: '#df0606',
+        opacity: 0.5,
+        visible: true,
+        gradient: null
+      },
       joinType: 'round',
       capType: 'round',
       miterAngle: 28.96

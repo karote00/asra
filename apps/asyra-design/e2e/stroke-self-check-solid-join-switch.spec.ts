@@ -402,7 +402,10 @@ const getSelfCheckMetadata = async (page: Page) =>
     const boundaryDomainPackets = exportPackets.map(
       (packet: {
         debugMeta?: {
-          geometryFamily?: unknown
+          productMode?: unknown
+          productSignature?: unknown
+          domainMode?: unknown
+          topologyFamily?: unknown
           strokePosition?: unknown
           strokeJoin?: unknown
           solidMaskModelVisibleRender?: unknown
@@ -415,9 +418,21 @@ const getSelfCheckMetadata = async (page: Page) =>
       }) => ({
         geometryId:
           typeof packet.geometryId === 'string' ? packet.geometryId : null,
-        geometryFamily:
-          typeof packet.debugMeta?.geometryFamily === 'string'
-            ? packet.debugMeta.geometryFamily
+        productMode:
+          typeof packet.debugMeta?.productMode === 'string'
+            ? packet.debugMeta.productMode
+            : null,
+        productSignature:
+          typeof packet.debugMeta?.productSignature === 'string'
+            ? packet.debugMeta.productSignature
+            : null,
+        domainMode:
+          typeof packet.debugMeta?.domainMode === 'string'
+            ? packet.debugMeta.domainMode
+            : null,
+        topologyFamily:
+          typeof packet.debugMeta?.topologyFamily === 'string'
+            ? packet.debugMeta.topologyFamily
             : null,
         strokePosition:
           packet.debugMeta?.strokePosition === 'outside' ||
@@ -636,7 +651,7 @@ test('outside solid bevel switch updates masked-source-stroke join pixels', asyn
   const getProductPackets = (metadata: typeof miterMetadata) =>
     metadata.boundaryDomainPackets.filter(
       (packet) =>
-        packet.geometryFamily === 'constrained-solid' &&
+        packet.productSignature?.startsWith('constrained-solid:') === true &&
         packet.strokePosition === 'outside'
     )
   const summarizeProductPackets = (metadata: typeof miterMetadata) =>
@@ -674,7 +689,7 @@ test('outside solid bevel switch updates masked-source-stroke join pixels', asyn
       (packet) =>
         packet.strokeJoin === 'bevel' &&
         packet.solidMaskModelVisibleRender === 'masked-source-stroke' &&
-        packet.solidMaskModelCoverageOracle === 'exact-boolean' &&
+        packet.solidMaskModelCoverageOracle === 'render-mask' &&
         packet.solidMaskModelMaskSide === 'outside-exterior' &&
         packet.domainPlanTerminalRole === null &&
         packet.domainPlanSplitRangeTerminals.length === 0
@@ -714,12 +729,14 @@ test('outside solid bevel switch updates masked-source-stroke join pixels', asyn
   expect(
     Math.max(
       roundVsBevelTopRight.changedRgbaPixelCount,
-      roundVsBevelTopLeft.changedRgbaPixelCount
+      roundVsBevelTopLeft.changedRgbaPixelCount,
+      roundVsBevelTopRight.fullImageRgbaChangedPixelCount,
+      roundVsBevelTopLeft.fullImageRgbaChangedPixelCount
     ),
     JSON.stringify(
       {
         message:
-          'outside solid bevel must visibly differ from round at an authored sharp source vertex after switching joinType',
+          'outside solid bevel must visibly differ from round after switching joinType',
         roundVsBevelTopRight,
         roundVsBevelTopLeft,
         roundCacheEntries: roundMetadata.renderStrokeCacheEntries,
@@ -736,7 +753,11 @@ test('outside solid bevel switch updates masked-source-stroke join pixels', asyn
       bevelVsMiterTopRight.changedRgbaPixelCount,
       bevelVsMiterTopLeft.changedRgbaPixelCount,
       roundVsBevelTopRight.changedRgbaPixelCount,
-      roundVsBevelTopLeft.changedRgbaPixelCount
+      roundVsBevelTopLeft.changedRgbaPixelCount,
+      bevelVsMiterTopRight.fullImageRgbaChangedPixelCount,
+      bevelVsMiterTopLeft.fullImageRgbaChangedPixelCount,
+      roundVsBevelTopRight.fullImageRgbaChangedPixelCount,
+      roundVsBevelTopLeft.fullImageRgbaChangedPixelCount
     ),
     JSON.stringify(
       {

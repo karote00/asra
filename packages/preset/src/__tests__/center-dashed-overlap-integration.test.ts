@@ -62,7 +62,7 @@ describe('center dashed overlap integration', () => {
     expect(components.some((component) => component.length > 1)).toBe(true)
   })
 
-  it('should run: overlap candidates preserve interval identity from the supported packet geometry ids', () => {
+  it('should run: overlap candidates preserve interval identity from the formal packet geometry ids', () => {
     const packets = buildDashedCenterStrokeResolvedPackets(
       'center-dashed-overlap',
       [

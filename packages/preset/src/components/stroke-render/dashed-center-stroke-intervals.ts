@@ -100,13 +100,9 @@ const isValidPattern = (pattern: number[]) =>
   pattern.length > 0 &&
   pattern.every((entry) => Number.isFinite(entry) && entry > 0)
 
-const DEFAULT_FIGMA_LIKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO = 0.6
-const DEFAULT_FIGMA_LIKE_SPLIT_RANGE_VISUAL_GAP_TOLERANCE = 0
-const FIGMA_LIKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO_TEST_OVERRIDE =
-  '__ASYRA_STROKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO__'
+const DEFAULT_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO = 0.6
+const DEFAULT_SPLIT_RANGE_VISUAL_GAP_TOLERANCE = 0
 const DEFAULT_OPEN_PATH_MIN_VISUAL_GAP_RATIO = 0.6
-const OPEN_PATH_MIN_VISUAL_GAP_RATIO_TEST_OVERRIDE =
-  '__ASYRA_STROKE_OPEN_PATH_MIN_VISUAL_GAP_RATIO__'
 
 export interface DashedCenterStrokeIntervalAllocationOptions {
   openPathPolicy?: 'network-balanced-terminals'
@@ -126,17 +122,7 @@ const getDomainPlanSplitRangeMinimumVisualGapRatio = (
     return options.minimumGapRatio
   }
 
-  const override =
-    typeof globalThis === 'object' && globalThis
-      ? (globalThis as Record<string, unknown>)[
-          FIGMA_LIKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO_TEST_OVERRIDE
-        ]
-      : undefined
-  return typeof override === 'number' &&
-    Number.isFinite(override) &&
-    override >= 0
-    ? override
-    : DEFAULT_FIGMA_LIKE_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO
+  return DEFAULT_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO
 }
 
 const getOpenPathMinimumVisualGapRatio = (
@@ -150,17 +136,7 @@ const getOpenPathMinimumVisualGapRatio = (
     return options.minimumVisualGapRatio
   }
 
-  const override =
-    typeof globalThis === 'object' && globalThis
-      ? (globalThis as Record<string, unknown>)[
-          OPEN_PATH_MIN_VISUAL_GAP_RATIO_TEST_OVERRIDE
-        ]
-      : undefined
-  return typeof override === 'number' &&
-    Number.isFinite(override) &&
-    override >= 0
-    ? override
-    : DEFAULT_OPEN_PATH_MIN_VISUAL_GAP_RATIO
+  return DEFAULT_OPEN_PATH_MIN_VISUAL_GAP_RATIO
 }
 
 type RawDashedCenterStrokeInterval = Omit<
@@ -612,8 +588,11 @@ const getDomainPlanSplitRangeReferenceGapLength = (
   dashLength: number,
   targetGapLength: number
 ) => {
+  const productDomains = domains.filter(
+    (domain) => domain.domainMode !== 'inside-excluded-open-span'
+  )
   const normalRangeMinLength = 2 * (dashLength + targetGapLength)
-  const referenceGaps = domains
+  const referenceGaps = productDomains
     .map((domain) => Math.abs(domain.endDistance - domain.startDistance))
     .filter((rangeLength) => rangeLength >= normalRangeMinLength)
     .map((rangeLength) => {
@@ -753,8 +732,7 @@ export const allocateDomainPlanSplitRangeDashedIntervals = ({
           0,
           targetGapLength *
             getDomainPlanSplitRangeMinimumVisualGapRatio(visualGap) -
-            (visualGap?.tolerance ??
-              DEFAULT_FIGMA_LIKE_SPLIT_RANGE_VISUAL_GAP_TOLERANCE)
+            (visualGap?.tolerance ?? DEFAULT_SPLIT_RANGE_VISUAL_GAP_TOLERANCE)
         )
       : 0
   const minimumCenterlineGapLength =
@@ -769,6 +747,13 @@ export const allocateDomainPlanSplitRangeDashedIntervals = ({
       : targetGapLength
 
   return domains.map((domain) => {
+    if (domain.domainMode === 'inside-excluded-open-span') {
+      return {
+        domainId: domain.domainId,
+        intervals: []
+      }
+    }
+
     const startDistance = Math.min(domain.startDistance, domain.endDistance)
     const endDistance = Math.max(domain.startDistance, domain.endDistance)
     const rangeLength = endDistance - startDistance

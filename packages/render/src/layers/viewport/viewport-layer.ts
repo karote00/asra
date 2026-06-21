@@ -36,6 +36,10 @@ export class ViewportLayer {
     return this.renderLayer.getAllElementsBounds(this.renderLayer.view)
   }
 
+  clearElements() {
+    this.renderLayer.clearElements()
+  }
+
   switchWorkspace(workspaceData: RenderContainerData) {
     this.renderLayer.switchWorkspace(workspaceData)
   }

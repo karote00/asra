@@ -1,24 +1,22 @@
 export type StrokeCoreRevisionKey =
   | 'sourcePathRevision'
   | 'strokeSpecRevision'
-  | 'topologyClassificationRevision'
+  | 'domainPlanRevision'
   | 'sharedGeometryRevision'
-  | 'sourceFamilyRevision'
+  | 'strokeProductRevision'
   | 'strokeDomainRevision'
   | 'intervalAllocationRevision'
   | 'ownershipRevision'
   | 'legalityRevision'
   | 'paintRevision'
-  | 'previewModeRevision'
 
 export type StrokeStageRevisionKey =
-  | 'sourceTopologyRevision'
   | 'strokeFamilyRevision'
   | 'dashScheduleRevision'
   | 'terminalCapRevision'
   | 'joinShapeRevision'
-  | 'candidateRevision'
-  | 'arrangementRevision'
+  | 'smoothContinuityRevision'
+  | 'productMaterializationRevision'
   | 'resolvedRegionRevision'
   | 'renderOutputRevision'
 
@@ -27,13 +25,15 @@ export type StrokeRevisionKey = StrokeCoreRevisionKey | StrokeStageRevisionKey
 export type StrokeDirtyKey =
   | 'path-topology'
   | 'shared-geometry'
-  | 'source-topology-classification'
-  | 'source-family'
+  | 'domain-plan'
+  | 'stroke-product'
   | 'stroke-domain'
   | 'interval-allocation'
-  | 'one-sided-candidates'
-  | 'arrangement-faces'
-  | 'ownership'
+  | 'dash-product-intervals'
+  | 'endpoint-cap-policy'
+  | 'join-ownership'
+  | 'smooth-continuity'
+  | 'product-materialization'
   | 'legality'
   | 'resolved-regions'
   | 'paint-payload'
@@ -73,22 +73,23 @@ export interface StrokeRuntimeRevisionInput {
   points: readonly Vec2[]
   closed: boolean
   stroke: StrokeRevisionStrokeInput
-  geometryFamily: string
-  resolutionStatus: string
-  runtimeStatus: string
-  runtimeReason?: string
+  productMode: string
+  domainMode?: string
   ownerKey?: string
   networkId?: string
   strokeId?: string
   sharedGeometrySignature?: string
-  sourceFamilySignature?: string
+  strokeProductSignature?: string
   strokeDomainSignature?: string
   intervalSignature?: string
-  sourceTopology?: string
-  intervalTopology?: string
-  ownershipStatus?: string
+  endpointCapPolicySignature?: string
+  joinOwnershipSignature?: string
   ownerCount?: number
-  previewMode?: 'exact' | 'preview' | 'drag-visual'
+  smoothContinuitySignature?: string
+  productMaterializationSignature?: string
+  legalitySignature?: string
+  resolvedRegionSignature?: string
+  renderOutputSignature?: string
 }
 
 export interface StrokeDirtyKeyResult {
@@ -110,25 +111,23 @@ const emitStrokeDirtyCounter = (counterName: string, value = 1) => {
 const REQUIRED_REVISION_KEYS: StrokeCoreRevisionKey[] = [
   'sourcePathRevision',
   'strokeSpecRevision',
-  'topologyClassificationRevision',
+  'domainPlanRevision',
   'sharedGeometryRevision',
-  'sourceFamilyRevision',
+  'strokeProductRevision',
   'strokeDomainRevision',
   'intervalAllocationRevision',
   'ownershipRevision',
   'legalityRevision',
-  'paintRevision',
-  'previewModeRevision'
+  'paintRevision'
 ]
 
 const OPTIONAL_STAGE_REVISION_KEYS: StrokeStageRevisionKey[] = [
-  'sourceTopologyRevision',
   'strokeFamilyRevision',
   'dashScheduleRevision',
   'terminalCapRevision',
   'joinShapeRevision',
-  'candidateRevision',
-  'arrangementRevision',
+  'smoothContinuityRevision',
+  'productMaterializationRevision',
   'resolvedRegionRevision',
   'renderOutputRevision'
 ]
@@ -141,205 +140,99 @@ const REVISION_KEYS: StrokeRevisionKey[] = [
 const DIRTY_KEY_ORDER: StrokeDirtyKey[] = [
   'path-topology',
   'shared-geometry',
-  'source-topology-classification',
-  'source-family',
+  'domain-plan',
+  'stroke-product',
   'stroke-domain',
   'interval-allocation',
-  'one-sided-candidates',
-  'arrangement-faces',
-  'ownership',
+  'dash-product-intervals',
+  'endpoint-cap-policy',
+  'join-ownership',
+  'smooth-continuity',
+  'product-materialization',
   'legality',
   'resolved-regions',
   'paint-payload',
   'render-hit-export'
 ]
 
+const RENDER_OUTPUT_DIRTY: StrokeDirtyKey[] = ['render-hit-export']
+const PAINT_DIRTY: StrokeDirtyKey[] = ['paint-payload', ...RENDER_OUTPUT_DIRTY]
+const RESOLVED_REGION_DIRTY: StrokeDirtyKey[] = [
+  'resolved-regions',
+  ...RENDER_OUTPUT_DIRTY
+]
+const LEGALITY_DIRTY: StrokeDirtyKey[] = ['legality', ...RESOLVED_REGION_DIRTY]
+const PRODUCT_MATERIALIZATION_DIRTY: StrokeDirtyKey[] = [
+  'product-materialization',
+  ...LEGALITY_DIRTY
+]
+const SMOOTH_CONTINUITY_DIRTY: StrokeDirtyKey[] = [
+  'smooth-continuity',
+  ...PRODUCT_MATERIALIZATION_DIRTY
+]
+const JOIN_OWNERSHIP_DIRTY: StrokeDirtyKey[] = [
+  'join-ownership',
+  ...SMOOTH_CONTINUITY_DIRTY
+]
+const ENDPOINT_CAP_POLICY_DIRTY: StrokeDirtyKey[] = [
+  'endpoint-cap-policy',
+  ...PRODUCT_MATERIALIZATION_DIRTY
+]
+const DASH_PRODUCT_INTERVAL_DIRTY: StrokeDirtyKey[] = [
+  'dash-product-intervals',
+  ...ENDPOINT_CAP_POLICY_DIRTY,
+  'join-ownership',
+  'smooth-continuity'
+].filter(
+  (key, index, keys): key is StrokeDirtyKey => keys.indexOf(key) === index
+)
+const STROKE_DOMAIN_DIRTY: StrokeDirtyKey[] = [
+  'stroke-domain',
+  'interval-allocation',
+  ...DASH_PRODUCT_INTERVAL_DIRTY
+]
+const STROKE_PRODUCT_DIRTY: StrokeDirtyKey[] = [
+  'stroke-product',
+  ...STROKE_DOMAIN_DIRTY
+]
+const DOMAIN_PLAN_DIRTY: StrokeDirtyKey[] = [
+  'domain-plan',
+  ...STROKE_PRODUCT_DIRTY
+]
+const SHARED_GEOMETRY_DIRTY: StrokeDirtyKey[] = [
+  'shared-geometry',
+  ...STROKE_PRODUCT_DIRTY
+]
+const SOURCE_PATH_DIRTY: StrokeDirtyKey[] = [
+  'path-topology',
+  ...SHARED_GEOMETRY_DIRTY,
+  'domain-plan'
+].filter(
+  (key, index, keys): key is StrokeDirtyKey => keys.indexOf(key) === index
+)
+
 const DIRTY_KEYS_BY_REVISION: Record<StrokeRevisionKey, StrokeDirtyKey[]> = {
-  sourcePathRevision: [
-    'path-topology',
-    'shared-geometry',
-    'source-topology-classification',
-    'source-family',
-    'stroke-domain',
-    'interval-allocation',
-    'one-sided-candidates',
-    'arrangement-faces',
-    'ownership',
-    'legality',
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
-  ],
-  strokeSpecRevision: [
-    'source-family',
-    'stroke-domain',
-    'interval-allocation',
-    'one-sided-candidates',
-    'arrangement-faces',
-    'ownership',
-    'legality',
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
-  ],
-  sourceTopologyRevision: [
-    'source-topology-classification',
-    'source-family',
-    'stroke-domain',
-    'interval-allocation',
-    'one-sided-candidates',
-    'arrangement-faces',
-    'ownership',
-    'legality',
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
-  ],
-  strokeFamilyRevision: [
-    'source-family',
-    'stroke-domain',
-    'interval-allocation',
-    'one-sided-candidates',
-    'arrangement-faces',
-    'ownership',
-    'legality',
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
-  ],
-  dashScheduleRevision: [
-    'interval-allocation',
-    'one-sided-candidates',
-    'arrangement-faces',
-    'ownership',
-    'legality',
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
-  ],
-  terminalCapRevision: [
-    'one-sided-candidates',
-    'arrangement-faces',
-    'ownership',
-    'legality',
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
-  ],
-  joinShapeRevision: [
-    'one-sided-candidates',
-    'arrangement-faces',
-    'ownership',
-    'legality',
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
-  ],
-  sharedGeometryRevision: [
-    'shared-geometry',
-    'source-family',
-    'stroke-domain',
-    'interval-allocation',
-    'one-sided-candidates',
-    'arrangement-faces',
-    'ownership',
-    'legality',
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
-  ],
-  sourceFamilyRevision: [
-    'source-family',
-    'stroke-domain',
-    'interval-allocation',
-    'one-sided-candidates',
-    'arrangement-faces',
-    'ownership',
-    'legality',
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
-  ],
-  strokeDomainRevision: [
-    'stroke-domain',
-    'interval-allocation',
-    'one-sided-candidates',
-    'arrangement-faces',
-    'ownership',
-    'legality',
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
-  ],
+  sourcePathRevision: SOURCE_PATH_DIRTY,
+  strokeSpecRevision: STROKE_PRODUCT_DIRTY,
+  strokeFamilyRevision: STROKE_PRODUCT_DIRTY,
+  dashScheduleRevision: DASH_PRODUCT_INTERVAL_DIRTY,
+  terminalCapRevision: ENDPOINT_CAP_POLICY_DIRTY,
+  joinShapeRevision: JOIN_OWNERSHIP_DIRTY,
+  smoothContinuityRevision: SMOOTH_CONTINUITY_DIRTY,
+  productMaterializationRevision: PRODUCT_MATERIALIZATION_DIRTY,
+  sharedGeometryRevision: SHARED_GEOMETRY_DIRTY,
+  strokeProductRevision: STROKE_PRODUCT_DIRTY,
+  strokeDomainRevision: STROKE_DOMAIN_DIRTY,
   intervalAllocationRevision: [
     'interval-allocation',
-    'one-sided-candidates',
-    'arrangement-faces',
-    'ownership',
-    'legality',
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
+    ...DASH_PRODUCT_INTERVAL_DIRTY
   ],
-  topologyClassificationRevision: [
-    'source-topology-classification',
-    'source-family',
-    'stroke-domain',
-    'interval-allocation',
-    'one-sided-candidates',
-    'arrangement-faces',
-    'ownership',
-    'legality',
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
-  ],
-  candidateRevision: [
-    'one-sided-candidates',
-    'arrangement-faces',
-    'ownership',
-    'legality',
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
-  ],
-  arrangementRevision: [
-    'arrangement-faces',
-    'ownership',
-    'legality',
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
-  ],
-  ownershipRevision: [
-    'ownership',
-    'legality',
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
-  ],
-  legalityRevision: [
-    'legality',
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
-  ],
-  resolvedRegionRevision: [
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
-  ],
-  paintRevision: ['paint-payload', 'render-hit-export'],
-  renderOutputRevision: ['render-hit-export'],
-  previewModeRevision: [
-    'one-sided-candidates',
-    'arrangement-faces',
-    'ownership',
-    'legality',
-    'resolved-regions',
-    'paint-payload',
-    'render-hit-export'
-  ]
+  domainPlanRevision: DOMAIN_PLAN_DIRTY,
+  ownershipRevision: JOIN_OWNERSHIP_DIRTY,
+  legalityRevision: LEGALITY_DIRTY,
+  resolvedRegionRevision: RESOLVED_REGION_DIRTY,
+  paintRevision: PAINT_DIRTY,
+  renderOutputRevision: RENDER_OUTPUT_DIRTY
 }
 
 const isValidRevisionValue = (value: unknown): value is StrokeRevisionValue =>
@@ -400,89 +293,67 @@ const buildPaintRevision = (stroke: StrokeRevisionStrokeInput) =>
     ].join('|')
   )
 
-const buildTopologyClassificationRevision = (
-  sourceTopology: string,
-  intervalTopology: string,
-  closed?: boolean
-) =>
+const buildDomainPlanRevision = ({
+  domainMode,
+  strokeDomainSignature,
+  intervalSignature
+}: {
+  domainMode?: string
+  strokeDomainSignature?: string
+  intervalSignature?: string
+}) =>
   hashRevision(
-    'topology-classification',
-    [sourceTopology, intervalTopology, closed ?? ''].join('|')
-  )
-
-const buildSourceTopologyRevision = (
-  sourceTopology: string,
-  intervalTopology: string,
-  closed?: boolean
-) =>
-  hashRevision(
-    'source-topology',
-    [sourceTopology, intervalTopology, closed ?? ''].join('|')
+    'domain-plan',
+    [
+      domainMode ?? '',
+      strokeDomainSignature ?? '',
+      intervalSignature ?? ''
+    ].join('|')
   )
 
 const buildSharedGeometryRevision = ({
   points,
   closed,
-  sourceTopology,
-  intervalTopology,
   sharedGeometrySignature
 }: {
   points: readonly Vec2[]
   closed: boolean
-  sourceTopology?: string
-  intervalTopology?: string
   sharedGeometrySignature?: string
 }) =>
   hashRevision(
     'shared-geometry',
-    sharedGeometrySignature ??
-      [
-        buildSourcePathRevision(points, closed),
-        sourceTopology ?? '',
-        intervalTopology ?? ''
-      ].join('|')
+    sharedGeometrySignature ?? buildSourcePathRevision(points, closed)
   )
 
-const buildSourceFamilyRevision = ({
+const buildStrokeProductRevision = ({
   stroke,
-  geometryFamily,
-  resolutionStatus,
-  runtimeStatus,
-  sourceTopology,
-  intervalTopology,
-  sourceFamilySignature
+  productMode,
+  domainMode,
+  strokeProductSignature
 }: {
   stroke: StrokeRevisionStrokeInput
-  geometryFamily?: string
-  resolutionStatus?: string
-  runtimeStatus?: string
-  sourceTopology?: string
-  intervalTopology?: string
-  sourceFamilySignature?: string
+  productMode?: string
+  domainMode?: string
+  strokeProductSignature?: string
 }) =>
   hashRevision(
-    'source-family',
-    sourceFamilySignature ??
+    'stroke-product',
+    strokeProductSignature ??
       [
         stroke.style ?? '',
         stroke.position ?? '',
-        geometryFamily ?? '',
-        resolutionStatus ?? '',
-        runtimeStatus ?? '',
-        sourceTopology ?? '',
-        intervalTopology ?? ''
+        productMode ?? '',
+        domainMode ?? ''
       ].join('|')
   )
 
 const buildStrokeDomainRevision = ({
   stroke,
-  sourceTopology,
-  intervalTopology,
+  domainMode,
   strokeDomainSignature
 }: {
   stroke: StrokeRevisionStrokeInput
-  sourceTopology?: string
-  intervalTopology?: string
+  domainMode?: string
   strokeDomainSignature?: string
 }) =>
   hashRevision(
@@ -492,8 +363,7 @@ const buildStrokeDomainRevision = ({
         stroke.style ?? '',
         stroke.position ?? '',
         stroke.width ?? '',
-        sourceTopology ?? '',
-        intervalTopology ?? ''
+        domainMode ?? ''
       ].join('|')
   )
 
@@ -501,15 +371,11 @@ const buildDashScheduleRevision = ({
   stroke,
   closed,
   sourcePathRevision,
-  sourceTopology,
-  intervalTopology,
   intervalSignature
 }: {
   stroke: StrokeRevisionStrokeInput
   closed: boolean
   sourcePathRevision: StrokeRevisionValue
-  sourceTopology?: string
-  intervalTopology?: string
   intervalSignature?: string
 }) =>
   hashRevision(
@@ -518,10 +384,8 @@ const buildDashScheduleRevision = ({
       stroke.style ?? '',
       stroke.dashPattern?.join(',') ?? '',
       stroke.dashOffset ?? '',
-      closed ? 'closed' : `open-cap:${stroke.cap ?? ''}`,
+      closed ? 'closed' : 'open',
       sourcePathRevision,
-      sourceTopology ?? '',
-      intervalTopology ?? '',
       intervalSignature ?? ''
     ].join('|')
   )
@@ -529,13 +393,11 @@ const buildDashScheduleRevision = ({
 const buildTerminalCapRevision = ({
   stroke,
   closed,
-  sourceTopology,
-  intervalTopology
+  endpointCapPolicySignature
 }: {
   stroke: StrokeRevisionStrokeInput
   closed: boolean
-  sourceTopology?: string
-  intervalTopology?: string
+  endpointCapPolicySignature?: string
 }) =>
   hashRevision(
     'terminal-cap',
@@ -545,19 +407,16 @@ const buildTerminalCapRevision = ({
       stroke.width ?? '',
       stroke.cap ?? '',
       closed ? 'closed' : 'open',
-      sourceTopology ?? '',
-      intervalTopology ?? ''
+      endpointCapPolicySignature ?? ''
     ].join('|')
   )
 
 const buildJoinShapeRevision = ({
   stroke,
-  sourceTopology,
-  intervalTopology
+  joinOwnershipSignature
 }: {
   stroke: StrokeRevisionStrokeInput
-  sourceTopology?: string
-  intervalTopology?: string
+  joinOwnershipSignature?: string
 }) =>
   hashRevision(
     'join-shape',
@@ -567,8 +426,7 @@ const buildJoinShapeRevision = ({
       stroke.width ?? '',
       stroke.join ?? '',
       stroke.miterLimit ?? '',
-      sourceTopology ?? '',
-      intervalTopology ?? ''
+      joinOwnershipSignature ?? ''
     ].join('|')
   )
 
@@ -576,17 +434,13 @@ const buildOwnershipRevision = ({
   ownerKey,
   networkId,
   strokeId,
-  runtimeStatus,
-  runtimeReason,
-  ownershipStatus,
+  joinOwnershipSignature,
   ownerCount
 }: {
   ownerKey?: string
   networkId?: string
   strokeId?: string
-  runtimeStatus?: string
-  runtimeReason?: string
-  ownershipStatus?: string
+  joinOwnershipSignature?: string
   ownerCount?: number
 }) =>
   hashRevision(
@@ -595,206 +449,147 @@ const buildOwnershipRevision = ({
       ownerKey ?? '',
       networkId ?? '',
       strokeId ?? '',
-      runtimeStatus ?? '',
-      runtimeReason ?? '',
-      ownershipStatus ?? '',
+      joinOwnershipSignature ?? '',
       ownerCount ?? 0
     ].join('|')
   )
 
-const buildCandidateRevision = ({
-  geometryFamily,
-  sourceTopology,
-  intervalTopology,
-  previewMode
+const buildSmoothContinuityRevision = ({
+  smoothContinuitySignature
 }: {
-  geometryFamily?: string
-  sourceTopology?: string
-  intervalTopology?: string
-  previewMode?: string
-}) =>
-  hashRevision(
-    'candidate',
-    [
-      geometryFamily ?? '',
-      sourceTopology ?? '',
-      intervalTopology ?? '',
-      previewMode ?? ''
-    ].join('|')
-  )
+  smoothContinuitySignature?: string
+}) => hashRevision('smooth-continuity', smoothContinuitySignature ?? 'none')
 
-const buildArrangementRevision = ({
-  geometryFamily,
-  resolutionStatus,
-  sourceTopology,
-  intervalTopology
+const buildProductMaterializationRevision = ({
+  productMode,
+  domainMode,
+  productMaterializationSignature
 }: {
-  geometryFamily?: string
-  resolutionStatus?: string
-  sourceTopology?: string
-  intervalTopology?: string
+  productMode?: string
+  domainMode?: string
+  productMaterializationSignature?: string
 }) =>
   hashRevision(
-    'arrangement',
-    [
-      geometryFamily ?? '',
-      resolutionStatus ?? '',
-      sourceTopology ?? '',
-      intervalTopology ?? ''
-    ].join('|')
+    'product-materialization',
+    productMaterializationSignature ??
+      [productMode ?? '', domainMode ?? ''].join('|')
   )
 
 const buildLegalityRevision = ({
-  geometryFamily,
-  resolutionStatus,
-  runtimeStatus,
-  runtimeReason,
-  sourceTopology,
-  intervalTopology,
-  ownershipStatus,
+  productMode,
+  domainMode,
+  legalitySignature,
   ownerCount
 }: {
-  geometryFamily?: string
-  resolutionStatus?: string
-  runtimeStatus?: string
-  runtimeReason?: string
-  sourceTopology?: string
-  intervalTopology?: string
-  ownershipStatus?: string
+  productMode?: string
+  domainMode?: string
+  legalitySignature?: string
   ownerCount?: number
 }) =>
   hashRevision(
     'legality',
-    [
-      geometryFamily ?? '',
-      resolutionStatus ?? '',
-      runtimeStatus ?? '',
-      runtimeReason ?? '',
-      sourceTopology ?? '',
-      intervalTopology ?? '',
-      ownershipStatus ?? '',
-      ownerCount ?? 0
-    ].join('|')
+    legalitySignature ??
+      [productMode ?? '', domainMode ?? '', ownerCount ?? 0].join('|')
   )
 
 const buildResolvedRegionRevision = ({
-  geometryFamily,
-  resolutionStatus,
-  runtimeStatus,
-  runtimeReason,
-  ownershipStatus,
+  productMode,
+  domainMode,
+  resolvedRegionSignature,
   ownerCount
 }: {
-  geometryFamily?: string
-  resolutionStatus?: string
-  runtimeStatus?: string
-  runtimeReason?: string
-  ownershipStatus?: string
+  productMode?: string
+  domainMode?: string
+  resolvedRegionSignature?: string
   ownerCount?: number
 }) =>
   hashRevision(
     'resolved-region',
-    [
-      geometryFamily ?? '',
-      resolutionStatus ?? '',
-      runtimeStatus ?? '',
-      runtimeReason ?? '',
-      ownershipStatus ?? '',
-      ownerCount ?? 0
-    ].join('|')
+    resolvedRegionSignature ??
+      [productMode ?? '', domainMode ?? '', ownerCount ?? 0].join('|')
   )
 
 const buildRenderOutputRevision = ({
   stroke,
-  geometryFamily,
-  resolutionStatus,
-  runtimeStatus,
-  previewMode
+  productMode,
+  domainMode,
+  renderOutputSignature
 }: {
   stroke: StrokeRevisionStrokeInput
-  geometryFamily?: string
-  resolutionStatus?: string
-  runtimeStatus?: string
-  previewMode?: string
+  productMode?: string
+  domainMode?: string
+  renderOutputSignature?: string
 }) =>
   hashRevision(
     'render-output',
-    [
-      geometryFamily ?? '',
-      resolutionStatus ?? '',
-      runtimeStatus ?? '',
-      stroke.visible ?? '',
-      stroke.style ?? '',
-      stroke.position ?? '',
-      stroke.width ?? '',
-      stroke.join ?? '',
-      stroke.miterLimit ?? '',
-      stroke.cap ?? '',
-      stroke.dashPattern?.join(',') ?? '',
-      stroke.dashOffset ?? '',
-      previewMode ?? ''
-    ].join('|')
+    renderOutputSignature ??
+      [
+        productMode ?? '',
+        domainMode ?? '',
+        stroke.visible ?? '',
+        stroke.style ?? '',
+        stroke.position ?? '',
+        stroke.width ?? '',
+        stroke.join ?? '',
+        stroke.miterLimit ?? '',
+        stroke.cap ?? '',
+        stroke.dashPattern?.join(',') ?? '',
+        stroke.dashOffset ?? ''
+      ].join('|')
   )
 
 export const buildStrokeRuntimeRevisionSet = ({
   points,
   closed,
   stroke,
-  geometryFamily,
-  resolutionStatus,
-  runtimeStatus,
-  runtimeReason,
+  productMode,
+  domainMode,
   ownerKey,
   networkId,
   strokeId,
   sharedGeometrySignature,
-  sourceFamilySignature,
+  strokeProductSignature,
   strokeDomainSignature,
   intervalSignature = 'solid',
-  sourceTopology = closed ? 'closed' : 'open',
-  intervalTopology = 'none',
-  ownershipStatus = 'not-applicable',
+  endpointCapPolicySignature,
+  joinOwnershipSignature,
   ownerCount = 0,
-  previewMode = 'exact'
+  smoothContinuitySignature,
+  productMaterializationSignature,
+  legalitySignature,
+  resolvedRegionSignature,
+  renderOutputSignature
 }: StrokeRuntimeRevisionInput): StrokeRevisionSet => {
   const sourcePathRevision = buildSourcePathRevision(points, closed)
   const dashScheduleRevision = buildDashScheduleRevision({
     stroke,
     closed,
     sourcePathRevision,
-    sourceTopology,
-    intervalTopology,
     intervalSignature
   })
 
   return {
     sourcePathRevision,
     strokeSpecRevision: buildStrokeSpecRevision(stroke),
-    topologyClassificationRevision: buildTopologyClassificationRevision(
-      sourceTopology,
-      intervalTopology,
-      closed
-    ),
+    domainPlanRevision: buildDomainPlanRevision({
+      domainMode,
+      strokeDomainSignature,
+      intervalSignature
+    }),
     sharedGeometryRevision: buildSharedGeometryRevision({
       points,
       closed,
-      sourceTopology,
-      intervalTopology,
       sharedGeometrySignature
     }),
-    sourceFamilyRevision: buildSourceFamilyRevision({
+    strokeProductRevision: buildStrokeProductRevision({
       stroke,
-      geometryFamily,
-      resolutionStatus,
-      runtimeStatus,
-      sourceTopology,
-      intervalTopology,
-      sourceFamilySignature
+      productMode,
+      domainMode,
+      strokeProductSignature
     }),
     strokeDomainRevision: buildStrokeDomainRevision({
       stroke,
-      sourceTopology,
-      intervalTopology,
+      domainMode,
       strokeDomainSignature
     }),
     intervalAllocationRevision: dashScheduleRevision,
@@ -802,75 +597,51 @@ export const buildStrokeRuntimeRevisionSet = ({
       ownerKey,
       networkId,
       strokeId,
-      runtimeStatus,
-      runtimeReason,
-      ownershipStatus,
+      joinOwnershipSignature,
       ownerCount
     }),
     legalityRevision: buildLegalityRevision({
-      geometryFamily,
-      resolutionStatus,
-      runtimeStatus,
-      runtimeReason,
-      sourceTopology,
-      intervalTopology,
-      ownershipStatus,
+      productMode,
+      domainMode,
+      legalitySignature,
       ownerCount
     }),
     paintRevision: buildPaintRevision(stroke),
-    previewModeRevision: `preview:${previewMode}`,
-    sourceTopologyRevision: buildSourceTopologyRevision(
-      sourceTopology,
-      intervalTopology,
-      closed
-    ),
-    strokeFamilyRevision: buildSourceFamilyRevision({
+    strokeFamilyRevision: buildStrokeProductRevision({
       stroke,
-      geometryFamily,
-      resolutionStatus,
-      runtimeStatus,
-      sourceTopology,
-      intervalTopology,
-      sourceFamilySignature
+      productMode,
+      domainMode,
+      strokeProductSignature
     }),
     dashScheduleRevision,
     terminalCapRevision: buildTerminalCapRevision({
       stroke,
       closed,
-      sourceTopology,
-      intervalTopology
+      endpointCapPolicySignature
     }),
     joinShapeRevision: buildJoinShapeRevision({
       stroke,
-      sourceTopology,
-      intervalTopology
+      joinOwnershipSignature
     }),
-    candidateRevision: buildCandidateRevision({
-      geometryFamily,
-      sourceTopology,
-      intervalTopology,
-      previewMode
+    smoothContinuityRevision: buildSmoothContinuityRevision({
+      smoothContinuitySignature
     }),
-    arrangementRevision: buildArrangementRevision({
-      geometryFamily,
-      resolutionStatus,
-      sourceTopology,
-      intervalTopology
+    productMaterializationRevision: buildProductMaterializationRevision({
+      productMode,
+      domainMode,
+      productMaterializationSignature
     }),
     resolvedRegionRevision: buildResolvedRegionRevision({
-      geometryFamily,
-      resolutionStatus,
-      runtimeStatus,
-      runtimeReason,
-      ownershipStatus,
+      productMode,
+      domainMode,
+      resolvedRegionSignature,
       ownerCount
     }),
     renderOutputRevision: buildRenderOutputRevision({
       stroke,
-      geometryFamily,
-      resolutionStatus,
-      runtimeStatus,
-      previewMode
+      productMode,
+      domainMode,
+      renderOutputSignature
     })
   }
 }
@@ -881,19 +652,19 @@ export const updateStrokeRuntimeRevisionSetFromMetadata = (
     ownerKey?: string
     networkId?: string
     strokeId?: string
-    geometryFamily?: string
-    resolutionStatus?: string
-    runtimeStatus?: string
-    runtimeReason?: string
-    sourceTopology?: string
-    intervalTopology?: string
-    closed?: boolean
+    productMode?: string
+    domainMode?: string
     sharedGeometrySignature?: string
-    sourceFamilySignature?: string
+    strokeProductSignature?: string
     strokeDomainSignature?: string
-    ownershipStatus?: string
+    endpointCapPolicySignature?: string
+    joinOwnershipSignature?: string
     ownerCount?: number
-    previewMode?: 'exact' | 'preview' | 'drag-visual'
+    smoothContinuitySignature?: string
+    productMaterializationSignature?: string
+    legalitySignature?: string
+    resolvedRegionSignature?: string
+    renderOutputSignature?: string
   }
 ): StrokeRevisionSet | undefined => {
   if (!revisionSet) {
@@ -902,43 +673,47 @@ export const updateStrokeRuntimeRevisionSetFromMetadata = (
 
   return {
     ...revisionSet,
-    topologyClassificationRevision: buildTopologyClassificationRevision(
-      metadata.sourceTopology ?? '',
-      metadata.intervalTopology ?? '',
-      metadata.closed
-    ),
+    domainPlanRevision:
+      metadata.domainMode !== undefined ||
+      metadata.strokeDomainSignature !== undefined
+        ? buildDomainPlanRevision(metadata)
+        : revisionSet.domainPlanRevision,
     sharedGeometryRevision:
       metadata.sharedGeometrySignature !== undefined
         ? hashRevision('shared-geometry', metadata.sharedGeometrySignature)
         : revisionSet.sharedGeometryRevision,
-    sourceFamilyRevision:
-      metadata.sourceFamilySignature !== undefined
-        ? hashRevision('source-family', metadata.sourceFamilySignature)
-        : revisionSet.sourceFamilyRevision,
+    strokeProductRevision:
+      metadata.strokeProductSignature !== undefined
+        ? hashRevision('stroke-product', metadata.strokeProductSignature)
+        : revisionSet.strokeProductRevision,
     strokeFamilyRevision:
-      metadata.sourceFamilySignature !== undefined
-        ? hashRevision('source-family', metadata.sourceFamilySignature)
+      metadata.strokeProductSignature !== undefined
+        ? hashRevision('stroke-product', metadata.strokeProductSignature)
         : revisionSet.strokeFamilyRevision,
     strokeDomainRevision:
       metadata.strokeDomainSignature !== undefined
         ? hashRevision('stroke-domain', metadata.strokeDomainSignature)
         : revisionSet.strokeDomainRevision,
-    sourceTopologyRevision: buildSourceTopologyRevision(
-      metadata.sourceTopology ?? '',
-      metadata.intervalTopology ?? '',
-      metadata.closed
-    ),
-    candidateRevision: buildCandidateRevision(metadata),
-    arrangementRevision: buildArrangementRevision(metadata),
+    joinShapeRevision:
+      metadata.joinOwnershipSignature !== undefined
+        ? buildJoinShapeRevision({
+            stroke: {},
+            joinOwnershipSignature: metadata.joinOwnershipSignature
+          })
+        : revisionSet.joinShapeRevision,
+    smoothContinuityRevision: buildSmoothContinuityRevision(metadata),
+    productMaterializationRevision:
+      buildProductMaterializationRevision(metadata),
     ownershipRevision: buildOwnershipRevision(metadata),
     legalityRevision: buildLegalityRevision(metadata),
     resolvedRegionRevision: buildResolvedRegionRevision(metadata),
     renderOutputRevision:
-      revisionSet.renderOutputRevision ??
-      buildRenderOutputRevision({
-        stroke: {},
-        ...metadata
-      })
+      metadata.renderOutputSignature !== undefined
+        ? buildRenderOutputRevision({
+            stroke: {},
+            ...metadata
+          })
+        : revisionSet.renderOutputRevision
   }
 }
 

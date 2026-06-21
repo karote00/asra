@@ -8,10 +8,8 @@ import {
 import {
   add,
   buildRoundStrokeArcPoints,
-  buildRoundStrokeArcPointsBetween,
   buildOffsetSegments,
   EPS,
-  ROUND_STROKE_CAP_ARC_SAMPLING,
   dedupeClosed,
   distance,
   extendForCap,
@@ -57,8 +55,25 @@ const buildArcPoints = (
   end: Vec2,
   sweepSign: number
 ) => {
-  return buildRoundStrokeArcPointsBetween(center, start, end, sweepSign)
+  const startAngle = Math.atan2(start.y - center.y, start.x - center.x)
+  const endAngle = Math.atan2(end.y - center.y, end.x - center.x)
+  let sweep = endAngle - startAngle
+  if (sweepSign >= 0) {
+    while (sweep < 0) {
+      sweep += Math.PI * 2
+    }
+  } else {
+    while (sweep > 0) {
+      sweep -= Math.PI * 2
+    }
+  }
+  const radius = distance(center, start)
+  return buildRoundStrokeArcPoints(center, radius, startAngle, sweep, 3, {
+    maxLength: CONSTRAINED_ROUND_CAP_MAX_ARC_LENGTH
+  })
 }
+
+const CONSTRAINED_ROUND_CAP_MAX_ARC_LENGTH = 0.35
 
 const cross = (a: Vec2, b: Vec2) => a.x * b.y - a.y * b.x
 
@@ -121,14 +136,17 @@ const buildOneSidedRoundCap = (
   }
 
   const sweep = sweepViaMid(startAngle, midAngle, endAngle)
-  return buildRoundStrokeArcPoints(
-    center,
-    radius,
-    startAngle,
-    sweep,
+  const segmentCount = Math.max(
     3,
-    ROUND_STROKE_CAP_ARC_SAMPLING
+    Math.ceil((Math.abs(sweep) * radius) / CONSTRAINED_ROUND_CAP_MAX_ARC_LENGTH)
   )
+  return Array.from({ length: segmentCount + 1 }, (_, index) => {
+    const angle = startAngle + (sweep * index) / segmentCount
+    return {
+      x: center.x + Math.cos(angle) * radius,
+      y: center.y + Math.sin(angle) * radius
+    }
+  })
 }
 
 const appendDedupePoint = (points: Vec2[], point: Vec2) => {
@@ -1967,13 +1985,13 @@ const _applyInsideSolidSharpGuardClippingToEntries = (
   const useBoundarySelectedSide = Boolean(selectedSideGuardPoints || sourcePath)
   const reach = Math.max(stroke.width * stroke.miterLimit, stroke.width, 1)
   const endpointReach = sourcePath ? Math.max(stroke.width * 1.5, 1) : reach
-  const sourceTopologyLength = sourcePath?.segments.length ?? source.length
+  const sourcePathSegmentCount = sourcePath?.segments.length ?? source.length
   return entries
     .map((entry): ClosedConstrainedStrokePolygonEntry | null => {
       const polygon = clipInsideSolidEntryToSharpGuards(
         entry,
         guardVertices,
-        sourceTopologyLength,
+        sourcePathSegmentCount,
         reach,
         endpointReach,
         selectedSide,

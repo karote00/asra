@@ -289,10 +289,10 @@ describe('clipper2 geometry backend adapter', () => {
           strokeId: 'stroke:0',
           strokeIndex: 0,
           intervalId: 'interval:0',
-          geometryFamily: 'constrained-dashed',
-          resolutionStatus: 'domain-plan-selected-side',
-          runtimeStatus: 'accepted',
-          sourceTopology: 'self-intersecting',
+          productMode: 'closed-constrained-domain',
+          productSignature: 'constrained-dashed:domain-plan-selected-side',
+          domainMode: 'closed-constrained-domain',
+          topologyFamily: 'self-intersecting',
           strokePosition: 'inside'
         }
       },
@@ -338,8 +338,7 @@ describe('clipper2 geometry backend adapter', () => {
         insideFillDomain: true,
         outsideFillDomain: false
       },
-      resolutionStatus: 'exact-constrained',
-      runtimeStatus: 'accepted'
+      productMode: 'closed-constrained-domain'
     })
   })
 

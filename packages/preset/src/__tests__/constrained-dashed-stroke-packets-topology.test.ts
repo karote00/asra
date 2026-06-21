@@ -13,17 +13,10 @@ import {
 } from '../components/stroke-render/solid-center-stroke-packets'
 import { buildStrokeFinalFacesFromResolvedPackets } from '../components/stroke-render/stroke-final-face'
 import {
-  buildConstrainedDashedStrokeProductVisualEntries,
   buildConstrainedDashedStrokeResolvedPackets,
   getConstrainedDashedVisibleIntervals
 } from '../components/stroke-render/constrained-dashed-stroke-packets'
-import {
-  classifyConstrainedDashedInterval,
-  classifyConstrainedDashedOwnership,
-  classifyConstrainedDashedRuntimeStatus,
-  classifyConstrainedDashedSource,
-  hasConstrainedDashedStrokeIntent
-} from '../components/stroke-render/constrained-dashed-stroke-packets'
+import { hasConstrainedDashedStrokeIntent } from '../components/stroke-render/constrained-dashed-stroke-packets'
 import { getRenderableStrokes } from '../components/stroke-render/renderable-stroke'
 import { buildEllipseLoop } from '../components/stroke-render/ellipse-path'
 import {
@@ -144,8 +137,7 @@ const buildSelfIntersectingSourcePathTestOptions = (
     sharedStrokeBoundaryDomains:
       resolvedGeometry.networks[0]?.selfIntersecting?.strokeBoundaryDomains ??
       [],
-    clipInsideToFillDomain: true,
-    constrainedDashedVisualMode: 'product-final' as const
+    clipInsideToFillDomain: true
   }
 }
 
@@ -2010,8 +2002,6 @@ const assertStrokeEventInvariants = ({
           ),
           firstPackets: packets.slice(0, 3).map((packet) => ({
             intervalId: packet.geometry.debugMeta?.intervalId,
-            finalCoverageBuilderStatus:
-              packet.geometry.debugMeta?.finalCoverageBuilderStatus,
             polygonCount: packet.geometry.polygons.length,
             pointCount: packet.geometry.polygons.reduce(
               (count, polygon) => count + polygon.length,
@@ -2490,7 +2480,7 @@ const assertRuleDrivenProductPolygonsInvariants = ({
     JSON.stringify(
       {
         message:
-          'product visual polygons should preserve spatial coverage for every visible dash interval',
+          'product polygons polygons should preserve spatial coverage for every visible dash interval',
         missing: missingIntervals
       },
       null,
@@ -2500,11 +2490,11 @@ const assertRuleDrivenProductPolygonsInvariants = ({
 
   expect(
     polygons.length,
-    `product visual polygons should remain inspectable after split-range rendering:${contextLabel ?? ''}`
+    `product polygons polygons should remain inspectable after split-range rendering:${contextLabel ?? ''}`
   ).toBeGreaterThan(0)
 }
 
-const getRuleDrivenProductVisualPolygons = ({
+const getRuleDrivenProductPolygons = ({
   cachePrefix,
   points,
   closed,
@@ -2517,40 +2507,12 @@ const getRuleDrivenProductVisualPolygons = ({
   stroke: ReturnType<typeof createDefaultStroke>
   options: Parameters<typeof buildConstrainedDashedStrokeResolvedPackets>[4]
 }) => {
-  const productEntries = buildConstrainedDashedStrokeProductVisualEntries(
-    `${cachePrefix}:direct-product`,
-    points,
-    closed,
-    [stroke],
-    {
-      ...options,
-      constrainedDashedVisualMode: 'product-final',
-      omitDiagnosticMetadata: true
-    }
-  )
-
-  if (productEntries) {
-    return {
-      source: 'direct-product' as const,
-      polygons: productEntries.flatMap((entry) => entry.polygons),
-      intervalGeometryRecords: productEntries.map((entry) => ({
-        intervalIds: entry.debugMeta?.intervalId
-          ? [entry.debugMeta.intervalId]
-          : [],
-        polygons: entry.polygons
-      }))
-    }
-  }
-
   const packets = buildConstrainedDashedStrokeResolvedPackets(
     `${cachePrefix}:final-product`,
     points,
     closed,
     [stroke],
-    {
-      ...options,
-      constrainedDashedVisualMode: 'product-final'
-    }
+    options
   )
   const finalFaces = buildStrokeFinalFacesFromResolvedPackets(packets)
   return {
@@ -3160,9 +3122,9 @@ const buildTerminalSplitRangeFixture = () => {
 }
 
 describe('constrained dashed stroke packets: topology and full-loop derivation', () => {
-  it('should keep geometry bounds when diagnostic metadata is omitted for drag visual collapse', () => {
+  it('should run: keep geometry bounds and requested source-span provenance on the unified drag product route', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
-      'rect:test:drag-metadata-omitted',
+      'rect:test:drag-product-route',
       [
         { x: 0, y: 0 },
         { x: 20, y: 0 },
@@ -3179,9 +3141,7 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
           dashOffset: 0
         })
       ],
-      {
-        omitDiagnosticMetadata: true
-      }
+      { includeSourceSpanDebugIds: true }
     )
 
     expect(packets).toHaveLength(1)
@@ -3192,14 +3152,15 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
       maxY: 4
     })
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed',
-      resolutionStatus: 'exact-constrained',
-      runtimeStatus: 'candidate'
+      productSignature: expect.stringMatching(/^constrained-dashed:/),
+      productMode: 'closed-constrained-domain'
     })
-    expect(packets[0]?.geometry.debugMeta?.sourceSpanIds).toBeUndefined()
+    expect(packets[0]?.geometry.debugMeta?.sourceSpanIds).toEqual([
+      'rect:test:drag-product-route:contour:0:source-span:0'
+    ])
   })
 
-  it('should run: derive one inside round-join full-loop constrained dashed packet from topology classification', () => {
+  it('should run: derive one inside round-join full-loop constrained dashed packet from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'rect:test:constrained-dashed',
       [
@@ -3221,13 +3182,11 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
       ]
     )
 
-    expect(packets.length).toBeGreaterThan(1)
-    expect(
-      packets.every(
-        (packet) =>
-          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed'
-      )
-    ).toBe(true)
+    expect(packets).toHaveLength(1)
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      productSignature: expect.stringMatching(/^constrained-dashed:/),
+      productMode: 'closed-constrained-domain'
+    })
     expect(getPacketAggregateBounds(packets)).toEqual({
       minX: 0,
       minY: 0,
@@ -3236,7 +3195,7 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
     })
   })
 
-  it('should run: derive one outside round-join full-loop constrained dashed packet from topology classification', () => {
+  it('should run: derive one outside round-join full-loop constrained dashed packet from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'rect:test:constrained-dashed',
       [
@@ -3258,13 +3217,11 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
       ]
     )
 
-    expect(packets.length).toBeGreaterThan(1)
-    expect(
-      packets.every(
-        (packet) =>
-          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed'
-      )
-    ).toBe(true)
+    expect(packets).toHaveLength(1)
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      productSignature: expect.stringMatching(/^constrained-dashed:/),
+      productMode: 'closed-constrained-domain'
+    })
     expect(getPacketAggregateBounds(packets)).toEqual({
       minX: -6,
       minY: -6,
@@ -3273,7 +3230,7 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
     })
   })
 
-  it('should run: derive one inside round-join full-loop constrained dashed packet on a rectangle-equivalent vector loop from topology classification', () => {
+  it('should run: derive one inside round-join full-loop constrained dashed packet on a rectangle-equivalent vector loop from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'vector:test:constrained-dashed',
       [
@@ -3296,13 +3253,11 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
       ]
     )
 
-    expect(packets.length).toBeGreaterThan(1)
-    expect(
-      packets.every(
-        (packet) =>
-          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed'
-      )
-    ).toBe(true)
+    expect(packets).toHaveLength(1)
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      productSignature: expect.stringMatching(/^constrained-dashed:/),
+      productMode: 'closed-constrained-domain'
+    })
     expect(getPacketAggregateBounds(packets)).toEqual({
       minX: 0,
       minY: 0,
@@ -3311,7 +3266,7 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
     })
   })
 
-  it('should run: derive one outside round-join full-loop constrained dashed packet on a rectangle-equivalent vector loop from topology classification', () => {
+  it('should run: derive one outside round-join full-loop constrained dashed packet on a rectangle-equivalent vector loop from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'vector:test:constrained-dashed',
       [
@@ -3334,13 +3289,11 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
       ]
     )
 
-    expect(packets.length).toBeGreaterThan(1)
-    expect(
-      packets.every(
-        (packet) =>
-          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed'
-      )
-    ).toBe(true)
+    expect(packets).toHaveLength(1)
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      productSignature: expect.stringMatching(/^constrained-dashed:/),
+      productMode: 'closed-constrained-domain'
+    })
     expect(getPacketAggregateBounds(packets)).toEqual({
       minX: -6,
       minY: -6,
@@ -3349,7 +3302,7 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
     })
   })
 
-  it('should run: derive one outside round-join full-loop constrained dashed packet on a broader vector loop from topology classification', () => {
+  it('should run: derive one outside round-join full-loop constrained dashed packet on a broader vector loop from domain plan', () => {
     const packets = buildConstrainedDashedStrokeResolvedPackets(
       'vector:test:constrained-dashed',
       [
@@ -3372,21 +3325,20 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
       ]
     )
 
-    expect(packets.length).toBeGreaterThan(1)
-    expect(
-      packets.every(
-        (packet) =>
-          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed'
-      )
-    ).toBe(true)
+    expect(packets).toHaveLength(1)
+    expect(packets[0]?.geometry.debugMeta).toMatchObject({
+      productSignature: expect.stringMatching(/^constrained-dashed:/),
+      productMode: 'closed-constrained-domain'
+    })
     const aggregateBounds = getPacketAggregateBounds(packets)
     expect(aggregateBounds.minX).toBe(-6)
     expect(aggregateBounds.minY).toBe(-6)
-    expect(aggregateBounds.maxX).toBeCloseTo(86, 1)
+    expect(aggregateBounds.maxX).toBeGreaterThan(85)
+    expect(aggregateBounds.maxX).toBeLessThanOrEqual(86)
     expect(aggregateBounds.maxY).toBeCloseTo(46, 6)
   })
 
-  it('should run: keep the same constrained dashed full-loop geometry when the first supported paint gradient paint slice swaps paint over the supported rect path', () => {
+  it('should run: keep the same constrained dashed full-loop geometry when the first formal paint gradient paint slice swaps paint over the formal rect path', () => {
     const solidPackets = buildConstrainedDashedStrokeResolvedPackets(
       'rect:test:constrained-dashed',
       [
@@ -3435,7 +3387,7 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
       ]
     )
 
-    expect(solidPackets.length).toBeGreaterThan(1)
+    expect(solidPackets).toHaveLength(1)
     expect(gradientPackets).toHaveLength(solidPackets.length)
     expect(
       gradientPackets.every((packet) => packet.paint.kind === 'gradient')
@@ -3451,7 +3403,7 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
     )
   })
 
-  it('should run: keep the same constrained dashed full-loop outside geometry when the next supported paint gradient paint slice swaps paint over the supported rect path', () => {
+  it('should run: keep the same constrained dashed full-loop outside geometry when the next formal paint gradient paint slice swaps paint over the formal rect path', () => {
     const solidPackets = buildConstrainedDashedStrokeResolvedPackets(
       'rect:test:constrained-dashed-outside',
       [
@@ -3500,7 +3452,7 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
       ]
     )
 
-    expect(solidPackets.length).toBeGreaterThan(1)
+    expect(solidPackets).toHaveLength(1)
     expect(gradientPackets).toHaveLength(solidPackets.length)
     expect(
       gradientPackets.every((packet) => packet.paint.kind === 'gradient')
@@ -3538,9 +3490,9 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 0,
-      minY: 0,
+      minY: -2,
       maxX: 20,
-      maxY: 4
+      maxY: 2
     })
   })
 
@@ -3565,13 +3517,20 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
       ]
     )
 
-    expect(packets).toHaveLength(2)
+    expect(packets).toHaveLength(1)
     expect(
       packets.every(
         (packet) =>
-          packet.geometry.debugMeta?.geometryFamily === 'constrained-dashed'
+          packet.geometry.debugMeta?.productSignature?.startsWith(
+            'constrained-dashed:'
+          ) === true
       )
     ).toBe(true)
+    expect(
+      packets[0]?.geometry.debugMeta?.dashProductIntervals?.map(
+        (interval) => interval.intervalId
+      )
+    ).toHaveLength(2)
     expect(
       packets.some(
         (packet) =>
@@ -3603,7 +3562,7 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
 
     expect(packets).toHaveLength(1)
     expect(packets[0]?.geometry.debugMeta).toMatchObject({
-      geometryFamily: 'constrained-dashed'
+      productSignature: expect.stringMatching(/^constrained-dashed:/)
     })
     expect(packets[0]?.geometry.bounds).toEqual({
       minX: 20,
@@ -3613,7 +3572,7 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
     })
   })
 
-  it('should run: expand closed square-cap endpoint dashes as body spans without clipping away the first dash', () => {
+  it('should run: keep closed square-cap dash bodies and explicit cap footprint without span extension', () => {
     const points = [
       { x: 0, y: 0 },
       { x: 80, y: 0 },
@@ -3647,21 +3606,14 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
       startDistance: 0,
       endDistance: 20,
       wrapsSeam: false,
-      physicalVisibleLength: 30
+      physicalVisibleLength: 20
     })
     expect(physicalSpans).toEqual([
       {
-        spanId: 'interval:0:core:0',
-        role: 'core',
-        startDistance: 235,
-        endDistance: 240,
-        wrapsSeam: false
-      },
-      {
-        spanId: 'interval:0:core:1',
+        spanId: 'interval:0',
         role: 'core',
         startDistance: 0,
-        endDistance: 25,
+        endDistance: 20,
         wrapsSeam: false
       }
     ])
@@ -3801,7 +3753,7 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
     expect(outsideLegalDomainSamples).toEqual([])
   })
 
-  it('should run: keep outside square-cap first dash bodies visible on both sides of a source-path seam', () => {
+  it('should run: keep outside square-cap first dash endpoints paired with their own offset side', () => {
     const points = [
       { x: 0, y: 0 },
       { x: 80, y: 0 },
@@ -3870,7 +3822,7 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
     )
 
     expect(firstDash?.geometry.debugMeta?.physicalVisibleLength).toBeCloseTo(
-      30,
+      20,
       6
     )
     expect(
@@ -3880,7 +3832,7 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
     ).toBe(true)
     expect(
       firstDash?.geometry.polygons.some((polygon) =>
-        isPointInsideEvenOdd({ x: -5, y: 2 }, polygon)
+        isPointInsideEvenOdd({ x: 23, y: -5 }, polygon)
       )
     ).toBe(true)
     expect(
@@ -3888,6 +3840,11 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
         isPointInsideEvenOdd({ x: -4, y: -4 }, polygon)
       )
     ).toBe(true)
+    expect(
+      firstDash?.geometry.polygons.some((polygon) =>
+        isPointInsideEvenOdd({ x: -5, y: 2 }, polygon)
+      )
+    ).toBe(false)
   })
 
   it('should run: keep outside square-cap first dash body visible on the first source segment', () => {
@@ -3974,10 +3931,10 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
       )
     ).toBe(true)
     expect(
-      firstDash?.geometry.debugMeta?.physicalSpanRanges?.some(
-        (range) => range.role === 'start-cap' || range.role === 'end-cap'
+      firstDash?.geometry.debugMeta?.physicalSpanRanges?.every(
+        (range) => range.role === 'core'
       )
-    ).toBe(false)
+    ).toBe(true)
     expect(
       firstDash?.geometry.polygons.some((polygon) =>
         isPointInsideEvenOdd(firstSegmentBodyProbe, polygon)
@@ -3985,7 +3942,7 @@ describe('constrained dashed stroke packets: topology and full-loop derivation',
     ).toBe(true)
   })
 
-  it('should run: keep the same constrained dashed single-edge geometry when the next supported paint gradient paint slice swaps paint over the supported rect path', () => {
+  it('should run: keep the same constrained dashed single-edge geometry when the next formal paint gradient paint slice swaps paint over the formal rect path', () => {
     const solidPackets = buildConstrainedDashedStrokeResolvedPackets(
       'rect:test:constrained-dashed-single-edge',
       [

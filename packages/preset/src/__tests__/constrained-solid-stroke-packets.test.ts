@@ -4451,8 +4451,8 @@ describe('constrained solid stroke packets: base render hit export', () => {
 
     expect(hit.geometryId).toBe(resolved.geometry.geometryId)
     expect(exportPacket.geometryId).toBe(resolved.geometry.geometryId)
-    expect(hit.polygons).toBe(resolved.geometry.polygons)
-    expect(exportPacket.polygons).toBe(resolved.geometry.polygons)
+    expect(hit.polygons).toEqual(resolved.geometry.polygons)
+    expect(exportPacket.polygons).toEqual(resolved.geometry.polygons)
     expect(hit.bounds).toEqual(resolved.geometry.bounds)
     expect(exportPacket.bounds).toEqual(resolved.geometry.bounds)
   })
@@ -4482,10 +4482,10 @@ describe('constrained solid stroke packets: base render hit export', () => {
 
     expect(face).toMatchObject({
       faceId: packets[0]?.geometry.geometryId,
-      geometryFamily: 'constrained-solid',
-      resolutionStatus: 'exact-constrained',
-      runtimeStatus: 'accepted',
-      sourceTopology: 'rectangle-equivalent',
+      productMode: 'closed-constrained-domain',
+      productSignature: expect.stringMatching(/^constrained-solid:/),
+      domainMode: 'closed-constrained-domain',
+      topologyFamily: 'rectangle-equivalent',
       sourceContourIds: ['contour-a'],
       legalDomainIds: ['legal-domain-a']
     })
@@ -4543,7 +4543,9 @@ describe('constrained solid stroke packets: base render hit export', () => {
       strokeIndex: 0,
       contourId: 'opaque-cache-key:contour:0',
       legalDomainId: 'opaque-cache-key:legal-domain:0',
-      sourceTopology: 'rectangle-equivalent',
+      productMode: 'closed-constrained-domain',
+      productSignature: expect.stringMatching(/^constrained-solid:/),
+      domainMode: 'closed-constrained-domain',
       topologyFamily: 'rectangle-equivalent'
     })
   })
@@ -4577,15 +4579,21 @@ describe('constrained solid stroke packets: base render hit export', () => {
       strokeIndex: 0,
       contourId: 'rect:legal-domain:contour:0',
       legalDomainId: 'rect:legal-domain:legal-domain:0',
-      geometryFamily: 'constrained-solid',
-      resolutionStatus: 'exact-constrained',
-      runtimeStatus: 'accepted',
-      runtimeReason: 'constrained-solid-exact',
-      sourceTopology: 'rectangle-equivalent',
+      productMode: 'closed-constrained-domain',
+      productSignature: expect.stringMatching(/^constrained-solid:/),
+      domainMode: 'closed-constrained-domain',
       topologyFamily: 'rectangle-equivalent'
     })
-    expect(hit.debugMeta).toBeUndefined()
-    expect(exportPacket.debugMeta).toBeUndefined()
+    expect(hit.debugMeta).toMatchObject({
+      productMode: 'closed-constrained-domain',
+      productSignature: expect.stringMatching(/^constrained-solid:/),
+      domainMode: 'closed-constrained-domain'
+    })
+    expect(exportPacket.debugMeta).toMatchObject({
+      productMode: 'closed-constrained-domain',
+      productSignature: expect.stringMatching(/^constrained-solid:/),
+      domainMode: 'closed-constrained-domain'
+    })
 
     withStrokeDiagnosticsMode('full', () => {
       const [diagnosticHit] = buildSolidCenterStrokeHitTestPackets(packets)

@@ -19,11 +19,16 @@ import {
   type StrokeFinalFace,
   type StrokeOwnerKey
 } from './stroke-final-face'
+import {
+  collapseStrokeFinalFaceVisualOverlaps,
+  type StrokeVisualOverlapCollapseOptions
+} from './stroke-candidate-arrangement'
 import { shouldEmitFullStrokeDiagnostics } from './stroke-diagnostics-mode'
 import {
   getGeometryBackend,
   getGeometryBackendCacheSignature,
   type CandidateRegion,
+  type FillRule,
   type GeometryBackend,
   type PolygonRegion
 } from './geometry-backend'
@@ -49,13 +54,15 @@ export interface SolidCenterStrokeGeometryPacket {
 }
 
 export interface SolidCenterStrokeRenderDescriptor {
+  descriptorProductPolygons?: Vec2[][]
   fillPolygons?: Vec2[][]
   clipPolygons?: Vec2[][]
   fillClipPolygons?: Vec2[][]
+  fillExcludePolygons?: Vec2[][]
   strokeMaskPolygons?: Vec2[][]
   strokePaths?: Vec2[][]
   strokePathGroups?: {
-    clipPolygons: Vec2[][]
+    clipPolygons?: Vec2[][]
     strokePaths: Vec2[][]
     strokePathStyle?: {
       width: number
@@ -75,15 +82,11 @@ export interface SolidCenterStrokeRenderDescriptor {
 }
 
 export interface SolidCenterStrokeRuntimeMeta {
-  geometryFamily?: StrokeGeometryFamily | string
-  resolutionStatus?: StrokeGeometryResolutionStatus | string
-  runtimeStatus?: StrokeGeometryRuntimeStatus | string
-  runtimeReason?: StrokeGeometryRuntimeReason | string
-  sourceTopology?: StrokeGeometrySourceTopology | string
+  productMode?: string
+  productSignature?: string
+  domainMode?: string
   topologyFamily?: PathTopologyModel['topologyFamily'] | string
-  intervalTopology?: StrokeGeometryIntervalTopology | string
   strokePosition?: 'center' | 'inside' | 'outside'
-  finalCoverageBuilderStatus?: 'product-final' | 'debug-raw'
   visualOverlapCollapseStatus?:
     | 'exact-union'
     | 'exact-arrangement'
@@ -110,6 +113,7 @@ export interface SolidCenterStrokeHitTestPacket {
   ownerSet: StrokeOwnerKey[]
   intervalIds: string[]
   sourceSpanIds: string[]
+  sourceNetworkIds: string[]
   sourceContourIds: string[]
   legalDomainIds: string[]
   debugMeta?: SolidCenterStrokeGeometryDebugMeta
@@ -123,6 +127,7 @@ export interface SolidCenterStrokeExportPacket {
   ownerSet: StrokeOwnerKey[]
   intervalIds: string[]
   sourceSpanIds: string[]
+  sourceNetworkIds: string[]
   sourceContourIds: string[]
   legalDomainIds: string[]
   debugMeta?: SolidCenterStrokeGeometryDebugMeta
@@ -136,61 +141,22 @@ export interface SolidCenterStrokeResolvedPacket {
 interface SolidCenterStrokeRenderEntryOptions {
   collapseDashedCenterVisualOverlaps?: boolean
   exactBackend?: Pick<GeometryBackend, 'capabilities' | 'union'> &
-    Partial<Pick<GeometryBackend, 'buildArrangement' | 'intersection'>>
+    Partial<Pick<GeometryBackend, 'buildArrangement' | 'intersection'>> &
+    Partial<Pick<GeometryBackend, 'difference'>>
+  legalDomains?: StrokeVisualOverlapCollapseOptions['legalDomains']
 }
 
-export type StrokeGeometryFamily =
-  | 'solid-center'
-  | 'dashed-center'
-  | 'constrained-solid'
-  | 'constrained-dashed'
-
-export type StrokeGeometryResolutionStatus =
-  | 'center-product'
-  | 'domain-plan-selected-side'
-  | 'exact-constrained'
-
-export type StrokeGeometryRuntimeStatus =
-  | 'candidate'
-  | 'accepted'
-  | 'blocked'
-  | 'not-applicable'
-
-export type StrokeGeometryRuntimeReason =
-  | 'center-stroke'
-  | 'constrained-solid-exact'
-  | 'domain-plan-constrained-solid'
-  | 'single-owner'
-  | 'typed-owners'
-  | 'missing-owner-metadata'
-  | 'no-packets'
-  | 'no-candidate-packets'
-  | 'missing-open-domain-plan'
-  | 'unresolved-overlap-ownership'
-  | 'missing-domain-plan'
-
-export type StrokeGeometrySourceTopology =
-  | 'rectangle-equivalent'
-  | 'broader-simple-closed'
-  | 'sampled-simple-closed'
-  | 'self-intersecting'
-  | 'degenerate'
-  | 'open'
-
-export type StrokeGeometryIntervalTopology =
-  | 'full-loop'
-  | 'single-edge'
-  | 'corner-spanning'
-  | 'seam-wrapping'
-  | 'multi-corner'
-  | 'other'
-
-export type StrokeGeometryOwnershipStatus = 'accepted' | 'blocked'
+type RenderProjectionArrangementBackend = Pick<
+  GeometryBackend,
+  'capabilities' | 'buildArrangement' | 'union'
+> &
+  Partial<Pick<GeometryBackend, 'intersection'>>
 
 export interface SolidCenterStrokeGeometryDebugMeta {
   sourcePathId?: string
   ownerKey?: string
   networkId?: string
+  sourceNetworkIds?: string[]
   strokeId?: string
   strokeIndex?: number
   contourId?: string
@@ -202,16 +168,46 @@ export interface SolidCenterStrokeGeometryDebugMeta {
   sourceContourIds?: string[]
   legalDomainIds?: string[]
   authoredVisibleIntervalIndex?: number
+  productSourceSegmentIndexes?: number[]
+  materializedStartDistance?: number
+  materializedEndDistance?: number
+  materializedWrapsSeam?: boolean
+  rawProductArea?: number
+  cleanedProductArea?: number
+  boundaryClippedProductArea?: number
+  finalProductArea?: number
+  legalDomainClipSourcePathPresent?: boolean
+  legalDomainClipSourcePathClosed?: boolean
+  implicitFillRegionCount?: number
+  boundarySideClippedProductArea?: number
   startDistance?: number
   endDistance?: number
   wrapsSeam?: boolean
   physicalSpanRanges?: {
     spanId: string
-    role: 'core' | 'start-cap' | 'end-cap'
+    role: 'core'
     startDistance: number
     endDistance: number
     wrapsSeam: boolean
   }[]
+  materializedBoundaryRanges?: {
+    startDistance: number
+    endDistance: number
+    segmentIndex: number
+  }[]
+  materializedOffsetFrameSpan?: {
+    frameCount: number
+    startX: number
+    startY: number
+    startOffsetX: number
+    startOffsetY: number
+    startOffsetDistance: number
+    endX: number
+    endY: number
+    endOffsetX: number
+    endOffsetY: number
+    endOffsetDistance: number
+  }
   physicalVisibleLength?: number
   previousVisibleIntervalId?: string | null
   nextVisibleIntervalId?: string | null
@@ -252,7 +248,40 @@ export interface SolidCenterStrokeGeometryDebugMeta {
     filledSide?: 1 | -1
     unfilledSide?: 1 | -1
     boundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
+    domainMode?: string
   }[]
+  dashProductIntervals?: {
+    intervalId: string
+    splitRangeId?: string
+    terminalRole?: 'start' | 'end' | 'start-end' | 'middle'
+    startDistance?: number
+    endDistance?: number
+    effectiveStartDistance?: number
+    effectiveEndDistance?: number
+    capReachDistance?: number
+    boundaryDomainId?: string
+    boundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
+    selectedSide?: 1 | -1
+    filledSide?: 1 | -1
+    unfilledSide?: 1 | -1
+    sourceSegmentIndex?: number
+    endpointCapPolicySignature?: string
+    joinOwnershipSignature?: string
+    smoothContinuityGroupId?: string
+  }[]
+  dashEndpointCapPolicySignatures?: string[]
+  dashEndpointCapPolicyTerminalRoles?: (
+    | 'middle'
+    | 'start'
+    | 'end'
+    | 'start-end'
+  )[]
+  joinOwnershipSignatures?: string[]
+  smoothContinuityGroupIds?: string[]
+  domainPlanBoundaryRoles?: ('outer' | 'hole' | 'filled-face' | 'ambiguous')[]
+  domainPlanSplitRangeIds?: string[]
+  domainPlanSelectedSides?: (1 | -1)[]
+  domainPlanSourceSegmentIndexes?: number[]
   intervalStartCutKind?: 'vertex' | 'dash-boundary' | 'self-intersection'
   intervalEndCutKind?: 'vertex' | 'dash-boundary' | 'self-intersection'
   strokeIntersectionEligible?: boolean
@@ -262,20 +291,39 @@ export interface SolidCenterStrokeGeometryDebugMeta {
     | 'fail-open-invalid-outline'
     | 'empty'
   dashPlacementMode?: 'arc-length-pattern'
-  geometryFamily?: StrokeGeometryFamily
-  resolutionStatus?: StrokeGeometryResolutionStatus
-  runtimeStatus?: StrokeGeometryRuntimeStatus
-  runtimeReason?: StrokeGeometryRuntimeReason
-  sourceTopology?: StrokeGeometrySourceTopology
+  productMode?: string
+  productSignature?: string
+  domainMode?: string
   topologyFamily?: PathTopologyModel['topologyFamily']
-  intervalTopology?: StrokeGeometryIntervalTopology
-  ownershipStatus?: StrokeGeometryOwnershipStatus
   ownerCount?: number
   strokePosition?: 'center' | 'inside' | 'outside'
   strokeWidth?: number
   strokeJoin?: 'miter' | 'bevel' | 'round'
   strokeCap?: 'butt' | 'square' | 'round' | 'none'
   strokeMiterLimit?: number
+  dashEndpointCapPolicySignature?: string
+  dashEndpointCapPolicyTerminalRole?: 'middle' | 'start' | 'end' | 'start-end'
+  materializedEndpointCaps?: {
+    rangeStartDistance: number
+    rangeEndDistance: number
+    policySignature: string
+    startCap: boolean
+    endCap: boolean
+    suppressStartCap: boolean
+    suppressEndCap: boolean
+    materializedStrokeCap?: 'butt' | 'square' | 'round' | 'none'
+    roundCapStart?: boolean
+    roundCapEnd?: boolean
+    squareCapStart?: boolean
+    squareCapEnd?: boolean
+  }[]
+  joinOwnershipSignature?: string
+  joinOwnershipRecords?: {
+    kind: 'source-vertex' | 'boundary-terminal-pair'
+    area: number
+    bounds: Bounds
+  }[]
+  smoothContinuityGroupId?: string
   solidMaskModelMaskApplication?: 'render-fill-mask' | 'exact-boolean'
   solidMaskModelVisibleRender?: 'masked-source-stroke'
   solidMaskModelCoverageOracle?: 'exact-boolean' | 'render-mask'
@@ -316,7 +364,6 @@ export interface SolidCenterStrokeGeometryDebugMeta {
     | 'render-projection-arrangement'
   visualOverlapSourceFaceIds?: string[]
   visualOverlapSourceGeometryIds?: string[]
-  finalCoverageBuilderStatus?: 'product-final' | 'debug-raw'
   intervalSweepSpanCount?: number
   terminalCapCount?: number
   paintBounds?: Bounds
@@ -334,21 +381,6 @@ interface SolidCenterStrokePacketOptions {
   }
   topology?: PathTopologyModel
   preferStrokePathRenderDescriptor?: boolean
-}
-
-const mapCenterTopologyToSourceTopology = (
-  topology: PathTopologyModel
-): StrokeGeometrySourceTopology => {
-  if (topology.topologyFamily === 'open') {
-    return 'open'
-  }
-  if (topology.topologyFamily === 'self-intersecting') {
-    return 'self-intersecting'
-  }
-  if (topology.topologyFamily === 'degenerate') {
-    return 'degenerate'
-  }
-  return 'sampled-simple-closed'
 }
 
 const getBounds = (polygons: Vec2[][]): Bounds => {
@@ -556,7 +588,7 @@ const shouldCleanRenderProjectionPolygon = (polygon: Vec2[]) => {
       microEdgeCount += 1
     }
   }
-  return microEdgeCount >= 5
+  return microEdgeCount > 0
 }
 
 const cleanRenderProjectionPolygon = (polygon: Vec2[]) => {
@@ -622,9 +654,44 @@ const cleanRenderProjectionPolygon = (polygon: Vec2[]) => {
   return cleaned
 }
 
+const pruneRenderProjectionMicroEdges = (polygon: Vec2[]) => {
+  if (polygon.length < 4) {
+    return polygon
+  }
+
+  let cleaned = polygon
+  for (let pass = 0; pass < 120 && cleaned.length >= 4; pass += 1) {
+    const removeIndex = cleaned.findIndex((point, index) => {
+      const previous = cleaned[(index - 1 + cleaned.length) % cleaned.length]
+      const next = cleaned[(index + 1) % cleaned.length]
+      return (
+        getPointDistance(previous, point) <=
+          RENDER_PROJECTION_MICRO_EDGE_TOLERANCE ||
+        getPointDistance(point, next) <= RENDER_PROJECTION_MICRO_EDGE_TOLERANCE
+      )
+    })
+    if (removeIndex < 0) {
+      break
+    }
+
+    const compacted = cleaned.filter((_, index) => index !== removeIndex)
+    if (
+      compacted.length < 3 ||
+      Math.abs(getRenderProjectionSignedPolygonArea(compacted)) <= 1e-6
+    ) {
+      break
+    }
+    cleaned = compacted
+  }
+
+  return cleaned
+}
+
 const cleanRenderProjectionPolygons = (polygons: Vec2[][]) =>
   polygons
-    .map(cleanRenderProjectionPolygon)
+    .map((polygon) =>
+      pruneRenderProjectionMicroEdges(cleanRenderProjectionPolygon(polygon))
+    )
     .filter((polygon) => polygon.length >= 3)
 
 const normalizedResolvedPacketCache = new WeakMap<
@@ -717,7 +784,8 @@ export const buildSolidCenterStrokeResolvedPackets = (
       closed
     })
   const topologyPoints = topology.normalizedPoints
-  const sourceTopology = mapCenterTopologyToSourceTopology(topology)
+  const isSelfIntersectingCenterProduct =
+    topology.topologyFamily === 'self-intersecting'
 
   return getRenderableStrokes(strokes).flatMap((stroke, index) => {
     if (!supportsSolidCenterStroke(stroke)) {
@@ -726,7 +794,7 @@ export const buildSolidCenterStrokeResolvedPackets = (
 
     const shouldUseStrokePathDescriptor =
       options.preferStrokePathRenderDescriptor === true &&
-      sourceTopology === 'self-intersecting' &&
+      isSelfIntersectingCenterProduct &&
       stroke.kind === 'solid'
     const rawPolygons = shouldUseStrokePathDescriptor
       ? [
@@ -735,7 +803,7 @@ export const buildSolidCenterStrokeResolvedPackets = (
             stroke.width * Math.max(2, Math.min(8, stroke.miterLimit || 4))
           )
         ].filter((polygon) => polygon.length >= 3)
-      : sourceTopology === 'self-intersecting'
+      : isSelfIntersectingCenterProduct
         ? buildSelfIntersectingSolidCenterStrokePolygons(
             topologyPoints,
             topology.closed,
@@ -747,7 +815,7 @@ export const buildSolidCenterStrokeResolvedPackets = (
             stroke
           )
     const polygons =
-      sourceTopology === 'self-intersecting' && !shouldUseStrokePathDescriptor
+      isSelfIntersectingCenterProduct && !shouldUseStrokePathDescriptor
         ? unionCoveragePolygons(rawPolygons)
         : rawPolygons
     if (polygons.length === 0) {
@@ -761,19 +829,18 @@ export const buildSolidCenterStrokeResolvedPackets = (
           geometryId,
           polygons,
           bounds: getBounds(polygons),
-          renderDescriptor:
-            sourceTopology === 'self-intersecting'
-              ? {
-                  strokePaths: [buildClosedStrokePath(topologyPoints, closed)],
-                  strokePathStyle: {
-                    width: stroke.width,
-                    cap: 'butt',
-                    join: stroke.join,
-                    miterLimit: stroke.miterLimit,
-                    closed: false
-                  }
+          renderDescriptor: isSelfIntersectingCenterProduct
+            ? {
+                strokePaths: [buildClosedStrokePath(topologyPoints, closed)],
+                strokePathStyle: {
+                  width: stroke.width,
+                  cap: 'butt',
+                  join: stroke.join,
+                  miterLimit: stroke.miterLimit,
+                  closed: false
                 }
-              : undefined,
+              }
+            : undefined,
           debugMeta: {
             sourcePathId: cachePrefix,
             ownerKey: options.metadata?.ownerKeyPrefix
@@ -783,25 +850,32 @@ export const buildSolidCenterStrokeResolvedPackets = (
             strokeId: `stroke:${index}`,
             strokeIndex: index,
             strokePosition: 'center',
-            geometryFamily: 'solid-center',
-            resolutionStatus: 'center-product',
-            runtimeStatus: 'not-applicable',
-            runtimeReason: 'center-stroke',
-            visualOverlapCollapseStatus:
-              sourceTopology === 'self-intersecting'
-                ? 'exact-union'
-                : undefined,
-            sourceTopology,
+            productMode: 'center-product',
+            productSignature: 'center-product:solid',
+            domainMode: 'center-product',
+            visualOverlapCollapseStatus: isSelfIntersectingCenterProduct
+              ? 'exact-union'
+              : undefined,
             topologyFamily: topology.topologyFamily,
             revisionSet: buildStrokeRuntimeRevisionSet({
               points: topologyPoints,
               closed: topology.closed,
               stroke,
-              geometryFamily: 'solid-center',
-              resolutionStatus: 'center-product',
-              runtimeStatus: 'not-applicable',
-              runtimeReason: 'center-stroke',
-              sourceTopology,
+              productMode: 'center-product',
+              domainMode: 'center-product',
+              strokeProductSignature: 'center-product:solid',
+              endpointCapPolicySignature: [
+                'center-product',
+                stroke.cap,
+                stroke.width
+              ].join(':'),
+              joinOwnershipSignature: [
+                'center-product',
+                stroke.join,
+                stroke.miterLimit
+              ].join(':'),
+              smoothContinuitySignature: 'center-product:solid',
+              productMaterializationSignature: 'center-product:solid',
               ownerKey: options.metadata?.ownerKeyPrefix
                 ? `${options.metadata.ownerKeyPrefix}:stroke:${index}`
                 : undefined,
@@ -890,6 +964,199 @@ const flattenFacePolygons = (
   return cleanRenderProjectionPolygons(
     polygons.length > 0 ? polygons : sourcePolygons
   )
+}
+
+const intersectDescriptorPolygons = (
+  subjectPolygons: Vec2[][],
+  clipPolygons: Vec2[][]
+) => {
+  if (subjectPolygons.length === 0 || clipPolygons.length === 0) {
+    return subjectPolygons
+  }
+
+  const backend = getGeometryBackend()
+  if (
+    backend.capabilities.intersection !== true ||
+    typeof backend.intersection !== 'function'
+  ) {
+    return []
+  }
+
+  return flattenFacePolygons(
+    backend.intersection(
+      [
+        {
+          polygons: subjectPolygons.map(normalizeCoveragePolygonWinding)
+        }
+      ],
+      [
+        {
+          polygons: clipPolygons.map(normalizeCoveragePolygonWinding)
+        }
+      ],
+      'nonzero'
+    ),
+    []
+  )
+}
+
+const differenceDescriptorPolygons = (
+  subjectPolygons: Vec2[][],
+  excludedPolygons: Vec2[][]
+) => {
+  if (subjectPolygons.length === 0 || excludedPolygons.length === 0) {
+    return subjectPolygons
+  }
+
+  const backend = getGeometryBackend()
+  if (
+    backend.capabilities.difference !== true ||
+    typeof backend.difference !== 'function'
+  ) {
+    return []
+  }
+
+  return flattenFacePolygons(
+    backend.difference(
+      [
+        {
+          polygons: subjectPolygons.map(normalizeCoveragePolygonWinding)
+        }
+      ],
+      excludedPolygons.map((polygon) => ({
+        polygons: [normalizeCoveragePolygonWinding(polygon)]
+      })),
+      'nonzero'
+    ),
+    []
+  )
+}
+
+const unionDescriptorPolygons = (polygons: Vec2[][]) => {
+  if (polygons.length <= 1) {
+    return polygons
+  }
+
+  const backend = getGeometryBackend()
+  if (
+    backend.capabilities.union !== true ||
+    typeof backend.union !== 'function'
+  ) {
+    return polygons
+  }
+
+  try {
+    const unionPolygons = flattenFacePolygons(
+      backend.union(
+        polygons.map((polygon) => ({
+          polygons: [normalizeCoveragePolygonWinding(polygon)]
+        })),
+        'nonzero'
+      ),
+      polygons
+    )
+    return unionPolygons.length > 0 ? unionPolygons : polygons
+  } catch {
+    return polygons
+  }
+}
+
+const buildStrokePathDescriptorPolygons = (
+  strokePaths: Vec2[][] | undefined,
+  style: SolidCenterStrokeRenderDescriptor['strokePathStyle'] | undefined
+) =>
+  style
+    ? (strokePaths ?? []).flatMap((strokePath) =>
+        buildSolidCenterStrokePolygons(strokePath, style.closed ?? false, {
+          style: 'solid',
+          position: 'center',
+          width: style.width,
+          cap: style.cap === 'none' ? 'butt' : style.cap,
+          join: style.join,
+          miterLimit: style.miterLimit
+        })
+      )
+    : []
+
+const materializeRenderDescriptorProductPolygons = (
+  descriptor: SolidCenterStrokeRenderDescriptor | undefined,
+  carrierPolygons: Vec2[][]
+) => {
+  if (!descriptor) {
+    return carrierPolygons
+  }
+
+  const hasProductDomainClip =
+    (descriptor.clipPolygons && descriptor.clipPolygons.length > 0) ||
+    (descriptor.fillClipPolygons && descriptor.fillClipPolygons.length > 0)
+
+  const hasDescriptorProductPolygons =
+    descriptor.descriptorProductPolygons !== undefined &&
+    descriptor.descriptorProductPolygons.length > 0
+
+  const groupPolygons = hasDescriptorProductPolygons
+    ? []
+    : (descriptor.strokePathGroups?.flatMap((group) => {
+        const polygons = buildStrokePathDescriptorPolygons(
+          group.strokePaths,
+          group.strokePathStyle ?? descriptor.strokePathStyle
+        )
+        return !hasProductDomainClip &&
+          group.clipPolygons &&
+          group.clipPolygons.length > 0
+          ? intersectDescriptorPolygons(polygons, group.clipPolygons)
+          : polygons
+      }) ?? [])
+
+  let flatProductPolygons = hasDescriptorProductPolygons
+    ? (descriptor.descriptorProductPolygons ?? [])
+    : [
+        ...(descriptor.fillPolygons ?? []),
+        ...(descriptor.strokeMaskPolygons ?? []),
+        ...buildStrokePathDescriptorPolygons(
+          descriptor.strokePaths,
+          descriptor.strokePathStyle
+        )
+      ]
+
+  if (
+    flatProductPolygons.length > 0 &&
+    descriptor.clipPolygons &&
+    descriptor.clipPolygons.length > 0
+  ) {
+    flatProductPolygons = intersectDescriptorPolygons(
+      flatProductPolygons,
+      descriptor.clipPolygons
+    )
+  }
+
+  let productPolygons = [...flatProductPolygons, ...groupPolygons]
+
+  if (productPolygons.length === 0) {
+    productPolygons =
+      descriptor.clipPolygons && descriptor.clipPolygons.length > 0
+        ? intersectDescriptorPolygons(carrierPolygons, descriptor.clipPolygons)
+        : carrierPolygons
+  }
+
+  if (descriptor.fillClipPolygons && descriptor.fillClipPolygons.length > 0) {
+    productPolygons = intersectDescriptorPolygons(
+      productPolygons,
+      descriptor.fillClipPolygons
+    )
+  }
+
+  if (
+    descriptor.fillExcludePolygons &&
+    descriptor.fillExcludePolygons.length > 0
+  ) {
+    productPolygons = differenceDescriptorPolygons(
+      productPolygons,
+      descriptor.fillExcludePolygons
+    )
+  }
+
+  return cleanRenderProjectionPolygons(unionDescriptorPolygons(productPolygons))
 }
 
 const emitStrokePipelineCounter = (counterName: string, value = 1) => {
@@ -1002,14 +1269,147 @@ const getPolygonListCoverageArea = (polygons: Vec2[][]) =>
 const normalizeCoveragePolygonWinding = (polygon: Vec2[]) =>
   getSignedPolygonArea(polygon) < 0 ? [...polygon].reverse() : polygon
 
-const toCoverageFaceRegion = (
+const clipRenderProjectionUnionToArrangementCoverage = (
+  unionPolygons: Vec2[][],
+  arrangementPolygons: Vec2[][],
+  backend: Pick<GeometryBackend, 'capabilities'> &
+    Partial<Pick<GeometryBackend, 'intersection'>>
+) => {
+  if (
+    unionPolygons.length === 0 ||
+    arrangementPolygons.length === 0 ||
+    backend.capabilities.intersection !== true ||
+    typeof backend.intersection !== 'function'
+  ) {
+    return unionPolygons
+  }
+
+  const clipped = flattenFacePolygons(
+    backend.intersection(
+      [
+        {
+          polygons: unionPolygons.map(normalizeCoveragePolygonWinding)
+        }
+      ],
+      [
+        {
+          polygons: arrangementPolygons.map(normalizeCoveragePolygonWinding)
+        }
+      ],
+      'nonzero'
+    ),
+    []
+  )
+
+  return clipped.length > 0 ? clipped : unionPolygons
+}
+
+const isDashedCenterProductFace = (
   face: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
   >
-) => ({
-  polygons: face.polygons.map(normalizeCoveragePolygonWinding)
-})
+) =>
+  face.debugMeta?.productMode === 'center-product' &&
+  face.debugMeta?.productSignature === 'center-product:dashed'
+
+const isConstrainedDashedProductFace = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) =>
+  face.debugMeta?.productSignature?.startsWith('constrained-dashed:') ===
+    true &&
+  (face.debugMeta.strokePosition === 'inside' ||
+    face.debugMeta.strokePosition === 'outside')
+const shouldMaterializeConstrainedDashedRenderDescriptor = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) =>
+  isConstrainedDashedProductFace(face) &&
+  face.debugMeta?.strokePosition === 'outside'
+
+const shouldUseStoredConstrainedDashedProductPolygons = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) =>
+  isConstrainedDashedProductFace(face) &&
+  face.debugMeta?.productSignature?.includes(
+    ':outside-aggregate-descriptor:'
+  ) === true
+
+const shouldMaterializeDashedCenterRenderDescriptor = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) => isDashedCenterProductFace(face) && face.renderDescriptor !== undefined
+
+const shouldMaterializeConstrainedDashedRenderEntryDescriptor = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) =>
+  isConstrainedDashedProductFace(face) &&
+  face.renderDescriptor !== undefined &&
+  !shouldUseStoredConstrainedDashedProductPolygons(face)
+
+const isConstrainedSolidRenderMaskProductFace = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) =>
+  face.debugMeta?.productSignature?.startsWith('constrained-solid:') === true &&
+  face.debugMeta.solidMaskModelCoverageOracle === 'render-mask'
+
+const getRenderProductPolygonsFromFinalFace = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) =>
+  isConstrainedSolidRenderMaskProductFace(face)
+    ? face.polygons
+    : shouldMaterializeDashedCenterRenderDescriptor(face)
+      ? materializeRenderDescriptorProductPolygons(
+          face.renderDescriptor as
+            | SolidCenterStrokeRenderDescriptor
+            | undefined,
+          face.polygons
+        )
+      : shouldUseStoredConstrainedDashedProductPolygons(face)
+        ? face.polygons
+        : shouldMaterializeConstrainedDashedRenderDescriptor(face)
+          ? materializeRenderDescriptorProductPolygons(
+              face.renderDescriptor as
+                | SolidCenterStrokeRenderDescriptor
+                | undefined,
+              face.polygons
+            )
+          : face.polygons
+
+const toCoverageFaceRegion = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >,
+  options: { preserveWinding?: boolean } = {}
+) => {
+  const polygons = getRenderProductPolygonsFromFinalFace(face)
+  return {
+    polygons:
+      options.preserveWinding === true
+        ? polygons
+        : polygons.map(normalizeCoveragePolygonWinding)
+  }
+}
 
 const getDashedCenterRenderGroupKey = (
   face: StrokeFinalFace<
@@ -1017,7 +1417,7 @@ const getDashedCenterRenderGroupKey = (
     SolidCenterStrokePaintPacket
   >
 ) => {
-  if (face.geometryFamily !== 'dashed-center') {
+  if (!isDashedCenterProductFace(face)) {
     return null
   }
 
@@ -1027,38 +1427,6 @@ const getDashedCenterRenderGroupKey = (
     face.debugMeta?.networkId,
     face.debugMeta?.strokeId,
     face.debugMeta?.strokeIndex
-  ].join(':')
-
-  return `${face.paintKey}|${ownerKey}`
-}
-
-const getConstrainedDashedProductRenderGroupKey = (
-  face: StrokeFinalFace<
-    SolidCenterStrokeGeometryDebugMeta,
-    SolidCenterStrokePaintPacket
-  >
-) => {
-  if (
-    face.geometryFamily !== 'constrained-dashed' ||
-    face.debugMeta?.finalCoverageBuilderStatus !== 'product-final'
-  ) {
-    return null
-  }
-
-  if (
-    face.debugMeta?.sourceTopology === 'self-intersecting' &&
-    face.debugMeta?.topologyFamily === 'open'
-  ) {
-    return null
-  }
-
-  const ownerKey = [
-    face.debugMeta?.sourcePathId,
-    face.debugMeta?.ownerKey,
-    face.debugMeta?.networkId,
-    face.debugMeta?.strokeId,
-    face.debugMeta?.strokeIndex,
-    face.debugMeta?.strokePosition
   ].join(':')
 
   return `${face.paintKey}|${ownerKey}`
@@ -1096,27 +1464,121 @@ const getRenderArrangementBackend = (
     return null
   }
 }
+type ProductContractDebugMetaOverrides = Pick<
+  SolidCenterStrokeGeometryDebugMeta,
+  | 'intervalIds'
+  | 'sourceSpanIds'
+  | 'sourceNetworkIds'
+  | 'sourceContourIds'
+  | 'legalDomainIds'
+  | 'domainPlanSplitRangeTerminals'
+  | 'dashProductIntervals'
+  | 'dashEndpointCapPolicySignatures'
+  | 'dashEndpointCapPolicyTerminalRoles'
+  | 'joinOwnershipSignatures'
+  | 'smoothContinuityGroupIds'
+  | 'domainPlanBoundaryRoles'
+  | 'domainPlanSplitRangeIds'
+  | 'domainPlanSelectedSides'
+  | 'domainPlanSourceSegmentIndexes'
+  | 'visualOverlapCollapseStatus'
+  | 'visualOverlapSourceFaceIds'
+  | 'visualOverlapSourceGeometryIds'
+>
 
-const getRenderIntersectionBackend = (
-  options: SolidCenterStrokeRenderEntryOptions
+const buildProductContractDebugMetaFromFinalFace = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >,
+  overrides: Partial<ProductContractDebugMetaOverrides> = {}
 ) => {
-  const providedBackend = options.exactBackend
-  if (
-    providedBackend?.capabilities.intersection === true &&
-    typeof providedBackend.intersection === 'function'
-  ) {
-    return providedBackend as Pick<
-      GeometryBackend,
-      'capabilities' | 'intersection'
-    >
+  const debugMeta = face.debugMeta
+  if (!debugMeta?.productMode || !debugMeta.productSignature) {
+    return undefined
   }
 
-  try {
-    const backend = getGeometryBackend()
-    return backend.capabilities.intersection === true ? backend : null
-  } catch {
-    return null
-  }
+  const intervalIds = overrides.intervalIds ?? face.intervalIds
+  const sourceSpanIds = overrides.sourceSpanIds ?? face.sourceSpanIds
+  const sourceNetworkIds = overrides.sourceNetworkIds ?? face.sourceNetworkIds
+  const sourceContourIds = overrides.sourceContourIds ?? face.sourceContourIds
+  const legalDomainIds = overrides.legalDomainIds ?? face.legalDomainIds
+
+  return {
+    productMode: debugMeta.productMode,
+    productSignature: debugMeta.productSignature,
+    domainMode: debugMeta.domainMode,
+    sourcePathId: debugMeta.sourcePathId,
+    ownerKey: debugMeta.ownerKey,
+    networkId: debugMeta.networkId,
+    strokeId: debugMeta.strokeId,
+    strokeIndex: debugMeta.strokeIndex,
+    intervalId: intervalIds[0] ?? debugMeta.intervalId,
+    intervalIds,
+    sourceSpanIds,
+    sourceNetworkIds,
+    sourceContourIds,
+    legalDomainIds,
+    strokePosition: debugMeta.strokePosition,
+    strokeWidth: debugMeta.strokeWidth,
+    strokeJoin: debugMeta.strokeJoin,
+    strokeCap: debugMeta.strokeCap,
+    strokeMiterLimit: debugMeta.strokeMiterLimit,
+    domainPlanBoundaryDomainId: debugMeta.domainPlanBoundaryDomainId,
+    domainPlanSplitRangeId: debugMeta.domainPlanSplitRangeId,
+    domainPlanSplitRangeStartDistance:
+      debugMeta.domainPlanSplitRangeStartDistance,
+    domainPlanSplitRangeEndDistance: debugMeta.domainPlanSplitRangeEndDistance,
+    domainPlanTerminalRole: debugMeta.domainPlanTerminalRole,
+    domainPlanSplitRangeSourceSegmentIndex:
+      debugMeta.domainPlanSplitRangeSourceSegmentIndex,
+    domainPlanSideAuthority: debugMeta.domainPlanSideAuthority,
+    domainPlanSelectedSide: debugMeta.domainPlanSelectedSide,
+    domainPlanFilledSide: debugMeta.domainPlanFilledSide,
+    domainPlanUnfilledSide: debugMeta.domainPlanUnfilledSide,
+    domainPlanBoundaryRole: debugMeta.domainPlanBoundaryRole,
+    domainPlanDomainMode: debugMeta.domainPlanDomainMode,
+    domainPlanSideResolutionStatus: debugMeta.domainPlanSideResolutionStatus,
+    domainPlanSideResolutionReason: debugMeta.domainPlanSideResolutionReason,
+    domainPlanBoundaryStartDistance: debugMeta.domainPlanBoundaryStartDistance,
+    domainPlanBoundaryEndDistance: debugMeta.domainPlanBoundaryEndDistance,
+    domainPlanBoundaryTotalLength: debugMeta.domainPlanBoundaryTotalLength,
+    domainPlanSplitRangeTerminals:
+      overrides.domainPlanSplitRangeTerminals ??
+      debugMeta.domainPlanSplitRangeTerminals,
+    dashProductIntervals:
+      overrides.dashProductIntervals ?? debugMeta.dashProductIntervals,
+    dashEndpointCapPolicySignature: debugMeta.dashEndpointCapPolicySignature,
+    dashEndpointCapPolicyTerminalRole:
+      debugMeta.dashEndpointCapPolicyTerminalRole,
+    dashEndpointCapPolicySignatures:
+      overrides.dashEndpointCapPolicySignatures ??
+      debugMeta.dashEndpointCapPolicySignatures,
+    dashEndpointCapPolicyTerminalRoles:
+      overrides.dashEndpointCapPolicyTerminalRoles ??
+      debugMeta.dashEndpointCapPolicyTerminalRoles,
+    joinOwnershipSignature: debugMeta.joinOwnershipSignature,
+    joinOwnershipSignatures:
+      overrides.joinOwnershipSignatures ?? debugMeta.joinOwnershipSignatures,
+    smoothContinuityGroupId: debugMeta.smoothContinuityGroupId,
+    smoothContinuityGroupIds:
+      overrides.smoothContinuityGroupIds ?? debugMeta.smoothContinuityGroupIds,
+    domainPlanBoundaryRoles:
+      overrides.domainPlanBoundaryRoles ?? debugMeta.domainPlanBoundaryRoles,
+    domainPlanSplitRangeIds:
+      overrides.domainPlanSplitRangeIds ?? debugMeta.domainPlanSplitRangeIds,
+    domainPlanSelectedSides:
+      overrides.domainPlanSelectedSides ?? debugMeta.domainPlanSelectedSides,
+    domainPlanSourceSegmentIndexes:
+      overrides.domainPlanSourceSegmentIndexes ??
+      debugMeta.domainPlanSourceSegmentIndexes,
+    visualOverlapCollapseStatus:
+      overrides.visualOverlapCollapseStatus ??
+      debugMeta.visualOverlapCollapseStatus,
+    visualOverlapSourceFaceIds: overrides.visualOverlapSourceFaceIds,
+    visualOverlapSourceGeometryIds: overrides.visualOverlapSourceGeometryIds,
+    revisionSet: debugMeta.revisionSet
+  } satisfies SolidCenterStrokeGeometryDebugMeta
 }
 
 const buildRenderEntryFromFinalFace = (
@@ -1124,55 +1586,71 @@ const buildRenderEntryFromFinalFace = (
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
   >
-) => {
-  const renderDescriptor = face.renderDescriptor as
-    | SolidCenterStrokeRenderDescriptor
-    | undefined
-  const runtimeMeta: SolidCenterStrokeRuntimeMeta = {
-    geometryFamily: face.geometryFamily ?? face.debugMeta?.geometryFamily,
-    resolutionStatus: face.resolutionStatus ?? face.debugMeta?.resolutionStatus,
-    runtimeStatus: face.runtimeStatus ?? face.debugMeta?.runtimeStatus,
-    runtimeReason: face.debugMeta?.runtimeReason,
-    sourceTopology: face.sourceTopology ?? face.debugMeta?.sourceTopology,
-    topologyFamily: face.debugMeta?.topologyFamily,
-    intervalTopology: face.debugMeta?.intervalTopology,
-    strokePosition: face.debugMeta?.strokePosition,
-    finalCoverageBuilderStatus: face.debugMeta?.finalCoverageBuilderStatus,
-    visualOverlapCollapseStatus: face.debugMeta?.visualOverlapCollapseStatus,
-    revisionSet: face.debugMeta?.revisionSet
-  }
+) =>
+  measureStrokeRenderEntryPhase('render entries: build final face', () => {
+    const sourceRenderDescriptor = face.renderDescriptor as
+      | SolidCenterStrokeRenderDescriptor
+      | undefined
+    const shouldMaterializeConstrainedDashedDescriptor =
+      shouldMaterializeConstrainedDashedRenderEntryDescriptor(face)
+    const renderDescriptor = shouldMaterializeConstrainedDashedDescriptor
+      ? undefined
+      : sourceRenderDescriptor
+    const constrainedDashedRenderEntryStrokeMaskPolygons =
+      shouldMaterializeConstrainedDashedDescriptor
+        ? materializeRenderDescriptorProductPolygons(
+            sourceRenderDescriptor,
+            face.polygons
+          )
+        : undefined
+    const productPolygons = measureStrokeRenderEntryPhase(
+      'render entries: product polygons',
+      () => getRenderProductPolygonsFromFinalFace(face)
+    )
+    const runtimeMeta: SolidCenterStrokeRuntimeMeta = {
+      productMode: face.debugMeta?.productMode,
+      productSignature: face.debugMeta?.productSignature,
+      domainMode: face.debugMeta?.domainMode,
+      topologyFamily: face.debugMeta?.topologyFamily,
+      strokePosition: face.debugMeta?.strokePosition,
+      visualOverlapCollapseStatus: face.debugMeta?.visualOverlapCollapseStatus,
+      revisionSet: face.debugMeta?.revisionSet
+    }
 
-  return {
-    cacheKey: getProjectedGeometryId(face),
-    stroke: {
-      kind: face.paint.kind,
-      color: face.paint.color,
-      alpha: face.paint.alpha,
-      gradientStyle: face.paint.gradientStyle ?? null,
-      paintKey:
-        face.paint.paintKey ?? `solid:${face.paint.color}:${face.paint.alpha}`
-    },
-    polygons: filterOutsideSquareSplitTerminalRenderProjectionResidue(
-      face.polygons,
-      [face]
-    ),
-    fillPolygons: renderDescriptor?.fillPolygons,
-    clipPolygons: renderDescriptor?.clipPolygons,
-    fillClipPolygons: renderDescriptor?.fillClipPolygons,
-    strokeMaskPolygons: renderDescriptor?.strokeMaskPolygons,
-    strokePaths: renderDescriptor?.strokePaths,
-    strokePathGroups: renderDescriptor?.strokePathGroups,
-    strokePathStyle: renderDescriptor?.strokePathStyle,
-    debugMeta: shouldEmitFullStrokeDiagnostics() ? face.debugMeta : undefined,
-    runtimeMeta,
-    revisionSet: runtimeMeta.revisionSet,
-    preferSolidGraphics:
-      face.geometryFamily === 'constrained-dashed' &&
-      (face.debugMeta?.finalCoverageBuilderStatus === 'product-final' ||
-        (face.debugMeta?.intervalTopology === 'full-loop' &&
-          face.debugMeta?.strokePosition === 'inside'))
-  }
-}
+    const productContractDebugMeta = measureStrokeRenderEntryPhase(
+      'render entries: product contract meta',
+      () => buildProductContractDebugMetaFromFinalFace(face)
+    )
+
+    return {
+      cacheKey: getProjectedGeometryId(face),
+      stroke: {
+        kind: face.paint.kind,
+        color: face.paint.color,
+        alpha: face.paint.alpha,
+        gradientStyle: face.paint.gradientStyle ?? null,
+        paintKey:
+          face.paint.paintKey ?? `solid:${face.paint.color}:${face.paint.alpha}`
+      },
+      polygons: productPolygons,
+      fillPolygons: renderDescriptor?.fillPolygons,
+      clipPolygons: renderDescriptor?.clipPolygons,
+      fillClipPolygons: renderDescriptor?.fillClipPolygons,
+      fillExcludePolygons: renderDescriptor?.fillExcludePolygons,
+      strokeMaskPolygons:
+        constrainedDashedRenderEntryStrokeMaskPolygons ??
+        renderDescriptor?.strokeMaskPolygons,
+      strokePaths: renderDescriptor?.strokePaths,
+      strokePathGroups: renderDescriptor?.strokePathGroups,
+      strokePathStyle: renderDescriptor?.strokePathStyle,
+      debugMeta: shouldEmitFullStrokeDiagnostics()
+        ? face.debugMeta
+        : productContractDebugMeta,
+      runtimeMeta,
+      revisionSet: runtimeMeta.revisionSet,
+      preferSolidGraphics: isConstrainedDashedProductFace(face)
+    }
+  })
 
 type RenderProjectionCollapseStatus =
   | 'exact-union'
@@ -1185,12 +1663,16 @@ const buildRenderProjectionArrangementCandidates = (
   faces: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
-  >[]
+  >[],
+  options: { preserveWinding?: boolean } = {}
 ): RenderProjectionCandidateRegion[] =>
   faces.flatMap((face) =>
-    face.polygons.map((polygon, polygonIndex) => {
-      const normalizedPolygon = normalizeCoveragePolygonWinding(polygon)
-      const geometryPolygons = [normalizedPolygon]
+    getRenderProductPolygonsFromFinalFace(face).map((polygon, polygonIndex) => {
+      const arrangementPolygon =
+        options.preserveWinding === true
+          ? polygon
+          : normalizeCoveragePolygonWinding(polygon)
+      const geometryPolygons = [arrangementPolygon]
       return {
         candidateId: `${face.faceId}:render-polygon:${polygonIndex}`,
         geometry: {
@@ -1198,7 +1680,7 @@ const buildRenderProjectionArrangementCandidates = (
         },
         geometryBounds: getBounds(geometryPolygons),
         geometrySignature:
-          buildRenderProjectionPolygonSignature(normalizedPolygon),
+          buildRenderProjectionPolygonSignature(arrangementPolygon),
         visualPacketKey: face.visualPacketKey,
         strokePosition:
           face.debugMeta?.strokePosition === 'inside' ||
@@ -1216,6 +1698,7 @@ const buildRenderProjectionArrangementCandidates = (
         paintKey: face.paintKey,
         strokeSpecKey: face.strokeSpecKey,
         sourceSpanIds: face.sourceSpanIds,
+        sourceNetworkIds: face.sourceNetworkIds,
         sourceContourIds: face.sourceContourIds,
         requiresBoundaryPreservingArrangement:
           face.debugMeta?.domainPlanBoundaryRole === 'filled-face' ||
@@ -1225,133 +1708,6 @@ const buildRenderProjectionArrangementCandidates = (
       }
     })
   )
-
-const getTerminalEndpoint = (
-  boundaryPoints: Vec2[] | undefined,
-  terminal: 'start' | 'end'
-) => {
-  if (!boundaryPoints || boundaryPoints.length < 2) {
-    return null
-  }
-
-  return terminal === 'start'
-    ? boundaryPoints[0]
-    : boundaryPoints[boundaryPoints.length - 1]
-}
-
-const collectOutsideSquareSplitTerminalResidueContexts = (
-  faces: StrokeFinalFace<
-    SolidCenterStrokeGeometryDebugMeta,
-    SolidCenterStrokePaintPacket
-  >[]
-) =>
-  faces.flatMap((face) => {
-    const debugMeta = face.debugMeta
-    if (
-      face.geometryFamily !== 'constrained-dashed' ||
-      debugMeta?.finalCoverageBuilderStatus !== 'product-final' ||
-      debugMeta.strokePosition !== 'outside' ||
-      typeof debugMeta.strokeWidth !== 'number' ||
-      debugMeta.strokeWidth <= 0
-    ) {
-      return []
-    }
-
-    const strokeWidth = debugMeta.strokeWidth
-    const terminalRecords = debugMeta.domainPlanSplitRangeTerminals?.length
-      ? debugMeta.domainPlanSplitRangeTerminals
-      : debugMeta.domainPlanSplitRangeId &&
-          debugMeta.domainPlanTerminalRole &&
-          debugMeta.domainPlanTerminalRole !== 'middle'
-        ? [
-            {
-              intervalId: debugMeta.intervalId ?? face.faceId,
-              splitRangeId: debugMeta.domainPlanSplitRangeId,
-              splitRangeStartDistance:
-                debugMeta.domainPlanSplitRangeStartDistance ?? 0,
-              splitRangeEndDistance:
-                debugMeta.domainPlanSplitRangeEndDistance ?? 0,
-              terminalRole: debugMeta.domainPlanTerminalRole,
-              startDistance: debugMeta.startDistance ?? 0,
-              endDistance: debugMeta.endDistance ?? 0,
-              boundaryPoints: debugMeta.domainPlanBoundaryPoints
-            }
-          ]
-        : []
-
-    return terminalRecords.flatMap((terminal) => {
-      const boundaryPoints =
-        terminal.boundaryPoints ?? debugMeta.domainPlanBoundaryPoints
-      return [
-        ...(terminal.terminalRole === 'start' ||
-        terminal.terminalRole === 'start-end'
-          ? [
-              {
-                point: getTerminalEndpoint(boundaryPoints, 'start'),
-                strokeWidth
-              }
-            ]
-          : []),
-        ...(terminal.terminalRole === 'end' ||
-        terminal.terminalRole === 'start-end'
-          ? [
-              {
-                point: getTerminalEndpoint(boundaryPoints, 'end'),
-                strokeWidth
-              }
-            ]
-          : [])
-      ].flatMap((context) =>
-        context.point
-          ? [{ point: context.point, strokeWidth: context.strokeWidth }]
-          : []
-      )
-    })
-  })
-
-const filterOutsideSquareSplitTerminalRenderProjectionResidue = (
-  polygons: Vec2[][],
-  faces: StrokeFinalFace<
-    SolidCenterStrokeGeometryDebugMeta,
-    SolidCenterStrokePaintPacket
-  >[]
-) => {
-  const contexts = collectOutsideSquareSplitTerminalResidueContexts(faces)
-  if (polygons.length === 0 || contexts.length === 0) {
-    return polygons
-  }
-
-  const polygonAreas = polygons.map(getPolygonCoverageArea)
-  const touchesEndpoint = (polygon: Vec2[], point: Vec2, tolerance: number) =>
-    polygon.some(
-      (polygonPoint) => getPointDistance(polygonPoint, point) <= tolerance
-    )
-
-  return polygons.filter((polygon, polygonIndex) => {
-    const area = polygonAreas[polygonIndex] ?? 0
-    return !contexts.some(({ point, strokeWidth }) => {
-      const endpointTolerance = Math.max(0.75, strokeWidth * 0.12)
-      if (!touchesEndpoint(polygon, point, endpointTolerance)) {
-        return false
-      }
-
-      const maxEndpointArea = polygons.reduce(
-        (maxArea, candidate, candidateIndex) => {
-          return touchesEndpoint(candidate, point, endpointTolerance)
-            ? Math.max(maxArea, polygonAreas[candidateIndex] ?? 0)
-            : maxArea
-        },
-        0
-      )
-      const fragmentAreaLimit = strokeWidth * strokeWidth * 0.75
-      return (
-        area <= fragmentAreaLimit &&
-        maxEndpointArea > 0 &&
-        area < maxEndpointArea * 0.65
-      )
-    })
-  })
-}
 
 const findRenderProjectionComponentIndexes = (bounds: Bounds[]) => {
   const parents = bounds.map((_, index) => index)
@@ -1439,18 +1795,23 @@ const buildRenderProjectionArrangementPolygons = (
     'capabilities' | 'buildArrangement' | 'union'
   > &
     Partial<Pick<GeometryBackend, 'intersection'>>,
-  options: { allowDirectUnion?: boolean; allowComponentUnion?: boolean } = {}
+  options: {
+    allowDirectUnion?: boolean
+    allowComponentUnion?: boolean
+    finalUnion?: boolean
+    preserveWinding?: boolean
+  } = {}
 ) => {
   const candidates = measureStrokeRenderEntryPhase(
     'render projection: candidates',
-    () => buildRenderProjectionArrangementCandidates(faces)
+    () =>
+      buildRenderProjectionArrangementCandidates(faces, {
+        preserveWinding: options.preserveWinding
+      })
   )
 
   if (candidates.length <= 1) {
-    return filterOutsideSquareSplitTerminalRenderProjectionResidue(
-      candidates.flatMap((candidate) => candidate.geometry.polygons),
-      faces
-    )
+    return candidates.flatMap((candidate) => candidate.geometry.polygons)
   }
 
   if (
@@ -1473,10 +1834,7 @@ const buildRenderProjectionArrangementPolygons = (
       )
 
       if (polygons.length > 0) {
-        return filterOutsideSquareSplitTerminalRenderProjectionResidue(
-          polygons,
-          faces
-        )
+        return polygons
       }
     } catch {
       // Fall through to the arrangement path below.
@@ -1493,12 +1851,7 @@ const buildRenderProjectionArrangementPolygons = (
     findRenderProjectionComponentIndexes(bounds).forEach((componentIndexes) => {
       if (componentIndexes.length === 1) {
         const [componentIndex] = componentIndexes
-        output.push(
-          ...filterOutsideSquareSplitTerminalRenderProjectionResidue(
-            candidates[componentIndex].geometry.polygons,
-            faces
-          )
-        )
+        output.push(...candidates[componentIndex].geometry.polygons)
         return
       }
 
@@ -1521,11 +1874,8 @@ const buildRenderProjectionArrangementPolygons = (
       ) {
         emitStrokePipelineCounter('render-projection-component-disjoint')
         output.push(
-          ...filterOutsideSquareSplitTerminalRenderProjectionResidue(
-            componentCandidates.flatMap(
-              (candidate) => candidate.geometry.polygons
-            ),
-            faces
+          ...componentCandidates.flatMap(
+            (candidate) => candidate.geometry.polygons
           )
         )
         return
@@ -1561,12 +1911,7 @@ const buildRenderProjectionArrangementPolygons = (
             emitStrokePipelineCounter(
               'render-projection-component-direct-union'
             )
-            output.push(
-              ...filterOutsideSquareSplitTerminalRenderProjectionResidue(
-                componentPolygons,
-                faces
-              )
-            )
+            output.push(...componentPolygons)
             return
           }
         } catch {
@@ -1596,21 +1941,46 @@ const buildRenderProjectionArrangementPolygons = (
           ))()
 
       output.push(
-        ...filterOutsideSquareSplitTerminalRenderProjectionResidue(
-          arrangedPolygons.length > 0
-            ? arrangedPolygons
-            : componentCandidates.flatMap((entry) => entry.geometry.polygons),
-          faces
-        )
+        ...(arrangedPolygons.length > 0
+          ? arrangedPolygons
+          : componentCandidates.flatMap((entry) => entry.geometry.polygons))
       )
     })
   })
 
+  if (
+    options.finalUnion === true &&
+    output.length > 1 &&
+    backend.capabilities.union === true
+  ) {
+    try {
+      const unionPolygons = flattenFacePolygons(
+        backend.union(
+          output.map((polygon) => ({
+            polygons: [polygon]
+          })),
+          'nonzero'
+        ),
+        output
+      )
+
+      const finalUnionPolygons = clipRenderProjectionUnionToArrangementCoverage(
+        unionPolygons,
+        output,
+        backend
+      )
+
+      if (finalUnionPolygons.length > 0) {
+        emitStrokePipelineCounter('render-projection-final-union')
+        return cleanRenderProjectionPolygons(finalUnionPolygons)
+      }
+    } catch {
+      // The arrangement output remains the product geometry when union cannot be clipped.
+    }
+  }
+
   emitStrokePipelineCounter('render-projection-final-union-skipped')
-  return filterOutsideSquareSplitTerminalRenderProjectionResidue(
-    cleanRenderProjectionPolygons(output),
-    faces
-  )
+  return cleanRenderProjectionPolygons(output)
 }
 
 const buildCollapsedRenderEntry = (
@@ -1620,26 +1990,109 @@ const buildCollapsedRenderEntry = (
   >[],
   options: SolidCenterStrokeRenderEntryOptions,
   cacheKeyPrefix: string,
-  collapseStatus: RenderProjectionCollapseStatus
+  collapseStatus: RenderProjectionCollapseStatus,
+  fillRule: FillRule = 'nonzero',
+  renderOptions: {
+    collapseSingleFace?: boolean
+    finalUnion?: boolean
+    preserveWinding?: boolean
+    projection?: 'union' | 'arrangement'
+    clipToSourceCoverage?: boolean
+    clipToDescriptorExclusions?: boolean
+  } = {}
 ) => {
   const [primaryFace] = faces
-  const backend = getRenderOverlapBackend(options)
-  if (!primaryFace || faces.length < 2 || !backend) {
+  const backend =
+    renderOptions.projection === 'arrangement'
+      ? getRenderArrangementBackend(options)
+      : getRenderOverlapBackend(options)
+  if (
+    !primaryFace ||
+    (!renderOptions.collapseSingleFace && faces.length < 2) ||
+    !backend
+  ) {
     return faces.map(buildRenderEntryFromFinalFace)
   }
 
-  const sourcePolygons = faces.flatMap((face) => face.polygons)
-  const unionRegions = (() => {
-    try {
-      return backend.union(faces.map(toCoverageFaceRegion), 'nonzero')
-    } catch {
-      return []
-    }
-  })()
-  const polygons = filterOutsideSquareSplitTerminalRenderProjectionResidue(
-    flattenFacePolygons(unionRegions, sourcePolygons),
-    faces
+  const sourcePolygons = measureStrokeRenderEntryPhase(
+    'render projection: source polygons',
+    () => faces.flatMap(getRenderProductPolygonsFromFinalFace)
   )
+  const rawPolygons = flattenFacePolygons(
+    (() => {
+      try {
+        if (renderOptions.projection === 'arrangement') {
+          const arrangementBackend =
+            backend as RenderProjectionArrangementBackend
+          return [
+            {
+              polygons: buildRenderProjectionArrangementPolygons(
+                faces,
+                arrangementBackend,
+                {
+                  allowDirectUnion: false,
+                  allowComponentUnion: false,
+                  finalUnion: renderOptions.finalUnion,
+                  preserveWinding: renderOptions.preserveWinding
+                }
+              )
+            }
+          ]
+        }
+
+        const unionPolygons = measureStrokeRenderEntryPhase(
+          'render projection: union',
+          () =>
+            flattenFacePolygons(
+              backend.union(
+                faces.map((face) => toCoverageFaceRegion(face, renderOptions)),
+                fillRule
+              ),
+              sourcePolygons
+            )
+        )
+        return [
+          {
+            polygons:
+              renderOptions.clipToSourceCoverage === true
+                ? clipRenderProjectionUnionToArrangementCoverage(
+                    unionPolygons,
+                    sourcePolygons,
+                    backend
+                  )
+                : unionPolygons
+          }
+        ]
+      } catch {
+        return []
+      }
+    })(),
+    sourcePolygons
+  )
+  const descriptorExcludePolygons =
+    renderOptions.clipToDescriptorExclusions === true
+      ? faces.flatMap(
+          (face) =>
+            (
+              face.renderDescriptor as
+                | SolidCenterStrokeRenderDescriptor
+                | undefined
+            )?.fillExcludePolygons ?? []
+        )
+      : []
+  const polygons =
+    descriptorExcludePolygons.length > 0
+      ? cleanRenderProjectionPolygons(
+          measureStrokeRenderEntryPhase(
+            'render projection: descriptor exclusion',
+            () =>
+              differenceDescriptorPolygons(
+                rawPolygons,
+                descriptorExcludePolygons
+              )
+          )
+        )
+      : rawPolygons
   const sourceGeometryIds = getUniqueStrings(
     faces.flatMap((face) => face.sourceGeometryIds)
   )
@@ -1648,6 +2101,9 @@ const buildCollapsedRenderEntry = (
   )
   const sourceSpanIds = getUniqueStrings(
     faces.flatMap((face) => face.sourceSpanIds)
+  )
+  const sourceNetworkIds = getUniqueStrings(
+    faces.flatMap((face) => face.sourceNetworkIds)
   )
   const sourceContourIds = getUniqueStrings(
     faces.flatMap((face) => face.sourceContourIds)
@@ -1665,10 +2121,18 @@ const buildCollapsedRenderEntry = (
       ...primaryEntry,
       cacheKey: `render:${cacheKeyPrefix}:${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`,
       polygons,
+      fillPolygons: undefined,
+      clipPolygons: undefined,
+      fillClipPolygons: undefined,
+      fillExcludePolygons: undefined,
+      strokeMaskPolygons: undefined,
+      strokePaths: undefined,
+      strokePathGroups: undefined,
       runtimeMeta: {
         ...primaryEntry.runtimeMeta,
         intervalIds,
         sourceSpanIds,
+        sourceNetworkIds,
         sourceContourIds,
         legalDomainIds,
         visualOverlapCollapseStatus: collapseStatus
@@ -1678,6 +2142,7 @@ const buildCollapsedRenderEntry = (
             ...primaryFace.debugMeta,
             intervalIds,
             sourceSpanIds,
+            sourceNetworkIds,
             sourceContourIds,
             legalDomainIds,
             domainPlanSplitRangeTerminals:
@@ -1688,179 +2153,20 @@ const buildCollapsedRenderEntry = (
             visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
             visualOverlapSourceGeometryIds: sourceGeometryIds
           }
-        : undefined
-    }
-  ]
-}
-
-const buildMergedRenderEntry = (
-  faces: StrokeFinalFace<
-    SolidCenterStrokeGeometryDebugMeta,
-    SolidCenterStrokePaintPacket
-  >[],
-  cacheKeyPrefix: string
-) => {
-  const [primaryFace] = faces
-  if (!primaryFace || faces.length < 2) {
-    return faces.map(buildRenderEntryFromFinalFace)
-  }
-
-  const sourceGeometryIds = getUniqueStrings(
-    faces.flatMap((face) => face.sourceGeometryIds)
-  )
-  const intervalIds = getUniqueStrings(
-    faces.flatMap((face) => face.intervalIds)
-  )
-  const sourceSpanIds = getUniqueStrings(
-    faces.flatMap((face) => face.sourceSpanIds)
-  )
-  const sourceContourIds = getUniqueStrings(
-    faces.flatMap((face) => face.sourceContourIds)
-  )
-  const legalDomainIds = getUniqueStrings(
-    faces.flatMap((face) => face.legalDomainIds)
-  )
-  const domainPlanSplitRangeTerminals = faces.flatMap(
-    (face) => face.debugMeta?.domainPlanSplitRangeTerminals ?? []
-  )
-  const primaryEntry = buildRenderEntryFromFinalFace(primaryFace)
-  const polygons = filterOutsideSquareSplitTerminalRenderProjectionResidue(
-    faces.flatMap((face) => face.polygons),
-    faces
-  )
-  const shouldRenderAsSingleMask = faces.some(
-    (face) =>
-      face.geometryFamily === 'constrained-dashed' &&
-      face.debugMeta?.strokePosition === 'inside' &&
-      face.debugMeta?.finalCoverageBuilderStatus === 'product-final'
-  )
-
-  return [
-    {
-      ...primaryEntry,
-      cacheKey: `render:${cacheKeyPrefix}:${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`,
-      polygons,
-      ...(shouldRenderAsSingleMask ? { strokeMaskPolygons: polygons } : {}),
-      runtimeMeta: {
-        ...primaryEntry.runtimeMeta,
-        intervalIds,
-        sourceSpanIds,
-        sourceContourIds,
-        legalDomainIds,
-        visualOverlapCollapseStatus: 'render-projection-merged' as const
-      },
-      debugMeta: shouldEmitFullStrokeDiagnostics()
-        ? {
-            ...primaryFace.debugMeta,
+        : buildProductContractDebugMetaFromFinalFace(primaryFace, {
             intervalIds,
             sourceSpanIds,
+            sourceNetworkIds,
             sourceContourIds,
             legalDomainIds,
             domainPlanSplitRangeTerminals:
               domainPlanSplitRangeTerminals.length > 0
                 ? domainPlanSplitRangeTerminals
                 : undefined,
-            visualOverlapCollapseStatus: 'render-projection-merged' as const,
+            visualOverlapCollapseStatus: collapseStatus,
             visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
             visualOverlapSourceGeometryIds: sourceGeometryIds
-          }
-        : undefined
-    }
-  ]
-}
-
-const buildRenderProjectionArrangementEntry = (
-  faces: StrokeFinalFace<
-    SolidCenterStrokeGeometryDebugMeta,
-    SolidCenterStrokePaintPacket
-  >[],
-  options: SolidCenterStrokeRenderEntryOptions,
-  cacheKeyPrefix: string,
-  arrangementOptions: {
-    allowDirectUnion?: boolean
-    allowComponentUnion?: boolean
-  } = {}
-) => {
-  const [primaryFace] = faces
-  if (!primaryFace || faces.length < 2) {
-    return faces.map(buildRenderEntryFromFinalFace)
-  }
-
-  const backend = getRenderArrangementBackend(options)
-  if (!backend) {
-    return faces.map(buildRenderEntryFromFinalFace)
-  }
-
-  const sourcePolygons = faces.flatMap((face) => face.polygons)
-  const polygons = (() => {
-    try {
-      const arrangedPolygons = buildRenderProjectionArrangementPolygons(
-        faces,
-        backend,
-        arrangementOptions
-      )
-      return arrangedPolygons.length > 0 ? arrangedPolygons : sourcePolygons
-    } catch {
-      return sourcePolygons
-    }
-  })()
-  const sourceGeometryIds = getUniqueStrings(
-    faces.flatMap((face) => face.sourceGeometryIds)
-  )
-  const intervalIds = getUniqueStrings(
-    faces.flatMap((face) => face.intervalIds)
-  )
-  const sourceSpanIds = getUniqueStrings(
-    faces.flatMap((face) => face.sourceSpanIds)
-  )
-  const sourceContourIds = getUniqueStrings(
-    faces.flatMap((face) => face.sourceContourIds)
-  )
-  const legalDomainIds = getUniqueStrings(
-    faces.flatMap((face) => face.legalDomainIds)
-  )
-  const domainPlanSplitRangeTerminals = faces.flatMap(
-    (face) => face.debugMeta?.domainPlanSplitRangeTerminals ?? []
-  )
-  const primaryEntry = buildRenderEntryFromFinalFace(primaryFace)
-  const shouldRenderAsSingleMask = faces.some(
-    (face) =>
-      face.geometryFamily === 'constrained-dashed' &&
-      face.debugMeta?.strokePosition === 'inside' &&
-      face.debugMeta?.finalCoverageBuilderStatus === 'product-final'
-  )
-
-  return [
-    {
-      ...primaryEntry,
-      cacheKey: `render:${cacheKeyPrefix}:${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`,
-      polygons,
-      ...(shouldRenderAsSingleMask ? { strokeMaskPolygons: polygons } : {}),
-      runtimeMeta: {
-        ...primaryEntry.runtimeMeta,
-        intervalIds,
-        sourceSpanIds,
-        sourceContourIds,
-        legalDomainIds,
-        visualOverlapCollapseStatus: 'render-projection-arrangement' as const
-      },
-      debugMeta: shouldEmitFullStrokeDiagnostics()
-        ? {
-            ...primaryFace.debugMeta,
-            intervalIds,
-            sourceSpanIds,
-            sourceContourIds,
-            legalDomainIds,
-            domainPlanSplitRangeTerminals:
-              domainPlanSplitRangeTerminals.length > 0
-                ? domainPlanSplitRangeTerminals
-                : undefined,
-            visualOverlapCollapseStatus:
-              'render-projection-arrangement' as const,
-            visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
-            visualOverlapSourceGeometryIds: sourceGeometryIds
-          }
-        : undefined
+          })
     }
   ]
 }
@@ -1992,83 +2298,6 @@ function candidateRegionsHaveInteriorOverlap(
   return false
 }
 
-const facePolygonsHaveInteriorOverlap = (
-  leftPolygons: Vec2[][],
-  rightPolygons: Vec2[][],
-  leftBounds = getBounds(leftPolygons),
-  rightBounds = getBounds(rightPolygons),
-  step = 6
-) =>
-  polygonListsHaveInteriorOverlap(
-    leftPolygons,
-    rightPolygons,
-    leftBounds,
-    rightBounds,
-    step
-  )
-
-const hasConstrainedDashedProductRenderOverlap = (
-  faces: StrokeFinalFace<
-    SolidCenterStrokeGeometryDebugMeta,
-    SolidCenterStrokePaintPacket
-  >[],
-  options: SolidCenterStrokeRenderEntryOptions
-) => {
-  const exactBackend = getRenderIntersectionBackend(options)
-  const faceBounds = faces.map((face) => getBounds(face.polygons))
-  for (let leftIndex = 0; leftIndex < faces.length; leftIndex += 1) {
-    for (
-      let rightIndex = leftIndex + 1;
-      rightIndex < faces.length;
-      rightIndex += 1
-    ) {
-      if (!doBoundsOverlap(faceBounds[leftIndex], faceBounds[rightIndex])) {
-        continue
-      }
-
-      const exactOverlapArea = exactBackend
-        ? getExactPolygonListsOverlapArea(
-            faces[leftIndex].polygons,
-            faces[rightIndex].polygons,
-            exactBackend
-          )
-        : null
-      if (exactOverlapArea !== null) {
-        if (exactOverlapArea > EXACT_RENDER_OVERLAP_AREA_EPSILON) {
-          return true
-        }
-        continue
-      }
-
-      if (
-        facePolygonsHaveInteriorOverlap(
-          faces[leftIndex].polygons,
-          faces[rightIndex].polygons,
-          faceBounds[leftIndex],
-          faceBounds[rightIndex]
-        )
-      ) {
-        return true
-      }
-    }
-  }
-  return false
-}
-
-const hasFilledFaceBoundaryRole = (
-  faces: StrokeFinalFace<
-    SolidCenterStrokeGeometryDebugMeta,
-    SolidCenterStrokePaintPacket
-  >[]
-) =>
-  faces.some(
-    (face) =>
-      face.debugMeta?.domainPlanBoundaryRole === 'filled-face' ||
-      face.debugMeta?.domainPlanSplitRangeTerminals?.some(
-        (terminal) => terminal.boundaryRole === 'filled-face'
-      ) === true
-  )
-
 const buildDashedCenterCollapsedRenderEntry = (
   faces: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
@@ -2083,37 +2312,163 @@ const buildDashedCenterCollapsedRenderEntry = (
     'exact-union'
   )
 
-const buildConstrainedDashedProductRenderEntry = (
+const getConstrainedDashedOutsideRenderGroupKey = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) => {
+  if (
+    !isConstrainedDashedProductFace(face) ||
+    face.debugMeta?.strokePosition !== 'outside'
+  ) {
+    return null
+  }
+
+  const meta = face.debugMeta
+  return [
+    face.paint.kind ?? 'solid',
+    face.paint.paintKey ?? '',
+    face.paint.color,
+    face.paint.alpha,
+    meta?.networkId ?? '',
+    meta?.strokeId ?? '',
+    meta?.strokeIndex ?? '',
+    meta?.strokePosition ?? '',
+    meta?.strokeWidth ?? '',
+    meta?.strokeJoin ?? '',
+    meta?.strokeCap ?? '',
+    meta?.strokeMiterLimit ?? '',
+    meta?.domainPlanDomainMode ?? meta?.domainMode ?? '',
+    (meta?.legalDomainIds ?? []).join(',')
+  ].join('|')
+}
+
+const shouldCollapseConstrainedDashedOutsideRenderGroup = (
   faces: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
-  >[],
-  options: SolidCenterStrokeRenderEntryOptions
-): ReturnType<typeof buildRenderEntryFromFinalFace>[] => {
-  if (!hasConstrainedDashedProductRenderOverlap(faces, options)) {
-    return buildMergedRenderEntry(
-      faces,
-      'constrained-dashed-product-render-merged'
-    )
+  >[]
+) => faces.length >= 2
+
+const getRenderDescriptorStrokePathGroups = (
+  descriptor: SolidCenterStrokeRenderDescriptor | undefined
+): NonNullable<SolidCenterStrokeRenderDescriptor['strokePathGroups']> => {
+  if (!descriptor) {
+    return []
   }
 
-  return buildRenderProjectionArrangementEntry(
-    faces,
-    options,
-    'constrained-dashed-product-render-projection',
-    {
-      allowDirectUnion: faces.some(
-        (face) => face.debugMeta?.strokePosition === 'inside'
-      )
-        ? false
-        : !hasFilledFaceBoundaryRole(faces),
-      allowComponentUnion: faces.some(
-        (face) => face.debugMeta?.strokePosition === 'inside'
-      )
-        ? false
-        : undefined
-    }
+  const groups = descriptor.strokePathGroups ?? []
+  const rootGroup =
+    descriptor.strokePaths && descriptor.strokePaths.length > 0
+      ? [
+          {
+            strokePaths: descriptor.strokePaths,
+            strokePathStyle: descriptor.strokePathStyle
+          }
+        ]
+      : []
+
+  return [...rootGroup, ...groups]
+}
+
+const canBuildDashedCenterDescriptorRenderEntry = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[]
+) =>
+  faces.length > 0 &&
+  faces.every((face) => {
+    const descriptor = face.renderDescriptor as
+      | SolidCenterStrokeRenderDescriptor
+      | undefined
+    return (
+      isDashedCenterProductFace(face) &&
+      face.paint.alpha >= 1 - 1e-6 &&
+      getRenderDescriptorStrokePathGroups(descriptor).length > 0 &&
+      !descriptor?.clipPolygons?.length &&
+      !descriptor?.fillClipPolygons?.length &&
+      !descriptor?.fillPolygons?.length &&
+      !descriptor?.strokeMaskPolygons?.length
+    )
+  })
+
+const buildDashedCenterDescriptorRenderEntry = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[]
+) => {
+  const [primaryFace] = faces
+  if (!primaryFace) {
+    return []
+  }
+
+  const primaryEntry = buildRenderEntryFromFinalFace(primaryFace)
+  const sourceGeometryIds = getUniqueStrings(
+    faces.flatMap((face) => face.sourceGeometryIds)
   )
+  const intervalIds = getUniqueStrings(
+    faces.flatMap((face) => face.intervalIds)
+  )
+  const sourceSpanIds = getUniqueStrings(
+    faces.flatMap((face) => face.sourceSpanIds)
+  )
+  const sourceNetworkIds = getUniqueStrings(
+    faces.flatMap((face) => face.sourceNetworkIds)
+  )
+  const sourceContourIds = getUniqueStrings(
+    faces.flatMap((face) => face.sourceContourIds)
+  )
+  const legalDomainIds = getUniqueStrings(
+    faces.flatMap((face) => face.legalDomainIds)
+  )
+  const strokePathGroups = faces.flatMap((face) =>
+    getRenderDescriptorStrokePathGroups(
+      face.renderDescriptor as SolidCenterStrokeRenderDescriptor | undefined
+    )
+  )
+  const debugMeta = shouldEmitFullStrokeDiagnostics()
+    ? {
+        ...primaryFace.debugMeta,
+        intervalIds,
+        sourceSpanIds,
+        sourceNetworkIds,
+        sourceContourIds,
+        legalDomainIds,
+        visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
+        visualOverlapSourceGeometryIds: sourceGeometryIds
+      }
+    : buildProductContractDebugMetaFromFinalFace(primaryFace, {
+        intervalIds,
+        sourceSpanIds,
+        sourceNetworkIds,
+        sourceContourIds,
+        legalDomainIds,
+        visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
+        visualOverlapSourceGeometryIds: sourceGeometryIds
+      })
+
+  return [
+    {
+      ...primaryEntry,
+      cacheKey: `render:dashed-center-descriptor:${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`,
+      polygons: faces.flatMap((face) => face.polygons),
+      strokePathGroups,
+      strokePaths: undefined,
+      strokePathStyle: primaryEntry.strokePathStyle,
+      runtimeMeta: {
+        ...primaryEntry.runtimeMeta,
+        intervalIds,
+        sourceSpanIds,
+        sourceNetworkIds,
+        sourceContourIds,
+        legalDomainIds
+      },
+      debugMeta
+    }
+  ]
 }
 
 const buildProjectionPacketFromFinalFace = (
@@ -2121,18 +2476,37 @@ const buildProjectionPacketFromFinalFace = (
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
   >
-) => ({
-  geometryId: getProjectedGeometryId(face),
-  polygons: face.polygons,
-  bounds: face.bounds,
-  primaryOwner: face.ownerSet[0],
-  ownerSet: face.ownerSet,
-  intervalIds: face.intervalIds,
-  sourceSpanIds: face.sourceSpanIds,
-  sourceContourIds: face.sourceContourIds,
-  legalDomainIds: face.legalDomainIds,
-  ...(shouldEmitFullStrokeDiagnostics() ? { debugMeta: face.debugMeta } : {})
-})
+) => {
+  const productContractDebugMeta =
+    buildProductContractDebugMetaFromFinalFace(face)
+  const debugMeta = shouldEmitFullStrokeDiagnostics()
+    ? face.debugMeta
+    : productContractDebugMeta
+  const shouldKeepExactBooleanProductPolygons =
+    face.debugMeta?.solidMaskModelCoverageOracle === 'exact-boolean' ||
+    isConstrainedSolidRenderMaskProductFace(face)
+  const polygons = shouldKeepExactBooleanProductPolygons
+    ? face.polygons
+    : materializeRenderDescriptorProductPolygons(
+        face.renderDescriptor as SolidCenterStrokeRenderDescriptor | undefined,
+        face.polygons
+      )
+  const bounds = polygons === face.polygons ? face.bounds : getBounds(polygons)
+
+  return {
+    geometryId: getProjectedGeometryId(face),
+    polygons,
+    bounds,
+    primaryOwner: face.ownerSet[0],
+    ownerSet: face.ownerSet,
+    intervalIds: face.intervalIds,
+    sourceSpanIds: face.sourceSpanIds,
+    sourceNetworkIds: face.sourceNetworkIds,
+    sourceContourIds: face.sourceContourIds,
+    legalDomainIds: face.legalDomainIds,
+    ...(debugMeta ? { debugMeta } : {})
+  }
+}
 
 const buildProjectedPacketsFromFinalFaces = (
   faces: StrokeFinalFace<
@@ -2161,16 +2535,47 @@ const collapseDashedCenterRenderEntries = (
     >[]
   >()
   const dashedGroupSlots = new Map<string, number>()
-  const constrainedDashedGroups = new Map<
+  const constrainedDashedOutsideGroups = new Map<
     string,
     StrokeFinalFace<
       SolidCenterStrokeGeometryDebugMeta,
       SolidCenterStrokePaintPacket
     >[]
   >()
-  const constrainedDashedGroupSlots = new Map<string, number>()
+  const constrainedDashedOutsideGroupSlots = new Map<string, number>()
 
   faces.forEach((face) => {
+    const constrainedDashedOutsideGroupKey =
+      getConstrainedDashedOutsideRenderGroupKey(face)
+    if (constrainedDashedOutsideGroupKey) {
+      const group =
+        constrainedDashedOutsideGroups.get(constrainedDashedOutsideGroupKey) ??
+        []
+      group.push(face)
+      constrainedDashedOutsideGroups.set(
+        constrainedDashedOutsideGroupKey,
+        group
+      )
+
+      if (
+        !constrainedDashedOutsideGroupSlots.has(
+          constrainedDashedOutsideGroupKey
+        )
+      ) {
+        constrainedDashedOutsideGroupSlots.set(
+          constrainedDashedOutsideGroupKey,
+          output.length
+        )
+        output.push([])
+      }
+      return
+    }
+
+    if (isConstrainedDashedProductFace(face)) {
+      output.push([buildRenderEntryFromFinalFace(face)])
+      return
+    }
+
     const dashedCenterGroupKey = getDashedCenterRenderGroupKey(face)
     if (dashedCenterGroupKey) {
       const group = dashedGroups.get(dashedCenterGroupKey) ?? []
@@ -2184,39 +2589,34 @@ const collapseDashedCenterRenderEntries = (
       return
     }
 
-    const constrainedDashedGroupKey =
-      getConstrainedDashedProductRenderGroupKey(face)
-    if (constrainedDashedGroupKey) {
-      const group = constrainedDashedGroups.get(constrainedDashedGroupKey) ?? []
-      group.push(face)
-      constrainedDashedGroups.set(constrainedDashedGroupKey, group)
-
-      if (!constrainedDashedGroupSlots.has(constrainedDashedGroupKey)) {
-        constrainedDashedGroupSlots.set(
-          constrainedDashedGroupKey,
-          output.length
-        )
-        output.push([])
-      }
-      return
-    }
-
     output.push([buildRenderEntryFromFinalFace(face)])
   })
 
   dashedGroups.forEach((group, groupKey) => {
     const slot = dashedGroupSlots.get(groupKey)
     if (slot !== undefined) {
-      output[slot] = buildDashedCenterCollapsedRenderEntry(group, options)
+      output[slot] = canBuildDashedCenterDescriptorRenderEntry(group)
+        ? buildDashedCenterDescriptorRenderEntry(group)
+        : buildDashedCenterCollapsedRenderEntry(group, options)
     }
   })
-  constrainedDashedGroups.forEach((group, groupKey) => {
-    const slot = constrainedDashedGroupSlots.get(groupKey)
+  constrainedDashedOutsideGroups.forEach((group, groupKey) => {
+    const slot = constrainedDashedOutsideGroupSlots.get(groupKey)
     if (slot !== undefined) {
-      output[slot] = buildConstrainedDashedProductRenderEntry(group, options)
+      output[slot] = shouldCollapseConstrainedDashedOutsideRenderGroup(group)
+        ? buildCollapsedRenderEntry(
+            group,
+            options,
+            'constrained-dashed-product-projection',
+            'exact-union',
+            'nonzero',
+            {
+              clipToDescriptorExclusions: true
+            }
+          )
+        : group.map(buildRenderEntryFromFinalFace)
     }
   })
-
   return output.flat()
 }
 
@@ -2233,6 +2633,7 @@ export const buildSolidCenterStrokeResolvedPacketsFromFinalFaces = (
       ownerSet: face.ownerSet,
       intervalIds: face.intervalIds,
       sourceSpanIds: face.sourceSpanIds,
+      sourceNetworkIds: face.sourceNetworkIds,
       sourceContourIds: face.sourceContourIds,
       legalDomainIds: face.legalDomainIds
     }
@@ -2306,13 +2707,60 @@ export const buildSolidCenterStrokeExportPackets = (
     buildSolidCenterStrokeFinalFaces(packets)
   )
 
+const defineLazySolidCenterStrokeExportPackets = <T extends object>(
+  graphic: T,
+  getPackets: () => SolidCenterStrokeExportPacket[]
+) => {
+  let cachedPackets: SolidCenterStrokeExportPacket[] | null = null
+
+  Object.defineProperty(graphic, '__asyraSolidCenterStrokeExportPackets', {
+    configurable: true,
+    enumerable: false,
+    get: () => {
+      cachedPackets ??= getPackets()
+      return cachedPackets
+    },
+    set: (packets: SolidCenterStrokeExportPacket[] | undefined) => {
+      cachedPackets = packets ?? []
+    }
+  })
+}
+
 export const toSolidCenterStrokeRenderEntriesFromFinalFaces = (
   faces: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
   >[],
   options: SolidCenterStrokeRenderEntryOptions = {}
-) => collapseDashedCenterRenderEntries(faces, options)
+) => {
+  const hasConstrainedDashedProductFace = faces.some(
+    isConstrainedDashedProductFace
+  )
+  const shouldCollapseConstrainedDashedRenderFaces =
+    hasConstrainedDashedProductFace &&
+    faces.every(
+      (face) =>
+        !isConstrainedDashedProductFace(face) ||
+        face.debugMeta?.strokePosition === 'outside'
+    )
+  const renderFaces =
+    hasConstrainedDashedProductFace &&
+    !shouldCollapseConstrainedDashedRenderFaces
+      ? faces
+      : measureStrokeRenderEntryPhase(
+          'render entries: final face overlap collapse',
+          () =>
+            collapseStrokeFinalFaceVisualOverlaps(faces, {
+              backend: options.exactBackend ?? getGeometryBackend(),
+              legalDomains: options.legalDomains
+            })
+        )
+
+  return measureStrokeRenderEntryPhase(
+    'render entries: dashed/constrained collapse',
+    () => collapseDashedCenterRenderEntries(renderFaces, options)
+  )
+}
 
 export const toSolidCenterStrokeRenderEntries = (
   packets: SolidCenterStrokeResolvedPacket[],
@@ -2327,10 +2775,9 @@ export const applySolidCenterStrokeExportPackets = <T extends object>(
   graphic: T,
   packets: SolidCenterStrokeResolvedPacket[]
 ) => {
-  ;(
-    graphic as T & SolidCenterStrokeRuntimeGraphic
-  ).__asyraSolidCenterStrokeExportPackets =
+  defineLazySolidCenterStrokeExportPackets(graphic, () =>
     buildSolidCenterStrokeExportPackets(packets)
+  )
 }
 
 export const applySolidCenterStrokeExportPacketsFromFinalFaces = <
@@ -2342,10 +2789,9 @@ export const applySolidCenterStrokeExportPacketsFromFinalFaces = <
     SolidCenterStrokePaintPacket
   >[]
 ) => {
-  ;(
-    graphic as T & SolidCenterStrokeRuntimeGraphic
-  ).__asyraSolidCenterStrokeExportPackets =
+  defineLazySolidCenterStrokeExportPackets(graphic, () =>
     buildSolidCenterStrokeExportPacketsFromFinalFaces(faces)
+  )
 }
 
 const createSolidCenterStrokeHitAreaFromPacketGetter = (
