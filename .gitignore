@@ -40,6 +40,7 @@ tmp/
 apps/*/test-results/
 apps/*/playwright-report/
 packages/*/tmp/
+docs/ai/apps/*/plans/*/artifacts/
 docs/ai/apps/*/plans/*/artifacts/transient/
 docs/ai/apps/*/plans/*/artifacts/tmp/
 docs/ai/apps/*/plans/*/artifacts/local/
