@@ -16,6 +16,11 @@ roadmap-level app plans only.
 These docs are for **app-level Asyra CAD behavior and roadmap planning** only.
 Framework-level contracts belong to `docs/ai/framework/*`.
 
+Asyra CAD inherits project-wide framework hard rules even while it is still in
+planning. In particular, `docs/ai/framework/rules/no-patch-fixes.md` applies to
+future CAD implementation work: do not add CAD-specific patch render/output,
+fallback product paths, or scenario exceptions to hide a pipeline defect.
+
 When Asyra CAD becomes an active app, expand this folder with app essentials,
 architecture, API surfaces, workflows, rules, modules, features, and decision
 history following the `asyra-design/` app context pattern.

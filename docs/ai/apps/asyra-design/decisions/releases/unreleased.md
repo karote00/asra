@@ -1608,9 +1608,8 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 - Decision:
   - Promote Phase 3 `dashed + center + uniform width + solid paint` for
     supported `rect`, `oval`, and `vector` paths.
-  - Adopt canonical authored dashed data as `dashPattern` + `dashOffset` and
-    stop relying on scalar `dash/gap` runtime assumptions for the promoted
-    slice.
+  - Adopt canonical authored dashed data as scalar `dash` and `gap` lengths for
+    the promoted slice.
   - Route center dashed rendering through fresh interval allocation,
     shared frame slicing, and fresh final packet generation; do not reuse the
     legacy dashed runtime.
@@ -2265,7 +2264,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
     - `inside` / `outside` / `center`
     - `solid` / `dashed`
     - stroke width
-    - dash pattern and dash offset
+    - dash and gap lengths
     - `miter` / `bevel` / `round` joins
     - `butt` / `square` / `round` caps
     - render / hit-test / export parity for promoted geometry packets
@@ -2451,7 +2450,7 @@ cap` constrained dashed product path across:
     slice-selection target:
     - `inside` / `outside` / `center`
     - `solid` / `dashed`
-    - dash pattern and dash offset
+    - dash and gap lengths
     - `miter` / `bevel` / `round` joins
     - `butt` / `square` / `round` caps
 - Consequences:
@@ -5073,8 +5072,8 @@ join` constrained dashed product path across:
     the common repeated-dash switch cycle or a smooth cubic closed-vector
     representative explicitly.
   - A later manual computed-data sample showed the missing case was a closed
-    star-like self-intersecting single-network vector with `dashPattern:
-[20,20]`.
+    star-like self-intersecting single-network vector with repeated dash/gap
+    lengths.
 - Decision:
   - Add product-path and app-path guards for:
     - real-created open single-network vector
@@ -5932,8 +5931,7 @@ join` constrained dashed product path across:
   - Keep constrained solid self-intersecting local-side candidates as a separate
     supported slice, because they do not allocate repeated dash intervals or
     paint multiple interval faces over the same unresolved legal domain.
-  - Treat `dashPattern` and `dashOffset` as the only canonical runtime dash
-    fields; legacy `dash` / `gap` fields must not drive runtime geometry.
+  - Treat `dash` and `gap` as the canonical runtime dash fields.
   - Treat stroke color as a paint/fill payload attached after canonical
     geometry; `kind` remains only a compatibility field until the persisted
     stroke payload schema is migrated.
@@ -6185,7 +6183,7 @@ join` constrained dashed product path across:
   - A follow-up audit checked for fallback behavior that changes or erases the
     user's authored stroke parameters.
   - The active product rule is that authored `style`, `position`, `join`, `cap`,
-    `dashPattern`, and `dashOffset` must be rendered on their own semantic path.
+    `dash`, and `gap` must be rendered on their own semantic path.
   - Miter-limit exceedance remains the one accepted join fallback, because the
     user-facing behavior matches the canonical bevel-like limit handling.
 - Decision:
@@ -6433,3 +6431,22 @@ join` constrained dashed product path across:
   - Visual review must include open self-intersecting `inside` / `outside`
     dashed probes for domain side, per-span half-dash terminals, redistributed
     span-local gaps, missing output, and wrong-side output.
+
+## 2026-07-04 - Stroke visual evidence now uses current-flow coverage only
+
+- Context:
+  - Stroke engine cleanup removed pre-current-flow visual specs, canonical matrix
+    fixtures, self-check fixtures, and helper-only stroke test paths from active
+    verification.
+  - Earlier decision-history entries may still list historical closeout files as
+    evidence for their original date, but those paths are not current contracts.
+- Decision:
+  - Current Asyra Design stroke visual evidence is limited to the current-flow
+    coverage map and inspector-linked app visual specs.
+  - Historical closeout paths from older stroke entries must not be used as
+    active evidence, protection tests, or replacement gates.
+- Consequences:
+  - Active source-of-truth checks must resolve stroke visual coverage through
+    `apps/asyra-design/e2e/stroke-new-flow/stroke-visual-e2e-coverage-map.ts`.
+  - Deleted pre-current-flow visual specs remain deleted unless they are rewritten
+    into current-flow coverage with explicit spec and inspector references.

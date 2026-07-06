@@ -11,7 +11,7 @@ This folder is the app-level implementation context for **Asyra Design**.
 5. `WORKFLOW.md`
 6. `REQUEST_ROUTING.md`
 7. `CONSTRAINTS.md`
-8. `STROKE_CANONICAL_VISUAL_REVIEW.md` (for stroke visual correctness work)
+8. `PLANS.md`
 9. `rules/*`
 10. `modules/*`
 11. `features/*`
@@ -21,8 +21,7 @@ This folder is the app-level implementation context for **Asyra Design**.
 15. `golden-paths/*`
 16. `task-breakdowns/*`
 17. `BEST_PRACTICES.md`
-18. `PLANS.md`
-19. `decisions/releases/*` (app decision history by release timeline)
+18. `decisions/releases/*` (app decision history by release timeline)
 
 ## Interpretation Priority
 
@@ -37,13 +36,20 @@ When docs overlap, follow this order:
 7. `golden-paths/*` (project-approved implementation playbooks)
 8. `task-breakdowns/*` (execution slices)
 9. `BEST_PRACTICES.md` (general guidance)
-10. `PLANS.md` (future work index)
+10. `PLANS.md` (future work index and active stroke task focus)
 
 ## Scope
 
 These docs are for **app-level behavior** only.
 Framework-level contracts belong to `docs/ai/framework/*`.
 Cross-cutting history rules come from `docs/ai/decisions/README.md`.
+
+Asyra Design also inherits all framework hard rules, including
+`docs/ai/framework/rules/bugfix-test-first.md` and
+`docs/ai/framework/rules/no-patch-fixes.md`. App fixes must repair the canonical
+owner stage, must first prove whether existing formal tests detect the bug, and
+must not add app-specific patch render output, patch UI state, patch export
+output, or visual fallback paths.
 
 ## Source-of-Truth Rule
 
