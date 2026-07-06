@@ -279,6 +279,18 @@
         stroke-width: 3;
       }
 
+      .edge-path.route-bypass {
+        stroke-dasharray: 8 6;
+      }
+
+      .edge-path.route-terminal {
+        stroke: rgba(249, 115, 115, 0.7);
+      }
+
+      .edge-path.route-parallel {
+        stroke: rgba(45, 212, 191, 0.64);
+      }
+
       .step-card {
         position: absolute;
         z-index: 2;
@@ -670,10 +682,20 @@
         groups,
         lanes,
         latestRules,
+        ruleRegistry = [],
         currentExecutionState,
         alignmentLabels,
         steps,
         edges,
+        routeTypes = [],
+        conditionalRoutes = [],
+        artifactRegistry = [],
+        coExecutionCompletionRules = [],
+        nestedRoutesByStep = {},
+        evidenceRequiredByRoute = {},
+        stepContractErrors = [],
+        routeContractErrors = [],
+        inspectorContractErrors = [],
         defaultEvidenceByGroup,
         stepEvidenceOverrides,
         defaultAlignmentByGroup,
@@ -736,6 +758,44 @@
       }
 
       const stepById = new Map(steps.map((step) => [step.id, step]))
+      const flowRoutes = conditionalRoutes.length
+        ? conditionalRoutes
+        : edges.map(([from, to], index) => ({
+            id: `legacy-edge-${index + 1}`,
+            from,
+            to,
+            condition: 'Legacy edge route',
+            output: 'Legacy edge output',
+            ownerStage: stepById.get(from)?.ownerStage ?? 'legacy edge',
+            failureReopensStep: from,
+            routeType: 'normal',
+            exclusiveGroup: `legacy-edge-${from}`,
+            decisionGroup: `legacy-edge-${from}`,
+            parallelGroup: 'none',
+            coExecutionGroup: 'none',
+            routePriority: 900,
+            conditionKind: 'else',
+            conditionId: `legacy-edge-${index + 1}`,
+            predicateInputs: [`stage:${from}`],
+            when: { elseOf: `legacy-edge-${from}` },
+            elseOf: `legacy-edge-${from}`,
+            resumeAt: to,
+            nextConsumer: to,
+            consumes: [`stage:${from}`],
+            produces: [`stage:${to}`],
+            skipSteps: [],
+            dirtyDependencies: ['legacy route'],
+            cacheKeyInputs: ['legacy route'],
+            visibleContributor: 'legacy route',
+            geometryBasis: 'legacy route',
+            specRuleRefs: [],
+            metricAssertions: []
+          }))
+      const inspectorValidationErrors = [
+        ...stepContractErrors,
+        ...routeContractErrors,
+        ...inspectorContractErrors
+      ]
 
       const isVisible = (step) =>
         activeGroup === 'All' || step.group === activeGroup
@@ -832,6 +892,57 @@
       const formatInlineCode = (text) =>
         String(text).replace(/`([^`]+)`/g, '<code>$1</code>')
 
+      const formatEvidenceObject = (value) => {
+        if (!value) {
+          return ['None']
+        }
+        return Object.entries(value).map(
+          ([key, entry]) => `${key}: ${String(entry)}`
+        )
+      }
+
+      const formatRouteSummary = (route) =>
+        formatInlineCode(
+          `${route.id} [${route.routeType}; decision ${route.decisionGroup}; parallel ${route.parallelGroup}; co-exec ${route.coExecutionGroup}; priority ${route.routePriority}; ${route.conditionKind}; condition ${route.conditionId}]: if ${JSON.stringify(route.when)} then output ${route.output}; predicate inputs ${(route.predicateInputs ?? []).join(', ')}; consumes ${(route.consumes ?? []).join(', ')}; produces ${(route.produces ?? []).join(', ')}; skips ${(route.skipSteps ?? []).join(', ') || 'none'}; resume ${route.resumeAt}; next consumer ${route.nextConsumer}; owner ${route.ownerStage}; contributor ${route.visibleContributor}; basis ${route.geometryBasis}; spec refs ${(route.specRuleRefs ?? []).join(', ') || 'none'}; metric assertions ${(route.metricAssertions ?? []).map((metric) => metric.id).join(', ') || 'none'}; failure reopens ${route.failureReopensStep}`
+        )
+
+      const routesFrom = (stepId) =>
+        flowRoutes.filter((route) => route.from === stepId).map(formatRouteSummary)
+
+      const routesTo = (stepId) =>
+        flowRoutes.filter((route) => route.to === stepId).map(formatRouteSummary)
+
+      const nestedRoutesForStep = (stepId) =>
+        (nestedRoutesByStep[stepId] ?? []).map((route) =>
+          formatInlineCode(
+            `${route.id}: ${route.routeType}; decision ${route.decisionGroup}; parallel ${route.parallelGroup}; co-exec ${route.coExecutionGroup}; owner ${route.ownerStage}; contributor ${route.visibleContributor}; basis ${route.geometryBasis}; produces ${(route.produces ?? []).join(', ')}; spec refs ${(route.specRuleRefs ?? []).join(', ') || 'none'}`
+          )
+        )
+
+      const routeEvidenceForStep = (stepId) =>
+        flowRoutes
+          .filter((route) => route.from === stepId || route.to === stepId)
+          .map(
+            (route) =>
+              `${route.id}: ${(evidenceRequiredByRoute[route.id] ?? route.evidenceRequired ?? []).join(', ')}`
+          )
+
+      const coExecutionRulesForStep = (stepId) => {
+        const groupsForStep = new Set(
+          flowRoutes
+            .filter((route) => route.from === stepId || route.to === stepId)
+            .map((route) => route.coExecutionGroup)
+            .filter((group) => group && group !== 'none')
+        )
+        return coExecutionCompletionRules
+          .filter((rule) => groupsForStep.has(rule.coExecutionGroup))
+          .map((rule) =>
+            formatInlineCode(
+              `${rule.coExecutionGroup}: decision ${rule.owningDecisionGroup}; required routes ${(rule.requiredRouteIds ?? []).join(', ')}; completion artifacts ${(rule.completionArtifactIds ?? []).join(', ')}; barrier ${rule.downstreamBarrier}; ${rule.semantics}`
+            )
+          )
+      }
+
       const renderFilters = () => {
         filters.innerHTML = ''
         groups.forEach((group) => {
@@ -881,13 +992,28 @@
           </div>
           <p class="detail-summary">${step.summary}</p>
           ${section('Implementation alignment', alignmentSummary, 'alignment-box')}
+          ${section('Rule refs', step.ruleRefs, 'rule-box')}
           ${section('Asyra stroke rules', step.asyraStrokeRules, 'rule-box')}
+          ${section('Verification evidence', formatEvidenceObject(step.verificationEvidence), 'evidence-box')}
           ${section('Plan references', step.planReferences, 'rule-box')}
           ${section('Implementation trace', step.implementationTrace, 'trace-box')}
           ${section('Helper functions', step.helpers)}
           ${section('Helper conditions', step.helperConditions, 'trace-box')}
           ${section('Input', step.inputs)}
           ${section('Output', step.outputs)}
+          ${section('Conditions', step.conditions, 'trace-box')}
+          ${section('Bypass conditions', step.bypassConditions, 'trace-box')}
+          ${section('Limitations', step.limitations, 'risk-box')}
+          ${section('Owner stage', [step.ownerStage], 'alignment-box')}
+          ${section('Allowed contributors', step.allowedContributors, 'evidence-box')}
+          ${section('Forbidden contributors', step.forbiddenContributors, 'risk-box')}
+          ${section('Evidence required', step.evidenceRequired, 'evidence-box')}
+          ${section('Failure reopens step', [step.failureReopensStep], 'risk-box')}
+          ${section('Outgoing routes', routesFrom(step.id), 'trace-box')}
+          ${section('Incoming routes', routesTo(step.id), 'trace-box')}
+          ${section('Nested routes', nestedRoutesForStep(step.id), 'trace-box')}
+          ${section('Route evidence required', routeEvidenceForStep(step.id), 'evidence-box')}
+          ${section('Co-execution completion rules', coExecutionRulesForStep(step.id), 'trace-box')}
           ${section('Definition of done', step.definitionOfDone, 'rule-box')}
           ${section('Acceptance tests', step.acceptanceTests, 'test-box')}
           ${section('Known limits', step.knownLimits, 'risk-box')}
@@ -900,14 +1026,18 @@
           ${section('Related tests', step.relatedTests)}
           ${section('Debug commands', step.debugCommands, 'command-box')}
           ${section('Evidence to inspect', step.evidenceToInspect, 'evidence-box')}
-          ${section('Latest global rules', latestRules, 'rule-box')}
+          ${section('Inspector validation errors', inspectorValidationErrors, inspectorValidationErrors.length ? 'risk-box' : 'evidence-box')}
+          ${section('Artifact registry', artifactRegistry.map((artifact) => `${artifact.id}: ${artifact.kind}; ${artifact.channel}; owner ${artifact.ownerStage}${artifact.terminal ? '; terminal' : ''}`), 'trace-box')}
+          ${section('Latest global rules', ruleRegistry.length ? ruleRegistry.map((rule) => `${rule.id}: ${rule.text}`) : latestRules, 'rule-box')}
         `
       }
 
       const renderEdges = (svg) => {
         svg.querySelectorAll('.edge-path').forEach((node) => node.remove())
 
-        edges.forEach(([fromId, toId]) => {
+        flowRoutes.forEach((route) => {
+          const fromId = route.from
+          const toId = route.to
           const from = stepById.get(fromId)
           const to = stepById.get(toId)
           if (!from || !to || !isVisible(from) || !isVisible(to)) {
@@ -925,8 +1055,20 @@
           path.setAttribute('d', getEdgePath(svg, fromCard, toCard, from, to))
           path.setAttribute(
             'class',
-            `edge-path${fromId === selectedId || toId === selectedId ? ' is-active' : ''}`
+            `edge-path route-${route.routeType}${fromId === selectedId || toId === selectedId ? ' is-active' : ''}`
           )
+          path.setAttribute('data-route-id', route.id)
+          path.setAttribute('data-route-type', route.routeType)
+          path.setAttribute('data-exclusive-group', route.exclusiveGroup)
+          path.setAttribute('data-decision-group', route.decisionGroup)
+          path.setAttribute('data-parallel-group', route.parallelGroup)
+          path.setAttribute('data-condition-id', route.conditionId)
+          const title = document.createElementNS(
+            'http://www.w3.org/2000/svg',
+            'title'
+          )
+          title.textContent = `${route.id}: ${route.routeType}, decision ${route.decisionGroup}, parallel ${route.parallelGroup}, priority ${route.routePriority}`
+          path.appendChild(title)
           path.setAttribute('marker-end', 'url(#arrow)')
           svg.appendChild(path)
         })
@@ -1064,6 +1206,105 @@
         const missingEdgeTargets = edges.filter(
           ([from, to]) => !stepIds.has(from) || !stepIds.has(to)
         )
+        const missingRouteTargets = flowRoutes
+          .filter((route) => !stepIds.has(route.from) || !stepIds.has(route.to))
+          .map((route) => route.id)
+        const requiredRouteFields = [
+          'id',
+          'from',
+          'to',
+          'routeType',
+          'exclusiveGroup',
+          'decisionGroup',
+          'parallelGroup',
+          'coExecutionGroup',
+          'routePriority',
+          'conditionKind',
+          'conditionId',
+          'predicateInputs',
+          'when',
+          'elseOf',
+          'resumeAt',
+          'nextConsumer',
+          'condition',
+          'output',
+          'ownerStage',
+          'failureReopensStep',
+          'consumes',
+          'produces',
+          'dirtyDependencies',
+          'cacheKeyInputs',
+          'visibleContributor',
+          'geometryBasis',
+          'specRuleRefs'
+        ]
+        const missingRouteFields = flowRoutes.flatMap((route) =>
+          requiredRouteFields
+            .filter((field) => {
+              const value = route[field]
+              return Array.isArray(value) ? value.length === 0 : !value
+            })
+            .map((field) => `${route.id ?? 'unnamed-route'}:${field}`)
+        )
+        const invalidRouteTypes = flowRoutes
+          .filter((route) => !routeTypes.includes(route.routeType))
+          .map((route) => `${route.id}:${route.routeType}`)
+        const artifactIds = new Set(
+          artifactRegistry.map((artifact) => artifact.id)
+        )
+        const missingRouteArtifacts = flowRoutes.flatMap((route) =>
+          [...(route.consumes ?? []), ...(route.produces ?? [])]
+            .filter((artifactId) => !artifactIds.has(artifactId))
+            .map((artifactId) => `${route.id}:${artifactId}`)
+        )
+        const routeIds = new Set(flowRoutes.map((route) => route.id))
+        const coExecutionRuleGroups = new Set(
+          coExecutionCompletionRules.map((rule) => rule.coExecutionGroup)
+        )
+        const routeCoExecutionGroups = new Set(
+          flowRoutes
+            .map((route) => route.coExecutionGroup)
+            .filter((group) => group && group !== 'none')
+        )
+        const coExecutionRuleErrors = [
+          ...[...routeCoExecutionGroups]
+            .filter((group) => !coExecutionRuleGroups.has(group))
+            .map((group) => `${group}:missingCompletionRule`),
+          ...coExecutionCompletionRules.flatMap((rule) => [
+            ...(rule.requiredRouteIds ?? [])
+              .filter((routeId) => !routeIds.has(routeId))
+              .map((routeId) => `${rule.coExecutionGroup}:unknownRoute:${routeId}`),
+            ...(rule.completionArtifactIds ?? [])
+              .filter((artifactId) => !artifactIds.has(artifactId))
+              .map((artifactId) => `${rule.coExecutionGroup}:unknownArtifact:${artifactId}`),
+            rule.downstreamBarrier && stepIds.has(rule.downstreamBarrier)
+              ? null
+              : `${rule.coExecutionGroup}:unknownDownstreamBarrier`
+          ].filter(Boolean))
+        ]
+        const malformedStructuredRoutes = flowRoutes.flatMap((route) =>
+          [
+            route.when && typeof route.when === 'object'
+              ? null
+              : `${route.id}:when`,
+            route.when?.kind || route.when?.inputs
+              ? `${route.id}:legacyWhenPredicate`
+              : null,
+            route.predicateInputs?.length
+              ? null
+              : `${route.id}:predicateInputs`,
+            route.specRuleRefs?.length
+              ? null
+              : `${route.id}:specRuleRefs`,
+            route.routeType !== 'parallel' ||
+            (route.parallelGroup &&
+              route.parallelGroup !== 'none' &&
+              route.coExecutionGroup &&
+              route.coExecutionGroup !== 'none')
+              ? null
+              : `${route.id}:parallelGroup`
+          ].filter(Boolean)
+        )
         const requiredBranches = [
           'feature-session-intent',
           'common-api-domain-adapter',
@@ -1073,8 +1314,16 @@
           'render-data-derivation',
           'dirty-revision-graph',
           'shared-geometry-model',
-          'build-stroke-candidates',
+          'select-stroke-product-family',
+          'build-center-stroke-products',
+          'build-constrained-solid-products',
+          'build-dash-interval-body-products',
+          'build-source-vertex-join-products',
+          'build-terminal-body-products',
+          'build-smooth-continuity-products',
+          'select-stroke-descriptor-strategy',
           'build-final-faces',
+          'materialize-stroke-product-descriptors',
           'renderer-projection',
           'visible-final-result'
         ]
@@ -1100,6 +1349,14 @@
           'implementationTrace',
           'asyraStrokeRules',
           'helperConditions',
+          'conditions',
+          'bypassConditions',
+          'limitations',
+          'ownerStage',
+          'allowedContributors',
+          'forbiddenContributors',
+          'evidenceRequired',
+          'failureReopensStep',
           'definitionOfDone',
           'acceptanceTests',
           'knownLimits',
@@ -1162,9 +1419,13 @@
               !step.relatedTests.length && !step.evidenceToInspect.length
           )
           .map((step) => step.id)
-        const nextExecutableStepMissing = !stepIds.has(
-          currentExecutionState.nextExecutableStepId
-        )
+        const nonStepExecutableGateIds = new Set([
+          'inspector-schema-repair-gate',
+          'integration-suite'
+        ])
+        const nextExecutableStepMissing =
+          !stepIds.has(currentExecutionState.nextExecutableStepId) &&
+          !nonStepExecutableGateIds.has(currentExecutionState.nextExecutableStepId)
         const blockedDownstreamMissing = (
           currentExecutionState.blockedDownstreamStepIds ?? []
         ).filter((id) => !stepIds.has(id))
@@ -1172,6 +1433,15 @@
         if (
           duplicateStepIds.length ||
           missingEdgeTargets.length ||
+          missingRouteTargets.length ||
+          missingRouteFields.length ||
+          invalidRouteTypes.length ||
+          missingRouteArtifacts.length ||
+          coExecutionRuleErrors.length ||
+          malformedStructuredRoutes.length ||
+          stepContractErrors.length ||
+          routeContractErrors.length ||
+          inspectorContractErrors.length ||
           missingRequiredBranches.length ||
           missingGuideSections.length ||
           missingEvidenceFields.length ||
@@ -1186,6 +1456,15 @@
           console.error('Stroke flow inspector static check failed', {
             duplicateStepIds,
             missingEdgeTargets,
+            missingRouteTargets,
+            missingRouteFields,
+            invalidRouteTypes,
+            missingRouteArtifacts,
+            coExecutionRuleErrors,
+            malformedStructuredRoutes,
+            stepContractErrors,
+            routeContractErrors,
+            inspectorContractErrors,
             missingRequiredBranches,
             missingGuideSections,
             missingEvidenceFields,
@@ -1201,6 +1480,8 @@
           console.info('Stroke flow inspector static check passed', {
             stepCount: steps.length,
             edgeCount: edges.length,
+            routeCount: flowRoutes.length,
+            artifactCount: artifactRegistry.length,
             guideSectionCount: requiredGuideIds.length
           })
         }

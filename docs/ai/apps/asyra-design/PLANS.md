@@ -4,325 +4,239 @@ Never record completed plans here.
 
 ## In Progress
 
-No in-progress app plans.
+### Stroke Engine Refactor Execution Plan
 
-## Current Stroke Authority
+Goal: execute the stroke engine refactor through the inspector-flow-first
+greenfield process until the runtime implementation matches the stroke engine
+spec and inspector flow.
 
-The stroke engine final implementation was completed on 2026-06-21 as an
-architecture closure. The completed record is
-`docs/ai/apps/asyra-design/plans/completed/stroke-engine-final-architecture-closure.md`.
+This file is an execution plan only. It does not define stroke geometry, dash,
+join, cap, descriptor, channel, cache, visual-review, or performance semantics.
+Those contracts live in:
 
-Pixel-level stroke defects may still be opened as separate bugfix work, but
-they must use the closed architecture below. They must not reopen alternate
-product routes.
+- Stroke engine spec:
+  `docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md`.
+- Inspector flow:
+  `docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js`.
 
-### Authority
+The stroke engine spec is the semantic source of truth. The inspector flow is
+the executable route and step contract. This active plan records the current
+task objective, execution constraints, gate order, retry limits, and reporting
+requirements.
 
-Only these files define current stroke rules:
+## Current Status
 
-- Active plan: `docs/ai/apps/asyra-design/PLANS.md`
-- Stroke engine spec: `docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md`
-- Inspector flow data: `docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js`
+- Current phase: runtime implementation audit/refactor after the 41-runtime-step unit
+  checkpoint.
+- The 41 runtime inspector-step unit suite remains verified. The unit lock state stays
+  in `currentExecutionState`; runtime implementation progress is tracked
+  separately by `stroke-flow-inspector.data.js`
+  `runtimeImplementationState.activeStepId`.
+- Current runtime implementation step: read from
+  `stroke-flow-inspector.data.js` `runtimeImplementationState.activeStepId`.
+- Runtime implementation progress is fail-closed by
+  `runtimeImplementationState.verifiedStepIds`: the list must be a contiguous
+  prefix from step 1, and `activeStepId` must always equal the first unverified
+  runtime step derived from that prefix.
+- Product implementation starts only from that runtime active inspector step.
+- Runtime geometry is not considered correct from the 41-runtime-step unit suite alone.
+  The current phase keeps only spec/inspector-aligned stroke tests in the gate
+  set, establishes the inspector-flow integration suite, and maintains the formal
+  geometry oracle suite before any production geometry repair resumes.
+- Full package regression, E2E, visual review, and performance gates remain
+  locked until the new integration and geometry-oracle gates are meaningful and
+  the user approves the next phase.
+- Historical closure records are baseline evidence only. They do not close the
+  reopened stroke feature work.
 
-`docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.html`
-may remain only as a viewer shell for the inspector data. It must not define
-stroke rules, reading order, completion claims, contracts, or baseline status.
+## Execution Rules
 
-Decision history may record wrong or superseded decisions, but wrong stroke
-specification files must not remain in the docs tree.
+1. Use only three stroke task documents:
+   - this active plan;
+   - the stroke engine spec;
+   - the inspector flow data.
+2. Before each implementation segment, read the active inspector step contract
+   and the referenced stroke engine spec rules.
+3. Keep exactly one inspector step active. Later steps remain locked until the
+   active step is verified.
+   During runtime implementation after the unit-complete checkpoint, the active
+   step is not manually chosen: it is derived from the contiguous
+   `runtimeImplementationState.verifiedStepIds` prefix. Any gap, duplicate,
+   active step already in the prefix, or jump beyond the first unverified runtime
+   step is a protocol failure.
+4. For the active step, write or update the dedicated unit test before
+   implementation. The test may assert only that step's contract: inputs,
+   outputs, conditions, bypass conditions, limitations, owner stage,
+   contributors, required evidence, and failure reopening behavior.
+5. Implement only files listed by the active step lock metadata.
+6. For high-risk orchestration steps, `implementationFiles` alone is not enough.
+   The inspector step must declare `entryPointKind`, `entryPoint`,
+   `implementationFunctions`, `helperAllowlist`, and `orchestrationBoundary`.
+   The focused unit test and any refactor segment must enter through that
+   boundary and may not treat helper functions as independent owner stages.
+7. Every inspector step must have a complete stroke parameter coverage matrix
+   entry before implementation. The matrix roles are defined by the stroke
+   engine spec and stored in `stroke-flow-inspector.data.js`; a step may consume,
+   preserve, dirty-key, cache-key, or emit metadata only for the parameters
+   explicitly classified for that step.
+8. Do not let downstream stages infer, repair, or substitute output for an
+   upstream step.
+9. Mark a step verified only after its dedicated unit test and the refactor
+   protocol validator pass.
+10. Continue one runtime inspector step at a time until all 41 runtime steps are
+    verified, unless the active step reaches the retry stop condition.
+11. Each active inspector step has at most three focused repair attempts. Every
+   attempt must name the failing focused gate or contract mismatch, make a
+   focused repair, and rerun the focused step gate. If the third attempt still
+   fails, stop at that step, keep the inspector lock there, summarize the
+   blocker, failed gate, owner-stage evidence, and attempted repair paths, then
+   notify the user when the host environment supports it.
+12. Full preset regression is a later phase gate and may be attempted at most
+    three times. After each failed attempt, summarize the failing suite,
+    assertion, owner stage, and focused repair path before retrying. If the
+    third attempt fails, stop immediately and notify the user for discussion.
+13. After all 41 runtime inspector-step unit tests are verified, stop at a
+    unit-complete checkpoint and report the step-suite result. Do not run full
+    integration, E2E, visual review, or full preset regression until the user
+    approves a separate test-plan refactor phase.
+14. `visible-final-result` is a post-runtime validation gate, not a runtime
+    implementation step. It is validated after runtime diagnostics and current
+    visual evidence are available; it must not appear in runtime
+    `verifiedStepIds` or active-step sequencing.
+15. E2E and visual review remain future-phase gates. E2E validates user
+    behavior; it does not define stroke engine architecture.
+16. Performance and cleanup work remain blocked until geometry/product
+    semantics pass and the user has inspected the visual result.
+17. Document-only schema/spec audits must follow the fixed document deep audit
+    matrix in the stroke engine spec. New concerns found during an audit are
+    recorded as deferred matrix extensions; they must not become surprise focus
+    areas in the same pass.
 
-### Status
+## Stroke Test Conformance Policy
 
-- Completed on 2026-06-21 for stroke architecture closure.
-- The only formal product pipeline is:
-  `computed patch -> render mirror -> StrokeDomainPlan -> DashProductInterval /
-  solid product contract -> endpoint cap policy / join ownership / smooth
-  continuity -> product descriptors / render entries`.
-- The inspector flow is the Stroke / Vector System Inspector Flow. It covers
-  the full upstream-to-output path: feature intent, vector common API/domain
-  adapter, canonical computed patch, transaction/data channel, render mirror,
-  stroke geometry, product packets, product descriptors, render entries, and
-  final visual review.
-- The framework-aligned vector operation flow is the baseline: point and handle
-  drag plus structural vector operations express explicit operations, write
-  canonical workspace/world vector data through computed patches, and let render
-  consume committed downstream state.
-- `vector.ts` is a render input assembler. It builds source path/topology and
-  normalized stroke input, then delegates product semantics to
-  `StrokeDomainPlan` and product builders.
-- Diagnostics, export packet details, performance counters, and screenshot
-  artifacts are evidence only. They do not decide whether visible product
-  output exists.
-- The 2026-06-21 closure gates passed static route guards, product contract
-  suites, preset build, React build, focused app e2e, performance gates, and
-  manual screenshot review. Pixel-level dashed/join defects can be filed after
-  closure, but they must stay on this product pipeline.
+- A stroke test may remain in the gate set only when it maps to the current
+  stroke engine spec, inspector step or route, owner stage, artifact channel, and
+  expected output shape.
+- Tests that assert retired behavior, depend on stale helpers, or cannot identify
+  their governing spec and inspector route must be removed or rewritten before
+  they can participate in stroke correctness gates.
+- Do not repair production code solely to satisfy an unmapped or stale stroke
+  test while an inspector-step refactor is active.
+- Full package regression remains locked until the stroke correctness gates pass
+  and the user explicitly approves the full-regression phase. A failing full
+  regression test must not cause a production change unless the failure is first
+  reproduced by a current spec/inspector-aligned test.
 
-### Required Stroke Rule
+## Required Gates
 
-Asyra constrained solid strokes are not authored as direct selected-side solid
-geometry. This rule is an Asyra rule; it may be informed by external design-tool
-behavior, but external tools are not the authority for the current contract.
+Protocol validator:
 
-For solid `inside` and `outside`, the visible result must be produced by:
+```bash
+yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts --reporter=verbose
+```
 
-1. building the authored center stroke at twice the requested stroke width,
-2. preserving authored `strokeJoin` and `strokeMiterLimit` on that center
-   stroke,
-3. clipping that doubled authored stroke with the filled-region mask for
-   `inside` or the exterior mask for `outside`.
+Syntax/doc gate:
 
-For self-intersecting inside solid shapes in grid/vector-network state:
+```bash
+node --check docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js
+```
 
-- visible pixels must come from the doubled authored center stroke clipped by a
-  face, winding, and adjacency-aware filled-region mask;
-- grouped render descriptors may encode that adjacency-aware mask only by
-  preserving authored centerline stroke paths, `strokeJoin`, and
-  `strokeMiterLimit`; they must not encode face strips or helper polygons as
-  visible product geometry;
-- internal shared edges must not receive independent full-width stroke from
-  both adjacent faces; each adjacent face may reveal only its half of the
-  requested stroke width along that shared edge;
-- the five internal pentagon corners must change with `strokeJoin` and
-  `strokeMiterLimit`;
-- the internal pentagon must not fragment, break into helper-like slivers, or
-  use fixed corner shapes that ignore the authored join envelope;
-- derivation fragments, face strips, domain ribbons, endpoint helper polygons,
-  and coverage probes are evidence only and must not become product-visible
-  stroke geometry.
+Step gate template:
 
-For `center` solid strokes, the product-visible geometry is the authored
-center stroke itself. Self-intersecting center solid vectors may render that
-product as an authored stroke path descriptor with `strokeJoin`, `strokeCap`,
-and `strokeMiterLimit` preserved. Native stroke projection is allowed only when
-it is alpha-safe for the visible product; translucent self-intersecting center
-strokes must use a single-composite descriptor so crossings do not accumulate
-alpha. Polygon packets may still exist for hit/export/diagnostics, but
-drag-time visible render must not require rebuilding unioned center-stroke
-polygons when the authored stroke descriptor is the exact product.
+```bash
+yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/<active-step-test>.test.ts --reporter=verbose
+```
 
-For `center` dashed strokes, the product-visible geometry is the authored
-center dashed stroke itself. Drag-time visible render may encode visible dash
-intervals as authored centerline `strokePaths` with the authored `strokeCap`,
-`strokeJoin`, `strokeMiterLimit`, and dash allocation already resolved. This
-path descriptor is the exact center dashed product for visible render; it is
-not a simplified drag route. Normal drag frames must not require rebuilding center dashed
-polygon packets or resolved self-intersection geometry when no diagnostics,
-hit/export materialization, or constrained-domain rule needs those polygons.
+New stroke unit gate:
 
-For open `center` dashed strokes, dash allocation is owned by the continuous
-open network/subpath, not by individual segment boundaries. The two true open
-network endpoints use half-dash terminal intervals when the path is long
-enough, middle visible intervals keep the authored dash length, and middle
-gaps are distributed across the full network. Round and square dash caps count
-toward the painted footprint when measuring readability: the current Asyra
-floor is `configuredGap * 0.6` after cap footprint. If the open network cannot
-hold endpoint half-dashes plus a legible cap-aware visual gap, it may collapse
-to one `start-end` visible dash instead of squeezing multiple dash groups
-together.
+```bash
+yarn workspace @asyra/preset test:stroke-flow:unit
+```
 
-Open dashed stroke position is domain-dependent. A simple open network with no
-bounded filled-region domain uses the formal unbounded open center product for
-authored dashed `inside` and `outside` positions: render, hit-test, export, and
-diagnostics must consume that product while preserving the authored UI value. An
-open self-intersecting network that resolves one or more bounded filled regions
-from its real authored source segments uses constrained `inside` / `outside`
-domain products. For that network, the filled-region domain is the planar
-arrangement of the real open source segments only; the renderer must not add an
-invisible closing edge for domain, dash, hit-test, export, or product output.
+New inspector-flow integration gate:
 
-Stroke domain plan is the single product routing entry point for open/closed
-semantics. Vector render code and packet builders must not independently map
-open constrained strokes to center; they consume domain modes such as
-`center-product`, `closed-constrained-domain`,
-`open-contour-constrained-domain`,
-`open-dangling-outside-both-sides`, and `inside-excluded-open-span`.
+```bash
+yarn workspace @asyra/preset test:stroke-flow:integration
+```
 
-Open self-intersecting `inside` dashed output follows the closed contour rule:
-only source spans that participate in a resolved filled contour may produce
-inside dash pixels. Dangling open branches and source spans that do not form a
-filled contour must not produce inside dash output, even if they are part of the
-authored open network. Open self-intersecting `outside` dashed output follows
-the outside contour rule for contour-owned spans and additionally preserves
-dangling open-branch endpoint/cap/dash semantics by rendering those dangling
-spans on both sides of the authored source path. Their visible normal span is
-therefore approximately `stroke.width * 2`; they are not unbounded open center
-strokes. Unlike simple open `center` strokes, each independent
-contour-owned or dangling constrained source span is its own dash allocation
-domain: both cut ends use terminal half-dashes when the span is long enough,
-middle dash/gap records are redistributed inside that span, and no continuous
-open-network dash phase may be inherited across independent constrained spans.
-The product must not synthesize a closing edge and must not route through center
-substitution merely because `network.closed` is false.
+New formal geometry oracle gate:
 
-Dashed constrained strokes remain a separate interval-domain model for dash
-allocation, but constrained `inside` dashed visible geometry is owned by the
-inside legal-domain product route. For each split source range, allocate visible
-intervals with half-dash terminals at both cut ends and evenly distributed
-middle gaps; then materialize the authored dashed interval product with the
-requested cap, join, and miter limit and clip it with the filled-region mask for
-`inside`. The clipped result is the visible product geometry. Direct
-selected-side ribbons, domain-plan derivation strips, and derivation helpers are
-evidence only and must not define product-visible inside dashed pixels.
+```bash
+yarn workspace @asyra/preset test:stroke-geometry:oracle
+```
 
-Dash allocation must also respect a cap-aware visual gap floor. When round or
-square dash caps extend the painted dash footprint, split-range allocation must
-not keep adding dash groups until the visible gap after caps becomes tiny. If a
-split range cannot hold both terminal half-dashes and a legible cap-aware visual
-gap, it may collapse to a single `start-end` visible dash for that range. This
-is a heuristic Asyra readability rule and may be tuned, but the current floor is
-`configuredGap * 0.6` after cap footprint. For example, a configured gap of `20`
-must not be redistributed into visual gaps below roughly `12`. Tests must
-measure the gap after cap footprint, not only the centerline dash/gap distances.
+New stroke regression coverage gate:
 
-Terminal dash cap ownership is a first-class product rule. `middle` intervals
-own authored caps on both ends. `start` intervals suppress the start endpoint
-cap and only apply the authored cap on the body-side end. `end` intervals apply
-the authored cap only on the body-side start and suppress the endpoint cap.
-`start-end` intervals suppress both endpoint caps. This applies to butt, round,
-and square caps, static render, drag render, product output descriptors, and
-hit/export materialization; no downstream builder may re-add an endpoint-side
-cap after allocation.
+```bash
+yarn workspace @asyra/preset test:stroke:regression
+```
 
-Terminal cap ownership does not replace join ownership. When a terminal sits on
-a contour corner, a self-intersection split, or any authored vertex with
-`joinType` ownership, the endpoint-side dash cap is still suppressed, but the
-corner must be completed by the authored join (`miter`, `bevel`, or `round`).
-Visual review must therefore distinguish true dangling/open endpoints from
-contour/join terminals: dangling endpoints forbid endpoint-side caps, while
-contour terminals require the correct join footprint and must not be judged by a
-generic "red pixel beyond endpoint" cap probe.
+Combined stroke gate:
 
-Curve dash smoothness is a top-level stroke product rule. A visible dash on a
-Bezier or high-curvature source span must be one continuous smooth footprint
-following the authored curve and its selected domain. Sampling frames,
-split-range materialization, terminal policy clipping, and polygon cleanup must
-not leave comb-like seams, radial slices, or disconnected strip fragments inside
-one dash. Any optimization or cleanup that turns a curved dash into many small
-unjoined pieces is invalid even if the rough coverage area is present.
+```bash
+yarn workspace @asyra/preset test:stroke:new
+```
 
-Constrained dashed render has one product pipeline for static render, drag,
-cap/style switches, reload, hit/export, and render entries. The pipeline starts
-from the `StrokeDomainPlan`, allocates `DashProductInterval` records, attaches
-endpoint cap policy, join ownership, and smooth-continuity group metadata, then
-materializes body/cap/join geometry into product descriptors. A descriptor is
-only an output encoding of that same product builder; it is not a separate
-inside/outside, static/drag, or simplified route.
+Full preset regression, later phase only:
 
-For constrained `inside`, the product descriptor clips the authored dashed
-stroke body, cap footprints, and join footprints by the inside filled-region
-domain. For constrained `outside`, the product descriptor clips the same
-materialized product to the exterior domain, while open dangling outside spans
-are materialized as explicit both-side source-span domains. The descriptor
-must be able to express one-sided terminal cap suppression by carrying explicit
-cap/join footprints and endpoint policy metadata; no downstream render builder
-may infer or re-add endpoint caps.
+```bash
+yarn workspace @asyra/preset test:local
+```
 
-Resolved self-intersection metadata and boundary-domain split ranges are shared
-inputs to the single product builder. Resolved closed constrained source domains
-may cover uncovered closed contour spans, but visible product output must not
-retrace the whole source path, recompute source intersections inside render, or
-switch to any drag-specific geometry path. Drag only changes source point data;
-it dirties source/domain/product cache and reruns this same product pipeline.
+Touched-surface gates, as needed after the relevant phase:
 
-### Required Stroke / Vector System Flow
+```bash
+yarn workspace @asyra/render test:local
+yarn workspace @asyra/asyra-design react:build
+yarn lint:ci
+```
 
-Stroke-related behavior must be observed as one deterministic system flow:
+Agent-run app visual, E2E, drag, and performance gates use
+`http://localhost:3001`. `http://localhost:3000` is reserved for user-run
+sessions. Extra ports are opt-in and must be shut down after use.
 
-1. Feature/session code converts user input into explicit vector or stroke
-   intent. It must not directly synchronize render state.
-2. App common API/domain adapters own vector mutations. They produce canonical
-   workspace/world computed data patches for point/handle drag and structural
-   vector operations.
-3. Each intended user action is committed through one transaction boundary and
-   one intended undo unit. Drag updates remain non-undoable; mouseup/final
-   edits are undoable.
-4. Scene-tree and data-channel publish computed patch updates. Payloads must
-   identify changed scalar values and record ids instead of forcing unrelated
-   full-topology rewrites.
-5. Render is a downstream consumer. Render mirror/cache applies committed data
-   exactly once and derives renderer-ready vector/stroke data from that mirror.
-6. Stroke geometry stages consume normalized render data only. They must not
-   depend on feature-local state, undo payload cleanup, or direct app-to-render
-   synchronization.
-   Stroke geometry invalidation is stage-based: source path/topology, stroke
-   family, stroke domain, dash schedule, terminal cap, join/miter shape, paint,
-   and render output use separate revisions. Static stroke parameter changes
-   must dirty only the stages they actually affect; drag changes dirty source
-   path data without mutating static stroke parameter revisions.
-   Dirty classification must feed a real stage product cache at the render
-   mirror/vector graphic boundary. Exact semantic descriptors can be reused
-   when source revision and geometry-affecting stroke signature match; paint
-   changes retint cached descriptors instead of rebuilding geometry. For exact
-   stroke-path descriptors, miter-angle changes may replay cached geometry only
-   when the descriptor can be restyled with the current cap/join/miter style;
-   polygon product evidence that depends on miter geometry must keep miter in
-   its geometry signature. Drag-time constrained dashed descriptors must also
-   reuse resolved split/domain metadata; recomputing source intersections in
-   product output violates the stage-cache contract.
-7. Product output stages may emit render, hit, export, and diagnostics
-   descriptors, but visible render must not use diagnostic/helper geometry as
-   product output.
+Run the enforced drag gate only after runtime behavior, drag path, render
+projection, cache invalidation, or performance-sensitive runtime code is
+touched in a verified phase:
 
-Stroke paint uses the same canonical `FillAttrs` payload shape as element
-fills. A stroke owns one paint payload at `strokes[n].fill`, and that fill id
-matches the stroke id. Root stroke paint fields such as `color`, `opacity`,
-`visible`, `kind`, `colorFormat`, `defaultColorFormat`, and `gradient` are
-load-boundary normalization input only; app UI, common APIs, scene-tree computed data,
-and render mirror output must not write them back. A `stroke.fill`-only change
-is a paint/renderOutput change and must reuse existing semantic stroke product
-geometry.
+```bash
+ASYRA_STROKE_DRAG_E2E_ENFORCE_120FPS=1 \
+ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL=http://localhost:3001 \
+PLAYWRIGHT_TEST_BASE_URL=http://localhost:3001 \
+yarn workspace @asyra/asyra-design test:e2e \
+  e2e/stroke-drag-render-performance-solid.spec.ts \
+  e2e/stroke-drag-render-performance-open-solid.spec.ts \
+  e2e/stroke-drag-render-performance-center-dashed.spec.ts \
+  e2e/stroke-drag-render-performance-open-center-dashed.spec.ts \
+  e2e/stroke-drag-render-performance-inside-dashed.spec.ts \
+  e2e/stroke-drag-render-performance-open-inside-dashed.spec.ts \
+  e2e/stroke-drag-render-performance-outside-dashed.spec.ts \
+  e2e/stroke-drag-render-performance-open-outside-dashed.spec.ts \
+  e2e/stroke-drag-render-performance-burst.spec.ts \
+  --reporter=line
+```
 
-### Inspector Flow Requirements
+## Completion Report
 
-- Lanes must read as Interaction, Model Commit, Data Channel, Render Mirror,
-  Stroke Geometry, Product Output, and Diagnostics.
-- Interaction steps own feature/session intent only. They must not commit
-  model data directly or write render store state.
-- Model Commit steps own common API/domain adapter behavior, canonical
-  workspace vector data, computed patch construction, and transaction/undo
-  boundaries.
-- Data Channel steps own scene-tree patch publication and reactive event
-  propagation after commit.
-- Render Mirror steps own downstream mirror/cache updates and render data
-  derivation. They must apply each patch once and must not repair model data.
-- Stroke Geometry steps own normalized render inputs, shared geometry, stroke
-  domains, dash intervals, legality, and final semantic stroke records.
-- Stroke Geometry and Render Mirror steps must expose stage dirty/counter
-  evidence for source-path reuse, topology/domain reuse, dash schedule reuse,
-  terminal cap rebuild, join rebuild, paint-only update, and drag source-path
-  updates with static stroke parameters.
-- Paint-only update means `stroke.fill` changed. It must not trigger vector
-  bounds repair, source topology rebuild, stroke domain rebuild, dash schedule
-  rebuild, terminal cap rebuild, or join rebuild.
-- Render Mirror / Stroke Geometry must expose stage product cache evidence:
-  product-geometry hit, miss, store, and render-output hidden counters. Cached
-  descriptors are exact product descriptors; diagnostics/export polygons remain
-  lazy evidence and must not become normal visible-render prerequisites.
-- Product Output steps own render/hit/export packet projection and renderer
-  draw entries without changing stroke semantics.
-- Diagnostics and final visual review are completion gates. The 2026-06-21
-  architecture closure passed the broader matrix and performance gates listed in
-  the completed record. Future stroke changes must rerun the relevant subset and
-  inspect generated screenshots before claiming closure.
-- Diagnostics for translucent self-intersecting center solid strokes must include
-  same-paint alpha-overlap probes. A screenshot passes only when self-crossings
-  have the same paint strength as adjacent body stroke samples and do not become
-  darker through multiple visible composites.
+Every implementation or documentation segment must report:
 
-### Validation Gates
+- active inspector step or document phase;
+- implementation files changed;
+- tests or protocol checks added or changed;
+- gates run and results;
+- gates not run and why;
+- deferred post-runtime gates;
+- whether user visual inspection is still required.
 
-For future stroke architecture changes:
+## Regression Coverage Policy
 
-- the three authority files above must state the same rule;
-- no removed stroke report, BDD feature, completed copy, or old spec file may
-  remain as a rule source;
-- `stroke-flow-inspector.data.js` must pass `node --check`;
-- search must show no old rule references outside decision history and ignored
-  artifacts;
-- runtime implementation evidence must include focused probes and reviewed
-  screenshots before the final Diagnostics / visual review gate can close;
-- translucent center solid visual evidence must include same-paint alpha-overlap
-  probes at self-intersections, not just global red-pixel or dark-pixel scans;
-- tests that only prove numeric half-width or join-difference pixels while
-  allowing visible pentagon fragmentation are insufficient and must fail.
+`test:stroke:regression` is the stroke regression coverage guard. It does not
+replace the later full package regression gate. Its job is to prove that
+regression responsibility is distributed across the step-unit, validation,
+integration, formal geometry oracle, app runtime evidence, visual validation,
+full-package regression, and drag/performance phases.
+
+Reported cases are regression samples inside the coverage matrix. They may
+open or verify matrix coverage, but they must not become standalone
+implementation drivers, and they must not produce fixture-specific runtime
+branches.
