@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildStrokeRuntimeRevisionSet,
   computeStrokeDirtyKeys,
+  updateStrokeRuntimeRevisionSetFromMetadata,
   type StrokeRevisionSet
 } from '../components/stroke-render/stroke-dirty-keys'
 
@@ -17,7 +18,7 @@ const baseRevisionSet: StrokeRevisionSet = {
   legalityRevision: 1,
   paintRevision: 1,
   strokeFamilyRevision: 1,
-  dashScheduleRevision: 1,
+  dashAndGapRevision: 1,
   terminalCapRevision: 1,
   joinShapeRevision: 1,
   smoothContinuityRevision: 1,
@@ -46,8 +47,8 @@ const buildParameterRevisionSet = (
       join: 'miter',
       miterLimit: 4,
       cap: 'butt',
-      dashPattern: [10, 5],
-      dashOffset: 0,
+      dash: 10,
+      gap: 5,
       color: 0x3366ff,
       alpha: 1,
       ...strokeOverrides
@@ -146,10 +147,11 @@ describe('stroke dirty keys', () => {
     const revisionSet = buildParameterRevisionSet({
       cap: 'round',
       join: 'round',
-      dashPattern: [8, 4]
+      dash: 8,
+      gap: 4
     })
 
-    expect(revisionSet.dashScheduleRevision).toMatch(/^dash-schedule:/)
+    expect(revisionSet.dashAndGapRevision).toMatch(/^dash-and-gap:/)
     expect(revisionSet.terminalCapRevision).toMatch(/^terminal-cap:/)
     expect(revisionSet.joinShapeRevision).toMatch(/^join-shape:/)
     expect(revisionSet.smoothContinuityRevision).toMatch(/^smooth-continuity:/)
@@ -160,7 +162,7 @@ describe('stroke dirty keys', () => {
     expect(revisionSet.renderOutputRevision).toMatch(/^render-output:/)
     expect(Object.keys(revisionSet).sort()).toEqual(
       [
-        'dashScheduleRevision',
+        'dashAndGapRevision',
         'intervalAllocationRevision',
         'joinShapeRevision',
         'legalityRevision',
@@ -350,7 +352,7 @@ describe('stroke dirty keys', () => {
     })
   })
 
-  it('keeps cap changes out of source, domain, and dash schedule stages', () => {
+  it('keeps cap changes out of source, domain, and dash interval allocation stages', () => {
     const base = buildParameterRevisionSet({ cap: 'butt' })
     const capChanged = buildParameterRevisionSet({ cap: 'round' })
 
@@ -366,7 +368,7 @@ describe('stroke dirty keys', () => {
     })
   })
 
-  it('keeps open path cap changes out of dash schedule stages', () => {
+  it('keeps open path cap changes out of dash interval allocation stages', () => {
     const base = buildParameterRevisionSet({ cap: 'butt' }, { closed: false })
     const capChanged = buildParameterRevisionSet(
       { cap: 'square' },
@@ -385,20 +387,20 @@ describe('stroke dirty keys', () => {
     })
   })
 
-  it('keeps dash pattern and offset changes out of source and join policy inputs', () => {
+  it('keeps dash and gap changes out of source and join policy inputs', () => {
     const base = buildParameterRevisionSet({
-      dashPattern: [10, 5],
-      dashOffset: 0
+      dash: 10,
+      gap: 5
     })
     const dashChanged = buildParameterRevisionSet({
-      dashPattern: [14, 6],
-      dashOffset: 2
+      dash: 14,
+      gap: 6
     })
 
     expect(computeStrokeDirtyKeys(base, dashChanged)).toEqual({
       changedRevisionKeys: [
         'intervalAllocationRevision',
-        'dashScheduleRevision',
+        'dashAndGapRevision',
         'renderOutputRevision'
       ],
       dirtyKeys: [
@@ -435,7 +437,48 @@ describe('stroke dirty keys', () => {
     })
   })
 
-  it('keeps width changes out of source topology and dash schedule', () => {
+  it('preserves base join identity when terminal-owned metadata has a stable product signature', () => {
+    const miter = updateStrokeRuntimeRevisionSetFromMetadata(
+      buildParameterRevisionSet({ join: 'miter', cap: 'round' }),
+      {
+        productMode: 'closed-constrained-domain',
+        domainMode: 'closed-constrained-domain',
+        strokeProductSignature:
+          'constrained-dashed:terminal-owned-product:interval:2',
+        joinOwnershipSignature: 'join-owned-terminal-body',
+        renderOutputSignature:
+          'render-output:constrained-dashed:terminal-owned-product:interval:2'
+      }
+    )
+    const round = updateStrokeRuntimeRevisionSetFromMetadata(
+      buildParameterRevisionSet({ join: 'round', cap: 'round' }),
+      {
+        productMode: 'closed-constrained-domain',
+        domainMode: 'closed-constrained-domain',
+        strokeProductSignature:
+          'constrained-dashed:terminal-owned-product:interval:2',
+        joinOwnershipSignature: 'join-owned-terminal-body',
+        renderOutputSignature:
+          'render-output:constrained-dashed:terminal-owned-product:interval:2'
+      }
+    )
+
+    expect(miter).toBeDefined()
+    expect(round).toBeDefined()
+    expect(computeStrokeDirtyKeys(miter, round)).toEqual({
+      changedRevisionKeys: ['joinShapeRevision', 'renderOutputRevision'],
+      dirtyKeys: [
+        'join-ownership',
+        'smooth-continuity',
+        'product-materialization',
+        'legality',
+        'resolved-regions',
+        'render-hit-export'
+      ]
+    })
+  })
+
+  it('keeps width changes out of source topology and dash interval allocation', () => {
     const base = buildParameterRevisionSet({ width: 4 })
     const widthChanged = buildParameterRevisionSet({ width: 8 })
 
@@ -471,7 +514,7 @@ describe('stroke dirty keys', () => {
     })
   })
 
-  it('keeps drag path changes from mutating stroke parameter revisions', () => {
+  it('keeps drag path changes from mutating authored stroke parameter revisions', () => {
     const base = buildParameterRevisionSet({})
     const dragged = buildParameterRevisionSet(
       {},
@@ -486,11 +529,16 @@ describe('stroke dirty keys', () => {
     const result = computeStrokeDirtyKeys(base, dragged)
 
     expect(result.changedRevisionKeys).toContain('sourcePathRevision')
-    expect(result.changedRevisionKeys).toContain('dashScheduleRevision')
-    expect(result.changedRevisionKeys).not.toContain('strokeSpecRevision')
-    expect(result.changedRevisionKeys).not.toContain('terminalCapRevision')
-    expect(result.changedRevisionKeys).not.toContain('joinShapeRevision')
-    expect(result.changedRevisionKeys).not.toContain('paintRevision')
+    expect(result.changedRevisionKeys).not.toEqual(
+      expect.arrayContaining([
+        'strokeSpecRevision',
+        'dashAndGapRevision',
+        'terminalCapRevision',
+        'joinShapeRevision',
+        'strokeDomainRevision',
+        'paintRevision'
+      ])
+    )
     expect(result.dirtyKeys).not.toContain('paint-payload')
   })
 

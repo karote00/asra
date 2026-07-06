@@ -114,8 +114,7 @@ describe('source span graph', () => {
     })
     const intervals = allocateDashedCenterStrokeIntervals(
       topology.totalLength,
-      [30, 10],
-      0,
+      { dash: 30, gap: 10 },
       topology.closed
     ).filter((interval) => interval.kind === 'visible')
     const graph = buildSourceSpanGraph(topology, intervals)
@@ -153,8 +152,7 @@ describe('source span graph', () => {
     })
     const [firstInterval] = allocateDashedCenterStrokeIntervals(
       topology.totalLength,
-      [200, 20],
-      0,
+      { dash: 200, gap: 20 },
       topology.closed
     ).filter((interval) => interval.kind === 'visible')
     const graph = buildSourceSpanGraph(
@@ -209,7 +207,8 @@ describe('source span graph', () => {
         width: 10,
         style: StrokeStyles.DASHED,
         position: StrokePositions.INSIDE,
-        dashPattern: [20, 10]
+        dash: 20,
+        gap: 10
       })
     ]).strokes[0]
     const resolvedGeometry = buildResolvedVectorGeometryModel({
@@ -285,7 +284,8 @@ describe('source span graph', () => {
         width: 10,
         style: StrokeStyles.DASHED,
         position: StrokePositions.INSIDE,
-        dashPattern: [20, 10]
+        dash: 20,
+        gap: 10
       })
     ]).strokes[0]
     const domainPlan = resolveStrokeDomains({
@@ -300,8 +300,8 @@ describe('source span graph', () => {
     })
     const allocations = allocateStrokeIntervalsForDomainPlan({
       domainPlan,
-      dashPattern: stroke.dashPattern,
-      dashOffset: stroke.dashOffset
+      dash: stroke.dash,
+      gap: stroke.gap
     })
     const graph = buildSourceSpanGraph(topology)
 

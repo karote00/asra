@@ -45,7 +45,8 @@ const stroke = (
     createDefaultStroke({
       style,
       position,
-      dashPattern: style === StrokeStyles.DASHED ? [24, 12] : []
+      dash: style === StrokeStyles.DASHED ? 24 : 0,
+      gap: style === StrokeStyles.DASHED ? 12 : 0
     })
   ]).strokes[0]
 
@@ -373,13 +374,15 @@ const expectSplitRangeDomainsMatchSourceIntersectionCuts = (
 
 const expectSplitRangesAllocateTerminalHalfDash = (
   domains: DomainPlanSplitRangeDashDomain[],
-  dashPattern = [27, 20]
+  { dash, gap } = { dash: 27, gap: 20 }
 ) => {
   const allocations = allocateDomainPlanSplitRangeDashedIntervals({
     domains,
-    dashPattern
+    dash,
+    gap
   })
-  const dashLength = dashPattern[0] ?? 0
+  const dashLength = dash
+  const minimumCenterlineGapLength = Math.max(0, gap * 0.6 - 0.75)
   const failures = allocations.flatMap((allocation) => {
     const visible = allocation.intervals.filter(
       (interval) => interval.kind === 'visible'
@@ -396,7 +399,7 @@ const expectSplitRangesAllocateTerminalHalfDash = (
       return [{ domainId: allocation.domainId, reason: 'missing-domain' }]
     }
     const rangeLength = domain.endDistance - domain.startDistance
-    if (rangeLength <= dashLength) {
+    if (rangeLength <= dashLength + minimumCenterlineGapLength) {
       return first.domainPlanTerminalRole === 'start-end' &&
         Math.abs(first.startDistance - domain.startDistance) <= 1e-6 &&
         Math.abs(first.endDistance - domain.endDistance) <= 1e-6
@@ -1144,7 +1147,7 @@ describe('stroke domain plan', () => {
     const domains = buildDomainPlanSplitRangeDashDomains(sourcePath)
 
     expectSplitRangeDomainsMatchSourceIntersectionCuts(sourcePath, domains)
-    expectSplitRangesAllocateTerminalHalfDash(domains, [27, 20])
+    expectSplitRangesAllocateTerminalHalfDash(domains, { dash: 27, gap: 20 })
   })
 
   it('should run: keep simple closed constrained strokes on source path domains with orientation authority', () => {
@@ -1432,7 +1435,8 @@ describe('stroke domain plan', () => {
     expect(
       allocateDomainPlanSplitRangeDashedIntervals({
         domains: insideExcludedDomains,
-        dashPattern: [24, 12]
+        dash: 24,
+        gap: 12
       }).every((allocation) => allocation.intervals.length === 0)
     ).toBe(true)
 
