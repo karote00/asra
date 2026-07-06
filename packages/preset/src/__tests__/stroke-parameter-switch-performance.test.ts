@@ -117,10 +117,6 @@ beforeAll(async () => {
   core.defineSystemProperty<string | null>('pathEditingVectorId', null)
   core.defineSystemProperty<boolean>('pathEditingMode', false)
   core.defineSystemProperty<boolean>('mouseDragging', false)
-  core.defineSystemProperty<boolean>(
-    'strokeDebugDisableVisualOverlapCollapse',
-    false
-  )
 
   const backend = createClipper2GeometryBackend(await loadClipperModule(), {
     backendId: CLIPPER_STROKE_PARAMETER_SWITCH_TEST_BACKEND_ID,
@@ -364,7 +360,11 @@ const toReportedClosedStarVectorData = () => ({
 
 const measureScenario = (
   label: string,
-  getStroke: (frame: number) => ReturnType<typeof createDefaultStroke>
+  getStroke: (frame: number) => ReturnType<typeof createDefaultStroke>,
+  getVectorData: (
+    frame: number
+  ) => ReturnType<typeof toReportedClosedStarVectorData> = () =>
+    toReportedClosedStarVectorData()
 ) => {
   const strategy = renderStrategyRegistry.get('vector')
   expect(strategy).toBeTypeOf('function')
@@ -376,7 +376,6 @@ const measureScenario = (
     y: 0,
     width: 423.6353107755326,
     height: 458.34939129152076,
-    ...toReportedClosedStarVectorData(),
     pointCoordinateSpace: 'workspace',
     closed: true,
     fills: []
@@ -411,6 +410,7 @@ const measureScenario = (
       const counterSnapshot = { ...counters }
       const start = performance.now()
       const stroke = getStroke(frame)
+      const vectorData = getVectorData(frame)
       ;(
         strategy as unknown as (
           target: RecordingVectorGraphic,
@@ -418,6 +418,7 @@ const measureScenario = (
         ) => void
       )(graphic, {
         ...baseData,
+        ...vectorData,
         strokes: [stroke]
       })
       const end = performance.now()
@@ -459,11 +460,185 @@ const measureInsideDashedFormalRouteBreakdown = () =>
       width: 10,
       style: StrokeStyles.DASHED,
       position: StrokePositions.INSIDE,
-      dashPattern: [20, 20],
-      dashOffset: frame * 2,
+      dash: 20,
+      gap: 20,
       color: '#d51a1a'
     })
   )
+
+describe('stroke parameter switch performance cache contract', () => {
+  it('should run: reuse constrained dashed product geometry for outside dashed paint-only updates', () => {
+    const metric = measureScenario(
+      'outside dashed paint-only cache contract',
+      (frame) =>
+        createDefaultStroke({
+          id: 'pp-312',
+          width: 10,
+          style: StrokeStyles.DASHED,
+          position: StrokePositions.OUTSIDE,
+          dash: 20,
+          gap: 20,
+          capType: StrokeCapTypes.BUTT,
+          joinType: StrokeJoinTypes.BEVEL,
+          color: frame % 2 === 0 ? '#d51a1a' : '#1ad57d',
+          opacity: 30 + (frame % 70)
+        })
+    )
+
+    expect(metric.invalidFrameCount).toBe(0)
+    expect(
+      metric.counters['stroke-stage-cache:product-geometry-store'] ?? 0
+    ).toBeGreaterThan(0)
+    expect(
+      metric.counters['stroke-stage-cache:product-geometry-hit'] ?? 0
+    ).toBeGreaterThanOrEqual(FRAME_COUNT - 1)
+    expect(metric.counters['interval-sweep-count'] ?? 0).toBeLessThan(
+      FRAME_COUNT
+    )
+    expect(
+      metric.counters['constrained-dashed-interval-coverage-body-cache-miss'] ??
+        0
+    ).toBeLessThan(FRAME_COUNT)
+  })
+
+  it('should run: reuse local constrained dashed interval and descriptor products for outside dashed source-drag updates', () => {
+    const metric = measureScenario(
+      'outside dashed source-drag interval coverage cache contract',
+      () =>
+        createDefaultStroke({
+          id: 'pp-312',
+          width: 10,
+          style: StrokeStyles.DASHED,
+          position: StrokePositions.OUTSIDE,
+          dash: 20,
+          gap: 20,
+          capType: StrokeCapTypes.BUTT,
+          joinType: StrokeJoinTypes.BEVEL,
+          color: '#d51a1a'
+        }),
+      (frame) => {
+        const data = toReportedClosedStarVectorData()
+        const dx = frame * 0.2
+        data.points['tp-60'] = {
+          ...data.points['tp-60'],
+          x: data.points['tp-60'].x + dx
+        }
+        data.points['tp-60:in'] = {
+          ...data.points['tp-60:in'],
+          x: data.points['tp-60:in'].x + dx
+        }
+        data.points['tp-60:out'] = {
+          ...data.points['tp-60:out'],
+          x: data.points['tp-60:out'].x + dx
+        }
+        return data
+      }
+    )
+    if (SHOULD_RUN_STROKE_PARAMETER_SWITCH_PROFILE) {
+      process.stdout.write(
+        `STAR_OUTSIDE_DASHED_SOURCE_DRAG_METRIC ${JSON.stringify({
+          measurementScope: metric.measurementScope,
+          rendererCoverage: metric.rendererCoverage,
+          doesNotMeasureRenderer: metric.doesNotMeasureRenderer,
+          averageMs: metric.averageMs,
+          p95Ms: metric.p95Ms,
+          maxMs: metric.maxMs,
+          topPhases: metric.topPhases,
+          counters: {
+            coverageBodyMisses:
+              metric.counters[
+                'constrained-dashed-interval-coverage-body-cache-miss'
+              ] ?? 0,
+            intervalCacheHits:
+              metric.counters[
+                'constrained-dashed-join-independent-interval-cache-hit'
+              ] ?? 0,
+            intervalCacheMisses:
+              metric.counters[
+                'constrained-dashed-join-independent-interval-cache-miss'
+              ] ?? 0,
+            descriptorProductHits:
+              metric.counters[
+                'outside-source-domain-descriptor-product-cache-hit'
+              ] ?? 0,
+            descriptorProductMisses:
+              metric.counters[
+                'outside-source-domain-descriptor-product-cache-miss'
+              ] ?? 0,
+            productGeometryStores:
+              metric.counters['stroke-stage-cache:product-geometry-store'] ?? 0,
+            renderEntryConstrainedDashedFaces:
+              metric.counters['render-entry-constrained-dashed-face-count'] ??
+              0,
+            renderEntryDescriptorFaces:
+              metric.counters[
+                'render-entry-constrained-dashed-descriptor-face-count'
+              ] ?? 0,
+            renderEntryVisibleDescriptorRouteFaces:
+              metric.counters[
+                'render-entry-constrained-dashed-visible-descriptor-route-face-count'
+              ] ?? 0,
+            renderEntryStrokeMaskDescriptorFaces:
+              metric.counters[
+                'render-entry-constrained-dashed-stroke-mask-descriptor-face-count'
+              ] ?? 0,
+            renderEntryNonDescriptorFaces:
+              metric.counters[
+                'render-entry-constrained-dashed-non-descriptor-face-count'
+              ] ?? 0,
+            renderEntryDescriptorRouteHits:
+              metric.counters[
+                'render-entry-constrained-dashed-descriptor-route-hit'
+              ] ?? 0
+          }
+        })}\n`
+      )
+    }
+
+    const coverageBodyMisses =
+      metric.counters['constrained-dashed-interval-coverage-body-cache-miss'] ??
+      0
+    const intervalCacheHits =
+      metric.counters[
+        'constrained-dashed-join-independent-interval-cache-hit'
+      ] ?? 0
+    const intervalCacheMisses =
+      metric.counters[
+        'constrained-dashed-join-independent-interval-cache-miss'
+      ] ?? 0
+    const descriptorProductHits =
+      metric.counters['outside-source-domain-descriptor-product-cache-hit'] ?? 0
+    const descriptorProductMisses =
+      metric.counters['outside-source-domain-descriptor-product-cache-miss'] ??
+      0
+
+    expect(metric.invalidFrameCount).toBe(0)
+    expect(
+      metric.counters['stroke-stage-cache:product-geometry-store'] ?? 0
+    ).toBeGreaterThan(0)
+    expect(coverageBodyMisses).toBeGreaterThan(0)
+    if (intervalCacheHits <= 0 || descriptorProductHits <= 0) {
+      throw new Error(
+        `Expected constrained dashed interval and descriptor cache hits for source-drag frames: ${JSON.stringify(
+          {
+            coverageBodyMisses,
+            intervalCacheHits,
+            intervalCacheMisses,
+            sourceIntervalHits:
+              metric.counters['source-path-interval-level-polygon-cache-hit'] ??
+              0,
+            sourceIntervalMisses:
+              metric.counters[
+                'source-path-interval-level-polygon-cache-miss'
+              ] ?? 0,
+            descriptorProductHits,
+            descriptorProductMisses
+          }
+        )}`
+      )
+    }
+  })
+})
 
 describeProfile('stroke parameter switch performance profile', () => {
   if (!SHOULD_RUN_STROKE_PARAMETER_SWITCH_PROFILE) {
@@ -475,14 +650,14 @@ describeProfile('stroke parameter switch performance profile', () => {
 
   it('should profile: measure reported closed star vector render strategy parameter CPU updates', () => {
     const metrics = [
-      measureScenario('inside dashed dashOffset slider', (frame) =>
+      measureScenario('inside dashed dash slider', (frame) =>
         createDefaultStroke({
           id: 'pp-312',
           width: 10,
           style: StrokeStyles.DASHED,
           position: StrokePositions.INSIDE,
-          dashPattern: [20, 20],
-          dashOffset: frame * 2,
+          dash: 10 + (frame % 20),
+          gap: 20,
           color: '#d51a1a'
         })
       ),
@@ -492,8 +667,8 @@ describeProfile('stroke parameter switch performance profile', () => {
           width: 6 + (frame % 20),
           style: StrokeStyles.DASHED,
           position: StrokePositions.INSIDE,
-          dashPattern: [20, 20],
-          dashOffset: 0,
+          dash: 20,
+          gap: 20,
           color: '#d51a1a'
         })
       ),
@@ -504,8 +679,8 @@ describeProfile('stroke parameter switch performance profile', () => {
           style: StrokeStyles.DASHED,
           position:
             frame % 2 === 0 ? StrokePositions.CENTER : StrokePositions.INSIDE,
-          dashPattern: [20, 20],
-          dashOffset: 0,
+          dash: 20,
+          gap: 20,
           color: '#d51a1a'
         })
       ),
@@ -515,8 +690,8 @@ describeProfile('stroke parameter switch performance profile', () => {
           width: 10,
           style: StrokeStyles.DASHED,
           position: StrokePositions.INSIDE,
-          dashPattern: [20, 20],
-          dashOffset: 0,
+          dash: 20,
+          gap: 20,
           capType: [
             StrokeCapTypes.BUTT,
             StrokeCapTypes.SQUARE,
@@ -531,8 +706,8 @@ describeProfile('stroke parameter switch performance profile', () => {
           width: 10,
           style: StrokeStyles.DASHED,
           position: StrokePositions.OUTSIDE,
-          dashPattern: [20, 20],
-          dashOffset: 0,
+          dash: 20,
+          gap: 20,
           capType: [
             StrokeCapTypes.BUTT,
             StrokeCapTypes.SQUARE,
@@ -547,8 +722,8 @@ describeProfile('stroke parameter switch performance profile', () => {
           width: 10,
           style: StrokeStyles.DASHED,
           position: StrokePositions.OUTSIDE,
-          dashPattern: [20, 20],
-          dashOffset: 0,
+          dash: 20,
+          gap: 20,
           joinType: [
             StrokeJoinTypes.MITER,
             StrokeJoinTypes.BEVEL,
@@ -563,8 +738,8 @@ describeProfile('stroke parameter switch performance profile', () => {
           width: 10,
           style: StrokeStyles.DASHED,
           position: StrokePositions.INSIDE,
-          dashPattern: [20, 20],
-          dashOffset: 0,
+          dash: 20,
+          gap: 20,
           joinType: StrokeJoinTypes.MITER,
           miterAngle: 8 + (frame % 80),
           color: '#d51a1a'
@@ -576,8 +751,8 @@ describeProfile('stroke parameter switch performance profile', () => {
           width: 10,
           style: StrokeStyles.DASHED,
           position: StrokePositions.INSIDE,
-          dashPattern: [20, 20],
-          dashOffset: 0,
+          dash: 20,
+          gap: 20,
           color: frame % 2 === 0 ? '#d51a1a' : '#1ad57d',
           opacity: 30 + (frame % 70)
         })
@@ -588,8 +763,8 @@ describeProfile('stroke parameter switch performance profile', () => {
           width: 10,
           style: StrokeStyles.DASHED,
           position: StrokePositions.INSIDE,
-          dashPattern: [20, 20],
-          dashOffset: 0,
+          dash: 20,
+          gap: 20,
           visible: frame % 2 === 0,
           color: '#d51a1a'
         })

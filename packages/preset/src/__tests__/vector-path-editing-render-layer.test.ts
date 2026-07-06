@@ -2,10 +2,17 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
 import {
+  VECTOR_EDITING_HOVER_SEGMENT_STROKE,
+  VECTOR_EDITING_SELECTED_SEGMENT_STROKE,
   getNetworkAnchorHandleRefs,
   getVisibleHandleAnchorIds,
   resolveOverlayHandlePosition
 } from '../render-layers/vector-path-editing-render-layer'
+import {
+  SELECTION_OVERLAY_STROKE_WIDTH,
+  SELECTION_OVERLAY_VECTOR_HOVER_STROKE_WIDTH,
+  projectWorkspacePointToOverlayScreen
+} from '../render-layers/selection-overlay-render-layer'
 
 const penToolFeatureSource = () =>
   readFileSync('../../apps/asyra-design/src/features/pen-tool/index.ts', 'utf8')
@@ -32,6 +39,34 @@ const changeComputedDataSource = () =>
   )
 
 describe('vector path editing handle visibility', () => {
+  it('keeps selection and vector hover outlines fully visible', () => {
+    expect(SELECTION_OVERLAY_STROKE_WIDTH).toBe(2)
+    expect(SELECTION_OVERLAY_VECTOR_HOVER_STROKE_WIDTH).toBe(2)
+    expect(VECTOR_EDITING_HOVER_SEGMENT_STROKE).toEqual({
+      width: 2,
+      color: 0x157ae7
+    })
+    expect(VECTOR_EDITING_SELECTED_SEGMENT_STROKE).toEqual({
+      width: 3,
+      color: 0x157ae7
+    })
+    expect(VECTOR_EDITING_HOVER_SEGMENT_STROKE).not.toHaveProperty('alpha')
+    expect(VECTOR_EDITING_SELECTED_SEGMENT_STROKE).not.toHaveProperty('alpha')
+  })
+
+  it('projects selected vector workspace points through the viewport only', () => {
+    expect(
+      projectWorkspacePointToOverlayScreen(
+        { x: 288.3579534349085, y: 0 },
+        { x: 120, y: 48 },
+        12
+      )
+    ).toEqual({
+      x: 3580.295441218902,
+      y: 48
+    })
+  })
+
   it('creates a visible display handle for straight segment endpoints', () => {
     const handle = resolveOverlayHandlePosition(
       { x: 0, y: 0 },
@@ -334,7 +369,7 @@ describe('vector path editing transaction boundary', () => {
 
     expect(source).toContain('pen-tool:drag-point-update')
     expect(source).toContain(
-      'updateVectorPointTargetPosition(dragTarget, targetPos, {'
+      'updateVectorPointTargetPosition(\n            dragTarget,\n            computedPatchIntent.patch.position,'
     )
     expect(source).toContain(
       'applyBezierDragForNewPoint(state, mouseWorkspacePos, {'
