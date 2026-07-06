@@ -4,6 +4,7 @@ This folder is the AI framework context for **Asyra**:
 **a deterministic execution kernel for declarative information modeling systems**.
 
 Framework-first rules:
+
 - Core is UI-agnostic.
 - App-level domain logic is first-class.
 - Builtins are optional and movable.
@@ -39,6 +40,16 @@ When docs overlap, follow this order:
 5. `BEST_PRACTICES.md` (general guidance)
 
 `golden-paths` is Asyra-specific and takes priority over `BEST_PRACTICES.md`.
+
+Project-wide bug fixes must follow
+`rules/bugfix-test-first.md`: before implementation, verify whether existing
+formal tests detect the reported failure. If they do not, add or strengthen the
+formal regression test/oracle first and prove it fails on the current behavior.
+
+Project-wide product fixes must follow
+`rules/no-patch-fixes.md`: repair the canonical owner stage instead of adding
+patch output or fallback product paths. This applies to framework packages,
+preset defaults, reference apps, and future apps.
 
 ## What This Context Optimizes For
 

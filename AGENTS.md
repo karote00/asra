@@ -1,17 +1,94 @@
 # Agent Protocol
 
-**Universal AI entry point** - Read this before any work on this project.
+**Universal AI entry point** - Classify the request before loading project context.
 
-## Essential Reading (in order)
+## Rule Loading Policy
 
-1. **[docs/ai/framework/README.md](docs/ai/framework/README.md)** - Framework context index and read order (READ FIRST)
-2. **[docs/ai/framework/FRAMEWORK_ESSENTIALS.md](docs/ai/framework/FRAMEWORK_ESSENTIALS.md)** - Core framework rules and constraints
-3. **[docs/ai/framework/CODING_STANDARDS.md](docs/ai/framework/CODING_STANDARDS.md)** - **MONOREPO IMPORT RULE** and implementation standards
-4. **[docs/ai/framework/ARCHITECTURE.md](docs/ai/framework/ARCHITECTURE.md)** - Framework architecture contracts
-5. **[docs/ai/framework/WORKFLOW.md](docs/ai/framework/WORKFLOW.md)** - Framework execution workflow
-6. **[docs/ai/apps/README.md](docs/ai/apps/README.md)** - App-level context index (use when task is app-specific)
-7. **[docs/ai/skills/](docs/ai/skills/)** - Reusable AI agent capabilities and skills
-8. **[docs/ai/workflows/](docs/ai/workflows/)** - Universal workflows for guaranteed process execution
+Start every task with a brief triage based on the user's request and the files
+being touched. Load only the rules needed for that scope, then expand context if
+the task proves riskier than it first appeared.
+
+### Always-On Rules
+
+These rules apply to every task without requiring additional document reads:
+
+- Use Traditional Chinese (Taiwan usage) or English only. Never use Simplified Chinese.
+- Do not write, move, copy, or delete files outside the project. Read-only access outside the project is allowed.
+- Do not commit unless the user explicitly asks for it.
+- Do not overwrite unrelated user changes in a dirty worktree.
+- Follow main branch protection before making code or documentation changes.
+- For every bug fix, first verify whether existing formal tests detect the bug; if not, add or strengthen the formal regression test before implementation.
+- Follow the Critical Rules section in this file.
+
+### Triage Levels
+
+#### Level 0: Read-only or direct answer
+
+Examples:
+
+- Answer a question.
+- Explain existing behavior.
+- Inspect one or a few files.
+- Run a read-only command.
+
+Required context:
+
+- `AGENTS.md`
+- Directly relevant files only.
+
+Do not load the full framework or app docs unless the answer depends on them.
+
+#### Level 1: Low-risk local documentation or text change
+
+Examples:
+
+- Edit a small section of documentation.
+- Fix wording, formatting, or a narrow instruction.
+- Update non-behavioral metadata.
+
+Required context:
+
+- `AGENTS.md`
+- The file being edited.
+- Any directly linked source-of-truth document whose rule is being changed.
+
+Run a focused diff review before finishing.
+
+#### Level 2: Code, tests, or behavior change
+
+Examples:
+
+- Modify implementation code.
+- Add or change tests.
+- Change package behavior.
+- Touch build, lint, or runtime configuration.
+
+Required context:
+
+1. **[docs/ai/framework/README.md](docs/ai/framework/README.md)** - Framework context index and read order.
+2. **[docs/ai/framework/FRAMEWORK_ESSENTIALS.md](docs/ai/framework/FRAMEWORK_ESSENTIALS.md)** - Core framework rules and constraints.
+3. **[docs/ai/framework/CODING_STANDARDS.md](docs/ai/framework/CODING_STANDARDS.md)** - **MONOREPO IMPORT RULE** and implementation standards.
+4. Relevant package, app, or workflow docs based on the touched files.
+
+#### Level 3: Architecture, cross-package, or product-flow change
+
+Examples:
+
+- Change event contracts, package boundaries, or public APIs.
+- Change rendering, persistence, transactions, inspectors, active plans, or workflow behavior.
+- Fix bugs that could be hidden by fallback output or patch-specific logic.
+
+Required context:
+
+1. Everything from Level 2.
+2. **[docs/ai/framework/ARCHITECTURE.md](docs/ai/framework/ARCHITECTURE.md)** - Framework architecture contracts.
+3. **[docs/ai/framework/WORKFLOW.md](docs/ai/framework/WORKFLOW.md)** - Framework execution workflow.
+4. **[docs/ai/apps/README.md](docs/ai/apps/README.md)** and the relevant app docs when the task is app-specific.
+5. Relevant files under **[docs/ai/framework/rules/](docs/ai/framework/rules/)**, **[docs/ai/skills/](docs/ai/skills/)**, or **[docs/ai/workflows/](docs/ai/workflows/)**.
+
+For active-plan or inspector-backed work, re-read and follow the INSPECTOR FLOW
+HIGHEST PRINCIPLE before starting the task and before advancing each work
+segment.
 
 ## Context Routing
 
@@ -25,6 +102,52 @@
 - **Formatting**: `yarn lint:ci` (check) / `yarn lint --fix` (fix)
 - **Build**: `yarn react:build`
 - **Architecture**: Communication-Driven Development (CDD) with typed events
+
+## Operational Diagnostics Hygiene
+
+Codex renderer CPU, agent UI load, terminal log volume, dev-server CPU, test
+runner CPU, browser CPU, and project runtime CPU are separate signals. Do not
+infer product owner stage, correctness, or runtime performance conclusions from
+Codex UI CPU behavior.
+
+Diagnostics must stay narrow and accountable:
+
+- Every diagnostic command must answer one explicit question.
+- Command output must be proportional to that question.
+- Inspect large diffs through `git diff --stat`, `git diff --name-only`, `rg`,
+  and bounded `sed` ranges by default.
+- In a heavily dirty worktree, use Git diff only as an inventory tool unless a
+  specific current-task file must be reviewed. Prefer `git status --short`,
+  `git diff --stat`, `git diff --name-only`, and
+  `git diff --cached --name-status`. Do not run raw `git diff`,
+  `git diff --cached`, or `git show` without explicit path limits and bounded
+  context.
+- When dirty files exceed 30, do not inspect large raw diffs. Build a file
+  inventory first, then read only current-task files. For deleted files, inspect
+  filenames only unless the user explicitly asks to audit deleted content.
+- Deleted diff content is not source-of-truth. Do not use deleted code,
+  historical diff hunks, or removed tests as behavior authority. Current files,
+  active specs, inspector flow, and formal tests are the authority.
+- When active specs or inspector flow exist, they override historical diff
+  content. Do not resurrect removed behavior from deleted files or old tests.
+- Full stdout is opt-in, not the default.
+- Long gate failures must be summarized first: failing test name, assertion
+  error, relevant stack frame, budget summary, and artifact path.
+- Performance gates must extract budget summaries instead of dumping full logs.
+- Process diagnostics must use fixed-width, bounded output.
+- Dev servers and test processes started by the agent must be PID-tracked.
+- Extra ports must be cleaned up after use.
+- Progress updates must describe the current gate, purpose, and current finding,
+  not raw logs.
+- If work must stop for discussion, user input, or a user-requested inspection
+  checkpoint, send a system notification when the host environment supports it.
+- If the user asks to inspect a milestone, notify only after the required
+  evidence for that milestone is complete.
+- If Codex renderer CPU spikes, stop issuing large-output commands, inspect a
+  short top-CPU view, and report whether agent-started server or test processes
+  are still running.
+
+Log is evidence, not a context dump.
 
 ## Universal Workflows
 
@@ -99,9 +222,12 @@ yarn workspace @package/name build  # Package-specific build
 
 ## Critical Rules
 
+- **🚨 BUGFIX TEST-FIRST RULE**: Before any bug-fix implementation, verify whether existing formal tests detect the reported failure. If they do not, add or strengthen formal tests/oracles first and prove they fail on the current behavior before changing production code (see `docs/ai/framework/rules/bugfix-test-first.md`). Manual screenshots, one-time diagnostics, and visual inspection are not enough.
 - **🚨 MONOREPO IMPORT RULE**: **ALWAYS** use `@asyra/package-name` for cross-package imports, NEVER use relative paths like `../../../other-package` (see `docs/ai/framework/CODING_STANDARDS.md`)
 - **🚨 MAIN BRANCH PROTECTION**: NEVER work on main branch - use feature branches only (see `docs/ai/project/rules/main-branch-protection.md`)
-- **🚨 ACTIVE PLAN / INSPECTOR FLOW RULE**: For any task that touches an active plan or inspector-backed workflow, first verify the inspector flow, then verify the active plan. If both are correct, inspect the implementation algorithm, including helper conditions, limits, fallbacks, and stale legacy branches. After finding and fixing the issue, re-check whether the inspector flow or active plan must be updated before claiming completion.
+- **🚨 INSPECTOR FLOW HIGHEST PRINCIPLE**: For any task that touches an active plan or inspector-backed workflow, this is the highest execution rule and must be re-read before the task starts and before each work segment advances. The inspector flow is an exact architecture contract, not a summary or direction. For each segment, identify the matching inspector step or route, verify its inputs, outputs, conditions, bypass conditions, limitations, owner stage, allowed contributors, forbidden contributors, required evidence, and failure reopening rule, then compare the planned test, implementation, or document change against that exact contract. The segment cannot proceed until this comparison passes. If the inspector flow is missing, vague, or inconsistent with the active plan or implementation, stop and repair the inspector contract first; do not continue with implementation, tests, visual review, cleanup, or performance work. After each segment, re-check the inspector flow before moving to the next segment, and re-check it again before claiming completion.
+- **🚨 INSPECTOR STEP EXECUTION RULE**: For active-plan or inspector-backed implementation work, follow `docs/ai/framework/rules/inspector-step-execution.md`. Work on one inspector owner step at a time, produce a Step Execution Card before edits, test-first any bug/spec mismatch, stay inside the step implementation allowlist, and run the bounded review checklist before advancing.
+- **🚨 NO PATCH FIXES RULE**: NEVER hide a product bug with patch geometry, patch state, patch routing, fallback product output, fixture-specific exceptions, or app-specific visual output. Identify and fix the first incorrect canonical owner stage instead (see `docs/ai/framework/rules/no-patch-fixes.md`). This applies to framework code, preset defaults, all apps, visual review, export, hit testing, and inspectors.
 - **Context Priority**: Use `docs/ai/framework/*` and `docs/ai/apps/*` first; treat `docs/ai/project/*` as legacy reference
 - **External APIs**: Use Context7 MCP server for libraries/frameworks/APIs (see `.antigravity/rules.md`)
 - Read `docs/ai/framework/FRAMEWORK_ESSENTIALS.md` before framework work

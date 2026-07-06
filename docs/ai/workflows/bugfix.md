@@ -22,6 +22,7 @@ Fix incorrect behavior with minimal safe change and prevent regression.
 Load by scope:
 
 - framework source-of-truth: `docs/ai/framework/*`
+- hard test-first rule: `docs/ai/framework/rules/bugfix-test-first.md`
 - app source-of-truth: `docs/ai/apps/asyra-design/*`
 - execution process:
   - `docs/ai/framework/WORKFLOW.md`
@@ -30,10 +31,12 @@ Load by scope:
 ## Execution
 
 1. reproduce and capture baseline
-2. derive expected contract from references
-3. apply minimal fix at correct owner boundary
-4. validate reproduction is fixed and adjacent behavior is stable
-5. sync docs if behavior contract changed
+2. verify whether existing formal tests detect the bug
+3. if no existing formal test fails, add or strengthen the official regression test/oracle and confirm it fails
+4. derive expected contract from references
+5. apply minimal fix at correct owner boundary
+6. validate reproduction is fixed and adjacent behavior is stable
+7. sync docs if behavior contract changed
 
 ## Output
 

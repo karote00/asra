@@ -17,6 +17,7 @@ Read in order:
 9. relevant rules in `docs/ai/framework/rules/`
 
 Optional retrieval accelerator:
+
 - `npx context-rag ai "<request summary>" --top-k 8`
 - Context-rag scope should exclude `docs/ai/project/*`.
 - Use retrieved results as navigation hints, then confirm against source-of-truth docs.
@@ -37,16 +38,20 @@ Actions:
 - state what must stay unchanged
 - identify compatibility expectations (breaking vs non-breaking)
 - identify whether old behavior is released compatibility or pre-release legacy; pre-release legacy must follow `rules/pre-release-legacy-removal.md`
+- for bug fixes, verify whether existing formal tests detect the reported failure; if not, add or strengthen the failing regression test first per `rules/bugfix-test-first.md`
+- identify whether the proposed fix is a patch output/fallback path; patch fixes are forbidden by `rules/no-patch-fixes.md`
 - identify generated-output boundaries (`create-app/*`) and keep source-of-truth edits outside generated folders
 
 Checklist:
 
+- [ ] bug fixes have a formal failing test/oracle before implementation
 - [ ] ownership boundaries are explicit
 - [ ] preset usage is justified as default initialization (not runtime/domain ownership)
 - [ ] change improves quick-start functionality without blocking user override paths
 - [ ] no app business logic leaks into framework packages
 - [ ] cross-package imports use `@asyra/package-name`
 - [ ] no manual edits are introduced in `create-app/*` unless explicitly generated/synced
+- [ ] no patch geometry/state/routing/fallback is used to hide an incorrect upstream contract
 
 ## Phase 2: Design Before Code
 
@@ -67,6 +72,7 @@ Checklist:
 - [ ] no Pixi dependency leaks outside `@asyra/render`
 - [ ] migration/deprecation story is clear when behavior changes
 - [ ] pre-release legacy branches are removed or isolated to load migration/diagnostics
+- [ ] the first incorrect semantic owner stage is fixed before downstream output is changed
 
 ## Phase 3: Implement in Thin Slices
 
@@ -82,9 +88,12 @@ Actions:
 Self-correction loop:
 
 1. inspect failure
-2. read affected source
-3. adjust minimally
-4. rerun build/test for touched scope
+2. verify whether existing formal tests detect the failure
+3. if no formal test fails, add or strengthen the official regression test/oracle and confirm it fails
+4. read affected source
+5. identify the first canonical semantic stage where the behavior becomes wrong
+6. adjust minimally at that owner stage
+7. rerun build/test for touched scope
 
 ## Phase 4: Verification Matrix
 
@@ -102,10 +111,12 @@ Cross-package framework change:
 
 Quality gates:
 
+- [ ] bug fixes include a formal regression test/oracle that would fail on the old behavior
 - [ ] builds pass for affected packages
 - [ ] tests pass for affected packages
 - [ ] lint passes (if cross-cutting)
 - [ ] no known regression left undocumented
+- [ ] visual/product fixes are validated through the normal pipeline, not through patch output
 
 ## Phase 5: Documentation Sync
 
