@@ -1,11 +1,17 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { dirname, resolve } from 'node:path'
+import { dirname, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 type RefactorStatus = 'locked' | 'active' | 'verified'
 type RouteType = 'normal' | 'bypass' | 'terminal' | 'parallel'
+type SourceFileOwnershipClassification =
+  | 'owner-entry'
+  | 'shared-helper'
+  | 'diagnostics-only'
+  | 'app-integration'
+  | 'dead-residue'
 type EntryPointKind =
   | 'function-boundary'
   | 'orchestration-boundary'
@@ -118,6 +124,16 @@ interface CoExecutionCompletionRule {
   specRuleRefs: string[]
 }
 
+interface SourceFileOwnershipRecord {
+  filePath: string
+  classification: SourceFileOwnershipClassification
+  ownerStepId: string | null
+  ownerRouteIds: string[]
+  currentConsumers: string[]
+  requiredInspectorField: string
+  productionCodeChangeNeeded: boolean
+}
+
 interface InspectorData {
   latestRules: string[]
   ruleRegistry: Array<{ id: string; text: string }>
@@ -169,6 +185,8 @@ interface InspectorData {
     forbiddenAuditBehavior: string[]
     validationGate: string
   }
+  sharedStepTestHelpers: string[]
+  sourceFileOwnershipRecords: SourceFileOwnershipRecord[]
   entryBoundaryRequiredStepIds: string[]
   strokeParameterIds: string[]
   strokeParameterCoverageRoles: StrokeParameterCoverageRole[]
@@ -190,6 +208,7 @@ interface InspectorData {
   refactorProtocolErrors: string[]
   runtimeImplementationErrors: string[]
   strokeParameterCoverageErrors: string[]
+  sourceFileOwnershipErrors: string[]
   inspectorContractErrors: string[]
 }
 
@@ -240,6 +259,71 @@ const loadInspectorData = (): InspectorData => {
 
 const readRepoFile = (path: string) => readFileSync(path, 'utf8')
 
+const toRepoPath = (absolutePath: string) =>
+  relative(repoRoot, absolutePath).split('/').join('/')
+
+const resolveRepoImportSpecifier = (fromRepoPath: string, specifier: string) => {
+  if (!specifier.startsWith('.')) {
+    return specifier
+  }
+
+  const fromAbsolutePath = resolve(repoRoot, fromRepoPath)
+  const baseAbsolutePath = resolve(dirname(fromAbsolutePath), specifier)
+  const candidates = [
+    baseAbsolutePath,
+    `${baseAbsolutePath}.ts`,
+    `${baseAbsolutePath}.tsx`,
+    resolve(baseAbsolutePath, 'index.ts'),
+    resolve(baseAbsolutePath, 'index.tsx')
+  ]
+  const resolvedAbsolutePath =
+    candidates.find((candidate) => existsSync(candidate)) ?? baseAbsolutePath
+
+  return toRepoPath(resolvedAbsolutePath)
+}
+
+const parseStaticImports = (repoPath: string) => {
+  const source = readRepoFile(resolve(repoRoot, repoPath))
+  const importPattern =
+    /^\s*import(?:\s+type)?(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]/gm
+  const imports: Array<{
+    line: number
+    specifier: string
+    resolvedSpecifier: string
+  }> = []
+  let match: RegExpExecArray | null
+
+  while ((match = importPattern.exec(source)) !== null) {
+    const specifier = match[1]
+    imports.push({
+      line: source.slice(0, match.index).split(/\r?\n/).length,
+      specifier,
+      resolvedSpecifier: resolveRepoImportSpecifier(repoPath, specifier)
+    })
+  }
+
+  return imports
+}
+
+const importMatchesAllowedEntry = (
+  specifier: string,
+  resolvedSpecifier: string,
+  allowedEntry: string
+) =>
+  allowedEntry === specifier ||
+  allowedEntry === resolvedSpecifier ||
+  (allowedEntry.endsWith('/') && resolvedSpecifier.startsWith(allowedEntry)) ||
+  (allowedEntry === 'node:' && specifier.startsWith('node:'))
+
+const isAllowedStepImport = (
+  specifier: string,
+  resolvedSpecifier: string,
+  allowedImports: string[]
+) =>
+  allowedImports.some((allowedEntry) =>
+    importMatchesAllowedEntry(specifier, resolvedSpecifier, allowedEntry)
+  )
+
 const routeById = (data: InspectorData, id: string) => {
   const route = data.conditionalRoutes.find((candidate) => candidate.id === id)
   expect(route, id).toBeDefined()
@@ -258,6 +342,7 @@ describe('stroke flow refactor protocol', () => {
     expect(data.refactorProtocolErrors).toEqual([])
     expect(data.runtimeImplementationErrors).toEqual([])
     expect(data.strokeParameterCoverageErrors).toEqual([])
+    expect(data.sourceFileOwnershipErrors).toEqual([])
     expect(data.inspectorContractErrors).toEqual([])
     expect(data.steps).toHaveLength(41)
     expect(data.currentExecutionState.totalSteps).toBe(41)
@@ -307,6 +392,111 @@ describe('stroke flow refactor protocol', () => {
         expect(ruleIds.has(ruleRef)).toBe(true)
       }
     }
+  })
+
+  it('tracks current stroke source-file ownership records', () => {
+    const data = loadInspectorData()
+    const stepIds = new Set(data.steps.map((step) => step.id))
+    const routeIds = new Set(data.conditionalRoutes.map((route) => route.id))
+    const ownershipRecords = new Map(
+      data.sourceFileOwnershipRecords.map((record) => [record.filePath, record])
+    )
+    const requiredSourceFiles = [
+      'packages/preset/src/components/oval.ts',
+      'packages/preset/src/components/rectangle.ts',
+      'packages/preset/src/components/stroke-render/arrangement-face-classifier.ts',
+      'packages/preset/src/components/stroke-render/center-dashed-overlap-candidates.ts',
+      'packages/preset/src/components/stroke-render/center-dashed-overlap-graph.ts',
+      'packages/preset/src/components/stroke-render/center-dashed-ownership.ts',
+      'packages/preset/src/components/stroke-render/clipper2-geometry-backend.ts',
+      'packages/preset/src/components/stroke-render/constants.ts',
+      'packages/preset/src/components/stroke-render/constrained-dashed-domain-geometry.ts',
+      'packages/preset/src/components/stroke-render/constrained-domain-stroke-geometry.ts',
+      'packages/preset/src/components/stroke-render/constrained-solid-legality-clipping.ts',
+      'packages/preset/src/components/stroke-render/constrained-solid-legality-domain.ts',
+      'packages/preset/src/components/stroke-render/constrained-solid-stroke-geometry.ts',
+      'packages/preset/src/components/stroke-render/dashed-center-ribbon-geometry.ts',
+      'packages/preset/src/components/stroke-render/ellipse-path.ts',
+      'packages/preset/src/components/stroke-render/geometry-backend.ts',
+      'packages/preset/src/components/stroke-render/legal-domain-normalization.ts',
+      'packages/preset/src/components/stroke-render/self-intersecting-legal-domain.ts',
+      'packages/preset/src/components/stroke-render/solid-stroke-geometry-core.ts',
+      'packages/preset/src/components/stroke-render/source-span-graph.ts',
+      'packages/preset/src/components/stroke-render/stroke-interval-frames.ts',
+      'packages/preset/src/components/stroke-render/stroke-ownership.ts',
+      'packages/preset/src/components/stroke-render/stroke-paint-payload.ts',
+      'packages/preset/src/components/stroke-render/stroke-side-resolution.ts',
+      'packages/render/src/index.ts',
+      'packages/render/src/layers/overlay-layer.ts',
+      'packages/render/src/layers/selection/selection-layer.ts',
+      'packages/render/src/render.ts'
+    ]
+
+    expect(data.sourceFileOwnershipErrors).toEqual([])
+    expect(data.sourceFileOwnershipRecords.length).toBeGreaterThanOrEqual(
+      requiredSourceFiles.length
+    )
+
+    for (const filePath of requiredSourceFiles) {
+      const record = ownershipRecords.get(filePath)
+
+      expect(record, filePath).toBeDefined()
+      if (!record) {
+        throw new Error(`${filePath} missing source ownership record`)
+      }
+      expect(existsSync(resolve(repoRoot, record.filePath)), record.filePath).toBe(
+        true
+      )
+      expect(record.productionCodeChangeNeeded, record.filePath).toBe(false)
+      expect(record.requiredInspectorField, record.filePath).toContain(
+        'sourceFileOwnershipRecords.'
+      )
+      if (record.classification === 'dead-residue') {
+        expect(record.ownerStepId, record.filePath).toBeNull()
+        expect(record.ownerRouteIds, record.filePath).toEqual([])
+        expect(record.currentConsumers, record.filePath).toEqual([])
+      } else {
+        expect(stepIds.has(record.ownerStepId ?? ''), record.filePath).toBe(true)
+        expect(record.ownerRouteIds.length, record.filePath).toBeGreaterThan(0)
+        for (const routeId of record.ownerRouteIds) {
+          expect(routeIds.has(routeId), `${record.filePath}:${routeId}`).toBe(
+            true
+          )
+        }
+      }
+    }
+  })
+
+  it('enforces step unit test imports against inspector allowedTestImports', () => {
+    const data = loadInspectorData()
+    const sharedHelpers = data.sharedStepTestHelpers
+
+    expect(sharedHelpers).toContain(
+      'packages/preset/src/__tests__/stroke-flow/stroke-parameter-coverage-test-helper.ts'
+    )
+    for (const sharedHelper of sharedHelpers) {
+      expect(existsSync(resolve(repoRoot, sharedHelper)), sharedHelper).toBe(true)
+    }
+
+    const violations = data.steps.flatMap((step) => {
+      const allowedImports = [...step.allowedTestImports, ...sharedHelpers]
+
+      return parseStaticImports(step.unitTestFile)
+        .filter(
+          (importRecord) =>
+            !isAllowedStepImport(
+              importRecord.specifier,
+              importRecord.resolvedSpecifier,
+              allowedImports
+            )
+        )
+        .map(
+          (importRecord) =>
+            `${step.id}:${step.unitTestFile}:${importRecord.line} imports ${importRecord.specifier} -> ${importRecord.resolvedSpecifier}`
+        )
+    })
+
+    expect(violations).toEqual([])
   })
 
   it('requires explicit entry boundaries for high-risk orchestration steps', () => {

@@ -1,13 +1,17 @@
 # Reference Dashed Stroke Completeness
 
+Authority note: this file is non-authoritative reference material for later
+E2E/visual review. It must not define current stroke semantics, correctness
+gates, inspector owner stages, route conditions, or product output rules.
+
 ## Purpose
 
-This benchmark validates **full-path dashed-stroke completeness** for the reference 5-anchor closed vector.
+This reference note records later-phase evidence for **full-path dashed-stroke completeness** on the reference 5-anchor closed vector.
 
 It does **not** verify only the first dash or a few local probes.
 It verifies that the renderer paints the dashed inside stroke across the **entire closed path** without segment dropouts, large missing spans, or broad gap leakage.
 
-## Input Contract
+## Fixture Inputs
 
 - path geometry is built by real UI pen-tool actions
 - path closes on the authored first anchor
@@ -30,7 +34,7 @@ It verifies that the renderer paints the dashed inside stroke across the **entir
 
 ## Oracle Shape
 
-The oracle is **path-guided**, not screenshot-golden-based.
+The measurement approach is **path-guided**, not screenshot-golden-based.
 
 The test reconstructs the authored closed path from the vector snapshot and:
 

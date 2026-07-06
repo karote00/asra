@@ -880,6 +880,347 @@
       'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts'
   }
 
+  const sharedStepTestHelpers = [
+    'packages/preset/src/__tests__/stroke-flow/stroke-parameter-coverage-test-helper.ts'
+  ]
+
+  const sourceFileOwnershipRecords = [
+    {
+      filePath: 'packages/preset/src/components/oval.ts',
+      classification: 'app-integration',
+      ownerStepId: 'render-strategy-entry',
+      ownerRouteIds: ['linear-render-strategy-entry-to-normalize-render-data'],
+      currentConsumers: [],
+      requiredInspectorField: 'sourceFileOwnershipRecords.appIntegrationBoundary',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath: 'packages/preset/src/components/rectangle.ts',
+      classification: 'app-integration',
+      ownerStepId: 'render-strategy-entry',
+      ownerRouteIds: ['linear-render-strategy-entry-to-normalize-render-data'],
+      currentConsumers: [],
+      requiredInspectorField: 'sourceFileOwnershipRecords.appIntegrationBoundary',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
+        'packages/preset/src/components/stroke-render/arrangement-face-classifier.ts',
+      classification: 'shared-helper',
+      ownerStepId: 'build-final-faces',
+      ownerRouteIds: ['canonical-final-face-render-entry'],
+      currentConsumers: [
+        'packages/preset/src/components/vector.ts',
+        'packages/preset/src/components/stroke-render/stroke-candidate-arrangement.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.sharedHelperOwner',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
+        'packages/preset/src/components/stroke-render/center-dashed-overlap-candidates.ts',
+      classification: 'diagnostics-only',
+      ownerStepId: 'runtime-diagnostics',
+      ownerRouteIds: ['diagnostics-channel-aggregation'],
+      currentConsumers: [
+        'packages/preset/src/components/stroke-render/center-dashed-overlap-diagnostics.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
+        'packages/preset/src/components/stroke-render/center-dashed-overlap-graph.ts',
+      classification: 'diagnostics-only',
+      ownerStepId: 'runtime-diagnostics',
+      ownerRouteIds: ['diagnostics-channel-aggregation'],
+      currentConsumers: [
+        'packages/preset/src/components/stroke-render/center-dashed-overlap-candidates.ts',
+        'packages/preset/src/components/stroke-render/center-dashed-overlap-diagnostics.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
+        'packages/preset/src/components/stroke-render/center-dashed-ownership.ts',
+      classification: 'diagnostics-only',
+      ownerStepId: 'runtime-diagnostics',
+      ownerRouteIds: ['diagnostics-channel-aggregation'],
+      currentConsumers: [
+        'packages/preset/src/components/stroke-render/center-dashed-overlap-diagnostics.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
+        'packages/preset/src/components/stroke-render/clipper2-geometry-backend.ts',
+      classification: 'shared-helper',
+      ownerStepId: 'shared-geometry-model',
+      ownerRouteIds: ['linear-normalize-stroke-spec-to-shared-geometry-model'],
+      currentConsumers: [
+        'packages/preset/src/__tests__/stroke-geometry-oracles/ordinary-sharp-runtime-oracle.test.ts',
+        'packages/preset/src/__tests__/stroke-geometry-oracles/reported-vector-34-runtime-oracle.test.ts',
+        'packages/preset/src/__tests__/stroke-parameter-switch-performance.test.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.sharedHelperOwner',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath: 'packages/preset/src/components/stroke-render/constants.ts',
+      classification: 'shared-helper',
+      ownerStepId: 'normalize-render-data',
+      ownerRouteIds: ['linear-render-strategy-entry-to-normalize-render-data'],
+      currentConsumers: [
+        'packages/preset/src/components/group.ts',
+        'packages/preset/src/components/oval.ts',
+        'packages/preset/src/components/rectangle.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.sharedHelperOwner',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
+        'packages/preset/src/components/stroke-render/constrained-dashed-domain-geometry.ts',
+      classification: 'dead-residue',
+      ownerStepId: null,
+      ownerRouteIds: [],
+      currentConsumers: [],
+      requiredInspectorField: 'sourceFileOwnershipRecords.deadResidueRegistry',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
+        'packages/preset/src/components/stroke-render/constrained-domain-stroke-geometry.ts',
+      classification: 'diagnostics-only',
+      ownerStepId: 'runtime-diagnostics',
+      ownerRouteIds: ['diagnostics-channel-aggregation'],
+      currentConsumers: [
+        'packages/preset/src/components/stroke-render/constrained-dashed-domain-geometry.ts',
+        'packages/preset/src/components/stroke-render/constrained-solid-stroke-geometry.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
+        'packages/preset/src/components/stroke-render/constrained-solid-legality-clipping.ts',
+      classification: 'owner-entry',
+      ownerStepId: 'apply-legality',
+      ownerRouteIds: ['legality-product-unit-clipping'],
+      currentConsumers: [
+        'packages/preset/src/components/oval.ts',
+        'packages/preset/src/components/rectangle.ts',
+        'packages/preset/src/components/vector.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.ownerEntry',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
+        'packages/preset/src/components/stroke-render/constrained-solid-legality-domain.ts',
+      classification: 'diagnostics-only',
+      ownerStepId: 'runtime-diagnostics',
+      ownerRouteIds: ['diagnostics-channel-aggregation'],
+      currentConsumers: [
+        'packages/preset/src/components/stroke-render/constrained-solid-legality-diagnostics.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
+        'packages/preset/src/components/stroke-render/constrained-solid-stroke-geometry.ts',
+      classification: 'diagnostics-only',
+      ownerStepId: 'runtime-diagnostics',
+      ownerRouteIds: ['diagnostics-channel-aggregation'],
+      currentConsumers: [
+        'packages/preset/src/components/stroke-render/constrained-solid-legality-diagnostics.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
+        'packages/preset/src/components/stroke-render/dashed-center-ribbon-geometry.ts',
+      classification: 'shared-helper',
+      ownerStepId: 'build-center-stroke-products',
+      ownerRouteIds: ['center-products-canonical-output-else'],
+      currentConsumers: [
+        'packages/preset/src/components/stroke-render/dashed-center-stroke-packets.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.sharedHelperOwner',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath: 'packages/preset/src/components/stroke-render/ellipse-path.ts',
+      classification: 'shared-helper',
+      ownerStepId: 'shared-geometry-model',
+      ownerRouteIds: ['linear-normalize-stroke-spec-to-shared-geometry-model'],
+      currentConsumers: ['packages/preset/src/components/oval.ts'],
+      requiredInspectorField: 'sourceFileOwnershipRecords.sharedHelperOwner',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath: 'packages/preset/src/components/stroke-render/geometry-backend.ts',
+      classification: 'shared-helper',
+      ownerStepId: 'shared-geometry-model',
+      ownerRouteIds: ['linear-normalize-stroke-spec-to-shared-geometry-model'],
+      currentConsumers: [
+        'packages/preset/src/components/stroke-render/resolved-vector-geometry-model.ts',
+        'packages/preset/src/components/stroke-render/stroke-candidate-arrangement.ts',
+        'packages/preset/src/components/vector.ts',
+        'packages/preset/src/subscriptions/data-channel.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.sharedHelperOwner',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
+        'packages/preset/src/components/stroke-render/legal-domain-normalization.ts',
+      classification: 'shared-helper',
+      ownerStepId: 'resolve-stroke-domains',
+      ownerRouteIds: ['linear-resolve-source-families-to-resolve-stroke-domains'],
+      currentConsumers: [
+        'packages/preset/src/components/stroke-render/stroke-domain-plan.ts',
+        'packages/preset/src/components/vector.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.sharedHelperOwner',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
+        'packages/preset/src/components/stroke-render/self-intersecting-legal-domain.ts',
+      classification: 'shared-helper',
+      ownerStepId: 'shared-geometry-model',
+      ownerRouteIds: ['linear-normalize-stroke-spec-to-shared-geometry-model'],
+      currentConsumers: [
+        'packages/preset/src/components/stroke-render/constrained-solid-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/resolved-vector-geometry-model.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.sharedHelperOwner',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
+        'packages/preset/src/components/stroke-render/solid-stroke-geometry-core.ts',
+      classification: 'shared-helper',
+      ownerStepId: 'shared-geometry-model',
+      ownerRouteIds: ['linear-normalize-stroke-spec-to-shared-geometry-model'],
+      currentConsumers: [
+        'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/constrained-solid-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/path-topology-model.ts',
+        'packages/preset/src/components/stroke-render/solid-center-stroke-geometry.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.sharedHelperOwner',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath: 'packages/preset/src/components/stroke-render/source-span-graph.ts',
+      classification: 'shared-helper',
+      ownerStepId: 'resolve-stroke-domains',
+      ownerRouteIds: ['linear-resolve-source-families-to-resolve-stroke-domains'],
+      currentConsumers: [
+        'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/dashed-center-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/legal-domain-normalization.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.sharedHelperOwner',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
+        'packages/preset/src/components/stroke-render/stroke-interval-frames.ts',
+      classification: 'shared-helper',
+      ownerStepId: 'allocate-dash-intervals',
+      ownerRouteIds: ['linear-resolve-stroke-domains-to-allocate-dash-intervals'],
+      currentConsumers: [
+        'packages/preset/src/components/stroke-render/dashed-center-stroke-packets.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.sharedHelperOwner',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath: 'packages/preset/src/components/stroke-render/stroke-ownership.ts',
+      classification: 'shared-helper',
+      ownerStepId: 'build-final-faces',
+      ownerRouteIds: ['canonical-final-face-render-entry'],
+      currentConsumers: [
+        'packages/preset/src/components/stroke-render/stroke-candidate-arrangement.ts',
+        'packages/preset/src/components/stroke-render/stroke-final-face.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.sharedHelperOwner',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
+        'packages/preset/src/components/stroke-render/stroke-paint-payload.ts',
+      classification: 'owner-entry',
+      ownerStepId: 'attach-paint-payload',
+      ownerRouteIds: ['linear-build-resolved-stroke-regions-to-attach-paint-payload'],
+      currentConsumers: [
+        'packages/preset/src/components/stroke-render/stroke-final-face.ts',
+        'packages/preset/src/index.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.ownerEntry',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
+        'packages/preset/src/components/stroke-render/stroke-side-resolution.ts',
+      classification: 'shared-helper',
+      ownerStepId: 'resolve-stroke-domains',
+      ownerRouteIds: ['linear-resolve-source-families-to-resolve-stroke-domains'],
+      currentConsumers: [
+        'packages/preset/src/components/stroke-render/stroke-domain-plan.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.sharedHelperOwner',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath: 'packages/render/src/index.ts',
+      classification: 'app-integration',
+      ownerStepId: 'renderer-projection',
+      ownerRouteIds: ['render-projection-merge'],
+      currentConsumers: [],
+      requiredInspectorField: 'sourceFileOwnershipRecords.appIntegrationBoundary',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath: 'packages/render/src/layers/overlay-layer.ts',
+      classification: 'app-integration',
+      ownerStepId: 'renderer-projection',
+      ownerRouteIds: ['render-projection-merge'],
+      currentConsumers: ['packages/render/src/index.ts'],
+      requiredInspectorField: 'sourceFileOwnershipRecords.appIntegrationBoundary',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath: 'packages/render/src/layers/selection/selection-layer.ts',
+      classification: 'app-integration',
+      ownerStepId: 'renderer-projection',
+      ownerRouteIds: ['render-projection-merge'],
+      currentConsumers: ['packages/render/src/layers/selection/index.ts'],
+      requiredInspectorField: 'sourceFileOwnershipRecords.appIntegrationBoundary',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath: 'packages/render/src/render.ts',
+      classification: 'app-integration',
+      ownerStepId: 'renderer-projection',
+      ownerRouteIds: ['render-projection-merge'],
+      currentConsumers: [
+        'packages/render/src/index.ts',
+        'packages/render/src/pixi-renderer.ts',
+        'packages/render/src/stores/scene-tree.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.appIntegrationBoundary',
+      productionCodeChangeNeeded: false
+    }
+  ]
+
   const strokeParameterIds = [
     'stroke.fill.visible',
     'stroke.fill.kind',
@@ -1456,6 +1797,7 @@
       relatedTests: [
         'packages/scene-tree/src/__tests__/transaction-options.test.ts'
       ],
+      additionalAllowedTestImports: ['@asyra/reactive-events', '@asyra/utils'],
       verificationEvidence: {
         gateName: 'protocol plus step 10 unit gate',
         testFile:
@@ -1474,6 +1816,7 @@
       outputs: ['computed patch reactive event'],
       currentImplementation:
         'Patch events remain the downstream render/UI synchronization contract.',
+      additionalAllowedTestImports: ['@asyra/reactive-events'],
       verificationEvidence: {
         gateName: 'protocol plus step 11 unit gate',
         testFile:
@@ -1494,6 +1837,7 @@
         'Render mirror and UI consumers subscribe downstream from data-channel updates.',
       requiredAdjustment:
         'Any direct app-to-render synchronization reopens this step.',
+      additionalAllowedTestImports: ['yjs', '@asyra/factory', '@asyra/utils'],
       verificationEvidence: {
         gateName: 'protocol plus step 12 unit gate',
         testFile:
@@ -1797,6 +2141,7 @@
         'normalizeStrokeSpec converts StrokeAttrs to RenderableStroke records, computes numeric rendererMiterLimit from authored miterAngle for renderer descriptor style output, normalizes dash/gap lengths and paint, returns empty output for finite non-positive width, and returns diagnostics for rejected entries.',
       requiredAdjustment:
         'Do not collapse authored miter to authored bevel, compute vertexAngle, resolve miter vs bevel-by-miter-angle, or emit product geometry in this step.',
+      additionalAllowedTestImports: ['@asyra/utils'],
       verificationEvidence: {
         gateName: 'protocol plus step 19 unit gate',
         testFile:
@@ -1842,6 +2187,7 @@
         'packages/preset/src/components/stroke-render/resolved-vector-geometry-model.ts',
         'packages/preset/src/components/vector.ts'
       ],
+      additionalAllowedTestImports: ['@asyra/core'],
       allowedContributors: [
         'authored vector point records',
         'authored vector segment records',
@@ -1913,6 +2259,9 @@
       ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/resolved-source-family.ts'
+      ],
+      additionalAllowedTestImports: [
+        'packages/preset/src/components/stroke-render/path-topology-model.ts'
       ],
       allowedContributors: [
         'PathTopologyModel.sourceFamily',
@@ -1994,6 +2343,10 @@
       ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/stroke-domain-plan.ts'
+      ],
+      additionalAllowedTestImports: [
+        'packages/preset/src/components/stroke-render/path-topology-model.ts',
+        'packages/preset/src/components/stroke-render/resolved-source-family.ts'
       ],
       allowedContributors: [
         'PathTopologyModel evidence',
@@ -2231,6 +2584,7 @@
         'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/dashed-center-stroke-packets.ts'
       ],
+      additionalAllowedTestImports: ['@asyra/utils'],
       ownerStage: 'Stroke Geometry center product assembly',
       allowedContributors: ['authored center stroke body', 'center dash intervals', 'exact center descriptor'],
       forbiddenContributors: ['inside/outside legal mask', 'renderer-local join repair', 'diagnostic/helper visible geometry'],
@@ -2259,6 +2613,7 @@
         'packages/preset/src/components/stroke-render/constrained-solid-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/solid-center-stroke-geometry.ts'
       ],
+      additionalAllowedTestImports: ['@asyra/utils'],
       ownerStage: 'Stroke Geometry constrained solid product assembly',
       allowedContributors: ['doubled authored center stroke product', 'StrokeDomainPlan legal side'],
       forbiddenContributors: ['face strip as visible product', 'render cover polygon', 'clipped legal-side angle as miter source'],
@@ -2847,6 +3202,9 @@
         'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
         'packages/preset/src/components/vector.ts'
       ],
+      additionalAllowedTestImports: [
+        'packages/preset/src/components/stroke-render/geometry-backend.ts'
+      ],
       ownerStage: 'Product Output render-entry materialization',
       allowedContributors: [
         'declared visible strokePathGroups',
@@ -3123,7 +3481,8 @@
       'vitest',
       'node:',
       'docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js',
-      ...implementationFiles
+      ...implementationFiles,
+      ...(override.additionalAllowedTestImports ?? [])
     ]
     const defaultLatestRule =
       id === 'shared-geometry-model'
@@ -6990,6 +7349,63 @@
       ? null
       : 'source-drag-dirty-classification must forbid static stroke parameter dirtying'
   ].filter(Boolean)
+  const sourceFileOwnershipClassifications = new Set([
+    'owner-entry',
+    'shared-helper',
+    'diagnostics-only',
+    'app-integration',
+    'dead-residue'
+  ])
+  const sourceFileOwnershipRecordByPath = new Map()
+  const sourceFileOwnershipErrors = [
+    ...sourceFileOwnershipRecords.flatMap((record) => {
+      const errors = []
+      const recordLabel = record.filePath ?? 'unnamed source file ownership record'
+      if (!record.filePath) {
+        errors.push(`${recordLabel} missing filePath`)
+      }
+      if (sourceFileOwnershipRecordByPath.has(record.filePath)) {
+        errors.push(`${record.filePath} has duplicate source ownership records`)
+      }
+      sourceFileOwnershipRecordByPath.set(record.filePath, record)
+      if (!sourceFileOwnershipClassifications.has(record.classification)) {
+        errors.push(`${recordLabel} has unknown classification ${record.classification}`)
+      }
+      if (record.classification === 'dead-residue') {
+        if (record.ownerStepId !== null) {
+          errors.push(`${recordLabel} dead residue must not declare ownerStepId`)
+        }
+        if ((record.ownerRouteIds ?? []).length !== 0) {
+          errors.push(`${recordLabel} dead residue must not declare ownerRouteIds`)
+        }
+        if ((record.currentConsumers ?? []).length !== 0) {
+          errors.push(`${recordLabel} dead residue must have no current consumers`)
+        }
+      } else {
+        if (!stepById.has(record.ownerStepId)) {
+          errors.push(`${recordLabel} references unknown owner step ${record.ownerStepId}`)
+        }
+        if (!Array.isArray(record.ownerRouteIds) || record.ownerRouteIds.length === 0) {
+          errors.push(`${recordLabel} missing ownerRouteIds`)
+        }
+      }
+      for (const routeId of record.ownerRouteIds ?? []) {
+        if (!routeById.has(routeId)) {
+          errors.push(`${recordLabel} references unknown owner route ${routeId}`)
+        }
+      }
+      if (!record.requiredInspectorField) {
+        errors.push(`${recordLabel} missing requiredInspectorField`)
+      }
+      if (record.productionCodeChangeNeeded !== false) {
+        errors.push(`${recordLabel} must not require production code changes in this metadata repair`)
+      }
+      return errors
+    }),
+    sharedStepTestHelpers.length === 0
+      ? 'sharedStepTestHelpers must explicitly declare reusable step-test helpers'
+      : null
+  ].filter(Boolean)
   const strokeParameterIdSet = new Set(strokeParameterIds)
   const strokeParameterCoverageRoleSet = new Set(strokeParameterCoverageRoles)
   const strokeParameterCoverageStepIdSet = new Set(
@@ -7145,6 +7561,7 @@
     ...paintOnlyRouteErrors,
     ...cacheHitRouteErrors,
     ...sourceDragRouteErrors,
+    ...sourceFileOwnershipErrors,
     ...sharpVertexDescriptorRouteErrors,
     ...dashedSourceVertexJoinRouteErrors,
     ...dashedSmoothContinuityRouteErrors,
@@ -7232,6 +7649,8 @@
     runtimeImplementationState,
     refactorProtocol,
     documentDeepAuditProtocol,
+    sharedStepTestHelpers,
+    sourceFileOwnershipRecords,
     entryBoundaryRequiredStepIds,
     strokeParameterIds,
     strokeParameterCoverageRoles,
@@ -7258,6 +7677,7 @@
     refactorProtocolErrors,
     runtimeImplementationErrors,
     strokeParameterCoverageErrors,
+    sourceFileOwnershipErrors,
     inspectorContractErrors,
     defaultEvidenceByGroup,
     stepEvidenceOverrides,

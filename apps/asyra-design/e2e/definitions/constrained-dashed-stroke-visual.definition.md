@@ -1,6 +1,10 @@
 # Constrained Dashed Stroke Visual Definition
 
-This benchmark defines the screenshot-level oracle for the formal
+Authority note: this file is non-authoritative reference material for later
+E2E/visual review. It must not define current stroke semantics, correctness
+gates, inspector owner stages, route conditions, or product output rules.
+
+This reference note records later-phase screenshot measurement notes for the
 constrained dashed slices across:
 
 - full-loop topology family `full-loop visible`
@@ -63,7 +67,7 @@ It answers:
 - `join: bevel`
 - `cap: butt`
 
-## Required formal product behavior
+## Later-Phase Evidence Notes
 
 - rectangle inside constrained dashed full-loop stroke renders a visible inner
   band on the shared stroke pipeline

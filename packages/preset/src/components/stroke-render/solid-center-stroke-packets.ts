@@ -696,7 +696,7 @@ const buildSelfIntersectingSolidCenterStrokePolygons = (
       }
     }
   } catch {
-    // Fall back to the local polygon builder below.
+    // Use the canonical local center-product polygon builder below; this remains Step 25 product output, not fallback semantics.
   }
 
   return buildSolidCenterStrokePolygons(openStrokePath, false, {

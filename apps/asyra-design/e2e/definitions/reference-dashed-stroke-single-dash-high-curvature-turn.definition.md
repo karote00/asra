@@ -1,8 +1,12 @@
 # Reference Dashed Stroke Single Dash High-Curvature Turn
 
+Authority note: this file is non-authoritative reference material for later
+E2E/visual review. It must not define current stroke semantics, correctness
+gates, inspector owner stages, route conditions, or product output rules.
+
 ## Purpose
 
-This benchmark isolates a **single inside dashed-stroke segment that must survive a high-curvature turn** on the reference 5-anchor closed vector.
+This reference note records later-phase evidence for a **single inside dashed-stroke segment through a high-curvature turn** on the reference 5-anchor closed vector.
 
 It exists because whole-shape completeness can pass while one local dash is still wrong:
 
@@ -23,7 +27,7 @@ It covers the dash candidate that:
 
 The current reference fixture happens to realize this case near `tp-26`, but the benchmark name is intentionally generic.
 
-## Oracle Source
+## Measurement Reference
 
 The benchmark is geometry-first.
 
@@ -33,7 +37,7 @@ It is derived from:
 2. the dashed interval allocation
 3. the final polygons produced for the selected high-curvature turning dash
 
-This benchmark should not depend on manual screenshots as the primary truth source.
+This benchmark should not depend on manual screenshots as the primary evidence source.
 
 ## Derived Observables
 

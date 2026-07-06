@@ -9,6 +9,7 @@ import {
   requiredVisualReviewBaseUrl,
   strokeVisualE2ECoverageMap
 } from './stroke-visual-e2e-coverage-map'
+import { strokeE2EResidueCoverageMap } from './stroke-e2e-residue-coverage-map'
 
 interface InspectorData {
   steps: { id: string }[]
@@ -49,6 +50,8 @@ const walkFiles = (directory: string): string[] =>
     const stat = statSync(path)
     return stat.isDirectory() ? walkFiles(path) : [path]
   })
+
+const toRepoPath = (path: string) => path.replace(`${repoRoot}/`, '')
 
 const headingToAnchor = (heading: string) =>
   heading
@@ -101,6 +104,26 @@ const readFormalOracleMatrixCaseIds = () =>
       .map((match) => match[1])
       .filter(Boolean)
   )
+
+const getOutsideNewFlowStrokeLikeE2EResidueFiles = () =>
+  walkFiles(resolve(repoRoot, 'apps/asyra-design/e2e'))
+    .map(toRepoPath)
+    .filter((file) => !file.startsWith('apps/asyra-design/e2e/stroke-new-flow/'))
+    .filter((file) => {
+      if (file === 'apps/asyra-design/e2e/stroke-drag-render-performance.helpers.ts') {
+        return true
+      }
+      if (file.startsWith('apps/asyra-design/e2e/definitions/')) {
+        return /\.md$/.test(file)
+      }
+      if (!/\.spec\.ts$/.test(file)) {
+        return false
+      }
+      return /stroke|Stroke|vector|Vector|dash|Dash/.test(
+        readFileSync(resolve(repoRoot, file), 'utf8')
+      )
+    })
+    .sort()
 
 test.describe('new stroke visual/E2E coverage map', () => {
   test('requires the agent-run visual review URL override to use localhost:3001', () => {
@@ -192,6 +215,73 @@ test.describe('new stroke visual/E2E coverage map', () => {
         )
         expectFileRefContainsFragment(ref)
       }
+    }
+  })
+
+  test('keeps outside-new-flow E2E residue non-authoritative', () => {
+    const inspector = loadInspectorData()
+    const specAnchors = readSpecAnchors()
+    const stepIds = new Set(inspector.steps.map((step) => step.id))
+    const routeIds = new Set(
+      inspector.conditionalRoutes.map((route) => route.id)
+    )
+    const residueFiles = strokeE2EResidueCoverageMap
+      .map((entry) => entry.filePath)
+      .sort()
+
+    expect(residueFiles).toEqual(getOutsideNewFlowStrokeLikeE2EResidueFiles())
+
+    for (const entry of strokeE2EResidueCoverageMap) {
+      expect(existsSync(resolve(repoRoot, entry.filePath)), entry.filePath).toBe(
+        true
+      )
+      expect(entry.filePath, entry.filePath).not.toContain(
+        'apps/asyra-design/e2e/stroke-new-flow/'
+      )
+      expect(entry.currentStrokeCorrectnessGate, entry.filePath).toBe(false)
+      expect(entry.definesStrokeSemantics, entry.filePath).toBe(false)
+      expect(entry.allowedUse, entry.filePath).toMatch(
+        /evidence|reference|user-behavior/
+      )
+      expect(entry.requiredActionBeforePromotion, entry.filePath).toBeTruthy()
+
+      for (const specRef of entry.specRuleRefs) {
+        const { filePath, fragment } = splitRef(specRef)
+        expect(filePath, specRef).toBe(
+          'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md'
+        )
+        expect(specAnchors.has(fragment), specRef).toBe(true)
+      }
+      for (const stepId of entry.inspectorStepRefs) {
+        expect(stepIds.has(stepId), `${entry.filePath}:${stepId}`).toBe(true)
+      }
+      for (const routeId of entry.inspectorRouteRefs) {
+        expect(routeIds.has(routeId), `${entry.filePath}:${routeId}`).toBe(true)
+      }
+    }
+  })
+
+  test('keeps E2E definition files as reference material instead of semantics authority', () => {
+    const definitionFiles = strokeE2EResidueCoverageMap
+      .filter((entry) =>
+        entry.filePath.startsWith('apps/asyra-design/e2e/definitions/')
+      )
+      .map((entry) => entry.filePath)
+      .sort()
+
+    expect(definitionFiles).toContain('apps/asyra-design/e2e/definitions/README.md')
+
+    for (const file of definitionFiles) {
+      const source = readFileSync(resolve(repoRoot, file), 'utf8')
+
+      expect(source, file).toContain('non-authoritative')
+      expect(source, file).not.toMatch(/canvas as the source of truth/i)
+      expect(source, file).not.toMatch(/human-readable contract/i)
+      expect(source, file).not.toMatch(/defines (?:a|the).*visual oracle/i)
+      expect(source, file).not.toContain('defines the screenshot-level oracle')
+      expect(source, file).not.toContain('## Input Contract')
+      expect(source, file).not.toContain('## Visual Contract')
+      expect(source, file).not.toContain('## Required formal product behavior')
     }
   })
 

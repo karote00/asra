@@ -1,9 +1,13 @@
 # Constrained Solid Legality Debug Surface
 
+Authority note: this file is non-authoritative reference material for later
+E2E/debug review. It must not define current stroke semantics, correctness
+gates, inspector owner stages, route conditions, or product output rules.
+
 ## Scope
 
-This benchmark validates the visible constrained-solid legality-domain viewer on
-the real app/runtime path.
+This reference note records later-phase evidence for the visible
+constrained-solid legality-domain viewer on the real app/runtime path.
 
 Current benchmark scope:
 
@@ -46,7 +50,7 @@ Current benchmark scope:
   - both using one `bevel` owner plus one `miter` non-owner `solid + outside`
     stroke
 
-## Expected Behavior
+## Reference Evidence Notes
 
 - when constrained-solid legality debug mode is enabled, the selected element must show a visible
   legality-domain overlay

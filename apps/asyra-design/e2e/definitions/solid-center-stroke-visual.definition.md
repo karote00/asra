@@ -1,6 +1,10 @@
 # Solid Center Stroke Visual Definition
 
-This definition file describes the screenshot-level oracle for
+Authority note: this file is non-authoritative reference material for later
+E2E/visual review. It must not define current stroke semantics, correctness
+gates, inspector owner stages, route conditions, or product output rules.
+
+This reference note describes later-phase screenshot measurement notes for
 `solid-center-stroke-visual.spec.ts`.
 
 ## Fixture Scope
@@ -15,7 +19,7 @@ This definition file describes the screenshot-level oracle for
   - `bevel`
   - `round`
 
-## Visual Contract
+## Visual Evidence Notes
 
 ### Miter
 

@@ -1,7 +1,15 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { formalStrokeTestResidueRecords } from './stroke-test-residue-coverage-map'
+
+interface InspectorData {
+  steps: Array<{ id: string }>
+  conditionalRoutes: Array<{ id: string }>
+  inspectorContractErrors: string[]
+}
 
 const repoRoot = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -17,6 +25,7 @@ const inspectorPath = resolve(
   repoRoot,
   'docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js'
 )
+const require = createRequire(import.meta.url)
 
 const readJson = <T>(path: string): T =>
   JSON.parse(readFileSync(path, 'utf8')) as T
@@ -31,6 +40,34 @@ const walkFiles = (directory: string): string[] =>
 const toRepoPath = (path: string) => path.replace(`${repoRoot}/`, '')
 
 const isTestFile = (path: string) => /\.(test|spec)\.tsx?$/.test(path)
+
+const headingToAnchor = (heading: string) =>
+  heading
+    .replace(/^#+\s+/, '')
+    .replace(/`/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+
+const readSpecAnchors = () =>
+  new Set(
+    readFileSync(specPath, 'utf8')
+      .split('\n')
+      .filter((line) => /^#{2,4}\s+/.test(line))
+      .map(headingToAnchor)
+  )
+
+const loadInspectorData = (): InspectorData => {
+  const windowRecord: { STROKE_FLOW_INSPECTOR_DATA?: InspectorData } = {}
+  ;(globalThis as typeof globalThis & { window?: unknown }).window =
+    windowRecord
+  Reflect.deleteProperty(require.cache, require.resolve(inspectorPath))
+  require(inspectorPath)
+  const data = windowRecord.STROKE_FLOW_INSPECTOR_DATA
+  expect(data).toBeDefined()
+  return data as InspectorData
+}
 
 const isStrokeGateTest = (path: string) =>
   path === 'packages/preset/src/__tests__/stroke-test-architecture.test.ts' ||
@@ -61,6 +98,23 @@ const getStrokeGateFiles = () =>
     .filter(isTestFile)
     .filter(isStrokeGateTest)
     .sort()
+
+const getOutsideStrokeLikeFormalTestFiles = () =>
+  walkFiles(resolve(repoRoot, 'packages/preset/src/__tests__'))
+    .map(toRepoPath)
+    .filter(isTestFile)
+    .filter((file) => !isStrokeGateTest(file))
+    .filter((file) =>
+      /stroke|Stroke|vector|Vector/.test(
+        readFileSync(resolve(repoRoot, file), 'utf8')
+      )
+    )
+    .sort()
+
+const splitRef = (ref: string) => {
+  const [filePath, fragment = ''] = ref.split('#')
+  return { filePath, fragment }
+}
 
 describe('stroke test architecture', () => {
   it('keeps stroke scripts explicit and separate from full package and E2E gates', () => {
@@ -120,6 +174,61 @@ describe('stroke test architecture', () => {
     for (const file of strokeGateFiles) {
       expect(existsSync(resolve(repoRoot, file)), file).toBe(true)
       expect(isStrokeGateTest(file), file).toBe(true)
+    }
+  })
+
+  it('keeps formal stroke-like residue tests outside stroke correctness authority', () => {
+    const inspector = loadInspectorData()
+    const specAnchors = readSpecAnchors()
+    const stepIds = new Set(inspector.steps.map((step) => step.id))
+    const routeIds = new Set(
+      inspector.conditionalRoutes.map((route) => route.id)
+    )
+    const residueFiles = formalStrokeTestResidueRecords
+      .map((record) => record.filePath)
+      .sort()
+
+    expect(inspector.inspectorContractErrors).toEqual([])
+    expect(residueFiles).toEqual(getOutsideStrokeLikeFormalTestFiles())
+
+    for (const record of formalStrokeTestResidueRecords) {
+      expect(existsSync(resolve(repoRoot, record.filePath)), record.filePath).toBe(
+        true
+      )
+      expect(isStrokeGateTest(record.filePath), record.filePath).toBe(false)
+      expect(record.shouldEnterStrokeCorrectnessGate, record.filePath).toBe(false)
+      expect(record.definesStrokeSemantics, record.filePath).toBe(false)
+      expect(record.requiredActionBeforePromotion, record.filePath).toBeTruthy()
+
+      if (record.requiresSpecInspectorMapping) {
+        expect(record.specRuleRefs.length, record.filePath).toBeGreaterThan(0)
+        expect(record.inspectorStepRefs.length, record.filePath).toBeGreaterThan(
+          0
+        )
+        expect(record.inspectorRouteRefs.length, record.filePath).toBeGreaterThan(
+          0
+        )
+      } else {
+        expect(record.specRuleRefs, record.filePath).toEqual([])
+        expect(record.inspectorStepRefs, record.filePath).toEqual([])
+        expect(record.inspectorRouteRefs, record.filePath).toEqual([])
+      }
+
+      for (const specRef of record.specRuleRefs) {
+        const { filePath, fragment } = splitRef(specRef)
+        expect(filePath, specRef).toBe(
+          'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md'
+        )
+        expect(specAnchors.has(fragment), specRef).toBe(true)
+      }
+      for (const stepId of record.inspectorStepRefs) {
+        expect(stepIds.has(stepId), `${record.filePath}:${stepId}`).toBe(true)
+      }
+      for (const routeId of record.inspectorRouteRefs) {
+        expect(routeIds.has(routeId), `${record.filePath}:${routeId}`).toBe(
+          true
+        )
+      }
     }
   })
 

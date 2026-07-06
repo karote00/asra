@@ -1,14 +1,18 @@
 # Reference Dashed Stroke Rendering E2E Definition
 
+Authority note: this file is non-authoritative reference material for later
+E2E/visual review. It must not define current stroke semantics, correctness
+gates, inspector owner stages, route conditions, or product output rules.
+
 ## Purpose
 
-This E2E test defines a visual oracle for dashed stroke rendering on a fixed
-vector path. Its job is to verify the rendered image on canvas, not just the
-scene data or property payload.
+This reference note records later-phase visual measurement material for dashed
+stroke rendering on a fixed vector path. Its job is to describe rendered-image
+evidence on canvas, not to define stroke semantics.
 
 This test exists to answer one question:
 
-`When a known path is rendered with a known dashed stroke configuration, does the final canvas output match the stroke contract?`
+`When a known path is rendered with a known dashed stroke configuration, does the final canvas output match the current spec-mapped expectation?`
 
 ## Why This Test Exists
 
@@ -16,8 +20,8 @@ Dashed stroke regressions are difficult to detect by data-only assertions.
 The scene tree can contain the correct stroke properties while the canvas still
 renders the wrong result.
 
-This test therefore treats the canvas as the source of truth and uses geometry
-only to locate where pixels should be sampled.
+This test therefore treats the canvas as runtime visual evidence and uses
+geometry only to locate where pixels should be sampled.
 
 ## Scope
 
@@ -37,7 +41,7 @@ The test does not verify:
 - exact pixel-perfect raster output
 - internal implementation details of the renderer
 
-## Input Contract
+## Fixture Inputs
 
 The fixture is defined by explicit rendering inputs:
 
@@ -58,7 +62,7 @@ They do not prove correctness by themselves.
 ## Derived Observables
 
 Correctness is derived from visual observables that follow from the input
-contract:
+evidence notes:
 
 1. The first visible dash on the first segment should be approximately the
    configured dash length after raster tolerance is accounted for.
@@ -166,7 +170,8 @@ Measurement responsibilities are split as follows:
   screenshot.
 - Test-side geometry helpers compute probe locations.
 - Test-side pixel sampling logic measures whether expected pixels are present.
-- Assertions compare measured observables against the visual contract.
+- Assertions compare measured observables against later-phase visual evidence
+  notes.
 
 ## Pass Criteria
 
@@ -198,10 +203,10 @@ This file is the template for future difficult render E2E tests.
 
 Future tests should follow the same structure:
 
-1. define a rendering contract
+1. describe the runtime evidence being sampled
 2. define derived observables
 3. define viewport normalization
-4. define an independent oracle for difficult geometry
+4. describe independent measurement for difficult geometry
 5. build the fixture through UI actions
 6. capture the canvas
 7. measure pixels with geometry-guided probes
@@ -209,7 +214,7 @@ Future tests should follow the same structure:
 
 ## Non-Negotiable Rule
 
-Do not let the production renderer define its own oracle.
+Do not let the production renderer define its own measurement evidence.
 
 The test may use production geometry only to locate probes on the canvas.
 It must not reuse production pass/fail logic to decide whether rendering is

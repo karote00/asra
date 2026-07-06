@@ -1,9 +1,13 @@
 # Center Dashed Overlap / Ownership Debug Surface
 
+Authority note: this file is non-authoritative reference material for later
+E2E/debug review. It must not define current stroke semantics, correctness
+gates, inspector owner stages, route conditions, or product output rules.
+
 ## Scope
 
-This benchmark validates the first visible formal overlap diagnostics debug surface on the real
-app/runtime path.
+This reference note records later-phase evidence for the first visible formal
+overlap diagnostics debug surface on the real app/runtime path.
 
 Current benchmark scope:
 
@@ -13,7 +17,7 @@ Current benchmark scope:
 - ownership debug overlay
 - component-local bailout debug overlay
 
-## Expected Behavior
+## Reference Evidence Notes
 
 - when formal overlap diagnostics debug mode is enabled, the selected element must show a visible
   overlap-component overlay

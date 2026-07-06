@@ -1,6 +1,10 @@
 # Dashed Center Stroke Visual Definition
 
-This benchmark defines the screenshot-level oracle for the formal
+Authority note: this file is non-authoritative reference material for later
+E2E/visual review. It must not define current stroke semantics, correctness
+gates, inspector owner stages, route conditions, or product output rules.
+
+This reference note records later-phase screenshot measurement notes for the
 `dashed + center + uniform width + solid paint` slice.
 
 It answers:
@@ -9,7 +13,7 @@ It answers:
 > app output show alternating visible bands and gaps at the authored pattern
 > positions, while non-product constrained slices remain absent?
 
-## Required formal product behavior
+## Later-Phase Evidence Notes
 
 - rectangle center dashed stroke renders alternating visible and gap regions on
   the top edge
