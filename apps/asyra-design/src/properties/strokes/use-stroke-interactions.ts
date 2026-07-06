@@ -18,7 +18,7 @@ import {
   convertUserColorToDefault,
   convertToHexUpper
 } from '../fills/color-format'
-import { getStrokeDashGap } from './dash-gap'
+import { createStrokeJoinTypeIntent } from './stroke-intents'
 
 const hasStrokePatch = (patch: StrokePatch) => Object.keys(patch).length > 0
 
@@ -330,10 +330,6 @@ export const useStrokeInteractions = ({
       style: nextStyle
     }
 
-    if (nextStyle === StrokeStyles.DASHED && !isEqual(stroke.dashOffset, 0)) {
-      patch.dashOffset = 0
-    }
-
     commitStrokeInteractionPatch(patch)
   }
 
@@ -374,28 +370,11 @@ export const useStrokeInteractions = ({
       return false
     }
 
-    const current = getStrokeDashGap(stroke.dashPattern)
-    const nextPattern = [parsed, current.gap]
-    if (
-      isEqual(stroke.dashPattern, nextPattern) &&
-      isEqual(stroke.dashOffset, 0)
-    ) {
+    if (isEqual(stroke.dash, parsed)) {
       return false
     }
 
-    const resetDashOffsetSource = {
-      ...stroke,
-      dashOffset: Number.NaN
-    }
-
-    commitStrokeInteractionPatch(
-      {
-        dashPattern: nextPattern,
-        dashOffset: 0
-      },
-      undefined,
-      resetDashOffsetSource
-    )
+    commitStrokeInteractionPatch({ dash: parsed })
     return true
   }
 
@@ -409,39 +388,26 @@ export const useStrokeInteractions = ({
       return false
     }
 
-    const current = getStrokeDashGap(stroke.dashPattern)
-    const nextPattern = [current.dash, parsed]
-    if (
-      isEqual(stroke.dashPattern, nextPattern) &&
-      isEqual(stroke.dashOffset, 0)
-    ) {
+    if (isEqual(stroke.gap, parsed)) {
       return false
     }
 
-    const resetDashOffsetSource = {
-      ...stroke,
-      dashOffset: Number.NaN
-    }
-
-    commitStrokeInteractionPatch(
-      {
-        dashPattern: nextPattern,
-        dashOffset: 0
-      },
-      undefined,
-      resetDashOffsetSource
-    )
+    commitStrokeInteractionPatch({ gap: parsed })
     return true
   }
 
   const handleJoinTypeChange = (nextJoin: StrokeAttrs['joinType']) => {
-    if (!stroke || isEqual(stroke.joinType, nextJoin)) {
+    const intent = createStrokeJoinTypeIntent({
+      stroke,
+      strokeId,
+      ownerElementId,
+      nextJoin
+    })
+    if (!intent) {
       return
     }
 
-    commitStrokeInteractionPatch({
-      joinType: nextJoin
-    })
+    commitStrokeInteractionPatch(intent.patch)
   }
 
   const handleCapTypeChange = (nextCap: StrokeAttrs['capType']) => {

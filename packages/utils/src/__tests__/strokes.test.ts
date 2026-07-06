@@ -20,8 +20,8 @@ describe('stroke props manager', () => {
       style: 'solid',
       position: 'center',
       width: 1,
-      dashPattern: [20, 20],
-      dashOffset: 0,
+      dash: 20,
+      gap: 20,
       fill: {
         ...createDefaultFill({
           id: 'stroke-a',

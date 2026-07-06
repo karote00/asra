@@ -391,13 +391,13 @@ test.describe('Property Management', () => {
     await expect
       .poll(() => getSelectedStroke(page))
       .toMatchObject({
-        dashPattern: [27, 20],
-        dashOffset: 0
+        dash: 27,
+        gap: 20
       })
 
     await patchSelectedStroke(page, {
-      dashPattern: [27, 20, 5, 8],
-      dashOffset: 12
+      dash: 27,
+      gap: 20
     })
     await page.waitForTimeout(120)
 
@@ -410,8 +410,8 @@ test.describe('Property Management', () => {
     await expect
       .poll(() => getSelectedStroke(page))
       .toMatchObject({
-        dashPattern: [27, 21],
-        dashOffset: 0
+        dash: 27,
+        gap: 21
       })
   })
 

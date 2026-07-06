@@ -9,7 +9,7 @@ import {
 import type { CSSProperties } from 'react'
 import { useStroke } from '../../providers'
 import { formatInputNumber } from '../number-input'
-import { getStrokeDashGap } from './dash-gap'
+import { getStrokeDashLengths } from './dash-gap'
 import StrokeColorRow from './stroke-color-row'
 import { useStrokeInteractions } from './use-stroke-interactions'
 
@@ -141,7 +141,7 @@ const StrokeItem = ({
     ...stroke,
     id: strokeId
   } satisfies StrokeAttrs
-  const dashGap = getStrokeDashGap(stroke.dashPattern)
+  const dashLengths = getStrokeDashLengths(stroke)
 
   return (
     <div className="grid grid-cols-1 gap-1 py-1">
@@ -327,7 +327,7 @@ const StrokeItem = ({
           <PropertyControl>
             <div style={{ width: '48px' }}>
               <Input
-                value={formatInputNumber(dashGap.dash)}
+                value={formatInputNumber(dashLengths.dash)}
                 size="small"
                 prefix="D"
                 containerClassName="!bg-transparent !px-0"
@@ -349,7 +349,7 @@ const StrokeItem = ({
           <PropertyControl>
             <div style={{ width: '48px' }}>
               <Input
-                value={formatInputNumber(dashGap.gap)}
+                value={formatInputNumber(dashLengths.gap)}
                 size="small"
                 prefix="G"
                 containerClassName="!bg-transparent !px-0"

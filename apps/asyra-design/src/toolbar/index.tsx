@@ -1,7 +1,6 @@
 import ThemeToggle from './theme-toggle'
 import Zoom from './zoom'
 import ToolButton from './tool-button'
-import StrokeDebugToggle from './stroke-debug-toggle'
 
 const ToolBar = () => {
   return (
@@ -19,7 +18,6 @@ const ToolBar = () => {
       <ToolButton />
       <ThemeToggle />
       <div className="flex items-center gap-2">
-        <StrokeDebugToggle />
         <Zoom />
       </div>
     </div>

@@ -2,7 +2,7 @@ import { writeFile } from 'node:fs/promises'
 import { expect, type Page, type TestInfo } from '@playwright/test'
 import {
   createVectorPath,
-  fillStrokeDashGap,
+  fillStrokeDashAndGap,
   getPropertiesPanel,
   getSelectedElementRect,
   resetCanvas,
@@ -1242,7 +1242,7 @@ const configureStroke = async (page: Page, strokeCase: StrokeCase) => {
   await propertiesPanel.getByTestId('prop-stroke-opacity-0').press('Enter')
 
   if (strokeCase.style === 'dashed') {
-    await fillStrokeDashGap(propertiesPanel, 0, '20, 20')
+    await fillStrokeDashAndGap(propertiesPanel, 0, '20, 20')
   }
   await page.evaluate(
     ({ strokeColor }) => {

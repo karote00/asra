@@ -1,20 +1,15 @@
-const DEFAULT_DASH_GAP_VALUE = 20
+const DEFAULT_DASH_LENGTH_VALUE = 20
 
-const getPositivePatternEntry = (
-  pattern: readonly number[] | undefined,
-  index: number
-) => {
-  const entry = pattern?.[index]
-  return typeof entry === 'number' && Number.isFinite(entry) && entry > 0
-    ? entry
+const getPositiveLength = (value: number | undefined) =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
     : null
-}
 
-export const getStrokeDashGap = (
-  pattern: readonly number[] | undefined
+export const getStrokeDashLengths = (
+  value: { dash?: number; gap?: number } | undefined
 ): { dash: number; gap: number } => {
-  const dash = getPositivePatternEntry(pattern, 0) ?? DEFAULT_DASH_GAP_VALUE
-  const gap = getPositivePatternEntry(pattern, 1) ?? dash
+  const dash = getPositiveLength(value?.dash) ?? DEFAULT_DASH_LENGTH_VALUE
+  const gap = getPositiveLength(value?.gap) ?? DEFAULT_DASH_LENGTH_VALUE
 
   return { dash, gap }
 }

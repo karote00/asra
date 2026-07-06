@@ -24,6 +24,14 @@ import {
   InputSystemEvents,
   PrimaryToolType
 } from '../../constants'
+import {
+  createPointHandleComputedPatchIntent,
+  createPathEditingVectorOperationRequest,
+  createStructuralVectorOperationPatchIntent,
+  type PointHandleComputedPatchIntent,
+  type PathEditingVectorOperationRequest,
+  type StructuralVectorOperationPatchIntent
+} from '../path-editing-intents'
 
 interface PenState extends Record<string, unknown> {
   elementId: string
@@ -32,6 +40,7 @@ interface PenState extends Record<string, unknown> {
   connectionSide: VectorEndpointSide
   autoUpdateConnectedHandleTarget: VectorHandleTarget | null
   initialHandlePositions: VectorHandleInitialPosition[]
+  structuralOperationIntent?: StructuralVectorOperationPatchIntent | null
 }
 
 interface VectorPointDragTargetState extends Record<string, unknown> {
@@ -47,6 +56,8 @@ interface VectorPointDragTargetState extends Record<string, unknown> {
 interface SelectVectorPointState extends Record<string, unknown> {
   segmentId?: string
   dragTarget: VectorPointDragTargetState | null
+  operationRequest?: PathEditingVectorOperationRequest | null
+  computedPatchIntent?: PointHandleComputedPatchIntent | null
 }
 
 type VectorHandleTarget = Exclude<
@@ -683,10 +694,25 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
               return null
             }
 
+            const structuralOperationIntent =
+              createStructuralVectorOperationPatchIntent({
+                elementId: pathEditingVectorId,
+                operation: 'connect-anchors',
+                inputIds: [sourceContinuation.pointId, clickedPoint.point.id],
+                changedRecords: ['segment:create'],
+                undoable: true
+              })
+            if (!structuralOperationIntent) {
+              return null
+            }
+
             const connected = elementApis.connectVectorAnchorPoints(
               pathEditingVectorId,
               sourceContinuation.pointId,
-              clickedPoint.point.id
+              clickedPoint.point.id,
+              {
+                structuralOperationIntent
+              }
             )
             if (!connected) {
               return null
@@ -736,10 +762,25 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
               : null
 
           if (activeHoveredSegmentHit) {
+            const structuralOperationIntent =
+              createStructuralVectorOperationPatchIntent({
+                elementId: pathEditingVectorId,
+                operation: 'split-segment',
+                inputIds: [activeHoveredSegmentHit.segmentId],
+                changedRecords: ['segment:replace', 'point:create'],
+                undoable: true
+              })
+            if (!structuralOperationIntent) {
+              return null
+            }
+
             const insertedPoint = elementApis.splitVectorSegmentAtWorkspacePos(
               pathEditingVectorId,
               activeHoveredSegmentHit.segmentId,
-              activeHoveredSegmentHit.position
+              activeHoveredSegmentHit.position,
+              {
+                structuralOperationIntent
+              }
             )
 
             if (insertedPoint) {
@@ -766,12 +807,30 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
               continuation ?? null
             )
           const newPoint = createAnchorPoint(dragStartWorkspace)
+          const structuralOperationIntent =
+            createStructuralVectorOperationPatchIntent({
+              elementId: pathEditingVectorId,
+              operation: 'append-anchor',
+              inputIds: [
+                newPoint.id,
+                ...(connectedPointId ? [connectedPointId] : [])
+              ],
+              changedRecords: connectedPointId
+                ? ['point:create', 'segment:create']
+                : ['point:create'],
+              undoable: true
+            })
+          if (!structuralOperationIntent) {
+            return null
+          }
+
           const newSelectedPoint = elementApis.appendVectorAnchorPoint(
             pathEditingVectorId,
             newPoint,
             {
               startNewSubpath,
-              continuation
+              continuation,
+              structuralOperationIntent
             }
           )
           selectionApis.selectElements([pathEditingVectorId])
@@ -793,7 +852,8 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
               connectedPointId,
               connectionSide,
               autoUpdateConnectedHandleTarget
-            )
+            ),
+            structuralOperationIntent
           } as PenState
         }
 
@@ -823,7 +883,16 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
           connectedPointId: null,
           connectionSide: VECTOR_TOKENS.ENDPOINT.SIDE.END,
           autoUpdateConnectedHandleTarget: null,
-          initialHandlePositions: []
+          initialHandlePositions: [],
+          structuralOperationIntent: createStructuralVectorOperationPatchIntent(
+            {
+              elementId,
+              operation: 'append-anchor',
+              inputIds: [firstPoint.id],
+              changedRecords: ['point:create'],
+              undoable: true
+            }
+          )
         }
       },
 
@@ -927,6 +996,16 @@ export const selectVectorPointFeature = defineFeature<
               )
 
         if (activeHoveredSegmentId) {
+          const operationRequest = createPathEditingVectorOperationRequest({
+            selectedElementIds: selectedIds,
+            pathEditingVectorId,
+            hoveredPoint: null,
+            hoveredSegment: {
+              elementId: pathEditingVectorId,
+              segmentId: activeHoveredSegmentId
+            }
+          })
+
           selectionApis.selectVectorSegment({
             elementId: pathEditingVectorId,
             segmentId: activeHoveredSegmentId
@@ -939,7 +1018,8 @@ export const selectVectorPointFeature = defineFeature<
           })
           return {
             segmentId: activeHoveredSegmentId,
-            dragTarget: null
+            dragTarget: null,
+            operationRequest
           }
         }
 
@@ -989,8 +1069,15 @@ export const selectVectorPointFeature = defineFeature<
               x: activeHoveredPoint.x,
               y: activeHoveredPoint.y
             }
+      const operationRequest = createPathEditingVectorOperationRequest({
+        selectedElementIds: selectedIds,
+        pathEditingVectorId,
+        hoveredPoint: activeHoveredPoint,
+        hoveredSegment: null
+      })
 
       return {
+        operationRequest,
         dragTarget:
           dragStartWorkspacePos && selectedPoint && initialTargetPos
             ? {
@@ -1031,25 +1118,32 @@ export const selectVectorPointFeature = defineFeature<
         return
       }
 
-      const dx = currentWorkspacePos.x - dragTarget.dragStartWorkspacePos.x
-      const dy = currentWorkspacePos.y - dragTarget.dragStartWorkspacePos.y
-      const targetPos = {
-        x: dragTarget.initialTargetPos.x + dx,
-        y: dragTarget.initialTargetPos.y + dy
+      const computedPatchIntent = createPointHandleComputedPatchIntent({
+        dragTarget,
+        currentWorkspacePos,
+        phase: 'update'
+      })
+      if (!computedPatchIntent) {
+        return
       }
 
       const updatedPoint = measureBrowserDragPhase(
         'pen-tool:drag-point-update',
         () =>
-          updateVectorPointTargetPosition(dragTarget, targetPos, {
-            undoable: false,
-            skipResult: true
-          })
+          updateVectorPointTargetPosition(
+            dragTarget,
+            computedPatchIntent.patch.position,
+            {
+              undoable: computedPatchIntent.patch.undoable,
+              skipResult: computedPatchIntent.patch.skipResult
+            }
+          )
       )
       if (updatedPoint === null) {
         return
       }
 
+      state.computedPatchIntent = computedPatchIntent
       dragTarget.hasMoved = true
       return
     },
@@ -1074,11 +1168,13 @@ export const selectVectorPointFeature = defineFeature<
           return
         }
 
-        const dx = currentWorkspacePos.x - dragTarget.dragStartWorkspacePos.x
-        const dy = currentWorkspacePos.y - dragTarget.dragStartWorkspacePos.y
-        const targetPos = {
-          x: dragTarget.initialTargetPos.x + dx,
-          y: dragTarget.initialTargetPos.y + dy
+        const computedPatchIntent = createPointHandleComputedPatchIntent({
+          dragTarget,
+          currentWorkspacePos,
+          phase: 'commit'
+        })
+        if (!computedPatchIntent) {
+          return
         }
 
         const currentPoint = elementApis.getVectorAnchorPointById(
@@ -1090,13 +1186,17 @@ export const selectVectorPointFeature = defineFeature<
           getPointTargetPosition(currentPoint.point, dragTarget.target)
         if (
           !currentTargetPos ||
-          currentTargetPos.x !== targetPos.x ||
-          currentTargetPos.y !== targetPos.y
+          currentTargetPos.x !== computedPatchIntent.patch.position.x ||
+          currentTargetPos.y !== computedPatchIntent.patch.position.y
         ) {
-          updateVectorPointTargetPosition(dragTarget, targetPos, {
-            undoable: false,
-            skipResult: true
-          })
+          updateVectorPointTargetPosition(
+            dragTarget,
+            computedPatchIntent.patch.position,
+            {
+              undoable: false,
+              skipResult: true
+            }
+          )
         }
 
         updateVectorPointTargetPosition(
@@ -1107,10 +1207,15 @@ export const selectVectorPointFeature = defineFeature<
             skipResult: true
           }
         )
-        updateVectorPointTargetPosition(dragTarget, targetPos, {
-          undoable: true,
-          skipResult: true
-        })
+        updateVectorPointTargetPosition(
+          dragTarget,
+          computedPatchIntent.patch.position,
+          {
+            undoable: computedPatchIntent.patch.undoable,
+            skipResult: computedPatchIntent.patch.skipResult
+          }
+        )
+        state.computedPatchIntent = computedPatchIntent
         const committedPoint = elementApis.getVectorAnchorPointById(
           dragTarget.elementId,
           dragTarget.pointId

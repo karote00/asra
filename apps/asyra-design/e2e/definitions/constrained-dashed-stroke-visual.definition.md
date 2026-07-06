@@ -581,8 +581,8 @@ gradient paint` and verify:
   verify:
   - constrained dashed coverage remains absent on the bounded app path
   - the center remains absent
-- repeat on the reported closed star-like single-network vector with a
-  repeated dash pattern and verify:
+- repeat on the reported closed star-like single-network vector with repeated
+  dash/gap lengths and verify:
   - the center-authored dashed stroke is visible
   - the same stroke remains visible after switching to authored `inside`
   - the same stroke remains visible after switching to authored `outside`
@@ -597,7 +597,7 @@ gradient paint` and verify:
   - the inter-network gap remains absent
 - repeat on one rectangle with a single-edge visible interval and verify:
   - the rectangle fixture stays axis-aligned for this probe
-  - the authored dash pattern yields exactly one visible interval on the app
+  - the authored dash/gap lengths yield exactly one visible interval on the app
     fixture perimeter
   - coverage exists on the formal edge span
   - later spans on the same edge remain absent

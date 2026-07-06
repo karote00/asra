@@ -47,6 +47,13 @@ if (playwrightTestBaseUrl && playwrightTestBaseUrl !== appVisualReviewBaseUrl) {
 
 process.env.PLAYWRIGHT_TEST_BASE_URL ??= appVisualReviewBaseUrl
 
+const visualReviewUrl = new URL(appVisualReviewBaseUrl)
+const visualReviewHost = visualReviewUrl.hostname
+const visualReviewPort =
+  visualReviewUrl.port ||
+  (visualReviewUrl.protocol === 'https:' ? '443' : '80')
+const visualReviewWebServerCommand = `yarn react:start --host ${visualReviewHost} --port ${visualReviewPort}`
+
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
@@ -94,7 +101,7 @@ export default defineConfig({
   webServer: process.env.CI
     ? undefined
     : {
-        command: 'yarn react:start',
+        command: visualReviewWebServerCommand,
         url: appVisualReviewBaseUrl,
         reuseExistingServer: true,
         timeout: 120 * 1000

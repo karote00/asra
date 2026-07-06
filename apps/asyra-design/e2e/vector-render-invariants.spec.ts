@@ -500,8 +500,8 @@ const createReportedVector12OpenDashedSwitchData = () => ({
       style: 'solid',
       position: 'center',
       width: 10,
-      dashPattern: [20, 20],
-      dashOffset: 0,
+      dash: 20,
+          gap: 20,
       fill: null,
       defaultColorFormat: 'hex',
       colorFormat: 'hex',
@@ -557,8 +557,8 @@ const setSelectedVectorRedStroke = async (page: Page) => {
             style: 'solid',
             position: 'center',
             width: 12,
-            dashPattern: [],
-            dashOffset: 0,
+            dash: 0,
+      gap: 0,
             fill: null,
             defaultColorFormat: 'hex',
             colorFormat: 'hex',
@@ -2972,8 +2972,8 @@ test.describe('Vector render invariants', () => {
               style: 'solid',
               position: 'center',
               width: 14,
-              dashPattern: [],
-              dashOffset: 0,
+              dash: 0,
+      gap: 0,
               fill: null,
               defaultColorFormat: 'hex',
               colorFormat: 'hex',
@@ -3065,8 +3065,8 @@ test.describe('Vector render invariants', () => {
               style: 'solid',
               position: 'center',
               width: 10,
-              dashPattern: [],
-              dashOffset: 0,
+              dash: 0,
+      gap: 0,
               fill: null,
               defaultColorFormat: 'hex',
               colorFormat: 'hex',
@@ -3165,8 +3165,8 @@ test.describe('Vector render invariants', () => {
               style: 'solid',
               position: 'center',
               width: 12,
-              dashPattern: [],
-              dashOffset: 0,
+              dash: 0,
+      gap: 0,
               fill: null,
               defaultColorFormat: 'hex',
               colorFormat: 'hex',
@@ -3290,8 +3290,8 @@ test.describe('Vector render invariants', () => {
               style: 'dashed',
               position: 'inside',
               width: 14,
-              dashPattern: [20, 14],
-              dashOffset: 0,
+              dash: 20,
+          gap: 14,
               fill: null,
               defaultColorFormat: 'hex',
               colorFormat: 'hex',
@@ -3364,8 +3364,8 @@ test.describe('Vector render invariants', () => {
               style: 'dashed',
               position: 'inside',
               width: 16,
-              dashPattern: [22, 14],
-              dashOffset: 0,
+              dash: 22,
+          gap: 14,
               fill: null,
               defaultColorFormat: 'hex',
               colorFormat: 'hex',
@@ -3608,8 +3608,8 @@ test.describe('Vector render invariants', () => {
               style: 'dashed',
               position: 'center',
               width: 8,
-              dashPattern: [20, 10],
-              dashOffset: 0,
+              dash: 20,
+          gap: 10,
               fill: null,
               defaultColorFormat: 'hex',
               colorFormat: 'hex',
@@ -5150,8 +5150,8 @@ test.describe('Vector render invariants', () => {
                 style: style.style,
                 position: style.position,
                 width: 10,
-                dashPattern: [20, 20],
-                dashOffset: 0,
+                dash: 20,
+          gap: 20,
                 fill: {
                   id: `existing-vector-stroke-${index}`,
                   type: 'fill',
@@ -5355,8 +5355,8 @@ test.describe('Vector render invariants', () => {
               style: 'solid',
               position: 'center',
               width: 10,
-              dashPattern: [],
-              dashOffset: 0,
+              dash: 0,
+      gap: 0,
               fill: {
                 id: 'unmarked-workspace-open-stroke',
                 type: 'fill',
@@ -5630,8 +5630,8 @@ test.describe('Vector render invariants', () => {
             style: 'dashed',
             position: strokePosition,
             width: 10,
-            dashPattern: [27, 20],
-            dashOffset: 0,
+            dash: 27,
+          gap: 20,
             fill: null,
             defaultColorFormat: 'hex',
             colorFormat: 'hex',
@@ -6048,8 +6048,8 @@ test.describe('Vector render invariants', () => {
             style: 'dashed',
             position: strokePosition,
             width: 10,
-            dashPattern: [27, 20],
-            dashOffset: 0,
+            dash: 27,
+          gap: 20,
             fill: null,
             defaultColorFormat: 'hex',
             colorFormat: 'hex',
@@ -6351,8 +6351,8 @@ test.describe('Vector render invariants', () => {
             style: 'dashed',
             position: 'inside',
             width: 10,
-            dashPattern: [27, 20],
-            dashOffset: 0,
+            dash: 27,
+          gap: 20,
             fill: null,
             defaultColorFormat: 'hex',
             colorFormat: 'hex',
@@ -6522,6 +6522,9 @@ test.describe('Vector render invariants', () => {
           ? core?.deps?.render?.getElementById?.(selectedId)
           : null
         const meshCache = renderElement?.__asyraStrokeMeshCache
+        const renderEntries = renderElement?.__asyraStrokeRenderEntries ?? []
+        const exportPackets =
+          renderElement?.__asyraSolidCenterStrokeExportPackets ?? []
         const childCount = Array.isArray(renderElement?.children)
           ? renderElement.children.length
           : null
@@ -6538,8 +6541,47 @@ test.describe('Vector render invariants', () => {
             renderElement?.__asyraConstrainedDashedProductNetworkIds ?? null,
           renderFaceMetaCount:
             renderElement?.__asyraStrokeRenderFaceDebugMetas?.length ?? 0,
-          exportPacketCount:
-            renderElement?.__asyraSolidCenterStrokeExportPackets?.length ?? 0,
+          exportPacketCount: exportPackets.length,
+          renderEntryProductMetas: renderEntries
+            .slice(0, 12)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((entry: any) => ({
+              cacheKey: entry.cacheKey,
+              productMode: entry.debugMeta?.productMode,
+              productSignature: entry.debugMeta?.productSignature,
+              strokePosition: entry.debugMeta?.strokePosition,
+              strokeCap: entry.debugMeta?.strokeCap,
+              joinOwnershipSignature: entry.debugMeta?.joinOwnershipSignature,
+              intervalIds: entry.debugMeta?.intervalIds,
+              terminalRoles:
+                entry.debugMeta?.dashEndpointCapPolicyTerminalRoles,
+              polygonCount: Array.isArray(entry.polygons)
+                ? entry.polygons.length
+                : 0,
+              hasDescriptor:
+                (entry.strokePathGroups?.length ?? 0) > 0 ||
+                (entry.strokePaths?.length ?? 0) > 0 ||
+                (entry.fillClipPolygons?.length ?? 0) > 0 ||
+                (entry.strokeMaskPolygons?.length ?? 0) > 0,
+              strokePathGroupCount: entry.strokePathGroups?.length ?? 0,
+              fillClipCount: entry.fillClipPolygons?.length ?? 0,
+              strokeMaskCount: entry.strokeMaskPolygons?.length ?? 0
+            })),
+          exportPacketProductMetas: exportPackets
+            .slice(0, 12)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((packet: any) => ({
+              geometryId: packet.geometryId,
+              productMode: packet.debugMeta?.productMode,
+              productSignature: packet.debugMeta?.productSignature,
+              strokePosition: packet.debugMeta?.strokePosition,
+              strokeCap: packet.debugMeta?.strokeCap,
+              joinOwnershipSignature: packet.debugMeta?.joinOwnershipSignature,
+              intervalIds: packet.debugMeta?.intervalIds,
+              polygonCount: Array.isArray(packet.polygons)
+                ? packet.polygons.length
+                : 0
+            })),
           strokeRenderCacheSize:
             meshCache instanceof Map ? meshCache.size : null,
           strokeRenderCacheKinds,
@@ -6649,8 +6691,8 @@ test.describe('Vector render invariants', () => {
               style: 'dashed',
               position: 'inside',
               width: 10,
-              dashPattern: [27, 20],
-              dashOffset: 0,
+              dash: 27,
+          gap: 20,
               fill: null,
               defaultColorFormat: 'hex',
               colorFormat: 'hex',
@@ -6756,8 +6798,8 @@ test.describe('Vector render invariants', () => {
               style: 'solid',
               position: 'center',
               width: 10,
-              dashPattern: [],
-              dashOffset: 0,
+              dash: 0,
+      gap: 0,
               fill: {
                 id: 'open-center-solid-alpha-stroke',
                 type: 'fill',

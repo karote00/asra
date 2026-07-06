@@ -38,8 +38,8 @@ export interface StrokeAttrs extends BasePropertyAttrs {
   style: StrokeStyle
   position: StrokePosition
   width: number
-  dashPattern: number[]
-  dashOffset: number
+  dash: number
+  gap: number
   fill: FillAttrs
   joinType: StrokeJoinType
   capType: StrokeCapType
@@ -115,8 +115,8 @@ export const createDefaultStroke = (
     style: overrides.style ?? StrokeStyles.SOLID,
     position: overrides.position ?? StrokePositions.CENTER,
     width: overrides.width ?? 1,
-    dashPattern: overrides.dashPattern ?? [20, 20],
-    dashOffset: overrides.dashOffset ?? 0,
+    dash: overrides.dash ?? 20,
+    gap: overrides.gap ?? 20,
     fill: resolveStrokeFill(id, overrides),
     joinType: overrides.joinType ?? StrokeJoinTypes.MITER,
     capType: overrides.capType ?? StrokeCapTypes.BUTT,

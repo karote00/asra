@@ -7,6 +7,7 @@ import {
 } from '../../common-apis'
 import { FeatureNames, InputSystemEvents } from '../../constants'
 import type { SystemContextSnapshot } from '@asyra/utils'
+import { createStructuralVectorOperationPatchIntent } from '../path-editing-intents'
 
 export const deleteVectorPointFeature = defineFeature(
   FeatureNames.DELETE_VECTOR_POINT,
@@ -36,9 +37,24 @@ export const deleteVectorPointFeature = defineFeature(
           return null
         }
 
+        const structuralOperationIntent =
+          createStructuralVectorOperationPatchIntent({
+            elementId: pathEditingVectorId,
+            operation: 'remove-anchor',
+            inputIds: [selectedPoint.pointId],
+            changedRecords: ['point:remove', 'segment:remove'],
+            undoable: true
+          })
+        if (!structuralOperationIntent) {
+          return null
+        }
+
         const deleted = elementApis.removeVectorAnchorPoint(
           pathEditingVectorId,
-          selectedPoint.pointId
+          selectedPoint.pointId,
+          {
+            structuralOperationIntent
+          }
         )
         if (!deleted) {
           return null
@@ -51,7 +67,8 @@ export const deleteVectorPointFeature = defineFeature(
 
         return {
           deletedPointId: selectedPoint.pointId,
-          elementId: pathEditingVectorId
+          elementId: pathEditingVectorId,
+          structuralOperationIntent
         }
       } finally {
         endTransaction()

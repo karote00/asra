@@ -15,6 +15,7 @@ import {
 } from '../common-apis'
 import { useSelectedVectorPoint } from '../providers'
 import { formatInputNumber, parseFiniteInputNumber } from './number-input'
+import { createStructuralVectorOperationPatchIntent } from '../features/path-editing-intents'
 
 const getTargetLabel = (target: VectorPointTarget) => {
   if (target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE) {
@@ -372,6 +373,27 @@ const VectorPoint = () => {
     []
   )
 
+  const createHandlePositionStructuralIntent = useCallback(() => {
+    if (
+      !elementId ||
+      !pointId ||
+      target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
+    ) {
+      return null
+    }
+
+    return createStructuralVectorOperationPatchIntent({
+      elementId,
+      operation: 'update-handle-position',
+      inputIds: [pointId, target],
+      changedRecords:
+        target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
+          ? ['point:inHandle']
+          : ['point:outHandle'],
+      undoable: true
+    })
+  }, [elementId, pointId, target])
+
   const handleChangeX = useCallback(
     (newValue: string) => {
       if (!elementId || !pointId || x === null || y === null) {
@@ -384,6 +406,14 @@ const VectorPoint = () => {
       }
 
       return runDiscreteVectorPointInteraction(() => {
+        const structuralOperationIntent = createHandlePositionStructuralIntent()
+        if (
+          target !== VECTOR_TOKENS.POINT.TARGET.ANCHOR &&
+          !structuralOperationIntent
+        ) {
+          return false
+        }
+
         const updatedPoint =
           target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
             ? elementApis.updateVectorAnchorPointPosition(elementId, pointId, {
@@ -397,6 +427,9 @@ const VectorPoint = () => {
                 {
                   x: nextX,
                   y
+                },
+                {
+                  structuralOperationIntent
                 }
               )
         return updatedPoint === true
@@ -411,6 +444,7 @@ const VectorPoint = () => {
       y,
       target,
       applyTargetSelection,
+      createHandlePositionStructuralIntent,
       runDiscreteVectorPointInteraction
     ]
   )
@@ -427,6 +461,14 @@ const VectorPoint = () => {
       }
 
       return runDiscreteVectorPointInteraction(() => {
+        const structuralOperationIntent = createHandlePositionStructuralIntent()
+        if (
+          target !== VECTOR_TOKENS.POINT.TARGET.ANCHOR &&
+          !structuralOperationIntent
+        ) {
+          return false
+        }
+
         const updatedPoint =
           target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
             ? elementApis.updateVectorAnchorPointPosition(elementId, pointId, {
@@ -440,6 +482,9 @@ const VectorPoint = () => {
                 {
                   x,
                   y: nextY
+                },
+                {
+                  structuralOperationIntent
                 }
               )
         return updatedPoint === true
@@ -454,6 +499,7 @@ const VectorPoint = () => {
       y,
       target,
       applyTargetSelection,
+      createHandlePositionStructuralIntent,
       runDiscreteVectorPointInteraction
     ]
   )
@@ -465,10 +511,25 @@ const VectorPoint = () => {
       }
 
       runDiscreteVectorPointInteraction(() => {
+        const structuralOperationIntent =
+          createStructuralVectorOperationPatchIntent({
+            elementId,
+            operation: 'set-anchor-type',
+            inputIds: [pointId],
+            changedRecords: ['point:type'],
+            undoable: true
+          })
+        if (!structuralOperationIntent) {
+          return
+        }
+
         const updatedPoint = elementApis.updateVectorAnchorPointType(
           elementId,
           pointId,
-          newType
+          newType,
+          {
+            structuralOperationIntent
+          }
         )
         applyTargetSelection(updatedPoint, VECTOR_TOKENS.POINT.TARGET.ANCHOR)
       })
@@ -488,10 +549,25 @@ const VectorPoint = () => {
       }
 
       runDiscreteVectorPointInteraction(() => {
+        const structuralOperationIntent =
+          createStructuralVectorOperationPatchIntent({
+            elementId,
+            operation: 'set-handle-mode',
+            inputIds: [pointId],
+            changedRecords: ['point:handleMode'],
+            undoable: true
+          })
+        if (!structuralOperationIntent) {
+          return
+        }
+
         const updatedPoint = elementApis.setVectorAnchorPointHandleMode(
           elementId,
           pointId,
-          newMode
+          newMode,
+          {
+            structuralOperationIntent
+          }
         )
         if (!updatedPoint) {
           return

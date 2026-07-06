@@ -91,33 +91,6 @@ test.describe('Viewport Navigation', () => {
     await expect(zoomDisplay).toContainText(/%/)
   })
 
-  test('should toggle raw stroke overlap debug mode from toolbar', async ({
-    page
-  }) => {
-    const toolbar = getToolbar(page)
-    const toggle = toolbar.getByTestId('stroke-debug-overlap-toggle')
-
-    await expect(toggle).toBeVisible()
-    await expect(toggle).toHaveAttribute('data-active', 'false')
-
-    await toggle.click()
-    await expect(toggle).toHaveAttribute('data-active', 'true')
-    await expect
-      .poll(() =>
-        page.evaluate(
-          () =>
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (window as any).__Core__?.getSystemProperty?.(
-              'strokeDebugDisableVisualOverlapCollapse'
-            ) ?? false
-        )
-      )
-      .toBe(true)
-
-    await toggle.click()
-    await expect(toggle).toHaveAttribute('data-active', 'false')
-  })
-
   test('should respect zoom limits', async ({ page }) => {
     const pos = await getCanvasPosition(page, 0.5, 0.5)
     await page.mouse.move(pos.x, pos.y)
