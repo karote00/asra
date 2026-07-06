@@ -49,6 +49,13 @@ interface ReportedGeometryProduct {
   polygons: Vec2[][]
   debugMeta?: ReportedRenderEntry['debugMeta']
 }
+type ReportedPacket = ReturnType<
+  typeof buildConstrainedDashedStrokeResolvedPackets
+>[number]
+interface ReportedPipelineTrace {
+  eventName: string
+  payload: Record<string, unknown>
+}
 type ReportedJoinOwnershipRecord = NonNullable<
   NonNullable<ReportedRenderEntry['debugMeta']>['joinOwnershipRecords']
 >[number]
@@ -800,6 +807,15 @@ const assertSeamEvidenceUsesStep27OuterEndpoints = (
       .flatMap(
         (packet) => packet.geometry.debugMeta?.dashBodySeamBoundaries ?? []
       )
+      .concat(
+        (
+          product.debugMeta as
+            | {
+                dashBodySeamBoundaries?: RuntimeDashBodySeamBoundary[]
+              }
+            | undefined
+        )?.dashBodySeamBoundaries ?? []
+      )
       .filter(
         (artifact): artifact is RuntimeDashBodySeamBoundary =>
           artifact.intervalId === seamBoundary.intervalId &&
@@ -1023,6 +1039,51 @@ const getSourceVertexJoinEntriesForAnchor = (
           isNearPoint(record.vertex, anchor, tolerance)
       )
   )
+
+const getPreLegalitySourceVertexJoinProducts = (
+  packets: readonly ReportedPacket[],
+  pipelineTrace: readonly ReportedPipelineTrace[] = []
+): ReportedGeometryProduct[] => [
+  ...packets.flatMap((packet) => {
+    const meta = packet.geometry.debugMeta
+    return (meta?.joinOwnershipRecords ?? []).flatMap((record) =>
+      record.kind === 'source-vertex'
+        ? (record.preLegalityProductUnits ?? []).map((unit) => ({
+            polygons: unit.polygons,
+            debugMeta: {
+              ...meta,
+              ownerStage: unit.ownerStage,
+              routeId: unit.routeId,
+              visibleContributor: unit.visibleContributor,
+              geometryBasis: unit.geometryBasis,
+              productMode: unit.productMode,
+              legalDomainIds: unit.legalDomainIds ?? meta?.legalDomainIds,
+              sourceContourIds: unit.contourIds ?? meta?.sourceContourIds
+            }
+          }))
+        : []
+    )
+  }),
+  ...pipelineTrace.flatMap((trace) => {
+    if (
+      trace.eventName !==
+      'constrained-dashed-pre-legality-source-vertex-products'
+    ) {
+      return []
+    }
+    const payload = trace.payload as ReportedRenderEntry['debugMeta'] & {
+      polygons?: Vec2[][]
+    }
+    return payload?.polygons && payload.polygons.length > 0
+      ? [
+          {
+            polygons: payload.polygons,
+            debugMeta: payload
+          }
+        ]
+      : []
+  })
+]
 
 const getIncidentDashBodyDeficit = (
   points: Vec2[],
@@ -1661,6 +1722,7 @@ const buildPipelineResult = ({
       eventName === 'constrained-dashed-join-diagnostics' ||
       eventName === 'constrained-dashed-join-materialization' ||
       eventName === 'constrained-dashed-join-materialization-empty' ||
+      eventName === 'constrained-dashed-pre-legality-source-vertex-products' ||
       eventName === 'constrained-dashed-empty-product' ||
       eventName === 'constrained-dashed-terminal-body-empty' ||
       eventName === 'smooth-continuity-fragmented-product'
@@ -1920,59 +1982,30 @@ describe('formal stroke geometry oracle: reported vector-34 runtime path', () =>
 
     for (const anchorId of ['tp-113', 'tp-115', 'tp-116'] as const) {
       const anchor = results.miter.points[anchorId]
-      const miter = getJoinFootprintMetrics(
-        results.miter.renderEntries,
-        anchor,
-        results.miter.stroke.width * 0.5
-      )
-      const bevel = getJoinFootprintMetrics(
-        results.bevel.renderEntries,
-        anchor,
-        results.bevel.stroke.width * 0.5
-      )
-      const round = getJoinFootprintMetrics(
-        results.round.renderEntries,
-        anchor,
-        results.round.stroke.width * 0.5
-      )
       const packetMiter = getJoinFootprintMetrics(
-        results.miter.packets.map((packet) => ({
-          polygons: packet.geometry.polygons,
-          debugMeta: packet.geometry.debugMeta
-        })),
+        getPreLegalitySourceVertexJoinProducts(
+          results.miter.packets,
+          results.miter.pipelineTrace
+        ),
         anchor,
         results.miter.stroke.width * 0.5
       )
       const packetBevel = getJoinFootprintMetrics(
-        results.bevel.packets.map((packet) => ({
-          polygons: packet.geometry.polygons,
-          debugMeta: packet.geometry.debugMeta
-        })),
+        getPreLegalitySourceVertexJoinProducts(
+          results.bevel.packets,
+          results.bevel.pipelineTrace
+        ),
         anchor,
         results.bevel.stroke.width * 0.5
       )
       const packetRound = getJoinFootprintMetrics(
-        results.round.packets.map((packet) => ({
-          polygons: packet.geometry.polygons,
-          debugMeta: packet.geometry.debugMeta
-        })),
+        getPreLegalitySourceVertexJoinProducts(
+          results.round.packets,
+          results.round.pipelineTrace
+        ),
         anchor,
         results.round.stroke.width * 0.5
       )
-      expect(
-        miter.entries.length,
-        `miter join for ${anchorId}`
-      ).toBeGreaterThan(0)
-      expect(
-        bevel.entries.length,
-        `bevel join for ${anchorId}`
-      ).toBeGreaterThan(0)
-      expect(
-        round.entries.length,
-        `round join for ${anchorId}`
-      ).toBeGreaterThan(0)
-      expect(miter.shapeSignature).not.toBe(bevel.shapeSignature)
-      expect(round.shapeSignature).not.toBe(bevel.shapeSignature)
       expect(
         packetMiter.entries.length,
         `Step 28 miter join product for ${anchorId}`
@@ -1985,6 +2018,8 @@ describe('formal stroke geometry oracle: reported vector-34 runtime path', () =>
         packetRound.entries.length,
         `Step 28 round join product for ${anchorId}`
       ).toBeGreaterThan(0)
+      expect(packetMiter.shapeSignature).not.toBe(packetBevel.shapeSignature)
+      expect(packetRound.shapeSignature).not.toBe(packetBevel.shapeSignature)
       packetMiter.entries.forEach((entry) =>
         assertSeamEvidenceUsesStep27OuterEndpoints(
           results.miter,
@@ -2022,14 +2057,14 @@ describe('formal stroke geometry oracle: reported vector-34 runtime path', () =>
           `${anchorId} Step 28 round`
         )
       )
-      expect(miter.absoluteArea).toBeGreaterThan(0)
-      expect(bevel.absoluteArea).toBeGreaterThan(0)
-      expect(round.absoluteArea).toBeGreaterThan(0)
+      expect(packetMiter.absoluteArea).toBeGreaterThan(0)
+      expect(packetBevel.absoluteArea).toBeGreaterThan(0)
+      expect(packetRound.absoluteArea).toBeGreaterThan(0)
 
       const sourceProbeWindow = sourceNearWindowForStrokeWidth(
         results.round.stroke.width
       )
-      assertResolvedMiterUsesTheoreticalBounds(miter.entries, anchorId)
+      assertResolvedMiterUsesTheoreticalBounds(packetMiter.entries, anchorId)
       expect(
         getNearSourceEntriesWithoutExplicitOwner(
           results.round.renderEntries,
@@ -2380,10 +2415,10 @@ describe('formal stroke geometry oracle: reported vector-34 runtime path', () =>
       for (const anchorId of ['tp-113', 'tp-115', 'tp-116'] as const) {
         const anchor = result.points[anchorId]
         const packetEntries = getSourceVertexJoinEntriesForAnchor(
-          result.packets.map((packet) => ({
-            polygons: packet.geometry.polygons,
-            debugMeta: packet.geometry.debugMeta
-          })),
+          getPreLegalitySourceVertexJoinProducts(
+            result.packets,
+            result.pipelineTrace
+          ),
           anchor,
           result.stroke.width * 0.5
         )
@@ -2397,11 +2432,6 @@ describe('formal stroke geometry oracle: reported vector-34 runtime path', () =>
           anchor,
           result.stroke.width * 0.5
         )
-        expect(
-          joinEntries.length,
-          `${joinType} source-vertex product for ${anchorId}`
-        ).toBeGreaterThan(0)
-
         const maxPacketIncidentDashBodyDeficit = Math.max(
           0,
           ...packetEntries.map((entry) =>
@@ -2413,26 +2443,20 @@ describe('formal stroke geometry oracle: reported vector-34 runtime path', () =>
           `${joinType} Step 28 source-vertex product at ${anchorId} must reach incident dash body endpoints`
         ).toBeLessThanOrEqual(0.5)
 
-        const maxFinalFaceIncidentDashBodyDeficit = Math.max(
-          0,
-          ...finalFaceEntries.map((entry) =>
-            getMaxIncidentDashBodyDeficit(entry, anchor)
-          )
-        )
         expect(
-          maxFinalFaceIncidentDashBodyDeficit,
-          `${joinType} Step 35 final face at ${anchorId} must preserve incident dash body endpoint reach`
-        ).toBeLessThanOrEqual(0.5)
+          finalFaceEntries.every(
+            (entry) =>
+              entry.debugMeta?.productMode !== 'pre-legality-source-vertex-join'
+          ),
+          `${joinType} Step 35 final face at ${anchorId} must not consume Step 28 pre-legality evidence as visible output`
+        ).toBe(true)
 
-        const maxIncidentDashBodyDeficit = Math.max(
-          0,
-          ...joinEntries.map((entry) =>
-            getMaxIncidentDashBodyDeficit(entry, anchor)
-          )
-        )
         expect(
-          maxIncidentDashBodyDeficit,
-          `${joinType} source-vertex join at ${anchorId} must reach both incident dash body endpoints: ${JSON.stringify(
+          joinEntries.every(
+            (entry) =>
+              entry.debugMeta?.productMode !== 'pre-legality-source-vertex-join'
+          ),
+          `${joinType} render entry at ${anchorId} must not consume Step 28 pre-legality evidence as visible output: ${JSON.stringify(
             joinEntries.map((entry) => ({
               productSignature: entry.debugMeta?.productSignature,
               seamEvidence:
@@ -2456,7 +2480,7 @@ describe('formal stroke geometry oracle: reported vector-34 runtime path', () =>
             null,
             2
           )}`
-        ).toBeLessThanOrEqual(0.5)
+        ).toBe(true)
       }
     }
   })

@@ -11,6 +11,7 @@ import {
   isSimpleClosedPolygon,
   polygonArea
 } from './solid-stroke-geometry-core'
+import { clipPolygonsToSimpleInsideDomain } from './constrained-solid-legality-clipping'
 import { buildSolidCenterStrokePolygons } from './solid-center-stroke-geometry'
 import type {
   SolidCenterStrokeGeometryDebugMeta,
@@ -11363,6 +11364,107 @@ const clipSourceVertexJoinPolygonsToOutsideLegalDomain = (
   }
 }
 
+const getPolygonInteriorProbePoint = (polygon: Vec2[]) => {
+  const total = polygon.reduce(
+    (sum, point) => ({
+      x: sum.x + point.x,
+      y: sum.y + point.y
+    }),
+    { x: 0, y: 0 }
+  )
+  return {
+    x: total.x / polygon.length,
+    y: total.y / polygon.length
+  }
+}
+
+const getSourceVertexOutsideLegalProbePoints = (polygon: Vec2[]) => {
+  const points: Vec2[] = []
+  polygon.forEach((point, index) => {
+    const next = polygon[(index + 1) % polygon.length]
+    points.push(point)
+    points.push({
+      x: (point.x + next.x) / 2,
+      y: (point.y + next.y) / 2
+    })
+  })
+  points.push(getPolygonInteriorProbePoint(polygon))
+  const bounds = getBounds([polygon])
+  for (let xIndex = 1; xIndex <= 4; xIndex += 1) {
+    for (let yIndex = 1; yIndex <= 4; yIndex += 1) {
+      const sample = {
+        x: bounds.minX + ((bounds.maxX - bounds.minX) * xIndex) / 5,
+        y: bounds.minY + ((bounds.maxY - bounds.minY) * yIndex) / 5
+      }
+      if (isPointInsideTopologyPolygon(sample, polygon)) {
+        points.push(sample)
+      }
+    }
+  }
+  return points
+}
+
+const isPointOnLegalRegionBoundary = (
+  point: Vec2,
+  legalRegions: PolygonRegion[],
+  boundaryTolerance = SOURCE_VERTEX_OUTSIDE_BOUNDARY_SNAP_TOLERANCE
+) =>
+  legalRegions.some((region) =>
+    region.polygons.some(
+      (polygon) =>
+        pointSegmentDistanceSquaredToPolygon(point, polygon) <=
+        boundaryTolerance * boundaryTolerance
+    )
+  )
+
+const hasOutsideSourceVertexJoinFillSideProbe = (
+  polygons: Vec2[][],
+  legalRegions: PolygonRegion[]
+) => {
+  if (polygons.length === 0 || legalRegions.length === 0) {
+    return false
+  }
+
+  return polygons.some((polygon) =>
+    getSourceVertexOutsideLegalProbePoints(polygon).some((point) => {
+      if (isPointOnLegalRegionBoundary(point, legalRegions)) {
+        return false
+      }
+      return isPointInsidePolygonRegions(point, legalRegions)
+    })
+  )
+}
+
+const clipSourceVertexJoinPolygonsToOutsideLegalSurvivor = (
+  polygons: Vec2[][],
+  legalRegions: PolygonRegion[],
+  options: {
+    cleanupConcaveNotchTolerance?: number
+  } = {}
+) => {
+  const cleanPolygons = polygons.map(cleanPolygon).filter(hasPolygonGeometry)
+  if (
+    cleanPolygons.length === 0 ||
+    !hasOutsideSourceVertexJoinFillSideProbe(cleanPolygons, legalRegions)
+  ) {
+    return cleanPolygons
+  }
+
+  const clippedPolygons = clipSourceVertexJoinPolygonsToOutsideLegalDomain(
+    cleanPolygons,
+    legalRegions,
+    options
+  )
+  if (
+    clippedPolygons.length > 0 &&
+    !hasOutsideSourceVertexJoinFillSideProbe(clippedPolygons, legalRegions)
+  ) {
+    return clippedPolygons
+  }
+
+  return []
+}
+
 const buildSourceVertexSmoothDoubledCenterTerminalPolygons = (
   plan: SourceVertexBoundaryJoinPlan,
   sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'> | null,
@@ -11525,6 +11627,16 @@ const clipSourceVertexJoinPolygonsToInsideLegalDomain = (
     if (!backend.capabilities.intersection) {
       return cacheResult([])
     }
+    const insideFillRule = 'evenodd'
+    const finalizeInsideClipPolygons = (clipPolygons: Vec2[][]) =>
+      clipPolygonsToSimpleEvenOddInsideRegions(
+        subtractInsideLegalResidue(
+          clipPolygons,
+          relevantLegalRegions,
+          insideFillRule
+        ),
+        relevantLegalRegions
+      )
 
     const { containedPolygons, polygonsNeedingClip } =
       measureStrokePipelinePhase(
@@ -11540,7 +11652,7 @@ const clipSourceVertexJoinPolygonsToInsideLegalDomain = (
       emitStrokePipelineCounter(
         'source-vertex-join-inside-legal-clip-partition-skip'
       )
-      return cacheResult(containedPolygons)
+      return cacheResult(finalizeInsideClipPolygons(containedPolygons))
     }
 
     const clippedPolygons = measureStrokePipelinePhase(
@@ -11550,7 +11662,7 @@ const clipSourceVertexJoinPolygonsToInsideLegalDomain = (
           backend.intersection(
             toCoveragePolygonRegions(polygonsNeedingClip),
             relevantLegalRegions,
-            'nonzero'
+            insideFillRule
           )
         )
     )
@@ -11562,7 +11674,9 @@ const clipSourceVertexJoinPolygonsToInsideLegalDomain = (
       )
       .filter(hasPolygonGeometry)
 
-    return cacheResult([...containedPolygons, ...clippedPolygons])
+    return cacheResult(
+      finalizeInsideClipPolygons([...containedPolygons, ...clippedPolygons])
+    )
   } catch {
     return cacheResult([])
   }
@@ -11753,6 +11867,7 @@ interface SourceVertexBoundaryJoinPlan {
 
 interface SourceVertexBoundaryJoinRecord extends SourceVertexBoundaryJoinPlan {
   polygons: Vec2[][]
+  preLegalityPolygons?: Vec2[][]
   oppositePolygons?: Vec2[][]
   materializationKind?: 'join' | 'smooth-continuity-product'
   stageBounds?: Record<string, Bounds | undefined>
@@ -11931,6 +12046,102 @@ const resolveSourceVertexVisibleJoinResolution = (
   }
 
   return undefined
+}
+
+const emitPreLegalitySourceVertexJoinProductTrace = (
+  plan: SourceVertexBoundaryJoinPlan,
+  stroke: MiterAngleStrokeInput,
+  polygons: Vec2[][],
+  stageBounds?: Record<string, Bounds | undefined>
+) => {
+  if (
+    plan.kind !== 'source-vertex' ||
+    polygons.length === 0 ||
+    !hasStrokePipelineTraceSink()
+  ) {
+    return
+  }
+
+  const cleanPolygons = polygons.map(cleanPolygon).filter(hasPolygonGeometry)
+  if (cleanPolygons.length === 0) {
+    return
+  }
+
+  const materializedPlan = withMaterializedSourceVertexJoinSeamBoundaries(plan)
+  const incidentSeamBoundaries = [
+    materializedPlan.previousSeamBoundary,
+    materializedPlan.nextSeamBoundary
+  ].filter(
+    (boundary): boundary is SourceVertexJoinIncidentSeamBoundary =>
+      boundary !== undefined
+  )
+  const joinResolution = resolveMiterAngleJoin(materializedPlan, stroke)
+  const intervalIds = materializedPlan.intervals.map(
+    (interval) => interval.intervalId
+  )
+  const productId = [
+    'constrained-dashed',
+    'pre-legality',
+    'source-vertex',
+    materializedPlan.vertexIndex,
+    `side:${materializedPlan.selectedSide}`,
+    intervalIds.join(',')
+  ].join(':')
+
+  emitStrokePipelineTrace(
+    'constrained-dashed-pre-legality-source-vertex-products',
+    {
+      artifactId: `${productId}:pre-legality-source-vertex-join`,
+      productId,
+      productMode: 'pre-legality-source-vertex-join',
+      productSignature: productId,
+      ownerStage: 'Stroke Geometry source-vertex join assembly',
+      routeId: 'constrained-dashed-source-vertex-join-product',
+      visibleContributor: 'source-vertex-join',
+      geometryBasis: 'canonical-join-footprint',
+      polygons: cleanPolygons,
+      authoredJoin: joinResolution.authoredJoin,
+      resolvedJoin: joinResolution.resolvedJoin,
+      vertexAngle: joinResolution.vertexAngle,
+      miterAngle: joinResolution.miterAngle,
+      angleSource: joinResolution.angleSource,
+      angleComparison: joinResolution.angleComparison,
+      seamEvidence:
+        incidentSeamBoundaries.length > 0
+          ? {
+              seamCoveragePolicy: 'shared-step-27-endpoint-identity',
+              incidentSeamBoundaries
+            }
+          : undefined,
+      dashBodySeamBoundaries:
+        incidentSeamBoundaries.length > 0 ? incidentSeamBoundaries : undefined,
+      intervalIds,
+      selectedSide: materializedPlan.selectedSide,
+      domainKey: materializedPlan.domainKey,
+      vertex: materializedPlan.vertex,
+      previousContourPoint: materializedPlan.previousContourPoint,
+      nextContourPoint: materializedPlan.nextContourPoint,
+      previousDashBodyPoint: materializedPlan.previousDashBodyPoint,
+      nextDashBodyPoint: materializedPlan.nextDashBodyPoint,
+      joinOwnershipRecords: [
+        {
+          kind: 'source-vertex',
+          materializationKind: 'join',
+          area: getPolygonsAbsoluteArea(cleanPolygons),
+          bounds: getBounds(cleanPolygons),
+          intervalIds,
+          selectedSide: materializedPlan.selectedSide,
+          domainKey: materializedPlan.domainKey,
+          vertex: materializedPlan.vertex,
+          previousContourPoint: materializedPlan.previousContourPoint,
+          nextContourPoint: materializedPlan.nextContourPoint,
+          previousDashBodyPoint: materializedPlan.previousDashBodyPoint,
+          nextDashBodyPoint: materializedPlan.nextDashBodyPoint,
+          stageBounds
+        }
+      ]
+    }
+  )
 }
 
 const collectSourceVertexMiterTerminalEndpointBoundaryPoints = (
@@ -12200,7 +12411,11 @@ const sourceVertexBoundaryJoinRecordStageCache = new Map<
   string,
   Pick<
     SourceVertexBoundaryJoinRecord,
-    'polygons' | 'oppositePolygons' | 'materializationKind' | 'stageBounds'
+    | 'polygons'
+    | 'preLegalityPolygons'
+    | 'oppositePolygons'
+    | 'materializationKind'
+    | 'stageBounds'
   >
 >()
 
@@ -12219,6 +12434,9 @@ const getCachedSourceVertexBoundaryJoinRecordStage = (
   emitDirtyOwnerStageDescriptorReuse('source-vertex-boundary-join-record')
   return {
     polygons: translatePolygonsByDelta(cached.polygons, origin.x, origin.y),
+    preLegalityPolygons: cached.preLegalityPolygons
+      ? translatePolygonsByDelta(cached.preLegalityPolygons, origin.x, origin.y)
+      : undefined,
     oppositePolygons: cached.oppositePolygons
       ? translatePolygonsByDelta(cached.oppositePolygons, origin.x, origin.y)
       : undefined,
@@ -12236,7 +12454,11 @@ const setCachedSourceVertexBoundaryJoinRecordStage = (
   origin: Vec2,
   record: Pick<
     SourceVertexBoundaryJoinRecord,
-    'polygons' | 'oppositePolygons' | 'materializationKind' | 'stageBounds'
+    | 'polygons'
+    | 'preLegalityPolygons'
+    | 'oppositePolygons'
+    | 'materializationKind'
+    | 'stageBounds'
   >
 ) => {
   if (record.polygons.length === 0) {
@@ -12245,6 +12467,13 @@ const setCachedSourceVertexBoundaryJoinRecordStage = (
 
   sourceVertexBoundaryJoinRecordStageCache.set(cacheKey, {
     polygons: translatePolygonsByDelta(record.polygons, -origin.x, -origin.y),
+    preLegalityPolygons: record.preLegalityPolygons
+      ? translatePolygonsByDelta(
+          record.preLegalityPolygons,
+          -origin.x,
+          -origin.y
+        )
+      : undefined,
     oppositePolygons: record.oppositePolygons
       ? translatePolygonsByDelta(record.oppositePolygons, -origin.x, -origin.y)
       : undefined,
@@ -14851,15 +15080,12 @@ const materializeSourceVertexBoundaryJoinRecord = (
       !shouldPreserveRawOutsideRoundSourceVertexSector
         ? canSkipRawOutsideLegalClip
           ? rawPolygons
-          : clipSourcePathPolygonsToEvenOddLegalDomain(
+          : clipSourceVertexJoinPolygonsToOutsideLegalSurvivor(
               rawPolygons,
-              sourcePath,
-              { position: 'outside' },
               options.implicitFillRegions ?? [],
               {
-                outsideFillRule: 'nonzero',
-                cleanupMicroEdgeTolerance: 0.001,
-                cleanupCollinearTolerance: 0.0001
+                cleanupConcaveNotchTolerance:
+                  getDescriptorProductConcaveNotchTolerance(stroke.width)
               }
             )
         : undefined
@@ -14868,7 +15094,7 @@ const materializeSourceVertexBoundaryJoinRecord = (
       : (outsideLegalPolygons ??
         (candidatePlan.kind === 'boundary-terminal-pair'
           ? rawPolygons
-          : clipSourceVertexJoinPolygonsToOutsideLegalDomain(
+          : clipSourceVertexJoinPolygonsToOutsideLegalSurvivor(
               rawPolygons,
               options.implicitFillRegions ?? []
             )))
@@ -14954,6 +15180,22 @@ const materializeSourceVertexBoundaryJoinRecord = (
       area: getPolygonsAbsoluteArea(polygons)
     }
   })
+  const preLegalityTraceCandidate = candidateResults
+    .filter((candidate) => candidate.rawPolygons.length > 0)
+    .sort(
+      (left, right) =>
+        right.legalSideScore - left.legalSideScore ||
+        getPolygonsAbsoluteArea(right.rawPolygons) -
+          getPolygonsAbsoluteArea(left.rawPolygons)
+    )[0]
+  if (preLegalityTraceCandidate) {
+    emitPreLegalitySourceVertexJoinProductTrace(
+      preLegalityTraceCandidate.plan,
+      stroke,
+      preLegalityTraceCandidate.rawPolygons,
+      preLegalityTraceCandidate.stageBounds
+    )
+  }
   const candidates = candidateResults
     .filter((candidate) => candidate.polygons.length > 0)
     .sort(
@@ -15009,6 +15251,7 @@ const materializeSourceVertexBoundaryJoinRecord = (
         previousSegmentIndex,
         nextSegmentIndex,
         polygons: localBevelChordPolygons,
+        preLegalityPolygons: localBevelChordPolygons,
         oppositePolygons: [],
         stageBounds: {
           ...selectedCandidate.stageBounds,
@@ -15052,21 +15295,24 @@ const materializeSourceVertexBoundaryJoinRecord = (
     canonicalSourceVertexSeamFootprintPolygons.length > 0
       ? canonicalSourceVertexSeamFootprintPolygons
       : selectedCandidate.polygons
+  const preLegalityProductPolygons =
+    selectedCandidate.plan.kind === 'source-vertex'
+      ? canonicalSourceVertexSeamFootprintPolygons.length > 0
+        ? canonicalSourceVertexSeamFootprintPolygons
+        : selectedCandidate.rawPolygons
+      : selectedCandidate.rawPolygons
   const legallyClippedPolygons =
     sourcePath !== null &&
     selectedCandidate.plan.kind === 'source-vertex' &&
     stroke.position === 'outside' &&
     (options.implicitFillRegions?.length ?? 0) > 0 &&
     !selectedSourceVertexJoinConsumesIncidentSeamBoundary
-      ? subtractOutsideLegalResidue(
+      ? clipSourceVertexJoinPolygonsToOutsideLegalSurvivor(
           canonicalJoinPolygons,
           options.implicitFillRegions ?? [],
-          'nonzero',
           {
-            cleanupMicroEdgeTolerance: 0.001,
-            cleanupCollinearTolerance: 0.0001,
-            outsideLegalBoundarySnapTolerance:
-              SOURCE_VERTEX_OUTSIDE_BOUNDARY_SNAP_TOLERANCE
+            cleanupConcaveNotchTolerance:
+              getDescriptorProductConcaveNotchTolerance(stroke.width)
           }
         )
       : canonicalJoinPolygons
@@ -15081,6 +15327,7 @@ const materializeSourceVertexBoundaryJoinRecord = (
     previousSegmentIndex,
     nextSegmentIndex,
     polygons: authoredSourceVertexOwnedPolygons,
+    preLegalityPolygons: preLegalityProductPolygons,
     oppositePolygons: [],
     stageBounds: {
       ...selectedCandidate.stageBounds,
@@ -15428,7 +15675,11 @@ const materializeSourceVertexBoundaryJoinRecords = (
     string,
     Pick<
       SourceVertexBoundaryJoinRecord,
-      'polygons' | 'oppositePolygons' | 'materializationKind' | 'stageBounds'
+      | 'polygons'
+      | 'preLegalityPolygons'
+      | 'oppositePolygons'
+      | 'materializationKind'
+      | 'stageBounds'
     >
   >()
   const getPlanLegalClipBounds = (plan: SourceVertexBoundaryJoinPlan) => {
@@ -15550,10 +15801,17 @@ const materializeSourceVertexBoundaryJoinRecords = (
     )
     const cached = recordCache.get(cacheKey)
     if (cached) {
+      emitPreLegalitySourceVertexJoinProductTrace(
+        materializationPlan,
+        stroke,
+        cached.preLegalityPolygons ?? cached.polygons,
+        cached.stageBounds
+      )
       return [
         {
           ...materializationPlan,
           polygons: cached.polygons,
+          preLegalityPolygons: cached.preLegalityPolygons,
           oppositePolygons: cached.oppositePolygons,
           materializationKind: cached.materializationKind,
           stageBounds: cached.stageBounds
@@ -15566,10 +15824,17 @@ const materializeSourceVertexBoundaryJoinRecords = (
     )
     if (cachedStageRecord) {
       recordCache.set(cacheKey, cachedStageRecord)
+      emitPreLegalitySourceVertexJoinProductTrace(
+        materializationPlan,
+        stroke,
+        cachedStageRecord.preLegalityPolygons ?? cachedStageRecord.polygons,
+        cachedStageRecord.stageBounds
+      )
       return [
         {
           ...materializationPlan,
           polygons: cachedStageRecord.polygons,
+          preLegalityPolygons: cachedStageRecord.preLegalityPolygons,
           oppositePolygons: cachedStageRecord.oppositePolygons,
           materializationKind: cachedStageRecord.materializationKind,
           stageBounds: cachedStageRecord.stageBounds
@@ -15590,6 +15855,7 @@ const materializeSourceVertexBoundaryJoinRecords = (
     if (record) {
       recordCache.set(cacheKey, {
         polygons: record.polygons,
+        preLegalityPolygons: record.preLegalityPolygons,
         oppositePolygons: record.oppositePolygons,
         materializationKind: record.materializationKind,
         stageBounds: record.stageBounds
@@ -18788,6 +19054,26 @@ const getCoveragePolygonsFromRegions = (regions: { polygons: Vec2[][] }[]) =>
     .flatMap((region) => region.polygons)
     .map(cleanPolygon)
     .filter(hasPolygonGeometry)
+
+const clipPolygonsToSimpleEvenOddInsideRegions = (
+  polygons: Vec2[][],
+  legalRegions: PolygonRegion[]
+) => {
+  const legalPolygons = getCoveragePolygonsFromRegions(legalRegions)
+  if (polygons.length === 0 || legalPolygons.length === 0) {
+    return []
+  }
+
+  return cleanClippedProductPolygons(
+    legalPolygons.flatMap((legalPolygon) =>
+      clipPolygonsToSimpleInsideDomain(polygons, legalPolygon)
+    ),
+    {
+      cleanupMicroEdgeTolerance: 0.001,
+      cleanupCollinearTolerance: 0.0001
+    }
+  )
+}
 
 const projectPointToSegment = (point: Vec2, start: Vec2, end: Vec2): Vec2 => {
   const dx = end.x - start.x
@@ -22306,6 +22592,9 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
       coveredProductPolygons: Vec2[][] = [],
       coveredProductIncludesInsideAggregateDescriptor = false
     ) => {
+      const hasOutsideLegalDomainClip =
+        options.clipInsideToFillDomain === true &&
+        (options.implicitFillRegions?.length ?? 0) > 0
       const canUseDirectOutsideSourceVertexJoinRecord = (
         plan: SourceVertexBoundaryJoinPlan
       ) =>
@@ -22338,18 +22627,33 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
           formatJoinPlanPathSignature(joinPath),
           joinEffectiveSignatureByPlan?.get(plan)
         )
+        const outsideLegalDomainSignature =
+          stroke.position === 'outside' && hasOutsideLegalDomainClip
+            ? buildImplicitFillRegionRelativeCacheSignature(
+                options.implicitFillRegions ?? [],
+                plan.vertex
+              )
+            : 'outside-legal-domain:none'
         const stageCacheKey = [
           cacheKey,
-          'direct-outside-source-vertex-join'
+          'direct-outside-source-vertex-join',
+          outsideLegalDomainSignature
         ].join('||')
         const cachedStageRecord = getCachedSourceVertexBoundaryJoinRecordStage(
           stageCacheKey,
           plan.vertex
         )
         if (cachedStageRecord) {
+          emitPreLegalitySourceVertexJoinProductTrace(
+            plan,
+            stroke,
+            cachedStageRecord.preLegalityPolygons ?? cachedStageRecord.polygons,
+            cachedStageRecord.stageBounds
+          )
           return {
             ...plan,
             polygons: cachedStageRecord.polygons,
+            preLegalityPolygons: cachedStageRecord.preLegalityPolygons,
             oppositePolygons: cachedStageRecord.oppositePolygons,
             materializationKind: cachedStageRecord.materializationKind,
             stageBounds: cachedStageRecord.stageBounds
@@ -22406,43 +22710,81 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
               : rawJoinProductPolygons
             ).filter(hasPolygonGeometry)
         )
-        const polygons = assembledPolygons
-        if (polygons.length === 0) {
-          return null
-        }
+        const shouldClipDirectOutsideLegalDomain =
+          stroke.position === 'outside' &&
+          options.clipInsideToFillDomain === true &&
+          (options.implicitFillRegions?.length ?? 0) > 0
+        const directOutsideLegalPolygons = shouldClipDirectOutsideLegalDomain
+          ? clipSourceVertexJoinPolygonsToOutsideLegalSurvivor(
+              assembledPolygons,
+              options.implicitFillRegions ?? [],
+              {
+                cleanupConcaveNotchTolerance:
+                  getDescriptorProductConcaveNotchTolerance(stroke.width)
+              }
+            )
+          : assembledPolygons
+        const directOutsideAdjacentPolygons = directOutsideLegalPolygons
+        const directOutsideButtClippedPolygons = directOutsideAdjacentPolygons
+        const legalJoinPolygons = shouldClipDirectOutsideLegalDomain
+          ? clipSourceVertexJoinPolygonsToOutsideLegalSurvivor(
+              directOutsideButtClippedPolygons,
+              options.implicitFillRegions ?? [],
+              {
+                cleanupConcaveNotchTolerance:
+                  getDescriptorProductConcaveNotchTolerance(stroke.width)
+              }
+            )
+          : assembledPolygons
+        const polygons = legalJoinPolygons
 
         const getStageBounds = (stagePolygons: Vec2[][]) =>
           stagePolygons.length > 0 ? getBounds(stagePolygons) : undefined
+        const stageBounds = {
+          rawJoin: getStageBounds(rawJoinPolygons),
+          rawJoinProduct: getStageBounds(rawJoinProductPolygons),
+          miterSeam: getStageBounds(miterSeamPolygons),
+          miterFootprint: getStageBounds(miterFootprintPolygons),
+          canonicalLegalMiterFootprint:
+            canonicalMiterFootprint?.resolution === 'miter'
+              ? getStageBounds(canonicalMiterFootprint.polygons)
+              : undefined,
+          canonicalTheoreticalMiterFootprint:
+            canonicalMiterFootprint?.resolution === 'miter'
+              ? getStageBounds(
+                  canonicalMiterFootprint.theoreticalPolygons ?? []
+                )
+              : undefined,
+          canonicalBevelByMiterAngleFootprint:
+            canonicalMiterFootprint?.resolution === 'bevel-by-miter-angle'
+              ? getStageBounds(canonicalMiterFootprint.polygons)
+              : undefined,
+          miterEndpointBoundary:
+            miterEndpointBoundaryPoints.length > 0
+              ? getBounds([miterEndpointBoundaryPoints])
+              : undefined,
+          directOutsideLegal: getStageBounds(directOutsideLegalPolygons),
+          directOutsideAdjacent: getStageBounds(directOutsideAdjacentPolygons),
+          directOutsideButt: getStageBounds(directOutsideButtClippedPolygons),
+          legalJoin: getStageBounds(legalJoinPolygons),
+          combined: getStageBounds(polygons)
+        }
+        emitPreLegalitySourceVertexJoinProductTrace(
+          plan,
+          stroke,
+          rawJoinProductPolygons,
+          stageBounds
+        )
+        if (polygons.length === 0) {
+          return null
+        }
         const record = {
           ...plan,
           polygons,
+          preLegalityPolygons: rawJoinProductPolygons,
           oppositePolygons: [],
           materializationKind: 'join' as const,
-          stageBounds: {
-            rawJoin: getStageBounds(rawJoinPolygons),
-            rawJoinProduct: getStageBounds(rawJoinProductPolygons),
-            miterSeam: getStageBounds(miterSeamPolygons),
-            miterFootprint: getStageBounds(miterFootprintPolygons),
-            canonicalLegalMiterFootprint:
-              canonicalMiterFootprint?.resolution === 'miter'
-                ? getStageBounds(canonicalMiterFootprint.polygons)
-                : undefined,
-            canonicalTheoreticalMiterFootprint:
-              canonicalMiterFootprint?.resolution === 'miter'
-                ? getStageBounds(
-                    canonicalMiterFootprint.theoreticalPolygons ?? []
-                  )
-                : undefined,
-            canonicalBevelByMiterAngleFootprint:
-              canonicalMiterFootprint?.resolution === 'bevel-by-miter-angle'
-                ? getStageBounds(canonicalMiterFootprint.polygons)
-                : undefined,
-            miterEndpointBoundary:
-              miterEndpointBoundaryPoints.length > 0
-                ? getBounds([miterEndpointBoundaryPoints])
-                : undefined,
-            combined: getStageBounds(polygons)
-          }
+          stageBounds
         }
         setCachedSourceVertexBoundaryJoinRecordStage(
           stageCacheKey,
@@ -22611,6 +22953,13 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                   }
                 )
               : undefined
+          const mergedPreLegalityPolygons =
+            existing.preLegalityPolygons || record.preLegalityPolygons
+              ? mergeDistinctSourceVertexJoinPolygons([
+                  ...(existing.preLegalityPolygons ?? []),
+                  ...(record.preLegalityPolygons ?? [])
+                ])
+              : undefined
 
           return {
             ...existing,
@@ -22634,6 +22983,10 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
               record.nextSeamBoundary ?? existing.nextSeamBoundary,
             polygons:
               mergedPolygons.length > 0 ? mergedPolygons : existing.polygons,
+            preLegalityPolygons:
+              mergedPreLegalityPolygons && mergedPreLegalityPolygons.length > 0
+                ? mergedPreLegalityPolygons
+                : existing.preLegalityPolygons,
             oppositePolygons: mergedOppositePolygons
           }
         }
@@ -25121,16 +25474,24 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                           )
                         : canonicalJoinDescriptorPolygons
                     const legallyCanonicalJoinDescriptorPolygons =
-                      stroke.position === 'outside' &&
+                      stroke.position === 'inside' &&
                       record.kind === 'source-vertex' &&
-                      record.stageBounds?.smoothContinuityEvidence !==
-                        undefined &&
                       (options.implicitFillRegions?.length ?? 0) > 0
-                        ? enforceOutsideResolvedFillProductDomain(
+                        ? clipSourceVertexJoinPolygonsToInsideLegalDomain(
                             terminalBodyExcludedCanonicalJoinDescriptorPolygons,
-                            options.implicitFillRegions ?? []
+                            options.implicitFillRegions ?? [],
+                            { useResultCache: false }
                           )
-                        : terminalBodyExcludedCanonicalJoinDescriptorPolygons
+                        : stroke.position === 'outside' &&
+                            record.kind === 'source-vertex' &&
+                            record.stageBounds?.smoothContinuityEvidence !==
+                              undefined &&
+                            (options.implicitFillRegions?.length ?? 0) > 0
+                          ? enforceOutsideResolvedFillProductDomain(
+                              terminalBodyExcludedCanonicalJoinDescriptorPolygons,
+                              options.implicitFillRegions ?? []
+                            )
+                          : terminalBodyExcludedCanonicalJoinDescriptorPolygons
                     const protectedCanonicalJoinDescriptorPolygons =
                       legallyCanonicalJoinDescriptorPolygons
 
@@ -25179,6 +25540,39 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                   )
                   const joinResolution =
                     resolveSourceVertexVisibleJoinResolution(record, stroke)
+                  const preLegalitySourceVertexProductPolygons =
+                    !isSmoothContinuityProduct &&
+                    record.kind === 'source-vertex'
+                      ? (record.preLegalityPolygons &&
+                        record.preLegalityPolygons.length > 0
+                          ? record.preLegalityPolygons
+                          : record.polygons
+                        )
+                          .map(cleanPolygon)
+                          .filter(hasPolygonGeometry)
+                      : []
+                  const preLegalityProductUnits =
+                    preLegalitySourceVertexProductPolygons.length > 0
+                      ? [
+                          {
+                            artifactId: `${productSignature}:pre-legality-source-vertex-join`,
+                            productId: productSignature,
+                            productMode:
+                              'pre-legality-source-vertex-join' as const,
+                            ownerStage:
+                              'Stroke Geometry source-vertex join assembly' as const,
+                            routeId:
+                              'constrained-dashed-source-vertex-join-product' as const,
+                            visibleContributor: 'source-vertex-join' as const,
+                            geometryBasis: 'canonical-join-footprint' as const,
+                            polygons: preLegalitySourceVertexProductPolygons,
+                            legalDomainIds: options.metadata?.legalDomainIds,
+                            contourIds: options.metadata?.sourceContourIds ?? [
+                              contourId
+                            ]
+                          }
+                        ]
+                      : undefined
                   const debugMeta: SolidCenterStrokeGeometryDebugMeta = {
                     sourcePathId: cachePrefix,
                     ownerKey: `${ownerPrefix}:stroke:${strokeIndex}`,
@@ -25267,6 +25661,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                         nextContourPoint: record.nextContourPoint,
                         previousDashBodyPoint: record.previousDashBodyPoint,
                         nextDashBodyPoint: record.nextDashBodyPoint,
+                        preLegalityProductUnits,
                         stageBounds: {
                           ...record.stageBounds,
                           ...sourceVertexJoinProductDescriptor.stageBounds
@@ -25315,7 +25710,6 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                       )
                     })
                   }
-
                   return [
                     {
                       geometry: {

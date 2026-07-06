@@ -20,6 +20,7 @@ export type StrokeGeometryOracleDimension =
   | 'smooth-high-curvature-anchor'
   | 'dash-join-seam'
   | 'dash-terminal'
+  | 'legal-side-clipping'
   | 'pre-legality-product'
   | 'post-legality-product'
   | 'descriptor-evidence-channel'
@@ -147,6 +148,7 @@ export type StrokeGeometryOracleGeometryAssertion =
   | 'hidden-output-non-geometry'
   | 'paint-only-non-geometry'
   | 'cache-hit-non-geometry'
+  | 'legal-side-wrong-side-rejection'
   | 'degenerate-local-output'
   | 'forbidden-contributor-absence'
 
@@ -202,6 +204,7 @@ export const requiredStrokeGeometryOracleDimensions: readonly StrokeGeometryOrac
     'smooth-high-curvature-anchor',
     'dash-join-seam',
     'dash-terminal',
+    'legal-side-clipping',
     'pre-legality-product',
     'post-legality-product',
     'descriptor-evidence-channel',
@@ -648,6 +651,94 @@ export const strokeGeometryOracleCoverageMap: readonly StrokeGeometryOracleCover
         'strokePathGroups',
         'descriptorProductPolygons',
         'strokeMaskPolygons'
+      ]
+    },
+    {
+      id: 'legality-clipping-independent-wrong-side-oracle',
+      title:
+        'Legality clipping rejects inside, outside, and self-intersection wrong-side product leaks with independent source-domain samples',
+      caseKind: 'forbidden-contributor',
+      coverageStrategy: 'spec-critical-higher-order',
+      strokeParameters: [
+        'position:inside',
+        'position:outside',
+        'style:dashed',
+        'path:closed',
+        'path:self-intersecting',
+        'legality:pre',
+        'legality:post',
+        'channel:render'
+      ],
+      geometryScenario: [
+        'convex-closed-polygon',
+        'concave-closed-polygon',
+        'closed-self-intersecting'
+      ],
+      productFamily: [
+        'constrained-dashed-product',
+        'final-face-product',
+        'render-entry-product'
+      ],
+      ownerStages: [
+        'Stroke Geometry legality clipping',
+        'Stroke Geometry final face assembly',
+        'Product Output render-entry materialization'
+      ],
+      stepIds: ['apply-legality', 'build-final-faces', 'render-entries'],
+      inspectorStepRefs: [
+        'apply-legality',
+        'build-final-faces',
+        'render-entries'
+      ],
+      routeIds: [
+        'legality-product-unit-clipping',
+        'canonical-final-face-render-entry'
+      ],
+      artifactIds: [
+        'artifact:preLegalityProductUnits',
+        'artifact:postLegalityProductUnits',
+        'artifact:finalFaces',
+        'artifact:renderEntries'
+      ],
+      requiredArtifacts: [
+        'artifact:postLegalityProductUnits',
+        'artifact:finalFaces',
+        'artifact:renderEntries'
+      ],
+      specRuleRefs: [
+        spec('domain-mode-and-legal-side-resolution'),
+        spec('product-legality-and-descriptor-encoding'),
+        spec('output-channel-separation')
+      ],
+      dimensions: [
+        'inside',
+        'outside',
+        'dashed',
+        'legal-side-clipping',
+        'post-legality-product',
+        'visible-render-channel'
+      ],
+      requiredGeometryAssertions: [
+        'artifact-shape',
+        'owner-stage-metadata',
+        'legal-side-wrong-side-rejection',
+        'render-channel-declaration',
+        'forbidden-contributor-absence'
+      ],
+      testFiles: [oracle('legality-clipping-runtime-oracle.test.ts')],
+      testNames: [
+        'rejects synthetic inside, outside, and self-intersection wrong-side leak polygons with an independent source-domain sampler',
+        'clips constrained inside/outside dashed products against legal domains without wrong-side product samples'
+      ],
+      positiveAssertions: [
+        'Every emitted post-legality product polygon sample remains on the declared inside or outside legal side, including closed self-intersection cases.',
+        'The negative sampler fails synthetic wrong-side leak polygons without consulting clipped-product metadata.'
+      ],
+      forbiddenContributors: [
+        'inside-domain leak',
+        'outside-domain leak',
+        'self-intersection wrong-side leak',
+        'diagnostic/helper geometry as visible product'
       ]
     },
     {

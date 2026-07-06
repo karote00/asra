@@ -140,6 +140,18 @@ export interface StrokeFinalFaceDebugMetaBase {
     previousDashBodyPoint?: Vec2
     nextDashBodyPoint?: Vec2
     stageBounds?: Record<string, Bounds | undefined>
+    preLegalityProductUnits?: {
+      artifactId: string
+      productId: string
+      productMode: 'pre-legality-source-vertex-join'
+      ownerStage: 'Stroke Geometry source-vertex join assembly'
+      routeId: 'constrained-dashed-source-vertex-join-product'
+      visibleContributor: 'source-vertex-join'
+      geometryBasis: 'canonical-join-footprint'
+      polygons: Vec2[][]
+      legalDomainIds?: string[]
+      contourIds?: string[]
+    }[]
   }[]
   joinOwnershipSignatures?: string[]
   smoothContinuityGroupIds?: string[]

@@ -532,6 +532,41 @@ const normalizePolygonToConvexPieces = (polygon: Vec2[]) => {
   return decomposeSimplePolygonToTriangles(polygon)
 }
 
+export const clipPolygonsToSimpleInsideDomain = (
+  polygons: Vec2[][],
+  boundaryPolygon: Vec2[]
+) => {
+  if (polygons.length === 0 || boundaryPolygon.length < 3) {
+    return []
+  }
+
+  return normalizePolygonToConvexPieces(boundaryPolygon).flatMap(
+    (convexBoundary) => {
+      if (
+        convexBoundary.length < 3 ||
+        Math.abs(signedArea(convexBoundary)) <= EPSILON
+      ) {
+        return []
+      }
+
+      const orientationKind =
+        signedArea(convexBoundary) >= 0 ? 'ccw' : 'cw'
+      return polygons
+        .map((polygon) =>
+          clipPolygonToConvexBoundary(
+            polygon,
+            convexBoundary,
+            orientationKind
+          )
+        )
+        .filter(
+          (polygon) =>
+            polygon.length >= 3 && Math.abs(signedArea(polygon)) > EPSILON
+        )
+    }
+  )
+}
+
 const subtractConvexPolygon = (minuend: Vec2[], subtrahend: Vec2[]) => {
   if (polygonsEqual(minuend, subtrahend)) {
     return []

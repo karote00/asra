@@ -558,6 +558,18 @@ export interface SolidCenterStrokeGeometryDebugMeta {
     previousDashBodyPoint?: Vec2
     nextDashBodyPoint?: Vec2
     stageBounds?: Record<string, Bounds | undefined>
+    preLegalityProductUnits?: {
+      artifactId: string
+      productId: string
+      productMode: 'pre-legality-source-vertex-join'
+      ownerStage: 'Stroke Geometry source-vertex join assembly'
+      routeId: 'constrained-dashed-source-vertex-join-product'
+      visibleContributor: 'source-vertex-join'
+      geometryBasis: 'canonical-join-footprint'
+      polygons: Vec2[][]
+      legalDomainIds?: string[]
+      contourIds?: string[]
+    }[]
   }[]
   smoothContinuityGroupId?: string
   solidMaskModelMaskApplication?: 'render-fill-mask' | 'exact-boolean'
@@ -1495,27 +1507,6 @@ const differenceDescriptorPolygons = (
   )
 }
 
-const getBoundsScopedPolygons = (
-  subjectPolygons: Vec2[][],
-  candidatePolygons: Vec2[][],
-  padding = 0
-) => {
-  if (subjectPolygons.length === 0 || candidatePolygons.length === 0) {
-    return []
-  }
-
-  const subjectBounds = getBounds(subjectPolygons)
-  const paddedSubjectBounds = {
-    minX: subjectBounds.minX - padding,
-    minY: subjectBounds.minY - padding,
-    maxX: subjectBounds.maxX + padding,
-    maxY: subjectBounds.maxY + padding
-  }
-  return candidatePolygons.filter((polygon) =>
-    doBoundsOverlap(paddedSubjectBounds, getBounds([polygon]))
-  )
-}
-
 const unionDescriptorPolygons = (polygons: Vec2[][]) => {
   if (polygons.length <= 1) {
     return polygons
@@ -1543,51 +1534,6 @@ const unionDescriptorPolygons = (polygons: Vec2[][]) => {
   } catch {
     return polygons
   }
-}
-
-const removeRenderProjectionExcludedResiduePolygons = (
-  polygons: Vec2[][],
-  excludedPolygons: Vec2[][]
-) => {
-  if (polygons.length === 0 || excludedPolygons.length === 0) {
-    return polygons
-  }
-
-  const backend = getGeometryBackend()
-  if (
-    backend.capabilities.intersection !== true ||
-    typeof backend.intersection !== 'function'
-  ) {
-    return polygons
-  }
-
-  const excludedPolygonBounds = excludedPolygons.map((polygon) =>
-    getBounds([polygon])
-  )
-  return polygons.filter((polygon) => {
-    const polygonArea = getPolygonListCoverageArea([polygon])
-    if (polygonArea <= EXACT_RENDER_OVERLAP_AREA_EPSILON) {
-      return false
-    }
-    const polygonBounds = getBounds([polygon])
-    const scopedExcludedPolygons = excludedPolygons.filter(
-      (_excludedPolygon, index) =>
-        doBoundsOverlap(polygonBounds, excludedPolygonBounds[index])
-    )
-    if (scopedExcludedPolygons.length === 0) {
-      return true
-    }
-
-    const excludedOverlapArea = getExactPolygonListsOverlapArea(
-      [polygon],
-      scopedExcludedPolygons,
-      backend
-    )
-    return (
-      excludedOverlapArea === null ||
-      polygonArea - excludedOverlapArea > EXACT_RENDER_OVERLAP_AREA_EPSILON
-    )
-  })
 }
 
 const buildStrokePathDescriptorPolygons = (
@@ -1630,10 +1576,7 @@ const materializeRenderDescriptorProductPolygons = (
       ...(descriptor.descriptorProductPolygons ?? [])
     ]
 
-    if (
-      descriptor.fillClipPolygons &&
-      descriptor.fillClipPolygons.length > 0
-    ) {
+    if (descriptor.fillClipPolygons && descriptor.fillClipPolygons.length > 0) {
       productPolygons = intersectDescriptorPolygons(
         productPolygons,
         descriptor.fillClipPolygons
@@ -2209,9 +2152,7 @@ const getConstrainedDashedRenderGroupKey = (
   }
 
   const ownerKeys = getUniqueStrings(
-    face.ownerSet.flatMap((owner) =>
-      owner.ownerKey ? [owner.ownerKey] : []
-    )
+    face.ownerSet.flatMap((owner) => (owner.ownerKey ? [owner.ownerKey] : []))
   ).join(',')
   const strokeIds = getUniqueStrings(
     face.ownerSet.flatMap((owner) => (owner.strokeId ? [owner.strokeId] : []))
@@ -2579,7 +2520,9 @@ const mergeSamePaintPolygonRenderEntries = (
   }
 
   const polygons = cleanRenderProjectionPolygons(
-    unionCoveragePolygons(entries.flatMap(getVisibleProductPolygonsFromRenderEntry))
+    unionCoveragePolygons(
+      entries.flatMap(getVisibleProductPolygonsFromRenderEntry)
+    )
   )
   if (polygons.length === 0) {
     return []
@@ -2792,7 +2735,10 @@ const collapseSamePaintOverlappingPolygonRenderEntries = (
     }
   }
 
-  const groupedEntries = new Map<number, SolidCenterStrokeComputedRenderEntry[]>()
+  const groupedEntries = new Map<
+    number,
+    SolidCenterStrokeComputedRenderEntry[]
+  >()
   entries.forEach((entry, index) => {
     const root = find(index)
     const group = groupedEntries.get(root) ?? []
@@ -3811,7 +3757,10 @@ const collapseDashedCenterRenderEntries = (
       constrainedDashedGroups.set(constrainedDashedGroupKey, group)
 
       if (!constrainedDashedGroupSlots.has(constrainedDashedGroupKey)) {
-        constrainedDashedGroupSlots.set(constrainedDashedGroupKey, output.length)
+        constrainedDashedGroupSlots.set(
+          constrainedDashedGroupKey,
+          output.length
+        )
         output.push([])
       }
       return
