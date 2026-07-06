@@ -12,12 +12,13 @@ import type {
   VectorSegment
 } from '@asyra/core'
 import { getElementGeometryWorldBounds, type PositionData } from '@asyra/utils'
+import { SelectionChannels } from '../selection/channels'
 import type { PresetDependencies } from '../types'
 
 const SELECTION_OVERLAY_LAYER_NAME = 'selection-overlay-layer'
 const SELECTION_STROKE_COLOR = 0x157ae7
-const STROKE_WIDTH = 2
-const VECTOR_HOVER_STROKE_WIDTH = 2
+export const SELECTION_OVERLAY_STROKE_WIDTH = 2
+export const SELECTION_OVERLAY_VECTOR_HOVER_STROKE_WIDTH = 2
 
 interface LocalBounds {
   x: number
@@ -40,6 +41,10 @@ interface RenderElementShape {
   worldTransform: TransformMatrix
 }
 
+interface ElementSelectionReader {
+  getSelectedIds: () => Iterable<string>
+}
+
 interface VectorComputedData {
   x?: number
   y?: number
@@ -55,6 +60,24 @@ type RegisterRenderLayer = (
   registration: RenderLayerRegistration,
   options?: RegisterRenderLayerOptions
 ) => void
+
+interface SelectionOverlayRenderLayerDeps
+  extends Pick<PresetDependencies, 'render' | 'sceneTree' | 'systemContext'> {
+  getSelection: (type: string) => ElementSelectionReader | undefined
+}
+
+const getElementSelectionIds = (deps: SelectionOverlayRenderLayerDeps) => {
+  const selectedIds = Array.from(
+    (
+      deps.getSelection(SelectionChannels.ELEMENT) as
+        | ElementSelectionReader
+        | undefined
+    )?.getSelectedIds() ?? []
+  )
+  return selectedIds.length > 0
+    ? selectedIds
+    : [...renderSelectionStore.elementSelection]
+}
 
 const getNumericSuffix = (value: string) => {
   const match = value.match(/[-_](\d+)$/)
@@ -84,15 +107,14 @@ const transformPoint = (
   y: matrix.b * point.x + matrix.d * point.y + matrix.ty
 })
 
-const getVectorPointLocalPosition = (
-  computed: VectorComputedData,
-  point: PositionData
-): PositionData => {
-  return {
-    x: point.x - (computed.x ?? 0),
-    y: point.y - (computed.y ?? 0)
-  }
-}
+export const projectWorkspacePointToOverlayScreen = (
+  point: PositionData,
+  viewportPosition: PositionData,
+  viewportScale: number
+): PositionData => ({
+  x: point.x * viewportScale + viewportPosition.x,
+  y: point.y * viewportScale + viewportPosition.y
+})
 
 const getBoundsCorners = (
   element: RenderElementShape
@@ -168,7 +190,12 @@ const drawRectGeometryOutline = (
   const p2 = transformPoint(matrix, { x: width, y: height })
   const p3 = transformPoint(matrix, { x: 0, y: height })
 
-  drawOutline(canvas, [p0, p1, p2, p3], SELECTION_STROKE_COLOR, STROKE_WIDTH)
+  drawOutline(
+    canvas,
+    [p0, p1, p2, p3],
+    SELECTION_STROKE_COLOR,
+    SELECTION_OVERLAY_STROKE_WIDTH
+  )
 }
 
 const drawOvalGeometryOutline = (
@@ -201,7 +228,7 @@ const drawOvalGeometryOutline = (
 
     if (previousPoint) {
       canvas.line(previousPoint, worldPoint, {
-        width: STROKE_WIDTH,
+        width: SELECTION_OVERLAY_STROKE_WIDTH,
         color: SELECTION_STROKE_COLOR
       })
     }
@@ -210,7 +237,7 @@ const drawOvalGeometryOutline = (
 
   if (previousPoint && firstPoint) {
     canvas.line(previousPoint, firstPoint, {
-      width: STROKE_WIDTH,
+      width: SELECTION_OVERLAY_STROKE_WIDTH,
       color: SELECTION_STROKE_COLOR
     })
   }
@@ -220,7 +247,8 @@ const drawVectorHoverOutline = (
   canvas: OverlayCanvas,
   deps: Pick<PresetDependencies, 'sceneTree'>,
   elementId: string,
-  matrix: TransformMatrix
+  viewportPosition: PositionData,
+  viewportScale: number
 ) => {
   const element = deps.sceneTree.getElementById(elementId)
   if (!element) {
@@ -276,35 +304,39 @@ const drawVectorHoverOutline = (
           ? points[segment.inControlId]
           : null
 
-      const startPoint = transformPoint(
-        matrix,
-        getVectorPointLocalPosition(computed, start)
+      const startPoint = projectWorkspacePointToOverlayScreen(
+        start,
+        viewportPosition,
+        viewportScale
       )
-      const endPoint = transformPoint(
-        matrix,
-        getVectorPointLocalPosition(computed, end)
+      const endPoint = projectWorkspacePointToOverlayScreen(
+        end,
+        viewportPosition,
+        viewportScale
       )
 
       if (!outControl && !inControl) {
         canvas.line(startPoint, endPoint, {
-          width: VECTOR_HOVER_STROKE_WIDTH,
+          width: SELECTION_OVERLAY_VECTOR_HOVER_STROKE_WIDTH,
           color: SELECTION_STROKE_COLOR
         })
         hasDrawn = true
         return
       }
 
-      const control1 = transformPoint(
-        matrix,
-        getVectorPointLocalPosition(computed, outControl ?? start)
+      const control1 = projectWorkspacePointToOverlayScreen(
+        outControl ?? start,
+        viewportPosition,
+        viewportScale
       )
-      const control2 = transformPoint(
-        matrix,
-        getVectorPointLocalPosition(computed, inControl ?? end)
+      const control2 = projectWorkspacePointToOverlayScreen(
+        inControl ?? end,
+        viewportPosition,
+        viewportScale
       )
 
       canvas.bezierCurve(startPoint, control1, control2, endPoint, {
-        width: VECTOR_HOVER_STROKE_WIDTH,
+        width: SELECTION_OVERLAY_VECTOR_HOVER_STROKE_WIDTH,
         color: SELECTION_STROKE_COLOR
       })
       hasDrawn = true
@@ -316,7 +348,7 @@ const drawVectorHoverOutline = (
 
 const drawHoverGeometryOutline = (
   canvas: OverlayCanvas,
-  deps: Pick<PresetDependencies, 'sceneTree'>,
+  deps: Pick<PresetDependencies, 'render' | 'sceneTree'>,
   elementId: string,
   hoveredElement: RenderElementShape
 ) => {
@@ -326,7 +358,7 @@ const drawHoverGeometryOutline = (
       canvas,
       hoveredElement,
       SELECTION_STROKE_COLOR,
-      STROKE_WIDTH
+      SELECTION_OVERLAY_STROKE_WIDTH
     )
     return
   }
@@ -336,7 +368,8 @@ const drawHoverGeometryOutline = (
       canvas,
       deps,
       elementId,
-      hoveredElement.worldTransform
+      deps.render.getViewportPosition(),
+      deps.render.getViewportScale()
     )
     if (hasVectorOutline) {
       return
@@ -375,7 +408,7 @@ const drawHoverGeometryOutline = (
     canvas,
     hoveredElement,
     SELECTION_STROKE_COLOR,
-    STROKE_WIDTH
+    SELECTION_OVERLAY_STROKE_WIDTH
   )
 }
 
@@ -505,7 +538,7 @@ const appendVectorComputedSignature = (
 
 export const registerSelectionOverlayRenderLayer = (
   registerRenderLayer: RegisterRenderLayer,
-  deps: Pick<PresetDependencies, 'render' | 'sceneTree' | 'systemContext'>
+  deps: SelectionOverlayRenderLayerDeps
 ) => {
   let lastDrawSignature = ''
   const layerRegistration = createOverlayLayerRegistration({
@@ -517,7 +550,7 @@ export const registerSelectionOverlayRenderLayer = (
           'pathEditingVectorId'
         ) ?? null
 
-      const selectedIds = [...renderSelectionStore.elementSelection]
+      const selectedIds = getElementSelectionIds(deps)
       const selectedElementId = selectedIds.length === 1 ? selectedIds[0] : null
       const hoveredElementId =
         deps.systemContext.getManagedProperty<string | null>(
@@ -568,14 +601,15 @@ export const registerSelectionOverlayRenderLayer = (
               canvas,
               selectedElement,
               SELECTION_STROKE_COLOR,
-              STROKE_WIDTH
+              SELECTION_OVERLAY_STROKE_WIDTH
             )
             if (getElementType(deps, selectedElementId) === 'vector') {
               drawVectorHoverOutline(
                 canvas,
                 deps,
                 selectedElementId,
-                selectedElement.worldTransform
+                deps.render.getViewportPosition(),
+                deps.render.getViewportScale()
               )
             }
           }
@@ -586,7 +620,7 @@ export const registerSelectionOverlayRenderLayer = (
               canvas,
               bounds,
               SELECTION_STROKE_COLOR,
-              STROKE_WIDTH
+              SELECTION_OVERLAY_STROKE_WIDTH
             )
           }
         }

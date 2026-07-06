@@ -47,13 +47,17 @@ import {
   buildArrangedStrokeFinalFacesFromResolvedPackets,
   collapseStrokeFinalFaceVisualOverlaps
 } from './stroke-render/stroke-candidate-arrangement'
-import { getGeometryBackend } from './stroke-render/geometry-backend'
+import {
+  getGeometryBackend,
+  type PolygonRegion
+} from './stroke-render/geometry-backend'
 import type { ArrangementLegalDomain } from './stroke-render/arrangement-face-classifier'
 import {
   buildConstrainedSolidStrokeResolvedPackets,
   hasConstrainedSolidStrokeIntent
 } from './stroke-render/constrained-solid-stroke-packets'
 import {
+  getRenderableStrokeDashAndGap,
   getRenderableStrokes,
   normalizeStrokeSpec,
   type RenderableStroke
@@ -110,11 +114,6 @@ interface VectorComputedData {
   fillRule: PathTopologyFillRule
   fills: FillAttrs[]
   strokes?: StrokeAttrs[]
-  strokeDebugOptions: VectorStrokeDebugOptions
-}
-
-interface VectorStrokeDebugOptions {
-  disableVisualOverlapCollapse?: boolean
 }
 
 interface CenterPathSolidVisualStrokeGroup {
@@ -449,7 +448,6 @@ interface NormalizedVectorRenderDataInput {
   fillRule?: unknown
   fills?: unknown
   strokes?: unknown
-  strokeDebugOptions?: unknown
 }
 
 const isNormalizedVectorRenderDataInput = (
@@ -499,9 +497,6 @@ const getNetworkAnchorGuardPoints = (
 
 const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
   if (isNormalizedVectorRenderDataInput(data)) {
-    const rawStrokeDebugOptions = isRecord(data.strokeDebugOptions)
-      ? data.strokeDebugOptions
-      : {}
     emitStrokePipelineCounter('vector-render-normalize-fast-path-hit')
     return {
       ...data,
@@ -509,11 +504,7 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
       pointCoordinateSpace: 'workspace',
       fillRule: normalizeRawPathTopologyFillRule(data.fillRule),
       fills: Array.isArray(data.fills) ? data.fills : [],
-      strokes: Array.isArray(data.strokes) ? data.strokes : [],
-      strokeDebugOptions: {
-        disableVisualOverlapCollapse:
-          rawStrokeDebugOptions.disableVisualOverlapCollapse === true
-      }
+      strokes: Array.isArray(data.strokes) ? data.strokes : []
     }
   }
   emitStrokePipelineCounter('vector-render-normalize-full-path-count')
@@ -526,9 +517,6 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
   const rawPoints = normalizeVectorPointNodeMap(rawData.points)
   const points = rawPoints
   const segments = normalizeVectorSegmentMap(rawData.segments)
-  const rawStrokeDebugOptions = isRecord(rawData.strokeDebugOptions)
-    ? rawData.strokeDebugOptions
-    : {}
 
   return {
     id: typeof rawData.id === 'string' ? rawData.id : 'vector:invalid',
@@ -543,11 +531,7 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
     closed: rawData.closed === true,
     fillRule: normalizeRawPathTopologyFillRule(rawData.fillRule),
     fills: Array.isArray(rawData.fills) ? rawData.fills : [],
-    strokes: Array.isArray(rawData.strokes) ? rawData.strokes : [],
-    strokeDebugOptions: {
-      disableVisualOverlapCollapse:
-        rawStrokeDebugOptions.disableVisualOverlapCollapse === true
-    }
+    strokes: Array.isArray(rawData.strokes) ? rawData.strokes : []
   }
 }
 
@@ -616,31 +600,28 @@ const promoteConstrainedSolidPacketsToExactArrangement = (
   legalDomains: ArrangementLegalDomain[] = []
 ): ConstrainedSolidPromotionResult => {
   if (packets.length === 0) {
-    return { packets, exactFaces: [] }
+    return { packets: [], exactFaces: [] }
   }
   const hasExactConstrainedCandidates = packets.some(
     isExactConstrainedSolidCandidatePacket
   )
   if (!hasExactConstrainedCandidates && legalDomains.length === 0) {
-    return { packets, exactFaces: [] }
+    return { packets: [], exactFaces: [] }
   }
+
+  const acceptedSelfIntersectingPackets = packets.filter(
+    isAcceptedSelfIntersectingBoundaryDomainSolidPacket
+  )
+  const promotablePackets = packets.filter(
+    (packet) => !isAcceptedSelfIntersectingBoundaryDomainSolidPacket(packet)
+  )
 
   try {
     const backend = getGeometryBackend()
     if (backend.capabilities.buildArrangement !== true) {
-      return { packets, exactFaces: [] }
+      return { packets: acceptedSelfIntersectingPackets, exactFaces: [] }
     }
 
-    const gatedSelfIntersectingPackets = packets.filter(
-      isSelfIntersectingExactConstrainedSolidCandidatePacket
-    )
-    const promotablePackets =
-      gatedSelfIntersectingPackets.length === 0
-        ? packets
-        : packets.filter(
-            (packet) =>
-              !isSelfIntersectingExactConstrainedSolidCandidatePacket(packet)
-          )
     const arrangedFaces = buildArrangedStrokeFinalFacesFromResolvedPackets(
       promotablePackets,
       {
@@ -649,12 +630,12 @@ const promoteConstrainedSolidPacketsToExactArrangement = (
       }
     )
     if (arrangedFaces.length === 0) {
-      return { packets, exactFaces: [] }
+      return { packets: acceptedSelfIntersectingPackets, exactFaces: [] }
     }
 
-    return { packets: gatedSelfIntersectingPackets, exactFaces: arrangedFaces }
+    return { packets: acceptedSelfIntersectingPackets, exactFaces: arrangedFaces }
   } catch {
-    return { packets, exactFaces: [] }
+    return { packets: acceptedSelfIntersectingPackets, exactFaces: [] }
   }
 }
 
@@ -830,7 +811,7 @@ const buildStrokeFinalFaceSignature = (
       revisionSet.strokeFamilyRevision ?? '',
       revisionSet.strokeDomainRevision,
       revisionSet.intervalAllocationRevision,
-      revisionSet.dashScheduleRevision ?? '',
+      revisionSet.dashAndGapRevision ?? '',
       revisionSet.terminalCapRevision ?? '',
       revisionSet.joinShapeRevision ?? '',
       revisionSet.smoothContinuityRevision ?? '',
@@ -1039,7 +1020,6 @@ interface StrokePipelineStageProductCache {
   geometrySignature: string | null
   finalFaces: SolidStrokeFinalFaceList
   renderEntries: SolidCenterStrokeRenderEntry[]
-  styleReplayable?: boolean
 }
 
 interface StrokePipelineStageCache {
@@ -1999,7 +1979,7 @@ const drawCenterPathSolidStrokePath = (
         color: number
         alpha: number
         join: RenderableStroke['join']
-        cap: Exclude<RenderableStroke['cap'], 'none'>
+        cap: RenderableStroke['cap']
         miterLimit: number
       }) => unknown
     }
@@ -2008,7 +1988,7 @@ const drawCenterPathSolidStrokePath = (
     color: stroke.color,
     alpha: stroke.alpha,
     join: stroke.join,
-    cap: stroke.cap === 'none' ? 'butt' : stroke.cap,
+    cap: stroke.cap,
     miterLimit: stroke.miterLimit
   })
 }
@@ -2050,7 +2030,7 @@ const isCenterDashedProductStroke = (stroke: RenderableStroke) =>
   stroke.position === 'center' &&
   stroke.kind === 'solid' &&
   stroke.width > 0 &&
-  stroke.dashPattern.length > 0
+  getRenderableStrokeDashAndGap(stroke) !== null
 
 const buildBoundsPolygon = (
   bounds: ReturnType<typeof getPointBounds>,
@@ -2138,8 +2118,7 @@ const getSingleSolidStyleRenderableStroke = (
 const buildStrokeProductGeometrySignature = (
   vectorId: string,
   networkPaths: VectorNetworkPathModel[],
-  stroke: RenderableStroke | null,
-  options: { ignoreMiterLimit?: boolean } = {}
+  stroke: RenderableStroke | null
 ) => {
   if (!stroke) {
     return null
@@ -2159,11 +2138,8 @@ const buildStrokeProductGeometrySignature = (
     stroke.width.toFixed(4),
     stroke.cap,
     stroke.join,
-    options.ignoreMiterLimit
-      ? 'miter-style-replay'
-      : stroke.miterLimit.toFixed(4),
-    stroke.dashPattern.map((value) => value.toFixed(4)).join(','),
-    stroke.dashOffset.toFixed(4)
+    stroke.miterLimit.toFixed(4),
+    [stroke.dash, stroke.gap].map((value) => value.toFixed(4)).join(',')
   ].join('||')
 }
 
@@ -2257,43 +2233,6 @@ const retintStrokeRenderEntries = (
     }))
   }))
 
-const isStyleReplayableStrokeRenderEntry = (
-  entry: SolidCenterStrokeRenderEntry
-) => {
-  if (entry.strokePaths && entry.strokePaths.length > 0) {
-    return entry.strokePathStyle !== undefined
-  }
-
-  if (entry.strokePathGroups && entry.strokePathGroups.length > 0) {
-    return entry.strokePathGroups.every(
-      (group) =>
-        group.strokePaths.length > 0 && group.strokePathStyle !== undefined
-    )
-  }
-
-  return false
-}
-
-const isMiterStyleReplayableStrokeProduct = (
-  faces: SolidStrokeFinalFaceList,
-  entries: SolidCenterStrokeRenderEntry[]
-) => {
-  if (entries.length === 0) {
-    return false
-  }
-
-  const entriesReplayable = entries.every(isStyleReplayableStrokeRenderEntry)
-  const facesReplayable = faces.every((face) => {
-    if (face.renderDescriptor === undefined) {
-      return false
-    }
-    const [entry] = toSolidCenterStrokeRenderEntriesFromFinalFaces([face])
-    return entry ? isStyleReplayableStrokeRenderEntry(entry) : false
-  })
-
-  return entriesReplayable && facesReplayable
-}
-
 const shouldRenderCenterSolidFaceWithNativeVisual = (
   face: SolidStrokeFinalFaceList[number]
 ) =>
@@ -2358,13 +2297,6 @@ const renderVectorGraphic = (
     __asyraResolvedVectorGeometryCache?: ResolvedVectorGeometryFrameCache
     __asyraStrokePipelineStageCache?: StrokePipelineStageCache
   }
-  const systemDebugDisableVisualOverlapCollapse =
-    core.getSystemProperty<boolean>(
-      'strokeDebugDisableVisualOverlapCollapse'
-    ) ?? false
-  const shouldDisableVisualOverlapCollapse =
-    renderData.strokeDebugOptions.disableVisualOverlapCollapse === true ||
-    systemDebugDisableVisualOverlapCollapse
   graphic.clear()
   ;(graphic as { hitArea: unknown | null }).hitArea = null
   setElementGeometryLocalBounds(
@@ -2641,11 +2573,12 @@ const renderVectorGraphic = (
     networkPaths,
     singleSolidRenderableStroke
   )
+  const canUseStrokeProductGeometryCache = true
   const stageCache = graphicCache.__asyraStrokePipelineStageCache ?? {
     products: new Map<string, StrokePipelineStageProductCache>()
   }
   const cachedProduct =
-    strokeProductGeometrySignature !== null
+    canUseStrokeProductGeometryCache && strokeProductGeometrySignature !== null
       ? stageCache.products.get(strokeProductGeometrySignature)
       : undefined
   const hasCachedProduct =
@@ -2853,6 +2786,26 @@ const renderVectorGraphic = (
       compoundRole?.role
     )
   }
+  const getImplicitFillRegionsForNetwork = (
+    topology: PathTopologyModel,
+    resolvedSelfIntersectingGeometry:
+      | ResolvedVectorGeometryNetworkModel['selfIntersecting']
+      | undefined
+  ): PolygonRegion[] => {
+    if ((resolvedSelfIntersectingGeometry?.fillRegions.length ?? 0) > 0) {
+      return resolvedSelfIntersectingGeometry?.fillRegions ?? []
+    }
+
+    if (!hasRenderableFill || !topology.closed) {
+      return []
+    }
+
+    return [
+      {
+        polygons: [topology.normalizedPoints]
+      }
+    ]
+  }
   const hasOpenBoundedFilledRegionDomain = (network: VectorNetwork) =>
     (resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting?.fillRegions
       .length ?? 0) > 0
@@ -2923,26 +2876,18 @@ const renderVectorGraphic = (
             const strokesForNetwork = getStrokesForNetwork(network)
             const resolvedSelfIntersectingGeometry =
               resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
-            const isSelfIntersectingSourcePath =
-              topology.topologyFamily === 'self-intersecting' ||
-              (resolvedSelfIntersectingGeometry?.sourceSplitRanges.length ??
-                0) > 0
-            const sourcePathForNetwork =
-              isSelfIntersectingSourcePath ||
-              path.segments.some((segment) => segment.type === 'cubic')
-                ? path
-                : undefined
+            const sourcePathForNetwork = path
             const hasOpenBoundedFillRegionDomain =
               hasOpenBoundedFilledRegionDomain(network)
             const implicitFillRegionsForNetwork =
-              (resolvedSelfIntersectingGeometry?.fillRegions.length ?? 0) > 0
-                ? (resolvedSelfIntersectingGeometry?.fillRegions ?? [])
-                : []
+              getImplicitFillRegionsForNetwork(
+                topology,
+                resolvedSelfIntersectingGeometry
+              )
             const clipInsideToFillDomain =
-              sourcePathForNetwork !== undefined &&
-              (hasRenderableFill ||
-                hasOpenBoundedFillRegionDomain ||
-                implicitFillRegionsForNetwork.length > 0)
+              hasRenderableFill ||
+              hasOpenBoundedFillRegionDomain ||
+              implicitFillRegionsForNetwork.length > 0
             const dashedOptions: Parameters<
               typeof buildConstrainedDashedStrokeResolvedPackets
             >[4] = {
@@ -2963,9 +2908,10 @@ const renderVectorGraphic = (
                 resolvedSelfIntersectingGeometry?.sourceSplitRanges ?? [],
               sharedStrokeBoundaryDomains:
                 resolvedSelfIntersectingGeometry?.strokeBoundaryDomains ?? [],
-              selectedSideGuardPoints: sourcePathForNetwork
-                ? getNetworkAnchorGuardPoints(network, points)
-                : undefined,
+              selectedSideGuardPoints: getNetworkAnchorGuardPoints(
+                network,
+                points
+              ),
               clipInsideToFillDomain: clipInsideToFillDomain
             }
             return buildConstrainedDashedStrokeResolvedPackets(
@@ -3050,10 +2996,7 @@ const renderVectorGraphic = (
             fillRule: topology.fillRule
           })),
           renderData.strokes,
-          candidatePackets,
-          {
-            disableVisualOverlapCollapse: shouldDisableVisualOverlapCollapse
-          }
+          candidatePackets
         )
 
         return networkPaths.map(({ network, topology }, index) => ({
@@ -3192,10 +3135,7 @@ const renderVectorGraphic = (
             }
           ],
           strokesForNetwork,
-          candidatePackets,
-          {
-            disableVisualOverlapCollapse: shouldDisableVisualOverlapCollapse
-          }
+          candidatePackets
         )
 
         return {
@@ -3236,33 +3176,27 @@ const renderVectorGraphic = (
       ? getSimpleOpenUnboundedCenterProductStrokes(renderData.strokes)
       : renderData.strokes
   const centerPathSolidVisualStrokeGroups: CenterPathSolidVisualStrokeGroup[] =
-    shouldDisableVisualOverlapCollapse
-      ? []
-      : networkPaths.flatMap(({ network, topology }) => {
-          const renderStrokesForNetwork = getCenterFamilyStrokesForNetwork(
-            network,
-            topology
-          )
-          const strokes = getRenderableStrokes(renderStrokesForNetwork).filter(
-            (stroke) => isCenterPathSolidVisualStroke(stroke, topology)
-          )
-          return strokes.length > 0 ? [{ network, strokes }] : []
-        })
+    networkPaths.flatMap(({ network, topology }) => {
+      const renderStrokesForNetwork = getCenterFamilyStrokesForNetwork(
+        network,
+        topology
+      )
+      const strokes = getRenderableStrokes(renderStrokesForNetwork).filter(
+        (stroke) => isCenterPathSolidVisualStroke(stroke, topology)
+      )
+      return strokes.length > 0 ? [{ network, strokes }] : []
+    })
   const centerSolidPathMaskVisualStrokeGroups: CenterSolidPathMaskVisualStrokeGroup[] =
-    shouldDisableVisualOverlapCollapse
-      ? []
-      : networkPaths.flatMap(({ network, path, topology }) => {
-          const renderStrokesForNetwork = getCenterFamilyStrokesForNetwork(
-            network,
-            topology
-          )
-          const strokes = getRenderableStrokes(renderStrokesForNetwork).filter(
-            (stroke) => shouldRenderCenterSolidWithPathMask(stroke, topology)
-          )
-          return strokes.length > 0
-            ? [{ network, path, topology, strokes }]
-            : []
-        })
+    networkPaths.flatMap(({ network, path, topology }) => {
+      const renderStrokesForNetwork = getCenterFamilyStrokesForNetwork(
+        network,
+        topology
+      )
+      const strokes = getRenderableStrokes(renderStrokesForNetwork).filter(
+        (stroke) => shouldRenderCenterSolidWithPathMask(stroke, topology)
+      )
+      return strokes.length > 0 ? [{ network, path, topology, strokes }] : []
+    })
   const directCenterSolidVisualNetworkIds = new Set([
     ...centerPathSolidVisualStrokeGroups.map((group) => group.network.id),
     ...centerSolidPathMaskVisualStrokeGroups.map((group) => group.network.id)
@@ -3343,48 +3277,7 @@ const renderVectorGraphic = (
                 !constrainedSolidPromotedCandidateGeometryIds.has(
                   packet.geometry.geometryId
                 )
-            ) ??
-            buildConstrainedSolidStrokeResolvedPackets(
-              `vector:${renderData.id}:${network.id}:constrained`,
-              topology.normalizedPoints,
-              topology.closed,
-              renderData.strokes,
-              {
-                metadata: {
-                  ownerKeyPrefix: `vector:${renderData.id}:${network.id}`,
-                  networkId: network.id
-                },
-                topology,
-                sourcePath: path,
-                implicitFillRegions:
-                  resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
-                    ?.fillRegions ?? [],
-                implicitLegalFaceBoundaries:
-                  resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
-                    ?.legalFaceBoundaries ?? [],
-                implicitUnfilledFaceBoundaries:
-                  resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
-                    ?.unfilledFaceBoundaries ?? [],
-                implicitLegalBoundaryContours:
-                  resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
-                    ?.legalBoundaryContours ?? [],
-                sharedSourceSplitRanges:
-                  resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
-                    ?.sourceSplitRanges ?? [],
-                sharedStrokeBoundaryDomains:
-                  resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
-                    ?.strokeBoundaryDomains ?? [],
-                selectedSideGuardPoints: getNetworkAnchorGuardPoints(
-                  network,
-                  points
-                ),
-                exactBackend: constrainedSolidExactBackend ?? undefined,
-                fillRule: topology.fillRule,
-                candidateMode: getConstrainedSolidCandidateMode(topology),
-                preferRenderMaskProductFinal:
-                  shouldPreferConstrainedSolidRenderMaskProductFinal
-              }
-            ))
+            ) ?? [])
           : [])
       ]
     }),
@@ -3413,11 +3306,6 @@ const renderVectorGraphic = (
   const strokeFinalFaces = measureVectorRenderPhase(
     'visual overlap collapse',
     () => {
-      if (shouldDisableVisualOverlapCollapse) {
-        emitStrokePipelineCounter('visual-overlap-collapse-disabled')
-        return rawStrokeFinalFaces
-      }
-
       const finishCollapse = (faces: typeof collapseInputStrokeFinalFaces) =>
         faces
 
@@ -3727,7 +3615,6 @@ const renderVectorGraphic = (
     return [
       ...centerSolidPathMaskRenderEntries,
       ...toSolidCenterStrokeRenderEntriesFromFinalFaces(strokeRenderFaces, {
-        collapseDashedCenterVisualOverlaps: !shouldDisableVisualOverlapCollapse,
         exactBackend: getGeometryBackend(),
         legalDomains: arrangementLegalDomains
       })
@@ -3773,20 +3660,16 @@ const renderVectorGraphic = (
 
   if (
     !shouldAttachFullStrokeDiagnostics &&
+    canUseStrokeProductGeometryCache &&
     fillPayload.length === 0 &&
     singleSolidRenderableStroke &&
     strokeProductGeometrySignature &&
     strokeRenderEntries.length > 0
   ) {
-    const styleReplayable = isMiterStyleReplayableStrokeProduct(
-      semanticStrokeFinalFaces,
-      strokeRenderEntries
-    )
     const productCacheEntry: StrokePipelineStageProductCache = {
       geometrySignature: strokeProductGeometrySignature,
       finalFaces: semanticStrokeFinalFaces,
-      renderEntries: strokeRenderEntries,
-      styleReplayable
+      renderEntries: strokeRenderEntries
     }
     stageCache.products.set(strokeProductGeometrySignature, productCacheEntry)
     graphicCache.__asyraStrokePipelineStageCache = stageCache
@@ -3869,11 +3752,6 @@ defineComponent({
           joinType: StrokeJoinTypes.ROUND
         })
       ]
-    },
-    {
-      name: 'strokeDebugOptions',
-      type: PropertyTypes.CUSTOM,
-      defaultValue: {} as VectorStrokeDebugOptions
     }
   ],
   renderStrategy: vectorRenderStrategy

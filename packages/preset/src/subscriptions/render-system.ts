@@ -1,4 +1,3 @@
-import { renderSceneTreeStore } from '@asyra/core'
 import type { PositionData } from '@asyra/utils'
 import type { PresetCoreAPIs, PresetDependencies } from '../types'
 
@@ -13,10 +12,6 @@ export const registerDefaultRenderSystemSubscriptions = (
   }
 
   const zoomObservable = core.getSystemPropertyObservable<number>('zoom')
-  const strokeDebugDisableVisualOverlapCollapseObservable =
-    core.getSystemPropertyObservable<boolean>(
-      'strokeDebugDisableVisualOverlapCollapse'
-    )
   const viewportPositionObservable = core.defineSystemProperty<PositionData>(
     'viewportPosition',
     { x: 0, y: 0 }
@@ -32,16 +27,6 @@ export const registerDefaultRenderSystemSubscriptions = (
     if (position) {
       deps.render.panTo(position.x, position.y)
     }
-  })
-
-  let strokeDebugInitialValueSeen = false
-  strokeDebugDisableVisualOverlapCollapseObservable?.subscribe(() => {
-    if (!strokeDebugInitialValueSeen) {
-      strokeDebugInitialValueSeen = true
-      return
-    }
-
-    renderSceneTreeStore.reload()
   })
 
   hasRegistered = true

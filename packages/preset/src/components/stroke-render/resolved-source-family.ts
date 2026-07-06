@@ -104,7 +104,7 @@ const resolveProductFamilyRuleEvidence = ({
       status: 'verified-slice',
       requiredForCompletion: true,
       evidence: [
-        'Simple open networks without bounded filled-region domains use the formal simple-open center product. Open self-intersecting networks consume bounded-domain entries from the stroke domain plan when they exist.'
+        'Open source topology is identified from PathTopologyModel.closed=false and remains source-family evidence for downstream bounded-domain decisions.'
       ],
       gaps: []
     }
@@ -120,7 +120,7 @@ const resolveProductFamilyRuleEvidence = ({
       status: 'verified-slice',
       requiredForCompletion: true,
       evidence: [
-        'Current targeted and final visual gates cover self-intersecting constrained dashed split-range terminal half-dash behavior, implicit fill/hole side resolution, and FinalFace-derived render/export projection.'
+        'Self-intersecting closed source topology is identified before downstream constrained dashed domain and interval stages consume legal-domain hints.'
       ],
       gaps: []
     }
@@ -131,7 +131,7 @@ const resolveProductFamilyRuleEvidence = ({
     status: 'verified-slice',
     requiredForCompletion: true,
     evidence: [
-      'Current runtime has targeted product projection and visual evidence for this family slice.'
+      'PathTopologyModel family evidence and normalized stroke style/position select this source-family slice for downstream owner stages.'
     ],
     gaps: []
   }

@@ -33,7 +33,7 @@ const SELECTION_OUTLINE_COLOR = 0x157ae7
 const HOVER_COLOR = SELECTION_OUTLINE_COLOR
 const HOVER_OUTLINE_WIDTH = 2
 const HOVER_OUTLINE_RADIUS = POINT_RADIUS + 2
-const HOVER_SEGMENT_STROKE: OverlayStrokeStyle = {
+export const VECTOR_EDITING_HOVER_SEGMENT_STROKE: OverlayStrokeStyle = {
   width: 2,
   color: HOVER_COLOR
 }
@@ -41,7 +41,7 @@ const HOVER_SEGMENT_STROKE: OverlayStrokeStyle = {
 const SELECTED_POINT_OUTLINE_COLOR = SELECTION_OUTLINE_COLOR
 const SELECTED_POINT_OUTLINE_WIDTH = 2
 const SELECTED_POINT_OUTLINE_RADIUS = POINT_RADIUS + 3
-const SELECTED_SEGMENT_STROKE: OverlayStrokeStyle = {
+export const VECTOR_EDITING_SELECTED_SEGMENT_STROKE: OverlayStrokeStyle = {
   width: 3,
   color: SELECTED_POINT_OUTLINE_COLOR
 }
@@ -982,7 +982,11 @@ const drawHighlightedSegments = (
   if (selectedSegmentId) {
     const selectedSegment = segmentsById[selectedSegmentId]
     if (selectedSegment) {
-      drawSegment(canvas, selectedSegment, SELECTED_SEGMENT_STROKE)
+      drawSegment(
+        canvas,
+        selectedSegment,
+        VECTOR_EDITING_SELECTED_SEGMENT_STROKE
+      )
     }
   }
 
@@ -995,7 +999,7 @@ const drawHighlightedSegments = (
     return
   }
 
-  drawSegment(canvas, hoveredSegment, HOVER_SEGMENT_STROKE)
+  drawSegment(canvas, hoveredSegment, VECTOR_EDITING_HOVER_SEGMENT_STROKE)
 }
 
 const drawHandleLines = (

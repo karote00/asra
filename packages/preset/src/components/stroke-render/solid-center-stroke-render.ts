@@ -62,6 +62,80 @@ export interface SolidCenterStrokeRenderEntry {
   revisionSet?: StrokeRevisionSet
 }
 
+export type SolidCenterStrokeRendererProjectionRoute =
+  | 'stroke-path-groups'
+  | 'stroke-paths'
+  | 'masked-solid'
+  | 'polygon-fill'
+
+export interface SolidCenterStrokeRendererProjectionCommand {
+  channel: 'renderer-projection'
+  visibility: 'visible-pixels'
+  cacheKey: string
+  drawRouteType: SolidCenterStrokeRendererProjectionRoute
+  stroke: SolidCenterStrokeRenderEntry['stroke']
+  polygons: Vec2[][]
+  strokePaths?: Vec2[][]
+  strokePathGroups?: NonNullable<
+    SolidCenterStrokeRenderEntry['strokePathGroups']
+  >
+  strokePathStyle?: SolidCenterStrokeRenderEntry['strokePathStyle']
+  strokeMaskPolygons?: Vec2[][]
+  fillClipPolygons?: Vec2[][]
+  fillExcludePolygons?: Vec2[][]
+  debugMeta?: SolidCenterStrokeGeometryDebugMeta
+  metadataMutation: false
+}
+
+const getRendererProjectionRoute = (
+  entry: SolidCenterStrokeRenderEntry
+): SolidCenterStrokeRendererProjectionRoute => {
+  if ((entry.strokePathGroups?.length ?? 0) > 0) {
+    return 'stroke-path-groups'
+  }
+  if ((entry.strokePaths?.length ?? 0) > 0 && entry.strokePathStyle) {
+    return 'stroke-paths'
+  }
+  if (
+    (entry.strokeMaskPolygons?.length ?? 0) > 0 ||
+    (entry.fillClipPolygons?.length ?? 0) > 0 ||
+    (entry.fillExcludePolygons?.length ?? 0) > 0
+  ) {
+    return 'masked-solid'
+  }
+  return 'polygon-fill'
+}
+
+export const projectSolidCenterStrokeRenderEntries = (
+  entries: readonly SolidCenterStrokeRenderEntry[]
+): SolidCenterStrokeRendererProjectionCommand[] =>
+  entries.map((entry) => ({
+    channel: 'renderer-projection',
+    visibility: 'visible-pixels',
+    cacheKey: entry.cacheKey,
+    drawRouteType: getRendererProjectionRoute(entry),
+    stroke: entry.stroke,
+    polygons: entry.polygons,
+    ...(entry.strokePaths ? { strokePaths: entry.strokePaths } : {}),
+    ...(entry.strokePathGroups
+      ? { strokePathGroups: entry.strokePathGroups }
+      : {}),
+    ...(entry.strokePathStyle
+      ? { strokePathStyle: entry.strokePathStyle }
+      : {}),
+    ...(entry.strokeMaskPolygons
+      ? { strokeMaskPolygons: entry.strokeMaskPolygons }
+      : {}),
+    ...(entry.fillClipPolygons
+      ? { fillClipPolygons: entry.fillClipPolygons }
+      : {}),
+    ...(entry.fillExcludePolygons
+      ? { fillExcludePolygons: entry.fillExcludePolygons }
+      : {}),
+    ...(entry.debugMeta ? { debugMeta: entry.debugMeta } : {}),
+    metadataMutation: false
+  }))
+
 interface SolidStrokeCacheSolidEntry {
   kind: 'solid'
   projection: MeshProjection
@@ -127,7 +201,7 @@ interface SolidCenterStrokeRenderGraphic {
   >
 }
 
-const STROKE_MESH_INACTIVE_RETAIN_GENERATIONS = 32
+const STROKE_MESH_INACTIVE_RETAIN_GENERATIONS = 0
 
 const isSolidGraphicsCacheEntry = (
   entry:
@@ -137,6 +211,51 @@ const isSolidGraphicsCacheEntry = (
     | SolidStrokeCacheSolidGraphicsEntry
 ): entry is SolidStrokeCacheSolidGraphicsEntry =>
   entry.kind === 'solid-graphics'
+
+export interface SolidGraphicsProjectionCacheReuseInput {
+  cachedSignature: string
+  nextSignature: string
+  cachedPaintKey: string
+  nextPaintKey: string
+  cachedCoordinateSignature?: string
+  nextCoordinateSignature: string
+  dirtyKeys: readonly StrokeDirtyKey[] | null
+  geometryDirty: boolean
+  paintDirty: boolean
+  allowPaintChange?: boolean
+}
+
+export const canReuseSolidGraphicsProjectionCache = ({
+  cachedSignature,
+  nextSignature,
+  cachedPaintKey,
+  nextPaintKey,
+  cachedCoordinateSignature,
+  nextCoordinateSignature,
+  dirtyKeys,
+  geometryDirty,
+  paintDirty,
+  allowPaintChange = false
+}: SolidGraphicsProjectionCacheReuseInput): boolean => {
+  if (cachedCoordinateSignature !== nextCoordinateSignature) {
+    return false
+  }
+  if (dirtyKeys !== null) {
+    if (geometryDirty) {
+      return false
+    }
+    if (!allowPaintChange && paintDirty) {
+      return false
+    }
+  }
+  if (cachedSignature !== nextSignature) {
+    return false
+  }
+  if (!allowPaintChange && cachedPaintKey !== nextPaintKey) {
+    return false
+  }
+  return true
+}
 
 const buildGeometryModel = (polygons: Vec2[][]): GeometryModel => {
   const normalizedPolygons = polygons.map((polygon) =>
@@ -233,7 +352,7 @@ const getRevisionGeometrySignature = (
         revisionSet.strokeDomainRevision,
         revisionSet.strokeFamilyRevision ?? '',
         revisionSet.intervalAllocationRevision,
-        revisionSet.dashScheduleRevision ?? '',
+        revisionSet.dashAndGapRevision ?? '',
         revisionSet.terminalCapRevision ?? '',
         revisionSet.joinShapeRevision ?? '',
         revisionSet.smoothContinuityRevision ?? '',
@@ -305,6 +424,14 @@ const drawPolygonsWithCutouts = (
     positivePolygons.length > 0 ? positivePolygons : drawablePolygons
   const consumedHoles = new Set<Vec2[]>()
 
+  if (holePolygons.length === 0) {
+    outerPolygons.forEach((outerPolygon) => {
+      drawPolygon(graphics, outerPolygon)
+    })
+    graphics.fill(fill)
+    return
+  }
+
   outerPolygons.forEach((outerPolygon) => {
     const containedHoles = holePolygons.filter((holePolygon) => {
       if (consumedHoles.has(holePolygon)) {
@@ -332,6 +459,53 @@ const drawPolygonsWithCutouts = (
     drawPolygon(graphics, [...holePolygon].reverse())
     graphics.fill(fill)
   })
+}
+
+const drawPolygonsAsProductCoverage = (
+  graphics: Graphics,
+  polygons: Vec2[][],
+  fill: { color: number; alpha: number }
+) => {
+  polygons.forEach((polygon) => {
+    if (polygon.length < 3) {
+      return
+    }
+    drawPolygon(graphics, ensurePositivePolygonWinding(polygon))
+    graphics.fill(fill)
+    graphics.beginPath()
+  })
+}
+
+const drawProductPolygons = (
+  graphics: Graphics,
+  polygons: Vec2[][],
+  fill: { color: number; alpha: number },
+  drawMode: 'cutouts' | 'product-coverage'
+) => {
+  if (drawMode === 'product-coverage') {
+    drawPolygonsAsProductCoverage(graphics, polygons, fill)
+    return
+  }
+  drawPolygonsWithCutouts(graphics, polygons, fill)
+}
+
+const getClipMaskDrawMode = (
+  polygons: Vec2[][],
+  clipPolygons: Vec2[][] | undefined,
+  productDrawMode: 'cutouts' | 'product-coverage'
+): 'cutouts' | 'product-coverage' => {
+  if (!clipPolygons) {
+    return productDrawMode
+  }
+
+  if (
+    productDrawMode === 'product-coverage' &&
+    getSignature(polygons) === getSignature(clipPolygons)
+  ) {
+    return 'product-coverage'
+  }
+
+  return 'cutouts'
 }
 
 const drawOpaqueMaskPolygons = (graphics: Graphics, polygons: Vec2[][]) => {
@@ -399,7 +573,7 @@ const drawStrokePaths = (
     color,
     alpha,
     width: style.width,
-    cap: style.cap === 'none' ? 'butt' : style.cap,
+    cap: style.cap,
     join: style.join,
     miterLimit: style.miterLimit
   })
@@ -582,7 +756,8 @@ const applyMaskedSolidPaint = (
   strokePathStyle?: Pick<
     RenderableStroke,
     'width' | 'cap' | 'join' | 'miterLimit'
-  >
+  >,
+  productDrawMode: 'cutouts' | 'product-coverage' = 'cutouts'
 ) => {
   const hasStrokeMaskPolygons =
     strokeMaskPolygons && strokeMaskPolygons.length > 0
@@ -620,9 +795,9 @@ const applyMaskedSolidPaint = (
     !hasFillPolygons
   const canDrawStrokeGeometryDirectlyWithFillClip =
     hasFillClipPolygons &&
+    !hasFillExcludePolygons &&
     !hasFillPolygons &&
     !hasClipPolygons &&
-    !hasFillExcludePolygons &&
     clippedStrokePathGroups.length === 0 &&
     (hasStrokePaths || hasStrokePathGroups || hasStrokeMaskPolygons)
 
@@ -648,26 +823,46 @@ const applyMaskedSolidPaint = (
       })
     }
     if (hasStrokeMaskPolygons) {
-      drawPolygonsWithCutouts(fill, strokeMaskPolygons, { color, alpha: 1 })
+      drawProductPolygons(
+        fill,
+        strokeMaskPolygons,
+        { color, alpha: 1 },
+        productDrawMode
+      )
     }
-    drawPolygonsWithCutouts(fillMask, fillClipPolygons, {
-      color: 0xffffff,
-      alpha: 1
-    })
+    drawProductPolygons(
+      fillMask,
+      fillClipPolygons ?? [],
+      {
+        color: 0xffffff,
+        alpha: 1
+      },
+      productDrawMode
+    )
     content.mask = fillMask
     return
   }
 
   const maskPolygons = clipPolygons ?? polygons
   const paintBoundsPolygons =
-    clipPolygons ?? (hasStrokeMaskPolygons ? strokeMaskPolygons : polygons)
+    clipPolygons ??
+    (hasFillClipPolygons
+      ? fillClipPolygons
+      : hasStrokeMaskPolygons
+        ? strokeMaskPolygons
+        : polygons)
   const bounds = getPolygonBounds(paintBoundsPolygons)
   if (!bounds) {
     return
   }
 
   if (!hasStrokePaths && hasFillPolygons) {
-    drawPolygonsWithCutouts(fill, fillPolygons, { color, alpha: 1 })
+    drawProductPolygons(
+      fill,
+      fillPolygons,
+      { color, alpha: 1 },
+      productDrawMode
+    )
     fill.beginPath()
   } else {
     fill
@@ -712,11 +907,19 @@ const applyMaskedSolidPaint = (
   }
 
   if (!canUseStrokePathAsExactMask) {
-    drawPolygonsWithCutouts(mask, maskPolygons, { color: 0xffffff, alpha: 1 })
+    drawProductPolygons(
+      mask,
+      maskPolygons,
+      { color: 0xffffff, alpha: 1 },
+      getClipMaskDrawMode(polygons, clipPolygons, productDrawMode)
+    )
   }
   if (hasFillClipPolygons || hasFillExcludePolygons) {
     const fillMaskPolygons = hasFillClipPolygons
-      ? fillClipPolygons
+      ? [
+          ...(fillClipPolygons ?? []),
+          ...(fillExcludePolygons ?? []).map(ensureNegativePolygonWinding)
+        ]
       : [
           ensurePositivePolygonWinding([
             { x: bounds.minX, y: bounds.minY },
@@ -738,10 +941,15 @@ const applySolidGraphicsPaint = (
   graphics: Graphics,
   polygons: Vec2[][],
   color: number,
-  alpha: number
+  alpha: number,
+  drawMode: 'cutouts' | 'product-coverage' = 'cutouts'
 ) => {
   graphics.clear()
   graphics.alpha = alpha
+  if (drawMode === 'product-coverage') {
+    drawPolygonsAsProductCoverage(graphics, polygons, { color, alpha: 1 })
+    return
+  }
   drawPolygonsWithCutouts(graphics, polygons, { color, alpha: 1 })
 }
 
@@ -836,17 +1044,60 @@ const hasGeometryDirtyKey = (dirtyKeys: StrokeDirtyKey[] | null) =>
 const hasPaintDirtyKey = (dirtyKeys: StrokeDirtyKey[] | null) =>
   dirtyKeys === null || dirtyKeys.includes('paint-payload')
 
+const getEntryProductSignature = (entry: SolidCenterStrokeRenderEntry) =>
+  entry.debugMeta?.productSignature ?? entry.runtimeMeta?.productSignature
+
+const getEntryStrokePosition = (entry: SolidCenterStrokeRenderEntry) =>
+  entry.debugMeta?.strokePosition ?? entry.runtimeMeta?.strokePosition
+
+const hasPolygonList = (polygons: Vec2[][] | undefined) =>
+  polygons !== undefined && polygons.length > 0
+
+const canProjectConstrainedDashedDescriptorProductWithGraphics = (
+  entry: SolidCenterStrokeRenderEntry
+) => {
+  const hasVisibleStrokePathGroups = hasPolygonList(
+    entry.strokePathGroups?.flatMap((group) => group.strokePaths)
+  )
+  if (hasVisibleStrokePathGroups) {
+    return false
+  }
+
+  if (
+    getEntryProductSignature(entry)?.startsWith('constrained-dashed:') !==
+      true ||
+    getEntryStrokePosition(entry) !== 'outside' ||
+    entry.polygons.length === 0 ||
+    !hasPolygonList(entry.clipPolygons)
+  ) {
+    return false
+  }
+
+  if (
+    hasPolygonList(entry.fillPolygons) ||
+    hasPolygonList(entry.fillClipPolygons) ||
+    hasPolygonList(entry.fillExcludePolygons) ||
+    hasPolygonList(entry.strokeMaskPolygons) ||
+    hasPolygonList(entry.strokePaths)
+  ) {
+    return false
+  }
+
+  return getSignature(entry.polygons) === getSignature(entry.clipPolygons ?? [])
+}
+
 const shouldRenderSolidWithMask = (entry: SolidCenterStrokeRenderEntry) =>
-  (entry.clipPolygons !== undefined && entry.clipPolygons.length > 0) ||
-  (entry.fillPolygons !== undefined && entry.fillPolygons.length > 0) ||
-  (entry.fillExcludePolygons !== undefined &&
-    entry.fillExcludePolygons.length > 0) ||
-  (entry.strokeMaskPolygons !== undefined &&
-    entry.strokeMaskPolygons.length > 0) ||
-  (entry.strokePaths !== undefined &&
-    entry.strokePaths.length > 0 &&
-    entry.strokePathStyle !== undefined) ||
-  (entry.strokePathGroups !== undefined && entry.strokePathGroups.length > 0)
+  !canProjectConstrainedDashedDescriptorProductWithGraphics(entry) &&
+  ((entry.clipPolygons !== undefined && entry.clipPolygons.length > 0) ||
+    (entry.fillPolygons !== undefined && entry.fillPolygons.length > 0) ||
+    (entry.fillExcludePolygons !== undefined &&
+      entry.fillExcludePolygons.length > 0) ||
+    (entry.strokeMaskPolygons !== undefined &&
+      entry.strokeMaskPolygons.length > 0) ||
+    (entry.strokePaths !== undefined &&
+      entry.strokePaths.length > 0 &&
+      entry.strokePathStyle !== undefined) ||
+    (entry.strokePathGroups !== undefined && entry.strokePathGroups.length > 0))
 
 const shouldRenderPlainSolidWithGraphics = (
   entry: SolidCenterStrokeRenderEntry,
@@ -854,8 +1105,7 @@ const shouldRenderPlainSolidWithGraphics = (
 ) => {
   const productMode =
     entry.debugMeta?.productMode ?? entry.runtimeMeta?.productMode
-  const productSignature =
-    entry.debugMeta?.productSignature ?? entry.runtimeMeta?.productSignature
+  const productSignature = getEntryProductSignature(entry)
   const hasKnownNonCenterProduct =
     productMode !== undefined && productMode !== 'center-product'
   const canProjectExactPolygonsWithGraphics =
@@ -869,6 +1119,16 @@ const shouldRenderPlainSolidWithGraphics = (
     (canProjectExactPolygonsWithGraphics || !hasKnownNonCenterProduct)
   )
 }
+
+const getProductDrawMode = (
+  entry: SolidCenterStrokeRenderEntry
+): 'cutouts' | 'product-coverage' =>
+  entry.debugMeta?.productSignature?.startsWith('constrained-dashed:') ===
+    true ||
+  entry.runtimeMeta?.productSignature?.startsWith('constrained-dashed:') ===
+    true
+    ? 'product-coverage'
+    : 'cutouts'
 
 const emitStrokePipelineCounter = (counterName: string, value = 1) => {
   ;(
@@ -946,12 +1206,46 @@ export const renderSolidCenterStrokeEntries = (
     }
 
     const compatibleEntry = graphic.__asyraStrokeMeshCache?.get(renderCacheKey)
+    let solidGraphicsCoordinateSignature: string | null | undefined
+    const getSolidGraphicsCoordinateSignature = () => {
+      if (targetCacheKind !== 'solid-graphics') {
+        return null
+      }
+      if (solidGraphicsCoordinateSignature === undefined) {
+        solidGraphicsCoordinateSignature = getSignature(polygons)
+      }
+      return solidGraphicsCoordinateSignature
+    }
+    const canUseSolidGraphicsFastPath = (
+      allowPaintChange: boolean
+    ): boolean => {
+      if (!compatibleEntry || !isSolidGraphicsCacheEntry(compatibleEntry)) {
+        return true
+      }
+      const coordinateSignature = getSolidGraphicsCoordinateSignature()
+      return (
+        coordinateSignature !== null &&
+        canReuseSolidGraphicsProjectionCache({
+          cachedSignature: compatibleEntry.signature,
+          nextSignature: signature,
+          cachedPaintKey: compatibleEntry.paintKey,
+          nextPaintKey: paintKey,
+          cachedCoordinateSignature: compatibleEntry.coordinateSignature,
+          nextCoordinateSignature: coordinateSignature,
+          dirtyKeys,
+          geometryDirty,
+          paintDirty,
+          allowPaintChange
+        })
+      )
+    }
 
     if (
       compatibleEntry &&
       dirtyKeys !== null &&
       !geometryDirty &&
-      compatibleEntry.signature === signature
+      compatibleEntry.signature === signature &&
+      canUseSolidGraphicsFastPath(true)
     ) {
       const paintChanged = compatibleEntry.paintKey !== paintKey
       if (paintDirty || paintChanged) {
@@ -997,7 +1291,8 @@ export const renderSolidCenterStrokeEntries = (
               entry.strokeMaskPolygons,
               entry.strokePaths,
               entry.strokePathGroups,
-              entry.strokePathStyle
+              entry.strokePathStyle,
+              getProductDrawMode(entry)
             )
             compatibleEntry.color = entry.stroke.color
           }
@@ -1007,7 +1302,8 @@ export const renderSolidCenterStrokeEntries = (
             compatibleEntry.graphics,
             polygons,
             entry.stroke.color,
-            entry.stroke.alpha
+            entry.stroke.alpha,
+            getProductDrawMode(entry)
           )
         }
       }
@@ -1034,7 +1330,8 @@ export const renderSolidCenterStrokeEntries = (
       !geometryDirty &&
       !paintDirty &&
       compatibleEntry.signature === signature &&
-      compatibleEntry.paintKey === paintKey
+      compatibleEntry.paintKey === paintKey &&
+      canUseSolidGraphicsFastPath(false)
     ) {
       compatibleEntry.revisionSet = revisionSet
       compatibleEntry.lastDirtyKeys = []
@@ -1101,7 +1398,8 @@ export const renderSolidCenterStrokeEntries = (
           entry.strokeMaskPolygons,
           entry.strokePaths,
           entry.strokePathGroups,
-          entry.strokePathStyle
+          entry.strokePathStyle,
+          getProductDrawMode(entry)
         )
         compatibleEntry.signature = signature
         compatibleEntry.paintKey = paintKey
@@ -1149,7 +1447,8 @@ export const renderSolidCenterStrokeEntries = (
         entry.strokeMaskPolygons,
         entry.strokePaths,
         entry.strokePathGroups,
-        entry.strokePathStyle
+        entry.strokePathStyle,
+        getProductDrawMode(entry)
       )
 
       if (!graphic.addChild(container)) {
@@ -1178,7 +1477,8 @@ export const renderSolidCenterStrokeEntries = (
     }
 
     if (targetCacheKind === 'solid-graphics') {
-      const coordinateSignature = getSignature(polygons)
+      const coordinateSignature =
+        getSolidGraphicsCoordinateSignature() ?? getSignature(polygons)
       if (
         compatibleEntry &&
         compatibleEntry.kind === targetCacheKind &&
@@ -1206,7 +1506,19 @@ export const renderSolidCenterStrokeEntries = (
             compatibleEntry.signature === signature &&
             compatibleEntry.paintKey === paintKey
           : compatibleEntry.signature === signature &&
-            compatibleEntry.paintKey === paintKey)
+            compatibleEntry.paintKey === paintKey) &&
+        canReuseSolidGraphicsProjectionCache({
+          cachedSignature: compatibleEntry.signature,
+          nextSignature: signature,
+          cachedPaintKey: compatibleEntry.paintKey,
+          nextPaintKey: paintKey,
+          cachedCoordinateSignature: compatibleEntry.coordinateSignature,
+          nextCoordinateSignature: coordinateSignature,
+          dirtyKeys,
+          geometryDirty,
+          paintDirty,
+          allowPaintChange: false
+        })
       ) {
         compatibleEntry.revisionSet = revisionSet
         compatibleEntry.lastDirtyKeys = dirtyKeys ?? []
@@ -1234,7 +1546,8 @@ export const renderSolidCenterStrokeEntries = (
             compatibleEntry.graphics,
             polygons,
             entry.stroke.color,
-            entry.stroke.alpha
+            entry.stroke.alpha,
+            getProductDrawMode(entry)
           )
           compatibleEntry.coordinateSignature = coordinateSignature
           compatibleEntry.color = entry.stroke.color
@@ -1254,7 +1567,8 @@ export const renderSolidCenterStrokeEntries = (
         graphics,
         polygons,
         entry.stroke.color,
-        entry.stroke.alpha
+        entry.stroke.alpha,
+        getProductDrawMode(entry)
       )
 
       if (!graphic.addChild(graphics)) {

@@ -46,7 +46,8 @@ export const applyPreset = (
     {
       render: resolvedDeps.render,
       sceneTree: resolvedDeps.sceneTree,
-      systemContext: resolvedDeps.systemContext
+      systemContext: resolvedDeps.systemContext,
+      getSelection: (type) => core.getSelection(type)
     }
   )
   registerCenterDashedOverlapDebugRenderLayer(

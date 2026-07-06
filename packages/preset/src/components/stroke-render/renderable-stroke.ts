@@ -17,11 +17,12 @@ export interface RenderableStroke {
   style: StrokeAttrs['style']
   position: StrokeAttrs['position']
   width: number
-  dashPattern: number[]
-  dashOffset: number
+  dash: number
+  gap: number
   join: 'miter' | 'bevel' | 'round'
+  miterAngle: number
   miterLimit: number
-  cap: 'butt' | 'square' | 'round' | 'none'
+  cap: 'butt' | 'square' | 'round'
   kind?: 'solid' | 'gradient'
   color: number
   alpha: number
@@ -31,7 +32,7 @@ export interface RenderableStroke {
 
 export type StrokeSpecRejectionReason =
   | 'invalid-entry'
-  | 'non-positive-width'
+  | 'invalid-width'
   | 'invisible-stroke'
   | 'invisible-paint'
   | 'invalid-paint'
@@ -48,6 +49,13 @@ export interface NormalizeStrokeSpecResult {
   diagnostics: StrokeSpecRejectionDiagnostic[]
 }
 
+export const getRenderableStrokeDashAndGap = (
+  stroke: Pick<RenderableStroke, 'dash' | 'gap'>
+): Pick<RenderableStroke, 'dash' | 'gap'> | null =>
+  stroke.dash > 0 && stroke.gap > 0
+    ? { dash: stroke.dash, gap: stroke.gap }
+    : null
+
 const normalizeStrokeEntry = (value: unknown): StrokeAttrs | null => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null
@@ -55,44 +63,14 @@ const normalizeStrokeEntry = (value: unknown): StrokeAttrs | null => {
 
   const rawStroke = value as Partial<StrokeAttrs>
   const normalizedStroke = createDefaultStroke(rawStroke)
-  if (!Array.isArray(rawStroke.dashPattern)) {
-    normalizedStroke.dashPattern = []
-  }
 
   return {
     ...normalizedStroke
   }
 }
 
-const normalizeDashPattern = (stroke: StrokeAttrs): number[] => {
-  const sourcePattern = Array.isArray(stroke.dashPattern)
-    ? stroke.dashPattern
-    : []
-
-  const normalized = sourcePattern
-    .map((entry) => (Number.isFinite(entry) ? entry : 0))
-    .filter((entry) => entry > 0)
-
-  if (normalized.length === 0) {
-    return []
-  }
-
-  if (normalized.length % 2 === 1) {
-    return [...normalized, ...normalized]
-  }
-
-  return normalized
-}
-
-const normalizeDashOffset = (offset: number, pattern: number[]) => {
-  const patternLength = pattern.reduce((sum, entry) => sum + entry, 0)
-  if (!Number.isFinite(offset) || patternLength <= 0) {
-    return 0
-  }
-
-  const normalized = offset % patternLength
-  return normalized >= 0 ? normalized : normalized + patternLength
-}
+const normalizeDashLength = (value: number) =>
+  Number.isFinite(value) && value > 0 ? value : 0
 
 const resolveStrokePaint = (stroke: StrokeAttrs): FillAttrs =>
   createDefaultFill({
@@ -137,14 +115,19 @@ const getRenderableStroke = (
   stroke: StrokeAttrs
 ):
   | { stroke: RenderableStroke }
+  | { empty: true }
   | { diagnostic: Omit<StrokeSpecRejectionDiagnostic, 'index'> } => {
-  if (!Number.isFinite(stroke.width) || stroke.width <= 0) {
+  if (!Number.isFinite(stroke.width)) {
     return {
       diagnostic: {
-        reason: 'non-positive-width',
+        reason: 'invalid-width',
         strokeId: stroke.id
       }
     }
+  }
+
+  if (stroke.width <= 0) {
+    return { empty: true }
   }
 
   const paint = resolveStrokePaint(stroke)
@@ -167,7 +150,8 @@ const getRenderableStroke = (
     }
   }
 
-  const dashPattern = normalizeDashPattern(stroke)
+  const dash = normalizeDashLength(stroke.dash)
+  const gap = normalizeDashLength(stroke.gap)
   const gradientStyle =
     paint.kind === FillKinds.GRADIENT && paint.gradient
       ? toRenderableGradient({
@@ -208,9 +192,10 @@ const getRenderableStroke = (
       style: stroke.style,
       position: stroke.position,
       width: stroke.width,
-      dashPattern,
-      dashOffset: normalizeDashOffset(stroke.dashOffset, dashPattern),
+      dash,
+      gap,
       join: getStrokeJoin(stroke.joinType),
+      miterAngle: stroke.miterAngle,
       miterLimit: getStrokeMiterLimit(stroke.miterAngle),
       cap:
         stroke.capType === StrokeCapTypes.SQUARE
@@ -251,7 +236,7 @@ export const normalizeStrokeSpec = (
       const renderableStrokeResult = getRenderableStroke(stroke)
       if ('stroke' in renderableStrokeResult) {
         result.strokes.push(renderableStrokeResult.stroke)
-      } else {
+      } else if ('diagnostic' in renderableStrokeResult) {
         result.diagnostics.push({
           index,
           ...renderableStrokeResult.diagnostic

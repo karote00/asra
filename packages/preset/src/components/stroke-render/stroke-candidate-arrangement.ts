@@ -63,6 +63,9 @@ export interface StrokeVisualOverlapCollapseOptions {
 
 const MAX_ARRANGEMENT_CACHE_ENTRIES = 64
 const MAX_VISUAL_OVERLAP_COLLAPSE_CACHE_ENTRIES = 64
+const VISUAL_OVERLAP_MICRO_EDGE_TOLERANCE = 0.03
+const VISUAL_OVERLAP_COLLINEAR_TOLERANCE = 0.0075
+const VISUAL_OVERLAP_AREA_DELTA_TOLERANCE = 0.001
 
 const arrangementResultCache = new WeakMap<
   object,
@@ -150,6 +153,139 @@ const getSignedArea = (polygon: Vec2[]) => {
 
   return area / 2
 }
+
+const getPointDistance = (left: Vec2, right: Vec2) =>
+  Math.hypot(left.x - right.x, left.y - right.y)
+
+const isNearVisualOverlapCollinearPoint = (
+  previous: Vec2,
+  point: Vec2,
+  next: Vec2
+) => {
+  const ax = point.x - previous.x
+  const ay = point.y - previous.y
+  const bx = next.x - point.x
+  const by = next.y - point.y
+  const scale = Math.max(Math.hypot(ax, ay) + Math.hypot(bx, by), 1)
+  return (
+    Math.abs(ax * by - ay * bx) / scale <= VISUAL_OVERLAP_COLLINEAR_TOLERANCE
+  )
+}
+
+const shouldCleanVisualOverlapPolygon = (polygon: Vec2[]) => {
+  if (polygon.length < 40) {
+    return false
+  }
+
+  return polygon.some(
+    (point, index) =>
+      getPointDistance(point, polygon[(index + 1) % polygon.length]) <
+      VISUAL_OVERLAP_MICRO_EDGE_TOLERANCE
+  )
+}
+
+const cleanVisualOverlapPolygon = (polygon: Vec2[]) => {
+  if (!shouldCleanVisualOverlapPolygon(polygon)) {
+    return polygon
+  }
+
+  const originalArea = Math.abs(getSignedArea(polygon))
+  if (originalArea <= 1e-6) {
+    return polygon
+  }
+
+  let cleaned = polygon
+  for (let pass = 0; pass < 6; pass += 1) {
+    const compacted: Vec2[] = []
+    for (const point of cleaned) {
+      const previous = compacted[compacted.length - 1]
+      if (
+        !previous ||
+        getPointDistance(previous, point) > VISUAL_OVERLAP_MICRO_EDGE_TOLERANCE
+      ) {
+        compacted.push(point)
+      }
+    }
+
+    if (
+      compacted.length > 2 &&
+      getPointDistance(compacted[0], compacted[compacted.length - 1]) <=
+        VISUAL_OVERLAP_MICRO_EDGE_TOLERANCE
+    ) {
+      compacted.pop()
+    }
+    if (compacted.length < 3) {
+      break
+    }
+
+    const simplified = compacted.filter((point, index) => {
+      const previous =
+        compacted[(index - 1 + compacted.length) % compacted.length]
+      const next = compacted[(index + 1) % compacted.length]
+      return (
+        getPointDistance(previous, point) >
+          VISUAL_OVERLAP_MICRO_EDGE_TOLERANCE &&
+        getPointDistance(point, next) > VISUAL_OVERLAP_MICRO_EDGE_TOLERANCE &&
+        !isNearVisualOverlapCollinearPoint(previous, point, next)
+      )
+    })
+    if (simplified.length < 3) {
+      break
+    }
+    cleaned = simplified
+    if (simplified.length === compacted.length) {
+      break
+    }
+  }
+
+  const cleanedArea = Math.abs(getSignedArea(cleaned))
+  if (
+    cleaned.length < 3 ||
+    Math.abs(cleanedArea - originalArea) / originalArea >
+      VISUAL_OVERLAP_AREA_DELTA_TOLERANCE
+  ) {
+    return polygon
+  }
+
+  return cleaned
+}
+
+const pruneVisualOverlapMicroEdges = (polygon: Vec2[]) => {
+  if (polygon.length < 4) {
+    return polygon
+  }
+
+  let cleaned = polygon
+  for (let pass = 0; pass < 160 && cleaned.length >= 4; pass += 1) {
+    const removeIndex = cleaned.findIndex((point, index) => {
+      const previous = cleaned[(index - 1 + cleaned.length) % cleaned.length]
+      const next = cleaned[(index + 1) % cleaned.length]
+      return (
+        getPointDistance(previous, point) <=
+          VISUAL_OVERLAP_MICRO_EDGE_TOLERANCE ||
+        getPointDistance(point, next) <= VISUAL_OVERLAP_MICRO_EDGE_TOLERANCE
+      )
+    })
+    if (removeIndex < 0) {
+      break
+    }
+
+    const compacted = cleaned.filter((_, index) => index !== removeIndex)
+    if (compacted.length < 3 || Math.abs(getSignedArea(compacted)) <= 1e-6) {
+      break
+    }
+    cleaned = compacted
+  }
+
+  return cleaned
+}
+
+const cleanVisualOverlapPolygons = (polygons: Vec2[][]) =>
+  polygons
+    .map((polygon) =>
+      pruneVisualOverlapMicroEdges(cleanVisualOverlapPolygon(polygon))
+    )
+    .filter((polygon) => polygon.length >= 3)
 
 // Same-visual overlap collapse treats every input polygon as coverage, not as a
 // shell/hole contour role. Normalize winding before nonzero union so equivalent
@@ -338,7 +474,7 @@ const decomposeNestedContoursToCoverageCells = (
   return triangles.length > 0 ? triangles : polygons
 }
 
-const getRegionCoveragePolygons = (region: PolygonRegion) =>
+export const getRegionCoveragePolygons = (region: PolygonRegion) =>
   decomposeNestedContoursToCoverageCells(region.polygons)
 
 const getVisualCollapseRegions = (faces: ArrangedStrokeFinalFace[]) =>
@@ -369,12 +505,127 @@ const hasOverlappingPolygonsInFace = (face: ArrangedStrokeFinalFace) => {
   return false
 }
 
+const getPolygonRegionArea = (regions: PolygonRegion[]) =>
+  regions.reduce(
+    (total, region) =>
+      total +
+      region.polygons.reduce(
+        (regionTotal, polygon) =>
+          regionTotal + Math.abs(getSignedArea(polygon)),
+        0
+      ),
+    0
+  )
+
+const polygonsHaveIntersectionArea = (
+  left: Vec2[],
+  right: Vec2[],
+  backend: Pick<GeometryBackend, 'intersection'>,
+  fillRule: FillRule = 'nonzero'
+) => {
+  if (!boundsOverlap(getBounds([left]), getBounds([right]))) {
+    return false
+  }
+
+  try {
+    const intersections = backend.intersection(
+      [{ polygons: [normalizeCoveragePolygonWinding(left)] }],
+      [{ polygons: [normalizeCoveragePolygonWinding(right)] }],
+      fillRule
+    )
+    return (
+      getPolygonRegionArea(intersections) > VISUAL_OVERLAP_AREA_DELTA_TOLERANCE
+    )
+  } catch {
+    return true
+  }
+}
+
+const hasAnyPolygonIntersection = (
+  faces: ArrangedStrokeFinalFace[],
+  options: Pick<StrokeVisualOverlapCollapseOptions, 'backend' | 'fillRule'>
+) => {
+  const intersection = options.backend.intersection
+  if (typeof intersection !== 'function') {
+    return hasAnyBoundsOverlap(faces)
+  }
+
+  const sortedFaces = [...faces].sort(
+    (left, right) => left.bounds.minX - right.bounds.minX
+  )
+  const backend = { intersection }
+  for (let leftIndex = 0; leftIndex < sortedFaces.length; leftIndex += 1) {
+    const left = sortedFaces[leftIndex]
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < sortedFaces.length &&
+      sortedFaces[rightIndex].bounds.minX < left.bounds.maxX;
+      rightIndex += 1
+    ) {
+      const right = sortedFaces[rightIndex]
+      if (!boundsOverlap(left.bounds, right.bounds)) {
+        continue
+      }
+      if (
+        left.polygons.some((leftPolygon) =>
+          right.polygons.some((rightPolygon) =>
+            polygonsHaveIntersectionArea(
+              leftPolygon,
+              rightPolygon,
+              backend,
+              options.fillRule
+            )
+          )
+        )
+      ) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+const hasPolygonIntersectionWithinFace = (
+  face: ArrangedStrokeFinalFace,
+  options: Pick<StrokeVisualOverlapCollapseOptions, 'backend' | 'fillRule'>
+) => {
+  const intersection = options.backend.intersection
+  if (typeof intersection !== 'function') {
+    return hasOverlappingPolygonsInFace(face)
+  }
+
+  const backend = { intersection }
+  for (let leftIndex = 0; leftIndex < face.polygons.length; leftIndex += 1) {
+    const left = face.polygons[leftIndex]
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < face.polygons.length;
+      rightIndex += 1
+    ) {
+      if (
+        polygonsHaveIntersectionArea(
+          left,
+          face.polygons[rightIndex],
+          backend,
+          options.fillRule
+        )
+      ) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
 const shouldAttemptVisualOverlapCollapse = (
-  faces: ArrangedStrokeFinalFace[]
+  faces: ArrangedStrokeFinalFace[],
+  options: Pick<StrokeVisualOverlapCollapseOptions, 'backend' | 'fillRule'>
 ) =>
   faces.length >= 2
-    ? hasAnyBoundsOverlap(faces)
-    : Boolean(faces[0] && hasOverlappingPolygonsInFace(faces[0]))
+    ? hasAnyPolygonIntersection(faces, options)
+    : Boolean(faces[0] && hasPolygonIntersectionWithinFace(faces[0], options))
 
 const hashStableString = (prefix: string, value: string) => {
   let hash = 2166136261
@@ -450,7 +701,18 @@ const collectMergedFaceMetadata = (faces: ArrangedStrokeFinalFace[]) => {
   const domainPlanSplitRangeTerminals: NonNullable<
     SolidCenterStrokeGeometryDebugMeta['domainPlanSplitRangeTerminals']
   > = []
+  const dashProductIntervals: NonNullable<
+    SolidCenterStrokeGeometryDebugMeta['dashProductIntervals']
+  > = []
+  const joinOwnershipRecords: NonNullable<
+    SolidCenterStrokeGeometryDebugMeta['joinOwnershipRecords']
+  > = []
+  const dashEndpointCapPolicySignatures: string[] = []
+  const joinOwnershipSignatures: string[] = []
+  const smoothContinuityGroupIds: string[] = []
   const terminalKeys = new Set<string>()
+  const dashIntervalKeys = new Set<string>()
+  const joinOwnershipRecordKeys = new Set<string>()
 
   faces.forEach((face) => {
     face.sourceGeometryIds.forEach((id) => pushUnique(sourceGeometryIds, id))
@@ -476,6 +738,52 @@ const collectMergedFaceMetadata = (faces: ArrangedStrokeFinalFace[]) => {
       terminalKeys.add(key)
       domainPlanSplitRangeTerminals.push({ ...terminal })
     })
+    face.debugMeta?.dashProductIntervals?.forEach((interval) => {
+      const key = [
+        interval.intervalId,
+        interval.splitRangeId,
+        interval.terminalRole,
+        interval.startDistance,
+        interval.endDistance
+      ].join('|')
+      if (dashIntervalKeys.has(key)) {
+        return
+      }
+      dashIntervalKeys.add(key)
+      dashProductIntervals.push({ ...interval })
+    })
+    face.debugMeta?.joinOwnershipRecords?.forEach((record) => {
+      const key = stableStringify(record)
+      if (joinOwnershipRecordKeys.has(key)) {
+        return
+      }
+      joinOwnershipRecordKeys.add(key)
+      joinOwnershipRecords.push({ ...record })
+    })
+    ;[
+      ...(face.debugMeta?.dashEndpointCapPolicySignatures ?? []),
+      face.debugMeta?.dashEndpointCapPolicySignature
+    ].forEach((signature) => {
+      if (signature) {
+        pushUnique(dashEndpointCapPolicySignatures, signature)
+      }
+    })
+    ;[
+      ...(face.debugMeta?.joinOwnershipSignatures ?? []),
+      face.debugMeta?.joinOwnershipSignature
+    ].forEach((signature) => {
+      if (signature) {
+        pushUnique(joinOwnershipSignatures, signature)
+      }
+    })
+    ;[
+      ...(face.debugMeta?.smoothContinuityGroupIds ?? []),
+      face.debugMeta?.smoothContinuityGroupId
+    ].forEach((groupId) => {
+      if (groupId) {
+        pushUnique(smoothContinuityGroupIds, groupId)
+      }
+    })
   })
 
   return {
@@ -486,7 +794,12 @@ const collectMergedFaceMetadata = (faces: ArrangedStrokeFinalFace[]) => {
     sourceNetworkIds,
     sourceContourIds,
     legalDomainIds,
-    domainPlanSplitRangeTerminals
+    domainPlanSplitRangeTerminals,
+    dashProductIntervals,
+    joinOwnershipRecords,
+    dashEndpointCapPolicySignatures,
+    joinOwnershipSignatures,
+    smoothContinuityGroupIds
   }
 }
 
@@ -747,7 +1060,7 @@ const serializeRevisionSetForVisualOverlapCache = (
     legalityRevision: revisionSet.legalityRevision,
     paintRevision: revisionSet.paintRevision,
     strokeFamilyRevision: revisionSet.strokeFamilyRevision,
-    dashScheduleRevision: revisionSet.dashScheduleRevision,
+    dashAndGapRevision: revisionSet.dashAndGapRevision,
     terminalCapRevision: revisionSet.terminalCapRevision,
     joinShapeRevision: revisionSet.joinShapeRevision,
     smoothContinuityRevision: revisionSet.smoothContinuityRevision,
@@ -1054,8 +1367,55 @@ const groupFinalFacesByVisualPacket = (faces: ArrangedStrokeFinalFace[]) => {
   return [...groups.values()]
 }
 
+const _isJoinOwnedConstrainedDashedFace = (face: ArrangedStrokeFinalFace) => {
+  if (!isConstrainedDashedProductFace(face)) {
+    return false
+  }
+  const meta = face.debugMeta
+  const signatures = [
+    meta?.joinOwnershipSignature,
+    ...(meta?.joinOwnershipSignatures ?? [])
+  ].filter((signature): signature is string => Boolean(signature))
+  return (
+    (meta?.joinOwnershipRecords?.length ?? 0) > 0 ||
+    signatures.some(
+      (signature) =>
+        signature.includes('join-owned') ||
+        signature.startsWith('constrained-boundary-') ||
+        signature.startsWith('smooth-continuity-bridge')
+    ) ||
+    meta?.productSignature?.includes(':join-owned:') === true ||
+    meta?.productSignature?.includes(':join-owned-terminal-body:') === true ||
+    meta?.productSignature?.includes(':smooth-continuity-bridge:') === true
+  )
+}
+
 const isDomainPlanConstrainedSolidFace = (face: ArrangedStrokeFinalFace) =>
   isConstrainedSolidProductFace(face) && !isExactArrangementFace(face)
+
+const isConstrainedDashedDescriptorFace = (face: ArrangedStrokeFinalFace) =>
+  isConstrainedDashedProductFace(face) && face.renderDescriptor !== undefined
+
+const isOutsideJoinOwnedTerminalBodyConstrainedDashedFace = (
+  face: ArrangedStrokeFinalFace
+) => {
+  if (
+    !isConstrainedDashedProductFace(face) ||
+    face.debugMeta?.strokePosition !== 'outside'
+  ) {
+    return false
+  }
+
+  const joinOwnershipSignatures = [
+    face.debugMeta?.joinOwnershipSignature,
+    ...(face.debugMeta?.joinOwnershipSignatures ?? [])
+  ].filter((signature): signature is string => Boolean(signature))
+  return (
+    joinOwnershipSignatures.includes('join-owned-terminal-body') ||
+    face.debugMeta?.productSignature?.includes(':join-owned-terminal-body:') ===
+      true
+  )
+}
 
 const getConstrainedDashedVisualCoverageKey = (
   face: ArrangedStrokeFinalFace
@@ -1065,7 +1425,7 @@ const getConstrainedDashedVisualCoverageKey = (
   }
 
   const debugMeta = face.debugMeta
-  return [
+  const baseKey = [
     'constrained-dashed-visual-coverage',
     face.paintKey,
     debugMeta?.networkId ?? 'unknown-network',
@@ -1075,6 +1435,41 @@ const getConstrainedDashedVisualCoverageKey = (
     debugMeta?.strokeWidth ?? 'unknown-stroke-width',
     debugMeta?.strokeCap ?? 'unknown-stroke-cap',
     debugMeta?.strokeJoin ?? 'unknown-stroke-join'
+  ]
+  const joinOwnershipSignatures = [
+    debugMeta?.joinOwnershipSignature,
+    ...(debugMeta?.joinOwnershipSignatures ?? [])
+  ].filter((signature): signature is string => Boolean(signature))
+  const isJoinOwnedTerminalBody =
+    joinOwnershipSignatures.includes('join-owned-terminal-body') ||
+    debugMeta?.productSignature?.includes(':join-owned-terminal-body:') === true
+  if (!isJoinOwnedTerminalBody) {
+    return baseKey.join('|')
+  }
+
+  if (debugMeta?.strokePosition === 'inside') {
+    const joinRecord = debugMeta.joinOwnershipRecords?.[0]
+    const vertex = joinRecord?.vertex
+    return [
+      ...baseKey,
+      'join-owned-terminal-body',
+      'inside-terminal',
+      vertex
+        ? `${vertex.x.toFixed(3)},${vertex.y.toFixed(3)}`
+        : (debugMeta.productSignature?.match(
+            /boundary-terminal-pair:([^:]+,[^:]+)/
+          )?.[1] ?? 'unknown-vertex'),
+      joinRecord?.selectedSide ?? debugMeta.domainPlanSelectedSide ?? 'side'
+    ].join('|')
+  }
+
+  return [
+    ...baseKey,
+    'join-owned-terminal-body',
+    debugMeta?.intervalId ?? face.intervalIds.join(','),
+    debugMeta?.domainPlanSplitRangeId ?? 'no-split-range',
+    debugMeta?.domainPlanTerminalRole ?? 'no-terminal-role',
+    debugMeta?.dashEndpointCapPolicySignature ?? 'no-endpoint-cap-policy'
   ].join('|')
 }
 
@@ -1109,6 +1504,7 @@ const canCollapseVisualOverlapExactly = (faces: ArrangedStrokeFinalFace[]) =>
   faces.every(
     (face) =>
       !isDomainPlanConstrainedSolidFace(face) &&
+      !isConstrainedDashedDescriptorFace(face) &&
       !(
         isSelfIntersectingConstrainedSolidFace(face) &&
         !isExactArrangementFace(face)
@@ -1131,8 +1527,53 @@ const canCollapseDomainPlanConstrainedSolidVisualOverlapByUnion = (
       (face) =>
         isDomainPlanConstrainedSolidFace(face) &&
         isSelfIntersectingConstrainedSolidFace(face) &&
-        face.debugMeta?.visualOverlapCollapseStatus !==
-          'domain-plan-selected-side-arrangement'
+        face.debugMeta?.visualOverlapCollapseStatus !== 'exact-arrangement'
+    )
+  )
+}
+
+const canCollapseConstrainedDashedVisualOverlapByLegalDomain = (
+  faces: ArrangedStrokeFinalFace[],
+  options: {
+    hasLegalDomains: boolean
+  }
+) => {
+  if (!options.hasLegalDomains || faces.length < 2) {
+    return false
+  }
+
+  const strokeIds = new Set(
+    faces.map((face) => face.debugMeta?.strokeId).filter(Boolean)
+  )
+  return (
+    strokeIds.size <= 1 &&
+    faces.every(
+      (face) =>
+        isConstrainedDashedProductFace(face) &&
+        !isConstrainedDashedDescriptorFace(face) &&
+        face.debugMeta?.strokePosition === 'inside' &&
+        face.debugMeta?.visualOverlapCollapseStatus === undefined
+    )
+  )
+}
+
+const canCollapseConstrainedDashedVisualOverlapByUnion = (
+  faces: ArrangedStrokeFinalFace[]
+) => {
+  if (faces.length < 2) {
+    return false
+  }
+
+  const strokeIds = new Set(
+    faces.map((face) => face.debugMeta?.strokeId).filter(Boolean)
+  )
+  return (
+    strokeIds.size <= 1 &&
+    faces.every(
+      (face) =>
+        isConstrainedDashedProductFace(face) &&
+        face.debugMeta?.strokePosition === 'outside' &&
+        face.debugMeta?.visualOverlapCollapseStatus === undefined
     )
   )
 }
@@ -1170,6 +1611,112 @@ const isCenterPathSelfIntersectingSingleFaceCollapse = (
   )
 }
 
+const shouldMergeOutsideJoinOwnedTerminalBodyByUnion = (
+  faces: ArrangedStrokeFinalFace[]
+) =>
+  faces.length >= 2 &&
+  faces.every(isOutsideJoinOwnedTerminalBodyConstrainedDashedFace)
+
+const getVisualOverlapPolygonKey = (polygon: Vec2[]) =>
+  polygon
+    .map((point) => `${point.x.toFixed(6)},${point.y.toFixed(6)}`)
+    .join('|')
+
+const mergeOutsideJoinOwnedTerminalBodyFaceGroup = (
+  faces: ArrangedStrokeFinalFace[]
+): ArrangedStrokeFinalFace[] => {
+  const [primaryFace] = faces
+  if (!primaryFace) {
+    return []
+  }
+
+  const {
+    sourceGeometryIds,
+    ownerSet,
+    intervalIds,
+    sourceSpanIds,
+    sourceNetworkIds,
+    sourceContourIds,
+    legalDomainIds,
+    domainPlanSplitRangeTerminals,
+    dashProductIntervals,
+    joinOwnershipRecords,
+    dashEndpointCapPolicySignatures,
+    joinOwnershipSignatures,
+    smoothContinuityGroupIds
+  } = collectMergedFaceMetadata(faces)
+  const polygonKeys = new Set<string>()
+  const polygons = cleanVisualOverlapPolygons(
+    faces.flatMap((face) =>
+      face.polygons.filter((polygon) => {
+        const key = getVisualOverlapPolygonKey(polygon)
+        if (polygonKeys.has(key)) {
+          return false
+        }
+        polygonKeys.add(key)
+        return true
+      })
+    )
+  )
+  if (polygons.length === 0) {
+    return faces
+  }
+
+  const faceId = hashStableString(
+    'outside-terminal-body-visual-overlap-face',
+    `${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`
+  )
+
+  return [
+    {
+      ...primaryFace,
+      faceId,
+      sourceGeometryIds,
+      polygons,
+      bounds: getBounds(polygons),
+      renderDescriptor: undefined,
+      ownerSet,
+      intervalIds,
+      sourceSpanIds,
+      sourceNetworkIds,
+      sourceContourIds,
+      legalDomainIds,
+      debugMeta: {
+        ...primaryFace.debugMeta,
+        ownerSet,
+        intervalIds,
+        sourceSpanIds,
+        sourceNetworkIds,
+        sourceContourIds,
+        legalDomainIds,
+        domainPlanSplitRangeTerminals:
+          domainPlanSplitRangeTerminals.length > 0
+            ? domainPlanSplitRangeTerminals
+            : undefined,
+        dashProductIntervals:
+          dashProductIntervals.length > 0 ? dashProductIntervals : undefined,
+        joinOwnershipRecords:
+          joinOwnershipRecords.length > 0 ? joinOwnershipRecords : undefined,
+        dashEndpointCapPolicySignatures:
+          dashEndpointCapPolicySignatures.length > 0
+            ? dashEndpointCapPolicySignatures
+            : undefined,
+        joinOwnershipSignatures:
+          joinOwnershipSignatures.length > 0
+            ? joinOwnershipSignatures
+            : undefined,
+        smoothContinuityGroupIds:
+          smoothContinuityGroupIds.length > 0
+            ? smoothContinuityGroupIds
+            : undefined,
+        visualOverlapCollapseStatus: 'exact-union',
+        visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
+        visualOverlapSourceGeometryIds: sourceGeometryIds
+      }
+    }
+  ]
+}
+
 const mergeVisualOverlapFaceGroup = (
   faces: ArrangedStrokeFinalFace[],
   unionRegions: PolygonRegion[]
@@ -1187,9 +1734,16 @@ const mergeVisualOverlapFaceGroup = (
     sourceNetworkIds,
     sourceContourIds,
     legalDomainIds,
-    domainPlanSplitRangeTerminals
+    domainPlanSplitRangeTerminals,
+    dashProductIntervals,
+    joinOwnershipRecords,
+    dashEndpointCapPolicySignatures,
+    joinOwnershipSignatures,
+    smoothContinuityGroupIds
   } = collectMergedFaceMetadata(faces)
-  const polygons = unionRegions.flatMap(getRegionCoveragePolygons)
+  const polygons = cleanVisualOverlapPolygons(
+    unionRegions.flatMap(getRegionCoveragePolygons)
+  )
   const faceId = hashStableString(
     'visual-overlap-face',
     `${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`
@@ -1219,6 +1773,22 @@ const mergeVisualOverlapFaceGroup = (
         domainPlanSplitRangeTerminals.length > 0
           ? domainPlanSplitRangeTerminals
           : undefined,
+      dashProductIntervals:
+        dashProductIntervals.length > 0 ? dashProductIntervals : undefined,
+      joinOwnershipRecords:
+        joinOwnershipRecords.length > 0 ? joinOwnershipRecords : undefined,
+      dashEndpointCapPolicySignatures:
+        dashEndpointCapPolicySignatures.length > 0
+          ? dashEndpointCapPolicySignatures
+          : undefined,
+      joinOwnershipSignatures:
+        joinOwnershipSignatures.length > 0
+          ? joinOwnershipSignatures
+          : undefined,
+      smoothContinuityGroupIds:
+        smoothContinuityGroupIds.length > 0
+          ? smoothContinuityGroupIds
+          : undefined,
       visualOverlapCollapseStatus: 'exact-union',
       visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
       visualOverlapSourceGeometryIds: sourceGeometryIds
@@ -1247,7 +1817,9 @@ const mergeCenterPathVisualOverlapFaceGroup = (
     legalDomainIds,
     domainPlanSplitRangeTerminals
   } = collectMergedFaceMetadata(faces)
-  const polygons = unionRegions.flatMap(getRegionCoveragePolygons)
+  const polygons = cleanVisualOverlapPolygons(
+    unionRegions.flatMap(getRegionCoveragePolygons)
+  )
   const faceId = hashStableString(
     'center-product-visual-overlap-face',
     `${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`
@@ -1301,9 +1873,16 @@ const mergeVisualOverlapArrangementFaceGroup = (
     sourceNetworkIds,
     sourceContourIds,
     legalDomainIds,
-    domainPlanSplitRangeTerminals
+    domainPlanSplitRangeTerminals,
+    dashProductIntervals,
+    joinOwnershipRecords,
+    dashEndpointCapPolicySignatures,
+    joinOwnershipSignatures,
+    smoothContinuityGroupIds
   } = collectMergedFaceMetadata(faces)
-  const polygons = getRegionCoveragePolygons(arrangementFace.geometry)
+  const polygons = cleanVisualOverlapPolygons(
+    getRegionCoveragePolygons(arrangementFace.geometry)
+  )
   const faceId = hashStableString(
     'visual-overlap-arranged-face',
     `${arrangementFace.faceId}|${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`
@@ -1331,6 +1910,22 @@ const mergeVisualOverlapArrangementFaceGroup = (
       sourceContourIds,
       legalDomainIds,
       domainPlanSplitRangeTerminals,
+      dashProductIntervals:
+        dashProductIntervals.length > 0 ? dashProductIntervals : undefined,
+      joinOwnershipRecords:
+        joinOwnershipRecords.length > 0 ? joinOwnershipRecords : undefined,
+      dashEndpointCapPolicySignatures:
+        dashEndpointCapPolicySignatures.length > 0
+          ? dashEndpointCapPolicySignatures
+          : undefined,
+      joinOwnershipSignatures:
+        joinOwnershipSignatures.length > 0
+          ? joinOwnershipSignatures
+          : undefined,
+      smoothContinuityGroupIds:
+        smoothContinuityGroupIds.length > 0
+          ? smoothContinuityGroupIds
+          : undefined,
       visualOverlapCollapseStatus: 'exact-arrangement',
       visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
       visualOverlapSourceGeometryIds: sourceGeometryIds,
@@ -1362,9 +1957,16 @@ const mergeDomainPlanVisualOverlapArrangementFaceGroup = (
     sourceNetworkIds,
     sourceContourIds,
     legalDomainIds,
-    domainPlanSplitRangeTerminals
+    domainPlanSplitRangeTerminals,
+    dashProductIntervals,
+    joinOwnershipRecords,
+    dashEndpointCapPolicySignatures,
+    joinOwnershipSignatures,
+    smoothContinuityGroupIds
   } = collectMergedFaceMetadata(faces)
-  const polygons = getRegionCoveragePolygons(arrangementFace.geometry)
+  const polygons = cleanVisualOverlapPolygons(
+    getRegionCoveragePolygons(arrangementFace.geometry)
+  )
   const faceId = hashStableString(
     'domain-plan-visual-overlap-arranged-face',
     `${arrangementFace.faceId}|${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`
@@ -1392,7 +1994,23 @@ const mergeDomainPlanVisualOverlapArrangementFaceGroup = (
       sourceContourIds,
       legalDomainIds,
       domainPlanSplitRangeTerminals,
-      visualOverlapCollapseStatus: 'domain-plan-selected-side-arrangement',
+      dashProductIntervals:
+        dashProductIntervals.length > 0 ? dashProductIntervals : undefined,
+      joinOwnershipRecords:
+        joinOwnershipRecords.length > 0 ? joinOwnershipRecords : undefined,
+      dashEndpointCapPolicySignatures:
+        dashEndpointCapPolicySignatures.length > 0
+          ? dashEndpointCapPolicySignatures
+          : undefined,
+      joinOwnershipSignatures:
+        joinOwnershipSignatures.length > 0
+          ? joinOwnershipSignatures
+          : undefined,
+      smoothContinuityGroupIds:
+        smoothContinuityGroupIds.length > 0
+          ? smoothContinuityGroupIds
+          : undefined,
+      visualOverlapCollapseStatus: 'exact-arrangement',
       visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
       visualOverlapSourceGeometryIds: sourceGeometryIds,
       arrangementFaceId: arrangementFace.faceId,
@@ -1401,6 +2019,94 @@ const mergeDomainPlanVisualOverlapArrangementFaceGroup = (
       )
     }
   }
+}
+
+const collapseConstrainedDashedLegalDomainVisualOverlapFaceGroupByUnion = (
+  faces: ArrangedStrokeFinalFace[],
+  options: Pick<
+    StrokeVisualOverlapCollapseOptions,
+    'backend' | 'fillRule' | 'legalDomains'
+  >
+): ArrangedStrokeFinalFace[] => {
+  const legalDomains = options.legalDomains ?? []
+  const intersection = options.backend.intersection
+  if (
+    faces.length < 2 ||
+    legalDomains.length === 0 ||
+    typeof intersection !== 'function'
+  ) {
+    return []
+  }
+
+  const fillRule = getLegalDomainFillRule(legalDomains)
+  const legalRegions = measureVectorRenderPhase(
+    'visual overlap collapse: legal-domain regions',
+    () => getLegalDomainRegions(legalDomains, options.backend, fillRule)
+  ).filter(hasRegionGeometry)
+  if (legalRegions.length === 0) {
+    return []
+  }
+
+  const unionRegions = measureVectorRenderPhase(
+    'visual overlap collapse: legal union',
+    () =>
+      options.backend
+        .union(getVisualCollapseRegions(faces), options.fillRule ?? 'nonzero')
+        .filter(hasRegionGeometry)
+  )
+  if (unionRegions.length === 0) {
+    return []
+  }
+
+  const clippedRegions = measureVectorRenderPhase(
+    'visual overlap collapse: legal intersection',
+    () =>
+      intersection(unionRegions, legalRegions, fillRule).filter(
+        hasRegionGeometry
+      )
+  )
+  if (clippedRegions.length === 0) {
+    return []
+  }
+
+  const mergedFace = mergeVisualOverlapFaceGroup(faces, clippedRegions)
+  const mergedDebugMeta = mergedFace.debugMeta
+  const mergedJoinOwnershipSignatures = [
+    mergedDebugMeta?.joinOwnershipSignature,
+    ...(mergedDebugMeta?.joinOwnershipSignatures ?? []),
+    ...(mergedDebugMeta?.dashProductIntervals ?? []).map(
+      (interval) => interval.joinOwnershipSignature
+    )
+  ].filter((signature): signature is string => Boolean(signature))
+  const hasJoinOwnedTerminalBody =
+    mergedJoinOwnershipSignatures.includes('join-owned-terminal-body') ||
+    faces.some(
+      (face) =>
+        face.debugMeta?.productSignature?.includes(
+          ':join-owned-terminal-body:'
+        ) === true
+    )
+
+  return [
+    hasJoinOwnedTerminalBody && mergedDebugMeta?.strokePosition === 'inside'
+      ? {
+          ...mergedFace,
+          debugMeta: {
+            ...mergedDebugMeta,
+            productSignature: [
+              'constrained-dashed',
+              'inside',
+              'legal-domain-union',
+              'join-owned-terminal-body',
+              hashStableString(
+                'legal-union-intervals',
+                mergedFace.intervalIds.join('|')
+              )
+            ].join(':')
+          }
+        }
+      : mergedFace
+  ]
 }
 
 const collapseVisualOverlapFaceGroupByArrangement = (
@@ -1576,19 +2282,37 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
 
     const shouldUseUnionOnlyCollapse =
       canCollapseDomainPlanConstrainedSolidVisualOverlapByUnion(group)
+    const shouldUseConstrainedDashedUnionCollapse =
+      canCollapseConstrainedDashedVisualOverlapByUnion(group)
+    const shouldUseConstrainedDashedLegalDomainCollapse =
+      canCollapseConstrainedDashedVisualOverlapByLegalDomain(group, {
+        hasLegalDomains: (options.legalDomains?.length ?? 0) > 0
+      })
+    const shouldUseLegalDomainArrangementCollapse =
+      shouldUseUnionOnlyCollapse ||
+      shouldUseConstrainedDashedLegalDomainCollapse
+    if (
+      shouldUseConstrainedDashedLegalDomainCollapse &&
+      (!canUseArrangement || !options.backend.buildArrangement)
+    ) {
+      return false
+    }
     if (shouldUseUnionOnlyCollapse && !canUseUnion && !canUseArrangement) {
       return false
     }
     if (
-      !shouldUseUnionOnlyCollapse &&
+      !shouldUseLegalDomainArrangementCollapse &&
+      !shouldUseConstrainedDashedUnionCollapse &&
       !canCollapseVisualOverlapExactly(group)
     ) {
       return false
     }
 
     return (
-      !canTrustExactArrangementPartition(group) &&
-      shouldAttemptVisualOverlapCollapse(group)
+      (!canTrustExactArrangementPartition(group) ||
+        shouldUseConstrainedDashedLegalDomainCollapse ||
+        shouldUseConstrainedDashedUnionCollapse) &&
+      shouldAttemptVisualOverlapCollapse(group, options)
     )
   })
   if (!hasCollapsibleGroup) {
@@ -1630,21 +2354,41 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
 
     const shouldUseUnionOnlyCollapse =
       canCollapseDomainPlanConstrainedSolidVisualOverlapByUnion(group)
+    const shouldUseConstrainedDashedUnionCollapse =
+      canCollapseConstrainedDashedVisualOverlapByUnion(group)
+    const shouldUseConstrainedDashedLegalDomainCollapse =
+      canCollapseConstrainedDashedVisualOverlapByLegalDomain(group, {
+        hasLegalDomains: (options.legalDomains?.length ?? 0) > 0
+      })
+    const shouldUseLegalDomainArrangementCollapse =
+      shouldUseUnionOnlyCollapse ||
+      shouldUseConstrainedDashedLegalDomainCollapse
+    if (
+      shouldUseConstrainedDashedLegalDomainCollapse &&
+      (!canUseArrangement || !options.backend.buildArrangement)
+    ) {
+      return group
+    }
     if (shouldUseUnionOnlyCollapse && !canUseUnion && !canUseArrangement) {
       return group
     }
     if (
-      !shouldUseUnionOnlyCollapse &&
+      !shouldUseLegalDomainArrangementCollapse &&
+      !shouldUseConstrainedDashedUnionCollapse &&
       !canCollapseVisualOverlapExactly(group)
     ) {
       return group
     }
 
-    if (canTrustExactArrangementPartition(group)) {
+    if (
+      canTrustExactArrangementPartition(group) &&
+      !shouldUseConstrainedDashedLegalDomainCollapse &&
+      !shouldUseConstrainedDashedUnionCollapse
+    ) {
       return group
     }
 
-    if (!shouldAttemptVisualOverlapCollapse(group)) {
+    if (!shouldAttemptVisualOverlapCollapse(group, options)) {
       return group
     }
 
@@ -1682,8 +2426,27 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
       return [mergeCenterPathVisualOverlapFaceGroup(group, unionRegions)]
     }
 
+    if (shouldMergeOutsideJoinOwnedTerminalBodyByUnion(group)) {
+      return mergeOutsideJoinOwnedTerminalBodyFaceGroup(group)
+    }
+
+    if (shouldUseConstrainedDashedLegalDomainCollapse && canUseUnion) {
+      const clippedUnionCollapse =
+        collapseConstrainedDashedLegalDomainVisualOverlapFaceGroupByUnion(
+          group,
+          options
+        )
+      if (clippedUnionCollapse.length > 0) {
+        return clippedUnionCollapse
+      }
+    }
+
     const buildArrangement = options.backend.buildArrangement
-    if (shouldUseUnionOnlyCollapse && canUseArrangement && buildArrangement) {
+    if (
+      shouldUseLegalDomainArrangementCollapse &&
+      canUseArrangement &&
+      buildArrangement
+    ) {
       const domainPlanArrangedCollapse =
         collapseDomainPlanVisualOverlapFaceGroupByArrangement(group, {
           backend: { ...options.backend, buildArrangement },
@@ -1696,6 +2459,7 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
 
     if (
       !shouldUseUnionOnlyCollapse &&
+      !shouldUseConstrainedDashedUnionCollapse &&
       group.length >= 2 &&
       canUseArrangement &&
       buildArrangement
@@ -1706,7 +2470,7 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
       )
       if (
         arrangedCollapse.length > 0 &&
-        !shouldAttemptVisualOverlapCollapse(arrangedCollapse)
+        !shouldAttemptVisualOverlapCollapse(arrangedCollapse, options)
       ) {
         return arrangedCollapse
       }
@@ -1740,3 +2504,137 @@ export const collapseStrokeFinalFaceVisualOverlaps = (
 
   return collapsedFaces
 }
+
+export type StrokeLegalityRoute =
+  | 'center-bypass'
+  | 'inside-fill-clip'
+  | 'outside-exterior-clip'
+  | 'missing-legal-domain'
+
+export interface StrokeLegalityProductPacket {
+  productId: string
+  productMode: string
+  ownerStage: string
+  polygons: Vec2[][]
+}
+
+export interface StrokeLegalityDiagnostic {
+  severity: 'warning' | 'error'
+  reason: string
+}
+
+export interface ApplyStrokeProductLegalityInput {
+  productPackets: StrokeLegalityProductPacket[]
+  legalityRoute: StrokeLegalityRoute
+  legalDomainIds: string[]
+  contourIds: string[]
+  clippedProductPolygons?: Vec2[][]
+  clipPolygons?: Vec2[][]
+  fillClipPolygons?: Vec2[][]
+  fillExcludePolygons?: Vec2[][]
+  descriptorEvidencePolygons?: Vec2[][]
+}
+
+export interface StrokeLegalityAppliedProduct {
+  productId: string
+  sourceProductId: string
+  productMode: 'post-legality-product'
+  sourceProductMode: string
+  ownerStage: 'Stroke Geometry legality clipping'
+  sourceOwnerStage: string
+  legalityRoute: StrokeLegalityRoute
+  legalDomainIds: string[]
+  contourIds: string[]
+  visiblePolygons: Vec2[][]
+  evidenceChannels: Partial<
+    Record<
+      | 'clipPolygons'
+      | 'fillClipPolygons'
+      | 'fillExcludePolygons'
+      | 'descriptorEvidencePolygons',
+      Vec2[][]
+    >
+  >
+  channelSeparation: {
+    visible: 'legality-clipped-product-polygons'
+    evidence: string[]
+  }
+  diagnostics: StrokeLegalityDiagnostic[]
+}
+
+const setLegalityEvidenceChannel = (
+  evidenceChannels: StrokeLegalityAppliedProduct['evidenceChannels'],
+  name: keyof StrokeLegalityAppliedProduct['evidenceChannels'],
+  polygons: Vec2[][] | undefined
+) => {
+  if (polygons && polygons.length > 0) {
+    evidenceChannels[name] = polygons
+  }
+}
+
+const getStrokeLegalityDiagnostics = (
+  route: StrokeLegalityRoute
+): StrokeLegalityDiagnostic[] =>
+  route === 'missing-legal-domain'
+    ? [
+        {
+          severity: 'warning',
+          reason: 'missing-legal-domain'
+        }
+      ]
+    : []
+
+const getStrokeLegalityVisiblePolygons = (
+  packet: StrokeLegalityProductPacket,
+  input: ApplyStrokeProductLegalityInput
+) =>
+  input.clippedProductPolygons && input.clippedProductPolygons.length > 0
+    ? input.clippedProductPolygons
+    : packet.polygons
+
+export const applyStrokeProductLegality = (
+  input: ApplyStrokeProductLegalityInput
+): StrokeLegalityAppliedProduct[] =>
+  input.productPackets.map((packet) => {
+    const evidenceChannels: StrokeLegalityAppliedProduct['evidenceChannels'] =
+      {}
+    setLegalityEvidenceChannel(
+      evidenceChannels,
+      'clipPolygons',
+      input.clipPolygons
+    )
+    setLegalityEvidenceChannel(
+      evidenceChannels,
+      'fillClipPolygons',
+      input.fillClipPolygons
+    )
+    setLegalityEvidenceChannel(
+      evidenceChannels,
+      'fillExcludePolygons',
+      input.fillExcludePolygons
+    )
+    setLegalityEvidenceChannel(
+      evidenceChannels,
+      'descriptorEvidencePolygons',
+      input.descriptorEvidencePolygons
+    )
+
+    return {
+      productId: `${packet.productId}:post-legality`,
+      sourceProductId: packet.productId,
+      productMode: 'post-legality-product',
+      sourceProductMode: packet.productMode,
+      ownerStage: 'Stroke Geometry legality clipping',
+      sourceOwnerStage: packet.ownerStage,
+      legalityRoute: input.legalityRoute,
+      legalDomainIds: input.legalDomainIds,
+      contourIds: input.contourIds,
+      visiblePolygons: getStrokeLegalityVisiblePolygons(packet, input),
+      evidenceChannels,
+      channelSeparation: {
+        visible: 'legality-clipped-product-polygons',
+        evidence: Object.keys(evidenceChannels)
+      },
+      diagnostics: getStrokeLegalityDiagnostics(input.legalityRoute)
+    }
+  })

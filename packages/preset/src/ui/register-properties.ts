@@ -168,9 +168,8 @@ const areStrokesEqual = (a: StrokeAttrs, b: StrokeAttrs) =>
   a.style === b.style &&
   a.position === b.position &&
   a.width === b.width &&
-  a.dashOffset === b.dashOffset &&
-  a.dashPattern.length === b.dashPattern.length &&
-  a.dashPattern.every((entry, index) => entry === b.dashPattern[index]) &&
+  a.dash === b.dash &&
+  a.gap === b.gap &&
   areStrokeFillPayloadsEqual(a.fill, b.fill) &&
   a.joinType === b.joinType &&
   a.miterAngle === b.miterAngle &&
@@ -362,16 +361,6 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
   core.defineUIProperty<string>('primaryTool', {
     defaultValue: DEFAULT_PRIMARY_TOOL,
     source$: primaryToolObservable
-  })
-
-  const strokeDebugDisableVisualOverlapCollapseObservable =
-    core.defineSystemProperty<boolean>(
-      'strokeDebugDisableVisualOverlapCollapse',
-      false
-    )
-  core.defineUIProperty<boolean>('strokeDebugDisableVisualOverlapCollapse', {
-    defaultValue: false,
-    source$: strokeDebugDisableVisualOverlapCollapseObservable
   })
 
   core.defineSystemProperty('systemMode', DefaultSystemSnapshot.mode)

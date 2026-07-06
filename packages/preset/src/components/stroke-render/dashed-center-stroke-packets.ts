@@ -4,6 +4,7 @@ import {
   type StrokeIntervalFrame
 } from './stroke-interval-frames'
 import {
+  getRenderableStrokeDashAndGap,
   getRenderableStrokes,
   type RenderableStroke
 } from './renderable-stroke'
@@ -96,6 +97,64 @@ const buildInflatedBoundsPolygon = (points: Vec2[], padding: number) => {
 }
 
 const EPSILON = 1e-6
+
+const getConvexHullTurn = (origin: Vec2, a: Vec2, b: Vec2) =>
+  (a.x - origin.x) * (b.y - origin.y) - (a.y - origin.y) * (b.x - origin.x)
+
+const buildConvexHullPolygon = (points: Vec2[]) => {
+  const sortedPoints = points
+    .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
+    .sort((a, b) => (a.x === b.x ? a.y - b.y : a.x - b.x))
+
+  const uniquePoints: Vec2[] = []
+  sortedPoints.forEach((point) => {
+    const previous = uniquePoints[uniquePoints.length - 1]
+    if (
+      !previous ||
+      Math.abs(previous.x - point.x) > EPSILON ||
+      Math.abs(previous.y - point.y) > EPSILON
+    ) {
+      uniquePoints.push(point)
+    }
+  })
+
+  if (uniquePoints.length < 3) {
+    return []
+  }
+
+  const lowerHull: Vec2[] = []
+  uniquePoints.forEach((point) => {
+    while (
+      lowerHull.length >= 2 &&
+      getConvexHullTurn(
+        lowerHull[lowerHull.length - 2],
+        lowerHull[lowerHull.length - 1],
+        point
+      ) <= EPSILON
+    ) {
+      lowerHull.pop()
+    }
+    lowerHull.push(point)
+  })
+
+  const upperHull: Vec2[] = []
+  ;[...uniquePoints].reverse().forEach((point) => {
+    while (
+      upperHull.length >= 2 &&
+      getConvexHullTurn(
+        upperHull[upperHull.length - 2],
+        upperHull[upperHull.length - 1],
+        point
+      ) <= EPSILON
+    ) {
+      upperHull.pop()
+    }
+    upperHull.push(point)
+  })
+
+  const hull = [...lowerHull.slice(0, -1), ...upperHull.slice(0, -1)]
+  return hull.length >= 3 ? hull : []
+}
 
 const normalizeVector = (vector: Vec2): Vec2 | null => {
   const length = Math.hypot(vector.x, vector.y)
@@ -363,13 +422,14 @@ export const supportsDashedCenterStroke = (
     | 'join'
     | 'miterLimit'
     | 'cap'
-    | 'dashPattern'
+    | 'dash'
+    | 'gap'
   >
 ) =>
   stroke.style === 'dashed' &&
   stroke.position === 'center' &&
   stroke.width > 0 &&
-  stroke.dashPattern.length > 0 &&
+  getRenderableStrokeDashAndGap(stroke) !== null &&
   (stroke.join === 'miter' ||
     stroke.join === 'bevel' ||
     stroke.join === 'round') &&
@@ -384,7 +444,7 @@ export const hasDashedCenterStrokeIntent = (
       stroke.style === 'dashed' &&
       stroke.position === 'center' &&
       stroke.width > 0 &&
-      stroke.dashPattern.length > 0
+      getRenderableStrokeDashAndGap(stroke) !== null
   ) === true
 
 export const buildDashedCenterStrokeResolvedPackets = (
@@ -415,6 +475,10 @@ export const buildDashedCenterStrokeResolvedPackets = (
     if (!supportsDashedCenterStroke(stroke)) {
       return []
     }
+    const dashAndGap = getRenderableStrokeDashAndGap(stroke)
+    if (!dashAndGap) {
+      return []
+    }
 
     const halfWidth = stroke.width / 2
     const intervalSourceFrames: StrokeIntervalFrame[] = topologyPoints.map(
@@ -431,8 +495,7 @@ export const buildDashedCenterStrokeResolvedPackets = (
     )
     const intervals = allocateDashedIntervalsForTopology(
       intervalDomain,
-      stroke.dashPattern,
-      stroke.dashOffset,
+      dashAndGap,
       intervalDomain.closed
         ? undefined
         : {
@@ -530,7 +593,7 @@ export const buildDashedCenterStrokeResolvedPackets = (
       const strokePathGroups: NonNullable<
         SolidCenterStrokeRenderDescriptor['strokePathGroups']
       > = []
-      const carrierPoints: Vec2[] = []
+      const carrierProductPoints: Vec2[] = []
       const intervalIds: string[] = []
       let wrapsSeam = false
 
@@ -556,7 +619,20 @@ export const buildDashedCenterStrokeResolvedPackets = (
         }
 
         intervalIds.push(interval.intervalId)
-        carrierPoints.push(...intervalPath)
+        const intervalProductPolygons = buildSolidCenterStrokePolygons(
+          intervalPath,
+          false,
+          {
+            style: 'solid',
+            position: 'center',
+            width: stroke.width,
+            join: stroke.join,
+            miterAngle: stroke.miterAngle,
+            miterLimit: stroke.miterLimit,
+            cap: stroke.cap
+          }
+        )
+        carrierProductPoints.push(...intervalProductPolygons.flat())
         wrapsSeam = wrapsSeam || interval.wrapsSeam
         strokePathGroups.push({
           strokePaths: [intervalPath],
@@ -564,16 +640,14 @@ export const buildDashedCenterStrokeResolvedPackets = (
             width: stroke.width,
             cap: stroke.cap,
             join: stroke.join,
+            miterAngle: stroke.miterAngle,
             miterLimit: stroke.miterLimit,
             closed: false
           }
         })
       }
 
-      const carrierPolygon = buildInflatedBoundsPolygon(
-        carrierPoints,
-        stroke.width * Math.max(2, Math.min(8, stroke.miterLimit || 4))
-      )
+      const carrierPolygon = buildConvexHullPolygon(carrierProductPoints)
       if (carrierPolygon.length < 3) {
         return null
       }
@@ -616,6 +690,12 @@ export const buildDashedCenterStrokeResolvedPackets = (
         intervalId: firstInterval.intervalId,
         intervalIds,
         strokePosition: 'center',
+        strokeWidth: stroke.width,
+        strokeJoin: stroke.join,
+        strokeCap: stroke.cap,
+        strokeMiterLimit: stroke.miterLimit,
+        authoredJoin: stroke.join,
+        miterAngle: stroke.miterAngle,
         productMode: 'center-product',
         productSignature: 'center-product:dashed',
         domainMode: 'center-product',
@@ -775,6 +855,7 @@ export const buildDashedCenterStrokeResolvedPackets = (
                       width: stroke.width,
                       cap: stroke.cap,
                       join: stroke.join,
+                      miterAngle: stroke.miterAngle,
                       miterLimit: stroke.miterLimit,
                       closed: false
                     }
@@ -819,6 +900,7 @@ export const buildDashedCenterStrokeResolvedPackets = (
                   position: 'center',
                   width: stroke.width,
                   join: stroke.join,
+                  miterAngle: stroke.miterAngle,
                   miterLimit: stroke.miterLimit,
                   cap: stroke.cap
                 }
@@ -851,6 +933,12 @@ export const buildDashedCenterStrokeResolvedPackets = (
           strokeIndex,
           intervalId: interval.intervalId,
           strokePosition: 'center',
+          strokeWidth: stroke.width,
+          strokeJoin: stroke.join,
+          strokeCap: stroke.cap,
+          strokeMiterLimit: stroke.miterLimit,
+          authoredJoin: stroke.join,
+          miterAngle: stroke.miterAngle,
           productMode: 'center-product',
           productSignature: 'center-product:dashed',
           domainMode: 'center-product',

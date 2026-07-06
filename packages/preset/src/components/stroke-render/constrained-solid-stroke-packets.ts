@@ -32,6 +32,10 @@ import {
   isSimpleClosedPolygon,
   polygonArea
 } from './solid-stroke-geometry-core'
+import {
+  buildSourceVertexJoinFootprint,
+  type SourceVertexJoinFootprint
+} from './source-vertex-join-footprint'
 
 interface Vec2 {
   x: number
@@ -95,6 +99,45 @@ interface ConstrainedSolidStrokePacketOptions {
   preferRenderMaskProductFinal?: boolean
 }
 
+export interface ConstrainedSolidDoubledCenterProductUnit {
+  productId: string
+  productFamilyId: 'constrained-solid'
+  productMode: 'pre-legality-constrained-solid-doubled-center'
+  geometryBasis: 'doubled-authored-center-stroke'
+  polygons: Vec2[][]
+  bounds: Bounds
+  legalSideId: string
+  strokePosition: 'inside' | 'outside'
+  sourceStrokeWidth: number
+  doubledCenterStrokeWidth: number
+  ownerStage: 'Stroke Geometry constrained solid product assembly'
+  debugMeta: {
+    sourcePathId: string
+    ownerKey?: string
+    networkId?: string
+    strokeId: string
+    strokeIndex: number
+    productFamilyId: 'constrained-solid'
+    productMode: 'pre-legality-constrained-solid-doubled-center'
+    geometryBasis: 'doubled-authored-center-stroke'
+    legalSideId: string
+    strokePosition: 'inside' | 'outside'
+  }
+}
+
+export interface BuildConstrainedSolidDoubledCenterProductUnitsInput {
+  cachePrefix: string
+  points: Vec2[]
+  closed: boolean
+  strokes: StrokeAttrs[] | undefined
+  productFamilyId: 'constrained-solid'
+  legalSideId: string
+  metadata?: {
+    ownerKeyPrefix?: string
+    networkId?: string
+  }
+}
+
 interface SourceSegmentRange {
   startDistance: number
   endDistance: number
@@ -107,12 +150,14 @@ interface ExactSolidCandidatePolygon {
   sourceSegmentIndex?: number
   sourceVertexIndex?: number
   sourceSpanIds: string[]
+  joinFootprint?: SourceVertexJoinFootprint
 }
 
 interface SourcePathVertexJoinCandidatePolygon {
   polygon: Vec2[]
   sourceVertexIndex: number
   sourceSpanIds?: string[]
+  joinFootprint?: SourceVertexJoinFootprint
 }
 
 interface OneSidedSegmentBodyCellPolygon {
@@ -977,6 +1022,62 @@ const buildOneSidedSmoothJoinBodyPolygon = (
     : null
 }
 
+const buildOneSidedSmoothJoinBodyPolygonWithOffsets = (
+  previousBoundary: Vec2[],
+  nextBoundary: Vec2[],
+  previousOffsetDistance: number,
+  nextOffsetDistance: number
+) => {
+  if (previousBoundary.length < 2 || nextBoundary.length < 2) {
+    return null
+  }
+
+  const sharedPreviousVertex = previousBoundary[previousBoundary.length - 1]
+  const sharedNextVertex = nextBoundary[0]
+  if (distanceBetween(sharedPreviousVertex, sharedNextVertex) > 0.75) {
+    return null
+  }
+
+  if (Math.abs(previousOffsetDistance - nextOffsetDistance) <= EPSILON) {
+    return buildOneSidedSmoothJoinBodyPolygon(
+      previousBoundary,
+      nextBoundary,
+      previousOffsetDistance
+    )
+  }
+
+  const previousSourcePoints = previousBoundary.map(normalizePoint)
+  const nextSourcePoints = nextBoundary.map(normalizePoint)
+  const sourcePoints = [...previousSourcePoints, ...nextSourcePoints.slice(1)]
+  if (sourcePoints.length < 3) {
+    return null
+  }
+
+  const previousOffsetPoints = previousSourcePoints.map((_, index) =>
+    getOffsetPointForSample(previousSourcePoints, index, previousOffsetDistance)
+  )
+  const nextOffsetPoints = nextSourcePoints.map((_, index) =>
+    getOffsetPointForSample(nextSourcePoints, index, nextOffsetDistance)
+  )
+  if (
+    previousOffsetPoints.some((point) => point === null) ||
+    nextOffsetPoints.some((point) => point === null)
+  ) {
+    return null
+  }
+
+  const offsetBoundary = [
+    ...(previousOffsetPoints as Vec2[]),
+    ...(nextOffsetPoints as Vec2[]).slice(1)
+  ]
+  const polygon = cleanPolygon([...sourcePoints, ...offsetBoundary.reverse()])
+  return polygon.length >= 3 &&
+    isSimpleClosedPolygon(polygon) &&
+    Math.abs(polygonArea(polygon)) > EPSILON
+    ? polygon
+    : null
+}
+
 const buildOneSidedSegmentBodyCellPolygons = (
   points: Vec2[],
   offsetDistance: number,
@@ -1198,6 +1299,31 @@ const shouldRespectSmoothGuardAtSourceJoin = (
   )
 }
 
+const isAuthoredSmoothSourceJoin = (
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed'>,
+  previousSegment: PathSegment,
+  nextSegment: PathSegment,
+  previousSegmentIndex: number,
+  previousDirection: Vec2,
+  nextDirection: Vec2
+) => {
+  if (
+    previousSegment.endAnchorType !== 'smooth' ||
+    nextSegment.startAnchorType !== 'smooth'
+  ) {
+    return false
+  }
+
+  if (!isClosedSourcePathSeamJoin(sourcePath, previousSegmentIndex)) {
+    return true
+  }
+
+  return (
+    getSourceJoinTurnAngle(previousDirection, nextDirection) <
+    SMOOTH_SEAM_CORNER_TURN_ANGLE
+  )
+}
+
 const buildJoinArcPoints = (
   center: Vec2,
   start: Vec2,
@@ -1326,6 +1452,60 @@ const getGuardPointForSourceSegmentJoin = (
       (previousSegmentIndex + 1) % normalizedGuardPoints.length
     ]
   return guard && distanceBetween(guard, vertex) <= 0.75 ? guard : undefined
+}
+
+const hasAuthoredSharpSourceJoinBoundary = (
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed'>,
+  selectedSideGuardPoints: SelectedSideGuardPoint[] | undefined
+) => {
+  if (!sourcePath.closed || sourcePath.segments.length < 2) {
+    return false
+  }
+
+  return sourcePath.segments.some((previousSegment, previousIndex) => {
+    const nextSegment =
+      sourcePath.segments[(previousIndex + 1) % sourcePath.segments.length]
+    if (
+      !nextSegment ||
+      distanceBetween(previousSegment.end, nextSegment.start) > 0.5
+    ) {
+      return false
+    }
+
+    const previousDirection = getSegmentEndDirection(previousSegment)
+    const nextDirection = getSegmentStartDirection(nextSegment)
+    if (!previousDirection || !nextDirection) {
+      return false
+    }
+
+    if (
+      isAuthoredSmoothSourceJoin(
+        sourcePath,
+        previousSegment,
+        nextSegment,
+        previousIndex,
+        previousDirection,
+        nextDirection
+      )
+    ) {
+      return false
+    }
+
+    const guardPoint = getGuardPointForSourceSegmentJoin(
+      selectedSideGuardPoints,
+      previousIndex,
+      sourcePath,
+      previousSegment.end
+    )
+
+    return !shouldRespectSmoothGuardAtSourceJoin(
+      guardPoint,
+      sourcePath,
+      previousIndex,
+      previousDirection,
+      nextDirection
+    )
+  })
 }
 
 const buildSourceSegmentBoundary = (segment: PathSegment | undefined) =>
@@ -1882,7 +2062,7 @@ const buildSourcePathVertexJoinCandidatePolygons = (
   sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   stroke: Pick<
     ReturnType<typeof getRenderableStrokes>[number],
-    'position' | 'width' | 'join' | 'miterLimit'
+    'position' | 'width' | 'join' | 'miterAngle'
   >,
   options: {
     oneSidedOffsetDistance?: number
@@ -1913,16 +2093,27 @@ const buildSourcePathVertexJoinCandidatePolygons = (
     if (distanceBetween(vertex, nextVertex) > 0.5) {
       return []
     }
+    const previousDirection = getSegmentEndDirection(previousSegment)
+    const nextDirection = getSegmentStartDirection(nextSegment)
+    if (!previousDirection || !nextDirection) {
+      return []
+    }
     const guardPoint = getGuardPointForSourceSegmentJoin(
       options.selectedSideGuardPoints,
       previousIndex,
       sourcePath,
       vertex
     )
-
-    const previousDirection = getSegmentEndDirection(previousSegment)
-    const nextDirection = getSegmentStartDirection(nextSegment)
-    if (!previousDirection || !nextDirection) {
+    if (
+      isAuthoredSmoothSourceJoin(
+        sourcePath,
+        previousSegment,
+        nextSegment,
+        previousIndex,
+        previousDirection,
+        nextDirection
+      )
+    ) {
       return []
     }
     if (
@@ -1953,78 +2144,24 @@ const buildSourcePathVertexJoinCandidatePolygons = (
     ) {
       return []
     }
-    const previousStart = addPoint(vertex, scalePoint(previousDirection, -1))
-    const nextEnd = addPoint(vertex, nextDirection)
-    const previousOffsetStart = getOffsetPointOnLine(
-      previousStart,
-      previousStart,
+    const previousTangentPoint = addPoint(
       vertex,
-      previousOffset
+      scalePoint(previousDirection, -1)
     )
-    const previousOffsetEnd = getOffsetPointOnLine(
+    const nextTangentPoint = addPoint(vertex, nextDirection)
+    const joinFootprint = buildSourceVertexJoinFootprint({
       vertex,
-      previousStart,
-      vertex,
-      previousOffset
-    )
-    const nextOffsetStart = getOffsetPointOnLine(
-      vertex,
-      vertex,
-      nextEnd,
-      nextOffset
-    )
-    const nextOffsetEnd = getOffsetPointOnLine(
-      nextEnd,
-      vertex,
-      nextEnd,
-      nextOffset
-    )
-    if (
-      !previousOffsetStart ||
-      !previousOffsetEnd ||
-      !nextOffsetStart ||
-      !nextOffsetEnd
-    ) {
-      return []
-    }
-
-    let polygon =
-      stroke.join === 'round'
-        ? [
-            vertex,
-            ...buildJoinArcPoints(
-              vertex,
-              previousOffsetEnd,
-              nextOffsetStart,
-              crossPoints(
-                subtractPoint(vertex, previousStart),
-                subtractPoint(nextEnd, vertex)
-              ) *
-                previousOffset >=
-                0
-                ? -1
-                : 1
-            )
-          ]
-        : [vertex, previousOffsetEnd, nextOffsetStart]
-
-    if (stroke.join === 'miter') {
-      const joinPoint = lineIntersection(
-        previousOffsetStart,
-        previousOffsetEnd,
-        nextOffsetStart,
-        nextOffsetEnd
-      )
-      if (
-        joinPoint &&
-        distanceBetween(vertex, joinPoint) <=
-          stroke.miterLimit *
-            Math.max(Math.abs(previousOffset), Math.abs(nextOffset)) +
-            EPSILON
-      ) {
-        polygon = [vertex, previousOffsetEnd, joinPoint, nextOffsetStart]
-      }
-    }
+      previousPoint: previousTangentPoint,
+      nextPoint: nextTangentPoint,
+      strokeWidth: stroke.width,
+      offsetDistance: Math.max(Math.abs(previousOffset), Math.abs(nextOffset)),
+      side: previousOffset >= 0 ? 'left' : 'right',
+      authoredJoin: stroke.join,
+      miterAngle: stroke.miterAngle,
+      ownerId: `constrained-solid:source-vertex:${previousIndex}`,
+      angleSource: 'AUTHORED_CENTER_PATH_INCIDENT_TANGENTS'
+    })
+    const polygon = joinFootprint.polygon
 
     const cleaned = cleanPolygon(polygon)
     const joinPolygon =
@@ -2035,7 +2172,13 @@ const buildSourcePathVertexJoinCandidatePolygons = (
         : null
 
     return joinPolygon
-      ? [{ polygon: joinPolygon, sourceVertexIndex: previousIndex }]
+      ? [
+          {
+            polygon: joinPolygon,
+            sourceVertexIndex: previousIndex,
+            joinFootprint
+          }
+        ]
       : []
   })
 }
@@ -2044,7 +2187,7 @@ const buildSourcePathVertexJoinCandidateRecords = (
   sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   stroke: Pick<
     ReturnType<typeof getRenderableStrokes>[number],
-    'position' | 'width' | 'join' | 'miterLimit'
+    'position' | 'width' | 'join' | 'miterAngle'
   >,
   options: {
     oneSidedOffsetDistance?: number
@@ -2053,11 +2196,12 @@ const buildSourcePathVertexJoinCandidateRecords = (
   } = {}
 ): ExactSolidCandidatePolygon[] =>
   buildSourcePathVertexJoinCandidatePolygons(sourcePath, stroke, options).map(
-    ({ polygon, sourceVertexIndex, sourceSpanIds }) => ({
+    ({ joinFootprint, polygon, sourceVertexIndex, sourceSpanIds }) => ({
       polygon,
       role: 'vertex-join' as const,
       sourceVertexIndex,
-      sourceSpanIds: sourceSpanIds ?? [`vertex:${sourceVertexIndex}`]
+      sourceSpanIds: sourceSpanIds ?? [`vertex:${sourceVertexIndex}`],
+      joinFootprint
     })
   )
 
@@ -2097,15 +2241,27 @@ const buildSourcePathSmoothJoinCandidateRecords = (
       sourcePath,
       previousSegment.end
     )
-    if (guardPoint?.sharp !== false) {
-      return []
-    }
     const previousDirection = getSegmentEndDirection(previousSegment)
     const nextDirection = getSegmentStartDirection(nextSegment)
     if (!previousDirection || !nextDirection) {
       return []
     }
+    const hasAuthoredSmoothJoin = isAuthoredSmoothSourceJoin(
+      sourcePath,
+      previousSegment,
+      nextSegment,
+      previousIndex,
+      previousDirection,
+      nextDirection
+    )
+    if (guardPoint?.sharp === true) {
+      return []
+    }
+    if (!hasAuthoredSmoothJoin && guardPoint?.sharp !== false) {
+      return []
+    }
     if (
+      !hasAuthoredSmoothJoin &&
       !shouldRespectSmoothGuardAtSourceJoin(
         guardPoint,
         sourcePath,
@@ -2125,10 +2281,6 @@ const buildSourcePathSmoothJoinCandidateRecords = (
       options.oneSidedOffsetDistanceBySegment?.[nextIndex] ??
       options.oneSidedOffsetDistance ??
       getSegmentSideOffsetDistance(stroke)
-    if (Math.abs(previousOffset - nextOffset) > EPSILON) {
-      return []
-    }
-
     const reach = Math.min(
       stroke.width * 1.5,
       previousSegment.length * 0.1,
@@ -2138,10 +2290,11 @@ const buildSourcePathSmoothJoinCandidateRecords = (
       return []
     }
 
-    const polygon = buildOneSidedSmoothJoinBodyPolygon(
+    const polygon = buildOneSidedSmoothJoinBodyPolygonWithOffsets(
       getBoundaryTail(buildSourceSegmentBoundary(previousSegment), reach),
       getBoundaryHead(buildSourceSegmentBoundary(nextSegment), reach),
-      previousOffset
+      previousOffset,
+      nextOffset
     )
 
     return polygon
@@ -2267,6 +2420,86 @@ const flattenRegionPolygons = (regions: PolygonRegion[]): Vec2[][] =>
         polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON
     )
   )
+
+interface ExactSolidCandidateOwnerPartition {
+  candidateRecord: ExactSolidCandidatePolygon
+  candidateIndex: number
+  polygons: Vec2[][]
+}
+
+const buildExactArrangementCandidateOwnerPartitions = ({
+  candidateRecords,
+  backend,
+  excludeRegions = []
+}: {
+  candidateRecords: ExactSolidCandidatePolygon[]
+  backend: NonNullable<ConstrainedSolidStrokePacketOptions['exactBackend']>
+  excludeRegions?: PolygonRegion[]
+}): ExactSolidCandidateOwnerPartition[] => {
+  const materializedCandidates = candidateRecords.flatMap(
+    (candidateRecord, candidateIndex) => {
+      const candidateRegions = [{ polygons: [candidateRecord.polygon] }]
+      const legalRegions =
+        excludeRegions.length > 0
+          ? backend.difference(candidateRegions, excludeRegions, 'nonzero')
+          : candidateRegions
+      const normalizedRegions =
+        legalRegions.length > 0
+          ? backend.union(legalRegions, 'nonzero')
+          : legalRegions
+
+      return normalizedRegions.some(hasRegionGeometry)
+        ? [
+            {
+              candidateRecord,
+              candidateIndex,
+              regions: normalizedRegions
+            }
+          ]
+        : []
+    }
+  )
+
+  const prioritizedCandidates = [
+    ...materializedCandidates.filter(
+      ({ candidateRecord }) => candidateRecord.role === 'vertex-join'
+    ),
+    ...materializedCandidates.filter(
+      ({ candidateRecord }) => candidateRecord.role !== 'vertex-join'
+    )
+  ]
+  let claimedRegions: PolygonRegion[] = []
+
+  return prioritizedCandidates.flatMap(
+    ({ candidateRecord, candidateIndex, regions }) => {
+      const ownerRegions =
+        claimedRegions.length > 0
+          ? backend.difference(regions, claimedRegions, 'nonzero')
+          : regions
+      const normalizedOwnerRegions =
+        ownerRegions.length > 0
+          ? backend.union(ownerRegions, 'nonzero')
+          : ownerRegions
+      const polygons = flattenRegionPolygons(normalizedOwnerRegions)
+
+      if (polygons.length > 0) {
+        claimedRegions = backend
+          .union([...claimedRegions, ...normalizedOwnerRegions], 'nonzero')
+          .filter(hasRegionGeometry)
+      }
+
+      return polygons.length > 0
+        ? [
+            {
+              candidateRecord,
+              candidateIndex,
+              polygons
+            }
+          ]
+        : []
+    }
+  )
+}
 
 const buildSolidMaskModelSourceSpanIds = (
   sourcePath: Pick<PathGeometry, 'segments'>
@@ -2586,7 +2819,7 @@ const buildSolidMaskModelSourceCenterStrokePolygons = (
   sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   stroke: Pick<
     ReturnType<typeof getRenderableStrokes>[number],
-    'width' | 'join' | 'miterLimit'
+    'width' | 'join' | 'miterAngle' | 'miterLimit'
   >
 ) => {
   const path = normalizeClosedSourcePathWithImplicitClosingSegment(sourcePath)
@@ -2620,7 +2853,7 @@ const buildExactOffsetSourceCenterStrokeRegions = (
   const offsetRegions = backend.offset(sourcePath.sampledPoints, stroke.width, {
     width: stroke.width * 2,
     join: stroke.join,
-    cap: stroke.cap === 'none' ? 'butt' : stroke.cap,
+    cap: stroke.cap,
     closed: sourcePath.closed,
     miterLimit: stroke.miterLimit,
     fillRule
@@ -2628,6 +2861,56 @@ const buildExactOffsetSourceCenterStrokeRegions = (
 
   return offsetRegions.length > 0 ? backend.union(offsetRegions, fillRule) : []
 }
+
+const buildOutsideSmoothJoinRenderClipPolygons = (
+  sourcePath: Pick<
+    PathGeometry,
+    'segments' | 'closed' | 'totalLength' | 'sampledPoints'
+  >,
+  topologyPoints: Vec2[],
+  stroke: ReturnType<typeof getRenderableStrokes>[number],
+  selectedSideGuardPoints: SelectedSideGuardPoint[] | undefined,
+  fillRule: PathTopologyFillRule
+) =>
+  (() => {
+    const candidateSourcePath =
+      normalizeClosedSourcePathWithImplicitClosingSegment(sourcePath)
+    if (
+      !candidateSourcePath.closed ||
+      candidateSourcePath.segments.length < 2
+    ) {
+      return []
+    }
+
+    const authoredStroke = getSolidStrokeForExactCandidate({
+      ...stroke,
+      style: 'solid' as const
+    })
+    const oneSidedOffsetDistanceBySegment =
+      buildOneSidedOffsetDistanceBySourceSegment(
+        candidateSourcePath,
+        topologyPoints,
+        authoredStroke,
+        fillRule
+      )
+    const oneSidedOffsetDistance =
+      oneSidedOffsetDistanceBySegment[0] ??
+      getClosedContourSideOffsetDistance(topologyPoints, authoredStroke)
+
+    return buildSourcePathSmoothJoinCandidateRecords(
+      candidateSourcePath,
+      authoredStroke,
+      selectedSideGuardPoints,
+      {
+        oneSidedOffsetDistance,
+        oneSidedOffsetDistanceBySegment
+      }
+    ).map((candidate) =>
+      polygonArea(candidate.polygon) < 0
+        ? [...candidate.polygon].reverse()
+        : candidate.polygon
+    )
+  })()
 
 const _buildJoinReactiveInsideFaceCornerNeighborhoodPolygons = (
   legalFaceBoundaries: EvenOddLegalFaceBoundary[],
@@ -2743,16 +3026,18 @@ interface SolidMaskModelPolygonResult {
     strokePaths: Vec2[][]
     strokePathStyle?: {
       width: number
-      cap: 'butt' | 'square' | 'round' | 'none'
+      cap: 'butt' | 'square' | 'round'
       join: 'miter' | 'bevel' | 'round'
+      miterAngle: number
       miterLimit: number
       closed?: boolean
     }
   }[]
   renderStrokePathStyle?: {
     width: number
-    cap: 'butt' | 'square' | 'round' | 'none'
+    cap: 'butt' | 'square' | 'round'
     join: 'miter' | 'bevel' | 'round'
+    miterAngle: number
     miterLimit: number
     closed?: boolean
   }
@@ -2827,7 +3112,7 @@ const buildInsideAdjacencyStrokePathGroups = (
   legalFaceBoundaries: EvenOddLegalFaceBoundary[],
   stroke: Pick<
     ReturnType<typeof getRenderableStrokes>[number],
-    'width' | 'join' | 'miterLimit'
+    'width' | 'join' | 'miterAngle' | 'miterLimit'
   >
 ): {
   clipPolygons: Vec2[][]
@@ -2836,6 +3121,7 @@ const buildInsideAdjacencyStrokePathGroups = (
     width: number
     cap: 'butt'
     join: 'miter' | 'bevel' | 'round'
+    miterAngle: number
     miterLimit: number
     closed: true
   }
@@ -2848,6 +3134,7 @@ const buildInsideAdjacencyStrokePathGroups = (
         width: stroke.width * 2,
         cap: 'butt' as const,
         join: stroke.join,
+        miterAngle: stroke.miterAngle,
         miterLimit: stroke.miterLimit,
         closed: true as const
       }
@@ -2870,6 +3157,7 @@ const buildInsideAdjacencyStrokePathGroups = (
           width: stroke.width,
           cap: 'butt' as const,
           join: stroke.join,
+          miterAngle: stroke.miterAngle,
           miterLimit: stroke.miterLimit,
           closed: true as const
         }
@@ -2920,14 +3208,12 @@ const INSIDE_SOLID_ADJACENCY_PROBES = [
   'non-pentagon-mask-corners-no-miter-spikes',
   'internal-pentagon-bevel-corners-no-overreach-crack',
   'internal-pentagon-round-corners-smooth',
-  'internal-pentagon-round-corners-source-envelope',
-  'inside-solid-right-bottom-source-segment-adherence'
+  'internal-pentagon-round-corners-source-envelope'
 ]
 
 const INSIDE_SOLID_RENDER_MASK_PROBES = [
   'top-triangle-mask-integrity',
-  'inside-solid-outer-source-vertices-no-gap',
-  'inside-solid-right-bottom-source-segment-adherence'
+  'inside-solid-outer-source-vertices-no-gap'
 ]
 
 const INSIDE_SOLID_FACE_OWNERSHIP_PROBES = INSIDE_SOLID_ADJACENCY_PROBES.filter(
@@ -3001,7 +3287,6 @@ const buildFaceOwnedInsideMaskPolygons = (
     sideDirection: Vec2
   }[]
   postFillJoinRenderClipPolygons: Vec2[][]
-  sourceSegmentAdherenceClipPolygons: Vec2[][]
   sourceMaskPolygons: Vec2[][]
 } | null => {
   const strokeWidth = stroke.width
@@ -3016,7 +3301,6 @@ const buildFaceOwnedInsideMaskPolygons = (
     sideDirection: Vec2
   }[] = []
   const postFillJoinRenderClipPolygons: Vec2[][] = []
-  const sourceSegmentAdherenceClipPolygons: Vec2[][] = []
   const sourceMaskPolygons: Vec2[][] = []
   let internalCornerJoinPolygonCount = 0
   const faceOwnershipTrace: NonNullable<
@@ -3024,10 +3308,6 @@ const buildFaceOwnedInsideMaskPolygons = (
   > = []
   const minMaskEdgeLength = Math.min(0.75, Math.max(0.25, strokeWidth * 0.075))
   const faceNodeJoinTolerance = Math.max(1e-4, strokeWidth * 0.12)
-  const _sourceSegmentRanges = sourcePath
-    ? getSourcePathSegmentRanges(sourcePath)
-    : []
-
   const pushValidPolygon = (target: Vec2[][], polygon: Vec2[]) => {
     if (polygon.length < 3) {
       return
@@ -3491,106 +3771,6 @@ const buildFaceOwnedInsideMaskPolygons = (
       }, [])
   }
 
-  const getNearestSegmentLocalLength = (segment: PathSegment, point: Vec2) => {
-    const points = slicePathSegmentPoints(
-      segment,
-      0,
-      segment.length,
-      SOURCE_CENTER_STROKE_SEGMENT_TOLERANCE
-    )
-    if (points.length < 2) {
-      return null
-    }
-
-    let walkedLength = 0
-    let best: {
-      distance: number
-      localLength: number
-    } | null = null
-    for (let index = 0; index < points.length - 1; index += 1) {
-      const start = points[index]
-      const end = points[index + 1]
-      const dx = end.x - start.x
-      const dy = end.y - start.y
-      const length = Math.hypot(dx, dy)
-      if (length <= EPSILON) {
-        continue
-      }
-      const ratio = Math.max(
-        0,
-        Math.min(
-          1,
-          ((point.x - start.x) * dx + (point.y - start.y) * dy) /
-            (length * length)
-        )
-      )
-      const projected = {
-        x: start.x + dx * ratio,
-        y: start.y + dy * ratio
-      }
-      const distance = distanceBetween(point, projected)
-      if (!best || distance < best.distance) {
-        best = {
-          distance,
-          localLength: walkedLength + length * ratio
-        }
-      }
-      walkedLength += length
-    }
-
-    return best
-  }
-
-  const buildSourceSegmentBandClipPolygonsForSourceSegmentRange = (
-    segment: PathSegment,
-    startLength: number,
-    endLength: number,
-    halfWidth: number
-  ) => {
-    const points = limitPolylinePoints(
-      cleanPolylinePoints(
-        slicePathSegmentPoints(
-          segment,
-          Math.max(0, startLength),
-          Math.min(segment.length, endLength),
-          SOURCE_CENTER_STROKE_SEGMENT_TOLERANCE
-        ).map(normalizePoint)
-      ),
-      48
-    )
-    if (points.length < 2) {
-      return []
-    }
-
-    const leftOffsetPoints = points.map((_, index) =>
-      getOffsetPointForSample(points, index, halfWidth)
-    )
-    const rightOffsetPoints = points.map((_, index) =>
-      getOffsetPointForSample(points, index, -halfWidth)
-    )
-    if (
-      leftOffsetPoints.some((point) => point === null) ||
-      rightOffsetPoints.some((point) => point === null)
-    ) {
-      return []
-    }
-
-    return points.flatMap((_point, index) => {
-      if (index >= points.length - 1) {
-        return []
-      }
-      const polygon = cleanPolygon([
-        (leftOffsetPoints as Vec2[])[index],
-        (leftOffsetPoints as Vec2[])[index + 1],
-        (rightOffsetPoints as Vec2[])[index + 1],
-        (rightOffsetPoints as Vec2[])[index]
-      ])
-      return polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON
-        ? [polygon]
-        : []
-    })
-  }
-
   const buildSelfIntersectionFaceCornerPolygons = (
     previous: NonNullable<ReturnType<typeof getEdgeMaskGeometry>>,
     next: NonNullable<ReturnType<typeof getEdgeMaskGeometry>>,
@@ -3687,29 +3867,6 @@ const buildFaceOwnedInsideMaskPolygons = (
         ? cleaned
         : null
     }
-    const _scaleFromVertex = (point: Vec2, radius: number) => {
-      const direction = normalizeVector({
-        x: point.x - vertex.x,
-        y: point.y - vertex.y
-      })
-      return direction
-        ? normalizePoint({
-            x: vertex.x + direction.x * radius,
-            y: vertex.y + direction.y * radius
-          })
-        : point
-    }
-    const buildCornerDiskPolygon = (radius: number, sides = 48) => {
-      const polygon = Array.from({ length: sides }, (_unused, index) => {
-        const angle = (Math.PI * 2 * index) / sides
-        return normalizePoint({
-          x: vertex.x + Math.cos(angle) * radius,
-          y: vertex.y + Math.sin(angle) * radius
-        })
-      })
-      return validateCornerPolygon(polygon)
-    }
-
     const normalizeCornerPolygon = (polygon: Vec2[]) => {
       const cleaned = validateCornerPolygon(polygon)
       if (!cleaned) {
@@ -3718,64 +3875,6 @@ const buildFaceOwnedInsideMaskPolygons = (
       return scoreJoinPolygon(cleaned) > -0.35 ? cleaned : null
     }
 
-    const buildPostFillRenderCoverPolygon = (
-      farNormalRadius: number,
-      farSideRadius: number,
-      nearSideRadius = strokeWidth * 0.64
-    ) => {
-      if (!interiorDirection) {
-        return coreCornerPolygon
-      }
-
-      const sideDirection = {
-        x: -interiorDirection.y,
-        y: interiorDirection.x
-      }
-      const nearNormalRadius = strokeWidth * 0.3
-      return validateCornerPolygon([
-        vertex,
-        normalizePoint({
-          x:
-            vertex.x +
-            interiorDirection.x * nearNormalRadius +
-            sideDirection.x * nearSideRadius,
-          y:
-            vertex.y +
-            interiorDirection.y * nearNormalRadius +
-            sideDirection.y * nearSideRadius
-        }),
-        normalizePoint({
-          x:
-            vertex.x +
-            interiorDirection.x * farNormalRadius +
-            sideDirection.x * farSideRadius,
-          y:
-            vertex.y +
-            interiorDirection.y * farNormalRadius +
-            sideDirection.y * farSideRadius
-        }),
-        normalizePoint({
-          x:
-            vertex.x +
-            interiorDirection.x * farNormalRadius -
-            sideDirection.x * farSideRadius,
-          y:
-            vertex.y +
-            interiorDirection.y * farNormalRadius -
-            sideDirection.y * farSideRadius
-        }),
-        normalizePoint({
-          x:
-            vertex.x +
-            interiorDirection.x * nearNormalRadius -
-            sideDirection.x * nearSideRadius,
-          y:
-            vertex.y +
-            interiorDirection.y * nearNormalRadius -
-            sideDirection.y * nearSideRadius
-        })
-      ])
-    }
     const buildBevelCornerPolygon = () => {
       return buildCornerEnvelope([nextOffsetPoint])
     }
@@ -3805,70 +3904,7 @@ const buildFaceOwnedInsideMaskPolygons = (
       )
     }
 
-    const buildMiterRenderClipPolygon = () => {
-      const baseCornerPolygon = buildMiterCornerPolygon()
-      const previousLineEnd = addPoint(previousOffsetPoint, previousDirection)
-      const nextLineEnd = addPoint(nextOffsetPoint, nextDirection)
-      const miterPoint = lineIntersection(
-        previousOffsetPoint,
-        previousLineEnd,
-        nextOffsetPoint,
-        nextLineEnd
-      )
-      if (
-        !miterPoint ||
-        distanceBetween(vertex, miterPoint) >
-          stroke.miterLimit * strokeWidth + EPSILON
-      ) {
-        return baseCornerPolygon
-      }
-
-      const miterDistance = distanceBetween(vertex, miterPoint)
-      const sideEnvelopeDistance = Math.max(
-        distanceBetween(vertex, previousOffsetPoint),
-        distanceBetween(vertex, nextOffsetPoint)
-      )
-      const miterEnvelopePoint =
-        interiorDirection &&
-        miterDistance + strokeWidth * 0.05 < sideEnvelopeDistance
-          ? normalizePoint({
-              x: vertex.x + interiorDirection.x * sideEnvelopeDistance,
-              y: vertex.y + interiorDirection.y * sideEnvelopeDistance
-            })
-          : miterPoint
-
-      return (
-        buildCornerEnvelope([nextOffsetPoint, miterEnvelopePoint]) ??
-        baseCornerPolygon
-      )
-    }
-
     const buildRoundCornerPolygon = () => {
-      if (interiorDirection) {
-        const centerAngle = Math.atan2(interiorDirection.y, interiorDirection.x)
-        const halfAngle = 0.75
-        const radius = strokeWidth * 1.65
-        const segmentCount = Math.max(
-          8,
-          Math.ceil((halfAngle * 2) / (Math.PI / 48))
-        )
-        const arcPoints: Vec2[] = []
-        for (let index = 0; index <= segmentCount; index += 1) {
-          const angle =
-            centerAngle - halfAngle + (halfAngle * 2 * index) / segmentCount
-          arcPoints.push(
-            normalizePoint({
-              x: vertex.x + Math.cos(angle) * radius,
-              y: vertex.y + Math.sin(angle) * radius
-            })
-          )
-        }
-        const sectorPolygon = buildCornerEnvelope(arcPoints)
-        if (sectorPolygon) {
-          return sectorPolygon
-        }
-      }
-
       const candidates = [-1, 1]
         .map((sweepSign) => {
           const arcPoints = buildJoinArcPoints(
@@ -3903,55 +3939,15 @@ const buildFaceOwnedInsideMaskPolygons = (
       return candidates[0]?.polygon ?? buildBevelCornerPolygon()
     }
 
-    const coreCornerPolygon = buildCornerDiskPolygon(strokeWidth)
-    const miterRenderTipPolygon =
-      interiorDirection && stroke.join === 'miter'
-        ? normalizeCornerPolygon([
-            vertex,
-            previousTrimBase,
-            normalizePoint({
-              x: vertex.x + interiorDirection.x * strokeWidth * 2.8,
-              y: vertex.y + interiorDirection.y * strokeWidth * 2.8
-            }),
-            nextTrimBase
-          ])
-        : null
     const acceptedJoinPolygon =
       stroke.join === 'round'
-        ? (buildCornerDiskPolygon(strokeWidth * 1.65) ??
-          buildRoundCornerPolygon())
+        ? buildRoundCornerPolygon()
         : stroke.join === 'miter'
           ? buildMiterCornerPolygon()
-          : null
-    const acceptedRenderClipPolygon =
-      stroke.join === 'miter' ? buildMiterRenderClipPolygon() : null
+          : buildBevelCornerPolygon()
     const acceptedJoinPolygons = acceptedJoinPolygon
-      ? [
-          ...(stroke.join === 'round' || !coreCornerPolygon
-            ? []
-            : [coreCornerPolygon]),
-          acceptedJoinPolygon
-        ]
-      : coreCornerPolygon
-        ? [coreCornerPolygon]
-        : []
-    const postFillRenderCoverPolygon =
-      stroke.join === 'round'
-        ? buildPostFillRenderCoverPolygon(strokeWidth * 1.8, strokeWidth * 1.2)
-        : stroke.join === 'bevel'
-          ? buildPostFillRenderCoverPolygon(
-              strokeWidth * 1.035,
-              strokeWidth * 0.7
-            )
-          : null
-    const bevelCenterRenderCoverPolygon =
-      stroke.join === 'bevel'
-        ? buildPostFillRenderCoverPolygon(
-            strokeWidth * 1.16,
-            strokeWidth * 0.08,
-            strokeWidth * 0.12
-          )
-        : null
+      ? [acceptedJoinPolygon]
+      : []
     const renderClipVertexSanitizer = interiorDirection
       ? {
           vertex,
@@ -3965,24 +3961,9 @@ const buildFaceOwnedInsideMaskPolygons = (
     return {
       clipPolygons: acceptedJoinPolygons,
       joinPolygons: acceptedJoinPolygons,
-      renderClipPolygons: acceptedRenderClipPolygon
-        ? [
-            ...(stroke.join === 'round' || !coreCornerPolygon
-              ? []
-              : [coreCornerPolygon]),
-            acceptedRenderClipPolygon,
-            ...(miterRenderTipPolygon ? [miterRenderTipPolygon] : [])
-          ]
-        : acceptedJoinPolygons,
+      renderClipPolygons: acceptedJoinPolygons,
       renderClipVertexSanitizer,
-      postFillRenderClipPolygons: postFillRenderCoverPolygon
-        ? [
-            postFillRenderCoverPolygon,
-            ...(bevelCenterRenderCoverPolygon
-              ? [bevelCenterRenderCoverPolygon]
-              : [])
-          ]
-        : []
+      postFillRenderClipPolygons: []
     }
   }
 
@@ -4328,56 +4309,7 @@ const buildFaceOwnedInsideMaskPolygons = (
       }
     })
 
-    // Source-segment adherence cannot be a blanket mask-only-face supplement:
-    // centered strips overlap the face-owned shared-edge mask and show up as
-    // a second broken stroke layer at high zoom. Keep the helper available for
-    // a targeted future repair, but do not feed it into the accepted visible
-    // mask until the owner can prove it is local and seam-free.
   })
-
-  if (sourcePath && joinReactiveCornerVertices.length > 0) {
-    const seenSourceClipRanges = new Set<string>()
-    joinReactiveCornerVertices.forEach((corner) => {
-      corner.sourceSegmentIndices.forEach((sourceSegmentIndex) => {
-        const segment = sourcePath.segments[sourceSegmentIndex]
-        if (!segment) {
-          return
-        }
-        const isSourceSegmentAdherenceEligible =
-          segment.type === 'cubic' &&
-          segment.startAnchorType === 'sharp' &&
-          segment.endAnchorType === 'smooth'
-        if (!isSourceSegmentAdherenceEligible) {
-          return
-        }
-        const nearest = getNearestSegmentLocalLength(segment, corner.vertex)
-        if (!nearest || nearest.distance > strokeWidth * 1.25) {
-          return
-        }
-        const rangeRadius = strokeWidth * 2.65
-        const startLength = Math.max(0, nearest.localLength - rangeRadius)
-        const endLength = Math.min(
-          segment.length,
-          nearest.localLength + rangeRadius
-        )
-        const key = `${sourceSegmentIndex}:${startLength.toFixed(2)}:${endLength.toFixed(2)}`
-        if (seenSourceClipRanges.has(key)) {
-          return
-        }
-        seenSourceClipRanges.add(key)
-
-        buildSourceSegmentBandClipPolygonsForSourceSegmentRange(
-          segment,
-          startLength,
-          endLength,
-          strokeWidth * 0.56
-        ).forEach((polygon) => {
-          pushValidPolygon(sourceSegmentAdherenceClipPolygons, polygon)
-          appendRenderClipPolygon(polygon)
-        })
-      })
-    })
-  }
 
   if (sourcePath) {
     buildCenterStrokeSourceVertexCoverageMaskPolygons(
@@ -4402,7 +4334,6 @@ const buildFaceOwnedInsideMaskPolygons = (
         renderClipPolygons,
         renderClipVertexSanitizers,
         postFillJoinRenderClipPolygons,
-        sourceSegmentAdherenceClipPolygons,
         sourceMaskPolygons
       }
     : null
@@ -4417,6 +4348,7 @@ const buildSolidMaskModelPolygons = ({
   legalBoundaryContours = [],
   exactBackend,
   sourcePath,
+  selectedSideGuardPoints,
   preferRenderMaskProductFinal = false
 }: {
   topology: PathTopologyModel
@@ -4430,6 +4362,7 @@ const buildSolidMaskModelPolygons = ({
     PathGeometry,
     'segments' | 'closed' | 'totalLength' | 'sampledPoints'
   >
+  selectedSideGuardPoints?: SelectedSideGuardPoint[]
   preferRenderMaskProductFinal?: boolean
 }): SolidMaskModelPolygonResult | null => {
   if (topology.topologyFamily === 'self-intersecting' && !sourcePath) {
@@ -4481,6 +4414,7 @@ const buildSolidMaskModelPolygons = ({
         width: stroke.width * 2,
         cap: 'butt',
         join: stroke.join,
+        miterAngle: stroke.miterAngle,
         miterLimit: stroke.miterLimit,
         closed: sourcePath.closed
       }
@@ -4520,6 +4454,12 @@ const buildSolidMaskModelPolygons = ({
     sourcePath &&
     preferRenderMaskProductFinal
   ) {
+    if (
+      hasAuthoredSharpSourceJoinBoundary(sourcePath, selectedSideGuardPoints)
+    ) {
+      return null
+    }
+
     const renderStrokePaths = measureConstrainedSolidPhase(
       'solid-mask-model-render-stroke-paths',
       () => closeSourcePathForStrokeRender(sourcePath)
@@ -4536,22 +4476,38 @@ const buildSolidMaskModelPolygons = ({
           stroke.width
         )
     )
-    if (renderClipPolygons.length === 0) {
+    const smoothJoinRenderClipPolygons = measureConstrainedSolidPhase(
+      'solid-mask-model-outside-smooth-join-render-clip-polygons',
+      () =>
+        buildOutsideSmoothJoinRenderClipPolygons(
+          sourcePath,
+          topology.normalizedPoints,
+          stroke,
+          selectedSideGuardPoints,
+          topology.fillRule
+        )
+    )
+    const effectiveRenderClipPolygons =
+      smoothJoinRenderClipPolygons.length > 0
+        ? [...renderClipPolygons, ...smoothJoinRenderClipPolygons]
+        : renderClipPolygons
+    if (effectiveRenderClipPolygons.length === 0) {
       return null
     }
 
     return {
-      polygons: renderClipPolygons,
+      polygons: effectiveRenderClipPolygons,
       maskApplication: 'render-fill-mask',
       visibleRender: 'masked-source-stroke',
       coverageOracle: 'render-mask',
       maskSide: 'outside-exterior',
-      renderClipPolygons,
+      renderClipPolygons: effectiveRenderClipPolygons,
       renderStrokePaths,
       renderStrokePathStyle: {
         width: stroke.width * 2,
         cap: stroke.cap,
         join: stroke.join,
+        miterAngle: stroke.miterAngle,
         miterLimit: stroke.miterLimit,
         closed: sourcePath.closed
       }
@@ -4581,6 +4537,7 @@ const buildSolidMaskModelPolygons = ({
         width: stroke.width * 2,
         cap: stroke.cap,
         join: stroke.join,
+        miterAngle: stroke.miterAngle,
         miterLimit: stroke.miterLimit,
         closed: sourcePath.closed
       }
@@ -4619,6 +4576,7 @@ const buildSolidMaskModelPolygons = ({
         width: stroke.width * 2,
         cap: stroke.cap,
         join: stroke.join,
+        miterAngle: stroke.miterAngle,
         miterLimit: stroke.miterLimit,
         closed: sourcePath.closed
       }
@@ -4791,6 +4749,7 @@ const buildSolidMaskModelPolygons = ({
                     cap:
                       renderStrokePathGroups.length > 0 ? 'butt' : stroke.cap,
                     join: stroke.join,
+                    miterAngle: stroke.miterAngle,
                     miterLimit: stroke.miterLimit,
                     closed:
                       renderStrokePathGroups.length > 0
@@ -4841,6 +4800,7 @@ const buildSolidMaskModelPolygons = ({
                   width: stroke.width * 2,
                   cap: stroke.cap,
                   join: stroke.join,
+                  miterAngle: stroke.miterAngle,
                   miterLimit: stroke.miterLimit,
                   closed: sourcePath?.closed
                 }
@@ -4922,23 +4882,10 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
         return []
       }
 
-      const solidMaskModelPolygons = buildSolidMaskModelPolygons({
-        topology,
-        stroke,
-        fillRegions: options.implicitFillRegions ?? [],
-        legalFaceBoundaries: options.implicitLegalFaceBoundaries ?? [],
-        unfilledFaceBoundaries: options.implicitUnfilledFaceBoundaries ?? [],
-        legalBoundaryContours: options.implicitLegalBoundaryContours ?? [],
-        exactBackend: options.exactBackend,
-        sourcePath,
-        preferRenderMaskProductFinal: options.preferRenderMaskProductFinal
-      })
-      if (!solidMaskModelPolygons) {
-        return []
-      }
-      const { polygons } = solidMaskModelPolygons
-
-      const geometryId = `${cachePrefix}:${strokeIndex}:solid-mask`
+      const exactMaskBackend = hasExactSolidMaskBackend(options.exactBackend)
+        ? options.exactBackend
+        : undefined
+      const implicitFillRegions = options.implicitFillRegions ?? []
       const evidenceLegalDomainIds = evidenceDomain.legalDomainIds ?? []
       const evidenceContourIds = evidenceDomain.contourIds ?? []
       const legalDomainIds =
@@ -4951,6 +4898,225 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
           : sourceFamily.legalDomainHints.contourIds
       const sourceSpanIds = buildSolidMaskModelSourceSpanIds(sourcePath)
       const shouldAttachFullDiagnostics = shouldEmitFullStrokeDiagnostics()
+      if (
+        stroke.position === 'outside' &&
+        exactMaskBackend &&
+        implicitFillRegions.length > 0
+      ) {
+        const fillMaskRegions = exactMaskBackend.union(
+          implicitFillRegions,
+          'nonzero'
+        )
+        if (
+          fillMaskRegions.length > 0 &&
+          fillMaskRegions.some(hasRegionGeometry)
+        ) {
+          const candidateRecords = buildExactArrangementCandidatePolygons(
+            topology.normalizedPoints,
+            topology.closed,
+            stroke,
+            sourcePath,
+            options.selectedSideGuardPoints,
+            topology.fillRule
+          )
+          const canonicalOwnerPartitions =
+            buildExactArrangementCandidateOwnerPartitions({
+              candidateRecords,
+              backend: exactMaskBackend,
+              excludeRegions: fillMaskRegions
+            })
+          const canonicalPackets = canonicalOwnerPartitions.map(
+            ({
+              candidateRecord,
+              candidateIndex,
+              polygons
+            }): SolidCenterStrokeResolvedPacket => {
+              const geometryId = `${cachePrefix}:${strokeIndex}:canonical:${candidateIndex}`
+              const revisionSet = buildStrokeRuntimeRevisionSet({
+                points: topology.normalizedPoints,
+                closed: topology.closed,
+                stroke,
+                productMode: 'closed-constrained-domain',
+                domainMode: 'closed-constrained-domain',
+                strokeProductSignature: `constrained-solid:${stroke.position}:canonical-product`,
+                strokeDomainSignature: [
+                  strokeDomainPlan.domainMode,
+                  stroke.position,
+                  legalDomainIds.join(','),
+                  contourIds.join(',')
+                ].join(':'),
+                endpointCapPolicySignature: [
+                  'solid-constrained',
+                  stroke.position,
+                  stroke.cap,
+                  stroke.width
+                ].join(':'),
+                joinOwnershipSignature: [
+                  'solid-constrained',
+                  stroke.position,
+                  stroke.join,
+                  stroke.miterLimit
+                ].join(':'),
+                smoothContinuitySignature: `solid-constrained:${stroke.position}`,
+                productMaterializationSignature: `solid-canonical-product:${stroke.position}`,
+                ownerCount: Math.max(
+                  legalDomainIds.length,
+                  contourIds.length,
+                  1
+                ),
+                ownerKey,
+                networkId: options.metadata?.networkId,
+                strokeId,
+                intervalSignature: `solid-canonical-product:${stroke.position}`
+              })
+
+              return {
+                geometry: {
+                  geometryId,
+                  polygons,
+                  bounds: getBounds(polygons),
+                  debugMeta: {
+                    sourcePathId: cachePrefix,
+                    ownerKey,
+                    networkId: options.metadata?.networkId,
+                    strokeId,
+                    strokeIndex,
+                    contourId,
+                    legalDomainId:
+                      legalDomainIds[0] ??
+                      options.metadata?.legalDomainId ??
+                      null,
+                    intervalId: `solid-canonical-product:${stroke.position}:${candidateIndex}`,
+                    sourceSpanIds: candidateRecord.sourceSpanIds,
+                    sourceContourIds: contourIds,
+                    legalDomainIds,
+                    startDistance: 0,
+                    endDistance: sourcePath.totalLength,
+                    wrapsSeam: true,
+                    domainPlanBoundaryPoints: shouldAttachFullDiagnostics
+                      ? (evidenceDomain.boundaryPoints ?? []).map((point) => ({
+                          ...point
+                        }))
+                      : undefined,
+                    domainPlanBoundaryStartDistance:
+                      evidenceDomain.boundaryStartDistance,
+                    domainPlanBoundaryEndDistance:
+                      evidenceDomain.boundaryEndDistance,
+                    domainPlanBoundaryTotalLength:
+                      evidenceDomain.boundaryTotalLength,
+                    domainPlanSideAuthority: 'implicit-fill-hole-domain',
+                    domainPlanSelectedSide: evidenceDomain.selectedSide,
+                    domainPlanFilledSide: evidenceDomain.filledSide,
+                    domainPlanUnfilledSide: evidenceDomain.unfilledSide,
+                    domainPlanBoundaryRole: 'outer',
+                    domainPlanSideResolutionStatus:
+                      evidenceDomain.sideResolutionStatus,
+                    productMode: 'closed-constrained-domain',
+                    productSignature: `constrained-solid:${stroke.position}:canonical-product`,
+                    routeId: candidateRecord.joinFootprint
+                      ? 'constrained-solid-canonical-source-vertex-join-footprint'
+                      : 'constrained-solid-doubled-center-mask',
+                    domainMode: 'closed-constrained-domain',
+                    topologyFamily: topology.topologyFamily,
+                    strokePosition: stroke.position,
+                    strokeWidth: stroke.width,
+                    strokeJoin: stroke.join,
+                    strokeCap: stroke.cap,
+                    strokeMiterLimit: stroke.miterLimit,
+                    visualOverlapCollapseStatus: 'exact-arrangement',
+                    revisionSet,
+                    ...(candidateRecord.joinFootprint
+                      ? {
+                          ownerStage: candidateRecord.joinFootprint.ownerStage,
+                          authoredJoin:
+                            candidateRecord.joinFootprint.authoredJoin,
+                          resolvedJoin:
+                            candidateRecord.joinFootprint.resolvedJoin,
+                          vertexAngle:
+                            candidateRecord.joinFootprint.vertexAngle,
+                          miterAngle: candidateRecord.joinFootprint.miterAngle,
+                          angleSource:
+                            candidateRecord.joinFootprint.angleSource,
+                          angleComparison:
+                            candidateRecord.joinFootprint.angleComparison,
+                          visibleContributor:
+                            candidateRecord.joinFootprint.visibleContributor,
+                          geometryBasis:
+                            candidateRecord.joinFootprint.geometryBasis,
+                          joinStyle: candidateRecord.joinFootprint.authoredJoin,
+                          joinResolution:
+                            candidateRecord.joinFootprint.resolvedJoin,
+                          joinOwnershipSignature: [
+                            'solid-constrained',
+                            stroke.position,
+                            candidateRecord.joinFootprint.ownerId,
+                            candidateRecord.joinFootprint.resolvedJoin
+                          ].join(':'),
+                          joinOwnershipRecords: [
+                            {
+                              kind: 'source-vertex' as const,
+                              materializationKind: 'join' as const,
+                              area: Math.abs(
+                                polygonArea(
+                                  candidateRecord.joinFootprint.polygon
+                                )
+                              ),
+                              bounds: getBounds([
+                                candidateRecord.joinFootprint.polygon
+                              ]),
+                              vertex: candidateRecord.joinFootprint.polygon[0],
+                              previousContourPoint:
+                                candidateRecord.joinFootprint
+                                  .previousOffsetEndpoint,
+                              nextContourPoint:
+                                candidateRecord.joinFootprint.nextOffsetEndpoint
+                            }
+                          ]
+                        }
+                      : {})
+                  }
+                },
+                paint: {
+                  geometryId,
+                  kind: stroke.kind,
+                  color: stroke.color,
+                  alpha: stroke.alpha,
+                  gradientStyle: stroke.gradientStyle,
+                  paintKey: stroke.paintKey
+                }
+              }
+            }
+          )
+          if (
+            canonicalPackets.some(
+              (packet) =>
+                packet.geometry.debugMeta?.visibleContributor ===
+                'source-vertex-join'
+            )
+          ) {
+            return canonicalPackets
+          }
+        }
+      }
+
+      const solidMaskModelPolygons = buildSolidMaskModelPolygons({
+        topology,
+        stroke,
+        fillRegions: implicitFillRegions,
+        legalFaceBoundaries: options.implicitLegalFaceBoundaries ?? [],
+        unfilledFaceBoundaries: options.implicitUnfilledFaceBoundaries ?? [],
+        legalBoundaryContours: options.implicitLegalBoundaryContours ?? [],
+        exactBackend: options.exactBackend,
+        sourcePath,
+        selectedSideGuardPoints: options.selectedSideGuardPoints,
+        preferRenderMaskProductFinal: options.preferRenderMaskProductFinal
+      })
+      if (!solidMaskModelPolygons) {
+        return []
+      }
+      const { polygons } = solidMaskModelPolygons
+
+      const geometryId = `${cachePrefix}:${strokeIndex}:solid-mask`
       const revisionSet = buildStrokeRuntimeRevisionSet({
         points: topology.normalizedPoints,
         closed: topology.closed,
@@ -5035,6 +5201,11 @@ const buildSelfIntersectingSolidMaskModelPackets = ({
                 evidenceDomain.sideResolutionStatus,
               productMode: 'closed-constrained-domain',
               productSignature: `constrained-solid:${stroke.position}:mask-model`,
+              routeId:
+                solidMaskModelPolygons.renderStrokePaths ||
+                solidMaskModelPolygons.renderStrokePathGroups
+                  ? 'constrained-solid-same-owner-smooth-span-descriptor'
+                  : 'constrained-solid-doubled-center-mask',
               domainMode: 'closed-constrained-domain',
               topologyFamily: topology.topologyFamily,
               strokePosition: stroke.position,
@@ -5091,6 +5262,75 @@ export const hasConstrainedSolidStrokeIntent = (
       (stroke.position === 'inside' || stroke.position === 'outside') &&
       stroke.width > 0
   ) === true
+
+export const buildConstrainedSolidDoubledCenterProductUnits = ({
+  cachePrefix,
+  points,
+  closed,
+  strokes,
+  productFamilyId,
+  legalSideId,
+  metadata
+}: BuildConstrainedSolidDoubledCenterProductUnitsInput): ConstrainedSolidDoubledCenterProductUnit[] => {
+  if (productFamilyId !== 'constrained-solid' || !closed) {
+    return []
+  }
+
+  return getRenderableStrokes(strokes).flatMap((stroke, strokeIndex) => {
+    if (!supportsExactConstrainedSolidStroke(stroke)) {
+      return []
+    }
+    if (stroke.position !== 'inside' && stroke.position !== 'outside') {
+      return []
+    }
+    const strokePosition = stroke.position
+
+    const doubledCenterStrokeWidth = stroke.width * 2
+    const polygons = buildSolidCenterStrokePolygons(points, closed, {
+      style: 'solid',
+      position: 'center',
+      width: doubledCenterStrokeWidth,
+      join: stroke.join,
+      miterAngle: stroke.miterAngle,
+      miterLimit: stroke.miterLimit,
+      cap: stroke.cap
+    })
+    if (polygons.length === 0) {
+      return []
+    }
+
+    const productId = `${cachePrefix}:${strokeIndex}:pre-legality`
+    return [
+      {
+        productId,
+        productFamilyId: 'constrained-solid',
+        productMode: 'pre-legality-constrained-solid-doubled-center',
+        geometryBasis: 'doubled-authored-center-stroke',
+        polygons,
+        bounds: getBounds(polygons),
+        legalSideId,
+        strokePosition,
+        sourceStrokeWidth: stroke.width,
+        doubledCenterStrokeWidth,
+        ownerStage: 'Stroke Geometry constrained solid product assembly',
+        debugMeta: {
+          sourcePathId: cachePrefix,
+          ownerKey: metadata?.ownerKeyPrefix
+            ? `${metadata.ownerKeyPrefix}:stroke:${strokeIndex}`
+            : undefined,
+          networkId: metadata?.networkId,
+          strokeId: `stroke:${strokeIndex}`,
+          strokeIndex,
+          productFamilyId: 'constrained-solid',
+          productMode: 'pre-legality-constrained-solid-doubled-center',
+          geometryBasis: 'doubled-authored-center-stroke',
+          legalSideId,
+          strokePosition
+        }
+      }
+    ]
+  })
+}
 
 export const buildConstrainedSolidStrokeResolvedPackets = (
   cachePrefix: string,
@@ -5158,21 +5398,36 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
 
     const shouldEmitArrangementCandidates =
       options.candidateMode === 'exact-arrangement'
+    const candidateOwnerPartitions =
+      shouldEmitArrangementCandidates &&
+      hasExactSolidMaskBackend(options.exactBackend)
+        ? buildExactArrangementCandidateOwnerPartitions({
+            candidateRecords: exactArrangementCandidatePolygons,
+            backend: options.exactBackend
+          })
+        : undefined
     const candidateRecords = shouldEmitArrangementCandidates
       ? exactArrangementCandidatePolygons
       : []
-    const candidatePolygons = shouldEmitArrangementCandidates
-      ? exactArrangementCandidatePolygons.map((candidate) => [
-          candidate.polygon
-        ])
-      : [polygons]
+    const candidatePolygons = candidateOwnerPartitions
+      ? candidateOwnerPartitions.map((partition) => partition.polygons)
+      : shouldEmitArrangementCandidates
+        ? exactArrangementCandidatePolygons.map((candidate) => [
+            candidate.polygon
+          ])
+        : [polygons]
 
     return candidatePolygons.map((candidatePolygonGroup, candidateIndex) => {
-      const candidateRecord = candidateRecords[candidateIndex]
+      const candidateOwnerPartition = candidateOwnerPartitions?.[candidateIndex]
+      const candidateRecord =
+        candidateOwnerPartition?.candidateRecord ??
+        candidateRecords[candidateIndex]
+      const sourceCandidateIndex =
+        candidateOwnerPartition?.candidateIndex ?? candidateIndex
       const geometryId =
         candidatePolygons.length === 1
           ? `${cachePrefix}:${index}`
-          : `${cachePrefix}:${index}:candidate:${candidateIndex}`
+          : `${cachePrefix}:${index}:candidate:${sourceCandidateIndex}`
 
       return {
         geometry: {
@@ -5192,6 +5447,9 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
             strokePosition: stroke.position,
             productMode: 'closed-constrained-domain',
             productSignature: `constrained-solid:${stroke.position}`,
+            routeId: candidateRecord?.joinFootprint
+              ? 'constrained-solid-canonical-source-vertex-join-footprint'
+              : 'constrained-solid-doubled-center-mask',
             domainMode: 'closed-constrained-domain',
             topologyFamily: topology.topologyFamily,
             strokeWidth: stroke.width,
@@ -5199,6 +5457,46 @@ export const buildConstrainedSolidStrokeResolvedPackets = (
             strokeCap: stroke.cap,
             strokeMiterLimit: stroke.miterLimit,
             sourceSpanIds: candidateRecord?.sourceSpanIds,
+            ...(candidateRecord?.joinFootprint
+              ? {
+                  ownerStage: candidateRecord.joinFootprint.ownerStage,
+                  authoredJoin: candidateRecord.joinFootprint.authoredJoin,
+                  resolvedJoin: candidateRecord.joinFootprint.resolvedJoin,
+                  vertexAngle: candidateRecord.joinFootprint.vertexAngle,
+                  miterAngle: candidateRecord.joinFootprint.miterAngle,
+                  angleSource: candidateRecord.joinFootprint.angleSource,
+                  angleComparison:
+                    candidateRecord.joinFootprint.angleComparison,
+                  visibleContributor:
+                    candidateRecord.joinFootprint.visibleContributor,
+                  geometryBasis: candidateRecord.joinFootprint.geometryBasis,
+                  joinStyle: candidateRecord.joinFootprint.authoredJoin,
+                  joinResolution: candidateRecord.joinFootprint.resolvedJoin,
+                  joinOwnershipSignature: [
+                    'solid-constrained',
+                    stroke.position,
+                    candidateRecord.joinFootprint.ownerId,
+                    candidateRecord.joinFootprint.resolvedJoin
+                  ].join(':'),
+                  joinOwnershipRecords: [
+                    {
+                      kind: 'source-vertex' as const,
+                      materializationKind: 'join' as const,
+                      area: Math.abs(
+                        polygonArea(candidateRecord.joinFootprint.polygon)
+                      ),
+                      bounds: getBounds([
+                        candidateRecord.joinFootprint.polygon
+                      ]),
+                      vertex: candidateRecord.joinFootprint.polygon[0],
+                      previousContourPoint:
+                        candidateRecord.joinFootprint.previousOffsetEndpoint,
+                      nextContourPoint:
+                        candidateRecord.joinFootprint.nextOffsetEndpoint
+                    }
+                  ]
+                }
+              : {}),
             authoredVisibleIntervalIndex: candidateRecord?.sourceSegmentIndex,
             revisionSet: buildStrokeRuntimeRevisionSet({
               points: topologyPoints,

@@ -1,6 +1,7 @@
 import {
   allocateDashedCenterStrokeIntervals,
-  type DashedCenterStrokeIntervalAllocationOptions
+  type DashedCenterStrokeIntervalAllocationOptions,
+  type StrokeDashAndGapLengths
 } from './dashed-center-stroke-intervals'
 import {
   EPS,
@@ -310,14 +311,12 @@ export const buildPathTopologyModel = ({
 
 export const allocateDashedIntervalsForTopology = (
   topology: Pick<PathTopologyModel, 'totalLength' | 'closed'>,
-  pattern: number[],
-  offset: number,
+  dashAndGap: StrokeDashAndGapLengths,
   options?: DashedCenterStrokeIntervalAllocationOptions
 ) =>
   allocateDashedCenterStrokeIntervals(
     topology.totalLength,
-    pattern,
-    offset,
+    dashAndGap,
     topology.closed,
     options
   )

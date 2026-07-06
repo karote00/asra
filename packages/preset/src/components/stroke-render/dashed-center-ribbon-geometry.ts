@@ -454,7 +454,7 @@ const clipPolygonsToSuppressedEndpointCaps = (
 }
 
 const toBackendCap = (cap: RenderableStroke['cap']): StrokeOffsetCap =>
-  cap === 'none' ? 'butt' : cap
+  cap
 
 const buildBackendOffsetPolygons = (
   frames: DashedCenterRibbonFrame[],

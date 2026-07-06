@@ -15,7 +15,13 @@
     "has:test": "find . -type f \\( -name \"*.test.ts\" -o -name \"*.test.tsx\" \\) | grep -q .",
     "test": "yarn has:test && vitest || echo 'No test files found. Skipping test.'",
     "test:local": "vitest run --no-file-parallelism",
-    "test:ci": "yarn has:test && vitest run --coverage --reporter=default --reporter=junit || echo 'No test files found. Skipping test:ci.'"
+    "test:ci": "yarn has:test && vitest run --coverage --reporter=default --reporter=junit || echo 'No test files found. Skipping test:ci.'",
+    "test:stroke-flow:unit": "vitest run src/__tests__/stroke-test-architecture.test.ts src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-*.test.ts --reporter=dot",
+    "test:stroke-flow:validation": "vitest run src/__tests__/stroke-flow-validation/*.test.ts --reporter=dot",
+    "test:stroke-flow:integration": "vitest run src/__tests__/stroke-test-architecture.test.ts src/__tests__/stroke-flow-integration/*.test.ts --reporter=dot",
+    "test:stroke-geometry:oracle": "vitest run src/__tests__/stroke-test-architecture.test.ts src/__tests__/stroke-geometry-oracles/*.test.ts --reporter=dot",
+    "test:stroke:regression": "vitest run src/__tests__/stroke-test-architecture.test.ts src/__tests__/stroke-regression/*.test.ts --reporter=dot",
+    "test:stroke:new": "yarn test:stroke-flow:unit && yarn test:stroke-flow:validation && yarn test:stroke-flow:integration && yarn test:stroke-geometry:oracle && yarn test:stroke:regression"
   },
   "devDependencies": {
     "@types/bezier-js": "^4.1.3",

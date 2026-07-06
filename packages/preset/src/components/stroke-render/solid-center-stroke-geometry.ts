@@ -3,19 +3,17 @@ import {
   ROUND_STROKE_CAP_ARC_SAMPLING,
   buildPairedOffsetSegmentsFromNormalized,
   buildRoundStrokeArcPointsBetween,
-  distance,
   add,
   dedupeAdjacent,
   dedupeClosed,
   extendForCap,
   normalize,
   normalizeClosed,
-  offsetPath,
   scale,
   subtract,
-  polygonArea,
   type Vec2
 } from './solid-stroke-geometry-core'
+import { buildSourceVertexJoinFootprint } from './source-vertex-join-footprint'
 
 export const supportsSolidCenterStroke = (
   stroke: Pick<
@@ -31,15 +29,6 @@ export const supportsSolidCenterStroke = (
     stroke.join === 'round') &&
   stroke.miterLimit >= 1 &&
   (stroke.cap === 'butt' || stroke.cap === 'square' || stroke.cap === 'round')
-
-const buildArcPoints = (
-  center: Vec2,
-  start: Vec2,
-  end: Vec2,
-  sweepSign: number
-) => {
-  return buildRoundStrokeArcPointsBetween(center, start, end, sweepSign)
-}
 
 const buildRoundCapArcPoints = (
   center: Vec2,
@@ -99,12 +88,97 @@ const buildRoundCapPolygons = (
   ].filter((polygon) => polygon.length >= 3)
 }
 
+const cross = (a: Vec2, b: Vec2) => a.x * b.y - a.y * b.x
+
+const pushPolygon = (polygons: Vec2[][], points: Vec2[]) => {
+  const polygon = dedupeClosed(points)
+  if (polygon.length >= 3) {
+    polygons.push(polygon)
+  }
+}
+
+const buildSegmentBodyPolygons = (
+  source: Vec2[],
+  closed: boolean,
+  halfWidth: number
+) => {
+  const { positive: leftSegments, negative: rightSegments } =
+    buildPairedOffsetSegmentsFromNormalized(source, closed, halfWidth)
+  const polygons: Vec2[][] = []
+
+  leftSegments.forEach((leftSegment, index) => {
+    const rightSegment = rightSegments[index]
+    if (!leftSegment || !rightSegment) {
+      return
+    }
+
+    pushPolygon(polygons, [
+      leftSegment.start,
+      leftSegment.end,
+      rightSegment.end,
+      rightSegment.start
+    ])
+  })
+
+  return polygons
+}
+
+const buildSourceVertexJoinPolygons = (
+  source: Vec2[],
+  closed: boolean,
+  stroke: Pick<RenderableStroke, 'width' | 'join' | 'miterAngle'>,
+  halfWidth: number
+) => {
+  if (source.length < 3) {
+    return []
+  }
+
+  const polygons: Vec2[][] = []
+  const firstJoinIndex = closed ? 0 : 1
+  const lastJoinIndex = closed ? source.length - 1 : source.length - 2
+
+  for (let index = firstJoinIndex; index <= lastJoinIndex; index += 1) {
+    const previousIndex = (index - 1 + source.length) % source.length
+    const nextIndex = (index + 1) % source.length
+    const vertex = source[index]
+    const previousPoint = source[previousIndex]
+    const nextPoint = source[nextIndex]
+    const turn = cross(
+      subtract(vertex, previousPoint),
+      subtract(nextPoint, vertex)
+    )
+    if (Math.abs(turn) <= 1e-6) {
+      continue
+    }
+
+    const outerSide = turn > 0 ? 'right' : 'left'
+    ;(['left', 'right'] as const).forEach((side) => {
+      const authoredJoin = side === outerSide ? stroke.join : 'bevel'
+      const footprint = buildSourceVertexJoinFootprint({
+        vertex,
+        previousPoint,
+        nextPoint,
+        strokeWidth: stroke.width,
+        offsetDistance: halfWidth,
+        side,
+        authoredJoin,
+        miterAngle: stroke.miterAngle,
+        ownerId: `center-solid:source-vertex:${index}:${side}`,
+        angleSource: 'AUTHORED_CENTER_PATH_INCIDENT_TANGENTS'
+      })
+      pushPolygon(polygons, footprint.polygon)
+    })
+  }
+
+  return polygons
+}
+
 export const buildSolidCenterStrokePolygons = (
   points: Vec2[],
   closed: boolean,
   stroke: Pick<
     RenderableStroke,
-    'style' | 'position' | 'width' | 'join' | 'miterLimit' | 'cap'
+    'style' | 'position' | 'width' | 'join' | 'miterLimit' | 'miterAngle' | 'cap'
   >
 ): Vec2[][] => {
   if (!supportsSolidCenterStroke(stroke)) {
@@ -121,395 +195,9 @@ export const buildSolidCenterStrokePolygons = (
 
   const halfWidth = stroke.width / 2
   const roundCapPolygons = buildRoundCapPolygons(source, stroke, closed)
-
-  if (!closed && stroke.join === 'bevel') {
-    const { positive: leftSegments, negative: rightSegments } =
-      buildPairedOffsetSegmentsFromNormalized(source, false, halfWidth)
-    if (leftSegments.length === 0 || rightSegments.length === 0) {
-      return []
-    }
-
-    const flattenSegmentPath = (
-      segments: ({ start: Vec2; end: Vec2 } | null)[]
-    ) => {
-      const path: Vec2[] = []
-
-      segments.forEach((segment, index) => {
-        if (!segment) {
-          return
-        }
-
-        if (path.length === 0) {
-          path.push(segment.start)
-        }
-
-        path.push(segment.end)
-
-        const nextSegment = segments[index + 1]
-        if (nextSegment) {
-          path.push(nextSegment.start)
-        }
-      })
-
-      return path
-    }
-
-    const polygon = dedupeClosed([
-      ...flattenSegmentPath(leftSegments),
-      ...flattenSegmentPath(rightSegments).reverse()
-    ])
-    return polygon.length >= 3 ? [polygon, ...roundCapPolygons] : []
-  }
-
-  if (!closed && stroke.join === 'miter') {
-    const { positive: leftSegments, negative: rightSegments } =
-      buildPairedOffsetSegmentsFromNormalized(source, false, halfWidth)
-    const leftPath = offsetPath(source, false, halfWidth, stroke)
-    const rightPath = offsetPath(source, false, -halfWidth, stroke)
-    if (
-      leftSegments.length === 0 ||
-      rightSegments.length === 0 ||
-      leftPath.length === 0 ||
-      rightPath.length === 0
-    ) {
-      return []
-    }
-
-    const polygons: Vec2[][] = []
-    const pushPolygon = (points: Vec2[]) => {
-      const polygon = dedupeClosed(points)
-      return polygon.length >= 3 ? polygons.push(polygon) : undefined
-    }
-    const cross = (a: Vec2, b: Vec2) => a.x * b.y - a.y * b.x
-
-    leftSegments.forEach((leftSegment, index) => {
-      const rightSegment = rightSegments[index]
-      if (!leftSegment || !rightSegment) {
-        return
-      }
-
-      pushPolygon([
-        leftSegment.start,
-        leftSegment.end,
-        rightSegment.end,
-        rightSegment.start
-      ])
-    })
-
-    for (let index = 1; index < source.length - 1; index += 1) {
-      const point = source[index]
-      const previousPoint = source[index - 1]
-      const nextPoint = source[index + 1]
-      const turn = cross(
-        subtract(point, previousPoint),
-        subtract(nextPoint, point)
-      )
-      if (Math.abs(turn) <= 1e-6) {
-        continue
-      }
-
-      const outerSegments = turn > 0 ? rightSegments : leftSegments
-      const innerSegments = turn > 0 ? leftSegments : rightSegments
-      const outerPath = turn > 0 ? rightPath : leftPath
-      const previousOuter = outerSegments[index - 1]
-      const nextOuter = outerSegments[index]
-      const previousInner = innerSegments[index - 1]
-      const nextInner = innerSegments[index]
-      const outerJoinPoint = outerPath[index]
-
-      if (previousInner && nextInner) {
-        pushPolygon([previousInner.end, point, nextInner.start])
-      }
-
-      if (previousOuter && nextOuter && outerJoinPoint) {
-        pushPolygon([previousOuter.end, outerJoinPoint, nextOuter.start, point])
-      }
-    }
-
-    return [...polygons, ...roundCapPolygons]
-  }
-
-  if (!closed && stroke.join === 'round') {
-    const { positive: leftSegments, negative: rightSegments } =
-      buildPairedOffsetSegmentsFromNormalized(source, false, halfWidth)
-    if (leftSegments.length === 0 || rightSegments.length === 0) {
-      return []
-    }
-
-    const polygons: Vec2[][] = []
-    const pushPolygon = (points: Vec2[]) => {
-      const polygon = dedupeClosed(points)
-      return polygon.length >= 3 ? polygons.push(polygon) : undefined
-    }
-    const cross = (a: Vec2, b: Vec2) => a.x * b.y - a.y * b.x
-    const normalizeSweep = (start: number, end: number, turn: number) => {
-      let sweep = end - start
-      if (turn > 0) {
-        while (sweep < 0) {
-          sweep += Math.PI * 2
-        }
-        return sweep
-      }
-
-      while (sweep > 0) {
-        sweep -= Math.PI * 2
-      }
-      return sweep
-    }
-    const buildArcFan = (
-      center: Vec2,
-      start: Vec2,
-      end: Vec2,
-      turn: number
-    ) => {
-      const startAngle = Math.atan2(start.y - center.y, start.x - center.x)
-      const endAngle = Math.atan2(end.y - center.y, end.x - center.x)
-      const sweep = normalizeSweep(startAngle, endAngle, turn)
-      const segmentCount = Math.max(
-        2,
-        Math.ceil(Math.abs(sweep) / (Math.PI / 12))
-      )
-      const radius = distance(center, start)
-      const points: Vec2[] = []
-
-      for (let index = 0; index <= segmentCount; index += 1) {
-        const angle = startAngle + (sweep * index) / segmentCount
-        points.push({
-          x: center.x + Math.cos(angle) * radius,
-          y: center.y + Math.sin(angle) * radius
-        })
-      }
-
-      return points
-    }
-
-    leftSegments.forEach((leftSegment, index) => {
-      const rightSegment = rightSegments[index]
-      if (!leftSegment || !rightSegment) {
-        return
-      }
-
-      pushPolygon([
-        leftSegment.start,
-        leftSegment.end,
-        rightSegment.end,
-        rightSegment.start
-      ])
-    })
-
-    for (let index = 1; index < source.length - 1; index += 1) {
-      const point = source[index]
-      const previousPoint = source[index - 1]
-      const nextPoint = source[index + 1]
-      const turn = cross(
-        subtract(point, previousPoint),
-        subtract(nextPoint, point)
-      )
-      if (Math.abs(turn) <= 1e-6) {
-        continue
-      }
-
-      const outerSegments = turn > 0 ? rightSegments : leftSegments
-      const innerSegments = turn > 0 ? leftSegments : rightSegments
-      const previousOuter = outerSegments[index - 1]
-      const nextOuter = outerSegments[index]
-      const previousInner = innerSegments[index - 1]
-      const nextInner = innerSegments[index]
-
-      if (previousInner && nextInner) {
-        pushPolygon([previousInner.end, point, nextInner.start])
-      }
-
-      if (previousOuter && nextOuter) {
-        pushPolygon([
-          point,
-          ...buildArcFan(point, previousOuter.end, nextOuter.start, turn)
-        ])
-      }
-    }
-
-    return [...polygons, ...roundCapPolygons]
-  }
-
-  if (closed) {
-    if (stroke.join === 'bevel') {
-      const { positive: leftSegments, negative: rightSegments } =
-        buildPairedOffsetSegmentsFromNormalized(source, true, halfWidth)
-      if (leftSegments.length === 0 || rightSegments.length === 0) {
-        return []
-      }
-
-      const isCounterClockwise = polygonArea(source) >= 0
-      const innerSegments = isCounterClockwise ? leftSegments : rightSegments
-      const outerSegments = isCounterClockwise ? rightSegments : leftSegments
-      const polygons: Vec2[][] = []
-      const pushPolygon = (points: Vec2[]) => {
-        const polygon = dedupeClosed(points)
-        return polygon.length >= 3 ? polygons.push(polygon) : undefined
-      }
-
-      source.forEach((point, index) => {
-        const innerSegment = innerSegments[index]
-        const outerSegment = outerSegments[index]
-        if (!innerSegment || !outerSegment) {
-          return []
-        }
-
-        pushPolygon([
-          innerSegment.start,
-          innerSegment.end,
-          outerSegment.end,
-          outerSegment.start
-        ])
-      })
-
-      source.forEach((point, index) => {
-        const previousIndex = (index - 1 + source.length) % source.length
-        const previousInner = innerSegments[previousIndex]
-        const nextInner = innerSegments[index]
-        const previousOuter = outerSegments[previousIndex]
-        const nextOuter = outerSegments[index]
-        if (!previousInner || !nextInner || !previousOuter || !nextOuter) {
-          return []
-        }
-
-        pushPolygon([previousInner.end, point, nextInner.start])
-        pushPolygon([previousOuter.end, nextOuter.start, point])
-      })
-
-      return polygons
-    }
-
-    if (stroke.join === 'round') {
-      const { positive: leftSegments, negative: rightSegments } =
-        buildPairedOffsetSegmentsFromNormalized(source, true, halfWidth)
-      if (leftSegments.length === 0 || rightSegments.length === 0) {
-        return []
-      }
-
-      const isCounterClockwise = polygonArea(source) >= 0
-      const innerSegments = isCounterClockwise ? leftSegments : rightSegments
-      const outerSegments = isCounterClockwise ? rightSegments : leftSegments
-      const polygons: Vec2[][] = []
-      const pushPolygon = (points: Vec2[]) => {
-        const polygon = dedupeClosed(points)
-        return polygon.length >= 3 ? polygons.push(polygon) : undefined
-      }
-      const cross = (a: Vec2, b: Vec2) => a.x * b.y - a.y * b.x
-
-      source.forEach((point, index) => {
-        const innerSegment = innerSegments[index]
-        const outerSegment = outerSegments[index]
-        if (!innerSegment || !outerSegment) {
-          return
-        }
-
-        pushPolygon([
-          innerSegment.start,
-          innerSegment.end,
-          outerSegment.end,
-          outerSegment.start
-        ])
-      })
-
-      source.forEach((point, index) => {
-        const previousIndex = (index - 1 + source.length) % source.length
-        const nextIndex = (index + 1) % source.length
-        const previousInner = innerSegments[previousIndex]
-        const nextInner = innerSegments[index]
-        const previousOuter = outerSegments[previousIndex]
-        const nextOuter = outerSegments[index]
-        if (!previousInner || !nextInner || !previousOuter || !nextOuter) {
-          return
-        }
-
-        pushPolygon([previousInner.end, point, nextInner.start])
-
-        const turn = cross(
-          subtract(point, source[previousIndex]),
-          subtract(source[nextIndex], point)
-        )
-        pushPolygon([
-          point,
-          ...buildArcPoints(point, previousOuter.end, nextOuter.start, turn)
-        ])
-      })
-
-      return polygons
-    }
-
-    const { positive: leftSegments, negative: rightSegments } =
-      buildPairedOffsetSegmentsFromNormalized(source, true, halfWidth)
-    const left = offsetPath(source, true, halfWidth, stroke)
-    const right = offsetPath(source, true, -halfWidth, stroke)
-    if (
-      leftSegments.length === 0 ||
-      rightSegments.length === 0 ||
-      left.length === 0 ||
-      right.length === 0
-    ) {
-      return []
-    }
-
-    const polygons: Vec2[][] = []
-    const pushPolygon = (points: Vec2[]) => {
-      const polygon = dedupeClosed(points)
-      return polygon.length >= 3 ? polygons.push(polygon) : undefined
-    }
-    const cross = (a: Vec2, b: Vec2) => a.x * b.y - a.y * b.x
-
-    leftSegments.forEach((leftSegment, index) => {
-      const rightSegment = rightSegments[index]
-      if (!leftSegment || !rightSegment) {
-        return
-      }
-
-      pushPolygon([
-        leftSegment.start,
-        leftSegment.end,
-        rightSegment.end,
-        rightSegment.start
-      ])
-    })
-
-    source.forEach((point, index) => {
-      const previousIndex = (index - 1 + source.length) % source.length
-      const nextIndex = (index + 1) % source.length
-      const turn = cross(
-        subtract(point, source[previousIndex]),
-        subtract(source[nextIndex], point)
-      )
-      if (Math.abs(turn) <= 1e-6) {
-        return
-      }
-
-      const outerSegments = turn > 0 ? rightSegments : leftSegments
-      const innerSegments = turn > 0 ? leftSegments : rightSegments
-      const outerPath = turn > 0 ? right : left
-      const previousOuter = outerSegments[previousIndex]
-      const nextOuter = outerSegments[index]
-      const previousInner = innerSegments[previousIndex]
-      const nextInner = innerSegments[index]
-      const outerJoinPoint = outerPath[index]
-
-      if (previousInner && nextInner) {
-        pushPolygon([previousInner.end, point, nextInner.start])
-      }
-
-      if (previousOuter && nextOuter && outerJoinPoint) {
-        pushPolygon([previousOuter.end, outerJoinPoint, nextOuter.start, point])
-      }
-    })
-
-    return polygons
-  }
-
-  const left = offsetPath(source, false, halfWidth, stroke)
-  const right = offsetPath(source, false, -halfWidth, stroke)
-  if (left.length === 0 || right.length === 0) {
-    return []
-  }
-
-  const polygon = dedupeClosed([...left, ...[...right].reverse()])
-  return polygon.length >= 3 ? [polygon, ...roundCapPolygons] : []
+  return [
+    ...buildSegmentBodyPolygons(source, closed, halfWidth),
+    ...buildSourceVertexJoinPolygons(source, closed, stroke, halfWidth),
+    ...roundCapPolygons
+  ]
 }

@@ -34,12 +34,6 @@ export interface ConstrainedSolidLegalityClippingResult {
 
 export interface ConstrainedSolidLegalityClippingOptions {
   /**
-   * Debug-only: preserve legality-clipped solid packets before visual overlap /
-   * foreign-owner cleanup so implementers can inspect the raw constrained
-   * geometry. Product rendering must leave this disabled.
-   */
-  disableVisualOverlapCollapse?: boolean
-  /**
    * Render-layer diagnostics can request candidate ownership metadata even when
    * there is only one preserved packet. The core no-op clipping path keeps the
    * historical empty diagnostics contract unless this is enabled.
@@ -970,17 +964,13 @@ export const buildConstrainedSolidLegalityClippingResult = (
     }
   })
 
-  if (
-    clippedPackets.length < 2 ||
-    options.disableVisualOverlapCollapse === true
-  ) {
+  if (clippedPackets.length < 2) {
     const legalityDiagnostics = buildConstrainedSolidLegalityDiagnostics(
       sources,
       strokes,
       clippedPackets
     )
     const ownershipDiagnostics =
-      options.disableVisualOverlapCollapse === true ||
       options.includeOwnershipDiagnosticsForPreservedPackets === true
         ? buildConstrainedSolidOwnershipDiagnostics(clippedPackets)
         : createEmptyConstrainedSolidOwnershipDiagnostics()

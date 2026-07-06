@@ -64,8 +64,8 @@ export interface StrokeFinalFaceDebugMetaBase {
   domainPlanBoundaryTotalLength?: number
   visualOverlapCollapseStatus?:
     | 'exact-union'
+    | 'exact-mask'
     | 'exact-arrangement'
-    | 'domain-plan-selected-side-arrangement'
     | 'render-projection-merged'
     | 'render-projection-arrangement'
   visualOverlapSourceFaceIds?: string[]
@@ -99,11 +99,17 @@ export interface StrokeFinalFaceDebugMetaBase {
     effectiveEndDistance?: number
     capReachDistance?: number
     boundaryDomainId?: string
+    boundaryPoints?: Vec2[]
+    boundaryStartDistance?: number
+    boundaryEndDistance?: number
+    boundaryTotalLength?: number
     boundaryRole?: 'outer' | 'hole' | 'filled-face' | 'ambiguous'
     selectedSide?: 1 | -1
     filledSide?: 1 | -1
     unfilledSide?: 1 | -1
     sourceSegmentIndex?: number
+    sourceStartDistance?: number
+    sourceEndDistance?: number
     endpointCapPolicySignature?: string
     joinOwnershipSignature?: string
     smoothContinuityGroupId?: string
@@ -115,12 +121,41 @@ export interface StrokeFinalFaceDebugMetaBase {
     | 'end'
     | 'start-end'
   )[]
+  joinOwnershipRecords?: {
+    kind: 'source-vertex' | 'boundary-terminal-pair'
+    ownerId?: string
+    materializationKind?:
+      | 'join'
+      | 'smooth-continuity-product'
+      | 'smooth-continuity-bridge'
+      | 'join-owned-terminal-body-bridge'
+    area: number
+    bounds: Bounds
+    intervalIds?: string[]
+    selectedSide?: 1 | -1
+    domainKey?: string
+    vertex?: Vec2
+    previousContourPoint?: Vec2
+    nextContourPoint?: Vec2
+    previousDashBodyPoint?: Vec2
+    nextDashBodyPoint?: Vec2
+    stageBounds?: Record<string, Bounds | undefined>
+  }[]
   joinOwnershipSignatures?: string[]
   smoothContinuityGroupIds?: string[]
   domainPlanBoundaryRoles?: ('outer' | 'hole' | 'filled-face' | 'ambiguous')[]
   domainPlanSplitRangeIds?: string[]
   domainPlanSelectedSides?: (1 | -1)[]
   domainPlanSourceSegmentIndexes?: number[]
+  constrainedDashedJoinDiagnostics?: {
+    terminalRecordCount: number
+    sourceVertexRecordCount: number
+    terminalPairJoinPlanCount: number
+    sourceVertexJoinPlanCount: number
+    joinPlanCount: number
+    joinRecordCount?: number
+    joinPacketCount?: number
+  }
   visualContext?: Partial<StrokeVisualContext>
   revisionSet?: Partial<StrokeRevisionSet>
 }
@@ -434,6 +469,51 @@ const pushUniqueDashProductInterval = (
   }
 }
 
+const pushUniqueJoinOwnershipRecord = (
+  records: NonNullable<StrokeFinalFaceDebugMetaBase['joinOwnershipRecords']>,
+  record: NonNullable<
+    StrokeFinalFaceDebugMetaBase['joinOwnershipRecords']
+  >[number]
+) => {
+  const exists = records.some(
+    (existing) =>
+      existing.kind === record.kind &&
+      existing.materializationKind === record.materializationKind &&
+      existing.domainKey === record.domainKey &&
+      existing.selectedSide === record.selectedSide &&
+      JSON.stringify(existing.intervalIds ?? []) ===
+        JSON.stringify(record.intervalIds ?? []) &&
+      JSON.stringify(existing.vertex ?? null) ===
+        JSON.stringify(record.vertex ?? null) &&
+      JSON.stringify(existing.previousContourPoint ?? null) ===
+        JSON.stringify(record.previousContourPoint ?? null) &&
+      JSON.stringify(existing.nextContourPoint ?? null) ===
+        JSON.stringify(record.nextContourPoint ?? null)
+  )
+
+  if (!exists) {
+    records.push({
+      ...record,
+      intervalIds: record.intervalIds ? [...record.intervalIds] : undefined,
+      bounds: { ...record.bounds },
+      vertex: record.vertex ? { ...record.vertex } : undefined,
+      previousContourPoint: record.previousContourPoint
+        ? { ...record.previousContourPoint }
+        : undefined,
+      nextContourPoint: record.nextContourPoint
+        ? { ...record.nextContourPoint }
+        : undefined,
+      previousDashBodyPoint: record.previousDashBodyPoint
+        ? { ...record.previousDashBodyPoint }
+        : undefined,
+      nextDashBodyPoint: record.nextDashBodyPoint
+        ? { ...record.nextDashBodyPoint }
+        : undefined,
+      stageBounds: record.stageBounds ? { ...record.stageBounds } : undefined
+    })
+  }
+}
+
 const mergeFaceDebugMeta = (
   target: StrokeFinalFaceDebugMetaBase | undefined,
   source: StrokeFinalFaceDebugMetaBase | undefined
@@ -528,6 +608,18 @@ const mergeFaceDebugMeta = (
     target.dashProductIntervals = targetIntervals
   }
 
+  if (source.joinOwnershipRecords) {
+    const targetRecords = [
+      ...(target.joinOwnershipRecords ?? [])
+    ] satisfies NonNullable<
+      StrokeFinalFaceDebugMetaBase['joinOwnershipRecords']
+    >
+    source.joinOwnershipRecords.forEach((record) =>
+      pushUniqueJoinOwnershipRecord(targetRecords, record)
+    )
+    target.joinOwnershipRecords = targetRecords
+  }
+
   if (source.domainPlanBoundaryPoints) {
     target.domainPlanBoundaryPoints = source.domainPlanBoundaryPoints.map(
       (point) => ({ ...point })
@@ -617,7 +709,7 @@ const buildStrokeSpecKey = <
   const hasFineGrainedStrokeRevisions =
     revisionSet?.strokeFamilyRevision !== undefined ||
     revisionSet?.strokeDomainRevision !== undefined ||
-    revisionSet?.dashScheduleRevision !== undefined ||
+    revisionSet?.dashAndGapRevision !== undefined ||
     revisionSet?.terminalCapRevision !== undefined ||
     revisionSet?.joinShapeRevision !== undefined ||
     revisionSet?.smoothContinuityRevision !== undefined ||

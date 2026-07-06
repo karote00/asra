@@ -16,8 +16,11 @@ export interface DashedCenterStrokeIntervalRecord {
   domainPlanBoundaryEndDistance?: number
   domainPlanBoundaryTotalLength?: number
   domainPlanSplitRangeId?: string
+  domainPlanSplitRangeAliasIds?: string[]
   domainPlanSplitRangeStartDistance?: number
   domainPlanSplitRangeEndDistance?: number
+  domainPlanSplitRangeSourceStartDistance?: number
+  domainPlanSplitRangeSourceEndDistance?: number
   domainPlanTerminalRole?: 'start' | 'end' | 'start-end' | 'middle'
   domainPlanSplitRangeSourceSegmentIndex?: number
   domainPlanSideAuthority?: 'implicit-fill-hole-domain'
@@ -77,6 +80,7 @@ export interface DomainPlanSplitRangeDashDomain {
   boundaryTotalLength?: number
   startDistance: number
   endDistance: number
+  allocationAliasIds?: string[]
   sourceStartDistance?: number
   sourceEndDistance?: number
   sourceSegmentIndex: number
@@ -96,9 +100,18 @@ export interface DomainPlanSplitRangeDashDomain {
   legalDomainIds?: string[]
 }
 
-const isValidPattern = (pattern: number[]) =>
-  pattern.length > 0 &&
-  pattern.every((entry) => Number.isFinite(entry) && entry > 0)
+export interface StrokeDashAndGapLengths {
+  dash: number
+  gap: number
+}
+
+const hasValidDashAndGap = (
+  value: Partial<StrokeDashAndGapLengths> | null | undefined
+) =>
+  Number.isFinite(value?.dash) &&
+  (value?.dash ?? 0) > 0 &&
+  Number.isFinite(value?.gap) &&
+  (value?.gap ?? 0) > 0
 
 const DEFAULT_SPLIT_RANGE_MIN_VISUAL_GAP_RATIO = 0.6
 const DEFAULT_SPLIT_RANGE_VISUAL_GAP_TOLERANCE = 0
@@ -107,7 +120,7 @@ const DEFAULT_OPEN_PATH_MIN_VISUAL_GAP_RATIO = 0.6
 export interface DashedCenterStrokeIntervalAllocationOptions {
   openPathPolicy?: 'network-balanced-terminals'
   strokeWidth?: number
-  cap?: 'butt' | 'round' | 'square' | 'none'
+  cap?: 'butt' | 'round' | 'square'
   minimumVisualGapRatio?: number
 }
 
@@ -203,15 +216,6 @@ const _pushRawInterval = (
   intervals.push(interval)
 }
 
-const getNormalizedDashOffset = (offset: number, cycleLength: number) => {
-  if (!Number.isFinite(offset) || cycleLength <= 0) {
-    return 0
-  }
-
-  const nextOffset = offset % cycleLength
-  return nextOffset >= 0 ? nextOffset : nextOffset + cycleLength
-}
-
 const getOpenPathCapExtension = (
   options?: DashedCenterStrokeIntervalAllocationOptions
 ) =>
@@ -288,54 +292,13 @@ const getBestOpenPathMiddleDashCandidate = ({
   return bestCandidate
 }
 
-const getOpenPathMiddleDashPhaseShift = ({
-  candidate,
-  capExtension,
-  cycleLength,
-  gapLength,
-  minimumVisualGapRatio,
-  offset
-}: {
-  candidate: {
-    centerlineGapLength: number
-    middleDashCount: number
-  }
-  capExtension: number
-  cycleLength: number
-  gapLength: number
-  minimumVisualGapRatio: number
-  offset: number
-}) => {
-  if (candidate.middleDashCount <= 0 || cycleLength <= 0) {
-    return 0
-  }
-
-  const minimumCenterlineGapLength =
-    gapLength * minimumVisualGapRatio + capExtension * 2
-  const maxShift = Math.max(
-    0,
-    candidate.centerlineGapLength - minimumCenterlineGapLength
-  )
-  if (maxShift <= 0) {
-    return 0
-  }
-
-  const normalizedOffset = getNormalizedDashOffset(offset, cycleLength)
-  const signedOffset =
-    normalizedOffset > cycleLength / 2
-      ? cycleLength - normalizedOffset
-      : -normalizedOffset
-  return Math.max(-maxShift, Math.min(maxShift, signedOffset))
-}
-
 const allocateOpenPathBalancedTerminalRawIntervals = (
   totalLength: number,
-  pattern: number[],
-  offset: number,
+  dashAndGap: StrokeDashAndGapLengths,
   options?: DashedCenterStrokeIntervalAllocationOptions
 ): RawDashedCenterStrokeInterval[] => {
-  const dashLength = pattern[0] ?? 0
-  const gapLength = pattern[1] ?? dashLength
+  const dashLength = dashAndGap.dash
+  const gapLength = dashAndGap.gap
   if (dashLength <= 0 || gapLength <= 0) {
     return []
   }
@@ -378,14 +341,6 @@ const allocateOpenPathBalancedTerminalRawIntervals = (
   }
 
   const halfDashLength = dashLength / 2
-  const phaseShift = getOpenPathMiddleDashPhaseShift({
-    candidate,
-    capExtension,
-    cycleLength: pattern.reduce((sum, entry) => sum + entry, 0),
-    gapLength,
-    minimumVisualGapRatio,
-    offset
-  })
   const visibleRanges: {
     startDistance: number
     endDistance: number
@@ -398,7 +353,7 @@ const allocateOpenPathBalancedTerminalRawIntervals = (
     }
   ]
 
-  let cursor = halfDashLength + candidate.centerlineGapLength + phaseShift
+  let cursor = halfDashLength + candidate.centerlineGapLength
   for (
     let middleIndex = 0;
     middleIndex < candidate.middleDashCount;
@@ -449,20 +404,19 @@ const allocateOpenPathBalancedTerminalRawIntervals = (
 
 export const allocateDashedCenterStrokeIntervals = (
   totalLength: number,
-  pattern: number[],
-  offset: number,
+  dashAndGap: StrokeDashAndGapLengths,
   closed: boolean,
   options: DashedCenterStrokeIntervalAllocationOptions = {}
 ): DashedCenterStrokeIntervalRecord[] => {
   if (
     !Number.isFinite(totalLength) ||
     totalLength <= 0 ||
-    !isValidPattern(pattern)
+    !hasValidDashAndGap(dashAndGap)
   ) {
     return []
   }
 
-  const cycleLength = pattern.reduce((sum, entry) => sum + entry, 0)
+  const cycleLength = dashAndGap.dash + dashAndGap.gap
   if (cycleLength <= 0) {
     return []
   }
@@ -471,22 +425,20 @@ export const allocateDashedCenterStrokeIntervals = (
     return withVisibleIntervalLinks(
       allocateOpenPathBalancedTerminalRawIntervals(
         totalLength,
-        pattern,
-        offset,
+        dashAndGap,
         options
       )
     )
   }
 
-  const normalizedOffset = getNormalizedDashOffset(offset, cycleLength)
-
   const rawIntervals: RawDashedCenterStrokeInterval[] = []
 
-  let cursor = -normalizedOffset
+  let cursor = 0
   let authoredIndex = 0
 
   while (cursor < totalLength) {
-    const elementLength = pattern[authoredIndex % pattern.length]
+    const elementLength =
+      authoredIndex % 2 === 0 ? dashAndGap.dash : dashAndGap.gap
     const nextCursor = cursor + elementLength
     const startDistance = Math.max(0, cursor)
     const endDistance = Math.min(totalLength, nextCursor)
@@ -619,7 +571,7 @@ const getDomainPlanSplitRangeReferenceGapLength = (
 
 const allocateDomainPlanSplitRangeRawIntervals = (
   rangeLength: number,
-  dashPattern: number[],
+  dashAndGap: StrokeDashAndGapLengths,
   referenceGapLength?: number,
   minimumCenterlineGapLength = 0
 ): RawDashedCenterStrokeInterval[] => {
@@ -627,12 +579,12 @@ const allocateDomainPlanSplitRangeRawIntervals = (
     return []
   }
 
-  if (!isValidPattern(dashPattern)) {
+  if (!hasValidDashAndGap(dashAndGap)) {
     return []
   }
 
-  const dashLength = dashPattern[0]
-  const targetGapLength = dashPattern[1] ?? dashLength
+  const dashLength = dashAndGap.dash
+  const targetGapLength = dashAndGap.gap
   if (
     rangeLength <= dashLength ||
     (minimumCenterlineGapLength > 0 &&
@@ -713,32 +665,30 @@ const allocateDomainPlanSplitRangeRawIntervals = (
 
 export const allocateDomainPlanSplitRangeDashedIntervals = ({
   domains,
-  dashPattern,
+  dash,
+  gap,
   visualGap
 }: {
   domains: DomainPlanSplitRangeDashDomain[]
-  dashPattern: number[]
+  dash: number
+  gap: number
   visualGap?: DomainPlanSplitRangeVisualGapOptions
 }): StrokeIntervalAllocation[] => {
-  const dashLength = dashPattern[0] ?? 0
-  const targetGapLength = dashPattern[1] ?? dashLength
+  const dashAndGap = { dash, gap }
+  const dashLength = dash
+  const targetGapLength = gap
   const capExtension =
     visualGap && Number.isFinite(visualGap.capExtension)
       ? Math.max(0, visualGap.capExtension)
       : 0
-  const minimumVisualGapLength =
-    capExtension > 0
-      ? Math.max(
-          0,
-          targetGapLength *
-            getDomainPlanSplitRangeMinimumVisualGapRatio(visualGap) -
-            (visualGap?.tolerance ?? DEFAULT_SPLIT_RANGE_VISUAL_GAP_TOLERANCE)
-        )
-      : 0
-  const minimumCenterlineGapLength =
-    capExtension > 0 ? minimumVisualGapLength + capExtension * 2 : 0
+  const minimumVisualGapLength = Math.max(
+    0,
+    targetGapLength * getDomainPlanSplitRangeMinimumVisualGapRatio(visualGap) -
+      (visualGap?.tolerance ?? DEFAULT_SPLIT_RANGE_VISUAL_GAP_TOLERANCE)
+  )
+  const minimumCenterlineGapLength = minimumVisualGapLength + capExtension * 2
   const referenceGapLength =
-    isValidPattern(dashPattern) && dashLength > 0
+    hasValidDashAndGap(dashAndGap) && dashLength > 0
       ? getDomainPlanSplitRangeReferenceGapLength(
           domains,
           dashLength,
@@ -794,7 +744,7 @@ export const allocateDomainPlanSplitRangeDashedIntervals = ({
     }
     const rawIntervals = allocateDomainPlanSplitRangeRawIntervals(
       rangeLength,
-      dashPattern,
+      dashAndGap,
       referenceGapLength,
       minimumCenterlineGapLength
     ).map((interval) => ({
@@ -818,8 +768,11 @@ export const allocateDomainPlanSplitRangeDashedIntervals = ({
         domainPlanBoundaryEndDistance: domain.boundaryEndDistance,
         domainPlanBoundaryTotalLength: domain.boundaryTotalLength,
         domainPlanSplitRangeId: domain.domainId,
+        domainPlanSplitRangeAliasIds: domain.allocationAliasIds,
         domainPlanSplitRangeStartDistance: startDistance,
         domainPlanSplitRangeEndDistance: endDistance,
+        domainPlanSplitRangeSourceStartDistance: domain.sourceStartDistance,
+        domainPlanSplitRangeSourceEndDistance: domain.sourceEndDistance,
         domainPlanTerminalRole: getTerminalRole(interval),
         domainPlanSplitRangeSourceSegmentIndex: domain.sourceSegmentIndex,
         domainPlanSideAuthority: domain.sideAuthority,
@@ -837,20 +790,25 @@ export const allocateDomainPlanSplitRangeDashedIntervals = ({
 
 export const allocateStrokeIntervals = ({
   domains,
-  dashPattern,
-  dashOffset
+  dash,
+  gap
 }: {
   domains: StrokeIntervalAllocationDomain[]
-  dashPattern: number[]
-  dashOffset: number
+  dash?: number
+  gap?: number
 }): StrokeIntervalAllocation[] =>
   domains.map((domain) => {
+    const dashAndGap =
+      dash !== undefined &&
+      gap !== undefined &&
+      hasValidDashAndGap({ dash, gap })
+        ? { dash, gap }
+        : null
     const intervals =
-      dashPattern.length > 0
+      dashAndGap
         ? allocateDashedCenterStrokeIntervals(
             domain.totalLength,
-            dashPattern,
-            dashOffset,
+            dashAndGap,
             domain.closed
           )
         : [
@@ -884,13 +842,13 @@ export const allocateStrokeIntervals = ({
 
 export const allocateStrokeIntervalsForDomainPlan = ({
   domainPlan,
-  dashPattern,
-  dashOffset,
+  dash,
+  gap,
   visualGap
 }: {
   domainPlan: StrokeIntervalDomainPlanInput
-  dashPattern: number[]
-  dashOffset: number
+  dash?: number
+  gap?: number
   visualGap?: DomainPlanSplitRangeVisualGapOptions
 }): StrokeIntervalAllocation[] => {
   if (domainPlan.intervalDomainKind === 'none') {
@@ -900,7 +858,8 @@ export const allocateStrokeIntervalsForDomainPlan = ({
   if (domainPlan.intervalDomainKind === 'domain-plan-split-range') {
     return allocateDomainPlanSplitRangeDashedIntervals({
       domains: domainPlan.splitRangeDomains,
-      dashPattern,
+      dash: dash ?? 0,
+      gap: gap ?? 0,
       visualGap
     })
   }
@@ -908,8 +867,8 @@ export const allocateStrokeIntervalsForDomainPlan = ({
   if (domainPlan.intervalDomainKind === 'legal-boundary-span') {
     return allocateStrokeIntervals({
       domains: domainPlan.legalBoundaryDomains,
-      dashPattern,
-      dashOffset
+      dash,
+      gap
     })
   }
 
@@ -921,7 +880,7 @@ export const allocateStrokeIntervalsForDomainPlan = ({
         closed: domainPlan.closed
       }
     ],
-    dashPattern,
-    dashOffset
+    dash,
+    gap
   })
 }

@@ -12,7 +12,7 @@ export type StrokeCoreRevisionKey =
 
 export type StrokeStageRevisionKey =
   | 'strokeFamilyRevision'
-  | 'dashScheduleRevision'
+  | 'dashAndGapRevision'
   | 'terminalCapRevision'
   | 'joinShapeRevision'
   | 'smoothContinuityRevision'
@@ -60,8 +60,8 @@ interface StrokeRevisionStrokeInput {
   join?: string
   miterLimit?: number
   cap?: string
-  dashPattern?: readonly number[]
-  dashOffset?: number
+  dash?: number
+  gap?: number
   kind?: string
   color?: number
   alpha?: number
@@ -123,7 +123,7 @@ const REQUIRED_REVISION_KEYS: StrokeCoreRevisionKey[] = [
 
 const OPTIONAL_STAGE_REVISION_KEYS: StrokeStageRevisionKey[] = [
   'strokeFamilyRevision',
-  'dashScheduleRevision',
+  'dashAndGapRevision',
   'terminalCapRevision',
   'joinShapeRevision',
   'smoothContinuityRevision',
@@ -215,7 +215,7 @@ const DIRTY_KEYS_BY_REVISION: Record<StrokeRevisionKey, StrokeDirtyKey[]> = {
   sourcePathRevision: SOURCE_PATH_DIRTY,
   strokeSpecRevision: STROKE_PRODUCT_DIRTY,
   strokeFamilyRevision: STROKE_PRODUCT_DIRTY,
-  dashScheduleRevision: DASH_PRODUCT_INTERVAL_DIRTY,
+  dashAndGapRevision: DASH_PRODUCT_INTERVAL_DIRTY,
   terminalCapRevision: ENDPOINT_CAP_POLICY_DIRTY,
   joinShapeRevision: JOIN_OWNERSHIP_DIRTY,
   smoothContinuityRevision: SMOOTH_CONTINUITY_DIRTY,
@@ -367,7 +367,13 @@ const buildStrokeDomainRevision = ({
       ].join('|')
   )
 
-const buildDashScheduleRevision = ({
+const buildDashAndGapRevision = (stroke: StrokeRevisionStrokeInput) =>
+  hashRevision(
+    'dash-and-gap',
+    [stroke.style ?? '', stroke.dash ?? '', stroke.gap ?? ''].join('|')
+  )
+
+const buildIntervalAllocationRevision = ({
   stroke,
   closed,
   sourcePathRevision,
@@ -379,11 +385,11 @@ const buildDashScheduleRevision = ({
   intervalSignature?: string
 }) =>
   hashRevision(
-    'dash-schedule',
+    'interval-allocation',
     [
       stroke.style ?? '',
-      stroke.dashPattern?.join(',') ?? '',
-      stroke.dashOffset ?? '',
+      stroke.dash ?? '',
+      stroke.gap ?? '',
       closed ? 'closed' : 'open',
       sourcePathRevision,
       intervalSignature ?? ''
@@ -533,10 +539,19 @@ const buildRenderOutputRevision = ({
         stroke.join ?? '',
         stroke.miterLimit ?? '',
         stroke.cap ?? '',
-        stroke.dashPattern?.join(',') ?? '',
-        stroke.dashOffset ?? ''
+        stroke.dash ?? '',
+        stroke.gap ?? ''
       ].join('|')
   )
+
+const refineRevision = (
+  prefix: string,
+  baseRevision: StrokeRevisionValue | undefined,
+  metadataSignature: string | undefined
+) =>
+  metadataSignature === undefined
+    ? baseRevision
+    : hashRevision(prefix, [baseRevision ?? '', metadataSignature].join('|'))
 
 export const buildStrokeRuntimeRevisionSet = ({
   points,
@@ -561,7 +576,8 @@ export const buildStrokeRuntimeRevisionSet = ({
   renderOutputSignature
 }: StrokeRuntimeRevisionInput): StrokeRevisionSet => {
   const sourcePathRevision = buildSourcePathRevision(points, closed)
-  const dashScheduleRevision = buildDashScheduleRevision({
+  const dashAndGapRevision = buildDashAndGapRevision(stroke)
+  const intervalAllocationRevision = buildIntervalAllocationRevision({
     stroke,
     closed,
     sourcePathRevision,
@@ -592,7 +608,7 @@ export const buildStrokeRuntimeRevisionSet = ({
       domainMode,
       strokeDomainSignature
     }),
-    intervalAllocationRevision: dashScheduleRevision,
+    intervalAllocationRevision,
     ownershipRevision: buildOwnershipRevision({
       ownerKey,
       networkId,
@@ -613,7 +629,7 @@ export const buildStrokeRuntimeRevisionSet = ({
       domainMode,
       strokeProductSignature
     }),
-    dashScheduleRevision,
+    dashAndGapRevision,
     terminalCapRevision: buildTerminalCapRevision({
       stroke,
       closed,
@@ -684,22 +700,43 @@ export const updateStrokeRuntimeRevisionSetFromMetadata = (
         : revisionSet.sharedGeometryRevision,
     strokeProductRevision:
       metadata.strokeProductSignature !== undefined
-        ? hashRevision('stroke-product', metadata.strokeProductSignature)
+        ? (refineRevision(
+            'stroke-product',
+            revisionSet.strokeProductRevision,
+            metadata.strokeProductSignature
+          ) ?? revisionSet.strokeProductRevision)
         : revisionSet.strokeProductRevision,
     strokeFamilyRevision:
       metadata.strokeProductSignature !== undefined
-        ? hashRevision('stroke-product', metadata.strokeProductSignature)
+        ? refineRevision(
+            'stroke-product',
+            revisionSet.strokeFamilyRevision,
+            metadata.strokeProductSignature
+          )
         : revisionSet.strokeFamilyRevision,
     strokeDomainRevision:
       metadata.strokeDomainSignature !== undefined
-        ? hashRevision('stroke-domain', metadata.strokeDomainSignature)
+        ? (refineRevision(
+            'stroke-domain',
+            revisionSet.strokeDomainRevision,
+            metadata.strokeDomainSignature
+          ) ?? revisionSet.strokeDomainRevision)
         : revisionSet.strokeDomainRevision,
+    terminalCapRevision:
+      metadata.endpointCapPolicySignature !== undefined
+        ? refineRevision(
+            'terminal-cap',
+            revisionSet.terminalCapRevision,
+            metadata.endpointCapPolicySignature
+          )
+        : revisionSet.terminalCapRevision,
     joinShapeRevision:
       metadata.joinOwnershipSignature !== undefined
-        ? buildJoinShapeRevision({
-            stroke: {},
-            joinOwnershipSignature: metadata.joinOwnershipSignature
-          })
+        ? refineRevision(
+            'join-shape',
+            revisionSet.joinShapeRevision,
+            metadata.joinOwnershipSignature
+          )
         : revisionSet.joinShapeRevision,
     smoothContinuityRevision: buildSmoothContinuityRevision(metadata),
     productMaterializationRevision:
@@ -709,10 +746,11 @@ export const updateStrokeRuntimeRevisionSetFromMetadata = (
     resolvedRegionRevision: buildResolvedRegionRevision(metadata),
     renderOutputRevision:
       metadata.renderOutputSignature !== undefined
-        ? buildRenderOutputRevision({
-            stroke: {},
-            ...metadata
-          })
+        ? refineRevision(
+            'render-output',
+            revisionSet.renderOutputRevision,
+            metadata.renderOutputSignature
+          )
         : revisionSet.renderOutputRevision
   }
 }
