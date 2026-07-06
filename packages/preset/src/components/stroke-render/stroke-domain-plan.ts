@@ -427,47 +427,12 @@ const buildSharedSplitRangeDashDomains = ({
   sourceFamily: ResolvedSourceFamily
   stroke: Pick<RenderableStroke, 'position' | 'width'>
 }): DomainPlanSplitRangeDashDomain[] => {
-  const getProductSourceSide = (
-    domain: Pick<
-      DomainPlanSplitRangeDashDomain,
-      | 'selectedSide'
-      | 'sourceStartDistance'
-      | 'sourceEndDistance'
-      | 'startDistance'
-      | 'endDistance'
-      | 'boundaryStartDistance'
-      | 'boundaryEndDistance'
-    >
-  ) => {
-    if (domain.selectedSide !== 1 && domain.selectedSide !== -1) {
-      return null
-    }
-    const sourceStart = domain.sourceStartDistance ?? domain.startDistance
-    const sourceEnd = domain.sourceEndDistance ?? domain.endDistance
-    const sourceDirection = sourceEnd - sourceStart
-    const boundaryDirection =
-      domain.boundaryStartDistance !== undefined &&
-      domain.boundaryEndDistance !== undefined
-        ? domain.boundaryEndDistance - domain.boundaryStartDistance
-        : sourceDirection
-    if (
-      Math.abs(sourceDirection) <= EPSILON ||
-      Math.abs(boundaryDirection) <= EPSILON
-    ) {
-      return domain.selectedSide
-    }
-
-    return sourceDirection * boundaryDirection < 0
-      ? (-domain.selectedSide as 1 | -1)
-      : domain.selectedSide
-  }
-
   const getProductOwnershipKey = (domain: DomainPlanSplitRangeDashDomain) => {
     const sourceRange = getSourceRange(domain)
     const sideKey =
       stroke.position === 'inside'
         ? 'inside'
-        : (getProductSourceSide(domain) ?? 'unknown')
+        : (getDomainProductSourceSide(domain) ?? 'unknown')
     return [
       domain.sourceSegmentIndex,
       sourceRange.startDistance.toFixed(6),
@@ -481,6 +446,14 @@ const buildSharedSplitRangeDashDomains = ({
     next: DomainPlanSplitRangeDashDomain
   ): DomainPlanSplitRangeDashDomain => ({
     ...existing,
+    allocationAliasIds: Array.from(
+      new Set([
+        existing.domainId,
+        ...(existing.allocationAliasIds ?? []),
+        next.domainId,
+        ...(next.allocationAliasIds ?? [])
+      ])
+    ),
     contourIds: Array.from(
       new Set([...(existing.contourIds ?? []), ...(next.contourIds ?? [])])
     ),
@@ -532,19 +505,19 @@ const buildSharedSplitRangeDashDomains = ({
       const dashDomainStartDistance =
         sourceFamily.legalDomainHints.closed === false
           ? range.boundaryStartDistance
-          : stroke.position === 'inside'
-            ? range.sourceStartDistance
-            : range.boundaryStartDistance
+          : range.sourceStartDistance
       const dashDomainEndDistance =
         sourceFamily.legalDomainHints.closed === false
           ? range.boundaryEndDistance
-          : stroke.position === 'inside'
-            ? range.sourceEndDistance
-            : range.boundaryEndDistance
+          : range.sourceEndDistance
 
       return [
         {
           domainId: range.rangeId,
+          domainMode:
+            sourceFamily.legalDomainHints.closed === false
+              ? 'open-contour-constrained-domain'
+              : 'closed-constrained-domain',
           boundaryDomainId: range.boundaryDomainId,
           boundaryPoints: range.boundaryPoints,
           boundaryStartDistance: range.boundaryStartDistance,
@@ -552,14 +525,9 @@ const buildSharedSplitRangeDashDomains = ({
           boundaryTotalLength: range.boundaryTotalLength,
           startDistance: dashDomainStartDistance,
           endDistance: dashDomainEndDistance,
-          sourceStartDistance: Math.min(
-            range.sourceStartDistance,
-            range.sourceEndDistance
-          ),
-          sourceEndDistance: Math.max(
-            range.sourceStartDistance,
-            range.sourceEndDistance
-          ),
+          sourceStartDistance: range.sourceStartDistance,
+          sourceEndDistance: range.sourceEndDistance,
+          allocationAliasIds: [range.rangeId],
           sourceSegmentIndex: range.sourceSegmentIndex,
           sideAuthority: 'implicit-fill-hole-domain',
           selectedSide,
@@ -620,6 +588,167 @@ const getSourceRange = (
     startDistance: Math.min(startDistance, endDistance),
     endDistance: Math.max(startDistance, endDistance)
   }
+}
+
+const getDomainProductSourceSide = (
+  domain: Pick<
+    DomainPlanSplitRangeDashDomain,
+    | 'selectedSide'
+    | 'sourceStartDistance'
+    | 'sourceEndDistance'
+    | 'startDistance'
+    | 'endDistance'
+    | 'boundaryStartDistance'
+    | 'boundaryEndDistance'
+  >
+) => {
+  if (domain.selectedSide !== 1 && domain.selectedSide !== -1) {
+    return null
+  }
+  const sourceStart = domain.sourceStartDistance ?? domain.startDistance
+  const sourceEnd = domain.sourceEndDistance ?? domain.endDistance
+  const sourceDirection = sourceEnd - sourceStart
+  const boundaryDirection =
+    domain.boundaryStartDistance !== undefined &&
+    domain.boundaryEndDistance !== undefined
+      ? domain.boundaryEndDistance - domain.boundaryStartDistance
+      : sourceDirection
+  if (
+    Math.abs(sourceDirection) <= EPSILON ||
+    Math.abs(boundaryDirection) <= EPSILON
+  ) {
+    return domain.selectedSide
+  }
+
+  return sourceDirection * boundaryDirection < 0
+    ? (-domain.selectedSide as 1 | -1)
+    : domain.selectedSide
+}
+
+const getDomainSourceRangeKey = (domain: DomainPlanSplitRangeDashDomain) => {
+  const sourceRange = getSourceRange(domain)
+  return [
+    domain.sourceSegmentIndex,
+    sourceRange.startDistance.toFixed(6),
+    sourceRange.endDistance.toFixed(6)
+  ].join(':')
+}
+
+const canonicalizeClosedOutsideSplitRangeDashDomains = ({
+  topology,
+  sourceFamily,
+  stroke,
+  sourcePath,
+  splitRangeDomains,
+  implicitFillRegions
+}: {
+  topology: ResolveStrokeDomainsInput['topology']
+  sourceFamily: ResolvedSourceFamily
+  stroke: Pick<RenderableStroke, 'style' | 'position' | 'width'>
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>
+  splitRangeDomains: DomainPlanSplitRangeDashDomain[]
+  implicitFillRegions?: PolygonRegion[]
+}) => {
+  if (
+    !topology.closed ||
+    stroke.style !== 'dashed' ||
+    stroke.position !== 'outside' ||
+    sourcePath.segments.length === 0
+  ) {
+    return splitRangeDomains
+  }
+
+  const isCanonicalDomain = (domain: DomainPlanSplitRangeDashDomain) => {
+    if (domain.domainMode === 'open-dangling-outside-both-sides') {
+      return true
+    }
+    const productSourceSide = getDomainProductSourceSide(domain)
+    if (productSourceSide !== 1 && productSourceSide !== -1) {
+      return true
+    }
+    const sourceRange = getSourceRange(domain)
+    const range = {
+      segmentIndex: domain.sourceSegmentIndex,
+      startDistance: sourceRange.startDistance,
+      endDistance: sourceRange.endDistance
+    }
+    const fillRegionSideResolution = resolveSourcePathStrokeSide({
+      sourcePath,
+      topologyPoints: topology.normalizedPoints,
+      fillRule: sourceFamily.legalDomainHints.fillRule,
+      position: 'outside',
+      width: stroke.width,
+      range,
+      fillRegions: implicitFillRegions
+    })
+    const sideResolution =
+      fillRegionSideResolution.status === 'resolved'
+        ? fillRegionSideResolution
+        : resolveSourcePathStrokeSide({
+            sourcePath,
+            topologyPoints: topology.normalizedPoints,
+            fillRule: sourceFamily.legalDomainHints.fillRule,
+            position: 'outside',
+            width: stroke.width,
+            range
+          })
+    if (sideResolution.status !== 'resolved') {
+      return true
+    }
+
+    return productSourceSide === sideResolution.selectedSide
+  }
+  const canonicalDomains: DomainPlanSplitRangeDashDomain[] = []
+  const droppedDomains: DomainPlanSplitRangeDashDomain[] = []
+  splitRangeDomains.forEach((domain) => {
+    if (isCanonicalDomain(domain)) {
+      canonicalDomains.push(domain)
+    } else {
+      droppedDomains.push(domain)
+    }
+  })
+  if (canonicalDomains.length === 0) {
+    return splitRangeDomains
+  }
+
+  const canonicalDomainBySourceRange = new Map<
+    string,
+    DomainPlanSplitRangeDashDomain
+  >()
+  canonicalDomains.forEach((domain) => {
+    canonicalDomainBySourceRange.set(getDomainSourceRangeKey(domain), domain)
+  })
+  const aliasIdsByCanonicalDomainId = new Map<string, string[]>()
+  droppedDomains.forEach((domain) => {
+    const canonicalCounterpart = canonicalDomainBySourceRange.get(
+      getDomainSourceRangeKey(domain)
+    )
+    if (!canonicalCounterpart) {
+      return
+    }
+    aliasIdsByCanonicalDomainId.set(canonicalCounterpart.domainId, [
+      ...(aliasIdsByCanonicalDomainId.get(canonicalCounterpart.domainId) ?? []),
+      domain.domainId,
+      ...(domain.allocationAliasIds ?? [])
+    ])
+  })
+  const canonicalDomainsWithAliases = canonicalDomains.map((domain) => {
+    const aliasIds = Array.from(
+      new Set([
+        domain.domainId,
+        ...(domain.allocationAliasIds ?? []),
+        ...(aliasIdsByCanonicalDomainId.get(domain.domainId) ?? [])
+      ])
+    )
+    return aliasIds.length > 1
+      ? {
+          ...domain,
+          allocationAliasIds: aliasIds
+        }
+      : domain
+  })
+
+  return canonicalDomainsWithAliases
 }
 
 const getSourcePathTotalLength = (sourcePath: Pick<PathGeometry, 'segments'>) =>
@@ -972,7 +1101,6 @@ const supplementClosedConstrainedSourceCoverageDomains = ({
     !topology.closed ||
     stroke.style !== 'dashed' ||
     !isConstrainedPosition(stroke.position) ||
-    stroke.position !== 'inside' ||
     sourcePath.segments.length === 0
   ) {
     return splitRangeDomains
@@ -1282,16 +1410,25 @@ export const resolveStrokeDomains = ({
       sourceFamily,
       stroke
     })
+    const canonicalSplitRangeDomains =
+      canonicalizeClosedOutsideSplitRangeDashDomains({
+        topology,
+        sourceFamily,
+        stroke,
+        sourcePath,
+        splitRangeDomains,
+        implicitFillRegions
+      })
     const sourceCoveredSplitRangeDomains = topology.closed
       ? supplementClosedConstrainedSourceCoverageDomains({
           topology,
           sourceFamily,
           stroke,
           sourcePath,
-          splitRangeDomains,
+          splitRangeDomains: canonicalSplitRangeDomains,
           implicitFillRegions
         })
-      : splitRangeDomains
+      : canonicalSplitRangeDomains
     const insideExcludedSplitRangeDomains =
       stroke.position === 'inside' && !topology.closed
         ? supplementInsideDashedOpenExcludedDomains({
@@ -1362,12 +1499,55 @@ export const resolveStrokeDomains = ({
                   ? 'inside-excluded-open-spans-added'
                   : 'open-dangling-outside-domains-added'
             ]
+          : []),
+        ...(canonicalSplitRangeDomains.length < splitRangeDomains.length
+          ? ['closed-outside-source-side-domains-canonicalized']
           : [])
       ]
     }
   }
 
   if (isConstrainedPosition(stroke.position) && topology.closed) {
+    if (
+      stroke.style === 'dashed' &&
+      sourcePath &&
+      sourcePath.segments.length > 0
+    ) {
+      const splitRangeDomains =
+        supplementClosedConstrainedSourceCoverageDomains({
+          topology,
+          sourceFamily,
+          stroke,
+          sourcePath,
+          splitRangeDomains: [],
+          implicitFillRegions
+        })
+      if (splitRangeDomains.length > 0) {
+        return {
+          ...basePlan,
+          intervalDomainKind: 'domain-plan-split-range',
+          domainMode: 'closed-constrained-domain',
+          sideAuthority: 'implicit-fill-hole-domain',
+          requiresImplicitFillHoleSideResolution: true,
+          splitRangeDomains,
+          legalBoundaryDomains: [],
+          sideResolutionContext: {
+            sourcePath,
+            topologyPoints: topology.normalizedPoints,
+            fillRule: sourceFamily.legalDomainHints.fillRule,
+            strokePosition: stroke.position as 'inside' | 'outside',
+            strokeWidth: stroke.width,
+            implicitFillRegions
+          },
+          diagnostics: [
+            'constrained-domains-use-stroke-domain-plan',
+            'side-authority-is-implicit-fill-hole-domain',
+            'closed-constrained-source-coverage-domains-added'
+          ]
+        }
+      }
+    }
+
     return {
       ...basePlan,
       intervalDomainKind: 'source-path',

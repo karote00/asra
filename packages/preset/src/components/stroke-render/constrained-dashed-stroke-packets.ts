@@ -1,5 +1,6 @@
 import type { StrokeAttrs } from '@asyra/utils'
 import {
+  getRenderableStrokeDashAndGap,
   getRenderableStrokes,
   type RenderableStroke
 } from './renderable-stroke'
@@ -26,6 +27,7 @@ import {
   type GeometryBackend,
   type PolygonRegion
 } from './geometry-backend'
+import { getRegionCoveragePolygons } from './stroke-candidate-arrangement'
 import {
   allocateDashedIntervalsForTopology,
   buildPathTopologyModel,
@@ -36,6 +38,7 @@ import {
 import {
   buildPolylineGeometryModelPath,
   samplePathSegmentFramesByLengthStep,
+  slicePathGeometryFrames,
   slicePathSegmentPoints,
   slicePathGeometryPoints,
   type PathSegment,
@@ -55,6 +58,10 @@ import {
   type StrokeDomainMode,
   type StrokeDomainPlan
 } from './stroke-domain-plan'
+import {
+  buildSourceVertexJoinFootprint,
+  type SourceVertexJoinIncidentSeamBoundary
+} from './source-vertex-join-footprint'
 import type {
   ResolvedVectorSourceSplitRange,
   ResolvedVectorStrokeBoundaryDomain
@@ -126,9 +133,13 @@ const SOURCE_PATH_DASH_SEGMENT_OVERLAP_FACTOR = 0.04
 const SOURCE_PATH_DASH_SEGMENT_OVERLAP_MAX = 0.6
 const SOURCE_PATH_FINAL_RANGE_POLYGON_CACHE_LIMIT = 16384
 const SOURCE_PATH_INTERVAL_LEVEL_POLYGON_CACHE_LIMIT = 32768
+const SOURCE_PATH_OFFSET_RIBBON_RANGE_FRAME_CACHE_LIMIT = 32768
 const SOURCE_SPAN_GRAPH_CACHE_LIMIT = 128
-const SOURCE_VERTEX_BOUNDARY_JOIN_RECORD_CACHE_LIMIT = 1024
+const SOURCE_VERTEX_BOUNDARY_JOIN_RECORD_CACHE_LIMIT = 16384
+const SOURCE_VERTEX_BOUNDARY_JOIN_MATERIALIZATION_VERSION =
+  'boundary-terminal-pair-direct-outside-v18'
 const CENTER_STROKE_DESCRIPTOR_PRODUCT_POLYGON_CACHE_LIMIT = 1024
+const OUTSIDE_SOURCE_DOMAIN_DESCRIPTOR_PRODUCT_CACHE_LIMIT = 8192
 const CONSTRAINED_DASHED_PACKET_STAGE_CACHE_LIMIT = 128
 const INSIDE_AGGREGATE_DESCRIPTOR_PRODUCT_CACHE_LIMIT = 128
 
@@ -155,8 +166,11 @@ export type VisibleDashedTopologyInterval = DashedTopologyInterval & {
   domainPlanBoundaryEndDistance?: number
   domainPlanBoundaryTotalLength?: number
   domainPlanSplitRangeId?: string
+  domainPlanSplitRangeAliasIds?: string[]
   domainPlanSplitRangeStartDistance?: number
   domainPlanSplitRangeEndDistance?: number
+  domainPlanSplitRangeSourceStartDistance?: number
+  domainPlanSplitRangeSourceEndDistance?: number
   domainPlanTerminalRole?: 'start' | 'end' | 'start-end' | 'middle'
   domainPlanSplitRangeSourceSegmentIndex?: number
   domainPlanSideAuthority?: 'implicit-fill-hole-domain'
@@ -389,7 +403,10 @@ const buildBoundaryDomainPathForInterval = (
     | 'domainPlanBoundaryDomainId'
     | 'domainPlanBoundaryPoints'
     | 'domainPlanBoundaryTotalLength'
-  >
+  >,
+  options: {
+    useContentCache?: boolean
+  } = {}
 ): PathGeometry | null => {
   const points = interval.domainPlanBoundaryPoints
   if (!points || points.length < 2) {
@@ -404,7 +421,10 @@ const buildBoundaryDomainPathForInterval = (
     return cached.path
   }
 
-  const contentCacheKey = getBoundaryDomainPathCacheKey(interval)
+  const useContentCache = options.useContentCache !== false
+  const contentCacheKey = useContentCache
+    ? getBoundaryDomainPathCacheKey(interval)
+    : null
   if (contentCacheKey && boundaryDomainPathContentCache.has(contentCacheKey)) {
     emitStrokePipelineCounter('boundary-domain-path-content-cache-hit')
     const cachedPath =
@@ -582,20 +602,11 @@ interface DashEndpointCapPolicy {
   endCap: boolean
   signature: string
 }
-type DashEndpointCapPolicyInterval = Pick<
-  VisibleDashedTopologyInterval,
-  | 'domainPlanBoundaryDomainId'
-  | 'domainPlanSplitRangeId'
-  | 'domainPlanTerminalRole'
-  | 'openPathTerminalRole'
->
 
-const getDashEndpointCapPolicy = (
-  path: Pick<PathGeometry, 'closed'>,
-  interval: DashEndpointCapPolicyInterval
+const buildDashEndpointCapPolicyFromSuppression = (
+  suppressStartCap: boolean,
+  suppressEndCap: boolean
 ): DashEndpointCapPolicy => {
-  const suppressStartCap = shouldSuppressDashedIntervalStartCap(path, interval)
-  const suppressEndCap = shouldSuppressDashedIntervalEndCap(path, interval)
   const startCap = !suppressStartCap
   const endCap = !suppressEndCap
   const terminalRole =
@@ -617,6 +628,34 @@ const getDashEndpointCapPolicy = (
     }`
   }
 }
+
+type DashEndpointCapPolicyInterval = Pick<
+  VisibleDashedTopologyInterval,
+  | 'domainPlanBoundaryDomainId'
+  | 'domainPlanSplitRangeId'
+  | 'domainPlanTerminalRole'
+  | 'openPathTerminalRole'
+>
+
+const getDashEndpointCapPolicy = (
+  path: Pick<PathGeometry, 'closed'>,
+  interval: DashEndpointCapPolicyInterval
+): DashEndpointCapPolicy => {
+  const suppressStartCap = shouldSuppressDashedIntervalStartCap(path, interval)
+  const suppressEndCap = shouldSuppressDashedIntervalEndCap(path, interval)
+  return buildDashEndpointCapPolicyFromSuppression(
+    suppressStartCap,
+    suppressEndCap
+  )
+}
+
+const reverseDashEndpointCapPolicy = (
+  endpointCapPolicy: DashEndpointCapPolicy
+): DashEndpointCapPolicy =>
+  buildDashEndpointCapPolicyFromSuppression(
+    endpointCapPolicy.suppressEndCap,
+    endpointCapPolicy.suppressStartCap
+  )
 
 const getEffectiveRangeEndpointCapPolicy = (
   path: Pick<PathGeometry, 'totalLength'>,
@@ -696,7 +735,11 @@ type BoundaryDomainMaterializationInterval = Pick<
   | 'domainPlanBoundaryTotalLength'
   | 'domainPlanSplitRangeStartDistance'
   | 'domainPlanSplitRangeEndDistance'
+  | 'domainPlanSplitRangeSourceStartDistance'
+  | 'domainPlanSplitRangeSourceEndDistance'
+  | 'domainPlanSplitRangeSourceSegmentIndex'
   | 'domainPlanSelectedSide'
+  | 'domainPlanDomainMode'
 > & {
   materializationDistanceSpace?: 'source-domain' | 'boundary-domain'
 }
@@ -739,6 +782,24 @@ const getBoundaryDomainMaterializedSelectedSide = <
 
   return sourceDirection * boundaryDirection < 0
     ? (-interval.domainPlanSelectedSide as 1 | -1)
+    : interval.domainPlanSelectedSide
+}
+
+const getSourceDomainMaterializedSelectedSide = <
+  T extends BoundaryDomainMaterializationInterval
+>(
+  interval: T
+): 1 | -1 | undefined => {
+  if (
+    interval.domainPlanSelectedSide !== 1 &&
+    interval.domainPlanSelectedSide !== -1
+  ) {
+    return undefined
+  }
+
+  return interval.materializationDistanceSpace === 'source-domain'
+    ? (getBoundaryDomainMaterializedSelectedSide(interval) ??
+        interval.domainPlanSelectedSide)
     : interval.domainPlanSelectedSide
 }
 
@@ -804,13 +865,511 @@ const resolveBoundaryDomainIntervalForMaterialization = <
   }
 }
 
+const resolveSourceDomainIntervalForMaterialization = <
+  T extends BoundaryDomainMaterializationInterval
+>(
+  interval: T
+): T => {
+  if (interval.materializationDistanceSpace === 'source-domain') {
+    return interval
+  }
+  if (
+    interval.domainPlanDomainMode === 'closed-constrained-domain' &&
+    interval.domainPlanSplitRangeStartDistance !== undefined &&
+    interval.domainPlanSplitRangeEndDistance !== undefined &&
+    interval.domainPlanSplitRangeSourceSegmentIndex !== undefined &&
+    interval.domainPlanSplitRangeSourceStartDistance === undefined &&
+    interval.domainPlanSplitRangeSourceEndDistance === undefined &&
+    !interval.wrapsSeam
+  ) {
+    return {
+      ...interval,
+      materializationDistanceSpace: 'source-domain',
+      domainPlanSplitRangeSourceStartDistance:
+        interval.domainPlanSplitRangeStartDistance,
+      domainPlanSplitRangeSourceEndDistance:
+        interval.domainPlanSplitRangeEndDistance
+    }
+  }
+  if (
+    interval.domainPlanSplitRangeStartDistance === undefined ||
+    interval.domainPlanSplitRangeEndDistance === undefined ||
+    interval.domainPlanSplitRangeSourceStartDistance === undefined ||
+    interval.domainPlanSplitRangeSourceEndDistance === undefined
+  ) {
+    return interval
+  }
+
+  const splitStart = interval.domainPlanSplitRangeStartDistance
+  const splitEnd = interval.domainPlanSplitRangeEndDistance
+  const sourceStart = interval.domainPlanSplitRangeSourceStartDistance
+  const sourceEnd = interval.domainPlanSplitRangeSourceEndDistance
+  const splitLength = splitEnd - splitStart
+  const sourceLength = sourceEnd - sourceStart
+  if (
+    Math.abs(splitLength) <= EPSILON ||
+    Math.abs(sourceLength) <= EPSILON ||
+    interval.wrapsSeam
+  ) {
+    return interval
+  }
+
+  const mapDistance = (distance: number) => {
+    const ratio = (distance - splitStart) / splitLength
+    return sourceStart + sourceLength * ratio
+  }
+  const mappedStartDistance = mapDistance(interval.startDistance)
+  const mappedEndDistance = mapDistance(interval.endDistance)
+  const startDistance = Math.min(mappedStartDistance, mappedEndDistance)
+  const endDistance = Math.max(mappedStartDistance, mappedEndDistance)
+  if (endDistance <= startDistance + EPSILON) {
+    return interval
+  }
+
+  return {
+    ...interval,
+    startDistance,
+    endDistance,
+    intervalLength: endDistance - startDistance,
+    wrapsSeam: false,
+    materializationDistanceSpace: 'source-domain'
+  }
+}
+
+const isMaterializedIntervalDirectionReversed = <
+  T extends BoundaryDomainMaterializationInterval
+>(
+  sourceInterval: T,
+  materializedInterval: T
+) => {
+  const sourceDirection =
+    sourceInterval.endDistance - sourceInterval.startDistance
+  const sourceRangeStart =
+    sourceInterval.domainPlanSplitRangeSourceStartDistance ??
+    materializedInterval.domainPlanSplitRangeSourceStartDistance
+  const sourceRangeEnd =
+    sourceInterval.domainPlanSplitRangeSourceEndDistance ??
+    materializedInterval.domainPlanSplitRangeSourceEndDistance
+  const materializedDirection =
+    materializedInterval.materializationDistanceSpace === 'boundary-domain' &&
+    sourceInterval.domainPlanBoundaryStartDistance !== undefined &&
+    sourceInterval.domainPlanBoundaryEndDistance !== undefined &&
+    sourceInterval.domainPlanSplitRangeStartDistance !== undefined &&
+    sourceInterval.domainPlanSplitRangeEndDistance !== undefined
+      ? ((sourceInterval.domainPlanBoundaryEndDistance -
+          sourceInterval.domainPlanBoundaryStartDistance) /
+          (sourceInterval.domainPlanSplitRangeEndDistance -
+            sourceInterval.domainPlanSplitRangeStartDistance)) *
+        sourceDirection
+      : materializedInterval.materializationDistanceSpace === 'source-domain' &&
+          sourceRangeStart !== undefined &&
+          sourceRangeEnd !== undefined &&
+          sourceInterval.domainPlanSplitRangeStartDistance !== undefined &&
+          sourceInterval.domainPlanSplitRangeEndDistance !== undefined
+        ? ((sourceRangeEnd - sourceRangeStart) /
+            (sourceInterval.domainPlanSplitRangeEndDistance -
+              sourceInterval.domainPlanSplitRangeStartDistance)) *
+          sourceDirection
+        : materializedInterval.endDistance - materializedInterval.startDistance
+
+  return (
+    Math.abs(sourceDirection) > EPSILON &&
+    Number.isFinite(materializedDirection) &&
+    Math.abs(materializedDirection) > EPSILON &&
+    sourceDirection * materializedDirection < 0
+  )
+}
+
+export type DashIntervalBodyTerminalRole =
+  | 'middle'
+  | 'start'
+  | 'end'
+  | 'start-end'
+
+export interface DashIntervalBodyEndpointCapPolicy {
+  terminalRole: DashIntervalBodyTerminalRole
+  suppressStartCap: boolean
+  suppressEndCap: boolean
+  startCap: boolean
+  endCap: boolean
+  signature: string
+}
+
+export interface DashIntervalBodyProductInterval {
+  intervalId: string
+  kind?: 'visible' | 'gap'
+  splitRangeId?: string
+  seamBoundaryId: string
+  seamBoundary?: SourceVertexJoinIncidentSeamBoundary
+  terminalRole?: DashIntervalBodyTerminalRole
+  endpointCapPolicy: DashIntervalBodyEndpointCapPolicy
+  bodyPolygons: Vec2[][]
+}
+
+export interface DashIntervalBodyCapContributor {
+  side: 'start' | 'end'
+  contribution: 'body-side-cap'
+  policySignature: string
+}
+
+export interface DashIntervalBodyProductUnit {
+  productId: string
+  productFamilyId: 'constrained-dashed'
+  productMode: 'pre-legality-dash-interval-body'
+  visibleContributor: 'dash-interval-body'
+  geometryBasis: 'dash-interval-body'
+  materializationKind: 'body'
+  legalSideId: string
+  intervalId: string
+  splitRangeId?: string
+  seamBoundaryId: string
+  seamBoundary?: SourceVertexJoinIncidentSeamBoundary
+  terminalRole: DashIntervalBodyTerminalRole
+  endpointCapPolicy: DashIntervalBodyEndpointCapPolicy
+  capContributors: DashIntervalBodyCapContributor[]
+  polygons: Vec2[][]
+  bounds: Bounds
+  ownerStage: 'Stroke Geometry dashed interval body assembly'
+  evidence: {
+    intervalId: string
+    splitRangeId?: string
+    terminalRole: DashIntervalBodyTerminalRole
+    endpointCapPolicySignature: string
+    seamBoundaryId: string
+    seamBoundary?: SourceVertexJoinIncidentSeamBoundary
+  }
+}
+
+export interface BuildDashIntervalBodyProductsInput {
+  productFamilyId: 'constrained-dashed' | string
+  cachePrefix: string
+  legalSideId: string
+  intervals: DashIntervalBodyProductInterval[]
+}
+
+const hasDashIntervalBodyPolygon = (polygons: Vec2[][]) =>
+  polygons.some((polygon) => polygon.length >= 3)
+
+const getDashIntervalBodyBounds = (polygons: Vec2[][]): Bounds => {
+  let minX = Number.POSITIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+
+  polygons.forEach((polygon) => {
+    polygon.forEach((point) => {
+      minX = Math.min(minX, point.x)
+      minY = Math.min(minY, point.y)
+      maxX = Math.max(maxX, point.x)
+      maxY = Math.max(maxY, point.y)
+    })
+  })
+
+  return {
+    minX: Number.isFinite(minX) ? minX : 0,
+    minY: Number.isFinite(minY) ? minY : 0,
+    maxX: Number.isFinite(maxX) ? maxX : 0,
+    maxY: Number.isFinite(maxY) ? maxY : 0
+  }
+}
+
+const getDashIntervalBodyCapContributors = (
+  policy: DashIntervalBodyEndpointCapPolicy
+): DashIntervalBodyCapContributor[] => {
+  const contributors: DashIntervalBodyCapContributor[] = []
+  if (policy.startCap && !policy.suppressStartCap) {
+    contributors.push({
+      side: 'start',
+      contribution: 'body-side-cap',
+      policySignature: policy.signature
+    })
+  }
+  if (policy.endCap && !policy.suppressEndCap) {
+    contributors.push({
+      side: 'end',
+      contribution: 'body-side-cap',
+      policySignature: policy.signature
+    })
+  }
+  return contributors
+}
+
+export const buildDashIntervalBodyProducts = (
+  input: BuildDashIntervalBodyProductsInput
+): DashIntervalBodyProductUnit[] => {
+  if (input.productFamilyId !== 'constrained-dashed') {
+    return []
+  }
+
+  const seenIntervalIds = new Set<string>()
+  return input.intervals.flatMap((interval): DashIntervalBodyProductUnit[] => {
+    if (
+      (interval.kind ?? 'visible') !== 'visible' ||
+      seenIntervalIds.has(interval.intervalId) ||
+      !hasDashIntervalBodyPolygon(interval.bodyPolygons)
+    ) {
+      return []
+    }
+
+    seenIntervalIds.add(interval.intervalId)
+    const terminalRole =
+      interval.terminalRole ?? interval.endpointCapPolicy.terminalRole
+
+    return [
+      {
+        productId: `${input.cachePrefix}:${interval.intervalId}:body`,
+        productFamilyId: 'constrained-dashed',
+        productMode: 'pre-legality-dash-interval-body',
+        visibleContributor: 'dash-interval-body',
+        geometryBasis: 'dash-interval-body',
+        materializationKind: 'body',
+        legalSideId: input.legalSideId,
+        intervalId: interval.intervalId,
+        splitRangeId: interval.splitRangeId,
+        seamBoundaryId: interval.seamBoundaryId,
+        seamBoundary: interval.seamBoundary,
+        terminalRole,
+        endpointCapPolicy: interval.endpointCapPolicy,
+        capContributors: getDashIntervalBodyCapContributors(
+          interval.endpointCapPolicy
+        ),
+        polygons: interval.bodyPolygons,
+        bounds: getDashIntervalBodyBounds(interval.bodyPolygons),
+        ownerStage: 'Stroke Geometry dashed interval body assembly',
+        evidence: {
+          intervalId: interval.intervalId,
+          splitRangeId: interval.splitRangeId,
+          terminalRole,
+          endpointCapPolicySignature: interval.endpointCapPolicy.signature,
+          seamBoundaryId: interval.seamBoundaryId,
+          seamBoundary: interval.seamBoundary
+        }
+      }
+    ]
+  })
+}
+
+export interface TerminalBodyProductInterval
+  extends DashIntervalBodyProductInterval {
+  terminalRole: DashIntervalBodyTerminalRole
+  joinOwnershipSignature: string
+}
+
+export interface TerminalBodyProductUnit {
+  productId: string
+  productFamilyId: 'constrained-dashed'
+  productMode: 'pre-legality-terminal-body'
+  visibleContributor: 'terminal-interval-body'
+  geometryBasis: 'terminal-dash-interval-body'
+  materializationKind: 'terminal-body'
+  legalSideId: string
+  intervalId: string
+  splitRangeId?: string
+  seamBoundaryId: string
+  terminalRole: Exclude<DashIntervalBodyTerminalRole, 'middle'>
+  endpointCapPolicy: DashIntervalBodyEndpointCapPolicy
+  joinOwnershipSignature: string
+  capContributors: DashIntervalBodyCapContributor[]
+  polygons: Vec2[][]
+  bounds: Bounds
+  ownerStage: 'Stroke Geometry terminal body assembly'
+  evidence: {
+    terminalRole: Exclude<DashIntervalBodyTerminalRole, 'middle'>
+    endpointCapPolicySignature: string
+    seamBoundaryId: string
+    joinOwnershipSignature: string
+  }
+}
+
+export interface BuildTerminalBodyProductsInput {
+  productFamilyId: 'constrained-dashed' | string
+  cachePrefix: string
+  legalSideId: string
+  intervals: TerminalBodyProductInterval[]
+}
+
+const isTerminalBodyRole = (
+  terminalRole: DashIntervalBodyTerminalRole
+): terminalRole is Exclude<DashIntervalBodyTerminalRole, 'middle'> =>
+  terminalRole === 'start' ||
+  terminalRole === 'end' ||
+  terminalRole === 'start-end'
+
+export const buildTerminalBodyProducts = (
+  input: BuildTerminalBodyProductsInput
+): TerminalBodyProductUnit[] => {
+  if (input.productFamilyId !== 'constrained-dashed') {
+    return []
+  }
+
+  const seenIntervalIds = new Set<string>()
+  return input.intervals.flatMap((interval): TerminalBodyProductUnit[] => {
+    if (
+      (interval.kind ?? 'visible') !== 'visible' ||
+      seenIntervalIds.has(interval.intervalId) ||
+      !isTerminalBodyRole(interval.terminalRole) ||
+      !hasDashIntervalBodyPolygon(interval.bodyPolygons)
+    ) {
+      return []
+    }
+
+    seenIntervalIds.add(interval.intervalId)
+    return [
+      {
+        productId: `${input.cachePrefix}:${interval.intervalId}:terminal-body`,
+        productFamilyId: 'constrained-dashed',
+        productMode: 'pre-legality-terminal-body',
+        visibleContributor: 'terminal-interval-body',
+        geometryBasis: 'terminal-dash-interval-body',
+        materializationKind: 'terminal-body',
+        legalSideId: input.legalSideId,
+        intervalId: interval.intervalId,
+        splitRangeId: interval.splitRangeId,
+        seamBoundaryId: interval.seamBoundaryId,
+        terminalRole: interval.terminalRole,
+        endpointCapPolicy: interval.endpointCapPolicy,
+        joinOwnershipSignature: interval.joinOwnershipSignature,
+        capContributors: getDashIntervalBodyCapContributors(
+          interval.endpointCapPolicy
+        ),
+        polygons: interval.bodyPolygons,
+        bounds: getDashIntervalBodyBounds(interval.bodyPolygons),
+        ownerStage: 'Stroke Geometry terminal body assembly',
+        evidence: {
+          terminalRole: interval.terminalRole,
+          endpointCapPolicySignature: interval.endpointCapPolicy.signature,
+          seamBoundaryId: interval.seamBoundaryId,
+          joinOwnershipSignature: interval.joinOwnershipSignature
+        }
+      }
+    ]
+  })
+}
+
+export interface SmoothContinuityTangentProof {
+  continuous: boolean
+  previousTangent: Vec2
+  nextTangent: Vec2
+  tolerance: number
+}
+
+export interface SmoothContinuityProductGroup {
+  smoothContinuityGroupId: string
+  dashIntervalIds: string[]
+  splitRangeIds: string[]
+  tangentContinuityProof: SmoothContinuityTangentProof
+  highCurvatureSmooth?: boolean
+  footprintPolygons?: Vec2[][]
+  descriptorPath?: Vec2[]
+  descriptorId?: string
+}
+
+export interface SmoothContinuityProductUnit {
+  productId: string
+  productMode:
+    | 'pre-legality-smooth-continuity-product'
+    | 'pre-legality-smooth-span-descriptor'
+  visibleContributor:
+    | 'smooth-continuity-dash-body'
+    | 'same-owner-smooth-span-descriptor'
+  geometryBasis:
+    | 'single-continuous-smooth-footprint'
+    | 'declared-smooth-span-descriptor'
+  materializationKind: 'smooth-continuity-product' | 'smooth-span-descriptor'
+  legalSideId: string
+  smoothContinuityGroupId: string
+  dashIntervalIds: string[]
+  splitRangeIds: string[]
+  tangentContinuityProof: SmoothContinuityTangentProof
+  singleContinuousFootprintProof: {
+    polygonCount: number
+    continuous: true
+  }
+  polygons: Vec2[][]
+  descriptorId?: string
+  descriptorPath?: Vec2[]
+  bounds: Bounds
+  ownerStage: 'Stroke Geometry smooth-continuity product assembly'
+}
+
+export interface BuildSmoothContinuityProductsInput {
+  cachePrefix: string
+  legalSideId: string
+  groups: SmoothContinuityProductGroup[]
+}
+
+const hasSmoothContinuityDescriptorPath = (path: Vec2[] | undefined) =>
+  path !== undefined && path.length >= 2
+
+export const buildSmoothContinuityProducts = (
+  input: BuildSmoothContinuityProductsInput
+): SmoothContinuityProductUnit[] =>
+  input.groups.flatMap((group): SmoothContinuityProductUnit[] => {
+    if (group.tangentContinuityProof.continuous !== true) {
+      return []
+    }
+
+    if (hasSmoothContinuityDescriptorPath(group.descriptorPath)) {
+      return [
+        {
+          productId: `${input.cachePrefix}:${group.smoothContinuityGroupId}:smooth-descriptor`,
+          productMode: 'pre-legality-smooth-span-descriptor',
+          visibleContributor: 'same-owner-smooth-span-descriptor',
+          geometryBasis: 'declared-smooth-span-descriptor',
+          materializationKind: 'smooth-span-descriptor',
+          legalSideId: input.legalSideId,
+          smoothContinuityGroupId: group.smoothContinuityGroupId,
+          dashIntervalIds: group.dashIntervalIds,
+          splitRangeIds: group.splitRangeIds,
+          tangentContinuityProof: group.tangentContinuityProof,
+          singleContinuousFootprintProof: {
+            polygonCount: 0,
+            continuous: true
+          },
+          polygons: [],
+          descriptorId: group.descriptorId,
+          descriptorPath: group.descriptorPath,
+          bounds: getDashIntervalBodyBounds([group.descriptorPath ?? []]),
+          ownerStage: 'Stroke Geometry smooth-continuity product assembly'
+        }
+      ]
+    }
+
+    if (
+      group.footprintPolygons === undefined ||
+      group.footprintPolygons.length !== 1 ||
+      !hasDashIntervalBodyPolygon(group.footprintPolygons)
+    ) {
+      return []
+    }
+
+    return [
+      {
+        productId: `${input.cachePrefix}:${group.smoothContinuityGroupId}:smooth-product`,
+        productMode: 'pre-legality-smooth-continuity-product',
+        visibleContributor: 'smooth-continuity-dash-body',
+        geometryBasis: 'single-continuous-smooth-footprint',
+        materializationKind: 'smooth-continuity-product',
+        legalSideId: input.legalSideId,
+        smoothContinuityGroupId: group.smoothContinuityGroupId,
+        dashIntervalIds: group.dashIntervalIds,
+        splitRangeIds: group.splitRangeIds,
+        tangentContinuityProof: group.tangentContinuityProof,
+        singleContinuousFootprintProof: {
+          polygonCount: 1,
+          continuous: true
+        },
+        polygons: group.footprintPolygons,
+        bounds: getDashIntervalBodyBounds(group.footprintPolygons),
+        ownerStage: 'Stroke Geometry smooth-continuity product assembly'
+      }
+    ]
+  })
+
 export const getConstrainedDashedVisibleIntervals = (
   topology: Pick<PathTopologyModel, 'totalLength' | 'closed'> &
     Partial<Pick<PathTopologyModel, 'topologyFamily'>>,
-  stroke: Pick<
-    RenderableStroke,
-    'cap' | 'dashPattern' | 'dashOffset' | 'width'
-  >,
+  stroke: Pick<RenderableStroke, 'cap' | 'dash' | 'gap' | 'position' | 'width'>,
   sourcePath?:
     | (Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'> &
         Partial<
@@ -831,26 +1390,27 @@ export const getConstrainedDashedVisibleIntervals = (
     | 'intervalDomainKind'
     | 'totalLength'
     | 'closed'
+    | 'domainMode'
     | 'splitRangeDomains'
     | 'legalBoundaryDomains'
     | 'sideResolutionContext'
   >
 ): VisibleDashedTopologyInterval[] => {
+  const dashAndGap = getRenderableStrokeDashAndGap(stroke)
+  if (!dashAndGap) {
+    return []
+  }
+
   if (
     !topology.closed &&
     (strokeDomainPlan?.intervalDomainKind !== 'domain-plan-split-range' ||
       strokeDomainPlan.splitRangeDomains.length === 0)
   ) {
-    return allocateDashedIntervalsForTopology(
-      topology,
-      stroke.dashPattern,
-      stroke.dashOffset,
-      {
-        openPathPolicy: 'network-balanced-terminals',
-        strokeWidth: stroke.width,
-        cap: stroke.cap
-      }
-    ).filter(
+    return allocateDashedIntervalsForTopology(topology, dashAndGap, {
+      openPathPolicy: 'network-balanced-terminals',
+      strokeWidth: stroke.width,
+      cap: stroke.cap
+    }).filter(
       (interval): interval is VisibleDashedTopologyInterval =>
         interval.kind === 'visible'
     )
@@ -863,13 +1423,16 @@ export const getConstrainedDashedVisibleIntervals = (
     let visibleIntervalIndex = 0
     return allocateStrokeIntervalsForDomainPlan({
       domainPlan: strokeDomainPlan,
-      dashPattern: stroke.dashPattern,
-      dashOffset: stroke.dashOffset,
+      dash: dashAndGap.dash,
+      gap: dashAndGap.gap,
       visualGap:
         stroke.cap === 'butt'
           ? undefined
           : {
-              capExtension: stroke.width
+              capExtension:
+                stroke.position === 'outside'
+                  ? stroke.width
+                  : stroke.width * 0.75
             }
     }).flatMap((allocation) => {
       const visibleIntervals = allocation.intervals.filter(
@@ -893,12 +1456,86 @@ export const getConstrainedDashedVisibleIntervals = (
 
   const authoredIntervals = allocateDashedIntervalsForTopology(
     topology,
-    stroke.dashPattern,
-    stroke.dashOffset
+    dashAndGap
   ).filter(
     (interval): interval is VisibleDashedTopologyInterval =>
       interval.kind === 'visible'
   )
+
+  if (
+    sourcePath &&
+    (stroke.position === 'inside' || stroke.position === 'outside') &&
+    sourcePath.totalLength > EPSILON &&
+    authoredIntervals.length > 0
+  ) {
+    const slicingContext = createSourcePathSlicingContext(
+      sourcePath,
+      SOURCE_PATH_DASH_SLICE_TOLERANCE,
+      SOURCE_PATH_DASH_SLICE_SAMPLING,
+      ROUND_CAP_VISUAL_MAX_LENGTH
+    )
+    let visibleIntervalIndex = 0
+    const selectedSide = stroke.position === 'inside' ? 1 : -1
+    return authoredIntervals.flatMap((interval) =>
+      splitVisibleIntervalBySourceSegments(
+        sourcePath,
+        interval,
+        slicingContext
+      ).flatMap((range) => {
+        const segmentRange = slicingContext.segmentRanges[range.segmentIndex]
+        if (!segmentRange) {
+          return []
+        }
+        const ownsStart =
+          Math.abs(range.startDistance - segmentRange.startDistance) <=
+          SOURCE_PATH_DASH_SLICE_TOLERANCE
+        const ownsEnd =
+          Math.abs(range.endDistance - segmentRange.endDistance) <=
+          SOURCE_PATH_DASH_SLICE_TOLERANCE
+        const terminalRole =
+          ownsStart && ownsEnd
+            ? 'start-end'
+            : ownsStart
+              ? 'start'
+              : ownsEnd
+                ? 'end'
+                : 'middle'
+        const intervalId = `interval:${visibleIntervalIndex}`
+        visibleIntervalIndex += 1
+        return [
+          {
+            ...interval,
+            intervalId,
+            startDistance: range.startDistance,
+            endDistance: range.endDistance,
+            intervalLength: range.endDistance - range.startDistance,
+            wrapsSeam: false,
+            previousVisibleIntervalId: null,
+            nextVisibleIntervalId: null,
+            domainPlanSplitRangeId: [
+              'source-domain',
+              interval.intervalId,
+              range.segmentIndex,
+              formatStableIntervalSignatureNumber(range.startDistance),
+              formatStableIntervalSignatureNumber(range.endDistance)
+            ].join(':'),
+            domainPlanSplitRangeStartDistance: range.startDistance,
+            domainPlanSplitRangeEndDistance: range.endDistance,
+            domainPlanSplitRangeSourceStartDistance: range.startDistance,
+            domainPlanSplitRangeSourceEndDistance: range.endDistance,
+            domainPlanSplitRangeSourceSegmentIndex: range.segmentIndex,
+            domainPlanTerminalRole: terminalRole,
+            domainPlanSelectedSide: selectedSide,
+            domainPlanFilledSide: 1,
+            domainPlanUnfilledSide: -1,
+            domainPlanDomainMode: strokeDomainPlan?.domainMode ?? undefined,
+            domainPlanSideResolutionStatus: 'resolved',
+            materializationDistanceSpace: 'source-domain'
+          } satisfies VisibleDashedTopologyInterval
+        ]
+      })
+    )
+  }
 
   return authoredIntervals
 }
@@ -914,8 +1551,52 @@ const buildStableVisibleIntervalDecisionSignature = (
     | 'domainPlanBoundaryStartDistance'
     | 'domainPlanBoundaryEndDistance'
     | 'domainPlanBoundaryTotalLength'
+    | 'domainPlanBoundaryDomainId'
+    | 'domainPlanSplitRangeId'
     | 'domainPlanTerminalRole'
     | 'domainPlanSplitRangeSourceSegmentIndex'
+    | 'domainPlanSideAuthority'
+    | 'domainPlanSelectedSide'
+    | 'domainPlanFilledSide'
+    | 'domainPlanUnfilledSide'
+    | 'domainPlanBoundaryRole'
+    | 'domainPlanDomainMode'
+    | 'domainPlanSideResolutionStatus'
+    | 'domainPlanSideResolutionReason'
+    | 'materializationDistanceSpace'
+  >
+) =>
+  [
+    interval.domainPlanDomainMode ?? 'no-domain-mode',
+    interval.domainPlanBoundaryDomainId ?? 'no-boundary-domain',
+    interval.domainPlanSplitRangeId ?? 'no-split-range',
+    interval.domainPlanTerminalRole ?? 'no-terminal-role',
+    interval.domainPlanSideAuthority ?? 'no-side-authority',
+    interval.domainPlanSelectedSide ?? 'no-selected-side',
+    interval.domainPlanFilledSide ?? 'no-filled-side',
+    interval.domainPlanUnfilledSide ?? 'no-unfilled-side',
+    interval.domainPlanBoundaryRole ?? 'no-boundary-role',
+    interval.domainPlanSideResolutionStatus ?? 'no-side-status',
+    interval.domainPlanSideResolutionReason ?? 'no-side-reason',
+    interval.domainPlanSplitRangeSourceSegmentIndex ?? 'no-source-segment',
+    formatStableIntervalSignatureNumber(
+      interval.domainPlanSplitRangeStartDistance
+    ),
+    formatStableIntervalSignatureNumber(
+      interval.domainPlanSplitRangeEndDistance
+    ),
+    formatStableIntervalSignatureNumber(
+      interval.domainPlanBoundaryStartDistance
+    ),
+    formatStableIntervalSignatureNumber(interval.domainPlanBoundaryEndDistance),
+    formatStableIntervalSignatureNumber(interval.domainPlanBoundaryTotalLength),
+    interval.materializationDistanceSpace ?? 'source-domain'
+  ].join(':')
+
+const buildStableVisibleIntervalProductDomainSignature = (
+  interval: Pick<
+    VisibleDashedTopologyInterval,
+    | 'domainPlanTerminalRole'
     | 'domainPlanSideAuthority'
     | 'domainPlanSelectedSide'
     | 'domainPlanFilledSide'
@@ -937,18 +1618,6 @@ const buildStableVisibleIntervalDecisionSignature = (
     interval.domainPlanBoundaryRole ?? 'no-boundary-role',
     interval.domainPlanSideResolutionStatus ?? 'no-side-status',
     interval.domainPlanSideResolutionReason ?? 'no-side-reason',
-    interval.domainPlanSplitRangeSourceSegmentIndex ?? 'no-source-segment',
-    formatStableIntervalSignatureNumber(
-      interval.domainPlanSplitRangeStartDistance
-    ),
-    formatStableIntervalSignatureNumber(
-      interval.domainPlanSplitRangeEndDistance
-    ),
-    formatStableIntervalSignatureNumber(
-      interval.domainPlanBoundaryStartDistance
-    ),
-    formatStableIntervalSignatureNumber(interval.domainPlanBoundaryEndDistance),
-    formatStableIntervalSignatureNumber(interval.domainPlanBoundaryTotalLength),
     interval.materializationDistanceSpace ?? 'source-domain'
   ].join(':')
 
@@ -1075,6 +1744,86 @@ const polygonsHaveOverlappingBounds = (polygons: Vec2[][]) => {
   return false
 }
 
+const polygonsHavePotentiallyMergeableBounds = (
+  polygons: Vec2[][],
+  tolerance = EPSILON
+) => {
+  if (polygons.length <= 1) {
+    return false
+  }
+
+  const bounds = polygons
+    .map((polygon) => getBounds([polygon]))
+    .sort((a, b) => a.minX - b.minX)
+  for (let leftIndex = 0; leftIndex < bounds.length; leftIndex += 1) {
+    const left = bounds[leftIndex]
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < bounds.length;
+      rightIndex += 1
+    ) {
+      const right = bounds[rightIndex]
+      if (right.minX > left.maxX + tolerance) {
+        break
+      }
+      if (boundsMayIntersect(left, right, tolerance)) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+const DESCRIPTOR_STRIP_CARRIER_SAMPLE_COUNT = 5
+
+const sampleDescriptorCarrierPath = (
+  path: Vec2[],
+  maxSampleCount = DESCRIPTOR_STRIP_CARRIER_SAMPLE_COUNT
+) => {
+  if (path.length <= maxSampleCount) {
+    return path
+  }
+
+  const samples: Vec2[] = []
+  for (let index = 0; index < maxSampleCount; index += 1) {
+    const ratio = index / Math.max(1, maxSampleCount - 1)
+    const sampleIndex = Math.min(
+      path.length - 1,
+      Math.max(0, Math.round(ratio * (path.length - 1)))
+    )
+    const point = path[sampleIndex]
+    const previous = samples[samples.length - 1]
+    if (
+      point &&
+      (!previous ||
+        Math.abs(previous.x - point.x) > EPSILON ||
+        Math.abs(previous.y - point.y) > EPSILON)
+    ) {
+      samples.push(point)
+    }
+  }
+
+  return samples
+}
+
+const buildDescriptorCarrierProductPolygons = (
+  centerPaths: Vec2[][],
+  offsetPaths: Vec2[][]
+) =>
+  centerPaths.flatMap((centerPath, index) => {
+    const offsetPath = offsetPaths[index]
+    if (!offsetPath || centerPath.length < 2 || offsetPath.length < 2) {
+      return []
+    }
+
+    const carrier = cleanPolygon([
+      ...sampleDescriptorCarrierPath(centerPath),
+      ...sampleDescriptorCarrierPath(offsetPath).reverse()
+    ])
+    return hasPolygonGeometry(carrier) ? [carrier] : []
+  })
+
 export const supportsConstrainedDashedStroke = (
   stroke: Pick<
     RenderableStroke,
@@ -1082,16 +1831,18 @@ export const supportsConstrainedDashedStroke = (
     | 'position'
     | 'width'
     | 'join'
+    | 'miterAngle'
     | 'miterLimit'
     | 'cap'
-    | 'dashPattern'
+    | 'dash'
+    | 'gap'
   >,
   _closed: boolean
 ) =>
   stroke.style === 'dashed' &&
   (stroke.position === 'inside' || stroke.position === 'outside') &&
   stroke.width > 0 &&
-  stroke.dashPattern.length > 0 &&
+  getRenderableStrokeDashAndGap(stroke) !== null &&
   (stroke.join === 'miter' ||
     stroke.join === 'bevel' ||
     stroke.join === 'round') &&
@@ -1106,7 +1857,7 @@ export const hasConstrainedDashedStrokeIntent = (
       stroke.style === 'dashed' &&
       (stroke.position === 'inside' || stroke.position === 'outside') &&
       stroke.width > 0 &&
-      stroke.dashPattern.length > 0
+      getRenderableStrokeDashAndGap(stroke) !== null
   ) === true
 
 const getClosedSegmentRanges = (points: Vec2[], closed: boolean) => {
@@ -1502,6 +2253,17 @@ const constrainedDashedIntervalCoverageBodyCache = new Map<
     intervalHasSmoothContinuityAcrossSweepRanges: boolean
   }
 >()
+const outsideSourceDomainDescriptorProductCache = new Map<
+  string,
+  {
+    origin: Vec2
+    productPolygons: Vec2[][]
+    carrierProductPolygons: Vec2[][]
+    descriptorOffsetPaths: Vec2[][]
+    descriptorStrokePaths: Vec2[][]
+    descriptorFillExcludePolygons: Vec2[][]
+  }
+>()
 const centerStrokeDescriptorProductPolygonCache = new Map<
   string,
   {
@@ -1552,6 +2314,34 @@ const emitStrokePipelineCounter = (counterName: string, value = 1) => {
     }
   ).__asyraStrokePipelineCounterSink?.(counterName, value)
 }
+
+const emitDirtyOwnerStageDescriptorReuse = (stage: string) => {
+  emitStrokePipelineCounter(
+    'constrained-dashed-dirty-owner-stage-descriptor-reuse'
+  )
+  emitStrokePipelineCounter(
+    `constrained-dashed-dirty-owner-stage-descriptor-reuse:${stage}`
+  )
+}
+
+const emitDirtyOwnerStageDescriptorRecompute = (stage: string) => {
+  emitStrokePipelineCounter(
+    'constrained-dashed-dirty-owner-stage-descriptor-recompute'
+  )
+  emitStrokePipelineCounter(
+    `constrained-dashed-dirty-owner-stage-descriptor-recompute:${stage}`
+  )
+}
+
+const hasStrokePipelineTraceSink = () =>
+  (
+    globalThis as typeof globalThis & {
+      __asyraStrokePipelineTraceSink?: (
+        eventName: string,
+        payload: Record<string, unknown>
+      ) => void
+    }
+  ).__asyraStrokePipelineTraceSink !== undefined
 
 const emitStrokePipelineTrace = (
   eventName: string,
@@ -1789,6 +2579,60 @@ const buildExactSourcePathRibbonSegmentFrameCacheKey = (
     )
   }
   return cacheKey
+}
+
+const exactOffsetRibbonRangeFrameCache = new Map<
+  string,
+  OffsetPathSampleFrame[]
+>()
+
+const buildExactOffsetRibbonRangeFrameCacheKey = (
+  segment: PathGeometry['segments'][number],
+  segmentIndex: number,
+  localStartDistance: number,
+  localEndDistance: number,
+  stroke: Pick<RenderableStroke, 'position' | 'width'>,
+  slicingContext: SourcePathSlicingContext
+) =>
+  [
+    buildExactSourcePathRibbonSegmentFrameCacheKey(
+      segment,
+      slicingContext.samplingTolerance,
+      slicingContext.samplingOptions
+    ),
+    segmentIndex,
+    formatSourcePathRangeKeyDistance(localStartDistance),
+    formatSourcePathRangeKeyDistance(localEndDistance),
+    stroke.position,
+    stroke.width.toFixed(4)
+  ].join('|')
+
+const getCachedExactOffsetRibbonRangeFrames = (cacheKey: string) => {
+  const cached = exactOffsetRibbonRangeFrameCache.get(cacheKey)
+  if (!cached) {
+    return undefined
+  }
+
+  exactOffsetRibbonRangeFrameCache.delete(cacheKey)
+  exactOffsetRibbonRangeFrameCache.set(cacheKey, cached)
+  emitStrokePipelineCounter('source-path-ribbon-offset-range-frame-cache-hit')
+  return cached
+}
+
+const setCachedExactOffsetRibbonRangeFrames = (
+  cacheKey: string,
+  frames: OffsetPathSampleFrame[]
+) => {
+  exactOffsetRibbonRangeFrameCache.set(cacheKey, frames)
+  if (
+    exactOffsetRibbonRangeFrameCache.size >
+    SOURCE_PATH_OFFSET_RIBBON_RANGE_FRAME_CACHE_LIMIT
+  ) {
+    const oldestKey = exactOffsetRibbonRangeFrameCache.keys().next().value
+    if (oldestKey !== undefined) {
+      exactOffsetRibbonRangeFrameCache.delete(oldestKey)
+    }
+  }
 }
 
 const buildSourcePathFinalRangePolygonCacheKey = (
@@ -2159,6 +3003,39 @@ const OUTSIDE_LEGAL_CLIP_RESULT_CACHE_LIMIT = 4096
 const outsideLegalClipResultCache = new Map<string, Vec2[][]>()
 const SOURCE_VERTEX_JOIN_INSIDE_LEGAL_CLIP_CACHE_LIMIT = 4096
 const sourceVertexJoinInsideLegalClipCache = new Map<string, Vec2[][]>()
+const SOURCE_VERTEX_JOIN_SELECTED_SIDE_CACHE_LIMIT = 4096
+const sourceVertexJoinSelectedSideCache = new Map<string, 1 | -1>()
+const JOIN_OWNED_TERMINAL_BODY_PRODUCT_CACHE_LIMIT = 4096
+const INSIDE_BOUNDARY_TERMINAL_PAIR_BODY_UNION_CACHE_LIMIT = 4096
+
+interface JoinOwnedTerminalBodyProduct {
+  polygons: Vec2[][]
+  bounds: Bounds
+  area: number
+  stageBounds?: Record<string, Bounds | undefined>
+}
+
+interface JoinOwnedTerminalBodyProductCacheEntry
+  extends JoinOwnedTerminalBodyProduct {
+  origin: Vec2
+  relativePolygons?: Vec2[][]
+}
+
+const joinOwnedTerminalBodyProductCache = new Map<
+  string,
+  JoinOwnedTerminalBodyProductCacheEntry
+>()
+
+interface InsideBoundaryTerminalPairBodyUnionCacheEntry {
+  origin: Vec2
+  relativePolygons: Vec2[][]
+  bounds: Bounds
+}
+
+const insideBoundaryTerminalPairBodyUnionCache = new Map<
+  string,
+  InsideBoundaryTerminalPairBodyUnionCacheEntry
+>()
 
 const buildPolygonListCacheSignature = (polygons: Vec2[][]) =>
   polygons
@@ -2184,14 +3061,228 @@ const buildPolygonListCacheSignature = (polygons: Vec2[][]) =>
     })
     .join('|')
 
+const buildJoinOwnedTerminalBodyCanonicalFootprintKey = (
+  packet: SolidCenterStrokeResolvedPacket
+) => {
+  const meta = packet.geometry.debugMeta
+  return [
+    'join-owned-terminal-body-footprint',
+    meta?.domainPlanTerminalRole ?? 'terminal-role',
+    meta?.dashEndpointCapPolicySignature ?? 'cap-policy',
+    meta?.domainPlanMaterializedSelectedSide ??
+      meta?.domainPlanSelectedSide ??
+      'selected-side',
+    buildPolygonListCacheSignature(packet.geometry.polygons)
+  ].join('|')
+}
+
+const buildRelativePolygonListCacheSignature = (
+  polygons: Vec2[][],
+  origin: Vec2
+) =>
+  polygons
+    .map((polygon, polygonIndex) => {
+      const bounds = getBounds([polygon])
+      return [
+        polygonIndex,
+        polygon.length,
+        formatTranslationInvariantCacheNumber(polygonArea(polygon)),
+        formatTranslationInvariantCacheNumber(bounds.minX - origin.x),
+        formatTranslationInvariantCacheNumber(bounds.minY - origin.y),
+        formatTranslationInvariantCacheNumber(bounds.maxX - origin.x),
+        formatTranslationInvariantCacheNumber(bounds.maxY - origin.y),
+        polygon
+          .map((point) => buildTranslationInvariantPointKey(point, origin))
+          .join(';')
+      ].join(':')
+    })
+    .join('|')
+
+const buildImplicitFillRegionRelativeCacheSignature = (
+  regions: PolygonRegion[],
+  origin: Vec2
+) =>
+  regions
+    .map((region, index) => {
+      const bounds = getBounds(region.polygons)
+      return [
+        index,
+        region.polygons.length,
+        formatTranslationInvariantCacheNumber(
+          getPolygonsAbsoluteArea(region.polygons)
+        ),
+        formatTranslationInvariantCacheNumber(bounds.minX - origin.x),
+        formatTranslationInvariantCacheNumber(bounds.minY - origin.y),
+        formatTranslationInvariantCacheNumber(bounds.maxX - origin.x),
+        formatTranslationInvariantCacheNumber(bounds.maxY - origin.y),
+        buildRelativePolygonListCacheSignature(region.polygons, origin)
+      ].join(':')
+    })
+    .join(';')
+
+const buildJoinOwnedTerminalBodyProductCacheKey = (
+  origin: Vec2,
+  bodyStrokePath: Vec2[],
+  legalDomainSignature: string,
+  stroke: Pick<RenderableStroke, 'cap' | 'join' | 'miterLimit' | 'width'>,
+  endpointCapPolicy: DashEndpointCapPolicy,
+  terminalRole: 'start' | 'end' | 'start-end' | 'middle',
+  selectedSide: 1 | -1 | undefined,
+  terminalJoinEnvelopeSignature: string
+) =>
+  [
+    'join-owned-terminal-body-product-v13',
+    bodyStrokePath
+      .map((point) => buildTranslationInvariantPointKey(point, origin))
+      .join(';'),
+    legalDomainSignature,
+    stroke.cap,
+    stroke.join,
+    formatTranslationInvariantCacheNumber(stroke.miterLimit),
+    formatTranslationInvariantCacheNumber(stroke.width),
+    endpointCapPolicy.signature,
+    terminalRole,
+    selectedSide === 1 || selectedSide === -1
+      ? `selected-side:${selectedSide}`
+      : 'selected-side:unknown',
+    terminalJoinEnvelopeSignature,
+    formatTranslationInvariantCacheNumber(CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE),
+    formatTranslationInvariantCacheNumber(CLIPPED_PRODUCT_COLLINEAR_TOLERANCE)
+  ].join('||')
+
+const getJoinOwnedTerminalBodyProductFromCache = (
+  cacheKey: string,
+  origin: Vec2
+) => {
+  const cached = joinOwnedTerminalBodyProductCache.get(cacheKey)
+  if (!cached) {
+    return undefined
+  }
+
+  joinOwnedTerminalBodyProductCache.delete(cacheKey)
+  joinOwnedTerminalBodyProductCache.set(cacheKey, cached)
+  emitStrokePipelineCounter('join-owned-terminal-body-product-cache-hit')
+  emitDirtyOwnerStageDescriptorReuse('join-owned-terminal-body')
+  if (cached.origin.x === origin.x && cached.origin.y === origin.y) {
+    return {
+      polygons: cached.polygons,
+      bounds: cached.bounds,
+      area: cached.area,
+      stageBounds: cached.stageBounds
+    }
+  }
+
+  const dx = origin.x - cached.origin.x
+  const dy = origin.y - cached.origin.y
+  cached.relativePolygons ??= toRelativePolygons(cached.polygons, cached.origin)
+  return {
+    polygons: fromRelativePolygons(cached.relativePolygons, origin),
+    bounds: translateBoundsByDelta(cached.bounds, dx, dy) ?? cached.bounds,
+    area: cached.area,
+    stageBounds: translateStageBoundsByDelta(cached.stageBounds, dx, dy)
+  }
+}
+
+const setJoinOwnedTerminalBodyProductCache = (
+  cacheKey: string,
+  origin: Vec2,
+  product: JoinOwnedTerminalBodyProduct
+) => {
+  if (product.polygons.length === 0) {
+    return
+  }
+
+  joinOwnedTerminalBodyProductCache.set(cacheKey, {
+    ...product,
+    origin
+  })
+  emitStrokePipelineCounter('join-owned-terminal-body-product-cache-store')
+  emitDirtyOwnerStageDescriptorRecompute('join-owned-terminal-body')
+  if (
+    joinOwnedTerminalBodyProductCache.size >
+    JOIN_OWNED_TERMINAL_BODY_PRODUCT_CACHE_LIMIT
+  ) {
+    const oldestKey = joinOwnedTerminalBodyProductCache.keys().next().value
+    if (oldestKey !== undefined) {
+      joinOwnedTerminalBodyProductCache.delete(oldestKey)
+    }
+  }
+}
+
+const buildInsideBoundaryTerminalPairBodyUnionCacheKey = (
+  origin: Vec2,
+  packets: SolidCenterStrokeResolvedPacket[]
+) =>
+  [
+    'inside-boundary-terminal-pair-body-union-v1',
+    packets
+      .map((packet) =>
+        buildRelativePolygonListCacheSignature(packet.geometry.polygons, origin)
+      )
+      .join('||'),
+    formatTranslationInvariantCacheNumber(CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE),
+    formatTranslationInvariantCacheNumber(CLIPPED_PRODUCT_COLLINEAR_TOLERANCE)
+  ].join('||')
+
+const getCachedInsideBoundaryTerminalPairBodyUnion = (
+  cacheKey: string,
+  origin: Vec2
+) => {
+  const cached = insideBoundaryTerminalPairBodyUnionCache.get(cacheKey)
+  if (!cached) {
+    return null
+  }
+
+  insideBoundaryTerminalPairBodyUnionCache.delete(cacheKey)
+  insideBoundaryTerminalPairBodyUnionCache.set(cacheKey, cached)
+  emitStrokePipelineCounter(
+    'inside-boundary-terminal-pair-body-union-cache-hit'
+  )
+  const dx = origin.x - cached.origin.x
+  const dy = origin.y - cached.origin.y
+  const polygons = fromRelativePolygons(cached.relativePolygons, origin)
+  return {
+    polygons,
+    bounds: translateBoundsByDelta(cached.bounds, dx, dy) ?? getBounds(polygons)
+  }
+}
+
+const setCachedInsideBoundaryTerminalPairBodyUnion = (
+  cacheKey: string,
+  origin: Vec2,
+  polygons: Vec2[][]
+) => {
+  if (polygons.length === 0) {
+    return
+  }
+
+  insideBoundaryTerminalPairBodyUnionCache.set(cacheKey, {
+    origin,
+    relativePolygons: toRelativePolygons(polygons, origin),
+    bounds: getBounds(polygons)
+  })
+  emitStrokePipelineCounter(
+    'inside-boundary-terminal-pair-body-union-cache-store'
+  )
+  if (
+    insideBoundaryTerminalPairBodyUnionCache.size >
+    INSIDE_BOUNDARY_TERMINAL_PAIR_BODY_UNION_CACHE_LIMIT
+  ) {
+    const oldestKey = insideBoundaryTerminalPairBodyUnionCache
+      .keys()
+      .next().value
+    if (oldestKey !== undefined) {
+      insideBoundaryTerminalPairBodyUnionCache.delete(oldestKey)
+    }
+  }
+}
+
 const buildInsideLegalClipResultCacheKey = (
   path: SourcePathWithOptionalSamples,
   backendSignature: string,
   subjectPolygons: Vec2[][],
   legalClipRegions: PolygonRegion[],
   options: {
-    fragmentStitchRadius?: number
-    fragmentPruneArea?: number
     dropEmptyInsideClipResult?: boolean
   } & ClippedProductCleanupOptions
 ) =>
@@ -2202,29 +3293,15 @@ const buildInsideLegalClipResultCacheKey = (
     buildPolygonListCacheSignature(subjectPolygons),
     buildImplicitFillRegionCacheSignature(legalClipRegions),
     options.dropEmptyInsideClipResult === true ? 'drop-empty' : 'keep-empty',
-    formatTranslationInvariantCacheNumber(options.fragmentStitchRadius ?? 0),
-    formatTranslationInvariantCacheNumber(options.fragmentPruneArea ?? 0),
     formatTranslationInvariantCacheNumber(
       options.cleanupMicroEdgeTolerance ?? 0
     ),
     formatTranslationInvariantCacheNumber(
       options.cleanupCollinearTolerance ?? 0
     ),
-    buildPolygonListCacheSignature(
-      options.restoreSubjectBoundaryPolygons ?? []
-    ),
-    (options.restoreSubjectBoundaryPaths ?? [])
-      .map((path) =>
-        path
-          .map(
-            (point) =>
-              `${formatTranslationInvariantCacheNumber(
-                point.x
-              )},${formatTranslationInvariantCacheNumber(point.y)}`
-          )
-          .join(';')
-      )
-      .join('|')
+    formatTranslationInvariantCacheNumber(
+      options.cleanupConcaveNotchTolerance ?? 0
+    )
   ].join('||')
 
 const buildOutsideLegalClipResultCacheKey = (
@@ -2234,10 +3311,7 @@ const buildOutsideLegalClipResultCacheKey = (
   legalClipRegions: PolygonRegion[],
   outsideFillRule: 'evenodd' | 'nonzero',
   includePathSignature: boolean,
-  options: {
-    fragmentStitchRadius?: number
-    fragmentPruneArea?: number
-  } & ClippedProductCleanupOptions
+  options: ClippedProductCleanupOptions
 ) =>
   [
     backendSignature,
@@ -2247,29 +3321,15 @@ const buildOutsideLegalClipResultCacheKey = (
     buildPolygonListCacheSignature(subjectPolygons),
     buildImplicitFillRegionCacheSignature(legalClipRegions),
     outsideFillRule,
-    formatTranslationInvariantCacheNumber(options.fragmentStitchRadius ?? 0),
-    formatTranslationInvariantCacheNumber(options.fragmentPruneArea ?? 0),
     formatTranslationInvariantCacheNumber(
       options.cleanupMicroEdgeTolerance ?? 0
     ),
     formatTranslationInvariantCacheNumber(
       options.cleanupCollinearTolerance ?? 0
     ),
-    buildPolygonListCacheSignature(
-      options.restoreSubjectBoundaryPolygons ?? []
-    ),
-    (options.restoreSubjectBoundaryPaths ?? [])
-      .map((path) =>
-        path
-          .map(
-            (point) =>
-              `${formatTranslationInvariantCacheNumber(
-                point.x
-              )},${formatTranslationInvariantCacheNumber(point.y)}`
-          )
-          .join(';')
-      )
-      .join('|')
+    formatTranslationInvariantCacheNumber(
+      options.cleanupConcaveNotchTolerance ?? 0
+    )
   ].join('||')
 
 const getInsideLegalClipResultFromCache = (cacheKey: string) => {
@@ -2322,12 +3382,20 @@ const setOutsideLegalClipResultCache = (
 
 const buildSourceVertexJoinInsideLegalClipCacheKey = (
   polygons: Vec2[][],
-  legalRegions: PolygonRegion[]
-) =>
-  [
-    buildPolygonListCacheSignature(polygons),
-    buildImplicitFillRegionCacheSignature(legalRegions)
+  legalRegions: PolygonRegion[],
+  originOverride?: Vec2
+) => {
+  const origin = originOverride ?? polygons[0]?.[0] ?? { x: 0, y: 0 }
+  const subjectBounds = expandBoundsByPadding(getBounds(polygons), 0.01)
+  return [
+    buildRelativePolygonListCacheSignature(polygons, origin),
+    buildImplicitFillRegionLocalRelativeCacheSignature(
+      legalRegions,
+      origin,
+      subjectBounds
+    )
   ].join('||')
+}
 
 const getSourceVertexJoinInsideLegalClipFromCache = (cacheKey: string) => {
   const cachedResult = sourceVertexJoinInsideLegalClipCache.get(cacheKey)
@@ -2365,39 +3433,120 @@ const buildEndpointPolicyCacheSignature = (policy: DashEndpointCapPolicy) =>
     policy.suppressEndCap ? 'suppress-end' : 'allow-end'
   ].join(':')
 
-const buildIntervalSweepCacheSignature = (
-  sweep: DashedSourcePathIntervalSweep
+const buildLocalIntervalSweepCacheSignature = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  origin: Vec2,
+  sweep: DashedSourcePathIntervalSweep,
+  slicingContext: SourcePathSlicingContext
 ) =>
   [
     buildEndpointPolicyCacheSignature(sweep.endpointCapPolicy),
     [
       'smooth-continuity',
-      formatTranslationInvariantCacheNumber(
-        sweep.smoothContinuityGroup.startDistance
-      ),
-      formatTranslationInvariantCacheNumber(
-        sweep.smoothContinuityGroup.endDistance
-      ),
       sweep.smoothContinuityGroup.wrapsSeam ? 'wrap' : 'nowrap'
     ].join(':'),
     ...sweep.ranges.map(({ range, renderRange, rangeEndpointCapPolicy }) =>
       [
-        buildTranslationInvariantRangeCacheKey(range),
-        buildTranslationInvariantRangeCacheKey(renderRange),
+        buildTranslationInvariantLocalRangeCacheKey(
+          path,
+          origin,
+          [range],
+          slicingContext
+        ),
+        buildTranslationInvariantLocalRangeCacheKey(
+          path,
+          origin,
+          [renderRange],
+          slicingContext
+        ),
         buildEndpointPolicyCacheSignature(rangeEndpointCapPolicy)
       ].join('/')
     )
   ].join('|')
 
+const buildPhysicalSpanProductCacheSignature = (
+  physicalSpans: ConstrainedDashedPhysicalSpan[]
+) =>
+  physicalSpans
+    .map((span) =>
+      [
+        span.role,
+        span.wrapsSeam ? 'wrap' : 'nowrap',
+        formatTranslationInvariantCacheNumber(span.intervalLength)
+      ].join(':')
+    )
+    .join(';')
+
+const getBoundsForPoints = (points: Vec2[]): Bounds | null =>
+  points.length > 0 ? getBounds([points]) : null
+
+const getSegmentPointBounds = (start: Vec2, end: Vec2): Bounds => ({
+  minX: Math.min(start.x, end.x),
+  minY: Math.min(start.y, end.y),
+  maxX: Math.max(start.x, end.x),
+  maxY: Math.max(start.y, end.y)
+})
+
+const buildImplicitFillRegionLocalRelativeCacheSignature = (
+  regions: PolygonRegion[],
+  origin: Vec2,
+  subjectBounds: Bounds
+) =>
+  regions
+    .map((region, regionIndex) => {
+      const localEdges = region.polygons.flatMap((polygon, polygonIndex) =>
+        polygon.flatMap((point, pointIndex) => {
+          const next = polygon[(pointIndex + 1) % polygon.length]
+          if (!next) {
+            return []
+          }
+          const edgeBounds = getSegmentPointBounds(point, next)
+          if (!boundsMayIntersect(edgeBounds, subjectBounds, 0.01)) {
+            return []
+          }
+          return [
+            [
+              polygonIndex,
+              pointIndex,
+              buildTranslationInvariantPointKey(point, origin),
+              buildTranslationInvariantPointKey(next, origin)
+            ].join(':')
+          ]
+        })
+      )
+      if (localEdges.length === 0) {
+        const regionBounds = getLegalClipRegionBounds(region)
+        if (!boundsMayIntersect(regionBounds, subjectBounds, 0.01)) {
+          return `${regionIndex}:no-local-boundary`
+        }
+
+        const probePoint = {
+          x: (subjectBounds.minX + subjectBounds.maxX) / 2,
+          y: (subjectBounds.minY + subjectBounds.maxY) / 2
+        }
+        const probeInside = region.polygons.some((polygon) =>
+          isPointInsideTopologyPolygon(probePoint, polygon)
+        )
+        return [
+          regionIndex,
+          'local-fill-state',
+          probeInside ? 'inside' : 'outside'
+        ].join(':')
+      }
+
+      return [regionIndex, localEdges.join(';')].join(':')
+    })
+    .join('|')
+
 const buildConstrainedDashedJoinIndependentIntervalProductCacheKey = (
   pathSignature: string,
   interval: VisibleDashedTopologyInterval,
   materializationInterval: VisibleDashedTopologyInterval,
-  intervalSweep: DashedSourcePathIntervalSweep,
+  intervalSweepSignature: string,
   physicalSpans: ConstrainedDashedPhysicalSpan[],
   stroke: Pick<
     RenderableStroke,
-    'position' | 'width' | 'cap' | 'dashPattern' | 'dashOffset'
+    'position' | 'width' | 'cap' | 'join' | 'miterLimit' | 'dash' | 'gap'
   >,
   metadata: {
     cachePrefix: string
@@ -2405,14 +3554,18 @@ const buildConstrainedDashedJoinIndependentIntervalProductCacheKey = (
     strokeIndex: number
     domainMode: string
     clipInsideToFillDomain: boolean
-    implicitFillRegions: PolygonRegion[]
-    sharedStrokeBoundaryDomains: ResolvedVectorStrokeBoundaryDomain[]
     canUseClosedHalfPlaneLegality: boolean
     shouldPreserveSmoothProduct: boolean
     productFinalClipsInsideImplicitDomain: boolean
     sourceVertexBoundaryJoinSignature: string
-    includeImplicitFillRegionsSignature: boolean
+    endpointCapPolicySignature?: string
+    sourceDomainExplicitSideProduct: boolean
+    boundaryDomainProduct: boolean
+    doubledCenterOutsideLegalProduct: boolean
+    danglingOutsideProduct: boolean
+    implicitFillRegionSignature?: string
     includeStrokeBoundaryDomainSignature: boolean
+    sharedStrokeBoundaryDomainCount: number
   }
 ) =>
   [
@@ -2421,36 +3574,31 @@ const buildConstrainedDashedJoinIndependentIntervalProductCacheKey = (
     metadata.strokeIndex,
     pathSignature,
     metadata.domainMode,
-    buildStableVisibleIntervalDecisionSignature(interval),
-    formatTranslationInvariantCacheNumber(interval.startDistance),
-    formatTranslationInvariantCacheNumber(interval.endDistance),
+    buildStableVisibleIntervalProductDomainSignature(interval),
     interval.wrapsSeam ? 'wrap' : 'nowrap',
-    formatTranslationInvariantCacheNumber(
-      materializationInterval.startDistance
-    ),
-    formatTranslationInvariantCacheNumber(materializationInterval.endDistance),
+    metadata.endpointCapPolicySignature ?? 'default-endpoint-cap-policy',
+    metadata.sourceDomainExplicitSideProduct
+      ? 'source-domain-explicit-side-product'
+      : 'not-source-domain-explicit-side-product',
+    metadata.boundaryDomainProduct
+      ? 'boundary-domain-product'
+      : 'not-boundary-domain-product',
+    metadata.doubledCenterOutsideLegalProduct
+      ? 'doubled-center-outside-legal-product'
+      : 'not-doubled-center-outside-legal-product',
+    metadata.danglingOutsideProduct
+      ? 'dangling-outside-product'
+      : 'not-dangling-outside-product',
     materializationInterval.wrapsSeam
       ? 'materialized-wrap'
       : 'materialized-nowrap',
     materializationInterval.materializationDistanceSpace ?? 'source',
-    buildIntervalSweepCacheSignature(intervalSweep),
-    physicalSpans
-      .map((span) =>
-        [
-          span.role,
-          formatTranslationInvariantCacheNumber(span.startDistance),
-          formatTranslationInvariantCacheNumber(span.endDistance),
-          span.wrapsSeam ? 'wrap' : 'nowrap',
-          formatTranslationInvariantCacheNumber(span.intervalLength)
-        ].join(':')
-      )
-      .join(';'),
+    intervalSweepSignature,
+    buildPhysicalSpanProductCacheSignature(physicalSpans),
     metadata.clipInsideToFillDomain ? 'clip' : 'no-clip',
-    metadata.includeImplicitFillRegionsSignature
-      ? buildImplicitFillRegionCacheSignature(metadata.implicitFillRegions)
-      : 'implicit-fill-not-used',
+    metadata.implicitFillRegionSignature ?? 'implicit-fill-not-used',
     metadata.includeStrokeBoundaryDomainSignature
-      ? metadata.sharedStrokeBoundaryDomains.length
+      ? metadata.sharedStrokeBoundaryDomainCount
       : 'stroke-boundary-not-used',
     metadata.canUseClosedHalfPlaneLegality ? 'half-plane' : 'no-half-plane',
     metadata.shouldPreserveSmoothProduct ? 'smooth' : 'non-smooth',
@@ -2461,24 +3609,29 @@ const buildConstrainedDashedJoinIndependentIntervalProductCacheKey = (
     stroke.position,
     formatTranslationInvariantCacheNumber(stroke.width),
     stroke.cap,
-    stroke.dashPattern.map(formatTranslationInvariantCacheNumber).join(','),
-    formatTranslationInvariantCacheNumber(stroke.dashOffset)
+    stroke.join,
+    formatTranslationInvariantCacheNumber(stroke.miterLimit),
+    [stroke.dash, stroke.gap]
+      .map(formatTranslationInvariantCacheNumber)
+      .join(',')
   ].join('|')
 
 const buildConstrainedDashedIntervalCoverageBodyCacheKey = (
   pathSignature: string,
+  origin: Vec2,
   interval: VisibleDashedTopologyInterval,
   materializationInterval: VisibleDashedTopologyInterval,
   physicalSpans: ConstrainedDashedPhysicalSpan[],
   stroke: Pick<
     RenderableStroke,
-    'position' | 'width' | 'cap' | 'dashPattern' | 'dashOffset'
+    'position' | 'width' | 'cap' | 'join' | 'miterLimit' | 'dash' | 'gap'
   >,
   metadata: {
     cachePrefix: string
     ownerPrefix: string
     strokeIndex: number
     domainMode: string
+    endpointCapPolicySignature?: string
     clipInsideToFillDomain: boolean
     implicitFillRegions: PolygonRegion[]
     sharedStrokeBoundaryDomains: ResolvedVectorStrokeBoundaryDomain[]
@@ -2492,41 +3645,32 @@ const buildConstrainedDashedIntervalCoverageBodyCacheKey = (
     metadata.strokeIndex,
     pathSignature,
     metadata.domainMode,
-    buildStableVisibleIntervalDecisionSignature(interval),
-    formatTranslationInvariantCacheNumber(interval.startDistance),
-    formatTranslationInvariantCacheNumber(interval.endDistance),
+    buildStableVisibleIntervalProductDomainSignature(interval),
     interval.wrapsSeam ? 'wrap' : 'nowrap',
-    formatTranslationInvariantCacheNumber(
-      materializationInterval.startDistance
-    ),
-    formatTranslationInvariantCacheNumber(materializationInterval.endDistance),
     materializationInterval.wrapsSeam
       ? 'materialized-wrap'
       : 'materialized-nowrap',
     materializationInterval.materializationDistanceSpace ?? 'source',
-    physicalSpans
-      .map((span) =>
-        [
-          span.role,
-          formatTranslationInvariantCacheNumber(span.startDistance),
-          formatTranslationInvariantCacheNumber(span.endDistance),
-          span.wrapsSeam ? 'wrap' : 'nowrap',
-          formatTranslationInvariantCacheNumber(span.intervalLength)
-        ].join(':')
-      )
-      .join(';'),
+    buildPhysicalSpanProductCacheSignature(physicalSpans),
     metadata.clipInsideToFillDomain ? 'clip' : 'no-clip',
     metadata.includeImplicitFillRegionsSignature
-      ? buildImplicitFillRegionCacheSignature(metadata.implicitFillRegions)
+      ? buildImplicitFillRegionRelativeCacheSignature(
+          metadata.implicitFillRegions,
+          origin
+        )
       : 'implicit-fill-not-used',
     metadata.includeStrokeBoundaryDomainSignature
       ? metadata.sharedStrokeBoundaryDomains.length
       : 'stroke-boundary-not-used',
+    metadata.endpointCapPolicySignature ?? 'default-endpoint-cap-policy',
     stroke.position,
     formatTranslationInvariantCacheNumber(stroke.width),
     stroke.cap,
-    stroke.dashPattern.map(formatTranslationInvariantCacheNumber).join(','),
-    formatTranslationInvariantCacheNumber(stroke.dashOffset)
+    stroke.join,
+    formatTranslationInvariantCacheNumber(stroke.miterLimit),
+    [stroke.dash, stroke.gap]
+      .map(formatTranslationInvariantCacheNumber)
+      .join(',')
   ].join('|')
 
 const toRelativePolygons = (polygons: Vec2[][], origin: Vec2): Vec2[][] =>
@@ -2606,7 +3750,7 @@ const setCachedSourcePathIntervalLevelPolygons = (
 const buildCenterStrokeDescriptorProductPolygonCacheKey = (
   strokePath: Vec2[],
   origin: Vec2,
-  stroke: Pick<RenderableStroke, 'cap' | 'join' | 'miterLimit'>,
+  stroke: Pick<RenderableStroke, 'cap' | 'join' | 'miterAngle' | 'miterLimit'>,
   strokeWidth: number
 ) => {
   if (strokePath.length === 2) {
@@ -2619,6 +3763,7 @@ const buildCenterStrokeDescriptorProductPolygonCacheKey = (
       formatTranslationInvariantCacheNumber(strokeWidth),
       stroke.cap,
       stroke.join,
+      formatTranslationInvariantCacheNumber(stroke.miterAngle),
       formatTranslationInvariantCacheNumber(stroke.miterLimit)
     ].join('|')
   }
@@ -2636,6 +3781,7 @@ const buildCenterStrokeDescriptorProductPolygonCacheKey = (
     formatTranslationInvariantCacheNumber(strokeWidth),
     stroke.cap,
     stroke.join,
+    formatTranslationInvariantCacheNumber(stroke.miterAngle),
     formatTranslationInvariantCacheNumber(stroke.miterLimit)
   ].join('|')
 }
@@ -2835,6 +3981,121 @@ const setCachedConstrainedDashedIntervalCoverageBody = (
   }
 }
 
+const getCachedOutsideSourceDomainDescriptorProduct = (
+  cacheKey: string,
+  origin: Vec2
+) => {
+  const cached = outsideSourceDomainDescriptorProductCache.get(cacheKey)
+  if (!cached) {
+    return null
+  }
+
+  const productPolygons = fromRelativePolygons(cached.productPolygons, origin)
+  const carrierProductPolygons = fromRelativePolygons(
+    cached.carrierProductPolygons,
+    origin
+  )
+  const productArea = getPolygonsAbsoluteArea(productPolygons)
+  const carrierArea = getPolygonsAbsoluteArea(carrierProductPolygons)
+  if (
+    productPolygons.length === 0 ||
+    carrierProductPolygons.length === 0 ||
+    productArea <= EPSILON ||
+    carrierArea <= EPSILON
+  ) {
+    outsideSourceDomainDescriptorProductCache.delete(cacheKey)
+    emitStrokePipelineTrace(
+      'outside-source-domain-descriptor-product-empty-cache-discarded',
+      {
+        cacheKeyLength: cacheKey.length,
+        productPolygonCount: productPolygons.length,
+        carrierPolygonCount: carrierProductPolygons.length,
+        productArea,
+        carrierArea
+      }
+    )
+    return null
+  }
+
+  outsideSourceDomainDescriptorProductCache.delete(cacheKey)
+  outsideSourceDomainDescriptorProductCache.set(cacheKey, cached)
+  emitStrokePipelineCounter(
+    'outside-source-domain-descriptor-product-cache-hit'
+  )
+  emitDirtyOwnerStageDescriptorReuse('outside-source-domain-descriptor-product')
+  return {
+    productPolygons,
+    carrierProductPolygons,
+    descriptorOffsetPaths: fromRelativePolygons(
+      cached.descriptorOffsetPaths,
+      origin
+    ),
+    descriptorStrokePaths: fromRelativePolygons(
+      cached.descriptorStrokePaths,
+      origin
+    ),
+    descriptorFillExcludePolygons: fromRelativePolygons(
+      cached.descriptorFillExcludePolygons,
+      origin
+    )
+  }
+}
+
+const setCachedOutsideSourceDomainDescriptorProduct = (
+  cacheKey: string,
+  origin: Vec2,
+  product: {
+    productPolygons: Vec2[][]
+    carrierProductPolygons: Vec2[][]
+    descriptorOffsetPaths: Vec2[][]
+    descriptorStrokePaths: Vec2[][]
+    descriptorFillExcludePolygons: Vec2[][]
+  }
+) => {
+  if (
+    product.productPolygons.length === 0 ||
+    product.carrierProductPolygons.length === 0
+  ) {
+    return
+  }
+
+  outsideSourceDomainDescriptorProductCache.set(cacheKey, {
+    origin,
+    productPolygons: toRelativePolygons(product.productPolygons, origin),
+    carrierProductPolygons: toRelativePolygons(
+      product.carrierProductPolygons,
+      origin
+    ),
+    descriptorOffsetPaths: toRelativePolygons(
+      product.descriptorOffsetPaths,
+      origin
+    ),
+    descriptorStrokePaths: toRelativePolygons(
+      product.descriptorStrokePaths,
+      origin
+    ),
+    descriptorFillExcludePolygons: toRelativePolygons(
+      product.descriptorFillExcludePolygons,
+      origin
+    )
+  })
+  emitStrokePipelineCounter(
+    'outside-source-domain-descriptor-product-cache-miss'
+  )
+  emitDirtyOwnerStageDescriptorRecompute(
+    'outside-source-domain-descriptor-product'
+  )
+  if (
+    outsideSourceDomainDescriptorProductCache.size >
+    OUTSIDE_SOURCE_DOMAIN_DESCRIPTOR_PRODUCT_CACHE_LIMIT
+  ) {
+    const [oldestKey] = outsideSourceDomainDescriptorProductCache.keys()
+    if (oldestKey) {
+      outsideSourceDomainDescriptorProductCache.delete(oldestKey)
+    }
+  }
+}
+
 const translateBoundsByDelta = (
   bounds: Bounds | undefined,
   dx: number,
@@ -2847,6 +4108,49 @@ const translateBoundsByDelta = (
         maxX: bounds.maxX + dx,
         maxY: bounds.maxY + dy
       }
+    : undefined
+
+const expandBoundsByPadding = (bounds: Bounds, padding: number): Bounds => ({
+  minX: bounds.minX - padding,
+  minY: bounds.minY - padding,
+  maxX: bounds.maxX + padding,
+  maxY: bounds.maxY + padding
+})
+
+const doBoundsOverlap = (left: Bounds, right: Bounds) =>
+  left.minX <= right.maxX &&
+  left.maxX >= right.minX &&
+  left.minY <= right.maxY &&
+  left.maxY >= right.minY
+
+const selectBoundsOverlappingPolygons = (
+  subjectBounds: Bounds,
+  polygons: Vec2[][],
+  padding = 0
+) => {
+  if (polygons.length === 0) {
+    return polygons
+  }
+
+  const paddedSubjectBounds =
+    padding > 0 ? expandBoundsByPadding(subjectBounds, padding) : subjectBounds
+  return polygons.filter((polygon) =>
+    doBoundsOverlap(paddedSubjectBounds, getBounds([polygon]))
+  )
+}
+
+const translateStageBoundsByDelta = (
+  stageBounds: Record<string, Bounds | undefined> | undefined,
+  dx: number,
+  dy: number
+): Record<string, Bounds | undefined> | undefined =>
+  stageBounds
+    ? Object.fromEntries(
+        Object.entries(stageBounds).map(([stage, bounds]) => [
+          stage,
+          translateBoundsByDelta(bounds, dx, dy)
+        ])
+      )
     : undefined
 
 const translatePointsByDelta = (
@@ -2947,9 +4251,66 @@ const translateDebugMetaByDelta = (
               dy
             )
           })),
+        dashBodySeamBoundaries: debugMeta.dashBodySeamBoundaries?.map(
+          (boundary) => ({
+            ...boundary,
+            point: {
+              x: boundary.point.x + dx,
+              y: boundary.point.y + dy
+            },
+            outerBodyBoundaryEndpoint: {
+              x: boundary.outerBodyBoundaryEndpoint.x + dx,
+              y: boundary.outerBodyBoundaryEndpoint.y + dy
+            },
+            outerBodyBoundaryVertices: boundary.outerBodyBoundaryVertices.map(
+              (point) => ({
+                x: point.x + dx,
+                y: point.y + dy
+              })
+            ),
+            bodySideOutlineSegment: [
+              {
+                x: boundary.bodySideOutlineSegment[0].x + dx,
+                y: boundary.bodySideOutlineSegment[0].y + dy
+              },
+              {
+                x: boundary.bodySideOutlineSegment[1].x + dx,
+                y: boundary.bodySideOutlineSegment[1].y + dy
+              }
+            ]
+          })
+        ),
         joinOwnershipRecords: debugMeta.joinOwnershipRecords?.map((record) => ({
           ...record,
-          bounds: translateBoundsByDelta(record.bounds, dx, dy) ?? record.bounds
+          bounds:
+            translateBoundsByDelta(record.bounds, dx, dy) ?? record.bounds,
+          vertex: record.vertex
+            ? { x: record.vertex.x + dx, y: record.vertex.y + dy }
+            : undefined,
+          previousContourPoint: record.previousContourPoint
+            ? {
+                x: record.previousContourPoint.x + dx,
+                y: record.previousContourPoint.y + dy
+              }
+            : undefined,
+          nextContourPoint: record.nextContourPoint
+            ? {
+                x: record.nextContourPoint.x + dx,
+                y: record.nextContourPoint.y + dy
+              }
+            : undefined,
+          previousDashBodyPoint: record.previousDashBodyPoint
+            ? {
+                x: record.previousDashBodyPoint.x + dx,
+                y: record.previousDashBodyPoint.y + dy
+              }
+            : undefined,
+          nextDashBodyPoint: record.nextDashBodyPoint
+            ? {
+                x: record.nextDashBodyPoint.x + dx,
+                y: record.nextDashBodyPoint.y + dy
+              }
+            : undefined
         })),
         paintBounds:
           translateBoundsByDelta(debugMeta.paintBounds, dx, dy) ??
@@ -3121,9 +4482,12 @@ const getPacketDashProductIntervals = (
       sourceSegmentIndex:
         terminal.sourceSegmentIndex ??
         meta.domainPlanSplitRangeSourceSegmentIndex,
+      sourceStartDistance: meta.domainPlanSplitRangeSourceStartDistance,
+      sourceEndDistance: meta.domainPlanSplitRangeSourceEndDistance,
       endpointCapPolicySignature: meta.dashEndpointCapPolicySignature,
       joinOwnershipSignature: meta.joinOwnershipSignature,
-      smoothContinuityGroupId: meta.smoothContinuityGroupId
+      smoothContinuityGroupId: meta.smoothContinuityGroupId,
+      materializationDistanceSpace: meta.materializationDistanceSpace
     }))
   }
 
@@ -3139,22 +4503,417 @@ const getPacketDashProductIntervals = (
     filledSide: meta.domainPlanFilledSide,
     unfilledSide: meta.domainPlanUnfilledSide,
     sourceSegmentIndex: meta.domainPlanSplitRangeSourceSegmentIndex,
+    sourceStartDistance: meta.domainPlanSplitRangeSourceStartDistance,
+    sourceEndDistance: meta.domainPlanSplitRangeSourceEndDistance,
     endpointCapPolicySignature: meta.dashEndpointCapPolicySignature,
     joinOwnershipSignature: meta.joinOwnershipSignature,
-    smoothContinuityGroupId: meta.smoothContinuityGroupId
+    smoothContinuityGroupId: meta.smoothContinuityGroupId,
+    materializationDistanceSpace: meta.materializationDistanceSpace
   }))
 }
 
+const mergeJoinOwnedTerminalBodyPacketsByGroupKey = (
+  packets: SolidCenterStrokeResolvedPacket[],
+  getGroupKey: (packet: SolidCenterStrokeResolvedPacket) => string
+): SolidCenterStrokeResolvedPacket[] => {
+  if (packets.length <= 1) {
+    return packets
+  }
+
+  const packetsByGroupKey = new Map<string, SolidCenterStrokeResolvedPacket[]>()
+  packets.forEach((packet) => {
+    const groupKey = getGroupKey(packet)
+    packetsByGroupKey.set(groupKey, [
+      ...(packetsByGroupKey.get(groupKey) ?? []),
+      packet
+    ])
+  })
+
+  return Array.from(packetsByGroupKey.values()).map((groupPackets) => {
+    const primary = groupPackets[0]
+    if (!primary) {
+      return groupPackets[
+        groupPackets.length - 1
+      ] as SolidCenterStrokeResolvedPacket
+    }
+    if (groupPackets.length === 1) {
+      return primary
+    }
+    const primaryMeta = primary.geometry.debugMeta
+    if (!primaryMeta) {
+      return primary
+    }
+    const mergedPolygons = (() => {
+      try {
+        const backend = getGeometryBackend()
+        if (!backend.capabilities.union) {
+          return primary.geometry.polygons
+        }
+        const polygons = cleanClippedProductPolygons(
+          getCoveragePolygonsFromRegions(
+            backend.union(
+              toCoveragePolygonRegions(
+                groupPackets.flatMap((packet) => packet.geometry.polygons)
+              ),
+              'nonzero'
+            )
+          ),
+          {
+            cleanupMicroEdgeTolerance: CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+            cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+          }
+        )
+        return polygons.length > 0 ? polygons : primary.geometry.polygons
+      } catch {
+        emitStrokePipelineCounter('join-owned-terminal-body-merge-error')
+        return primary.geometry.polygons
+      }
+    })()
+    const mergedProductArea = getPolygonsAbsoluteArea(mergedPolygons)
+
+    const dashProductIntervalsById = new Map<
+      string,
+      NonNullable<
+        SolidCenterStrokeGeometryDebugMeta['dashProductIntervals']
+      >[number]
+    >()
+    groupPackets.flatMap(getPacketDashProductIntervals).forEach((interval) => {
+      dashProductIntervalsById.set(interval.intervalId, interval)
+    })
+    const dashProductIntervals = Array.from(
+      dashProductIntervalsById.values()
+    ).sort((left, right) => left.intervalId.localeCompare(right.intervalId))
+    const intervalIds = uniqueStrings([
+      ...groupPackets.flatMap(getPacketIntervalIds),
+      ...dashProductIntervals.map((interval) => interval.intervalId)
+    ])
+    const dashEndpointCapPolicySignatures = uniqueStrings(
+      groupPackets.flatMap((packet) => [
+        packet.geometry.debugMeta?.dashEndpointCapPolicySignature,
+        ...(packet.geometry.debugMeta?.dashEndpointCapPolicySignatures ?? []),
+        ...getPacketDashProductIntervals(packet).map(
+          (interval) => interval.endpointCapPolicySignature
+        )
+      ])
+    )
+    const dashEndpointCapPolicyTerminalRoles = uniqueStrings(
+      groupPackets.flatMap((packet) => [
+        packet.geometry.debugMeta?.dashEndpointCapPolicyTerminalRole,
+        ...(packet.geometry.debugMeta?.dashEndpointCapPolicyTerminalRoles ?? [])
+      ])
+    )
+    const joinOwnershipSignatures = uniqueStrings(
+      groupPackets.flatMap((packet) => [
+        packet.geometry.debugMeta?.joinOwnershipSignature,
+        ...(packet.geometry.debugMeta?.joinOwnershipSignatures ?? []),
+        ...getPacketDashProductIntervals(packet).map(
+          (interval) => interval.joinOwnershipSignature
+        )
+      ])
+    )
+    const smoothContinuityGroupIds = uniqueStrings(
+      groupPackets.flatMap((packet) => [
+        packet.geometry.debugMeta?.smoothContinuityGroupId,
+        ...(packet.geometry.debugMeta?.smoothContinuityGroupIds ?? []),
+        ...getPacketDashProductIntervals(packet).map(
+          (interval) => interval.smoothContinuityGroupId
+        )
+      ])
+    )
+    const joinOwnershipRecordsByKey = new Map<
+      string,
+      NonNullable<
+        SolidCenterStrokeGeometryDebugMeta['joinOwnershipRecords']
+      >[number]
+    >()
+    groupPackets
+      .flatMap(
+        (packet) => packet.geometry.debugMeta?.joinOwnershipRecords ?? []
+      )
+      .forEach((record) => {
+        joinOwnershipRecordsByKey.set(
+          [
+            record.kind,
+            record.materializationKind ?? 'materialization',
+            record.domainKey ?? 'domain',
+            record.intervalIds?.join(',') ?? 'no-intervals',
+            record.selectedSide
+          ].join(':'),
+          record
+        )
+      })
+    const productSourceSegmentIndexes = uniqueNumbers(
+      groupPackets.flatMap((packet) => [
+        ...(packet.geometry.debugMeta?.productSourceSegmentIndexes ?? []),
+        packet.geometry.debugMeta?.domainPlanSplitRangeSourceSegmentIndex,
+        ...getPacketDashProductIntervals(packet).map(
+          (interval) => interval.sourceSegmentIndex
+        )
+      ])
+    )
+    const sourceSpanIds = uniqueStrings(
+      groupPackets.flatMap(
+        (packet) => packet.geometry.debugMeta?.sourceSpanIds ?? []
+      )
+    )
+    const domainPlanSplitRangeTerminals =
+      mergeDomainPlanSplitRangeTerminals(groupPackets)
+    const productSignature = [
+      primaryMeta.productSignature ?? primary.geometry.geometryId,
+      'merged-intervals',
+      intervalIds.join(',')
+    ].join(':')
+
+    return {
+      ...primary,
+      geometry: {
+        ...primary.geometry,
+        polygons: mergedPolygons,
+        bounds: getBounds(mergedPolygons),
+        debugMeta: {
+          ...primaryMeta,
+          intervalId: intervalIds.join(','),
+          intervalIds,
+          dashProductIntervals,
+          dashEndpointCapPolicySignature:
+            dashEndpointCapPolicySignatures.length === 1
+              ? dashEndpointCapPolicySignatures[0]
+              : primaryMeta.dashEndpointCapPolicySignature,
+          dashEndpointCapPolicySignatures,
+          dashEndpointCapPolicyTerminalRoles:
+            dashEndpointCapPolicyTerminalRoles.length > 0
+              ? (dashEndpointCapPolicyTerminalRoles as NonNullable<
+                  SolidCenterStrokeGeometryDebugMeta['dashEndpointCapPolicyTerminalRoles']
+                >)
+              : primaryMeta.dashEndpointCapPolicyTerminalRoles,
+          joinOwnershipSignatures,
+          smoothContinuityGroupIds,
+          joinOwnershipRecords: Array.from(joinOwnershipRecordsByKey.values()),
+          productSourceSegmentIndexes:
+            productSourceSegmentIndexes.length > 0
+              ? productSourceSegmentIndexes
+              : primaryMeta.productSourceSegmentIndexes,
+          sourceSpanIds:
+            sourceSpanIds.length > 0
+              ? sourceSpanIds
+              : primaryMeta.sourceSpanIds,
+          domainPlanSplitRangeTerminals:
+            domainPlanSplitRangeTerminals.length > 0
+              ? domainPlanSplitRangeTerminals
+              : primaryMeta.domainPlanSplitRangeTerminals,
+          rawProductArea: mergedProductArea,
+          cleanedProductArea: mergedProductArea,
+          boundaryClippedProductArea: mergedProductArea,
+          finalProductArea: mergedProductArea,
+          productSignature
+        },
+        renderDescriptor: primary.geometry.renderDescriptor
+          ? {
+              ...primary.geometry.renderDescriptor,
+              descriptorProductPolygons: mergedPolygons,
+              strokeMaskPolygons: undefined
+            }
+          : primary.geometry.renderDescriptor
+      }
+    }
+  })
+}
+
 const getConstrainedDashedProductCanonicalGroupKey = (
-  packet: SolidCenterStrokeResolvedPacket
+  packet: SolidCenterStrokeResolvedPacket,
+  options: { canClipOutsideLegalDomain?: boolean } = {}
 ) => {
   if (packet.geometry.renderDescriptor) {
     return null
   }
   const meta = packet.geometry.debugMeta
+  if (
+    meta?.productSignature?.includes(':inside-aggregate-descriptor') === true
+  ) {
+    return null
+  }
   if (!meta?.productSignature?.startsWith('constrained-dashed:')) {
     return null
   }
+  if (meta.strokePosition !== 'outside' && meta.strokePosition !== 'inside') {
+    return null
+  }
+  const dashProductIntervalsForCanonicalSignature =
+    meta.dashProductIntervals && meta.dashProductIntervals.length > 0
+      ? meta.dashProductIntervals
+      : getPacketDashProductIntervals(packet)
+  const terminalRoles = [
+    meta.domainPlanTerminalRole,
+    ...dashProductIntervalsForCanonicalSignature.map(
+      (interval) => interval.terminalRole
+    )
+  ]
+  const hasTerminalRole = terminalRoles.some(
+    (role) => role !== undefined && role !== 'middle'
+  )
+  const joinOwnershipSignatures = uniqueStrings([
+    meta.joinOwnershipSignature,
+    ...(meta.joinOwnershipSignatures ?? [])
+  ])
+  const dashIntervalJoinOwnershipSignatures = uniqueStrings(
+    dashProductIntervalsForCanonicalSignature.map(
+      (interval) => interval.joinOwnershipSignature
+    )
+  )
+  const dashEndpointCapPolicySignatures = uniqueStrings([
+    meta.dashEndpointCapPolicySignature,
+    ...(meta.dashEndpointCapPolicySignatures ?? []),
+    ...dashProductIntervalsForCanonicalSignature.map(
+      (interval) => interval.endpointCapPolicySignature
+    )
+  ])
+  const isJoinOwnedTerminalBody =
+    joinOwnershipSignatures.length > 0 &&
+    joinOwnershipSignatures.every(
+      (signature) => signature === 'join-owned-terminal-body'
+    ) &&
+    (dashIntervalJoinOwnershipSignatures.length === 0 ||
+      dashIntervalJoinOwnershipSignatures.every(
+        (signature) => signature === 'join-owned-terminal-body'
+      )) &&
+    dashEndpointCapPolicySignatures.length > 0 &&
+    dashEndpointCapPolicySignatures.every((signature) =>
+      signature.startsWith('join-owned-terminal-body:')
+    )
+  const hasJoinOwnedTerminalBodyOwnership =
+    isJoinOwnedTerminalBody ||
+    joinOwnershipSignatures.includes('join-owned-terminal-body') ||
+    dashIntervalJoinOwnershipSignatures.includes('join-owned-terminal-body')
+  const hasNonSourceJoinOwnership = [
+    ...joinOwnershipSignatures,
+    ...dashIntervalJoinOwnershipSignatures
+  ].some((signature) => signature !== 'source-path')
+  const needsSelectedSideSignature =
+    meta.strokePosition === 'outside' &&
+    hasNonSourceJoinOwnership &&
+    (options.canClipOutsideLegalDomain !== true ||
+      hasJoinOwnedTerminalBodyOwnership)
+  const joinOwnershipRecordSideSignature = uniqueNumbers(
+    (meta.joinOwnershipRecords ?? []).map((record) => record.selectedSide)
+  )
+    .filter((side): side is 1 | -1 => side === 1 || side === -1)
+    .join(',')
+  const alternateSelectedSideSignature = uniqueNumbers([
+    meta.domainPlanSelectedSide,
+    ...(meta.domainPlanSelectedSides ?? []),
+    ...dashProductIntervalsForCanonicalSignature.map(
+      (interval) => interval.selectedSide
+    ),
+    ...(meta.domainPlanSplitRangeTerminals ?? []).map(
+      (terminal) => terminal.selectedSide
+    )
+  ])
+    .filter((side): side is 1 | -1 => side === 1 || side === -1)
+    .join(',')
+  const selectedSideSignature = needsSelectedSideSignature
+    ? joinOwnershipRecordSideSignature || alternateSelectedSideSignature
+    : ''
+  const conservativeProductSignature =
+    meta.strokePosition === 'outside' &&
+    hasNonSourceJoinOwnership &&
+    (!isJoinOwnedTerminalBody || hasJoinOwnedTerminalBodyOwnership)
+      ? [
+          meta.productSignature ?? '',
+          meta.legalDomainId ?? '',
+          ...(meta.legalDomainIds ?? []),
+          meta.joinOwnershipSignature ?? '',
+          ...(meta.joinOwnershipSignatures ?? []),
+          meta.dashEndpointCapPolicySignature ?? '',
+          ...(meta.dashEndpointCapPolicySignatures ?? []),
+          ...terminalRoles.map((role) => role ?? 'none')
+        ].join(',')
+      : ''
+  const legalDomainSignature = uniqueStrings([
+    meta.legalDomainId ?? undefined,
+    ...(meta.legalDomainIds ?? [])
+  ]).join(',')
+  if (hasTerminalRole) {
+    return null
+  }
+  const terminalProductSignature =
+    meta.strokePosition === 'outside' && hasTerminalRole
+      ? [
+          meta.productSignature ?? '',
+          meta.intervalId ?? '',
+          ...(meta.intervalIds ?? []),
+          ...dashProductIntervalsForCanonicalSignature.map((interval) =>
+            [
+              interval.intervalId ?? '',
+              interval.splitRangeId ?? '',
+              interval.terminalRole ?? 'middle',
+              interval.endpointCapPolicySignature ?? '',
+              interval.joinOwnershipSignature ?? '',
+              interval.smoothContinuityGroupId ?? '',
+              interval.materializationDistanceSpace ?? '',
+              formatTranslationInvariantCacheNumber(
+                interval.sourceStartDistance ?? interval.startDistance ?? 0
+              ),
+              formatTranslationInvariantCacheNumber(
+                interval.sourceEndDistance ?? interval.endDistance ?? 0
+              ),
+              formatTranslationInvariantCacheNumber(
+                interval.effectiveStartDistance ?? interval.startDistance ?? 0
+              ),
+              formatTranslationInvariantCacheNumber(
+                interval.effectiveEndDistance ?? interval.endDistance ?? 0
+              )
+            ].join(':')
+          )
+        ].join(',')
+      : ''
+  const needsTopologySafeOutsideDashIntervalSignature =
+    meta.strokePosition === 'outside' &&
+    meta.topologyFamily === 'self-intersecting'
+  const needsDashProductIntervalSignature =
+    meta.strokePosition === 'outside' &&
+    (hasTerminalRole ||
+      hasNonSourceJoinOwnership ||
+      needsTopologySafeOutsideDashIntervalSignature)
+  const dashProductIntervalSignature =
+    needsDashProductIntervalSignature &&
+    dashProductIntervalsForCanonicalSignature.length > 0
+      ? dashProductIntervalsForCanonicalSignature
+          .map((interval) =>
+            [
+              interval.intervalId ?? '',
+              interval.splitRangeId ?? '',
+              interval.terminalRole ?? 'middle',
+              interval.endpointCapPolicySignature ?? '',
+              interval.joinOwnershipSignature ?? '',
+              interval.smoothContinuityGroupId ?? '',
+              interval.materializationDistanceSpace ?? '',
+              formatTranslationInvariantCacheNumber(
+                interval.sourceStartDistance ?? interval.startDistance ?? 0
+              ),
+              formatTranslationInvariantCacheNumber(
+                interval.sourceEndDistance ?? interval.endDistance ?? 0
+              ),
+              formatTranslationInvariantCacheNumber(
+                interval.startDistance ?? 0
+              ),
+              formatTranslationInvariantCacheNumber(interval.endDistance ?? 0),
+              formatTranslationInvariantCacheNumber(
+                interval.effectiveStartDistance ?? interval.startDistance ?? 0
+              ),
+              formatTranslationInvariantCacheNumber(
+                interval.effectiveEndDistance ?? interval.endDistance ?? 0
+              )
+            ].join(':')
+          )
+          .join(',')
+      : needsDashProductIntervalSignature
+        ? [
+            meta.intervalId ?? '',
+            ...(meta.intervalIds ?? []),
+            formatTranslationInvariantCacheNumber(meta.startDistance ?? 0),
+            formatTranslationInvariantCacheNumber(meta.endDistance ?? 0)
+          ].join(',')
+        : ''
   return [
     packet.paint.kind ?? 'solid',
     packet.paint.paintKey ?? '',
@@ -3169,8 +4928,75 @@ const getConstrainedDashedProductCanonicalGroupKey = (
     meta.strokeCap ?? '',
     meta.strokeMiterLimit ?? '',
     meta.domainPlanDomainMode ?? meta.domainMode ?? '',
-    (meta.legalDomainIds ?? []).join(',')
+    legalDomainSignature,
+    selectedSideSignature,
+    conservativeProductSignature,
+    terminalProductSignature,
+    dashProductIntervalSignature
   ].join('|')
+}
+
+const _clusterConstrainedDashedPacketsByOverlappingBounds = (
+  packets: SolidCenterStrokeResolvedPacket[],
+  tolerance: number
+) => {
+  const clusters: SolidCenterStrokeResolvedPacket[][] = []
+  packets.forEach((packet) => {
+    const matchingClusterIndexes = clusters.flatMap((cluster, index) =>
+      cluster.some((candidate) =>
+        boundsMayIntersect(
+          candidate.geometry.bounds,
+          packet.geometry.bounds,
+          tolerance
+        )
+      )
+        ? [index]
+        : []
+    )
+    if (matchingClusterIndexes.length === 0) {
+      clusters.push([packet])
+      return
+    }
+
+    const firstClusterIndex = matchingClusterIndexes[0]
+    const firstCluster = clusters[firstClusterIndex]
+    if (!firstCluster) {
+      clusters.push([packet])
+      return
+    }
+    firstCluster.push(packet)
+    for (
+      let index = matchingClusterIndexes.length - 1;
+      index >= 1;
+      index -= 1
+    ) {
+      const clusterIndex = matchingClusterIndexes[index]
+      const cluster = clusters[clusterIndex]
+      if (!cluster) {
+        continue
+      }
+      firstCluster.push(...cluster)
+      clusters.splice(clusterIndex, 1)
+    }
+  })
+  return clusters
+}
+
+const getConstrainedDashedPacketSelectedSides = (
+  packet: SolidCenterStrokeResolvedPacket
+) => {
+  const meta = packet.geometry.debugMeta
+  return uniqueNumbers([
+    meta?.domainPlanSelectedSide,
+    ...(meta?.domainPlanSelectedSides ?? []),
+    ...(meta?.dashProductIntervals ?? []).map(
+      (interval) => interval.selectedSide
+    ),
+    ...(meta?.domainPlanSplitRangeTerminals ?? []).map(
+      (terminal) => terminal.selectedSide
+    ),
+    ...(meta?.joinOwnershipRecords ?? []).map((record) => record.selectedSide)
+  ]).filter((side): side is 1 | -1 => side === 1 || side === -1)
 }
 
 const buildCanonicalConstrainedDashedDebugMeta = (
@@ -3211,6 +5037,9 @@ const buildCanonicalConstrainedDashedDebugMeta = (
   const domainPlanSplitRangeTerminals =
     mergeDomainPlanSplitRangeTerminals(packets)
   const dashProductIntervals = packets.flatMap(getPacketDashProductIntervals)
+  const dashBodySeamBoundaries = packets.flatMap(
+    (packet) => packet.geometry.debugMeta?.dashBodySeamBoundaries ?? []
+  )
   const dashEndpointCapPolicySignatures = uniqueStrings(
     packets.flatMap((packet) => [
       ...(packet.geometry.debugMeta?.dashEndpointCapPolicySignatures ?? []),
@@ -3293,6 +5122,58 @@ const buildCanonicalConstrainedDashedDebugMeta = (
       )
     ])
   )
+  const constrainedDashedJoinDiagnostics = packets.reduce<
+    NonNullable<
+      SolidCenterStrokeGeometryDebugMeta['constrainedDashedJoinDiagnostics']
+    >
+  >(
+    (merged, packet) => {
+      const diagnostics =
+        packet.geometry.debugMeta?.constrainedDashedJoinDiagnostics
+      if (!diagnostics) {
+        return merged
+      }
+      return {
+        terminalRecordCount: Math.max(
+          merged.terminalRecordCount,
+          diagnostics.terminalRecordCount
+        ),
+        sourceVertexRecordCount: Math.max(
+          merged.sourceVertexRecordCount,
+          diagnostics.sourceVertexRecordCount
+        ),
+        terminalPairJoinPlanCount: Math.max(
+          merged.terminalPairJoinPlanCount,
+          diagnostics.terminalPairJoinPlanCount
+        ),
+        sourceVertexJoinPlanCount: Math.max(
+          merged.sourceVertexJoinPlanCount,
+          diagnostics.sourceVertexJoinPlanCount
+        ),
+        joinPlanCount: Math.max(
+          merged.joinPlanCount,
+          diagnostics.joinPlanCount
+        ),
+        joinRecordCount: Math.max(
+          merged.joinRecordCount ?? 0,
+          diagnostics.joinRecordCount ?? 0
+        ),
+        joinPacketCount: Math.max(
+          merged.joinPacketCount ?? 0,
+          diagnostics.joinPacketCount ?? 0
+        )
+      }
+    },
+    {
+      terminalRecordCount: 0,
+      sourceVertexRecordCount: 0,
+      terminalPairJoinPlanCount: 0,
+      sourceVertexJoinPlanCount: 0,
+      joinPlanCount: 0,
+      joinRecordCount: 0,
+      joinPacketCount: 0
+    }
+  )
   const finalProductArea = getPolygonsAbsoluteArea(polygons)
 
   return {
@@ -3318,6 +5199,10 @@ const buildCanonicalConstrainedDashedDebugMeta = (
       dashProductIntervals.length > 0
         ? dashProductIntervals
         : primary.dashProductIntervals,
+    dashBodySeamBoundaries:
+      dashBodySeamBoundaries.length > 0
+        ? dashBodySeamBoundaries
+        : primary.dashBodySeamBoundaries,
     dashEndpointCapPolicySignatures:
       dashEndpointCapPolicySignatures.length > 0
         ? dashEndpointCapPolicySignatures
@@ -3350,6 +5235,11 @@ const buildCanonicalConstrainedDashedDebugMeta = (
       domainPlanSourceSegmentIndexes.length > 0
         ? domainPlanSourceSegmentIndexes
         : primary.domainPlanSourceSegmentIndexes,
+    constrainedDashedJoinDiagnostics:
+      constrainedDashedJoinDiagnostics.joinPlanCount > 0 ||
+      constrainedDashedJoinDiagnostics.terminalRecordCount > 0
+        ? constrainedDashedJoinDiagnostics
+        : primary.constrainedDashedJoinDiagnostics,
     materializedEndpointCaps: undefined,
     joinOwnershipRecords: packets.flatMap(
       (packet) => packet.geometry.debugMeta?.joinOwnershipRecords ?? []
@@ -3378,6 +5268,8 @@ const buildCanonicalConstrainedDashedDebugMeta = (
 const canonicalizeConstrainedDashedSamePaintProductPackets = (
   packets: SolidCenterStrokeResolvedPacket[],
   options: {
+    insideLegalClipRegions?: PolygonRegion[]
+    outsideLegalClipRegions?: PolygonRegion[]
     getRevisionSet?: (
       productSignature: string,
       metadata?: {
@@ -3404,8 +5296,12 @@ const canonicalizeConstrainedDashedSamePaintProductPackets = (
 
   const grouped = new Map<string, SolidCenterStrokeResolvedPacket[]>()
   const passthrough: SolidCenterStrokeResolvedPacket[] = []
+  const canClipOutsideLegalDomain =
+    (options.outsideLegalClipRegions?.length ?? 0) > 0
   packets.forEach((packet) => {
-    const groupKey = getConstrainedDashedProductCanonicalGroupKey(packet)
+    const groupKey = getConstrainedDashedProductCanonicalGroupKey(packet, {
+      canClipOutsideLegalDomain
+    })
     if (!groupKey) {
       passthrough.push(packet)
       return
@@ -3425,14 +5321,81 @@ const canonicalizeConstrainedDashedSamePaintProductPackets = (
         return groupPackets
       }
 
-      const polygons = getCoveragePolygonsFromRegions(
+      const primary = groupPackets[0]
+      const primaryMeta = primary.geometry.debugMeta
+      let polygons = getCoveragePolygonsFromRegions(
         backend.union(toCoveragePolygonRegions(groupPolygons), 'nonzero')
       )
+      const groupJoinOwnershipSignatures = uniqueStrings(
+        groupPackets.flatMap((packet) => [
+          ...(packet.geometry.debugMeta?.joinOwnershipSignatures ?? []),
+          packet.geometry.debugMeta?.joinOwnershipSignature
+        ])
+      )
+      const groupSelectedSides = uniqueNumbers(
+        groupPackets.flatMap(getConstrainedDashedPacketSelectedSides)
+      )
+      if (
+        primaryMeta?.strokePosition === 'inside' &&
+        (options.insideLegalClipRegions?.length ?? 0) > 0
+      ) {
+        polygons = clipSourceVertexJoinPolygonsToInsideLegalDomain(
+          polygons,
+          options.insideLegalClipRegions ?? [],
+          {
+            useResultCache: false
+          }
+        )
+      }
+      if (
+        primaryMeta?.strokePosition === 'outside' &&
+        (options.outsideLegalClipRegions?.length ?? 0) > 0 &&
+        groupSelectedSides.length > 1 &&
+        groupJoinOwnershipSignatures.includes('join-owned-terminal-body')
+      ) {
+        polygons = subtractOutsideLegalResidue(
+          polygons,
+          options.outsideLegalClipRegions ?? [],
+          'nonzero',
+          {
+            cleanupMicroEdgeTolerance: 0.001,
+            cleanupCollinearTolerance: 0.0001,
+            outsideLegalBoundarySnapTolerance:
+              CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE
+          }
+        )
+      }
+      if (
+        primaryMeta?.strokePosition === 'outside' &&
+        (options.outsideLegalClipRegions?.length ?? 0) > 0 &&
+        groupJoinOwnershipSignatures.length > 0 &&
+        groupJoinOwnershipSignatures.every(
+          (signature) => signature === 'source-path'
+        ) &&
+        groupPackets.some((packet) =>
+          (packet.geometry.debugMeta?.dashProductIntervals ?? []).some(
+            (interval) =>
+              interval.terminalRole === undefined ||
+              interval.terminalRole === 'middle'
+          )
+        )
+      ) {
+        polygons = subtractOutsideLegalResidue(
+          polygons,
+          options.outsideLegalClipRegions ?? [],
+          'nonzero',
+          {
+            cleanupMicroEdgeTolerance: 0.001,
+            cleanupCollinearTolerance: 0.0001,
+            outsideLegalBoundarySnapTolerance:
+              CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE
+          }
+        )
+      }
       if (polygons.length === 0) {
         return []
       }
 
-      const primary = groupPackets[0]
       const intervalIds = uniqueStrings(
         groupPackets.flatMap(getPacketIntervalIds)
       )
@@ -3450,7 +5413,6 @@ const canonicalizeConstrainedDashedSamePaintProductPackets = (
           sourceSpanIds.join(',')
         ].join('|')
       )
-      const primaryMeta = primary.geometry.debugMeta
       const revisionSet = options.getRevisionSet?.(productSignature, {
         productDomainMode: primaryMeta?.domainPlanDomainMode as
           | StrokeDomainMode
@@ -3527,11 +5489,22 @@ const canonicalizeConstrainedDashedSamePaintProductPackets = (
   return [...passthrough, ...canonicalPackets]
 }
 
+const CONSTRAINED_DASHED_PACKET_STAGE_SEMANTIC_VERSION =
+  'outside-doubled-center-join-owned-v41'
+
 const buildConstrainedDashedPacketStageCacheKey = (
   sourcePathSignature: string,
+  origin: Vec2,
   stroke: Pick<
     RenderableStroke,
-    'position' | 'width' | 'join' | 'cap' | 'dashPattern' | 'dashOffset'
+    | 'position'
+    | 'width'
+    | 'join'
+    | 'miterAngle'
+    | 'miterLimit'
+    | 'cap'
+    | 'dash'
+    | 'gap'
   >,
   metadata: {
     cachePrefix: string
@@ -3546,6 +5519,7 @@ const buildConstrainedDashedPacketStageCacheKey = (
   }
 ) =>
   [
+    CONSTRAINED_DASHED_PACKET_STAGE_SEMANTIC_VERSION,
     metadata.cachePrefix,
     metadata.ownerPrefix,
     metadata.strokeIndex,
@@ -3555,7 +5529,10 @@ const buildConstrainedDashedPacketStageCacheKey = (
     metadata.joinOwnershipSignature,
     metadata.clipInsideToFillDomain ? 'clip' : 'no-clip',
     metadata.clipInsideToFillDomain
-      ? buildImplicitFillRegionCacheSignature(metadata.implicitFillRegions)
+      ? buildImplicitFillRegionRelativeCacheSignature(
+          metadata.implicitFillRegions,
+          origin
+        )
       : 'implicit-fill-not-used',
     metadata.clipInsideToFillDomain && stroke.position === 'outside'
       ? metadata.sharedStrokeBoundaryDomains.length
@@ -3563,16 +5540,26 @@ const buildConstrainedDashedPacketStageCacheKey = (
     stroke.position,
     formatTranslationInvariantCacheNumber(stroke.width),
     stroke.join,
+    formatTranslationInvariantCacheNumber(stroke.miterLimit),
     stroke.cap,
-    stroke.dashPattern.map(formatTranslationInvariantCacheNumber).join(','),
-    formatTranslationInvariantCacheNumber(stroke.dashOffset)
+    [stroke.dash, stroke.gap]
+      .map(formatTranslationInvariantCacheNumber)
+      .join(',')
   ].join('|')
 
 const buildConstrainedDashedJoinIndependentPacketStageCacheKey = (
   sourcePathSignature: string,
+  origin: Vec2,
   stroke: Pick<
     RenderableStroke,
-    'position' | 'width' | 'cap' | 'dashPattern' | 'dashOffset'
+    | 'position'
+    | 'width'
+    | 'join'
+    | 'miterAngle'
+    | 'miterLimit'
+    | 'cap'
+    | 'dash'
+    | 'gap'
   >,
   metadata: {
     cachePrefix: string
@@ -3586,6 +5573,7 @@ const buildConstrainedDashedJoinIndependentPacketStageCacheKey = (
   }
 ) =>
   [
+    CONSTRAINED_DASHED_PACKET_STAGE_SEMANTIC_VERSION,
     metadata.cachePrefix,
     metadata.ownerPrefix,
     metadata.strokeIndex,
@@ -3594,16 +5582,22 @@ const buildConstrainedDashedJoinIndependentPacketStageCacheKey = (
     metadata.intervalSignature,
     metadata.clipInsideToFillDomain ? 'clip' : 'no-clip',
     metadata.clipInsideToFillDomain
-      ? buildImplicitFillRegionCacheSignature(metadata.implicitFillRegions)
+      ? buildImplicitFillRegionRelativeCacheSignature(
+          metadata.implicitFillRegions,
+          origin
+        )
       : 'implicit-fill-not-used',
     metadata.clipInsideToFillDomain && stroke.position === 'outside'
       ? metadata.sharedStrokeBoundaryDomains.length
       : 'stroke-boundary-not-used',
     stroke.position,
     formatTranslationInvariantCacheNumber(stroke.width),
+    stroke.join,
+    formatTranslationInvariantCacheNumber(stroke.miterLimit),
     stroke.cap,
-    stroke.dashPattern.map(formatTranslationInvariantCacheNumber).join(','),
-    formatTranslationInvariantCacheNumber(stroke.dashOffset)
+    [stroke.dash, stroke.gap]
+      .map(formatTranslationInvariantCacheNumber)
+      .join(',')
   ].join('|')
 
 const getCachedConstrainedDashedPacketStage = (
@@ -3657,9 +5651,14 @@ const getCachedConstrainedDashedJoinIndependentPacketStage = (
 const setCachedConstrainedDashedPacketStage = (
   cacheKey: string,
   origin: Vec2,
-  packets: SolidCenterStrokeResolvedPacket[]
+  packets: SolidCenterStrokeResolvedPacket[],
+  options: {
+    emitMiss?: boolean
+  } = {}
 ) => {
-  emitStrokePipelineCounter('constrained-dashed-packet-stage-cache-miss')
+  if (options.emitMiss !== false) {
+    emitStrokePipelineCounter('constrained-dashed-packet-stage-cache-miss')
+  }
   constrainedDashedPacketStageCache.set(cacheKey, {
     origin,
     packets
@@ -3780,6 +5779,169 @@ const getSourcePathSegmentSample = (
   )
   slicingContext.segmentSamples.set(range.index, sample)
   return sample
+}
+
+const projectPointToSourceSegmentDistance = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'> &
+    Partial<
+      Pick<
+        PathGeometry,
+        | 'sampledSegmentPoints'
+        | 'sampledSegmentDistances'
+        | 'traceSampleTolerance'
+        | 'traceSampleOptions'
+      >
+    >,
+  range: SourcePathSegmentRange,
+  slicingContext: SourcePathSlicingContext,
+  point: Vec2
+) => {
+  const sample = getSourcePathSegmentSample(path, range, slicingContext)
+  let best: {
+    distance: number
+    localDistance: number
+  } | null = null
+
+  for (let index = 1; index < sample.points.length; index += 1) {
+    const start = sample.points[index - 1]
+    const end = sample.points[index]
+    if (!start || !end) {
+      continue
+    }
+    const dx = end.x - start.x
+    const dy = end.y - start.y
+    const lengthSquared = dx * dx + dy * dy
+    if (lengthSquared <= EPSILON) {
+      continue
+    }
+    const t = Math.max(
+      0,
+      Math.min(
+        1,
+        ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared
+      )
+    )
+    const projected = {
+      x: start.x + dx * t,
+      y: start.y + dy * t
+    }
+    const distance = distanceBetween(point, projected)
+    const startDistance = sample.cumulativeDistances[index - 1] ?? 0
+    const endDistance = sample.cumulativeDistances[index] ?? startDistance
+    const localDistance = startDistance + (endDistance - startDistance) * t
+    if (!best || distance < best.distance) {
+      best = { distance, localDistance }
+    }
+  }
+
+  return best ? range.startDistance + best.localDistance : null
+}
+
+const resolveSourceDomainIntervalForMaterializationWithSourceGeometry = <
+  T extends BoundaryDomainMaterializationInterval
+>(
+  interval: T,
+  sourcePath: SourcePathWithOptionalSamples | undefined,
+  slicingContext: SourcePathSlicingContext | undefined
+): T => {
+  if (
+    interval.domainPlanSplitRangeSourceStartDistance !== undefined &&
+    interval.domainPlanSplitRangeSourceEndDistance !== undefined
+  ) {
+    return resolveSourceDomainIntervalForMaterialization(interval)
+  }
+
+  const sourceSegmentIndex = interval.domainPlanSplitRangeSourceSegmentIndex
+  const boundaryPoints = interval.domainPlanBoundaryPoints
+  const sourceSegmentRange =
+    sourceSegmentIndex !== undefined && slicingContext
+      ? slicingContext.segmentRanges[sourceSegmentIndex]
+      : undefined
+  if (
+    !sourcePath ||
+    !slicingContext ||
+    !sourceSegmentRange ||
+    !boundaryPoints ||
+    boundaryPoints.length < 2
+  ) {
+    return resolveSourceDomainIntervalForMaterialization(interval)
+  }
+
+  const firstBoundaryPoint = boundaryPoints[0]
+  const lastBoundaryPoint = boundaryPoints[boundaryPoints.length - 1]
+  if (!firstBoundaryPoint || !lastBoundaryPoint) {
+    return resolveSourceDomainIntervalForMaterialization(interval)
+  }
+
+  const sourceStartDistance = projectPointToSourceSegmentDistance(
+    sourcePath,
+    sourceSegmentRange,
+    slicingContext,
+    firstBoundaryPoint
+  )
+  const sourceEndDistance = projectPointToSourceSegmentDistance(
+    sourcePath,
+    sourceSegmentRange,
+    slicingContext,
+    lastBoundaryPoint
+  )
+  if (
+    sourceStartDistance === null ||
+    sourceEndDistance === null ||
+    Math.abs(sourceEndDistance - sourceStartDistance) <= EPSILON
+  ) {
+    return resolveSourceDomainIntervalForMaterialization(interval)
+  }
+
+  const splitStart = interval.domainPlanSplitRangeStartDistance
+  const splitEnd = interval.domainPlanSplitRangeEndDistance
+  if (splitStart === undefined || splitEnd === undefined) {
+    const startDistance = Math.min(sourceStartDistance, sourceEndDistance)
+    const endDistance = Math.max(sourceStartDistance, sourceEndDistance)
+    return {
+      ...interval,
+      startDistance,
+      endDistance,
+      intervalLength: endDistance - startDistance,
+      wrapsSeam: false,
+      materializationDistanceSpace: 'source-domain',
+      domainPlanSplitRangeSourceStartDistance: sourceStartDistance,
+      domainPlanSplitRangeSourceEndDistance: sourceEndDistance
+    }
+  }
+
+  const splitLength = splitEnd - splitStart
+  const sourceLength = sourceEndDistance - sourceStartDistance
+  if (
+    Math.abs(splitLength) <= EPSILON ||
+    Math.abs(sourceLength) <= EPSILON ||
+    interval.wrapsSeam
+  ) {
+    return resolveSourceDomainIntervalForMaterialization(interval)
+  }
+
+  const mapDistance = (distance: number) => {
+    const ratio = (distance - splitStart) / splitLength
+    return sourceStartDistance + sourceLength * ratio
+  }
+  const mappedStartDistance = mapDistance(interval.startDistance)
+  const mappedEndDistance = mapDistance(interval.endDistance)
+  const startDistance = Math.min(mappedStartDistance, mappedEndDistance)
+  const endDistance = Math.max(mappedStartDistance, mappedEndDistance)
+  if (endDistance <= startDistance + EPSILON) {
+    return resolveSourceDomainIntervalForMaterialization(interval)
+  }
+
+  return {
+    ...interval,
+    startDistance,
+    endDistance,
+    intervalLength: endDistance - startDistance,
+    wrapsSeam: false,
+    materializationDistanceSpace: 'source-domain',
+    domainPlanSplitRangeSourceStartDistance: sourceStartDistance,
+    domainPlanSplitRangeSourceEndDistance: sourceEndDistance
+  }
 }
 
 const lowerBoundCumulativeDistance = (
@@ -4369,7 +6531,7 @@ const buildCenterStrokeRoundCapPolygon = (
   const segmentCount = Math.max(
     8,
     Math.ceil(
-      Math.PI / Math.max(Math.PI / 24, ROUND_CAP_VISUAL_MAX_LENGTH / radius)
+      Math.PI / Math.max(Math.PI / 64, ROUND_CAP_VISUAL_MAX_LENGTH / radius)
     )
   )
   const points = getRoundCapUnitSemicircle(segmentCount).map(({ cos, sin }) =>
@@ -4412,27 +6574,351 @@ const buildConstrainedDashedTerminalCapPolygons = (
   strokePath: Vec2[],
   terminalRole: VisibleDashedTopologyInterval['domainPlanTerminalRole'],
   cap: RenderableStroke['cap'],
-  strokeWidth: number
+  strokeWidth: number,
+  interval?: Pick<
+    VisibleDashedTopologyInterval,
+    | 'startDistance'
+    | 'endDistance'
+    | 'materializationDistanceSpace'
+    | 'domainPlanSplitRangeStartDistance'
+    | 'domainPlanSplitRangeEndDistance'
+    | 'domainPlanSplitRangeSourceStartDistance'
+    | 'domainPlanSplitRangeSourceEndDistance'
+  >
 ) => {
   if (terminalRole === 'middle' || terminalRole === undefined) {
     return []
   }
 
-  const capPolygons: Vec2[][] = []
-  if (terminalRole === 'end') {
-    capPolygons.push(
-      buildCenterStrokeEndpointCapPolygon(strokePath, true, cap, strokeWidth)
-    )
+  const resolveBodySideCapAtStart = () => {
+    if (terminalRole === 'start-end') {
+      return []
+    }
+
+    const shouldUseSourceDistance =
+      interval?.materializationDistanceSpace !== 'boundary-domain'
+    const terminalDistance =
+      terminalRole === 'start'
+        ? shouldUseSourceDistance
+          ? (interval?.domainPlanSplitRangeSourceStartDistance ??
+            interval?.domainPlanSplitRangeStartDistance)
+          : interval?.domainPlanSplitRangeStartDistance
+        : shouldUseSourceDistance
+          ? (interval?.domainPlanSplitRangeSourceEndDistance ??
+            interval?.domainPlanSplitRangeEndDistance)
+          : interval?.domainPlanSplitRangeEndDistance
+
+    if (
+      typeof interval?.startDistance !== 'number' ||
+      typeof interval.endDistance !== 'number' ||
+      typeof terminalDistance !== 'number'
+    ) {
+      return terminalRole === 'end' ? [true] : [false]
+    }
+
+    const terminalAtStart =
+      Math.abs(interval.startDistance - terminalDistance) <=
+      Math.abs(interval.endDistance - terminalDistance)
+
+    return [!terminalAtStart]
   }
-  if (terminalRole === 'start') {
+
+  const capPolygons: Vec2[][] = []
+  for (const capAtStart of resolveBodySideCapAtStart()) {
     capPolygons.push(
-      buildCenterStrokeEndpointCapPolygon(strokePath, false, cap, strokeWidth)
+      buildCenterStrokeEndpointCapPolygon(
+        strokePath,
+        capAtStart,
+        cap,
+        strokeWidth
+      )
     )
   }
 
   return capPolygons.filter(
     (polygon) => polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON
   )
+}
+
+const buildConstrainedDashedEndpointPolicyCapPolygons = (
+  strokePath: Vec2[],
+  endpointCapPolicy: DashEndpointCapPolicy | undefined,
+  terminalRole: VisibleDashedTopologyInterval['domainPlanTerminalRole'],
+  cap: RenderableStroke['cap'],
+  strokeWidth: number,
+  interval?: Pick<
+    VisibleDashedTopologyInterval,
+    | 'startDistance'
+    | 'endDistance'
+    | 'materializationDistanceSpace'
+    | 'domainPlanSplitRangeStartDistance'
+    | 'domainPlanSplitRangeEndDistance'
+    | 'domainPlanSplitRangeSourceStartDistance'
+    | 'domainPlanSplitRangeSourceEndDistance'
+  >
+) => {
+  if (!endpointCapPolicy) {
+    return buildConstrainedDashedTerminalCapPolygons(
+      strokePath,
+      terminalRole,
+      cap,
+      strokeWidth,
+      interval
+    )
+  }
+
+  return [
+    endpointCapPolicy.startCap
+      ? buildCenterStrokeEndpointCapPolygon(strokePath, true, cap, strokeWidth)
+      : [],
+    endpointCapPolicy.endCap
+      ? buildCenterStrokeEndpointCapPolygon(strokePath, false, cap, strokeWidth)
+      : []
+  ].filter(
+    (polygon) => polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON
+  )
+}
+
+const preserveEndpointPolicyBodySideCapProductPolygons = (
+  polygons: Vec2[][],
+  strokePath: Vec2[],
+  endpointCapPolicy: DashEndpointCapPolicy | undefined,
+  cap: RenderableStroke['cap'],
+  strokeWidth: number,
+  options: {
+    cleanupOptions?: ClippedProductCleanupOptions
+    outsideProductAlreadyLegal?: boolean
+    outsideLegalClipRegions?: PolygonRegion[]
+    outsideFillRule?: 'evenodd' | 'nonzero'
+    bodySideCapPolygons?: Vec2[][]
+  } = {}
+) => {
+  const cleanupOptions = options.cleanupOptions ?? {
+    cleanupMicroEdgeTolerance: CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+    cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+  }
+  if (
+    polygons.length === 0 ||
+    strokePath.length < 2 ||
+    !endpointCapPolicy ||
+    endpointCapPolicy.terminalRole === 'middle' ||
+    (!endpointCapPolicy.startCap && !endpointCapPolicy.endCap) ||
+    cap === 'butt'
+  ) {
+    return polygons
+  }
+
+  const providedBodySideCapPolygons =
+    options.bodySideCapPolygons?.filter(hasPolygonGeometry) ?? []
+  const bodySideCapPolygons =
+    providedBodySideCapPolygons.length > 0
+      ? providedBodySideCapPolygons
+      : cap === 'round'
+        ? ([1, -1] as const)
+            .flatMap((selectedSide) =>
+              buildSelectedSideDoubledCenterRoundCapPolygons(
+                strokePath,
+                endpointCapPolicy,
+                strokeWidth / 2,
+                selectedSide
+              )
+            )
+            .filter(hasPolygonGeometry)
+        : [
+            endpointCapPolicy.startCap
+              ? buildCenterStrokeEndpointCapPolygon(
+                  strokePath,
+                  true,
+                  cap,
+                  strokeWidth
+                )
+              : [],
+            endpointCapPolicy.endCap
+              ? buildCenterStrokeEndpointCapPolygon(
+                  strokePath,
+                  false,
+                  cap,
+                  strokeWidth
+                )
+              : []
+          ].filter(hasPolygonGeometry)
+  if (bodySideCapPolygons.length === 0) {
+    return polygons
+  }
+
+  const endpointBoundedBodySideCapPolygons =
+    providedBodySideCapPolygons.length > 0
+      ? bodySideCapPolygons
+      : clipCenterStrokeProductPolygonsToEndpointExtents(
+          bodySideCapPolygons,
+          strokePath,
+          cap,
+          strokeWidth,
+          endpointCapPolicy
+        )
+  if (endpointBoundedBodySideCapPolygons.length === 0) {
+    return polygons
+  }
+
+  const legalBodySideCapPolygons =
+    options.outsideLegalClipRegions &&
+    options.outsideLegalClipRegions.length > 0 &&
+    !canSkipOutsideLegalClipForTerminalFragments(
+      endpointBoundedBodySideCapPolygons,
+      options.outsideLegalClipRegions
+    )
+      ? subtractOutsideLegalResidueByPolygon(
+          endpointBoundedBodySideCapPolygons,
+          options.outsideLegalClipRegions,
+          options.outsideFillRule ?? 'nonzero',
+          {
+            ...cleanupOptions,
+            outsideLegalResidueCaller: 'endpoint-body-side-cap',
+            forceOutsideLegalResidueSubtract: true,
+            skipOutsideLegalBoundaryDensify: true
+          }
+        )
+      : endpointBoundedBodySideCapPolygons
+  if (legalBodySideCapPolygons.length === 0) {
+    return polygons
+  }
+
+  const productBounds = getBounds(polygons)
+  const bodySideCapBounds = getBounds(legalBodySideCapPolygons)
+  const capBoundsTolerance = Math.max(0.25, strokeWidth * 0.02)
+  const capBoundsAlreadyCovered =
+    bodySideCapBounds.minX >= productBounds.minX - capBoundsTolerance &&
+    bodySideCapBounds.minY >= productBounds.minY - capBoundsTolerance &&
+    bodySideCapBounds.maxX <= productBounds.maxX + capBoundsTolerance &&
+    bodySideCapBounds.maxY <= productBounds.maxY + capBoundsTolerance
+  const isCapSampleCovered = (point: Vec2) =>
+    polygons.some((polygon) => isPointInsideOrOnPolygon(point, polygon))
+  const capInteriorAlreadyCovered =
+    capBoundsAlreadyCovered &&
+    legalBodySideCapPolygons.every((polygon) => {
+      const sampleStep = Math.max(1, Math.floor(polygon.length / 12))
+      return polygon.every(
+        (point, index) => index % sampleStep !== 0 || isCapSampleCovered(point)
+      )
+    })
+  if (capInteriorAlreadyCovered) {
+    return polygons
+  }
+
+  const mergedProductPolygons = cleanClippedProductPolygons(
+    [...polygons, ...legalBodySideCapPolygons],
+    cleanupOptions
+  )
+  const outsideLegalClipRegions = options.outsideLegalClipRegions ?? []
+  const shouldRevalidateMergedOutsideProduct =
+    outsideLegalClipRegions.length > 0 &&
+    (options.outsideProductAlreadyLegal !== true ||
+      legalBodySideCapPolygons.length > 0)
+  return shouldRevalidateMergedOutsideProduct
+    ? subtractOutsideLegalResidue(
+        mergedProductPolygons,
+        outsideLegalClipRegions,
+        options.outsideFillRule ?? 'nonzero',
+        {
+          ...cleanupOptions,
+          outsideLegalResidueCaller: 'endpoint-body-side-cap-merged',
+          forceOutsideLegalResidueSubtract: true,
+          skipOutsideLegalBoundaryDensify: true
+        }
+      )
+    : mergedProductPolygons
+}
+
+const buildDashedDescriptorSelectedSideClipBoundaryPath = (
+  strokePath: Vec2[],
+  terminalRole: VisibleDashedTopologyInterval['domainPlanTerminalRole'],
+  cap: RenderableStroke['cap'],
+  strokeWidth: number
+) => {
+  if (
+    strokePath.length < 2 ||
+    (cap !== 'square' && cap !== 'round') ||
+    strokeWidth <= EPSILON
+  ) {
+    return strokePath
+  }
+
+  const capReach = strokeWidth / 2
+  const points = strokePath.map((point) => ({ ...point }))
+  const start = points[0]
+  const end = points[points.length - 1]
+  const shouldExtendStart =
+    terminalRole === undefined ||
+    terminalRole === 'middle' ||
+    terminalRole === 'end'
+  const shouldExtendEnd =
+    terminalRole === undefined ||
+    terminalRole === 'middle' ||
+    terminalRole === 'start'
+
+  if (start && shouldExtendStart) {
+    const tangent = getStrokePathEndpointTangent(points, true)
+    if (tangent) {
+      points[0] = {
+        x: start.x + tangent.x * capReach,
+        y: start.y + tangent.y * capReach
+      }
+    }
+  }
+
+  if (end && shouldExtendEnd) {
+    const tangent = getStrokePathEndpointTangent(points, false)
+    if (tangent) {
+      points[points.length - 1] = {
+        x: end.x + tangent.x * capReach,
+        y: end.y + tangent.y * capReach
+      }
+    }
+  }
+
+  return points
+}
+
+const buildDoubledCenterSelectedSideClipBoundaryPath = (
+  strokePath: Vec2[],
+  strokeWidth: number,
+  cap: RenderableStroke['cap'] = 'round',
+  endpointCapPolicy?: DashEndpointCapPolicy
+) => {
+  if (strokePath.length < 2 || strokeWidth <= EPSILON) {
+    return strokePath
+  }
+
+  const clipReach = cap === 'butt' ? 0 : strokeWidth / 2
+  const points = strokePath.map((point) => ({ ...point }))
+  const start = points[0]
+  const end = points[points.length - 1]
+  const shouldExtendStart =
+    clipReach > EPSILON && (endpointCapPolicy?.startCap ?? true)
+  const shouldExtendEnd =
+    clipReach > EPSILON && (endpointCapPolicy?.endCap ?? true)
+
+  if (start && shouldExtendStart) {
+    const tangent = getStrokePathEndpointTangent(points, true)
+    if (tangent) {
+      points.unshift({
+        x: start.x + tangent.x * clipReach,
+        y: start.y + tangent.y * clipReach
+      })
+    }
+  }
+
+  if (end && shouldExtendEnd) {
+    const tangent = getStrokePathEndpointTangent(points, false)
+    if (tangent) {
+      points.push({
+        x: end.x + tangent.x * clipReach,
+        y: end.y + tangent.y * clipReach
+      })
+    }
+  }
+
+  return points
 }
 
 const buildCollinearButtCenterStrokePolygon = (
@@ -4591,12 +7077,15 @@ const buildCenterStrokeDescriptorProductPolygons = (
   middleStrokePaths: Vec2[][],
   terminalBodyStrokePaths: Vec2[][],
   terminalCapPolygons: Vec2[][],
-  stroke: Pick<RenderableStroke, 'cap' | 'join' | 'miterLimit'>,
+  stroke: Pick<RenderableStroke, 'cap' | 'join' | 'miterAngle' | 'miterLimit'>,
   strokeWidth: number
 ) => {
   const buildPathPolygons = (
     strokePath: Vec2[],
-    pathStroke: Pick<RenderableStroke, 'cap' | 'join' | 'miterLimit'>
+    pathStroke: Pick<
+      RenderableStroke,
+      'cap' | 'join' | 'miterAngle' | 'miterLimit'
+    >
   ) => {
     const origin = strokePath[0]
     if (!origin) {
@@ -4634,6 +7123,7 @@ const buildCenterStrokeDescriptorProductPolygons = (
             width: strokeWidth,
             cap: pathStroke.cap,
             join: pathStroke.join,
+            miterAngle: pathStroke.miterAngle,
             miterLimit: pathStroke.miterLimit
           })
             .map(cleanPolygon)
@@ -4645,7 +7135,10 @@ const buildCenterStrokeDescriptorProductPolygons = (
   const productPolygons: Vec2[][] = []
   const appendPathPolygons = (
     strokePaths: Vec2[][],
-    pathStroke: Pick<RenderableStroke, 'cap' | 'join' | 'miterLimit'>
+    pathStroke: Pick<
+      RenderableStroke,
+      'cap' | 'join' | 'miterAngle' | 'miterLimit'
+    >
   ) => {
     for (const strokePath of strokePaths) {
       for (const polygon of buildPathPolygons(strokePath, pathStroke)) {
@@ -4654,13 +7147,100 @@ const buildCenterStrokeDescriptorProductPolygons = (
     }
   }
 
-  appendPathPolygons(middleStrokePaths, stroke)
-  appendPathPolygons(terminalBodyStrokePaths, { ...stroke, cap: 'butt' })
+  const appendMiddlePathPolygons = () => {
+    for (const strokePath of middleStrokePaths) {
+      const middleBodyStroke =
+        stroke.cap === 'round' ? { ...stroke, cap: 'butt' as const } : stroke
+      for (const polygon of buildPathPolygons(strokePath, middleBodyStroke)) {
+        productPolygons.push(polygon)
+      }
+      if (stroke.cap === 'round') {
+        for (const polygon of [
+          buildCenterStrokeEndpointCapPolygon(
+            strokePath,
+            true,
+            stroke.cap,
+            strokeWidth
+          ),
+          buildCenterStrokeEndpointCapPolygon(
+            strokePath,
+            false,
+            stroke.cap,
+            strokeWidth
+          )
+        ]) {
+          if (polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON) {
+            productPolygons.push(polygon)
+          }
+        }
+      }
+    }
+  }
+
+  appendMiddlePathPolygons()
+  appendPathPolygons(terminalBodyStrokePaths, {
+    ...stroke,
+    cap: 'butt',
+    join: 'round'
+  })
   for (const polygon of terminalCapPolygons) {
     productPolygons.push(polygon)
   }
 
   return productPolygons
+}
+
+const TERMINAL_BODY_JOIN_OVERLAP_DISTANCE = 0
+
+const getDescriptorProductConcaveNotchTolerance = (strokeWidth: number) =>
+  Math.max(0.05, Math.min(0.2, strokeWidth * 0.02))
+
+const extendTerminalBodyStrokePathForEndpointPolicy = (
+  strokePath: Vec2[],
+  endpointCapPolicy?: DashEndpointCapPolicy,
+  overlapDistance = TERMINAL_BODY_JOIN_OVERLAP_DISTANCE
+) => {
+  if (
+    strokePath.length < 2 ||
+    !endpointCapPolicy ||
+    overlapDistance <= EPSILON ||
+    (!endpointCapPolicy.suppressStartCap && !endpointCapPolicy.suppressEndCap)
+  ) {
+    return strokePath
+  }
+
+  const output = strokePath.map((point) => normalizePoint(point))
+  if (endpointCapPolicy.suppressStartCap) {
+    const start = output[0]
+    const next = output[1]
+    const tangent =
+      start && next
+        ? normalizeVector({ x: next.x - start.x, y: next.y - start.y })
+        : null
+    if (start && tangent) {
+      output[0] = normalizePoint({
+        x: start.x - tangent.x * overlapDistance,
+        y: start.y - tangent.y * overlapDistance
+      })
+    }
+  }
+
+  if (endpointCapPolicy.suppressEndCap) {
+    const end = output[output.length - 1]
+    const previous = output[output.length - 2]
+    const tangent =
+      end && previous
+        ? normalizeVector({ x: end.x - previous.x, y: end.y - previous.y })
+        : null
+    if (end && tangent) {
+      output[output.length - 1] = normalizePoint({
+        x: end.x + tangent.x * overlapDistance,
+        y: end.y + tangent.y * overlapDistance
+      })
+    }
+  }
+
+  return output
 }
 
 const excludeDescriptorProductPolygons = (
@@ -4700,6 +7280,74 @@ const excludeDescriptorProductPolygons = (
   }
 }
 
+const intersectDescriptorProductPolygons = (
+  productPolygons: Vec2[][],
+  subjectPolygons: Vec2[][]
+) => {
+  if (productPolygons.length === 0 || subjectPolygons.length === 0) {
+    return []
+  }
+
+  try {
+    const backend = getGeometryBackend()
+    if (typeof backend.intersection !== 'function') {
+      return productPolygons
+    }
+    const productRegions = toCoveragePolygonRegions(productPolygons)
+    const subjectRegions = toCoveragePolygonRegions(subjectPolygons)
+    return cleanClippedProductPolygons(
+      getCoveragePolygonsFromRegions(
+        backend.intersection(productRegions, subjectRegions, 'nonzero')
+      )
+    )
+  } catch {
+    emitStrokePipelineCounter('descriptor-product-intersection-error')
+    return productPolygons
+  }
+}
+
+const offsetDescriptorOwnershipExcludePolygons = (
+  excludePolygons: Vec2[][],
+  distance: number
+) => {
+  if (excludePolygons.length === 0 || Math.abs(distance) <= EPSILON) {
+    return excludePolygons
+  }
+
+  try {
+    const backend = getGeometryBackend()
+    if (!backend.capabilities.offset) {
+      return excludePolygons
+    }
+    const offsetDistance = Math.abs(distance)
+    const expanded = backend.offset(excludePolygons, distance, {
+      width: offsetDistance * 2,
+      join: 'round',
+      cap: 'round',
+      closed: true,
+      miterLimit: 2,
+      fillRule: 'nonzero'
+    })
+    const expandedPolygons = cleanClippedProductPolygons(
+      getCoveragePolygonsFromRegions(expanded)
+    )
+    return expandedPolygons.length > 0 ? expandedPolygons : excludePolygons
+  } catch {
+    emitStrokePipelineCounter(
+      'outside-aggregate-ownership-exclude-expand-error'
+    )
+    return excludePolygons
+  }
+}
+
+const expandDescriptorOwnershipExcludePolygons = (
+  excludePolygons: Vec2[][],
+  radius: number
+) =>
+  radius > EPSILON
+    ? offsetDescriptorOwnershipExcludePolygons(excludePolygons, radius)
+    : excludePolygons
+
 interface DashedAggregateDescriptorItem {
   path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>
   interval: Pick<
@@ -4707,9 +7355,25 @@ interface DashedAggregateDescriptorItem {
     'startDistance' | 'endDistance' | 'wrapsSeam'
   > & {
     domainPlanTerminalRole?: VisibleDashedTopologyInterval['domainPlanTerminalRole']
+    domainPlanBoundaryDomainId?: VisibleDashedTopologyInterval['domainPlanBoundaryDomainId']
+    domainPlanBoundaryPoints?: VisibleDashedTopologyInterval['domainPlanBoundaryPoints']
+    domainPlanBoundaryStartDistance?: VisibleDashedTopologyInterval['domainPlanBoundaryStartDistance']
+    domainPlanBoundaryEndDistance?: VisibleDashedTopologyInterval['domainPlanBoundaryEndDistance']
+    domainPlanBoundaryTotalLength?: VisibleDashedTopologyInterval['domainPlanBoundaryTotalLength']
+    domainPlanSplitRangeId?: VisibleDashedTopologyInterval['domainPlanSplitRangeId']
+    domainPlanSplitRangeStartDistance?: VisibleDashedTopologyInterval['domainPlanSplitRangeStartDistance']
+    domainPlanSplitRangeEndDistance?: VisibleDashedTopologyInterval['domainPlanSplitRangeEndDistance']
+    domainPlanSplitRangeSourceStartDistance?: VisibleDashedTopologyInterval['domainPlanSplitRangeSourceStartDistance']
+    domainPlanSplitRangeSourceEndDistance?: VisibleDashedTopologyInterval['domainPlanSplitRangeSourceEndDistance']
+    domainPlanSelectedSide?: VisibleDashedTopologyInterval['domainPlanSelectedSide']
+    domainPlanDomainMode?: VisibleDashedTopologyInterval['domainPlanDomainMode']
+    openPathTerminalRole?: VisibleDashedTopologyInterval['openPathTerminalRole']
+    materializationDistanceSpace?: VisibleDashedTopologyInterval['materializationDistanceSpace']
   }
   slicingContext?: SourcePathSlicingContext
   selectedSide?: 1 | -1
+  endpointCapPolicy?: DashEndpointCapPolicy
+  suppressProductGeometry?: boolean
 }
 
 interface DashedAggregateDescriptorProduct {
@@ -4735,7 +7399,7 @@ const getAggregateDescriptorProductOrigin = (
 }
 
 const buildInsideAggregateDescriptorProductCacheKey = (
-  stroke: Pick<RenderableStroke, 'cap' | 'join' | 'miterLimit'>,
+  stroke: Pick<RenderableStroke, 'cap' | 'join' | 'miterAngle' | 'miterLimit'>,
   strokeWidth: number,
   precomputedProductSignature: string
 ): string => {
@@ -4745,6 +7409,7 @@ const buildInsideAggregateDescriptorProductCacheKey = (
     formatTranslationInvariantCacheNumber(strokeWidth),
     stroke.cap,
     stroke.join,
+    formatTranslationInvariantCacheNumber(stroke.miterAngle),
     formatTranslationInvariantCacheNumber(stroke.miterLimit)
   ].join('|')
 }
@@ -4814,13 +7479,23 @@ const setCachedInsideAggregateDescriptorProduct = (
   }
 }
 
-const joinTouchingDescriptorStrokePaths = (
-  strokePaths: Vec2[][],
+interface DescriptorStrokePathJoinRecord {
+  path: Vec2[]
+  lockStart?: boolean
+  lockEnd?: boolean
+}
+
+const joinTouchingDescriptorStrokePathRecords = (
+  strokePathRecords: DescriptorStrokePathJoinRecord[],
   tolerance = SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE
 ) => {
-  const paths = strokePaths
-    .filter((path) => path.length >= 2)
-    .map((path) => path.map((point) => ({ ...point })))
+  const records = strokePathRecords
+    .filter((record) => record.path.length >= 2)
+    .map((record) => ({
+      ...record,
+      path: record.path.map((point) => ({ ...point }))
+    }))
+  const paths = records.map((record) => record.path)
   if (paths.length <= 1) {
     return paths
   }
@@ -4856,14 +7531,24 @@ const joinTouchingDescriptorStrokePaths = (
 
   const consumed = new Set<number>()
   const joined: Vec2[][] = []
+  const isEndpointLocked = (index: number, endpoint: 'start' | 'end') => {
+    const record = records[index]
+    return endpoint === 'start'
+      ? record?.lockStart === true
+      : record?.lockEnd === true
+  }
   const findCandidate = (
     point: Vec2,
-    buckets: Map<string, number[]>
+    buckets: Map<string, number[]>,
+    candidateEndpoint: 'start' | 'end'
   ): number | null => {
     for (const key of getNearbyBucketKeys(point)) {
       const indexes = buckets.get(key) ?? []
       for (const index of indexes) {
         if (consumed.has(index)) {
+          continue
+        }
+        if (isEndpointLocked(index, candidateEndpoint)) {
           continue
         }
         const candidate = paths[index]
@@ -4906,7 +7591,9 @@ const joinTouchingDescriptorStrokePaths = (
         break
       }
 
-      const endStartCandidate = findCandidate(end, startBuckets)
+      const endStartCandidate = isEndpointLocked(pathIndex, 'end')
+        ? null
+        : findCandidate(end, startBuckets, 'start')
       if (endStartCandidate !== null) {
         const candidate = paths[endStartCandidate]
         current.push(...candidate.slice(1))
@@ -4915,7 +7602,9 @@ const joinTouchingDescriptorStrokePaths = (
         continue
       }
 
-      const startEndCandidate = findCandidate(start, endBuckets)
+      const startEndCandidate = isEndpointLocked(pathIndex, 'start')
+        ? null
+        : findCandidate(start, endBuckets, 'end')
       if (startEndCandidate !== null) {
         const candidate = paths[startEndCandidate]
         current.unshift(...candidate.slice(0, -1))
@@ -4924,7 +7613,9 @@ const joinTouchingDescriptorStrokePaths = (
         continue
       }
 
-      const startStartCandidate = findCandidate(start, startBuckets)
+      const startStartCandidate = isEndpointLocked(pathIndex, 'start')
+        ? null
+        : findCandidate(start, startBuckets, 'start')
       if (startStartCandidate !== null) {
         const candidate = paths[startStartCandidate]
         current.unshift(...candidate.slice(1).reverse())
@@ -4933,7 +7624,9 @@ const joinTouchingDescriptorStrokePaths = (
         continue
       }
 
-      const endEndCandidate = findCandidate(end, endBuckets)
+      const endEndCandidate = isEndpointLocked(pathIndex, 'end')
+        ? null
+        : findCandidate(end, endBuckets, 'end')
       if (endEndCandidate !== null) {
         const candidate = paths[endEndCandidate]
         current.push(...candidate.slice(0, -1).reverse())
@@ -4948,9 +7641,18 @@ const joinTouchingDescriptorStrokePaths = (
   return joined
 }
 
+const _joinTouchingDescriptorStrokePaths = (
+  strokePaths: Vec2[][],
+  tolerance = SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE
+) =>
+  joinTouchingDescriptorStrokePathRecords(
+    strokePaths.map((path) => ({ path })),
+    tolerance
+  )
+
 const buildInsideDashedAggregateDescriptorProduct = (
   items: DashedAggregateDescriptorItem[],
-  stroke: Pick<RenderableStroke, 'cap' | 'join' | 'miterLimit'>,
+  stroke: Pick<RenderableStroke, 'cap' | 'join' | 'miterAngle' | 'miterLimit'>,
   strokeWidth: number,
   clipPolygons: Vec2[][],
   precomputedProductSignature?: string
@@ -4982,9 +7684,16 @@ const buildInsideDashedAggregateDescriptorProduct = (
 
   const middleStrokePaths: Vec2[][] = []
   const terminalBodyStrokePaths: Vec2[][] = []
+  const terminalBodyStrokePathRecords: DescriptorStrokePathJoinRecord[] = []
   const terminalCapPolygons: Vec2[][] = []
+  let suppressedProductGeometryCount = 0
 
   items.forEach((item) => {
+    if (item.suppressProductGeometry === true) {
+      suppressedProductGeometryCount += 1
+      return
+    }
+
     const strokePath = sliceIntervalStrokePathPoints(
       item.path,
       item.interval,
@@ -4994,33 +7703,61 @@ const buildInsideDashedAggregateDescriptorProduct = (
       return
     }
 
-    const terminalRole = item.interval.domainPlanTerminalRole ?? 'middle'
+    const terminalRole =
+      item.endpointCapPolicy?.terminalRole ??
+      item.interval.domainPlanTerminalRole ??
+      'middle'
     if (terminalRole === 'middle') {
       middleStrokePaths.push(strokePath)
       return
     }
 
     terminalBodyStrokePaths.push(strokePath)
+    terminalBodyStrokePathRecords.push({
+      path: strokePath
+    })
     terminalCapPolygons.push(
-      ...buildConstrainedDashedTerminalCapPolygons(
+      ...buildConstrainedDashedEndpointPolicyCapPolygons(
         strokePath,
+        item.endpointCapPolicy,
         terminalRole,
         stroke.cap,
-        strokeWidth
+        strokeWidth,
+        item.interval
       )
     )
   })
-  const joinedTerminalBodyStrokePaths = joinTouchingDescriptorStrokePaths(
-    terminalBodyStrokePaths
+  const joinedTerminalBodyStrokePaths = joinTouchingDescriptorStrokePathRecords(
+    terminalBodyStrokePathRecords
   )
-  const strokePaths = [...middleStrokePaths, ...joinedTerminalBodyStrokePaths]
+  const joinedMiddleStrokePaths = middleStrokePaths
+  const strokePaths = [
+    ...joinedMiddleStrokePaths,
+    ...joinedTerminalBodyStrokePaths
+  ]
+  emitStrokePipelineCounter(
+    'inside-aggregate-descriptor-item-count',
+    items.length
+  )
+  emitStrokePipelineCounter(
+    'inside-aggregate-descriptor-suppressed-item-count',
+    suppressedProductGeometryCount
+  )
+  emitStrokePipelineCounter(
+    'inside-aggregate-descriptor-middle-path-count',
+    joinedMiddleStrokePaths.length
+  )
+  emitStrokePipelineCounter(
+    'inside-aggregate-descriptor-terminal-body-path-count',
+    joinedTerminalBodyStrokePaths.length
+  )
   const strokeMaskPolygons = terminalCapPolygons
   if (strokePaths.length === 0) {
     return null
   }
 
   const productPolygons = buildCenterStrokeDescriptorProductPolygons(
-    middleStrokePaths,
+    joinedMiddleStrokePaths,
     joinedTerminalBodyStrokePaths,
     strokeMaskPolygons,
     stroke,
@@ -5040,37 +7777,7 @@ const buildInsideDashedAggregateDescriptorProduct = (
     renderDescriptor: {
       descriptorProductPolygons: productPolygons,
       fillClipPolygons: clipPolygons,
-      strokeMaskPolygons,
-      strokePathGroups: [
-        ...(middleStrokePaths.length > 0
-          ? [
-              {
-                strokePaths: middleStrokePaths,
-                strokePathStyle: {
-                  width: strokeWidth,
-                  cap: stroke.cap,
-                  join: stroke.join,
-                  miterLimit: stroke.miterLimit,
-                  closed: false
-                }
-              }
-            ]
-          : []),
-        ...(joinedTerminalBodyStrokePaths.length > 0
-          ? [
-              {
-                strokePaths: joinedTerminalBodyStrokePaths,
-                strokePathStyle: {
-                  width: strokeWidth,
-                  cap: 'butt' as const,
-                  join: stroke.join,
-                  miterLimit: stroke.miterLimit,
-                  closed: false
-                }
-              }
-            ]
-          : [])
-      ]
+      strokeMaskPolygons
     }
   }
 
@@ -5081,12 +7788,327 @@ const buildInsideDashedAggregateDescriptorProduct = (
   return product
 }
 
+const resolveOutsideDescriptorStrokePathSelectedSide = (
+  strokePath: Vec2[],
+  sourceSelectedSide: 1 | -1 | undefined,
+  strokeWidth: number,
+  legalRegions?: PolygonRegion[]
+): 1 | -1 | undefined => {
+  if (strokePath.length < 2 || strokeWidth <= EPSILON) {
+    return sourceSelectedSide
+  }
+  if (!legalRegions || legalRegions.length === 0) {
+    return sourceSelectedSide
+  }
+
+  const probeOffset = Math.max(1, strokeWidth * 0.45)
+  const segmentLengths = strokePath.slice(0, -1).map((point, index) => {
+    const next = strokePath[index + 1]
+    return next ? distanceBetween(point, next) : 0
+  })
+  const totalLength = segmentLengths.reduce(
+    (total, length) => total + length,
+    0
+  )
+  if (totalLength <= EPSILON) {
+    return sourceSelectedSide
+  }
+  let positiveOutsideVotes = 0
+  let negativeOutsideVotes = 0
+
+  for (const ratio of [0.15, 0.3, 0.5, 0.7, 0.85]) {
+    const targetDistance = totalLength * ratio
+    let cursor = 0
+    let point: Vec2 | null = null
+    let tangent: Vec2 | null = null
+    for (let index = 0; index < segmentLengths.length; index += 1) {
+      const segmentLength = segmentLengths[index] ?? 0
+      const start = strokePath[index]
+      const end = strokePath[index + 1]
+      if (!start || !end || segmentLength <= EPSILON) {
+        continue
+      }
+      if (
+        targetDistance <= cursor + segmentLength + EPSILON ||
+        index === segmentLengths.length - 1
+      ) {
+        const localRatio = Math.max(
+          0,
+          Math.min(1, (targetDistance - cursor) / segmentLength)
+        )
+        point = {
+          x: start.x + (end.x - start.x) * localRatio,
+          y: start.y + (end.y - start.y) * localRatio
+        }
+        tangent = normalizeVector({
+          x: end.x - start.x,
+          y: end.y - start.y
+        })
+        break
+      }
+      cursor += segmentLength
+    }
+    if (!point || !tangent) {
+      continue
+    }
+
+    const normal = { x: -tangent.y, y: tangent.x }
+    const positiveSample = {
+      x: point.x + normal.x * probeOffset,
+      y: point.y + normal.y * probeOffset
+    }
+    const negativeSample = {
+      x: point.x - normal.x * probeOffset,
+      y: point.y - normal.y * probeOffset
+    }
+    const positiveInside = isPointInsidePolygonRegions(
+      positiveSample,
+      legalRegions
+    )
+    const negativeInside = isPointInsidePolygonRegions(
+      negativeSample,
+      legalRegions
+    )
+    if (!positiveInside && negativeInside) {
+      positiveOutsideVotes += 1
+      continue
+    }
+    if (positiveInside && !negativeInside) {
+      negativeOutsideVotes += 1
+    }
+  }
+
+  if (positiveOutsideVotes > negativeOutsideVotes) {
+    return 1
+  }
+  if (negativeOutsideVotes > positiveOutsideVotes) {
+    return -1
+  }
+
+  return sourceSelectedSide
+}
+
+const clipSourceDomainIntervalPolygonsToExplicitSelectedSide = (
+  polygons: Vec2[][],
+  strokePath: Vec2[],
+  strokeWidth: number,
+  selectedSide: 1 | -1,
+  options: {
+    cap?: RenderableStroke['cap']
+    endpointCapPolicy?: DashEndpointCapPolicy
+  } = {}
+) => {
+  if (polygons.length === 0 || strokePath.length < 2) {
+    return polygons
+  }
+
+  const selectedSideBoundary = buildDoubledCenterSelectedSideClipBoundaryPath(
+    strokePath,
+    strokeWidth * 2,
+    options.cap,
+    options.endpointCapPolicy
+  )
+
+  return polygons.flatMap((polygon) => {
+    const clipped = cleanClippedProductPolygon(
+      clipPolygonToSelectedSideBoundaryOrDropRejected(
+        polygon,
+        selectedSideBoundary,
+        selectedSide
+      )
+    )
+    return hasPolygonGeometry(clipped) ? [clipped] : []
+  })
+}
+
+const buildSelectedSideTerminalBodyEnvelopePolygons = (
+  strokePath: Vec2[],
+  strokeWidth: number,
+  selectedSide: 1 | -1
+) => {
+  if (strokePath.length < 2 || strokeWidth <= EPSILON) {
+    return []
+  }
+
+  const segmentPolygons: Vec2[][] = []
+  for (let index = 0; index < strokePath.length - 1; index += 1) {
+    const start = strokePath[index]
+    const end = strokePath[index + 1]
+    if (!start || !end) {
+      continue
+    }
+    const tangent = normalizeVector({
+      x: end.x - start.x,
+      y: end.y - start.y
+    })
+    if (!tangent) {
+      continue
+    }
+    const selectedNormal = {
+      x: -tangent.y * selectedSide,
+      y: tangent.x * selectedSide
+    }
+    segmentPolygons.push([
+      normalizePoint(start),
+      normalizePoint(end),
+      normalizePoint({
+        x: end.x + selectedNormal.x * strokeWidth,
+        y: end.y + selectedNormal.y * strokeWidth
+      }),
+      normalizePoint({
+        x: start.x + selectedNormal.x * strokeWidth,
+        y: start.y + selectedNormal.y * strokeWidth
+      })
+    ])
+  }
+
+  return cleanClippedProductPolygons(segmentPolygons, {
+    cleanupMicroEdgeTolerance: CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+    cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+  })
+}
+
+const sliceTerminalBoundaryEnvelopePath = (
+  boundaryPoints: Vec2[] | undefined,
+  terminalRole: 'start' | 'end',
+  maxLength: number
+) => {
+  if (!boundaryPoints || boundaryPoints.length < 2 || maxLength <= EPSILON) {
+    return []
+  }
+
+  const orientedPoints =
+    terminalRole === 'start' ? boundaryPoints : boundaryPoints.slice().reverse()
+  const path: Vec2[] = []
+  let remainingLength = maxLength
+  for (let index = 0; index < orientedPoints.length - 1; index += 1) {
+    const start = orientedPoints[index]
+    const end = orientedPoints[index + 1]
+    if (!start || !end) {
+      continue
+    }
+    if (path.length === 0) {
+      path.push(normalizePoint(start))
+    }
+    const segmentLength = distanceBetween(start, end)
+    if (segmentLength <= EPSILON) {
+      continue
+    }
+    if (segmentLength >= remainingLength) {
+      const ratio = remainingLength / segmentLength
+      path.push(
+        normalizePoint({
+          x: start.x + (end.x - start.x) * ratio,
+          y: start.y + (end.y - start.y) * ratio
+        })
+      )
+      break
+    }
+
+    path.push(normalizePoint(end))
+    remainingLength -= segmentLength
+  }
+
+  return cleanBoundaryPath(path)
+}
+
+const buildSelectedSideDoubledCenterRoundCapPolygon = (
+  strokePath: Vec2[],
+  atStart: boolean,
+  strokeWidth: number,
+  selectedSide: 1 | -1
+) => {
+  if (strokePath.length < 2 || strokeWidth <= EPSILON) {
+    return []
+  }
+
+  const endpoint = strokePath[atStart ? 0 : strokePath.length - 1]
+  const adjacent = strokePath[atStart ? 1 : strokePath.length - 2]
+  if (!endpoint || !adjacent) {
+    return []
+  }
+
+  const pathDirection = normalizeVector(
+    atStart
+      ? { x: adjacent.x - endpoint.x, y: adjacent.y - endpoint.y }
+      : { x: endpoint.x - adjacent.x, y: endpoint.y - adjacent.y }
+  )
+  if (!pathDirection) {
+    return []
+  }
+
+  const endpointOut = atStart
+    ? { x: -pathDirection.x, y: -pathDirection.y }
+    : pathDirection
+  const selectedNormal = {
+    x: -pathDirection.y * selectedSide,
+    y: pathDirection.x * selectedSide
+  }
+  const radius = strokeWidth
+  const segmentCount = Math.max(
+    6,
+    Math.ceil(
+      Math.PI / 2 / Math.max(Math.PI / 24, ROUND_CAP_VISUAL_MAX_LENGTH / radius)
+    )
+  )
+  const arcPoints = Array.from({ length: segmentCount + 1 }, (_, index) => {
+    const angle = ((Math.PI / 2) * index) / segmentCount
+    return normalizePoint({
+      x:
+        endpoint.x +
+        selectedNormal.x * Math.cos(angle) * radius +
+        endpointOut.x * Math.sin(angle) * radius,
+      y:
+        endpoint.y +
+        selectedNormal.y * Math.cos(angle) * radius +
+        endpointOut.y * Math.sin(angle) * radius
+    })
+  })
+
+  return cleanPolygon([normalizePoint(endpoint), ...arcPoints])
+}
+
+const buildSelectedSideDoubledCenterRoundCapPolygons = (
+  strokePath: Vec2[],
+  endpointCapPolicy: DashEndpointCapPolicy,
+  strokeWidth: number,
+  selectedSide: 1 | -1
+) =>
+  [
+    ...(endpointCapPolicy.startCap
+      ? [
+          buildSelectedSideDoubledCenterRoundCapPolygon(
+            strokePath,
+            true,
+            strokeWidth,
+            selectedSide
+          )
+        ]
+      : []),
+    ...(endpointCapPolicy.endCap
+      ? [
+          buildSelectedSideDoubledCenterRoundCapPolygon(
+            strokePath,
+            false,
+            strokeWidth,
+            selectedSide
+          )
+        ]
+      : [])
+  ].filter(hasPolygonGeometry)
+
 const buildOutsideDashedAggregateDescriptorProduct = (
   items: DashedAggregateDescriptorItem[],
-  stroke: Pick<RenderableStroke, 'cap' | 'join' | 'miterLimit'>,
+  stroke: Pick<
+    RenderableStroke,
+    'cap' | 'join' | 'miterAngle' | 'miterLimit' | 'dash' | 'gap'
+  >,
   strokeWidth: number,
   excludePolygons: Vec2[][],
-  excludeRegions?: PolygonRegion[]
+  excludeRegions?: PolygonRegion[],
+  legalClipPath?: SourcePathWithOptionalSamples,
+  outsideFillRule: 'evenodd' | 'nonzero' = 'nonzero',
+  ownershipExcludePolygons: Vec2[][] = []
 ): {
   polygons: Vec2[][]
   strokePaths: Vec2[][]
@@ -5100,117 +8122,456 @@ const buildOutsideDashedAggregateDescriptorProduct = (
     'constrained dashed packets: outside aggregate descriptor slice paths',
     () => {
       const descriptorItems: {
+        path: DashedAggregateDescriptorItem['path']
         strokePath: Vec2[]
         selectedSide?: 1 | -1
+        terminalRole?: VisibleDashedTopologyInterval['domainPlanTerminalRole']
+        boundaryPoints?: Vec2[]
+        interval: DashedAggregateDescriptorItem['interval']
+        boundarySelectedSide?: 1 | -1
+        endpointCapPolicy?: DashEndpointCapPolicy
+        semanticCapFrames?: ReturnType<
+          typeof buildBoundaryDomainSemanticCapFrames
+        >
       }[] = []
       items.forEach((item) => {
-        const strokePath = sliceIntervalStrokePathPoints(
-          item.path,
-          item.interval,
-          item.slicingContext
+        const descriptorSamplingTolerance = Math.min(
+          item.slicingContext?.samplingTolerance ??
+            SOURCE_PATH_DASH_SLICE_TOLERANCE,
+          0.05
         )
+        const descriptorSamplingOptions =
+          item.slicingContext?.samplingOptions ??
+          SOURCE_PATH_DASH_SLICE_SAMPLING
+        const strokePath: Vec2[] = []
+        if (item.interval.wrapsSeam && item.path.closed) {
+          appendPathPoints(
+            strokePath,
+            slicePathGeometryPoints(
+              item.path,
+              item.interval.startDistance,
+              item.path.totalLength,
+              false,
+              descriptorSamplingTolerance,
+              descriptorSamplingOptions
+            )
+          )
+          appendPathPoints(
+            strokePath,
+            slicePathGeometryPoints(
+              item.path,
+              0,
+              item.interval.endDistance,
+              false,
+              descriptorSamplingTolerance,
+              descriptorSamplingOptions
+            )
+          )
+        } else {
+          appendPathPoints(
+            strokePath,
+            slicePathGeometryPoints(
+              item.path,
+              item.interval.startDistance,
+              item.interval.endDistance,
+              false,
+              descriptorSamplingTolerance,
+              descriptorSamplingOptions
+            )
+          )
+        }
         if (strokePath.length < 2) {
           return
         }
 
+        const terminalRole =
+          item.endpointCapPolicy?.terminalRole ??
+          item.interval.domainPlanTerminalRole
+        const descriptorStrokePath =
+          (terminalRole ?? 'middle') === 'middle'
+            ? strokePath
+            : extendTerminalBodyStrokePathForEndpointPolicy(
+                strokePath,
+                item.endpointCapPolicy,
+                0
+              )
+
         descriptorItems.push({
-          strokePath,
-          selectedSide: item.selectedSide
+          path: item.path,
+          strokePath: descriptorStrokePath,
+          interval: item.interval,
+          selectedSide: item.selectedSide,
+          terminalRole,
+          boundaryPoints: item.interval.domainPlanBoundaryPoints,
+          boundarySelectedSide: item.interval.domainPlanSelectedSide,
+          endpointCapPolicy: item.endpointCapPolicy,
+          semanticCapFrames: buildBoundaryDomainSemanticCapFrames(
+            item.interval,
+            'round',
+            strokeWidth
+          )
         })
       })
       return descriptorItems
     }
   )
-  const middleStrokePaths = middleDescriptorItems.map((item) => item.strokePath)
-  const strokePaths = middleStrokePaths
+  const middleStrokePaths = middleDescriptorItems
+    .filter((item) => (item.terminalRole ?? 'middle') === 'middle')
+    .map((item) => item.strokePath)
+  const terminalBodyDescriptorItems = middleDescriptorItems.filter(
+    (item) => (item.terminalRole ?? 'middle') !== 'middle'
+  )
+  const terminalBodyStrokePaths = terminalBodyDescriptorItems.map(
+    (item) => item.strokePath
+  )
+  const joinedTerminalBodyStrokePaths: Vec2[][] = []
+  const strokePaths = [...middleStrokePaths, ...terminalBodyStrokePaths]
   if (strokePaths.length === 0) {
     return null
   }
-
-  const canBuildSelectedSideProduct = middleDescriptorItems.every(
-    (item) => item.selectedSide === 1 || item.selectedSide === -1
+  const outsideDescriptorStrokeWidth = strokeWidth * 2
+  const allItemsUseSourceDomainMaterialization = items.every(
+    (item) => item.interval.materializationDistanceSpace !== 'boundary-domain'
   )
-  const selectedSideProductPolygons = canBuildSelectedSideProduct
-    ? measureStrokePipelinePhase(
-        'constrained dashed packets: outside aggregate descriptor selected-side polygons',
-        () => {
-          const clippedPolygons = middleDescriptorItems.flatMap((item) => {
-            const selectedSide = item.selectedSide
-            if (selectedSide !== 1 && selectedSide !== -1) {
-              return []
-            }
-            return buildCenterStrokeDescriptorProductPolygons(
-              [item.strokePath],
-              [],
-              [],
-              stroke,
-              strokeWidth
-            ).flatMap((polygon) => {
-              const clipped = clipPolygonToSelectedSideBoundaryOrDropRejected(
-                polygon,
-                item.strokePath,
-                selectedSide
-              )
-              return clipped.length >= 3 ? [clipped] : []
-            })
-          })
-          return measureStrokePipelinePhase(
-            'constrained dashed packets: outside aggregate descriptor selected-side normalize',
-            () =>
-              normalizeConstrainedDashedProductPolygons(clippedPolygons, {
-                cleanClipResidue: true,
-                mergeContinuousInterval: true
-              })
-          )
+  const excludeJoinOwnershipPolygons = (polygons: Vec2[][]) => {
+    if (allItemsUseSourceDomainMaterialization) {
+      return polygons
+    }
+    if (ownershipExcludePolygons.length === 0) {
+      return polygons
+    }
+    const ownershipExclusionTolerance = Math.max(0.75, strokeWidth * 0.12)
+    const expandedOwnershipExcludePolygons =
+      expandDescriptorOwnershipExcludePolygons(
+        ownershipExcludePolygons,
+        ownershipExclusionTolerance
+      )
+    const excludedPolygons = excludeDescriptorProductPolygons(
+      polygons,
+      expandedOwnershipExcludePolygons
+    )
+    return excludedPolygons
+  }
+  const _terminalCapPolygons = middleDescriptorItems.flatMap((item) => {
+    const terminalRole = item.terminalRole ?? 'middle'
+    return terminalRole === 'middle'
+      ? []
+      : buildConstrainedDashedEndpointPolicyCapPolygons(
+          item.strokePath,
+          item.endpointCapPolicy,
+          terminalRole,
+          stroke.cap,
+          outsideDescriptorStrokeWidth,
+          item.interval
+        )
+  })
+  const canUseSourceDoubledCenterAggregateClip =
+    legalClipPath !== undefined &&
+    (excludeRegions?.length ?? 0) > 0 &&
+    terminalBodyDescriptorItems.length === 0 &&
+    ownershipExcludePolygons.length === 0 &&
+    middleDescriptorItems.every(
+      (item) =>
+        item.interval.materializationDistanceSpace !== 'boundary-domain' &&
+        item.interval.domainPlanDomainMode !== 'open-contour-constrained-domain'
+    )
+  const clipDescriptorProductToIntervalEndpointExtents = (
+    polygons: Vec2[][],
+    item: (typeof middleDescriptorItems)[number]
+  ) =>
+    item.interval.wrapsSeam && item.path.closed
+      ? polygons
+      : clipCenterStrokeProductPolygonsToEndpointExtents(
+          polygons,
+          item.strokePath,
+          stroke.cap,
+          outsideDescriptorStrokeWidth,
+          item.endpointCapPolicy
+        )
+
+  const buildSourceDoubledCenterAggregateProductPolygons = () => {
+    if (!legalClipPath) {
+      return []
+    }
+
+    const centerProductPolygons = middleDescriptorItems.flatMap((item) =>
+      clipDescriptorProductToIntervalEndpointExtents(
+        buildCenterStrokeDescriptorProductPolygons(
+          [item.strokePath],
+          [],
+          [],
+          stroke,
+          outsideDescriptorStrokeWidth
+        ),
+        item
+      )
+    )
+    if (centerProductPolygons.length === 0) {
+      return []
+    }
+
+    const legalProductPolygons = clipSourcePathPolygonsToEvenOddLegalDomain(
+      centerProductPolygons,
+      legalClipPath,
+      { position: 'outside' },
+      excludeRegions ?? [],
+      {
+        outsideFillRule,
+        cleanupMicroEdgeTolerance: CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+        cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+      }
+    )
+    return excludeJoinOwnershipPolygons(legalProductPolygons)
+  }
+
+  const productPolygons = measureStrokePipelinePhase(
+    'constrained dashed packets: outside aggregate descriptor legal clip',
+    () => {
+      emitStrokePipelineTrace('constrained-dashed-outside-aggregate-route', {
+        itemCount: middleDescriptorItems.length,
+        middleCount: middleStrokePaths.length,
+        terminalCount: terminalBodyDescriptorItems.length,
+        joinedTerminalPathCount: joinedTerminalBodyStrokePaths.length,
+        canUseSourceDoubledCenterAggregateClip,
+        hasLegalClipPath: legalClipPath !== undefined,
+        hasExcludeRegions: (excludeRegions?.length ?? 0) > 0,
+        terminalRoles: middleDescriptorItems.map(
+          (item) => item.terminalRole ?? 'middle'
+        ),
+        selectedSides: middleDescriptorItems.map(
+          (item) => item.selectedSide ?? item.boundarySelectedSide ?? null
+        )
+      })
+      if (canUseSourceDoubledCenterAggregateClip) {
+        const aggregateSourceProductPolygons =
+          buildSourceDoubledCenterAggregateProductPolygons()
+        if (aggregateSourceProductPolygons.length > 0) {
+          return aggregateSourceProductPolygons
         }
-      )
-    : null
-  const productPolygons = canBuildSelectedSideProduct
-    ? (selectedSideProductPolygons ?? [])
-    : measureStrokePipelinePhase(
-        'constrained dashed packets: outside aggregate descriptor exclude polygons',
-        () =>
-          excludeDescriptorProductPolygons(
-            measureStrokePipelinePhase(
-              'constrained dashed packets: outside aggregate descriptor center polygons',
-              () =>
-                buildCenterStrokeDescriptorProductPolygons(
-                  middleStrokePaths,
-                  [],
-                  [],
-                  stroke,
-                  strokeWidth
+      }
+
+      const centerlineClippedProductPolygons = middleDescriptorItems
+        .filter(
+          (item) =>
+            (item.terminalRole ?? 'middle') === 'middle' ||
+            joinedTerminalBodyStrokePaths.length === 0
+        )
+        .flatMap((item) => {
+          const terminalRole = item.terminalRole ?? 'middle'
+          const terminalCapPolygons =
+            terminalRole === 'middle'
+              ? []
+              : buildConstrainedDashedEndpointPolicyCapPolygons(
+                  item.strokePath,
+                  item.endpointCapPolicy,
+                  terminalRole,
+                  stroke.cap,
+                  outsideDescriptorStrokeWidth,
+                  item.interval
                 )
-            ),
-            excludePolygons,
-            excludeRegions
+          const rawCenterProductPolygons =
+            buildCenterStrokeDescriptorProductPolygons(
+              terminalRole === 'middle' ? [item.strokePath] : [],
+              terminalRole === 'middle' ? [] : [item.strokePath],
+              terminalCapPolygons,
+              stroke,
+              outsideDescriptorStrokeWidth
+            )
+          const centerProductPolygons =
+            clipDescriptorProductToIntervalEndpointExtents(
+              rawCenterProductPolygons,
+              item
+            )
+          const resolvedSourceSelectedSide =
+            item.selectedSide === 1 || item.selectedSide === -1
+              ? resolveOutsideDescriptorStrokePathSelectedSide(
+                  item.strokePath,
+                  item.selectedSide,
+                  strokeWidth,
+                  excludeRegions
+                )
+              : item.selectedSide
+          const sourceSelectedSideProductPolygons =
+            item.interval.materializationDistanceSpace !== 'boundary-domain' &&
+            (resolvedSourceSelectedSide === 1 ||
+              resolvedSourceSelectedSide === -1)
+              ? clipSourceDomainIntervalPolygonsToExplicitSelectedSide(
+                  centerProductPolygons,
+                  item.strokePath,
+                  strokeWidth,
+                  resolvedSourceSelectedSide,
+                  {
+                    cap: stroke.cap,
+                    endpointCapPolicy: item.endpointCapPolicy
+                  }
+                )
+              : centerProductPolygons
+          const shouldUseSourceDoubledCenterClip =
+            item.interval.materializationDistanceSpace !== 'boundary-domain' &&
+            (excludeRegions?.length ?? 0) > 0
+          if (
+            shouldUseSourceDoubledCenterClip &&
+            legalClipPath &&
+            item.interval.domainPlanDomainMode !==
+              'open-contour-constrained-domain'
+          ) {
+            const legalProductPolygons =
+              clipSourcePathPolygonsToEvenOddLegalDomain(
+                centerProductPolygons,
+                legalClipPath,
+                { position: 'outside' },
+                excludeRegions ?? [],
+                {
+                  outsideFillRule,
+                  cleanupMicroEdgeTolerance:
+                    CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                  cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+                }
+              )
+            return legalProductPolygons
+          }
+          if (
+            item.interval.materializationDistanceSpace !== 'boundary-domain' &&
+            (excludeRegions?.length ?? 0) === 0
+          ) {
+            return centerProductPolygons
+          }
+
+          const boundarySelectedSideProductPolygons =
+            clipBoundaryDomainIntervalPolygonsToOwnSelectedSide(
+              centerProductPolygons,
+              item.interval,
+              item.endpointCapPolicy,
+              {
+                cap: stroke.cap,
+                width: outsideDescriptorStrokeWidth
+              }
+            )
+          const selectedSideProductPolygons =
+            boundarySelectedSideProductPolygons.length > 0 ||
+            (item.selectedSide !== 1 && item.selectedSide !== -1)
+              ? boundarySelectedSideProductPolygons
+              : sourceSelectedSideProductPolygons
+          if (
+            !legalClipPath ||
+            item.interval.domainPlanDomainMode ===
+              'open-contour-constrained-domain'
+          ) {
+            return centerProductPolygons
+          }
+
+          return clipSourcePathPolygonsToEvenOddLegalDomain(
+            selectedSideProductPolygons,
+            legalClipPath,
+            { position: 'outside' },
+            excludeRegions ?? [],
+            {
+              outsideFillRule,
+              cleanupMicroEdgeTolerance: CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+              cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+            }
           )
+        })
+      if (joinedTerminalBodyStrokePaths.length > 0) {
+        const buildTerminalCenterProductPolygons = () =>
+          terminalBodyDescriptorItems.flatMap((item) => {
+            const itemTerminalCapPolygons =
+              buildConstrainedDashedEndpointPolicyCapPolygons(
+                item.strokePath,
+                item.endpointCapPolicy,
+                item.terminalRole ?? 'middle',
+                stroke.cap,
+                outsideDescriptorStrokeWidth,
+                item.interval
+              )
+            return clipDescriptorProductToIntervalEndpointExtents(
+              buildCenterStrokeDescriptorProductPolygons(
+                [],
+                [item.strokePath],
+                itemTerminalCapPolygons,
+                stroke,
+                outsideDescriptorStrokeWidth
+              ),
+              item
+            )
+          })
+        const terminalCenterProductPolygons =
+          buildTerminalCenterProductPolygons()
+        const terminalLegalProductPolygons =
+          legalClipPath && terminalCenterProductPolygons.length > 0
+            ? intersectDescriptorProductPolygons(
+                clipSourcePathPolygonsToEvenOddLegalDomain(
+                  terminalCenterProductPolygons,
+                  legalClipPath,
+                  { position: 'outside' },
+                  excludeRegions ?? [],
+                  {
+                    outsideFillRule,
+                    cleanupMicroEdgeTolerance: 0.001,
+                    cleanupCollinearTolerance: 0.0001
+                  }
+                ),
+                terminalCenterProductPolygons
+              )
+            : terminalCenterProductPolygons
+        centerlineClippedProductPolygons.push(...terminalLegalProductPolygons)
+      }
+      const normalizedCenterProductPolygons = measureStrokePipelinePhase(
+        'constrained dashed packets: outside aggregate descriptor center polygons',
+        () =>
+          cleanClippedProductPolygons(centerlineClippedProductPolygons, {
+            cleanupMicroEdgeTolerance: CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+            cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE,
+            cleanupConcaveNotchTolerance:
+              getDescriptorProductConcaveNotchTolerance(strokeWidth)
+          })
       )
+      if (normalizedCenterProductPolygons.length === 0) {
+        return []
+      }
+      const exteriorProductPolygons =
+        excludeRegions &&
+        excludeRegions.length > 0 &&
+        !allItemsUseSourceDomainMaterialization
+          ? enforceOutsideResolvedFillProductDomain(
+              normalizedCenterProductPolygons,
+              excludeRegions
+            )
+          : normalizedCenterProductPolygons
+      if (!legalClipPath) {
+        return exteriorProductPolygons
+      }
+
+      return excludeJoinOwnershipPolygons(exteriorProductPolygons)
+    }
+  )
   if (productPolygons.length === 0) {
+    return null
+  }
+  const legallyClippedProductPolygons =
+    excludeRegions && excludeRegions.length > 0
+      ? subtractOutsideLegalResidue(
+          productPolygons,
+          excludeRegions,
+          'nonzero',
+          {
+            cleanupMicroEdgeTolerance: CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+            cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE,
+            cleanupConcaveNotchTolerance:
+              getDescriptorProductConcaveNotchTolerance(strokeWidth)
+          }
+        )
+      : productPolygons
+  if (legallyClippedProductPolygons.length === 0) {
     return null
   }
 
   return {
-    polygons: productPolygons,
+    polygons: legallyClippedProductPolygons,
     strokePaths,
     renderDescriptor: {
       fillExcludePolygons: excludePolygons,
-      strokePathGroups: [
-        ...(middleStrokePaths.length > 0
-          ? [
-              {
-                strokePaths: middleStrokePaths,
-                strokePathStyle: {
-                  width: strokeWidth,
-                  cap: stroke.cap,
-                  join: stroke.join,
-                  miterLimit: stroke.miterLimit,
-                  closed: false
-                }
-              }
-            ]
-          : [])
-      ]
+      strokeMaskPolygons: legallyClippedProductPolygons
     }
   }
 }
@@ -5353,7 +8714,11 @@ const buildOverlappedSourcePathRenderRange = (
   range: SourceSegmentIntervalRange,
   span: ConstrainedDashedPhysicalSpan,
   stroke: Pick<RenderableStroke, 'width'>,
-  slicingContext?: SourcePathSlicingContext
+  slicingContext?: SourcePathSlicingContext,
+  rangeEndpointCapPolicy?: Pick<
+    DashEndpointCapPolicy,
+    'startCap' | 'endCap' | 'suppressStartCap' | 'suppressEndCap'
+  >
 ): SourceSegmentIntervalRange => {
   const overlap = Math.min(
     SOURCE_PATH_DASH_SEGMENT_OVERLAP_MAX,
@@ -5368,13 +8733,21 @@ const buildOverlappedSourcePathRenderRange = (
   const endsBeforeSpanEnd = range.endDistance < span.endDistance - EPSILON
   const segmentRanges =
     slicingContext?.segmentRanges ?? getSourcePathSegmentRanges(path)
+  const ownsSemanticStartEndpoint =
+    rangeEndpointCapPolicy?.startCap === true ||
+    rangeEndpointCapPolicy?.suppressStartCap === true
+  const ownsSemanticEndEndpoint =
+    rangeEndpointCapPolicy?.endCap === true ||
+    rangeEndpointCapPolicy?.suppressEndCap === true
   const startDistance = startsAfterSpanStart
-    ? canOverlapAcrossSourceRangeStart(path, range, segmentRanges)
+    ? !ownsSemanticStartEndpoint &&
+      canOverlapAcrossSourceRangeStart(path, range, segmentRanges)
       ? Math.max(0, range.startDistance - overlap)
       : range.startDistance
     : range.startDistance
   const endDistance = endsBeforeSpanEnd
-    ? canOverlapAcrossSourceRangeEnd(path, range, segmentRanges)
+    ? !ownsSemanticEndEndpoint &&
+      canOverlapAcrossSourceRangeEnd(path, range, segmentRanges)
       ? Math.min(path.totalLength, range.endDistance + overlap)
       : range.endDistance
     : range.endDistance
@@ -5429,8 +8802,14 @@ const getSourcePathRangeCapMaterialization = (
     }
   }
 
-  const capStart = rangeEndpointCapPolicy.startCap
-  const capEnd = rangeEndpointCapPolicy.endCap
+  const capStart =
+    stroke.cap === 'round'
+      ? rangeEndpointCapPolicy.startCap
+      : rangeEndpointCapPolicy.startCap
+  const capEnd =
+    stroke.cap === 'round'
+      ? rangeEndpointCapPolicy.endCap
+      : rangeEndpointCapPolicy.endCap
 
   if (stroke.cap === 'square') {
     return {
@@ -5460,6 +8839,30 @@ const getSourcePathRangeCapMaterialization = (
   }
 }
 
+const buildSmoothContinuityGroupForInterval = (
+  interval: Pick<
+    VisibleDashedTopologyInterval,
+    | 'intervalId'
+    | 'startDistance'
+    | 'endDistance'
+    | 'wrapsSeam'
+    | 'domainPlanSplitRangeId'
+    | 'domainPlanBoundaryRole'
+  >,
+  endpointCapPolicy: DashEndpointCapPolicy
+): SmoothContinuityGroup => ({
+  groupId: [
+    interval.intervalId,
+    endpointCapPolicy.signature,
+    interval.domainPlanSplitRangeId ?? 'source-range',
+    interval.domainPlanBoundaryRole ?? 'source-boundary'
+  ].join('|'),
+  intervalId: interval.intervalId,
+  startDistance: interval.startDistance,
+  endDistance: interval.endDistance,
+  wrapsSeam: interval.wrapsSeam
+})
+
 const buildDashedSourcePathIntervalSweep = (
   path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   physicalSpans: ConstrainedDashedPhysicalSpan[],
@@ -5487,11 +8890,13 @@ const buildDashedSourcePathIntervalSweep = (
     RenderableStroke,
     'style' | 'position' | 'width' | 'join' | 'miterLimit' | 'cap'
   >,
-  slicingContext?: SourcePathSlicingContext
+  slicingContext?: SourcePathSlicingContext,
+  endpointCapPolicyOverride?: DashEndpointCapPolicy
 ): DashedSourcePathIntervalSweep => {
   emitStrokePipelineCounter('interval-sweep-count')
   const ranges: DashedSourcePathIntervalSweepRange[] = []
-  const endpointCapPolicy = getDashEndpointCapPolicy(path, interval)
+  const endpointCapPolicy =
+    endpointCapPolicyOverride ?? getDashEndpointCapPolicy(path, interval)
 
   physicalSpans.forEach((span) => {
     const sourceRanges = splitVisibleIntervalBySourceSegments(
@@ -5511,7 +8916,8 @@ const buildDashedSourcePathIntervalSweep = (
         range,
         span,
         stroke,
-        slicingContext
+        slicingContext,
+        rangeEndpointCapPolicy
       )
       ranges.push({
         range,
@@ -5526,18 +8932,10 @@ const buildDashedSourcePathIntervalSweep = (
   return {
     ranges,
     endpointCapPolicy,
-    smoothContinuityGroup: {
-      groupId: [
-        interval.intervalId,
-        endpointCapPolicy.signature,
-        interval.domainPlanSplitRangeId ?? 'source-range',
-        interval.domainPlanBoundaryRole ?? 'source-boundary'
-      ].join('|'),
-      intervalId: interval.intervalId,
-      startDistance: interval.startDistance,
-      endDistance: interval.endDistance,
-      wrapsSeam: interval.wrapsSeam
-    }
+    smoothContinuityGroup: buildSmoothContinuityGroupForInterval(
+      interval,
+      endpointCapPolicy
+    )
   }
 }
 
@@ -5603,6 +9001,40 @@ const getSweepRangeGroupEndpointCapPolicy = (
   )
 }
 
+const getSweepRangeGroupEndpointCapPolicyWithOverride = (
+  path: Pick<PathGeometry, 'totalLength'>,
+  ranges: DashedSourcePathIntervalSweepRange[],
+  endpointCapPolicyOverride?: DashEndpointCapPolicy
+): DashEndpointCapPolicy | null => {
+  if (!endpointCapPolicyOverride) {
+    return getSweepRangeGroupEndpointCapPolicy(ranges)
+  }
+
+  const firstRange = ranges[0]
+  const lastRange = ranges[ranges.length - 1]
+  if (!firstRange || !lastRange) {
+    return null
+  }
+
+  const rangeOwnsStart = isSourcePathRangeAtPhysicalSpanStart(
+    firstRange.range,
+    firstRange.span,
+    path.totalLength
+  )
+  const rangeOwnsEnd = isSourcePathRangeAtPhysicalSpanEnd(
+    lastRange.range,
+    lastRange.span,
+    path.totalLength
+  )
+
+  return createDashEndpointCapPolicy(
+    endpointCapPolicyOverride.suppressStartCap && rangeOwnsStart,
+    endpointCapPolicyOverride.suppressEndCap && rangeOwnsEnd,
+    endpointCapPolicyOverride.startCap && rangeOwnsStart,
+    endpointCapPolicyOverride.endCap && rangeOwnsEnd
+  )
+}
+
 const groupSweepRangesByPhysicalSpan = (
   ranges: DashedSourcePathIntervalSweepRange[]
 ) => {
@@ -5619,6 +9051,43 @@ const groupSweepRangesByPhysicalSpan = (
     groups.push([range])
   })
   return groups
+}
+
+const getDoubledCenterEndpointExtentTangents = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  sweepRangeGroup: DashedSourcePathIntervalSweepRange[],
+  slicingContext: SourcePathSlicingContext
+): {
+  startTangentAway?: Vec2 | null
+  endTangentAway?: Vec2 | null
+} => {
+  const firstRange = sweepRangeGroup[0]?.range
+  const lastRange = sweepRangeGroup[sweepRangeGroup.length - 1]?.range
+  if (!firstRange || !lastRange) {
+    return {}
+  }
+
+  const getRangeFrames = (range: SourceSegmentIntervalRange) =>
+    slicePathGeometryFrames(
+      path,
+      range.startDistance,
+      range.endDistance,
+      false,
+      Math.min(0.5, slicingContext.samplingTolerance ?? 0.5),
+      slicingContext.samplingOptions
+    )
+  const startFrame = getRangeFrames(firstRange)[0]
+  const lastRangeFrames = getRangeFrames(lastRange)
+  const endFrame = lastRangeFrames[lastRangeFrames.length - 1]
+  const startTangent = startFrame ? normalizeVector(startFrame.tangent) : null
+  const endTangent = endFrame ? normalizeVector(endFrame.tangent) : null
+
+  return {
+    startTangentAway: startTangent
+      ? { x: -startTangent.x, y: -startTangent.y }
+      : null,
+    endTangentAway: endTangent
+  }
 }
 
 const getConstrainedRibbonOffsetDistance = (
@@ -5682,6 +9151,137 @@ const buildOneSidedRibbonRoundCap = (
       y: center.y + radius * (side.y * cos + bulgeDirection.y * sin)
     })
   )
+}
+
+const buildBoundaryDomainSemanticCapFrames = (
+  interval: Pick<
+    VisibleDashedTopologyInterval,
+    | 'startDistance'
+    | 'endDistance'
+    | 'domainPlanBoundaryPoints'
+    | 'domainPlanBoundaryStartDistance'
+    | 'domainPlanBoundaryEndDistance'
+    | 'domainPlanBoundaryTotalLength'
+    | 'domainPlanSplitRangeStartDistance'
+    | 'domainPlanSplitRangeEndDistance'
+    | 'domainPlanSelectedSide'
+    | 'wrapsSeam'
+  >,
+  cap: Pick<RenderableStroke, 'cap'>['cap'],
+  width: number
+):
+  | {
+      start?: OffsetPathSampleFrame | undefined
+      end?: OffsetPathSampleFrame | undefined
+    }
+  | undefined => {
+  if (
+    cap !== 'round' ||
+    interval.domainPlanBoundaryPoints === undefined ||
+    interval.domainPlanBoundaryPoints.length < 2 ||
+    (interval.domainPlanSelectedSide !== 1 &&
+      interval.domainPlanSelectedSide !== -1) ||
+    width <= EPSILON
+  ) {
+    return undefined
+  }
+  const materializedInterval =
+    resolveBoundaryDomainIntervalForMaterialization(interval)
+  const selectedSide = getBoundaryDomainMaterializedSelectedSide(interval)
+  if (selectedSide !== 1 && selectedSide !== -1) {
+    return undefined
+  }
+
+  const pointAtDistance = (targetDistance: number) => {
+    const boundary = interval.domainPlanBoundaryPoints
+    if (!boundary || boundary.length < 2) {
+      return undefined
+    }
+    const clampedDistance = Math.max(
+      0,
+      Math.min(
+        materializedInterval.domainPlanBoundaryTotalLength ??
+          Number.POSITIVE_INFINITY,
+        targetDistance
+      )
+    )
+    let traversed = 0
+    for (let index = 1; index < boundary.length; index += 1) {
+      const previous = boundary[index - 1]
+      const current = boundary[index]
+      const segmentLength = distanceBetween(previous, current)
+      if (traversed + segmentLength >= clampedDistance) {
+        const ratio =
+          segmentLength <= EPSILON
+            ? 0
+            : (clampedDistance - traversed) / segmentLength
+        return normalizePoint({
+          x: previous.x + (current.x - previous.x) * ratio,
+          y: previous.y + (current.y - previous.y) * ratio
+        })
+      }
+      traversed += segmentLength
+    }
+
+    return normalizePoint(boundary[boundary.length - 1])
+  }
+
+  const buildFrame = (edge: 'start' | 'end') => {
+    const isStart = edge === 'start'
+    const terminalDistance = isStart
+      ? materializedInterval.startDistance
+      : materializedInterval.endDistance
+    const intervalLength = Math.max(
+      0,
+      materializedInterval.endDistance - materializedInterval.startDistance
+    )
+    const neighborOffset = Math.min(
+      intervalLength,
+      Math.max(0.5, Math.min(width * 0.1, intervalLength / 2))
+    )
+    const neighborDistance = isStart
+      ? terminalDistance + neighborOffset
+      : terminalDistance - neighborOffset
+    const terminalPoint = pointAtDistance(terminalDistance)
+    const neighborPoint = pointAtDistance(neighborDistance)
+    if (!terminalPoint || !neighborPoint) {
+      return undefined
+    }
+    const tangentIntoBody = normalizeVector({
+      x: neighborPoint.x - terminalPoint.x,
+      y: neighborPoint.y - terminalPoint.y
+    })
+    if (!tangentIntoBody) {
+      return undefined
+    }
+    const selectedSideAtTerminal = isStart
+      ? selectedSide
+      : (-selectedSide as 1 | -1)
+    const selectedNormal = {
+      x: -tangentIntoBody.y * selectedSideAtTerminal,
+      y: tangentIntoBody.x * selectedSideAtTerminal
+    }
+    const tangent = isStart
+      ? tangentIntoBody
+      : {
+          x: -tangentIntoBody.x,
+          y: -tangentIntoBody.y
+        }
+    const point = normalizePoint(terminalPoint)
+    return {
+      point,
+      tangent,
+      offsetPoint: normalizePoint({
+        x: point.x + selectedNormal.x * width,
+        y: point.y + selectedNormal.y * width
+      })
+    }
+  }
+
+  return {
+    start: buildFrame('start'),
+    end: buildFrame('end')
+  }
 }
 
 const dedupeRibbonFrames = (frames: PathSampleFrame[]) => {
@@ -5871,35 +9471,49 @@ const sliceExactOffsetRibbonRangeFrames = (
       segmentRange.startDistance - currentBaseRange.startDistance
     const localEndDistance =
       segmentRange.endDistance - currentBaseRange.startDistance
+    const globalRangeCacheKey = buildExactOffsetRibbonRangeFrameCacheKey(
+      segment,
+      segmentRange.segmentIndex,
+      localStartDistance,
+      localEndDistance,
+      stroke,
+      slicingContext
+    )
     const segmentFrames =
-      segment.type === 'line'
-        ? sliceExactOffsetLineRibbonSegmentFrames(
-            segment,
-            segmentRange.segmentIndex,
-            localStartDistance,
-            localEndDistance,
-            stroke,
-            slicingContext
-          )
-        : samplePathSegmentFramesByLengthStep(
-            segment,
-            localStartDistance,
-            localEndDistance,
-            SOURCE_PATH_RIBBON_FRAME_TOLERANCE,
-            SOURCE_PATH_RIBBON_FRAME_SAMPLING
-          ).map((frame): OffsetPathSampleFrame => {
-            const tangent = normalizeVector(frame.tangent) ?? frame.tangent
-            const point = normalizePoint(frame.point)
-            const offset = getConstrainedRibbonOffsetDistance(stroke)
-            return {
-              point,
-              tangent,
-              offsetPoint: normalizePoint({
-                x: point.x - tangent.y * offset,
-                y: point.y + tangent.x * offset
+      getCachedExactOffsetRibbonRangeFrames(globalRangeCacheKey) ??
+      (() => {
+        const frames =
+          segment.type === 'line'
+            ? sliceExactOffsetLineRibbonSegmentFrames(
+                segment,
+                segmentRange.segmentIndex,
+                localStartDistance,
+                localEndDistance,
+                stroke,
+                slicingContext
+              )
+            : samplePathSegmentFramesByLengthStep(
+                segment,
+                localStartDistance,
+                localEndDistance,
+                SOURCE_PATH_RIBBON_FRAME_TOLERANCE,
+                SOURCE_PATH_RIBBON_FRAME_SAMPLING
+              ).map((frame): OffsetPathSampleFrame => {
+                const tangent = normalizeVector(frame.tangent) ?? frame.tangent
+                const point = normalizePoint(frame.point)
+                const offset = getConstrainedRibbonOffsetDistance(stroke)
+                return {
+                  point,
+                  tangent,
+                  offsetPoint: normalizePoint({
+                    x: point.x - tangent.y * offset,
+                    y: point.y + tangent.x * offset
+                  })
+                }
               })
-            }
-          })
+        setCachedExactOffsetRibbonRangeFrames(globalRangeCacheKey, frames)
+        return frames
+      })()
     if (segmentFrames.length === 0) {
       return
     }
@@ -5954,7 +9568,11 @@ const buildExactSourcePathRibbonGeometryFromOffsetFrames = (
   roundCapEnd: boolean | undefined,
   squareCapStart: boolean | undefined,
   squareCapEnd: boolean | undefined,
-  roundCapVisualMaxLength = ROUND_CAP_VISUAL_MAX_LENGTH
+  roundCapVisualMaxLength = ROUND_CAP_VISUAL_MAX_LENGTH,
+  semanticCapFrames?: {
+    start?: OffsetPathSampleFrame | undefined
+    end?: OffsetPathSampleFrame | undefined
+  }
 ) => {
   if (frames.length < 2 || stroke.width <= EPSILON) {
     return {
@@ -5978,76 +9596,75 @@ const buildExactSourcePathRibbonGeometryFromOffsetFrames = (
 
   const firstFrame = frames[0]
   const lastFrame = frames[frames.length - 1]
+  const startCapFrame = semanticCapFrames?.start ?? firstFrame
+  const endCapFrame = semanticCapFrames?.end ?? lastFrame
   const squareStartDirection =
-    hasSquareCap && frames.length >= 2
-      ? normalizeVector({
-          x: frames[1].point.x - firstFrame.point.x,
-          y: frames[1].point.y - firstFrame.point.y
-        })
+    hasSquareCap && startCapFrame
+      ? normalizeVector(startCapFrame.tangent)
       : null
   const squareEndDirection =
-    hasSquareCap && frames.length >= 2
-      ? normalizeVector({
-          x: lastFrame.point.x - frames[frames.length - 2].point.x,
-          y: lastFrame.point.y - frames[frames.length - 2].point.y
-        })
-      : null
+    hasSquareCap && endCapFrame ? normalizeVector(endCapFrame.tangent) : null
   const capPolygons = [
-    ...(roundCapStart === true
+    ...(roundCapStart === true && startCapFrame
       ? [
           cleanMergedRibbonPolygon(
             buildOneSidedRibbonRoundCap(
-              normalizePoint(firstFrame.point),
-              normalizePoint(firstFrame.offsetPoint),
-              firstFrame.tangent,
+              normalizePoint(startCapFrame.point),
+              normalizePoint(startCapFrame.offsetPoint),
+              startCapFrame.tangent,
               true,
               roundCapVisualMaxLength
             )
           )
         ]
       : []),
-    ...(roundCapEnd === true
+    ...(roundCapEnd === true && endCapFrame
       ? [
           cleanMergedRibbonPolygon(
             buildOneSidedRibbonRoundCap(
-              normalizePoint(lastFrame.point),
-              normalizePoint(lastFrame.offsetPoint),
-              lastFrame.tangent,
+              normalizePoint(endCapFrame.point),
+              normalizePoint(endCapFrame.offsetPoint),
+              endCapFrame.tangent,
               false,
               roundCapVisualMaxLength
             )
           )
         ]
       : []),
-    ...(squareCapStart === true
+    ...(squareCapStart === true && startCapFrame
       ? [
           cleanMergedRibbonPolygon(
             buildSquareTerminalCapOverhangPolygon(
-              normalizePoint(firstFrame.point),
-              normalizePoint(firstFrame.offsetPoint),
-              squareStartDirection ?? firstFrame.tangent,
+              normalizePoint(startCapFrame.point),
+              normalizePoint(startCapFrame.offsetPoint),
+              squareStartDirection ?? startCapFrame.tangent,
               true,
               stroke.width
             )
           )
         ]
       : []),
-    ...(squareCapEnd === true
+    ...(squareCapEnd === true && endCapFrame
       ? [
           cleanMergedRibbonPolygon(
             buildSquareTerminalCapOverhangPolygon(
-              normalizePoint(lastFrame.point),
-              normalizePoint(lastFrame.offsetPoint),
-              squareEndDirection ?? lastFrame.tangent,
+              normalizePoint(endCapFrame.point),
+              normalizePoint(endCapFrame.offsetPoint),
+              squareEndDirection ?? endCapFrame.tangent,
               false,
               stroke.width
             )
           )
         ]
       : [])
-  ].filter(
-    (polygon) => polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON
-  )
+  ]
+    .filter(
+      (polygon) =>
+        polygon.length >= 3 && Math.abs(polygonArea(polygon)) > EPSILON
+    )
+    .map((polygon) =>
+      polygonArea(polygon) < 0 ? [...polygon].reverse() : polygon
+    )
 
   return {
     bodyPolygons,
@@ -6231,10 +9848,14 @@ const clipBoundaryDomainIntervalPolygonsToOwnSelectedSide = (
       : interval
   const terminalCapExtension =
     stroke && stroke.cap !== 'butt' ? Math.max(0, stroke.width * 0.5) : 0
-  const startCapExtension =
-    endpointCapPolicy?.startCap === true ? terminalCapExtension : 0
-  const endCapExtension =
-    endpointCapPolicy?.endCap === true ? terminalCapExtension : 0
+  const hasSemanticStartCap =
+    endpointCapPolicy?.startCap === true ||
+    (stroke?.cap === 'round' && endpointCapPolicy?.suppressStartCap === true)
+  const hasSemanticEndCap =
+    endpointCapPolicy?.endCap === true ||
+    (stroke?.cap === 'round' && endpointCapPolicy?.suppressEndCap === true)
+  const startCapExtension = hasSemanticStartCap ? terminalCapExtension : 0
+  const endCapExtension = hasSemanticEndCap ? terminalCapExtension : 0
   const localBoundaryTotalLength =
     localBoundaryPath?.totalLength ?? interval.domainPlanBoundaryTotalLength
   const materializedInterval =
@@ -6335,11 +9956,77 @@ const clipBoundaryDomainIntervalPolygonsToOwnSelectedSide = (
   })
 }
 
+const _clipSourceDomainIntervalPolygonsToOwnSelectedSide = (
+  polygons: Vec2[][],
+  sourcePath: SourcePathWithOptionalSamples | undefined,
+  slicingContext: SourcePathSlicingContext | undefined,
+  interval: BoundaryDomainMaterializationInterval & {
+    domainPlanTerminalRole?: VisibleDashedTopologyInterval['domainPlanTerminalRole']
+  },
+  stroke: Pick<RenderableStroke, 'cap' | 'width'>
+) => {
+  if (
+    polygons.length === 0 ||
+    !sourcePath ||
+    !slicingContext ||
+    (interval.domainPlanSelectedSide !== 1 &&
+      interval.domainPlanSelectedSide !== -1)
+  ) {
+    return polygons
+  }
+  const selectedSide =
+    getBoundaryDomainMaterializedSelectedSide(interval) ??
+    interval.domainPlanSelectedSide
+
+  const sourceDomainInterval =
+    resolveSourceDomainIntervalForMaterializationWithSourceGeometry(
+      interval,
+      sourcePath,
+      slicingContext
+    )
+  if (sourceDomainInterval.materializationDistanceSpace !== 'source-domain') {
+    return polygons
+  }
+
+  const sourceBoundary = slicePathGeometryPoints(
+    sourcePath,
+    sourceDomainInterval.startDistance,
+    sourceDomainInterval.endDistance,
+    false,
+    Math.min(0.5, slicingContext.samplingTolerance ?? 0.5),
+    slicingContext.samplingOptions
+  )
+  if (sourceBoundary.length < 2) {
+    return polygons
+  }
+
+  const selectedSideBoundary =
+    buildDashedDescriptorSelectedSideClipBoundaryPath(
+      sourceBoundary,
+      interval.domainPlanTerminalRole,
+      stroke.cap,
+      stroke.width * 2
+    )
+
+  return polygons.flatMap((polygon) => {
+    const clipped = cleanClippedProductPolygon(
+      clipPolygonToSelectedSideBoundaryOrDropRejected(
+        polygon,
+        selectedSideBoundary,
+        selectedSide
+      )
+    )
+    return hasPolygonGeometry(clipped) ? [clipped] : []
+  })
+}
+
 const clipPolygonToEndpointPolicyHalfPlane = (
   polygon: Vec2[],
   endpoint: Vec2,
   tangent: Vec2,
-  directionSign: 1 | -1
+  directionSign: 1 | -1,
+  overlapTolerance = 0,
+  clipAtOverlapBoundary = false
 ) => {
   if (polygon.length < 3) {
     return polygon
@@ -6347,7 +10034,9 @@ const clipPolygonToEndpointPolicyHalfPlane = (
   const signedDistance = (point: Vec2) =>
     ((point.x - endpoint.x) * tangent.x + (point.y - endpoint.y) * tangent.y) *
     directionSign
-  const isInside = (point: Vec2) => signedDistance(point) >= -EPSILON
+  const insideDistance = -Math.max(overlapTolerance, EPSILON)
+  const clipDistance = clipAtOverlapBoundary ? insideDistance : 0
+  const isInside = (point: Vec2) => signedDistance(point) >= insideDistance
   const output: Vec2[] = []
 
   for (let currentIndex = 0; currentIndex < polygon.length; currentIndex += 1) {
@@ -6358,8 +10047,8 @@ const clipPolygonToEndpointPolicyHalfPlane = (
     const previousInside = isInside(previous)
 
     if (currentInside !== previousInside) {
-      const previousDistance = signedDistance(previous)
-      const currentDistance = signedDistance(current)
+      const previousDistance = signedDistance(previous) - clipDistance
+      const currentDistance = signedDistance(current) - clipDistance
       const denominator = previousDistance - currentDistance
       if (Math.abs(denominator) > EPSILON) {
         const t = previousDistance / denominator
@@ -6421,7 +10110,8 @@ const clipBoundaryDomainIntervalPolygonsToEndpointCapPolicy = (
         clipped,
         startEndpoint,
         startTangent,
-        1
+        1,
+        0.75
       )
     }
     if (endEndpoint && endTangent) {
@@ -6429,9 +10119,298 @@ const clipBoundaryDomainIntervalPolygonsToEndpointCapPolicy = (
         clipped,
         endEndpoint,
         endTangent,
-        -1
+        -1,
+        0.75
       )
     }
+    return hasPolygonGeometry(clipped) ? [clipped] : []
+  })
+}
+
+const clipSourceDomainIntervalPolygonsToEndpointCapPolicy = (
+  polygons: Vec2[][],
+  sourcePath: SourcePathWithOptionalSamples | undefined,
+  slicingContext: SourcePathSlicingContext | undefined,
+  interval: BoundaryDomainMaterializationInterval,
+  endpointCapPolicy?: DashEndpointCapPolicy,
+  strokeWidth = 0,
+  suppressedCapOverlap = 0
+) => {
+  if (
+    polygons.length === 0 ||
+    !sourcePath ||
+    !slicingContext ||
+    !endpointCapPolicy
+  ) {
+    return polygons
+  }
+
+  const sourceDomainInterval =
+    resolveSourceDomainIntervalForMaterializationWithSourceGeometry(
+      interval,
+      sourcePath,
+      slicingContext
+    )
+  if (sourceDomainInterval.materializationDistanceSpace !== 'source-domain') {
+    return polygons
+  }
+
+  const sourceBoundary = sourceDomainInterval.wrapsSeam
+    ? [
+        ...slicePathGeometryPoints(
+          sourcePath,
+          sourceDomainInterval.startDistance,
+          sourcePath.totalLength,
+          false,
+          Math.min(0.5, slicingContext.samplingTolerance ?? 0.5),
+          slicingContext.samplingOptions
+        ),
+        ...slicePathGeometryPoints(
+          sourcePath,
+          0,
+          sourceDomainInterval.endDistance,
+          false,
+          Math.min(0.5, slicingContext.samplingTolerance ?? 0.5),
+          slicingContext.samplingOptions
+        ).slice(1)
+      ]
+    : slicePathGeometryPoints(
+        sourcePath,
+        sourceDomainInterval.startDistance,
+        sourceDomainInterval.endDistance,
+        false,
+        Math.min(0.5, slicingContext.samplingTolerance ?? 0.5),
+        slicingContext.samplingOptions
+      )
+  if (sourceBoundary.length < 2) {
+    return polygons
+  }
+
+  const intervalLength = getVisibleIntervalLength(
+    {
+      startDistance: sourceDomainInterval.startDistance,
+      endDistance: sourceDomainInterval.endDistance,
+      wrapsSeam: sourceDomainInterval.wrapsSeam
+    },
+    sourcePath.totalLength
+  )
+  const neighborOffset = Math.min(
+    intervalLength,
+    Math.max(
+      0.5,
+      strokeWidth > EPSILON ? strokeWidth * 0.5 : Math.min(0.5, intervalLength)
+    )
+  )
+  const pointAtDistance = (targetDistance: number) => {
+    const normalizedDistance = normalizeDistanceOnLoop(
+      targetDistance,
+      sourcePath.totalLength
+    )
+    const forwardEnd = Math.min(
+      sourcePath.totalLength,
+      normalizedDistance + Math.max(0.05, Math.min(0.5, neighborOffset))
+    )
+    if (forwardEnd > normalizedDistance + EPSILON) {
+      const frames = slicePathGeometryFrames(
+        sourcePath,
+        normalizedDistance,
+        forwardEnd,
+        false,
+        Math.min(0.5, slicingContext.samplingTolerance ?? 0.5),
+        slicingContext.samplingOptions
+      )
+      const firstFrame = frames[0]
+      if (firstFrame) {
+        return normalizePoint(firstFrame.point)
+      }
+    }
+
+    const backwardStart = Math.max(
+      0,
+      normalizedDistance - Math.max(0.05, Math.min(0.5, neighborOffset))
+    )
+    if (normalizedDistance > backwardStart + EPSILON) {
+      const frames = slicePathGeometryFrames(
+        sourcePath,
+        backwardStart,
+        normalizedDistance,
+        false,
+        Math.min(0.5, slicingContext.samplingTolerance ?? 0.5),
+        slicingContext.samplingOptions
+      )
+      const lastFrame = frames[frames.length - 1]
+      if (lastFrame) {
+        return normalizePoint(lastFrame.point)
+      }
+    }
+
+    return null
+  }
+  const startEndpoint = sourceBoundary[0]
+  const endEndpoint = sourceBoundary[sourceBoundary.length - 1]
+  const startNeighbor =
+    endpointCapPolicy.suppressStartCap && startEndpoint
+      ? (pointAtDistance(sourceDomainInterval.startDistance + neighborOffset) ??
+        sourceBoundary[1])
+      : undefined
+  const endNeighbor =
+    endpointCapPolicy.suppressEndCap && endEndpoint
+      ? (pointAtDistance(sourceDomainInterval.endDistance - neighborOffset) ??
+        sourceBoundary[sourceBoundary.length - 2])
+      : undefined
+  const startTangent =
+    endpointCapPolicy.suppressStartCap && startEndpoint && startNeighbor
+      ? normalizeVector({
+          x: startNeighbor.x - startEndpoint.x,
+          y: startNeighbor.y - startEndpoint.y
+        })
+      : null
+  const endTangent =
+    endpointCapPolicy.suppressEndCap && endEndpoint && endNeighbor
+      ? normalizeVector({
+          x: endEndpoint.x - endNeighbor.x,
+          y: endEndpoint.y - endNeighbor.y
+        })
+      : null
+  const endpointOverlap = Math.max(0, suppressedCapOverlap)
+
+  return polygons.flatMap((polygon) => {
+    let clipped = polygon
+    if (startEndpoint && startTangent) {
+      clipped = clipPolygonToEndpointPolicyHalfPlane(
+        clipped,
+        startEndpoint,
+        startTangent,
+        1,
+        endpointCapPolicy.suppressStartCap ? endpointOverlap : 0,
+        endpointCapPolicy.suppressStartCap && endpointOverlap > EPSILON
+      )
+    }
+    if (endEndpoint && endTangent) {
+      clipped = clipPolygonToEndpointPolicyHalfPlane(
+        clipped,
+        endEndpoint,
+        endTangent,
+        -1,
+        endpointCapPolicy.suppressEndCap ? endpointOverlap : 0,
+        endpointCapPolicy.suppressEndCap && endpointOverlap > EPSILON
+      )
+    }
+    return hasPolygonGeometry(clipped) ? [clipped] : []
+  })
+}
+
+const clipPolygonToEndpointOutwardExtent = (
+  polygon: Vec2[],
+  endpoint: Vec2,
+  tangentAwayFromBody: Vec2,
+  allowedOutwardExtent: number
+) => {
+  if (polygon.length < 3) {
+    return polygon
+  }
+
+  const tangent = normalizeVector(tangentAwayFromBody)
+  if (!tangent) {
+    return polygon
+  }
+
+  const extent = Math.max(0, allowedOutwardExtent)
+  const signedDistance = (point: Vec2) =>
+    (point.x - endpoint.x) * tangent.x + (point.y - endpoint.y) * tangent.y
+  const isInside = (point: Vec2) =>
+    signedDistance(point) <= extent + Math.max(EPSILON, 1e-4)
+  const output: Vec2[] = []
+
+  for (let currentIndex = 0; currentIndex < polygon.length; currentIndex += 1) {
+    const current = polygon[currentIndex]
+    const previous =
+      polygon[(currentIndex - 1 + polygon.length) % polygon.length]
+    const currentInside = isInside(current)
+    const previousInside = isInside(previous)
+
+    if (currentInside !== previousInside) {
+      const previousDistance = signedDistance(previous) - extent
+      const currentDistance = signedDistance(current) - extent
+      const denominator = previousDistance - currentDistance
+      if (Math.abs(denominator) > EPSILON) {
+        const t = previousDistance / denominator
+        output.push(
+          normalizePoint({
+            x: previous.x + (current.x - previous.x) * t,
+            y: previous.y + (current.y - previous.y) * t
+          })
+        )
+      }
+    }
+
+    if (currentInside) {
+      output.push(current)
+    }
+  }
+
+  return cleanClippedProductPolygon(output)
+}
+
+const clipCenterStrokeProductPolygonsToEndpointExtents = (
+  polygons: Vec2[][],
+  strokePath: Vec2[],
+  cap: RenderableStroke['cap'],
+  strokeWidth: number,
+  endpointCapPolicy?: DashEndpointCapPolicy,
+  endpointTangents: {
+    startTangentAway?: Vec2 | null
+    endTangentAway?: Vec2 | null
+    suppressedCapOverlap?: number
+  } = {}
+) => {
+  if (polygons.length === 0 || strokePath.length < 2) {
+    return polygons
+  }
+
+  const startEndpoint = strokePath[0]
+  const endEndpoint = strokePath[strokePath.length - 1]
+  if (
+    startEndpoint &&
+    endEndpoint &&
+    distanceBetween(startEndpoint, endEndpoint) <= EPSILON &&
+    !(endpointCapPolicy?.suppressStartCap || endpointCapPolicy?.suppressEndCap)
+  ) {
+    return polygons
+  }
+  const startTangentAway =
+    endpointTangents.startTangentAway ??
+    getStrokePathEndpointTangent(strokePath, true)
+  const endTangentAway =
+    endpointTangents.endTangentAway ??
+    getStrokePathEndpointTangent(strokePath, false)
+  if (!startEndpoint || !endEndpoint || !startTangentAway || !endTangentAway) {
+    return polygons
+  }
+
+  const capExtent = cap === 'butt' ? 0 : strokeWidth / 2
+  const suppressedCapOverlap = Math.max(
+    0,
+    endpointTangents.suppressedCapOverlap ?? 0
+  )
+  const startOwnsCap = endpointCapPolicy?.startCap ?? true
+  const endOwnsCap = endpointCapPolicy?.endCap ?? true
+  const startExtent = startOwnsCap ? capExtent : suppressedCapOverlap
+  const endExtent = endOwnsCap ? capExtent : suppressedCapOverlap
+
+  return polygons.flatMap((polygon) => {
+    let clipped = clipPolygonToEndpointOutwardExtent(
+      polygon,
+      startEndpoint,
+      startTangentAway,
+      startExtent
+    )
+    clipped = clipPolygonToEndpointOutwardExtent(
+      clipped,
+      endEndpoint,
+      endTangentAway,
+      endExtent
+    )
     return hasPolygonGeometry(clipped) ? [clipped] : []
   })
 }
@@ -6538,7 +10517,8 @@ const _clipOutsideSourceVertexJoinPolygonsToAdjacentBoundarySides = (
           ),
           {
             cleanupMicroEdgeTolerance: 0.001,
-            cleanupCollinearTolerance: 0.0001
+            cleanupCollinearTolerance: 0.0001,
+            outsideLegalResidueCaller: 'final-coverage-normalized-outside'
           }
         )
         return hasPolygonGeometry(clipped) ? [clipped] : []
@@ -6558,6 +10538,121 @@ const subtractPoint = (left: Vec2, right: Vec2): Vec2 => ({
 
 const crossPoints = (left: Vec2, right: Vec2) =>
   left.x * right.y - left.y * right.x
+
+const getConvexHullTurn = (origin: Vec2, a: Vec2, b: Vec2) =>
+  crossPoints(subtractPoint(a, origin), subtractPoint(b, origin))
+
+const buildConvexHullPolygon = (points: Vec2[]) => {
+  const sortedPoints = points
+    .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
+    .sort((a, b) => (a.x === b.x ? a.y - b.y : a.x - b.x))
+
+  const uniquePoints: Vec2[] = []
+  sortedPoints.forEach((point) => {
+    const previous = uniquePoints[uniquePoints.length - 1]
+    if (
+      !previous ||
+      Math.abs(previous.x - point.x) > EPSILON ||
+      Math.abs(previous.y - point.y) > EPSILON
+    ) {
+      uniquePoints.push(point)
+    }
+  })
+
+  if (uniquePoints.length < 3) {
+    return []
+  }
+
+  const lowerHull: Vec2[] = []
+  uniquePoints.forEach((point) => {
+    while (
+      lowerHull.length >= 2 &&
+      getConvexHullTurn(
+        lowerHull[lowerHull.length - 2],
+        lowerHull[lowerHull.length - 1],
+        point
+      ) <= EPSILON
+    ) {
+      lowerHull.pop()
+    }
+    lowerHull.push(point)
+  })
+
+  const upperHull: Vec2[] = []
+  ;[...uniquePoints].reverse().forEach((point) => {
+    while (
+      upperHull.length >= 2 &&
+      getConvexHullTurn(
+        upperHull[upperHull.length - 2],
+        upperHull[upperHull.length - 1],
+        point
+      ) <= EPSILON
+    ) {
+      upperHull.pop()
+    }
+    upperHull.push(point)
+  })
+
+  const hull = [...lowerHull.slice(0, -1), ...upperHull.slice(0, -1)]
+  return hull.length >= 3 ? hull : []
+}
+
+const buildCanonicalMiterFootprintPolygons = (polygons: Vec2[][]) => {
+  const hull = cleanPolygon(buildConvexHullPolygon(polygons.flat()))
+  return hull.length >= 3 &&
+    Math.abs(polygonArea(hull)) > EPSILON &&
+    isSimpleClosedPolygon(hull)
+    ? [hull]
+    : []
+}
+
+const buildSourceVertexMiterEndpointBoundaryPoints = (
+  plan: SourceVertexBoundaryJoinPlan,
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join'>
+) => {
+  if (
+    plan.kind !== 'source-vertex' ||
+    stroke.position !== 'outside' ||
+    stroke.join !== 'miter'
+  ) {
+    return []
+  }
+
+  const previousDirection = normalizeVector(
+    subtractPoint(plan.vertex, plan.previousContourPoint)
+  )
+  const nextDirection = normalizeVector(
+    subtractPoint(plan.nextContourPoint, plan.vertex)
+  )
+  if (!previousDirection || !nextDirection) {
+    return []
+  }
+
+  const offsetDistance = Math.abs(getSourceVertexJoinOffsetDistance(stroke))
+  if (offsetDistance <= EPSILON) {
+    return []
+  }
+
+  const previousSelectedNormal = {
+    x: -previousDirection.y * plan.selectedSide,
+    y: previousDirection.x * plan.selectedSide
+  }
+  const nextSelectedNormal = {
+    x: -nextDirection.y * plan.selectedSide,
+    y: nextDirection.x * plan.selectedSide
+  }
+
+  return [
+    addPoint(plan.vertex, {
+      x: previousSelectedNormal.x * offsetDistance,
+      y: previousSelectedNormal.y * offsetDistance
+    }),
+    addPoint(plan.vertex, {
+      x: nextSelectedNormal.x * offsetDistance,
+      y: nextSelectedNormal.y * offsetDistance
+    })
+  ]
+}
 
 const getSourceVertexJoinOffsetDistance = (
   stroke: Pick<RenderableStroke, 'position' | 'width'>
@@ -6634,6 +10729,45 @@ const buildJoinArcPoints = (
 
   return points
 }
+
+const buildSelectedSideJoinArcPoints = (
+  center: Vec2,
+  start: Vec2,
+  end: Vec2,
+  selectedDirection: Vec2 | null,
+  alternateSweepSign: number
+) => {
+  if (!selectedDirection) {
+    return buildJoinArcPoints(center, start, end, alternateSweepSign)
+  }
+
+  const scoreArc = (sweepSign: 1 | -1) => {
+    const points = buildJoinArcPoints(center, start, end, sweepSign)
+    const midpoint = points[Math.floor(points.length / 2)]
+    const midpointDirection = midpoint
+      ? normalizeVector(subtractPoint(midpoint, center))
+      : null
+    const selectedScore = midpointDirection
+      ? midpointDirection.x * selectedDirection.x +
+        midpointDirection.y * selectedDirection.y
+      : Number.NEGATIVE_INFINITY
+    return {
+      points,
+      selectedScore,
+      alternateScore: sweepSign === alternateSweepSign ? 1 : 0
+    }
+  }
+
+  const candidates = [scoreArc(1), scoreArc(-1)].sort(
+    (left, right) =>
+      right.selectedScore - left.selectedScore ||
+      right.alternateScore - left.alternateScore
+  )
+  return (
+    candidates[0]?.points ??
+    buildJoinArcPoints(center, start, end, alternateSweepSign)
+  )
+}
 type SourceVertexJoinBoundaryCache = Map<number, Vec2[]>
 
 const getSourceVertexJoinSegmentBoundary = (
@@ -6655,62 +10789,238 @@ const getSourceVertexJoinSegmentBoundary = (
   return boundary
 }
 
-const buildSourceVertexJoinPolygonForOffset = (
-  path: Pick<PathGeometry, 'segments' | 'closed'>,
-  previousSegmentIndex: number,
-  nextSegmentIndex: number,
-  stroke: Pick<RenderableStroke, 'join' | 'miterLimit'>,
-  offset: number,
-  options: {
-    boundaryCache?: SourceVertexJoinBoundaryCache
-  } = {}
+const getSourceVertexMiterJoinPointForSide = (
+  plan: SourceVertexBoundaryJoinPlan,
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join'> &
+    Partial<Pick<RenderableStroke, 'miterAngle'>>,
+  selectedSide: 1 | -1
 ) => {
-  const previousBoundary = getSourceVertexJoinSegmentBoundary(
-    path,
-    previousSegmentIndex,
-    options.boundaryCache
-  )
-  const nextBoundary = getSourceVertexJoinSegmentBoundary(
-    path,
-    nextSegmentIndex,
-    options.boundaryCache
-  )
-  if (previousBoundary.length < 2 || nextBoundary.length < 2) {
-    return []
+  if (
+    stroke.join !== 'miter' ||
+    resolveMiterAngleJoin(plan, stroke).resolvedJoin !== 'miter'
+  ) {
+    return null
   }
 
-  const vertex = previousBoundary[previousBoundary.length - 1]
-  const nextVertex = nextBoundary[0]
-  if (distanceBetween(vertex, nextVertex) > 0.5) {
-    return []
-  }
-
-  const previousStart = previousBoundary[previousBoundary.length - 2]
-  const nextEnd = nextBoundary[1]
-  const effectiveOffset = offset
+  const vertex = plan.vertex
+  const previousPoint = plan.previousContourPoint
+  const nextPoint = plan.nextContourPoint
+  const offset =
+    selectedSide * Math.abs(getSourceVertexJoinOffsetDistance(stroke))
   const previousOffsetStart = getOffsetPointOnLine(
-    previousStart,
-    previousStart,
+    previousPoint,
+    previousPoint,
     vertex,
-    effectiveOffset
+    offset
   )
   const previousOffsetEnd = getOffsetPointOnLine(
     vertex,
-    previousStart,
+    previousPoint,
     vertex,
-    effectiveOffset
+    offset
   )
   const nextOffsetStart = getOffsetPointOnLine(
     vertex,
     vertex,
-    nextEnd,
-    effectiveOffset
+    nextPoint,
+    offset
   )
   const nextOffsetEnd = getOffsetPointOnLine(
-    nextEnd,
+    nextPoint,
     vertex,
-    nextEnd,
-    effectiveOffset
+    nextPoint,
+    offset
+  )
+  if (
+    !previousOffsetStart ||
+    !previousOffsetEnd ||
+    !nextOffsetStart ||
+    !nextOffsetEnd
+  ) {
+    return null
+  }
+
+  const joinPoint = lineIntersection(
+    previousOffsetStart,
+    previousOffsetEnd,
+    nextOffsetStart,
+    nextOffsetEnd
+  )
+  return isFiniteStrokePoint(joinPoint) ? joinPoint : null
+}
+
+type SourceVertexCanonicalMiterFootprintResolution =
+  | 'miter'
+  | 'bevel-by-miter-angle'
+
+interface SourceVertexCanonicalMiterFootprint {
+  polygons: Vec2[][]
+  resolution: SourceVertexCanonicalMiterFootprintResolution
+  theoreticalPolygons?: Vec2[][]
+}
+
+const isFiniteStrokePoint = (point: Vec2) =>
+  Number.isFinite(point.x) && Number.isFinite(point.y)
+
+const buildValidSourceVertexMiterFootprintPolygon = (points: Vec2[]) => {
+  const polygon = cleanPolygon(points.map(normalizePoint))
+  return polygon.length >= 3 &&
+    Math.abs(polygonArea(polygon)) > EPSILON &&
+    isSimpleClosedPolygon(polygon)
+    ? polygon
+    : null
+}
+
+const buildSourceVertexCanonicalMiterFootprint = (
+  plan: SourceVertexBoundaryJoinPlan,
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join'> &
+    Partial<Pick<RenderableStroke, 'miterAngle'>>
+): SourceVertexCanonicalMiterFootprint | null => {
+  if (
+    plan.kind !== 'source-vertex' ||
+    stroke.position !== 'outside' ||
+    stroke.join !== 'miter'
+  ) {
+    return null
+  }
+
+  const offsetMagnitude = Math.abs(getSourceVertexJoinOffsetDistance(stroke))
+  if (offsetMagnitude <= EPSILON) {
+    return null
+  }
+
+  const vertex = plan.vertex
+  const offset = plan.selectedSide * offsetMagnitude
+  const previousOffsetStart = getOffsetPointOnLine(
+    plan.previousContourPoint,
+    plan.previousContourPoint,
+    vertex,
+    offset
+  )
+  const previousOffsetEnd = getOffsetPointOnLine(
+    vertex,
+    plan.previousContourPoint,
+    vertex,
+    offset
+  )
+  const nextOffsetStart = getOffsetPointOnLine(
+    vertex,
+    vertex,
+    plan.nextContourPoint,
+    offset
+  )
+  const nextOffsetEnd = getOffsetPointOnLine(
+    plan.nextContourPoint,
+    vertex,
+    plan.nextContourPoint,
+    offset
+  )
+  if (
+    !previousOffsetStart ||
+    !previousOffsetEnd ||
+    !nextOffsetStart ||
+    !nextOffsetEnd
+  ) {
+    return null
+  }
+
+  const theoreticalMiterPoint = lineIntersection(
+    previousOffsetStart,
+    previousOffsetEnd,
+    nextOffsetStart,
+    nextOffsetEnd
+  )
+  if (!isFiniteStrokePoint(theoreticalMiterPoint)) {
+    return null
+  }
+
+  const resolution = resolveMiterAngleJoin(plan, stroke)
+  const localMiterFamilyPolygon = buildValidSourceVertexMiterFootprintPolygon([
+    vertex,
+    previousOffsetEnd,
+    nextOffsetStart
+  ])
+  if (resolution.resolvedJoin === 'miter') {
+    const theoreticalPolygon = buildValidSourceVertexMiterFootprintPolygon([
+      vertex,
+      previousOffsetEnd,
+      theoreticalMiterPoint,
+      nextOffsetStart
+    ])
+    if (theoreticalPolygon) {
+      return {
+        polygons: [theoreticalPolygon],
+        resolution: 'miter',
+        theoreticalPolygons: [theoreticalPolygon]
+      }
+    }
+    return null
+  }
+
+  if (resolution.resolvedJoin !== 'bevel-by-miter-angle') {
+    return null
+  }
+
+  return localMiterFamilyPolygon
+    ? {
+        polygons: [localMiterFamilyPolygon],
+        resolution: 'bevel-by-miter-angle',
+        theoreticalPolygons: []
+      }
+    : null
+}
+
+const buildJoinOwnedDashTerminalPolygons = (
+  plan: SourceVertexBoundaryJoinPlan,
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join' | 'cap'> &
+    Partial<Pick<RenderableStroke, 'miterAngle'>>
+) => {
+  const canonicalMiterFootprint = buildSourceVertexCanonicalMiterFootprint(
+    plan,
+    stroke
+  )
+  if (canonicalMiterFootprint) {
+    return canonicalMiterFootprint.polygons
+  }
+
+  const vertex = plan.vertex
+  const previousPoint = plan.previousContourPoint
+  const nextPoint = plan.nextContourPoint
+  const previousDirection = normalizeVector(
+    subtractPoint(vertex, previousPoint)
+  )
+  const nextDirection = normalizeVector(subtractPoint(nextPoint, vertex))
+  if (!previousDirection || !nextDirection) {
+    return []
+  }
+
+  const joinOffsetMagnitude = Math.abs(
+    getSourceVertexJoinOffsetDistance(stroke)
+  )
+  const offset = plan.selectedSide * joinOffsetMagnitude
+  const previousOffsetStart = getOffsetPointOnLine(
+    previousPoint,
+    previousPoint,
+    vertex,
+    offset
+  )
+  const previousOffsetEnd = getOffsetPointOnLine(
+    vertex,
+    previousPoint,
+    vertex,
+    offset
+  )
+  const nextOffsetStart = getOffsetPointOnLine(
+    vertex,
+    vertex,
+    nextPoint,
+    offset
+  )
+  const nextOffsetEnd = getOffsetPointOnLine(
+    nextPoint,
+    vertex,
+    nextPoint,
+    offset
   )
   if (
     !previousOffsetStart ||
@@ -6720,279 +11030,304 @@ const buildSourceVertexJoinPolygonForOffset = (
   ) {
     return []
   }
+  const previousJoinEndpoint =
+    plan.kind === 'source-vertex' &&
+    plan.previousSeamBoundary !== undefined &&
+    isFiniteStrokePoint(plan.previousSeamBoundary.outerBodyBoundaryEndpoint)
+      ? plan.previousSeamBoundary.outerBodyBoundaryEndpoint
+      : previousOffsetEnd
+  const nextJoinEndpoint =
+    plan.kind === 'source-vertex' &&
+    plan.nextSeamBoundary !== undefined &&
+    isFiniteStrokePoint(plan.nextSeamBoundary.outerBodyBoundaryEndpoint)
+      ? plan.nextSeamBoundary.outerBodyBoundaryEndpoint
+      : nextOffsetStart
+
+  const alternateSweepSign =
+    crossPoints(
+      subtractPoint(vertex, previousPoint),
+      subtractPoint(nextPoint, vertex)
+    ) *
+      offset >=
+    0
+      ? 1
+      : -1
+  const selectedDirection =
+    normalizeVector(
+      addPoint(
+        subtractPoint(previousJoinEndpoint, vertex),
+        subtractPoint(nextJoinEndpoint, vertex)
+      )
+    ) ?? normalizeVector(subtractPoint(previousJoinEndpoint, vertex))
+
+  const buildRoundJoinPolygon = () => {
+    const scoreCandidate = (sweepSign: 1 | -1) => {
+      const arcPoints = buildJoinArcPoints(
+        vertex,
+        previousJoinEndpoint,
+        nextJoinEndpoint,
+        sweepSign
+      )
+      const midpoint = arcPoints[Math.floor(arcPoints.length / 2)]
+      const midpointDirection = midpoint
+        ? normalizeVector(subtractPoint(midpoint, vertex))
+        : null
+      const selectedScore =
+        midpointDirection && selectedDirection
+          ? midpointDirection.x * selectedDirection.x +
+            midpointDirection.y * selectedDirection.y
+          : Number.NEGATIVE_INFINITY
+      const polygon = cleanPolygon([
+        vertex,
+        previousJoinEndpoint,
+        ...arcPoints,
+        nextJoinEndpoint
+      ])
+      const valid =
+        polygon.length >= 3 &&
+        Math.abs(polygonArea(polygon)) > EPSILON &&
+        isSimpleClosedPolygon(polygon)
+      return {
+        polygon,
+        valid,
+        selectedScore,
+        alternateScore: sweepSign === alternateSweepSign ? 1 : 0
+      }
+    }
+
+    const candidates = [scoreCandidate(1), scoreCandidate(-1)].sort(
+      (left, right) =>
+        Number(right.valid) - Number(left.valid) ||
+        right.selectedScore - left.selectedScore ||
+        right.alternateScore - left.alternateScore
+    )
+    return (
+      candidates.find((candidate) => candidate.valid)?.polygon ??
+      cleanPolygon([
+        vertex,
+        previousJoinEndpoint,
+        ...buildSelectedSideJoinArcPoints(
+          vertex,
+          previousJoinEndpoint,
+          nextJoinEndpoint,
+          selectedDirection,
+          alternateSweepSign
+        ),
+        nextJoinEndpoint
+      ])
+    )
+  }
+
+  const buildSeamBoundaryBevelPolygon = () => {
+    if (plan.kind !== 'source-vertex') {
+      return []
+    }
+    const getInnerEndpoint = (
+      boundary: SourceVertexJoinIncidentSeamBoundary | undefined
+    ) => {
+      if (!boundary) {
+        return undefined
+      }
+      if (
+        isFiniteStrokePoint(boundary.point) &&
+        distanceBetween(boundary.point, boundary.outerBodyBoundaryEndpoint) >
+          EPSILON
+      ) {
+        return boundary.point
+      }
+      const bodySideEndpoint = boundary.bodySideOutlineSegment[1]
+      if (isFiniteStrokePoint(bodySideEndpoint)) {
+        return bodySideEndpoint
+      }
+      return undefined
+    }
+    const previousInnerEndpoint = getInnerEndpoint(plan.previousSeamBoundary)
+    const nextInnerEndpoint = getInnerEndpoint(plan.nextSeamBoundary)
+    if (!previousInnerEndpoint || !nextInnerEndpoint) {
+      return []
+    }
+
+    const orderedPolygon = cleanPolygon([
+      previousJoinEndpoint,
+      nextJoinEndpoint,
+      nextInnerEndpoint,
+      previousInnerEndpoint
+    ])
+    const polygon =
+      orderedPolygon.length >= 3 &&
+      Math.abs(polygonArea(orderedPolygon)) > EPSILON &&
+      isSimpleClosedPolygon(orderedPolygon)
+        ? orderedPolygon
+        : cleanPolygon(
+            buildConvexHullPolygon([
+              previousJoinEndpoint,
+              nextJoinEndpoint,
+              nextInnerEndpoint,
+              previousInnerEndpoint
+            ])
+          )
+    return polygon.length >= 3 &&
+      Math.abs(polygonArea(polygon)) > EPSILON &&
+      isSimpleClosedPolygon(polygon)
+      ? polygon
+      : []
+  }
+
+  const seamBoundaryBevelPolygon = buildSeamBoundaryBevelPolygon()
 
   let polygon =
     stroke.join === 'round'
-      ? [
-          vertex,
-          ...buildJoinArcPoints(
-            vertex,
-            previousOffsetEnd,
-            nextOffsetStart,
-            crossPoints(
-              subtractPoint(vertex, previousStart),
-              subtractPoint(nextEnd, vertex)
-            ) *
-              offset >=
-              0
-              ? -1
-              : 1
-          )
-        ]
-      : [vertex, previousOffsetEnd, nextOffsetStart]
+      ? buildRoundJoinPolygon()
+      : seamBoundaryBevelPolygon.length > 0
+        ? seamBoundaryBevelPolygon
+        : [vertex, previousJoinEndpoint, nextJoinEndpoint]
 
   if (stroke.join === 'miter') {
-    let joinPoint = lineIntersection(
-      previousOffsetStart,
-      previousOffsetEnd,
-      nextOffsetStart,
-      nextOffsetEnd
+    const joinPoint = getSourceVertexMiterJoinPointForSide(
+      plan,
+      stroke,
+      plan.selectedSide
     )
-    const maxMiterDistance = stroke.miterLimit * Math.abs(offset)
-    const degeneratedToOffsetEndpoint =
-      distanceBetween(previousOffsetEnd, nextOffsetStart) > EPSILON &&
-      (distanceBetween(joinPoint, previousOffsetEnd) <= EPSILON ||
-        distanceBetween(joinPoint, nextOffsetStart) <= EPSILON)
-    if (degeneratedToOffsetEndpoint) {
-      const previousOffsetDirection = normalizeVector(
-        subtractPoint(previousOffsetEnd, vertex)
-      )
-      const nextOffsetDirection = normalizeVector(
-        subtractPoint(nextOffsetStart, vertex)
-      )
-      const bisector =
-        previousOffsetDirection && nextOffsetDirection
-          ? normalizeVector({
-              x: previousOffsetDirection.x + nextOffsetDirection.x,
-              y: previousOffsetDirection.y + nextOffsetDirection.y
-            })
-          : null
-      const previousDirection = normalizeVector(
-        subtractPoint(vertex, previousStart)
-      )
-      const nextDirection = normalizeVector(subtractPoint(nextEnd, vertex))
-      const dot =
-        previousDirection && nextDirection
-          ? Math.max(
-              -1,
-              Math.min(
-                1,
-                previousDirection.x * nextDirection.x +
-                  previousDirection.y * nextDirection.y
-              )
-            )
-          : 1
-      const halfAngle = Math.acos(dot) / 2
-      const unclampedMiterDistance =
-        Math.sin(halfAngle) <= EPSILON
-          ? maxMiterDistance
-          : Math.abs(offset) / Math.sin(halfAngle)
-      const miterDistance = Math.min(
-        maxMiterDistance,
-        Math.max(Math.abs(offset), unclampedMiterDistance)
-      )
-      if (bisector) {
-        joinPoint = normalizePoint({
-          x: vertex.x + bisector.x * miterDistance,
-          y: vertex.y + bisector.y * miterDistance
-        })
-      }
-    }
-    const joinDistance = distanceBetween(vertex, joinPoint)
-    if (joinDistance > EPSILON) {
-      const clampedJoinPoint =
-        joinDistance <= maxMiterDistance + EPSILON
-          ? joinPoint
-          : normalizePoint({
-              x:
-                vertex.x +
-                ((joinPoint.x - vertex.x) / joinDistance) * maxMiterDistance,
-              y:
-                vertex.y +
-                ((joinPoint.y - vertex.y) / joinDistance) * maxMiterDistance
-            })
-      polygon = [vertex, previousOffsetEnd, clampedJoinPoint, nextOffsetStart]
+    if (joinPoint) {
+      polygon = [previousJoinEndpoint, joinPoint, nextJoinEndpoint]
     }
   }
 
   const cleaned = cleanPolygon(polygon)
-  return cleaned.length >= 3 &&
-    Math.abs(polygonArea(cleaned)) > EPSILON &&
-    isSimpleClosedPolygon(cleaned)
-    ? [cleaned]
-    : []
-}
-
-const buildSourceVertexJoinContinuityPolygonsForOffset = (
-  path: Pick<PathGeometry, 'segments' | 'closed'>,
-  previousSegmentIndex: number,
-  nextSegmentIndex: number,
-  offset: number,
-  options: {
-    continuityLength?: number
-    boundaryCache?: SourceVertexJoinBoundaryCache
-  } = {}
-) => {
-  const previousBoundary = getSourceVertexJoinSegmentBoundary(
-    path,
-    previousSegmentIndex,
-    options.boundaryCache
-  )
-  const nextBoundary = getSourceVertexJoinSegmentBoundary(
-    path,
-    nextSegmentIndex,
-    options.boundaryCache
-  )
-  if (previousBoundary.length < 2 || nextBoundary.length < 2) {
-    return []
-  }
-
-  const vertex = previousBoundary[previousBoundary.length - 1]
-  const nextVertex = nextBoundary[0]
-  if (distanceBetween(vertex, nextVertex) > 0.5) {
-    return []
-  }
-
-  const previousStart = previousBoundary[previousBoundary.length - 2]
-  const nextEnd = nextBoundary[1]
-  const previousDirection = normalizeVector(
-    subtractPoint(vertex, previousStart)
-  )
-  const nextDirection = normalizeVector(subtractPoint(nextEnd, vertex))
-  const previousOffsetEnd = getOffsetPointOnLine(
-    vertex,
-    previousStart,
-    vertex,
-    offset
-  )
-  const nextOffsetStart = getOffsetPointOnLine(vertex, vertex, nextEnd, offset)
   if (
-    !previousDirection ||
-    !nextDirection ||
-    !previousOffsetEnd ||
-    !nextOffsetStart
+    cleaned.length < 3 ||
+    Math.abs(polygonArea(cleaned)) <= EPSILON ||
+    !isSimpleClosedPolygon(cleaned)
   ) {
     return []
   }
 
-  const continuityLength =
-    options.continuityLength ?? Math.max(1, Math.abs(offset) * 1.4)
-  const previousSourcePoint = normalizePoint({
-    x: vertex.x - previousDirection.x * continuityLength,
-    y: vertex.y - previousDirection.y * continuityLength
-  })
-  const previousOuterPoint = normalizePoint({
-    x: previousOffsetEnd.x - previousDirection.x * continuityLength,
-    y: previousOffsetEnd.y - previousDirection.y * continuityLength
-  })
-  const nextSourcePoint = normalizePoint({
-    x: vertex.x + nextDirection.x * continuityLength,
-    y: vertex.y + nextDirection.y * continuityLength
-  })
-  const nextOuterPoint = normalizePoint({
-    x: nextOffsetStart.x + nextDirection.x * continuityLength,
-    y: nextOffsetStart.y + nextDirection.y * continuityLength
-  })
-
-  return [
-    [vertex, previousOffsetEnd, previousOuterPoint, previousSourcePoint],
-    [vertex, nextOffsetStart, nextOuterPoint, nextSourcePoint]
-  ]
-    .map(cleanPolygon)
-    .filter(hasPolygonGeometry)
+  return [cleaned]
 }
 
-const getPolygonsReferencePointDistance = (
-  polygons: Vec2[][],
-  referencePoints: Vec2[]
+const buildSourceVertexTerminalBodyOwnershipExclusionPolygons = (
+  plan: SourceVertexBoundaryJoinPlan,
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join' | 'cap'>
 ) => {
-  if (polygons.length === 0 || referencePoints.length === 0) {
-    return Number.POSITIVE_INFINITY
+  if (plan.kind !== 'source-vertex' || stroke.position !== 'outside') {
+    return []
   }
 
-  const polygonPoints = polygons.flat()
-  return referencePoints.reduce((totalDistance, referencePoint) => {
-    const minimumDistance = polygonPoints.reduce(
-      (currentMinimum, polygonPoint) =>
-        Math.min(currentMinimum, distanceBetween(referencePoint, polygonPoint)),
-      Number.POSITIVE_INFINITY
-    )
-    return totalDistance + minimumDistance
-  }, 0)
-}
-
-const buildSourceVertexJoinPolygon = (
-  path: Pick<PathGeometry, 'segments' | 'closed'>,
-  previousSegmentIndex: number,
-  nextSegmentIndex: number,
-  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join' | 'miterLimit'>,
-  options: {
-    includeOppositePolygons?: boolean
-    referencePoints?: Vec2[]
-  } = {}
-) => {
-  const primaryOffset = getSourceVertexJoinOffsetDistance(stroke)
-  const primaryPolygons = buildSourceVertexJoinPolygonForOffset(
-    path,
-    previousSegmentIndex,
-    nextSegmentIndex,
-    stroke,
-    primaryOffset
+  const canonicalMiterFootprint = buildSourceVertexCanonicalMiterFootprint(
+    plan,
+    stroke
   )
-  const shouldBuildOpposite =
-    options.includeOppositePolygons === true ||
-    (options.referencePoints && options.referencePoints.length > 0)
-  const oppositePolygons = shouldBuildOpposite
-    ? buildSourceVertexJoinPolygonForOffset(
-        path,
-        previousSegmentIndex,
-        nextSegmentIndex,
-        stroke,
-        -primaryOffset
-      )
-    : []
-  if (options.includeOppositePolygons === true) {
-    return [...primaryPolygons, ...oppositePolygons]
-  }
-  const referencePoints = options.referencePoints ?? []
-  if (referencePoints.length === 0 || Math.abs(primaryOffset) <= EPSILON) {
-    return primaryPolygons
-  }
-
-  return getPolygonsReferencePointDistance(oppositePolygons, referencePoints) <
-    getPolygonsReferencePointDistance(primaryPolygons, referencePoints)
-    ? oppositePolygons
-    : primaryPolygons
+  const joinPolygons =
+    canonicalMiterFootprint?.polygons ??
+    buildJoinOwnedDashTerminalPolygons(plan, stroke)
+  const terminalBodyExclusionPolygons =
+    stroke.join === 'miter'
+      ? normalizeConstrainedDashedProductPolygons(
+          expandDescriptorOwnershipExcludePolygons(
+            joinPolygons,
+            Math.max(0.04, Math.min(0.18, stroke.width * 0.012))
+          ),
+          {
+            cleanClipResidue: true,
+            mergeContinuousInterval: true
+          }
+        )
+      : joinPolygons
+  return normalizeConstrainedDashedProductPolygons(
+    terminalBodyExclusionPolygons,
+    {
+      cleanClipResidue: true,
+      mergeContinuousInterval: true
+    }
+  )
 }
 
-const getSourceVertexJoinLegalOverlapArea = (
+const clipSourceVertexJoinPolygonsToSuppressedEndpointSides = (
   polygons: Vec2[][],
-  legalRegions: PolygonRegion[]
+  plan: SourceVertexBoundaryJoinPlan
 ) => {
-  if (polygons.length === 0 || legalRegions.length === 0) {
-    return 0
+  if (
+    polygons.length === 0 ||
+    !plan.previousDashBodyPoint ||
+    !plan.nextDashBodyPoint
+  ) {
+    return polygons
   }
 
-  try {
-    const backend = getGeometryBackend()
-    if (!backend.capabilities.intersection) {
-      return 0
-    }
-    return getCoveragePolygonsFromRegions(
-      backend.intersection(
-        toCoveragePolygonRegions(polygons),
-        legalRegions,
-        'nonzero'
-      )
-    ).reduce((total, polygon) => total + Math.abs(polygonArea(polygon)), 0)
-  } catch {
-    return 0
+  const previousEndpointAwayFromBody = normalizeVector({
+    x: plan.vertex.x - plan.previousContourPoint.x,
+    y: plan.vertex.y - plan.previousContourPoint.y
+  })
+  const nextEndpointAwayFromBody = normalizeVector({
+    x: plan.vertex.x - plan.nextContourPoint.x,
+    y: plan.vertex.y - plan.nextContourPoint.y
+  })
+  if (!previousEndpointAwayFromBody || !nextEndpointAwayFromBody) {
+    return polygons
   }
+
+  return cleanClippedProductPolygons(
+    polygons.flatMap((polygon) => {
+      let clipped = clipPolygonToEndpointOutwardExtent(
+        polygon,
+        plan.vertex,
+        previousEndpointAwayFromBody,
+        0
+      )
+      clipped = clipPolygonToEndpointOutwardExtent(
+        clipped,
+        plan.vertex,
+        nextEndpointAwayFromBody,
+        0
+      )
+      return hasPolygonGeometry(clipped) ? [clipped] : []
+    }),
+    {
+      cleanupMicroEdgeTolerance: CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+      cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+    }
+  )
+}
+
+const clipSourceVertexJoinPolygonsToButtTerminalExtents = (
+  polygons: Vec2[][],
+  plan: SourceVertexBoundaryJoinPlan,
+  stroke: Pick<RenderableStroke, 'cap' | 'width'>
+) => {
+  const endpointSuppressedPolygons =
+    clipSourceVertexJoinPolygonsToSuppressedEndpointSides(polygons, plan)
+  if (
+    stroke.cap !== 'butt' ||
+    endpointSuppressedPolygons.length === 0 ||
+    !plan.previousDashBodyPoint ||
+    !plan.nextDashBodyPoint
+  ) {
+    return endpointSuppressedPolygons
+  }
+
+  const strokePath = cleanBoundaryPath([
+    plan.previousDashBodyPoint,
+    plan.vertex,
+    plan.nextDashBodyPoint
+  ])
+  if (strokePath.length < 3) {
+    return endpointSuppressedPolygons
+  }
+
+  return clipCenterStrokeProductPolygonsToEndpointExtents(
+    endpointSuppressedPolygons,
+    strokePath,
+    stroke.cap,
+    stroke.width
+  )
 }
 
 const clipSourceVertexJoinPolygonsToOutsideLegalDomain = (
   polygons: Vec2[][],
-  legalRegions: PolygonRegion[]
+  legalRegions: PolygonRegion[],
+  options: {
+    cleanupConcaveNotchTolerance?: number
+  } = {}
 ) => {
   if (polygons.length === 0 || legalRegions.length === 0) {
     return polygons
@@ -7004,29 +11339,145 @@ const clipSourceVertexJoinPolygonsToOutsideLegalDomain = (
       return []
     }
 
-    return getCoveragePolygonsFromRegions(
-      backend.difference(
-        toCoveragePolygonRegions(polygons),
-        legalRegions,
-        'nonzero'
+    const cleanClippedPolygons = (subjectPolygons: Vec2[][]) =>
+      getCoveragePolygonsFromRegions(
+        backend.difference(
+          toCoveragePolygonRegions(subjectPolygons),
+          legalRegions,
+          'nonzero'
+        )
       )
-    )
-      .map((polygon) =>
-        cleanClippedProductPolygon(polygon, {
-          cleanupMicroEdgeTolerance: 0.001,
-          cleanupCollinearTolerance: 0.0001
-        })
-      )
-      .filter(hasPolygonGeometry)
+        .map((polygon) =>
+          cleanClippedProductPolygon(polygon, {
+            cleanupMicroEdgeTolerance: 0.001,
+            cleanupCollinearTolerance: 0.0001,
+            cleanupConcaveNotchTolerance:
+              options.cleanupConcaveNotchTolerance ?? 0
+          })
+        )
+        .filter(hasPolygonGeometry)
+
+    return cleanClippedPolygons(polygons)
   } catch {
     return []
   }
+}
+
+const buildSourceVertexSmoothDoubledCenterTerminalPolygons = (
+  plan: SourceVertexBoundaryJoinPlan,
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'> | null,
+  stroke: Pick<
+    RenderableStroke,
+    | 'position'
+    | 'width'
+    | 'join'
+    | 'miterAngle'
+    | 'miterLimit'
+    | 'cap'
+    | 'dash'
+    | 'gap'
+  >
+) => {
+  if (
+    plan.kind !== 'source-vertex' ||
+    stroke.position !== 'outside' ||
+    !sourcePath
+  ) {
+    return null
+  }
+
+  const sourceSegmentRanges = getSourcePathSegmentRanges(sourcePath)
+  const previousSegmentRange = sourceSegmentRanges[plan.previousSegmentIndex]
+  const nextSegmentRange = sourceSegmentRanges[plan.nextSegmentIndex]
+  if (!previousSegmentRange || !nextSegmentRange) {
+    return null
+  }
+
+  const vertexDistance =
+    plan.nextSegmentIndex === 0 && sourcePath.closed
+      ? sourcePath.totalLength
+      : previousSegmentRange.endDistance
+  const authoredHalfDashLength = Math.max(
+    (stroke.dash > 0 ? stroke.dash : stroke.width) / 2,
+    EPSILON
+  )
+  const smoothJoinReachDistance = Math.min(
+    authoredHalfDashLength,
+    Math.max(stroke.width, SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE)
+  )
+  const startDistance = sourcePath.closed
+    ? normalizeDistanceOnLoop(
+        vertexDistance - smoothJoinReachDistance,
+        sourcePath.totalLength
+      )
+    : Math.max(0, vertexDistance - smoothJoinReachDistance)
+  const endDistance = sourcePath.closed
+    ? normalizeDistanceOnLoop(
+        vertexDistance + smoothJoinReachDistance,
+        sourcePath.totalLength
+      )
+    : Math.min(sourcePath.totalLength, vertexDistance + smoothJoinReachDistance)
+  if (endDistance <= startDistance + EPSILON && !sourcePath.closed) {
+    return null
+  }
+  const strokePath =
+    endDistance >= startDistance || !sourcePath.closed
+      ? slicePathGeometryPoints(
+          sourcePath,
+          startDistance,
+          endDistance,
+          false,
+          SOURCE_PATH_DASH_SLICE_TOLERANCE,
+          SOURCE_PATH_DASH_SLICE_SAMPLING
+        )
+      : [
+          ...slicePathGeometryPoints(
+            sourcePath,
+            startDistance,
+            sourcePath.totalLength,
+            false,
+            SOURCE_PATH_DASH_SLICE_TOLERANCE,
+            SOURCE_PATH_DASH_SLICE_SAMPLING
+          ),
+          ...slicePathGeometryPoints(
+            sourcePath,
+            0,
+            endDistance,
+            false,
+            SOURCE_PATH_DASH_SLICE_TOLERANCE,
+            SOURCE_PATH_DASH_SLICE_SAMPLING
+          ).slice(1)
+        ]
+  if (strokePath.length < 2) {
+    return null
+  }
+
+  const doubledStrokeWidth = stroke.width * 2
+  const centerProductPolygons = buildSolidCenterStrokePolygons(
+    strokePath,
+    false,
+    {
+      style: 'solid',
+      position: 'center',
+      width: doubledStrokeWidth,
+      cap: 'butt',
+      // Smooth continuity informs the canonical source-vertex join footprint;
+      // terminal bodies own only dash bodies plus allowed body-side caps.
+      join: 'miter',
+      miterAngle: getStrokeMiterAngleForResolution(stroke),
+      miterLimit: stroke.miterLimit
+    }
+  ).filter(hasPolygonGeometry)
+  return centerProductPolygons.length > 0
+    ? normalizeCoveragePolygonsWinding(centerProductPolygons)
+    : null
 }
 
 const clipSourceVertexJoinPolygonsToInsideLegalDomain = (
   polygons: Vec2[][],
   legalRegions: PolygonRegion[],
   options: {
+    cacheOrigin?: Vec2
     legalModels?: LegalClipPolygonModel[]
     useResultCache?: boolean
   } = {}
@@ -7052,7 +11503,8 @@ const clipSourceVertexJoinPolygonsToInsideLegalDomain = (
         () =>
           buildSourceVertexJoinInsideLegalClipCacheKey(
             polygons,
-            relevantLegalRegions
+            relevantLegalRegions,
+            options.cacheOrigin
           )
       )
     : null
@@ -7113,232 +11565,6 @@ const clipSourceVertexJoinPolygonsToInsideLegalDomain = (
     return cacheResult([...containedPolygons, ...clippedPolygons])
   } catch {
     return cacheResult([])
-  }
-}
-
-const subtractSourceVertexJoinOppositeSidePolygons = (
-  polygons: Vec2[][],
-  oppositePolygons: Vec2[][]
-) => {
-  if (polygons.length === 0 || oppositePolygons.length === 0) {
-    return polygons
-  }
-
-  try {
-    const backend = getGeometryBackend()
-    if (!backend.capabilities.difference) {
-      return polygons
-    }
-    return getCoveragePolygonsFromRegions(
-      backend.difference(
-        toCoveragePolygonRegions(polygons),
-        toCoveragePolygonRegions(oppositePolygons),
-        'nonzero'
-      )
-    )
-      .map(cleanPolygon)
-      .filter(hasPolygonGeometry)
-  } catch {
-    return polygons
-  }
-}
-
-const buildOutsideLegalSideSourceVertexJoinPolygon = (
-  path: Pick<PathGeometry, 'segments' | 'closed'>,
-  previousSegmentIndex: number,
-  nextSegmentIndex: number,
-  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join' | 'miterLimit'>,
-  options: {
-    implicitFillRegions?: PolygonRegion[]
-    legalModels?: LegalClipPolygonModel[]
-    referencePoints?: Vec2[]
-  } = {}
-) => {
-  if (
-    (stroke.position !== 'inside' && stroke.position !== 'outside') ||
-    !options.implicitFillRegions ||
-    options.implicitFillRegions.length === 0
-  ) {
-    return {
-      polygons: buildSourceVertexJoinPolygon(
-        path,
-        previousSegmentIndex,
-        nextSegmentIndex,
-        stroke,
-        { referencePoints: options.referencePoints }
-      ),
-      oppositePolygons: []
-    }
-  }
-
-  const primaryOffset = getSourceVertexJoinOffsetDistance(stroke)
-  const boundaryCache: SourceVertexJoinBoundaryCache = new Map()
-  const candidateSets = measureStrokePipelinePhase(
-    'constrained dashed join: candidate polygons',
-    () =>
-      [primaryOffset, -primaryOffset]
-        .map((offset) => ({
-          offset,
-          polygons: buildSourceVertexJoinPolygonForOffset(
-            path,
-            previousSegmentIndex,
-            nextSegmentIndex,
-            stroke,
-            offset,
-            { boundaryCache }
-          )
-        }))
-        .filter((candidate) => candidate.polygons.length > 0)
-  )
-
-  if (candidateSets.length <= 1) {
-    return {
-      polygons: candidateSets[0]?.polygons ?? [],
-      oppositePolygons: []
-    }
-  }
-
-  const [selected, opposite] = measureStrokePipelinePhase(
-    'constrained dashed join: legal side select',
-    () => {
-      const referencePoints = options.referencePoints ?? []
-      if (referencePoints.length > 0) {
-        const rankedByReferencePoints = [...candidateSets].sort(
-          (left, right) =>
-            getPolygonsReferencePointDistance(left.polygons, referencePoints) -
-            getPolygonsReferencePointDistance(right.polygons, referencePoints)
-        )
-        const bestDistance = getPolygonsReferencePointDistance(
-          rankedByReferencePoints[0]?.polygons ?? [],
-          referencePoints
-        )
-        const nextDistance = getPolygonsReferencePointDistance(
-          rankedByReferencePoints[1]?.polygons ?? [],
-          referencePoints
-        )
-        if (
-          Number.isFinite(bestDistance) &&
-          nextDistance - bestDistance >
-            Math.max(0.05, Math.abs(primaryOffset) * 0.02)
-        ) {
-          return rankedByReferencePoints
-        }
-      }
-
-      return [...candidateSets].sort((left, right) => {
-        const leftLegalOverlap = getSourceVertexJoinLegalOverlapArea(
-          left.polygons,
-          options.implicitFillRegions ?? []
-        )
-        const rightLegalOverlap = getSourceVertexJoinLegalOverlapArea(
-          right.polygons,
-          options.implicitFillRegions ?? []
-        )
-        const overlapDelta =
-          stroke.position === 'inside'
-            ? rightLegalOverlap - leftLegalOverlap
-            : leftLegalOverlap - rightLegalOverlap
-        if (Math.abs(overlapDelta) > EPSILON) {
-          return overlapDelta
-        }
-        return (
-          getPolygonsReferencePointDistance(
-            left.polygons,
-            options.referencePoints ?? []
-          ) -
-          getPolygonsReferencePointDistance(
-            right.polygons,
-            options.referencePoints ?? []
-          )
-        )
-      })
-    }
-  )
-  const { oppositeTrimPolygons, selectedContinuityPolygons } =
-    measureStrokePipelinePhase(
-      'constrained dashed join: continuity trim',
-      () => {
-        const oppositeTrim =
-          stroke.join === 'miter' && opposite
-            ? buildSourceVertexJoinPolygonForOffset(
-                path,
-                previousSegmentIndex,
-                nextSegmentIndex,
-                {
-                  ...stroke,
-                  join: 'miter',
-                  miterLimit: Math.min(stroke.miterLimit, 2)
-                },
-                opposite.offset,
-                { boundaryCache }
-              )
-            : (opposite?.polygons ?? [])
-        const oppositeContinuityTrim =
-          stroke.join === 'miter' && opposite
-            ? buildSourceVertexJoinPolygonForOffset(
-                path,
-                previousSegmentIndex,
-                nextSegmentIndex,
-                {
-                  ...stroke,
-                  join: 'miter',
-                  miterLimit: Math.min(stroke.miterLimit, 1.75)
-                },
-                opposite.offset,
-                { boundaryCache }
-              )
-            : oppositeTrim
-        const rawSelectedContinuity = selected
-          ? buildSourceVertexJoinContinuityPolygonsForOffset(
-              path,
-              previousSegmentIndex,
-              nextSegmentIndex,
-              selected.offset,
-              stroke.join === 'round'
-                ? {
-                    continuityLength: Math.max(
-                      0.5,
-                      Math.abs(selected.offset) * 0.12
-                    ),
-                    boundaryCache
-                  }
-                : { boundaryCache }
-            )
-          : []
-        return {
-          oppositeTrimPolygons: oppositeTrim,
-          selectedContinuityPolygons:
-            stroke.join === 'miter' && oppositeTrim.length > 0
-              ? subtractSourceVertexJoinOppositeSidePolygons(
-                  rawSelectedContinuity,
-                  oppositeContinuityTrim
-                )
-              : rawSelectedContinuity
-        }
-      }
-    )
-  const continuityPolygons = selectedContinuityPolygons
-  const productPolygons = [...(selected?.polygons ?? []), ...continuityPolygons]
-  const legalProductPolygons = measureStrokePipelinePhase(
-    'constrained dashed join: legal clip',
-    () =>
-      stroke.position === 'outside'
-        ? clipSourceVertexJoinPolygonsToOutsideLegalDomain(
-            productPolygons,
-            options.implicitFillRegions ?? []
-          )
-        : stroke.position === 'inside'
-          ? clipSourceVertexJoinPolygonsToInsideLegalDomain(
-              productPolygons,
-              options.implicitFillRegions ?? [],
-              { legalModels: options.legalModels }
-            )
-          : productPolygons
-  )
-
-  return {
-    polygons: legalProductPolygons,
-    oppositePolygons: oppositeTrimPolygons
   }
 }
 
@@ -7489,7 +11715,12 @@ interface SourceVertexBoundaryTerminalRecord {
   endpoint: Vec2
   neighbor: Vec2
   sourceSegmentIndex: number
+  selectedSide: 1 | -1
   domainKey: string | undefined
+  outerBodyBoundaryEndpoint?: Vec2
+  outerBodyBoundaryVertices?: Vec2[]
+  bodySideOutlineSegment?: [Vec2, Vec2]
+  bodySideTangent?: Vec2
 }
 
 interface SourceVertexRecord {
@@ -7505,7 +11736,17 @@ interface SourceVertexBoundaryJoinPlan {
   previousSegmentIndex: number
   nextSegmentIndex: number
   vertex: Vec2
+  previousContourPoint: Vec2
+  nextContourPoint: Vec2
+  previousDashBodyPoint?: Vec2
+  nextDashBodyPoint?: Vec2
+  previousSeamBoundary?: SourceVertexJoinIncidentSeamBoundary
+  nextSeamBoundary?: SourceVertexJoinIncidentSeamBoundary
+  selectedSide: 1 | -1
+  domainKey: string | undefined
   intervals: [VisibleDashedTopologyInterval, VisibleDashedTopologyInterval]
+  previousTerminal: 'start' | 'end'
+  nextTerminal: 'start' | 'end'
   referencePoints: Vec2[]
   joinPath?: Pick<PathGeometry, 'segments' | 'closed'>
 }
@@ -7513,14 +11754,460 @@ interface SourceVertexBoundaryJoinPlan {
 interface SourceVertexBoundaryJoinRecord extends SourceVertexBoundaryJoinPlan {
   polygons: Vec2[][]
   oppositePolygons?: Vec2[][]
+  materializationKind?: 'join' | 'smooth-continuity-product'
+  stageBounds?: Record<string, Bounds | undefined>
+}
+
+type ResolvedStrokeJoin = NonNullable<
+  SolidCenterStrokeGeometryDebugMeta['resolvedJoin']
+>
+
+type AngleSource = NonNullable<
+  SolidCenterStrokeGeometryDebugMeta['angleSource']
+>
+
+const MITER_ANGLE_COMPARISON_EPSILON = 1e-6
+const DEFAULT_STROKE_MITER_ANGLE = 28.96
+
+type MiterAngleStrokeInput = Pick<RenderableStroke, 'join'> &
+  Partial<Pick<RenderableStroke, 'miterAngle'>>
+
+const getStrokeMiterAngleForResolution = (
+  stroke: Partial<Pick<RenderableStroke, 'miterAngle'>>
+) => stroke.miterAngle ?? DEFAULT_STROKE_MITER_ANGLE
+
+const getMiterAngleDistanceRatioForResolution = (
+  stroke: Partial<Pick<RenderableStroke, 'miterAngle'>>
+) => {
+  const miterAngle = getStrokeMiterAngleForResolution(stroke)
+  const halfAngle =
+    (Math.max(miterAngle, MITER_ANGLE_COMPARISON_EPSILON) * Math.PI) / 360
+  const ratio = 1 / Math.sin(halfAngle)
+  return Number.isFinite(ratio) ? Math.max(1, ratio) : Infinity
+}
+
+const getSourceDomainVertexAngle = (
+  record: Pick<
+    SourceVertexBoundaryJoinPlan,
+    'kind' | 'vertex' | 'previousContourPoint' | 'nextContourPoint'
+  >
+):
+  | {
+      vertexAngle: number
+      angleSource: AngleSource
+    }
+  | undefined => {
+  const previous = normalizeVector(
+    subtractPoint(record.previousContourPoint, record.vertex)
+  )
+  const next = normalizeVector(
+    subtractPoint(record.nextContourPoint, record.vertex)
+  )
+  if (!previous || !next) {
+    return undefined
+  }
+
+  const dot = Math.max(
+    -1,
+    Math.min(1, previous.x * next.x + previous.y * next.y)
+  )
+  return {
+    vertexAngle: (Math.acos(dot) * 180) / Math.PI,
+    angleSource:
+      record.kind === 'source-vertex'
+        ? 'AUTHORED_CENTER_PATH_INCIDENT_TANGENTS'
+        : 'CONTOUR_VISIT_INCIDENT_TANGENTS'
+  }
+}
+
+const buildJoinAngleComparisonEvidence = (
+  vertexAngle: number,
+  miterAngle: number
+): NonNullable<SolidCenterStrokeGeometryDebugMeta['angleComparison']> => {
+  const resolvesToBevel =
+    vertexAngle <= miterAngle + MITER_ANGLE_COMPARISON_EPSILON
+  return {
+    operator: resolvesToBevel ? '<=' : '>',
+    result: true,
+    epsilon: MITER_ANGLE_COMPARISON_EPSILON
+  }
+}
+
+const resolveMiterAngleJoin = (
+  record: Pick<
+    SourceVertexBoundaryJoinPlan,
+    'kind' | 'vertex' | 'previousContourPoint' | 'nextContourPoint'
+  >,
+  stroke: MiterAngleStrokeInput
+): {
+  authoredJoin: RenderableStroke['join']
+  resolvedJoin: ResolvedStrokeJoin
+  vertexAngle?: number
+  miterAngle?: number
+  angleSource?: AngleSource
+  angleComparison?: NonNullable<
+    SolidCenterStrokeGeometryDebugMeta['angleComparison']
+  >
+} => {
+  const miterAngle = getStrokeMiterAngleForResolution(stroke)
+  const angle = getSourceDomainVertexAngle(record)
+  const sourceDomainEvidence = angle
+    ? {
+        vertexAngle: angle.vertexAngle,
+        miterAngle,
+        angleSource: angle.angleSource,
+        angleComparison: buildJoinAngleComparisonEvidence(
+          angle.vertexAngle,
+          miterAngle
+        )
+      }
+    : {
+        miterAngle
+      }
+
+  if (stroke.join === 'bevel') {
+    return {
+      authoredJoin: 'bevel',
+      resolvedJoin: 'bevel',
+      ...sourceDomainEvidence
+    }
+  }
+
+  if (stroke.join === 'round') {
+    return {
+      authoredJoin: 'round',
+      resolvedJoin: 'round',
+      ...sourceDomainEvidence
+    }
+  }
+  if (!angle) {
+    return {
+      authoredJoin: 'miter',
+      resolvedJoin: 'degenerate-bevel',
+      miterAngle
+    }
+  }
+
+  const resolvesToBevel =
+    angle.vertexAngle <= miterAngle + MITER_ANGLE_COMPARISON_EPSILON
+  return {
+    authoredJoin: 'miter',
+    resolvedJoin: resolvesToBevel ? 'bevel-by-miter-angle' : 'miter',
+    vertexAngle: angle.vertexAngle,
+    miterAngle,
+    angleSource: angle.angleSource,
+    angleComparison: buildJoinAngleComparisonEvidence(
+      angle.vertexAngle,
+      miterAngle
+    )
+  }
+}
+
+type SourceVertexVisibleJoinResolution = NonNullable<
+  SolidCenterStrokeGeometryDebugMeta['joinResolution']
+>
+
+const resolveSourceVertexVisibleJoinResolution = (
+  record: SourceVertexBoundaryJoinRecord,
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join'> &
+    Partial<Pick<RenderableStroke, 'miterAngle'>>
+): SourceVertexVisibleJoinResolution | undefined => {
+  if (record.kind !== 'source-vertex') {
+    return undefined
+  }
+  const resolution = resolveMiterAngleJoin(record, stroke)
+
+  if (
+    resolution.resolvedJoin === 'miter' ||
+    resolution.resolvedJoin === 'bevel-by-miter-angle' ||
+    resolution.resolvedJoin === 'bevel' ||
+    resolution.resolvedJoin === 'round'
+  ) {
+    return resolution.resolvedJoin
+  }
+
+  if (resolution.resolvedJoin === 'degenerate-bevel') {
+    return 'degenerate-bevel'
+  }
+
+  return undefined
+}
+
+const collectSourceVertexMiterTerminalEndpointBoundaryPoints = (
+  record: SourceVertexBoundaryJoinRecord,
+  terminalBodyPolygons: Vec2[][],
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join'>
+) => {
+  if (
+    record.kind !== 'source-vertex' ||
+    stroke.position !== 'outside' ||
+    stroke.join !== 'miter' ||
+    record.stageBounds?.smoothContinuityEvidence !== undefined ||
+    terminalBodyPolygons.length === 0
+  ) {
+    return []
+  }
+
+  const previousTangent = normalizeVector(
+    subtractPoint(record.previousContourPoint, record.vertex)
+  )
+  const nextTangent = normalizeVector(
+    subtractPoint(record.nextContourPoint, record.vertex)
+  )
+  if (!previousTangent || !nextTangent) {
+    return []
+  }
+
+  const maxEndpointProjection = Math.max(
+    0.75,
+    Math.min(1.5, stroke.width * 0.15)
+  )
+  const maxEndpointDistance = Math.max(stroke.width + 1, stroke.width * 1.5)
+  const endpointPoints: Vec2[] = []
+  const seen = new Set<string>()
+  terminalBodyPolygons.flat().forEach((point) => {
+    const vertexVector = subtractPoint(point, record.vertex)
+    const distance = Math.hypot(vertexVector.x, vertexVector.y)
+    if (distance > maxEndpointDistance + EPSILON) {
+      return
+    }
+
+    const previousProjection = Math.abs(
+      vertexVector.x * previousTangent.x + vertexVector.y * previousTangent.y
+    )
+    const nextProjection = Math.abs(
+      vertexVector.x * nextTangent.x + vertexVector.y * nextTangent.y
+    )
+    if (
+      Math.min(previousProjection, nextProjection) >
+      maxEndpointProjection + EPSILON
+    ) {
+      return
+    }
+
+    const normalized = normalizePoint(point)
+    const key = `${formatTranslationInvariantCacheNumber(
+      normalized.x
+    )},${formatTranslationInvariantCacheNumber(normalized.y)}`
+    if (seen.has(key)) {
+      return
+    }
+    seen.add(key)
+    endpointPoints.push(normalized)
+  })
+
+  return endpointPoints
+}
+
+interface SourceVertexDescriptorExclusionWindow {
+  segmentIndex: number
+  startDistance: number
+  endDistance: number
+}
+
+const appendSourceVertexDescriptorExclusionWindow = (
+  windowsBySourceSegmentIndex: Map<
+    number,
+    SourceVertexDescriptorExclusionWindow[]
+  >,
+  segmentIndex: number,
+  startDistance: number,
+  endDistance: number
+) => {
+  if (endDistance <= startDistance + EPSILON) {
+    return
+  }
+
+  windowsBySourceSegmentIndex.set(segmentIndex, [
+    ...(windowsBySourceSegmentIndex.get(segmentIndex) ?? []),
+    {
+      segmentIndex,
+      startDistance,
+      endDistance
+    }
+  ])
+}
+
+const buildSourceVertexDescriptorExclusionWindowsBySourceSegmentIndex = (
+  sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  slicingContext: SourcePathSlicingContext,
+  plans: SourceVertexBoundaryJoinPlan[],
+  stroke: Pick<RenderableStroke, 'width' | 'cap'>
+) => {
+  const windowsBySourceSegmentIndex = new Map<
+    number,
+    SourceVertexDescriptorExclusionWindow[]
+  >()
+  const capReachDistance = stroke.cap === 'butt' ? 0 : stroke.width
+  const descriptorOverlapDistance = Math.max(
+    0.25,
+    Math.min(2, stroke.width * 0.1)
+  )
+  const cutReachDistance = capReachDistance + descriptorOverlapDistance
+  const appendWindowFromBodyPoint = (
+    segmentIndex: number,
+    bodyPoint: Vec2 | undefined,
+    terminal: 'start' | 'end'
+  ) => {
+    const sourceSegmentRange = slicingContext.segmentRanges[segmentIndex]
+    if (!sourceSegmentRange || !bodyPoint) {
+      return
+    }
+
+    const projectedBodyDistance = projectPointToSourceSegmentDistance(
+      sourcePath,
+      sourceSegmentRange,
+      slicingContext,
+      bodyPoint
+    )
+    if (projectedBodyDistance === null) {
+      return
+    }
+
+    const vertexDistance =
+      terminal === 'start'
+        ? sourceSegmentRange.startDistance
+        : sourceSegmentRange.endDistance
+    const windowStart =
+      terminal === 'start'
+        ? Math.max(
+            sourceSegmentRange.startDistance,
+            vertexDistance - descriptorOverlapDistance
+          )
+        : Math.max(
+            sourceSegmentRange.startDistance,
+            Math.min(projectedBodyDistance, vertexDistance) - cutReachDistance
+          )
+    const windowEnd =
+      terminal === 'start'
+        ? Math.min(
+            sourceSegmentRange.endDistance,
+            Math.max(projectedBodyDistance, vertexDistance) + cutReachDistance
+          )
+        : Math.min(
+            sourceSegmentRange.endDistance,
+            vertexDistance + descriptorOverlapDistance
+          )
+
+    appendSourceVertexDescriptorExclusionWindow(
+      windowsBySourceSegmentIndex,
+      segmentIndex,
+      windowStart,
+      windowEnd
+    )
+  }
+
+  plans
+    .filter((plan) => plan.kind === 'source-vertex')
+    .forEach((plan) => {
+      appendWindowFromBodyPoint(
+        plan.previousSegmentIndex,
+        plan.previousDashBodyPoint,
+        'end'
+      )
+      appendWindowFromBodyPoint(
+        plan.nextSegmentIndex,
+        plan.nextDashBodyPoint,
+        'start'
+      )
+    })
+
+  windowsBySourceSegmentIndex.forEach((windows, segmentIndex) => {
+    const sorted = windows
+      .slice()
+      .sort((left, right) => left.startDistance - right.startDistance)
+    const merged: SourceVertexDescriptorExclusionWindow[] = []
+    sorted.forEach((window) => {
+      const previous = merged[merged.length - 1]
+      if (!previous || window.startDistance > previous.endDistance + EPSILON) {
+        merged.push({ ...window })
+        return
+      }
+
+      previous.endDistance = Math.max(previous.endDistance, window.endDistance)
+    })
+    windowsBySourceSegmentIndex.set(segmentIndex, merged)
+  })
+
+  return windowsBySourceSegmentIndex
+}
+
+const subtractSourceVertexDescriptorExclusionWindows = (
+  ranges: SourceSegmentIntervalRange[],
+  windowsBySourceSegmentIndex: Map<
+    number,
+    SourceVertexDescriptorExclusionWindow[]
+  >
+) =>
+  ranges.flatMap((range) => {
+    const windows = windowsBySourceSegmentIndex.get(range.segmentIndex) ?? []
+    if (windows.length === 0) {
+      return [range]
+    }
+
+    let remainingRanges = [range]
+    windows.forEach((window) => {
+      remainingRanges = remainingRanges.flatMap((remainingRange) => {
+        if (
+          window.endDistance <= remainingRange.startDistance + EPSILON ||
+          window.startDistance >= remainingRange.endDistance - EPSILON
+        ) {
+          return [remainingRange]
+        }
+
+        const clippedRanges: SourceSegmentIntervalRange[] = []
+        const beforeEndDistance = Math.min(
+          remainingRange.endDistance,
+          window.startDistance
+        )
+        if (beforeEndDistance > remainingRange.startDistance + EPSILON) {
+          clippedRanges.push({
+            ...remainingRange,
+            endDistance: beforeEndDistance
+          })
+        }
+
+        const afterStartDistance = Math.max(
+          remainingRange.startDistance,
+          window.endDistance
+        )
+        if (remainingRange.endDistance > afterStartDistance + EPSILON) {
+          clippedRanges.push({
+            ...remainingRange,
+            startDistance: afterStartDistance
+          })
+        }
+
+        return clippedRanges
+      })
+    })
+
+    return remainingRanges
+  })
+
+interface SourceVertexTerminalIntervalOwnership {
+  effectiveSignature: string
+  intervalId: string
+  terminal: 'start' | 'end'
+  selectedSide: 1 | -1
+  domainKey: string | undefined
+  vertex: Vec2
+  sourceVertex: SourceVertexRecord
+  terminalRecord: SourceVertexBoundaryTerminalRecord
 }
 
 const sourceVertexBoundaryJoinRecordStageCache = new Map<
   string,
-  Pick<SourceVertexBoundaryJoinRecord, 'polygons' | 'oppositePolygons'>
+  Pick<
+    SourceVertexBoundaryJoinRecord,
+    'polygons' | 'oppositePolygons' | 'materializationKind' | 'stageBounds'
+  >
 >()
 
-const getCachedSourceVertexBoundaryJoinRecordStage = (cacheKey: string) => {
+const getCachedSourceVertexBoundaryJoinRecordStage = (
+  cacheKey: string,
+  origin: Vec2
+) => {
   const cached = sourceVertexBoundaryJoinRecordStageCache.get(cacheKey)
   if (!cached) {
     return null
@@ -7529,33 +12216,47 @@ const getCachedSourceVertexBoundaryJoinRecordStage = (cacheKey: string) => {
   sourceVertexBoundaryJoinRecordStageCache.delete(cacheKey)
   sourceVertexBoundaryJoinRecordStageCache.set(cacheKey, cached)
   emitStrokePipelineCounter('source-vertex-boundary-join-record-cache-hit')
+  emitDirtyOwnerStageDescriptorReuse('source-vertex-boundary-join-record')
   return {
-    polygons: cached.polygons.map((polygon) =>
-      polygon.map((point) => ({ ...point }))
-    ),
-    oppositePolygons: cached.oppositePolygons?.map((polygon) =>
-      polygon.map((point) => ({ ...point }))
+    polygons: translatePolygonsByDelta(cached.polygons, origin.x, origin.y),
+    oppositePolygons: cached.oppositePolygons
+      ? translatePolygonsByDelta(cached.oppositePolygons, origin.x, origin.y)
+      : undefined,
+    materializationKind: cached.materializationKind,
+    stageBounds: translateStageBoundsByDelta(
+      cached.stageBounds,
+      origin.x,
+      origin.y
     )
   }
 }
 
 const setCachedSourceVertexBoundaryJoinRecordStage = (
   cacheKey: string,
-  record: Pick<SourceVertexBoundaryJoinRecord, 'polygons' | 'oppositePolygons'>
+  origin: Vec2,
+  record: Pick<
+    SourceVertexBoundaryJoinRecord,
+    'polygons' | 'oppositePolygons' | 'materializationKind' | 'stageBounds'
+  >
 ) => {
   if (record.polygons.length === 0) {
     return
   }
 
   sourceVertexBoundaryJoinRecordStageCache.set(cacheKey, {
-    polygons: record.polygons.map((polygon) =>
-      polygon.map((point) => ({ ...point }))
-    ),
-    oppositePolygons: record.oppositePolygons?.map((polygon) =>
-      polygon.map((point) => ({ ...point }))
+    polygons: translatePolygonsByDelta(record.polygons, -origin.x, -origin.y),
+    oppositePolygons: record.oppositePolygons
+      ? translatePolygonsByDelta(record.oppositePolygons, -origin.x, -origin.y)
+      : undefined,
+    materializationKind: record.materializationKind,
+    stageBounds: translateStageBoundsByDelta(
+      record.stageBounds,
+      -origin.x,
+      -origin.y
     )
   })
   emitStrokePipelineCounter('source-vertex-boundary-join-record-cache-store')
+  emitDirtyOwnerStageDescriptorRecompute('source-vertex-boundary-join-record')
   if (
     sourceVertexBoundaryJoinRecordStageCache.size >
     SOURCE_VERTEX_BOUNDARY_JOIN_RECORD_CACHE_LIMIT
@@ -7614,7 +12315,8 @@ const getSourceVertexTurnAngle = (
 
 const getSourceVertexRecords = (
   path: Pick<PathGeometry, 'segments' | 'closed'>,
-  boundaryCache?: SourceVertexJoinBoundaryCache
+  boundaryCache?: SourceVertexJoinBoundaryCache,
+  includeAuthoredSmoothBoundaries = false
 ) => {
   if (path.segments.length < 2) {
     return []
@@ -7635,14 +12337,27 @@ const getSourceVertexRecords = (
       return []
     }
 
-    if (
-      isAuthoredSourceBoundarySmooth(
-        path,
-        previousSegmentIndex,
-        nextSegmentIndex
-      )
-    ) {
+    const authoredSmoothBoundary = isAuthoredSourceBoundarySmooth(
+      path,
+      previousSegmentIndex,
+      nextSegmentIndex
+    )
+    const smoothContinuityBoundary =
+      authoredSmoothBoundary ||
+      isSourceBoundarySmooth(path, previousSegmentIndex, nextSegmentIndex)
+    if (!includeAuthoredSmoothBoundaries && smoothContinuityBoundary) {
       return []
+    }
+
+    if (includeAuthoredSmoothBoundaries && smoothContinuityBoundary) {
+      return [
+        {
+          vertexIndex: nextSegmentIndex,
+          previousSegmentIndex,
+          nextSegmentIndex,
+          vertex: normalizePoint(segment.end)
+        }
+      ]
     }
 
     const turnAngle = getSourceVertexTurnAngle(
@@ -7672,6 +12387,857 @@ const getBoundaryDomainJoinDomainKey = (
   getBoundaryDomainFaceKey(interval.domainPlanBoundaryDomainId) ??
   interval.domainPlanBoundaryDomainId
 
+const toSourceVertexJoinSelectedSide = (
+  selectedSide: 1 | -1
+): SourceVertexJoinIncidentSeamBoundary['selectedSide'] =>
+  selectedSide === 1 ? 'left' : 'right'
+
+const getSeamBoundaryBodySideTangent = (
+  seamPoint: Vec2,
+  bodySideReferencePoint: Vec2 | undefined
+): Vec2 => {
+  const tangent = bodySideReferencePoint
+    ? normalizeVector(subtractPoint(bodySideReferencePoint, seamPoint))
+    : null
+  return tangent ?? { x: 0, y: 0 }
+}
+
+const buildSourceVertexJoinIncidentSeamBoundary = (params: {
+  sourceVertex: Pick<SourceVertexRecord, 'vertexIndex' | 'vertex'>
+  terminalRecord: SourceVertexBoundaryTerminalRecord
+  seamRole: 'previous' | 'next'
+  seamPoint: Vec2 | undefined
+  bodySideReferencePoint?: Vec2
+  selectedSide: 1 | -1
+}): SourceVertexJoinIncidentSeamBoundary | undefined => {
+  if (!params.seamPoint) {
+    return undefined
+  }
+
+  const endpointCapPolicy = buildDashEndpointCapPolicyFromSuppression(
+    params.terminalRecord.terminal === 'start',
+    params.terminalRecord.terminal === 'end'
+  )
+  const splitRangeId =
+    params.terminalRecord.interval.domainPlanSplitRangeId ??
+    params.terminalRecord.interval.intervalId
+  const seamBoundaryId = [
+    'source-vertex-seam',
+    params.sourceVertex.vertexIndex,
+    params.seamRole,
+    params.terminalRecord.interval.intervalId,
+    splitRangeId ?? 'no-split-range'
+  ].join(':')
+  const outerBodyBoundaryTerminalPoint = getBoundaryDomainTerminalPoint(
+    params.terminalRecord.interval,
+    params.terminalRecord.terminal
+  )
+  const outerBodyBoundaryEndpoint = normalizePoint(
+    params.terminalRecord.outerBodyBoundaryEndpoint ??
+      outerBodyBoundaryTerminalPoint?.endpoint ??
+      params.seamPoint
+  )
+  const outerBodyBoundaryNeighbor = normalizePoint(
+    params.terminalRecord.bodySideOutlineSegment?.[1] ??
+      outerBodyBoundaryTerminalPoint?.neighbor ??
+      params.bodySideReferencePoint ??
+      params.seamPoint
+  )
+  const bodySideOutlineSegment: [Vec2, Vec2] = params.terminalRecord
+    .bodySideOutlineSegment ?? [
+    outerBodyBoundaryEndpoint,
+    outerBodyBoundaryNeighbor
+  ]
+
+  return {
+    seamBoundaryId,
+    intervalId: params.terminalRecord.interval.intervalId,
+    splitRangeId,
+    splitRangeAliasIds:
+      params.terminalRecord.interval.domainPlanSplitRangeAliasIds,
+    side: params.seamRole,
+    point: normalizePoint(params.seamPoint),
+    pointId: `${seamBoundaryId}:terminal-point`,
+    outerBodyBoundaryEndpoint,
+    outerBodyBoundaryEndpointId: `${seamBoundaryId}:outer-body-boundary-endpoint`,
+    outerBodyBoundaryVertices:
+      params.terminalRecord.outerBodyBoundaryVertices?.map(normalizePoint) ?? [
+        outerBodyBoundaryEndpoint,
+        outerBodyBoundaryNeighbor
+      ],
+    bodySideOutlineSegment,
+    bodySideOutlineSegmentId: `${seamBoundaryId}:body-side-outline-segment`,
+    bodySideTangent:
+      params.terminalRecord.bodySideTangent ??
+      getSeamBoundaryBodySideTangent(
+        bodySideOutlineSegment[0],
+        bodySideOutlineSegment[1]
+      ),
+    selectedSide: toSourceVertexJoinSelectedSide(params.selectedSide),
+    terminalRole: params.terminalRecord.terminal,
+    endpointCapPolicySignature: endpointCapPolicy.signature,
+    capSuppressed:
+      params.terminalRecord.terminal === 'start'
+        ? endpointCapPolicy.suppressStartCap
+        : endpointCapPolicy.suppressEndCap,
+    sourceSegmentIndex: params.terminalRecord.sourceSegmentIndex
+  }
+}
+
+const getIncidentSeamBoundaryIntervalCandidateIds = (
+  boundary: SourceVertexJoinIncidentSeamBoundary
+) =>
+  uniqueStrings([
+    boundary.intervalId,
+    ...(boundary.splitRangeAliasIds ?? []),
+    ...(boundary.splitRangeId?.match(/interval:\d+/g) ?? [])
+  ])
+
+const isPacketEligibleForIncidentDashBodySeam = (
+  packet: SolidCenterStrokeResolvedPacket
+) => {
+  const contributor = packet.geometry.debugMeta?.visibleContributor
+  return (
+    contributor === 'dash-interval-body' ||
+    contributor === 'terminal-interval-body'
+  )
+}
+
+const getIncidentDashBodySeamPacketPriority = (
+  packet: SolidCenterStrokeResolvedPacket
+) => {
+  switch (packet.geometry.debugMeta?.visibleContributor) {
+    case 'dash-interval-body':
+      return 0
+    case 'terminal-interval-body':
+      return 1
+    default:
+      return 2
+  }
+}
+
+const getIncidentDashBodySeamPacketIntervalIds = (
+  packet: SolidCenterStrokeResolvedPacket
+) =>
+  uniqueStrings([
+    ...getPacketIntervalIds(packet),
+    ...(packet.geometry.debugMeta?.dashProductIntervals?.map(
+      (interval) => interval.intervalId
+    ) ?? [])
+  ])
+
+const getPolygonAveragePoint = (polygon: Vec2[]) => {
+  const total = polygon.reduce(
+    (sum, point) => ({
+      x: sum.x + point.x,
+      y: sum.y + point.y
+    }),
+    { x: 0, y: 0 }
+  )
+  return {
+    x: total.x / polygon.length,
+    y: total.y / polygon.length
+  }
+}
+
+type DashBodySeamBoundaryArtifact = NonNullable<
+  SolidCenterStrokeGeometryDebugMeta['dashBodySeamBoundaries']
+>[number]
+
+const getSourceNearOuterBoundaryEdgeFromProductPolygons = (
+  polygons: Vec2[][],
+  sourceVertex: Vec2,
+  directionHint?: Vec2
+):
+  | {
+      sourceNearPoint: Vec2
+      outerEndpoint: Vec2
+      bodySideNeighbor: Vec2
+      polygon: Vec2[]
+    }
+  | undefined => {
+  const cleanedPolygons = polygons
+    .map((polygon) => cleanPolygon(polygon.map(normalizePoint)))
+    .filter(hasPolygonGeometry)
+  if (cleanedPolygons.length === 0) {
+    return undefined
+  }
+
+  const candidatePolygons =
+    directionHint && cleanedPolygons.length > 1
+      ? [
+          cleanedPolygons.reduce((bestPolygon, polygon) => {
+            const polygonDirection = normalizeVector(
+              subtractPoint(getPolygonAveragePoint(polygon), sourceVertex)
+            )
+            const bestDirection = normalizeVector(
+              subtractPoint(getPolygonAveragePoint(bestPolygon), sourceVertex)
+            )
+            const polygonScore = polygonDirection
+              ? polygonDirection.x * directionHint.x +
+                polygonDirection.y * directionHint.y
+              : Number.NEGATIVE_INFINITY
+            const bestScore = bestDirection
+              ? bestDirection.x * directionHint.x +
+                bestDirection.y * directionHint.y
+              : Number.NEGATIVE_INFINITY
+            return polygonScore > bestScore ? polygon : bestPolygon
+          })
+        ]
+      : cleanedPolygons
+
+  let best:
+    | {
+        sourceNearPoint: Vec2
+        outerEndpoint: Vec2
+        bodySideNeighbor: Vec2
+        polygon: Vec2[]
+        score: number
+      }
+    | undefined
+
+  candidatePolygons.forEach((polygon) => {
+    let sourceNearIndex = 0
+    let sourceNearDistance = Number.POSITIVE_INFINITY
+    polygon.forEach((point, index) => {
+      const candidateDistance = distanceBetween(point, sourceVertex)
+      if (candidateDistance < sourceNearDistance) {
+        sourceNearIndex = index
+        sourceNearDistance = candidateDistance
+      }
+    })
+
+    const sourceNearPoint = polygon[sourceNearIndex]
+    if (!sourceNearPoint) {
+      return
+    }
+
+    const adjacentEndpointCandidates = [
+      {
+        point: polygon[(sourceNearIndex - 1 + polygon.length) % polygon.length],
+        index: (sourceNearIndex - 1 + polygon.length) % polygon.length
+      },
+      {
+        point: polygon[(sourceNearIndex + 1) % polygon.length],
+        index: (sourceNearIndex + 1) % polygon.length
+      }
+    ].filter(
+      (candidate): candidate is { point: Vec2; index: number } =>
+        candidate.point !== undefined &&
+        distanceBetween(candidate.point, sourceNearPoint) > EPSILON
+    )
+
+    adjacentEndpointCandidates.forEach((candidate) => {
+      const previousNeighbor =
+        polygon[(candidate.index - 1 + polygon.length) % polygon.length]
+      const nextNeighbor = polygon[(candidate.index + 1) % polygon.length]
+      const bodySideNeighbor =
+        [previousNeighbor, nextNeighbor]
+          .filter(
+            (point): point is Vec2 =>
+              point !== undefined &&
+              distanceBetween(point, sourceNearPoint) > EPSILON
+          )
+          .slice()
+          .sort(
+            (left, right) =>
+              distanceBetween(right, sourceVertex) -
+              distanceBetween(left, sourceVertex)
+          )[0] ?? sourceNearPoint
+      const endpointSourceDistance = distanceBetween(
+        candidate.point,
+        sourceVertex
+      )
+      const score = sourceNearDistance * 1_000_000 - endpointSourceDistance
+      if (!best || score < best.score) {
+        best = {
+          sourceNearPoint,
+          outerEndpoint: candidate.point,
+          bodySideNeighbor,
+          polygon,
+          score
+        }
+      }
+    })
+  })
+
+  return best
+    ? {
+        sourceNearPoint: normalizePoint(best.sourceNearPoint),
+        outerEndpoint: normalizePoint(best.outerEndpoint),
+        bodySideNeighbor: normalizePoint(best.bodySideNeighbor),
+        polygon: best.polygon.map(normalizePoint)
+      }
+    : undefined
+}
+
+const buildDashBodySeamBoundaryArtifactsForInterval = (params: {
+  interval: VisibleDashedTopologyInterval
+  plans: SourceVertexBoundaryJoinPlan[]
+  emittedProductPolygons: Vec2[][]
+  endpointCapPolicy: DashEndpointCapPolicy
+}): DashBodySeamBoundaryArtifact[] => {
+  const artifacts = new Map<string, DashBodySeamBoundaryArtifact>()
+  params.plans.forEach((plan) => {
+    const planSides = [
+      {
+        side: 'previous' as const,
+        interval: plan.intervals[0],
+        terminal: plan.previousTerminal,
+        dashBodyPoint: plan.previousDashBodyPoint,
+        sourceSegmentIndex: plan.previousSegmentIndex
+      },
+      {
+        side: 'next' as const,
+        interval: plan.intervals[1],
+        terminal: plan.nextTerminal,
+        dashBodyPoint: plan.nextDashBodyPoint,
+        sourceSegmentIndex: plan.nextSegmentIndex
+      }
+    ]
+
+    planSides.forEach((planSide) => {
+      if (planSide.interval?.intervalId !== params.interval.intervalId) {
+        return
+      }
+      const splitRangeId =
+        params.interval.domainPlanSplitRangeId ?? params.interval.intervalId
+      const seamBoundaryId = [
+        'source-vertex-seam',
+        plan.vertexIndex,
+        planSide.side,
+        params.interval.intervalId,
+        splitRangeId
+      ].join(':')
+      const directionHint = planSide.dashBodyPoint
+        ? (normalizeVector(
+            subtractPoint(planSide.dashBodyPoint, plan.vertex)
+          ) ?? undefined)
+        : undefined
+      const terminalEdge = getSourceNearOuterBoundaryEdgeFromProductPolygons(
+        params.emittedProductPolygons,
+        plan.vertex,
+        directionHint
+      )
+      if (!terminalEdge) {
+        return
+      }
+
+      const bodySideOutlineSegment: [Vec2, Vec2] = [
+        terminalEdge.outerEndpoint,
+        terminalEdge.bodySideNeighbor
+      ]
+      artifacts.set(seamBoundaryId, {
+        seamBoundaryId,
+        intervalId: params.interval.intervalId,
+        splitRangeId,
+        splitRangeAliasIds: params.interval.domainPlanSplitRangeAliasIds,
+        side: planSide.side,
+        point: terminalEdge.sourceNearPoint,
+        pointId: `${seamBoundaryId}:terminal-point`,
+        outerBodyBoundaryEndpoint: terminalEdge.outerEndpoint,
+        outerBodyBoundaryEndpointId: `${seamBoundaryId}:outer-body-boundary-endpoint`,
+        outerBodyBoundaryVertices: terminalEdge.polygon,
+        bodySideOutlineSegment,
+        bodySideOutlineSegmentId: `${seamBoundaryId}:body-side-outline-segment`,
+        bodySideTangent: getSeamBoundaryBodySideTangent(
+          bodySideOutlineSegment[0],
+          bodySideOutlineSegment[1]
+        ),
+        selectedSide: toSourceVertexJoinSelectedSide(plan.selectedSide),
+        terminalRole: planSide.terminal,
+        endpointCapPolicySignature: params.endpointCapPolicy.signature,
+        capSuppressed:
+          planSide.terminal === 'start'
+            ? params.endpointCapPolicy.suppressStartCap
+            : params.endpointCapPolicy.suppressEndCap,
+        sourceSegmentIndex: planSide.sourceSegmentIndex
+      })
+    })
+  })
+
+  return Array.from(artifacts.values())
+}
+
+const extractIncidentDashBodySeamBoundary = (
+  boundary: SourceVertexJoinIncidentSeamBoundary,
+  sourceVertex: Vec2,
+  packets: SolidCenterStrokeResolvedPacket[],
+  context: {
+    strokePosition?: RenderableStroke['position']
+    legalRegions?: PolygonRegion[]
+  } = {}
+):
+  | Pick<
+      SourceVertexJoinIncidentSeamBoundary,
+      | 'point'
+      | 'pointId'
+      | 'outerBodyBoundaryEndpoint'
+      | 'outerBodyBoundaryEndpointId'
+      | 'outerBodyBoundaryVertices'
+      | 'bodySideOutlineSegment'
+      | 'bodySideOutlineSegmentId'
+      | 'bodySideTangent'
+    >
+  | undefined => {
+  const candidateIntervalIds =
+    getIncidentSeamBoundaryIntervalCandidateIds(boundary)
+  const candidateIntervalIdSet = new Set(candidateIntervalIds)
+  const artifact = packets
+    .slice()
+    .sort(
+      (left, right) =>
+        getIncidentDashBodySeamPacketPriority(left) -
+        getIncidentDashBodySeamPacketPriority(right)
+    )
+    .flatMap(
+      (packet) => packet.geometry.debugMeta?.dashBodySeamBoundaries ?? []
+    )
+    .find((candidate) => {
+      if (!candidateIntervalIdSet.has(candidate.intervalId)) {
+        return false
+      }
+      if (candidate.side !== boundary.side) {
+        return false
+      }
+      if (
+        boundary.sourceSegmentIndex !== undefined &&
+        candidate.sourceSegmentIndex !== undefined &&
+        boundary.sourceSegmentIndex !== candidate.sourceSegmentIndex
+      ) {
+        return false
+      }
+      return true
+    })
+  if (artifact) {
+    return {
+      point: artifact.point,
+      pointId: artifact.pointId,
+      outerBodyBoundaryEndpoint: artifact.outerBodyBoundaryEndpoint,
+      outerBodyBoundaryEndpointId: artifact.outerBodyBoundaryEndpointId,
+      outerBodyBoundaryVertices: artifact.outerBodyBoundaryVertices,
+      bodySideOutlineSegment: artifact.bodySideOutlineSegment,
+      bodySideOutlineSegmentId: artifact.bodySideOutlineSegmentId,
+      bodySideTangent: artifact.bodySideTangent
+    }
+  }
+  const boundaryAnchor = normalizePoint(
+    boundary.outerBodyBoundaryEndpoint ?? boundary.point
+  )
+  const boundaryAnchorDirection = normalizeVector(
+    subtractPoint(boundaryAnchor, sourceVertex)
+  )
+  const boundaryTangent = normalizeVector(boundary.bodySideTangent)
+  const hasLegalRegions =
+    (context.strokePosition === 'inside' ||
+      context.strokePosition === 'outside') &&
+    (context.legalRegions?.length ?? 0) > 0
+  const isLegalEndpoint = (endpoint: Vec2) => {
+    if (!hasLegalRegions || !context.legalRegions) {
+      return true
+    }
+    const insideFill = isPointInsidePolygonRegions(
+      endpoint,
+      context.legalRegions
+    )
+    return context.strokePosition === 'inside' ? insideFill : !insideFill
+  }
+  let best:
+    | {
+        endpoint: Vec2
+        neighbor: Vec2
+        polygon: Vec2[]
+        score: number
+      }
+    | undefined
+  let bestSourceFacingTerminal:
+    | {
+        endpoint: Vec2
+        neighbor: Vec2
+        polygon: Vec2[]
+        score: number
+      }
+    | undefined
+
+  packets.forEach((packet) => {
+    if (!isPacketEligibleForIncidentDashBodySeam(packet)) {
+      return
+    }
+    if (
+      !getIncidentDashBodySeamPacketIntervalIds(packet).some((intervalId) =>
+        candidateIntervalIdSet.has(intervalId)
+      )
+    ) {
+      return
+    }
+
+    const packetPriority = getIncidentDashBodySeamPacketPriority(packet)
+    packet.geometry.polygons
+      .map((polygon) => cleanPolygon(polygon.map(normalizePoint)))
+      .filter(hasPolygonGeometry)
+      .forEach((polygon) => {
+        let sourceNearIndex = 0
+        let sourceNearDistance = Number.POSITIVE_INFINITY
+        polygon.forEach((point, index) => {
+          const candidateDistance = distanceBetween(point, sourceVertex)
+          if (candidateDistance < sourceNearDistance) {
+            sourceNearIndex = index
+            sourceNearDistance = candidateDistance
+          }
+        })
+        const sourceNearPoint = polygon[sourceNearIndex]
+        const sourceNearAdjacentCandidates = [
+          {
+            endpoint:
+              polygon[(sourceNearIndex - 1 + polygon.length) % polygon.length],
+            endpointIndex:
+              (sourceNearIndex - 1 + polygon.length) % polygon.length
+          },
+          {
+            endpoint: polygon[(sourceNearIndex + 1) % polygon.length],
+            endpointIndex: (sourceNearIndex + 1) % polygon.length
+          }
+        ].filter(
+          (
+            candidate
+          ): candidate is {
+            endpoint: Vec2
+            endpointIndex: number
+          } => candidate.endpoint !== undefined
+        )
+        const sourceFacingTerminalEndpoint =
+          sourceNearPoint && sourceNearAdjacentCandidates.length > 0
+            ? sourceNearAdjacentCandidates
+                .slice()
+                .sort(
+                  (left, right) =>
+                    distanceBetween(right.endpoint, sourceVertex) -
+                    distanceBetween(left.endpoint, sourceVertex)
+                )[0]
+            : undefined
+        if (
+          sourceNearPoint &&
+          sourceFacingTerminalEndpoint &&
+          distanceBetween(
+            sourceNearPoint,
+            sourceFacingTerminalEndpoint.endpoint
+          ) > EPSILON
+        ) {
+          const previousNeighbor =
+            polygon[
+              (sourceFacingTerminalEndpoint.endpointIndex -
+                1 +
+                polygon.length) %
+                polygon.length
+            ]
+          const nextNeighbor =
+            polygon[
+              (sourceFacingTerminalEndpoint.endpointIndex + 1) % polygon.length
+            ]
+          const bodySideNeighborCandidates = [
+            previousNeighbor,
+            nextNeighbor
+          ].filter(
+            (point): point is Vec2 =>
+              point !== undefined &&
+              distanceBetween(point, sourceNearPoint) > EPSILON
+          )
+          const bodySideNeighbor =
+            bodySideNeighborCandidates
+              .slice()
+              .sort(
+                (left, right) =>
+                  distanceBetween(right, sourceVertex) -
+                  distanceBetween(left, sourceVertex)
+              )[0] ?? sourceNearPoint
+          const endpoint = sourceFacingTerminalEndpoint.endpoint
+          const endpointLegalPenalty = isLegalEndpoint(endpoint) ? 0 : 100_000
+          const endpointSourceDistance = distanceBetween(endpoint, sourceVertex)
+          const polygonCenter = getPolygonAveragePoint(polygon)
+          const polygonDirection = normalizeVector(
+            subtractPoint(polygonCenter, sourceVertex)
+          )
+          const directionPenalty =
+            boundaryAnchorDirection && polygonDirection
+              ? (1 -
+                  Math.max(
+                    -1,
+                    Math.min(
+                      1,
+                      polygonDirection.x * boundaryAnchorDirection.x +
+                        polygonDirection.y * boundaryAnchorDirection.y
+                    )
+                  )) *
+                1_000_000
+              : 0
+          const score =
+            packetPriority * 1_000_000_000 +
+            endpointLegalPenalty +
+            directionPenalty +
+            sourceNearDistance * 1_000 -
+            endpointSourceDistance
+          if (
+            !bestSourceFacingTerminal ||
+            score < bestSourceFacingTerminal.score
+          ) {
+            bestSourceFacingTerminal = {
+              endpoint,
+              neighbor: bodySideNeighbor,
+              polygon,
+              score
+            }
+          }
+        }
+
+        polygon.forEach((point, index) => {
+          const nextPoint = polygon[(index + 1) % polygon.length]
+          if (!nextPoint || distanceBetween(point, nextPoint) <= EPSILON) {
+            return
+          }
+          const pointAnchorDistance = distanceBetween(point, boundaryAnchor)
+          const nextAnchorDistance = distanceBetween(nextPoint, boundaryAnchor)
+          const endpointAnchorDistance = Math.min(
+            pointAnchorDistance,
+            nextAnchorDistance
+          )
+          const endpointCandidates = [
+            { endpoint: point, neighbor: nextPoint },
+            { endpoint: nextPoint, neighbor: point }
+          ]
+
+          endpointCandidates.forEach(({ endpoint, neighbor }) => {
+            const endpointLegalPenalty = isLegalEndpoint(endpoint) ? 0 : 100_000
+            const endpointSourceDistance = distanceBetween(
+              endpoint,
+              sourceVertex
+            )
+            const candidateTangent =
+              normalizeVector(subtractPoint(endpoint, neighbor)) ??
+              normalizeVector(subtractPoint(neighbor, endpoint))
+            const tangentPenalty =
+              boundaryTangent && candidateTangent
+                ? (1 -
+                    Math.max(
+                      -1,
+                      Math.min(
+                        1,
+                        candidateTangent.x * boundaryTangent.x +
+                          candidateTangent.y * boundaryTangent.y
+                      )
+                    )) *
+                  10_000
+                : 0
+            const score =
+              packetPriority * 1_000_000 +
+              endpointLegalPenalty +
+              tangentPenalty +
+              endpointAnchorDistance * 1_000 +
+              endpointSourceDistance
+            if (!best || score < best.score) {
+              best = {
+                endpoint,
+                neighbor,
+                polygon,
+                score
+              }
+            }
+          })
+        })
+      })
+  })
+
+  if (bestSourceFacingTerminal) {
+    const bodyBoundaryEndpoint = normalizePoint(
+      bestSourceFacingTerminal.endpoint
+    )
+    const bodySideOutlineSegment: [Vec2, Vec2] = [
+      bodyBoundaryEndpoint,
+      normalizePoint(bestSourceFacingTerminal.neighbor)
+    ]
+    return {
+      point: boundary.point,
+      pointId: boundary.pointId,
+      outerBodyBoundaryEndpoint: bodyBoundaryEndpoint,
+      outerBodyBoundaryEndpointId: boundary.outerBodyBoundaryEndpointId,
+      outerBodyBoundaryVertices:
+        bestSourceFacingTerminal.polygon.map(normalizePoint),
+      bodySideOutlineSegment,
+      bodySideOutlineSegmentId: boundary.bodySideOutlineSegmentId,
+      bodySideTangent: getSeamBoundaryBodySideTangent(
+        bodySideOutlineSegment[0],
+        bodySideOutlineSegment[1]
+      )
+    }
+  }
+
+  if (!best) {
+    return undefined
+  }
+
+  const bodyBoundaryEndpoint = normalizePoint(best.endpoint)
+  const outerBodyBoundaryEndpoint = bodyBoundaryEndpoint
+  const bodySideOutlineSegment: [Vec2, Vec2] = [
+    bodyBoundaryEndpoint,
+    normalizePoint(best.neighbor)
+  ]
+  return {
+    point: boundary.point,
+    pointId: boundary.pointId,
+    outerBodyBoundaryEndpoint,
+    outerBodyBoundaryEndpointId: boundary.outerBodyBoundaryEndpointId,
+    outerBodyBoundaryVertices: best.polygon.map(normalizePoint),
+    bodySideOutlineSegment,
+    bodySideOutlineSegmentId: boundary.bodySideOutlineSegmentId,
+    bodySideTangent: getSeamBoundaryBodySideTangent(
+      bodySideOutlineSegment[0],
+      bodySideOutlineSegment[1]
+    )
+  }
+}
+
+const refineSourceVertexBoundaryJoinPlansWithDashBodySeamArtifacts = (
+  plans: SourceVertexBoundaryJoinPlan[],
+  packets: SolidCenterStrokeResolvedPacket[],
+  context: {
+    strokePosition?: RenderableStroke['position']
+    legalRegions?: PolygonRegion[]
+  } = {}
+) => {
+  if (plans.length === 0 || packets.length === 0) {
+    return plans
+  }
+
+  const refineBoundary = (
+    boundary: SourceVertexJoinIncidentSeamBoundary | undefined,
+    sourceVertex: Vec2
+  ): SourceVertexJoinIncidentSeamBoundary | undefined => {
+    if (!boundary) {
+      return boundary
+    }
+    const seamBoundary = extractIncidentDashBodySeamBoundary(
+      boundary,
+      sourceVertex,
+      packets,
+      context
+    )
+    return seamBoundary
+      ? {
+          ...boundary,
+          ...seamBoundary
+        }
+      : undefined
+  }
+
+  return plans.map((plan) => ({
+    ...plan,
+    previousSeamBoundary: refineBoundary(
+      plan.previousSeamBoundary,
+      plan.vertex
+    ),
+    nextSeamBoundary: refineBoundary(plan.nextSeamBoundary, plan.vertex)
+  }))
+}
+
+const buildPlannedSourceVertexJoinIncidentSeamBoundary = (
+  plan: SourceVertexBoundaryJoinPlan,
+  side: 'previous' | 'next'
+): SourceVertexJoinIncidentSeamBoundary | undefined => {
+  if (plan.kind !== 'source-vertex') {
+    return undefined
+  }
+  const interval = side === 'previous' ? plan.intervals[0] : plan.intervals[1]
+  const terminal =
+    side === 'previous' ? plan.previousTerminal : plan.nextTerminal
+  const dashBodyPoint =
+    side === 'previous' ? plan.previousDashBodyPoint : plan.nextDashBodyPoint
+  const bodyReferencePoint =
+    side === 'previous' ? plan.previousContourPoint : plan.nextContourPoint
+  if (!interval || !dashBodyPoint || !bodyReferencePoint) {
+    return undefined
+  }
+
+  const endpointCapPolicy = buildDashEndpointCapPolicyFromSuppression(
+    terminal === 'start',
+    terminal === 'end'
+  )
+  const splitRangeId = interval.domainPlanSplitRangeId ?? interval.intervalId
+  const outerBodyBoundaryEndpoint = normalizePoint(dashBodyPoint)
+  const bodySideOutlineSegment: [Vec2, Vec2] = [
+    outerBodyBoundaryEndpoint,
+    normalizePoint(bodyReferencePoint)
+  ]
+  return {
+    seamBoundaryId: [
+      'source-vertex-seam',
+      plan.vertexIndex,
+      side,
+      interval.intervalId,
+      splitRangeId,
+      'planned-dash-body'
+    ].join(':'),
+    intervalId: interval.intervalId,
+    splitRangeId,
+    splitRangeAliasIds: interval.domainPlanSplitRangeAliasIds,
+    side,
+    point: outerBodyBoundaryEndpoint,
+    pointId: `${[
+      'source-vertex-seam',
+      plan.vertexIndex,
+      side,
+      interval.intervalId,
+      splitRangeId,
+      'planned-dash-body'
+    ].join(':')}:terminal-point`,
+    outerBodyBoundaryEndpoint,
+    outerBodyBoundaryEndpointId: `${[
+      'source-vertex-seam',
+      plan.vertexIndex,
+      side,
+      interval.intervalId,
+      splitRangeId,
+      'planned-dash-body'
+    ].join(':')}:outer-body-boundary-endpoint`,
+    outerBodyBoundaryVertices: bodySideOutlineSegment,
+    bodySideOutlineSegment,
+    bodySideOutlineSegmentId: `${[
+      'source-vertex-seam',
+      plan.vertexIndex,
+      side,
+      interval.intervalId,
+      splitRangeId,
+      'planned-dash-body'
+    ].join(':')}:body-side-outline-segment`,
+    bodySideTangent: getSeamBoundaryBodySideTangent(
+      bodySideOutlineSegment[0],
+      bodySideOutlineSegment[1]
+    ),
+    selectedSide: toSourceVertexJoinSelectedSide(plan.selectedSide),
+    terminalRole: terminal,
+    endpointCapPolicySignature: endpointCapPolicy.signature,
+    capSuppressed:
+      terminal === 'start'
+        ? endpointCapPolicy.suppressStartCap
+        : endpointCapPolicy.suppressEndCap,
+    sourceSegmentIndex:
+      side === 'previous' ? plan.previousSegmentIndex : plan.nextSegmentIndex
+  }
+}
+
+const withMaterializedSourceVertexJoinSeamBoundaries = (
+  plan: SourceVertexBoundaryJoinPlan
+): SourceVertexBoundaryJoinPlan =>
+  plan.kind === 'source-vertex'
+    ? {
+        ...plan,
+        previousSeamBoundary:
+          plan.previousSeamBoundary ??
+          buildPlannedSourceVertexJoinIncidentSeamBoundary(plan, 'previous'),
+        nextSeamBoundary:
+          plan.nextSeamBoundary ??
+          buildPlannedSourceVertexJoinIncidentSeamBoundary(plan, 'next')
+      }
+    : plan
+
 const collectConstrainedBoundarySourceVertexTerminalRecords = (
   visibleIntervals: VisibleDashedTopologyInterval[],
   strokePosition: 'inside' | 'outside',
@@ -7687,10 +13253,13 @@ const collectConstrainedBoundarySourceVertexTerminalRecords = (
         ? interval.domainPlanFilledSide
         : interval.domainPlanUnfilledSide
     const selectedSide = getBoundaryDomainMaterializedSelectedSide(interval)
+    if (selectedSide !== 1 && selectedSide !== -1) {
+      return
+    }
     if (
       (expectedSelectedSide === 1 || expectedSelectedSide === -1
         ? selectedSide !== expectedSelectedSide
-        : selectedSide === undefined) ||
+        : false) ||
       interval.domainPlanSideResolutionStatus === 'blocked' ||
       interval.domainPlanSplitRangeSourceSegmentIndex === undefined
     ) {
@@ -7706,14 +13275,42 @@ const collectConstrainedBoundarySourceVertexTerminalRecords = (
       return
     }
 
-    records.push({
-      interval,
-      terminal,
-      endpoint: terminalPoint.endpoint,
-      neighbor: terminalPoint.neighbor,
-      sourceSegmentIndex: interval.domainPlanSplitRangeSourceSegmentIndex,
-      domainKey: getBoundaryDomainJoinDomainKey(interval)
-    })
+    const sourceSegmentIndex = interval.domainPlanSplitRangeSourceSegmentIndex
+    if (sourceSegmentIndex === undefined) {
+      return
+    }
+
+    const pushRecord = (endpoint: Vec2, neighbor: Vec2) => {
+      records.push({
+        interval,
+        terminal,
+        endpoint,
+        neighbor,
+        sourceSegmentIndex,
+        selectedSide,
+        domainKey: getBoundaryDomainJoinDomainKey(interval)
+      })
+    }
+
+    pushRecord(terminalPoint.endpoint, terminalPoint.neighbor)
+
+    const boundaryPoints = interval.domainPlanBoundaryPoints
+    const rawEndpoint =
+      terminal === 'start'
+        ? boundaryPoints?.[0]
+        : boundaryPoints?.[boundaryPoints.length - 1]
+    const rawNeighbor =
+      terminal === 'start'
+        ? boundaryPoints?.[1]
+        : boundaryPoints?.[boundaryPoints.length - 2]
+    if (
+      rawEndpoint &&
+      rawNeighbor &&
+      distanceBetween(rawEndpoint, terminalPoint.endpoint) >
+        SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE
+    ) {
+      pushRecord(normalizePoint(rawEndpoint), normalizePoint(rawNeighbor))
+    }
   }
 
   visibleIntervals.forEach((interval) => {
@@ -7734,12 +13331,385 @@ const collectConstrainedBoundarySourceVertexTerminalRecords = (
   return records
 }
 
+const getSourcePathPointAtDistanceForJoin = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  distance: number
+): Vec2 | null => {
+  const clampedDistance = Math.max(0, Math.min(path.totalLength, distance))
+  const sampleLength = Math.min(1, Math.max(0.05, path.totalLength))
+  const forwardEnd = Math.min(path.totalLength, clampedDistance + sampleLength)
+  if (forwardEnd > clampedDistance + EPSILON) {
+    const frames = slicePathGeometryFrames(
+      path,
+      clampedDistance,
+      forwardEnd,
+      false,
+      SOURCE_PATH_DASH_SLICE_TOLERANCE,
+      SOURCE_PATH_DASH_SLICE_SAMPLING
+    )
+    const firstFrame = frames[0]
+    if (firstFrame) {
+      return normalizePoint(firstFrame.point)
+    }
+  }
+
+  const backwardStart = Math.max(0, clampedDistance - sampleLength)
+  if (clampedDistance > backwardStart + EPSILON) {
+    const frames = slicePathGeometryFrames(
+      path,
+      backwardStart,
+      clampedDistance,
+      false,
+      SOURCE_PATH_DASH_SLICE_TOLERANCE,
+      SOURCE_PATH_DASH_SLICE_SAMPLING
+    )
+    const lastFrame = frames[frames.length - 1]
+    if (lastFrame) {
+      return normalizePoint(lastFrame.point)
+    }
+  }
+
+  return null
+}
+
+const getSourceDomainTerminalEndpointForJoin = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  slicingContext: SourcePathSlicingContext,
+  interval: VisibleDashedTopologyInterval,
+  terminal: 'start' | 'end'
+): Vec2 | null => {
+  const sourceSegmentIndex = interval.domainPlanSplitRangeSourceSegmentIndex
+  const sourceSegmentRange =
+    sourceSegmentIndex === undefined
+      ? undefined
+      : slicingContext.segmentRanges[sourceSegmentIndex]
+  if (!sourceSegmentRange) {
+    return null
+  }
+
+  const sourceStartDistance =
+    interval.domainPlanSplitRangeSourceStartDistance ??
+    sourceSegmentRange.startDistance
+  const sourceEndDistance =
+    interval.domainPlanSplitRangeSourceEndDistance ??
+    sourceSegmentRange.endDistance
+  if (sourceEndDistance <= sourceStartDistance + EPSILON) {
+    return null
+  }
+
+  return getSourcePathPointAtDistanceForJoin(
+    path,
+    terminal === 'start' ? sourceStartDistance : sourceEndDistance
+  )
+}
+
+const getSourceVertexLocalContourReferencePoint = (
+  boundary: Vec2[],
+  vertex: Vec2,
+  direction: 'previous' | 'next',
+  referenceDistance: number
+) => {
+  const ordered =
+    direction === 'previous'
+      ? boundary.slice(0, -1).reverse()
+      : boundary.slice(1)
+  let cursor = vertex
+  let remainingDistance = Math.max(referenceDistance, EPSILON)
+  for (const point of ordered) {
+    const segmentLength = distanceBetween(cursor, point)
+    if (segmentLength <= EPSILON) {
+      continue
+    }
+    if (segmentLength >= remainingDistance) {
+      const ratio = remainingDistance / segmentLength
+      return normalizePoint({
+        x: cursor.x + (point.x - cursor.x) * ratio,
+        y: cursor.y + (point.y - cursor.y) * ratio
+      })
+    }
+    remainingDistance -= segmentLength
+    cursor = point
+  }
+  return ordered[0]
+}
+
+const extendSourceVertexReferencePointToDistance = (
+  vertex: Vec2,
+  point: Vec2 | undefined,
+  distance: number
+) => {
+  if (!point || distance <= EPSILON) {
+    return point
+  }
+  const currentDistance = distanceBetween(vertex, point)
+  if (currentDistance >= distance - EPSILON) {
+    return point
+  }
+  const direction = normalizeVector({
+    x: point.x - vertex.x,
+    y: point.y - vertex.y
+  })
+  return direction
+    ? normalizePoint({
+        x: vertex.x + direction.x * distance,
+        y: vertex.y + direction.y * distance
+      })
+    : point
+}
+
+const getJoinOwnedTerminalDashBodyDistance = (
+  interval: Pick<
+    VisibleDashedTopologyInterval,
+    | 'startDistance'
+    | 'endDistance'
+    | 'domainPlanSplitRangeStartDistance'
+    | 'domainPlanSplitRangeEndDistance'
+    | 'domainPlanSplitRangeSourceStartDistance'
+    | 'domainPlanSplitRangeSourceEndDistance'
+    | 'materializationDistanceSpace'
+  >
+) => {
+  if (interval.materializationDistanceSpace !== 'source-domain') {
+    const splitStart = interval.domainPlanSplitRangeStartDistance
+    const splitEnd = interval.domainPlanSplitRangeEndDistance
+    const sourceStart = interval.domainPlanSplitRangeSourceStartDistance
+    const sourceEnd = interval.domainPlanSplitRangeSourceEndDistance
+    if (
+      splitStart !== undefined &&
+      splitEnd !== undefined &&
+      sourceStart !== undefined &&
+      sourceEnd !== undefined
+    ) {
+      const splitLength = splitEnd - splitStart
+      const sourceLength = sourceEnd - sourceStart
+      if (Math.abs(splitLength) > EPSILON && Math.abs(sourceLength) > EPSILON) {
+        const mapDistance = (distance: number) =>
+          sourceStart + ((distance - splitStart) / splitLength) * sourceLength
+        const mappedStart = mapDistance(interval.startDistance)
+        const mappedEnd = mapDistance(interval.endDistance)
+        const mappedLength = Math.abs(mappedEnd - mappedStart)
+        if (Number.isFinite(mappedLength) && mappedLength > EPSILON) {
+          return mappedLength
+        }
+      }
+    }
+  }
+  const intervalLength = Math.abs(interval.endDistance - interval.startDistance)
+  return intervalLength
+}
+
+const isPointInsidePolygonRegions = (point: Vec2, regions: PolygonRegion[]) =>
+  regions.some((region) =>
+    region.polygons.some((polygon) => isPointInsideOrOnPolygon(point, polygon))
+  )
+
+const getSourceVertexJoinSelectedSideLegalSample = (
+  vertex: Vec2,
+  previousContourPoint: Vec2,
+  nextContourPoint: Vec2,
+  selectedSide: 1 | -1,
+  sampleDistance: number
+) => {
+  const previousDirection = normalizeVector(
+    subtractPoint(vertex, previousContourPoint)
+  )
+  const nextDirection = normalizeVector(subtractPoint(nextContourPoint, vertex))
+  if (!previousDirection || !nextDirection) {
+    return null
+  }
+
+  const previousSelectedNormal = {
+    x: -previousDirection.y * selectedSide,
+    y: previousDirection.x * selectedSide
+  }
+  const nextSelectedNormal = {
+    x: -nextDirection.y * selectedSide,
+    y: nextDirection.x * selectedSide
+  }
+  const selectedBisector =
+    normalizeVector({
+      x: previousSelectedNormal.x + nextSelectedNormal.x,
+      y: previousSelectedNormal.y + nextSelectedNormal.y
+    }) ?? previousSelectedNormal
+
+  return normalizePoint({
+    x: vertex.x + selectedBisector.x * sampleDistance,
+    y: vertex.y + selectedBisector.y * sampleDistance
+  })
+}
+
+const getSourceVertexJoinSelectedSideLegalSamples = (
+  vertex: Vec2,
+  previousContourPoint: Vec2,
+  nextContourPoint: Vec2,
+  selectedSide: 1 | -1,
+  stroke: Pick<RenderableStroke, 'width'>
+) => {
+  const previousDirection = normalizeVector(
+    subtractPoint(vertex, previousContourPoint)
+  )
+  const nextDirection = normalizeVector(subtractPoint(nextContourPoint, vertex))
+  if (!previousDirection || !nextDirection) {
+    return []
+  }
+
+  const previousSelectedNormal = {
+    x: -previousDirection.y * selectedSide,
+    y: previousDirection.x * selectedSide
+  }
+  const nextSelectedNormal = {
+    x: -nextDirection.y * selectedSide,
+    y: nextDirection.x * selectedSide
+  }
+  const sampleDistance = Math.max(stroke.width * 2, 2)
+  const bisectorSample = getSourceVertexJoinSelectedSideLegalSample(
+    vertex,
+    previousContourPoint,
+    nextContourPoint,
+    selectedSide,
+    sampleDistance
+  )
+  const tangentDistances = [0.15, 0.3, 0.5, 0.8].map((scale) =>
+    Math.max(0.75, stroke.width * scale)
+  )
+  const normalDistances = [0.1, 0.3, 0.5, 0.85].map((scale) =>
+    Math.max(0.75, stroke.width * scale)
+  )
+  const armSamples = [
+    {
+      tangent: {
+        x: -previousDirection.x,
+        y: -previousDirection.y
+      },
+      normal: previousSelectedNormal
+    },
+    {
+      tangent: nextDirection,
+      normal: nextSelectedNormal
+    }
+  ].flatMap(({ tangent, normal }) =>
+    tangentDistances.flatMap((tangentDistance) =>
+      normalDistances.map((normalDistance) =>
+        normalizePoint({
+          x: vertex.x + tangent.x * tangentDistance + normal.x * normalDistance,
+          y: vertex.y + tangent.y * tangentDistance + normal.y * normalDistance
+        })
+      )
+    )
+  )
+
+  return bisectorSample ? [bisectorSample, ...armSamples] : armSamples
+}
+
+const resolveSourceVertexJoinSelectedSide = (
+  selectedSide: 1 | -1,
+  vertex: Vec2,
+  previousContourPoint: Vec2,
+  nextContourPoint: Vec2,
+  stroke: Pick<RenderableStroke, 'position' | 'width'>,
+  legalRegions: PolygonRegion[] | undefined
+): 1 | -1 => {
+  if (
+    (stroke.position !== 'inside' && stroke.position !== 'outside') ||
+    !legalRegions ||
+    legalRegions.length === 0
+  ) {
+    return selectedSide
+  }
+
+  const selectedSamples = getSourceVertexJoinSelectedSideLegalSamples(
+    vertex,
+    previousContourPoint,
+    nextContourPoint,
+    selectedSide,
+    stroke
+  )
+  const oppositeSide = (selectedSide === 1 ? -1 : 1) as 1 | -1
+  const oppositeSamples = getSourceVertexJoinSelectedSideLegalSamples(
+    vertex,
+    previousContourPoint,
+    nextContourPoint,
+    oppositeSide,
+    stroke
+  )
+  const sampleBoundsPoints = [...selectedSamples, ...oppositeSamples]
+  const cacheKey =
+    sampleBoundsPoints.length > 0
+      ? [
+          'source-vertex-join-selected-side',
+          stroke.position,
+          formatTranslationInvariantCacheNumber(stroke.width),
+          selectedSide,
+          buildTranslationInvariantPointKey(previousContourPoint, vertex),
+          buildTranslationInvariantPointKey(nextContourPoint, vertex),
+          buildImplicitFillRegionLocalRelativeCacheSignature(
+            legalRegions,
+            vertex,
+            expandBoundsByPadding(
+              getBounds([sampleBoundsPoints]),
+              Math.max(0.01, stroke.width * 0.05)
+            )
+          )
+        ].join('|')
+      : null
+  const cachedSide = cacheKey
+    ? sourceVertexJoinSelectedSideCache.get(cacheKey)
+    : undefined
+  if (cachedSide !== undefined) {
+    emitStrokePipelineCounter('source-vertex-join-selected-side-cache-hit')
+    return cachedSide
+  }
+
+  const getLegalSideScore = (samples: Vec2[]) => {
+    if (samples.length === 0) {
+      return {
+        legalCount: 0,
+        sampleCount: 0
+      }
+    }
+    const legalCount = samples.filter((sample) => {
+      const insideFill = isPointInsidePolygonRegions(sample, legalRegions)
+      return stroke.position === 'inside' ? insideFill : !insideFill
+    }).length
+    return {
+      legalCount,
+      sampleCount: samples.length
+    }
+  }
+
+  const selectedScore = getLegalSideScore(selectedSamples)
+  const oppositeScore = getLegalSideScore(oppositeSamples)
+  const resolvedSide =
+    oppositeScore.sampleCount > 0 &&
+    oppositeScore.legalCount > selectedScore.legalCount
+      ? oppositeSide
+      : selectedScore.legalCount > 0
+        ? selectedSide
+        : oppositeScore.legalCount > 0
+          ? oppositeSide
+          : selectedSide
+  if (cacheKey) {
+    sourceVertexJoinSelectedSideCache.set(cacheKey, resolvedSide)
+    emitStrokePipelineCounter('source-vertex-join-selected-side-cache-store')
+    if (
+      sourceVertexJoinSelectedSideCache.size >
+      SOURCE_VERTEX_JOIN_SELECTED_SIDE_CACHE_LIMIT
+    ) {
+      const oldestKey = sourceVertexJoinSelectedSideCache.keys().next().value
+      if (oldestKey) {
+        sourceVertexJoinSelectedSideCache.delete(oldestKey)
+      }
+    }
+  }
+  return resolvedSide
+}
+
 const buildConstrainedBoundarySourceVertexJoinPlans = (
   sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'> | null,
   visibleIntervals: VisibleDashedTopologyInterval[],
   stroke: Pick<
     RenderableStroke,
-    'position' | 'width' | 'join' | 'miterLimit' | 'dashPattern' | 'dashOffset'
+    'position' | 'width' | 'join' | 'miterLimit' | 'cap' | 'dash' | 'gap'
   >,
   options: {
     implicitFillRegions?: PolygonRegion[]
@@ -7756,7 +13726,7 @@ const buildConstrainedBoundarySourceVertexJoinPlans = (
 
   const endpointTolerance = Math.max(
     SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE,
-    stroke.width * 0.75
+    stroke.position === 'outside' ? stroke.width * 1.5 : stroke.width * 0.75
   )
   const terminalRecords =
     options.terminalRecords ??
@@ -7764,12 +13734,67 @@ const buildConstrainedBoundarySourceVertexJoinPlans = (
       visibleIntervals,
       stroke.position
     )
-  if (terminalRecords.length === 0) {
-    return []
-  }
 
   const sourceVertexRecords =
     options.sourceVertexRecords ?? getSourceVertexRecords(sourcePath, new Map())
+  const sourceVertexJoinSlicingContext = createSourcePathSlicingContext(
+    sourcePath,
+    SOURCE_PATH_DASH_SLICE_TOLERANCE,
+    SOURCE_PATH_DASH_SLICE_SAMPLING,
+    ROUND_CAP_VISUAL_MAX_LENGTH
+  )
+  const sourceSegmentBoundaryByIndex = new Map<number, Vec2[]>()
+  const getCachedSourceSegmentBoundary = (segmentIndex: number) => {
+    const cached = sourceSegmentBoundaryByIndex.get(segmentIndex)
+    if (cached) {
+      return cached
+    }
+    const boundary = getSourceSegmentBoundary(
+      sourcePath,
+      segmentIndex,
+      sourceVertexJoinSlicingContext
+    )
+    sourceSegmentBoundaryByIndex.set(segmentIndex, boundary)
+    return boundary
+  }
+  const terminalEndpointByKey = new Map<string, Vec2 | null>()
+  const getCachedSourceDomainTerminalEndpointForJoin = (
+    interval: VisibleDashedTopologyInterval,
+    terminal: SourceVertexBoundaryTerminalRecord['terminal']
+  ) => {
+    const key = `${interval.intervalId}:${terminal}`
+    if (terminalEndpointByKey.has(key)) {
+      return terminalEndpointByKey.get(key) ?? null
+    }
+    const endpoint = getSourceDomainTerminalEndpointForJoin(
+      sourcePath,
+      sourceVertexJoinSlicingContext,
+      interval,
+      terminal
+    )
+    terminalEndpointByKey.set(key, endpoint)
+    return endpoint
+  }
+  const sourceDomainMaterializationByInterval = new WeakMap<
+    VisibleDashedTopologyInterval,
+    VisibleDashedTopologyInterval
+  >()
+  const getCachedSourceDomainMaterializationInterval = (
+    interval: VisibleDashedTopologyInterval
+  ) => {
+    const cached = sourceDomainMaterializationByInterval.get(interval)
+    if (cached) {
+      return cached
+    }
+    const materialized =
+      resolveSourceDomainIntervalForMaterializationWithSourceGeometry(
+        interval,
+        sourcePath,
+        sourceVertexJoinSlicingContext
+      )
+    sourceDomainMaterializationByInterval.set(interval, materialized)
+    return materialized
+  }
   const terminalRecordsBySourceSegmentIndex = new Map<
     number,
     SourceVertexBoundaryTerminalRecord[]
@@ -7780,60 +13805,504 @@ const buildConstrainedBoundarySourceVertexJoinPlans = (
     bucket.push(record)
     terminalRecordsBySourceSegmentIndex.set(record.sourceSegmentIndex, bucket)
   })
+  const visibleIntervalsBySourceSegmentIndex = new Map<
+    number,
+    VisibleDashedTopologyInterval[]
+  >()
+  visibleIntervals.forEach((interval) => {
+    const sourceSegmentIndex = interval.domainPlanSplitRangeSourceSegmentIndex
+    if (sourceSegmentIndex === undefined) {
+      return
+    }
+    const bucket =
+      visibleIntervalsBySourceSegmentIndex.get(sourceSegmentIndex) ?? []
+    bucket.push(interval)
+    visibleIntervalsBySourceSegmentIndex.set(sourceSegmentIndex, bucket)
+  })
 
   return sourceVertexRecords.flatMap((sourceVertex) => {
-    const previousTerminal = (
+    const _previousSourceSegment =
+      sourcePath.segments[sourceVertex.previousSegmentIndex]
+    const _nextSourceSegment =
+      sourcePath.segments[sourceVertex.nextSegmentIndex]
+    const terminalMatchesAuthoredSourceVertex = (
+      record: SourceVertexBoundaryTerminalRecord,
+      expectedSegmentIndex: number,
+      expectedTerminal: SourceVertexBoundaryTerminalRecord['terminal']
+    ) => {
+      if (
+        record.sourceSegmentIndex !== expectedSegmentIndex ||
+        record.terminal !== expectedTerminal
+      ) {
+        return false
+      }
+
+      if (
+        distanceBetween(record.endpoint, sourceVertex.vertex) <=
+        endpointTolerance
+      ) {
+        return true
+      }
+
+      const sourceEndpoint = getCachedSourceDomainTerminalEndpointForJoin(
+        record.interval,
+        record.terminal
+      )
+      if (!sourceEndpoint) {
+        return false
+      }
+
+      return (
+        distanceBetween(sourceEndpoint, sourceVertex.vertex) <=
+        endpointTolerance
+      )
+    }
+    let previousTerminals = (
       terminalRecordsBySourceSegmentIndex.get(
         sourceVertex.previousSegmentIndex
       ) ?? []
-    ).find(
-      (record) =>
-        distanceBetween(record.endpoint, sourceVertex.vertex) <=
-        endpointTolerance
+    ).filter((record) =>
+      terminalMatchesAuthoredSourceVertex(
+        record,
+        sourceVertex.previousSegmentIndex,
+        'end'
+      )
     )
-    const nextTerminal = (
+    let nextTerminals = (
       terminalRecordsBySourceSegmentIndex.get(sourceVertex.nextSegmentIndex) ??
       []
-    ).find(
-      (record) =>
-        distanceBetween(record.endpoint, sourceVertex.vertex) <=
-        endpointTolerance
+    ).filter((record) =>
+      terminalMatchesAuthoredSourceVertex(
+        record,
+        sourceVertex.nextSegmentIndex,
+        'start'
+      )
     )
-    if (!previousTerminal || !nextTerminal) {
-      return []
-    }
-    if (
-      previousTerminal.domainKey !== undefined &&
-      nextTerminal.domainKey !== undefined &&
-      previousTerminal.domainKey !== nextTerminal.domainKey
-    ) {
-      return []
-    }
-    const previousInterval = previousTerminal.interval
-    const nextInterval = nextTerminal.interval
+    if (previousTerminals.length === 0 || nextTerminals.length === 0) {
+      const pickNearestTerminals = (
+        segmentIndex: number,
+        terminalRole: SourceVertexBoundaryTerminalRecord['terminal']
+      ) => {
+        const candidates = (
+          terminalRecordsBySourceSegmentIndex.get(segmentIndex) ?? []
+        ).filter((record) =>
+          terminalMatchesAuthoredSourceVertex(
+            record,
+            segmentIndex,
+            terminalRole
+          )
+        )
+        return candidates.slice().sort((left, right) => {
+          return (
+            distanceBetween(left.endpoint, sourceVertex.vertex) -
+            distanceBetween(right.endpoint, sourceVertex.vertex)
+          )
+        })
+      }
 
+      if (previousTerminals.length === 0) {
+        previousTerminals = pickNearestTerminals(
+          sourceVertex.previousSegmentIndex,
+          'end'
+        )
+      }
+      if (nextTerminals.length === 0) {
+        nextTerminals = pickNearestTerminals(
+          sourceVertex.nextSegmentIndex,
+          'start'
+        )
+      }
+    }
+    const synthesizeSourceDomainTerminals = (
+      segmentIndex: number,
+      terminalRole: SourceVertexBoundaryTerminalRecord['terminal']
+    ): SourceVertexBoundaryTerminalRecord[] => {
+      const boundary = getCachedSourceSegmentBoundary(segmentIndex)
+      const neighbor =
+        terminalRole === 'start' ? boundary[1] : boundary[boundary.length - 2]
+      if (!neighbor) {
+        return []
+      }
+
+      return (
+        visibleIntervalsBySourceSegmentIndex.get(segmentIndex) ?? []
+      ).flatMap((interval) => {
+        const intervalTerminalRole = interval.domainPlanTerminalRole
+        if (
+          terminalRole === 'start'
+            ? intervalTerminalRole !== 'start' &&
+              intervalTerminalRole !== 'start-end'
+            : intervalTerminalRole !== 'end' &&
+              intervalTerminalRole !== 'start-end'
+        ) {
+          return []
+        }
+
+        const sourceEndpoint = getCachedSourceDomainTerminalEndpointForJoin(
+          interval,
+          terminalRole
+        )
+        if (
+          !sourceEndpoint ||
+          distanceBetween(sourceEndpoint, sourceVertex.vertex) >
+            endpointTolerance
+        ) {
+          return []
+        }
+
+        const materializedSelectedSide =
+          getBoundaryDomainMaterializedSelectedSide(interval)
+        const defaultSelectedSide =
+          stroke.position === 'inside'
+            ? interval.domainPlanFilledSide
+            : interval.domainPlanUnfilledSide
+        const selectedSide =
+          materializedSelectedSide === 1 || materializedSelectedSide === -1
+            ? materializedSelectedSide
+            : defaultSelectedSide === 1 || defaultSelectedSide === -1
+              ? defaultSelectedSide
+              : 1
+
+        return [
+          {
+            interval,
+            terminal: terminalRole,
+            endpoint: normalizePoint(sourceEndpoint),
+            neighbor: normalizePoint(neighbor),
+            sourceSegmentIndex: segmentIndex,
+            selectedSide,
+            domainKey:
+              getBoundaryDomainJoinDomainKey(interval) ??
+              `source-domain:${interval.domainPlanSplitRangeId ?? interval.intervalId}`
+          }
+        ]
+      })
+    }
+    const synthesizeBoundaryCoverageTerminals = (
+      segmentIndex: number,
+      terminalRole: SourceVertexBoundaryTerminalRecord['terminal']
+    ): SourceVertexBoundaryTerminalRecord[] => {
+      const boundary = getCachedSourceSegmentBoundary(segmentIndex)
+      const neighbor =
+        terminalRole === 'start' ? boundary[1] : boundary[boundary.length - 2]
+      const segmentRange =
+        sourceVertexJoinSlicingContext.segmentRanges[segmentIndex]
+      if (!neighbor || !segmentRange) {
+        return []
+      }
+
+      const vertexDistance =
+        terminalRole === 'start'
+          ? segmentRange.startDistance
+          : segmentRange.endDistance
+      const coverageTolerance = Math.max(
+        endpointTolerance,
+        SOURCE_PATH_DASH_SLICE_TOLERANCE,
+        stroke.width * 0.25
+      )
+
+      return (
+        visibleIntervalsBySourceSegmentIndex.get(segmentIndex) ?? []
+      ).flatMap((interval) => {
+        if (interval.domainPlanSideResolutionStatus === 'blocked') {
+          return []
+        }
+
+        const materializedInterval =
+          getCachedSourceDomainMaterializationInterval(interval)
+        if (
+          materializedInterval.materializationDistanceSpace !==
+            'source-domain' ||
+          materializedInterval.startDistance >
+            vertexDistance + coverageTolerance ||
+          materializedInterval.endDistance < vertexDistance - coverageTolerance
+        ) {
+          return []
+        }
+
+        const materializedSelectedSide =
+          getBoundaryDomainMaterializedSelectedSide(interval)
+        const defaultSelectedSide =
+          stroke.position === 'inside'
+            ? interval.domainPlanFilledSide
+            : interval.domainPlanUnfilledSide
+        const selectedSide =
+          materializedSelectedSide === 1 || materializedSelectedSide === -1
+            ? materializedSelectedSide
+            : defaultSelectedSide === 1 || defaultSelectedSide === -1
+              ? defaultSelectedSide
+              : 1
+
+        return [
+          {
+            interval,
+            terminal: terminalRole,
+            endpoint: normalizePoint(sourceVertex.vertex),
+            neighbor: normalizePoint(neighbor),
+            sourceSegmentIndex: segmentIndex,
+            selectedSide,
+            domainKey:
+              getBoundaryDomainJoinDomainKey(interval) ??
+              `source-domain:${interval.domainPlanSplitRangeId ?? interval.intervalId}`
+          }
+        ]
+      })
+    }
+
+    if (previousTerminals.length === 0) {
+      previousTerminals = synthesizeSourceDomainTerminals(
+        sourceVertex.previousSegmentIndex,
+        'end'
+      )
+    }
+    if (nextTerminals.length === 0) {
+      nextTerminals = synthesizeSourceDomainTerminals(
+        sourceVertex.nextSegmentIndex,
+        'start'
+      )
+    }
+    if (previousTerminals.length === 0) {
+      previousTerminals = synthesizeBoundaryCoverageTerminals(
+        sourceVertex.previousSegmentIndex,
+        'end'
+      )
+    }
+    if (nextTerminals.length === 0) {
+      nextTerminals = synthesizeBoundaryCoverageTerminals(
+        sourceVertex.nextSegmentIndex,
+        'start'
+      )
+    }
+    const appendDistinctCoverageTerminals = (
+      records: SourceVertexBoundaryTerminalRecord[],
+      segmentIndex: number,
+      terminalRole: SourceVertexBoundaryTerminalRecord['terminal']
+    ) => {
+      const seen = new Set(
+        records.map(
+          (record) => `${record.interval.intervalId}:${record.terminal}`
+        )
+      )
+      const coverageRecords = synthesizeBoundaryCoverageTerminals(
+        segmentIndex,
+        terminalRole
+      ).filter((record) => {
+        const key = `${record.interval.intervalId}:${record.terminal}`
+        if (seen.has(key)) {
+          return false
+        }
+        seen.add(key)
+        return true
+      })
+      return coverageRecords.length > 0
+        ? [...records, ...coverageRecords]
+        : records
+    }
+    if (!(stroke.position === 'inside' && stroke.cap === 'butt')) {
+      previousTerminals = appendDistinctCoverageTerminals(
+        previousTerminals,
+        sourceVertex.previousSegmentIndex,
+        'end'
+      )
+      nextTerminals = appendDistinctCoverageTerminals(
+        nextTerminals,
+        sourceVertex.nextSegmentIndex,
+        'start'
+      )
+    }
+    if (previousTerminals.length === 0 || nextTerminals.length === 0) {
+      return []
+    }
+
+    const seenPairs = new Set<string>()
     const referenceDistance = Math.max(
       SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE,
       stroke.width * 2.5
     )
-    const referencePoints = [
-      ...(previousTerminal.interval.domainPlanBoundaryPoints ?? []),
-      ...(nextTerminal.interval.domainPlanBoundaryPoints ?? [])
-    ].filter(
-      (point) =>
-        distanceBetween(point, sourceVertex.vertex) >
-          SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE &&
-        distanceBetween(point, sourceVertex.vertex) <= referenceDistance
-    )
 
-    return [
-      {
-        kind: 'source-vertex' as const,
-        ...sourceVertex,
-        intervals: [previousInterval, nextInterval],
-        referencePoints
+    const candidatePairs = previousTerminals.flatMap((previousTerminal) =>
+      nextTerminals.flatMap((nextTerminal) => {
+        if (
+          previousTerminal.sourceSegmentIndex !==
+            sourceVertex.previousSegmentIndex ||
+          previousTerminal.terminal !== 'end' ||
+          nextTerminal.sourceSegmentIndex !== sourceVertex.nextSegmentIndex ||
+          nextTerminal.terminal !== 'start'
+        ) {
+          return []
+        }
+        const pairKey = [
+          previousTerminal.interval.intervalId,
+          previousTerminal.sourceSegmentIndex,
+          previousTerminal.terminal,
+          nextTerminal.interval.intervalId,
+          nextTerminal.sourceSegmentIndex,
+          nextTerminal.terminal
+        ].join('|')
+        if (seenPairs.has(pairKey)) {
+          return []
+        }
+        seenPairs.add(pairKey)
+        return [
+          {
+            previousTerminal,
+            nextTerminal,
+            domainScore:
+              previousTerminal.domainKey === nextTerminal.domainKey ? 0 : 1,
+            score:
+              distanceBetween(previousTerminal.endpoint, sourceVertex.vertex) +
+              distanceBetween(nextTerminal.endpoint, sourceVertex.vertex)
+          }
+        ]
+      })
+    )
+    const joinPlanCandidates = candidatePairs.flatMap(
+      ({ previousTerminal, nextTerminal, domainScore, score }) => {
+        const previousInterval = previousTerminal.interval
+        const nextInterval = nextTerminal.interval
+        const previousBoundary = getCachedSourceSegmentBoundary(
+          sourceVertex.previousSegmentIndex
+        )
+        const nextBoundary = getCachedSourceSegmentBoundary(
+          sourceVertex.nextSegmentIndex
+        )
+        const contourReferenceDistance = Math.max(1, stroke.width)
+        const previousContourPoint =
+          getSourceVertexLocalContourReferencePoint(
+            previousBoundary,
+            sourceVertex.vertex,
+            'previous',
+            contourReferenceDistance
+          ) ??
+          previousBoundary[previousBoundary.length - 2] ??
+          previousTerminal.neighbor
+        const nextContourPoint =
+          getSourceVertexLocalContourReferencePoint(
+            nextBoundary,
+            sourceVertex.vertex,
+            'next',
+            contourReferenceDistance
+          ) ??
+          nextBoundary[1] ??
+          nextTerminal.neighbor
+        const previousDashBodyDistance =
+          getJoinOwnedTerminalDashBodyDistance(previousInterval)
+        const nextDashBodyDistance =
+          getJoinOwnedTerminalDashBodyDistance(nextInterval)
+        const previousDashBodyPoint =
+          extendSourceVertexReferencePointToDistance(
+            sourceVertex.vertex,
+            getSourceVertexLocalContourReferencePoint(
+              previousBoundary,
+              sourceVertex.vertex,
+              'previous',
+              previousDashBodyDistance
+            ) ??
+              previousBoundary[previousBoundary.length - 2] ??
+              previousTerminal.neighbor,
+            previousDashBodyDistance
+          )
+        const nextDashBodyPoint = extendSourceVertexReferencePointToDistance(
+          sourceVertex.vertex,
+          getSourceVertexLocalContourReferencePoint(
+            nextBoundary,
+            sourceVertex.vertex,
+            'next',
+            nextDashBodyDistance
+          ) ??
+            nextBoundary[1] ??
+            nextTerminal.neighbor,
+          nextDashBodyDistance
+        )
+        const referencePoints = [
+          ...(previousTerminal.interval.domainPlanBoundaryPoints ?? []),
+          ...(nextTerminal.interval.domainPlanBoundaryPoints ?? [])
+        ].filter(
+          (point) =>
+            distanceBetween(point, sourceVertex.vertex) >
+              SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE &&
+            distanceBetween(point, sourceVertex.vertex) <= referenceDistance
+        )
+        const sourceVertexSelectedSide = resolveSourceVertexJoinSelectedSide(
+          previousTerminal.selectedSide,
+          sourceVertex.vertex,
+          previousContourPoint,
+          nextContourPoint,
+          stroke,
+          options.implicitFillRegions
+        )
+        const previousSeamBoundary = buildSourceVertexJoinIncidentSeamBoundary({
+          sourceVertex,
+          terminalRecord: previousTerminal,
+          seamRole: 'previous',
+          seamPoint: previousTerminal.endpoint,
+          bodySideReferencePoint: previousDashBodyPoint,
+          selectedSide: sourceVertexSelectedSide
+        })
+        const nextSeamBoundary = buildSourceVertexJoinIncidentSeamBoundary({
+          sourceVertex,
+          terminalRecord: nextTerminal,
+          seamRole: 'next',
+          seamPoint: nextTerminal.endpoint,
+          bodySideReferencePoint: nextDashBodyPoint,
+          selectedSide: sourceVertexSelectedSide
+        })
+
+        return [
+          {
+            plan: {
+              kind: 'source-vertex' as const,
+              ...sourceVertex,
+              previousContourPoint,
+              nextContourPoint,
+              previousDashBodyPoint,
+              nextDashBodyPoint,
+              previousSeamBoundary,
+              nextSeamBoundary,
+              selectedSide: sourceVertexSelectedSide,
+              domainKey:
+                previousTerminal.domainKey === nextTerminal.domainKey
+                  ? previousTerminal.domainKey
+                  : [
+                      'source-vertex',
+                      sourceVertex.vertexIndex,
+                      previousTerminal.domainKey ?? 'no-previous-domain',
+                      nextTerminal.domainKey ?? 'no-next-domain'
+                    ].join(':'),
+              intervals: [previousInterval, nextInterval] as [
+                VisibleDashedTopologyInterval,
+                VisibleDashedTopologyInterval
+              ],
+              previousTerminal: previousTerminal.terminal,
+              nextTerminal: nextTerminal.terminal,
+              referencePoints
+            },
+            domainScore,
+            score
+          }
+        ]
       }
-    ]
+    )
+    const usedPreviousIntervals = new Set<string>()
+    const usedNextIntervals = new Set<string>()
+    return joinPlanCandidates
+      .sort(
+        (left, right) =>
+          left.domainScore - right.domainScore || left.score - right.score
+      )
+      .flatMap((candidate) => {
+        const previousIntervalId = candidate.plan.intervals[0].intervalId
+        const nextIntervalId = candidate.plan.intervals[1].intervalId
+        if (
+          usedPreviousIntervals.has(previousIntervalId) ||
+          usedNextIntervals.has(nextIntervalId)
+        ) {
+          return []
+        }
+        usedPreviousIntervals.add(previousIntervalId)
+        usedNextIntervals.add(nextIntervalId)
+        return [candidate.plan]
+      })
   })
 }
 
@@ -7892,11 +14361,14 @@ const buildConstrainedBoundaryTerminalPairJoinPlans = (
   visibleIntervals: VisibleDashedTopologyInterval[],
   stroke: Pick<
     RenderableStroke,
-    'position' | 'width' | 'join' | 'miterLimit' | 'dashPattern' | 'dashOffset'
+    'position' | 'width' | 'join' | 'miterLimit' | 'cap' | 'dash' | 'gap'
   >,
   options: {
     implicitFillRegions?: PolygonRegion[]
     terminalRecords?: SourceVertexBoundaryTerminalRecord[]
+    sourceVertexRecords?: SourceVertexRecord[]
+    sourcePath?: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>
+    sourcePathSlicingContext?: SourcePathSlicingContext
   } = {}
 ): SourceVertexBoundaryJoinPlan[] => {
   if (stroke.position !== 'inside' && stroke.position !== 'outside') {
@@ -7909,6 +14381,7 @@ const buildConstrainedBoundaryTerminalPairJoinPlans = (
       visibleIntervals,
       stroke.position
     )
+  const sourceVertexRecords = options.sourceVertexRecords ?? []
   if (terminalRecords.length < 2) {
     return []
   }
@@ -7917,20 +14390,115 @@ const buildConstrainedBoundaryTerminalPairJoinPlans = (
     SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE,
     stroke.width * 0.75
   )
+  const sourceVertexExclusionTolerance = Math.max(
+    endpointTolerance,
+    stroke.width * 2.5
+  )
   const referenceDistance = Math.max(
     SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE,
     stroke.width * 2.5
   )
-  const plans: SourceVertexBoundaryJoinPlan[] = []
+  const planCandidates: {
+    plan: SourceVertexBoundaryJoinPlan
+    domainScore: number
+    terminalRoleScore: number
+    score: number
+  }[] = []
   const seenPairs = new Set<string>()
-  const startTerminalsByEndpointBucket = new Map<
+  const sourceVertexBucketTolerance = sourceVertexExclusionTolerance
+  const sourceVerticesByEndpointBucket = new Map<string, SourceVertexRecord[]>()
+  sourceVertexRecords.forEach((sourceVertex) => {
+    const bucketX = getTerminalRecordBucketCoordinate(
+      sourceVertex.vertex.x,
+      sourceVertexBucketTolerance
+    )
+    const bucketY = getTerminalRecordBucketCoordinate(
+      sourceVertex.vertex.y,
+      sourceVertexBucketTolerance
+    )
+    const bucketKey = getTerminalRecordBucketKey(bucketX, bucketY)
+    const bucket = sourceVerticesByEndpointBucket.get(bucketKey) ?? []
+    bucket.push(sourceVertex)
+    sourceVerticesByEndpointBucket.set(bucketKey, bucket)
+  })
+  const terminalSourceEndpointByKey = new Map<string, Vec2 | null>()
+  const getTerminalSourceEndpoint = (
+    terminalRecord: SourceVertexBoundaryTerminalRecord
+  ) => {
+    if (!options.sourcePath || !options.sourcePathSlicingContext) {
+      return null
+    }
+    const key = `${terminalRecord.interval.intervalId}:${terminalRecord.terminal}`
+    if (terminalSourceEndpointByKey.has(key)) {
+      return terminalSourceEndpointByKey.get(key) ?? null
+    }
+
+    const endpoint = getSourceDomainTerminalEndpointForJoin(
+      options.sourcePath,
+      options.sourcePathSlicingContext,
+      terminalRecord.interval,
+      terminalRecord.terminal
+    )
+    terminalSourceEndpointByKey.set(key, endpoint)
+    return endpoint
+  }
+  const hasNearbySourceVertex = (point: Vec2, tolerance: number) =>
+    getNearbyTerminalRecordBucketKeys(point, sourceVertexBucketTolerance).some(
+      (bucketKey) =>
+        (sourceVerticesByEndpointBucket.get(bucketKey) ?? []).some(
+          (sourceVertex) =>
+            distanceBetween(point, sourceVertex.vertex) <= tolerance
+        )
+    )
+  const authoredSourceVertexOwnershipByTerminalKey = new Map<string, boolean>()
+  const getTerminalOwnershipKey = (
+    terminalRecord: SourceVertexBoundaryTerminalRecord
+  ) =>
+    [
+      terminalRecord.interval.intervalId,
+      terminalRecord.terminal,
+      formatTranslationInvariantCacheNumber(terminalRecord.endpoint.x),
+      formatTranslationInvariantCacheNumber(terminalRecord.endpoint.y)
+    ].join(':')
+  const isTerminalOwnedByAuthoredSourceVertex = (
+    terminalRecord: SourceVertexBoundaryTerminalRecord
+  ) => {
+    const ownershipKey = getTerminalOwnershipKey(terminalRecord)
+    const cached = authoredSourceVertexOwnershipByTerminalKey.get(ownershipKey)
+    if (cached !== undefined) {
+      return cached
+    }
+    const resolveOwnership = () => {
+      if (sourceVertexRecords.length === 0) {
+        return false
+      }
+      if (hasNearbySourceVertex(terminalRecord.endpoint, endpointTolerance)) {
+        return true
+      }
+
+      const sourceEndpoint = getTerminalSourceEndpoint(terminalRecord)
+      return sourceEndpoint
+        ? hasNearbySourceVertex(sourceEndpoint, sourceVertexExclusionTolerance)
+        : hasNearbySourceVertex(
+            terminalRecord.endpoint,
+            sourceVertexExclusionTolerance
+          )
+    }
+    const owned = resolveOwnership()
+    authoredSourceVertexOwnershipByTerminalKey.set(ownershipKey, owned)
+    return owned
+  }
+  const isTerminalPairOwnedByAuthoredSourceVertex = (
+    first: SourceVertexBoundaryTerminalRecord,
+    second: SourceVertexBoundaryTerminalRecord
+  ) =>
+    isTerminalOwnedByAuthoredSourceVertex(first) ||
+    isTerminalOwnedByAuthoredSourceVertex(second)
+  const terminalsByEndpointBucket = new Map<
     string,
     SourceVertexBoundaryTerminalRecord[]
   >()
   terminalRecords.forEach((terminalRecord) => {
-    if (terminalRecord.terminal !== 'start') {
-      return
-    }
     const bucketX = getTerminalRecordBucketCoordinate(
       terminalRecord.endpoint.x,
       endpointTolerance
@@ -7940,50 +14508,68 @@ const buildConstrainedBoundaryTerminalPairJoinPlans = (
       endpointTolerance
     )
     const bucketKey = getTerminalRecordBucketKey(bucketX, bucketY)
-    const bucket = startTerminalsByEndpointBucket.get(bucketKey) ?? []
+    const bucket = terminalsByEndpointBucket.get(bucketKey) ?? []
     bucket.push(terminalRecord)
-    startTerminalsByEndpointBucket.set(bucketKey, bucket)
+    terminalsByEndpointBucket.set(bucketKey, bucket)
   })
 
-  terminalRecords.forEach((previousTerminal) => {
-    if (previousTerminal.terminal !== 'end') {
-      return
-    }
-
+  terminalRecords.forEach((candidateTerminal) => {
     getNearbyTerminalRecordBucketKeys(
-      previousTerminal.endpoint,
+      candidateTerminal.endpoint,
       endpointTolerance
     ).forEach((bucketKey) => {
-      const candidateStartTerminals =
-        startTerminalsByEndpointBucket.get(bucketKey) ?? []
-      candidateStartTerminals.forEach((nextTerminal) => {
+      const nearbyTerminals = terminalsByEndpointBucket.get(bucketKey) ?? []
+      nearbyTerminals.forEach((nearbyTerminal) => {
         if (
-          previousTerminal.interval.intervalId ===
-          nextTerminal.interval.intervalId
+          candidateTerminal.interval.intervalId ===
+          nearbyTerminal.interval.intervalId
         ) {
           return
         }
         if (
-          previousTerminal.domainKey !== undefined &&
-          nextTerminal.domainKey !== undefined &&
-          previousTerminal.domainKey !== nextTerminal.domainKey
-        ) {
-          return
-        }
-        if (
-          distanceBetween(previousTerminal.endpoint, nextTerminal.endpoint) >
+          distanceBetween(candidateTerminal.endpoint, nearbyTerminal.endpoint) >
           endpointTolerance
         ) {
           return
         }
+        const [previousTerminal, nextTerminal] =
+          candidateTerminal.terminal === 'end' &&
+          nearbyTerminal.terminal === 'start'
+            ? [candidateTerminal, nearbyTerminal]
+            : nearbyTerminal.terminal === 'end' &&
+                candidateTerminal.terminal === 'start'
+              ? [nearbyTerminal, candidateTerminal]
+              : candidateTerminal.terminal === 'end'
+                ? [candidateTerminal, nearbyTerminal]
+                : nearbyTerminal.terminal === 'end'
+                  ? [nearbyTerminal, candidateTerminal]
+                  : [candidateTerminal, nearbyTerminal]
 
         const pairKey = [
-          previousTerminal.interval.intervalId,
-          nextTerminal.interval.intervalId,
+          ...[
+            previousTerminal.interval.intervalId,
+            nextTerminal.interval.intervalId
+          ].sort(),
           previousTerminal.endpoint.x.toFixed(3),
           previousTerminal.endpoint.y.toFixed(3)
         ].join('|')
         if (seenPairs.has(pairKey)) {
+          return
+        }
+
+        if (
+          isTerminalPairOwnedByAuthoredSourceVertex(
+            previousTerminal,
+            nextTerminal
+          )
+        ) {
+          return
+        }
+
+        if (
+          previousTerminal.sourceSegmentIndex ===
+          nextTerminal.sourceSegmentIndex
+        ) {
           return
         }
 
@@ -7994,6 +14580,17 @@ const buildConstrainedBoundaryTerminalPairJoinPlans = (
         if (!joinPath) {
           return
         }
+        const selectedSide =
+          previousTerminal.selectedSide === nextTerminal.selectedSide
+            ? previousTerminal.selectedSide
+            : resolveSourceVertexJoinSelectedSide(
+                previousTerminal.selectedSide,
+                previousTerminal.endpoint,
+                previousTerminal.neighbor,
+                nextTerminal.neighbor,
+                stroke,
+                options.implicitFillRegions
+              )
 
         const referencePoints = [
           ...(previousTerminal.interval.domainPlanBoundaryPoints ?? []),
@@ -8005,23 +14602,115 @@ const buildConstrainedBoundaryTerminalPairJoinPlans = (
             distanceBetween(point, previousTerminal.endpoint) <=
               referenceDistance
         )
+        const previousDashBodyDistance = getJoinOwnedTerminalDashBodyDistance(
+          previousTerminal.interval
+        )
+        const nextDashBodyDistance = getJoinOwnedTerminalDashBodyDistance(
+          nextTerminal.interval
+        )
+        const previousDashBodyPoint =
+          extendSourceVertexReferencePointToDistance(
+            previousTerminal.endpoint,
+            previousTerminal.neighbor,
+            previousDashBodyDistance
+          )
+        const nextDashBodyPoint = extendSourceVertexReferencePointToDistance(
+          nextTerminal.endpoint,
+          nextTerminal.neighbor,
+          nextDashBodyDistance
+        )
+        const boundaryPairSourceVertex = {
+          vertexIndex: -1,
+          vertex: normalizePoint(previousTerminal.endpoint)
+        }
+        const previousSeamBoundary = buildSourceVertexJoinIncidentSeamBoundary({
+          sourceVertex: boundaryPairSourceVertex,
+          terminalRecord: previousTerminal,
+          seamRole: 'previous',
+          seamPoint: previousTerminal.endpoint,
+          bodySideReferencePoint: previousDashBodyPoint,
+          selectedSide
+        })
+        const nextSeamBoundary = buildSourceVertexJoinIncidentSeamBoundary({
+          sourceVertex: boundaryPairSourceVertex,
+          terminalRecord: nextTerminal,
+          seamRole: 'next',
+          seamPoint: nextTerminal.endpoint,
+          bodySideReferencePoint: nextDashBodyPoint,
+          selectedSide
+        })
 
         seenPairs.add(pairKey)
-        plans.push({
-          kind: 'boundary-terminal-pair',
-          vertexIndex: -1,
-          previousSegmentIndex: previousTerminal.sourceSegmentIndex,
-          nextSegmentIndex: nextTerminal.sourceSegmentIndex,
-          vertex: normalizePoint(previousTerminal.endpoint),
-          intervals: [previousTerminal.interval, nextTerminal.interval],
-          referencePoints,
-          joinPath
+        planCandidates.push({
+          plan: {
+            kind: 'boundary-terminal-pair',
+            vertexIndex: -1,
+            previousSegmentIndex: previousTerminal.sourceSegmentIndex,
+            nextSegmentIndex: nextTerminal.sourceSegmentIndex,
+            vertex: normalizePoint(previousTerminal.endpoint),
+            previousContourPoint: previousTerminal.neighbor,
+            nextContourPoint: nextTerminal.neighbor,
+            previousDashBodyPoint,
+            nextDashBodyPoint,
+            previousSeamBoundary,
+            nextSeamBoundary,
+            selectedSide,
+            domainKey: previousTerminal.domainKey ?? nextTerminal.domainKey,
+            intervals: [previousTerminal.interval, nextTerminal.interval],
+            previousTerminal: previousTerminal.terminal,
+            nextTerminal: nextTerminal.terminal,
+            referencePoints,
+            joinPath
+          },
+          domainScore:
+            previousTerminal.domainKey === nextTerminal.domainKey ? 0 : 1,
+          terminalRoleScore:
+            previousTerminal.terminal === 'end' &&
+            nextTerminal.terminal === 'start'
+              ? 0
+              : 1,
+          score:
+            distanceBetween(
+              previousTerminal.neighbor,
+              previousTerminal.endpoint
+            ) + distanceBetween(nextTerminal.neighbor, nextTerminal.endpoint)
         })
       })
     })
   })
 
-  return plans
+  const usedTerminalKeys = new Set<string>()
+  return planCandidates
+    .sort(
+      (left, right) =>
+        left.domainScore - right.domainScore ||
+        left.terminalRoleScore - right.terminalRoleScore ||
+        left.score - right.score
+    )
+    .flatMap((candidate) => {
+      const [previousInterval, nextInterval] = candidate.plan.intervals
+      const previousTerminalKey = [
+        previousInterval.intervalId,
+        candidate.plan.previousTerminal,
+        formatTranslationInvariantCacheNumber(candidate.plan.vertex.x),
+        formatTranslationInvariantCacheNumber(candidate.plan.vertex.y)
+      ].join(':')
+      const nextTerminalKey = [
+        nextInterval.intervalId,
+        candidate.plan.nextTerminal,
+        formatTranslationInvariantCacheNumber(candidate.plan.vertex.x),
+        formatTranslationInvariantCacheNumber(candidate.plan.vertex.y)
+      ].join(':')
+      if (
+        usedTerminalKeys.has(previousTerminalKey) &&
+        usedTerminalKeys.has(nextTerminalKey)
+      ) {
+        return []
+      }
+      usedTerminalKeys.add(previousTerminalKey)
+      usedTerminalKeys.add(nextTerminalKey)
+      return [candidate.plan]
+    })
 }
 
 const materializeSourceVertexBoundaryJoinRecord = (
@@ -8029,39 +14718,379 @@ const materializeSourceVertexBoundaryJoinRecord = (
   sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'> | null,
   stroke: Pick<
     RenderableStroke,
-    'position' | 'width' | 'join' | 'miterLimit' | 'dashPattern' | 'dashOffset'
+    | 'position'
+    | 'width'
+    | 'join'
+    | 'miterAngle'
+    | 'miterLimit'
+    | 'cap'
+    | 'dash'
+    | 'gap'
   >,
   options: {
     implicitFillRegions?: PolygonRegion[]
     legalModels?: LegalClipPolygonModel[]
   } = {}
 ): SourceVertexBoundaryJoinRecord | null => {
+  const isSmoothSourceBoundary =
+    sourcePath !== null &&
+    plan.kind === 'source-vertex' &&
+    stroke.position === 'outside' &&
+    (isAuthoredSourceBoundarySmooth(
+      sourcePath,
+      plan.previousSegmentIndex,
+      plan.nextSegmentIndex
+    ) ||
+      isSourceBoundarySmooth(
+        sourcePath,
+        plan.previousSegmentIndex,
+        plan.nextSegmentIndex
+      ))
+  if (
+    sourcePath !== null &&
+    plan.kind === 'source-vertex' &&
+    stroke.position === 'outside' &&
+    isSmoothSourceBoundary
+  ) {
+    const smoothContinuityFootprintPolygons =
+      buildSourceVertexSmoothDoubledCenterTerminalPolygons(
+        plan,
+        sourcePath,
+        stroke
+      )
+    const previousTangent = normalizeVector(
+      subtractPoint(plan.vertex, plan.previousContourPoint)
+    )
+    const nextTangent = normalizeVector(
+      subtractPoint(plan.nextContourPoint, plan.vertex)
+    )
+    if (!previousTangent || !nextTangent) {
+      return null
+    }
+    const smoothProduct = buildSmoothContinuityProducts({
+      cachePrefix: 'source-vertex-boundary',
+      legalSideId: plan.domainKey ?? 'source-vertex-boundary',
+      groups: [
+        {
+          smoothContinuityGroupId: [
+            'smooth-continuity-product',
+            plan.vertexIndex,
+            plan.previousSegmentIndex,
+            plan.nextSegmentIndex
+          ].join(':'),
+          dashIntervalIds: plan.intervals.map(
+            (interval) => interval.intervalId
+          ),
+          splitRangeIds: plan.intervals.flatMap((interval) =>
+            interval.domainPlanSplitRangeId
+              ? [interval.domainPlanSplitRangeId]
+              : []
+          ),
+          tangentContinuityProof: {
+            continuous: true,
+            previousTangent,
+            nextTangent,
+            tolerance: Math.max(EPSILON, stroke.width * 0.05)
+          },
+          highCurvatureSmooth: true,
+          footprintPolygons: smoothContinuityFootprintPolygons ?? []
+        }
+      ]
+    })[0]
+    return smoothProduct && smoothProduct.polygons.length > 0
+      ? {
+          ...plan,
+          polygons: smoothProduct.polygons,
+          oppositePolygons: [],
+          materializationKind: 'smooth-continuity-product',
+          stageBounds: {
+            smoothContinuityProduct: getBounds(smoothProduct.polygons)
+          }
+        }
+      : null
+  }
   const joinPath = getSourceVertexBoundaryJoinPath(plan, sourcePath)
   if (!joinPath) {
     return null
   }
 
-  const { previousSegmentIndex, nextSegmentIndex } =
-    getSourceVertexBoundaryJoinSegmentIndices(plan)
-  const join = buildOutsideLegalSideSourceVertexJoinPolygon(
-    joinPath,
-    previousSegmentIndex,
-    nextSegmentIndex,
-    stroke,
-    {
-      implicitFillRegions: options.implicitFillRegions,
-      legalModels: options.legalModels,
-      referencePoints: plan.referencePoints
+  const candidateSelectedSides =
+    stroke.position === 'inside' ||
+    (stroke.position === 'outside' &&
+      plan.kind === 'source-vertex' &&
+      (options.implicitFillRegions?.length ?? 0) > 0)
+      ? [plan.selectedSide, (plan.selectedSide === 1 ? -1 : 1) as 1 | -1]
+      : [plan.selectedSide]
+  const candidateResults = candidateSelectedSides.map((selectedSide) => {
+    const candidatePlan = {
+      ...plan,
+      selectedSide
     }
-  )
-  if (join.polygons.length === 0) {
+    const getStageBounds = (polygons: Vec2[][]) =>
+      polygons.length > 0 ? getBounds(polygons) : undefined
+    const rawPolygons = buildJoinOwnedDashTerminalPolygons(
+      candidatePlan,
+      stroke
+    )
+    const shouldPreserveRawOutsideRoundSourceVertexSector =
+      stroke.position === 'outside' &&
+      candidatePlan.kind === 'source-vertex' &&
+      stroke.join === 'round'
+    const canSkipRawOutsideLegalClip =
+      stroke.position === 'outside' &&
+      candidatePlan.kind === 'source-vertex' &&
+      !shouldPreserveRawOutsideRoundSourceVertexSector &&
+      canSkipOutsideLegalClipForTerminalFragments(
+        rawPolygons,
+        options.implicitFillRegions ?? []
+      )
+    const outsideLegalPolygons =
+      stroke.position === 'outside' &&
+      sourcePath !== null &&
+      candidatePlan.kind === 'source-vertex' &&
+      !shouldPreserveRawOutsideRoundSourceVertexSector
+        ? canSkipRawOutsideLegalClip
+          ? rawPolygons
+          : clipSourcePathPolygonsToEvenOddLegalDomain(
+              rawPolygons,
+              sourcePath,
+              { position: 'outside' },
+              options.implicitFillRegions ?? [],
+              {
+                outsideFillRule: 'nonzero',
+                cleanupMicroEdgeTolerance: 0.001,
+                cleanupCollinearTolerance: 0.0001
+              }
+            )
+        : undefined
+    const outsideBasePolygons = shouldPreserveRawOutsideRoundSourceVertexSector
+      ? rawPolygons
+      : (outsideLegalPolygons ??
+        (candidatePlan.kind === 'boundary-terminal-pair'
+          ? rawPolygons
+          : clipSourceVertexJoinPolygonsToOutsideLegalDomain(
+              rawPolygons,
+              options.implicitFillRegions ?? []
+            )))
+    const adjacentClippedPolygons =
+      stroke.position === 'outside'
+        ? _clipOutsideSourceVertexJoinPolygonsToAdjacentBoundarySides(
+            outsideBasePolygons,
+            candidatePlan.intervals
+          )
+        : []
+    const outsideAdjacentPolygons =
+      stroke.position === 'outside' &&
+      candidatePlan.kind === 'source-vertex' &&
+      stroke.join === 'round'
+        ? outsideBasePolygons
+        : adjacentClippedPolygons
+    const shouldClipJoinSectorToButtTerminalExtents =
+      stroke.position === 'outside' &&
+      !(candidatePlan.kind === 'source-vertex' && stroke.join === 'round')
+    const buttClippedPolygons = shouldClipJoinSectorToButtTerminalExtents
+      ? clipSourceVertexJoinPolygonsToButtTerminalExtents(
+          outsideAdjacentPolygons,
+          candidatePlan,
+          stroke
+        )
+      : []
+    const outsideButtClippedPolygons =
+      stroke.position === 'outside' &&
+      candidatePlan.kind === 'source-vertex' &&
+      stroke.join === 'round'
+        ? outsideAdjacentPolygons
+        : buttClippedPolygons
+    const polygons =
+      rawPolygons.length === 0
+        ? []
+        : stroke.position === 'inside'
+          ? candidatePlan.kind === 'boundary-terminal-pair'
+            ? rawPolygons
+            : clipSourceVertexJoinPolygonsToInsideLegalDomain(
+                rawPolygons,
+                options.implicitFillRegions ?? [],
+                {
+                  legalModels: options.legalModels
+                }
+              )
+          : stroke.position === 'outside'
+            ? outsideButtClippedPolygons
+            : rawPolygons
+    const legalSideSamples =
+      candidatePlan.kind === 'source-vertex' &&
+      (stroke.position === 'inside' || stroke.position === 'outside') &&
+      (options.implicitFillRegions?.length ?? 0) > 0
+        ? getSourceVertexJoinSelectedSideLegalSamples(
+            candidatePlan.vertex,
+            candidatePlan.previousContourPoint,
+            candidatePlan.nextContourPoint,
+            candidatePlan.selectedSide,
+            stroke
+          )
+        : []
+    const legalSideScore = legalSideSamples.filter((sample) => {
+      const insideFill = isPointInsidePolygonRegions(
+        sample,
+        options.implicitFillRegions ?? []
+      )
+      return stroke.position === 'inside' ? insideFill : !insideFill
+    }).length
+    return {
+      plan: candidatePlan,
+      rawPolygons,
+      outsideBasePolygons,
+      polygons,
+      legalSideScore,
+      legalSideSampleCount: legalSideSamples.length,
+      stageBounds: {
+        raw: getStageBounds(rawPolygons),
+        outsideLegal: getStageBounds(outsideLegalPolygons ?? []),
+        outsideBase: getStageBounds(outsideBasePolygons),
+        outsideAdjacent: getStageBounds(outsideAdjacentPolygons),
+        outsideButt: getStageBounds(outsideButtClippedPolygons),
+        final: getStageBounds(polygons)
+      },
+      area: getPolygonsAbsoluteArea(polygons)
+    }
+  })
+  const candidates = candidateResults
+    .filter((candidate) => candidate.polygons.length > 0)
+    .sort(
+      (left, right) =>
+        right.legalSideScore - left.legalSideScore || right.area - left.area
+    )
+  const selectedCandidate = candidates[0]
+  if (!selectedCandidate) {
+    if (hasStrokePipelineTraceSink()) {
+      emitStrokePipelineTrace('constrained-dashed-join-materialization-empty', {
+        reason: 'no-selected-candidate',
+        kind: plan.kind,
+        strokePosition: stroke.position,
+        strokeJoin: stroke.join,
+        strokeCap: stroke.cap,
+        vertex: plan.vertex,
+        selectedSide: plan.selectedSide,
+        domainKey: plan.domainKey,
+        intervalIds: plan.intervals.map((interval) => interval.intervalId),
+        candidateSummaries: candidateResults.map((candidate) => ({
+          selectedSide: candidate.plan.selectedSide,
+          rawPolygonCount: candidate.rawPolygons.length,
+          finalPolygonCount: candidate.polygons.length,
+          legalSideScore: candidate.legalSideScore,
+          legalSideSampleCount: candidate.legalSideSampleCount,
+          area: candidate.area,
+          stageBounds: candidate.stageBounds
+        })),
+        secondaryBridgePolygonCount: 0
+      })
+    }
     return null
   }
+  selectedCandidate.plan = withMaterializedSourceVertexJoinSeamBoundaries(
+    selectedCandidate.plan
+  )
+  if (
+    selectedCandidate.plan.kind === 'source-vertex' &&
+    stroke.position === 'outside' &&
+    stroke.join === 'bevel'
+  ) {
+    const localBevelChordPolygons = buildJoinOwnedDashTerminalPolygons(
+      selectedCandidate.plan,
+      stroke
+    )
+    if (localBevelChordPolygons.length > 0) {
+      const getStageBounds = (stagePolygons: Vec2[][]) =>
+        stagePolygons.length > 0 ? getBounds(stagePolygons) : undefined
+      const { previousSegmentIndex, nextSegmentIndex } =
+        getSourceVertexBoundaryJoinSegmentIndices(selectedCandidate.plan)
+      return {
+        ...selectedCandidate.plan,
+        previousSegmentIndex,
+        nextSegmentIndex,
+        polygons: localBevelChordPolygons,
+        oppositePolygons: [],
+        stageBounds: {
+          ...selectedCandidate.stageBounds,
+          canonicalBevelChord: getStageBounds(localBevelChordPolygons),
+          combined: getStageBounds(localBevelChordPolygons)
+        },
+        materializationKind: 'join'
+      }
+    }
+  }
+  const selectedSourceVertexJoinConsumesIncidentSeamBoundary =
+    selectedCandidate.plan.kind === 'source-vertex' &&
+    (selectedCandidate.plan.previousSeamBoundary !== undefined ||
+      selectedCandidate.plan.nextSeamBoundary !== undefined)
+  const canonicalSourceVertexSeamFootprintPolygons =
+    selectedCandidate.plan.kind === 'source-vertex' &&
+    stroke.position === 'outside' &&
+    (selectedCandidate.plan.previousSeamBoundary !== undefined ||
+      selectedCandidate.plan.nextSeamBoundary !== undefined)
+      ? buildSourceVertexJoinFootprint({
+          vertex: selectedCandidate.plan.vertex,
+          previousPoint: selectedCandidate.plan.previousContourPoint,
+          nextPoint: selectedCandidate.plan.nextContourPoint,
+          strokeWidth: stroke.width,
+          offsetDistance: Math.abs(getSourceVertexJoinOffsetDistance(stroke)),
+          side: selectedCandidate.plan.selectedSide === 1 ? 'left' : 'right',
+          authoredJoin: stroke.join,
+          miterAngle: getStrokeMiterAngleForResolution(stroke),
+          ownerId: `constrained-dashed:source-vertex:${selectedCandidate.plan.vertexIndex}`,
+          angleSource: 'AUTHORED_CENTER_PATH_INCIDENT_TANGENTS',
+          incidentSeamBoundaries: [
+            selectedCandidate.plan.previousSeamBoundary,
+            selectedCandidate.plan.nextSeamBoundary
+          ].filter(
+            (boundary): boundary is SourceVertexJoinIncidentSeamBoundary =>
+              boundary !== undefined
+          )
+        }).polygons
+      : []
+  const canonicalJoinPolygons =
+    canonicalSourceVertexSeamFootprintPolygons.length > 0
+      ? canonicalSourceVertexSeamFootprintPolygons
+      : selectedCandidate.polygons
+  const legallyClippedPolygons =
+    sourcePath !== null &&
+    selectedCandidate.plan.kind === 'source-vertex' &&
+    stroke.position === 'outside' &&
+    (options.implicitFillRegions?.length ?? 0) > 0 &&
+    !selectedSourceVertexJoinConsumesIncidentSeamBoundary
+      ? subtractOutsideLegalResidue(
+          canonicalJoinPolygons,
+          options.implicitFillRegions ?? [],
+          'nonzero',
+          {
+            cleanupMicroEdgeTolerance: 0.001,
+            cleanupCollinearTolerance: 0.0001,
+            outsideLegalBoundarySnapTolerance:
+              SOURCE_VERTEX_OUTSIDE_BOUNDARY_SNAP_TOLERANCE
+          }
+        )
+      : canonicalJoinPolygons
+  const authoredSourceVertexOwnedPolygons = legallyClippedPolygons
+  const getStageBounds = (stagePolygons: Vec2[][]) =>
+    stagePolygons.length > 0 ? getBounds(stagePolygons) : undefined
+  const { previousSegmentIndex, nextSegmentIndex } =
+    getSourceVertexBoundaryJoinSegmentIndices(selectedCandidate.plan)
 
   return {
-    ...plan,
-    polygons: join.polygons,
-    oppositePolygons: join.oppositePolygons
+    ...selectedCandidate.plan,
+    previousSegmentIndex,
+    nextSegmentIndex,
+    polygons: authoredSourceVertexOwnedPolygons,
+    oppositePolygons: [],
+    stageBounds: {
+      ...selectedCandidate.stageBounds,
+      canonicalSourceVertexSeamFootprint: getStageBounds(
+        canonicalSourceVertexSeamFootprintPolygons
+      ),
+      legalJoin: getStageBounds(legallyClippedPolygons),
+      combined: getStageBounds(authoredSourceVertexOwnedPolygons)
+    },
+    materializationKind: 'join'
   }
 }
 
@@ -8069,6 +15098,9 @@ const formatJoinPlanPointSignature = (point: Vec2) =>
   `${formatTranslationInvariantCacheNumber(
     point.x
   )},${formatTranslationInvariantCacheNumber(point.y)}`
+
+const formatJoinPlanPointRelativeSignature = (point: Vec2, origin: Vec2) =>
+  buildTranslationInvariantPointKey(point, origin)
 
 const formatJoinPlanPathSignature = (
   path: Pick<PathGeometry, 'segments' | 'closed'> | null | undefined
@@ -8098,6 +15130,28 @@ const getSourceVertexBoundaryJoinPath = (
   plan: SourceVertexBoundaryJoinPlan,
   sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'> | null
 ) => {
+  const previousLength = distanceBetween(plan.previousContourPoint, plan.vertex)
+  const nextLength = distanceBetween(plan.vertex, plan.nextContourPoint)
+  if (previousLength > EPSILON && nextLength > EPSILON) {
+    return {
+      closed: false,
+      segments: [
+        {
+          type: 'line' as const,
+          start: plan.previousContourPoint,
+          end: plan.vertex,
+          length: previousLength
+        },
+        {
+          type: 'line' as const,
+          start: plan.vertex,
+          end: plan.nextContourPoint,
+          length: nextLength
+        }
+      ]
+    }
+  }
+
   if (plan.kind === 'boundary-terminal-pair') {
     return plan.joinPath
   }
@@ -8118,22 +15172,43 @@ const getSourceVertexBoundaryJoinPath = (
 }
 
 const getSourceVertexBoundaryJoinSegmentIndices = (
-  _plan: SourceVertexBoundaryJoinPlan
+  plan: SourceVertexBoundaryJoinPlan
 ) => ({
-  previousSegmentIndex: 0,
-  nextSegmentIndex: 1
+  previousSegmentIndex: plan.previousSegmentIndex,
+  nextSegmentIndex: plan.nextSegmentIndex
 })
+
+const getSourceVertexBoundaryJoinMiterPathSegmentIndices = (
+  plan: SourceVertexBoundaryJoinPlan,
+  joinPath: Pick<PathGeometry, 'segments' | 'closed'>
+) => {
+  const previousSegment = joinPath.segments[0]
+  const nextSegment = joinPath.segments[1]
+  if (
+    joinPath.segments.length === 2 &&
+    previousSegment &&
+    nextSegment &&
+    distanceBetween(previousSegment.end, plan.vertex) <= EPSILON &&
+    distanceBetween(nextSegment.start, plan.vertex) <= EPSILON
+  ) {
+    return {
+      previousSegmentIndex: 0,
+      nextSegmentIndex: 1
+    }
+  }
+
+  return getSourceVertexBoundaryJoinSegmentIndices(plan)
+}
 
 const resolveSourceVertexJoinMiterRatioForOffset = (
   path: Pick<PathGeometry, 'segments' | 'closed'>,
   previousSegmentIndex: number,
   nextSegmentIndex: number,
-  stroke: Pick<RenderableStroke, 'join' | 'miterLimit'>,
   offset: number,
   boundaryCache?: SourceVertexJoinBoundaryCache
 ) => {
-  if (stroke.join !== 'miter' || Math.abs(offset) <= EPSILON) {
-    return stroke.join
+  if (Math.abs(offset) <= EPSILON) {
+    return 'miter:none'
   }
 
   const previousBoundary = getSourceVertexJoinSegmentBoundary(
@@ -8182,84 +15257,40 @@ const resolveSourceVertexJoinMiterRatioForOffset = (
   }
 
   const offsetMagnitude = Math.abs(offset)
-  const maxMiterDistance = stroke.miterLimit * offsetMagnitude
-  let joinPoint = lineIntersection(
+  const joinPoint = lineIntersection(
     previousOffsetStart,
     previousOffsetEnd,
     nextOffsetStart,
     nextOffsetEnd
   )
-  const degeneratedToOffsetEndpoint =
-    distanceBetween(previousOffsetEnd, nextOffsetStart) > EPSILON &&
-    (distanceBetween(joinPoint, previousOffsetEnd) <= EPSILON ||
-      distanceBetween(joinPoint, nextOffsetStart) <= EPSILON)
-
-  if (degeneratedToOffsetEndpoint) {
-    const previousOffsetDirection = normalizeVector(
-      subtractPoint(previousOffsetEnd, vertex)
-    )
-    const nextOffsetDirection = normalizeVector(
-      subtractPoint(nextOffsetStart, vertex)
-    )
-    const bisector =
-      previousOffsetDirection && nextOffsetDirection
-        ? normalizeVector({
-            x: previousOffsetDirection.x + nextOffsetDirection.x,
-            y: previousOffsetDirection.y + nextOffsetDirection.y
-          })
-        : null
-    const previousDirection = normalizeVector(
-      subtractPoint(vertex, previousStart)
-    )
-    const nextDirection = normalizeVector(subtractPoint(nextEnd, vertex))
-    const dot =
-      previousDirection && nextDirection
-        ? Math.max(
-            -1,
-            Math.min(
-              1,
-              previousDirection.x * nextDirection.x +
-                previousDirection.y * nextDirection.y
-            )
-          )
-        : 1
-    const halfAngle = Math.acos(dot) / 2
-    const unclampedMiterDistance =
-      Math.sin(halfAngle) <= EPSILON
-        ? maxMiterDistance
-        : offsetMagnitude / Math.sin(halfAngle)
-    const miterDistance = Math.min(
-      maxMiterDistance,
-      Math.max(offsetMagnitude, unclampedMiterDistance)
-    )
-    if (bisector) {
-      joinPoint = normalizePoint({
-        x: vertex.x + bisector.x * miterDistance,
-        y: vertex.y + bisector.y * miterDistance
-      })
-    }
-  }
 
   const joinDistance = distanceBetween(vertex, joinPoint)
   if (joinDistance <= EPSILON) {
     return 'miter:none'
   }
 
-  const effectiveRatio = Math.min(
-    stroke.miterLimit,
-    joinDistance / offsetMagnitude
-  )
+  const effectiveRatio = joinDistance / offsetMagnitude
   return `miter:${formatTranslationInvariantCacheNumber(effectiveRatio)}`
 }
 
 const getSourceVertexBoundaryJoinEffectiveSignature = (
   plan: SourceVertexBoundaryJoinPlan,
   sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'> | null,
-  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join' | 'miterLimit'>,
+  stroke: Pick<RenderableStroke, 'position' | 'width' | 'join'> &
+    Partial<Pick<RenderableStroke, 'miterAngle'>>,
   boundaryCache?: SourceVertexJoinBoundaryCache
 ) => {
-  if (stroke.join !== 'miter') {
-    return stroke.join
+  const resolution = resolveMiterAngleJoin(plan, stroke)
+  if (resolution.authoredJoin !== 'miter') {
+    return resolution.authoredJoin
+  }
+  if (resolution.resolvedJoin !== 'miter') {
+    return [
+      resolution.resolvedJoin,
+      formatTranslationInvariantCacheNumber(resolution.vertexAngle ?? 0),
+      formatTranslationInvariantCacheNumber(resolution.miterAngle ?? 0),
+      resolution.angleSource ?? 'no-angle-source'
+    ].join(':')
   }
 
   const joinPath = getSourceVertexBoundaryJoinPath(plan, sourcePath)
@@ -8268,14 +15299,13 @@ const getSourceVertexBoundaryJoinEffectiveSignature = (
   }
 
   const { previousSegmentIndex, nextSegmentIndex } =
-    getSourceVertexBoundaryJoinSegmentIndices(plan)
+    getSourceVertexBoundaryJoinMiterPathSegmentIndices(plan, joinPath)
   const offset = getSourceVertexJoinOffsetDistance(stroke)
   return [
     resolveSourceVertexJoinMiterRatioForOffset(
       joinPath,
       previousSegmentIndex,
       nextSegmentIndex,
-      stroke,
       offset,
       boundaryCache
     ),
@@ -8283,7 +15313,6 @@ const getSourceVertexBoundaryJoinEffectiveSignature = (
       joinPath,
       previousSegmentIndex,
       nextSegmentIndex,
-      stroke,
       -offset,
       boundaryCache
     )
@@ -8295,22 +15324,71 @@ const getSourceVertexBoundaryJoinPlanMaterializationKey = (
   sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'> | null,
   stroke: Pick<
     RenderableStroke,
-    'position' | 'width' | 'join' | 'miterLimit' | 'dashPattern' | 'dashOffset'
-  >,
+    'position' | 'width' | 'join' | 'cap' | 'dash' | 'gap'
+  > &
+    Partial<Pick<RenderableStroke, 'miterAngle'>>,
   joinPathSignature?: string,
   joinEffectiveSignature?: string
 ) => {
   const joinPath = getSourceVertexBoundaryJoinPath(plan, sourcePath)
+  const origin = plan.vertex
+  const seamBoundarySignature = (
+    boundary: SourceVertexJoinIncidentSeamBoundary | undefined
+  ) =>
+    boundary
+      ? [
+          boundary.seamBoundaryId,
+          boundary.intervalId,
+          boundary.splitRangeId ?? '',
+          boundary.splitRangeAliasIds?.join(',') ?? '',
+          boundary.side,
+          formatJoinPlanPointRelativeSignature(boundary.point, origin),
+          formatJoinPlanPointRelativeSignature(
+            boundary.outerBodyBoundaryEndpoint,
+            origin
+          ),
+          boundary.outerBodyBoundaryVertices
+            .map((point) => formatJoinPlanPointRelativeSignature(point, origin))
+            .join(','),
+          boundary.bodySideOutlineSegment
+            .map((point) => formatJoinPlanPointRelativeSignature(point, origin))
+            .join(','),
+          formatJoinPlanPointRelativeSignature(boundary.bodySideTangent, {
+            x: 0,
+            y: 0
+          }),
+          boundary.selectedSide,
+          boundary.terminalRole,
+          boundary.endpointCapPolicySignature,
+          boundary.capSuppressed ? 'cap-suppressed' : 'cap-visible',
+          boundary.sourceSegmentIndex ?? 'no-source-segment'
+        ].join(':')
+      : ''
   return [
+    SOURCE_VERTEX_BOUNDARY_JOIN_MATERIALIZATION_VERSION,
     plan.kind,
     plan.previousSegmentIndex,
     plan.nextSegmentIndex,
-    formatJoinPlanPointSignature(plan.vertex),
+    formatJoinPlanPointRelativeSignature(plan.vertex, origin),
+    formatJoinPlanPointRelativeSignature(plan.previousContourPoint, origin),
+    formatJoinPlanPointRelativeSignature(plan.nextContourPoint, origin),
+    plan.previousDashBodyPoint
+      ? formatJoinPlanPointRelativeSignature(plan.previousDashBodyPoint, origin)
+      : '',
+    plan.nextDashBodyPoint
+      ? formatJoinPlanPointRelativeSignature(plan.nextDashBodyPoint, origin)
+      : '',
+    seamBoundarySignature(plan.previousSeamBoundary),
+    seamBoundarySignature(plan.nextSeamBoundary),
+    plan.selectedSide,
     joinPathSignature ?? formatJoinPlanPathSignature(joinPath),
-    plan.referencePoints.map(formatJoinPlanPointSignature).join(';'),
     stroke.position,
     formatTranslationInvariantCacheNumber(stroke.width),
+    stroke.cap,
     stroke.join,
+    formatTranslationInvariantCacheNumber(
+      getStrokeMiterAngleForResolution(stroke)
+    ),
     joinEffectiveSignature ??
       getSourceVertexBoundaryJoinEffectiveSignature(plan, sourcePath, stroke)
   ].join('|')
@@ -8321,25 +15399,87 @@ const materializeSourceVertexBoundaryJoinRecords = (
   sourcePath: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'> | null,
   stroke: Pick<
     RenderableStroke,
-    'position' | 'width' | 'join' | 'miterLimit' | 'dashPattern' | 'dashOffset'
+    | 'position'
+    | 'width'
+    | 'join'
+    | 'miterAngle'
+    | 'miterLimit'
+    | 'cap'
+    | 'dash'
+    | 'gap'
   >,
   options: {
     implicitFillRegions?: PolygonRegion[]
+    clipInsideToFillDomain?: boolean
+    cacheContextSignature?: string
     joinEffectiveSignatureByPlan?: WeakMap<SourceVertexBoundaryJoinPlan, string>
   } = {}
 ): SourceVertexBoundaryJoinRecord[] => {
+  emitStrokePipelineCounter(
+    'source-vertex-boundary-join-record-plan-count',
+    plans.length
+  )
+  plans.forEach((plan) => {
+    emitStrokePipelineCounter(
+      `source-vertex-boundary-join-record-plan-kind:${plan.kind}`
+    )
+  })
   const recordCache = new Map<
     string,
-    Pick<SourceVertexBoundaryJoinRecord, 'polygons' | 'oppositePolygons'>
+    Pick<
+      SourceVertexBoundaryJoinRecord,
+      'polygons' | 'oppositePolygons' | 'materializationKind' | 'stageBounds'
+    >
   >()
-  const implicitFillRegionSignature = buildImplicitFillRegionCacheSignature(
-    options.implicitFillRegions ?? []
-  )
-  const legalModels =
-    stroke.position === 'inside' &&
-    (options.implicitFillRegions?.length ?? 0) > 0
-      ? getLegalClipPolygonModels(options.implicitFillRegions ?? [])
-      : undefined
+  const getPlanLegalClipBounds = (plan: SourceVertexBoundaryJoinPlan) => {
+    const points = [
+      plan.vertex,
+      plan.previousContourPoint,
+      plan.nextContourPoint,
+      plan.previousDashBodyPoint,
+      plan.nextDashBodyPoint,
+      ...plan.referencePoints
+    ].filter((point): point is Vec2 => point !== undefined)
+    const padding = Math.max(
+      SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE * 2,
+      stroke.width *
+        (stroke.join === 'miter'
+          ? Math.max(3, getMiterAngleDistanceRatioForResolution(stroke))
+          : 3)
+    )
+    return expandBoundsByPadding(getBounds([points]), padding)
+  }
+  const getPlanImplicitFillRegions = (plan: SourceVertexBoundaryJoinPlan) => {
+    const implicitFillRegions = options.implicitFillRegions ?? []
+    if (
+      implicitFillRegions.length === 0 ||
+      (stroke.position !== 'inside' && stroke.position !== 'outside')
+    ) {
+      return implicitFillRegions
+    }
+
+    return selectBoundsIntersectingLegalClipRegions(
+      getPlanLegalClipBounds(plan),
+      implicitFillRegions,
+      Math.max(SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE, stroke.width)
+    )
+  }
+  const legalModelsByRegions = new WeakMap<
+    PolygonRegion[],
+    LegalClipPolygonModel[]
+  >()
+  const getPlanLegalModels = (regions: PolygonRegion[]) => {
+    if (stroke.position !== 'inside' || regions.length === 0) {
+      return undefined
+    }
+    const cached = legalModelsByRegions.get(regions)
+    if (cached) {
+      return cached
+    }
+    const models = getLegalClipPolygonModels(regions)
+    legalModelsByRegions.set(regions, models)
+    return models
+  }
   const joinPathSignatureCache = new WeakMap<object, string>()
   const getJoinPathSignature = (
     joinPath: Pick<PathGeometry, 'segments' | 'closed'> | null | undefined
@@ -8360,63 +15500,105 @@ const materializeSourceVertexBoundaryJoinRecords = (
 
   const getStageCacheKey = (
     plan: SourceVertexBoundaryJoinPlan,
-    cacheKey: string
+    cacheKey: string,
+    implicitFillRegions: PolygonRegion[]
   ) => {
+    const origin = plan.vertex
+    const implicitFillRegionSignature =
+      stroke.position === 'inside' || stroke.position === 'outside'
+        ? buildImplicitFillRegionLocalRelativeCacheSignature(
+            implicitFillRegions,
+            origin,
+            getPlanLegalClipBounds(plan)
+          )
+        : buildImplicitFillRegionRelativeCacheSignature(
+            implicitFillRegions,
+            origin
+          )
     return [
       cacheKey,
-      implicitFillRegionSignature,
-      plan.referencePoints.map(formatJoinPlanPointSignature).join(';')
+      options.clipInsideToFillDomain === true
+        ? 'clip-inside-fill-domain'
+        : 'no-clip-inside-fill-domain',
+      implicitFillRegionSignature
     ].join('||')
   }
 
   return plans.flatMap((plan) => {
-    const joinPath = getSourceVertexBoundaryJoinPath(plan, sourcePath)
+    const materializationPlan =
+      plan.kind === 'source-vertex'
+        ? withMaterializedSourceVertexJoinSeamBoundaries(plan)
+        : plan
+    const joinPath = getSourceVertexBoundaryJoinPath(
+      materializationPlan,
+      sourcePath
+    )
+    const planImplicitFillRegions =
+      getPlanImplicitFillRegions(materializationPlan)
     const cacheKey = getSourceVertexBoundaryJoinPlanMaterializationKey(
-      plan,
+      materializationPlan,
       sourcePath,
       stroke,
       getJoinPathSignature(joinPath),
-      options.joinEffectiveSignatureByPlan?.get(plan)
+      options.joinEffectiveSignatureByPlan?.get(plan) ??
+        options.joinEffectiveSignatureByPlan?.get(materializationPlan)
     )
-    const stageCacheKey = getStageCacheKey(plan, cacheKey)
+    const stageCacheKey = getStageCacheKey(
+      materializationPlan,
+      cacheKey,
+      planImplicitFillRegions
+    )
     const cached = recordCache.get(cacheKey)
     if (cached) {
       return [
         {
-          ...plan,
+          ...materializationPlan,
           polygons: cached.polygons,
-          oppositePolygons: cached.oppositePolygons
+          oppositePolygons: cached.oppositePolygons,
+          materializationKind: cached.materializationKind,
+          stageBounds: cached.stageBounds
         }
       ]
     }
-    const cachedStageRecord =
-      getCachedSourceVertexBoundaryJoinRecordStage(stageCacheKey)
+    const cachedStageRecord = getCachedSourceVertexBoundaryJoinRecordStage(
+      stageCacheKey,
+      plan.vertex
+    )
     if (cachedStageRecord) {
       recordCache.set(cacheKey, cachedStageRecord)
       return [
         {
-          ...plan,
+          ...materializationPlan,
           polygons: cachedStageRecord.polygons,
-          oppositePolygons: cachedStageRecord.oppositePolygons
+          oppositePolygons: cachedStageRecord.oppositePolygons,
+          materializationKind: cachedStageRecord.materializationKind,
+          stageBounds: cachedStageRecord.stageBounds
         }
       ]
     }
 
     const record = materializeSourceVertexBoundaryJoinRecord(
-      plan,
+      materializationPlan,
       sourcePath,
       stroke,
       {
         ...options,
-        legalModels
+        implicitFillRegions: planImplicitFillRegions,
+        legalModels: getPlanLegalModels(planImplicitFillRegions)
       }
     )
     if (record) {
       recordCache.set(cacheKey, {
         polygons: record.polygons,
-        oppositePolygons: record.oppositePolygons
+        oppositePolygons: record.oppositePolygons,
+        materializationKind: record.materializationKind,
+        stageBounds: record.stageBounds
       })
-      setCachedSourceVertexBoundaryJoinRecordStage(stageCacheKey, record)
+      setCachedSourceVertexBoundaryJoinRecordStage(
+        stageCacheKey,
+        plan.vertex,
+        record
+      )
     }
     return record ? [record] : []
   })
@@ -8430,15 +15612,13 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
     ReturnType<typeof allocateDashedIntervalsForTopology>[number],
     'startDistance' | 'endDistance' | 'wrapsSeam'
   >,
-  authoredStroke: Pick<RenderableStroke, 'position' | 'dashPattern' | 'cap'>,
+  authoredStroke: Pick<RenderableStroke, 'position' | 'dash' | 'gap' | 'cap'>,
   intervalStroke: Pick<RenderableStroke, 'position' | 'width'>,
   physicalSpanRole: ConstrainedDashedPhysicalSpanRole = 'core',
   sharpGuardVertices: SharpGuardVertex[] = [],
   slicingContext?: SourcePathSlicingContext,
   options?: {
     assumeConstructedSimple?: boolean
-    preserveSourceEdgeWhenBoundaryClipLosesCoverage?: boolean
-    sourceEdge?: Vec2[]
   }
 ) => {
   if (
@@ -8477,10 +15657,6 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
   if (!touchesSegmentStart && !touchesSegmentEnd) {
     return areaValidPolygons.filter((polygon) => isValidPolygon(polygon))
   }
-  const sourcePolygons = areaValidPolygons.filter((polygon) =>
-    isValidPolygon(polygon)
-  )
-
   const selectedSide = intervalStroke.position === 'inside' ? 1 : -1
   const segmentStartIsSharp = sharpGuardVertices.some((guard) =>
     areLoopDistancesEqual(
@@ -8498,7 +15674,7 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
   )
   const boundaryReach = Math.max(
     intervalStroke.width * 2,
-    authoredStroke.dashPattern[0] ?? intervalStroke.width
+    authoredStroke.dash > 0 ? authoredStroke.dash : intervalStroke.width
   )
   const isPathStartTerminalRange =
     !interval.wrapsSeam &&
@@ -8746,32 +15922,10 @@ const clipSourceSegmentRangePolygonsToAdjacentBoundaries = (
   }
 
   if (clippedPolygons.length > 0) {
-    if (options?.preserveSourceEdgeWhenBoundaryClipLosesCoverage === true) {
-      return clippedPolygons
-    }
-
-    const sourceEdge =
-      options?.sourceEdge ??
-      sliceSourcePathRangePoints(path, range, physicalSpanRole, slicingContext)
-    const sourcePolygonSourceEdgeCount = countSourceEdgeVertices(
-      sourcePolygons,
-      sourceEdge
-    )
-    const clippedSourceEdgeCount = countSourceEdgeVertices(
-      clippedPolygons,
-      sourceEdge
-    )
-    if (
-      sourcePolygonSourceEdgeCount >= 3 &&
-      clippedSourceEdgeCount < Math.min(3, sourcePolygonSourceEdgeCount)
-    ) {
-      return sourcePolygons
-    }
-
     return clippedPolygons
   }
 
-  return sourcePolygons
+  return []
 }
 
 const shouldClipSourceSegmentRangeForInsideBoundary = (
@@ -8916,7 +16070,8 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
     | 'join'
     | 'miterLimit'
     | 'cap'
-    | 'dashPattern'
+    | 'dash'
+    | 'gap'
   >,
   intervalStroke: Pick<RenderableStroke, 'position' | 'width'>,
   sharpGuardVertices: SharpGuardVertex[],
@@ -9044,6 +16199,31 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
       const rangePolygons = measureStrokePipelinePhase(
         'constrained dashed final coverage: polygon build',
         () => {
+          const shouldBuildSemanticCapFrames =
+            rangeCapMaterialization.roundCapStart === true ||
+            rangeCapMaterialization.roundCapEnd === true ||
+            rangeCapMaterialization.squareCapStart === true ||
+            rangeCapMaterialization.squareCapEnd === true
+          const semanticCapRangeFrames = shouldBuildSemanticCapFrames
+            ? sliceExactOffsetRibbonRangeFrames(
+                path,
+                range,
+                slicingContext,
+                candidateIntervalStroke
+              )
+            : []
+          const semanticCapFrames =
+            buildBoundaryDomainSemanticCapFrames(
+              interval,
+              authoredStroke.cap,
+              candidateIntervalStroke.width
+            ) ??
+            (semanticCapRangeFrames.length >= 2
+              ? {
+                  start: semanticCapRangeFrames[0],
+                  end: semanticCapRangeFrames[semanticCapRangeFrames.length - 1]
+                }
+              : undefined)
           const explicitRangeGeometry =
             buildExactSourcePathRibbonGeometryFromOffsetFrames(
               exactFrames,
@@ -9052,7 +16232,8 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
               rangeCapMaterialization.roundCapEnd,
               rangeCapMaterialization.squareCapStart,
               rangeCapMaterialization.squareCapEnd,
-              slicingContext.roundCapVisualMaxLength
+              slicingContext.roundCapVisualMaxLength,
+              semanticCapFrames
             )
           return [
             ...explicitRangeGeometry.bodyPolygons,
@@ -9120,9 +16301,7 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
             sharpGuardVertices,
             slicingContext,
             {
-              assumeConstructedSimple: true,
-              preserveSourceEdgeWhenBoundaryClipLosesCoverage: true,
-              sourceEdge: exactFrames.map((frame) => frame.point)
+              assumeConstructedSimple: true
             }
           )
       )
@@ -9175,18 +16354,6 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
         { position: authoredStroke.position },
         implicitFillRegions,
         {
-          fragmentStitchRadius: 0,
-          fragmentPruneArea:
-            authoredStroke.position === 'outside'
-              ? Math.max(
-                  1,
-                  currentIntervalStroke.width *
-                    currentIntervalStroke.width *
-                    0.1
-                )
-              : 0,
-          restoreSubjectBoundaryPolygons: [],
-          restoreSubjectBoundaryPaths: [],
           cleanupMicroEdgeTolerance: 0.001,
           cleanupCollinearTolerance: 0.0001,
           outsideFillRule: topology.fillRule
@@ -9200,8 +16367,16 @@ const appendDashedSourcePathFinalCoverageRangePolygons = (
   }
 
   resolvedIntervalStrokes.forEach((resolvedIntervalStroke) => {
+    const shouldApplyMiterTerminalBoundaryClip =
+      shouldResolveDomainPlanSide &&
+      !(
+        authoredStroke.position === 'outside' && authoredStroke.cap === 'butt'
+      ) &&
+      authoredStroke.join === 'miter' &&
+      interval.domainPlanTerminalRole !== undefined &&
+      interval.domainPlanTerminalRole !== 'middle'
     const shouldApplySourceBoundaryClip = shouldResolveDomainPlanSide
-      ? false
+      ? shouldApplyMiterTerminalBoundaryClip
       : shouldClipInsideBoundary(resolvedIntervalStroke)
     appendRangeForOffsetRibbonFrame(
       resolvedIntervalStroke,
@@ -9299,11 +16474,18 @@ const buildDashedSourcePathIntervalLevelPolygons = (
   interval: VisibleDashedTopologyInterval,
   authoredStroke: Pick<
     RenderableStroke,
-    'style' | 'position' | 'width' | 'join' | 'miterLimit' | 'cap'
+    | 'style'
+    | 'position'
+    | 'width'
+    | 'join'
+    | 'miterAngle'
+    | 'miterLimit'
+    | 'cap'
   >,
   intervalStroke: Pick<RenderableStroke, 'position' | 'width'>,
   slicingContext: SourcePathSlicingContext,
-  strokeDomainPlan: Pick<StrokeDomainPlan, 'sideAuthority'> | undefined
+  strokeDomainPlan: Pick<StrokeDomainPlan, 'sideAuthority'> | undefined,
+  implicitFillRegions: PolygonRegion[] = []
 ) => {
   const resolvedIntervalStrokes = resolveDashedSourcePathIntervalStrokes(
     interval,
@@ -9328,138 +16510,199 @@ const buildDashedSourcePathIntervalLevelPolygons = (
       position,
       width: resolvedIntervalStrokes[0]?.width ?? intervalStroke.width
     }
-    return groupSweepRangesByPhysicalSpan(materializationSweepRanges).flatMap(
-      (sweepRangeGroup) => {
-        const groupEndpointCapPolicy =
-          getSweepRangeGroupEndpointCapPolicy(sweepRangeGroup)
-        if (!groupEndpointCapPolicy) {
-          return []
-        }
-        const capMaterialization = getSourcePathRangeCapMaterialization(
-          groupEndpointCapPolicy,
-          authoredStroke
-        )
-        const resolvedCapStroke = {
-          ...capMaterialization.stroke,
-          position
-        }
-        const materializationRanges = sweepRangeGroup.map(
-          (sweepRange) => sweepRange.range
-        )
-        const cacheOrigin = getSourcePathIntervalLevelPolygonCacheOrigin(
-          materializationPath,
-          materializationRanges
-        )
-        const cacheKey =
-          cacheOrigin !== null
-            ? buildSourcePathIntervalLevelPolygonCacheKey(
-                materializationPath,
-                cacheOrigin,
-                position,
-                positionStroke.width,
-                {
-                  ...capMaterialization,
-                  stroke: resolvedCapStroke
-                },
-                materializationRanges,
-                materializationContext
-              )
-            : null
-        const cachedPolygons =
-          cacheKey !== null && cacheOrigin !== null
-            ? getCachedSourcePathIntervalLevelPolygons(cacheKey, cacheOrigin)
-            : null
-        if (cachedPolygons) {
-          return cachedPolygons
-        }
+    const selectedSide =
+      getSourceDomainMaterializedSelectedSide(interval) ??
+      interval.domainPlanSelectedSide
+    const materializationRangeIsSmoothContinuity =
+      hasCurvedSourcePathSweepRange(
+        materializationPath,
+        materializationSweepRanges
+      ) ||
+      hasSmoothContinuityAcrossSweepRanges(
+        materializationPath,
+        materializationSweepRanges
+      ) ||
+      isIntervalAdjacentToAuthoredSmoothSourceBoundary(
+        materializationPath,
+        materializationContext,
+        interval
+      )
+    if (
+      authoredStroke.position === 'outside' &&
+      (selectedSide === 1 || selectedSide === -1) &&
+      !materializationRangeIsSmoothContinuity
+    ) {
+      const doubledCenterProduct = buildDoubledCenterDashedIntervalProduct(
+        materializationPath,
+        {
+          ...intervalSweep,
+          ranges: materializationSweepRanges
+        },
+        interval,
+        authoredStroke,
+        materializationContext
+      )
+      emitStrokePipelineTrace('constrained-dashed-interval-doubled-center', {
+        intervalId: interval.intervalId,
+        selectedSide,
+        position,
+        entryCount: doubledCenterProduct.entries.length,
+        polygonCount: doubledCenterProduct.polygons.length,
+        rangeCount: materializationSweepRanges.length,
+        boundaryDomainId: interval.domainPlanBoundaryDomainId,
+        splitRangeId: interval.domainPlanSplitRangeId
+      })
+      return doubledCenterProduct.entries.flatMap((entry) => entry.polygons)
+    }
+    const shouldMaterializeAsSmoothContinuityIntervalProduct =
+      materializationRangeIsSmoothContinuity &&
+      canMaterializeSweepAsContinuousIntervalProduct(
+        materializationPath,
+        materializationSweepRanges,
+        materializationContext
+      )
+    const sweepRangeGroups = shouldMaterializeAsSmoothContinuityIntervalProduct
+      ? [materializationSweepRanges]
+      : groupSweepRangesByPhysicalSpan(materializationSweepRanges)
 
-        const exactFrames = dedupeOffsetRibbonFrames(
-          materializationRanges.flatMap((range) =>
-            sliceExactOffsetRibbonRangeFrames(
-              materializationPath,
-              range,
-              materializationContext,
-              positionStroke
-            )
-          )
-        )
-        if (exactFrames.length < 2) {
-          emitStrokePipelineTrace('constrained-dashed-empty-range-product', {
-            intervalId: interval.intervalId,
-            domainPlanSplitRangeId: interval.domainPlanSplitRangeId,
-            domainPlanBoundaryDomainId: interval.domainPlanBoundaryDomainId,
-            domainPlanDomainMode: interval.domainPlanDomainMode,
-            domainPlanTerminalRole: interval.domainPlanTerminalRole,
-            position,
-            width: positionStroke.width,
-            exactFrameCount: exactFrames.length,
-            materializationRanges: materializationRanges.map((range) => ({
-              segmentIndex: range.segmentIndex,
-              startDistance: range.startDistance,
-              endDistance: range.endDistance
-            })),
-            capMaterialization: {
-              cap: resolvedCapStroke.cap,
-              roundCapStart: capMaterialization.roundCapStart,
-              roundCapEnd: capMaterialization.roundCapEnd,
-              squareCapStart: capMaterialization.squareCapStart,
-              squareCapEnd: capMaterialization.squareCapEnd
-            }
-          })
-          return []
-        }
-
-        const intervalGeometry =
-          buildExactSourcePathRibbonGeometryFromOffsetFrames(
-            exactFrames,
-            resolvedCapStroke,
-            capMaterialization.roundCapStart,
-            capMaterialization.roundCapEnd,
-            capMaterialization.squareCapStart,
-            capMaterialization.squareCapEnd,
-            materializationContext.roundCapVisualMaxLength
-          )
-        const intervalPolygons = [
-          ...intervalGeometry.bodyPolygons,
-          ...intervalGeometry.capPolygons
-        ]
-        if (intervalPolygons.length === 0) {
-          emitStrokePipelineTrace('constrained-dashed-empty-range-product', {
-            intervalId: interval.intervalId,
-            domainPlanSplitRangeId: interval.domainPlanSplitRangeId,
-            domainPlanBoundaryDomainId: interval.domainPlanBoundaryDomainId,
-            domainPlanDomainMode: interval.domainPlanDomainMode,
-            domainPlanTerminalRole: interval.domainPlanTerminalRole,
-            position,
-            width: positionStroke.width,
-            exactFrameCount: exactFrames.length,
-            materializationRanges: materializationRanges.map((range) => ({
-              segmentIndex: range.segmentIndex,
-              startDistance: range.startDistance,
-              endDistance: range.endDistance
-            })),
-            capMaterialization: {
-              cap: resolvedCapStroke.cap,
-              roundCapStart: capMaterialization.roundCapStart,
-              roundCapEnd: capMaterialization.roundCapEnd,
-              squareCapStart: capMaterialization.squareCapStart,
-              squareCapEnd: capMaterialization.squareCapEnd
-            }
-          })
-        }
-        if (cacheKey !== null && cacheOrigin !== null) {
-          setCachedSourcePathIntervalLevelPolygons(
-            cacheKey,
-            cacheOrigin,
-            intervalPolygons
-          )
-        }
-        return intervalPolygons
+    return sweepRangeGroups.flatMap((sweepRangeGroup) => {
+      const groupEndpointCapPolicy =
+        getSweepRangeGroupEndpointCapPolicy(sweepRangeGroup)
+      if (!groupEndpointCapPolicy) {
+        return []
       }
-    )
+      const capMaterialization = getSourcePathRangeCapMaterialization(
+        groupEndpointCapPolicy,
+        authoredStroke
+      )
+      const resolvedCapStroke = {
+        ...capMaterialization.stroke,
+        position
+      }
+      const materializationRanges = sweepRangeGroup.map(
+        (sweepRange) => sweepRange.range
+      )
+      const cacheOrigin = getSourcePathIntervalLevelPolygonCacheOrigin(
+        materializationPath,
+        materializationRanges
+      )
+      const cacheKey =
+        cacheOrigin !== null
+          ? buildSourcePathIntervalLevelPolygonCacheKey(
+              materializationPath,
+              cacheOrigin,
+              position,
+              positionStroke.width,
+              {
+                ...capMaterialization,
+                stroke: resolvedCapStroke
+              },
+              materializationRanges,
+              materializationContext
+            )
+          : null
+      const cachedPolygons =
+        cacheKey !== null && cacheOrigin !== null
+          ? getCachedSourcePathIntervalLevelPolygons(cacheKey, cacheOrigin)
+          : null
+      if (cachedPolygons) {
+        return cachedPolygons
+      }
+
+      const exactFrames = dedupeOffsetRibbonFrames(
+        materializationRanges.flatMap((range) =>
+          sliceExactOffsetRibbonRangeFrames(
+            materializationPath,
+            range,
+            materializationContext,
+            positionStroke
+          )
+        )
+      )
+      if (exactFrames.length < 2) {
+        emitStrokePipelineTrace('constrained-dashed-empty-range-product', {
+          intervalId: interval.intervalId,
+          domainPlanSplitRangeId: interval.domainPlanSplitRangeId,
+          domainPlanBoundaryDomainId: interval.domainPlanBoundaryDomainId,
+          domainPlanDomainMode: interval.domainPlanDomainMode,
+          domainPlanTerminalRole: interval.domainPlanTerminalRole,
+          position,
+          width: positionStroke.width,
+          exactFrameCount: exactFrames.length,
+          materializationRanges: materializationRanges.map((range) => ({
+            segmentIndex: range.segmentIndex,
+            startDistance: range.startDistance,
+            endDistance: range.endDistance
+          })),
+          capMaterialization: {
+            cap: resolvedCapStroke.cap,
+            roundCapStart: capMaterialization.roundCapStart,
+            roundCapEnd: capMaterialization.roundCapEnd,
+            squareCapStart: capMaterialization.squareCapStart,
+            squareCapEnd: capMaterialization.squareCapEnd
+          }
+        })
+        return []
+      }
+
+      const intervalGeometry =
+        buildExactSourcePathRibbonGeometryFromOffsetFrames(
+          exactFrames,
+          resolvedCapStroke,
+          capMaterialization.roundCapStart,
+          capMaterialization.roundCapEnd,
+          capMaterialization.squareCapStart,
+          capMaterialization.squareCapEnd,
+          materializationContext.roundCapVisualMaxLength,
+          buildBoundaryDomainSemanticCapFrames(
+            interval,
+            authoredStroke.cap,
+            positionStroke.width
+          )
+        )
+      const intervalPolygons = [
+        ...intervalGeometry.bodyPolygons,
+        ...intervalGeometry.capPolygons
+      ]
+      if (intervalPolygons.length === 0) {
+        emitStrokePipelineTrace('constrained-dashed-empty-range-product', {
+          intervalId: interval.intervalId,
+          domainPlanSplitRangeId: interval.domainPlanSplitRangeId,
+          domainPlanBoundaryDomainId: interval.domainPlanBoundaryDomainId,
+          domainPlanDomainMode: interval.domainPlanDomainMode,
+          domainPlanTerminalRole: interval.domainPlanTerminalRole,
+          position,
+          width: positionStroke.width,
+          exactFrameCount: exactFrames.length,
+          materializationRanges: materializationRanges.map((range) => ({
+            segmentIndex: range.segmentIndex,
+            startDistance: range.startDistance,
+            endDistance: range.endDistance
+          })),
+          capMaterialization: {
+            cap: resolvedCapStroke.cap,
+            roundCapStart: capMaterialization.roundCapStart,
+            roundCapEnd: capMaterialization.roundCapEnd,
+            squareCapStart: capMaterialization.squareCapStart,
+            squareCapEnd: capMaterialization.squareCapEnd
+          }
+        })
+      }
+      if (cacheKey !== null && cacheOrigin !== null) {
+        setCachedSourcePathIntervalLevelPolygons(
+          cacheKey,
+          cacheOrigin,
+          intervalPolygons
+        )
+      }
+      return intervalPolygons
+    })
   }
 
-  if (isBoundaryDomainProductVisibleInterval(interval)) {
+  if (
+    isBoundaryDomainProductVisibleInterval(interval) &&
+    interval.materializationDistanceSpace !== 'source-domain'
+  ) {
     const boundaryPath = buildBoundaryDomainPathForInterval(interval)
     const isAlreadyMaterializedBoundaryPath =
       boundaryPath !== null && boundaryPath === path
@@ -9599,6 +16842,127 @@ const canMaterializeSweepAsContinuousIntervalProduct = (
   })
 }
 
+const buildDoubledCenterDashedIntervalProduct = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  intervalSweep: DashedSourcePathIntervalSweep,
+  interval: VisibleDashedTopologyInterval,
+  stroke: Pick<
+    RenderableStroke,
+    'cap' | 'join' | 'miterAngle' | 'miterLimit' | 'width'
+  >,
+  slicingContext: SourcePathSlicingContext,
+  endpointCapPolicyOverride?: DashEndpointCapPolicy
+) => {
+  const doubledStrokeWidth = stroke.width * 2
+  const strokePaths: Vec2[][] = []
+  const entries: {
+    polygons: Vec2[][]
+    strokePath: Vec2[]
+    endpointCapPolicy: DashEndpointCapPolicy
+  }[] = []
+  const polygons = groupSweepRangesByPhysicalSpan(intervalSweep.ranges).flatMap(
+    (sweepRangeGroup) => {
+      const groupEndpointCapPolicy =
+        getSweepRangeGroupEndpointCapPolicyWithOverride(
+          path,
+          sweepRangeGroup,
+          endpointCapPolicyOverride
+        )
+      if (!groupEndpointCapPolicy) {
+        return []
+      }
+      const strokePath = cleanBoundaryPath(
+        sweepRangeGroup.flatMap((sweepRange, index) =>
+          slicePathGeometryPoints(
+            path,
+            sweepRange.range.startDistance,
+            sweepRange.range.endDistance,
+            false,
+            slicingContext.samplingTolerance,
+            slicingContext.samplingOptions
+          ).slice(index === 0 ? 0 : 1)
+        )
+      )
+      if (strokePath.length < 2) {
+        return []
+      }
+      strokePaths.push(strokePath)
+
+      const terminalRole = groupEndpointCapPolicy.terminalRole
+      const terminalCapPolygons =
+        terminalRole === 'middle'
+          ? []
+          : buildConstrainedDashedEndpointPolicyCapPolygons(
+              strokePath,
+              groupEndpointCapPolicy,
+              terminalRole,
+              stroke.cap,
+              doubledStrokeWidth,
+              interval
+            )
+      const descriptorStroke = hasCurvedSourcePathSweepRange(
+        path,
+        sweepRangeGroup
+      )
+        ? {
+            ...stroke,
+            join: 'round' as const
+          }
+        : stroke
+      const groupPolygons = buildCenterStrokeDescriptorProductPolygons(
+        terminalRole === 'middle' ? [strokePath] : [],
+        terminalRole === 'middle' ? [] : [strokePath],
+        terminalCapPolygons,
+        descriptorStroke,
+        doubledStrokeWidth
+      )
+      const endpointTangents = getDoubledCenterEndpointExtentTangents(
+        path,
+        sweepRangeGroup,
+        slicingContext
+      )
+      const endpointClippedGroupPolygons =
+        interval.wrapsSeam &&
+        path.closed &&
+        groupEndpointCapPolicy.terminalRole === 'middle'
+          ? groupPolygons
+          : clipCenterStrokeProductPolygonsToEndpointExtents(
+              groupPolygons,
+              strokePath,
+              stroke.cap,
+              doubledStrokeWidth,
+              groupEndpointCapPolicy,
+              endpointTangents
+            )
+      entries.push({
+        polygons: endpointClippedGroupPolygons,
+        strokePath,
+        endpointCapPolicy: groupEndpointCapPolicy
+      })
+      return endpointClippedGroupPolygons
+    }
+  )
+  return { polygons, strokePaths, entries }
+}
+
+const _buildDoubledCenterDashedIntervalProductPolygons = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  intervalSweep: DashedSourcePathIntervalSweep,
+  interval: VisibleDashedTopologyInterval,
+  stroke: Pick<
+    RenderableStroke,
+    'cap' | 'join' | 'miterAngle' | 'miterLimit' | 'width'
+  >,
+  slicingContext: SourcePathSlicingContext
+) =>
+  buildDoubledCenterDashedIntervalProduct(
+    path,
+    intervalSweep,
+    interval,
+    stroke,
+    slicingContext
+  ).polygons
+
 const isIntervalAdjacentToAuthoredSmoothSourceBoundary = (
   sourcePath: Pick<PathGeometry, 'segments' | 'closed'>,
   slicingContext: Pick<SourcePathSlicingContext, 'segmentRanges'>,
@@ -9683,6 +17047,133 @@ const isIntervalAdjacentToAuthoredSmoothSourceBoundary = (
   )
 }
 
+const buildExplicitSelectedSideDashedIntervalProductPolygons = (
+  path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+  intervalSweep: DashedSourcePathIntervalSweep,
+  interval: VisibleDashedTopologyInterval,
+  stroke: Pick<
+    RenderableStroke,
+    | 'style'
+    | 'position'
+    | 'width'
+    | 'join'
+    | 'miterAngle'
+    | 'miterLimit'
+    | 'cap'
+  >,
+  selectedSide: 1 | -1,
+  slicingContext: SourcePathSlicingContext,
+  implicitFillRegions: PolygonRegion[] = []
+) =>
+  groupSweepRangesByPhysicalSpan(intervalSweep.ranges).flatMap(
+    (sweepRangeGroup) => {
+      const groupEndpointCapPolicy =
+        getSweepRangeGroupEndpointCapPolicyWithOverride(path, sweepRangeGroup)
+      if (!groupEndpointCapPolicy) {
+        return []
+      }
+      const terminalRole = groupEndpointCapPolicy.terminalRole
+
+      const strokePath = cleanBoundaryPath(
+        sweepRangeGroup.flatMap((sweepRange, index) =>
+          slicePathGeometryPoints(
+            path,
+            sweepRange.range.startDistance,
+            sweepRange.range.endDistance,
+            false,
+            slicingContext.samplingTolerance,
+            slicingContext.samplingOptions
+          ).slice(index === 0 ? 0 : 1)
+        )
+      )
+      if (strokePath.length < 2) {
+        return []
+      }
+
+      const resolvedSelectedSide =
+        resolveOutsideDescriptorStrokePathSelectedSide(
+          strokePath,
+          selectedSide,
+          stroke.width,
+          implicitFillRegions
+        )
+      const selectedPosition =
+        resolvedSelectedSide === 1
+          ? ('inside' as const)
+          : resolvedSelectedSide === -1
+            ? ('outside' as const)
+            : null
+      if (!selectedPosition) {
+        return []
+      }
+
+      const selectedSideStroke = {
+        position: selectedPosition,
+        width: stroke.width
+      }
+      const frames = dedupeOffsetRibbonFrames(
+        sweepRangeGroup.flatMap((sweepRange, index) =>
+          sliceExactOffsetRibbonRangeFrames(
+            path,
+            sweepRange.range,
+            slicingContext,
+            selectedSideStroke
+          ).slice(index === 0 ? 0 : 1)
+        )
+      )
+      if (frames.length < 2) {
+        return []
+      }
+
+      const capMaterialization = getSourcePathRangeCapMaterialization(
+        groupEndpointCapPolicy,
+        {
+          ...stroke,
+          position: selectedPosition
+        }
+      )
+      const explicitRangeGeometry =
+        buildExactSourcePathRibbonGeometryFromOffsetFrames(
+          frames,
+          capMaterialization.stroke,
+          capMaterialization.roundCapStart,
+          capMaterialization.roundCapEnd,
+          capMaterialization.squareCapStart,
+          capMaterialization.squareCapEnd,
+          slicingContext.roundCapVisualMaxLength
+        )
+
+      const explicitPolygons = [
+        ...explicitRangeGeometry.bodyPolygons,
+        ...explicitRangeGeometry.capPolygons
+      ]
+      if (terminalRole === 'middle' || stroke.cap === 'butt') {
+        return explicitPolygons
+      }
+
+      const endpointPolicyBodyCapPolygons =
+        buildConstrainedDashedEndpointPolicyCapPolygons(
+          strokePath,
+          groupEndpointCapPolicy,
+          terminalRole,
+          stroke.cap,
+          stroke.width * 2,
+          interval
+        )
+      return preserveEndpointPolicyBodySideCapProductPolygons(
+        explicitPolygons,
+        strokePath,
+        groupEndpointCapPolicy,
+        stroke.cap,
+        stroke.width * 2,
+        {
+          bodySideCapPolygons:
+            stroke.cap === 'round' ? undefined : endpointPolicyBodyCapPolygons
+        }
+      )
+    }
+  )
+
 const buildDashedSourcePathFinalCoveragePolygons = (
   path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
   topology: Pick<
@@ -9701,9 +17192,11 @@ const buildDashedSourcePathFinalCoveragePolygons = (
     | 'position'
     | 'width'
     | 'join'
+    | 'miterAngle'
     | 'miterLimit'
     | 'cap'
-    | 'dashPattern'
+    | 'dash'
+    | 'gap'
   >,
   intervalStroke: Pick<RenderableStroke, 'position' | 'width'>,
   sharpGuardVertices: SharpGuardVertex[],
@@ -9722,6 +17215,12 @@ const buildDashedSourcePathFinalCoveragePolygons = (
       intervalSweep.ranges,
       slicingContext
     )
+  const intervalTouchesAuthoredSmoothBoundary =
+    isIntervalAdjacentToAuthoredSmoothSourceBoundary(
+      path,
+      slicingContext,
+      interval
+    )
   const isClosedSourceCoverageProduct =
     isClosedConstrainedSourceCoverageInterval(interval)
   const shouldBuildIntervalLevelProduct =
@@ -9729,7 +17228,143 @@ const buildDashedSourcePathFinalCoveragePolygons = (
     (isBoundaryDomainProductVisibleInterval(interval) ||
       (canUseContinuousIntervalProduct &&
         (hasCurvedSourcePathSweepRange(path, intervalSweep.ranges) ||
-          hasSmoothContinuityAcrossSweepRanges(path, intervalSweep.ranges))))
+          hasSmoothContinuityAcrossSweepRanges(path, intervalSweep.ranges) ||
+          intervalTouchesAuthoredSmoothBoundary)))
+  const shouldBuildDoubledCenterOutsideLegalProduct =
+    authoredStroke.position === 'outside' &&
+    !shouldBuildIntervalLevelProduct &&
+    !isBoundaryDomainProductVisibleInterval(interval) &&
+    (clipInsideToFillDomain || path.closed) &&
+    (implicitFillRegions.length > 0 || path.closed) &&
+    !isOpenDanglingOutsideBothSidesVisibleInterval(interval)
+  const selectedSide =
+    getSourceDomainMaterializedSelectedSide(interval) ??
+    interval.domainPlanSelectedSide
+  const shouldBuildDoubledCenterExplicitSideProduct =
+    authoredStroke.position === 'outside' &&
+    !shouldBuildDoubledCenterOutsideLegalProduct &&
+    !shouldBuildIntervalLevelProduct &&
+    (!isBoundaryDomainProductVisibleInterval(interval) ||
+      interval.materializationDistanceSpace === 'source-domain') &&
+    (selectedSide === 1 || selectedSide === -1) &&
+    !isOpenDanglingOutsideBothSidesVisibleInterval(interval)
+
+  if (shouldBuildDoubledCenterOutsideLegalProduct) {
+    emitStrokePipelineCounter('final-coverage-route:doubled-center-outside')
+    const doubledCenterProduct = measureStrokePipelinePhase(
+      'constrained dashed final coverage: doubled center product',
+      () =>
+        buildDoubledCenterDashedIntervalProduct(
+          path,
+          intervalSweep,
+          interval,
+          authoredStroke,
+          slicingContext
+        )
+    )
+    const selectedSideProductPolygons =
+      selectedSide === 1 || selectedSide === -1
+        ? doubledCenterProduct.entries.flatMap((entry) => {
+            return clipSourceDomainIntervalPolygonsToExplicitSelectedSide(
+              entry.polygons,
+              entry.strokePath,
+              authoredStroke.width,
+              selectedSide,
+              {
+                cap: authoredStroke.cap,
+                endpointCapPolicy: entry.endpointCapPolicy
+              }
+            )
+          })
+        : doubledCenterProduct.polygons
+    if (
+      implicitFillRegions.length > 0 &&
+      canSkipOutsideLegalClipForTerminalFragments(
+        selectedSideProductPolygons,
+        implicitFillRegions
+      )
+    ) {
+      emitStrokePipelineCounter(
+        'final-coverage-doubled-center-outside-legal-noop-skip'
+      )
+      return selectedSideProductPolygons
+    }
+    return measureStrokePipelinePhase(
+      'constrained dashed final coverage: doubled center outside legal clip',
+      () =>
+        clipSourcePathPolygonsToEvenOddLegalDomain(
+          selectedSideProductPolygons,
+          path,
+          { position: authoredStroke.position },
+          implicitFillRegions,
+          {
+            cleanupMicroEdgeTolerance: 0.001,
+            cleanupCollinearTolerance: 0.0001,
+            outsideFillRule: topology.fillRule
+          }
+        )
+    )
+  }
+
+  if (shouldBuildDoubledCenterExplicitSideProduct) {
+    emitStrokePipelineCounter('final-coverage-route:doubled-center-explicit')
+    const explicitSelectedSideProduct = measureStrokePipelinePhase(
+      'constrained dashed final coverage: explicit selected-side product',
+      () =>
+        buildExplicitSelectedSideDashedIntervalProductPolygons(
+          path,
+          intervalSweep,
+          interval,
+          authoredStroke,
+          selectedSide,
+          slicingContext,
+          implicitFillRegions
+        )
+    )
+    if (explicitSelectedSideProduct.length > 0) {
+      return explicitSelectedSideProduct
+    }
+    emitStrokePipelineCounter(
+      'final-coverage-route:doubled-center-explicit-secondary'
+    )
+    const doubledCenterProduct = measureStrokePipelinePhase(
+      'constrained dashed final coverage: doubled center explicit product',
+      () =>
+        buildDoubledCenterDashedIntervalProduct(
+          path,
+          intervalSweep,
+          interval,
+          authoredStroke,
+          slicingContext
+        )
+    )
+    return measureStrokePipelinePhase(
+      'constrained dashed final coverage: doubled center explicit side clip',
+      () =>
+        doubledCenterProduct.entries.flatMap((entry) => {
+          const resolvedSelectedSide =
+            resolveOutsideDescriptorStrokePathSelectedSide(
+              entry.strokePath,
+              selectedSide,
+              authoredStroke.width,
+              implicitFillRegions
+            )
+          if (resolvedSelectedSide !== 1 && resolvedSelectedSide !== -1) {
+            return entry.polygons
+          }
+          return clipSourceDomainIntervalPolygonsToExplicitSelectedSide(
+            entry.polygons,
+            entry.strokePath,
+            authoredStroke.width,
+            resolvedSelectedSide,
+            {
+              cap: authoredStroke.cap,
+              endpointCapPolicy: entry.endpointCapPolicy
+            }
+          )
+        })
+    )
+  }
 
   measureStrokePipelinePhase(
     'constrained dashed final coverage: ranges',
@@ -9743,12 +17378,14 @@ const buildDashedSourcePathFinalCoveragePolygons = (
             authoredStroke,
             intervalStroke,
             slicingContext,
-            strokeDomainPlan
+            strokeDomainPlan,
+            implicitFillRegions
           )
         )
         return
       }
 
+      emitStrokePipelineCounter('final-coverage-route:ranges')
       for (const sweepRange of intervalSweep.ranges) {
         appendDashedSourcePathFinalCoverageRangePolygons(
           polygons,
@@ -9779,7 +17416,10 @@ const buildDashedSourcePathFinalCoveragePolygons = (
         return polygons
       }
 
-      if (isBoundaryDomainProductVisibleInterval(interval)) {
+      if (
+        isBoundaryDomainProductVisibleInterval(interval) &&
+        interval.materializationDistanceSpace !== 'source-domain'
+      ) {
         return polygons
       }
 
@@ -9803,13 +17443,6 @@ const buildDashedSourcePathFinalCoveragePolygons = (
         { position: authoredStroke.position },
         implicitFillRegions,
         {
-          restoreSubjectBoundaryPolygons: [],
-          restoreSubjectBoundaryPaths: [],
-          fragmentStitchRadius: 0,
-          fragmentPruneArea: Math.max(
-            1,
-            authoredStroke.width * authoredStroke.width * 0.1
-          ),
           cleanupMicroEdgeTolerance: 0.001,
           cleanupCollinearTolerance: 0.0001,
           outsideFillRule: topology.fillRule
@@ -9819,8 +17452,15 @@ const buildDashedSourcePathFinalCoveragePolygons = (
   )
   const isBoundaryDomainProductInterval =
     isConstrainedBoundaryDomainProductInterval(interval)
+  const isRoundBoundaryDomainTerminalInterval =
+    authoredStroke.cap === 'round' &&
+    isBoundaryDomainProductInterval &&
+    interval.domainPlanTerminalRole !== undefined &&
+    interval.domainPlanTerminalRole !== 'middle'
   const shouldNormalizeIntervalProduct =
-    normalizePerInterval && domainSideClippedPolygons.length > 1
+    normalizePerInterval &&
+    domainSideClippedPolygons.length > 1 &&
+    !isRoundBoundaryDomainTerminalInterval
   const normalizedPolygons = measureStrokePipelinePhase(
     'constrained dashed final coverage: normalize',
     () =>
@@ -9838,13 +17478,24 @@ const buildDashedSourcePathFinalCoveragePolygons = (
     !isBoundaryDomainProductInterval &&
     !isClosedSourceCoverageProduct &&
     (authoredStroke.position === 'inside' ||
-      (!isBoundaryDomainProductVisibleInterval(interval) &&
-        (topology.topologyFamily !== 'self-intersecting' ||
-          (strokeDomainPlan?.sideAuthority === 'implicit-fill-hole-domain' &&
-            authoredStroke.position === 'outside'))))
+      ((!isBoundaryDomainProductVisibleInterval(interval) ||
+        interval.materializationDistanceSpace === 'source-domain') &&
+        authoredStroke.position === 'outside'))
 
   if (!shouldClipToImplicitFillDomain) {
-    return normalizedPolygons
+    return authoredStroke.position === 'outside' &&
+      implicitFillRegions.length > 0 &&
+      sourcePathHasCurvedSegments(path)
+      ? subtractOutsideLegalResidue(
+          normalizedPolygons,
+          implicitFillRegions,
+          'nonzero',
+          {
+            cleanupMicroEdgeTolerance: 0.001,
+            cleanupCollinearTolerance: 0.0001
+          }
+        )
+      : normalizedPolygons
   }
 
   const clippedPolygons = measureStrokePipelinePhase(
@@ -9857,8 +17508,9 @@ const buildDashedSourcePathFinalCoveragePolygons = (
         implicitFillRegions,
         {
           dropEmptyInsideClipResult: authoredStroke.position === 'inside',
-          restoreSubjectBoundaryPolygons: [],
-          restoreSubjectBoundaryPaths: []
+          cleanupMicroEdgeTolerance: 0.001,
+          cleanupCollinearTolerance: 0.0001,
+          outsideFillRule: topology.fillRule
         }
       )
   )
@@ -9872,34 +17524,55 @@ const buildDashedSourcePathFinalCoveragePolygons = (
           implicitFillRegions
         )
       : clippedPolygons
-
+  const outsideMiddleResidueCleanedPolygons =
+    authoredStroke.position === 'outside' &&
+    implicitFillRegions.length > 0 &&
+    sourcePathHasCurvedSegments(path)
+      ? subtractOutsideLegalResidue(
+          legalClippedPolygons,
+          implicitFillRegions,
+          'nonzero',
+          {
+            cleanupMicroEdgeTolerance: 0.001,
+            cleanupCollinearTolerance: 0.0001
+          }
+        )
+      : legalClippedPolygons
   if (
     authoredStroke.position !== 'outside' ||
-    legalClippedPolygons.length === 0 ||
+    outsideMiddleResidueCleanedPolygons.length === 0 ||
     implicitFillRegions.length === 0
   ) {
-    return legalClippedPolygons
+    return outsideMiddleResidueCleanedPolygons
   }
 
-  return measureStrokePipelinePhase(
+  const outsideCleanupPolygons = measureStrokePipelinePhase(
     'constrained dashed final coverage: outside cleanup clip',
     () =>
       clipSourcePathPolygonsToEvenOddLegalDomain(
-        legalClippedPolygons,
+        outsideMiddleResidueCleanedPolygons,
         path,
         authoredStroke,
         [],
-        {
-          restoreSubjectBoundaryPolygons: [],
-          restoreSubjectBoundaryPaths: [],
-          fragmentStitchRadius: 0,
-          fragmentPruneArea: Math.max(
-            1,
-            authoredStroke.width * authoredStroke.width * 0.1
-          )
-        }
+        {}
       )
   )
+  return authoredStroke.position === 'outside' &&
+    implicitFillRegions.length > 0 &&
+    sourcePathHasCurvedSegments(path)
+    ? subtractOutsideLegalResidue(
+        outsideCleanupPolygons,
+        implicitFillRegions,
+        'nonzero',
+        {
+          cleanupMicroEdgeTolerance: 0.001,
+          cleanupCollinearTolerance: 0.0001,
+          outsideLegalResidueCaller: 'final-coverage-cleanup-outside',
+          outsideLegalBoundarySnapTolerance:
+            CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE
+        }
+      )
+    : outsideCleanupPolygons
 }
 
 const isDistanceInsideInterval = (
@@ -10267,14 +17940,20 @@ const cleanBoundaryPath = (points: Vec2[]) => {
 
 const CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE = 0.03
 const CLIPPED_PRODUCT_COLLINEAR_TOLERANCE = 0.0075
+const CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE = 0.75
+const SOURCE_VERTEX_OUTSIDE_BOUNDARY_SNAP_TOLERANCE = 0.1
+const OUTSIDE_TERMINAL_BODY_LEGAL_CLIP_ENVELOPE = 0.015
 
 interface ClippedProductCleanupOptions {
   cleanupMicroEdgeTolerance?: number
   cleanupCollinearTolerance?: number
-  restoreSubjectBoundaryMaxEdgeLength?: number
-  restoreSubjectBoundarySnapTolerance?: number
-  restoreSubjectBoundaryPolygons?: Vec2[][]
-  restoreSubjectBoundaryPaths?: Vec2[][]
+  cleanupConcaveNotchTolerance?: number
+  outsideLegalBoundarySnapTolerance?: number
+  outsideLegalResidueCaller?: string
+  forceOutsideLegalResidueSubtract?: boolean
+  skipOutsideLegalBoundaryDensify?: boolean
+  materializeProductCoverage?: boolean
+  outsideLegalClipInflateDistance?: number
 }
 
 const isNearCollinearPoint = (
@@ -10292,6 +17971,157 @@ const isNearCollinearPoint = (
   return cross / scale <= tolerance
 }
 
+const collapseMicroEdgesToMidpoints = (polygon: Vec2[], tolerance: number) => {
+  if (polygon.length < 4) {
+    return polygon
+  }
+
+  const collapsed: Vec2[] = []
+  let index = 0
+  while (index < polygon.length) {
+    const current = polygon[index]
+    const next = polygon[(index + 1) % polygon.length]
+    if (
+      index < polygon.length - 1 &&
+      distanceBetween(current, next) <= tolerance
+    ) {
+      collapsed.push({
+        x: (current.x + next.x) / 2,
+        y: (current.y + next.y) / 2
+      })
+      index += 2
+      continue
+    }
+    collapsed.push(current)
+    index += 1
+  }
+
+  if (
+    collapsed.length > 2 &&
+    distanceBetween(collapsed[0], collapsed[collapsed.length - 1]) <= tolerance
+  ) {
+    const midpoint = {
+      x: (collapsed[0].x + collapsed[collapsed.length - 1].x) / 2,
+      y: (collapsed[0].y + collapsed[collapsed.length - 1].y) / 2
+    }
+    collapsed[0] = midpoint
+    collapsed.pop()
+  }
+
+  return cleanPolygon(collapsed)
+}
+
+const removeCyclicMicroEdgeVertices = (polygon: Vec2[], tolerance: number) => {
+  let cleaned = cleanPolygon(polygon)
+  if (cleaned.length < 4) {
+    return cleaned
+  }
+
+  for (let pass = 0; pass < 120 && cleaned.length >= 4; pass += 1) {
+    const removeIndex = cleaned.findIndex((point, index) => {
+      const next = cleaned[(index + 1) % cleaned.length]
+      return distanceBetween(point, next) <= tolerance
+    })
+    if (removeIndex < 0) {
+      break
+    }
+
+    const compacted = cleaned.filter(
+      (_, index) => index !== (removeIndex + 1) % cleaned.length
+    )
+    if (compacted.length < 3 || Math.abs(polygonArea(compacted)) <= EPSILON) {
+      break
+    }
+    cleaned = cleanPolygon(compacted)
+  }
+
+  return cleaned
+}
+
+const getPointToSegmentDistance = (point: Vec2, start: Vec2, end: Vec2) => {
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const lengthSquared = dx * dx + dy * dy
+  if (lengthSquared <= EPSILON) {
+    return distanceBetween(point, start)
+  }
+
+  const t = Math.max(
+    0,
+    Math.min(
+      1,
+      ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared
+    )
+  )
+  return distanceBetween(point, {
+    x: start.x + dx * t,
+    y: start.y + dy * t
+  })
+}
+
+const getTriangleTurn = (previous: Vec2, point: Vec2, next: Vec2) =>
+  (point.x - previous.x) * (next.y - point.y) -
+  (point.y - previous.y) * (next.x - point.x)
+
+const removeSmallConcaveNotches = (polygon: Vec2[], tolerance: number) => {
+  let cleaned = cleanPolygon(polygon)
+  if (cleaned.length < 4 || tolerance <= EPSILON) {
+    return cleaned
+  }
+
+  for (let pass = 0; pass < 80 && cleaned.length >= 4; pass += 1) {
+    const area = polygonArea(cleaned)
+    const orientation = area >= 0 ? 1 : -1
+    const maxTriangleArea = tolerance * tolerance
+    let removeIndex = -1
+
+    for (let index = 0; index < cleaned.length; index += 1) {
+      const previousPrevious =
+        cleaned[(index - 2 + cleaned.length) % cleaned.length]
+      const previous = cleaned[(index - 1 + cleaned.length) % cleaned.length]
+      const point = cleaned[index]
+      const next = cleaned[(index + 1) % cleaned.length]
+      const nextNext = cleaned[(index + 2) % cleaned.length]
+      const rawTurn = getTriangleTurn(previous, point, next)
+      const orientedTurn = rawTurn * orientation
+      const previousTurn = getTriangleTurn(previousPrevious, previous, point)
+      const nextTurn = getTriangleTurn(point, next, nextNext)
+      const oppositeNeighborTurns =
+        Math.abs(rawTurn) > EPSILON &&
+        Math.abs(previousTurn) > EPSILON &&
+        Math.abs(nextTurn) > EPSILON &&
+        Math.sign(previousTurn) === Math.sign(nextTurn) &&
+        Math.sign(rawTurn) !== Math.sign(previousTurn)
+      if (orientedTurn >= -EPSILON && !oppositeNeighborTurns) {
+        continue
+      }
+
+      const notchDepth = getPointToSegmentDistance(point, previous, next)
+      const triangleArea = Math.abs(rawTurn) / 2
+      if (notchDepth <= tolerance && triangleArea <= maxTriangleArea) {
+        removeIndex = index
+        break
+      }
+    }
+
+    if (removeIndex < 0) {
+      break
+    }
+
+    const compacted = cleaned.filter((_, index) => index !== removeIndex)
+    if (
+      compacted.length < 3 ||
+      Math.abs(polygonArea(compacted)) <= EPSILON ||
+      polygonArea(compacted) * polygonArea(cleaned) < 0
+    ) {
+      break
+    }
+    cleaned = cleanPolygon(compacted)
+  }
+
+  return cleaned
+}
+
 const cleanClippedProductPolygon = (
   polygon: Vec2[],
   options: ClippedProductCleanupOptions = {}
@@ -10306,27 +18136,7 @@ const cleanClippedProductPolygon = (
   }
 
   for (let pass = 0; pass < 4; pass += 1) {
-    const deduped: Vec2[] = []
-    for (const point of cleaned) {
-      const previous = deduped[deduped.length - 1]
-      if (
-        !previous ||
-        Math.hypot(previous.x - point.x, previous.y - point.y) >
-          microEdgeTolerance
-      ) {
-        deduped.push(point)
-      }
-    }
-
-    if (
-      deduped.length > 2 &&
-      Math.hypot(
-        deduped[0].x - deduped[deduped.length - 1].x,
-        deduped[0].y - deduped[deduped.length - 1].y
-      ) <= microEdgeTolerance
-    ) {
-      deduped.pop()
-    }
+    const deduped = collapseMicroEdgesToMidpoints(cleaned, microEdgeTolerance)
 
     if (deduped.length < 4) {
       cleaned = deduped
@@ -10338,12 +18148,7 @@ const cleanClippedProductPolygon = (
       const previous = deduped[(index - 1 + deduped.length) % deduped.length]
       const point = deduped[index]
       const next = deduped[(index + 1) % deduped.length]
-      if (
-        Math.hypot(previous.x - point.x, previous.y - point.y) <=
-          microEdgeTolerance ||
-        Math.hypot(point.x - next.x, point.y - next.y) <= microEdgeTolerance ||
-        isNearCollinearPoint(previous, point, next, collinearTolerance)
-      ) {
+      if (isNearCollinearPoint(previous, point, next, collinearTolerance)) {
         continue
       }
       simplified.push(point)
@@ -10362,17 +18167,22 @@ const cleanClippedProductPolygon = (
   }
 
   for (let pass = 0; pass < 80 && cleaned.length >= 4; pass += 1) {
+    const collapsed = collapseMicroEdgesToMidpoints(cleaned, microEdgeTolerance)
+    if (
+      collapsed.length >= 3 &&
+      collapsed.length !== cleaned.length &&
+      Math.abs(polygonArea(collapsed)) > EPSILON
+    ) {
+      cleaned = collapsed
+      continue
+    }
+
     let removeIndex = -1
     for (let index = 0; index < cleaned.length; index += 1) {
       const previous = cleaned[(index - 1 + cleaned.length) % cleaned.length]
       const point = cleaned[index]
       const next = cleaned[(index + 1) % cleaned.length]
-      if (
-        Math.hypot(previous.x - point.x, previous.y - point.y) <=
-          microEdgeTolerance ||
-        Math.hypot(point.x - next.x, point.y - next.y) <= microEdgeTolerance ||
-        isNearCollinearPoint(previous, point, next, collinearTolerance)
-      ) {
+      if (isNearCollinearPoint(previous, point, next, collinearTolerance)) {
         removeIndex = index
         continue
       }
@@ -10387,7 +18197,14 @@ const cleanClippedProductPolygon = (
     cleaned = compacted
   }
 
-  return cleanPolygon(cleaned)
+  const withoutMicroEdges = removeCyclicMicroEdgeVertices(
+    cleaned,
+    microEdgeTolerance
+  )
+  return removeSmallConcaveNotches(
+    withoutMicroEdges,
+    options.cleanupConcaveNotchTolerance ?? 0
+  )
 }
 
 type SourcePathWithOptionalSamples = Pick<
@@ -10501,6 +18318,13 @@ const legalClipPolygonModelCache = new WeakMap<
   PolygonRegion[],
   LegalClipPolygonModel[]
 >()
+const legalClipRegionIdentityCache = new WeakMap<PolygonRegion, number>()
+const LEGAL_CLIP_POLYGON_MODEL_SEQUENCE_CACHE_LIMIT = 4096
+const legalClipPolygonModelSequenceCache = new Map<
+  string,
+  LegalClipPolygonModel[]
+>()
+let nextLegalClipRegionIdentity = 1
 
 const getLegalClipRegionBounds = (region: PolygonRegion) => {
   const cached = legalClipRegionBoundsCache.get(region)
@@ -10518,6 +18342,29 @@ const getLegalClipPolygonModels = (regions: PolygonRegion[]) => {
     return cached
   }
 
+  const sequenceKey =
+    regions.length > 0
+      ? regions
+          .map((region) => {
+            const cachedIdentity = legalClipRegionIdentityCache.get(region)
+            if (cachedIdentity !== undefined) {
+              return cachedIdentity
+            }
+            const identity = nextLegalClipRegionIdentity
+            nextLegalClipRegionIdentity += 1
+            legalClipRegionIdentityCache.set(region, identity)
+            return identity
+          })
+          .join('|')
+      : null
+  const cachedSequenceModels = sequenceKey
+    ? legalClipPolygonModelSequenceCache.get(sequenceKey)
+    : undefined
+  if (cachedSequenceModels) {
+    legalClipPolygonModelCache.set(regions, cachedSequenceModels)
+    return cachedSequenceModels
+  }
+
   const models = regions.flatMap((region) =>
     region.polygons.length === 1
       ? region.polygons
@@ -10530,6 +18377,18 @@ const getLegalClipPolygonModels = (regions: PolygonRegion[]) => {
       : []
   )
   legalClipPolygonModelCache.set(regions, models)
+  if (sequenceKey) {
+    legalClipPolygonModelSequenceCache.set(sequenceKey, models)
+    if (
+      legalClipPolygonModelSequenceCache.size >
+      LEGAL_CLIP_POLYGON_MODEL_SEQUENCE_CACHE_LIMIT
+    ) {
+      const oldestKey = legalClipPolygonModelSequenceCache.keys().next().value
+      if (oldestKey !== undefined) {
+        legalClipPolygonModelSequenceCache.delete(oldestKey)
+      }
+    }
+  }
   return models
 }
 
@@ -10551,6 +18410,59 @@ const selectIntersectingLegalClipRegions = (
 
   emitStrokePipelineCounter(
     `source-vertex-join-inside-legal-clip-region-narrow-${selectedRegions.length}`
+  )
+  return selectedRegions
+}
+
+const _selectBoundsIntersectingLegalClipRegions = (
+  subjectPolygons: Vec2[][],
+  legalClipRegions: PolygonRegion[],
+  tolerance = 0.01
+) => {
+  if (subjectPolygons.length === 0 || legalClipRegions.length === 0) {
+    return legalClipRegions
+  }
+
+  const subjectBounds = getBounds(subjectPolygons)
+  const selectedRegions = legalClipRegions.filter((region) =>
+    boundsMayIntersect(
+      subjectBounds,
+      getLegalClipRegionBounds(region),
+      tolerance
+    )
+  )
+  if (selectedRegions.length === legalClipRegions.length) {
+    return legalClipRegions
+  }
+
+  emitStrokePipelineCounter(
+    `outside-legal-clip-region-narrow-${selectedRegions.length}`
+  )
+  return selectedRegions
+}
+
+const selectBoundsIntersectingLegalClipRegions = (
+  subjectBounds: Bounds,
+  legalClipRegions: PolygonRegion[],
+  tolerance = 0.01
+) => {
+  if (legalClipRegions.length === 0) {
+    return legalClipRegions
+  }
+
+  const selectedRegions = legalClipRegions.filter((region) =>
+    boundsMayIntersect(
+      subjectBounds,
+      getLegalClipRegionBounds(region),
+      tolerance
+    )
+  )
+  if (selectedRegions.length === legalClipRegions.length) {
+    return legalClipRegions
+  }
+
+  emitStrokePipelineCounter(
+    `outside-legal-clip-region-narrow-${selectedRegions.length}`
   )
   return selectedRegions
 }
@@ -10751,6 +18663,78 @@ const canSkipInsideLegalClip = (
   )
 }
 
+const polygonOverlapsLegalInterior = (
+  polygon: Vec2[],
+  legalModel: LegalClipPolygonModel
+) => {
+  const polygonBounds = getBounds([polygon])
+  if (!boundsMayIntersect(polygonBounds, legalModel.bounds)) {
+    return false
+  }
+
+  if (
+    polygon.some(
+      (point) =>
+        !isPointOnPolygonBoundary(point, legalModel.polygon) &&
+        isPointInsidePolygonEvenOdd(point, legalModel.polygon)
+    )
+  ) {
+    return true
+  }
+
+  if (polygonEdgesCrossBoundary(polygon, legalModel.polygon)) {
+    return true
+  }
+
+  return legalModel.polygon.some(
+    (point) =>
+      !isPointOnPolygonBoundary(point, polygon) &&
+      isPointInsidePolygonEvenOdd(point, polygon)
+  )
+}
+
+const canSkipOutsideLegalClip = (
+  subjectPolygons: Vec2[][],
+  legalClipRegions: PolygonRegion[]
+) => {
+  if (
+    subjectPolygons.length === 0 ||
+    legalClipRegions.length === 0 ||
+    polygonsHaveOverlappingBounds(subjectPolygons)
+  ) {
+    return false
+  }
+
+  const legalModels = getLegalClipPolygonModels(legalClipRegions)
+  return (
+    legalModels.length > 0 &&
+    subjectPolygons.every((polygon) =>
+      legalModels.every(
+        (legalModel) => !polygonOverlapsLegalInterior(polygon, legalModel)
+      )
+    )
+  )
+}
+
+const canSkipOutsideLegalClipForTerminalFragments = (
+  subjectPolygons: Vec2[][],
+  legalClipRegions: PolygonRegion[]
+) => {
+  if (subjectPolygons.length === 0 || legalClipRegions.length === 0) {
+    return false
+  }
+
+  const legalModels = getLegalClipPolygonModels(legalClipRegions)
+  return (
+    legalModels.length > 0 &&
+    subjectPolygons.every((polygon) =>
+      legalModels.every(
+        (legalModel) => !polygonOverlapsLegalInterior(polygon, legalModel)
+      )
+    )
+  )
+}
+
 const partitionInsideLegalClipPolygons = (
   subjectPolygons: Vec2[][],
   legalClipRegions: PolygonRegion[],
@@ -10798,458 +18782,6 @@ const cleanClippedProductPolygons = (
   polygons
     .map((polygon) => cleanClippedProductPolygon(polygon, options))
     .filter(hasPolygonGeometry)
-
-const pointPolylineDistance = (point: Vec2, polyline: readonly Vec2[]) => {
-  if (polyline.length === 0) {
-    return Infinity
-  }
-  if (polyline.length === 1) {
-    return distanceBetween(point, polyline[0])
-  }
-
-  let minDistance = Infinity
-  for (let index = 0; index < polyline.length - 1; index += 1) {
-    minDistance = Math.min(
-      minDistance,
-      distanceBetween(
-        point,
-        projectPointToSegment(point, polyline[index], polyline[index + 1])
-      )
-    )
-  }
-  return minDistance
-}
-
-const insertSourceBoundaryPointsAlongEdge = (
-  start: Vec2,
-  end: Vec2,
-  sourceBoundary: readonly Vec2[],
-  tolerance: number
-) => {
-  if (sourceBoundary.length < 3) {
-    return []
-  }
-  const startProjection = findNearestProductBoundaryPathProjection(
-    start,
-    sourceBoundary as Vec2[]
-  )
-  const endProjection = findNearestProductBoundaryPathProjection(
-    end,
-    sourceBoundary as Vec2[]
-  )
-  if (
-    !startProjection ||
-    !endProjection ||
-    startProjection.distance > tolerance ||
-    endProjection.distance > tolerance
-  ) {
-    return []
-  }
-
-  return buildProductBoundaryOpenPath(startProjection, endProjection).slice(
-    1,
-    -1
-  )
-}
-
-const preserveSmoothSourceBoundaryEdges = (
-  polygons: Vec2[][],
-  sourceBoundary: readonly Vec2[],
-  maxEdgeLength: number,
-  tolerance: number
-) => {
-  if (sourceBoundary.length < 3) {
-    return polygons
-  }
-
-  return polygons
-    .map((polygon) => {
-      if (polygon.length < 3) {
-        return polygon
-      }
-      const preserved: Vec2[] = []
-      for (let index = 0; index < polygon.length; index += 1) {
-        const start = polygon[index]
-        const end = polygon[(index + 1) % polygon.length]
-        pushDistinctBoundaryPoint(preserved, start)
-        if (distanceBetween(start, end) <= maxEdgeLength) {
-          continue
-        }
-        const midpoint = {
-          x: (start.x + end.x) / 2,
-          y: (start.y + end.y) / 2
-        }
-        if (pointPolylineDistance(midpoint, sourceBoundary) > tolerance) {
-          continue
-        }
-        insertSourceBoundaryPointsAlongEdge(
-          start,
-          end,
-          sourceBoundary,
-          tolerance
-        ).forEach((point) => pushDistinctBoundaryPoint(preserved, point))
-      }
-      return preserved.length >= 3 ? preserved : polygon
-    })
-    .map(cleanPolygon)
-    .filter(hasPolygonGeometry)
-}
-
-interface ProductBoundaryProjection {
-  polygon: Vec2[]
-  edgeIndex: number
-  point: Vec2
-  distance: number
-  t: number
-}
-
-interface ProductBoundaryPathProjection {
-  path: Vec2[]
-  segmentIndex: number
-  point: Vec2
-  distance: number
-  t: number
-}
-
-const findNearestProductBoundaryProjection = (
-  point: Vec2,
-  polygon: Vec2[]
-): ProductBoundaryProjection | null => {
-  if (polygon.length < 2) {
-    return null
-  }
-
-  let nearest: ProductBoundaryProjection | null = null
-  for (let edgeIndex = 0; edgeIndex < polygon.length; edgeIndex += 1) {
-    const start = polygon[edgeIndex]
-    const end = polygon[(edgeIndex + 1) % polygon.length]
-    const dx = end.x - start.x
-    const dy = end.y - start.y
-    const lengthSquared = dx * dx + dy * dy
-    const t =
-      lengthSquared > EPSILON
-        ? Math.max(
-            0,
-            Math.min(
-              1,
-              ((point.x - start.x) * dx + (point.y - start.y) * dy) /
-                lengthSquared
-            )
-          )
-        : 0
-    const projected = {
-      x: start.x + dx * t,
-      y: start.y + dy * t
-    }
-    const projectedDistance = distanceBetween(point, projected)
-    if (!nearest || projectedDistance < nearest.distance) {
-      nearest = {
-        polygon,
-        edgeIndex,
-        point: normalizePoint(projected),
-        distance: projectedDistance,
-        t
-      }
-    }
-  }
-
-  return nearest
-}
-
-const findNearestProductBoundaryPathProjection = (
-  point: Vec2,
-  path: Vec2[]
-): ProductBoundaryPathProjection | null => {
-  if (path.length < 2) {
-    return null
-  }
-
-  let nearest: ProductBoundaryPathProjection | null = null
-  for (
-    let segmentIndex = 0;
-    segmentIndex < path.length - 1;
-    segmentIndex += 1
-  ) {
-    const start = path[segmentIndex]
-    const end = path[segmentIndex + 1]
-    const dx = end.x - start.x
-    const dy = end.y - start.y
-    const lengthSquared = dx * dx + dy * dy
-    const t =
-      lengthSquared > EPSILON
-        ? Math.max(
-            0,
-            Math.min(
-              1,
-              ((point.x - start.x) * dx + (point.y - start.y) * dy) /
-                lengthSquared
-            )
-          )
-        : 0
-    const projected = {
-      x: start.x + dx * t,
-      y: start.y + dy * t
-    }
-    const projectedDistance = distanceBetween(point, projected)
-    if (!nearest || projectedDistance < nearest.distance) {
-      nearest = {
-        path,
-        segmentIndex,
-        point: normalizePoint(projected),
-        distance: projectedDistance,
-        t
-      }
-    }
-  }
-
-  return nearest
-}
-
-const pushDistinctBoundaryPoint = (points: Vec2[], point: Vec2) => {
-  const previous = points[points.length - 1]
-  if (!previous || distanceBetween(previous, point) > EPSILON) {
-    points.push(point)
-  }
-}
-
-const buildProductBoundaryPath = (
-  start: ProductBoundaryProjection,
-  end: ProductBoundaryProjection,
-  direction: 1 | -1
-) => {
-  const polygon = start.polygon
-  const pointCount = polygon.length
-  if (pointCount < 2 || end.polygon !== polygon) {
-    return []
-  }
-
-  const points: Vec2[] = []
-  pushDistinctBoundaryPoint(points, start.point)
-
-  if (direction === 1) {
-    let edgeIndex = start.edgeIndex
-    for (let step = 0; step <= pointCount; step += 1) {
-      if (edgeIndex === end.edgeIndex) {
-        pushDistinctBoundaryPoint(points, end.point)
-        break
-      }
-      pushDistinctBoundaryPoint(points, polygon[(edgeIndex + 1) % pointCount])
-      edgeIndex = (edgeIndex + 1) % pointCount
-    }
-  } else {
-    let edgeIndex = start.edgeIndex
-    for (let step = 0; step <= pointCount; step += 1) {
-      if (edgeIndex === end.edgeIndex) {
-        pushDistinctBoundaryPoint(points, end.point)
-        break
-      }
-      pushDistinctBoundaryPoint(points, polygon[edgeIndex])
-      edgeIndex = (edgeIndex - 1 + pointCount) % pointCount
-    }
-  }
-
-  return points.length >= 2 ? points : []
-}
-
-const buildProductBoundaryOpenPath = (
-  start: ProductBoundaryPathProjection,
-  end: ProductBoundaryPathProjection
-) => {
-  const path = start.path
-  if (path.length < 2 || end.path !== path) {
-    return []
-  }
-
-  const points: Vec2[] = []
-  if (start.segmentIndex <= end.segmentIndex) {
-    pushDistinctBoundaryPoint(points, start.point)
-    for (
-      let index = start.segmentIndex + 1;
-      index <= end.segmentIndex;
-      index += 1
-    ) {
-      pushDistinctBoundaryPoint(points, path[index])
-    }
-    pushDistinctBoundaryPoint(points, end.point)
-  } else {
-    pushDistinctBoundaryPoint(points, start.point)
-    for (let index = start.segmentIndex; index > end.segmentIndex; index -= 1) {
-      pushDistinctBoundaryPoint(points, path[index])
-    }
-    pushDistinctBoundaryPoint(points, end.point)
-  }
-
-  return points.length >= 2 ? points : []
-}
-
-const getPolylineLength = (points: Vec2[]) =>
-  points.reduce((total, point, index) => {
-    if (index === 0) {
-      return 0
-    }
-    return total + distanceBetween(points[index - 1], point)
-  }, 0)
-
-const getPolylineMaxEdgeLength = (points: Vec2[]) =>
-  points.reduce((maxLength, point, index) => {
-    if (index === 0) {
-      return maxLength
-    }
-    return Math.max(maxLength, distanceBetween(points[index - 1], point))
-  }, 0)
-
-const chooseRestoredProductBoundaryPath = (
-  start: Vec2,
-  end: Vec2,
-  subjectPolygons: Vec2[][],
-  subjectPaths: Vec2[][],
-  maxEdgeLength: number,
-  snapTolerance: number
-) => {
-  const directLength = distanceBetween(start, end)
-  const isUsableRestoredPath = (path: Vec2[]) => {
-    if (path.length < 3) {
-      return false
-    }
-    const length = getPolylineLength(path)
-    const maxSegmentLength = getPolylineMaxEdgeLength(path)
-    return (
-      length > directLength + EPSILON &&
-      length <= Math.max(directLength * 4, directLength + maxEdgeLength * 4) &&
-      maxSegmentLength <= Math.max(maxEdgeLength, directLength * 0.75)
-    )
-  }
-  const toCandidate = (path: Vec2[]) =>
-    isUsableRestoredPath(path)
-      ? [
-          {
-            path,
-            length: getPolylineLength(path),
-            maxSegmentLength: getPolylineMaxEdgeLength(path)
-          }
-        ]
-      : []
-
-  const polygonCandidates = subjectPolygons.flatMap((polygon) => {
-    const startProjection = findNearestProductBoundaryProjection(start, polygon)
-    const endProjection = findNearestProductBoundaryProjection(end, polygon)
-    if (
-      !startProjection ||
-      !endProjection ||
-      startProjection.distance > snapTolerance ||
-      endProjection.distance > snapTolerance
-    ) {
-      return []
-    }
-
-    return ([1, -1] as const).flatMap((direction) => {
-      const path = buildProductBoundaryPath(
-        startProjection,
-        endProjection,
-        direction
-      )
-      if (path.length < 3) {
-        return []
-      }
-      return toCandidate(path)
-    })
-  })
-  const pathCandidates = subjectPaths.flatMap((path) => {
-    const startProjection = findNearestProductBoundaryPathProjection(
-      start,
-      path
-    )
-    const endProjection = findNearestProductBoundaryPathProjection(end, path)
-    if (
-      !startProjection ||
-      !endProjection ||
-      startProjection.distance > snapTolerance ||
-      endProjection.distance > snapTolerance
-    ) {
-      return []
-    }
-
-    return toCandidate(
-      buildProductBoundaryOpenPath(startProjection, endProjection)
-    )
-  })
-  const candidates = [...polygonCandidates, ...pathCandidates]
-
-  return (
-    candidates.sort(
-      (left, right) =>
-        left.length - right.length ||
-        left.maxSegmentLength - right.maxSegmentLength
-    )[0]?.path ?? null
-  )
-}
-
-const restoreClippedProductLongBoundaryEdges = (
-  polygons: Vec2[][],
-  subjectPolygons: Vec2[][],
-  options: ClippedProductCleanupOptions = {}
-) => {
-  const maxEdgeLength = options.restoreSubjectBoundaryMaxEdgeLength
-  if (
-    !maxEdgeLength ||
-    maxEdgeLength <= EPSILON ||
-    subjectPolygons.length === 0
-  ) {
-    return polygons
-  }
-
-  const snapTolerance = Math.max(
-    options.restoreSubjectBoundarySnapTolerance ?? 0.75,
-    0.1
-  )
-
-  return polygons.map((polygon) => {
-    if (polygon.length < 3) {
-      return polygon
-    }
-    const restored: Vec2[] = []
-    for (let index = 0; index < polygon.length; index += 1) {
-      const start = polygon[index]
-      const end = polygon[(index + 1) % polygon.length]
-      pushDistinctBoundaryPoint(restored, start)
-      if (distanceBetween(start, end) <= maxEdgeLength) {
-        continue
-      }
-      const restoredPath = chooseRestoredProductBoundaryPath(
-        start,
-        end,
-        subjectPolygons,
-        options.restoreSubjectBoundaryPaths ?? [],
-        maxEdgeLength,
-        snapTolerance
-      )
-      if (!restoredPath) {
-        continue
-      }
-      restoredPath.slice(1, -1).forEach((point) => {
-        pushDistinctBoundaryPoint(restored, point)
-      })
-    }
-
-    return restored.length >= 3 ? restored : polygon
-  })
-}
-
-const getClippedProductMicroEdgeCount = (polygons: Vec2[][]) =>
-  polygons.reduce((total, polygon) => {
-    let microEdgeCount = 0
-    for (let index = 0; index < polygon.length; index += 1) {
-      const point = polygon[index]
-      const next = polygon[(index + 1) % polygon.length]
-      if (
-        Math.hypot(point.x - next.x, point.y - next.y) <
-        CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE
-      ) {
-        microEdgeCount += 1
-      }
-    }
-    return total + microEdgeCount
-  }, 0)
 
 const getCoveragePolygonsFromRegions = (regions: { polygons: Vec2[][] }[]) =>
   regions
@@ -11325,6 +18857,25 @@ const clampInsideClipPolygonToLegalBoundary = (
     clampInsideClipPointToLegalBoundary(point, legalPolygons)
   )
 
+const clampOutsideClipPointAwayFromLegalBoundary = (
+  point: Vec2,
+  legalPolygons: Vec2[][],
+  boundarySnapTolerance = 0
+) => {
+  const projected = projectPointToNearestPolygonBoundary(point, legalPolygons)
+  if (isPointInLegalPolygons(point, legalPolygons)) {
+    return projected ?? point
+  }
+  if (
+    projected &&
+    boundarySnapTolerance > EPSILON &&
+    distanceBetween(point, projected) <= boundarySnapTolerance
+  ) {
+    return projected
+  }
+  return point
+}
+
 const densifyInsideClipPolygonEdgesToLegalBoundary = (
   polygon: Vec2[],
   legalPolygons: Vec2[][],
@@ -11350,6 +18901,46 @@ const densifyInsideClipPolygonEdgesToLegalBoundary = (
             y: start.y + (end.y - start.y) * t
           },
           legalPolygons
+        )
+      )
+    }
+  }
+  return densified
+}
+
+const densifyOutsideClipPolygonEdgesAwayFromLegalBoundary = (
+  polygon: Vec2[],
+  legalPolygons: Vec2[][],
+  maxStep = 0.25,
+  boundarySnapTolerance = 0
+) => {
+  if (polygon.length < 2) {
+    return polygon
+  }
+
+  const densified: Vec2[] = []
+  for (let index = 0; index < polygon.length; index += 1) {
+    const start = polygon[index]
+    const end = polygon[(index + 1) % polygon.length]
+    densified.push(
+      clampOutsideClipPointAwayFromLegalBoundary(
+        start,
+        legalPolygons,
+        boundarySnapTolerance
+      )
+    )
+    const length = distanceBetween(start, end)
+    const steps = Math.max(1, Math.ceil(length / maxStep))
+    for (let step = 1; step < steps; step += 1) {
+      const t = step / steps
+      densified.push(
+        clampOutsideClipPointAwayFromLegalBoundary(
+          {
+            x: start.x + (end.x - start.x) * t,
+            y: start.y + (end.y - start.y) * t
+          },
+          legalPolygons,
+          boundarySnapTolerance
         )
       )
     }
@@ -11385,10 +18976,9 @@ const clipSourcePathPolygonsToEvenOddLegalDomain = (
   stroke: Pick<RenderableStroke, 'position'>,
   implicitFillRegions: PolygonRegion[] = [],
   options: {
-    fragmentStitchRadius?: number
-    fragmentPruneArea?: number
     dropEmptyInsideClipResult?: boolean
     outsideFillRule?: 'evenodd' | 'nonzero'
+    preserveSubjectWinding?: boolean
   } & ClippedProductCleanupOptions = {}
 ) => {
   if (
@@ -11403,31 +18993,17 @@ const clipSourcePathPolygonsToEvenOddLegalDomain = (
   if (subjectPolygons.length === 0) {
     return []
   }
-  const subjectBoundaryPolygons = (
-    options.restoreSubjectBoundaryPolygons ?? subjectPolygons
-  )
-    .map(cleanPolygon)
-    .filter(hasPolygonGeometry)
-  const subjectBoundaryPaths = (options.restoreSubjectBoundaryPaths ?? [])
-    .map(cleanBoundaryPath)
-    .filter((path) => path.length >= 2)
-  const shouldNormalizeClipResidue =
-    (options.fragmentStitchRadius ?? 0) > EPSILON ||
-    (options.fragmentPruneArea ?? 0) > EPSILON
-  const restoreClipResultPolygons = (clipPolygons: Vec2[][]) =>
-    restoreClippedProductLongBoundaryEdges(
-      clipPolygons,
-      subjectBoundaryPolygons,
-      {
-        ...options,
-        restoreSubjectBoundaryPaths: subjectBoundaryPaths
-      }
-    )
+  const relevantImplicitFillRegions =
+    implicitFillRegions.length > 0
+      ? _selectBoundsIntersectingLegalClipRegions(
+          subjectPolygons,
+          implicitFillRegions,
+          options.outsideLegalBoundarySnapTolerance ??
+            CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE
+        )
+      : []
   const normalizeClipResultPolygons = (clipPolygons: Vec2[][]) => {
-    const restored = restoreClipResultPolygons(clipPolygons)
-    return shouldNormalizeClipResidue
-      ? cleanClippedProductPolygons(restored, options)
-      : restored.map(cleanPolygon).filter(hasPolygonGeometry)
+    return cleanClippedProductPolygons(clipPolygons, options)
   }
 
   const legalPoints =
@@ -11436,12 +19012,14 @@ const clipSourcePathPolygonsToEvenOddLegalDomain = (
       : []
   const legalRegions =
     implicitFillRegions.length > 0
-      ? implicitFillRegions
+      ? relevantImplicitFillRegions
       : legalPoints.length >= 3 && Math.abs(polygonArea(legalPoints)) > EPSILON
         ? [{ polygons: [normalizeCoveragePolygonWinding(legalPoints)] }]
         : []
   if (legalRegions.length === 0) {
-    return subjectPolygons
+    return implicitFillRegions.length > 0 && stroke.position === 'inside'
+      ? []
+      : subjectPolygons
   }
 
   try {
@@ -11459,7 +19037,7 @@ const clipSourcePathPolygonsToEvenOddLegalDomain = (
         ? getNormalizedImplicitFillRegions(
             backend,
             backendSignature,
-            implicitFillRegions
+            relevantImplicitFillRegions
           )
         : legalRegions
     const legalClipRegions =
@@ -11586,7 +19164,10 @@ const clipSourcePathPolygonsToEvenOddLegalDomain = (
     }
 
     const clipOperation = backend.difference.bind(backend)
-    const outsideFillRule = options.outsideFillRule ?? 'nonzero'
+    const outsideFillRule =
+      implicitFillRegions.length > 0
+        ? (options.outsideFillRule ?? 'nonzero')
+        : (options.outsideFillRule ?? 'nonzero')
     const outsideLegalClipResultCacheKey = buildOutsideLegalClipResultCacheKey(
       path,
       backendSignature,
@@ -11609,12 +19190,19 @@ const clipSourcePathPolygonsToEvenOddLegalDomain = (
       )
       return clipPolygons
     }
+    if (
+      implicitFillRegions.length > 0 &&
+      canSkipOutsideLegalClip(normalizedSubjectPolygons, legalClipRegions)
+    ) {
+      emitStrokePipelineCounter('outside-legal-clip-noop-skip')
+      return cacheOutsideClipResult(normalizedSubjectPolygons)
+    }
     const finalizeClipResultPolygons = (
       clipPolygons: Vec2[][],
       fillRule: 'evenodd' | 'nonzero'
     ) => {
       const normalized = normalizeClipResultPolygons(clipPolygons)
-      if (!shouldNormalizeClipResidue || normalized.length === 0) {
+      if (normalized.length === 0) {
         return normalized
       }
 
@@ -11648,92 +19236,47 @@ const clipSourcePathPolygonsToEvenOddLegalDomain = (
       }
 
       const outsideCleaned = cleanClippedProductPolygons(
-        restoreClipResultPolygons(legallyClipped),
+        legallyClipped,
         options
       )
       if (outsideCleaned.length === 0) {
         return []
       }
-      return restoreClipResultPolygons(
+      return cleanClippedProductPolygons(
         getCoveragePolygonsFromRegions(
           backend.difference(
             toCoveragePolygonRegions(outsideCleaned),
             legalClipRegions,
             fillRule
           )
-        )
+        ),
+        {
+          ...options,
+          cleanupMicroEdgeTolerance: Math.max(
+            options.cleanupMicroEdgeTolerance ??
+              CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+            CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE
+          )
+        }
       )
-        .map(cleanPolygon)
-        .filter(hasPolygonGeometry)
     }
+    const outsideSubjectRegions =
+      options.preserveSubjectWinding === true
+        ? normalizedSubjectPolygons.map((polygon) => ({ polygons: [polygon] }))
+        : backend.capabilities.union
+          ? backend.union(
+              toCoveragePolygonRegions(normalizedSubjectPolygons),
+              'nonzero'
+            )
+          : toCoveragePolygonRegions(normalizedSubjectPolygons)
     const directClippedPolygons = finalizeClipResultPolygons(
       getCoveragePolygonsFromRegions(
-        clipOperation(
-          toCoveragePolygonRegions(normalizedSubjectPolygons),
-          legalClipRegions,
-          outsideFillRule
-        )
+        clipOperation(outsideSubjectRegions, legalClipRegions, outsideFillRule)
       ),
       outsideFillRule
     )
     if (directClippedPolygons.length > 0) {
-      if (!shouldNormalizeClipResidue) {
-        return cacheOutsideClipResult(directClippedPolygons)
-      }
-
-      const prunedDirectPolygons = pruneSmallClippedProductFragments(
-        directClippedPolygons,
-        options.fragmentPruneArea ?? 0
-      )
-
-      const stitchedDirectPolygons = stitchClippedProductFragments(
-        prunedDirectPolygons,
-        options.fragmentStitchRadius ?? 0
-      )
-      if (
-        stitchedDirectPolygons.length === 1 ||
-        prunedDirectPolygons.length === 1
-      ) {
-        return cacheOutsideClipResult(
-          finalizeClipResultPolygons(stitchedDirectPolygons, 'nonzero')
-        )
-      }
-
-      if (directClippedPolygons.length <= 1) {
-        return cacheOutsideClipResult(directClippedPolygons)
-      }
-
-      const unionedDirectPolygons = finalizeClipResultPolygons(
-        getCoveragePolygonsFromRegions(
-          backend.union(
-            toCoveragePolygonRegions(prunedDirectPolygons),
-            'nonzero'
-          )
-        ),
-        'nonzero'
-      )
-      const prunedUnionedDirectPolygons = pruneSmallClippedProductFragments(
-        unionedDirectPolygons,
-        options.fragmentPruneArea ?? 0
-      )
-      if (prunedUnionedDirectPolygons.length === 1) {
-        return cacheOutsideClipResult(
-          finalizeClipResultPolygons(prunedUnionedDirectPolygons, 'nonzero')
-        )
-      }
-
-      const stitchedUnionedDirectPolygons = stitchClippedProductFragments(
-        prunedUnionedDirectPolygons,
-        options.fragmentStitchRadius ?? 0
-      )
-      return cacheOutsideClipResult(
-        finalizeClipResultPolygons(
-          stitchedUnionedDirectPolygons.length > 0
-            ? stitchedUnionedDirectPolygons
-            : prunedUnionedDirectPolygons,
-          'nonzero'
-        )
-      )
+      return cacheOutsideClipResult(directClippedPolygons)
     }
 
     return cacheOutsideClipResult([])
@@ -11762,7 +19305,6 @@ const subtractInsideLegalResidue = (
     if (productPolygons.length === 0) {
       return []
     }
-
     const getTotalAbsPolygonArea = (subjectPolygons: Vec2[][]) =>
       subjectPolygons.reduce(
         (total, polygon) => total + Math.abs(polygonArea(polygon)),
@@ -11821,6 +19363,294 @@ const subtractInsideLegalResidue = (
   }
 }
 
+const subtractOutsideLegalResidue = (
+  polygons: Vec2[][],
+  legalRegions: PolygonRegion[],
+  fillRule: 'evenodd' | 'nonzero',
+  cleanupOptions: ClippedProductCleanupOptions = {}
+) => {
+  if (polygons.length === 0 || legalRegions.length === 0) {
+    return polygons
+  }
+
+  try {
+    const backend = getGeometryBackend()
+    if (
+      !backend.capabilities.difference ||
+      !backend.capabilities.intersection
+    ) {
+      return polygons
+    }
+
+    let productPolygons = polygons.map(cleanPolygon).filter(hasPolygonGeometry)
+    if (productPolygons.length === 0) {
+      return []
+    }
+    const outsideLegalClipInflateDistance =
+      cleanupOptions.outsideLegalClipInflateDistance ?? 0
+    const outsideLegalSelectionTolerance =
+      (cleanupOptions.outsideLegalBoundarySnapTolerance ??
+        CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE) +
+      outsideLegalClipInflateDistance
+    const relevantLegalRegions = _selectBoundsIntersectingLegalClipRegions(
+      productPolygons,
+      legalRegions,
+      outsideLegalSelectionTolerance
+    )
+    if (
+      relevantLegalRegions.length === 0 ||
+      (cleanupOptions.forceOutsideLegalResidueSubtract !== true &&
+        canSkipOutsideLegalClipForTerminalFragments(
+          productPolygons,
+          relevantLegalRegions
+        ))
+    ) {
+      return productPolygons
+    }
+    const outsideLegalRegions =
+      cleanupOptions.materializeProductCoverage === true
+        ? getNormalizedImplicitFillRegions(
+            backend,
+            getGeometryBackendCacheSignature(backend),
+            relevantLegalRegions
+          )
+        : relevantLegalRegions
+    const outsideClipLegalRegions =
+      outsideLegalClipInflateDistance > EPSILON &&
+      backend.capabilities.offset === true &&
+      backend.capabilities.union === true
+        ? (() => {
+            try {
+              const inflated = backend.offset(
+                getCoveragePolygonsFromRegions(outsideLegalRegions),
+                outsideLegalClipInflateDistance,
+                {
+                  width: outsideLegalClipInflateDistance * 2,
+                  join: 'round',
+                  cap: 'round',
+                  closed: true,
+                  miterLimit: 2,
+                  fillRule
+                }
+              )
+              const unioned = backend.union(inflated, fillRule)
+              return unioned.length > 0 ? unioned : outsideLegalRegions
+            } catch {
+              return outsideLegalRegions
+            }
+          })()
+        : outsideLegalRegions
+    const legalPolygons = getCoveragePolygonsFromRegions(
+      outsideClipLegalRegions
+    )
+    const legalPolygonModels = legalPolygons.map((polygon) => ({
+      polygon,
+      bounds: getBounds([polygon])
+    }))
+    const getNearbyLegalPolygons = (polygon: Vec2[]) => {
+      if (legalPolygonModels.length <= 1) {
+        return legalPolygons
+      }
+
+      const polygonBounds = getBounds([polygon])
+      const nearbyModels = legalPolygonModels.filter((model) =>
+        boundsMayIntersect(
+          polygonBounds,
+          model.bounds,
+          cleanupOptions.outsideLegalBoundarySnapTolerance ??
+            CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE
+        )
+      )
+      return nearbyModels.length === legalPolygonModels.length
+        ? legalPolygons
+        : nearbyModels.map((model) => model.polygon)
+    }
+    const finalizeOutsidePolygons = (subjectPolygons: Vec2[][]) =>
+      measureStrokePipelinePhase(
+        'constrained dashed outside residue: finalize',
+        () =>
+          cleanupOptions.skipOutsideLegalBoundaryDensify === true ||
+          cleanupOptions.materializeProductCoverage === true
+            ? cleanClippedProductPolygons(subjectPolygons, cleanupOptions)
+            : cleanClippedProductPolygons(
+                subjectPolygons.map((polygon) => {
+                  const nearbyLegalPolygons = getNearbyLegalPolygons(polygon)
+                  return nearbyLegalPolygons.length === 0
+                    ? polygon
+                    : densifyOutsideClipPolygonEdgesAwayFromLegalBoundary(
+                        polygon,
+                        nearbyLegalPolygons,
+                        0.25,
+                        cleanupOptions.outsideLegalBoundarySnapTolerance
+                      )
+                }),
+                cleanupOptions
+              )
+      )
+
+    const getTotalAbsPolygonArea = (subjectPolygons: Vec2[][]) =>
+      subjectPolygons.reduce(
+        (total, polygon) => total + Math.abs(polygonArea(polygon)),
+        0
+      )
+    const getOutsideProductPolygonsFromRegions = (regions: PolygonRegion[]) =>
+      cleanupOptions.materializeProductCoverage === true
+        ? regions.flatMap(getRegionCoveragePolygons)
+        : getCoveragePolygonsFromRegions(regions)
+
+    if (
+      cleanupOptions.materializeProductCoverage === true ||
+      cleanupOptions.forceOutsideLegalResidueSubtract === true
+    ) {
+      const clippedPolygons = measureStrokePipelinePhase(
+        'constrained dashed outside residue: difference',
+        () =>
+          getOutsideProductPolygonsFromRegions(
+            backend.difference(
+              toCoveragePolygonRegions(productPolygons),
+              outsideClipLegalRegions,
+              fillRule
+            )
+          )
+      )
+        .map(cleanPolygon)
+        .filter(hasPolygonGeometry)
+
+      if (clippedPolygons.length === 0) {
+        return []
+      }
+
+      const subtractedArea =
+        getTotalAbsPolygonArea(productPolygons) -
+        getTotalAbsPolygonArea(clippedPolygons)
+      if (subtractedArea > EPSILON) {
+        emitStrokePipelineCounter('outside-legal-residue-subtracted')
+        if (cleanupOptions.outsideLegalResidueCaller) {
+          emitStrokePipelineCounter(
+            `outside-legal-residue-subtracted:${cleanupOptions.outsideLegalResidueCaller}`
+          )
+        }
+      }
+
+      return finalizeOutsidePolygons(clippedPolygons)
+    }
+
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const filledSideResidue = measureStrokePipelinePhase(
+        'constrained dashed outside residue: intersection',
+        () =>
+          getCoveragePolygonsFromRegions(
+            backend.intersection(
+              toCoveragePolygonRegions(productPolygons),
+              outsideClipLegalRegions,
+              fillRule
+            )
+          )
+      )
+        .map(cleanPolygon)
+        .filter(hasPolygonGeometry)
+
+      if (filledSideResidue.length === 0) {
+        return finalizeOutsidePolygons(productPolygons)
+      }
+
+      const residueArea = getTotalAbsPolygonArea(filledSideResidue)
+      if (residueArea <= EPSILON) {
+        return finalizeOutsidePolygons(productPolygons)
+      }
+
+      emitStrokePipelineCounter('outside-legal-residue-subtracted')
+      if (cleanupOptions.outsideLegalResidueCaller) {
+        emitStrokePipelineCounter(
+          `outside-legal-residue-subtracted:${cleanupOptions.outsideLegalResidueCaller}`
+        )
+      }
+      const clippedPolygons = measureStrokePipelinePhase(
+        'constrained dashed outside residue: difference',
+        () =>
+          getOutsideProductPolygonsFromRegions(
+            cleanupOptions.materializeProductCoverage === true
+              ? backend.difference(
+                  toCoveragePolygonRegions(productPolygons),
+                  outsideClipLegalRegions,
+                  fillRule
+                )
+              : backend.difference(
+                  toCoveragePolygonRegions(productPolygons),
+                  toCoveragePolygonRegions(filledSideResidue),
+                  'nonzero'
+                )
+          )
+      )
+        .map(cleanPolygon)
+        .filter(hasPolygonGeometry)
+
+      if (clippedPolygons.length === 0) {
+        return []
+      }
+      productPolygons = clippedPolygons
+    }
+
+    return finalizeOutsidePolygons(
+      measureStrokePipelinePhase(
+        'constrained dashed outside residue: retry difference',
+        () =>
+          getOutsideProductPolygonsFromRegions(
+            backend.difference(
+              toCoveragePolygonRegions(productPolygons),
+              outsideClipLegalRegions,
+              fillRule
+            )
+          )
+      )
+    )
+  } catch {
+    emitStrokePipelineCounter('outside-legal-residue-subtract-error')
+    return polygons
+  }
+}
+
+const subtractOutsideLegalResidueByPolygon = (
+  polygons: Vec2[][],
+  legalRegions: PolygonRegion[],
+  fillRule: 'evenodd' | 'nonzero',
+  cleanupOptions: ClippedProductCleanupOptions = {}
+) => {
+  if (polygons.length <= 1 || legalRegions.length === 0) {
+    return subtractOutsideLegalResidue(
+      polygons,
+      legalRegions,
+      fillRule,
+      cleanupOptions
+    )
+  }
+
+  return polygons.flatMap((polygon) => {
+    const clean = cleanPolygon(polygon)
+    if (!hasPolygonGeometry(clean)) {
+      return []
+    }
+    const relevantLegalRegions = _selectBoundsIntersectingLegalClipRegions(
+      [clean],
+      legalRegions,
+      cleanupOptions.outsideLegalBoundarySnapTolerance ??
+        CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE
+    )
+    if (
+      relevantLegalRegions.length === 0 ||
+      canSkipOutsideLegalClipForTerminalFragments([clean], relevantLegalRegions)
+    ) {
+      return [clean]
+    }
+    return subtractOutsideLegalResidue(
+      [clean],
+      relevantLegalRegions,
+      fillRule,
+      cleanupOptions
+    )
+  })
+}
+
 const clipInsidePolygonsToImplicitFillRegionsStrict = (
   polygons: Vec2[][],
   implicitFillRegions: PolygonRegion[]
@@ -11869,6 +19699,160 @@ const clipInsidePolygonsToImplicitFillRegionsStrict = (
   }
 }
 
+const enforceOutsideResolvedFillProductDomain = (
+  polygons: Vec2[][],
+  implicitFillRegions: PolygonRegion[],
+  options: {
+    force?: boolean
+    outsideLegalResidueCaller?: string
+  } = {}
+) => {
+  if (polygons.length === 0 || implicitFillRegions.length === 0) {
+    return polygons
+  }
+
+  try {
+    const backend = getGeometryBackend()
+    if (!backend.capabilities.difference) {
+      return polygons
+    }
+
+    const subjectPolygons = polygons
+      .map(cleanPolygon)
+      .filter(hasPolygonGeometry)
+    if (subjectPolygons.length === 0) {
+      return []
+    }
+    const relevantImplicitFillRegions =
+      options.force === true
+        ? implicitFillRegions
+        : _selectBoundsIntersectingLegalClipRegions(
+            subjectPolygons,
+            implicitFillRegions,
+            CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE
+          )
+    if (
+      relevantImplicitFillRegions.length === 0 ||
+      (options.force !== true &&
+        canSkipOutsideLegalClipForTerminalFragments(
+          subjectPolygons,
+          relevantImplicitFillRegions
+        ))
+    ) {
+      return subjectPolygons
+    }
+    const backendSignature = getGeometryBackendCacheSignature(backend)
+    const legalRegions = getNormalizedImplicitFillRegions(
+      backend,
+      backendSignature,
+      relevantImplicitFillRegions
+    )
+    if (legalRegions.length === 0) {
+      return subjectPolygons
+    }
+    const clippedPolygons = measureStrokePipelinePhase(
+      'constrained dashed outside enforce: difference',
+      () =>
+        getCoveragePolygonsFromRegions(
+          backend.difference(
+            toCoveragePolygonRegions(subjectPolygons),
+            legalRegions,
+            'nonzero'
+          )
+        )
+    )
+    const cleanedClippedPolygons = cleanClippedProductPolygons(
+      clippedPolygons,
+      {
+        cleanupMicroEdgeTolerance: 0.001,
+        cleanupCollinearTolerance: 0.0001
+      }
+    )
+    if (options.force !== true) {
+      return cleanedClippedPolygons
+    }
+
+    const enforcedPolygons = measureStrokePipelinePhase(
+      'constrained dashed outside enforce: residue subtraction',
+      () =>
+        subtractOutsideLegalResidue(
+          cleanedClippedPolygons,
+          relevantImplicitFillRegions,
+          'nonzero',
+          {
+            cleanupMicroEdgeTolerance: 0.001,
+            cleanupCollinearTolerance: 0.0001,
+            outsideLegalBoundarySnapTolerance:
+              CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE,
+            outsideLegalResidueCaller:
+              options.outsideLegalResidueCaller ??
+              'outside-resolved-fill-enforce',
+            skipOutsideLegalBoundaryDensify: options.force !== true,
+            forceOutsideLegalResidueSubtract: options.force
+          }
+        )
+    )
+    return enforcedPolygons
+  } catch {
+    emitStrokePipelineCounter('outside-resolved-fill-domain-enforce-error')
+    return polygons
+  }
+}
+
+const enforceOutsideTerminalBodyFillProductDomain = (
+  polygons: Vec2[][],
+  implicitFillRegions: PolygonRegion[],
+  outsideLegalResidueCaller: string
+) => {
+  if (polygons.length === 0 || implicitFillRegions.length === 0) {
+    return polygons
+  }
+
+  try {
+    const backend = getGeometryBackend()
+    if (!backend.capabilities.difference) {
+      return polygons
+    }
+
+    const subjectPolygons = polygons
+      .map(cleanPolygon)
+      .filter(hasPolygonGeometry)
+    if (subjectPolygons.length === 0) {
+      return []
+    }
+
+    const backendSignature = getGeometryBackendCacheSignature(backend)
+    const legalRegions = getNormalizedImplicitFillRegions(
+      backend,
+      backendSignature,
+      implicitFillRegions
+    )
+    if (legalRegions.length === 0) {
+      return subjectPolygons
+    }
+
+    const clippedPolygons = measureStrokePipelinePhase(
+      'constrained dashed terminal body outside enforce: difference',
+      () =>
+        getCoveragePolygonsFromRegions(
+          backend.difference(
+            toCoveragePolygonRegions(subjectPolygons),
+            legalRegions,
+            'nonzero'
+          )
+        )
+    )
+
+    return cleanClippedProductPolygons(clippedPolygons, {
+      cleanupMicroEdgeTolerance: 0.001,
+      cleanupCollinearTolerance: 0.0001
+    })
+  } catch {
+    emitStrokePipelineCounter('outside-terminal-body-fill-domain-enforce-error')
+    return polygons
+  }
+}
+
 const enforceInsideImplicitFillProductDomain = (
   polygons: Vec2[][],
   path: SourcePathWithOptionalSamples | undefined,
@@ -11891,10 +19875,6 @@ const enforceInsideImplicitFillProductDomain = (
     implicitFillRegions,
     {
       dropEmptyInsideClipResult: true,
-      restoreSubjectBoundaryPolygons: [],
-      restoreSubjectBoundaryPaths: [],
-      fragmentStitchRadius: 0,
-      fragmentPruneArea: 0,
       cleanupMicroEdgeTolerance: 0.001,
       cleanupCollinearTolerance: 0.0001
     }
@@ -11908,9 +19888,22 @@ const normalizeConstrainedDashedProductPolygons = (
   polygons: Vec2[][],
   options: {
     cleanClipResidue?: boolean
+    inputAlreadyClean?: boolean
     mergeContinuousInterval?: boolean
   } = {}
 ) => {
+  if (
+    options.inputAlreadyClean === true &&
+    polygons.length > 0 &&
+    polygons.every(hasPolygonGeometry) &&
+    !polygonsHaveOverlappingBounds(polygons) &&
+    (options.mergeContinuousInterval !== true ||
+      !polygonsHavePotentiallyMergeableBounds(polygons, 0.001))
+  ) {
+    emitStrokePipelineCounter('product-normalize-clean-input-skipped')
+    return polygons
+  }
+
   if (
     options.cleanClipResidue !== true &&
     options.mergeContinuousInterval !== true &&
@@ -11926,15 +19919,20 @@ const normalizeConstrainedDashedProductPolygons = (
     ? cleanClippedProductPolygons
     : (inputPolygons: Vec2[][]) =>
         inputPolygons.map(cleanPolygon).filter(hasPolygonGeometry)
-  const subjectPolygons = normalizePolygons(polygons)
+  const subjectPolygons =
+    options.inputAlreadyClean === true
+      ? polygons.filter(hasPolygonGeometry)
+      : normalizePolygons(polygons)
   if (subjectPolygons.length <= 1) {
     return subjectPolygons
   }
+  const subjectPolygonsHaveOverlappingBounds =
+    polygonsHaveOverlappingBounds(subjectPolygons)
   if (
-    options.mergeContinuousInterval !== true &&
-    !polygonsHaveOverlappingBounds(subjectPolygons)
+    !subjectPolygonsHaveOverlappingBounds &&
+    !polygonsHavePotentiallyMergeableBounds(subjectPolygons, 0.001)
   ) {
-    emitStrokePipelineCounter('product-normalize-union-skipped')
+    emitStrokePipelineCounter('product-normalize-disjoint-input-skipped')
     return subjectPolygons
   }
 
@@ -11953,91 +19951,6 @@ const normalizeConstrainedDashedProductPolygons = (
   } catch {
     return subjectPolygons
   }
-}
-
-const stitchClippedProductFragments = (polygons: Vec2[][], radius: number) => {
-  const subjectPolygons =
-    radius > EPSILON
-      ? cleanClippedProductPolygons(polygons)
-      : polygons.map(cleanPolygon).filter(hasPolygonGeometry)
-  if (subjectPolygons.length <= 1 || radius <= EPSILON) {
-    return subjectPolygons
-  }
-
-  try {
-    const backend = getGeometryBackend()
-    if (!backend.capabilities.offset || !backend.capabilities.union) {
-      return subjectPolygons
-    }
-
-    const stitchOptions = {
-      width: radius * 2,
-      join: 'round' as const,
-      cap: 'round' as const,
-      closed: true,
-      miterLimit: 2,
-      fillRule: 'nonzero' as const
-    }
-    const expanded = backend.offset(subjectPolygons, radius, stitchOptions)
-    const mergedExpanded = backend.union(expanded, 'nonzero')
-    const contracted = backend.offset(
-      getCoveragePolygonsFromRegions(mergedExpanded),
-      -radius,
-      stitchOptions
-    )
-    const stitched = cleanClippedProductPolygons(
-      getCoveragePolygonsFromRegions(backend.union(contracted, 'nonzero'))
-    )
-    const subjectArea = subjectPolygons.reduce(
-      (total, polygon) => total + Math.abs(polygonArea(polygon)),
-      0
-    )
-    const stitchedArea = stitched.reduce(
-      (total, polygon) => total + Math.abs(polygonArea(polygon)),
-      0
-    )
-    const closesNarrowResidue =
-      stitchedArea > subjectArea + EPSILON &&
-      stitchedArea <= subjectArea + Math.PI * radius * radius * 4
-
-    return stitched.length > 0 &&
-      (stitched.length < subjectPolygons.length ||
-        getClippedProductMicroEdgeCount(stitched) <
-          getClippedProductMicroEdgeCount(subjectPolygons) ||
-        closesNarrowResidue)
-      ? stitched
-      : subjectPolygons
-  } catch {
-    return subjectPolygons
-  }
-}
-
-const pruneSmallClippedProductFragments = (
-  polygons: Vec2[][],
-  minArea: number
-) => {
-  const subjectPolygons =
-    minArea > EPSILON
-      ? cleanClippedProductPolygons(polygons)
-      : polygons.map(cleanPolygon).filter(hasPolygonGeometry)
-  if (subjectPolygons.length <= 1 || minArea <= EPSILON) {
-    return subjectPolygons
-  }
-
-  const polygonAreas = subjectPolygons.map((polygon) =>
-    Math.abs(polygonArea(polygon))
-  )
-  const maxArea = Math.max(...polygonAreas)
-  if (maxArea <= EPSILON) {
-    return subjectPolygons
-  }
-
-  const filtered = subjectPolygons.filter((_, index) => {
-    const area = polygonAreas[index]
-    return area >= minArea || area / maxArea >= 0.12
-  })
-
-  return filtered.length > 0 ? filtered : subjectPolygons
 }
 
 const getPolygonBounds = (polygon: Vec2[]) => {
@@ -12166,44 +20079,6 @@ const pointSegmentDistanceSquaredToPolygon = (point: Vec2, polygon: Vec2[]) =>
       pointSegmentDistanceSquared(point, currentPoint, nextPoint)
     )
   }, Number.POSITIVE_INFINITY)
-
-const isPointNearPolyline = (
-  point: Vec2,
-  polyline: Vec2[],
-  maxDistance: number
-) => {
-  if (polyline.length === 0) {
-    return false
-  }
-
-  const maxDistanceSquared = maxDistance * maxDistance
-  if (polyline.length === 1) {
-    const dx = point.x - polyline[0].x
-    const dy = point.y - polyline[0].y
-    return dx * dx + dy * dy <= maxDistanceSquared
-  }
-
-  for (let index = 0; index < polyline.length - 1; index += 1) {
-    if (
-      pointSegmentDistanceSquared(
-        point,
-        polyline[index],
-        polyline[index + 1]
-      ) <= maxDistanceSquared
-    ) {
-      return true
-    }
-  }
-  return false
-}
-
-const countSourceEdgeVertices = (polygons: Vec2[][], source: Vec2[]) =>
-  polygons.reduce(
-    (count, polygon) =>
-      count +
-      polygon.filter((point) => isPointNearPolyline(point, source, 0.5)).length,
-    0
-  )
 
 interface SegmentIntersectionHit {
   point: Vec2
@@ -12798,7 +20673,7 @@ const applyClosedIntervalSelectedSideGuards = (
   sharpGuardVertices: SharpGuardVertex[],
   segmentRanges: ReturnType<typeof getClosedSegmentRanges>,
   totalLength: number,
-  authoredStroke: Pick<RenderableStroke, 'position' | 'dashPattern' | 'join'>,
+  authoredStroke: Pick<RenderableStroke, 'position' | 'dash' | 'gap' | 'join'>,
   intervalStroke: Pick<RenderableStroke, 'position' | 'width'>
 ) => {
   if (
@@ -12820,7 +20695,7 @@ const applyClosedIntervalSelectedSideGuards = (
   const selectedSide = intervalStroke.position === 'inside' ? 1 : -1
   const crossingGuardReach = Math.max(
     intervalStroke.width * 2,
-    authoredStroke.dashPattern[0] ?? intervalStroke.width
+    authoredStroke.dash > 0 ? authoredStroke.dash : intervalStroke.width
   )
   const clippedPolygons: Vec2[][] = []
 
@@ -12984,10 +20859,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
     const sourceSpanProvenance = resolveSourceSpanProvenanceAvailability()
     const intervalSignature = measureStrokePipelinePhase(
       'constrained dashed packets: interval signature',
-      () =>
-        sourceSpanProvenance.available
-          ? buildVisibleIntervalSignature(visibleIntervals)
-          : ''
+      () => buildVisibleIntervalSignature(visibleIntervals)
     )
     let sourceSpanGraphForDebug:
       | ReturnType<typeof buildSourceSpanGraph>
@@ -13221,6 +21093,52 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
     const topologySourcePathSlicingContext = topologySourcePath
       ? createSourcePathSlicingContext(topologySourcePath)
       : undefined
+    const packetStageSourcePath = sourcePath ?? topologySourcePath
+    const packetStageOrigin = packetStageSourcePath
+      ? getPathTranslationCacheOrigin(packetStageSourcePath)
+      : null
+    const packetStageSourcePathSignature =
+      packetStageSourcePath && packetStageOrigin
+        ? buildTranslationInvariantPathCacheKey(
+            packetStageSourcePath,
+            packetStageOrigin
+          )
+        : null
+    const canUsePacketStageCache = true
+    const earlyPacketStageCacheKey =
+      packetStageSourcePathSignature && packetStageOrigin
+        ? buildConstrainedDashedPacketStageCacheKey(
+            packetStageSourcePathSignature,
+            packetStageOrigin,
+            stroke,
+            {
+              cachePrefix,
+              ownerPrefix,
+              strokeIndex,
+              domainMode: baseDomainMode,
+              intervalSignature,
+              joinOwnershipSignature: 'join-ownership:auto',
+              clipInsideToFillDomain: options.clipInsideToFillDomain === true,
+              implicitFillRegions: options.implicitFillRegions ?? [],
+              sharedStrokeBoundaryDomains:
+                options.sharedStrokeBoundaryDomains ?? []
+            }
+          )
+        : null
+    const cachedEarlyPacketStage = measureStrokePipelinePhase(
+      'constrained dashed packets: early packet stage cache lookup',
+      () =>
+        canUsePacketStageCache && earlyPacketStageCacheKey && packetStageOrigin
+          ? getCachedConstrainedDashedPacketStage(
+              earlyPacketStageCacheKey,
+              packetStageOrigin,
+              stroke
+            )
+          : null
+    )
+    if (cachedEarlyPacketStage) {
+      return cachedEarlyPacketStage
+    }
     const boundaryDomainPathByPlanEntryKey = new Map<
       string,
       PathGeometry | null
@@ -13265,7 +21183,9 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
         return boundaryDomainPathByPlanEntryKey.get(frameCacheKey) ?? null
       }
 
-      const path = buildBoundaryDomainPathForInterval(interval)
+      const path = buildBoundaryDomainPathForInterval(interval, {
+        useContentCache: false
+      })
       if (frameCacheKey) {
         boundaryDomainPathByPlanEntryKey.set(frameCacheKey, path)
       }
@@ -13336,18 +21256,6 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
         (interval) => interval.intervalId
       )
     )
-    const outsideAggregateDescriptorCandidateIntervals =
-      outsideDescriptorExcludePolygons.length > 0
-        ? visibleIntervals.filter(
-            (interval) =>
-              (interval.domainPlanTerminalRole ?? 'middle') === 'middle'
-          )
-        : []
-    const outsideAggregateDescriptorCandidateIntervalIds = new Set(
-      outsideAggregateDescriptorCandidateIntervals.map(
-        (interval) => interval.intervalId
-      )
-    )
     const shouldBuildSourceVertexBoundaryJoinProducts =
       constrainedStrokePosition !== null && visibleIntervals.length > 0
     const sourceVertexBoundaryTerminalRecords =
@@ -13365,7 +21273,252 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
       sourcePath && shouldBuildSourceVertexBoundaryJoinProducts
         ? measureStrokePipelinePhase(
             'constrained dashed packets: source vertex records',
-            () => getSourceVertexRecords(sourcePath, new Map())
+            () =>
+              getSourceVertexRecords(
+                sourcePath,
+                new Map(),
+                stroke.position === 'outside'
+              )
+          )
+        : []
+    const terminalPairBoundaryJoinPlans =
+      shouldBuildSourceVertexBoundaryJoinProducts
+        ? measureStrokePipelinePhase(
+            'constrained dashed packets: terminal pair join plans',
+            () =>
+              stroke.position === 'inside' && stroke.cap === 'butt'
+                ? []
+                : buildConstrainedBoundaryTerminalPairJoinPlans(
+                    visibleIntervals,
+                    stroke,
+                    {
+                      implicitFillRegions: options.implicitFillRegions,
+                      terminalRecords: sourceVertexBoundaryTerminalRecords,
+                      sourceVertexRecords,
+                      sourcePath: sourcePath ?? topologySourcePath ?? undefined,
+                      sourcePathSlicingContext:
+                        sourcePathSlicingContext ??
+                        topologySourcePathSlicingContext ??
+                        undefined
+                    }
+                  )
+          )
+        : []
+    const sourceVertexJoinPlans = shouldBuildSourceVertexBoundaryJoinProducts
+      ? measureStrokePipelinePhase(
+          'constrained dashed packets: source vertex join plans',
+          () =>
+            buildConstrainedBoundarySourceVertexJoinPlans(
+              sourcePath ?? null,
+              visibleIntervals,
+              stroke,
+              {
+                implicitFillRegions: options.implicitFillRegions,
+                sourceVertexRecords,
+                terminalRecords: sourceVertexBoundaryTerminalRecords
+              }
+            )
+        )
+      : []
+    const sourceVertexSmoothInferredJoinPlans =
+      shouldBuildSourceVertexBoundaryJoinProducts &&
+      stroke.position === 'outside' &&
+      sourcePath
+        ? measureStrokePipelinePhase(
+            'constrained dashed packets: source vertex smooth inferred plans',
+            () => {
+              const slicingContext =
+                sourcePathSlicingContext ??
+                createSourcePathSlicingContext(
+                  sourcePath,
+                  SOURCE_PATH_DASH_SLICE_TOLERANCE,
+                  SOURCE_PATH_DASH_SLICE_SAMPLING,
+                  ROUND_CAP_VISUAL_MAX_LENGTH
+                )
+              const endpointTolerance = Math.max(
+                SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE,
+                stroke.width * 1.5
+              )
+              const findSourceDomainTerminals = (
+                sourceVertex: SourceVertexRecord,
+                segmentIndex: number,
+                terminal: 'start' | 'end'
+              ) =>
+                visibleIntervals.filter((interval) => {
+                  if (
+                    interval.domainPlanSplitRangeSourceSegmentIndex !==
+                      segmentIndex ||
+                    (terminal === 'start'
+                      ? interval.domainPlanTerminalRole !== 'start' &&
+                        interval.domainPlanTerminalRole !== 'start-end'
+                      : interval.domainPlanTerminalRole !== 'end' &&
+                        interval.domainPlanTerminalRole !== 'start-end')
+                  ) {
+                    return false
+                  }
+                  const sourceEndpoint = getSourceDomainTerminalEndpointForJoin(
+                    sourcePath,
+                    slicingContext,
+                    interval,
+                    terminal
+                  )
+                  return (
+                    sourceEndpoint !== null &&
+                    distanceBetween(sourceEndpoint, sourceVertex.vertex) <=
+                      endpointTolerance
+                  )
+                })
+
+              return sourceVertexRecords.flatMap((sourceVertex) => {
+                const isSmooth =
+                  isAuthoredSourceBoundarySmooth(
+                    sourcePath,
+                    sourceVertex.previousSegmentIndex,
+                    sourceVertex.nextSegmentIndex
+                  ) ||
+                  isSourceBoundarySmooth(
+                    sourcePath,
+                    sourceVertex.previousSegmentIndex,
+                    sourceVertex.nextSegmentIndex
+                  )
+                if (!isSmooth) {
+                  return []
+                }
+                const previousIntervals = findSourceDomainTerminals(
+                  sourceVertex,
+                  sourceVertex.previousSegmentIndex,
+                  'end'
+                )
+                const nextIntervals = findSourceDomainTerminals(
+                  sourceVertex,
+                  sourceVertex.nextSegmentIndex,
+                  'start'
+                )
+                if (
+                  previousIntervals.length === 0 ||
+                  nextIntervals.length === 0
+                ) {
+                  return []
+                }
+                const getTerminalDistance = (
+                  interval: VisibleDashedTopologyInterval,
+                  terminal: 'start' | 'end'
+                ) => {
+                  const endpoint = getSourceDomainTerminalEndpointForJoin(
+                    sourcePath,
+                    slicingContext,
+                    interval,
+                    terminal
+                  )
+                  return endpoint
+                    ? distanceBetween(endpoint, sourceVertex.vertex)
+                    : Number.POSITIVE_INFINITY
+                }
+                const previousInterval = previousIntervals
+                  .slice()
+                  .sort(
+                    (left, right) =>
+                      getTerminalDistance(left, 'end') -
+                        getTerminalDistance(right, 'end') ||
+                      getJoinOwnedTerminalDashBodyDistance(right) -
+                        getJoinOwnedTerminalDashBodyDistance(left)
+                  )[0]
+                const nextInterval = nextIntervals
+                  .slice()
+                  .sort(
+                    (left, right) =>
+                      getTerminalDistance(left, 'start') -
+                        getTerminalDistance(right, 'start') ||
+                      getJoinOwnedTerminalDashBodyDistance(right) -
+                        getJoinOwnedTerminalDashBodyDistance(left)
+                  )[0]
+                if (!previousInterval || !nextInterval) {
+                  return []
+                }
+
+                const previousBoundary = getSourceSegmentBoundary(
+                  sourcePath,
+                  sourceVertex.previousSegmentIndex,
+                  slicingContext
+                )
+                const nextBoundary = getSourceSegmentBoundary(
+                  sourcePath,
+                  sourceVertex.nextSegmentIndex,
+                  slicingContext
+                )
+                const referenceDistance = Math.max(1, stroke.width)
+                const previousContourPoint =
+                  getSourceVertexLocalContourReferencePoint(
+                    previousBoundary,
+                    sourceVertex.vertex,
+                    'previous',
+                    referenceDistance
+                  ) ??
+                  previousBoundary[previousBoundary.length - 2] ??
+                  sourceVertex.vertex
+                const nextContourPoint =
+                  getSourceVertexLocalContourReferencePoint(
+                    nextBoundary,
+                    sourceVertex.vertex,
+                    'next',
+                    referenceDistance
+                  ) ??
+                  nextBoundary[1] ??
+                  sourceVertex.vertex
+                const selectedSide = resolveSourceVertexJoinSelectedSide(
+                  -1,
+                  sourceVertex.vertex,
+                  previousContourPoint,
+                  nextContourPoint,
+                  stroke,
+                  options.implicitFillRegions
+                )
+
+                const previousDashBodyDistance =
+                  getJoinOwnedTerminalDashBodyDistance(previousInterval)
+                const nextDashBodyDistance =
+                  getJoinOwnedTerminalDashBodyDistance(nextInterval)
+                return [
+                  {
+                    kind: 'source-vertex' as const,
+                    ...sourceVertex,
+                    previousContourPoint,
+                    nextContourPoint,
+                    previousDashBodyPoint:
+                      extendSourceVertexReferencePointToDistance(
+                        sourceVertex.vertex,
+                        getSourceVertexLocalContourReferencePoint(
+                          previousBoundary,
+                          sourceVertex.vertex,
+                          'previous',
+                          previousDashBodyDistance
+                        ) ?? previousContourPoint,
+                        previousDashBodyDistance
+                      ),
+                    nextDashBodyPoint:
+                      extendSourceVertexReferencePointToDistance(
+                        sourceVertex.vertex,
+                        getSourceVertexLocalContourReferencePoint(
+                          nextBoundary,
+                          sourceVertex.vertex,
+                          'next',
+                          nextDashBodyDistance
+                        ) ?? nextContourPoint,
+                        nextDashBodyDistance
+                      ),
+                    selectedSide,
+                    domainKey: `source-smooth:${sourceVertex.vertexIndex}`,
+                    intervals: [previousInterval, nextInterval] as [
+                      VisibleDashedTopologyInterval,
+                      VisibleDashedTopologyInterval
+                    ],
+                    previousTerminal: 'end' as const,
+                    nextTerminal: 'start' as const,
+                    referencePoints: []
+                  }
+                ]
+              })
+            }
           )
         : []
     const sourceVertexBoundaryJoinPlans =
@@ -13373,35 +21526,29 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
         ? measureStrokePipelinePhase(
             'constrained dashed packets: join ownership plans',
             () => [
-              ...measureStrokePipelinePhase(
-                'constrained dashed packets: terminal pair join plans',
-                () =>
-                  buildConstrainedBoundaryTerminalPairJoinPlans(
-                    visibleIntervals,
-                    stroke,
-                    {
-                      implicitFillRegions: options.implicitFillRegions,
-                      terminalRecords: sourceVertexBoundaryTerminalRecords
-                    }
-                  )
-              ),
-              ...measureStrokePipelinePhase(
-                'constrained dashed packets: source vertex join plans',
-                () =>
-                  buildConstrainedBoundarySourceVertexJoinPlans(
-                    sourcePath ?? null,
-                    visibleIntervals,
-                    stroke,
-                    {
-                      implicitFillRegions: options.implicitFillRegions,
-                      sourceVertexRecords,
-                      terminalRecords: sourceVertexBoundaryTerminalRecords
-                    }
-                  )
-              )
+              ...terminalPairBoundaryJoinPlans,
+              ...sourceVertexJoinPlans,
+              ...sourceVertexSmoothInferredJoinPlans
             ]
           )
         : []
+    const baseJoinDiagnostics = {
+      terminalRecordCount: sourceVertexBoundaryTerminalRecords.length,
+      sourceVertexRecordCount: sourceVertexRecords.length,
+      terminalPairJoinPlanCount: terminalPairBoundaryJoinPlans.length,
+      sourceVertexJoinPlanCount: sourceVertexJoinPlans.length,
+      joinPlanCount: sourceVertexBoundaryJoinPlans.length
+    }
+    if (hasStrokePipelineTraceSink()) {
+      emitStrokePipelineTrace('constrained-dashed-join-diagnostics', {
+        cachePrefix,
+        strokeIndex,
+        strokePosition: stroke.position,
+        strokeCap: stroke.cap,
+        strokeJoin: stroke.join,
+        ...baseJoinDiagnostics
+      })
+    }
     const joinEffectiveSignatureByPlan =
       sourceVertexBoundaryJoinPlans.length > 0
         ? new WeakMap<SourceVertexBoundaryJoinPlan, string>()
@@ -13431,59 +21578,63 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             'join-ownership',
             stroke.join,
             sourceVertexBoundaryJoinPlans
-              .map((plan) => getFrameJoinEffectiveSignature(plan))
+              .map((plan) =>
+                getSourceVertexBoundaryJoinPlanMaterializationKey(
+                  plan,
+                  sourcePath ?? null,
+                  stroke,
+                  undefined,
+                  getFrameJoinEffectiveSignature(plan)
+                )
+              )
               .join(';')
           ].join(':')
         : 'source-path'
-    const packetStageSourcePath = sourcePath ?? topologySourcePath
-    const packetStageOrigin = packetStageSourcePath
-      ? getPathTranslationCacheOrigin(packetStageSourcePath)
-      : null
     const packetStageCacheKeys = measureStrokePipelinePhase(
       'constrained dashed packets: packet stage cache keys',
       () => {
-        const sourcePathSignature =
-          packetStageSourcePath && packetStageOrigin
-            ? buildTranslationInvariantPathCacheKey(
-                packetStageSourcePath,
-                packetStageOrigin
+        const sourcePathSignature = packetStageSourcePathSignature
+        const packetStageKey =
+          sourcePathSignature && packetStageOrigin
+            ? buildConstrainedDashedPacketStageCacheKey(
+                sourcePathSignature,
+                packetStageOrigin,
+                stroke,
+                {
+                  cachePrefix,
+                  ownerPrefix,
+                  strokeIndex,
+                  domainMode: baseDomainMode,
+                  intervalSignature,
+                  joinOwnershipSignature: packetStageJoinOwnershipSignature,
+                  clipInsideToFillDomain:
+                    options.clipInsideToFillDomain === true,
+                  implicitFillRegions: options.implicitFillRegions ?? [],
+                  sharedStrokeBoundaryDomains:
+                    options.sharedStrokeBoundaryDomains ?? []
+                }
               )
             : null
-        const packetStageKey = sourcePathSignature
-          ? buildConstrainedDashedPacketStageCacheKey(
-              sourcePathSignature,
-              stroke,
-              {
-                cachePrefix,
-                ownerPrefix,
-                strokeIndex,
-                domainMode: baseDomainMode,
-                intervalSignature,
-                joinOwnershipSignature: packetStageJoinOwnershipSignature,
-                clipInsideToFillDomain: options.clipInsideToFillDomain === true,
-                implicitFillRegions: options.implicitFillRegions ?? [],
-                sharedStrokeBoundaryDomains:
-                  options.sharedStrokeBoundaryDomains ?? []
-              }
-            )
-          : null
-        const joinIndependentKey = sourcePathSignature
-          ? buildConstrainedDashedJoinIndependentPacketStageCacheKey(
-              sourcePathSignature,
-              stroke,
-              {
-                cachePrefix,
-                ownerPrefix,
-                strokeIndex,
-                domainMode: baseDomainMode,
-                intervalSignature,
-                clipInsideToFillDomain: options.clipInsideToFillDomain === true,
-                implicitFillRegions: options.implicitFillRegions ?? [],
-                sharedStrokeBoundaryDomains:
-                  options.sharedStrokeBoundaryDomains ?? []
-              }
-            )
-          : null
+        const joinIndependentKey =
+          sourcePathSignature && packetStageOrigin
+            ? buildConstrainedDashedJoinIndependentPacketStageCacheKey(
+                sourcePathSignature,
+                packetStageOrigin,
+                stroke,
+                {
+                  cachePrefix,
+                  ownerPrefix,
+                  strokeIndex,
+                  domainMode: baseDomainMode,
+                  intervalSignature,
+                  clipInsideToFillDomain:
+                    options.clipInsideToFillDomain === true,
+                  implicitFillRegions: options.implicitFillRegions ?? [],
+                  sharedStrokeBoundaryDomains:
+                    options.sharedStrokeBoundaryDomains ?? []
+                }
+              )
+            : null
         return {
           packetStageKey,
           joinIndependentKey,
@@ -13497,7 +21648,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
     const cachedPacketStage = measureStrokePipelinePhase(
       'constrained dashed packets: packet stage cache lookup',
       () =>
-        packetStageCacheKey && packetStageOrigin
+        canUsePacketStageCache && packetStageCacheKey && packetStageOrigin
           ? getCachedConstrainedDashedPacketStage(
               packetStageCacheKey,
               packetStageOrigin,
@@ -13547,6 +21698,501 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
           return plansByIntervalId
         }
       )
+    const sourceVertexTerminalOwnershipByIntervalId =
+      measureStrokePipelinePhase(
+        'constrained dashed packets: source vertex terminal ownership index',
+        () => {
+          const ownershipByIntervalId = new Map<
+            string,
+            SourceVertexTerminalIntervalOwnership[]
+          >()
+          if (stroke.position !== 'outside' || !sourcePath) {
+            return ownershipByIntervalId
+          }
+
+          const endpointTolerance = Math.max(
+            SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE,
+            stroke.width * 1.5
+          )
+          const terminalOwnershipSourceVertexRecords = sourceVertexRecords
+          if (
+            terminalOwnershipSourceVertexRecords.length === 0 ||
+            sourceVertexBoundaryTerminalRecords.length === 0
+          ) {
+            return ownershipByIntervalId
+          }
+
+          const bucketSize = Math.max(endpointTolerance, EPSILON)
+          const getBucketCoordinate = (value: number) =>
+            Math.floor(value / bucketSize)
+          const getBucketKey = (point: Vec2) =>
+            `${getBucketCoordinate(point.x)}:${getBucketCoordinate(point.y)}`
+          const getNearbyBucketKeys = (point: Vec2) => {
+            const bucketX = getBucketCoordinate(point.x)
+            const bucketY = getBucketCoordinate(point.y)
+            const keys: string[] = []
+            for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+              for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+                keys.push(`${bucketX + offsetX}:${bucketY + offsetY}`)
+              }
+            }
+            return keys
+          }
+          const sourceVertexBuckets = new Map<string, SourceVertexRecord[]>()
+          terminalOwnershipSourceVertexRecords.forEach((sourceVertex) => {
+            const key = getBucketKey(sourceVertex.vertex)
+            sourceVertexBuckets.set(key, [
+              ...(sourceVertexBuckets.get(key) ?? []),
+              sourceVertex
+            ])
+          })
+
+          const addTerminalOwnership = (
+            sourceVertex: SourceVertexRecord,
+            terminalRecord: SourceVertexBoundaryTerminalRecord
+          ) => {
+            const interval = terminalRecord.interval
+            const effectiveSignature = [
+              'terminal-body',
+              stroke.join,
+              formatTranslationInvariantCacheNumber(stroke.miterLimit),
+              'source-vertex',
+              sourceVertex.vertexIndex,
+              `side:${terminalRecord.selectedSide}`,
+              terminalRecord.domainKey ?? 'no-domain',
+              interval.intervalId,
+              terminalRecord.terminal
+            ].join(':')
+            const ownership: SourceVertexTerminalIntervalOwnership = {
+              effectiveSignature,
+              intervalId: interval.intervalId,
+              terminal: terminalRecord.terminal,
+              selectedSide: terminalRecord.selectedSide,
+              domainKey: terminalRecord.domainKey,
+              vertex: sourceVertex.vertex,
+              sourceVertex,
+              terminalRecord
+            }
+            const existing =
+              ownershipByIntervalId.get(interval.intervalId) ?? []
+            if (
+              existing.some(
+                (entry) => entry.effectiveSignature === effectiveSignature
+              )
+            ) {
+              return
+            }
+            ownershipByIntervalId.set(interval.intervalId, [
+              ...existing,
+              ownership
+            ])
+          }
+
+          sourceVertexBoundaryTerminalRecords.forEach((terminalRecord) => {
+            const interval = terminalRecord.interval
+            if (
+              interval.domainPlanTerminalRole === undefined ||
+              interval.domainPlanTerminalRole === 'middle' ||
+              sourceVertexBoundaryJoinPlansByIntervalId.has(interval.intervalId)
+            ) {
+              return
+            }
+
+            getNearbyBucketKeys(terminalRecord.endpoint).forEach(
+              (bucketKey) => {
+                const candidates = sourceVertexBuckets.get(bucketKey) ?? []
+                candidates.forEach((sourceVertex) => {
+                  if (
+                    distanceBetween(
+                      terminalRecord.endpoint,
+                      sourceVertex.vertex
+                    ) > endpointTolerance
+                  ) {
+                    return
+                  }
+                  addTerminalOwnership(sourceVertex, terminalRecord)
+                })
+              }
+            )
+          })
+
+          const sourceVertexTerminalSlicingContext =
+            sourcePathSlicingContext ??
+            createSourcePathSlicingContext(
+              sourcePath,
+              SOURCE_PATH_DASH_SLICE_TOLERANCE,
+              SOURCE_PATH_DASH_SLICE_SAMPLING,
+              ROUND_CAP_VISUAL_MAX_LENGTH
+            )
+          const addCoveredSourceDomainTerminalOwnership = (
+            sourceVertex: SourceVertexRecord,
+            segmentIndex: number,
+            terminal: SourceVertexBoundaryTerminalRecord['terminal']
+          ) => {
+            const segmentRange =
+              sourceVertexTerminalSlicingContext.segmentRanges[segmentIndex]
+            if (!segmentRange) {
+              return
+            }
+            const sourceVertexDistance =
+              terminal === 'start'
+                ? segmentRange.startDistance
+                : segmentRange.endDistance
+            const sourceBoundary = getSourceSegmentBoundary(
+              sourcePath,
+              segmentIndex,
+              sourceVertexTerminalSlicingContext
+            )
+            const neighbor =
+              terminal === 'start'
+                ? sourceBoundary[1]
+                : sourceBoundary[sourceBoundary.length - 2]
+            if (!neighbor) {
+              return
+            }
+
+            visibleIntervals.forEach((interval) => {
+              if (
+                interval.domainPlanSplitRangeSourceSegmentIndex !==
+                  segmentIndex ||
+                sourceVertexBoundaryJoinPlansByIntervalId.has(
+                  interval.intervalId
+                ) ||
+                ownershipByIntervalId.has(interval.intervalId) ||
+                interval.domainPlanSideResolutionStatus === 'blocked'
+              ) {
+                return
+              }
+
+              const materializedInterval =
+                resolveSourceDomainIntervalForMaterializationWithSourceGeometry(
+                  interval,
+                  sourcePath,
+                  sourceVertexTerminalSlicingContext
+                )
+              if (
+                materializedInterval.materializationDistanceSpace !==
+                  'source-domain' ||
+                materializedInterval.startDistance >
+                  sourceVertexDistance + endpointTolerance ||
+                materializedInterval.endDistance <
+                  sourceVertexDistance - endpointTolerance
+              ) {
+                return
+              }
+
+              const materializedSelectedSide =
+                getBoundaryDomainMaterializedSelectedSide(interval)
+              const defaultSelectedSide = interval.domainPlanUnfilledSide
+              const selectedSide =
+                materializedSelectedSide === 1 ||
+                materializedSelectedSide === -1
+                  ? materializedSelectedSide
+                  : defaultSelectedSide === 1 || defaultSelectedSide === -1
+                    ? defaultSelectedSide
+                    : 1
+              const terminalRecord: SourceVertexBoundaryTerminalRecord = {
+                interval,
+                terminal,
+                endpoint: normalizePoint(sourceVertex.vertex),
+                neighbor: normalizePoint(neighbor),
+                sourceSegmentIndex: segmentIndex,
+                selectedSide,
+                domainKey:
+                  getBoundaryDomainJoinDomainKey(interval) ??
+                  `source-domain:${
+                    interval.domainPlanSplitRangeId ?? interval.intervalId
+                  }`
+              }
+              addTerminalOwnership(sourceVertex, terminalRecord)
+            })
+          }
+
+          terminalOwnershipSourceVertexRecords.forEach((sourceVertex) => {
+            addCoveredSourceDomainTerminalOwnership(
+              sourceVertex,
+              sourceVertex.previousSegmentIndex,
+              'end'
+            )
+            addCoveredSourceDomainTerminalOwnership(
+              sourceVertex,
+              sourceVertex.nextSegmentIndex,
+              'start'
+            )
+          })
+
+          return ownershipByIntervalId
+        }
+      )
+    const shouldBuildOutsideAggregateDescriptor = false
+    const outsideJoinOwnershipRecordsForTerminalBodies =
+      shouldBuildOutsideAggregateDescriptor &&
+      stroke.position === 'outside' &&
+      sourceVertexBoundaryJoinPlans.length > 0
+        ? measureStrokePipelinePhase(
+            'constrained dashed packets: outside join-owned terminal body records',
+            () =>
+              materializeSourceVertexBoundaryJoinRecords(
+                sourceVertexBoundaryJoinPlans,
+                sourcePath ?? null,
+                stroke,
+                {
+                  implicitFillRegions: options.implicitFillRegions,
+                  clipInsideToFillDomain:
+                    options.clipInsideToFillDomain === true,
+                  cacheContextSignature: [
+                    cachePrefix,
+                    ownerPrefix,
+                    strokeIndex,
+                    'outside-terminal-body-records'
+                  ].join(':'),
+                  joinEffectiveSignatureByPlan:
+                    joinEffectiveSignatureByPlan ?? undefined
+                }
+              )
+          )
+        : []
+    const outsideAggregateJoinOwnershipExcludePolygons: Vec2[][] = []
+    const getJoinOwnedTerminalBodySelectedSide = (
+      interval: VisibleDashedTopologyInterval,
+      defaultSelectedSide: 1 | -1
+    ): 1 | -1 => {
+      const materializedSelectedSide =
+        getBoundaryDomainMaterializedSelectedSide(interval)
+      return materializedSelectedSide === 1 || materializedSelectedSide === -1
+        ? materializedSelectedSide
+        : interval.domainPlanSelectedSide === 1 ||
+            interval.domainPlanSelectedSide === -1
+          ? interval.domainPlanSelectedSide
+          : defaultSelectedSide === 1 || defaultSelectedSide === -1
+            ? defaultSelectedSide
+            : 1
+    }
+    outsideJoinOwnershipRecordsForTerminalBodies.forEach((record) => {
+      if (record.polygons.length > 0) {
+        outsideAggregateJoinOwnershipExcludePolygons.push(...record.polygons)
+      }
+      if (
+        record.kind !== 'source-vertex' ||
+        record.polygons.length === 0 ||
+        record.materializationKind === undefined
+      ) {
+        return
+      }
+    })
+    const outsideJoinOwnedTerminalBodyIntervalIds = new Set(
+      stroke.position === 'outside'
+        ? sourceVertexBoundaryJoinPlans.flatMap((plan) =>
+            [
+              plan.previousDashBodyPoint ? plan.intervals[0]?.intervalId : null,
+              plan.nextDashBodyPoint ? plan.intervals[1]?.intervalId : null
+            ].filter(
+              (intervalId): intervalId is string =>
+                typeof intervalId === 'string'
+            )
+          )
+        : []
+    )
+    const outsideJoinOwnedTerminalPlanIntervalIds = new Set(
+      stroke.position === 'outside'
+        ? sourceVertexBoundaryJoinPlans.flatMap((plan) =>
+            plan.intervals.map((interval) => interval.intervalId)
+          )
+        : []
+    )
+    const outsideSourceVertexDescriptorExclusionWindowsBySourceSegmentIndex =
+      stroke.position === 'outside' &&
+      options.clipInsideToFillDomain === true &&
+      sourceVertexBoundaryJoinPlans.length > 0 &&
+      sourcePath &&
+      sourcePathSlicingContext
+        ? buildSourceVertexDescriptorExclusionWindowsBySourceSegmentIndex(
+            sourcePath,
+            sourcePathSlicingContext,
+            sourceVertexBoundaryJoinPlans,
+            {
+              width: intervalStroke.width,
+              cap: stroke.cap
+            }
+          )
+        : new Map<number, SourceVertexDescriptorExclusionWindow[]>()
+    const joinOwnedTerminalPlanIntervalIds = new Set(
+      sourceVertexBoundaryJoinPlans.flatMap((plan) =>
+        plan.intervals.map((interval) => interval.intervalId)
+      )
+    )
+    const boundaryTerminalPairJoinOwnedIntervalIds = new Set(
+      sourceVertexBoundaryJoinPlans.flatMap((plan) =>
+        plan.kind === 'boundary-terminal-pair'
+          ? plan.intervals.map((interval) => interval.intervalId)
+          : []
+      )
+    )
+    const getJoinOwnedEndpointCapPolicy = (
+      interval: VisibleDashedTopologyInterval,
+      policy: DashEndpointCapPolicy
+    ): DashEndpointCapPolicy => {
+      const joinPlans =
+        sourceVertexBoundaryJoinPlansByIntervalId.get(interval.intervalId) ?? []
+      if (joinPlans.length === 0) {
+        return policy
+      }
+
+      const sourcePathForJoinEndpointPolicy =
+        sourcePath ?? topologySourcePath ?? undefined
+      const sourceSlicingContextForJoinEndpointPolicy =
+        sourcePathSlicingContext ?? topologySourcePathSlicingContext
+      const getSourcePathPointAtDistance = (
+        path: Pick<PathGeometry, 'segments' | 'closed' | 'totalLength'>,
+        distance: number
+      ) => {
+        const clampedDistance = Math.max(
+          0,
+          Math.min(path.totalLength, distance)
+        )
+        const sampleLength = Math.min(1, Math.max(0.05, path.totalLength))
+        const forwardEnd = Math.min(
+          path.totalLength,
+          clampedDistance + sampleLength
+        )
+        if (forwardEnd > clampedDistance + EPSILON) {
+          const frames = slicePathGeometryFrames(
+            path,
+            clampedDistance,
+            forwardEnd,
+            false,
+            SOURCE_PATH_DASH_SLICE_TOLERANCE,
+            SOURCE_PATH_DASH_SLICE_SAMPLING
+          )
+          const firstFrame = frames[0]
+          if (firstFrame) {
+            return normalizePoint(firstFrame.point)
+          }
+        }
+
+        const backwardStart = Math.max(0, clampedDistance - sampleLength)
+        if (clampedDistance > backwardStart + EPSILON) {
+          const frames = slicePathGeometryFrames(
+            path,
+            backwardStart,
+            clampedDistance,
+            false,
+            SOURCE_PATH_DASH_SLICE_TOLERANCE,
+            SOURCE_PATH_DASH_SLICE_SAMPLING
+          )
+          const lastFrame = frames[frames.length - 1]
+          if (lastFrame) {
+            return normalizePoint(lastFrame.point)
+          }
+        }
+
+        return null
+      }
+      const getMaterializedEndpointForJoinVertex = (
+        joinInterval: VisibleDashedTopologyInterval,
+        vertex: Vec2
+      ): 'start' | 'end' | null => {
+        if (sourcePathForJoinEndpointPolicy) {
+          const materializedInterval =
+            resolveSourceDomainIntervalForMaterializationWithSourceGeometry(
+              joinInterval,
+              sourcePathForJoinEndpointPolicy,
+              sourceSlicingContextForJoinEndpointPolicy
+            )
+          if (
+            materializedInterval.materializationDistanceSpace ===
+              'source-domain' ||
+            (materializedInterval.domainPlanSplitRangeSourceStartDistance !==
+              undefined &&
+              materializedInterval.domainPlanSplitRangeSourceEndDistance !==
+                undefined)
+          ) {
+            const startPoint = getSourcePathPointAtDistance(
+              sourcePathForJoinEndpointPolicy,
+              materializedInterval.startDistance
+            )
+            const endPoint = getSourcePathPointAtDistance(
+              sourcePathForJoinEndpointPolicy,
+              materializedInterval.endDistance
+            )
+            if (startPoint && endPoint) {
+              const startDistance = distanceBetween(startPoint, vertex)
+              const endDistance = distanceBetween(endPoint, vertex)
+              const endpointTolerance = Math.max(
+                SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE,
+                stroke.width * 0.25
+              )
+              if (
+                Math.min(startDistance, endDistance) <= endpointTolerance &&
+                Math.abs(startDistance - endDistance) >
+                  SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE
+              ) {
+                return startDistance <= endDistance ? 'start' : 'end'
+              }
+            }
+          }
+        }
+
+        const boundaryStart = getBoundaryDomainTerminalPoint(
+          joinInterval,
+          'start'
+        )?.endpoint
+        const boundaryEnd = getBoundaryDomainTerminalPoint(
+          joinInterval,
+          'end'
+        )?.endpoint
+        if (!boundaryStart || !boundaryEnd) {
+          return null
+        }
+        const boundaryStartDistance = distanceBetween(boundaryStart, vertex)
+        const boundaryEndDistance = distanceBetween(boundaryEnd, vertex)
+        if (
+          Math.min(boundaryStartDistance, boundaryEndDistance) >
+            Math.max(
+              SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE,
+              stroke.width * 0.25
+            ) ||
+          Math.abs(boundaryStartDistance - boundaryEndDistance) <=
+            SOURCE_VERTEX_JOIN_ENDPOINT_TOLERANCE
+        ) {
+          return null
+        }
+        return boundaryStartDistance <= boundaryEndDistance ? 'start' : 'end'
+      }
+
+      let suppressStartCap = policy.suppressStartCap
+      let suppressEndCap = policy.suppressEndCap
+      const suppressEndpoint = (
+        joinInterval: VisibleDashedTopologyInterval,
+        plan: SourceVertexBoundaryJoinPlan,
+        defaultTerminal: 'start' | 'end'
+      ) => {
+        const materializedEndpoint =
+          getMaterializedEndpointForJoinVertex(joinInterval, plan.vertex) ??
+          defaultTerminal
+        if (materializedEndpoint === 'start') {
+          suppressStartCap = true
+        } else {
+          suppressEndCap = true
+        }
+      }
+      joinPlans.forEach((plan) => {
+        if (plan.intervals[0].intervalId === interval.intervalId) {
+          suppressEndpoint(interval, plan, plan.previousTerminal)
+        }
+        if (plan.intervals[1].intervalId === interval.intervalId) {
+          suppressEndpoint(interval, plan, plan.nextTerminal)
+        }
+      })
+
+      return suppressStartCap === policy.suppressStartCap &&
+        suppressEndCap === policy.suppressEndCap
+        ? policy
+        : buildDashEndpointCapPolicyFromSuppression(
+            suppressStartCap,
+            suppressEndCap
+          )
+    }
     const domainPlanSplitRangeTerminalRecordCache = new WeakMap<
       VisibleDashedTopologyInterval,
       | NonNullable<
@@ -13657,285 +22303,3043 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
 
     const buildSourceVertexBoundaryJoinPackets = (
       plans: SourceVertexBoundaryJoinPlan[],
-      coveredProductPolygons: Vec2[][] = []
+      coveredProductPolygons: Vec2[][] = [],
+      coveredProductIncludesInsideAggregateDescriptor = false
     ) => {
-      const sourceVertexBoundaryJoinRecords =
-        plans.length > 0
+      const canUseDirectOutsideSourceVertexJoinRecord = (
+        plan: SourceVertexBoundaryJoinPlan
+      ) =>
+        stroke.position === 'outside' &&
+        plan.kind === 'source-vertex' &&
+        !(
+          sourcePath &&
+          (isAuthoredSourceBoundarySmooth(
+            sourcePath,
+            plan.previousSegmentIndex,
+            plan.nextSegmentIndex
+          ) ||
+            isSourceBoundarySmooth(
+              sourcePath,
+              plan.previousSegmentIndex,
+              plan.nextSegmentIndex
+            ))
+        )
+      const buildDirectOutsideSourceVertexJoinRecord = (
+        plan: SourceVertexBoundaryJoinPlan
+      ): SourceVertexBoundaryJoinRecord | null => {
+        const joinPath = getSourceVertexBoundaryJoinPath(
+          plan,
+          sourcePath ?? null
+        )
+        const cacheKey = getSourceVertexBoundaryJoinPlanMaterializationKey(
+          plan,
+          sourcePath ?? null,
+          stroke,
+          formatJoinPlanPathSignature(joinPath),
+          joinEffectiveSignatureByPlan?.get(plan)
+        )
+        const stageCacheKey = [
+          cacheKey,
+          'direct-outside-source-vertex-join'
+        ].join('||')
+        const cachedStageRecord = getCachedSourceVertexBoundaryJoinRecordStage(
+          stageCacheKey,
+          plan.vertex
+        )
+        if (cachedStageRecord) {
+          return {
+            ...plan,
+            polygons: cachedStageRecord.polygons,
+            oppositePolygons: cachedStageRecord.oppositePolygons,
+            materializationKind: cachedStageRecord.materializationKind,
+            stageBounds: cachedStageRecord.stageBounds
+          }
+        }
+
+        const incidentSeamBoundaries = [
+          plan.previousSeamBoundary,
+          plan.nextSeamBoundary
+        ].filter(
+          (boundary): boundary is SourceVertexJoinIncidentSeamBoundary =>
+            boundary !== undefined
+        )
+        const sourceVertexJoinFootprint = measureStrokePipelinePhase(
+          'constrained dashed direct join record: canonical source-vertex join footprint',
+          () =>
+            buildSourceVertexJoinFootprint({
+              vertex: plan.vertex,
+              previousPoint: plan.previousContourPoint,
+              nextPoint: plan.nextContourPoint,
+              strokeWidth: stroke.width,
+              offsetDistance: Math.abs(
+                getSourceVertexJoinOffsetDistance(stroke)
+              ),
+              side: plan.selectedSide === 1 ? 'left' : 'right',
+              authoredJoin: stroke.join,
+              miterAngle: getStrokeMiterAngleForResolution(stroke),
+              ownerId: `constrained-dashed:source-vertex:${plan.vertexIndex}`,
+              angleSource: 'AUTHORED_CENTER_PATH_INCIDENT_TANGENTS',
+              incidentSeamBoundaries
+            })
+        )
+        const rawJoinPolygons = hasPolygonGeometry(
+          sourceVertexJoinFootprint.polygon
+        )
+          ? [sourceVertexJoinFootprint.polygon]
+          : []
+        const rawJoinProductPolygons = rawJoinPolygons
+        const canonicalMiterFootprint = measureStrokePipelinePhase(
+          'constrained dashed direct join record: canonical miter footprint',
+          () => buildSourceVertexCanonicalMiterFootprint(plan, stroke)
+        )
+        const miterSeamPolygons: Vec2[][] = []
+        const miterEndpointBoundaryPoints = measureStrokePipelinePhase(
+          'constrained dashed direct join record: miter endpoint boundary',
+          () => buildSourceVertexMiterEndpointBoundaryPoints(plan, stroke)
+        )
+        const miterFootprintPolygons = rawJoinPolygons
+        const assembledPolygons = measureStrokePipelinePhase(
+          'constrained dashed direct join record: assemble normalize',
+          () =>
+            (sourceVertexJoinFootprint.polygons.length > 0
+              ? sourceVertexJoinFootprint.polygons
+              : rawJoinProductPolygons
+            ).filter(hasPolygonGeometry)
+        )
+        const polygons = assembledPolygons
+        if (polygons.length === 0) {
+          return null
+        }
+
+        const getStageBounds = (stagePolygons: Vec2[][]) =>
+          stagePolygons.length > 0 ? getBounds(stagePolygons) : undefined
+        const record = {
+          ...plan,
+          polygons,
+          oppositePolygons: [],
+          materializationKind: 'join' as const,
+          stageBounds: {
+            rawJoin: getStageBounds(rawJoinPolygons),
+            rawJoinProduct: getStageBounds(rawJoinProductPolygons),
+            miterSeam: getStageBounds(miterSeamPolygons),
+            miterFootprint: getStageBounds(miterFootprintPolygons),
+            canonicalLegalMiterFootprint:
+              canonicalMiterFootprint?.resolution === 'miter'
+                ? getStageBounds(canonicalMiterFootprint.polygons)
+                : undefined,
+            canonicalTheoreticalMiterFootprint:
+              canonicalMiterFootprint?.resolution === 'miter'
+                ? getStageBounds(
+                    canonicalMiterFootprint.theoreticalPolygons ?? []
+                  )
+                : undefined,
+            canonicalBevelByMiterAngleFootprint:
+              canonicalMiterFootprint?.resolution === 'bevel-by-miter-angle'
+                ? getStageBounds(canonicalMiterFootprint.polygons)
+                : undefined,
+            miterEndpointBoundary:
+              miterEndpointBoundaryPoints.length > 0
+                ? getBounds([miterEndpointBoundaryPoints])
+                : undefined,
+            combined: getStageBounds(polygons)
+          }
+        }
+        setCachedSourceVertexBoundaryJoinRecordStage(
+          stageCacheKey,
+          plan.vertex,
+          record
+        )
+        return record
+      }
+      const directOutsideSourceVertexJoinRecords = plans
+        .filter(canUseDirectOutsideSourceVertexJoinRecord)
+        .flatMap((plan) => {
+          const materializedPlan =
+            plan.kind === 'source-vertex'
+              ? withMaterializedSourceVertexJoinSeamBoundaries(plan)
+              : plan
+          const record =
+            buildDirectOutsideSourceVertexJoinRecord(materializedPlan)
+          return record ? [record] : []
+        })
+      const exactSourceVertexBoundaryJoinPlans = plans.filter(
+        (plan) => !canUseDirectOutsideSourceVertexJoinRecord(plan)
+      )
+      const exactSourceVertexBoundaryJoinRecords =
+        exactSourceVertexBoundaryJoinPlans.length > 0
           ? measureStrokePipelinePhase(
               'constrained dashed packets: join ownership records',
               () =>
                 materializeSourceVertexBoundaryJoinRecords(
-                  plans,
+                  exactSourceVertexBoundaryJoinPlans,
                   sourcePath ?? null,
                   stroke,
                   {
                     implicitFillRegions: options.implicitFillRegions,
+                    clipInsideToFillDomain:
+                      options.clipInsideToFillDomain === true,
+                    cacheContextSignature: [
+                      cachePrefix,
+                      ownerPrefix,
+                      strokeIndex,
+                      'source-vertex-boundary-join-packets'
+                    ].join(':'),
                     joinEffectiveSignatureByPlan:
                       joinEffectiveSignatureByPlan ?? undefined
                   }
                 )
             )
           : []
+      const sourceVertexBoundaryJoinRecords = [
+        ...directOutsideSourceVertexJoinRecords,
+        ...exactSourceVertexBoundaryJoinRecords
+      ]
+      const canonicalizeSourceVertexBoundaryJoinDescriptorRecords = (
+        records: SourceVertexBoundaryJoinRecord[]
+      ) => {
+        if (stroke.position !== 'outside' || records.length <= 1) {
+          return records
+        }
 
-      return sourceVertexBoundaryJoinRecords.length > 0
-        ? measureStrokePipelinePhase(
-            'constrained dashed packets: join ownership packets',
-            () =>
-              sourceVertexBoundaryJoinRecords.flatMap((record, recordIndex) => {
-                if (record.polygons.length === 0) {
-                  return []
-                }
+        const canonicalRecords: SourceVertexBoundaryJoinRecord[] = []
+        const canonicalRecordIndexByOwnerKey = new Map<string, number>()
+        const getCanonicalOwnerKey = (
+          record: SourceVertexBoundaryJoinRecord
+        ) => {
+          if (record.kind !== 'source-vertex') {
+            return null
+          }
 
-                const joinedIntervalIds = record.intervals
-                  .map((interval) => interval.intervalId)
-                  .sort()
-                const joinedSourceSegmentIndexes = Array.from(
-                  new Set(
-                    record.intervals.flatMap((interval) =>
-                      interval.domainPlanSplitRangeSourceSegmentIndex ===
-                      undefined
-                        ? []
-                        : [interval.domainPlanSplitRangeSourceSegmentIndex]
-                    )
-                  )
-                ).sort((a, b) => a - b)
-                const joinOwnershipSignature = [
-                  'constrained-boundary-source-vertex',
-                  stroke.join,
-                  formatTranslationInvariantCacheNumber(stroke.miterLimit),
-                  record.kind,
-                  joinedIntervalIds.join(',')
-                ].join(':')
-                const intervalProductDomainMode =
-                  getFormalProductDomainModeForIntervals(
-                    strokeDomainPlan,
-                    record.intervals
-                  )
-                if (!intervalProductDomainMode) {
-                  return []
-                }
-                const productSignature = [
-                  'constrained-dashed',
-                  intervalProductDomainMode,
-                  'join-owned',
-                  record.kind,
-                  joinedIntervalIds.join(','),
-                  joinOwnershipSignature
-                ].join(':')
-                const domainPlanSplitRangeTerminals = record.intervals.flatMap(
-                  (interval) =>
-                    buildDomainPlanSplitRangeTerminalRecords(interval) ?? []
+          const origin = record.vertex
+          return [
+            record.kind,
+            record.materializationKind ?? 'join',
+            record.vertexIndex,
+            record.previousSegmentIndex,
+            record.nextSegmentIndex,
+            formatJoinPlanPointSignature(record.vertex),
+            formatJoinPlanPointRelativeSignature(
+              record.previousContourPoint,
+              origin
+            ),
+            formatJoinPlanPointRelativeSignature(
+              record.nextContourPoint,
+              origin
+            ),
+            record.previousDashBodyPoint
+              ? formatJoinPlanPointRelativeSignature(
+                  record.previousDashBodyPoint,
+                  origin
                 )
-                const dashProductIntervals: NonNullable<
-                  SolidCenterStrokeGeometryDebugMeta['dashProductIntervals']
-                > = record.intervals.map((interval) => {
-                  const boundaryDomainPath =
-                    getBoundaryDomainPathForVisibleInterval(interval)
-                  const endpointCapPolicy = getDashEndpointCapPolicy(
-                    boundaryDomainPath ??
-                      sourcePath ??
-                      topologySourcePath ?? {
-                        closed: topology.closed
-                      },
-                    interval
+              : '',
+            record.nextDashBodyPoint
+              ? formatJoinPlanPointRelativeSignature(
+                  record.nextDashBodyPoint,
+                  origin
+                )
+              : '',
+            record.previousTerminal,
+            record.nextTerminal,
+            `side:${record.selectedSide}`,
+            stroke.cap,
+            stroke.join,
+            formatTranslationInvariantCacheNumber(stroke.miterLimit),
+            getSourceVertexBoundaryJoinEffectiveSignature(
+              record,
+              sourcePath ?? null,
+              stroke
+            )
+          ].join('|')
+        }
+        const mergeRecords = (
+          existing: SourceVertexBoundaryJoinRecord,
+          record: SourceVertexBoundaryJoinRecord
+        ): SourceVertexBoundaryJoinRecord => {
+          const intervalsById = new Map<string, VisibleDashedTopologyInterval>()
+          ;[...existing.intervals, ...record.intervals].forEach((interval) => {
+            intervalsById.set(interval.intervalId, interval)
+          })
+          const mergedIntervals = Array.from(intervalsById.values())
+          const referencePointsByKey = new Map<string, Vec2>()
+          ;[...existing.referencePoints, ...record.referencePoints].forEach(
+            (point) => {
+              referencePointsByKey.set(
+                formatJoinPlanPointSignature(point),
+                point
+              )
+            }
+          )
+          const mergeDistinctSourceVertexJoinPolygons = (
+            polygons: Vec2[][]
+          ) => {
+            const polygonsBySignature = new Map<string, Vec2[]>()
+            polygons
+              .map(cleanPolygon)
+              .filter(hasPolygonGeometry)
+              .forEach((polygon) => {
+                polygonsBySignature.set(
+                  polygon.map(formatJoinPlanPointSignature).join(';'),
+                  polygon
+                )
+              })
+            return Array.from(polygonsBySignature.values())
+          }
+          const shouldPreserveDistinctJoinFragments =
+            stroke.join === 'round' && existing.kind === 'source-vertex'
+          const mergedPolygons = shouldPreserveDistinctJoinFragments
+            ? mergeDistinctSourceVertexJoinPolygons([
+                ...existing.polygons,
+                ...record.polygons
+              ])
+            : normalizeConstrainedDashedProductPolygons(
+                [...existing.polygons, ...record.polygons],
+                {
+                  cleanClipResidue: true,
+                  mergeContinuousInterval: true
+                }
+              )
+          const mergedOppositePolygons =
+            existing.oppositePolygons || record.oppositePolygons
+              ? normalizeConstrainedDashedProductPolygons(
+                  [
+                    ...(existing.oppositePolygons ?? []),
+                    ...(record.oppositePolygons ?? [])
+                  ],
+                  {
+                    cleanClipResidue: true,
+                    mergeContinuousInterval: true
+                  }
+                )
+              : undefined
+
+          return {
+            ...existing,
+            domainKey: [
+              'source-vertex',
+              existing.vertexIndex,
+              `side:${existing.selectedSide}`,
+              'canonical-owner'
+            ].join(':'),
+            intervals:
+              mergedIntervals.length >= 2
+                ? (mergedIntervals as [
+                    VisibleDashedTopologyInterval,
+                    VisibleDashedTopologyInterval
+                  ])
+                : existing.intervals,
+            referencePoints: Array.from(referencePointsByKey.values()),
+            previousSeamBoundary:
+              record.previousSeamBoundary ?? existing.previousSeamBoundary,
+            nextSeamBoundary:
+              record.nextSeamBoundary ?? existing.nextSeamBoundary,
+            polygons:
+              mergedPolygons.length > 0 ? mergedPolygons : existing.polygons,
+            oppositePolygons: mergedOppositePolygons
+          }
+        }
+
+        records.forEach((record) => {
+          const ownerKey = getCanonicalOwnerKey(record)
+          if (!ownerKey) {
+            canonicalRecords.push(record)
+            return
+          }
+
+          const existingIndex = canonicalRecordIndexByOwnerKey.get(ownerKey)
+          if (existingIndex === undefined) {
+            canonicalRecordIndexByOwnerKey.set(
+              ownerKey,
+              canonicalRecords.length
+            )
+            canonicalRecords.push(record)
+            return
+          }
+
+          const existing = canonicalRecords[existingIndex]
+          if (!existing) {
+            canonicalRecords.push(record)
+            return
+          }
+
+          canonicalRecords[existingIndex] = mergeRecords(existing, record)
+        })
+
+        return canonicalRecords
+      }
+      const canonicalSourceVertexBoundaryJoinRecords =
+        canonicalizeSourceVertexBoundaryJoinDescriptorRecords(
+          sourceVertexBoundaryJoinRecords
+        )
+      if (hasStrokePipelineTraceSink()) {
+        emitStrokePipelineTrace('constrained-dashed-join-materialization', {
+          cachePrefix,
+          strokeIndex,
+          requestedJoinPlanCount: plans.length,
+          materializedJoinRecordCount:
+            canonicalSourceVertexBoundaryJoinRecords.length,
+          records: canonicalSourceVertexBoundaryJoinRecords.map((record) => ({
+            kind: record.kind,
+            materializationKind: record.materializationKind ?? 'join',
+            intervalIds: record.intervals.map(
+              (interval) => interval.intervalId
+            ),
+            vertex: record.vertex,
+            selectedSide: record.selectedSide,
+            bounds: getBounds(record.polygons),
+            polygonCount: record.polygons.length,
+            area: getPolygonsAbsoluteArea(record.polygons)
+          }))
+        })
+      }
+
+      const joinOwnedTerminalBodySelectedSideResolutionCache = new Map<
+        string,
+        1 | -1 | undefined
+      >()
+      const buildJoinOwnedTerminalBodySelectedSideResolutionCacheKey = (
+        strokePath: Vec2[],
+        sourceSelectedSide: 1 | -1,
+        strokeWidth: number
+      ) =>
+        [
+          `selected-side:${sourceSelectedSide}`,
+          formatTranslationInvariantCacheNumber(strokeWidth),
+          strokePath
+            .map(
+              (point) =>
+                `${formatTranslationInvariantCacheNumber(
+                  point.x
+                )},${formatTranslationInvariantCacheNumber(point.y)}`
+            )
+            .join(';')
+        ].join('|')
+      const resolveJoinOwnedTerminalBodySelectedSide = (
+        strokePath: Vec2[],
+        sourceSelectedSide: 1 | -1 | undefined,
+        strokeWidth: number
+      ) => {
+        if (sourceSelectedSide !== 1 && sourceSelectedSide !== -1) {
+          return sourceSelectedSide
+        }
+        if ((options.implicitFillRegions?.length ?? 0) === 0) {
+          return sourceSelectedSide
+        }
+
+        const cacheKey =
+          buildJoinOwnedTerminalBodySelectedSideResolutionCacheKey(
+            strokePath,
+            sourceSelectedSide,
+            strokeWidth
+          )
+        if (joinOwnedTerminalBodySelectedSideResolutionCache.has(cacheKey)) {
+          return joinOwnedTerminalBodySelectedSideResolutionCache.get(cacheKey)
+        }
+
+        const resolved = resolveOutsideDescriptorStrokePathSelectedSide(
+          strokePath,
+          sourceSelectedSide,
+          strokeWidth,
+          options.implicitFillRegions
+        )
+        joinOwnedTerminalBodySelectedSideResolutionCache.set(cacheKey, resolved)
+        return resolved
+      }
+      const joinOwnedTerminalBodyImplicitFillRegions =
+        options.implicitFillRegions ?? []
+      const insideTerminalBodyLegalModels =
+        stroke.position === 'inside' &&
+        joinOwnedTerminalBodyImplicitFillRegions.length > 0
+          ? getLegalClipPolygonModels(joinOwnedTerminalBodyImplicitFillRegions)
+          : undefined
+
+      const buildJoinOwnedTerminalBodyPacket = (
+        interval: VisibleDashedTopologyInterval,
+        bodyKey: string,
+        selectedSide: 1 | -1 | undefined,
+        terminalStrokePath?: Vec2[],
+        terminalEndpointCapPolicy?: DashEndpointCapPolicy,
+        terminalJoinRecord?: SourceVertexBoundaryJoinRecord,
+        terminalBodyPoint?: Vec2
+      ): SolidCenterStrokeResolvedPacket[] => {
+        if (stroke.position !== 'outside' && stroke.position !== 'inside') {
+          return []
+        }
+        const providedStrokePath =
+          terminalStrokePath && terminalStrokePath.length >= 2
+            ? terminalStrokePath.map((point) => normalizePoint(point))
+            : null
+        const shouldUseProvidedStrokePath = providedStrokePath !== null
+        const emitTerminalBodyEmptyTrace = (
+          reason: string,
+          extra: Record<string, unknown> = {}
+        ) => {
+          if (!hasStrokePipelineTraceSink()) {
+            return
+          }
+          emitStrokePipelineTrace('constrained-dashed-terminal-body-empty', {
+            reason,
+            intervalId: interval.intervalId,
+            splitRangeId: interval.domainPlanSplitRangeId,
+            terminalRole: interval.domainPlanTerminalRole,
+            bodyKey,
+            strokePosition: stroke.position,
+            strokeCap: stroke.cap,
+            strokeJoin: stroke.join,
+            selectedSide,
+            terminalJoinKind: terminalJoinRecord?.kind,
+            terminalJoinMaterializationKind:
+              terminalJoinRecord?.materializationKind,
+            ...extra
+          })
+        }
+
+        const sourceDomainPath = sourcePath ?? topologySourcePath
+        const sourceDomainSlicingContext =
+          sourcePathSlicingContext ?? topologySourcePathSlicingContext
+        const intervalSourceSegmentRange =
+          !shouldUseProvidedStrokePath &&
+          interval.domainPlanSplitRangeSourceSegmentIndex !== undefined &&
+          sourceDomainSlicingContext
+            ? sourceDomainSlicingContext.segmentRanges[
+                interval.domainPlanSplitRangeSourceSegmentIndex
+              ]
+            : undefined
+        const intervalBoundaryPoints = interval.domainPlanBoundaryPoints
+        const intervalWithSourceDistances =
+          !shouldUseProvidedStrokePath &&
+          interval.domainPlanSplitRangeSourceStartDistance === undefined &&
+          interval.domainPlanSplitRangeSourceEndDistance === undefined &&
+          intervalSourceSegmentRange &&
+          sourceDomainPath &&
+          sourceDomainSlicingContext &&
+          intervalBoundaryPoints &&
+          intervalBoundaryPoints.length >= 2
+            ? (() => {
+                const firstBoundaryPoint = intervalBoundaryPoints[0]
+                const lastBoundaryPoint =
+                  intervalBoundaryPoints[intervalBoundaryPoints.length - 1]
+                const sourceStartDistance = projectPointToSourceSegmentDistance(
+                  sourceDomainPath,
+                  intervalSourceSegmentRange,
+                  sourceDomainSlicingContext,
+                  firstBoundaryPoint
+                )
+                const sourceEndDistance = projectPointToSourceSegmentDistance(
+                  sourceDomainPath,
+                  intervalSourceSegmentRange,
+                  sourceDomainSlicingContext,
+                  lastBoundaryPoint
+                )
+                if (
+                  sourceStartDistance === null ||
+                  sourceEndDistance === null
+                ) {
+                  return interval
+                }
+                return {
+                  ...interval,
+                  domainPlanSplitRangeSourceStartDistance: sourceStartDistance,
+                  domainPlanSplitRangeSourceEndDistance: sourceEndDistance
+                }
+              })()
+            : interval
+        const shouldMaterializeDoubledCenterSourcePath =
+          !shouldUseProvidedStrokePath &&
+          sourceDomainPath !== undefined &&
+          sourceDomainSlicingContext !== undefined &&
+          intervalWithSourceDistances.domainPlanSplitRangeSourceStartDistance !==
+            undefined &&
+          intervalWithSourceDistances.domainPlanSplitRangeSourceEndDistance !==
+            undefined &&
+          intervalWithSourceDistances.domainPlanDomainMode !==
+            'open-contour-constrained-domain'
+        const boundaryDomainPath = shouldMaterializeDoubledCenterSourcePath
+          ? null
+          : shouldUseProvidedStrokePath
+            ? null
+            : getBoundaryDomainPathForVisibleInterval(interval)
+        const effectiveSourcePath = shouldMaterializeDoubledCenterSourcePath
+          ? sourceDomainPath
+          : (boundaryDomainPath ?? sourcePath ?? topologySourcePath)
+        const effectiveSourcePathSlicingContext =
+          shouldMaterializeDoubledCenterSourcePath
+            ? sourceDomainSlicingContext
+            : boundaryDomainPath
+              ? getBoundaryDomainSlicingContext(boundaryDomainPath)
+              : (sourcePathSlicingContext ?? topologySourcePathSlicingContext)
+        const canSliceEffectiveSourcePath =
+          effectiveSourcePath !== undefined &&
+          effectiveSourcePathSlicingContext !== undefined
+        if (!canSliceEffectiveSourcePath && !shouldUseProvidedStrokePath) {
+          return []
+        }
+
+        const materializationInterval = shouldUseProvidedStrokePath
+          ? interval
+          : shouldMaterializeDoubledCenterSourcePath
+            ? resolveSourceDomainIntervalForMaterializationWithSourceGeometry(
+                intervalWithSourceDistances,
+                sourceDomainPath ?? undefined,
+                sourceDomainSlicingContext
+              )
+            : boundaryDomainPath
+              ? getBoundaryDomainMaterializationInterval(
+                  intervalWithSourceDistances
+                )
+              : resolveSourceDomainIntervalForMaterializationWithSourceGeometry(
+                  intervalWithSourceDistances,
+                  sourceDomainPath ?? undefined,
+                  sourceDomainSlicingContext
+                )
+        const rawStrokePath = shouldUseProvidedStrokePath
+          ? providedStrokePath
+          : effectiveSourcePath && effectiveSourcePathSlicingContext
+            ? sliceIntervalStrokePathPoints(
+                effectiveSourcePath,
+                materializationInterval,
+                effectiveSourcePathSlicingContext
+              )
+            : []
+        if (rawStrokePath.length < 2) {
+          emitTerminalBodyEmptyTrace('raw-stroke-path-empty', {
+            shouldUseProvidedStrokePath,
+            canSliceEffectiveSourcePath,
+            boundaryDomainPathPresent: boundaryDomainPath !== null
+          })
+          return []
+        }
+
+        const mapTerminalEndpointCapPolicyToRawStrokePath = (
+          policy: DashEndpointCapPolicy
+        ): DashEndpointCapPolicy => {
+          if (!providedStrokePath || providedStrokePath.length < 2) {
+            return policy
+          }
+          const rawStart = rawStrokePath[0]
+          const rawEnd = rawStrokePath[rawStrokePath.length - 1]
+          const providedStart = providedStrokePath[0]
+          const providedEnd = providedStrokePath[providedStrokePath.length - 1]
+          if (!rawStart || !rawEnd || !providedStart || !providedEnd) {
+            return policy
+          }
+
+          let suppressStartCap = false
+          let suppressEndCap = false
+          const mapSuppressedPoint = (point: Vec2) => {
+            const startDistance = distanceBetween(rawStart, point)
+            const endDistance = distanceBetween(rawEnd, point)
+            if (startDistance <= endDistance) {
+              suppressStartCap = true
+            } else {
+              suppressEndCap = true
+            }
+          }
+
+          if (policy.suppressStartCap) {
+            mapSuppressedPoint(providedStart)
+          }
+          if (policy.suppressEndCap) {
+            mapSuppressedPoint(providedEnd)
+          }
+
+          return suppressStartCap === policy.suppressStartCap &&
+            suppressEndCap === policy.suppressEndCap
+            ? policy
+            : buildDashEndpointCapPolicyFromSuppression(
+                suppressStartCap,
+                suppressEndCap
+              )
+        }
+        const mapSourceVertexEndpointCapPolicyToRawStrokePath = (
+          policy: DashEndpointCapPolicy
+        ): DashEndpointCapPolicy => {
+          if (
+            terminalJoinRecord?.kind !== 'source-vertex' ||
+            rawStrokePath.length < 2 ||
+            (!policy.suppressStartCap && !policy.suppressEndCap)
+          ) {
+            return policy
+          }
+
+          if (policy.suppressStartCap && policy.suppressEndCap) {
+            return policy
+          }
+
+          const rawStart = rawStrokePath[0]
+          const rawEnd = rawStrokePath[rawStrokePath.length - 1]
+          if (!rawStart || !rawEnd) {
+            return policy
+          }
+
+          return buildDashEndpointCapPolicyFromSuppression(
+            distanceBetween(rawStart, terminalJoinRecord.vertex) <=
+              distanceBetween(rawEnd, terminalJoinRecord.vertex),
+            distanceBetween(rawEnd, terminalJoinRecord.vertex) <
+              distanceBetween(rawStart, terminalJoinRecord.vertex)
+          )
+        }
+        const endpointPolicyMappedToRawStrokePath =
+          terminalEndpointCapPolicy !== undefined &&
+          (shouldUseProvidedStrokePath ||
+            terminalJoinRecord?.kind === 'source-vertex')
+        const baseEndpointCapPolicy = terminalEndpointCapPolicy
+          ? shouldUseProvidedStrokePath
+            ? mapTerminalEndpointCapPolicyToRawStrokePath(
+                terminalEndpointCapPolicy
+              )
+            : mapSourceVertexEndpointCapPolicyToRawStrokePath(
+                terminalEndpointCapPolicy
+              )
+          : effectiveSourcePath
+            ? getJoinOwnedEndpointCapPolicy(
+                interval,
+                getDashEndpointCapPolicy(effectiveSourcePath, interval)
+              )
+            : buildDashEndpointCapPolicyFromSuppression(true, false)
+        const endpointCapPolicy =
+          !endpointPolicyMappedToRawStrokePath &&
+          !shouldUseProvidedStrokePath &&
+          isMaterializedIntervalDirectionReversed(
+            intervalWithSourceDistances,
+            materializationInterval
+          )
+            ? reverseDashEndpointCapPolicy(baseEndpointCapPolicy)
+            : baseEndpointCapPolicy
+        const terminalRole =
+          endpointCapPolicy.terminalRole ??
+          interval.domainPlanTerminalRole ??
+          'middle'
+        const terminalBodyJoinOverlapDistance = 0
+        const bodyStrokePath = extendTerminalBodyStrokePathForEndpointPolicy(
+          rawStrokePath,
+          endpointCapPolicy,
+          terminalBodyJoinOverlapDistance
+        )
+        const resolvedSelectedSide =
+          selectedSide === 1 || selectedSide === -1
+            ? shouldUseProvidedStrokePath || stroke.position === 'inside'
+              ? selectedSide
+              : resolveJoinOwnedTerminalBodySelectedSide(
+                  rawStrokePath,
+                  selectedSide,
+                  intervalStroke.width
+                )
+            : selectedSide
+        const cacheOrigin = terminalJoinRecord?.vertex ?? rawStrokePath[0]
+        const terminalJoinEnvelopeOwnerRole =
+          terminalJoinRecord?.kind === 'source-vertex'
+            ? [
+                terminalJoinRecord.intervals[0]?.intervalId ===
+                interval.intervalId
+                  ? 'previous-owner'
+                  : '',
+                terminalJoinRecord.intervals[1]?.intervalId ===
+                interval.intervalId
+                  ? 'next-owner'
+                  : ''
+              ]
+                .filter((role) => role.length > 0)
+                .join('+') || 'non-owner'
+            : 'no-source-vertex-owner'
+        const terminalJoinEnvelopeSignature =
+          terminalJoinRecord?.kind === 'source-vertex'
+            ? [
+                'source-vertex-join-envelope',
+                terminalJoinRecord.materializationKind ?? 'join',
+                stroke.join,
+                formatTranslationInvariantCacheNumber(stroke.miterLimit),
+                `side:${terminalJoinRecord.selectedSide}`,
+                `role:${terminalJoinEnvelopeOwnerRole}`
+              ].join(':')
+            : 'no-source-vertex-join-envelope'
+        const implicitFillRegions = joinOwnedTerminalBodyImplicitFillRegions
+        const terminalBodyCacheRegionPadding = Math.max(
+          0.01,
+          SOURCE_VERTEX_OUTSIDE_BOUNDARY_SNAP_TOLERANCE,
+          intervalStroke.width * 4
+        )
+        const terminalBodyPathBounds = getBounds([bodyStrokePath])
+        const terminalBodyCacheBounds = {
+          minX: terminalBodyPathBounds.minX - terminalBodyCacheRegionPadding,
+          minY: terminalBodyPathBounds.minY - terminalBodyCacheRegionPadding,
+          maxX: terminalBodyPathBounds.maxX + terminalBodyCacheRegionPadding,
+          maxY: terminalBodyPathBounds.maxY + terminalBodyCacheRegionPadding
+        }
+        const terminalBodyCacheLegalRegions =
+          stroke.position === 'outside' || stroke.position === 'inside'
+            ? selectBoundsIntersectingLegalClipRegions(
+                terminalBodyCacheBounds,
+                implicitFillRegions,
+                terminalBodyCacheRegionPadding
+              )
+            : implicitFillRegions
+        const terminalBodyLegalDomainSignature = [
+          'join-owned-terminal-body-legal-domain-v3',
+          stroke.position,
+          options.clipInsideToFillDomain === true
+            ? 'clip-inside-fill-domain'
+            : 'no-clip-inside-fill-domain',
+          cacheOrigin
+            ? buildImplicitFillRegionLocalRelativeCacheSignature(
+                terminalBodyCacheLegalRegions,
+                cacheOrigin,
+                terminalBodyCacheBounds
+              )
+            : buildImplicitFillRegionCacheSignature(
+                terminalBodyCacheLegalRegions
+              ),
+          topology.fillRule
+        ].join('||')
+        const bodyProductCacheKey = cacheOrigin
+          ? buildJoinOwnedTerminalBodyProductCacheKey(
+              cacheOrigin,
+              bodyStrokePath,
+              terminalBodyLegalDomainSignature,
+              {
+                cap: stroke.cap,
+                join: stroke.join,
+                miterLimit: stroke.miterLimit,
+                width: intervalStroke.width
+              },
+              endpointCapPolicy,
+              terminalRole,
+              resolvedSelectedSide,
+              terminalJoinEnvelopeSignature
+            )
+          : null
+        const cachedBodyProduct =
+          bodyProductCacheKey && cacheOrigin
+            ? getJoinOwnedTerminalBodyProductFromCache(
+                bodyProductCacheKey,
+                cacheOrigin
+              )
+            : undefined
+        const legallyCanonicalBodyProduct =
+          cachedBodyProduct ??
+          (() => {
+            const doubledCenterWidth = intervalStroke.width * 2
+            const terminalBodyStripPolygons = buildSolidCenterStrokePolygons(
+              bodyStrokePath,
+              false,
+              {
+                style: 'solid',
+                position: 'center',
+                width: doubledCenterWidth,
+                cap: 'butt',
+                join: 'round',
+                miterAngle: getStrokeMiterAngleForResolution(stroke),
+                miterLimit: stroke.miterLimit
+              }
+            )
+              .map(cleanPolygon)
+              .filter(hasPolygonGeometry)
+            const terminalBodyCapPolygons =
+              buildConstrainedDashedEndpointPolicyCapPolygons(
+                bodyStrokePath,
+                endpointCapPolicy,
+                terminalRole,
+                stroke.cap,
+                doubledCenterWidth,
+                materializationInterval
+              )
+            const bodyCenterPolygons = measureStrokePipelinePhase(
+              'constrained dashed terminal body: center polygons',
+              () => {
+                const polygons = [
+                  ...terminalBodyStripPolygons,
+                  ...terminalBodyCapPolygons
+                ]
+                return cleanClippedProductPolygons(polygons, {
+                  cleanupMicroEdgeTolerance:
+                    CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                  cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+                })
+              }
+            )
+            if (bodyCenterPolygons.length === 0) {
+              emitTerminalBodyEmptyTrace('body-center-empty', {
+                terminalBodyStripPolygonCount: terminalBodyStripPolygons.length,
+                terminalBodyCapPolygonCount: terminalBodyCapPolygons.length
+              })
+              return null
+            }
+
+            const rawEndpointClippedBodyCenterPolygons =
+              materializationInterval.materializationDistanceSpace ===
+                'source-domain' &&
+              sourceDomainPath &&
+              sourceDomainSlicingContext
+                ? clipSourceDomainIntervalPolygonsToEndpointCapPolicy(
+                    bodyCenterPolygons,
+                    sourceDomainPath,
+                    sourceDomainSlicingContext,
+                    materializationInterval,
+                    endpointCapPolicy,
+                    intervalStroke.width,
+                    terminalBodyJoinOverlapDistance
                   )
-                  const endpointCapPolicySignature = [
-                    'join-owned',
+                : clipCenterStrokeProductPolygonsToEndpointExtents(
+                    bodyCenterPolygons,
+                    bodyStrokePath,
                     stroke.cap,
-                    endpointCapPolicy.signature
-                  ].join(':')
-                  const fullCapReachDistance =
-                    stroke.cap === 'butt' ? 0 : intervalStroke.width
-                  const startCapReachDistance = endpointCapPolicy.startCap
-                    ? fullCapReachDistance
-                    : 0
-                  const endCapReachDistance = endpointCapPolicy.endCap
-                    ? fullCapReachDistance
-                    : 0
+                    doubledCenterWidth,
+                    endpointCapPolicy
+                  )
+            const endpointClippedBodyCenterPolygons =
+              stroke.cap === 'butt' &&
+              terminalJoinRecord?.kind === 'source-vertex'
+                ? (() => {
+                    const rawStart = bodyStrokePath[0]
+                    const rawEnd = bodyStrokePath[bodyStrokePath.length - 1]
+                    if (!rawStart || !rawEnd) {
+                      return rawEndpointClippedBodyCenterPolygons
+                    }
+                    const bodyEndpoint =
+                      terminalBodyPoint ??
+                      (distanceBetween(rawStart, terminalJoinRecord.vertex) >
+                      distanceBetween(rawEnd, terminalJoinRecord.vertex)
+                        ? rawStart
+                        : rawEnd)
+                    const bodyDirection = normalizeVector(
+                      subtractPoint(bodyEndpoint, terminalJoinRecord.vertex)
+                    )
+                    if (!bodyDirection) {
+                      return rawEndpointClippedBodyCenterPolygons
+                    }
+                    return rawEndpointClippedBodyCenterPolygons.flatMap(
+                      (polygon) => {
+                        const clipped = clipPolygonToEndpointPolicyHalfPlane(
+                          polygon,
+                          terminalJoinRecord.vertex,
+                          bodyDirection,
+                          1,
+                          terminalBodyJoinOverlapDistance,
+                          terminalBodyJoinOverlapDistance > EPSILON
+                        )
+                        return hasPolygonGeometry(clipped) ? [clipped] : []
+                      }
+                    )
+                  })()
+                : rawEndpointClippedBodyCenterPolygons
+            if (endpointClippedBodyCenterPolygons.length === 0) {
+              emitTerminalBodyEmptyTrace('endpoint-clipped-body-empty', {
+                bodyCenterBounds: getBounds(bodyCenterPolygons),
+                endpointCapPolicySignature: endpointCapPolicy.signature
+              })
+              return null
+            }
+
+            const shouldDeferTerminalBodySelectedSideToLegalClip =
+              stroke.position === 'outside' &&
+              stroke.cap !== 'butt' &&
+              terminalJoinRecord?.kind !== 'source-vertex' &&
+              implicitFillRegions.length > 0 &&
+              materializationInterval.materializationDistanceSpace ===
+                'source-domain' &&
+              interval.domainPlanDomainMode === 'closed-constrained-domain'
+            const selectedSideBodyPolygons = measureStrokePipelinePhase(
+              'constrained dashed terminal body: selected side clip',
+              () =>
+                shouldDeferTerminalBodySelectedSideToLegalClip
+                  ? endpointClippedBodyCenterPolygons
+                  : resolvedSelectedSide === 1 || resolvedSelectedSide === -1
+                    ? clipSourceDomainIntervalPolygonsToExplicitSelectedSide(
+                        endpointClippedBodyCenterPolygons,
+                        bodyStrokePath,
+                        intervalStroke.width,
+                        resolvedSelectedSide,
+                        {
+                          cap: stroke.cap,
+                          endpointCapPolicy
+                        }
+                      )
+                    : endpointClippedBodyCenterPolygons
+            )
+            if (selectedSideBodyPolygons.length === 0) {
+              emitTerminalBodyEmptyTrace('selected-side-body-empty', {
+                endpointClippedBounds: getBounds(
+                  endpointClippedBodyCenterPolygons
+                ),
+                resolvedSelectedSide
+              })
+              return null
+            }
+
+            const sourceVertexSelectedSideTerminalBodyEnvelopePolygons =
+              stroke.position === 'outside' &&
+              terminalJoinRecord?.kind === 'source-vertex' &&
+              (resolvedSelectedSide === 1 || resolvedSelectedSide === -1)
+                ? buildSelectedSideTerminalBodyEnvelopePolygons(
+                    bodyStrokePath,
+                    intervalStroke.width,
+                    resolvedSelectedSide
+                  )
+                : []
+            const selectedSideBodyWithinSourceVertexEnvelopePolygons =
+              sourceVertexSelectedSideTerminalBodyEnvelopePolygons.length > 0
+                ? cleanClippedProductPolygons(
+                    intersectDescriptorProductPolygons(
+                      selectedSideBodyPolygons,
+                      sourceVertexSelectedSideTerminalBodyEnvelopePolygons
+                    ),
+                    {
+                      cleanupMicroEdgeTolerance:
+                        CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                      cleanupCollinearTolerance:
+                        CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+                    }
+                  )
+                : selectedSideBodyPolygons
+            if (
+              sourceVertexSelectedSideTerminalBodyEnvelopePolygons.length > 0 &&
+              selectedSideBodyWithinSourceVertexEnvelopePolygons.length === 0
+            ) {
+              emitTerminalBodyEmptyTrace(
+                'source-vertex-selected-side-envelope-empty',
+                {
+                  selectedSideBodyBounds: getBounds(selectedSideBodyPolygons),
+                  sourceVertexSelectedSideTerminalBodyEnvelopeBounds: getBounds(
+                    sourceVertexSelectedSideTerminalBodyEnvelopePolygons
+                  )
+                }
+              )
+              return null
+            }
+
+            const selectedSideTerminalBodyEnvelopePolygons =
+              stroke.position === 'outside' &&
+              terminalJoinRecord?.kind === 'boundary-terminal-pair' &&
+              (resolvedSelectedSide === 1 || resolvedSelectedSide === -1)
+                ? (() => {
+                    const materializedTerminalLength = Math.abs(
+                      materializationInterval.endDistance -
+                        materializationInterval.startDistance
+                    )
+                    const terminalEnvelopeRoles: ('start' | 'end')[] =
+                      terminalRole === 'start-end'
+                        ? ['start', 'end']
+                        : terminalRole === 'end'
+                          ? ['end']
+                          : ['start']
+                    const boundaryEnvelopePolygons =
+                      terminalEnvelopeRoles.flatMap((envelopeRole) => {
+                        const boundaryEnvelopePath =
+                          sliceTerminalBoundaryEnvelopePath(
+                            interval.domainPlanBoundaryPoints,
+                            envelopeRole,
+                            materializedTerminalLength
+                          )
+                        if (boundaryEnvelopePath.length < 2) {
+                          return []
+                        }
+                        return buildSelectedSideTerminalBodyEnvelopePolygons(
+                          boundaryEnvelopePath,
+                          intervalStroke.width,
+                          envelopeRole === 'end'
+                            ? (-resolvedSelectedSide as 1 | -1)
+                            : resolvedSelectedSide
+                        )
+                      })
+                    return [
+                      ...buildSelectedSideTerminalBodyEnvelopePolygons(
+                        bodyStrokePath,
+                        intervalStroke.width,
+                        resolvedSelectedSide
+                      ),
+                      ...boundaryEnvelopePolygons
+                    ]
+                  })()
+                : []
+            const selectedSideBodyWithEnvelopePolygons =
+              selectedSideTerminalBodyEnvelopePolygons.length > 0
+                ? cleanClippedProductPolygons(
+                    [
+                      ...selectedSideBodyWithinSourceVertexEnvelopePolygons,
+                      ...selectedSideTerminalBodyEnvelopePolygons
+                    ],
+                    {
+                      cleanupMicroEdgeTolerance:
+                        CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                      cleanupCollinearTolerance:
+                        CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+                    }
+                  )
+                : selectedSideBodyWithinSourceVertexEnvelopePolygons
+            const selectedSideRoundCapPolygons =
+              !shouldDeferTerminalBodySelectedSideToLegalClip &&
+              stroke.cap === 'round' &&
+              (resolvedSelectedSide === 1 || resolvedSelectedSide === -1)
+                ? buildSelectedSideDoubledCenterRoundCapPolygons(
+                    bodyStrokePath,
+                    endpointCapPolicy,
+                    intervalStroke.width,
+                    resolvedSelectedSide
+                  ).filter(hasPolygonGeometry)
+                : []
+            const selectedSideEndpointPolicyBodyCapPolygons =
+              stroke.cap === 'butt' ||
+              stroke.cap === 'round' ||
+              shouldDeferTerminalBodySelectedSideToLegalClip
+                ? []
+                : resolvedSelectedSide === 1 || resolvedSelectedSide === -1
+                  ? clipSourceDomainIntervalPolygonsToExplicitSelectedSide(
+                      terminalBodyCapPolygons,
+                      bodyStrokePath,
+                      intervalStroke.width,
+                      resolvedSelectedSide,
+                      {
+                        cap: stroke.cap,
+                        endpointCapPolicy
+                      }
+                    )
+                  : terminalBodyCapPolygons
+            const endpointPolicyBodyCapPolygons =
+              selectedSideEndpointPolicyBodyCapPolygons
+            const selectedSideBodyWithCapPolygons =
+              selectedSideRoundCapPolygons.length > 0 ||
+              endpointPolicyBodyCapPolygons.length > 0
+                ? cleanClippedProductPolygons(
+                    [
+                      ...selectedSideBodyWithEnvelopePolygons,
+                      ...selectedSideRoundCapPolygons,
+                      ...endpointPolicyBodyCapPolygons
+                    ],
+                    {
+                      cleanupMicroEdgeTolerance:
+                        CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                      cleanupCollinearTolerance:
+                        CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+                    }
+                  )
+                : selectedSideBodyWithEnvelopePolygons
+            const endpointBoundedTerminalBodyPolygons =
+              selectedSideBodyWithCapPolygons
+            const terminalBodyLegalSubjectPolygons =
+              endpointBoundedTerminalBodyPolygons
+
+            const terminalBodyOutsideLegalBoundarySnapTolerance =
+              terminalJoinRecord?.kind === 'source-vertex'
+                ? SOURCE_VERTEX_OUTSIDE_BOUNDARY_SNAP_TOLERANCE
+                : CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE
+            const terminalBodyCleanupOptions = {
+              cleanupMicroEdgeTolerance: CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+              cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE,
+              outsideLegalBoundarySnapTolerance:
+                terminalBodyOutsideLegalBoundarySnapTolerance,
+              outsideLegalResidueCaller: 'join-owned-terminal-body',
+              forceOutsideLegalResidueSubtract: false,
+              materializeProductCoverage: true,
+              outsideLegalClipInflateDistance:
+                stroke.position === 'outside'
+                  ? OUTSIDE_TERMINAL_BODY_LEGAL_CLIP_ENVELOPE
+                  : undefined
+            }
+            const terminalBodyRelevantLegalRegions =
+              stroke.position === 'outside' ? terminalBodyCacheLegalRegions : []
+            const bodyProductPolygons = measureStrokePipelinePhase(
+              `constrained dashed terminal body: ${stroke.position} legal product`,
+              () => {
+                if (stroke.position === 'inside') {
+                  return clipSourceVertexJoinPolygonsToInsideLegalDomain(
+                    terminalBodyLegalSubjectPolygons,
+                    terminalBodyCacheLegalRegions,
+                    {
+                      cacheOrigin,
+                      legalModels:
+                        terminalBodyCacheLegalRegions ===
+                        joinOwnedTerminalBodyImplicitFillRegions
+                          ? insideTerminalBodyLegalModels
+                          : undefined
+                    }
+                  )
+                }
+
+                const terminalBodyAlreadyOutsideLegal =
+                  terminalBodyCleanupOptions.forceOutsideLegalResidueSubtract !==
+                    true &&
+                  (terminalBodyRelevantLegalRegions.length === 0 ||
+                    canSkipOutsideLegalClipForTerminalFragments(
+                      terminalBodyLegalSubjectPolygons,
+                      terminalBodyRelevantLegalRegions
+                    ))
+                if (terminalBodyAlreadyOutsideLegal) {
+                  emitStrokePipelineCounter(
+                    'outside-terminal-body-legal-noop-skip'
+                  )
+                  return terminalBodyLegalSubjectPolygons
+                }
+
+                const shouldUseSourcePathTerminalBodyLegalClip =
+                  stroke.cap === 'round' &&
+                  terminalJoinRecord?.kind === 'source-vertex' &&
+                  sourceDomainPath != null &&
+                  materializationInterval.materializationDistanceSpace ===
+                    'source-domain' &&
+                  terminalBodyCleanupOptions.materializeProductCoverage !== true
+                if (shouldUseSourcePathTerminalBodyLegalClip) {
+                  return clipSourcePathPolygonsToEvenOddLegalDomain(
+                    terminalBodyLegalSubjectPolygons,
+                    sourceDomainPath,
+                    { position: 'outside' },
+                    terminalBodyRelevantLegalRegions,
+                    {
+                      cleanupMicroEdgeTolerance:
+                        CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                      cleanupCollinearTolerance:
+                        CLIPPED_PRODUCT_COLLINEAR_TOLERANCE,
+                      outsideLegalBoundarySnapTolerance:
+                        terminalBodyOutsideLegalBoundarySnapTolerance,
+                      outsideFillRule: topology.fillRule
+                    }
+                  )
+                }
+
+                return subtractOutsideLegalResidue(
+                  terminalBodyLegalSubjectPolygons,
+                  terminalBodyRelevantLegalRegions,
+                  topology.fillRule,
+                  terminalBodyCleanupOptions
+                )
+              }
+            )
+            const capPreservedBodyProductPolygons =
+              stroke.position === 'outside' && stroke.cap !== 'butt'
+                ? preserveEndpointPolicyBodySideCapProductPolygons(
+                    bodyProductPolygons,
+                    bodyStrokePath,
+                    endpointCapPolicy,
+                    stroke.cap,
+                    doubledCenterWidth,
+                    {
+                      cleanupOptions: terminalBodyCleanupOptions,
+                      outsideProductAlreadyLegal: true,
+                      outsideLegalClipRegions: terminalBodyRelevantLegalRegions,
+                      outsideFillRule: topology.fillRule,
+                      bodySideCapPolygons:
+                        stroke.cap === 'round'
+                          ? undefined
+                          : endpointPolicyBodyCapPolygons
+                    }
+                  )
+                : bodyProductPolygons
+            const sourceVertexTerminalBodyOwnershipExclusionPolygons =
+              stroke.position === 'outside' &&
+              terminalJoinRecord?.kind === 'source-vertex'
+                ? buildSourceVertexTerminalBodyOwnershipExclusionPolygons(
+                    terminalJoinRecord,
+                    stroke
+                  )
+                : []
+            const ownershipBoundedBodyProductPolygons =
+              sourceVertexTerminalBodyOwnershipExclusionPolygons.length > 0
+                ? cleanClippedProductPolygons(
+                    excludeDescriptorProductPolygons(
+                      capPreservedBodyProductPolygons,
+                      sourceVertexTerminalBodyOwnershipExclusionPolygons
+                    ),
+                    {
+                      cleanupMicroEdgeTolerance:
+                        CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                      cleanupCollinearTolerance:
+                        CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+                    }
+                  )
+                : capPreservedBodyProductPolygons
+            const polygons = normalizeConstrainedDashedProductPolygons(
+              ownershipBoundedBodyProductPolygons,
+              {
+                cleanClipResidue: true
+              }
+            )
+            if (polygons.length === 0) {
+              emitTerminalBodyEmptyTrace('legal-product-empty', {
+                selectedSideBodyBounds: getBounds(selectedSideBodyPolygons),
+                terminalBodyLegalSubjectBounds: getBounds(
+                  terminalBodyLegalSubjectPolygons
+                ),
+                legalProductPolygonCount: bodyProductPolygons.length,
+                capPreservedPolygonCount: capPreservedBodyProductPolygons.length
+              })
+              return null
+            }
+
+            const product: JoinOwnedTerminalBodyProduct = {
+              polygons,
+              bounds: getBounds(polygons),
+              area: getPolygonsAbsoluteArea(polygons),
+              stageBounds: {
+                bodyCenter: getBounds(bodyCenterPolygons),
+                endpointClippedBodyCenter: getBounds(
+                  endpointClippedBodyCenterPolygons
+                ),
+                selectedSideBody: getBounds(selectedSideBodyPolygons),
+                sourceVertexSelectedSideTerminalBodyEnvelope:
+                  sourceVertexSelectedSideTerminalBodyEnvelopePolygons.length >
+                  0
+                    ? getBounds(
+                        sourceVertexSelectedSideTerminalBodyEnvelopePolygons
+                      )
+                    : undefined,
+                selectedSideBodyWithinSourceVertexEnvelope:
+                  sourceVertexSelectedSideTerminalBodyEnvelopePolygons.length >
+                  0
+                    ? getBounds(
+                        selectedSideBodyWithinSourceVertexEnvelopePolygons
+                      )
+                    : undefined,
+                selectedSideTerminalBodyEnvelope:
+                  selectedSideTerminalBodyEnvelopePolygons.length > 0
+                    ? getBounds(selectedSideTerminalBodyEnvelopePolygons)
+                    : undefined,
+                selectedSideRoundCap:
+                  selectedSideRoundCapPolygons.length > 0
+                    ? getBounds(selectedSideRoundCapPolygons)
+                    : undefined,
+                endpointPolicyBodyCap:
+                  endpointPolicyBodyCapPolygons.length > 0
+                    ? getBounds(endpointPolicyBodyCapPolygons)
+                    : undefined,
+                selectedSideBodyWithCap: getBounds(
+                  selectedSideBodyWithCapPolygons
+                ),
+                sourceVertexTerminalBodyOwnershipExclusion:
+                  sourceVertexTerminalBodyOwnershipExclusionPolygons.length > 0
+                    ? getBounds(
+                        sourceVertexTerminalBodyOwnershipExclusionPolygons
+                      )
+                    : undefined,
+                endpointBoundedTerminalBody: getBounds(
+                  endpointBoundedTerminalBodyPolygons
+                ),
+                terminalBodyLegalSubject: getBounds(
+                  terminalBodyLegalSubjectPolygons
+                ),
+                legalProduct: getBounds(bodyProductPolygons),
+                capPreservedLegalProduct: getBounds(
+                  capPreservedBodyProductPolygons
+                ),
+                ownershipBoundedLegalProduct: getBounds(polygons)
+              }
+            }
+            if (bodyProductCacheKey && cacheOrigin) {
+              setJoinOwnedTerminalBodyProductCache(
+                bodyProductCacheKey,
+                cacheOrigin,
+                product
+              )
+            }
+            return product
+          })()
+        if (!legallyCanonicalBodyProduct) {
+          emitTerminalBodyEmptyTrace('canonical-body-product-empty')
+          return []
+        }
+
+        const intervalProductDomainMode = getFormalProductDomainModeForInterval(
+          strokeDomainPlan,
+          interval
+        )
+        if (!intervalProductDomainMode) {
+          return []
+        }
+
+        const capReachDistance =
+          stroke.cap === 'butt' ? 0 : intervalStroke.width
+        const startCapReachDistance = endpointCapPolicy.startCap
+          ? capReachDistance
+          : 0
+        const endCapReachDistance = endpointCapPolicy.endCap
+          ? capReachDistance
+          : 0
+        const endpointCapPolicySignature = [
+          'join-owned-terminal-body',
+          stroke.cap,
+          endpointCapPolicy.signature
+        ].join(':')
+        const productSignature = [
+          'constrained-dashed',
+          stroke.position,
+          intervalProductDomainMode,
+          'join-owned-terminal-body',
+          interval.intervalId,
+          bodyKey,
+          endpointCapPolicySignature
+        ].join(':')
+        const materializedSourceStartDistance =
+          materializationInterval.materializationDistanceSpace ===
+            'source-domain' || shouldUseProvidedStrokePath
+            ? materializationInterval.startDistance
+            : (materializationInterval.domainPlanSplitRangeSourceStartDistance ??
+              interval.domainPlanSplitRangeSourceStartDistance)
+        const materializedSourceEndDistance =
+          materializationInterval.materializationDistanceSpace ===
+            'source-domain' || shouldUseProvidedStrokePath
+            ? materializationInterval.endDistance
+            : (materializationInterval.domainPlanSplitRangeSourceEndDistance ??
+              interval.domainPlanSplitRangeSourceEndDistance)
+        const materializedDistanceSpace =
+          materializationInterval.materializationDistanceSpace ??
+          (materializedSourceStartDistance !== undefined &&
+          materializedSourceEndDistance !== undefined
+            ? 'source-domain'
+            : undefined)
+        const terminalBodyProductIntervalRecords = (() => {
+          const primaryRecord = {
+            interval,
+            sourceStartDistance: materializedSourceStartDistance,
+            sourceEndDistance: materializedSourceEndDistance
+          }
+          if (
+            stroke.position === 'outside' &&
+            terminalJoinRecord?.kind === 'source-vertex' &&
+            stroke.cap === 'butt'
+          ) {
+            return [primaryRecord]
+          }
+          if (
+            materializedSourceStartDistance === undefined ||
+            materializedSourceEndDistance === undefined ||
+            interval.domainPlanSplitRangeSourceSegmentIndex === undefined ||
+            interval.domainPlanTerminalRole === undefined ||
+            interval.domainPlanTerminalRole === 'middle'
+          ) {
+            return [primaryRecord]
+          }
+          const sourceRangeTolerance = Math.max(EPSILON, 0.0001)
+          const recordsById = new Map<string, typeof primaryRecord>()
+          const getCandidateTerminalSourceRange = (
+            candidate: VisibleDashedTopologyInterval
+          ) => {
+            if (
+              candidate.domainPlanTerminalRole !==
+                interval.domainPlanTerminalRole ||
+              candidate.domainPlanSplitRangeSourceSegmentIndex !==
+                interval.domainPlanSplitRangeSourceSegmentIndex ||
+              candidate.domainPlanSplitRangeSourceStartDistance === undefined ||
+              candidate.domainPlanSplitRangeSourceEndDistance === undefined
+            ) {
+              return null
+            }
+            const splitSourceStart =
+              candidate.domainPlanSplitRangeSourceStartDistance
+            const splitSourceEnd =
+              candidate.domainPlanSplitRangeSourceEndDistance
+            const terminalLength = Math.abs(
+              candidate.endDistance - candidate.startDistance
+            )
+            if (
+              splitSourceEnd <= splitSourceStart + EPSILON ||
+              terminalLength <= EPSILON
+            ) {
+              return null
+            }
+            return candidate.domainPlanTerminalRole === 'end'
+              ? {
+                  sourceStartDistance: Math.max(
+                    splitSourceStart,
+                    splitSourceEnd - terminalLength
+                  ),
+                  sourceEndDistance: splitSourceEnd
+                }
+              : {
+                  sourceStartDistance: splitSourceStart,
+                  sourceEndDistance: Math.min(
+                    splitSourceEnd,
+                    splitSourceStart + terminalLength
+                  )
+                }
+          }
+          visibleIntervals.forEach((candidate) => {
+            const candidateRange = getCandidateTerminalSourceRange(candidate)
+            if (!candidateRange) {
+              return
+            }
+            if (
+              Math.abs(
+                candidateRange.sourceStartDistance -
+                  materializedSourceStartDistance
+              ) > sourceRangeTolerance ||
+              Math.abs(
+                candidateRange.sourceEndDistance - materializedSourceEndDistance
+              ) > sourceRangeTolerance
+            ) {
+              return
+            }
+            recordsById.set(candidate.intervalId, {
+              interval: candidate,
+              sourceStartDistance: candidateRange.sourceStartDistance,
+              sourceEndDistance: candidateRange.sourceEndDistance
+            })
+          })
+          recordsById.set(interval.intervalId, primaryRecord)
+          return Array.from(recordsById.values()).sort((left, right) =>
+            left.interval.intervalId.localeCompare(right.interval.intervalId)
+          )
+        })()
+        const terminalBodyProductIntervalIds =
+          terminalBodyProductIntervalRecords.map(
+            (record) => record.interval.intervalId
+          )
+        const dashBodySeamBoundaries =
+          terminalJoinRecord?.kind === 'source-vertex'
+            ? [
+                terminalJoinRecord.previousSeamBoundary,
+                terminalJoinRecord.nextSeamBoundary
+              ].filter(
+                (boundary): boundary is SourceVertexJoinIncidentSeamBoundary =>
+                  boundary !== undefined &&
+                  boundary.intervalId === interval.intervalId
+              )
+            : undefined
+        const productSourceSegmentIndexes = uniqueNumbers(
+          terminalBodyProductIntervalRecords.map(
+            (record) => record.interval.domainPlanSplitRangeSourceSegmentIndex
+          )
+        )
+        const finalProductArea = legallyCanonicalBodyProduct.area
+        const terminalBodyStageBounds: Record<string, Bounds | undefined> = {
+          ...(legallyCanonicalBodyProduct.stageBounds ?? {}),
+          legalProduct: legallyCanonicalBodyProduct.bounds
+        }
+        const geometryId = [
+          cachePrefix,
+          strokeIndex,
+          'join-owned-terminal-body',
+          interval.intervalId,
+          bodyKey
+        ].join(':')
+        const terminalJoinRecordIntervalIds = uniqueStrings([
+          ...(terminalJoinRecord?.intervals.map(
+            (joinInterval) => joinInterval.intervalId
+          ) ?? []),
+          ...terminalBodyProductIntervalIds
+        ]).sort()
+        const terminalJoinOwnershipSignature =
+          terminalJoinRecord && terminalJoinRecordIntervalIds.length > 0
+            ? [
+                'constrained-boundary-source-vertex',
+                stroke.join,
+                formatTranslationInvariantCacheNumber(stroke.miterLimit),
+                terminalJoinRecord.kind,
+                `side:${terminalJoinRecord.selectedSide}`,
+                terminalJoinRecord.domainKey ?? 'no-domain',
+                terminalJoinRecordIntervalIds.join(',')
+              ].join(':')
+            : undefined
+        const debugMeta: SolidCenterStrokeGeometryDebugMeta =
+          measureStrokePipelinePhase(
+            'constrained dashed terminal body: packet metadata',
+            () => ({
+              sourcePathId: cachePrefix,
+              ownerKey: `${ownerPrefix}:stroke:${strokeIndex}`,
+              networkId: options.metadata?.networkId,
+              sourceNetworkIds: options.metadata?.sourceNetworkIds,
+              strokeId: `stroke:${strokeIndex}`,
+              strokeIndex,
+              contourId,
+              legalDomainId,
+              intervalId: terminalBodyProductIntervalIds.join(','),
+              intervalIds: terminalBodyProductIntervalIds,
+              strokePosition: stroke.position,
+              strokeWidth: intervalStroke.width,
+              strokeJoin: stroke.join,
+              strokeCap: stroke.cap,
+              strokeMiterLimit: stroke.miterLimit,
+              visibleContributor: 'terminal-interval-body',
+              geometryBasis: 'terminal-dash-interval-body',
+              constrainedDashedJoinDiagnostics: baseJoinDiagnostics,
+              dashEndpointCapPolicySignature: endpointCapPolicySignature,
+              dashEndpointCapPolicySignatures: [endpointCapPolicySignature],
+              dashEndpointCapPolicyTerminalRole: terminalRole,
+              dashEndpointCapPolicyTerminalRoles: [terminalRole],
+              dashProductIntervals: terminalBodyProductIntervalRecords.map(
+                (record) => {
+                  const productInterval = record.interval
                   return {
-                    intervalId: interval.intervalId,
-                    splitRangeId: interval.domainPlanSplitRangeId,
-                    terminalRole: interval.domainPlanTerminalRole,
-                    startDistance: interval.startDistance,
-                    endDistance: interval.endDistance,
+                    intervalId: productInterval.intervalId,
+                    splitRangeId: productInterval.domainPlanSplitRangeId,
+                    terminalRole: productInterval.domainPlanTerminalRole,
+                    startDistance: productInterval.startDistance,
+                    endDistance: productInterval.endDistance,
                     effectiveStartDistance: Math.max(
                       0,
-                      interval.startDistance - startCapReachDistance
+                      (record.sourceStartDistance ??
+                        materializationInterval.startDistance) -
+                        startCapReachDistance
                     ),
                     effectiveEndDistance:
-                      interval.endDistance + endCapReachDistance,
+                      (record.sourceEndDistance ??
+                        materializationInterval.endDistance) +
+                      endCapReachDistance,
                     capReachDistance: Math.max(
                       startCapReachDistance,
                       endCapReachDistance
                     ),
-                    boundaryDomainId: interval.domainPlanBoundaryDomainId,
-                    boundaryRole: interval.domainPlanBoundaryRole,
-                    selectedSide: interval.domainPlanSelectedSide,
-                    filledSide: interval.domainPlanFilledSide,
-                    unfilledSide: interval.domainPlanUnfilledSide,
+                    boundaryDomainId:
+                      productInterval.domainPlanBoundaryDomainId,
+                    boundaryPoints: productInterval.domainPlanBoundaryPoints
+                      ? productInterval.domainPlanBoundaryPoints.map(
+                          (point) => ({
+                            ...point
+                          })
+                        )
+                      : undefined,
+                    boundaryStartDistance:
+                      productInterval.domainPlanBoundaryStartDistance,
+                    boundaryEndDistance:
+                      productInterval.domainPlanBoundaryEndDistance,
+                    boundaryTotalLength:
+                      productInterval.domainPlanBoundaryTotalLength,
+                    boundaryRole: productInterval.domainPlanBoundaryRole,
+                    selectedSide: productInterval.domainPlanSelectedSide,
+                    materializedSelectedSide: resolvedSelectedSide,
+                    filledSide: productInterval.domainPlanFilledSide,
+                    unfilledSide: productInterval.domainPlanUnfilledSide,
                     sourceSegmentIndex:
-                      interval.domainPlanSplitRangeSourceSegmentIndex,
+                      productInterval.domainPlanSplitRangeSourceSegmentIndex,
+                    sourceStartDistance: record.sourceStartDistance,
+                    sourceEndDistance: record.sourceEndDistance,
                     endpointCapPolicySignature,
-                    joinOwnershipSignature,
-                    smoothContinuityGroupId: [
-                      'join-owned',
-                      joinOwnershipSignature,
-                      interval.intervalId
-                    ].join(':')
+                    joinOwnershipSignature: 'join-owned-terminal-body',
+                    materializationDistanceSpace: materializedDistanceSpace
                   }
-                })
-                const dashEndpointCapPolicySignatures = uniqueStrings(
-                  dashProductIntervals.map(
-                    (interval) => interval.endpointCapPolicySignature
-                  )
-                )
-                const smoothContinuityGroupIds = uniqueStrings(
-                  dashProductIntervals.map(
-                    (interval) => interval.smoothContinuityGroupId
-                  )
-                )
-                const joinSmoothContinuityGroupId = [
-                  'join-owned',
-                  joinOwnershipSignature,
-                  joinedIntervalIds.join(',')
-                ].join(':')
-                const geometryId = [
-                  cachePrefix,
-                  strokeIndex,
-                  'join',
-                  record.kind,
-                  recordIndex,
-                  joinedIntervalIds.join(',')
-                ].join(':')
-                const joinDescriptorPolygons =
-                  coveredProductPolygons.length > 0
-                    ? excludeDescriptorProductPolygons(
-                        record.polygons,
-                        coveredProductPolygons
-                      )
-                    : record.polygons
-                const canonicalJoinDescriptorPolygons =
-                  joinDescriptorPolygons.length > 1
-                    ? (() => {
-                        try {
-                          const backend = getGeometryBackend()
-                          return backend.capabilities.union
-                            ? cleanClippedProductPolygons(
-                                getCoveragePolygonsFromRegions(
-                                  backend.union(
-                                    toCoveragePolygonRegions(
-                                      joinDescriptorPolygons
-                                    ),
-                                    'nonzero'
-                                  )
-                                )
-                              )
-                            : joinDescriptorPolygons
-                        } catch {
-                          return joinDescriptorPolygons
-                        }
-                      })()
-                    : joinDescriptorPolygons
-                if (canonicalJoinDescriptorPolygons.length === 0) {
-                  return []
                 }
-
-                const finalProductArea = getPolygonsAbsoluteArea(
-                  canonicalJoinDescriptorPolygons
+              ),
+              dashBodySeamBoundaries,
+              joinOwnershipSignature: 'join-owned-terminal-body',
+              joinOwnershipRecords: [
+                {
+                  kind:
+                    terminalJoinRecord?.kind === 'source-vertex'
+                      ? 'source-vertex'
+                      : 'boundary-terminal-pair',
+                  area: finalProductArea,
+                  bounds: legallyCanonicalBodyProduct.bounds,
+                  intervalIds:
+                    terminalJoinRecordIntervalIds.length > 0
+                      ? terminalJoinRecordIntervalIds
+                      : terminalBodyProductIntervalIds,
+                  selectedSide: resolvedSelectedSide,
+                  domainKey: terminalJoinRecord?.domainKey,
+                  vertex: terminalJoinRecord?.vertex,
+                  previousContourPoint:
+                    terminalJoinRecord?.previousContourPoint,
+                  nextContourPoint: terminalJoinRecord?.nextContourPoint,
+                  previousDashBodyPoint:
+                    terminalJoinRecord?.previousDashBodyPoint,
+                  nextDashBodyPoint: terminalJoinRecord?.nextDashBodyPoint,
+                  stageBounds: terminalBodyStageBounds
+                }
+              ],
+              joinOwnershipSignatures: terminalJoinOwnershipSignature
+                ? ['join-owned-terminal-body', terminalJoinOwnershipSignature]
+                : ['join-owned-terminal-body'],
+              smoothContinuityGroupId: undefined,
+              smoothContinuityGroupIds: [],
+              ownerSet: options.metadata?.ownerSet,
+              productSourceSegmentIndexes,
+              sourceContourIds: options.metadata?.sourceContourIds,
+              legalDomainIds: options.metadata?.legalDomainIds,
+              sourceSpanIds: uniqueStrings(
+                terminalBodyProductIntervalRecords.flatMap((record) =>
+                  getSourceSpanIdsForDebug(record.interval)
                 )
-                const debugMeta: SolidCenterStrokeGeometryDebugMeta = {
-                  sourcePathId: cachePrefix,
-                  ownerKey: `${ownerPrefix}:stroke:${strokeIndex}`,
-                  networkId: options.metadata?.networkId,
-                  sourceNetworkIds: options.metadata?.sourceNetworkIds,
-                  strokeId: `stroke:${strokeIndex}`,
-                  strokeIndex,
-                  contourId,
-                  legalDomainId,
-                  intervalId: joinedIntervalIds.join(','),
-                  intervalIds: joinedIntervalIds,
-                  strokePosition: stroke.position,
-                  strokeWidth: intervalStroke.width,
-                  strokeJoin: stroke.join,
-                  strokeCap: stroke.cap,
-                  strokeMiterLimit: stroke.miterLimit,
+              ),
+              authoredVisibleIntervalIndex: interval.authoredIndex,
+              materializedStartDistance: materializationInterval.startDistance,
+              materializedEndDistance: materializationInterval.endDistance,
+              materializedWrapsSeam: materializationInterval.wrapsSeam,
+              materializationDistanceSpace: materializedDistanceSpace,
+              domainPlanBoundaryDomainId: interval.domainPlanBoundaryDomainId,
+              domainPlanBoundaryPoints: interval.domainPlanBoundaryPoints
+                ? interval.domainPlanBoundaryPoints.map((point) => ({
+                    ...point
+                  }))
+                : undefined,
+              domainPlanBoundaryStartDistance:
+                interval.domainPlanBoundaryStartDistance,
+              domainPlanBoundaryEndDistance:
+                interval.domainPlanBoundaryEndDistance,
+              domainPlanBoundaryTotalLength:
+                interval.domainPlanBoundaryTotalLength,
+              domainPlanSplitRangeId: interval.domainPlanSplitRangeId,
+              domainPlanSplitRangeAliasIds:
+                interval.domainPlanSplitRangeAliasIds,
+              domainPlanSplitRangeStartDistance:
+                interval.domainPlanSplitRangeStartDistance,
+              domainPlanSplitRangeEndDistance:
+                interval.domainPlanSplitRangeEndDistance,
+              domainPlanSplitRangeSourceStartDistance:
+                materializedSourceStartDistance,
+              domainPlanSplitRangeSourceEndDistance:
+                materializedSourceEndDistance,
+              domainPlanTerminalRole: interval.domainPlanTerminalRole,
+              domainPlanSplitRangeSourceSegmentIndex:
+                interval.domainPlanSplitRangeSourceSegmentIndex,
+              domainPlanSideAuthority: interval.domainPlanSideAuthority,
+              domainPlanSelectedSide: interval.domainPlanSelectedSide,
+              domainPlanMaterializedSelectedSide: resolvedSelectedSide,
+              domainPlanFilledSide: interval.domainPlanFilledSide,
+              domainPlanUnfilledSide: interval.domainPlanUnfilledSide,
+              domainPlanBoundaryRole: interval.domainPlanBoundaryRole,
+              domainPlanDomainMode: interval.domainPlanDomainMode,
+              domainPlanSideResolutionStatus:
+                interval.domainPlanSideResolutionStatus,
+              domainPlanSideResolutionReason:
+                interval.domainPlanSideResolutionReason,
+              implicitFillRegionCount: options.implicitFillRegions?.length ?? 0,
+              domainPlanSplitRangeTerminals: terminalBodyProductIntervalRecords
+                .flatMap((record) =>
+                  buildDomainPlanSplitRangeTerminalRecords(record.interval)
+                )
+                .filter(
+                  (terminal): terminal is NonNullable<typeof terminal> =>
+                    terminal !== undefined
+                ),
+              productMode: intervalProductDomainMode,
+              domainMode: intervalProductDomainMode,
+              productSignature,
+              topologyFamily: topology.topologyFamily,
+              paintBounds: sourcePaintBounds,
+              finalProductArea,
+              revisionSet: getRevisionSet(productSignature, {
+                productDomainMode: intervalProductDomainMode,
+                endpointCapPolicySignature,
+                joinOwnershipSignature: 'join-owned-terminal-body',
+                productMaterializationSignature: [
+                  'product-materialization',
+                  productSignature
+                ].join(':'),
+                renderOutputSignature: ['render-output', productSignature].join(
+                  ':'
+                ),
+                resolvedRegionSignature: [
+                  'resolved-region',
+                  productSignature
+                ].join(':'),
+                ownerCount: 1
+              })
+            })
+          )
+
+        return [
+          {
+            geometry: {
+              geometryId,
+              polygons: legallyCanonicalBodyProduct.polygons,
+              bounds: legallyCanonicalBodyProduct.bounds,
+              debugMeta
+            },
+            paint: {
+              geometryId,
+              kind: stroke.kind,
+              color: stroke.color,
+              alpha: stroke.alpha,
+              gradientStyle: stroke.gradientStyle,
+              paintKey: stroke.paintKey
+            }
+          }
+        ]
+      }
+
+      const mergeJoinOwnedTerminalBodyPacketsByGeometry = (
+        packets: SolidCenterStrokeResolvedPacket[],
+        getGroupKey: (packet: SolidCenterStrokeResolvedPacket) => string = (
+          packet
+        ) => packet.geometry.geometryId
+      ): SolidCenterStrokeResolvedPacket[] => {
+        if (packets.length <= 1) {
+          return packets
+        }
+        const packetsByGeometryId = new Map<
+          string,
+          SolidCenterStrokeResolvedPacket[]
+        >()
+        packets.forEach((packet) => {
+          const groupKey = getGroupKey(packet)
+          packetsByGeometryId.set(groupKey, [
+            ...(packetsByGeometryId.get(groupKey) ?? []),
+            packet
+          ])
+        })
+
+        return Array.from(packetsByGeometryId.values()).flatMap(
+          (groupPackets) => {
+            const primary = groupPackets[0]
+            if (!primary) {
+              return groupPackets[
+                groupPackets.length - 1
+              ] as SolidCenterStrokeResolvedPacket
+            }
+            if (groupPackets.length === 1) {
+              return primary
+            }
+            const primaryMeta = primary.geometry.debugMeta
+            if (!primaryMeta) {
+              return primary
+            }
+            const dashProductIntervalsById = new Map<
+              string,
+              NonNullable<
+                SolidCenterStrokeGeometryDebugMeta['dashProductIntervals']
+              >[number]
+            >()
+            groupPackets
+              .flatMap(getPacketDashProductIntervals)
+              .forEach((interval) => {
+                dashProductIntervalsById.set(interval.intervalId, interval)
+              })
+            const dashProductIntervals = Array.from(
+              dashProductIntervalsById.values()
+            ).sort((left, right) =>
+              left.intervalId.localeCompare(right.intervalId)
+            )
+            const intervalIds = uniqueStrings([
+              ...groupPackets.flatMap(getPacketIntervalIds),
+              ...dashProductIntervals.map((interval) => interval.intervalId)
+            ])
+            const dashEndpointCapPolicySignatures = uniqueStrings(
+              groupPackets.flatMap((packet) => [
+                packet.geometry.debugMeta?.dashEndpointCapPolicySignature,
+                ...(packet.geometry.debugMeta
+                  ?.dashEndpointCapPolicySignatures ?? []),
+                ...getPacketDashProductIntervals(packet).map(
+                  (interval) => interval.endpointCapPolicySignature
+                )
+              ])
+            )
+            const dashEndpointCapPolicyTerminalRoles = uniqueStrings(
+              groupPackets.flatMap((packet) => [
+                packet.geometry.debugMeta?.dashEndpointCapPolicyTerminalRole,
+                ...(packet.geometry.debugMeta
+                  ?.dashEndpointCapPolicyTerminalRoles ?? [])
+              ])
+            )
+            const joinOwnershipSignatures = uniqueStrings(
+              groupPackets.flatMap((packet) => [
+                packet.geometry.debugMeta?.joinOwnershipSignature,
+                ...(packet.geometry.debugMeta?.joinOwnershipSignatures ?? []),
+                ...getPacketDashProductIntervals(packet).map(
+                  (interval) => interval.joinOwnershipSignature
+                )
+              ])
+            )
+            const smoothContinuityGroupIds = uniqueStrings(
+              groupPackets.flatMap((packet) => [
+                packet.geometry.debugMeta?.smoothContinuityGroupId,
+                ...(packet.geometry.debugMeta?.smoothContinuityGroupIds ?? []),
+                ...getPacketDashProductIntervals(packet).map(
+                  (interval) => interval.smoothContinuityGroupId
+                )
+              ])
+            )
+            const joinOwnershipRecordsByKey = new Map<
+              string,
+              NonNullable<
+                SolidCenterStrokeGeometryDebugMeta['joinOwnershipRecords']
+              >[number]
+            >()
+            groupPackets
+              .flatMap(
+                (packet) =>
+                  packet.geometry.debugMeta?.joinOwnershipRecords ?? []
+              )
+              .forEach((record) => {
+                joinOwnershipRecordsByKey.set(
+                  [
+                    record.kind,
+                    record.materializationKind ?? 'materialization',
+                    record.domainKey ?? 'domain',
+                    record.intervalIds?.join(',') ?? 'no-intervals',
+                    record.selectedSide
+                  ].join(':'),
+                  record
+                )
+              })
+            const productSourceSegmentIndexes = uniqueNumbers(
+              groupPackets.flatMap((packet) => [
+                ...(packet.geometry.debugMeta?.productSourceSegmentIndexes ??
+                  []),
+                packet.geometry.debugMeta
+                  ?.domainPlanSplitRangeSourceSegmentIndex,
+                ...getPacketDashProductIntervals(packet).map(
+                  (interval) => interval.sourceSegmentIndex
+                )
+              ])
+            )
+            const sourceSpanIds = uniqueStrings(
+              groupPackets.flatMap(
+                (packet) => packet.geometry.debugMeta?.sourceSpanIds ?? []
+              )
+            )
+            const domainPlanSplitRangeTerminals =
+              mergeDomainPlanSplitRangeTerminals(groupPackets)
+            const dashBodySeamBoundaries = groupPackets.flatMap(
+              (packet) =>
+                packet.geometry.debugMeta?.dashBodySeamBoundaries ?? []
+            )
+            const productSignature = [
+              primaryMeta.productSignature ?? primary.geometry.geometryId,
+              'merged-intervals',
+              intervalIds.join(',')
+            ].join(':')
+
+            return {
+              ...primary,
+              geometry: {
+                ...primary.geometry,
+                debugMeta: {
+                  ...primaryMeta,
+                  intervalId: intervalIds.join(','),
+                  intervalIds,
                   dashProductIntervals,
+                  dashBodySeamBoundaries:
+                    dashBodySeamBoundaries.length > 0
+                      ? dashBodySeamBoundaries
+                      : primaryMeta.dashBodySeamBoundaries,
                   dashEndpointCapPolicySignature:
-                    dashEndpointCapPolicySignatures[0],
+                    dashEndpointCapPolicySignatures.length === 1
+                      ? dashEndpointCapPolicySignatures[0]
+                      : primaryMeta.dashEndpointCapPolicySignature,
                   dashEndpointCapPolicySignatures,
-                  joinOwnershipSignature,
-                  joinOwnershipSignatures: [joinOwnershipSignature],
-                  smoothContinuityGroupId: joinSmoothContinuityGroupId,
+                  dashEndpointCapPolicyTerminalRoles:
+                    dashEndpointCapPolicyTerminalRoles.length > 0
+                      ? (dashEndpointCapPolicyTerminalRoles as NonNullable<
+                          SolidCenterStrokeGeometryDebugMeta['dashEndpointCapPolicyTerminalRoles']
+                        >)
+                      : primaryMeta.dashEndpointCapPolicyTerminalRoles,
+                  joinOwnershipSignatures,
                   smoothContinuityGroupIds,
-                  joinOwnershipRecords: [
-                    {
-                      kind: record.kind,
-                      area: finalProductArea,
-                      bounds: getBounds(record.polygons)
-                    }
-                  ],
-                  ownerSet: options.metadata?.ownerSet,
-                  productSourceSegmentIndexes: joinedSourceSegmentIndexes,
-                  sourceContourIds: options.metadata?.sourceContourIds,
-                  legalDomainIds: options.metadata?.legalDomainIds,
-                  sourceSpanIds: record.intervals.flatMap((interval) =>
-                    getSourceSpanIdsForDebug(interval)
+                  joinOwnershipRecords: Array.from(
+                    joinOwnershipRecordsByKey.values()
                   ),
-                  implicitFillRegionCount:
-                    options.implicitFillRegions?.length ?? 0,
+                  productSourceSegmentIndexes:
+                    productSourceSegmentIndexes.length > 0
+                      ? productSourceSegmentIndexes
+                      : primaryMeta.productSourceSegmentIndexes,
+                  sourceSpanIds:
+                    sourceSpanIds.length > 0
+                      ? sourceSpanIds
+                      : primaryMeta.sourceSpanIds,
                   domainPlanSplitRangeTerminals:
                     domainPlanSplitRangeTerminals.length > 0
                       ? domainPlanSplitRangeTerminals
-                      : undefined,
-                  productMode: intervalProductDomainMode,
-                  domainMode: intervalProductDomainMode,
-                  productSignature,
-                  topologyFamily: topology.topologyFamily,
-                  paintBounds: sourcePaintBounds,
-                  finalProductArea,
-                  revisionSet: getRevisionSet(productSignature, {
-                    productDomainMode: intervalProductDomainMode,
-                    joinOwnershipSignature,
-                    productMaterializationSignature: [
-                      'product-materialization',
-                      productSignature
-                    ].join(':'),
-                    renderOutputSignature: [
-                      'render-output',
-                      productSignature,
-                      joinOwnershipSignature
-                    ].join(':'),
-                    resolvedRegionSignature: [
-                      'resolved-region',
-                      productSignature
-                    ].join(':'),
-                    ownerCount: Math.max(
-                      joinedSourceSegmentIndexes.length,
-                      joinedIntervalIds.length,
-                      1
-                    )
-                  })
+                      : primaryMeta.domainPlanSplitRangeTerminals,
+                  productSignature
                 }
+              }
+            }
+          }
+        )
+      }
+      const mergeInsideBoundaryTerminalPairTerminalBodyPackets = (
+        record: SourceVertexBoundaryJoinRecord,
+        packets: SolidCenterStrokeResolvedPacket[]
+      ): SolidCenterStrokeResolvedPacket[] => {
+        if (
+          stroke.position !== 'inside' ||
+          stroke.cap !== 'butt' ||
+          record.kind !== 'boundary-terminal-pair' ||
+          packets.length < 2
+        ) {
+          return packets
+        }
 
-                return [
-                  {
-                    geometry: {
-                      geometryId,
-                      polygons: canonicalJoinDescriptorPolygons,
-                      bounds: getBounds(canonicalJoinDescriptorPolygons),
-                      debugMeta
-                    },
-                    paint: {
-                      geometryId,
-                      kind: stroke.kind,
-                      color: stroke.color,
-                      alpha: stroke.alpha,
-                      gradientStyle: stroke.gradientStyle,
-                      paintKey: stroke.paintKey
+        const backend = getGeometryBackend()
+        if (!backend.capabilities.union) {
+          return packets
+        }
+
+        const groupPolygons = packets.flatMap(
+          (packet) => packet.geometry.polygons
+        )
+        if (groupPolygons.length <= 1) {
+          return packets
+        }
+
+        const primary = packets[0]
+        if (!primary) {
+          return packets
+        }
+
+        try {
+          const cacheOrigin = record.vertex
+          const cacheKey = buildInsideBoundaryTerminalPairBodyUnionCacheKey(
+            cacheOrigin,
+            packets
+          )
+          const cachedUnion = getCachedInsideBoundaryTerminalPairBodyUnion(
+            cacheKey,
+            cacheOrigin
+          )
+          const polygons =
+            cachedUnion?.polygons ??
+            cleanClippedProductPolygons(
+              getCoveragePolygonsFromRegions(
+                backend.union(
+                  toCoveragePolygonRegions(groupPolygons),
+                  'nonzero'
+                )
+              ),
+              {
+                cleanupMicroEdgeTolerance: CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+              }
+            )
+          if (polygons.length === 0) {
+            return packets
+          }
+          if (!cachedUnion) {
+            setCachedInsideBoundaryTerminalPairBodyUnion(
+              cacheKey,
+              cacheOrigin,
+              polygons
+            )
+          }
+
+          const intervalIds = uniqueStrings(
+            packets.flatMap(getPacketIntervalIds)
+          )
+          const sourceSpanIds = uniqueStrings(
+            packets.flatMap(
+              (packet) => packet.geometry.debugMeta?.sourceSpanIds ?? []
+            )
+          )
+          const productDomainMode =
+            primary.geometry.debugMeta?.domainPlanDomainMode ??
+            primary.geometry.debugMeta?.domainMode
+          const productSignature = [
+            'constrained-dashed',
+            'inside',
+            productDomainMode ?? 'inside-domain',
+            'join-owned-terminal-body',
+            'boundary-terminal-pair',
+            formatJoinPlanPointSignature(record.vertex),
+            hashStableString(
+              'terminal-body-packets',
+              packets
+                .map(
+                  (packet) =>
+                    packet.geometry.debugMeta?.productSignature ??
+                    packet.geometry.geometryId
+                )
+                .join('|')
+            )
+          ].join(':')
+          const revisionSet = getRevisionSet(productSignature, {
+            productDomainMode: productDomainMode as
+              | StrokeDomainMode
+              | undefined,
+            endpointCapPolicySignature: [
+              'canonical-terminal-body-policy',
+              productSignature,
+              uniqueStrings(
+                packets.map(
+                  (packet) =>
+                    packet.geometry.debugMeta?.dashEndpointCapPolicySignature
+                )
+              ).join(',')
+            ].join(':'),
+            joinOwnershipSignature: 'join-owned-terminal-body',
+            productMaterializationSignature: [
+              'canonical-terminal-body-materialization',
+              productSignature
+            ].join(':'),
+            resolvedRegionSignature: [
+              'canonical-terminal-body-resolved-region',
+              productSignature
+            ].join(':'),
+            renderOutputSignature: [
+              'canonical-terminal-body-render-output',
+              productSignature
+            ].join(':'),
+            ownerCount: Math.max(intervalIds.length, sourceSpanIds.length, 1)
+          })
+          const geometryId = hashStableString(
+            'constrained-dashed-terminal-body-geometry',
+            `${productSignature}|${primary.geometry.geometryId}`
+          )
+
+          return [
+            {
+              geometry: {
+                geometryId,
+                polygons,
+                bounds: cachedUnion?.bounds ?? getBounds(polygons),
+                debugMeta: buildCanonicalConstrainedDashedDebugMeta(
+                  packets,
+                  polygons,
+                  productSignature,
+                  revisionSet
+                ),
+                renderDescriptor: undefined
+              },
+              paint: {
+                ...primary.paint,
+                geometryId
+              }
+            }
+          ]
+        } catch {
+          return packets
+        }
+      }
+      const buildJoinOwnedTerminalBodyEntry = (
+        record: SourceVertexBoundaryJoinRecord,
+        role: 'previous' | 'next',
+        interval: VisibleDashedTopologyInterval | undefined,
+        bodyPoint: Vec2 | undefined,
+        terminal: 'start' | 'end'
+      ) => {
+        const sourceSegmentTerminal =
+          record.kind === 'source-vertex'
+            ? interval?.domainPlanTerminalRole === 'start'
+              ? 'start'
+              : interval?.domainPlanTerminalRole === 'end'
+                ? 'end'
+                : interval?.domainPlanSplitRangeSourceSegmentIndex ===
+                    record.previousSegmentIndex
+                  ? 'end'
+                  : interval?.domainPlanSplitRangeSourceSegmentIndex ===
+                      record.nextSegmentIndex
+                    ? 'start'
+                    : role === 'previous'
+                      ? 'end'
+                      : 'start'
+            : terminal
+        const bodyPointForSourceSegment =
+          record.kind === 'source-vertex'
+            ? sourceSegmentTerminal === 'start'
+              ? record.nextDashBodyPoint
+              : record.previousDashBodyPoint
+            : bodyPoint
+        if (!interval || !bodyPointForSourceSegment) {
+          return {
+            role,
+            interval,
+            bodyPoint: bodyPointForSourceSegment,
+            terminal: sourceSegmentTerminal,
+            strokePath: undefined,
+            endpointCapPolicy: undefined
+          }
+        }
+        const intervalEndpointCapPolicy =
+          record.kind === 'source-vertex'
+            ? buildDashEndpointCapPolicyFromSuppression(
+                sourceSegmentTerminal === 'start',
+                sourceSegmentTerminal === 'end'
+              )
+            : getJoinOwnedEndpointCapPolicy(
+                interval,
+                getDashEndpointCapPolicy(
+                  sourcePath ?? topologySourcePath ?? { closed: false },
+                  interval
+                )
+              )
+        return {
+          role,
+          interval,
+          bodyPoint: bodyPointForSourceSegment,
+          terminal: sourceSegmentTerminal,
+          strokePath:
+            record.kind === 'source-vertex'
+              ? undefined
+              : sourceSegmentTerminal === 'start'
+                ? [record.vertex, bodyPointForSourceSegment]
+                : [bodyPointForSourceSegment, record.vertex],
+          endpointCapPolicy: intervalEndpointCapPolicy
+        }
+      }
+      const getSourceVertexTerminalBodyInterval = (
+        record: SourceVertexBoundaryJoinRecord,
+        interval: VisibleDashedTopologyInterval,
+        bodyRole: 'previous' | 'next',
+        terminal: 'start' | 'end'
+      ): VisibleDashedTopologyInterval => {
+        if (
+          record.kind !== 'source-vertex' ||
+          !sourcePathSlicingContext ||
+          interval.domainPlanSplitRangeStartDistance === undefined ||
+          interval.domainPlanSplitRangeEndDistance === undefined
+        ) {
+          return interval
+        }
+
+        const sourceSegmentIndex =
+          interval.domainPlanSplitRangeSourceSegmentIndex ??
+          (bodyRole === 'previous'
+            ? record.previousSegmentIndex
+            : record.nextSegmentIndex)
+        const sourceSegmentRange =
+          sourcePathSlicingContext.segmentRanges[sourceSegmentIndex]
+        if (!sourceSegmentRange) {
+          return interval
+        }
+
+        const splitRangeLength =
+          interval.domainPlanSplitRangeEndDistance -
+          interval.domainPlanSplitRangeStartDistance
+        const terminalIntervalLength = Math.abs(
+          interval.endDistance - interval.startDistance
+        )
+        if (splitRangeLength <= EPSILON || terminalIntervalLength <= EPSILON) {
+          return interval
+        }
+
+        const splitRangeSourceStartDistance =
+          interval.domainPlanSplitRangeSourceStartDistance ??
+          sourceSegmentRange.startDistance
+        const splitRangeSourceEndDistance =
+          interval.domainPlanSplitRangeSourceEndDistance ??
+          sourceSegmentRange.endDistance
+        if (
+          splitRangeSourceEndDistance <=
+          splitRangeSourceStartDistance + EPSILON
+        ) {
+          return interval
+        }
+
+        const materializeAtSegmentEnd =
+          interval.domainPlanTerminalRole === 'end'
+            ? true
+            : interval.domainPlanTerminalRole === 'start'
+              ? false
+              : sourceSegmentIndex === record.previousSegmentIndex
+                ? true
+                : sourceSegmentIndex === record.nextSegmentIndex
+                  ? false
+                  : bodyRole === 'previous'
+        const sourceStartDistance = materializeAtSegmentEnd
+          ? Math.max(
+              splitRangeSourceStartDistance,
+              splitRangeSourceEndDistance - terminalIntervalLength
+            )
+          : splitRangeSourceStartDistance
+        const sourceEndDistance = materializeAtSegmentEnd
+          ? splitRangeSourceEndDistance
+          : Math.min(
+              splitRangeSourceEndDistance,
+              splitRangeSourceStartDistance + terminalIntervalLength
+            )
+        if (sourceEndDistance <= sourceStartDistance + EPSILON) {
+          return interval
+        }
+
+        return {
+          ...interval,
+          startDistance: sourceStartDistance,
+          endDistance: sourceEndDistance,
+          intervalLength: sourceEndDistance - sourceStartDistance,
+          wrapsSeam: false,
+          domainPlanSplitRangeSourceSegmentIndex: sourceSegmentIndex,
+          domainPlanSplitRangeSourceStartDistance: sourceStartDistance,
+          domainPlanSplitRangeSourceEndDistance: sourceEndDistance,
+          materializationDistanceSpace: 'source-domain'
+        }
+      }
+      const joinOwnedTerminalBodyPackets = measureStrokePipelinePhase(
+        'constrained dashed packets: join owned terminal body packets',
+        () =>
+          canonicalSourceVertexBoundaryJoinRecords.flatMap((record) => {
+            if (
+              stroke.position === 'inside' &&
+              stroke.cap === 'butt' &&
+              record.kind === 'boundary-terminal-pair'
+            ) {
+              return []
+            }
+            const entries = [
+              buildJoinOwnedTerminalBodyEntry(
+                record,
+                'previous',
+                record.intervals[0],
+                record.previousDashBodyPoint,
+                record.previousTerminal
+              ),
+              buildJoinOwnedTerminalBodyEntry(
+                record,
+                'next',
+                record.intervals[1],
+                record.nextDashBodyPoint,
+                record.nextTerminal
+              )
+            ]
+            const recordPackets = entries.flatMap((entry) => {
+              if (
+                !entry.interval ||
+                !entry.bodyPoint ||
+                (!entry.strokePath &&
+                  !(
+                    (sourcePath ?? topologySourcePath) !== undefined &&
+                    (sourcePathSlicingContext ??
+                      topologySourcePathSlicingContext) !== undefined &&
+                    entry.interval.domainPlanSplitRangeSourceSegmentIndex !==
+                      undefined &&
+                    entry.interval.domainPlanDomainMode !==
+                      'open-contour-constrained-domain' &&
+                    ((entry.interval.domainPlanSplitRangeSourceStartDistance !==
+                      undefined &&
+                      entry.interval.domainPlanSplitRangeSourceEndDistance !==
+                        undefined) ||
+                      (entry.interval.domainPlanBoundaryPoints?.length ?? 0) >=
+                        2)
+                  )) ||
+                !entry.endpointCapPolicy ||
+                distanceBetween(record.vertex, entry.bodyPoint) <= EPSILON
+              ) {
+                return []
+              }
+
+              const sourceBodyInterval = getSourceVertexTerminalBodyInterval(
+                record,
+                entry.interval,
+                entry.role,
+                entry.terminal
+              )
+              const selectedSideForTerminalBody =
+                stroke.position === 'inside'
+                  ? (getBoundaryDomainMaterializedSelectedSide(
+                      entry.interval
+                    ) ??
+                    entry.interval.domainPlanSelectedSide ??
+                    record.selectedSide)
+                  : getJoinOwnedTerminalBodySelectedSide(
+                      entry.interval,
+                      record.selectedSide
+                    )
+              const packetKey = [
+                record.kind,
+                formatJoinPlanPointSignature(record.vertex),
+                entry.role,
+                entry.terminal,
+                selectedSideForTerminalBody === 1 ||
+                selectedSideForTerminalBody === -1
+                  ? `selected-side:${selectedSideForTerminalBody}`
+                  : 'selected-side:unknown',
+                entry.endpointCapPolicy.signature,
+                sourceBodyInterval.domainPlanSplitRangeSourceSegmentIndex ??
+                  entry.interval.domainPlanSplitRangeSourceSegmentIndex ??
+                  'no-source-segment',
+                formatTranslationInvariantCacheNumber(
+                  sourceBodyInterval.startDistance
+                ),
+                formatTranslationInvariantCacheNumber(
+                  sourceBodyInterval.endDistance
+                )
+              ].join(':')
+              return buildJoinOwnedTerminalBodyPacket(
+                sourceBodyInterval,
+                packetKey,
+                selectedSideForTerminalBody,
+                entry.strokePath,
+                entry.endpointCapPolicy,
+                record,
+                entry.bodyPoint
+              )
+            })
+            return mergeJoinOwnedTerminalBodyPacketsByGeometry(
+              mergeInsideBoundaryTerminalPairTerminalBodyPackets(
+                record,
+                recordPackets
+              ),
+              (packet) => packet.geometry.geometryId
+            )
+          })
+      )
+      const joinOwnedTerminalBodyProductPolygons =
+        joinOwnedTerminalBodyPackets.flatMap(
+          (packet) => packet.geometry.polygons
+        )
+      const joinCoveredProductPolygons = [
+        ...coveredProductPolygons,
+        ...joinOwnedTerminalBodyProductPolygons
+      ]
+      const buildSourceVertexTerminalBodyContributionEnvelopePolygons = (
+        record: SourceVertexBoundaryJoinRecord
+      ) => {
+        if (
+          stroke.position !== 'outside' ||
+          stroke.cap !== 'butt' ||
+          stroke.join !== 'round' ||
+          record.kind !== 'source-vertex'
+        ) {
+          return []
+        }
+
+        const endpointDescriptors = [
+          {
+            interval: record.intervals[0],
+            bodyPoint: record.previousDashBodyPoint,
+            terminal: record.previousTerminal
+          },
+          {
+            interval: record.intervals[1],
+            bodyPoint: record.nextDashBodyPoint,
+            terminal: record.nextTerminal
+          }
+        ]
+        return normalizeConstrainedDashedProductPolygons(
+          endpointDescriptors.flatMap((endpoint) => {
+            if (!endpoint.bodyPoint) {
+              return []
+            }
+            const bodyStrokePath =
+              endpoint.terminal === 'start'
+                ? cleanBoundaryPath([record.vertex, endpoint.bodyPoint])
+                : cleanBoundaryPath([endpoint.bodyPoint, record.vertex])
+            if (bodyStrokePath.length < 2) {
+              return []
+            }
+            return buildSelectedSideTerminalBodyEnvelopePolygons(
+              bodyStrokePath,
+              intervalStroke.width,
+              getJoinOwnedTerminalBodySelectedSide(
+                endpoint.interval,
+                record.selectedSide
+              )
+            )
+          }),
+          {
+            cleanClipResidue: true,
+            mergeContinuousInterval: true
+          }
+        )
+      }
+
+      return sourceVertexBoundaryJoinRecords.length > 0
+        ? measureStrokePipelinePhase(
+            'constrained dashed packets: join ownership packets',
+            () => [
+              ...canonicalSourceVertexBoundaryJoinRecords.flatMap(
+                (record, recordIndex) => {
+                  if (record.polygons.length === 0) {
+                    return []
+                  }
+
+                  const joinedIntervalIds = record.intervals
+                    .map((interval) => interval.intervalId)
+                    .sort()
+                  const joinedSourceSegmentIndexes = Array.from(
+                    new Set(
+                      record.intervals.flatMap((interval) =>
+                        interval.domainPlanSplitRangeSourceSegmentIndex ===
+                        undefined
+                          ? []
+                          : [interval.domainPlanSplitRangeSourceSegmentIndex]
+                      )
+                    )
+                  ).sort((a, b) => a - b)
+                  const materializationKind =
+                    record.materializationKind ?? 'join'
+                  const isSmoothContinuityProduct =
+                    materializationKind === 'smooth-continuity-product'
+                  const joinOwnershipSignature = isSmoothContinuityProduct
+                    ? [
+                        'constrained-boundary-smooth-continuity',
+                        record.kind,
+                        `side:${record.selectedSide}`,
+                        record.domainKey ?? 'no-domain',
+                        joinedIntervalIds.join(',')
+                      ].join(':')
+                    : [
+                        'constrained-boundary-source-vertex',
+                        stroke.join,
+                        formatTranslationInvariantCacheNumber(
+                          stroke.miterLimit
+                        ),
+                        record.kind,
+                        `side:${record.selectedSide}`,
+                        record.domainKey ?? 'no-domain',
+                        joinedIntervalIds.join(',')
+                      ].join(':')
+                  const intervalProductDomainMode =
+                    getFormalProductDomainModeForIntervals(
+                      strokeDomainPlan,
+                      record.intervals
+                    )
+                  if (!intervalProductDomainMode) {
+                    return []
+                  }
+                  const productSignature = [
+                    'constrained-dashed',
+                    intervalProductDomainMode,
+                    isSmoothContinuityProduct
+                      ? 'smooth-continuity-product'
+                      : 'join-owned',
+                    record.kind,
+                    joinedIntervalIds.join(','),
+                    joinOwnershipSignature
+                  ].join(':')
+                  const domainPlanSplitRangeTerminals =
+                    record.intervals.flatMap(
+                      (interval) =>
+                        buildDomainPlanSplitRangeTerminalRecords(interval) ?? []
+                    )
+                  const dashProductIntervals: NonNullable<
+                    SolidCenterStrokeGeometryDebugMeta['dashProductIntervals']
+                  > = record.intervals.map((interval) => {
+                    const boundaryDomainPath =
+                      getBoundaryDomainPathForVisibleInterval(interval)
+                    const endpointCapPolicy = getDashEndpointCapPolicy(
+                      boundaryDomainPath ??
+                        sourcePath ??
+                        topologySourcePath ?? {
+                          closed: topology.closed
+                        },
+                      interval
+                    )
+                    const endpointCapPolicySignature = [
+                      isSmoothContinuityProduct
+                        ? 'smooth-continuity-product'
+                        : 'join-owned',
+                      stroke.cap,
+                      endpointCapPolicy.signature
+                    ].join(':')
+                    const fullCapReachDistance =
+                      stroke.cap === 'butt'
+                        ? 0
+                        : stroke.position === 'outside'
+                          ? intervalStroke.width
+                          : intervalStroke.width / 2
+                    const startCapReachDistance = endpointCapPolicy.startCap
+                      ? fullCapReachDistance
+                      : 0
+                    const endCapReachDistance = endpointCapPolicy.endCap
+                      ? fullCapReachDistance
+                      : 0
+                    return {
+                      intervalId: interval.intervalId,
+                      splitRangeId: interval.domainPlanSplitRangeId,
+                      splitRangeAliasIds: interval.domainPlanSplitRangeAliasIds,
+                      terminalRole: interval.domainPlanTerminalRole,
+                      startDistance: interval.startDistance,
+                      endDistance: interval.endDistance,
+                      effectiveStartDistance: Math.max(
+                        0,
+                        interval.startDistance - startCapReachDistance
+                      ),
+                      effectiveEndDistance:
+                        interval.endDistance + endCapReachDistance,
+                      capReachDistance: Math.max(
+                        startCapReachDistance,
+                        endCapReachDistance
+                      ),
+                      boundaryDomainId: interval.domainPlanBoundaryDomainId,
+                      boundaryPoints: interval.domainPlanBoundaryPoints
+                        ? interval.domainPlanBoundaryPoints.map((point) => ({
+                            ...point
+                          }))
+                        : undefined,
+                      boundaryStartDistance:
+                        interval.domainPlanBoundaryStartDistance,
+                      boundaryEndDistance:
+                        interval.domainPlanBoundaryEndDistance,
+                      boundaryTotalLength:
+                        interval.domainPlanBoundaryTotalLength,
+                      boundaryRole: interval.domainPlanBoundaryRole,
+                      selectedSide: interval.domainPlanSelectedSide,
+                      filledSide: interval.domainPlanFilledSide,
+                      unfilledSide: interval.domainPlanUnfilledSide,
+                      sourceSegmentIndex:
+                        interval.domainPlanSplitRangeSourceSegmentIndex,
+                      endpointCapPolicySignature,
+                      joinOwnershipSignature,
+                      smoothContinuityGroupId: isSmoothContinuityProduct
+                        ? [
+                            'smooth-continuity-product',
+                            joinOwnershipSignature,
+                            interval.intervalId
+                          ].join(':')
+                        : undefined
+                    }
+                  })
+                  const dashEndpointCapPolicySignatures = uniqueStrings(
+                    dashProductIntervals.map(
+                      (interval) => interval.endpointCapPolicySignature
+                    )
+                  )
+                  const smoothContinuityGroupIds = isSmoothContinuityProduct
+                    ? uniqueStrings(
+                        dashProductIntervals.map(
+                          (interval) => interval.smoothContinuityGroupId
+                        )
+                      )
+                    : []
+                  const joinSmoothContinuityGroupId = isSmoothContinuityProduct
+                    ? [
+                        'smooth-continuity-product',
+                        joinOwnershipSignature,
+                        joinedIntervalIds.join(',')
+                      ].join(':')
+                    : undefined
+                  const geometryId = [
+                    cachePrefix,
+                    strokeIndex,
+                    'join',
+                    record.kind,
+                    recordIndex,
+                    joinedIntervalIds.join(',')
+                  ].join(':')
+                  const shouldPreserveOutsideJoinDescriptor = false
+                  const shouldPreserveInsideDescriptorExcludedJoin =
+                    stroke.position === 'inside' &&
+                    stroke.cap === 'butt' &&
+                    record.kind === 'source-vertex' &&
+                    coveredProductIncludesInsideAggregateDescriptor
+                  const shouldUseInsideBoundaryTerminalBodyAsJoinProduct =
+                    stroke.position === 'inside' &&
+                    stroke.cap === 'butt' &&
+                    record.kind === 'boundary-terminal-pair' &&
+                    joinOwnedTerminalBodyProductPolygons.length > 0
+                  if (shouldUseInsideBoundaryTerminalBodyAsJoinProduct) {
+                    return []
+                  }
+                  const shouldPreserveRoundSourceVertexJoinDescriptor =
+                    stroke.position === 'outside' &&
+                    stroke.join === 'round' &&
+                    record.kind === 'source-vertex'
+                  const shouldPreserveCanonicalSourceVertexMiterDescriptor =
+                    stroke.position === 'outside' &&
+                    stroke.join === 'miter' &&
+                    record.kind === 'source-vertex' &&
+                    (record.stageBounds?.canonicalLegalMiterFootprint !==
+                      undefined ||
+                      record.stageBounds
+                        ?.canonicalBevelByMiterAngleFootprint !== undefined)
+                  const shouldPreserveBevelSourceVertexJoinDescriptor =
+                    stroke.position === 'outside' &&
+                    stroke.join === 'bevel' &&
+                    record.kind === 'source-vertex' &&
+                    !isSmoothContinuityProduct
+                  const insideLegalRecordPolygons =
+                    stroke.position === 'inside' &&
+                    (options.implicitFillRegions?.length ?? 0) > 0
+                      ? clipSourceVertexJoinPolygonsToInsideLegalDomain(
+                          record.polygons,
+                          options.implicitFillRegions ?? []
+                        )
+                      : record.polygons
+                  const insideLegalRecordBounds = getBounds(
+                    insideLegalRecordPolygons
+                  )
+                  const outsideJoinOwnershipExclusionTolerance =
+                    stroke.position === 'outside'
+                      ? Math.max(0.04, Math.min(0.18, stroke.width * 0.012))
+                      : 0
+                  const sourceVertexTerminalBodyContributionEnvelopePolygons =
+                    buildSourceVertexTerminalBodyContributionEnvelopePolygons(
+                      record
+                    )
+                  const sourceVertexJoinConsumesIncidentSeamBoundary =
+                    record.kind === 'source-vertex' &&
+                    (record.previousSeamBoundary !== undefined ||
+                      record.nextSeamBoundary !== undefined)
+                  const joinOwnershipBaseExcludePolygons =
+                    isSmoothContinuityProduct
+                      ? []
+                      : sourceVertexJoinConsumesIncidentSeamBoundary
+                        ? []
+                        : stroke.position === 'outside' &&
+                            record.kind === 'source-vertex' &&
+                            stroke.cap === 'butt' &&
+                            stroke.join === 'round'
+                          ? sourceVertexTerminalBodyContributionEnvelopePolygons.length >
+                            0
+                            ? [
+                                ...sourceVertexTerminalBodyContributionEnvelopePolygons,
+                                ...joinOwnedTerminalBodyProductPolygons
+                              ]
+                            : joinOwnedTerminalBodyProductPolygons
+                          : stroke.position === 'outside' &&
+                              record.kind === 'source-vertex' &&
+                              !shouldPreserveCanonicalSourceVertexMiterDescriptor
+                            ? joinOwnedTerminalBodyProductPolygons
+                            : joinCoveredProductPolygons
+                  const joinOwnershipScopedBaseExcludePolygons =
+                    stroke.position === 'outside' &&
+                    joinOwnershipBaseExcludePolygons.length > 0
+                      ? selectBoundsOverlappingPolygons(
+                          insideLegalRecordBounds,
+                          joinOwnershipBaseExcludePolygons,
+                          Math.max(
+                            0.5,
+                            stroke.width,
+                            outsideJoinOwnershipExclusionTolerance
+                          )
+                        )
+                      : joinOwnershipBaseExcludePolygons
+                  const shouldExpandJoinOwnershipExcludePolygons =
+                    stroke.position === 'outside' &&
+                    joinOwnershipScopedBaseExcludePolygons.length > 0 &&
+                    outsideJoinOwnershipExclusionTolerance > EPSILON &&
+                    !isSmoothContinuityProduct &&
+                    record.kind !== 'source-vertex'
+                  const joinOwnershipExcludePolygons =
+                    shouldExpandJoinOwnershipExcludePolygons
+                      ? expandDescriptorOwnershipExcludePolygons(
+                          joinOwnershipScopedBaseExcludePolygons,
+                          outsideJoinOwnershipExclusionTolerance
+                        )
+                      : joinOwnershipScopedBaseExcludePolygons
+                  const recordWithMaterializedSeamBoundaries =
+                    withMaterializedSourceVertexJoinSeamBoundaries(record)
+                  const incidentSeamBoundaries =
+                    recordWithMaterializedSeamBoundaries.kind ===
+                    'source-vertex'
+                      ? [
+                          recordWithMaterializedSeamBoundaries.previousSeamBoundary,
+                          recordWithMaterializedSeamBoundaries.nextSeamBoundary
+                        ].filter(
+                          (
+                            boundary
+                          ): boundary is SourceVertexJoinIncidentSeamBoundary =>
+                            boundary !== undefined
+                        )
+                      : []
+                  const buildSourceVertexJoinProductDescriptor = () => {
+                    const joinDescriptorPolygons =
+                      !shouldPreserveOutsideJoinDescriptor &&
+                      !shouldPreserveInsideDescriptorExcludedJoin &&
+                      joinOwnershipExcludePolygons.length > 0
+                        ? excludeDescriptorProductPolygons(
+                            insideLegalRecordPolygons,
+                            joinOwnershipExcludePolygons
+                          )
+                        : insideLegalRecordPolygons
+                    const preserveSourceVertexSeamIdentity =
+                      stroke.position === 'outside' &&
+                      record.kind === 'source-vertex' &&
+                      sourceVertexJoinConsumesIncidentSeamBoundary
+                    const legalJoinDescriptorPolygons =
+                      stroke.position === 'inside' &&
+                      (options.implicitFillRegions?.length ?? 0) > 0
+                        ? joinDescriptorPolygons
+                        : preserveSourceVertexSeamIdentity
+                          ? joinDescriptorPolygons
+                          : stroke.position === 'outside' &&
+                              record.kind === 'source-vertex' &&
+                              (options.implicitFillRegions?.length ?? 0) > 0
+                            ? subtractOutsideLegalResidue(
+                                joinDescriptorPolygons,
+                                options.implicitFillRegions ?? [],
+                                isSmoothContinuityProduct
+                                  ? 'nonzero'
+                                  : topology.fillRule,
+                                {
+                                  cleanupMicroEdgeTolerance:
+                                    isSmoothContinuityProduct
+                                      ? 0.001
+                                      : CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                                  cleanupCollinearTolerance:
+                                    isSmoothContinuityProduct
+                                      ? 0.0001
+                                      : CLIPPED_PRODUCT_COLLINEAR_TOLERANCE,
+                                  outsideLegalBoundarySnapTolerance:
+                                    isSmoothContinuityProduct
+                                      ? SOURCE_VERTEX_OUTSIDE_BOUNDARY_SNAP_TOLERANCE
+                                      : CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE
+                                }
+                              )
+                            : joinDescriptorPolygons
+                    const sourceVertexMiterTerminalEndpointBoundaryPoints =
+                      !shouldPreserveCanonicalSourceVertexMiterDescriptor
+                        ? collectSourceVertexMiterTerminalEndpointBoundaryPoints(
+                            record,
+                            joinOwnedTerminalBodyProductPolygons,
+                            stroke
+                          )
+                        : []
+                    const sourceVertexMiterCanonicalFootprintPolygons =
+                      !shouldPreserveCanonicalSourceVertexMiterDescriptor &&
+                      sourceVertexMiterTerminalEndpointBoundaryPoints.length > 0
+                        ? buildCanonicalMiterFootprintPolygons([
+                            ...legalJoinDescriptorPolygons,
+                            sourceVertexMiterTerminalEndpointBoundaryPoints
+                          ])
+                        : []
+                    const canonicalJoinDescriptorPolygons = (() => {
+                      if (
+                        sourceVertexMiterCanonicalFootprintPolygons.length > 0
+                      ) {
+                        return sourceVertexMiterCanonicalFootprintPolygons
+                      }
+                      if (
+                        isSmoothContinuityProduct ||
+                        shouldPreserveCanonicalSourceVertexMiterDescriptor ||
+                        shouldPreserveRoundSourceVertexJoinDescriptor ||
+                        shouldPreserveBevelSourceVertexJoinDescriptor
+                      ) {
+                        return legalJoinDescriptorPolygons
+                          .map(cleanPolygon)
+                          .filter(hasPolygonGeometry)
+                      }
+                      if (legalJoinDescriptorPolygons.length <= 1) {
+                        return legalJoinDescriptorPolygons
+                      }
+                      try {
+                        const backend = getGeometryBackend()
+                        return backend.capabilities.union
+                          ? cleanClippedProductPolygons(
+                              getCoveragePolygonsFromRegions(
+                                backend.union(
+                                  toCoveragePolygonRegions(
+                                    legalJoinDescriptorPolygons
+                                  ),
+                                  'nonzero'
+                                )
+                              )
+                            )
+                          : legalJoinDescriptorPolygons
+                      } catch {
+                        return legalJoinDescriptorPolygons
+                      }
+                    })()
+                    const terminalBodyExcludedCanonicalJoinDescriptorPolygons =
+                      stroke.position === 'outside' &&
+                      stroke.cap === 'butt' &&
+                      stroke.join === 'round' &&
+                      !isSmoothContinuityProduct &&
+                      record.kind === 'source-vertex' &&
+                      !sourceVertexJoinConsumesIncidentSeamBoundary &&
+                      (sourceVertexTerminalBodyContributionEnvelopePolygons.length >
+                        0 ||
+                        joinOwnedTerminalBodyProductPolygons.length > 0)
+                        ? cleanClippedProductPolygons(
+                            excludeDescriptorProductPolygons(
+                              canonicalJoinDescriptorPolygons,
+                              sourceVertexTerminalBodyContributionEnvelopePolygons.length >
+                                0
+                                ? sourceVertexTerminalBodyContributionEnvelopePolygons
+                                : joinOwnedTerminalBodyProductPolygons
+                            ),
+                            {
+                              cleanupMicroEdgeTolerance:
+                                CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                              cleanupCollinearTolerance:
+                                CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+                            }
+                          )
+                        : canonicalJoinDescriptorPolygons
+                    const legallyCanonicalJoinDescriptorPolygons =
+                      stroke.position === 'outside' &&
+                      record.kind === 'source-vertex' &&
+                      record.stageBounds?.smoothContinuityEvidence !==
+                        undefined &&
+                      (options.implicitFillRegions?.length ?? 0) > 0
+                        ? enforceOutsideResolvedFillProductDomain(
+                            terminalBodyExcludedCanonicalJoinDescriptorPolygons,
+                            options.implicitFillRegions ?? []
+                          )
+                        : terminalBodyExcludedCanonicalJoinDescriptorPolygons
+                    const protectedCanonicalJoinDescriptorPolygons =
+                      legallyCanonicalJoinDescriptorPolygons
+
+                    return {
+                      polygons: protectedCanonicalJoinDescriptorPolygons,
+                      stageBounds: {
+                        descriptorPreExclusion: insideLegalRecordBounds,
+                        descriptorExcluded: getBounds(joinDescriptorPolygons),
+                        descriptorLegal: getBounds(legalJoinDescriptorPolygons),
+                        descriptorMiterTerminalEndpointBoundary:
+                          sourceVertexMiterTerminalEndpointBoundaryPoints.length >
+                          0
+                            ? getBounds([
+                                sourceVertexMiterTerminalEndpointBoundaryPoints
+                              ])
+                            : undefined,
+                        descriptorMiterCanonicalFootprint:
+                          sourceVertexMiterCanonicalFootprintPolygons.length > 0
+                            ? getBounds(
+                                sourceVertexMiterCanonicalFootprintPolygons
+                              )
+                            : undefined,
+                        descriptorCanonical: getBounds(
+                          legallyCanonicalJoinDescriptorPolygons
+                        ),
+                        descriptorProtectedCanonical: getBounds(
+                          protectedCanonicalJoinDescriptorPolygons
+                        )
+                      }
                     }
                   }
-                ]
-              })
+                  const sourceVertexJoinProductDescriptor =
+                    buildSourceVertexJoinProductDescriptor()
+                  const protectedCanonicalJoinDescriptorPolygons =
+                    sourceVertexJoinProductDescriptor.polygons
+                  if (protectedCanonicalJoinDescriptorPolygons.length === 0) {
+                    return []
+                  }
+
+                  const finalProductArea = getPolygonsAbsoluteArea(
+                    protectedCanonicalJoinDescriptorPolygons
+                  )
+                  const joinAngleResolution = resolveMiterAngleJoin(
+                    record,
+                    stroke
+                  )
+                  const joinResolution =
+                    resolveSourceVertexVisibleJoinResolution(record, stroke)
+                  const debugMeta: SolidCenterStrokeGeometryDebugMeta = {
+                    sourcePathId: cachePrefix,
+                    ownerKey: `${ownerPrefix}:stroke:${strokeIndex}`,
+                    networkId: options.metadata?.networkId,
+                    sourceNetworkIds: options.metadata?.sourceNetworkIds,
+                    strokeId: `stroke:${strokeIndex}`,
+                    strokeIndex,
+                    contourId,
+                    legalDomainId,
+                    intervalId: joinedIntervalIds.join(','),
+                    intervalIds: joinedIntervalIds,
+                    strokePosition: stroke.position,
+                    strokeWidth: intervalStroke.width,
+                    strokeJoin: stroke.join,
+                    strokeCap: stroke.cap,
+                    authoredJoin: joinAngleResolution.authoredJoin,
+                    resolvedJoin: joinAngleResolution.resolvedJoin,
+                    vertexAngle: joinAngleResolution.vertexAngle,
+                    miterAngle: joinAngleResolution.miterAngle,
+                    angleSource: joinAngleResolution.angleSource,
+                    angleComparison: joinAngleResolution.angleComparison,
+                    strokeMiterLimit: stroke.miterLimit,
+                    ownerStage: isSmoothContinuityProduct
+                      ? undefined
+                      : record.kind === 'source-vertex'
+                        ? 'Stroke Geometry source-vertex join assembly'
+                        : undefined,
+                    routeId:
+                      !isSmoothContinuityProduct &&
+                      record.kind === 'source-vertex'
+                        ? 'constrained-dashed-source-vertex-join-product'
+                        : undefined,
+                    visibleContributor: isSmoothContinuityProduct
+                      ? 'smooth-continuity-dash-body'
+                      : record.kind === 'source-vertex'
+                        ? 'source-vertex-join'
+                        : undefined,
+                    geometryBasis: isSmoothContinuityProduct
+                      ? 'single-continuous-smooth-footprint'
+                      : record.kind === 'source-vertex'
+                        ? 'canonical-join-footprint'
+                        : undefined,
+                    joinStyle: isSmoothContinuityProduct
+                      ? undefined
+                      : record.kind === 'source-vertex'
+                        ? stroke.join
+                        : undefined,
+                    joinResolution: isSmoothContinuityProduct
+                      ? undefined
+                      : joinResolution,
+                    protectedContinuityZone: undefined,
+                    seamEvidence:
+                      !isSmoothContinuityProduct &&
+                      record.kind === 'source-vertex' &&
+                      incidentSeamBoundaries.length > 0
+                        ? {
+                            seamCoveragePolicy:
+                              'shared-step-27-endpoint-identity',
+                            incidentSeamBoundaries
+                          }
+                        : undefined,
+                    constrainedDashedJoinDiagnostics: {
+                      ...baseJoinDiagnostics,
+                      joinRecordCount: sourceVertexBoundaryJoinRecords.length,
+                      joinPacketCount: 1
+                    },
+                    dashProductIntervals,
+                    dashEndpointCapPolicySignature:
+                      dashEndpointCapPolicySignatures[0],
+                    dashEndpointCapPolicySignatures,
+                    joinOwnershipSignature,
+                    joinOwnershipSignatures: [joinOwnershipSignature],
+                    smoothContinuityGroupId: joinSmoothContinuityGroupId,
+                    smoothContinuityGroupIds,
+                    joinOwnershipRecords: [
+                      {
+                        kind: record.kind,
+                        materializationKind,
+                        area: finalProductArea,
+                        bounds: getBounds(record.polygons),
+                        intervalIds: joinedIntervalIds,
+                        selectedSide: record.selectedSide,
+                        domainKey: record.domainKey,
+                        vertex: record.vertex,
+                        previousContourPoint: record.previousContourPoint,
+                        nextContourPoint: record.nextContourPoint,
+                        previousDashBodyPoint: record.previousDashBodyPoint,
+                        nextDashBodyPoint: record.nextDashBodyPoint,
+                        stageBounds: {
+                          ...record.stageBounds,
+                          ...sourceVertexJoinProductDescriptor.stageBounds
+                        }
+                      }
+                    ],
+                    ownerSet: options.metadata?.ownerSet,
+                    productSourceSegmentIndexes: joinedSourceSegmentIndexes,
+                    sourceContourIds: options.metadata?.sourceContourIds,
+                    legalDomainIds: options.metadata?.legalDomainIds,
+                    sourceSpanIds: record.intervals.flatMap((interval) =>
+                      getSourceSpanIdsForDebug(interval)
+                    ),
+                    implicitFillRegionCount:
+                      options.implicitFillRegions?.length ?? 0,
+                    domainPlanSplitRangeTerminals:
+                      domainPlanSplitRangeTerminals.length > 0
+                        ? domainPlanSplitRangeTerminals
+                        : undefined,
+                    productMode: intervalProductDomainMode,
+                    domainMode: intervalProductDomainMode,
+                    productSignature,
+                    topologyFamily: topology.topologyFamily,
+                    paintBounds: sourcePaintBounds,
+                    finalProductArea,
+                    revisionSet: getRevisionSet(productSignature, {
+                      productDomainMode: intervalProductDomainMode,
+                      joinOwnershipSignature,
+                      productMaterializationSignature: [
+                        'product-materialization',
+                        productSignature
+                      ].join(':'),
+                      renderOutputSignature: [
+                        'render-output',
+                        productSignature,
+                        joinOwnershipSignature
+                      ].join(':'),
+                      resolvedRegionSignature: [
+                        'resolved-region',
+                        productSignature
+                      ].join(':'),
+                      ownerCount: Math.max(
+                        joinedSourceSegmentIndexes.length,
+                        joinedIntervalIds.length,
+                        1
+                      )
+                    })
+                  }
+
+                  return [
+                    {
+                      geometry: {
+                        geometryId,
+                        polygons: protectedCanonicalJoinDescriptorPolygons,
+                        bounds: getBounds(
+                          protectedCanonicalJoinDescriptorPolygons
+                        ),
+                        debugMeta
+                      },
+                      paint: {
+                        geometryId,
+                        kind: stroke.kind,
+                        color: stroke.color,
+                        alpha: stroke.alpha,
+                        gradientStyle: stroke.gradientStyle,
+                        paintKey: stroke.paintKey
+                      }
+                    }
+                  ]
+                }
+              ),
+              ...joinOwnedTerminalBodyPackets
+            ]
           )
         : []
     }
@@ -13951,14 +25355,27 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
     const insideAggregateDescriptorIntervalIds = new Set(
       insideAggregateDescriptorIntervals.map((interval) => interval.intervalId)
     )
+    const outsideAggregateDescriptorCandidateIntervals =
+      shouldBuildOutsideAggregateDescriptor ? visibleIntervals : []
+    const outsideAggregateDescriptorCandidateIntervalIds = new Set(
+      outsideAggregateDescriptorCandidateIntervals.map(
+        (interval) => interval.intervalId
+      )
+    )
     const outsideAggregateDescriptorIntervals =
-      outsideDescriptorExcludePolygons.length > 0
+      shouldBuildOutsideAggregateDescriptor
         ? intervalsToMaterialize.filter(
             (interval) =>
               outsideAggregateDescriptorCandidateIntervalIds.has(
                 interval.intervalId
               ) &&
-              !insideAggregateDescriptorIntervalIds.has(interval.intervalId)
+              !insideAggregateDescriptorIntervalIds.has(interval.intervalId) &&
+              (interval.domainPlanTerminalRole === undefined ||
+                interval.domainPlanTerminalRole === 'middle') &&
+              !outsideJoinOwnedTerminalBodyIntervalIds.has(
+                interval.intervalId
+              ) &&
+              !outsideJoinOwnedTerminalPlanIntervalIds.has(interval.intervalId)
           )
         : []
     const outsideAggregateDescriptorIntervalIds = new Set(
@@ -13987,7 +25404,9 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 > & {
                   domainPlanTerminalRole?: VisibleDashedTopologyInterval['domainPlanTerminalRole']
                 }
+                endpointCapPolicy?: DashEndpointCapPolicy
                 slicingContext: SourcePathSlicingContext
+                suppressProductGeometry?: boolean
               }[] = []
               const canUseAggregateProductCache =
                 insideAggregateDescriptorIntervals.every(
@@ -14031,7 +25450,13 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                           interval.wrapsSeam === true ? 'wrap' : 'direct',
                           interval.domainPlanTerminalRole ?? 'middle',
                           interval.domainPlanBoundaryRole ?? 'boundary-role',
-                          interval.domainPlanSelectedSide ?? 'selected-side'
+                          interval.domainPlanSelectedSide ?? 'selected-side',
+                          stroke.cap === 'butt' &&
+                          joinOwnedTerminalPlanIntervalIds.has(
+                            interval.intervalId
+                          )
+                            ? 'join-owned-terminal-product'
+                            : 'aggregate-product'
                         ].join(':')
                       )
                       .join(';'),
@@ -14078,7 +25503,21 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                         : interval),
                       domainPlanTerminalRole: interval.domainPlanTerminalRole
                     },
-                    slicingContext: effectiveSourcePathSlicingContext
+                    endpointCapPolicy: getJoinOwnedEndpointCapPolicy(
+                      interval,
+                      getDashEndpointCapPolicy(effectiveSourcePath, interval)
+                    ),
+                    slicingContext: effectiveSourcePathSlicingContext,
+                    suppressProductGeometry:
+                      stroke.cap === 'butt' &&
+                      joinOwnedTerminalPlanIntervalIds.has(
+                        interval.intervalId
+                      ) &&
+                      !boundaryTerminalPairJoinOwnedIntervalIds.has(
+                        interval.intervalId
+                      ) &&
+                      interval.domainPlanTerminalRole !== undefined &&
+                      interval.domainPlanTerminalRole !== 'middle'
                   })
                 }
                 if (descriptorItems.length === 0) {
@@ -14107,8 +25546,6 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
               const domainPlanSplitRangeTerminals: NonNullable<
                 SolidCenterStrokeGeometryDebugMeta['domainPlanSplitRangeTerminals']
               > = []
-              const aggregateCapReachDistance =
-                stroke.cap === 'butt' ? 0 : intervalStroke.width
               const dashProductIntervals: NonNullable<
                 SolidCenterStrokeGeometryDebugMeta['dashProductIntervals']
               > = []
@@ -14122,19 +25559,41 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
               > = []
               const domainPlanSplitRangeIds: string[] = []
               const domainPlanSelectedSides: number[] = []
-              for (const interval of insideAggregateDescriptorIntervals) {
+              for (const [
+                intervalIndex,
+                interval
+              ] of insideAggregateDescriptorIntervals.entries()) {
                 intervalIds.push(interval.intervalId)
                 const terminalRecords =
                   buildDomainPlanSplitRangeTerminalRecords(interval)
                 if (terminalRecords) {
                   domainPlanSplitRangeTerminals.push(...terminalRecords)
                 }
-                const terminalRole = interval.domainPlanTerminalRole ?? 'middle'
+                const endpointCapPolicy =
+                  descriptorItems[intervalIndex]?.endpointCapPolicy ??
+                  getJoinOwnedEndpointCapPolicy(
+                    interval,
+                    getDashEndpointCapPolicy(
+                      descriptorItems[intervalIndex]?.path ?? {
+                        closed: false
+                      },
+                      interval
+                    )
+                  )
+                const terminalRole = endpointCapPolicy.terminalRole
                 const endpointCapPolicySignature = [
                   'inside-descriptor',
                   stroke.cap,
-                  terminalRole
+                  endpointCapPolicy.signature
                 ].join(':')
+                const aggregateCapReachDistance =
+                  stroke.cap === 'butt' ? 0 : intervalStroke.width / 2
+                const startCapReachDistance = endpointCapPolicy.startCap
+                  ? aggregateCapReachDistance
+                  : 0
+                const endCapReachDistance = endpointCapPolicy.endCap
+                  ? aggregateCapReachDistance
+                  : 0
                 const smoothContinuityGroupId = [
                   'inside-descriptor',
                   interval.intervalId
@@ -14142,17 +25601,26 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 dashProductIntervals.push({
                   intervalId: interval.intervalId,
                   splitRangeId: interval.domainPlanSplitRangeId,
+                  splitRangeAliasIds: interval.domainPlanSplitRangeAliasIds,
                   terminalRole: interval.domainPlanTerminalRole,
                   startDistance: interval.startDistance,
                   endDistance: interval.endDistance,
                   effectiveStartDistance: Math.max(
                     0,
-                    interval.startDistance - aggregateCapReachDistance
+                    interval.startDistance - startCapReachDistance
                   ),
                   effectiveEndDistance:
-                    interval.endDistance + aggregateCapReachDistance,
-                  capReachDistance: aggregateCapReachDistance,
+                    interval.endDistance + endCapReachDistance,
+                  capReachDistance: Math.max(
+                    startCapReachDistance,
+                    endCapReachDistance
+                  ),
                   boundaryDomainId: interval.domainPlanBoundaryDomainId,
+                  boundaryPoints: interval.domainPlanBoundaryPoints,
+                  boundaryStartDistance:
+                    interval.domainPlanBoundaryStartDistance,
+                  boundaryEndDistance: interval.domainPlanBoundaryEndDistance,
+                  boundaryTotalLength: interval.domainPlanBoundaryTotalLength,
                   boundaryRole: interval.domainPlanBoundaryRole,
                   selectedSide: interval.domainPlanSelectedSide,
                   filledSide: interval.domainPlanFilledSide,
@@ -14256,6 +25724,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 strokeJoin: stroke.join,
                 strokeCap: stroke.cap,
                 strokeMiterLimit: stroke.miterLimit,
+                constrainedDashedJoinDiagnostics: baseJoinDiagnostics,
                 dashEndpointCapPolicySignature:
                   aggregateEndpointCapPolicySignature,
                 dashProductIntervals,
@@ -14358,35 +25827,207 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                       for (const interval of outsideDescriptorIntervals) {
                         const boundaryDomainPath =
                           getBoundaryDomainPathForVisibleInterval(interval)
+                        const sourceDomainPath =
+                          sourcePath ?? topologySourcePath
+                        const sourceDomainSlicingContext =
+                          sourcePathSlicingContext ??
+                          topologySourcePathSlicingContext
+                        const intervalSourceSegmentRange =
+                          interval.domainPlanSplitRangeSourceSegmentIndex !==
+                            undefined && sourceDomainSlicingContext
+                            ? sourceDomainSlicingContext.segmentRanges[
+                                interval.domainPlanSplitRangeSourceSegmentIndex
+                              ]
+                            : undefined
+                        const intervalBoundaryPoints =
+                          interval.domainPlanBoundaryPoints
+                        const intervalWithSourceDistances =
+                          interval.domainPlanSplitRangeSourceStartDistance ===
+                            undefined &&
+                          interval.domainPlanSplitRangeSourceEndDistance ===
+                            undefined &&
+                          intervalSourceSegmentRange &&
+                          sourceDomainPath &&
+                          sourceDomainSlicingContext &&
+                          intervalBoundaryPoints &&
+                          intervalBoundaryPoints.length >= 2
+                            ? (() => {
+                                const firstBoundaryPoint =
+                                  intervalBoundaryPoints[0]
+                                const lastBoundaryPoint =
+                                  intervalBoundaryPoints[
+                                    intervalBoundaryPoints.length - 1
+                                  ]
+                                const sourceStartDistance =
+                                  projectPointToSourceSegmentDistance(
+                                    sourceDomainPath,
+                                    intervalSourceSegmentRange,
+                                    sourceDomainSlicingContext,
+                                    firstBoundaryPoint
+                                  )
+                                const sourceEndDistance =
+                                  projectPointToSourceSegmentDistance(
+                                    sourceDomainPath,
+                                    intervalSourceSegmentRange,
+                                    sourceDomainSlicingContext,
+                                    lastBoundaryPoint
+                                  )
+                                if (
+                                  sourceStartDistance === null ||
+                                  sourceEndDistance === null
+                                ) {
+                                  return interval
+                                }
+                                const endpointSnapTolerance = Math.max(
+                                  1.5,
+                                  intervalStroke.width * 0.25
+                                )
+                                const projectedStartIsSourceStart =
+                                  Math.abs(
+                                    sourceStartDistance -
+                                      intervalSourceSegmentRange.startDistance
+                                  ) <= endpointSnapTolerance
+                                const projectedEndIsSourceStart =
+                                  Math.abs(
+                                    sourceEndDistance -
+                                      intervalSourceSegmentRange.startDistance
+                                  ) <= endpointSnapTolerance
+                                const projectedStartIsSourceEnd =
+                                  Math.abs(
+                                    sourceStartDistance -
+                                      intervalSourceSegmentRange.endDistance
+                                  ) <= endpointSnapTolerance
+                                const projectedEndIsSourceEnd =
+                                  Math.abs(
+                                    sourceEndDistance -
+                                      intervalSourceSegmentRange.endDistance
+                                  ) <= endpointSnapTolerance
+                                const snappedSourceStartDistance =
+                                  projectedStartIsSourceStart
+                                    ? intervalSourceSegmentRange.startDistance
+                                    : projectedStartIsSourceEnd
+                                      ? intervalSourceSegmentRange.endDistance
+                                      : sourceStartDistance
+                                const snappedSourceEndDistance =
+                                  projectedEndIsSourceStart
+                                    ? intervalSourceSegmentRange.startDistance
+                                    : projectedEndIsSourceEnd
+                                      ? intervalSourceSegmentRange.endDistance
+                                      : sourceEndDistance
+                                const resolvedSourceStartDistance = Math.min(
+                                  snappedSourceStartDistance,
+                                  snappedSourceEndDistance
+                                )
+                                const resolvedSourceEndDistance = Math.max(
+                                  snappedSourceStartDistance,
+                                  snappedSourceEndDistance
+                                )
+                                return {
+                                  ...interval,
+                                  startDistance: resolvedSourceStartDistance,
+                                  endDistance: resolvedSourceEndDistance,
+                                  intervalLength:
+                                    resolvedSourceEndDistance -
+                                    resolvedSourceStartDistance,
+                                  wrapsSeam: false,
+                                  materializationDistanceSpace:
+                                    'source-domain' as const,
+                                  domainPlanSplitRangeSourceStartDistance:
+                                    resolvedSourceStartDistance,
+                                  domainPlanSplitRangeSourceEndDistance:
+                                    resolvedSourceEndDistance
+                                }
+                              })()
+                            : interval
+                        const shouldMaterializeDoubledCenterSourcePath =
+                          sourceDomainPath !== undefined &&
+                          sourceDomainSlicingContext !== undefined &&
+                          intervalWithSourceDistances.domainPlanSplitRangeSourceStartDistance !==
+                            undefined &&
+                          intervalWithSourceDistances.domainPlanSplitRangeSourceEndDistance !==
+                            undefined &&
+                          intervalWithSourceDistances.domainPlanDomainMode !==
+                            'open-contour-constrained-domain'
                         const effectiveSourcePath =
-                          boundaryDomainPath ?? sourcePath ?? topologySourcePath
+                          shouldMaterializeDoubledCenterSourcePath
+                            ? sourceDomainPath
+                            : (boundaryDomainPath ??
+                              sourcePath ??
+                              topologySourcePath)
                         const effectiveSourcePathSlicingContext =
-                          boundaryDomainPath
-                            ? getBoundaryDomainSlicingContext(
-                                boundaryDomainPath
-                              )
-                            : (sourcePathSlicingContext ??
-                              topologySourcePathSlicingContext)
+                          shouldMaterializeDoubledCenterSourcePath
+                            ? sourceDomainSlicingContext
+                            : boundaryDomainPath
+                              ? getBoundaryDomainSlicingContext(
+                                  boundaryDomainPath
+                                )
+                              : (sourcePathSlicingContext ??
+                                topologySourcePathSlicingContext)
                         if (
                           !effectiveSourcePath ||
                           !effectiveSourcePathSlicingContext
                         ) {
                           return null
                         }
+                        const baseEndpointCapPolicy =
+                          getJoinOwnedEndpointCapPolicy(
+                            interval,
+                            getDashEndpointCapPolicy(
+                              effectiveSourcePath,
+                              interval
+                            )
+                          )
+                        const materializationInterval =
+                          shouldMaterializeDoubledCenterSourcePath
+                            ? resolveSourceDomainIntervalForMaterializationWithSourceGeometry(
+                                intervalWithSourceDistances,
+                                sourceDomainPath ?? undefined,
+                                sourceDomainSlicingContext
+                              )
+                            : boundaryDomainPath
+                              ? getBoundaryDomainMaterializationInterval(
+                                  intervalWithSourceDistances
+                                )
+                              : resolveSourceDomainIntervalForMaterializationWithSourceGeometry(
+                                  intervalWithSourceDistances,
+                                  sourceDomainPath ?? undefined,
+                                  sourceDomainSlicingContext
+                                )
+                        const endpointCapPolicy =
+                          isMaterializedIntervalDirectionReversed(
+                            intervalWithSourceDistances,
+                            materializationInterval
+                          )
+                            ? reverseDashEndpointCapPolicy(
+                                baseEndpointCapPolicy
+                              )
+                            : baseEndpointCapPolicy
+                        const descriptorSelectedSide =
+                          shouldMaterializeDoubledCenterSourcePath
+                            ? interval.domainPlanSelectedSide
+                            : getBoundaryDomainMaterializedSelectedSide(
+                                interval
+                              )
+                        const resolvedDescriptorSelectedSide =
+                          descriptorSelectedSide === 1 ||
+                          descriptorSelectedSide === -1
+                            ? resolveOutsideDescriptorStrokePathSelectedSide(
+                                sliceIntervalStrokePathPoints(
+                                  effectiveSourcePath,
+                                  materializationInterval,
+                                  effectiveSourcePathSlicingContext
+                                ),
+                                descriptorSelectedSide,
+                                intervalStroke.width,
+                                options.implicitFillRegions
+                              )
+                            : descriptorSelectedSide
                         items.push({
                           path: effectiveSourcePath,
-                          interval: {
-                            ...(boundaryDomainPath
-                              ? getBoundaryDomainMaterializationInterval(
-                                  interval
-                                )
-                              : interval),
-                            domainPlanTerminalRole:
-                              interval.domainPlanTerminalRole
-                          },
+                          interval: materializationInterval,
                           slicingContext: effectiveSourcePathSlicingContext,
-                          selectedSide:
-                            getBoundaryDomainMaterializedSelectedSide(interval)
+                          selectedSide: resolvedDescriptorSelectedSide,
+                          endpointCapPolicy
                         })
                       }
                       return items
@@ -14403,7 +26044,10 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                         stroke,
                         intervalStroke.width,
                         outsideDescriptorExcludePolygons,
-                        options.implicitFillRegions
+                        options.implicitFillRegions,
+                        sourcePath ?? topologySourcePath ?? undefined,
+                        topology.fillRule,
+                        outsideAggregateJoinOwnershipExcludePolygons
                       )
                   )
                   if (!aggregateDescriptorProduct) {
@@ -14444,12 +26088,27 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                                 interval
                               ) ?? [])
                             )
-                            const endpointCapPolicy = getDashEndpointCapPolicy(
-                              descriptorItems[index]?.path ?? { closed: false },
-                              interval
-                            )
+                            const endpointCapPolicy =
+                              descriptorItems[index]?.endpointCapPolicy ??
+                              getJoinOwnedEndpointCapPolicy(
+                                interval,
+                                getDashEndpointCapPolicy(
+                                  descriptorItems[index]?.path ?? {
+                                    closed: false
+                                  },
+                                  interval
+                                )
+                              )
+                            const productSelectedSide =
+                              getBoundaryDomainMaterializedSelectedSide(
+                                interval
+                              ) ?? interval.domainPlanSelectedSide
                             const fullCapReachDistance =
-                              stroke.cap === 'butt' ? 0 : intervalStroke.width
+                              stroke.cap === 'butt'
+                                ? 0
+                                : stroke.position === 'outside'
+                                  ? intervalStroke.width
+                                  : intervalStroke.width / 2
                             const startCapReachDistance =
                               endpointCapPolicy.startCap
                                 ? fullCapReachDistance
@@ -14481,11 +26140,15 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                               terminalRole: interval.domainPlanTerminalRole,
                               startDistance: interval.startDistance,
                               endDistance: interval.endDistance,
-                              effectiveStartDistance: Math.max(
-                                0,
-                                interval.startDistance - startCapReachDistance
-                              ),
+                              effectiveStartDistance:
+                                descriptorItems[index]?.interval
+                                  .startDistance ??
+                                Math.max(
+                                  0,
+                                  interval.startDistance - startCapReachDistance
+                                ),
                               effectiveEndDistance:
+                                descriptorItems[index]?.interval.endDistance ??
                                 interval.endDistance + endCapReachDistance,
                               capReachDistance: Math.max(
                                 startCapReachDistance,
@@ -14493,12 +26156,30 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                               ),
                               boundaryDomainId:
                                 interval.domainPlanBoundaryDomainId,
+                              boundaryPoints: interval.domainPlanBoundaryPoints
+                                ? interval.domainPlanBoundaryPoints.map(
+                                    (point) => ({ ...point })
+                                  )
+                                : undefined,
+                              boundaryStartDistance:
+                                interval.domainPlanBoundaryStartDistance,
+                              boundaryEndDistance:
+                                interval.domainPlanBoundaryEndDistance,
+                              boundaryTotalLength:
+                                interval.domainPlanBoundaryTotalLength,
                               boundaryRole: interval.domainPlanBoundaryRole,
-                              selectedSide: interval.domainPlanSelectedSide,
+                              selectedSide: productSelectedSide,
                               filledSide: interval.domainPlanFilledSide,
                               unfilledSide: interval.domainPlanUnfilledSide,
                               sourceSegmentIndex:
                                 interval.domainPlanSplitRangeSourceSegmentIndex,
+                              materializationDistanceSpace:
+                                descriptorItems[index]?.interval
+                                  .materializationDistanceSpace,
+                              sourceStartDistance:
+                                interval.domainPlanSplitRangeSourceStartDistance,
+                              sourceEndDistance:
+                                interval.domainPlanSplitRangeSourceEndDistance,
                               endpointCapPolicySignature,
                               joinOwnershipSignature: 'source-path',
                               smoothContinuityGroupId: [
@@ -14556,6 +26237,8 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                     intervalProductDomainMode,
                     'outside-aggregate-descriptor',
                     stroke.cap,
+                    stroke.join,
+                    formatTranslationInvariantCacheNumber(stroke.miterLimit),
                     outsideDescriptorIntervalSignature,
                     strokeDomainPlan.planId
                   ].join(':')
@@ -14565,10 +26248,15 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                       : [
                           'outside-aggregate-descriptor',
                           stroke.cap,
+                          stroke.join,
+                          formatTranslationInvariantCacheNumber(
+                            stroke.miterLimit
+                          ),
                           outsideDescriptorIntervalSignature
                         ].join(':')
                   const aggregateEndpointCapPolicyTerminalRole =
-                    dashEndpointCapPolicyTerminalRoles.length === 1
+                    dashEndpointCapPolicyTerminalRoles.length === 1 &&
+                    dashEndpointCapPolicyTerminalRoles[0] === 'middle'
                       ? dashEndpointCapPolicyTerminalRoles[0]
                       : undefined
                   const aggregateSmoothContinuityGroupId = [
@@ -14582,6 +26270,12 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                         aggregateDescriptorProduct.polygons
                       )
                   )
+                  const representativeOutsideDescriptorInterval =
+                    outsideDescriptorIntervals.find(
+                      (interval) =>
+                        (interval.domainPlanTerminalRole ?? 'middle') ===
+                        'middle'
+                    ) ?? firstOutsideDescriptorInterval
                   const debugMeta: SolidCenterStrokeGeometryDebugMeta = {
                     sourcePathId: cachePrefix,
                     ownerKey: `${ownerPrefix}:stroke:${strokeIndex}`,
@@ -14598,6 +26292,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                     strokeJoin: stroke.join,
                     strokeCap: stroke.cap,
                     strokeMiterLimit: stroke.miterLimit,
+                    constrainedDashedJoinDiagnostics: baseJoinDiagnostics,
                     dashEndpointCapPolicySignature:
                       aggregateEndpointCapPolicySignature,
                     dashEndpointCapPolicyTerminalRole:
@@ -14625,43 +26320,43 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                     implicitFillRegionCount:
                       options.implicitFillRegions?.length ?? 0,
                     domainPlanBoundaryDomainId:
-                      firstOutsideDescriptorInterval?.domainPlanBoundaryDomainId,
+                      representativeOutsideDescriptorInterval?.domainPlanBoundaryDomainId,
                     domainPlanBoundaryPoints:
-                      firstOutsideDescriptorInterval?.domainPlanBoundaryPoints
-                        ? firstOutsideDescriptorInterval.domainPlanBoundaryPoints.map(
+                      representativeOutsideDescriptorInterval?.domainPlanBoundaryPoints
+                        ? representativeOutsideDescriptorInterval.domainPlanBoundaryPoints.map(
                             (point) => ({ ...point })
                           )
                         : undefined,
                     domainPlanBoundaryStartDistance:
-                      firstOutsideDescriptorInterval?.domainPlanBoundaryStartDistance,
+                      representativeOutsideDescriptorInterval?.domainPlanBoundaryStartDistance,
                     domainPlanBoundaryEndDistance:
-                      firstOutsideDescriptorInterval?.domainPlanBoundaryEndDistance,
+                      representativeOutsideDescriptorInterval?.domainPlanBoundaryEndDistance,
                     domainPlanBoundaryTotalLength:
-                      firstOutsideDescriptorInterval?.domainPlanBoundaryTotalLength,
+                      representativeOutsideDescriptorInterval?.domainPlanBoundaryTotalLength,
                     domainPlanSplitRangeId:
-                      firstOutsideDescriptorInterval?.domainPlanSplitRangeId,
+                      representativeOutsideDescriptorInterval?.domainPlanSplitRangeId,
                     domainPlanSplitRangeStartDistance:
-                      firstOutsideDescriptorInterval?.domainPlanSplitRangeStartDistance,
+                      representativeOutsideDescriptorInterval?.domainPlanSplitRangeStartDistance,
                     domainPlanSplitRangeEndDistance:
-                      firstOutsideDescriptorInterval?.domainPlanSplitRangeEndDistance,
+                      representativeOutsideDescriptorInterval?.domainPlanSplitRangeEndDistance,
                     domainPlanTerminalRole:
-                      firstOutsideDescriptorInterval?.domainPlanTerminalRole,
+                      representativeOutsideDescriptorInterval?.domainPlanTerminalRole,
                     domainPlanSplitRangeSourceSegmentIndex:
-                      firstOutsideDescriptorInterval?.domainPlanSplitRangeSourceSegmentIndex,
+                      representativeOutsideDescriptorInterval?.domainPlanSplitRangeSourceSegmentIndex,
                     domainPlanSideAuthority:
-                      firstOutsideDescriptorInterval?.domainPlanSideAuthority,
+                      representativeOutsideDescriptorInterval?.domainPlanSideAuthority,
                     domainPlanSelectedSide:
-                      firstOutsideDescriptorInterval?.domainPlanSelectedSide,
+                      representativeOutsideDescriptorInterval?.domainPlanSelectedSide,
                     domainPlanFilledSide:
-                      firstOutsideDescriptorInterval?.domainPlanFilledSide,
+                      representativeOutsideDescriptorInterval?.domainPlanFilledSide,
                     domainPlanUnfilledSide:
-                      firstOutsideDescriptorInterval?.domainPlanUnfilledSide,
+                      representativeOutsideDescriptorInterval?.domainPlanUnfilledSide,
                     domainPlanBoundaryRole:
-                      firstOutsideDescriptorInterval?.domainPlanBoundaryRole,
+                      representativeOutsideDescriptorInterval?.domainPlanBoundaryRole,
                     domainPlanSideResolutionStatus:
-                      firstOutsideDescriptorInterval?.domainPlanSideResolutionStatus,
+                      representativeOutsideDescriptorInterval?.domainPlanSideResolutionStatus,
                     domainPlanSideResolutionReason:
-                      firstOutsideDescriptorInterval?.domainPlanSideResolutionReason,
+                      representativeOutsideDescriptorInterval?.domainPlanSideResolutionReason,
                     domainPlanSplitRangeTerminals:
                       domainPlanSplitRangeTerminals.length > 0
                         ? domainPlanSplitRangeTerminals
@@ -14727,14 +26422,25 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                     })
                   }
 
+                  const aggregatePolygons = cleanClippedProductPolygons(
+                    aggregateDescriptorProduct.polygons,
+                    {
+                      cleanupMicroEdgeTolerance:
+                        CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                      cleanupCollinearTolerance: 0
+                    }
+                  )
+
                   return {
                     geometry: {
                       geometryId: `${cachePrefix}:${strokeIndex}:outside-aggregate:${groupIndex}`,
-                      polygons: aggregateDescriptorProduct.polygons,
-                      bounds: getBounds(aggregateDescriptorProduct.polygons),
+                      polygons: aggregatePolygons,
+                      bounds: getBounds(aggregatePolygons),
                       debugMeta,
-                      renderDescriptor:
-                        aggregateDescriptorProduct.renderDescriptor
+                      renderDescriptor: {
+                        ...aggregateDescriptorProduct.renderDescriptor,
+                        strokeMaskPolygons: aggregatePolygons
+                      }
                     },
                     paint: {
                       geometryId: `${cachePrefix}:${strokeIndex}:outside-aggregate:${groupIndex}`,
@@ -14758,19 +26464,62 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             boundaryDomainPath,
             effectiveSourcePath,
             effectiveSourcePathSlicingContext,
-            effectiveTopologyForInterval
+            effectiveTopologyForInterval,
+            materializesSourceDomainInterval
           } = measureStrokePipelinePhase(
             'constrained dashed interval: setup',
             () => {
+              const shouldMaterializeOutsideLegalProductOnSourcePath =
+                stroke.position === 'outside' &&
+                (options.clipInsideToFillDomain === true || topology.closed) &&
+                ((options.implicitFillRegions?.length ?? 0) > 0 ||
+                  topology.closed) &&
+                !isOpenDanglingOutsideBothSidesVisibleInterval(interval)
+              const sourceDomainPath = sourcePath ?? topologySourcePath
+              const sourceDomainSlicingContext =
+                sourcePathSlicingContext ?? topologySourcePathSlicingContext
+              const sourceDomainInterval =
+                resolveSourceDomainIntervalForMaterializationWithSourceGeometry(
+                  interval,
+                  sourceDomainPath ?? undefined,
+                  sourceDomainSlicingContext
+                )
+              const shouldMaterializeOutsideSplitRangeOnSourcePath =
+                stroke.position === 'outside' &&
+                sourceDomainInterval.materializationDistanceSpace ===
+                  'source-domain' &&
+                interval.domainPlanSplitRangeId !== undefined &&
+                interval.domainPlanDomainMode !==
+                  'open-contour-constrained-domain' &&
+                !isOpenDanglingOutsideBothSidesVisibleInterval(interval)
+              const canMaterializeOutsideLegalProductOnSourcePath =
+                shouldMaterializeOutsideLegalProductOnSourcePath &&
+                (sourceDomainInterval.materializationDistanceSpace ===
+                  'source-domain' ||
+                  !hasBoundaryDomainDistanceMapping(interval))
               const resolvedBoundaryDomainPath =
-                getBoundaryDomainPathForVisibleInterval(interval)
+                canMaterializeOutsideLegalProductOnSourcePath ||
+                shouldMaterializeOutsideSplitRangeOnSourcePath
+                  ? null
+                  : getBoundaryDomainPathForVisibleInterval(interval)
               const resolvedEffectiveSourcePath =
-                resolvedBoundaryDomainPath ?? sourcePath ?? topologySourcePath
+                canMaterializeOutsideLegalProductOnSourcePath ||
+                shouldMaterializeOutsideSplitRangeOnSourcePath
+                  ? (sourcePath ?? topologySourcePath)
+                  : (resolvedBoundaryDomainPath ??
+                    sourcePath ??
+                    topologySourcePath)
               const resolvedEffectiveSourcePathSlicingContext =
-                resolvedBoundaryDomainPath
-                  ? getBoundaryDomainSlicingContext(resolvedBoundaryDomainPath)
-                  : (sourcePathSlicingContext ??
+                canMaterializeOutsideLegalProductOnSourcePath ||
+                shouldMaterializeOutsideSplitRangeOnSourcePath
+                  ? (sourcePathSlicingContext ??
                     topologySourcePathSlicingContext)
+                  : resolvedBoundaryDomainPath
+                    ? getBoundaryDomainSlicingContext(
+                        resolvedBoundaryDomainPath
+                      )
+                    : (sourcePathSlicingContext ??
+                      topologySourcePathSlicingContext)
               const resolvedEffectiveTopologyForInterval =
                 resolvedBoundaryDomainPath
                   ? {
@@ -14785,14 +26534,23 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 effectiveSourcePathSlicingContext:
                   resolvedEffectiveSourcePathSlicingContext,
                 effectiveTopologyForInterval:
-                  resolvedEffectiveTopologyForInterval
+                  resolvedEffectiveTopologyForInterval,
+                materializesSourceDomainInterval:
+                  canMaterializeOutsideLegalProductOnSourcePath ||
+                  shouldMaterializeOutsideSplitRangeOnSourcePath
               }
             }
           )
 
           const materializationInterval = boundaryDomainPath
             ? getBoundaryDomainMaterializationInterval(interval)
-            : interval
+            : materializesSourceDomainInterval
+              ? resolveSourceDomainIntervalForMaterializationWithSourceGeometry(
+                  interval,
+                  sourcePath ?? topologySourcePath ?? undefined,
+                  sourcePathSlicingContext ?? topologySourcePathSlicingContext
+                )
+              : interval
           const physicalSpans = measureStrokePipelinePhase(
             'constrained dashed interval: physical spans',
             () =>
@@ -14814,19 +26572,38 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
           let intervalRenderDescriptor:
             | SolidCenterStrokeResolvedPacket['geometry']['renderDescriptor']
             | undefined
+          let intervalDescriptorProductPolygons: Vec2[][] | undefined
+          let intervalUsesOutsideSourceDomainRenderDescriptor = false
           const intervalSourceVertexBoundaryJoinPlans =
             sourceVertexBoundaryJoinPlansByIntervalId.get(
               interval.intervalId
             ) ?? []
+          const intervalSourceVertexTerminalOwnerships =
+            sourceVertexTerminalOwnershipByIntervalId.get(
+              interval.intervalId
+            ) ?? []
           const intervalHasSourceVertexBoundaryJoin =
-            intervalSourceVertexBoundaryJoinPlans.length > 0
+            intervalSourceVertexBoundaryJoinPlans.length > 0 ||
+            intervalSourceVertexTerminalOwnerships.length > 0
+          const intervalCarriesJoinOwnedTerminalBody =
+            stroke.position === 'outside' &&
+            intervalHasSourceVertexBoundaryJoin &&
+            interval.domainPlanTerminalRole !== undefined &&
+            interval.domainPlanTerminalRole !== 'middle' &&
+            (outsideJoinOwnedTerminalBodyIntervalIds.has(interval.intervalId) ||
+              intervalSourceVertexTerminalOwnerships.length > 0)
           const intervalSourceVertexBoundaryJoinSignature =
             intervalHasSourceVertexBoundaryJoin
               ? [
                   'source-vertex-boundary-join',
-                  intervalSourceVertexBoundaryJoinPlans
-                    .map((plan) => getFrameJoinEffectiveSignature(plan))
-                    .join(';')
+                  uniqueStrings([
+                    ...intervalSourceVertexBoundaryJoinPlans.map((plan) =>
+                      getFrameJoinEffectiveSignature(plan)
+                    ),
+                    ...intervalSourceVertexTerminalOwnerships.map(
+                      (ownership) => ownership.effectiveSignature
+                    )
+                  ]).join(';')
                 ].join(':')
               : 'source-path'
           let intervalHasCurvedSourcePathSweepRange = false
@@ -14842,10 +26619,64 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
           let rawProductArea: number | undefined
           let cleanedProductArea: number | undefined
           let boundaryClippedProductArea: number | undefined
-          const intervalUsesBoundaryDomainProduct =
-            isConstrainedBoundaryDomainProductInterval(interval)
           const intervalUsesDanglingOutsideProduct =
             isOpenDanglingOutsideBothSidesVisibleInterval(interval)
+          const intervalUsesDoubledCenterOutsideLegalProduct =
+            stroke.position === 'outside' &&
+            !intervalCarriesJoinOwnedTerminalBody &&
+            !intervalIsAdjacentToAuthoredSmoothSourceBoundary &&
+            (options.clipInsideToFillDomain === true || topology.closed) &&
+            ((options.implicitFillRegions?.length ?? 0) > 0 ||
+              topology.closed) &&
+            !intervalUsesDanglingOutsideProduct
+          const intervalUsesBoundaryDomainProduct =
+            isConstrainedBoundaryDomainProductInterval(interval) &&
+            !intervalUsesDoubledCenterOutsideLegalProduct &&
+            materializationInterval.materializationDistanceSpace !==
+              'source-domain'
+          const intervalUsesOutsideImplicitBoundaryDomainProduct =
+            intervalUsesBoundaryDomainProduct &&
+            stroke.position === 'outside' &&
+            options.clipInsideToFillDomain === true &&
+            (options.implicitFillRegions?.length ?? 0) > 0
+          const materializationSelectedSide =
+            getSourceDomainMaterializedSelectedSide(materializationInterval) ??
+            materializationInterval.domainPlanSelectedSide
+          const materializationUsesDoubledCenterOutsideLegalProduct =
+            stroke.position === 'outside' &&
+            !intervalCarriesJoinOwnedTerminalBody &&
+            !intervalIsAdjacentToAuthoredSmoothSourceBoundary &&
+            !isBoundaryDomainProductVisibleInterval(materializationInterval) &&
+            (options.clipInsideToFillDomain === true || topology.closed) &&
+            ((options.implicitFillRegions?.length ?? 0) > 0 ||
+              topology.closed) &&
+            !intervalUsesDanglingOutsideProduct
+          const materializationUsesDoubledCenterExplicitSideProduct =
+            stroke.position === 'outside' &&
+            !materializationUsesDoubledCenterOutsideLegalProduct &&
+            !intervalIsAdjacentToAuthoredSmoothSourceBoundary &&
+            (!isBoundaryDomainProductVisibleInterval(materializationInterval) ||
+              materializationInterval.materializationDistanceSpace ===
+                'source-domain') &&
+            (materializationSelectedSide === 1 ||
+              materializationSelectedSide === -1) &&
+            !intervalUsesDanglingOutsideProduct
+          const intervalUsesOutsideExplicitSideProduct =
+            materializationUsesDoubledCenterExplicitSideProduct
+          if (materializationUsesDoubledCenterExplicitSideProduct) {
+            emitStrokePipelineCounter(
+              'outside-final-coverage-explicit-owner-caller'
+            )
+          }
+          const intervalUsesSourceDomainExplicitSideProduct =
+            stroke.position === 'outside' &&
+            materializationInterval.materializationDistanceSpace ===
+              'source-domain' &&
+            !intervalUsesDoubledCenterOutsideLegalProduct &&
+            !intervalIsAdjacentToAuthoredSmoothSourceBoundary &&
+            !intervalUsesDanglingOutsideProduct &&
+            (interval.domainPlanSelectedSide === 1 ||
+              interval.domainPlanSelectedSide === -1)
           const intervalPolygons = (() => {
             if (!effectiveSourcePath || !effectiveSourcePathSlicingContext) {
               return []
@@ -14853,6 +26684,380 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             const resolvedEffectiveSourcePath = effectiveSourcePath
             const resolvedEffectiveSourcePathSlicingContext =
               effectiveSourcePathSlicingContext
+            const canUseOutsideSourceDomainBodyDescriptor =
+              stroke.position === 'outside' &&
+              options.clipInsideToFillDomain === true &&
+              materializationInterval.materializationDistanceSpace ===
+                'source-domain' &&
+              !intervalHasSourceVertexBoundaryJoin &&
+              !intervalUsesDanglingOutsideProduct &&
+              (interval.domainPlanTerminalRole === undefined ||
+                interval.domainPlanTerminalRole === 'middle') &&
+              interval.domainPlanDomainMode !==
+                'open-contour-constrained-domain'
+            if (canUseOutsideSourceDomainBodyDescriptor) {
+              const descriptorStrokePath = sliceIntervalStrokePathPoints(
+                resolvedEffectiveSourcePath,
+                materializationInterval,
+                resolvedEffectiveSourcePathSlicingContext
+              )
+              if (descriptorStrokePath.length < 2) {
+                return []
+              }
+              const resolvedDescriptorSelectedSide =
+                materializationSelectedSide === 1 ||
+                materializationSelectedSide === -1
+                  ? resolveOutsideDescriptorStrokePathSelectedSide(
+                      descriptorStrokePath,
+                      materializationSelectedSide,
+                      intervalStroke.width,
+                      options.implicitFillRegions
+                    )
+                  : materializationSelectedSide
+              const selectedDescriptorPosition =
+                resolvedDescriptorSelectedSide === 1
+                  ? ('inside' as const)
+                  : resolvedDescriptorSelectedSide === -1
+                    ? ('outside' as const)
+                    : null
+              if (!selectedDescriptorPosition) {
+                return []
+              }
+              const baseIntervalEndpointCapPolicy = getDashEndpointCapPolicy(
+                resolvedEffectiveSourcePath,
+                interval
+              )
+              const materializedIntervalDirectionIsReversed =
+                isMaterializedIntervalDirectionReversed(
+                  interval,
+                  materializationInterval
+                )
+              const descriptorEndpointCapPolicy =
+                materializedIntervalDirectionIsReversed
+                  ? reverseDashEndpointCapPolicy(baseIntervalEndpointCapPolicy)
+                  : baseIntervalEndpointCapPolicy
+              const intervalDescriptorRanges =
+                splitVisibleIntervalBySourceSegments(
+                  resolvedEffectiveSourcePath,
+                  materializationInterval,
+                  resolvedEffectiveSourcePathSlicingContext
+                )
+              const clippedIntervalDescriptorRanges =
+                subtractSourceVertexDescriptorExclusionWindows(
+                  intervalDescriptorRanges,
+                  outsideSourceVertexDescriptorExclusionWindowsBySourceSegmentIndex
+                )
+              const descriptorCacheOrigin =
+                clippedIntervalDescriptorRanges.length > 0
+                  ? getSourcePathIntervalLevelPolygonCacheOrigin(
+                      resolvedEffectiveSourcePath,
+                      clippedIntervalDescriptorRanges
+                    )
+                  : null
+              const descriptorPathSignature = descriptorCacheOrigin
+                ? buildTranslationInvariantMaterializationPathCacheKey(
+                    resolvedEffectiveSourcePath,
+                    descriptorCacheOrigin,
+                    clippedIntervalDescriptorRanges,
+                    resolvedEffectiveSourcePathSlicingContext
+                  )
+                : null
+              const descriptorStrokePathBounds =
+                getBoundsForPoints(descriptorStrokePath)
+              const descriptorLegalSignature =
+                descriptorCacheOrigin &&
+                (options.implicitFillRegions?.length ?? 0) > 0 &&
+                descriptorStrokePathBounds
+                  ? buildImplicitFillRegionLocalRelativeCacheSignature(
+                      options.implicitFillRegions ?? [],
+                      descriptorCacheOrigin,
+                      expandBoundsByPadding(
+                        descriptorStrokePathBounds,
+                        Math.max(stroke.width * 3, ROUND_CAP_VISUAL_MAX_LENGTH)
+                      )
+                    )
+                  : 'implicit-fill-not-used'
+              const descriptorProductCacheKey =
+                descriptorCacheOrigin && descriptorPathSignature
+                  ? [
+                      'outside-source-domain-descriptor-product-v2',
+                      cachePrefix,
+                      ownerPrefix,
+                      strokeIndex,
+                      baseDomainMode,
+                      descriptorPathSignature,
+                      buildStableVisibleIntervalProductDomainSignature(
+                        interval
+                      ),
+                      materializationInterval.materializationDistanceSpace ??
+                        'source-domain',
+                      materializationInterval.wrapsSeam ? 'wrap' : 'nowrap',
+                      selectedDescriptorPosition,
+                      resolvedDescriptorSelectedSide === 1 ||
+                      resolvedDescriptorSelectedSide === -1
+                        ? `selected-side:${resolvedDescriptorSelectedSide}`
+                        : 'selected-side:unknown',
+                      descriptorEndpointCapPolicy.signature,
+                      descriptorLegalSignature,
+                      stroke.position,
+                      formatTranslationInvariantCacheNumber(stroke.width),
+                      stroke.cap,
+                      stroke.join,
+                      formatTranslationInvariantCacheNumber(stroke.miterLimit),
+                      formatTranslationInvariantCacheNumber(stroke.dash),
+                      formatTranslationInvariantCacheNumber(stroke.gap)
+                    ].join('|')
+                  : null
+              const cachedDescriptorProduct =
+                descriptorProductCacheKey && descriptorCacheOrigin
+                  ? getCachedOutsideSourceDomainDescriptorProduct(
+                      descriptorProductCacheKey,
+                      descriptorCacheOrigin
+                    )
+                  : null
+              if (cachedDescriptorProduct) {
+                rawProductArea = getPolygonsAbsoluteArea(
+                  cachedDescriptorProduct.productPolygons
+                )
+                intervalDescriptorProductPolygons =
+                  cachedDescriptorProduct.productPolygons
+                intervalEndpointCapPolicy = descriptorEndpointCapPolicy
+                intervalSmoothContinuityGroup =
+                  buildSmoothContinuityGroupForInterval(
+                    interval,
+                    descriptorEndpointCapPolicy
+                  )
+                intervalSweepSpanCount = physicalSpans.length
+                terminalCapCount = 0
+                intervalRenderDescriptor = {
+                  descriptorProductPolygons:
+                    cachedDescriptorProduct.productPolygons,
+                  clipPolygons: cachedDescriptorProduct.productPolygons,
+                  fillExcludePolygons:
+                    cachedDescriptorProduct.descriptorFillExcludePolygons
+                      .length > 0
+                      ? cachedDescriptorProduct.descriptorFillExcludePolygons
+                      : undefined,
+                  strokePathGroups: [
+                    {
+                      strokePaths:
+                        cachedDescriptorProduct.descriptorStrokePaths,
+                      strokePathStyle: {
+                        width: intervalStroke.width,
+                        cap: stroke.cap,
+                        join: stroke.join,
+                        miterAngle: getStrokeMiterAngleForResolution(stroke),
+                        miterLimit: stroke.miterLimit,
+                        closed: false
+                      }
+                    }
+                  ]
+                }
+                intervalUsesOutsideSourceDomainRenderDescriptor = true
+                emitStrokePipelineCounter(
+                  'final-coverage-route:outside-source-domain-descriptor'
+                )
+                return cachedDescriptorProduct.carrierProductPolygons
+              }
+              const descriptorCenterPaths = clippedIntervalDescriptorRanges
+                .map((range) =>
+                  slicePathGeometryPoints(
+                    resolvedEffectiveSourcePath,
+                    range.startDistance,
+                    range.endDistance,
+                    false,
+                    SOURCE_PATH_DASH_SLICE_TOLERANCE,
+                    SOURCE_PATH_DASH_SLICE_SAMPLING
+                  )
+                )
+                .filter((path) => path.length >= 2)
+              const descriptorOffsetPaths = clippedIntervalDescriptorRanges
+                .map((range) =>
+                  dedupeOffsetRibbonFrames(
+                    sliceExactOffsetRibbonRangeFrames(
+                      resolvedEffectiveSourcePath,
+                      range,
+                      resolvedEffectiveSourcePathSlicingContext,
+                      {
+                        position: selectedDescriptorPosition,
+                        width: intervalStroke.width
+                      }
+                    )
+                  ).map((frame) => frame.offsetPoint)
+                )
+                .filter((path) => path.length >= 2)
+              const descriptorStrokePaths = clippedIntervalDescriptorRanges
+                .map((range) =>
+                  dedupeOffsetRibbonFrames(
+                    sliceExactOffsetRibbonRangeFrames(
+                      resolvedEffectiveSourcePath,
+                      range,
+                      resolvedEffectiveSourcePathSlicingContext,
+                      {
+                        position: selectedDescriptorPosition,
+                        width: intervalStroke.width * 0.5
+                      }
+                    )
+                  ).map((frame) => frame.offsetPoint)
+                )
+                .filter((path) => path.length >= 2)
+              if (
+                descriptorOffsetPaths.length === 0 ||
+                descriptorStrokePaths.length === 0 ||
+                descriptorCenterPaths.length === 0
+              ) {
+                return []
+              }
+              const selectedSideCarrierPolygons =
+                resolvedDescriptorSelectedSide === 1 ||
+                resolvedDescriptorSelectedSide === -1
+                  ? descriptorCenterPaths.flatMap((centerPath) =>
+                      clipSourceDomainIntervalPolygonsToExplicitSelectedSide(
+                        buildSolidCenterStrokePolygons(centerPath, false, {
+                          style: 'solid',
+                          position: 'center',
+                          width: intervalStroke.width * 2,
+                          cap: stroke.cap,
+                          join: stroke.join,
+                          miterAngle: getStrokeMiterAngleForResolution(stroke),
+                          miterLimit: stroke.miterLimit
+                        })
+                          .map(cleanPolygon)
+                          .filter(hasPolygonGeometry),
+                        centerPath,
+                        intervalStroke.width,
+                        resolvedDescriptorSelectedSide,
+                        {
+                          cap: stroke.cap
+                        }
+                      )
+                    )
+                  : descriptorCenterPaths.flatMap((centerPath) =>
+                      buildSolidCenterStrokePolygons(centerPath, false, {
+                        style: 'solid',
+                        position: 'center',
+                        width: intervalStroke.width * 2,
+                        cap: stroke.cap,
+                        join: stroke.join,
+                        miterAngle: getStrokeMiterAngleForResolution(stroke),
+                        miterLimit: stroke.miterLimit
+                      })
+                        .map(cleanPolygon)
+                        .filter(hasPolygonGeometry)
+                    )
+              const productClipPolygons =
+                normalizeConstrainedDashedProductPolygons(
+                  selectedSideCarrierPolygons,
+                  {
+                    cleanClipResidue: true,
+                    mergeContinuousInterval: true
+                  }
+                )
+              const descriptorStrokeProductPolygons =
+                normalizeConstrainedDashedProductPolygons(
+                  descriptorStrokePaths.flatMap((strokePath) =>
+                    buildSolidCenterStrokePolygons(strokePath, false, {
+                      style: 'solid',
+                      position: 'center',
+                      width: intervalStroke.width,
+                      cap: stroke.cap,
+                      join: stroke.join,
+                      miterAngle: getStrokeMiterAngleForResolution(stroke),
+                      miterLimit: stroke.miterLimit
+                    })
+                  ),
+                  {
+                    cleanClipResidue: true,
+                    mergeContinuousInterval: true
+                  }
+                )
+              const legalDescriptorStrokeProductPolygons =
+                normalizeConstrainedDashedProductPolygons(
+                  intersectDescriptorProductPolygons(
+                    descriptorStrokeProductPolygons,
+                    productClipPolygons
+                  ),
+                  {
+                    cleanClipResidue: true,
+                    mergeContinuousInterval: true
+                  }
+                )
+              const productPolygons = normalizeConstrainedDashedProductPolygons(
+                intersectDescriptorProductPolygons(
+                  descriptorStrokeProductPolygons,
+                  legalDescriptorStrokeProductPolygons
+                ),
+                {
+                  cleanClipResidue: true,
+                  mergeContinuousInterval: true
+                }
+              )
+              const descriptorFillExcludePolygons =
+                stroke.position === 'outside' &&
+                (options.implicitFillRegions?.length ?? 0) > 0
+                  ? getCoveragePolygonsFromRegions(
+                      _selectBoundsIntersectingLegalClipRegions(
+                        productPolygons,
+                        options.implicitFillRegions ?? [],
+                        CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE
+                      )
+                    )
+                  : []
+              const descriptorCarrierProductPolygons =
+                buildDescriptorCarrierProductPolygons(
+                  descriptorCenterPaths,
+                  descriptorOffsetPaths
+                )
+              if (descriptorProductCacheKey && descriptorCacheOrigin) {
+                setCachedOutsideSourceDomainDescriptorProduct(
+                  descriptorProductCacheKey,
+                  descriptorCacheOrigin,
+                  {
+                    productPolygons,
+                    carrierProductPolygons: descriptorCarrierProductPolygons,
+                    descriptorOffsetPaths,
+                    descriptorStrokePaths,
+                    descriptorFillExcludePolygons
+                  }
+                )
+              }
+              rawProductArea = getPolygonsAbsoluteArea(productPolygons)
+              intervalDescriptorProductPolygons = productPolygons
+              intervalEndpointCapPolicy = descriptorEndpointCapPolicy
+              intervalSmoothContinuityGroup =
+                buildSmoothContinuityGroupForInterval(
+                  interval,
+                  descriptorEndpointCapPolicy
+                )
+              intervalSweepSpanCount = physicalSpans.length
+              terminalCapCount = 0
+              intervalRenderDescriptor = {
+                descriptorProductPolygons: productPolygons,
+                clipPolygons: productPolygons,
+                fillExcludePolygons:
+                  descriptorFillExcludePolygons.length > 0
+                    ? descriptorFillExcludePolygons
+                    : undefined,
+                strokePathGroups: [
+                  {
+                    strokePaths: descriptorStrokePaths,
+                    strokePathStyle: {
+                      width: intervalStroke.width,
+                      cap: stroke.cap,
+                      join: stroke.join,
+                      miterAngle: getStrokeMiterAngleForResolution(stroke),
+                      miterLimit: stroke.miterLimit,
+                      closed: false
+                    }
+                  }
+                ]
+              }
+              intervalUsesOutsideSourceDomainRenderDescriptor = true
+              emitStrokePipelineCounter(
+                'final-coverage-route:outside-source-domain-descriptor'
+              )
+              return descriptorCarrierProductPolygons
+            }
             const intervalCoverageBodyRanges =
               splitVisibleIntervalBySourceSegments(
                 resolvedEffectiveSourcePath,
@@ -14874,13 +27079,52 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                   )
                 : null
             const intervalCoverageBodyUsesLegalDomainSignature =
-              !intervalUsesBoundaryDomainProduct &&
               !intervalUsesDanglingOutsideProduct &&
-              options.clipInsideToFillDomain === true
+              options.clipInsideToFillDomain === true &&
+              (!intervalUsesBoundaryDomainProduct ||
+                intervalUsesOutsideImplicitBoundaryDomainProduct)
+            const shouldUseIntervalCoverageBodyCache =
+              !intervalUsesOutsideExplicitSideProduct
+            const baseIntervalEndpointCapPolicy =
+              stroke.position === 'outside'
+                ? outsideJoinOwnedTerminalBodyIntervalIds.has(
+                    interval.intervalId
+                  )
+                  ? getJoinOwnedEndpointCapPolicy(
+                      interval,
+                      getDashEndpointCapPolicy(
+                        resolvedEffectiveSourcePath,
+                        interval
+                      )
+                    )
+                  : getDashEndpointCapPolicy(
+                      resolvedEffectiveSourcePath,
+                      interval
+                    )
+                : undefined
+            const materializedIntervalDirectionIsReversed =
+              baseIntervalEndpointCapPolicy !== undefined &&
+              isMaterializedIntervalDirectionReversed(
+                interval,
+                materializationInterval
+              )
+            const intervalEndpointCapPolicyOverride =
+              baseIntervalEndpointCapPolicy !== undefined &&
+              (outsideJoinOwnedTerminalBodyIntervalIds.has(
+                interval.intervalId
+              ) ||
+                materializedIntervalDirectionIsReversed)
+                ? materializedIntervalDirectionIsReversed
+                  ? reverseDashEndpointCapPolicy(baseIntervalEndpointCapPolicy)
+                  : baseIntervalEndpointCapPolicy
+                : undefined
             const intervalCoverageBodyCacheKey =
-              intervalCoverageBodyPathSignature
+              shouldUseIntervalCoverageBodyCache &&
+              intervalCoverageBodyPathSignature &&
+              intervalCoverageBodyCacheOrigin
                 ? buildConstrainedDashedIntervalCoverageBodyCacheKey(
                     intervalCoverageBodyPathSignature,
+                    intervalCoverageBodyCacheOrigin,
                     interval,
                     materializationInterval,
                     physicalSpans,
@@ -14890,6 +27134,8 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                       ownerPrefix,
                       strokeIndex,
                       domainMode: baseDomainMode,
+                      endpointCapPolicySignature:
+                        intervalEndpointCapPolicyOverride?.signature,
                       clipInsideToFillDomain:
                         options.clipInsideToFillDomain === true,
                       implicitFillRegions: options.implicitFillRegions ?? [],
@@ -14934,7 +27180,8 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                   physicalSpans,
                   materializationInterval,
                   intervalAuthoredStroke,
-                  resolvedEffectiveSourcePathSlicingContext
+                  resolvedEffectiveSourcePathSlicingContext,
+                  intervalEndpointCapPolicyOverride
                 )
             )
             intervalSweepSpanCount = intervalSweep.ranges.length
@@ -15021,34 +27268,136 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             )
           })()
           rawProductArea ??= getPolygonsAbsoluteArea(intervalPolygons)
-          const boundarySideClippedIntervalPolygons =
-            isConstrainedBoundaryDomainProductInterval(interval)
-              ? clipBoundaryDomainIntervalPolygonsToEndpointCapPolicy(
-                  stroke.cap === 'square'
-                    ? intervalPolygons
-                    : clipBoundaryDomainIntervalPolygonsToOwnSelectedSide(
+          const sourceDomainRenderDescriptorOwnsSelectedSideProduct =
+            stroke.position === 'outside' &&
+            intervalUsesOutsideSourceDomainRenderDescriptor &&
+            intervalRenderDescriptor !== undefined &&
+            (intervalRenderDescriptor.strokePathGroups?.length ?? 0) > 0
+          const explicitSelectedSideProductOwnsOutsideDomain =
+            stroke.position === 'outside' &&
+            materializationUsesDoubledCenterExplicitSideProduct &&
+            !intervalUsesDanglingOutsideProduct
+          const selectedSideProductOwnsOutsideDomain =
+            sourceDomainRenderDescriptorOwnsSelectedSideProduct ||
+            explicitSelectedSideProductOwnsOutsideDomain
+          if (
+            selectedSideProductOwnsOutsideDomain &&
+            intervalRenderDescriptor === undefined
+          ) {
+            emitStrokePipelineCounter(
+              'outside-selected-side-product-owns-domain'
+            )
+          }
+          let selectedSideProductArea: number | undefined
+          let processedProductArea: number | undefined
+          const sourceDomainExplicitSideIntervalPolygons =
+            intervalUsesSourceDomainExplicitSideProduct &&
+            (materializationSelectedSide === 1 ||
+              materializationSelectedSide === -1) &&
+            effectiveSourcePath &&
+            effectiveSourcePathSlicingContext
+              ? (() => {
+                  const materializedStrokePath = sliceIntervalStrokePathPoints(
+                    effectiveSourcePath,
+                    materializationInterval,
+                    effectiveSourcePathSlicingContext
+                  )
+                  return materializedStrokePath.length >= 2
+                    ? clipSourceDomainIntervalPolygonsToExplicitSelectedSide(
                         intervalPolygons,
-                        interval,
-                        intervalEndpointCapPolicy,
-                        stroke
-                      ),
-                  interval,
-                  stroke.cap === 'square'
-                    ? undefined
-                    : intervalEndpointCapPolicy
-                )
+                        materializedStrokePath,
+                        intervalStroke.width,
+                        materializationSelectedSide,
+                        {
+                          cap: stroke.cap,
+                          endpointCapPolicy: intervalEndpointCapPolicy
+                        }
+                      )
+                    : intervalPolygons
+                })()
               : intervalPolygons
+          const ownSideClippedIntervalPolygons =
+            intervalUsesBoundaryDomainProduct
+              ? clipBoundaryDomainIntervalPolygonsToOwnSelectedSide(
+                  intervalPolygons,
+                  interval,
+                  intervalEndpointCapPolicy,
+                  stroke
+                )
+              : intervalUsesDoubledCenterOutsideLegalProduct
+                ? intervalPolygons
+                : sourceDomainExplicitSideIntervalPolygons
+          const intervalNeedsBoundaryDomainEndpointPolicyClip =
+            intervalUsesBoundaryDomainProduct &&
+            (stroke.cap !== 'round' || intervalCarriesJoinOwnedTerminalBody)
+          const boundarySideClippedIntervalPolygons =
+            intervalNeedsBoundaryDomainEndpointPolicyClip
+              ? clipBoundaryDomainIntervalPolygonsToEndpointCapPolicy(
+                  ownSideClippedIntervalPolygons,
+                  interval,
+                  intervalEndpointCapPolicy
+                )
+              : ownSideClippedIntervalPolygons
+          const sourceEndpointPolicyClipPath =
+            sourcePath ?? topologySourcePath ?? undefined
+          const sourceEndpointPolicyClipContext =
+            sourcePathSlicingContext ?? topologySourcePathSlicingContext
+          const intervalNeedsSourceDomainEndpointPolicyClip =
+            stroke.position === 'outside' &&
+            !intervalUsesDanglingOutsideProduct &&
+            intervalEndpointCapPolicy !== undefined &&
+            (intervalEndpointCapPolicy.suppressStartCap ||
+              intervalEndpointCapPolicy.suppressEndCap) &&
+            interval.domainPlanTerminalRole !== undefined &&
+            interval.domainPlanTerminalRole !== 'middle' &&
+            sourceEndpointPolicyClipPath !== undefined &&
+            sourceEndpointPolicyClipContext !== undefined &&
+            resolveSourceDomainIntervalForMaterializationWithSourceGeometry(
+              interval,
+              sourceEndpointPolicyClipPath,
+              sourceEndpointPolicyClipContext
+            ).materializationDistanceSpace === 'source-domain'
+          const endpointPolicyClipInterval =
+            materializationInterval.materializationDistanceSpace ===
+            'source-domain'
+              ? materializationInterval
+              : interval
+          const sourceEndpointPolicyClippedIntervalPolygons =
+            intervalUsesSourceDomainExplicitSideProduct ||
+            intervalNeedsSourceDomainEndpointPolicyClip
+              ? clipSourceDomainIntervalPolygonsToEndpointCapPolicy(
+                  boundarySideClippedIntervalPolygons,
+                  sourceEndpointPolicyClipPath,
+                  sourceEndpointPolicyClipContext,
+                  endpointPolicyClipInterval,
+                  intervalEndpointCapPolicy,
+                  stroke.width
+                )
+              : boundarySideClippedIntervalPolygons
+          const intervalNeedsJoinBoundaryEndpointPolicyClip =
+            !intervalUsesBoundaryDomainProduct &&
+            intervalCarriesJoinOwnedTerminalBody &&
+            interval.domainPlanDomainMode ===
+              'open-contour-constrained-domain' &&
+            intervalEndpointCapPolicy !== undefined &&
+            (intervalEndpointCapPolicy.suppressStartCap ||
+              intervalEndpointCapPolicy.suppressEndCap) &&
+            (interval.domainPlanBoundaryPoints?.length ?? 0) >= 2
+          const endpointPolicyClippedIntervalPolygons =
+            intervalNeedsJoinBoundaryEndpointPolicyClip
+              ? clipBoundaryDomainIntervalPolygonsToEndpointCapPolicy(
+                  sourceEndpointPolicyClippedIntervalPolygons,
+                  interval,
+                  intervalEndpointCapPolicy
+                )
+              : sourceEndpointPolicyClippedIntervalPolygons
           const boundarySideClippedProductArea =
-            boundarySideClippedIntervalPolygons === intervalPolygons
+            endpointPolicyClippedIntervalPolygons === intervalPolygons
               ? undefined
-              : getPolygonsAbsoluteArea(boundarySideClippedIntervalPolygons)
+              : getPolygonsAbsoluteArea(endpointPolicyClippedIntervalPolygons)
           const clipReferenceSourcePath = boundaryDomainPath ?? sourcePath
           const legalDomainClipSourcePath =
             sourcePath ?? (boundaryDomainPath ? undefined : sourcePath)
-          const clipReferenceSlicingContext =
-            boundaryDomainPath && effectiveSourcePathSlicingContext
-              ? effectiveSourcePathSlicingContext
-              : sourcePathSlicingContext
           const productFinalClipsInsideImplicitDomain =
             stroke.position === 'inside' &&
             options.clipInsideToFillDomain === true &&
@@ -15081,17 +27430,65 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                   effectiveSourcePathSlicingContext
                 )
               : null
+          const intervalProductSweepSignature =
+            effectiveSourcePath &&
+            effectiveSourcePathSlicingContext &&
+            intervalProductCacheOrigin &&
+            intervalProductSweep
+              ? buildLocalIntervalSweepCacheSignature(
+                  effectiveSourcePath,
+                  intervalProductCacheOrigin,
+                  intervalProductSweep,
+                  effectiveSourcePathSlicingContext
+                )
+              : null
           const intervalProductUsesLegalDomainSignature =
-            !intervalUsesBoundaryDomainProduct &&
             !intervalUsesDanglingOutsideProduct &&
-            options.clipInsideToFillDomain === true
+            options.clipInsideToFillDomain === true &&
+            (!intervalUsesBoundaryDomainProduct ||
+              intervalUsesOutsideImplicitBoundaryDomainProduct)
+          const intervalProductLegalSignatureBounds =
+            effectiveSourcePath &&
+            effectiveSourcePathSlicingContext &&
+            intervalProductCacheRanges.length > 0
+              ? getBoundsForPoints(
+                  intervalProductCacheRanges.flatMap((range, index) =>
+                    slicePathGeometryPoints(
+                      effectiveSourcePath,
+                      range.startDistance,
+                      range.endDistance,
+                      false,
+                      effectiveSourcePathSlicingContext.samplingTolerance,
+                      effectiveSourcePathSlicingContext.samplingOptions
+                    ).slice(index === 0 ? 0 : 1)
+                  )
+                )
+              : null
+          const intervalProductImplicitFillRegionSignature =
+            intervalProductUsesLegalDomainSignature &&
+            intervalProductCacheOrigin &&
+            intervalProductLegalSignatureBounds
+              ? buildImplicitFillRegionLocalRelativeCacheSignature(
+                  options.implicitFillRegions ?? [],
+                  intervalProductCacheOrigin,
+                  expandBoundsByPadding(
+                    intervalProductLegalSignatureBounds,
+                    Math.max(stroke.width * 3, ROUND_CAP_VISUAL_MAX_LENGTH)
+                  )
+                )
+              : undefined
+          const shouldUseJoinIndependentIntervalProductCache = true
           const intervalProductCacheKey =
-            intervalProductPathSignature && intervalProductSweep
+            shouldUseJoinIndependentIntervalProductCache &&
+            intervalProductPathSignature &&
+            intervalProductCacheOrigin &&
+            intervalProductSweep &&
+            intervalProductSweepSignature
               ? buildConstrainedDashedJoinIndependentIntervalProductCacheKey(
                   intervalProductPathSignature,
                   interval,
                   materializationInterval,
-                  intervalProductSweep,
+                  intervalProductSweepSignature,
                   physicalSpans,
                   stroke,
                   {
@@ -15101,26 +27498,37 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                     domainMode: baseDomainMode,
                     clipInsideToFillDomain:
                       options.clipInsideToFillDomain === true,
-                    implicitFillRegions: options.implicitFillRegions ?? [],
-                    sharedStrokeBoundaryDomains:
-                      options.sharedStrokeBoundaryDomains ?? [],
                     canUseClosedHalfPlaneLegality,
                     shouldPreserveSmoothProduct,
                     productFinalClipsInsideImplicitDomain,
                     sourceVertexBoundaryJoinSignature:
-                      intervalSourceVertexBoundaryJoinSignature,
-                    includeImplicitFillRegionsSignature:
-                      productFinalClipsInsideImplicitDomain
-                        ? true
-                        : intervalProductUsesLegalDomainSignature,
+                      intervalHasSourceVertexBoundaryJoin
+                        ? 'source-vertex-boundary-join'
+                        : 'source-path',
+                    endpointCapPolicySignature:
+                      intervalEndpointCapPolicy?.signature,
+                    sourceDomainExplicitSideProduct:
+                      intervalUsesSourceDomainExplicitSideProduct,
+                    boundaryDomainProduct: intervalUsesBoundaryDomainProduct,
+                    doubledCenterOutsideLegalProduct:
+                      intervalUsesDoubledCenterOutsideLegalProduct,
+                    danglingOutsideProduct: intervalUsesDanglingOutsideProduct,
+                    implicitFillRegionSignature:
+                      productFinalClipsInsideImplicitDomain ||
+                      intervalProductUsesLegalDomainSignature
+                        ? intervalProductImplicitFillRegionSignature
+                        : undefined,
                     includeStrokeBoundaryDomainSignature:
                       intervalProductUsesLegalDomainSignature &&
-                      stroke.position === 'outside'
+                      stroke.position === 'outside',
+                    sharedStrokeBoundaryDomainCount:
+                      options.sharedStrokeBoundaryDomains?.length ?? 0
                   }
                 )
               : null
           const cachedIntervalProduct =
             !intervalHasExactRenderDescriptor &&
+            shouldUseJoinIndependentIntervalProductCache &&
             intervalProductCacheKey &&
             intervalProductCacheOrigin
               ? getCachedConstrainedDashedJoinIndependentIntervalProduct(
@@ -15128,18 +27536,24 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                   intervalProductCacheOrigin
                 )
               : null
-          const polygons = intervalHasExactRenderDescriptor
+          const intervalPostProcessedPolygons = intervalHasExactRenderDescriptor
             ? intervalPolygons
             : (cachedIntervalProduct ??
               measureStrokePipelinePhase(
                 'constrained dashed interval: post process',
                 () => {
                   const isBoundaryDomainProductInterval =
-                    isConstrainedBoundaryDomainProductInterval(interval)
+                    intervalUsesBoundaryDomainProduct
+                  const isOutsideRoundBoundaryTerminalProductInterval =
+                    stroke.position === 'outside' &&
+                    stroke.cap === 'round' &&
+                    isBoundaryDomainProductInterval &&
+                    interval.domainPlanTerminalRole !== undefined &&
+                    interval.domainPlanTerminalRole !== 'middle'
                   const selectedSidePolygons = sourcePath
-                    ? boundarySideClippedIntervalPolygons
+                    ? endpointPolicyClippedIntervalPolygons
                     : applyClosedIntervalSelectedSideGuards(
-                        boundarySideClippedIntervalPolygons,
+                        endpointPolicyClippedIntervalPolygons,
                         topology.closed,
                         interval,
                         sharpGuardVertices,
@@ -15148,12 +27562,18 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                         stroke,
                         intervalStroke
                       )
-                  let processedPolygons = canUseClosedHalfPlaneLegality
-                    ? applyClosedIntervalLegality(
-                        selectedSidePolygons,
-                        closedIntervalLegalityContext
-                      )
-                    : selectedSidePolygons
+                  selectedSideProductArea =
+                    getPolygonsAbsoluteArea(selectedSidePolygons)
+                  let processedPolygons =
+                    canUseClosedHalfPlaneLegality &&
+                    !intervalUsesSourceDomainExplicitSideProduct
+                      ? applyClosedIntervalLegality(
+                          selectedSidePolygons,
+                          closedIntervalLegalityContext
+                        )
+                      : selectedSidePolygons
+                  processedProductArea =
+                    getPolygonsAbsoluteArea(processedPolygons)
                   if (
                     legalDomainClipSourcePath &&
                     stroke.position === 'inside' &&
@@ -15171,14 +27591,13 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                           stroke,
                           options.implicitFillRegions ?? [],
                           {
-                            restoreSubjectBoundaryPolygons: [],
-                            restoreSubjectBoundaryPaths: [],
-                            fragmentPruneArea: EPSILON * 10,
                             cleanupMicroEdgeTolerance: 0.001,
                             cleanupCollinearTolerance: 0.0001
                           }
                         )
                     )
+                    processedProductArea =
+                      getPolygonsAbsoluteArea(processedPolygons)
                   }
                   if (
                     legalDomainClipSourcePath &&
@@ -15201,20 +27620,19 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                           { position: stroke.position },
                           options.implicitFillRegions ?? [],
                           {
-                            fragmentStitchRadius: 0,
-                            fragmentPruneArea: 0,
-                            restoreSubjectBoundaryPolygons: [],
-                            restoreSubjectBoundaryPaths: [],
                             cleanupMicroEdgeTolerance: 0.001,
                             cleanupCollinearTolerance: 0.0001,
                             outsideFillRule: topology.fillRule
                           }
                         )
                     )
+                    processedProductArea =
+                      getPolygonsAbsoluteArea(processedPolygons)
                   }
                   const finalCleanupOptions =
                     (sourcePath &&
                       stroke.position === 'outside' &&
+                      !intervalUsesSourceDomainExplicitSideProduct &&
                       options.clipInsideToFillDomain === true) ||
                     shouldPreserveSmoothProduct
                       ? {
@@ -15225,14 +27643,30 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                   const cleanedPolygons = measureStrokePipelinePhase(
                     'constrained dashed interval post process: clean',
                     () =>
-                      cleanClippedProductPolygons(
-                        processedPolygons,
-                        finalCleanupOptions
-                      )
+                      intervalUsesSourceDomainExplicitSideProduct
+                        ? cleanClippedProductPolygons(
+                            processedPolygons,
+                            finalCleanupOptions
+                          )
+                        : cleanClippedProductPolygons(
+                            processedPolygons,
+                            finalCleanupOptions
+                          )
                   )
                   cleanedProductArea = getPolygonsAbsoluteArea(cleanedPolygons)
                   if (isBoundaryDomainProductInterval) {
                     boundaryClippedProductArea = cleanedProductArea
+                  }
+                  if (intervalUsesSourceDomainExplicitSideProduct) {
+                    boundaryClippedProductArea = cleanedProductArea
+                    return stroke.position === 'outside' &&
+                      (options.implicitFillRegions?.length ?? 0) > 0 &&
+                      !selectedSideProductOwnsOutsideDomain
+                      ? enforceOutsideResolvedFillProductDomain(
+                          cleanedPolygons,
+                          options.implicitFillRegions ?? []
+                        )
+                      : cleanedPolygons
                   }
                   if (!shouldPreserveSmoothProduct) {
                     const boundaryClippedNonSmoothProduct = cleanedPolygons
@@ -15243,14 +27677,21 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                     if (
                       stroke.position !== 'inside' &&
                       isBoundaryDomainProductInterval &&
+                      !isOutsideRoundBoundaryTerminalProductInterval &&
                       isClosedConstrainedSourceCoverageInterval(interval)
                     ) {
-                      return boundaryClippedNonSmoothProduct
+                      return stroke.position === 'outside' &&
+                        (options.implicitFillRegions?.length ?? 0) > 0 &&
+                        !selectedSideProductOwnsOutsideDomain
+                        ? enforceOutsideResolvedFillProductDomain(
+                            boundaryClippedNonSmoothProduct,
+                            options.implicitFillRegions ?? []
+                          )
+                        : boundaryClippedNonSmoothProduct
                     }
 
                     if (stroke.position === 'inside') {
-                      return isBoundaryDomainProductInterval ||
-                        isClosedConstrainedSourceCoverageInterval(interval)
+                      return isClosedConstrainedSourceCoverageInterval(interval)
                         ? boundaryClippedNonSmoothProduct
                         : enforceInsideImplicitFillProductDomain(
                             boundaryClippedNonSmoothProduct,
@@ -15267,10 +27708,13 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                       legalDomainClipSourcePath &&
                       (options.implicitFillRegions?.length ?? 0) > 0
                     ) {
+                      if (selectedSideProductOwnsOutsideDomain) {
+                        return boundaryClippedNonSmoothProduct
+                      }
                       emitStrokePipelineCounter(
                         'outside-legal-clip-boundary-non-smooth-call'
                       )
-                      return measureStrokePipelinePhase(
+                      const legalBoundaryProduct = measureStrokePipelinePhase(
                         'constrained dashed interval post process: outside legal clip: boundary non-smooth',
                         () =>
                           clipSourcePathPolygonsToEvenOddLegalDomain(
@@ -15279,15 +27723,31 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                             { position: stroke.position },
                             options.implicitFillRegions ?? [],
                             {
-                              restoreSubjectBoundaryPolygons: [],
-                              restoreSubjectBoundaryPaths: [],
-                              fragmentStitchRadius: 0,
-                              fragmentPruneArea: 0,
                               cleanupMicroEdgeTolerance: 0.001,
                               cleanupCollinearTolerance: 0.0001,
                               outsideFillRule: topology.fillRule
                             }
                           )
+                      )
+                      return enforceOutsideResolvedFillProductDomain(
+                        legalBoundaryProduct,
+                        options.implicitFillRegions ?? []
+                      )
+                    }
+
+                    if (
+                      stroke.position === 'outside' &&
+                      isBoundaryDomainProductVisibleInterval(interval) &&
+                      boundaryClippedNonSmoothProduct.length > 0 &&
+                      (options.implicitFillRegions?.length ?? 0) > 0 &&
+                      !isOpenDanglingOutsideBothSidesVisibleInterval(
+                        interval
+                      ) &&
+                      !selectedSideProductOwnsOutsideDomain
+                    ) {
+                      return enforceOutsideResolvedFillProductDomain(
+                        boundaryClippedNonSmoothProduct,
+                        options.implicitFillRegions ?? []
                       )
                     }
 
@@ -15296,123 +27756,34 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
 
                   const isOpenDanglingOutsideBothSidesProductInterval =
                     isOpenDanglingOutsideBothSidesVisibleInterval(interval)
-                  const shouldSkipPostClipFragmentStitch =
-                    clipReferenceSourcePath &&
-                    stroke.position === 'outside' &&
-                    options.clipInsideToFillDomain === true &&
-                    !isOpenDanglingOutsideBothSidesProductInterval
                   const shouldClipSmoothProductToImplicitDomain =
                     legalDomainClipSourcePath &&
                     !productFinalClipsInsideImplicitDomain &&
+                    !intervalUsesDoubledCenterOutsideLegalProduct &&
                     !isBoundaryDomainProductInterval &&
+                    !intervalUsesSourceDomainExplicitSideProduct &&
                     !isClosedConstrainedSourceCoverageInterval(interval) &&
                     (stroke.position === 'inside' ||
                       (stroke.position === 'outside' &&
                         !isOpenDanglingOutsideBothSidesProductInterval)) &&
                     options.clipInsideToFillDomain === true &&
                     (options.implicitFillRegions?.length ?? 0) > 0
-                  const shouldStitchSmoothProductFragments =
-                    stroke.cap !== 'round'
-                  let stitchedSmoothProductPolygons =
-                    shouldSkipPostClipFragmentStitch ||
-                    !shouldStitchSmoothProductFragments
-                      ? cleanedPolygons
-                      : measureStrokePipelinePhase(
-                          'constrained dashed interval post process: stitch',
-                          () =>
-                            stitchClippedProductFragments(
-                              cleanedPolygons,
-                              Math.max(
-                                0.05,
-                                Math.min(0.2, intervalStroke.width * 0.02)
-                              )
-                            )
-                        )
-                  if (
-                    shouldSkipPostClipFragmentStitch &&
-                    (options.implicitFillRegions?.length ?? 0) === 0
-                  ) {
-                    const smoothSourceBoundary =
-                      intervalProductSweep?.ranges.flatMap(({ range }) =>
-                        slicePathGeometryPoints(
-                          clipReferenceSourcePath,
-                          range.startDistance,
-                          range.endDistance,
-                          false,
-                          Math.min(
-                            0.5,
-                            clipReferenceSlicingContext?.samplingTolerance ??
-                              0.5
-                          ),
-                          clipReferenceSlicingContext?.samplingOptions
-                        )
-                      ) ?? []
-                    const smoothOffsetBoundary = clipReferenceSlicingContext
-                      ? (intervalProductSweep?.ranges.flatMap(({ range }) =>
-                          sliceExactOffsetRibbonRangeFrames(
-                            clipReferenceSourcePath,
-                            range,
-                            clipReferenceSlicingContext,
-                            intervalStroke
-                          ).map((frame) => frame.offsetPoint)
-                        ) ?? [])
-                      : []
-                    const clippedSmoothProduct = measureStrokePipelinePhase(
-                      'constrained dashed interval post process: smooth source clip',
-                      () =>
-                        clipSourcePathPolygonsToEvenOddLegalDomain(
-                          stitchedSmoothProductPolygons,
-                          clipReferenceSourcePath,
-                          { position: stroke.position },
-                          [],
-                          {
-                            fragmentStitchRadius: 0,
-                            fragmentPruneArea: 0,
-                            restoreSubjectBoundaryMaxEdgeLength: Math.max(
-                              ROUND_CAP_VISUAL_MAX_LENGTH,
-                              Math.min(3.5, intervalStroke.width * 0.35)
-                            ),
-                            restoreSubjectBoundarySnapTolerance: Math.max(
-                              0.75,
-                              intervalStroke.width
-                            ),
-                            cleanupMicroEdgeTolerance: 0.001,
-                            cleanupCollinearTolerance: 0.0001
-                          }
-                        )
-                    )
-                    const sourceBoundaryPreserved =
-                      preserveSmoothSourceBoundaryEdges(
-                        clippedSmoothProduct,
-                        smoothSourceBoundary,
-                        ROUND_CAP_VISUAL_MAX_LENGTH,
-                        Math.max(0.75, intervalStroke.width)
-                      )
-                    return preserveSmoothSourceBoundaryEdges(
-                      sourceBoundaryPreserved,
-                      smoothOffsetBoundary,
-                      ROUND_CAP_VISUAL_MAX_LENGTH,
-                      Math.max(0.75, intervalStroke.width)
-                    )
-                  }
+                  let smoothProductPolygons = cleanedPolygons
                   if (
                     shouldClipSmoothProductToImplicitDomain &&
-                    stitchedSmoothProductPolygons.length > 0 &&
+                    stroke.position === 'inside' &&
+                    smoothProductPolygons.length > 0 &&
                     clipReferenceSourcePath
                   ) {
-                    stitchedSmoothProductPolygons = measureStrokePipelinePhase(
+                    smoothProductPolygons = measureStrokePipelinePhase(
                       'constrained dashed interval post process: smooth implicit clip',
                       () =>
                         clipSourcePathPolygonsToEvenOddLegalDomain(
-                          stitchedSmoothProductPolygons,
+                          smoothProductPolygons,
                           legalDomainClipSourcePath,
                           { position: stroke.position },
                           options.implicitFillRegions ?? [],
                           {
-                            restoreSubjectBoundaryPolygons: [],
-                            restoreSubjectBoundaryPaths: [],
-                            fragmentStitchRadius: 0,
-                            fragmentPruneArea: 0,
                             cleanupMicroEdgeTolerance: 0.001,
                             cleanupCollinearTolerance: 0.0001
                           }
@@ -15422,21 +27793,26 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                   const shouldDeferSmoothProductNormalizationToOutsideLegalClip =
                     stroke.position === 'outside' &&
                     isBoundaryDomainProductInterval &&
-                    stitchedSmoothProductPolygons.length > 0 &&
+                    smoothProductPolygons.length > 0 &&
                     legalDomainClipSourcePath !== undefined &&
                     (options.implicitFillRegions?.length ?? 0) > 0
+                  const shouldPreserveDoubledCenterOutsideLegalFragments = false
                   let normalizedSmoothProduct =
                     shouldDeferSmoothProductNormalizationToOutsideLegalClip ||
+                    shouldPreserveDoubledCenterOutsideLegalFragments ||
                     (shouldClipSmoothProductToImplicitDomain &&
                       stroke.position === 'inside')
-                      ? stitchedSmoothProductPolygons
+                      ? smoothProductPolygons
                       : measureStrokePipelinePhase(
                           'constrained dashed interval post process: normalize smooth',
                           () =>
                             normalizeConstrainedDashedProductPolygons(
-                              stitchedSmoothProductPolygons,
+                              smoothProductPolygons,
                               {
-                                cleanClipResidue: true,
+                                cleanClipResidue:
+                                  smoothProductPolygons !== cleanedPolygons,
+                                inputAlreadyClean:
+                                  smoothProductPolygons === cleanedPolygons,
                                 mergeContinuousInterval: true
                               }
                             )
@@ -15455,10 +27831,6 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                           { position: stroke.position },
                           options.implicitFillRegions ?? [],
                           {
-                            restoreSubjectBoundaryPolygons: [],
-                            restoreSubjectBoundaryPaths: [],
-                            fragmentStitchRadius: 0,
-                            fragmentPruneArea: 0,
                             cleanupMicroEdgeTolerance: 0.001,
                             cleanupCollinearTolerance: 0.0001
                           }
@@ -15473,14 +27845,21 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                   if (
                     stroke.position !== 'inside' &&
                     isBoundaryDomainProductInterval &&
+                    !isOutsideRoundBoundaryTerminalProductInterval &&
                     isClosedConstrainedSourceCoverageInterval(interval)
                   ) {
-                    return boundaryClippedSmoothProduct
+                    return stroke.position === 'outside' &&
+                      (options.implicitFillRegions?.length ?? 0) > 0 &&
+                      !selectedSideProductOwnsOutsideDomain
+                      ? enforceOutsideResolvedFillProductDomain(
+                          boundaryClippedSmoothProduct,
+                          options.implicitFillRegions ?? []
+                        )
+                      : boundaryClippedSmoothProduct
                   }
 
                   if (stroke.position === 'inside') {
-                    return isBoundaryDomainProductInterval ||
-                      isClosedConstrainedSourceCoverageInterval(interval)
+                    return isClosedConstrainedSourceCoverageInterval(interval)
                       ? boundaryClippedSmoothProduct
                       : enforceInsideImplicitFillProductDomain(
                           boundaryClippedSmoothProduct,
@@ -15496,11 +27875,27 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
 
                   if (
                     stroke.position === 'outside' &&
+                    intervalUsesSourceDomainExplicitSideProduct &&
+                    (options.implicitFillRegions?.length ?? 0) > 0 &&
+                    !selectedSideProductOwnsOutsideDomain
+                  ) {
+                    return enforceOutsideResolvedFillProductDomain(
+                      boundaryClippedSmoothProduct,
+                      options.implicitFillRegions ?? []
+                    )
+                  }
+
+                  if (
+                    stroke.position === 'outside' &&
                     isBoundaryDomainProductInterval &&
+                    !isOutsideRoundBoundaryTerminalProductInterval &&
                     boundaryClippedSmoothProduct.length > 0 &&
                     legalDomainClipSourcePath &&
                     (options.implicitFillRegions?.length ?? 0) > 0
                   ) {
+                    if (selectedSideProductOwnsOutsideDomain) {
+                      return boundaryClippedSmoothProduct
+                    }
                     emitStrokePipelineCounter(
                       'outside-legal-clip-boundary-smooth-call'
                     )
@@ -15513,45 +27908,213 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                           { position: stroke.position },
                           options.implicitFillRegions ?? [],
                           {
-                            restoreSubjectBoundaryPolygons: [],
-                            restoreSubjectBoundaryPaths: [],
-                            fragmentStitchRadius: 0,
-                            fragmentPruneArea: 0,
                             cleanupMicroEdgeTolerance: 0.001,
                             cleanupCollinearTolerance: 0.0001,
                             outsideFillRule: topology.fillRule
                           }
                         )
                     )
-                    return legalBoundaryProduct
+                    return normalizeConstrainedDashedProductPolygons(
+                      enforceOutsideResolvedFillProductDomain(
+                        legalBoundaryProduct,
+                        options.implicitFillRegions ?? []
+                      ),
+                      {
+                        cleanClipResidue: true,
+                        mergeContinuousInterval: true
+                      }
+                    )
                   }
 
-                  return isBoundaryDomainProductVisibleInterval(interval) ||
+                  if (
+                    intervalUsesBoundaryDomainProduct ||
                     (shouldClipSmoothProductToImplicitDomain &&
-                      isBoundaryDomainProductVisibleInterval(interval))
-                    ? boundaryClippedSmoothProduct
-                    : enforceInsideImplicitFillProductDomain(
-                        boundaryClippedSmoothProduct,
-                        legalDomainClipSourcePath,
-                        stroke,
-                        options.implicitFillRegions ?? []
-                      )
+                      intervalUsesBoundaryDomainProduct)
+                  ) {
+                    return stroke.position === 'outside' &&
+                      isOutsideRoundBoundaryTerminalProductInterval &&
+                      boundaryClippedSmoothProduct.length > 0 &&
+                      (options.implicitFillRegions?.length ?? 0) > 0
+                      ? enforceOutsideResolvedFillProductDomain(
+                          boundaryClippedSmoothProduct,
+                          options.implicitFillRegions ?? []
+                        )
+                      : boundaryClippedSmoothProduct
+                  }
+
+                  const shouldEnforceOutsideSourceDomainBoundaryProduct =
+                    stroke.position === 'outside' &&
+                    (options.implicitFillRegions?.length ?? 0) > 0 &&
+                    isBoundaryDomainProductVisibleInterval(interval) &&
+                    materializationInterval.materializationDistanceSpace ===
+                      'source-domain' &&
+                    !selectedSideProductOwnsOutsideDomain
+                  const shouldEnforceOutsideImplicitDomainProduct =
+                    stroke.position === 'outside' &&
+                    (options.implicitFillRegions?.length ?? 0) > 0 &&
+                    boundaryClippedSmoothProduct.length > 0 &&
+                    !isOpenDanglingOutsideBothSidesProductInterval &&
+                    !selectedSideProductOwnsOutsideDomain
+                  const legalityResolvedSmoothProduct =
+                    shouldEnforceOutsideSourceDomainBoundaryProduct ||
+                    shouldEnforceOutsideImplicitDomainProduct
+                      ? enforceOutsideResolvedFillProductDomain(
+                          boundaryClippedSmoothProduct,
+                          options.implicitFillRegions ?? []
+                        )
+                      : enforceInsideImplicitFillProductDomain(
+                          boundaryClippedSmoothProduct,
+                          legalDomainClipSourcePath,
+                          stroke,
+                          options.implicitFillRegions ?? []
+                        )
+                  return normalizeConstrainedDashedProductPolygons(
+                    legalityResolvedSmoothProduct,
+                    {
+                      cleanClipResidue: true,
+                      mergeContinuousInterval: true
+                    }
+                  )
                 }
               ))
           if (
             !intervalHasExactRenderDescriptor &&
             !cachedIntervalProduct &&
+            shouldUseJoinIndependentIntervalProductCache &&
             intervalProductCacheKey &&
             intervalProductCacheOrigin
           ) {
             setCachedConstrainedDashedJoinIndependentIntervalProduct(
               intervalProductCacheKey,
               intervalProductCacheOrigin,
-              polygons
+              intervalPostProcessedPolygons
             )
           }
 
-          if (polygons.length === 0) {
+          const joinOwnershipRecords:
+            | SolidCenterStrokeGeometryDebugMeta['joinOwnershipRecords']
+            | undefined = undefined
+          const intervalTerminalBodyStrokePath =
+            intervalCarriesJoinOwnedTerminalBody &&
+            stroke.cap === 'round' &&
+            effectiveSourcePath &&
+            effectiveSourcePathSlicingContext
+              ? sliceIntervalStrokePathPoints(
+                  effectiveSourcePath,
+                  materializationInterval,
+                  effectiveSourcePathSlicingContext
+                )
+              : []
+          const shouldEnforceOutsideTerminalBodyLegalProduct =
+            intervalCarriesJoinOwnedTerminalBody &&
+            stroke.position === 'outside' &&
+            (options.implicitFillRegions?.length ?? 0) > 0 &&
+            (!selectedSideProductOwnsOutsideDomain ||
+              materializationInterval.materializationDistanceSpace ===
+                'source-domain' ||
+              interval.domainPlanSideAuthority === 'implicit-fill-hole-domain')
+          const capPreservedPolygons =
+            intervalCarriesJoinOwnedTerminalBody &&
+            stroke.cap === 'round' &&
+            (shouldEnforceOutsideTerminalBodyLegalProduct ||
+              !selectedSideProductOwnsOutsideDomain) &&
+            intervalTerminalBodyStrokePath.length >= 2
+              ? preserveEndpointPolicyBodySideCapProductPolygons(
+                  intervalPostProcessedPolygons,
+                  intervalTerminalBodyStrokePath,
+                  intervalEndpointCapPolicy,
+                  stroke.cap,
+                  intervalStroke.width * 2,
+                  {
+                    outsideLegalClipRegions: options.implicitFillRegions ?? [],
+                    outsideFillRule: topology.fillRule,
+                    outsideProductAlreadyLegal:
+                      !shouldEnforceOutsideTerminalBodyLegalProduct &&
+                      selectedSideProductOwnsOutsideDomain
+                  }
+                )
+              : intervalPostProcessedPolygons
+          const shouldEnforceOutsideSourceDomainTerminalBodyCap =
+            shouldEnforceOutsideTerminalBodyLegalProduct &&
+            stroke.cap === 'round' &&
+            materializationInterval.materializationDistanceSpace ===
+              'source-domain' &&
+            interval.domainPlanSideAuthority === 'implicit-fill-hole-domain'
+          const polygons = shouldEnforceOutsideTerminalBodyLegalProduct
+            ? shouldEnforceOutsideSourceDomainTerminalBodyCap
+              ? enforceOutsideTerminalBodyFillProductDomain(
+                  capPreservedPolygons,
+                  options.implicitFillRegions ?? [],
+                  'materialized-source-domain-terminal-body-cap'
+                )
+              : enforceOutsideResolvedFillProductDomain(
+                  capPreservedPolygons,
+                  options.implicitFillRegions ?? [],
+                  {
+                    outsideLegalResidueCaller: 'materialized-terminal-body'
+                  }
+                )
+            : capPreservedPolygons
+
+          const intervalOwnsSmoothContinuityProduct =
+            intervalHasSmoothContinuityAcrossSweepRanges ||
+            (intervalIsAdjacentToAuthoredSmoothSourceBoundary &&
+              intervalHasCurvedSourcePathSweepRange)
+          const smoothContinuityGroupId = intervalOwnsSmoothContinuityProduct
+            ? intervalSmoothContinuityGroup?.groupId
+            : undefined
+          const intervalProductPolygons =
+            intervalDescriptorProductPolygons ?? polygons
+          const intervalHasCanonicalSmoothContinuityFootprint =
+            smoothContinuityGroupId !== undefined &&
+            intervalProductPolygons.length === 1 &&
+            intervalOwnsSmoothContinuityProduct
+          const intervalIsSmoothContinuityProduct =
+            smoothContinuityGroupId !== undefined &&
+            (intervalRenderDescriptor !== undefined ||
+              intervalHasCanonicalSmoothContinuityFootprint ||
+              intervalOwnsSmoothContinuityProduct)
+          const rawEmittedProductPolygons =
+            intervalHasCanonicalSmoothContinuityFootprint ||
+            (intervalIsSmoothContinuityProduct &&
+              intervalRenderDescriptor !== undefined &&
+              intervalProductPolygons.length === 1)
+              ? intervalProductPolygons
+              : polygons
+          const emittedProductPolygons = rawEmittedProductPolygons
+          const intervalIsTerminalBodyProduct =
+            !intervalIsSmoothContinuityProduct &&
+            interval.domainPlanTerminalRole !== undefined &&
+            interval.domainPlanTerminalRole !== 'middle'
+          if (
+            intervalIsSmoothContinuityProduct &&
+            emittedProductPolygons.length > 1
+          ) {
+            emitStrokePipelineTrace('smooth-continuity-fragmented-product', {
+              intervalId: interval.intervalId,
+              domainPlanSplitRangeId: interval.domainPlanSplitRangeId,
+              domainPlanBoundaryDomainId: interval.domainPlanBoundaryDomainId,
+              domainPlanTerminalRole: interval.domainPlanTerminalRole,
+              materializationDistanceSpace:
+                materializationInterval.materializationDistanceSpace,
+              intervalUsesBoundaryDomainProduct,
+              intervalUsesDoubledCenterOutsideLegalProduct,
+              intervalUsesSourceDomainExplicitSideProduct,
+              intervalOwnsSmoothContinuityProduct,
+              intervalHasCurvedSourcePathSweepRange,
+              intervalHasSmoothContinuityAcrossSweepRanges,
+              intervalIsAdjacentToAuthoredSmoothSourceBoundary,
+              intervalSweepSpanCount,
+              terminalCapCount,
+              rawPolygonCount: intervalPolygons.length,
+              postProcessedPolygonCount: intervalPostProcessedPolygons.length,
+              capPreservedPolygonCount: capPreservedPolygons.length,
+              finalPolygonCount: polygons.length,
+              emittedPolygonCount: emittedProductPolygons.length
+            })
+          }
+
+          if (emittedProductPolygons.length === 0) {
             emitStrokePipelineTrace('constrained-dashed-empty-product', {
               intervalId: interval.intervalId,
               domainPlanSplitRangeId: interval.domainPlanSplitRangeId,
@@ -15592,7 +28155,12 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                   rangeEndpointCapPolicy: rangeEndpointCapPolicy.signature
                 })
               ),
+              sourceDomainExplicitSideProduct:
+                intervalUsesSourceDomainExplicitSideProduct,
+              selectedSideProductOwnsOutsideDomain,
               rawProductArea,
+              selectedSideProductArea,
+              processedProductArea,
               cleanedProductArea,
               boundaryClippedProductArea,
               boundarySideClippedProductArea,
@@ -15602,7 +28170,9 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             })
             return []
           }
-          const finalProductArea = getPolygonsAbsoluteArea(polygons)
+          const finalProductArea = getPolygonsAbsoluteArea(
+            emittedProductPolygons
+          )
 
           const { geometryId, domainPlanSplitRangeTerminals } =
             measureStrokePipelinePhase(
@@ -15616,20 +28186,109 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 }
               }
             )
+          const sourceVertexJoinOwnershipSignature =
+            intervalSourceVertexBoundaryJoinSignature
           const joinOwnershipSignature = 'source-path'
-          const joinOwnershipRecords = undefined
-          const dashEndpointCapPolicySignature =
+          const joinOwnershipSignatures =
+            intervalHasSourceVertexBoundaryJoin &&
+            sourceVertexJoinOwnershipSignature !== 'source-path'
+              ? uniqueStrings([
+                  joinOwnershipSignature,
+                  sourceVertexJoinOwnershipSignature,
+                  ...(intervalCarriesJoinOwnedTerminalBody
+                    ? ['join-owned-terminal-body']
+                    : [])
+                ])
+              : undefined
+          const rawDashEndpointCapPolicySignature =
             intervalEndpointCapPolicy?.signature
+          const dashEndpointCapPolicySignature =
+            rawDashEndpointCapPolicySignature
           const dashEndpointCapPolicyTerminalRole =
             intervalEndpointCapPolicy?.terminalRole
-          const smoothContinuityGroupId = intervalSmoothContinuityGroup?.groupId
-          const productSourceSegmentIndexes = Array.from(
-            new Set(
-              intervalProductSweep?.ranges.map(
-                ({ range }) => range.segmentIndex
-              ) ?? []
-            )
-          ).sort((a, b) => a - b)
+          const routeSmoothContinuityGroupId = intervalIsSmoothContinuityProduct
+            ? smoothContinuityGroupId
+            : undefined
+          const materializedSelectedSide =
+            getSourceDomainMaterializedSelectedSide(materializationInterval) ??
+            interval.domainPlanSelectedSide
+          const materializedSourceStartDistance =
+            materializationInterval.materializationDistanceSpace ===
+            'source-domain'
+              ? materializationInterval.startDistance
+              : (materializationInterval.domainPlanSplitRangeSourceStartDistance ??
+                interval.domainPlanSplitRangeSourceStartDistance)
+          const materializedSourceEndDistance =
+            materializationInterval.materializationDistanceSpace ===
+            'source-domain'
+              ? materializationInterval.endDistance
+              : (materializationInterval.domainPlanSplitRangeSourceEndDistance ??
+                interval.domainPlanSplitRangeSourceEndDistance)
+          const materializedDistanceSpace =
+            materializationInterval.materializationDistanceSpace ??
+            (materializedSourceStartDistance !== undefined &&
+            materializedSourceEndDistance !== undefined
+              ? 'source-domain'
+              : undefined)
+          const dashProductIntervals: NonNullable<
+            SolidCenterStrokeGeometryDebugMeta['dashProductIntervals']
+          > = [
+            {
+              intervalId: interval.intervalId,
+              splitRangeId: interval.domainPlanSplitRangeId,
+              splitRangeAliasIds: interval.domainPlanSplitRangeAliasIds,
+              terminalRole: interval.domainPlanTerminalRole,
+              startDistance: interval.startDistance,
+              endDistance: interval.endDistance,
+              effectiveStartDistance: materializationInterval.startDistance,
+              effectiveEndDistance: materializationInterval.endDistance,
+              boundaryDomainId: interval.domainPlanBoundaryDomainId,
+              boundaryPoints: interval.domainPlanBoundaryPoints
+                ? interval.domainPlanBoundaryPoints.map((point) => ({
+                    ...point
+                  }))
+                : undefined,
+              boundaryStartDistance: interval.domainPlanBoundaryStartDistance,
+              boundaryEndDistance: interval.domainPlanBoundaryEndDistance,
+              boundaryTotalLength: interval.domainPlanBoundaryTotalLength,
+              boundaryRole: interval.domainPlanBoundaryRole,
+              selectedSide: interval.domainPlanSelectedSide,
+              materializedSelectedSide,
+              filledSide: interval.domainPlanFilledSide,
+              unfilledSide: interval.domainPlanUnfilledSide,
+              sourceSegmentIndex:
+                interval.domainPlanSplitRangeSourceSegmentIndex,
+              endpointCapPolicySignature: dashEndpointCapPolicySignature,
+              joinOwnershipSignature,
+              smoothContinuityGroupId,
+              materializationDistanceSpace: materializedDistanceSpace,
+              sourceStartDistance: materializedSourceStartDistance,
+              sourceEndDistance: materializedSourceEndDistance
+            }
+          ]
+          const dashBodySeamBoundaries =
+            intervalHasSourceVertexBoundaryJoin &&
+            intervalEndpointCapPolicy !== undefined
+              ? buildDashBodySeamBoundaryArtifactsForInterval({
+                  interval,
+                  plans:
+                    sourceVertexBoundaryJoinPlansByIntervalId.get(
+                      interval.intervalId
+                    ) ?? [],
+                  emittedProductPolygons,
+                  endpointCapPolicy: intervalEndpointCapPolicy
+                })
+              : undefined
+          const productSourceSegmentIndexes =
+            interval.domainPlanSplitRangeSourceSegmentIndex === undefined
+              ? Array.from(
+                  new Set(
+                    intervalProductSweep?.ranges.map(
+                      ({ range }) => range.segmentIndex
+                    ) ?? []
+                  )
+                ).sort((a, b) => a - b)
+              : [interval.domainPlanSplitRangeSourceSegmentIndex]
           const intervalProductDomainMode =
             getFormalProductDomainModeForInterval(strokeDomainPlan, interval)
           if (!intervalProductDomainMode) {
@@ -15648,6 +28307,25 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             smoothContinuityGroupId ?? '',
             productSourceSegmentIndexes.join(',')
           ].join(':')
+          const intervalVisibleContributor = intervalIsSmoothContinuityProduct
+            ? intervalRenderDescriptor !== undefined
+              ? 'same-owner-smooth-span-descriptor'
+              : 'smooth-continuity-dash-body'
+            : intervalIsTerminalBodyProduct
+              ? 'terminal-interval-body'
+              : 'dash-interval-body'
+          const intervalGeometryBasis = intervalIsSmoothContinuityProduct
+            ? intervalRenderDescriptor !== undefined
+              ? 'declared-smooth-span-descriptor'
+              : 'single-continuous-smooth-footprint'
+            : intervalIsTerminalBodyProduct
+              ? 'terminal-dash-interval-body'
+              : 'dash-interval-body'
+          const intervalRouteId = intervalIsSmoothContinuityProduct
+            ? 'constrained-dashed-smooth-continuity-product'
+            : intervalIsTerminalBodyProduct
+              ? 'constrained-dashed-terminal-body-product'
+              : 'constrained-dashed-interval-body-product'
           const debugMeta: SolidCenterStrokeGeometryDebugMeta = {
             sourcePathId: cachePrefix,
             ownerKey: `${ownerPrefix}:stroke:${strokeIndex}`,
@@ -15663,12 +28341,24 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             strokeJoin: stroke.join,
             strokeCap: stroke.cap,
             strokeMiterLimit: stroke.miterLimit,
+            ownerStage: intervalIsSmoothContinuityProduct
+              ? 'Stroke Geometry smooth-continuity product assembly'
+              : intervalIsTerminalBodyProduct
+                ? 'Stroke Geometry terminal body assembly'
+                : 'Stroke Geometry dash interval body assembly',
+            routeId: intervalRouteId,
+            visibleContributor: intervalVisibleContributor,
+            geometryBasis: intervalGeometryBasis,
+            constrainedDashedJoinDiagnostics: baseJoinDiagnostics,
             dashEndpointCapPolicySignature,
             dashEndpointCapPolicyTerminalRole,
+            dashProductIntervals,
+            dashBodySeamBoundaries,
             materializedEndpointCaps: undefined,
             joinOwnershipSignature,
+            joinOwnershipSignatures,
             joinOwnershipRecords,
-            smoothContinuityGroupId,
+            smoothContinuityGroupId: routeSmoothContinuityGroupId,
             ownerSet: options.metadata?.ownerSet,
             productSourceSegmentIndexes,
             sourceContourIds: options.metadata?.sourceContourIds,
@@ -15680,7 +28370,13 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             materializedStartDistance: materializationInterval.startDistance,
             materializedEndDistance: materializationInterval.endDistance,
             materializedWrapsSeam: materializationInterval.wrapsSeam,
+            materializationDistanceSpace: materializedDistanceSpace,
+            sourceDomainExplicitSideProduct:
+              intervalUsesSourceDomainExplicitSideProduct,
+            selectedSideProductOwnsOutsideDomain,
             rawProductArea,
+            selectedSideProductArea,
+            processedProductArea,
             cleanedProductArea,
             boundaryClippedProductArea,
             finalProductArea,
@@ -15720,15 +28416,23 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             domainPlanBoundaryTotalLength:
               interval.domainPlanBoundaryTotalLength,
             domainPlanSplitRangeId: interval.domainPlanSplitRangeId,
+            domainPlanSplitRangeAliasIds: interval.domainPlanSplitRangeAliasIds,
             domainPlanSplitRangeStartDistance:
               interval.domainPlanSplitRangeStartDistance,
             domainPlanSplitRangeEndDistance:
               interval.domainPlanSplitRangeEndDistance,
+            domainPlanSplitRangeSourceStartDistance:
+              interval.domainPlanSplitRangeSourceStartDistance ??
+              materializedSourceStartDistance,
+            domainPlanSplitRangeSourceEndDistance:
+              interval.domainPlanSplitRangeSourceEndDistance ??
+              materializedSourceEndDistance,
             domainPlanTerminalRole: interval.domainPlanTerminalRole,
             domainPlanSplitRangeSourceSegmentIndex:
               interval.domainPlanSplitRangeSourceSegmentIndex,
             domainPlanSideAuthority: interval.domainPlanSideAuthority,
             domainPlanSelectedSide: interval.domainPlanSelectedSide,
+            domainPlanMaterializedSelectedSide: materializedSelectedSide,
             domainPlanFilledSide: interval.domainPlanFilledSide,
             domainPlanUnfilledSide: interval.domainPlanUnfilledSide,
             domainPlanBoundaryRole: interval.domainPlanBoundaryRole,
@@ -15750,8 +28454,8 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
               endpointCapPolicySignature: dashEndpointCapPolicySignature,
               joinOwnershipSignature,
               smoothContinuitySignature:
-                smoothContinuityGroupId !== undefined
-                  ? `smooth-continuity:${smoothContinuityGroupId}`
+                routeSmoothContinuityGroupId !== undefined
+                  ? `smooth-continuity:${routeSmoothContinuityGroupId}`
                   : undefined,
               productMaterializationSignature: [
                 'product-materialization',
@@ -15762,7 +28466,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 productSignature,
                 dashEndpointCapPolicySignature ?? '',
                 joinOwnershipSignature,
-                smoothContinuityGroupId ?? ''
+                routeSmoothContinuityGroupId ?? ''
               ].join(':'),
               resolvedRegionSignature: [
                 'resolved-region',
@@ -15779,10 +28483,14 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
           const packet = {
             geometry: {
               geometryId,
-              polygons,
-              bounds: getBounds(polygons),
+              polygons: emittedProductPolygons,
+              bounds: getBounds(emittedProductPolygons),
               debugMeta,
-              renderDescriptor: intervalRenderDescriptor
+              renderDescriptor:
+                (intervalRenderDescriptor?.strokePathGroups?.length ?? 0) > 0 ||
+                (intervalRenderDescriptor?.strokePaths?.length ?? 0) > 0
+                  ? undefined
+                  : intervalRenderDescriptor
             },
             paint: {
               geometryId,
@@ -15813,6 +28521,7 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
         ) =>
           packets.flatMap((packet) => {
             const debugMeta = packet.geometry.debugMeta
+            const packetIntervalIds = getPacketIntervalIds(packet)
             const hasMaterializedJoin =
               (debugMeta?.joinOwnershipRecords?.length ?? 0) > 0
             const hasDescriptorProductJoin =
@@ -15827,7 +28536,21 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
                 (debugMeta?.joinOwnershipSignatures ?? []).includes(
                   'source-path'
                 ))
-            return ownsSourcePathJoin ? getPacketIntervalIds(packet) : []
+            if (!ownsSourcePathJoin) {
+              return []
+            }
+            if (
+              stroke.position === 'inside' &&
+              debugMeta?.productSignature?.includes(
+                ':inside-aggregate-descriptor:'
+              ) === true
+            ) {
+              return packetIntervalIds.filter(
+                (intervalId) =>
+                  !joinOwnedTerminalPlanIntervalIds.has(intervalId)
+              )
+            }
+            return packetIntervalIds
           })
         const isCoveredByAggregateDescriptor = (
           packet: SolidCenterStrokeResolvedPacket
@@ -15840,45 +28563,2303 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
             )
           )
         }
-        const materializedProductPackets = materializedIntervalPackets.filter(
-          (packet) => !isCoveredByAggregateDescriptor(packet)
+        const materializedProductPackets = measureStrokePipelinePhase(
+          'constrained dashed packets product assembly: filter aggregate-covered',
+          () =>
+            materializedIntervalPackets.filter(
+              (packet) => !isCoveredByAggregateDescriptor(packet)
+            )
         )
-        const sourcePathJoinIntervalIds = new Set(
-          getSourcePathJoinOwnedIntervalIds([
-            ...aggregateDescriptorPackets,
-            ...materializedProductPackets
-          ])
+        const insideAggregateOwnershipExcludePolygons =
+          stroke.position === 'inside'
+            ? materializedProductPackets.flatMap((packet) => {
+                const intervalIds = getPacketIntervalIds(packet)
+                return intervalIds.some(
+                  (intervalId) =>
+                    joinOwnedTerminalPlanIntervalIds.has(intervalId) &&
+                    !(
+                      stroke.cap === 'butt' &&
+                      joinOwnedTerminalPlanIntervalIds.has(intervalId)
+                    )
+                )
+                  ? packet.geometry.polygons
+                  : []
+              })
+            : []
+        const applyInsideAggregateOwnershipExclusion = (
+          packet: SolidCenterStrokeResolvedPacket
+        ): SolidCenterStrokeResolvedPacket | null => {
+          if (
+            stroke.position !== 'inside' ||
+            insideAggregateOwnershipExcludePolygons.length === 0 ||
+            packet.geometry.debugMeta?.productSignature?.includes(
+              ':inside-aggregate-descriptor:'
+            ) !== true
+          ) {
+            return packet
+          }
+
+          const polygons = excludeDescriptorProductPolygons(
+            packet.geometry.polygons,
+            insideAggregateOwnershipExcludePolygons
+          )
+          if (polygons.length === 0) {
+            return null
+          }
+
+          const finalProductArea = getPolygonsAbsoluteArea(polygons)
+          const materializedStrokePathGroups =
+            packet.geometry.renderDescriptor?.strokePathGroups?.map(
+              (group) => ({
+                strokePaths: group.strokePaths,
+                strokePathStyle: group.strokePathStyle
+              })
+            )
+          return {
+            ...packet,
+            geometry: {
+              ...packet.geometry,
+              polygons,
+              bounds: getBounds(polygons),
+              debugMeta: packet.geometry.debugMeta
+                ? {
+                    ...packet.geometry.debugMeta,
+                    rawProductArea: finalProductArea,
+                    cleanedProductArea: finalProductArea,
+                    boundaryClippedProductArea: finalProductArea,
+                    finalProductArea
+                  }
+                : packet.geometry.debugMeta,
+              renderDescriptor: packet.geometry.renderDescriptor
+                ? {
+                    ...packet.geometry.renderDescriptor,
+                    descriptorProductPolygons: polygons,
+                    strokeMaskPolygons: undefined,
+                    strokePaths: undefined,
+                    strokePathGroups:
+                      materializedStrokePathGroups &&
+                      materializedStrokePathGroups.length > 0
+                        ? materializedStrokePathGroups
+                        : undefined
+                  }
+                : packet.geometry.renderDescriptor
+            }
+          }
+        }
+        const getTerminalRoleSortRank = (
+          role: SolidCenterStrokeGeometryDebugMeta['domainPlanTerminalRole']
+        ) => {
+          switch (role) {
+            case 'start':
+              return 0
+            case 'start-end':
+              return 1
+            case 'middle':
+              return 2
+            case 'end':
+              return 3
+            default:
+              return 4
+          }
+        }
+        const getIntervalIdSortNumber = (intervalId: string | undefined) => {
+          const numericId =
+            intervalId?.match(/^interval:(\d+)$/)?.[1] ?? undefined
+          return numericId === undefined
+            ? Number.POSITIVE_INFINITY
+            : Number(numericId)
+        }
+        const getTerminalAnchorDistance = (
+          packet: SolidCenterStrokeResolvedPacket
+        ) => {
+          const meta = packet.geometry.debugMeta
+          const sourceSegmentIndex =
+            meta?.domainPlanSplitRangeSourceSegmentIndex
+          const sourceSegment =
+            sourceSegmentIndex !== undefined
+              ? sourcePath?.segments[sourceSegmentIndex]
+              : undefined
+          const boundaryPoints = meta?.domainPlanBoundaryPoints
+          if (
+            !sourceSegment ||
+            !boundaryPoints ||
+            boundaryPoints.length === 0
+          ) {
+            return Number.POSITIVE_INFINITY
+          }
+          const terminalRole = meta?.domainPlanTerminalRole
+          const distances: number[] = []
+          if (terminalRole === 'start' || terminalRole === 'start-end') {
+            const terminalPoint = boundaryPoints[0]
+            if (terminalPoint) {
+              distances.push(
+                distanceBetween(terminalPoint, sourceSegment.start)
+              )
+            }
+          }
+          if (terminalRole === 'end' || terminalRole === 'start-end') {
+            const terminalPoint = boundaryPoints[boundaryPoints.length - 1]
+            if (terminalPoint) {
+              distances.push(distanceBetween(terminalPoint, sourceSegment.end))
+            }
+          }
+          return distances.length > 0
+            ? Math.min(...distances)
+            : Number.POSITIVE_INFINITY
+        }
+        const getMaterializedPacketSourceOrder = (
+          packet: SolidCenterStrokeResolvedPacket
+        ) => {
+          const meta = packet.geometry.debugMeta
+          return {
+            segmentIndex:
+              meta?.domainPlanSplitRangeSourceSegmentIndex ??
+              Number.POSITIVE_INFINITY,
+            sourceStartDistance:
+              meta?.domainPlanSplitRangeSourceStartDistance ??
+              meta?.startDistance ??
+              Number.POSITIVE_INFINITY,
+            sourceEndDistance:
+              meta?.domainPlanSplitRangeSourceEndDistance ??
+              meta?.endDistance ??
+              Number.POSITIVE_INFINITY,
+            terminalAnchorDistance: getTerminalAnchorDistance(packet),
+            terminalRank: getTerminalRoleSortRank(meta?.domainPlanTerminalRole),
+            intervalNumber: getIntervalIdSortNumber(meta?.intervalId)
+          }
+        }
+        const sortedMaterializedProductPackets = measureStrokePipelinePhase(
+          'constrained dashed packets product assembly: sort materialized packets',
+          () =>
+            [...materializedProductPackets].sort((first, second) => {
+              const firstOrder = getMaterializedPacketSourceOrder(first)
+              const secondOrder = getMaterializedPacketSourceOrder(second)
+              return (
+                firstOrder.segmentIndex - secondOrder.segmentIndex ||
+                firstOrder.sourceStartDistance -
+                  secondOrder.sourceStartDistance ||
+                firstOrder.sourceEndDistance - secondOrder.sourceEndDistance ||
+                firstOrder.terminalAnchorDistance -
+                  secondOrder.terminalAnchorDistance ||
+                firstOrder.terminalRank - secondOrder.terminalRank ||
+                firstOrder.intervalNumber - secondOrder.intervalNumber
+              )
+            })
+        )
+        const visibleAggregateDescriptorPackets = aggregateDescriptorPackets
+          .map(applyInsideAggregateOwnershipExclusion)
+          .filter(
+            (packet): packet is SolidCenterStrokeResolvedPacket =>
+              packet !== null
+          )
+        const sourcePathJoinIntervalIds = measureStrokePipelinePhase(
+          'constrained dashed packets product assembly: source-path join interval ids',
+          () =>
+            new Set(
+              getSourcePathJoinOwnedIntervalIds([
+                ...visibleAggregateDescriptorPackets,
+                ...sortedMaterializedProductPackets
+              ])
+            )
         )
         const uncoveredJoinPlans = sourceVertexBoundaryJoinPlans.filter(
           (plan) =>
+            (stroke.position === 'outside' && plan.kind === 'source-vertex') ||
             !plan.intervals.every((interval) =>
               sourcePathJoinIntervalIds.has(interval.intervalId)
             )
         )
-        const coveredProductPolygons = [
-          ...aggregateDescriptorPackets,
-          ...materializedProductPackets
-        ].flatMap((packet) => packet.geometry.polygons)
-        const joinProductPackets = buildSourceVertexBoundaryJoinPackets(
-          uncoveredJoinPlans,
-          coveredProductPolygons
+        if (hasStrokePipelineTraceSink()) {
+          emitStrokePipelineTrace('constrained-dashed-join-coverage', {
+            cachePrefix,
+            strokeIndex,
+            joinPlanCount: sourceVertexBoundaryJoinPlans.length,
+            sourcePathJoinIntervalIdCount: sourcePathJoinIntervalIds.size,
+            uncoveredJoinPlanCount: uncoveredJoinPlans.length
+          })
+        }
+        const coveredProductPolygons = measureStrokePipelinePhase(
+          'constrained dashed packets product assembly: covered product polygons',
+          () =>
+            [
+              ...visibleAggregateDescriptorPackets,
+              ...sortedMaterializedProductPackets
+            ].flatMap((packet) => packet.geometry.polygons)
         )
+        const refinedUncoveredJoinPlans = measureStrokePipelinePhase(
+          'constrained dashed packets product assembly: refine join seam artifacts',
+          () =>
+            refineSourceVertexBoundaryJoinPlansWithDashBodySeamArtifacts(
+              uncoveredJoinPlans,
+              [
+                ...visibleAggregateDescriptorPackets,
+                ...sortedMaterializedProductPackets
+              ],
+              {
+                strokePosition: stroke.position,
+                legalRegions: options.implicitFillRegions
+              }
+            )
+        )
+        const rawJoinProductPackets = measureStrokePipelinePhase(
+          'constrained dashed packets product assembly: raw join product packets',
+          () =>
+            buildSourceVertexBoundaryJoinPackets(
+              refinedUncoveredJoinPlans,
+              coveredProductPolygons,
+              visibleAggregateDescriptorPackets.some(
+                (packet) =>
+                  packet.geometry.debugMeta?.productSignature?.includes(
+                    ':inside-aggregate-descriptor:'
+                  ) === true
+              )
+            )
+        )
+        const isSourceVertexJoinDescriptorProductSignature = (
+          productSignature: string | undefined
+        ) => productSignature?.includes(':join-owned:source-vertex:') === true
+        const sourceVertexJoinDescriptorPolygons = measureStrokePipelinePhase(
+          'constrained dashed packets product assembly: source vertex descriptor polygons',
+          () =>
+            rawJoinProductPackets.flatMap((packet) =>
+              isSourceVertexJoinDescriptorProductSignature(
+                packet.geometry.debugMeta?.productSignature
+              )
+                ? packet.geometry.polygons
+                : []
+            )
+        )
+        const insideJoinProductDescriptorExclusionPolygons =
+          stroke.position === 'inside'
+            ? normalizeConstrainedDashedProductPolygons(
+                rawJoinProductPackets.flatMap(
+                  (packet) => packet.geometry.polygons
+                ),
+                {
+                  cleanClipResidue: true,
+                  mergeContinuousInterval: true
+                }
+              )
+            : []
+        const insideJoinProductDescriptorExclusionRegions =
+          insideJoinProductDescriptorExclusionPolygons.length > 0
+            ? toCoveragePolygonRegions(
+                insideJoinProductDescriptorExclusionPolygons
+              )
+            : undefined
+        const sourceVertexJoinDescriptorPolygonsByIntervalId = new Map<
+          string,
+          Vec2[][]
+        >()
+        type MaterializedSourceVertexJoinRecord = NonNullable<
+          SolidCenterStrokeGeometryDebugMeta['joinOwnershipRecords']
+        >[number]
+        const sourceVertexJoinRecordsByIntervalId = new Map<
+          string,
+          MaterializedSourceVertexJoinRecord[]
+        >()
+        measureStrokePipelinePhase(
+          'constrained dashed packets product assembly: source vertex descriptor indexes',
+          () => {
+            rawJoinProductPackets.forEach((packet) => {
+              if (
+                !isSourceVertexJoinDescriptorProductSignature(
+                  packet.geometry.debugMeta?.productSignature
+                ) &&
+                !(
+                  stroke.position === 'outside' &&
+                  packet.geometry.debugMeta?.productSignature?.includes(
+                    ':join-owned:boundary-terminal-pair:'
+                  ) === true
+                )
+              ) {
+                return
+              }
+              const packetPolygons = packet.geometry.polygons
+              getPacketIntervalIds(packet).forEach((intervalId) => {
+                sourceVertexJoinDescriptorPolygonsByIntervalId.set(intervalId, [
+                  ...(sourceVertexJoinDescriptorPolygonsByIntervalId.get(
+                    intervalId
+                  ) ?? []),
+                  ...packetPolygons
+                ])
+              })
+              packet.geometry.debugMeta?.joinOwnershipRecords
+                ?.filter((record) => record.kind === 'source-vertex')
+                .forEach((record) => {
+                  ;(record.intervalIds ?? []).forEach((intervalId) => {
+                    sourceVertexJoinRecordsByIntervalId.set(intervalId, [
+                      ...(sourceVertexJoinRecordsByIntervalId.get(intervalId) ??
+                        []),
+                      record
+                    ])
+                  })
+                })
+            })
+            sourceVertexJoinDescriptorPolygonsByIntervalId.forEach(
+              (polygons, intervalId) => {
+                sourceVertexJoinDescriptorPolygonsByIntervalId.set(
+                  intervalId,
+                  normalizeConstrainedDashedProductPolygons(polygons, {
+                    cleanClipResidue: true,
+                    mergeContinuousInterval: true
+                  })
+                )
+              }
+            )
+          }
+        )
+        const sourceVertexJoinOwnershipEnvelopePolygonsByIntervalId = new Map<
+          string,
+          Vec2[][]
+        >()
+        measureStrokePipelinePhase(
+          'constrained dashed packets product assembly: source vertex ownership envelope',
+          () => {
+            if (stroke.position === 'outside') {
+              const sourceVertexOwnershipEnvelopePlans: SourceVertexBoundaryJoinPlan[] =
+                uncoveredJoinPlans
+                  .filter((plan) => plan.kind === 'source-vertex')
+                  .flatMap((plan) =>
+                    stroke.join === 'bevel'
+                      ? [
+                          plan,
+                          {
+                            ...plan,
+                            selectedSide: (plan.selectedSide === 1 ? -1 : 1) as
+                              | 1
+                              | -1
+                          }
+                        ]
+                      : [plan]
+                  )
+              const roundOwnershipStroke = {
+                ...stroke,
+                join: 'round'
+              } as const
+              materializeSourceVertexBoundaryJoinRecords(
+                sourceVertexOwnershipEnvelopePlans,
+                sourcePath ?? null,
+                roundOwnershipStroke,
+                {
+                  implicitFillRegions: options.implicitFillRegions,
+                  clipInsideToFillDomain:
+                    options.clipInsideToFillDomain === true,
+                  cacheContextSignature: [
+                    cachePrefix,
+                    ownerPrefix,
+                    strokeIndex,
+                    'source-vertex-ownership-envelope'
+                  ].join(':'),
+                  joinEffectiveSignatureByPlan:
+                    joinEffectiveSignatureByPlan ?? undefined
+                }
+              ).forEach((record) => {
+                const roundOwnershipPolygons =
+                  buildJoinOwnedDashTerminalPolygons(
+                    record,
+                    roundOwnershipStroke
+                  ).filter(hasPolygonGeometry)
+                const coreOwnershipPolygons =
+                  expandDescriptorOwnershipExcludePolygons(
+                    roundOwnershipPolygons,
+                    Math.max(0.75, Math.min(5, stroke.width * 0.5))
+                  )
+                const baseEnvelopePolygons =
+                  coreOwnershipPolygons.length === 0
+                    ? record.polygons
+                    : normalizeConstrainedDashedProductPolygons(
+                        [...record.polygons, ...coreOwnershipPolygons],
+                        {
+                          cleanClipResidue: true,
+                          mergeContinuousInterval: true
+                        }
+                      )
+                const bevelOwnershipPolygons =
+                  stroke.join === 'bevel'
+                    ? buildJoinOwnedDashTerminalPolygons(record, stroke).filter(
+                        hasPolygonGeometry
+                      )
+                    : []
+                const roundOnlyOwnershipPolygons =
+                  stroke.join === 'bevel' && bevelOwnershipPolygons.length > 0
+                    ? expandDescriptorOwnershipExcludePolygons(
+                        excludeDescriptorProductPolygons(
+                          roundOwnershipPolygons,
+                          bevelOwnershipPolygons
+                        ),
+                        Math.max(0.75, Math.min(3, stroke.width * 0.3))
+                      )
+                    : []
+                const envelopePolygons =
+                  roundOnlyOwnershipPolygons.length > 0
+                    ? normalizeConstrainedDashedProductPolygons(
+                        [
+                          ...baseEnvelopePolygons,
+                          ...roundOnlyOwnershipPolygons
+                        ],
+                        {
+                          cleanClipResidue: true,
+                          mergeContinuousInterval: true
+                        }
+                      )
+                    : baseEnvelopePolygons
+                if (envelopePolygons.length === 0) {
+                  return
+                }
+                record.intervals.forEach((interval) => {
+                  sourceVertexJoinOwnershipEnvelopePolygonsByIntervalId.set(
+                    interval.intervalId,
+                    [
+                      ...(sourceVertexJoinOwnershipEnvelopePolygonsByIntervalId.get(
+                        interval.intervalId
+                      ) ?? []),
+                      ...envelopePolygons
+                    ]
+                  )
+                })
+              })
+            }
+            sourceVertexJoinOwnershipEnvelopePolygonsByIntervalId.forEach(
+              (polygons, intervalId) => {
+                sourceVertexJoinOwnershipEnvelopePolygonsByIntervalId.set(
+                  intervalId,
+                  normalizeConstrainedDashedProductPolygons(polygons, {
+                    cleanClipResidue: true,
+                    mergeContinuousInterval: true
+                  })
+                )
+              }
+            )
+          }
+        )
+        const sourceVertexJoinOwnershipBoundaryPolygonCandidates =
+          measureStrokePipelinePhase(
+            'constrained dashed packets product assembly: ownership boundary candidates',
+            () =>
+              [
+                ...Array.from(
+                  sourceVertexJoinOwnershipEnvelopePolygonsByIntervalId.values()
+                )
+                  .flat()
+                  .filter(hasPolygonGeometry),
+                ...sourceVertexJoinDescriptorPolygons
+              ].filter(hasPolygonGeometry)
+          )
+        const getSourcePathPacketJoinOwnershipExclusionPolygons = (
+          packet: SolidCenterStrokeResolvedPacket
+        ) => {
+          if (stroke.position !== 'outside') {
+            return insideJoinProductDescriptorExclusionPolygons
+          }
+
+          const intervalScopedExclusions = getPacketIntervalIds(packet)
+            .flatMap((intervalId) => [
+              ...(sourceVertexJoinOwnershipEnvelopePolygonsByIntervalId.get(
+                intervalId
+              ) ?? []),
+              ...(sourceVertexJoinDescriptorPolygonsByIntervalId.get(
+                intervalId
+              ) ?? [])
+            ])
+            .filter(hasPolygonGeometry)
+
+          const packetBounds = packet.geometry.bounds
+          const candidatePadding = Math.max(1, stroke.width * 0.5)
+          const boundsScopedExclusions =
+            sourceVertexJoinOwnershipBoundaryPolygonCandidates.filter(
+              (polygon) =>
+                boundsMayIntersect(
+                  getBounds([polygon]),
+                  packetBounds,
+                  candidatePadding
+                )
+            )
+          return [
+            ...intervalScopedExclusions,
+            ...boundsScopedExclusions
+          ].filter((polygon) => hasPolygonGeometry(polygon))
+        }
+        const applySourceVertexJoinDescriptorExclusion = (
+          packet: SolidCenterStrokeResolvedPacket
+        ): SolidCenterStrokeResolvedPacket | null => {
+          const debugMeta = packet.geometry.debugMeta
+          const isSmoothContinuityOwnedPacket =
+            debugMeta?.visibleContributor === 'smooth-continuity-dash-body' ||
+            debugMeta?.geometryBasis === 'single-continuous-smooth-footprint' ||
+            debugMeta?.smoothContinuityGroupId !== undefined
+          if (isSmoothContinuityOwnedPacket) {
+            return packet
+          }
+          const enforceOutsideOwnershipProductIfExpanded = (
+            polygons: Vec2[][],
+            basePolygons: Vec2[][]
+          ) => {
+            if (
+              stroke.position !== 'outside' ||
+              (options.implicitFillRegions?.length ?? 0) === 0
+            ) {
+              return polygons
+            }
+            const baseArea = getPolygonsAbsoluteArea(basePolygons)
+            const adjustedArea = getPolygonsAbsoluteArea(polygons)
+            return adjustedArea > baseArea + EPSILON
+              ? enforceOutsideResolvedFillProductDomain(
+                  polygons,
+                  options.implicitFillRegions ?? []
+                )
+              : polygons
+          }
+          const isSourceVertexJoinDescriptor =
+            debugMeta?.productSignature?.includes(
+              ':join-owned:source-vertex:'
+            ) === true
+          const isSourcePathPacket =
+            debugMeta?.joinOwnershipSignature === 'source-path' ||
+            (debugMeta?.joinOwnershipSignatures ?? []).includes('source-path')
+          const isInsideAggregateDescriptorPacket =
+            stroke.position === 'inside' &&
+            debugMeta?.productSignature?.includes(
+              ':inside-aggregate-descriptor:'
+            ) === true &&
+            packet.geometry.renderDescriptor !== undefined
+          const isJoinOwnedTerminalBodyPacket =
+            debugMeta?.joinOwnershipSignature === 'join-owned-terminal-body' ||
+            (debugMeta?.joinOwnershipSignatures ?? []).includes(
+              'join-owned-terminal-body'
+            )
+          const getPacketEndpointCapPolicy = () => {
+            const endpointCapPolicySignature =
+              debugMeta?.dashEndpointCapPolicySignature ??
+              debugMeta?.dashEndpointCapPolicySignatures?.[0]
+            if (!endpointCapPolicySignature) {
+              return null
+            }
+
+            const signatureParts = endpointCapPolicySignature.split(':')
+            const suppressStartCap = signatureParts.includes('start-flat')
+            const suppressEndCap = signatureParts.includes('end-flat')
+            if (
+              !suppressStartCap &&
+              !suppressEndCap &&
+              !signatureParts.includes('start-cap') &&
+              !signatureParts.includes('end-cap')
+            ) {
+              return null
+            }
+
+            return buildDashEndpointCapPolicyFromSuppression(
+              suppressStartCap,
+              suppressEndCap
+            )
+          }
+          const getPacketMaterializedStrokePath = () => {
+            const materializedPath = sourcePath ?? topologySourcePath
+            const materializedStartDistance =
+              debugMeta?.materializedStartDistance ??
+              debugMeta?.domainPlanSplitRangeSourceStartDistance
+            const materializedEndDistance =
+              debugMeta?.materializedEndDistance ??
+              debugMeta?.domainPlanSplitRangeSourceEndDistance
+            if (
+              materializedPath &&
+              materializedStartDistance !== undefined &&
+              materializedEndDistance !== undefined &&
+              materializedEndDistance > materializedStartDistance + EPSILON
+            ) {
+              const sliced = slicePathGeometryPoints(
+                materializedPath,
+                materializedStartDistance,
+                materializedEndDistance,
+                debugMeta?.materializedWrapsSeam ?? false,
+                SOURCE_PATH_DASH_SLICE_TOLERANCE,
+                SOURCE_PATH_DASH_SLICE_SAMPLING
+              )
+              if (sliced.length >= 2) {
+                return sliced
+              }
+            }
+
+            const boundaryPath = cleanBoundaryPath(
+              debugMeta?.domainPlanBoundaryPoints ?? []
+            )
+            return boundaryPath.length >= 2 ? boundaryPath : []
+          }
+          const clipTerminalBodyPolygonsToPacketEndpointPolicy = (
+            polygons: Vec2[][]
+          ) => {
+            if (polygons.length === 0) {
+              return []
+            }
+
+            const endpointCapPolicy = getPacketEndpointCapPolicy()
+            const strokePath = getPacketMaterializedStrokePath()
+            if (!endpointCapPolicy || strokePath.length < 2) {
+              return polygons
+            }
+
+            return cleanClippedProductPolygons(
+              clipCenterStrokeProductPolygonsToEndpointExtents(
+                polygons,
+                strokePath,
+                stroke.cap,
+                (debugMeta?.strokeWidth ?? stroke.width) * 2,
+                endpointCapPolicy
+              ),
+              {
+                cleanupMicroEdgeTolerance: CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+              }
+            )
+          }
+          const clipTerminalBodyPolygonsToSourceVertexPartition = (
+            polygons: Vec2[][]
+          ) => {
+            if (stroke.position !== 'outside' || polygons.length === 0) {
+              return polygons
+            }
+
+            const sourceVertexRecord =
+              debugMeta?.joinOwnershipRecords?.find(
+                (record) =>
+                  record.vertex &&
+                  record.previousDashBodyPoint &&
+                  record.nextDashBodyPoint
+              ) ?? null
+            const vertex = sourceVertexRecord?.vertex
+            const previousBodyPoint = sourceVertexRecord?.previousDashBodyPoint
+            const nextBodyPoint = sourceVertexRecord?.nextDashBodyPoint
+            const productSignature = debugMeta?.productSignature ?? ''
+            const packetIntervalIds = getPacketIntervalIds(packet)
+            const recordIntervalIds = sourceVertexRecord?.intervalIds ?? []
+            const terminalBodyPoint =
+              recordIntervalIds[0] !== undefined &&
+              packetIntervalIds.includes(recordIntervalIds[0])
+                ? previousBodyPoint
+                : recordIntervalIds[1] !== undefined &&
+                    packetIntervalIds.includes(recordIntervalIds[1])
+                  ? nextBodyPoint
+                  : productSignature.includes(':previous:')
+                    ? previousBodyPoint
+                    : productSignature.includes(':next:')
+                      ? nextBodyPoint
+                      : (() => {
+                          const strokePath = getPacketMaterializedStrokePath()
+                          if (strokePath.length < 2) {
+                            return null
+                          }
+                          const productInterval =
+                            getPacketDashProductIntervals(packet)[0]
+                          const terminalRole =
+                            debugMeta?.domainPlanTerminalRole ??
+                            productInterval?.terminalRole
+                          const bodyEndpoint =
+                            terminalRole === 'start'
+                              ? strokePath[strokePath.length - 1]
+                              : terminalRole === 'end'
+                                ? strokePath[0]
+                                : undefined
+                          if (
+                            !bodyEndpoint ||
+                            !previousBodyPoint ||
+                            !nextBodyPoint
+                          ) {
+                            return null
+                          }
+                          return distanceBetween(
+                            bodyEndpoint,
+                            previousBodyPoint
+                          ) <= distanceBetween(bodyEndpoint, nextBodyPoint)
+                            ? previousBodyPoint
+                            : nextBodyPoint
+                        })()
+            if (
+              !vertex ||
+              !previousBodyPoint ||
+              !nextBodyPoint ||
+              !terminalBodyPoint
+            ) {
+              return polygons
+            }
+
+            const previousDirection = normalizeVector({
+              x: previousBodyPoint.x - vertex.x,
+              y: previousBodyPoint.y - vertex.y
+            })
+            const nextDirection = normalizeVector({
+              x: nextBodyPoint.x - vertex.x,
+              y: nextBodyPoint.y - vertex.y
+            })
+            if (!previousDirection || !nextDirection) {
+              return polygons
+            }
+
+            const separatorCandidates = [
+              {
+                x: previousDirection.x + nextDirection.x,
+                y: previousDirection.y + nextDirection.y
+              },
+              {
+                x: previousDirection.x - nextDirection.x,
+                y: previousDirection.y - nextDirection.y
+              },
+              {
+                x: -previousDirection.y,
+                y: previousDirection.x
+              }
+            ]
+              .map((candidate) => normalizeVector(candidate))
+              .filter((candidate): candidate is Vec2 => candidate !== null)
+
+            const separator =
+              separatorCandidates.find((candidate) => {
+                const previousSign =
+                  candidate.x * (previousBodyPoint.y - vertex.y) -
+                  candidate.y * (previousBodyPoint.x - vertex.x)
+                const nextSign =
+                  candidate.x * (nextBodyPoint.y - vertex.y) -
+                  candidate.y * (nextBodyPoint.x - vertex.x)
+                return previousSign * nextSign < -EPSILON
+              }) ?? null
+            if (!separator) {
+              return polygons
+            }
+
+            const referenceSign =
+              separator.x * (terminalBodyPoint.y - vertex.y) -
+              separator.y * (terminalBodyPoint.x - vertex.x)
+            if (Math.abs(referenceSign) <= EPSILON) {
+              return polygons
+            }
+            const keepSign = referenceSign > 0 ? 1 : -1
+            const signedDistance = (point: Vec2) =>
+              keepSign *
+              (separator.x * (point.y - vertex.y) -
+                separator.y * (point.x - vertex.x))
+            const tolerance = Math.max(EPSILON, 0.001)
+            const clipPolygon = (polygon: Vec2[]) => {
+              if (polygon.length < 3) {
+                return []
+              }
+
+              const output: Vec2[] = []
+              for (
+                let currentIndex = 0;
+                currentIndex < polygon.length;
+                currentIndex += 1
+              ) {
+                const current = polygon[currentIndex]
+                const previous =
+                  polygon[(currentIndex - 1 + polygon.length) % polygon.length]
+                const currentDistance = signedDistance(current)
+                const previousDistance = signedDistance(previous)
+                const currentInside = currentDistance >= -tolerance
+                const previousInside = previousDistance >= -tolerance
+
+                if (currentInside !== previousInside) {
+                  const denominator = previousDistance - currentDistance
+                  if (Math.abs(denominator) > EPSILON) {
+                    const t = previousDistance / denominator
+                    output.push(
+                      normalizePoint({
+                        x: previous.x + (current.x - previous.x) * t,
+                        y: previous.y + (current.y - previous.y) * t
+                      })
+                    )
+                  }
+                }
+
+                if (currentInside) {
+                  output.push(current)
+                }
+              }
+
+              return cleanClippedProductPolygon(output, {
+                cleanupMicroEdgeTolerance: CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+              })
+            }
+
+            return polygons.map(clipPolygon).filter(hasPolygonGeometry)
+          }
+          const clipTerminalBodyPolygonsToOwnSelectedSideEnvelope = (
+            polygons: Vec2[][]
+          ) => {
+            if (
+              stroke.position !== 'outside' ||
+              polygons.length === 0 ||
+              !isJoinOwnedTerminalBodyPacket
+            ) {
+              return polygons
+            }
+
+            const productInterval = getPacketDashProductIntervals(packet)[0]
+            const selectedSide =
+              debugMeta?.domainPlanMaterializedSelectedSide ??
+              productInterval?.materializedSelectedSide ??
+              debugMeta?.domainPlanSelectedSide ??
+              productInterval?.selectedSide
+            if (selectedSide !== 1 && selectedSide !== -1) {
+              return polygons
+            }
+
+            const strokePath = getPacketMaterializedStrokePath()
+            if (strokePath.length < 2) {
+              return polygons
+            }
+
+            const envelopePolygons =
+              buildSelectedSideTerminalBodyEnvelopePolygons(
+                strokePath,
+                debugMeta?.strokeWidth ?? stroke.width,
+                selectedSide
+              )
+            if (envelopePolygons.length === 0) {
+              return polygons
+            }
+
+            return cleanClippedProductPolygons(
+              intersectDescriptorProductPolygons(polygons, envelopePolygons),
+              {
+                cleanupMicroEdgeTolerance: CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+              }
+            )
+          }
+          const preservePacketDashBodySeamEndpointVertices = (
+            polygons: Vec2[][]
+          ) => {
+            const seamEndpoints =
+              debugMeta?.dashBodySeamBoundaries
+                ?.filter(
+                  (boundary) =>
+                    !boundary.seamBoundaryId.startsWith(
+                      'source-vertex-seam:-1:'
+                    )
+                )
+                .map((boundary) =>
+                  normalizePoint(boundary.outerBodyBoundaryEndpoint)
+                ) ?? []
+            if (seamEndpoints.length === 0 || polygons.length === 0) {
+              return polygons
+            }
+
+            const output = polygons.map((polygon) =>
+              polygon.map(normalizePoint)
+            )
+            seamEndpoints.forEach((endpoint) => {
+              if (
+                output.some((polygon) =>
+                  polygon.some(
+                    (point) => distanceBetween(point, endpoint) <= EPSILON
+                  )
+                )
+              ) {
+                return
+              }
+
+              let best:
+                | {
+                    polygonIndex: number
+                    pointIndex: number
+                    distance: number
+                  }
+                | undefined
+              output.forEach((polygon, polygonIndex) => {
+                polygon.forEach((point, pointIndex) => {
+                  const pointDistance = distanceBetween(point, endpoint)
+                  if (!best || pointDistance < best.distance) {
+                    best = {
+                      polygonIndex,
+                      pointIndex,
+                      distance: pointDistance
+                    }
+                  }
+                })
+              })
+
+              if (
+                best &&
+                best.distance <= CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE
+              ) {
+                output[best.polygonIndex] = output[best.polygonIndex].map(
+                  (point, pointIndex) =>
+                    pointIndex === best?.pointIndex ? endpoint : point
+                )
+                return
+              }
+
+              let bestSegment:
+                | {
+                    polygonIndex: number
+                    insertIndex: number
+                    distanceSquared: number
+                  }
+                | undefined
+              output.forEach((polygon, polygonIndex) => {
+                polygon.forEach((point, pointIndex) => {
+                  const nextPoint = polygon[(pointIndex + 1) % polygon.length]
+                  const distanceSquared = pointSegmentDistanceSquared(
+                    endpoint,
+                    point,
+                    nextPoint
+                  )
+                  if (
+                    !bestSegment ||
+                    distanceSquared < bestSegment.distanceSquared
+                  ) {
+                    bestSegment = {
+                      polygonIndex,
+                      insertIndex: pointIndex + 1,
+                      distanceSquared
+                    }
+                  }
+                })
+              })
+
+              if (
+                bestSegment &&
+                bestSegment.distanceSquared <=
+                  CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE *
+                    CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE
+              ) {
+                output[bestSegment.polygonIndex] = [
+                  ...output[bestSegment.polygonIndex].slice(
+                    0,
+                    bestSegment.insertIndex
+                  ),
+                  endpoint,
+                  ...output[bestSegment.polygonIndex].slice(
+                    bestSegment.insertIndex
+                  )
+                ]
+              }
+            })
+
+            return output.filter(hasPolygonGeometry)
+          }
+          if (
+            isJoinOwnedTerminalBodyPacket &&
+            (stroke.join === 'bevel' ||
+              stroke.join === 'miter' ||
+              stroke.join === 'round')
+          ) {
+            const terminalIntervalIds = getPacketIntervalIds(packet)
+            const terminalSourceVertexJoinPolygons =
+              stroke.position === 'outside'
+                ? normalizeConstrainedDashedProductPolygons(
+                    terminalIntervalIds.flatMap((intervalId) => {
+                      const planPolygons = (
+                        sourceVertexBoundaryJoinPlansByIntervalId.get(
+                          intervalId
+                        ) ?? []
+                      ).flatMap((plan) =>
+                        plan.kind === 'source-vertex'
+                          ? buildSourceVertexTerminalBodyOwnershipExclusionPolygons(
+                              plan,
+                              stroke
+                            )
+                          : []
+                      )
+                      const descriptorPolygons =
+                        sourceVertexJoinDescriptorPolygonsByIntervalId.get(
+                          intervalId
+                        ) ?? []
+                      return [...planPolygons, ...descriptorPolygons]
+                    }),
+                    {
+                      cleanClipResidue: true,
+                      mergeContinuousInterval: true
+                    }
+                  )
+                : terminalIntervalIds
+                    .flatMap(
+                      (intervalId) =>
+                        sourceVertexJoinDescriptorPolygonsByIntervalId.get(
+                          intervalId
+                        ) ?? []
+                    )
+                    .filter(hasPolygonGeometry)
+            const terminalOwnershipEnvelopePolygons = terminalIntervalIds
+              .flatMap(
+                (intervalId) =>
+                  sourceVertexJoinOwnershipEnvelopePolygonsByIntervalId.get(
+                    intervalId
+                  ) ?? []
+              )
+              .filter(hasPolygonGeometry)
+            if (
+              terminalSourceVertexJoinPolygons.length === 0 &&
+              terminalOwnershipEnvelopePolygons.length === 0
+            ) {
+              return packet
+            }
+            const terminalJoinDescriptorExclusionPolygons =
+              terminalSourceVertexJoinPolygons
+            const terminalOutsideOwnershipExclusionBasePolygons =
+              terminalJoinDescriptorExclusionPolygons.length > 0
+                ? terminalJoinDescriptorExclusionPolygons
+                : terminalOwnershipEnvelopePolygons
+            const terminalOwnershipExclusionTolerance = Math.max(
+              0.04,
+              Math.min(0.18, stroke.width * 0.012)
+            )
+            const terminalOwnershipExclusionPolygons =
+              stroke.position === 'outside'
+                ? normalizeConstrainedDashedProductPolygons(
+                    expandDescriptorOwnershipExcludePolygons(
+                      terminalOutsideOwnershipExclusionBasePolygons,
+                      terminalOwnershipExclusionTolerance
+                    ),
+                    {
+                      cleanClipResidue: true,
+                      mergeContinuousInterval: true
+                    }
+                  )
+                : [
+                    ...terminalOwnershipEnvelopePolygons,
+                    ...terminalSourceVertexJoinPolygons
+                  ]
+            const terminalVisibleJoinExclusionPolygons =
+              stroke.position === 'outside' && stroke.cap !== 'butt'
+                ? terminalOwnershipExclusionPolygons
+                : terminalJoinDescriptorExclusionPolygons.length > 0
+                  ? terminalJoinDescriptorExclusionPolygons
+                  : terminalOwnershipExclusionPolygons
+            const terminalBodyOutsideJoinEnvelope =
+              excludeDescriptorProductPolygons(
+                packet.geometry.polygons,
+                terminalVisibleJoinExclusionPolygons
+              )
+            const polygons = normalizeConstrainedDashedProductPolygons(
+              terminalBodyOutsideJoinEnvelope,
+              {
+                cleanClipResidue: true,
+                mergeContinuousInterval: true
+              }
+            )
+            const clipTerminalBodyToJoinBoundary = (subject: Vec2[][]) => {
+              if (subject.length === 0) {
+                return []
+              }
+              return cleanClippedProductPolygons(
+                excludeDescriptorProductPolygons(
+                  subject,
+                  terminalVisibleJoinExclusionPolygons
+                ),
+                {
+                  cleanupMicroEdgeTolerance:
+                    CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                  cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+                }
+              )
+            }
+            const endpointClippedTerminalBodyPolygons =
+              clipTerminalBodyPolygonsToPacketEndpointPolicy(polygons)
+            const terminalBodyPolygons = clipTerminalBodyToJoinBoundary(
+              endpointClippedTerminalBodyPolygons
+            )
+            const legalTerminalBodyPolygons =
+              stroke.position === 'outside' &&
+              (options.implicitFillRegions?.length ?? 0) > 0 &&
+              !canSkipOutsideLegalClipForTerminalFragments(
+                terminalBodyPolygons,
+                options.implicitFillRegions ?? []
+              )
+                ? subtractOutsideLegalResidue(
+                    terminalBodyPolygons,
+                    options.implicitFillRegions ?? [],
+                    topology.fillRule,
+                    {
+                      cleanupMicroEdgeTolerance:
+                        CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                      cleanupCollinearTolerance:
+                        CLIPPED_PRODUCT_COLLINEAR_TOLERANCE,
+                      outsideLegalBoundarySnapTolerance:
+                        SOURCE_VERTEX_OUTSIDE_BOUNDARY_SNAP_TOLERANCE,
+                      outsideLegalResidueCaller: 'join-product-terminal-body',
+                      materializeProductCoverage: true,
+                      outsideLegalClipInflateDistance:
+                        OUTSIDE_TERMINAL_BODY_LEGAL_CLIP_ENVELOPE
+                    }
+                  )
+                : terminalBodyPolygons
+            const ownEnvelopeBoundedTerminalBodyPolygons =
+              clipTerminalBodyPolygonsToOwnSelectedSideEnvelope(
+                legalTerminalBodyPolygons
+              )
+            const joinBoundedTerminalBodyPolygons =
+              clipTerminalBodyToJoinBoundary(
+                ownEnvelopeBoundedTerminalBodyPolygons
+              )
+            const partitionedTerminalBodyPolygons =
+              clipTerminalBodyPolygonsToSourceVertexPartition(
+                joinBoundedTerminalBodyPolygons
+              )
+            const legalPartitionedTerminalBodyPolygons =
+              stroke.position === 'outside' &&
+              (options.implicitFillRegions?.length ?? 0) > 0
+                ? subtractOutsideLegalResidue(
+                    partitionedTerminalBodyPolygons,
+                    options.implicitFillRegions ?? [],
+                    topology.fillRule,
+                    {
+                      cleanupMicroEdgeTolerance:
+                        CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                      cleanupCollinearTolerance:
+                        CLIPPED_PRODUCT_COLLINEAR_TOLERANCE,
+                      outsideLegalBoundarySnapTolerance:
+                        SOURCE_VERTEX_OUTSIDE_BOUNDARY_SNAP_TOLERANCE,
+                      outsideLegalResidueCaller:
+                        'source-vertex-partitioned-terminal-body',
+                      forceOutsideLegalResidueSubtract: false,
+                      materializeProductCoverage: true,
+                      outsideLegalClipInflateDistance:
+                        OUTSIDE_TERMINAL_BODY_LEGAL_CLIP_ENVELOPE
+                    }
+                  )
+                : partitionedTerminalBodyPolygons
+            const capPreservedPartitionedTerminalBodyPolygons =
+              stroke.position === 'outside' && stroke.cap !== 'butt'
+                ? (() => {
+                    const packetEndpointCapPolicy = getPacketEndpointCapPolicy()
+                    return preserveEndpointPolicyBodySideCapProductPolygons(
+                      legalPartitionedTerminalBodyPolygons,
+                      getPacketMaterializedStrokePath(),
+                      packetEndpointCapPolicy ?? undefined,
+                      stroke.cap,
+                      (debugMeta?.strokeWidth ?? stroke.width) * 2,
+                      {
+                        outsideLegalClipRegions:
+                          options.implicitFillRegions ?? [],
+                        outsideFillRule: topology.fillRule,
+                        outsideProductAlreadyLegal: true
+                      }
+                    )
+                  })()
+                : legalPartitionedTerminalBodyPolygons
+            const canonicalTerminalBodyPolygons =
+              stroke.position === 'outside'
+                ? clipTerminalBodyToJoinBoundary(
+                    clipTerminalBodyPolygonsToSourceVertexPartition(
+                      capPreservedPartitionedTerminalBodyPolygons
+                    )
+                  )
+                : capPreservedPartitionedTerminalBodyPolygons
+            const seamPreservedCanonicalTerminalBodyPolygons =
+              preservePacketDashBodySeamEndpointVertices(
+                canonicalTerminalBodyPolygons
+              )
+            if (seamPreservedCanonicalTerminalBodyPolygons.length === 0) {
+              if (hasStrokePipelineTraceSink()) {
+                emitStrokePipelineTrace(
+                  'constrained-dashed-terminal-body-empty',
+                  {
+                    reason: 'ownership-exclusion-empty',
+                    intervalIds: terminalIntervalIds,
+                    productSignature: debugMeta?.productSignature,
+                    joinOwnershipSignature: debugMeta?.joinOwnershipSignature,
+                    strokePosition: stroke.position,
+                    strokeCap: stroke.cap,
+                    strokeJoin: stroke.join,
+                    initialPolygonCount: packet.geometry.polygons.length,
+                    terminalSourceVertexJoinPolygonCount:
+                      terminalSourceVertexJoinPolygons.length,
+                    terminalOwnershipExclusionPolygonCount:
+                      terminalOwnershipExclusionPolygons.length,
+                    terminalBodyOutsideJoinEnvelopeCount:
+                      terminalBodyOutsideJoinEnvelope.length,
+                    normalizedTerminalBodyCount: polygons.length,
+                    endpointClippedTerminalBodyCount:
+                      endpointClippedTerminalBodyPolygons.length,
+                    terminalBodyPolygonCount: terminalBodyPolygons.length,
+                    legalTerminalBodyPolygonCount:
+                      legalTerminalBodyPolygons.length,
+                    ownEnvelopeBoundedTerminalBodyPolygonCount:
+                      ownEnvelopeBoundedTerminalBodyPolygons.length,
+                    joinBoundedTerminalBodyPolygonCount:
+                      joinBoundedTerminalBodyPolygons.length,
+                    partitionedTerminalBodyPolygonCount:
+                      partitionedTerminalBodyPolygons.length,
+                    legalPartitionedTerminalBodyPolygonCount:
+                      legalPartitionedTerminalBodyPolygons.length
+                  }
+                )
+              }
+              return null
+            }
+            if (
+              stroke.position === 'outside' &&
+              terminalSourceVertexJoinPolygons.length > 0
+            ) {
+              try {
+                const backend = getGeometryBackend()
+                if (backend.capabilities.intersection) {
+                  const terminalBodyArea = getPolygonsAbsoluteArea(
+                    seamPreservedCanonicalTerminalBodyPolygons
+                  )
+                  const joinCoveredTerminalBodyArea = getPolygonsAbsoluteArea(
+                    getCoveragePolygonsFromRegions(
+                      backend.intersection(
+                        toCoveragePolygonRegions(
+                          seamPreservedCanonicalTerminalBodyPolygons
+                        ),
+                        toCoveragePolygonRegions(
+                          terminalSourceVertexJoinPolygons
+                        ),
+                        'nonzero'
+                      )
+                    )
+                  )
+                  if (
+                    terminalBodyArea > EPSILON &&
+                    joinCoveredTerminalBodyArea >= terminalBodyArea * 0.9
+                  ) {
+                    return null
+                  }
+                }
+              } catch {
+                emitStrokePipelineCounter(
+                  'join-owned-terminal-body-owner-arbitration-error'
+                )
+              }
+              const isPointCoveredByJoinOwnershipEnvelope = (point: Vec2) =>
+                terminalOwnershipExclusionPolygons.some(
+                  (polygon) =>
+                    isPointInsideOrOnPolygon(point, polygon) ||
+                    pointSegmentDistanceSquaredToPolygon(point, polygon) <=
+                      CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE *
+                        CLIPPED_PRODUCT_BOUNDARY_SNAP_TOLERANCE
+                )
+              const terminalBodyIsJoinOwnedResidue =
+                seamPreservedCanonicalTerminalBodyPolygons.length > 0 &&
+                seamPreservedCanonicalTerminalBodyPolygons.every((polygon) => {
+                  const bounds = getBounds([polygon])
+                  const centroid = polygon.reduce(
+                    (sum, point) => ({
+                      x: sum.x + point.x / polygon.length,
+                      y: sum.y + point.y / polygon.length
+                    }),
+                    { x: 0, y: 0 }
+                  )
+                  const representativePoints = [
+                    ...polygon,
+                    centroid,
+                    {
+                      x: (bounds.minX + bounds.maxX) / 2,
+                      y: (bounds.minY + bounds.maxY) / 2
+                    }
+                  ]
+                  return representativePoints.every(
+                    isPointCoveredByJoinOwnershipEnvelope
+                  )
+                })
+              if (terminalBodyIsJoinOwnedResidue) {
+                return null
+              }
+            }
+            const finalProductArea = getPolygonsAbsoluteArea(
+              seamPreservedCanonicalTerminalBodyPolygons
+            )
+            return {
+              ...packet,
+              geometry: {
+                ...packet.geometry,
+                polygons: seamPreservedCanonicalTerminalBodyPolygons,
+                bounds: getBounds(seamPreservedCanonicalTerminalBodyPolygons),
+                debugMeta: debugMeta
+                  ? {
+                      ...debugMeta,
+                      rawProductArea: finalProductArea,
+                      cleanedProductArea: finalProductArea,
+                      boundaryClippedProductArea: finalProductArea,
+                      finalProductArea
+                    }
+                  : debugMeta,
+                renderDescriptor: packet.geometry.renderDescriptor
+                  ? {
+                      ...packet.geometry.renderDescriptor,
+                      descriptorProductPolygons:
+                        seamPreservedCanonicalTerminalBodyPolygons,
+                      strokeMaskPolygons: undefined
+                    }
+                  : packet.geometry.renderDescriptor
+              }
+            }
+          }
+          const exclusionPolygons = isSourcePathPacket
+            ? getSourcePathPacketJoinOwnershipExclusionPolygons(packet)
+            : sourceVertexJoinDescriptorPolygons
+          const packetScopedExclusionPolygons =
+            stroke.position === 'outside' && exclusionPolygons.length > 0
+              ? selectBoundsOverlappingPolygons(
+                  packet.geometry.bounds,
+                  exclusionPolygons,
+                  Math.max(1, stroke.width)
+                )
+              : exclusionPolygons
+          if (
+            packetScopedExclusionPolygons.length === 0 ||
+            isSourceVertexJoinDescriptor ||
+            !isSourcePathPacket
+          ) {
+            return packet
+          }
+          if (isInsideAggregateDescriptorPacket) {
+            return {
+              ...packet,
+              geometry: {
+                ...packet.geometry,
+                renderDescriptor: packet.geometry.renderDescriptor
+                  ? {
+                      ...packet.geometry.renderDescriptor,
+                      fillExcludePolygons: [
+                        ...(packet.geometry.renderDescriptor
+                          .fillExcludePolygons ?? []),
+                        ...packetScopedExclusionPolygons
+                      ]
+                    }
+                  : packet.geometry.renderDescriptor
+              }
+            }
+          }
+          const excludedPolygons = excludeDescriptorProductPolygons(
+            packet.geometry.polygons,
+            packetScopedExclusionPolygons,
+            stroke.position === 'inside' && isSourcePathPacket
+              ? insideJoinProductDescriptorExclusionRegions
+              : undefined
+          )
+          const polygons = preservePacketDashBodySeamEndpointVertices(
+            enforceOutsideOwnershipProductIfExpanded(
+              excludedPolygons,
+              packet.geometry.polygons
+            )
+          )
+          if (polygons.length === 0) {
+            return null
+          }
+
+          const finalProductArea = getPolygonsAbsoluteArea(polygons)
+          const materializedStrokePathGroups =
+            packet.geometry.renderDescriptor?.strokePathGroups?.map(
+              (group) => ({
+                strokePaths: group.strokePaths,
+                strokePathStyle: group.strokePathStyle
+              })
+            )
+          return {
+            ...packet,
+            geometry: {
+              ...packet.geometry,
+              polygons,
+              bounds: getBounds(polygons),
+              debugMeta: debugMeta
+                ? {
+                    ...debugMeta,
+                    rawProductArea: finalProductArea,
+                    cleanedProductArea: finalProductArea,
+                    boundaryClippedProductArea: finalProductArea,
+                    finalProductArea
+                  }
+                : debugMeta,
+              renderDescriptor: packet.geometry.renderDescriptor
+                ? {
+                    ...packet.geometry.renderDescriptor,
+                    descriptorProductPolygons: polygons,
+                    strokeMaskPolygons: undefined,
+                    strokePaths: undefined,
+                    strokePathGroups:
+                      materializedStrokePathGroups &&
+                      materializedStrokePathGroups.length > 0
+                        ? materializedStrokePathGroups
+                        : undefined
+                  }
+                : packet.geometry.renderDescriptor
+            }
+          }
+        }
+        const ownershipResolvedMaterializedProductPackets =
+          measureStrokePipelinePhase(
+            'constrained dashed packets product assembly: materialized ownership exclusion',
+            () =>
+              sortedMaterializedProductPackets
+                .map(applySourceVertexJoinDescriptorExclusion)
+                .filter(
+                  (packet): packet is SolidCenterStrokeResolvedPacket =>
+                    packet !== null
+                )
+          )
+        const ownershipResolvedCachedJoinIndependentPackets =
+          cachedJoinIndependentPacketStage
+            ? measureStrokePipelinePhase(
+                'constrained dashed packets product assembly: cached ownership exclusion',
+                () =>
+                  cachedJoinIndependentPacketStage
+                    .map(applySourceVertexJoinDescriptorExclusion)
+                    .filter(
+                      (packet): packet is SolidCenterStrokeResolvedPacket =>
+                        packet !== null
+                    )
+              )
+            : undefined
+        const ownershipResolvedAggregateDescriptorPackets =
+          measureStrokePipelinePhase(
+            'constrained dashed packets product assembly: aggregate descriptor ownership exclusion',
+            () =>
+              visibleAggregateDescriptorPackets
+                .map(applySourceVertexJoinDescriptorExclusion)
+                .filter(
+                  (packet): packet is SolidCenterStrokeResolvedPacket =>
+                    packet !== null
+                )
+          )
+        const ownershipResolvedJoinProductPackets = measureStrokePipelinePhase(
+          'constrained dashed packets product assembly: join product ownership exclusion',
+          () =>
+            rawJoinProductPackets
+              .map(applySourceVertexJoinDescriptorExclusion)
+              .filter(
+                (packet): packet is SolidCenterStrokeResolvedPacket =>
+                  packet !== null
+              )
+        )
+        const isOutsideSourceVertexJoinTerminalBodyProductPacket = (
+          packet: SolidCenterStrokeResolvedPacket
+        ) => {
+          const meta = packet.geometry.debugMeta
+          const productSignature = meta?.productSignature
+          return (
+            stroke.position === 'outside' &&
+            meta?.joinOwnershipSignature === 'join-owned-terminal-body' &&
+            productSignature?.startsWith('constrained-dashed:outside:') ===
+              true &&
+            productSignature.includes(':join-owned-terminal-body:') &&
+            productSignature.includes(':source-vertex:')
+          )
+        }
+        const getSourceVertexJoinTerminalBodyOwnerKey = (
+          packet: SolidCenterStrokeResolvedPacket
+        ) => {
+          if (!isOutsideSourceVertexJoinTerminalBodyProductPacket(packet)) {
+            return null
+          }
+          const meta = packet.geometry.debugMeta
+          const sourceVertexRecord = meta?.joinOwnershipRecords?.find(
+            (record) => record.kind === 'source-vertex' && record.vertex
+          )
+          if (sourceVertexRecord?.vertex) {
+            const sourceVertexOwnershipSignature =
+              (meta?.joinOwnershipSignatures ?? []).find(
+                (signature) =>
+                  signature.startsWith('constrained-boundary-source-vertex:') ||
+                  signature.startsWith(
+                    'constrained-boundary-smooth-continuity:'
+                  )
+              ) ??
+              meta?.joinOwnershipSignature ??
+              'source-vertex-terminal-body'
+            return [
+              'join-owned-terminal-body-source-vertex-footprint',
+              formatJoinPlanPointSignature(sourceVertexRecord.vertex),
+              sourceVertexRecord.selectedSide ?? 'selected-side',
+              sourceVertexRecord.domainKey ?? 'no-domain',
+              stroke.cap,
+              stroke.join,
+              sourceVertexOwnershipSignature
+            ].join('|')
+          }
+          return buildJoinOwnedTerminalBodyCanonicalFootprintKey(packet)
+        }
+        const canonicalJoinTerminalBodyOwnerKeys = new Set<string>()
+        const joinProductPacketsWithoutSourceVertexTerminalBodies: SolidCenterStrokeResolvedPacket[] =
+          []
+        const joinProductSourceVertexTerminalBodyPackets: SolidCenterStrokeResolvedPacket[] =
+          []
+        ownershipResolvedJoinProductPackets.forEach((packet) => {
+          const ownerKey = getSourceVertexJoinTerminalBodyOwnerKey(packet)
+          if (!ownerKey) {
+            joinProductPacketsWithoutSourceVertexTerminalBodies.push(packet)
+            return
+          }
+          canonicalJoinTerminalBodyOwnerKeys.add(ownerKey)
+          joinProductSourceVertexTerminalBodyPackets.push(packet)
+        })
+        const ownershipResolvedUniqueJoinProductPackets = [
+          ...joinProductPacketsWithoutSourceVertexTerminalBodies,
+          ...mergeJoinOwnedTerminalBodyPacketsByGroupKey(
+            joinProductSourceVertexTerminalBodyPackets,
+            (packet) =>
+              getSourceVertexJoinTerminalBodyOwnerKey(packet) ??
+              packet.geometry.geometryId
+          )
+        ]
+        const getOrdinaryTerminalBodyOwnerStageKey = (
+          packet: SolidCenterStrokeResolvedPacket
+        ) => {
+          const meta = packet.geometry.debugMeta
+          if (
+            stroke.position !== 'outside' ||
+            meta?.joinOwnershipSignature !== 'join-owned-terminal-body' ||
+            (meta.joinOwnershipRecords?.length ?? 0) > 0
+          ) {
+            return null
+          }
+
+          const productInterval = getPacketDashProductIntervals(packet).find(
+            (interval) =>
+              interval.terminalRole === 'start' ||
+              interval.terminalRole === 'end' ||
+              interval.terminalRole === 'start-end'
+          )
+          const terminalRole =
+            meta.domainPlanTerminalRole ?? productInterval?.terminalRole
+          const boundaryPoints =
+            meta.domainPlanBoundaryPoints ?? productInterval?.boundaryPoints
+          const sourceSegmentIndex =
+            meta.domainPlanSplitRangeSourceSegmentIndex ??
+            productInterval?.sourceSegmentIndex
+          const selectedSide =
+            meta.domainPlanMaterializedSelectedSide ??
+            meta.domainPlanSelectedSide ??
+            productInterval?.materializedSelectedSide ??
+            productInterval?.selectedSide
+          if (
+            (terminalRole !== 'start' &&
+              terminalRole !== 'end' &&
+              terminalRole !== 'start-end') ||
+            !boundaryPoints ||
+            boundaryPoints.length < 2 ||
+            sourceSegmentIndex === undefined ||
+            (selectedSide !== 1 && selectedSide !== -1)
+          ) {
+            return null
+          }
+
+          const endpoint =
+            terminalRole === 'end'
+              ? boundaryPoints[boundaryPoints.length - 1]
+              : boundaryPoints[0]
+          if (!endpoint) {
+            return null
+          }
+
+          return [
+            'ordinary-terminal-body-owner-stage',
+            formatJoinPlanPointSignature(endpoint),
+            `segment:${sourceSegmentIndex}`,
+            `role:${terminalRole}`,
+            `side:${selectedSide}`,
+            meta.dashEndpointCapPolicySignature ?? 'cap-policy'
+          ].join('|')
+        }
+        const mergeOrdinaryTerminalBodyPacketsByOwnerStage = (
+          packets: SolidCenterStrokeResolvedPacket[]
+        ) => {
+          const groupedPackets = new Map<
+            string,
+            SolidCenterStrokeResolvedPacket[]
+          >()
+          const independentPackets: SolidCenterStrokeResolvedPacket[] = []
+          packets.forEach((packet) => {
+            const groupKey = getOrdinaryTerminalBodyOwnerStageKey(packet)
+            if (!groupKey) {
+              independentPackets.push(packet)
+              return
+            }
+            groupedPackets.set(groupKey, [
+              ...(groupedPackets.get(groupKey) ?? []),
+              packet
+            ])
+          })
+
+          const mergedPackets = Array.from(groupedPackets.entries()).flatMap(
+            ([groupKey, groupPackets]) => {
+              const primary = groupPackets[0]
+              if (!primary || groupPackets.length === 1) {
+                return groupPackets
+              }
+
+              try {
+                const backend = getGeometryBackend()
+                if (!backend.capabilities.union) {
+                  return groupPackets
+                }
+                const polygons = cleanClippedProductPolygons(
+                  getCoveragePolygonsFromRegions(
+                    backend.union(
+                      toCoveragePolygonRegions(
+                        groupPackets.flatMap(
+                          (packet) => packet.geometry.polygons
+                        )
+                      ),
+                      'nonzero'
+                    )
+                  ),
+                  {
+                    cleanupMicroEdgeTolerance:
+                      CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                    cleanupCollinearTolerance:
+                      CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+                  }
+                )
+                if (polygons.length === 0) {
+                  return []
+                }
+
+                const productDomainMode =
+                  primary.geometry.debugMeta?.domainPlanDomainMode ??
+                  primary.geometry.debugMeta?.domainMode
+                const productSignature = [
+                  'constrained-dashed',
+                  stroke.position,
+                  productDomainMode ?? 'closed-constrained-domain',
+                  'join-owned-terminal-body',
+                  groupKey,
+                  hashStableString(
+                    'ordinary-terminal-body-owner-stage',
+                    groupPackets
+                      .map(
+                        (packet) =>
+                          packet.geometry.debugMeta?.productSignature ??
+                          packet.geometry.geometryId
+                      )
+                      .join('|')
+                  )
+                ].join(':')
+                const revisionSet = getRevisionSet(productSignature, {
+                  productDomainMode: productDomainMode as
+                    | StrokeDomainMode
+                    | undefined,
+                  endpointCapPolicySignature: [
+                    'canonical-ordinary-terminal-body-policy',
+                    productSignature,
+                    uniqueStrings(
+                      groupPackets.flatMap((packet) => [
+                        packet.geometry.debugMeta
+                          ?.dashEndpointCapPolicySignature,
+                        ...(packet.geometry.debugMeta
+                          ?.dashEndpointCapPolicySignatures ?? [])
+                      ])
+                    ).join(',')
+                  ].join(':'),
+                  joinOwnershipSignature: 'join-owned-terminal-body',
+                  productMaterializationSignature: [
+                    'canonical-ordinary-terminal-body-materialization',
+                    productSignature
+                  ].join(':'),
+                  resolvedRegionSignature: [
+                    'canonical-ordinary-terminal-body-resolved-region',
+                    productSignature
+                  ].join(':'),
+                  renderOutputSignature: [
+                    'canonical-ordinary-terminal-body-render-output',
+                    productSignature
+                  ].join(':'),
+                  ownerCount: Math.max(
+                    uniqueStrings(groupPackets.flatMap(getPacketIntervalIds))
+                      .length,
+                    1
+                  )
+                })
+                const geometryId = hashStableString(
+                  'constrained-dashed-ordinary-terminal-body-geometry',
+                  `${productSignature}|${primary.geometry.geometryId}`
+                )
+
+                return [
+                  {
+                    geometry: {
+                      geometryId,
+                      polygons,
+                      bounds: getBounds(polygons),
+                      debugMeta: buildCanonicalConstrainedDashedDebugMeta(
+                        groupPackets,
+                        polygons,
+                        productSignature,
+                        revisionSet
+                      ),
+                      renderDescriptor: undefined
+                    },
+                    paint: {
+                      ...primary.paint,
+                      geometryId
+                    }
+                  } satisfies SolidCenterStrokeResolvedPacket
+                ]
+              } catch {
+                emitStrokePipelineCounter(
+                  'ordinary-terminal-body-owner-stage-merge-error'
+                )
+                return groupPackets
+              }
+            }
+          )
+
+          return [...independentPackets, ...mergedPackets]
+        }
+        const isOutsideCanonicalTerminalBodyOwnerPacket = (
+          packet: SolidCenterStrokeResolvedPacket
+        ) => {
+          const meta = packet.geometry.debugMeta
+          const productSignature = meta?.productSignature
+          return (
+            isOutsideSourceVertexJoinTerminalBodyProductPacket(packet) &&
+            productSignature?.includes(':source-vertex:') === true
+          )
+        }
+        const getTerminalBodyIntervalMatchKeys = (
+          packet: SolidCenterStrokeResolvedPacket
+        ) => {
+          const meta = packet.geometry.debugMeta
+          const normalizeTerminalCapPolicySignature = (
+            signature: string | undefined
+          ) => {
+            if (!signature) {
+              return undefined
+            }
+            const parts = signature.split(':')
+            const terminalRoleIndex = parts.findIndex(
+              (part) =>
+                part === 'middle' ||
+                part === 'start' ||
+                part === 'end' ||
+                part === 'start-end'
+            )
+            return terminalRoleIndex >= 0
+              ? parts.slice(terminalRoleIndex).join(':')
+              : signature
+          }
+          const capPolicySignature = normalizeTerminalCapPolicySignature(
+            meta?.dashEndpointCapPolicySignature ??
+              meta?.dashEndpointCapPolicySignatures?.[0]
+          )
+          if (!capPolicySignature) {
+            return []
+          }
+
+          return uniqueStrings(
+            getPacketDashProductIntervals(packet).flatMap((interval) => {
+              const terminalRole = interval.terminalRole
+              const selectedSide =
+                interval.selectedSide ?? interval.materializedSelectedSide
+              const intervalCapPolicySignature =
+                normalizeTerminalCapPolicySignature(
+                  interval.endpointCapPolicySignature
+                ) ?? capPolicySignature
+              if (
+                !interval.intervalId ||
+                (terminalRole !== 'start' &&
+                  terminalRole !== 'end' &&
+                  terminalRole !== 'start-end') ||
+                interval.sourceSegmentIndex === undefined ||
+                (selectedSide !== 1 && selectedSide !== -1) ||
+                !intervalCapPolicySignature
+              ) {
+                return []
+              }
+
+              return [
+                [
+                  'terminal-body-interval-owner-stage',
+                  interval.intervalId,
+                  `role:${terminalRole}`,
+                  `segment:${interval.sourceSegmentIndex}`,
+                  `side:${selectedSide}`,
+                  intervalCapPolicySignature
+                ].join('|')
+              ]
+            })
+          )
+        }
+        const mergeSourceVertexTerminalBodyPacketsByOwnerStage = (
+          packets: SolidCenterStrokeResolvedPacket[]
+        ) => {
+          const mergePacketBounds = (
+            first: Bounds,
+            second: Bounds
+          ): Bounds => ({
+            minX: Math.min(first.minX, second.minX),
+            minY: Math.min(first.minY, second.minY),
+            maxX: Math.max(first.maxX, second.maxX),
+            maxY: Math.max(first.maxY, second.maxY)
+          })
+          const groupedPackets = new Map<
+            string,
+            SolidCenterStrokeResolvedPacket[]
+          >()
+          const groupBounds = new Map<string, Bounds>()
+          const groupKeyByIntervalMatchKey = new Map<string, string>()
+          const independentPackets: SolidCenterStrokeResolvedPacket[] = []
+
+          packets.forEach((packet) => {
+            if (!isOutsideCanonicalTerminalBodyOwnerPacket(packet)) {
+              return
+            }
+            const ownerKey =
+              getSourceVertexJoinTerminalBodyOwnerKey(packet) ??
+              packet.geometry.geometryId
+            const groupKey = [
+              'join-owned-terminal-body-owner-stage',
+              ownerKey
+            ].join('|')
+            groupedPackets.set(groupKey, [
+              ...(groupedPackets.get(groupKey) ?? []),
+              packet
+            ])
+            groupBounds.set(groupKey, packet.geometry.bounds)
+            getTerminalBodyIntervalMatchKeys(packet).forEach((matchKey) => {
+              if (!groupKeyByIntervalMatchKey.has(matchKey)) {
+                groupKeyByIntervalMatchKey.set(matchKey, groupKey)
+              }
+            })
+          })
+
+          packets.forEach((packet) => {
+            if (isOutsideCanonicalTerminalBodyOwnerPacket(packet)) {
+              return
+            }
+            const meta = packet.geometry.debugMeta
+            const isSourceVertexIncidentTerminalBodyPacket =
+              stroke.position === 'outside' &&
+              meta?.joinOwnershipSignature === 'source-path' &&
+              meta.joinOwnershipSignatures?.some((signature) =>
+                signature.startsWith('source-vertex-boundary-join:')
+              ) === true &&
+              getPacketDashProductIntervals(packet).some(
+                (interval) =>
+                  interval.terminalRole === 'start' ||
+                  interval.terminalRole === 'end' ||
+                  interval.terminalRole === 'start-end'
+              )
+            const canJoinSourceVertexTerminalBodyOwnerStage =
+              stroke.position === 'outside' &&
+              ((meta?.joinOwnershipSignature === 'join-owned-terminal-body' &&
+                (meta.joinOwnershipRecords?.length ?? 0) === 0) ||
+                isSourceVertexIncidentTerminalBodyPacket)
+            if (!canJoinSourceVertexTerminalBodyOwnerStage) {
+              independentPackets.push(packet)
+              return
+            }
+
+            const matchingGroupKeys = uniqueStrings(
+              getTerminalBodyIntervalMatchKeys(packet).flatMap((matchKey) => {
+                const groupKey = groupKeyByIntervalMatchKey.get(matchKey)
+                if (!groupKey) {
+                  return []
+                }
+                const bounds = groupBounds.get(groupKey)
+                return bounds &&
+                  boundsMayIntersect(
+                    bounds,
+                    packet.geometry.bounds,
+                    Math.max(0.5, stroke.width * 0.1)
+                  )
+                  ? [groupKey]
+                  : []
+              })
+            )
+            if (matchingGroupKeys.length !== 1) {
+              independentPackets.push(packet)
+              return
+            }
+
+            const groupKey = matchingGroupKeys[0]
+            groupedPackets.set(groupKey, [
+              ...(groupedPackets.get(groupKey) ?? []),
+              packet
+            ])
+            const currentBounds = groupBounds.get(groupKey)
+            groupBounds.set(
+              groupKey,
+              currentBounds
+                ? mergePacketBounds(currentBounds, packet.geometry.bounds)
+                : packet.geometry.bounds
+            )
+          })
+
+          const mergedPackets = Array.from(groupedPackets.entries()).flatMap(
+            ([groupKey, groupPackets]) => {
+              const primary = groupPackets[0]
+              if (!primary || groupPackets.length === 1) {
+                return groupPackets
+              }
+
+              try {
+                const backend = getGeometryBackend()
+                if (!backend.capabilities.union) {
+                  return groupPackets
+                }
+                const polygons = cleanClippedProductPolygons(
+                  getCoveragePolygonsFromRegions(
+                    backend.union(
+                      toCoveragePolygonRegions(
+                        groupPackets.flatMap(
+                          (packet) => packet.geometry.polygons
+                        )
+                      ),
+                      'nonzero'
+                    )
+                  ),
+                  {
+                    cleanupMicroEdgeTolerance:
+                      CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                    cleanupCollinearTolerance:
+                      CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+                  }
+                )
+                if (polygons.length === 0) {
+                  return []
+                }
+
+                const productDomainMode =
+                  primary.geometry.debugMeta?.domainPlanDomainMode ??
+                  primary.geometry.debugMeta?.domainMode
+                const productSignature = [
+                  'constrained-dashed',
+                  stroke.position,
+                  productDomainMode ?? 'closed-constrained-domain',
+                  'join-owned-terminal-body',
+                  groupKey,
+                  hashStableString(
+                    'join-owned-terminal-body-owner-stage',
+                    groupPackets
+                      .map(
+                        (packet) =>
+                          packet.geometry.debugMeta?.productSignature ??
+                          packet.geometry.geometryId
+                      )
+                      .join('|')
+                  )
+                ].join(':')
+                const revisionSet = getRevisionSet(productSignature, {
+                  productDomainMode: productDomainMode as
+                    | StrokeDomainMode
+                    | undefined,
+                  endpointCapPolicySignature: [
+                    'canonical-join-owned-terminal-body-policy',
+                    productSignature,
+                    uniqueStrings(
+                      groupPackets.flatMap((packet) => [
+                        packet.geometry.debugMeta
+                          ?.dashEndpointCapPolicySignature,
+                        ...(packet.geometry.debugMeta
+                          ?.dashEndpointCapPolicySignatures ?? [])
+                      ])
+                    ).join(',')
+                  ].join(':'),
+                  joinOwnershipSignature: 'join-owned-terminal-body',
+                  productMaterializationSignature: [
+                    'canonical-join-owned-terminal-body-materialization',
+                    productSignature
+                  ].join(':'),
+                  resolvedRegionSignature: [
+                    'canonical-join-owned-terminal-body-resolved-region',
+                    productSignature
+                  ].join(':'),
+                  renderOutputSignature: [
+                    'canonical-join-owned-terminal-body-render-output',
+                    productSignature
+                  ].join(':'),
+                  ownerCount: Math.max(
+                    uniqueStrings(groupPackets.flatMap(getPacketIntervalIds))
+                      .length,
+                    1
+                  )
+                })
+                const geometryId = hashStableString(
+                  'constrained-dashed-join-owned-terminal-body-geometry',
+                  `${productSignature}|${primary.geometry.geometryId}`
+                )
+
+                return [
+                  {
+                    geometry: {
+                      geometryId,
+                      polygons,
+                      bounds: getBounds(polygons),
+                      debugMeta: buildCanonicalConstrainedDashedDebugMeta(
+                        groupPackets,
+                        polygons,
+                        productSignature,
+                        revisionSet
+                      ),
+                      renderDescriptor: undefined
+                    },
+                    paint: {
+                      ...primary.paint,
+                      geometryId
+                    }
+                  } satisfies SolidCenterStrokeResolvedPacket
+                ]
+              } catch {
+                emitStrokePipelineCounter(
+                  'source-vertex-terminal-body-owner-stage-merge-error'
+                )
+                return groupPackets
+              }
+            }
+          )
+
+          return [...independentPackets, ...mergedPackets]
+        }
+        const getSourceVertexTerminalBodyOwnershipArbitrationGroupKey = (
+          packet: SolidCenterStrokeResolvedPacket
+        ) => {
+          if (!isOutsideCanonicalTerminalBodyOwnerPacket(packet)) {
+            return null
+          }
+          const meta = packet.geometry.debugMeta
+          const sourceVertexRecord = meta?.joinOwnershipRecords?.find(
+            (record) => record.kind === 'source-vertex' && record.vertex
+          )
+          if (!sourceVertexRecord?.vertex) {
+            return null
+          }
+          return [
+            'source-vertex-terminal-body-ownership-arbitration',
+            formatJoinPlanPointSignature(sourceVertexRecord.vertex),
+            sourceVertexRecord.selectedSide ?? 'selected-side',
+            sourceVertexRecord.domainKey ?? 'no-domain',
+            stroke.cap,
+            stroke.join
+          ].join('|')
+        }
+        const applySourceVertexTerminalBodyOwnershipArbitration = (
+          packets: SolidCenterStrokeResolvedPacket[]
+        ) => {
+          const ownedPolygonsByGroupKey = new Map<string, Vec2[][]>()
+          const toCanonicalTerminalBodyCoveragePolygons = (
+            polygons: Vec2[][]
+          ) => {
+            if (polygons.length === 0) {
+              return []
+            }
+            try {
+              const backend = getGeometryBackend()
+              return backend.capabilities.union
+                ? cleanClippedProductPolygons(
+                    getCoveragePolygonsFromRegions(
+                      backend.union(
+                        toCoveragePolygonRegions(polygons),
+                        'nonzero'
+                      )
+                    ),
+                    {
+                      cleanupMicroEdgeTolerance:
+                        CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                      cleanupCollinearTolerance:
+                        CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+                    }
+                  )
+                : cleanClippedProductPolygons(polygons, {
+                    cleanupMicroEdgeTolerance:
+                      CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                    cleanupCollinearTolerance:
+                      CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+                  })
+            } catch {
+              return cleanClippedProductPolygons(polygons, {
+                cleanupMicroEdgeTolerance: CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+              })
+            }
+          }
+          const subtractOwnedTerminalBodyCoveragePolygons = (
+            polygons: Vec2[][],
+            ownedPolygons: Vec2[][]
+          ) => {
+            if (polygons.length === 0 || ownedPolygons.length === 0) {
+              return polygons
+            }
+            try {
+              const backend = getGeometryBackend()
+              const subtractPolygons = (
+                subjectPolygons: Vec2[][],
+                clipPolygons: Vec2[][]
+              ) =>
+                cleanClippedProductPolygons(
+                  getCoveragePolygonsFromRegions(
+                    backend.difference(
+                      toCoveragePolygonRegions(subjectPolygons),
+                      toCoveragePolygonRegions(clipPolygons),
+                      'nonzero'
+                    )
+                  ),
+                  {
+                    cleanupMicroEdgeTolerance:
+                      CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                    cleanupCollinearTolerance:
+                      CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+                  }
+                )
+              const differencePolygons = subtractPolygons(
+                polygons,
+                ownedPolygons
+              )
+              const remainingOverlapPolygons = cleanClippedProductPolygons(
+                getCoveragePolygonsFromRegions(
+                  backend.intersection(
+                    toCoveragePolygonRegions(differencePolygons),
+                    toCoveragePolygonRegions(ownedPolygons),
+                    'nonzero'
+                  )
+                ),
+                {
+                  cleanupMicroEdgeTolerance:
+                    CLIPPED_PRODUCT_MICRO_EDGE_TOLERANCE,
+                  cleanupCollinearTolerance: CLIPPED_PRODUCT_COLLINEAR_TOLERANCE
+                }
+              )
+              return remainingOverlapPolygons.length > 0
+                ? subtractPolygons(differencePolygons, remainingOverlapPolygons)
+                : differencePolygons
+            } catch {
+              return excludeDescriptorProductPolygons(polygons, ownedPolygons)
+            }
+          }
+
+          return packets
+            .map((packet) => {
+              const groupKey =
+                getSourceVertexTerminalBodyOwnershipArbitrationGroupKey(packet)
+              if (!groupKey) {
+                return packet
+              }
+              const ownedPolygons = ownedPolygonsByGroupKey.get(groupKey) ?? []
+              const polygons =
+                ownedPolygons.length > 0
+                  ? toCanonicalTerminalBodyCoveragePolygons(
+                      subtractOwnedTerminalBodyCoveragePolygons(
+                        packet.geometry.polygons,
+                        ownedPolygons
+                      )
+                    )
+                  : toCanonicalTerminalBodyCoveragePolygons(
+                      packet.geometry.polygons
+                    )
+              if (polygons.length === 0) {
+                return null
+              }
+
+              ownedPolygonsByGroupKey.set(
+                groupKey,
+                toCanonicalTerminalBodyCoveragePolygons([
+                  ...ownedPolygons,
+                  ...polygons
+                ])
+              )
+
+              const finalProductArea = getPolygonsAbsoluteArea(polygons)
+              return {
+                ...packet,
+                geometry: {
+                  ...packet.geometry,
+                  polygons,
+                  bounds: getBounds(polygons),
+                  debugMeta: packet.geometry.debugMeta
+                    ? {
+                        ...packet.geometry.debugMeta,
+                        rawProductArea: finalProductArea,
+                        cleanedProductArea: finalProductArea,
+                        boundaryClippedProductArea: finalProductArea,
+                        finalProductArea
+                      }
+                    : packet.geometry.debugMeta,
+                  renderDescriptor: packet.geometry.renderDescriptor
+                    ? {
+                        ...packet.geometry.renderDescriptor,
+                        descriptorProductPolygons: polygons,
+                        strokeMaskPolygons: undefined
+                      }
+                    : packet.geometry.renderDescriptor
+                }
+              } satisfies SolidCenterStrokeResolvedPacket
+            })
+            .filter(
+              (packet): packet is SolidCenterStrokeResolvedPacket =>
+                packet !== null
+            )
+        }
+        const ownershipResolvedArbitratedJoinProductPackets =
+          ownershipResolvedUniqueJoinProductPackets
+        const ownershipResolvedCanonicalMaterializedProductPackets =
+          ownershipResolvedMaterializedProductPackets
+        const ownershipResolvedCanonicalCachedJoinIndependentPackets =
+          ownershipResolvedCachedJoinIndependentPackets
+        const getSourceVertexMaterializedTerminalBodyOwnerKey = (
+          packet: SolidCenterStrokeResolvedPacket
+        ) => {
+          const meta = packet.geometry.debugMeta
+          if (
+            stroke.position !== 'outside' ||
+            meta?.joinOwnershipSignature !== 'join-owned-terminal-body' ||
+            meta.joinOwnershipSignatures?.some((signature) =>
+              signature.startsWith('source-vertex-boundary-join:')
+            ) !== true
+          ) {
+            return null
+          }
+          const bounds = packet.geometry.bounds
+          return [
+            meta.domainPlanTerminalRole ?? 'terminal-role',
+            meta.dashEndpointCapPolicySignature ?? 'cap-policy',
+            (meta.joinOwnershipSignatures ?? []).join(','),
+            formatTranslationInvariantCacheNumber(bounds.minX),
+            formatTranslationInvariantCacheNumber(bounds.minY),
+            formatTranslationInvariantCacheNumber(bounds.maxX),
+            formatTranslationInvariantCacheNumber(bounds.maxY)
+          ].join('|')
+        }
+        const canonicalMaterializedTerminalBodyOwnerKeys = new Set<string>()
+        const ownershipResolvedUniqueCanonicalMaterializedProductPackets =
+          ownershipResolvedCanonicalMaterializedProductPackets.filter(
+            (packet) => {
+              const ownerKey =
+                getSourceVertexMaterializedTerminalBodyOwnerKey(packet)
+              if (!ownerKey) {
+                return true
+              }
+              if (canonicalMaterializedTerminalBodyOwnerKeys.has(ownerKey)) {
+                return false
+              }
+              canonicalMaterializedTerminalBodyOwnerKeys.add(ownerKey)
+              return true
+            }
+          )
+        const ownershipResolvedCanonicalJoinProductPackets =
+          ownershipResolvedArbitratedJoinProductPackets
         const joinIndependentPacketsForCache = [
-          ...aggregateDescriptorPackets,
-          ...materializedProductPackets.filter(
+          ...ownershipResolvedAggregateDescriptorPackets,
+          ...ownershipResolvedUniqueCanonicalMaterializedProductPackets.filter(
             isJoinIndependentConstrainedDashedPacket
           )
         ]
-        const intervalPackets = cachedJoinIndependentPacketStage
-          ? [...cachedJoinIndependentPacketStage, ...joinProductPackets]
-          : [
-              ...aggregateDescriptorPackets,
-              ...materializedProductPackets,
-              ...joinProductPackets
+        const assembledIntervalPackets = cachedJoinIndependentPacketStage
+          ? [
+              ...(ownershipResolvedCanonicalCachedJoinIndependentPackets ?? []),
+              ...ownershipResolvedCanonicalJoinProductPackets
             ]
+          : [
+              ...ownershipResolvedAggregateDescriptorPackets,
+              ...ownershipResolvedUniqueCanonicalMaterializedProductPackets,
+              ...ownershipResolvedCanonicalJoinProductPackets
+            ]
+        const sourceVertexOwnerStageMergedIntervalPackets =
+          mergeSourceVertexTerminalBodyPacketsByOwnerStage(
+            assembledIntervalPackets
+          )
+        const sourceVertexOwnerStageArbitratedIntervalPackets =
+          applySourceVertexTerminalBodyOwnershipArbitration(
+            sourceVertexOwnerStageMergedIntervalPackets
+          )
+        const ownerStageMergedIntervalPackets =
+          mergeOrdinaryTerminalBodyPacketsByOwnerStage(
+            sourceVertexOwnerStageArbitratedIntervalPackets
+          )
         return {
           joinIndependentPacketsForCache,
-          intervalPackets
+          intervalPackets: ownerStageMergedIntervalPackets
         }
       }
     )
@@ -15887,6 +30868,14 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
       'constrained dashed packets: canonical product packets',
       () =>
         canonicalizeConstrainedDashedSamePaintProductPackets(intervalPackets, {
+          insideLegalClipRegions:
+            stroke.position === 'inside'
+              ? (options.implicitFillRegions ?? [])
+              : undefined,
+          outsideLegalClipRegions:
+            stroke.position === 'outside'
+              ? (options.implicitFillRegions ?? [])
+              : undefined,
           getRevisionSet
         })
     )
@@ -15906,15 +30895,29 @@ export const buildConstrainedDashedStrokeResolvedPackets = (
           )
       )
     }
-    if (packetStageCacheKey && packetStageOrigin) {
+    if (canUsePacketStageCache && packetStageCacheKey && packetStageOrigin) {
       measureStrokePipelinePhase(
         'constrained dashed packets: packet stage cache store',
-        () =>
+        () => {
           setCachedConstrainedDashedPacketStage(
             packetStageCacheKey,
             packetStageOrigin,
             productPackets
           )
+          if (
+            earlyPacketStageCacheKey &&
+            earlyPacketStageCacheKey !== packetStageCacheKey
+          ) {
+            setCachedConstrainedDashedPacketStage(
+              earlyPacketStageCacheKey,
+              packetStageOrigin,
+              productPackets,
+              {
+                emitMiss: false
+              }
+            )
+          }
+        }
       )
     }
     return productPackets
