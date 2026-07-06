@@ -1,4 +1,4 @@
-/* global window */
+/* global module */
 ;(() => {
   const groups = [
     'All',
@@ -7640,7 +7640,7 @@
     status: step.alignmentStatus
   }))
 
-  window.STROKE_FLOW_INSPECTOR_DATA = {
+  const strokeFlowInspectorData = {
     groups,
     lanes,
     latestRules,
@@ -7683,5 +7683,25 @@
     stepEvidenceOverrides,
     defaultAlignmentByGroup,
     stepAlignmentOverrides
+  }
+
+  const inspectorGlobalTarget =
+    typeof globalThis === 'undefined' ? undefined : globalThis
+
+  if (inspectorGlobalTarget) {
+    inspectorGlobalTarget.STROKE_FLOW_INSPECTOR_DATA = strokeFlowInspectorData
+
+    const legacyWindowTarget = inspectorGlobalTarget.window
+    if (
+      legacyWindowTarget &&
+      typeof legacyWindowTarget === 'object' &&
+      legacyWindowTarget !== inspectorGlobalTarget
+    ) {
+      legacyWindowTarget.STROKE_FLOW_INSPECTOR_DATA = strokeFlowInspectorData
+    }
+  }
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = strokeFlowInspectorData
   }
 })()

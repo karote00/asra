@@ -212,6 +212,11 @@ interface InspectorData {
   inspectorContractErrors: string[]
 }
 
+type InspectorDataModule = Partial<InspectorData> & {
+  default?: InspectorData
+  STROKE_FLOW_INSPECTOR_DATA?: InspectorData
+}
+
 const repoRoot = resolve(
   dirname(fileURLToPath(import.meta.url)),
   '../../../../'
@@ -242,18 +247,31 @@ const retiredSingleProductGroupId = ['step', '24'].join('')
 
 let cachedInspectorData: InspectorData | null = null
 
+const globalInspectorRecord = globalThis as typeof globalThis & {
+  STROKE_FLOW_INSPECTOR_DATA?: InspectorData
+  window?: unknown
+}
+
+const requireInspectorData = (): InspectorData => {
+  const loadedModule = require(inspectorPath) as InspectorDataModule
+  const data =
+    (loadedModule.currentExecutionState
+      ? (loadedModule as InspectorData)
+      : loadedModule.STROKE_FLOW_INSPECTOR_DATA ??
+        loadedModule.default ??
+        globalInspectorRecord.STROKE_FLOW_INSPECTOR_DATA) ?? null
+
+  expect(data).toBeDefined()
+  return data as InspectorData
+}
+
 const loadInspectorData = (): InspectorData => {
   if (cachedInspectorData) {
     return cachedInspectorData
   }
-  const windowRecord: { STROKE_FLOW_INSPECTOR_DATA?: InspectorData } = {}
-  ;(globalThis as typeof globalThis & { window?: unknown }).window =
-    windowRecord
   Reflect.deleteProperty(require.cache, require.resolve(inspectorPath))
-  require(inspectorPath)
-  const data = windowRecord.STROKE_FLOW_INSPECTOR_DATA
-  expect(data).toBeDefined()
-  cachedInspectorData = data as InspectorData
+  Reflect.deleteProperty(globalInspectorRecord, 'STROKE_FLOW_INSPECTOR_DATA')
+  cachedInspectorData = requireInspectorData()
   return cachedInspectorData
 }
 
@@ -331,6 +349,37 @@ const routeById = (data: InspectorData, id: string) => {
 }
 
 describe('stroke flow refactor protocol', () => {
+  it('loads inspector data without a browser window global', () => {
+    const originalWindow = globalInspectorRecord.window
+
+    try {
+      Reflect.deleteProperty(globalInspectorRecord, 'window')
+      Reflect.deleteProperty(
+        globalInspectorRecord,
+        'STROKE_FLOW_INSPECTOR_DATA'
+      )
+      Reflect.deleteProperty(require.cache, require.resolve(inspectorPath))
+
+      const data = requireInspectorData()
+
+      expect(data.currentExecutionState.refactorProtocolName).toBe(
+        'Inspector-Flow-First Greenfield Stroke Engine Refactor'
+      )
+      expect(globalInspectorRecord.STROKE_FLOW_INSPECTOR_DATA).toBe(data)
+    } finally {
+      if (originalWindow === undefined) {
+        Reflect.deleteProperty(globalInspectorRecord, 'window')
+      } else {
+        globalInspectorRecord.window = originalWindow
+      }
+      Reflect.deleteProperty(
+        globalInspectorRecord,
+        'STROKE_FLOW_INSPECTOR_DATA'
+      )
+      Reflect.deleteProperty(require.cache, require.resolve(inspectorPath))
+    }
+  })
+
   it('keeps inspector contract, refactor lock metadata, and rule refs valid', () => {
     const data = loadInspectorData()
     const ruleIds = new Set(data.ruleRegistry.map((rule) => rule.id))

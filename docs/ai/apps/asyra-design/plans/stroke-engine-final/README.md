@@ -15,7 +15,14 @@ Other stroke documents have constrained roles:
 - `docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js`
   is inspector flow data. It visualizes stage order, data flow, evidence
   checkpoints, and failure reopening, but it must not define finer or different
-  stroke geometry semantics than this spec.
+  stroke geometry semantics than this spec. It is a Node-readable and
+  browser-readable JavaScript data file, not a browser-only `window` bundle.
+  Node agents and validators must load it directly with `require` from this
+  directory's CommonJS boundary; they must not create a VM or browser `window`
+  shim just to read inspector data. AI-agent readability has priority over
+  direct `file://` viewer loading. If the viewer needs a different delivery
+  format later, adapt the viewer or serve it through a dev server instead of
+  weakening the inspector data file's Node-readability contract.
 
 No other stroke plan, report, BDD feature, completed copy, or archived spec is
 allowed to define current stroke behavior. Other documents may reference,
