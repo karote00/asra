@@ -181,8 +181,9 @@ describe('stroke flow step 37: emit-render-hit-export-packets', () => {
   })
 
   it('emits render, hit, export, and diagnostic packets with explicit channel tags', () => {
-    const output =
-      emitSolidCenterStrokeProductOutputPacketsFromFinalFaces([finalFace])
+    const output = emitSolidCenterStrokeProductOutputPacketsFromFinalFaces([
+      finalFace
+    ])
 
     expect(output.renderPackets).toEqual([
       expect.objectContaining({
@@ -236,12 +237,14 @@ describe('stroke flow step 37: emit-render-hit-export-packets', () => {
   })
 
   it('emits empty channel arrays for hidden-output or no-final-face input', () => {
-    expect(emitSolidCenterStrokeProductOutputPacketsFromFinalFaces([])).toEqual({
-      renderPackets: [],
-      hitTestPackets: [],
-      exportPackets: [],
-      diagnosticPackets: []
-    })
+    expect(emitSolidCenterStrokeProductOutputPacketsFromFinalFaces([])).toEqual(
+      {
+        renderPackets: [],
+        hitTestPackets: [],
+        exportPackets: [],
+        diagnosticPackets: []
+      }
+    )
   })
 
   it('keeps packet emission free of renderer projection and geometry repair', () => {
@@ -271,5 +274,4 @@ describe('stroke flow step 37: emit-render-hit-export-packets', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('emit-render-hit-export-packets')
   })
-
 })

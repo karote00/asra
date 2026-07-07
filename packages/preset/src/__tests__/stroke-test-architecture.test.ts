@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest'
 import { formalStrokeTestResidueRecords } from './stroke-test-residue-coverage-map'
 
 interface InspectorData {
-  steps: Array<{ id: string }>
-  conditionalRoutes: Array<{ id: string }>
+  steps: { id: string }[]
+  conditionalRoutes: { id: string }[]
   inspectorContractErrors: string[]
 }
 
@@ -71,7 +71,8 @@ const loadInspectorData = (): InspectorData => {
 
 const isStrokeGateTest = (path: string) =>
   path === 'packages/preset/src/__tests__/stroke-test-architecture.test.ts' ||
-  path === 'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts' ||
+  path ===
+    'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts' ||
   /^packages\/preset\/src\/__tests__\/stroke-flow\/step-\d{2}-[-a-z]+\.test\.ts$/.test(
     path
   ) ||
@@ -192,22 +193,27 @@ describe('stroke test architecture', () => {
     expect(residueFiles).toEqual(getOutsideStrokeLikeFormalTestFiles())
 
     for (const record of formalStrokeTestResidueRecords) {
-      expect(existsSync(resolve(repoRoot, record.filePath)), record.filePath).toBe(
-        true
-      )
+      expect(
+        existsSync(resolve(repoRoot, record.filePath)),
+        record.filePath
+      ).toBe(true)
       expect(isStrokeGateTest(record.filePath), record.filePath).toBe(false)
-      expect(record.shouldEnterStrokeCorrectnessGate, record.filePath).toBe(false)
+      expect(record.shouldEnterStrokeCorrectnessGate, record.filePath).toBe(
+        false
+      )
       expect(record.definesStrokeSemantics, record.filePath).toBe(false)
       expect(record.requiredActionBeforePromotion, record.filePath).toBeTruthy()
 
       if (record.requiresSpecInspectorMapping) {
         expect(record.specRuleRefs.length, record.filePath).toBeGreaterThan(0)
-        expect(record.inspectorStepRefs.length, record.filePath).toBeGreaterThan(
-          0
-        )
-        expect(record.inspectorRouteRefs.length, record.filePath).toBeGreaterThan(
-          0
-        )
+        expect(
+          record.inspectorStepRefs.length,
+          record.filePath
+        ).toBeGreaterThan(0)
+        expect(
+          record.inspectorRouteRefs.length,
+          record.filePath
+        ).toBeGreaterThan(0)
       } else {
         expect(record.specRuleRefs, record.filePath).toEqual([])
         expect(record.inspectorStepRefs, record.filePath).toEqual([])

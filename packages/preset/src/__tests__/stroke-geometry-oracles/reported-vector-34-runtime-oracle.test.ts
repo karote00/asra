@@ -28,7 +28,10 @@ import {
   registerGeometryBackend,
   selectGeometryBackend
 } from '../../components/stroke-render/geometry-backend'
-import { buildVectorGeometryModelPath } from '../../components/stroke-render/path-geometry'
+import {
+  buildVectorGeometryModelPath,
+  samplePathSegmentFrameAtLength
+} from '../../components/stroke-render/path-geometry'
 import { buildPathTopologyModel } from '../../components/stroke-render/path-topology-model'
 import { buildResolvedVectorGeometryModel } from '../../components/stroke-render/resolved-vector-geometry-model'
 import { resolveSourceFamily } from '../../components/stroke-render/resolved-source-family'
@@ -37,7 +40,10 @@ import {
   buildSolidCenterStrokeHitTestPacketsFromFinalFaces,
   toSolidCenterStrokeRenderEntriesFromFinalFaces
 } from '../../components/stroke-render/solid-center-stroke-packets'
-import type { Vec2 } from '../../components/stroke-render/solid-stroke-geometry-core'
+import {
+  buildRoundStrokeArcPointsBetween,
+  type Vec2
+} from '../../components/stroke-render/solid-stroke-geometry-core'
 import { buildStrokeFinalFacesFromResolvedPackets } from '../../components/stroke-render/stroke-final-face'
 import { resolveStrokeDomains } from '../../components/stroke-render/stroke-domain-plan'
 
@@ -92,9 +98,9 @@ const SOURCE_SPACE_FLOATING_EPSILON = 0.001
 
 const require = createRequire(import.meta.url)
 const clipperWasmPath = require.resolve('clipper2-wasm/dist/umd/clipper2z.wasm')
+const EXACT_BACKEND_ID = 'clipper2-new-stroke-oracle-vector-34'
 
 beforeAll(async () => {
-  const backendId = 'clipper2-new-stroke-oracle-vector-34'
   const backend = createClipper2GeometryBackend(
     (await (
       Clipper2ZFactory as (options: {
@@ -104,15 +110,15 @@ beforeAll(async () => {
       wasmBinary: readFileSync(clipperWasmPath)
     })) as Clipper2Module,
     {
-      backendId,
-      backendVersion: `${backendId}@test`
+      backendId: EXACT_BACKEND_ID,
+      backendVersion: `${EXACT_BACKEND_ID}@test`
     }
   )
   registerGeometryBackend({
-    backendId,
+    backendId: EXACT_BACKEND_ID,
     load: () => backend
   })
-  selectGeometryBackend(backendId)
+  selectGeometryBackend(EXACT_BACKEND_ID)
 })
 
 const createReportedVector34Fixture = () => {
@@ -252,6 +258,30 @@ const createReportedVector34Fixture = () => {
 
   return { network, points, segments }
 }
+
+const translateVector34Fixture = (
+  fixture: ReturnType<typeof createReportedVector34Fixture>,
+  offset: Vec2
+): ReturnType<typeof createReportedVector34Fixture> => ({
+  network: fixture.network,
+  points: Object.fromEntries(
+    Object.entries(fixture.points).map(([pointId, point]) => [
+      pointId,
+      {
+        ...point,
+        x: point.x + offset.x,
+        y: point.y + offset.y
+      }
+    ])
+  ) as ReturnType<typeof createReportedVector34Fixture>['points'],
+  segments: fixture.segments
+})
+
+const createReportedVector34LocalFixture = () =>
+  translateVector34Fixture(createReportedVector34Fixture(), {
+    x: -1472.0139567292267,
+    y: -1637.0696495055142
+  })
 
 const createSmoothCurvatureFixture = () => {
   const points: Record<string, VectorPointNode> = {
@@ -458,7 +488,7 @@ const buildReportedStrokeWithJoin = (joinType: ReportedJoinType) =>
     style: StrokeStyles.DASHED,
     position: StrokePositions.OUTSIDE,
     width: 10,
-    dash: 27,
+    dash: 20,
     gap: 20,
     color: '#cccccc',
     opacity: 0.5,
@@ -600,6 +630,34 @@ const distanceToPolygon = (point: Vec2, polygon: Vec2[]) => {
 
 const distanceToPolygons = (point: Vec2, polygons: Vec2[][]) =>
   Math.min(...polygons.map((polygon) => distanceToPolygon(point, polygon)))
+
+const getPolygonsBounds = (polygons: Vec2[][]) => {
+  const points = polygons.flat()
+  if (points.length === 0) {
+    return null
+  }
+  const xs = points.map((point) => point.x)
+  const ys = points.map((point) => point.y)
+  return {
+    minX: Math.round(Math.min(...xs) * 1000) / 1000,
+    minY: Math.round(Math.min(...ys) * 1000) / 1000,
+    maxX: Math.round(Math.max(...xs) * 1000) / 1000,
+    maxY: Math.round(Math.max(...ys) * 1000) / 1000
+  }
+}
+
+const add = (first: Vec2, second: Vec2): Vec2 => ({
+  x: first.x + second.x,
+  y: first.y + second.y
+})
+
+const scale = (vector: Vec2, scalar: number): Vec2 => ({
+  x: vector.x * scalar,
+  y: vector.y * scalar
+})
+
+const sourceSpaceWidthTolerance = (strokeWidth: number) =>
+  Math.max(0.5, strokeWidth * 0.05)
 
 const getRuntimeJoinSeamEvidence = (
   meta: ReportedGeometryProduct['debugMeta']
@@ -789,7 +847,8 @@ const assertSeamEvidenceUsesStep27OuterEndpoints = (
   result: ReturnType<typeof buildReportedPipelineResult>,
   product: ReportedGeometryProduct,
   sourceVertex: Vec2,
-  label: string
+  label: string,
+  options: { allowRenderProjectionMerge?: boolean } = {}
 ) => {
   const seamEvidence = getRuntimeJoinSeamEvidence(product.debugMeta)
   expect(seamEvidence, `${label} seam evidence`).toBeDefined()
@@ -957,7 +1016,202 @@ const assertSeamEvidenceUsesStep27OuterEndpoints = (
         )}`
       ).toBeLessThanOrEqual(SOURCE_SPACE_FLOATING_EPSILON)
     }
+
+    const seamEdgeLength = distance(
+      seamBoundary.point,
+      seamBoundary.outerBodyBoundaryEndpoint
+    )
+    expect(
+      Math.abs(seamEdgeLength - result.stroke.width),
+      `${label} Step 27/28 incident terminal seam edge must preserve full stroke width before source-vertex join consumption: ${JSON.stringify(
+        {
+          seamBoundaryId: seamBoundary.seamBoundaryId,
+          intervalId: seamBoundary.intervalId,
+          side: seamBoundary.side,
+          expectedStrokeWidth: result.stroke.width,
+          seamEdgeLength: Math.round(seamEdgeLength * 1000) / 1000,
+          terminalPoint: roundedRelativePoint(seamBoundary.point, sourceVertex),
+          outerBodyBoundaryEndpoint: roundedRelativePoint(
+            seamBoundary.outerBodyBoundaryEndpoint,
+            sourceVertex
+          ),
+          bodySideOutlineSegment: seamBoundary.bodySideOutlineSegment.map(
+            (point) => roundedRelativePoint(point, sourceVertex)
+          ),
+          productSignature: product.debugMeta?.productSignature ?? null,
+          routeId: product.debugMeta?.routeId ?? null,
+          ownerStage: product.debugMeta?.ownerStage ?? null
+        },
+        null,
+        2
+      )}`
+    ).toBeLessThanOrEqual(sourceSpaceWidthTolerance(result.stroke.width))
+
+    const seamEdgeTolerance = sourceSpaceWidthTolerance(1)
+    const joinsShareStep27SeamEdge = product.polygons.some((polygon) =>
+      edgeConnects(
+        polygon,
+        seamBoundary.point,
+        seamBoundary.outerBodyBoundaryEndpoint,
+        seamEdgeTolerance
+      )
+    )
+    const visualOverlapCollapseStatus =
+      (
+        product as ReportedGeometryProduct & {
+          runtimeMeta?: { visualOverlapCollapseStatus?: string }
+        }
+      ).runtimeMeta?.visualOverlapCollapseStatus ??
+      product.debugMeta?.visualOverlapCollapseStatus
+    const visualOverlapSourceFaceIds =
+      product.debugMeta?.visualOverlapSourceFaceIds ?? []
+    const seamMidpoint = {
+      x: (seamBoundary.point.x + seamBoundary.outerBodyBoundaryEndpoint.x) / 2,
+      y: (seamBoundary.point.y + seamBoundary.outerBodyBoundaryEndpoint.y) / 2
+    }
+    const mergedRenderProjectionPreservesSeamCoverage =
+      options.allowRenderProjectionMerge === true &&
+      visualOverlapCollapseStatus === 'render-projection-merged' &&
+      visualOverlapSourceFaceIds.length > 1 &&
+      distanceToPolygons(seamBoundary.point, product.polygons) <=
+        seamEdgeTolerance &&
+      distanceToPolygons(
+        seamBoundary.outerBodyBoundaryEndpoint,
+        product.polygons
+      ) <= seamEdgeTolerance &&
+      distanceToPolygons(seamMidpoint, product.polygons) <= seamEdgeTolerance
+    expect(
+      joinsShareStep27SeamEdge || mergedRenderProjectionPreservesSeamCoverage,
+      `${label} source-vertex join polygon must share the full Step 27 dash seam edge before render projection, or Step 38 must keep a single-paint merged projection with seam coverage provenance: ${JSON.stringify(
+        {
+          seamBoundaryId: seamBoundary.seamBoundaryId,
+          intervalId: seamBoundary.intervalId,
+          side: seamBoundary.side,
+          terminalPoint: roundedRelativePoint(seamBoundary.point, sourceVertex),
+          outerBodyBoundaryEndpoint: roundedRelativePoint(
+            seamBoundary.outerBodyBoundaryEndpoint,
+            sourceVertex
+          ),
+          seamEdgeTolerance,
+          polygonCount: product.polygons.length,
+          productSignature: product.debugMeta?.productSignature ?? null,
+          routeId: product.debugMeta?.routeId ?? null,
+          resolvedJoin: product.debugMeta?.resolvedJoin ?? null,
+          visualOverlapCollapseStatus,
+          visualOverlapSourceFaceIds,
+          seamPointDistanceToVisibleProduct: distanceToPolygons(
+            seamBoundary.point,
+            product.polygons
+          ),
+          seamOuterEndpointDistanceToVisibleProduct: distanceToPolygons(
+            seamBoundary.outerBodyBoundaryEndpoint,
+            product.polygons
+          ),
+          seamMidpointDistanceToVisibleProduct: distanceToPolygons(
+            seamMidpoint,
+            product.polygons
+          ),
+          polygons: product.polygons.map((polygon) =>
+            polygon.map((point) => roundedRelativePoint(point, sourceVertex))
+          )
+        },
+        null,
+        2
+      )}`
+    ).toBe(true)
   }
+}
+
+const assertIncidentSeamDashSideCoverage = (
+  products: readonly ReportedGeometryProduct[],
+  product: ReportedGeometryProduct,
+  strokeWidth: number,
+  sourceVertex: Vec2,
+  label: string
+) => {
+  const seamEvidence = getRuntimeJoinSeamEvidence(product.debugMeta)
+  expect(seamEvidence, `${label} seam evidence`).toBeDefined()
+  if (!seamEvidence) {
+    return
+  }
+
+  const failures: {
+    seamBoundaryId: string
+    intervalId: string
+    side: string
+    tangentDistance: number
+    widthRatio: number
+    sample: Vec2
+    distanceToIncidentDashBody: number
+    incidentPolygonCount: number
+    productSignature: string | null
+  }[] = []
+  const tolerance = sourceSpaceWidthTolerance(strokeWidth)
+
+  for (const seamBoundary of seamEvidence.incidentSeamBoundaries) {
+    const bodyTangent = normalize(seamBoundary.bodySideTangent)
+    if (!bodyTangent) {
+      failures.push({
+        seamBoundaryId: seamBoundary.seamBoundaryId,
+        intervalId: seamBoundary.intervalId,
+        side: seamBoundary.side,
+        tangentDistance: 0,
+        widthRatio: 0,
+        sample: roundedRelativePoint(seamBoundary.point, sourceVertex),
+        distanceToIncidentDashBody: Number.POSITIVE_INFINITY,
+        incidentPolygonCount: 0,
+        productSignature: product.debugMeta?.productSignature ?? null
+      })
+      continue
+    }
+    const seamEdgeVector = subtract(
+      seamBoundary.outerBodyBoundaryEndpoint,
+      seamBoundary.point
+    )
+    const incidentPolygons = getVisibleIntervalPolygons(
+      products,
+      seamBoundary.intervalId
+    )
+    for (const tangentDistance of [
+      Math.max(0.5, strokeWidth * 0.1),
+      Math.max(1, strokeWidth * 0.25),
+      Math.max(2, strokeWidth * 0.45)
+    ]) {
+      for (const widthRatio of [0.2, 0.45, 0.7, 0.9]) {
+        const seamPoint = add(
+          seamBoundary.point,
+          scale(seamEdgeVector, widthRatio)
+        )
+        const sample = add(seamPoint, scale(bodyTangent, tangentDistance))
+        const distanceToIncidentDashBody = distanceToPolygons(
+          sample,
+          incidentPolygons
+        )
+        if (distanceToIncidentDashBody > tolerance) {
+          failures.push({
+            seamBoundaryId: seamBoundary.seamBoundaryId,
+            intervalId: seamBoundary.intervalId,
+            side: seamBoundary.side,
+            tangentDistance,
+            widthRatio,
+            sample: roundedRelativePoint(sample, sourceVertex),
+            distanceToIncidentDashBody:
+              Math.round(distanceToIncidentDashBody * 1000) / 1000,
+            incidentPolygonCount: incidentPolygons.length,
+            productSignature: product.debugMeta?.productSignature ?? null
+          })
+        }
+      }
+    }
+  }
+
+  expect(
+    {
+      count: failures.length,
+      examples: failures.slice(0, 12)
+    },
+    `${label} incident terminal interval must stay visibly covered behind each full-width source-vertex seam edge; seam-edge identity alone is not enough to prevent visible join/dash cracks`
+  ).toEqual({ count: 0, examples: [] })
 }
 
 const edgeConnects = (
@@ -1020,6 +1274,325 @@ const roundedRelativePoint = (point: Vec2, anchor: Vec2) => ({
   x: Math.round((point.x - anchor.x) * 100) / 100,
   y: Math.round((point.y - anchor.y) * 100) / 100
 })
+
+const roundedForDiagnostic = (point: Vec2) => ({
+  x: Math.round(point.x * 1000) / 1000,
+  y: Math.round(point.y * 1000) / 1000
+})
+
+const getRenderEntryPaintSignature = (entry: ReportedRenderEntry) =>
+  [
+    entry.stroke.kind,
+    entry.stroke.color,
+    entry.stroke.alpha,
+    entry.stroke.paintKey ?? ''
+  ].join('|')
+
+const assertNoSamePaintRenderEntryOverdraw = (
+  renderEntries: ReportedRenderEntry[],
+  label: string
+) => {
+  const sharedBoundaryTolerance = 0.05
+  for (let leftIndex = 0; leftIndex < renderEntries.length; leftIndex += 1) {
+    const left = renderEntries[leftIndex]
+    if (!left || left.polygons.length === 0) {
+      continue
+    }
+
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < renderEntries.length;
+      rightIndex += 1
+    ) {
+      const right = renderEntries[rightIndex]
+      if (
+        !right ||
+        right.polygons.length === 0 ||
+        getRenderEntryPaintSignature(left) !==
+          getRenderEntryPaintSignature(right)
+      ) {
+        continue
+      }
+
+      const intersections = getGeometryBackend().intersection(
+        [{ polygons: left.polygons }],
+        [{ polygons: right.polygons }],
+        'nonzero'
+      )
+      const overlapArea = polygonListArea(
+        intersections.flatMap((region) => region.polygons)
+      )
+      const boundaryDistance = getPolygonListBoundaryDistance(
+        left.polygons,
+        right.polygons
+      )
+      expect(
+        overlapArea,
+        `${label} Step 38 same-paint render entries must not create repeated-alpha overdraw: ${JSON.stringify(
+          {
+            leftIndex,
+            rightIndex,
+            overlapArea,
+            left: {
+              cacheKey: left.cacheKey,
+              visibleContributor: left.debugMeta?.visibleContributor ?? null,
+              routeId: left.debugMeta?.routeId ?? null,
+              productSignature: left.debugMeta?.productSignature ?? null,
+              intervalIds: left.runtimeMeta.intervalIds ?? [],
+              visualOverlapCollapseStatus:
+                left.runtimeMeta.visualOverlapCollapseStatus ?? null,
+              polygons: left.polygons.map((polygon) =>
+                polygon.map(roundedForDiagnostic)
+              )
+            },
+            right: {
+              cacheKey: right.cacheKey,
+              visibleContributor: right.debugMeta?.visibleContributor ?? null,
+              routeId: right.debugMeta?.routeId ?? null,
+              productSignature: right.debugMeta?.productSignature ?? null,
+              intervalIds: right.runtimeMeta.intervalIds ?? [],
+              visualOverlapCollapseStatus:
+                right.runtimeMeta.visualOverlapCollapseStatus ?? null,
+              polygons: right.polygons.map((polygon) =>
+                polygon.map(roundedForDiagnostic)
+              )
+            }
+          },
+          null,
+          2
+        )}`
+      ).toBeLessThanOrEqual(SOURCE_SPACE_FLOATING_EPSILON)
+      expect(
+        boundaryDistance,
+        `${label} Step 38 same-paint render entries with shared or near-shared boundaries must be merged before renderer projection to prevent high-zoom antialias seams: ${JSON.stringify(
+          {
+            leftIndex,
+            rightIndex,
+            boundaryDistance: Math.round(boundaryDistance * 1000) / 1000,
+            sharedBoundaryTolerance,
+            left: {
+              cacheKey: left.cacheKey,
+              visibleContributor: left.debugMeta?.visibleContributor ?? null,
+              routeId: left.debugMeta?.routeId ?? null,
+              productSignature: left.debugMeta?.productSignature ?? null,
+              intervalIds: left.runtimeMeta.intervalIds ?? [],
+              visualOverlapCollapseStatus:
+                left.runtimeMeta.visualOverlapCollapseStatus ?? null
+            },
+            right: {
+              cacheKey: right.cacheKey,
+              visibleContributor: right.debugMeta?.visibleContributor ?? null,
+              routeId: right.debugMeta?.routeId ?? null,
+              productSignature: right.debugMeta?.productSignature ?? null,
+              intervalIds: right.runtimeMeta.intervalIds ?? [],
+              visualOverlapCollapseStatus:
+                right.runtimeMeta.visualOverlapCollapseStatus ?? null
+            }
+          },
+          null,
+          2
+        )}`
+      ).toBeGreaterThan(sharedBoundaryTolerance)
+    }
+  }
+}
+
+const getPolygonBoundaryDistance = (left: Vec2[], right: Vec2[]) => {
+  let minDistance = Number.POSITIVE_INFINITY
+  for (let leftIndex = 0; leftIndex < left.length; leftIndex += 1) {
+    const leftPoint = left[leftIndex]
+    const leftNext = left[(leftIndex + 1) % left.length] ?? leftPoint
+    for (let rightIndex = 0; rightIndex < right.length; rightIndex += 1) {
+      const rightPoint = right[rightIndex]
+      const rightNext = right[(rightIndex + 1) % right.length] ?? rightPoint
+      minDistance = Math.min(
+        minDistance,
+        distanceToSegment(leftPoint, rightPoint, rightNext),
+        distanceToSegment(leftNext, rightPoint, rightNext),
+        distanceToSegment(rightPoint, leftPoint, leftNext),
+        distanceToSegment(rightNext, leftPoint, leftNext)
+      )
+    }
+  }
+  return minDistance
+}
+
+const getCollinearSegmentOverlapLength = (
+  leftStart: Vec2,
+  leftEnd: Vec2,
+  rightStart: Vec2,
+  rightEnd: Vec2,
+  tolerance: number
+) => {
+  const axis = subtract(leftEnd, leftStart)
+  const axisLength = Math.hypot(axis.x, axis.y)
+  const rightAxis = subtract(rightEnd, rightStart)
+  const rightAxisLength = Math.hypot(rightAxis.x, rightAxis.y)
+  if (
+    axisLength <= SOURCE_SPACE_FLOATING_EPSILON ||
+    rightAxisLength <= SOURCE_SPACE_FLOATING_EPSILON
+  ) {
+    return 0
+  }
+
+  const normalizedAxis = { x: axis.x / axisLength, y: axis.y / axisLength }
+  const parallelDistance =
+    Math.abs(axis.x * rightAxis.y - axis.y * rightAxis.x) /
+    Math.max(axisLength, rightAxisLength)
+  if (parallelDistance > tolerance) {
+    return 0
+  }
+
+  const rightStartLineDistance =
+    Math.abs(
+      axis.x * (rightStart.y - leftStart.y) -
+        axis.y * (rightStart.x - leftStart.x)
+    ) / axisLength
+  const rightEndLineDistance =
+    Math.abs(
+      axis.x * (rightEnd.y - leftStart.y) - axis.y * (rightEnd.x - leftStart.x)
+    ) / axisLength
+  if (rightStartLineDistance > tolerance || rightEndLineDistance > tolerance) {
+    return 0
+  }
+
+  const leftRange: [number, number] = [0, axisLength]
+  const rightRange = [rightStart, rightEnd]
+    .map((point) => dot(subtract(point, leftStart), normalizedAxis))
+    .sort((left, right) => left - right) as [number, number]
+  return Math.max(
+    0,
+    Math.min(leftRange[1], rightRange[1]) -
+      Math.max(leftRange[0], rightRange[0])
+  )
+}
+
+const getPolygonSharedBoundaryLength = (
+  left: Vec2[],
+  right: Vec2[],
+  tolerance: number
+) => {
+  let sharedLength = 0
+  for (let leftIndex = 0; leftIndex < left.length; leftIndex += 1) {
+    const leftPoint = left[leftIndex]
+    const leftNext = left[(leftIndex + 1) % left.length] ?? leftPoint
+    for (let rightIndex = 0; rightIndex < right.length; rightIndex += 1) {
+      const rightPoint = right[rightIndex]
+      const rightNext = right[(rightIndex + 1) % right.length] ?? rightPoint
+      sharedLength += getCollinearSegmentOverlapLength(
+        leftPoint,
+        leftNext,
+        rightPoint,
+        rightNext,
+        tolerance
+      )
+    }
+  }
+  return sharedLength
+}
+
+const assertNoInternalSharedBoundaryRenderPolygons = (
+  renderEntries: ReportedRenderEntry[],
+  label: string
+) => {
+  const sharedBoundaryTolerance = 0.05
+  const failures: {
+    entryIndex: number
+    pair: [number, number]
+    boundaryDistance: number
+    sharedBoundaryLength: number
+    overlapArea: number
+    cacheKey: string
+    visibleContributor: string | null
+    routeId: string | null
+    productSignature: string | null
+    visualOverlapCollapseStatus: string | null
+    intervalIds: string[]
+    polygonCount: number
+  }[] = []
+
+  for (let entryIndex = 0; entryIndex < renderEntries.length; entryIndex += 1) {
+    const entry = renderEntries[entryIndex]
+    if (!entry || entry.polygons.length < 2) {
+      continue
+    }
+
+    for (let leftIndex = 0; leftIndex < entry.polygons.length; leftIndex += 1) {
+      for (
+        let rightIndex = leftIndex + 1;
+        rightIndex < entry.polygons.length;
+        rightIndex += 1
+      ) {
+        const leftPolygon = entry.polygons[leftIndex]
+        const rightPolygon = entry.polygons[rightIndex]
+        const intersections = getGeometryBackend().intersection(
+          [{ polygons: [leftPolygon] }],
+          [{ polygons: [rightPolygon] }],
+          'nonzero'
+        )
+        const overlapArea = polygonListArea(
+          intersections.flatMap((region) => region.polygons)
+        )
+        const boundaryDistance = getPolygonBoundaryDistance(
+          leftPolygon,
+          rightPolygon
+        )
+        const sharedBoundaryLength = getPolygonSharedBoundaryLength(
+          leftPolygon,
+          rightPolygon,
+          sharedBoundaryTolerance
+        )
+        if (
+          overlapArea <= SOURCE_SPACE_FLOATING_EPSILON &&
+          sharedBoundaryLength <= sharedBoundaryTolerance
+        ) {
+          continue
+        }
+
+        failures.push({
+          entryIndex,
+          pair: [leftIndex, rightIndex],
+          boundaryDistance: Math.round(boundaryDistance * 1000) / 1000,
+          sharedBoundaryLength: Math.round(sharedBoundaryLength * 1000) / 1000,
+          overlapArea: Math.round(overlapArea * 1000) / 1000,
+          cacheKey: entry.cacheKey,
+          visibleContributor: entry.debugMeta?.visibleContributor ?? null,
+          routeId: entry.debugMeta?.routeId ?? null,
+          productSignature: entry.debugMeta?.productSignature ?? null,
+          visualOverlapCollapseStatus:
+            entry.runtimeMeta.visualOverlapCollapseStatus ?? null,
+          intervalIds: entry.runtimeMeta.intervalIds ?? [],
+          polygonCount: entry.polygons.length
+        })
+      }
+    }
+  }
+
+  expect(
+    {
+      count: failures.length,
+      examples: failures.slice(0, 12)
+    },
+    `${label} Step 38 render entries must not carry internally overlapping or shared-boundary same-paint polygons into renderer projection; disjoint dash products may remain separate, but touching products must be canonically merged before high-zoom rendering`
+  ).toEqual({ count: 0, examples: [] })
+}
+
+const getPolygonListBoundaryDistance = (
+  leftPolygons: Vec2[][],
+  rightPolygons: Vec2[][]
+) => {
+  const distances = [
+    ...leftPolygons.flatMap((polygon) =>
+      polygon.map((point) => distanceToPolygons(point, rightPolygons))
+    ),
+    ...rightPolygons.flatMap((polygon) =>
+      polygon.map((point) => distanceToPolygons(point, leftPolygons))
+    )
+  ]
+  return distances.length > 0
+    ? Math.min(...distances)
+    : Number.POSITIVE_INFINITY
+}
 
 const authoredMiterAngleToRendererMiterLimit = (miterAngle: number) =>
   1 / Math.sin((miterAngle * Math.PI) / 180 / 2)
@@ -1165,6 +1738,64 @@ const getMaxIncidentDashBodyDeficit = (
   )
 }
 
+const roundPointForSeamDiagnostic = (point: Vec2) => ({
+  x: Math.round(point.x * 1000) / 1000,
+  y: Math.round(point.y * 1000) / 1000
+})
+
+const getIncidentDashBodyDeficitDiagnostics = (
+  entry: ReportedGeometryProduct
+) => {
+  const seamEvidence = (
+    entry.debugMeta as
+      | {
+          seamEvidence?: {
+            incidentSeamBoundaries?: {
+              seamBoundaryId?: string
+              intervalId?: string
+              side?: string
+              point: Vec2
+              outerBodyBoundaryEndpoint?: Vec2
+            }[]
+          }
+        }
+      | undefined
+  )?.seamEvidence
+  return {
+    productMode: entry.debugMeta?.productMode,
+    productSignature: entry.debugMeta?.productSignature,
+    routeId: entry.debugMeta?.routeId,
+    resolvedJoin: entry.debugMeta?.resolvedJoin,
+    polygonCount: entry.polygons.length,
+    seamDistances: (seamEvidence?.incidentSeamBoundaries ?? []).map(
+      (boundary) => {
+        const point = boundary.outerBodyBoundaryEndpoint ?? boundary.point
+        const nearestVertex = entry.polygons
+          .flat()
+          .map((vertex) => ({
+            vertex,
+            distance: distance(point, vertex)
+          }))
+          .sort((left, right) => left.distance - right.distance)[0]
+        return {
+          seamBoundaryId: boundary.seamBoundaryId,
+          intervalId: boundary.intervalId,
+          side: boundary.side,
+          point: roundPointForSeamDiagnostic(point),
+          distanceToPolygons:
+            Math.round(distanceToPolygons(point, entry.polygons) * 1000) / 1000,
+          nearestVertex: nearestVertex
+            ? roundPointForSeamDiagnostic(nearestVertex.vertex)
+            : undefined,
+          nearestVertexDistance: nearestVertex
+            ? Math.round(nearestVertex.distance * 1000) / 1000
+            : undefined
+        }
+      }
+    )
+  }
+}
+
 const getMaxSourceNearDistance = (
   entries: ReportedRenderEntry[],
   anchor: Vec2
@@ -1264,13 +1895,18 @@ const assertBevelChordUsesIncidentDashOuterEndpoints = (
     )}`
   ).toBeGreaterThanOrEqual(2)
 
-  const tolerance = SOURCE_SPACE_FLOATING_EPSILON
+  const endpointTolerance = SOURCE_SPACE_FLOATING_EPSILON
   const hasOuterEndpointChord = endpoints.some((firstEndpoint, firstIndex) =>
     endpoints
       .slice(firstIndex + 1)
       .some((secondEndpoint) =>
         product.polygons.some((polygon) =>
-          edgeConnects(polygon, firstEndpoint, secondEndpoint, tolerance)
+          edgeConnects(
+            polygon,
+            firstEndpoint,
+            secondEndpoint,
+            endpointTolerance
+          )
         )
       )
   )
@@ -1332,17 +1968,17 @@ const assertRoundUsesLocalSourceVertexArc = (
     `${label} must expose both incident dash outer body boundary endpoints`
   ).toBeGreaterThanOrEqual(2)
 
-  const tolerance = SOURCE_SPACE_FLOATING_EPSILON
+  const endpointTolerance = SOURCE_SPACE_FLOATING_EPSILON
   const arcDeviationThreshold = 0.5
   const hasArcPointAwayFromBevelChord = endpoints.some(
     (firstEndpoint, firstIndex) =>
       endpoints.slice(firstIndex + 1).some((secondEndpoint) =>
         product.polygons.some((polygon) =>
           polygon.some((point) => {
-            const isSourceVertex = distance(point, anchor) <= tolerance
+            const isSourceVertex = distance(point, anchor) <= endpointTolerance
             const isIncidentEndpoint =
-              distance(point, firstEndpoint) <= tolerance ||
-              distance(point, secondEndpoint) <= tolerance
+              distance(point, firstEndpoint) <= endpointTolerance ||
+              distance(point, secondEndpoint) <= endpointTolerance
             return (
               !isSourceVertex &&
               !isIncidentEndpoint &&
@@ -1374,6 +2010,138 @@ const assertRoundUsesLocalSourceVertexArc = (
       2
     )}`
   ).toBe(true)
+
+  const boundariesBySide = new Map<
+    RuntimeJoinSeamEvidence['incidentSeamBoundaries'][number]['side'],
+    RuntimeJoinSeamEvidence['incidentSeamBoundaries'][number][]
+  >()
+  for (const boundary of seamEvidence.incidentSeamBoundaries) {
+    const boundaries = boundariesBySide.get(boundary.side) ?? []
+    boundaries.push(boundary)
+    boundariesBySide.set(boundary.side, boundaries)
+  }
+  const previousBoundaries = boundariesBySide.get('previous') ?? []
+  const nextBoundaries = boundariesBySide.get('next') ?? []
+  expect(
+    previousBoundaries.length,
+    `${label} round join must expose previous Step 27 seam evidence`
+  ).toBeGreaterThan(0)
+  expect(
+    nextBoundaries.length,
+    `${label} round join must expose next Step 27 seam evidence`
+  ).toBeGreaterThan(0)
+
+  const failures: {
+    previousSeamBoundaryId: string
+    nextSeamBoundaryId: string
+    radiusRatio: number
+    arcIndex: number
+    sample: Vec2
+    distanceToProduct: number
+    previousOuterEndpoint: Vec2
+    nextOuterEndpoint: Vec2
+    visualOverlapCollapseStatus: string | null
+    visualOverlapSourceFaceIds: string[]
+    productSignature: string | null
+    polygonCount: number
+  }[] = []
+  const sectorCoverageTolerance = sourceSpaceWidthTolerance(1)
+
+  for (const previousBoundary of previousBoundaries) {
+    for (const nextBoundary of nextBoundaries) {
+      const selectedArcDirection = normalize(
+        add(
+          subtract(previousBoundary.outerBodyBoundaryEndpoint, anchor),
+          subtract(nextBoundary.outerBodyBoundaryEndpoint, anchor)
+        )
+      )
+      if (!selectedArcDirection) {
+        continue
+      }
+      const selectedArc = ([1, -1] as const)
+        .map((sweepSign) => {
+          const arcPoints = buildRoundStrokeArcPointsBetween(
+            anchor,
+            previousBoundary.outerBodyBoundaryEndpoint,
+            nextBoundary.outerBodyBoundaryEndpoint,
+            sweepSign,
+            6
+          )
+          const midpoint = arcPoints[Math.floor(arcPoints.length / 2)]
+          const midpointDirection = midpoint
+            ? normalize(subtract(midpoint, anchor))
+            : null
+          return {
+            arcPoints,
+            score:
+              midpointDirection !== null
+                ? dot(selectedArcDirection, midpointDirection)
+                : Number.NEGATIVE_INFINITY
+          }
+        })
+        .sort((left, right) => right.score - left.score)[0]
+      const arcPoints =
+        selectedArc?.arcPoints.filter(
+          (_, index, points) => index !== 0 && index !== points.length - 1
+        ) ?? []
+
+      for (const [arcIndex, arcPoint] of arcPoints.entries()) {
+        for (const radiusRatio of [0.45, 0.65, 0.85, 0.97]) {
+          const sample = add(
+            anchor,
+            scale(subtract(arcPoint, anchor), radiusRatio)
+          )
+          const distanceToProduct = distanceToPolygons(sample, product.polygons)
+          if (distanceToProduct > sectorCoverageTolerance) {
+            failures.push({
+              previousSeamBoundaryId: previousBoundary.seamBoundaryId,
+              nextSeamBoundaryId: nextBoundary.seamBoundaryId,
+              radiusRatio,
+              arcIndex,
+              sample: roundedRelativePoint(sample, anchor),
+              distanceToProduct: Math.round(distanceToProduct * 1000) / 1000,
+              previousOuterEndpoint: roundedRelativePoint(
+                previousBoundary.outerBodyBoundaryEndpoint,
+                anchor
+              ),
+              nextOuterEndpoint: roundedRelativePoint(
+                nextBoundary.outerBodyBoundaryEndpoint,
+                anchor
+              ),
+              visualOverlapCollapseStatus:
+                product.debugMeta?.visualOverlapCollapseStatus ?? null,
+              visualOverlapSourceFaceIds:
+                product.debugMeta?.visualOverlapSourceFaceIds ?? [],
+              productSignature: product.debugMeta?.productSignature ?? null,
+              polygonCount: product.polygons.length
+            })
+          }
+        }
+      }
+    }
+  }
+
+  expect(
+    {
+      count: failures.length,
+      examples: failures.slice(0, 12)
+    },
+    `${label} round source-vertex join must continuously fill the sector between incident terminal seam boundaries; cracks between join and dash are Step 28/38 product failures: ${JSON.stringify(
+      {
+        productSignature: product.debugMeta?.productSignature ?? null,
+        routeId: product.debugMeta?.routeId ?? null,
+        visualOverlapCollapseStatus:
+          product.debugMeta?.visualOverlapCollapseStatus ?? null,
+        visualOverlapSourceFaceIds:
+          product.debugMeta?.visualOverlapSourceFaceIds ?? [],
+        polygons: product.polygons.map((polygon) =>
+          polygon.map((point) => roundedRelativePoint(point, anchor))
+        )
+      },
+      null,
+      2
+    )}`
+  ).toEqual({ count: 0, examples: [] })
 }
 
 const allowedNearSourceVisibleContributors = new Set([
@@ -1793,6 +2561,7 @@ const buildPipelineResult = ({
     segments,
     topology,
     selfIntersecting,
+    implicitFillRegions,
     stroke,
     packets,
     finalFaces,
@@ -1972,7 +2741,792 @@ const collectProductPolygons = (
       : (product.polygons ?? [])
   )
 
+const getReportedSourceSegmentStartDistance = (
+  result: ReturnType<typeof buildReportedPipelineResult>,
+  sourceSegmentIndex: number
+) =>
+  result.sourcePath.segmentDistanceRanges?.find(
+    (range) => range.index === sourceSegmentIndex
+  )?.startDistance ??
+  result.sourcePath.segments
+    .slice(0, sourceSegmentIndex)
+    .reduce((total, segment) => total + segment.length, 0)
+
+const toReportedSegmentLocalDistance = ({
+  result,
+  sourceSegmentIndex,
+  sourceDistance,
+  segmentLength
+}: {
+  result: ReturnType<typeof buildReportedPipelineResult>
+  sourceSegmentIndex: number
+  sourceDistance: number
+  segmentLength: number
+}) => {
+  if (sourceDistance >= 0 && sourceDistance <= segmentLength) {
+    return sourceDistance
+  }
+  const absolutePathLocalDistance =
+    sourceDistance -
+    getReportedSourceSegmentStartDistance(result, sourceSegmentIndex)
+  if (
+    absolutePathLocalDistance >= 0 &&
+    absolutePathLocalDistance <= segmentLength
+  ) {
+    return absolutePathLocalDistance
+  }
+  return Number.NaN
+}
+
+const isPointInsideImplicitFillRegions = (
+  result: ReturnType<typeof buildReportedPipelineResult>,
+  point: Vec2
+) =>
+  result.implicitFillRegions.some((region) =>
+    region.polygons.some((polygon) => isPointInsidePolygon(point, polygon))
+  )
+
+const getReportedOutsideNormal = (
+  result: ReturnType<typeof buildReportedPipelineResult>,
+  sourcePoint: Vec2,
+  tangent: Vec2
+) => {
+  const normalizedTangent = normalize(tangent)
+  if (!normalizedTangent) {
+    return null
+  }
+  const left = { x: -normalizedTangent.y, y: normalizedTangent.x }
+  const right = { x: normalizedTangent.y, y: -normalizedTangent.x }
+  const probeDistances = [
+    Math.max(2, result.stroke.width * 0.25),
+    result.stroke.width * 0.5,
+    result.stroke.width,
+    result.stroke.width * 2
+  ]
+  for (const probeDistance of probeDistances) {
+    const leftProbe = add(sourcePoint, scale(left, probeDistance))
+    const rightProbe = add(sourcePoint, scale(right, probeDistance))
+    const leftInside = isPointInsideImplicitFillRegions(result, leftProbe)
+    const rightInside = isPointInsideImplicitFillRegions(result, rightProbe)
+
+    if (leftInside !== rightInside) {
+      return leftInside ? right : left
+    }
+  }
+
+  return polygonSignedArea(result.topology.normalizedPoints) >= 0 ? right : left
+}
+
+const getReportedNormalDiagnostics = (
+  result: ReturnType<typeof buildReportedPipelineResult>,
+  sourcePoint: Vec2,
+  tangent: Vec2,
+  polygons: Vec2[][],
+  strokeWidth: number
+) => {
+  const normalizedTangent = normalize(tangent)
+  if (!normalizedTangent) {
+    return []
+  }
+  const normals = [
+    {
+      side: 'left',
+      normal: { x: -normalizedTangent.y, y: normalizedTangent.x }
+    },
+    {
+      side: 'right',
+      normal: { x: normalizedTangent.y, y: -normalizedTangent.x }
+    }
+  ] as const
+
+  return normals.map(({ side, normal }) => {
+    const sample = add(sourcePoint, scale(normal, strokeWidth * 0.95))
+    return {
+      side,
+      sample: roundedForDiagnostic(sample),
+      insideFillAtHalfWidth: isPointInsideImplicitFillRegions(
+        result,
+        add(sourcePoint, scale(normal, strokeWidth * 0.5))
+      ),
+      insideFillAtFullWidth: isPointInsideImplicitFillRegions(
+        result,
+        add(sourcePoint, scale(normal, strokeWidth))
+      ),
+      distanceToVisibleProduct:
+        Math.round(distanceToPolygons(sample, polygons) * 1000) / 1000
+    }
+  })
+}
+
+const getReportedSelectedSideNormal = (
+  tangent: Vec2,
+  selectedSide: 1 | -1 | undefined
+) => {
+  const normalizedTangent = normalize(tangent)
+  if (!normalizedTangent || (selectedSide !== 1 && selectedSide !== -1)) {
+    return null
+  }
+  return {
+    x: -normalizedTangent.y * selectedSide,
+    y: normalizedTangent.x * selectedSide
+  }
+}
+
+const getReportedSourceFrame = ({
+  result,
+  sourceSegmentIndex,
+  sourceDistance
+}: {
+  result: ReturnType<typeof buildReportedPipelineResult>
+  sourceSegmentIndex: number
+  sourceDistance: number
+}) => {
+  const segment = result.sourcePath.segments[sourceSegmentIndex]
+  if (!segment) {
+    return null
+  }
+  const localDistance = toReportedSegmentLocalDistance({
+    result,
+    sourceSegmentIndex,
+    sourceDistance,
+    segmentLength: segment.length
+  })
+  if (!Number.isFinite(localDistance)) {
+    return null
+  }
+  return samplePathSegmentFrameAtLength(
+    segment,
+    Math.max(0, Math.min(segment.length, localDistance))
+  )
+}
+
+const getReportedDashIntervalRecordsForProduct = (
+  meta: ReportedGeometryProduct['debugMeta'] | undefined
+) => {
+  const records = meta?.dashProductIntervals ?? []
+  if (records.length > 0) {
+    return records
+  }
+  if (
+    meta?.intervalId &&
+    meta.domainPlanSplitRangeSourceSegmentIndex !== undefined &&
+    meta.domainPlanSplitRangeSourceStartDistance !== undefined &&
+    meta.domainPlanSplitRangeSourceEndDistance !== undefined
+  ) {
+    return [
+      {
+        intervalId: meta.intervalId,
+        terminalRole: meta.domainPlanTerminalRole,
+        sourceSegmentIndex: meta.domainPlanSplitRangeSourceSegmentIndex,
+        sourceStartDistance: meta.domainPlanSplitRangeSourceStartDistance,
+        sourceEndDistance: meta.domainPlanSplitRangeSourceEndDistance,
+        splitRangeId: meta.domainPlanSplitRangeId,
+        materializationDistanceSpace: meta.materializationDistanceSpace
+      }
+    ]
+  }
+  return []
+}
+
+const isReportedVisibleDashBodyContributor = (
+  meta: ReportedGeometryProduct['debugMeta'] | undefined
+) =>
+  meta?.visibleContributor === 'dash-interval-body' ||
+  meta?.visibleContributor === 'terminal-interval-body' ||
+  meta?.visibleContributor === 'smooth-continuity-dash-body' ||
+  meta?.visibleContributor === 'same-owner-smooth-span-descriptor'
+
+const getIntervalPolygons = (
+  products: readonly ReportedGeometryProduct[],
+  intervalId: string
+) =>
+  products
+    .filter((product) => {
+      if (!isReportedVisibleDashBodyContributor(product.debugMeta)) {
+        return false
+      }
+      return getPacketIntervalIds(product.debugMeta).has(intervalId)
+    })
+    .flatMap((product) => product.polygons)
+
+const getIntervalProductDiagnostics = (
+  products: readonly ReportedGeometryProduct[],
+  intervalId: string
+) =>
+  products
+    .filter(
+      (product) =>
+        isReportedVisibleDashBodyContributor(product.debugMeta) &&
+        getPacketIntervalIds(product.debugMeta).has(intervalId)
+    )
+    .map((product) => ({
+      signature: product.debugMeta?.productSignature ?? null,
+      ownerStage: product.debugMeta?.ownerStage ?? null,
+      routeId: product.debugMeta?.routeId ?? null,
+      area:
+        product.debugMeta?.finalProductArea !== undefined
+          ? Math.round(product.debugMeta.finalProductArea * 1000) / 1000
+          : Math.round(polygonListArea(product.polygons) * 1000) / 1000,
+      polygonCount: product.polygons.length
+    }))
+
+const getVisibleProductPolygons = (
+  products: readonly ReportedGeometryProduct[]
+) =>
+  products
+    .filter(
+      (product) =>
+        product.polygons.length > 0 &&
+        product.debugMeta?.visibleContributor !== undefined
+    )
+    .flatMap((product) => product.polygons)
+
+const getVisibleIntervalPolygons = (
+  products: readonly ReportedGeometryProduct[],
+  intervalId: string
+) =>
+  products
+    .filter(
+      (product) =>
+        product.polygons.length > 0 &&
+        product.debugMeta?.visibleContributor !== undefined &&
+        getPacketIntervalIds(product.debugMeta).has(intervalId)
+    )
+    .flatMap((product) => product.polygons)
+
+const assertOutsideDashedTerminalFootprintsAreNotStripFragmented = ({
+  products,
+  label
+}: {
+  products: readonly ReportedGeometryProduct[]
+  label: string
+}) => {
+  const failures = products
+    .filter((product) => {
+      const meta = product.debugMeta
+      return (
+        meta?.strokePosition === StrokePositions.OUTSIDE &&
+        meta.visibleContributor === 'terminal-interval-body' &&
+        (meta.routeId === 'constrained-dashed-terminal-body-product' ||
+          meta.routeId ===
+            'constrained-dashed-join-owned-terminal-body-product')
+      )
+    })
+    .flatMap((product) => {
+      const intervalCount = Math.max(
+        1,
+        getPacketIntervalIds(product.debugMeta).size
+      )
+      const allowedPolygonCount = intervalCount * 2
+      if (product.polygons.length <= allowedPolygonCount) {
+        return []
+      }
+
+      return [
+        {
+          routeId: product.debugMeta?.routeId ?? null,
+          ownerStage: product.debugMeta?.ownerStage ?? null,
+          visibleContributor: product.debugMeta?.visibleContributor ?? null,
+          geometryBasis: product.debugMeta?.geometryBasis ?? null,
+          materializationDistanceSpace:
+            product.debugMeta?.materializationDistanceSpace ?? null,
+          domainPlanSideAuthority:
+            product.debugMeta?.domainPlanSideAuthority ?? null,
+          domainPlanSelectedSide:
+            product.debugMeta?.domainPlanSelectedSide ?? null,
+          domainPlanMaterializedSelectedSide:
+            product.debugMeta?.domainPlanMaterializedSelectedSide ?? null,
+          selectedSideProductOwnsOutsideDomain:
+            product.debugMeta?.selectedSideProductOwnsOutsideDomain ?? null,
+          productSignature: product.debugMeta?.productSignature ?? null,
+          intervalIds: [...getPacketIntervalIds(product.debugMeta)].sort(),
+          polygonCount: product.polygons.length,
+          allowedPolygonCount,
+          dashProductIntervalCount:
+            product.debugMeta?.dashProductIntervalCount ?? null,
+          area:
+            product.debugMeta?.finalProductArea !== undefined
+              ? Math.round(product.debugMeta.finalProductArea * 1000) / 1000
+              : Math.round(polygonListArea(product.polygons) * 1000) / 1000,
+          bounds: getPolygonsBounds(product.polygons)
+        }
+      ]
+    })
+
+  expect(
+    failures,
+    `${label} outside dashed terminal and join-owned terminal footprints must not be materialized as many visible strip fragments`
+  ).toEqual([])
+}
+
+const assertOutsideDashedSourceSpanMicroscopeCoverage = ({
+  result,
+  products,
+  label
+}: {
+  result: ReturnType<typeof buildReportedPipelineResult>
+  products: readonly ReportedGeometryProduct[]
+  label: string
+}) => {
+  const dashProducts = products.filter((product) =>
+    isReportedVisibleDashBodyContributor(product.debugMeta)
+  )
+  const failures: {
+    intervalId: string
+    sourceSegmentIndex: number | null
+    terminalRole: string | null
+    sourceDistance: number
+    normalOffset: number
+    sample: Vec2
+    distanceToVisibleProduct: number
+    oppositeDistanceToVisibleProduct: number
+    selectedSide: 1 | -1 | null
+    sourceStartDistance: number
+    sourceEndDistance: number
+    productSignature: string | null
+    ownerStage: string | null
+    routeId: string | null
+    domainPlanSideAuthority: string | null
+    materializationDistanceSpace: string | null
+    sourceDomainExplicitSideProduct: unknown
+    selectedSideProductOwnsOutsideDomain: unknown
+    polygonCount: number
+    rawProductArea: number | null
+    selectedSideProductArea: number | null
+    processedProductArea: number | null
+    cleanedProductArea: number | null
+    boundaryClippedProductArea: number | null
+    finalProductArea: number | null
+    strokeWidth: number | null
+    matchingProducts: ReturnType<typeof getIntervalProductDiagnostics>
+  }[] = []
+  const visitedIntervals = new Set<string>()
+
+  for (const product of dashProducts) {
+    for (const interval of getReportedDashIntervalRecordsForProduct(
+      product.debugMeta
+    )) {
+      const sourceSegmentIndex =
+        interval.sourceSegmentIndex ??
+        product.debugMeta?.domainPlanSplitRangeSourceSegmentIndex
+      const sourceStartDistance =
+        interval.sourceStartDistance ??
+        product.debugMeta?.domainPlanSplitRangeSourceStartDistance
+      const sourceEndDistance =
+        interval.sourceEndDistance ??
+        product.debugMeta?.domainPlanSplitRangeSourceEndDistance
+      if (
+        sourceSegmentIndex === undefined ||
+        sourceStartDistance === undefined ||
+        sourceEndDistance === undefined
+      ) {
+        continue
+      }
+      const intervalKey = [
+        interval.intervalId,
+        sourceSegmentIndex,
+        Math.round(sourceStartDistance * 1000) / 1000,
+        Math.round(sourceEndDistance * 1000) / 1000
+      ].join(':')
+      if (visitedIntervals.has(intervalKey)) {
+        continue
+      }
+      visitedIntervals.add(intervalKey)
+
+      const intervalLength = Math.abs(sourceEndDistance - sourceStartDistance)
+      if (intervalLength <= SOURCE_SPACE_FLOATING_EPSILON) {
+        continue
+      }
+
+      const ratios =
+        intervalLength <= result.stroke.width
+          ? [0.5]
+          : [0.15, 0.35, 0.5, 0.65, 0.85]
+      const intervalPolygons = getIntervalPolygons(
+        products,
+        interval.intervalId
+      )
+      const polygons =
+        intervalPolygons.length > 0 ? intervalPolygons : product.polygons
+      const visiblePolygons = getVisibleProductPolygons(products)
+
+      ratios.forEach((ratio) => {
+        const sourceDistance =
+          sourceStartDistance +
+          (sourceEndDistance - sourceStartDistance) * ratio
+        const frame = getReportedSourceFrame({
+          result,
+          sourceSegmentIndex,
+          sourceDistance
+        })
+        if (!frame) {
+          return
+        }
+        const selectedSide =
+          interval.materializedSelectedSide ??
+          interval.selectedSide ??
+          product.debugMeta?.domainPlanMaterializedSelectedSide ??
+          product.debugMeta?.domainPlanSelectedSide
+        const outsideNormal =
+          getReportedOutsideNormal(result, frame.point, frame.tangent) ??
+          getReportedSelectedSideNormal(frame.tangent, selectedSide)
+        if (!outsideNormal) {
+          return
+        }
+        ;[0.2, 0.4, 0.6, 0.8, 0.95].forEach((normalOffset) => {
+          const sample = add(
+            frame.point,
+            scale(outsideNormal, result.stroke.width * normalOffset)
+          )
+          const oppositeSample = add(
+            frame.point,
+            scale(outsideNormal, -result.stroke.width * normalOffset)
+          )
+          const distanceToVisibleProduct = distanceToPolygons(sample, polygons)
+          const distanceToAnyVisibleProduct = distanceToPolygons(
+            sample,
+            visiblePolygons
+          )
+          const oppositeDistanceToVisibleProduct = distanceToPolygons(
+            oppositeSample,
+            polygons
+          )
+          if (
+            distanceToAnyVisibleProduct >
+            sourceSpaceWidthTolerance(result.stroke.width)
+          ) {
+            failures.push({
+              intervalId: interval.intervalId,
+              sourceSegmentIndex,
+              sourceSegmentType:
+                result.sourcePath.segments[sourceSegmentIndex]?.type ?? null,
+              terminalRole: interval.terminalRole ?? null,
+              sourceDistance: Math.round(sourceDistance * 1000) / 1000,
+              normalOffset,
+              sample: roundedForDiagnostic(sample),
+              distanceToVisibleProduct:
+                Math.round(distanceToVisibleProduct * 1000) / 1000,
+              distanceToAnyVisibleProduct:
+                Math.round(distanceToAnyVisibleProduct * 1000) / 1000,
+              oppositeDistanceToVisibleProduct:
+                Math.round(oppositeDistanceToVisibleProduct * 1000) / 1000,
+              normalDiagnostics: getReportedNormalDiagnostics(
+                result,
+                frame.point,
+                frame.tangent,
+                polygons,
+                result.stroke.width
+              ),
+              selectedSide:
+                selectedSide === 1 || selectedSide === -1 ? selectedSide : null,
+              sourceStartDistance:
+                Math.round(sourceStartDistance * 1000) / 1000,
+              sourceEndDistance: Math.round(sourceEndDistance * 1000) / 1000,
+              physicalSpanRanges:
+                product.debugMeta?.physicalSpanRanges?.map((span) => ({
+                  spanId: span.spanId,
+                  role: span.role,
+                  startDistance: Math.round(span.startDistance * 1000) / 1000,
+                  endDistance: Math.round(span.endDistance * 1000) / 1000
+                })) ?? null,
+              productSignature: product.debugMeta?.productSignature ?? null,
+              ownerStage: product.debugMeta?.ownerStage ?? null,
+              routeId: product.debugMeta?.routeId ?? null,
+              domainPlanSideAuthority:
+                product.debugMeta?.domainPlanSideAuthority ?? null,
+              materializationDistanceSpace:
+                product.debugMeta?.materializationDistanceSpace ?? null,
+              sourceDomainExplicitSideProduct:
+                product.debugMeta?.sourceDomainExplicitSideProduct ?? null,
+              selectedSideProductOwnsOutsideDomain:
+                product.debugMeta?.selectedSideProductOwnsOutsideDomain ?? null,
+              polygonCount: polygons.length,
+              vertexCount: polygons.reduce(
+                (count, polygon) => count + polygon.length,
+                0
+              ),
+              rawProductArea:
+                product.debugMeta?.rawProductArea !== undefined
+                  ? Math.round(product.debugMeta.rawProductArea * 1000) / 1000
+                  : null,
+              selectedSideProductArea:
+                product.debugMeta?.selectedSideProductArea !== undefined
+                  ? Math.round(
+                      product.debugMeta.selectedSideProductArea * 1000
+                    ) / 1000
+                  : null,
+              processedProductArea:
+                product.debugMeta?.processedProductArea !== undefined
+                  ? Math.round(product.debugMeta.processedProductArea * 1000) /
+                    1000
+                  : null,
+              cleanedProductArea:
+                product.debugMeta?.cleanedProductArea !== undefined
+                  ? Math.round(product.debugMeta.cleanedProductArea * 1000) /
+                    1000
+                  : null,
+              boundaryClippedProductArea:
+                product.debugMeta?.boundaryClippedProductArea !== undefined
+                  ? Math.round(
+                      product.debugMeta.boundaryClippedProductArea * 1000
+                    ) / 1000
+                  : null,
+              finalProductArea:
+                product.debugMeta?.finalProductArea !== undefined
+                  ? Math.round(product.debugMeta.finalProductArea * 1000) / 1000
+                  : null,
+              strokeWidth:
+                product.debugMeta?.strokeWidth !== undefined
+                  ? Math.round(product.debugMeta.strokeWidth * 1000) / 1000
+                  : null,
+              strokeCap: product.debugMeta?.strokeCap ?? null,
+              dashEndpointCapPolicySignature:
+                product.debugMeta?.dashEndpointCapPolicySignature ?? null,
+              matchingProducts: getIntervalProductDiagnostics(
+                products,
+                interval.intervalId
+              )
+            })
+          }
+        })
+      })
+    }
+  }
+
+  expect(
+    {
+      count: failures.length,
+      examples: failures.slice(0, 12)
+    },
+    `${label} outside dashed dash bodies must be continuous across source-span cross sections; comb-like strip gaps and curved dash cracks are product failures`
+  ).toEqual({ count: 0, examples: [] })
+}
+
+const getIncidentSourceSegmentEndpointProbes = (
+  result: ReturnType<typeof buildReportedPipelineResult>
+) =>
+  result.network.segmentIds.flatMap((segmentId, sourceSegmentIndex) => {
+    const segment = result.segments[segmentId]
+    const start = segment ? result.points[segment.startId] : undefined
+    const end = segment ? result.points[segment.endId] : undefined
+    const sourceSegment = result.sourcePath.segments[sourceSegmentIndex]
+    if (!start || !end || !sourceSegment) {
+      return []
+    }
+    const insetDistance = Math.min(
+      result.stroke.width * 0.3,
+      sourceSegment.length * 0.2
+    )
+    return [
+      {
+        anchorId: start.id,
+        sourceSegmentIndex,
+        sourceDistance: insetDistance,
+        terminalRole: 'start' as const
+      },
+      {
+        anchorId: end.id,
+        sourceSegmentIndex,
+        sourceDistance: Math.max(0, sourceSegment.length - insetDistance),
+        terminalRole: 'end' as const
+      }
+    ]
+  })
+
+const assertOutsideDashedAnchorNeighborhoodMicroscopeCoverage = ({
+  result,
+  products,
+  label
+}: {
+  result: ReturnType<typeof buildReportedPipelineResult>
+  products: readonly ReportedGeometryProduct[]
+  label: string
+}) => {
+  const visiblePolygons = getVisibleProductPolygons(products)
+  const failures: {
+    anchorId: string
+    sourceSegmentIndex: number
+    terminalRole: 'start' | 'end'
+    normalOffset: number
+    sample: Vec2
+    distanceToVisibleProduct: number
+  }[] = []
+
+  for (const probe of getIncidentSourceSegmentEndpointProbes(result)) {
+    const frame = getReportedSourceFrame({
+      result,
+      sourceSegmentIndex: probe.sourceSegmentIndex,
+      sourceDistance: probe.sourceDistance
+    })
+    if (!frame) {
+      continue
+    }
+    const outsideNormal = getReportedOutsideNormal(
+      result,
+      frame.point,
+      frame.tangent
+    )
+    if (!outsideNormal) {
+      continue
+    }
+    ;[0.25, 0.5, 0.75, 0.95].forEach((normalOffset) => {
+      const sample = add(
+        frame.point,
+        scale(outsideNormal, result.stroke.width * normalOffset)
+      )
+      const distanceToVisibleProduct = distanceToPolygons(
+        sample,
+        visiblePolygons
+      )
+      if (
+        distanceToVisibleProduct >
+        sourceSpaceWidthTolerance(result.stroke.width)
+      ) {
+        failures.push({
+          anchorId: probe.anchorId,
+          sourceSegmentIndex: probe.sourceSegmentIndex,
+          terminalRole: probe.terminalRole,
+          normalOffset,
+          sample: roundedForDiagnostic(sample),
+          distanceToVisibleProduct:
+            Math.round(distanceToVisibleProduct * 1000) / 1000
+        })
+      }
+    })
+  }
+
+  expect(
+    failures,
+    `${label} every anchor endpoint neighborhood must have continuous outside dashed coverage at source-space microscope probes`
+  ).toEqual([])
+}
+
+const outsideDashedMicroscopeScenarios = [
+  {
+    name: 'reported vector-34 closed curved/sharp outside dashed fixture',
+    buildResult: buildReportedPipelineResult
+  }
+]
+
+const assertExactReportedVector34OutsideDashedSeamContinuity = (
+  joinType: ReportedJoinType
+) => {
+  const result = buildReportedPipelineResult(joinType)
+
+  expect(result.stroke.width).toBe(10)
+  expect(result.stroke.dash).toBe(20)
+  expect(result.stroke.gap).toBe(20)
+  expect(result.stroke.position).toBe(StrokePositions.OUTSIDE)
+  expect(result.stroke.capType).toBe(StrokeCapTypes.BUTT)
+
+  for (const anchorId of ['tp-113', 'tp-115', 'tp-116'] as const) {
+    const anchor = result.points[anchorId]
+    const packetEntries = getSourceVertexJoinEntriesForAnchor(
+      getPreLegalitySourceVertexJoinProducts(
+        result.packets,
+        result.pipelineTrace
+      ),
+      anchor,
+      result.stroke.width * 0.5
+    )
+
+    expect(
+      packetEntries.length,
+      `${joinType} exact reported vector-34 Step 28 source-vertex product for ${anchorId}`
+    ).toBeGreaterThan(0)
+
+    for (const entry of packetEntries) {
+      assertSeamEvidenceUsesStep27OuterEndpoints(
+        result,
+        entry,
+        anchor,
+        `${anchorId} exact reported vector-34 Step 28 ${joinType}`
+      )
+
+      expect(
+        getMaxIncidentDashBodyDeficit(entry, anchor),
+        `${joinType} exact reported vector-34 Step 28 source-vertex product at ${anchorId} must reach incident dash body endpoints: ${JSON.stringify(
+          getIncidentDashBodyDeficitDiagnostics(entry)
+        )}`
+      ).toBeLessThanOrEqual(0.5)
+
+      if (joinType === 'bevel') {
+        assertBevelChordUsesIncidentDashOuterEndpoints(
+          entry,
+          `${anchorId} exact reported vector-34 Step 28 bevel`
+        )
+      }
+
+      if (joinType === 'round') {
+        assertRoundUsesLocalSourceVertexArc(
+          entry,
+          anchor,
+          `${anchorId} exact reported vector-34 Step 28 round`
+        )
+      }
+    }
+
+    if (joinType === 'miter') {
+      assertResolvedMiterUsesTheoreticalBounds(packetEntries, anchorId)
+    }
+  }
+}
+
 describe('formal stroke geometry oracle: reported vector-34 runtime path', () => {
+  it('keeps exact reported vector-34 miter outside dashed seam continuity for dash 20 gap 20', () => {
+    assertExactReportedVector34OutsideDashedSeamContinuity('miter')
+  })
+
+  it('keeps exact reported vector-34 bevel outside dashed seam continuity for dash 20 gap 20', () => {
+    assertExactReportedVector34OutsideDashedSeamContinuity('bevel')
+  })
+
+  it('keeps exact reported vector-34 round outside dashed seam continuity for dash 20 gap 20', () => {
+    assertExactReportedVector34OutsideDashedSeamContinuity('round')
+  })
+
+  it('keeps outside dashed source-span and anchor coverage under microscope probes', () => {
+    for (const scenario of outsideDashedMicroscopeScenarios) {
+      for (const joinType of ['miter', 'bevel', 'round'] as const) {
+        const result = scenario.buildResult(joinType)
+        const stages = [
+          {
+            label: `${scenario.name} ${joinType} Step 27/29/30 packets`,
+            products: result.packets.map((packet) => ({
+              polygons: packet.geometry.polygons,
+              debugMeta: packet.geometry.debugMeta
+            }))
+          },
+          {
+            label: `${scenario.name} ${joinType} Step 35 final faces`,
+            products: result.finalFaces
+          },
+          {
+            label: `${scenario.name} ${joinType} Step 38 render entries`,
+            products: result.renderEntries
+          }
+        ]
+
+        for (const stage of stages) {
+          assertOutsideDashedSourceSpanMicroscopeCoverage({
+            result,
+            products: stage.products,
+            label: stage.label
+          })
+          assertOutsideDashedAnchorNeighborhoodMicroscopeCoverage({
+            result,
+            products: stage.products,
+            label: stage.label
+          })
+          assertOutsideDashedTerminalFootprintsAreNotStripFragmented({
+            products: stage.products,
+            label: stage.label
+          })
+        }
+      }
+    }
+  })
+
   it('keeps constrained outside dashed miter, bevel, and round source-vertex footprints distinct in runtime product artifacts', () => {
     const results = {
       miter: buildReportedPipelineResult('miter'),
@@ -2443,6 +3997,53 @@ describe('formal stroke geometry oracle: reported vector-34 runtime path', () =>
           `${joinType} Step 28 source-vertex product at ${anchorId} must reach incident dash body endpoints`
         ).toBeLessThanOrEqual(0.5)
 
+        for (const entry of finalFaceEntries) {
+          assertSeamEvidenceUsesStep27OuterEndpoints(
+            result,
+            entry,
+            anchor,
+            `${joinType} Step 35 source-vertex final face at ${anchorId}`
+          )
+          assertIncidentSeamDashSideCoverage(
+            result.finalFaces,
+            entry,
+            result.stroke.width,
+            anchor,
+            `${joinType} Step 35 source-vertex final face at ${anchorId}`
+          )
+          if (joinType === 'round') {
+            assertRoundUsesLocalSourceVertexArc(
+              entry,
+              anchor,
+              `${joinType} Step 35 source-vertex final face at ${anchorId}`
+            )
+          }
+        }
+
+        for (const entry of joinEntries) {
+          assertSeamEvidenceUsesStep27OuterEndpoints(
+            result,
+            entry,
+            anchor,
+            `${joinType} Step 38 source-vertex render entry at ${anchorId}`,
+            { allowRenderProjectionMerge: true }
+          )
+          assertIncidentSeamDashSideCoverage(
+            result.renderEntries,
+            entry,
+            result.stroke.width,
+            anchor,
+            `${joinType} Step 38 source-vertex render entry at ${anchorId}`
+          )
+          if (joinType === 'round') {
+            assertRoundUsesLocalSourceVertexArc(
+              entry,
+              anchor,
+              `${joinType} Step 38 source-vertex render entry at ${anchorId}`
+            )
+          }
+        }
+
         expect(
           finalFaceEntries.every(
             (entry) =>
@@ -2482,6 +4083,118 @@ describe('formal stroke geometry oracle: reported vector-34 runtime path', () =>
           )}`
         ).toBe(true)
       }
+    }
+  })
+
+  it('rejects repeated-alpha same-paint overdraw on reported outside dashed render entries', () => {
+    for (const joinType of ['miter', 'bevel', 'round'] as const) {
+      const result = buildReportedPipelineResult(joinType)
+
+      assertNoSamePaintRenderEntryOverdraw(
+        result.renderEntries,
+        `${joinType} reported vector-34 outside dashed`
+      )
+    }
+  })
+
+  it('rejects internal shared-boundary render polygons on reported outside dashed render entries', () => {
+    for (const joinType of ['miter', 'bevel', 'round'] as const) {
+      const result = buildReportedPipelineResult(joinType)
+
+      assertNoInternalSharedBoundaryRenderPolygons(
+        result.renderEntries,
+        `${joinType} reported vector-34 outside dashed`
+      )
+    }
+  })
+
+  it('rejects internal shared-boundary render polygons after sequential reported outside dashed join changes', () => {
+    for (const joinType of ['miter', 'bevel', 'round'] as const) {
+      const result = buildPipelineResult({
+        fixture: createReportedVector34Fixture(),
+        stroke: buildReportedStrokeWithJoin(joinType),
+        pathId: 'vector:vector-1:tn-28:constrained-dashed',
+        sourceId: 'vector-1',
+        ownerKeyPrefix: 'vector:vector-1:tn-28:stroke:0:stroke:0:outside'
+      })
+
+      assertNoInternalSharedBoundaryRenderPolygons(
+        result.renderEntries,
+        `${joinType} reported vector-34 outside dashed sequential app route`
+      )
+    }
+  })
+
+  it('rejects internal shared-boundary render polygons in full diagnostics app-runtime mode', () => {
+    const diagnosticsGlobal = globalThis as {
+      __ASYRA_STROKE_DIAGNOSTICS_MODE__?: 'off' | 'summary' | 'full'
+    }
+    const previousDiagnosticsMode =
+      diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__
+    diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__ = 'full'
+    try {
+      for (const joinType of ['miter', 'bevel', 'round'] as const) {
+        const result = buildPipelineResult({
+          fixture: createReportedVector34Fixture(),
+          stroke: buildReportedStrokeWithJoin(joinType),
+          pathId: 'vector:vector-1:tn-28:constrained-dashed',
+          sourceId: 'vector-1',
+          ownerKeyPrefix: 'vector:vector-1:tn-28:stroke:0:stroke:0:outside'
+        })
+
+        assertNoInternalSharedBoundaryRenderPolygons(
+          result.renderEntries,
+          `${joinType} reported vector-34 outside dashed full diagnostics app-runtime route`
+        )
+      }
+    } finally {
+      diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__ =
+        previousDiagnosticsMode
+    }
+  })
+
+  it('rejects local-origin internal shared-boundary render polygons in full diagnostics app-runtime mode', () => {
+    const diagnosticsGlobal = globalThis as {
+      __ASYRA_STROKE_DIAGNOSTICS_MODE__?: 'off' | 'summary' | 'full'
+    }
+    const previousDiagnosticsMode =
+      diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__
+    diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__ = 'full'
+    try {
+      for (const joinType of ['miter', 'bevel', 'round'] as const) {
+        const result = buildPipelineResult({
+          fixture: createReportedVector34LocalFixture(),
+          stroke: buildReportedStrokeWithJoin(joinType),
+          pathId: 'vector:vector-1:tn-28:constrained-dashed',
+          sourceId: 'vector-1',
+          ownerKeyPrefix: 'vector:vector-1:tn-28:stroke:0:stroke:0:outside'
+        })
+
+        assertNoInternalSharedBoundaryRenderPolygons(
+          result.renderEntries,
+          `${joinType} local-origin reported vector-34 outside dashed full diagnostics app-runtime route`
+        )
+      }
+    } finally {
+      diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__ =
+        previousDiagnosticsMode
+    }
+  })
+
+  it('rejects app-local internal shared-boundary render polygons after coordinate normalization', () => {
+    for (const joinType of ['miter', 'bevel', 'round'] as const) {
+      const result = buildPipelineResult({
+        fixture: createReportedVector34LocalFixture(),
+        stroke: buildReportedStrokeWithJoin(joinType),
+        pathId: 'vector:vector-1:tn-28:constrained-dashed',
+        sourceId: 'vector-1',
+        ownerKeyPrefix: 'vector:vector-1:tn-28:stroke:0:stroke:0:outside'
+      })
+
+      assertNoInternalSharedBoundaryRenderPolygons(
+        result.renderEntries,
+        `${joinType} app-local reported vector-34 outside dashed render route`
+      )
     }
   })
 

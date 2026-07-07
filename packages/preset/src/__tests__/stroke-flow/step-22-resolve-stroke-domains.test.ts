@@ -369,5 +369,4 @@ describe('stroke flow step 22: resolve-stroke-domains', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('resolve-stroke-domains')
   })
-
 })

@@ -106,7 +106,9 @@ describe('new stroke regression coverage map', () => {
       )
       .map((entry) => entry.id)
 
-    expect(vectorReportedRiskOwners).toEqual(['reported-case-regression-bucket'])
+    expect(vectorReportedRiskOwners).toEqual([
+      'reported-case-regression-bucket'
+    ])
 
     const reportedCase = strokeRegressionCoverageMap.find(
       (entry) => entry.id === 'reported-case-regression-bucket'
@@ -216,9 +218,7 @@ describe('new stroke regression coverage map', () => {
       '18-group',
       'canonical suite'
     ].join(' ')
-    expect(spec).not.toContain(
-      oldCanonicalPrimaryClaim
-    )
+    expect(spec).not.toContain(oldCanonicalPrimaryClaim)
     expect(spec).not.toContain(oldVisualPrimaryClaim)
     expect(spec).not.toContain(oldBroadVisualClaim)
   })

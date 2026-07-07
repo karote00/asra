@@ -383,5 +383,4 @@ describe('stroke flow step 12: downstream-subscriber-routing', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('downstream-subscriber-routing')
   })
-
 })

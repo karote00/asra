@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 interface InspectorData {
-  steps: Array<{ id: string; unitTestFile: string }>
+  steps: { id: string; unitTestFile: string }[]
   currentExecutionState: {
     totalSteps: number
   }

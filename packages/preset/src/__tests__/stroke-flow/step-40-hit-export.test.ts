@@ -218,7 +218,9 @@ describe('stroke flow step 40: hit-export', () => {
 
   it('keeps hit/export projection free of render entries and geometry repair', () => {
     const source = readFileSync(solidCenterSourcePath, 'utf8')
-    const helperStart = source.indexOf('const buildProjectionPacketFromFinalFace = (')
+    const helperStart = source.indexOf(
+      'const buildProjectionPacketFromFinalFace = ('
+    )
     const helperEnd = source.indexOf(
       'const buildProjectedPacketsFromFinalFaces',
       helperStart
@@ -240,5 +242,4 @@ describe('stroke flow step 40: hit-export', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('hit-export')
   })
-
 })

@@ -154,5 +154,4 @@ describe('stroke flow step 18: normalize-render-data', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('normalize-render-data')
   })
-
 })

@@ -13,7 +13,9 @@ import { normalizeStrokeSpec } from '../../components/stroke-render/renderable-s
 import { buildSourceVertexJoinFootprint } from '../../components/stroke-render/source-vertex-join-footprint'
 
 const polygonSignature = (polygon: { x: number; y: number }[]) =>
-  polygon.map((point) => `${point.x.toFixed(4)},${point.y.toFixed(4)}`).join('|')
+  polygon
+    .map((point) => `${point.x.toFixed(4)},${point.y.toFixed(4)}`)
+    .join('|')
 
 const distance = (
   first: { x: number; y: number },
@@ -280,11 +282,13 @@ describe('formal stroke geometry oracle: full stroke parameter matrix', () => {
       resolvedJoin: 'round',
       geometryBasis: 'canonical-join-footprint'
     })
-    expect(new Set([
-      polygonSignature(miter.polygon),
-      polygonSignature(bevel.polygon),
-      polygonSignature(round.polygon)
-    ]).size).toBe(3)
+    expect(
+      new Set([
+        polygonSignature(miter.polygon),
+        polygonSignature(bevel.polygon),
+        polygonSignature(round.polygon)
+      ]).size
+    ).toBe(3)
     expect(round.polygon.length).toBeGreaterThan(bevel.polygon.length)
     expect(maxDistanceFrom(common.vertex, miter.polygon)).toBeGreaterThan(
       maxDistanceFrom(common.vertex, bevel.polygon)

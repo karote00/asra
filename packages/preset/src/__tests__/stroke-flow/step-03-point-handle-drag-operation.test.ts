@@ -272,7 +272,7 @@ describe('stroke flow step 03: point-handle-drag-operation', () => {
         position: 'inside',
         width: 14,
         dash: 6,
-          gap: 3,
+        gap: 3,
         capType: 'square',
         joinType: 'round',
         miterAngle: 45
@@ -314,5 +314,4 @@ describe('stroke flow step 03: point-handle-drag-operation', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('point-handle-drag-operation')
   })
-
 })

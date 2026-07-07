@@ -75,15 +75,15 @@ describe('formal stroke geometry oracle: join and dash product semantics', () =>
       })
     )
     expect(miter.polygon).toHaveLength(3)
-    expect(maxDistanceFrom(vector34SharpAcute.vertex, miter.polygon)).toBeLessThanOrEqual(
-      20.5
-    )
+    expect(
+      maxDistanceFrom(vector34SharpAcute.vertex, miter.polygon)
+    ).toBeLessThanOrEqual(20.5)
     expect(bevel.polygon).toHaveLength(3)
     expect(round.resolvedJoin).toBe('round')
     expect(round.polygon.length).toBeGreaterThan(3)
-    expect(maxDistanceFrom(vector34SharpAcute.vertex, round.polygon)).toBeLessThanOrEqual(
-      20.5
-    )
+    expect(
+      maxDistanceFrom(vector34SharpAcute.vertex, round.polygon)
+    ).toBeLessThanOrEqual(20.5)
   })
 
   it('resolves miter-angle equality and epsilon-band cases to bevel-by-miter-angle only from source-domain evidence', () => {
@@ -189,12 +189,12 @@ describe('formal stroke geometry oracle: join and dash product semantics', () =>
     expect(rightSideMiter.previousOffsetEndpoint).not.toEqual(
       miter.previousOffsetEndpoint
     )
-    expect(minDistanceToPolygonPoints(miter.previousOffsetEndpoint, miter.polygon)).toBeLessThanOrEqual(
-      0.000001
-    )
-    expect(minDistanceToPolygonPoints(miter.nextOffsetEndpoint, miter.polygon)).toBeLessThanOrEqual(
-      0.000001
-    )
+    expect(
+      minDistanceToPolygonPoints(miter.previousOffsetEndpoint, miter.polygon)
+    ).toBeLessThanOrEqual(0.000001)
+    expect(
+      minDistanceToPolygonPoints(miter.nextOffsetEndpoint, miter.polygon)
+    ).toBeLessThanOrEqual(0.000001)
   })
 
   it('keeps dash bodies and source-vertex joins seam-compatible without duplicate interval paint', () => {
@@ -244,7 +244,13 @@ describe('formal stroke geometry oracle: join and dash product semantics', () =>
           seamBoundaryId: 'seam:duplicate',
           terminalRole: 'start',
           endpointCapPolicy,
-          bodyPolygons: [[{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }]]
+          bodyPolygons: [
+            [
+              { x: 0, y: 0 },
+              { x: 1, y: 0 },
+              { x: 1, y: 1 }
+            ]
+          ]
         },
         {
           intervalId: 'interval:gap',
@@ -252,7 +258,13 @@ describe('formal stroke geometry oracle: join and dash product semantics', () =>
           seamBoundaryId: 'seam:gap',
           terminalRole: 'middle',
           endpointCapPolicy,
-          bodyPolygons: [[{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }]]
+          bodyPolygons: [
+            [
+              { x: 0, y: 0 },
+              { x: 1, y: 0 },
+              { x: 1, y: 1 }
+            ]
+          ]
         }
       ]
     })
@@ -264,21 +276,23 @@ describe('formal stroke geometry oracle: join and dash product semantics', () =>
         intervalId: 'interval:seam'
       })
     )
-    expect(buildDashIntervalBodyProducts({
-      productFamilyId: 'constrained-dashed',
-      cachePrefix: 'oracle',
-      legalSideId: 'legal:seam',
-      intervals: []
-    })).toEqual([])
+    expect(
+      buildDashIntervalBodyProducts({
+        productFamilyId: 'constrained-dashed',
+        cachePrefix: 'oracle',
+        legalSideId: 'legal:seam',
+        intervals: []
+      })
+    ).toEqual([])
     expect(join.seamEvidence.seamCoveragePolicy).toBe(
       'shared-step-27-endpoint-identity'
     )
-    expect(minDistanceToPolygonPoints(join.previousOffsetEndpoint, body.polygons[0])).toBeLessThanOrEqual(
-      0.000001
-    )
-    expect(minDistanceToPolygonPoints(join.nextOffsetEndpoint, body.polygons[0])).toBeLessThanOrEqual(
-      0.000001
-    )
+    expect(
+      minDistanceToPolygonPoints(join.previousOffsetEndpoint, body.polygons[0])
+    ).toBeLessThanOrEqual(0.000001)
+    expect(
+      minDistanceToPolygonPoints(join.nextOffsetEndpoint, body.polygons[0])
+    ).toBeLessThanOrEqual(0.000001)
   })
 
   it('routes high-curvature smooth continuity away from source-vertex join products', () => {

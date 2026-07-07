@@ -205,5 +205,4 @@ describe('stroke flow step 33: build-resolved-stroke-regions', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('build-resolved-stroke-regions')
   })
-
 })

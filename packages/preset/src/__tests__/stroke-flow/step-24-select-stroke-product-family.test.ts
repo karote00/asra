@@ -253,5 +253,4 @@ describe('stroke flow step 24: select-stroke-product-family', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('select-stroke-product-family')
   })
-
 })

@@ -184,7 +184,10 @@ describe('stroke flow step 35: build-final-faces', () => {
     const start = source.indexOf(
       'export const buildStrokeFinalFacesFromResolvedPackets = <'
     )
-    const end = source.indexOf('const buildDebugMetaFromPaintAttachedRegion', start)
+    const end = source.indexOf(
+      'const buildDebugMetaFromPaintAttachedRegion',
+      start
+    )
     expect(start).toBeGreaterThanOrEqual(0)
     expect(end).toBeGreaterThan(start)
     const helperSource = source.slice(start, end)
@@ -203,5 +206,4 @@ describe('stroke flow step 35: build-final-faces', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('build-final-faces')
   })
-
 })

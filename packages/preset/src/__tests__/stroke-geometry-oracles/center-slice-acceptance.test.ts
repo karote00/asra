@@ -23,7 +23,7 @@ import {
 } from './stroke-geometry-oracle-fixtures'
 import { buildSolidCenterStrokeResolvedPackets } from '../../components/stroke-render/solid-center-stroke-packets'
 
-type CenterSliceCase = {
+interface CenterSliceCase {
   id: string
   fixtureId: StrokeGeometryOracleFixtureScenarioId
   style: 'solid' | 'dashed'
@@ -169,14 +169,18 @@ describe('formal stroke geometry oracle: center slice acceptance', () => {
       }
 
       expect(outputPackets.renderPackets.length, testCase.id).toBeGreaterThan(0)
-      expect(outputPackets.hitTestPackets.length, testCase.id).toBeGreaterThan(0)
+      expect(outputPackets.hitTestPackets.length, testCase.id).toBeGreaterThan(
+        0
+      )
       expect(outputPackets.exportPackets.length, testCase.id).toBeGreaterThan(0)
-      expect(JSON.stringify(outputPackets.hitTestPackets), testCase.id).not.toContain(
-        'renderer-projection'
-      )
-      expect(JSON.stringify(outputPackets.exportPackets), testCase.id).not.toContain(
-        'renderer-projection'
-      )
+      expect(
+        JSON.stringify(outputPackets.hitTestPackets),
+        testCase.id
+      ).not.toContain('renderer-projection')
+      expect(
+        JSON.stringify(outputPackets.exportPackets),
+        testCase.id
+      ).not.toContain('renderer-projection')
       assertNoForbiddenContributorTokens(
         { packets, finalFaces, renderEntries, projection, outputPackets },
         [

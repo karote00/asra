@@ -229,5 +229,4 @@ describe('stroke flow step 14: render-data-derivation', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('render-data-derivation')
   })
-
 })

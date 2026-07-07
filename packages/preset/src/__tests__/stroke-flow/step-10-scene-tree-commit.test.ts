@@ -313,5 +313,4 @@ describe('stroke flow step 10: scene-tree-commit', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('scene-tree-commit')
   })
-
 })

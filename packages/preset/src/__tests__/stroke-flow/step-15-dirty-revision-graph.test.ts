@@ -253,7 +253,7 @@ describe('stroke flow step 15: dirty-revision-graph', () => {
         ...baseStroke,
         style: 'dashed',
         dash: 20,
-          gap: 10
+        gap: 10
       },
       intervalSignature: 'dash:20-10',
       renderOutputSignature: 'render:dash:20-10'
@@ -272,10 +272,7 @@ describe('stroke flow step 15: dirty-revision-graph', () => {
       })
     )
     expect(dashChange.changedRevisionKeys).toEqual(
-      expect.arrayContaining([
-        'dashAndGapRevision',
-        'renderOutputRevision'
-      ])
+      expect.arrayContaining(['dashAndGapRevision', 'renderOutputRevision'])
     )
     expect(dashChange.dirtyKeys).toEqual(
       expect.arrayContaining(['dash-product-intervals', 'render-hit-export'])
@@ -405,5 +402,4 @@ describe('stroke flow step 15: dirty-revision-graph', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('dirty-revision-graph')
   })
-
 })

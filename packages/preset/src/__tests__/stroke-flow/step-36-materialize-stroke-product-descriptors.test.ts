@@ -215,12 +215,15 @@ describe('stroke flow step 36: materialize-stroke-product-descriptors', () => {
   it('keeps ownership-exclusion strokePathGroups as visible descriptors with style fallback', () => {
     const source = readFileSync(dashedPacketsSourcePath, 'utf8')
 
-    expect(source.match(/const materializedStrokePathGroups =/g) ?? [])
-      .toHaveLength(2)
-    expect(source.match(/strokePathStyle: group\.strokePathStyle/g) ?? [])
-      .toHaveLength(2)
-    expect(source.match(/\? materializedStrokePathGroups/g) ?? [])
-      .toHaveLength(2)
+    expect(
+      source.match(/const materializedStrokePathGroups =/g) ?? []
+    ).toHaveLength(2)
+    expect(
+      source.match(/strokePathStyle: group\.strokePathStyle/g) ?? []
+    ).toHaveLength(2)
+    expect(source.match(/\? materializedStrokePathGroups/g) ?? []).toHaveLength(
+      2
+    )
     expect(source.match(/strokePathStyle: undefined/g) ?? []).toEqual([])
   })
 
@@ -239,7 +242,8 @@ describe('stroke flow step 36: materialize-stroke-product-descriptors', () => {
   })
 
   it('matches the stroke parameter coverage matrix for this step', () => {
-    assertStrokeParameterCoverageForStep('materialize-stroke-product-descriptors')
+    assertStrokeParameterCoverageForStep(
+      'materialize-stroke-product-descriptors'
+    )
   })
-
 })

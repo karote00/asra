@@ -167,9 +167,7 @@ describe('stroke flow step 13: render-mirror-patch-apply', () => {
     expect(applyPatchSource).toContain(
       'entry.renderDataSnapshot as unknown as Record<string, DataTypes>)[key] ='
     )
-    expect(updatePatchSource).toContain(
-      'Object.keys(patch.values ?? {}).some('
-    )
+    expect(updatePatchSource).toContain('Object.keys(patch.values ?? {}).some(')
     expect(updatePatchSource).toContain(
       "key !== 'visible' && !DIRECT_RENDER_PROPERTY_KEYS.has(key)"
     )
@@ -201,5 +199,4 @@ describe('stroke flow step 13: render-mirror-patch-apply', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('render-mirror-patch-apply')
   })
-
 })

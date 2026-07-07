@@ -339,7 +339,6 @@ describe('stroke flow step 21: resolve-source-families', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('resolve-source-families')
   })
-
 })
 
 const simpleClosedTopology = () =>

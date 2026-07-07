@@ -10,15 +10,11 @@ export const polygonArea = (polygon: readonly Vec2[]) =>
     return area + (point.x * next.y - next.x * point.y)
   }, 0) / 2
 
-export const maxDistanceFromPoint = (
-  origin: Vec2,
-  points: readonly Vec2[]
-) => Math.max(0, ...points.map((point) => distanceBetween(origin, point)))
+export const maxDistanceFromPoint = (origin: Vec2, points: readonly Vec2[]) =>
+  Math.max(0, ...points.map((point) => distanceBetween(origin, point)))
 
-export const minDistanceToPolygon = (
-  point: Vec2,
-  polygon: readonly Vec2[]
-) => Math.min(...polygon.map((candidate) => distanceBetween(point, candidate)))
+export const minDistanceToPolygon = (point: Vec2, polygon: readonly Vec2[]) =>
+  Math.min(...polygon.map((candidate) => distanceBetween(point, candidate)))
 
 export const assertFinitePolygon = (
   polygon: readonly Vec2[],

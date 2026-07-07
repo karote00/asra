@@ -856,13 +856,8 @@ export const strokeGeometryOracleCoverageMap: readonly StrokeGeometryOracleCover
         'constrained-dashed-product',
         'dash-interval-body-product'
       ],
-      ownerStages: [
-        'Stroke Geometry dashed interval body assembly'
-      ],
-      stepIds: [
-        'allocate-dash-intervals',
-        'build-dash-interval-body-products'
-      ],
+      ownerStages: ['Stroke Geometry dashed interval body assembly'],
+      stepIds: ['allocate-dash-intervals', 'build-dash-interval-body-products'],
       inspectorStepRefs: [
         'allocate-dash-intervals',
         'build-dash-interval-body-products'
@@ -880,21 +875,14 @@ export const strokeGeometryOracleCoverageMap: readonly StrokeGeometryOracleCover
         spec('inside-dashed-tiny-domain-collapse'),
         spec('dash-body-and-join-seam-contract')
       ],
-      dimensions: [
-        'inside',
-        'dashed',
-        'dash-terminal',
-        'pre-legality-product'
-      ],
+      dimensions: ['inside', 'dashed', 'dash-terminal', 'pre-legality-product'],
       requiredGeometryAssertions: [
         'artifact-shape',
         'owner-stage-metadata',
         'cap-terminal-ownership',
         'forbidden-contributor-absence'
       ],
-      testFiles: [
-        oracle('constrained-product-family-oracle.test.ts')
-      ],
+      testFiles: [oracle('constrained-product-family-oracle.test.ts')],
       testNames: [
         'keeps collapsed constrained dashed spans as dashed interval provenance instead of solid substitute output'
       ],
@@ -1102,57 +1090,102 @@ export const strokeGeometryOracleCoverageMap: readonly StrokeGeometryOracleCover
       ],
       productFamily: [
         'dash-interval-body-product',
-        'source-vertex-join-product'
+        'source-vertex-join-product',
+        'final-face-product',
+        'render-entry-product'
       ],
       ownerStages: [
         'Stroke Geometry dashed interval body assembly',
-        'Stroke Geometry source-vertex join assembly'
+        'Stroke Geometry source-vertex join assembly',
+        'Stroke Geometry legality clipping',
+        'Stroke Geometry final face assembly',
+        'Product Output render-entry materialization'
       ],
       stepIds: [
         'build-dash-interval-body-products',
-        'build-source-vertex-join-products'
+        'build-source-vertex-join-products',
+        'apply-legality',
+        'build-final-faces',
+        'render-entries'
       ],
       inspectorStepRefs: [
         'build-dash-interval-body-products',
-        'build-source-vertex-join-products'
+        'build-source-vertex-join-products',
+        'apply-legality',
+        'build-final-faces',
+        'render-entries'
       ],
       routeIds: [
         'constrained-dashed-interval-body-product',
-        'constrained-dashed-source-vertex-join-product'
+        'constrained-dashed-source-vertex-join-product',
+        'legality-product-unit-clipping',
+        'canonical-final-face-render-entry'
       ],
       artifactIds: [
         'artifact:constrained-dashed-interval-body-product',
-        'artifact:constrained-dashed-source-vertex-join-product'
+        'artifact:constrained-dashed-source-vertex-join-product',
+        'artifact:legalityEquivalentProductUnits',
+        'artifact:finalFaces',
+        'artifact:renderEntries'
       ],
       requiredArtifacts: [
         'artifact:constrained-dashed-interval-body-product',
-        'artifact:constrained-dashed-source-vertex-join-product'
+        'artifact:constrained-dashed-source-vertex-join-product',
+        'artifact:legalityEquivalentProductUnits',
+        'artifact:finalFaces',
+        'artifact:renderEntries'
       ],
       specRuleRefs: [
         spec('dash-body-and-join-seam-contract'),
+        spec('computation-ownership-and-timing-contract'),
+        spec('product-legality-and-descriptor-encoding'),
+        spec('output-channel-separation'),
         spec('local-composition-caps-and-joins')
       ],
-      dimensions: ['dashed', 'dash-join-seam', 'pre-legality-product'],
+      dimensions: [
+        'dashed',
+        'dash-join-seam',
+        'pre-legality-product',
+        'post-legality-product',
+        'visible-render-channel'
+      ],
       requiredGeometryAssertions: [
         'dash-join-seam-continuity',
         'owner-stage-metadata',
+        'legal-side-wrong-side-rejection',
+        'render-channel-declaration',
         'forbidden-contributor-absence'
       ],
       testFiles: [
         oracle('join-dash-product-oracle.test.ts'),
+        oracle('ordinary-sharp-runtime-oracle.test.ts'),
         oracle('reported-vector-34-runtime-oracle.test.ts')
       ],
       testNames: [
         'keeps dash bodies and source-vertex joins seam-compatible without duplicate interval paint',
-        'connects reported sharp source-vertex joins to incident dash bodies without seam gaps'
+        'keeps outside dashed source-space artifacts independent of viewport zoom',
+        'rejects outside dashed dash-body strips, wrong-side fill coverage, and undersized source-vertex seam endpoints',
+        'connects reported sharp source-vertex joins to incident dash bodies without seam gaps',
+        'rejects repeated-alpha same-paint overdraw on reported outside dashed render entries',
+        'rejects internal shared-boundary render polygons on reported outside dashed render entries'
       ],
       positiveAssertions: [
-        'Source-vertex join products touch or intentionally overlap incident dash body seams within tolerance.'
+        'Source-vertex join products touch or intentionally overlap incident dash body seams within tolerance.',
+        'Source-vertex join products and final faces share the full Step 27 terminal-to-outer-endpoint seam edge, not only the outer endpoint.',
+        'Step 27 terminal seam evidence preserves the full inner-to-outer stroke-width edge before Step 28 source-vertex join consumption.',
+        'Step 38 render entries either preserve the seam edge or declare a single-paint render-projection merge that keeps seam endpoint/midpoint coverage provenance without repeated-alpha overdraw.',
+        'Step 38 same-paint render entries with shared or near-shared source-space boundaries are merged before renderer projection to prevent high-zoom antialias seams.',
+        'Step 38 same-paint render entries do not carry internally shared-boundary polygons into renderer projection; touching products are fused into canonical projection polygons while disjoint dash products remain separate.',
+        'Outside dashed dash interval products keep continuous source-span cross-section coverage through packets, final faces, and render entries.',
+        'Step 27 seam artifacts, Step 28 source-vertex joins, Step 32 resolved packets, Step 35 final faces, and Step 38 render entries keep identical source-space product signatures across viewport zoom states.'
       ],
       forbiddenContributors: [
         'duplicate interval paint',
         'endpoint cap seam repair',
-        'terminal bridge seam repair'
+        'terminal bridge seam repair',
+        'repeated-alpha same-paint overdraw',
+        'parallel strip dash body fragments',
+        'filled-domain wrong-side outside coverage'
       ]
     },
     {
@@ -1270,7 +1303,9 @@ export const strokeGeometryOracleCoverageMap: readonly StrokeGeometryOracleCover
         'smooth-continuity-products-canonical-output-else'
       ],
       artifactIds: ['artifact:constrained-dashed-smooth-continuity-product'],
-      requiredArtifacts: ['artifact:constrained-dashed-smooth-continuity-product'],
+      requiredArtifacts: [
+        'artifact:constrained-dashed-smooth-continuity-product'
+      ],
       specRuleRefs: [spec('smooth-curvature-non-join-contract')],
       dimensions: [
         'dashed',
@@ -1558,17 +1593,31 @@ export const strokeGeometryOracleCoverageMap: readonly StrokeGeometryOracleCover
       testFiles: [oracle('reported-vector-34-runtime-oracle.test.ts')],
       testNames: [
         'keeps constrained outside dashed miter, bevel, and round source-vertex footprints distinct in runtime product artifacts',
+        'keeps outside dashed source-span and anchor coverage under microscope probes',
         'connects reported sharp source-vertex joins to incident dash bodies without seam gaps',
+        'rejects repeated-alpha same-paint overdraw on reported outside dashed render entries',
+        'rejects internal shared-boundary render polygons on reported outside dashed render entries',
+        'rejects internal shared-boundary render polygons after sequential reported outside dashed join changes',
         'keeps smooth anchors out of source-vertex join ownership and prevents fragmented smooth-continuity output',
         'preserves runtime metadata and prevents renderer descriptor replay from owning sharp join shape'
       ],
       positiveAssertions: [
-        'Runtime packets, final faces, and render entries preserve canonical source-vertex join metadata.'
+        'Runtime packets, final faces, and render entries preserve canonical source-vertex join metadata.',
+        'Reported vector-34 source-vertex joins consume Step 27 terminal seam edges whose inner-to-outer distance remains the authored stroke width.',
+        'Step 38 render-entry materialization keeps shared Step 27 seam coverage visible either as a preserved seam edge or as a declared single-paint render-projection merge with seam coverage provenance.',
+        'Reported vector-34 outside dashed render entries do not create repeated-alpha same-paint overdraw across miter, bevel, or round joins.',
+        'Reported vector-34 outside dashed render entries do not leave same-paint shared-boundary products split into separate renderer projections.',
+        'Reported vector-34 outside dashed render entries do not leave shared-boundary polygons inside the same renderer projection entry.',
+        'Reported vector-34 sequential join changes do not leave stale app-route shared-boundary polygons inside render entries.',
+        'Every scenario-provided outside dashed anchor and dash span remains source-space continuous under microscope probes across miter, bevel, and round joins.'
       ],
       forbiddenContributors: [
         'source path replay',
         'renderer descriptor replay across authored sharp joins',
-        'fragmented smooth output'
+        'repeated-alpha same-paint overdraw',
+        'fragmented smooth output',
+        'comb-like strip gaps',
+        'smooth anchor microscope cracks'
       ]
     },
     {

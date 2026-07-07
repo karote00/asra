@@ -201,5 +201,4 @@ describe('stroke flow step 06: canonical-workspace-data', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('canonical-workspace-data')
   })
-
 })

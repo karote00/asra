@@ -239,5 +239,4 @@ describe('stroke flow step 17: render-strategy-entry', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('render-strategy-entry')
   })
-
 })

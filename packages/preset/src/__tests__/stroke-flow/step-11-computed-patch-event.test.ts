@@ -195,10 +195,7 @@ describe('stroke flow step 11: computed-patch-event', () => {
         }
       })
     ])
-    expectNoStrokeParameterOutputKeys(
-      events,
-      strokeParameterPayloadAllowedKeys
-    )
+    expectNoStrokeParameterOutputKeys(events, strokeParameterPayloadAllowedKeys)
     subscription.unsubscribe()
   })
 
@@ -262,5 +259,4 @@ describe('stroke flow step 11: computed-patch-event', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('computed-patch-event')
   })
-
 })

@@ -323,10 +323,7 @@ const overlapProbePolygon = [
   { x: 10, y: 30 }
 ]
 
-const outsidePolygonFace = (
-  faceId: string,
-  polygon: typeof visiblePolygon
-) =>
+const outsidePolygonFace = (faceId: string, polygon: typeof visiblePolygon) =>
   ({
     ...ownershipFinalFace,
     faceId,
@@ -590,9 +587,9 @@ describe('stroke flow step 38: render-entries', () => {
     expect(entries.every((entry) => entry.strokePathGroups?.length === 1)).toBe(
       true
     )
-    expect(entries.every((entry) => entry.strokeMaskPolygons === undefined)).toBe(
-      true
-    )
+    expect(
+      entries.every((entry) => entry.strokeMaskPolygons === undefined)
+    ).toBe(true)
   })
 
   it('keeps constrained dashed descriptor faces out of mixed polygon collapse groups', () => {
@@ -703,5 +700,4 @@ describe('stroke flow step 38: render-entries', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('render-entries')
   })
-
 })

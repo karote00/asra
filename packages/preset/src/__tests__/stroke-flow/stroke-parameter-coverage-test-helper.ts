@@ -13,7 +13,7 @@ type StrokeParameterCoverageRole =
   | 'not-applicable'
 
 interface InspectorData {
-  steps: Array<{ id: string }>
+  steps: { id: string }[]
   inspectorContractErrors: string[]
   strokeParameterIds: string[]
   strokeParameterCoverageRoles: StrokeParameterCoverageRole[]
@@ -215,11 +215,10 @@ const expectedCoverageByStep: Record<
     'consume'
   ),
   'build-source-vertex-join-products': withRoles(
-    withRoles(
-      baseForbiddenCoverage,
-      dashParameterIds,
-      ['preserve', 'output-metadata']
-    ),
+    withRoles(baseForbiddenCoverage, dashParameterIds, [
+      'preserve',
+      'output-metadata'
+    ]),
     [
       'stroke.position',
       'stroke.width',
@@ -459,7 +458,8 @@ export const expectNoStrokeParameterSourceTokens = (
     'stroke.style',
     'stroke.position',
     'stroke.width',
-    'stroke.dash', 'stroke.gap',
+    'stroke.dash',
+    'stroke.gap',
     'stroke.cap',
     'stroke.join',
     'stroke.miter',

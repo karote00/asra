@@ -254,5 +254,4 @@ describe('stroke flow step 26: build-constrained-solid-products', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('build-constrained-solid-products')
   })
-
 })

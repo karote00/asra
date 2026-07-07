@@ -227,5 +227,4 @@ describe('stroke flow step 31: select-stroke-descriptor-strategy', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('select-stroke-descriptor-strategy')
   })
-
 })

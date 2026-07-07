@@ -300,5 +300,4 @@ describe('stroke flow step 32: apply-legality', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('apply-legality')
   })
-
 })

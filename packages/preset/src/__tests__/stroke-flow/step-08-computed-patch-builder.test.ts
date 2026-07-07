@@ -231,5 +231,4 @@ describe('stroke flow step 08: computed-patch-builder', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('computed-patch-builder')
   })
-
 })

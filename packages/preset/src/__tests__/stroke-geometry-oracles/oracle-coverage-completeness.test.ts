@@ -101,7 +101,9 @@ describe('formal stroke geometry oracle coverage map', () => {
     const data = loadInspectorData()
     const stepIds = new Set(data.steps.map((step) => step.id))
     const routeIds = new Set(data.conditionalRoutes.map((route) => route.id))
-    const artifactIds = new Set(data.artifactRegistry.map((artifact) => artifact.id))
+    const artifactIds = new Set(
+      data.artifactRegistry.map((artifact) => artifact.id)
+    )
     const specAnchors = readSpecAnchors()
 
     expect(data.steps).toHaveLength(41)
@@ -178,9 +180,9 @@ describe('formal stroke geometry oracle coverage map', () => {
   })
 
   it('covers every required matrix case kind, stroke parameter, geometry scenario, and product family', () => {
-    expect(unique(strokeGeometryOracleCoverageMap.map((entry) => entry.caseKind))).toEqual(
-      [...requiredStrokeGeometryOracleCaseKinds].sort()
-    )
+    expect(
+      unique(strokeGeometryOracleCoverageMap.map((entry) => entry.caseKind))
+    ).toEqual([...requiredStrokeGeometryOracleCaseKinds].sort())
     expect(
       unique(
         strokeGeometryOracleCoverageMap.flatMap((entry) => [

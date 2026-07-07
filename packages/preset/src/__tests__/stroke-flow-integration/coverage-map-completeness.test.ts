@@ -30,7 +30,7 @@ interface InspectorCoExecutionRule {
 }
 
 interface InspectorData {
-  steps: Array<{ id: string; stepNumber: number }>
+  steps: { id: string; stepNumber: number }[]
   conditionalRoutes: InspectorRoute[]
   artifactRegistry: InspectorArtifact[]
   coExecutionCompletionRules: InspectorCoExecutionRule[]
@@ -71,7 +71,9 @@ const coveredRouteIds = () =>
   unique(strokeIntegrationCoverageMap.flatMap((entry) => [...entry.routeIds]))
 
 const coveredArtifactIds = () =>
-  unique(strokeIntegrationCoverageMap.flatMap((entry) => [...entry.artifactIds]))
+  unique(
+    strokeIntegrationCoverageMap.flatMap((entry) => [...entry.artifactIds])
+  )
 
 const coveredCoExecutionGroups = () =>
   unique(
@@ -83,7 +85,9 @@ const coveredCoExecutionGroups = () =>
 describe('new stroke integration coverage map', () => {
   it('covers every typed inspector route exactly through declared integration cases', () => {
     const data = loadInspectorData()
-    const expectedRouteIds = data.conditionalRoutes.map((route) => route.id).sort()
+    const expectedRouteIds = data.conditionalRoutes
+      .map((route) => route.id)
+      .sort()
     const routeIds = coveredRouteIds()
 
     expect(data.routeContractErrors).toEqual([])
@@ -153,7 +157,9 @@ describe('new stroke integration coverage map', () => {
   it('keeps every integration case tied to positive handoff and forbidden contributor assertions', () => {
     const data = loadInspectorData()
     const routeIds = new Set(data.conditionalRoutes.map((route) => route.id))
-    const artifactIds = new Set(data.artifactRegistry.map((artifact) => artifact.id))
+    const artifactIds = new Set(
+      data.artifactRegistry.map((artifact) => artifact.id)
+    )
     const coExecutionGroups = new Set(
       data.coExecutionCompletionRules.map((rule) => rule.coExecutionGroup)
     )

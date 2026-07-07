@@ -200,7 +200,7 @@ describe('stroke flow step 07: validate-topology', () => {
         position: 'outside',
         width: 18,
         dash: 12,
-          gap: 6,
+        gap: 6,
         capType: 'round',
         joinType: 'miter',
         miterAngle: 30
@@ -241,5 +241,4 @@ describe('stroke flow step 07: validate-topology', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('validate-topology')
   })
-
 })

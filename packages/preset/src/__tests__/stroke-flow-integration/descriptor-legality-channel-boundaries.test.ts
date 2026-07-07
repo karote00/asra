@@ -81,7 +81,12 @@ describe('new stroke flow integration: descriptor legality and channel boundarie
           renderDescriptor: {
             strokePathGroups: [
               {
-                strokePaths: [[{ x: 0, y: 0 }, { x: 40, y: 0 }]],
+                strokePaths: [
+                  [
+                    { x: 0, y: 0 },
+                    { x: 40, y: 0 }
+                  ]
+                ],
                 strokePathStyle: {
                   width: 10,
                   cap: 'butt',
@@ -126,9 +131,8 @@ describe('new stroke flow integration: descriptor legality and channel boundarie
       strategies: [strategy],
       finalFaces: [finalFace]
     })
-    const outputPackets = emitSolidCenterStrokeProductOutputPacketsFromFinalFaces([
-      finalFace
-    ])
+    const outputPackets =
+      emitSolidCenterStrokeProductOutputPacketsFromFinalFaces([finalFace])
     const renderEntries = buildSolidCenterStrokeRenderEntriesFromRenderPackets(
       outputPackets.renderPackets
     )
@@ -137,7 +141,12 @@ describe('new stroke flow integration: descriptor legality and channel boundarie
     expect(descriptor.visibleChannel).toEqual({
       strokePathGroups: [
         {
-          strokePaths: [[{ x: 0, y: 0 }, { x: 40, y: 0 }]],
+          strokePaths: [
+            [
+              { x: 0, y: 0 },
+              { x: 40, y: 0 }
+            ]
+          ],
           strokePathStyle: {
             width: 10,
             cap: 'butt',

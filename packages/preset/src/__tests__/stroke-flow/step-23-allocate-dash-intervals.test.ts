@@ -267,11 +267,13 @@ describe('stroke flow step 23: allocate-dash-intervals', () => {
       }
     )
 
-    expect(roundTerminals.map(({ kind, startDistance, endDistance }) => ({
-      kind,
-      startDistance,
-      endDistance
-    }))).not.toEqual(
+    expect(
+      roundTerminals.map(({ kind, startDistance, endDistance }) => ({
+        kind,
+        startDistance,
+        endDistance
+      }))
+    ).not.toEqual(
       buttTerminals.map(({ kind, startDistance, endDistance }) => ({
         kind,
         startDistance,
@@ -393,11 +395,13 @@ describe('stroke flow step 23: allocate-dash-intervals', () => {
     const gapIntervals = intervals.filter((interval) => interval.kind === 'gap')
 
     expect(
-      visibleIntervals.map(({ startDistance, endDistance, intervalLength }) => ({
-        startDistance,
-        endDistance,
-        intervalLength
-      }))
+      visibleIntervals.map(
+        ({ startDistance, endDistance, intervalLength }) => ({
+          startDistance,
+          endDistance,
+          intervalLength
+        })
+      )
     ).toEqual([
       { startDistance: 10, endDistance: 20, intervalLength: 10 },
       {
@@ -416,9 +420,7 @@ describe('stroke flow step 23: allocate-dash-intervals', () => {
       visibleIntervals.map((interval) => interval.domainPlanTerminalRole)
     ).toEqual(['start', 'middle', 'middle', 'end'])
     expect(gapIntervals.map((interval) => interval.intervalLength)).toEqual([
-      11.333333333333336,
-      11.333333333333336,
-      11.333333333333329
+      11.333333333333336, 11.333333333333336, 11.333333333333329
     ])
     gapIntervals.forEach((interval) => {
       expect(interval.intervalLength).toBeGreaterThanOrEqual(10 * 0.6)
@@ -551,19 +553,14 @@ describe('stroke flow step 23: allocate-dash-intervals', () => {
     )
     const gapIntervals = intervals.filter((interval) => interval.kind === 'gap')
 
-    expect(visibleIntervals.map((interval) => interval.domainPlanTerminalRole)).toEqual([
-      'start',
-      'middle',
-      'end'
-    ])
-    expect(visibleIntervals.map((interval) => interval.intervalLength)).toEqual([
-      10,
-      20,
-      10
-    ])
+    expect(
+      visibleIntervals.map((interval) => interval.domainPlanTerminalRole)
+    ).toEqual(['start', 'middle', 'end'])
+    expect(visibleIntervals.map((interval) => interval.intervalLength)).toEqual(
+      [10, 20, 10]
+    )
     expect(gapIntervals.map((interval) => interval.intervalLength)).toEqual([
-      17,
-      17
+      17, 17
     ])
     gapIntervals.forEach((interval) => {
       expect(interval.intervalLength).toBeGreaterThanOrEqual(20 * 0.6)
@@ -700,5 +697,4 @@ describe('stroke flow step 23: allocate-dash-intervals', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('allocate-dash-intervals')
   })
-
 })

@@ -71,7 +71,7 @@ describe('new stroke flow integration artifact chain', () => {
         position: StrokePositions.OUTSIDE,
         width: 10,
         dash: 24,
-          gap: 12,
+        gap: 12,
         visible: true,
         color: '#777777',
         opacity: 1
@@ -252,7 +252,11 @@ describe('new stroke flow integration artifact chain', () => {
       descriptorEvidencePolygons: [evidencePolygon]
     })
 
-    expect(postLegality.every((packet) => packet.productMode === 'post-legality-product')).toBe(true)
+    expect(
+      postLegality.every(
+        (packet) => packet.productMode === 'post-legality-product'
+      )
+    ).toBe(true)
     expect(postLegality[0].visiblePolygons).toEqual([clippedPolygon])
     expect(postLegality[0].evidenceChannels).toEqual({
       descriptorEvidencePolygons: [evidencePolygon]
@@ -275,7 +279,12 @@ describe('new stroke flow integration artifact chain', () => {
           renderDescriptor: {
             strokePathGroups: [
               {
-                strokePaths: [[{ x: 0, y: 0 }, { x: 40, y: 0 }]],
+                strokePaths: [
+                  [
+                    { x: 0, y: 0 },
+                    { x: 40, y: 0 }
+                  ]
+                ],
                 strokePathStyle: {
                   width: 10,
                   cap: 'butt',

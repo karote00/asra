@@ -217,7 +217,7 @@ describe('stroke flow step 04: structural-vector-operation', () => {
         position: 'center',
         width: 10,
         dash: 0,
-      gap: 0,
+        gap: 0,
         capType: 'butt',
         joinType: 'bevel',
         miterAngle: 30
@@ -292,5 +292,4 @@ describe('stroke flow step 04: structural-vector-operation', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('structural-vector-operation')
   })
-
 })

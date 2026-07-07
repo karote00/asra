@@ -268,5 +268,4 @@ describe('stroke flow step 05: common-api-domain-adapter', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('common-api-domain-adapter')
   })
-
 })

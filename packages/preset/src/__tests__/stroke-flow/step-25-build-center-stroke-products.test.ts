@@ -221,7 +221,7 @@ describe('stroke flow step 25: build-center-stroke-products', () => {
       position: StrokePositions.CENTER,
       width: 10,
       dash: 20,
-          gap: 10,
+      gap: 10,
       joinType: StrokeJoinTypes.BEVEL,
       capType: StrokeCapTypes.BUTT,
       fill: {
@@ -326,5 +326,4 @@ describe('stroke flow step 25: build-center-stroke-products', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('build-center-stroke-products')
   })
-
 })

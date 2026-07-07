@@ -234,10 +234,7 @@ export const strokeRegressionCoverageMap: readonly StrokeRegressionCoverageCase[
         spec('dash-body-and-join-seam-contract'),
         spec('canonical-visual-review-and-completion-dod')
       ],
-      gateScripts: [
-        'test:stroke-geometry:oracle',
-        'app:e2e:stroke-new-flow'
-      ],
+      gateScripts: ['test:stroke-geometry:oracle', 'app:e2e:stroke-new-flow'],
       requiredPriorGateScripts: [
         'test:stroke-flow:unit',
         'test:stroke-flow:integration'

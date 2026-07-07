@@ -135,7 +135,8 @@ export const strokeGeometryOracleFixtureScenarios: Record<
       { x: 205, y: 15 },
       { x: 240, y: 90 }
     ],
-    description: 'Tangent-continuous high-curvature span used for non-join ownership.'
+    description:
+      'Tangent-continuous high-curvature span used for non-join ownership.'
   },
   'closed-self-intersecting': {
     id: 'closed-self-intersecting',

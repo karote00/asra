@@ -211,9 +211,7 @@ describe('stroke flow step 29: build-terminal-body-products', () => {
         'artifact:dash-body-seam-boundary'
       ])
     )
-    expect(route.cacheKeyInputs).toContain(
-      'dash body seam boundary signature'
-    )
+    expect(route.cacheKeyInputs).toContain('dash body seam boundary signature')
     expect(route.computationContract).toMatchObject({
       computedAt: 'build-terminal-body-products',
       consumesArtifacts: [
@@ -446,9 +444,7 @@ describe('stroke flow step 29: build-terminal-body-products', () => {
     expect(runtimeAssemblySource).not.toContain(
       "record.kind !== 'source-vertex'"
     )
-    expect(runtimeAssemblySource).toContain(
-      'buildJoinOwnedTerminalBodyPacket('
-    )
+    expect(runtimeAssemblySource).toContain('buildJoinOwnedTerminalBodyPacket(')
     expect(runtimeAssemblySource).toContain('record,')
     expect(runtimeMetadataSource).toContain(
       "terminalJoinRecord?.kind === 'source-vertex'"
@@ -474,5 +470,4 @@ describe('stroke flow step 29: build-terminal-body-products', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('build-terminal-body-products')
   })
-
 })

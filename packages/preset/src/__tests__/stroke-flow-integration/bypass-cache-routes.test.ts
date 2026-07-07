@@ -202,7 +202,10 @@ describe('new stroke flow integration: bypass and cache routes', () => {
       resumeAt: 'emit-render-hit-export-packets',
       nextConsumer: 'emit-render-hit-export-packets',
       consumes: ['stage:stage-product-cache', 'dirty:visibility-hidden'],
-      produces: ['stage:emit-render-hit-export-packets', 'output:hidden-render-packets']
+      produces: [
+        'stage:emit-render-hit-export-packets',
+        'output:hidden-render-packets'
+      ]
     })
     expect(route.skipSteps).toEqual(
       expect.arrayContaining([
@@ -268,7 +271,10 @@ describe('new stroke flow integration: bypass and cache routes', () => {
     expect(route).toMatchObject({
       resumeAt: 'build-final-faces',
       nextConsumer: 'build-final-faces',
-      consumes: ['stage:stage-product-cache', 'cache:verified-product-descriptor'],
+      consumes: [
+        'stage:stage-product-cache',
+        'cache:verified-product-descriptor'
+      ],
       produces: ['stage:build-final-faces', 'cache:final-face-input']
     })
     expect(route.skipSteps).toEqual(

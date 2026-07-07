@@ -180,7 +180,8 @@ export const formalStrokeTestResidueRecords: readonly FormalStrokeTestResidueRec
       filePath:
         'packages/preset/src/__tests__/vector-path-editing-render-layer.test.ts',
       classification: 'package-local-regression',
-      retainedAs: 'package-local vector editing overlay and operation regression',
+      retainedAs:
+        'package-local vector editing overlay and operation regression',
       shouldEnterStrokeCorrectnessGate: false,
       definesStrokeSemantics: false,
       requiresSpecInspectorMapping: true,

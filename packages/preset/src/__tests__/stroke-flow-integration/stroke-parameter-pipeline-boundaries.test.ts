@@ -68,7 +68,9 @@ const baseStroke = {
 
 const buildRevisionSet = (
   strokeOverrides: Partial<typeof baseStroke> = {},
-  inputOverrides: Partial<Parameters<typeof buildStrokeRuntimeRevisionSet>[0]> = {}
+  inputOverrides: Partial<
+    Parameters<typeof buildStrokeRuntimeRevisionSet>[0]
+  > = {}
 ): StrokeRevisionSet =>
   buildStrokeRuntimeRevisionSet({
     points,
@@ -211,7 +213,7 @@ describe('new stroke flow integration: full parameter pipeline boundaries', () =
       base,
       buildRevisionSet({
         dash: 20,
-          gap: 10
+        gap: 10
       }),
       [
         'interval-allocation',
@@ -276,7 +278,7 @@ describe('new stroke flow integration: full parameter pipeline boundaries', () =
         style: 'dashed',
         position: 'inside',
         dash: 16,
-          gap: 8
+        gap: 8
       }),
       [
         'stroke-product',
@@ -297,7 +299,7 @@ describe('new stroke flow integration: full parameter pipeline boundaries', () =
         position: StrokePositions.OUTSIDE,
         width: 14,
         dash: 22,
-          gap: 11,
+        gap: 11,
         joinType: StrokeJoinTypes.ROUND,
         capType: StrokeCapTypes.SQUARE,
         miterAngle: 42,
@@ -331,7 +333,12 @@ describe('new stroke flow integration: full parameter pipeline boundaries', () =
           renderDescriptor: {
             strokePathGroups: [
               {
-                strokePaths: [[{ x: 0, y: 0 }, { x: 40, y: 0 }]],
+                strokePaths: [
+                  [
+                    { x: 0, y: 0 },
+                    { x: 40, y: 0 }
+                  ]
+                ],
                 strokePathStyle: {
                   width: stroke.width,
                   cap: stroke.cap,
@@ -407,7 +414,12 @@ describe('new stroke flow integration: full parameter pipeline boundaries', () =
       visibility: 'visible',
       strokePathGroups: [
         {
-          strokePaths: [[{ x: 0, y: 0 }, { x: 40, y: 0 }]],
+          strokePaths: [
+            [
+              { x: 0, y: 0 },
+              { x: 40, y: 0 }
+            ]
+          ],
           strokePathStyle: {
             width: 14,
             cap: 'square',

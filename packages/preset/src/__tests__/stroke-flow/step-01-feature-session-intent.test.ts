@@ -212,5 +212,4 @@ describe('stroke flow step 01: feature-session-intent', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('feature-session-intent')
   })
-
 })

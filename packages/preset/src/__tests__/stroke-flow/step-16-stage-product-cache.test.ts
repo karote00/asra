@@ -236,5 +236,4 @@ describe('stroke flow step 16: stage-product-cache', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('stage-product-cache')
   })
-
 })

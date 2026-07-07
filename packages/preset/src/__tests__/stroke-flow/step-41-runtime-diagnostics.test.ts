@@ -195,18 +195,15 @@ describe('stroke flow step 41: runtime-diagnostics', () => {
     expect(getStrokeDiagnosticsMode()).toBe('off')
     expect(shouldEmitStrokeDiagnostics()).toBe(false)
     expect(shouldEmitFullStrokeDiagnostics()).toBe(false)
-
     ;(globalThis as DiagnosticsGlobal).__ASYRA_STROKE_DIAGNOSTICS_MODE__ =
       'summary'
     expect(getStrokeDiagnosticsMode()).toBe('summary')
     expect(shouldEmitStrokeDiagnostics()).toBe(true)
     expect(shouldEmitFullStrokeDiagnostics()).toBe(false)
-
     ;(globalThis as DiagnosticsGlobal).__ASYRA_STROKE_DIAGNOSTICS_MODE__ =
       'full'
     expect(getStrokeDiagnosticsMode()).toBe('full')
     expect(shouldEmitFullStrokeDiagnostics()).toBe(true)
-
     ;(globalThis as DiagnosticsGlobal).__ASYRA_STROKE_DIAGNOSTICS_MODE__ =
       'visible-repair'
     expect(getStrokeDiagnosticsMode()).toBe('off')
@@ -311,5 +308,4 @@ describe('stroke flow step 41: runtime-diagnostics', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('runtime-diagnostics')
   })
-
 })

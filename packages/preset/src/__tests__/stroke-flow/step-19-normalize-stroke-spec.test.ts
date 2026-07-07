@@ -297,5 +297,4 @@ describe('stroke flow step 19: normalize-stroke-spec', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('normalize-stroke-spec')
   })
-
 })

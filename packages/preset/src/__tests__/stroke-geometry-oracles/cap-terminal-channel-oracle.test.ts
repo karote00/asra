@@ -186,15 +186,14 @@ describe('formal stroke geometry oracle: caps, terminals, and channel separation
       geometryBasis: 'canonical-join-footprint',
       seamEvidence: {
         seamCoveragePolicy: 'shared-step-27-endpoint-identity',
-        incidentSeamBoundaries: [
-          previousSeamBoundary,
-          nextSeamBoundary
-        ]
+        incidentSeamBoundaries: [previousSeamBoundary, nextSeamBoundary]
       }
     })
     expect(join).not.toHaveProperty('capContributors')
     expect(JSON.stringify(join)).not.toContain('body-side-cap')
-    expect(JSON.stringify(join)).not.toContain('join-owned-terminal-body-bridge')
+    expect(JSON.stringify(join)).not.toContain(
+      'join-owned-terminal-body-bridge'
+    )
   })
 
   it('keeps degenerate joins local and non-renderer-owned', () => {
@@ -284,7 +283,12 @@ describe('formal stroke geometry oracle: caps, terminals, and channel separation
           renderDescriptor: {
             strokePathGroups: [
               {
-                strokePaths: [[{ x: 0, y: 0 }, { x: 24, y: 0 }]],
+                strokePaths: [
+                  [
+                    { x: 0, y: 0 },
+                    { x: 24, y: 0 }
+                  ]
+                ],
                 strokePathStyle: {
                   cap: 'butt',
                   join: 'miter',

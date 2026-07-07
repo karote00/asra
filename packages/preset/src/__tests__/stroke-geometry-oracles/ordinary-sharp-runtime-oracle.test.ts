@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import {
@@ -56,13 +57,23 @@ interface RuntimeJoinSeamEvidence {
     seamBoundaryId: string
     intervalId: string
     splitRangeId?: string
+    splitRangeAliasIds?: string[]
+    side: 'previous' | 'next'
     point: Vec2
     outerBodyBoundaryEndpoint: Vec2
     outerBodyBoundaryVertices: Vec2[]
     bodySideOutlineSegment: [Vec2, Vec2]
     bodySideTangent: Vec2
+    selectedSide: 'left' | 'right'
+    terminalRole: 'middle' | 'start' | 'end' | 'start-end'
+    endpointCapPolicySignature: string
+    capSuppressed: boolean
+    sourceSegmentIndex?: number
   }[]
 }
+type RuntimeDashBodySeamBoundary = NonNullable<
+  SolidCenterStrokeGeometryDebugMeta['dashBodySeamBoundaries']
+>[number]
 
 const SOURCE_SPACE_FLOATING_EPSILON = 0.001
 
@@ -649,6 +660,626 @@ const assertOutsideDashBodyPacketsExcludeFilledDomain = (
   })
 }
 
+const sourceSpaceWidthTolerance = (strokeWidth: number) =>
+  Math.max(0.5, strokeWidth * 0.05)
+
+const add = (first: Vec2, second: Vec2): Vec2 => ({
+  x: first.x + second.x,
+  y: first.y + second.y
+})
+
+const scale = (vector: Vec2, scalar: number): Vec2 => ({
+  x: vector.x * scalar,
+  y: vector.y * scalar
+})
+
+const getSegmentOutsideNormal = ({
+  fillPolygon,
+  start,
+  end
+}: {
+  fillPolygon: Vec2[]
+  start: Vec2
+  end: Vec2
+}) => {
+  const tangent = normalize(subtract(end, start))
+  if (!tangent) {
+    return null
+  }
+  const left = { x: -tangent.y, y: tangent.x }
+  const right = { x: tangent.y, y: -tangent.x }
+  const midpoint = scale(add(start, end), 0.5)
+  const leftProbe = add(midpoint, scale(left, 2))
+  const rightProbe = add(midpoint, scale(right, 2))
+  const leftInside = isPointInsidePolygon(leftProbe, fillPolygon)
+  const rightInside = isPointInsidePolygon(rightProbe, fillPolygon)
+  if (leftInside !== rightInside) {
+    return leftInside ? right : left
+  }
+  return polygonArea(fillPolygon) >= 0 ? right : left
+}
+
+const getDashIntervalRecordsForProduct = (
+  meta: SolidCenterStrokeGeometryDebugMeta | undefined
+) => {
+  const records = meta?.dashProductIntervals ?? []
+  if (records.length > 0) {
+    return records
+  }
+  if (
+    meta?.intervalId &&
+    meta.domainPlanSplitRangeSourceSegmentIndex !== undefined &&
+    meta.domainPlanSplitRangeSourceStartDistance !== undefined &&
+    meta.domainPlanSplitRangeSourceEndDistance !== undefined
+  ) {
+    return [
+      {
+        intervalId: meta.intervalId,
+        terminalRole: meta.domainPlanTerminalRole,
+        sourceSegmentIndex: meta.domainPlanSplitRangeSourceSegmentIndex,
+        sourceStartDistance: meta.domainPlanSplitRangeSourceStartDistance,
+        sourceEndDistance: meta.domainPlanSplitRangeSourceEndDistance,
+        splitRangeId: meta.domainPlanSplitRangeId,
+        materializationDistanceSpace: meta.materializationDistanceSpace
+      }
+    ]
+  }
+  return []
+}
+
+const getSourceSegmentStartDistance = (
+  result: ReturnType<typeof buildOrdinarySharpPipelineResult>,
+  sourceSegmentIndex: number
+) =>
+  result.network.segmentIds
+    .slice(0, sourceSegmentIndex)
+    .reduce((total, segmentId) => {
+      const segment = result.segments[segmentId]
+      const start = segment ? result.points[segment.startId] : undefined
+      const end = segment ? result.points[segment.endId] : undefined
+      return start && end ? total + distance(start, end) : total
+    }, 0)
+
+const toSegmentLocalSourceDistance = ({
+  result,
+  sourceSegmentIndex,
+  sourceDistance,
+  segmentLength
+}: {
+  result: ReturnType<typeof buildOrdinarySharpPipelineResult>
+  sourceSegmentIndex: number
+  sourceDistance: number
+  segmentLength: number
+}) => {
+  const absolutePathLocalDistance =
+    sourceDistance - getSourceSegmentStartDistance(result, sourceSegmentIndex)
+  if (
+    absolutePathLocalDistance >= 0 &&
+    absolutePathLocalDistance <= segmentLength
+  ) {
+    return absolutePathLocalDistance
+  }
+  return sourceDistance
+}
+
+const isVisibleDashBodyContributor = (
+  meta: SolidCenterStrokeGeometryDebugMeta | undefined
+) =>
+  meta?.visibleContributor === 'dash-interval-body' ||
+  meta?.visibleContributor === 'terminal-interval-body'
+
+const assertOutsideDashBodyCrossSectionContinuity = ({
+  result,
+  products,
+  label
+}: {
+  result: ReturnType<typeof buildOrdinarySharpPipelineResult>
+  products: readonly OrdinaryGeometryProduct[]
+  label: string
+}) => {
+  const dashProducts = products.filter((product) =>
+    isVisibleDashBodyContributor(product.debugMeta)
+  )
+  expect(
+    dashProducts.length,
+    `${label} must expose visible dash body products for continuity probes`
+  ).toBeGreaterThan(0)
+
+  const failures: {
+    productSignature: string | null
+    intervalId: string
+    sourceSegmentIndex: number | null
+    terminalRole: string | null
+    sampleIndex: number
+    normalOffset: number
+    sample: Vec2
+    distanceToProduct: number
+    polygonCount: number
+    ownerStage: string | null
+    routeId: string | null
+  }[] = []
+  const continuityProbeOffsets = [0.25, 0.5, 0.75]
+
+  for (const product of dashProducts) {
+    for (const interval of getDashIntervalRecordsForProduct(
+      product.debugMeta
+    )) {
+      const sourceSegmentIndex =
+        interval.sourceSegmentIndex ??
+        product.debugMeta?.domainPlanSplitRangeSourceSegmentIndex
+      const sourceStartDistance =
+        interval.sourceStartDistance ??
+        product.debugMeta?.domainPlanSplitRangeSourceStartDistance
+      const sourceEndDistance =
+        interval.sourceEndDistance ??
+        product.debugMeta?.domainPlanSplitRangeSourceEndDistance
+
+      if (
+        sourceSegmentIndex === undefined ||
+        sourceStartDistance === undefined ||
+        sourceEndDistance === undefined
+      ) {
+        continue
+      }
+
+      const segmentId = result.network.segmentIds[sourceSegmentIndex]
+      const segment = segmentId ? result.segments[segmentId] : undefined
+      const start = segment ? result.points[segment.startId] : undefined
+      const end = segment ? result.points[segment.endId] : undefined
+      if (!start || !end) {
+        continue
+      }
+      const direction = normalize(subtract(end, start))
+      const outsideNormal = getSegmentOutsideNormal({
+        fillPolygon: result.fillPolygon,
+        start,
+        end
+      })
+      if (!direction || !outsideNormal) {
+        continue
+      }
+      const segmentLength = distance(start, end)
+      const intervalLength = sourceEndDistance - sourceStartDistance
+      if (intervalLength <= result.stroke.width) {
+        continue
+      }
+
+      const sourceDistances = [0.25, 0.5, 0.75].map(
+        (ratio) => sourceStartDistance + intervalLength * ratio
+      )
+      sourceDistances.forEach((sourceDistance, sampleIndex) => {
+        const segmentLocalDistance = toSegmentLocalSourceDistance({
+          result,
+          sourceSegmentIndex,
+          sourceDistance,
+          segmentLength
+        })
+        if (segmentLocalDistance < 0 || segmentLocalDistance > segmentLength) {
+          failures.push({
+            productSignature: product.debugMeta?.productSignature ?? null,
+            intervalId: interval.intervalId,
+            sourceSegmentIndex,
+            terminalRole: interval.terminalRole ?? null,
+            sampleIndex,
+            normalOffset: 0,
+            sample: {
+              x: Math.round(segmentLocalDistance * 1000) / 1000,
+              y: 0
+            },
+            distanceToProduct: Number.POSITIVE_INFINITY,
+            polygonCount: product.polygons.length,
+            ownerStage: product.debugMeta?.ownerStage ?? null,
+            routeId: product.debugMeta?.routeId ?? null
+          })
+          return
+        }
+        const sourcePoint = add(start, scale(direction, segmentLocalDistance))
+        continuityProbeOffsets.forEach((normalOffset) => {
+          const sample = add(
+            sourcePoint,
+            scale(outsideNormal, result.stroke.width * normalOffset)
+          )
+          const distanceToProduct = distanceToPolygons(sample, product.polygons)
+          if (
+            distanceToProduct > sourceSpaceWidthTolerance(result.stroke.width)
+          ) {
+            failures.push({
+              productSignature: product.debugMeta?.productSignature ?? null,
+              intervalId: interval.intervalId,
+              sourceSegmentIndex,
+              terminalRole: interval.terminalRole ?? null,
+              sampleIndex,
+              normalOffset,
+              sample: roundedForDiagnostic(sample),
+              distanceToProduct,
+              polygonCount: product.polygons.length,
+              ownerStage: product.debugMeta?.ownerStage ?? null,
+              routeId: product.debugMeta?.routeId ?? null
+            })
+          }
+        })
+      })
+    }
+  }
+
+  expect(
+    failures,
+    `${label} visible outside dash bodies must have continuous source-span cross-section coverage, not parallel strips, comb gaps, or missing terminal body fragments`
+  ).toEqual([])
+}
+
+const assertOutsideVisibleProductsExcludeFillDomain = (
+  products: readonly OrdinaryGeometryProduct[],
+  fillPolygon: Vec2[],
+  label: string
+) => {
+  const visibleProducts = products.filter(
+    (product) =>
+      product.polygons.length > 0 &&
+      product.debugMeta?.visibleContributor !== undefined
+  )
+  const failures = visibleProducts.flatMap((product) => {
+    const productArea = polygonListArea(product.polygons)
+    if (productArea <= SOURCE_SPACE_FLOATING_EPSILON) {
+      return []
+    }
+    const intersections = getGeometryBackend().intersection(
+      [{ polygons: product.polygons }],
+      [{ polygons: [fillPolygon] }],
+      'nonzero'
+    )
+    const insideFillArea = polygonListArea(
+      intersections.flatMap((region) => region.polygons)
+    )
+    return insideFillArea > SOURCE_SPACE_FLOATING_EPSILON
+      ? [
+          {
+            productSignature: product.debugMeta?.productSignature ?? null,
+            visibleContributor: product.debugMeta?.visibleContributor ?? null,
+            ownerStage: product.debugMeta?.ownerStage ?? null,
+            routeId: product.debugMeta?.routeId ?? null,
+            productArea,
+            insideFillArea,
+            polygonCount: product.polygons.length
+          }
+        ]
+      : []
+  })
+
+  expect(
+    failures,
+    `${label} outside dashed visible products must not paint filled-domain samples`
+  ).toEqual([])
+}
+
+const assertSourceVertexSeamEndpointsUseStrokeWidthBoundary = (
+  products: readonly OrdinaryGeometryProduct[],
+  strokeWidth: number,
+  label: string
+) => {
+  const failures = products.flatMap((product) => {
+    if (product.debugMeta?.visibleContributor !== 'source-vertex-join') {
+      return []
+    }
+    const seamEvidence = getRuntimeJoinSeamEvidence(product.debugMeta)
+    return (seamEvidence?.incidentSeamBoundaries ?? []).flatMap(
+      (seamBoundary) => {
+        const boundaryDistance = distanceToSegment(
+          seamBoundary.point,
+          seamBoundary.bodySideOutlineSegment[0],
+          seamBoundary.bodySideOutlineSegment[1]
+        )
+        return Math.abs(boundaryDistance - strokeWidth) >
+          sourceSpaceWidthTolerance(strokeWidth)
+          ? [
+              {
+                productSignature: product.debugMeta?.productSignature ?? null,
+                resolvedJoin: product.debugMeta?.resolvedJoin ?? null,
+                seamBoundaryId: seamBoundary.seamBoundaryId,
+                boundaryDistance,
+                expectedStrokeWidth: strokeWidth,
+                point: roundedForDiagnostic(seamBoundary.point),
+                outerBodyBoundaryEndpoint: roundedForDiagnostic(
+                  seamBoundary.outerBodyBoundaryEndpoint
+                ),
+                ownerStage: product.debugMeta?.ownerStage ?? null,
+                routeId: product.debugMeta?.routeId ?? null
+              }
+            ]
+          : []
+      }
+    )
+  })
+
+  expect(
+    failures,
+    `${label} source-vertex joins must consume Step 27 terminal dash outer boundary endpoints at stroke-width distance, not centerline or clipped-remnant endpoints`
+  ).toEqual([])
+}
+
+const getStep27DashBodySeamArtifacts = (
+  result: ReturnType<typeof buildOrdinarySharpPipelineResult>
+) =>
+  result.packets.flatMap((packet) =>
+    (packet.geometry.debugMeta?.dashBodySeamBoundaries ?? []).map(
+      (boundary) => ({
+        boundary,
+        packetGeometryId: packet.geometry.geometryId,
+        productSignature: packet.geometry.debugMeta?.productSignature ?? null,
+        ownerStage: packet.geometry.debugMeta?.ownerStage ?? null,
+        routeId: packet.geometry.debugMeta?.routeId ?? null,
+        visibleContributor:
+          packet.geometry.debugMeta?.visibleContributor ?? null,
+        geometryBasis: packet.geometry.debugMeta?.geometryBasis ?? null
+      })
+    )
+  )
+
+const getSourceSegmentEndpointsForBoundary = (
+  result: ReturnType<typeof buildOrdinarySharpPipelineResult>,
+  boundary: Pick<RuntimeDashBodySeamBoundary, 'sourceSegmentIndex'>
+) => {
+  const sourceSegmentIndex = boundary.sourceSegmentIndex
+  const segmentId =
+    sourceSegmentIndex !== undefined
+      ? result.network.segmentIds[sourceSegmentIndex]
+      : undefined
+  const segment = segmentId ? result.segments[segmentId] : undefined
+  const start = segment ? result.points[segment.startId] : undefined
+  const end = segment ? result.points[segment.endId] : undefined
+  return start && end
+    ? {
+        sourceSegmentIndex,
+        start,
+        end
+      }
+    : undefined
+}
+
+const getSeamBoundarySourceWidthDistance = (
+  result: ReturnType<typeof buildOrdinarySharpPipelineResult>,
+  boundary: Pick<
+    RuntimeDashBodySeamBoundary,
+    'outerBodyBoundaryEndpoint' | 'sourceSegmentIndex'
+  >
+) => {
+  const segment = getSourceSegmentEndpointsForBoundary(result, boundary)
+  return segment
+    ? {
+        sourceSegmentIndex: segment.sourceSegmentIndex,
+        distanceToSourceCenterline: distanceToSegment(
+          boundary.outerBodyBoundaryEndpoint,
+          segment.start,
+          segment.end
+        ),
+        sourceSegmentStart: segment.start,
+        sourceSegmentEnd: segment.end
+      }
+    : undefined
+}
+
+const getStep27DashBodySeamArtifactForBoundary = (
+  result: ReturnType<typeof buildOrdinarySharpPipelineResult>,
+  seamBoundary: RuntimeJoinSeamEvidence['incidentSeamBoundaries'][number]
+) => {
+  const artifacts = getStep27DashBodySeamArtifacts(result)
+  const exact = artifacts.find(
+    (artifact) =>
+      artifact.boundary.seamBoundaryId === seamBoundary.seamBoundaryId
+  )
+  if (exact) {
+    return exact
+  }
+  return artifacts.find((artifact) => {
+    const boundary = artifact.boundary
+    const candidateIds = new Set([
+      boundary.intervalId,
+      ...(boundary.splitRangeAliasIds ?? []),
+      boundary.splitRangeId
+    ])
+    return (
+      candidateIds.has(seamBoundary.intervalId) &&
+      boundary.side === seamBoundary.side &&
+      (boundary.sourceSegmentIndex === undefined ||
+        seamBoundary.sourceSegmentIndex === undefined ||
+        boundary.sourceSegmentIndex === seamBoundary.sourceSegmentIndex)
+    )
+  })
+}
+
+const assertStep27SeamArtifactsUseSourceWidthBoundary = (
+  result: ReturnType<typeof buildOrdinarySharpPipelineResult>,
+  label: string
+) => {
+  const artifacts = getStep27DashBodySeamArtifacts(result)
+  expect(
+    artifacts.length,
+    `${label} must expose Step 27 dash body seam boundary artifacts`
+  ).toBeGreaterThan(0)
+
+  const failures = artifacts.flatMap((artifact) => {
+    const sourceWidth = getSeamBoundarySourceWidthDistance(
+      result,
+      artifact.boundary
+    )
+    if (!sourceWidth) {
+      return [
+        {
+          failure: 'missing-source-segment',
+          seamBoundaryId: artifact.boundary.seamBoundaryId,
+          intervalId: artifact.boundary.intervalId,
+          sourceSegmentIndex: artifact.boundary.sourceSegmentIndex,
+          ownerStage: artifact.ownerStage,
+          routeId: artifact.routeId
+        }
+      ]
+    }
+    const widthDelta = Math.abs(
+      sourceWidth.distanceToSourceCenterline - result.stroke.width
+    )
+    return widthDelta > sourceSpaceWidthTolerance(result.stroke.width)
+      ? [
+          {
+            failure: 'wrong-source-width-boundary',
+            seamBoundaryId: artifact.boundary.seamBoundaryId,
+            intervalId: artifact.boundary.intervalId,
+            terminalRole: artifact.boundary.terminalRole,
+            sourceSegmentIndex: sourceWidth.sourceSegmentIndex,
+            selectedSide: artifact.boundary.selectedSide,
+            distanceToSourceCenterline: sourceWidth.distanceToSourceCenterline,
+            expectedStrokeWidth: result.stroke.width,
+            outerBodyBoundaryEndpoint: roundedForDiagnostic(
+              artifact.boundary.outerBodyBoundaryEndpoint
+            ),
+            terminalPoint: roundedForDiagnostic(artifact.boundary.point),
+            sourceSegmentStart: roundedForDiagnostic(
+              sourceWidth.sourceSegmentStart
+            ),
+            sourceSegmentEnd: roundedForDiagnostic(
+              sourceWidth.sourceSegmentEnd
+            ),
+            ownerStage: artifact.ownerStage,
+            routeId: artifact.routeId,
+            visibleContributor: artifact.visibleContributor,
+            geometryBasis: artifact.geometryBasis
+          }
+        ]
+      : []
+  })
+
+  expect(
+    failures,
+    `${label} Step 27 seam artifacts must put outerBodyBoundaryEndpoint on the source-space stroke.width boundary, not viewport or selected-remnant geometry`
+  ).toEqual([])
+}
+
+const assertStep27SeamArtifactsPropagateToStep28JoinEvidence = ({
+  result,
+  products,
+  label
+}: {
+  result: ReturnType<typeof buildOrdinarySharpPipelineResult>
+  products: readonly OrdinaryGeometryProduct[]
+  label: string
+}) => {
+  const failures = products.flatMap((product) => {
+    if (product.debugMeta?.visibleContributor !== 'source-vertex-join') {
+      return []
+    }
+    const seamEvidence = getRuntimeJoinSeamEvidence(product.debugMeta)
+    return (seamEvidence?.incidentSeamBoundaries ?? []).flatMap(
+      (seamBoundary) => {
+        const artifact = getStep27DashBodySeamArtifactForBoundary(
+          result,
+          seamBoundary
+        )
+        if (!artifact) {
+          return [
+            {
+              failure: 'missing-step-27-seam-artifact',
+              seamBoundaryId: seamBoundary.seamBoundaryId,
+              intervalId: seamBoundary.intervalId,
+              splitRangeId: seamBoundary.splitRangeId,
+              side: seamBoundary.side,
+              sourceSegmentIndex: seamBoundary.sourceSegmentIndex,
+              ownerStage: product.debugMeta?.ownerStage ?? null,
+              routeId: product.debugMeta?.routeId ?? null,
+              productSignature: product.debugMeta?.productSignature ?? null
+            }
+          ]
+        }
+
+        const pointDelta = distance(artifact.boundary.point, seamBoundary.point)
+        const outerEndpointDelta = distance(
+          artifact.boundary.outerBodyBoundaryEndpoint,
+          seamBoundary.outerBodyBoundaryEndpoint
+        )
+        const outlineStartDelta = distance(
+          artifact.boundary.bodySideOutlineSegment[0],
+          seamBoundary.bodySideOutlineSegment[0]
+        )
+        const outlineEndDelta = distance(
+          artifact.boundary.bodySideOutlineSegment[1],
+          seamBoundary.bodySideOutlineSegment[1]
+        )
+        const sourceWidth = getSeamBoundarySourceWidthDistance(
+          result,
+          seamBoundary
+        )
+        const sourceWidthDelta = sourceWidth
+          ? Math.abs(
+              sourceWidth.distanceToSourceCenterline - result.stroke.width
+            )
+          : Number.POSITIVE_INFINITY
+
+        return pointDelta > SOURCE_SPACE_FLOATING_EPSILON ||
+          outerEndpointDelta > SOURCE_SPACE_FLOATING_EPSILON ||
+          outlineStartDelta > SOURCE_SPACE_FLOATING_EPSILON ||
+          outlineEndDelta > SOURCE_SPACE_FLOATING_EPSILON ||
+          artifact.boundary.seamBoundaryId !== seamBoundary.seamBoundaryId ||
+          artifact.boundary.terminalRole !== seamBoundary.terminalRole ||
+          artifact.boundary.selectedSide !== seamBoundary.selectedSide ||
+          sourceWidthDelta > sourceSpaceWidthTolerance(result.stroke.width)
+          ? [
+              {
+                failure: 'step-28-consumed-seam-differs-from-step-27',
+                seamBoundaryId: seamBoundary.seamBoundaryId,
+                intervalId: seamBoundary.intervalId,
+                pointDelta,
+                outerEndpointDelta,
+                outlineStartDelta,
+                outlineEndDelta,
+                sourceWidthDistance:
+                  sourceWidth?.distanceToSourceCenterline ?? null,
+                expectedStrokeWidth: result.stroke.width,
+                step27: {
+                  seamBoundaryId: artifact.boundary.seamBoundaryId,
+                  terminalRole: artifact.boundary.terminalRole,
+                  selectedSide: artifact.boundary.selectedSide,
+                  point: roundedForDiagnostic(artifact.boundary.point),
+                  outerBodyBoundaryEndpoint: roundedForDiagnostic(
+                    artifact.boundary.outerBodyBoundaryEndpoint
+                  ),
+                  bodySideOutlineSegment:
+                    artifact.boundary.bodySideOutlineSegment.map(
+                      roundedForDiagnostic
+                    ),
+                  ownerStage: artifact.ownerStage,
+                  routeId: artifact.routeId,
+                  visibleContributor: artifact.visibleContributor,
+                  geometryBasis: artifact.geometryBasis
+                },
+                step28: {
+                  terminalRole: seamBoundary.terminalRole,
+                  selectedSide: seamBoundary.selectedSide,
+                  point: roundedForDiagnostic(seamBoundary.point),
+                  outerBodyBoundaryEndpoint: roundedForDiagnostic(
+                    seamBoundary.outerBodyBoundaryEndpoint
+                  ),
+                  bodySideOutlineSegment:
+                    seamBoundary.bodySideOutlineSegment.map(
+                      roundedForDiagnostic
+                    ),
+                  ownerStage: product.debugMeta?.ownerStage ?? null,
+                  routeId: product.debugMeta?.routeId ?? null,
+                  visibleContributor:
+                    product.debugMeta?.visibleContributor ?? null,
+                  geometryBasis: product.debugMeta?.geometryBasis ?? null
+                },
+                productSignature: product.debugMeta?.productSignature ?? null
+              }
+            ]
+          : []
+      }
+    )
+  })
+
+  expect(
+    failures,
+    `${label} Step 28 source-vertex joins must consume the exact Step 27 seam boundary artifact and preserve its source-space stroke.width boundary`
+  ).toEqual([])
+}
+
 const assertDashBodyRenderEntriesPreserveFinalFaceProduct = (
   result: ReturnType<typeof buildOrdinarySharpPipelineResult>,
   label: string
@@ -910,7 +1541,11 @@ const getSeamBoundaryIntervalCandidates = (
 
 const getSourceNearOuterTerminalEdge = (
   polygons: Vec2[][],
-  sourceVertex: Vec2
+  sourceVertex: Vec2,
+  sourceSegment?: {
+    start: Vec2
+    end: Vec2
+  }
 ) => {
   let best:
     | {
@@ -948,7 +1583,13 @@ const getSourceNearOuterTerminalEdge = (
         return
       }
       const endpointSourceDistance = distance(sourceVertex, endpoint)
-      const score = sourceNearDistance * 1_000_000 - endpointSourceDistance
+      const endpointSourceWidthDistance = sourceSegment
+        ? distanceToSegment(endpoint, sourceSegment.start, sourceSegment.end)
+        : 0
+      const score =
+        sourceNearDistance * 1_000_000 -
+        endpointSourceWidthDistance * 10_000 -
+        endpointSourceDistance
       if (!best || score < best.score) {
         best = {
           edge: [sourceNearVertex, endpoint],
@@ -962,14 +1603,17 @@ const getSourceNearOuterTerminalEdge = (
 }
 
 const getExpectedOuterEndpointFromDashBodyPackets = (
-  packets: ReturnType<typeof buildConstrainedDashedStrokeResolvedPackets>,
+  result: Pick<
+    ReturnType<typeof buildOrdinarySharpPipelineResult>,
+    'network' | 'points' | 'segments' | 'packets'
+  >,
   seamBoundary: NonNullable<
     ReturnType<typeof getRuntimeJoinSeamEvidence>
   >['incidentSeamBoundaries'][number],
   sourceVertex: Vec2
 ) => {
   const dashBodyPackets = getDashBodyPacketsForSeamBoundary(
-    packets,
+    result.packets,
     seamBoundary
   )
   const allPolygons = dashBodyPackets.flatMap(
@@ -1012,7 +1656,15 @@ const getExpectedOuterEndpointFromDashBodyPackets = (
           })
         ]
       : allPolygons
-  const terminalEdge = getSourceNearOuterTerminalEdge(polygons, sourceVertex)
+  const sourceSegment = getSourceSegmentEndpointsForBoundary(
+    result,
+    seamBoundary
+  )
+  const terminalEdge = getSourceNearOuterTerminalEdge(
+    polygons,
+    sourceVertex,
+    sourceSegment
+  )
   if (!terminalEdge) {
     return {
       expectedOuterEndpoint: undefined,
@@ -1020,11 +1672,7 @@ const getExpectedOuterEndpointFromDashBodyPackets = (
       terminalEdge: undefined
     }
   }
-  const expectedOuterEndpoint =
-    distance(sourceVertex, terminalEdge[0]) >=
-    distance(sourceVertex, terminalEdge[1])
-      ? terminalEdge[0]
-      : terminalEdge[1]
+  const expectedOuterEndpoint = terminalEdge[1]
   return {
     expectedOuterEndpoint,
     dashBodyPackets,
@@ -1033,9 +1681,10 @@ const getExpectedOuterEndpointFromDashBodyPackets = (
 }
 
 const assertSeamEvidenceUsesDashBodyOuterEndpoints = (
-  result: {
-    packets: ReturnType<typeof buildConstrainedDashedStrokeResolvedPackets>
-  },
+  result: Pick<
+    ReturnType<typeof buildOrdinarySharpPipelineResult>,
+    'network' | 'points' | 'segments' | 'packets'
+  >,
   product: {
     polygons: Vec2[][]
     debugMeta?: SolidCenterStrokeGeometryDebugMeta
@@ -1053,7 +1702,7 @@ const assertSeamEvidenceUsesDashBodyOuterEndpoints = (
   for (const seamBoundary of seamEvidence?.incidentSeamBoundaries ?? []) {
     const { expectedOuterEndpoint, dashBodyPackets, terminalEdge } =
       getExpectedOuterEndpointFromDashBodyPackets(
-        result.packets,
+        result,
         seamBoundary,
         sourceVertex
       )
@@ -1515,13 +2164,204 @@ const buildOrdinarySharpPipelineResult = (
   )
 
   return {
+    network,
     points,
+    segments,
+    sourcePath,
     fillPolygon: topology.normalizedPoints,
     stroke,
     packets,
     finalFaces,
     renderEntries,
     pipelineTrace
+  }
+}
+
+const roundSourceSpaceNumber = (value: number) =>
+  Math.round(value * 1000) / 1000
+
+const sourcePointSignature = (point: Vec2) => ({
+  x: roundSourceSpaceNumber(point.x),
+  y: roundSourceSpaceNumber(point.y)
+})
+
+const sourcePolygonListSignature = (polygons: Vec2[][]) =>
+  polygons
+    .map((polygon) => polygon.map(sourcePointSignature))
+    .sort((left, right) =>
+      JSON.stringify(left).localeCompare(JSON.stringify(right))
+    )
+
+const sourceMetaSignature = (
+  meta: SolidCenterStrokeGeometryDebugMeta | undefined
+) => ({
+  productSignature: meta?.productSignature ?? null,
+  productMode: meta?.productMode ?? null,
+  ownerStage: meta?.ownerStage ?? null,
+  routeId: meta?.routeId ?? null,
+  visibleContributor: meta?.visibleContributor ?? null,
+  geometryBasis: meta?.geometryBasis ?? null,
+  intervalId: meta?.intervalId ?? null,
+  intervalIds: [...(meta?.intervalIds ?? [])].sort(),
+  legalDomainIds: [...(meta?.legalDomainIds ?? [])].sort(),
+  sourceContourIds: [...(meta?.sourceContourIds ?? [])].sort(),
+  resolvedJoin: meta?.resolvedJoin ?? null,
+  authoredJoin: meta?.authoredJoin ?? null,
+  joinOwnershipSignature: meta?.joinOwnershipSignature ?? null,
+  dashProductIntervals: (meta?.dashProductIntervals ?? [])
+    .map((interval) => ({
+      intervalId: interval.intervalId,
+      splitRangeId: interval.splitRangeId ?? null,
+      terminalRole: interval.terminalRole ?? null,
+      sourceSegmentIndex: interval.sourceSegmentIndex ?? null,
+      sourceStartDistance:
+        interval.sourceStartDistance !== undefined
+          ? roundSourceSpaceNumber(interval.sourceStartDistance)
+          : null,
+      sourceEndDistance:
+        interval.sourceEndDistance !== undefined
+          ? roundSourceSpaceNumber(interval.sourceEndDistance)
+          : null,
+      materializationDistanceSpace:
+        interval.materializationDistanceSpace ?? null
+    }))
+    .sort((left, right) =>
+      `${left.intervalId}:${left.splitRangeId ?? ''}`.localeCompare(
+        `${right.intervalId}:${right.splitRangeId ?? ''}`
+      )
+    )
+})
+
+const sourceProductSignature = (product: {
+  polygons: Vec2[][]
+  debugMeta?: SolidCenterStrokeGeometryDebugMeta
+}) => ({
+  meta: sourceMetaSignature(product.debugMeta),
+  polygons: sourcePolygonListSignature(product.polygons)
+})
+
+const sourceSeamBoundarySignature = (
+  boundary: RuntimeDashBodySeamBoundary
+) => ({
+  seamBoundaryId: boundary.seamBoundaryId,
+  intervalId: boundary.intervalId,
+  splitRangeId: boundary.splitRangeId ?? null,
+  side: boundary.side,
+  terminalRole: boundary.terminalRole,
+  selectedSide: boundary.selectedSide,
+  capSuppressed: boundary.capSuppressed,
+  sourceSegmentIndex: boundary.sourceSegmentIndex ?? null,
+  point: sourcePointSignature(boundary.point),
+  outerBodyBoundaryEndpoint: sourcePointSignature(
+    boundary.outerBodyBoundaryEndpoint
+  ),
+  outerBodyBoundaryVertices:
+    boundary.outerBodyBoundaryVertices.map(sourcePointSignature),
+  bodySideOutlineSegment:
+    boundary.bodySideOutlineSegment.map(sourcePointSignature),
+  bodySideTangent: sourcePointSignature(boundary.bodySideTangent)
+})
+
+const buildOrdinarySharpSourceSpaceArtifactSections = (
+  result: ReturnType<typeof buildOrdinarySharpPipelineResult>
+) => ({
+  step27SeamBoundaries: getStep27DashBodySeamArtifacts(result)
+    .map((artifact) => ({
+      ...sourceSeamBoundarySignature(artifact.boundary),
+      ownerStage: artifact.ownerStage,
+      routeId: artifact.routeId,
+      visibleContributor: artifact.visibleContributor,
+      geometryBasis: artifact.geometryBasis
+    }))
+    .sort((left, right) =>
+      left.seamBoundaryId.localeCompare(right.seamBoundaryId)
+    ),
+  step28PreLegalityProducts: getPreLegalitySourceVertexJoinProducts(
+    result.packets
+  )
+    .map((product) => sourceProductSignature(product))
+    .sort((left, right) =>
+      JSON.stringify(left.meta).localeCompare(JSON.stringify(right.meta))
+    ),
+  step32ResolvedPackets: result.packets
+    .map((packet) =>
+      sourceProductSignature({
+        polygons: packet.geometry.polygons,
+        debugMeta: packet.geometry.debugMeta
+      })
+    )
+    .sort((left, right) =>
+      JSON.stringify(left.meta).localeCompare(JSON.stringify(right.meta))
+    ),
+  step35FinalFaces: result.finalFaces
+    .map((face) =>
+      sourceProductSignature({
+        polygons: face.polygons,
+        debugMeta: face.debugMeta
+      })
+    )
+    .sort((left, right) =>
+      JSON.stringify(left.meta).localeCompare(JSON.stringify(right.meta))
+    ),
+  step38RenderEntries: result.renderEntries
+    .map((entry) =>
+      sourceProductSignature({
+        polygons: entry.polygons,
+        debugMeta: entry.debugMeta
+      })
+    )
+    .sort((left, right) =>
+      JSON.stringify(left.meta).localeCompare(JSON.stringify(right.meta))
+    )
+})
+
+const sourceSpaceArtifactStageHashes = (
+  sections: ReturnType<typeof buildOrdinarySharpSourceSpaceArtifactSections>
+) =>
+  Object.fromEntries(
+    Object.entries(sections).map(([stage, value]) => [
+      stage,
+      {
+        count: Array.isArray(value) ? value.length : 1,
+        hash: createHash('sha256')
+          .update(JSON.stringify(value))
+          .digest('hex')
+          .slice(0, 16)
+      }
+    ])
+  )
+
+const buildOrdinarySharpPipelineResultWithViewportZoom = (
+  joinType: OrdinaryJoinType,
+  zoom: number
+) => {
+  const viewportTarget = globalThis as unknown as Record<string, unknown>
+  const previousWindow = viewportTarget.window
+  const previousDevicePixelRatio = viewportTarget.devicePixelRatio
+  viewportTarget.window = {
+    devicePixelRatio: zoom,
+    visualViewport: {
+      scale: zoom,
+      width: 1440 / zoom,
+      height: 900 / zoom
+    },
+    innerWidth: 1440,
+    innerHeight: 900
+  }
+  viewportTarget.devicePixelRatio = zoom
+  try {
+    return buildOrdinarySharpPipelineResult(joinType)
+  } finally {
+    if (previousWindow === undefined) {
+      delete viewportTarget.window
+    } else {
+      viewportTarget.window = previousWindow
+    }
+    if (previousDevicePixelRatio === undefined) {
+      delete viewportTarget.devicePixelRatio
+    } else {
+      viewportTarget.devicePixelRatio = previousDevicePixelRatio
+    }
   }
 }
 
@@ -1687,6 +2527,138 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
             `${joinType} Step 38 source-vertex join render entry ${index}`
           )
         }
+      )
+    }
+  })
+
+  it('keeps outside dashed source-space artifacts independent of viewport zoom', () => {
+    for (const joinType of ['miter', 'bevel', 'round'] as const) {
+      const signatures = [
+        { label: '100%', zoom: 1 },
+        { label: '260%', zoom: 2.6 },
+        { label: '1000%', zoom: 10 }
+      ].map((viewState) => ({
+        ...viewState,
+        sections: buildOrdinarySharpSourceSpaceArtifactSections(
+          buildOrdinarySharpPipelineResultWithViewportZoom(
+            joinType,
+            viewState.zoom
+          )
+        )
+      }))
+      const baseline = signatures[0]
+      expect(baseline, `${joinType} zoom baseline`).toBeDefined()
+      signatures.slice(1).forEach((candidate) => {
+        const stageFailures = Object.entries(candidate.sections).flatMap(
+          ([stage, value]) => {
+            const baselineValue =
+              baseline?.sections[stage as keyof typeof candidate.sections]
+            return JSON.stringify(value) === JSON.stringify(baselineValue)
+              ? []
+              : [
+                  {
+                    stage,
+                    baseline: sourceSpaceArtifactStageHashes({
+                      [stage]: baselineValue
+                    } as ReturnType<
+                      typeof buildOrdinarySharpSourceSpaceArtifactSections
+                    >)[stage],
+                    candidate: sourceSpaceArtifactStageHashes({
+                      [stage]: value
+                    } as ReturnType<
+                      typeof buildOrdinarySharpSourceSpaceArtifactSections
+                    >)[stage]
+                  }
+                ]
+          }
+        )
+        expect(
+          stageFailures,
+          `${joinType} Step 27/28/32/35/38 source-space artifacts must not change between viewport zoom ${baseline?.label} and ${candidate.label}; only Step 39 raster pixel sampling may vary`
+        ).toEqual([])
+      })
+    }
+  })
+
+  it('rejects outside dashed dash-body strips, wrong-side fill coverage, and undersized source-vertex seam endpoints', () => {
+    for (const joinType of ['miter', 'bevel', 'round'] as const) {
+      const result = buildOrdinarySharpPipelineResult(joinType)
+      const packetProducts = result.packets.map((packet) => ({
+        polygons: packet.geometry.polygons,
+        debugMeta: packet.geometry.debugMeta
+      }))
+      const finalFaceProducts = result.finalFaces.map((face) => ({
+        polygons: face.polygons,
+        debugMeta: face.debugMeta
+      }))
+      const renderEntryProducts = result.renderEntries.map((entry) => ({
+        polygons: entry.polygons,
+        debugMeta: entry.debugMeta
+      }))
+      const preLegalitySourceVertexProducts =
+        getPreLegalitySourceVertexJoinProducts(
+          result.packets,
+          result.pipelineTrace
+        )
+
+      assertStep27SeamArtifactsUseSourceWidthBoundary(
+        result,
+        `${joinType} Step 27 dash body seam artifacts`
+      )
+      assertOutsideDashBodyCrossSectionContinuity({
+        result,
+        products: packetProducts,
+        label: `${joinType} Step 27 outside dash body packets`
+      })
+      assertOutsideDashBodyCrossSectionContinuity({
+        result,
+        products: finalFaceProducts,
+        label: `${joinType} Step 35 outside dash body final faces`
+      })
+      assertOutsideDashBodyCrossSectionContinuity({
+        result,
+        products: renderEntryProducts,
+        label: `${joinType} Step 38 outside dash body render entries`
+      })
+      assertOutsideVisibleProductsExcludeFillDomain(
+        finalFaceProducts,
+        result.fillPolygon,
+        `${joinType} Step 35 final faces`
+      )
+      assertOutsideVisibleProductsExcludeFillDomain(
+        renderEntryProducts,
+        result.fillPolygon,
+        `${joinType} Step 38 render entries`
+      )
+      assertStep27SeamArtifactsPropagateToStep28JoinEvidence({
+        result,
+        products: preLegalitySourceVertexProducts,
+        label: `${joinType} Step 28 pre-legality source-vertex joins`
+      })
+      assertStep27SeamArtifactsPropagateToStep28JoinEvidence({
+        result,
+        products: finalFaceProducts,
+        label: `${joinType} Step 35 source-vertex joins`
+      })
+      assertStep27SeamArtifactsPropagateToStep28JoinEvidence({
+        result,
+        products: renderEntryProducts,
+        label: `${joinType} Step 38 source-vertex joins`
+      })
+      assertSourceVertexSeamEndpointsUseStrokeWidthBoundary(
+        preLegalitySourceVertexProducts,
+        result.stroke.width,
+        `${joinType} Step 28 source-vertex joins`
+      )
+      assertSourceVertexSeamEndpointsUseStrokeWidthBoundary(
+        finalFaceProducts,
+        result.stroke.width,
+        `${joinType} Step 35 source-vertex joins`
+      )
+      assertSourceVertexSeamEndpointsUseStrokeWidthBoundary(
+        renderEntryProducts,
+        result.stroke.width,
+        `${joinType} Step 38 source-vertex joins`
       )
     }
   })

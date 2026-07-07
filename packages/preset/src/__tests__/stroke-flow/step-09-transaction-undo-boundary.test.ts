@@ -223,5 +223,4 @@ describe('stroke flow step 09: transaction-undo-boundary', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('transaction-undo-boundary')
   })
-
 })

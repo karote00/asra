@@ -317,5 +317,4 @@ describe('stroke flow step 30: build-smooth-continuity-products', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('build-smooth-continuity-products')
   })
-
 })

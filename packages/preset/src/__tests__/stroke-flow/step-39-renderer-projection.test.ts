@@ -277,7 +277,10 @@ describe('stroke flow step 39: renderer-projection', () => {
     const helperStart = source.indexOf(
       'export const projectSolidCenterStrokeRenderEntries = ('
     )
-    const helperEnd = source.indexOf('interface SolidStrokeCacheSolidEntry', helperStart)
+    const helperEnd = source.indexOf(
+      'interface SolidStrokeCacheSolidEntry',
+      helperStart
+    )
     expect(helperStart).toBeGreaterThanOrEqual(0)
     expect(helperEnd).toBeGreaterThan(helperStart)
     const helperSource = source.slice(helperStart, helperEnd)
@@ -296,5 +299,4 @@ describe('stroke flow step 39: renderer-projection', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('renderer-projection')
   })
-
 })

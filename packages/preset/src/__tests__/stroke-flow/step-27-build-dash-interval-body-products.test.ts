@@ -164,10 +164,9 @@ const pointKey = (point: { x: number; y: number }) =>
   `${Math.round(point.x * 1000) / 1000}:${Math.round(point.y * 1000) / 1000}`
 
 const polygonEdges = (polygon: { x: number; y: number }[]) =>
-  polygon.map((point, index) => [
-    point,
-    polygon[(index + 1) % polygon.length]
-  ] as const)
+  polygon.map(
+    (point, index) => [point, polygon[(index + 1) % polygon.length]] as const
+  )
 
 const expectSeamBoundaryOnBodyProductBoundary = (
   product: ReturnType<typeof buildDashIntervalBodyProducts>[number]
@@ -180,9 +179,11 @@ const expectSeamBoundaryOnBodyProductBoundary = (
   const boundaryPointKeys = new Set(
     product.polygons.flat().map((point) => pointKey(point))
   )
-  expect(boundaryPointKeys.has(pointKey(product.seamBoundary.outerBodyBoundaryEndpoint))).toBe(
-    true
-  )
+  expect(
+    boundaryPointKeys.has(
+      pointKey(product.seamBoundary.outerBodyBoundaryEndpoint)
+    )
+  ).toBe(true)
 
   const seamSegment = product.seamBoundary.bodySideOutlineSegment
   const hasMatchingBoundaryEdge = product.polygons.some((polygon) =>
@@ -504,5 +505,4 @@ describe('stroke flow step 27: build-dash-interval-body-products', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('build-dash-interval-body-products')
   })
-
 })

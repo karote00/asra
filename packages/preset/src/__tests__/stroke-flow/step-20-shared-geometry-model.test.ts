@@ -441,5 +441,4 @@ describe('stroke flow step 20: shared-geometry-model', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('shared-geometry-model')
   })
-
 })

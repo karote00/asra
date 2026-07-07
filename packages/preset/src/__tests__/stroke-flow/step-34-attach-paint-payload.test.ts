@@ -224,7 +224,9 @@ describe('stroke flow step 34: attach-paint-payload', () => {
 
   it('keeps paint attachment free of geometry mutation and downstream packet construction', () => {
     const source = readFileSync(solidCenterSourcePath, 'utf8')
-    const helperStart = source.indexOf('export const attachStrokePaintPayload = (')
+    const helperStart = source.indexOf(
+      'export const attachStrokePaintPayload = ('
+    )
     expect(helperStart).toBeGreaterThanOrEqual(0)
     const helperSource = source.slice(helperStart)
 
@@ -245,5 +247,4 @@ describe('stroke flow step 34: attach-paint-payload', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('attach-paint-payload')
   })
-
 })

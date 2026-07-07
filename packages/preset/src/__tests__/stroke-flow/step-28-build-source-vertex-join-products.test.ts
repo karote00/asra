@@ -156,49 +156,6 @@ const sharpMiterProduct: SourceVertexJoinProductInput = {
 const distance = (a: { x: number; y: number }, b: { x: number; y: number }) =>
   Math.hypot(a.x - b.x, a.y - b.y)
 
-const dot = (
-  first: { x: number; y: number },
-  second: { x: number; y: number }
-) => first.x * second.x + first.y * second.y
-
-const subtract = (
-  first: { x: number; y: number },
-  second: { x: number; y: number }
-) => ({
-  x: first.x - second.x,
-  y: first.y - second.y
-})
-
-const normalize = (vector: { x: number; y: number }) => {
-  const length = Math.hypot(vector.x, vector.y)
-  return length > 0
-    ? {
-        x: vector.x / length,
-        y: vector.y / length
-      }
-    : null
-}
-
-const getIncidentSeamDeficit = (
-  product: ReturnType<typeof buildSourceVertexJoinProducts>[number],
-  seamBoundary: NonNullable<
-    SourceVertexJoinProductInput['incidentSeamBoundaries']
-  >[number]
-) => {
-  const tangent =
-    seamBoundary.side === 'previous'
-      ? normalize(subtract(sharpMiterProduct.previousPoint, sharpMiterProduct.vertex))
-      : normalize(subtract(sharpMiterProduct.nextPoint, sharpMiterProduct.vertex))
-  expect(tangent).not.toBeNull()
-  const seamExtent = distance(sharpMiterProduct.vertex, seamBoundary.point)
-  const points = product.polygons.flat()
-  const maxJoinReach = Math.max(
-    0,
-    ...points.map((point) => dot(subtract(point, sharpMiterProduct.vertex), tangent!))
-  )
-  return seamExtent - maxJoinReach
-}
-
 const productEdgeConnects = (
   product: ReturnType<typeof buildSourceVertexJoinProducts>[number],
   firstEndpoint: { x: number; y: number },
@@ -317,9 +274,7 @@ describe('stroke flow step 28: build-source-vertex-join-products', () => {
         'artifact:dash-body-seam-boundary'
       ])
     )
-    expect(route.cacheKeyInputs).toContain(
-      'dash body seam boundary signature'
-    )
+    expect(route.cacheKeyInputs).toContain('dash body seam boundary signature')
     expect(route.evidenceRequired).toEqual(
       expect.arrayContaining([
         'incident dash body seam boundary ids',
@@ -585,6 +540,8 @@ describe('stroke flow step 28: build-source-vertex-join-products', () => {
     const nextOuterEndpoint = { x: 12, y: 20 }
     const previousInwardEndpoint = { x: -2, y: 20 }
     const nextInwardEndpoint = { x: 2, y: 20 }
+    const seamBoundaries = sharpMiterProduct.incidentSeamBoundaries ?? []
+    expect(seamBoundaries).toHaveLength(2)
     const product = buildSourceVertexJoinProducts({
       joins: [
         {
@@ -593,7 +550,7 @@ describe('stroke flow step 28: build-source-vertex-join-products', () => {
           authoredJoin: 'bevel',
           incidentSeamBoundaries: [
             {
-              ...sharpMiterProduct.incidentSeamBoundaries![0],
+              ...seamBoundaries[0],
               outerBodyBoundaryEndpoint: previousOuterEndpoint,
               outerBodyBoundaryVertices: [
                 previousOuterEndpoint,
@@ -605,16 +562,13 @@ describe('stroke flow step 28: build-source-vertex-join-products', () => {
               ]
             },
             {
-              ...sharpMiterProduct.incidentSeamBoundaries![1],
+              ...seamBoundaries[1],
               outerBodyBoundaryEndpoint: nextOuterEndpoint,
               outerBodyBoundaryVertices: [
                 nextOuterEndpoint,
                 nextInwardEndpoint
               ],
-              bodySideOutlineSegment: [
-                nextOuterEndpoint,
-                nextInwardEndpoint
-              ]
+              bodySideOutlineSegment: [nextOuterEndpoint, nextInwardEndpoint]
             }
           ]
         }
@@ -704,9 +658,7 @@ describe('stroke flow step 28: build-source-vertex-join-products', () => {
     expect(directJoinRouteSource).not.toContain(
       'buildJoinOwnedDashTerminalPolygons(plan, stroke)'
     )
-    expect(directJoinRouteSource).not.toContain(
-      '...miterSideClosurePolygons'
-    )
+    expect(directJoinRouteSource).not.toContain('...miterSideClosurePolygons')
     expect(directJoinRouteSource).not.toContain(
       '...visibleProtectedContinuityZonePolygons'
     )
@@ -744,5 +696,4 @@ describe('stroke flow step 28: build-source-vertex-join-products', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('build-source-vertex-join-products')
   })
-
 })

@@ -158,7 +158,8 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
     },
     {
       id: 'product-family-selection-and-unsupported-terminal',
-      title: 'Product family decisions for center, constrained solid, constrained dashed, and unsupported terminal routes',
+      title:
+        'Product family decisions for center, constrained solid, constrained dashed, and unsupported terminal routes',
       stepRange: [24, 24],
       stepIds: ['select-stroke-product-family'],
       routeIds: [
@@ -184,7 +185,8 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
     },
     {
       id: 'center-product-and-source-vertex-route-chain',
-      title: 'Center product routes, authored descriptors, canonical output, and center source-vertex joins',
+      title:
+        'Center product routes, authored descriptors, canonical output, and center source-vertex joins',
       stepRange: [25, 35],
       stepIds: [
         'build-center-stroke-products',
@@ -215,7 +217,8 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
     },
     {
       id: 'constrained-solid-product-legality-chain',
-      title: 'Constrained solid doubled-center product, source-vertex join co-execution, smooth span bypass, and legality',
+      title:
+        'Constrained solid doubled-center product, source-vertex join co-execution, smooth span bypass, and legality',
       stepRange: [26, 32],
       stepIds: [
         'build-constrained-solid-products',
@@ -311,7 +314,8 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
     },
     {
       id: 'legality-resolved-paint-final-descriptor-chain',
-      title: 'Legality, resolved regions, paint payload, final faces, and post-legality descriptor materialization',
+      title:
+        'Legality, resolved regions, paint payload, final faces, and post-legality descriptor materialization',
       stepRange: [32, 36],
       stepIds: [
         'apply-legality',
@@ -349,7 +353,8 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
     },
     {
       id: 'render-entry-descriptor-and-canonical-output-chain',
-      title: 'Descriptor-visible routes, canonical final-face render entries, and packet output decision',
+      title:
+        'Descriptor-visible routes, canonical final-face render entries, and packet output decision',
       stepRange: [35, 38],
       stepIds: [
         'build-final-faces',
@@ -387,7 +392,8 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
     },
     {
       id: 'render-hit-export-diagnostics-output-channel-chain',
-      title: 'Render entry projection, hit/export sibling projection, and diagnostics aggregation',
+      title:
+        'Render entry projection, hit/export sibling projection, and diagnostics aggregation',
       stepRange: [37, 41],
       stepIds: [
         'emit-render-hit-export-packets',

@@ -253,12 +253,14 @@ describe('stroke flow step 02: path-editing-intent', () => {
         position: 'outside',
         width: 12,
         dash: 8,
-          gap: 4,
+        gap: 4,
         capType: 'round',
         joinType: 'miter',
         miterAngle: 30
       }
-    } as unknown as Parameters<typeof createPathEditingVectorOperationRequest>[0]
+    } as unknown as Parameters<
+      typeof createPathEditingVectorOperationRequest
+    >[0]
 
     expect(createPathEditingVectorOperationRequest(strokeLikeInput)).toEqual(
       createPathEditingVectorOperationRequest(baseInput)
@@ -295,5 +297,4 @@ describe('stroke flow step 02: path-editing-intent', () => {
   it('matches the stroke parameter coverage matrix for this step', () => {
     assertStrokeParameterCoverageForStep('path-editing-intent')
   })
-
 })
