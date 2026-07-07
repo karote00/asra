@@ -4,6 +4,7 @@ import { strokeVisualE2ECoverageMap } from './stroke-visual-e2e-coverage-map'
 import {
   assertComputedJoin,
   assertNewFlowBaseUrl,
+  assertOutsideDashedJoinPixelOracle,
   assertRuntimeEvidenceMatchesCoverageCase,
   buildReferenceAcuteJoinComputedData,
   captureRuntimeMetadataArtifact,
@@ -44,11 +45,11 @@ test.describe('new stroke flow: ordinary sharp join switching', () => {
   }, testInfo) => {
     test.setTimeout(90_000)
 
-    const elementId = await createComputedVectorFixture(
-      page,
-      buildReferenceAcuteJoinComputedData('miter', { dash: 45,
-          gap: 20 })
-    )
+    const computedData = buildReferenceAcuteJoinComputedData('miter', {
+      dash: 45,
+      gap: 20
+    })
+    const elementId = await createComputedVectorFixture(page, computedData)
     const renderEntryHashes: string[] = []
     const visualMaskSignatures = new Map<StrokeJoin, string>()
 
@@ -86,6 +87,13 @@ test.describe('new stroke flow: ordinary sharp join switching', () => {
         artifacts.focusedCropMetrics.redPixelCount,
         `${joinType} crop must contain visible red stroke pixels`
       ).toBeGreaterThan(0)
+      await setZoomPercent(page, 900)
+      await centerWorkspacePointInViewport(page, referenceAcuteJoinFocusPoint)
+      await assertOutsideDashedJoinPixelOracle({
+        page,
+        computedData,
+        label: `${joinType} reference acute outside dashed`
+      })
       visualMaskSignatures.set(
         joinType,
         artifacts.focusedCropMetrics.redMaskSignature

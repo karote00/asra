@@ -122,7 +122,9 @@ export const strokeE2EResidueCoverageMap: readonly StrokeE2EResidueRecord[] = [
   appBehaviorEvidence('apps/asyra-design/e2e/properties.spec.ts'),
   appBehaviorEvidence('apps/asyra-design/e2e/selection.spec.ts'),
   appBehaviorEvidence('apps/asyra-design/e2e/undo-redo.spec.ts'),
-  performanceEvidence('apps/asyra-design/e2e/stroke-drag-render-performance-burst.spec.ts'),
+  performanceEvidence(
+    'apps/asyra-design/e2e/stroke-drag-render-performance-burst.spec.ts'
+  ),
   performanceEvidence(
     'apps/asyra-design/e2e/stroke-drag-render-performance-center-dashed.spec.ts'
   ),
@@ -147,8 +149,12 @@ export const strokeE2EResidueCoverageMap: readonly StrokeE2EResidueRecord[] = [
   performanceEvidence(
     'apps/asyra-design/e2e/stroke-drag-render-performance-outside-dashed.spec.ts'
   ),
-  performanceEvidence('apps/asyra-design/e2e/stroke-drag-render-performance-solid.spec.ts'),
-  performanceEvidence('apps/asyra-design/e2e/stroke-parameter-switch-performance.spec.ts'),
+  performanceEvidence(
+    'apps/asyra-design/e2e/stroke-drag-render-performance-solid.spec.ts'
+  ),
+  performanceEvidence(
+    'apps/asyra-design/e2e/stroke-parameter-switch-performance.spec.ts'
+  ),
   {
     filePath: 'apps/asyra-design/e2e/vector-render-invariants.spec.ts',
     classification: 'legacy-broad-visual-evidence',

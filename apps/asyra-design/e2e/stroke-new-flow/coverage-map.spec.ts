@@ -108,9 +108,14 @@ const readFormalOracleMatrixCaseIds = () =>
 const getOutsideNewFlowStrokeLikeE2EResidueFiles = () =>
   walkFiles(resolve(repoRoot, 'apps/asyra-design/e2e'))
     .map(toRepoPath)
-    .filter((file) => !file.startsWith('apps/asyra-design/e2e/stroke-new-flow/'))
+    .filter(
+      (file) => !file.startsWith('apps/asyra-design/e2e/stroke-new-flow/')
+    )
     .filter((file) => {
-      if (file === 'apps/asyra-design/e2e/stroke-drag-render-performance.helpers.ts') {
+      if (
+        file ===
+        'apps/asyra-design/e2e/stroke-drag-render-performance.helpers.ts'
+      ) {
         return true
       }
       if (file.startsWith('apps/asyra-design/e2e/definitions/')) {
@@ -232,9 +237,10 @@ test.describe('new stroke visual/E2E coverage map', () => {
     expect(residueFiles).toEqual(getOutsideNewFlowStrokeLikeE2EResidueFiles())
 
     for (const entry of strokeE2EResidueCoverageMap) {
-      expect(existsSync(resolve(repoRoot, entry.filePath)), entry.filePath).toBe(
-        true
-      )
+      expect(
+        existsSync(resolve(repoRoot, entry.filePath)),
+        entry.filePath
+      ).toBe(true)
       expect(entry.filePath, entry.filePath).not.toContain(
         'apps/asyra-design/e2e/stroke-new-flow/'
       )
@@ -269,7 +275,9 @@ test.describe('new stroke visual/E2E coverage map', () => {
       .map((entry) => entry.filePath)
       .sort()
 
-    expect(definitionFiles).toContain('apps/asyra-design/e2e/definitions/README.md')
+    expect(definitionFiles).toContain(
+      'apps/asyra-design/e2e/definitions/README.md'
+    )
 
     for (const file of definitionFiles) {
       const source = readFileSync(resolve(repoRoot, file), 'utf8')

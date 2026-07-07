@@ -97,6 +97,8 @@ export interface RuntimeRenderEntrySummary {
   } | null
   polygonArea: number
   polygonSignature: string | null
+  internalSharedBoundaryCount: number
+  internalSharedBoundaryMaxLength: number
   strokeMaskPolygonCount: number
   fillPolygonCount: number
   strokePathGroupCount: number
@@ -205,7 +207,7 @@ const outsideDashedStroke = (
   style: 'dashed',
   position: 'outside',
   width: 10,
-  dash: 27,
+  dash: 20,
   gap: 20,
   fill: solidFill(id, '#cccccc', true, 0.5),
   joinType,
@@ -372,6 +374,44 @@ export const reportedVector34FocusPoint: WorkspacePoint = {
   x: 1736.9285752346282,
   y: 1637.0696495055142
 }
+
+export const reportedVector34AnchorFocusPoints = [
+  {
+    id: 'tp-113',
+    point: {
+      x: 1736.9285752346282,
+      y: 1637.0696495055142
+    }
+  },
+  {
+    id: 'tp-114',
+    point: {
+      x: 1524.996880430307,
+      y: 2084.8608111081926
+    }
+  },
+  {
+    id: 'tp-115',
+    point: {
+      x: 1878.7860806278431,
+      y: 1801.1458003217629
+    }
+  },
+  {
+    id: 'tp-116',
+    point: {
+      x: 1472.0139567292267,
+      y: 1708.852965487623
+    }
+  },
+  {
+    id: 'tp-117',
+    point: {
+      x: 1808.711891216737,
+      y: 2055.8056594011487
+    }
+  }
+] as const
 
 export const ordinarySharpFocusPoint: WorkspacePoint = {
   x: 430,
@@ -1118,6 +1158,36 @@ export const changeComputedVectorFixture = async (
   await page.waitForTimeout(450)
 }
 
+export const setVectorEditOverlayVisible = async (
+  page: Page,
+  elementId: string,
+  visible: boolean
+) => {
+  await page.evaluate(
+    ({ targetElementId, shouldShowOverlay }) => {
+      const globalRecord = window as unknown as {
+        __Core__?: {
+          selectElements?: (ids: string[], options?: unknown) => void
+          setSystemProperty?: (key: string, value: unknown) => void
+          deps?: { render?: { requestRender?: () => void } }
+        }
+      }
+      const core = globalRecord.__Core__
+      core?.selectElements?.(shouldShowOverlay ? [targetElementId] : [], {
+        undoable: false
+      })
+      core?.setSystemProperty?.(
+        'pathEditingVectorId',
+        shouldShowOverlay ? targetElementId : null
+      )
+      core?.setSystemProperty?.('pathEditingMode', shouldShowOverlay)
+      core?.deps?.render?.requestRender?.()
+    },
+    { targetElementId: elementId, shouldShowOverlay: visible }
+  )
+  await page.waitForTimeout(250)
+}
+
 export const changeSelectedStrokeJoinViaUi = async (
   page: Page,
   joinType: StrokeJoin
@@ -1315,6 +1385,117 @@ const getRuntimePolygonArea = (polygon: readonly { x: number; y: number }[]) =>
     }, 0) / 2
   )
 
+const RUNTIME_RENDER_ENTRY_SHARED_BOUNDARY_TOLERANCE = 0.05
+
+const subtractRuntimePoint = (
+  first: { x: number; y: number },
+  second: { x: number; y: number }
+) => ({
+  x: first.x - second.x,
+  y: first.y - second.y
+})
+
+const getRuntimeCollinearSegmentOverlapLength = (
+  leftStart: { x: number; y: number },
+  leftEnd: { x: number; y: number },
+  rightStart: { x: number; y: number },
+  rightEnd: { x: number; y: number }
+) => {
+  const axis = subtractRuntimePoint(leftEnd, leftStart)
+  const axisLength = Math.hypot(axis.x, axis.y)
+  const rightAxis = subtractRuntimePoint(rightEnd, rightStart)
+  const rightAxisLength = Math.hypot(rightAxis.x, rightAxis.y)
+  if (axisLength <= Number.EPSILON || rightAxisLength <= Number.EPSILON) {
+    return 0
+  }
+
+  const parallelDistance =
+    Math.abs(axis.x * rightAxis.y - axis.y * rightAxis.x) /
+    Math.max(axisLength, rightAxisLength)
+  if (parallelDistance > RUNTIME_RENDER_ENTRY_SHARED_BOUNDARY_TOLERANCE) {
+    return 0
+  }
+
+  const rightStartLineDistance =
+    Math.abs(
+      axis.x * (rightStart.y - leftStart.y) -
+        axis.y * (rightStart.x - leftStart.x)
+    ) / axisLength
+  const rightEndLineDistance =
+    Math.abs(
+      axis.x * (rightEnd.y - leftStart.y) - axis.y * (rightEnd.x - leftStart.x)
+    ) / axisLength
+  if (
+    rightStartLineDistance > RUNTIME_RENDER_ENTRY_SHARED_BOUNDARY_TOLERANCE ||
+    rightEndLineDistance > RUNTIME_RENDER_ENTRY_SHARED_BOUNDARY_TOLERANCE
+  ) {
+    return 0
+  }
+
+  const normalizedAxis = {
+    x: axis.x / axisLength,
+    y: axis.y / axisLength
+  }
+  const rightRange = [rightStart, rightEnd]
+    .map(
+      (point) =>
+        (point.x - leftStart.x) * normalizedAxis.x +
+        (point.y - leftStart.y) * normalizedAxis.y
+    )
+    .sort((left, right) => left - right)
+  return Math.max(
+    0,
+    Math.min(axisLength, rightRange[1]) - Math.max(0, rightRange[0])
+  )
+}
+
+const getRuntimePolygonSharedBoundaryLength = (
+  leftPolygon: readonly { x: number; y: number }[],
+  rightPolygon: readonly { x: number; y: number }[]
+) => {
+  let sharedLength = 0
+  leftPolygon.forEach((leftPoint, leftIndex) => {
+    const leftNext = leftPolygon[(leftIndex + 1) % leftPolygon.length]
+    rightPolygon.forEach((rightPoint, rightIndex) => {
+      const rightNext = rightPolygon[(rightIndex + 1) % rightPolygon.length]
+      sharedLength += getRuntimeCollinearSegmentOverlapLength(
+        leftPoint,
+        leftNext,
+        rightPoint,
+        rightNext
+      )
+    })
+  })
+  return sharedLength
+}
+
+const collectRuntimeInternalSharedBoundaryMetrics = (
+  polygons: readonly (readonly { x: number; y: number }[])[]
+) => {
+  let count = 0
+  let maxLength = 0
+  for (let leftIndex = 0; leftIndex < polygons.length; leftIndex += 1) {
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < polygons.length;
+      rightIndex += 1
+    ) {
+      const sharedLength = getRuntimePolygonSharedBoundaryLength(
+        polygons[leftIndex],
+        polygons[rightIndex]
+      )
+      if (sharedLength > RUNTIME_RENDER_ENTRY_SHARED_BOUNDARY_TOLERANCE) {
+        count += 1
+        maxLength = Math.max(maxLength, sharedLength)
+      }
+    }
+  }
+  return {
+    count,
+    maxLength: Math.round(maxLength * 1000) / 1000
+  }
+}
+
 const collectRuntimePolygonMetrics = (
   polygons: readonly (readonly { x: number; y: number }[])[]
 ) => {
@@ -1394,6 +1575,8 @@ const collectRenderEntrySummary = (
       .filter((value): value is string => typeof value === 'string') ?? []
   const declaredPolygons = collectRuntimePolygons(entry.polygons)
   const declaredPolygonMetrics = collectRuntimePolygonMetrics(declaredPolygons)
+  const internalSharedBoundaryMetrics =
+    collectRuntimeInternalSharedBoundaryMetrics(declaredPolygons)
 
   return {
     index,
@@ -1418,6 +1601,8 @@ const collectRenderEntrySummary = (
     polygonBounds: declaredPolygonMetrics.bounds,
     polygonArea: declaredPolygonMetrics.area,
     polygonSignature: declaredPolygonMetrics.signature,
+    internalSharedBoundaryCount: internalSharedBoundaryMetrics.count,
+    internalSharedBoundaryMaxLength: internalSharedBoundaryMetrics.maxLength,
     strokeMaskPolygonCount: Array.isArray(entry.strokeMaskPolygons)
       ? entry.strokeMaskPolygons.length
       : 0,
@@ -1661,6 +1846,28 @@ export const assertRuntimeEvidenceBasics = (
   if (assertions.includes('dash-join-seam-evidence')) {
     expect(evidenceText).toContain('seam')
   }
+  if (assertions.includes('render-entry-internal-boundary-fusion')) {
+    const failures = evidence.renderEntries
+      .filter((entry) => entry.internalSharedBoundaryCount > 0)
+      .map((entry) => ({
+        index: entry.index,
+        cacheKey: entry.cacheKey,
+        visibleContributor: entry.visibleContributor,
+        routeId: entry.routeId,
+        productSignature: entry.productSignature,
+        polygonCount: entry.polygonCount,
+        internalSharedBoundaryCount: entry.internalSharedBoundaryCount,
+        internalSharedBoundaryMaxLength: entry.internalSharedBoundaryMaxLength
+      }))
+    expect(
+      failures,
+      `render entries must not carry internally shared-boundary polygons into renderer projection: ${JSON.stringify(
+        failures,
+        null,
+        2
+      )}`
+    ).toEqual([])
+  }
   if (assertions.includes('smooth-continuity-ownership')) {
     expect(evidenceText).toContain('smooth')
     expect(evidenceText).toContain('continuity')
@@ -1834,6 +2041,32 @@ interface IndependentSegmentDashPixelProbeResult {
   sampledPixelCount: number
 }
 
+interface OutsideDashedJoinPixelProbe {
+  kind: 'dash-body' | 'seam' | 'gap' | 'wrong-side'
+  segmentId: string
+  sourceSegmentIndex: number
+  role: 'start' | 'end'
+  sampleIndex: number
+  workspacePoint: WorkspacePoint
+  radiusWorkspace: number
+  expectedRed: boolean
+}
+
+interface OutsideDashedJoinPixelProbeResult {
+  kind: OutsideDashedJoinPixelProbe['kind']
+  segmentId: string
+  sourceSegmentIndex: number
+  role: OutsideDashedJoinPixelProbe['role']
+  sampleIndex: number
+  workspacePoint: WorkspacePoint
+  screenPoint: WorkspacePoint
+  radiusPixels: number
+  redPixelCount: number
+  sampledPixelCount: number
+  redRatio: number
+  expectedRed: boolean
+}
+
 const interpolatePoint = (
   start: WorkspacePoint,
   end: WorkspacePoint,
@@ -1842,6 +2075,78 @@ const interpolatePoint = (
   x: start.x + (end.x - start.x) * ratio,
   y: start.y + (end.y - start.y) * ratio
 })
+
+const addPoint = (
+  first: WorkspacePoint,
+  second: WorkspacePoint
+): WorkspacePoint => ({
+  x: first.x + second.x,
+  y: first.y + second.y
+})
+
+const scalePoint = (point: WorkspacePoint, scalar: number): WorkspacePoint => ({
+  x: point.x * scalar,
+  y: point.y * scalar
+})
+
+const normalizePoint = (point: WorkspacePoint): WorkspacePoint | null => {
+  const length = Math.hypot(point.x, point.y)
+  return length > 0 ? { x: point.x / length, y: point.y / length } : null
+}
+
+const isPointInsidePolygon = (
+  point: WorkspacePoint,
+  polygon: readonly WorkspacePoint[]
+) => {
+  let inside = false
+  for (
+    let index = 0, previousIndex = polygon.length - 1;
+    index < polygon.length;
+    previousIndex = index, index += 1
+  ) {
+    const current = polygon[index]
+    const previous = polygon[previousIndex]
+    if (!current || !previous) {
+      continue
+    }
+    const intersects =
+      current.y > point.y !== previous.y > point.y &&
+      point.x <
+        ((previous.x - current.x) * (point.y - current.y)) /
+          (previous.y - current.y) +
+          current.x
+    if (intersects) {
+      inside = !inside
+    }
+  }
+  return inside
+}
+
+const getOutsideNormal = (
+  start: WorkspacePoint,
+  end: WorkspacePoint,
+  fillPolygon: readonly WorkspacePoint[]
+): WorkspacePoint | null => {
+  const direction = normalizePoint({ x: end.x - start.x, y: end.y - start.y })
+  if (!direction) {
+    return null
+  }
+  const left = { x: -direction.y, y: direction.x }
+  const right = { x: direction.y, y: -direction.x }
+  const midpoint = interpolatePoint(start, end, 0.5)
+  const leftInside = isPointInsidePolygon(
+    addPoint(midpoint, scalePoint(left, 2)),
+    fillPolygon
+  )
+  const rightInside = isPointInsidePolygon(
+    addPoint(midpoint, scalePoint(right, 2)),
+    fillPolygon
+  )
+  if (leftInside !== rightInside) {
+    return leftInside ? right : left
+  }
+  return right
+}
 
 const buildIndependentSegmentDashPixelProbes = (
   computedData: StrokeVectorComputedData
@@ -1919,6 +2224,283 @@ const buildIndependentSegmentDashPixelProbes = (
       }
     ]
   })
+}
+
+const getPrimaryNetwork = (computedData: StrokeVectorComputedData) =>
+  Object.values(computedData.networks)[0]
+
+const getPrimaryFillPolygon = (
+  computedData: StrokeVectorComputedData
+): WorkspacePoint[] => {
+  const network = getPrimaryNetwork(computedData)
+  return (
+    network?.pointIds
+      .map((pointId) => computedData.points[pointId])
+      .filter((point): point is VectorPoint => point !== undefined) ?? []
+  )
+}
+
+const getPolygonCentroid = (
+  polygon: readonly WorkspacePoint[]
+): WorkspacePoint | null => {
+  if (polygon.length === 0) {
+    return null
+  }
+  const summed = polygon.reduce(
+    (accumulator, point) => ({
+      x: accumulator.x + point.x,
+      y: accumulator.y + point.y
+    }),
+    { x: 0, y: 0 }
+  )
+  return {
+    x: summed.x / polygon.length,
+    y: summed.y / polygon.length
+  }
+}
+
+const buildOutsideDashedJoinPixelProbes = (
+  computedData: StrokeVectorComputedData
+): OutsideDashedJoinPixelProbe[] => {
+  const stroke = computedData.strokes[0]
+  const network = getPrimaryNetwork(computedData)
+  const fillPolygon = getPrimaryFillPolygon(computedData)
+  const fillCentroid = getPolygonCentroid(fillPolygon)
+  if (!stroke || !network || fillPolygon.length < 3 || !fillCentroid) {
+    throw new Error('Missing stroke, network, or fill polygon for join probes')
+  }
+  if (stroke.position !== 'outside' || stroke.style !== 'dashed') {
+    throw new Error(
+      'Outside dashed join pixel oracle requires outside dashed stroke'
+    )
+  }
+
+  const dashDistances = [
+    Math.max(1.5, stroke.width * 0.25),
+    stroke.width * 0.65,
+    Math.min(stroke.dash * 0.45, stroke.width * 1.1)
+  ]
+  const gapDistance = stroke.dash * 0.5 + stroke.gap * 0.5
+  const outsideOffsets = [stroke.width * 0.35, stroke.width * 0.7]
+  const wrongSideOffset = stroke.width * 0.45
+  const radiusWorkspace = Math.max(1, stroke.width * 0.12)
+
+  return network.segmentIds.flatMap((segmentId, sourceSegmentIndex) => {
+    const segment = computedData.segments[segmentId]
+    if (!segment) {
+      return []
+    }
+    if (segment.outControlId !== null || segment.inControlId !== null) {
+      return []
+    }
+    const start = computedData.points[segment.startId]
+    const end = computedData.points[segment.endId]
+    if (!start || !end) {
+      return []
+    }
+    const direction = normalizePoint({ x: end.x - start.x, y: end.y - start.y })
+    const outsideNormal = getOutsideNormal(start, end, fillPolygon)
+    if (!direction || !outsideNormal) {
+      return []
+    }
+    const segmentLength = Math.hypot(end.x - start.x, end.y - start.y)
+    if (segmentLength <= gapDistance + stroke.width) {
+      return []
+    }
+
+    const buildEndpointProbes = (
+      role: 'start' | 'end',
+      endpoint: WorkspacePoint,
+      sign: 1 | -1
+    ) => {
+      const probes: OutsideDashedJoinPixelProbe[] = []
+      const fillDirection = normalizePoint({
+        x: fillCentroid.x - endpoint.x,
+        y: fillCentroid.y - endpoint.y
+      })
+      dashDistances.forEach((distanceFromEndpoint, dashSampleIndex) => {
+        const sourcePoint = addPoint(
+          endpoint,
+          scalePoint(direction, sign * distanceFromEndpoint)
+        )
+        outsideOffsets.forEach((offset, offsetIndex) => {
+          probes.push({
+            kind: dashSampleIndex === 0 ? 'seam' : 'dash-body',
+            segmentId,
+            sourceSegmentIndex,
+            role,
+            sampleIndex: dashSampleIndex * outsideOffsets.length + offsetIndex,
+            workspacePoint: addPoint(
+              sourcePoint,
+              scalePoint(outsideNormal, offset)
+            ),
+            radiusWorkspace,
+            expectedRed: true
+          })
+        })
+        if (fillDirection) {
+          probes.push({
+            kind: 'wrong-side',
+            segmentId,
+            sourceSegmentIndex,
+            role,
+            sampleIndex: dashSampleIndex,
+            workspacePoint: addPoint(
+              endpoint,
+              scalePoint(
+                fillDirection,
+                wrongSideOffset + dashSampleIndex * stroke.width * 0.8
+              )
+            ),
+            radiusWorkspace,
+            expectedRed: false
+          })
+        }
+      })
+
+      const gapSourcePoint = addPoint(
+        endpoint,
+        scalePoint(direction, sign * gapDistance)
+      )
+      probes.push({
+        kind: 'gap',
+        segmentId,
+        sourceSegmentIndex,
+        role,
+        sampleIndex: 0,
+        workspacePoint: addPoint(
+          gapSourcePoint,
+          scalePoint(outsideNormal, stroke.width * 0.55)
+        ),
+        radiusWorkspace,
+        expectedRed: false
+      })
+      return probes
+    }
+
+    return [
+      ...buildEndpointProbes('start', start, 1),
+      ...buildEndpointProbes('end', end, -1)
+    ]
+  })
+}
+
+const inspectOutsideDashedJoinPixels = async ({
+  page,
+  screenshotBuffer,
+  probes
+}: {
+  page: Page
+  screenshotBuffer: Buffer
+  probes: OutsideDashedJoinPixelProbe[]
+}): Promise<OutsideDashedJoinPixelProbeResult[]> => {
+  const viewportState = await getViewportState(page)
+
+  return page.evaluate(
+    async ({ dataUrl, viewportState, probes }) => {
+      const image = new Image()
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve()
+        image.onerror = () =>
+          reject(new Error('Failed to decode outside dashed join oracle image'))
+        image.src = dataUrl
+      })
+
+      const canvas = document.createElement('canvas')
+      canvas.width = image.naturalWidth
+      canvas.height = image.naturalHeight
+      const context = canvas.getContext('2d')
+      if (!context) {
+        throw new Error('Missing canvas context for outside dashed join oracle')
+      }
+      context.drawImage(image, 0, 0)
+      const pixels = context.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      ).data
+      const isStrokeRed = (
+        red: number,
+        green: number,
+        blue: number,
+        alpha: number
+      ) =>
+        alpha > 96 &&
+        red > 70 &&
+        blue < 120 &&
+        green < 230 &&
+        (red > green * 1.15 ||
+          (green > 40 && green < 200 && Math.abs(red - green) < 105))
+
+      return probes.map((probe) => {
+        const screenPoint = {
+          x:
+            probe.workspacePoint.x * viewportState.zoom +
+            viewportState.viewport.x,
+          y:
+            probe.workspacePoint.y * viewportState.zoom +
+            viewportState.viewport.y
+        }
+        const radiusPixels = Math.max(
+          1,
+          Math.ceil(probe.radiusWorkspace * viewportState.zoom)
+        )
+        let redPixelCount = 0
+        let sampledPixelCount = 0
+        const minX = Math.max(0, Math.floor(screenPoint.x - radiusPixels))
+        const maxX = Math.min(
+          canvas.width - 1,
+          Math.ceil(screenPoint.x + radiusPixels)
+        )
+        const minY = Math.max(0, Math.floor(screenPoint.y - radiusPixels))
+        const maxY = Math.min(
+          canvas.height - 1,
+          Math.ceil(screenPoint.y + radiusPixels)
+        )
+
+        for (let y = minY; y <= maxY; y += 1) {
+          for (let x = minX; x <= maxX; x += 1) {
+            if (
+              Math.hypot(x - screenPoint.x, y - screenPoint.y) > radiusPixels
+            ) {
+              continue
+            }
+            const offset = (y * canvas.width + x) * 4
+            const red = pixels[offset]
+            const green = pixels[offset + 1]
+            const blue = pixels[offset + 2]
+            const alpha = pixels[offset + 3]
+            sampledPixelCount += 1
+            if (isStrokeRed(red, green, blue, alpha)) {
+              redPixelCount += 1
+            }
+          }
+        }
+
+        return {
+          kind: probe.kind,
+          segmentId: probe.segmentId,
+          sourceSegmentIndex: probe.sourceSegmentIndex,
+          role: probe.role,
+          sampleIndex: probe.sampleIndex,
+          workspacePoint: probe.workspacePoint,
+          screenPoint,
+          radiusPixels,
+          redPixelCount,
+          sampledPixelCount,
+          redRatio:
+            sampledPixelCount > 0 ? redPixelCount / sampledPixelCount : 0,
+          expectedRed: probe.expectedRed
+        }
+      })
+    },
+    {
+      dataUrl: `data:image/png;base64,${screenshotBuffer.toString('base64')}`,
+      viewportState,
+      probes
+    }
+  )
 }
 
 const inspectIndependentSegmentDashPixels = async ({
@@ -2081,6 +2663,70 @@ export const assertIndependentSegmentDashPixelOracle = async ({
   return results
 }
 
+export const assertOutsideDashedJoinPixelOracle = async ({
+  page,
+  computedData,
+  label
+}: {
+  page: Page
+  computedData: StrokeVectorComputedData
+  label: string
+}) => {
+  const probes = buildOutsideDashedJoinPixelProbes(computedData)
+  expect(
+    probes.length,
+    `${label} outside dashed join pixel oracle must generate terminal, seam, gap, and wrong-side probes`
+  ).toBeGreaterThan(0)
+
+  const screenshotBuffer = await page.screenshot({ fullPage: false })
+  const results = await inspectOutsideDashedJoinPixels({
+    page,
+    screenshotBuffer,
+    probes
+  })
+  const visibleResults = results.filter(
+    (result) => result.sampledPixelCount > 0
+  )
+  const missingCoverageKinds = (
+    ['seam', 'dash-body', 'gap', 'wrong-side'] as const
+  ).filter((kind) => !visibleResults.some((result) => result.kind === kind))
+  const missingDashFailures = visibleResults.filter(
+    (result) =>
+      result.expectedRed &&
+      (result.redPixelCount === 0 || result.redRatio < 0.08)
+  )
+  const forbiddenRedFailures = visibleResults.filter(
+    (result) => !result.expectedRed && result.redRatio > 0.08
+  )
+
+  expect(
+    missingCoverageKinds,
+    `${label} outside dashed pixel oracle must keep seam, dash-body, gap, and fill-domain wrong-side probes inside the captured viewport: ${JSON.stringify(
+      results,
+      null,
+      2
+    )}`
+  ).toEqual([])
+  expect(
+    missingDashFailures,
+    `${label} outside dashed terminal seam and dash-body probes must stay painted without comb-like cracks or seam gaps: ${JSON.stringify(
+      visibleResults,
+      null,
+      2
+    )}`
+  ).toEqual([])
+  expect(
+    forbiddenRedFailures,
+    `${label} outside dashed gap and fill-domain wrong-side probes must stay free of red stroke pixels: ${JSON.stringify(
+      visibleResults,
+      null,
+      2
+    )}`
+  ).toEqual([])
+
+  return results
+}
+
 interface RuntimeCoverageAssertionOptions {
   runtimeMetadataAssertions?: readonly StrokeVisualRuntimeAssertion[]
   requiredRuntimeEvidenceFields?: readonly StrokeVisualRuntimeEvidenceField[]
@@ -2191,6 +2837,29 @@ const assertRuntimeEvidenceField = (
         'join ownership records'
       ).toBe(true)
       return
+    case 'internalSharedBoundaryRenderPolygons': {
+      const failures = evidence.renderEntries
+        .filter((entry) => entry.internalSharedBoundaryCount > 0)
+        .map((entry) => ({
+          index: entry.index,
+          cacheKey: entry.cacheKey,
+          visibleContributor: entry.visibleContributor,
+          routeId: entry.routeId,
+          productSignature: entry.productSignature,
+          polygonCount: entry.polygonCount,
+          internalSharedBoundaryCount: entry.internalSharedBoundaryCount,
+          internalSharedBoundaryMaxLength: entry.internalSharedBoundaryMaxLength
+        }))
+      expect(
+        failures,
+        `render entries must have no internal shared-boundary polygon pairs: ${JSON.stringify(
+          failures,
+          null,
+          2
+        )}`
+      ).toEqual([])
+      return
+    }
     case 'descriptorProductPolygonsVisible':
       expect(
         evidence.renderEntries.every(

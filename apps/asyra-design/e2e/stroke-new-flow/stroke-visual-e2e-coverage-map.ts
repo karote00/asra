@@ -14,6 +14,7 @@ export type StrokeVisualRuntimeAssertion =
   | 'source-vertex-join-metadata'
   | 'join-resolution-metadata'
   | 'dash-join-seam-evidence'
+  | 'render-entry-internal-boundary-fusion'
   | 'smooth-continuity-ownership'
   | 'descriptor-channel-separation'
   | 'hidden-output-non-geometry'
@@ -36,6 +37,7 @@ export type StrokeVisualRuntimeEvidenceField =
   | 'angleSource'
   | 'angleComparison'
   | 'joinOwnershipRecords'
+  | 'internalSharedBoundaryRenderPolygons'
   | 'descriptorProductPolygonsVisible'
   | 'pipelineTrace'
   | 'pipelineCounters'
@@ -170,7 +172,8 @@ export const strokeVisualE2ECoverageMap: readonly StrokeVisualE2ECoverageCase[] 
         'route-product-signature-metadata',
         'source-vertex-join-metadata',
         'join-resolution-metadata',
-        'dash-join-seam-evidence'
+        'dash-join-seam-evidence',
+        'render-entry-internal-boundary-fusion'
       ],
       requiredRuntimeEvidenceFields: [
         'computedStrokeState',
@@ -187,7 +190,8 @@ export const strokeVisualE2ECoverageMap: readonly StrokeVisualE2ECoverageCase[] 
         'miterAngle',
         'angleSource',
         'angleComparison',
-        'joinOwnershipRecords'
+        'joinOwnershipRecords',
+        'internalSharedBoundaryRenderPolygons'
       ],
       screenshotAssertions: [
         'Capture one full viewport screenshot per join.',
@@ -284,13 +288,18 @@ export const strokeVisualE2ECoverageMap: readonly StrokeVisualE2ECoverageCase[] 
       ],
       screenshotAssertions: [
         'Capture comparable red 50% outside dashed focused crops for miter, bevel, and round against a visible green fill reference.',
+        'Pixel-probe terminal seam and dash-body regions for miter, bevel, and round so comb-like cracks, missing terminal dashes, and seam gaps fail.',
+        'Pixel-probe expected gap and fill-domain wrong-side regions so gap leaks and inside-fill outside-stroke leaks fail.',
+        'Reject runtime render entries that carry internally shared-boundary polygons into renderer projection.',
         'Record a runtime metadata hash per join so visual crops cannot be the only evidence.'
       ],
       forbiddenContributors: [
         'endpoint cap seam repair',
         'terminal bridge seam repair',
         'duplicate interval paint',
-        'renderer stroke join ownership'
+        'renderer stroke join ownership',
+        'comb-like dash body fragments',
+        'fill-domain wrong-side stroke pixels'
       ],
       artifactRequirements: requiredStrokeVisualArtifacts,
       dimensions: [

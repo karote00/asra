@@ -50,8 +50,7 @@ process.env.PLAYWRIGHT_TEST_BASE_URL ??= appVisualReviewBaseUrl
 const visualReviewUrl = new URL(appVisualReviewBaseUrl)
 const visualReviewHost = visualReviewUrl.hostname
 const visualReviewPort =
-  visualReviewUrl.port ||
-  (visualReviewUrl.protocol === 'https:' ? '443' : '80')
+  visualReviewUrl.port || (visualReviewUrl.protocol === 'https:' ? '443' : '80')
 const visualReviewWebServerCommand = `yarn react:start --host ${visualReviewHost} --port ${visualReviewPort}`
 
 /**

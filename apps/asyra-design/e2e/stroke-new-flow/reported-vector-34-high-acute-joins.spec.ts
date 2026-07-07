@@ -4,6 +4,7 @@ import {
   assertComputedJoin,
   assertNewFlowBaseUrl,
   assertRuntimeEvidenceMatchesCoverageCase,
+  reportedVector34AnchorFocusPoints,
   buildReportedVector34ComputedData,
   captureRuntimeMetadataArtifact,
   captureRuntimeEvidence,
@@ -11,8 +12,8 @@ import {
   centerWorkspacePointInViewport,
   changeSelectedStrokeJoinViaUi,
   createComputedVectorFixture,
-  reportedVector34FocusPoint,
   resetNewFlowCanvas,
+  setVectorEditOverlayVisible,
   setZoomPercent,
   strokeJoinTypes
 } from './test-harness'
@@ -44,8 +45,6 @@ test.describe('new stroke flow: reported vector-34 high-acute joins', () => {
 
     for (const joinType of strokeJoinTypes) {
       await changeSelectedStrokeJoinViaUi(page, joinType)
-      await setZoomPercent(page, 2300)
-      await centerWorkspacePointInViewport(page, reportedVector34FocusPoint)
 
       const evidence = await captureRuntimeEvidence(
         page,
@@ -61,14 +60,30 @@ test.describe('new stroke flow: reported vector-34 high-acute joins', () => {
       assertComputedJoin(evidence, joinType)
       assertRuntimeEvidenceMatchesCoverageCase(evidence, coverageCase)
 
-      await captureVisualArtifacts({
-        page,
-        testInfo,
-        coverageCase,
-        evidence,
-        label: joinType,
-        cropSize: { width: 1120, height: 1160 }
-      })
+      for (const focus of reportedVector34AnchorFocusPoints) {
+        await setZoomPercent(page, 5200)
+        await centerWorkspacePointInViewport(page, focus.point)
+
+        await captureVisualArtifacts({
+          page,
+          testInfo,
+          coverageCase,
+          evidence,
+          label: `${joinType}-${focus.id}-micro`,
+          cropSize: { width: 760, height: 620 }
+        })
+
+        await setVectorEditOverlayVisible(page, elementId, false)
+        await captureVisualArtifacts({
+          page,
+          testInfo,
+          coverageCase,
+          evidence,
+          label: `${joinType}-${focus.id}-render-only-micro`,
+          cropSize: { width: 760, height: 620 }
+        })
+        await setVectorEditOverlayVisible(page, elementId, true)
+      }
     }
 
     await expect(page.locator('canvas').first()).toBeVisible()

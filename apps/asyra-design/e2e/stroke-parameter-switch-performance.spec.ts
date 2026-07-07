@@ -136,7 +136,7 @@ const createSelfIntersectingStrokeVector = async (page: Page) =>
             position: 'inside',
             width: 14,
             dash: 22,
-          gap: 14,
+            gap: 14,
             color: '#b51212',
             opacity: 72,
             visible: true,
