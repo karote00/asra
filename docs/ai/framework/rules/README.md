@@ -10,3 +10,4 @@
 - `pre-release-legacy-removal.md`
 - `no-patch-fixes.md`
 - `generated-artifacts.md`
+- `visual-review-microscope.md`

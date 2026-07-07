@@ -117,6 +117,7 @@ Quality gates:
 - [ ] lint passes (if cross-cutting)
 - [ ] no known regression left undocumented
 - [ ] visual/product fixes are validated through the normal pipeline, not through patch output
+- [ ] visual closure follows `rules/visual-review-microscope.md` when screenshots, zoom, viewport, or pixel evidence are involved
 
 ## Phase 5: Documentation Sync
 
