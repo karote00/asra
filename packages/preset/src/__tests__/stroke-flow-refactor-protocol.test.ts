@@ -95,7 +95,7 @@ interface InspectorRoute {
   visibleContributor: string
   geometryBasis: string
   specRuleRefs: string[]
-  metricAssertions: Array<Record<string, string>>
+  metricAssertions: Record<string, string>[]
   computationContract?: {
     computedAt: string
     consumesArtifacts: string[]
@@ -134,9 +134,31 @@ interface SourceFileOwnershipRecord {
   productionCodeChangeNeeded: boolean
 }
 
+interface LifecycleContractPhase {
+  phase: string
+  stepId: string
+  routeIds: string[]
+  consumesArtifacts?: string[]
+  producesArtifacts?: string[]
+  requiredEvidence?: string[]
+  preservedEvidence?: string[]
+  forbiddenLateComputation?: string[]
+  failureReopensStep: string
+}
+
+interface LifecycleContract {
+  id: string
+  specRuleId: string
+  specAnchor: string
+  formalGate: string
+  artifactIds: string[]
+  ownerSteps: string[]
+  lifecycle: LifecycleContractPhase[]
+}
+
 interface InspectorData {
   latestRules: string[]
-  ruleRegistry: Array<{ id: string; text: string }>
+  ruleRegistry: { id: string; text: string }[]
   routeTypes: RouteType[]
   currentExecutionState: {
     totalSteps: number
@@ -185,6 +207,7 @@ interface InspectorData {
     forbiddenAuditBehavior: string[]
     validationGate: string
   }
+  dashJoinSeamLifecycleContract: LifecycleContract
   sharedStepTestHelpers: string[]
   sourceFileOwnershipRecords: SourceFileOwnershipRecord[]
   entryBoundaryRequiredStepIds: string[]
@@ -195,7 +218,7 @@ interface InspectorData {
     Record<string, StrokeParameterCoverageRole[]>
   >
   steps: InspectorStep[]
-  edges: Array<[string, string]>
+  edges: [string, string][]
   conditionalRoutes: InspectorRoute[]
   artifactRegistry: InspectorArtifact[]
   coExecutionCompletionRules: CoExecutionCompletionRule[]
@@ -208,6 +231,7 @@ interface InspectorData {
   refactorProtocolErrors: string[]
   runtimeImplementationErrors: string[]
   strokeParameterCoverageErrors: string[]
+  dashJoinSeamLifecycleErrors: string[]
   sourceFileOwnershipErrors: string[]
   inspectorContractErrors: string[]
 }
@@ -231,12 +255,9 @@ const specPath = resolve(
   repoRoot,
   'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md'
 )
-const retiredSingleProductStepId = [
-  'build',
-  'stroke',
-  'product',
-  'units'
-].join('-')
+const retiredSingleProductStepId = ['build', 'stroke', 'product', 'units'].join(
+  '-'
+)
 const retiredDescriptorAssemblyStepId = [
   'assemble',
   'stroke',
@@ -257,9 +278,9 @@ const requireInspectorData = (): InspectorData => {
   const data =
     (loadedModule.currentExecutionState
       ? (loadedModule as InspectorData)
-      : loadedModule.STROKE_FLOW_INSPECTOR_DATA ??
+      : (loadedModule.STROKE_FLOW_INSPECTOR_DATA ??
         loadedModule.default ??
-        globalInspectorRecord.STROKE_FLOW_INSPECTOR_DATA) ?? null
+        globalInspectorRecord.STROKE_FLOW_INSPECTOR_DATA)) ?? null
 
   expect(data).toBeDefined()
   return data as InspectorData
@@ -280,7 +301,10 @@ const readRepoFile = (path: string) => readFileSync(path, 'utf8')
 const toRepoPath = (absolutePath: string) =>
   relative(repoRoot, absolutePath).split('/').join('/')
 
-const resolveRepoImportSpecifier = (fromRepoPath: string, specifier: string) => {
+const resolveRepoImportSpecifier = (
+  fromRepoPath: string,
+  specifier: string
+) => {
   if (!specifier.startsWith('.')) {
     return specifier
   }
@@ -304,11 +328,11 @@ const parseStaticImports = (repoPath: string) => {
   const source = readRepoFile(resolve(repoRoot, repoPath))
   const importPattern =
     /^\s*import(?:\s+type)?(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]/gm
-  const imports: Array<{
+  const imports: {
     line: number
     specifier: string
     resolvedSpecifier: string
-  }> = []
+  }[] = []
   let match: RegExpExecArray | null
 
   while ((match = importPattern.exec(source)) !== null) {
@@ -400,8 +424,9 @@ describe('stroke flow refactor protocol', () => {
     )
     expect('validationGates' in data).toBe(false)
     expect(data.ruleRegistry).toHaveLength(data.latestRules.length)
-    expect(data.ruleRegistry.some((rule) => /^stroke-rule-\d+$/.test(rule.id)))
-      .toBe(false)
+    expect(
+      data.ruleRegistry.some((rule) => /^stroke-rule-\d+$/.test(rule.id))
+    ).toBe(false)
 
     const unitTestRoot = data.refactorProtocol.unitTestRoot.endsWith('/')
       ? data.refactorProtocol.unitTestRoot
@@ -471,6 +496,7 @@ describe('stroke flow refactor protocol', () => {
       'packages/preset/src/components/stroke-render/self-intersecting-legal-domain.ts',
       'packages/preset/src/components/stroke-render/solid-stroke-geometry-core.ts',
       'packages/preset/src/components/stroke-render/source-span-graph.ts',
+      'packages/preset/src/components/stroke-render/source-vertex-join-footprint.ts',
       'packages/preset/src/components/stroke-render/stroke-interval-frames.ts',
       'packages/preset/src/components/stroke-render/stroke-ownership.ts',
       'packages/preset/src/components/stroke-render/stroke-paint-payload.ts',
@@ -493,9 +519,10 @@ describe('stroke flow refactor protocol', () => {
       if (!record) {
         throw new Error(`${filePath} missing source ownership record`)
       }
-      expect(existsSync(resolve(repoRoot, record.filePath)), record.filePath).toBe(
-        true
-      )
+      expect(
+        existsSync(resolve(repoRoot, record.filePath)),
+        record.filePath
+      ).toBe(true)
       expect(record.productionCodeChangeNeeded, record.filePath).toBe(false)
       expect(record.requiredInspectorField, record.filePath).toContain(
         'sourceFileOwnershipRecords.'
@@ -505,7 +532,9 @@ describe('stroke flow refactor protocol', () => {
         expect(record.ownerRouteIds, record.filePath).toEqual([])
         expect(record.currentConsumers, record.filePath).toEqual([])
       } else {
-        expect(stepIds.has(record.ownerStepId ?? ''), record.filePath).toBe(true)
+        expect(stepIds.has(record.ownerStepId ?? ''), record.filePath).toBe(
+          true
+        )
         expect(record.ownerRouteIds.length, record.filePath).toBeGreaterThan(0)
         for (const routeId of record.ownerRouteIds) {
           expect(routeIds.has(routeId), `${record.filePath}:${routeId}`).toBe(
@@ -524,7 +553,9 @@ describe('stroke flow refactor protocol', () => {
       'packages/preset/src/__tests__/stroke-flow/stroke-parameter-coverage-test-helper.ts'
     )
     for (const sharedHelper of sharedHelpers) {
-      expect(existsSync(resolve(repoRoot, sharedHelper)), sharedHelper).toBe(true)
+      expect(existsSync(resolve(repoRoot, sharedHelper)), sharedHelper).toBe(
+        true
+      )
     }
 
     const violations = data.steps.flatMap((step) => {
@@ -607,7 +638,8 @@ describe('stroke flow refactor protocol', () => {
       'stroke.style',
       'stroke.position',
       'stroke.width',
-      'stroke.dash', 'stroke.gap',
+      'stroke.dash',
+      'stroke.gap',
       'stroke.capType',
       'stroke.joinType',
       'stroke.miterAngle'
@@ -644,9 +676,7 @@ describe('stroke flow refactor protocol', () => {
           `${step.id}:${parameterId}`
         ).toBe(true)
         if (roles.includes('not-applicable')) {
-          expect(roles, `${step.id}:${parameterId}`).toEqual([
-            'not-applicable'
-          ])
+          expect(roles, `${step.id}:${parameterId}`).toEqual(['not-applicable'])
         }
       }
     }
@@ -672,7 +702,8 @@ describe('stroke flow refactor protocol', () => {
       'stroke.style',
       'stroke.position',
       'stroke.width',
-      'stroke.dash', 'stroke.gap',
+      'stroke.dash',
+      'stroke.gap',
       'stroke.capType',
       'stroke.joinType',
       'stroke.miterAngle'
@@ -877,17 +908,16 @@ describe('stroke flow refactor protocol', () => {
     expect(data.refactorProtocol.testConformancePolicy).toContain(
       'inspector step or route'
     )
-    expect(data.refactorProtocol.testConformancePolicy).toContain(
-      'owner stage'
-    )
+    expect(data.refactorProtocol.testConformancePolicy).toContain('owner stage')
 
     if (!activeStep) {
       expect(data.refactorProtocol.activeStepId).toBeNull()
       return
     }
 
-    expect(activeStep.unitTestFile.startsWith(data.refactorProtocol.unitTestRoot))
-      .toBe(true)
+    expect(
+      activeStep.unitTestFile.startsWith(data.refactorProtocol.unitTestRoot)
+    ).toBe(true)
 
     const activeTestPath = resolve(repoRoot, activeStep.unitTestFile)
     if (!existsSync(activeTestPath)) {
@@ -909,6 +939,7 @@ describe('stroke flow refactor protocol', () => {
     )
     expect(spec).toContain('Inspector-Flow-First Greenfield Refactor Protocol')
     expect(spec).toContain('Spec Completeness Contract')
+    expect(spec).toContain('Spec-To-Enforcement Contract')
     expect(spec).toContain('Document Deep Audit Protocol')
     expect(spec).toContain('Supported Stroke Feature Surface')
     expect(spec).toContain('Stroke Parameter Step Coverage Contract')
@@ -920,13 +951,17 @@ describe('stroke flow refactor protocol', () => {
     expect(spec).toContain('DEFAULT_MITER_ANGLE_DEGREES = 28.96')
     expect(spec).toContain('MITER_ANGLE_EPSILON_DEGREES = 0.000001')
     expect(spec).toContain('Alpha-Safe Descriptor Projection')
-    expect(spec).toContain('`degenerate-bevel` is the only degenerate local join footprint')
+    expect(spec).toContain(
+      '`degenerate-bevel` is the only degenerate local join footprint'
+    )
     expect(spec).toContain('emitted: false')
     expect(spec).toContain('`vertexAngle: null`')
     expect(spec).toContain('`angleSource: "source-domain-degenerate"`')
     expect(spec).toContain('a deterministic Asyra product rule')
     expect(spec).toContain('not an implementation preference')
-    expect(spec).toContain('runtime repair code must not invent seam tolerances')
+    expect(spec).toContain(
+      'runtime repair code must not invent seam tolerances'
+    )
     expect(spec).toContain('must collapse duplicate')
     expect(spec).toContain('materialization identity')
     expect(spec).toMatch(
@@ -942,15 +977,21 @@ describe('stroke flow refactor protocol', () => {
     expect(spec).toContain('41 runtime inspector steps')
     expect(spec).toContain('post-runtime validation gates')
     expect(spec).toContain('runtime audit/refactor starts')
-    expect(spec).toContain('legal-domain clipping that never reauthors the dash')
-    expect(spec).toMatch(/Legal\s+clip boundaries are not dashed-line endpoints/)
+    expect(spec).toContain(
+      'legal-domain clipping that never reauthors the dash'
+    )
+    expect(spec).toMatch(
+      /Legal\s+clip boundaries are not dashed-line endpoints/
+    )
     expect(spec).toMatch(
       /allocator must not change dash\/gap lengths,\s+redistribute gaps,\s+or collapse the\s+dash interval allocation/i
     )
     expect(spec).toContain('Cap And Terminal Terminology')
-    expect(spec).toContain('A true open endpoint is an authored path/network endpoint')
     expect(spec).toContain(
-      'Center dashed true open endpoint | The owning terminal dash body plus the true endpoint authored cap route'
+      'A true open endpoint is an authored path/network endpoint'
+    )
+    expect(spec).toMatch(
+      /Center dashed true open endpoint\s*\|\s*The owning terminal dash body plus the true endpoint authored cap route/
     )
     expect(spec).toContain(
       'For join-owned `start`, `end`, and `start-end` interval terminals'
@@ -958,9 +999,7 @@ describe('stroke flow refactor protocol', () => {
     expect(spec).toContain('Miter Terminology And Descriptor Adapter Fields')
     expect(spec).toContain('rendererMiterLimit')
     expect(spec).toContain('miterAngleEpsilonDegrees')
-    expect(spec).toContain(
-      'delta > MITER_ANGLE_EPSILON_DEGREES'
-    )
+    expect(spec).toContain('delta > MITER_ANGLE_EPSILON_DEGREES')
     const staleTrueOpenEndpointContributor = [
       'Center dashed true open endpoint |',
       'The owning terminal dash body and its body-side authored cap policy'
@@ -972,14 +1011,14 @@ describe('stroke flow refactor protocol', () => {
       ].join(' '),
       'terminal roles before join materialization'
     ].join('\n')
-    expect(spec).not.toContain(
-      staleTrueOpenEndpointContributor
-    )
+    expect(spec).not.toContain(staleTrueOpenEndpointContributor)
     expect(spec).not.toContain(staleBroadEndpointSuppression)
     expect(plan).toContain('Stroke Engine Refactor Execution Plan')
     expect(plan).toContain('This file is an execution plan only.')
     expect(plan).toContain('does not define stroke geometry')
-    expect(plan).toContain('The stroke engine spec is the semantic source of truth')
+    expect(plan).toContain(
+      'The stroke engine spec is the semantic source of truth'
+    )
     expect(plan).toMatch(
       /The inspector flow is\s+the executable route and step contract/
     )
@@ -999,11 +1038,17 @@ describe('stroke flow refactor protocol', () => {
     expect(plan).toContain('three times')
     expect(plan).not.toContain('true open authored path/network endpoint uses')
     expect(plan).not.toContain('cap-aware minimum visual gap')
-    expect(plan).not.toContain('it must collapse to a single `start-end` visible dash')
+    expect(plan).not.toContain(
+      'it must collapse to a single `start-end` visible dash'
+    )
     expect(plan).not.toContain('a deterministic Asyra product rule')
-    expect(plan).not.toMatch(/must\s+collapse duplicate source-side split ranges/)
+    expect(plan).not.toMatch(
+      /must\s+collapse duplicate source-side split ranges/
+    )
     expect(plan).not.toContain('Alpha-Safe Descriptor Projection')
-    expect(plan).not.toContain('`degenerate-bevel` is reserved for source-domain')
+    expect(plan).not.toContain(
+      '`degenerate-bevel` is reserved for source-domain'
+    )
     expect(plan).not.toContain(
       'diagnostics emitted as channel-separated sibling or aggregation consumers'
     )
@@ -1091,7 +1136,9 @@ describe('stroke flow refactor protocol', () => {
     expect(plan).not.toContain('readability heuristic')
     expect(plan).not.toContain('runtime heuristic')
     expect(plan).not.toContain('measuring readability')
-    expect(plan).not.toContain('canonicalization may collapse duplicate source-side split ranges')
+    expect(plan).not.toContain(
+      'canonicalization may collapse duplicate source-side split ranges'
+    )
     expect(data.latestRules.join(' ')).not.toContain('readability floor')
     expect(JSON.stringify(data.conditionalRoutes)).not.toContain(
       staleRendererProjectionHitExportRoute
@@ -1136,6 +1183,7 @@ describe('stroke flow refactor protocol', () => {
       'smooth-continuity and high-curvature routing',
       'center/inside/outside construction',
       'artifact lifecycle',
+      'spec-to-enforcement lifecycle contracts',
       'channel separation',
       'cache, dirty, bypass, and current-state rendering',
       'owner-stage metadata',
@@ -1182,12 +1230,165 @@ describe('stroke flow refactor protocol', () => {
       /New concerns found during an audit are\s+recorded as deferred matrix extensions/
     )
     expect(
-      data.ruleRegistry.some((rule) => rule.id === 'document-deep-audit-protocol')
+      data.ruleRegistry.some(
+        (rule) => rule.id === 'document-deep-audit-protocol'
+      )
     ).toBe(true)
     expect(
-      data.ruleRegistry.find((rule) => rule.id === 'document-deep-audit-protocol')
-        ?.text
+      data.ruleRegistry.find(
+        (rule) => rule.id === 'document-deep-audit-protocol'
+      )?.text
     ).toContain('fixed Document Deep Audit Protocol matrix')
+  })
+
+  it('turns dash/join seam identity into a structured lifecycle contract', () => {
+    const data = loadInspectorData()
+    const spec = readRepoFile(specPath)
+    const stepIds = new Set(data.steps.map((step) => step.id))
+    const artifactIds = new Set(
+      data.artifactRegistry.map((artifact) => artifact.id)
+    )
+    const ownershipRecords = new Map(
+      data.sourceFileOwnershipRecords.map((record) => [record.filePath, record])
+    )
+    const contract = data.dashJoinSeamLifecycleContract
+    const phaseById = new Map(
+      contract.lifecycle.map((phase) => [phase.phase, phase])
+    )
+
+    expect(spec).toContain('Spec-To-Enforcement Contract')
+    expect(spec).toContain('dash/join seam identity contract')
+    expect(data.dashJoinSeamLifecycleErrors).toEqual([])
+    expect(contract).toMatchObject({
+      id: 'dash-join-seam-identity-lifecycle',
+      specRuleId: 'dash-join-seam-contract',
+      specAnchor:
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#dash-body-and-join-seam-contract',
+      formalGate:
+        'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts'
+    })
+    expect(contract.artifactIds).toEqual(
+      expect.arrayContaining([
+        'artifact:dash-body-seam-boundary',
+        'artifact:constrained-dashed-source-vertex-join-product',
+        'artifact:postLegalityProductUnits',
+        'artifact:finalFaces',
+        'artifact:constrained-dashed-render-descriptor',
+        'artifact:renderEntries'
+      ])
+    )
+    expect(contract.ownerSteps).toEqual(
+      expect.arrayContaining([
+        'build-dash-interval-body-products',
+        'build-source-vertex-join-products',
+        'apply-legality',
+        'build-final-faces',
+        'materialize-stroke-product-descriptors',
+        'render-entries',
+        'renderer-projection'
+      ])
+    )
+    for (const stepId of contract.ownerSteps) {
+      expect(stepIds.has(stepId), stepId).toBe(true)
+    }
+    for (const artifactId of contract.artifactIds) {
+      expect(artifactIds.has(artifactId), artifactId).toBe(true)
+    }
+    for (const phase of contract.lifecycle) {
+      expect(stepIds.has(phase.stepId), phase.phase).toBe(true)
+      expect(stepIds.has(phase.failureReopensStep), phase.phase).toBe(true)
+      for (const routeId of phase.routeIds) {
+        const route = routeById(data, routeId)
+        expect(
+          route.from === phase.stepId || route.to === phase.stepId,
+          `${phase.phase}:${routeId}`
+        ).toBe(true)
+      }
+      for (const artifactId of [
+        ...(phase.consumesArtifacts ?? []),
+        ...(phase.producesArtifacts ?? [])
+      ]) {
+        expect(
+          artifactIds.has(artifactId),
+          `${phase.phase}:${artifactId}`
+        ).toBe(true)
+      }
+    }
+    expect([...phaseById.keys()]).toEqual(
+      expect.arrayContaining([
+        'produce-seam-boundary',
+        'dispatch-seam-boundary',
+        'consume-seam-boundary',
+        'preserve-through-legality',
+        'preserve-through-final-faces',
+        'preserve-through-render-entries',
+        'forbid-renderer-recompute'
+      ])
+    )
+    expect(phaseById.get('produce-seam-boundary')?.producesArtifacts).toContain(
+      'artifact:dash-body-seam-boundary'
+    )
+    expect(phaseById.get('consume-seam-boundary')?.requiredEvidence).toEqual(
+      expect.arrayContaining([
+        'proof that dash and join visible triangles share the same Step 27 seam endpoint identities',
+        'dash/join zero-gap adjacency proof'
+      ])
+    )
+    expect(
+      phaseById.get('preserve-through-legality')?.preservedEvidence
+    ).toEqual(
+      expect.arrayContaining([
+        'same Step 27 seam endpoint identity when visible dash/join products survive legality'
+      ])
+    )
+    expect(
+      phaseById.get('forbid-renderer-recompute')?.forbiddenLateComputation
+    ).toEqual(
+      expect.arrayContaining([
+        'dash/join seam endpoint reinterpretation',
+        'join shape decision',
+        'cap shape decision',
+        'same-paint alpha decision'
+      ])
+    )
+
+    const joinRoute = routeById(
+      data,
+      'constrained-dashed-source-vertex-join-product'
+    )
+    expect(joinRoute.evidenceRequired).toEqual(
+      expect.arrayContaining([
+        'proof that dash and join visible triangles share the same Step 27 seam endpoint identities',
+        'dash/join zero-gap adjacency proof'
+      ])
+    )
+    const renderProjectionRoute = routeById(data, 'render-projection-merge')
+    expect(
+      renderProjectionRoute.computationContract?.forbiddenLateComputation
+    ).toEqual(
+      expect.arrayContaining([
+        'join shape decision',
+        'cap shape decision',
+        'same-paint alpha decision'
+      ])
+    )
+
+    const footprintRecord = ownershipRecords.get(
+      'packages/preset/src/components/stroke-render/source-vertex-join-footprint.ts'
+    )
+    expect(footprintRecord).toMatchObject({
+      classification: 'owner-entry',
+      ownerStepId: 'build-source-vertex-join-products',
+      requiredInspectorField: 'sourceFileOwnershipRecords.ownerEntry',
+      productionCodeChangeNeeded: false
+    })
+    expect(footprintRecord?.ownerRouteIds).toEqual(
+      expect.arrayContaining([
+        'center-solid-canonical-source-vertex-join-footprint',
+        'constrained-solid-canonical-source-vertex-join-footprint',
+        'constrained-dashed-source-vertex-join-product'
+      ])
+    )
   })
 
   it('requires typed route schema, derived edges, and hit/export sibling flow', () => {
@@ -1251,7 +1452,9 @@ describe('stroke flow refactor protocol', () => {
     }
 
     for (const [decisionGroup, routes] of decisionGroups.entries()) {
-      const elseRoutes = routes.filter((route) => route.conditionKind === 'else')
+      const elseRoutes = routes.filter(
+        (route) => route.conditionKind === 'else'
+      )
       if (elseRoutes.length > 0) {
         expect(elseRoutes, decisionGroup).toHaveLength(1)
       }
@@ -1421,12 +1624,14 @@ describe('stroke flow refactor protocol', () => {
       expect(artifactIds.has(id), id).toBe(true)
     }
 
-    expect(routeById(data, 'legality-product-unit-clipping').consumes).toContain(
-      'artifact:preLegalityProductUnits'
-    )
     expect(
-      routeById(data, 'constrained-dashed-products-coexecute-descriptor-strategy')
-        .produces
+      routeById(data, 'legality-product-unit-clipping').consumes
+    ).toContain('artifact:preLegalityProductUnits')
+    expect(
+      routeById(
+        data,
+        'constrained-dashed-products-coexecute-descriptor-strategy'
+      ).produces
     ).toContain('artifact:descriptorStrategyRecords')
     const materializationRoute = routeById(
       data,
@@ -1436,9 +1641,9 @@ describe('stroke flow refactor protocol', () => {
     expect(materializationRoute.to).toBe(
       'materialize-stroke-product-descriptors'
     )
-    expect(
-      materializationRoute.consumes
-    ).not.toContain('artifact:preLegalityProductUnits')
+    expect(materializationRoute.consumes).not.toContain(
+      'artifact:preLegalityProductUnits'
+    )
     expect(materializationRoute.consumes).toEqual(
       expect.arrayContaining([
         'artifact:finalFaces',
@@ -1473,9 +1678,9 @@ describe('stroke flow refactor protocol', () => {
     expect(routeById(data, 'canonical-final-face-render-entry').from).toBe(
       'build-final-faces'
     )
-    expect(routeById(data, 'canonical-final-face-render-entry').produces).toContain(
-      'artifact:renderEntries'
-    )
+    expect(
+      routeById(data, 'canonical-final-face-render-entry').produces
+    ).toContain('artifact:renderEntries')
 
     const completionGroups = new Set(
       data.coExecutionCompletionRules.map((rule) => rule.coExecutionGroup)
@@ -1493,9 +1698,9 @@ describe('stroke flow refactor protocol', () => {
       expect(rule.completionArtifactIds.length).toBeGreaterThan(0)
       expect(rule.semantics).toBeTruthy()
       for (const routeId of rule.requiredRouteIds) {
-        expect(data.conditionalRoutes.some((route) => route.id === routeId)).toBe(
-          true
-        )
+        expect(
+          data.conditionalRoutes.some((route) => route.id === routeId)
+        ).toBe(true)
       }
     }
 
@@ -1529,12 +1734,15 @@ describe('stroke flow refactor protocol', () => {
     expect(serializedRoutes).not.toContain(retiredDescriptorAssemblyStepId)
     expect(serializedRoutes).not.toContain(retiredSingleProductGroupId)
     expect(serializedRoutes).not.toContain('"kind":"all"')
-    expect(JSON.stringify(data.conditionalRoutes.map((route) => route.when))).not
-      .toContain('"inputs"')
-    expect(JSON.stringify(data.conditionalRoutes.map((route) => route.when))).not
-      .toContain('source.route-id')
-    expect(JSON.stringify(data.conditionalRoutes.map((route) => route.when))).not
-      .toContain('source.source-revision')
+    expect(
+      JSON.stringify(data.conditionalRoutes.map((route) => route.when))
+    ).not.toContain('"inputs"')
+    expect(
+      JSON.stringify(data.conditionalRoutes.map((route) => route.when))
+    ).not.toContain('source.route-id')
+    expect(
+      JSON.stringify(data.conditionalRoutes.map((route) => route.when))
+    ).not.toContain('source.source-revision')
     expect(serializedRoutes).not.toContain(retiredRendererMiterField)
     expect(serializedRoutes).toContain('rendererMiterLimit')
     expect(serializedRoutes).toContain('miterAngle')
@@ -1586,9 +1794,7 @@ describe('stroke flow refactor protocol', () => {
       ],
       mustNotRecomputeAfter: 'build-source-vertex-join-products'
     })
-    expect(
-      dashBodyRoute.computationContract?.forbiddenLateComputation
-    ).toEqual(
+    expect(dashBodyRoute.computationContract?.forbiddenLateComputation).toEqual(
       expect.arrayContaining([
         'dash interval endpoint relocation',
         'dash body seam boundary relocation',
@@ -1698,7 +1904,10 @@ describe('stroke flow refactor protocol', () => {
     )
     expect(terminalBodyRoute.specRuleRefs).toContain(computationSpecRef)
 
-    const renderEntryRoute = routeById(data, 'canonical-final-face-render-entry')
+    const renderEntryRoute = routeById(
+      data,
+      'canonical-final-face-render-entry'
+    )
     expect(renderEntryRoute.cacheKeyInputs).toContain(
       'same-paint overlap signature'
     )

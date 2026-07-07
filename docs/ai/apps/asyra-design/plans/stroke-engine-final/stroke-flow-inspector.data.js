@@ -820,8 +820,7 @@
       'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts',
     testConformancePolicy:
       'Stroke tests may enter correctness gates only when they map to the current stroke engine spec, inspector step or route, owner stage, artifact channel, and expected output shape. Tests that assert retired behavior, depend on stale helpers, or lack a current owner mapping must be removed or rewritten before they can remain in the stroke gate set.',
-    strokeCorrectnessGate:
-      'yarn workspace @asyra/preset test:stroke:new',
+    strokeCorrectnessGate: 'yarn workspace @asyra/preset test:stroke:new',
     stepExecutionPolicy:
       'Run one runtime inspector step at a time until all 41 runtime inspector steps are verified; do not advance the lock until the active step dedicated unit test and protocol validator pass. Post-runtime validation gates are tracked outside runtime steps.',
     stepRetryLimit: 3,
@@ -860,6 +859,7 @@
       'smooth-continuity and high-curvature routing',
       'center/inside/outside construction',
       'artifact lifecycle',
+      'spec-to-enforcement lifecycle contracts',
       'channel separation',
       'cache, dirty, bypass, and current-state rendering',
       'owner-stage metadata',
@@ -880,6 +880,142 @@
       'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts'
   }
 
+  const dashJoinSeamLifecycleContract = {
+    id: 'dash-join-seam-identity-lifecycle',
+    specRuleId: 'dash-join-seam-contract',
+    specAnchor:
+      'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#dash-body-and-join-seam-contract',
+    formalGate:
+      'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts',
+    artifactIds: [
+      'artifact:dash-body-seam-boundary',
+      'artifact:constrained-dashed-source-vertex-join-product',
+      'artifact:postLegalityProductUnits',
+      'artifact:finalFaces',
+      'artifact:constrained-dashed-render-descriptor',
+      'artifact:renderEntries'
+    ],
+    ownerSteps: [
+      'build-dash-interval-body-products',
+      'build-source-vertex-join-products',
+      'apply-legality',
+      'build-final-faces',
+      'materialize-stroke-product-descriptors',
+      'render-entries',
+      'renderer-projection'
+    ],
+    lifecycle: [
+      {
+        phase: 'produce-seam-boundary',
+        stepId: 'build-dash-interval-body-products',
+        routeIds: ['constrained-dashed-interval-body-product'],
+        producesArtifacts: ['artifact:dash-body-seam-boundary'],
+        requiredEvidence: [
+          'verified seam boundary artifact derived from emitted dash body product polygon',
+          'outer body boundary endpoint on dash body product polygon',
+          'body-side outline segment on dash body product polygon'
+        ],
+        failureReopensStep: 'build-dash-interval-body-products'
+      },
+      {
+        phase: 'dispatch-seam-boundary',
+        stepId: 'build-dash-interval-body-products',
+        routeIds: [
+          'constrained-dashed-products-coexecute-source-vertex-join-products'
+        ],
+        consumesArtifacts: ['artifact:dash-body-seam-boundary'],
+        requiredEvidence: ['dash body seam boundary artifact ids'],
+        failureReopensStep: 'build-dash-interval-body-products'
+      },
+      {
+        phase: 'consume-seam-boundary',
+        stepId: 'build-source-vertex-join-products',
+        routeIds: ['constrained-dashed-source-vertex-join-product'],
+        consumesArtifacts: ['artifact:dash-body-seam-boundary'],
+        producesArtifacts: [
+          'artifact:constrained-dashed-source-vertex-join-product'
+        ],
+        requiredEvidence: [
+          'proof that every consumed seam boundary endpoint id is emitted by the Step 27 dash body product polygon boundary',
+          'proof that dash and join visible triangles share the same Step 27 seam endpoint identities',
+          'dash/join zero-gap adjacency proof'
+        ],
+        failureReopensStep: 'build-source-vertex-join-products'
+      },
+      {
+        phase: 'preserve-through-legality',
+        stepId: 'apply-legality',
+        routeIds: ['legality-product-unit-clipping'],
+        consumesArtifacts: ['artifact:preLegalityProductUnits'],
+        producesArtifacts: ['artifact:postLegalityProductUnits'],
+        requiredEvidence: [
+          'pre-legality product ids',
+          'post-legality product ids',
+          'legal-domain ids'
+        ],
+        preservedEvidence: [
+          'same Step 27 seam endpoint identity when visible dash/join products survive legality'
+        ],
+        failureReopensStep: 'apply-legality'
+      },
+      {
+        phase: 'preserve-through-final-faces',
+        stepId: 'build-final-faces',
+        routeIds: [
+          'canonical-final-face-render-entry',
+          'constrained-dashed-descriptor-materialization'
+        ],
+        consumesArtifacts: [
+          'artifact:postLegalityProductUnits',
+          'artifact:finalFaces'
+        ],
+        producesArtifacts: [
+          'artifact:finalFaces',
+          'artifact:constrained-dashed-render-descriptor'
+        ],
+        preservedEvidence: [
+          'visible contributor owner',
+          'join ownership signatures',
+          'same Step 27 seam endpoint identity when visible dash/join products survive final-face or descriptor materialization'
+        ],
+        failureReopensStep: 'build-final-faces'
+      },
+      {
+        phase: 'preserve-through-render-entries',
+        stepId: 'render-entries',
+        routeIds: [
+          'canonical-final-face-render-entry',
+          'constrained-dashed-outside-aggregate-descriptor'
+        ],
+        consumesArtifacts: [
+          'artifact:finalFaces',
+          'artifact:constrained-dashed-render-descriptor'
+        ],
+        producesArtifacts: ['artifact:renderEntries'],
+        requiredEvidence: [
+          'same-paint single-composite or alpha-safe equivalence evidence when visible entries overlap'
+        ],
+        preservedEvidence: [
+          'same Step 27 seam endpoint identity before renderer projection'
+        ],
+        failureReopensStep: 'render-entries'
+      },
+      {
+        phase: 'forbid-renderer-recompute',
+        stepId: 'renderer-projection',
+        routeIds: ['render-projection-merge'],
+        consumesArtifacts: ['artifact:renderEntries'],
+        forbiddenLateComputation: [
+          'dash/join seam endpoint reinterpretation',
+          'join shape decision',
+          'cap shape decision',
+          'same-paint alpha decision'
+        ],
+        failureReopensStep: 'render-entries'
+      }
+    ]
+  }
+
   const sharedStepTestHelpers = [
     'packages/preset/src/__tests__/stroke-flow/stroke-parameter-coverage-test-helper.ts'
   ]
@@ -891,7 +1027,8 @@
       ownerStepId: 'render-strategy-entry',
       ownerRouteIds: ['linear-render-strategy-entry-to-normalize-render-data'],
       currentConsumers: [],
-      requiredInspectorField: 'sourceFileOwnershipRecords.appIntegrationBoundary',
+      requiredInspectorField:
+        'sourceFileOwnershipRecords.appIntegrationBoundary',
       productionCodeChangeNeeded: false
     },
     {
@@ -900,7 +1037,8 @@
       ownerStepId: 'render-strategy-entry',
       ownerRouteIds: ['linear-render-strategy-entry-to-normalize-render-data'],
       currentConsumers: [],
-      requiredInspectorField: 'sourceFileOwnershipRecords.appIntegrationBoundary',
+      requiredInspectorField:
+        'sourceFileOwnershipRecords.appIntegrationBoundary',
       productionCodeChangeNeeded: false
     },
     {
@@ -925,7 +1063,8 @@
       currentConsumers: [
         'packages/preset/src/components/stroke-render/center-dashed-overlap-diagnostics.ts'
       ],
-      requiredInspectorField: 'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
+      requiredInspectorField:
+        'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
       productionCodeChangeNeeded: false
     },
     {
@@ -938,7 +1077,8 @@
         'packages/preset/src/components/stroke-render/center-dashed-overlap-candidates.ts',
         'packages/preset/src/components/stroke-render/center-dashed-overlap-diagnostics.ts'
       ],
-      requiredInspectorField: 'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
+      requiredInspectorField:
+        'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
       productionCodeChangeNeeded: false
     },
     {
@@ -950,7 +1090,8 @@
       currentConsumers: [
         'packages/preset/src/components/stroke-render/center-dashed-overlap-diagnostics.ts'
       ],
-      requiredInspectorField: 'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
+      requiredInspectorField:
+        'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
       productionCodeChangeNeeded: false
     },
     {
@@ -1000,7 +1141,8 @@
         'packages/preset/src/components/stroke-render/constrained-dashed-domain-geometry.ts',
         'packages/preset/src/components/stroke-render/constrained-solid-stroke-geometry.ts'
       ],
-      requiredInspectorField: 'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
+      requiredInspectorField:
+        'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
       productionCodeChangeNeeded: false
     },
     {
@@ -1026,7 +1168,8 @@
       currentConsumers: [
         'packages/preset/src/components/stroke-render/constrained-solid-legality-diagnostics.ts'
       ],
-      requiredInspectorField: 'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
+      requiredInspectorField:
+        'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
       productionCodeChangeNeeded: false
     },
     {
@@ -1038,7 +1181,8 @@
       currentConsumers: [
         'packages/preset/src/components/stroke-render/constrained-solid-legality-diagnostics.ts'
       ],
-      requiredInspectorField: 'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
+      requiredInspectorField:
+        'sourceFileOwnershipRecords.diagnosticsOnlyChannel',
       productionCodeChangeNeeded: false
     },
     {
@@ -1063,7 +1207,8 @@
       productionCodeChangeNeeded: false
     },
     {
-      filePath: 'packages/preset/src/components/stroke-render/geometry-backend.ts',
+      filePath:
+        'packages/preset/src/components/stroke-render/geometry-backend.ts',
       classification: 'shared-helper',
       ownerStepId: 'shared-geometry-model',
       ownerRouteIds: ['linear-normalize-stroke-spec-to-shared-geometry-model'],
@@ -1081,7 +1226,9 @@
         'packages/preset/src/components/stroke-render/legal-domain-normalization.ts',
       classification: 'shared-helper',
       ownerStepId: 'resolve-stroke-domains',
-      ownerRouteIds: ['linear-resolve-source-families-to-resolve-stroke-domains'],
+      ownerRouteIds: [
+        'linear-resolve-source-families-to-resolve-stroke-domains'
+      ],
       currentConsumers: [
         'packages/preset/src/components/stroke-render/stroke-domain-plan.ts',
         'packages/preset/src/components/vector.ts'
@@ -1118,10 +1265,13 @@
       productionCodeChangeNeeded: false
     },
     {
-      filePath: 'packages/preset/src/components/stroke-render/source-span-graph.ts',
+      filePath:
+        'packages/preset/src/components/stroke-render/source-span-graph.ts',
       classification: 'shared-helper',
       ownerStepId: 'resolve-stroke-domains',
-      ownerRouteIds: ['linear-resolve-source-families-to-resolve-stroke-domains'],
+      ownerRouteIds: [
+        'linear-resolve-source-families-to-resolve-stroke-domains'
+      ],
       currentConsumers: [
         'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/dashed-center-stroke-packets.ts',
@@ -1132,10 +1282,30 @@
     },
     {
       filePath:
+        'packages/preset/src/components/stroke-render/source-vertex-join-footprint.ts',
+      classification: 'owner-entry',
+      ownerStepId: 'build-source-vertex-join-products',
+      ownerRouteIds: [
+        'center-solid-canonical-source-vertex-join-footprint',
+        'constrained-solid-canonical-source-vertex-join-footprint',
+        'constrained-dashed-source-vertex-join-product'
+      ],
+      currentConsumers: [
+        'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/constrained-solid-stroke-packets.ts'
+      ],
+      requiredInspectorField: 'sourceFileOwnershipRecords.ownerEntry',
+      productionCodeChangeNeeded: false
+    },
+    {
+      filePath:
         'packages/preset/src/components/stroke-render/stroke-interval-frames.ts',
       classification: 'shared-helper',
       ownerStepId: 'allocate-dash-intervals',
-      ownerRouteIds: ['linear-resolve-stroke-domains-to-allocate-dash-intervals'],
+      ownerRouteIds: [
+        'linear-resolve-stroke-domains-to-allocate-dash-intervals'
+      ],
       currentConsumers: [
         'packages/preset/src/components/stroke-render/dashed-center-stroke-packets.ts'
       ],
@@ -1143,7 +1313,8 @@
       productionCodeChangeNeeded: false
     },
     {
-      filePath: 'packages/preset/src/components/stroke-render/stroke-ownership.ts',
+      filePath:
+        'packages/preset/src/components/stroke-render/stroke-ownership.ts',
       classification: 'shared-helper',
       ownerStepId: 'build-final-faces',
       ownerRouteIds: ['canonical-final-face-render-entry'],
@@ -1159,7 +1330,9 @@
         'packages/preset/src/components/stroke-render/stroke-paint-payload.ts',
       classification: 'owner-entry',
       ownerStepId: 'attach-paint-payload',
-      ownerRouteIds: ['linear-build-resolved-stroke-regions-to-attach-paint-payload'],
+      ownerRouteIds: [
+        'linear-build-resolved-stroke-regions-to-attach-paint-payload'
+      ],
       currentConsumers: [
         'packages/preset/src/components/stroke-render/stroke-final-face.ts',
         'packages/preset/src/index.ts'
@@ -1172,7 +1345,9 @@
         'packages/preset/src/components/stroke-render/stroke-side-resolution.ts',
       classification: 'shared-helper',
       ownerStepId: 'resolve-stroke-domains',
-      ownerRouteIds: ['linear-resolve-source-families-to-resolve-stroke-domains'],
+      ownerRouteIds: [
+        'linear-resolve-source-families-to-resolve-stroke-domains'
+      ],
       currentConsumers: [
         'packages/preset/src/components/stroke-render/stroke-domain-plan.ts'
       ],
@@ -1185,7 +1360,8 @@
       ownerStepId: 'renderer-projection',
       ownerRouteIds: ['render-projection-merge'],
       currentConsumers: [],
-      requiredInspectorField: 'sourceFileOwnershipRecords.appIntegrationBoundary',
+      requiredInspectorField:
+        'sourceFileOwnershipRecords.appIntegrationBoundary',
       productionCodeChangeNeeded: false
     },
     {
@@ -1194,7 +1370,8 @@
       ownerStepId: 'renderer-projection',
       ownerRouteIds: ['render-projection-merge'],
       currentConsumers: ['packages/render/src/index.ts'],
-      requiredInspectorField: 'sourceFileOwnershipRecords.appIntegrationBoundary',
+      requiredInspectorField:
+        'sourceFileOwnershipRecords.appIntegrationBoundary',
       productionCodeChangeNeeded: false
     },
     {
@@ -1203,7 +1380,8 @@
       ownerStepId: 'renderer-projection',
       ownerRouteIds: ['render-projection-merge'],
       currentConsumers: ['packages/render/src/layers/selection/index.ts'],
-      requiredInspectorField: 'sourceFileOwnershipRecords.appIntegrationBoundary',
+      requiredInspectorField:
+        'sourceFileOwnershipRecords.appIntegrationBoundary',
       productionCodeChangeNeeded: false
     },
     {
@@ -1216,7 +1394,8 @@
         'packages/render/src/pixi-renderer.ts',
         'packages/render/src/stores/scene-tree.ts'
       ],
-      requiredInspectorField: 'sourceFileOwnershipRecords.appIntegrationBoundary',
+      requiredInspectorField:
+        'sourceFileOwnershipRecords.appIntegrationBoundary',
       productionCodeChangeNeeded: false
     }
   ]
@@ -1271,7 +1450,6 @@
     'stroke.miterAngle'
   ]
   const dashParameterIds = ['stroke.dash', 'stroke.gap']
-  const capParameterIds = ['stroke.capType']
   const joinParameterIds = ['stroke.joinType', 'stroke.miterAngle']
   const productFamilyParameterIds = [
     'stroke.style',
@@ -1394,11 +1572,10 @@
       'consume'
     ),
     'build-source-vertex-join-products': withRoles(
-      withRoles(
-        baseForbiddenCoverage,
-        dashParameterIds,
-        ['preserve', 'output-metadata']
-      ),
+      withRoles(baseForbiddenCoverage, dashParameterIds, [
+        'preserve',
+        'output-metadata'
+      ]),
       [
         'stroke.position',
         'stroke.width',
@@ -1452,7 +1629,7 @@
     'render-entries': coverageFor(['preserve', 'output-metadata']),
     'renderer-projection': coverageFor(['preserve', 'forbid']),
     'hit-export': coverageFor(['preserve', 'output-metadata']),
-    'runtime-diagnostics': baseOutputMetadataCoverage,
+    'runtime-diagnostics': baseOutputMetadataCoverage
   }
 
   const strokeParameterCoverageMatrix = Object.fromEntries(
@@ -1511,18 +1688,8 @@
   }
 
   const defaultRuleRefsByGroup = {
-    Interaction: [
-      ruleId(0),
-      ruleId(10),
-      ruleId(11),
-      ruleId(12)
-    ],
-    'Model Commit': [
-      ruleId(0),
-      ruleId(11),
-      ruleId(12),
-      ruleId(13)
-    ],
+    Interaction: [ruleId(0), ruleId(10), ruleId(11), ruleId(12)],
+    'Model Commit': [ruleId(0), ruleId(11), ruleId(12), ruleId(13)],
     'Data Channel': [ruleId(0), ruleId(13), ruleId(14), ruleId(15)],
     'Render Mirror': [
       ruleId(0),
@@ -1536,25 +1703,31 @@
     'Stroke Geometry': [
       ruleId(0),
       ruleId(16),
-	      ruleId(17),
-	      ruleId(34),
-	      ruleId(35),
-	      ruleId(49),
-	      ruleId(50),
-	      ruleId(67),
-	      'computation-ownership-timing'
-	    ],
-	    'Product Output': [
-	      ruleId(0),
-	      ruleId(70),
-	      ruleId(71),
-	      ruleId(72),
-	      ruleId(73),
-	      ruleId(74),
-	      'computation-ownership-timing'
-	    ],
-	    Diagnostics: [ruleId(0), ruleId(75), ruleId(76), ruleId(77), 'computation-ownership-timing']
-	  }
+      ruleId(17),
+      ruleId(34),
+      ruleId(35),
+      ruleId(49),
+      ruleId(50),
+      ruleId(67),
+      'computation-ownership-timing'
+    ],
+    'Product Output': [
+      ruleId(0),
+      ruleId(70),
+      ruleId(71),
+      ruleId(72),
+      ruleId(73),
+      ruleId(74),
+      'computation-ownership-timing'
+    ],
+    Diagnostics: [
+      ruleId(0),
+      ruleId(75),
+      ruleId(76),
+      ruleId(77),
+      'computation-ownership-timing'
+    ]
+  }
 
   const getStepUnitTestFile = (stepNumber, id) =>
     `${refactorProtocol.unitTestRoot}step-${String(stepNumber).padStart(
@@ -1563,7 +1736,9 @@
     )}-${id}.test.ts`
 
   const getRefactorStatus = (index) => {
-    if (currentExecutionState.planStatus === 'inspector-flow-schema-repair-active') {
+    if (
+      currentExecutionState.planStatus === 'inspector-flow-schema-repair-active'
+    ) {
       return 'locked'
     }
     if (refactorProtocol.activeStepId === null) {
@@ -1915,10 +2090,7 @@
         'RenderSceneTree._getRenderData',
         'RenderSceneTree.commitPendingComputedDataChanges'
       ],
-      helperAllowlist: [
-        'render.updateElement',
-        'normalizeVectorRenderData'
-      ],
+      helperAllowlist: ['render.updateElement', 'normalizeVectorRenderData'],
       orchestrationBoundary: {
         ownerSurface:
           'packages/render/src/stores/scene-tree.ts#RenderSceneTree._getRenderData',
@@ -2067,10 +2239,7 @@
         'RenderLayer.updateElement',
         'vectorRenderStrategy'
       ],
-      helperAllowlist: [
-        'renderVectorGraphic',
-        'defaultStrategy'
-      ],
+      helperAllowlist: ['renderVectorGraphic', 'defaultStrategy'],
       orchestrationBoundary: {
         ownerSurface:
           'packages/render/src/layers/scene/render-layer.ts#RenderLayer.updateElement',
@@ -2574,11 +2743,19 @@
     'build-center-stroke-products': {
       latestRule:
         'Center stroke products are authored center stroke products or exact center descriptors; they preserve cap, join, miter, dash, paint channel, and closed-state semantics.',
-      inputs: ['selected center product family', 'normalized source path', 'normalized stroke spec'],
+      inputs: [
+        'selected center product family',
+        'normalized source path',
+        'normalized stroke spec'
+      ],
       outputs: ['center product units or exact center descriptors'],
       conditions: ['Run only for selected center product family.'],
-      bypassConditions: ['Descriptor output may bypass polygon faces only when it exactly encodes the product.'],
-      limitations: ['Must not compute constrained inside/outside masks or infer source-vertex joins from renderer projection.'],
+      bypassConditions: [
+        'Descriptor output may bypass polygon faces only when it exactly encodes the product.'
+      ],
+      limitations: [
+        'Must not compute constrained inside/outside masks or infer source-vertex joins from renderer projection.'
+      ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/solid-center-stroke-geometry.ts',
         'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
@@ -2586,9 +2763,21 @@
       ],
       additionalAllowedTestImports: ['@asyra/utils'],
       ownerStage: 'Stroke Geometry center product assembly',
-      allowedContributors: ['authored center stroke body', 'center dash intervals', 'exact center descriptor'],
-      forbiddenContributors: ['inside/outside legal mask', 'renderer-local join repair', 'diagnostic/helper visible geometry'],
-      evidenceRequired: ['center product family id', 'strokePathStyle cap/join/rendererMiterLimit/closed', 'descriptor equivalence proof'],
+      allowedContributors: [
+        'authored center stroke body',
+        'center dash intervals',
+        'exact center descriptor'
+      ],
+      forbiddenContributors: [
+        'inside/outside legal mask',
+        'renderer-local join repair',
+        'diagnostic/helper visible geometry'
+      ],
+      evidenceRequired: [
+        'center product family id',
+        'strokePathStyle cap/join/rendererMiterLimit/closed',
+        'descriptor equivalence proof'
+      ],
       failureReopensStep: 'build-center-stroke-products',
       verificationEvidence: {
         gateName: 'protocol plus step 25 unit gate',
@@ -2604,20 +2793,39 @@
     'build-constrained-solid-products': {
       latestRule:
         'Constrained solid products are doubled authored center-stroke products before inside/outside legality; masks clip the product later and must not define join geometry.',
-      inputs: ['selected constrained solid product family', 'normalized stroke spec', 'StrokeDomainPlan legal side'],
+      inputs: [
+        'selected constrained solid product family',
+        'normalized stroke spec',
+        'StrokeDomainPlan legal side'
+      ],
       outputs: ['pre-legality constrained solid doubled-center product units'],
       conditions: ['Run only for inside/outside solid strokes.'],
-      bypassConditions: ['Same-owner smooth-span descriptors may bypass polygon output only for declared smooth spans.'],
-      limitations: ['Must not compute vertexAngle from clipped masks or complete authored sharp vertices with descriptors.'],
+      bypassConditions: [
+        'Same-owner smooth-span descriptors may bypass polygon output only for declared smooth spans.'
+      ],
+      limitations: [
+        'Must not compute vertexAngle from clipped masks or complete authored sharp vertices with descriptors.'
+      ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/constrained-solid-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/solid-center-stroke-geometry.ts'
       ],
       additionalAllowedTestImports: ['@asyra/utils'],
       ownerStage: 'Stroke Geometry constrained solid product assembly',
-      allowedContributors: ['doubled authored center stroke product', 'StrokeDomainPlan legal side'],
-      forbiddenContributors: ['face strip as visible product', 'render cover polygon', 'clipped legal-side angle as miter source'],
-      evidenceRequired: ['product family id', 'pre-legality product id', 'legal side id'],
+      allowedContributors: [
+        'doubled authored center stroke product',
+        'StrokeDomainPlan legal side'
+      ],
+      forbiddenContributors: [
+        'face strip as visible product',
+        'render cover polygon',
+        'clipped legal-side angle as miter source'
+      ],
+      evidenceRequired: [
+        'product family id',
+        'pre-legality product id',
+        'legal side id'
+      ],
       failureReopensStep: 'build-constrained-solid-products',
       verificationEvidence: {
         gateName: 'protocol plus step 26 unit gate',
@@ -2633,16 +2841,44 @@
     'build-dash-interval-body-products': {
       latestRule:
         'Dash interval bodies are DashProductInterval-owned body products; join-owned seam boundaries must be derived from the emitted dash body product boundary and must not complete authored vertices.',
-      inputs: ['selected constrained dashed product family', 'DashProductInterval records', 'terminal role and cap policy'],
-      outputs: ['pre-legality dash interval body products', 'verified dash body seam boundary artifacts for join-owned terminals'],
-      conditions: ['Run for constrained dashed ranges that own visible body coverage.'],
+      inputs: [
+        'selected constrained dashed product family',
+        'DashProductInterval records',
+        'terminal role and cap policy'
+      ],
+      outputs: [
+        'pre-legality dash interval body products',
+        'verified dash body seam boundary artifacts for join-owned terminals'
+      ],
+      conditions: [
+        'Run for constrained dashed ranges that own visible body coverage.'
+      ],
       bypassConditions: ['No visible interval means no body product.'],
-      limitations: ['Must not emit source-vertex join products, terminal overhang repair, or duplicate interval paint.'],
-      implementationFiles: ['packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts'],
+      limitations: [
+        'Must not emit source-vertex join products, terminal overhang repair, or duplicate interval paint.'
+      ],
+      implementationFiles: [
+        'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts'
+      ],
       ownerStage: 'Stroke Geometry dashed interval body assembly',
-      allowedContributors: ['DashProductInterval body', 'allowed body-side cap'],
-      forbiddenContributors: ['source-vertex join completion', 'endpoint-side cap at join-owned terminal', 'duplicate interval paint'],
-      evidenceRequired: ['dash interval id', 'split range id', 'terminal role', 'endpoint cap policy', 'seam boundary id', 'outer body boundary endpoint on emitted dash body polygon', 'body-side outline segment on emitted dash body polygon'],
+      allowedContributors: [
+        'DashProductInterval body',
+        'allowed body-side cap'
+      ],
+      forbiddenContributors: [
+        'source-vertex join completion',
+        'endpoint-side cap at join-owned terminal',
+        'duplicate interval paint'
+      ],
+      evidenceRequired: [
+        'dash interval id',
+        'split range id',
+        'terminal role',
+        'endpoint cap policy',
+        'seam boundary id',
+        'outer body boundary endpoint on emitted dash body polygon',
+        'body-side outline segment on emitted dash body polygon'
+      ],
       failureReopensStep: 'build-dash-interval-body-products',
       verificationEvidence: {
         gateName: 'protocol plus step 27 unit gate',
@@ -2658,19 +2894,41 @@
     'build-source-vertex-join-products': {
       latestRule:
         'Source-vertex join products are canonical join footprints computed from source-domain tangents and incident dash body seam boundaries before renderer projection.',
-      inputs: ['authored source vertex or split terminal', 'previous/next source-domain tangents', 'authored join and miter angle', 'Step 27 verified incident dash body seam boundaries when dashed'],
-      outputs: ['pre-legality source-vertex join products with join resolution metadata'],
-      conditions: ['Run only for authored sharp vertices or split terminals that own join completion and fail smooth-continuity.'],
-      bypassConditions: ['Tangent-continuous smooth and high-curvature spans route to smooth-continuity products, not join products.'],
-      limitations: ['Must not use masked visible polygon angles, endpoint caps, terminal bodies, post-boolean footprints, or renderer stroke joins as the join owner.'],
+      inputs: [
+        'authored source vertex or split terminal',
+        'previous/next source-domain tangents',
+        'authored join and miter angle',
+        'Step 27 verified incident dash body seam boundaries when dashed'
+      ],
+      outputs: [
+        'pre-legality source-vertex join products with join resolution metadata'
+      ],
+      conditions: [
+        'Run only for authored sharp vertices or split terminals that own join completion and fail smooth-continuity.'
+      ],
+      bypassConditions: [
+        'Tangent-continuous smooth and high-curvature spans route to smooth-continuity products, not join products.'
+      ],
+      limitations: [
+        'Must not use masked visible polygon angles, endpoint caps, terminal bodies, post-boolean footprints, or renderer stroke joins as the join owner.'
+      ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/source-vertex-join-footprint.ts',
         'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/constrained-solid-stroke-packets.ts'
       ],
       ownerStage: 'Stroke Geometry source-vertex join assembly',
-      allowedContributors: ['canonical source-vertex join footprint', 'incident dash body seam evidence marked non-visible'],
-      forbiddenContributors: ['endpoint cap at authored vertex', 'terminal body overhang', 'aggregate source-path replay', 'visible dash/join seam gap', 'diagnostic/helper visible geometry'],
+      allowedContributors: [
+        'canonical source-vertex join footprint',
+        'incident dash body seam evidence marked non-visible'
+      ],
+      forbiddenContributors: [
+        'endpoint cap at authored vertex',
+        'terminal body overhang',
+        'aggregate source-path replay',
+        'visible dash/join seam gap',
+        'diagnostic/helper visible geometry'
+      ],
       evidenceRequired: [
         'authoredJoin',
         'resolvedJoin',
@@ -2678,12 +2936,12 @@
         'miterAngle',
         'angleSource',
         'angle comparison evidence',
-	        'shared Step 27 seam endpoint identity evidence',
-	        'incident dash body seam boundary ids',
-	        'incident outer body boundary endpoint ids',
-	        'bevel and bevel-by-miter-angle cut-off edge endpoint ids from incident dash body outer boundaries',
-	        'proof that every consumed seam boundary endpoint id is emitted by the Step 27 dash body product polygon boundary'
-	      ],
+        'shared Step 27 seam endpoint identity evidence',
+        'incident dash body seam boundary ids',
+        'incident outer body boundary endpoint ids',
+        'bevel and bevel-by-miter-angle cut-off edge endpoint ids from incident dash body outer boundaries',
+        'proof that every consumed seam boundary endpoint id is emitted by the Step 27 dash body product polygon boundary'
+      ],
       failureReopensStep: 'build-source-vertex-join-products',
       verificationEvidence: {
         gateName: 'protocol plus step 28 unit gate',
@@ -2699,16 +2957,42 @@
     'build-terminal-body-products': {
       latestRule:
         'Terminal body products are terminal interval body products that consume Step 27 seam boundaries; they preserve terminal role and endpoint policy and never own source-vertex apex coverage.',
-      inputs: ['terminal DashProductInterval', 'Step 27 verified terminal dash body seam boundary', 'terminal role', 'endpoint cap policy', 'legal side'],
-      outputs: ['pre-legality terminal body products with seam boundary provenance'],
-      conditions: ['Run when a terminal interval owns body continuity near a terminal seam.'],
-      bypassConditions: ['Absent terminal body coverage emits no terminal body product.'],
-      limitations: ['Must not repair source-vertex cracks, extend endpoint-side overhang, or replace join ownership.'],
-      implementationFiles: ['packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts'],
+      inputs: [
+        'terminal DashProductInterval',
+        'Step 27 verified terminal dash body seam boundary',
+        'terminal role',
+        'endpoint cap policy',
+        'legal side'
+      ],
+      outputs: [
+        'pre-legality terminal body products with seam boundary provenance'
+      ],
+      conditions: [
+        'Run when a terminal interval owns body continuity near a terminal seam.'
+      ],
+      bypassConditions: [
+        'Absent terminal body coverage emits no terminal body product.'
+      ],
+      limitations: [
+        'Must not repair source-vertex cracks, extend endpoint-side overhang, or replace join ownership.'
+      ],
+      implementationFiles: [
+        'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts'
+      ],
       ownerStage: 'Stroke Geometry terminal body assembly',
       allowedContributors: ['terminal interval body', 'allowed body-side cap'],
-      forbiddenContributors: ['endpoint-side cap at join-owned terminal', 'terminal overhang', 'source-vertex apex coverage'],
-      evidenceRequired: ['terminal role', 'endpoint cap policy', 'dash body seam boundary artifact id', 'seam boundary id', 'join ownership signature'],
+      forbiddenContributors: [
+        'endpoint-side cap at join-owned terminal',
+        'terminal overhang',
+        'source-vertex apex coverage'
+      ],
+      evidenceRequired: [
+        'terminal role',
+        'endpoint cap policy',
+        'dash body seam boundary artifact id',
+        'seam boundary id',
+        'join ownership signature'
+      ],
       failureReopensStep: 'build-terminal-body-products',
       verificationEvidence: {
         gateName: 'protocol plus step 29 unit gate',
@@ -2724,19 +3008,43 @@
     'build-smooth-continuity-products': {
       latestRule:
         'Smooth-continuity products own tangent-continuous curved dash and smooth-span output; high curvature alone must not create source-vertex join ownership.',
-      inputs: ['smooth-continuity group', 'curve or smooth span evidence', 'dash interval coverage when dashed'],
-      outputs: ['pre-legality smooth-continuity products or exact smooth-span descriptors'],
-      conditions: ['Run for tangent-continuous spans and high-curvature spans without authored sharp-vertex ownership.'],
-      bypassConditions: ['Sharp authored vertices that fail smooth-continuity route to source-vertex join products.'],
-      limitations: ['Must not fragment one dash into strips, radial slices, comb-like seams, or helper visible products.'],
+      inputs: [
+        'smooth-continuity group',
+        'curve or smooth span evidence',
+        'dash interval coverage when dashed'
+      ],
+      outputs: [
+        'pre-legality smooth-continuity products or exact smooth-span descriptors'
+      ],
+      conditions: [
+        'Run for tangent-continuous spans and high-curvature spans without authored sharp-vertex ownership.'
+      ],
+      bypassConditions: [
+        'Sharp authored vertices that fail smooth-continuity route to source-vertex join products.'
+      ],
+      limitations: [
+        'Must not fragment one dash into strips, radial slices, comb-like seams, or helper visible products.'
+      ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts'
       ],
       ownerStage: 'Stroke Geometry smooth-continuity product assembly',
-      allowedContributors: ['smooth-continuity dash body product', 'declared same-owner smooth-span descriptor'],
-      forbiddenContributors: ['source-vertex join product', 'visible seam-repair product', 'visible construction/helper product', 'disconnected strip product'],
-      evidenceRequired: ['smooth-continuity group id', 'tangent-continuity proof', 'single continuous footprint proof'],
+      allowedContributors: [
+        'smooth-continuity dash body product',
+        'declared same-owner smooth-span descriptor'
+      ],
+      forbiddenContributors: [
+        'source-vertex join product',
+        'visible seam-repair product',
+        'visible construction/helper product',
+        'disconnected strip product'
+      ],
+      evidenceRequired: [
+        'smooth-continuity group id',
+        'tangent-continuity proof',
+        'single continuous footprint proof'
+      ],
       failureReopensStep: 'build-smooth-continuity-products',
       verificationEvidence: {
         gateName: 'protocol plus step 30 unit gate',
@@ -2752,19 +3060,47 @@
     'select-stroke-descriptor-strategy': {
       latestRule:
         'Descriptor strategy selection records descriptor eligibility, legal-basis requirements, owner boundaries, and channel intent only; it does not materialize renderer-ready descriptors.',
-      inputs: ['pre-legality product units or descriptor-eligible strategy evidence', 'descriptor route kind', 'required legal basis', 'output channel intent'],
-      outputs: ['descriptor strategy records with required legality basis and owner-boundary metadata'],
-      conditions: ['Run when a product route may later be encoded as a descriptor after legality or when legality-equivalence can be proven.'],
-      bypassConditions: ['If descriptor eligibility cannot be proven, later visible render uses canonical product packets after legality.'],
-      limitations: ['Must not consume post-legality artifacts before legality exists, must not emit renderer-ready descriptors, and must not promote evidence polygons as visible paint.'],
+      inputs: [
+        'pre-legality product units or descriptor-eligible strategy evidence',
+        'descriptor route kind',
+        'required legal basis',
+        'output channel intent'
+      ],
+      outputs: [
+        'descriptor strategy records with required legality basis and owner-boundary metadata'
+      ],
+      conditions: [
+        'Run when a product route may later be encoded as a descriptor after legality or when legality-equivalence can be proven.'
+      ],
+      bypassConditions: [
+        'If descriptor eligibility cannot be proven, later visible render uses canonical product packets after legality.'
+      ],
+      limitations: [
+        'Must not consume post-legality artifacts before legality exists, must not emit renderer-ready descriptors, and must not promote evidence polygons as visible paint.'
+      ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/stroke-render-descriptor.ts'
       ],
       ownerStage: 'Stroke Geometry descriptor strategy selection',
-      allowedContributors: ['descriptor eligibility metadata', 'required legal-basis evidence', 'owner-boundary metadata'],
-      forbiddenContributors: ['renderer-ready descriptor', 'post-legality artifact consumption before apply-legality', 'descriptor evidence as visible paint', 'renderer-local join completion'],
-      evidenceRequired: ['descriptor route kind', 'required legality basis', 'visible/evidence channel intent', 'product-builder id', 'owner-boundary split proof'],
+      allowedContributors: [
+        'descriptor eligibility metadata',
+        'required legal-basis evidence',
+        'owner-boundary metadata'
+      ],
+      forbiddenContributors: [
+        'renderer-ready descriptor',
+        'post-legality artifact consumption before apply-legality',
+        'descriptor evidence as visible paint',
+        'renderer-local join completion'
+      ],
+      evidenceRequired: [
+        'descriptor route kind',
+        'required legality basis',
+        'visible/evidence channel intent',
+        'product-builder id',
+        'owner-boundary split proof'
+      ],
       failureReopensStep: 'select-stroke-descriptor-strategy',
       verificationEvidence: {
         gateName: 'protocol plus step 31 unit gate',
@@ -2780,19 +3116,47 @@
     'materialize-stroke-product-descriptors': {
       latestRule:
         'Descriptor materialization encodes final-face, post-legality, or explicitly legality-equivalent product records as renderer-ready descriptors without changing ownership.',
-      inputs: ['finalFaces', 'post-legality product units or legality-equivalent product units', 'descriptor strategy records', 'output channel separation'],
-      outputs: ['renderer-ready product descriptors with channel and owner metadata'],
-      conditions: ['Run only after final-face legality records exist and descriptor equivalence to the canonical product can be proven.'],
-      bypassConditions: ['If equivalence cannot be proven, render entries consume canonical final-face packets instead of descriptors.'],
-      limitations: ['Must not consume raw pre-legality products without legality-equivalence evidence, aggregate source-path replay, or evidence polygons as visible paint.'],
+      inputs: [
+        'finalFaces',
+        'post-legality product units or legality-equivalent product units',
+        'descriptor strategy records',
+        'output channel separation'
+      ],
+      outputs: [
+        'renderer-ready product descriptors with channel and owner metadata'
+      ],
+      conditions: [
+        'Run only after final-face legality records exist and descriptor equivalence to the canonical product can be proven.'
+      ],
+      bypassConditions: [
+        'If equivalence cannot be proven, render entries consume canonical final-face packets instead of descriptors.'
+      ],
+      limitations: [
+        'Must not consume raw pre-legality products without legality-equivalence evidence, aggregate source-path replay, or evidence polygons as visible paint.'
+      ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/stroke-render-descriptor.ts'
       ],
       ownerStage: 'Product Output descriptor materialization',
-      allowedContributors: ['final-face records', 'post-legality product units', 'legality-equivalent product units', 'evidence-only descriptor metadata'],
-      forbiddenContributors: ['pre-legality product without equivalence proof', 'descriptor evidence as visible paint', 'renderer-local join completion'],
-      evidenceRequired: ['descriptor route kind', 'legality basis', 'visible/evidence channel split', 'product-builder id', 'final-face id'],
+      allowedContributors: [
+        'final-face records',
+        'post-legality product units',
+        'legality-equivalent product units',
+        'evidence-only descriptor metadata'
+      ],
+      forbiddenContributors: [
+        'pre-legality product without equivalence proof',
+        'descriptor evidence as visible paint',
+        'renderer-local join completion'
+      ],
+      evidenceRequired: [
+        'descriptor route kind',
+        'legality basis',
+        'visible/evidence channel split',
+        'product-builder id',
+        'final-face id'
+      ],
       failureReopensStep: 'materialize-stroke-product-descriptors',
       verificationEvidence: {
         gateName: 'protocol plus step 36 unit gate',
@@ -3192,12 +3556,12 @@
         'Descriptor-visible routes may bypass polygon collapse because the descriptor already encodes the exact visible product.',
         'Polygon collapse is allowed only for same-owner ordinary coverage while preserving required provenance.'
       ],
-	      limitations: [
-	        'Render entries may not join terminal/source-path descriptor paths across source-vertex ownership boundaries unless the route declares legal same-owner smooth continuity.',
-	        'Render entries may not make strokePathStyle.join the visible owner for an authored sharp constrained solid source vertex.',
-	        'Render entries may not promote descriptorProductPolygons to strokeMaskPolygons when strokePathGroups own visible output.',
-	        'Render entries must decide same-paint single-composite or equivalent alpha-safe evidence before renderer projection; renderer projection may not make this decision.'
-	      ],
+      limitations: [
+        'Render entries may not join terminal/source-path descriptor paths across source-vertex ownership boundaries unless the route declares legal same-owner smooth continuity.',
+        'Render entries may not make strokePathStyle.join the visible owner for an authored sharp constrained solid source vertex.',
+        'Render entries may not promote descriptorProductPolygons to strokeMaskPolygons when strokePathGroups own visible output.',
+        'Render entries must decide same-paint single-composite or equivalent alpha-safe evidence before renderer projection; renderer projection may not make this decision.'
+      ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
         'packages/preset/src/components/vector.ts'
@@ -3221,12 +3585,12 @@
         'duplicate interval paint from aggregate descriptors'
       ],
       evidenceRequired: [
-	        'visible descriptor route',
-	        'strokePathStyle closed, cap, join, and rendererMiterLimit values',
-	        'fillClip and fillExclude separation',
-	        'descriptorProductPolygons evidence-only reason when strokePathGroups exist',
-	        'same-paint single-composite or alpha-safe equivalence evidence when visible entries overlap'
-	      ],
+        'visible descriptor route',
+        'strokePathStyle closed, cap, join, and rendererMiterLimit values',
+        'fillClip and fillExclude separation',
+        'descriptorProductPolygons evidence-only reason when strokePathGroups exist',
+        'same-paint single-composite or alpha-safe equivalence evidence when visible entries overlap'
+      ],
       failureReopensStep: 'render-entries',
       verificationEvidence: {
         gateName: 'protocol plus step 38 unit gate',
@@ -3446,7 +3810,7 @@
       requiredAdjustment:
         'Keep runtime diagnostics outside visible product, hit/export, and renderer projection ownership. Any diagnostic output used to repair geometry reopens the earliest upstream owner stage that owns the missing canonical product data.',
       tags: ['diagnostics']
-    },
+    }
   }
 
   const laneRows = new Map()
@@ -3488,16 +3852,15 @@
       id === 'shared-geometry-model'
         ? 'Shared geometry remains the canonical evidence source for fill, stroke, hit/export, diagnostics, and future shadow.'
         : 'Preserve upstream contracts and do not invent local stroke/vector rules in this step.'
-    const ruleRefs =
-      override.ruleRefs ?? defaultRuleRefsByGroup[group] ?? [ruleId(0)]
-    const verificationEvidence =
-      override.verificationEvidence ?? {
-        gateName: 'pending inspector-step unit gate',
-        testFile: unitTestFile,
-        status: 'pending-schema-repair',
-        artifactPath: 'pending',
-        verifiedAt: 'pending'
-      }
+    const ruleRefs = override.ruleRefs ??
+      defaultRuleRefsByGroup[group] ?? [ruleId(0)]
+    const verificationEvidence = override.verificationEvidence ?? {
+      gateName: 'pending inspector-step unit gate',
+      testFile: unitTestFile,
+      status: 'pending-schema-repair',
+      artifactPath: 'pending',
+      verifiedAt: 'pending'
+    }
     return {
       id,
       stepIndex: index,
@@ -3627,10 +3990,13 @@
   const routeArtifact = (stepId) => `stage:${stepId}`
   const predicate = (field, op, value) => ({ field, op, value })
   const allOf = (...predicates) => ({ all: predicates })
-  const anyOf = (...predicates) => ({ any: predicates })
   const not = (predicateShape) => ({ not: predicateShape })
   const inputPredicate = (input) =>
-    predicate(`source.${String(input).replace(/[^a-z0-9]+/gi, '-')}`, 'provided', true)
+    predicate(
+      `source.${String(input).replace(/[^a-z0-9]+/gi, '-')}`,
+      'provided',
+      true
+    )
   const route = ({
     id,
     from,
@@ -3689,7 +4055,8 @@
     const resolvedParallelGroup =
       parallelGroup ?? (routeType === 'parallel' ? exclusiveGroup : 'none')
     const resolvedCoExecutionGroup =
-      coExecutionGroup ?? (routeType === 'parallel' ? resolvedParallelGroup : 'none')
+      coExecutionGroup ??
+      (routeType === 'parallel' ? resolvedParallelGroup : 'none')
     return {
       id,
       from,
@@ -3804,7 +4171,11 @@
       routePriority: 20,
       conditionKind: 'when',
       conditionId: 'dirty:source-drag',
-      predicateInputs: ['source.revisionChanged', 'stroke.staticParameterChanged', 'stroke.paintChanged'],
+      predicateInputs: [
+        'source.revisionChanged',
+        'stroke.staticParameterChanged',
+        'stroke.paintChanged'
+      ],
       when: allOf(
         predicate('source.revisionChanged', 'equals', true),
         predicate('stroke.staticParameterChanged', 'equals', false),
@@ -3861,7 +4232,11 @@
       routePriority: 10,
       conditionKind: 'when',
       conditionId: 'cache:paint-only-retint',
-      predicateInputs: ['stroke.paintChanged', 'cache.semanticProductMatch', 'stroke.geometryChanged'],
+      predicateInputs: [
+        'stroke.paintChanged',
+        'cache.semanticProductMatch',
+        'stroke.geometryChanged'
+      ],
       when: allOf(
         predicate('stroke.paintChanged', 'equals', true),
         predicate('cache.semanticProductMatch', 'equals', true),
@@ -3899,7 +4274,10 @@
         'apply-legality',
         'build-resolved-stroke-regions'
       ],
-      dirtyDependencies: ['stroke.fill paint revision', 'render output revision'],
+      dirtyDependencies: [
+        'stroke.fill paint revision',
+        'render output revision'
+      ],
       cacheKeyInputs: [
         'source revision',
         'topology/domain signature',
@@ -3945,7 +4323,10 @@
       ownerStage: 'Render Mirror stage product cache',
       failureReopensStep: 'stage-product-cache',
       inputs: ['stage dirty keys', 'normalized stroke.fill.visible:false'],
-      consumes: [routeArtifact('stage-product-cache'), 'dirty:visibility-hidden'],
+      consumes: [
+        routeArtifact('stage-product-cache'),
+        'dirty:visibility-hidden'
+      ],
       produces: [
         routeArtifact('emit-render-hit-export-packets'),
         'output:hidden-render-packets'
@@ -3998,7 +4379,11 @@
       routePriority: 20,
       conditionKind: 'when',
       conditionId: 'cache:verified-product-descriptor-hit',
-      predicateInputs: ['cache.verifiedProductDescriptor', 'cache.dependencySignatureMatch', 'channel.output'],
+      predicateInputs: [
+        'cache.verifiedProductDescriptor',
+        'cache.dependencySignatureMatch',
+        'channel.output'
+      ],
       when: allOf(
         predicate('cache.verifiedProductDescriptor', 'equals', true),
         predicate('cache.dependencySignatureMatch', 'equals', true),
@@ -4080,7 +4465,10 @@
       predicateInputs: ['stroke.position', 'dash.present', 'domain.mode'],
       when: allOf(
         predicate('stroke.position', 'equals', 'center'),
-        predicate('domain.mode', 'in', ['center-product', 'open-center-product'])
+        predicate('domain.mode', 'in', [
+          'center-product',
+          'open-center-product'
+        ])
       ),
       condition:
         'Normalized stroke position and domain mode select the center product family.',
@@ -4091,7 +4479,11 @@
       inputs: ['normalized stroke position', 'domain mode', 'dash presence'],
       consumes: [routeArtifact('select-stroke-product-family')],
       produces: [routeArtifact('build-center-stroke-products')],
-      dirtyDependencies: ['stroke position signature', 'domain mode signature', 'dash presence'],
+      dirtyDependencies: [
+        'stroke position signature',
+        'domain mode signature',
+        'dash presence'
+      ],
       cacheKeyInputs: ['stroke position', 'domain mode', 'dash presence'],
       limitations: [
         'Selection does not build geometry or choose renderer descriptor shape.'
@@ -4129,17 +4521,30 @@
         'Constrained solid product family selected; doubled-center products are built before legality clipping.',
       ownerStage: 'Stroke Geometry product family selection',
       failureReopensStep: 'select-stroke-product-family',
-      inputs: ['normalized stroke position', 'dash presence:false', 'domain mode'],
+      inputs: [
+        'normalized stroke position',
+        'dash presence:false',
+        'domain mode'
+      ],
       consumes: [routeArtifact('select-stroke-product-family')],
       produces: [routeArtifact('build-constrained-solid-products')],
-      dirtyDependencies: ['stroke position signature', 'domain mode signature', 'dash presence'],
+      dirtyDependencies: [
+        'stroke position signature',
+        'domain mode signature',
+        'dash presence'
+      ],
       cacheKeyInputs: ['stroke position', 'domain mode', 'dash presence'],
       limitations: [
         'Selection does not decide source-vertex join shape or legal clipping output.'
       ],
-      allowedContributors: ['normalized constrained solid product family evidence'],
+      allowedContributors: [
+        'normalized constrained solid product family evidence'
+      ],
       forbiddenContributors: ['visible geometry', 'renderer projection output'],
-      evidenceRequired: ['product family:constrained-solid', 'predicate inputs'],
+      evidenceRequired: [
+        'product family:constrained-solid',
+        'predicate inputs'
+      ],
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#asyra-stroke-construction-baseline'
       ]
@@ -4170,17 +4575,30 @@
         'Constrained dashed interval-body route selected; source-vertex join, terminal body, smooth-continuity, and descriptor routes may co-execute from the same family.',
       ownerStage: 'Stroke Geometry product family selection',
       failureReopensStep: 'select-stroke-product-family',
-      inputs: ['normalized stroke position', 'dash presence:true', 'domain mode'],
+      inputs: [
+        'normalized stroke position',
+        'dash presence:true',
+        'domain mode'
+      ],
       consumes: [routeArtifact('select-stroke-product-family')],
       produces: [routeArtifact('build-dash-interval-body-products')],
-      dirtyDependencies: ['stroke position signature', 'domain mode signature', 'dash presence'],
+      dirtyDependencies: [
+        'stroke position signature',
+        'domain mode signature',
+        'dash presence'
+      ],
       cacheKeyInputs: ['stroke position', 'domain mode', 'dash presence'],
       limitations: [
         'Selection does not build dash body geometry, join geometry, terminal body geometry, or descriptors.'
       ],
-      allowedContributors: ['normalized constrained dashed product family evidence'],
+      allowedContributors: [
+        'normalized constrained dashed product family evidence'
+      ],
       forbiddenContributors: ['visible geometry', 'renderer projection output'],
-      evidenceRequired: ['product family:constrained-dashed', 'predicate inputs'],
+      evidenceRequired: [
+        'product family:constrained-dashed',
+        'predicate inputs'
+      ],
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#asyra-stroke-construction-baseline',
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#dash-body-and-join-seam-contract'
@@ -4228,7 +4646,10 @@
       routePriority: 30,
       conditionKind: 'when',
       conditionId: 'center-products:source-vertex-joins',
-      predicateInputs: ['join.requiresSourceVertexProduct', 'source.tangentContinuity'],
+      predicateInputs: [
+        'join.requiresSourceVertexProduct',
+        'source.tangentContinuity'
+      ],
       when: allOf(
         predicate('join.requiresSourceVertexProduct', 'equals', true),
         not(predicate('source.tangentContinuity', 'equals', true))
@@ -4239,7 +4660,10 @@
         'Source-vertex join product step receives center authored vertex ownership evidence.',
       ownerStage: 'Stroke Geometry center product assembly',
       failureReopensStep: 'build-center-stroke-products',
-      inputs: ['center product family route', 'source vertex ownership evidence'],
+      inputs: [
+        'center product family route',
+        'source vertex ownership evidence'
+      ],
       consumes: [routeArtifact('build-center-stroke-products')],
       produces: [routeArtifact('build-source-vertex-join-products')],
       dirtyDependencies: ['join/miter signature', 'source tangent signature'],
@@ -4267,7 +4691,10 @@
       routePriority: 30,
       conditionKind: 'when',
       conditionId: 'constrained-solid-products:source-vertex-joins',
-      predicateInputs: ['join.requiresSourceVertexProduct', 'source.tangentContinuity'],
+      predicateInputs: [
+        'join.requiresSourceVertexProduct',
+        'source.tangentContinuity'
+      ],
       when: allOf(
         predicate('join.requiresSourceVertexProduct', 'equals', true),
         not(predicate('source.tangentContinuity', 'equals', true))
@@ -4278,17 +4705,38 @@
         'Source-vertex join product step receives constrained solid authored vertex ownership evidence.',
       ownerStage: 'Stroke Geometry constrained solid product assembly',
       failureReopensStep: 'build-constrained-solid-products',
-      inputs: ['constrained solid product route', 'source vertex ownership evidence'],
+      inputs: [
+        'constrained solid product route',
+        'source vertex ownership evidence'
+      ],
       consumes: [routeArtifact('build-constrained-solid-products')],
       produces: [routeArtifact('build-source-vertex-join-products')],
-      dirtyDependencies: ['join/miter signature', 'source tangent signature', 'legal-side signature'],
-      cacheKeyInputs: ['source vertex id', 'legal side', 'authored join', 'miterAngle'],
+      dirtyDependencies: [
+        'join/miter signature',
+        'source tangent signature',
+        'legal-side signature'
+      ],
+      cacheKeyInputs: [
+        'source vertex id',
+        'legal side',
+        'authored join',
+        'miterAngle'
+      ],
       limitations: [
         'Legal masks may clip later; they do not dispatch or define join shape here.'
       ],
-      allowedContributors: ['constrained solid source-vertex ownership evidence'],
-      forbiddenContributors: ['clipped legal-side angle', 'renderer stroke join'],
-      evidenceRequired: ['source vertex id', 'legal side', 'join dispatch reason'],
+      allowedContributors: [
+        'constrained solid source-vertex ownership evidence'
+      ],
+      forbiddenContributors: [
+        'clipped legal-side angle',
+        'renderer stroke join'
+      ],
+      evidenceRequired: [
+        'source vertex id',
+        'legal side',
+        'join dispatch reason'
+      ],
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#asyra-join-resolution-baseline',
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#source-domain-angle-evidence'
@@ -4306,7 +4754,10 @@
       routePriority: 30,
       conditionKind: 'when',
       conditionId: 'constrained-dashed-products:source-vertex-joins',
-      predicateInputs: ['join.requiresSourceVertexProduct', 'dash.incidentBodyCoverage'],
+      predicateInputs: [
+        'join.requiresSourceVertexProduct',
+        'dash.incidentBodyCoverage'
+      ],
       when: allOf(
         predicate('join.requiresSourceVertexProduct', 'equals', true),
         predicate('dash.incidentBodyCoverage', 'equals', true)
@@ -4327,7 +4778,11 @@
         'artifact:dash-body-seam-boundary'
       ],
       produces: [routeArtifact('build-source-vertex-join-products')],
-      dirtyDependencies: ['dash interval allocation signature', 'join/miter signature', 'legal-side signature'],
+      dirtyDependencies: [
+        'dash interval allocation signature',
+        'join/miter signature',
+        'legal-side signature'
+      ],
       cacheKeyInputs: [
         'dash interval ids',
         'source vertex id',
@@ -4340,7 +4795,11 @@
         'This route may not recompute, relocate, or synthesize dash seam boundaries while dispatching Step 28.'
       ],
       allowedContributors: ['incident dash seam evidence'],
-      forbiddenContributors: ['endpoint cap repair', 'terminal overhang repair', 'duplicate interval paint'],
+      forbiddenContributors: [
+        'endpoint cap repair',
+        'terminal overhang repair',
+        'duplicate interval paint'
+      ],
       evidenceRequired: [
         'incident dash seam boundary ids',
         'dash body seam boundary artifact ids',
@@ -4376,13 +4835,21 @@
         'Terminal body product step receives terminal interval and endpoint cap policy evidence.',
       ownerStage: 'Stroke Geometry dashed interval body assembly',
       failureReopensStep: 'build-dash-interval-body-products',
-      inputs: ['terminal DashProductInterval', 'endpoint cap policy', 'dash body seam boundary artifacts'],
+      inputs: [
+        'terminal DashProductInterval',
+        'endpoint cap policy',
+        'dash body seam boundary artifacts'
+      ],
       consumes: [
         routeArtifact('build-dash-interval-body-products'),
         'artifact:dash-body-seam-boundary'
       ],
       produces: [routeArtifact('build-terminal-body-products')],
-      dirtyDependencies: ['dash interval allocation signature', 'terminal cap signature', 'legal-side signature'],
+      dirtyDependencies: [
+        'dash interval allocation signature',
+        'terminal cap signature',
+        'legal-side signature'
+      ],
       cacheKeyInputs: [
         'terminal interval id',
         'terminal role',
@@ -4394,7 +4861,10 @@
         'This route may not recompute, relocate, or synthesize dash seam boundaries while dispatching Step 29.'
       ],
       allowedContributors: ['terminal interval ownership evidence'],
-      forbiddenContributors: ['source-vertex apex coverage', 'endpoint-side cap repair'],
+      forbiddenContributors: [
+        'source-vertex apex coverage',
+        'endpoint-side cap repair'
+      ],
       evidenceRequired: [
         'terminal role',
         'endpoint cap policy',
@@ -4432,14 +4902,28 @@
       inputs: ['smooth-continuity group', 'curve coverage evidence'],
       consumes: [routeArtifact('build-dash-interval-body-products')],
       produces: [routeArtifact('build-smooth-continuity-products')],
-      dirtyDependencies: ['dash interval allocation signature', 'smooth-continuity signature', 'legal-side signature'],
-      cacheKeyInputs: ['smooth-continuity group id', 'dash interval id', 'curve sample signature'],
+      dirtyDependencies: [
+        'dash interval allocation signature',
+        'smooth-continuity signature',
+        'legal-side signature'
+      ],
+      cacheKeyInputs: [
+        'smooth-continuity group id',
+        'dash interval id',
+        'curve sample signature'
+      ],
       limitations: [
         'High curvature is not a join trigger; this route must not dispatch source-vertex join ownership.'
       ],
       allowedContributors: ['smooth-continuity evidence'],
-      forbiddenContributors: ['source-vertex join ownership', 'radial slice repair'],
-      evidenceRequired: ['smooth-continuity group id', 'tangent-continuity proof'],
+      forbiddenContributors: [
+        'source-vertex join ownership',
+        'radial slice repair'
+      ],
+      evidenceRequired: [
+        'smooth-continuity group id',
+        'tangent-continuity proof'
+      ],
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#smooth-curvature-non-join-contract'
       ]
@@ -4470,20 +4954,44 @@
         'Descriptor strategy step receives descriptor eligibility, required legal basis, owner-boundary, and output-channel intent evidence.',
       ownerStage: 'Stroke Geometry dashed interval body assembly',
       failureReopensStep: 'build-dash-interval-body-products',
-      inputs: ['product units', 'descriptor route kind', 'required legality basis'],
+      inputs: [
+        'product units',
+        'descriptor route kind',
+        'required legality basis'
+      ],
       consumes: [routeArtifact('build-dash-interval-body-products')],
       produces: [
         routeArtifact('select-stroke-descriptor-strategy'),
         'artifact:descriptorStrategyRecords'
       ],
-      dirtyDependencies: ['descriptor-mode signature', 'legal-side signature', 'dash interval allocation signature'],
-      cacheKeyInputs: ['descriptor mode', 'required legality basis', 'dash interval ids'],
+      dirtyDependencies: [
+        'descriptor-mode signature',
+        'legal-side signature',
+        'dash interval allocation signature'
+      ],
+      cacheKeyInputs: [
+        'descriptor mode',
+        'required legality basis',
+        'dash interval ids'
+      ],
       limitations: [
         'Descriptor strategy selection must not materialize renderer-ready descriptors or consume post-legality artifacts before apply-legality has run.'
       ],
-      allowedContributors: ['descriptor eligibility metadata', 'required legal-basis evidence'],
-      forbiddenContributors: ['renderer-ready descriptor', 'post-legality artifact consumption before legality', 'evidence polygons as visible paint'],
-      evidenceRequired: ['descriptor route kind', 'required legality basis', 'product unit ids', 'owner-boundary split proof'],
+      allowedContributors: [
+        'descriptor eligibility metadata',
+        'required legal-basis evidence'
+      ],
+      forbiddenContributors: [
+        'renderer-ready descriptor',
+        'post-legality artifact consumption before legality',
+        'evidence polygons as visible paint'
+      ],
+      evidenceRequired: [
+        'descriptor route kind',
+        'required legality basis',
+        'product unit ids',
+        'owner-boundary split proof'
+      ],
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#product-legality-and-descriptor-encoding'
       ]
@@ -4575,8 +5083,15 @@
       ],
       consumes: [routeArtifact('build-center-stroke-products')],
       produces: [routeArtifact('build-final-faces'), 'artifact:finalFaces'],
-      dirtyDependencies: ['center dash interval signature', 'descriptor-mode signature'],
-      cacheKeyInputs: ['stroke position', 'dash interval allocation signature', 'descriptor mode'],
+      dirtyDependencies: [
+        'center dash interval signature',
+        'descriptor-mode signature'
+      ],
+      cacheKeyInputs: [
+        'stroke position',
+        'dash interval allocation signature',
+        'descriptor mode'
+      ],
       allowedContributors: [
         'center DashProductInterval body',
         'true open endpoint cap when policy allows'
@@ -4619,8 +5134,14 @@
         'Else output must not substitute renderer path joins for canonical product packets.'
       ],
       allowedContributors: ['canonical center product packets'],
-      forbiddenContributors: ['renderer-local join repair', 'diagnostic/helper visible geometry'],
-      evidenceRequired: ['center product packet ids', 'descriptor non-match reason'],
+      forbiddenContributors: [
+        'renderer-local join repair',
+        'diagnostic/helper visible geometry'
+      ],
+      evidenceRequired: [
+        'center product packet ids',
+        'descriptor non-match reason'
+      ],
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#asyra-stroke-construction-baseline'
       ]
@@ -4635,7 +5156,12 @@
       routePriority: 30,
       conditionKind: 'when',
       conditionId: 'center-solid:source-vertex-join-footprint',
-      predicateInputs: ['stroke.position', 'dash.present', 'join.requiresSourceVertexProduct', 'source.tangentContinuity'],
+      predicateInputs: [
+        'stroke.position',
+        'dash.present',
+        'join.requiresSourceVertexProduct',
+        'source.tangentContinuity'
+      ],
       when: allOf(
         predicate('stroke.position', 'equals', 'center'),
         predicate('dash.present', 'equals', false),
@@ -4656,8 +5182,17 @@
       ],
       consumes: [routeArtifact('build-source-vertex-join-products')],
       produces: [routeArtifact('build-final-faces'), 'artifact:finalFaces'],
-      dirtyDependencies: ['source tangent signature', 'join/miter signature', 'center product signature'],
-      cacheKeyInputs: ['source vertex id', 'stroke position', 'authored join', 'miterAngle'],
+      dirtyDependencies: [
+        'source tangent signature',
+        'join/miter signature',
+        'center product signature'
+      ],
+      cacheKeyInputs: [
+        'source vertex id',
+        'stroke position',
+        'authored join',
+        'miterAngle'
+      ],
       limitations: [
         'Endpoint caps may close only true open path endpoints.',
         'No terminal body, aggregate descriptor, render cover, helper polygon, or post-boolean footprint may complete a center authored sharp vertex.'
@@ -4751,7 +5286,13 @@
       routePriority: 45,
       conditionKind: 'when',
       conditionId: 'constrained-solid:source-vertex-join-footprint',
-      predicateInputs: ['stroke.position', 'dash.present', 'join.requiresSourceVertexProduct', 'source.tangentContinuity', 'domain.legalSide'],
+      predicateInputs: [
+        'stroke.position',
+        'dash.present',
+        'join.requiresSourceVertexProduct',
+        'source.tangentContinuity',
+        'domain.legalSide'
+      ],
       when: allOf(
         predicate('stroke.position', 'in', ['inside', 'outside']),
         predicate('dash.present', 'equals', false),
@@ -4822,7 +5363,13 @@
       routePriority: 50,
       conditionKind: 'when',
       conditionId: 'constrained-solid:same-owner-smooth-span-descriptor',
-      predicateInputs: ['stroke.position', 'dash.present', 'source.tangentContinuity', 'descriptor.mode', 'descriptor.ownerBoundarySplit'],
+      predicateInputs: [
+        'stroke.position',
+        'dash.present',
+        'source.tangentContinuity',
+        'descriptor.mode',
+        'descriptor.ownerBoundarySplit'
+      ],
       when: allOf(
         predicate('stroke.position', 'in', ['inside', 'outside']),
         predicate('dash.present', 'equals', false),
@@ -4851,8 +5398,16 @@
       ],
       consumes: [routeArtifact('build-smooth-continuity-products')],
       produces: [routeArtifact('build-final-faces'), 'artifact:finalFaces'],
-      dirtyDependencies: ['smooth-continuity signature', 'descriptor-mode signature', 'legal-side signature'],
-      cacheKeyInputs: ['smooth-continuity group id', 'descriptor mode', 'legal side'],
+      dirtyDependencies: [
+        'smooth-continuity signature',
+        'descriptor-mode signature',
+        'legal-side signature'
+      ],
+      cacheKeyInputs: [
+        'smooth-continuity group id',
+        'descriptor mode',
+        'legal side'
+      ],
       limitations: [
         'The descriptor must split or exclude authored sharp source-vertex ownership boundaries.',
         'The descriptor must not make strokePathStyle.join the visible owner of a constrained solid authored sharp vertex.',
@@ -4894,21 +5449,32 @@
       conditionKind: 'else',
       condition:
         'Else route: use canonical smooth-continuity product packets when exact smooth-span descriptor predicates do not apply.',
-      output:
-        'Smooth-continuity product packets proceed to legality clipping.',
+      output: 'Smooth-continuity product packets proceed to legality clipping.',
       ownerStage: 'Stroke Geometry smooth-continuity product assembly',
       failureReopensStep: 'build-smooth-continuity-products',
       inputs: ['smooth-continuity product packets'],
       consumes: [routeArtifact('build-smooth-continuity-products')],
-      produces: [routeArtifact('apply-legality'), 'artifact:preLegalityProductUnits'],
-      dirtyDependencies: ['smooth-continuity signature', 'legal-side signature'],
+      produces: [
+        routeArtifact('apply-legality'),
+        'artifact:preLegalityProductUnits'
+      ],
+      dirtyDependencies: [
+        'smooth-continuity signature',
+        'legal-side signature'
+      ],
       cacheKeyInputs: ['smooth-continuity group id', 'legal side'],
       limitations: [
         'Else output must not split one smooth dash into helper strips or route high curvature into join ownership.'
       ],
       allowedContributors: ['canonical smooth-continuity product packets'],
-      forbiddenContributors: ['source-vertex join ownership', 'visible construction/helper product'],
-      evidenceRequired: ['smooth-continuity product ids', 'descriptor non-match reason'],
+      forbiddenContributors: [
+        'source-vertex join ownership',
+        'visible construction/helper product'
+      ],
+      evidenceRequired: [
+        'smooth-continuity product ids',
+        'descriptor non-match reason'
+      ],
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#smooth-curvature-non-join-contract'
       ]
@@ -5014,8 +5580,10 @@
       metricAssertions: [
         {
           id: 'dash-body-stops-at-declared-seam-endpoint',
-          tolerance: 'same Step 27 seam endpoint identity; coordinate epsilon only for serializing the same endpoint id',
-          evidence: 'terminal seam boundary id plus endpoint-on-product-boundary proof'
+          tolerance:
+            'same Step 27 seam endpoint identity; coordinate epsilon only for serializing the same endpoint id',
+          evidence:
+            'terminal seam boundary id plus endpoint-on-product-boundary proof'
         }
       ],
       specRuleRefs: [
@@ -5128,8 +5696,10 @@
       metricAssertions: [
         {
           id: 'dash-join-shared-seam-endpoint-identity',
-          tolerance: 'same Step 27 seam endpoint identity; coordinate epsilon only for serializing the same endpoint id',
-          evidence: 'dash body terminal polygon and source-vertex join polygon reference the same incident seam boundary endpoint ids'
+          tolerance:
+            'same Step 27 seam endpoint identity; coordinate epsilon only for serializing the same endpoint id',
+          evidence:
+            'dash body terminal polygon and source-vertex join polygon reference the same incident seam boundary endpoint ids'
         }
       ],
       specRuleRefs: [
@@ -5426,15 +5996,24 @@
       failureReopensStep: 'select-stroke-descriptor-strategy',
       inputs: ['canonical product packets', 'descriptor non-match reason'],
       consumes: [routeArtifact('select-stroke-descriptor-strategy')],
-      produces: [routeArtifact('apply-legality'), 'artifact:preLegalityProductUnits'],
+      produces: [
+        routeArtifact('apply-legality'),
+        'artifact:preLegalityProductUnits'
+      ],
       dirtyDependencies: ['descriptor-mode signature', 'product unit ids'],
       cacheKeyInputs: ['descriptor mode', 'product unit ids'],
       limitations: [
         'Else output must not promote descriptor evidence polygons to visible output or materialize renderer descriptors before legality.'
       ],
       allowedContributors: ['canonical product packets'],
-      forbiddenContributors: ['descriptor evidence as visible paint', 'renderer-local join completion'],
-      evidenceRequired: ['descriptor non-match reason', 'canonical product packet ids'],
+      forbiddenContributors: [
+        'descriptor evidence as visible paint',
+        'renderer-local join completion'
+      ],
+      evidenceRequired: [
+        'descriptor non-match reason',
+        'canonical product packet ids'
+      ],
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#product-legality-and-descriptor-encoding'
       ]
@@ -5449,7 +6028,12 @@
       routePriority: 20,
       conditionKind: 'when',
       conditionId: 'render-entry:inside-mask-descriptor',
-      predicateInputs: ['stroke.position', 'dash.present', 'descriptor.mode', 'domain.mode'],
+      predicateInputs: [
+        'stroke.position',
+        'dash.present',
+        'descriptor.mode',
+        'domain.mode'
+      ],
       when: allOf(
         predicate('stroke.position', 'equals', 'inside'),
         predicate('dash.present', 'equals', true),
@@ -5509,12 +6093,21 @@
       routePriority: 30,
       conditionKind: 'when',
       conditionId: 'render-entry:outside-source-domain-descriptor',
-      predicateInputs: ['stroke.position', 'dash.present', 'descriptor.mode', 'descriptor.geometryBasis'],
+      predicateInputs: [
+        'stroke.position',
+        'dash.present',
+        'descriptor.mode',
+        'descriptor.geometryBasis'
+      ],
       when: allOf(
         predicate('stroke.position', 'equals', 'outside'),
         predicate('dash.present', 'equals', true),
         predicate('descriptor.mode', 'in', ['strokePathGroups', 'strokePaths']),
-        predicate('descriptor.geometryBasis', 'equals', 'source-adjacent-outside-band')
+        predicate(
+          'descriptor.geometryBasis',
+          'equals',
+          'source-adjacent-outside-band'
+        )
       ),
       condition:
         'Constrained outside dashed descriptor represents a source-adjacent outside band, not an outer ribbon-edge replay.',
@@ -5564,7 +6157,12 @@
       routePriority: 40,
       conditionKind: 'when',
       conditionId: 'render-entry:outside-aggregate-descriptor',
-      predicateInputs: ['stroke.position', 'dash.present', 'descriptor.mode', 'descriptor.ownerClass'],
+      predicateInputs: [
+        'stroke.position',
+        'dash.present',
+        'descriptor.mode',
+        'descriptor.ownerClass'
+      ],
       when: allOf(
         predicate('stroke.position', 'equals', 'outside'),
         predicate('dash.present', 'equals', true),
@@ -5615,7 +6213,11 @@
       routePriority: 35,
       conditionKind: 'when',
       conditionId: 'domain:open-dangling-outside-both-sides',
-      predicateInputs: ['stroke.position', 'domain.mode', 'source.hasDanglingOpenBranch'],
+      predicateInputs: [
+        'stroke.position',
+        'domain.mode',
+        'source.hasDanglingOpenBranch'
+      ],
       when: allOf(
         predicate('stroke.position', 'equals', 'outside'),
         predicate('domain.mode', 'equals', 'open-dangling-outside-both-sides'),
@@ -5666,7 +6268,11 @@
         'Post-legality product units and legality evidence for final semantic stroke records.',
       ownerStage: 'Stroke Geometry legality clipping',
       failureReopensStep: 'apply-legality',
-      inputs: ['preLegalityProductUnits', 'legal domain ids', 'clip/exclude channel'],
+      inputs: [
+        'preLegalityProductUnits',
+        'legal domain ids',
+        'clip/exclude channel'
+      ],
       consumes: [
         routeArtifact('apply-legality'),
         'artifact:preLegalityProductUnits'
@@ -5676,13 +6282,28 @@
         'artifact:postLegalityProductUnits'
       ],
       dirtyDependencies: ['legal-domain signature', 'product unit ids'],
-      cacheKeyInputs: ['product unit ids', 'legal domain ids', 'clip/exclude route'],
+      cacheKeyInputs: [
+        'product unit ids',
+        'legal domain ids',
+        'clip/exclude route'
+      ],
       limitations: [
         'Legality clipping may not create missing joins, caps, terminal bodies, descriptors, or helper-visible geometry.'
       ],
-      allowedContributors: ['declared product units', 'legal clip/exclude domains'],
-      forbiddenContributors: ['new join geometry', 'new endpoint cap geometry', 'diagnostic/helper visible geometry'],
-      evidenceRequired: ['pre-legality product ids', 'post-legality product ids', 'legal-domain ids'],
+      allowedContributors: [
+        'declared product units',
+        'legal clip/exclude domains'
+      ],
+      forbiddenContributors: [
+        'new join geometry',
+        'new endpoint cap geometry',
+        'diagnostic/helper visible geometry'
+      ],
+      evidenceRequired: [
+        'pre-legality product ids',
+        'post-legality product ids',
+        'legal-domain ids'
+      ],
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#product-legality-and-descriptor-encoding'
       ]
@@ -5697,7 +6318,11 @@
       routePriority: 40,
       conditionKind: 'when',
       conditionId: 'render-entry:canonical-final-face',
-      predicateInputs: ['channel.finalFaces', 'channel.render', 'descriptor.materialized'],
+      predicateInputs: [
+        'channel.finalFaces',
+        'channel.render',
+        'descriptor.materialized'
+      ],
       when: allOf(
         predicate('channel.finalFaces', 'provided', true),
         predicate('channel.render', 'equals', true),
@@ -5737,7 +6362,11 @@
         'Same-paint overlap must be resolved as a single-composite render entry or carry equivalent alpha-safe evidence before renderer projection.'
       ],
       allowedContributors: ['canonical final-face product records'],
-      forbiddenContributors: ['renderer-local join repair', 'renderer-local cap repair', 'diagnostic/helper visible geometry'],
+      forbiddenContributors: [
+        'renderer-local join repair',
+        'renderer-local cap repair',
+        'diagnostic/helper visible geometry'
+      ],
       evidenceRequired: [
         'final-face id',
         'render channel id',
@@ -5759,10 +6388,19 @@
       routePriority: 20,
       conditionKind: 'when',
       conditionId: 'channel:final-face-output-packets',
-      predicateInputs: ['channel.finalFaces', 'channel.output', 'descriptor.materialized'],
+      predicateInputs: [
+        'channel.finalFaces',
+        'channel.output',
+        'descriptor.materialized'
+      ],
       when: allOf(
         predicate('channel.finalFaces', 'provided', true),
-        predicate('channel.output', 'in', ['render', 'hit', 'export', 'diagnostics']),
+        predicate('channel.output', 'in', [
+          'render',
+          'hit',
+          'export',
+          'diagnostics'
+        ]),
         predicate('descriptor.materialized', 'provided', true)
       ),
       condition:
@@ -5864,7 +6502,12 @@
       routePriority: 20,
       conditionKind: 'when',
       conditionId: 'renderer:merge-equivalent-render-entries',
-      predicateInputs: ['channel.renderEntries', 'render.ownerEquivalent', 'render.clipEquivalent', 'render.paintEquivalent'],
+      predicateInputs: [
+        'channel.renderEntries',
+        'render.ownerEquivalent',
+        'render.clipEquivalent',
+        'render.paintEquivalent'
+      ],
       when: allOf(
         predicate('channel.renderEntries', 'provided', true),
         predicate('render.ownerEquivalent', 'equals', true),
@@ -5880,7 +6523,10 @@
       inputs: ['renderer-ready render entries'],
       consumes: [routeArtifact('render-entries'), 'artifact:renderEntries'],
       produces: [routeArtifact('renderer-projection')],
-      dirtyDependencies: ['render-entry signature', 'projection backend signature'],
+      dirtyDependencies: [
+        'render-entry signature',
+        'projection backend signature'
+      ],
       cacheKeyInputs: [
         'render-entry ids',
         'projection backend id',
@@ -5944,7 +6590,11 @@
         'artifact:renderer-projection-diagnostic-snapshot'
       ],
       dirtyDependencies: ['render output revision', 'diagnostics mode'],
-      cacheKeyInputs: ['render entry ids', 'draw route type', 'diagnostics mode'],
+      cacheKeyInputs: [
+        'render entry ids',
+        'draw route type',
+        'diagnostics mode'
+      ],
       limitations: [
         'Diagnostics snapshot may not create render entries, hit/export packets, or repaired geometry.'
       ],
@@ -6001,8 +6651,16 @@
         routeArtifact('runtime-diagnostics'),
         'artifact:diagnosticSnapshots'
       ],
-      dirtyDependencies: ['diagnostics mode', 'render output revision', 'hit/export packet revision'],
-      cacheKeyInputs: ['diagnostics mode', 'render entry ids', 'hit/export packet ids'],
+      dirtyDependencies: [
+        'diagnostics mode',
+        'render output revision',
+        'hit/export packet revision'
+      ],
+      cacheKeyInputs: [
+        'diagnostics mode',
+        'render entry ids',
+        'hit/export packet ids'
+      ],
       limitations: [
         'Diagnostics aggregation must never create visible render geometry, hit/export source geometry, or repaired product packets.'
       ],
@@ -6226,7 +6884,9 @@
     {
       coExecutionGroup: 'coexec:center-product-units',
       owningDecisionGroup: 'decision:build-center-stroke-products',
-      requiredRouteIds: ['center-products-coexecute-source-vertex-join-products'],
+      requiredRouteIds: [
+        'center-products-coexecute-source-vertex-join-products'
+      ],
       completionArtifactIds: ['artifact:finalFaces'],
       downstreamBarrier: 'build-final-faces',
       semantics:
@@ -6329,7 +6989,9 @@
       coExecutionGroup: 'diagnostic-channel-consumer',
       owningDecisionGroup: 'decision:renderer-projection',
       requiredRouteIds: ['renderer-projection-diagnostics-snapshot'],
-      completionArtifactIds: ['artifact:renderer-projection-diagnostic-snapshot'],
+      completionArtifactIds: [
+        'artifact:renderer-projection-diagnostic-snapshot'
+      ],
       downstreamBarrier: 'runtime-diagnostics',
       semantics:
         'Renderer diagnostics consumers emit diagnostics-only metadata and cannot feed render, hit, export, or product ownership.',
@@ -6374,22 +7036,22 @@
   ].join('-')
   const retiredSingleProductGroupId = ['step', '24'].join('')
   const toNestedRoute = (candidate) => ({
-        id: candidate.id,
-        routeType: candidate.routeType,
-        decisionGroup: candidate.decisionGroup,
-        parallelGroup: candidate.parallelGroup,
-        coExecutionGroup: candidate.coExecutionGroup,
-        ownerStage: candidate.ownerStage,
-        visibleContributor: candidate.visibleContributor,
-        geometryBasis: candidate.geometryBasis,
-        consumes: candidate.consumes,
-        produces: candidate.produces,
-        allowedContributors: candidate.allowedContributors,
-        forbiddenContributors: candidate.forbiddenContributors,
-        evidenceRequired: candidate.evidenceRequired,
-        specRuleRefs: candidate.specRuleRefs,
-        metricAssertions: candidate.metricAssertions
-      })
+    id: candidate.id,
+    routeType: candidate.routeType,
+    decisionGroup: candidate.decisionGroup,
+    parallelGroup: candidate.parallelGroup,
+    coExecutionGroup: candidate.coExecutionGroup,
+    ownerStage: candidate.ownerStage,
+    visibleContributor: candidate.visibleContributor,
+    geometryBasis: candidate.geometryBasis,
+    consumes: candidate.consumes,
+    produces: candidate.produces,
+    allowedContributors: candidate.allowedContributors,
+    forbiddenContributors: candidate.forbiddenContributors,
+    evidenceRequired: candidate.evidenceRequired,
+    specRuleRefs: candidate.specRuleRefs,
+    metricAssertions: candidate.metricAssertions
+  })
   const nestedRoutesByStep = Object.fromEntries(
     splitProductStepIds.map((stepId) => [
       stepId,
@@ -6543,7 +7205,8 @@
     currentExecutionState.planStatus === 'inspector-flow-schema-repair-active'
   const refactorProtocolErrors = [
     schemaRepairActive &&
-    currentExecutionState.nextExecutableStepId !== 'inspector-schema-repair-gate'
+    currentExecutionState.nextExecutableStepId !==
+      'inspector-schema-repair-gate'
       ? 'schema repair mode must point nextExecutableStepId at inspector-schema-repair-gate'
       : null,
     schemaRepairActive && activeRefactorSteps.length !== 0
@@ -6594,11 +7257,15 @@
       : schemaRepairActive || hasActiveRefactorStep
         ? null
         : 'nextExecutableStepId must stop at the unit-complete checkpoint after all step units verify',
-    refactorProtocol.testConformancePolicy.includes('current stroke engine spec') &&
+    refactorProtocol.testConformancePolicy.includes(
+      'current stroke engine spec'
+    ) &&
     refactorProtocol.testConformancePolicy.includes('inspector step or route')
       ? null
       : 'test conformance policy must require current spec and inspector ownership mapping',
-    refactorProtocol.stepExecutionPolicy.includes('all 41 runtime inspector steps')
+    refactorProtocol.stepExecutionPolicy.includes(
+      'all 41 runtime inspector steps'
+    )
       ? null
       : 'step execution policy must require advancing through all 41 runtime inspector steps',
     refactorProtocol.stepRetryLimit === 3
@@ -6636,7 +7303,10 @@
   const runtimeImplementationActiveStepUnitTestFile =
     runtimeImplementationActiveStep?.unitTestFile ?? ''
   const runtimeImplementationActiveStepWorkspaceUnitTestFile =
-    runtimeImplementationActiveStepUnitTestFile.replace(/^packages\/preset\//, '')
+    runtimeImplementationActiveStepUnitTestFile.replace(
+      /^packages\/preset\//,
+      ''
+    )
   const runtimeVerifiedStepIds = Array.isArray(
     runtimeImplementationState.verifiedStepIds
   )
@@ -6720,7 +7390,8 @@
     )
       ? 'runtime implementation unit-complete phase must record all 41 runtime inspector steps verified'
       : null,
-    runtimeImplementationState.stepRetryLimit === refactorProtocol.stepRetryLimit
+    runtimeImplementationState.stepRetryLimit ===
+    refactorProtocol.stepRetryLimit
       ? null
       : 'runtime implementation stepRetryLimit must match refactorProtocol.stepRetryLimit',
     runtimeImplementationState.sequentialLockPolicy?.includes(
@@ -6728,7 +7399,9 @@
     )
       ? null
       : 'runtime implementation must document the first-unverified-step sequential lock policy',
-    runtimeImplementationState.lockedFuturePhases.includes('full package regression') &&
+    runtimeImplementationState.lockedFuturePhases.includes(
+      'full package regression'
+    ) &&
     runtimeImplementationState.lockedFuturePhases.includes('E2E') &&
     runtimeImplementationState.lockedFuturePhases.includes('visual review') &&
     runtimeImplementationState.lockedFuturePhases.includes('performance')
@@ -6737,7 +7410,9 @@
     runtimeImplementationState.evidenceRequired.includes(
       'implementation entry boundary mapping'
     ) &&
-    runtimeImplementationState.evidenceRequired.includes('protocol validator result') &&
+    runtimeImplementationState.evidenceRequired.includes(
+      'protocol validator result'
+    ) &&
     runtimeImplementationState.evidenceRequired.includes(
       'runtime verified step prefix ledger'
     )
@@ -6815,7 +7490,9 @@
     dashedSmoothContinuityRoute
       ? null
       : 'constrained-dashed-smooth-continuity-product route missing',
-    dashedSmoothContinuityRouteText.includes('High curvature alone must not create source-vertex join ownership')
+    dashedSmoothContinuityRouteText.includes(
+      'High curvature alone must not create source-vertex join ownership'
+    )
       ? null
       : 'constrained-dashed-smooth-continuity-product missing high-curvature non-join rule',
     dashedSmoothContinuityRouteText.includes('single continuous footprint')
@@ -6831,7 +7508,9 @@
         contributor.toLowerCase().includes('construction/helper')
       )
     )
-    .map((route) => `${route.id} allows a visible construction/helper contributor`)
+    .map(
+      (route) => `${route.id} allows a visible construction/helper contributor`
+    )
   const missingRouteTargets = conditionalRoutes
     .filter((route) => !stepById.has(route.from) || !stepById.has(route.to))
     .map((route) => route.id)
@@ -6840,8 +7519,14 @@
     .map((route) => `${route.id} has invalid routeType ${route.routeType}`)
   const routeElsePriorityErrors = conditionalRoutes
     .filter((route) => route.conditionKind === 'else')
-    .filter((route) => route.routePriority < 900 || !route.condition.includes('Else route'))
-    .map((route) => `${route.id} else route must use low priority and explicit else condition`)
+    .filter(
+      (route) =>
+        route.routePriority < 900 || !route.condition.includes('Else route')
+    )
+    .map(
+      (route) =>
+        `${route.id} else route must use low priority and explicit else condition`
+    )
   const routeTypedFieldErrors = conditionalRoutes.flatMap((route) => {
     const requiredArrays = [
       'consumes',
@@ -6851,7 +7536,9 @@
       'cacheKeyInputs'
     ]
     return requiredArrays
-      .filter((field) => !Array.isArray(route[field]) || route[field].length === 0)
+      .filter(
+        (field) => !Array.isArray(route[field]) || route[field].length === 0
+      )
       .map((field) => `${route.id} missing typed route field ${field}`)
   })
   const routeConditionSchemaErrors = conditionalRoutes.flatMap((route) => {
@@ -6912,8 +7599,12 @@
     }
     return [
       typeof shape.field === 'string' ? shape.field : null,
-      ...(Array.isArray(shape.all) ? shape.all.flatMap(collectPredicateFields) : []),
-      ...(Array.isArray(shape.any) ? shape.any.flatMap(collectPredicateFields) : []),
+      ...(Array.isArray(shape.all)
+        ? shape.all.flatMap(collectPredicateFields)
+        : []),
+      ...(Array.isArray(shape.any)
+        ? shape.any.flatMap(collectPredicateFields)
+        : []),
       ...(shape.not ? collectPredicateFields(shape.not) : [])
     ].filter(Boolean)
   }
@@ -6934,7 +7625,10 @@
     .flatMap((route) => {
       const fields = collectPredicateFields(route.when)
       return [
-        fields.some((field) => field === 'source.route-id' || field === 'source.source-revision')
+        fields.some(
+          (field) =>
+            field === 'source.route-id' || field === 'source.source-revision'
+        )
           ? `${route.id} uses default source route predicate instead of semantic predicate fields`
           : null,
         fields.some((field) =>
@@ -6952,7 +7646,9 @@
   }, new Map())
   const decisionGroupErrors = [...decisionGroups.entries()].flatMap(
     ([decisionGroup, routes]) => {
-      const elseRoutes = routes.filter((route) => route.conditionKind === 'else')
+      const elseRoutes = routes.filter(
+        (route) => route.conditionKind === 'else'
+      )
       const conditionIds = routes.map((route) => route.conditionId)
       const duplicateConditionIds = conditionIds.filter(
         (conditionId, index) => conditionIds.indexOf(conditionId) !== index
@@ -7000,20 +7696,30 @@
       if (!rule.owningDecisionGroup) {
         errors.push(`${rule.coExecutionGroup} missing owningDecisionGroup`)
       }
-      if (!Array.isArray(rule.requiredRouteIds) || rule.requiredRouteIds.length === 0) {
+      if (
+        !Array.isArray(rule.requiredRouteIds) ||
+        rule.requiredRouteIds.length === 0
+      ) {
         errors.push(`${rule.coExecutionGroup} missing requiredRouteIds`)
       }
       for (const routeId of rule.requiredRouteIds ?? []) {
         if (!routeIds.has(routeId)) {
-          errors.push(`${rule.coExecutionGroup} references unknown route ${routeId}`)
+          errors.push(
+            `${rule.coExecutionGroup} references unknown route ${routeId}`
+          )
         }
       }
-      if (!Array.isArray(rule.completionArtifactIds) || rule.completionArtifactIds.length === 0) {
+      if (
+        !Array.isArray(rule.completionArtifactIds) ||
+        rule.completionArtifactIds.length === 0
+      ) {
         errors.push(`${rule.coExecutionGroup} missing completionArtifactIds`)
       }
       for (const artifactId of rule.completionArtifactIds ?? []) {
         if (!artifactById.has(artifactId)) {
-          errors.push(`${rule.coExecutionGroup} references unknown completion artifact ${artifactId}`)
+          errors.push(
+            `${rule.coExecutionGroup} references unknown completion artifact ${artifactId}`
+          )
         }
       }
       if (!rule.downstreamBarrier || !stepById.has(rule.downstreamBarrier)) {
@@ -7049,7 +7755,8 @@
         elseRoutes[0] && route.routePriority < elseRoutes[0].routePriority
           ? null
           : `${route.id} bypass route priority must win before its else route`,
-        route.skipSteps.includes(route.from) || route.skipSteps.includes(route.to)
+        route.skipSteps.includes(route.from) ||
+        route.skipSteps.includes(route.to)
           ? `${route.id} skipSteps must not include its source or resume target`
           : null
       ].filter(Boolean)
@@ -7098,7 +7805,9 @@
     ...strokeProductRoutes
       .filter((route) => requiredSplitProductStepIds.has(route.from))
       .filter((route) => !splitProductRouteIds.has(route.id))
-      .map((route) => `${route.id} missing from split product nested route table`),
+      .map(
+        (route) => `${route.id} missing from split product nested route table`
+      ),
     ...splitProductStepIds.flatMap((stepId) =>
       (nestedRoutesByStep[stepId] ?? []).flatMap((route) =>
         [
@@ -7106,7 +7815,9 @@
           route.visibleContributor
             ? null
             : `${route.id} missing nested visibleContributor`,
-          route.geometryBasis ? null : `${route.id} missing nested geometryBasis`,
+          route.geometryBasis
+            ? null
+            : `${route.id} missing nested geometryBasis`,
           route.allowedContributors.length
             ? null
             : `${route.id} missing nested allowedContributors`,
@@ -7127,10 +7838,15 @@
   const edgeDriftErrors = [
     ...[...edgeSet]
       .filter((edge) => !conditionalRouteEdgeSet.has(edge))
-      .map((edge) => `edges contains route not present in conditionalRoutes: ${edge}`),
+      .map(
+        (edge) =>
+          `edges contains route not present in conditionalRoutes: ${edge}`
+      ),
     ...[...conditionalRouteEdgeSet]
       .filter((edge) => !edgeSet.has(edge))
-      .map((edge) => `conditionalRoutes route missing from derived edges: ${edge}`)
+      .map(
+        (edge) => `conditionalRoutes route missing from derived edges: ${edge}`
+      )
   ]
   const stepRuleRefErrors = steps.flatMap((step) => {
     const errors = []
@@ -7163,15 +7879,22 @@
   })
   const hitExportDependencyErrors = conditionalRoutes
     .filter(
-      (route) => route.from === 'renderer-projection' && route.to === 'hit-export'
+      (route) =>
+        route.from === 'renderer-projection' && route.to === 'hit-export'
     )
-    .map((route) => `${route.id} incorrectly routes renderer projection into hit/export`)
+    .map(
+      (route) =>
+        `${route.id} incorrectly routes renderer projection into hit/export`
+    )
   const retiredRendererMiterField = ['miter', 'Limit'].join('')
   const miterFieldErrors = conditionalRoutes
     .filter((route) =>
       JSON.stringify(route).includes(retiredRendererMiterField)
     )
-    .map((route) => `${route.id} uses ${retiredRendererMiterField} instead of rendererMiterLimit`)
+    .map(
+      (route) =>
+        `${route.id} uses ${retiredRendererMiterField} instead of rendererMiterLimit`
+    )
   const specRuleRefErrors = conditionalRoutes.flatMap((route) => {
     const refs = route.specRuleRefs ?? []
     const errors = []
@@ -7202,9 +7925,11 @@
   const metricAssertionErrors = conditionalRoutes.flatMap((route) => {
     const metrics = route.metricAssertions ?? []
     if (
-      ['constrained-dashed-source-vertex-join-product',
-       'constrained-dashed-interval-body-product',
-       'constrained-dashed-join-owned-terminal-body-product'].includes(route.id)
+      [
+        'constrained-dashed-source-vertex-join-product',
+        'constrained-dashed-interval-body-product',
+        'constrained-dashed-join-owned-terminal-body-product'
+      ].includes(route.id)
     ) {
       return metrics.length
         ? []
@@ -7230,12 +7955,128 @@
           ? `${route.id} consumes preLegalityProductUnits without legality-equivalence evidence`
           : null,
         (route.consumes ?? []).includes('artifact:postLegalityProductUnits') ||
-        (route.consumes ?? []).includes('artifact:legalityEquivalentProductUnits')
+        (route.consumes ?? []).includes(
+          'artifact:legalityEquivalentProductUnits'
+        )
           ? null
           : `${route.id} must consume postLegalityProductUnits or legalityEquivalentProductUnits`
       ].filter(Boolean)
     })
   const routeById = new Map(conditionalRoutes.map((route) => [route.id, route]))
+  const validateLifecycleContract = (contract) => {
+    const errors = []
+    const label = contract?.id ?? 'unnamed lifecycle contract'
+    if (!contract?.specRuleId) {
+      errors.push(`${label} missing specRuleId`)
+    }
+    if (!contract?.specAnchor) {
+      errors.push(`${label} missing specAnchor`)
+    }
+    if (!contract?.formalGate) {
+      errors.push(`${label} missing formalGate`)
+    }
+    if (
+      !Array.isArray(contract?.artifactIds) ||
+      contract.artifactIds.length === 0
+    ) {
+      errors.push(`${label} missing artifactIds`)
+    }
+    for (const artifactId of contract?.artifactIds ?? []) {
+      if (!artifactById.has(artifactId)) {
+        errors.push(`${label} references unknown artifact ${artifactId}`)
+      }
+    }
+    if (
+      !Array.isArray(contract?.ownerSteps) ||
+      contract.ownerSteps.length === 0
+    ) {
+      errors.push(`${label} missing ownerSteps`)
+    }
+    for (const stepId of contract?.ownerSteps ?? []) {
+      if (!stepById.has(stepId)) {
+        errors.push(`${label} references unknown owner step ${stepId}`)
+      }
+    }
+    if (
+      !Array.isArray(contract?.lifecycle) ||
+      contract.lifecycle.length === 0
+    ) {
+      errors.push(`${label} missing lifecycle phases`)
+    }
+    for (const phase of contract?.lifecycle ?? []) {
+      const phaseLabel = `${label}:${phase.phase ?? 'unnamed phase'}`
+      if (!phase.phase) {
+        errors.push(`${phaseLabel} missing phase`)
+      }
+      if (!stepById.has(phase.stepId)) {
+        errors.push(`${phaseLabel} references unknown step ${phase.stepId}`)
+      }
+      if (!Array.isArray(phase.routeIds) || phase.routeIds.length === 0) {
+        errors.push(`${phaseLabel} missing routeIds`)
+      }
+      for (const routeId of phase.routeIds ?? []) {
+        if (!routeById.has(routeId)) {
+          errors.push(`${phaseLabel} references unknown route ${routeId}`)
+        }
+      }
+      for (const artifactId of phase.consumesArtifacts ?? []) {
+        if (!artifactById.has(artifactId)) {
+          errors.push(`${phaseLabel} consumes unknown artifact ${artifactId}`)
+        }
+      }
+      for (const artifactId of phase.producesArtifacts ?? []) {
+        if (!artifactById.has(artifactId)) {
+          errors.push(`${phaseLabel} produces unknown artifact ${artifactId}`)
+        }
+      }
+      if (!stepById.has(phase.failureReopensStep)) {
+        errors.push(
+          `${phaseLabel} references unknown failureReopensStep ${phase.failureReopensStep}`
+        )
+      }
+    }
+    return errors
+  }
+  const dashJoinSeamLifecyclePhaseIds = new Set(
+    dashJoinSeamLifecycleContract.lifecycle.map((phase) => phase.phase)
+  )
+  const dashJoinSeamLifecycleErrors = [
+    ...validateLifecycleContract(dashJoinSeamLifecycleContract),
+    dashJoinSeamLifecycleContract.specAnchor.endsWith(
+      '#dash-body-and-join-seam-contract'
+    )
+      ? null
+      : 'dash/join seam lifecycle must reference dash-body-and-join-seam-contract',
+    dashJoinSeamLifecycleContract.lifecycle.some(
+      (phase) =>
+        phase.phase === 'consume-seam-boundary' &&
+        (phase.requiredEvidence ?? []).includes(
+          'dash/join zero-gap adjacency proof'
+        )
+    )
+      ? null
+      : 'dash/join seam lifecycle must require zero-gap adjacency proof at Step 28',
+    dashJoinSeamLifecycleContract.lifecycle.some(
+      (phase) =>
+        phase.phase === 'forbid-renderer-recompute' &&
+        (phase.forbiddenLateComputation ?? []).includes(
+          'dash/join seam endpoint reinterpretation'
+        )
+    )
+      ? null
+      : 'dash/join seam lifecycle must forbid renderer seam endpoint reinterpretation',
+    ...[
+      'produce-seam-boundary',
+      'dispatch-seam-boundary',
+      'consume-seam-boundary',
+      'preserve-through-legality',
+      'preserve-through-final-faces',
+      'preserve-through-render-entries',
+      'forbid-renderer-recompute'
+    ]
+      .filter((phaseId) => !dashJoinSeamLifecyclePhaseIds.has(phaseId))
+      .map((phaseId) => `dash/join seam lifecycle missing ${phaseId}`)
+  ].filter(Boolean)
   const descriptorMaterializationRoute = routeById.get(
     'constrained-dashed-descriptor-materialization'
   )
@@ -7248,7 +8089,8 @@
     descriptorMaterializationRoute?.from === 'build-final-faces'
       ? null
       : 'constrained-dashed-descriptor-materialization must consume build-final-faces',
-    descriptorMaterializationRoute?.to === 'materialize-stroke-product-descriptors'
+    descriptorMaterializationRoute?.to ===
+    'materialize-stroke-product-descriptors'
       ? null
       : 'constrained-dashed-descriptor-materialization must target materialize-stroke-product-descriptors',
     descriptorMaterializationRoute?.produces?.includes(
@@ -7265,7 +8107,9 @@
         route?.from === 'materialize-stroke-product-descriptors'
           ? null
           : `${route?.id ?? 'unknown descriptor route'} must start from materialize-stroke-product-descriptors`,
-        route?.consumes?.includes('artifact:constrained-dashed-render-descriptor')
+        route?.consumes?.includes(
+          'artifact:constrained-dashed-render-descriptor'
+        )
           ? null
           : `${route?.id ?? 'unknown descriptor route'} must consume constrained-dashed-render-descriptor`,
         route?.produces?.includes('artifact:renderEntries')
@@ -7273,24 +8117,28 @@
           : `${route?.id ?? 'unknown descriptor route'} must produce renderEntries`
       ].filter(Boolean)
     ),
-    routeById.get('canonical-final-face-render-entry')?.from === 'build-final-faces'
+    routeById.get('canonical-final-face-render-entry')?.from ===
+    'build-final-faces'
       ? null
       : 'canonical-final-face-render-entry must start from build-final-faces',
-    routeById.get('canonical-final-face-render-entry')?.produces?.includes(
-      'artifact:renderEntries'
-    )
+    routeById
+      .get('canonical-final-face-render-entry')
+      ?.produces?.includes('artifact:renderEntries')
       ? null
       : 'canonical-final-face-render-entry must produce renderEntries',
     routeById.get('descriptor-strategy-canonical-output-else')?.from ===
     'select-stroke-descriptor-strategy'
       ? null
       : 'descriptor-strategy-canonical-output-else must start from select-stroke-descriptor-strategy',
-    routeById.get('descriptor-strategy-canonical-output-else')?.to === 'apply-legality'
+    routeById.get('descriptor-strategy-canonical-output-else')?.to ===
+    'apply-legality'
       ? null
       : 'descriptor strategy else route must proceed to apply-legality'
   ].filter(Boolean)
   const diagnosticsAggregationErrors = [
-    conditionalRoutes.some((route) => route.id === 'diagnostics-channel-aggregation')
+    conditionalRoutes.some(
+      (route) => route.id === 'diagnostics-channel-aggregation'
+    )
       ? null
       : 'diagnostics-channel-aggregation route missing',
     artifactById.has('artifact:diagnosticSnapshots')
@@ -7333,7 +8181,9 @@
     (route) => route.id === 'verified-product-descriptor-cache-hit'
   )
   const cacheHitRouteErrors = [
-    cacheHitRoute ? null : 'verified-product-descriptor-cache-hit route missing',
+    cacheHitRoute
+      ? null
+      : 'verified-product-descriptor-cache-hit route missing',
     cacheHitRoute?.cacheKeyInputs?.includes('join/miter signature') &&
     cacheHitRoute?.cacheKeyInputs?.includes('legal-side signature') &&
     cacheHitRoute?.cacheKeyInputs?.includes('output channel')
@@ -7345,7 +8195,9 @@
   )
   const sourceDragRouteErrors = [
     sourceDragRoute ? null : 'source-drag-dirty-classification route missing',
-    sourceDragRoute?.forbiddenContributors?.includes('static stroke parameter dirtying')
+    sourceDragRoute?.forbiddenContributors?.includes(
+      'static stroke parameter dirtying'
+    )
       ? null
       : 'source-drag-dirty-classification must forbid static stroke parameter dirtying'
   ].filter(Boolean)
@@ -7360,7 +8212,8 @@
   const sourceFileOwnershipErrors = [
     ...sourceFileOwnershipRecords.flatMap((record) => {
       const errors = []
-      const recordLabel = record.filePath ?? 'unnamed source file ownership record'
+      const recordLabel =
+        record.filePath ?? 'unnamed source file ownership record'
       if (!record.filePath) {
         errors.push(`${recordLabel} missing filePath`)
       }
@@ -7369,36 +8222,53 @@
       }
       sourceFileOwnershipRecordByPath.set(record.filePath, record)
       if (!sourceFileOwnershipClassifications.has(record.classification)) {
-        errors.push(`${recordLabel} has unknown classification ${record.classification}`)
+        errors.push(
+          `${recordLabel} has unknown classification ${record.classification}`
+        )
       }
       if (record.classification === 'dead-residue') {
         if (record.ownerStepId !== null) {
-          errors.push(`${recordLabel} dead residue must not declare ownerStepId`)
+          errors.push(
+            `${recordLabel} dead residue must not declare ownerStepId`
+          )
         }
         if ((record.ownerRouteIds ?? []).length !== 0) {
-          errors.push(`${recordLabel} dead residue must not declare ownerRouteIds`)
+          errors.push(
+            `${recordLabel} dead residue must not declare ownerRouteIds`
+          )
         }
         if ((record.currentConsumers ?? []).length !== 0) {
-          errors.push(`${recordLabel} dead residue must have no current consumers`)
+          errors.push(
+            `${recordLabel} dead residue must have no current consumers`
+          )
         }
       } else {
         if (!stepById.has(record.ownerStepId)) {
-          errors.push(`${recordLabel} references unknown owner step ${record.ownerStepId}`)
+          errors.push(
+            `${recordLabel} references unknown owner step ${record.ownerStepId}`
+          )
         }
-        if (!Array.isArray(record.ownerRouteIds) || record.ownerRouteIds.length === 0) {
+        if (
+          !Array.isArray(record.ownerRouteIds) ||
+          record.ownerRouteIds.length === 0
+        ) {
           errors.push(`${recordLabel} missing ownerRouteIds`)
         }
       }
       for (const routeId of record.ownerRouteIds ?? []) {
         if (!routeById.has(routeId)) {
-          errors.push(`${recordLabel} references unknown owner route ${routeId}`)
+          errors.push(
+            `${recordLabel} references unknown owner route ${routeId}`
+          )
         }
       }
       if (!record.requiredInspectorField) {
         errors.push(`${recordLabel} missing requiredInspectorField`)
       }
       if (record.productionCodeChangeNeeded !== false) {
-        errors.push(`${recordLabel} must not require production code changes in this metadata repair`)
+        errors.push(
+          `${recordLabel} must not require production code changes in this metadata repair`
+        )
       }
       return errors
     }),
@@ -7427,14 +8297,22 @@
     (strokeParameterCoverageMatrix[stepId]?.[parameterId] ?? []).includes(role)
   const strokeParameterCoverageErrors = [
     ...strokeParameterIds
-      .filter((parameterId, index) => strokeParameterIds.indexOf(parameterId) !== index)
+      .filter(
+        (parameterId, index) =>
+          strokeParameterIds.indexOf(parameterId) !== index
+      )
       .map((parameterId) => `strokeParameterIds duplicates ${parameterId}`),
     ...strokeParameterCoverageRoles
-      .filter((role, index) => strokeParameterCoverageRoles.indexOf(role) !== index)
+      .filter(
+        (role, index) => strokeParameterCoverageRoles.indexOf(role) !== index
+      )
       .map((role) => `strokeParameterCoverageRoles duplicates ${role}`),
     ...Object.keys(strokeParameterCoverageMatrix)
       .filter((stepId) => !stepById.has(stepId))
-      .map((stepId) => `strokeParameterCoverageMatrix references unknown step ${stepId}`),
+      .map(
+        (stepId) =>
+          `strokeParameterCoverageMatrix references unknown step ${stepId}`
+      ),
     ...steps.flatMap((step) => {
       const coverage = strokeParameterCoverageMatrix[step.id]
       if (!coverage) {
@@ -7444,10 +8322,15 @@
       return [
         ...strokeParameterIds
           .filter((parameterId) => !Array.isArray(coverage[parameterId]))
-          .map((parameterId) => `${step.id} missing coverage for ${parameterId}`),
+          .map(
+            (parameterId) => `${step.id} missing coverage for ${parameterId}`
+          ),
         ...parameterIds
           .filter((parameterId) => !strokeParameterIdSet.has(parameterId))
-          .map((parameterId) => `${step.id} covers unknown stroke parameter ${parameterId}`),
+          .map(
+            (parameterId) =>
+              `${step.id} covers unknown stroke parameter ${parameterId}`
+          ),
         ...parameterIds.flatMap((parameterId) => {
           const roles = coverage[parameterId]
           if (!Array.isArray(roles) || roles.length === 0) {
@@ -7456,7 +8339,10 @@
           return [
             ...roles
               .filter((role) => !strokeParameterCoverageRoleSet.has(role))
-              .map((role) => `${step.id} ${parameterId} has unknown coverage role ${role}`),
+              .map(
+                (role) =>
+                  `${step.id} ${parameterId} has unknown coverage role ${role}`
+              ),
             roles.includes('not-applicable') && roles.length > 1
               ? `${step.id} ${parameterId} mixes not-applicable with active roles`
               : null
@@ -7502,20 +8388,29 @@
     )
       ? null
       : 'renderer-projection must forbid every raw stroke parameter as a semantic input',
-    strokeParameterIds.some((parameterId) =>
-      includesCoverageRole('renderer-projection', parameterId, 'consume') ||
-      includesCoverageRole('renderer-projection', parameterId, 'dirty-key') ||
-      includesCoverageRole('renderer-projection', parameterId, 'cache-key')
+    strokeParameterIds.some(
+      (parameterId) =>
+        includesCoverageRole('renderer-projection', parameterId, 'consume') ||
+        includesCoverageRole('renderer-projection', parameterId, 'dirty-key') ||
+        includesCoverageRole('renderer-projection', parameterId, 'cache-key')
     )
       ? 'renderer-projection must not consume, dirty, or cache raw stroke parameters'
       : null,
     joinParameterIds.every((parameterId) =>
-      includesCoverageRole('build-source-vertex-join-products', parameterId, 'consume')
+      includesCoverageRole(
+        'build-source-vertex-join-products',
+        parameterId,
+        'consume'
+      )
     )
       ? null
       : 'build-source-vertex-join-products must consume authored join and miter parameters',
     joinParameterIds.every((parameterId) =>
-      includesCoverageRole('build-smooth-continuity-products', parameterId, 'forbid')
+      includesCoverageRole(
+        'build-smooth-continuity-products',
+        parameterId,
+        'forbid'
+      )
     )
       ? null
       : 'build-smooth-continuity-products must forbid join/miter product ownership',
@@ -7524,7 +8419,10 @@
         .filter((parameterId) =>
           includesCoverageRole(stepId, parameterId, 'consume')
         )
-        .map((parameterId) => `${stepId} must not consume paint parameter ${parameterId} before attach-paint-payload`)
+        .map(
+          (parameterId) =>
+            `${stepId} must not consume paint parameter ${parameterId} before attach-paint-payload`
+        )
     )
   ].filter(Boolean)
   const inspectorContractErrors = [
@@ -7555,6 +8453,7 @@
     ...specRuleRefErrors,
     ...metricAssertionErrors,
     ...descriptorLegalityErrors,
+    ...dashJoinSeamLifecycleErrors,
     ...descriptorPathOrderingErrors,
     ...diagnosticsAggregationErrors,
     ...retiredProductRouteErrors,
@@ -7649,6 +8548,7 @@
     runtimeImplementationState,
     refactorProtocol,
     documentDeepAuditProtocol,
+    dashJoinSeamLifecycleContract,
     sharedStepTestHelpers,
     sourceFileOwnershipRecords,
     entryBoundaryRequiredStepIds,
@@ -7677,6 +8577,7 @@
     refactorProtocolErrors,
     runtimeImplementationErrors,
     strokeParameterCoverageErrors,
+    dashJoinSeamLifecycleErrors,
     sourceFileOwnershipErrors,
     inspectorContractErrors,
     defaultEvidenceByGroup,

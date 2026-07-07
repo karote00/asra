@@ -65,6 +65,33 @@ them by `specRuleRefs`, but neither document may replace a missing rule with
 local implementation text. Runtime code, tests, or visual review artifacts that
 need a rule absent from this file must stop and reopen this spec first.
 
+## Spec-To-Enforcement Contract
+
+Spec rules are not closure-ready until they are mechanically represented in the
+inspector flow and in a formal gate. A prose rule, route summary, latest-rule
+bullet, or visual-review note is not enough to prove that implementation agents
+will execute the rule.
+
+Every cross-step stroke invariant must have one structured lifecycle contract in
+`stroke-flow-inspector.data.js`. That contract must name:
+
+1. the spec rule id and spec anchor;
+2. the produced artifact id and every owner step that consumes or preserves it;
+3. the route ids that produce, consume, preserve, or forbid recomputation;
+4. the required evidence fields that must survive each downstream step;
+5. the first step to reopen when a lifecycle check fails;
+6. the formal validator or oracle that prevents the invariant from remaining as
+   scattered prose.
+
+For dash/body and source-vertex join seams, the structured lifecycle owner is
+the dash/join seam identity contract. It begins at Step 27 with the emitted dash
+body seam boundary artifact, is consumed by Step 28 source-vertex join products,
+is preserved through Step 32 legality clipping, final faces, descriptor
+materialization, and render entries, and is forbidden from being recomputed or
+repaired by renderer projection. If any downstream stage still has visible
+dash/join product but cannot prove the same Step 27 seam endpoint identity, the
+failure reopens the first stage where the proof was lost.
+
 ## Document Deep Audit Protocol
 
 Document-only stroke audits are governed by a fixed matrix. An agent must define
@@ -98,31 +125,34 @@ The minimum document audit matrix is:
 8. Artifact lifecycle: pre-legality products, post-legality products,
    descriptor strategy records, final faces, render entries, hit/export packets,
    diagnostics, and visual overlays have registered producers and consumers.
-9. Channel separation: visible render, hit, export, diagnostics, and visual
-   overlay channels cannot consume each other's output as product truth.
-10. Cache, dirty, bypass, and current-state rendering: paint-only, hidden-output,
+9. Spec-to-enforcement lifecycle contracts: cross-step invariants are structured
+   inspector contracts with owner steps, route ids, artifacts, required evidence,
+   formal gates, and failure reopening rules.
+10. Channel separation: visible render, hit, export, diagnostics, and visual
+    overlay channels cannot consume each other's output as product truth.
+11. Cache, dirty, bypass, and current-state rendering: paint-only, hidden-output,
     cache-hit, source-drag, static parameter, undo/redo, reload, and
     collaboration routes preserve the same product semantics.
-11. Owner-stage metadata: every product route preserves `ownerStage`,
+12. Owner-stage metadata: every product route preserves `ownerStage`,
     `visibleContributor`, `geometryBasis`, artifact ids, route ids, and failure
     reopening evidence.
-12. Forbidden contributors: renderer-local joins/caps, endpoint cap repair,
+13. Forbidden contributors: renderer-local joins/caps, endpoint cap repair,
     terminal overhang repair, duplicate interval paint, helper-visible geometry,
     patch geometry, substitute output, and stale descriptors remain forbidden.
-13. Route predicates and reachability: structured predicates are complete,
+14. Route predicates and reachability: structured predicates are complete,
     mutually exclusive where required, co-executed where required, and default
     `else` routes cannot overlap explicit routes.
-14. Artifact registry integrity: every route consumes and produces registered
+15. Artifact registry integrity: every route consumes and produces registered
     artifacts, and no produced artifact is left without a legal downstream
     consumer unless it is explicitly terminal.
-15. Retired wording scan: fallback, repair, heuristic, approximate, old model,
+16. Retired wording scan: fallback, repair, heuristic, approximate, old model,
     renderer-owned, or optional-collapse wording must either be removed or be a
     forbidden-context statement.
-16. Numeric tolerance and evidence uniqueness: epsilons, visual tolerances, gap
+17. Numeric tolerance and evidence uniqueness: epsilons, visual tolerances, gap
     floors, and local probe windows have one owner, one value or formula, and
     required evidence; dash/join seams are governed by shared Step 27 endpoint
     identity, not a numeric gap tolerance.
-17. Test/refactor/visual gates: step locks, unit gates, integration unlocks,
+18. Test/refactor/visual gates: step locks, unit gates, integration unlocks,
     regression retry limits, visual review requirements, and port/runtime rules
     are consistent across this spec, the active plan, and inspector data.
 
@@ -1425,17 +1455,17 @@ inspector step explicitly owns the conversion.
 
 Normalization inputs and outputs:
 
-| Input field | Normalized output | Failure handling |
-| --- | --- | --- |
-| Stroke id | Stable `strokeId` | Missing id rejects the stroke before product planning |
-| Owner element id | Stable `ownerElementId` | Missing owner rejects the stroke before product planning |
-| Width | Finite width; authored/schema input accepts `width >= 0`, and render normalization emits visible stroke output only for `width > 0` | Non-finite values emit `invalid-width` diagnostics. Finite `width <= 0` produces an empty product with no diagnostic; negative values that bypass load-boundary validation must fail closed without visible geometry |
-| Position | `center`, `inside`, or `outside` | Unknown position rejects geometry output and emits diagnostics |
-| Join | `miter`, `bevel`, or `round` | Unknown join rejects geometry output and emits diagnostics |
-| Cap | `butt`, `round`, or `square` | Unknown cap rejects geometry output and emits diagnostics |
-| Miter threshold | Finite `miterAngle` in degrees | Missing/invalid values use `DEFAULT_MITER_ANGLE_DEGREES = 28.96`, declared by this spec and the load-boundary schema validator, not by product builders |
-| Dash/gap lengths | Positive authored dash length and positive authored gap length | Empty/invalid dash or gap length resolves to non-dashed output through the normalization rule |
-| Paint | `FillAttrs` paint payload with `visible` flag | Invisible paint may use hidden-output bypass; it must not build visible geometry |
+| Input field      | Normalized output                                                                                                                   | Failure handling                                                                                                                                                                                                     |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stroke id        | Stable `strokeId`                                                                                                                   | Missing id rejects the stroke before product planning                                                                                                                                                                |
+| Owner element id | Stable `ownerElementId`                                                                                                             | Missing owner rejects the stroke before product planning                                                                                                                                                             |
+| Width            | Finite width; authored/schema input accepts `width >= 0`, and render normalization emits visible stroke output only for `width > 0` | Non-finite values emit `invalid-width` diagnostics. Finite `width <= 0` produces an empty product with no diagnostic; negative values that bypass load-boundary validation must fail closed without visible geometry |
+| Position         | `center`, `inside`, or `outside`                                                                                                    | Unknown position rejects geometry output and emits diagnostics                                                                                                                                                       |
+| Join             | `miter`, `bevel`, or `round`                                                                                                        | Unknown join rejects geometry output and emits diagnostics                                                                                                                                                           |
+| Cap              | `butt`, `round`, or `square`                                                                                                        | Unknown cap rejects geometry output and emits diagnostics                                                                                                                                                            |
+| Miter threshold  | Finite `miterAngle` in degrees                                                                                                      | Missing/invalid values use `DEFAULT_MITER_ANGLE_DEGREES = 28.96`, declared by this spec and the load-boundary schema validator, not by product builders                                                              |
+| Dash/gap lengths | Positive authored dash length and positive authored gap length                                                                      | Empty/invalid dash or gap length resolves to non-dashed output through the normalization rule                                                                                                                        |
+| Paint            | `FillAttrs` paint payload with `visible` flag                                                                                       | Invisible paint may use hidden-output bypass; it must not build visible geometry                                                                                                                                     |
 
 Normalization must preserve provenance. A rejected or defaulted field records
 the raw value, normalized value, owner step, and diagnostic reason. Geometry
@@ -1485,15 +1515,15 @@ The supported stroke parameter ids are:
 
 Coverage roles are exact:
 
-| Role | Meaning |
-| --- | --- |
-| `consume` | The step may read the normalized parameter and use it to produce that step's declared output. |
-| `preserve` | The step carries the value or provenance through without using it to decide new semantics. |
-| `forbid` | The step must not read the parameter as an input for semantics, geometry, cache, render, hit, export, or diagnostics decisions. |
-| `dirty-key` | The step may use the parameter only to classify dirty revisions or no-op display metadata changes. |
-| `cache-key` | The step may use the parameter only to validate cache reuse or cache invalidation signatures. |
+| Role              | Meaning                                                                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `consume`         | The step may read the normalized parameter and use it to produce that step's declared output.                                         |
+| `preserve`        | The step carries the value or provenance through without using it to decide new semantics.                                            |
+| `forbid`          | The step must not read the parameter as an input for semantics, geometry, cache, render, hit, export, or diagnostics decisions.       |
+| `dirty-key`       | The step may use the parameter only to classify dirty revisions or no-op display metadata changes.                                    |
+| `cache-key`       | The step may use the parameter only to validate cache reuse or cache invalidation signatures.                                         |
 | `output-metadata` | The step may emit the parameter, normalized value, or provenance as evidence or channel metadata, but not as a new semantic decision. |
-| `not-applicable` | The parameter is outside the step's declared input/output boundary. This role cannot be combined with any active role. |
+| `not-applicable`  | The parameter is outside the step's declared input/output boundary. This role cannot be combined with any active role.                |
 
 The coverage matrix is a required implementation gate, not documentation
 decoration. A step unit test must assert only the parameters classified for that
@@ -1508,19 +1538,19 @@ parameters as product geometry.
 Stroke fields have explicit layers. A field from one layer must not be treated as
 the source of truth for another layer.
 
-| Layer | Field | Meaning | May decide geometry? |
-| --- | --- | --- | --- |
-| UI / computed stroke input | `joinType` / `strokeJoin` | Authored join selection before normalization | No; it is normalized first |
-| UI / computed stroke input | `capType` / `strokeCap` | Authored cap selection before normalization | No; it is normalized first |
-| UI / computed stroke input | `miterAngle` | Authored miter threshold in degrees | Only after normalization |
-| Normalized renderable stroke | `join` | Authored join enum consumed by product planning | Yes, as authored input |
-| Normalized renderable stroke | `cap` | Authored cap enum consumed by endpoint/body-side cap planning | Yes, only for cap products |
-| Normalized renderable stroke | `miterAngle` | Source-domain miter threshold in degrees | Yes, only for source-domain join resolution |
-| Product/debug metadata | `authoredJoin` | Preserved authored join provenance | No; it records the authored input |
-| Product/debug metadata | `resolvedJoin` | Resolved join after source-domain comparison | Yes, as the emitted join footprint class |
-| Product/debug metadata | `vertexAngle` / `angleSource` | Source-domain comparison evidence | No visible geometry by itself; it proves resolution |
-| Descriptor adapter | `rendererMiterLimit` | Backend style value derived from normalized `miterAngle` | No; it is adapter output only |
-| Descriptor adapter | `strokePathStyle.join` / `strokePathStyle.cap` | Renderer style replay for legal descriptor routes | No semantic repair; it may only draw a declared legal descriptor |
+| Layer                        | Field                                          | Meaning                                                       | May decide geometry?                                             |
+| ---------------------------- | ---------------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------- |
+| UI / computed stroke input   | `joinType` / `strokeJoin`                      | Authored join selection before normalization                  | No; it is normalized first                                       |
+| UI / computed stroke input   | `capType` / `strokeCap`                        | Authored cap selection before normalization                   | No; it is normalized first                                       |
+| UI / computed stroke input   | `miterAngle`                                   | Authored miter threshold in degrees                           | Only after normalization                                         |
+| Normalized renderable stroke | `join`                                         | Authored join enum consumed by product planning               | Yes, as authored input                                           |
+| Normalized renderable stroke | `cap`                                          | Authored cap enum consumed by endpoint/body-side cap planning | Yes, only for cap products                                       |
+| Normalized renderable stroke | `miterAngle`                                   | Source-domain miter threshold in degrees                      | Yes, only for source-domain join resolution                      |
+| Product/debug metadata       | `authoredJoin`                                 | Preserved authored join provenance                            | No; it records the authored input                                |
+| Product/debug metadata       | `resolvedJoin`                                 | Resolved join after source-domain comparison                  | Yes, as the emitted join footprint class                         |
+| Product/debug metadata       | `vertexAngle` / `angleSource`                  | Source-domain comparison evidence                             | No visible geometry by itself; it proves resolution              |
+| Descriptor adapter           | `rendererMiterLimit`                           | Backend style value derived from normalized `miterAngle`      | No; it is adapter output only                                    |
+| Descriptor adapter           | `strokePathStyle.join` / `strokePathStyle.cap` | Renderer style replay for legal descriptor routes             | No semantic repair; it may only draw a declared legal descriptor |
 
 `strokeJoin`, `strokeCap`, `joinType`, and `capType` may appear in persisted data
 or descriptor terminology, but the semantic owner is the normalized stroke
@@ -1539,13 +1569,13 @@ repair a missing join.
 
 Terminal terms are:
 
-| Term | Definition | Cap eligibility | Join eligibility |
-| --- | --- | --- | --- |
-| True open endpoint | Authored path/network endpoint with one incident source tangent | Authored cap allowed | No join unless another contour visit provides a second incident tangent |
-| Body-side dash endpoint | Dash interval endpoint that borders a visible dash gap inside a declared source span | Authored cap allowed by `endpointCapPolicy` | No join; it is not a source vertex |
-| Join-owned terminal | Split, dash, or contour terminal located at an authored sharp vertex or contour visit with two incident tangents | Endpoint-side cap suppressed | Authored join required when incident visible coverage reaches the terminal |
-| Contour-visit terminal | A visit of a contour at a source vertex or self-intersection that owns a legal side/domain | Endpoint-side cap suppressed unless it is also a true open endpoint | Legal-side authored join required for sharp visits |
-| Smooth-continuity terminal | Boundary between samples that are tangent-continuous through a curve or smooth anchor | Cap suppressed inside the continuity span | No sharp join; smooth-continuity product owns the footprint |
+| Term                       | Definition                                                                                                       | Cap eligibility                                                     | Join eligibility                                                           |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| True open endpoint         | Authored path/network endpoint with one incident source tangent                                                  | Authored cap allowed                                                | No join unless another contour visit provides a second incident tangent    |
+| Body-side dash endpoint    | Dash interval endpoint that borders a visible dash gap inside a declared source span                             | Authored cap allowed by `endpointCapPolicy`                         | No join; it is not a source vertex                                         |
+| Join-owned terminal        | Split, dash, or contour terminal located at an authored sharp vertex or contour visit with two incident tangents | Endpoint-side cap suppressed                                        | Authored join required when incident visible coverage reaches the terminal |
+| Contour-visit terminal     | A visit of a contour at a source vertex or self-intersection that owns a legal side/domain                       | Endpoint-side cap suppressed unless it is also a true open endpoint | Legal-side authored join required for sharp visits                         |
+| Smooth-continuity terminal | Boundary between samples that are tangent-continuous through a curve or smooth anchor                            | Cap suppressed inside the continuity span                           | No sharp join; smooth-continuity product owns the footprint                |
 
 A true open endpoint is an authored path/network endpoint and is allowed to emit
 the authored endpoint cap. A true open endpoint must not be reclassified as a
@@ -1632,12 +1662,12 @@ angles are not join sources.
 
 Join resolution is:
 
-| Authored join | Source-domain comparison | Resolved join | Visible footprint |
-| --- | --- | --- | --- |
-| `miter` | `vertexAngle - miterAngle > MITER_ANGLE_EPSILON_DEGREES` | `miter` | legal-side offset-line intersection |
-| `miter` | `vertexAngle - miterAngle <= MITER_ANGLE_EPSILON_DEGREES` | `bevel-by-miter-angle` | same seam-connected cut-off footprint as authored bevel, while preserving authored miter provenance |
-| `bevel` | No miter-angle comparison | `bevel` | seam-connected cut-off footprint between the two incident product-boundary endpoints |
-| `round` | No miter-angle comparison | `round` | local source-vertex arc between the two incident product boundaries |
+| Authored join | Source-domain comparison                                  | Resolved join          | Visible footprint                                                                                   |
+| ------------- | --------------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------- |
+| `miter`       | `vertexAngle - miterAngle > MITER_ANGLE_EPSILON_DEGREES`  | `miter`                | legal-side offset-line intersection                                                                 |
+| `miter`       | `vertexAngle - miterAngle <= MITER_ANGLE_EPSILON_DEGREES` | `bevel-by-miter-angle` | same seam-connected cut-off footprint as authored bevel, while preserving authored miter provenance |
+| `bevel`       | No miter-angle comparison                                 | `bevel`                | seam-connected cut-off footprint between the two incident product-boundary endpoints                |
+| `round`       | No miter-angle comparison                                 | `round`                | local source-vertex arc between the two incident product boundaries                                 |
 
 `bevel-by-miter-angle` is semantic provenance for authored miter resolution. It
 is not an authored bevel, not a new primitive, and not a renderer fallback.
@@ -1681,17 +1711,17 @@ that owns the value.
 
 The required computation ownership is:
 
-| Value or artifact | Computed at | Consumed by | Must not be recomputed after |
-| --- | --- | --- | --- |
-| Dash allocation source-distance intervals, terminal roles, independent source-span endpoint half-dash classification, independent-span gap distribution, and `configuredGap * 0.6` evidence | `allocate-dash-intervals` | product-family selection, dash body assembly, terminal body assembly, source-vertex join assembly, and diagnostics | `build-dash-interval-body-products` |
-| Dash body visible footprint and endpoint cap suppression state | `build-dash-interval-body-products` | source-vertex join, terminal body, legality, final faces, render entries | `build-source-vertex-join-products` |
-| Dash body seam boundary, including terminal point, outer body boundary endpoint, body-side outline segment, body-side tangent, selected legal side, endpoint cap suppression state, interval id, split range id, and source segment index | `build-dash-interval-body-products` | source-vertex join and terminal body assembly | `build-source-vertex-join-products` |
-| Source-domain `vertexAngle`, miter comparison, and resolved join | `build-source-vertex-join-products` | legality, final faces, descriptors, render entries, hit/export, diagnostics | `apply-legality` |
-| Bevel / bevel-by-miter-angle cut-off edge between incident dash body outer boundary endpoints | `build-source-vertex-join-products` | legality, final faces, render entries | `apply-legality` |
-| Terminal body footprint and allowed body-side cap | `build-terminal-body-products` | legality, final faces, render entries | `apply-legality` |
-| Smooth-continuity dash footprint | `build-smooth-continuity-products` | legality, final faces, render entries | `apply-legality` |
-| Descriptor eligibility and legality basis | `select-stroke-descriptor-strategy` | descriptor materialization | `apply-legality` for eligibility; `materialize-stroke-product-descriptors` for renderer-ready descriptors |
-| Same-paint single-composite or equivalent alpha-safe render-entry evidence | `render-entries` | renderer projection and diagnostics | `renderer-projection` |
+| Value or artifact                                                                                                                                                                                                                         | Computed at                         | Consumed by                                                                                                        | Must not be recomputed after                                                                              |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Dash allocation source-distance intervals, terminal roles, independent source-span endpoint half-dash classification, independent-span gap distribution, and `configuredGap * 0.6` evidence                                               | `allocate-dash-intervals`           | product-family selection, dash body assembly, terminal body assembly, source-vertex join assembly, and diagnostics | `build-dash-interval-body-products`                                                                       |
+| Dash body visible footprint and endpoint cap suppression state                                                                                                                                                                            | `build-dash-interval-body-products` | source-vertex join, terminal body, legality, final faces, render entries                                           | `build-source-vertex-join-products`                                                                       |
+| Dash body seam boundary, including terminal point, outer body boundary endpoint, body-side outline segment, body-side tangent, selected legal side, endpoint cap suppression state, interval id, split range id, and source segment index | `build-dash-interval-body-products` | source-vertex join and terminal body assembly                                                                      | `build-source-vertex-join-products`                                                                       |
+| Source-domain `vertexAngle`, miter comparison, and resolved join                                                                                                                                                                          | `build-source-vertex-join-products` | legality, final faces, descriptors, render entries, hit/export, diagnostics                                        | `apply-legality`                                                                                          |
+| Bevel / bevel-by-miter-angle cut-off edge between incident dash body outer boundary endpoints                                                                                                                                             | `build-source-vertex-join-products` | legality, final faces, render entries                                                                              | `apply-legality`                                                                                          |
+| Terminal body footprint and allowed body-side cap                                                                                                                                                                                         | `build-terminal-body-products`      | legality, final faces, render entries                                                                              | `apply-legality`                                                                                          |
+| Smooth-continuity dash footprint                                                                                                                                                                                                          | `build-smooth-continuity-products`  | legality, final faces, render entries                                                                              | `apply-legality`                                                                                          |
+| Descriptor eligibility and legality basis                                                                                                                                                                                                 | `select-stroke-descriptor-strategy` | descriptor materialization                                                                                         | `apply-legality` for eligibility; `materialize-stroke-product-descriptors` for renderer-ready descriptors |
+| Same-paint single-composite or equivalent alpha-safe render-entry evidence                                                                                                                                                                | `render-entries`                    | renderer projection and diagnostics                                                                                | `renderer-projection`                                                                                     |
 
 These timing rules prevent five failure classes:
 
@@ -1761,15 +1791,15 @@ hit, export, or product source of truth.
 At every local source vertex, contour split, or self-intersection split, visible
 pixels must be explainable by the allowed local contributors:
 
-| Local case | Allowed visible contributors |
-| --- | --- |
-| Solid authored vertex | Previous solid body, one authored join, next solid body |
-| Center dashed true open endpoint | The owning terminal dash body plus the true endpoint authored cap route |
-| Center dashed authored vertex with visible adjacent intervals | Adjacent dash bodies plus the authored source-vertex join when the dash product reaches the vertex |
-| Constrained contour/source split terminal | Previous terminal dash body, one legal-side authored join, next terminal dash body |
-| Self-intersection split terminal | The contour-visit terminal dash bodies plus exactly one legal-side authored join for that contour visit |
-| Gap at a vertex | No dash body may be invented only to carry a cap or join |
-| `inside-excluded-open-span` | No visible contributor |
+| Local case                                                    | Allowed visible contributors                                                                            |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Solid authored vertex                                         | Previous solid body, one authored join, next solid body                                                 |
+| Center dashed true open endpoint                              | The owning terminal dash body plus the true endpoint authored cap route                                 |
+| Center dashed authored vertex with visible adjacent intervals | Adjacent dash bodies plus the authored source-vertex join when the dash product reaches the vertex      |
+| Constrained contour/source split terminal                     | Previous terminal dash body, one legal-side authored join, next terminal dash body                      |
+| Self-intersection split terminal                              | The contour-visit terminal dash bodies plus exactly one legal-side authored join for that contour visit |
+| Gap at a vertex                                               | No dash body may be invented only to carry a cap or join                                                |
+| `inside-excluded-open-span`                                   | No visible contributor                                                                                  |
 
 For high-angle source-vertex and self-intersection terminal regions, the
 source-vertex join allowed resolved footprints are `miter`, `bevel`, `round`,
@@ -1830,15 +1860,15 @@ gap between them.
 Ownership is resolved before visible render. If two candidate packets overlap,
 the following precedence applies:
 
-| Candidate overlap | Visible owner |
-| --- | --- |
-| Diagnostic/helper/derivation vs any product packet | Product packet; diagnostic/helper/derivation stays non-visible |
-| Terminal body vs endpoint cap | Terminal body plus allowed body-side cap; suppressed endpoint-side cap is dropped |
-| Terminal body vs authored join | Terminal body owns dash-body pixels; authored join owns legal-side corner pixels |
-| Source-vertex join vs generic canonical packet | Source-vertex join; generic packet cannot cover the same local join region |
-| Self-intersection contour visit A vs visit B | Each visit owns only its resolved legal side/domain; overlap must be clipped or kept diagnostic |
-| Smooth-continuity fragments inside one dash | One smooth-continuity group owns the combined dash footprint |
-| Same owner, same interval role, same legal side | May merge only if post-merge metadata still identifies that owner and role |
+| Candidate overlap                                  | Visible owner                                                                                   |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Diagnostic/helper/derivation vs any product packet | Product packet; diagnostic/helper/derivation stays non-visible                                  |
+| Terminal body vs endpoint cap                      | Terminal body plus allowed body-side cap; suppressed endpoint-side cap is dropped               |
+| Terminal body vs authored join                     | Terminal body owns dash-body pixels; authored join owns legal-side corner pixels                |
+| Source-vertex join vs generic canonical packet     | Source-vertex join; generic packet cannot cover the same local join region                      |
+| Self-intersection contour visit A vs visit B       | Each visit owns only its resolved legal side/domain; overlap must be clipped or kept diagnostic |
+| Smooth-continuity fragments inside one dash        | One smooth-continuity group owns the combined dash footprint                                    |
+| Same owner, same interval role, same legal side    | May merge only if post-merge metadata still identifies that owner and role                      |
 
 `ordinary coverage` means non-terminal, non-join, non-split, same-owner product
 coverage with the same source range, legal side, paint, stroke style,
@@ -1888,13 +1918,13 @@ layer except for explicitly legal overlap cases.
 
 Output channels are separated:
 
-| Output channel | Allowed geometry |
-| --- | --- |
-| Visible render | Only product descriptors or product packets for visible owners |
-| Hit test | Product hit projection plus explicitly marked non-visible coverage evidence |
-| Export | Export projection of product geometry plus explicitly marked non-visible evidence when needed by export semantics |
-| Diagnostics | Helper, derivation, rejected-candidate, overlap, and probe geometry |
-| Visual overlay | Runtime product geometry plus expected/forbidden oracle probes |
+| Output channel | Allowed geometry                                                                                                  |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Visible render | Only product descriptors or product packets for visible owners                                                    |
+| Hit test       | Product hit projection plus explicitly marked non-visible coverage evidence                                       |
+| Export         | Export projection of product geometry plus explicitly marked non-visible evidence when needed by export semantics |
+| Diagnostics    | Helper, derivation, rejected-candidate, overlap, and probe geometry                                               |
+| Visual overlay | Runtime product geometry plus expected/forbidden oracle probes                                                    |
 
 No channel may promote diagnostics/helper geometry into visible render. Hit,
 export, diagnostics, and visual overlay records must carry an output-channel
@@ -1902,15 +1932,15 @@ tag so tests can prove they were not consumed as visible render.
 
 Stage cache keys are stage-specific:
 
-| Stage | Required key dimensions |
-| --- | --- |
-| Source path/topology | element id, network id, source revision, topology signature, transform-space signature |
-| Domain plan | source revision, topology signature, fill/even-odd signature, stroke position, domain mode, selected side |
-| Dash interval allocation | source revision, network/span id, authored dash length, authored gap length, source-distance allocation origin, split range id, terminal role |
-| Terminal cap | dash interval id, cap type, terminal role, endpoint cap policy, source revision |
-| Join/miter | source vertex or split terminal id, previous/next contour directions, legal side, join type, miter angle, stroke width |
-| Product descriptor | source revision, stroke width, position, cap, join, miter, dash signature, domain signature, legal side, terminal role, join ownership, smooth-continuity group, descriptor mode |
-| Paint/render output | stroke fill signature, visibility, opacity, blend/output channel |
+| Stage                    | Required key dimensions                                                                                                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source path/topology     | element id, network id, source revision, topology signature, transform-space signature                                                                                           |
+| Domain plan              | source revision, topology signature, fill/even-odd signature, stroke position, domain mode, selected side                                                                        |
+| Dash interval allocation | source revision, network/span id, authored dash length, authored gap length, source-distance allocation origin, split range id, terminal role                                    |
+| Terminal cap             | dash interval id, cap type, terminal role, endpoint cap policy, source revision                                                                                                  |
+| Join/miter               | source vertex or split terminal id, previous/next contour directions, legal side, join type, miter angle, stroke width                                                           |
+| Product descriptor       | source revision, stroke width, position, cap, join, miter, dash signature, domain signature, legal side, terminal role, join ownership, smooth-continuity group, descriptor mode |
+| Paint/render output      | stroke fill signature, visibility, opacity, blend/output channel                                                                                                                 |
 
 Drag changes source path revision every frame but must not mutate static stroke
 parameter or paint revisions. Resolved split/domain metadata may be reused only
