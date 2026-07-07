@@ -804,26 +804,25 @@ export const allocateStrokeIntervals = ({
       hasValidDashAndGap({ dash, gap })
         ? { dash, gap }
         : null
-    const intervals =
-      dashAndGap
-        ? allocateDashedCenterStrokeIntervals(
-            domain.totalLength,
-            dashAndGap,
-            domain.closed
-          )
-        : [
-            {
-              intervalId: 'interval:0',
-              kind: 'visible' as const,
-              authoredIndex: 0,
-              startDistance: 0,
-              endDistance: Math.max(0, domain.totalLength),
-              intervalLength: Math.max(0, domain.totalLength),
-              wrapsSeam: false,
-              previousVisibleIntervalId: null,
-              nextVisibleIntervalId: null
-            }
-          ].filter((interval) => interval.intervalLength > 0)
+    const intervals = dashAndGap
+      ? allocateDashedCenterStrokeIntervals(
+          domain.totalLength,
+          dashAndGap,
+          domain.closed
+        )
+      : [
+          {
+            intervalId: 'interval:0',
+            kind: 'visible' as const,
+            authoredIndex: 0,
+            startDistance: 0,
+            endDistance: Math.max(0, domain.totalLength),
+            intervalLength: Math.max(0, domain.totalLength),
+            wrapsSeam: false,
+            previousVisibleIntervalId: null,
+            nextVisibleIntervalId: null
+          }
+        ].filter((interval) => interval.intervalLength > 0)
 
     return {
       domainId: domain.domainId,

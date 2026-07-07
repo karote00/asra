@@ -633,7 +633,10 @@ const promoteConstrainedSolidPacketsToExactArrangement = (
       return { packets: acceptedSelfIntersectingPackets, exactFaces: [] }
     }
 
-    return { packets: acceptedSelfIntersectingPackets, exactFaces: arrangedFaces }
+    return {
+      packets: acceptedSelfIntersectingPackets,
+      exactFaces: arrangedFaces
+    }
   } catch {
     return { packets: acceptedSelfIntersectingPackets, exactFaces: [] }
   }

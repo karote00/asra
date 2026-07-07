@@ -331,19 +331,6 @@ const cleanPolylinePoints = (points: Vec2[]) => {
   return deduped
 }
 
-const limitPolylinePoints = (points: Vec2[], maxPointCount: number) => {
-  if (points.length <= maxPointCount || maxPointCount < 3) {
-    return points
-  }
-
-  return Array.from({ length: maxPointCount }, (_unused, index) => {
-    const sourceIndex = Math.round(
-      (index * (points.length - 1)) / (maxPointCount - 1)
-    )
-    return points[sourceIndex]
-  })
-}
-
 const getSegmentSideOffsetDistance = (
   stroke: Pick<
     ReturnType<typeof getRenderableStrokes>[number],
@@ -4308,7 +4295,6 @@ const buildFaceOwnedInsideMaskPolygons = (
         })
       }
     })
-
   })
 
   if (sourcePath) {

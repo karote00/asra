@@ -157,6 +157,69 @@ const getIncidentProductBoundaryEndpoint = (
   side: SourceVertexJoinIncidentSeamBoundary['side']
 ) => getIncidentProductBoundary(input, side)?.outerBodyBoundaryEndpoint
 
+const pointsMatch = (first: Vec2, second: Vec2) =>
+  distance(first, second) <= EPS
+
+const polygonHasEdge = (polygon: Vec2[], first: Vec2, second: Vec2) =>
+  polygon.some((point, index) => {
+    const nextPoint = polygon[(index + 1) % polygon.length]
+    if (!nextPoint) {
+      return false
+    }
+    return (
+      (pointsMatch(point, first) && pointsMatch(nextPoint, second)) ||
+      (pointsMatch(point, second) && pointsMatch(nextPoint, first))
+    )
+  })
+
+const preserveIncidentSeamEdges = (
+  polygon: Vec2[],
+  previousBoundary: SourceVertexJoinIncidentSeamBoundary | undefined,
+  nextBoundary: SourceVertexJoinIncidentSeamBoundary | undefined
+) => {
+  if (
+    polygon.length === 0 ||
+    !previousBoundary ||
+    !nextBoundary ||
+    (!pointsMatch(previousBoundary.point, nextBoundary.point) &&
+      polygonHasEdge(
+        polygon,
+        previousBoundary.outerBodyBoundaryEndpoint,
+        nextBoundary.outerBodyBoundaryEndpoint
+      )) ||
+    (polygonHasEdge(
+      polygon,
+      previousBoundary.point,
+      previousBoundary.outerBodyBoundaryEndpoint
+    ) &&
+      polygonHasEdge(
+        polygon,
+        nextBoundary.point,
+        nextBoundary.outerBodyBoundaryEndpoint
+      ))
+  ) {
+    return polygon
+  }
+
+  const seamPoints = [
+    previousBoundary.point,
+    previousBoundary.outerBodyBoundaryEndpoint,
+    nextBoundary.outerBodyBoundaryEndpoint,
+    nextBoundary.point
+  ]
+  const interiorBoundary = polygon.filter(
+    (point) => !seamPoints.some((seamPoint) => pointsMatch(point, seamPoint))
+  )
+  const seamPreservedPolygon = cleanFootprintPolygon([
+    previousBoundary.point,
+    previousBoundary.outerBodyBoundaryEndpoint,
+    ...interiorBoundary,
+    nextBoundary.outerBodyBoundaryEndpoint,
+    nextBoundary.point
+  ])
+  return seamPreservedPolygon.length > 0 ? seamPreservedPolygon : polygon
+}
+
 export const getSourceVertexJoinLocalSeamTolerance = (
   strokeWidth: number,
   seamTolerance?: number
@@ -248,10 +311,7 @@ export const buildSourceVertexJoinFootprint = (
     previousOffsetEndpoint
   const nextJoinEndpoint =
     getIncidentProductBoundaryEndpoint(input, 'next') ?? nextOffsetEndpoint
-  const previousIncidentBoundary = getIncidentProductBoundary(
-    input,
-    'previous'
-  )
+  const previousIncidentBoundary = getIncidentProductBoundary(input, 'previous')
   const nextIncidentBoundary = getIncidentProductBoundary(input, 'next')
   const angleComparison = buildAngleComparison(
     angleEvidence.vertexAngle,
@@ -288,33 +348,72 @@ export const buildSourceVertexJoinFootprint = (
     resolvedJoin = 'bevel'
     polygon = bevelPolygon()
   } else if (input.authoredJoin === 'round') {
-    const sweepSign = cross(previousDirection, nextDirection) >= 0 ? 1 : -1
     resolvedJoin = 'round'
     const previousInnerEndpoint = getDistinctIncidentInnerEndpoint(
       previousIncidentBoundary
     )
     const nextInnerEndpoint =
       getDistinctIncidentInnerEndpoint(nextIncidentBoundary)
-    const arcPoints = buildRoundStrokeArcPointsBetween(
-      input.vertex,
-      previousJoinEndpoint,
-      nextJoinEndpoint,
-      sweepSign
-    )
-    const productBoundaryPolygon =
-      previousInnerEndpoint && nextInnerEndpoint
-        ? cleanFootprintPolygon([
-            previousJoinEndpoint,
-            ...arcPoints,
-            nextJoinEndpoint,
-            nextInnerEndpoint,
-            previousInnerEndpoint
-          ])
-        : []
+    const selectedArcDirection =
+      normalize(add(previousNormal, nextNormal)) ??
+      normalize(
+        add(
+          subtract(previousJoinEndpoint, input.vertex),
+          subtract(nextJoinEndpoint, input.vertex)
+        )
+      )
+    const scoreRoundSweep = (sweepSign: 1 | -1) => {
+      const arcPoints = buildRoundStrokeArcPointsBetween(
+        input.vertex,
+        previousJoinEndpoint,
+        nextJoinEndpoint,
+        sweepSign
+      )
+      const productBoundaryPolygon =
+        previousInnerEndpoint && nextInnerEndpoint
+          ? cleanFootprintPolygon([
+              previousJoinEndpoint,
+              ...arcPoints,
+              nextJoinEndpoint,
+              nextInnerEndpoint,
+              previousInnerEndpoint
+            ])
+          : []
+      const candidatePolygon =
+        productBoundaryPolygon.length > 0
+          ? productBoundaryPolygon
+          : cleanFootprintPolygon([
+              input.vertex,
+              previousJoinEndpoint,
+              ...arcPoints,
+              nextJoinEndpoint
+            ])
+      const midpoint = arcPoints[Math.floor(arcPoints.length / 2)]
+      const midpointDirection = midpoint
+        ? normalize(subtract(midpoint, input.vertex))
+        : null
+      const selectedScore =
+        selectedArcDirection && midpointDirection
+          ? dot(selectedArcDirection, midpointDirection)
+          : Number.NEGATIVE_INFINITY
+      return {
+        polygon: candidatePolygon,
+        selectedScore,
+        valid: candidatePolygon.length >= 3
+      }
+    }
+    const selectedRoundSweep = [scoreRoundSweep(1), scoreRoundSweep(-1)].sort(
+      (left, right) =>
+        Number(right.valid) - Number(left.valid) ||
+        right.selectedScore - left.selectedScore
+    )[0]
     polygon =
-      productBoundaryPolygon.length > 0
-        ? productBoundaryPolygon
-        : cleanFootprintPolygon([input.vertex, ...arcPoints])
+      selectedRoundSweep?.polygon ??
+      cleanFootprintPolygon([
+        input.vertex,
+        previousJoinEndpoint,
+        nextJoinEndpoint
+      ])
   } else if (angleEvidence.vertexAngle <= input.miterAngle + ANGLE_EPSILON) {
     resolvedJoin = 'bevel-by-miter-angle'
     polygon = bevelPolygon()
@@ -326,17 +425,41 @@ export const buildSourceVertexJoinFootprint = (
       nextOffsetEnd
     )
     if (miterPoint) {
+      const previousInnerEndpoint = getDistinctIncidentInnerEndpoint(
+        previousIncidentBoundary
+      )
+      const nextInnerEndpoint =
+        getDistinctIncidentInnerEndpoint(nextIncidentBoundary)
+      const productBoundaryPolygon =
+        previousInnerEndpoint && nextInnerEndpoint
+          ? cleanFootprintPolygon([
+              previousInnerEndpoint,
+              previousJoinEndpoint,
+              miterPoint,
+              nextJoinEndpoint,
+              nextInnerEndpoint
+            ])
+          : []
       resolvedJoin = 'miter'
-      polygon = cleanFootprintPolygon([
-        previousJoinEndpoint,
-        miterPoint,
-        nextJoinEndpoint
-      ])
+      polygon =
+        productBoundaryPolygon.length > 0
+          ? productBoundaryPolygon
+          : cleanFootprintPolygon([
+              previousJoinEndpoint,
+              miterPoint,
+              nextJoinEndpoint
+            ])
     } else {
       resolvedJoin = 'degenerate-bevel'
       polygon = []
     }
   }
+
+  polygon = preserveIncidentSeamEdges(
+    polygon,
+    previousIncidentBoundary,
+    nextIncidentBoundary
+  )
 
   const polygons = polygon.length > 0 ? [polygon] : []
 

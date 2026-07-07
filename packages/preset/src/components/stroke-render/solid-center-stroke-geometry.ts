@@ -178,7 +178,13 @@ export const buildSolidCenterStrokePolygons = (
   closed: boolean,
   stroke: Pick<
     RenderableStroke,
-    'style' | 'position' | 'width' | 'join' | 'miterLimit' | 'miterAngle' | 'cap'
+    | 'style'
+    | 'position'
+    | 'width'
+    | 'join'
+    | 'miterLimit'
+    | 'miterAngle'
+    | 'cap'
   >
 ): Vec2[][] => {
   if (!supportsSolidCenterStroke(stroke)) {

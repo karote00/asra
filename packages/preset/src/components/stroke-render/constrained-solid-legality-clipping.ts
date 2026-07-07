@@ -549,15 +549,10 @@ export const clipPolygonsToSimpleInsideDomain = (
         return []
       }
 
-      const orientationKind =
-        signedArea(convexBoundary) >= 0 ? 'ccw' : 'cw'
+      const orientationKind = signedArea(convexBoundary) >= 0 ? 'ccw' : 'cw'
       return polygons
         .map((polygon) =>
-          clipPolygonToConvexBoundary(
-            polygon,
-            convexBoundary,
-            orientationKind
-          )
+          clipPolygonToConvexBoundary(polygon, convexBoundary, orientationKind)
         )
         .filter(
           (polygon) =>

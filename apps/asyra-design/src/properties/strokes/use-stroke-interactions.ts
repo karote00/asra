@@ -1,5 +1,4 @@
 import {
-  StrokeStyles,
   type EVENT_OPTIONS,
   type FillColorFormat,
   type FillAttrs,

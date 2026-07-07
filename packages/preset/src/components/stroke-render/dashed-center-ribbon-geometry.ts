@@ -453,8 +453,7 @@ const clipPolygonsToSuppressedEndpointCaps = (
   )
 }
 
-const toBackendCap = (cap: RenderableStroke['cap']): StrokeOffsetCap =>
-  cap
+const toBackendCap = (cap: RenderableStroke['cap']): StrokeOffsetCap => cap
 
 const buildBackendOffsetPolygons = (
   frames: DashedCenterRibbonFrame[],

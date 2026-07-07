@@ -649,27 +649,55 @@ const getBounds = (polygons: Vec2[][]): Bounds => {
   return { minX, minY, maxX, maxY }
 }
 
+const translateRenderProjectionPolygons = (polygons: Vec2[][], offset: Vec2) =>
+  polygons.map((polygon) =>
+    polygon.map((point) => ({
+      x: point.x + offset.x,
+      y: point.y + offset.y
+    }))
+  )
+
 const unionCoveragePolygons = (polygons: Vec2[][]) => {
   if (polygons.length <= 1) {
     return polygons
   }
+  const projectionBounds = getBounds(polygons)
+  const projectionOrigin = {
+    x: Number.isFinite(projectionBounds.minX) ? projectionBounds.minX : 0,
+    y: Number.isFinite(projectionBounds.minY) ? projectionBounds.minY : 0
+  }
+  const sourcePolygons = translateRenderProjectionPolygons(polygons, {
+    x: -projectionOrigin.x,
+    y: -projectionOrigin.y
+  })
+  const unionInputPolygons = cleanRenderProjectionPolygons(sourcePolygons)
+  const restoreProjectionOrigin = (outputPolygons: Vec2[][]) =>
+    translateRenderProjectionPolygons(outputPolygons, projectionOrigin)
   try {
     const backend = getGeometryBackend()
     if (!backend.capabilities.union) {
-      return polygons
+      return restoreProjectionOrigin(
+        mergeSharedEdgeCoveragePolygons(unionInputPolygons)
+      )
     }
     const unioned = flattenFacePolygons(
       backend.union(
-        polygons.map((polygon) => ({
+        unionInputPolygons.map((polygon) => ({
           polygons: [normalizeCoveragePolygonWinding(polygon)]
         })),
         'nonzero'
       ),
-      polygons
+      unionInputPolygons
     )
-    return unioned.length > 0 ? unioned : polygons
+    return restoreProjectionOrigin(
+      mergeSharedEdgeCoveragePolygons(
+        unioned.length > 0 ? unioned : unionInputPolygons
+      )
+    )
   } catch {
-    return polygons
+    return restoreProjectionOrigin(
+      mergeSharedEdgeCoveragePolygons(unionInputPolygons)
+    )
   }
 }
 
@@ -768,6 +796,52 @@ const doBoundsOverlap = (left: Bounds, right: Bounds) =>
   right.minX < left.maxX &&
   left.minY < right.maxY &&
   right.minY < left.maxY
+
+const doBoundsTouchOrOverlap = (
+  left: Bounds,
+  right: Bounds,
+  tolerance: number
+) =>
+  left.minX <= right.maxX + tolerance &&
+  right.minX <= left.maxX + tolerance &&
+  left.minY <= right.maxY + tolerance &&
+  right.minY <= left.maxY + tolerance
+
+const distanceBetweenPoints = (left: Vec2, right: Vec2) =>
+  Math.hypot(right.x - left.x, right.y - left.y)
+
+const distancePointToSegment = (point: Vec2, start: Vec2, end: Vec2) => {
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const lengthSquared = dx * dx + dy * dy
+  if (lengthSquared <= 0) {
+    return distanceBetweenPoints(point, start)
+  }
+  const t = Math.max(
+    0,
+    Math.min(
+      1,
+      ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared
+    )
+  )
+  return distanceBetweenPoints(point, {
+    x: start.x + dx * t,
+    y: start.y + dy * t
+  })
+}
+
+const distanceSegmentToSegment = (
+  leftStart: Vec2,
+  leftEnd: Vec2,
+  rightStart: Vec2,
+  rightEnd: Vec2
+) =>
+  Math.min(
+    distancePointToSegment(leftStart, rightStart, rightEnd),
+    distancePointToSegment(leftEnd, rightStart, rightEnd),
+    distancePointToSegment(rightStart, leftStart, leftEnd),
+    distancePointToSegment(rightEnd, leftStart, leftEnd)
+  )
 
 export const hasSolidCenterStrokeIntent = (
   strokes: StrokeAttrs[] | undefined
@@ -1792,6 +1866,561 @@ const getPolygonListCoverageArea = (polygons: Vec2[][]) =>
 const normalizeCoveragePolygonWinding = (polygon: Vec2[]) =>
   getSignedPolygonArea(polygon) < 0 ? [...polygon].reverse() : polygon
 
+interface RenderProjectionSharedEdge {
+  startKey: string
+  endKey: string
+  start: Vec2
+  end: Vec2
+}
+
+const RENDER_PROJECTION_SHARED_EDGE_MATCH_TOLERANCE = 0.05
+const RENDER_PROJECTION_SHARED_EDGE_KEY_TOLERANCE = 0.1
+const RENDER_PROJECTION_SHARED_EDGE_OUTPUT_TOLERANCE = 0.001
+const RENDER_PROJECTION_SHARED_EDGE_AREA_TOLERANCE = 0.01
+
+function getRenderProjectionSharedEdgePointKey(point: Vec2) {
+  const scale = 1 / RENDER_PROJECTION_SHARED_EDGE_KEY_TOLERANCE
+  return `${Math.round(point.x * scale)}:${Math.round(point.y * scale)}`
+}
+
+function snapRenderProjectionSharedEdgePoint(point: Vec2): Vec2 {
+  const scale = 1 / RENDER_PROJECTION_SHARED_EDGE_OUTPUT_TOLERANCE
+  return {
+    x: Math.round(point.x * scale) / scale,
+    y: Math.round(point.y * scale) / scale
+  }
+}
+
+function getRenderProjectionSharedEdgeUndirectedKey(
+  startKey: string,
+  endKey: string
+) {
+  return startKey < endKey ? `${startKey}|${endKey}` : `${endKey}|${startKey}`
+}
+
+function buildRenderProjectionCanonicalPointMap(polygons: Vec2[][]) {
+  const pointStats = new Map<string, { x: number; y: number; count: number }>()
+  polygons.forEach((polygon) => {
+    polygon.forEach((point) => {
+      const key = getRenderProjectionSharedEdgePointKey(point)
+      const stats = pointStats.get(key) ?? { x: 0, y: 0, count: 0 }
+      stats.x += point.x
+      stats.y += point.y
+      stats.count += 1
+      pointStats.set(key, stats)
+    })
+  })
+
+  const points = new Map<string, Vec2>()
+  pointStats.forEach((stats, key) => {
+    points.set(key, {
+      x: stats.x / stats.count,
+      y: stats.y / stats.count
+    })
+  })
+  return points
+}
+
+function getCanonicalRenderProjectionPoint(
+  canonicalPoints: Map<string, Vec2>,
+  key: string,
+  point: Vec2
+) {
+  return canonicalPoints.get(key) ?? point
+}
+
+function getRenderProjectionSegmentRatio(point: Vec2, start: Vec2, end: Vec2) {
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const lengthSquared = dx * dx + dy * dy
+  if (lengthSquared <= Number.EPSILON) {
+    return null
+  }
+  return ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared
+}
+
+function isRenderProjectionPointOnSegment(point: Vec2, start: Vec2, end: Vec2) {
+  const ratio = getRenderProjectionSegmentRatio(point, start, end)
+  return (
+    ratio !== null &&
+    ratio > RENDER_PROJECTION_SHARED_EDGE_MATCH_TOLERANCE &&
+    ratio < 1 - RENDER_PROJECTION_SHARED_EDGE_MATCH_TOLERANCE &&
+    distancePointToSegment(point, start, end) <=
+      RENDER_PROJECTION_SHARED_EDGE_MATCH_TOLERANCE
+  )
+}
+
+function appendRenderProjectionSharedSubEdges(
+  edges: RenderProjectionSharedEdge[],
+  canonicalPoints: Map<string, Vec2>,
+  startKey: string,
+  endKey: string,
+  start: Vec2,
+  end: Vec2,
+  extraSplitPoints: { key: string; point: Vec2; ratio: number }[] = []
+) {
+  const splitPoints = [
+    { key: startKey, point: start, ratio: 0 },
+    { key: endKey, point: end, ratio: 1 },
+    ...extraSplitPoints
+  ]
+  canonicalPoints.forEach((point, key) => {
+    if (
+      key === startKey ||
+      key === endKey ||
+      !isRenderProjectionPointOnSegment(point, start, end)
+    ) {
+      return
+    }
+    const ratio = getRenderProjectionSegmentRatio(point, start, end)
+    if (ratio !== null) {
+      splitPoints.push({ key, point, ratio })
+    }
+  })
+
+  splitPoints
+    .sort((left, right) => left.ratio - right.ratio)
+    .forEach((splitPoint, index, sortedPoints) => {
+      const next = sortedPoints[index + 1]
+      if (
+        !next ||
+        splitPoint.key === next.key ||
+        distanceBetweenPoints(splitPoint.point, next.point) <=
+          RENDER_PROJECTION_SHARED_EDGE_OUTPUT_TOLERANCE
+      ) {
+        return
+      }
+      edges.push({
+        startKey: splitPoint.key,
+        endKey: next.key,
+        start: splitPoint.point,
+        end: next.point
+      })
+    })
+}
+
+function removeRenderProjectionSharedInteriorEdges(
+  edges: RenderProjectionSharedEdge[]
+) {
+  const edgesByUndirectedKey = new Map<string, RenderProjectionSharedEdge[]>()
+  edges.forEach((edge) => {
+    const key = getRenderProjectionSharedEdgeUndirectedKey(
+      edge.startKey,
+      edge.endKey
+    )
+    const list = edgesByUndirectedKey.get(key) ?? []
+    list.push(edge)
+    edgesByUndirectedKey.set(key, list)
+  })
+
+  let removedSharedEdge = false
+  const boundaryEdges: RenderProjectionSharedEdge[] = []
+  edgesByUndirectedKey.forEach((bucket) => {
+    const remaining = [...bucket]
+    for (let leftIndex = 0; leftIndex < remaining.length; leftIndex += 1) {
+      const rightIndex = remaining.findIndex(
+        (_, candidateIndex) => candidateIndex !== leftIndex
+      )
+      if (rightIndex < 0) {
+        continue
+      }
+
+      remaining.splice(Math.max(leftIndex, rightIndex), 1)
+      remaining.splice(Math.min(leftIndex, rightIndex), 1)
+      leftIndex = -1
+      removedSharedEdge = true
+    }
+    boundaryEdges.push(...remaining)
+  })
+
+  return removedSharedEdge ? boundaryEdges : null
+}
+
+function traceRenderProjectionSharedEdgeLoops(
+  edges: RenderProjectionSharedEdge[]
+) {
+  const unused = new Set(edges.map((_, index) => index))
+  const loops: Vec2[][] = []
+
+  const takeNextEdgeIndex = (startKey: string) => {
+    const candidates = [...unused].filter(
+      (edgeIndex) =>
+        edges[edgeIndex].startKey === startKey ||
+        edges[edgeIndex].endKey === startKey
+    )
+    return candidates[0]
+  }
+
+  const orientEdgeFromKey = (
+    edge: RenderProjectionSharedEdge,
+    startKey: string
+  ) =>
+    edge.startKey === startKey
+      ? edge
+      : {
+          startKey: edge.endKey,
+          endKey: edge.startKey,
+          start: edge.end,
+          end: edge.start
+        }
+
+  while (unused.size > 0) {
+    const firstIndex = unused.values().next().value as number | undefined
+    if (firstIndex === undefined) {
+      break
+    }
+
+    const firstEdge = edges[firstIndex]
+    unused.delete(firstIndex)
+    const loop = [firstEdge.start, firstEdge.end]
+    const startKey = firstEdge.startKey
+    let currentKey = firstEdge.endKey
+
+    for (let guard = 0; guard <= edges.length; guard += 1) {
+      if (currentKey === startKey) {
+        loop.pop()
+        const cleanedLoop = cleanRenderProjectionPolygon(loop)
+        if (cleanedLoop.length < 3) {
+          return null
+        }
+        loops.push(normalizeCoveragePolygonWinding(cleanedLoop))
+        break
+      }
+
+      const nextIndex = takeNextEdgeIndex(currentKey)
+      if (nextIndex === undefined) {
+        return null
+      }
+      const nextEdge = orientEdgeFromKey(edges[nextIndex], currentKey)
+      unused.delete(nextIndex)
+      loop.push(nextEdge.end)
+      currentKey = nextEdge.endKey
+
+      if (guard === edges.length) {
+        return null
+      }
+    }
+  }
+
+  return loops
+}
+
+function getRenderProjectionCollinearSegmentOverlapLength(
+  leftStart: Vec2,
+  leftEnd: Vec2,
+  rightStart: Vec2,
+  rightEnd: Vec2
+) {
+  const axis = {
+    x: leftEnd.x - leftStart.x,
+    y: leftEnd.y - leftStart.y
+  }
+  const axisLength = Math.hypot(axis.x, axis.y)
+  const rightAxis = {
+    x: rightEnd.x - rightStart.x,
+    y: rightEnd.y - rightStart.y
+  }
+  const rightAxisLength = Math.hypot(rightAxis.x, rightAxis.y)
+  if (axisLength <= Number.EPSILON || rightAxisLength <= Number.EPSILON) {
+    return 0
+  }
+
+  const parallelDistance =
+    Math.abs(axis.x * rightAxis.y - axis.y * rightAxis.x) /
+    Math.max(axisLength, rightAxisLength)
+  if (parallelDistance > RENDER_PROJECTION_SHARED_EDGE_MATCH_TOLERANCE) {
+    return 0
+  }
+
+  const rightStartLineDistance =
+    Math.abs(
+      axis.x * (rightStart.y - leftStart.y) -
+        axis.y * (rightStart.x - leftStart.x)
+    ) / axisLength
+  const rightEndLineDistance =
+    Math.abs(
+      axis.x * (rightEnd.y - leftStart.y) - axis.y * (rightEnd.x - leftStart.x)
+    ) / axisLength
+  if (
+    rightStartLineDistance > RENDER_PROJECTION_SHARED_EDGE_MATCH_TOLERANCE ||
+    rightEndLineDistance > RENDER_PROJECTION_SHARED_EDGE_MATCH_TOLERANCE
+  ) {
+    return 0
+  }
+
+  const normalizedAxis = {
+    x: axis.x / axisLength,
+    y: axis.y / axisLength
+  }
+  const rightRange = [rightStart, rightEnd]
+    .map(
+      (point) =>
+        (point.x - leftStart.x) * normalizedAxis.x +
+        (point.y - leftStart.y) * normalizedAxis.y
+    )
+    .sort((left, right) => left - right)
+  return Math.max(
+    0,
+    Math.min(axisLength, rightRange[1]) - Math.max(0, rightRange[0])
+  )
+}
+
+function getRenderProjectionCollinearOverlapSplitPoints(
+  leftStart: Vec2,
+  leftEnd: Vec2,
+  rightStart: Vec2,
+  rightEnd: Vec2
+) {
+  const axis = {
+    x: leftEnd.x - leftStart.x,
+    y: leftEnd.y - leftStart.y
+  }
+  const axisLength = Math.hypot(axis.x, axis.y)
+  const rightAxis = {
+    x: rightEnd.x - rightStart.x,
+    y: rightEnd.y - rightStart.y
+  }
+  const rightAxisLength = Math.hypot(rightAxis.x, rightAxis.y)
+  if (axisLength <= Number.EPSILON || rightAxisLength <= Number.EPSILON) {
+    return []
+  }
+
+  const parallelDistance =
+    Math.abs(axis.x * rightAxis.y - axis.y * rightAxis.x) /
+    Math.max(axisLength, rightAxisLength)
+  if (parallelDistance > RENDER_PROJECTION_SHARED_EDGE_MATCH_TOLERANCE) {
+    return []
+  }
+
+  const rightStartLineDistance =
+    Math.abs(
+      axis.x * (rightStart.y - leftStart.y) -
+        axis.y * (rightStart.x - leftStart.x)
+    ) / axisLength
+  const rightEndLineDistance =
+    Math.abs(
+      axis.x * (rightEnd.y - leftStart.y) - axis.y * (rightEnd.x - leftStart.x)
+    ) / axisLength
+  if (
+    rightStartLineDistance > RENDER_PROJECTION_SHARED_EDGE_MATCH_TOLERANCE ||
+    rightEndLineDistance > RENDER_PROJECTION_SHARED_EDGE_MATCH_TOLERANCE
+  ) {
+    return []
+  }
+
+  const normalizedAxis = {
+    x: axis.x / axisLength,
+    y: axis.y / axisLength
+  }
+  const rightRange = [rightStart, rightEnd]
+    .map(
+      (point) =>
+        (point.x - leftStart.x) * normalizedAxis.x +
+        (point.y - leftStart.y) * normalizedAxis.y
+    )
+    .sort((left, right) => left - right)
+  const overlapStart = Math.max(0, rightRange[0])
+  const overlapEnd = Math.min(axisLength, rightRange[1])
+  if (
+    overlapEnd - overlapStart <=
+    RENDER_PROJECTION_SHARED_EDGE_MATCH_TOLERANCE
+  ) {
+    return []
+  }
+
+  return [overlapStart, overlapEnd].map((distanceAlongEdge) => {
+    const point = snapRenderProjectionSharedEdgePoint({
+      x: leftStart.x + normalizedAxis.x * distanceAlongEdge,
+      y: leftStart.y + normalizedAxis.y * distanceAlongEdge
+    })
+    return {
+      key: getRenderProjectionSharedEdgePointKey(point),
+      point,
+      ratio: distanceAlongEdge / axisLength
+    }
+  })
+}
+
+function getRenderProjectionSharedBoundaryLength(
+  leftPolygon: Vec2[],
+  rightPolygon: Vec2[]
+) {
+  let sharedLength = 0
+  leftPolygon.forEach((leftPoint, leftIndex) => {
+    const leftNext = leftPolygon[(leftIndex + 1) % leftPolygon.length]
+    rightPolygon.forEach((rightPoint, rightIndex) => {
+      const rightNext = rightPolygon[(rightIndex + 1) % rightPolygon.length]
+      sharedLength += getRenderProjectionCollinearSegmentOverlapLength(
+        leftPoint,
+        leftNext,
+        rightPoint,
+        rightNext
+      )
+    })
+  })
+  return sharedLength
+}
+
+function findRenderProjectionSharedEdgeComponentIndexes(polygons: Vec2[][]) {
+  const parent = polygons.map((_, index) => index)
+  const find = (index: number): number =>
+    parent[index] === index ? index : (parent[index] = find(parent[index]))
+  const unite = (leftIndex: number, rightIndex: number) => {
+    const leftRoot = find(leftIndex)
+    const rightRoot = find(rightIndex)
+    if (leftRoot !== rightRoot) {
+      parent[rightRoot] = leftRoot
+    }
+  }
+
+  for (let leftIndex = 0; leftIndex < polygons.length; leftIndex += 1) {
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < polygons.length;
+      rightIndex += 1
+    ) {
+      if (
+        getRenderProjectionSharedBoundaryLength(
+          polygons[leftIndex],
+          polygons[rightIndex]
+        ) > RENDER_PROJECTION_SHARED_EDGE_MATCH_TOLERANCE
+      ) {
+        unite(leftIndex, rightIndex)
+      }
+    }
+  }
+
+  const components = new Map<number, number[]>()
+  polygons.forEach((_, index) => {
+    const root = find(index)
+    const component = components.get(root) ?? []
+    component.push(index)
+    components.set(root, component)
+  })
+  return [...components.values()]
+}
+
+function mergeSharedEdgeCoveragePolygonComponent(sourcePolygons: Vec2[][]) {
+  if (sourcePolygons.length <= 1) {
+    return sourcePolygons
+  }
+
+  const canonicalPoints = buildRenderProjectionCanonicalPointMap(sourcePolygons)
+  const sourceEdges: (RenderProjectionSharedEdge & {
+    polygonIndex: number
+  })[] = []
+  sourcePolygons.forEach((polygon, polygonIndex) => {
+    polygon.forEach((point, index) => {
+      const next = polygon[(index + 1) % polygon.length]
+      const startKey = getRenderProjectionSharedEdgePointKey(point)
+      const endKey = getRenderProjectionSharedEdgePointKey(next)
+      if (startKey === endKey) {
+        return
+      }
+      const start = getCanonicalRenderProjectionPoint(
+        canonicalPoints,
+        startKey,
+        point
+      )
+      const end = getCanonicalRenderProjectionPoint(
+        canonicalPoints,
+        endKey,
+        next
+      )
+      if (
+        distanceBetweenPoints(start, end) <=
+        RENDER_PROJECTION_SHARED_EDGE_OUTPUT_TOLERANCE
+      ) {
+        return
+      }
+      sourceEdges.push({
+        polygonIndex,
+        startKey,
+        endKey,
+        start,
+        end
+      })
+    })
+  })
+
+  const edges: RenderProjectionSharedEdge[] = []
+  sourceEdges.forEach((sourceEdge, sourceEdgeIndex) => {
+    const overlapSplitPoints = sourceEdges.flatMap((candidateEdge, index) =>
+      index === sourceEdgeIndex ||
+      candidateEdge.polygonIndex === sourceEdge.polygonIndex
+        ? []
+        : getRenderProjectionCollinearOverlapSplitPoints(
+            sourceEdge.start,
+            sourceEdge.end,
+            candidateEdge.start,
+            candidateEdge.end
+          )
+    )
+    appendRenderProjectionSharedSubEdges(
+      edges,
+      canonicalPoints,
+      sourceEdge.startKey,
+      sourceEdge.endKey,
+      sourceEdge.start,
+      sourceEdge.end,
+      overlapSplitPoints
+    )
+  })
+
+  const boundaryEdges = removeRenderProjectionSharedInteriorEdges(edges)
+  if (!boundaryEdges || boundaryEdges.length === edges.length) {
+    return sourcePolygons
+  }
+
+  const mergedPolygons = traceRenderProjectionSharedEdgeLoops(boundaryEdges)
+  if (!mergedPolygons || mergedPolygons.length >= sourcePolygons.length) {
+    return sourcePolygons
+  }
+
+  const sourceArea = getPolygonListCoverageArea(sourcePolygons)
+  const mergedArea = getPolygonListCoverageArea(mergedPolygons)
+  if (
+    sourceArea <= Number.EPSILON ||
+    Math.abs(sourceArea - mergedArea) / sourceArea >
+      RENDER_PROJECTION_SHARED_EDGE_AREA_TOLERANCE
+  ) {
+    return sourcePolygons
+  }
+
+  return mergedPolygons
+}
+
+function mergeSharedEdgeCoveragePolygons(polygons: Vec2[][]) {
+  const sourcePolygons = polygons
+    .map((polygon) =>
+      normalizeCoveragePolygonWinding(
+        polygon.filter(
+          (point) => Number.isFinite(point.x) && Number.isFinite(point.y)
+        )
+      )
+    )
+    .filter((polygon) => polygon.length >= 3)
+  if (sourcePolygons.length <= 1) {
+    return sourcePolygons
+  }
+
+  const mergedPolygons = findRenderProjectionSharedEdgeComponentIndexes(
+    sourcePolygons
+  ).flatMap((componentIndexes) => {
+    if (componentIndexes.length <= 1) {
+      return componentIndexes.map((index) => sourcePolygons[index])
+    }
+    const componentPolygons = componentIndexes.map(
+      (index) => sourcePolygons[index]
+    )
+    return mergeSharedEdgeCoveragePolygonComponent(componentPolygons)
+  })
+
+  return mergedPolygons.length < sourcePolygons.length
+    ? mergedPolygons
+    : polygons
+}
+
 const clipRenderProjectionUnionToArrangementCoverage = (
   unionPolygons: Vec2[][],
   arrangementPolygons: Vec2[][],
@@ -2409,6 +3038,10 @@ const buildRenderEntryFromFinalFace = (
             )
           : getRenderEntryProductPolygonsFromFinalFace(face)
     )
+    const canonicalProductPolygons =
+      isConstrainedDashedProductFace(face) && productPolygons.length > 1
+        ? cleanRenderProjectionPolygons(unionCoveragePolygons(productPolygons))
+        : productPolygons
     const runtimeMeta: SolidCenterStrokeRuntimeMeta = {
       productMode: face.debugMeta?.productMode,
       productSignature: face.debugMeta?.productSignature,
@@ -2442,7 +3075,7 @@ const buildRenderEntryFromFinalFace = (
         paintKey:
           face.paint.paintKey ?? `solid:${face.paint.color}:${face.paint.alpha}`
       },
-      polygons: productPolygons,
+      polygons: canonicalProductPolygons,
       fillPolygons: renderDescriptor?.fillPolygons,
       clipPolygons: renderDescriptor?.clipPolygons,
       fillClipPolygons: renderDescriptor?.fillClipPolygons,
@@ -2482,18 +3115,10 @@ const getRenderEntryPaintSignature = (
     entry.stroke.paintKey ?? ''
   ].join('|')
 
-const isBevelFamilySourceVertexJoinRenderEntry = (
-  entry: SolidCenterStrokeComputedRenderEntry
-) =>
-  entry.debugMeta?.visibleContributor === 'source-vertex-join' &&
-  (entry.debugMeta.resolvedJoin === 'bevel' ||
-    entry.debugMeta.resolvedJoin === 'bevel-by-miter-angle')
-
 const canCompositePolygonRenderEntry = (
   entry: SolidCenterStrokeComputedRenderEntry
 ) =>
   entry.polygons.length > 0 &&
-  !isBevelFamilySourceVertexJoinRenderEntry(entry) &&
   (entry.fillPolygons?.length ?? 0) === 0 &&
   (entry.clipPolygons?.length ?? 0) === 0 &&
   (entry.fillClipPolygons?.length ?? 0) === 0 &&
@@ -2710,7 +3335,11 @@ const collapseSamePaintOverlappingPolygonRenderEntries = (
         !canCompositePolygonRenderEntry(rightEntry) ||
         getRenderEntryPaintSignature(leftEntry) !==
           getRenderEntryPaintSignature(rightEntry) ||
-        !doBoundsOverlap(renderBounds[leftIndex], renderBounds[rightIndex])
+        !doBoundsTouchOrOverlap(
+          renderBounds[leftIndex],
+          renderBounds[rightIndex],
+          RENDER_PROJECTION_MICRO_EDGE_TOLERANCE
+        )
       ) {
         continue
       }
@@ -2729,7 +3358,13 @@ const collapseSamePaintOverlappingPolygonRenderEntries = (
               renderBounds[leftIndex],
               renderBounds[rightIndex]
             )
-      if (hasOverlap) {
+      const hasBoundaryContact = polygonListsHaveBoundaryContact(
+        renderPolygons[leftIndex],
+        renderPolygons[rightIndex],
+        renderBounds[leftIndex],
+        renderBounds[rightIndex]
+      )
+      if (hasOverlap || hasBoundaryContact) {
         unite(leftIndex, rightIndex)
       }
     }
@@ -3445,6 +4080,39 @@ function polygonListsHaveInteriorOverlap(
   }
 
   return false
+}
+
+function polygonListsHaveBoundaryContact(
+  leftPolygons: Vec2[][],
+  rightPolygons: Vec2[][],
+  leftBounds = getBounds(leftPolygons),
+  rightBounds = getBounds(rightPolygons),
+  tolerance = RENDER_PROJECTION_MICRO_EDGE_TOLERANCE
+) {
+  if (!doBoundsTouchOrOverlap(leftBounds, rightBounds, tolerance)) {
+    return false
+  }
+
+  return leftPolygons.some((leftPolygon) =>
+    leftPolygon.some((leftPoint, leftIndex) => {
+      const leftNext =
+        leftPolygon[(leftIndex + 1) % leftPolygon.length] ?? leftPoint
+      return rightPolygons.some((rightPolygon) =>
+        rightPolygon.some((rightPoint, rightIndex) => {
+          const rightNext =
+            rightPolygon[(rightIndex + 1) % rightPolygon.length] ?? rightPoint
+          return (
+            distanceSegmentToSegment(
+              leftPoint,
+              leftNext,
+              rightPoint,
+              rightNext
+            ) <= tolerance
+          )
+        })
+      )
+    })
+  )
 }
 
 const EXACT_RENDER_OVERLAP_AREA_EPSILON = 1e-7

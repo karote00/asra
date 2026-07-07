@@ -131,6 +131,8 @@ export const buildRoundStrokeArcPointsBetween = (
     sweep,
     minSegments,
     options
+  ).map((point, index, points) =>
+    index === 0 ? start : index === points.length - 1 ? end : point
   )
 }
 
