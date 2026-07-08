@@ -354,14 +354,14 @@ export const buildSourceVertexJoinFootprint = (
     )
     const nextInnerEndpoint =
       getDistinctIncidentInnerEndpoint(nextIncidentBoundary)
-    const selectedArcDirection =
-      normalize(add(previousNormal, nextNormal)) ??
-      normalize(
-        add(
-          subtract(previousJoinEndpoint, input.vertex),
-          subtract(nextJoinEndpoint, input.vertex)
-        )
+    const incidentArcDirection = normalize(
+      add(
+        subtract(previousJoinEndpoint, input.vertex),
+        subtract(nextJoinEndpoint, input.vertex)
       )
+    )
+    const selectedArcDirection =
+      incidentArcDirection ?? normalize(add(previousNormal, nextNormal))
     const scoreRoundSweep = (sweepSign: 1 | -1) => {
       const arcPoints = buildRoundStrokeArcPointsBetween(
         input.vertex,

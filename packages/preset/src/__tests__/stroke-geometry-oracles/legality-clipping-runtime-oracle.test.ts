@@ -93,7 +93,7 @@ interface StageBoundarySummary {
 
 const require = createRequire(import.meta.url)
 const clipperWasmPath = require.resolve('clipper2-wasm/dist/umd/clipper2z.wasm')
-const LEGALITY_BOUNDARY_TOLERANCE = 0.85
+const LEGALITY_COORDINATE_EPSILON = 1e-6
 const SEAM_IDENTITY_TOLERANCE = 1e-6
 
 beforeAll(async () => {
@@ -415,7 +415,7 @@ const collectWrongSideSamples = ({
   productPolygons,
   sourcePoints,
   position,
-  boundaryTolerance = LEGALITY_BOUNDARY_TOLERANCE
+  boundaryTolerance = LEGALITY_COORDINATE_EPSILON
 }: {
   productPolygons: readonly (readonly Vec2[])[]
   sourcePoints: readonly Vec2[]
@@ -446,7 +446,7 @@ const collectStageWrongSideSamples = ({
   artifacts,
   sourcePoints,
   position,
-  boundaryTolerance = LEGALITY_BOUNDARY_TOLERANCE
+  boundaryTolerance = LEGALITY_COORDINATE_EPSILON
 }: {
   artifacts: readonly StageArtifact[]
   sourcePoints: readonly Vec2[]

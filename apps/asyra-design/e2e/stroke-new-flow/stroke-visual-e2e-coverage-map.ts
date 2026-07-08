@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 export type StrokeVisualArtifactRequirement =
   | 'metadata-json'
   | 'full-screenshot'
@@ -109,7 +112,37 @@ export const requiredStrokeVisualDimensions: readonly StrokeVisualDimension[] =
 export const requiredStrokeVisualArtifacts: readonly StrokeVisualArtifactRequirement[] =
   ['metadata-json', 'full-screenshot', 'focused-crop', 'case-summary']
 
-export const requiredVisualReviewBaseUrl = 'http://localhost:3001'
+export const visualReviewBaseUrlEnvName = 'ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL'
+export const playwrightBaseUrlEnvName = 'PLAYWRIGHT_TEST_BASE_URL'
+
+const getAppEnvFilePath = () => {
+  const candidates = [
+    resolve(process.cwd(), 'apps/asyra-design/.env'),
+    resolve(process.cwd(), '.env'),
+    resolve(process.cwd(), '../../apps/asyra-design/.env')
+  ]
+  const envFilePath = candidates.find((candidate) => existsSync(candidate))
+  if (!envFilePath) {
+    throw new Error(
+      'Missing apps/asyra-design/.env for stroke visual review base URL'
+    )
+  }
+  return envFilePath
+}
+
+export const readVisualReviewBaseUrlFromEnvFile = (
+  envFileText = readFileSync(getAppEnvFilePath(), 'utf8')
+) => {
+  const match = envFileText.match(/^ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL=(.+)$/m)
+  if (!match?.[1]) {
+    throw new Error(
+      'Missing ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL in apps/asyra-design/.env'
+    )
+  }
+  return match[1].trim()
+}
+
+export const requiredVisualReviewBaseUrl = readVisualReviewBaseUrlFromEnvFile()
 
 export const strokeVisualE2ECoverageMap: readonly StrokeVisualE2ECoverageCase[] =
   [

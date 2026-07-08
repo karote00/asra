@@ -377,6 +377,9 @@ const getPreLegalitySourceVertexJoinProducts = (
               visibleContributor: unit.visibleContributor,
               geometryBasis: unit.geometryBasis,
               productMode: unit.productMode,
+              seamEvidence: unit.seamEvidence ?? meta?.seamEvidence,
+              dashBodySeamBoundaries:
+                unit.dashBodySeamBoundaries ?? meta?.dashBodySeamBoundaries,
               legalDomainIds: unit.legalDomainIds ?? meta?.legalDomainIds,
               sourceContourIds: unit.contourIds ?? meta?.sourceContourIds
             }

@@ -40,6 +40,29 @@ const solidCenterSourcePath = resolve(
   'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts'
 )
 
+const extractFunctionSource = (source: string, declaration: string) => {
+  const start = source.indexOf(declaration)
+  expect(start).toBeGreaterThanOrEqual(0)
+
+  const openBrace = source.indexOf('{', start)
+  expect(openBrace).toBeGreaterThan(start)
+
+  let depth = 0
+  for (let index = openBrace; index < source.length; index += 1) {
+    const char = source[index]
+    if (char === '{') {
+      depth += 1
+    } else if (char === '}') {
+      depth -= 1
+      if (depth === 0) {
+        return source.slice(start, index + 1)
+      }
+    }
+  }
+
+  throw new Error(`Unable to extract function source for ${declaration}`)
+}
+
 let cachedInspectorData: InspectorData | null = null
 
 const loadInspectorData = (): InspectorData => {
@@ -178,16 +201,10 @@ describe('stroke flow step 33: build-resolved-stroke-regions', () => {
 
   it('does not build final faces, render entries, hit/export packets, joins, caps, or descriptor-visible products', () => {
     const source = readFileSync(solidCenterSourcePath, 'utf8')
-    const start = source.indexOf(
+    const helperSource = extractFunctionSource(
+      source,
       'export const normalizeResolvedStrokePacketGeometry = ('
     )
-    const end = source.indexOf(
-      'export const buildSolidCenterStrokeResolvedPackets = (',
-      start
-    )
-    expect(start).toBeGreaterThanOrEqual(0)
-    expect(end).toBeGreaterThan(start)
-    const helperSource = source.slice(start, end)
 
     for (const forbiddenToken of [
       'buildStrokeFinalFaces',

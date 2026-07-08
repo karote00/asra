@@ -600,6 +600,58 @@ describe('stroke flow step 28: build-source-vertex-join-products', () => {
     ).toBe(false)
   })
 
+  it('preserves Step 27 seam edges inside the canonical join footprint without visible seam strips', () => {
+    const seamPoint = { x: -3, y: 8 }
+    const outerEndpoint = { x: -13, y: 8 }
+    const bodyInnerEndpoint = { x: -3, y: 28 }
+    const bodyOuterEndpoint = { x: -13, y: 28 }
+
+    for (const authoredJoin of ['miter', 'bevel', 'round'] as const) {
+      const product = buildSourceVertexJoinProducts({
+        joins: [
+          {
+            ...sharpMiterProduct,
+            productId: `join:${authoredJoin}:shared-seam-edge`,
+            authoredJoin,
+            miterAngle: authoredJoin === 'miter' ? 5 : 30,
+            incidentSeamBoundaries: [
+              {
+                ...(sharpMiterProduct.incidentSeamBoundaries ?? [])[0],
+                seamBoundaryId: `seam:${authoredJoin}:previous`,
+                point: seamPoint,
+                outerBodyBoundaryEndpoint: outerEndpoint,
+                outerBodyBoundaryVertices: [seamPoint, outerEndpoint],
+                bodySideOutlineSegment: [outerEndpoint, bodyOuterEndpoint],
+                bodySideTangent: { x: 0, y: 1 }
+              },
+              {
+                ...(sharpMiterProduct.incidentSeamBoundaries ?? [])[1],
+                seamBoundaryId: `seam:${authoredJoin}:next`
+              }
+            ]
+          }
+        ]
+      })[0]
+
+      expect(
+        productEdgeConnects(product, seamPoint, outerEndpoint),
+        `${authoredJoin} canonical join footprint must keep the Step 27 seam edge`
+      ).toBe(true)
+      expect(
+        productEdgeConnects(product, outerEndpoint, bodyOuterEndpoint),
+        `${authoredJoin} must not add a visible seam strip outside the canonical join footprint`
+      ).toBe(false)
+      expect(
+        productEdgeConnects(product, bodyOuterEndpoint, bodyInnerEndpoint),
+        `${authoredJoin} must not materialize a separate seam strip body edge`
+      ).toBe(false)
+      expect(
+        productEdgeConnects(product, bodyInnerEndpoint, seamPoint),
+        `${authoredJoin} must not close a standalone seam strip back to the seam point`
+      ).toBe(false)
+    }
+  })
+
   it('bypasses tangent-continuous high-curvature smooth spans instead of emitting join output', () => {
     const products = buildSourceVertexJoinProducts({
       joins: [
@@ -665,6 +717,26 @@ describe('stroke flow step 28: build-source-vertex-join-products', () => {
     expect(directJoinRouteSource).not.toContain(
       'buildSourceVertexTerminalBodySeamBridgePolygons'
     )
+  })
+
+  it('keeps constrained dashed source-vertex miter geometry out of local packet-builder rebuild paths', () => {
+    const source = readFileSync(constrainedDashedSourcePath, 'utf8')
+
+    expect(source).toContain('buildSourceVertexJoinFootprint')
+    const forbiddenLocalMiterOwners = [
+      'const buildSourceVertexCanonicalMiterFootprint =',
+      'const buildSourceVertexMiterEndpointBoundaryPoints =',
+      'const getSourceVertexMiterJoinPointForSide =',
+      'const collectSourceVertexMiterTerminalEndpointBoundaryPoints =',
+      'sourceVertexMiterCanonicalFootprintPolygons',
+      'buildCanonicalMiterFootprintPolygons([',
+      'shouldPreserveCanonicalSourceVertexMiterDescriptor'
+    ]
+    const violations = forbiddenLocalMiterOwners.filter((token) =>
+      source.includes(token)
+    )
+
+    expect(violations).toEqual([])
   })
 
   it('does not preserve raw outside round source-vertex sectors after seam-footprint materialization', () => {

@@ -7,6 +7,7 @@ import {
   requiredStrokeVisualArtifacts,
   requiredStrokeVisualDimensions,
   requiredVisualReviewBaseUrl,
+  readVisualReviewBaseUrlFromEnvFile,
   strokeVisualE2ECoverageMap
 } from './stroke-visual-e2e-coverage-map'
 import { strokeE2EResidueCoverageMap } from './stroke-e2e-residue-coverage-map'
@@ -131,15 +132,18 @@ const getOutsideNewFlowStrokeLikeE2EResidueFiles = () =>
     .sort()
 
 test.describe('new stroke visual/E2E coverage map', () => {
-  test('requires the agent-run visual review URL override to use localhost:3001', () => {
+  test('requires the agent-run visual review URL override to match the app env contract', () => {
+    const envFile = readFileSync(resolve(appRoot, '.env'), 'utf8')
+    const configuredVisualReviewBaseUrl =
+      readVisualReviewBaseUrlFromEnvFile(envFile)
+
     expect(process.env.ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL).toBe(
-      requiredVisualReviewBaseUrl
+      configuredVisualReviewBaseUrl
     )
     expect(process.env.PLAYWRIGHT_TEST_BASE_URL).toBe(
-      requiredVisualReviewBaseUrl
+      configuredVisualReviewBaseUrl
     )
-
-    const envFile = readFileSync(resolve(appRoot, '.env'), 'utf8')
+    expect(requiredVisualReviewBaseUrl).toBe(configuredVisualReviewBaseUrl)
     expect(envFile).toContain('ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL=')
     expect(envFile).toContain('PLAYWRIGHT_TEST_BASE_URL=')
   })
@@ -402,7 +406,7 @@ test.describe('new stroke visual/E2E coverage map', () => {
 
     expect(feature).toContain('Feature: Stroke visual validation')
     expect(feature).toContain('stroke engine spec is the source')
-    expect(feature).toContain('http://localhost:3001')
+    expect(feature).toContain('ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL')
     expect(feature).not.toContain('vertexAngle >')
     expect(feature).not.toContain('miterAngle')
     expect(feature).not.toContain('bevel-by-miter-angle')
@@ -419,9 +423,10 @@ test.describe('new stroke visual/E2E coverage map', () => {
 
     for (const filePath of newFlowSources) {
       const source = readFileSync(filePath, 'utf8')
-      expect(source, `${filePath} must not use localhost:3000`).not.toContain(
-        'localhost:3000'
-      )
+      expect(
+        source,
+        `${filePath} must not hardcode localhost ports`
+      ).not.toMatch(/http:\/\/localhost:300\d/)
     }
   })
 })

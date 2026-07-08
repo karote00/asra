@@ -23,10 +23,12 @@ import {
   collapseStrokeFinalFaceVisualOverlaps,
   type StrokeVisualOverlapCollapseOptions
 } from './stroke-candidate-arrangement'
+import { classifyArrangementFacesByLegalDomain } from './arrangement-face-classifier'
 import { shouldEmitFullStrokeDiagnostics } from './stroke-diagnostics-mode'
 import {
   getGeometryBackend,
   getGeometryBackendCacheSignature,
+  type ArrangementFace,
   type CandidateRegion,
   type FillRule,
   type GeometryBackend,
@@ -555,6 +557,8 @@ export interface SolidCenterStrokeGeometryDebugMeta {
     vertex?: Vec2
     previousContourPoint?: Vec2
     nextContourPoint?: Vec2
+    previousSourceTangent?: Vec2
+    nextSourceTangent?: Vec2
     previousDashBodyPoint?: Vec2
     nextDashBodyPoint?: Vec2
     stageBounds?: Record<string, Bounds | undefined>
@@ -567,6 +571,8 @@ export interface SolidCenterStrokeGeometryDebugMeta {
       visibleContributor: 'source-vertex-join'
       geometryBasis: 'canonical-join-footprint'
       polygons: Vec2[][]
+      seamEvidence?: SolidCenterStrokeGeometryDebugMeta['seamEvidence']
+      dashBodySeamBoundaries?: SolidCenterStrokeGeometryDebugMeta['dashBodySeamBoundaries']
       legalDomainIds?: string[]
       contourIds?: string[]
     }[]
@@ -736,7 +742,7 @@ const buildSelfIntersectingSolidCenterStrokePolygons = (
       }
     }
   } catch {
-    // Use the canonical local center-product polygon builder below; this remains Step 25 product output, not fallback semantics.
+    // Use the canonical local center-product polygon builder below; this remains Step 25 product output, not an alternate product route.
   }
 
   return buildSolidCenterStrokePolygons(openStrokePath, false, {
@@ -861,7 +867,10 @@ const normalizePacketPolygons = (polygons: Vec2[][]) => {
 const RENDER_PROJECTION_MICRO_EDGE_TOLERANCE = 0.03
 const RENDER_PROJECTION_COLLINEAR_TOLERANCE = 0.0075
 const RENDER_PROJECTION_AREA_DELTA_TOLERANCE = 0.001
+const RENDER_PROJECTION_LEGAL_VIOLATION_AREA_TOLERANCE = 1e-6
 const RENDER_PROJECTION_CONCAVE_NOTCH_TOLERANCE = 0.2
+const RENDER_PROJECTION_LEGAL_SIDE_BOUNDARY_TOLERANCE = 1e-6
+const RENDER_PROJECTION_SEAM_COVERAGE_TOLERANCE = 1e-3
 
 const getPointDistance = (from: Vec2, to: Vec2) =>
   Math.hypot(to.x - from.x, to.y - from.y)
@@ -1190,6 +1199,242 @@ const isPointInsidePolygon = (point: Vec2, polygon: Vec2[]) => {
   return inside
 }
 
+const getRenderProjectionDistanceToPolygonCoverage = (
+  point: Vec2,
+  polygon: Vec2[]
+) => {
+  if (polygon.length === 0) {
+    return Number.POSITIVE_INFINITY
+  }
+  if (isPointInsidePolygon(point, polygon)) {
+    return 0
+  }
+
+  return Math.min(
+    ...polygon.map((vertex, index) =>
+      getRenderProjectionPointToSegmentDistance(
+        point,
+        vertex,
+        polygon[(index + 1) % polygon.length] ?? vertex
+      )
+    )
+  )
+}
+
+const getRenderProjectionDistanceToPolygonListCoverage = (
+  point: Vec2,
+  polygons: Vec2[][]
+) =>
+  polygons.length === 0
+    ? Number.POSITIVE_INFINITY
+    : Math.min(
+        ...polygons.map((polygon) =>
+          getRenderProjectionDistanceToPolygonCoverage(point, polygon)
+        )
+      )
+
+const normalizeRenderProjectionVector = (vector: Vec2) => {
+  const length = Math.hypot(vector.x, vector.y)
+  return length > Number.EPSILON
+    ? {
+        x: vector.x / length,
+        y: vector.y / length
+      }
+    : null
+}
+
+const getRenderProjectionSeamCoverageSamples = (
+  boundary: NonNullable<
+    SolidCenterStrokeGeometryDebugMeta['seamEvidence']
+  >['incidentSeamBoundaries'][number],
+  strokeWidth = 0
+) => {
+  const seamRatios = [0, 0.25, 0.5, 0.75, 0.9, 0.98, 1]
+  const seamEdgeSamples = seamRatios.map((ratio) => ({
+    x:
+      boundary.point.x +
+      (boundary.outerBodyBoundaryEndpoint.x - boundary.point.x) * ratio,
+    y:
+      boundary.point.y +
+      (boundary.outerBodyBoundaryEndpoint.y - boundary.point.y) * ratio
+  }))
+  const bodySideTangent = normalizeRenderProjectionVector(
+    boundary.bodySideTangent
+  )
+  const effectiveStrokeWidth =
+    strokeWidth > 0
+      ? strokeWidth
+      : distanceBetweenPoints(
+          boundary.point,
+          boundary.outerBodyBoundaryEndpoint
+        )
+  if (!bodySideTangent || effectiveStrokeWidth <= 0) {
+    return seamEdgeSamples
+  }
+
+  const tangentDistances = [
+    Math.max(0.05, effectiveStrokeWidth * 0.005),
+    Math.max(0.15, effectiveStrokeWidth * 0.015),
+    Math.max(0.5, effectiveStrokeWidth * 0.1),
+    Math.max(1, effectiveStrokeWidth * 0.25)
+  ]
+  const bodySideSamples = seamRatios.flatMap((ratio) =>
+    tangentDistances.map((tangentDistance) => ({
+      x:
+        boundary.point.x +
+        (boundary.outerBodyBoundaryEndpoint.x - boundary.point.x) * ratio +
+        bodySideTangent.x * tangentDistance,
+      y:
+        boundary.point.y +
+        (boundary.outerBodyBoundaryEndpoint.y - boundary.point.y) * ratio +
+        bodySideTangent.y * tangentDistance
+    }))
+  )
+  return [...seamEdgeSamples, ...bodySideSamples]
+}
+
+const getRenderProjectionSourceVertexSeamBoundaryRecords = (
+  entries: { debugMeta?: SolidCenterStrokeGeometryDebugMeta }[]
+) =>
+  entries.flatMap((entry) =>
+    (
+      entry.debugMeta?.seamEvidence?.incidentSeamBoundaries?.filter(
+        (boundary) => boundary.seamBoundaryId.startsWith('source-vertex-seam:')
+      ) ?? []
+    ).map((boundary) => ({
+      boundary,
+      strokeWidth: entry.debugMeta?.strokeWidth ?? 0
+    }))
+  )
+
+const canonicalizeRenderProjectionSourceVertexSeamPoints = (
+  polygons: Vec2[][],
+  entries: { debugMeta?: SolidCenterStrokeGeometryDebugMeta }[]
+) => {
+  const hasProtectedEndpointSourceVertexJoin = entries.some(
+    (entry) => entry.debugMeta?.visibleContributor === 'source-vertex-join'
+  )
+  if (!hasProtectedEndpointSourceVertexJoin) {
+    return polygons
+  }
+
+  const protectedPoints = new Map<string, Vec2>()
+  getRenderProjectionSourceVertexSeamBoundaryRecords(entries).forEach(
+    ({ boundary }) => {
+      ;[
+        boundary.point,
+        boundary.outerBodyBoundaryEndpoint,
+        ...boundary.bodySideOutlineSegment,
+        ...boundary.outerBodyBoundaryVertices
+      ].forEach((point) => {
+        protectedPoints.set(getRenderProjectionSharedEdgePointKey(point), point)
+      })
+    }
+  )
+  entries.forEach((entry) => {
+    entry.debugMeta?.joinOwnershipRecords?.forEach((record) => {
+      if (record.kind !== 'source-vertex' || !record.vertex) {
+        return
+      }
+      protectedPoints.set(
+        getRenderProjectionSharedEdgePointKey(record.vertex),
+        record.vertex
+      )
+    })
+  })
+  if (protectedPoints.size === 0 || polygons.length === 0) {
+    return polygons
+  }
+
+  return polygons.map((polygon) =>
+    polygon.map((point) => {
+      const protectedPoint = protectedPoints.get(
+        getRenderProjectionSharedEdgePointKey(point)
+      )
+      return protectedPoint ?? point
+    })
+  )
+}
+
+interface RenderProjectionLegalSideContext {
+  legalDomains?: NonNullable<
+    SolidCenterStrokeRenderEntryOptions['legalDomains']
+  >
+  strokePosition?: SolidCenterStrokeGeometryDebugMeta['strokePosition']
+}
+
+const getRenderProjectionLegalPolygons = (
+  legalDomains: RenderProjectionLegalSideContext['legalDomains']
+) =>
+  legalDomains?.flatMap((domain) =>
+    domain.regions.flatMap((region) => region.polygons)
+  ) ?? []
+
+const isRenderProjectionSampleOnLegalSide = (
+  sample: Vec2,
+  context: RenderProjectionLegalSideContext
+) => {
+  if (
+    context.strokePosition !== 'inside' &&
+    context.strokePosition !== 'outside'
+  ) {
+    return true
+  }
+
+  const legalPolygons = getRenderProjectionLegalPolygons(context.legalDomains)
+  if (legalPolygons.length === 0) {
+    return true
+  }
+
+  const insideLegalDomain = legalPolygons.some((legalPolygon) =>
+    isPointInsidePolygon(sample, legalPolygon)
+  )
+  const onBoundary =
+    getRenderProjectionDistanceToLegalDomainBoundary(sample, legalPolygons) <=
+    RENDER_PROJECTION_LEGAL_SIDE_BOUNDARY_TOLERANCE
+  return context.strokePosition === 'inside'
+    ? insideLegalDomain || onBoundary
+    : !insideLegalDomain || onBoundary
+}
+
+const renderProjectionPreservesSourceVertexSeamCoverage = (
+  sourcePolygons: Vec2[][],
+  projectedPolygons: Vec2[][],
+  entries: { debugMeta?: SolidCenterStrokeGeometryDebugMeta }[],
+  legalSideContext: RenderProjectionLegalSideContext = {}
+) => {
+  const sourceVertexSeamBoundaryRecords =
+    getRenderProjectionSourceVertexSeamBoundaryRecords(entries)
+  if (sourceVertexSeamBoundaryRecords.length === 0) {
+    return true
+  }
+
+  return sourceVertexSeamBoundaryRecords.every((record) =>
+    getRenderProjectionSeamCoverageSamples(
+      record.boundary,
+      record.strokeWidth
+    ).every((sample) => {
+      if (!isRenderProjectionSampleOnLegalSide(sample, legalSideContext)) {
+        return true
+      }
+      const sourceDistance = getRenderProjectionDistanceToPolygonListCoverage(
+        sample,
+        sourcePolygons
+      )
+      if (sourceDistance > RENDER_PROJECTION_SEAM_COVERAGE_TOLERANCE) {
+        return true
+      }
+
+      return (
+        getRenderProjectionDistanceToPolygonListCoverage(
+          sample,
+          projectedPolygons
+        ) <= RENDER_PROJECTION_SEAM_COVERAGE_TOLERANCE
+      )
+    })
+  )
+}
+
 export const buildSolidCenterStrokeResolvedPackets = (
   cachePrefix: string,
   points: Vec2[],
@@ -1406,6 +1651,58 @@ const getMergedDebugIntervalIds = (
 type DashProductIntervalDebugRecord = NonNullable<
   SolidCenterStrokeGeometryDebugMeta['dashProductIntervals']
 >[number]
+type PhysicalSpanRangeDebugRecord = NonNullable<
+  SolidCenterStrokeGeometryDebugMeta['physicalSpanRanges']
+>[number]
+
+const isTerminalDashProductRole = (
+  role: SolidCenterStrokeGeometryDebugMeta['domainPlanTerminalRole']
+) => role === 'start' || role === 'end' || role === 'start-end'
+
+const getRenderDebugMetaDashProductIntervals = (
+  debugMeta: SolidCenterStrokeGeometryDebugMeta | undefined,
+  defaultIntervalIds: readonly string[] = []
+): DashProductIntervalDebugRecord[] => {
+  if (!debugMeta) {
+    return []
+  }
+
+  const intervals = [...(debugMeta.dashProductIntervals ?? [])]
+  const intervalId =
+    debugMeta.intervalId ?? debugMeta.intervalIds?.[0] ?? defaultIntervalIds[0]
+  if (
+    intervalId &&
+    isTerminalDashProductRole(debugMeta.domainPlanTerminalRole)
+  ) {
+    intervals.push({
+      intervalId,
+      splitRangeId: debugMeta.domainPlanSplitRangeId,
+      splitRangeAliasIds: debugMeta.domainPlanSplitRangeAliasIds,
+      terminalRole: debugMeta.domainPlanTerminalRole,
+      startDistance: debugMeta.domainPlanSplitRangeStartDistance,
+      endDistance: debugMeta.domainPlanSplitRangeEndDistance,
+      boundaryDomainId: debugMeta.domainPlanBoundaryDomainId,
+      boundaryPoints: debugMeta.domainPlanBoundaryPoints,
+      boundaryStartDistance: debugMeta.domainPlanBoundaryStartDistance,
+      boundaryEndDistance: debugMeta.domainPlanBoundaryEndDistance,
+      boundaryTotalLength: debugMeta.domainPlanBoundaryTotalLength,
+      boundaryRole: debugMeta.domainPlanBoundaryRole,
+      selectedSide: debugMeta.domainPlanSelectedSide,
+      materializedSelectedSide: debugMeta.domainPlanMaterializedSelectedSide,
+      filledSide: debugMeta.domainPlanFilledSide,
+      unfilledSide: debugMeta.domainPlanUnfilledSide,
+      sourceSegmentIndex: debugMeta.domainPlanSplitRangeSourceSegmentIndex,
+      sourceStartDistance: debugMeta.domainPlanSplitRangeSourceStartDistance,
+      sourceEndDistance: debugMeta.domainPlanSplitRangeSourceEndDistance,
+      endpointCapPolicySignature: debugMeta.dashEndpointCapPolicySignature,
+      joinOwnershipSignature: debugMeta.joinOwnershipSignature,
+      smoothContinuityGroupId: debugMeta.smoothContinuityGroupId,
+      materializationDistanceSpace: debugMeta.materializationDistanceSpace
+    })
+  }
+
+  return intervals
+}
 
 const formatDashProductIntervalKeyNumber = (value: number | undefined) =>
   value === undefined ? 'none' : value.toFixed(6)
@@ -1428,6 +1725,7 @@ const getDashProductIntervalRenderArrayKey = (
     )
     return [
       'source-range',
+      `interval:${interval.intervalId}`,
       interval.terminalRole ?? 'terminal-role',
       `segment:${interval.sourceSegmentIndex}`,
       formatDashProductIntervalKeyNumber(sourceStartDistance),
@@ -1452,6 +1750,28 @@ const getUniqueDashProductIntervalsForRenderArray = (
     }
   })
   return Array.from(intervalByKey.values())
+}
+
+const getPhysicalSpanRangeKey = (span: PhysicalSpanRangeDebugRecord) =>
+  [
+    span.spanId,
+    span.role,
+    formatDashProductIntervalKeyNumber(span.startDistance),
+    formatDashProductIntervalKeyNumber(span.endDistance),
+    span.wrapsSeam ? 'wrap' : 'nowrap'
+  ].join('|')
+
+const getUniquePhysicalSpanRangesForRenderArray = (
+  spans: NonNullable<SolidCenterStrokeGeometryDebugMeta['physicalSpanRanges']>
+) => {
+  const spanByKey = new Map<string, PhysicalSpanRangeDebugRecord>()
+  spans.forEach((span) => {
+    const key = getPhysicalSpanRangeKey(span)
+    if (!spanByKey.has(key)) {
+      spanByKey.set(key, span)
+    }
+  })
+  return Array.from(spanByKey.values())
 }
 
 const getUniqueJoinOwnershipRecords = (
@@ -1812,8 +2132,29 @@ const buildRenderProjectionArrangementCacheKey = (
 ) =>
   [
     getGeometryBackendCacheSignature(backend as GeometryBackend),
-    ...candidates.map((candidate) => candidate.geometrySignature)
+    ...candidates.map(
+      (candidate) =>
+        `${candidate.strokePosition}:${candidate.legalDomainId ?? 'no-legal-domain'}:${candidate.geometrySignature}`
+    )
   ].join('::')
+
+const isRenderProjectionArrangementFaceLegalForCandidate = (
+  candidate: CandidateRegion,
+  legalState: ArrangementFace['legalState']
+) => {
+  if (candidate.renderProjectionSplitter === true) {
+    return false
+  }
+
+  switch (candidate.strokePosition) {
+    case 'inside':
+      return legalState.insideFillDomain
+    case 'outside':
+      return legalState.outsideFillDomain
+    case 'center':
+      return true
+  }
+}
 
 const getCachedRenderProjectionArrangement = (
   cacheKey: string
@@ -2043,12 +2384,13 @@ function traceRenderProjectionSharedEdgeLoops(
   const loops: Vec2[][] = []
 
   const takeNextEdgeIndex = (startKey: string) => {
-    const candidates = [...unused].filter(
-      (edgeIndex) =>
-        edges[edgeIndex].startKey === startKey ||
-        edges[edgeIndex].endKey === startKey
+    const directedCandidate = [...unused].find(
+      (edgeIndex) => edges[edgeIndex].startKey === startKey
     )
-    return candidates[0]
+    if (directedCandidate !== undefined) {
+      return directedCandidate
+    }
+    return [...unused].find((edgeIndex) => edges[edgeIndex].endKey === startKey)
   }
 
   const orientEdgeFromKey = (
@@ -2261,6 +2603,284 @@ function getRenderProjectionSharedBoundaryLength(
   return sharedLength
 }
 
+interface RenderProjectionSharedEdgeOverlap {
+  leftEdgeIndex: number
+  rightEdgeIndex: number
+  start: Vec2
+  end: Vec2
+  leftStartRatio: number
+  leftEndRatio: number
+  rightStartRatio: number
+  rightEndRatio: number
+  length: number
+}
+
+const getRenderProjectionSharedEdgeOverlap = (
+  leftPolygon: Vec2[],
+  rightPolygon: Vec2[]
+): RenderProjectionSharedEdgeOverlap | null => {
+  let best: RenderProjectionSharedEdgeOverlap | null = null
+
+  leftPolygon.forEach((leftStart, leftEdgeIndex) => {
+    const leftEnd = leftPolygon[(leftEdgeIndex + 1) % leftPolygon.length]
+    const axis = {
+      x: leftEnd.x - leftStart.x,
+      y: leftEnd.y - leftStart.y
+    }
+    const axisLength = Math.hypot(axis.x, axis.y)
+    if (axisLength <= Number.EPSILON) {
+      return
+    }
+    const normalizedAxis = {
+      x: axis.x / axisLength,
+      y: axis.y / axisLength
+    }
+
+    rightPolygon.forEach((rightStart, rightEdgeIndex) => {
+      const rightEnd = rightPolygon[(rightEdgeIndex + 1) % rightPolygon.length]
+      const rightAxis = {
+        x: rightEnd.x - rightStart.x,
+        y: rightEnd.y - rightStart.y
+      }
+      const rightAxisLength = Math.hypot(rightAxis.x, rightAxis.y)
+      if (rightAxisLength <= Number.EPSILON) {
+        return
+      }
+      const parallelDistance =
+        Math.abs(axis.x * rightAxis.y - axis.y * rightAxis.x) /
+        Math.max(axisLength, rightAxisLength)
+      if (parallelDistance > RENDER_PROJECTION_SHARED_EDGE_MATCH_TOLERANCE) {
+        return
+      }
+
+      const rightStartLineDistance =
+        Math.abs(
+          axis.x * (rightStart.y - leftStart.y) -
+            axis.y * (rightStart.x - leftStart.x)
+        ) / axisLength
+      const rightEndLineDistance =
+        Math.abs(
+          axis.x * (rightEnd.y - leftStart.y) -
+            axis.y * (rightEnd.x - leftStart.x)
+        ) / axisLength
+      if (
+        rightStartLineDistance >
+          RENDER_PROJECTION_SHARED_EDGE_MATCH_TOLERANCE ||
+        rightEndLineDistance > RENDER_PROJECTION_SHARED_EDGE_MATCH_TOLERANCE
+      ) {
+        return
+      }
+
+      const rightRange = [rightStart, rightEnd]
+        .map(
+          (point) =>
+            (point.x - leftStart.x) * normalizedAxis.x +
+            (point.y - leftStart.y) * normalizedAxis.y
+        )
+        .sort((left, right) => left - right)
+      const overlapStart = Math.max(0, rightRange[0])
+      const overlapEnd = Math.min(axisLength, rightRange[1])
+      const length = overlapEnd - overlapStart
+      if (length <= RENDER_PROJECTION_SHARED_EDGE_MATCH_TOLERANCE) {
+        return
+      }
+
+      const start = snapRenderProjectionSharedEdgePoint({
+        x: leftStart.x + normalizedAxis.x * overlapStart,
+        y: leftStart.y + normalizedAxis.y * overlapStart
+      })
+      const end = snapRenderProjectionSharedEdgePoint({
+        x: leftStart.x + normalizedAxis.x * overlapEnd,
+        y: leftStart.y + normalizedAxis.y * overlapEnd
+      })
+      const rightStartRatio = getRenderProjectionSegmentRatio(
+        start,
+        rightStart,
+        rightEnd
+      )
+      const rightEndRatio = getRenderProjectionSegmentRatio(
+        end,
+        rightStart,
+        rightEnd
+      )
+      if (rightStartRatio === null || rightEndRatio === null) {
+        return
+      }
+
+      if (!best || length > best.length) {
+        best = {
+          leftEdgeIndex,
+          rightEdgeIndex,
+          start,
+          end,
+          leftStartRatio: overlapStart / axisLength,
+          leftEndRatio: overlapEnd / axisLength,
+          rightStartRatio,
+          rightEndRatio,
+          length
+        }
+      }
+    })
+  })
+
+  return best
+}
+
+const pointsAreWithinRenderProjectionTolerance = (left: Vec2, right: Vec2) =>
+  distanceBetweenPoints(left, right) <=
+  RENDER_PROJECTION_SHARED_EDGE_KEY_TOLERANCE
+
+const cleanRenderProjectionSplicedLoop = (loop: Vec2[]) =>
+  normalizeCoveragePolygonWinding(
+    cleanRenderProjectionPolygon(
+      loop.filter(
+        (point, index) =>
+          index === 0 ||
+          !pointsAreWithinRenderProjectionTolerance(point, loop[index - 1])
+      )
+    )
+  )
+
+const buildRenderProjectionBoundaryRemainder = (
+  polygon: Vec2[],
+  edgeIndex: number,
+  removeStart: Vec2,
+  removeEnd: Vec2
+) => {
+  const remainder: Vec2[] = [removeEnd]
+  for (
+    let cursor = (edgeIndex + 1) % polygon.length;
+    cursor !== edgeIndex;
+    cursor = (cursor + 1) % polygon.length
+  ) {
+    const point = polygon[cursor]
+    if (!pointsAreWithinRenderProjectionTolerance(point, removeEnd)) {
+      remainder.push(point)
+    }
+  }
+  if (
+    !pointsAreWithinRenderProjectionTolerance(
+      remainder[remainder.length - 1],
+      removeStart
+    )
+  ) {
+    remainder.push(removeStart)
+  }
+  return remainder
+}
+
+const tryMergeRenderProjectionSharedEdgePolygonPair = (
+  leftPolygon: Vec2[],
+  rightPolygon: Vec2[]
+) => {
+  const overlap = getRenderProjectionSharedEdgeOverlap(
+    leftPolygon,
+    rightPolygon
+  )
+  if (!overlap) {
+    return null
+  }
+
+  const leftRemoveStart = overlap.start
+  const leftRemoveEnd = overlap.end
+  const rightRemoveStart =
+    overlap.rightStartRatio <= overlap.rightEndRatio
+      ? overlap.start
+      : overlap.end
+  const rightRemoveEnd =
+    overlap.rightStartRatio <= overlap.rightEndRatio
+      ? overlap.end
+      : overlap.start
+
+  const leftRemainder = buildRenderProjectionBoundaryRemainder(
+    leftPolygon,
+    overlap.leftEdgeIndex,
+    leftRemoveStart,
+    leftRemoveEnd
+  )
+  const rightRemainder = buildRenderProjectionBoundaryRemainder(
+    rightPolygon,
+    overlap.rightEdgeIndex,
+    rightRemoveStart,
+    rightRemoveEnd
+  )
+  const orientedRightRemainder =
+    pointsAreWithinRenderProjectionTolerance(
+      leftRemainder[leftRemainder.length - 1],
+      rightRemainder[0]
+    ) &&
+    pointsAreWithinRenderProjectionTolerance(
+      rightRemainder[rightRemainder.length - 1],
+      leftRemainder[0]
+    )
+      ? rightRemainder
+      : [...rightRemainder].reverse()
+  if (
+    !pointsAreWithinRenderProjectionTolerance(
+      leftRemainder[leftRemainder.length - 1],
+      orientedRightRemainder[0]
+    )
+  ) {
+    return null
+  }
+
+  const merged = cleanRenderProjectionSplicedLoop([
+    ...leftRemainder,
+    ...orientedRightRemainder.slice(1)
+  ])
+  if (merged.length < 3) {
+    return null
+  }
+
+  const sourceArea =
+    getPolygonCoverageArea(leftPolygon) + getPolygonCoverageArea(rightPolygon)
+  const mergedArea = getPolygonCoverageArea(merged)
+  if (
+    sourceArea <= Number.EPSILON ||
+    Math.abs(sourceArea - mergedArea) / sourceArea >
+      RENDER_PROJECTION_SHARED_EDGE_AREA_TOLERANCE
+  ) {
+    return null
+  }
+
+  return merged
+}
+
+const mergeRenderProjectionSharedEdgePolygonPairs = (polygons: Vec2[][]) => {
+  let output = polygons
+  for (const _polygon of polygons) {
+    let mergedPair = false
+    for (let leftIndex = 0; leftIndex < output.length; leftIndex += 1) {
+      for (
+        let rightIndex = leftIndex + 1;
+        rightIndex < output.length;
+        rightIndex += 1
+      ) {
+        const merged = tryMergeRenderProjectionSharedEdgePolygonPair(
+          output[leftIndex],
+          output[rightIndex]
+        )
+        if (!merged) {
+          continue
+        }
+        output = output.filter(
+          (_, index) => index !== leftIndex && index !== rightIndex
+        )
+        output.push(merged)
+        mergedPair = true
+        break
+      }
+      if (mergedPair) {
+        break
+      }
+    }
+    if (!mergedPair) {
+      break
+    }
+  }
+  return output
+}
+
 function findRenderProjectionSharedEdgeComponentIndexes(polygons: Vec2[][]) {
   const parent = polygons.map((_, index) => index)
   const find = (index: number): number =>
@@ -2300,7 +2920,13 @@ function findRenderProjectionSharedEdgeComponentIndexes(polygons: Vec2[][]) {
   return [...components.values()]
 }
 
-function mergeSharedEdgeCoveragePolygonComponent(sourcePolygons: Vec2[][]) {
+function mergeSharedEdgeCoveragePolygonComponent(
+  sourcePolygons: Vec2[][],
+  options: {
+    allowSharedEdgeLoopMerge?: boolean
+    allowSharedEdgePairSplice?: boolean
+  } = {}
+) {
   if (sourcePolygons.length <= 1) {
     return sourcePolygons
   }
@@ -2368,13 +2994,31 @@ function mergeSharedEdgeCoveragePolygonComponent(sourcePolygons: Vec2[][]) {
   })
 
   const boundaryEdges = removeRenderProjectionSharedInteriorEdges(edges)
-  if (!boundaryEdges || boundaryEdges.length === edges.length) {
-    return sourcePolygons
+  if (
+    !boundaryEdges ||
+    boundaryEdges.length === edges.length ||
+    options.allowSharedEdgeLoopMerge === false
+  ) {
+    if (options.allowSharedEdgePairSplice === false) {
+      return sourcePolygons
+    }
+    const pairMergedPolygons =
+      mergeRenderProjectionSharedEdgePolygonPairs(sourcePolygons)
+    return pairMergedPolygons.length < sourcePolygons.length
+      ? pairMergedPolygons
+      : sourcePolygons
   }
 
   const mergedPolygons = traceRenderProjectionSharedEdgeLoops(boundaryEdges)
   if (!mergedPolygons || mergedPolygons.length >= sourcePolygons.length) {
-    return sourcePolygons
+    if (options.allowSharedEdgePairSplice === false) {
+      return sourcePolygons
+    }
+    const pairMergedPolygons =
+      mergeRenderProjectionSharedEdgePolygonPairs(sourcePolygons)
+    return pairMergedPolygons.length < sourcePolygons.length
+      ? pairMergedPolygons
+      : sourcePolygons
   }
 
   const sourceArea = getPolygonListCoverageArea(sourcePolygons)
@@ -2390,7 +3034,13 @@ function mergeSharedEdgeCoveragePolygonComponent(sourcePolygons: Vec2[][]) {
   return mergedPolygons
 }
 
-function mergeSharedEdgeCoveragePolygons(polygons: Vec2[][]) {
+function mergeSharedEdgeCoveragePolygons(
+  polygons: Vec2[][],
+  options: {
+    allowSharedEdgeLoopMerge?: boolean
+    allowSharedEdgePairSplice?: boolean
+  } = {}
+) {
   const sourcePolygons = polygons
     .map((polygon) =>
       normalizeCoveragePolygonWinding(
@@ -2413,7 +3063,7 @@ function mergeSharedEdgeCoveragePolygons(polygons: Vec2[][]) {
     const componentPolygons = componentIndexes.map(
       (index) => sourcePolygons[index]
     )
-    return mergeSharedEdgeCoveragePolygonComponent(componentPolygons)
+    return mergeSharedEdgeCoveragePolygonComponent(componentPolygons, options)
   })
 
   return mergedPolygons.length < sourcePolygons.length
@@ -2425,7 +3075,12 @@ const clipRenderProjectionUnionToArrangementCoverage = (
   unionPolygons: Vec2[][],
   arrangementPolygons: Vec2[][],
   backend: Pick<GeometryBackend, 'capabilities'> &
-    Partial<Pick<GeometryBackend, 'intersection'>>
+    Partial<Pick<GeometryBackend, 'intersection'>>,
+  options: {
+    allowSharedEdgeLoopMerge?: boolean
+    allowSharedEdgePairSplice?: boolean
+    mergeSharedEdges?: boolean
+  } = {}
 ) => {
   if (
     unionPolygons.length === 0 ||
@@ -2453,7 +3108,562 @@ const clipRenderProjectionUnionToArrangementCoverage = (
     []
   )
 
-  return clipped.length > 0 ? clipped : unionPolygons
+  if (clipped.length === 0) {
+    return unionPolygons
+  }
+
+  return options.mergeSharedEdges === false
+    ? cleanRenderProjectionPolygons(clipped)
+    : mergeSharedEdgeCoveragePolygons(clipped, options)
+}
+
+const getRenderProjectionExactUnionArea = (
+  polygons: Vec2[][],
+  backend: Pick<GeometryBackend, 'capabilities'> &
+    Partial<Pick<GeometryBackend, 'union'>>,
+  fillRule: FillRule
+) => {
+  if (
+    polygons.length === 0 ||
+    backend.capabilities.union !== true ||
+    typeof backend.union !== 'function'
+  ) {
+    return null
+  }
+
+  try {
+    return backend
+      .union(
+        [
+          {
+            polygons: polygons.map(normalizeCoveragePolygonWinding)
+          }
+        ],
+        fillRule
+      )
+      .reduce(
+        (total, region) => total + getPolygonListCoverageArea(region.polygons),
+        0
+      )
+  } catch {
+    return null
+  }
+}
+
+const areRenderProjectionCoveragesEquivalent = (
+  leftPolygons: Vec2[][],
+  rightPolygons: Vec2[][],
+  backend: Pick<GeometryBackend, 'capabilities'> &
+    Partial<Pick<GeometryBackend, 'intersection' | 'union'>>,
+  fillRule: FillRule
+) => {
+  if (
+    leftPolygons.length === 0 ||
+    rightPolygons.length === 0 ||
+    backend.capabilities.union !== true ||
+    backend.capabilities.intersection !== true ||
+    typeof backend.union !== 'function' ||
+    typeof backend.intersection !== 'function'
+  ) {
+    return true
+  }
+
+  const leftArea = getRenderProjectionExactUnionArea(
+    leftPolygons,
+    backend,
+    fillRule
+  )
+  const rightArea = getRenderProjectionExactUnionArea(
+    rightPolygons,
+    backend,
+    fillRule
+  )
+  if (leftArea === null || rightArea === null) {
+    return true
+  }
+
+  try {
+    const intersectionArea = backend
+      .intersection(
+        [
+          {
+            polygons: leftPolygons.map(normalizeCoveragePolygonWinding)
+          }
+        ],
+        [
+          {
+            polygons: rightPolygons.map(normalizeCoveragePolygonWinding)
+          }
+        ],
+        fillRule
+      )
+      .reduce(
+        (total, region) => total + getPolygonListCoverageArea(region.polygons),
+        0
+      )
+    const tolerance = Math.max(
+      0.01,
+      Math.max(leftArea, rightArea) * RENDER_PROJECTION_AREA_DELTA_TOLERANCE
+    )
+    return (
+      Math.abs(leftArea - intersectionArea) <= tolerance &&
+      Math.abs(rightArea - intersectionArea) <= tolerance
+    )
+  } catch {
+    return true
+  }
+}
+
+const getRenderProjectionLegalDomainViolationArea = (
+  polygons: Vec2[][],
+  legalDomains: NonNullable<
+    SolidCenterStrokeRenderEntryOptions['legalDomains']
+  >,
+  strokePosition: SolidCenterStrokeGeometryDebugMeta['strokePosition'],
+  backend: Pick<GeometryBackend, 'capabilities'> &
+    Partial<Pick<GeometryBackend, 'difference' | 'intersection' | 'union'>>,
+  fillRule: FillRule
+) => {
+  if (
+    polygons.length === 0 ||
+    legalDomains.length === 0 ||
+    (strokePosition !== 'inside' && strokePosition !== 'outside') ||
+    backend.capabilities.union !== true ||
+    typeof backend.union !== 'function'
+  ) {
+    return 0
+  }
+
+  const legalDomainRegions = legalDomains.flatMap((domain) => domain.regions)
+  if (legalDomainRegions.length === 0) {
+    return 0
+  }
+
+  try {
+    const legalRegions =
+      strokePosition === 'outside'
+        ? legalDomainRegions
+        : backend.union(legalDomainRegions, fillRule)
+    if (legalRegions.length === 0) {
+      return 0
+    }
+    const subjectRegions = [
+      {
+        polygons:
+          strokePosition === 'outside'
+            ? polygons
+            : polygons.map(normalizeCoveragePolygonWinding)
+      }
+    ]
+    if (
+      strokePosition === 'outside' &&
+      backend.capabilities.intersection === true &&
+      typeof backend.intersection === 'function'
+    ) {
+      return backend
+        .intersection(subjectRegions, legalRegions, fillRule)
+        .reduce(
+          (total, region) =>
+            total + getPolygonListCoverageArea(region.polygons),
+          0
+        )
+    }
+    if (
+      strokePosition === 'inside' &&
+      backend.capabilities.difference === true &&
+      typeof backend.difference === 'function'
+    ) {
+      return backend
+        .difference(subjectRegions, legalRegions, fillRule)
+        .reduce(
+          (total, region) =>
+            total + getPolygonListCoverageArea(region.polygons),
+          0
+        )
+    }
+  } catch {
+    return 0
+  }
+
+  return 0
+}
+
+const getRenderProjectionPolygonCentroid = (polygon: Vec2[]) => {
+  const total = polygon.reduce(
+    (sum, point) => ({
+      x: sum.x + point.x,
+      y: sum.y + point.y
+    }),
+    { x: 0, y: 0 }
+  )
+  return {
+    x: total.x / Math.max(1, polygon.length),
+    y: total.y / Math.max(1, polygon.length)
+  }
+}
+
+const getRenderProjectionLegalSideSamplePoints = (polygon: Vec2[]) => [
+  ...polygon,
+  ...polygon.map((point, index) => {
+    const next = polygon[(index + 1) % polygon.length] ?? point
+    return {
+      x: (point.x + next.x) / 2,
+      y: (point.y + next.y) / 2
+    }
+  }),
+  getRenderProjectionPolygonCentroid(polygon)
+]
+
+const getRenderProjectionDistanceToPolygonBoundary = (
+  point: Vec2,
+  polygon: Vec2[]
+) =>
+  Math.min(
+    ...polygon.map((vertex, index) =>
+      distancePointToSegment(
+        point,
+        vertex,
+        polygon[(index + 1) % polygon.length] ?? vertex
+      )
+    )
+  )
+
+const getRenderProjectionDistanceToLegalDomainBoundary = (
+  point: Vec2,
+  legalPolygons: Vec2[][]
+) =>
+  Math.min(
+    ...legalPolygons.map((polygon) =>
+      getRenderProjectionDistanceToPolygonBoundary(point, polygon)
+    )
+  )
+
+const hasRenderProjectionLegalSideSampleViolation = (
+  polygons: Vec2[][],
+  legalDomains: NonNullable<
+    SolidCenterStrokeRenderEntryOptions['legalDomains']
+  >,
+  strokePosition: SolidCenterStrokeGeometryDebugMeta['strokePosition']
+) => {
+  if (
+    polygons.length === 0 ||
+    legalDomains.length === 0 ||
+    (strokePosition !== 'inside' && strokePosition !== 'outside')
+  ) {
+    return false
+  }
+
+  const legalPolygons = legalDomains.flatMap((domain) =>
+    domain.regions.flatMap((region) => region.polygons)
+  )
+  if (legalPolygons.length === 0) {
+    return false
+  }
+
+  return polygons.some((polygon) =>
+    getRenderProjectionLegalSideSamplePoints(polygon).some((sample) => {
+      const insideLegalDomain = legalPolygons.some((legalPolygon) =>
+        isPointInsidePolygon(sample, legalPolygon)
+      )
+      const onBoundary =
+        getRenderProjectionDistanceToLegalDomainBoundary(
+          sample,
+          legalPolygons
+        ) <= RENDER_PROJECTION_LEGAL_SIDE_BOUNDARY_TOLERANCE
+      return strokePosition === 'inside'
+        ? !insideLegalDomain && !onBoundary
+        : insideLegalDomain && !onBoundary
+    })
+  )
+}
+
+const filterRenderProjectionPolygonsToLegalSide = (
+  polygons: Vec2[][],
+  legalDomains: NonNullable<
+    SolidCenterStrokeRenderEntryOptions['legalDomains']
+  >,
+  strokePosition: SolidCenterStrokeGeometryDebugMeta['strokePosition']
+) => {
+  if (
+    polygons.length === 0 ||
+    legalDomains.length === 0 ||
+    (strokePosition !== 'inside' && strokePosition !== 'outside')
+  ) {
+    return polygons
+  }
+
+  const legalPolygons = legalDomains.flatMap((domain) =>
+    domain.regions.flatMap((region) => region.polygons)
+  )
+  if (legalPolygons.length === 0) {
+    return polygons
+  }
+
+  return polygons.filter((polygon) =>
+    getRenderProjectionLegalSideSamplePoints(polygon).some((sample) => {
+      const insideLegalDomain = legalPolygons.some((legalPolygon) =>
+        isPointInsidePolygon(sample, legalPolygon)
+      )
+      const onBoundary =
+        getRenderProjectionDistanceToLegalDomainBoundary(
+          sample,
+          legalPolygons
+        ) <= RENDER_PROJECTION_LEGAL_SIDE_BOUNDARY_TOLERANCE
+      return strokePosition === 'inside'
+        ? insideLegalDomain || onBoundary
+        : !insideLegalDomain || onBoundary
+    })
+  )
+}
+
+const filterRenderProjectionPolygonsFullyToLegalSide = (
+  polygons: Vec2[][],
+  legalDomains: NonNullable<
+    SolidCenterStrokeRenderEntryOptions['legalDomains']
+  >,
+  strokePosition: SolidCenterStrokeGeometryDebugMeta['strokePosition']
+) =>
+  polygons.filter(
+    (polygon) =>
+      !hasRenderProjectionLegalSideSampleViolation(
+        [polygon],
+        legalDomains,
+        strokePosition
+      )
+  )
+
+const getRenderProjectionOutsideLegalResidueArea = (
+  polygons: Vec2[][],
+  legalRegions: PolygonRegion[],
+  backend: Pick<GeometryBackend, 'capabilities'> &
+    Partial<Pick<GeometryBackend, 'intersection'>>
+) => {
+  if (
+    polygons.length === 0 ||
+    legalRegions.length === 0 ||
+    backend.capabilities.intersection !== true ||
+    typeof backend.intersection !== 'function'
+  ) {
+    return 0
+  }
+
+  return backend
+    .intersection([{ polygons }], legalRegions, 'nonzero')
+    .reduce(
+      (total, region) => total + getPolygonListCoverageArea(region.polygons),
+      0
+    )
+}
+
+const subtractRenderProjectionOutsideLegalResidue = (
+  polygons: Vec2[][],
+  legalRegions: PolygonRegion[],
+  backend: Pick<GeometryBackend, 'capabilities'> &
+    Partial<Pick<GeometryBackend, 'difference' | 'intersection'>>,
+  _fillRule: FillRule
+) => {
+  if (
+    polygons.length === 0 ||
+    legalRegions.length === 0 ||
+    backend.capabilities.difference !== true ||
+    backend.capabilities.intersection !== true ||
+    typeof backend.difference !== 'function' ||
+    typeof backend.intersection !== 'function'
+  ) {
+    return polygons
+  }
+
+  let currentPolygons = polygons
+  for (let pass = 0; pass < 3; pass += 1) {
+    const residueArea = getRenderProjectionOutsideLegalResidueArea(
+      currentPolygons,
+      legalRegions,
+      backend
+    )
+    if (residueArea <= RENDER_PROJECTION_LEGAL_VIOLATION_AREA_TOLERANCE) {
+      return currentPolygons
+    }
+
+    currentPolygons = backend
+      .difference([{ polygons: currentPolygons }], legalRegions, 'nonzero')
+      .flatMap((region) => region.polygons)
+    if (currentPolygons.length === 0) {
+      return []
+    }
+  }
+
+  return currentPolygons
+}
+
+const clipRenderProjectionPolygonsToOutsideLegalDomains = (
+  polygons: Vec2[][],
+  legalDomains: NonNullable<
+    SolidCenterStrokeRenderEntryOptions['legalDomains']
+  >,
+  backend: Pick<GeometryBackend, 'capabilities'> &
+    Partial<Pick<GeometryBackend, 'difference' | 'intersection'>>
+) => {
+  if (
+    polygons.length === 0 ||
+    legalDomains.length === 0 ||
+    backend.capabilities.difference !== true ||
+    typeof backend.difference !== 'function'
+  ) {
+    return polygons
+  }
+
+  if (
+    !hasRenderProjectionLegalSideSampleViolation(
+      polygons,
+      legalDomains,
+      'outside'
+    )
+  ) {
+    return polygons
+  }
+
+  const legalDomainRegions = legalDomains.flatMap((domain) =>
+    domain.regions.map((region) => ({
+      polygons: region.polygons.map(normalizeCoveragePolygonWinding)
+    }))
+  )
+  if (legalDomainRegions.length === 0) {
+    return polygons
+  }
+
+  const fillRule = 'nonzero'
+  const clippedPolygons = backend
+    .difference(
+      [{ polygons: polygons.map(normalizeCoveragePolygonWinding) }],
+      legalDomainRegions,
+      fillRule
+    )
+    .flatMap((region) => region.polygons)
+  const perPolygonClippedPolygons =
+    clippedPolygons.length === 0 ||
+    hasRenderProjectionLegalSideSampleViolation(
+      clippedPolygons,
+      legalDomains,
+      'outside'
+    )
+      ? polygons.flatMap((polygon) =>
+          backend
+            .difference(
+              [{ polygons: [normalizeCoveragePolygonWinding(polygon)] }],
+              legalDomainRegions,
+              fillRule
+            )
+            .flatMap((region) => region.polygons)
+        )
+      : []
+  const exactClippedPolygons =
+    clippedPolygons.length > 0 &&
+    !hasRenderProjectionLegalSideSampleViolation(
+      clippedPolygons,
+      legalDomains,
+      'outside'
+    )
+      ? clippedPolygons
+      : perPolygonClippedPolygons.length > 0
+        ? perPolygonClippedPolygons
+        : clippedPolygons
+  const residueRemovedPolygons = subtractRenderProjectionOutsideLegalResidue(
+    exactClippedPolygons,
+    legalDomainRegions,
+    backend,
+    fillRule
+  )
+  return hasRenderProjectionLegalSideSampleViolation(
+    residueRemovedPolygons,
+    legalDomains,
+    'outside'
+  )
+    ? filterRenderProjectionPolygonsToLegalSide(
+        residueRemovedPolygons,
+        legalDomains,
+        'outside'
+      )
+    : residueRemovedPolygons
+}
+
+const clipRenderProjectionPolygonsToLegalDomains = (
+  polygons: Vec2[][],
+  legalDomains: NonNullable<
+    SolidCenterStrokeRenderEntryOptions['legalDomains']
+  >,
+  strokePosition: SolidCenterStrokeGeometryDebugMeta['strokePosition'],
+  defaultFillRule: FillRule,
+  backend: Pick<GeometryBackend, 'capabilities'> &
+    Partial<Pick<GeometryBackend, 'difference' | 'intersection' | 'union'>>
+) => {
+  if (
+    polygons.length === 0 ||
+    legalDomains.length === 0 ||
+    (strokePosition !== 'inside' && strokePosition !== 'outside')
+  ) {
+    return polygons
+  }
+
+  const legalDomainRegions = legalDomains.flatMap((domain) => domain.regions)
+  if (legalDomainRegions.length === 0) {
+    return polygons
+  }
+
+  const fillRule =
+    strokePosition === 'outside'
+      ? 'nonzero'
+      : (legalDomains[0]?.fillRule ?? defaultFillRule)
+  const subjectRegions = [
+    {
+      polygons:
+        strokePosition === 'outside'
+          ? polygons
+          : polygons.map(normalizeCoveragePolygonWinding)
+    }
+  ]
+
+  if (
+    strokePosition === 'outside' &&
+    backend.capabilities.difference === true &&
+    typeof backend.difference === 'function'
+  ) {
+    return clipRenderProjectionPolygonsToOutsideLegalDomains(
+      polygons,
+      legalDomains,
+      backend
+    )
+  }
+
+  if (
+    backend.capabilities.union !== true ||
+    typeof backend.union !== 'function'
+  ) {
+    return polygons
+  }
+
+  const legalRegions = backend.union(legalDomainRegions, fillRule)
+  if (legalRegions.length === 0) {
+    return polygons
+  }
+  if (
+    strokePosition === 'inside' &&
+    backend.capabilities.intersection === true &&
+    typeof backend.intersection === 'function'
+  ) {
+    return filterRenderProjectionPolygonsFullyToLegalSide(
+      mergeSharedEdgeCoveragePolygons(
+        flattenFacePolygons(
+          backend.intersection(subjectRegions, legalRegions, fillRule),
+          []
+        ),
+        { allowSharedEdgeLoopMerge: false }
+      ),
+      legalDomains,
+      strokePosition
+    )
+  }
+
+  return polygons
 }
 
 const isDashedCenterProductFace = (
@@ -2502,6 +3712,50 @@ const hasConstrainedDashedOutsideStrokePathRenderDescriptor = (
   )
 }
 
+const isConstrainedDashedSourceVertexJoinProductFace = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) =>
+  isConstrainedDashedProductFace(face) &&
+  face.debugMeta?.routeId === 'constrained-dashed-source-vertex-join-product' &&
+  face.debugMeta.visibleContributor === 'source-vertex-join' &&
+  face.debugMeta.geometryBasis === 'canonical-join-footprint'
+
+const isConstrainedDashedJoinOwnedTerminalBodyProductFace = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) => {
+  const debugMeta = face.debugMeta
+  const joinOwnershipSignatures = [
+    debugMeta?.joinOwnershipSignature,
+    ...(debugMeta?.joinOwnershipSignatures ?? [])
+  ]
+  const productSignature = debugMeta?.productSignature ?? ''
+  return (
+    isConstrainedDashedProductFace(face) &&
+    debugMeta?.visibleContributor === 'terminal-interval-body' &&
+    (debugMeta.routeId ===
+      'constrained-dashed-join-owned-terminal-body-product' ||
+      joinOwnershipSignatures.includes('join-owned-terminal-body') ||
+      productSignature.includes(':join-owned-terminal-body:') ||
+      productSignature.includes('join-owned-terminal-body-owner-stage'))
+  )
+}
+
+const isConstrainedDashedTerminalBodyProductFace = (
+  face: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >
+) =>
+  isConstrainedDashedProductFace(face) &&
+  face.debugMeta?.visibleContributor === 'terminal-interval-body' &&
+  face.debugMeta?.geometryBasis === 'terminal-dash-interval-body'
+
 const hasVisibleStrokePathDescriptorRoute = (
   descriptor: SolidCenterStrokeRenderDescriptor | undefined
 ) =>
@@ -2525,6 +3779,7 @@ const shouldUseStoredConstrainedDashedProductPolygons = (
   return (
     face.debugMeta?.ownerStage ===
       'Stroke Geometry smooth-continuity product assembly' ||
+    isConstrainedDashedSourceVertexJoinProductFace(face) ||
     face.debugMeta?.productSignature?.includes(
       ':outside-aggregate-descriptor:'
     ) === true ||
@@ -2829,6 +4084,29 @@ const getRenderArrangementBackend = (
     return null
   }
 }
+
+const buildRenderProjectionLegalDomainSplitterCandidates = (
+  legalDomains: SolidCenterStrokeRenderEntryOptions['legalDomains']
+): RenderProjectionCandidateRegion[] =>
+  (legalDomains ?? []).flatMap((domain, domainIndex) =>
+    domain.regions.flatMap((region, regionIndex) =>
+      region.polygons.map((polygon, polygonIndex) => {
+        const polygons = [normalizeCoveragePolygonWinding(polygon)]
+        return {
+          candidateId: `legal-domain-splitter:${domain.legalDomainId ?? domainIndex}:${regionIndex}:${polygonIndex}`,
+          geometry: { polygons },
+          geometryBounds: getBounds(polygons),
+          geometrySignature: buildRenderProjectionRegionSignature(polygons),
+          visualPacketKey: `legal-domain-splitter:${domain.legalDomainId ?? domainIndex}`,
+          strokePosition: 'center',
+          legalDomainId: domain.legalDomainId ?? null,
+          sourceSpanIds: [],
+          sourceContourIds: [],
+          renderProjectionSplitter: true
+        }
+      })
+    )
+  )
 type ProductContractDebugMetaOverrides = Pick<
   SolidCenterStrokeGeometryDebugMeta,
   | 'intervalIds'
@@ -2853,6 +4131,7 @@ type ProductContractDebugMetaOverrides = Pick<
   | 'visualOverlapSourceGeometryIds'
   | 'seamEvidence'
   | 'protectedContinuityZone'
+  | 'physicalSpanRanges'
 >
 
 const buildProductContractDebugMetaFromFinalFace = (
@@ -2914,6 +4193,10 @@ const buildProductContractDebugMetaFromFinalFace = (
     domainPlanSplitRangeStartDistance:
       debugMeta.domainPlanSplitRangeStartDistance,
     domainPlanSplitRangeEndDistance: debugMeta.domainPlanSplitRangeEndDistance,
+    domainPlanSplitRangeSourceStartDistance:
+      debugMeta.domainPlanSplitRangeSourceStartDistance,
+    domainPlanSplitRangeSourceEndDistance:
+      debugMeta.domainPlanSplitRangeSourceEndDistance,
     domainPlanTerminalRole: debugMeta.domainPlanTerminalRole,
     domainPlanSplitRangeSourceSegmentIndex:
       debugMeta.domainPlanSplitRangeSourceSegmentIndex,
@@ -2928,18 +4211,27 @@ const buildProductContractDebugMetaFromFinalFace = (
     domainPlanBoundaryStartDistance: debugMeta.domainPlanBoundaryStartDistance,
     domainPlanBoundaryEndDistance: debugMeta.domainPlanBoundaryEndDistance,
     domainPlanBoundaryTotalLength: debugMeta.domainPlanBoundaryTotalLength,
+    materializedStartDistance: debugMeta.materializedStartDistance,
+    materializedEndDistance: debugMeta.materializedEndDistance,
+    materializedWrapsSeam: debugMeta.materializedWrapsSeam,
+    materializationDistanceSpace: debugMeta.materializationDistanceSpace,
+    sourceDomainExplicitSideProduct: debugMeta.sourceDomainExplicitSideProduct,
+    selectedSideProductOwnsOutsideDomain:
+      debugMeta.selectedSideProductOwnsOutsideDomain,
+    physicalSpanRanges:
+      overrides.physicalSpanRanges ?? debugMeta.physicalSpanRanges,
+    physicalVisibleLength: debugMeta.physicalVisibleLength,
     domainPlanSplitRangeTerminals:
       overrides.domainPlanSplitRangeTerminals ??
       debugMeta.domainPlanSplitRangeTerminals,
-    dashProductIntervals: overrides.dashProductIntervals
-      ? getUniqueDashProductIntervalsForRenderArray(
-          overrides.dashProductIntervals
-        )
-      : debugMeta.dashProductIntervals
-        ? getUniqueDashProductIntervalsForRenderArray(
-            debugMeta.dashProductIntervals
-          )
-        : undefined,
+    dashProductIntervals: (() => {
+      const intervals = overrides.dashProductIntervals
+        ? overrides.dashProductIntervals
+        : getRenderDebugMetaDashProductIntervals(debugMeta, intervalIds)
+      return intervals.length > 0
+        ? getUniqueDashProductIntervalsForRenderArray(intervals)
+        : undefined
+    })(),
     dashEndpointCapPolicySignature: debugMeta.dashEndpointCapPolicySignature,
     dashEndpointCapPolicyTerminalRole:
       debugMeta.dashEndpointCapPolicyTerminalRole,
@@ -2976,20 +4268,25 @@ const buildProductContractDebugMetaFromFinalFace = (
 }
 
 const getFullDiagnosticsRenderDebugMeta = (
-  debugMeta: SolidCenterStrokeGeometryDebugMeta | undefined
+  debugMeta: SolidCenterStrokeGeometryDebugMeta | undefined,
+  defaultIntervalIds: readonly string[] = []
 ) => {
   if (!debugMeta) {
     return undefined
   }
-  if (!debugMeta.dashProductIntervals) {
-    return debugMeta
-  }
+  const intervals = getRenderDebugMetaDashProductIntervals(
+    debugMeta,
+    defaultIntervalIds
+  )
 
   return {
     ...debugMeta,
-    dashProductIntervals: getUniqueDashProductIntervalsForRenderArray(
-      debugMeta.dashProductIntervals
-    )
+    ...(intervals.length > 0
+      ? {
+          dashProductIntervals:
+            getUniqueDashProductIntervalsForRenderArray(intervals)
+        }
+      : {})
   } satisfies SolidCenterStrokeGeometryDebugMeta
 }
 
@@ -2997,7 +4294,8 @@ const buildRenderEntryFromFinalFace = (
   face: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
-  >
+  >,
+  options: SolidCenterStrokeRenderEntryOptions = {}
 ) =>
   measureStrokeRenderEntryPhase('render entries: build final face', () => {
     const sourceRenderDescriptor = face.renderDescriptor as
@@ -3039,9 +4337,27 @@ const buildRenderEntryFromFinalFace = (
           : getRenderEntryProductPolygonsFromFinalFace(face)
     )
     const canonicalProductPolygons =
-      isConstrainedDashedProductFace(face) && productPolygons.length > 1
+      isConstrainedDashedProductFace(face) &&
+      !isConstrainedDashedSourceVertexJoinProductFace(face) &&
+      !isConstrainedDashedJoinOwnedTerminalBodyProductFace(face) &&
+      productPolygons.length > 1
         ? cleanRenderProjectionPolygons(unionCoveragePolygons(productPolygons))
         : productPolygons
+    const renderEntryStrokePosition = face.debugMeta?.strokePosition
+    const shouldClipRenderEntryProductPolygons =
+      (renderEntryStrokePosition === 'inside' ||
+        (!isConstrainedDashedProductFace(face) &&
+          renderEntryStrokePosition === 'outside')) &&
+      (options.legalDomains?.length ?? 0) > 0
+    const renderEntryProductPolygons = shouldClipRenderEntryProductPolygons
+      ? clipRenderProjectionPolygonsToLegalDomains(
+          canonicalProductPolygons,
+          options.legalDomains ?? [],
+          renderEntryStrokePosition,
+          'nonzero',
+          options.exactBackend ?? getGeometryBackend()
+        )
+      : canonicalProductPolygons
     const runtimeMeta: SolidCenterStrokeRuntimeMeta = {
       productMode: face.debugMeta?.productMode,
       productSignature: face.debugMeta?.productSignature,
@@ -3062,7 +4378,7 @@ const buildRenderEntryFromFinalFace = (
       () => buildProductContractDebugMetaFromFinalFace(face)
     )
     const fullDiagnosticsDebugMeta = shouldEmitFullStrokeDiagnostics()
-      ? getFullDiagnosticsRenderDebugMeta(face.debugMeta)
+      ? getFullDiagnosticsRenderDebugMeta(face.debugMeta, face.intervalIds)
       : undefined
 
     return {
@@ -3075,7 +4391,7 @@ const buildRenderEntryFromFinalFace = (
         paintKey:
           face.paint.paintKey ?? `solid:${face.paint.color}:${face.paint.alpha}`
       },
-      polygons: canonicalProductPolygons,
+      polygons: renderEntryProductPolygons,
       fillPolygons: renderDescriptor?.fillPolygons,
       clipPolygons: renderDescriptor?.clipPolygons,
       fillClipPolygons: renderDescriptor?.fillClipPolygons,
@@ -3137,21 +4453,138 @@ const selectPrimaryRenderMetadataEntry = (
 const mergeSamePaintPolygonRenderEntries = (
   entries: SolidCenterStrokeComputedRenderEntry[],
   cacheKeyPrefix: string,
-  collapseStatus: RenderProjectionCollapseStatus
+  collapseStatus: RenderProjectionCollapseStatus,
+  options: SolidCenterStrokeRenderEntryOptions
 ): SolidCenterStrokeComputedRenderEntry[] => {
   const primaryEntry = selectPrimaryRenderMetadataEntry(entries)
   if (!primaryEntry || entries.length < 2) {
     return entries
   }
 
-  const polygons = cleanRenderProjectionPolygons(
-    unionCoveragePolygons(
-      entries.flatMap(getVisibleProductPolygonsFromRenderEntry)
-    )
+  const sourcePolygons = entries.flatMap(
+    getVisibleProductPolygonsFromRenderEntry
   )
-  if (polygons.length === 0) {
+  const unionedPolygons = cleanRenderProjectionPolygons(
+    unionCoveragePolygons(sourcePolygons)
+  )
+  const primaryStrokePosition =
+    primaryEntry.debugMeta?.strokePosition ??
+    primaryEntry.runtimeMeta.strokePosition
+  const hasOutsideLegalDomain =
+    primaryStrokePosition === 'outside' ||
+    entries.some(
+      (entry) =>
+        entry.debugMeta?.strokePosition === 'outside' ||
+        entry.runtimeMeta.strokePosition === 'outside'
+    )
+  const unionedPolygonsKeepLegalSide =
+    !hasOutsideLegalDomain ||
+    !hasRenderProjectionLegalSideSampleViolation(
+      unionedPolygons,
+      options.legalDomains ?? [],
+      'outside'
+    )
+  const polygons =
+    renderProjectionPreservesSourceVertexSeamCoverage(
+      sourcePolygons,
+      unionedPolygons,
+      entries
+    ) && unionedPolygonsKeepLegalSide
+      ? unionedPolygons
+      : sourcePolygons.map(normalizeCoveragePolygonWinding)
+  const legalPolygons =
+    (options.legalDomains?.length ?? 0) > 0
+      ? hasOutsideLegalDomain
+        ? clipRenderProjectionPolygonsToOutsideLegalDomains(
+            polygons,
+            options.legalDomains ?? [],
+            options.exactBackend ?? getGeometryBackend()
+          )
+        : clipRenderProjectionPolygonsToLegalDomains(
+            polygons,
+            options.legalDomains ?? [],
+            primaryStrokePosition,
+            'nonzero',
+            options.exactBackend ?? getGeometryBackend()
+          )
+      : polygons
+  const finalLegalPolygons =
+    hasOutsideLegalDomain &&
+    hasRenderProjectionLegalSideSampleViolation(
+      legalPolygons,
+      options.legalDomains ?? [],
+      'outside'
+    )
+      ? filterRenderProjectionPolygonsFullyToLegalSide(
+          legalPolygons,
+          options.legalDomains ?? [],
+          'outside'
+        )
+      : legalPolygons
+  const proofPreservedLegalPolygons =
+    finalLegalPolygons.length === 0 &&
+    hasOutsideLegalDomain &&
+    !hasRenderProjectionLegalSideSampleViolation(
+      polygons,
+      options.legalDomains ?? [],
+      'outside'
+    )
+      ? polygons
+      : finalLegalPolygons
+  if (proofPreservedLegalPolygons.length === 0) {
     return []
   }
+  const sameEntryCompositePolygons = (() => {
+    try {
+      const backend = options.exactBackend ?? getGeometryBackend()
+      if (
+        backend.capabilities.union === true &&
+        typeof backend.union === 'function'
+      ) {
+        return flattenFacePolygons(
+          backend.union(
+            [
+              {
+                polygons: proofPreservedLegalPolygons.map(
+                  normalizeCoveragePolygonWinding
+                )
+              }
+            ],
+            'nonzero'
+          ),
+          proofPreservedLegalPolygons
+        )
+      }
+    } catch {
+      // Fall through to boundary-aware polygon loop merge below.
+    }
+
+    return cleanRenderProjectionPolygons(
+      mergeSharedEdgeCoveragePolygons(proofPreservedLegalPolygons, {
+        allowSharedEdgeLoopMerge: true
+      })
+    )
+  })()
+  const sameEntryCompositeLegalPolygons =
+    hasOutsideLegalDomain && (options.legalDomains?.length ?? 0) > 0
+      ? clipRenderProjectionPolygonsToOutsideLegalDomains(
+          sameEntryCompositePolygons,
+          options.legalDomains ?? [],
+          options.exactBackend ?? getGeometryBackend()
+        )
+      : sameEntryCompositePolygons
+  const sameEntryCompositePreservesLegalSide =
+    !hasOutsideLegalDomain ||
+    !hasRenderProjectionLegalSideSampleViolation(
+      sameEntryCompositeLegalPolygons,
+      options.legalDomains ?? [],
+      'outside'
+    )
+  const renderPolygons =
+    sameEntryCompositePreservesLegalSide &&
+    sameEntryCompositeLegalPolygons.length > 0
+      ? sameEntryCompositeLegalPolygons
+      : proofPreservedLegalPolygons
 
   const intervalIds = getUniqueStrings(
     entries.flatMap((entry) => [
@@ -3191,7 +4624,12 @@ const mergeSamePaintPolygonRenderEntries = (
     (entry) => entry.debugMeta?.domainPlanSplitRangeTerminals ?? []
   )
   const dashProductIntervals = getUniqueDashProductIntervalsForRenderArray(
-    entries.flatMap((entry) => entry.debugMeta?.dashProductIntervals ?? [])
+    entries.flatMap((entry) =>
+      getRenderDebugMetaDashProductIntervals(
+        entry.debugMeta,
+        entry.runtimeMeta.intervalIds ?? []
+      )
+    )
   )
   const dashEndpointCapPolicySignatures = getUniqueStrings(
     entries.flatMap(
@@ -3213,6 +4651,9 @@ const mergeSamePaintPolygonRenderEntries = (
   )
   const smoothContinuityGroupIds = getUniqueStrings(
     entries.flatMap((entry) => entry.debugMeta?.smoothContinuityGroupIds ?? [])
+  )
+  const physicalSpanRanges = getUniquePhysicalSpanRangesForRenderArray(
+    entries.flatMap((entry) => entry.debugMeta?.physicalSpanRanges ?? [])
   )
   const visualOverlapSourceFaceIds = getUniqueStrings(
     entries.flatMap((entry) =>
@@ -3254,6 +4695,8 @@ const mergeSamePaintPolygonRenderEntries = (
       smoothContinuityGroupIds.length > 0
         ? smoothContinuityGroupIds
         : undefined,
+    physicalSpanRanges:
+      physicalSpanRanges.length > 0 ? physicalSpanRanges : undefined,
     visualOverlapCollapseStatus: collapseStatus,
     visualOverlapSourceFaceIds,
     visualOverlapSourceGeometryIds
@@ -3263,7 +4706,7 @@ const mergeSamePaintPolygonRenderEntries = (
     {
       ...primaryEntry,
       cacheKey: `render:${cacheKeyPrefix}:${entries.map((entry) => entry.cacheKey).join('|')}`,
-      polygons,
+      polygons: renderPolygons,
       fillPolygons: undefined,
       clipPolygons: undefined,
       fillClipPolygons: undefined,
@@ -3290,13 +4733,12 @@ const mergeSamePaintPolygonRenderEntries = (
   ]
 }
 
-const collapseSamePaintOverlappingPolygonRenderEntries = (
+const findSamePaintOverlappingPolygonRenderEntryGroupIndexes = (
   entries: SolidCenterStrokeComputedRenderEntry[],
-  options: SolidCenterStrokeRenderEntryOptions,
-  cacheKeyPrefix: string
+  options: SolidCenterStrokeRenderEntryOptions
 ) => {
   if (entries.length < 2) {
-    return entries
+    return entries.map((_, index) => [index])
   }
 
   const parent = entries.map((_, index) => index)
@@ -3370,27 +4812,45 @@ const collapseSamePaintOverlappingPolygonRenderEntries = (
     }
   }
 
-  const groupedEntries = new Map<
-    number,
-    SolidCenterStrokeComputedRenderEntry[]
-  >()
-  entries.forEach((entry, index) => {
+  const groupedEntryIndexes = new Map<number, number[]>()
+  entries.forEach((_, index) => {
     const root = find(index)
-    const group = groupedEntries.get(root) ?? []
-    group.push(entry)
-    groupedEntries.set(root, group)
+    const group = groupedEntryIndexes.get(root) ?? []
+    group.push(index)
+    groupedEntryIndexes.set(root, group)
   })
 
-  return Array.from(groupedEntries.values()).flatMap((group) =>
-    group.length > 1
+  return Array.from(groupedEntryIndexes.values())
+}
+
+const getRenderEntryGroupByIndexes = (
+  entries: SolidCenterStrokeComputedRenderEntry[],
+  indexes: number[]
+) =>
+  indexes.flatMap((index) => {
+    const entry = entries[index]
+    return entry ? [entry] : []
+  })
+
+const collapseSamePaintOverlappingPolygonRenderEntries = (
+  entries: SolidCenterStrokeComputedRenderEntry[],
+  options: SolidCenterStrokeRenderEntryOptions,
+  cacheKeyPrefix: string
+) =>
+  findSamePaintOverlappingPolygonRenderEntryGroupIndexes(
+    entries,
+    options
+  ).flatMap((indexes) => {
+    const group = getRenderEntryGroupByIndexes(entries, indexes)
+    return group.length > 1
       ? mergeSamePaintPolygonRenderEntries(
           group,
           cacheKeyPrefix,
-          'render-projection-merged'
+          'render-projection-merged',
+          options
         )
       : group
-  )
-}
+  })
 
 type RenderProjectionCollapseStatus =
   | 'exact-union'
@@ -3553,6 +5013,7 @@ const buildRenderProjectionArrangementPolygons = (
     allowComponentUnion?: boolean
     candidateGranularity?: 'face' | 'polygon'
     finalUnion?: boolean
+    legalDomains?: SolidCenterStrokeRenderEntryOptions['legalDomains']
     preserveWinding?: boolean
   } = {}
 ) => {
@@ -3564,13 +5025,18 @@ const buildRenderProjectionArrangementPolygons = (
         preserveWinding: options.preserveWinding
       })
   )
+  const legalDomainSplitterCandidates =
+    options.legalDomains && options.legalDomains.length > 0
+      ? buildRenderProjectionLegalDomainSplitterCandidates(options.legalDomains)
+      : []
 
-  if (candidates.length <= 1) {
+  if (candidates.length <= 1 && legalDomainSplitterCandidates.length === 0) {
     return candidates.flatMap((candidate) => candidate.geometry.polygons)
   }
 
   if (
     options.allowDirectUnion !== false &&
+    legalDomainSplitterCandidates.length === 0 &&
     backend.capabilities.union === true
   ) {
     try {
@@ -3604,17 +5070,21 @@ const buildRenderProjectionArrangementPolygons = (
 
   measureStrokeRenderEntryPhase('render projection: components', () => {
     findRenderProjectionComponentIndexes(bounds).forEach((componentIndexes) => {
-      if (componentIndexes.length === 1) {
-        const [componentIndex] = componentIndexes
-        output.push(...candidates[componentIndex].geometry.polygons)
-        return
-      }
-
       const componentCandidates = componentIndexes.map(
         (index) => candidates[index]
       )
       const componentBounds = componentIndexes.map((index) => bounds[index])
+      const componentLegalDomainSplitterCandidates =
+        legalDomainSplitterCandidates
       if (
+        componentIndexes.length === 1 &&
+        componentLegalDomainSplitterCandidates.length === 0
+      ) {
+        output.push(...componentCandidates[0].geometry.polygons)
+        return
+      }
+      if (
+        componentLegalDomainSplitterCandidates.length === 0 &&
         !candidateRegionsHaveInteriorOverlap(
           componentCandidates,
           componentBounds,
@@ -3643,6 +5113,7 @@ const buildRenderProjectionArrangementPolygons = (
         )
       if (
         options.allowComponentUnion !== false &&
+        componentLegalDomainSplitterCandidates.length === 0 &&
         (options.allowDirectUnion !== false ||
           !componentRequiresBoundaryPreservingArrangement) &&
         backend.capabilities.union === true
@@ -3675,7 +5146,7 @@ const buildRenderProjectionArrangementPolygons = (
       }
 
       const arrangementCacheKey = buildRenderProjectionArrangementCacheKey(
-        componentCandidates,
+        [...componentCandidates, ...componentLegalDomainSplitterCandidates],
         backend
       )
       const arrangedPolygons =
@@ -3684,8 +5155,29 @@ const buildRenderProjectionArrangementPolygons = (
           measureStrokeRenderEntryPhase(
             'render projection: arrangement',
             () => {
-              const polygons = backend
-                .buildArrangement(componentCandidates)
+              const arrangementCandidates = [
+                ...componentCandidates,
+                ...componentLegalDomainSplitterCandidates
+              ]
+              const arrangementFaces =
+                options.legalDomains && options.legalDomains.length > 0
+                  ? classifyArrangementFacesByLegalDomain(
+                      backend.buildArrangement(arrangementCandidates),
+                      options.legalDomains
+                    )
+                  : backend.buildArrangement(arrangementCandidates)
+              const polygons = arrangementFaces
+                .filter(
+                  (face) =>
+                    normalizePacketPolygons(face.geometry.polygons).length >
+                      0 &&
+                    face.claimedBy.some((candidate) =>
+                      isRenderProjectionArrangementFaceLegalForCandidate(
+                        candidate,
+                        face.legalState
+                      )
+                    )
+                )
                 .flatMap((face) => face.geometry.polygons)
               setCachedRenderProjectionArrangement(
                 arrangementCacheKey,
@@ -3782,9 +5274,16 @@ const buildCollapsedRenderEntry = (
     collapseSingleFace?: boolean
     finalUnion?: boolean
     preserveWinding?: boolean
-    projection?: 'union' | 'arrangement'
+    projection?: 'union' | 'arrangement' | 'shared-edge'
     clipToSourceCoverage?: boolean
     clipToDescriptorExclusions?: boolean
+    clipToLegalDomains?: boolean
+    allowSharedEdgeLoopMerge?: boolean
+    preserveProductPolygons?: boolean
+    preservePostLegalEndpointCanonicalization?: boolean
+    reclipToLegalDomainsAfterSourceCoverage?: boolean
+    requirePostLegalCoverageEquivalence?: boolean
+    allowPostLegalCoverageReduction?: boolean
   } = {}
 ) => {
   const primaryFace = selectPrimaryRenderMetadataFace(faces)
@@ -3797,74 +5296,120 @@ const buildCollapsedRenderEntry = (
     (!renderOptions.collapseSingleFace && faces.length < 2) ||
     !backend
   ) {
-    return faces.map(buildRenderEntryFromFinalFace)
+    return faces.map((face) => buildRenderEntryFromFinalFace(face, options))
   }
+  const renderProjectionStrokePosition =
+    primaryFace.debugMeta?.strokePosition ??
+    faces.find(
+      (face) =>
+        face.debugMeta?.strokePosition === 'inside' ||
+        face.debugMeta?.strokePosition === 'outside' ||
+        face.debugMeta?.strokePosition === 'center'
+    )?.debugMeta?.strokePosition
 
-  const sourcePolygons = measureStrokeRenderEntryPhase(
+  const rawSourcePolygons = measureStrokeRenderEntryPhase(
     'render projection: source polygons',
     () => faces.flatMap(getRenderProductPolygonsFromFinalFace)
   )
-  const rawPolygons = flattenFacePolygons(
-    (() => {
-      try {
-        if (renderOptions.projection === 'arrangement') {
-          const arrangementBackend =
-            backend as RenderProjectionArrangementBackend
-          const arrangementPolygons = buildRenderProjectionArrangementPolygons(
-            faces,
-            arrangementBackend,
-            {
-              allowDirectUnion: false,
-              allowComponentUnion: false,
-              finalUnion: renderOptions.finalUnion,
-              preserveWinding: renderOptions.preserveWinding
-            }
-          )
-          return [
-            {
-              polygons:
-                renderOptions.clipToSourceCoverage === true
-                  ? clipRenderProjectionUnionToArrangementCoverage(
-                      arrangementPolygons,
-                      sourcePolygons,
-                      arrangementBackend
-                    )
-                  : arrangementPolygons
-            }
-          ]
-        }
-
-        const unionPolygons = measureStrokeRenderEntryPhase(
-          'render projection: union',
-          () =>
-            flattenFacePolygons(
-              backend.union(
-                faces.map((face) => toCoverageFaceRegion(face, renderOptions)),
-                fillRule
-              ),
-              sourcePolygons
-            )
+  const canonicalSourcePolygons =
+    renderOptions.preservePostLegalEndpointCanonicalization === false
+      ? rawSourcePolygons
+      : canonicalizeRenderProjectionSourceVertexSeamPoints(
+          rawSourcePolygons,
+          faces
         )
-        return [
-          {
-            polygons:
-              renderOptions.clipToSourceCoverage === true
-                ? clipRenderProjectionUnionToArrangementCoverage(
-                    unionPolygons,
-                    sourcePolygons,
-                    backend
+  const sourcePolygons =
+    renderOptions.preservePostLegalEndpointCanonicalization === false ||
+    (renderOptions.clipToLegalDomains === true &&
+      hasRenderProjectionLegalSideSampleViolation(
+        canonicalSourcePolygons,
+        options.legalDomains ?? [],
+        renderProjectionStrokePosition
+      ))
+      ? rawSourcePolygons
+      : canonicalSourcePolygons
+  const shouldPreserveProductPolygons =
+    renderOptions.preserveProductPolygons === true
+  const rawPolygons = shouldPreserveProductPolygons
+    ? sourcePolygons.map(normalizeCoveragePolygonWinding)
+    : flattenFacePolygons(
+        (() => {
+          try {
+            if (renderOptions.projection === 'shared-edge') {
+              return [
+                {
+                  polygons: mergeSharedEdgeCoveragePolygons(sourcePolygons, {
+                    allowSharedEdgeLoopMerge: true
+                  })
+                }
+              ]
+            }
+
+            if (renderOptions.projection === 'arrangement') {
+              const arrangementBackend =
+                backend as RenderProjectionArrangementBackend
+              const arrangementPolygons =
+                buildRenderProjectionArrangementPolygons(
+                  faces,
+                  arrangementBackend,
+                  {
+                    allowDirectUnion: false,
+                    allowComponentUnion: false,
+                    finalUnion: renderOptions.finalUnion,
+                    legalDomains: options.legalDomains,
+                    preserveWinding: renderOptions.preserveWinding
+                  }
+                )
+              return [
+                {
+                  polygons:
+                    renderOptions.clipToSourceCoverage === true
+                      ? clipRenderProjectionUnionToArrangementCoverage(
+                          arrangementPolygons,
+                          sourcePolygons,
+                          arrangementBackend
+                        )
+                      : arrangementPolygons
+                }
+              ]
+            }
+
+            const unionPolygons = measureStrokeRenderEntryPhase(
+              'render projection: union',
+              () =>
+                mergeSharedEdgeCoveragePolygons(
+                  flattenFacePolygons(
+                    backend.union(
+                      faces.map((face) =>
+                        toCoverageFaceRegion(face, renderOptions)
+                      ),
+                      fillRule
+                    ),
+                    sourcePolygons
                   )
-                : unionPolygons
+                )
+            )
+            return [
+              {
+                polygons:
+                  renderOptions.clipToSourceCoverage === true
+                    ? clipRenderProjectionUnionToArrangementCoverage(
+                        unionPolygons,
+                        sourcePolygons,
+                        backend
+                      )
+                    : unionPolygons
+              }
+            ]
+          } catch {
+            return []
           }
-        ]
-      } catch {
-        return []
-      }
-    })(),
-    sourcePolygons
-  )
+        })(),
+        sourcePolygons
+      )
   const projectedPolygons = rawPolygons
   const descriptorExcludePolygons =
+    !shouldPreserveProductPolygons &&
     renderOptions.clipToDescriptorExclusions === true
       ? faces.flatMap(
           (face) =>
@@ -3888,7 +5433,225 @@ const buildCollapsedRenderEntry = (
           )
         )
       : projectedPolygons
-  const visiblePolygons = polygons
+  const legallyClippedPolygons =
+    !shouldPreserveProductPolygons && renderOptions.clipToLegalDomains === true
+      ? (() => {
+          try {
+            return clipRenderProjectionPolygonsToLegalDomains(
+              polygons,
+              options.legalDomains ?? [],
+              renderProjectionStrokePosition,
+              fillRule,
+              options.exactBackend ?? getGeometryBackend()
+            )
+          } catch {
+            return polygons
+          }
+        })()
+      : polygons
+  const conservativeSourceCoveredPolygons =
+    !shouldPreserveProductPolygons &&
+    renderOptions.clipToSourceCoverage === true &&
+    backend
+      ? clipRenderProjectionUnionToArrangementCoverage(
+          legallyClippedPolygons,
+          sourcePolygons,
+          backend,
+          { allowSharedEdgeLoopMerge: false, mergeSharedEdges: false }
+        )
+      : legallyClippedPolygons
+  const sourceCoveredPolygons =
+    !shouldPreserveProductPolygons &&
+    renderOptions.clipToSourceCoverage === true &&
+    backend
+      ? clipRenderProjectionUnionToArrangementCoverage(
+          legallyClippedPolygons,
+          sourcePolygons,
+          backend,
+          {
+            allowSharedEdgeLoopMerge:
+              renderOptions.allowSharedEdgeLoopMerge ?? false
+          }
+        )
+      : legallyClippedPolygons
+  const sourceCoveredLegalViolationArea =
+    !shouldPreserveProductPolygons &&
+    renderOptions.reclipToLegalDomainsAfterSourceCoverage === true
+      ? getRenderProjectionLegalDomainViolationArea(
+          sourceCoveredPolygons,
+          options.legalDomains ?? [],
+          renderProjectionStrokePosition,
+          backend,
+          fillRule
+        )
+      : 0
+  const sourceCoveredHasLegalAreaViolation =
+    !shouldPreserveProductPolygons &&
+    renderOptions.reclipToLegalDomainsAfterSourceCoverage === true &&
+    sourceCoveredLegalViolationArea >
+      RENDER_PROJECTION_LEGAL_VIOLATION_AREA_TOLERANCE
+  const sourceCoveredHasLegalSideSampleViolation =
+    !shouldPreserveProductPolygons &&
+    renderOptions.reclipToLegalDomainsAfterSourceCoverage === true &&
+    hasRenderProjectionLegalSideSampleViolation(
+      sourceCoveredPolygons,
+      options.legalDomains ?? [],
+      renderProjectionStrokePosition
+    )
+  const legalSideFilteredSourceCoveredPolygons =
+    sourceCoveredHasLegalSideSampleViolation &&
+    !sourceCoveredHasLegalAreaViolation
+      ? filterRenderProjectionPolygonsFullyToLegalSide(
+          sourceCoveredPolygons,
+          options.legalDomains ?? [],
+          renderProjectionStrokePosition
+        )
+      : sourceCoveredPolygons
+  const reclippedSourceCoveredPolygons =
+    sourceCoveredHasLegalAreaViolation ||
+    sourceCoveredHasLegalSideSampleViolation
+      ? (() => {
+          try {
+            const clippedPolygons = clipRenderProjectionPolygonsToLegalDomains(
+              sourceCoveredPolygons,
+              options.legalDomains ?? [],
+              renderProjectionStrokePosition,
+              fillRule,
+              options.exactBackend ?? getGeometryBackend()
+            )
+            return renderProjectionPreservesSourceVertexSeamCoverage(
+              sourcePolygons,
+              clippedPolygons,
+              faces,
+              {
+                legalDomains: options.legalDomains,
+                strokePosition: renderProjectionStrokePosition
+              }
+            )
+              ? clippedPolygons
+              : legalSideFilteredSourceCoveredPolygons
+          } catch {
+            return legalSideFilteredSourceCoveredPolygons
+          }
+        })()
+      : legalSideFilteredSourceCoveredPolygons
+  const hasPostLegalCoverageMismatch =
+    renderOptions.requirePostLegalCoverageEquivalence === true &&
+    !areRenderProjectionCoveragesEquivalent(
+      reclippedSourceCoveredPolygons,
+      legallyClippedPolygons,
+      backend,
+      fillRule
+    )
+  const hasPostLegalWrongSideViolation =
+    renderOptions.requirePostLegalCoverageEquivalence === true &&
+    (getRenderProjectionLegalDomainViolationArea(
+      reclippedSourceCoveredPolygons,
+      options.legalDomains ?? [],
+      renderProjectionStrokePosition,
+      backend,
+      fillRule
+    ) > RENDER_PROJECTION_LEGAL_VIOLATION_AREA_TOLERANCE ||
+      hasRenderProjectionLegalSideSampleViolation(
+        reclippedSourceCoveredPolygons,
+        options.legalDomains ?? [],
+        renderProjectionStrokePosition
+      ))
+  const hasPostLegalCoverageViolation =
+    hasPostLegalWrongSideViolation ||
+    (hasPostLegalCoverageMismatch &&
+      renderOptions.allowPostLegalCoverageReduction !== true)
+  const visiblePolygons = hasPostLegalWrongSideViolation
+    ? reclippedSourceCoveredPolygons
+    : hasPostLegalCoverageViolation
+      ? conservativeSourceCoveredPolygons
+      : reclippedSourceCoveredPolygons
+  const finalVisiblePolygons =
+    !shouldPreserveProductPolygons &&
+    renderOptions.clipToLegalDomains === true &&
+    (options.legalDomains?.length ?? 0) > 0
+      ? clipRenderProjectionPolygonsToLegalDomains(
+          visiblePolygons,
+          options.legalDomains ?? [],
+          renderProjectionStrokePosition,
+          fillRule,
+          options.exactBackend ?? getGeometryBackend()
+        )
+      : visiblePolygons
+  const endpointCanonicalCandidate =
+    renderOptions.preservePostLegalEndpointCanonicalization === false
+      ? finalVisiblePolygons
+      : canonicalizeRenderProjectionSourceVertexSeamPoints(
+          finalVisiblePolygons,
+          faces
+        )
+  const endpointCanonicalHasLegalViolation =
+    !shouldPreserveProductPolygons &&
+    renderOptions.clipToLegalDomains === true &&
+    (options.legalDomains?.length ?? 0) > 0 &&
+    (getRenderProjectionLegalDomainViolationArea(
+      endpointCanonicalCandidate,
+      options.legalDomains ?? [],
+      renderProjectionStrokePosition,
+      backend,
+      fillRule
+    ) > RENDER_PROJECTION_LEGAL_VIOLATION_AREA_TOLERANCE ||
+      hasRenderProjectionLegalSideSampleViolation(
+        endpointCanonicalCandidate,
+        options.legalDomains ?? [],
+        renderProjectionStrokePosition
+      ))
+  const endpointCanonicalVisiblePolygons = endpointCanonicalHasLegalViolation
+    ? finalVisiblePolygons
+    : endpointCanonicalCandidate
+  const renderEntryHasOutsideLegalDomain =
+    renderProjectionStrokePosition === 'outside' ||
+    faces.some((face) => face.debugMeta?.strokePosition === 'outside')
+  let renderEntryVisiblePolygons =
+    !shouldPreserveProductPolygons &&
+    renderOptions.clipToLegalDomains === true &&
+    (options.legalDomains?.length ?? 0) > 0
+      ? (() => {
+          if (renderEntryHasOutsideLegalDomain) {
+            return clipRenderProjectionPolygonsToOutsideLegalDomains(
+              endpointCanonicalVisiblePolygons,
+              options.legalDomains ?? [],
+              options.exactBackend ?? getGeometryBackend()
+            )
+          }
+          const clippedPolygons = clipRenderProjectionPolygonsToLegalDomains(
+            endpointCanonicalVisiblePolygons,
+            options.legalDomains ?? [],
+            renderProjectionStrokePosition,
+            fillRule,
+            options.exactBackend ?? getGeometryBackend()
+          )
+          return clippedPolygons.length > 0
+            ? clippedPolygons
+            : endpointCanonicalVisiblePolygons
+        })()
+      : endpointCanonicalVisiblePolygons
+  if (
+    !shouldPreserveProductPolygons &&
+    renderOptions.clipToLegalDomains === true &&
+    renderEntryHasOutsideLegalDomain &&
+    hasRenderProjectionLegalSideSampleViolation(
+      renderEntryVisiblePolygons,
+      options.legalDomains ?? [],
+      'outside'
+    )
+  ) {
+    const legalSidePolygons = filterRenderProjectionPolygonsFullyToLegalSide(
+      renderEntryVisiblePolygons,
+      options.legalDomains ?? [],
+      'outside'
+    )
+    renderEntryVisiblePolygons = legalSidePolygons
+  }
+  if (renderEntryVisiblePolygons.length === 0) {
+    return []
+  }
+
   const sourceGeometryIds = getUniqueStrings(
     faces.flatMap((face) => face.sourceGeometryIds)
   )
@@ -3909,7 +5672,9 @@ const buildCollapsedRenderEntry = (
     (face) => face.debugMeta?.domainPlanSplitRangeTerminals ?? []
   )
   const dashProductIntervals = getUniqueDashProductIntervalsForRenderArray(
-    faces.flatMap((face) => face.debugMeta?.dashProductIntervals ?? [])
+    faces.flatMap((face) =>
+      getRenderDebugMetaDashProductIntervals(face.debugMeta, face.intervalIds)
+    )
   )
   const dashEndpointCapPolicySignatures = getUniqueStrings(
     faces.flatMap(
@@ -3932,13 +5697,16 @@ const buildCollapsedRenderEntry = (
   const smoothContinuityGroupIds = getUniqueStrings(
     faces.flatMap((face) => face.debugMeta?.smoothContinuityGroupIds ?? [])
   )
-  const primaryEntry = buildRenderEntryFromFinalFace(primaryFace)
+  const physicalSpanRanges = getUniquePhysicalSpanRangesForRenderArray(
+    faces.flatMap((face) => face.debugMeta?.physicalSpanRanges ?? [])
+  )
+  const primaryEntry = buildRenderEntryFromFinalFace(primaryFace, options)
 
   return [
     {
       ...primaryEntry,
       cacheKey: `render:${cacheKeyPrefix}:${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`,
-      polygons: visiblePolygons,
+      polygons: renderEntryVisiblePolygons,
       fillPolygons: undefined,
       clipPolygons: undefined,
       fillClipPolygons: undefined,
@@ -3991,6 +5759,8 @@ const buildCollapsedRenderEntry = (
               smoothContinuityGroupIds.length > 0
                 ? smoothContinuityGroupIds
                 : undefined,
+            physicalSpanRanges:
+              physicalSpanRanges.length > 0 ? physicalSpanRanges : undefined,
             visualOverlapCollapseStatus: collapseStatus,
             visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
             visualOverlapSourceGeometryIds: sourceGeometryIds
@@ -4029,6 +5799,8 @@ const buildCollapsedRenderEntry = (
               smoothContinuityGroupIds.length > 0
                 ? smoothContinuityGroupIds
                 : undefined,
+            physicalSpanRanges:
+              physicalSpanRanges.length > 0 ? physicalSpanRanges : undefined,
             visualOverlapCollapseStatus: collapseStatus,
             visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
             visualOverlapSourceGeometryIds: sourceGeometryIds
@@ -4210,6 +5982,370 @@ const buildDashedCenterCollapsedRenderEntry = (
     'dashed-center-union',
     'exact-union'
   )
+
+const getFinalFaceGroupByIndexes = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[],
+  indexes: number[]
+) =>
+  indexes.flatMap((index) => {
+    const face = faces[index]
+    return face ? [face] : []
+  })
+
+const clipOutsideConstrainedDashedCompositeRenderEntriesToLegalSide = (
+  entries: SolidCenterStrokeComputedRenderEntry[],
+  options: SolidCenterStrokeRenderEntryOptions
+): SolidCenterStrokeComputedRenderEntry[] => {
+  if ((options.legalDomains?.length ?? 0) === 0) {
+    return entries
+  }
+
+  return entries.flatMap((entry) => {
+    const strokePosition =
+      entry.debugMeta?.strokePosition ?? entry.runtimeMeta.strokePosition
+    if (strokePosition !== 'outside') {
+      return [entry]
+    }
+
+    const clippedPolygons = clipRenderProjectionPolygonsToOutsideLegalDomains(
+      entry.polygons,
+      options.legalDomains ?? [],
+      options.exactBackend ?? getGeometryBackend()
+    )
+    if (clippedPolygons.length > 0) {
+      return [
+        {
+          ...entry,
+          polygons: clippedPolygons,
+          strokeMaskPolygons: undefined
+        }
+      ]
+    }
+
+    const legalPolygons = filterRenderProjectionPolygonsFullyToLegalSide(
+      entry.polygons,
+      options.legalDomains ?? [],
+      'outside'
+    )
+
+    return legalPolygons.length > 0
+      ? [
+          {
+            ...entry,
+            polygons: legalPolygons,
+            strokeMaskPolygons: undefined
+          }
+        ]
+      : []
+  })
+}
+
+const collapseConstrainedDashedFinalFaceRenderEntries = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[],
+  options: SolidCenterStrokeRenderEntryOptions,
+  groupKey: string
+) => {
+  const entries = faces.map((face) =>
+    buildRenderEntryFromFinalFace(face, options)
+  )
+  const isSmoothContinuityFace = (
+    face: StrokeFinalFace<
+      SolidCenterStrokeGeometryDebugMeta,
+      SolidCenterStrokePaintPacket
+    >
+  ) =>
+    face.debugMeta?.visibleContributor === 'smooth-continuity-dash-body' ||
+    face.debugMeta?.ownerStage ===
+      'Stroke Geometry smooth-continuity product assembly' ||
+    face.debugMeta?.smoothContinuityGroupId !== undefined ||
+    (face.debugMeta?.smoothContinuityGroupIds?.length ?? 0) > 0
+
+  return findSamePaintOverlappingPolygonRenderEntryGroupIndexes(
+    entries,
+    options
+  ).flatMap((indexes) => {
+    const faceGroup = getFinalFaceGroupByIndexes(faces, indexes)
+    const entryGroup = getRenderEntryGroupByIndexes(entries, indexes)
+    const hasSourceVertexJoinFace = faceGroup.some(
+      isConstrainedDashedSourceVertexJoinProductFace
+    )
+    const hasRoundSourceVertexJoinFace = faceGroup.some(
+      (face) =>
+        isConstrainedDashedSourceVertexJoinProductFace(face) &&
+        (face.debugMeta?.authoredJoin === 'round' ||
+          face.debugMeta?.resolvedJoin === 'round' ||
+          face.debugMeta?.productSignature?.includes(
+            ':constrained-boundary-source-vertex:round:'
+          ) === true)
+    )
+    const hasPreArrangedMultiPolygonFace = faceGroup.some(
+      (face) => face.polygons.length > 1
+    )
+    const smoothContinuityFaces = faceGroup.filter(isSmoothContinuityFace)
+    const nonSmoothContinuityFaces = faceGroup.filter(
+      (face) => !isSmoothContinuityFace(face)
+    )
+    const terminalBodyFaces = faceGroup.filter(
+      isConstrainedDashedTerminalBodyProductFace
+    )
+    const nonTerminalNonSmoothContinuityFaces = nonSmoothContinuityFaces.filter(
+      (face) => !isConstrainedDashedTerminalBodyProductFace(face)
+    )
+    const hasSmoothContinuityFace = smoothContinuityFaces.length > 0
+    const hasLegalDomains = (options.legalDomains?.length ?? 0) > 0
+
+    if (hasSmoothContinuityFace && hasLegalDomains) {
+      if (hasSourceVertexJoinFace) {
+        const nonSmoothSourceVertexFaces = nonSmoothContinuityFaces.filter(
+          (face) => !isConstrainedDashedTerminalBodyProductFace(face)
+        )
+        const sourceVertexCompositeEntries =
+          nonSmoothSourceVertexFaces.length > 0
+            ? clipOutsideConstrainedDashedCompositeRenderEntriesToLegalSide(
+                buildCollapsedRenderEntry(
+                  nonSmoothSourceVertexFaces,
+                  options,
+                  `constrained-dashed-same-paint:${groupKey}:${indexes.join(',')}:non-smooth-source-vertex`,
+                  'render-projection-merged',
+                  'nonzero',
+                  {
+                    collapseSingleFace: true,
+                    clipToLegalDomains: true,
+                    clipToSourceCoverage: true,
+                    finalUnion: false,
+                    allowSharedEdgeLoopMerge: true,
+                    projection: 'arrangement',
+                    preservePostLegalEndpointCanonicalization:
+                      !hasRoundSourceVertexJoinFace,
+                    reclipToLegalDomainsAfterSourceCoverage: true,
+                    requirePostLegalCoverageEquivalence: true,
+                    allowPostLegalCoverageReduction: true
+                  }
+                ),
+                options
+              )
+            : []
+        const terminalBodyEntries = terminalBodyFaces.map((face) =>
+          buildRenderEntryFromFinalFace(face, options)
+        )
+        const nonSmoothCompositeEntries =
+          sourceVertexCompositeEntries.length > 0 &&
+          terminalBodyEntries.length > 0
+            ? mergeSamePaintPolygonRenderEntries(
+                [...terminalBodyEntries, ...sourceVertexCompositeEntries],
+                `constrained-dashed-same-paint:${groupKey}:${indexes.join(',')}:non-smooth-terminal`,
+                'render-projection-merged',
+                options
+              )
+            : [...sourceVertexCompositeEntries, ...terminalBodyEntries]
+        const smoothEntries =
+          smoothContinuityFaces.length > 1
+            ? buildCollapsedRenderEntry(
+                smoothContinuityFaces,
+                options,
+                `constrained-dashed-same-paint:${groupKey}:${indexes.join(',')}:smooth`,
+                'render-projection-merged',
+                'nonzero',
+                {
+                  finalUnion: false,
+                  allowSharedEdgeLoopMerge: true,
+                  projection: 'shared-edge',
+                  preservePostLegalEndpointCanonicalization: true
+                }
+              )
+            : smoothContinuityFaces.map((face) =>
+                buildRenderEntryFromFinalFace(face, options)
+              )
+
+        return [...nonSmoothCompositeEntries, ...smoothEntries]
+      }
+
+      const nonSmoothEntries =
+        nonTerminalNonSmoothContinuityFaces.length > 0
+          ? buildCollapsedRenderEntry(
+              nonTerminalNonSmoothContinuityFaces,
+              options,
+              `constrained-dashed-same-paint:${groupKey}:${indexes.join(',')}:non-smooth`,
+              'render-projection-merged',
+              'nonzero',
+              {
+                collapseSingleFace: true,
+                clipToLegalDomains: true,
+                clipToSourceCoverage: true,
+                finalUnion: false,
+                allowSharedEdgeLoopMerge: true,
+                projection: hasSourceVertexJoinFace ? 'arrangement' : 'union',
+                preservePostLegalEndpointCanonicalization:
+                  hasSourceVertexJoinFace
+                    ? !hasRoundSourceVertexJoinFace
+                    : true,
+                reclipToLegalDomainsAfterSourceCoverage: hasLegalDomains,
+                requirePostLegalCoverageEquivalence: hasLegalDomains,
+                allowPostLegalCoverageReduction: hasLegalDomains
+              }
+            )
+          : []
+      const terminalBodyEntries = terminalBodyFaces.map((face) =>
+        buildRenderEntryFromFinalFace(face, options)
+      )
+      const nonSmoothCompositeEntries =
+        nonSmoothEntries.length > 0 && terminalBodyEntries.length > 0
+          ? mergeSamePaintPolygonRenderEntries(
+              [...nonSmoothEntries, ...terminalBodyEntries],
+              `constrained-dashed-same-paint:${groupKey}:${indexes.join(',')}:non-smooth-terminal`,
+              'render-projection-merged',
+              options
+            )
+          : [...nonSmoothEntries, ...terminalBodyEntries]
+      const smoothEntries =
+        smoothContinuityFaces.length > 1
+          ? buildCollapsedRenderEntry(
+              smoothContinuityFaces,
+              options,
+              `constrained-dashed-same-paint:${groupKey}:${indexes.join(',')}:smooth`,
+              'render-projection-merged',
+              'nonzero',
+              {
+                finalUnion: false,
+                allowSharedEdgeLoopMerge: true,
+                projection: 'shared-edge',
+                preservePostLegalEndpointCanonicalization: true
+              }
+            )
+          : smoothContinuityFaces.map((face) =>
+              buildRenderEntryFromFinalFace(face, options)
+            )
+
+      return [...nonSmoothCompositeEntries, ...smoothEntries]
+    }
+
+    if (
+      hasSourceVertexJoinFace &&
+      hasLegalDomains &&
+      (faceGroup.length > 1 ||
+        hasPreArrangedMultiPolygonFace ||
+        hasRoundSourceVertexJoinFace)
+    ) {
+      if (terminalBodyFaces.length > 0) {
+        const sourceVertexCompositeFaces = faceGroup.filter(
+          (face) => !isConstrainedDashedTerminalBodyProductFace(face)
+        )
+        const sourceVertexCompositeEntries =
+          sourceVertexCompositeFaces.length > 0
+            ? clipOutsideConstrainedDashedCompositeRenderEntriesToLegalSide(
+                buildCollapsedRenderEntry(
+                  sourceVertexCompositeFaces,
+                  options,
+                  `constrained-dashed-source-vertex-join:${groupKey}:${indexes.join(',')}:source-vertex`,
+                  'render-projection-merged',
+                  'nonzero',
+                  {
+                    collapseSingleFace: true,
+                    clipToLegalDomains: true,
+                    clipToSourceCoverage: true,
+                    finalUnion: false,
+                    allowSharedEdgeLoopMerge: true,
+                    projection: 'arrangement',
+                    preservePostLegalEndpointCanonicalization:
+                      !hasRoundSourceVertexJoinFace,
+                    reclipToLegalDomainsAfterSourceCoverage: true,
+                    requirePostLegalCoverageEquivalence: true,
+                    allowPostLegalCoverageReduction: true
+                  }
+                ),
+                options
+              )
+            : []
+        const terminalBodyEntries = terminalBodyFaces.map((face) =>
+          buildRenderEntryFromFinalFace(face, options)
+        )
+
+        return sourceVertexCompositeEntries.length > 0 &&
+          terminalBodyEntries.length > 0
+          ? mergeSamePaintPolygonRenderEntries(
+              [...terminalBodyEntries, ...sourceVertexCompositeEntries],
+              `constrained-dashed-source-vertex-join:${groupKey}:${indexes.join(',')}:terminal`,
+              'render-projection-merged',
+              options
+            )
+          : [...sourceVertexCompositeEntries, ...terminalBodyEntries]
+      }
+
+      const sourceVertexCompositeFaces = faceGroup
+      const sourceVertexCompositeEntries =
+        sourceVertexCompositeFaces.length > 0
+          ? clipOutsideConstrainedDashedCompositeRenderEntriesToLegalSide(
+              buildCollapsedRenderEntry(
+                sourceVertexCompositeFaces,
+                options,
+                `constrained-dashed-source-vertex-join:${groupKey}:${indexes.join(',')}`,
+                'render-projection-merged',
+                'nonzero',
+                {
+                  collapseSingleFace: true,
+                  clipToLegalDomains: true,
+                  clipToSourceCoverage: true,
+                  finalUnion: false,
+                  allowSharedEdgeLoopMerge: true,
+                  projection: 'arrangement',
+                  preservePostLegalEndpointCanonicalization:
+                    !hasRoundSourceVertexJoinFace,
+                  reclipToLegalDomainsAfterSourceCoverage: true,
+                  requirePostLegalCoverageEquivalence: true,
+                  allowPostLegalCoverageReduction: true
+                }
+              ),
+              options
+            )
+          : []
+
+      return sourceVertexCompositeEntries
+    }
+
+    if (hasSourceVertexJoinFace && faceGroup.length > 1) {
+      return mergeSamePaintPolygonRenderEntries(
+        entryGroup,
+        `constrained-dashed-source-vertex-join:${groupKey}:${indexes.join(',')}`,
+        'render-projection-merged',
+        options
+      )
+    }
+
+    if (entryGroup.length > 1 && hasLegalDomains && !hasSmoothContinuityFace) {
+      return buildCollapsedRenderEntry(
+        faceGroup,
+        options,
+        `constrained-dashed-same-paint:${groupKey}:${indexes.join(',')}`,
+        'render-projection-merged',
+        'nonzero',
+        {
+          clipToLegalDomains: true,
+          clipToSourceCoverage: true,
+          finalUnion: false,
+          allowSharedEdgeLoopMerge: true,
+          reclipToLegalDomainsAfterSourceCoverage: true,
+          requirePostLegalCoverageEquivalence: true,
+          allowPostLegalCoverageReduction: true
+        }
+      )
+    }
+
+    return entryGroup.length > 1
+      ? mergeSamePaintPolygonRenderEntries(
+          entryGroup,
+          `constrained-dashed-same-paint:${groupKey}`,
+          'render-projection-merged',
+          options
+        )
+      : entryGroup
+  })
+}
 
 const getRenderDescriptorStrokePathGroups = (
   descriptor: SolidCenterStrokeRenderDescriptor | undefined
@@ -4447,7 +6583,7 @@ const collapseDashedCenterRenderEntries = (
       return
     }
 
-    output.push([buildRenderEntryFromFinalFace(face)])
+    output.push([buildRenderEntryFromFinalFace(face, options)])
   })
 
   dashedGroups.forEach((group, groupKey) => {
@@ -4461,10 +6597,10 @@ const collapseDashedCenterRenderEntries = (
   constrainedDashedGroups.forEach((group, groupKey) => {
     const slot = constrainedDashedGroupSlots.get(groupKey)
     if (slot !== undefined) {
-      output[slot] = collapseSamePaintOverlappingPolygonRenderEntries(
-        group.map(buildRenderEntryFromFinalFace),
+      output[slot] = collapseConstrainedDashedFinalFaceRenderEntries(
+        group,
         options,
-        `constrained-dashed-same-paint:${groupKey}`
+        groupKey
       )
     }
   })
@@ -4823,7 +6959,7 @@ export const toSolidCenterStrokeRenderEntriesFromFinalFaces = (
       'render entries: constrained dashed descriptor route',
       () =>
         collapseSamePaintOverlappingPolygonRenderEntries(
-          faces.map(buildRenderEntryFromFinalFace),
+          faces.map((face) => buildRenderEntryFromFinalFace(face, options)),
           options,
           'constrained-dashed-descriptor-route'
         )

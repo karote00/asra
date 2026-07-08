@@ -137,6 +137,8 @@ export interface StrokeFinalFaceDebugMetaBase {
     vertex?: Vec2
     previousContourPoint?: Vec2
     nextContourPoint?: Vec2
+    previousSourceTangent?: Vec2
+    nextSourceTangent?: Vec2
     previousDashBodyPoint?: Vec2
     nextDashBodyPoint?: Vec2
     stageBounds?: Record<string, Bounds | undefined>
@@ -149,6 +151,8 @@ export interface StrokeFinalFaceDebugMetaBase {
       visibleContributor: 'source-vertex-join'
       geometryBasis: 'canonical-join-footprint'
       polygons: Vec2[][]
+      seamEvidence?: StrokeFinalFaceDebugMeta['seamEvidence']
+      dashBodySeamBoundaries?: StrokeFinalFaceDebugMeta['dashBodySeamBoundaries']
       legalDomainIds?: string[]
       contourIds?: string[]
     }[]
@@ -433,6 +437,17 @@ const cleanFinalFacePolygons = (polygons: Vec2[][]) => {
   }
   return cleanedPolygons
 }
+
+const filterFinalFacePolygonsWithoutBoundaryMutation = (polygons: Vec2[][]) =>
+  polygons.filter(
+    (polygon) => polygon.length >= 3 && Math.abs(getPolygonArea(polygon)) > 1e-6
+  )
+
+const shouldPreservePacketProductBoundaryForFinalFace = (
+  debugMeta: StrokeFinalFaceDebugMetaBase | undefined
+) =>
+  debugMeta?.strokePosition === 'outside' &&
+  debugMeta.productSignature?.startsWith('constrained-dashed:') === true
 
 const pushUniqueSplitRangeTerminal = (
   terminals: NonNullable<
@@ -821,7 +836,9 @@ const buildFaceFromPacket = <
     paintKey,
     strokeSpecKey
   )
-  const polygons = cleanFinalFacePolygons(packet.geometry.polygons)
+  const polygons = shouldPreservePacketProductBoundaryForFinalFace(debugMeta)
+    ? filterFinalFacePolygonsWithoutBoundaryMutation(packet.geometry.polygons)
+    : cleanFinalFacePolygons(packet.geometry.polygons)
   const bounds = getPolygonsBounds(polygons, packet.geometry.bounds)
   const legalDomainIds =
     debugMeta?.legalDomainIds ??

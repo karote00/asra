@@ -1170,7 +1170,7 @@ export const strokeGeometryOracleCoverageMap: readonly StrokeGeometryOracleCover
         'rejects internal shared-boundary render polygons on reported outside dashed render entries'
       ],
       positiveAssertions: [
-        'Source-vertex join products touch or intentionally overlap incident dash body seams within tolerance.',
+        'Source-vertex join products share the same Step 27 seam endpoint identities as incident dash body seams; visible source-space seam gap is zero.',
         'Source-vertex join products and final faces share the full Step 27 terminal-to-outer-endpoint seam edge, not only the outer endpoint.',
         'Step 27 terminal seam evidence preserves the full inner-to-outer stroke-width edge before Step 28 source-vertex join consumption.',
         'Step 38 render entries either preserve the seam edge or declare a single-paint render-projection merge that keeps seam endpoint/midpoint coverage provenance without repeated-alpha overdraw.',

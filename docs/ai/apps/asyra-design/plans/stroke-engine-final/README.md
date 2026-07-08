@@ -83,6 +83,29 @@ Every cross-step stroke invariant must have one structured lifecycle contract in
 6. the formal validator or oracle that prevents the invariant from remaining as
    scattered prose.
 
+Cross-step work must be destination-driven before it is step-driven. Before an
+agent evaluates any individual step input/output list, it must define the final
+required artifacts for the stroke scenario: visible render coverage, hit/export
+coverage, diagnostics provenance, legal-side exclusion, same-paint compositing,
+and source-space continuity requirements. A step output is valid only when it
+produces, preserves, consumes, or explicitly proves the absence of one of those
+required artifacts. Step-local limitations do not override destination
+requirements; if a limitation would force a visible hole, wrong-side paint,
+unowned protrusion, duplicate alpha, or missing hit/export surface, the spec and
+inspector contract are incomplete and must be repaired before implementation
+continues.
+
+The required-artifact closure contract is the top-level execution contract for
+stroke correctness. It answers "what final artifacts must exist, survive, and be
+safe to project" before deciding which step owns each artifact. The contract
+must name the target surface, required source-space coverage, legal-side
+requirements, owner step, preservation steps, consumer steps, forbidden
+substitutes, and the first owner step to reopen when the final artifact is
+missing or malformed. Formal tests must be allowed to replace fixture data, but
+the requirement they check must remain generic: position correctness,
+source-space continuity, legal-side exclusion, join/dash seam closure, smooth
+span continuity, same-paint single-composite safety, and hit/export parity.
+
 For dash/body and source-vertex join seams, the structured lifecycle owner is
 the dash/join seam identity contract. It begins at Step 27 with the emitted dash
 body seam boundary artifact, is consumed by Step 28 source-vertex join products,
@@ -91,6 +114,14 @@ materialization, and render entries, and is forbidden from being recomputed or
 repaired by renderer projection. If any downstream stage still has visible
 dash/join product but cannot prove the same Step 27 seam endpoint identity, the
 failure reopens the first stage where the proof was lost.
+
+The dash/join seam identity contract is evidence for required-artifact closure,
+not the final goal by itself. Passing seam identity while the final visible
+outside dashed product still has source-space holes, wrong-side paint,
+fragmented dash bodies, missing terminal body coverage, or unmerged same-paint
+overlap is not closure. In that case the required-artifact closure contract
+reopens the first missing owner definition before another local code patch may
+be attempted.
 
 ## Document Deep Audit Protocol
 
@@ -735,6 +766,20 @@ legal side, endpoint cap policy, join ownership, source/stroke/domain
 signatures, and runtime revision metadata. Visual review must prove
 dashed-collapse provenance instead of accepting continuous coverage as solid or
 generic canonical geometry.
+
+Dash product source provenance and visible product coverage are separate
+measurements. `sourceStartDistance` / `sourceEndDistance` identify the declared
+source span that owns the `DashProductInterval`; they are not by themselves a
+claim that the visible terminal or body product covers that entire span.
+`effectiveStartDistance` / `effectiveEndDistance` and `physicalSpanRanges`
+identify the source-distance range actually materialized as visible dash body
+coverage. Step 27 must emit that effective/physical span evidence for every
+visible dash body product, and Steps 35/38 must preserve it. Formal source-span
+coverage oracles must sample the effective/physical coverage range first and may
+fall back to the declared source span only when no narrowed product span exists.
+Using the declared split/source range as visible coverage for terminal
+half-dashes is a contract failure because it can force downstream code to fill
+intentional dash gaps.
 
 Terminal dash cap ownership is part of the product contract. In the following
 paragraph, `endpoint` means a dash interval endpoint classified by
@@ -1776,6 +1821,52 @@ Descriptor evidence polygons, carrier polygons, boundary-domain edges, and
 clip/exclude polygons must not become visible fill, stroke masks, or
 renderer-owned repair geometry.
 
+Render-entry materialization may merge or collapse same-paint final-face
+products only when the result preserves the already-applied legality contract.
+Individual constrained dashed final faces are already post-legality visible
+products from Step 32/35. Step 38 must not re-run per-face legal clipping,
+source-coverage clipping, cleanup, or endpoint canonicalization in a way that
+can delete a terminal body, source-vertex join, smooth-continuity body, or dash
+body product. Any additional legal clipping in Step 38 is allowed only inside a
+declared same-paint composite/projection route and must prove coverage
+equivalence, zero wrong-side residue, and zero seam loss before replacing the
+final-face product set.
+When Step 38 builds a same-paint arrangement for inside/outside constrained
+products, the resolved legal-domain boundaries must be included as non-visible
+splitter input to that arrangement. Legal-domain splitter input may cut
+arrangement cells, but it must not claim paint, become a visible contributor,
+synthesize fallback geometry, or erase dash/join/terminal provenance. A
+sample-point legal-side classification over an arrangement that was not split
+by the legal-domain boundary is insufficient, because one classified face can
+still contain wrong-side residue.
+For `outside` render entries, legal-side exclusion is part of the visible
+product itself: any final render-entry polygon set that is clipped against the
+filled/inside exclusion domain must preserve the geometry backend's legal-region
+result directly. It must not pass that clipped outside product through
+final-face flattening, polygon cleanup, notch removal, or fallback source
+polygons that can reinterpret holes, refill the excluded fill domain, create
+inside-side residue, or reopen a dash/join seam. If a same-paint merge or
+source-coverage collapse changes the product, Step 38 must prove before and
+after source-space legal-domain residue is zero except coordinate epsilon; a
+failed proof reopens `render-entries`, not renderer projection.
+
+Render entries must also preserve dash product effective coverage evidence.
+Merged or collapsed entries may aggregate `DashProductInterval` provenance, but
+they must not erase `effectiveStartDistance` / `effectiveEndDistance` or
+`physicalSpanRanges`. If a render entry exposes only the declared source span for
+a terminal half dash, downstream tests and renderers cannot distinguish an
+intentional gap from a missing product, so the failure reopens Step 38.
+
+Single-composite evidence applies inside a render entry as well as between
+render entries. A render entry that contains multiple same-paint polygons with
+positive overlap area or shared boundary length is not a finished
+single-composite product, even when the downstream pixel color is opaque. Step
+38 must either materialize those regions as a single composite polygon set with
+no internal shared-boundary/overlap, or carry explicit alpha-safe equivalence
+evidence proving that renderer projection will not create dark seams, repeated
+alpha, missing dash/join coverage, wrong-side residue, or protrusions. A failed
+proof reopens `render-entries`.
+
 ### Output Channel Separation
 
 `finalFaces`, `renderEntries`, `hitExportPackets`, and `diagnosticSnapshots`
@@ -2308,13 +2399,23 @@ numeric bound, owner stage, artifact id, route id, and required evidence before
 runtime implementation. Tests, visual probes, and runtime repair code must not
 invent local tolerances.
 
+Dash/join seam closure, outside/inside position legality, and legal-side
+exclusion are zero-defect semantic checks, not width/span approximation checks.
+They allow only coordinate epsilon for proving the same source-space point or
+for discarding backend floating-point residue. They do not allow a visible
+crack, wrong-side paint, missing join, missing dash body, or protrusion budget.
+
 #### Minimum App Visual Review Commands
 
-Agent-run app visual, drag, and performance gates use
-`http://localhost:3001`. `http://localhost:3000` is reserved for user-run
-sessions. Extra ports are opt-in and must be shut down after use. The preview
-server is not part of the standard gate runtime; production confidence is
-covered by `yarn workspace @asyra/asyra-design react:build`.
+Agent-run app visual, drag, and performance gates must use the app-specific
+visual review URL from `apps/asyra-design/.env`
+(`ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL`) and must pass the same value to
+`PLAYWRIGHT_TEST_BASE_URL`. Do not hardcode a localhost port in the visual
+review contract; if the configured URL points at a user-run server, the agent
+must use that same runtime or stop and report the environment mismatch. Extra
+ports are opt-in and must be shut down after use. The preview server is not part
+of the standard gate runtime; production confidence is covered by
+`yarn workspace @asyra/asyra-design react:build`.
 
 App visual evidence must be collected from a runtime whose workspace package
 entrypoints were built from the current source before the app server loaded
@@ -2326,8 +2427,8 @@ stroke visual review, even if later file watchers rebuild the packages.
 For app runtime evidence and visual validation after the stroke gates pass:
 
 ```bash
-ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL=http://localhost:3001 \
-PLAYWRIGHT_TEST_BASE_URL=http://localhost:3001 \
+export ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL="$(grep '^ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL=' apps/asyra-design/.env | cut -d= -f2-)"
+PLAYWRIGHT_TEST_BASE_URL="$ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL" \
 yarn workspace @asyra/asyra-design test:e2e e2e/stroke-new-flow --reporter=line
 ```
 
@@ -2464,9 +2565,9 @@ claim is not enough.
 Enforced app drag gate:
 
 ```bash
+export ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL="$(grep '^ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL=' apps/asyra-design/.env | cut -d= -f2-)"
 ASYRA_STROKE_DRAG_E2E_ENFORCE_120FPS=1 \
-ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL=http://localhost:3001 \
-PLAYWRIGHT_TEST_BASE_URL=http://localhost:3001 \
+PLAYWRIGHT_TEST_BASE_URL="$ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL" \
 yarn workspace @asyra/asyra-design test:e2e \
   e2e/stroke-drag-render-performance-solid.spec.ts \
   e2e/stroke-drag-render-performance-open-solid.spec.ts \

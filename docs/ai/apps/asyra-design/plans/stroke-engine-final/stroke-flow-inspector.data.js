@@ -89,7 +89,7 @@
     'Resolved split/domain metadata is a shared product-builder input. Drag may reuse it only after validation against the current source revision, topology signature, contour visit identity, domain mode, and split range ids. Visible product output must not retrace the whole source path, recompute source intersections inside render, or switch to a drag-specific geometry path.',
     'Product output may emit render, hit, export, diagnostic, and visual-overlay descriptors, but each output channel must stay tagged and separated. Visible render must not use diagnostic/helper geometry as product output.',
     'The 2026-06-21 stroke architecture closure evidence is historical and scoped to its named probes, tests, and screenshots. Future pixel bugs must attach current reproducible test names, artifact ids or paths, overlay metadata, and inspected screenshot evidence before closure.',
-    'Agent-run E2E, visual, drag, and performance gates use http://localhost:3001. http://localhost:3000 is reserved for user-run sessions. Extra ports are opt-in and must be shut down after use.',
+    'Agent-run E2E, visual, drag, and performance gates use the app-specific ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL declared in apps/asyra-design/.env and pass the same value to PLAYWRIGHT_TEST_BASE_URL. Do not hardcode a localhost port in the visual review contract; if the configured URL points at a user-run server, use that same runtime or stop and report the environment mismatch. Extra ports are opt-in and must be shut down after use.',
     'App visual evidence must come from a runtime that loaded workspace package entrypoints after the current source produced fresh package dist output. A dev runtime that starts Vite against stale package dist output cannot close visual review.',
     'Captured Asyra rule mismatches reopen the earliest owning inspector step. Implementation must not add new local rules before the stroke-engine README owns the semantic rule and the active plan plus inspector flow are synced.',
     'Document-only stroke deep audits must use the fixed Document Deep Audit Protocol matrix from the stroke-engine README: define the full matrix before the pass starts, run every matrix item in one pass, summarize findings together, apply one focused documentation edit batch, rerun the same matrix after edits, and record newly discovered audit concerns as deferred matrix extensions instead of adding surprise focus areas mid-pass.',
@@ -429,7 +429,7 @@
     tolerance:
       'Width and span checks use max(0.5 source units, stroke.width * 0.05) source-space tolerance plus at most one CSS pixel raster antialias tolerance.',
     broadCommand:
-      'ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL=http://localhost:3001 PLAYWRIGHT_TEST_BASE_URL=http://localhost:3001 yarn workspace @asyra/asyra-design test:e2e e2e/stroke-new-flow --reporter=line',
+      'export ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL="$(grep \'^ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL=\' apps/asyra-design/.env | cut -d= -f2-)"; PLAYWRIGHT_TEST_BASE_URL="$ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL" yarn workspace @asyra/asyra-design test:e2e e2e/stroke-new-flow --reporter=line',
     completionEvidence: [
       'overlay path',
       'metadata path',
@@ -446,7 +446,7 @@
     frameBudgetMs: 8.33,
     enforceEnv: 'ASYRA_STROKE_DRAG_E2E_ENFORCE_120FPS=1',
     command:
-      'ASYRA_STROKE_DRAG_E2E_ENFORCE_120FPS=1 ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL=http://localhost:3001 PLAYWRIGHT_TEST_BASE_URL=http://localhost:3001 yarn workspace @asyra/asyra-design test:e2e e2e/stroke-drag-render-performance-solid.spec.ts e2e/stroke-drag-render-performance-open-solid.spec.ts e2e/stroke-drag-render-performance-center-dashed.spec.ts e2e/stroke-drag-render-performance-open-center-dashed.spec.ts e2e/stroke-drag-render-performance-inside-dashed.spec.ts e2e/stroke-drag-render-performance-open-inside-dashed.spec.ts e2e/stroke-drag-render-performance-outside-dashed.spec.ts e2e/stroke-drag-render-performance-open-outside-dashed.spec.ts e2e/stroke-drag-render-performance-burst.spec.ts --reporter=line',
+      'export ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL="$(grep \'^ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL=\' apps/asyra-design/.env | cut -d= -f2-)"; ASYRA_STROKE_DRAG_E2E_ENFORCE_120FPS=1 PLAYWRIGHT_TEST_BASE_URL="$ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL" yarn workspace @asyra/asyra-design test:e2e e2e/stroke-drag-render-performance-solid.spec.ts e2e/stroke-drag-render-performance-open-solid.spec.ts e2e/stroke-drag-render-performance-center-dashed.spec.ts e2e/stroke-drag-render-performance-open-center-dashed.spec.ts e2e/stroke-drag-render-performance-inside-dashed.spec.ts e2e/stroke-drag-render-performance-open-inside-dashed.spec.ts e2e/stroke-drag-render-performance-outside-dashed.spec.ts e2e/stroke-drag-render-performance-open-outside-dashed.spec.ts e2e/stroke-drag-render-performance-burst.spec.ts --reporter=line',
     requiredSpecs: [
       'apps/asyra-design/e2e/stroke-drag-render-performance-solid.spec.ts',
       'apps/asyra-design/e2e/stroke-drag-render-performance-open-solid.spec.ts',
@@ -878,6 +878,118 @@
     ],
     validationGate:
       'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts'
+  }
+
+  const requiredArtifactClosureContract = {
+    id: 'stroke-required-artifact-closure-lifecycle',
+    specRuleId: 'required-artifact-closure-contract',
+    specAnchor:
+      'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#spec-to-enforcement-contract',
+    formalGate:
+      'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts',
+    targetSurfaces: [
+      'visible render coverage',
+      'hit/export coverage',
+      'diagnostics provenance'
+    ],
+    governingPrinciples: [
+      'Define final required artifacts before step-local input/output checks.',
+      'A step output is valid only when it produces, preserves, consumes, or proves the absence of a required artifact.',
+      'Step-local limitations do not override final required coverage, legal-side, continuity, or same-paint compositing requirements.',
+      'If final required coverage is missing or malformed while local step evidence passes, repair this contract before implementation continues.'
+    ],
+    closureRequirements: [
+      {
+        id: 'position-legal-visible-coverage',
+        targetSurface: 'visible render coverage',
+        requiredArtifacts: [
+          'artifact:preLegalityProductUnits',
+          'artifact:postLegalityProductUnits',
+          'artifact:finalFaces',
+          'artifact:renderEntries'
+        ],
+        ownerSteps: [
+          'build-dash-interval-body-products',
+          'build-source-vertex-join-products',
+          'build-terminal-body-products',
+          'apply-legality',
+          'build-final-faces',
+          'render-entries'
+        ],
+        genericFormalAssertions: [
+          'stroke position samples occupy the configured inside/center/outside source-space band',
+          'legal-side exclusion rejects wrong-side fill-domain samples',
+          'visible coverage has no unowned protrusions or required-coverage holes'
+        ],
+        failureReopensStep: 'build-dash-interval-body-products'
+      },
+      {
+        id: 'dash-terminal-and-join-continuity',
+        targetSurface: 'visible render coverage',
+        requiredArtifacts: [
+          'artifact:dash-body-seam-boundary',
+          'artifact:constrained-dashed-interval-body-product',
+          'artifact:constrained-dashed-join-owned-terminal-body-product',
+          'artifact:constrained-dashed-source-vertex-join-product',
+          'artifact:renderEntries'
+        ],
+        ownerSteps: [
+          'build-dash-interval-body-products',
+          'build-terminal-body-products',
+          'build-source-vertex-join-products',
+          'apply-legality',
+          'render-entries'
+        ],
+        genericFormalAssertions: [
+          'terminal dash bodies retain required source-space width up to declared seam boundaries',
+          'source-vertex joins consume required terminal body seam boundaries without visible source-space gaps',
+          'miter, bevel, and round joins share the same destination continuity contract'
+        ],
+        failureReopensStep: 'build-dash-interval-body-products'
+      },
+      {
+        id: 'same-paint-single-composite-projection',
+        targetSurface: 'visible render coverage',
+        requiredArtifacts: [
+          'artifact:finalFaces',
+          'artifact:renderEntries'
+        ],
+        ownerSteps: ['build-final-faces', 'render-entries'],
+        genericFormalAssertions: [
+          'touching or overlapping same-paint products are projected as a single-composite render entry or carry alpha-safe equivalence evidence',
+          'render-entry polygons do not retain internal shared-boundary or positive-overlap regions without alpha-safe equivalence evidence',
+          'renderer projection does not decide same-paint alpha or repair geometry'
+        ],
+        failureReopensStep: 'render-entries'
+      },
+      {
+        id: 'hit-export-parity',
+        targetSurface: 'hit/export coverage',
+        requiredArtifacts: [
+          'artifact:postLegalityProductUnits',
+          'artifact:finalFaces',
+          'artifact:hit-export-packets'
+        ],
+        ownerSteps: [
+          'apply-legality',
+          'build-final-faces',
+          'emit-render-hit-export-packets',
+          'hit-export'
+        ],
+        genericFormalAssertions: [
+          'hit/export coverage consumes the same legal product units as render output',
+          'hit/export does not receive renderer-local repaired geometry'
+        ],
+        failureReopensStep: 'emit-render-hit-export-packets'
+      }
+    ],
+    forbiddenBehaviors: [
+      'checking only step-local input/output while final required artifacts are undefined',
+      'using a local step limitation to justify a visible source-space hole',
+      'adding fixture-specific geometry to satisfy one visual screenshot',
+      'letting renderer projection create missing stroke geometry',
+      'claiming closure from seam identity without final required coverage'
+    ]
   }
 
   const dashJoinSeamLifecycleContract = {
@@ -3560,7 +3672,9 @@
         'Render entries may not join terminal/source-path descriptor paths across source-vertex ownership boundaries unless the route declares legal same-owner smooth continuity.',
         'Render entries may not make strokePathStyle.join the visible owner for an authored sharp constrained solid source vertex.',
         'Render entries may not promote descriptorProductPolygons to strokeMaskPolygons when strokePathGroups own visible output.',
-        'Render entries must decide same-paint single-composite or equivalent alpha-safe evidence before renderer projection; renderer projection may not make this decision.'
+        'Render entries must decide same-paint single-composite or equivalent alpha-safe evidence before renderer projection; renderer projection may not make this decision.',
+        'Render entries must not re-run per-face legal clipping, source-coverage clipping, cleanup, or endpoint canonicalization on constrained dashed post-legality final faces in a way that can delete terminal, join, smooth-continuity, or dash-body products. Additional clipping is allowed only inside a declared same-paint composite/projection route with coverage-equivalence, zero wrong-side residue, and zero seam-loss evidence.',
+        'Inside/outside constrained same-paint arrangements must include resolved legal-domain boundaries as non-visible splitter input; splitter input may cut arrangement cells but must not claim paint, become visible output, synthesize fallback geometry, or erase dash/join/terminal provenance.'
       ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
@@ -3589,7 +3703,9 @@
         'strokePathStyle closed, cap, join, and rendererMiterLimit values',
         'fillClip and fillExclude separation',
         'descriptorProductPolygons evidence-only reason when strokePathGroups exist',
-        'same-paint single-composite or alpha-safe equivalence evidence when visible entries overlap'
+        'same-paint single-composite or alpha-safe equivalence evidence when visible entries overlap',
+        'post-legality constrained dashed final-face products preserved without per-face render-entry reclip deletion',
+        'legal-domain splitter participation evidence for inside/outside constrained same-paint arrangements'
       ],
       failureReopensStep: 'render-entries',
       verificationEvidence: {
@@ -5573,6 +5689,7 @@
         'endpoint cap policy',
         'legal side',
         'smooth-continuity group',
+        'effective visible source-distance range or physical span ranges for the emitted dash body product',
         'verified seam boundary artifact derived from emitted dash body product polygon',
         'outer body boundary endpoint on dash body product polygon',
         'body-side outline segment on dash body product polygon'
@@ -5873,8 +5990,9 @@
       metricAssertions: [
         {
           id: 'terminal-body-stops-at-seam',
-          tolerance: 'max(0.5 source units, stroke.width * 0.05)',
-          evidence: 'terminal seam boundary id'
+          tolerance:
+            'zero visible seam gap; coordinate epsilon only proves the same Step 27 seam endpoint id',
+          evidence: 'terminal seam boundary id plus shared Step 27 endpoint identity'
         }
       ],
       specRuleRefs: [
@@ -6359,7 +6477,10 @@
       },
       limitations: [
         'Canonical render entries must not infer descriptor paths, replay source paths, or repair joins/caps in the renderer.',
-        'Same-paint overlap must be resolved as a single-composite render entry or carry equivalent alpha-safe evidence before renderer projection.'
+        'Same-paint overlap must be resolved as a single-composite render entry or carry equivalent alpha-safe evidence before renderer projection.',
+        'Outside legal-domain clipped render-entry polygons must preserve backend legal-region product polygons directly; final-face flattening, polygon cleanup, fallback source polygons, or notch removal must not reinterpret clipped holes, refill excluded fill-domain regions, create wrong-side residue, or reopen dash/join seams.',
+        'Inside/outside constrained same-paint arrangements must include resolved legal-domain boundaries as non-visible splitter input; splitter input may cut arrangement cells but must not claim paint, become visible output, synthesize fallback geometry, or erase dash/join/terminal provenance.',
+        'A render entry must not contain same-paint polygons with internal shared-boundary length or positive overlap unless it carries explicit alpha-safe equivalence evidence proving no dark seam, repeated alpha, missing dash/join coverage, wrong-side residue, or protrusion.'
       ],
       allowedContributors: ['canonical final-face product records'],
       forbiddenContributors: [
@@ -6371,7 +6492,11 @@
         'final-face id',
         'render channel id',
         'descriptor non-materialization reason',
-        'same-paint single-composite or alpha-safe equivalence evidence when visible entries overlap'
+        'same-paint single-composite or alpha-safe equivalence evidence when visible entries overlap',
+        'internal same-paint polygon shared-boundary/overlap absence or alpha-safe equivalence evidence',
+        'preserved dash product effective visible source-distance range or physical span ranges',
+        'legal-domain splitter participation evidence for inside/outside constrained same-paint arrangements',
+        'outside legal-domain residue before and after same-paint merge/collapse is zero except coordinate epsilon'
       ],
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#output-channel-separation',
@@ -8040,6 +8165,65 @@
   const dashJoinSeamLifecyclePhaseIds = new Set(
     dashJoinSeamLifecycleContract.lifecycle.map((phase) => phase.phase)
   )
+  const requiredArtifactClosureKnownArtifacts =
+    requiredArtifactClosureContract.closureRequirements.flatMap(
+      (requirement) => requirement.requiredArtifacts
+    )
+  const requiredArtifactClosureKnownSteps =
+    requiredArtifactClosureContract.closureRequirements.flatMap((requirement) => [
+      ...requirement.ownerSteps,
+      requirement.failureReopensStep
+    ])
+  const requiredArtifactClosureErrors = [
+    requiredArtifactClosureContract.specAnchor.endsWith(
+      '#spec-to-enforcement-contract'
+    )
+      ? null
+      : 'required artifact closure contract must reference Spec-To-Enforcement Contract',
+    requiredArtifactClosureContract.targetSurfaces.includes(
+      'visible render coverage'
+    )
+      ? null
+      : 'required artifact closure contract must include visible render coverage',
+    requiredArtifactClosureContract.targetSurfaces.includes('hit/export coverage')
+      ? null
+      : 'required artifact closure contract must include hit/export coverage',
+    requiredArtifactClosureContract.governingPrinciples.some((principle) =>
+      principle.includes('Define final required artifacts before step-local')
+    )
+      ? null
+      : 'required artifact closure contract must be destination-driven before step-local checks',
+    requiredArtifactClosureContract.forbiddenBehaviors.includes(
+      'claiming closure from seam identity without final required coverage'
+    )
+      ? null
+      : 'required artifact closure contract must forbid seam-identity-only closure',
+    ...requiredArtifactClosureKnownArtifacts
+      .filter((artifactId) => !artifactById.has(artifactId))
+      .map(
+        (artifactId) =>
+          `required artifact closure references unknown artifact ${artifactId}`
+      ),
+    ...requiredArtifactClosureKnownSteps
+      .filter((stepId) => !stepById.has(stepId))
+      .map((stepId) => `required artifact closure references unknown step ${stepId}`),
+    ...[
+      'position-legal-visible-coverage',
+      'dash-terminal-and-join-continuity',
+      'same-paint-single-composite-projection',
+      'hit-export-parity'
+    ]
+      .filter(
+        (requirementId) =>
+          !requiredArtifactClosureContract.closureRequirements.some(
+            (requirement) => requirement.id === requirementId
+          )
+      )
+      .map(
+        (requirementId) =>
+          `required artifact closure missing requirement ${requirementId}`
+      )
+  ].filter(Boolean)
   const dashJoinSeamLifecycleErrors = [
     ...validateLifecycleContract(dashJoinSeamLifecycleContract),
     dashJoinSeamLifecycleContract.specAnchor.endsWith(
@@ -8453,6 +8637,7 @@
     ...specRuleRefErrors,
     ...metricAssertionErrors,
     ...descriptorLegalityErrors,
+    ...requiredArtifactClosureErrors,
     ...dashJoinSeamLifecycleErrors,
     ...descriptorPathOrderingErrors,
     ...diagnosticsAggregationErrors,
@@ -8548,6 +8733,7 @@
     runtimeImplementationState,
     refactorProtocol,
     documentDeepAuditProtocol,
+    requiredArtifactClosureContract,
     dashJoinSeamLifecycleContract,
     sharedStepTestHelpers,
     sourceFileOwnershipRecords,
@@ -8577,6 +8763,7 @@
     refactorProtocolErrors,
     runtimeImplementationErrors,
     strokeParameterCoverageErrors,
+    requiredArtifactClosureErrors,
     dashJoinSeamLifecycleErrors,
     sourceFileOwnershipErrors,
     inspectorContractErrors,

@@ -61,6 +61,7 @@ export interface CandidateRegion {
   sourceSpanIds: string[]
   sourceContourIds?: string[]
   requiresBoundaryPreservingArrangement?: boolean
+  renderProjectionSplitter?: boolean
 }
 
 export interface ArrangementFace {

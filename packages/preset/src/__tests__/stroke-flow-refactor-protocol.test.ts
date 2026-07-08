@@ -156,6 +156,26 @@ interface LifecycleContract {
   lifecycle: LifecycleContractPhase[]
 }
 
+interface RequiredArtifactClosureRequirement {
+  id: string
+  targetSurface: string
+  requiredArtifacts: string[]
+  ownerSteps: string[]
+  genericFormalAssertions: string[]
+  failureReopensStep: string
+}
+
+interface RequiredArtifactClosureContract {
+  id: string
+  specRuleId: string
+  specAnchor: string
+  formalGate: string
+  targetSurfaces: string[]
+  governingPrinciples: string[]
+  closureRequirements: RequiredArtifactClosureRequirement[]
+  forbiddenBehaviors: string[]
+}
+
 interface InspectorData {
   latestRules: string[]
   ruleRegistry: { id: string; text: string }[]
@@ -207,6 +227,7 @@ interface InspectorData {
     forbiddenAuditBehavior: string[]
     validationGate: string
   }
+  requiredArtifactClosureContract: RequiredArtifactClosureContract
   dashJoinSeamLifecycleContract: LifecycleContract
   sharedStepTestHelpers: string[]
   sourceFileOwnershipRecords: SourceFileOwnershipRecord[]
@@ -231,6 +252,7 @@ interface InspectorData {
   refactorProtocolErrors: string[]
   runtimeImplementationErrors: string[]
   strokeParameterCoverageErrors: string[]
+  requiredArtifactClosureErrors: string[]
   dashJoinSeamLifecycleErrors: string[]
   sourceFileOwnershipErrors: string[]
   inspectorContractErrors: string[]
@@ -1391,6 +1413,120 @@ describe('stroke flow refactor protocol', () => {
     )
   })
 
+  it('defines destination-driven required artifact closure before step-local flow checks', () => {
+    const data = loadInspectorData()
+    const spec = readRepoFile(specPath)
+    const stepIds = new Set(data.steps.map((step) => step.id))
+    const artifactIds = new Set(
+      data.artifactRegistry.map((artifact) => artifact.id)
+    )
+    const contract = data.requiredArtifactClosureContract
+    const requirementById = new Map(
+      contract.closureRequirements.map((requirement) => [
+        requirement.id,
+        requirement
+      ])
+    )
+
+    expect(spec).toContain('destination-driven before it is step-driven')
+    expect(spec).toContain('required-artifact closure contract')
+    expect(spec).toContain('Passing seam identity while the final visible')
+    expect(spec).toContain(
+      'outside dashed product still has source-space holes'
+    )
+    expect(data.requiredArtifactClosureErrors).toEqual([])
+    expect(contract).toMatchObject({
+      id: 'stroke-required-artifact-closure-lifecycle',
+      specRuleId: 'required-artifact-closure-contract',
+      specAnchor:
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#spec-to-enforcement-contract',
+      formalGate:
+        'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts'
+    })
+    expect(contract.targetSurfaces).toEqual(
+      expect.arrayContaining([
+        'visible render coverage',
+        'hit/export coverage',
+        'diagnostics provenance'
+      ])
+    )
+    expect(contract.governingPrinciples).toEqual(
+      expect.arrayContaining([
+        'Define final required artifacts before step-local input/output checks.',
+        'Step-local limitations do not override final required coverage, legal-side, continuity, or same-paint compositing requirements.'
+      ])
+    )
+    expect(contract.forbiddenBehaviors).toEqual(
+      expect.arrayContaining([
+        'checking only step-local input/output while final required artifacts are undefined',
+        'using a local step limitation to justify a visible source-space hole',
+        'claiming closure from seam identity without final required coverage'
+      ])
+    )
+    expect([...requirementById.keys()]).toEqual(
+      expect.arrayContaining([
+        'position-legal-visible-coverage',
+        'dash-terminal-and-join-continuity',
+        'same-paint-single-composite-projection',
+        'hit-export-parity'
+      ])
+    )
+
+    for (const requirement of contract.closureRequirements) {
+      expect(
+        requirement.genericFormalAssertions.length,
+        requirement.id
+      ).toBeGreaterThan(0)
+      expect(stepIds.has(requirement.failureReopensStep), requirement.id).toBe(
+        true
+      )
+      for (const stepId of requirement.ownerSteps) {
+        expect(stepIds.has(stepId), `${requirement.id}:${stepId}`).toBe(true)
+      }
+      for (const artifactId of requirement.requiredArtifacts) {
+        expect(
+          artifactIds.has(artifactId),
+          `${requirement.id}:${artifactId}`
+        ).toBe(true)
+      }
+    }
+
+    expect(
+      requirementById.get('position-legal-visible-coverage')
+        ?.genericFormalAssertions
+    ).toEqual(
+      expect.arrayContaining([
+        'stroke position samples occupy the configured inside/center/outside source-space band',
+        'visible coverage has no unowned protrusions or required-coverage holes'
+      ])
+    )
+    expect(
+      requirementById.get('dash-terminal-and-join-continuity')
+        ?.genericFormalAssertions
+    ).toEqual(
+      expect.arrayContaining([
+        'terminal dash bodies retain required source-space width up to declared seam boundaries',
+        'miter, bevel, and round joins share the same destination continuity contract'
+      ])
+    )
+    expect(
+      requirementById.get('same-paint-single-composite-projection')
+        ?.genericFormalAssertions
+    ).toEqual(
+      expect.arrayContaining([
+        'touching or overlapping same-paint products are projected as a single-composite render entry or carry alpha-safe equivalence evidence',
+        'render-entry polygons do not retain internal shared-boundary or positive-overlap regions without alpha-safe equivalence evidence'
+      ])
+    )
+    expect(
+      requirementById.get('hit-export-parity')?.genericFormalAssertions
+    ).toEqual(
+      expect.arrayContaining([
+        'hit/export coverage consumes the same legal product units as render output'
+      ])
+    )
+  })
+
   it('requires typed route schema, derived edges, and hit/export sibling flow', () => {
     const data = loadInspectorData()
     const routeTypeSet = new Set(data.routeTypes)
@@ -1920,6 +2056,21 @@ describe('stroke flow refactor protocol', () => {
     })
     expect(renderEntryRoute.evidenceRequired.join(' ')).toContain(
       'same-paint single-composite'
+    )
+    expect(renderEntryRoute.evidenceRequired.join(' ')).toContain(
+      'internal same-paint polygon shared-boundary/overlap absence'
+    )
+    expect(renderEntryRoute.limitations.join(' ')).toContain(
+      'Outside legal-domain clipped render-entry polygons'
+    )
+    expect(renderEntryRoute.limitations.join(' ')).toContain(
+      'final-face flattening'
+    )
+    expect(renderEntryRoute.limitations.join(' ')).toContain(
+      'internal shared-boundary length'
+    )
+    expect(renderEntryRoute.evidenceRequired.join(' ')).toContain(
+      'outside legal-domain residue before and after same-paint merge/collapse'
     )
     expect(renderEntryRoute.specRuleRefs).toContain(computationSpecRef)
 

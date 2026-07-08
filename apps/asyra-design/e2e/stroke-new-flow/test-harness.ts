@@ -992,7 +992,7 @@ export const createComputedVectorFixture = async (
     }
   }, computedData)
 
-  const resolveCreatedElement = async (timeout = 5_000) =>
+  const resolveCreatedElement = async (timeout = 15_000) =>
     page.waitForFunction(
       ({ createdId, dataId }) => {
         const globalRecord = window as unknown as {
@@ -1013,7 +1013,8 @@ export const createComputedVectorFixture = async (
         const sceneTree = globalRecord.__Core__?.deps?.sceneTree
         const direct = [createdId, dataId].find((id) => {
           const element = sceneTree?.getElementById?.(id)
-          return Boolean(element?.getAllComputedData?.())
+          const computed = element?.getAllComputedData?.()
+          return Boolean(computed?.points && computed?.segments)
         })
         if (direct) {
           return direct

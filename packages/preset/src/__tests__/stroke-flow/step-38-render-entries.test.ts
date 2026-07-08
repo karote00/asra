@@ -8,7 +8,12 @@ import {
   buildSolidCenterStrokeRenderEntriesFromRenderPackets,
   toSolidCenterStrokeRenderEntriesFromFinalFaces
 } from '../../components/stroke-render/solid-center-stroke-packets'
-import { createGeometryBackendCapabilities } from '../../components/stroke-render/geometry-backend'
+import {
+  createGeometryBackendCapabilities,
+  type ArrangementFace,
+  type CandidateRegion,
+  type PolygonRegion
+} from '../../components/stroke-render/geometry-backend'
 
 type RefactorStatus = 'locked' | 'active' | 'verified'
 
@@ -323,6 +328,41 @@ const overlapProbePolygon = [
   { x: 10, y: 30 }
 ]
 
+const adjacentVisiblePolygon = [
+  { x: 20, y: 0 },
+  { x: 40, y: 0 },
+  { x: 40, y: 20 },
+  { x: 20, y: 20 }
+]
+
+const mergedAdjacentVisiblePolygon = [
+  { x: 0, y: 0 },
+  { x: 40, y: 0 },
+  { x: 40, y: 20 },
+  { x: 0, y: 20 }
+]
+
+const outsideArrangementFace = (
+  faceId: string,
+  polygons: (typeof visiblePolygon)[],
+  claimedBy: CandidateRegion[]
+): ArrangementFace => ({
+  faceId,
+  geometry: { polygons },
+  claimedBy,
+  legalState: {
+    insideFillDomain: false,
+    outsideFillDomain: true
+  }
+})
+
+const regionsContainEvidencePolygon = (regions: readonly PolygonRegion[]) =>
+  regions.some((region) =>
+    region.polygons.some(
+      (polygon) => polygon[0]?.x === 100 && polygon[0]?.y === 100
+    )
+  )
+
 const outsidePolygonFace = (faceId: string, polygon: typeof visiblePolygon) =>
   ({
     ...ownershipFinalFace,
@@ -629,6 +669,313 @@ describe('stroke flow step 38: render-entries', () => {
       expect.objectContaining({
         polygons: [overlapProbePolygon],
         strokePathGroups: undefined
+      })
+    )
+  })
+
+  it('keeps source-vertex join render entries on post-legality final-face polygons instead of descriptor evidence', () => {
+    const sourceVertexJoinFinalFace = {
+      ...ownershipFinalFace,
+      faceId: 'face:source-vertex-join',
+      sourceGeometryIds: ['geometry:source-vertex-join'],
+      polygons: [visiblePolygon],
+      visualPacketKey: 'visual:source-vertex-join',
+      paintKey: 'paint:source-vertex-join',
+      strokeSpecKey: 'stroke-spec:source-vertex-join',
+      intervalIds: ['interval:source-vertex-join'],
+      sourceSpanIds: ['source-span:source-vertex-join'],
+      sourceNetworkIds: ['network:source-vertex-join'],
+      sourceContourIds: ['contour:source-vertex-join'],
+      legalDomainIds: ['legal-domain:source-vertex-join'],
+      productSignature: 'constrained-dashed:outside:source-vertex-join',
+      domainMode: 'outside',
+      topologyFamily: 'self-intersecting',
+      renderDescriptor: {
+        descriptorProductPolygons: [evidencePolygon],
+        clipPolygons: [evidencePolygon]
+      },
+      debugMeta: {
+        ...ownershipFinalFace.debugMeta,
+        productSignature: 'constrained-dashed:outside:source-vertex-join',
+        domainMode: 'outside',
+        topologyFamily: 'self-intersecting',
+        strokePosition: 'outside' as const,
+        strokeWidth: 10,
+        strokeJoin: 'miter' as const,
+        strokeCap: 'butt' as const,
+        routeId: 'constrained-dashed-source-vertex-join-product',
+        visibleContributor: 'source-vertex-join' as const,
+        geometryBasis: 'canonical-join-footprint' as const
+      }
+    } satisfies FinalFaceInput
+
+    const [entry] = toSolidCenterStrokeRenderEntriesFromFinalFaces([
+      sourceVertexJoinFinalFace
+    ])
+
+    expect(entry?.polygons).toEqual([visiblePolygon])
+    expect(entry?.strokeMaskPolygons).toBeUndefined()
+    expect(entry?.clipPolygons).toBeUndefined()
+    expect(entry?.debugMeta).toEqual(
+      expect.objectContaining({
+        routeId: 'constrained-dashed-source-vertex-join-product',
+        visibleContributor: 'source-vertex-join',
+        geometryBasis: 'canonical-join-footprint'
+      })
+    )
+  })
+
+  it('keeps source-vertex join same-paint render-entry collapse from recomputing product polygons', () => {
+    const sourceVertexJoinFinalFace = {
+      ...outsidePolygonFace('source-vertex-join-collapse', visiblePolygon),
+      renderDescriptor: {
+        descriptorProductPolygons: [evidencePolygon],
+        clipPolygons: [evidencePolygon]
+      },
+      debugMeta: {
+        ...ownershipFinalFace.debugMeta,
+        productSignature: 'constrained-dashed:outside:source-vertex-join',
+        domainMode: 'outside',
+        topologyFamily: 'self-intersecting',
+        strokePosition: 'outside' as const,
+        strokeWidth: 10,
+        strokeJoin: 'miter' as const,
+        strokeCap: 'butt' as const,
+        routeId: 'constrained-dashed-source-vertex-join-product',
+        visibleContributor: 'source-vertex-join' as const,
+        geometryBasis: 'canonical-join-footprint' as const
+      }
+    } satisfies FinalFaceInput
+
+    let intersectionCalls = 0
+    const exactBackend = {
+      capabilities: createGeometryBackendCapabilities(true),
+      union: (regions: PolygonRegion[]): PolygonRegion[] => regions,
+      intersection: (subject: PolygonRegion[]): PolygonRegion[] => {
+        intersectionCalls += 1
+        return intersectionCalls === 1
+          ? [{ polygons: [overlapProbePolygon] }]
+          : subject
+      },
+      buildArrangement: (candidates: CandidateRegion[]): ArrangementFace[] =>
+        candidates.map((candidate, index) =>
+          outsideArrangementFace(
+            `arrangement:source-vertex-join-collapse:${index}`,
+            candidate.geometry.polygons,
+            [candidate]
+          )
+        )
+    }
+    const entries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
+      [
+        sourceVertexJoinFinalFace,
+        {
+          ...outsidePolygonFace('source-vertex-neighbor', overlapProbePolygon),
+          ownerSet: sourceVertexJoinFinalFace.ownerSet,
+          debugMeta: {
+            ...sourceVertexJoinFinalFace.debugMeta,
+            productSignature: 'constrained-dashed:outside:terminal-body',
+            routeId: 'constrained-dashed-terminal-body-product',
+            visibleContributor: 'terminal-interval-body'
+          }
+        }
+      ],
+      { exactBackend }
+    )
+
+    expect(entries).toHaveLength(1)
+    expect(intersectionCalls).toBe(1)
+    expect(entries[0]?.polygons).toEqual([visiblePolygon, overlapProbePolygon])
+    expect(entries[0]?.strokeMaskPolygons).toBeUndefined()
+    expect(entries[0]?.debugMeta).toEqual(
+      expect.objectContaining({
+        visibleContributor: 'source-vertex-join',
+        visualOverlapCollapseStatus: 'render-projection-merged'
+      })
+    )
+  })
+
+  it('collapses legal source-vertex join and terminal dash faces before renderer projection', () => {
+    let unionCalls = 0
+    let intersectionCalls = 0
+    let differenceCalls = 0
+    const exactBackend = {
+      capabilities: createGeometryBackendCapabilities(true),
+      union: (regions: PolygonRegion[]): PolygonRegion[] => {
+        unionCalls += 1
+        return regions.length > 1
+          ? [{ polygons: [visiblePolygon, adjacentVisiblePolygon] }]
+          : regions
+      },
+      intersection: (
+        subject: PolygonRegion[],
+        clip: PolygonRegion[] = []
+      ): PolygonRegion[] => {
+        intersectionCalls += 1
+        return regionsContainEvidencePolygon(clip) ? [] : subject
+      },
+      difference: (subject: PolygonRegion[]): PolygonRegion[] => {
+        differenceCalls += 1
+        return subject
+      },
+      buildArrangement: (candidates: CandidateRegion[]): ArrangementFace[] => [
+        outsideArrangementFace(
+          'arrangement:source-vertex-join-terminal',
+          [mergedAdjacentVisiblePolygon],
+          candidates
+        )
+      ]
+    }
+    const sourceVertexJoinFinalFace = {
+      ...outsidePolygonFace(
+        'source-vertex-join-legal-collapse',
+        visiblePolygon
+      ),
+      debugMeta: {
+        ...ownershipFinalFace.debugMeta,
+        productSignature: 'constrained-dashed:outside:source-vertex-join',
+        domainMode: 'outside',
+        topologyFamily: 'self-intersecting',
+        strokePosition: 'outside' as const,
+        strokeWidth: 10,
+        strokeJoin: 'miter' as const,
+        strokeCap: 'butt' as const,
+        routeId: 'constrained-dashed-source-vertex-join-product',
+        visibleContributor: 'source-vertex-join' as const,
+        geometryBasis: 'canonical-join-footprint' as const
+      }
+    } satisfies FinalFaceInput
+    const terminalDashFinalFace = {
+      ...outsidePolygonFace(
+        'terminal-dash-legal-collapse',
+        adjacentVisiblePolygon
+      ),
+      ownerSet: sourceVertexJoinFinalFace.ownerSet,
+      debugMeta: {
+        ...ownershipFinalFace.debugMeta,
+        productSignature: 'constrained-dashed:outside:terminal-body',
+        domainMode: 'outside',
+        topologyFamily: 'self-intersecting',
+        strokePosition: 'outside' as const,
+        strokeWidth: 10,
+        strokeJoin: 'miter' as const,
+        strokeCap: 'butt' as const,
+        routeId: 'constrained-dashed-terminal-body-product',
+        visibleContributor: 'terminal-interval-body' as const
+      }
+    } satisfies FinalFaceInput
+
+    const entries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
+      [sourceVertexJoinFinalFace, terminalDashFinalFace],
+      {
+        exactBackend,
+        legalDomains: [
+          {
+            legalDomainId: 'legal-domain:outside',
+            fillRule: 'nonzero',
+            regions: [{ polygons: [evidencePolygon] }]
+          }
+        ]
+      }
+    )
+
+    expect(entries).toHaveLength(1)
+    expect(unionCalls + intersectionCalls + differenceCalls).toBeGreaterThan(0)
+    expect(entries[0]?.polygons).toHaveLength(1)
+    for (const expectedCorner of mergedAdjacentVisiblePolygon) {
+      expect(entries[0]?.polygons[0]).toContainEqual(expectedCorner)
+    }
+    expect(entries[0]?.strokeMaskPolygons).toBeUndefined()
+    expect(entries[0]?.debugMeta).toEqual(
+      expect.objectContaining({
+        visibleContributor: 'source-vertex-join',
+        visualOverlapCollapseStatus: 'render-projection-merged'
+      })
+    )
+  })
+
+  it('collapses pre-arranged source-vertex join polygons inside a single final face', () => {
+    let unionCalls = 0
+    let intersectionCalls = 0
+    let differenceCalls = 0
+    const exactBackend = {
+      capabilities: createGeometryBackendCapabilities(true),
+      union: (regions: PolygonRegion[]): PolygonRegion[] => {
+        unionCalls += 1
+        return regions.some((region) => region.polygons.length > 1)
+          ? [{ polygons: [mergedAdjacentVisiblePolygon] }]
+          : regions
+      },
+      intersection: (
+        subject: PolygonRegion[],
+        clip: PolygonRegion[] = []
+      ): PolygonRegion[] => {
+        intersectionCalls += 1
+        return regionsContainEvidencePolygon(clip) ? [] : subject
+      },
+      difference: (subject: PolygonRegion[]): PolygonRegion[] => {
+        differenceCalls += 1
+        return subject
+      },
+      buildArrangement: (candidates: CandidateRegion[]): ArrangementFace[] => [
+        outsideArrangementFace(
+          'arrangement:pre-arranged-source-vertex-join',
+          [mergedAdjacentVisiblePolygon],
+          candidates
+        )
+      ]
+    }
+    const sourceVertexJoinFinalFace = {
+      ...outsidePolygonFace('source-vertex-join-pre-arranged', visiblePolygon),
+      polygons: [visiblePolygon, adjacentVisiblePolygon],
+      bounds: {
+        minX: 0,
+        minY: 0,
+        maxX: 40,
+        maxY: 20
+      },
+      debugMeta: {
+        ...ownershipFinalFace.debugMeta,
+        productSignature:
+          'constrained-dashed:outside:pre-arranged-source-vertex-join',
+        domainMode: 'outside',
+        topologyFamily: 'self-intersecting',
+        strokePosition: 'outside' as const,
+        strokeWidth: 10,
+        strokeJoin: 'miter' as const,
+        strokeCap: 'butt' as const,
+        routeId: 'constrained-dashed-source-vertex-join-product',
+        visibleContributor: 'source-vertex-join' as const,
+        geometryBasis: 'canonical-join-footprint' as const,
+        visualOverlapCollapseStatus: 'render-projection-merged' as const
+      }
+    } satisfies FinalFaceInput
+
+    const entries = toSolidCenterStrokeRenderEntriesFromFinalFaces(
+      [sourceVertexJoinFinalFace],
+      {
+        exactBackend,
+        legalDomains: [
+          {
+            legalDomainId: 'legal-domain:outside',
+            fillRule: 'nonzero',
+            regions: [{ polygons: [evidencePolygon] }]
+          }
+        ]
+      }
+    )
+
+    expect(entries).toHaveLength(1)
+    expect(unionCalls + intersectionCalls + differenceCalls).toBeGreaterThan(0)
+    expect(entries[0]?.polygons).toHaveLength(1)
+    for (const expectedCorner of mergedAdjacentVisiblePolygon) {
+      expect(entries[0]?.polygons[0]).toContainEqual(expectedCorner)
+    }
+    expect(entries[0]?.strokeMaskPolygons).toBeUndefined()
+    expect(entries[0]?.debugMeta).toEqual(
+      expect.objectContaining({
+        visibleContributor: 'source-vertex-join',
+        visualOverlapCollapseStatus: 'render-projection-merged'
       })
     )
   })

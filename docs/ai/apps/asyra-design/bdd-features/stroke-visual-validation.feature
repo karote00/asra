@@ -6,7 +6,7 @@ Feature: Stroke visual validation
     Given the stroke engine spec is the source of stroke semantics
     And the stroke inspector flow is the source of runtime step and route order
     And legacy stroke tests are quarantined as historical evidence
-    And the app visual review base URL is explicitly set to "http://localhost:3001"
+    And the app visual review base URL is explicitly set by ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL
 
   Scenario: Switching high-acute joins records runtime product evidence before screenshots
     Given a reported high-acute outside dashed vector is selected
