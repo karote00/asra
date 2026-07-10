@@ -25,6 +25,16 @@ interface InspectorStep {
 
 interface InspectorData {
   steps: InspectorStep[]
+  stepResponsibilityMatrix: Record<
+    string,
+    {
+      classification: string
+      ownerMode: string
+      primaryArtifacts: string[]
+      allowedActions: string[]
+      forbiddenActions: string[]
+    }
+  >
   inspectorContractErrors: string[]
 }
 
@@ -70,6 +80,12 @@ const visiblePolygon = [
   { x: 0, y: 20 }
 ]
 
+const productEvidenceEnvelope = {
+  bodyProductIds: ['body:hit-export'],
+  terminalOwnershipOverlays: [],
+  smoothContinuityOwnershipOverlays: []
+}
+
 const finalFace = {
   faceId: 'face:hit-export',
   sourceGeometryIds: ['geometry:hit-export'],
@@ -90,11 +106,15 @@ const finalFace = {
       intervalId: 'interval:hit-export'
     }
   ],
+  ownerStepIds: ['build-source-vertex-join-products'],
   intervalIds: ['interval:hit-export'],
+  terminalRoles: ['middle'],
+  seamBoundaryIds: ['seam:hit-export'],
   sourceSpanIds: ['span:hit-export'],
   sourceNetworkIds: ['network:hit-export'],
   sourceContourIds: ['contour:hit-export'],
   legalDomainIds: ['legal:hit-export'],
+  productEvidenceEnvelope,
   productMode: 'post-legality-product',
   productSignature: 'source-vertex-join',
   debugMeta: {
@@ -111,7 +131,8 @@ const finalFace = {
     angleSource: 'authored-center-path-contour-visit-tangents',
     angleComparison: 'vertexAngle <= miterAngle',
     visibleContributor: 'source-vertex-join',
-    geometryBasis: 'canonical-join-footprint'
+    geometryBasis: 'canonical-join-footprint',
+    productEvidenceEnvelope
   },
   paint: {
     geometryId: 'geometry:hit-export',
@@ -121,8 +142,8 @@ const finalFace = {
   }
 } satisfies FinalFaceInput
 
-describe('stroke flow step 40: hit-export', () => {
-  it('keeps hit-export as the current or verified fortieth step', () => {
+describe('stroke flow step 41: hit-export', () => {
+  it('keeps hit-export as the forty-first runtime step', () => {
     const data = loadInspectorData()
     const step = data.steps.find((entry) => entry.id === 'hit-export')
     const activeSteps = data.steps.filter(
@@ -130,7 +151,7 @@ describe('stroke flow step 40: hit-export', () => {
     )
 
     expect(data.inspectorContractErrors).toEqual([])
-    expect(step?.refactorStatus).toMatch(/^(active|verified)$/)
+    expect(step?.refactorStatus).toMatch(/^(locked|active|verified)$/)
     if (step?.refactorStatus === 'active') {
       expect(activeSteps.map((entry) => entry.id)).toEqual(['hit-export'])
     }
@@ -145,18 +166,37 @@ describe('stroke flow step 40: hit-export', () => {
       allowedInputs: [
         'stroke final faces',
         'projected hit/export packets derived from final faces',
+        'final-face ConstrainedDashedProductEvidenceEnvelope',
         'source owner, interval, span, contour, network, legal-domain, bounds, and debug metadata carried by final faces'
       ],
       requiredOutputs: [
         'hover hit area backed by projected final-face polygons',
         'lazy export packet channel attached from projected final-face packets',
-        'hit/export metadata preserving source owner and product channel evidence'
+        'hit/export metadata preserving source owner and product channel evidence',
+        'hit/export product identity preserving every body and ownership overlay id'
       ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/stroke-product-evidence.ts',
         'packages/preset/src/components/vector.ts'
       ]
     })
+  })
+
+  it('classifies hit/export as channel projection over final-face packets only', () => {
+    const data = loadInspectorData()
+    const responsibility = data.stepResponsibilityMatrix['hit-export']
+
+    expect(responsibility).toMatchObject({
+      classification: 'channel-projection',
+      ownerMode:
+        'project final-face backed hit/export packets without visible render authority'
+    })
+    expect(responsibility.primaryArtifacts).toEqual([
+      'artifact:hit-export-packets'
+    ])
+    expect(responsibility.forbiddenActions.join(' ')).toContain('repair')
+    expect(responsibility.forbiddenActions.join(' ')).toContain('recompute')
   })
 
   it('projects hit and export packets from final faces while preserving ownership and join provenance', () => {
@@ -167,6 +207,15 @@ describe('stroke flow step 40: hit-export', () => {
       finalFace
     ])
 
+    expect(hitPackets[0]).toMatchObject({
+      channel: 'hit-test',
+      visibility: 'hit-export'
+    })
+    expect(exportPackets[0]).toMatchObject({
+      channel: 'export',
+      visibility: 'hit-export'
+    })
+
     for (const packets of [hitPackets, exportPackets]) {
       expect(packets).toEqual([
         expect.objectContaining({
@@ -175,11 +224,15 @@ describe('stroke flow step 40: hit-export', () => {
           bounds: finalFace.bounds,
           primaryOwner: finalFace.ownerSet[0],
           ownerSet: finalFace.ownerSet,
+          ownerStepIds: ['build-source-vertex-join-products'],
           intervalIds: ['interval:hit-export'],
+          terminalRoles: ['middle'],
+          seamBoundaryIds: ['seam:hit-export'],
           sourceSpanIds: ['span:hit-export'],
           sourceNetworkIds: ['network:hit-export'],
           sourceContourIds: ['contour:hit-export'],
           legalDomainIds: ['legal:hit-export'],
+          productEvidenceEnvelope,
           debugMeta: expect.objectContaining({
             authoredJoin: 'miter',
             resolvedJoin: 'bevel-by-miter-angle',
@@ -192,6 +245,9 @@ describe('stroke flow step 40: hit-export', () => {
           })
         })
       ])
+      expect(packets[0].productEvidenceEnvelope).toBe(
+        productEvidenceEnvelope
+      )
     }
   })
 

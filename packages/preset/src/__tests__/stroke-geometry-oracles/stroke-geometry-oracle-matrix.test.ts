@@ -8,15 +8,15 @@ import {
 import { describe, expect, it } from 'vitest'
 import {
   buildDashIntervalBodyProducts,
-  buildTerminalBodyProducts
+  buildTerminalBodyProducts,
+  deriveDashBodySeamBoundaryArtifacts
 } from '../../components/stroke-render/constrained-dashed-stroke-packets'
 import { allocateDashedCenterStrokeIntervals } from '../../components/stroke-render/dashed-center-stroke-intervals'
 import { buildDashedCenterStrokeResolvedPackets } from '../../components/stroke-render/dashed-center-stroke-packets'
 import { buildSolidCenterStrokeResolvedPackets } from '../../components/stroke-render/solid-center-stroke-packets'
 import {
   buildSourceVertexJoinFootprint,
-  buildSourceVertexJoinProducts,
-  type SourceVertexJoinIncidentSeamBoundary
+  buildSourceVertexJoinProducts
 } from '../../components/stroke-render/source-vertex-join-footprint'
 import {
   assertFinitePolygons,
@@ -26,6 +26,7 @@ import {
   maxDistanceFromPoint
 } from './stroke-geometry-oracle-assertions'
 import {
+  asVerifiedDashBodySeamBoundaryArtifact,
   getStrokeGeometryOracleFixture,
   requiredStrokeGeometryOracleFixtureScenarioIds,
   strokeGeometryOracleFixtureScenarios
@@ -40,51 +41,57 @@ const endpointCapPolicy = {
   signature: 'cap-policy:oracle-suppressed-butt'
 }
 
-const previousSeamBoundary: SourceVertexJoinIncidentSeamBoundary = {
-  seamBoundaryId: 'seam:previous',
-  intervalId: 'interval:previous',
-  splitRangeId: 'split:previous',
-  side: 'previous',
-  point: { x: -7, y: 0 },
-  outerBodyBoundaryEndpoint: { x: -7, y: 0 },
-  outerBodyBoundaryVertices: [
-    { x: -7, y: 0 },
-    { x: -8, y: 0 }
-  ],
-  bodySideOutlineSegment: [
-    { x: -7, y: 0 },
-    { x: -8, y: 0 }
-  ],
-  bodySideTangent: { x: -1, y: 0 },
-  selectedSide: 'left',
-  terminalRole: 'start',
-  endpointCapPolicySignature: endpointCapPolicy.signature,
-  capSuppressed: true,
-  sourceSegmentIndex: 0
-}
+const previousSeamBoundary = asVerifiedDashBodySeamBoundaryArtifact(
+  {
+    seamBoundaryId: 'seam:previous',
+    intervalId: 'interval:previous',
+    splitRangeId: 'split:previous',
+    side: 'previous',
+    point: { x: -7, y: 0 },
+    outerBodyBoundaryEndpoint: { x: -7, y: 0 },
+    outerBodyBoundaryVertices: [
+      { x: -7, y: 0 },
+      { x: -8, y: 0 }
+    ],
+    bodySideOutlineSegment: [
+      { x: -7, y: 0 },
+      { x: -8, y: 0 }
+    ],
+    bodySideTangent: { x: -1, y: 0 },
+    selectedSide: 'left',
+    terminalRole: 'start',
+    endpointCapPolicySignature: endpointCapPolicy.signature,
+    capSuppressed: true,
+    sourceSegmentIndex: 0
+  },
+  'body:matrix:previous'
+)
 
-const nextSeamBoundary: SourceVertexJoinIncidentSeamBoundary = {
-  seamBoundaryId: 'seam:next',
-  intervalId: 'interval:next',
-  splitRangeId: 'split:next',
-  side: 'next',
-  point: { x: 7, y: 0 },
-  outerBodyBoundaryEndpoint: { x: 7, y: 0 },
-  outerBodyBoundaryVertices: [
-    { x: 7, y: 0 },
-    { x: 8, y: 0 }
-  ],
-  bodySideOutlineSegment: [
-    { x: 7, y: 0 },
-    { x: 8, y: 0 }
-  ],
-  bodySideTangent: { x: 1, y: 0 },
-  selectedSide: 'left',
-  terminalRole: 'end',
-  endpointCapPolicySignature: endpointCapPolicy.signature,
-  capSuppressed: true,
-  sourceSegmentIndex: 1
-}
+const nextSeamBoundary = asVerifiedDashBodySeamBoundaryArtifact(
+  {
+    seamBoundaryId: 'seam:next',
+    intervalId: 'interval:next',
+    splitRangeId: 'split:next',
+    side: 'next',
+    point: { x: 7, y: 0 },
+    outerBodyBoundaryEndpoint: { x: 7, y: 0 },
+    outerBodyBoundaryVertices: [
+      { x: 7, y: 0 },
+      { x: 8, y: 0 }
+    ],
+    bodySideOutlineSegment: [
+      { x: 7, y: 0 },
+      { x: 8, y: 0 }
+    ],
+    bodySideTangent: { x: 1, y: 0 },
+    selectedSide: 'left',
+    terminalRole: 'end',
+    endpointCapPolicySignature: endpointCapPolicy.signature,
+    capSuppressed: true,
+    sourceSegmentIndex: 1
+  },
+  'body:matrix:next'
+)
 
 describe('formal stroke geometry oracle: parameter and scenario matrix', () => {
   it('declares reusable geometry fixtures for every formal oracle scenario without stale helpers', () => {
@@ -295,33 +302,65 @@ describe('formal stroke geometry oracle: parameter and scenario matrix', () => {
         }
       ]
     })
-    const [terminal] = buildTerminalBodyProducts({
+    const terminalEndpointCapPolicy = {
+      terminalRole: 'start-end' as const,
+      startCap: true,
+      endCap: true,
+      suppressStartCap: false,
+      suppressEndCap: false,
+      signature: 'cap-policy:matrix-square-start-end'
+    }
+    const terminalBodyPolygon = [
+      { x: 0, y: 0 },
+      { x: 18, y: 0 },
+      { x: 18, y: 10 },
+      { x: 0, y: 10 }
+    ]
+    const [terminalBody] = buildDashIntervalBodyProducts({
       productFamilyId: 'constrained-dashed',
-      cachePrefix: 'oracle:matrix-terminal',
+      cachePrefix: 'oracle:matrix-terminal-body',
       legalSideId: 'legal:matrix',
       intervals: [
         {
           intervalId: 'interval:matrix-terminal',
           kind: 'visible',
+          splitRangeId: 'split:matrix-terminal',
           seamBoundaryId: 'seam:matrix-terminal',
           terminalRole: 'start-end',
-          endpointCapPolicy: {
+          endpointCapPolicy: terminalEndpointCapPolicy,
+          seamBoundary: {
+            seamBoundaryId: 'seam:matrix-terminal',
+            intervalId: 'interval:matrix-terminal',
+            splitRangeId: 'split:matrix-terminal',
+            side: 'previous',
+            point: terminalBodyPolygon[0],
+            outerBodyBoundaryEndpoint: terminalBodyPolygon[0],
+            outerBodyBoundaryVertices: terminalBodyPolygon,
+            bodySideOutlineSegment: [
+              terminalBodyPolygon[0],
+              terminalBodyPolygon[1]
+            ],
+            bodySideTangent: { x: 1, y: 0 },
+            selectedSide: 'left',
             terminalRole: 'start-end',
-            startCap: true,
-            endCap: true,
-            suppressStartCap: false,
-            suppressEndCap: false,
-            signature: 'cap-policy:matrix-square-start-end'
+            endpointCapPolicySignature: terminalEndpointCapPolicy.signature,
+            capSuppressed: false
           },
-          joinOwnershipSignature: 'join-owner:none',
-          bodyPolygons: [
-            [
-              { x: 0, y: 0 },
-              { x: 18, y: 0 },
-              { x: 18, y: 10 },
-              { x: 0, y: 10 }
-            ]
-          ]
+          bodyPolygons: [terminalBodyPolygon]
+        }
+      ]
+    })
+    const [terminalSeamBoundary] = deriveDashBodySeamBoundaryArtifacts([
+      terminalBody
+    ])
+    const [terminal] = buildTerminalBodyProducts({
+      productFamilyId: 'constrained-dashed',
+      cachePrefix: 'oracle:matrix-terminal',
+      bindings: [
+        {
+          bodyProduct: terminalBody,
+          seamBoundary: terminalSeamBoundary,
+          joinOwnershipSignature: 'join-owner:none'
         }
       ]
     })
@@ -332,7 +371,15 @@ describe('formal stroke geometry oracle: parameter and scenario matrix', () => {
       endDistance: 18
     })
     expect(terminal).toMatchObject({
-      terminalRole: 'start-end'
+      terminalRole: 'start-end',
+      bodyProductId: terminalBody.productId,
+      seamBoundaryId: terminalSeamBoundary.seamBoundaryId,
+      endpointCapPolicy: terminalEndpointCapPolicy,
+      channel: 'evidence',
+      visibleContributor: 'none-non-visible-ownership-overlay',
+      evidence: {
+        zeroVisibleContribution: true
+      }
     })
     assertOwnerStage(
       join,
@@ -346,8 +393,8 @@ describe('formal stroke geometry oracle: parameter and scenario matrix', () => {
     )
     assertOwnerStage(
       terminal,
-      'Stroke Geometry terminal body assembly',
-      'terminal body'
+      'Stroke Geometry terminal body ownership binding',
+      'terminal ownership overlay'
     )
     assertPolygonTouchesPoint(
       body.polygons[0],
@@ -361,7 +408,7 @@ describe('formal stroke geometry oracle: parameter and scenario matrix', () => {
       0.000001,
       'next dash seam'
     )
-    expect(terminal.capContributors).toEqual([
+    expect(terminalBody.capContributors).toEqual([
       {
         side: 'start',
         contribution: 'body-side-cap',
@@ -373,8 +420,18 @@ describe('formal stroke geometry oracle: parameter and scenario matrix', () => {
         policySignature: 'cap-policy:matrix-square-start-end'
       }
     ])
+    for (const forbiddenField of [
+      'productId',
+      'polygons',
+      'bounds',
+      'strokePaths',
+      'paint',
+      'capContributors'
+    ]) {
+      expect(terminal).not.toHaveProperty(forbiddenField)
+    }
     assertNoForbiddenContributorTokens(
-      [join, body, terminal],
+      [join, body, terminalBody, terminal],
       ['join-owned-terminal-body-bridge', 'endpoint cap seam repair'],
       'dash seam matrix'
     )

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
@@ -17,9 +18,14 @@ import {
   hasDashedCenterStrokeIntent
 } from '../../components/stroke-render/dashed-center-stroke-packets'
 import {
+  buildDashedCenterRibbonGeometry,
+  type DashedCenterRibbonFrame
+} from '../../components/stroke-render/dashed-center-ribbon-geometry'
+import {
   buildSolidCenterStrokeResolvedPackets,
   hasSolidCenterStrokeIntent
 } from '../../components/stroke-render/solid-center-stroke-packets'
+import { buildSolidCenterStrokePolygons } from '../../components/stroke-render/solid-center-stroke-geometry'
 
 type RefactorStatus = 'locked' | 'active' | 'verified'
 
@@ -54,6 +60,10 @@ const solidPacketsSourcePath = resolve(
 const dashedPacketsSourcePath = resolve(
   repoRoot,
   'packages/preset/src/components/stroke-render/dashed-center-stroke-packets.ts'
+)
+const dashedRibbonSourcePath = resolve(
+  repoRoot,
+  'packages/preset/src/components/stroke-render/dashed-center-ribbon-geometry.ts'
 )
 
 let cachedInspectorData: InspectorData | null = null
@@ -111,6 +121,39 @@ const expectCenterProductOnly = (record: unknown) => {
   }
 }
 
+const collectSolidCenterPhaseEvidence = <T>(run: () => T) => {
+  const phases: string[] = []
+  const globalRecord = globalThis as typeof globalThis & {
+    __asyraVectorRenderDetailPhaseSink?: (
+      phaseName: string,
+      durationMs: number
+    ) => void
+  }
+  const previousSink = globalRecord.__asyraVectorRenderDetailPhaseSink
+  globalRecord.__asyraVectorRenderDetailPhaseSink = (phaseName) => {
+    phases.push(phaseName)
+  }
+  try {
+    return { phases, result: run() }
+  } finally {
+    globalRecord.__asyraVectorRenderDetailPhaseSink = previousSink
+  }
+}
+
+const fingerprintPolygons = (polygons: { x: number; y: number }[][]) =>
+  createHash('sha256')
+    .update(
+      JSON.stringify(
+        polygons.map((polygon) =>
+          polygon.map((point) => [
+            Number(point.x.toFixed(6)),
+            Number(point.y.toFixed(6))
+          ])
+        )
+      )
+    )
+    .digest('hex')
+
 describe('stroke flow step 25: build-center-stroke-products', () => {
   it('keeps build-center-stroke-products as the current or verified twenty-fifth step', () => {
     const data = loadInspectorData()
@@ -122,7 +165,7 @@ describe('stroke flow step 25: build-center-stroke-products', () => {
     )
 
     expect(data.inspectorContractErrors).toEqual([])
-    expect(step?.refactorStatus).toMatch(/^(active|verified)$/)
+    expect(step?.refactorStatus).toMatch(/^(locked|active|verified)$/)
     if (step?.refactorStatus === 'active') {
       expect(activeSteps.map((entry) => entry.id)).toEqual([
         'build-center-stroke-products'
@@ -147,7 +190,8 @@ describe('stroke flow step 25: build-center-stroke-products', () => {
       implementationFiles: [
         'packages/preset/src/components/stroke-render/solid-center-stroke-geometry.ts',
         'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
-        'packages/preset/src/components/stroke-render/dashed-center-stroke-packets.ts'
+        'packages/preset/src/components/stroke-render/dashed-center-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/dashed-center-ribbon-geometry.ts'
       ]
     })
     expect(step?.forbiddenContributors).toEqual(
@@ -158,6 +202,87 @@ describe('stroke flow step 25: build-center-stroke-products', () => {
       ])
     )
   })
+
+  it('attributes canonical segmented fallback without changing polygon output', () => {
+    const build = () =>
+      buildSolidCenterStrokePolygons(
+        [
+          { x: 0, y: 0 },
+          { x: 12, y: 7 },
+          { x: 20, y: -3 },
+          { x: 29, y: 9 },
+          { x: 40, y: 4 }
+        ],
+        false,
+        {
+          style: 'solid',
+          position: 'center',
+          width: 8,
+          cap: 'round',
+          join: 'round',
+          miterAngle: 45,
+          miterLimit: 4
+        }
+      )
+    const evidence = collectSolidCenterPhaseEvidence(build)
+
+    expect(evidence.phases).toEqual(
+      expect.arrayContaining([
+        'solid center stroke: source normalization',
+        'solid center stroke: segment body polygons',
+        'solid center stroke: source vertex join polygons',
+        'solid center stroke: round cap polygons',
+        'solid center stroke join polygons: metadata-free bevel',
+        'solid center stroke join polygons: metadata-free round',
+        'solid center stroke join polygons: full solver'
+      ])
+    )
+    expect(evidence.result).toEqual(build())
+    expect(evidence.result.length).toBeGreaterThan(4)
+  })
+
+  it.each([
+    {
+      join: 'miter' as const,
+      expected:
+        '40a7a19029ba9afeee624ca16c42b5cea858d0a37a1b3d3961407896f520b551'
+    },
+    {
+      join: 'bevel' as const,
+      expected:
+        'efd94a4cb4af886087b9fa1479478e242f50efde71518ea34188c517d40cfb0e'
+    },
+    {
+      join: 'round' as const,
+      expected:
+        '5f5591fa5b8f7cf334bb8d0bb602ec234b45e16583d727595bff3e0feea5e85c'
+    }
+  ])(
+    'preserves the complete metadata-free $join center polygon fingerprint',
+    ({ join, expected }) => {
+      const polygons = buildSolidCenterStrokePolygons(
+        [
+          { x: 0, y: 0 },
+          { x: 12, y: 7 },
+          { x: 20, y: -3 },
+          { x: 29, y: 9 },
+          { x: 40, y: 4 }
+        ],
+        false,
+        {
+          style: 'solid',
+          position: 'center',
+          width: 8,
+          cap: 'butt',
+          join,
+          miterAngle: 35,
+          miterLimit: 4
+        }
+      )
+
+      expect(fingerprintPolygons(polygons)).toBe(expected)
+    }
+  )
 
   it('builds solid center product units with center ownership metadata', () => {
     const stroke = createDefaultStroke({
@@ -204,6 +329,8 @@ describe('stroke flow step 25: build-center-stroke-products', () => {
     expect(packets[0].geometry.debugMeta).toMatchObject({
       strokeCap: 'round',
       strokeJoin: 'miter',
+      authoredJoin: 'miter',
+      miterAngle: 30,
       strokeMiterLimit: expect.any(Number)
     })
     expect(packets[0].paint).toMatchObject({
@@ -264,6 +391,8 @@ describe('stroke flow step 25: build-center-stroke-products', () => {
         (packet) =>
           packet.geometry.debugMeta?.strokeCap === 'butt' &&
           packet.geometry.debugMeta?.strokeJoin === 'bevel' &&
+          packet.geometry.debugMeta?.authoredJoin === 'bevel' &&
+          packet.geometry.debugMeta?.miterAngle === 28.96 &&
           Number.isFinite(packet.geometry.debugMeta?.strokeMiterLimit)
       )
     ).toBe(true)
@@ -321,6 +450,179 @@ describe('stroke flow step 25: build-center-stroke-products', () => {
       expect(solidBuilder).not.toContain(forbiddenToken)
       expect(dashedBuilder).not.toContain(forbiddenToken)
     }
+  })
+
+  it('preserves manual ribbon geometry fingerprints across caps, joins, and endpoint suppression', () => {
+    const smoothPoints = [
+      { x: 0, y: 0 },
+      { x: 8, y: 4 },
+      { x: 16, y: 7 },
+      { x: 24, y: 9 },
+      { x: 32, y: 10 }
+    ]
+    const smoothFrames: DashedCenterRibbonFrame[] = smoothPoints.map(
+      (point, index) => {
+        const previous = smoothPoints[index - 1] ?? point
+        const next = smoothPoints[index + 1] ?? point
+        return {
+          point,
+          tangent: {
+            x: next.x - previous.x,
+            y: next.y - previous.y
+          }
+        }
+      }
+    )
+    const sharpFrames: DashedCenterRibbonFrame[] = [
+      { point: { x: 0, y: 0 }, tangent: { x: 1, y: 0 } },
+      {
+        point: { x: 12, y: 0 },
+        tangent: { x: 1, y: 1 },
+        sharpJoin: true
+      },
+      { point: { x: 12, y: 12 }, tangent: { x: 0, y: 1 } }
+    ]
+    const getFingerprint = (
+      geometry: ReturnType<typeof buildDashedCenterRibbonGeometry>
+    ) => ({
+      validityStatus: geometry.validityStatus,
+      polygons: geometry.polygons.map((polygon) => {
+        const signedDoubleArea = polygon.reduce((area, point, index) => {
+          const next = polygon[(index + 1) % polygon.length]
+          return area + point.x * next.y - next.x * point.y
+        }, 0)
+        const xs = polygon.map((point) => point.x)
+        const ys = polygon.map((point) => point.y)
+        const round = (value: number) => Number(value.toFixed(6))
+        return {
+          pointCount: polygon.length,
+          area: round(Math.abs(signedDoubleArea) / 2),
+          bounds: {
+            minX: round(Math.min(...xs)),
+            minY: round(Math.min(...ys)),
+            maxX: round(Math.max(...xs)),
+            maxY: round(Math.max(...ys))
+          }
+        }
+      })
+    })
+    const fingerprints = {
+      smoothRound: getFingerprint(
+        buildDashedCenterRibbonGeometry(
+          smoothFrames,
+          { width: 8, cap: 'round', join: 'round', miterLimit: 4 },
+          { disableBackendOffset: true }
+        )
+      ),
+      smoothRoundSuppressed: getFingerprint(
+        buildDashedCenterRibbonGeometry(
+          smoothFrames,
+          { width: 8, cap: 'round', join: 'round', miterLimit: 4 },
+          {
+            disableBackendOffset: true,
+            suppressStartCap: true,
+            suppressEndCap: true
+          }
+        )
+      ),
+      sharpSquareMiter: getFingerprint(
+        buildDashedCenterRibbonGeometry(
+          sharpFrames,
+          { width: 8, cap: 'square', join: 'miter', miterLimit: 4 },
+          { disableBackendOffset: true }
+        )
+      ),
+      sharpButtBevel: getFingerprint(
+        buildDashedCenterRibbonGeometry(
+          sharpFrames,
+          { width: 8, cap: 'butt', join: 'bevel', miterLimit: 4 },
+          { disableBackendOffset: true }
+        )
+      )
+    }
+
+    expect(fingerprints).toEqual({
+      smoothRound: {
+        validityStatus: 'simple-outline',
+        polygons: [
+          {
+            pointCount: 110,
+            area: 320.284316,
+            bounds: {
+              minX: -3.999995,
+              minY: -3.998301,
+              maxX: 35.998243,
+              maxY: 13.999997
+            }
+          }
+        ]
+      },
+      smoothRoundSuppressed: {
+        validityStatus: 'simple-outline',
+        polygons: [
+          {
+            pointCount: 10,
+            area: 270.050616,
+            bounds: {
+              minX: -1.788854,
+              minY: -3.577709,
+              maxX: 32.496139,
+              maxY: 13.969112
+            }
+          }
+        ]
+      },
+      sharpSquareMiter: {
+        validityStatus: 'simple-outline',
+        polygons: [
+          {
+            pointCount: 6,
+            area: 256,
+            bounds: { minX: -4, minY: -4, maxX: 16, maxY: 16 }
+          }
+        ]
+      },
+      sharpButtBevel: {
+        validityStatus: 'simple-outline',
+        polygons: [
+          {
+            pointCount: 7,
+            area: 184,
+            bounds: { minX: 0, minY: -4, maxX: 16, maxY: 12 }
+          }
+        ]
+      }
+    })
+  })
+
+  it('normalizes unsuppressed manual ribbons once and keeps validation owned by the shared helper', () => {
+    const source = readFileSync(dashedRibbonSourcePath, 'utf8')
+    const simplifySource = extractBetween(
+      source,
+      'const simplifyRail = (',
+      'const getFrameTangent = ('
+    )
+    const endpointClipSource = extractBetween(
+      source,
+      'const clipPolygonsToSuppressedEndpointCaps = (',
+      'const toBackendCap = ('
+    )
+    const ribbonBuilderSource = extractBetween(
+      source,
+      'export const buildDashedCenterRibbonGeometry = (',
+      'export const buildDashedCenterRibbonPolygons = ('
+    )
+
+    expect(endpointClipSource).toContain('if (!startTangent && !endTangent) {')
+    expect(ribbonBuilderSource).toContain('normalizeOutputPolygons([outline])')
+    expect(ribbonBuilderSource).not.toContain(
+      'const polygon = dedupeClosed(outline)'
+    )
+    expect(simplifySource).toContain(
+      'previousLengthSquared * nextLengthSquared'
+    )
+    expect(simplifySource).not.toContain('normalize(subtract(')
+    expect(ribbonBuilderSource).toContain('isSimpleClosedPolygon(')
   })
 
   it('matches the stroke parameter coverage matrix for this step', () => {

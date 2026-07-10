@@ -1,7 +1,8 @@
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect } from 'vitest'
+import { integrationCase } from './stroke-integration-inspector-test-helper'
 import {
   buildSolidCenterStrokeRenderEntriesFromRenderPackets,
   emitSolidCenterStrokeProductOutputPacketsFromFinalFaces
@@ -9,12 +10,15 @@ import {
 import { projectSolidCenterStrokeRenderEntries } from '../../components/stroke-render/solid-center-stroke-render'
 import {
   buildStrokeRuntimeRevisionSet,
-  computeStrokeDirtyKeys
+  computeStrokeDirtyKeys,
+  type StrokeRevisionSet
 } from '../../components/stroke-render/stroke-dirty-keys'
 import { buildStrokeFinalFacesFromResolvedPackets } from '../../components/stroke-render/stroke-final-face'
 
 interface InspectorRoute {
   id: string
+  from: string
+  to: string
   skipSteps: string[]
   resumeAt: string
   nextConsumer: string
@@ -118,8 +122,120 @@ const buildRevisionSet = (
     ownerCount: 1
   })
 
-describe('new stroke flow integration: bypass and cache routes', () => {
-  it('routes paint-only changes to paint retint without re-entering geometry stages', () => {
+const expectDirtyFor = (
+  previous: StrokeRevisionSet,
+  next: StrokeRevisionSet,
+  expectedDirtyKeys: string[],
+  forbiddenDirtyKeys: string[]
+) => {
+  const result = computeStrokeDirtyKeys(previous, next)
+  expect(result.dirtyKeys).toEqual(expect.arrayContaining(expectedDirtyKeys))
+  forbiddenDirtyKeys.forEach((key) => expect(result.dirtyKeys).not.toContain(key))
+  return result
+}
+
+describe('stroke integration: render mirror and current-state cache', () => {
+  integrationCase('render-mirror-current-state-linear-handoff', 'preserves current-state identity through render mirror, dirty graph, cache, and strategy entry', () => {
+    const routeIds = [
+      'linear-downstream-subscriber-routing-to-render-mirror-patch-apply',
+      'linear-render-mirror-patch-apply-to-render-data-derivation',
+      'linear-render-data-derivation-to-dirty-revision-graph',
+      'linear-dirty-revision-graph-to-stage-product-cache',
+      'linear-stage-product-cache-to-render-strategy-entry'
+    ]
+
+    for (const routeId of routeIds) {
+      const route = routeById(routeId)
+      expect(route.consumes).toContain(`stage:${route.from}`)
+      expect(route.produces).toContain(`stage:${route.to}`)
+      expect(route.forbiddenContributors).toEqual(
+        expect.arrayContaining([
+          'diagnostic/helper data as visible product output',
+          'downstream repair for an upstream semantic mismatch'
+        ])
+      )
+    }
+  })
+
+  integrationCase('dirty-cache-bypass-and-source-drag-routes', 'classifies stroke parameter changes at their owned dirty boundaries', () => {
+    const base = buildRevisionSet()
+
+    const paintOnly = expectDirtyFor(
+      base,
+      buildRevisionSet({ color: 0xff0000, paintKey: 'solid:red' }),
+      ['paint-payload', 'render-hit-export'],
+      ['path-topology', 'stroke-product', 'stroke-domain', 'interval-allocation']
+    )
+    expect(paintOnly.changedRevisionKeys).toEqual(['paintRevision'])
+
+    expectDirtyFor(
+      base,
+      buildRevisionSet({ dash: 20, gap: 10 }),
+      [
+        'interval-allocation',
+        'dash-product-intervals',
+        'endpoint-cap-policy',
+        'join-ownership',
+        'render-hit-export'
+      ],
+      ['path-topology', 'paint-payload']
+    )
+    expectDirtyFor(
+      base,
+      buildRevisionSet({ cap: 'round' }),
+      [
+        'endpoint-cap-policy',
+        'product-materialization',
+        'legality',
+        'resolved-regions',
+        'render-hit-export'
+      ],
+      ['path-topology', 'paint-payload', 'interval-allocation']
+    )
+    expectDirtyFor(
+      base,
+      buildRevisionSet({ join: 'round', miterLimit: 2 }),
+      [
+        'join-ownership',
+        'smooth-continuity',
+        'product-materialization',
+        'legality',
+        'resolved-regions',
+        'render-hit-export'
+      ],
+      ['path-topology', 'paint-payload', 'interval-allocation']
+    )
+    expectDirtyFor(
+      base,
+      buildRevisionSet({ width: 24 }),
+      [
+        'stroke-domain',
+        'endpoint-cap-policy',
+        'join-ownership',
+        'render-hit-export'
+      ],
+      ['path-topology', 'paint-payload', 'interval-allocation']
+    )
+    expectDirtyFor(
+      base,
+      buildRevisionSet({
+        style: 'dashed',
+        position: 'inside',
+        dash: 16,
+        gap: 8
+      }),
+      [
+        'stroke-product',
+        'stroke-domain',
+        'interval-allocation',
+        'dash-product-intervals',
+        'render-hit-export'
+      ],
+      ['path-topology', 'paint-payload']
+    )
+  })
+
+  integrationCase('dirty-cache-bypass-and-source-drag-routes', 'routes paint-only changes to paint retint without re-entering geometry stages', () => {
     const route = routeById('paint-only-cache-retint')
     const base = buildRevisionSet()
     const paintOnly = buildRevisionSet({
@@ -157,7 +273,7 @@ describe('new stroke flow integration: bypass and cache routes', () => {
     expect(dirty.dirtyKeys).toEqual(['paint-payload', 'render-hit-export'])
   })
 
-  it('classifies source drag as source/topology dirty without paint or static stroke dirtying', () => {
+  integrationCase('dirty-cache-bypass-and-source-drag-routes', 'classifies source drag as source/topology dirty without paint or static stroke dirtying', () => {
     const route = routeById('source-drag-dirty-classification')
     const base = buildRevisionSet()
     const dragged = buildRevisionSet({}, [
@@ -194,7 +310,7 @@ describe('new stroke flow integration: bypass and cache routes', () => {
     expect(dirty.changedRevisionKeys).not.toContain('strokeSpecRevision')
   })
 
-  it('routes hidden output to empty packet channels without visible geometry', () => {
+  integrationCase('dirty-cache-bypass-and-source-drag-routes', 'routes hidden output to empty packet channels without visible geometry', () => {
     const route = routeById('hidden-output-cache-bypass')
     const packets = emitSolidCenterStrokeProductOutputPacketsFromFinalFaces([])
 
@@ -232,7 +348,7 @@ describe('new stroke flow integration: bypass and cache routes', () => {
     })
   })
 
-  it('routes verified descriptor cache hits from final faces through normal output channels', () => {
+  integrationCase('dirty-cache-bypass-and-source-drag-routes', 'routes verified descriptor cache hits from final faces through normal output channels', () => {
     const route = routeById('verified-product-descriptor-cache-hit')
     const [finalFace] = buildStrokeFinalFacesFromResolvedPackets([
       {

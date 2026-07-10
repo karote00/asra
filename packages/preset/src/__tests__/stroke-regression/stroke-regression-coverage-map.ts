@@ -142,7 +142,8 @@ export const strokeRegressionCoverageMap: readonly StrokeRegressionCoverageCase[
       gateScripts: ['test:stroke-flow:integration'],
       requiredPriorGateScripts: ['test:stroke-flow:unit'],
       integrationCaseIds: [
-        'interaction-to-render-strategy-linear-handoff',
+        'source-mutation-ingress-linear-handoff',
+        'render-mirror-current-state-linear-handoff',
         'normalized-source-domain-dash-family-chain',
         'dirty-cache-bypass-and-source-drag-routes',
         'product-family-selection-and-unsupported-terminal',
@@ -151,7 +152,7 @@ export const strokeRegressionCoverageMap: readonly StrokeRegressionCoverageCase[
         'constrained-dashed-product-coexecution-chain',
         'legality-resolved-paint-final-descriptor-chain',
         'render-entry-descriptor-and-canonical-output-chain',
-        'render-hit-export-diagnostics-output-channel-chain'
+        'render-hit-export-output-channel-chain'
       ],
       oracleCaseIds: [],
       visualCaseIds: [],
@@ -285,7 +286,7 @@ export const strokeRegressionCoverageMap: readonly StrokeRegressionCoverageCase[
       ],
       integrationCaseIds: [
         'render-entry-descriptor-and-canonical-output-chain',
-        'render-hit-export-diagnostics-output-channel-chain'
+        'render-hit-export-output-channel-chain'
       ],
       oracleCaseIds: [
         'source-vertex-join-resolution-matrix',
@@ -334,7 +335,7 @@ export const strokeRegressionCoverageMap: readonly StrokeRegressionCoverageCase[
       oracleCaseIds: [],
       visualCaseIds: [],
       fullRegressionPolicy:
-        'Full preset regression has three attempts, runs after stroke gates and user approval, and reports failures by suite, assertion, owner stage, and focused repair path.',
+        'Full preset regression has three attempts, runs after stroke correctness gates pass, and reports failures by suite, assertion, owner stage, and focused repair path.',
       positiveAssertions: [
         'Full regression is used to find package side effects after new stroke correctness has been established.',
         'Failures are triaged against the new spec and inspector flow before any production repair.'
@@ -347,7 +348,7 @@ export const strokeRegressionCoverageMap: readonly StrokeRegressionCoverageCase[
     {
       id: 'drag-performance-regression-phase',
       title:
-        'Drag and performance regression remains blocked until product semantics and visual validation are complete',
+        'Drag and performance regression starts after product semantics and required runtime gates pass',
       phase: 'future-performance',
       layers: ['drag-performance'],
       riskClasses: ['performance-regression', 'app-runtime-route-mismatch'],
@@ -365,7 +366,7 @@ export const strokeRegressionCoverageMap: readonly StrokeRegressionCoverageCase[
       oracleCaseIds: ['bypass-cache-geometry-applicability'],
       visualCaseIds: [],
       fullRegressionPolicy:
-        'Performance regression cannot justify geometry shortcuts; it runs only after geometry/product semantics and user-inspected visual validation are complete.',
+        'Performance regression cannot justify geometry shortcuts; it runs only after geometry/product semantics and required runtime behavior gates are complete. Optional visual review is not a prerequisite.',
       positiveAssertions: [
         'Drag performance gates measure an already-correct runtime path.',
         'Dirty/cache routes preserve canonical product semantics while optimizing recomputation.'

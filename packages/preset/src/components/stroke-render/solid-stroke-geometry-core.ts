@@ -75,6 +75,33 @@ const getRoundStrokeArcSegmentCount = (
   )
 }
 
+const resolveRoundStrokeArcSweep = (
+  center: Vec2,
+  start: Vec2,
+  end: Vec2,
+  sweepSign: number
+) => {
+  const startAngle = Math.atan2(start.y - center.y, start.x - center.x)
+  const endAngle = Math.atan2(end.y - center.y, end.x - center.x)
+  let sweep = endAngle - startAngle
+
+  if (sweepSign >= 0) {
+    while (sweep < 0) {
+      sweep += Math.PI * 2
+    }
+  } else {
+    while (sweep > 0) {
+      sweep -= Math.PI * 2
+    }
+  }
+
+  return {
+    radius: distance(center, start),
+    startAngle,
+    sweep
+  }
+}
+
 export const buildRoundStrokeArcPoints = (
   center: Vec2,
   radius: number,
@@ -110,23 +137,16 @@ export const buildRoundStrokeArcPointsBetween = (
   minSegments = 2,
   options: RoundStrokeArcSamplingOptions = {}
 ) => {
-  const startAngle = Math.atan2(start.y - center.y, start.x - center.x)
-  const endAngle = Math.atan2(end.y - center.y, end.x - center.x)
-  let sweep = endAngle - startAngle
-
-  if (sweepSign >= 0) {
-    while (sweep < 0) {
-      sweep += Math.PI * 2
-    }
-  } else {
-    while (sweep > 0) {
-      sweep -= Math.PI * 2
-    }
-  }
+  const { radius, startAngle, sweep } = resolveRoundStrokeArcSweep(
+    center,
+    start,
+    end,
+    sweepSign
+  )
 
   return buildRoundStrokeArcPoints(
     center,
-    distance(center, start),
+    radius,
     startAngle,
     sweep,
     minSegments,
@@ -134,6 +154,40 @@ export const buildRoundStrokeArcPointsBetween = (
   ).map((point, index, points) =>
     index === 0 ? start : index === points.length - 1 ? end : point
   )
+}
+
+export const getRoundStrokeArcSampleMidpointBetween = (
+  center: Vec2,
+  start: Vec2,
+  end: Vec2,
+  sweepSign: number,
+  minSegments = 2,
+  options: RoundStrokeArcSamplingOptions = {}
+) => {
+  const { radius, startAngle, sweep } = resolveRoundStrokeArcSweep(
+    center,
+    start,
+    end,
+    sweepSign
+  )
+  const segmentCount = getRoundStrokeArcSegmentCount(
+    radius,
+    sweep,
+    minSegments,
+    options
+  )
+  const midpointIndex = Math.floor((segmentCount + 1) / 2)
+  if (midpointIndex <= 0) {
+    return start
+  }
+  if (midpointIndex >= segmentCount) {
+    return end
+  }
+  const angle = startAngle + (sweep * midpointIndex) / segmentCount
+  return {
+    x: center.x + Math.cos(angle) * radius,
+    y: center.y + Math.sin(angle) * radius
+  }
 }
 
 export const perpendicularLeft = (from: Vec2, to: Vec2): Vec2 | null => {

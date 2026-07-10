@@ -9,6 +9,7 @@ import { initPathEditingContinuation } from './derived-state/init-path-editing-c
 import { initFeatures } from './foundation/init-features'
 import { initInputSystem } from './foundation/init-input-system'
 import { elementApis } from '../common-apis/element'
+import { strokeApis } from '../common-apis/strokes'
 
 let exactGeometryBackendReady: Promise<void> = Promise.resolve()
 
@@ -64,7 +65,8 @@ export const initApp = (): void => {
 
   if (import.meta.env.DEV) {
     window.__AsyraE2E__ = {
-      elementApis
+      elementApis,
+      strokeApis
     }
   }
 

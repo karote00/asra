@@ -128,15 +128,38 @@ interface CenterSolidPathMaskVisualStrokeGroup {
   strokes: RenderableStroke[]
 }
 
+const STROKE_PRODUCT_GEOMETRY_PHASE_NAMES = new Set([
+  'constrained dashed packets',
+  'constrained solid diagnostics',
+  'stroke packets',
+  'final faces',
+  'legal domains',
+  'visual overlap collapse'
+])
+
 const measureVectorRenderPhase = <T>(phaseName: string, run: () => T): T => {
-  const sink = (
-    globalThis as typeof globalThis & {
-      __asyraVectorRenderPhaseSink?: (
-        phaseName: string,
-        durationMs: number
-      ) => void
-    }
-  ).__asyraVectorRenderPhaseSink
+  const globalRecord = globalThis as typeof globalThis & {
+    __asyraVectorRenderPhaseSink?: (
+      phaseName: string,
+      durationMs: number
+    ) => void
+    __asyraResolvedVectorGeometryPhaseSink?: (
+      phaseName: string,
+      durationMs: number
+    ) => void
+    __asyraStrokeProductGeometryPhaseSink?: (
+      phaseName: string,
+      durationMs: number
+    ) => void
+  }
+  const diagnosticSink = globalRecord.__asyraVectorRenderPhaseSink
+  const requiredEvidenceSink =
+    phaseName === 'resolved vector geometry model'
+      ? globalRecord.__asyraResolvedVectorGeometryPhaseSink
+      : STROKE_PRODUCT_GEOMETRY_PHASE_NAMES.has(phaseName)
+        ? globalRecord.__asyraStrokeProductGeometryPhaseSink
+        : undefined
+  const sink = diagnosticSink ?? requiredEvidenceSink
   if (!sink) {
     return run()
   }
@@ -1029,6 +1052,8 @@ interface StrokePipelineStageCache {
   products: Map<string, StrokePipelineStageProductCache>
 }
 
+const STROKE_PIPELINE_STAGE_PRODUCT_CACHE_LIMIT = 8
+
 const countCenterSolidPathMaskRenderEntries = (
   entries: SolidCenterStrokeRenderEntry[]
 ) =>
@@ -1086,11 +1111,11 @@ const MAX_OPEN_SEGMENTS = 1200
 const FINAL_PATH_GEOMETRY_OPTIONS: PathGeometryBuildOptions = {
   sampleOptions: {
     minCubicSamples: 12,
-    maxCubicSamples: 160,
+    maxCubicSamples: MAX_FLATTEN_STEPS,
     useRangeLengthForSampleCount: true
   }
 }
-const FINAL_PATH_GEOMETRY_CACHE_KEY = 'final:v2:12:160:range'
+const FINAL_PATH_GEOMETRY_CACHE_KEY = 'final:v3:12:64:range'
 
 const cubicBezierPoint = (
   p0: Vec2,
@@ -2141,7 +2166,7 @@ const buildStrokeProductGeometrySignature = (
     stroke.width.toFixed(4),
     stroke.cap,
     stroke.join,
-    stroke.miterLimit.toFixed(4),
+    stroke.miterAngle.toFixed(4),
     [stroke.dash, stroke.gap].map((value) => value.toFixed(4)).join(',')
   ].join('||')
 }
@@ -2591,10 +2616,13 @@ const renderVectorGraphic = (
     !shouldAttachFullStrokeDiagnostics &&
     fillPayload.length === 0 &&
     singleSolidRenderableStroke &&
+    strokeProductGeometrySignature !== null &&
     cachedProduct &&
     hasCachedProduct
   ) {
     emitStrokePipelineCounter('stroke-stage-cache:product-geometry-hit')
+    stageCache.products.delete(strokeProductGeometrySignature)
+    stageCache.products.set(strokeProductGeometrySignature, cachedProduct)
     const cachedFaces = retintStrokeFinalFaces(
       cachedProduct.finalFaces,
       singleSolidRenderableStroke
@@ -3674,7 +3702,18 @@ const renderVectorGraphic = (
       finalFaces: semanticStrokeFinalFaces,
       renderEntries: strokeRenderEntries
     }
+    stageCache.products.delete(strokeProductGeometrySignature)
     stageCache.products.set(strokeProductGeometrySignature, productCacheEntry)
+    while (
+      stageCache.products.size > STROKE_PIPELINE_STAGE_PRODUCT_CACHE_LIMIT
+    ) {
+      const oldestGeometrySignature = stageCache.products.keys().next().value
+      if (!oldestGeometrySignature) {
+        break
+      }
+      stageCache.products.delete(oldestGeometrySignature)
+      emitStrokePipelineCounter('stroke-stage-cache:product-geometry-evict')
+    }
     graphicCache.__asyraStrokePipelineStageCache = stageCache
     emitStrokePipelineCounter('stroke-stage-cache:product-geometry-store')
   } else {

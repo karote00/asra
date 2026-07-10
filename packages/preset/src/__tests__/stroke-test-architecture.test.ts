@@ -163,7 +163,7 @@ describe('stroke test architecture', () => {
         'packages/preset/src/__tests__/stroke-test-architecture.test.ts',
         'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts',
         'packages/preset/src/__tests__/stroke-flow/step-01-feature-session-intent.test.ts',
-        'packages/preset/src/__tests__/stroke-flow/step-41-runtime-diagnostics.test.ts'
+        'packages/preset/src/__tests__/stroke-flow/step-41-hit-export.test.ts'
       ])
     )
     expect(

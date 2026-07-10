@@ -7,7 +7,8 @@ import {
   clickCanvas,
   getPropertiesPanel,
   getContentsPanel,
-  undo
+  undo,
+  redo
 } from './test-utils'
 
 /**
@@ -413,6 +414,72 @@ test.describe('Property Management', () => {
         dash: 27,
         gap: 21
       })
+  })
+
+  test('should edit every basic stroke geometry parameter with one-step undo and redo', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+
+    const propertiesPanel = getPropertiesPanel(page)
+    await propertiesPanel.getByTestId('prop-stroke-add').click()
+    await page.waitForTimeout(120)
+
+    await propertiesPanel
+      .getByTestId('prop-stroke-position-0')
+      .selectOption('outside')
+    await propertiesPanel
+      .getByTestId('prop-stroke-join-0')
+      .selectOption('miter')
+    await propertiesPanel
+      .getByTestId('prop-stroke-cap-0')
+      .selectOption('square')
+
+    const miterInput = propertiesPanel.getByTestId('prop-stroke-miter-0')
+    const widthInput = propertiesPanel.getByTestId('prop-stroke-width-0')
+    await miterInput.fill('42')
+    await miterInput.press('Enter')
+    await widthInput.fill('18')
+    await widthInput.press('Enter')
+
+    await propertiesPanel
+      .getByTestId('prop-stroke-style-0')
+      .selectOption('dashed')
+    const dashInput = propertiesPanel.getByTestId('prop-stroke-dash-0')
+    const gapInput = propertiesPanel.getByTestId('prop-stroke-gap-0')
+    await dashInput.fill('27')
+    await dashInput.press('Enter')
+
+    const gapBeforeEdit = (await getSelectedStroke(page))?.gap
+    await gapInput.fill('13')
+    await gapInput.press('Enter')
+
+    const expectedStroke = {
+      position: 'outside',
+      width: 18,
+      capType: 'square',
+      joinType: 'miter',
+      miterAngle: 42,
+      style: 'dashed',
+      dash: 27,
+      gap: 13
+    }
+    await expect
+      .poll(() => getSelectedStroke(page))
+      .toMatchObject(expectedStroke)
+
+    await undo(page)
+    await expect
+      .poll(() => getSelectedStroke(page))
+      .toMatchObject({
+        ...expectedStroke,
+        gap: gapBeforeEdit
+      })
+
+    await redo(page)
+    await expect
+      .poll(() => getSelectedStroke(page))
+      .toMatchObject(expectedStroke)
   })
 
   test('should show fills section for selected vector element', async ({

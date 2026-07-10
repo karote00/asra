@@ -538,6 +538,23 @@ describe('resolved vector geometry model', () => {
       })
     })
 
+    const cachedTracedSegments =
+      cachedModel?.networks[0]?.selfIntersecting?.tracedSegments ?? []
+    const fullTracedSegments =
+      fullModel.networks[0]?.selfIntersecting?.tracedSegments ?? []
+    const firstTraceMismatchIndex = cachedTracedSegments.findIndex(
+      (segment, index) =>
+        JSON.stringify(segment) !== JSON.stringify(fullTracedSegments[index])
+    )
+    expect(cachedTracedSegments).toHaveLength(fullTracedSegments.length)
+    expect(
+      firstTraceMismatchIndex,
+      JSON.stringify({
+        cached: cachedTracedSegments[firstTraceMismatchIndex],
+        full: fullTracedSegments[firstTraceMismatchIndex]
+      })
+    ).toBe(-1)
+
     expect(cachedModel?.networks[0]?.selfIntersecting).toEqual(
       fullModel.networks[0]?.selfIntersecting
     )

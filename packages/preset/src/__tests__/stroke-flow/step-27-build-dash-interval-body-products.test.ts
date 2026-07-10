@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { assertStrokeParameterCoverageForStep } from './stroke-parameter-coverage-test-helper'
+import * as constrainedDashedStrokePackets from '../../components/stroke-render/constrained-dashed-stroke-packets'
 import {
   buildDashIntervalBodyProducts,
   type DashIntervalBodyEndpointCapPolicy
@@ -168,7 +169,7 @@ const polygonEdges = (polygon: { x: number; y: number }[]) =>
     (point, index) => [point, polygon[(index + 1) % polygon.length]] as const
   )
 
-const expectSeamBoundaryOnBodyProductBoundary = (
+const expectBoundaryEvidenceOnBodyProductBoundary = (
   product: ReturnType<typeof buildDashIntervalBodyProducts>[number]
 ) => {
   expect(product.seamBoundary).toBeDefined()
@@ -201,22 +202,15 @@ const expectSeamBoundaryOnBodyProductBoundary = (
 }
 
 describe('stroke flow step 27: build-dash-interval-body-products', () => {
-  it('keeps build-dash-interval-body-products as the current or verified twenty-seventh step', () => {
+  it('keeps build-dash-interval-body-products as the twenty-seventh runtime step', () => {
     const data = loadInspectorData()
     const step = data.steps.find(
       (entry) => entry.id === 'build-dash-interval-body-products'
     )
-    const activeSteps = data.steps.filter(
-      (entry) => entry.refactorStatus === 'active'
-    )
 
     expect(data.inspectorContractErrors).toEqual([])
-    expect(step?.refactorStatus).toMatch(/^(active|verified)$/)
-    if (step?.refactorStatus === 'active') {
-      expect(activeSteps.map((entry) => entry.id)).toEqual([
-        'build-dash-interval-body-products'
-      ])
-    }
+    expect(data.steps[26]?.id).toBe('build-dash-interval-body-products')
+    expect(step?.refactorStatus).toMatch(/^(locked|active|verified)$/)
   })
 
   it('declares the exact dashed interval body implementation surface', () => {
@@ -233,11 +227,14 @@ describe('stroke flow step 27: build-dash-interval-body-products', () => {
         'terminal role and cap policy'
       ],
       requiredOutputs: [
-        'pre-legality dash interval body products',
-        'verified dash body seam boundary artifacts for join-owned terminals'
+        'pre-legality dash interval body products encoded as canonical polygons or exact body geometry programs',
+        'dash body boundary evidence required by seam-boundary derivation',
+        'self-contained body materialization spec and initial ConstrainedDashedProductEvidenceEnvelope bodyProductIds'
       ],
       implementationFiles: [
-        'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts'
+        'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/stroke-product-evidence.ts'
       ]
     })
     expect(step?.forbiddenContributors).toEqual(
@@ -249,54 +246,54 @@ describe('stroke flow step 27: build-dash-interval-body-products', () => {
     )
     expect(step?.evidenceRequired).toEqual(
       expect.arrayContaining([
-        'seam boundary id',
-        'outer body boundary endpoint on emitted dash body polygon',
-        'body-side outline segment on emitted dash body polygon'
+        'emitted dash body product boundary id',
+        'candidate outer body boundary endpoint on emitted dash body product boundary',
+        'candidate body-side outline segment on emitted dash body product boundary'
       ])
     )
   })
 
-  it('declares dash body seam boundary as the Step 27 computation output', () => {
+  it('declares dash body products as Step 27 output and leaves seam artifacts to Step 28', () => {
     const data = loadInspectorData()
     const route = routeById(data, 'constrained-dashed-interval-body-product')
 
     expect(route.produces).toEqual(
       expect.arrayContaining([
-        'artifact:constrained-dashed-interval-body-product',
-        'artifact:dash-body-seam-boundary'
+        'artifact:constrained-dashed-interval-body-product'
       ])
     )
+    expect(route.produces).not.toContain('artifact:dash-body-seam-boundary')
     expect(route.cacheKeyInputs).toEqual(
       expect.arrayContaining(['terminal role', 'endpoint cap policy'])
     )
     expect(route.evidenceRequired).toEqual(
       expect.arrayContaining([
-        'verified seam boundary artifact derived from emitted dash body product polygon',
-        'outer body boundary endpoint on dash body product polygon',
-        'body-side outline segment on dash body product polygon'
+        'emitted dash body product boundary id',
+        'candidate outer body boundary endpoint on emitted dash body product boundary',
+        'candidate body-side outline segment on emitted dash body product boundary'
       ])
     )
     expect(route.computationContract).toMatchObject({
       computedAt: 'build-dash-interval-body-products',
       consumesArtifacts: ['artifact:dash-product-interval'],
-      producesArtifacts: [
-        'artifact:constrained-dashed-interval-body-product',
-        'artifact:dash-body-seam-boundary'
-      ],
+      producesArtifacts: ['artifact:constrained-dashed-interval-body-product'],
       consumedBy: [
+        'derive-dash-body-seam-boundaries',
         'build-source-vertex-join-products',
         'build-terminal-body-products',
         'apply-legality'
       ],
-      mustNotRecomputeAfter: 'build-source-vertex-join-products'
+      mustNotRecomputeAfter: 'derive-dash-body-seam-boundaries'
     })
     expect(route.computationContract?.forbiddenLateComputation).toEqual(
       expect.arrayContaining([
         'dash interval endpoint relocation',
-        'dash body seam boundary relocation',
         'endpoint cap suppression reinterpretation',
         'bevel endpoint substitution'
       ])
+    )
+    expect(route.computationContract?.forbiddenLateComputation).not.toContain(
+      'dash body seam boundary relocation'
     )
     expect(route.specRuleRefs).toContain(
       'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#computation-ownership-and-timing-contract'
@@ -356,6 +353,7 @@ describe('stroke flow step 27: build-dash-interval-body-products', () => {
           policySignature: middlePolicy.signature
         }
       ],
+      ownerStepId: 'build-dash-interval-body-products',
       ownerStage: 'Stroke Geometry dashed interval body assembly'
     })
     expect(products[0].polygons).toEqual([bodyPolygon])
@@ -401,7 +399,7 @@ describe('stroke flow step 27: build-dash-interval-body-products', () => {
     })
     expect(products[0].seamBoundary).toEqual(seamBoundary)
     expect(products[0].evidence.seamBoundary).toEqual(seamBoundary)
-    expectSeamBoundaryOnBodyProductBoundary(products[0])
+    expectBoundaryEvidenceOnBodyProductBoundary(products[0])
     expect(products[0].capContributors).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -410,6 +408,443 @@ describe('stroke flow step 27: build-dash-interval-body-products', () => {
       ])
     )
     expectBodyProductOnly(products)
+  })
+
+  it('encodes every terminal body as an exact program with locked join-owned endpoints', () => {
+    const buildProgram = (
+      constrainedDashedStrokePackets as unknown as {
+        buildDashIntervalBodyProductId?: (
+          cachePrefix: string,
+          strokeIndex: number,
+          intervalId: string
+        ) => string
+        buildDashIntervalBodyGeometryProgram?: (input: {
+          bodyProductId: string
+          intervalId: string
+          strokePosition: 'inside'
+          productDomainMode: 'closed-constrained-domain'
+          path: { segments: unknown[]; closed: boolean; totalLength: number }
+          interval: {
+            startDistance: number
+            endDistance: number
+            wrapsSeam: boolean
+            domainPlanTerminalRole: 'start'
+            domainPlanSplitRangeSourceSegmentIndex: number
+          }
+          endpointCapPolicy: DashIntervalBodyEndpointCapPolicy
+          slicingContext: {
+            segmentRanges: {
+              index: number
+              startDistance: number
+              endDistance: number
+            }[]
+          }
+          legalSideId: string
+          legalDomainId: string
+          authoredStrokeWidth: number
+          materializationStyle: {
+            width: number
+            cap: 'round'
+            join: 'miter'
+            miterAngle: number
+            miterLimit: number
+            closed: false
+          }
+        }) => Record<string, unknown>
+      }
+    )
+    const buildProductId = buildProgram.buildDashIntervalBodyProductId
+    const buildGeometryProgram =
+      buildProgram.buildDashIntervalBodyGeometryProgram
+
+    expect(buildProductId).toBeTypeOf('function')
+    expect(buildGeometryProgram).toBeTypeOf('function')
+    if (!buildProductId || !buildGeometryProgram) {
+      return
+    }
+
+    const bodyProductId = buildProductId(
+      'runtime-path',
+      2,
+      'interval:terminal-start'
+    )
+    expect(bodyProductId).toBe(
+      'runtime-path:2:interval:terminal-start:body-program'
+    )
+    const sourceLineSegment = {
+      type: 'line' as const,
+      start: { x: 0, y: 0 },
+      end: { x: 12, y: 0 },
+      length: 12,
+      startAnchorType: 'smooth' as const,
+      endAnchorType: 'smooth' as const
+    }
+    const program = buildGeometryProgram({
+      bodyProductId,
+      intervalId: 'interval:terminal-start',
+      strokePosition: 'inside',
+      productDomainMode: 'closed-constrained-domain',
+      path: {
+        segments: [sourceLineSegment],
+        closed: false,
+        totalLength: 12
+      },
+      interval: {
+        startDistance: 0,
+        endDistance: 12,
+        wrapsSeam: false,
+        domainPlanTerminalRole: 'start',
+        domainPlanSplitRangeSourceSegmentIndex: 0
+      },
+      endpointCapPolicy: joinOwnedStartPolicy,
+      slicingContext: {
+        segmentRanges: [{ index: 0, startDistance: 0, endDistance: 12 }]
+      },
+      legalSideId: 'legal-side:inside',
+      legalDomainId: 'legal-domain:face-1',
+      authoredStrokeWidth: 8,
+      materializationStyle: {
+        width: 16,
+        cap: 'round',
+        join: 'miter',
+        miterAngle: 30,
+        miterLimit: 2,
+        closed: false
+      }
+    })
+
+    expect(program).toMatchObject({
+      bodyProductId,
+      intervalId: 'interval:terminal-start',
+      strokePosition: 'inside',
+      productDomainMode: 'closed-constrained-domain',
+      geometryEncodingMode: 'exact-body-geometry-program',
+      terminalRole: 'start',
+      endpointLocks: { start: true, end: false },
+      slicingContext: {
+        segmentRanges: [{ index: 0, startDistance: 0, endDistance: 12 }]
+      },
+      legalSideId: 'legal-side:inside',
+      legalDomainId: 'legal-domain:face-1',
+      authoredStrokeWidth: 8,
+      materializationStyle: {
+        width: 16,
+        cap: 'round',
+        join: 'miter',
+        miterAngle: 30,
+        miterLimit: 2,
+        closed: false
+      },
+      interval: expect.objectContaining({
+        domainPlanSplitRangeSourceSegmentIndex: 0
+      }),
+      rawCurveEvidence: {
+        coveredSourceSegments: [
+          {
+            sourceSegmentIndex: 0,
+            segmentType: 'line',
+            startAnchorType: 'smooth',
+            endAnchorType: 'smooth',
+            startTangent: { x: 1, y: 0 },
+            endTangent: { x: 1, y: 0 }
+          }
+        ]
+      },
+      productEvidenceEnvelope: {
+        bodyProductIds: [bodyProductId],
+        terminalOwnershipOverlays: [],
+        smoothContinuityOwnershipOverlays: []
+      },
+      ownerStepId: 'build-dash-interval-body-products',
+      ownerStage: 'Stroke Geometry dashed interval body assembly'
+    })
+    expect(program).not.toHaveProperty('suppressProductGeometry')
+    expect(program).not.toHaveProperty('polygons')
+    expect(program).not.toHaveProperty('paint')
+  })
+
+  it('makes endpoint cap policy mandatory on every completed body program', () => {
+    const source = readFileSync(constrainedDashedSourcePath, 'utf8')
+    const programContractSource = extractBetween(
+      source,
+      'export interface DashIntervalBodyGeometryProgram {',
+      'export const buildDashIntervalBodyProductId = ('
+    )
+    const programBuilderSource = extractBetween(
+      source,
+      'export const buildDashIntervalBodyGeometryProgram = (',
+      'export interface DashIntervalBodyGeometryProgramBatchItem'
+    )
+
+    expect(programContractSource).toContain(
+      'endpointCapPolicy: DashEndpointCapPolicy'
+    )
+    expect(programContractSource).not.toContain(
+      'endpointCapPolicy?: DashEndpointCapPolicy'
+    )
+    expect(programBuilderSource).toContain(
+      'const endpointCapPolicy = input.endpointCapPolicy'
+    )
+    expect(programBuilderSource).toContain(
+      'terminalRole: endpointCapPolicy.terminalRole'
+    )
+    expect(programBuilderSource).toContain(
+      'start: endpointCapPolicy.suppressStartCap'
+    )
+    expect(programBuilderSource).toContain(
+      'end: endpointCapPolicy.suppressEndCap'
+    )
+    expect(programBuilderSource).not.toContain('endpointCapPolicy?.')
+  })
+
+  it('preserves complete interval and legal-domain provenance on the exact body program', () => {
+    const source = readFileSync(constrainedDashedSourcePath, 'utf8')
+    const programContractSource = extractBetween(
+      source,
+      'export interface DashIntervalBodyGeometryProgram {',
+      'export const buildDashIntervalBodyProductId = ('
+    )
+    const batchBuilderSource = extractBetween(
+      source,
+      'export const buildDashIntervalBodyGeometryProgramBatch = (',
+      'export interface ExactDashBodyProgramSeamBoundaryArtifact'
+    )
+    const activeProgramMapSource = extractBetween(
+      source,
+      'const dashBodyGeometryProgramsByIntervalId =',
+      'const shouldBuildSourceVertexBoundaryJoinProducts ='
+    )
+
+    expect(programContractSource).toContain('intervalId: string')
+    expect(programContractSource).toContain(
+      "strokePosition: 'inside' | 'outside'"
+    )
+    expect(programContractSource).toContain(
+      'productDomainMode: StrokeDomainMode'
+    )
+    for (const field of [
+      'domainPlanSplitRangeAliasIds',
+      'domainPlanSideAuthority',
+      'domainPlanFilledSide',
+      'domainPlanUnfilledSide',
+      'domainPlanBoundaryRole',
+      'domainPlanSideResolutionStatus',
+      'domainPlanSideResolutionReason'
+    ]) {
+      expect(programContractSource).toContain(field)
+      expect(activeProgramMapSource).toMatch(
+        new RegExp(`${field}:\\s*interval\\.${field}`)
+      )
+    }
+    expect(batchBuilderSource).toMatch(
+      /buildDashIntervalBodyGeometryProgram\(\{[\s\S]*?intervalId,[\s\S]*?bodyProductId:/
+    )
+    expect(activeProgramMapSource).toContain(
+      'strokePosition: constrainedStrokePosition'
+    )
+    expect(activeProgramMapSource).toContain('productDomainMode,')
+    expect(activeProgramMapSource).toContain(
+      'const selectedSide = canUseSourceDomainProgram'
+    )
+    expect(activeProgramMapSource).toContain(
+      'getBoundaryDomainMaterializedSelectedSide(interval)'
+    )
+  })
+
+  it('builds one owner-indexed exact body program batch before downstream product owners run', () => {
+    const buildProgramBatch = (
+      constrainedDashedStrokePackets as unknown as {
+        buildDashIntervalBodyGeometryProgramBatch?: (input: {
+          cachePrefix: string
+          strokeIndex: number
+          items: {
+            intervalId: string
+            strokePosition: 'inside'
+            productDomainMode: 'closed-constrained-domain'
+            path: { segments: never[]; closed: boolean; totalLength: number }
+            interval: {
+              startDistance: number
+              endDistance: number
+              wrapsSeam: boolean
+              domainPlanTerminalRole: 'middle'
+            }
+            endpointCapPolicy: DashIntervalBodyEndpointCapPolicy
+            slicingContext: { segmentRanges: never[] }
+            legalSideId: string
+            legalDomainId: string
+            authoredStrokeWidth: number
+            materializationStyle: {
+              width: number
+              cap: 'butt'
+              join: 'bevel'
+              miterAngle: number
+              miterLimit: number
+              closed: false
+            }
+          }[]
+        }) => Map<string, Record<string, unknown>>
+      }
+    ).buildDashIntervalBodyGeometryProgramBatch
+
+    expect(buildProgramBatch).toBeTypeOf('function')
+    if (!buildProgramBatch) {
+      return
+    }
+
+    const programs = buildProgramBatch({
+      cachePrefix: 'runtime-batch',
+      strokeIndex: 3,
+      items: [
+        {
+          intervalId: 'interval:body-1',
+          strokePosition: 'inside',
+          productDomainMode: 'closed-constrained-domain',
+          path: { segments: [], closed: false, totalLength: 18 },
+          interval: {
+            startDistance: 2,
+            endDistance: 14,
+            wrapsSeam: false,
+            domainPlanTerminalRole: 'middle'
+          },
+          endpointCapPolicy: middlePolicy,
+          slicingContext: { segmentRanges: [] },
+          legalSideId: 'legal-side:inside',
+          legalDomainId: 'legal-domain:face-1',
+          authoredStrokeWidth: 6,
+          materializationStyle: {
+            width: 12,
+            cap: 'butt',
+            join: 'bevel',
+            miterAngle: 45,
+            miterLimit: 1.5,
+            closed: false
+          }
+        },
+        {
+          intervalId: 'interval:body-1',
+          strokePosition: 'inside',
+          productDomainMode: 'closed-constrained-domain',
+          path: { segments: [], closed: false, totalLength: 18 },
+          interval: {
+            startDistance: 2,
+            endDistance: 14,
+            wrapsSeam: false,
+            domainPlanTerminalRole: 'middle'
+          },
+          endpointCapPolicy: middlePolicy,
+          slicingContext: { segmentRanges: [] },
+          legalSideId: 'legal-side:inside',
+          legalDomainId: 'legal-domain:face-1',
+          authoredStrokeWidth: 6,
+          materializationStyle: {
+            width: 12,
+            cap: 'butt',
+            join: 'bevel',
+            miterAngle: 45,
+            miterLimit: 1.5,
+            closed: false
+          }
+        }
+      ]
+    })
+
+    expect([...programs.keys()]).toEqual(['interval:body-1'])
+    expect(programs.get('interval:body-1')).toMatchObject({
+      bodyProductId: 'runtime-batch:3:interval:body-1:body-program',
+      intervalId: 'interval:body-1',
+      strokePosition: 'inside',
+      productDomainMode: 'closed-constrained-domain',
+      geometryEncodingMode: 'exact-body-geometry-program',
+      authoredStrokeWidth: 6,
+      materializationStyle: expect.objectContaining({ width: 12 }),
+      productEvidenceEnvelope: {
+        bodyProductIds: [
+          'runtime-batch:3:interval:body-1:body-program'
+        ],
+        terminalOwnershipOverlays: [],
+        smoothContinuityOwnershipOverlays: []
+      },
+      ownerStepId: 'build-dash-interval-body-products'
+    })
+  })
+
+  it('creates the active Step 27 body-program batch before Step 29 join planning', () => {
+    const source = readFileSync(constrainedDashedSourcePath, 'utf8')
+    const activeFamilyRuntime = extractBetween(
+      source,
+      'const insideAggregateDescriptorCandidateIntervals =',
+      'const insideAggregateDescriptorPacket ='
+    )
+
+    expect(activeFamilyRuntime).toContain(
+      'const dashBodyGeometryProgramsByIntervalId ='
+    )
+    expect(activeFamilyRuntime.indexOf('dashBodyGeometryProgramsByIntervalId')).toBeLessThan(
+      activeFamilyRuntime.indexOf('const sourceVertexBoundaryTerminalRecords =')
+    )
+    const bodyProgramBatch = extractBetween(
+      activeFamilyRuntime,
+      'const dashBodyGeometryProgramsByIntervalId =',
+      'const shouldBuildSourceVertexBoundaryJoinProducts ='
+    )
+    expect(bodyProgramBatch).toContain(
+      'domainPlanSplitRangeSourceSegmentIndex:'
+    )
+    expect(bodyProgramBatch).toContain(
+      'authoredStrokeWidth: stroke.width'
+    )
+    expect(bodyProgramBatch).toContain('materializationStyle:')
+    expect(bodyProgramBatch).toContain(
+      'const canUseSourceDomainProgram ='
+    )
+    expect(bodyProgramBatch).toContain(
+      'resolveSourceDomainIntervalForMaterializationWithSourceGeometry('
+    )
+    expect(bodyProgramBatch).not.toContain(
+      'projectPointToSourceSegmentDistance('
+    )
+  })
+
+  it('preserves the Step 27 bodyProductId on active single-body packet materialization', () => {
+    const source = readFileSync(constrainedDashedSourcePath, 'utf8')
+    const intervalMaterialization = extractBetween(
+      source,
+      'const materializedIntervalPackets =',
+      'const packetAssembly ='
+    )
+
+    expect(intervalMaterialization).toContain(
+      'dashBodyGeometryProgramsWithSmoothContinuityByIntervalId.get('
+    )
+    expect(intervalMaterialization).toContain('interval.intervalId')
+    expect(intervalMaterialization).toContain(
+      'const geometryId = bodyProgram.bodyProductId'
+    )
+    expect(intervalMaterialization).toContain(
+      'productEvidenceEnvelope: bodyProgram.productEvidenceEnvelope'
+    )
+  })
+
+  it('hands completed terminal body programs to aggregate descriptor materialization', () => {
+    const source = readFileSync(constrainedDashedSourcePath, 'utf8')
+    const insideAggregateAssembly = extractBetween(
+      source,
+      'const insideAggregateDescriptorPacket =',
+      'const outsideAggregateDescriptorPackets ='
+    )
+    const descriptorItemAssembly = extractBetween(
+      insideAggregateAssembly,
+      'const descriptorItems:',
+      'if (!descriptorItemsReady) {'
+    )
+
+    expect(descriptorItemAssembly).toContain(
+      'dashBodyGeometryProgramsWithSmoothContinuityByIntervalId.get('
+    )
+    expect(descriptorItemAssembly).not.toContain(
+      'buildDashIntervalBodyGeometryProgram('
+    )
+    expect(descriptorItemAssembly).not.toContain('suppressProductGeometry')
   })
 
   it('does not emit fallback products for empty body coverage or duplicate interval paint', () => {

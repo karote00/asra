@@ -9,7 +9,8 @@ import { describe, expect, it } from 'vitest'
 import {
   buildDashIntervalBodyProducts,
   buildSmoothContinuityProducts,
-  buildTerminalBodyProducts
+  buildTerminalBodyProducts,
+  deriveDashBodySeamBoundaryArtifacts
 } from '../../components/stroke-render/constrained-dashed-stroke-packets'
 import { buildConstrainedSolidDoubledCenterProductUnits } from '../../components/stroke-render/constrained-solid-stroke-packets'
 import { allocateStrokeIntervalsForDomainPlan } from '../../components/stroke-render/dashed-center-stroke-intervals'
@@ -222,7 +223,7 @@ describe('formal stroke geometry oracle: constrained product families', () => {
     expect(JSON.stringify(unit)).not.toContain('strokeMaskPolygons')
   })
 
-  it('keeps dash bodies, terminal bodies, and smooth-continuity products in separate owner classes', () => {
+  it('keeps constrained dashed body, terminal, and smooth ownership in separate visible and evidence classes', () => {
     const [body] = buildDashIntervalBodyProducts({
       productFamilyId: 'constrained-dashed',
       cachePrefix: 'oracle:dash-body',
@@ -254,50 +255,83 @@ describe('formal stroke geometry oracle: constrained product families', () => {
         }
       ]
     })
-    const [terminal] = buildTerminalBodyProducts({
+    const terminalPolicy = {
+      ...endpointCapPolicy,
+      terminalRole: 'start' as const,
+      signature: 'cap-policy:start-join-owned'
+    }
+    const [terminalBody] = buildDashIntervalBodyProducts({
       productFamilyId: 'constrained-dashed',
-      cachePrefix: 'oracle:terminal',
+      cachePrefix: 'oracle:terminal-body',
       legalSideId: 'legal:outside',
       intervals: [
         {
           intervalId: 'interval:terminal',
           kind: 'visible',
+          splitRangeId: 'split:terminal',
           seamBoundaryId: 'seam:terminal',
           terminalRole: 'start',
-          endpointCapPolicy: {
-            ...endpointCapPolicy,
+          endpointCapPolicy: terminalPolicy,
+          seamBoundary: {
+            seamBoundaryId: 'seam:terminal',
+            intervalId: 'interval:terminal',
+            splitRangeId: 'split:terminal',
+            side: 'previous',
+            point: bodyPolygon[0],
+            outerBodyBoundaryEndpoint: bodyPolygon[0],
+            outerBodyBoundaryVertices: bodyPolygon,
+            bodySideOutlineSegment: [bodyPolygon[0], bodyPolygon[1]],
+            bodySideTangent: { x: 1, y: 0 },
+            selectedSide: 'left',
             terminalRole: 'start',
-            signature: 'cap-policy:start-join-owned'
+            endpointCapPolicySignature: terminalPolicy.signature,
+            capSuppressed: true
           },
-          joinOwnershipSignature: 'join-owner:source-vertex',
-          bodyPolygons: [bodyPolygon]
-        },
-        {
-          intervalId: 'interval:middle',
-          kind: 'visible',
-          seamBoundaryId: 'seam:middle',
-          terminalRole: 'middle',
-          endpointCapPolicy,
-          joinOwnershipSignature: 'join-owner:none',
           bodyPolygons: [bodyPolygon]
         }
       ]
     })
+    const [terminalSeamBoundary] = deriveDashBodySeamBoundaryArtifacts([
+      terminalBody
+    ])
+    const [terminal] = buildTerminalBodyProducts({
+      productFamilyId: 'constrained-dashed',
+      cachePrefix: 'oracle:terminal',
+      bindings: [
+        {
+          bodyProduct: terminalBody,
+          seamBoundary: terminalSeamBoundary,
+          joinOwnershipSignature: 'join-owner:source-vertex'
+        }
+      ]
+    })
     const [smooth] = buildSmoothContinuityProducts({
+      productFamilyId: 'constrained-dashed',
       cachePrefix: 'oracle:smooth',
-      legalSideId: 'legal:outside',
       groups: [
         {
           smoothContinuityGroupId: 'smooth:continuous',
-          dashIntervalIds: ['interval:a'],
-          splitRangeIds: ['split:a'],
+          dashIntervalIds: [body.intervalId],
+          splitRangeIds: [],
+          referencedBodyProducts: [
+            {
+              bodyProductId: body.productId,
+              intervalId: body.intervalId,
+              ownerStepId: 'build-dash-interval-body-products'
+            }
+          ],
           tangentContinuityProof: {
             continuous: true,
             previousTangent: { x: 1, y: 0 },
             nextTangent: { x: 1, y: 0 },
             tolerance: 0.000001
           },
-          footprintPolygons: [bodyPolygon]
+          curveOffsetOuterBoundaryProof: {
+            evidenceId: 'curve-offset-proof:constrained-owner-classes',
+            basis: 'authored-source-curve-offset-at-stroke-width',
+            strokeWidth: 8,
+            verified: true
+          }
         }
       ]
     })
@@ -309,21 +343,53 @@ describe('formal stroke geometry oracle: constrained product families', () => {
       ownerStage: 'Stroke Geometry dashed interval body assembly'
     })
     expect(terminal).toMatchObject({
-      productMode: 'pre-legality-terminal-body',
-      visibleContributor: 'terminal-interval-body',
-      materializationKind: 'terminal-body',
+      recordKind: 'terminal-body-ownership-overlay',
+      channel: 'evidence',
+      visibleContributor: 'none-non-visible-ownership-overlay',
+      geometryBasis: 'terminal-body-ownership-overlay',
+      bodyProductId: terminalBody.productId,
       joinOwnershipSignature: 'join-owner:source-vertex',
-      ownerStage: 'Stroke Geometry terminal body assembly'
+      ownerStage: 'Stroke Geometry terminal body ownership binding',
+      evidence: {
+        zeroVisibleContribution: true
+      }
     })
+    for (const forbiddenField of [
+      'productId',
+      'polygons',
+      'bounds',
+      'strokePaths',
+      'paint',
+      'capContributors'
+    ]) {
+      expect(terminal).not.toHaveProperty(forbiddenField)
+    }
     expect(smooth).toMatchObject({
-      productMode: 'pre-legality-smooth-continuity-product',
-      visibleContributor: 'smooth-continuity-dash-body',
-      materializationKind: 'smooth-continuity-product',
-      geometryBasis: 'single-continuous-smooth-footprint',
-      ownerStage: 'Stroke Geometry smooth-continuity product assembly'
+      recordKind: 'smooth-continuity-ownership-overlay',
+      channel: 'evidence',
+      visibleContributor: 'none-non-visible-ownership-overlay',
+      geometryBasis: 'smooth-continuity-ownership-overlay',
+      bodyProductIds: [body.productId],
+      ownerStage: 'Stroke Geometry smooth-continuity ownership binding',
+      evidence: {
+        zeroVisibleContribution: true
+      }
     })
-    expect(JSON.stringify([body, terminal, smooth])).not.toContain('bridge')
-    expect(JSON.stringify([body, terminal, smooth])).not.toContain(
+    for (const overlay of [terminal, smooth]) {
+      for (const forbiddenField of [
+        'productId',
+        'polygons',
+        'bounds',
+        'strokePaths',
+        'paint'
+      ]) {
+        expect(overlay).not.toHaveProperty(forbiddenField)
+      }
+    }
+    expect(
+      JSON.stringify([body, terminalBody, terminal, smooth])
+    ).not.toContain('bridge')
+    expect(JSON.stringify([body, terminalBody, terminal, smooth])).not.toContain(
       'source-vertex-join'
     )
   })

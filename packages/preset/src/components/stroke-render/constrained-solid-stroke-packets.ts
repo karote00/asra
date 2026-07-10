@@ -110,6 +110,7 @@ export interface ConstrainedSolidDoubledCenterProductUnit {
   strokePosition: 'inside' | 'outside'
   sourceStrokeWidth: number
   doubledCenterStrokeWidth: number
+  ownerStepId: 'build-constrained-solid-products'
   ownerStage: 'Stroke Geometry constrained solid product assembly'
   debugMeta: {
     sourcePathId: string
@@ -180,21 +181,23 @@ const measureConstrainedSolidPhase = <T>(
   phaseName: string,
   run: () => T
 ): T => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraVectorRenderDetailPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraVectorRenderDetailPhaseSink
+  if (!sink) {
+    return run()
+  }
+
   const start = performance.now()
   try {
     return run()
   } finally {
-    ;(
-      globalThis as typeof globalThis & {
-        __asyraVectorRenderPhaseSink?: (
-          phaseName: string,
-          durationMs: number
-        ) => void
-      }
-    ).__asyraVectorRenderPhaseSink?.(
-      `constrained-solid:${phaseName}`,
-      performance.now() - start
-    )
+    sink(`constrained-solid:${phaseName}`, performance.now() - start)
   }
 }
 
@@ -5298,6 +5301,7 @@ export const buildConstrainedSolidDoubledCenterProductUnits = ({
         strokePosition,
         sourceStrokeWidth: stroke.width,
         doubledCenterStrokeWidth,
+        ownerStepId: 'build-constrained-solid-products',
         ownerStage: 'Stroke Geometry constrained solid product assembly',
         debugMeta: {
           sourcePathId: cachePrefix,

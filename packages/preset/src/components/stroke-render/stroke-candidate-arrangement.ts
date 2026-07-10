@@ -24,6 +24,7 @@ import {
   type StrokeOwnerKey
 } from './stroke-final-face'
 import { pushUniqueStrokeOwner } from './stroke-ownership'
+import type { ConstrainedDashedProductEvidenceEnvelope } from './stroke-product-evidence'
 
 interface Vec2 {
   x: number
@@ -100,12 +101,12 @@ const emitStrokePipelineCounter = (counterName: string, value = 1) => {
 const measureVectorRenderPhase = <T>(phaseName: string, run: () => T): T => {
   const sink = (
     globalThis as typeof globalThis & {
-      __asyraVectorRenderPhaseSink?: (
+      __asyraVectorRenderDetailPhaseSink?: (
         phaseName: string,
         durationMs: number
       ) => void
     }
-  ).__asyraVectorRenderPhaseSink
+  ).__asyraVectorRenderDetailPhaseSink
   if (!sink) {
     return run()
   }
@@ -693,7 +694,10 @@ const getBackendCacheGroup = <T>(
 const collectMergedFaceMetadata = (faces: ArrangedStrokeFinalFace[]) => {
   const sourceGeometryIds: string[] = []
   const ownerSet: StrokeOwnerKey[] = []
+  const ownerStepIds: string[] = []
   const intervalIds: string[] = []
+  const terminalRoles: ('start' | 'end' | 'start-end' | 'middle')[] = []
+  const seamBoundaryIds: string[] = []
   const sourceSpanIds: string[] = []
   const sourceNetworkIds: string[] = []
   const sourceContourIds: string[] = []
@@ -717,7 +721,10 @@ const collectMergedFaceMetadata = (faces: ArrangedStrokeFinalFace[]) => {
   faces.forEach((face) => {
     face.sourceGeometryIds.forEach((id) => pushUnique(sourceGeometryIds, id))
     face.ownerSet.forEach((owner) => pushUniqueStrokeOwner(ownerSet, owner))
+    face.ownerStepIds.forEach((id) => pushUnique(ownerStepIds, id))
     face.intervalIds.forEach((id) => pushUnique(intervalIds, id))
+    face.terminalRoles.forEach((role) => pushUnique(terminalRoles, role))
+    face.seamBoundaryIds.forEach((id) => pushUnique(seamBoundaryIds, id))
     face.sourceSpanIds.forEach((id) => pushUnique(sourceSpanIds, id))
     ;(face.sourceNetworkIds ?? []).forEach((id) =>
       pushUnique(sourceNetworkIds, id)
@@ -789,7 +796,10 @@ const collectMergedFaceMetadata = (faces: ArrangedStrokeFinalFace[]) => {
   return {
     sourceGeometryIds,
     ownerSet,
+    ownerStepIds,
     intervalIds,
+    terminalRoles,
+    seamBoundaryIds,
     sourceSpanIds,
     sourceNetworkIds,
     sourceContourIds,
@@ -1234,7 +1244,10 @@ const mergeArrangedFaceGroup = (
   const {
     sourceGeometryIds,
     ownerSet,
+    ownerStepIds,
     intervalIds,
+    terminalRoles,
+    seamBoundaryIds,
     sourceSpanIds,
     sourceNetworkIds,
     sourceContourIds,
@@ -1250,6 +1263,11 @@ const mergeArrangedFaceGroup = (
     'arranged-face',
     `${arrangementFace.faceId}|${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`
   )
+  const renderDescriptor = group.faces.every(
+    (face) => face.renderDescriptor === primaryFace.renderDescriptor
+  )
+    ? primaryFace.renderDescriptor
+    : undefined
 
   return {
     faceId,
@@ -1260,11 +1278,15 @@ const mergeArrangedFaceGroup = (
     paintKey: primaryFace.paintKey,
     strokeSpecKey: primaryFace.strokeSpecKey,
     ownerSet,
+    ownerStepIds,
     intervalIds,
+    terminalRoles,
+    seamBoundaryIds,
     sourceSpanIds,
     sourceNetworkIds,
     sourceContourIds,
     legalDomainIds,
+    renderDescriptor,
     debugMeta: {
       ...primaryFace.debugMeta,
       productMode: primaryFace.debugMeta?.productMode,
@@ -1274,6 +1296,9 @@ const mergeArrangedFaceGroup = (
       arrangementFaceId: arrangementFace.faceId,
       arrangementCandidateIds: candidateIds,
       arrangementLegalState: arrangementFace.legalState,
+      ownerStepIds,
+      terminalRoles,
+      seamBoundaryIds,
       domainPlanSplitRangeTerminals
     },
     paint: primaryFace.paint
@@ -2511,11 +2536,22 @@ export type StrokeLegalityRoute =
   | 'outside-exterior-clip'
   | 'missing-legal-domain'
 
+export type StrokeProductOwnerStepId =
+  | 'build-center-stroke-products'
+  | 'build-constrained-solid-products'
+  | 'build-dash-interval-body-products'
+  | 'build-source-vertex-join-products'
+  | 'build-terminal-body-products'
+  | 'build-smooth-continuity-products'
+  | 'select-stroke-descriptor-strategy'
+
 export interface StrokeLegalityProductPacket {
   productId: string
   productMode: string
+  ownerStepId: StrokeProductOwnerStepId
   ownerStage: string
   polygons: Vec2[][]
+  productEvidenceEnvelope?: ConstrainedDashedProductEvidenceEnvelope
 }
 
 export interface StrokeLegalityDiagnostic {
@@ -2528,11 +2564,24 @@ export interface ApplyStrokeProductLegalityInput {
   legalityRoute: StrokeLegalityRoute
   legalDomainIds: string[]
   contourIds: string[]
-  clippedProductPolygons?: Vec2[][]
-  clipPolygons?: Vec2[][]
-  fillClipPolygons?: Vec2[][]
-  fillExcludePolygons?: Vec2[][]
-  descriptorEvidencePolygons?: Vec2[][]
+  productResults?: StrokePerProductLegalityResult[]
+}
+
+type StrokeLegalityEvidenceChannelName =
+  | 'clipPolygons'
+  | 'fillClipPolygons'
+  | 'fillExcludePolygons'
+  | 'descriptorEvidencePolygons'
+
+type StrokeLegalityEvidenceChannels = Partial<
+  Record<StrokeLegalityEvidenceChannelName, Vec2[][]>
+>
+
+export interface StrokePerProductLegalityResult {
+  sourceProductId: string
+  visiblePolygons: Vec2[][]
+  deleteReason?: string
+  evidenceChannels?: StrokeLegalityEvidenceChannels
 }
 
 export interface StrokeLegalityAppliedProduct {
@@ -2540,36 +2589,38 @@ export interface StrokeLegalityAppliedProduct {
   sourceProductId: string
   productMode: 'post-legality-product'
   sourceProductMode: string
+  ownerStepId: 'apply-legality'
   ownerStage: 'Stroke Geometry legality clipping'
+  sourceOwnerStepId: StrokeProductOwnerStepId
   sourceOwnerStage: string
   legalityRoute: StrokeLegalityRoute
   legalDomainIds: string[]
   contourIds: string[]
   visiblePolygons: Vec2[][]
-  evidenceChannels: Partial<
-    Record<
-      | 'clipPolygons'
-      | 'fillClipPolygons'
-      | 'fillExcludePolygons'
-      | 'descriptorEvidencePolygons',
-      Vec2[][]
-    >
-  >
+  evidenceChannels: StrokeLegalityEvidenceChannels
   channelSeparation: {
     visible: 'legality-clipped-product-polygons'
     evidence: string[]
   }
   diagnostics: StrokeLegalityDiagnostic[]
+  productEvidenceEnvelope?: ConstrainedDashedProductEvidenceEnvelope
 }
 
-const setLegalityEvidenceChannel = (
-  evidenceChannels: StrokeLegalityAppliedProduct['evidenceChannels'],
-  name: keyof StrokeLegalityAppliedProduct['evidenceChannels'],
-  polygons: Vec2[][] | undefined
-) => {
-  if (polygons && polygons.length > 0) {
-    evidenceChannels[name] = polygons
-  }
+export interface StrokeLegalityDeleteRecord {
+  sourceProductId: string
+  sourceOwnerStepId: StrokeProductOwnerStepId
+  ownerStepId: 'apply-legality'
+  ownerStage: 'Stroke Geometry legality clipping'
+  legalityRoute: StrokeLegalityRoute
+  legalDomainIds: string[]
+  deleteReason: string
+  bodyProductIds?: readonly string[]
+  affectedOverlayIds?: readonly string[]
+}
+
+export interface ApplyStrokeProductLegalityOutput {
+  products: StrokeLegalityAppliedProduct[]
+  deletions: StrokeLegalityDeleteRecord[]
 }
 
 const getStrokeLegalityDiagnostics = (
@@ -2584,57 +2635,93 @@ const getStrokeLegalityDiagnostics = (
       ]
     : []
 
-const getStrokeLegalityVisiblePolygons = (
-  packet: StrokeLegalityProductPacket,
-  input: ApplyStrokeProductLegalityInput
-) =>
-  input.clippedProductPolygons && input.clippedProductPolygons.length > 0
-    ? input.clippedProductPolygons
-    : packet.polygons
+const shouldPreserveProductWithoutResult = (route: StrokeLegalityRoute) =>
+  route === 'center-bypass' || route === 'missing-legal-domain'
+
+const getPerProductLegalityResult = (
+  input: ApplyStrokeProductLegalityInput,
+  sourceProductId: string
+) => {
+  const matches = (input.productResults ?? []).filter(
+    (result) => result.sourceProductId === sourceProductId
+  )
+  return matches.length === 1 ? matches[0] : null
+}
 
 export const applyStrokeProductLegality = (
   input: ApplyStrokeProductLegalityInput
-): StrokeLegalityAppliedProduct[] =>
-  input.productPackets.map((packet) => {
-    const evidenceChannels: StrokeLegalityAppliedProduct['evidenceChannels'] =
-      {}
-    setLegalityEvidenceChannel(
-      evidenceChannels,
-      'clipPolygons',
-      input.clipPolygons
-    )
-    setLegalityEvidenceChannel(
-      evidenceChannels,
-      'fillClipPolygons',
-      input.fillClipPolygons
-    )
-    setLegalityEvidenceChannel(
-      evidenceChannels,
-      'fillExcludePolygons',
-      input.fillExcludePolygons
-    )
-    setLegalityEvidenceChannel(
-      evidenceChannels,
-      'descriptorEvidencePolygons',
-      input.descriptorEvidencePolygons
-    )
+): ApplyStrokeProductLegalityOutput => {
+  const products: StrokeLegalityAppliedProduct[] = []
+  const deletions: StrokeLegalityDeleteRecord[] = []
 
-    return {
+  input.productPackets.forEach((packet) => {
+    const productResult = getPerProductLegalityResult(input, packet.productId)
+    const preserveWithoutResult = shouldPreserveProductWithoutResult(
+      input.legalityRoute
+    )
+    const visiblePolygons = preserveWithoutResult
+      ? (productResult?.visiblePolygons ?? packet.polygons)
+      : (productResult?.visiblePolygons ?? [])
+    const deleteReason =
+      productResult?.deleteReason ??
+      (visiblePolygons.length === 0
+        ? productResult
+          ? 'empty-after-legal-clip'
+          : 'missing-per-product-legality-result'
+        : null)
+
+    if (deleteReason) {
+      const productEvidenceEnvelope = packet.productEvidenceEnvelope
+      deletions.push({
+        sourceProductId: packet.productId,
+        sourceOwnerStepId: packet.ownerStepId,
+        ownerStepId: 'apply-legality',
+        ownerStage: 'Stroke Geometry legality clipping',
+        legalityRoute: input.legalityRoute,
+        legalDomainIds: input.legalDomainIds,
+        deleteReason,
+        ...(productEvidenceEnvelope
+          ? {
+              bodyProductIds: productEvidenceEnvelope.bodyProductIds,
+              affectedOverlayIds: [
+                ...productEvidenceEnvelope.terminalOwnershipOverlays.map(
+                  (overlay) => overlay.overlayId
+                ),
+                ...productEvidenceEnvelope.smoothContinuityOwnershipOverlays.map(
+                  (overlay) => overlay.overlayId
+                )
+              ]
+            }
+          : {})
+      })
+      return
+    }
+
+    const evidenceChannels = productResult?.evidenceChannels ?? {}
+    products.push({
       productId: `${packet.productId}:post-legality`,
       sourceProductId: packet.productId,
       productMode: 'post-legality-product',
       sourceProductMode: packet.productMode,
+      ownerStepId: 'apply-legality',
       ownerStage: 'Stroke Geometry legality clipping',
+      sourceOwnerStepId: packet.ownerStepId,
       sourceOwnerStage: packet.ownerStage,
       legalityRoute: input.legalityRoute,
       legalDomainIds: input.legalDomainIds,
       contourIds: input.contourIds,
-      visiblePolygons: getStrokeLegalityVisiblePolygons(packet, input),
+      visiblePolygons,
       evidenceChannels,
       channelSeparation: {
         visible: 'legality-clipped-product-polygons',
         evidence: Object.keys(evidenceChannels)
       },
-      diagnostics: getStrokeLegalityDiagnostics(input.legalityRoute)
-    }
+      diagnostics: getStrokeLegalityDiagnostics(input.legalityRoute),
+      ...(packet.productEvidenceEnvelope
+        ? { productEvidenceEnvelope: packet.productEvidenceEnvelope }
+        : {})
+    })
   })
+
+  return { products, deletions }
+}

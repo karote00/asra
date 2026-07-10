@@ -1,6 +1,10 @@
 export interface StrokeIntegrationCoverageCase {
   id: string
   title: string
+  reviewSegmentId: StrokeIntegrationReviewSegmentId
+  testFile: string
+  artifactChannels: readonly string[]
+  focusedGate: string
   stepRange: readonly [number, number]
   stepIds: readonly string[]
   routeIds: readonly string[]
@@ -11,16 +15,43 @@ export interface StrokeIntegrationCoverageCase {
   forbiddenAssertions: readonly string[]
 }
 
+export type StrokeIntegrationReviewSegmentId =
+  | 'source-mutation-ingress'
+  | 'render-mirror-current-state-cache'
+  | 'source-domain-planning'
+  | 'product-family-coexecution'
+  | 'legality-final-records-descriptors'
+  | 'output-channels'
+
 const spec = (anchor: string) =>
   `docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#${anchor}`
+
+const focusedContract = (
+  reviewSegmentId: StrokeIntegrationReviewSegmentId,
+  artifactChannels: readonly string[]
+) => {
+  const testFile =
+    `packages/preset/src/__tests__/stroke-flow-integration/${reviewSegmentId}.test.ts`
+  return {
+    reviewSegmentId,
+    testFile,
+    artifactChannels,
+    focusedGate:
+      `yarn workspace @asyra/preset vitest run ${testFile.replace(
+        'packages/preset/',
+        ''
+      )} --reporter=dot`
+  }
+}
 
 export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCase[] =
   [
     {
-      id: 'interaction-to-render-strategy-linear-handoff',
+      ...focusedContract('source-mutation-ingress', ['internal']),
+      id: 'source-mutation-ingress-linear-handoff',
       title:
-        'Feature, model commit, data channel, render mirror, dirty graph, cache, and render strategy handoff',
-      stepRange: [1, 17],
+        'Feature, model commit, and data-channel handoff through the computed patch subscriber boundary',
+      stepRange: [1, 12],
       stepIds: [
         'feature-session-intent',
         'path-editing-intent',
@@ -33,12 +64,7 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
         'transaction-undo-boundary',
         'scene-tree-commit',
         'computed-patch-event',
-        'downstream-subscriber-routing',
-        'render-mirror-patch-apply',
-        'render-data-derivation',
-        'dirty-revision-graph',
-        'stage-product-cache',
-        'render-strategy-entry'
+        'downstream-subscriber-routing'
       ],
       routeIds: [
         'linear-feature-session-intent-to-path-editing-intent',
@@ -51,29 +77,69 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
         'linear-computed-patch-builder-to-transaction-undo-boundary',
         'linear-transaction-undo-boundary-to-scene-tree-commit',
         'linear-scene-tree-commit-to-computed-patch-event',
-        'linear-computed-patch-event-to-downstream-subscriber-routing',
-        'linear-downstream-subscriber-routing-to-render-mirror-patch-apply',
-        'linear-render-mirror-patch-apply-to-render-data-derivation',
-        'linear-render-data-derivation-to-dirty-revision-graph',
-        'linear-dirty-revision-graph-to-stage-product-cache',
-        'linear-stage-product-cache-to-render-strategy-entry'
+        'linear-computed-patch-event-to-downstream-subscriber-routing'
       ],
-      artifactIds: [],
+      artifactIds: [
+        'artifact:user-intent',
+        'artifact:canonical-workspace-data',
+        'artifact:topology-validation-evidence',
+        'artifact:computed-patch'
+      ],
       coExecutionGroups: [],
       specRuleRefs: [
         spec('inspector-flow-first-greenfield-refactor-protocol'),
         spec('canonical-owner-stage-diagnosis')
       ],
       positiveAssertions: [
-        'Each upstream stage emits the next stage input without hidden render ownership.',
-        'Dirty and cache boundaries remain explicit before render strategy entry.'
+        'Each source-mutation stage emits the next declared stage input without hidden render ownership.',
+        'The computed patch reaches downstream subscribers as one preserved artifact identity.'
       ],
       forbiddenAssertions: [
         'No stroke product geometry is created before normalized render data.',
-        'No renderer-owned repair is allowed in feature, model, cache, or strategy handoff.'
+        'No renderer-owned repair is allowed in feature, model, or data-channel handoff.'
       ]
     },
     {
+      ...focusedContract('render-mirror-current-state-cache', ['internal']),
+      id: 'render-mirror-current-state-linear-handoff',
+      title:
+        'Render mirror patch, current render data, dirty graph, cache, and render strategy handoff',
+      stepRange: [13, 17],
+      stepIds: [
+        'render-mirror-patch-apply',
+        'render-data-derivation',
+        'dirty-revision-graph',
+        'stage-product-cache',
+        'render-strategy-entry'
+      ],
+      routeIds: [
+        'linear-downstream-subscriber-routing-to-render-mirror-patch-apply',
+        'linear-render-mirror-patch-apply-to-render-data-derivation',
+        'linear-render-data-derivation-to-dirty-revision-graph',
+        'linear-dirty-revision-graph-to-stage-product-cache',
+        'linear-stage-product-cache-to-render-strategy-entry'
+      ],
+      artifactIds: [
+        'artifact:current-render-data',
+        'artifact:dirty-revision-graph',
+        'artifact:stage-cache-reuse-evidence'
+      ],
+      coExecutionGroups: [],
+      specRuleRefs: [
+        spec('inspector-flow-first-greenfield-refactor-protocol'),
+        spec('stroke-parameter-stage-cache-rule')
+      ],
+      positiveAssertions: [
+        'Committed patch identity reaches current render data before dirty classification.',
+        'Dirty and cache evidence reaches render strategy entry without creating product geometry.'
+      ],
+      forbiddenAssertions: [
+        'Render mirror and cache stages must not repair product geometry.',
+        'Cache reuse must not bypass current-state signature validation.'
+      ]
+    },
+    {
+      ...focusedContract('source-domain-planning', ['internal']),
       id: 'normalized-source-domain-dash-family-chain',
       title:
         'Normalized render data, stroke spec, shared geometry, source family, domain, dash, and product family handoff',
@@ -97,7 +163,11 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
         'linear-allocate-dash-intervals-to-select-stroke-product-family',
         'open-dangling-outside-both-side-span'
       ],
-      artifactIds: ['artifact:dash-product-interval'],
+      artifactIds: [
+        'artifact:normalized-stroke-spec',
+        'artifact:stroke-domain-plan',
+        'artifact:dash-product-interval'
+      ],
       coExecutionGroups: [],
       specRuleRefs: [
         spec('supported-stroke-feature-surface'),
@@ -113,6 +183,10 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
       ]
     },
     {
+      ...focusedContract('render-mirror-current-state-cache', [
+        'internal',
+        'render-hit-export'
+      ]),
       id: 'dirty-cache-bypass-and-source-drag-routes',
       title:
         'Paint-only, hidden output, verified descriptor cache hit, and source-drag dirty-classification bypasses',
@@ -157,6 +231,10 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
       ]
     },
     {
+      ...focusedContract('source-domain-planning', [
+        'internal',
+        'render-hit-export'
+      ]),
       id: 'product-family-selection-and-unsupported-terminal',
       title:
         'Product family decisions for center, constrained solid, constrained dashed, and unsupported terminal routes',
@@ -168,7 +246,10 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
         'select-constrained-dashed-product-family',
         'select-product-family-unsupported'
       ],
-      artifactIds: [],
+      artifactIds: [
+        'artifact:product-family-selection-evidence',
+        'output:unsupported-product-family-packets'
+      ],
       coExecutionGroups: [],
       specRuleRefs: [
         spec('supported-stroke-feature-surface'),
@@ -176,7 +257,7 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
       ],
       positiveAssertions: [
         'Supported stroke style and position route to exactly one product family decision.',
-        'Unsupported product selection terminates into diagnostics without substitute geometry.'
+        'Unsupported product selection terminates into fail-closed empty output packets without substitute geometry.'
       ],
       forbiddenAssertions: [
         'Product family selection must not emit polygons, joins, caps, descriptors, or render entries.',
@@ -184,6 +265,7 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
       ]
     },
     {
+      ...focusedContract('product-family-coexecution', ['render-hit-export']),
       id: 'center-product-and-source-vertex-route-chain',
       title:
         'Center product routes, authored descriptors, canonical output, and center source-vertex joins',
@@ -216,10 +298,11 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
       ]
     },
     {
+      ...focusedContract('product-family-coexecution', ['internal']),
       id: 'constrained-solid-product-legality-chain',
       title:
         'Constrained solid doubled-center product, source-vertex join co-execution, smooth span bypass, and legality',
-      stepRange: [26, 32],
+      stepRange: [26, 33],
       stepIds: [
         'build-constrained-solid-products',
         'build-source-vertex-join-products',
@@ -228,6 +311,7 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
       ],
       routeIds: [
         'constrained-solid-products-coexecute-source-vertex-join-products',
+        'constrained-solid-products-coexecute-smooth-continuity-products',
         'constrained-solid-doubled-center-mask',
         'constrained-solid-canonical-source-vertex-join-footprint',
         'constrained-solid-same-owner-smooth-span-descriptor',
@@ -256,12 +340,18 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
       ]
     },
     {
+      ...focusedContract('product-family-coexecution', [
+        'evidence',
+        'internal',
+        'render-hit-export'
+      ]),
       id: 'constrained-dashed-product-coexecution-chain',
       title:
-        'Constrained dashed interval body, source-vertex join, terminal body, smooth continuity, and descriptor strategy co-execution',
-      stepRange: [27, 32],
+        'Constrained dashed interval body, seam-boundary artifact, source-vertex join, terminal and smooth ownership overlays, and descriptor strategy co-execution',
+      stepRange: [27, 33],
       stepIds: [
         'build-dash-interval-body-products',
+        'derive-dash-body-seam-boundaries',
         'build-source-vertex-join-products',
         'build-terminal-body-products',
         'build-smooth-continuity-products',
@@ -269,6 +359,7 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
         'apply-legality'
       ],
       routeIds: [
+        'constrained-dashed-products-derive-seam-boundaries',
         'constrained-dashed-products-coexecute-source-vertex-join-products',
         'constrained-dashed-products-coexecute-terminal-body-products',
         'constrained-dashed-products-coexecute-smooth-continuity-products',
@@ -282,6 +373,7 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
       artifactIds: [
         'artifact:constrained-dashed-interval-body-product',
         'artifact:dash-body-seam-boundary',
+        'artifact:source-vertex-join-miter-evidence',
         'artifact:constrained-dashed-source-vertex-join-product',
         'artifact:constrained-dashed-smooth-continuity-product',
         'artifact:constrained-dashed-join-owned-terminal-body-product',
@@ -303,20 +395,25 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
         spec('product-legality-and-descriptor-encoding')
       ],
       positiveAssertions: [
-        'Dash interval bodies emit seam boundaries consumed by source-vertex joins.',
-        'Terminal bodies, smooth-continuity products, and descriptor strategy records co-execute before legality.',
+        'Dash interval bodies emit boundary evidence, Step 28 derives seam-boundary artifacts, and source-vertex joins consume those artifact identities.',
+        'Terminal and smooth-continuity ownership overlays plus descriptor strategy records co-execute before legality without adding visible body geometry.',
         'Constrained dashed product units preserve source ownership through legality.'
       ],
       forbiddenAssertions: [
-        'Endpoint caps, terminal overhangs, bridge products, duplicate interval paint, and descriptor replay must not complete authored sharp joins.',
+        'Endpoint caps, terminal overhangs, terminal/smooth duplicate body products, bridge products, duplicate interval paint, and descriptor replay must not complete authored sharp joins.',
         'Smooth high-curvature spans must not become source-vertex join products.'
       ]
     },
     {
+      ...focusedContract('legality-final-records-descriptors', [
+        'internal',
+        'render',
+        'render-hit-export'
+      ]),
       id: 'legality-resolved-paint-final-descriptor-chain',
       title:
         'Legality, resolved regions, paint payload, final faces, and post-legality descriptor materialization',
-      stepRange: [32, 36],
+      stepRange: [33, 37],
       stepIds: [
         'apply-legality',
         'build-resolved-stroke-regions',
@@ -352,10 +449,11 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
       ]
     },
     {
+      ...focusedContract('output-channels', ['render', 'render-hit-export']),
       id: 'render-entry-descriptor-and-canonical-output-chain',
       title:
         'Descriptor-visible routes, canonical final-face render entries, and packet output decision',
-      stepRange: [35, 38],
+      stepRange: [36, 39],
       stepIds: [
         'build-final-faces',
         'materialize-stroke-product-descriptors',
@@ -373,6 +471,7 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
       artifactIds: [
         'artifact:finalFaces',
         'artifact:renderEntries',
+        'artifact:same-paint-composite-state',
         'artifact:constrained-dashed-render-descriptor'
       ],
       coExecutionGroups: [],
@@ -391,42 +490,32 @@ export const strokeIntegrationCoverageMap: readonly StrokeIntegrationCoverageCas
       ]
     },
     {
-      id: 'render-hit-export-diagnostics-output-channel-chain',
-      title:
-        'Render entry projection, hit/export sibling projection, and diagnostics aggregation',
-      stepRange: [37, 41],
+      ...focusedContract('output-channels', ['hit-export']),
+      id: 'render-hit-export-output-channel-chain',
+      title: 'Render entry projection and hit/export sibling projection',
+      stepRange: [38, 41],
       stepIds: [
         'emit-render-hit-export-packets',
         'render-entries',
         'renderer-projection',
-        'hit-export',
-        'runtime-diagnostics'
+        'hit-export'
       ],
       routeIds: [
         'linear-render-entries-to-renderer-projection',
         'render-projection-merge',
-        'hit-export-channel-packet-projection',
-        'renderer-projection-diagnostics-snapshot',
-        'diagnostics-channel-aggregation'
+        'hit-export-channel-packet-projection'
       ],
       artifactIds: [
         'channel:hit-export',
         'artifact:hit-export-packets',
-        'artifact:hitExportPackets',
-        'channel:diagnostics',
-        'artifact:renderer-projection-diagnostic-snapshot',
-        'artifact:diagnosticSnapshots'
+        'artifact:hitExportPackets'
       ],
-      coExecutionGroups: [
-        'product-output-channel-consumer',
-        'diagnostic-channel-consumer',
-        'coexec:diagnostic-channel-evidence'
-      ],
+      coExecutionGroups: ['product-output-channel-consumer'],
       specRuleRefs: [spec('output-channel-separation')],
       positiveAssertions: [
         'Renderer projection draws declared render entries only.',
         'Hit/export consumes final-face channel packets as a sibling of renderer projection.',
-        'Diagnostics aggregate metadata without becoming render, hit, export, or product truth.'
+        'Post-runtime validation and optional diagnostics consume terminal evidence without becoming development graph steps.'
       ],
       forbiddenAssertions: [
         'Renderer pixels must not become hit/export source of truth.',

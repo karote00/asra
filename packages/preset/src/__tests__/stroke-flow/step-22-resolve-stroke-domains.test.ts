@@ -25,6 +25,19 @@ interface InspectorStep {
 
 interface InspectorData {
   steps: InspectorStep[]
+  crossStepArtifactLifecycleMatrix: Record<
+    string,
+    {
+      artifactClassId: string
+      computedAt: string
+      preserveThrough: string[]
+      consumedBy: string[]
+      mustNotRecomputeAfter: string
+      mayDropOnlyWhen: string[]
+      dropEvidenceRequired: string[]
+      downstreamAuthority: boolean
+    }
+  >
   inspectorContractErrors: string[]
 }
 
@@ -181,7 +194,7 @@ describe('stroke flow step 22: resolve-stroke-domains', () => {
     )
 
     expect(data.inspectorContractErrors).toEqual([])
-    expect(step?.refactorStatus).toMatch(/^(active|verified)$/)
+    expect(step?.refactorStatus).toMatch(/^(locked|active|verified)$/)
     if (step?.refactorStatus === 'active') {
       expect(activeSteps.map((entry) => entry.id)).toEqual([
         'resolve-stroke-domains'
@@ -226,6 +239,38 @@ describe('stroke flow step 22: resolve-stroke-domains', () => {
         'final faces',
         'render entries',
         'renderer projection output'
+      ])
+    )
+  })
+
+  it('declares StrokeDomainPlan as downstream authority rather than a recomputable hint', () => {
+    const data = loadInspectorData()
+    const lifecycle =
+      data.crossStepArtifactLifecycleMatrix['artifact:stroke-domain-plan']
+
+    expect(lifecycle).toMatchObject({
+      artifactClassId: 'required-evidence-artifact',
+      computedAt: 'resolve-stroke-domains',
+      consumedBy: expect.arrayContaining([
+        'allocate-dash-intervals',
+        'select-stroke-product-family'
+      ]),
+      mustNotRecomputeAfter: 'allocate-dash-intervals',
+      downstreamAuthority: true
+    })
+    expect(lifecycle.preserveThrough).toEqual(
+      expect.arrayContaining([
+        'allocate-dash-intervals',
+        'build-dash-interval-body-products',
+        'apply-legality',
+        'build-final-faces'
+      ])
+    )
+    expect(lifecycle.dropEvidenceRequired).toEqual(
+      expect.arrayContaining([
+        'empty-output route id',
+        'domain plan id',
+        'reason why no product family consumes this domain'
       ])
     )
   })

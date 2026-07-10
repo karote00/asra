@@ -4,6 +4,7 @@ import {
   buildRoundStrokeArcPointsBetween,
   dedupeClosed,
   distance,
+  getRoundStrokeArcSampleMidpointBetween,
   normalize,
   polygonArea,
   scale,
@@ -119,6 +120,68 @@ const cleanFootprintPolygon = (polygon: Vec2[]) => {
     ? cleaned
     : []
 }
+
+interface RoundSweepCandidateInput {
+  vertex: Vec2
+  previousJoinEndpoint: Vec2
+  nextJoinEndpoint: Vec2
+  previousInnerEndpoint?: Vec2
+  nextInnerEndpoint?: Vec2
+  selectedArcDirection: Vec2 | null
+  sweepSign: 1 | -1
+}
+
+const buildRoundSweepCandidate = (input: RoundSweepCandidateInput) => {
+  const arcPoints = buildRoundStrokeArcPointsBetween(
+    input.vertex,
+    input.previousJoinEndpoint,
+    input.nextJoinEndpoint,
+    input.sweepSign
+  )
+  const productBoundaryPolygon =
+    input.previousInnerEndpoint && input.nextInnerEndpoint
+      ? cleanFootprintPolygon([
+          input.previousJoinEndpoint,
+          ...arcPoints,
+          input.nextJoinEndpoint,
+          input.nextInnerEndpoint,
+          input.previousInnerEndpoint
+        ])
+      : []
+  const polygon =
+    productBoundaryPolygon.length > 0
+      ? productBoundaryPolygon
+      : cleanFootprintPolygon([
+          input.vertex,
+          input.previousJoinEndpoint,
+          ...arcPoints,
+          input.nextJoinEndpoint
+        ])
+  const midpoint = arcPoints[Math.floor(arcPoints.length / 2)]
+  const midpointDirection = midpoint
+    ? normalize(subtract(midpoint, input.vertex))
+    : null
+  return {
+    polygon,
+    selectedScore:
+      input.selectedArcDirection && midpointDirection
+        ? dot(input.selectedArcDirection, midpointDirection)
+        : Number.NEGATIVE_INFINITY,
+    valid: polygon.length >= 3
+  }
+}
+
+const selectMaterializedRoundSweep = (
+  input: Omit<RoundSweepCandidateInput, 'sweepSign'>
+) =>
+  [
+    buildRoundSweepCandidate({ ...input, sweepSign: 1 }),
+    buildRoundSweepCandidate({ ...input, sweepSign: -1 })
+  ].sort(
+    (left, right) =>
+      Number(right.valid) - Number(left.valid) ||
+      right.selectedScore - left.selectedScore
+  )[0]
 
 const isFinitePoint = (point: Vec2 | undefined): point is Vec2 =>
   point !== undefined && Number.isFinite(point.x) && Number.isFinite(point.y)
@@ -253,6 +316,123 @@ export const measureSourceVertexAngle = (
   }
 }
 
+export type SourceVertexBevelPolygonWithoutIncidentBoundariesInput = Pick<
+  SourceVertexJoinFootprintInput,
+  'vertex' | 'previousPoint' | 'nextPoint' | 'side'
+> & {
+  offsetDistance: number
+}
+
+export const buildSourceVertexBevelPolygonWithoutIncidentBoundaries = (
+  input: SourceVertexBevelPolygonWithoutIncidentBoundariesInput
+): Vec2[] => {
+  const previousDirection = normalize(
+    subtract(input.vertex, input.previousPoint)
+  )
+  const nextDirection = normalize(subtract(input.nextPoint, input.vertex))
+  if (!previousDirection || !nextDirection) {
+    return []
+  }
+
+  const offsetDistance = Math.max(0, Math.abs(input.offsetDistance))
+  const previousOffsetEndpoint = add(
+    input.vertex,
+    scale(normalForSide(previousDirection, input.side), offsetDistance)
+  )
+  const nextOffsetEndpoint = add(
+    input.vertex,
+    scale(normalForSide(nextDirection, input.side), offsetDistance)
+  )
+  return cleanFootprintPolygon([
+    input.vertex,
+    previousOffsetEndpoint,
+    nextOffsetEndpoint
+  ])
+}
+
+export type SourceVertexRoundPolygonWithoutIncidentBoundariesInput =
+  SourceVertexBevelPolygonWithoutIncidentBoundariesInput
+
+export const buildSourceVertexRoundPolygonWithoutIncidentBoundaries = (
+  input: SourceVertexRoundPolygonWithoutIncidentBoundariesInput
+): Vec2[] => {
+  const previousDirection = normalize(
+    subtract(input.vertex, input.previousPoint)
+  )
+  const nextDirection = normalize(subtract(input.nextPoint, input.vertex))
+  if (!previousDirection || !nextDirection) {
+    return []
+  }
+
+  const offsetDistance = Math.max(0, Math.abs(input.offsetDistance))
+  const previousNormal = normalForSide(previousDirection, input.side)
+  const nextNormal = normalForSide(nextDirection, input.side)
+  const previousJoinEndpoint = add(
+    input.vertex,
+    scale(previousNormal, offsetDistance)
+  )
+  const nextJoinEndpoint = add(input.vertex, scale(nextNormal, offsetDistance))
+  const selectedArcDirection =
+    normalize(
+      add(
+        subtract(previousJoinEndpoint, input.vertex),
+        subtract(nextJoinEndpoint, input.vertex)
+      )
+    ) ?? normalize(add(previousNormal, nextNormal))
+  const materializedSweepInput = {
+    vertex: input.vertex,
+    previousJoinEndpoint,
+    nextJoinEndpoint,
+    selectedArcDirection
+  }
+  const materializeBothSweeps = () =>
+    selectMaterializedRoundSweep(materializedSweepInput)?.polygon ??
+    cleanFootprintPolygon([
+      input.vertex,
+      previousJoinEndpoint,
+      nextJoinEndpoint
+    ])
+
+  if (
+    offsetDistance <= EPS ||
+    Math.abs(cross(previousNormal, nextNormal)) <= EPS
+  ) {
+    return materializeBothSweeps()
+  }
+
+  const scoreSampledMidpoint = (sweepSign: 1 | -1) => {
+    const midpointDirection = normalize(
+      subtract(
+        getRoundStrokeArcSampleMidpointBetween(
+          input.vertex,
+          previousJoinEndpoint,
+          nextJoinEndpoint,
+          sweepSign
+        ),
+        input.vertex
+      )
+    )
+    return selectedArcDirection && midpointDirection
+      ? dot(selectedArcDirection, midpointDirection)
+      : Number.NEGATIVE_INFINITY
+  }
+  const selectedSweepSign =
+    scoreSampledMidpoint(-1) > scoreSampledMidpoint(1) ? -1 : 1
+  const arcPoints = buildRoundStrokeArcPointsBetween(
+    input.vertex,
+    previousJoinEndpoint,
+    nextJoinEndpoint,
+    selectedSweepSign
+  )
+  const polygon = cleanFootprintPolygon([
+    input.vertex,
+    previousJoinEndpoint,
+    ...arcPoints,
+    nextJoinEndpoint
+  ])
+  return polygon.length > 0 ? polygon : materializeBothSweeps()
+}
+
 export const buildSourceVertexJoinFootprint = (
   input: SourceVertexJoinFootprintInput
 ): SourceVertexJoinFootprint => {
@@ -362,51 +542,14 @@ export const buildSourceVertexJoinFootprint = (
     )
     const selectedArcDirection =
       incidentArcDirection ?? normalize(add(previousNormal, nextNormal))
-    const scoreRoundSweep = (sweepSign: 1 | -1) => {
-      const arcPoints = buildRoundStrokeArcPointsBetween(
-        input.vertex,
-        previousJoinEndpoint,
-        nextJoinEndpoint,
-        sweepSign
-      )
-      const productBoundaryPolygon =
-        previousInnerEndpoint && nextInnerEndpoint
-          ? cleanFootprintPolygon([
-              previousJoinEndpoint,
-              ...arcPoints,
-              nextJoinEndpoint,
-              nextInnerEndpoint,
-              previousInnerEndpoint
-            ])
-          : []
-      const candidatePolygon =
-        productBoundaryPolygon.length > 0
-          ? productBoundaryPolygon
-          : cleanFootprintPolygon([
-              input.vertex,
-              previousJoinEndpoint,
-              ...arcPoints,
-              nextJoinEndpoint
-            ])
-      const midpoint = arcPoints[Math.floor(arcPoints.length / 2)]
-      const midpointDirection = midpoint
-        ? normalize(subtract(midpoint, input.vertex))
-        : null
-      const selectedScore =
-        selectedArcDirection && midpointDirection
-          ? dot(selectedArcDirection, midpointDirection)
-          : Number.NEGATIVE_INFINITY
-      return {
-        polygon: candidatePolygon,
-        selectedScore,
-        valid: candidatePolygon.length >= 3
-      }
-    }
-    const selectedRoundSweep = [scoreRoundSweep(1), scoreRoundSweep(-1)].sort(
-      (left, right) =>
-        Number(right.valid) - Number(left.valid) ||
-        right.selectedScore - left.selectedScore
-    )[0]
+    const selectedRoundSweep = selectMaterializedRoundSweep({
+      vertex: input.vertex,
+      previousJoinEndpoint,
+      nextJoinEndpoint,
+      previousInnerEndpoint,
+      nextInnerEndpoint,
+      selectedArcDirection
+    })
     polygon =
       selectedRoundSweep?.polygon ??
       cleanFootprintPolygon([
@@ -505,6 +648,13 @@ export interface SourceVertexJoinIncidentSeamBoundary {
   sourceSegmentIndex?: number
 }
 
+export interface VerifiedDashBodySeamBoundaryArtifact
+  extends SourceVertexJoinIncidentSeamBoundary {
+  bodyProductId: string
+  ownerStepId: 'derive-dash-body-seam-boundaries'
+  emitted: false
+}
+
 export interface SourceVertexJoinProductInput
   extends SourceVertexJoinFootprintInput {
   productId: string
@@ -514,7 +664,7 @@ export interface SourceVertexJoinProductInput
   smoothContinuity?: boolean
   highCurvatureSmooth?: boolean
   seamTolerance?: number
-  incidentSeamBoundaries?: SourceVertexJoinIncidentSeamBoundary[]
+  incidentSeamBoundaries?: VerifiedDashBodySeamBoundaryArtifact[]
 }
 
 export interface SourceVertexJoinProductUnit {
@@ -532,6 +682,7 @@ export interface SourceVertexJoinProductUnit {
     maxY: number
   }
   ownerId: string
+  ownerStepId: 'build-source-vertex-join-products'
   ownerStage: 'Stroke Geometry source-vertex join assembly'
   visibleContributor: 'source-vertex-join'
   geometryBasis: 'canonical-join-footprint'
@@ -546,7 +697,7 @@ export interface SourceVertexJoinProductUnit {
   previousOffsetEndpoint: Vec2
   nextOffsetEndpoint: Vec2
   seamEvidence: {
-    seamCoveragePolicy: 'shared-step-27-endpoint-identity'
+    seamCoveragePolicy: 'shared-seam-boundary-artifact-endpoint-identity'
     incidentSeamBoundaries: SourceVertexJoinIncidentSeamBoundary[]
   }
 }
@@ -578,14 +729,30 @@ const getSourceVertexJoinBounds = (polygons: Vec2[][]) => {
   }
 }
 
+const isVerifiedDashBodySeamBoundary = (
+  boundary: SourceVertexJoinIncidentSeamBoundary
+): boundary is VerifiedDashBodySeamBoundaryArtifact => {
+  const candidate = boundary as Partial<VerifiedDashBodySeamBoundaryArtifact>
+  return (
+    typeof candidate.bodyProductId === 'string' &&
+    candidate.bodyProductId.length > 0 &&
+    candidate.ownerStepId === 'derive-dash-body-seam-boundaries' &&
+    candidate.emitted === false
+  )
+}
+
 export const buildSourceVertexJoinProducts = (
   input: BuildSourceVertexJoinProductsInput
 ): SourceVertexJoinProductUnit[] =>
   input.joins.flatMap((join): SourceVertexJoinProductUnit[] => {
+    const incidentSeamBoundaries = join.incidentSeamBoundaries ?? []
     if (
       join.joinOwnership === 'smooth-continuity' ||
       join.smoothContinuity === true ||
-      join.highCurvatureSmooth === true
+      join.highCurvatureSmooth === true ||
+      (join.productFamilyId === 'constrained-dashed' &&
+        (incidentSeamBoundaries.length === 0 ||
+          !incidentSeamBoundaries.every(isVerifiedDashBodySeamBoundary)))
     ) {
       return []
     }
@@ -608,6 +775,7 @@ export const buildSourceVertexJoinProducts = (
         polygons,
         bounds: getSourceVertexJoinBounds(polygons),
         ownerId: footprint.ownerId,
+        ownerStepId: 'build-source-vertex-join-products',
         ownerStage: footprint.ownerStage,
         visibleContributor: footprint.visibleContributor,
         geometryBasis: footprint.geometryBasis,
@@ -622,8 +790,8 @@ export const buildSourceVertexJoinProducts = (
         previousOffsetEndpoint: footprint.previousOffsetEndpoint,
         nextOffsetEndpoint: footprint.nextOffsetEndpoint,
         seamEvidence: {
-          seamCoveragePolicy: 'shared-step-27-endpoint-identity',
-          incidentSeamBoundaries: join.incidentSeamBoundaries ?? []
+          seamCoveragePolicy: 'shared-seam-boundary-artifact-endpoint-identity',
+          incidentSeamBoundaries
         }
       }
     ]

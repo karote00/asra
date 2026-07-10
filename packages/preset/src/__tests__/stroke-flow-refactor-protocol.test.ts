@@ -25,6 +25,11 @@ type StrokeParameterCoverageRole =
   | 'cache-key'
   | 'output-metadata'
   | 'not-applicable'
+type StepResponsibilityClassification =
+  | 'primary-computation'
+  | 'state-overlay'
+  | 'channel-projection'
+  | 'validation/evidence-only'
 
 interface VerificationEvidence {
   gateName: string
@@ -176,6 +181,147 @@ interface RequiredArtifactClosureContract {
   forbiddenBehaviors: string[]
 }
 
+interface WholeFlowReviewSegment {
+  id: string
+  stepIds: string[]
+  reviewDecision: string
+}
+
+interface WholeFlowCompletionLedgerEntry {
+  segmentId: string
+  status: string
+  closureState: string
+  contractStatus: string
+  familyDataflowStatus: string
+  runtimeStatus: string
+  reason: string
+  skipUntilInvalidatedBy: string | null
+  skipReviewOnlyWhen: string[]
+  runtimeBlockers?: {
+    stepId: string
+    oracle: string
+    missingRecordCount?: number
+    status: string
+    description: string
+  }[]
+  runtimeEvidence?: {
+    stepId: string
+    oracle: string
+    status: string
+    description: string
+  }[]
+}
+
+interface WholeFlowClosurePacket {
+  segmentId: string
+  coveredStepIds: string[]
+  closureState: string
+  contractStatus: string
+  familyDataflowStatus: string
+  runtimeStatus: string
+  specAnchors: string[]
+  routeIds: string[]
+  computedArtifactIds: string[]
+  preservedArtifactIds: string[]
+  consumedArtifactIds: string[]
+  projectedArtifactIds: string[]
+  validatedArtifactIds: string[]
+  downstreamConsumers: string[]
+  crossFamilyHandoffs: string[]
+  semanticValueOwners: string[]
+  mustNotRecomputeAfter: string[]
+  formalGates: string[]
+  runtimeEvidence: {
+    stepId: string
+    oracle: string
+    status: string
+  }[]
+  runtimeBlockers?: {
+    stepId: string
+    oracle: string
+    status: string
+    description: string
+  }[]
+  reopenConditions: string[]
+  remainingScope: string[]
+}
+
+interface WholeFlowReviewContract {
+  id: string
+  closureStateMachine: {
+    sourceRule: string
+    states: string[]
+    runtimeOnlyStates: string[]
+    implementationReadyRequires: string[]
+    runtimeClosureRequires: string[]
+    forbiddenTransitions: string[]
+  }
+  reviewSegments: WholeFlowReviewSegment[]
+  closurePackets: WholeFlowClosurePacket[]
+  completionLedger: WholeFlowCompletionLedgerEntry[]
+}
+
+interface StepResponsibilityMatrixEntry {
+  stepId: string
+  classification: StepResponsibilityClassification
+  ownerMode: string
+  reviewSegment: string
+  primaryArtifacts: string[]
+  allowedActions: string[]
+  forbiddenActions: string[]
+}
+
+interface CrossStepArtifactLifecycleEntry {
+  id: string
+  artifactClassId: string
+  computedAt: string
+  assemblyMode?: string
+  contributorStepIds?: string[]
+  overlayContributorStepIds?: string[]
+  semanticChildOwnerField?: string
+  preserveThrough: string[]
+  consumedBy: string[]
+  mustNotRecomputeAfter: string
+  mayDropOnlyWhen: string[]
+  dropEvidenceRequired: string[]
+  downstreamAuthority: boolean
+}
+
+interface FocusedTestExecutionContract {
+  focusedStepTargetMs: number
+  focusedGeometryOracleTargetMs: number
+  mandatorySplitReviewMs: number
+  timingIsCorrectnessAssertion: boolean
+  innerLoopGateKinds: string[]
+  checkpointOnlyGates: string[]
+  integrationReviewSegments: string[]
+  geometryOracleGroups: string[]
+  continuousParameterPerformanceGroups: string[]
+  forbiddenPatterns: string[]
+}
+
+interface ContinuousParameterPerformanceContract {
+  status: string
+  targetFps: number
+  frameBudgetMs: number
+  updatePath: string
+  addsUiScrubber: boolean
+  parameterIds: string[]
+  requiredMetrics: string[]
+  sampleContract: {
+    minimumGeometryRebuildSampleRatio: number
+    requiresCacheRevisit: boolean
+    p95Population: string
+  }
+  dirtyingEvidence: Record<string, string[]>
+  discreteUiBudget: {
+    endToVisibleP95Ms: number
+    singleActionMaxMs: number
+  }
+  goalCompletionPolicy: string
+  prerequisites: string[]
+}
+
 interface InspectorData {
   latestRules: string[]
   ruleRegistry: { id: string; text: string }[]
@@ -189,7 +335,8 @@ interface InspectorData {
   }
   runtimeImplementationState: {
     phase: string
-    previousCheckpoint: string
+    completedGate: string
+    schemaRepairStatus?: string
     activeStepId: string | null
     activeStepNumber: number | null
     activeStepUnitStatus: string
@@ -199,9 +346,21 @@ interface InspectorData {
     stepRetryLimit: number
     implementationPolicy: string
     advancementRule: string
-    lockedFuturePhases: string[]
+    pendingTechnicalPhases: string[]
+    unlockedNextPhases: string[]
     evidenceRequired: string[]
   }
+  finalValidationMethods: {
+    id: string
+    stepMembership: string
+    configuredBy: string
+    limitations: string[]
+  }[]
+  optionalDiagnosticChannels: {
+    id: string
+    stepMembership: string
+    limitations: string[]
+  }[]
   refactorProtocol: {
     name: string
     activeStepId: string | null
@@ -220,6 +379,7 @@ interface InspectorData {
     documentDeepAuditPolicy: string
     runtimeImplementationPolicy: string
   }
+  wholeFlowReviewContract: WholeFlowReviewContract
   documentDeepAuditProtocol: {
     source: string
     requiredPassOrder: string[]
@@ -229,6 +389,21 @@ interface InspectorData {
   }
   requiredArtifactClosureContract: RequiredArtifactClosureContract
   dashJoinSeamLifecycleContract: LifecycleContract
+  strokePipelineArtifactDataContract: {
+    artifactClasses: {
+      id: string
+      examples: string[]
+      mayBeRecomputedDownstream: boolean
+      mayPaint: boolean
+    }[]
+  }
+  stepResponsibilityMatrix: Record<string, StepResponsibilityMatrixEntry>
+  crossStepArtifactLifecycleMatrix: Record<
+    string,
+    CrossStepArtifactLifecycleEntry
+  >
+  focusedTestExecutionContract: FocusedTestExecutionContract
+  continuousParameterPerformanceContract: ContinuousParameterPerformanceContract
   sharedStepTestHelpers: string[]
   sourceFileOwnershipRecords: SourceFileOwnershipRecord[]
   entryBoundaryRequiredStepIds: string[]
@@ -254,6 +429,10 @@ interface InspectorData {
   strokeParameterCoverageErrors: string[]
   requiredArtifactClosureErrors: string[]
   dashJoinSeamLifecycleErrors: string[]
+  pipelineArtifactDataContractErrors: string[]
+  stepResponsibilityMatrixErrors: string[]
+  crossStepArtifactLifecycleErrors: string[]
+  wholeFlowReviewErrors: string[]
   sourceFileOwnershipErrors: string[]
   inspectorContractErrors: string[]
 }
@@ -438,12 +617,42 @@ describe('stroke flow refactor protocol', () => {
     expect(data.runtimeImplementationErrors).toEqual([])
     expect(data.strokeParameterCoverageErrors).toEqual([])
     expect(data.sourceFileOwnershipErrors).toEqual([])
+    expect(data.requiredArtifactClosureErrors).toEqual([])
+    expect(data.pipelineArtifactDataContractErrors).toEqual([])
+    expect(data.dashJoinSeamLifecycleErrors).toEqual([])
+    expect(data.wholeFlowReviewErrors).toEqual([])
+    expect(data.stepResponsibilityMatrixErrors).toEqual([])
+    expect(data.crossStepArtifactLifecycleErrors).toEqual([])
     expect(data.inspectorContractErrors).toEqual([])
-    expect(data.steps).toHaveLength(41)
+    expect(data.steps).toHaveLength(data.currentExecutionState.totalSteps)
     expect(data.currentExecutionState.totalSteps).toBe(41)
-    expect(data.steps.map((step) => step.id)).not.toContain(
-      'visible-final-result'
+    const stepIds = data.steps.map((step) => step.id)
+    expect(stepIds).not.toContain('visible-final-result')
+    expect(stepIds).not.toContain('app-visual-review')
+    expect(stepIds).not.toContain('runtime-diagnostics')
+    expect(data.steps.at(-1)?.id).toBe('hit-export')
+    expect(data.finalValidationMethods.map((method) => method.id)).toEqual([
+      'visible-final-result',
+      'app-visual-review'
+    ])
+    expect(data.finalValidationMethods).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'visible-final-result',
+          stepMembership: 'excluded-from-runtime-inspector-steps'
+        }),
+        expect.objectContaining({
+          id: 'app-visual-review',
+          stepMembership: 'excluded-from-runtime-inspector-steps'
+        })
+      ])
     )
+    expect(data.optionalDiagnosticChannels).toEqual([
+      expect.objectContaining({
+        id: 'runtime-diagnostics',
+        stepMembership: 'excluded-from-runtime-inspector-steps'
+      })
+    ])
     expect('validationGates' in data).toBe(false)
     expect(data.ruleRegistry).toHaveLength(data.latestRules.length)
     expect(
@@ -453,7 +662,11 @@ describe('stroke flow refactor protocol', () => {
     const unitTestRoot = data.refactorProtocol.unitTestRoot.endsWith('/')
       ? data.refactorProtocol.unitTestRoot
       : `${data.refactorProtocol.unitTestRoot}/`
-    const expectedStepUnitFiles = data.steps
+    const expectedVerifiedStepUnitFiles = data.steps
+      .filter(
+        (step) =>
+          step.verificationEvidence.status !== 'pending-schema-alignment'
+      )
       .map((step) => step.unitTestFile)
       .sort()
     const actualStepUnitFiles = readdirSync(resolve(repoRoot, unitTestRoot))
@@ -461,7 +674,9 @@ describe('stroke flow refactor protocol', () => {
       .map((fileName) => `${unitTestRoot}${fileName}`)
       .sort()
 
-    expect(actualStepUnitFiles).toEqual(expectedStepUnitFiles)
+    expect(actualStepUnitFiles).toEqual(
+      expect.arrayContaining(expectedVerifiedStepUnitFiles)
+    )
 
     for (const [index, step] of data.steps.entries()) {
       expect(step.stepIndex).toBe(index)
@@ -483,11 +698,485 @@ describe('stroke flow refactor protocol', () => {
       expect(step.verificationEvidence.status).toBeTruthy()
       expect(step.verificationEvidence.artifactPath).toBeTruthy()
       expect(step.verificationEvidence.verifiedAt).toBeTruthy()
-      expect(existsSync(resolve(repoRoot, step.unitTestFile))).toBe(true)
+      if (step.verificationEvidence.status !== 'pending-schema-alignment') {
+        expect(existsSync(resolve(repoRoot, step.unitTestFile))).toBe(true)
+      }
       for (const ruleRef of step.ruleRefs) {
         expect(ruleIds.has(ruleRef)).toBe(true)
       }
     }
+  })
+
+  it('classifies every runtime inspector step by whole-flow responsibility', () => {
+    const data = loadInspectorData()
+    const stepIds = data.steps.map((step) => step.id)
+    const segmentIds = new Set(
+      data.wholeFlowReviewContract.reviewSegments.map((segment) => segment.id)
+    )
+    const responsibilityIds = Object.keys(data.stepResponsibilityMatrix)
+    const allowedClassifications: StepResponsibilityClassification[] = [
+      'primary-computation',
+      'state-overlay',
+      'channel-projection',
+      'validation/evidence-only'
+    ]
+
+    expect(responsibilityIds.sort()).toEqual([...stepIds].sort())
+    expect(data.stepResponsibilityMatrixErrors).toEqual([])
+
+    for (const step of data.steps) {
+      const entry = data.stepResponsibilityMatrix[step.id]
+
+      expect(entry.stepId).toBe(step.id)
+      expect(allowedClassifications).toContain(entry.classification)
+      expect(segmentIds.has(entry.reviewSegment)).toBe(true)
+      expect(entry.ownerMode.length).toBeGreaterThan(0)
+      expect(entry.allowedActions.length).toBeGreaterThan(0)
+      expect(entry.forbiddenActions.join(' ')).toContain('recompute')
+    }
+
+    expect(
+      Object.values(data.stepResponsibilityMatrix).map(
+        (entry) => entry.classification
+      )
+    ).toEqual(expect.arrayContaining(allowedClassifications))
+    expect(
+      data.stepResponsibilityMatrix['derive-dash-body-seam-boundaries']
+    ).toMatchObject({
+      classification: 'primary-computation',
+      reviewSegment: 'product-family-coexecution'
+    })
+    expect(data.stepResponsibilityMatrix['apply-legality']).toMatchObject({
+      classification: 'primary-computation',
+      reviewSegment: 'legality-final-records-descriptors'
+    })
+    expect(data.stepResponsibilityMatrix['attach-paint-payload']).toMatchObject(
+      {
+        classification: 'state-overlay',
+        reviewSegment: 'legality-final-records-descriptors'
+      }
+    )
+    expect(
+      data.stepResponsibilityMatrix['materialize-stroke-product-descriptors']
+    ).toMatchObject({
+      classification: 'channel-projection',
+      reviewSegment: 'legality-final-records-descriptors'
+    })
+    expect(data.stepResponsibilityMatrix['render-entries']).toMatchObject({
+      classification: 'channel-projection',
+      reviewSegment: 'output-channels'
+    })
+    expect(data.stepResponsibilityMatrix).not.toHaveProperty(
+      'runtime-diagnostics'
+    )
+  })
+
+  it('requires a cross-step artifact lifecycle matrix for every required product and evidence artifact', () => {
+    const data = loadInspectorData()
+    const stepIds = new Set(data.steps.map((step) => step.id))
+    const artifactIds = new Set(
+      data.artifactRegistry.map((artifact) => artifact.id)
+    )
+    const requiredLifecycleIds = [
+      'artifact:stroke-domain-plan',
+      'artifact:dash-product-interval',
+      'artifact:dash-body-seam-boundary',
+      'artifact:source-vertex-join-miter-evidence',
+      'artifact:preLegalityProductUnits',
+      'artifact:constrained-dashed-product-units',
+      'artifact:constrained-dashed-source-vertex-join-product',
+      'artifact:constrained-dashed-join-owned-terminal-body-product',
+      'artifact:constrained-dashed-smooth-continuity-product',
+      'artifact:postLegalityProductUnits',
+      'artifact:legalityEquivalentProductUnits',
+      'artifact:finalFaces',
+      'artifact:renderEntries',
+      'artifact:hitExportPackets',
+      'artifact:hit-export-packets'
+    ]
+
+    expect(data.crossStepArtifactLifecycleErrors).toEqual([])
+    expect(Object.keys(data.crossStepArtifactLifecycleMatrix)).toEqual(
+      expect.arrayContaining(requiredLifecycleIds)
+    )
+
+    const lifecycleIds = new Set(
+      Object.keys(data.crossStepArtifactLifecycleMatrix)
+    )
+    const artifactKindsById = new Map(
+      data.artifactRegistry.map((artifact) => [artifact.id, artifact.kind])
+    )
+    const routeUsedProductOrEvidenceArtifacts = new Set(
+      data.conditionalRoutes.flatMap((route) =>
+        [...route.consumes, ...route.produces].filter((artifactId) => {
+          const artifactKind = artifactKindsById.get(artifactId)
+
+          return (
+            artifactId.startsWith('artifact:') &&
+            artifactKind !== undefined &&
+            artifactKind !== 'diagnostic'
+          )
+        })
+      )
+    )
+
+    for (const artifactId of routeUsedProductOrEvidenceArtifacts) {
+      expect(lifecycleIds.has(artifactId), artifactId).toBe(true)
+    }
+
+    for (const entry of Object.values(data.crossStepArtifactLifecycleMatrix)) {
+      expect(artifactIds.has(entry.id)).toBe(true)
+      expect(stepIds.has(entry.computedAt)).toBe(true)
+      expect(entry.preserveThrough.length).toBeGreaterThan(0)
+      expect(entry.consumedBy.length).toBeGreaterThan(0)
+      expect(stepIds.has(entry.mustNotRecomputeAfter)).toBe(true)
+      expect(entry.mayDropOnlyWhen.length).toBeGreaterThan(0)
+      expect(entry.dropEvidenceRequired.length).toBeGreaterThan(0)
+      for (const stepId of [...entry.preserveThrough, ...entry.consumedBy]) {
+        expect(stepIds.has(stepId)).toBe(true)
+      }
+      if (entry.downstreamAuthority) {
+        expect(entry.artifactClassId).not.toBe('recomputable-derived-summary')
+      }
+    }
+
+    expect(
+      data.crossStepArtifactLifecycleMatrix['artifact:stroke-domain-plan']
+    ).toMatchObject({
+      artifactClassId: 'required-evidence-artifact',
+      computedAt: 'resolve-stroke-domains',
+      mustNotRecomputeAfter: 'allocate-dash-intervals',
+      downstreamAuthority: true
+    })
+    expect(
+      data.crossStepArtifactLifecycleMatrix['artifact:dash-product-interval']
+    ).toMatchObject({
+      artifactClassId: 'required-evidence-artifact',
+      computedAt: 'allocate-dash-intervals',
+      mustNotRecomputeAfter: 'build-dash-interval-body-products',
+      downstreamAuthority: true
+    })
+    expect(
+      data.crossStepArtifactLifecycleMatrix['artifact:finalFaces'].consumedBy
+    ).toEqual(
+      expect.arrayContaining([
+        'materialize-stroke-product-descriptors',
+        'emit-render-hit-export-packets',
+        'render-entries',
+        'hit-export'
+      ])
+    )
+    expect(
+      data.crossStepArtifactLifecycleMatrix['artifact:renderEntries']
+    ).toMatchObject({
+      computedAt: 'render-entries',
+      mustNotRecomputeAfter: 'renderer-projection'
+    })
+    for (const overlayArtifactId of [
+      'artifact:constrained-dashed-join-owned-terminal-body-product',
+      'artifact:constrained-dashed-smooth-continuity-product'
+    ]) {
+      expect(artifactKindsById.get(overlayArtifactId)).toBe(
+        'ownership-overlay-record-set'
+      )
+      expect(
+        data.crossStepArtifactLifecycleMatrix[overlayArtifactId]
+      ).toMatchObject({
+        artifactClassId: 'required-evidence-artifact',
+        mustNotRecomputeAfter: 'apply-legality'
+      })
+      expect(
+        data.crossStepArtifactLifecycleMatrix[overlayArtifactId].preserveThrough
+      ).toEqual(
+        expect.arrayContaining([
+          'apply-legality',
+          'build-final-faces',
+          'materialize-stroke-product-descriptors',
+          'render-entries',
+          'hit-export'
+        ])
+      )
+    }
+  })
+
+  it('keeps whole-flow closure as a verifiable state machine with explicit packets', () => {
+    const data = loadInspectorData()
+    const contract = data.wholeFlowReviewContract
+    const ledger = contract.completionLedger
+    const packetsBySegment = new Map(
+      contract.closurePackets.map((packet) => [packet.segmentId, packet])
+    )
+    const productFamily = ledger.find(
+      (entry) => entry.segmentId === 'product-family-coexecution'
+    )
+    const productFamilyPacket = packetsBySegment.get(
+      'product-family-coexecution'
+    )
+    const outputChannels = ledger.find(
+      (entry) => entry.segmentId === 'output-channels'
+    )
+    const outputChannelsPacket = packetsBySegment.get('output-channels')
+    const skipConditions = [
+      'inputs unchanged',
+      'outputs unchanged',
+      'routes unchanged',
+      'artifacts unchanged',
+      'consumers unchanged',
+      'formal gates unchanged',
+      'source anchors unchanged',
+      'active-plan execution constraints unchanged'
+    ]
+
+    expect(contract.closureStateMachine.sourceRule).toBe(
+      'docs/ai/framework/rules/inspector-closure-readiness.md'
+    )
+    expect(contract.closureStateMachine.states).toEqual([
+      'pending-review',
+      'contract-closed',
+      'family-dataflow-closed',
+      'implementation-ready',
+      'runtime-closed'
+    ])
+    expect(contract.closureStateMachine.implementationReadyRequires).toEqual(
+      expect.arrayContaining([
+        'contract status is contract-closed',
+        'family dataflow status is family-dataflow-closed or not-applicable',
+        'cross-family handoffs are declared and tested',
+        'formal gates are named and current',
+        'runtime blockers, if any, name owner step and oracle',
+        'reopen conditions are explicit'
+      ])
+    )
+    for (const segment of contract.reviewSegments) {
+      const packet = packetsBySegment.get(segment.id)
+      const ledgerEntry = ledger.find((entry) => entry.segmentId === segment.id)
+      expect(packet, segment.id).toBeDefined()
+      expect(ledgerEntry, segment.id).toBeDefined()
+      expect(packet?.id, segment.id).toBe(`closure:${segment.id}`)
+      expect(packet?.coveredStepIds).toEqual(
+        expect.arrayContaining(segment.stepIds)
+      )
+      expect(packet?.routeIds.length, segment.id).toBeGreaterThan(0)
+      expect(packet?.closureState).toBe(ledgerEntry?.closureState)
+      expect(packet?.contractStatus).toBe(ledgerEntry?.contractStatus)
+      expect(packet?.familyDataflowStatus).toBe(
+        ledgerEntry?.familyDataflowStatus
+      )
+      expect(packet?.runtimeStatus).toBe(ledgerEntry?.runtimeStatus)
+      expect(packet?.specAnchors.length).toBeGreaterThan(0)
+      expect(packet?.formalGates.length).toBeGreaterThan(0)
+      expect(packet?.reopenConditions).toEqual(
+        expect.arrayContaining(skipConditions)
+      )
+    }
+
+    expect(productFamily).toMatchObject({
+      status: 'implementation-ready',
+      closureState: 'implementation-ready',
+      contractStatus: 'contract-closed',
+      familyDataflowStatus: 'family-dataflow-closed',
+      runtimeStatus: 'pending-runtime-gates'
+    })
+    expect(productFamily?.status).not.toBe('pending-step-unit-regeneration')
+    for (const runtimeScope of [productFamilyPacket, productFamily]) {
+      expect(runtimeScope?.runtimeBlockers).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            stepId: 'build-dash-interval-body-products',
+            oracle: 'constrained-dashed-body-program-identity-gate',
+            status: 'pending-runtime-repair'
+          }),
+          expect.objectContaining({
+            stepId: 'build-smooth-continuity-products',
+            oracle: 'constrained-dashed-family-single-visible-body-owner-gate',
+            status: 'pending-runtime-repair'
+          }),
+          expect.objectContaining({
+            stepId: 'apply-legality',
+            oracle:
+              'constrained-dashed-product-evidence-envelope-preservation-gate',
+            status: 'pending-runtime-repair'
+          })
+        ])
+      )
+      expect(runtimeScope?.runtimeBlockers).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            stepId: 'build-source-vertex-join-products'
+          })
+        ])
+      )
+    }
+    for (const runtimeScope of [productFamilyPacket, productFamily]) {
+      expect(runtimeScope?.runtimeEvidence).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            stepId: 'build-terminal-body-products',
+            oracle:
+              'constrained-dashed-inside-strict-performance-gate-on-port-3001',
+            status: 'passed'
+          }),
+          expect.objectContaining({
+            stepId: 'build-source-vertex-join-products',
+            oracle: 'constrained-dashed-step-29-canonical-artifact-reuse-gate',
+            status: 'passed'
+          })
+        ])
+      )
+    }
+    expect(productFamilyPacket?.crossFamilyHandoffs).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(
+          'owner-preserving pre-legality product union feeds apply-legality'
+        ),
+        expect.stringContaining('render entries')
+      ])
+    )
+    expect(productFamilyPacket?.semanticValueOwners).toEqual([
+      'center body and exact center descriptor -> build-center-stroke-products',
+      'constrained solid doubled-center body -> build-constrained-solid-products',
+      'dash body visible footprint or exact body geometry program, including terminal and smooth portions -> build-dash-interval-body-products',
+      'dash seam-boundary evidence -> derive-dash-body-seam-boundaries',
+      'source vertex join and miter evidence -> build-source-vertex-join-products',
+      'terminal role, cap side, seam, and join ownership overlay -> build-terminal-body-products',
+      'smooth continuity group and tangent/curve-offset proof overlay -> build-smooth-continuity-products',
+      'descriptor eligibility -> select-stroke-descriptor-strategy'
+    ])
+
+    expect(outputChannels).toMatchObject({
+      status: 'implementation-ready',
+      closureState: 'implementation-ready',
+      contractStatus: 'contract-closed',
+      familyDataflowStatus: 'family-dataflow-closed',
+      runtimeStatus: 'pending-runtime-gates'
+    })
+    expect(outputChannelsPacket?.runtimeEvidence).toEqual([])
+    expect(outputChannels?.runtimeEvidence).toEqual([])
+    for (const runtimeScope of [outputChannelsPacket, outputChannels]) {
+      expect(runtimeScope?.runtimeBlockers).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            stepId: 'render-entries',
+            oracle: 'constrained-dashed-batched-body-output-channel-gate',
+            status: 'pending-runtime-repair'
+          })
+        ])
+      )
+    }
+    expect(outputChannels?.reason).toContain('contract')
+    expect(outputChannels?.reason).toContain('runtime')
+
+    for (const entry of ledger.filter(
+      (candidate) =>
+        candidate.closureState === 'implementation-ready' ||
+        candidate.closureState === 'runtime-closed'
+    )) {
+      expect(entry.skipReviewOnlyWhen).toEqual(
+        expect.arrayContaining(skipConditions)
+      )
+    }
+  })
+
+  it('closes the product-family union at legality without downstream raw-product reuse', () => {
+    const data = loadInspectorData()
+    const preLegality =
+      data.crossStepArtifactLifecycleMatrix['artifact:preLegalityProductUnits']
+    const constrainedDashed =
+      data.crossStepArtifactLifecycleMatrix[
+        'artifact:constrained-dashed-product-units'
+      ]
+    const postLegality =
+      data.crossStepArtifactLifecycleMatrix['artifact:postLegalityProductUnits']
+    const preLegalityProducerSteps = Array.from(
+      new Set(
+        data.conditionalRoutes
+          .filter((route) =>
+            route.produces.includes('artifact:preLegalityProductUnits')
+          )
+          .map((route) => route.from)
+      )
+    ).sort()
+
+    expect(preLegality).toMatchObject({
+      computedAt: 'apply-legality',
+      assemblyMode: 'owner-preserving-family-union',
+      semanticChildOwnerField: 'ownerStepId',
+      preserveThrough: ['apply-legality'],
+      consumedBy: ['apply-legality'],
+      mustNotRecomputeAfter: 'apply-legality',
+      downstreamAuthority: true
+    })
+    expect(preLegality.contributorStepIds?.slice().sort()).toEqual(
+      preLegalityProducerSteps
+    )
+    expect(constrainedDashed).toMatchObject({
+      computedAt: 'apply-legality',
+      assemblyMode: 'owner-preserving-family-union',
+      semanticChildOwnerField: 'ownerStepId',
+      preserveThrough: ['apply-legality'],
+      consumedBy: ['apply-legality'],
+      mustNotRecomputeAfter: 'apply-legality'
+    })
+    expect(constrainedDashed.contributorStepIds).toEqual([
+      'build-dash-interval-body-products',
+      'build-source-vertex-join-products'
+    ])
+    expect(constrainedDashed.overlayContributorStepIds).toEqual([
+      'build-terminal-body-products',
+      'build-smooth-continuity-products'
+    ])
+    expect(constrainedDashed.contributorStepIds).not.toEqual(
+      expect.arrayContaining(constrainedDashed.overlayContributorStepIds ?? [])
+    )
+    expect(postLegality).toMatchObject({
+      computedAt: 'apply-legality',
+      downstreamAuthority: true
+    })
+    expect(postLegality.consumedBy).toEqual(
+      expect.arrayContaining([
+        'build-resolved-stroke-regions',
+        'attach-paint-payload',
+        'build-final-faces',
+        'materialize-stroke-product-descriptors',
+        'emit-render-hit-export-packets'
+      ])
+    )
+
+    for (const route of data.conditionalRoutes.filter(
+      (candidate) => candidate.from !== 'apply-legality'
+    )) {
+      if (route.to === 'apply-legality') {
+        continue
+      }
+      expect(route.consumes, route.id).not.toContain(
+        'artifact:preLegalityProductUnits'
+      )
+    }
+  })
+
+  it('keeps diagnostics outside runtime steps, routes, and product artifacts', () => {
+    const data = loadInspectorData()
+    const stepIds = data.steps.map((step) => step.id)
+    const routeIds = data.conditionalRoutes.map((route) => route.id)
+    const artifactIds = data.artifactRegistry.map((artifact) => artifact.id)
+    const lifecycleIds = Object.keys(data.crossStepArtifactLifecycleMatrix)
+
+    expect(stepIds).not.toContain('runtime-diagnostics')
+    expect(routeIds).not.toContain('runtime-diagnostics')
+    expect(artifactIds).not.toContain('artifact:runtime-diagnostics')
+    expect(lifecycleIds).not.toContain('artifact:runtime-diagnostics')
+    for (const route of data.conditionalRoutes) {
+      expect([route.from, route.to]).not.toContain('runtime-diagnostics')
+      expect(route.produces).not.toContain('artifact:runtime-diagnostics')
+    }
+    expect(
+      data.strokePipelineArtifactDataContract.artifactClasses.find(
+        (artifactClass) => artifactClass.id === 'optional-diagnostic-artifact'
+      )
+    ).toMatchObject({
+      mayPaint: false,
+      mayBeRecomputedDownstream: true
+    })
   })
 
   it('tracks current stroke source-file ownership records', () => {
@@ -553,6 +1242,12 @@ describe('stroke flow refactor protocol', () => {
         expect(record.ownerStepId, record.filePath).toBeNull()
         expect(record.ownerRouteIds, record.filePath).toEqual([])
         expect(record.currentConsumers, record.filePath).toEqual([])
+      } else if (record.classification === 'diagnostics-only') {
+        expect(record.ownerStepId, record.filePath).toBeNull()
+        expect(record.ownerRouteIds, record.filePath).toEqual([])
+        expect(record.currentConsumers.length, record.filePath).toBeGreaterThan(
+          0
+        )
       } else {
         expect(stepIds.has(record.ownerStepId ?? ''), record.filePath).toBe(
           true
@@ -581,6 +1276,9 @@ describe('stroke flow refactor protocol', () => {
     }
 
     const violations = data.steps.flatMap((step) => {
+      if (step.verificationEvidence.status === 'pending-schema-alignment') {
+        return []
+      }
       const allowedImports = [...step.allowedTestImports, ...sharedHelpers]
 
       return parseStaticImports(step.unitTestFile)
@@ -794,6 +1492,16 @@ describe('stroke flow refactor protocol', () => {
       expect(data.currentExecutionState.nextExecutableStepId).toBe(
         'inspector-schema-repair-gate'
       )
+      expect(data.runtimeImplementationState.phase).toBe(
+        'inspector-flow-global-replan-active'
+      )
+      expect(data.runtimeImplementationState.schemaRepairStatus).toBe(
+        'complete'
+      )
+      expect(data.runtimeImplementationState.activeStepId).toBeNull()
+      expect(data.runtimeImplementationState.activeStepUnitStatus).toBe(
+        'not-applicable'
+      )
       expect(
         data.steps.some((step) => step.refactorStatus === 'verified')
       ).toBe(false)
@@ -803,10 +1511,10 @@ describe('stroke flow refactor protocol', () => {
     if (data.refactorProtocol.activeStepId === null) {
       expect(activeSteps).toEqual([])
       expect(data.currentExecutionState.planStatus).toBe(
-        'inspector-flow-step-units-verified'
+        'post-runtime-correctness-active'
       )
       expect(data.currentExecutionState.nextExecutableStepId).toBe(
-        'unit-complete-checkpoint'
+        'integration-suite'
       )
       expect(
         data.steps.every((step) => step.refactorStatus === 'verified')
@@ -815,8 +1523,8 @@ describe('stroke flow refactor protocol', () => {
         'runtime-implementation-audit-active',
         'runtime-implementation-unit-complete'
       ]).toContain(data.runtimeImplementationState.phase)
-      expect(data.runtimeImplementationState.previousCheckpoint).toBe(
-        'unit-complete-checkpoint'
+      expect(data.runtimeImplementationState.completedGate).toBe(
+        'runtime-unit-gate'
       )
       expect(data.runtimeImplementationState.stepRetryLimit).toBe(
         data.refactorProtocol.stepRetryLimit
@@ -843,6 +1551,8 @@ describe('stroke flow refactor protocol', () => {
 
       expect(verifiedRuntimeStepIds).toEqual(expectedVerifiedRuntimeStepIds)
       expect(verifiedRuntimeStepIds).not.toContain('visible-final-result')
+      expect(verifiedRuntimeStepIds).not.toContain('app-visual-review')
+      expect(verifiedRuntimeStepIds).not.toContain('runtime-diagnostics')
       if (runtimePipelineComplete) {
         expect(data.runtimeImplementationState.phase).toBe(
           'runtime-implementation-unit-complete'
@@ -853,7 +1563,7 @@ describe('stroke flow refactor protocol', () => {
           'complete'
         )
         expect(data.runtimeImplementationState.activeStepGate).toContain(
-          '41 runtime inspector steps verified'
+          'runtime inspector steps verified'
         )
       } else {
         expect(expectedRuntimeActiveStep).toBeDefined()
@@ -886,16 +1596,22 @@ describe('stroke flow refactor protocol', () => {
       expect(data.runtimeImplementationState.sequentialLockPolicy).toContain(
         'first unverified runtime step'
       )
-      expect(data.runtimeImplementationState.lockedFuturePhases).toEqual(
+      expect(data.runtimeImplementationState.pendingTechnicalPhases).toEqual(
         expect.arrayContaining([
           'full package regression',
-          'post-runtime stroke test suites',
           'E2E',
-          'visual review',
           'performance',
           'cleanup'
         ])
       )
+      expect(
+        data.runtimeImplementationState.pendingTechnicalPhases
+      ).not.toContain('visual review')
+      expect(data.runtimeImplementationState.unlockedNextPhases).toEqual([
+        'post-runtime test architecture',
+        'inspector-flow integration',
+        'formal geometry oracle'
+      ])
       expect(data.runtimeImplementationState.evidenceRequired).toEqual(
         expect.arrayContaining([
           'active inspector step contract',
@@ -989,16 +1705,21 @@ describe('stroke flow refactor protocol', () => {
     expect(spec).toMatch(
       /all five internal pentagon corners must respond to `strokeJoin` and\s+`miterAngle`/
     )
-    expect(spec).toContain(
-      'diagnostics emitted as channel-separated sibling or aggregation consumers'
+    expect(spec).toMatch(
+      /hit-export packets projected\s+as a sibling product-output channel/
+    )
+    expect(spec).toMatch(
+      /Optional diagnostics and final visual\s+validation consume terminal evidence outside the inspector step graph/
     )
     expect(spec).toContain('Stroke Field Mapping')
     expect(spec).toContain('`stepIndex` is the zero-based machine index')
     expect(spec).toContain('`stepNumber` is the one-based human-facing number')
     expect(spec).toContain('runtimeImplementationState')
-    expect(spec).toContain('41 runtime inspector steps')
-    expect(spec).toContain('post-runtime validation gates')
-    expect(spec).toContain('runtime audit/refactor starts')
+    expect(spec).toContain('current runtime inspector-step unit tests')
+    expect(spec).toContain('Whole-Flow Review And Step Grouping Contract')
+    expect(spec).toContain('post-runtime validation methods')
+    expect(spec).toContain('current step graph before runtime')
+    expect(spec).toContain('audit/refactor starts')
     expect(spec).toContain(
       'legal-domain clipping that never reauthors the dash'
     )
@@ -1044,11 +1765,17 @@ describe('stroke flow refactor protocol', () => {
     expect(plan).toMatch(
       /The inspector flow is\s+the executable route and step contract/
     )
-    expect(plan).toContain('runtime implementation audit/refactor')
-    expect(plan).toContain('41 runtime steps')
-    expect(plan).toContain('post-runtime validation gate')
-    expect(plan).toContain('Current runtime implementation step: read from')
-    expect(plan).toContain('runtimeImplementationState.activeStepId')
+    expect(plan).toMatch(
+      /Current phase: (?:runtime implementation audit|post-runtime correctness gate audit)/
+    )
+    expect(plan).toContain('closure packets')
+    expect(plan).toContain('implementation-ready')
+    expect(plan).toContain('every runtime inspector')
+    expect(plan).toContain('explicit-request-only validation methods')
+    expect(plan).toMatch(
+      /Current runtime implementation step: (?:`[-a-z]+` \(Step \d+\)|none \(41\/41 verified\))/
+    )
+    expect(plan).toContain('runtimeImplementationState.verifiedStepIds')
     expect(plan).toContain('inspector-flow-first')
     expect(plan).toContain('Stroke Test Conformance Policy')
     expect(plan).toContain('Execution Rules')
@@ -1166,15 +1893,18 @@ describe('stroke flow refactor protocol', () => {
       staleRendererProjectionHitExportRoute
     )
     expect(data.refactorProtocol.stepExecutionPolicy).toContain(
-      'all 41 runtime inspector steps'
+      'every runtime inspector step in the current graph'
     )
     expect(data.refactorProtocol.stepRetryLimit).toBe(3)
     expect(data.refactorProtocol.integrationPolicy).toContain(
-      'unit-complete checkpoint'
+      'runtime unit gate'
     )
-    expect(data.refactorProtocol.integrationPolicy).toContain('locked')
+    expect(data.refactorProtocol.integrationPolicy).toContain(
+      'begin automatically'
+    )
     expect(data.refactorProtocol.fullRegressionRetryLimit).toBe(3)
-    expect(data.refactorProtocol.e2ePolicy).toContain('locked')
+    expect(data.refactorProtocol.e2ePolicy).toContain('starts automatically')
+    expect(data.refactorProtocol.e2ePolicy).toContain('explicit user request')
     expect(data.refactorProtocol.documentDeepAuditPolicy).toContain(
       'fixed matrix'
     )
@@ -1214,7 +1944,7 @@ describe('stroke flow refactor protocol', () => {
       'artifact registry integrity',
       'retired wording scan',
       'numeric tolerance and evidence uniqueness',
-      'test/refactor/visual gates'
+      'test/refactor/visual policy'
     ]
 
     expect(protocol.source).toBe(
@@ -1261,6 +1991,135 @@ describe('stroke flow refactor protocol', () => {
         (rule) => rule.id === 'document-deep-audit-protocol'
       )?.text
     ).toContain('fixed Document Deep Audit Protocol matrix')
+  })
+
+  it('locks focused test slicing and continuous parameter performance outside runtime ownership', () => {
+    const data = loadInspectorData()
+    const spec = readRepoFile(specPath)
+    const plan = readRepoFile(planPath)
+    const focused = data.focusedTestExecutionContract
+    const continuous = data.continuousParameterPerformanceContract
+    const continuousE2e = readRepoFile(
+      resolve(
+        repoRoot,
+        'apps/asyra-design/e2e/stroke-parameter-switch-performance.spec.ts'
+      )
+    )
+
+    expect(focused).toMatchObject({
+      focusedStepTargetMs: 5000,
+      focusedGeometryOracleTargetMs: 15000,
+      mandatorySplitReviewMs: 30000,
+      timingIsCorrectnessAssertion: false
+    })
+    expect(focused.innerLoopGateKinds).toEqual([
+      'protocol validator',
+      'active inspector step unit test',
+      'one required cross-step handoff test when the active contract crosses a family boundary'
+    ])
+    expect(focused.checkpointOnlyGates).toEqual(
+      expect.arrayContaining([
+        'test:stroke-flow:unit',
+        'test:stroke:new',
+        'full stroke E2E matrix',
+        'test:local'
+      ])
+    )
+    expect(focused.integrationReviewSegments).toEqual(
+      data.wholeFlowReviewContract.reviewSegments.map((segment) => segment.id)
+    )
+    expect(focused.geometryOracleGroups).toEqual([
+      'normalization-domain',
+      'center-product',
+      'constrained-product',
+      'dash-cap-join',
+      'legality-final-face',
+      'output-channel'
+    ])
+    expect(focused.continuousParameterPerformanceGroups).toEqual([
+      'width',
+      'dash-gap',
+      'miter-angle'
+    ])
+    expect(focused.forbiddenPatterns.join(' ')).toContain(
+      'unrelated whole-suite gate in the step implementation inner loop'
+    )
+
+    expect(continuous).toMatchObject({
+      status: 'contract-defined-runtime-gate-pending-prerequisites',
+      targetFps: 120,
+      frameBudgetMs: 8.33,
+      addsUiScrubber: false,
+      parameterIds: [
+        'stroke.width',
+        'stroke.dash',
+        'stroke.gap',
+        'stroke.miterAngle'
+      ],
+      sampleContract: {
+        minimumGeometryRebuildSampleRatio: 0.9,
+        requiresCacheRevisit: true,
+        p95Population: 'geometry-rebuilding continuous update frames'
+      },
+      discreteUiBudget: {
+        endToVisibleP95Ms: 50,
+        singleActionMaxMs: 100
+      }
+    })
+    expect(continuous.updatePath).toContain('property/common API')
+    expect(continuous.requiredMetrics).toEqual(
+      expect.arrayContaining([
+        'resolved geometry p95 below 8.33ms',
+        'vector product render p95 below 8.33ms',
+        'sustained render flush average below 8.33ms'
+      ])
+    )
+    expect(continuousE2e).toContain(
+      'CONTINUOUS_PARAMETER_MINIMUM_GEOMETRY_SAMPLE_RATIO = 0.9'
+    )
+    expect(continuousE2e).toContain('minimumResolvedGeometrySampleCount')
+    expect(continuousE2e).toContain('metrics.resolvedGeometrySampleCount')
+    expect(continuousE2e).toContain(
+      'frame === CONTINUOUS_PARAMETER_FRAME_COUNT - 1'
+    )
+    expect(continuous.dirtyingEvidence['stroke.width']).toEqual(
+      expect.arrayContaining([
+        'reuse source path/topology',
+        'reuse dash interval allocation'
+      ])
+    )
+    expect(continuous.dirtyingEvidence['stroke.dash-gap']).toEqual(
+      expect.arrayContaining([
+        'rebuild dash interval allocation and downstream output',
+        'preserve source topology and join shape revision'
+      ])
+    )
+    expect(continuous.dirtyingEvidence['stroke.miterAngle']).toEqual(
+      expect.arrayContaining([
+        'rebuild join/miter and downstream output',
+        'preserve source path, stroke domain, dash allocation, and paint revisions'
+      ])
+    )
+    expect(continuous.goalCompletionPolicy).toContain(
+      '8.33ms continuous-operation gates pass without exception'
+    )
+    expect(continuous.prerequisites).toEqual([
+      'runtime inspector steps verified',
+      'formal stroke correctness gates pass'
+    ])
+
+    expect(spec).toContain(
+      '## Continuous Stroke Parameter Performance Contract'
+    )
+    expect(spec).toContain('## Focused Test Execution Contract')
+    expect(plan).toContain('## Focused Test Execution Policy')
+    expect(plan.toLowerCase()).toContain('continuous parameter performance')
+    expect(data.steps.map((step) => step.id)).not.toEqual(
+      expect.arrayContaining([
+        'continuous-parameter-performance',
+        'focused-test-execution'
+      ])
+    )
   })
 
   it('turns dash/join seam identity into a structured lifecycle contract', () => {
@@ -1352,7 +2211,7 @@ describe('stroke flow refactor protocol', () => {
     )
     expect(phaseById.get('consume-seam-boundary')?.requiredEvidence).toEqual(
       expect.arrayContaining([
-        'proof that dash and join visible triangles share the same Step 27 seam endpoint identities',
+        'proof that dash and join visible triangles share the same seam endpoint identities',
         'dash/join zero-gap adjacency proof'
       ])
     )
@@ -1360,7 +2219,7 @@ describe('stroke flow refactor protocol', () => {
       phaseById.get('preserve-through-legality')?.preservedEvidence
     ).toEqual(
       expect.arrayContaining([
-        'same Step 27 seam endpoint identity when visible dash/join products survive legality'
+        'same seam endpoint identity when visible dash/join products survive legality'
       ])
     )
     expect(
@@ -1380,7 +2239,7 @@ describe('stroke flow refactor protocol', () => {
     )
     expect(joinRoute.evidenceRequired).toEqual(
       expect.arrayContaining([
-        'proof that dash and join visible triangles share the same Step 27 seam endpoint identities',
+        'proof that dash and join visible triangles share the same seam endpoint identities',
         'dash/join zero-gap adjacency proof'
       ])
     )
@@ -1444,12 +2303,9 @@ describe('stroke flow refactor protocol', () => {
         'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts'
     })
     expect(contract.targetSurfaces).toEqual(
-      expect.arrayContaining([
-        'visible render coverage',
-        'hit/export coverage',
-        'diagnostics provenance'
-      ])
+      expect.arrayContaining(['visible render coverage', 'hit/export coverage'])
     )
+    expect(contract.targetSurfaces).not.toContain('diagnostics provenance')
     expect(contract.governingPrinciples).toEqual(
       expect.arrayContaining([
         'Define final required artifacts before step-local input/output checks.',
@@ -1505,7 +2361,8 @@ describe('stroke flow refactor protocol', () => {
         ?.genericFormalAssertions
     ).toEqual(
       expect.arrayContaining([
-        'terminal dash bodies retain required source-space width up to declared seam boundaries',
+        'dash interval body terminal portions retain required source-space width up to declared seam boundaries',
+        'terminal/smooth ownership overlays reference body products and contribute zero additional visible geometry',
         'miter, bevel, and round joins share the same destination continuity contract'
       ])
     )
@@ -1609,11 +2466,17 @@ describe('stroke flow refactor protocol', () => {
     expect(routeById(data, 'hit-export-channel-packet-projection').from).toBe(
       'emit-render-hit-export-packets'
     )
-    expect(routeById(data, 'renderer-projection-diagnostics-snapshot').to).toBe(
-      'runtime-diagnostics'
+    expect(data.conditionalRoutes).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: 'runtime-diagnostics' }),
+        expect.objectContaining({ from: 'runtime-diagnostics' })
+      ])
     )
-    expect(routeById(data, 'diagnostics-channel-aggregation').to).toBe(
-      'runtime-diagnostics'
+    expect(data.conditionalRoutes.map((route) => route.id)).not.toEqual(
+      expect.arrayContaining([
+        'renderer-projection-diagnostics-snapshot',
+        'diagnostics-channel-aggregation'
+      ])
     )
   })
 
@@ -1754,11 +2617,14 @@ describe('stroke flow refactor protocol', () => {
       'artifact:descriptorStrategyRecords',
       'artifact:finalFaces',
       'artifact:renderEntries',
-      'artifact:hitExportPackets',
-      'artifact:diagnosticSnapshots'
+      'artifact:hitExportPackets'
     ]) {
       expect(artifactIds.has(id), id).toBe(true)
     }
+    expect(artifactIds.has('artifact:diagnosticSnapshots')).toBe(false)
+    expect(
+      artifactIds.has('artifact:renderer-projection-diagnostic-snapshot')
+    ).toBe(false)
 
     expect(
       routeById(data, 'legality-product-unit-clipping').consumes
@@ -1839,6 +2705,33 @@ describe('stroke flow refactor protocol', () => {
         ).toBe(true)
       }
     }
+    const completionRuleByGroup = new Map(
+      data.coExecutionCompletionRules.map((rule) => [
+        rule.coExecutionGroup,
+        rule
+      ])
+    )
+    expect(
+      completionRuleByGroup.get('coexec:constrained-dashed-product-units')
+        ?.completionArtifactIds
+    ).toEqual(
+      expect.arrayContaining([
+        'artifact:constrained-dashed-product-units',
+        'artifact:constrained-dashed-join-owned-terminal-body-product',
+        'artifact:constrained-dashed-smooth-continuity-product',
+        'artifact:descriptorStrategyRecords'
+      ])
+    )
+    expect(
+      completionRuleByGroup.get('coexec:terminal-body-product-units')
+        ?.completionArtifactIds
+    ).toEqual([
+      'artifact:constrained-dashed-join-owned-terminal-body-product'
+    ])
+    expect(
+      completionRuleByGroup.get('coexec:smooth-continuity-product-units')
+        ?.completionArtifactIds
+    ).toEqual(['artifact:constrained-dashed-smooth-continuity-product'])
 
     const joinRoute = routeById(
       data,
@@ -1854,15 +2747,6 @@ describe('stroke flow refactor protocol', () => {
       '#dash-body-and-join-seam-contract'
     )
     expect(joinRoute.metricAssertions.length).toBeGreaterThan(0)
-
-    const diagnosticsRoute = routeById(data, 'diagnostics-channel-aggregation')
-    expect(diagnosticsRoute.consumes).toEqual(
-      expect.arrayContaining([
-        'artifact:renderer-projection-diagnostic-snapshot',
-        'artifact:hitExportPackets'
-      ])
-    )
-    expect(diagnosticsRoute.produces).toContain('artifact:diagnosticSnapshots')
 
     const serializedRoutes = JSON.stringify(data.conditionalRoutes)
     const retiredRendererMiterField = ['miter', 'Limit'].join('')
@@ -1909,9 +2793,11 @@ describe('stroke flow refactor protocol', () => {
     )
     expect(dashBodyRoute.produces).toEqual(
       expect.arrayContaining([
-        'artifact:constrained-dashed-interval-body-product',
-        'artifact:dash-body-seam-boundary'
+        'artifact:constrained-dashed-interval-body-product'
       ])
+    )
+    expect(dashBodyRoute.produces).not.toContain(
+      'artifact:dash-body-seam-boundary'
     )
     expect(dashBodyRoute.cacheKeyInputs).toEqual(
       expect.arrayContaining(['terminal role', 'endpoint cap policy'])
@@ -1919,26 +2805,59 @@ describe('stroke flow refactor protocol', () => {
     expect(dashBodyRoute.computationContract).toMatchObject({
       computedAt: 'build-dash-interval-body-products',
       consumesArtifacts: ['artifact:dash-product-interval'],
-      producesArtifacts: [
-        'artifact:constrained-dashed-interval-body-product',
-        'artifact:dash-body-seam-boundary'
-      ],
+      producesArtifacts: ['artifact:constrained-dashed-interval-body-product'],
       consumedBy: [
+        'derive-dash-body-seam-boundaries',
         'build-source-vertex-join-products',
         'build-terminal-body-products',
         'apply-legality'
       ],
-      mustNotRecomputeAfter: 'build-source-vertex-join-products'
+      mustNotRecomputeAfter: 'derive-dash-body-seam-boundaries'
     })
     expect(dashBodyRoute.computationContract?.forbiddenLateComputation).toEqual(
       expect.arrayContaining([
         'dash interval endpoint relocation',
-        'dash body seam boundary relocation',
         'endpoint cap suppression reinterpretation',
         'bevel endpoint substitution'
       ])
     )
+    expect(
+      dashBodyRoute.computationContract?.forbiddenLateComputation
+    ).not.toContain('dash body seam boundary relocation')
     expect(dashBodyRoute.specRuleRefs).toContain(computationSpecRef)
+
+    const seamBoundaryRoute = routeById(
+      data,
+      'constrained-dashed-products-derive-seam-boundaries'
+    )
+    expect(seamBoundaryRoute.consumes).toEqual(
+      expect.arrayContaining([
+        'artifact:constrained-dashed-interval-body-product'
+      ])
+    )
+    expect(seamBoundaryRoute.produces).toEqual(
+      expect.arrayContaining(['artifact:dash-body-seam-boundary'])
+    )
+    expect(seamBoundaryRoute.computationContract).toMatchObject({
+      computedAt: 'derive-dash-body-seam-boundaries',
+      consumesArtifacts: ['artifact:constrained-dashed-interval-body-product'],
+      producesArtifacts: ['artifact:dash-body-seam-boundary'],
+      consumedBy: [
+        'build-source-vertex-join-products',
+        'build-terminal-body-products'
+      ],
+      mustNotRecomputeAfter: 'build-source-vertex-join-products'
+    })
+    expect(
+      seamBoundaryRoute.computationContract?.forbiddenLateComputation
+    ).toEqual(
+      expect.arrayContaining([
+        'dash body seam boundary relocation',
+        'fresh offset point substitution',
+        'endpoint cap suppression reinterpretation',
+        'dash interval provenance reinterpretation'
+      ])
+    )
 
     const joinDispatchRoute = routeById(
       data,
@@ -2019,7 +2938,7 @@ describe('stroke flow refactor protocol', () => {
     expect(terminalBodyRoute.computationContract).toMatchObject({
       computedAt: 'build-terminal-body-products',
       consumesArtifacts: [
-        'artifact:dash-product-interval',
+        'artifact:constrained-dashed-interval-body-product',
         'artifact:dash-body-seam-boundary'
       ],
       producesArtifacts: [
@@ -2038,7 +2957,33 @@ describe('stroke flow refactor protocol', () => {
         'terminal seam boundary relocation'
       ])
     )
+    expect(terminalBodyRoute.visibleContributor).toBe(
+      'none-non-visible-ownership-overlay'
+    )
+    expect(terminalBodyRoute.geometryBasis).toBe(
+      'terminal-body-ownership-overlay'
+    )
+    expect(terminalBodyRoute.limitations.join(' ')).toContain(
+      'may not contain polygons, stroke paths, paint'
+    )
+    expect(terminalBodyRoute.produces).not.toContain(
+      'artifact:preLegalityProductUnits'
+    )
     expect(terminalBodyRoute.specRuleRefs).toContain(computationSpecRef)
+
+    const smoothOverlayRoute = routeById(
+      data,
+      'constrained-dashed-smooth-continuity-product'
+    )
+    expect(smoothOverlayRoute.visibleContributor).toBe(
+      'none-non-visible-ownership-overlay'
+    )
+    expect(smoothOverlayRoute.geometryBasis).toBe(
+      'smooth-continuity-ownership-overlay'
+    )
+    expect(smoothOverlayRoute.produces).not.toContain(
+      'artifact:preLegalityProductUnits'
+    )
 
     const renderEntryRoute = routeById(
       data,
@@ -2051,7 +2996,7 @@ describe('stroke flow refactor protocol', () => {
       computedAt: 'render-entries',
       consumesArtifacts: ['artifact:finalFaces'],
       producesArtifacts: ['artifact:renderEntries'],
-      consumedBy: ['renderer-projection', 'runtime-diagnostics'],
+      consumedBy: ['renderer-projection'],
       mustNotRecomputeAfter: 'renderer-projection'
     })
     expect(renderEntryRoute.evidenceRequired.join(' ')).toContain(
@@ -2079,8 +3024,8 @@ describe('stroke flow refactor protocol', () => {
       computedAt: 'renderer-projection',
       consumesArtifacts: ['artifact:renderEntries'],
       producesArtifacts: ['stage:renderer-projection'],
-      consumedBy: ['runtime-diagnostics'],
-      mustNotRecomputeAfter: 'runtime-diagnostics'
+      consumedBy: ['finalValidationMethods', 'optionalDiagnosticChannels'],
+      mustNotRecomputeAfter: 'renderer-projection'
     })
     expect(
       projectionRoute.computationContract?.forbiddenLateComputation

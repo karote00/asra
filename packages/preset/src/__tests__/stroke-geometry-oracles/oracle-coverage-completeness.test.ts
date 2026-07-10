@@ -18,6 +18,7 @@ interface InspectorRoute {
 
 interface InspectorArtifact {
   id: string
+  channel: string
 }
 
 interface InspectorStep {
@@ -107,6 +108,8 @@ describe('formal stroke geometry oracle coverage map', () => {
     const specAnchors = readSpecAnchors()
 
     expect(data.steps).toHaveLength(41)
+    expect(data.steps[27]?.id).toBe('derive-dash-body-seam-boundaries')
+    expect(data.steps.at(-1)?.id).toBe('hit-export')
     expect(data.conditionalRoutes).toHaveLength(67)
     expect(data.routeContractErrors).toEqual([])
     expect(data.inspectorContractErrors).toEqual([])
@@ -235,12 +238,16 @@ describe('formal stroke geometry oracle coverage map', () => {
 
   it('ties every coverage case to executable new-suite tests by exact test title', () => {
     for (const entry of strokeGeometryOracleCoverageMap) {
-      const sources = entry.testFiles.map((testFile) => {
+      for (const testFile of entry.testFiles) {
         expect(testFile).toMatch(
           /^packages\/preset\/src\/__tests__\/stroke-(geometry-oracles|flow-integration)\//
         )
-        return readFileSync(resolve(repoRoot, testFile), 'utf8')
-      })
+      }
+
+      const sourceFiles = entry.testSourceFiles ?? entry.testFiles
+      const sources = sourceFiles.map((testFile) =>
+        readFileSync(resolve(repoRoot, testFile), 'utf8')
+      )
       const combinedSource = sources.join('\n')
 
       for (const title of entry.testNames) {
@@ -296,5 +303,77 @@ describe('formal stroke geometry oracle coverage map', () => {
         blockedCanvasToken
       )
     }
+  })
+
+  it('maps every oracle case to one focused group, artifact channel set, and single-file gates', () => {
+    const data = loadInspectorData()
+    const entries = strokeGeometryOracleCoverageMap as readonly (typeof strokeGeometryOracleCoverageMap[number] & {
+      oracleGroup?: string
+      artifactChannels?: readonly string[]
+      focusedGates?: readonly string[]
+    })[]
+    const expectedGroups = [
+      'center-product',
+      'constrained-product',
+      'dash-cap-join',
+      'legality-final-face',
+      'normalization-domain',
+      'output-channel'
+    ]
+    const artifactChannelById = new Map(
+      data.artifactRegistry.map((artifact) => [artifact.id, artifact.channel])
+    )
+
+    expect(unique(entries.map((entry) => entry.oracleGroup))).toEqual(
+      expectedGroups
+    )
+    for (const entry of entries) {
+      expect(entry.oracleGroup, entry.id).toBeTruthy()
+      expect(entry.artifactChannels, entry.id).toEqual(
+        unique(
+          entry.artifactIds.map((artifactId) =>
+            artifactChannelById.get(artifactId)
+          )
+        )
+      )
+      expect(entry.focusedGates, entry.id).toEqual(
+        entry.testNames.map(
+          (testName) =>
+            `yarn workspace @asyra/preset vitest run ${entry.testFiles
+              .map((testFile) => testFile.replace('packages/preset/', ''))
+              .join(' ')} -t ${JSON.stringify(testName)} --reporter=dot`
+        )
+      )
+    }
+  })
+
+  it('keeps each focused title unique and splits oversized runtime aggregates', () => {
+    const mappedTestFiles = new Set<string>()
+    for (const entry of strokeGeometryOracleCoverageMap) {
+      for (const testFile of entry.testFiles) {
+        mappedTestFiles.add(testFile)
+      }
+      for (const testName of entry.testNames) {
+        const sourceFiles = entry.testSourceFiles ?? entry.testFiles
+        const matchingFiles = sourceFiles.filter((testFile) =>
+          readFileSync(resolve(repoRoot, testFile), 'utf8').includes(testName)
+        )
+        expect(matchingFiles, `${entry.id}:${testName}`).toHaveLength(1)
+      }
+    }
+
+    const oversizedAggregates = [...mappedTestFiles]
+      .filter((testFile) => testFile.endsWith('.test.ts'))
+      .map((testFile) => ({
+        testFile,
+        source: readFileSync(resolve(repoRoot, testFile), 'utf8')
+      }))
+      .filter(
+        ({ source }) =>
+          source.split('\n').length > 1000 &&
+          [...source.matchAll(/^  it\(/gm)].length > 8
+      )
+      .map(({ testFile }) => testFile)
+    expect(oversizedAggregates).toEqual([])
   })
 })

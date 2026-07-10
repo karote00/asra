@@ -13,7 +13,34 @@ import {
   subtract,
   type Vec2
 } from './solid-stroke-geometry-core'
-import { buildSourceVertexJoinFootprint } from './source-vertex-join-footprint'
+import {
+  buildSourceVertexBevelPolygonWithoutIncidentBoundaries,
+  buildSourceVertexJoinFootprint,
+  buildSourceVertexRoundPolygonWithoutIncidentBoundaries
+} from './source-vertex-join-footprint'
+
+const measureSolidCenterStrokePhase = <T>(
+  phaseName: string,
+  run: () => T
+): T => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraVectorRenderDetailPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraVectorRenderDetailPhaseSink
+  if (!sink) {
+    return run()
+  }
+  const start = performance.now()
+  try {
+    return run()
+  } finally {
+    sink(phaseName, performance.now() - start)
+  }
+}
 
 export const supportsSolidCenterStroke = (
   stroke: Pick<
@@ -134,6 +161,38 @@ const buildSourceVertexJoinPolygons = (
   }
 
   const polygons: Vec2[][] = []
+  const detailPhaseSink = (
+    globalThis as typeof globalThis & {
+      __asyraVectorRenderDetailPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraVectorRenderDetailPhaseSink
+  let metadataFreeBevelDurationMs = 0
+  let metadataFreeRoundDurationMs = 0
+  let fullSolverDurationMs = 0
+  const measureJoinPolygonPhase = <T>(
+    phase: 'metadata-free-bevel' | 'metadata-free-round' | 'full-solver',
+    run: () => T
+  ): T => {
+    if (!detailPhaseSink) {
+      return run()
+    }
+    const start = performance.now()
+    try {
+      return run()
+    } finally {
+      const durationMs = performance.now() - start
+      if (phase === 'metadata-free-bevel') {
+        metadataFreeBevelDurationMs += durationMs
+      } else if (phase === 'metadata-free-round') {
+        metadataFreeRoundDurationMs += durationMs
+      } else {
+        fullSolverDurationMs += durationMs
+      }
+    }
+  }
   const firstJoinIndex = closed ? 0 : 1
   const lastJoinIndex = closed ? source.length - 1 : source.length - 2
 
@@ -154,21 +213,57 @@ const buildSourceVertexJoinPolygons = (
     const outerSide = turn > 0 ? 'right' : 'left'
     ;(['left', 'right'] as const).forEach((side) => {
       const authoredJoin = side === outerSide ? stroke.join : 'bevel'
-      const footprint = buildSourceVertexJoinFootprint({
-        vertex,
-        previousPoint,
-        nextPoint,
-        strokeWidth: stroke.width,
-        offsetDistance: halfWidth,
-        side,
-        authoredJoin,
-        miterAngle: stroke.miterAngle,
-        ownerId: `center-solid:source-vertex:${index}:${side}`,
-        angleSource: 'AUTHORED_CENTER_PATH_INCIDENT_TANGENTS'
-      })
-      pushPolygon(polygons, footprint.polygon)
+      const polygon =
+        authoredJoin === 'bevel'
+          ? measureJoinPolygonPhase('metadata-free-bevel', () =>
+              buildSourceVertexBevelPolygonWithoutIncidentBoundaries({
+                vertex,
+                previousPoint,
+                nextPoint,
+                offsetDistance: halfWidth,
+                side
+              })
+            )
+          : authoredJoin === 'round'
+            ? measureJoinPolygonPhase('metadata-free-round', () =>
+                buildSourceVertexRoundPolygonWithoutIncidentBoundaries({
+                  vertex,
+                  previousPoint,
+                  nextPoint,
+                  offsetDistance: halfWidth,
+                  side
+                })
+              )
+            : measureJoinPolygonPhase('full-solver', () =>
+                buildSourceVertexJoinFootprint({
+                  vertex,
+                  previousPoint,
+                  nextPoint,
+                  strokeWidth: stroke.width,
+                  offsetDistance: halfWidth,
+                  side,
+                  authoredJoin,
+                  miterAngle: stroke.miterAngle,
+                  ownerId: `center-solid:source-vertex:${index}:${side}`,
+                  angleSource: 'AUTHORED_CENTER_PATH_INCIDENT_TANGENTS'
+                })
+              ).polygon
+      pushPolygon(polygons, polygon)
     })
   }
+
+  detailPhaseSink?.(
+    'solid center stroke join polygons: metadata-free bevel',
+    metadataFreeBevelDurationMs
+  )
+  detailPhaseSink?.(
+    'solid center stroke join polygons: metadata-free round',
+    metadataFreeRoundDurationMs
+  )
+  detailPhaseSink?.(
+    'solid center stroke join polygons: full solver',
+    fullSolverDurationMs
+  )
 
   return polygons
 }
@@ -191,19 +286,34 @@ export const buildSolidCenterStrokePolygons = (
     return []
   }
 
-  const source = closed
-    ? normalizeClosed(points)
-    : extendForCap(dedupeAdjacent(points), stroke)
+  const source = measureSolidCenterStrokePhase(
+    'solid center stroke: source normalization',
+    () =>
+      closed
+        ? normalizeClosed(points)
+        : extendForCap(dedupeAdjacent(points), stroke)
+  )
 
   if (source.length < 2) {
     return []
   }
 
   const halfWidth = stroke.width / 2
-  const roundCapPolygons = buildRoundCapPolygons(source, stroke, closed)
+  const roundCapPolygons = measureSolidCenterStrokePhase(
+    'solid center stroke: round cap polygons',
+    () => buildRoundCapPolygons(source, stroke, closed)
+  )
+  const segmentBodyPolygons = measureSolidCenterStrokePhase(
+    'solid center stroke: segment body polygons',
+    () => buildSegmentBodyPolygons(source, closed, halfWidth)
+  )
+  const sourceVertexJoinPolygons = measureSolidCenterStrokePhase(
+    'solid center stroke: source vertex join polygons',
+    () => buildSourceVertexJoinPolygons(source, closed, stroke, halfWidth)
+  )
   return [
-    ...buildSegmentBodyPolygons(source, closed, halfWidth),
-    ...buildSourceVertexJoinPolygons(source, closed, stroke, halfWidth),
+    ...segmentBodyPolygons,
+    ...sourceVertexJoinPolygons,
     ...roundCapPolygons
   ]
 }

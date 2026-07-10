@@ -27,6 +27,7 @@ export interface ResolvedVectorGeometryNetworkFrameCache {
   tracedSegmentSignatures: string[]
   tracedPathSegmentCache?: ResolvedVectorPathSegmentTraceFrameCache
   selfIntersectionCache?: SelfIntersectionPairCache
+  pairCacheTranslationOffset?: Vec2
   detailMode?: IncrementalResolvedGeometryOptions['detailMode']
   geometry?: ResolvedVectorSelfIntersectingGeometry | null
 }
@@ -34,12 +35,14 @@ export interface ResolvedVectorGeometryNetworkFrameCache {
 interface ResolvedVectorLocalTracedSegment {
   localStartDistance: number
   localEndDistance: number
+  startPointIndex: number
   start: Vec2
   end: Vec2
 }
 
 interface ResolvedVectorPathSegmentTraceCacheEntry {
   key: string
+  origin: Vec2
   localSegments: ResolvedVectorLocalTracedSegment[]
 }
 
@@ -116,12 +119,15 @@ const SOURCE_SPLIT_RANGE_CACHE_LIMIT = 1024
 
 const distanceBetween = (a: Vec2, b: Vec2) => Math.hypot(b.x - a.x, b.y - a.y)
 
-const getTracedSegmentSignature = (segment: TracedLineSegment) =>
+const getTracedSegmentSignature = (
+  segment: TracedLineSegment,
+  translationOffset: Vec2 = { x: 0, y: 0 }
+) =>
   [
-    segment.start.x.toFixed(4),
-    segment.start.y.toFixed(4),
-    segment.end.x.toFixed(4),
-    segment.end.y.toFixed(4),
+    (segment.start.x - translationOffset.x).toFixed(4),
+    (segment.start.y - translationOffset.y).toFixed(4),
+    (segment.end.x - translationOffset.x).toFixed(4),
+    (segment.end.y - translationOffset.y).toFixed(4),
     segment.sourceSegmentIndex ?? ''
   ].join(':')
 
@@ -334,37 +340,33 @@ const getPathSegmentTraceCacheKey = (
     path.traceSampleOptions?.maxCubicSamples ?? '',
     path.traceSampleOptions?.useRangeLengthForSampleCount ?? ''
   ].join(':')
+  const relativePointKey = (point: Vec2) =>
+    [
+      formatResolvedGeometryCacheNumber(point.x - segment.start.x),
+      formatResolvedGeometryCacheNumber(point.y - segment.start.y)
+    ].join(',')
   const geometryKey =
     segment.type === 'line'
       ? [
+          segmentIndex,
           segment.type,
-          segment.start.x,
-          segment.start.y,
-          segment.end.x,
-          segment.end.y,
-          segment.length,
+          relativePointKey(segment.end),
+          formatResolvedGeometryCacheNumber(segment.length),
           segment.startAnchorType ?? '',
           segment.endAnchorType ?? ''
         ].join(':')
       : [
+          segmentIndex,
           segment.type,
-          segment.start.x,
-          segment.start.y,
-          segment.control1.x,
-          segment.control1.y,
-          segment.control2.x,
-          segment.control2.y,
-          segment.end.x,
-          segment.end.y,
-          segment.length,
+          relativePointKey(segment.control1),
+          relativePointKey(segment.control2),
+          relativePointKey(segment.end),
+          formatResolvedGeometryCacheNumber(segment.length),
           segment.startAnchorType ?? '',
           segment.endAnchorType ?? ''
         ].join(':')
 
-  return [
-    segment.revisionKey ?? `segment:${segmentIndex}:${geometryKey}`,
-    samplingKey
-  ].join('|trace:')
+  return [geometryKey, samplingKey].join('|trace:')
 }
 
 const emitStrokePipelineCounter = (counterName: string, value = 1) => {
@@ -384,12 +386,12 @@ const measureResolvedVectorGeometryPhase = <T>(
 ): T => {
   const sink = (
     globalThis as typeof globalThis & {
-      __asyraVectorRenderPhaseSink?: (
+      __asyraVectorRenderDetailPhaseSink?: (
         phaseName: string,
         durationMs: number
       ) => void
     }
-  ).__asyraVectorRenderPhaseSink
+  ).__asyraVectorRenderDetailPhaseSink
   if (!sink) {
     return run()
   }
@@ -935,12 +937,18 @@ const buildResolvedVectorSourceSplitRanges = (
     preparedFillPolygons ??= buildPreparedFillPolygons(fillRegions)
     return preparedFillPolygons
   }
-  const sourceSegmentStartDistances: number[] = []
-  let sourceCursor = 0
-  path.segments.forEach((segment, segmentIndex) => {
-    sourceSegmentStartDistances[segmentIndex] = sourceCursor
-    sourceCursor += segment.length
-  })
+  const sourceSegmentStartDistances = measureResolvedVectorGeometryPhase(
+    'resolved self-intersecting geometry: source split range setup',
+    () => {
+      const startDistances: number[] = []
+      let sourceCursor = 0
+      path.segments.forEach((segment, segmentIndex) => {
+        startDistances[segmentIndex] = sourceCursor
+        sourceCursor += segment.length
+      })
+      return startDistances
+    }
+  )
   const getCachedSourceSegmentStartDistance = (segmentIndex: number) => {
     return sourceSegmentStartDistances[segmentIndex] ?? 0
   }
@@ -1022,18 +1030,24 @@ const buildResolvedVectorSourceSplitRanges = (
   let contourRoleByEdgeKey:
     | Map<string, ResolvedVectorSourceSplitRange['boundaryRole']>
     | undefined
-  const contourRoleByOppositeFaceId = new Map<
-    string,
-    ResolvedVectorSourceSplitRange['boundaryRole'] | 'mixed'
-  >()
-  legalBoundaryContours.forEach((contour) => {
-    const role = getBoundaryRole(contour)
-    const existing = contourRoleByOppositeFaceId.get(contour.oppositeFaceId)
-    contourRoleByOppositeFaceId.set(
-      contour.oppositeFaceId,
-      existing === undefined || existing === role ? role : 'mixed'
-    )
-  })
+  const contourRoleByOppositeFaceId = measureResolvedVectorGeometryPhase(
+    'resolved self-intersecting geometry: source split range boundary role index',
+    () => {
+      const roleByOppositeFaceId = new Map<
+        string,
+        ResolvedVectorSourceSplitRange['boundaryRole'] | 'mixed'
+      >()
+      legalBoundaryContours.forEach((contour) => {
+        const role = getBoundaryRole(contour)
+        const existing = roleByOppositeFaceId.get(contour.oppositeFaceId)
+        roleByOppositeFaceId.set(
+          contour.oppositeFaceId,
+          existing === undefined || existing === role ? role : 'mixed'
+        )
+      })
+      return roleByOppositeFaceId
+    }
+  )
   const getContourRoleByEdgeKey = (
     edge: EvenOddLegalFaceBoundaryEdge
   ): ResolvedVectorSourceSplitRange['boundaryRole'] | undefined => {
@@ -1054,330 +1068,350 @@ const buildResolvedVectorSourceSplitRanges = (
     return contourRoleByEdgeKey.get(edgeKey(edge.start, edge.end))
   }
 
-  legalFaceBoundaries.forEach((face) => {
-    const getFaceEdgeBoundaryRole = (
-      edge: EvenOddLegalFaceBoundaryEdge
-    ): ResolvedVectorSourceSplitRange['boundaryRole'] =>
-      edge.oppositeFaceLegal
-        ? 'filled-face'
-        : edge.oppositeFaceId === null
-          ? 'ambiguous'
-          : (() => {
-              const role = contourRoleByOppositeFaceId.get(edge.oppositeFaceId)
-              return role && role !== 'mixed'
-                ? role
-                : (getContourRoleByEdgeKey(edge) ?? 'ambiguous')
-            })()
+  measureResolvedVectorGeometryPhase(
+    'resolved self-intersecting geometry: source split range legal face materialization',
+    () => {
+      legalFaceBoundaries.forEach((face) => {
+        const getFaceEdgeBoundaryRole = (
+          edge: EvenOddLegalFaceBoundaryEdge
+        ): ResolvedVectorSourceSplitRange['boundaryRole'] =>
+          edge.oppositeFaceLegal
+            ? 'filled-face'
+            : edge.oppositeFaceId === null
+              ? 'ambiguous'
+              : (() => {
+                  const role = contourRoleByOppositeFaceId.get(
+                    edge.oppositeFaceId
+                  )
+                  return role && role !== 'mixed'
+                    ? role
+                    : (getContourRoleByEdgeKey(edge) ?? 'ambiguous')
+                })()
 
-    const faceUsesImplicitClosingEdge = face.edges.some(
-      (edge) => edge.isImplicitClosingEdge === true
-    )
-    const edgeRecords: {
-      edge: EvenOddLegalFaceBoundaryEdge
-      boundaryRole: ResolvedVectorSourceSplitRange['boundaryRole']
-    }[] = []
-    face.edges.forEach((edge) => {
-      if (
-        edge.sourceSegmentIndex === undefined ||
-        edge.sourceStartDistance === undefined ||
-        edge.sourceEndDistance === undefined
-      ) {
-        return
-      }
-      const sourceStartDistance = Math.min(
-        edge.sourceStartDistance,
-        edge.sourceEndDistance
-      )
-      const sourceEndDistance = Math.max(
-        edge.sourceStartDistance,
-        edge.sourceEndDistance
-      )
-      if (
-        sourceEndDistance - sourceStartDistance <= EPSILON ||
-        distanceBetween(edge.start, edge.end) <= EPSILON
-      ) {
-        return
-      }
-      edgeRecords.push({
-        edge,
-        boundaryRole: getFaceEdgeBoundaryRole(edge)
-      })
-    })
-
-    const chains: {
-      edges: EvenOddLegalFaceBoundaryEdge[]
-      boundaryRole: ResolvedVectorSourceSplitRange['boundaryRole']
-    }[] = []
-    edgeRecords.forEach((record) => {
-      const previousChain = chains[chains.length - 1]
-      const previousEdge = previousChain?.edges[previousChain.edges.length - 1]
-      if (
-        previousChain &&
-        previousEdge &&
-        canMergeLegalFaceBoundaryEdges(
-          previousEdge,
-          record.edge,
-          previousChain.boundaryRole,
-          record.boundaryRole
+        const faceUsesImplicitClosingEdge = face.edges.some(
+          (edge) => edge.isImplicitClosingEdge === true
         )
-      ) {
-        previousChain.edges.push(record.edge)
-        return
-      }
-      chains.push({
-        edges: [record.edge],
-        boundaryRole: record.boundaryRole
-      })
-    })
+        const edgeRecords: {
+          edge: EvenOddLegalFaceBoundaryEdge
+          boundaryRole: ResolvedVectorSourceSplitRange['boundaryRole']
+        }[] = []
+        face.edges.forEach((edge) => {
+          if (
+            edge.sourceSegmentIndex === undefined ||
+            edge.sourceStartDistance === undefined ||
+            edge.sourceEndDistance === undefined
+          ) {
+            return
+          }
+          const sourceStartDistance = Math.min(
+            edge.sourceStartDistance,
+            edge.sourceEndDistance
+          )
+          const sourceEndDistance = Math.max(
+            edge.sourceStartDistance,
+            edge.sourceEndDistance
+          )
+          if (
+            sourceEndDistance - sourceStartDistance <= EPSILON ||
+            distanceBetween(edge.start, edge.end) <= EPSILON
+          ) {
+            return
+          }
+          edgeRecords.push({
+            edge,
+            boundaryRole: getFaceEdgeBoundaryRole(edge)
+          })
+        })
 
-    if (chains.length > 1) {
-      const firstChain = chains[0]
-      const lastChain = chains[chains.length - 1]
-      const firstEdge = firstChain.edges[0]
-      const lastEdge = lastChain.edges[lastChain.edges.length - 1]
-      if (
-        firstEdge &&
-        lastEdge &&
-        canMergeLegalFaceBoundaryEdges(
-          lastEdge,
-          firstEdge,
-          lastChain.boundaryRole,
-          firstChain.boundaryRole
-        )
-      ) {
-        firstChain.edges = [...lastChain.edges, ...firstChain.edges]
-        chains.pop()
+        const chains: {
+          edges: EvenOddLegalFaceBoundaryEdge[]
+          boundaryRole: ResolvedVectorSourceSplitRange['boundaryRole']
+        }[] = []
+        edgeRecords.forEach((record) => {
+          const previousChain = chains[chains.length - 1]
+          const previousEdge =
+            previousChain?.edges[previousChain.edges.length - 1]
+          if (
+            previousChain &&
+            previousEdge &&
+            canMergeLegalFaceBoundaryEdges(
+              previousEdge,
+              record.edge,
+              previousChain.boundaryRole,
+              record.boundaryRole
+            )
+          ) {
+            previousChain.edges.push(record.edge)
+            return
+          }
+          chains.push({
+            edges: [record.edge],
+            boundaryRole: record.boundaryRole
+          })
+        })
+
+        if (chains.length > 1) {
+          const firstChain = chains[0]
+          const lastChain = chains[chains.length - 1]
+          const firstEdge = firstChain.edges[0]
+          const lastEdge = lastChain.edges[lastChain.edges.length - 1]
+          if (
+            firstEdge &&
+            lastEdge &&
+            canMergeLegalFaceBoundaryEdges(
+              lastEdge,
+              firstEdge,
+              lastChain.boundaryRole,
+              firstChain.boundaryRole
+            )
+          ) {
+            firstChain.edges = [...lastChain.edges, ...firstChain.edges]
+            chains.pop()
+          }
+        }
+
+        chains.forEach((chain) => {
+          const firstEdge = chain.edges[0]
+          const lastEdge = chain.edges[chain.edges.length - 1]
+          if (
+            !firstEdge ||
+            !lastEdge ||
+            firstEdge.sourceSegmentIndex === undefined
+          ) {
+            return
+          }
+
+          let sourceStartDistance = Infinity
+          let sourceEndDistance = -Infinity
+          const oppositeFaceIds: string[] = []
+          const edgeIds: string[] = []
+          chain.edges.forEach((edge) => {
+            if (
+              edge.sourceStartDistance !== undefined &&
+              edge.sourceEndDistance !== undefined
+            ) {
+              sourceStartDistance = Math.min(
+                sourceStartDistance,
+                edge.sourceStartDistance,
+                edge.sourceEndDistance
+              )
+              sourceEndDistance = Math.max(
+                sourceEndDistance,
+                edge.sourceStartDistance,
+                edge.sourceEndDistance
+              )
+            }
+            if (edge.oppositeFaceId) {
+              pushUniqueString(oppositeFaceIds, edge.oppositeFaceId)
+            }
+            edgeIds.push(edge.edgeId)
+          })
+          if (
+            !Number.isFinite(sourceStartDistance) ||
+            !Number.isFinite(sourceEndDistance) ||
+            sourceEndDistance - sourceStartDistance <= EPSILON
+          ) {
+            return
+          }
+
+          const boundaryPoints = getMergedBoundaryPoints(chain.edges)
+          const boundaryLength = getMergedBoundaryLength(boundaryPoints)
+          if (boundaryLength <= EPSILON) {
+            return
+          }
+
+          const legalSide = firstEdge.legalSide === 'left' ? 1 : -1
+          const key = [
+            face.faceId,
+            edgeIds.join('+'),
+            firstEdge.sourceSegmentIndex,
+            sourceStartDistance.toFixed(6),
+            sourceEndDistance.toFixed(6),
+            legalSide
+          ].join(':')
+          const resolvedSide = getResolvedFilledSide({
+            boundaryRole: chain.boundaryRole,
+            domain: {
+              points: boundaryPoints,
+              sourceSegmentIndex: firstEdge.sourceSegmentIndex,
+              sourceStartDistance,
+              sourceEndDistance,
+              legalSide: firstEdge.legalSide
+            } as EvenOddBoundaryContour['dashDomains'][number],
+            legalSide,
+            sourceSegmentStartDistance: getCachedSourceSegmentStartDistance(
+              firstEdge.sourceSegmentIndex
+            )
+          })
+          const filledSide = resolvedSide.filledSide
+
+          rangeByKey.set(key, {
+            rangeId: `source-split-range:${rangeByKey.size}`,
+            boundaryDomainSourceId: `${face.faceId}:boundary-domain:${edgeIds.join('+')}`,
+            boundaryPoints,
+            boundaryStartDistance: 0,
+            boundaryEndDistance: boundaryLength,
+            boundaryTotalLength: boundaryLength,
+            sourceSegmentIndex: firstEdge.sourceSegmentIndex,
+            sourceStartDistance,
+            sourceEndDistance,
+            legalSide,
+            filledSide,
+            unfilledSide: filledSide === 1 ? -1 : 1,
+            boundaryRole: chain.boundaryRole,
+            sideResolutionStatus:
+              chain.boundaryRole === 'ambiguous'
+                ? 'conflict'
+                : resolvedSide.status,
+            contourIds: [face.faceId],
+            legalFaceIds: [face.faceId],
+            oppositeFaceIds,
+            edgeIds,
+            usesImplicitClosingEdge: faceUsesImplicitClosingEdge
+          })
+        })
+      })
+    }
+  )
+
+  measureResolvedVectorGeometryPhase(
+    'resolved self-intersecting geometry: source split range contour merge',
+    () => {
+      if (legalBoundaryContours.length > 0) {
+        legalBoundaryContours.forEach((contour) => {
+          contour.dashDomains.forEach((domain) => {
+            if (
+              domain.sourceSegmentIndex === undefined ||
+              domain.sourceStartDistance === undefined ||
+              domain.sourceEndDistance === undefined
+            ) {
+              return
+            }
+
+            const sourceStartDistance = Math.min(
+              domain.sourceStartDistance,
+              domain.sourceEndDistance
+            )
+            const sourceEndDistance = Math.max(
+              domain.sourceStartDistance,
+              domain.sourceEndDistance
+            )
+            if (sourceEndDistance - sourceStartDistance <= EPSILON) {
+              return
+            }
+
+            const edgeDirectionLegalSide = domain.legalSide === 'left' ? 1 : -1
+            const legalSide =
+              domain.sourceEndDistance < domain.sourceStartDistance
+                ? edgeDirectionLegalSide === 1
+                  ? -1
+                  : 1
+                : edgeDirectionLegalSide
+            const boundaryRole = getBoundaryRole(contour)
+            const key = [
+              domain.sourceSegmentIndex,
+              sourceStartDistance.toFixed(6),
+              sourceEndDistance.toFixed(6),
+              legalSide
+            ].join(':')
+            const existing = rangeByKey.get(key)
+
+            if (existing) {
+              pushUniqueString(existing.contourIds, contour.contourId)
+              appendUniqueEdgeValues(
+                existing.legalFaceIds,
+                domain.edges,
+                (edge) => edge.legalFaceId
+              )
+              appendUniqueEdgeValues(
+                existing.oppositeFaceIds,
+                domain.edges,
+                (edge) => edge.oppositeFaceId
+              )
+              appendUniqueEdgeValues(
+                existing.edgeIds,
+                domain.edges,
+                (edge) => edge.edgeId
+              )
+              if (existing.legalSide !== legalSide) {
+                existing.sideResolutionStatus = 'conflict'
+              }
+              if (existing.boundaryRole !== boundaryRole) {
+                existing.boundaryRole = 'ambiguous'
+                existing.sideResolutionStatus = 'conflict'
+              }
+              existing.usesImplicitClosingEdge =
+                existing.usesImplicitClosingEdge === true ||
+                domain.edges.some((edge) => edge.isImplicitClosingEdge === true)
+              return
+            }
+
+            const resolvedSide = getResolvedFilledSide({
+              boundaryRole,
+              domain,
+              legalSide,
+              sourceSegmentStartDistance: getCachedSourceSegmentStartDistance(
+                domain.sourceSegmentIndex
+              )
+            })
+            const filledSide = resolvedSide.filledSide
+
+            rangeByKey.set(key, {
+              rangeId: `source-split-range:${rangeByKey.size}`,
+              boundaryDomainSourceId: domain.domainId,
+              boundaryPoints: domain.points,
+              boundaryStartDistance: 0,
+              boundaryEndDistance: domain.totalLength,
+              boundaryTotalLength: domain.totalLength,
+              sourceSegmentIndex: domain.sourceSegmentIndex,
+              sourceStartDistance,
+              sourceEndDistance,
+              legalSide,
+              filledSide,
+              unfilledSide: filledSide === 1 ? -1 : 1,
+              boundaryRole,
+              sideResolutionStatus: resolvedSide.status,
+              contourIds: [contour.contourId],
+              legalFaceIds: getUniqueEdgeValues(
+                domain.edges,
+                (edge) => edge.legalFaceId
+              ),
+              oppositeFaceIds: getUniqueEdgeValues(
+                domain.edges,
+                (edge) => edge.oppositeFaceId
+              ),
+              edgeIds: getUniqueEdgeValues(domain.edges, (edge) => edge.edgeId),
+              usesImplicitClosingEdge: domain.edges.some(
+                (edge) => edge.isImplicitClosingEdge === true
+              )
+            })
+          })
+        })
       }
     }
+  )
 
-    chains.forEach((chain) => {
-      const firstEdge = chain.edges[0]
-      const lastEdge = chain.edges[chain.edges.length - 1]
-      if (
-        !firstEdge ||
-        !lastEdge ||
-        firstEdge.sourceSegmentIndex === undefined
-      ) {
-        return
-      }
-
-      let sourceStartDistance = Infinity
-      let sourceEndDistance = -Infinity
-      const oppositeFaceIds: string[] = []
-      const edgeIds: string[] = []
-      chain.edges.forEach((edge) => {
-        if (
-          edge.sourceStartDistance !== undefined &&
-          edge.sourceEndDistance !== undefined
-        ) {
-          sourceStartDistance = Math.min(
-            sourceStartDistance,
-            edge.sourceStartDistance,
-            edge.sourceEndDistance
-          )
-          sourceEndDistance = Math.max(
-            sourceEndDistance,
-            edge.sourceStartDistance,
-            edge.sourceEndDistance
-          )
-        }
-        if (edge.oppositeFaceId) {
-          pushUniqueString(oppositeFaceIds, edge.oppositeFaceId)
-        }
-        edgeIds.push(edge.edgeId)
-      })
-      if (
-        !Number.isFinite(sourceStartDistance) ||
-        !Number.isFinite(sourceEndDistance) ||
-        sourceEndDistance - sourceStartDistance <= EPSILON
-      ) {
-        return
-      }
-
-      const boundaryPoints = getMergedBoundaryPoints(chain.edges)
-      const boundaryLength = getMergedBoundaryLength(boundaryPoints)
-      if (boundaryLength <= EPSILON) {
-        return
-      }
-
-      const legalSide = firstEdge.legalSide === 'left' ? 1 : -1
-      const key = [
-        face.faceId,
-        edgeIds.join('+'),
-        firstEdge.sourceSegmentIndex,
-        sourceStartDistance.toFixed(6),
-        sourceEndDistance.toFixed(6),
-        legalSide
-      ].join(':')
-      const resolvedSide = getResolvedFilledSide({
-        boundaryRole: chain.boundaryRole,
-        domain: {
-          points: boundaryPoints,
-          sourceSegmentIndex: firstEdge.sourceSegmentIndex,
-          sourceStartDistance,
-          sourceEndDistance,
-          legalSide: firstEdge.legalSide
-        } as EvenOddBoundaryContour['dashDomains'][number],
-        legalSide,
-        sourceSegmentStartDistance: getCachedSourceSegmentStartDistance(
-          firstEdge.sourceSegmentIndex
-        )
-      })
-      const filledSide = resolvedSide.filledSide
-
-      rangeByKey.set(key, {
-        rangeId: `source-split-range:${rangeByKey.size}`,
-        boundaryDomainSourceId: `${face.faceId}:boundary-domain:${edgeIds.join('+')}`,
-        boundaryPoints,
-        boundaryStartDistance: 0,
-        boundaryEndDistance: boundaryLength,
-        boundaryTotalLength: boundaryLength,
-        sourceSegmentIndex: firstEdge.sourceSegmentIndex,
-        sourceStartDistance,
-        sourceEndDistance,
-        legalSide,
-        filledSide,
-        unfilledSide: filledSide === 1 ? -1 : 1,
-        boundaryRole: chain.boundaryRole,
-        sideResolutionStatus:
-          chain.boundaryRole === 'ambiguous' ? 'conflict' : resolvedSide.status,
-        contourIds: [face.faceId],
-        legalFaceIds: [face.faceId],
-        oppositeFaceIds,
-        edgeIds,
-        usesImplicitClosingEdge: faceUsesImplicitClosingEdge
-      })
-    })
-  })
-
-  if (legalBoundaryContours.length > 0) {
-    legalBoundaryContours.forEach((contour) => {
-      contour.dashDomains.forEach((domain) => {
-        if (
-          domain.sourceSegmentIndex === undefined ||
-          domain.sourceStartDistance === undefined ||
-          domain.sourceEndDistance === undefined
-        ) {
-          return
-        }
-
-        const sourceStartDistance = Math.min(
-          domain.sourceStartDistance,
-          domain.sourceEndDistance
-        )
-        const sourceEndDistance = Math.max(
-          domain.sourceStartDistance,
-          domain.sourceEndDistance
-        )
-        if (sourceEndDistance - sourceStartDistance <= EPSILON) {
-          return
-        }
-
-        const edgeDirectionLegalSide = domain.legalSide === 'left' ? 1 : -1
-        const legalSide =
-          domain.sourceEndDistance < domain.sourceStartDistance
-            ? edgeDirectionLegalSide === 1
-              ? -1
-              : 1
-            : edgeDirectionLegalSide
-        const boundaryRole = getBoundaryRole(contour)
-        const key = [
-          domain.sourceSegmentIndex,
-          sourceStartDistance.toFixed(6),
-          sourceEndDistance.toFixed(6),
-          legalSide
-        ].join(':')
-        const existing = rangeByKey.get(key)
-
-        if (existing) {
-          pushUniqueString(existing.contourIds, contour.contourId)
-          appendUniqueEdgeValues(
-            existing.legalFaceIds,
-            domain.edges,
-            (edge) => edge.legalFaceId
-          )
-          appendUniqueEdgeValues(
-            existing.oppositeFaceIds,
-            domain.edges,
-            (edge) => edge.oppositeFaceId
-          )
-          appendUniqueEdgeValues(
-            existing.edgeIds,
-            domain.edges,
-            (edge) => edge.edgeId
-          )
-          if (existing.legalSide !== legalSide) {
-            existing.sideResolutionStatus = 'conflict'
+  return measureResolvedVectorGeometryPhase(
+    'resolved self-intersecting geometry: source split range finalize',
+    () =>
+      Array.from(rangeByKey.values())
+        .sort((left, right) => {
+          if (left.sourceSegmentIndex !== right.sourceSegmentIndex) {
+            return left.sourceSegmentIndex - right.sourceSegmentIndex
           }
-          if (existing.boundaryRole !== boundaryRole) {
-            existing.boundaryRole = 'ambiguous'
-            existing.sideResolutionStatus = 'conflict'
+          if (
+            Math.abs(left.sourceStartDistance - right.sourceStartDistance) >
+            EPSILON
+          ) {
+            return left.sourceStartDistance - right.sourceStartDistance
           }
-          existing.usesImplicitClosingEdge =
-            existing.usesImplicitClosingEdge === true ||
-            domain.edges.some((edge) => edge.isImplicitClosingEdge === true)
-          return
-        }
-
-        const resolvedSide = getResolvedFilledSide({
-          boundaryRole,
-          domain,
-          legalSide,
-          sourceSegmentStartDistance: getCachedSourceSegmentStartDistance(
-            domain.sourceSegmentIndex
-          )
+          return left.sourceEndDistance - right.sourceEndDistance
         })
-        const filledSide = resolvedSide.filledSide
-
-        rangeByKey.set(key, {
-          rangeId: `source-split-range:${rangeByKey.size}`,
-          boundaryDomainSourceId: domain.domainId,
-          boundaryPoints: domain.points,
-          boundaryStartDistance: 0,
-          boundaryEndDistance: domain.totalLength,
-          boundaryTotalLength: domain.totalLength,
-          sourceSegmentIndex: domain.sourceSegmentIndex,
-          sourceStartDistance,
-          sourceEndDistance,
-          legalSide,
-          filledSide,
-          unfilledSide: filledSide === 1 ? -1 : 1,
-          boundaryRole,
-          sideResolutionStatus: resolvedSide.status,
-          contourIds: [contour.contourId],
-          legalFaceIds: getUniqueEdgeValues(
-            domain.edges,
-            (edge) => edge.legalFaceId
-          ),
-          oppositeFaceIds: getUniqueEdgeValues(
-            domain.edges,
-            (edge) => edge.oppositeFaceId
-          ),
-          edgeIds: getUniqueEdgeValues(domain.edges, (edge) => edge.edgeId),
-          usesImplicitClosingEdge: domain.edges.some(
-            (edge) => edge.isImplicitClosingEdge === true
-          )
-        })
-      })
-    })
-  }
-
-  return Array.from(rangeByKey.values())
-    .sort((left, right) => {
-      if (left.sourceSegmentIndex !== right.sourceSegmentIndex) {
-        return left.sourceSegmentIndex - right.sourceSegmentIndex
-      }
-      if (
-        Math.abs(left.sourceStartDistance - right.sourceStartDistance) > EPSILON
-      ) {
-        return left.sourceStartDistance - right.sourceStartDistance
-      }
-      return left.sourceEndDistance - right.sourceEndDistance
-    })
-    .map((range, index) => ({
-      ...range,
-      rangeId: `split-range:${index}`
-    }))
+        .map((range, index) => ({
+          ...range,
+          rangeId: `split-range:${index}`
+        }))
+  )
 }
 
 export const buildResolvedVectorStrokeBoundaryDomains = (
@@ -1430,6 +1464,7 @@ const buildResolvedVectorSourcePathTraceFrame = (
   cache: ResolvedVectorPathSegmentTraceFrameCache
   reusedPathSegmentCount: number
   rebuiltPathSegmentCount: number
+  translationDelta: Vec2 | null
 } => {
   const segmentRanges = getSourcePathSegmentDistanceRanges(path)
   const tracedSegments: TracedLineSegment[] = []
@@ -1438,6 +1473,10 @@ const buildResolvedVectorSourcePathTraceFrame = (
   }
   let reusedPathSegmentCount = 0
   let rebuiltPathSegmentCount = 0
+  const translationDeltaCounts = new Map<
+    string,
+    { delta: Vec2; count: number }
+  >()
   for (
     let segmentIndex = 0;
     segmentIndex < path.segments.length;
@@ -1453,16 +1492,44 @@ const buildResolvedVectorSourcePathTraceFrame = (
     const cached = previousCache?.entries.get(cacheKey)
     if (cached) {
       reusedPathSegmentCount += 1
-      cache.entries.set(cacheKey, cached)
+      const delta = {
+        x: segment.start.x - cached.origin.x,
+        y: segment.start.y - cached.origin.y
+      }
+      const deltaKey = `${delta.x.toFixed(6)}:${delta.y.toFixed(6)}`
+      const deltaCount = translationDeltaCounts.get(deltaKey)
+      translationDeltaCounts.set(deltaKey, {
+        delta,
+        count: (deltaCount?.count ?? 0) + 1
+      })
+      cache.entries.set(cacheKey, {
+        ...cached,
+        origin: { ...segment.start }
+      })
       cached.localSegments.forEach((localSegment) => {
+        const currentSampledPoints = path.sampledSegmentPoints?.[segmentIndex]
+        const currentStart =
+          currentSampledPoints?.[localSegment.startPointIndex]
+        const currentEnd =
+          currentSampledPoints?.[localSegment.startPointIndex + 1]
         tracedSegments.push({
           sourceSegmentIndex: segmentIndex,
           sourceStartDistance:
             segmentRange.startDistance + localSegment.localStartDistance,
           sourceEndDistance:
             segmentRange.startDistance + localSegment.localEndDistance,
-          start: localSegment.start,
-          end: localSegment.end
+          start:
+            currentStart ??
+            ({
+              x: localSegment.start.x + segment.start.x,
+              y: localSegment.start.y + segment.start.y
+            } satisfies Vec2),
+          end:
+            currentEnd ??
+            ({
+              x: localSegment.end.x + segment.start.x,
+              y: localSegment.end.y + segment.start.y
+            } satisfies Vec2)
         })
       })
       continue
@@ -1518,8 +1585,15 @@ const buildResolvedVectorSourcePathTraceFrame = (
       localSegments.push({
         localStartDistance: localSourceStartDistance,
         localEndDistance: localSourceEndDistance,
-        start: previousPoint,
-        end: point
+        startPointIndex: index - 1,
+        start: {
+          x: previousPoint.x - segment.start.x,
+          y: previousPoint.y - segment.start.y
+        },
+        end: {
+          x: point.x - segment.start.x,
+          y: point.y - segment.start.y
+        }
       })
       tracedSegments.push({
         sourceSegmentIndex: segmentIndex,
@@ -1533,14 +1607,27 @@ const buildResolvedVectorSourcePathTraceFrame = (
     }
     cache.entries.set(cacheKey, {
       key: cacheKey,
+      origin: { ...segment.start },
       localSegments
     })
   }
+  const rankedTranslationDeltas = [...translationDeltaCounts.values()].sort(
+    (left, right) => right.count - left.count
+  )
+  const strongestTranslationDelta = rankedTranslationDeltas[0]
+  const competingTranslationDelta = rankedTranslationDeltas[1]
+  const translationDelta =
+    strongestTranslationDelta &&
+    strongestTranslationDelta.count >= 2 &&
+    strongestTranslationDelta.count > (competingTranslationDelta?.count ?? 0)
+      ? strongestTranslationDelta.delta
+      : null
   return {
     tracedSegments,
     cache,
     reusedPathSegmentCount,
-    rebuiltPathSegmentCount
+    rebuiltPathSegmentCount,
+    translationDelta
   }
 }
 
@@ -1580,8 +1667,21 @@ const buildSelfIntersectingGeometry = (
     return { geometry: null, cache: emptyCache }
   }
   const domainTracedSegments = tracedSegments
-  const tracedSegmentSignatures = domainTracedSegments.map(
-    getTracedSegmentSignature
+  const tracedSegmentSignatures = domainTracedSegments.map((segment) =>
+    getTracedSegmentSignature(segment)
+  )
+  const previousPairCacheTranslationOffset =
+    previousCache?.pairCacheTranslationOffset ?? { x: 0, y: 0 }
+  const pairCacheTranslationOffset = {
+    x:
+      previousPairCacheTranslationOffset.x +
+      (tracedPathFrame.translationDelta?.x ?? 0),
+    y:
+      previousPairCacheTranslationOffset.y +
+      (tracedPathFrame.translationDelta?.y ?? 0)
+  }
+  const pairCacheSegmentSignatures = domainTracedSegments.map((segment) =>
+    getTracedSegmentSignature(segment, pairCacheTranslationOffset)
   )
   if (previousCache?.tracedSegmentSignatures) {
     const dirtyTracedSegmentCount = tracedSegmentSignatures.reduce(
@@ -1615,6 +1715,7 @@ const buildSelfIntersectingGeometry = (
         tracedSegmentSignatures,
         tracedPathSegmentCache: tracedPathFrame.cache,
         selfIntersectionCache: previousCache.selfIntersectionCache,
+        pairCacheTranslationOffset,
         detailMode,
         geometry: previousCache.geometry
       }
@@ -1625,7 +1726,7 @@ const buildSelfIntersectingGeometry = (
       ? null
       : splitTracedSegmentsByIntersections(domainTracedSegments, {
           previousCache: previousCache?.selfIntersectionCache,
-          segmentSignatures: tracedSegmentSignatures,
+          segmentSignatures: pairCacheSegmentSignatures,
           legalFacePolicy: path.closed ? 'fill-rule' : 'bounded-faces',
           returnCache: true
         })
@@ -1643,6 +1744,7 @@ const buildSelfIntersectingGeometry = (
         tracedPathSegmentCache: tracedPathFrame.cache,
         selfIntersectionCache:
           splitResult?.cache ?? previousCache?.selfIntersectionCache,
+        pairCacheTranslationOffset,
         detailMode,
         geometry: null
       }
@@ -1654,7 +1756,7 @@ const buildSelfIntersectingGeometry = (
     topology.fillRule,
     {
       previousCache: splitResult?.cache ?? previousCache?.selfIntersectionCache,
-      segmentSignatures: tracedSegmentSignatures,
+      segmentSignatures: pairCacheSegmentSignatures,
       legalFacePolicy: path.closed ? 'fill-rule' : 'bounded-faces',
       preSplitResult: splitResult ?? undefined
     }
@@ -1677,6 +1779,7 @@ const buildSelfIntersectingGeometry = (
       resolvedGeometry.cache ??
       splitResult?.cache ??
       previousCache?.selfIntersectionCache,
+    pairCacheTranslationOffset,
     detailMode
   }
   if (detailMode === 'fill-only') {
@@ -1730,36 +1833,56 @@ const buildSelfIntersectingGeometry = (
   const sourceSplitRanges = measureResolvedVectorGeometryPhase(
     'resolved self-intersecting geometry: source split ranges',
     () => {
-      const cacheOrigin = getPathTranslationCacheOrigin(path)
-      const cacheKey = cacheOrigin
-        ? buildSourceSplitRangeCacheKey(
-            cacheScopeId,
-            path,
-            cacheOrigin,
-            topology,
-            topology.fillRule,
+      const { cacheKey, cacheOrigin } = measureResolvedVectorGeometryPhase(
+        'resolved self-intersecting geometry: source split range cache key',
+        () => {
+          const nextCacheOrigin = getPathTranslationCacheOrigin(path)
+          return {
+            cacheOrigin: nextCacheOrigin,
+            cacheKey: nextCacheOrigin
+              ? buildSourceSplitRangeCacheKey(
+                  cacheScopeId,
+                  path,
+                  nextCacheOrigin,
+                  topology,
+                  topology.fillRule,
+                  legalFaceBoundaries,
+                  legalBoundaryContours,
+                  fillRegions
+                )
+              : null
+          }
+        }
+      )
+
+      return measureResolvedVectorGeometryPhase(
+        'resolved self-intersecting geometry: source split range materialization',
+        () => {
+          if (cacheKey && cacheOrigin) {
+            const cachedRanges = measureResolvedVectorGeometryPhase(
+              'resolved self-intersecting geometry: source split range cache lookup',
+              () => getCachedSourceSplitRanges(cacheKey, cacheOrigin)
+            )
+            if (cachedRanges) {
+              return cachedRanges
+            }
+          }
+
+          const ranges = buildResolvedVectorSourceSplitRanges(
             legalFaceBoundaries,
             legalBoundaryContours,
-            fillRegions
+            fillRegions,
+            path
           )
-        : null
-      if (cacheKey && cacheOrigin) {
-        const cachedRanges = getCachedSourceSplitRanges(cacheKey, cacheOrigin)
-        if (cachedRanges) {
-          return cachedRanges
+          if (cacheKey && cacheOrigin) {
+            measureResolvedVectorGeometryPhase(
+              'resolved self-intersecting geometry: source split range cache store',
+              () => setCachedSourceSplitRanges(cacheKey, cacheOrigin, ranges)
+            )
+          }
+          return ranges
         }
-      }
-
-      const ranges = buildResolvedVectorSourceSplitRanges(
-        legalFaceBoundaries,
-        legalBoundaryContours,
-        fillRegions,
-        path
       )
-      if (cacheKey && cacheOrigin) {
-        setCachedSourceSplitRanges(cacheKey, cacheOrigin, ranges)
-      }
-      return ranges
     }
   )
 

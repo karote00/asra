@@ -4,7 +4,10 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { assertStrokeParameterCoverageForStep } from './stroke-parameter-coverage-test-helper'
-import { createStrokeJoinTypeIntent } from '../../../../../apps/asyra-design/src/properties/strokes/stroke-intents'
+import {
+  createStrokeStyleIntent,
+  type StrokeStyleIntentPatch
+} from '../../../../../apps/asyra-design/src/properties/strokes/stroke-intents'
 
 interface InspectorStep {
   id: string
@@ -16,8 +19,67 @@ interface InspectorData {
   inspectorContractErrors: string[]
 }
 
-type StrokeArg = Parameters<typeof createStrokeJoinTypeIntent>[0]['stroke']
-type StrokeJoin = Parameters<typeof createStrokeJoinTypeIntent>[0]['nextJoin']
+type StrokeArg = Parameters<typeof createStrokeStyleIntent>[0]['stroke']
+
+const strokeWithPatch = (patch: StrokeStyleIntentPatch): NonNullable<StrokeArg> =>
+  ({
+    style: 'solid',
+    position: 'center',
+    width: 10,
+    dash: 4,
+    gap: 2,
+    capType: 'butt',
+    joinType: 'miter',
+    miterAngle: 28.96,
+    ...patch
+  }) as NonNullable<StrokeArg>
+
+const intentCases = [
+  {
+    label: 'style',
+    stroke: strokeWithPatch({ style: 'solid' }),
+    patch: { style: 'dashed' }
+  },
+  {
+    label: 'position',
+    stroke: strokeWithPatch({ position: 'center' }),
+    patch: { position: 'outside' }
+  },
+  {
+    label: 'width',
+    stroke: strokeWithPatch({ width: 10 }),
+    patch: { width: 14 }
+  },
+  {
+    label: 'dash',
+    stroke: strokeWithPatch({ dash: 4 }),
+    patch: { dash: 7 }
+  },
+  {
+    label: 'gap',
+    stroke: strokeWithPatch({ gap: 2 }),
+    patch: { gap: 3 }
+  },
+  {
+    label: 'capType',
+    stroke: strokeWithPatch({ capType: 'butt' }),
+    patch: { capType: 'round' }
+  },
+  {
+    label: 'joinType',
+    stroke: strokeWithPatch({ joinType: 'miter' }),
+    patch: { joinType: 'bevel' }
+  },
+  {
+    label: 'miterAngle',
+    stroke: strokeWithPatch({ miterAngle: 28.96 }),
+    patch: { miterAngle: 45 }
+  }
+] satisfies {
+  label: string
+  stroke: NonNullable<StrokeArg>
+  patch: StrokeStyleIntentPatch
+}[]
 
 const repoRoot = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -54,11 +116,6 @@ const loadInspectorData = (): InspectorData => {
   return cachedInspectorData
 }
 
-const strokeWithJoin = (joinType: StrokeJoin): NonNullable<StrokeArg> =>
-  ({
-    joinType
-  }) as NonNullable<StrokeArg>
-
 const collectKeys = (value: unknown, keys = new Set<string>()) => {
   if (!value || typeof value !== 'object') {
     return keys
@@ -81,7 +138,7 @@ describe('stroke flow step 01: feature-session-intent', () => {
     )
 
     expect(data.inspectorContractErrors).toEqual([])
-    expect(step?.refactorStatus).toMatch(/^(active|verified)$/)
+    expect(step?.refactorStatus).toMatch(/^(locked|active|verified)$/)
     if (step?.refactorStatus === 'active') {
       expect(activeSteps.map((entry) => entry.id)).toEqual([
         'feature-session-intent'
@@ -89,15 +146,14 @@ describe('stroke flow step 01: feature-session-intent', () => {
     }
   })
 
-  it.each(['miter', 'bevel', 'round'] as const)(
-    'emits explicit stroke-style intent for %s join selection',
-    (nextJoin) => {
-      const currentJoin: StrokeJoin = nextJoin === 'round' ? 'miter' : 'round'
-      const intent = createStrokeJoinTypeIntent({
-        stroke: strokeWithJoin(currentJoin),
+  it.each(intentCases)(
+    'emits an explicit single-field stroke-style intent for $label',
+    ({ stroke, patch }) => {
+      const intent = createStrokeStyleIntent({
+        stroke,
         strokeId: 'stroke:step-01',
         ownerElementId: 'element:step-01',
-        nextJoin
+        patch
       })
 
       expect(intent).toEqual({
@@ -106,9 +162,7 @@ describe('stroke flow step 01: feature-session-intent', () => {
         ownerStage: 'Interaction',
         strokeId: 'stroke:step-01',
         ownerElementId: 'element:step-01',
-        patch: {
-          joinType: nextJoin
-        }
+        patch
       })
       expect(Object.keys(intent ?? {}).sort()).toEqual([
         'kind',
@@ -118,80 +172,117 @@ describe('stroke flow step 01: feature-session-intent', () => {
         'routeId',
         'strokeId'
       ])
-      expect(Object.keys(intent?.patch ?? {})).toEqual(['joinType'])
+      expect(Object.keys(intent?.patch ?? {})).toEqual(Object.keys(patch))
     }
   )
 
-  it('does not emit intent without a real interaction change target', () => {
+  it.each(intentCases)(
+    'does not emit $label intent when the authored value is unchanged',
+    ({ stroke, patch }) => {
+      const [key] = Object.keys(patch) as (keyof StrokeStyleIntentPatch)[]
+      expect(
+        createStrokeStyleIntent({
+          stroke: strokeWithPatch({ [key]: patch[key] }),
+          strokeId: 'stroke:step-01',
+          ownerElementId: 'element:step-01',
+          patch
+        })
+      ).toBeNull()
+    }
+  )
+
+  it('does not emit intent without one real interaction change target', () => {
     expect(
-      createStrokeJoinTypeIntent({
-        stroke: strokeWithJoin('miter'),
-        strokeId: 'stroke:step-01',
-        ownerElementId: 'element:step-01',
-        nextJoin: 'miter'
-      })
-    ).toBeNull()
-    expect(
-      createStrokeJoinTypeIntent({
+      createStrokeStyleIntent({
         stroke: null,
         strokeId: 'stroke:step-01',
         ownerElementId: 'element:step-01',
-        nextJoin: 'bevel'
+        patch: { joinType: 'bevel' }
       })
     ).toBeNull()
     expect(
-      createStrokeJoinTypeIntent({
-        stroke: strokeWithJoin('miter'),
+      createStrokeStyleIntent({
+        stroke: strokeWithPatch({ joinType: 'miter' }),
         strokeId: '',
         ownerElementId: 'element:step-01',
-        nextJoin: 'bevel'
+        patch: { joinType: 'bevel' }
       })
     ).toBeNull()
     expect(
-      createStrokeJoinTypeIntent({
-        stroke: strokeWithJoin('miter'),
+      createStrokeStyleIntent({
+        stroke: strokeWithPatch({ joinType: 'miter' }),
         strokeId: 'stroke:step-01',
         ownerElementId: null,
-        nextJoin: 'bevel'
+        patch: { joinType: 'bevel' }
+      })
+    ).toBeNull()
+    expect(
+      createStrokeStyleIntent({
+        stroke: strokeWithPatch({ joinType: 'miter' }),
+        strokeId: 'stroke:step-01',
+        ownerElementId: 'element:step-01',
+        patch: {}
+      })
+    ).toBeNull()
+    expect(
+      createStrokeStyleIntent({
+        stroke: strokeWithPatch({ joinType: 'miter', capType: 'butt' }),
+        strokeId: 'stroke:step-01',
+        ownerElementId: 'element:step-01',
+        patch: { joinType: 'bevel', capType: 'round' }
       })
     ).toBeNull()
   })
 
-  it('keeps the emitted intent free of downstream product fields', () => {
-    const intent = createStrokeJoinTypeIntent({
-      stroke: strokeWithJoin('round'),
-      strokeId: 'stroke:step-01',
-      ownerElementId: 'element:step-01',
-      nextJoin: 'miter'
-    })
-    const emittedKeys = collectKeys(intent)
+  it.each(intentCases)(
+    'keeps $label intent free of downstream product fields',
+    ({ stroke, patch }) => {
+      const intent = createStrokeStyleIntent({
+        stroke,
+        strokeId: 'stroke:step-01',
+        ownerElementId: 'element:step-01',
+        patch
+      })
+      const emittedKeys = collectKeys(intent)
 
-    for (const forbiddenKey of [
-      'render',
-      'geometry',
-      'packet',
-      'descriptor',
-      'mask',
-      'cap',
-      'capType',
-      'miterAngle',
-      'resolvedJoin',
-      'vertexAngle',
-      'strokePathStyle',
-      'product'
-    ]) {
-      expect(emittedKeys.has(forbiddenKey)).toBe(false)
+      for (const forbiddenKey of [
+        'render',
+        'geometry',
+        'packet',
+        'descriptor',
+        'mask',
+        'resolvedJoin',
+        'vertexAngle',
+        'strokePathStyle',
+        'product'
+      ]) {
+        expect(emittedKeys.has(forbiddenKey)).toBe(false)
+      }
     }
-  })
+  )
 
-  it('routes the join handler through intent without render or geometry APIs', () => {
+  it('routes every basic stroke handler through intent without render or geometry APIs', () => {
     const intentSource = readFileSync(intentSourcePath, 'utf8')
     const interactionSource = readFileSync(interactionSourcePath, 'utf8')
 
-    expect(interactionSource).toContain('createStrokeJoinTypeIntent')
+    expect(interactionSource).toContain('createStrokeStyleIntent')
+    expect(interactionSource).toContain('const commitStrokeStyleIntent')
     expect(interactionSource).toContain(
       'commitStrokeInteractionPatch(intent.patch)'
     )
+    expect(interactionSource).not.toContain('createStrokeJoinTypeIntent')
+    for (const field of [
+      'style',
+      'position',
+      'width',
+      'dash',
+      'gap',
+      'joinType',
+      'capType',
+      'miterAngle'
+    ]) {
+      expect(interactionSource).toContain(`commitStrokeStyleIntent({ ${field}:`)
+    }
 
     for (const forbiddenToken of [
       'deps.render',

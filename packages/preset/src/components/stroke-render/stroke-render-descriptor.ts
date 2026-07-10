@@ -36,6 +36,7 @@ export interface StrokeDescriptorStrategyCandidate {
 
 export interface StrokeDescriptorStrategyRecord {
   strategyId: string
+  ownerStepId: 'select-stroke-descriptor-strategy'
   ownerStage: 'Stroke Geometry descriptor strategy selection'
   status: 'descriptor-eligible' | 'canonical-product-required'
   descriptorRouteKind: StrokeDescriptorRouteKind
@@ -67,6 +68,7 @@ export const selectStrokeDescriptorStrategy = (
 ): StrokeDescriptorStrategyRecord[] =>
   input.candidates.map((candidate) => ({
     strategyId: `strategy:${candidate.candidateId}`,
+    ownerStepId: 'select-stroke-descriptor-strategy',
     ownerStage: 'Stroke Geometry descriptor strategy selection',
     status:
       candidate.ownerBoundarySplitProof.complete &&
@@ -93,9 +95,26 @@ export interface StrokeDescriptorRenderDescriptorInput {
 
 export interface StrokeDescriptorFinalFaceInput {
   faceId: string
+  ownerStepIds: string[]
+  bodyProductIds?: string[]
+  terminalOverlayIds?: string[]
+  smoothOverlayIds?: string[]
+  strokeSpecKey?: string
+  intervalIds?: string[]
+  terminalRoles?: ('start' | 'end' | 'start-end' | 'middle')[]
+  seamBoundaryIds?: string[]
+  sourceSpanIds?: string[]
+  legalDomainIds?: string[]
+  productSignature?: string
+  domainMode?: string
   renderDescriptor?: StrokeDescriptorRenderDescriptorInput
   debugMeta?: {
     ownerStage?: string
+    revisionSet?: unknown
+    dashEndpointCapPolicySignatures?: string[]
+    joinOwnershipSignatures?: string[]
+    domainPlanSelectedSides?: (1 | -1)[]
+    smoothContinuityGroupIds?: string[]
   }
 }
 
@@ -106,9 +125,12 @@ export interface MaterializeStrokeProductDescriptorsInput {
 
 export interface MaterializedStrokeProductDescriptor {
   descriptorId: string
+  ownerStepId: 'materialize-stroke-product-descriptors'
   ownerStage: 'Product Output descriptor materialization'
   finalFaceId: string
+  strategyId: string
   descriptorRouteKind: StrokeDescriptorRouteKind
+  requiredLegalityBasis: StrokeDescriptorRequiredLegalityBasis
   productBuilderId: string
   outputChannelIntent: StrokeDescriptorOutputChannelIntent
   visibleChannel: {
@@ -122,7 +144,26 @@ export interface MaterializedStrokeProductDescriptor {
   }
   ownerMetadata: {
     finalFaceOwnerStage?: string
+    finalFaceOwnerStepIds: string[]
     strategyOwnerStage: StrokeDescriptorStrategyRecord['ownerStage']
+  }
+  productIdentity: {
+    sourceRevision?: unknown
+    strokeSignature?: string
+    productSignature?: string
+    domainMode?: string
+    intervalIds: string[]
+    bodyProductIds: string[]
+    terminalOverlayIds: string[]
+    smoothOverlayIds: string[]
+    terminalRoles: ('start' | 'end' | 'start-end' | 'middle')[]
+    seamBoundaryIds: string[]
+    sourceSpanIds: string[]
+    legalDomainIds: string[]
+    endpointCapPolicySignatures: string[]
+    joinOwnershipSignatures: string[]
+    legalSides: (1 | -1)[]
+    smoothContinuityGroupIds: string[]
   }
 }
 
@@ -153,36 +194,73 @@ const getDescriptorEvidenceChannel = (
 
 export const materializeStrokeProductDescriptors = (
   input: MaterializeStrokeProductDescriptorsInput
-): MaterializedStrokeProductDescriptor[] => {
-  const strategy = input.strategies.find(
-    (entry) => entry.status === 'descriptor-eligible'
-  )
-  if (!strategy) {
-    return []
-  }
-
-  return input.finalFaces.flatMap(
+): MaterializedStrokeProductDescriptor[] =>
+  input.finalFaces.flatMap(
     (face): MaterializedStrokeProductDescriptor[] => {
       if (!face.renderDescriptor) {
         return []
       }
 
+      const matchingStrategies = input.strategies.filter(
+        (entry) =>
+          entry.status === 'descriptor-eligible' &&
+          entry.ownerBoundarySplitProof.complete &&
+          (entry.requiredLegalityBasis === 'post-legality-product'
+            ? entry.consumesPostLegalityArtifact
+            : entry.legalityEquivalenceEvidence?.complete === true) &&
+          face.ownerStepIds.includes(entry.productBuilderId)
+      )
+      if (matchingStrategies.length !== 1) {
+        return []
+      }
+      const [strategy] = matchingStrategies
+
       return [
         {
           descriptorId: `descriptor:${face.faceId}`,
+          ownerStepId: 'materialize-stroke-product-descriptors',
           ownerStage: 'Product Output descriptor materialization',
           finalFaceId: face.faceId,
+          strategyId: strategy.strategyId,
           descriptorRouteKind: strategy.descriptorRouteKind,
+          requiredLegalityBasis: strategy.requiredLegalityBasis,
           productBuilderId: strategy.productBuilderId,
           outputChannelIntent: strategy.outputChannelIntent,
-          visibleChannel: getDescriptorVisibleChannel(face.renderDescriptor),
+          visibleChannel:
+            strategy.outputChannelIntent === 'diagnostics-only'
+              ? {}
+              : getDescriptorVisibleChannel(face.renderDescriptor),
           evidenceChannel: getDescriptorEvidenceChannel(face.renderDescriptor),
           ownerMetadata: {
             finalFaceOwnerStage: face.debugMeta?.ownerStage,
+            finalFaceOwnerStepIds: [...face.ownerStepIds],
             strategyOwnerStage: strategy.ownerStage
+          },
+          productIdentity: {
+            sourceRevision: face.debugMeta?.revisionSet,
+            strokeSignature: face.strokeSpecKey,
+            productSignature: face.productSignature,
+            domainMode: face.domainMode,
+            intervalIds: [...(face.intervalIds ?? [])],
+            bodyProductIds: [...(face.bodyProductIds ?? [])],
+            terminalOverlayIds: [...(face.terminalOverlayIds ?? [])],
+            smoothOverlayIds: [...(face.smoothOverlayIds ?? [])],
+            terminalRoles: [...(face.terminalRoles ?? [])],
+            seamBoundaryIds: [...(face.seamBoundaryIds ?? [])],
+            sourceSpanIds: [...(face.sourceSpanIds ?? [])],
+            legalDomainIds: [...(face.legalDomainIds ?? [])],
+            endpointCapPolicySignatures: [
+              ...(face.debugMeta?.dashEndpointCapPolicySignatures ?? [])
+            ],
+            joinOwnershipSignatures: [
+              ...(face.debugMeta?.joinOwnershipSignatures ?? [])
+            ],
+            legalSides: [...(face.debugMeta?.domainPlanSelectedSides ?? [])],
+            smoothContinuityGroupIds: [
+              ...(face.debugMeta?.smoothContinuityGroupIds ?? [])
+            ]
           }
         }
       ]
     }
   )
-}

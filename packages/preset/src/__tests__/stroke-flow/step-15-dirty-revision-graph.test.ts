@@ -52,6 +52,7 @@ const baseStroke = {
   position: 'outside',
   width: 16,
   join: 'miter',
+  miterAngle: 28.96,
   miterLimit: 4,
   cap: 'butt',
   dash: 0,
@@ -123,7 +124,7 @@ describe('stroke flow step 15: dirty-revision-graph', () => {
     )
 
     expect(data.inspectorContractErrors).toEqual([])
-    expect(step?.refactorStatus).toMatch(/^(active|verified)$/)
+    expect(step?.refactorStatus).toMatch(/^(locked|active|verified)$/)
     if (step?.refactorStatus === 'active') {
       expect(activeSteps.map((entry) => entry.id)).toEqual([
         'dirty-revision-graph'
@@ -332,6 +333,125 @@ describe('stroke flow step 15: dirty-revision-graph', () => {
     )
     expect(positionChange.dirtyKeys).not.toContain('path-topology')
     expect(positionChange.dirtyKeys).not.toContain('paint-payload')
+  })
+
+  it('keeps continuous width, dash, gap, and miter updates on their exact owner boundaries', () => {
+    const buildParameterRevisionSet = (
+      stroke: typeof baseStroke
+    ): StrokeRevisionSet =>
+      buildStrokeRuntimeRevisionSet({
+        points: samplePoints,
+        closed: true,
+        stroke,
+        productMode: 'constrained-solid',
+        domainMode: 'closed-constrained-domain'
+      })
+    const previous = buildParameterRevisionSet(baseStroke)
+
+    const widthChange = computeStrokeDirtyKeys(
+      previous,
+      buildParameterRevisionSet({ ...baseStroke, width: 24 })
+    )
+    expect(widthChange.changedRevisionKeys).toEqual([
+      'strokeDomainRevision',
+      'terminalCapRevision',
+      'joinShapeRevision',
+      'renderOutputRevision'
+    ])
+    expect(widthChange.dirtyKeys).toEqual([
+      'stroke-domain',
+      'endpoint-cap-policy',
+      'join-ownership',
+      'smooth-continuity',
+      'product-materialization',
+      'legality',
+      'resolved-regions',
+      'render-hit-export'
+    ])
+
+    const dashedStroke = {
+      ...baseStroke,
+      style: 'dashed',
+      dash: 20,
+      gap: 10
+    }
+    const previousDashed = buildParameterRevisionSet(dashedStroke)
+    const expectedDashDirtyKeys = [
+      'interval-allocation',
+      'dash-product-intervals',
+      'endpoint-cap-policy',
+      'join-ownership',
+      'smooth-continuity',
+      'product-materialization',
+      'legality',
+      'resolved-regions',
+      'render-hit-export'
+    ]
+
+    ;(['dash', 'gap'] as const).forEach((field) => {
+      const change = computeStrokeDirtyKeys(
+        previousDashed,
+        buildParameterRevisionSet({
+          ...dashedStroke,
+          [field]: field === 'dash' ? 12 : 6
+        })
+      )
+      expect(change.changedRevisionKeys).toEqual([
+        'intervalAllocationRevision',
+        'dashAndGapRevision',
+        'renderOutputRevision'
+      ])
+      expect(change.dirtyKeys).toEqual(expectedDashDirtyKeys)
+    })
+
+    const miterChange = computeStrokeDirtyKeys(
+      previous,
+      buildParameterRevisionSet({ ...baseStroke, miterAngle: 45 })
+    )
+    expect(miterChange.changedRevisionKeys).toEqual([
+      'joinShapeRevision',
+      'renderOutputRevision'
+    ])
+    expect(miterChange.dirtyKeys).toEqual([
+      'join-ownership',
+      'smooth-continuity',
+      'product-materialization',
+      'legality',
+      'resolved-regions',
+      'render-hit-export'
+    ])
+  })
+
+  it('keeps width in the stroke-domain revision when metadata adds a domain signature', () => {
+    const previous = buildRevisionSet()
+    const next = buildRevisionSet({
+      stroke: {
+        ...baseStroke,
+        width: 24
+      }
+    })
+
+    const change = computeStrokeDirtyKeys(previous, next)
+
+    expect(change.changedRevisionKeys).toEqual(
+      expect.arrayContaining([
+        'strokeDomainRevision',
+        'terminalCapRevision',
+        'joinShapeRevision'
+      ])
+    )
+    expect(change.changedRevisionKeys).not.toContain('sourcePathRevision')
+    expect(change.changedRevisionKeys).not.toContain(
+      'intervalAllocationRevision'
+    )
+    expect(change.dirtyKeys).toEqual(
+      expect.arrayContaining([
+        'stroke-domain',
+        'endpoint-cap-policy',
+        'join-ownership',
+        'render-hit-export'
+      ])
+    )
   })
 
   it('keeps drag source-path changes separate from static stroke and paint revisions', () => {

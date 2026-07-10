@@ -70,8 +70,8 @@ const expectStrategyOnly = (record: unknown) => {
   }
 }
 
-describe('stroke flow step 31: select-stroke-descriptor-strategy', () => {
-  it('keeps select-stroke-descriptor-strategy as the current or verified thirty-first step', () => {
+describe('stroke flow step 32: select-stroke-descriptor-strategy', () => {
+  it('keeps select-stroke-descriptor-strategy as the thirty-second runtime step', () => {
     const data = loadInspectorData()
     const step = data.steps.find(
       (entry) => entry.id === 'select-stroke-descriptor-strategy'
@@ -81,7 +81,7 @@ describe('stroke flow step 31: select-stroke-descriptor-strategy', () => {
     )
 
     expect(data.inspectorContractErrors).toEqual([])
-    expect(step?.refactorStatus).toMatch(/^(active|verified)$/)
+    expect(step?.refactorStatus).toMatch(/^(locked|active|verified)$/)
     if (step?.refactorStatus === 'active') {
       expect(activeSteps.map((entry) => entry.id)).toEqual([
         'select-stroke-descriptor-strategy'
@@ -98,7 +98,9 @@ describe('stroke flow step 31: select-stroke-descriptor-strategy', () => {
     expect(step).toMatchObject({
       ownerStage: 'Stroke Geometry descriptor strategy selection',
       allowedInputs: [
-        'pre-legality product units or descriptor-eligible strategy evidence',
+        'pre-legality polygon products or exact body geometry programs',
+        'terminal and smooth ownership overlay records',
+        'ConstrainedDashedProductEvidenceEnvelope identity signature',
         'descriptor route kind',
         'required legal basis',
         'output channel intent'
@@ -108,7 +110,8 @@ describe('stroke flow step 31: select-stroke-descriptor-strategy', () => {
       ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
-        'packages/preset/src/components/stroke-render/stroke-render-descriptor.ts'
+        'packages/preset/src/components/stroke-render/stroke-render-descriptor.ts',
+        'packages/preset/src/components/stroke-render/stroke-product-evidence.ts'
       ]
     })
     expect(step?.forbiddenContributors).toEqual(
@@ -146,6 +149,7 @@ describe('stroke flow step 31: select-stroke-descriptor-strategy', () => {
     expect(strategies).toEqual([
       expect.objectContaining({
         strategyId: 'strategy:candidate:smooth-descriptor',
+        ownerStepId: 'select-stroke-descriptor-strategy',
         ownerStage: 'Stroke Geometry descriptor strategy selection',
         status: 'descriptor-eligible',
         descriptorRouteKind: 'same-owner-smooth-span',
@@ -182,20 +186,41 @@ describe('stroke flow step 31: select-stroke-descriptor-strategy', () => {
             splitProofId: 'split-proof:missing',
             complete: false
           }
+        },
+        {
+          candidateId: 'candidate:missing-legality-equivalence',
+          descriptorRouteKind: 'same-owner-smooth-span',
+          requiredLegalityBasis: 'legality-equivalent-pre-product',
+          outputChannelIntent: 'render-and-hit-export',
+          productBuilderId: 'build-smooth-continuity-products',
+          ownerBoundarySplitProof: {
+            ownerBoundaryId: 'owner-boundary:complete',
+            splitProofId: 'split-proof:complete',
+            complete: true
+          }
         }
       ]
     })
 
-    expect(strategies).toEqual([
-      expect.objectContaining({
-        strategyId: 'strategy:candidate:missing-proof',
-        status: 'canonical-product-required',
-        descriptorRouteKind: 'outside-dashed-visible-band',
-        requiredLegalityBasis: 'post-legality-product',
-        materializationStage: 'after-apply-legality',
-        consumesPostLegalityArtifact: true
-      })
-    ])
+    expect(strategies).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          strategyId: 'strategy:candidate:missing-proof',
+          status: 'canonical-product-required',
+          descriptorRouteKind: 'outside-dashed-visible-band',
+          requiredLegalityBasis: 'post-legality-product',
+          materializationStage: 'after-apply-legality',
+          consumesPostLegalityArtifact: true
+        }),
+        expect.objectContaining({
+          strategyId: 'strategy:candidate:missing-legality-equivalence',
+          ownerStepId: 'select-stroke-descriptor-strategy',
+          status: 'canonical-product-required',
+          requiredLegalityBasis: 'legality-equivalent-pre-product',
+          consumesPostLegalityArtifact: false
+        })
+      ])
+    )
     expectStrategyOnly(strategies)
   })
 

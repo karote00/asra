@@ -15,10 +15,9 @@ test.describe('stroke drag render performance UX gate: burst coalescing', () => 
   test.setTimeout(300000)
 
   for (const dragPerformanceCase of dragPerformanceCases) {
-    test(dragPerformanceCase.title, async ({ page }, testInfo) => {
+    test(dragPerformanceCase.title, async ({ page }) => {
       await runStrokeDragRenderPerformanceUXGateCase(
         page,
-        testInfo,
         dragPerformanceCase
       )
     })

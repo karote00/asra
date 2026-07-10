@@ -52,7 +52,7 @@ interface OrdinaryGeometryProduct {
   debugMeta?: SolidCenterStrokeGeometryDebugMeta
 }
 interface RuntimeJoinSeamEvidence {
-  seamCoveragePolicy: 'shared-step-27-endpoint-identity'
+  seamCoveragePolicy: 'shared-seam-boundary-artifact-endpoint-identity'
   incidentSeamBoundaries: {
     seamBoundaryId: string
     intervalId: string
@@ -355,7 +355,7 @@ const getJoinMetadataMatches = (
       meta.miterAngle === 28.96 &&
       meta.angleSource !== undefined &&
       meta.angleComparison !== undefined &&
-      seamEvidence?.seamCoveragePolicy === 'shared-step-27-endpoint-identity' &&
+      seamEvidence?.seamCoveragePolicy === 'shared-seam-boundary-artifact-endpoint-identity' &&
       seamEvidence.incidentSeamBoundaries.length >= 2
     )
   })
@@ -454,6 +454,13 @@ const summarizeMetas = (metas: OrdinaryPipelineMeta[]) =>
     geometryBasis: meta?.geometryBasis ?? null,
     authoredJoin: meta?.authoredJoin ?? null,
     resolvedJoin: meta?.resolvedJoin ?? null,
+    vertexAngle: meta?.vertexAngle ?? null,
+    miterAngle: meta?.miterAngle ?? null,
+    angleSource: meta?.angleSource ?? null,
+    angleComparison: meta?.angleComparison ?? null,
+    seamCoveragePolicy: getRuntimeJoinSeamEvidence(meta)?.seamCoveragePolicy ?? null,
+    seamBoundaryCount:
+      getRuntimeJoinSeamEvidence(meta)?.incidentSeamBoundaries.length ?? 0,
     joinOwnershipSignature: meta?.joinOwnershipSignature ?? null,
     joinOwnershipRecordCount: meta?.joinOwnershipRecords?.length ?? 0,
     dashProductIntervals:
@@ -996,7 +1003,7 @@ const assertSourceVertexSeamEndpointsUseStrokeWidthBoundary = (
 
   expect(
     failures,
-    `${label} source-vertex joins must consume Step 27 terminal dash outer boundary endpoints at stroke-width distance, not centerline or clipped-remnant endpoints`
+    `${label} source-vertex joins must consume Step 28 seam-boundary artifact outer endpoints at stroke-width distance, not centerline or clipped-remnant endpoints`
   ).toEqual([])
 }
 
@@ -1097,7 +1104,7 @@ const assertStep27SeamArtifactsUseSourceWidthBoundary = (
   const artifacts = getStep27DashBodySeamArtifacts(result)
   expect(
     artifacts.length,
-    `${label} must expose Step 27 dash body seam boundary artifacts`
+    `${label} must expose Step 28 dash body seam-boundary artifacts`
   ).toBeGreaterThan(0)
 
   const failures = artifacts.flatMap((artifact) => {
@@ -1152,7 +1159,7 @@ const assertStep27SeamArtifactsUseSourceWidthBoundary = (
 
   expect(
     failures,
-    `${label} Step 27 seam artifacts must put outerBodyBoundaryEndpoint on the source-space stroke.width boundary, not viewport or selected-remnant geometry`
+    `${label} Step 28 seam-boundary artifacts must put outerBodyBoundaryEndpoint on the source-space stroke.width boundary, not viewport or selected-remnant geometry`
   ).toEqual([])
 }
 
@@ -1279,7 +1286,7 @@ const assertStep27SeamArtifactsPropagateToStep28JoinEvidence = ({
 
   expect(
     failures,
-    `${label} Step 28 source-vertex joins must consume the exact Step 27 seam boundary artifact and preserve its source-space stroke.width boundary`
+    `${label} Step 29 source-vertex joins must consume the exact Step 28 seam-boundary artifact and preserve its source-space stroke.width boundary`
   ).toEqual([])
 }
 
@@ -1314,7 +1321,7 @@ const assertDashBodyRenderEntriesPreserveFinalFaceProduct = (
     const intervalIds = getSortedPacketIntervalIds(entry.debugMeta)
     expect(
       intervalIds.length,
-      `${label} Step 38 dash body render entry must preserve at least one interval identity: ${JSON.stringify(
+      `${label} Step 39 dash body render entry must preserve at least one interval identity: ${JSON.stringify(
         {
           intervalIds,
           polygonCount: entry.polygons.length,
@@ -1336,13 +1343,13 @@ const assertDashBodyRenderEntriesPreserveFinalFaceProduct = (
 
   expect(
     renderEntriesByIntervalId.size,
-    `${label} Step 38 must expose dash body render entries`
+    `${label} Step 39 must expose dash body render entries`
   ).toBeGreaterThan(0)
 
   for (const [intervalId, entries] of renderEntriesByIntervalId) {
     expect(
       entries.length,
-      `${label} Step 38 interval ${intervalId} must not be emitted as duplicate dash body render entries: ${JSON.stringify(
+      `${label} Step 39 interval ${intervalId} must not be emitted as duplicate dash body render entries: ${JSON.stringify(
         entries.map((entry) => ({
           cacheKey: entry.cacheKey,
           polygonCount: entry.polygons.length,
@@ -1359,7 +1366,7 @@ const assertDashBodyRenderEntriesPreserveFinalFaceProduct = (
     const finalFaces = finalFacesByIntervalId.get(intervalId) ?? []
     expect(
       finalFaces.length,
-      `${label} Step 35 final face must exist for Step 38 dash body interval ${intervalId}`
+      `${label} Step 36 final face must exist for Step 39 dash body interval ${intervalId}`
     ).toBeGreaterThan(0)
     if (!entry || finalFaces.length === 0) {
       continue
@@ -1387,7 +1394,7 @@ const assertDashBodyRenderEntriesPreserveFinalFaceProduct = (
 
     expect(
       entry.polygons.length,
-      `${label} Step 38 dash body interval ${intervalId} must expose visible body polygons: ${JSON.stringify(
+      `${label} Step 39 dash body interval ${intervalId} must expose visible body polygons: ${JSON.stringify(
         {
           cacheKey: entry.cacheKey,
           polygonCount: entry.polygons.length,
@@ -1410,7 +1417,7 @@ const assertDashBodyRenderEntriesPreserveFinalFaceProduct = (
     ).toBeGreaterThan(0)
     expect(
       Math.abs(finalFaceArea - renderEntryArea),
-      `${label} Step 38 dash body interval ${intervalId} must preserve Step 35 product area: ${JSON.stringify(
+      `${label} Step 39 dash body interval ${intervalId} must preserve Step 36 product area: ${JSON.stringify(
         {
           finalFaceArea,
           renderEntryArea,
@@ -1474,7 +1481,7 @@ const assertNoSamePaintRenderEntryOverdraw = (
       )
       expect(
         overlapArea,
-        `${label} Step 38 render entries must be single-composite for same-paint overlap, not repeated-alpha draws: ${JSON.stringify(
+        `${label} Step 39 render entries must be single-composite for same-paint overlap, not repeated-alpha draws: ${JSON.stringify(
           {
             leftIndex,
             rightIndex,
@@ -1711,7 +1718,7 @@ const assertSeamEvidenceUsesDashBodyOuterEndpoints = (
       )
     expect(
       expectedOuterEndpoint,
-      `${label} must derive an expected outer endpoint from the emitted Step 27 dash body product polygon: ${JSON.stringify(
+      `${label} must derive an expected outer endpoint from the emitted Step 27 dash body product polygon boundary evidence: ${JSON.stringify(
         {
           seamBoundary,
           dashBodyPacketCount: dashBodyPackets.length,
@@ -1750,7 +1757,7 @@ const assertSeamEvidenceUsesDashBodyOuterEndpoints = (
   }
 
   const uniqueEndpoints = uniqueOuterBodyBoundaryEndpoints({
-    seamCoveragePolicy: 'shared-step-27-endpoint-identity',
+    seamCoveragePolicy: 'shared-seam-boundary-artifact-endpoint-identity',
     incidentSeamBoundaries: expectedEndpoints.map((endpoint, index) => ({
       seamBoundaryId: `expected:${index}`,
       intervalId: `expected:${index}`,
@@ -1777,7 +1784,7 @@ const assertSeamEvidenceUsesDashBodyOuterEndpoints = (
             )
           )
       ),
-      `${label} bevel chord must connect independently derived Step 27 dash outer endpoints: ${JSON.stringify(
+      `${label} bevel chord must connect independently derived Step 28 seam-boundary outer endpoints: ${JSON.stringify(
         {
           expectedEndpoints: uniqueEndpoints.map(roundedForDiagnostic),
           polygons: product.polygons.map((polygon) =>
@@ -1858,7 +1865,7 @@ const assertJoinAndDashBodyShareIncidentSeamEndpoints = (
         seamBoundary.outerBodyBoundaryEndpoint,
         product.polygons
       ),
-      `${joinType} join product must share Step 27 seam endpoint for ${seamBoundary.seamBoundaryId}: ${JSON.stringify(
+      `${joinType} join product must share seam-boundary artifact endpoint for ${seamBoundary.seamBoundaryId}: ${JSON.stringify(
         diagnostic,
         null,
         2
@@ -1869,7 +1876,7 @@ const assertJoinAndDashBodyShareIncidentSeamEndpoints = (
         seamBoundary.outerBodyBoundaryEndpoint,
         dashBodyPolygons
       ),
-      `${joinType} dash body product must share Step 27 seam endpoint for ${seamBoundary.seamBoundaryId}: ${JSON.stringify(
+      `${joinType} dash body product must share seam-boundary artifact endpoint for ${seamBoundary.seamBoundaryId}: ${JSON.stringify(
         diagnostic,
         null,
         2
@@ -2388,7 +2395,7 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
 
       expect(
         packetMatches.length,
-        `Step 28 must emit ${joinType} source-vertex join product metadata: ${JSON.stringify(
+        `Step 29 must emit ${joinType} source-vertex join product metadata: ${JSON.stringify(
           summarizeMetas(
             result.packets.map((packet) => packet.geometry.debugMeta)
           ),
@@ -2400,7 +2407,7 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
         finalFaceMatches.every(
           (meta) => meta.productMode !== 'pre-legality-source-vertex-join'
         ),
-        `Step 35 must not promote ${joinType} Step 28 pre-legality source-vertex evidence to visible final faces: ${JSON.stringify(
+        `Step 36 must not promote ${joinType} Step 29 pre-legality source-vertex evidence to visible final faces: ${JSON.stringify(
           summarizeMetas(result.finalFaces.map((face) => face.debugMeta)),
           null,
           2
@@ -2410,7 +2417,7 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
         renderEntryMatches.every(
           (meta) => meta.productMode !== 'pre-legality-source-vertex-join'
         ),
-        `Step 38 must not promote ${joinType} Step 28 pre-legality source-vertex evidence to visible render entries: ${JSON.stringify(
+        `Step 39 must not promote ${joinType} Step 29 pre-legality source-vertex evidence to visible render entries: ${JSON.stringify(
           summarizeMetas(result.renderEntries.map((entry) => entry.debugMeta)),
           null,
           2
@@ -2421,7 +2428,7 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
         assertJoinTouchesIncidentSeams(packetProduct, joinType)
         assertOutsideJoinProductPreservesLegalSurvivorOwnership(
           packetProduct,
-          `${joinType} Step 28 pre-legality product`
+          `${joinType} Step 29 pre-legality product`
         )
         assertJoinAndDashBodyShareIncidentSeamEndpoints(
           result,
@@ -2435,13 +2442,13 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
         )
         expect(
           finalFace,
-          `${joinType} Step 35 final face with join metadata`
+          `${joinType} Step 36 final face with join metadata`
         ).toBeDefined()
         if (finalFace) {
           assertJoinTouchesIncidentSeams(finalFace, joinType)
           assertOutsideJoinProductPreservesLegalSurvivorOwnership(
             finalFace,
-            `${joinType} Step 35 final face`
+            `${joinType} Step 36 final face`
           )
         }
       })
@@ -2451,13 +2458,13 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
         )
         expect(
           renderEntry,
-          `${joinType} Step 38 render entry with join metadata`
+          `${joinType} Step 39 render entry with join metadata`
         ).toBeDefined()
         if (renderEntry) {
           assertJoinTouchesIncidentSeams(renderEntry, joinType)
           assertOutsideJoinProductPreservesLegalSurvivorOwnership(
             renderEntry,
-            `${joinType} Step 38 render entry`
+            `${joinType} Step 39 render entry`
           )
         }
       })
@@ -2491,7 +2498,7 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
         visibleEntries.forEach((entry) =>
           assertOutsideJoinProductPreservesLegalSurvivorOwnership(
             entry,
-            `${joinType} Step 38 visible survivor`
+            `${joinType} Step 39 visible survivor`
           )
         )
         return [joinType, buildShapeSignature(entries, anchor)]
@@ -2527,7 +2534,7 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
         (renderEntry, index) => {
           assertOutsideJoinProductPreservesLegalSurvivorOwnership(
             renderEntry,
-            `${joinType} Step 38 source-vertex join render entry ${index}`
+            `${joinType} Step 39 source-vertex join render entry ${index}`
           )
         }
       )
@@ -2577,7 +2584,7 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
         )
         expect(
           stageFailures,
-          `${joinType} Step 27/28/32/35/38 source-space artifacts must not change between viewport zoom ${baseline?.label} and ${candidate.label}; only Step 39 raster pixel sampling may vary`
+          `${joinType} Step 27/28/29/33/36/39 source-space artifacts must not change between viewport zoom ${baseline?.label} and ${candidate.label}; only Step 40 raster pixel sampling may vary`
         ).toEqual([])
       })
     }
@@ -2606,7 +2613,7 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
 
       assertStep27SeamArtifactsUseSourceWidthBoundary(
         result,
-        `${joinType} Step 27 dash body seam artifacts`
+        `${joinType} Step 28 dash body seam-boundary artifacts`
       )
       assertOutsideDashBodyCrossSectionContinuity({
         result,
@@ -2616,52 +2623,52 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
       assertOutsideDashBodyCrossSectionContinuity({
         result,
         products: finalFaceProducts,
-        label: `${joinType} Step 35 outside dash body final faces`
+        label: `${joinType} Step 36 outside dash body final faces`
       })
       assertOutsideDashBodyCrossSectionContinuity({
         result,
         products: renderEntryProducts,
-        label: `${joinType} Step 38 outside dash body render entries`
+        label: `${joinType} Step 39 outside dash body render entries`
       })
       assertOutsideVisibleProductsExcludeFillDomain(
         finalFaceProducts,
         result.fillPolygon,
-        `${joinType} Step 35 final faces`
+        `${joinType} Step 36 final faces`
       )
       assertOutsideVisibleProductsExcludeFillDomain(
         renderEntryProducts,
         result.fillPolygon,
-        `${joinType} Step 38 render entries`
+        `${joinType} Step 39 render entries`
       )
       assertStep27SeamArtifactsPropagateToStep28JoinEvidence({
         result,
         products: preLegalitySourceVertexProducts,
-        label: `${joinType} Step 28 pre-legality source-vertex joins`
+        label: `${joinType} Step 29 pre-legality source-vertex joins`
       })
       assertStep27SeamArtifactsPropagateToStep28JoinEvidence({
         result,
         products: finalFaceProducts,
-        label: `${joinType} Step 35 source-vertex joins`
+        label: `${joinType} Step 36 source-vertex joins`
       })
       assertStep27SeamArtifactsPropagateToStep28JoinEvidence({
         result,
         products: renderEntryProducts,
-        label: `${joinType} Step 38 source-vertex joins`
+        label: `${joinType} Step 39 source-vertex joins`
       })
       assertSourceVertexSeamEndpointsUseStrokeWidthBoundary(
         preLegalitySourceVertexProducts,
         result.stroke.width,
-        `${joinType} Step 28 source-vertex joins`
+        `${joinType} Step 29 source-vertex joins`
       )
       assertSourceVertexSeamEndpointsUseStrokeWidthBoundary(
         finalFaceProducts,
         result.stroke.width,
-        `${joinType} Step 35 source-vertex joins`
+        `${joinType} Step 36 source-vertex joins`
       )
       assertSourceVertexSeamEndpointsUseStrokeWidthBoundary(
         renderEntryProducts,
         result.stroke.width,
-        `${joinType} Step 38 source-vertex joins`
+        `${joinType} Step 39 source-vertex joins`
       )
     }
   })
@@ -2689,7 +2696,7 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
 
     expect(
       packetMatches.length,
-      `Step 28 must emit resolved miter source-vertex products for reference acute outside dashed joins: ${JSON.stringify(
+      `Step 29 must emit resolved miter source-vertex products for reference acute outside dashed joins: ${JSON.stringify(
         summarizeMetas(
           result.packets.map((packet) => packet.geometry.debugMeta)
         ),
@@ -2711,14 +2718,14 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
     packetMatches.forEach((product) =>
       assertResolvedMiterUsesTheoreticalApex(
         product.debugMeta,
-        'Step 28 pre-legality product'
+        'Step 29 pre-legality product'
       )
     )
     finalFaceMatches.forEach((meta) =>
-      assertResolvedMiterUsesTheoreticalApex(meta, 'Step 35 final face')
+      assertResolvedMiterUsesTheoreticalApex(meta, 'Step 36 final face')
     )
     renderEntryMatches.forEach((meta) =>
-      assertResolvedMiterUsesTheoreticalApex(meta, 'Step 38 render entry')
+      assertResolvedMiterUsesTheoreticalApex(meta, 'Step 39 render entry')
     )
   })
 
@@ -2746,7 +2753,7 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
 
     expect(
       packetMatches.length,
-      `Step 28 must emit reference acute bevel source-vertex:0 product: ${JSON.stringify(
+      `Step 29 must emit reference acute bevel source-vertex:0 product: ${JSON.stringify(
         summarizeMetas(
           result.packets.map((packet) => packet.geometry.debugMeta)
         ),
@@ -2770,11 +2777,11 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
         result,
         product,
         sourceVertex,
-        'Step 28 pre-legality product'
+        'Step 29 pre-legality product'
       )
       assertBevelChordUsesIncidentDashOuterEndpoints(
         product,
-        'Step 28 pre-legality product'
+        'Step 29 pre-legality product'
       )
     })
     finalFaceMatches.forEach((finalFaceMeta) => {
@@ -2783,18 +2790,18 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
       )
       expect(
         finalFace,
-        'Step 35 final face with bevel join metadata'
+        'Step 36 final face with bevel join metadata'
       ).toBeDefined()
       if (finalFace) {
         assertSeamEvidenceUsesDashBodyOuterEndpoints(
           result,
           finalFace,
           sourceVertex,
-          'Step 35 final face'
+          'Step 36 final face'
         )
         assertBevelChordUsesIncidentDashOuterEndpoints(
           finalFace,
-          'Step 35 final face'
+          'Step 36 final face'
         )
       }
     })
@@ -2804,18 +2811,18 @@ describe('formal stroke geometry oracle: ordinary sharp runtime path', () => {
       )
       expect(
         renderEntry,
-        'Step 38 render entry with bevel join metadata'
+        'Step 39 render entry with bevel join metadata'
       ).toBeDefined()
       if (renderEntry) {
         assertSeamEvidenceUsesDashBodyOuterEndpoints(
           result,
           renderEntry,
           sourceVertex,
-          'Step 38 render entry'
+          'Step 39 render entry'
         )
         assertBevelChordUsesIncidentDashOuterEndpoints(
           renderEntry,
-          'Step 38 render entry'
+          'Step 39 render entry'
         )
       }
     })

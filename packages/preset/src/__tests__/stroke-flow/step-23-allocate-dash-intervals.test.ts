@@ -32,6 +32,19 @@ interface InspectorStep {
 
 interface InspectorData {
   steps: InspectorStep[]
+  crossStepArtifactLifecycleMatrix: Record<
+    string,
+    {
+      artifactClassId: string
+      computedAt: string
+      preserveThrough: string[]
+      consumedBy: string[]
+      mustNotRecomputeAfter: string
+      mayDropOnlyWhen: string[]
+      dropEvidenceRequired: string[]
+      downstreamAuthority: boolean
+    }
+  >
   inspectorContractErrors: string[]
 }
 
@@ -105,7 +118,7 @@ describe('stroke flow step 23: allocate-dash-intervals', () => {
     )
 
     expect(data.inspectorContractErrors).toEqual([])
-    expect(step?.refactorStatus).toMatch(/^(active|verified)$/)
+    expect(step?.refactorStatus).toMatch(/^(locked|active|verified)$/)
     if (step?.refactorStatus === 'active') {
       expect(activeSteps.map((entry) => entry.id)).toEqual([
         'allocate-dash-intervals'
@@ -169,9 +182,7 @@ describe('stroke flow step 23: allocate-dash-intervals', () => {
       consumedBy: [
         'select-stroke-product-family',
         'build-dash-interval-body-products',
-        'build-source-vertex-join-products',
-        'build-terminal-body-products',
-        'runtime-diagnostics'
+        'build-source-vertex-join-products'
       ],
       mustNotRecomputeAfter: 'build-dash-interval-body-products'
     })
@@ -183,6 +194,41 @@ describe('stroke flow step 23: allocate-dash-intervals', () => {
         'interior dash/gap redistribution',
         'configured gap floor recalculation',
         'legal-clip boundary endpoint synthesis'
+      ])
+    )
+  })
+
+  it('declares DashProductInterval as a preserved downstream authority', () => {
+    const data = loadInspectorData()
+    const lifecycle =
+      data.crossStepArtifactLifecycleMatrix['artifact:dash-product-interval']
+
+    expect(lifecycle).toMatchObject({
+      artifactClassId: 'required-evidence-artifact',
+      computedAt: 'allocate-dash-intervals',
+      mustNotRecomputeAfter: 'build-dash-interval-body-products',
+      downstreamAuthority: true
+    })
+    expect(lifecycle.consumedBy).toEqual(
+      expect.arrayContaining([
+        'select-stroke-product-family',
+        'build-dash-interval-body-products',
+        'build-source-vertex-join-products'
+      ])
+    )
+    expect(lifecycle.preserveThrough).toEqual(
+      expect.arrayContaining([
+        'derive-dash-body-seam-boundaries',
+        'apply-legality',
+        'build-final-faces',
+        'render-entries'
+      ])
+    )
+    expect(lifecycle.dropEvidenceRequired).toEqual(
+      expect.arrayContaining([
+        'interval id',
+        'terminal role or explicit none',
+        'legal empty/delete reason when a visible interval has no product'
       ])
     )
   })

@@ -58,6 +58,7 @@ interface StrokeRevisionStrokeInput {
   position?: string
   width?: number
   join?: string
+  miterAngle?: number
   miterLimit?: number
   cap?: string
   dash?: number
@@ -188,9 +189,12 @@ const DASH_PRODUCT_INTERVAL_DIRTY: StrokeDirtyKey[] = [
 )
 const STROKE_DOMAIN_DIRTY: StrokeDirtyKey[] = [
   'stroke-domain',
-  'interval-allocation',
-  ...DASH_PRODUCT_INTERVAL_DIRTY
-]
+  ...ENDPOINT_CAP_POLICY_DIRTY,
+  'join-ownership',
+  'smooth-continuity'
+].filter(
+  (key, index, keys): key is StrokeDirtyKey => keys.indexOf(key) === index
+)
 const STROKE_PRODUCT_DIRTY: StrokeDirtyKey[] = [
   'stroke-product',
   ...STROKE_DOMAIN_DIRTY
@@ -358,13 +362,13 @@ const buildStrokeDomainRevision = ({
 }) =>
   hashRevision(
     'stroke-domain',
-    strokeDomainSignature ??
-      [
-        stroke.style ?? '',
-        stroke.position ?? '',
-        stroke.width ?? '',
-        domainMode ?? ''
-      ].join('|')
+    [
+      stroke.style ?? '',
+      stroke.position ?? '',
+      stroke.width ?? '',
+      domainMode ?? '',
+      strokeDomainSignature ?? ''
+    ].join('|')
   )
 
 const buildDashAndGapRevision = (stroke: StrokeRevisionStrokeInput) =>
@@ -431,7 +435,7 @@ const buildJoinShapeRevision = ({
       stroke.position ?? '',
       stroke.width ?? '',
       stroke.join ?? '',
-      stroke.miterLimit ?? '',
+      stroke.miterAngle ?? '',
       joinOwnershipSignature ?? ''
     ].join('|')
   )
@@ -537,7 +541,7 @@ const buildRenderOutputRevision = ({
         stroke.position ?? '',
         stroke.width ?? '',
         stroke.join ?? '',
-        stroke.miterLimit ?? '',
+        stroke.miterAngle ?? '',
         stroke.cap ?? '',
         stroke.dash ?? '',
         stroke.gap ?? ''

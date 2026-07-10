@@ -35,7 +35,10 @@ export interface StrokeRegionPacket {
   polygons: Vec2[][]
   bounds: Bounds
   ownerSet: StrokeOwnerKey[]
+  ownerStepIds: string[]
   intervalIds: string[]
+  terminalRoles: ('start' | 'end' | 'start-end' | 'middle')[]
+  seamBoundaryIds: string[]
   sourceSpanIds: string[]
   sourceNetworkIds: string[]
   sourceContourIds: string[]
@@ -95,7 +98,10 @@ export const buildStrokeRegionPacketsFromFinalFaces = (
     polygons: face.polygons,
     bounds: face.bounds,
     ownerSet: [...face.ownerSet],
+    ownerStepIds: [...face.ownerStepIds],
     intervalIds: [...face.intervalIds],
+    terminalRoles: [...face.terminalRoles],
+    seamBoundaryIds: [...face.seamBoundaryIds],
     sourceSpanIds: [...face.sourceSpanIds],
     sourceNetworkIds: [...(face.sourceNetworkIds ?? [])],
     sourceContourIds: [...face.sourceContourIds],

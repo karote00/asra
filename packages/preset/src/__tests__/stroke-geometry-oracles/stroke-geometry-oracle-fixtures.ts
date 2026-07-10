@@ -1,4 +1,8 @@
 import type { Vec2 } from '../../components/stroke-render/solid-stroke-geometry-core'
+import type {
+  SourceVertexJoinIncidentSeamBoundary,
+  VerifiedDashBodySeamBoundaryArtifact
+} from '../../components/stroke-render/source-vertex-join-footprint'
 
 export type StrokeGeometryOracleFixtureScenarioId =
   | 'straight-segment'
@@ -186,3 +190,13 @@ export const strokeGeometryOracleFixtureScenarios: Record<
 export const getStrokeGeometryOracleFixture = (
   id: StrokeGeometryOracleFixtureScenarioId
 ) => strokeGeometryOracleFixtureScenarios[id]
+
+export const asVerifiedDashBodySeamBoundaryArtifact = (
+  boundary: SourceVertexJoinIncidentSeamBoundary,
+  bodyProductId: string
+): VerifiedDashBodySeamBoundaryArtifact => ({
+  ...boundary,
+  bodyProductId,
+  ownerStepId: 'derive-dash-body-seam-boundaries',
+  emitted: false
+})

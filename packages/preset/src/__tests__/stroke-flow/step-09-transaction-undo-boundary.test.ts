@@ -11,6 +11,10 @@ import {
 interface InspectorStep {
   id: string
   refactorStatus: 'locked' | 'active' | 'verified'
+  allowedInputs: string[]
+  requiredOutputs: string[]
+  implementationFiles: string[]
+  limitations: string[]
 }
 
 interface InspectorData {
@@ -38,6 +42,14 @@ const deleteVectorPointSourcePath = resolve(
 const vectorPointPropertiesSourcePath = resolve(
   repoRoot,
   'apps/asyra-design/src/properties/vector-point.tsx'
+)
+const strokeApisSourcePath = resolve(
+  repoRoot,
+  'apps/asyra-design/src/common-apis/strokes.ts'
+)
+const strokeInteractionsSourcePath = resolve(
+  repoRoot,
+  'apps/asyra-design/src/properties/strokes/use-stroke-interactions.ts'
 )
 const reactivePublishSourcePath = resolve(
   repoRoot,
@@ -89,12 +101,73 @@ describe('stroke flow step 09: transaction-undo-boundary', () => {
     )
 
     expect(data.inspectorContractErrors).toEqual([])
-    expect(step?.refactorStatus).toMatch(/^(active|verified)$/)
+    expect(step?.refactorStatus).toMatch(/^(locked|active|verified)$/)
     if (step?.refactorStatus === 'active') {
       expect(activeSteps.map((entry) => entry.id)).toEqual([
         'transaction-undo-boundary'
       ])
     }
+  })
+
+  it('declares stroke property transaction ownership at the common API boundary', () => {
+    const step = loadInspectorData().steps.find(
+      (entry) => entry.id === 'transaction-undo-boundary'
+    )
+
+    expect(step).toMatchObject({
+      allowedInputs: [
+        'computed patch request',
+        'stroke property mutation intent',
+        'selection/hover cleanup intent',
+        'continuous interaction session lifecycle'
+      ],
+      requiredOutputs: [
+        'one transaction',
+        'one undoable final commit when requested'
+      ]
+    })
+    expect(step?.implementationFiles).toContain(
+      'apps/asyra-design/src/properties/ (transaction orchestration only)'
+    )
+    expect(step?.limitations.join(' ')).toContain(
+      'Discrete stroke property handlers must not open their own transaction wrapper'
+    )
+  })
+
+  it('keeps discrete stroke updates inside one common API transaction', () => {
+    const strokeApisSource = readFileSync(strokeApisSourcePath, 'utf8')
+    const strokeInteractionsSource = readFileSync(
+      strokeInteractionsSourcePath,
+      'utf8'
+    )
+    const updateFieldsSource = sliceBetween(
+      strokeApisSource,
+      'updateStrokeFields: (',
+      'updateStrokeField: <K extends StrokeWritableKey>'
+    )
+    const discreteInteractionSource = sliceBetween(
+      strokeInteractionsSource,
+      'const commitStrokeInteractionPatch =',
+      'const writePickerStroke ='
+    )
+
+    expectOrdered(updateFieldsSource, [
+      'const changedEntries = getChangedPatchEntries(currentStroke, patch)',
+      'if (changedEntries.length === 0)',
+      'transactionApis.startTransaction()',
+      'core.commitPropertyChanges(options)',
+      'transactionApis.endTransaction()'
+    ])
+    expect(updateFieldsSource).toContain('try {')
+    expect(updateFieldsSource).toContain('finally')
+    expect(discreteInteractionSource).toContain('commitStrokePatch(')
+    expect(discreteInteractionSource).not.toContain(
+      'runDiscreteStrokeInteraction'
+    )
+    expect(discreteInteractionSource).not.toContain('transactionApis.')
+    expect(strokeInteractionsSource).not.toContain(
+      'const runDiscreteStrokeInteraction'
+    )
   })
 
   it('wraps topology computed patch writes in one common API transaction boundary', () => {

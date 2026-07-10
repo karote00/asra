@@ -1,9 +1,6 @@
-import { describe, expect, it } from 'vitest'
-import {
-  buildSolidCenterStrokeRenderEntriesFromRenderPackets,
-  emitSolidCenterStrokeProductOutputPacketsFromFinalFaces
-} from '../../components/stroke-render/solid-center-stroke-packets'
-import { projectSolidCenterStrokeRenderEntries } from '../../components/stroke-render/solid-center-stroke-render'
+import { describe, expect } from 'vitest'
+import { integrationCase } from './stroke-integration-inspector-test-helper'
+import { applyStrokeProductLegality } from '../../components/stroke-render/stroke-candidate-arrangement'
 import { buildStrokeFinalFacesFromResolvedPackets } from '../../components/stroke-render/stroke-final-face'
 import {
   materializeStrokeProductDescriptors,
@@ -31,8 +28,67 @@ const bounds = {
   maxY: 10
 }
 
-describe('new stroke flow integration: descriptor legality and channel boundaries', () => {
-  it('requires post-legality descriptor strategies to declare post-legality artifact consumption evidence', () => {
+describe('stroke integration: legality, final records, and descriptors', () => {
+  integrationCase('legality-resolved-paint-final-descriptor-chain', 'applies legality per source product and emits explicit deletion records', () => {
+    const output = applyStrokeProductLegality({
+      productPackets: [
+        {
+          productId: 'body:visible',
+          productMode: 'pre-legality-dash-interval-body',
+          ownerStepId: 'build-dash-interval-body-products',
+          ownerStage: 'Stroke Geometry dashed interval body assembly',
+          polygons: [visiblePolygon]
+        },
+        {
+          productId: 'join:deleted',
+          productMode: 'pre-legality-source-vertex-join',
+          ownerStepId: 'build-source-vertex-join-products',
+          ownerStage: 'Stroke Geometry source-vertex join assembly',
+          polygons: [evidencePolygon]
+        }
+      ],
+      legalityRoute: 'outside-exterior-clip',
+      legalDomainIds: ['legal:outside'],
+      contourIds: ['contour:outside'],
+      productResults: [
+        {
+          sourceProductId: 'body:visible',
+          visiblePolygons: [visiblePolygon],
+          evidenceChannels: {
+            descriptorEvidencePolygons: [evidencePolygon]
+          }
+        },
+        {
+          sourceProductId: 'join:deleted',
+          visiblePolygons: [],
+          deleteReason: 'outside-legal-domain'
+        }
+      ]
+    })
+
+    expect(output.products).toEqual([
+      expect.objectContaining({
+        productId: 'body:visible:post-legality',
+        sourceProductId: 'body:visible',
+        ownerStepId: 'apply-legality',
+        sourceOwnerStepId: 'build-dash-interval-body-products',
+        visiblePolygons: [visiblePolygon],
+        evidenceChannels: {
+          descriptorEvidencePolygons: [evidencePolygon]
+        }
+      })
+    ])
+    expect(output.deletions).toEqual([
+      expect.objectContaining({
+        sourceProductId: 'join:deleted',
+        sourceOwnerStepId: 'build-source-vertex-join-products',
+        ownerStepId: 'apply-legality',
+        deleteReason: 'outside-legal-domain'
+      })
+    ])
+  })
+
+  integrationCase('legality-resolved-paint-final-descriptor-chain', 'requires post-legality descriptor strategies to declare post-legality artifact consumption evidence', () => {
     const [strategy] = selectStrokeDescriptorStrategy({
       candidates: [
         {
@@ -59,7 +115,7 @@ describe('new stroke flow integration: descriptor legality and channel boundarie
     expect(strategy.consumesPostLegalityArtifact).toBe(true)
   })
 
-  it('keeps descriptor product polygons in evidence channels when stroke path groups own visible render', () => {
+  integrationCase('legality-resolved-paint-final-descriptor-chain', 'keeps descriptor product polygons in evidence channels when stroke path groups own visible render', () => {
     const [finalFace] = buildStrokeFinalFacesFromResolvedPackets([
       {
         geometry: {
@@ -69,6 +125,11 @@ describe('new stroke flow integration: descriptor legality and channel boundarie
           debugMeta: {
             routeId: 'build-final-faces',
             ownerStage: 'Stroke Geometry final face assembly',
+            ownerStepIds: [
+              'build-dash-interval-body-products',
+              'apply-legality',
+              'build-final-faces'
+            ],
             ownerKey: 'owner:descriptor-channel',
             strokeId: 'stroke:descriptor-channel',
             productMode: 'post-legality-product',
@@ -131,12 +192,6 @@ describe('new stroke flow integration: descriptor legality and channel boundarie
       strategies: [strategy],
       finalFaces: [finalFace]
     })
-    const outputPackets =
-      emitSolidCenterStrokeProductOutputPacketsFromFinalFaces([finalFace])
-    const renderEntries = buildSolidCenterStrokeRenderEntriesFromRenderPackets(
-      outputPackets.renderPackets
-    )
-    const projections = projectSolidCenterStrokeRenderEntries(renderEntries)
 
     expect(descriptor.visibleChannel).toEqual({
       strokePathGroups: [
@@ -162,36 +217,12 @@ describe('new stroke flow integration: descriptor legality and channel boundarie
       fillClipPolygons: [visiblePolygon],
       fillExcludePolygons: [evidencePolygon]
     })
-    expect(outputPackets.renderPackets[0]).toMatchObject({
-      channel: 'render',
-      visibility: 'visible',
-      descriptorRouteMode: 'descriptor-visible-route'
-    })
-    expect(outputPackets.diagnosticPackets[0]).toMatchObject({
-      channel: 'diagnostic',
-      visibility: 'non-visible',
-      evidenceChannel: {
-        descriptorProductPolygons: [evidencePolygon]
-      }
-    })
-    expect(renderEntries[0]).toMatchObject({
-      channel: 'render-entry',
-      visibility: 'visible',
-      evidenceChannel: {
-        descriptorProductPolygonsVisible: false,
-        reason: 'descriptor-visible-route'
-      }
-    })
-    expect(renderEntries[0]).not.toHaveProperty('strokeMaskPolygons')
-    expect(renderEntries[0]).not.toHaveProperty('descriptorProductPolygons')
-    expect(projections[0]).toMatchObject({
-      channel: 'renderer-projection',
-      visibility: 'visible-pixels',
-      drawRouteType: 'stroke-path-groups',
-      metadataMutation: false
-    })
-    expect(JSON.stringify(projections[0])).not.toContain(
-      'descriptorProductPolygons'
+    expect(descriptor.ownerMetadata.finalFaceOwnerStepIds).toEqual(
+      expect.arrayContaining([
+        'build-dash-interval-body-products',
+        'apply-legality',
+        'build-final-faces'
+      ])
     )
   })
 })

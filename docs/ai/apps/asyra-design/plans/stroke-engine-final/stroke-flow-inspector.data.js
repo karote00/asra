@@ -58,24 +58,24 @@
     'Terminal dash cap ownership is defined by the stroke-engine README sections #cap-and-terminal-terminology and #dash-body-and-join-seam-contract. Inspector flow records terminal-role evidence, endpointCapPolicy, and failure reopening only; it does not redefine cap semantics.',
     'Terminal cap ownership versus join ownership is defined by the stroke-engine README sections #cap-and-terminal-terminology, #asyra-join-resolution-baseline, and #local-composition-caps-and-joins. Inspector flow sequences the owning steps and required evidence only; it does not redefine endpoint or join behavior.',
     'High-angle source-vertex and self-intersection terminal regions use a visible contributor whitelist: only the source-vertex join product and incident terminal body products may emit visible coverage. Source-vertex join owns join-apex and legal-side corner coverage; terminal bodies own only dash body plus allowed body-side cap coverage.',
-    'Butt terminal bodies remain strict endpoint products: they must not overhang the endpoint side or emit a visible body-side cap to repair source-vertex cracks. Suppressed butt endpoints may provide construction-only continuity evidence, but visible crack-closing coverage is valid only when the dash body and source-vertex join share the same Step 27 seam endpoint identities, with terminal body ownership still stopped at the butt endpoint.',
-    'Dash bodies and source-vertex joins share a source-domain seam contract. Dash intervals provide incident dash body seam boundaries, including outer body boundary vertices and outline segments, and the source-vertex join assembler consumes those boundaries to emit a seam-free join product whose visible triangles share the same Step 27 seam endpoint identities as both incident dash body seams. A visible dash/join seam gap at an authored sharp vertex is a product failure.',
+    'Butt terminal bodies remain strict endpoint products: they must not overhang the endpoint side or emit a visible body-side cap to repair source-vertex cracks. Suppressed butt endpoints may provide construction-only continuity evidence, but visible crack-closing coverage is valid only when the dash body and source-vertex join share the same dash body seam-boundary artifact endpoint identities, with terminal body ownership still stopped at the butt endpoint.',
+    'Dash bodies and source-vertex joins share a source-domain seam contract. Dash intervals provide incident dash body seam boundaries, including outer body boundary vertices and outline segments, and the source-vertex join assembler consumes those boundaries to emit a seam-free join product whose visible triangles share the same seam-boundary artifact endpoint identities as both incident dash body seams. A visible dash/join seam gap at an authored sharp vertex is a product failure.',
     'Outside dashed high-acute boundary-terminal-pair transition continuity data is non-emitted seam evidence only. It may inform canonical source-vertex join assembly and terminal body clipping, but it must not survive as a visible helper polygon, source-path replay, substitute fill, or independent terminal-body product.',
-    'For outside butt miter-family source vertices, non-emitted continuity evidence may identify the incident Step 27 seam endpoints consumed by the resolved source-vertex join footprint. It must not emit visible coverage, alter the resolved join boundary, add padding endpoints, add overlap endpoints, respond to raster holes or fixture coordinates, cap a resolved miter apex, or extend terminal body ownership.',
+    'For outside butt miter-family source vertices, non-emitted continuity evidence may identify the incident seam-boundary artifact endpoints consumed by the resolved source-vertex join footprint. It must not emit visible coverage, alter the resolved join boundary, add padding endpoints, add overlap endpoints, respond to raster holes or fixture coordinates, cap a resolved miter apex, or extend terminal body ownership.',
     'Construction-only seam evidence may influence endpoint identity selection and join boundary derivation, but visible source-vertex join output must use visibleContributor:source-vertex-join, geometryBasis:canonical-join-footprint, and resolution miter, bevel, round, bevel-by-miter-angle, or degenerate-bevel. geometryBasis must not be any construction seam basis; construction-only seam evidence may be recorded only with emitted:false and must not be reparented into visible geometry.',
     'For authored miter joins, the assembler resolves the join from the vertex angle and miterAngle using README MITER_ANGLE_EPSILON_DEGREES = 0.000001. Delta greater than that epsilon resolves to miter; delta less than or equal to that epsilon resolves to bevel-by-miter-angle. bevel-by-miter-angle is debug/oracle provenance, but its visible geometry is the same seam-connected cut-off footprint as authored bevel for the same product family and must not preserve an extra miter extension. Near-threshold cases must not emit both miter and bevel-equivalent footprints.',
     'Miter resolution is source-domain semantic resolution, not visible-product inference. vertexAngle must come only from authored center-path incident tangents or contour-visit incident tangents before inside/outside masking, terminal body construction, join clipping, or product boolean cleanup.',
     'bevel-by-miter-angle is a semantic provenance label over bevel-equivalent geometry, not a new geometry owner or render primitive. Product descriptors, debug metadata, and formal oracle output must preserve authoredJoin:miter plus resolvedJoin:bevel-by-miter-angle and must not collapse the case into authored bevel.',
     'Dashed authored vertices follow strict ownership: dash intervals provide incident body coverage and seam boundaries, source-vertex joins complete authored corners, and endpoint caps close only true dangling/open interval endpoints. No authored sharp vertex may be visibly completed by endpoint caps, terminal overhangs, construction/helper products, duplicate interval paint, or a visible gap between dash body and join.',
-    'Miter-angle join recovery follows the inspector-flow-first greenfield refactor protocol: active step unit contract first, implementation second, step verification third, then a 41-runtime-step unit-complete checkpoint before any user-approved integration, E2E, visual, regression, performance, or cleanup phase.',
-    'The refactor must advance through all 41 runtime inspector steps one active step at a time. An active step may be retried at most three focused repair attempts; if the third attempt still fails, stop at that step, keep the lock there, summarize blocker evidence and attempts, and notify the user when the host environment supports it.',
-    'Full preset regression remains a future phase gate with at most three attempts. It must not run automatically after the 41-runtime-step unit checkpoint. Each failed future attempt requires a failing-suite, assertion, owner-stage, and focused-repair summary before retrying; the third failed attempt stops the task and requires user discussion.',
+    'Miter-angle join recovery follows the inspector-flow-first greenfield refactor protocol: whole-flow review group first, active step unit contract second, implementation third, step verification fourth, then the runtime unit gate automatically opens focused test-architecture, integration, and formal geometry-oracle work. E2E, visual, regression, performance, and cleanup remain ordered behind their preceding gates.',
+    'The refactor must advance through the runtime inspector steps by reviewing the active step whole-flow group before each one-step implementation segment. An active step may be retried at most three focused repair attempts; if the third attempt still fails, keep the same owner step, summarize blocker evidence and attempts, and automatically perform a task replan before the next implementation iteration.',
+    'Full preset regression remains a future phase gate with at most three attempts. It must not run automatically after the runtime-step unit checkpoint. Each failed future attempt requires a failing-suite, assertion, owner-stage, and focused-repair summary before retrying; the third failed attempt automatically enters task replan before another regression attempt.',
     'Outside constrained dashed contour/source split terminal bodies are terminal-interval owned product packets. Curved round and square terminal bodies must keep their join-owned-terminal-body identity, geometryId, domainPlanTerminalRole, dashProductIntervals, domainPlanSplitRangeTerminals, endpoint cap policy, join ownership signatures, smooth-continuity grouping, and runtime revision metadata through product packet canonicalization. Same-paint union may merge only the ordinary-coverage class defined by the stroke-engine README and must not convert terminal-owned product into a generic canonical packet.',
     'Dirty owner-stage incremental product assembly is allowed for constrained dashed products as a canonical product assembly strategy, not as render-only cache, preview shortcut, or drag-only approximation. Each current-state frame must still emit a legal canonical product graph; reusable descriptors are valid only when their declared source-vertex, source-segment, terminal-body, dash-interval, ownership-region, shared seam endpoint identity, style-token, and local-topology dependencies do not intersect the current dirty dependency set.',
-    'Dirty assembly recomputes affected source-vertex joins, terminal bodies, and dash intervals, then merges them with validated reusable descriptors. Any dependency change affecting visible ownership, local topology, shared Step 27 seam endpoint identity, dash interval identity, stroke alignment, stroke width, join style, cap style, dash/gap lengths, dash allocation state, or resolved join legality invalidates dependent descriptors before visible output. Stale visible descriptors, render-only reuse, geometry-specific repair, and preview-only output are invalid.',
+    'Dirty assembly recomputes affected source-vertex joins, terminal bodies, and dash intervals, then merges them with validated reusable descriptors. Any dependency change affecting visible ownership, local topology, shared seam-boundary artifact endpoint identity, dash interval identity, stroke alignment, stroke width, join style, cap style, dash/gap lengths, dash allocation state, or resolved join legality invalidates dependent descriptors before visible output. Stale visible descriptors, render-only reuse, geometry-specific repair, and preview-only output are invalid.',
     'Self-intersection split terminals can be join-owned product terminals. They carry the terminal point, previous/next contour directions, resolved legal side, owning intervals, joinType, and miterAngle; resolved miter, bevel, bevel-by-miter-angle, and round all materialize on the legal side. Round join means a join arc, not an endpoint cap disk.',
     'Local source vertices and split terminals must pass the contributor oracle: visible output may contain only the allowed adjacent bodies plus one authored join for that local case, except for spec-defined legal outside compressed overlap. Extra generic packets, duplicate terminal bodies, endpoint caps at join-owned terminals, diagnostic fragments, or unapproved same-paint overlaps fail even when opaque pixels look similar.',
-    'Curve dash smoothness is a top-level product rule. A visible dash on a Bezier or high-curvature span must be one continuous smooth footprint; sampling seams, radial slices, disconnected strips, and comb-like gaps inside one dash are product failures. High curvature is not a join trigger by itself: tangent-continuous curved spans remain smooth-continuity dash products and must not emit source-vertex join ownership.',
+    'Curve dash smoothness is a top-level product rule. A visible dash on a Bezier or high-curvature span must be one continuous smooth footprint whose outer boundary follows the authored source-curve offset at the configured stroke width; sampling seams, radial slices, disconnected strips, comb-like gaps, straight-chord outer edges, and selected-side envelope residue inside one dash are product failures. High curvature is not a join trigger by itself: tangent-continuous curved spans remain smooth-continuity dash products and must not emit source-vertex join ownership.',
     'Open center dashed allocation is continuous-network based: the two true open network endpoints own half-length terminal dashes, middle dashes keep authored length, segment boundaries do not reset dash allocation state, and cap footprints do not reallocate dash/gap intervals.',
     'Open authored dashed inside/outside strokes use the formal unbounded open center product only when no bounded filled-region domain exists. Open self-intersecting networks with bounded filled regions formed by real authored source segments use constrained dashed products with position-specific ownership: inside paints only filled-contour source spans and excludes dangling open branches, while outside paints exterior contour spans and renders dangling open-branch spans on both sides of the source path with visible normal span equal to stroke.width * 2 within spec width tolerance. Each inspector-declared independent constrained source span owns a source-distance allocation origin, and legal-domain clipping must not create new half-dash terminals, endpoint caps, or redistributed gaps. No invisible closing edge may be added for domain, dash, hit-test, export, or product output.',
     'Stroke domain plan is the single product routing entry point for open/closed semantics. Vector render code and packet builders must not independently map open constrained strokes to center; they consume domain modes such as center-product, closed-constrained-domain, open-contour-constrained-domain, open-dangling-outside-both-sides, and inside-excluded-open-span.',
@@ -87,7 +87,7 @@
     'When constrained dashed descriptors carry both strokePathGroups and descriptorProductPolygons, render entries materialize strokePathGroups for visible output and treat descriptor product polygons, clip polygons, carrier polygons, and boundary-domain polygons as clip/evidence only. Direct projection of overlapping descriptor polygons is invalid when it creates same-paint overdraw or opacity changes; non-intersection dash body samples remain single-layer.',
     'Descriptor output is only a renderer-ready encoding of DashProductInterval materialization. It must carry product-builder, source revision, domain, interval, terminal, cap policy, join ownership, legal side, smooth-continuity, and output-channel metadata; downstream render code must not infer or re-add endpoint caps.',
     'Resolved split/domain metadata is a shared product-builder input. Drag may reuse it only after validation against the current source revision, topology signature, contour visit identity, domain mode, and split range ids. Visible product output must not retrace the whole source path, recompute source intersections inside render, or switch to a drag-specific geometry path.',
-    'Product output may emit render, hit, export, diagnostic, and visual-overlay descriptors, but each output channel must stay tagged and separated. Visible render must not use diagnostic/helper geometry as product output.',
+    'Product output emits render, hit, and export descriptors; optional diagnostics and visual overlays consume terminal evidence outside the inspector step graph when explicitly enabled. Visible render must not use diagnostic/helper geometry as product output.',
     'The 2026-06-21 stroke architecture closure evidence is historical and scoped to its named probes, tests, and screenshots. Future pixel bugs must attach current reproducible test names, artifact ids or paths, overlay metadata, and inspected screenshot evidence before closure.',
     'Agent-run E2E, visual, drag, and performance gates use the app-specific ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL declared in apps/asyra-design/.env and pass the same value to PLAYWRIGHT_TEST_BASE_URL. Do not hardcode a localhost port in the visual review contract; if the configured URL points at a user-run server, use that same runtime or stop and report the environment mismatch. Extra ports are opt-in and must be shut down after use.',
     'App visual evidence must come from a runtime that loaded workspace package entrypoints after the current source produced fresh package dist output. A dev runtime that starts Vite against stale package dist output cannot close visual review.',
@@ -151,7 +151,7 @@
     'bevel-by-miter-angle-provenance',
     'dashed-authored-vertex-ownership',
     'miter-recovery-refactor-protocol',
-    'stepwise-refactor-41-runtime-steps',
+    'stepwise-refactor-runtime-steps',
     'full-regression-three-attempts',
     'outside-dashed-terminal-packets',
     'dirty-incremental-assembly',
@@ -172,7 +172,7 @@
     'resolved-split-metadata-validation',
     'output-channel-separation',
     'historical-closure-evidence',
-    'localhost-3001-agent-gates',
+    'app-env-visual-review-gates',
     'fresh-runtime-visual-evidence',
     'rule-mismatch-reopens-owner-step',
     'document-deep-audit-protocol',
@@ -189,31 +189,32 @@
 
   const currentExecutionState = {
     totalSteps: 41,
-    planStatus: 'inspector-flow-step-units-verified',
+    planStatus: 'post-runtime-correctness-active',
     refactorProtocolName:
       'Inspector-Flow-First Greenfield Stroke Engine Refactor',
     activeRefactorStepId: null,
     activeRefactorStepNumber: null,
-    nextExecutableStepId: 'unit-complete-checkpoint',
+    nextExecutableStepId: 'integration-suite',
     nextExecutableStepNumber: null,
-    nextExecutableStepStatus: 'unit-complete-checkpoint',
+    nextExecutableStepStatus: 'active',
     stopRule:
-      'Stroke changes must advance one inspector step at a time. Stroke tests may enter the refactor gate only when they map to the current spec and inspector contracts; integration/E2E remain locked until the inspector-step unit suite is complete and the user approves the next test-plan phase.',
+      'Stroke changes must run whole-flow review for the active step group, then advance one inspector implementation step at a time. Stroke tests may enter correctness gates only when they map to the current spec and inspector contracts. After the runtime unit gate passes, focused test-architecture, integration, and formal geometry-oracle work begins automatically; later gates remain ordered by their declared prerequisites.',
     requiredImplementationSequence: [
       'Read the stroke-engine README, active plan, and this inspector data before each refactor segment.',
+      'Run the Whole-Flow Review And Step Grouping Contract for the active step group before step-local implementation or advancement.',
       'Keep exactly one inspector step active; all later steps remain locked until the active step is verified.',
       'Write or update only the active step unit test before implementation for that step.',
       'The active step unit test asserts only that step contract: inputs, outputs, conditions, bypass conditions, limitations, owner stage, contributors, evidence, and failure reopening.',
       'Implement only files listed by the active step lock metadata.',
       'Run the refactor protocol validator and the active step unit test before marking the step verified.',
-      'Continue this sequence one runtime inspector step at a time until all 41 runtime inspector steps are verified, unless the active step reaches its retry stop condition.',
+      'Continue this sequence one runtime inspector step at a time until all runtime inspector steps are verified, performing an automatic task replan when the active step reaches its retry limit.',
       'Limit each active inspector step to three focused repair attempts; every attempt must name the failing focused gate or contract mismatch and rerun the focused step gate before the next attempt.',
-      'If the third focused repair attempt still fails, stop at that step, keep the inspector lock on that step, summarize the blocker, failed gate, owner-stage evidence, and attempted repair paths, then notify the user when supported.',
+      'If the third focused repair attempt still fails, keep the same owner step, summarize the blocker, failed gate, owner-stage evidence, and attempted repair paths, then automatically perform a task replan before the next implementation iteration.',
       'Do not run unmapped or stale stroke tests as refactor gates and do not repair production code to satisfy a test that cannot identify its current spec and inspector owner.',
-      'After all 41 runtime inspector-step unit tests are verified, stop at a unit-complete checkpoint and wait for the user-approved integration/E2E/regression test-plan refactor. Post-runtime validation gates remain separate from runtime implementation steps.',
-      'Run full preset regression only in a later user-approved regression phase, at most three times; each failure requires a failing-suite, assertion, owner-stage, and focused-repair summary before retrying, and the third failure stops the task for user discussion.',
-      'Run E2E and visual review only in a later user-approved phase; E2E validates user behavior rather than engine architecture.',
-      'Keep performance and cleanup work blocked until geometry/product semantics pass and user visual inspection is complete.',
+      'After all runtime inspector-step unit tests are verified for the current step graph, record the runtime unit gate and proceed directly to focused test-architecture, integration, and formal geometry-oracle work. Post-runtime validation methods remain separate from runtime implementation steps.',
+      'Run full preset regression only after the focused correctness phases, at most three times per task iteration; each failure requires a failing-suite, assertion, owner-stage, and focused-repair summary before retrying, and the third failure automatically enters task replan before another regression attempt.',
+      'Run E2E automatically after integration and formal geometry-oracle gates are meaningful and pass; E2E validates user behavior rather than engine architecture. Run visual review only after an explicit user request.',
+      'Run performance and cleanup after geometry/product semantics and required runtime behavior gates pass; optional visual review is not a prerequisite.',
       'During runtime implementation, verifiedStepIds must remain a contiguous prefix from step 1 and activeStepId must be the first unverified runtime step derived from that prefix.'
     ],
     blockedDownstreamStepIds: []
@@ -247,6 +248,7 @@
     'build-center-stroke-products',
     'build-constrained-solid-products',
     'build-dash-interval-body-products',
+    'derive-dash-body-seam-boundaries',
     'build-source-vertex-join-products',
     'build-terminal-body-products',
     'build-smooth-continuity-products',
@@ -259,33 +261,78 @@
     'emit-render-hit-export-packets',
     'render-entries',
     'renderer-projection',
-    'hit-export',
-    'runtime-diagnostics'
+    'hit-export'
   ]
 
   const runtimeImplementationState = {
     phase: 'runtime-implementation-unit-complete',
-    previousCheckpoint: 'unit-complete-checkpoint',
+    completedGate: 'runtime-unit-gate',
+    schemaRepairStatus: 'complete',
     activeStepId: null,
     activeStepNumber: null,
     activeStepUnitStatus: 'complete',
     activeStepGate:
-      'all 41 runtime inspector steps verified; post-runtime validation gates remain outside runtime implementation sequencing',
-    verifiedStepIds: runtimeVerifiedStepIdPrefix,
+      'runtime inspector steps verified: yarn workspace @asyra/preset test:stroke-flow:unit',
+    verifiedStepIds: [
+      'feature-session-intent',
+      'path-editing-intent',
+      'point-handle-drag-operation',
+      'structural-vector-operation',
+      'common-api-domain-adapter',
+      'canonical-workspace-data',
+      'validate-topology',
+      'computed-patch-builder',
+      'transaction-undo-boundary',
+      'scene-tree-commit',
+      'computed-patch-event',
+      'downstream-subscriber-routing',
+      'render-mirror-patch-apply',
+      'render-data-derivation',
+      'dirty-revision-graph',
+      'stage-product-cache',
+      'render-strategy-entry',
+      'normalize-render-data',
+      'normalize-stroke-spec',
+      'shared-geometry-model',
+      'resolve-source-families',
+      'resolve-stroke-domains',
+      'allocate-dash-intervals',
+      'select-stroke-product-family',
+      'build-center-stroke-products',
+      'build-constrained-solid-products',
+      'build-dash-interval-body-products',
+      'derive-dash-body-seam-boundaries',
+      'build-source-vertex-join-products',
+      'build-terminal-body-products',
+      'build-smooth-continuity-products',
+      'select-stroke-descriptor-strategy',
+      'apply-legality',
+      'build-resolved-stroke-regions',
+      'attach-paint-payload',
+      'build-final-faces',
+      'materialize-stroke-product-descriptors',
+      'emit-render-hit-export-packets',
+      'render-entries',
+      'renderer-projection',
+      'hit-export'
+    ],
     sequentialLockPolicy:
       'runtimeImplementationState.verifiedStepIds must be a contiguous prefix from step 1; activeStepId must equal the first unverified runtime step; no later step may become active until the current active step gate passes and the prefix ledger advances by exactly one step.',
     stepRetryLimit: 3,
     implementationPolicy:
-      'Runtime implementation audit/refactor starts only after the 41 runtime inspector-step unit suite is verified. Unit refactorStatus remains verified; runtime implementation progress is tracked separately by this runtimeImplementationState.',
+      'Runtime implementation audit/refactor starts only after the current runtime inspector-step unit suite is verified for the revised step graph. The previous 41-step unit result is historical baseline evidence after this inspector-flow replan.',
     advancementRule:
       'For each runtime step, re-read this inspector step contract and referenced spec refs, compare the implementation entry boundary and allowed files to the contract, repair only the current step allowlist when a mismatch is proven, run the active step gate, append only that step id to verifiedStepIds, and then advance runtimeImplementationState.activeStepId to the next first-unverified step.',
-    lockedFuturePhases: [
+    pendingTechnicalPhases: [
       'full package regression',
-      'post-runtime stroke test suites',
       'E2E',
-      'visual review',
       'performance',
       'cleanup'
+    ],
+    unlockedNextPhases: [
+      'post-runtime test architecture',
+      'inspector-flow integration',
+      'formal geometry oracle'
     ],
     evidenceRequired: [
       'active inspector step contract',
@@ -297,6 +344,79 @@
       'focused repair attempt count'
     ]
   }
+
+  const finalValidationMethods = [
+    {
+      id: 'visible-final-result',
+      configuredBy: 'explicit-user-request-only',
+      stepMembership: 'excluded-from-runtime-inspector-steps',
+      kind: 'visible-product-closure',
+      requiredAfter: 'explicit-user-request',
+      requiredForGoalCompletion: false,
+      consumes: [
+        'stage:renderer-projection',
+        'artifact:renderEntries',
+        'artifact:hit-export-packets'
+      ],
+      requiredEvidence: [
+        'current final visible render result',
+        'render-entry and hit/export evidence from the completed development graph',
+        'failure reopening mapped back to the earliest owning inspector step'
+      ],
+      limitations: [
+        'This validation method is not an inspector owner step.',
+        'It must not appear in steps, verifiedStepIds, route targets, or step-unit test files.',
+        'It runs only after an explicit user request and does not block automatic phase progression or goal completion.',
+        'It may fail and reopen a development owner step, but it may not define stroke product semantics.'
+      ]
+    },
+    {
+      id: 'app-visual-review',
+      configuredBy: 'explicit-user-request-only',
+      stepMembership: 'excluded-from-runtime-inspector-steps',
+      kind: 'app-visible-review',
+      requiredAfter: 'explicit-user-request',
+      requiredForGoalCompletion: false,
+      consumes: [
+        'stage:renderer-projection',
+        'canonical visual review contract'
+      ],
+      requiredEvidence: [
+        'current app visual review artifact',
+        'canonical visual group or reported-case mapping',
+        'failure reopening mapped back to the earliest owning inspector step'
+      ],
+      limitations: [
+        'This validation method is not an inspector owner step.',
+        'It runs only after an explicit user request and does not block automatic phase progression or goal completion.',
+        'It may not replace formal source-space or inspector-flow gates.'
+      ]
+    }
+  ]
+
+  const optionalDiagnosticChannels = [
+    {
+      id: 'runtime-diagnostics',
+      configuredBy: 'diagnostics mode only',
+      stepMembership: 'excluded-from-runtime-inspector-steps',
+      kind: 'non-product-evidence-channel',
+      consumes: [
+        'upstream final faces',
+        'render-entry metadata',
+        'renderer projection metadata',
+        'hit/export evidence'
+      ],
+      produces: [
+        'bounded diagnostic metadata when diagnostics mode is enabled',
+        'cleared diagnostic metadata when diagnostics mode is disabled'
+      ],
+      limitations: [
+        'Runtime diagnostics are not a development step and are not a required final validation method.',
+        'Diagnostics may not draw pixels, repair geometry, define hit/export output, or become product source of truth.',
+        'Diagnostics-only source files are governed outside the inspector step graph.'
+      ]
+    }
+  ]
 
   const strokeCompletionMatrix = [
     {
@@ -342,11 +462,11 @@
         'architecture closed: center/inside/outside dashed static, drag, cap switch, reload, render entry, hit/export, and visual review consume the same product interval and descriptor contract'
     },
     {
-      row: 'cross-cutting-render-hit-export-diagnostics',
+      row: 'cross-cutting-render-hit-export',
       requiredEvidence:
         'Render consumes visible descriptors, hit/export may consume non-visible coverage evidence, diagnostics remain opt-in and non-visible.',
       status:
-        'architecture closed: render, hit, export, diagnostics, performance gates, and reviewed screenshots are separate evidence paths over the same semantic product descriptors'
+        'architecture closed: render, hit, export, performance gates, configured diagnostics, and reviewed screenshots are separate evidence paths over the same semantic product descriptors'
     }
   ]
 
@@ -469,6 +589,103 @@
     ]
   }
 
+  const continuousParameterPerformanceContract = {
+    status: 'contract-defined-runtime-gate-pending-prerequisites',
+    targetFps: 120,
+    frameBudgetMs: 8.33,
+    updatePath:
+      'production stroke property/common API path with canonical render invalidation',
+    addsUiScrubber: false,
+    parameterIds: [
+      'stroke.width',
+      'stroke.dash',
+      'stroke.gap',
+      'stroke.miterAngle'
+    ],
+    requiredMetrics: [
+      'resolved geometry p95 below 8.33ms',
+      'vector product render p95 below 8.33ms',
+      'sustained render flush average below 8.33ms',
+      'visible non-empty current-state product output',
+      'stage dirty and cache hit/miss/store evidence'
+    ],
+    sampleContract: {
+      minimumGeometryRebuildSampleRatio: 0.9,
+      requiresCacheRevisit: true,
+      p95Population: 'geometry-rebuilding continuous update frames'
+    },
+    dirtyingEvidence: {
+      'stroke.width': [
+        'reuse source path/topology',
+        'reuse dash interval allocation',
+        'rebuild domain, terminal cap, join/miter, and downstream output'
+      ],
+      'stroke.dash-gap': [
+        'rebuild dash interval allocation and downstream output',
+        'preserve source topology and join shape revision'
+      ],
+      'stroke.miterAngle': [
+        'rebuild join/miter and downstream output',
+        'preserve source path, stroke domain, dash allocation, and paint revisions'
+      ]
+    },
+    discreteUiBudget: {
+      endToVisibleP95Ms: 50,
+      singleActionMaxMs: 100
+    },
+    goalCompletionPolicy:
+      'The active stroke goal completes only after all 8.33ms continuous-operation gates pass without exception.',
+    prerequisites: [
+      'runtime inspector steps verified',
+      'formal stroke correctness gates pass'
+    ]
+  }
+
+  const focusedTestExecutionContract = {
+    focusedStepTargetMs: 5000,
+    focusedGeometryOracleTargetMs: 15000,
+    mandatorySplitReviewMs: 30000,
+    timingIsCorrectnessAssertion: false,
+    innerLoopGateKinds: [
+      'protocol validator',
+      'active inspector step unit test',
+      'one required cross-step handoff test when the active contract crosses a family boundary'
+    ],
+    checkpointOnlyGates: [
+      'test:stroke-flow:unit',
+      'test:stroke:new',
+      'full stroke E2E matrix',
+      'test:local'
+    ],
+    integrationReviewSegments: [
+      'source-mutation-ingress',
+      'render-mirror-current-state-cache',
+      'source-domain-planning',
+      'product-family-coexecution',
+      'legality-final-records-descriptors',
+      'output-channels'
+    ],
+    geometryOracleGroups: [
+      'normalization-domain',
+      'center-product',
+      'constrained-product',
+      'dash-cap-join',
+      'legality-final-face',
+      'output-channel'
+    ],
+    continuousParameterPerformanceGroups: [
+      'width',
+      'dash-gap',
+      'miter-angle'
+    ],
+    forbiddenPatterns: [
+      'unrelated whole-suite gate in the step implementation inner loop',
+      'one integration test spanning unrelated whole-flow review families',
+      'one heavyweight oracle file spanning unrelated owner families',
+      'test duration used as a correctness assertion'
+    ]
+  }
+
   const edgeCaseDomainContract = {
     currentStateProductRule:
       'Committed state decides history; current state decides render. Every current source/stroke state must independently satisfy the same stroke product contract regardless of mutation path.',
@@ -502,7 +719,7 @@
       productAllocationLayer:
         'legal stable sliver domains use the normal product contract, inside dashed tiny-domain collapse, or outside legal compressed overlap as applicable',
       visualRasterLayer:
-        'visualVisibilityEpsilon may affect sampling and notes only; it must not suppress product packets or hit/export/diagnostics provenance'
+        'visualVisibilityEpsilon may affect sampling and notes only; it must not suppress product packets, hit/export product provenance, or enabled non-product diagnostic evidence'
     }
   }
 
@@ -511,7 +728,7 @@
     'Active plan and inspector flow do not add independent stroke semantics.',
     'Miter-angle join migration does not enter implementation until formal oracles assert authoredJoin/resolvedJoin provenance, source-domain vertexAngle evidence, bevel-equivalent footprint, and dashed authored-vertex ownership.',
     'Product descriptors must not collapse authoredJoin:miter plus resolvedJoin:bevel-by-miter-angle into authored bevel.',
-    'Runtime changes must prove render, hit, export, diagnostics, and visual correctness separately.',
+    'Runtime changes must prove render, hit, export, and configured final validation correctness separately; optional diagnostics are non-product evidence only when enabled.',
     'Runtime changes must include contributor-count or equivalent ownership evidence for affected acute vertices, source vertices, and self-intersection split terminals.',
     'Drag-sensitive runtime changes must include the enforced 120fps app drag gate and the drag performance evidence listed in dragPerformanceContract.',
     'Edge-case domain changes must include the current-state product, inside dashed tiny-domain collapse, outside dashed legal compressed overlap, and sliver-domain layering evidence listed in edgeCaseDomainContract when affected.',
@@ -707,14 +924,21 @@
       'Stroke Geometry',
       4,
       'Build dash interval body products',
-      'Build dash interval body products from DashProductInterval ownership, terminal roles, cap policy, split ranges, legal-side metadata, and verified seam boundary artifacts derived from emitted dash body product boundaries.'
+      'Build dash interval body products from DashProductInterval ownership, terminal roles, cap policy, split ranges, and legal-side metadata; preserve enough body boundary evidence for the next seam-boundary step without owning source-vertex joins.'
+    ],
+    [
+      'derive-dash-body-seam-boundaries',
+      'Stroke Geometry',
+      4,
+      'Derive dash body seam boundaries',
+      'Derive the non-visible seam boundary artifact from emitted dash body product boundaries, including endpoint identities, outer boundary endpoints, body-side outline segments, tangent evidence, cap suppression state, and provenance required by join and terminal body assembly.'
     ],
     [
       'build-source-vertex-join-products',
       'Stroke Geometry',
       4,
       'Build source-vertex join products',
-      'Build canonical source-vertex join products from source-domain tangents, join style, miter angle, Step 27 verified incident seam boundaries, and owner metadata.'
+      'Build canonical source-vertex join products from source-domain tangents, join style, miter angle, verified incident seam boundaries, and owner metadata.'
     ],
     [
       'build-terminal-body-products',
@@ -799,20 +1023,16 @@
       5,
       'Hit/export',
       'Project hit and export from upstream semantic data.'
-    ],
-    [
-      'runtime-diagnostics',
-      'Diagnostics',
-      8,
-      'Runtime diagnostics',
-      'Expose bounded diagnostics only through explicit diagnostics mode.'
     ]
   ]
 
   const refactorProtocol = {
     name: 'Inspector-Flow-First Greenfield Stroke Engine Refactor',
     activeStepId: currentExecutionState.activeRefactorStepId,
-    currentMode: 'product-step-refactor',
+    currentMode:
+      currentExecutionState.planStatus === 'inspector-flow-schema-repair-active'
+        ? 'schema-repair'
+        : 'product-step-refactor',
     schemaRepairGate:
       'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts',
     unitTestRoot: 'packages/preset/src/__tests__/stroke-flow/',
@@ -822,19 +1042,19 @@
       'Stroke tests may enter correctness gates only when they map to the current stroke engine spec, inspector step or route, owner stage, artifact channel, and expected output shape. Tests that assert retired behavior, depend on stale helpers, or lack a current owner mapping must be removed or rewritten before they can remain in the stroke gate set.',
     strokeCorrectnessGate: 'yarn workspace @asyra/preset test:stroke:new',
     stepExecutionPolicy:
-      'Run one runtime inspector step at a time until all 41 runtime inspector steps are verified; do not advance the lock until the active step dedicated unit test and protocol validator pass. Post-runtime validation gates are tracked outside runtime steps.',
+      'Run the stroke whole-flow review group first, then implement one runtime inspector owner step at a time until every runtime inspector step in the current graph is verified; do not advance the lock until the active step dedicated unit test, active whole-flow review group check, and protocol validator pass. Post-runtime validation gates are tracked outside runtime steps.',
     stepRetryLimit: 3,
     stepRetryFailurePolicy:
-      'Each focused repair attempt must start from a named failing focused gate or contract mismatch and rerun the focused step gate. If the third attempt still fails, stop at the active step, keep the lock there, summarize blocker evidence and attempted repair paths, and notify the user when supported.',
+      'Each focused repair attempt must start from a named failing focused gate or contract mismatch and rerun the focused step gate. If the third attempt still fails, keep the same owner step, summarize blocker evidence and attempted repair paths, and automatically perform a task replan before the next implementation iteration.',
     runtimeImplementationPolicy:
-      'After the unit-complete checkpoint, a user-approved runtime implementation phase may begin through runtimeImplementationState. This phase keeps every unit refactorStatus verified and advances one runtime active step at a time from the first inspector step. Runtime active step selection is derived from the verifiedStepIds contiguous prefix; activeStepId must always equal the first unverified runtime step.',
+      'Runtime implementation begins only after the inspector-step unit baseline passes. runtimeImplementationState keeps every unit refactorStatus verified, runs whole-flow review before the active step, and advances one runtime active step at a time from the first inspector step. Runtime active step selection is derived from the verifiedStepIds contiguous prefix; activeStepId must always equal the first unverified runtime step.',
     integrationPolicy:
-      'After the unit-complete checkpoint and after the user approves the test-plan refactor phase, only the new inspector-flow integration and formal geometry oracle gates may run as stroke refactor correctness gates. E2E, visual review, performance, and full regression remain locked until the new gates are meaningful and the user approves those later phases.',
+      'After the runtime unit gate passes, focused test-architecture, inspector-flow integration, and formal geometry oracle gates begin automatically as stroke correctness gates. E2E starts automatically after those gates are meaningful and pass; performance and full regression follow their technical prerequisites.',
     fullRegressionRetryLimit: 3,
     fullRegressionFailurePolicy:
-      'Full preset regression may be attempted at most three times in the later regression phase. After each failed attempt, summarize the failing suite, assertion, owner stage, and focused repair path. If the third attempt fails, stop and notify the user for discussion.',
+      'Full preset regression may be attempted at most three times per task iteration in the later regression phase. After each failed attempt, summarize the failing suite, assertion, owner stage, and focused repair path. If the third attempt fails, automatically perform a task replan before another regression attempt.',
     e2ePolicy:
-      'E2E and visual review remain locked until a later user-approved test-plan phase; E2E validates user behavior only.',
+      'E2E starts automatically after focused integration and formal geometry-oracle gates are meaningful and pass; E2E validates user behavior only. Visual review runs only after an explicit user request and never blocks E2E, performance, regression, or goal completion.',
     documentDeepAuditPolicy:
       'Document-only schema/spec audits must use the README Document Deep Audit Protocol fixed matrix before editing, rerun the same matrix after editing, and defer new audit concerns to the next validated matrix pass.'
   }
@@ -868,7 +1088,7 @@
       'artifact registry integrity',
       'retired wording scan',
       'numeric tolerance and evidence uniqueness',
-      'test/refactor/visual gates'
+      'test/refactor/visual policy'
     ],
     forbiddenAuditBehavior: [
       'adding a new focus area during the same deep-audit pass',
@@ -880,6 +1100,1002 @@
       'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts'
   }
 
+  const confirmedSegmentSkipReviewConditions = [
+    'inputs unchanged',
+    'outputs unchanged',
+    'routes unchanged',
+    'artifacts unchanged',
+    'consumers unchanged',
+    'formal gates unchanged',
+    'source anchors unchanged',
+    'active-plan execution constraints unchanged'
+  ]
+
+  const closureStateMachine = {
+    sourceRule:
+      'docs/ai/framework/rules/inspector-closure-readiness.md',
+    states: [
+      'pending-review',
+      'contract-closed',
+      'family-dataflow-closed',
+      'implementation-ready',
+      'runtime-closed'
+    ],
+    runtimeOnlyStates: ['pending-runtime-gates', 'runtime-blocked'],
+    implementationReadyRequires: [
+      'contract status is contract-closed',
+      'family dataflow status is family-dataflow-closed or not-applicable',
+      'cross-family handoffs are declared and tested',
+      'formal gates are named and current',
+      'runtime blockers, if any, name owner step and oracle',
+      'reopen conditions are explicit'
+    ],
+    runtimeClosureRequires: [
+      'focused owner-step gates',
+      'whole-flow contract gate',
+      'integration gates for cross-family handoffs',
+      'formal geometry or runtime oracle gates when product semantics are affected',
+      'required post-runtime visual/app validation gates when requested by the user'
+    ],
+    forbiddenTransitions: [
+      'pending-review -> implementation-ready',
+      'contract-closed -> runtime-closed without runtime gates',
+      'runtime-blocked -> contract-open unless the runtime failure proves a contract contradiction',
+      'confirmed-complete without a closure packet'
+    ]
+  }
+
+  const wholeFlowClosurePackets = [
+    {
+      id: 'closure:source-mutation-ingress',
+      segmentId: 'source-mutation-ingress',
+      coveredStepIds: [
+        'feature-session-intent',
+        'path-editing-intent',
+        'point-handle-drag-operation',
+        'structural-vector-operation',
+        'common-api-domain-adapter',
+        'canonical-workspace-data',
+        'validate-topology',
+        'computed-patch-builder',
+        'transaction-undo-boundary',
+        'scene-tree-commit',
+        'computed-patch-event',
+        'downstream-subscriber-routing'
+      ],
+      closureState: 'implementation-ready',
+      contractStatus: 'contract-closed',
+      familyDataflowStatus: 'not-applicable',
+      runtimeStatus: 'not-started',
+      specAnchors: [
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#whole-flow-review-and-step-grouping-contract'
+      ],
+      routeIds: [
+        'linear-feature-session-intent-to-path-editing-intent',
+        'linear-path-editing-intent-to-point-handle-drag-operation',
+        'linear-point-handle-drag-operation-to-structural-vector-operation',
+        'linear-structural-vector-operation-to-common-api-domain-adapter',
+        'linear-common-api-domain-adapter-to-canonical-workspace-data',
+        'linear-canonical-workspace-data-to-validate-topology',
+        'linear-validate-topology-to-computed-patch-builder',
+        'linear-computed-patch-builder-to-transaction-undo-boundary',
+        'linear-transaction-undo-boundary-to-scene-tree-commit',
+        'linear-scene-tree-commit-to-computed-patch-event',
+        'linear-computed-patch-event-to-downstream-subscriber-routing',
+        'linear-downstream-subscriber-routing-to-render-mirror-patch-apply'
+      ],
+      computedArtifactIds: ['artifact:canonical-workspace-data'],
+      preservedArtifactIds: ['artifact:computed-patch'],
+      consumedArtifactIds: ['artifact:user-intent'],
+      projectedArtifactIds: [],
+      validatedArtifactIds: ['artifact:topology-validation-evidence'],
+      downstreamConsumers: [
+        'render-mirror-current-state-cache',
+        'source-domain-planning'
+      ],
+      crossFamilyHandoffs: [
+        'canonical workspace mutation and computed patch identity feed render mirror current-state derivation'
+      ],
+      semanticValueOwners: [
+        'source mutation intent -> point/structural operation owner',
+        'canonical workspace state -> canonical-workspace-data',
+        'computed patch -> computed-patch-builder'
+      ],
+      mustNotRecomputeAfter: ['render-mirror-patch-apply'],
+      formalGates: [
+        'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts',
+        'yarn workspace @asyra/preset test:stroke-flow:unit'
+      ],
+      runtimeEvidence: [],
+      reopenConditions: confirmedSegmentSkipReviewConditions,
+      remainingScope: []
+    },
+    {
+      id: 'closure:render-mirror-current-state-cache',
+      segmentId: 'render-mirror-current-state-cache',
+      coveredStepIds: [
+        'render-mirror-patch-apply',
+        'render-data-derivation',
+        'dirty-revision-graph',
+        'stage-product-cache',
+        'render-strategy-entry'
+      ],
+      closureState: 'implementation-ready',
+      contractStatus: 'contract-closed',
+      familyDataflowStatus: 'not-applicable',
+      runtimeStatus: 'not-started',
+      specAnchors: [
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#cache-and-current-state-contract'
+      ],
+      routeIds: [
+        'linear-downstream-subscriber-routing-to-render-mirror-patch-apply',
+        'linear-render-mirror-patch-apply-to-render-data-derivation',
+        'linear-render-data-derivation-to-dirty-revision-graph',
+        'linear-dirty-revision-graph-to-stage-product-cache',
+        'linear-stage-product-cache-to-render-strategy-entry',
+        'linear-render-strategy-entry-to-normalize-render-data',
+        'source-drag-dirty-classification',
+        'paint-only-cache-retint',
+        'hidden-output-cache-bypass',
+        'verified-product-descriptor-cache-hit'
+      ],
+      computedArtifactIds: ['artifact:current-render-data'],
+      preservedArtifactIds: ['artifact:dirty-revision-graph'],
+      consumedArtifactIds: ['artifact:computed-patch'],
+      projectedArtifactIds: [],
+      validatedArtifactIds: ['artifact:stage-cache-reuse-evidence'],
+      downstreamConsumers: ['source-domain-planning'],
+      crossFamilyHandoffs: [
+        'current render data and cache decision feed normalized render/stroke input'
+      ],
+      semanticValueOwners: [
+        'dirty revision identity -> dirty-revision-graph',
+        'stage product cache key -> stage-product-cache',
+        'render strategy entry -> render-strategy-entry'
+      ],
+      mustNotRecomputeAfter: ['normalize-render-data'],
+      formalGates: [
+        'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts',
+        'yarn workspace @asyra/preset test:stroke-flow:unit'
+      ],
+      runtimeEvidence: [],
+      reopenConditions: confirmedSegmentSkipReviewConditions,
+      remainingScope: []
+    },
+    {
+      id: 'closure:source-domain-planning',
+      segmentId: 'source-domain-planning',
+      coveredStepIds: [
+        'normalize-render-data',
+        'normalize-stroke-spec',
+        'shared-geometry-model',
+        'resolve-source-families',
+        'resolve-stroke-domains',
+        'allocate-dash-intervals',
+        'select-stroke-product-family'
+      ],
+      closureState: 'implementation-ready',
+      contractStatus: 'contract-closed',
+      familyDataflowStatus: 'family-dataflow-closed',
+      runtimeStatus: 'pending-runtime-gates',
+      specAnchors: [
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#computation-ownership-and-timing-contract',
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#preserve-only-artifact-contract'
+      ],
+      routeIds: [
+        'linear-render-strategy-entry-to-normalize-render-data',
+        'linear-normalize-render-data-to-normalize-stroke-spec',
+        'linear-normalize-stroke-spec-to-shared-geometry-model',
+        'linear-shared-geometry-model-to-resolve-source-families',
+        'linear-resolve-source-families-to-resolve-stroke-domains',
+        'linear-resolve-stroke-domains-to-allocate-dash-intervals',
+        'linear-allocate-dash-intervals-to-select-stroke-product-family',
+        'select-center-product-family',
+        'select-constrained-solid-product-family',
+        'select-constrained-dashed-product-family',
+        'select-product-family-unsupported',
+        'open-dangling-outside-both-side-span'
+      ],
+      computedArtifactIds: [
+        'artifact:normalized-stroke-spec',
+        'artifact:stroke-domain-plan',
+        'artifact:dash-product-interval'
+      ],
+      preservedArtifactIds: [
+        'artifact:stroke-domain-plan',
+        'artifact:dash-product-interval'
+      ],
+      consumedArtifactIds: ['artifact:current-render-data'],
+      projectedArtifactIds: [],
+      validatedArtifactIds: ['artifact:product-family-selection-evidence'],
+      downstreamConsumers: ['product-family-coexecution'],
+      crossFamilyHandoffs: [
+        'StrokeDomainPlan and DashProductInterval records feed product-family builders as downstream authority'
+      ],
+      semanticValueOwners: [
+        'StrokeDomainPlan -> resolve-stroke-domains',
+        'DashProductInterval -> allocate-dash-intervals',
+        'product-family route -> select-stroke-product-family'
+      ],
+      mustNotRecomputeAfter: [
+        'build-dash-interval-body-products',
+        'build-source-vertex-join-products',
+        'build-terminal-body-products'
+      ],
+      formalGates: [
+        'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts',
+        'yarn workspace @asyra/preset test:stroke-flow:unit'
+      ],
+      runtimeEvidence: [
+        {
+          stepId: 'shared-geometry-model',
+          oracle: 'step-20-incremental-diagnostics-and-phase-attribution-gate',
+          status: 'passed',
+          description:
+            'Step 20 aggregates pair-cache diagnostics once per resolved build while preserving exact hit, miss, signature-remap, and consecutive-skip totals, and now attributes every source-split materialization subphase while preserving cache-bypass output. Protocol plus Step 20 passed 34 tests, the resolved geometry regression passed 9 tests, the preset TypeScript build passed, and focused lint passed. On port 3001, intersections improved from approximately 0.40ms average and 0.80ms p95 to 0.3625ms average and 0.50ms p95 while hit 902, miss 405, and consecutive-skip 5,544 totals remained unchanged. The latest source-split pass measures 0.2042ms legal-face materialization, 0.0917ms contour merge, 0.0208ms cache store, and 0.3583ms total materialization average.'
+        }
+      ],
+      reopenConditions: confirmedSegmentSkipReviewConditions,
+      remainingScope: [
+        'Retain Step 20 source-domain correctness in the broader formal oracle and integration checkpoints; reopen performance only if later attribution makes shared geometry dominant.'
+      ]
+    },
+    {
+      id: 'closure:product-family-coexecution',
+      segmentId: 'product-family-coexecution',
+      coveredStepIds: [
+        'build-center-stroke-products',
+        'build-constrained-solid-products',
+        'build-dash-interval-body-products',
+        'derive-dash-body-seam-boundaries',
+        'build-source-vertex-join-products',
+        'build-terminal-body-products',
+        'build-smooth-continuity-products',
+        'select-stroke-descriptor-strategy'
+      ],
+      closureState: 'pending-review',
+      contractStatus: 'pending-review',
+      familyDataflowStatus: 'pending-review',
+      runtimeStatus: 'pending-runtime-gates',
+      specAnchors: [
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#whole-flow-review-and-step-grouping-contract',
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#computation-ownership-and-timing-contract',
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#preserve-only-artifact-contract',
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#constrained-dashed-product-evidence-envelope'
+      ],
+      routeIds: [
+        'select-center-product-family',
+        'select-constrained-solid-product-family',
+        'select-constrained-dashed-product-family',
+        'center-products-coexecute-source-vertex-join-products',
+        'constrained-solid-products-coexecute-source-vertex-join-products',
+        'constrained-solid-products-coexecute-smooth-continuity-products',
+        'constrained-dashed-products-derive-seam-boundaries',
+        'constrained-dashed-products-coexecute-source-vertex-join-products',
+        'constrained-dashed-products-coexecute-terminal-body-products',
+        'constrained-dashed-products-coexecute-smooth-continuity-products',
+        'constrained-dashed-products-coexecute-descriptor-strategy',
+        'center-solid-authored-stroke-descriptor',
+        'center-dashed-authored-stroke-descriptor',
+        'center-products-canonical-output-else',
+        'center-solid-canonical-source-vertex-join-footprint',
+        'constrained-solid-doubled-center-mask',
+        'constrained-solid-canonical-source-vertex-join-footprint',
+        'constrained-solid-same-owner-smooth-span-descriptor',
+        'smooth-continuity-products-canonical-output-else',
+        'constrained-dashed-interval-body-product',
+        'constrained-dashed-source-vertex-join-product',
+        'constrained-dashed-join-owned-terminal-body-product',
+        'constrained-dashed-smooth-continuity-product',
+        'descriptor-strategy-canonical-output-else'
+      ],
+      computedArtifactIds: [
+        'artifact:preLegalityProductUnits',
+        'artifact:constrained-dashed-interval-body-product',
+        'artifact:dash-body-seam-boundary',
+        'artifact:source-vertex-join-miter-evidence',
+        'artifact:constrained-dashed-source-vertex-join-product',
+        'artifact:constrained-dashed-join-owned-terminal-body-product',
+        'artifact:constrained-dashed-smooth-continuity-product',
+        'artifact:descriptorStrategyRecords'
+      ],
+      preservedArtifactIds: [
+        'artifact:stroke-domain-plan',
+        'artifact:dash-product-interval',
+        'artifact:dash-body-seam-boundary'
+      ],
+      consumedArtifactIds: [
+        'artifact:stroke-domain-plan',
+        'artifact:dash-product-interval',
+        'artifact:normalized-stroke-spec'
+      ],
+      projectedArtifactIds: [],
+      validatedArtifactIds: [
+        'artifact:source-vertex-join-miter-evidence',
+        'artifact:descriptorStrategyRecords'
+      ],
+      downstreamConsumers: [
+        'apply-legality',
+        'build-final-faces',
+        'render-entries',
+        'hit-export'
+      ],
+      crossFamilyHandoffs: [
+        'owner-preserving pre-legality product union feeds apply-legality without geometry or semantic recomputation',
+        'dash body and join product identity plus non-visible terminal/smooth ownership overlays must preserve through final faces and render entries',
+        'DashProductInterval and seam-boundary artifacts remain downstream authority for legality, final faces, render entries, and hit/export',
+        'eligible descriptor-backed composites consume canonical Step 29 join polygon references as completed mask contributors without join reconstruction'
+      ],
+      semanticValueOwners: [
+        'center body and exact center descriptor -> build-center-stroke-products',
+        'constrained solid doubled-center body -> build-constrained-solid-products',
+        'dash body visible footprint or exact body geometry program, including terminal and smooth portions -> build-dash-interval-body-products',
+        'dash seam-boundary evidence -> derive-dash-body-seam-boundaries',
+        'source vertex join and miter evidence -> build-source-vertex-join-products',
+        'terminal role, cap side, seam, and join ownership overlay -> build-terminal-body-products',
+        'smooth continuity group and tangent/curve-offset proof overlay -> build-smooth-continuity-products',
+        'descriptor eligibility -> select-stroke-descriptor-strategy'
+      ],
+      mustNotRecomputeAfter: ['apply-legality'],
+      formalGates: [
+        'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts',
+        'packages/preset/src/__tests__/stroke-flow/step-29-build-source-vertex-join-products.test.ts',
+        'packages/preset/src/__tests__/stroke-flow/step-32-select-stroke-descriptor-strategy.test.ts',
+        'yarn workspace @asyra/preset test:stroke-flow:unit'
+      ],
+      runtimeEvidence: [
+        {
+          stepId: 'build-terminal-body-products',
+          oracle: 'constrained-dashed-inside-strict-performance-gate-on-port-3001',
+          status: 'passed',
+          description:
+            'The focused inside-dashed strict gate against the agent-owned port 3001 passed with resolved geometry p95 2.10ms, vector render p95 8.30ms, and sustained flush average 7.24ms. Continuous width, dash/gap, and miter gates must be rerun on port 3001 after the evidence-envelope replacement.'
+        },
+        {
+          stepId: 'build-source-vertex-join-products',
+          oracle: 'constrained-dashed-step-29-canonical-artifact-reuse-gate',
+          status: 'passed',
+          description:
+            'Step 29 now preserves canonical join polygon references through legality and descriptor exclusion indexes, reuses per-plan and per-polygon-set bounds, and carries one owner join-angle resolution into packet metadata. Protocol plus Step 29 passed 54 tests, seven focused source-space geometry oracles passed, and the preset TypeScript build passed. On port 3001, join-record p95 improved from 1.20ms to 0.70ms, join-packet p95 from 0.70ms to 0.30ms, raw source-product p95 from 1.80ms to 0.90ms, and product-assembly p95 from 3.10ms to 1.80ms. The global strict vector gate remains open at 10.00ms p95.'
+        }
+      ],
+      runtimeBlockers: [
+        {
+          stepId: 'build-source-vertex-join-products',
+          oracle: 'descriptor-composite-canonical-join-reference-gate',
+          status: 'pending-contract-gate',
+          description:
+            'The composite handoff must preserve canonical Step 29 join polygon references and all angle/seam evidence without normalization, reconstruction, or restyling.'
+        },
+        {
+          stepId: 'select-stroke-descriptor-strategy',
+          oracle: 'descriptor-composite-eligibility-gate',
+          status: 'pending-contract-gate',
+          description:
+            'Eligibility must fail closed for incompatible paint, legal-domain, owner-boundary, channel, or missing differential-proof inputs.'
+        }
+      ],
+      reopenConditions: confirmedSegmentSkipReviewConditions,
+      remainingScope: [
+        'Close the descriptor-composite eligibility and canonical-join-reference handoff gates.',
+        'Run the full product-family unit and integration regression after the algorithm replacement.'
+      ]
+    },
+    {
+      id: 'closure:legality-final-records-descriptors',
+      segmentId: 'legality-final-records-descriptors',
+      coveredStepIds: [
+        'apply-legality',
+        'build-resolved-stroke-regions',
+        'attach-paint-payload',
+        'build-final-faces',
+        'materialize-stroke-product-descriptors'
+      ],
+      closureState: 'pending-review',
+      contractStatus: 'pending-review',
+      familyDataflowStatus: 'pending-review',
+      runtimeStatus: 'pending-runtime-gates',
+      specAnchors: [
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#product-legality-and-descriptor-encoding',
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#preserve-only-artifact-contract',
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#constrained-dashed-product-evidence-envelope',
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#cache-key-owner-contract'
+      ],
+      routeIds: [
+        'linear-apply-legality-to-build-resolved-stroke-regions',
+        'linear-build-resolved-stroke-regions-to-attach-paint-payload',
+        'linear-attach-paint-payload-to-build-final-faces',
+        'constrained-dashed-descriptor-materialization',
+        'legality-product-unit-clipping',
+        'canonical-final-face-render-entry',
+        'descriptor-output-versus-canonical-packet-output'
+      ],
+      computedArtifactIds: [
+        'artifact:postLegalityProductUnits',
+        'artifact:finalFaces',
+        'artifact:constrained-dashed-render-descriptor'
+      ],
+      preservedArtifactIds: [
+        'artifact:preLegalityProductUnits',
+        'artifact:dash-product-interval',
+        'artifact:dash-body-seam-boundary',
+        'artifact:descriptorStrategyRecords'
+      ],
+      consumedArtifactIds: [
+        'artifact:preLegalityProductUnits',
+        'artifact:descriptorStrategyRecords'
+      ],
+      projectedArtifactIds: ['artifact:constrained-dashed-render-descriptor'],
+      validatedArtifactIds: ['artifact:legalityEquivalentProductUnits'],
+      downstreamConsumers: ['output-channels'],
+      crossFamilyHandoffs: [
+        'post-legality product units and final faces feed render/hit/export channels as required product artifacts',
+        'eligible final faces preserve one exact deferred projection recipe and conservative bounds without invoking body polygon materialization'
+      ],
+      semanticValueOwners: [
+        'legal clip/delete evidence -> apply-legality',
+        'resolved stroke regions -> build-resolved-stroke-regions',
+        'resolved-packet cache-key common basis and aliases -> build-resolved-stroke-regions',
+        'paint payload -> attach-paint-payload',
+        'final-face identity set -> build-final-faces',
+        'renderer-ready descriptor -> materialize-stroke-product-descriptors'
+      ],
+      mustNotRecomputeAfter: ['render-entries', 'hit-export'],
+      formalGates: [
+        'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts',
+        'packages/preset/src/__tests__/stroke-flow/step-34-build-resolved-stroke-regions.test.ts',
+        'packages/preset/src/__tests__/stroke-flow/step-36-build-final-faces.test.ts',
+        'packages/preset/src/__tests__/stroke-flow/step-37-materialize-stroke-product-descriptors.test.ts',
+        'yarn workspace @asyra/preset test:stroke-flow:unit',
+        'yarn workspace @asyra/preset test:stroke-flow:integration',
+        'yarn workspace @asyra/preset vitest run src/__tests__/stroke-geometry-oracles/legality-clipping-runtime-oracle.test.ts -t "clips pre-legality inside performance-star source-vertex products with the exact backend" --reporter=dot',
+        'yarn workspace @asyra/preset vitest run src/__tests__/stroke-geometry-oracles/legality-clipping-runtime-oracle.test.ts --reporter=dot'
+      ],
+      runtimeEvidence: [
+        {
+          stepId: 'build-resolved-stroke-regions',
+          oracle: 'constrained-dashed-resolved-packet-cache-key-basis-gate',
+          status: 'passed',
+          description:
+            'Step 34 composes one immutable common key basis and derives early, full, and join-independent aliases without per-alias semantic serialization. The focused phase improved from approximately 0.9ms p95 / 0.221ms average to 0.10ms p95 / 0.0375ms average; Step 34, Step 37 handoff, constrained-product oracle, and preset build gates pass.'
+        },
+        {
+          stepId: 'materialize-stroke-product-descriptors',
+          oracle: 'constrained-dashed-step-37-owner-local-dedup-gate',
+          status: 'passed',
+          description:
+            'Step 37 now performs one aggregate cache lookup per compatibility group, delegates tangent normalization once to the ribbon owner, and consumes validated simple-outline polygons directly. Cache misses dropped from 44 to 22 across 22 rebuild frames, ribbon used/fallback counts remained 1052/30, and focused product/final-face oracles pass.'
+        },
+        {
+          stepId: 'build-center-stroke-products',
+          oracle: 'shared-ribbon-single-normalization-gate',
+          status: 'passed',
+          description:
+            'The Step 25 manual ribbon owner now performs one dedupe/area normalization for unsuppressed outlines and uses squared distance/collinearity checks. Four cap/join/suppression fingerprints are byte-equivalent at six decimals, Step 25/37 plus protocol passed 54 tests, focused center/constrained/cap/smooth oracles and the preset build pass, and ribbon used/fallback counts remain 523/27. On port 3001, product-evidence average improved from 0.99ms to 0.90ms and p95 from 1.70ms to 1.60ms; strict sustained flush average now passes at 8.08ms while vector p95 remains open at 9.60ms.'
+        },
+        {
+          stepId: 'apply-legality',
+          oracle: 'inside-performance-star-exact-backend-intersection',
+          status: 'passed',
+          description:
+            'The exact geometry backend clips the same pre-legality source-vertex products to the declared even-odd legal domain with zero wrong-side samples.'
+        },
+        {
+          stepId: 'apply-legality',
+          oracle: 'inside-performance-star-post-legality-product-boundary',
+          status: 'passed',
+          description:
+            'The full focused legality oracle passes with zero wrong-side source-vertex join and join-owned terminal-body packet samples and preserves the result through final-face and render-entry boundaries.'
+        },
+        {
+          stepId: 'build-source-vertex-join-products',
+          oracle: 'post-legality-source-vertex-preserve-through',
+          status: 'passed',
+          description:
+            'Source-vertex seam-evidence canonicalization no longer rebuilds or replaces visible join geometry after apply-legality.'
+        },
+        {
+          stepId: 'build-terminal-body-products',
+          oracle: 'post-legality-terminal-body-preserve-through',
+          status: 'passed',
+          description:
+            'Canonical terminal-body seam metadata updates preserve the Step 33 visible product polygons without post-legality seam insertion.'
+        }
+      ],
+      runtimeBlockers: [
+        {
+          stepId: 'materialize-stroke-product-descriptors',
+          oracle: 'descriptor-composite-eager-lazy-geometry-equivalence-gate',
+          status: 'pending-contract-gate',
+          description:
+            'Step 37 must prove zero symmetric-difference area, cap/join/seam parity, conservative bounds containment, and complete identity before eager body polygons may be deferred.'
+        },
+        {
+          stepId: 'build-final-faces',
+          oracle: 'descriptor-backed-final-face-no-materialization-gate',
+          status: 'pending-contract-gate',
+          description:
+            'Step 36 must preserve the exact projection recipe, conservative bounds, canonical join masks, and complete envelope without invoking deferred materialization.'
+        }
+      ],
+      reopenConditions: confirmedSegmentSkipReviewConditions,
+      remainingScope: [
+        'Run the full stroke-flow integration and package regression gates after the remaining output performance work.'
+      ]
+    },
+    {
+      id: 'closure:output-channels',
+      segmentId: 'output-channels',
+      coveredStepIds: [
+        'emit-render-hit-export-packets',
+        'render-entries',
+        'renderer-projection',
+        'hit-export'
+      ],
+      closureState: 'pending-review',
+      contractStatus: 'pending-review',
+      familyDataflowStatus: 'pending-review',
+      runtimeStatus: 'pending-runtime-gates',
+      specAnchors: [
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#product-legality-and-descriptor-encoding',
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#whole-flow-review-and-step-grouping-contract',
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#constrained-dashed-product-evidence-envelope'
+      ],
+      routeIds: [
+        'canonical-final-face-render-entry',
+        'constrained-dashed-inside-mask-descriptor',
+        'constrained-dashed-outside-source-domain-descriptor',
+        'constrained-dashed-outside-aggregate-descriptor',
+        'linear-emit-render-hit-export-packets-to-render-entries',
+        'linear-render-entries-to-renderer-projection',
+        'descriptor-output-versus-canonical-packet-output',
+        'hit-export-channel-packet-projection',
+        'render-projection-merge'
+      ],
+      computedArtifactIds: ['artifact:renderEntries', 'artifact:hit-export-packets'],
+      preservedArtifactIds: [
+        'artifact:finalFaces',
+        'artifact:constrained-dashed-render-descriptor',
+        'artifact:dash-product-interval',
+        'artifact:dash-body-seam-boundary'
+      ],
+      consumedArtifactIds: [
+        'artifact:finalFaces',
+        'artifact:constrained-dashed-render-descriptor',
+        'artifact:postLegalityProductUnits'
+      ],
+      projectedArtifactIds: ['artifact:renderEntries', 'artifact:hit-export-packets'],
+      validatedArtifactIds: ['artifact:same-paint-composite-state'],
+      downstreamConsumers: [
+        'renderer-projection',
+        'hit-export',
+        'post-runtime-visible-final-result',
+        'post-runtime-app-visual-review'
+      ],
+      crossFamilyHandoffs: [
+        'final faces and descriptors project into render entries without recomputation',
+        'render entries project into renderer draw calls without repair',
+        'hit/export consumes final-face or packet evidence without visible-pixel authority',
+        'render preserves but never invokes deferred projection while hit/export share one cached exact materialization per final-face identity'
+      ],
+      semanticValueOwners: [
+        'render/hit/export packet projection -> emit-render-hit-export-packets',
+        'render-entry identity set -> render-entries',
+        'renderer draw calls -> renderer-projection',
+        'hit/export product channel -> hit-export'
+      ],
+      mustNotRecomputeAfter: ['renderer-projection', 'hit-export'],
+      formalGates: [
+        'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts',
+        'packages/preset/src/__tests__/stroke-flow/step-38-emit-render-hit-export-packets.test.ts',
+        'packages/preset/src/__tests__/stroke-flow/step-39-render-entries.test.ts',
+        'packages/preset/src/__tests__/stroke-flow/step-41-hit-export.test.ts',
+        'packages/preset/src/__tests__/stroke-geometry-oracles/legality-output-boundary-runtime-oracle.test.ts',
+        'packages/preset/src/__tests__/stroke-geometry-oracles/reported-vector-34-output-oracle.test.ts',
+        'packages/preset/src/__tests__/stroke-geometry-oracles/reported-vector-34-output-outside-legality-oracle.test.ts',
+        'packages/preset/src/__tests__/stroke-geometry-oracles/reported-vector-34-output-shared-boundary-oracle.test.ts',
+        'packages/preset/src/__tests__/stroke-geometry-oracles/reported-vector-34-output-sequential-update-oracle.test.ts',
+        'packages/preset/src/__tests__/stroke-geometry-oracles/reported-vector-34-output-full-diagnostics-oracle.test.ts',
+        'packages/preset/src/__tests__/stroke-geometry-oracles/reported-vector-34-output-metadata-ownership-oracle.test.ts',
+        'yarn workspace @asyra/preset test:stroke-flow:unit',
+        'yarn workspace @asyra/preset test:stroke-flow:integration',
+        'yarn workspace @asyra/preset test:stroke-flow:validation'
+      ],
+      runtimeEvidence: [],
+      runtimeBlockers: [
+        {
+          stepId: 'emit-render-hit-export-packets',
+          oracle: 'descriptor-composite-channel-identity-gate',
+          status: 'pending-contract-gate',
+          description:
+            'Step 38 must emit one eligible composite packet preserving canonical join references and the complete Step 27/30/31 identity envelope across all channels.'
+        },
+        {
+          stepId: 'render-entries',
+          oracle: 'descriptor-composite-zero-render-materialization-gate',
+          status: 'pending-contract-gate',
+          description:
+            'Step 39/40 must consume paths, masks, and legal constraints without invoking deferred polygon projection.'
+        },
+        {
+          stepId: 'hit-export',
+          oracle: 'descriptor-composite-shared-lazy-projection-gate',
+          status: 'pending-contract-gate',
+          description:
+            'Step 41 must materialize at most once per final-face identity and reuse exact polygons for hit and export while preserving channel separation.'
+        }
+      ],
+      reopenConditions: confirmedSegmentSkipReviewConditions,
+      remainingScope: [
+        'Run the focused drag performance gates and broader package/E2E output-channel regression.'
+      ]
+    }
+  ]
+
+  const wholeFlowReviewContract = {
+    id: 'stroke-whole-flow-review-and-step-grouping',
+    specAnchor:
+      'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#whole-flow-review-and-step-grouping-contract',
+    formalGate:
+      'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts',
+    governingPrinciples: [
+      'The runtime inspector steps are implementation ownership slices, not isolated correctness proofs.',
+      'Before a step starts or advances, review the final required artifacts and the route family that contains the active step.',
+      'A local step checklist cannot override downstream visible render, hit/export, diagnostics, legal-side, same-paint, or source-continuity requirements.',
+      'If a downstream step needs raw upstream data, recomputation, renderer repair, fallback output, helper-visible geometry, or patch geometry, reopen the first owning upstream step or route-family contract.',
+      'Closure status is a verifiable state machine. Implementation-ready requires contract closure, family dataflow closure or not-applicable status, cross-family handoff gates, explicit runtime scope, and explicit reopen conditions.'
+    ],
+    closureStateMachine,
+    reviewSegments: [
+      {
+        id: 'source-mutation-ingress',
+        stepIds: [
+          'feature-session-intent',
+          'path-editing-intent',
+          'point-handle-drag-operation',
+          'structural-vector-operation',
+          'common-api-domain-adapter',
+          'canonical-workspace-data',
+          'validate-topology',
+          'computed-patch-builder',
+          'transaction-undo-boundary',
+          'scene-tree-commit',
+          'computed-patch-event',
+          'downstream-subscriber-routing'
+        ],
+        reviewDecision:
+          'Review together for user-intent, canonical workspace data, transaction, undo, and downstream event continuity; implement by the single owning step.'
+      },
+      {
+        id: 'render-mirror-current-state-cache',
+        stepIds: [
+          'render-mirror-patch-apply',
+          'render-data-derivation',
+          'dirty-revision-graph',
+          'stage-product-cache',
+          'render-strategy-entry'
+        ],
+        reviewDecision:
+          'Review together because patch application, render-data derivation, dirty classification, stage cache, and strategy entry decide whether geometry stages receive current data or stale/bypassed products.'
+      },
+      {
+        id: 'source-domain-planning',
+        stepIds: [
+          'normalize-render-data',
+          'normalize-stroke-spec',
+          'shared-geometry-model',
+          'resolve-source-families',
+          'resolve-stroke-domains',
+          'allocate-dash-intervals',
+          'select-stroke-product-family'
+        ],
+        reviewDecision:
+          'Review together because normalized inputs, shared geometry, source families, stroke domains, dash allocation, and product-family selection define legal inputs for product builders.'
+      },
+      {
+        id: 'product-family-coexecution',
+        stepIds: [
+          'build-center-stroke-products',
+          'build-constrained-solid-products',
+          'build-dash-interval-body-products',
+          'derive-dash-body-seam-boundaries',
+          'build-source-vertex-join-products',
+          'build-terminal-body-products',
+          'build-smooth-continuity-products',
+          'select-stroke-descriptor-strategy'
+        ],
+        reviewDecision:
+          'Review as one non-linear product family before step-local implementation; applicable center, constrained solid, constrained dashed, join, terminal, smooth-continuity, and descriptor-strategy routes co-execute rather than form a linear fallback chain.'
+      },
+      {
+        id: 'legality-final-records-descriptors',
+        stepIds: [
+          'apply-legality',
+          'build-resolved-stroke-regions',
+          'attach-paint-payload',
+          'build-final-faces',
+          'materialize-stroke-product-descriptors'
+        ],
+        reviewDecision:
+          'Review together because legality clipping, resolved product records, paint attachment, final faces, and descriptor materialization must preserve product and evidence identity without changing geometry.'
+      },
+      {
+        id: 'output-channels',
+        stepIds: [
+          'emit-render-hit-export-packets',
+          'render-entries',
+          'renderer-projection',
+          'hit-export'
+        ],
+        reviewDecision:
+          'Review together because visible render, render entries, renderer projection, and hit/export are sibling consumers and must not become each other product authority. Diagnostics and visual review are post-flow evidence channels, not owner steps.'
+      }
+    ],
+    handleTogether: [
+      {
+        id: 'constrained-dashed-product-family',
+        stepIds: [
+          'build-dash-interval-body-products',
+          'derive-dash-body-seam-boundaries',
+          'build-source-vertex-join-products',
+          'build-terminal-body-products',
+          'build-smooth-continuity-products',
+          'select-stroke-descriptor-strategy'
+        ],
+        reason:
+          'Dash body, join, terminal body, smooth-continuity, and descriptor strategy share DashProductInterval identity, seam boundaries, legal side, endpoint cap policy, and downstream final-face/render-entry closure.'
+      },
+      {
+        id: 'constrained-solid-product-family',
+        stepIds: [
+          'build-constrained-solid-products',
+          'build-source-vertex-join-products',
+          'build-smooth-continuity-products'
+        ],
+        reason:
+          'Doubled-center body, canonical source-vertex joins, and same-owner smooth-span descriptor eligibility must agree before legality clipping.'
+      },
+      {
+        id: 'render-cache-current-state',
+        stepIds: [
+          'dirty-revision-graph',
+          'stage-product-cache',
+          'render-strategy-entry'
+        ],
+        reason:
+          'Dirty keys, cache reuse, bypasses, and render strategy entry decide whether current source/domain/product state reaches the stroke product pipeline.'
+      },
+      {
+        id: 'final-artifact-channel-closure',
+        stepIds: [
+          'apply-legality',
+          'build-final-faces',
+          'materialize-stroke-product-descriptors',
+          'emit-render-hit-export-packets',
+          'render-entries',
+          'hit-export'
+        ],
+        reason:
+          'Final visible render, hit/export, same-paint evidence, and channel separation must close over the same post-legality product identity before any post-runtime validation method runs.'
+      }
+    ],
+    segmentCompletionPolicy: {
+      confirmedCompleteMeaning:
+        'A segment may be skipped in later task iterations only after the spec text, inspector review segment, route/artifact lifecycle, validator checks, closure packet, and current focused audit all agree and no concrete conflict remains.',
+      invalidationRule:
+        'Any edit to a confirmed segment input, output, route, artifact, downstream consumer, forbidden contributor, formal gate, source anchor, or active-plan execution constraint invalidates that segment and requires re-review before implementation advances.',
+      currentGoalRule:
+        'During inspector-flow global replan, only segments listed as implementation-ready or runtime-closed by a closure packet may be skipped; pending segments remain part of the whole-flow review before implementation resumes.'
+    },
+    closurePackets: wholeFlowClosurePackets,
+    completionLedger: [
+      {
+        segmentId: 'source-mutation-ingress',
+        status: 'implementation-ready',
+        closureState: 'implementation-ready',
+        contractStatus: 'contract-closed',
+        familyDataflowStatus: 'not-applicable',
+        runtimeStatus: 'not-started',
+        reason:
+          'Current audit found no data loss, recomputation, or step grouping conflict in source mutation, transaction, undo, and downstream event ingress.',
+        skipUntilInvalidatedBy:
+          'source mutation, transaction, undo, computed patch, or downstream subscriber route changes',
+        skipReviewOnlyWhen: confirmedSegmentSkipReviewConditions
+      },
+      {
+        segmentId: 'render-mirror-current-state-cache',
+        status: 'implementation-ready',
+        closureState: 'implementation-ready',
+        contractStatus: 'contract-closed',
+        familyDataflowStatus: 'not-applicable',
+        runtimeStatus: 'not-started',
+        reason:
+          'Current audit found no conflict in render mirror, render-data derivation, dirty revision, cache, or strategy entry contracts.',
+        skipUntilInvalidatedBy:
+          'render mirror, dirty key, stage cache, bypass, or current-state strategy changes',
+        skipReviewOnlyWhen: confirmedSegmentSkipReviewConditions
+      },
+      {
+        segmentId: 'source-domain-planning',
+        status: 'implementation-ready',
+        closureState: 'implementation-ready',
+        contractStatus: 'contract-closed',
+        familyDataflowStatus: 'family-dataflow-closed',
+        runtimeStatus: 'pending-runtime-gates',
+        reason:
+          'Current audit confirmed normalized inputs, domain planning, dash allocation, and product-family selection preserve the data needed by downstream product families. Step 20 diagnostics aggregation is verified; source-split materialization review and the strict drag gate remain pending runtime work.',
+        skipUntilInvalidatedBy:
+          'source family, stroke domain, dash allocation, product-family selection, or DashProductInterval contract changes',
+        skipReviewOnlyWhen: confirmedSegmentSkipReviewConditions
+      },
+      {
+        segmentId: 'product-family-coexecution',
+        status: 'implementation-ready',
+        closureState: 'implementation-ready',
+        contractStatus: 'contract-closed',
+        familyDataflowStatus: 'family-dataflow-closed',
+        runtimeStatus: 'pending-runtime-gates',
+        reason:
+          'The family contract is closed with Step 27 as the sole constrained-dashed body owner, Step 29 as the sharp-join owner, and Step 30/31 as non-visible ownership overlays. Runtime identity/envelope replacement and all continuous parameter reruns on port 3001 remain pending.',
+        skipUntilInvalidatedBy:
+          'product-family owner, route, product-unit, seam-boundary, legality-input union, or downstream consumer changes',
+        skipReviewOnlyWhen: confirmedSegmentSkipReviewConditions,
+        runtimeEvidence: [
+          {
+            stepId: 'build-terminal-body-products',
+            oracle: 'constrained-dashed-inside-strict-performance-gate-on-port-3001',
+            status: 'passed',
+            description:
+              'The focused inside-dashed strict gate against port 3001 passed at resolved geometry p95 2.10ms, vector render p95 8.30ms, and sustained flush average 7.24ms.'
+          },
+          {
+            stepId: 'build-source-vertex-join-products',
+            oracle: 'constrained-dashed-step-29-canonical-artifact-reuse-gate',
+            status: 'passed',
+            description:
+              'Canonical join polygons now remain reference-stable through legality and descriptor exclusion indexing; owner bounds and join-angle evidence are reused. Focused contract, source-space geometry, and TypeScript build gates pass. Port 3001 detail measurement reduced join-record p95 to 0.70ms, join-packet p95 to 0.30ms, raw source-product p95 to 0.90ms, and product-assembly p95 to 1.80ms; the global strict vector p95 remains 10.00ms.'
+          }
+        ],
+        runtimeBlockers: [
+          {
+            stepId: 'build-dash-interval-body-products',
+            oracle: 'constrained-dashed-body-program-identity-gate',
+            status: 'pending-runtime-repair',
+            description:
+              'Make the Step 27 body program self-contained and preserve bodyProductId through single and batched materialization.'
+          },
+          {
+            stepId: 'build-smooth-continuity-products',
+            oracle: 'constrained-dashed-family-single-visible-body-owner-gate',
+            status: 'pending-runtime-repair',
+            description:
+              'Keep the constrained-solid Step 31 product route, but replace the constrained-dashed route with non-visible ownership overlays.'
+          },
+          {
+            stepId: 'apply-legality',
+            oracle: 'constrained-dashed-product-evidence-envelope-preservation-gate',
+            status: 'pending-runtime-repair',
+            description:
+              'Preserve the complete body/overlay envelope through legality, regions, final faces, descriptors, render entries, and hit/export.'
+          }
+        ]
+      },
+      {
+        segmentId: 'legality-final-records-descriptors',
+        status: 'implementation-ready',
+        closureState: 'implementation-ready',
+        contractStatus: 'contract-closed',
+        familyDataflowStatus: 'family-dataflow-closed',
+        runtimeStatus: 'pending-runtime-gates',
+        reason:
+          'The legality/final-face/descriptor contract is closed over Step 27/29 visible products and Step 30/31 evidence overlays. Existing polygon legality evidence remains recorded, while body-program legality equivalence and batched descriptor runtime gates are pending.',
+        skipUntilInvalidatedBy:
+          'post-legality record, paint payload, final face, descriptor strategy, or descriptor materialization changes',
+        skipReviewOnlyWhen: confirmedSegmentSkipReviewConditions,
+        runtimeEvidence: [
+          {
+            stepId: 'build-resolved-stroke-regions',
+            oracle: 'constrained-dashed-resolved-packet-cache-key-basis-gate',
+            status: 'passed',
+            description:
+              'The one-time common basis and Step 37 full-alias handoff pass focused contract, oracle, build, and port 3001 measurement. The cache-key phase is 0.10ms p95 / 0.0375ms average.'
+          },
+          {
+            stepId: 'materialize-stroke-product-descriptors',
+            oracle: 'constrained-dashed-step-37-owner-local-dedup-gate',
+            status: 'passed',
+            description:
+              'One aggregate lookup and direct validated-ribbon consumption pass focused contract, product/final-face oracles, build, and port 3001 measurement; strict vector p95 remains 10.60ms and flush average remains 9.05ms.'
+          },
+          {
+            stepId: 'build-center-stroke-products',
+            oracle: 'shared-ribbon-single-normalization-gate',
+            status: 'passed',
+            description:
+              'The shared manual ribbon owner preserves all cap/join/suppression fingerprints and ribbon used/fallback counts while reducing product-evidence average to 0.90ms and p95 to 1.60ms. The focused strict gate now measures resolved geometry p95 2.70ms, vector p95 9.60ms, and sustained flush average 8.08ms.'
+          }
+        ],
+        runtimeBlockers: [
+          {
+            stepId: 'apply-legality',
+            oracle: 'constrained-dashed-body-program-legality-equivalence-gate',
+            status: 'pending-runtime-repair',
+            description:
+              'Attach one legal basis per compatible Step 27 body program without per-overlay clipping or visible reconstruction.'
+          },
+          {
+            stepId: 'materialize-stroke-product-descriptors',
+            oracle: 'constrained-dashed-batched-body-descriptor-gate',
+            status: 'pending-runtime-repair',
+            description:
+              'Batch compatible Step 27 body programs with one aggregate cache lookup and no duplicate validated-ribbon normalization/cleanup while preserving all product and overlay identities.'
+          }
+        ]
+      },
+      {
+        segmentId: 'output-channels',
+        status: 'implementation-ready',
+        closureState: 'implementation-ready',
+        contractStatus: 'contract-closed',
+        familyDataflowStatus: 'family-dataflow-closed',
+        runtimeStatus: 'pending-runtime-gates',
+        reason:
+          'The output-channel contract is closed: render, hit, and export are sibling consumers of the same Step 27/29 products and Step 30/31 overlays, and no channel may repair upstream geometry. The runtime evidence-envelope identity, batched-body descriptor handoff, and all strict gates on port 3001 remain pending.',
+        skipUntilInvalidatedBy:
+          'render entry, renderer projection, hit/export, diagnostics, visual review, or output channel contract changes',
+        skipReviewOnlyWhen: confirmedSegmentSkipReviewConditions,
+        runtimeEvidence: [],
+        runtimeBlockers: [
+          {
+            stepId: 'render-entries',
+            oracle: 'constrained-dashed-batched-body-output-channel-gate',
+            status: 'pending-runtime-repair',
+            description:
+              'Consume the Step 37 batched descriptor as one alpha-safe composite while preserving the complete evidence envelope across render/hit/export.'
+          }
+        ]
+      }
+    ],
+    splitBoundaries: [
+      {
+        before: 'select-stroke-descriptor-strategy',
+        after: 'materialize-stroke-product-descriptors',
+        reason:
+          'Descriptor strategy records eligibility and legality basis before legality; materialization emits renderer-ready descriptors only after final-face or equivalent legality records exist.'
+      },
+      {
+        before: 'render-entries',
+        after: 'renderer-projection',
+        reason:
+          'Render entries own channel-safe projection records; renderer projection only draws declared entries and cannot repair geometry.'
+      },
+      {
+        before: 'renderer-projection',
+        after: 'hit-export',
+        reason:
+          'Hit/export consumes final-face or hit/export packet evidence, not visible pixels.'
+      }
+    ],
+    mergeOrReframeCandidates: [
+      {
+        id: 'product-family-readiness',
+        action:
+          'Keep steps split for implementation ownership, but merge readiness and closure review into the product-family coexecution segment.'
+      },
+      {
+        id: 'resolved-product-record-naming',
+        action:
+          'Keep resolved packet wording generalized as ResolvedStrokeProductRecord when the step covers center, constrained solid, and constrained dashed records.'
+      }
+    ],
+    forbiddenReviewBehavior: [
+      'approving the next implementation iteration from a step-local check only',
+      'treating product family implementation steps as a linear fallback chain',
+      'starting downstream implementation while required upstream artifacts have no registered producer',
+      'letting downstream output repair a missing upstream product or evidence artifact'
+    ]
+  }
+
   const requiredArtifactClosureContract = {
     id: 'stroke-required-artifact-closure-lifecycle',
     specRuleId: 'required-artifact-closure-contract',
@@ -889,8 +2105,7 @@
       'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts',
     targetSurfaces: [
       'visible render coverage',
-      'hit/export coverage',
-      'diagnostics provenance'
+      'hit/export coverage'
     ],
     governingPrinciples: [
       'Define final required artifacts before step-local input/output checks.',
@@ -910,6 +2125,7 @@
         ],
         ownerSteps: [
           'build-dash-interval-body-products',
+          'derive-dash-body-seam-boundaries',
           'build-source-vertex-join-products',
           'build-terminal-body-products',
           'apply-legality',
@@ -918,7 +2134,9 @@
         ],
         genericFormalAssertions: [
           'stroke position samples occupy the configured inside/center/outside source-space band',
+          'outside dash outer-boundary samples at stroke.width follow the authored source segment or curve without notches, protrusions, or straight-chord substitution',
           'legal-side exclusion rejects wrong-side fill-domain samples',
+          'legal-side sample probes are actual product vertices, product edge midpoints, or points already proven to lie on or inside the visible product; exact legal-domain area proof is authoritative when available',
           'visible coverage has no unowned protrusions or required-coverage holes'
         ],
         failureReopensStep: 'build-dash-interval-body-products'
@@ -935,14 +2153,16 @@
         ],
         ownerSteps: [
           'build-dash-interval-body-products',
+          'derive-dash-body-seam-boundaries',
           'build-terminal-body-products',
           'build-source-vertex-join-products',
           'apply-legality',
           'render-entries'
         ],
         genericFormalAssertions: [
-          'terminal dash bodies retain required source-space width up to declared seam boundaries',
-          'source-vertex joins consume required terminal body seam boundaries without visible source-space gaps',
+          'dash interval body terminal portions retain required source-space width up to declared seam boundaries',
+          'terminal/smooth ownership overlays reference body products and contribute zero additional visible geometry',
+          'source-vertex joins consume required dash body seam boundaries without visible source-space gaps',
           'miter, bevel, and round joins share the same destination continuity contract'
         ],
         failureReopensStep: 'build-dash-interval-body-products'
@@ -992,6 +2212,146 @@
     ]
   }
 
+  const strokePipelineArtifactDataContract = {
+    id: 'stroke-pipeline-artifact-data-contract',
+    specRuleId: 'pipeline-artifact-data-classification',
+    specAnchor:
+      'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#spec-to-enforcement-contract',
+    formalGate:
+      'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts',
+    governingPrinciples: [
+      'Classify every cross-step value before implementation.',
+      'Required product artifacts must exist when their route conditions apply.',
+      'Required evidence artifacts must survive with the product they prove.',
+      'A constrained dashed body has one visible product owner; terminal and smooth ownership overlays are required evidence and may not paint.',
+      'Preserve-only artifacts may be copied or attached downstream but must not be reinterpreted as new geometry decisions.',
+      'Downstream recomputation is allowed only for pure summaries that cannot change geometry, legality, stroke position, join identity, dash interval identity, output channel, or same-paint semantics.',
+      'Optional diagnostics and visual probes must not be promoted to visible render, hit, export, or product descriptor input.'
+    ],
+    artifactClasses: [
+      {
+        id: 'required-product-artifact',
+        required: true,
+        mayPaint: true,
+        mayBeRecomputedDownstream: false,
+        examples: [
+          'artifact:preLegalityProductUnits',
+          'artifact:postLegalityProductUnits',
+          'artifact:finalFaces',
+          'artifact:renderEntries',
+          'artifact:hit-export-packets',
+          'artifact:constrained-dashed-interval-body-product',
+          'artifact:constrained-dashed-source-vertex-join-product',
+          'artifact:constrained-dashed-render-descriptor'
+        ],
+        failureReopensStep: 'first-owning-product-step'
+      },
+      {
+        id: 'required-evidence-artifact',
+        required: true,
+        mayPaint: false,
+        mayBeRecomputedDownstream: false,
+        examples: [
+          'artifact:normalized-stroke-spec',
+          'artifact:stroke-domain-plan',
+          'artifact:dash-body-seam-boundary',
+          'artifact:source-vertex-join-miter-evidence',
+          'artifact:constrained-dashed-join-owned-terminal-body-product',
+          'artifact:constrained-dashed-smooth-continuity-product',
+          'dash interval id',
+          'split range id',
+          'terminal role',
+          'endpoint cap policy',
+          'source-distance range',
+          'legal-domain id',
+          'resolved join evidence',
+          'same-paint equivalence evidence',
+          'output-channel tag'
+        ],
+        failureReopensStep: 'first-step-that-lost-proof'
+      },
+      {
+        id: 'preserve-only-artifact',
+        required: true,
+        mayPaint: false,
+        mayBeRecomputedDownstream: false,
+        examples: [
+          'dash body seam-boundary artifact',
+          'source-vertex join and miter evidence',
+          'Step 32 legal-domain provenance',
+          'same-paint alpha-safety proof'
+        ],
+        failureReopensStep: 'first-step-that-reinterpreted-artifact'
+      },
+      {
+        id: 'recomputable-derived-summary',
+        required: false,
+        mayPaint: false,
+        mayBeRecomputedDownstream: true,
+        examples: [
+          'bounds',
+          'area',
+          'counter',
+          'diagnostic preview',
+          'cache lookup key'
+        ],
+        failureReopensStep: 'step-that-used-summary-as-product-input'
+      },
+      {
+        id: 'optional-diagnostic-artifact',
+        required: false,
+        mayPaint: false,
+        mayBeRecomputedDownstream: true,
+        examples: [
+          'rejected candidate',
+          'debug trace',
+          'visual overlay probe',
+          'runtime diagnostic snapshot'
+        ],
+        failureReopensStep: 'step-that-promoted-diagnostic-to-product'
+      },
+      {
+        id: 'composite-stacking-state',
+        required: true,
+        mayPaint: true,
+        mayBeRecomputedDownstream: false,
+        examples: [
+          'same-paint single-composite render entry',
+          'alpha-safe equivalence evidence',
+          'shared-boundary overlap proof'
+        ],
+        failureReopensStep: 'render-entries'
+      }
+    ],
+    nonRecomputableDimensions: [
+      'product geometry',
+      'legal side',
+      'stroke position',
+      'join identity',
+      'miter resolution',
+      'dash interval identity',
+      'source-distance endpoints',
+      'seam endpoint identity',
+      'output channel',
+      'same-paint compositing semantics'
+    ],
+    requiredClassIds: [
+      'required-product-artifact',
+      'required-evidence-artifact',
+      'preserve-only-artifact',
+      'recomputable-derived-summary',
+      'optional-diagnostic-artifact',
+      'composite-stacking-state'
+    ],
+    forbiddenBehaviors: [
+      'recomputing non-recomputable dimensions downstream',
+      'using diagnostics or visual probes as visible product input',
+      'treating bounds, area, counters, previews, or cache keys as geometry authority',
+      'claiming optional evidence when route conditions require a product artifact',
+      'letting renderer projection decide geometry repair, legality, dash/join seam closure, or same-paint alpha'
+    ]
+  }
+
   const dashJoinSeamLifecycleContract = {
     id: 'dash-join-seam-identity-lifecycle',
     specRuleId: 'dash-join-seam-contract',
@@ -1000,7 +2360,9 @@
     formalGate:
       'packages/preset/src/__tests__/stroke-flow-refactor-protocol.test.ts',
     artifactIds: [
+      'artifact:constrained-dashed-interval-body-product',
       'artifact:dash-body-seam-boundary',
+      'artifact:constrained-dashed-join-owned-terminal-body-product',
       'artifact:constrained-dashed-source-vertex-join-product',
       'artifact:postLegalityProductUnits',
       'artifact:finalFaces',
@@ -1009,6 +2371,8 @@
     ],
     ownerSteps: [
       'build-dash-interval-body-products',
+      'derive-dash-body-seam-boundaries',
+      'build-terminal-body-products',
       'build-source-vertex-join-products',
       'apply-legality',
       'build-final-faces',
@@ -1018,26 +2382,64 @@
     ],
     lifecycle: [
       {
-        phase: 'produce-seam-boundary',
+        phase: 'prepare-seam-boundary-evidence',
         stepId: 'build-dash-interval-body-products',
         routeIds: ['constrained-dashed-interval-body-product'],
-        producesArtifacts: ['artifact:dash-body-seam-boundary'],
+        producesArtifacts: ['artifact:constrained-dashed-interval-body-product'],
         requiredEvidence: [
-          'verified seam boundary artifact derived from emitted dash body product polygon',
-          'outer body boundary endpoint on dash body product polygon',
-          'body-side outline segment on dash body product polygon'
+          'dash body boundary evidence id',
+          'body geometry encoding mode',
+          'candidate terminal point on emitted dash body product boundary identity',
+          'candidate outer body boundary endpoint on emitted dash body product boundary identity',
+          'candidate body-side outline segment on emitted dash body product boundary identity'
         ],
         failureReopensStep: 'build-dash-interval-body-products'
       },
       {
+        phase: 'produce-seam-boundary',
+        stepId: 'derive-dash-body-seam-boundaries',
+        routeIds: ['constrained-dashed-products-derive-seam-boundaries'],
+        consumesArtifacts: ['artifact:constrained-dashed-interval-body-product'],
+        producesArtifacts: ['artifact:dash-body-seam-boundary'],
+        requiredEvidence: [
+          'verified seam boundary artifact derived from emitted canonical polygon or exact geometry-program boundary',
+          'outer body boundary endpoint on dash body product boundary identity',
+          'body-side outline segment on dash body product boundary identity',
+          'endpoint cap suppression state',
+          'proof that seam endpoint ids are derived from the same emitted dash body product'
+        ],
+        failureReopensStep: 'derive-dash-body-seam-boundaries'
+      },
+      {
         phase: 'dispatch-seam-boundary',
-        stepId: 'build-dash-interval-body-products',
+        stepId: 'derive-dash-body-seam-boundaries',
         routeIds: [
-          'constrained-dashed-products-coexecute-source-vertex-join-products'
+          'constrained-dashed-products-coexecute-source-vertex-join-products',
+          'constrained-dashed-products-coexecute-terminal-body-products'
         ],
         consumesArtifacts: ['artifact:dash-body-seam-boundary'],
         requiredEvidence: ['dash body seam boundary artifact ids'],
-        failureReopensStep: 'build-dash-interval-body-products'
+        failureReopensStep: 'derive-dash-body-seam-boundaries'
+      },
+      {
+        phase: 'bind-terminal-ownership',
+        stepId: 'build-terminal-body-products',
+        routeIds: ['constrained-dashed-join-owned-terminal-body-product'],
+        consumesArtifacts: [
+          'artifact:constrained-dashed-interval-body-product',
+          'artifact:dash-body-seam-boundary'
+        ],
+        producesArtifacts: [
+          'artifact:constrained-dashed-join-owned-terminal-body-product'
+        ],
+        requiredEvidence: [
+          'referenced dash body product id',
+          'terminal role and endpoint cap policy',
+          'seam boundary id',
+          'join ownership signature',
+          'zero visible contribution proof'
+        ],
+        failureReopensStep: 'build-terminal-body-products'
       },
       {
         phase: 'consume-seam-boundary',
@@ -1048,8 +2450,8 @@
           'artifact:constrained-dashed-source-vertex-join-product'
         ],
         requiredEvidence: [
-          'proof that every consumed seam boundary endpoint id is emitted by the Step 27 dash body product polygon boundary',
-          'proof that dash and join visible triangles share the same Step 27 seam endpoint identities',
+          'proof that every consumed seam boundary endpoint id belongs to the owning dash body product boundary identity',
+          'proof that dash and join visible triangles share the same seam endpoint identities',
           'dash/join zero-gap adjacency proof'
         ],
         failureReopensStep: 'build-source-vertex-join-products'
@@ -1066,7 +2468,7 @@
           'legal-domain ids'
         ],
         preservedEvidence: [
-          'same Step 27 seam endpoint identity when visible dash/join products survive legality'
+          'same seam endpoint identity when visible dash/join products survive legality'
         ],
         failureReopensStep: 'apply-legality'
       },
@@ -1088,7 +2490,7 @@
         preservedEvidence: [
           'visible contributor owner',
           'join ownership signatures',
-          'same Step 27 seam endpoint identity when visible dash/join products survive final-face or descriptor materialization'
+          'same seam endpoint identity when visible dash/join products survive final-face or descriptor materialization'
         ],
         failureReopensStep: 'build-final-faces'
       },
@@ -1108,7 +2510,7 @@
           'same-paint single-composite or alpha-safe equivalence evidence when visible entries overlap'
         ],
         preservedEvidence: [
-          'same Step 27 seam endpoint identity before renderer projection'
+          'same seam endpoint identity before renderer projection'
         ],
         failureReopensStep: 'render-entries'
       },
@@ -1170,8 +2572,8 @@
       filePath:
         'packages/preset/src/components/stroke-render/center-dashed-overlap-candidates.ts',
       classification: 'diagnostics-only',
-      ownerStepId: 'runtime-diagnostics',
-      ownerRouteIds: ['diagnostics-channel-aggregation'],
+      ownerStepId: null,
+      ownerRouteIds: [],
       currentConsumers: [
         'packages/preset/src/components/stroke-render/center-dashed-overlap-diagnostics.ts'
       ],
@@ -1183,8 +2585,8 @@
       filePath:
         'packages/preset/src/components/stroke-render/center-dashed-overlap-graph.ts',
       classification: 'diagnostics-only',
-      ownerStepId: 'runtime-diagnostics',
-      ownerRouteIds: ['diagnostics-channel-aggregation'],
+      ownerStepId: null,
+      ownerRouteIds: [],
       currentConsumers: [
         'packages/preset/src/components/stroke-render/center-dashed-overlap-candidates.ts',
         'packages/preset/src/components/stroke-render/center-dashed-overlap-diagnostics.ts'
@@ -1197,8 +2599,8 @@
       filePath:
         'packages/preset/src/components/stroke-render/center-dashed-ownership.ts',
       classification: 'diagnostics-only',
-      ownerStepId: 'runtime-diagnostics',
-      ownerRouteIds: ['diagnostics-channel-aggregation'],
+      ownerStepId: null,
+      ownerRouteIds: [],
       currentConsumers: [
         'packages/preset/src/components/stroke-render/center-dashed-overlap-diagnostics.ts'
       ],
@@ -1214,7 +2616,7 @@
       ownerRouteIds: ['linear-normalize-stroke-spec-to-shared-geometry-model'],
       currentConsumers: [
         'packages/preset/src/__tests__/stroke-geometry-oracles/ordinary-sharp-runtime-oracle.test.ts',
-        'packages/preset/src/__tests__/stroke-geometry-oracles/reported-vector-34-runtime-oracle.test.ts',
+        'packages/preset/src/__tests__/stroke-geometry-oracles/reported-vector-34-runtime-oracle-fixture.ts',
         'packages/preset/src/__tests__/stroke-parameter-switch-performance.test.ts'
       ],
       requiredInspectorField: 'sourceFileOwnershipRecords.sharedHelperOwner',
@@ -1247,8 +2649,8 @@
       filePath:
         'packages/preset/src/components/stroke-render/constrained-domain-stroke-geometry.ts',
       classification: 'diagnostics-only',
-      ownerStepId: 'runtime-diagnostics',
-      ownerRouteIds: ['diagnostics-channel-aggregation'],
+      ownerStepId: null,
+      ownerRouteIds: [],
       currentConsumers: [
         'packages/preset/src/components/stroke-render/constrained-dashed-domain-geometry.ts',
         'packages/preset/src/components/stroke-render/constrained-solid-stroke-geometry.ts'
@@ -1275,8 +2677,8 @@
       filePath:
         'packages/preset/src/components/stroke-render/constrained-solid-legality-domain.ts',
       classification: 'diagnostics-only',
-      ownerStepId: 'runtime-diagnostics',
-      ownerRouteIds: ['diagnostics-channel-aggregation'],
+      ownerStepId: null,
+      ownerRouteIds: [],
       currentConsumers: [
         'packages/preset/src/components/stroke-render/constrained-solid-legality-diagnostics.ts'
       ],
@@ -1288,8 +2690,8 @@
       filePath:
         'packages/preset/src/components/stroke-render/constrained-solid-stroke-geometry.ts',
       classification: 'diagnostics-only',
-      ownerStepId: 'runtime-diagnostics',
-      ownerRouteIds: ['diagnostics-channel-aggregation'],
+      ownerStepId: null,
+      ownerRouteIds: [],
       currentConsumers: [
         'packages/preset/src/components/stroke-render/constrained-solid-legality-diagnostics.ts'
       ],
@@ -1302,9 +2704,13 @@
         'packages/preset/src/components/stroke-render/dashed-center-ribbon-geometry.ts',
       classification: 'shared-helper',
       ownerStepId: 'build-center-stroke-products',
-      ownerRouteIds: ['center-products-canonical-output-else'],
+      ownerRouteIds: [
+        'center-products-canonical-output-else',
+        'constrained-dashed-descriptor-materialization'
+      ],
       currentConsumers: [
-        'packages/preset/src/components/stroke-render/dashed-center-stroke-packets.ts'
+        'packages/preset/src/components/stroke-render/dashed-center-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts'
       ],
       requiredInspectorField: 'sourceFileOwnershipRecords.sharedHelperOwner',
       productionCodeChangeNeeded: false
@@ -1369,9 +2775,17 @@
       ownerRouteIds: ['linear-normalize-stroke-spec-to-shared-geometry-model'],
       currentConsumers: [
         'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/constrained-domain-stroke-geometry.ts',
+        'packages/preset/src/components/stroke-render/constrained-solid-legality-domain.ts',
         'packages/preset/src/components/stroke-render/constrained-solid-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/dashed-center-ribbon-geometry.ts',
+        'packages/preset/src/components/stroke-render/legal-domain-normalization.ts',
         'packages/preset/src/components/stroke-render/path-topology-model.ts',
-        'packages/preset/src/components/stroke-render/solid-center-stroke-geometry.ts'
+        'packages/preset/src/components/stroke-render/resolved-vector-geometry-model.ts',
+        'packages/preset/src/components/stroke-render/solid-center-stroke-geometry.ts',
+        'packages/preset/src/components/stroke-render/source-span-graph.ts',
+        'packages/preset/src/components/stroke-render/source-vertex-join-footprint.ts',
+        'packages/preset/src/components/stroke-render/stroke-side-resolution.ts'
       ],
       requiredInspectorField: 'sourceFileOwnershipRecords.sharedHelperOwner',
       productionCodeChangeNeeded: false
@@ -1683,6 +3097,10 @@
       ],
       'consume'
     ),
+    'derive-dash-body-seam-boundaries': coverageFor([
+      'preserve',
+      'output-metadata'
+    ]),
     'build-source-vertex-join-products': withRoles(
       withRoles(baseForbiddenCoverage, dashParameterIds, [
         'preserve',
@@ -1697,17 +3115,10 @@
       ],
       'consume'
     ),
-    'build-terminal-body-products': withRoles(
-      withRoles(baseForbiddenCoverage, joinParameterIds, 'preserve'),
-      [
-        'stroke.position',
-        'stroke.width',
-        'stroke.dash',
-        'stroke.gap',
-        'stroke.capType'
-      ],
-      'consume'
-    ),
+    'build-terminal-body-products': coverageFor([
+      'preserve',
+      'output-metadata'
+    ]),
     'build-smooth-continuity-products': withRoles(
       withRoles(baseForbiddenCoverage, joinParameterIds, 'forbid'),
       [
@@ -1740,8 +3151,7 @@
     'emit-render-hit-export-packets': baseOutputMetadataCoverage,
     'render-entries': coverageFor(['preserve', 'output-metadata']),
     'renderer-projection': coverageFor(['preserve', 'forbid']),
-    'hit-export': coverageFor(['preserve', 'output-metadata']),
-    'runtime-diagnostics': baseOutputMetadataCoverage
+    'hit-export': coverageFor(['preserve', 'output-metadata'])
   }
 
   const strokeParameterCoverageMatrix = Object.fromEntries(
@@ -2025,7 +3435,44 @@
         artifactPath:
           'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-07-validate-topology.test.ts --reporter=verbose',
         verifiedAt: '2026-07-01T03:48:43+08:00'
-      }
+      },
+      latestRule:
+        'Topology validation accepts or rejects workspace-canonical point, segment, and network records without repairing, synthesizing, or normalizing them.',
+      inputs: ['workspace canonical vector topology candidate'],
+      outputs: [
+        'validated workspace canonical vector topology',
+        'topology validation evidence'
+      ],
+      conditions: [
+        'Run when canonical workspace point, segment, and network records are present for validation.'
+      ],
+      bypassConditions: [
+        'There is no valid-topology bypass; invalid topology fails before computed patch construction.'
+      ],
+      limitations: [
+        'Topology validation must not repair, synthesize, or normalize topology records.',
+        'This step emits validation evidence only and may not create render or stroke product data.'
+      ],
+      allowedContributors: [
+        'canonical point records',
+        'canonical segment records',
+        'canonical network records'
+      ],
+      forbiddenContributors: [
+        'render or stroke product data',
+        'diagnostic geometry as canonical topology',
+        'downstream topology repair'
+      ],
+      evidenceRequired: [
+        'validated point ids',
+        'validated segment ids',
+        'validated network ids',
+        'validation result'
+      ],
+      currentImplementation:
+        'Vector consistency validation checks point, segment, control, and network references before computed patch construction.',
+      requiredAdjustment:
+        'Keep validation fail-closed and leave all topology mutation to the canonical operation owners.'
     },
     'computed-patch-builder': {
       verificationEvidence: {
@@ -2062,12 +3509,29 @@
         verifiedAt: '2026-07-01T03:51:32+08:00'
       },
       latestRule: 'One intended user action maps to one intended undo unit.',
-      inputs: ['computed patch request', 'selection/hover cleanup intent'],
+      inputs: [
+        'computed patch request',
+        'stroke property mutation intent',
+        'selection/hover cleanup intent',
+        'continuous interaction session lifecycle'
+      ],
       outputs: ['one transaction', 'one undoable final commit when requested'],
+      implementationFiles: [
+        'apps/asyra-design/src/common-apis/',
+        'apps/asyra-design/src/properties/ (transaction orchestration only)',
+        'packages/core/src/',
+        'packages/props-manager/src/',
+        'packages/scene-tree/src/'
+      ],
+      limitations: [
+        'Discrete stroke property handlers must not open their own transaction wrapper; the stroke common API owns the mutation transaction.',
+        'A continuous interaction may open one outer session transaction, but nested common API writes must collapse into that one outer undo unit.',
+        'Transaction ownership may not define stroke geometry, render output, or dirty-stage semantics.'
+      ],
       currentImplementation:
-        'Structural operation cleanup and computed patch writes are wrapped in the same common API transaction.',
+        'Structural operations and discrete stroke property writes are wrapped at their common API mutation boundaries; continuous color interaction keeps one explicit outer session transaction.',
       requiredAdjustment:
-        'Do not split one operation across multiple undoable transactions.',
+        'Do not split one operation across multiple undoable transactions or reintroduce discrete transaction wrappers in property handlers.',
       relatedTests: [
         'apps/asyra-design/e2e/undo-redo.spec.ts',
         'docs/ai/framework/rules/generated-artifacts.md'
@@ -2310,7 +3774,7 @@
         ]
       },
       currentImplementation:
-        'Vector render keeps a per-graphic StrokePipelineStageCache with product descriptors keyed by element, network, source revision, and stroke geometry signature. Paint-only changes retint cached final faces/render entries; style-replayable stroke-path descriptors restyle current cap/join/miter values without rebuilding descriptor geometry; visible=false clears render/hit/export output without rebuilding geometry.',
+        'Vector render keeps a per-graphic StrokePipelineStageCache with product descriptors keyed by element, network, source revision, and authored geometry-affecting stroke signature, including miterAngle. Only exact-signature cache hits may retint cached final faces/render entries and replay their equivalent adapter styles; geometry parameter changes miss and rebuild. visible=false clears render/hit/export output without rebuilding geometry.',
       requiredAdjustment:
         'Do not use stale cached descriptors when source revision or geometry-affecting stroke signature changes. Descriptor replay must update strokePathStyle; polygon product geometry that embeds miter shape must not use style-only replay. Diagnostics/export polygon materialization must remain lazy and separate from normal visible render.',
       relatedTests: [
@@ -2419,7 +3883,7 @@
         'packages/preset/src/components/vector.ts'
       ],
       currentImplementation:
-        'normalizeStrokeSpec converts StrokeAttrs to RenderableStroke records, computes numeric rendererMiterLimit from authored miterAngle for renderer descriptor style output, normalizes dash/gap lengths and paint, returns empty output for finite non-positive width, and returns diagnostics for rejected entries.',
+        'normalizeStrokeSpec converts StrokeAttrs to RenderableStroke records, preserves authored miterAngle, derives a backend-helper miterLimit without using it for authored join resolution, normalizes dash/gap lengths and paint, returns empty output for finite non-positive width, and returns diagnostics for rejected entries. Descriptor ownership remains downstream.',
       requiredAdjustment:
         'Do not collapse authored miter to authored bevel, compute vertexAngle, resolve miter vs bevel-by-miter-angle, or emit product geometry in this step.',
       additionalAllowedTestImports: ['@asyra/utils'],
@@ -2466,6 +3930,7 @@
         'packages/preset/src/components/stroke-render/path-geometry.ts',
         'packages/preset/src/components/stroke-render/path-topology-model.ts',
         'packages/preset/src/components/stroke-render/resolved-vector-geometry-model.ts',
+        'packages/preset/src/components/stroke-render/self-intersecting-legal-domain.ts',
         'packages/preset/src/components/vector.ts'
       ],
       additionalAllowedTestImports: ['@asyra/core'],
@@ -2491,13 +3956,16 @@
         'path topology revision',
         'contour and legal-domain evidence',
         'resolved self-intersection evidence when requested',
-        'route owner stage'
+        'route owner stage',
+        'aggregate pair-cache hit, miss, signature-hit, and consecutive-skip counters',
+        'separate source-split cache-key and materialization phase evidence',
+        'source-split cache lookup, setup, boundary-role index, legal-face materialization, contour merge, finalization, and cache-store phase evidence'
       ],
       failureReopensStep: 'shared-geometry-model',
       currentImplementation:
-        'vector.ts builds cached path geometry with buildVectorGeometryModelPath, topology with buildPathTopologyModel, and resolved source-domain geometry with buildResolvedVectorGeometryModel; shared geometry model files return evidence models rather than visible render output.',
+        'vector.ts builds cached path geometry, topology, and resolved source-domain geometry. Segment tracing and intersection pairs reuse previous-frame caches; pair-cache hit, miss, signature-remap, and consecutive-skip diagnostics are aggregated once per resolved build with exact totals. Source-split work reports cache-key, cache lookup, setup, boundary-role index, legal-face materialization, contour merge, finalization, cache store, and total materialization phases. Cache hits bypass range construction and remain deeply equal to uncached output.',
       requiredAdjustment:
-        'Keep join, cap, miter resolution, stroke product assembly, render entries, and renderer projection out of this step.',
+        'The bounded Step 20 attribution is complete. Retain both legal-face and contour passes because legal-face construction uniquely owns filled-face ranges; no source-split algorithm or cache-policy replacement is selected while its measured cost is non-dominant. Reopen only with new dominant-cost evidence, prove exact output equivalence, and keep join, cap, miter resolution, stroke product assembly, render entries, and renderer projection out of this step.',
       relatedTests: [
         'packages/preset/src/__tests__/resolved-vector-geometry-model.test.ts'
       ],
@@ -2508,7 +3976,7 @@
         status: 'verified',
         artifactPath:
           'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-20-shared-geometry-model.test.ts --reporter=verbose',
-        verifiedAt: '2026-07-01T04:05:09+08:00'
+        verifiedAt: '2026-07-11T01:15:00+08:00'
       },
       tags: ['truth', 'critical']
     },
@@ -2757,9 +4225,7 @@
         consumedBy: [
           'select-stroke-product-family',
           'build-dash-interval-body-products',
-          'build-source-vertex-join-products',
-          'build-terminal-body-products',
-          'runtime-diagnostics'
+          'build-source-vertex-join-products'
         ],
         mustNotRecomputeAfter: 'build-dash-interval-body-products',
         forbiddenLateComputation: [
@@ -2838,7 +4304,7 @@
       ],
       failureReopensStep: 'select-stroke-product-family',
       currentImplementation:
-        'Product family selection is currently inferred across packet builders and must be made explicit by the refactor step.',
+        'stroke-product-family.ts explicitly selects center, constrained-solid, constrained-dashed co-execution, or none from normalized stroke state, source family, and StrokeDomainPlan metadata without materializing product geometry.',
       requiredAdjustment:
         'Create a single product family decision boundary before product materialization.',
       verificationEvidence: {
@@ -2861,17 +4327,22 @@
         'normalized stroke spec'
       ],
       outputs: ['center product units or exact center descriptors'],
-      conditions: ['Run only for selected center product family.'],
+      conditions: [
+        'Run only for selected center product family.',
+        'The shared ribbon helper may also serve a completed Step 37 descriptor path, but Step 25 retains rail, cap, join, miter, validity, and fallback ownership.'
+      ],
       bypassConditions: [
         'Descriptor output may bypass polygon faces only when it exactly encodes the product.'
       ],
       limitations: [
-        'Must not compute constrained inside/outside masks or infer source-vertex joins from renderer projection.'
+        'Must not compute constrained inside/outside masks or infer source-vertex joins from renderer projection.',
+        'Must not skip simple-outline validation, change backend fallback selection, or repeat dedupe/area normalization when no endpoint cap suppression is active.'
       ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/solid-center-stroke-geometry.ts',
         'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
-        'packages/preset/src/components/stroke-render/dashed-center-stroke-packets.ts'
+        'packages/preset/src/components/stroke-render/dashed-center-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/dashed-center-ribbon-geometry.ts'
       ],
       additionalAllowedTestImports: ['@asyra/utils'],
       ownerStage: 'Stroke Geometry center product assembly',
@@ -2888,18 +4359,26 @@
       evidenceRequired: [
         'center product family id',
         'strokePathStyle cap/join/rendererMiterLimit/closed',
-        'descriptor equivalence proof'
+        'descriptor equivalence proof',
+        'manual ribbon cap/join/suppression geometry fingerprint parity',
+        'one normalization pass for unsuppressed manual ribbons before simple-outline validation',
+        'segmented fallback source-normalization, segment-body, source-vertex-join, and round-cap phase evidence',
+        'separate metadata-free bevel, metadata-free round, and full-solver join phase evidence'
       ],
       failureReopensStep: 'build-center-stroke-products',
       verificationEvidence: {
-        gateName: 'protocol plus step 25 unit gate',
+        gateName: 'protocol plus step 25 shared ribbon owner gate',
         testFile:
           'packages/preset/src/__tests__/stroke-flow/step-25-build-center-stroke-products.test.ts',
-        status: 'verified',
+        status: 'passed',
         artifactPath:
-          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-25-build-center-stroke-products.test.ts --reporter=verbose',
-        verifiedAt: '2026-07-01T04:16:47+08:00'
+          'yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-25-build-center-stroke-products.test.ts src/__tests__/stroke-flow/step-29-build-source-vertex-join-products.test.ts src/__tests__/stroke-flow/step-37-materialize-stroke-product-descriptors.test.ts --reporter=dot (133 passed); four related cap/join/center oracle files (20 passed); complete miter/bevel/round polygon fingerprints preserved; focused lint and yarn workspace @asyra/preset build:preset passed; port 3001 attribution records metadata-free bevel 0.1667ms average, metadata-free round 0.3000ms average, full solver 0.1417ms average, and source-vertex join total 0.8833ms average. The strict route passes resolved geometry p95 2.30ms, vector average 6.396ms, and sustained flush average 7.717ms, while global vector p95 remains open at 9.50ms.',
+        verifiedAt: '2026-07-11T02:38:28+08:00'
       },
+      currentImplementation:
+        'The shared manual ribbon route performs one dedupe/area normalization for unsuppressed outlines, performs a second normalization only after actual endpoint half-plane clipping, and uses squared distance, rail collinearity, and miter-limit comparisons without changing coordinates or validity. Step 37 invalid-outline fallback delegates to the canonical segmented solid-center producer. Authored bevel and round calls with no incident seam boundaries and no metadata consumer use their separately proven Step 29 primitives, while authored miter remains on the full solver. Source normalization, segment body, round cap, metadata-free bevel, metadata-free round, and full-solver join costs are separately attributed; complete miter/bevel/round polygon fingerprints remain unchanged.',
+      requiredAdjustment:
+        'The bounded Step 25 round-consumer adjustment is complete. Preserve the separate authored bevel, authored round, and full-solver miter ownership, complete cap/join/suppression fingerprints, backend selection, simple-outline validity, fallback counts, Step 37 descriptor products, and every render/hit/export channel. Reopen Step 25 only if those artifacts regress or whole-family attribution again identifies center-product construction as the dominant end-to-end owner; the remaining global vector p95 blocker alone does not authorize another local Step 25 change.',
       tags: ['canonical', 'split-product-step']
     },
     'build-constrained-solid-products': {
@@ -2952,29 +4431,33 @@
     },
     'build-dash-interval-body-products': {
       latestRule:
-        'Dash interval bodies are DashProductInterval-owned body products; join-owned seam boundaries must be derived from the emitted dash body product boundary and must not complete authored vertices.',
+        'Dash interval bodies are DashProductInterval-owned body products; their source-side and outer offset boundaries must follow the authored source interval, while seam-boundary derivation is owned by derive-dash-body-seam-boundaries.',
       inputs: [
         'selected constrained dashed product family',
         'DashProductInterval records',
         'terminal role and cap policy'
       ],
       outputs: [
-        'pre-legality dash interval body products',
-        'verified dash body seam boundary artifacts for join-owned terminals'
+        'pre-legality dash interval body products encoded as canonical polygons or exact body geometry programs',
+        'dash body boundary evidence required by seam-boundary derivation',
+        'self-contained body materialization spec and initial ConstrainedDashedProductEvidenceEnvelope bodyProductIds'
       ],
       conditions: [
         'Run for constrained dashed ranges that own visible body coverage.'
       ],
       bypassConditions: ['No visible interval means no body product.'],
       limitations: [
-        'Must not emit source-vertex join products, terminal overhang repair, or duplicate interval paint.'
+        'Must not emit source-vertex join products, terminal overhang repair, duplicate interval paint, selected-side envelope residue, or straight-chord outer dash edges.',
+        'Terminal and smooth portions are part of this body product; later terminal/smooth owner steps may attach non-visible overlays but may not emit another copy of body geometry.'
       ],
       implementationFiles: [
-        'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts'
+        'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/stroke-product-evidence.ts'
       ],
       ownerStage: 'Stroke Geometry dashed interval body assembly',
       allowedContributors: [
-        'DashProductInterval body',
+        'complete DashProductInterval body including terminal and smooth portions',
         'allowed body-side cap'
       ],
       forbiddenContributors: [
@@ -2987,59 +4470,141 @@
         'split range id',
         'terminal role',
         'endpoint cap policy',
-        'seam boundary id',
-        'outer body boundary endpoint on emitted dash body polygon',
-        'body-side outline segment on emitted dash body polygon'
+        'body geometry encoding mode',
+        'emitted dash body product boundary id',
+        'candidate terminal point on emitted dash body product boundary',
+        'candidate outer body boundary endpoint on emitted dash body product boundary',
+        'candidate body-side outline segment on emitted dash body product boundary',
+        'source-space outer boundary samples at stroke.width for each materialized interval',
+        'proof that curved interval outer boundary follows the authored source-curve offset instead of a straight chord',
+        'stable bodyProductId preserved by single-body geometryId or by batched bodyProductIds',
+        'authored width, doubled-center materialization width, cap/join/miter style, endpoint locks, legal basis, and raw curve evidence for exact body programs'
       ],
       failureReopensStep: 'build-dash-interval-body-products',
       verificationEvidence: {
-        gateName: 'protocol plus step 27 unit gate',
+        gateName: 'pending step 27 dash-body unit gate',
         testFile:
           'packages/preset/src/__tests__/stroke-flow/step-27-build-dash-interval-body-products.test.ts',
-        status: 'verified',
+        status: 'pending-schema-alignment',
         artifactPath:
-          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-27-build-dash-interval-body-products.test.ts --reporter=verbose',
-        verifiedAt: '2026-07-01T04:27:57+08:00'
+          'pending:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-27-build-dash-interval-body-products.test.ts --reporter=verbose',
+        verifiedAt: 'pending'
       },
       tags: ['canonical', 'split-product-step']
     },
+    'derive-dash-body-seam-boundaries': {
+      latestRule:
+        'Dash body seam boundaries are non-visible evidence artifacts derived from the emitted canonical polygon boundary or exact body geometry-program boundary. The exact-program route may preserve immutable terminal/outer/outline/tangent identity ids plus an exact body-program boundary reference instead of eagerly polygonizing coordinates; Step 29 may project that reference when it needs coordinates, while Step 30 consumes identity only. Downstream steps must not reinterpret endpoint, outline, tangent, cap-suppression, split-range, interval provenance, or body geometry.',
+      inputs: [
+        'pre-legality dash interval body products',
+        'dash body boundary evidence from build-dash-interval-body-products',
+        'DashProductInterval provenance',
+        'terminal role and endpoint cap policy'
+      ],
+      outputs: [
+        'verified dash body seam boundary artifacts for join-owned and terminal-owned consumers'
+      ],
+      conditions: [
+        'Run after a dash interval body product emits boundary evidence and before source-vertex join or terminal body assembly consumes seam identity.'
+      ],
+      bypassConditions: [
+        'No seam boundary artifact is emitted when no visible dash body product exists or when no downstream join/terminal consumer applies.'
+      ],
+      limitations: [
+        'Must not emit visible geometry, move dash body endpoints, infer source-vertex joins, create endpoint caps, repair cracks, or redistribute dash intervals.',
+        'Must not read raw stroke parameters as semantic inputs; it consumes emitted body products and preserved provenance only.'
+      ],
+      implementationFiles: [
+        'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts'
+      ],
+      ownerStage: 'Stroke Geometry dash seam boundary derivation',
+      allowedContributors: [
+        'non-visible dash body seam boundary artifact',
+        'emitted canonical polygon or exact body geometry-program boundary evidence',
+        'immutable exact-program boundary reference with terminal, outer, outline, and tangent identity ids',
+        'DashProductInterval provenance',
+        'endpoint cap policy evidence'
+      ],
+      forbiddenContributors: [
+        'visible seam repair geometry',
+        'source-vertex join footprint',
+        'terminal ownership overlay interpreted as visible geometry',
+        'endpoint cap geometry',
+        'dash interval recomputation',
+        'fresh offset point substitution'
+      ],
+      evidenceRequired: [
+        'dash body seam boundary artifact id',
+        'interval id',
+        'split range id',
+        'terminal role',
+        'legal side',
+        'endpoint cap suppression state',
+        'terminal point on the emitted body product boundary identity',
+        'outer body boundary endpoint on the emitted body product boundary identity',
+        'body-side outline segment on the emitted body product boundary identity',
+        'body-side tangent evidence',
+        'exact body-program boundary reference when coordinates are not eagerly materialized',
+        'proof that every seam endpoint identity is derived from the same emitted dash body product boundary'
+      ],
+      failureReopensStep: 'derive-dash-body-seam-boundaries',
+      verificationEvidence: {
+        gateName: 'pending step 28 seam-boundary unit gate',
+        testFile:
+          'packages/preset/src/__tests__/stroke-flow/step-28-derive-dash-body-seam-boundaries.test.ts',
+        status: 'pending-schema-alignment',
+        artifactPath:
+          'pending:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-28-derive-dash-body-seam-boundaries.test.ts --reporter=verbose',
+        verifiedAt: 'pending'
+      },
+      tags: ['canonical', 'split-product-step', 'evidence-lifecycle']
+    },
     'build-source-vertex-join-products': {
       latestRule:
-        'Source-vertex join products are canonical join footprints computed from source-domain tangents and incident dash body seam boundaries before renderer projection.',
+        'Source-vertex join products are canonical join footprints computed once from source-domain tangents and incident dash body seam boundaries before renderer projection; legality and descriptor exclusion indexes preserve the owner polygon set by reference and consume memoized owner summaries without geometry normalization.',
       inputs: [
         'authored source vertex or split terminal',
         'previous/next source-domain tangents',
         'authored join and miter angle',
-        'Step 27 verified incident dash body seam boundaries when dashed'
+        'verified incident dash body seam boundary artifacts when dashed'
       ],
       outputs: [
-        'pre-legality source-vertex join products with join resolution metadata'
+        'pre-legality source-vertex join products with join resolution metadata',
+        'reference-stable canonical join polygon sets with one per-plan and per-polygon-set summary record'
       ],
       conditions: [
-        'Run only for authored sharp vertices or split terminals that own join completion and fail smooth-continuity.'
+        'Run only for authored sharp vertices or split terminals that own join completion and fail smooth-continuity.',
+        'Compute local legal bounds, canonical polygon bounds, and join angle resolution once per owner artifact and reuse them for packet metadata and downstream indexing.'
       ],
       bypassConditions: [
         'Tangent-continuous smooth and high-curvature spans route to smooth-continuity products, not join products.'
       ],
       limitations: [
-        'Must not use masked visible polygon angles, endpoint caps, terminal bodies, post-boolean footprints, or renderer stroke joins as the join owner.'
+        'Must not use masked visible polygon angles, endpoint caps, terminal bodies, post-boolean footprints, or renderer stroke joins as the join owner.',
+        'Legality and descriptor exclusion handoffs must not normalize, union, merge, clean, or reconstruct the canonical join polygon set.',
+        'The shared geometry core may expose the actual sampled midpoint for an already-specified arc sweep, but it must not choose join style, legal side, cap policy, sweep ownership, or visible product output.'
       ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/source-vertex-join-footprint.ts',
+        'packages/preset/src/components/stroke-render/solid-stroke-geometry-core.ts',
         'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/constrained-solid-stroke-packets.ts'
       ],
       ownerStage: 'Stroke Geometry source-vertex join assembly',
       allowedContributors: [
         'canonical source-vertex join footprint',
-        'incident dash body seam evidence marked non-visible'
+        'incident dash body seam evidence marked non-visible',
+        'memoized local legal bounds, polygon-set bounds, and join angle resolution summaries',
+        'actual shared-core round-arc sample midpoint for an already-specified sweep'
       ],
       forbiddenContributors: [
         'endpoint cap at authored vertex',
         'terminal body overhang',
         'aggregate source-path replay',
         'visible dash/join seam gap',
-        'diagnostic/helper visible geometry'
+        'diagnostic/helper visible geometry',
+        'downstream normalization or merging of canonical join owner polygons',
+        'shared arc helper selecting authored join, legal side, cap policy, or product ownership'
       ],
       evidenceRequired: [
         'authoredJoin',
@@ -3048,85 +4613,111 @@
         'miterAngle',
         'angleSource',
         'angle comparison evidence',
-        'shared Step 27 seam endpoint identity evidence',
+        'shared seam-boundary artifact endpoint identity evidence',
         'incident dash body seam boundary ids',
         'incident outer body boundary endpoint ids',
         'bevel and bevel-by-miter-angle cut-off edge endpoint ids from incident dash body outer boundaries',
-        'proof that every consumed seam boundary endpoint id is emitted by the Step 27 dash body product polygon boundary'
+        'proof that every consumed seam boundary endpoint id belongs to the owning dash body product boundary identity',
+        'canonical join polygon reference parity through legality and descriptor exclusion indexes',
+        'one local legal-bounds summary, one polygon-bounds summary per polygon identity, and one join angle resolution per owner product',
+        'point-exact differential parity between the full authored-style solver and each metadata-free no-incident-boundary bevel or round primitive',
+        'fixed existing round-arc output fingerprints for positive, negative, near-opposite, tiny-radius, and cap-sampling cases',
+        'point-exact identity between the shared sampled midpoint and the same index of the materialized arc'
       ],
       failureReopensStep: 'build-source-vertex-join-products',
       verificationEvidence: {
-        gateName: 'protocol plus step 28 unit gate',
+        gateName: 'step 29 canonical source-vertex join owner gate',
         testFile:
-          'packages/preset/src/__tests__/stroke-flow/step-28-build-source-vertex-join-products.test.ts',
-        status: 'verified',
+          'packages/preset/src/__tests__/stroke-flow/step-29-build-source-vertex-join-products.test.ts',
+        status: 'passed',
         artifactPath:
-          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-28-build-source-vertex-join-products.test.ts --reporter=verbose',
-        verifiedAt: '2026-07-01T04:32:45+08:00'
+          'yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-29-build-source-vertex-join-products.test.ts --reporter=dot (93 passed); six fixed core-arc fingerprints, six sampled-midpoint identities, and nineteen authored-round differential cases pass; cap/center/join oracle files (20 passed); production primitive diagnostic grid (92,738 point-exact cases, zero mismatch); focused eslint and yarn workspace @asyra/preset build:preset passed',
+        verifiedAt: '2026-07-11T02:21:41+08:00'
       },
+      currentImplementation:
+        'Step 29 emits one canonical join record with owner join-angle resolution, preserves polygon references through legality and descriptor exclusion indexes, and reuses memoized plan and polygon-set bounds for stage evidence, product records, packet bounds, and metadata. It exposes narrowly named no-incident-boundary bevel and round polygon primitives. The shared core reports only the actual midpoint of an already-specified sampled sweep. The round primitive retains the existing sampled-midpoint score and stable tie selection, materializes only the selected normal-case arc, and preserves dual-sweep materialization for zero-radius, degenerate, or numerically ambiguous cases.',
+      requiredAdjustment:
+        'The authored-bevel and authored-round primitive segments are complete. Consumers may use them only for matching authored-style polygons with no incident seam boundaries and no metadata requirement, after preserving their complete product fingerprints. Never use either primitive for incident seam boundaries, miter, bevel-by-miter-angle, join metadata, constrained canonical products, or canonical Step 29 product records. Reopen on any point-parity, arc fingerprint, sampled-midpoint identity, seam, resolution, legality, final-face, render, hit, or export regression.',
       tags: ['canonical', 'split-product-step', 'join']
     },
     'build-terminal-body-products': {
       latestRule:
-        'Terminal body products are terminal interval body products that consume Step 27 seam boundaries; they preserve terminal role and endpoint policy and never own source-vertex apex coverage.',
+        'Terminal body product records are non-visible ownership overlays over an existing dash interval body product. They consume verified seam boundary artifacts, preserve terminal role and endpoint policy, reference the body product by identity, and never emit or rebuild body geometry.',
       inputs: [
-        'terminal DashProductInterval',
-        'Step 27 verified terminal dash body seam boundary',
+        'terminal dash interval body product',
+        'ConstrainedDashedProductEvidenceEnvelope bodyProductIds',
+        'verified terminal dash body seam boundary artifact',
         'terminal role',
         'endpoint cap policy',
-        'legal side'
+        'join ownership signature'
       ],
       outputs: [
-        'pre-legality terminal body products with seam boundary provenance'
+        'non-visible terminal body ownership overlay records with body product and seam boundary provenance',
+        'ConstrainedDashedProductEvidenceEnvelope with terminal ownership overlay appended by overlayId'
       ],
       conditions: [
-        'Run when a terminal interval owns body continuity near a terminal seam.'
+        'Run when an existing dash interval body product has terminal ownership near a terminal seam.'
       ],
       bypassConditions: [
-        'Absent terminal body coverage emits no terminal body product.'
+        'A middle-only body product emits no terminal ownership overlay.'
       ],
       limitations: [
-        'Must not repair source-vertex cracks, extend endpoint-side overhang, or replace join ownership.'
+        'Must not emit polygons, stroke paths, paint, caps, terminal overhang, source-vertex repair, selected-side envelopes, or any second copy of the referenced body product.'
       ],
       implementationFiles: [
-        'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts'
+        'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/stroke-product-evidence.ts'
       ],
-      ownerStage: 'Stroke Geometry terminal body assembly',
-      allowedContributors: ['terminal interval body', 'allowed body-side cap'],
+      ownerStage: 'Stroke Geometry terminal body ownership binding',
+      allowedContributors: [
+        'terminal role and endpoint cap policy metadata',
+        'dash body product identity',
+        'verified seam boundary identity',
+        'join ownership signature'
+      ],
       forbiddenContributors: [
+        'visible body polygons',
+        'visible stroke paths',
+        'paint payload',
         'endpoint-side cap at join-owned terminal',
         'terminal overhang',
         'source-vertex apex coverage'
       ],
       evidenceRequired: [
+        'dash body product id',
         'terminal role',
         'endpoint cap policy',
         'dash body seam boundary artifact id',
         'seam boundary id',
-        'join ownership signature'
+        'join ownership signature',
+        'proof that the overlay contributes zero visible geometry'
       ],
       failureReopensStep: 'build-terminal-body-products',
       verificationEvidence: {
-        gateName: 'protocol plus step 29 unit gate',
+        gateName: 'pending step 30 terminal body unit gate',
         testFile:
-          'packages/preset/src/__tests__/stroke-flow/step-29-build-terminal-body-products.test.ts',
-        status: 'verified',
+          'packages/preset/src/__tests__/stroke-flow/step-30-build-terminal-body-products.test.ts',
+        status: 'pending-schema-alignment',
         artifactPath:
-          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-29-build-terminal-body-products.test.ts --reporter=verbose',
-        verifiedAt: '2026-07-01T04:35:58+08:00'
+          'pending:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-30-build-terminal-body-products.test.ts --reporter=verbose',
+        verifiedAt: 'pending'
       },
       tags: ['canonical', 'split-product-step']
     },
     'build-smooth-continuity-products': {
       latestRule:
-        'Smooth-continuity products own tangent-continuous curved dash and smooth-span output; high curvature alone must not create source-vertex join ownership.',
+        'For constrained dashed, smooth-continuity records are non-visible ownership overlays over existing dash interval body products. For constrained solid, this step may emit the declared same-owner smooth-span product or descriptor. Both routes preserve tangent-continuity and curve-offset proof; high curvature alone never creates join ownership or duplicate body coverage.',
       inputs: [
+        'selected constrained dashed or constrained solid product family',
         'smooth-continuity group',
         'curve or smooth span evidence',
-        'dash interval coverage when dashed'
+        'referenced dash interval body product ids',
+        'ConstrainedDashedProductEvidenceEnvelope initialized by build-dash-interval-body-products'
       ],
       outputs: [
-        'pre-legality smooth-continuity products or exact smooth-span descriptors'
+        'non-visible constrained dashed smooth-continuity ownership overlays referencing dash body products',
+        'ConstrainedDashedProductEvidenceEnvelope with smooth ownership overlays appended by overlayId',
+        'constrained solid same-owner smooth-span products or exact descriptors'
       ],
       conditions: [
         'Run for tangent-continuous spans and high-curvature spans without authored sharp-vertex ownership.'
@@ -3135,37 +4726,48 @@
         'Sharp authored vertices that fail smooth-continuity route to source-vertex join products.'
       ],
       limitations: [
-        'Must not fragment one dash into strips, radial slices, comb-like seams, or helper visible products.'
+        'The constrained dashed route must not emit polygons, stroke paths, paint, descriptors, strips, radial slices, helper visible products, or another copy of the referenced body geometry.',
+        'The constrained solid route must not cross authored sharp source-vertex ownership boundaries or become join completion.'
       ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
-        'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts'
+        'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/stroke-product-evidence.ts'
       ],
-      ownerStage: 'Stroke Geometry smooth-continuity product assembly',
+      ownerStage: 'Stroke Geometry smooth-continuity product and ownership binding',
       allowedContributors: [
-        'smooth-continuity dash body product',
-        'declared same-owner smooth-span descriptor'
+        'smooth-continuity group metadata',
+        'referenced dash body product identities',
+        'tangent-continuity proof',
+        'curve-offset outer boundary proof',
+        'declared constrained solid same-owner smooth-span product or descriptor'
       ],
       forbiddenContributors: [
         'source-vertex join product',
+        'duplicate constrained dashed body polygons or stroke paths',
+        'constrained dashed paint payload',
         'visible seam-repair product',
         'visible construction/helper product',
         'disconnected strip product'
       ],
       evidenceRequired: [
         'smooth-continuity group id',
+        'referenced dash body product ids',
         'tangent-continuity proof',
-        'single continuous footprint proof'
+        'single continuous footprint proof',
+        'curve-offset outer boundary proof at stroke.width',
+        'proof that a constrained dashed overlay contributes zero visible geometry',
+        'constrained solid same-owner boundary proof when that route applies'
       ],
       failureReopensStep: 'build-smooth-continuity-products',
       verificationEvidence: {
-        gateName: 'protocol plus step 30 unit gate',
+        gateName: 'pending step 31 smooth-continuity unit gate',
         testFile:
-          'packages/preset/src/__tests__/stroke-flow/step-30-build-smooth-continuity-products.test.ts',
-        status: 'verified',
+          'packages/preset/src/__tests__/stroke-flow/step-31-build-smooth-continuity-products.test.ts',
+        status: 'pending-schema-alignment',
         artifactPath:
-          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-30-build-smooth-continuity-products.test.ts --reporter=verbose',
-        verifiedAt: '2026-07-01T04:39:01+08:00'
+          'pending:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-31-build-smooth-continuity-products.test.ts --reporter=verbose',
+        verifiedAt: 'pending'
       },
       tags: ['canonical', 'split-product-step']
     },
@@ -3173,7 +4775,9 @@
       latestRule:
         'Descriptor strategy selection records descriptor eligibility, legal-basis requirements, owner boundaries, and channel intent only; it does not materialize renderer-ready descriptors.',
       inputs: [
-        'pre-legality product units or descriptor-eligible strategy evidence',
+        'pre-legality polygon products or exact body geometry programs',
+        'terminal and smooth ownership overlay records',
+        'ConstrainedDashedProductEvidenceEnvelope identity signature',
         'descriptor route kind',
         'required legal basis',
         'output channel intent'
@@ -3192,7 +4796,8 @@
       ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
-        'packages/preset/src/components/stroke-render/stroke-render-descriptor.ts'
+        'packages/preset/src/components/stroke-render/stroke-render-descriptor.ts',
+        'packages/preset/src/components/stroke-render/stroke-product-evidence.ts'
       ],
       ownerStage: 'Stroke Geometry descriptor strategy selection',
       allowedContributors: [
@@ -3211,74 +4816,106 @@
         'required legality basis',
         'visible/evidence channel intent',
         'product-builder id',
-        'owner-boundary split proof'
+        'owner-boundary split proof',
+        'body product to terminal/smooth overlay identity map'
       ],
       failureReopensStep: 'select-stroke-descriptor-strategy',
       verificationEvidence: {
-        gateName: 'protocol plus step 31 unit gate',
+        gateName: 'pending step 32 descriptor-strategy unit gate',
         testFile:
-          'packages/preset/src/__tests__/stroke-flow/step-31-select-stroke-descriptor-strategy.test.ts',
-        status: 'verified',
+          'packages/preset/src/__tests__/stroke-flow/step-32-select-stroke-descriptor-strategy.test.ts',
+        status: 'pending-schema-alignment',
         artifactPath:
-          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-31-select-stroke-descriptor-strategy.test.ts --reporter=verbose',
-        verifiedAt: '2026-07-01T04:41:58+08:00'
+          'pending:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-32-select-stroke-descriptor-strategy.test.ts --reporter=verbose',
+        verifiedAt: 'pending'
       },
       tags: ['canonical', 'split-product-step', 'descriptor']
     },
     'materialize-stroke-product-descriptors': {
       latestRule:
-        'Descriptor materialization encodes final-face, post-legality, or explicitly legality-equivalent product records as renderer-ready descriptors without changing ownership.',
+        'Descriptor materialization batches compatible descriptor-backed body products by paint, stroke spec, legal domain, and output channel while preserving body, terminal, smooth, seam, interval, join, legal-domain, and source-span identity without changing ownership.',
       inputs: [
         'finalFaces',
         'post-legality product units or legality-equivalent product units',
         'descriptor strategy records',
-        'output channel separation'
+        'final-face ConstrainedDashedProductEvidenceEnvelope',
+        'output channel separation',
+        'resolved-packet full cache-key alias from build-resolved-stroke-regions'
       ],
       outputs: [
-        'renderer-ready product descriptors with channel and owner metadata'
+        'renderer-ready product descriptors with channel and owner metadata',
+        'descriptor product identity preserving every body and ownership overlay id',
+        'exact descriptor-backed composite recipe with deferred polygon projection when eligibility is proven'
       ],
       conditions: [
-        'Run only after final-face legality records exist and descriptor equivalence to the canonical product can be proven.'
+        'Run only after final-face legality records exist and descriptor equivalence to the canonical product can be proven.',
+        'Group body paths only across compatible legal domains and never across a sharp source-vertex owner boundary.',
+        'Descriptor-cache reuse may append its descriptor-stage tag to the Step 34 full cache-key alias but must not rebuild the common source/domain/stroke basis.',
+        'Perform one inside aggregate descriptor cache lookup per compatibility group; on a miss, materialize and store the descriptor once.',
+        'Consume ribbon polygons directly only when the ribbon producer returns simple-outline validity.',
+        'An eligible descriptor-backed composite consumes completed body programs, endpoint-cap masks, canonical post-legality join polygons, legal clip/exclude constraints, and one complete product identity envelope without eagerly materializing body polygons.',
+        'Deferred polygon projection is eligible only when focused differential gates prove zero symmetric-difference area and render, hit, export, bounds, seam, and identity parity.'
       ],
       bypassConditions: [
         'If equivalence cannot be proven, render entries consume canonical final-face packets instead of descriptors.'
       ],
       limitations: [
-        'Must not consume raw pre-legality products without legality-equivalence evidence, aggregate source-path replay, or evidence polygons as visible paint.'
+        'Must not consume raw pre-legality products without legality-equivalence evidence, aggregate source-path replay, evidence polygons as visible paint, or terminal/smooth overlays as additional visible geometry.',
+        'Must not reserialize source, fill/domain, stroke, legality, or join-ownership dimensions already represented by the Step 34 full cache-key alias.',
+        'Must not duplicate aggregate cache lookup, normalize the same ribbon tangent in both caller and ribbon owner, clean an already validated simple-outline polygon again, or skip ribbon validity checks.',
+        'Must not omit eager polygons unless the exact deferred projection recipe and its eligibility proof are present; render-time code must not trigger deferred materialization.',
+        'Must not normalize, merge, reconstruct, repair, or restyle canonical Step 29 join polygons while attaching them as completed composite mask contributors.'
       ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
-        'packages/preset/src/components/stroke-render/stroke-render-descriptor.ts'
+        'packages/preset/src/components/stroke-render/stroke-render-descriptor.ts',
+        'packages/preset/src/components/stroke-render/stroke-product-evidence.ts'
       ],
       ownerStage: 'Product Output descriptor materialization',
       allowedContributors: [
         'final-face records',
         'post-legality product units',
         'legality-equivalent product units',
-        'evidence-only descriptor metadata'
+        'evidence-only descriptor metadata',
+        'Step 34 resolved-packet full cache-key alias',
+        'deduplicated nonzero-area simple-outline ribbon polygons'
       ],
       forbiddenContributors: [
         'pre-legality product without equivalence proof',
         'descriptor evidence as visible paint',
-        'renderer-local join completion'
+        'renderer-local join completion',
+        'descriptor-local reconstruction of the resolved-packet cache-key common basis',
+        'duplicate cache lookup or post-validation ribbon cleanup'
       ],
       evidenceRequired: [
         'descriptor route kind',
         'legality basis',
         'visible/evidence channel split',
         'product-builder id',
-        'final-face id'
+        'final-face id',
+        'body product ids',
+        'terminal and smooth overlay ids',
+        'batch compatibility signature',
+        'Step 34 full cache-key alias identity',
+        'one aggregate cache lookup per compatibility group',
+        'simple-outline validity before direct polygon consumption',
+        'aggregate descriptor polygon cache-key/lookup, two-point, collinear, continuous-ribbon, fallback, round-cap, and cache-store phase evidence for eager routes',
+        'deferred recipe fingerprint, conservative bounds containment, zero automatic render-time materialization, and eager/lazy geometry differential evidence for deferred routes'
       ],
       failureReopensStep: 'materialize-stroke-product-descriptors',
       verificationEvidence: {
-        gateName: 'protocol plus step 36 unit gate',
+        gateName: 'protocol plus step 37 descriptor-materialization unit gate',
         testFile:
-          'packages/preset/src/__tests__/stroke-flow/step-36-materialize-stroke-product-descriptors.test.ts',
+          'packages/preset/src/__tests__/stroke-flow/step-37-materialize-stroke-product-descriptors.test.ts',
         status: 'verified',
         artifactPath:
-          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-36-materialize-stroke-product-descriptors.test.ts --reporter=verbose',
-        verifiedAt: '2026-07-01T04:58:26+08:00'
+          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-34-build-resolved-stroke-regions.test.ts src/__tests__/stroke-flow/step-37-materialize-stroke-product-descriptors.test.ts --reporter=dot',
+        verifiedAt: '2026-07-11T00:09:50+08:00'
       },
+      currentImplementation:
+        'The constrained-dashed inside aggregate descriptor cache prefixes packetStageCacheKeys.packetStageKey with its descriptor-stage tag, performs one lookup per compatibility group, delegates raw tangent normalization to the ribbon owner, and consumes validated simple-outline polygons without another cleanup pass. Aggregate detail evidence separates cache-key/lookup, two-point, collinear, continuous-ribbon, fallback, middle round-cap, and cache-store work. Analytic middle round-cap points skip a formally proven no-op generic cleanup without changing point output. Ribbon status counters prove all 27 focused fallback calls are fail-open-invalid-outline rather than empty output.',
+      requiredAdjustment:
+        'Replace the eligible constrained-dashed aggregate route with one descriptor-backed composite recipe only after eager/lazy differential, bounds, identity, and zero-automatic-materialization gates pass. Preserve Step 34 full-alias invalidation, canonical join polygon references, strict invalid-outline fallback for eager routes, and every final-face/render/hit/export identity. Non-eligible routes retain the current eager polygon algorithm.',
       tags: ['canonical', 'descriptor', 'product-output']
     },
     'apply-legality': {
@@ -3286,19 +4923,26 @@
       latestRule:
         'Legality applies inside filled-region or outside exterior clipping to declared product units only; it may clip or exclude product/evidence channels but must not invent join shape, cap shape, terminal overhang, or renderer-owned visible geometry.',
       inputs: [
-        'canonical product packets from the owning split product step',
+        'owner-preserving pre-legality product union with child ownerStepId',
+        'exact dash body geometry programs with terminal and smooth ownership overlays',
+        'complete ConstrainedDashedProductEvidenceEnvelope',
         'inside fill regions or outside exterior regions',
         'legal-domain ids and contour ids',
+        'per-product legality result keyed by source product id',
         'render descriptor evidence channels'
       ],
       outputs: [
-        'legality-clipped product polygons',
+        'post-legality product units preserving source product and owner ids',
+        'unchanged ConstrainedDashedProductEvidenceEnvelope for surviving bodies',
+        'pre/post legality product id parity for every surviving product',
+        'legal empty/delete records with body product id, affected overlay ids, legal-domain id, and delete reason when a declared product is removed',
         'clipPolygons, fillClipPolygons, fillExcludePolygons, or legal-domain arrangement evidence',
         'legal-domain diagnostics and owner metadata'
       ],
       conditions: [
         'Run after product units already own geometry and source-vertex joins.',
         'Clip constrained inside products to filled domains and constrained outside products to exterior domains when the route declares legal clipping.',
+        'For an exact body geometry program, attach one legality-equivalent clip/exclude basis per compatible legal domain without polygonizing each terminal or smooth overlay.',
         'Keep descriptor evidence and visible route channels separated while applying legal masks.'
       ],
       bypassConditions: [
@@ -3308,16 +4952,20 @@
       limitations: [
         'This step must not compute vertexAngle, resolve miter, build source-vertex joins, create endpoint caps, create construction/helper products, or replay renderer stroke joins.',
         'Legality masks may clip existing product geometry but may not become authored sharp-vertex completion.',
-        'descriptorProductPolygons remain evidence/product descriptors and must not be promoted to strokeMaskPolygons as visible mask output.'
+        'descriptorProductPolygons remain evidence/product descriptors and must not be promoted to strokeMaskPolygons as visible mask output.',
+        'Terminal and smooth ownership overlays must not trigger independent offset, polygon cleanup, or boolean clipping and must remain non-visible.'
       ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/constrained-solid-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
-        'packages/preset/src/components/stroke-render/stroke-candidate-arrangement.ts'
+        'packages/preset/src/components/stroke-render/stroke-candidate-arrangement.ts',
+        'packages/preset/src/components/stroke-render/stroke-product-evidence.ts'
       ],
       ownerStage: 'Stroke Geometry legality clipping',
       allowedContributors: [
         'canonical product polygons',
+        'exact body geometry programs',
+        'non-visible terminal and smooth ownership overlays',
         'inside legal clip regions',
         'outside legal clip regions',
         'legal-domain arrangement faces',
@@ -3335,47 +4983,60 @@
       ],
       evidenceRequired: [
         'input product packet id',
+        'input product owner step id',
+        'pre/post legality product id parity',
+        'body product to terminal/smooth overlay identity parity',
+        'complete evidence envelope identity signature before and after legality',
         'legal-domain ids',
         'clip or exclude channel name',
+        'legal clip/delete reason',
+        'proof that legality did not create join, cap, terminal, or seam geometry',
         'legal clipping route',
         'owner stage'
       ],
       failureReopensStep: 'apply-legality',
       verificationEvidence: {
-        gateName: 'protocol plus step 32 unit gate',
+        gateName: 'pending step 33 legality unit gate',
         testFile:
-          'packages/preset/src/__tests__/stroke-flow/step-32-apply-legality.test.ts',
-        status: 'verified',
+          'packages/preset/src/__tests__/stroke-flow/step-33-apply-legality.test.ts',
+        status: 'pending-schema-alignment',
         artifactPath:
-          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-32-apply-legality.test.ts --reporter=verbose',
-        verifiedAt: '2026-07-01T04:46:01+08:00'
+          'pending:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-33-apply-legality.test.ts --reporter=verbose',
+        verifiedAt: 'pending'
       },
       currentImplementation:
-        'Constrained solid and constrained dashed packet builders apply legal clip/exclude channels, while stroke-candidate-arrangement applies legal-domain arrangement clipping for final overlap collapse.',
+        'Constrained solid and constrained dashed packet builders apply legal clip/exclude channels. The constrained dashed runtime still polygonizes and clips duplicate terminal products; this owner conflict is reopened for replacement by exact body geometry programs plus non-visible terminal/smooth overlays.',
       requiredAdjustment:
-        'Keep legality as clipping/exclusion of declared product only; reopen the owning split product step if legality discovers missing join/cap/product ownership.',
+        'Keep legality as clipping/exclusion of declared products, accept descriptor-backed post-legality body units, preserve every overlay id, and remove per-terminal/smooth duplicate clipping. Reopen the owning product step if legality discovers missing join/cap/product ownership.',
       tags: ['canonical']
     },
     'build-resolved-stroke-regions': {
       alignmentStatus: 'architecture-closed',
       latestRule:
-        'Resolved stroke records preserve legality-applied product geometry and descriptor routing as SolidCenterStrokeResolvedPacket records before final face assembly; this step may normalize polygon winding/bounds but must not change join, paint, descriptor visibility, or render projection semantics.',
+        'Resolved stroke records preserve legality-applied product geometry and descriptor routing as ResolvedStrokeProductRecord records before final face assembly; this step may normalize polygon winding/bounds and assemble resolved-packet cache aliases from one immutable common input-signature basis, but must not change join, paint, descriptor visibility, cache invalidation, or render projection semantics.',
       inputs: [
         'legality-applied canonical product packets',
-        'legality-applied render descriptors',
+        'legality-applied descriptor-backed body product units',
+        'terminal and smooth ownership overlays',
+        'post-legality ConstrainedDashedProductEvidenceEnvelope',
         'stroke geometry debug metadata and revision sets',
-        'paint packet references emitted by product builders'
+        'paint packet references emitted by product builders',
+        'declared source, topology/domain, dash-allocation, legal-domain, join-ownership, and normalized stroke cache signatures'
       ],
       outputs: [
-        'SolidCenterStrokeResolvedPacket records',
-        'normalized packet polygons and bounds',
+        'ResolvedStrokeProductRecord records',
+        'normalized packet polygons and bounds when canonical polygons exist',
+        'unchanged body geometry programs and ownership overlays when descriptor-backed products exist',
+        'unchanged ConstrainedDashedProductEvidenceEnvelope',
         'unchanged paint packet references',
-        'unchanged renderDescriptor and debugMeta channels'
+        'unchanged renderDescriptor and debugMeta channels',
+        'one immutable resolved-packet cache-key basis with early, full, and join-independent aliases'
       ],
       conditions: [
         'Run after legality has accepted, clipped, or excluded product units.',
         'Collect center solid, center dashed, constrained solid, and constrained dashed resolved packets through the same vector route.',
-        'Normalize packet polygons only to stable geometry/bounds representation.'
+        'Normalize packet polygons only to stable geometry/bounds representation.',
+        'When resolved-packet caching is enabled, compose the common key basis once and derive aliases only by adding or omitting the declared join-ownership selector.'
       ],
       bypassConditions: [
         'No stroke records are emitted when upstream product builders return no packets.',
@@ -3384,22 +5045,29 @@
       limitations: [
         'This step must not build final faces, render entries, hit packets, export packets, endpoint caps, source-vertex joins, construction/helper products, or renderer stroke path joins.',
         'This step must not collapse descriptor evidence into visible polygons or visible masks.',
-        'This step must not mutate paint payload values, stroke join values, resolvedJoin metadata, angle evidence, or descriptor route channels.'
+        'This step must not mutate paint payload values, stroke join values, resolvedJoin metadata, angle evidence, descriptor route channels, body geometry programs, or terminal/smooth ownership overlays.',
+        'Cache aliases must not reserialize common source, fill/domain, or stroke dimensions separately, omit an invalidation dimension, or recompute an upstream semantic value.'
       ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/dashed-center-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/constrained-solid-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/stroke-region-packet.ts',
+        'packages/preset/src/components/stroke-render/stroke-product-evidence.ts',
         'packages/preset/src/components/vector.ts'
+      ],
+      additionalAllowedTestImports: [
+        'packages/preset/src/components/stroke-render/stroke-final-face.ts'
       ],
       ownerStage: 'Stroke Geometry resolved packet assembly',
       allowedContributors: [
-        'SolidCenterStrokeResolvedPacket geometry',
-        'SolidCenterStrokeResolvedPacket paint reference',
+        'ResolvedStrokeProductRecord geometry',
+        'ResolvedStrokeProductRecord paint reference',
         'packet renderDescriptor channel',
         'packet debugMeta and revision evidence',
-        'normalization of packet polygons and bounds'
+        'normalization of packet polygons and bounds',
+        'one common cache-key basis composed from declared upstream signatures'
       ],
       forbiddenContributors: [
         'final face construction',
@@ -3407,29 +5075,33 @@
         'hit/export packet construction',
         'new join/cap/construction-helper geometry',
         'renderer strokePathStyle.join as source-vertex owner',
-        'descriptor evidence promoted to visible product'
+        'descriptor evidence promoted to visible product',
+        'per-alias source, fill/domain, stroke, or legality semantic serialization'
       ],
       evidenceRequired: [
         'resolved packet geometryId',
         'paint packet identity',
         'renderDescriptor channel identity',
         'debugMeta owner stage or route id',
-        'revision set identity'
+        'revision set identity',
+        'body product and ownership overlay envelope identity signature',
+        'single common cache-key basis construction',
+        'early/full/join-independent alias selector and non-selector byte parity'
       ],
       failureReopensStep: 'build-resolved-stroke-regions',
       verificationEvidence: {
-        gateName: 'protocol plus step 33 unit gate',
+        gateName: 'protocol plus step 34 resolved-record unit gate',
         testFile:
-          'packages/preset/src/__tests__/stroke-flow/step-33-build-resolved-stroke-regions.test.ts',
+          'packages/preset/src/__tests__/stroke-flow/step-34-build-resolved-stroke-regions.test.ts',
         status: 'verified',
         artifactPath:
-          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-33-build-resolved-stroke-regions.test.ts --reporter=verbose',
-        verifiedAt: '2026-07-01T04:49:14+08:00'
+          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-34-build-resolved-stroke-regions.test.ts src/__tests__/stroke-flow/step-37-materialize-stroke-product-descriptors.test.ts --reporter=dot',
+        verifiedAt: '2026-07-11T00:09:50+08:00'
       },
       currentImplementation:
-        'Product builders return SolidCenterStrokeResolvedPacket records, vector.ts collects the route outputs as strokePackets, and normalizeResolvedStrokePacketGeometry normalizes packet polygons and bounds before final face assembly.',
+        'Product builders return resolved stroke product records, vector.ts collects the route outputs as strokePackets, and normalizeResolvedStrokePacketGeometry normalizes packet polygons and bounds before final face assembly. The constrained-dashed packet cache composes source, fill/domain, and stroke dimensions once, derives early/full/join-independent aliases from that basis, and passes the full alias to Step 37 descriptor caching.',
       requiredAdjustment:
-        'Keep resolved packets as the only handoff from product/legality into final face assembly; do not move render entry or hit/export projection work into this step.',
+        'Preserve one-time common-basis composition, exact alias byte ordering, and all invalidation dimensions. Keep resolved packets as the only handoff from product/legality into final face assembly, and do not move render entry or hit/export projection work into this step.',
       tags: ['canonical']
     },
     'attach-paint-payload': {
@@ -3437,7 +5109,8 @@
       latestRule:
         'Paint payload attachment carries stroke paint data onto resolved packets without changing geometry, descriptor routing, join metadata, ownership metadata, or downstream projection channels.',
       inputs: [
-        'SolidCenterStrokeResolvedPacket geometry records',
+        'ResolvedStrokeProductRecord geometry records',
+        'unchanged ConstrainedDashedProductEvidenceEnvelope',
         'renderable stroke paint fields',
         'stroke.fill-normalized paint identity',
         'geometryId for paint-to-geometry association'
@@ -3445,6 +5118,7 @@
       outputs: [
         'SolidCenterStrokePaintPacket payloads',
         'resolved packets with unchanged geometry records',
+        'paint-attached records with unchanged ConstrainedDashedProductEvidenceEnvelope',
         'paint identity evidence through paintKey',
         'gradientStyle carried as paint data only'
       ],
@@ -3466,7 +5140,9 @@
         'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/dashed-center-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/constrained-solid-stroke-packets.ts',
-        'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts'
+        'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/stroke-paint-payload.ts',
+        'packages/preset/src/components/stroke-render/stroke-product-evidence.ts'
       ],
       ownerStage: 'Stroke Geometry paint payload attachment',
       allowedContributors: [
@@ -3492,17 +5168,18 @@
         'paint kind',
         'paint color',
         'paint alpha',
-        'paintKey or gradientStyle identity'
+        'paintKey or gradientStyle identity',
+        'body product and ownership overlay envelope identity signature unchanged by paint attachment'
       ],
       failureReopensStep: 'attach-paint-payload',
       verificationEvidence: {
-        gateName: 'protocol plus step 34 unit gate',
+        gateName: 'pending step 35 paint-payload unit gate',
         testFile:
-          'packages/preset/src/__tests__/stroke-flow/step-34-attach-paint-payload.test.ts',
-        status: 'verified',
+          'packages/preset/src/__tests__/stroke-flow/step-35-attach-paint-payload.test.ts',
+        status: 'pending-schema-alignment',
         artifactPath:
-          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-34-attach-paint-payload.test.ts --reporter=verbose',
-        verifiedAt: '2026-07-01T04:52:25+08:00'
+          'pending:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-35-attach-paint-payload.test.ts --reporter=verbose',
+        verifiedAt: 'pending'
       },
       currentImplementation:
         'Resolved packet builders attach SolidCenterStrokePaintPacket payloads from renderable stroke fields while leaving packet geometry, renderDescriptor, and debugMeta in their product-builder output channels.',
@@ -3517,16 +5194,22 @@
       inputs: [
         'paint-attached semantic stroke records',
         'canonical product packets',
-        'render descriptors with visible route and evidence route separation'
+        'descriptor-backed body product units with visible/evidence route separation',
+        'terminal and smooth ownership overlays',
+        'complete ConstrainedDashedProductEvidenceEnvelope'
       ],
       outputs: [
         'final faces for canonical visible product packets',
         'final faces carrying renderDescriptor for descriptor-visible routes',
-        'separated hit/export/diagnostic evidence references'
+        'descriptor-backed final faces carrying an exact deferred polygon projection recipe without eager body polygons when eligibility is proven',
+        'final-face product identity set preserving body product, owner overlay, interval, terminal role, smooth group, seam boundary, legal domain, and source span ids for downstream render/hit/export consumption',
+        'final faces carrying the unchanged ConstrainedDashedProductEvidenceEnvelope',
+        'separated hit/export product evidence references and optional non-product diagnostic evidence references'
       ],
       conditions: [
         'Canonical packet routes expose visible product polygons with owner metadata.',
-        'Descriptor routes expose renderer-ready strokePathGroups, strokePaths, fillClip, fillExclude, and evidence-only descriptorProductPolygons according to the product descriptor contract.',
+        'Descriptor routes expose renderer-ready strokePathGroups, strokePaths, fillClip, fillExclude, and optional evidence-only descriptorProductPolygons according to the product descriptor contract.',
+        'An eligible descriptor-backed final face preserves the exact projection recipe, conservative bounds, canonical join mask polygons, and complete product identity without invoking deferred polygon materialization.',
         'Constrained solid descriptor routes expose only same-owner smooth-span projection; sharp source vertices remain canonical packet output owned by source-vertex join assembly.',
         'Inside mask descriptors keep inside clip masks separate from visible stroke path output.',
         'Outside source-domain and aggregate descriptors keep source-domain, carrier, boundary-domain, and clip polygons evidence-only unless a route explicitly declares visible product polygons.'
@@ -3536,6 +5219,7 @@
       ],
       limitations: [
         'Final faces may not flatten descriptor evidence into visible product polygons.',
+        'Final faces may not convert terminal or smooth ownership overlays into visible polygons or stroke paths.',
         'Final faces may not collapse authoredJoin:miter plus resolvedJoin:bevel-by-miter-angle into authored bevel.',
         'Final faces may not route authored sharp source-vertex completion through masked-source-stroke descriptor replay.'
       ],
@@ -3543,6 +5227,7 @@
         'packages/preset/src/components/stroke-render/stroke-final-face.ts',
         'packages/preset/src/components/stroke-render/stroke-candidate-arrangement.ts',
         'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/stroke-product-evidence.ts',
         'packages/preset/src/components/vector.ts'
       ],
       ownerStage: 'Stroke Geometry final face assembly',
@@ -3550,7 +5235,8 @@
         'canonical visible product packets',
         'renderDescriptor visible stroke paths',
         'renderDescriptor clips and excludes as non-visible constraints',
-        'descriptorProductPolygons as evidence or explanation only when strokePathGroups own visible output'
+        'descriptorProductPolygons as evidence or explanation only when strokePathGroups own visible output',
+        'exact deferred product projection recipe when eager polygons are formally proven unnecessary for the visible route'
       ],
       forbiddenContributors: [
         'diagnostic/helper polygons as visible faces',
@@ -3562,17 +5248,20 @@
         'descriptor route kind',
         'visible output owner',
         'non-visible evidence owner',
-        'hit/export projection channel'
+        'final-face product identity set with body product, owner overlay, interval, terminal role, smooth group, seam boundary, legal-domain, and source-span ids',
+        'complete body product and ownership overlay envelope identity signature',
+        'hit/export projection channel',
+        'deferred recipe fingerprint and proof that final-face assembly did not invoke it'
       ],
       failureReopensStep: 'build-final-faces',
       verificationEvidence: {
-        gateName: 'protocol plus step 35 unit gate',
+        gateName: 'pending step 36 final-face unit gate',
         testFile:
-          'packages/preset/src/__tests__/stroke-flow/step-35-build-final-faces.test.ts',
-        status: 'verified',
+          'packages/preset/src/__tests__/stroke-flow/step-36-build-final-faces.test.ts',
+        status: 'pending-schema-alignment',
         artifactPath:
-          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-35-build-final-faces.test.ts --reporter=verbose',
-        verifiedAt: '2026-07-01T04:55:00+08:00'
+          'pending:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-36-build-final-faces.test.ts --reporter=verbose',
+        verifiedAt: 'pending'
       },
       currentImplementation:
         'Inside solid uses grouped authored stroke paths; center dashed and constrained dashed render entries consume descriptor output from the same product builder used by static, drag, cap switch, reload, and pan.',
@@ -3587,21 +5276,25 @@
       inputs: [
         'final faces',
         'renderDescriptor visible route',
-        'hit/export evidence references'
+        'hit/export evidence references',
+        'final-face ConstrainedDashedProductEvidenceEnvelope'
       ],
       outputs: [
         'visible render packets',
         'hit-test packets',
         'export packets',
-        'diagnostic packets with explicit non-visible channel tags'
+        'render, hit-test, and export product identity preserving every body and ownership overlay id',
+        'one descriptor-backed composite packet per eligible same-paint compatibility group with a shared deferred projection recipe'
       ],
       conditions: [
         'Visible render packets consume only visible product owners.',
         'Hit/export packets may materialize equivalent geometry from descriptor evidence without changing visible render semantics.',
-        'Diagnostic packets remain channel-separated from visible render.'
+        'An eligible descriptor-backed composite packet carries completed body paths, endpoint-cap masks, canonical legal join polygons, legal clip/exclude constraints, and the complete identity envelope once.',
+        'Render packet construction must preserve but never invoke the deferred polygon projection recipe.',
+        'Optional diagnostics, when explicitly enabled outside the inspector step graph, may summarize descriptor evidence but must not become product packets.'
       ],
       bypassConditions: [
-        'No bypass may merge render, hit, export, and diagnostic channels into one untagged product.'
+        'No bypass may merge render, hit, export, optional diagnostics, or validation evidence into one untagged product.'
       ],
       limitations: [
         'This stage may not define new stroke geometry, re-add endpoint caps, or infer join ownership.'
@@ -3609,6 +5302,7 @@
       implementationFiles: [
         'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/stroke-region-packet.ts',
+        'packages/preset/src/components/stroke-render/stroke-product-evidence.ts',
         'packages/preset/src/components/vector.ts'
       ],
       ownerStage: 'Product Output channel projection',
@@ -3625,18 +5319,20 @@
       evidenceRequired: [
         'output channel tag',
         'source product owner',
+        'body product ids plus terminal and smooth overlay ids',
         'descriptor route mode',
-        'hit/export equivalence reason when materialized differently from render'
+        'hit/export equivalence reason when materialized differently from render',
+        'composite compatibility signature, deferred recipe fingerprint, and canonical join polygon reference parity'
       ],
       failureReopensStep: 'emit-render-hit-export-packets',
       verificationEvidence: {
-        gateName: 'protocol plus step 37 unit gate',
+        gateName: 'pending step 38 render-hit-export packet unit gate',
         testFile:
-          'packages/preset/src/__tests__/stroke-flow/step-37-emit-render-hit-export-packets.test.ts',
-        status: 'verified',
+          'packages/preset/src/__tests__/stroke-flow/step-38-emit-render-hit-export-packets.test.ts',
+        status: 'pending-schema-alignment',
         artifactPath:
-          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-37-emit-render-hit-export-packets.test.ts --reporter=verbose',
-        verifiedAt: '2026-07-01T05:04:48+08:00'
+          'pending:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-38-emit-render-hit-export-packets.test.ts --reporter=verbose',
+        verifiedAt: 'pending'
       },
       currentImplementation:
         'For the reported inside-solid slice, render consumes grouped visible descriptors while hit/export keep separate projection data.',
@@ -3650,16 +5346,23 @@
         'Render entries are projection-only and must not create constrained stroke semantics; center solid alpha-safe renderer path descriptors, translucent center solid single-composite descriptors, exact center dashed descriptors, and exact constrained dashed inside/outside mask descriptors may skip visible polygon projection/collapse.',
       inputs: [
         'visible render packets',
-        'renderDescriptor strokePathGroups, strokePaths, strokeMaskPolygons, descriptorProductPolygons, fillClipPolygons, fillExcludePolygons, and product metadata'
+        'renderDescriptor strokePathGroups, strokePaths, strokeMaskPolygons, descriptorProductPolygons, fillClipPolygons, fillExcludePolygons, and product metadata',
+        'descriptor-backed composite packets whose eager body polygons are deferred',
+        'final-face product identity set with body product, owner overlay, interval, terminal role, smooth group, seam boundary, legal-domain, and source-span ids',
+        'final-face ConstrainedDashedProductEvidenceEnvelope',
+        'final-face preserved dash-body seam-boundary artifact for coverage-equivalence proof only'
       ],
       outputs: [
         'renderer-ready strokePathGroups or strokePaths for descriptor-visible routes',
         'renderer-ready strokeMaskPolygons only for visible polygon or cap-mask routes',
-        'fillClip/fillExclude constraints and descriptor evidence carried separately'
+        'fillClip/fillExclude constraints and descriptor evidence carried separately',
+        'render-entry product identity set preserving every consumed body product, owner overlay, interval, terminal role, smooth group, seam boundary, legal-domain, and source-span id',
+        'unchanged ConstrainedDashedProductEvidenceEnvelope on render-entry evidence metadata'
       ],
       conditions: [
         'When strokePathGroups exist, they are the visible route and descriptorProductPolygons remain clip/evidence/explanation only.',
         'When only canonical visible polygons exist, strokeMaskPolygons may carry those visible product polygons.',
+        'When an eligible descriptor-backed composite exists, consume its stroke paths, completed cap/join mask polygons, and clip/exclude constraints directly without requesting deferred product polygons.',
         'Constrained solid descriptor paths may remain visible only for same-owner smooth spans that do not cross authored sharp source-vertex ownership boundaries.',
         'Inside mask descriptors merge stroke path output with inside fillClip constraints without promoting descriptorProductPolygons to visible fill.',
         'Outside source-domain and aggregate descriptors may explain source-domain coverage, but visible render must consume the declared visible stroke path or canonical packet route.'
@@ -3674,10 +5377,16 @@
         'Render entries may not promote descriptorProductPolygons to strokeMaskPolygons when strokePathGroups own visible output.',
         'Render entries must decide same-paint single-composite or equivalent alpha-safe evidence before renderer projection; renderer projection may not make this decision.',
         'Render entries must not re-run per-face legal clipping, source-coverage clipping, cleanup, or endpoint canonicalization on constrained dashed post-legality final faces in a way that can delete terminal, join, smooth-continuity, or dash-body products. Additional clipping is allowed only inside a declared same-paint composite/projection route with coverage-equivalence, zero wrong-side residue, and zero seam-loss evidence.',
-        'Inside/outside constrained same-paint arrangements must include resolved legal-domain boundaries as non-visible splitter input; splitter input may cut arrangement cells but must not claim paint, become visible output, synthesize fallback geometry, or erase dash/join/terminal provenance.'
+        'Render entries must not drop, merge away, or recalculate terminal half-dash, seam-boundary, interval, legal-domain, or source-span identity already present on consumed final faces.',
+        'Render entries must not materialize terminal or smooth ownership overlays as additional body polygons or stroke paths.',
+        'Render entries and renderer projection must not invoke deferred hit/export polygon materialization.',
+        'Render entries may sample preserved dash-body seam-boundary artifacts only to prove source coverage survives projection; they may not move, canonicalize, reinterpret, or materialize visible geometry from that evidence.',
+        'Inside/outside constrained same-paint arrangements must include resolved legal-domain boundaries as non-visible splitter input; splitter input may cut arrangement cells but must not claim paint, become visible output, synthesize fallback geometry, or erase dash/join/terminal provenance.',
+        'Legal-side sample probes used by render-entry equivalence checks must be actual product vertices, product edge midpoints, or points already proven to lie on or inside the candidate visible product. Synthetic proxy points such as vertex-average centroids are not legal-side authority for concave or clipped polygons when exact backend area proof is available.'
       ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/stroke-product-evidence.ts',
         'packages/preset/src/components/vector.ts'
       ],
       additionalAllowedTestImports: [
@@ -3705,17 +5414,21 @@
         'descriptorProductPolygons evidence-only reason when strokePathGroups exist',
         'same-paint single-composite or alpha-safe equivalence evidence when visible entries overlap',
         'post-legality constrained dashed final-face products preserved without per-face render-entry reclip deletion',
-        'legal-domain splitter participation evidence for inside/outside constrained same-paint arrangements'
+        'terminal half-dash and seam-boundary identity parity between consumed final faces and emitted render entries',
+        'terminal and smooth overlay identity parity with zero additional visible contribution',
+        'zero deferred polygon materialization calls during render-entry and renderer projection',
+        'legal-domain splitter participation evidence for inside/outside constrained same-paint arrangements',
+        'legal-side probe source evidence showing samples are on/in product geometry or that exact backend area proof was used'
       ],
       failureReopensStep: 'render-entries',
       verificationEvidence: {
-        gateName: 'protocol plus step 38 unit gate',
+        gateName: 'pending step 39 render-entry unit gate',
         testFile:
-          'packages/preset/src/__tests__/stroke-flow/step-38-render-entries.test.ts',
-        status: 'verified',
+          'packages/preset/src/__tests__/stroke-flow/step-39-render-entries.test.ts',
+        status: 'pending-schema-alignment',
         artifactPath:
-          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-38-render-entries.test.ts --reporter=verbose',
-        verifiedAt: '2026-07-01T05:09:21+08:00'
+          'pending:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-39-render-entries.test.ts --reporter=verbose',
+        verifiedAt: 'pending'
       },
       currentImplementation:
         'Center solid drag render uses renderer path projection only for alpha-safe cases and single-composite descriptor output for translucent self-intersections. Center dashed drag render skips visible packet/geometry rebuilds through exact authored strokePath descriptors; constrained dashed drag render consumes exact inside/outside mask descriptors so visible frames avoid per-interval product intersection while preserving the inside/outside legal-domain product rule.',
@@ -3770,13 +5483,13 @@
       ],
       failureReopensStep: 'renderer-projection',
       verificationEvidence: {
-        gateName: 'protocol plus step 39 unit gate',
+        gateName: 'pending step 40 renderer-projection unit gate',
         testFile:
-          'packages/preset/src/__tests__/stroke-flow/step-39-renderer-projection.test.ts',
-        status: 'verified',
+          'packages/preset/src/__tests__/stroke-flow/step-40-renderer-projection.test.ts',
+        status: 'pending-schema-alignment',
         artifactPath:
-          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-39-renderer-projection.test.ts --reporter=verbose',
-        verifiedAt: '2026-07-01T05:11:37+08:00'
+          'pending:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-40-renderer-projection.test.ts --reporter=verbose',
+        verifiedAt: 'pending'
       },
       tags: ['risk']
     },
@@ -3787,16 +5500,20 @@
       inputs: [
         'stroke final faces',
         'projected hit/export packets derived from final faces',
+        'exact descriptor-backed composite projection recipes carried by final faces',
+        'final-face ConstrainedDashedProductEvidenceEnvelope',
         'source owner, interval, span, contour, network, legal-domain, bounds, and debug metadata carried by final faces'
       ],
       outputs: [
-        'hover hit area backed by projected final-face polygons',
-        'lazy export packet channel attached from projected final-face packets',
-        'hit/export metadata preserving source owner and product channel evidence'
+        'hover hit area backed by projected final-face polygons or one cached exact descriptor projection',
+        'lazy export packet channel attached from projected final-face packets or the same cached exact descriptor projection',
+        'hit/export metadata preserving source owner and product channel evidence',
+        'hit/export product identity preserving every body and ownership overlay id'
       ],
       conditions: [
         'Hit/export runs after final faces and render entries have been materialized for the current route.',
         'Hit/export packets project final-face product geometry and descriptor evidence without changing visible render semantics.',
+        'Descriptor-backed hit/export projection materializes at most once per final-face identity and reuses the same polygons for both channels.',
         'Fill hit testing may combine with stroke hit testing only as a hit-test union; it must not mutate stroke product geometry or render output.'
       ],
       bypassConditions: [
@@ -3810,6 +5527,7 @@
       ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/stroke-product-evidence.ts',
         'packages/preset/src/components/vector.ts'
       ],
       ownerStage: 'Product Output hit/export projection',
@@ -3831,101 +5549,27 @@
       evidenceRequired: [
         'projected geometry id',
         'final-face owner set',
+        'body product ids plus terminal and smooth overlay ids',
         'source span, network, contour, interval, and legal-domain ids',
         'debug metadata preserving product provenance',
-        'empty-output reason when no final faces exist'
+        'empty-output reason when no final faces exist',
+        'eager/lazy zero symmetric-difference proof, projection cache identity, and no render-time invocation evidence'
       ],
       failureReopensStep: 'hit-export',
       verificationEvidence: {
-        gateName: 'protocol plus step 40 unit gate',
+        gateName: 'pending step 41 hit-export unit gate',
         testFile:
-          'packages/preset/src/__tests__/stroke-flow/step-40-hit-export.test.ts',
-        status: 'verified',
+          'packages/preset/src/__tests__/stroke-flow/step-41-hit-export.test.ts',
+        status: 'pending-schema-alignment',
         artifactPath:
-          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-40-hit-export.test.ts --reporter=verbose',
-        verifiedAt: '2026-07-01T05:14:03+08:00'
+          'pending:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-41-hit-export.test.ts --reporter=verbose',
+        verifiedAt: 'pending'
       },
       currentImplementation:
         'Hit and export are built from final faces through projected packets in solid-center-stroke-packets.ts, then vector.ts attaches a hover hit area and lazy export packet channel from semanticStrokeFinalFaces.',
       requiredAdjustment:
         'Keep hit/export projection separate from renderer drawing, diagnostics, and join materialization; any hit/export mismatch must reopen this step or the earliest upstream owner stage that produced invalid final faces.',
       tags: ['canonical']
-    },
-    'runtime-diagnostics': {
-      alignmentStatus: 'architecture-closed',
-      latestRule:
-        'Runtime diagnostics are evidence channels only. They may summarize upstream product, region, legality, ownership, overlap, cache, and render-entry metadata, but they must not create visible geometry or repair stroke output.',
-      inputs: [
-        'final faces, resolved packets, render entries, and hit/export output ids from upstream stages',
-        'diagnostics mode configuration',
-        'center dashed overlap candidates and constrained solid legality/ownership evidence'
-      ],
-      outputs: [
-        'runtime diagnostic properties attached to the graphic object',
-        'stroke region diagnostic packets without paint revision',
-        'pipeline counters and debug metadata snapshots',
-        'cleared diagnostic properties when diagnostics are disabled'
-      ],
-      conditions: [
-        'Full diagnostics may attach overlap, legality, and ownership diagnostics.',
-        'When full diagnostics are disabled, diagnostic properties are cleared and no helper evidence remains attached.',
-        'Region/debug packets must preserve source ids and product provenance while omitting paint-only revision state.'
-      ],
-      bypassConditions: [
-        'Diagnostics may be skipped or cleared when diagnostics mode is off.',
-        'Empty upstream product may emit empty diagnostic channels only.'
-      ],
-      limitations: [
-        'Diagnostics may not draw pixels, create render entries, define join geometry, add endpoint caps, infer side legality, or promote helper polygons into visible product output.',
-        'Diagnostics may not become hit/export or render source of truth.',
-        'Diagnostics may not collapse authoredJoin, resolvedJoin, vertexAngle, miterAngle, angleSource, or comparison evidence when that metadata is present upstream.'
-      ],
-      implementationFiles: [
-        'packages/preset/src/components/stroke-render/stroke-diagnostics-mode.ts',
-        'packages/preset/src/components/stroke-render/center-dashed-overlap-diagnostics.ts',
-        'packages/preset/src/components/stroke-render/constrained-solid-legality-diagnostics.ts',
-        'packages/preset/src/components/stroke-render/constrained-solid-ownership-diagnostics.ts',
-        'packages/preset/src/components/stroke-render/stroke-region-packet.ts',
-        'packages/preset/src/components/vector.ts'
-      ],
-      ownerStage: 'Diagnostics runtime evidence channels',
-      allowedContributors: [
-        'upstream final faces and resolved packets',
-        'upstream render entries as metadata snapshots',
-        'diagnostics mode flag',
-        'legality, ownership, overlap, and region evidence'
-      ],
-      forbiddenContributors: [
-        'diagnostic/helper geometry as visible product output',
-        'diagnostic/helper geometry as hit/export source of truth',
-        'diagnostics-created render entries',
-        'renderer-local join or cap repair',
-        'endpoint cap repair',
-        'construction/helper products as diagnostic repair',
-        'downstream repair for an upstream semantic mismatch'
-      ],
-      evidenceRequired: [
-        'diagnostics mode',
-        'attached or cleared runtime diagnostic property names',
-        'source product owner or source ids for diagnostic records',
-        'region revision without paint revision',
-        'non-visible diagnostic channel separation'
-      ],
-      failureReopensStep: 'runtime-diagnostics',
-      verificationEvidence: {
-        gateName: 'protocol plus step 41 unit gate',
-        testFile:
-          'packages/preset/src/__tests__/stroke-flow/step-41-runtime-diagnostics.test.ts',
-        status: 'verified',
-        artifactPath:
-          'terminal:yarn workspace @asyra/preset vitest run src/__tests__/stroke-flow-refactor-protocol.test.ts src/__tests__/stroke-flow/step-41-runtime-diagnostics.test.ts --reporter=verbose',
-        verifiedAt: '2026-07-01T05:17:20+08:00'
-      },
-      currentImplementation:
-        'Diagnostics mode is read from global runtime configuration; vector.ts attaches or clears center dashed overlap diagnostics, constrained solid legality diagnostics, constrained solid ownership diagnostics, stroke region/debug metadata, and pipeline counters without feeding them back into render or hit/export output.',
-      requiredAdjustment:
-        'Keep runtime diagnostics outside visible product, hit/export, and renderer projection ownership. Any diagnostic output used to repair geometry reopens the earliest upstream owner stage that owns the missing canonical product data.',
-      tags: ['diagnostics']
     }
   }
 
@@ -4101,6 +5745,349 @@
 
   const steps = stepSpecs.map((spec, index) => defaultStepData(...spec, index))
   const stepById = new Map(steps.map((step) => [step.id, step]))
+  const reviewSegmentIdByStepId = new Map(
+    wholeFlowReviewContract.reviewSegments.flatMap((segment) =>
+      segment.stepIds.map((stepId) => [stepId, segment.id])
+    )
+  )
+  const baseForbiddenResponsibilityActions = [
+    'recompute semantic values owned by upstream steps',
+    'repair downstream geometry or output by patching a later channel',
+    'promote diagnostics, helper geometry, or visual probes into product output'
+  ]
+  const responsibility = ({
+    stepId,
+    classification,
+    ownerMode,
+    primaryArtifacts = [],
+    allowedActions = [],
+    forbiddenActions = []
+  }) => ({
+    stepId,
+    classification,
+    ownerMode,
+    reviewSegment: reviewSegmentIdByStepId.get(stepId),
+    primaryArtifacts,
+    allowedActions,
+    forbiddenActions: [
+      ...baseForbiddenResponsibilityActions,
+      ...forbiddenActions
+    ]
+  })
+  const stepResponsibilityDefinitions = [
+    responsibility({
+      stepId: 'feature-session-intent',
+      classification: 'state-overlay',
+      ownerMode: 'capture feature/session intent before model mutation',
+      primaryArtifacts: ['intent:feature-session'],
+      allowedActions: ['record user intent and feature-session scope']
+    }),
+    responsibility({
+      stepId: 'path-editing-intent',
+      classification: 'state-overlay',
+      ownerMode: 'record path-editing intent and route selection',
+      primaryArtifacts: ['intent:path-editing'],
+      allowedActions: ['record edit command, source id, and route intent']
+    }),
+    responsibility({
+      stepId: 'point-handle-drag-operation',
+      classification: 'primary-computation',
+      ownerMode: 'compute point/handle drag source edits',
+      primaryArtifacts: ['stage:point-handle-drag-operation'],
+      allowedActions: ['update source point or handle positions']
+    }),
+    responsibility({
+      stepId: 'structural-vector-operation',
+      classification: 'primary-computation',
+      ownerMode: 'compute structural vector topology edits',
+      primaryArtifacts: ['stage:structural-vector-operation'],
+      allowedActions: ['update canonical vector structure']
+    }),
+    responsibility({
+      stepId: 'common-api-domain-adapter',
+      classification: 'state-overlay',
+      ownerMode: 'adapt app operation into common API domain input',
+      primaryArtifacts: ['stage:common-api-domain-adapter'],
+      allowedActions: ['translate app command into common API payload']
+    }),
+    responsibility({
+      stepId: 'canonical-workspace-data',
+      classification: 'primary-computation',
+      ownerMode: 'commit canonical workspace data',
+      primaryArtifacts: ['stage:canonical-workspace-data'],
+      allowedActions: ['write canonical workspace model state']
+    }),
+    responsibility({
+      stepId: 'validate-topology',
+      classification: 'validation/evidence-only',
+      ownerMode: 'validate topology and produce non-product evidence',
+      primaryArtifacts: ['stage:validate-topology'],
+      allowedActions: ['validate topology invariants and record evidence']
+    }),
+    responsibility({
+      stepId: 'computed-patch-builder',
+      classification: 'primary-computation',
+      ownerMode: 'compute model patch from canonical mutation',
+      primaryArtifacts: ['stage:computed-patch-builder'],
+      allowedActions: ['build computed patch records']
+    }),
+    responsibility({
+      stepId: 'transaction-undo-boundary',
+      classification: 'state-overlay',
+      ownerMode: 'attach transaction and undo boundary state',
+      primaryArtifacts: ['stage:transaction-undo-boundary'],
+      allowedActions: ['group patch records into undoable transaction state']
+    }),
+    responsibility({
+      stepId: 'scene-tree-commit',
+      classification: 'state-overlay',
+      ownerMode: 'commit scene-tree state from canonical patch',
+      primaryArtifacts: ['stage:scene-tree-commit'],
+      allowedActions: ['commit scene-tree references and revision state']
+    }),
+    responsibility({
+      stepId: 'computed-patch-event',
+      classification: 'state-overlay',
+      ownerMode: 'publish computed patch event without new semantics',
+      primaryArtifacts: ['stage:computed-patch-event'],
+      allowedActions: ['emit event payload preserving patch identity']
+    }),
+    responsibility({
+      stepId: 'downstream-subscriber-routing',
+      classification: 'state-overlay',
+      ownerMode: 'route downstream subscribers to current patch data',
+      primaryArtifacts: ['stage:downstream-subscriber-routing'],
+      allowedActions: ['dispatch current patch data to subscribers']
+    }),
+    responsibility({
+      stepId: 'render-mirror-patch-apply',
+      classification: 'state-overlay',
+      ownerMode: 'apply current patch data to render mirror state',
+      primaryArtifacts: ['stage:render-mirror-patch-apply'],
+      allowedActions: ['preserve patch identity in render mirror state']
+    }),
+    responsibility({
+      stepId: 'render-data-derivation',
+      classification: 'primary-computation',
+      ownerMode: 'derive render data from current mirror state',
+      primaryArtifacts: ['stage:render-data-derivation'],
+      allowedActions: ['derive current render data without product geometry']
+    }),
+    responsibility({
+      stepId: 'dirty-revision-graph',
+      classification: 'state-overlay',
+      ownerMode: 'attach dirty revision graph state',
+      primaryArtifacts: ['stage:dirty-revision-graph'],
+      allowedActions: ['classify dirty revisions and dependencies']
+    }),
+    responsibility({
+      stepId: 'stage-product-cache',
+      classification: 'state-overlay',
+      ownerMode: 'attach cache reuse or invalidation state',
+      primaryArtifacts: ['cache:verified-product-descriptor'],
+      allowedActions: ['reuse exact matching artifacts or force rebuild']
+    }),
+    responsibility({
+      stepId: 'render-strategy-entry',
+      classification: 'state-overlay',
+      ownerMode: 'select render strategy entry for current state',
+      primaryArtifacts: ['stage:render-strategy-entry'],
+      allowedActions: ['route current state into the stroke product pipeline']
+    }),
+    responsibility({
+      stepId: 'normalize-render-data',
+      classification: 'primary-computation',
+      ownerMode: 'normalize render data for stroke source processing',
+      primaryArtifacts: ['stage:normalize-render-data'],
+      allowedActions: ['normalize source render data and provenance']
+    }),
+    responsibility({
+      stepId: 'normalize-stroke-spec',
+      classification: 'primary-computation',
+      ownerMode: 'normalize stroke style, width, position, dash, and join spec',
+      primaryArtifacts: ['artifact:normalized-stroke-spec'],
+      allowedActions: ['normalize stroke spec and default evidence']
+    }),
+    responsibility({
+      stepId: 'shared-geometry-model',
+      classification: 'primary-computation',
+      ownerMode: 'compute shared source geometry model',
+      primaryArtifacts: ['stage:shared-geometry-model'],
+      allowedActions: ['build topology-ready shared geometry evidence']
+    }),
+    responsibility({
+      stepId: 'resolve-source-families',
+      classification: 'primary-computation',
+      ownerMode: 'classify source families for stroke routing',
+      primaryArtifacts: ['stage:resolve-source-families'],
+      allowedActions: ['resolve source family and topology family']
+    }),
+    responsibility({
+      stepId: 'resolve-stroke-domains',
+      classification: 'primary-computation',
+      ownerMode: 'compute StrokeDomainPlan records',
+      primaryArtifacts: ['artifact:stroke-domain-plan'],
+      allowedActions: ['compute domain plan and side authority']
+    }),
+    responsibility({
+      stepId: 'allocate-dash-intervals',
+      classification: 'primary-computation',
+      ownerMode: 'compute DashProductInterval identity and allocation records',
+      primaryArtifacts: ['artifact:dash-product-interval'],
+      allowedActions: ['allocate dash intervals and terminal roles']
+    }),
+    responsibility({
+      stepId: 'select-stroke-product-family',
+      classification: 'state-overlay',
+      ownerMode: 'select product family route from normalized domain inputs',
+      primaryArtifacts: ['stage:select-stroke-product-family'],
+      allowedActions: ['select center, constrained solid, or constrained dashed family']
+    }),
+    responsibility({
+      stepId: 'build-center-stroke-products',
+      classification: 'primary-computation',
+      ownerMode: 'compute center stroke product units',
+      primaryArtifacts: ['artifact:preLegalityProductUnits'],
+      allowedActions: ['build center product geometry and provenance']
+    }),
+    responsibility({
+      stepId: 'build-constrained-solid-products',
+      classification: 'primary-computation',
+      ownerMode: 'compute constrained solid product units',
+      primaryArtifacts: ['artifact:preLegalityProductUnits'],
+      allowedActions: ['build constrained solid body products']
+    }),
+    responsibility({
+      stepId: 'build-dash-interval-body-products',
+      classification: 'primary-computation',
+      ownerMode:
+        'compute the single visible constrained dashed interval body product as polygons or an exact body geometry program',
+      primaryArtifacts: ['artifact:constrained-dashed-interval-body-product'],
+      allowedActions: [
+        'build complete visible dash body products including terminal and smooth portions'
+      ]
+    }),
+    responsibility({
+      stepId: 'derive-dash-body-seam-boundaries',
+      classification: 'primary-computation',
+      ownerMode: 'derive non-visible dash body seam-boundary artifacts',
+      primaryArtifacts: ['artifact:dash-body-seam-boundary'],
+      allowedActions: ['derive seam boundary ids from emitted dash body products']
+    }),
+    responsibility({
+      stepId: 'build-source-vertex-join-products',
+      classification: 'primary-computation',
+      ownerMode: 'compute source-vertex join and miter evidence products',
+      primaryArtifacts: [
+        'artifact:source-vertex-join-miter-evidence',
+        'artifact:constrained-dashed-source-vertex-join-product'
+      ],
+      allowedActions: ['build source-vertex join products from declared seams']
+    }),
+    responsibility({
+      stepId: 'build-terminal-body-products',
+      classification: 'state-overlay',
+      ownerMode:
+        'bind non-visible terminal ownership metadata to existing dash body products',
+      primaryArtifacts: [
+        'artifact:constrained-dashed-join-owned-terminal-body-product'
+      ],
+      allowedActions: [
+        'attach terminal, cap-policy, seam, and join-ownership identity without geometry'
+      ]
+    }),
+    responsibility({
+      stepId: 'build-smooth-continuity-products',
+      classification: 'primary-computation',
+      ownerMode:
+        'bind constrained dashed smooth ownership overlays or compute constrained solid same-owner smooth products',
+      primaryArtifacts: ['artifact:constrained-dashed-smooth-continuity-product'],
+      allowedActions: [
+        'attach constrained dashed smooth identity without duplicate geometry',
+        'build constrained solid same-owner smooth products'
+      ]
+    }),
+    responsibility({
+      stepId: 'select-stroke-descriptor-strategy',
+      classification: 'state-overlay',
+      ownerMode: 'attach descriptor eligibility and legality-basis state',
+      primaryArtifacts: ['artifact:descriptorStrategyRecords'],
+      allowedActions: ['record descriptor strategy without materializing output']
+    }),
+    responsibility({
+      stepId: 'apply-legality',
+      classification: 'primary-computation',
+      ownerMode: 'clip or delete declared products against legal domains',
+      primaryArtifacts: ['artifact:postLegalityProductUnits'],
+      allowedActions: ['clip products and record legal empty/delete evidence'],
+      forbiddenActions: ['create join, cap, terminal, or seam geometry']
+    }),
+    responsibility({
+      stepId: 'build-resolved-stroke-regions',
+      classification: 'state-overlay',
+      ownerMode: 'assemble resolved stroke region records from legal products',
+      primaryArtifacts: ['stage:build-resolved-stroke-regions'],
+      allowedActions: ['preserve product identity in resolved region records']
+    }),
+    responsibility({
+      stepId: 'attach-paint-payload',
+      classification: 'state-overlay',
+      ownerMode: 'attach paint payload while preserving geometry provenance',
+      primaryArtifacts: ['stage:attach-paint-payload'],
+      allowedActions: ['attach paint and preserve product identity']
+    }),
+    responsibility({
+      stepId: 'build-final-faces',
+      classification: 'primary-computation',
+      ownerMode: 'materialize final-face product identity set',
+      primaryArtifacts: ['artifact:finalFaces'],
+      allowedActions: ['build final faces and preserve identity set']
+    }),
+    responsibility({
+      stepId: 'materialize-stroke-product-descriptors',
+      classification: 'channel-projection',
+      ownerMode:
+        'materialize renderer-ready descriptors from already declared final products',
+      primaryArtifacts: ['artifact:constrained-dashed-render-descriptor'],
+      allowedActions: ['project final product data into descriptor records'],
+      forbiddenActions: ['create new geometry during descriptor materialization']
+    }),
+    responsibility({
+      stepId: 'emit-render-hit-export-packets',
+      classification: 'channel-projection',
+      ownerMode:
+        'project final faces into render, hit-test, and export packet channels',
+      primaryArtifacts: ['artifact:hit-export-packets'],
+      allowedActions: ['emit channel-tagged packets from final faces'],
+      forbiddenActions: ['create new geometry while emitting packets']
+    }),
+    responsibility({
+      stepId: 'render-entries',
+      classification: 'channel-projection',
+      ownerMode: 'project final faces and packets into render-entry records',
+      primaryArtifacts: ['artifact:renderEntries'],
+      allowedActions: ['materialize render entries and preserve identity parity'],
+      forbiddenActions: ['drop final-face terminal identity records']
+    }),
+    responsibility({
+      stepId: 'renderer-projection',
+      classification: 'channel-projection',
+      ownerMode: 'draw declared render entries without semantic mutation',
+      primaryArtifacts: ['stage:renderer-projection'],
+      allowedActions: ['draw declared render-entry geometry']
+    }),
+    responsibility({
+      stepId: 'hit-export',
+      classification: 'channel-projection',
+      ownerMode:
+        'project final-face backed hit/export packets without visible render authority',
+      primaryArtifacts: ['artifact:hit-export-packets'],
+      allowedActions: ['project hit and export packets from final faces']
+    })
+  ]
+  const stepResponsibilityMatrix = Object.fromEntries(
+    stepResponsibilityDefinitions.map((entry) => [entry.stepId, entry])
+  )
   const routeTypes = ['normal', 'bypass', 'terminal', 'parallel']
   const uniqueTargets = (items) => [...new Set(items)]
   const routeArtifact = (stepId) => `stage:${stepId}`
@@ -4225,6 +6212,8 @@
     'linear-select-stroke-product-family-to-build-center-stroke-products',
     'linear-build-center-stroke-products-to-build-constrained-solid-products',
     'linear-build-constrained-solid-products-to-build-dash-interval-body-products',
+    'linear-build-dash-interval-body-products-to-derive-dash-body-seam-boundaries',
+    'linear-derive-dash-body-seam-boundaries-to-build-source-vertex-join-products',
     'linear-build-dash-interval-body-products-to-build-source-vertex-join-products',
     'linear-build-source-vertex-join-products-to-build-terminal-body-products',
     'linear-build-terminal-body-products-to-build-smooth-continuity-products',
@@ -4232,8 +6221,7 @@
     'linear-select-stroke-descriptor-strategy-to-apply-legality',
     'linear-build-final-faces-to-materialize-stroke-product-descriptors',
     'linear-materialize-stroke-product-descriptors-to-emit-render-hit-export-packets',
-    suppressedRendererProjectionToHitExportRouteId,
-    'linear-hit-export-to-runtime-diagnostics'
+    suppressedRendererProjectionToHitExportRouteId
   ])
   const linearRoutes = steps.slice(0, -1).flatMap((step, index) => {
     const nextStep = steps[index + 1]
@@ -4258,7 +6246,12 @@
         inputs: step.outputs,
         consumes: [routeArtifact(step.id)],
         produces:
-          nextStep.id === 'build-final-faces'
+          step.id === 'allocate-dash-intervals'
+            ? [
+                routeArtifact(nextStep.id),
+                'artifact:dash-product-interval'
+              ]
+            : nextStep.id === 'build-final-faces'
             ? [routeArtifact(nextStep.id), 'artifact:finalFaces']
             : [routeArtifact(nextStep.id)],
         dirtyDependencies: ['upstream stage semantic output'],
@@ -4688,7 +6681,7 @@
       condition:
         'Inside or outside dashed strokes with a constrained domain select constrained dashed co-executed product routes.',
       output:
-        'Constrained dashed interval-body route selected; source-vertex join, terminal body, smooth-continuity, and descriptor routes may co-execute from the same family.',
+        'Constrained dashed interval-body route selected; source-vertex join, non-visible terminal/smooth ownership overlays, and descriptor strategy may co-execute from the same family.',
       ownerStage: 'Stroke Geometry product family selection',
       failureReopensStep: 'select-stroke-product-family',
       inputs: [
@@ -4705,7 +6698,7 @@
       ],
       cacheKeyInputs: ['stroke position', 'domain mode', 'dash presence'],
       limitations: [
-        'Selection does not build dash body geometry, join geometry, terminal body geometry, or descriptors.'
+        'Selection does not build dash body geometry, join geometry, ownership overlays, or descriptors.'
       ],
       allowedContributors: [
         'normalized constrained dashed product family evidence'
@@ -4723,7 +6716,7 @@
     route({
       id: 'select-product-family-unsupported',
       from: 'select-stroke-product-family',
-      to: 'runtime-diagnostics',
+      to: 'emit-render-hit-export-packets',
       routeType: 'terminal',
       exclusiveGroup: 'stroke-product-family-selection',
       decisionGroup: 'decision:select-stroke-product-family',
@@ -4732,19 +6725,41 @@
       condition:
         'Else route: no declared product family predicate matched the normalized stroke/domain inputs.',
       output:
-        'Diagnostic-only unsupported product-family report; no visible product is emitted.',
+        'Fail-closed empty render, hit, and export packets with unsupported product-family reason metadata; no visible product is emitted.',
       ownerStage: 'Stroke Geometry product family selection',
       failureReopensStep: 'select-stroke-product-family',
       inputs: ['normalized stroke position', 'dash presence', 'domain mode'],
       consumes: [routeArtifact('select-stroke-product-family')],
-      produces: [routeArtifact('runtime-diagnostics')],
+      produces: [
+        routeArtifact('emit-render-hit-export-packets'),
+        'output:unsupported-product-family-packets'
+      ],
+      skipSteps: [
+        'build-center-stroke-products',
+        'build-constrained-solid-products',
+        'build-dash-interval-body-products',
+        'derive-dash-body-seam-boundaries',
+        'build-source-vertex-join-products',
+        'build-terminal-body-products',
+        'build-smooth-continuity-products',
+        'select-stroke-descriptor-strategy',
+        'apply-legality',
+        'build-resolved-stroke-regions',
+        'attach-paint-payload',
+        'build-final-faces',
+        'materialize-stroke-product-descriptors'
+      ],
       dirtyDependencies: ['stroke family signature'],
       cacheKeyInputs: ['stroke position', 'domain mode', 'dash presence'],
       limitations: [
-        'Unsupported-family diagnostics must not create fallback visible geometry.'
+        'Unsupported-family reason metadata must not create fallback visible geometry or a diagnostics-owned product path.'
       ],
-      allowedContributors: ['diagnostic route record'],
-      forbiddenContributors: ['visible fallback output', 'renderer repair'],
+      allowedContributors: ['unsupported product-family empty-output record'],
+      forbiddenContributors: [
+        'visible fallback output',
+        'renderer repair',
+        'diagnostics-owned product output'
+      ],
       evidenceRequired: ['unmatched product-family predicate inputs'],
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#output-channel-separation'
@@ -4859,12 +6874,178 @@
       ]
     }),
     route({
-      id: 'constrained-dashed-products-coexecute-source-vertex-join-products',
+      id: 'constrained-solid-products-coexecute-smooth-continuity-products',
+      from: 'build-constrained-solid-products',
+      to: 'build-smooth-continuity-products',
+      routeType: 'parallel',
+      exclusiveGroup: 'constrained-solid-product-coexecution',
+      decisionGroup: 'decision:build-constrained-solid-products',
+      parallelGroup: 'parallel:constrained-solid-product-units',
+      coExecutionGroup: 'coexec:constrained-solid-product-units',
+      routePriority: 35,
+      conditionKind: 'when',
+      conditionId: 'constrained-solid-products:smooth-continuity',
+      predicateInputs: [
+        'stroke.position',
+        'dash.present',
+        'source.tangentContinuity',
+        'descriptor.ownerBoundarySplit'
+      ],
+      when: allOf(
+        predicate('stroke.position', 'in', ['inside', 'outside']),
+        predicate('dash.present', 'equals', false),
+        predicate('source.tangentContinuity', 'equals', true),
+        predicate('descriptor.ownerBoundarySplit', 'equals', true)
+      ),
+      condition:
+        'Constrained solid doubled-center products dispatch same-owner smooth-continuity spans before legality when the descriptor or canonical packet path must prove the span does not cross an authored sharp source vertex.',
+      output:
+        'Smooth-continuity product step receives constrained solid same-owner span evidence for canonical packet or descriptor eligibility.',
+      ownerStage: 'Stroke Geometry constrained solid product assembly',
+      failureReopensStep: 'build-constrained-solid-products',
+      inputs: [
+        'constrained solid product route',
+        'same-owner smooth-continuity span evidence',
+        'sharp source-vertex boundary split or exclusion evidence'
+      ],
+      consumes: [routeArtifact('build-constrained-solid-products')],
+      produces: [routeArtifact('build-smooth-continuity-products')],
+      dirtyDependencies: [
+        'smooth-continuity signature',
+        'legal-side signature',
+        'descriptor-mode signature'
+      ],
+      cacheKeyInputs: [
+        'smooth-continuity group id',
+        'legal side',
+        'descriptor mode'
+      ],
+      limitations: [
+        'This route only dispatches co-execution; smooth-continuity geometry is owned by build-smooth-continuity-products.',
+        'Sharp source-vertex coverage remains owned by build-source-vertex-join-products and must not be completed by strokePathStyle.join.'
+      ],
+      allowedContributors: [
+        'constrained solid same-owner smooth-continuity evidence'
+      ],
+      forbiddenContributors: [
+        'source path replay across authored sharp vertices',
+        'renderer stroke join',
+        'endpoint cap repair'
+      ],
+      evidenceRequired: [
+        'smooth-continuity group id',
+        'same-owner span proof',
+        'sharp source-vertex boundary split or exclusion evidence'
+      ],
+      specRuleRefs: [
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#smooth-curvature-non-join-contract',
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#product-legality-and-descriptor-encoding'
+      ]
+    }),
+    route({
+      id: 'constrained-dashed-products-derive-seam-boundaries',
       from: 'build-dash-interval-body-products',
+      to: 'derive-dash-body-seam-boundaries',
+      routeType: 'normal',
+      exclusiveGroup: 'constrained-dashed-product-coexecution',
+      decisionGroup: 'decision:build-dash-interval-body-products',
+      parallelGroup: 'parallel:constrained-dashed-product-units',
+      coExecutionGroup: 'coexec:constrained-dashed-product-units',
+      routePriority: 25,
+      conditionKind: 'when',
+      conditionId: 'constrained-dashed-products:derive-seam-boundaries',
+      predicateInputs: [
+        'dash.intervalVisible',
+        'dash.requiresJoinOrTerminalConsumer',
+        'dash.bodyBoundaryEvidence'
+      ],
+      when: allOf(
+        predicate('dash.intervalVisible', 'equals', true),
+        predicate('dash.requiresJoinOrTerminalConsumer', 'equals', true),
+        predicate('dash.bodyBoundaryEvidence', 'provided', true)
+      ),
+      condition:
+        'A constrained dashed body product has emitted canonical polygon or exact geometry-program boundary evidence and a downstream join or terminal ownership consumer requires stable seam identity.',
+      output:
+        'The seam-boundary derivation step receives emitted dash body boundary evidence and produces a non-visible dash body seam boundary artifact.',
+      ownerStage: 'Stroke Geometry dash seam boundary derivation',
+      failureReopensStep: 'build-dash-interval-body-products',
+      inputs: [
+        'pre-legality dash interval body products',
+        'dash body boundary evidence',
+        'DashProductInterval provenance',
+        'endpoint cap policy'
+      ],
+      consumes: [
+        routeArtifact('build-dash-interval-body-products'),
+        'artifact:constrained-dashed-interval-body-product'
+      ],
+      produces: [
+        routeArtifact('derive-dash-body-seam-boundaries'),
+        'artifact:dash-body-seam-boundary'
+      ],
+      computationContract: {
+        computedAt: 'derive-dash-body-seam-boundaries',
+        consumesArtifacts: [
+          'artifact:constrained-dashed-interval-body-product'
+        ],
+        producesArtifacts: ['artifact:dash-body-seam-boundary'],
+        consumedBy: [
+          'build-source-vertex-join-products',
+          'build-terminal-body-products'
+        ],
+        mustNotRecomputeAfter: 'build-source-vertex-join-products',
+        forbiddenLateComputation: [
+          'dash body seam boundary relocation',
+          'fresh offset point substitution',
+          'endpoint cap suppression reinterpretation',
+          'dash interval provenance reinterpretation'
+        ]
+      },
+      dirtyDependencies: [
+        'dash interval allocation signature',
+        'terminal cap signature',
+        'legal-side signature'
+      ],
+      cacheKeyInputs: [
+        'dash interval id',
+        'split range id',
+        'terminal role',
+        'endpoint cap policy',
+        'dash body product boundary signature'
+      ],
+      limitations: [
+        'This route may only forward emitted body boundary evidence; it must not move endpoints, recompute dash allocation, complete joins, create visible seam repair, or materialize a body geometry program into duplicate polygons.'
+      ],
+      allowedContributors: [
+        'emitted canonical polygon or exact geometry-program boundary evidence',
+        'DashProductInterval provenance',
+        'endpoint cap policy evidence'
+      ],
+      forbiddenContributors: [
+        'fresh offset point substitution',
+        'source-vertex join geometry',
+        'terminal body geometry',
+        'visible seam repair geometry'
+      ],
+      evidenceRequired: [
+        'dash body product id',
+        'boundary evidence id',
+        'dash body seam boundary artifact id',
+        'proof that seam endpoints are derived from the emitted dash body product boundary identity'
+      ],
+      specRuleRefs: [
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#dash-body-and-join-seam-contract',
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#computation-ownership-and-timing-contract'
+      ]
+    }),
+    route({
+      id: 'constrained-dashed-products-coexecute-source-vertex-join-products',
+      from: 'derive-dash-body-seam-boundaries',
       to: 'build-source-vertex-join-products',
       routeType: 'parallel',
       exclusiveGroup: 'constrained-dashed-product-coexecution',
-      decisionGroup: 'decision:build-dash-interval-body-products',
+      decisionGroup: 'decision:derive-dash-body-seam-boundaries',
       parallelGroup: 'parallel:constrained-dashed-product-units',
       coExecutionGroup: 'coexec:constrained-dashed-product-units',
       routePriority: 30,
@@ -4883,14 +7064,14 @@
       output:
         'Source-vertex join product step receives incident dash seam boundary evidence.',
       ownerStage: 'Stroke Geometry dashed interval body assembly',
-      failureReopensStep: 'build-dash-interval-body-products',
+      failureReopensStep: 'derive-dash-body-seam-boundaries',
       inputs: [
         'DashProductInterval body products',
         'incident seam boundary ids',
         'dash body seam boundary artifacts'
       ],
       consumes: [
-        routeArtifact('build-dash-interval-body-products'),
+        routeArtifact('derive-dash-body-seam-boundaries'),
         'artifact:dash-body-seam-boundary'
       ],
       produces: [routeArtifact('build-source-vertex-join-products')],
@@ -4908,7 +7089,7 @@
       ],
       limitations: [
         'This route only dispatches co-execution; source-vertex join geometry remains owned by build-source-vertex-join-products.',
-        'This route may not recompute, relocate, or synthesize dash seam boundaries while dispatching Step 28.'
+        'This route may not recompute, relocate, or synthesize dash seam boundaries while dispatching source-vertex join assembly.'
       ],
       allowedContributors: ['incident dash seam evidence'],
       forbiddenContributors: [
@@ -4930,11 +7111,11 @@
     }),
     route({
       id: 'constrained-dashed-products-coexecute-terminal-body-products',
-      from: 'build-dash-interval-body-products',
+      from: 'derive-dash-body-seam-boundaries',
       to: 'build-terminal-body-products',
       routeType: 'parallel',
       exclusiveGroup: 'constrained-dashed-product-coexecution',
-      decisionGroup: 'decision:build-dash-interval-body-products',
+      decisionGroup: 'decision:derive-dash-body-seam-boundaries',
       parallelGroup: 'parallel:constrained-dashed-product-units',
       coExecutionGroup: 'coexec:constrained-dashed-product-units',
       routePriority: 40,
@@ -4946,18 +7127,20 @@
         predicate('dash.intervalVisible', 'equals', true)
       ),
       condition:
-        'Constrained dashed product assembly co-executes terminal body products for visible terminal intervals.',
+        'Constrained dashed product assembly co-executes non-visible terminal ownership binding for visible terminal portions already owned by dash interval body products.',
       output:
-        'Terminal body product step receives terminal interval and endpoint cap policy evidence.',
+        'Terminal body product step receives the dash body product id, terminal role, endpoint cap policy, seam id, and join ownership evidence.',
       ownerStage: 'Stroke Geometry dashed interval body assembly',
-      failureReopensStep: 'build-dash-interval-body-products',
+      failureReopensStep: 'derive-dash-body-seam-boundaries',
       inputs: [
-        'terminal DashProductInterval',
+        'terminal dash interval body product id',
+        'terminal role',
         'endpoint cap policy',
+        'join ownership signature',
         'dash body seam boundary artifacts'
       ],
       consumes: [
-        routeArtifact('build-dash-interval-body-products'),
+        routeArtifact('derive-dash-body-seam-boundaries'),
         'artifact:dash-body-seam-boundary'
       ],
       produces: [routeArtifact('build-terminal-body-products')],
@@ -4973,17 +7156,22 @@
         'dash body seam boundary signature'
       ],
       limitations: [
-        'This route only dispatches co-execution; terminal body geometry remains owned by build-terminal-body-products.',
-        'This route may not recompute, relocate, or synthesize dash seam boundaries while dispatching Step 29.'
+        'This route only dispatches ownership binding; visible terminal body geometry remains owned by build-dash-interval-body-products.',
+        'This route may not emit polygons, stroke paths, or paint, and may not recompute, relocate, or synthesize dash seam boundaries.'
       ],
-      allowedContributors: ['terminal interval ownership evidence'],
+      allowedContributors: [
+        'terminal interval ownership evidence',
+        'dash body product identity'
+      ],
       forbiddenContributors: [
+        'visible terminal body geometry',
         'source-vertex apex coverage',
         'endpoint-side cap repair'
       ],
       evidenceRequired: [
         'terminal role',
         'endpoint cap policy',
+        'dash body product id',
         'dash body seam boundary artifact ids',
         'terminal dispatch reason'
       ],
@@ -5010,12 +7198,16 @@
         predicate('source.curvature', 'provided', true)
       ),
       condition:
-        'Constrained dashed product assembly co-executes smooth-continuity products for tangent-continuous spans, including high-curvature spans.',
+        'Constrained dashed product assembly co-executes non-visible smooth-continuity ownership binding for tangent-continuous body products, including high-curvature spans.',
       output:
-        'Smooth-continuity product step receives continuous dash footprint evidence.',
+        'Smooth-continuity product step receives referenced dash body product ids and continuous footprint evidence.',
       ownerStage: 'Stroke Geometry dashed interval body assembly',
       failureReopensStep: 'build-dash-interval-body-products',
-      inputs: ['smooth-continuity group', 'curve coverage evidence'],
+      inputs: [
+        'smooth-continuity group',
+        'referenced dash body product ids',
+        'curve coverage evidence'
+      ],
       consumes: [routeArtifact('build-dash-interval-body-products')],
       produces: [routeArtifact('build-smooth-continuity-products')],
       dirtyDependencies: [
@@ -5029,11 +7221,15 @@
         'curve sample signature'
       ],
       limitations: [
-        'High curvature is not a join trigger; this route must not dispatch source-vertex join ownership.'
+        'High curvature is not a join trigger; this route must not dispatch source-vertex join ownership or emit another copy of visible body geometry.'
       ],
-      allowedContributors: ['smooth-continuity evidence'],
+      allowedContributors: [
+        'smooth-continuity evidence',
+        'dash body product identity'
+      ],
       forbiddenContributors: [
         'source-vertex join ownership',
+        'visible body polygons or stroke paths',
         'radial slice repair'
       ],
       evidenceRequired: [
@@ -5564,11 +7760,12 @@
       routePriority: 900,
       conditionKind: 'else',
       condition:
-        'Else route: use canonical smooth-continuity product packets when exact smooth-span descriptor predicates do not apply.',
-      output: 'Smooth-continuity product packets proceed to legality clipping.',
+        'Else route: for constrained solid only, use canonical smooth-continuity product packets when exact smooth-span descriptor predicates do not apply.',
+      output:
+        'Constrained solid smooth-continuity product packets proceed to legality clipping; constrained dashed uses its non-visible overlay route instead.',
       ownerStage: 'Stroke Geometry smooth-continuity product assembly',
       failureReopensStep: 'build-smooth-continuity-products',
-      inputs: ['smooth-continuity product packets'],
+      inputs: ['constrained solid smooth-continuity product packets'],
       consumes: [routeArtifact('build-smooth-continuity-products')],
       produces: [
         routeArtifact('apply-legality'),
@@ -5580,7 +7777,7 @@
       ],
       cacheKeyInputs: ['smooth-continuity group id', 'legal side'],
       limitations: [
-        'Else output must not split one smooth dash into helper strips or route high curvature into join ownership.'
+        'Else output must not accept constrained dashed ownership overlays, split one smooth product into helper strips, or route high curvature into join ownership.'
       ],
       allowedContributors: ['canonical smooth-continuity product packets'],
       forbiddenContributors: [
@@ -5608,7 +7805,7 @@
       condition:
         'A constrained dashed DashProductInterval owns visible body coverage for its split range after dash allocation.',
       output:
-        'constrained dashed interval body product with interval id, split range, legal side, terminal role, endpoint cap policy, smooth-continuity group, and output-channel metadata.',
+        'constrained dashed interval body product encoded as canonical polygons or an exact body geometry program, with interval id, split range, legal side, terminal role, endpoint cap policy, smooth-continuity group, and output-channel metadata.',
       ownerStage: 'Stroke Geometry dashed interval body assembly',
       failureReopensStep: 'build-dash-interval-body-products',
       inputs: [
@@ -5624,7 +7821,6 @@
       produces: [
         routeArtifact('apply-legality'),
         'artifact:constrained-dashed-interval-body-product',
-        'artifact:dash-body-seam-boundary',
         'artifact:constrained-dashed-product-units',
         'artifact:preLegalityProductUnits'
       ],
@@ -5651,27 +7847,27 @@
         computedAt: 'build-dash-interval-body-products',
         consumesArtifacts: ['artifact:dash-product-interval'],
         producesArtifacts: [
-          'artifact:constrained-dashed-interval-body-product',
-          'artifact:dash-body-seam-boundary'
+          'artifact:constrained-dashed-interval-body-product'
         ],
         consumedBy: [
+          'derive-dash-body-seam-boundaries',
           'build-source-vertex-join-products',
           'build-terminal-body-products',
           'apply-legality'
         ],
-        mustNotRecomputeAfter: 'build-source-vertex-join-products',
+        mustNotRecomputeAfter: 'derive-dash-body-seam-boundaries',
         forbiddenLateComputation: [
           'dash interval endpoint relocation',
-          'dash body seam boundary relocation',
           'endpoint cap suppression reinterpretation',
           'bevel endpoint substitution'
         ]
       },
       limitations: [
-        'Interval body output must stop at declared terminal seam boundaries and must not complete authored source-vertex joins.'
+        'Interval body output owns all terminal and smooth body pixels, must stop at declared terminal seam boundaries, and must not complete authored source-vertex joins.',
+        'Downstream terminal and smooth routes may attach non-visible overlays only; they may not emit duplicate body geometry.'
       ],
       allowedContributors: [
-        'DashProductInterval body',
+        'complete DashProductInterval body including terminal and smooth portions',
         'allowed body-side endpoint cap when endpoint policy allows'
       ],
       visibleContributor: 'dash-interval-body',
@@ -5690,17 +7886,18 @@
         'legal side',
         'smooth-continuity group',
         'effective visible source-distance range or physical span ranges for the emitted dash body product',
-        'verified seam boundary artifact derived from emitted dash body product polygon',
-        'outer body boundary endpoint on dash body product polygon',
-        'body-side outline segment on dash body product polygon'
+        'body geometry encoding mode',
+        'emitted dash body product boundary id',
+        'candidate outer body boundary endpoint on emitted dash body product boundary',
+        'candidate body-side outline segment on emitted dash body product boundary'
       ],
       metricAssertions: [
         {
           id: 'dash-body-stops-at-declared-seam-endpoint',
           tolerance:
-            'same Step 27 seam endpoint identity; coordinate epsilon only for serializing the same endpoint id',
+            'dash body endpoint identity must be preserved for seam-boundary derivation; coordinate epsilon only serializes an owned endpoint id',
           evidence:
-            'terminal seam boundary id plus endpoint-on-product-boundary proof'
+            'dash body boundary evidence id plus endpoint-on-product-boundary proof'
         }
       ],
       specRuleRefs: [
@@ -5721,12 +7918,12 @@
       condition:
         'A dashed split range reaches an authored sharp contour vertex or self-intersection split terminal that owns join completion and fails tangent-continuity.',
       output:
-        'seam-free source-vertex join product using resolvedJoin and preserving authoredJoin, vertexAngle, miterAngle, angleSource, angle comparison evidence, Step 27 verified incident dash body seam boundaries, incident outer body boundary endpoint identities, and local dash/join shared-endpoint evidence.',
+        'seam-free source-vertex join product using resolvedJoin and preserving authoredJoin, vertexAngle, miterAngle, angleSource, angle comparison evidence, verified incident dash body seam boundaries, incident outer body boundary endpoint identities, and local dash/join shared-endpoint evidence.',
       ownerStage: 'Stroke Geometry source-vertex join assembly',
       failureReopensStep: 'build-source-vertex-join-products',
       inputs: [
         'DashProductInterval incident coverage',
-        'Step 27 verified incident dash body seam boundary from each dash side that reaches the source vertex',
+        'verified incident dash body seam boundary from each dash side that reaches the source vertex',
         'incident outer body boundary endpoints and outline segments from each dash side',
         'contour visit previous and next tangents',
         'source-domain miter-angle resolution'
@@ -5805,8 +8002,8 @@
         'incident dash body seam boundary ids',
         'incident outer body boundary endpoint ids',
         'bevel and bevel-by-miter-angle cut-off edge endpoint ids from incident dash body outer boundaries',
-        'proof that every consumed seam boundary endpoint id is emitted by the Step 27 dash body product polygon boundary',
-        'proof that dash and join visible triangles share the same Step 27 seam endpoint identities',
+        'proof that every consumed seam boundary endpoint id is emitted by the owning dash body product boundary identity',
+        'proof that dash and join visible triangles share the same seam endpoint identities',
         'dash/join zero-gap adjacency proof',
         'tangent-continuity rejection proof for smooth/high-curvature spans'
       ],
@@ -5814,7 +8011,7 @@
         {
           id: 'dash-join-shared-seam-endpoint-identity',
           tolerance:
-            'same Step 27 seam endpoint identity; coordinate epsilon only for serializing the same endpoint id',
+            'same seam endpoint identity; coordinate epsilon only serializes the same endpoint id',
           evidence:
             'dash body terminal polygon and source-vertex join polygon reference the same incident seam boundary endpoint ids'
         }
@@ -5839,54 +8036,48 @@
       condition:
         'A dashed interval follows a tangent-continuous curve, smooth anchor, or high-curvature span that does not own authored sharp source-vertex join completion.',
       output:
-        'one continuous smooth-continuity dash product footprint with dash interval, legal side, and smooth-continuity provenance preserved.',
-      ownerStage: 'Stroke Geometry smooth-continuity dash assembly',
+        'non-visible smooth-continuity ownership overlay referencing one or more dash body products and preserving tangent, curve-offset, and continuity provenance.',
+      ownerStage: 'Stroke Geometry smooth-continuity ownership binding',
       failureReopensStep: 'build-smooth-continuity-products',
       inputs: [
-        'DashProductInterval smooth-continuity coverage',
-        'source curve samples or exact curve representation',
+        'referenced dash interval body product ids',
         'tangent-continuity evidence',
-        'legal side and domain clipping evidence'
+        'curve-offset outer boundary proof'
       ],
       consumes: [
         routeArtifact('build-smooth-continuity-products'),
-        'artifact:dash-product-interval'
+        'artifact:constrained-dashed-interval-body-product'
       ],
       produces: [
         routeArtifact('apply-legality'),
-        'artifact:constrained-dashed-smooth-continuity-product',
-        'artifact:constrained-dashed-product-units',
-        'artifact:preLegalityProductUnits'
+        'artifact:constrained-dashed-smooth-continuity-product'
       ],
       dirtyDependencies: [
-        'source path revision',
-        'domain signature',
-        'dash interval allocation signature',
-        'smooth-continuity signature',
-        'legal-side signature'
+        'dash body product identities',
+        'smooth-continuity signature'
       ],
       cacheKeyInputs: [
-        'dash interval id',
+        'dash body product ids',
         'smooth-continuity group id',
-        'curve sample signature',
-        'legal side',
-        'stroke width',
-        'dash length and gap length',
-        'source-distance allocation origin'
+        'tangent-continuity proof id',
+        'curve-offset proof id'
       ],
       limitations: [
         'High curvature alone must not create source-vertex join ownership.',
-        'The output must not fragment one dash into disconnected strip products, radial slices, comb-like seams, visible seam-repair products, or helper products.'
+        'The output must not emit polygons, stroke paths, paint, descriptors, disconnected strip products, radial slices, visible seam-repair products, or helper products.'
       ],
       allowedContributors: [
-        'smooth-continuity dash body product',
-        'allowed body-side cap at true interval endpoint',
-        'legal-domain clipping evidence'
+        'dash body product identities',
+        'tangent-continuity proof',
+        'curve-offset outer boundary proof'
       ],
-      visibleContributor: 'smooth-continuity-dash-body',
-      geometryBasis: 'smooth-continuity-dash-footprint',
+      visibleContributor: 'none-non-visible-ownership-overlay',
+      geometryBasis: 'smooth-continuity-ownership-overlay',
       forbiddenContributors: [
         'source-vertex join product',
+        'visible body polygons',
+        'visible stroke paths',
+        'paint payload',
         'visible seam-repair product',
         'visible construction/helper product',
         'disconnected strip product',
@@ -5894,11 +8085,12 @@
         'diagnostic/helper polygon as visible product'
       ],
       evidenceRequired: [
-        'dash interval id',
+        'referenced dash body product ids',
         'smooth-continuity group id',
         'tangent-continuity proof',
         'single continuous footprint proof',
-        'no source-vertex join ownership proof'
+        'no source-vertex join ownership proof',
+        'zero visible contribution proof'
       ],
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#smooth-curvature-non-join-contract',
@@ -5916,47 +8108,44 @@
       coExecutionGroup: 'coexec:terminal-body-product-units',
       routePriority: 80,
       condition:
-        'A terminal interval is incident to source-vertex or split-terminal join ownership and body continuity is required inside the terminal body contribution envelope.',
+        'A dash interval body product has a terminal portion incident to source-vertex or split-terminal join ownership and requires terminal identity preservation.',
       output:
-        'join-owned-terminal-body dash product that stops at the declared seam boundary and keeps endpoint cap policy, terminal role, legal side, and smooth-continuity metadata.',
-      ownerStage: 'Stroke Geometry terminal body assembly',
+        'non-visible terminal body ownership overlay referencing the dash body product id and preserving seam, endpoint cap policy, terminal role, legal side, and join ownership metadata.',
+      ownerStage: 'Stroke Geometry terminal body ownership binding',
       failureReopensStep: 'build-terminal-body-products',
       inputs: [
-        'terminal DashProductInterval',
+        'terminal dash interval body product id',
+        'verified dash body seam boundary artifact',
         'endpoint cap policy',
-        'legal side'
+        'terminal role',
+        'join ownership signature'
       ],
       consumes: [
         routeArtifact('build-terminal-body-products'),
-        'artifact:dash-product-interval',
+        'artifact:constrained-dashed-interval-body-product',
         'artifact:dash-body-seam-boundary'
       ],
       produces: [
         routeArtifact('apply-legality'),
-        'artifact:constrained-dashed-join-owned-terminal-body-product',
-        'artifact:constrained-dashed-product-units',
-        'artifact:preLegalityProductUnits'
+        'artifact:constrained-dashed-join-owned-terminal-body-product'
       ],
       dirtyDependencies: [
-        'source path revision',
-        'domain signature',
-        'dash interval allocation signature',
+        'dash body product identity',
         'terminal cap signature',
-        'legal-side signature'
+        'seam boundary signature',
+        'join ownership signature'
       ],
       cacheKeyInputs: [
-        'terminal interval id',
+        'dash body product id',
         'terminal role',
         'endpoint cap policy',
         'join ownership signature',
-        'dash body seam boundary signature',
-        'legal side',
-        'stroke width'
+        'dash body seam boundary signature'
       ],
       computationContract: {
         computedAt: 'build-terminal-body-products',
         consumesArtifacts: [
-          'artifact:dash-product-interval',
+          'artifact:constrained-dashed-interval-body-product',
           'artifact:dash-body-seam-boundary'
         ],
         producesArtifacts: [
@@ -5965,6 +8154,7 @@
         consumedBy: ['apply-legality', 'build-final-faces', 'render-entries'],
         mustNotRecomputeAfter: 'apply-legality',
         forbiddenLateComputation: [
+          'body geometry materialization',
           'source-vertex corner coverage',
           'dash/join seam closure',
           'endpoint-side cap restoration',
@@ -5972,27 +8162,38 @@
         ]
       },
       limitations: [
-        'Terminal body output may not own apex coverage, extend endpoint-side overhang, repair source-vertex cracks, or close a dash/join seam gap.'
+        'Terminal ownership output may not contain polygons, stroke paths, paint, apex coverage, endpoint-side overhang, source-vertex repair, or dash/join seam repair.'
       ],
-      allowedContributors: ['terminal interval body', 'allowed body-side cap'],
-      visibleContributor: 'terminal-interval-body',
-      geometryBasis: 'terminal-body-footprint',
+      allowedContributors: [
+        'dash body product identity',
+        'terminal role and cap-policy metadata',
+        'verified seam identity',
+        'join ownership signature'
+      ],
+      visibleContributor: 'none-non-visible-ownership-overlay',
+      geometryBasis: 'terminal-body-ownership-overlay',
       forbiddenContributors: [
+        'visible body polygons',
+        'visible stroke paths',
+        'paint payload',
         'endpoint-side cap at join-owned terminal',
         'terminal overhang',
         'source-vertex apex coverage'
       ],
       evidenceRequired: [
+        'dash body product id',
         'terminal role',
         'endpoint cap policy',
-        'join ownership signature'
+        'join ownership signature',
+        'zero visible contribution proof'
       ],
       metricAssertions: [
         {
           id: 'terminal-body-stops-at-seam',
           tolerance:
-            'zero visible seam gap; coordinate epsilon only proves the same Step 27 seam endpoint id',
-          evidence: 'terminal seam boundary id plus shared Step 27 endpoint identity'
+            'zero visible seam gap; coordinate epsilon only proves the same seam-boundary artifact endpoint id',
+          evidence:
+            'terminal seam boundary id plus shared seam-boundary artifact endpoint identity'
         }
       ],
       specRuleRefs: [
@@ -6028,12 +8229,13 @@
       condition:
         'Final-face records can be encoded as a constrained dashed renderer descriptor only after the required post-legality or legality-equivalent basis and owner-boundary split are present.',
       output:
-        'Renderer descriptor carrying product-builder, source revision, domain, interval, terminal, cap policy, join ownership, legal side, smooth-continuity, output-channel, and evidence-only polygon metadata.',
+        'Batched renderer descriptor carrying body product ids, terminal/smooth overlay ids, product-builder, source revision, domain, interval, cap policy, join ownership, legal side, output-channel, and evidence-only polygon metadata.',
       ownerStage: 'Product Output descriptor materialization',
       failureReopensStep: 'materialize-stroke-product-descriptors',
       inputs: [
         'finalFaces',
         'post-legality or legality-equivalent constrained dashed product units',
+        'terminal and smooth ownership overlays',
         'descriptor strategy record',
         'visible/evidence output-channel separation'
       ],
@@ -6061,6 +8263,8 @@
         'source revision',
         'domain id',
         'dash interval ids',
+        'body product ids',
+        'terminal and smooth overlay ids',
         'terminal roles',
         'endpoint cap policy',
         'join ownership signatures',
@@ -6069,13 +8273,15 @@
       ],
       limitations: [
         'Descriptor materialization may encode declared visible products only; evidence polygons and construction evidence must remain non-visible.',
+        'Terminal and smooth ownership overlays must remain metadata and must not create additional polygons or stroke paths.',
+        'Body paths may be batched only when paint, stroke spec, legal domain, output channel, and sharp owner boundaries are compatible.',
         'Descriptor materialization must not consume preLegalityProductUnits unless the descriptor route also provides legality-equivalence evidence.',
         'Descriptor materialization must not route back into build-final-faces or become the source of hit/export semantics.'
       ],
       allowedContributors: [
         'materialized DashProductInterval products',
         'source-vertex join product metadata',
-        'smooth-continuity metadata',
+        'terminal and smooth ownership overlay metadata',
         'evidence-only descriptor polygons'
       ],
       forbiddenContributors: [
@@ -6090,7 +8296,10 @@
         'product-builder id',
         'source revision',
         'interval ids',
-        'join ownership signatures'
+        'body product ids',
+        'terminal and smooth overlay ids',
+        'join ownership signatures',
+        'batch compatibility signature'
       ],
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#product-legality-and-descriptor-encoding',
@@ -6170,6 +8379,7 @@
       inputs: [
         'inside renderDescriptor',
         'strokePathGroups',
+        'terminal and smooth ownership overlays',
         'fillClipPolygons',
         'fillExcludePolygons'
       ],
@@ -6180,7 +8390,8 @@
       ],
       produces: [routeArtifact('render-entries'), 'artifact:renderEntries'],
       limitations: [
-        'descriptorProductPolygons may clip or explain but must not be promoted to visible strokeMaskPolygons when strokePathGroups exist.'
+        'descriptorProductPolygons may clip or explain but must not be promoted to visible strokeMaskPolygons when strokePathGroups exist.',
+        'Terminal and smooth overlays may preserve identity only and must not add another visible body path or mask.'
       ],
       allowedContributors: [
         'visible strokePathGroups',
@@ -6194,7 +8405,8 @@
       evidenceRequired: [
         'descriptor visible route',
         'evidence-only polygon list',
-        'inside domain id'
+        'inside domain id',
+        'body product and terminal/smooth overlay identity parity'
       ],
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#product-legality-and-descriptor-encoding',
@@ -6466,7 +8678,7 @@
         computedAt: 'render-entries',
         consumesArtifacts: ['artifact:finalFaces'],
         producesArtifacts: ['artifact:renderEntries'],
-        consumedBy: ['renderer-projection', 'runtime-diagnostics'],
+        consumedBy: ['renderer-projection'],
         mustNotRecomputeAfter: 'renderer-projection',
         forbiddenLateComputation: [
           'join shape decision',
@@ -6480,6 +8692,7 @@
         'Same-paint overlap must be resolved as a single-composite render entry or carry equivalent alpha-safe evidence before renderer projection.',
         'Outside legal-domain clipped render-entry polygons must preserve backend legal-region product polygons directly; final-face flattening, polygon cleanup, fallback source polygons, or notch removal must not reinterpret clipped holes, refill excluded fill-domain regions, create wrong-side residue, or reopen dash/join seams.',
         'Inside/outside constrained same-paint arrangements must include resolved legal-domain boundaries as non-visible splitter input; splitter input may cut arrangement cells but must not claim paint, become visible output, synthesize fallback geometry, or erase dash/join/terminal provenance.',
+        'Legal-side sample probes must be actual product vertices, product edge midpoints, or points already proven to lie on or inside the candidate visible product; exact backend legal-domain area proof is authoritative when available.',
         'A render entry must not contain same-paint polygons with internal shared-boundary length or positive overlap unless it carries explicit alpha-safe equivalence evidence proving no dark seam, repeated alpha, missing dash/join coverage, wrong-side residue, or protrusion.'
       ],
       allowedContributors: ['canonical final-face product records'],
@@ -6496,7 +8709,8 @@
         'internal same-paint polygon shared-boundary/overlap absence or alpha-safe equivalence evidence',
         'preserved dash product effective visible source-distance range or physical span ranges',
         'legal-domain splitter participation evidence for inside/outside constrained same-paint arrangements',
-        'outside legal-domain residue before and after same-paint merge/collapse is zero except coordinate epsilon'
+        'outside legal-domain residue before and after same-paint merge/collapse is zero except coordinate epsilon',
+        'legal-side probe source evidence showing samples are on/in product geometry or that exact backend area proof was used'
       ],
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#output-channel-separation',
@@ -6523,15 +8737,14 @@
         predicate('channel.output', 'in', [
           'render',
           'hit',
-          'export',
-          'diagnostics'
+          'export'
         ]),
         predicate('descriptor.materialized', 'provided', true)
       ),
       condition:
         'Final face chooses descriptor output or canonical packet output for each output channel.',
       output:
-        'channel-separated render, hit, export, and diagnostic packets without changing product semantics.',
+        'channel-separated render, hit, and export packets without changing product semantics; optional diagnostics consume terminal evidence outside this route when enabled.',
       ownerStage: 'Product Output channel projection',
       failureReopensStep: 'emit-render-hit-export-packets',
       inputs: ['final face visible product owner', 'descriptor route kind'],
@@ -6661,8 +8874,8 @@
         computedAt: 'renderer-projection',
         consumesArtifacts: ['artifact:renderEntries'],
         producesArtifacts: ['stage:renderer-projection'],
-        consumedBy: ['runtime-diagnostics'],
-        mustNotRecomputeAfter: 'runtime-diagnostics',
+        consumedBy: ['finalValidationMethods', 'optionalDiagnosticChannels'],
+        mustNotRecomputeAfter: 'renderer-projection',
         forbiddenLateComputation: [
           'join shape decision',
           'cap shape decision',
@@ -6690,124 +8903,6 @@
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#output-channel-separation',
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#computation-ownership-and-timing-contract'
       ]
-    }),
-    route({
-      id: 'renderer-projection-diagnostics-snapshot',
-      from: 'renderer-projection',
-      to: 'runtime-diagnostics',
-      routeType: 'parallel',
-      exclusiveGroup: 'diagnostic-channel-consumer',
-      routePriority: 30,
-      condition:
-        'Renderer projection has emitted visible pixels from declared render entries and diagnostics mode needs a draw-route snapshot.',
-      output:
-        'diagnostic snapshot of draw route, clip/exclude separation, and no-repair evidence without feeding hit/export.',
-      ownerStage: 'Diagnostics runtime evidence channels',
-      failureReopensStep: 'runtime-diagnostics',
-      inputs: [
-        'renderer projection draw route metadata',
-        'render entry ids',
-        'diagnostics mode flag'
-      ],
-      consumes: [routeArtifact('renderer-projection'), 'channel:diagnostics'],
-      produces: [
-        routeArtifact('runtime-diagnostics'),
-        'artifact:renderer-projection-diagnostic-snapshot'
-      ],
-      dirtyDependencies: ['render output revision', 'diagnostics mode'],
-      cacheKeyInputs: [
-        'render entry ids',
-        'draw route type',
-        'diagnostics mode'
-      ],
-      limitations: [
-        'Diagnostics snapshot may not create render entries, hit/export packets, or repaired geometry.'
-      ],
-      allowedContributors: ['renderer projection metadata'],
-      forbiddenContributors: [
-        'hit/export source of truth',
-        'diagnostic/helper visible product',
-        'renderer-local repair'
-      ],
-      evidenceRequired: [
-        'render entry id',
-        'draw route type',
-        'diagnostics mode'
-      ],
-      specRuleRefs: [
-        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#output-channel-separation'
-      ]
-    }),
-    route({
-      id: 'diagnostics-channel-aggregation',
-      from: 'hit-export',
-      to: 'runtime-diagnostics',
-      routeType: 'parallel',
-      exclusiveGroup: 'diagnostic-channel-consumer',
-      decisionGroup: 'decision:runtime-diagnostics-aggregation',
-      parallelGroup: 'parallel:diagnostic-channel-evidence',
-      coExecutionGroup: 'coexec:diagnostic-channel-evidence',
-      routePriority: 40,
-      conditionKind: 'when',
-      conditionId: 'diagnostics:aggregate-channel-evidence',
-      predicateInputs: ['channel.diagnostics', 'channel.hitExportEvidence'],
-      when: allOf(
-        predicate('channel.diagnostics', 'equals', true),
-        predicate('channel.hitExportEvidence', 'provided', true)
-      ),
-      condition:
-        'Diagnostics mode aggregates renderer projection metadata and hit/export evidence as diagnostics-only output.',
-      output:
-        'Diagnostic snapshots that summarize render projection and hit/export evidence without becoming render, hit, or export source of truth.',
-      ownerStage: 'Diagnostics runtime evidence channels',
-      failureReopensStep: 'runtime-diagnostics',
-      inputs: [
-        'renderer projection diagnostic snapshot',
-        'hit/export packet evidence',
-        'diagnostics mode flag'
-      ],
-      consumes: [
-        routeArtifact('hit-export'),
-        'artifact:renderer-projection-diagnostic-snapshot',
-        'artifact:hitExportPackets',
-        'channel:diagnostics'
-      ],
-      produces: [
-        routeArtifact('runtime-diagnostics'),
-        'artifact:diagnosticSnapshots'
-      ],
-      dirtyDependencies: [
-        'diagnostics mode',
-        'render output revision',
-        'hit/export packet revision'
-      ],
-      cacheKeyInputs: [
-        'diagnostics mode',
-        'render entry ids',
-        'hit/export packet ids'
-      ],
-      limitations: [
-        'Diagnostics aggregation must never create visible render geometry, hit/export source geometry, or repaired product packets.'
-      ],
-      allowedContributors: [
-        'renderer projection metadata',
-        'hit/export evidence',
-        'diagnostics mode flag'
-      ],
-      forbiddenContributors: [
-        'visible product geometry',
-        'hit/export source of truth',
-        'renderer-local repair'
-      ],
-      evidenceRequired: [
-        'diagnostic snapshot id',
-        'render projection evidence id',
-        'hit/export packet id',
-        'output channel tag'
-      ],
-      specRuleRefs: [
-        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#output-channel-separation'
-      ]
     })
   ]
   const conditionalRoutes = [...linearRoutes, ...strokeProductRoutes]
@@ -6831,7 +8926,7 @@
         kind: 'stage-output',
         channel: 'stage',
         ownerStage: step.ownerStage,
-        terminal: step.id === 'runtime-diagnostics'
+        terminal: ['renderer-projection', 'hit-export'].includes(step.id)
       })
     ),
     artifact({
@@ -6880,6 +8975,63 @@
       terminal: true
     }),
     artifact({
+      id: 'output:unsupported-product-family-packets',
+      kind: 'output-packet',
+      channel: 'render-hit-export',
+      ownerStage: 'Stroke Geometry product family selection',
+      terminal: true
+    }),
+    artifact({
+      id: 'artifact:user-intent',
+      kind: 'source-intent',
+      ownerStage: 'Feature session intent'
+    }),
+    artifact({
+      id: 'artifact:canonical-workspace-data',
+      kind: 'canonical-state',
+      ownerStage: 'Common API canonical workspace data'
+    }),
+    artifact({
+      id: 'artifact:topology-validation-evidence',
+      kind: 'validation-evidence',
+      ownerStage: 'Stroke Geometry topology validation'
+    }),
+    artifact({
+      id: 'artifact:computed-patch',
+      kind: 'computed-patch',
+      ownerStage: 'Computed patch builder'
+    }),
+    artifact({
+      id: 'artifact:current-render-data',
+      kind: 'current-render-data',
+      ownerStage: 'Render Mirror render data derivation'
+    }),
+    artifact({
+      id: 'artifact:dirty-revision-graph',
+      kind: 'dirty-revision-graph',
+      ownerStage: 'Render Mirror dirty revision graph'
+    }),
+    artifact({
+      id: 'artifact:stage-cache-reuse-evidence',
+      kind: 'cache-evidence',
+      ownerStage: 'Render Mirror stage product cache'
+    }),
+    artifact({
+      id: 'artifact:product-family-selection-evidence',
+      kind: 'route-selection-evidence',
+      ownerStage: 'Stroke Geometry product family selection'
+    }),
+    artifact({
+      id: 'artifact:normalized-stroke-spec',
+      kind: 'normalized-spec',
+      ownerStage: 'Stroke Geometry stroke spec normalization'
+    }),
+    artifact({
+      id: 'artifact:stroke-domain-plan',
+      kind: 'domain-plan',
+      ownerStage: 'Stroke Geometry stroke domain resolution'
+    }),
+    artifact({
       id: 'artifact:dash-product-interval',
       kind: 'product-input',
       ownerStage: 'Stroke Geometry dash interval allocation'
@@ -6887,12 +9039,12 @@
     artifact({
       id: 'artifact:dash-body-seam-boundary',
       kind: 'product-boundary-artifact',
-      ownerStage: 'Stroke Geometry dashed interval body assembly'
+      ownerStage: 'Stroke Geometry dash seam boundary derivation'
     }),
     artifact({
       id: 'artifact:preLegalityProductUnits',
       kind: 'product-unit-set',
-      ownerStage: 'Stroke Geometry split product assembly'
+      ownerStage: 'Stroke Geometry legality-input union assembly'
     }),
     artifact({
       id: 'artifact:postLegalityProductUnits',
@@ -6907,18 +9059,24 @@
     artifact({
       id: 'artifact:descriptorStrategyRecords',
       kind: 'descriptor-strategy-record-set',
-      channel: 'render-hit-export-diagnostics',
+      channel: 'render-hit-export',
       ownerStage: 'Stroke Geometry descriptor strategy selection'
     }),
     artifact({
       id: 'artifact:finalFaces',
       kind: 'final-face-set',
-      channel: 'render-hit-export-diagnostics',
+      channel: 'render-hit-export',
       ownerStage: 'Stroke Geometry final face assembly'
     }),
     artifact({
       id: 'artifact:renderEntries',
       kind: 'render-entry-set',
+      channel: 'render',
+      ownerStage: 'Product Output render-entry materialization'
+    }),
+    artifact({
+      id: 'artifact:same-paint-composite-state',
+      kind: 'render-entry-evidence',
       channel: 'render',
       ownerStage: 'Product Output render-entry materialization'
     }),
@@ -6935,21 +9093,28 @@
       terminal: true
     }),
     artifact({
+      id: 'artifact:source-vertex-join-miter-evidence',
+      kind: 'product-evidence',
+      ownerStage: 'Stroke Geometry source-vertex join assembly'
+    }),
+    artifact({
       id: 'artifact:constrained-dashed-smooth-continuity-product',
-      kind: 'product-unit',
-      ownerStage: 'Stroke Geometry smooth-continuity dash assembly',
+      kind: 'ownership-overlay-record-set',
+      channel: 'evidence',
+      ownerStage: 'Stroke Geometry smooth-continuity ownership binding',
       terminal: true
     }),
     artifact({
       id: 'artifact:constrained-dashed-join-owned-terminal-body-product',
-      kind: 'product-unit',
-      ownerStage: 'Stroke Geometry terminal body assembly',
+      kind: 'ownership-overlay-record-set',
+      channel: 'evidence',
+      ownerStage: 'Stroke Geometry terminal body ownership binding',
       terminal: true
     }),
     artifact({
       id: 'artifact:constrained-dashed-product-units',
       kind: 'product-unit-set',
-      ownerStage: 'Stroke Geometry product descriptor assembly',
+      ownerStage: 'Stroke Geometry legality-input union assembly',
       terminal: true
     }),
     artifact({
@@ -6976,26 +9141,7 @@
       id: 'artifact:hitExportPackets',
       kind: 'output-packet',
       channel: 'hit-export',
-      ownerStage: 'Product Output hit/export projection'
-    }),
-    artifact({
-      id: 'channel:diagnostics',
-      kind: 'channel-input',
-      channel: 'diagnostics',
-      ownerStage: 'Diagnostics runtime evidence channels'
-    }),
-    artifact({
-      id: 'artifact:renderer-projection-diagnostic-snapshot',
-      kind: 'diagnostic-output',
-      channel: 'diagnostics',
-      ownerStage: 'Diagnostics runtime evidence channels',
-      terminal: true
-    }),
-    artifact({
-      id: 'artifact:diagnosticSnapshots',
-      kind: 'diagnostic-output',
-      channel: 'diagnostics',
-      ownerStage: 'Diagnostics runtime evidence channels',
+      ownerStage: 'Product Output hit/export projection',
       terminal: true
     })
   ]
@@ -7004,6 +9150,568 @@
       registeredArtifact.id,
       registeredArtifact
     ])
+  )
+  const lifecycle = ({
+    id,
+    artifactClassId,
+    computedAt,
+    assemblyMode,
+    contributorStepIds,
+    overlayContributorStepIds,
+    semanticChildOwnerField,
+    preserveThrough,
+    consumedBy,
+    mustNotRecomputeAfter,
+    mayDropOnlyWhen,
+    dropEvidenceRequired,
+    downstreamAuthority = true
+  }) => ({
+    id,
+    artifactClassId,
+    computedAt,
+    ...(assemblyMode === undefined ? {} : { assemblyMode }),
+    ...(contributorStepIds === undefined ? {} : { contributorStepIds }),
+    ...(overlayContributorStepIds === undefined
+      ? {}
+      : { overlayContributorStepIds }),
+    ...(semanticChildOwnerField === undefined
+      ? {}
+      : { semanticChildOwnerField }),
+    preserveThrough,
+    consumedBy,
+    mustNotRecomputeAfter,
+    mayDropOnlyWhen,
+    dropEvidenceRequired,
+    downstreamAuthority
+  })
+  const crossStepArtifactLifecycleDefinitions = [
+    lifecycle({
+      id: 'artifact:normalized-stroke-spec',
+      artifactClassId: 'required-evidence-artifact',
+      computedAt: 'normalize-stroke-spec',
+      preserveThrough: [
+        'resolve-stroke-domains',
+        'allocate-dash-intervals',
+        'select-stroke-product-family',
+        'build-dash-interval-body-products',
+        'apply-legality',
+        'build-final-faces'
+      ],
+      consumedBy: [
+        'resolve-stroke-domains',
+        'allocate-dash-intervals',
+        'select-stroke-product-family'
+      ],
+      mustNotRecomputeAfter: 'resolve-stroke-domains',
+      mayDropOnlyWhen: [
+        'hidden-output route is selected',
+        'stroke style is absent or invalid and empty-output evidence is recorded'
+      ],
+      dropEvidenceRequired: [
+        'stroke spec id',
+        'empty-output route id',
+        'normalization failure reason'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:stroke-domain-plan',
+      artifactClassId: 'required-evidence-artifact',
+      computedAt: 'resolve-stroke-domains',
+      preserveThrough: [
+        'allocate-dash-intervals',
+        'select-stroke-product-family',
+        'build-dash-interval-body-products',
+        'apply-legality',
+        'build-final-faces'
+      ],
+      consumedBy: [
+        'allocate-dash-intervals',
+        'select-stroke-product-family',
+        'build-center-stroke-products',
+        'build-constrained-solid-products',
+        'build-dash-interval-body-products'
+      ],
+      mustNotRecomputeAfter: 'allocate-dash-intervals',
+      mayDropOnlyWhen: [
+        'no stroke product family is selected',
+        'hidden-output route is selected',
+        'invalid topology route proves no product can exist'
+      ],
+      dropEvidenceRequired: [
+        'empty-output route id',
+        'domain plan id',
+        'reason why no product family consumes this domain'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:dash-product-interval',
+      artifactClassId: 'required-evidence-artifact',
+      computedAt: 'allocate-dash-intervals',
+      preserveThrough: [
+        'select-stroke-product-family',
+        'build-dash-interval-body-products',
+        'derive-dash-body-seam-boundaries',
+        'build-source-vertex-join-products',
+        'apply-legality',
+        'build-final-faces',
+        'render-entries'
+      ],
+      consumedBy: [
+        'select-stroke-product-family',
+        'build-dash-interval-body-products',
+        'build-source-vertex-join-products'
+      ],
+      mustNotRecomputeAfter: 'build-dash-interval-body-products',
+      mayDropOnlyWhen: [
+        'solid or center product family is selected',
+        'the visible interval is legally deleted and delete evidence is recorded',
+        'hidden-output route is selected'
+      ],
+      dropEvidenceRequired: [
+        'interval id',
+        'terminal role or explicit none',
+        'legal empty/delete reason when a visible interval has no product'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:constrained-dashed-interval-body-product',
+      artifactClassId: 'required-product-artifact',
+      computedAt: 'build-dash-interval-body-products',
+      preserveThrough: [
+        'derive-dash-body-seam-boundaries',
+        'build-source-vertex-join-products',
+        'build-terminal-body-products',
+        'build-smooth-continuity-products',
+        'apply-legality',
+        'build-final-faces',
+        'materialize-stroke-product-descriptors',
+        'render-entries',
+        'hit-export'
+      ],
+      consumedBy: [
+        'derive-dash-body-seam-boundaries',
+        'build-source-vertex-join-products',
+        'build-terminal-body-products',
+        'build-smooth-continuity-products',
+        'apply-legality'
+      ],
+      mustNotRecomputeAfter: 'derive-dash-body-seam-boundaries',
+      mayDropOnlyWhen: [
+        'dash interval is gap-only',
+        'legal deletion removes the body and delete evidence is recorded',
+        'hidden-output route is selected'
+      ],
+      dropEvidenceRequired: [
+        'dash product id',
+        'dash interval id',
+        'legal empty/delete reason'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:dash-body-seam-boundary',
+      artifactClassId: 'required-evidence-artifact',
+      computedAt: 'derive-dash-body-seam-boundaries',
+      preserveThrough: [
+        'build-source-vertex-join-products',
+        'build-terminal-body-products',
+        'apply-legality',
+        'build-final-faces',
+        'render-entries'
+      ],
+      consumedBy: [
+        'build-source-vertex-join-products',
+        'build-terminal-body-products'
+      ],
+      mustNotRecomputeAfter: 'build-source-vertex-join-products',
+      mayDropOnlyWhen: [
+        'owning dash body product is legally deleted',
+        'interval has no terminal or source-vertex consumer',
+        'hidden-output route is selected'
+      ],
+      dropEvidenceRequired: [
+        'seam boundary id',
+        'owning dash body product id',
+        'delete or no-consumer reason'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:source-vertex-join-miter-evidence',
+      artifactClassId: 'required-evidence-artifact',
+      computedAt: 'build-source-vertex-join-products',
+      preserveThrough: [
+        'apply-legality',
+        'build-final-faces',
+        'materialize-stroke-product-descriptors',
+        'render-entries',
+        'hit-export'
+      ],
+      consumedBy: [
+        'apply-legality',
+        'build-final-faces',
+        'materialize-stroke-product-descriptors',
+        'render-entries',
+        'hit-export'
+      ],
+      mustNotRecomputeAfter: 'apply-legality',
+      mayDropOnlyWhen: [
+        'source vertex has no join route',
+        'join product is legally deleted and delete evidence is recorded',
+        'hidden-output route is selected'
+      ],
+      dropEvidenceRequired: [
+        'join evidence id',
+        'source vertex id',
+        'resolved join and miter comparison delete reason'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:constrained-dashed-source-vertex-join-product',
+      artifactClassId: 'required-product-artifact',
+      computedAt: 'build-source-vertex-join-products',
+      preserveThrough: [
+        'apply-legality',
+        'build-final-faces',
+        'materialize-stroke-product-descriptors',
+        'render-entries',
+        'hit-export'
+      ],
+      consumedBy: [
+        'apply-legality',
+        'build-final-faces',
+        'materialize-stroke-product-descriptors',
+        'render-entries',
+        'hit-export'
+      ],
+      mustNotRecomputeAfter: 'apply-legality',
+      mayDropOnlyWhen: [
+        'source vertex is not sharp or has no constrained dashed incident body',
+        'legal deletion removes the join and delete evidence is recorded',
+        'hidden-output route is selected'
+      ],
+      dropEvidenceRequired: [
+        'join product id',
+        'incident seam boundary ids',
+        'legal empty/delete reason'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:constrained-dashed-join-owned-terminal-body-product',
+      artifactClassId: 'required-evidence-artifact',
+      computedAt: 'build-terminal-body-products',
+      preserveThrough: [
+        'apply-legality',
+        'build-final-faces',
+        'materialize-stroke-product-descriptors',
+        'render-entries',
+        'hit-export'
+      ],
+      consumedBy: [
+        'apply-legality',
+        'build-final-faces',
+        'materialize-stroke-product-descriptors',
+        'render-entries',
+        'hit-export'
+      ],
+      mustNotRecomputeAfter: 'apply-legality',
+      mayDropOnlyWhen: [
+        'interval has no join-owned terminal role',
+        'legal deletion removes the referenced dash body and delete evidence is recorded',
+        'hidden-output route is selected'
+      ],
+      dropEvidenceRequired: [
+        'terminal ownership overlay id',
+        'referenced dash body product id',
+        'terminal role',
+        'legal empty/delete reason'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:constrained-dashed-smooth-continuity-product',
+      artifactClassId: 'required-evidence-artifact',
+      computedAt: 'build-smooth-continuity-products',
+      preserveThrough: [
+        'apply-legality',
+        'build-final-faces',
+        'materialize-stroke-product-descriptors',
+        'render-entries',
+        'hit-export'
+      ],
+      consumedBy: [
+        'apply-legality',
+        'build-final-faces',
+        'materialize-stroke-product-descriptors',
+        'render-entries',
+        'hit-export'
+      ],
+      mustNotRecomputeAfter: 'apply-legality',
+      mayDropOnlyWhen: [
+        'span is not tangent-continuous',
+        'legal deletion removes every referenced dash body and delete evidence is recorded',
+        'hidden-output route is selected'
+      ],
+      dropEvidenceRequired: [
+        'smooth-continuity ownership overlay id',
+        'referenced dash body product ids',
+        'smooth-continuity group id',
+        'legal empty/delete reason'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:constrained-dashed-product-units',
+      artifactClassId: 'required-product-artifact',
+      computedAt: 'apply-legality',
+      assemblyMode: 'owner-preserving-family-union',
+      contributorStepIds: [
+        'build-dash-interval-body-products',
+        'build-source-vertex-join-products'
+      ],
+      overlayContributorStepIds: [
+        'build-terminal-body-products',
+        'build-smooth-continuity-products'
+      ],
+      semanticChildOwnerField: 'ownerStepId',
+      preserveThrough: ['apply-legality'],
+      consumedBy: ['apply-legality'],
+      mustNotRecomputeAfter: 'apply-legality',
+      mayDropOnlyWhen: [
+        'constrained dashed product family is not selected',
+        'every child product unit is legally deleted with evidence',
+        'hidden-output route is selected'
+      ],
+      dropEvidenceRequired: [
+        'constrained dashed product unit set id',
+        'child product ids with owner step ids',
+        'legal empty/delete reason for every dropped child product'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:preLegalityProductUnits',
+      artifactClassId: 'required-product-artifact',
+      computedAt: 'apply-legality',
+      assemblyMode: 'owner-preserving-family-union',
+      contributorStepIds: [
+        'build-constrained-solid-products',
+        'build-dash-interval-body-products',
+        'build-source-vertex-join-products',
+        'build-smooth-continuity-products',
+        'select-stroke-descriptor-strategy'
+      ],
+      overlayContributorStepIds: [
+        'build-terminal-body-products',
+        'build-smooth-continuity-products'
+      ],
+      semanticChildOwnerField: 'ownerStepId',
+      preserveThrough: ['apply-legality'],
+      consumedBy: ['apply-legality'],
+      mustNotRecomputeAfter: 'apply-legality',
+      mayDropOnlyWhen: [
+        'no product family route is selected',
+        'all route-owned product units are explicitly absent with evidence',
+        'hidden-output route is selected'
+      ],
+      dropEvidenceRequired: [
+        'pre-legality product unit set id',
+        'child product ids with original owner step ids',
+        'absence or empty-output reason for every missing product unit'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:postLegalityProductUnits',
+      artifactClassId: 'required-product-artifact',
+      computedAt: 'apply-legality',
+      preserveThrough: [
+        'build-resolved-stroke-regions',
+        'attach-paint-payload',
+        'build-final-faces',
+        'materialize-stroke-product-descriptors',
+        'emit-render-hit-export-packets',
+        'render-entries',
+        'hit-export'
+      ],
+      consumedBy: [
+        'build-resolved-stroke-regions',
+        'attach-paint-payload',
+        'build-final-faces',
+        'materialize-stroke-product-descriptors',
+        'emit-render-hit-export-packets'
+      ],
+      mustNotRecomputeAfter: 'build-final-faces',
+      mayDropOnlyWhen: [
+        'legal deletion removes the product and delete evidence is recorded',
+        'hidden-output route is selected',
+        'no legal product remains for this source domain'
+      ],
+      dropEvidenceRequired: [
+        'source product id',
+        'legal-domain id',
+        'legal clip/delete reason'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:legalityEquivalentProductUnits',
+      artifactClassId: 'required-evidence-artifact',
+      computedAt: 'apply-legality',
+      preserveThrough: [
+        'build-final-faces',
+        'materialize-stroke-product-descriptors',
+        'render-entries'
+      ],
+      consumedBy: ['materialize-stroke-product-descriptors', 'render-entries'],
+      mustNotRecomputeAfter: 'materialize-stroke-product-descriptors',
+      mayDropOnlyWhen: [
+        'descriptor route is not selected',
+        'canonical product route is selected',
+        'hidden-output route is selected'
+      ],
+      dropEvidenceRequired: [
+        'legality-equivalent product unit ids',
+        'source post-legality product ids',
+        'canonical-product or descriptor-ineligible reason'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:descriptorStrategyRecords',
+      artifactClassId: 'required-evidence-artifact',
+      computedAt: 'select-stroke-descriptor-strategy',
+      preserveThrough: [
+        'apply-legality',
+        'build-final-faces',
+        'materialize-stroke-product-descriptors',
+        'render-entries'
+      ],
+      consumedBy: ['materialize-stroke-product-descriptors', 'render-entries'],
+      mustNotRecomputeAfter: 'apply-legality',
+      mayDropOnlyWhen: [
+        'canonical product route is required',
+        'descriptor route is not eligible',
+        'hidden-output route is selected'
+      ],
+      dropEvidenceRequired: [
+        'descriptor strategy id',
+        'eligibility status',
+        'legality basis or canonical fallback reason'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:finalFaces',
+      artifactClassId: 'required-product-artifact',
+      computedAt: 'build-final-faces',
+      preserveThrough: [
+        'materialize-stroke-product-descriptors',
+        'emit-render-hit-export-packets',
+        'render-entries',
+        'hit-export'
+      ],
+      consumedBy: [
+        'materialize-stroke-product-descriptors',
+        'emit-render-hit-export-packets',
+        'render-entries',
+        'hit-export'
+      ],
+      mustNotRecomputeAfter: 'materialize-stroke-product-descriptors',
+      mayDropOnlyWhen: [
+        'post-legality product is legally empty',
+        'hidden-output route is selected',
+        'product is evidence-only and has no visible/hit/export channel'
+      ],
+      dropEvidenceRequired: [
+        'final-face id',
+        'owner / interval / terminal / seam / legal-domain / source-span identity set',
+        'empty-output reason when no legal final face exists'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:constrained-dashed-render-descriptor',
+      artifactClassId: 'required-product-artifact',
+      computedAt: 'materialize-stroke-product-descriptors',
+      preserveThrough: ['render-entries', 'hit-export'],
+      consumedBy: ['render-entries', 'hit-export'],
+      mustNotRecomputeAfter: 'render-entries',
+      mayDropOnlyWhen: [
+        'canonical visible product route is selected',
+        'descriptor strategy is not eligible',
+        'hidden-output route is selected'
+      ],
+      dropEvidenceRequired: [
+        'descriptor id',
+        'final-face id',
+        'canonical-product or descriptor-ineligible reason'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:renderEntries',
+      artifactClassId: 'required-product-artifact',
+      computedAt: 'render-entries',
+      preserveThrough: ['renderer-projection'],
+      consumedBy: ['renderer-projection'],
+      mustNotRecomputeAfter: 'renderer-projection',
+      mayDropOnlyWhen: [
+        'no final faces exist and empty-output evidence is recorded',
+        'hidden-output route is selected',
+        'the entry is replaced by declared same-paint composite with parity evidence'
+      ],
+      dropEvidenceRequired: [
+        'render-entry id',
+        'consumed final-face id',
+        'owner / interval / terminal / seam / legal-domain / source-span parity evidence'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:same-paint-composite-state',
+      artifactClassId: 'composite-stacking-state',
+      computedAt: 'render-entries',
+      preserveThrough: ['renderer-projection'],
+      consumedBy: ['renderer-projection'],
+      mustNotRecomputeAfter: 'renderer-projection',
+      mayDropOnlyWhen: [
+        'no same-paint overlap exists',
+        'alpha-safe equivalence evidence proves separate projection is equivalent'
+      ],
+      dropEvidenceRequired: [
+        'same-paint composite group id',
+        'overlap/shared-boundary proof',
+        'alpha-safe equivalence reason'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:hit-export-packets',
+      artifactClassId: 'required-product-artifact',
+      computedAt: 'emit-render-hit-export-packets',
+      preserveThrough: ['hit-export'],
+      consumedBy: ['hit-export'],
+      mustNotRecomputeAfter: 'hit-export',
+      mayDropOnlyWhen: [
+        'no final faces exist and empty-output evidence is recorded',
+        'hidden-output route is selected',
+        'hit/export channel is explicitly disabled by product route'
+      ],
+      dropEvidenceRequired: [
+        'hit/export packet id',
+        'final-face owner set',
+        'empty-output or disabled-channel reason'
+      ]
+    }),
+    lifecycle({
+      id: 'artifact:hitExportPackets',
+      artifactClassId: 'required-product-artifact',
+      computedAt: 'emit-render-hit-export-packets',
+      preserveThrough: ['hit-export'],
+      consumedBy: ['hit-export'],
+      mustNotRecomputeAfter: 'hit-export',
+      mayDropOnlyWhen: [
+        'no final faces exist and empty-output evidence is recorded',
+        'hidden-output route is selected',
+        'hit/export channel is explicitly disabled by product route'
+      ],
+      dropEvidenceRequired: [
+        'hit/export packet id',
+        'final-face owner set',
+        'empty-output or disabled-channel reason'
+      ]
+    })
+  ]
+  const crossStepArtifactLifecycleMatrix = Object.fromEntries(
+    crossStepArtifactLifecycleDefinitions.map((entry) => [entry.id, entry])
   )
   const coExecutionCompletionRules = [
     {
@@ -7025,14 +9733,16 @@
       coExecutionGroup: 'coexec:constrained-solid-product-units',
       owningDecisionGroup: 'decision:build-constrained-solid-products',
       requiredRouteIds: [
-        'constrained-solid-products-coexecute-source-vertex-join-products'
+        'constrained-solid-products-coexecute-source-vertex-join-products',
+        'constrained-solid-products-coexecute-smooth-continuity-products'
       ],
       completionArtifactIds: ['artifact:preLegalityProductUnits'],
       downstreamBarrier: 'apply-legality',
       semantics:
-        'Constrained solid doubled-center bodies and every dispatched canonical source-vertex join must both exist before legality clipping may run.',
+        'Constrained solid doubled-center bodies, every dispatched canonical source-vertex join, and every dispatched same-owner smooth-continuity span must exist or be explicitly absent with evidence before legality clipping or descriptor eligibility may claim constrained solid coverage.',
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#asyra-stroke-construction-baseline',
+        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#smooth-curvature-non-join-contract',
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#product-legality-and-descriptor-encoding'
       ]
     },
@@ -7040,6 +9750,7 @@
       coExecutionGroup: 'coexec:constrained-dashed-product-units',
       owningDecisionGroup: 'decision:build-dash-interval-body-products',
       requiredRouteIds: [
+        'constrained-dashed-products-derive-seam-boundaries',
         'constrained-dashed-products-coexecute-source-vertex-join-products',
         'constrained-dashed-products-coexecute-terminal-body-products',
         'constrained-dashed-products-coexecute-smooth-continuity-products',
@@ -7047,11 +9758,13 @@
       ],
       completionArtifactIds: [
         'artifact:constrained-dashed-product-units',
+        'artifact:constrained-dashed-join-owned-terminal-body-product',
+        'artifact:constrained-dashed-smooth-continuity-product',
         'artifact:descriptorStrategyRecords'
       ],
       downstreamBarrier: 'apply-legality',
       semantics:
-        'Constrained dashed interval body, source-vertex join, terminal body, smooth-continuity, and descriptor-strategy routes are co-executed when their predicates apply; legality cannot run until every applicable product unit is either emitted or explicitly absent with evidence.',
+        'Constrained dashed Step 27 body and Step 29 join products co-execute with Step 30/31 ownership overlays and descriptor strategy. Legality cannot run until every applicable visible product and non-visible overlay is emitted or explicitly absent with evidence.',
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#dash-body-and-join-seam-contract',
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#smooth-curvature-non-join-contract',
@@ -7065,7 +9778,9 @@
         'constrained-solid-canonical-source-vertex-join-footprint',
         'constrained-dashed-source-vertex-join-product'
       ],
-      completionArtifactIds: ['artifact:preLegalityProductUnits'],
+      completionArtifactIds: [
+        'artifact:constrained-dashed-join-owned-terminal-body-product'
+      ],
       downstreamBarrier: 'apply-legality',
       semantics:
         'Every applicable source-vertex join route must emit a canonical join footprint or explicit no-join evidence before downstream legality or render channels may claim corner coverage.',
@@ -7078,10 +9793,12 @@
       coExecutionGroup: 'coexec:terminal-body-product-units',
       owningDecisionGroup: 'decision:build-terminal-body-products',
       requiredRouteIds: ['constrained-dashed-join-owned-terminal-body-product'],
-      completionArtifactIds: ['artifact:preLegalityProductUnits'],
+      completionArtifactIds: [
+        'artifact:constrained-dashed-join-owned-terminal-body-product'
+      ],
       downstreamBarrier: 'apply-legality',
       semantics:
-        'Every applicable terminal body route must stop at declared seam boundaries before legality or final faces consume terminal coverage.',
+        'Every applicable terminal ownership route must reference an existing Step 27 body product and declared seam boundary, contribute zero visible geometry, and complete before legality or final faces consume terminal identity.',
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#dash-body-and-join-seam-contract'
       ]
@@ -7090,10 +9807,12 @@
       coExecutionGroup: 'coexec:smooth-continuity-product-units',
       owningDecisionGroup: 'decision:build-smooth-continuity-products',
       requiredRouteIds: ['constrained-dashed-smooth-continuity-product'],
-      completionArtifactIds: ['artifact:preLegalityProductUnits'],
+      completionArtifactIds: [
+        'artifact:constrained-dashed-smooth-continuity-product'
+      ],
       downstreamBarrier: 'apply-legality',
       semantics:
-        'Smooth-continuity product routes must emit one continuous footprint or explicit absence evidence before legality or final faces may consume high-curvature coverage.',
+        'The constrained-dashed smooth route must reference Step 27 continuous body coverage as a zero-visible-geometry ownership overlay; the constrained-solid route retains its same-owner visible product contract.',
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#smooth-curvature-non-join-contract'
       ]
@@ -7109,35 +9828,6 @@
       specRuleRefs: [
         'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#output-channel-separation'
       ]
-    },
-    {
-      coExecutionGroup: 'diagnostic-channel-consumer',
-      owningDecisionGroup: 'decision:renderer-projection',
-      requiredRouteIds: ['renderer-projection-diagnostics-snapshot'],
-      completionArtifactIds: [
-        'artifact:renderer-projection-diagnostic-snapshot'
-      ],
-      downstreamBarrier: 'runtime-diagnostics',
-      semantics:
-        'Renderer diagnostics consumers emit diagnostics-only metadata and cannot feed render, hit, export, or product ownership.',
-      specRuleRefs: [
-        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#output-channel-separation'
-      ]
-    },
-    {
-      coExecutionGroup: 'coexec:diagnostic-channel-evidence',
-      owningDecisionGroup: 'decision:runtime-diagnostics-aggregation',
-      requiredRouteIds: [
-        'renderer-projection-diagnostics-snapshot',
-        'diagnostics-channel-aggregation'
-      ],
-      completionArtifactIds: ['artifact:diagnosticSnapshots'],
-      downstreamBarrier: 'runtime-diagnostics',
-      semantics:
-        'Diagnostic aggregation co-executes render and hit/export evidence consumers without making either channel a source of truth for the other.',
-      specRuleRefs: [
-        'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#output-channel-separation'
-      ]
     }
   ]
   const coExecutionCompletionRuleByGroup = new Map(
@@ -7148,6 +9838,7 @@
     'build-center-stroke-products',
     'build-constrained-solid-products',
     'build-dash-interval-body-products',
+    'derive-dash-body-seam-boundaries',
     'build-source-vertex-join-products',
     'build-terminal-body-products',
     'build-smooth-continuity-products',
@@ -7363,11 +10054,11 @@
       : null,
     !schemaRepairActive &&
     !hasActiveRefactorStep &&
-    currentExecutionState.planStatus === 'inspector-flow-step-units-verified'
+    currentExecutionState.planStatus === 'post-runtime-correctness-active'
       ? null
       : schemaRepairActive || hasActiveRefactorStep
         ? null
-        : 'planStatus must indicate inspector step units are verified when no active step remains',
+        : 'planStatus must indicate post-runtime correctness work is active when no runtime step remains',
     currentExecutionState.refactorProtocolName === refactorProtocol.name
       ? null
       : 'currentExecutionState refactor protocol name does not match refactorProtocol.name',
@@ -7377,11 +10068,11 @@
       : null,
     !schemaRepairActive &&
     !hasActiveRefactorStep &&
-    currentExecutionState.nextExecutableStepId === 'unit-complete-checkpoint'
+    currentExecutionState.nextExecutableStepId === 'integration-suite'
       ? null
       : schemaRepairActive || hasActiveRefactorStep
         ? null
-        : 'nextExecutableStepId must stop at the unit-complete checkpoint after all step units verify',
+        : 'nextExecutableStepId must advance to the focused integration suite after all runtime step units verify',
     refactorProtocol.testConformancePolicy.includes(
       'current stroke engine spec'
     ) &&
@@ -7389,32 +10080,295 @@
       ? null
       : 'test conformance policy must require current spec and inspector ownership mapping',
     refactorProtocol.stepExecutionPolicy.includes(
-      'all 41 runtime inspector steps'
+      'every runtime inspector step in the current graph'
     )
       ? null
-      : 'step execution policy must require advancing through all 41 runtime inspector steps',
+      : 'step execution policy must require advancing through every runtime inspector step in the current graph',
     refactorProtocol.stepRetryLimit === 3
       ? null
       : 'step retry limit must be 3 focused repair attempts',
     refactorProtocol.stepRetryFailurePolicy.includes('third') &&
-    refactorProtocol.stepRetryFailurePolicy.includes('notify')
+    refactorProtocol.stepRetryFailurePolicy.includes('task replan')
       ? null
-      : 'step retry failure policy must stop and notify after the third failed focused attempt',
-    refactorProtocol.integrationPolicy.includes('unit-complete checkpoint') &&
-    refactorProtocol.integrationPolicy.includes('locked') &&
-    refactorProtocol.integrationPolicy.includes('user approves')
+      : 'step retry failure policy must automatically enter task replan after the third failed focused attempt',
+    refactorProtocol.integrationPolicy.includes('runtime unit gate') &&
+    refactorProtocol.integrationPolicy.includes('begin automatically') &&
+    refactorProtocol.integrationPolicy.includes('formal geometry oracle')
       ? null
-      : 'integration policy must keep integration/E2E/visual/regression locked at the unit-complete checkpoint',
+      : 'integration policy must automatically open focused integration and formal geometry-oracle work after the runtime unit gate',
     refactorProtocol.fullRegressionRetryLimit === 3
       ? null
       : 'full preset regression retry limit must be 3 attempts',
     refactorProtocol.fullRegressionFailurePolicy.includes('third') &&
-    refactorProtocol.fullRegressionFailurePolicy.includes('notify')
+    refactorProtocol.fullRegressionFailurePolicy.includes('task replan')
       ? null
-      : 'full preset regression failure policy must stop and notify after the third failed attempt',
-    refactorProtocol.e2ePolicy.includes('locked')
+      : 'full preset regression failure policy must automatically enter task replan after the third failed attempt',
+    refactorProtocol.e2ePolicy.includes('starts automatically') &&
+    refactorProtocol.e2ePolicy.includes('integration') &&
+    refactorProtocol.e2ePolicy.includes('formal geometry-oracle') &&
+    refactorProtocol.e2ePolicy.includes('explicit user request')
       ? null
-      : 'E2E policy must keep E2E locked before unit and integration verification'
+      : 'E2E policy must start E2E after correctness prerequisites and keep visual review explicit-request-only'
+  ].filter(Boolean)
+  const wholeFlowReviewSegmentStepIds =
+    wholeFlowReviewContract.reviewSegments.flatMap((segment) => segment.stepIds)
+  const duplicateWholeFlowReviewStepIds = wholeFlowReviewSegmentStepIds.filter(
+    (stepId, index) => wholeFlowReviewSegmentStepIds.indexOf(stepId) !== index
+  )
+  const wholeFlowReviewRequiredSegmentIds = [
+    'source-mutation-ingress',
+    'render-mirror-current-state-cache',
+    'source-domain-planning',
+    'product-family-coexecution',
+    'legality-final-records-descriptors',
+    'output-channels'
+  ]
+  const wholeFlowLedgerBySegmentId = new Map(
+    wholeFlowReviewContract.completionLedger.map((entry) => [
+      entry.segmentId,
+      entry
+    ])
+  )
+  const wholeFlowReviewSegmentById = new Map(
+    wholeFlowReviewContract.reviewSegments.map((segment) => [segment.id, segment])
+  )
+  const wholeFlowClosurePacketBySegmentId = new Map(
+    wholeFlowReviewContract.closurePackets.map((packet) => [
+      packet.segmentId,
+      packet
+    ])
+  )
+  const productFamilyLedger = wholeFlowLedgerBySegmentId.get(
+    'product-family-coexecution'
+  )
+  const productFamilyClosurePacket = wholeFlowClosurePacketBySegmentId.get(
+    'product-family-coexecution'
+  )
+  const outputChannelLedger = wholeFlowLedgerBySegmentId.get('output-channels')
+  const outputChannelClosurePacket =
+    wholeFlowClosurePacketBySegmentId.get('output-channels')
+  const registeredArtifactIds = new Set([
+    ...artifactRegistry.map((entry) => entry.id),
+    ...Object.keys(crossStepArtifactLifecycleMatrix)
+  ])
+  const confirmedWholeFlowLedgerEntries =
+    wholeFlowReviewContract.completionLedger.filter(
+      (entry) =>
+        entry.closureState === 'implementation-ready' ||
+        entry.closureState === 'runtime-closed'
+    )
+  const wholeFlowClosurePacketErrors =
+    wholeFlowReviewContract.completionLedger.flatMap((entry) => {
+      const packet = wholeFlowClosurePacketBySegmentId.get(entry.segmentId)
+      const segment = wholeFlowReviewSegmentById.get(entry.segmentId)
+      if (!packet) {
+        return [`whole-flow review missing closure packet ${entry.segmentId}`]
+      }
+
+      return [
+        packet.closureState === entry.closureState
+          ? null
+          : `${entry.segmentId} closure packet state must match ledger state`,
+        packet.contractStatus === entry.contractStatus
+          ? null
+          : `${entry.segmentId} closure packet contract status must match ledger status`,
+        packet.familyDataflowStatus === entry.familyDataflowStatus
+          ? null
+          : `${entry.segmentId} closure packet family dataflow status must match ledger status`,
+        packet.runtimeStatus === entry.runtimeStatus
+          ? null
+          : `${entry.segmentId} closure packet runtime status must match ledger status`,
+        segment &&
+        segment.stepIds.every((stepId) => packet.coveredStepIds.includes(stepId))
+          ? null
+          : `${entry.segmentId} closure packet must cover every review segment step`,
+        packet.specAnchors?.length > 0
+          ? null
+          : `${entry.segmentId} closure packet must name spec anchors`,
+        packet.formalGates?.length > 0
+          ? null
+          : `${entry.segmentId} closure packet must name formal gates`,
+        packet.reopenConditions?.length > 0
+          ? null
+          : `${entry.segmentId} closure packet must name reopen conditions`,
+        packet.downstreamConsumers !== undefined
+          ? null
+          : `${entry.segmentId} closure packet must declare downstream consumers`,
+        packet.mustNotRecomputeAfter !== undefined
+          ? null
+          : `${entry.segmentId} closure packet must declare mustNotRecomputeAfter boundaries`,
+        packet.remainingScope !== undefined
+          ? null
+          : `${entry.segmentId} closure packet must declare remaining scope`
+      ].filter(Boolean)
+    })
+  const wholeFlowClosurePacketArtifactErrors =
+    wholeFlowReviewContract.closurePackets.flatMap((packet) =>
+      [
+        'computedArtifactIds',
+        'preservedArtifactIds',
+        'consumedArtifactIds',
+        'projectedArtifactIds',
+        'validatedArtifactIds'
+      ].flatMap((field) =>
+        (packet[field] ?? [])
+          .filter(
+            (artifactId) =>
+              typeof artifactId === 'string' &&
+              artifactId.startsWith('artifact:') &&
+              !registeredArtifactIds.has(artifactId)
+          )
+          .map(
+            (artifactId) =>
+              `${packet.segmentId} closure packet references unknown artifact ${artifactId}`
+          )
+      )
+    )
+  const wholeFlowReviewErrors = [
+    wholeFlowReviewContract.specAnchor.endsWith(
+      '#whole-flow-review-and-step-grouping-contract'
+    )
+      ? null
+      : 'whole-flow review contract must reference the README whole-flow review section',
+    wholeFlowReviewContract.governingPrinciples.some((principle) =>
+      principle.includes('implementation ownership slices')
+    )
+      ? null
+      : 'whole-flow review contract must define steps as implementation ownership slices',
+    refactorProtocol.stepExecutionPolicy.includes('whole-flow review')
+      ? null
+      : 'step execution policy must require whole-flow review before step implementation',
+    currentExecutionState.requiredImplementationSequence.some((item) =>
+      item.includes('Whole-Flow Review')
+    )
+      ? null
+      : 'current execution state must require Whole-Flow Review before step implementation',
+    wholeFlowReviewContract.closureStateMachine?.sourceRule?.endsWith(
+      'inspector-closure-readiness.md'
+    )
+      ? null
+      : 'whole-flow review must reference the inspector closure readiness rule',
+    wholeFlowReviewContract.closureStateMachine?.states?.includes(
+      'implementation-ready'
+    ) &&
+    wholeFlowReviewContract.closureStateMachine?.states?.includes(
+      'runtime-closed'
+    )
+      ? null
+      : 'whole-flow review must define closure state machine states',
+    wholeFlowReviewContract.closureStateMachine?.implementationReadyRequires?.some(
+      (rule) => rule.includes('family dataflow status')
+    )
+      ? null
+      : 'whole-flow review must define implementation-ready requirements',
+    ...wholeFlowReviewRequiredSegmentIds
+      .filter(
+        (segmentId) =>
+          !wholeFlowReviewContract.reviewSegments.some(
+            (segment) => segment.id === segmentId
+          )
+      )
+      .map((segmentId) => `whole-flow review missing segment ${segmentId}`),
+    ...steps
+      .map((step) => step.id)
+      .filter((stepId) => !wholeFlowReviewSegmentStepIds.includes(stepId))
+      .map((stepId) => `whole-flow review does not classify step ${stepId}`),
+    ...duplicateWholeFlowReviewStepIds.map(
+      (stepId) => `whole-flow review classifies ${stepId} more than once`
+    ),
+    ...wholeFlowReviewSegmentStepIds
+      .filter((stepId) => !stepById.has(stepId))
+      .map((stepId) => `whole-flow review references unknown step ${stepId}`),
+    wholeFlowReviewContract.handleTogether.some(
+      (group) => group.id === 'constrained-dashed-product-family'
+    )
+      ? null
+      : 'whole-flow review must group constrained dashed product family handling',
+    wholeFlowReviewContract.handleTogether.some(
+      (group) => group.id === 'constrained-solid-product-family'
+    )
+      ? null
+      : 'whole-flow review must group constrained solid product family handling',
+    wholeFlowReviewContract.segmentCompletionPolicy?.invalidationRule?.includes(
+      'invalidates that segment'
+    )
+      ? null
+      : 'whole-flow review must define closure-packet segment invalidation',
+    ...wholeFlowClosurePacketErrors,
+    ...wholeFlowClosurePacketArtifactErrors,
+    productFamilyLedger?.status === 'implementation-ready' &&
+    productFamilyLedger?.closureState === 'implementation-ready' &&
+    productFamilyLedger?.contractStatus === 'contract-closed' &&
+    productFamilyLedger?.familyDataflowStatus === 'family-dataflow-closed' &&
+    productFamilyLedger?.runtimeStatus === 'pending-runtime-gates'
+      ? null
+      : 'whole-flow review must keep product-family contract implementation-ready while runtime gates remain pending',
+    [productFamilyClosurePacket, productFamilyLedger].every((scope) =>
+      [
+        'constrained-dashed-body-program-identity-gate',
+        'constrained-dashed-family-single-visible-body-owner-gate',
+        'constrained-dashed-product-evidence-envelope-preservation-gate'
+      ].every((oracle) =>
+        scope?.runtimeBlockers?.some(
+          (blocker) =>
+            blocker.oracle === oracle &&
+            blocker.status === 'pending-runtime-repair'
+        )
+      )
+    )
+      ? null
+      : 'product-family runtime scope must record body identity, single-visible-body ownership, and evidence-envelope preservation blockers',
+    [productFamilyClosurePacket, productFamilyLedger].every((scope) =>
+      scope?.runtimeEvidence?.some(
+        (evidence) =>
+          evidence.oracle ===
+            'constrained-dashed-inside-strict-performance-gate-on-port-3001' &&
+          evidence.status === 'passed'
+      )
+    )
+      ? null
+      : 'product-family runtime evidence must retain only the verified inside strict baseline from port 3001 before continuous parameter reruns',
+    productFamilyLedger?.status === 'pending-step-unit-regeneration'
+      ? 'whole-flow review must not use stale pending-step-unit-regeneration status'
+      : null,
+    outputChannelLedger?.status === 'implementation-ready' &&
+    outputChannelLedger?.closureState === 'implementation-ready' &&
+    outputChannelLedger?.contractStatus === 'contract-closed' &&
+    outputChannelLedger?.familyDataflowStatus === 'family-dataflow-closed' &&
+    outputChannelLedger?.runtimeStatus === 'pending-runtime-gates'
+      ? null
+      : 'whole-flow review must separate implementation-ready output-channel contract closure from pending runtime gate closure',
+    [outputChannelClosurePacket, outputChannelLedger].every(
+      (scope) => Array.isArray(scope?.runtimeEvidence) && scope.runtimeEvidence.length === 0
+    )
+      ? null
+      : 'output-channel runtime scope must clear stale terminal-identity and performance evidence before the envelope-aware gates rerun',
+    [outputChannelClosurePacket, outputChannelLedger].every((scope) =>
+      scope?.runtimeBlockers?.some(
+        (blocker) =>
+          blocker.oracle ===
+            'constrained-dashed-batched-body-output-channel-gate' &&
+          blocker.status === 'pending-runtime-repair'
+      )
+    )
+      ? null
+      : 'output-channel runtime scope must name the pending batched-body evidence-envelope handoff gate',
+    ...confirmedWholeFlowLedgerEntries
+      .filter(
+        (entry) =>
+          !confirmedSegmentSkipReviewConditions.every((condition) =>
+            entry.skipReviewOnlyWhen?.includes(condition)
+          )
+      )
+      .map(
+        (entry) =>
+          `${entry.segmentId} confirmed ledger entry is missing strict skip-review invalidation conditions`
+      ),
+    wholeFlowReviewContract.forbiddenReviewBehavior.includes(
+      'approving the next implementation iteration from a step-local check only'
+    )
+      ? null
+      : 'whole-flow review must forbid step-local-only implementation advancement'
   ].filter(Boolean)
   const runtimeImplementationActive =
     runtimeImplementationState.phase === 'runtime-implementation-audit-active'
@@ -7449,8 +10403,8 @@
       ? 'runtime implementation may start only after all inspector step units are verified'
       : null,
     runtimeImplementationEnabled &&
-    runtimeImplementationState.previousCheckpoint !== 'unit-complete-checkpoint'
-      ? 'runtime implementation must start from the unit-complete checkpoint'
+    runtimeImplementationState.completedGate !== 'runtime-unit-gate'
+      ? 'runtime implementation must record the completed runtime unit gate'
       : null,
     runtimeImplementationActive && !runtimeImplementationActiveStep
       ? `${runtimeImplementationState.activeStepId} is not a known runtime implementation step`
@@ -7511,9 +10465,9 @@
       : null,
     runtimeImplementationComplete &&
     !runtimeImplementationState.activeStepGate.includes(
-      '41 runtime inspector steps verified'
+      'runtime inspector steps verified'
     )
-      ? 'runtime implementation unit-complete phase must record all 41 runtime inspector steps verified'
+      ? 'runtime implementation unit-complete phase must record all runtime inspector steps verified'
       : null,
     runtimeImplementationState.stepRetryLimit ===
     refactorProtocol.stepRetryLimit
@@ -7524,14 +10478,14 @@
     )
       ? null
       : 'runtime implementation must document the first-unverified-step sequential lock policy',
-    runtimeImplementationState.lockedFuturePhases.includes(
+    runtimeImplementationState.pendingTechnicalPhases.includes(
       'full package regression'
     ) &&
-    runtimeImplementationState.lockedFuturePhases.includes('E2E') &&
-    runtimeImplementationState.lockedFuturePhases.includes('visual review') &&
-    runtimeImplementationState.lockedFuturePhases.includes('performance')
+    runtimeImplementationState.pendingTechnicalPhases.includes('E2E') &&
+    runtimeImplementationState.pendingTechnicalPhases.includes('performance') &&
+    !runtimeImplementationState.pendingTechnicalPhases.includes('visual review')
       ? null
-      : 'runtime implementation must keep full package regression, E2E, visual review, and performance locked',
+      : 'runtime implementation must record pending technical phases without making optional visual review a prerequisite',
     runtimeImplementationState.evidenceRequired.includes(
       'implementation entry boundary mapping'
     ) &&
@@ -8224,6 +11178,193 @@
           `required artifact closure missing requirement ${requirementId}`
       )
   ].filter(Boolean)
+  const pipelineArtifactDataClassIds =
+    strokePipelineArtifactDataContract.artifactClasses.map(
+      (artifactClass) => artifactClass.id
+    )
+  const pipelineArtifactDataContractErrors = [
+    strokePipelineArtifactDataContract.specAnchor.endsWith(
+      '#spec-to-enforcement-contract'
+    )
+      ? null
+      : 'pipeline artifact data contract must reference Spec-To-Enforcement Contract',
+    strokePipelineArtifactDataContract.governingPrinciples.some((principle) =>
+      principle.includes('Classify every cross-step value')
+    )
+      ? null
+      : 'pipeline artifact data contract must require cross-step value classification before implementation',
+    strokePipelineArtifactDataContract.governingPrinciples.some((principle) =>
+      principle.includes('Downstream recomputation is allowed only for pure summaries')
+    )
+      ? null
+      : 'pipeline artifact data contract must limit downstream recomputation to pure summaries',
+    strokePipelineArtifactDataContract.nonRecomputableDimensions.includes(
+      'product geometry'
+    )
+      ? null
+      : 'pipeline artifact data contract must mark product geometry non-recomputable downstream',
+    strokePipelineArtifactDataContract.nonRecomputableDimensions.includes(
+      'same-paint compositing semantics'
+    )
+      ? null
+      : 'pipeline artifact data contract must mark same-paint compositing semantics non-recomputable downstream',
+    strokePipelineArtifactDataContract.forbiddenBehaviors.includes(
+      'using diagnostics or visual probes as visible product input'
+    )
+      ? null
+      : 'pipeline artifact data contract must forbid diagnostic promotion to visible product input',
+    ...strokePipelineArtifactDataContract.requiredClassIds
+      .filter((classId) => !pipelineArtifactDataClassIds.includes(classId))
+      .map((classId) => `pipeline artifact data contract missing ${classId}`),
+    ...strokePipelineArtifactDataContract.artifactClasses
+      .filter(
+        (artifactClass) =>
+          artifactClass.id !== 'recomputable-derived-summary' &&
+          artifactClass.id !== 'optional-diagnostic-artifact' &&
+          artifactClass.mayBeRecomputedDownstream
+      )
+      .map(
+        (artifactClass) =>
+          `pipeline artifact data contract allows downstream recomputation for ${artifactClass.id}`
+      ),
+    ...strokePipelineArtifactDataContract.artifactClasses
+      .filter(
+        (artifactClass) =>
+          artifactClass.id === 'optional-diagnostic-artifact' &&
+          artifactClass.mayPaint
+      )
+      .map(
+        (artifactClass) =>
+          `pipeline artifact data contract allows optional diagnostic paint for ${artifactClass.id}`
+      )
+  ].filter(Boolean)
+  const allowedStepResponsibilityClassifications = [
+    'primary-computation',
+    'state-overlay',
+    'channel-projection',
+    'validation/evidence-only'
+  ]
+  const stepResponsibilityEntries = Object.values(stepResponsibilityMatrix)
+  const stepResponsibilityMatrixErrors = [
+    ...steps
+      .map((step) => step.id)
+      .filter((stepId) => !stepResponsibilityMatrix[stepId])
+      .map((stepId) => `step responsibility matrix missing ${stepId}`),
+    ...stepResponsibilityEntries
+      .filter((entry) => !stepById.has(entry.stepId))
+      .map((entry) => `step responsibility matrix references unknown step ${entry.stepId}`),
+    ...stepResponsibilityEntries
+      .filter(
+        (entry) =>
+          !allowedStepResponsibilityClassifications.includes(
+            entry.classification
+          )
+      )
+      .map(
+        (entry) =>
+          `${entry.stepId} has invalid responsibility classification ${entry.classification}`
+      ),
+    ...stepResponsibilityEntries
+      .filter((entry) => stepResponsibilityMatrix[entry.stepId] !== entry)
+      .map((entry) => `${entry.stepId} responsibility matrix key mismatch`),
+    ...stepResponsibilityEntries
+      .filter(
+        (entry) => !wholeFlowReviewRequiredSegmentIds.includes(entry.reviewSegment)
+      )
+      .map(
+        (entry) =>
+          `${entry.stepId} responsibility matrix references unknown review segment ${entry.reviewSegment}`
+      ),
+    ...stepResponsibilityEntries
+      .filter(
+        (entry) =>
+          !Array.isArray(entry.allowedActions) ||
+          entry.allowedActions.length === 0
+      )
+      .map((entry) => `${entry.stepId} responsibility matrix lacks allowedActions`),
+    ...stepResponsibilityEntries
+      .filter(
+        (entry) =>
+          !Array.isArray(entry.forbiddenActions) ||
+          !entry.forbiddenActions.some((action) => action.includes('recompute'))
+      )
+      .map(
+        (entry) =>
+          `${entry.stepId} responsibility matrix must forbid late recompute`
+      ),
+    stepResponsibilityMatrix['runtime-diagnostics']
+      ? 'runtime-diagnostics must not be classified as an inspector step'
+      : null,
+    allowedStepResponsibilityClassifications.every((classification) =>
+      stepResponsibilityEntries.some(
+        (entry) => entry.classification === classification
+      )
+    )
+      ? null
+      : 'step responsibility matrix must use every supported classification'
+  ].filter(Boolean)
+  const requiredCrossStepArtifactLifecycleIds = [
+    'artifact:stroke-domain-plan',
+    'artifact:dash-product-interval',
+    'artifact:dash-body-seam-boundary',
+    'artifact:source-vertex-join-miter-evidence',
+    'artifact:constrained-dashed-source-vertex-join-product',
+    'artifact:constrained-dashed-join-owned-terminal-body-product',
+    'artifact:postLegalityProductUnits',
+    'artifact:finalFaces',
+    'artifact:renderEntries',
+    'artifact:hit-export-packets'
+  ]
+  const crossStepArtifactLifecycleEntries = Object.values(
+    crossStepArtifactLifecycleMatrix
+  )
+  const crossStepArtifactLifecycleErrors = [
+    ...requiredCrossStepArtifactLifecycleIds
+      .filter((artifactId) => !crossStepArtifactLifecycleMatrix[artifactId])
+      .map((artifactId) => `cross-step artifact lifecycle missing ${artifactId}`),
+    ...crossStepArtifactLifecycleEntries
+      .filter((entry) => !artifactById.has(entry.id))
+      .map((entry) => `cross-step artifact lifecycle references unknown artifact ${entry.id}`),
+    ...crossStepArtifactLifecycleEntries
+      .filter((entry) => !pipelineArtifactDataClassIds.includes(entry.artifactClassId))
+      .map(
+        (entry) =>
+          `${entry.id} references unknown artifact class ${entry.artifactClassId}`
+      ),
+    ...crossStepArtifactLifecycleEntries
+      .filter((entry) => !stepById.has(entry.computedAt))
+      .map((entry) => `${entry.id} computedAt unknown step ${entry.computedAt}`),
+    ...crossStepArtifactLifecycleEntries
+      .filter((entry) => !stepById.has(entry.mustNotRecomputeAfter))
+      .map(
+        (entry) =>
+          `${entry.id} mustNotRecomputeAfter unknown step ${entry.mustNotRecomputeAfter}`
+      ),
+    ...crossStepArtifactLifecycleEntries.flatMap((entry) =>
+      [...entry.preserveThrough, ...entry.consumedBy]
+        .filter((stepId) => !stepById.has(stepId))
+        .map((stepId) => `${entry.id} lifecycle references unknown step ${stepId}`)
+    ),
+    ...crossStepArtifactLifecycleEntries
+      .filter(
+        (entry) =>
+          entry.downstreamAuthority &&
+          entry.artifactClassId === 'recomputable-derived-summary'
+      )
+      .map((entry) => `${entry.id} cannot be downstream authority and recomputable`),
+    ...crossStepArtifactLifecycleEntries
+      .filter(
+        (entry) =>
+          !Array.isArray(entry.mayDropOnlyWhen) ||
+          entry.mayDropOnlyWhen.length === 0 ||
+          !Array.isArray(entry.dropEvidenceRequired) ||
+          entry.dropEvidenceRequired.length === 0
+      )
+      .map((entry) => `${entry.id} lifecycle must declare drop rules and evidence`),
+    crossStepArtifactLifecycleMatrix['artifact:runtime-diagnostics']
+      ? 'runtime diagnostics must not appear in cross-step product lifecycle matrix'
+      : null
+  ].filter(Boolean)
   const dashJoinSeamLifecycleErrors = [
     ...validateLifecycleContract(dashJoinSeamLifecycleContract),
     dashJoinSeamLifecycleContract.specAnchor.endsWith(
@@ -8239,7 +11380,7 @@
         )
     )
       ? null
-      : 'dash/join seam lifecycle must require zero-gap adjacency proof at Step 28',
+      : 'dash/join seam lifecycle must require zero-gap adjacency proof at the seam-boundary consumer gate',
     dashJoinSeamLifecycleContract.lifecycle.some(
       (phase) =>
         phase.phase === 'forbid-renderer-recompute' &&
@@ -8250,6 +11391,7 @@
       ? null
       : 'dash/join seam lifecycle must forbid renderer seam endpoint reinterpretation',
     ...[
+      'prepare-seam-boundary-evidence',
       'produce-seam-boundary',
       'dispatch-seam-boundary',
       'consume-seam-boundary',
@@ -8318,21 +11460,6 @@
     'apply-legality'
       ? null
       : 'descriptor strategy else route must proceed to apply-legality'
-  ].filter(Boolean)
-  const diagnosticsAggregationErrors = [
-    conditionalRoutes.some(
-      (route) => route.id === 'diagnostics-channel-aggregation'
-    )
-      ? null
-      : 'diagnostics-channel-aggregation route missing',
-    artifactById.has('artifact:diagnosticSnapshots')
-      ? null
-      : 'diagnosticSnapshots artifact missing',
-    conditionalRoutes
-      .find((route) => route.id === 'diagnostics-channel-aggregation')
-      ?.consumes?.includes('artifact:hitExportPackets')
-      ? null
-      : 'diagnostics-channel-aggregation must consume hitExportPackets evidence'
   ].filter(Boolean)
   const retiredProductRouteErrors = conditionalRoutes.flatMap((route) =>
     [
@@ -8426,6 +11553,17 @@
             `${recordLabel} dead residue must have no current consumers`
           )
         }
+      } else if (record.classification === 'diagnostics-only') {
+        if (record.ownerStepId !== null) {
+          errors.push(
+            `${recordLabel} diagnostics-only file must not declare ownerStepId`
+          )
+        }
+        if ((record.ownerRouteIds ?? []).length !== 0) {
+          errors.push(
+            `${recordLabel} diagnostics-only file must not declare ownerRouteIds`
+          )
+        }
       } else {
         if (!stepById.has(record.ownerStepId)) {
           errors.push(
@@ -8470,6 +11608,7 @@
     'build-center-stroke-products',
     'build-constrained-solid-products',
     'build-dash-interval-body-products',
+    'derive-dash-body-seam-boundaries',
     'build-source-vertex-join-products',
     'build-terminal-body-products',
     'build-smooth-continuity-products',
@@ -8615,6 +11754,7 @@
     ...refactorLockErrors,
     ...entryBoundaryErrors,
     ...refactorProtocolErrors,
+    ...wholeFlowReviewErrors,
     ...runtimeImplementationErrors,
     ...strokeParameterCoverageErrors,
     ...routeTypeErrors,
@@ -8638,9 +11778,11 @@
     ...metricAssertionErrors,
     ...descriptorLegalityErrors,
     ...requiredArtifactClosureErrors,
+    ...pipelineArtifactDataContractErrors,
+    ...stepResponsibilityMatrixErrors,
+    ...crossStepArtifactLifecycleErrors,
     ...dashJoinSeamLifecycleErrors,
     ...descriptorPathOrderingErrors,
-    ...diagnosticsAggregationErrors,
     ...retiredProductRouteErrors,
     ...paintOnlyRouteErrors,
     ...cacheHitRouteErrors,
@@ -8731,10 +11873,16 @@
     ruleRegistry,
     currentExecutionState,
     runtimeImplementationState,
+    finalValidationMethods,
+    optionalDiagnosticChannels,
     refactorProtocol,
     documentDeepAuditProtocol,
+    wholeFlowReviewContract,
     requiredArtifactClosureContract,
+    strokePipelineArtifactDataContract,
     dashJoinSeamLifecycleContract,
+    stepResponsibilityMatrix,
+    crossStepArtifactLifecycleMatrix,
     sharedStepTestHelpers,
     sourceFileOwnershipRecords,
     entryBoundaryRequiredStepIds,
@@ -8743,6 +11891,8 @@
     strokeParameterCoverageMatrix,
     canonicalVisualReviewContract,
     dragPerformanceContract,
+    continuousParameterPerformanceContract,
+    focusedTestExecutionContract,
     edgeCaseDomainContract,
     strokeCompletionMatrix,
     stepGoalAudit,
@@ -8761,9 +11911,13 @@
     refactorLockErrors,
     entryBoundaryErrors,
     refactorProtocolErrors,
+    wholeFlowReviewErrors,
     runtimeImplementationErrors,
     strokeParameterCoverageErrors,
     requiredArtifactClosureErrors,
+    pipelineArtifactDataContractErrors,
+    stepResponsibilityMatrixErrors,
+    crossStepArtifactLifecycleErrors,
     dashJoinSeamLifecycleErrors,
     sourceFileOwnershipErrors,
     inspectorContractErrors,

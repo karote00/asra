@@ -14,10 +14,9 @@ test.describe('stroke drag render performance UX gate: closed inside dashed', ()
   test.setTimeout(300000)
 
   for (const dragPerformanceCase of dragPerformanceCases) {
-    test(dragPerformanceCase.title, async ({ page }, testInfo) => {
+    test(dragPerformanceCase.title, async ({ page }) => {
       await runStrokeDragRenderPerformanceUXGateCase(
         page,
-        testInfo,
         dragPerformanceCase
       )
     })

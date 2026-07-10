@@ -8,6 +8,11 @@ The purpose is to make spec-driven implementation enforceable. Agents must not
 start from intuition, performance pressure, or local code shape when an inspector
 flow exists.
 
+For readiness and closure, this rule must be combined with
+`inspector-closure-readiness.md`. Implementation edits remain one owner step at a
+time, but the decision to start or advance that step must use the closure packet
+and review family that contains the step.
+
 ## Mandatory Execution Order
 
 1. Work on exactly one inspector owner step at a time.
@@ -60,6 +65,16 @@ them rederive upstream semantics.
 If a required input is absent from the inspector contract, do not use it by
 guessing. Stop and report the missing contract.
 
+## Readiness Vs Implementation Ownership
+
+An active implementation segment may edit only one owner step or route. However,
+the readiness check for that segment must cover the whole review family and any
+cross-family handoffs that feed the active step.
+
+Do not mark a step implementation-ready because its local step contract is
+complete if the family dataflow, downstream handoff, artifact lifecycle, or
+closure packet is still pending or contradictory.
+
 ## Test-First Requirement
 
 For bug fixes and spec mismatches, formal tests or oracles must be created or
@@ -92,6 +107,8 @@ Before advancing to another step, verify:
 - The changed files are in the inspector implementation allowlist, or the work
   stopped for a boundary update decision.
 - The implementation consumes only allowed inputs.
+- The containing review family is implementation-ready, or the work is repairing
+  the family/closure contract before implementation.
 - The implementation produces the required outputs and evidence.
 - No forbidden contributor is used.
 - No renderer fallback, patch geometry, fixture-specific route, or diagnostic
@@ -118,4 +135,3 @@ Stop implementation and ask for a decision when any of these occurs:
 - A performance shortcut cannot be proven equivalent.
 - The same focused repair fails three times.
 - The change would require keeping behavior that does not match the current spec.
-

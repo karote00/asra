@@ -20,6 +20,30 @@ interface InspectorStep {
 
 interface InspectorData {
   steps: InspectorStep[]
+  stepResponsibilityMatrix: Record<
+    string,
+    {
+      classification: string
+      ownerMode: string
+      primaryArtifacts: string[]
+      allowedActions: string[]
+      forbiddenActions: string[]
+    }
+  >
+  crossStepArtifactLifecycleMatrix: Record<
+    string,
+    {
+      artifactClassId: string
+      computedAt: string
+      preserveThrough: string[]
+      consumedBy: string[]
+      mustNotRecomputeAfter: string
+      mayDropOnlyWhen: string[]
+      dropEvidenceRequired: string[]
+      downstreamAuthority: boolean
+    }
+  >
+  artifactRegistry: { id: string }[]
   inspectorContractErrors: string[]
 }
 
@@ -88,6 +112,12 @@ const descriptor = {
   fillClipPolygons: [evidencePolygon]
 }
 
+const productEvidenceEnvelope = {
+  bodyProductIds: ['body:output'],
+  terminalOwnershipOverlays: [],
+  smoothContinuityOwnershipOverlays: []
+}
+
 const finalFace = {
   faceId: 'face:output',
   sourceGeometryIds: ['geometry:output'],
@@ -108,11 +138,15 @@ const finalFace = {
       intervalId: 'interval:output'
     }
   ],
+  ownerStepIds: ['build-source-vertex-join-products'],
   intervalIds: ['interval:output'],
+  terminalRoles: ['middle'],
+  seamBoundaryIds: ['seam:output'],
   sourceSpanIds: ['span:output'],
   sourceNetworkIds: ['network:output'],
   sourceContourIds: ['contour:output'],
   legalDomainIds: ['legal:output'],
+  productEvidenceEnvelope,
   productMode: 'post-legality-product',
   productSignature: 'source-vertex-join',
   debugMeta: {
@@ -123,7 +157,8 @@ const finalFace = {
     productSignature: 'source-vertex-join',
     routeId: 'emit-render-hit-export-packets',
     visibleContributor: 'source-vertex-join',
-    geometryBasis: 'canonical-join-footprint'
+    geometryBasis: 'canonical-join-footprint',
+    productEvidenceEnvelope
   },
   renderDescriptor: descriptor,
   paint: {
@@ -134,8 +169,8 @@ const finalFace = {
   }
 } satisfies FinalFaceInput
 
-describe('stroke flow step 37: emit-render-hit-export-packets', () => {
-  it('keeps emit-render-hit-export-packets as the current or verified thirty-seventh step', () => {
+describe('stroke flow step 38: emit-render-hit-export-packets', () => {
+  it('keeps emit-render-hit-export-packets as the thirty-eighth runtime step', () => {
     const data = loadInspectorData()
     const step = data.steps.find(
       (entry) => entry.id === 'emit-render-hit-export-packets'
@@ -145,7 +180,7 @@ describe('stroke flow step 37: emit-render-hit-export-packets', () => {
     )
 
     expect(data.inspectorContractErrors).toEqual([])
-    expect(step?.refactorStatus).toMatch(/^(active|verified)$/)
+    expect(step?.refactorStatus).toMatch(/^(locked|active|verified)$/)
     if (step?.refactorStatus === 'active') {
       expect(activeSteps.map((entry) => entry.id)).toEqual([
         'emit-render-hit-export-packets'
@@ -164,23 +199,50 @@ describe('stroke flow step 37: emit-render-hit-export-packets', () => {
       allowedInputs: [
         'final faces',
         'renderDescriptor visible route',
-        'hit/export evidence references'
+        'hit/export evidence references',
+        'final-face ConstrainedDashedProductEvidenceEnvelope'
       ],
       requiredOutputs: [
         'visible render packets',
         'hit-test packets',
         'export packets',
-        'diagnostic packets with explicit non-visible channel tags'
+        'render, hit-test, and export product identity preserving every body and ownership overlay id'
       ],
       implementationFiles: [
         'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/stroke-region-packet.ts',
+        'packages/preset/src/components/stroke-render/stroke-product-evidence.ts',
         'packages/preset/src/components/vector.ts'
       ]
     })
   })
 
-  it('emits render, hit, export, and diagnostic packets with explicit channel tags', () => {
+  it('classifies packet emission as channel projection and keeps diagnostics non-product', () => {
+    const data = loadInspectorData()
+    const responsibility =
+      data.stepResponsibilityMatrix['emit-render-hit-export-packets']
+    const lifecycle =
+      data.crossStepArtifactLifecycleMatrix['artifact:hit-export-packets']
+    const artifactIds = data.artifactRegistry.map((artifact) => artifact.id)
+
+    expect(responsibility).toMatchObject({
+      classification: 'channel-projection',
+      ownerMode:
+        'project final faces into render, hit-test, and export packet channels'
+    })
+    expect(responsibility.forbiddenActions.join(' ')).toContain(
+      'new geometry'
+    )
+    expect(lifecycle).toMatchObject({
+      artifactClassId: 'required-product-artifact',
+      computedAt: 'emit-render-hit-export-packets',
+      mustNotRecomputeAfter: 'hit-export',
+      downstreamAuthority: true
+    })
+    expect(artifactIds).not.toContain('artifact:runtime-diagnostics')
+  })
+
+  it('emits render, hit, and export packets with explicit product channel tags by default', () => {
     const output = emitSolidCenterStrokeProductOutputPacketsFromFinalFaces([
       finalFace
     ])
@@ -192,7 +254,11 @@ describe('stroke flow step 37: emit-render-hit-export-packets', () => {
         geometryId: 'geometry:output',
         polygons: [visiblePolygon],
         descriptorRouteMode: 'descriptor-visible-route',
-        primaryOwner: finalFace.ownerSet[0]
+        primaryOwner: finalFace.ownerSet[0],
+        ownerStepIds: ['build-source-vertex-join-products'],
+        intervalIds: ['interval:output'],
+        terminalRoles: ['middle'],
+        seamBoundaryIds: ['seam:output']
       })
     ])
     expect(output.renderPackets[0].renderDescriptor).toEqual({
@@ -202,6 +268,9 @@ describe('stroke flow step 37: emit-render-hit-export-packets', () => {
     expect(output.renderPackets[0].renderDescriptor).not.toHaveProperty(
       'descriptorProductPolygons'
     )
+    expect(output.renderPackets[0].productEvidenceEnvelope).toBe(
+      productEvidenceEnvelope
+    )
 
     expect(output.hitTestPackets).toEqual([
       expect.objectContaining({
@@ -209,7 +278,10 @@ describe('stroke flow step 37: emit-render-hit-export-packets', () => {
         visibility: 'hit-export',
         equivalenceReason: 'descriptor-evidence-projection',
         geometryId: 'geometry:output',
-        primaryOwner: finalFace.ownerSet[0]
+        primaryOwner: finalFace.ownerSet[0],
+        ownerStepIds: ['build-source-vertex-join-products'],
+        terminalRoles: ['middle'],
+        seamBoundaryIds: ['seam:output']
       })
     ])
     expect(output.exportPackets).toEqual([
@@ -218,9 +290,64 @@ describe('stroke flow step 37: emit-render-hit-export-packets', () => {
         visibility: 'hit-export',
         equivalenceReason: 'descriptor-evidence-projection',
         geometryId: 'geometry:output',
-        primaryOwner: finalFace.ownerSet[0]
+        primaryOwner: finalFace.ownerSet[0],
+        ownerStepIds: ['build-source-vertex-join-products'],
+        terminalRoles: ['middle'],
+        seamBoundaryIds: ['seam:output']
       })
     ])
+    expect(output.hitTestPackets[0].productEvidenceEnvelope).toBe(
+      productEvidenceEnvelope
+    )
+    expect(output.exportPackets[0].productEvidenceEnvelope).toBe(
+      productEvidenceEnvelope
+    )
+    expect(output.diagnosticPackets).toEqual([])
+  })
+
+  it('keeps evidence polygons out of visible render while allowing hit/export projection', () => {
+    const evidenceOnlyDescriptorFace = {
+      ...finalFace,
+      faceId: 'face:evidence-separated',
+      sourceGeometryIds: ['geometry:evidence-separated'],
+      visualPacketKey: 'visual:evidence-separated',
+      renderDescriptor: {
+        descriptorProductPolygons: [evidencePolygon]
+      },
+      debugMeta: {
+        ...finalFace.debugMeta,
+        productMode: 'center-product',
+        productSignature: 'center-product:dashed'
+      }
+    } satisfies FinalFaceInput
+
+    const output = emitSolidCenterStrokeProductOutputPacketsFromFinalFaces([
+      evidenceOnlyDescriptorFace
+    ])
+
+    expect(output.renderPackets[0]).toMatchObject({
+      channel: 'render',
+      polygons: [visiblePolygon]
+    })
+    expect(output.renderPackets[0].renderDescriptor).toBeUndefined()
+    expect(output.hitTestPackets[0]).toMatchObject({
+      channel: 'hit-test',
+      polygons: [evidencePolygon],
+      equivalenceReason: 'descriptor-evidence-projection'
+    })
+    expect(output.exportPackets[0]).toMatchObject({
+      channel: 'export',
+      polygons: [evidencePolygon],
+      equivalenceReason: 'descriptor-evidence-projection'
+    })
+  })
+
+  it('emits optional non-product diagnostic packets only when diagnostics are explicitly enabled', () => {
+    const output = emitSolidCenterStrokeProductOutputPacketsFromFinalFaces(
+      [finalFace],
+      { includeDiagnostics: true }
+    )
+
     expect(output.diagnosticPackets).toEqual([
       expect.objectContaining({
         channel: 'diagnostic',

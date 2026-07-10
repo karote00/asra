@@ -164,15 +164,13 @@ export const strokeVisualE2ECoverageMap: readonly StrokeVisualE2ECoverageCase[] 
         'build-dash-interval-body-products',
         'build-source-vertex-join-products',
         'render-entries',
-        'renderer-projection',
-        'runtime-diagnostics'
+        'renderer-projection'
       ],
       inspectorRouteRefs: [
         'constrained-dashed-interval-body-product',
         'constrained-dashed-source-vertex-join-product',
         'canonical-final-face-render-entry',
-        'render-projection-merge',
-        'diagnostics-channel-aggregation'
+        'render-projection-merge'
       ],
       validationGateRefs: ['visible-final-result'],
       formalOracleMatrixCaseIds: [
@@ -182,12 +180,20 @@ export const strokeVisualE2ECoverageMap: readonly StrokeVisualE2ECoverageCase[] 
       ],
       formalOracleRefs: [
         oracle(
-          'reported-vector-34-runtime-oracle.test.ts',
+          'reported-vector-34-seam-footprint-classes-oracle.test.ts',
           'keeps constrained outside dashed miter, bevel, and round source-vertex footprints distinct in runtime product artifacts'
         ),
         oracle(
-          'reported-vector-34-runtime-oracle.test.ts',
-          'connects reported sharp source-vertex joins to incident dash bodies without seam gaps'
+          'reported-vector-34-seam-join-connectivity-oracle.test.ts',
+          'connects reported miter sharp source-vertex joins to incident dash bodies without seam gaps'
+        ),
+        oracle(
+          'reported-vector-34-seam-join-connectivity-oracle.test.ts',
+          'connects reported bevel sharp source-vertex joins to incident dash bodies without seam gaps'
+        ),
+        oracle(
+          'reported-vector-34-seam-join-connectivity-oracle.test.ts',
+          'connects reported round sharp source-vertex joins to incident dash bodies without seam gaps'
         )
       ],
       integrationRefs: [
@@ -265,8 +271,7 @@ export const strokeVisualE2ECoverageMap: readonly StrokeVisualE2ECoverageCase[] 
         'build-dash-interval-body-products',
         'build-source-vertex-join-products',
         'render-entries',
-        'renderer-projection',
-        'runtime-diagnostics'
+        'renderer-projection'
       ],
       inspectorRouteRefs: [
         'constrained-dashed-interval-body-product',
@@ -383,8 +388,12 @@ export const strokeVisualE2ECoverageMap: readonly StrokeVisualE2ECoverageCase[] 
       ],
       formalOracleRefs: [
         oracle(
-          'reported-vector-34-runtime-oracle.test.ts',
-          'keeps constrained inside and outside terminal half-dash products painted near every independent segment endpoint'
+          'reported-vector-34-terminal-reference-oracle.test.ts',
+          'keeps constrained inside terminal half-dash products painted near every independent segment endpoint'
+        ),
+        oracle(
+          'reported-vector-34-terminal-reference-oracle.test.ts',
+          'keeps constrained outside terminal half-dash products painted near every independent segment endpoint'
         )
       ],
       integrationRefs: [
@@ -452,8 +461,7 @@ export const strokeVisualE2ECoverageMap: readonly StrokeVisualE2ECoverageCase[] 
         'build-source-vertex-join-products',
         'build-smooth-continuity-products',
         'render-entries',
-        'renderer-projection',
-        'runtime-diagnostics'
+        'renderer-projection'
       ],
       inspectorRouteRefs: [
         'constrained-dashed-smooth-continuity-product',
@@ -467,8 +475,16 @@ export const strokeVisualE2ECoverageMap: readonly StrokeVisualE2ECoverageCase[] 
       ],
       formalOracleRefs: [
         oracle(
-          'reported-vector-34-runtime-oracle.test.ts',
-          'keeps smooth anchors out of source-vertex join ownership and prevents fragmented smooth-continuity output'
+          'reported-vector-34-smooth-oracle.test.ts',
+          'keeps miter smooth anchors out of source-vertex join ownership and prevents fragmented smooth-continuity output'
+        ),
+        oracle(
+          'reported-vector-34-smooth-oracle.test.ts',
+          'keeps bevel smooth anchors out of source-vertex join ownership and prevents fragmented smooth-continuity output'
+        ),
+        oracle(
+          'reported-vector-34-smooth-oracle.test.ts',
+          'keeps round smooth anchors out of source-vertex join ownership and prevents fragmented smooth-continuity output'
         ),
         oracle(
           'join-dash-product-oracle.test.ts',
@@ -541,8 +557,7 @@ export const strokeVisualE2ECoverageMap: readonly StrokeVisualE2ECoverageCase[] 
         'emit-render-hit-export-packets',
         'render-entries',
         'renderer-projection',
-        'hit-export',
-        'runtime-diagnostics'
+        'hit-export'
       ],
       inspectorRouteRefs: [
         'paint-only-cache-retint',
@@ -550,8 +565,7 @@ export const strokeVisualE2ECoverageMap: readonly StrokeVisualE2ECoverageCase[] 
         'verified-product-descriptor-cache-hit',
         'constrained-dashed-descriptor-materialization',
         'descriptor-output-versus-canonical-packet-output',
-        'hit-export-channel-packet-projection',
-        'diagnostics-channel-aggregation'
+        'hit-export-channel-packet-projection'
       ],
       validationGateRefs: ['visible-final-result'],
       formalOracleMatrixCaseIds: [
@@ -564,8 +578,16 @@ export const strokeVisualE2ECoverageMap: readonly StrokeVisualE2ECoverageCase[] 
           'keeps descriptor evidence and final-face channels separated from visible product ownership'
         ),
         oracle(
-          'reported-vector-34-runtime-oracle.test.ts',
-          'preserves runtime metadata and prevents renderer descriptor replay from owning sharp join shape'
+          'reported-vector-34-output-metadata-ownership-oracle.test.ts',
+          'preserves miter runtime metadata and prevents renderer descriptor replay from owning sharp join shape'
+        ),
+        oracle(
+          'reported-vector-34-output-metadata-ownership-oracle.test.ts',
+          'preserves bevel runtime metadata and prevents renderer descriptor replay from owning sharp join shape'
+        ),
+        oracle(
+          'reported-vector-34-output-metadata-ownership-oracle.test.ts',
+          'preserves round runtime metadata and prevents renderer descriptor replay from owning sharp join shape'
         )
       ],
       integrationRefs: [

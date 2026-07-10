@@ -17,7 +17,10 @@ import {
   convertUserColorToDefault,
   convertToHexUpper
 } from '../fills/color-format'
-import { createStrokeJoinTypeIntent } from './stroke-intents'
+import {
+  createStrokeStyleIntent,
+  type StrokeStyleIntentPatch
+} from './stroke-intents'
 
 const hasStrokePatch = (patch: StrokePatch) => Object.keys(patch).length > 0
 
@@ -141,28 +144,27 @@ export const useStrokeInteractions = ({
     )
   }
 
-  const runDiscreteStrokeInteraction = (callback: () => void) => {
-    transactionApis.startTransaction()
-    try {
-      callback()
-    } finally {
-      transactionApis.endTransaction()
-    }
-  }
-
   const commitStrokeInteractionPatch = (
     patch: StrokePatch,
     options?: EVENT_OPTIONS,
     sourceStroke?: StrokeAttrs | null
   ) => {
-    if (colorPickerTransactionRef.current) {
-      commitStrokePatch(patch, options, sourceStroke)
-      return
+    commitStrokePatch(patch, options, sourceStroke)
+  }
+
+  const commitStrokeStyleIntent = (patch: StrokeStyleIntentPatch) => {
+    const intent = createStrokeStyleIntent({
+      stroke,
+      strokeId,
+      ownerElementId,
+      patch
+    })
+    if (!intent) {
+      return false
     }
 
-    runDiscreteStrokeInteraction(() => {
-      commitStrokePatch(patch, options, sourceStroke)
-    })
+    commitStrokeInteractionPatch(intent.patch)
+    return true
   }
 
   const writePickerStroke = (
@@ -273,9 +275,7 @@ export const useStrokeInteractions = ({
       return
     }
 
-    runDiscreteStrokeInteraction(() => {
-      writePickerStroke(next.color, next.opacity)
-    })
+    writePickerStroke(next.color, next.opacity)
   }
 
   const handleColorPickerChangeStart = () => {
@@ -321,25 +321,11 @@ export const useStrokeInteractions = ({
   }
 
   const handleStyleChange = (nextStyle: StrokeAttrs['style']) => {
-    if (!stroke || isEqual(stroke.style, nextStyle)) {
-      return
-    }
-
-    const patch: StrokePatch = {
-      style: nextStyle
-    }
-
-    commitStrokeInteractionPatch(patch)
+    commitStrokeStyleIntent({ style: nextStyle })
   }
 
   const handlePositionChange = (nextPosition: StrokeAttrs['position']) => {
-    if (!stroke || isEqual(stroke.position, nextPosition)) {
-      return
-    }
-
-    commitStrokeInteractionPatch({
-      position: nextPosition
-    })
+    commitStrokeStyleIntent({ position: nextPosition })
   }
 
   const handleWidthChange = (value: string): boolean => {
@@ -349,14 +335,7 @@ export const useStrokeInteractions = ({
     }
 
     const nextWidth = Math.max(0, parsed)
-    if (!stroke || isEqual(stroke.width, nextWidth)) {
-      return false
-    }
-
-    commitStrokeInteractionPatch({
-      width: nextWidth
-    })
-    return true
+    return commitStrokeStyleIntent({ width: nextWidth })
   }
 
   const handleDashLengthChange = (value: string): boolean => {
@@ -369,12 +348,7 @@ export const useStrokeInteractions = ({
       return false
     }
 
-    if (isEqual(stroke.dash, parsed)) {
-      return false
-    }
-
-    commitStrokeInteractionPatch({ dash: parsed })
-    return true
+    return commitStrokeStyleIntent({ dash: parsed })
   }
 
   const handleGapLengthChange = (value: string): boolean => {
@@ -387,36 +361,15 @@ export const useStrokeInteractions = ({
       return false
     }
 
-    if (isEqual(stroke.gap, parsed)) {
-      return false
-    }
-
-    commitStrokeInteractionPatch({ gap: parsed })
-    return true
+    return commitStrokeStyleIntent({ gap: parsed })
   }
 
   const handleJoinTypeChange = (nextJoin: StrokeAttrs['joinType']) => {
-    const intent = createStrokeJoinTypeIntent({
-      stroke,
-      strokeId,
-      ownerElementId,
-      nextJoin
-    })
-    if (!intent) {
-      return
-    }
-
-    commitStrokeInteractionPatch(intent.patch)
+    commitStrokeStyleIntent({ joinType: nextJoin })
   }
 
   const handleCapTypeChange = (nextCap: StrokeAttrs['capType']) => {
-    if (!stroke || isEqual(stroke.capType, nextCap)) {
-      return
-    }
-
-    commitStrokeInteractionPatch({
-      capType: nextCap
-    })
+    commitStrokeStyleIntent({ capType: nextCap })
   }
 
   const handleMiterAngleChange = (value: string): boolean => {
@@ -426,14 +379,7 @@ export const useStrokeInteractions = ({
     }
 
     const nextAngle = Math.max(0, Math.min(180, parsed))
-    if (!stroke || isEqual(stroke.miterAngle, nextAngle)) {
-      return false
-    }
-
-    commitStrokeInteractionPatch({
-      miterAngle: nextAngle
-    })
-    return true
+    return commitStrokeStyleIntent({ miterAngle: nextAngle })
   }
 
   return {

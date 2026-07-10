@@ -1949,13 +1949,31 @@ export const assertReferenceAcuteDashBodyEvidence = (
   evidence: StrokeRuntimeEvidence
 ) => {
   const dashBodyEntries = evidence.renderEntries.filter(
-    (entry) =>
-      entry.visibleContributor === 'dash-interval-body' ||
-      (entry.visibleContributor === null &&
+    (entry) => {
+      const isInsideAggregateDescriptor =
+        typeof entry.productSignature === 'string' &&
+        entry.productSignature.includes(':inside-aggregate-descriptor:') &&
+        entry.ownerStage === 'Product Output render-entry materialization' &&
+        entry.routeId === 'constrained-dashed-inside-mask-descriptor' &&
+        entry.visibleContributor === 'visible strokePathGroups' &&
+        entry.geometryBasis === 'declared route product contract' &&
+        entry.intervalIds.length > 0 &&
+        entry.polygonCount > 0 &&
+        entry.strokePathGroupCount > 0 &&
+        entry.strokeMaskPolygonCount > 0
+      const isCanonicalSamePaintAggregate =
+        entry.visibleContributor === null &&
         entry.ownerStage === null &&
         entry.intervalIds.length > 0 &&
         entry.polygonCount > 0 &&
-        entry.strokePathGroupCount === 0)
+        entry.strokePathGroupCount === 0
+
+      return (
+        entry.visibleContributor === 'dash-interval-body' ||
+        isCanonicalSamePaintAggregate ||
+        isInsideAggregateDescriptor
+      )
+    }
   )
   expect(
     dashBodyEntries.length,

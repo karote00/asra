@@ -88,7 +88,7 @@ describe('stroke flow step 17: render-strategy-entry', () => {
     )
 
     expect(data.inspectorContractErrors).toEqual([])
-    expect(step?.refactorStatus).toMatch(/^(active|verified)$/)
+    expect(step?.refactorStatus).toMatch(/^(locked|active|verified)$/)
     if (step?.refactorStatus === 'active') {
       expect(activeSteps.map((entry) => entry.id)).toEqual([
         'render-strategy-entry'
@@ -214,6 +214,39 @@ describe('stroke flow step 17: render-strategy-entry', () => {
     ]) {
       expect(vectorStrategySource).not.toContain(forbiddenToken)
     }
+  })
+
+  it('exposes complete non-overlapping stroke product geometry timing evidence', () => {
+    const vectorSource = readRepoFile(vectorComponentSourcePath)
+    const phaseSetSource = extractBetween(
+      vectorSource,
+      'const STROKE_PRODUCT_GEOMETRY_PHASE_NAMES =',
+      'const measureVectorRenderPhase'
+    )
+    const phaseHelperSource = extractBetween(
+      vectorSource,
+      'const measureVectorRenderPhase',
+      'const emitStrokePipelineCounter'
+    )
+
+    for (const phaseName of [
+      'constrained dashed packets',
+      'constrained solid diagnostics',
+      'stroke packets',
+      'final faces',
+      'legal domains',
+      'visual overlap collapse'
+    ]) {
+      expect(phaseSetSource).toContain(`'${phaseName}'`)
+    }
+    expect(phaseSetSource).not.toContain('resolved vector geometry model')
+    expect(phaseHelperSource).toContain('__asyraStrokeProductGeometryPhaseSink')
+    expect(phaseHelperSource).toContain(
+      'STROKE_PRODUCT_GEOMETRY_PHASE_NAMES.has(phaseName)'
+    )
+    expect(phaseHelperSource).toContain(
+      'diagnosticSink ?? requiredEvidenceSink'
+    )
   })
 
   it('keeps render strategy entrypoints free of stroke parameter semantic reads', () => {

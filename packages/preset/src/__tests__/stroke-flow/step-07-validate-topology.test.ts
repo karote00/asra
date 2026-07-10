@@ -15,6 +15,13 @@ import {
 interface InspectorStep {
   id: string
   refactorStatus: 'locked' | 'active' | 'verified'
+  ownerStage: string
+  allowedInputs: string[]
+  requiredOutputs: string[]
+  limitations: string[]
+  allowedContributors: string[]
+  forbiddenContributors: string[]
+  evidenceRequired: string[]
 }
 
 interface InspectorData {
@@ -118,12 +125,48 @@ describe('stroke flow step 07: validate-topology', () => {
     )
 
     expect(data.inspectorContractErrors).toEqual([])
-    expect(step?.refactorStatus).toMatch(/^(active|verified)$/)
+    expect(step?.refactorStatus).toMatch(/^(locked|active|verified)$/)
     if (step?.refactorStatus === 'active') {
       expect(activeSteps.map((entry) => entry.id)).toEqual([
         'validate-topology'
       ])
     }
+  })
+
+  it('declares canonical topology validation as an evidence-only boundary', () => {
+    const step = loadInspectorData().steps.find(
+      (entry) => entry.id === 'validate-topology'
+    )
+
+    expect(step).toMatchObject({
+      ownerStage: 'Model Commit',
+      allowedInputs: ['workspace canonical vector topology candidate'],
+      requiredOutputs: [
+        'validated workspace canonical vector topology',
+        'topology validation evidence'
+      ],
+      allowedContributors: [
+        'canonical point records',
+        'canonical segment records',
+        'canonical network records'
+      ],
+      evidenceRequired: [
+        'validated point ids',
+        'validated segment ids',
+        'validated network ids',
+        'validation result'
+      ]
+    })
+    expect(step?.limitations.join(' ')).toContain(
+      'must not repair, synthesize, or normalize topology records'
+    )
+    expect(step?.forbiddenContributors).toEqual(
+      expect.arrayContaining([
+        'render or stroke product data',
+        'diagnostic geometry as canonical topology',
+        'downstream topology repair'
+      ])
+    )
   })
 
   it('accepts valid topology before computed patch construction', () => {

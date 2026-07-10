@@ -9,6 +9,7 @@ import {
 } from '@asyra/render'
 import type { RenderableStroke } from './renderable-stroke'
 import type {
+  SolidCenterStrokeOutputProductIdentity,
   SolidCenterStrokeGeometryDebugMeta,
   SolidCenterStrokeRuntimeMeta
 } from './solid-center-stroke-packets'
@@ -37,6 +38,7 @@ export interface SolidCenterStrokeRenderEntry {
     'kind' | 'color' | 'alpha' | 'gradientStyle' | 'paintKey'
   >
   polygons: Vec2[][]
+  productIdentity?: SolidCenterStrokeOutputProductIdentity
   fillPolygons?: Vec2[][]
   clipPolygons?: Vec2[][]
   fillClipPolygons?: Vec2[][]
@@ -75,6 +77,7 @@ export interface SolidCenterStrokeRendererProjectionCommand {
   drawRouteType: SolidCenterStrokeRendererProjectionRoute
   stroke: SolidCenterStrokeRenderEntry['stroke']
   polygons: Vec2[][]
+  productIdentity?: SolidCenterStrokeOutputProductIdentity
   strokePaths?: Vec2[][]
   strokePathGroups?: NonNullable<
     SolidCenterStrokeRenderEntry['strokePathGroups']
@@ -116,6 +119,9 @@ export const projectSolidCenterStrokeRenderEntries = (
     drawRouteType: getRendererProjectionRoute(entry),
     stroke: entry.stroke,
     polygons: entry.polygons,
+    ...(entry.productIdentity
+      ? { productIdentity: entry.productIdentity }
+      : {}),
     ...(entry.strokePaths ? { strokePaths: entry.strokePaths } : {}),
     ...(entry.strokePathGroups
       ? { strokePathGroups: entry.strokePathGroups }

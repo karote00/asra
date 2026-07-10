@@ -24,6 +24,16 @@ interface InspectorStep {
 
 interface InspectorData {
   steps: InspectorStep[]
+  stepResponsibilityMatrix: Record<
+    string,
+    {
+      classification: string
+      ownerMode: string
+      primaryArtifacts: string[]
+      allowedActions: string[]
+      forbiddenActions: string[]
+    }
+  >
   inspectorContractErrors: string[]
 }
 
@@ -95,6 +105,26 @@ const descriptorEntry: SolidCenterStrokeRenderEntry = {
     paintKey: 'paint:descriptor'
   },
   polygons: [visiblePolygon],
+  productIdentity: {
+    primaryOwner: {
+      ownerKey: 'owner:descriptor',
+      strokeId: 'stroke:descriptor'
+    },
+    ownerSet: [
+      {
+        ownerKey: 'owner:descriptor',
+        strokeId: 'stroke:descriptor'
+      }
+    ],
+    ownerStepIds: ['build-smooth-continuity-products'],
+    intervalIds: ['interval:descriptor'],
+    terminalRoles: ['middle'],
+    seamBoundaryIds: ['seam:descriptor'],
+    sourceSpanIds: ['span:descriptor'],
+    sourceNetworkIds: ['network:descriptor'],
+    sourceContourIds: ['contour:descriptor'],
+    legalDomainIds: ['legal:descriptor']
+  },
   strokePathGroups,
   fillClipPolygons: [clipPolygon],
   fillExcludePolygons: [clipPolygon],
@@ -123,8 +153,8 @@ const canonicalEntry: SolidCenterStrokeRenderEntry = {
   }
 }
 
-describe('stroke flow step 39: renderer-projection', () => {
-  it('keeps renderer-projection as the current or verified thirty-ninth step', () => {
+describe('stroke flow step 40: renderer-projection', () => {
+  it('keeps renderer-projection as the fortieth runtime step', () => {
     const data = loadInspectorData()
     const step = data.steps.find((entry) => entry.id === 'renderer-projection')
     const activeSteps = data.steps.filter(
@@ -132,7 +162,7 @@ describe('stroke flow step 39: renderer-projection', () => {
     )
 
     expect(data.inspectorContractErrors).toEqual([])
-    expect(step?.refactorStatus).toMatch(/^(active|verified)$/)
+    expect(step?.refactorStatus).toMatch(/^(locked|active|verified)$/)
     if (step?.refactorStatus === 'active') {
       expect(activeSteps.map((entry) => entry.id)).toEqual([
         'renderer-projection'
@@ -161,6 +191,22 @@ describe('stroke flow step 39: renderer-projection', () => {
     })
   })
 
+  it('classifies renderer projection as channel projection that cannot repair upstream artifacts', () => {
+    const data = loadInspectorData()
+    const responsibility =
+      data.stepResponsibilityMatrix['renderer-projection']
+
+    expect(responsibility).toMatchObject({
+      classification: 'channel-projection',
+      ownerMode: 'draw declared render entries without semantic mutation'
+    })
+    expect(responsibility.primaryArtifacts).toEqual([
+      'stage:renderer-projection'
+    ])
+    expect(responsibility.forbiddenActions.join(' ')).toContain('repair')
+    expect(responsibility.forbiddenActions.join(' ')).toContain('recompute')
+  })
+
   it('projects descriptor render entries through declared strokePathGroups and preserves style values', () => {
     const [command] = projectSolidCenterStrokeRenderEntries([descriptorEntry])
 
@@ -175,6 +221,7 @@ describe('stroke flow step 39: renderer-projection', () => {
         strokePathGroups,
         fillClipPolygons: [clipPolygon],
         fillExcludePolygons: [clipPolygon],
+        productIdentity: descriptorEntry.productIdentity,
         debugMeta: descriptorEntry.debugMeta,
         metadataMutation: false
       })
@@ -212,6 +259,7 @@ describe('stroke flow step 39: renderer-projection', () => {
 
     expect(JSON.stringify(descriptorEntry)).toBe(before)
     expect(command.strokePathGroups).toBe(descriptorEntry.strokePathGroups)
+    expect(command.productIdentity).toBe(descriptorEntry.productIdentity)
     expect(command.debugMeta).toBe(descriptorEntry.debugMeta)
   })
 

@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import {
   VECTOR_TOKENS,
-  renderStrategyRegistry,
   type VectorNetwork,
   type VectorPointNode,
   type VectorSegment
@@ -15,7 +14,6 @@ import {
   createDefaultStroke
 } from '@asyra/utils'
 import Clipper2ZFactory from 'clipper2-wasm'
-import { Container } from 'pixi.js'
 import { beforeAll, describe, expect, it } from 'vitest'
 import '../../components/vector'
 import {
@@ -67,6 +65,11 @@ interface ReportedGeometryProduct {
 type ReportedPacket = ReturnType<
   typeof buildConstrainedDashedStrokeResolvedPackets
 >[number]
+type RuntimeProductEvidenceEnvelope = NonNullable<
+  NonNullable<
+    ReportedPacket['geometry']['debugMeta']
+  >['productEvidenceEnvelope']
+>
 interface ReportedPipelineTrace {
   eventName: string
   payload: Record<string, unknown>
@@ -77,7 +80,7 @@ type ReportedJoinOwnershipRecord = NonNullable<
 interface RuntimeJoinSeamEvidence {
   seamTolerance?: number
   protectedContinuityOverlapDistance?: number
-  seamCoveragePolicy: 'shared-step-27-endpoint-identity'
+  seamCoveragePolicy: 'shared-seam-boundary-artifact-endpoint-identity'
   incidentSeamBoundaries: {
     seamBoundaryId: string
     intervalId: string
@@ -110,6 +113,28 @@ const getUniqueTestStrings = (values: (string | undefined)[]) =>
     new Set(values.filter((value): value is string => value !== undefined))
   )
 
+const getUniqueSmoothContinuityOwnershipOverlays = (
+  envelopes: readonly RuntimeProductEvidenceEnvelope[]
+) =>
+  Array.from(
+    new Map(
+      envelopes
+        .flatMap((envelope) => envelope.smoothContinuityOwnershipOverlays)
+        .map((overlay) => [overlay.overlayId, overlay] as const)
+    ).values()
+  ).sort((left, right) => left.overlayId.localeCompare(right.overlayId))
+
+const getUniqueTerminalOwnershipOverlays = (
+  envelopes: readonly RuntimeProductEvidenceEnvelope[]
+) =>
+  Array.from(
+    new Map(
+      envelopes
+        .flatMap((envelope) => envelope.terminalOwnershipOverlays)
+        .map((overlay) => [overlay.overlayId, overlay] as const)
+    ).values()
+  ).sort((left, right) => left.overlayId.localeCompare(right.overlayId))
+
 const require = createRequire(import.meta.url)
 const clipperWasmPath = require.resolve('clipper2-wasm/dist/umd/clipper2z.wasm')
 const EXACT_BACKEND_ID = 'clipper2-new-stroke-oracle-vector-34'
@@ -137,50 +162,6 @@ beforeAll(async () => {
   })
   selectGeometryBackend(EXACT_BACKEND_ID)
 })
-
-class RecordingReportedVectorGraphic extends Container {
-  __asyraStrokeRenderEntries?: ReportedRenderEntry[]
-  __asyraStrokeRenderFaceDebugMetas?: ReportedRenderEntry['debugMeta'][]
-  __asyraSolidCenterStrokeExportPackets?: unknown[]
-  __asyraStrokeMeshCache?: Map<string, { kind?: string }>
-  hitArea?: { contains: (x: number, y: number) => boolean } | null
-
-  constructor() {
-    super()
-    Object.defineProperty(this, 'addChild', {
-      configurable: true,
-      value: undefined
-    })
-  }
-
-  clear() {
-    return this
-  }
-
-  moveTo() {
-    return this
-  }
-
-  lineTo() {
-    return this
-  }
-
-  bezierCurveTo() {
-    return this
-  }
-
-  closePath() {
-    return this
-  }
-
-  cut() {
-    return this
-  }
-
-  fill() {
-    return this
-  }
-}
 
 const createReportedVector34Fixture = () => {
   const points: Record<string, VectorPointNode> = {
@@ -319,30 +300,6 @@ const createReportedVector34Fixture = () => {
 
   return { network, points, segments }
 }
-
-const translateVector34Fixture = (
-  fixture: ReturnType<typeof createReportedVector34Fixture>,
-  offset: Vec2
-): ReturnType<typeof createReportedVector34Fixture> => ({
-  network: fixture.network,
-  points: Object.fromEntries(
-    Object.entries(fixture.points).map(([pointId, point]) => [
-      pointId,
-      {
-        ...point,
-        x: point.x + offset.x,
-        y: point.y + offset.y
-      }
-    ])
-  ) as ReturnType<typeof createReportedVector34Fixture>['points'],
-  segments: fixture.segments
-})
-
-const createReportedVector34LocalFixture = () =>
-  translateVector34Fixture(createReportedVector34Fixture(), {
-    x: -1472.0139567292267,
-    y: -1637.0696495055142
-  })
 
 const createSmoothCurvatureFixture = () => {
   const points: Record<string, VectorPointNode> = {
@@ -678,19 +635,31 @@ const distanceToPolygon = (point: Vec2, polygon: Vec2[]) => {
   if (isPointInsidePolygon(point, polygon)) {
     return 0
   }
-  return Math.min(
-    ...polygon.map((vertex, index) =>
+  let minDistance = Number.POSITIVE_INFINITY
+  for (let index = 0; index < polygon.length; index += 1) {
+    const vertex = polygon[index]
+    if (!vertex) {
+      continue
+    }
+    minDistance = Math.min(
+      minDistance,
       distanceToSegment(
         point,
         vertex,
         polygon[(index + 1) % polygon.length] ?? vertex
       )
     )
-  )
+  }
+  return minDistance
 }
 
-const distanceToPolygons = (point: Vec2, polygons: Vec2[][]) =>
-  Math.min(...polygons.map((polygon) => distanceToPolygon(point, polygon)))
+const distanceToPolygons = (point: Vec2, polygons: Vec2[][]) => {
+  let minDistance = Number.POSITIVE_INFINITY
+  for (const polygon of polygons) {
+    minDistance = Math.min(minDistance, distanceToPolygon(point, polygon))
+  }
+  return minDistance
+}
 
 const distanceToPolyline = (
   point: Vec2,
@@ -1022,7 +991,7 @@ const assertSeamEvidenceUsesStep27OuterEndpoints = (
       )
     expect(
       matchingStep27Artifacts.length,
-      `${label} must expose a Step 27 dash body seam boundary artifact for Step 28 to consume: ${JSON.stringify(
+      `${label} must expose a Step 28 dash body seam-boundary artifact for Step 29 to consume: ${JSON.stringify(
         {
           seamBoundaryId: seamBoundary.seamBoundaryId,
           intervalId: seamBoundary.intervalId,
@@ -1081,7 +1050,7 @@ const assertSeamEvidenceUsesStep27OuterEndpoints = (
     )
     expect(
       matchingStep27Artifact,
-      `${label} Step 28 seam boundary must preserve the Step 27 seam endpoint identity: ${JSON.stringify(
+      `${label} Step 28 seam-boundary artifact must preserve the emitted dash body endpoint identity: ${JSON.stringify(
         {
           seamBoundaryId: seamBoundary.seamBoundaryId,
           step28OuterEndpointId: seamBoundary.outerBodyBoundaryEndpointId,
@@ -1101,18 +1070,18 @@ const assertSeamEvidenceUsesStep27OuterEndpoints = (
     if (matchingStep27Artifact) {
       expect(
         seamBoundary.outerBodyBoundaryEndpointId,
-        `${label} Step 28 seam boundary must carry the Step 27 outer endpoint id`
+        `${label} Step 28 seam-boundary artifact must carry the emitted dash body outer endpoint id`
       ).toBeTruthy()
       expect(
         matchingStep27Artifact.outerBodyBoundaryEndpointId,
-        `${label} Step 27 seam boundary artifact must carry an outer endpoint id`
+        `${label} Step 28 seam-boundary artifact must carry an outer endpoint id`
       ).toBeTruthy()
       expect(seamBoundary.outerBodyBoundaryEndpointId).toBe(
         matchingStep27Artifact.outerBodyBoundaryEndpointId
       )
       expect(
         distance(seamBoundary.point, sourceVertex),
-        `${label} Step 28 seam boundary source point must be the canonical source vertex; zero visible seam gap does not allow terminal-derived near-vertex points: ${JSON.stringify(
+        `${label} Step 28 seam-boundary artifact source point must be the canonical source vertex; zero visible seam gap does not allow terminal-derived near-vertex points: ${JSON.stringify(
           {
             seamBoundaryId: seamBoundary.seamBoundaryId,
             actual: roundedRelativePoint(seamBoundary.point, sourceVertex),
@@ -1124,7 +1093,7 @@ const assertSeamEvidenceUsesStep27OuterEndpoints = (
       ).toBeLessThanOrEqual(SOURCE_SPACE_FLOATING_EPSILON)
       expect(
         distance(matchingStep27Artifact.point, sourceVertex),
-        `${label} Step 27 dash body seam artifact source point must be the canonical source vertex: ${JSON.stringify(
+        `${label} Step 28 dash body seam-boundary artifact source point must be the canonical source vertex: ${JSON.stringify(
           {
             seamBoundaryId: matchingStep27Artifact.seamBoundaryId,
             actual: roundedRelativePoint(
@@ -1156,7 +1125,7 @@ const assertSeamEvidenceUsesStep27OuterEndpoints = (
       )
       expect(
         step27ArtifactSeamEdgeIsOnDashBodyBoundary,
-        `${label} Step 27 seam artifact must be the emitted dash body product boundary edge, not a planned or projected seam edge: ${JSON.stringify(
+        `${label} Step 28 seam-boundary artifact must be the emitted dash body product boundary edge, not a planned or projected seam edge: ${JSON.stringify(
           {
             seamBoundaryId: matchingStep27Artifact.seamBoundaryId,
             intervalId: matchingStep27Artifact.intervalId,
@@ -1198,7 +1167,7 @@ const assertSeamEvidenceUsesStep27OuterEndpoints = (
           seamBoundary.outerBodyBoundaryEndpoint,
           matchingStep27Artifact.outerBodyBoundaryEndpoint
         ),
-        `${label} Step 28 seam boundary must reuse the Step 27 outer endpoint coordinates with the same endpoint id: ${JSON.stringify(
+        `${label} Step 28 seam-boundary artifact must reuse the emitted dash body outer endpoint coordinates with the same endpoint id: ${JSON.stringify(
           {
             seamBoundaryId: seamBoundary.seamBoundaryId,
             actual: roundedRelativePoint(
@@ -1247,7 +1216,7 @@ const assertSeamEvidenceUsesStep27OuterEndpoints = (
     )
     expect(
       Math.abs(seamEdgeLength - result.stroke.width),
-      `${label} Step 27/28 incident terminal seam edge must preserve full stroke width before source-vertex join consumption: ${JSON.stringify(
+      `${label} Step 28 incident terminal seam-boundary edge must preserve full stroke width before source-vertex join consumption: ${JSON.stringify(
         {
           seamBoundaryId: seamBoundary.seamBoundaryId,
           intervalId: seamBoundary.intervalId,
@@ -1362,7 +1331,7 @@ const assertSeamEvidenceUsesStep27OuterEndpoints = (
       joinsShareStep27SeamEdge ||
         mergedRenderProjectionPreservesSeamCoverage ||
         stageVisibleProductsPreserveSeamCoverage,
-      `${label} source-vertex join polygon must share the full Step 27 dash seam edge before render projection, or Step 38 must keep a single-paint merged projection with seam coverage provenance: ${JSON.stringify(
+      `${label} source-vertex join polygon must share the full Step 28 seam-boundary artifact edge before render projection, or Step 39 must keep a single-paint merged projection with seam coverage provenance: ${JSON.stringify(
         {
           seamBoundaryId: seamBoundary.seamBoundaryId,
           intervalId: seamBoundary.intervalId,
@@ -1801,7 +1770,7 @@ const assertNoSamePaintRenderEntryOverdraw = (
       )
       expect(
         overlapArea,
-        `${label} Step 38 same-paint render entries must not create repeated-alpha overdraw: ${JSON.stringify(
+        `${label} Step 39 same-paint render entries must not create repeated-alpha overdraw: ${JSON.stringify(
           {
             leftIndex,
             rightIndex,
@@ -1837,7 +1806,7 @@ const assertNoSamePaintRenderEntryOverdraw = (
       ).toBeLessThanOrEqual(SOURCE_SPACE_FLOATING_EPSILON)
       expect(
         boundaryDistance,
-        `${label} Step 38 same-paint render entries with shared or near-shared boundaries must be merged before renderer projection to prevent high-zoom antialias seams: ${JSON.stringify(
+        `${label} Step 39 same-paint render entries with shared or near-shared boundaries must be merged before renderer projection to prevent high-zoom antialias seams: ${JSON.stringify(
           {
             leftIndex,
             rightIndex,
@@ -2049,7 +2018,7 @@ const assertNoInternalSharedBoundaryRenderPolygons = (
       count: failures.length,
       examples: failures.slice(0, 12)
     },
-    `${label} Step 38 render entries must not carry internally overlapping or shared-boundary same-paint polygons into renderer projection; disjoint dash products may remain separate, but touching products must be canonically merged before high-zoom rendering`
+    `${label} Step 39 render entries must not carry internally overlapping or shared-boundary same-paint polygons into renderer projection; disjoint dash products may remain separate, but touching products must be canonically merged before high-zoom rendering`
   ).toEqual({ count: 0, examples: [] })
 }
 
@@ -2124,7 +2093,7 @@ const assertOutsideVisibleProductsDoNotEnterImplicitFillRegions = (
       count: failures.length,
       examples: failures.slice(0, 12)
     },
-    `${label} outside visible stroke products must not paint inside implicit fill regions; stroke position legality must be proven before Step 39 renderer projection`
+    `${label} outside visible stroke products must not paint inside implicit fill regions; stroke position legality must be proven before Step 40 renderer projection`
   ).toEqual({ count: 0, examples: [] })
 }
 
@@ -2592,11 +2561,11 @@ const assertRoundUsesLocalSourceVertexArc = (
   const nextBoundaries = boundariesBySide.get('next') ?? []
   expect(
     previousBoundaries.length,
-    `${label} round join must expose previous Step 27 seam evidence`
+    `${label} round join must expose previous Step 28 seam-boundary evidence`
   ).toBeGreaterThan(0)
   expect(
     nextBoundaries.length,
-    `${label} round join must expose next Step 27 seam evidence`
+    `${label} round join must expose next Step 28 seam-boundary evidence`
   ).toBeGreaterThan(0)
 
   const failures: {
@@ -2694,7 +2663,7 @@ const assertRoundUsesLocalSourceVertexArc = (
       count: failures.length,
       examples: failures.slice(0, 12)
     },
-    `${label} round source-vertex join must continuously fill the sector between incident terminal seam boundaries; cracks between join and dash are Step 28/38 product failures: ${JSON.stringify(
+    `${label} round source-vertex join must continuously fill the sector between incident terminal seam boundaries; cracks between join and dash are Step 29/39 product failures: ${JSON.stringify(
       {
         productSignature: product.debugMeta?.productSignature ?? null,
         routeId: product.debugMeta?.routeId ?? null,
@@ -3067,6 +3036,10 @@ const buildPipelineResult = ({
       eventName === 'constrained-dashed-pre-legality-source-vertex-products' ||
       eventName === 'constrained-dashed-empty-product' ||
       eventName === 'constrained-dashed-terminal-body-empty' ||
+      eventName ===
+        'constrained-dashed-exact-source-domain-selected-side-body' ||
+      eventName ===
+        'constrained-dashed-exact-source-domain-selected-side-body-bypassed' ||
       eventName === 'smooth-continuity-fragmented-product'
     ) {
       pipelineTrace.push({ eventName, payload })
@@ -3157,46 +3130,6 @@ const buildReportedPipelineResult = (joinType: ReportedJoinType) =>
     sourceId: 'vector-34',
     ownerKeyPrefix: 'vector:vector-34:tn-28'
   })
-
-const buildVectorRenderStrategyResult = ({
-  fixture,
-  stroke,
-  vectorId,
-  bounds
-}: {
-  fixture: ReturnType<typeof createReportedVector34Fixture>
-  stroke: ReturnType<typeof createDefaultStroke>
-  vectorId: string
-  bounds: { x: number; y: number; width: number; height: number }
-}) => {
-  const strategy = renderStrategyRegistry.get('vector')
-  expect(strategy).toBeTypeOf('function')
-
-  const graphic = new RecordingReportedVectorGraphic()
-  ;(
-    strategy as unknown as (
-      target: RecordingReportedVectorGraphic,
-      data: Record<string, unknown>
-    ) => void
-  )(graphic, {
-    id: vectorId,
-    ...bounds,
-    points: fixture.points,
-    segments: fixture.segments,
-    networks: {
-      [fixture.network.id]: fixture.network
-    },
-    closed: fixture.network.closed,
-    pointCoordinateSpace: 'workspace',
-    fills: [],
-    strokes: [stroke]
-  })
-
-  return {
-    graphic,
-    renderEntries: graphic.__asyraStrokeRenderEntries ?? []
-  }
-}
 
 const buildSmoothCurvaturePipelineResult = () =>
   buildPipelineResult({
@@ -3600,6 +3533,20 @@ const isReportedVisibleDashBodyContributor = (
   meta?.visibleContributor === 'smooth-continuity-dash-body' ||
   meta?.visibleContributor === 'same-owner-smooth-span-descriptor'
 
+const isClosedConstrainedSourceCoverageId = (value: string | undefined) =>
+  value?.startsWith('closed-constrained-source-coverage') === true ||
+  value?.includes(':closed-constrained-source-coverage') === true
+
+const isReportedClosedConstrainedSourceCoverageInterval = (
+  interval: ReturnType<typeof getReportedDashIntervalRecordsForProduct>[number],
+  meta: ReportedGeometryProduct['debugMeta'] | undefined
+) =>
+  isClosedConstrainedSourceCoverageId(interval.splitRangeId) ||
+  isClosedConstrainedSourceCoverageId(interval.boundaryDomainId) ||
+  isClosedConstrainedSourceCoverageId(meta?.domainPlanSplitRangeId) ||
+  isClosedConstrainedSourceCoverageId(meta?.domainPlanBoundaryDomainId) ||
+  isClosedConstrainedSourceCoverageId(meta?.productSignature)
+
 const getIntervalPolygons = (
   products: readonly ReportedGeometryProduct[],
   intervalId: string
@@ -3631,7 +3578,11 @@ const getIntervalProductDiagnostics = (
         product.debugMeta?.finalProductArea !== undefined
           ? Math.round(product.debugMeta.finalProductArea * 1000) / 1000
           : Math.round(polygonListArea(product.polygons) * 1000) / 1000,
-      polygonCount: product.polygons.length
+      polygonCount: product.polygons.length,
+      vertexCount: product.polygons.reduce(
+        (total, polygon) => total + polygon.length,
+        0
+      )
     }))
 
 const getVisibleProductPolygons = (
@@ -3688,7 +3639,7 @@ const assertVisibleProductsBoundsCoverActualPolygons = ({
 
   expect(
     failures,
-    `${label} visible product debug bounds must cover the exact polygons carried by that same product; stale bounds hide geometry overrun before Step 39`
+    `${label} visible product debug bounds must cover the exact polygons carried by that same product; stale bounds hide geometry overrun before Step 40`
   ).toEqual([])
 }
 
@@ -3697,6 +3648,21 @@ const getVisibleProductDiagnostic = (
   product: ReportedGeometryProduct
 ) => {
   const distance = distanceToPolygons(point, product.polygons)
+  const dashBodySeamBoundaryPreview =
+    product.debugMeta?.dashBodySeamBoundaries?.slice(0, 2).map((boundary) => ({
+      seamBoundaryId: boundary.seamBoundaryId,
+      intervalId: boundary.intervalId,
+      splitRangeId: boundary.splitRangeId,
+      terminalRole: boundary.terminalRole,
+      selectedSide: boundary.selectedSide,
+      sourceSegmentIndex: boundary.sourceSegmentIndex,
+      point: roundedForDiagnostic(boundary.point),
+      outerBodyBoundaryEndpoint: roundedForDiagnostic(
+        boundary.outerBodyBoundaryEndpoint
+      ),
+      bodySideOutlineSegment:
+        boundary.bodySideOutlineSegment.map(roundedForDiagnostic)
+    })) ?? null
   return {
     distance,
     visibleContributor: product.debugMeta?.visibleContributor ?? null,
@@ -3720,6 +3686,10 @@ const getVisibleProductDiagnostic = (
       product.debugMeta?.sourceDomainExplicitSideProduct ?? null,
     selectedSideProductOwnsOutsideDomain:
       product.debugMeta?.selectedSideProductOwnsOutsideDomain ?? null,
+    vertexCount: product.polygons.reduce(
+      (total, polygon) => total + polygon.length,
+      0
+    ),
     implicitFillRegionCount: product.debugMeta?.implicitFillRegionCount ?? null,
     rawProductArea: product.debugMeta?.rawProductArea ?? null,
     processedProductArea: product.debugMeta?.processedProductArea ?? null,
@@ -3727,10 +3697,12 @@ const getVisibleProductDiagnostic = (
     boundaryClippedProductArea:
       product.debugMeta?.boundaryClippedProductArea ?? null,
     finalProductArea: product.debugMeta?.finalProductArea ?? null,
-    polygons: product.polygons.map((polygon) =>
-      polygon.map(roundedForDiagnostic)
-    ),
-    dashBodySeamBoundaries: product.debugMeta?.dashBodySeamBoundaries ?? null
+    polygonPreview: product.polygons
+      .slice(0, 2)
+      .map((polygon) => polygon.slice(0, 8).map(roundedForDiagnostic)),
+    dashBodySeamBoundaryCount:
+      product.debugMeta?.dashBodySeamBoundaries?.length ?? 0,
+    dashBodySeamBoundaryPreview
   }
 }
 
@@ -3866,18 +3838,32 @@ const assertOutsideDashedSourceSpanMicroscopeCoverage = ({
   const dashProducts = products.filter((product) =>
     isReportedVisibleDashBodyContributor(product.debugMeta)
   )
-  const failures: {
+  interface SourceSpanMicroscopeFailure {
     intervalId: string
     sourceSegmentIndex: number | null
+    sourceSegmentType: string | null
     terminalRole: string | null
     sourceDistance: number
     normalOffset: number
     sample: Vec2
     distanceToVisibleProduct: number
+    distanceToAnyVisibleProduct: number
     oppositeDistanceToVisibleProduct: number
+    normalDiagnostics: ReturnType<typeof getReportedNormalDiagnostics>
     selectedSide: 1 | -1 | null
     sourceStartDistance: number
     sourceEndDistance: number
+    visibleSourceRangeBasis: string
+    visibleSourceStartDistance: number
+    visibleSourceEndDistance: number
+    physicalSpanRanges:
+      | {
+          spanId: string
+          role: string
+          startDistance: number
+          endDistance: number
+        }[]
+      | null
     productSignature: string | null
     ownerStage: string | null
     routeId: string | null
@@ -3886,6 +3872,8 @@ const assertOutsideDashedSourceSpanMicroscopeCoverage = ({
     sourceDomainExplicitSideProduct: unknown
     selectedSideProductOwnsOutsideDomain: unknown
     polygonCount: number
+    polygons: Vec2[][]
+    vertexCount: number
     rawProductArea: number | null
     selectedSideProductArea: number | null
     processedProductArea: number | null
@@ -3893,14 +3881,35 @@ const assertOutsideDashedSourceSpanMicroscopeCoverage = ({
     boundaryClippedProductArea: number | null
     finalProductArea: number | null
     strokeWidth: number | null
+    strokeCap: string | null
+    dashEndpointCapPolicySignature: string | null
+    dashBodySeamBoundaryCount: number
+    joinOwnershipRecordCount: number
+    smoothContinuityGroupId: string | null
+    pipelineCounters: string[]
+    pipelineTrace: {
+      eventName: string
+      payload: unknown
+    }[]
+    domainPlanTerminalRole: string | null
+    domainPlanMaterializedSelectedSide: 1 | -1 | null
     matchingProducts: ReturnType<typeof getIntervalProductDiagnostics>
-  }[] = []
+  }
+  const failures: SourceSpanMicroscopeFailure[] = []
   const visitedIntervals = new Set<string>()
 
   for (const product of dashProducts) {
     for (const interval of getReportedDashIntervalRecordsForProduct(
       product.debugMeta
     )) {
+      if (
+        isReportedClosedConstrainedSourceCoverageInterval(
+          interval,
+          product.debugMeta
+        )
+      ) {
+        continue
+      }
       const sourceSegmentIndex =
         interval.sourceSegmentIndex ??
         product.debugMeta?.domainPlanSplitRangeSourceSegmentIndex
@@ -4136,11 +4145,74 @@ const assertOutsideDashedSourceSpanMicroscopeCoverage = ({
     }
   }
 
+  const failureSummary = {
+    count: failures.length,
+    examples: failures.slice(0, 12).map((failure) => ({
+      intervalId: failure.intervalId,
+      sourceSegmentIndex: failure.sourceSegmentIndex,
+      sourceSegmentType: failure.sourceSegmentType,
+      terminalRole: failure.terminalRole,
+      sourceDistance: failure.sourceDistance,
+      normalOffset: failure.normalOffset,
+      sample: failure.sample,
+      distanceToVisibleProduct: failure.distanceToVisibleProduct,
+      distanceToAnyVisibleProduct: failure.distanceToAnyVisibleProduct,
+      oppositeDistanceToVisibleProduct:
+        failure.oppositeDistanceToVisibleProduct,
+      selectedSide: failure.selectedSide,
+      ownerStage: failure.ownerStage,
+      routeId: failure.routeId,
+      visibleSourceRangeBasis: failure.visibleSourceRangeBasis,
+      visibleSourceStartDistance: failure.visibleSourceStartDistance,
+      visibleSourceEndDistance: failure.visibleSourceEndDistance,
+      productSignature: failure.productSignature,
+      polygonCount: failure.polygonCount,
+      vertexCount: failure.vertexCount,
+      rawProductArea: failure.rawProductArea,
+      selectedSideProductArea: failure.selectedSideProductArea,
+      processedProductArea: failure.processedProductArea,
+      finalProductArea: failure.finalProductArea,
+      strokeWidth: failure.strokeWidth,
+      strokeCap: failure.strokeCap,
+      dashEndpointCapPolicySignature: failure.dashEndpointCapPolicySignature,
+      dashBodySeamBoundaryCount: failure.dashBodySeamBoundaryCount,
+      joinOwnershipRecordCount: failure.joinOwnershipRecordCount,
+      smoothContinuityGroupId: failure.smoothContinuityGroupId,
+      materializationDistanceSpace: failure.materializationDistanceSpace,
+      sourceDomainExplicitSideProduct: failure.sourceDomainExplicitSideProduct,
+      selectedSideProductOwnsOutsideDomain:
+        failure.selectedSideProductOwnsOutsideDomain,
+      normalDiagnostics: failure.normalDiagnostics,
+      pipelineCounters: failure.pipelineCounters,
+      pipelineTrace: failure.pipelineTrace?.map((trace) => ({
+        eventName: trace.eventName,
+        reason:
+          typeof trace.payload === 'object' &&
+          trace.payload !== null &&
+          'reason' in trace.payload
+            ? trace.payload.reason
+            : undefined,
+        payload:
+          trace.eventName ===
+            'constrained-dashed-exact-source-domain-selected-side-body' ||
+          trace.eventName ===
+            'constrained-dashed-exact-source-domain-selected-side-body-bypassed'
+            ? trace.payload
+            : undefined
+      })),
+      matchingProducts: failure.matchingProducts.map((product) => ({
+        ownerStage: product.ownerStage,
+        routeId: product.routeId,
+        signature: product.signature,
+        polygonCount: product.polygonCount,
+        vertexCount: product.vertexCount,
+        area: product.area
+      }))
+    }))
+  }
+
   expect(
-    {
-      count: failures.length,
-      examples: failures.slice(0, 12)
-    },
+    failureSummary,
     `${label} outside dashed dash bodies must be continuous across source-span cross sections; comb-like strip gaps and curved dash cracks are product failures`
   ).toEqual({ count: 0, examples: [] })
 }
@@ -4296,8 +4368,34 @@ const assertOutsideDashedAnchorNeighborhoodMicroscopeCoverage = ({
     })
   }
 
+  const failureSummary = failures.map((failure) => ({
+    anchorId: failure.anchorId,
+    sourceSegmentIndex: failure.sourceSegmentIndex,
+    terminalRole: failure.terminalRole,
+    endpointInsetDistance: failure.endpointInsetDistance,
+    normalOffset: failure.normalOffset,
+    sample: failure.sample,
+    distanceToVisibleProduct: failure.distanceToVisibleProduct,
+    insideFill: failure.insideFill,
+    nearestVisibleProduct: {
+      distance: failure.nearestVisibleProduct?.distance,
+      ownerStage: failure.nearestVisibleProduct?.ownerStage,
+      routeId: failure.nearestVisibleProduct?.routeId,
+      visibleContributor: failure.nearestVisibleProduct?.visibleContributor
+    },
+    nearestSourceVertexJoinProducts: failure.nearestSourceVertexJoinProducts
+      .slice(0, 3)
+      .map((product) => ({
+        distance: product.distance,
+        ownerStage: product.ownerStage,
+        routeId: product.routeId,
+        resolvedJoin: product.resolvedJoin,
+        visibleContributor: product.visibleContributor
+      }))
+  }))
+
   expect(
-    failures,
+    failureSummary,
     `${label} every anchor endpoint neighborhood must have continuous outside dashed coverage at source-space microscope probes`
   ).toEqual([])
 }
@@ -4491,10 +4589,21 @@ const assertOutsideDashedEndpointStrokePositionProfile = ({
         visiblePolygons
       )
       const distanceToSourcePath = distanceToReportedSourcePath(result, sample)
+      const nearestVisibleProduct = getNearestVisibleProductDiagnostic(
+        sample,
+        products
+      )
+      const nearestRouteId = nearestVisibleProduct?.routeId
+      const nearestProductIsJoinLocalCoverage =
+        nearestRouteId ===
+          'constrained-dashed-join-owned-terminal-body-product' ||
+        nearestRouteId === 'constrained-dashed-source-vertex-join-product'
       if (
         distanceToVisibleProduct <= sourceSpaceSeamContinuityTolerance &&
         distanceToSourcePath >
-          result.stroke.width + sourceSpaceWidthTolerance(result.stroke.width)
+          result.stroke.width +
+            sourceSpaceWidthTolerance(result.stroke.width) &&
+        !nearestProductIsJoinLocalCoverage
       ) {
         failures.push({
           kind: 'outside-width-overrun',
@@ -4507,21 +4616,36 @@ const assertOutsideDashedEndpointStrokePositionProfile = ({
           distanceToVisibleProduct:
             Math.round(distanceToVisibleProduct * 1000) / 1000,
           distanceToSourcePath: Math.round(distanceToSourcePath * 1000) / 1000,
-          nearestVisibleProduct: getNearestVisibleProductDiagnostic(
-            sample,
-            products
-          )
+          nearestVisibleProduct
         })
       }
     })
   }
 
+  const failureSummary = {
+    count: failures.length,
+    examples: failures.slice(0, 16).map((failure) => ({
+      kind: failure.kind,
+      anchorId: failure.anchorId,
+      sourceSegmentIndex: failure.sourceSegmentIndex,
+      terminalRole: failure.terminalRole,
+      endpointInsetDistance: failure.endpointInsetDistance,
+      normalOffset: failure.normalOffset,
+      sample: failure.sample,
+      distanceToVisibleProduct: failure.distanceToVisibleProduct,
+      distanceToSourcePath: failure.distanceToSourcePath,
+      nearestVisibleProduct: {
+        distance: failure.nearestVisibleProduct?.distance,
+        ownerStage: failure.nearestVisibleProduct?.ownerStage,
+        routeId: failure.nearestVisibleProduct?.routeId,
+        visibleContributor: failure.nearestVisibleProduct?.visibleContributor
+      }
+    }))
+  }
+
   expect(
-    {
-      count: failures.length,
-      examples: failures.slice(0, 16)
-    },
-    `${label} outside dashed endpoint profile must stay on the authored outside side with a full-width local band; source-path inside leaks, missing local coverage, and post-join width overruns must be caught before Step 39`
+    failureSummary,
+    `${label} outside dashed endpoint profile must stay on the authored outside side with a full-width local band; source-path inside leaks, missing local coverage, and post-join width overruns must be caught before Step 40`
   ).toEqual({ count: 0, examples: [] })
 }
 
@@ -4614,7 +4738,7 @@ const assertSourceVertexJoinCoversLegalCornerFromSeamBoundaries = (
 
   expect(
     failures,
-    `${label} source-vertex join must cover the legal outside corner between the two Step 27 seam boundaries; missing bevel/round/miter corner coverage is a product failure`
+    `${label} source-vertex join must cover the legal outside corner between the two Step 28 seam-boundary artifacts; missing bevel/round/miter corner coverage is a product failure`
   ).toEqual([])
 }
 
@@ -4677,7 +4801,7 @@ const assertExactReportedVector34OutsideDashedSeamContinuity = (
 
     expect(
       packetEntries.length,
-      `${joinType} exact reported vector-34 Step 28 source-vertex product for ${anchorId}: ${JSON.stringify(
+      `${joinType} exact reported vector-34 Step 29 source-vertex product for ${anchorId}: ${JSON.stringify(
         {
           joinTrace: result.pipelineTrace.filter(
             (entry) =>
@@ -4696,12 +4820,12 @@ const assertExactReportedVector34OutsideDashedSeamContinuity = (
         result,
         entry,
         anchor,
-        `${anchorId} exact reported vector-34 Step 28 ${joinType}`
+        `${anchorId} exact reported vector-34 Step 29 ${joinType}`
       )
 
       expect(
         getMaxIncidentDashBodyDeficit(entry, anchor),
-        `${joinType} exact reported vector-34 Step 28 source-vertex product at ${anchorId} must reach incident dash body endpoints: ${JSON.stringify(
+        `${joinType} exact reported vector-34 Step 29 source-vertex product at ${anchorId} must reach incident dash body endpoints: ${JSON.stringify(
           getIncidentDashBodyDeficitDiagnostics(entry)
         )}`
       ).toBeLessThanOrEqual(0.5)
@@ -4709,7 +4833,7 @@ const assertExactReportedVector34OutsideDashedSeamContinuity = (
       if (joinType === 'bevel') {
         assertBevelChordUsesIncidentDashOuterEndpoints(
           entry,
-          `${anchorId} exact reported vector-34 Step 28 bevel`
+          `${anchorId} exact reported vector-34 Step 29 bevel`
         )
       }
 
@@ -4717,7 +4841,7 @@ const assertExactReportedVector34OutsideDashedSeamContinuity = (
         assertRoundUsesLocalSourceVertexArc(
           entry,
           anchor,
-          `${anchorId} exact reported vector-34 Step 28 round`
+          `${anchorId} exact reported vector-34 Step 29 round`
         )
       }
     }
@@ -4728,1011 +4852,1197 @@ const assertExactReportedVector34OutsideDashedSeamContinuity = (
   }
 }
 
-describe('formal stroke geometry oracle: reported vector-34 runtime path', () => {
-  it('keeps exact reported vector-34 miter outside dashed seam continuity for dash 20 gap 20', () => {
-    assertExactReportedVector34OutsideDashedSeamContinuity('miter')
-  })
-
-  it('keeps exact reported vector-34 bevel outside dashed seam continuity for dash 20 gap 20', () => {
-    assertExactReportedVector34OutsideDashedSeamContinuity('bevel')
-  })
-
-  it('keeps exact reported vector-34 round outside dashed seam continuity for dash 20 gap 20', () => {
-    assertExactReportedVector34OutsideDashedSeamContinuity('round')
-  })
-
-  it('keeps outside dashed source-span and anchor coverage under microscope probes', () => {
-    for (const scenario of outsideDashedMicroscopeScenarios) {
-      for (const joinType of ['miter', 'bevel', 'round'] as const) {
-        const result = scenario.buildResult(joinType)
-        const stages = [
-          {
-            label: `${scenario.name} ${joinType} Step 27/29/30 packets`,
-            products: result.packets.map((packet) => ({
-              polygons: packet.geometry.polygons,
-              bounds: packet.geometry.bounds,
-              debugMeta: packet.geometry.debugMeta
-            }))
-          },
-          {
-            label: `${scenario.name} ${joinType} Step 35 final faces`,
-            products: result.finalFaces
-          },
-          {
-            label: `${scenario.name} ${joinType} Step 38 render entries`,
-            products: result.renderEntries
-          }
-        ]
-
-        for (const stage of stages) {
-          assertVisibleProductsBoundsCoverActualPolygons({
-            products: stage.products,
-            label: stage.label
-          })
-          assertOutsideDashedSourceSpanMicroscopeCoverage({
-            result,
-            products: stage.products,
-            label: stage.label
-          })
-          assertOutsideDashedAnchorNeighborhoodMicroscopeCoverage({
-            result,
-            products: stage.products,
-            label: stage.label
-          })
-          if (!stage.label.includes('Step 27/29/30')) {
-            assertOutsideDashedAnchorNeighborhoodRejectsInsideLeak({
-              result,
-              products: stage.products,
-              label: stage.label
-            })
-          }
-          assertOutsideDashedEndpointStrokePositionProfile({
-            result,
-            products: stage.products,
-            label: stage.label
-          })
-          assertOutsideDashedTerminalFootprintsAreNotStripFragmented({
-            products: stage.products,
-            label: stage.label
-          })
-        }
-      }
-    }
-  })
-
-  it('keeps constrained outside dashed miter, bevel, and round source-vertex footprints distinct in runtime product artifacts', () => {
-    const results = {
-      miter: buildReportedPipelineResult('miter'),
-      bevel: buildReportedPipelineResult('bevel'),
-      round: buildReportedPipelineResult('round')
-    }
-
-    for (const anchorId of ['tp-113', 'tp-115', 'tp-116'] as const) {
-      const anchor = results.miter.points[anchorId]
-      const packetMiter = getJoinFootprintMetrics(
-        getPreLegalitySourceVertexJoinProducts(
-          results.miter.packets,
-          results.miter.pipelineTrace
-        ),
-        anchor,
-        results.miter.stroke.width * 0.5
-      )
-      const packetBevel = getJoinFootprintMetrics(
-        getPreLegalitySourceVertexJoinProducts(
-          results.bevel.packets,
-          results.bevel.pipelineTrace
-        ),
-        anchor,
-        results.bevel.stroke.width * 0.5
-      )
-      const packetRound = getJoinFootprintMetrics(
-        getPreLegalitySourceVertexJoinProducts(
-          results.round.packets,
-          results.round.pipelineTrace
-        ),
-        anchor,
-        results.round.stroke.width * 0.5
-      )
-      expect(
-        packetMiter.entries.length,
-        `Step 28 miter join product for ${anchorId}`
-      ).toBeGreaterThan(0)
-      expect(
-        packetBevel.entries.length,
-        `Step 28 bevel join product for ${anchorId}`
-      ).toBeGreaterThan(0)
-      expect(
-        packetRound.entries.length,
-        `Step 28 round join product for ${anchorId}`
-      ).toBeGreaterThan(0)
-      expect(packetMiter.shapeSignature).not.toBe(packetBevel.shapeSignature)
-      expect(packetRound.shapeSignature).not.toBe(packetBevel.shapeSignature)
-      packetMiter.entries.forEach((entry) =>
-        assertSeamEvidenceUsesStep27OuterEndpoints(
-          results.miter,
-          entry,
-          anchor,
-          `${anchorId} Step 28 miter`
-        )
-      )
-      packetBevel.entries.forEach((entry) =>
-        assertSeamEvidenceUsesStep27OuterEndpoints(
-          results.bevel,
-          entry,
-          anchor,
-          `${anchorId} Step 28 bevel`
-        )
-      )
-      packetBevel.entries.forEach((entry) =>
-        assertBevelChordUsesIncidentDashOuterEndpoints(
-          entry,
-          `${anchorId} Step 28 bevel`
-        )
-      )
-      packetRound.entries.forEach((entry) =>
-        assertSeamEvidenceUsesStep27OuterEndpoints(
-          results.round,
-          entry,
-          anchor,
-          `${anchorId} Step 28 round`
-        )
-      )
-      packetRound.entries.forEach((entry) =>
-        assertRoundUsesLocalSourceVertexArc(
-          entry,
-          anchor,
-          `${anchorId} Step 28 round`
-        )
-      )
-      expect(packetMiter.absoluteArea).toBeGreaterThan(0)
-      expect(packetBevel.absoluteArea).toBeGreaterThan(0)
-      expect(packetRound.absoluteArea).toBeGreaterThan(0)
-
-      const sourceProbeWindow = sourceNearWindowForStrokeWidth(
-        results.round.stroke.width
-      )
-      assertResolvedMiterUsesTheoreticalBounds(packetMiter.entries, anchorId)
-      expect(
-        getNearSourceEntriesWithoutExplicitOwner(
-          results.round.renderEntries,
-          anchor,
-          sourceProbeWindow
-        ),
-        `${anchorId} visible source-near geometry must preserve explicit owner metadata`
-      ).toEqual([])
-    }
-  })
-
-  it('does not emit source-vertex terminal-body residue without Step 27 provenance', () => {
-    for (const joinType of ['miter', 'bevel', 'round'] as const) {
-      const result = buildReportedPipelineResult(joinType)
-      const sourceProbeWindow = sourceNearWindowForStrokeWidth(
-        result.stroke.width
-      )
-
-      for (const anchorId of ['tp-113', 'tp-115', 'tp-116'] as const) {
-        const anchor = result.points[anchorId]
-        const terminalBodyResidueEntries =
-          getSourceVertexTerminalBodyResidueEntries(
-            result.renderEntries,
-            anchor,
-            sourceProbeWindow
-          )
-
-        expect(
-          terminalBodyResidueEntries,
-          `${joinType} ${anchorId} must not expose source-vertex terminal-body residue without Step 27 seam provenance`
-        ).toEqual([])
-      }
-    }
-  })
-
-  it('routes terminal dash bodies through Step 29 without terminal body area-threshold deletion', () => {
-    for (const joinType of ['miter', 'bevel', 'round'] as const) {
-      const result = buildReportedPipelineResult(joinType)
-      const terminalEntries = result.renderEntries.filter(
-        (entry) =>
-          entry.debugMeta?.routeId ===
-          'constrained-dashed-terminal-body-product'
-      )
-
-      expect(
-        terminalEntries.length,
-        `${joinType} constrained dashed route must expose terminal body products for terminal dash intervals`
-      ).toBeGreaterThan(0)
-
-      const ownerStageMismatches = terminalEntries
-        .filter(
-          (entry) =>
-            entry.debugMeta?.ownerStage !==
-            'Stroke Geometry terminal body assembly'
-        )
-        .map((entry) => ({
-          geometryId: entry.geometryId,
-          ownerStage: entry.debugMeta?.ownerStage ?? null,
-          routeId: entry.debugMeta?.routeId ?? null,
-          intervalIds: entry.debugMeta?.intervalIds ?? [
-            entry.debugMeta?.intervalId
-          ],
-          productSignature: entry.debugMeta?.productSignature ?? null
-        }))
-
-      expect(
-        ownerStageMismatches,
-        `${joinType} terminal dash products must be owned by Step 29, not Step 27`
-      ).toEqual([])
-    }
-  })
-
-  it('preserves every independent terminal half dash from Step 27/29 products through final faces and render entries', () => {
-    for (const joinType of ['miter', 'bevel', 'round'] as const) {
-      const result = buildReportedPipelineResult(joinType)
-      const packetRecords = collectTerminalHalfDashSurvivalRecords(
-        result.packets.map((packet) => ({
+const assertOutsideDashedSourceSpanAndAnchorCoverageUnderMicroscope = (
+  joinType: ReportedJoinType
+) => {
+  for (const scenario of outsideDashedMicroscopeScenarios) {
+    const result = scenario.buildResult(joinType)
+    const stages = [
+      {
+        label: `${scenario.name} ${joinType} Step 27/30/31 packets`,
+        products: result.packets.map((packet) => ({
           polygons: packet.geometry.polygons,
+          bounds: packet.geometry.bounds,
           debugMeta: packet.geometry.debugMeta
         }))
-      )
-      const finalFaceRecords = collectTerminalHalfDashSurvivalRecords(
-        result.finalFaces
-      )
-      const renderEntryRecords = collectTerminalHalfDashSurvivalRecords(
-        result.renderEntries
-      )
+      },
+      {
+        label: `${scenario.name} ${joinType} Step 36 final faces`,
+        products: result.finalFaces
+      },
+      {
+        label: `${scenario.name} ${joinType} Step 39 render entries`,
+        products: result.renderEntries
+      }
+    ]
 
-      const packetRecordsBySourceSegment = new Map<
-        number,
-        Set<TerminalHalfDashRole>
-      >()
-      packetRecords.forEach((record) => {
-        if (record.sourceSegmentIndex === null) {
-          return
-        }
-        const roles =
-          packetRecordsBySourceSegment.get(record.sourceSegmentIndex) ??
-          new Set<TerminalHalfDashRole>()
-        roles.add(record.terminalRole)
-        packetRecordsBySourceSegment.set(record.sourceSegmentIndex, roles)
+    for (const stage of stages) {
+      assertVisibleProductsBoundsCoverActualPolygons({
+        products: stage.products,
+        label: stage.label
       })
+      assertOutsideDashedSourceSpanMicroscopeCoverage({
+        result,
+        products: stage.products,
+        label: stage.label
+      })
+      assertOutsideDashedAnchorNeighborhoodMicroscopeCoverage({
+        result,
+        products: stage.products,
+        label: stage.label
+      })
+      if (!stage.label.includes('Step 27/30/31')) {
+        assertOutsideDashedAnchorNeighborhoodRejectsInsideLeak({
+          result,
+          products: stage.products,
+          label: stage.label
+        })
+      }
+      assertOutsideDashedEndpointStrokePositionProfile({
+        result,
+        products: stage.products,
+        label: stage.label
+      })
+      assertOutsideDashedTerminalFootprintsAreNotStripFragmented({
+        products: stage.products,
+        label: stage.label
+      })
+    }
+  }
+}
 
-      expect(
-        packetRecordsBySourceSegment.size,
-        `${joinType} Step 27/29 products must expose source-segment terminal provenance`
-      ).toBeGreaterThan(0)
+export type ReportedVector34SeamOracleGroup =
+  | 'continuity'
+  | 'microscope'
+  | 'footprint-classes'
+  | 'terminal-residue'
+  | 'join-connectivity'
 
-      for (const [sourceSegmentIndex, roles] of packetRecordsBySourceSegment) {
-        expect(
-          roles.has('start') || roles.has('start-end'),
-          `${joinType} source segment ${sourceSegmentIndex} must keep a start half-terminal dash in Step 27/29 records`
-        ).toBe(true)
-        expect(
-          roles.has('end') || roles.has('start-end'),
-          `${joinType} source segment ${sourceSegmentIndex} must keep an end half-terminal dash in Step 27/29 records`
-        ).toBe(true)
+export interface ReportedVector34SeamOracleOptions {
+  groups?: readonly ReportedVector34SeamOracleGroup[]
+  joinTypes?: readonly ReportedJoinType[]
+}
+
+const allReportedVector34SeamOracleGroups: readonly ReportedVector34SeamOracleGroup[] =
+  [
+    'continuity',
+    'microscope',
+    'footprint-classes',
+    'terminal-residue',
+    'join-connectivity'
+  ]
+
+export const registerReportedVector34SeamOracleTests = (
+  options: ReportedVector34SeamOracleOptions = {}
+) => {
+  const groups = new Set(options.groups ?? allReportedVector34SeamOracleGroups)
+  const joinTypes = options.joinTypes ?? (['miter', 'bevel', 'round'] as const)
+
+  if (groups.has('continuity')) {
+    for (const joinType of joinTypes) {
+      it(`keeps exact reported vector-34 ${joinType} outside dashed seam continuity for dash 20 gap 20`, () => {
+        assertExactReportedVector34OutsideDashedSeamContinuity(joinType)
+      })
+    }
+  }
+
+  if (groups.has('microscope')) {
+    for (const joinType of joinTypes) {
+      it(`keeps ${joinType} outside dashed source-span and anchor coverage under microscope probes`, () => {
+        assertOutsideDashedSourceSpanAndAnchorCoverageUnderMicroscope(joinType)
+      })
+    }
+  }
+
+  if (groups.has('footprint-classes')) {
+    it('keeps constrained outside dashed miter, bevel, and round source-vertex footprints distinct in runtime product artifacts', () => {
+      const results = {
+        miter: buildReportedPipelineResult('miter'),
+        bevel: buildReportedPipelineResult('bevel'),
+        round: buildReportedPipelineResult('round')
       }
 
-      const finalFaceKeys = new Set(
-        finalFaceRecords.map((record) => record.key)
-      )
-      const renderEntryKeys = new Set(
-        renderEntryRecords.map((record) => record.key)
-      )
-      const packetTerminalKeys = new Set(
-        packetRecords.map((record) => record.key)
-      )
-      const missingFinalFaceTerminalRecords = packetRecords.filter(
-        (record) => !finalFaceKeys.has(record.key)
-      )
-      const missingRenderEntryTerminalRecords = packetRecords.filter(
-        (record) => !renderEntryKeys.has(record.key)
-      )
-      const synthesizedRenderEntryTerminalRecords = renderEntryRecords.filter(
-        (record) => !packetTerminalKeys.has(record.key)
-      )
+      for (const anchorId of ['tp-113', 'tp-115', 'tp-116'] as const) {
+        const anchor = results.miter.points[anchorId]
+        const packetMiter = getJoinFootprintMetrics(
+          getPreLegalitySourceVertexJoinProducts(
+            results.miter.packets,
+            results.miter.pipelineTrace
+          ),
+          anchor,
+          results.miter.stroke.width * 0.5
+        )
+        const packetBevel = getJoinFootprintMetrics(
+          getPreLegalitySourceVertexJoinProducts(
+            results.bevel.packets,
+            results.bevel.pipelineTrace
+          ),
+          anchor,
+          results.bevel.stroke.width * 0.5
+        )
+        const packetRound = getJoinFootprintMetrics(
+          getPreLegalitySourceVertexJoinProducts(
+            results.round.packets,
+            results.round.pipelineTrace
+          ),
+          anchor,
+          results.round.stroke.width * 0.5
+        )
+        expect(
+          packetMiter.entries.length,
+          `Step 29 miter join product for ${anchorId}`
+        ).toBeGreaterThan(0)
+        expect(
+          packetBevel.entries.length,
+          `Step 29 bevel join product for ${anchorId}`
+        ).toBeGreaterThan(0)
+        expect(
+          packetRound.entries.length,
+          `Step 29 round join product for ${anchorId}`
+        ).toBeGreaterThan(0)
+        expect(packetMiter.shapeSignature).not.toBe(packetBevel.shapeSignature)
+        expect(packetRound.shapeSignature).not.toBe(packetBevel.shapeSignature)
+        packetMiter.entries.forEach((entry) =>
+          assertSeamEvidenceUsesStep27OuterEndpoints(
+            results.miter,
+            entry,
+            anchor,
+            `${anchorId} Step 29 miter`
+          )
+        )
+        packetBevel.entries.forEach((entry) =>
+          assertSeamEvidenceUsesStep27OuterEndpoints(
+            results.bevel,
+            entry,
+            anchor,
+            `${anchorId} Step 29 bevel`
+          )
+        )
+        packetBevel.entries.forEach((entry) =>
+          assertBevelChordUsesIncidentDashOuterEndpoints(
+            entry,
+            `${anchorId} Step 29 bevel`
+          )
+        )
+        packetRound.entries.forEach((entry) =>
+          assertSeamEvidenceUsesStep27OuterEndpoints(
+            results.round,
+            entry,
+            anchor,
+            `${anchorId} Step 29 round`
+          )
+        )
+        packetRound.entries.forEach((entry) =>
+          assertRoundUsesLocalSourceVertexArc(
+            entry,
+            anchor,
+            `${anchorId} Step 29 round`
+          )
+        )
+        expect(packetMiter.absoluteArea).toBeGreaterThan(0)
+        expect(packetBevel.absoluteArea).toBeGreaterThan(0)
+        expect(packetRound.absoluteArea).toBeGreaterThan(0)
 
-      expect(
-        finalFaceRecords.filter((record) => record.polygonArea <= 0),
-        `${joinType} Step 35 final faces must keep visible terminal half-dash product area`
-      ).toEqual([])
-      expect(
-        renderEntryRecords.filter((record) => record.polygonArea <= 0),
-        `${joinType} Step 38 render entries must keep visible terminal half-dash product area`
-      ).toEqual([])
+        const sourceProbeWindow = sourceNearWindowForStrokeWidth(
+          results.round.stroke.width
+        )
+        assertResolvedMiterUsesTheoreticalBounds(packetMiter.entries, anchorId)
+        expect(
+          getNearSourceEntriesWithoutExplicitOwner(
+            results.round.renderEntries,
+            anchor,
+            sourceProbeWindow
+          ),
+          `${anchorId} visible source-near geometry must preserve explicit owner metadata`
+        ).toEqual([])
+      }
+    })
+  }
 
-      expect(
-        missingFinalFaceTerminalRecords.map((record) => ({
-          key: record.key,
-          intervalId: record.intervalId,
-          terminalRole: record.terminalRole,
-          sourceSegmentIndex: record.sourceSegmentIndex,
-          splitRangeId: record.splitRangeId,
-          routeId: record.routeId,
-          visibleContributor: record.visibleContributor
-        })),
-        `${joinType} Step 35 must preserve every Step 27/29 terminal half-dash identity: ${JSON.stringify(
-          {
-            missingFinalFaceTerminalRecords:
-              missingFinalFaceTerminalRecords.length,
-            packetKeys: [...packetTerminalKeys].sort(),
-            finalFaceKeys: [...finalFaceKeys].sort()
-          },
-          null,
-          2
-        )}`
-      ).toEqual([])
-      expect(
-        missingRenderEntryTerminalRecords.map((record) => ({
-          key: record.key,
-          intervalId: record.intervalId,
-          terminalRole: record.terminalRole,
-          sourceSegmentIndex: record.sourceSegmentIndex,
-          splitRangeId: record.splitRangeId,
-          routeId: record.routeId,
-          visibleContributor: record.visibleContributor
-        })),
-        `${joinType} Step 38/39 must preserve every Step 27/29 terminal half-dash identity as render-visible input: ${JSON.stringify(
-          {
-            missingRenderEntryTerminalRecords:
-              missingRenderEntryTerminalRecords.length,
-            renderEntryPipelineCounters: result.pipelineTrace
-              .filter((trace) => trace.eventName === 'counter')
-              .map((trace) => trace.payload.counterName)
-              .filter(
-                (counterName): counterName is string =>
-                  typeof counterName === 'string' &&
-                  counterName.includes('render-entry')
-              ),
-            packetKeys: [...packetTerminalKeys].sort(),
-            renderEntryKeys: [...renderEntryKeys].sort(),
-            relatedRenderEntries: result.renderEntries
-              .filter((entry) => {
-                const intervalIds = getPacketIntervalIds(entry.debugMeta)
-                return missingRenderEntryTerminalRecords.some((record) =>
-                  intervalIds.has(record.intervalId)
-                )
-              })
-              .map((entry) => ({
-                cacheKey: entry.cacheKey,
-                routeId: entry.debugMeta?.routeId ?? null,
-                visibleContributor: entry.debugMeta?.visibleContributor ?? null,
-                intervalIds: [...getPacketIntervalIds(entry.debugMeta)].sort(),
-                domainPlanTerminalRole:
-                  entry.debugMeta?.domainPlanTerminalRole ?? null,
-                domainPlanSplitRangeId:
-                  entry.debugMeta?.domainPlanSplitRangeId ?? null,
-                domainPlanSplitRangeSourceSegmentIndex:
-                  entry.debugMeta?.domainPlanSplitRangeSourceSegmentIndex ??
-                  null,
-                dashProductIntervals:
-                  entry.debugMeta?.dashProductIntervals?.map((interval) => ({
-                    intervalId: interval.intervalId,
-                    terminalRole: interval.terminalRole ?? null,
-                    splitRangeId: interval.splitRangeId ?? null,
-                    sourceSegmentIndex: interval.sourceSegmentIndex ?? null
+  if (groups.has('terminal-residue')) {
+    for (const joinType of joinTypes) {
+      it(`does not emit ${joinType} source-vertex terminal-body residue without seam-boundary provenance`, () => {
+        const result = buildReportedPipelineResult(joinType)
+        const sourceProbeWindow = sourceNearWindowForStrokeWidth(
+          result.stroke.width
+        )
+
+        for (const anchorId of ['tp-113', 'tp-115', 'tp-116'] as const) {
+          const anchor = result.points[anchorId]
+          const terminalBodyResidueEntries =
+            getSourceVertexTerminalBodyResidueEntries(
+              result.renderEntries,
+              anchor,
+              sourceProbeWindow
+            )
+
+          expect(
+            terminalBodyResidueEntries,
+            `${joinType} ${anchorId} must not expose source-vertex terminal-body residue without seam-boundary artifact provenance`
+          ).toEqual([])
+        }
+      })
+    }
+  }
+
+  if (groups.has('join-connectivity')) {
+    for (const joinType of joinTypes) {
+      it(`connects reported ${joinType} sharp source-vertex joins to incident dash bodies without seam gaps`, () => {
+        const result = buildReportedPipelineResult(joinType)
+
+        for (const anchorId of ['tp-113', 'tp-115', 'tp-116'] as const) {
+          const anchor = result.points[anchorId]
+          const packetEntries = getSourceVertexJoinEntriesForAnchor(
+            getPreLegalitySourceVertexJoinProducts(
+              result.packets,
+              result.pipelineTrace
+            ),
+            anchor,
+            result.stroke.width * 0.5
+          )
+          const finalFaceEntries = getSourceVertexJoinEntriesForAnchor(
+            result.finalFaces,
+            anchor,
+            result.stroke.width * 0.5
+          )
+          const joinEntries = getSourceVertexJoinEntriesForAnchor(
+            result.renderEntries,
+            anchor,
+            result.stroke.width * 0.5
+          )
+          const maxPacketIncidentDashBodyDeficit = Math.max(
+            0,
+            ...packetEntries.map((entry) =>
+              getMaxIncidentDashBodyDeficit(entry, anchor)
+            )
+          )
+          expect(
+            maxPacketIncidentDashBodyDeficit,
+            `${joinType} Step 29 source-vertex product at ${anchorId} must reach incident dash body endpoints: ${JSON.stringify(
+              packetEntries.map(getIncidentDashBodyDeficitDiagnostics),
+              null,
+              2
+            )}`
+          ).toBeLessThanOrEqual(0.5)
+          expect(
+            finalFaceEntries.length,
+            `${joinType} Step 36 final faces must preserve a visible source-vertex join product at ${anchorId}`
+          ).toBeGreaterThan(0)
+          expect(
+            joinEntries.length,
+            `${joinType} Step 39 render entries must preserve a visible source-vertex join product at ${anchorId}`
+          ).toBeGreaterThan(0)
+
+          for (const entry of packetEntries) {
+            assertIncidentSeamDashSideCoverage(
+              result,
+              result.packets.map((packet) => ({
+                polygons: packet.geometry.polygons,
+                debugMeta: packet.geometry.debugMeta
+              })),
+              entry,
+              result.stroke.width,
+              anchor,
+              `${joinType} Step 29 source-vertex product at ${anchorId}`
+            )
+          }
+
+          for (const entry of finalFaceEntries) {
+            assertSeamEvidenceUsesStep27OuterEndpoints(
+              result,
+              entry,
+              anchor,
+              `${joinType} Step 36 source-vertex final face at ${anchorId}`,
+              {
+                allowStageVisibleCoverage: true,
+                stageProducts: result.finalFaces
+              }
+            )
+            assertIncidentSeamDashSideCoverage(
+              result,
+              result.finalFaces,
+              entry,
+              result.stroke.width,
+              anchor,
+              `${joinType} Step 36 source-vertex final face at ${anchorId}`
+            )
+            if (joinType === 'round') {
+              assertRoundUsesLocalSourceVertexArc(
+                entry,
+                anchor,
+                `${joinType} Step 36 source-vertex final face at ${anchorId}`
+              )
+            }
+          }
+
+          for (const entry of joinEntries) {
+            assertSeamEvidenceUsesStep27OuterEndpoints(
+              result,
+              entry,
+              anchor,
+              `${joinType} Step 39 source-vertex render entry at ${anchorId}`,
+              {
+                allowRenderProjectionMerge: true,
+                allowStageVisibleCoverage: true,
+                stageProducts: result.renderEntries
+              }
+            )
+            assertIncidentSeamDashSideCoverage(
+              result,
+              result.renderEntries,
+              entry,
+              result.stroke.width,
+              anchor,
+              `${joinType} Step 39 source-vertex render entry at ${anchorId}`
+            )
+            assertSourceVertexJoinCoversLegalCornerFromSeamBoundaries(
+              result,
+              entry,
+              anchor,
+              `${joinType} Step 39 source-vertex render entry at ${anchorId}`
+            )
+            if (joinType === 'round') {
+              assertRoundUsesLocalSourceVertexArc(
+                entry,
+                anchor,
+                `${joinType} Step 39 source-vertex render entry at ${anchorId}`
+              )
+            }
+          }
+
+          expect(
+            finalFaceEntries.every(
+              (entry) =>
+                entry.debugMeta?.productMode !==
+                'pre-legality-source-vertex-join'
+            ),
+            `${joinType} Step 36 final face at ${anchorId} must not consume Step 29 pre-legality evidence as visible output`
+          ).toBe(true)
+
+          expect(
+            joinEntries.every(
+              (entry) =>
+                entry.debugMeta?.productMode !==
+                'pre-legality-source-vertex-join'
+            ),
+            `${joinType} render entry at ${anchorId} must not consume Step 29 pre-legality evidence as visible output: ${JSON.stringify(
+              joinEntries.map((entry) => ({
+                productSignature: entry.debugMeta?.productSignature,
+                seamEvidence:
+                  (
+                    entry.debugMeta as
+                      | {
+                          seamEvidence?: {
+                            incidentSeamBoundaries?: unknown[]
+                          }
+                        }
+                      | undefined
+                  )?.seamEvidence ?? null,
+                joinOwnershipRecords:
+                  entry.debugMeta?.joinOwnershipRecords?.map((record) => ({
+                    kind: record.kind,
+                    materializationKind: record.materializationKind,
+                    previousDashBodyPoint: record.previousDashBodyPoint,
+                    nextDashBodyPoint: record.nextDashBodyPoint
                   })) ?? []
               })),
-            relatedBySourceGeometryRenderEntries: result.renderEntries
-              .filter((entry) =>
-                missingRenderEntryTerminalRecords.some(
-                  (record) =>
-                    entry.cacheKey.includes(record.intervalId) ||
-                    (entry.debugMeta?.visualOverlapSourceFaceIds ?? []).some(
-                      (id) => id.includes(record.intervalId)
-                    ) ||
-                    (
-                      entry.debugMeta?.visualOverlapSourceGeometryIds ?? []
-                    ).some((id) => id.includes(record.intervalId))
+              null,
+              2
+            )}`
+          ).toBe(true)
+        }
+      })
+    }
+  }
+}
+
+export type ReportedVector34TerminalOracleGroup =
+  | 'ownership-evidence'
+  | 'half-dash-survival'
+  | 'reference-endpoints'
+
+export interface ReportedVector34TerminalOracleOptions {
+  groups?: readonly ReportedVector34TerminalOracleGroup[]
+}
+
+const allReportedVector34TerminalOracleGroups: readonly ReportedVector34TerminalOracleGroup[] =
+  ['ownership-evidence', 'half-dash-survival', 'reference-endpoints']
+
+export const registerReportedVector34TerminalOracleTests = (
+  options: ReportedVector34TerminalOracleOptions = {}
+) => {
+  const groups = new Set(
+    options.groups ?? allReportedVector34TerminalOracleGroups
+  )
+
+  if (groups.has('ownership-evidence')) {
+    for (const joinType of ['miter', 'bevel', 'round'] as const) {
+      it(`preserves ${joinType} terminal ownership as non-visible Step 30 evidence over Step 27 bodies`, () => {
+        const result = buildReportedPipelineResult(joinType)
+        const illegalVisibleTerminalEntries = result.renderEntries.filter(
+          (entry) => {
+            const debugMeta = entry.debugMeta
+            return (
+              debugMeta?.ownerStepId === 'build-terminal-body-products' ||
+              debugMeta?.ownerStage ===
+                'Stroke Geometry terminal body assembly' ||
+              debugMeta?.ownerStage ===
+                'Stroke Geometry terminal body ownership binding' ||
+              debugMeta?.visibleContributor === 'terminal-interval-body' ||
+              debugMeta?.visibleContributor ===
+                'none-non-visible-ownership-overlay' ||
+              debugMeta?.routeId === 'constrained-dashed-terminal-body-product'
+            )
+          }
+        )
+        const packetEnvelopes = result.packets.flatMap((packet) => {
+          const envelope = packet.geometry.debugMeta?.productEvidenceEnvelope
+          return envelope ? [envelope] : []
+        })
+        const finalFaceEnvelopes = result.finalFaces.flatMap((face) =>
+          face.productEvidenceEnvelope ? [face.productEvidenceEnvelope] : []
+        )
+        const renderEntryEnvelopes = result.renderEntries.flatMap((entry) => {
+          const envelope = entry.debugMeta?.productEvidenceEnvelope
+          return envelope ? [envelope] : []
+        })
+        const hitEnvelopes = result.hitPackets.flatMap((packet) =>
+          packet.productEvidenceEnvelope ? [packet.productEvidenceEnvelope] : []
+        )
+        const exportEnvelopes = result.exportPackets.flatMap((packet) =>
+          packet.productEvidenceEnvelope ? [packet.productEvidenceEnvelope] : []
+        )
+        const packetOverlays =
+          getUniqueTerminalOwnershipOverlays(packetEnvelopes)
+        const overlayIds = packetOverlays.map((overlay) => overlay.overlayId)
+        const preservedOverlayIds = {
+          finalFaces: getUniqueTerminalOwnershipOverlays(
+            finalFaceEnvelopes
+          ).map((overlay) => overlay.overlayId),
+          renderEntries: getUniqueTerminalOwnershipOverlays(
+            renderEntryEnvelopes
+          ).map((overlay) => overlay.overlayId),
+          hit: getUniqueTerminalOwnershipOverlays(hitEnvelopes).map(
+            (overlay) => overlay.overlayId
+          ),
+          export: getUniqueTerminalOwnershipOverlays(exportEnvelopes).map(
+            (overlay) => overlay.overlayId
+          )
+        }
+
+        expect(
+          illegalVisibleTerminalEntries.map((entry) => ({
+            ownerStepId: entry.debugMeta?.ownerStepId,
+            ownerStage: entry.debugMeta?.ownerStage,
+            routeId: entry.debugMeta?.routeId,
+            visibleContributor: entry.debugMeta?.visibleContributor
+          }))
+        ).toEqual([])
+        expect(
+          overlayIds.length,
+          `${joinType} packet terminal ownership evidence`
+        ).toBeGreaterThan(0)
+        for (const [stage, stageOverlayIds] of Object.entries(
+          preservedOverlayIds
+        )) {
+          expect(
+            stageOverlayIds,
+            `${joinType} ${stage} terminal evidence`
+          ).toEqual(overlayIds)
+        }
+        for (const overlay of packetOverlays) {
+          expect(overlay).toMatchObject({
+            ownerStepId: 'build-terminal-body-products',
+            zeroVisibleContribution: true
+          })
+          expect(
+            packetEnvelopes.some(
+              (envelope) =>
+                envelope.bodyProductIds.includes(overlay.bodyProductId) &&
+                envelope.terminalOwnershipOverlays.some(
+                  (candidate) => candidate.overlayId === overlay.overlayId
                 )
-              )
-              .map((entry) => ({
-                routeId: entry.debugMeta?.routeId ?? null,
-                visibleContributor: entry.debugMeta?.visibleContributor ?? null,
-                intervalIds: [...getPacketIntervalIds(entry.debugMeta)].sort(),
-                visualOverlapCollapseStatus:
-                  entry.debugMeta?.visualOverlapCollapseStatus ?? null,
-                missingIntervalsInCacheKey: missingRenderEntryTerminalRecords
-                  .filter((record) =>
-                    entry.cacheKey.includes(record.intervalId)
+            ),
+            `${joinType} ${overlay.overlayId}: referenced Step 27 body identity`
+          ).toBe(true)
+          expect(
+            result.renderEntries.some(
+              (entry) =>
+                entry.polygons.length > 0 &&
+                (
+                  entry.productIdentity.productEvidenceEnvelope ??
+                  entry.debugMeta?.productEvidenceEnvelope
+                )?.bodyProductIds.includes(overlay.bodyProductId) === true
+            ),
+            `${joinType} ${overlay.overlayId}: visible composite preserves the referenced Step 27 body identity`
+          ).toBe(true)
+        }
+        expect(JSON.stringify(packetOverlays)).not.toMatch(
+          /"polygons"|"strokePaths"|"paint"|"capContributors"/
+        )
+      })
+    }
+  }
+
+  if (groups.has('half-dash-survival')) {
+    for (const joinType of ['miter', 'bevel', 'round'] as const) {
+      it(`preserves every independent ${joinType} terminal half dash from Step 27/30 products through final faces and render entries`, () => {
+        const result = buildReportedPipelineResult(joinType)
+        const packetRecords = collectTerminalHalfDashSurvivalRecords(
+          result.packets.map((packet) => ({
+            polygons: packet.geometry.polygons,
+            debugMeta: packet.geometry.debugMeta
+          }))
+        )
+        const finalFaceRecords = collectTerminalHalfDashSurvivalRecords(
+          result.finalFaces
+        )
+        const renderEntryRecords = collectTerminalHalfDashSurvivalRecords(
+          result.renderEntries
+        )
+
+        const packetRecordsBySourceSegment = new Map<
+          number,
+          Set<TerminalHalfDashRole>
+        >()
+        packetRecords.forEach((record) => {
+          if (record.sourceSegmentIndex === null) {
+            return
+          }
+          const roles =
+            packetRecordsBySourceSegment.get(record.sourceSegmentIndex) ??
+            new Set<TerminalHalfDashRole>()
+          roles.add(record.terminalRole)
+          packetRecordsBySourceSegment.set(record.sourceSegmentIndex, roles)
+        })
+
+        expect(
+          packetRecordsBySourceSegment.size,
+          `${joinType} Step 27/30 products must expose source-segment terminal provenance`
+        ).toBeGreaterThan(0)
+
+        for (const [
+          sourceSegmentIndex,
+          roles
+        ] of packetRecordsBySourceSegment) {
+          expect(
+            roles.has('start') || roles.has('start-end'),
+            `${joinType} source segment ${sourceSegmentIndex} must keep a start half-terminal dash in Step 27/30 records`
+          ).toBe(true)
+          expect(
+            roles.has('end') || roles.has('start-end'),
+            `${joinType} source segment ${sourceSegmentIndex} must keep an end half-terminal dash in Step 27/30 records`
+          ).toBe(true)
+        }
+
+        const finalFaceKeys = new Set(
+          finalFaceRecords.map((record) => record.key)
+        )
+        const renderEntryKeys = new Set(
+          renderEntryRecords.map((record) => record.key)
+        )
+        const packetTerminalKeys = new Set(
+          packetRecords.map((record) => record.key)
+        )
+        const missingFinalFaceTerminalRecords = packetRecords.filter(
+          (record) => !finalFaceKeys.has(record.key)
+        )
+        const missingRenderEntryTerminalRecords = packetRecords.filter(
+          (record) => !renderEntryKeys.has(record.key)
+        )
+        const synthesizedRenderEntryTerminalRecords = renderEntryRecords.filter(
+          (record) => !packetTerminalKeys.has(record.key)
+        )
+
+        expect(
+          finalFaceRecords.filter((record) => record.polygonArea <= 0),
+          `${joinType} Step 36 final faces must keep visible terminal half-dash product area`
+        ).toEqual([])
+        expect(
+          renderEntryRecords.filter((record) => record.polygonArea <= 0),
+          `${joinType} Step 39 render entries must keep visible terminal half-dash product area`
+        ).toEqual([])
+
+        expect(
+          missingFinalFaceTerminalRecords.map((record) => ({
+            key: record.key,
+            intervalId: record.intervalId,
+            terminalRole: record.terminalRole,
+            sourceSegmentIndex: record.sourceSegmentIndex,
+            splitRangeId: record.splitRangeId,
+            routeId: record.routeId,
+            visibleContributor: record.visibleContributor
+          })),
+          `${joinType} Step 36 must preserve every Step 27/30 terminal half-dash identity: ${JSON.stringify(
+            {
+              missingFinalFaceTerminalRecords:
+                missingFinalFaceTerminalRecords.length,
+              packetKeys: [...packetTerminalKeys].sort(),
+              finalFaceKeys: [...finalFaceKeys].sort()
+            },
+            null,
+            2
+          )}`
+        ).toEqual([])
+        expect(
+          missingRenderEntryTerminalRecords.map((record) => ({
+            key: record.key,
+            intervalId: record.intervalId,
+            terminalRole: record.terminalRole,
+            sourceSegmentIndex: record.sourceSegmentIndex,
+            splitRangeId: record.splitRangeId,
+            routeId: record.routeId,
+            visibleContributor: record.visibleContributor
+          })),
+          `${joinType} Step 39/40 must preserve every Step 27/30 terminal half-dash identity as render-visible input: ${JSON.stringify(
+            {
+              missingRenderEntryTerminalRecords:
+                missingRenderEntryTerminalRecords.length,
+              renderEntryPipelineCounters: result.pipelineTrace
+                .filter((trace) => trace.eventName === 'counter')
+                .map((trace) => trace.payload.counterName)
+                .filter(
+                  (counterName): counterName is string =>
+                    typeof counterName === 'string' &&
+                    counterName.includes('render-entry')
+                ),
+              packetKeys: [...packetTerminalKeys].sort(),
+              renderEntryKeys: [...renderEntryKeys].sort(),
+              relatedRenderEntries: result.renderEntries
+                .filter((entry) => {
+                  const intervalIds = getPacketIntervalIds(entry.debugMeta)
+                  return missingRenderEntryTerminalRecords.some((record) =>
+                    intervalIds.has(record.intervalId)
                   )
-                  .map((record) => record.intervalId),
-                missingIntervalsInSourceFaceIds:
-                  missingRenderEntryTerminalRecords
-                    .filter((record) =>
+                })
+                .map((entry) => ({
+                  cacheKey: entry.cacheKey,
+                  routeId: entry.debugMeta?.routeId ?? null,
+                  visibleContributor:
+                    entry.debugMeta?.visibleContributor ?? null,
+                  intervalIds: [
+                    ...getPacketIntervalIds(entry.debugMeta)
+                  ].sort(),
+                  domainPlanTerminalRole:
+                    entry.debugMeta?.domainPlanTerminalRole ?? null,
+                  domainPlanSplitRangeId:
+                    entry.debugMeta?.domainPlanSplitRangeId ?? null,
+                  domainPlanSplitRangeSourceSegmentIndex:
+                    entry.debugMeta?.domainPlanSplitRangeSourceSegmentIndex ??
+                    null,
+                  dashProductIntervals:
+                    entry.debugMeta?.dashProductIntervals?.map((interval) => ({
+                      intervalId: interval.intervalId,
+                      terminalRole: interval.terminalRole ?? null,
+                      splitRangeId: interval.splitRangeId ?? null,
+                      sourceSegmentIndex: interval.sourceSegmentIndex ?? null
+                    })) ?? []
+                })),
+              relatedBySourceGeometryRenderEntries: result.renderEntries
+                .filter((entry) =>
+                  missingRenderEntryTerminalRecords.some(
+                    (record) =>
+                      entry.cacheKey.includes(record.intervalId) ||
                       (entry.debugMeta?.visualOverlapSourceFaceIds ?? []).some(
                         (id) => id.includes(record.intervalId)
-                      )
-                    )
-                    .map((record) => record.intervalId),
-                missingIntervalsInSourceGeometryIds:
-                  missingRenderEntryTerminalRecords
-                    .filter((record) =>
+                      ) ||
                       (
                         entry.debugMeta?.visualOverlapSourceGeometryIds ?? []
                       ).some((id) => id.includes(record.intervalId))
+                  )
+                )
+                .map((entry) => ({
+                  routeId: entry.debugMeta?.routeId ?? null,
+                  visibleContributor:
+                    entry.debugMeta?.visibleContributor ?? null,
+                  intervalIds: [
+                    ...getPacketIntervalIds(entry.debugMeta)
+                  ].sort(),
+                  visualOverlapCollapseStatus:
+                    entry.debugMeta?.visualOverlapCollapseStatus ?? null,
+                  missingIntervalsInCacheKey: missingRenderEntryTerminalRecords
+                    .filter((record) =>
+                      entry.cacheKey.includes(record.intervalId)
                     )
                     .map((record) => record.intervalId),
-                polygonCount: entry.polygons.length
-              })),
-            relatedFinalFaces: result.finalFaces
-              .filter((face) => {
-                const intervalIds = getPacketIntervalIds(face.debugMeta)
-                return missingRenderEntryTerminalRecords.some((record) =>
-                  intervalIds.has(record.intervalId)
+                  missingIntervalsInSourceFaceIds:
+                    missingRenderEntryTerminalRecords
+                      .filter((record) =>
+                        (
+                          entry.debugMeta?.visualOverlapSourceFaceIds ?? []
+                        ).some((id) => id.includes(record.intervalId))
+                      )
+                      .map((record) => record.intervalId),
+                  missingIntervalsInSourceGeometryIds:
+                    missingRenderEntryTerminalRecords
+                      .filter((record) =>
+                        (
+                          entry.debugMeta?.visualOverlapSourceGeometryIds ?? []
+                        ).some((id) => id.includes(record.intervalId))
+                      )
+                      .map((record) => record.intervalId),
+                  polygonCount: entry.polygons.length
+                })),
+              relatedFinalFaces: result.finalFaces
+                .filter((face) => {
+                  const intervalIds = getPacketIntervalIds(face.debugMeta)
+                  return missingRenderEntryTerminalRecords.some((record) =>
+                    intervalIds.has(record.intervalId)
+                  )
+                })
+                .map((face) => ({
+                  faceId: face.faceId,
+                  geometryId: face.geometryId,
+                  routeId: face.debugMeta?.routeId ?? null,
+                  visibleContributor:
+                    face.debugMeta?.visibleContributor ?? null,
+                  productSignature: face.debugMeta?.productSignature ?? null,
+                  intervalIds: [...getPacketIntervalIds(face.debugMeta)].sort(),
+                  visualOverlapGroupId:
+                    face.debugMeta?.visualOverlapGroupId ?? null,
+                  visualOverlapSourceGeometryIds:
+                    face.debugMeta?.visualOverlapSourceGeometryIds ?? [],
+                  polygonCount: face.polygons.length
+                })),
+              smoothContinuityFinalFaces: result.finalFaces
+                .filter(
+                  (face) =>
+                    face.debugMeta?.visibleContributor ===
+                      'smooth-continuity-dash-body' ||
+                    face.debugMeta?.ownerStage ===
+                      'Stroke Geometry smooth-continuity product assembly' ||
+                    face.debugMeta?.routeId ===
+                      'constrained-dashed-smooth-continuity-product'
                 )
-              })
-              .map((face) => ({
-                faceId: face.faceId,
-                geometryId: face.geometryId,
-                routeId: face.debugMeta?.routeId ?? null,
-                visibleContributor: face.debugMeta?.visibleContributor ?? null,
-                productSignature: face.debugMeta?.productSignature ?? null,
-                intervalIds: [...getPacketIntervalIds(face.debugMeta)].sort(),
-                visualOverlapGroupId:
-                  face.debugMeta?.visualOverlapGroupId ?? null,
-                visualOverlapSourceGeometryIds:
-                  face.debugMeta?.visualOverlapSourceGeometryIds ?? [],
-                polygonCount: face.polygons.length
-              })),
-            smoothContinuityFinalFaces: result.finalFaces
-              .filter(
-                (face) =>
-                  face.debugMeta?.visibleContributor ===
-                    'smooth-continuity-dash-body' ||
-                  face.debugMeta?.ownerStage ===
-                    'Stroke Geometry smooth-continuity product assembly' ||
-                  face.debugMeta?.routeId ===
-                    'constrained-dashed-smooth-continuity-product'
-              )
-              .map((face) => ({
-                faceId: face.faceId,
-                geometryId: face.geometryId,
-                routeId: face.debugMeta?.routeId ?? null,
-                visibleContributor: face.debugMeta?.visibleContributor ?? null,
-                productSignature: face.debugMeta?.productSignature ?? null,
-                intervalIds: [...getPacketIntervalIds(face.debugMeta)].sort(),
-                domainPlanTerminalRole:
-                  face.debugMeta?.domainPlanTerminalRole ?? null,
-                domainPlanSplitRangeId:
-                  face.debugMeta?.domainPlanSplitRangeId ?? null,
-                domainPlanSplitRangeSourceSegmentIndex:
-                  face.debugMeta?.domainPlanSplitRangeSourceSegmentIndex ??
-                  null,
-                dashProductIntervals:
-                  face.debugMeta?.dashProductIntervals?.map((interval) => ({
-                    intervalId: interval.intervalId,
-                    terminalRole: interval.terminalRole ?? null,
-                    splitRangeId: interval.splitRangeId ?? null,
-                    sourceSegmentIndex: interval.sourceSegmentIndex ?? null
-                  })) ?? []
-              })),
-            smoothContinuityRenderEntries: result.renderEntries
-              .filter(
-                (entry) =>
-                  entry.debugMeta?.visibleContributor ===
-                    'smooth-continuity-dash-body' ||
-                  entry.debugMeta?.ownerStage ===
-                    'Stroke Geometry smooth-continuity product assembly' ||
-                  entry.debugMeta?.routeId ===
-                    'constrained-dashed-smooth-continuity-product'
-              )
-              .map((entry) => ({
-                cacheKey: entry.cacheKey,
-                routeId: entry.debugMeta?.routeId ?? null,
-                visibleContributor: entry.debugMeta?.visibleContributor ?? null,
-                productSignature: entry.debugMeta?.productSignature ?? null,
-                intervalIds: [...getPacketIntervalIds(entry.debugMeta)].sort(),
-                domainPlanTerminalRole:
-                  entry.debugMeta?.domainPlanTerminalRole ?? null,
-                domainPlanSplitRangeId:
-                  entry.debugMeta?.domainPlanSplitRangeId ?? null,
-                domainPlanSplitRangeSourceSegmentIndex:
-                  entry.debugMeta?.domainPlanSplitRangeSourceSegmentIndex ??
-                  null,
-                dashProductIntervals:
-                  entry.debugMeta?.dashProductIntervals?.map((interval) => ({
-                    intervalId: interval.intervalId,
-                    terminalRole: interval.terminalRole ?? null,
-                    splitRangeId: interval.splitRangeId ?? null,
-                    sourceSegmentIndex: interval.sourceSegmentIndex ?? null
-                  })) ?? []
-              }))
-          },
-          null,
-          2
-        )}`
-      ).toEqual([])
-      expect(
-        synthesizedRenderEntryTerminalRecords.map((record) => ({
-          key: record.key,
-          intervalId: record.intervalId,
-          terminalRole: record.terminalRole,
-          sourceSegmentIndex: record.sourceSegmentIndex,
-          splitRangeId: record.splitRangeId,
-          routeId: record.routeId,
-          visibleContributor: record.visibleContributor
-        })),
-        `${joinType} render entries must not synthesize terminal half-dashes after Step 27/29`
-      ).toEqual([])
-    }
-  })
-
-  it('proves Step 22 and Step 23 declare the failing inside source segment endpoint as an independent end terminal interval', () => {
-    const proof = buildReferenceAcuteBoundaryProof('inside')
-    const sourceSegmentIndex = 1
-    const splitRangeDomains = proof.strokeDomainPlan.splitRangeDomains.filter(
-      (domain) => domain.sourceSegmentIndex === sourceSegmentIndex
-    )
-    const targetTerminalIntervals = proof.visibleIntervals.filter(
-      (interval) =>
-        interval.domainPlanSplitRangeSourceSegmentIndex ===
-          sourceSegmentIndex &&
-        (interval.domainPlanTerminalRole === 'end' ||
-          interval.domainPlanTerminalRole === 'start-end')
-    )
-
-    expect(proof.strokeDomainPlan).toMatchObject({
-      intervalDomainKind: 'domain-plan-split-range',
-      domainMode: 'closed-constrained-domain'
-    })
-    expect(
-      splitRangeDomains.length,
-      'Step 22 must declare source segment 1 as an independent constrained split range'
-    ).toBeGreaterThan(0)
-    expect(
-      targetTerminalIntervals.map((interval) => ({
-        intervalId: interval.intervalId,
-        splitRangeId: interval.domainPlanSplitRangeId,
-        terminalRole: interval.domainPlanTerminalRole,
-        sourceSegmentIndex: interval.domainPlanSplitRangeSourceSegmentIndex,
-        startDistance: interval.startDistance,
-        endDistance: interval.endDistance,
-        sourceStartDistance: interval.domainPlanSplitRangeSourceStartDistance,
-        sourceEndDistance: interval.domainPlanSplitRangeSourceEndDistance
-      })),
-      'Step 23 must allocate the failing endpoint as a visible terminal interval with source provenance'
-    ).toEqual([
-      expect.objectContaining({
-        intervalId: expect.any(String),
-        splitRangeId: expect.any(String),
-        terminalRole: 'end',
-        sourceSegmentIndex
+                .map((face) => ({
+                  faceId: face.faceId,
+                  geometryId: face.geometryId,
+                  routeId: face.debugMeta?.routeId ?? null,
+                  visibleContributor:
+                    face.debugMeta?.visibleContributor ?? null,
+                  productSignature: face.debugMeta?.productSignature ?? null,
+                  intervalIds: [...getPacketIntervalIds(face.debugMeta)].sort(),
+                  domainPlanTerminalRole:
+                    face.debugMeta?.domainPlanTerminalRole ?? null,
+                  domainPlanSplitRangeId:
+                    face.debugMeta?.domainPlanSplitRangeId ?? null,
+                  domainPlanSplitRangeSourceSegmentIndex:
+                    face.debugMeta?.domainPlanSplitRangeSourceSegmentIndex ??
+                    null,
+                  dashProductIntervals:
+                    face.debugMeta?.dashProductIntervals?.map((interval) => ({
+                      intervalId: interval.intervalId,
+                      terminalRole: interval.terminalRole ?? null,
+                      splitRangeId: interval.splitRangeId ?? null,
+                      sourceSegmentIndex: interval.sourceSegmentIndex ?? null
+                    })) ?? []
+                })),
+              smoothContinuityRenderEntries: result.renderEntries
+                .filter(
+                  (entry) =>
+                    entry.debugMeta?.visibleContributor ===
+                      'smooth-continuity-dash-body' ||
+                    entry.debugMeta?.ownerStage ===
+                      'Stroke Geometry smooth-continuity product assembly' ||
+                    entry.debugMeta?.routeId ===
+                      'constrained-dashed-smooth-continuity-product'
+                )
+                .map((entry) => ({
+                  cacheKey: entry.cacheKey,
+                  routeId: entry.debugMeta?.routeId ?? null,
+                  visibleContributor:
+                    entry.debugMeta?.visibleContributor ?? null,
+                  productSignature: entry.debugMeta?.productSignature ?? null,
+                  intervalIds: [
+                    ...getPacketIntervalIds(entry.debugMeta)
+                  ].sort(),
+                  domainPlanTerminalRole:
+                    entry.debugMeta?.domainPlanTerminalRole ?? null,
+                  domainPlanSplitRangeId:
+                    entry.debugMeta?.domainPlanSplitRangeId ?? null,
+                  domainPlanSplitRangeSourceSegmentIndex:
+                    entry.debugMeta?.domainPlanSplitRangeSourceSegmentIndex ??
+                    null,
+                  dashProductIntervals:
+                    entry.debugMeta?.dashProductIntervals?.map((interval) => ({
+                      intervalId: interval.intervalId,
+                      terminalRole: interval.terminalRole ?? null,
+                      splitRangeId: interval.splitRangeId ?? null,
+                      sourceSegmentIndex: interval.sourceSegmentIndex ?? null
+                    })) ?? []
+                }))
+            },
+            null,
+            2
+          )}`
+        ).toEqual([])
+        expect(
+          synthesizedRenderEntryTerminalRecords.map((record) => ({
+            key: record.key,
+            intervalId: record.intervalId,
+            terminalRole: record.terminalRole,
+            sourceSegmentIndex: record.sourceSegmentIndex,
+            splitRangeId: record.splitRangeId,
+            routeId: record.routeId,
+            visibleContributor: record.visibleContributor
+          })),
+          `${joinType} render entries must not synthesize terminal half-dashes after Step 27/30`
+        ).toEqual([])
       })
-    ])
-  })
+    }
+  }
 
-  it('keeps constrained inside and outside terminal half-dash products painted near every independent segment endpoint', () => {
+  if (groups.has('reference-endpoints')) {
+    it('proves Step 22 and Step 23 declare the failing inside source segment endpoint as an independent end terminal interval', () => {
+      const proof = buildReferenceAcuteBoundaryProof('inside')
+      const sourceSegmentIndex = 1
+      const splitRangeDomains = proof.strokeDomainPlan.splitRangeDomains.filter(
+        (domain) => domain.sourceSegmentIndex === sourceSegmentIndex
+      )
+      const targetTerminalIntervals = proof.visibleIntervals.filter(
+        (interval) =>
+          interval.domainPlanSplitRangeSourceSegmentIndex ===
+            sourceSegmentIndex &&
+          (interval.domainPlanTerminalRole === 'end' ||
+            interval.domainPlanTerminalRole === 'start-end')
+      )
+
+      expect(proof.strokeDomainPlan).toMatchObject({
+        intervalDomainKind: 'domain-plan-split-range',
+        domainMode: 'closed-constrained-domain'
+      })
+      expect(
+        splitRangeDomains.length,
+        'Step 22 must declare source segment 1 as an independent constrained split range'
+      ).toBeGreaterThan(0)
+      expect(
+        targetTerminalIntervals.map((interval) => ({
+          intervalId: interval.intervalId,
+          splitRangeId: interval.domainPlanSplitRangeId,
+          terminalRole: interval.domainPlanTerminalRole,
+          sourceSegmentIndex: interval.domainPlanSplitRangeSourceSegmentIndex,
+          startDistance: interval.startDistance,
+          endDistance: interval.endDistance,
+          sourceStartDistance: interval.domainPlanSplitRangeSourceStartDistance,
+          sourceEndDistance: interval.domainPlanSplitRangeSourceEndDistance
+        })),
+        'Step 23 must allocate the failing endpoint as a visible terminal interval with source provenance'
+      ).toEqual([
+        expect.objectContaining({
+          intervalId: expect.any(String),
+          splitRangeId: expect.any(String),
+          terminalRole: 'end',
+          sourceSegmentIndex
+        })
+      ])
+    })
+
     for (const position of ['inside', 'outside'] as const) {
-      const result = buildReferenceAcutePipelineResult(position)
-      const survivalStages = [
-        {
-          label: 'Step 27/29 resolved packets',
-          records: collectTerminalHalfDashSurvivalRecords(
-            result.packets.map((packet) => ({
-              polygons: packet.geometry.polygons,
-              debugMeta: packet.geometry.debugMeta
-            }))
-          ),
-          polygons: collectProductPolygons(result.packets)
-        },
-        {
-          label: 'Step 35 final faces',
-          records: collectTerminalHalfDashSurvivalRecords(result.finalFaces),
-          polygons: collectProductPolygons(result.finalFaces)
-        },
-        {
-          label: 'Step 38 render entries',
-          records: collectTerminalHalfDashSurvivalRecords(result.renderEntries),
-          polygons: collectProductPolygons(result.renderEntries)
-        }
-      ]
-      const probes = getSourceSegmentEndpointProbes(result)
-      const gapProbes = getSourceSegmentGapProbes(result)
+      it(`keeps constrained ${position} terminal half-dash products painted near every independent segment endpoint`, () => {
+        const result = buildReferenceAcutePipelineResult(position)
+        const survivalStages = [
+          {
+            label: 'Step 27/30 resolved packets',
+            records: collectTerminalHalfDashSurvivalRecords(
+              result.packets.map((packet) => ({
+                polygons: packet.geometry.polygons,
+                debugMeta: packet.geometry.debugMeta
+              }))
+            ),
+            polygons: collectProductPolygons(result.packets)
+          },
+          {
+            label: 'Step 36 final faces',
+            records: collectTerminalHalfDashSurvivalRecords(result.finalFaces),
+            polygons: collectProductPolygons(result.finalFaces)
+          },
+          {
+            label: 'Step 39 render entries',
+            records: collectTerminalHalfDashSurvivalRecords(
+              result.renderEntries
+            ),
+            polygons: collectProductPolygons(result.renderEntries)
+          }
+        ]
+        const probes = getSourceSegmentEndpointProbes(result)
+        const gapProbes = getSourceSegmentGapProbes(result)
 
-      expect(
-        probes.length,
-        `${position} reference fixture must expose endpoint probes for every source segment`
-      ).toBe(result.network.segmentIds.length * 2)
-      expect(
-        gapProbes.length,
-        `${position} reference fixture must expose gap probes for every source segment`
-      ).toBe(result.network.segmentIds.length * 2)
+        expect(
+          probes.length,
+          `${position} reference fixture must expose endpoint probes for every source segment`
+        ).toBe(result.network.segmentIds.length * 2)
+        expect(
+          gapProbes.length,
+          `${position} reference fixture must expose gap probes for every source segment`
+        ).toBe(result.network.segmentIds.length * 2)
 
-      for (const probe of probes) {
-        for (const stage of survivalStages) {
-          const matchingTerminalProducts = stage.records.filter(
-            (record) =>
-              record.sourceSegmentIndex === probe.sourceSegmentIndex &&
-              (record.terminalRole === probe.terminalRole ||
-                record.terminalRole === 'start-end')
-          )
-          const matchingPolygons = matchingTerminalProducts.flatMap(
-            (record) => record.polygons
-          )
-          const distanceToTerminal = distanceToPolygons(
-            probe.point,
-            matchingPolygons
-          )
-          const sameSegmentStageRecords = stage.records.filter(
-            (record) => record.sourceSegmentIndex === probe.sourceSegmentIndex
-          )
+        for (const probe of probes) {
+          for (const stage of survivalStages) {
+            const matchingTerminalProducts = stage.records.filter(
+              (record) =>
+                record.sourceSegmentIndex === probe.sourceSegmentIndex &&
+                (record.terminalRole === probe.terminalRole ||
+                  record.terminalRole === 'start-end')
+            )
+            const matchingPolygons = matchingTerminalProducts.flatMap(
+              (record) => record.polygons
+            )
+            const distanceToTerminal = distanceToPolygons(
+              probe.point,
+              matchingPolygons
+            )
+            const sameSegmentStageRecords = stage.records.filter(
+              (record) => record.sourceSegmentIndex === probe.sourceSegmentIndex
+            )
 
-          expect(
-            matchingTerminalProducts.length,
-            `${position} ${stage.label} source segment ${probe.sourceSegmentIndex} ${probe.terminalRole} endpoint must retain a terminal half-dash product: ${JSON.stringify(
-              {
-                probe,
-                sameSegmentStageRecords: summarizeTerminalSurvivalRecords(
-                  sameSegmentStageRecords
-                ),
-                allStageRecords: summarizeTerminalSurvivalRecords(
-                  stage.records
-                ),
-                renderEntryDiagnostics:
-                  stage.label === 'Step 38 render entries'
-                    ? result.renderEntries.map((entry) => ({
-                        cacheKey: entry.cacheKey,
-                        routeId: entry.debugMeta?.routeId ?? null,
-                        visibleContributor:
-                          entry.debugMeta?.visibleContributor ?? null,
-                        intervalId: entry.debugMeta?.intervalId ?? null,
-                        intervalIds: entry.debugMeta?.intervalIds ?? [],
-                        domainPlanTerminalRole:
-                          entry.debugMeta?.domainPlanTerminalRole ?? null,
-                        terminalDashProductIntervals:
-                          entry.debugMeta?.dashProductIntervals
-                            ?.map((interval) => ({
-                              intervalId: interval.intervalId,
-                              terminalRole: interval.terminalRole ?? null,
-                              sourceSegmentIndex:
-                                interval.sourceSegmentIndex ?? null,
-                              splitRangeId: interval.splitRangeId ?? null
-                            }))
-                            .filter((interval) =>
-                              isTerminalHalfDashRole(interval.terminalRole)
-                            ) ?? [],
-                        middleDashProductIntervalCount:
-                          entry.debugMeta?.dashProductIntervals?.filter(
-                            (interval) => interval.terminalRole === 'middle'
-                          ).length ?? 0,
-                        polygonCount: entry.polygons.length
-                      }))
-                    : undefined,
-                finalFaceDiagnostics:
-                  stage.label === 'Step 38 render entries'
-                    ? {
-                        faceCount: result.finalFaces.length,
-                        terminalRecords: summarizeTerminalSurvivalRecords(
-                          collectTerminalHalfDashSurvivalRecords(
-                            result.finalFaces
-                          )
-                        ),
-                        terminalDashIntervalFaceCount: result.finalFaces.filter(
-                          (face) =>
-                            face.debugMeta?.dashProductIntervals?.some(
-                              (interval) =>
+            expect(
+              matchingTerminalProducts.length,
+              `${position} ${stage.label} source segment ${probe.sourceSegmentIndex} ${probe.terminalRole} endpoint must retain a terminal half-dash product: ${JSON.stringify(
+                {
+                  probe,
+                  sameSegmentStageRecords: summarizeTerminalSurvivalRecords(
+                    sameSegmentStageRecords
+                  ),
+                  allStageRecords: summarizeTerminalSurvivalRecords(
+                    stage.records
+                  ),
+                  renderEntryDiagnostics:
+                    stage.label === 'Step 39 render entries'
+                      ? result.renderEntries.map((entry) => ({
+                          cacheKey: entry.cacheKey,
+                          routeId: entry.debugMeta?.routeId ?? null,
+                          visibleContributor:
+                            entry.debugMeta?.visibleContributor ?? null,
+                          intervalId: entry.debugMeta?.intervalId ?? null,
+                          intervalIds: entry.debugMeta?.intervalIds ?? [],
+                          domainPlanTerminalRole:
+                            entry.debugMeta?.domainPlanTerminalRole ?? null,
+                          terminalDashProductIntervals:
+                            entry.debugMeta?.dashProductIntervals
+                              ?.map((interval) => ({
+                                intervalId: interval.intervalId,
+                                terminalRole: interval.terminalRole ?? null,
+                                sourceSegmentIndex:
+                                  interval.sourceSegmentIndex ?? null,
+                                splitRangeId: interval.splitRangeId ?? null
+                              }))
+                              .filter((interval) =>
                                 isTerminalHalfDashRole(interval.terminalRole)
-                            )
-                        ).length,
-                        middleDashIntervalFaceCount: result.finalFaces.filter(
-                          (face) =>
-                            face.debugMeta?.dashProductIntervals?.some(
+                              ) ?? [],
+                          middleDashProductIntervalCount:
+                            entry.debugMeta?.dashProductIntervals?.filter(
                               (interval) => interval.terminalRole === 'middle'
+                            ).length ?? 0,
+                          polygonCount: entry.polygons.length
+                        }))
+                      : undefined,
+                  finalFaceDiagnostics:
+                    stage.label === 'Step 39 render entries'
+                      ? {
+                          faceCount: result.finalFaces.length,
+                          terminalRecords: summarizeTerminalSurvivalRecords(
+                            collectTerminalHalfDashSurvivalRecords(
+                              result.finalFaces
                             )
-                        ).length
-                      }
-                    : undefined
-              },
-              null,
-              2
-            )}`
-          ).toBeGreaterThan(0)
-          expect(
-            distanceToTerminal,
-            `${position} ${stage.label} source segment ${probe.sourceSegmentIndex} ${probe.terminalRole} endpoint half-dash must remain painted near the source endpoint: ${JSON.stringify(
-              {
-                probe,
-                distanceToTerminal,
-                terminalProducts: summarizeTerminalSurvivalRecords(
-                  matchingTerminalProducts
-                )
-              },
-              null,
-              2
-            )}`
-          ).toBeLessThanOrEqual(result.stroke.width * 1.5)
+                          ),
+                          terminalDashIntervalFaceCount:
+                            result.finalFaces.filter((face) =>
+                              face.debugMeta?.dashProductIntervals?.some(
+                                (interval) =>
+                                  isTerminalHalfDashRole(interval.terminalRole)
+                              )
+                            ).length,
+                          middleDashIntervalFaceCount: result.finalFaces.filter(
+                            (face) =>
+                              face.debugMeta?.dashProductIntervals?.some(
+                                (interval) => interval.terminalRole === 'middle'
+                              )
+                          ).length
+                        }
+                      : undefined
+                },
+                null,
+                2
+              )}`
+            ).toBeGreaterThan(0)
+            expect(
+              distanceToTerminal,
+              `${position} ${stage.label} source segment ${probe.sourceSegmentIndex} ${probe.terminalRole} endpoint half-dash must remain painted near the source endpoint: ${JSON.stringify(
+                {
+                  probe,
+                  distanceToTerminal,
+                  terminalProducts: summarizeTerminalSurvivalRecords(
+                    matchingTerminalProducts
+                  )
+                },
+                null,
+                2
+              )}`
+            ).toBeLessThanOrEqual(result.stroke.width * 1.5)
+          }
         }
-      }
 
-      for (const probe of gapProbes) {
-        for (const stage of survivalStages) {
-          const distanceToVisibleProduct = distanceToPolygons(
-            probe.point,
-            stage.polygons
-          )
-          expect(
-            distanceToVisibleProduct,
-            `${position} ${stage.label} source segment ${probe.sourceSegmentIndex} ${probe.gapRole} probe must stay inside the configured gap and outside all visible products: ${JSON.stringify(
-              {
-                probe,
-                distanceToVisibleProduct
-              },
-              null,
-              2
-            )}`
-          ).toBeGreaterThan(result.stroke.width * 0.05)
+        for (const probe of gapProbes) {
+          for (const stage of survivalStages) {
+            const distanceToVisibleProduct = distanceToPolygons(
+              probe.point,
+              stage.polygons
+            )
+            expect(
+              distanceToVisibleProduct,
+              `${position} ${stage.label} source segment ${probe.sourceSegmentIndex} ${probe.gapRole} probe must stay inside the configured gap and outside all visible products: ${JSON.stringify(
+                {
+                  probe,
+                  distanceToVisibleProduct
+                },
+                null,
+                2
+              )}`
+            ).toBeGreaterThan(result.stroke.width * 0.05)
+          }
         }
-      }
 
-      const visibleStrokePathDescriptorEntries = result.renderEntries
-        .filter(
+        const visibleStrokePathDescriptorEntries = result.renderEntries.filter(
           (entry) =>
             (entry.strokePathGroups?.length ?? 0) > 0 ||
             (entry.strokePaths?.length ?? 0) > 0
         )
-        .map((entry) => ({
-          cacheKey: entry.cacheKey,
-          routeId: entry.debugMeta?.routeId ?? null,
-          ownerStage: entry.debugMeta?.ownerStage ?? null,
-          visibleContributor: entry.debugMeta?.visibleContributor ?? null,
-          geometryBasis: entry.debugMeta?.geometryBasis ?? null,
-          intervalIds: entry.debugMeta?.intervalIds ?? [
-            entry.debugMeta?.intervalId
-          ]
+        const packetTerminalOverlayIds = getUniqueTerminalOwnershipOverlays(
+          result.packets.flatMap((packet) => {
+            const envelope = packet.geometry.debugMeta?.productEvidenceEnvelope
+            return envelope ? [envelope] : []
+          })
+        ).map((overlay) => overlay.overlayId)
+        const renderTerminalOverlayIds = getUniqueTerminalOwnershipOverlays(
+          result.renderEntries.flatMap((entry) => {
+            const envelope =
+              entry.productIdentity.productEvidenceEnvelope ??
+              entry.debugMeta?.productEvidenceEnvelope
+            return envelope ? [envelope] : []
+          })
+        ).map((overlay) => overlay.overlayId)
+        const terminalIntervalIds = Array.from(
+          new Set(
+            collectTerminalHalfDashSurvivalRecords(
+              result.packets.map((packet) => ({
+                polygons: packet.geometry.polygons,
+                debugMeta: packet.geometry.debugMeta
+              }))
+            ).map((record) => record.intervalId)
+          )
+        )
+
+        expect(renderTerminalOverlayIds).toEqual(packetTerminalOverlayIds)
+        for (const entry of visibleStrokePathDescriptorEntries) {
+          expect(entry.fillPolygons).toBeUndefined()
+          expect(
+            terminalIntervalIds.every((intervalId) =>
+              entry.productIdentity.intervalIds.includes(intervalId)
+            ),
+            `${position} visible descriptor product identity must preserve every terminal interval`
+          ).toBe(true)
+          expect(
+            entry.productIdentity.productEvidenceEnvelope,
+            `${position} visible descriptor must preserve the constrained dashed evidence envelope`
+          ).toBeDefined()
+        }
+      })
+    }
+  }
+}
+
+export type ReportedVector34OutputOracleGroup =
+  | 'alpha-overdraw'
+  | 'outside-legality'
+  | 'shared-boundary'
+  | 'sequential-update'
+  | 'full-diagnostics'
+  | 'metadata-ownership'
+
+export interface ReportedVector34OutputOracleOptions {
+  groups?: readonly ReportedVector34OutputOracleGroup[]
+}
+
+const allReportedVector34OutputOracleGroups: readonly ReportedVector34OutputOracleGroup[] =
+  [
+    'alpha-overdraw',
+    'outside-legality',
+    'shared-boundary',
+    'sequential-update',
+    'full-diagnostics',
+    'metadata-ownership'
+  ]
+
+export const registerReportedVector34OutputOracleTests = (
+  options: ReportedVector34OutputOracleOptions = {}
+) => {
+  const groups = new Set(
+    options.groups ?? allReportedVector34OutputOracleGroups
+  )
+
+  if (groups.has('alpha-overdraw')) {
+    for (const joinType of ['miter', 'bevel', 'round'] as const) {
+      it(`rejects repeated-alpha same-paint overdraw on reported ${joinType} outside dashed render entries`, () => {
+        const result = buildReportedPipelineResult(joinType)
+
+        assertNoSamePaintRenderEntryOverdraw(
+          result.renderEntries,
+          `${joinType} reported vector-34 outside dashed`
+        )
+      })
+    }
+  }
+
+  if (groups.has('outside-legality')) {
+    for (const joinType of ['miter', 'bevel', 'round'] as const) {
+      it(`keeps reported ${joinType} outside dashed render products on the authored outside stroke position`, () => {
+        const result = buildReportedPipelineResult(joinType)
+        const packetProducts = result.packets.map((packet) => ({
+          polygons: packet.geometry.polygons,
+          bounds: packet.geometry.bounds,
+          debugMeta: packet.geometry.debugMeta
         }))
 
-      expect(
-        visibleStrokePathDescriptorEntries,
-        `${position} Step 38 render entries must not use visible stroke path descriptor routes for independent constrained dashed terminal/gap products; canonical polygons are the declared product for this oracle`
-      ).toEqual([])
-    }
-  })
-
-  it('connects reported sharp source-vertex joins to incident dash bodies without seam gaps', () => {
-    for (const joinType of ['miter', 'bevel', 'round'] as const) {
-      const result = buildReportedPipelineResult(joinType)
-
-      for (const anchorId of ['tp-113', 'tp-115', 'tp-116'] as const) {
-        const anchor = result.points[anchorId]
-        const packetEntries = getSourceVertexJoinEntriesForAnchor(
-          getPreLegalitySourceVertexJoinProducts(
-            result.packets,
-            result.pipelineTrace
-          ),
-          anchor,
-          result.stroke.width * 0.5
-        )
-        const finalFaceEntries = getSourceVertexJoinEntriesForAnchor(
-          result.finalFaces,
-          anchor,
-          result.stroke.width * 0.5
-        )
-        const joinEntries = getSourceVertexJoinEntriesForAnchor(
-          result.renderEntries,
-          anchor,
-          result.stroke.width * 0.5
-        )
-        const maxPacketIncidentDashBodyDeficit = Math.max(
-          0,
-          ...packetEntries.map((entry) =>
-            getMaxIncidentDashBodyDeficit(entry, anchor)
-          )
-        )
-        expect(
-          maxPacketIncidentDashBodyDeficit,
-          `${joinType} Step 28 source-vertex product at ${anchorId} must reach incident dash body endpoints: ${JSON.stringify(
-            packetEntries.map(getIncidentDashBodyDeficitDiagnostics),
-            null,
-            2
-          )}`
-        ).toBeLessThanOrEqual(0.5)
-        expect(
-          finalFaceEntries.length,
-          `${joinType} Step 35 final faces must preserve a visible source-vertex join product at ${anchorId}`
-        ).toBeGreaterThan(0)
-        expect(
-          joinEntries.length,
-          `${joinType} Step 38 render entries must preserve a visible source-vertex join product at ${anchorId}`
-        ).toBeGreaterThan(0)
-
-        for (const entry of packetEntries) {
-          assertIncidentSeamDashSideCoverage(
-            result,
-            result.packets.map((packet) => ({
-              polygons: packet.geometry.polygons,
-              debugMeta: packet.geometry.debugMeta
-            })),
-            entry,
-            result.stroke.width,
-            anchor,
-            `${joinType} Step 28 source-vertex product at ${anchorId}`
-          )
-        }
-
-        for (const entry of finalFaceEntries) {
-          assertSeamEvidenceUsesStep27OuterEndpoints(
-            result,
-            entry,
-            anchor,
-            `${joinType} Step 35 source-vertex final face at ${anchorId}`,
-            {
-              allowStageVisibleCoverage: true,
-              stageProducts: result.finalFaces
-            }
-          )
-          assertIncidentSeamDashSideCoverage(
-            result,
-            result.finalFaces,
-            entry,
-            result.stroke.width,
-            anchor,
-            `${joinType} Step 35 source-vertex final face at ${anchorId}`
-          )
-          if (joinType === 'round') {
-            assertRoundUsesLocalSourceVertexArc(
-              entry,
-              anchor,
-              `${joinType} Step 35 source-vertex final face at ${anchorId}`
-            )
+        for (const stage of [
+          {
+            label: `${joinType} reported vector-34 Step 27/30/31 packets`,
+            products: packetProducts
+          },
+          {
+            label: `${joinType} reported vector-34 Step 36 final faces`,
+            products: result.finalFaces
+          },
+          {
+            label: `${joinType} reported vector-34 Step 39 render entries`,
+            products: result.renderEntries
           }
-        }
-
-        for (const entry of joinEntries) {
-          assertSeamEvidenceUsesStep27OuterEndpoints(
+        ]) {
+          assertOutsideVisibleProductsDoNotEnterImplicitFillRegions(
             result,
-            entry,
-            anchor,
-            `${joinType} Step 38 source-vertex render entry at ${anchorId}`,
-            {
-              allowRenderProjectionMerge: true,
-              allowStageVisibleCoverage: true,
-              stageProducts: result.renderEntries
-            }
+            stage.products,
+            stage.label
           )
-          assertIncidentSeamDashSideCoverage(
-            result,
-            result.renderEntries,
-            entry,
-            result.stroke.width,
-            anchor,
-            `${joinType} Step 38 source-vertex render entry at ${anchorId}`
-          )
-          assertSourceVertexJoinCoversLegalCornerFromSeamBoundaries(
-            result,
-            entry,
-            anchor,
-            `${joinType} Step 38 source-vertex render entry at ${anchorId}`
-          )
-          if (joinType === 'round') {
-            assertRoundUsesLocalSourceVertexArc(
-              entry,
-              anchor,
-              `${joinType} Step 38 source-vertex render entry at ${anchorId}`
-            )
-          }
         }
-
-        expect(
-          finalFaceEntries.every(
-            (entry) =>
-              entry.debugMeta?.productMode !== 'pre-legality-source-vertex-join'
-          ),
-          `${joinType} Step 35 final face at ${anchorId} must not consume Step 28 pre-legality evidence as visible output`
-        ).toBe(true)
-
-        expect(
-          joinEntries.every(
-            (entry) =>
-              entry.debugMeta?.productMode !== 'pre-legality-source-vertex-join'
-          ),
-          `${joinType} render entry at ${anchorId} must not consume Step 28 pre-legality evidence as visible output: ${JSON.stringify(
-            joinEntries.map((entry) => ({
-              productSignature: entry.debugMeta?.productSignature,
-              seamEvidence:
-                (
-                  entry.debugMeta as
-                    | {
-                        seamEvidence?: {
-                          incidentSeamBoundaries?: unknown[]
-                        }
-                      }
-                    | undefined
-                )?.seamEvidence ?? null,
-              joinOwnershipRecords:
-                entry.debugMeta?.joinOwnershipRecords?.map((record) => ({
-                  kind: record.kind,
-                  materializationKind: record.materializationKind,
-                  previousDashBodyPoint: record.previousDashBodyPoint,
-                  nextDashBodyPoint: record.nextDashBodyPoint
-                })) ?? []
-            })),
-            null,
-            2
-          )}`
-        ).toBe(true)
-      }
-    }
-  })
-
-  it('rejects repeated-alpha same-paint overdraw on reported outside dashed render entries', () => {
-    for (const joinType of ['miter', 'bevel', 'round'] as const) {
-      const result = buildReportedPipelineResult(joinType)
-
-      assertNoSamePaintRenderEntryOverdraw(
-        result.renderEntries,
-        `${joinType} reported vector-34 outside dashed`
-      )
-    }
-  })
-
-  it('keeps reported outside dashed render products on the authored outside stroke position', () => {
-    for (const joinType of ['miter', 'bevel', 'round'] as const) {
-      const result = buildReportedPipelineResult(joinType)
-      const packetProducts = result.packets.map((packet) => ({
-        polygons: packet.geometry.polygons,
-        bounds: packet.geometry.bounds,
-        debugMeta: packet.geometry.debugMeta
-      }))
-
-      for (const stage of [
-        {
-          label: `${joinType} reported vector-34 Step 27/29/30 packets`,
-          products: packetProducts
-        },
-        {
-          label: `${joinType} reported vector-34 Step 35 final faces`,
-          products: result.finalFaces
-        },
-        {
-          label: `${joinType} reported vector-34 Step 38 render entries`,
-          products: result.renderEntries
-        }
-      ]) {
-        assertOutsideVisibleProductsDoNotEnterImplicitFillRegions(
-          result,
-          stage.products,
-          stage.label
-        )
-      }
-    }
-  })
-
-  it('rejects internal shared-boundary render polygons on reported outside dashed render entries', () => {
-    for (const joinType of ['miter', 'bevel', 'round'] as const) {
-      const result = buildReportedPipelineResult(joinType)
-
-      assertNoInternalSharedBoundaryRenderPolygons(
-        result.renderEntries,
-        `${joinType} reported vector-34 outside dashed`
-      )
-    }
-  })
-
-  it('rejects internal shared-boundary render polygons after sequential reported outside dashed join changes', () => {
-    for (const joinType of ['miter', 'bevel', 'round'] as const) {
-      const result = buildPipelineResult({
-        fixture: createReportedVector34Fixture(),
-        stroke: buildReportedStrokeWithJoin(joinType),
-        pathId: 'vector:vector-1:tn-28:constrained-dashed',
-        sourceId: 'vector-1',
-        ownerKeyPrefix: 'vector:vector-1:tn-28:stroke:0:stroke:0:outside'
       })
-
-      assertNoInternalSharedBoundaryRenderPolygons(
-        result.renderEntries,
-        `${joinType} reported vector-34 outside dashed sequential app route`
-      )
     }
-  })
+  }
 
-  it('rejects internal shared-boundary render polygons in full diagnostics app-runtime mode', () => {
-    const diagnosticsGlobal = globalThis as {
-      __ASYRA_STROKE_DIAGNOSTICS_MODE__?: 'off' | 'summary' | 'full'
+  if (groups.has('shared-boundary')) {
+    for (const joinType of ['miter', 'bevel', 'round'] as const) {
+      it(`rejects internal shared-boundary render polygons on reported ${joinType} outside dashed render entries`, () => {
+        const result = buildReportedPipelineResult(joinType)
+
+        assertNoInternalSharedBoundaryRenderPolygons(
+          result.renderEntries,
+          `${joinType} reported vector-34 outside dashed`
+        )
+      })
     }
-    const previousDiagnosticsMode =
-      diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__
-    diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__ = 'full'
-    try {
-      for (const joinType of ['miter', 'bevel', 'round'] as const) {
+  }
+
+  if (groups.has('sequential-update')) {
+    for (const joinType of ['miter', 'bevel', 'round'] as const) {
+      it(`rejects internal shared-boundary render polygons after sequential reported ${joinType} outside dashed join changes`, () => {
         const result = buildPipelineResult({
           fixture: createReportedVector34Fixture(),
           stroke: buildReportedStrokeWithJoin(joinType),
@@ -5743,131 +6053,102 @@ describe('formal stroke geometry oracle: reported vector-34 runtime path', () =>
 
         assertNoInternalSharedBoundaryRenderPolygons(
           result.renderEntries,
-          `${joinType} reported vector-34 outside dashed full diagnostics app-runtime route`
+          `${joinType} reported vector-34 outside dashed sequential app route`
         )
-      }
-    } finally {
-      diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__ =
-        previousDiagnosticsMode
-    }
-  })
-
-  it('rejects local-origin internal shared-boundary render polygons in full diagnostics app-runtime mode', () => {
-    const diagnosticsGlobal = globalThis as {
-      __ASYRA_STROKE_DIAGNOSTICS_MODE__?: 'off' | 'summary' | 'full'
-    }
-    const previousDiagnosticsMode =
-      diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__
-    diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__ = 'full'
-    try {
-      for (const joinType of ['miter', 'bevel', 'round'] as const) {
-        const result = buildPipelineResult({
-          fixture: createReportedVector34LocalFixture(),
-          stroke: buildReportedStrokeWithJoin(joinType),
-          pathId: 'vector:vector-1:tn-28:constrained-dashed',
-          sourceId: 'vector-1',
-          ownerKeyPrefix: 'vector:vector-1:tn-28:stroke:0:stroke:0:outside'
-        })
-
-        assertNoInternalSharedBoundaryRenderPolygons(
-          result.renderEntries,
-          `${joinType} local-origin reported vector-34 outside dashed full diagnostics app-runtime route`
-        )
-      }
-    } finally {
-      diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__ =
-        previousDiagnosticsMode
-    }
-  })
-
-  it('rejects app-local internal shared-boundary render polygons after coordinate normalization', () => {
-    for (const joinType of ['miter', 'bevel', 'round'] as const) {
-      const result = buildPipelineResult({
-        fixture: createReportedVector34LocalFixture(),
-        stroke: buildReportedStrokeWithJoin(joinType),
-        pathId: 'vector:vector-1:tn-28:constrained-dashed',
-        sourceId: 'vector-1',
-        ownerKeyPrefix: 'vector:vector-1:tn-28:stroke:0:stroke:0:outside'
       })
-
-      assertNoInternalSharedBoundaryRenderPolygons(
-        result.renderEntries,
-        `${joinType} app-local reported vector-34 outside dashed render route`
-      )
     }
-  })
+  }
 
-  it('rejects app-runtime no-fill internal shared-boundary render polygons', () => {
+  if (groups.has('full-diagnostics')) {
     for (const joinType of ['miter', 'bevel', 'round'] as const) {
-      const result = buildPipelineResult({
-        fixture: createReportedVector34LocalFixture(),
-        stroke: buildReportedStrokeWithJoin(joinType),
-        pathId: 'vector:vector-1:tn-28:constrained-dashed',
-        sourceId: 'vector-1',
-        ownerKeyPrefix: 'vector:vector-1:tn-28:stroke:0:stroke:0:outside',
-        hasRenderableFill: false
-      })
+      it(`rejects internal shared-boundary render polygons in full diagnostics ${joinType} app-runtime mode`, () => {
+        const diagnosticsGlobal = globalThis as {
+          __ASYRA_STROKE_DIAGNOSTICS_MODE__?: 'off' | 'summary' | 'full'
+        }
+        const previousDiagnosticsMode =
+          diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__
+        diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__ = 'full'
+        try {
+          const result = buildPipelineResult({
+            fixture: createReportedVector34Fixture(),
+            stroke: buildReportedStrokeWithJoin(joinType),
+            pathId: 'vector:vector-1:tn-28:constrained-dashed',
+            sourceId: 'vector-1',
+            ownerKeyPrefix: 'vector:vector-1:tn-28:stroke:0:stroke:0:outside'
+          })
 
-      assertNoInternalSharedBoundaryRenderPolygons(
-        result.renderEntries,
-        `${joinType} app-runtime no-fill reported vector-34 outside dashed render route`
-      )
-    }
-  })
-
-  it('rejects app-runtime no-fill internal shared-boundary render polygons in full diagnostics mode', () => {
-    const diagnosticsGlobal = globalThis as {
-      __ASYRA_STROKE_DIAGNOSTICS_MODE__?: 'off' | 'summary' | 'full'
-    }
-    const previousDiagnosticsMode =
-      diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__
-    diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__ = 'full'
-    try {
-      for (const joinType of ['miter', 'bevel', 'round'] as const) {
-        const result = buildPipelineResult({
-          fixture: createReportedVector34LocalFixture(),
-          stroke: buildReportedStrokeWithJoin(joinType),
-          pathId: 'vector:vector-1:tn-28:constrained-dashed',
-          sourceId: 'vector-1',
-          ownerKeyPrefix: 'vector:vector-1:tn-28:stroke:0:stroke:0:outside',
-          hasRenderableFill: false
-        })
-
-        assertNoInternalSharedBoundaryRenderPolygons(
-          result.renderEntries,
-          `${joinType} app-runtime no-fill reported vector-34 outside dashed full diagnostics render route`
-        )
-      }
-    } finally {
-      diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__ =
-        previousDiagnosticsMode
-    }
-  })
-
-  it('rejects production vector render-strategy internal shared-boundary render polygons', () => {
-    const fixture = createReportedVector34Fixture()
-    for (const joinType of ['miter', 'bevel', 'round'] as const) {
-      const result = buildVectorRenderStrategyResult({
-        fixture,
-        stroke: buildReportedStrokeWithJoin(joinType),
-        vectorId: 'vector-1',
-        bounds: {
-          x: 1472.0139567292267,
-          y: 1637.0696495055142,
-          width: 406.7721238986164,
-          height: 447.8094817329745
+          assertNoInternalSharedBoundaryRenderPolygons(
+            result.renderEntries,
+            `${joinType} reported vector-34 outside dashed full diagnostics app-runtime route`
+          )
+        } finally {
+          diagnosticsGlobal.__ASYRA_STROKE_DIAGNOSTICS_MODE__ =
+            previousDiagnosticsMode
         }
       })
-
-      assertNoInternalSharedBoundaryRenderPolygons(
-        result.renderEntries,
-        `${joinType} production vector render-strategy reported vector-34 outside dashed render route`
-      )
     }
-  })
+  }
 
-  it('keeps smooth anchors out of source-vertex join ownership and prevents fragmented smooth-continuity output', () => {
+  if (groups.has('metadata-ownership')) {
     for (const joinType of ['miter', 'bevel', 'round'] as const) {
+      it(`preserves ${joinType} runtime metadata and prevents renderer descriptor replay from owning sharp join shape`, () => {
+        const result = buildReportedPipelineResult(joinType)
+        const expectedResolvedJoin = joinType
+        const metas = [
+          ...result.packets.map((packet) => packet.geometry.debugMeta),
+          ...result.finalFaces.map((face) => face.debugMeta),
+          ...result.renderEntries.map((entry) => entry.debugMeta)
+        ].filter((meta): meta is NonNullable<typeof meta> => meta !== undefined)
+
+        expect(result.sourcePath.closed).toBe(true)
+        expect(result.topology.topologyFamily).toBe('self-intersecting')
+        expect(
+          result.selfIntersecting?.fillRegions.length ?? 0
+        ).toBeGreaterThan(0)
+        expect(result.packets.length).toBeGreaterThan(0)
+        expect(result.finalFaces.length).toBeGreaterThan(0)
+        expect(result.renderEntries.length).toBeGreaterThan(0)
+        expect(result.hitPackets.length).toBe(result.finalFaces.length)
+        expect(result.exportPackets.length).toBe(result.finalFaces.length)
+        expect(
+          metas.some(
+            (meta) =>
+              meta.visibleContributor === 'source-vertex-join' &&
+              meta.authoredJoin === joinType &&
+              meta.resolvedJoin === expectedResolvedJoin &&
+              meta.miterAngle === result.stroke.miterAngle &&
+              meta.geometryBasis === 'canonical-join-footprint'
+          )
+        ).toBe(true)
+
+        const descriptorGroups = result.renderEntries.flatMap((entry) =>
+          (entry.strokePathGroups ?? []).map((group) => ({ entry, group }))
+        )
+        const sourceReplayGroups = descriptorGroups.filter(({ group }) =>
+          group.strokePaths.some((strokePath) =>
+            isSourcePathReplay(strokePath, result.sourcePath.sampledPoints)
+          )
+        )
+        expect(sourceReplayGroups).toEqual([])
+
+        for (const { entry, group } of descriptorGroups) {
+          expect(entry.strokeMaskPolygons ?? []).toEqual([])
+          expect(entry.fillPolygons ?? []).toEqual([])
+          expect(group.strokePathStyle?.cap).toBe('butt')
+          expect(group.strokePathStyle?.join).toBe(joinType)
+          expect(group.strokePathStyle?.miterLimit).toBeCloseTo(
+            authoredMiterAngleToRendererMiterLimit(result.stroke.miterAngle),
+            3
+          )
+        }
+      })
+    }
+  }
+}
+
+export const registerReportedVector34SmoothOracleTests = () => {
+  for (const joinType of ['miter', 'bevel', 'round'] as const) {
+    it(`keeps ${joinType} smooth anchors out of source-vertex join ownership and prevents fragmented smooth-continuity output`, () => {
       const result = buildReportedPipelineResult(joinType)
 
       const illegalSmoothJoinEntries = ['tp-114', 'tp-117'].flatMap(
@@ -6005,10 +6286,10 @@ describe('formal stroke geometry oracle: reported vector-34 runtime path', () =>
         packetExamples: [],
         routeTrace: []
       })
-    }
-  })
+    })
+  }
 
-  it('materializes high-curvature smooth spans as smooth-continuity runtime products', () => {
+  it('preserves high-curvature smooth ownership as non-visible Step 31 evidence over Step 27 bodies', () => {
     const result = buildSmoothCurvaturePipelineResult()
     const sourceVertexJoinEntries = ['sp-1', 'sp-2', 'sp-3', 'sp-4'].flatMap(
       (anchorId) => {
@@ -6020,102 +6301,96 @@ describe('formal stroke geometry oracle: reported vector-34 runtime path', () =>
         )
       }
     )
-    const smoothContinuityEntries = result.renderEntries.filter(
-      (entry) =>
-        entry.debugMeta?.visibleContributor ===
-          'same-owner-smooth-span-descriptor' ||
-        String(entry.debugMeta?.productSignature ?? '').includes(
-          'smooth-continuity'
-        ) ||
-        entry.debugMeta?.smoothContinuityGroupId !== undefined
+    const illegalVisibleSmoothEntries = result.renderEntries.filter((entry) => {
+      const debugMeta = entry.debugMeta
+      return (
+        debugMeta?.ownerStepId === 'build-smooth-continuity-products' ||
+        debugMeta?.ownerStage ===
+          'Stroke Geometry smooth-continuity product assembly' ||
+        debugMeta?.ownerStage ===
+          'Stroke Geometry smooth-continuity ownership binding' ||
+        debugMeta?.visibleContributor === 'smooth-continuity-dash-body' ||
+        debugMeta?.visibleContributor === 'same-owner-smooth-span-descriptor' ||
+        debugMeta?.visibleContributor === 'none-non-visible-ownership-overlay'
+      )
+    })
+    const packetEnvelopes = result.packets.flatMap((packet) => {
+      const envelope = packet.geometry.debugMeta?.productEvidenceEnvelope
+      return envelope ? [envelope] : []
+    })
+    const finalFaceEnvelopes = result.finalFaces.flatMap((face) =>
+      face.productEvidenceEnvelope ? [face.productEvidenceEnvelope] : []
     )
+    const renderEntryEnvelopes = result.renderEntries.flatMap((entry) => {
+      const envelope = entry.debugMeta?.productEvidenceEnvelope
+      return envelope ? [envelope] : []
+    })
+    const hitEnvelopes = result.hitPackets.flatMap((packet) =>
+      packet.productEvidenceEnvelope ? [packet.productEvidenceEnvelope] : []
+    )
+    const exportEnvelopes = result.exportPackets.flatMap((packet) =>
+      packet.productEvidenceEnvelope ? [packet.productEvidenceEnvelope] : []
+    )
+    const packetOverlays =
+      getUniqueSmoothContinuityOwnershipOverlays(packetEnvelopes)
+    const overlayIds = packetOverlays.map((overlay) => overlay.overlayId)
+    const preservedOverlayIds = {
+      finalFaces: getUniqueSmoothContinuityOwnershipOverlays(
+        finalFaceEnvelopes
+      ).map((overlay) => overlay.overlayId),
+      renderEntries: getUniqueSmoothContinuityOwnershipOverlays(
+        renderEntryEnvelopes
+      ).map((overlay) => overlay.overlayId),
+      hit: getUniqueSmoothContinuityOwnershipOverlays(hitEnvelopes).map(
+        (overlay) => overlay.overlayId
+      ),
+      export: getUniqueSmoothContinuityOwnershipOverlays(exportEnvelopes).map(
+        (overlay) => overlay.overlayId
+      )
+    }
 
     expect(sourceVertexJoinEntries).toEqual([])
-    if (smoothContinuityEntries.length === 0) {
-      throw new Error(
-        `smooth high-curvature runtime path emitted no smooth-continuity render entries; trace=${JSON.stringify(
-          result.pipelineTrace
-        )}`
-      )
-    }
     expect(
-      smoothContinuityEntries.some(
-        (entry) =>
-          entry.debugMeta?.ownerStage ===
-            'Stroke Geometry smooth-continuity product assembly' &&
-          ((entry.debugMeta.visibleContributor ===
-            'same-owner-smooth-span-descriptor' &&
-            entry.debugMeta.geometryBasis ===
-              'declared-smooth-span-descriptor') ||
-            (entry.debugMeta.visibleContributor ===
-              'smooth-continuity-dash-body' &&
-              entry.debugMeta.geometryBasis ===
-                'single-continuous-smooth-footprint'))
-      ),
-      `smooth high-curvature runtime path must emit a legal smooth-continuity product; entries=${JSON.stringify(
-        smoothContinuityEntries.map((entry) => ({
-          ownerStage: entry.debugMeta?.ownerStage,
-          visibleContributor: entry.debugMeta?.visibleContributor,
-          geometryBasis: entry.debugMeta?.geometryBasis,
-          productSignature: entry.debugMeta?.productSignature,
-          polygonCount: entry.polygons.length,
-          strokePathGroupCount: entry.strokePathGroups?.length ?? 0
-        }))
-      )}; trace=${JSON.stringify(result.pipelineTrace)}`
-    ).toBe(true)
-  })
-
-  it('preserves runtime metadata and prevents renderer descriptor replay from owning sharp join shape', () => {
-    for (const joinType of ['miter', 'bevel', 'round'] as const) {
-      const result = buildReportedPipelineResult(joinType)
-      const expectedResolvedJoin = joinType
-      const metas = [
-        ...result.packets.map((packet) => packet.geometry.debugMeta),
-        ...result.finalFaces.map((face) => face.debugMeta),
-        ...result.renderEntries.map((entry) => entry.debugMeta)
-      ].filter((meta): meta is NonNullable<typeof meta> => meta !== undefined)
-
-      expect(result.sourcePath.closed).toBe(true)
-      expect(result.topology.topologyFamily).toBe('self-intersecting')
-      expect(result.selfIntersecting?.fillRegions.length ?? 0).toBeGreaterThan(
-        0
+      illegalVisibleSmoothEntries.map((entry) => ({
+        ownerStepId: entry.debugMeta?.ownerStepId,
+        ownerStage: entry.debugMeta?.ownerStage,
+        visibleContributor: entry.debugMeta?.visibleContributor
+      }))
+    ).toEqual([])
+    expect(
+      overlayIds.length,
+      'packet smooth ownership evidence'
+    ).toBeGreaterThan(0)
+    for (const [stage, stageOverlayIds] of Object.entries(
+      preservedOverlayIds
+    )) {
+      expect(stageOverlayIds, `${stage} smooth ownership evidence`).toEqual(
+        overlayIds
       )
-      expect(result.packets.length).toBeGreaterThan(0)
-      expect(result.finalFaces.length).toBeGreaterThan(0)
-      expect(result.renderEntries.length).toBeGreaterThan(0)
-      expect(result.hitPackets.length).toBe(result.finalFaces.length)
-      expect(result.exportPackets.length).toBe(result.finalFaces.length)
-      expect(
-        metas.some(
-          (meta) =>
-            meta.visibleContributor === 'source-vertex-join' &&
-            meta.authoredJoin === joinType &&
-            meta.resolvedJoin === expectedResolvedJoin &&
-            meta.miterAngle === result.stroke.miterAngle &&
-            meta.geometryBasis === 'canonical-join-footprint'
-        )
-      ).toBe(true)
-
-      const descriptorGroups = result.renderEntries.flatMap((entry) =>
-        (entry.strokePathGroups ?? []).map((group) => ({ entry, group }))
-      )
-      const sourceReplayGroups = descriptorGroups.filter(({ group }) =>
-        group.strokePaths.some((strokePath) =>
-          isSourcePathReplay(strokePath, result.sourcePath.sampledPoints)
-        )
-      )
-      expect(sourceReplayGroups).toEqual([])
-
-      for (const { entry, group } of descriptorGroups) {
-        expect(entry.strokeMaskPolygons ?? []).toEqual([])
-        expect(entry.fillPolygons ?? []).toEqual([])
-        expect(group.strokePathStyle?.cap).toBe('butt')
-        expect(group.strokePathStyle?.join).toBe(joinType)
-        expect(group.strokePathStyle?.miterLimit).toBeCloseTo(
-          authoredMiterAngleToRendererMiterLimit(result.stroke.miterAngle),
-          3
-        )
-      }
     }
+    for (const overlay of packetOverlays) {
+      expect(overlay).toMatchObject({
+        ownerStepId: 'build-smooth-continuity-products',
+        singleContinuousFootprintProof: true,
+        noSourceVertexJoinOwnershipProof: true,
+        zeroVisibleContribution: true
+      })
+      expect(overlay.bodyProductIds.length).toBeGreaterThan(0)
+      expect(
+        overlay.bodyProductIds.every((bodyProductId) =>
+          packetEnvelopes.some(
+            (envelope) =>
+              envelope.bodyProductIds.includes(bodyProductId) &&
+              envelope.smoothContinuityOwnershipOverlays.some(
+                (candidate) => candidate.overlayId === overlay.overlayId
+              )
+          )
+        ),
+        `${overlay.overlayId}: referenced Step 27 body identities`
+      ).toBe(true)
+    }
+    expect(JSON.stringify(packetOverlays)).not.toMatch(
+      /"polygons"|"strokePaths"|"paint"/
+    )
   })
-})
+}

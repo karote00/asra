@@ -4,6 +4,10 @@ import {
 } from './stroke-ownership'
 import type { PaintAttachedStrokeRegion } from './stroke-paint-payload'
 import type { StrokeRevisionSet } from './stroke-dirty-keys'
+import {
+  mergeConstrainedDashedProductEvidenceEnvelopes,
+  type ConstrainedDashedProductEvidenceEnvelope
+} from './stroke-product-evidence'
 
 export interface Vec2 {
   x: number
@@ -18,6 +22,11 @@ export interface Bounds {
 }
 
 export interface StrokeFinalFaceDebugMetaBase {
+  ownerStepId?: string
+  sourceOwnerStepId?: string
+  sourceProductId?: string
+  ownerStepIds?: string[]
+  productEvidenceEnvelope?: ConstrainedDashedProductEvidenceEnvelope
   sourcePathId?: string
   ownerKey?: string
   networkId?: string
@@ -35,6 +44,8 @@ export interface StrokeFinalFaceDebugMetaBase {
   strokePosition?: 'center' | 'inside' | 'outside'
   ownerSet?: StrokeOwnerKey[]
   intervalIds?: string[]
+  terminalRoles?: ('start' | 'end' | 'start-end' | 'middle')[]
+  seamBoundaryIds?: string[]
   sourceContourIds?: string[]
   legalDomainIds?: string[]
   arrangementStatus?: 'exact'
@@ -121,6 +132,46 @@ export interface StrokeFinalFaceDebugMetaBase {
     | 'end'
     | 'start-end'
   )[]
+  seamEvidence?: {
+    seamCoveragePolicy: 'shared-seam-boundary-artifact-endpoint-identity'
+    incidentSeamBoundaries: {
+      seamBoundaryId: string
+      intervalId: string
+      splitRangeId?: string
+      splitRangeAliasIds?: string[]
+      side: 'previous' | 'next'
+      point: Vec2
+      outerBodyBoundaryEndpoint: Vec2
+      outerBodyBoundaryVertices: Vec2[]
+      bodySideOutlineSegment: [Vec2, Vec2]
+      bodySideTangent: Vec2
+      selectedSide: 'left' | 'right'
+      terminalRole: 'middle' | 'start' | 'end' | 'start-end'
+      endpointCapPolicySignature: string
+      capSuppressed: boolean
+      sourceSegmentIndex?: number
+    }[]
+  }
+  dashBodySeamBoundaries?: {
+    seamBoundaryId: string
+    intervalId: string
+    splitRangeId?: string
+    splitRangeAliasIds?: string[]
+    side: 'previous' | 'next'
+    point: Vec2
+    pointId?: string
+    outerBodyBoundaryEndpoint: Vec2
+    outerBodyBoundaryEndpointId?: string
+    outerBodyBoundaryVertices: Vec2[]
+    bodySideOutlineSegment: [Vec2, Vec2]
+    bodySideOutlineSegmentId?: string
+    bodySideTangent: Vec2
+    selectedSide: 'left' | 'right'
+    terminalRole: 'middle' | 'start' | 'end' | 'start-end'
+    endpointCapPolicySignature: string
+    capSuppressed: boolean
+    sourceSegmentIndex?: number
+  }[]
   joinOwnershipRecords?: {
     kind: 'source-vertex' | 'boundary-terminal-pair'
     ownerId?: string
@@ -151,8 +202,8 @@ export interface StrokeFinalFaceDebugMetaBase {
       visibleContributor: 'source-vertex-join'
       geometryBasis: 'canonical-join-footprint'
       polygons: Vec2[][]
-      seamEvidence?: StrokeFinalFaceDebugMeta['seamEvidence']
-      dashBodySeamBoundaries?: StrokeFinalFaceDebugMeta['dashBodySeamBoundaries']
+      seamEvidence?: StrokeFinalFaceDebugMetaBase['seamEvidence']
+      dashBodySeamBoundaries?: StrokeFinalFaceDebugMetaBase['dashBodySeamBoundaries']
       legalDomainIds?: string[]
       contourIds?: string[]
     }[]
@@ -233,11 +284,15 @@ export interface StrokeFinalFace<
   paintKey: string
   strokeSpecKey: string
   ownerSet: StrokeOwnerKey[]
+  ownerStepIds: string[]
   intervalIds: string[]
+  terminalRoles: ('start' | 'end' | 'start-end' | 'middle')[]
+  seamBoundaryIds: string[]
   sourceSpanIds: string[]
   sourceNetworkIds: string[]
   sourceContourIds: string[]
   legalDomainIds: string[]
+  productEvidenceEnvelope?: ConstrainedDashedProductEvidenceEnvelope
   productMode?: string
   productSignature?: string
   domainMode?: string
@@ -446,8 +501,7 @@ const filterFinalFacePolygonsWithoutBoundaryMutation = (polygons: Vec2[][]) =>
 const shouldPreservePacketProductBoundaryForFinalFace = (
   debugMeta: StrokeFinalFaceDebugMetaBase | undefined
 ) =>
-  debugMeta?.strokePosition === 'outside' &&
-  debugMeta.productSignature?.startsWith('constrained-dashed:') === true
+  debugMeta?.productSignature?.startsWith('constrained-dashed:') === true
 
 const pushUniqueSplitRangeTerminal = (
   terminals: NonNullable<
@@ -558,6 +612,9 @@ const mergeFaceDebugMeta = (
 
   ;[
     'intervalIds',
+    'ownerStepIds',
+    'terminalRoles',
+    'seamBoundaryIds',
     'sourceSpanIds',
     'sourceContourIds',
     'legalDomainIds',
@@ -573,6 +630,9 @@ const mergeFaceDebugMeta = (
     const typedKey = key as keyof Pick<
       StrokeFinalFaceDebugMetaBase,
       | 'intervalIds'
+      | 'ownerStepIds'
+      | 'terminalRoles'
+      | 'seamBoundaryIds'
       | 'sourceSpanIds'
       | 'sourceContourIds'
       | 'legalDomainIds'
@@ -848,6 +908,31 @@ const buildFaceFromPacket = <
   const intervalIds =
     debugMeta?.intervalIds ??
     (debugMeta?.intervalId ? [debugMeta.intervalId] : [])
+  const ownerStepIds = debugMeta?.ownerStepIds ??
+    [debugMeta?.ownerStepId, debugMeta?.sourceOwnerStepId].filter(
+      (value): value is string => value !== undefined && value.length > 0
+    )
+  const terminalRoles = debugMeta?.terminalRoles ??
+    [
+      debugMeta?.domainPlanTerminalRole,
+      ...(debugMeta?.dashEndpointCapPolicyTerminalRoles ?? []),
+      ...(debugMeta?.dashProductIntervals?.flatMap((interval) =>
+        interval.terminalRole ? [interval.terminalRole] : []
+      ) ?? [])
+    ].filter(
+      (
+        value
+      ): value is 'start' | 'end' | 'start-end' | 'middle' =>
+        value !== undefined
+    )
+  const seamBoundaryIds = debugMeta?.seamBoundaryIds ?? [
+    ...(debugMeta?.dashBodySeamBoundaries?.map(
+      (boundary) => boundary.seamBoundaryId
+    ) ?? []),
+    ...(debugMeta?.seamEvidence?.incidentSeamBoundaries.map(
+      (boundary) => boundary.seamBoundaryId
+    ) ?? [])
+  ]
   const sourceSpanIds = debugMeta?.sourceSpanIds ?? []
   const sourceNetworkIds =
     debugMeta?.sourceNetworkIds ??
@@ -873,11 +958,15 @@ const buildFaceFromPacket = <
       paintKey,
       strokeSpecKey,
       ownerSet: ownership.ownerSet,
+      ownerStepIds,
       intervalIds,
+      terminalRoles,
+      seamBoundaryIds,
       sourceSpanIds,
       sourceNetworkIds,
       sourceContourIds,
       legalDomainIds,
+      productEvidenceEnvelope: debugMeta?.productEvidenceEnvelope,
       productMode: debugMeta?.productMode,
       productSignature: debugMeta?.productSignature,
       domainMode: debugMeta?.domainMode,
@@ -912,7 +1001,14 @@ const mergeFace = <
   source.ownerSet.forEach((owner) =>
     pushUniqueStrokeOwner(target.ownerSet, owner)
   )
+  source.ownerStepIds.forEach((id) => pushUnique(target.ownerStepIds, id))
   source.intervalIds.forEach((id) => pushUnique(target.intervalIds, id))
+  source.terminalRoles.forEach((role) =>
+    pushUnique(target.terminalRoles, role)
+  )
+  source.seamBoundaryIds.forEach((id) =>
+    pushUnique(target.seamBoundaryIds, id)
+  )
   source.sourceSpanIds.forEach((id) => pushUnique(target.sourceSpanIds, id))
   source.sourceNetworkIds.forEach((id) =>
     pushUnique(target.sourceNetworkIds, id)
@@ -921,6 +1017,21 @@ const mergeFace = <
     pushUnique(target.sourceContourIds, id)
   )
   source.legalDomainIds.forEach((id) => pushUnique(target.legalDomainIds, id))
+  if (
+    source.productEvidenceEnvelope &&
+    source.productEvidenceEnvelope !== target.productEvidenceEnvelope
+  ) {
+    target.productEvidenceEnvelope = target.productEvidenceEnvelope
+      ? mergeConstrainedDashedProductEvidenceEnvelopes([
+          target.productEvidenceEnvelope,
+          source.productEvidenceEnvelope
+        ])
+      : source.productEvidenceEnvelope
+    if (target.debugMeta) {
+      target.debugMeta.productEvidenceEnvelope =
+        target.productEvidenceEnvelope
+    }
+  }
   mergeFaceDebugMeta(target.debugMeta, source.debugMeta)
   if (target.renderDescriptor === undefined) {
     target.renderDescriptor = source.renderDescriptor
@@ -1050,7 +1161,10 @@ export const buildStrokeFinalFacesFromPaintAttachedRegions = (
       paintKey,
       strokeSpecKey,
       ownerSet: [...region.ownerSet],
+      ownerStepIds: [...region.ownerStepIds],
       intervalIds: [...region.intervalIds],
+      terminalRoles: [...region.terminalRoles],
+      seamBoundaryIds: [...region.seamBoundaryIds],
       sourceSpanIds: [...region.sourceSpanIds],
       sourceNetworkIds: [...(region.sourceNetworkIds ?? [])],
       sourceContourIds: [...region.sourceContourIds],

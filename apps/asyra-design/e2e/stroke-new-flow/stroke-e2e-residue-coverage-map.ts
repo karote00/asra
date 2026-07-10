@@ -167,11 +167,8 @@ export const strokeE2EResidueCoverageMap: readonly StrokeE2EResidueRecord[] = [
       spec('canonical-visual-review-and-completion-dod'),
       spec('invalid-current-rule-sources')
     ],
-    inspectorStepRefs: ['renderer-projection', 'runtime-diagnostics'],
-    inspectorRouteRefs: [
-      'render-projection-merge',
-      'renderer-projection-diagnostics-snapshot'
-    ],
+    inspectorStepRefs: ['renderer-projection'],
+    inspectorRouteRefs: ['render-projection-merge'],
     requiredActionBeforePromotion:
       'extract each promoted stroke assertion into stroke-new-flow coverage with formal oracle and integration links'
   }

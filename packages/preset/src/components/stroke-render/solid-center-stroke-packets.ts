@@ -34,6 +34,10 @@ import {
   type GeometryBackend,
   type PolygonRegion
 } from './geometry-backend'
+import {
+  mergeConstrainedDashedProductEvidenceEnvelopes,
+  type ConstrainedDashedProductEvidenceEnvelope
+} from './stroke-product-evidence'
 
 interface Vec2 {
   x: number
@@ -86,9 +90,12 @@ export interface SolidCenterStrokeRenderDescriptor {
 }
 
 export interface SolidCenterStrokeRuntimeMeta {
+  ownerStage?: 'Product Output render-entry materialization'
   productMode?: string
   productSignature?: string
   routeId?: string
+  visibleContributor?: 'visible strokePathGroups'
+  geometryBasis?: 'declared route product contract'
   domainMode?: string
   topologyFamily?: PathTopologyModel['topologyFamily'] | string
   strokePosition?: 'center' | 'inside' | 'outside'
@@ -97,6 +104,10 @@ export interface SolidCenterStrokeRuntimeMeta {
   sourceNetworkIds?: string[]
   sourceContourIds?: string[]
   legalDomainIds?: string[]
+  ownerSet?: StrokeOwnerKey[]
+  ownerStepIds?: string[]
+  terminalRoles?: ('start' | 'end' | 'start-end' | 'middle')[]
+  seamBoundaryIds?: string[]
   visualOverlapCollapseStatus?:
     | 'exact-union'
     | 'exact-mask'
@@ -115,31 +126,37 @@ export interface SolidCenterStrokePaintPacket {
   paintKey?: string
 }
 
-export interface SolidCenterStrokeHitTestPacket {
-  geometryId: string
-  polygons: Vec2[][]
-  bounds: Bounds
+export interface SolidCenterStrokeOutputProductIdentity {
   primaryOwner?: StrokeOwnerKey
   ownerSet: StrokeOwnerKey[]
+  ownerStepIds: string[]
   intervalIds: string[]
+  terminalRoles: ('start' | 'end' | 'start-end' | 'middle')[]
+  seamBoundaryIds: string[]
   sourceSpanIds: string[]
   sourceNetworkIds: string[]
   sourceContourIds: string[]
   legalDomainIds: string[]
+  productEvidenceEnvelope?: ConstrainedDashedProductEvidenceEnvelope
+}
+
+export interface SolidCenterStrokeHitTestPacket
+  extends SolidCenterStrokeOutputProductIdentity {
+  channel: 'hit-test'
+  visibility: 'hit-export'
+  geometryId: string
+  polygons: Vec2[][]
+  bounds: Bounds
   debugMeta?: SolidCenterStrokeGeometryDebugMeta
 }
 
-export interface SolidCenterStrokeExportPacket {
+export interface SolidCenterStrokeExportPacket
+  extends SolidCenterStrokeOutputProductIdentity {
+  channel: 'export'
+  visibility: 'hit-export'
   geometryId: string
   polygons: Vec2[][]
   bounds: Bounds
-  primaryOwner?: StrokeOwnerKey
-  ownerSet: StrokeOwnerKey[]
-  intervalIds: string[]
-  sourceSpanIds: string[]
-  sourceNetworkIds: string[]
-  sourceContourIds: string[]
-  legalDomainIds: string[]
   debugMeta?: SolidCenterStrokeGeometryDebugMeta
 }
 
@@ -156,15 +173,14 @@ export interface SolidCenterStrokeRenderStrokePayload {
   paintKey: string
 }
 
-export interface SolidCenterStrokeVisibleRenderPacket {
+export interface SolidCenterStrokeVisibleRenderPacket
+  extends SolidCenterStrokeOutputProductIdentity {
   channel: 'render'
   visibility: 'visible'
   geometryId: string
   polygons: Vec2[][]
   bounds: Bounds
   stroke: SolidCenterStrokeRenderStrokePayload
-  primaryOwner?: StrokeOwnerKey
-  ownerSet: StrokeOwnerKey[]
   descriptorRouteMode: 'canonical-product' | 'descriptor-visible-route'
   renderDescriptor?: SolidCenterStrokeVisibleRenderDescriptor
   debugMeta?: SolidCenterStrokeGeometryDebugMeta
@@ -209,6 +225,10 @@ export interface SolidCenterStrokeProductOutputPackets {
   diagnosticPackets: SolidCenterStrokeDiagnosticPacket[]
 }
 
+export interface SolidCenterStrokeProductOutputOptions {
+  includeDiagnostics?: boolean
+}
+
 export interface SolidCenterStrokePacketRenderEntry {
   channel: 'render-entry'
   visibility: 'visible'
@@ -232,6 +252,7 @@ export interface SolidCenterStrokePacketRenderEntry {
       | 'canonical-visible-product'
       | 'descriptor-visible-route'
   }
+  productIdentity: SolidCenterStrokeOutputProductIdentity
   debugMeta?: SolidCenterStrokeGeometryDebugMeta
 }
 
@@ -254,6 +275,11 @@ type RenderProjectionArrangementBackend = Pick<
   Partial<Pick<GeometryBackend, 'intersection'>>
 
 export interface SolidCenterStrokeGeometryDebugMeta {
+  ownerStepId?: string
+  sourceOwnerStepId?: string
+  sourceProductId?: string
+  ownerStepIds?: string[]
+  productEvidenceEnvelope?: ConstrainedDashedProductEvidenceEnvelope
   sourcePathId?: string
   ownerKey?: string
   networkId?: string
@@ -266,6 +292,8 @@ export interface SolidCenterStrokeGeometryDebugMeta {
   sourceSpanIds?: string[]
   ownerSet?: StrokeOwnerKey[]
   intervalIds?: string[]
+  terminalRoles?: ('start' | 'end' | 'start-end' | 'middle')[]
+  seamBoundaryIds?: string[]
   sourceContourIds?: string[]
   legalDomainIds?: string[]
   authoredVisibleIntervalIndex?: number
@@ -485,7 +513,7 @@ export interface SolidCenterStrokeGeometryDebugMeta {
     geometryBasis: 'canonical-join-footprint'
   }
   seamEvidence?: {
-    seamCoveragePolicy: 'shared-step-27-endpoint-identity'
+    seamCoveragePolicy: 'shared-seam-boundary-artifact-endpoint-identity'
     incidentSeamBoundaries: {
       seamBoundaryId: string
       intervalId: string
@@ -688,9 +716,11 @@ const unionCoveragePolygons = (polygons: Vec2[][]) => {
     }
     const unioned = flattenFacePolygons(
       backend.union(
-        unionInputPolygons.map((polygon) => ({
-          polygons: [normalizeCoveragePolygonWinding(polygon)]
-        })),
+        [
+          {
+            polygons: unionInputPolygons.map(normalizeCoveragePolygonWinding)
+          }
+        ],
         'nonzero'
       ),
       unionInputPolygons
@@ -1629,6 +1659,111 @@ const getProjectedGeometryId = (
 
 const getUniqueStrings = (values: string[]) => [...new Set(values)]
 
+const getUniqueStrokeOwners = (owners: StrokeOwnerKey[]) => {
+  const ownersByIdentity = new Map<string, StrokeOwnerKey>()
+  owners.forEach((owner) => {
+    const identity = [
+      owner.ownerKey,
+      owner.sourcePathId,
+      owner.networkId,
+      owner.strokeId,
+      owner.strokeIndex,
+      owner.contourId,
+      owner.intervalId
+    ].join('|')
+    if (!ownersByIdentity.has(identity)) {
+      ownersByIdentity.set(identity, owner)
+    }
+  })
+  return [...ownersByIdentity.values()]
+}
+
+const getMergedFinalFaceRuntimeIdentity = (
+  faces: readonly {
+    ownerSet: StrokeOwnerKey[]
+    ownerStepIds: string[]
+    terminalRoles: ('start' | 'end' | 'start-end' | 'middle')[]
+    seamBoundaryIds: string[]
+  }[]
+) => ({
+  ownerSet: getUniqueStrokeOwners(faces.flatMap((face) => face.ownerSet)),
+  ownerStepIds: getUniqueStrings(faces.flatMap((face) => face.ownerStepIds)),
+  terminalRoles: getUniqueStrings(
+    faces.flatMap((face) => face.terminalRoles)
+  ) as NonNullable<SolidCenterStrokeRuntimeMeta['terminalRoles']>,
+  seamBoundaryIds: getUniqueStrings(
+    faces.flatMap((face) => face.seamBoundaryIds)
+  )
+})
+
+const getMergedConstrainedDashedProductEvidenceEnvelope = (
+  envelopes: readonly ConstrainedDashedProductEvidenceEnvelope[]
+) => {
+  const uniqueEnvelopes = Array.from(new Set(envelopes))
+  return uniqueEnvelopes.length === 0
+    ? undefined
+    : uniqueEnvelopes.length === 1
+      ? uniqueEnvelopes[0]
+      : mergeConstrainedDashedProductEvidenceEnvelopes(uniqueEnvelopes)
+}
+
+const flatMapUniqueArrayReferences = <T>(
+  arrays: readonly (readonly T[] | undefined)[]
+): T[] => {
+  const seen = new Set<readonly T[]>()
+  const values: T[] = []
+  for (const array of arrays) {
+    if (!array || seen.has(array)) {
+      continue
+    }
+    seen.add(array)
+    values.push(...array)
+  }
+  return values
+}
+
+const getMergedFinalFaceOutputProductIdentity = (
+  faces: readonly {
+    ownerSet: StrokeOwnerKey[]
+    ownerStepIds: string[]
+    intervalIds: string[]
+    terminalRoles: ('start' | 'end' | 'start-end' | 'middle')[]
+    seamBoundaryIds: string[]
+    sourceSpanIds: string[]
+    sourceNetworkIds: string[]
+    sourceContourIds: string[]
+    legalDomainIds: string[]
+    productEvidenceEnvelope?: ConstrainedDashedProductEvidenceEnvelope
+  }[]
+): SolidCenterStrokeOutputProductIdentity => {
+  const runtimeIdentity = getMergedFinalFaceRuntimeIdentity(faces)
+  const productEvidenceEnvelopes = faces.flatMap((face) =>
+    face.productEvidenceEnvelope ? [face.productEvidenceEnvelope] : []
+  )
+  const productEvidenceEnvelope =
+    getMergedConstrainedDashedProductEvidenceEnvelope(
+      productEvidenceEnvelopes
+    )
+  return {
+    primaryOwner: runtimeIdentity.ownerSet[0],
+    ...runtimeIdentity,
+    intervalIds: getUniqueStrings(faces.flatMap((face) => face.intervalIds)),
+    sourceSpanIds: getUniqueStrings(
+      faces.flatMap((face) => face.sourceSpanIds)
+    ),
+    sourceNetworkIds: getUniqueStrings(
+      faces.flatMap((face) => face.sourceNetworkIds)
+    ),
+    sourceContourIds: getUniqueStrings(
+      faces.flatMap((face) => face.sourceContourIds)
+    ),
+    legalDomainIds: getUniqueStrings(
+      faces.flatMap((face) => face.legalDomainIds)
+    ),
+    ...(productEvidenceEnvelope ? { productEvidenceEnvelope } : {})
+  }
+}
+
 const getMergedDebugIntervalIds = (
   faces: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
@@ -1659,6 +1794,62 @@ const isTerminalDashProductRole = (
   role: SolidCenterStrokeGeometryDebugMeta['domainPlanTerminalRole']
 ) => role === 'start' || role === 'end' || role === 'start-end'
 
+const hasTerminalDashProductIdentity = (
+  debugMeta: SolidCenterStrokeGeometryDebugMeta | undefined
+) =>
+  debugMeta !== undefined &&
+  (isTerminalDashProductRole(debugMeta.domainPlanTerminalRole) ||
+    debugMeta.dashProductIntervals?.some((interval) =>
+      isTerminalDashProductRole(interval.terminalRole)
+    ) === true ||
+    debugMeta.domainPlanSplitRangeTerminals?.some((terminal) =>
+      isTerminalDashProductRole(terminal.terminalRole)
+    ) === true)
+
+const getRenderDebugMetaTerminalDashProductInterval = (
+  debugMeta: SolidCenterStrokeGeometryDebugMeta | undefined,
+  defaultIntervalIds: readonly string[] = []
+): DashProductIntervalDebugRecord | undefined => {
+  if (!debugMeta) {
+    return undefined
+  }
+
+  const intervalId =
+    debugMeta.intervalId ?? debugMeta.intervalIds?.[0] ?? defaultIntervalIds[0]
+  if (
+    !intervalId ||
+    !isTerminalDashProductRole(debugMeta.domainPlanTerminalRole)
+  ) {
+    return undefined
+  }
+
+  return {
+    intervalId,
+    splitRangeId: debugMeta.domainPlanSplitRangeId,
+    splitRangeAliasIds: debugMeta.domainPlanSplitRangeAliasIds,
+    terminalRole: debugMeta.domainPlanTerminalRole,
+    startDistance: debugMeta.domainPlanSplitRangeStartDistance,
+    endDistance: debugMeta.domainPlanSplitRangeEndDistance,
+    boundaryDomainId: debugMeta.domainPlanBoundaryDomainId,
+    boundaryPoints: debugMeta.domainPlanBoundaryPoints,
+    boundaryStartDistance: debugMeta.domainPlanBoundaryStartDistance,
+    boundaryEndDistance: debugMeta.domainPlanBoundaryEndDistance,
+    boundaryTotalLength: debugMeta.domainPlanBoundaryTotalLength,
+    boundaryRole: debugMeta.domainPlanBoundaryRole,
+    selectedSide: debugMeta.domainPlanSelectedSide,
+    materializedSelectedSide: debugMeta.domainPlanMaterializedSelectedSide,
+    filledSide: debugMeta.domainPlanFilledSide,
+    unfilledSide: debugMeta.domainPlanUnfilledSide,
+    sourceSegmentIndex: debugMeta.domainPlanSplitRangeSourceSegmentIndex,
+    sourceStartDistance: debugMeta.domainPlanSplitRangeSourceStartDistance,
+    sourceEndDistance: debugMeta.domainPlanSplitRangeSourceEndDistance,
+    endpointCapPolicySignature: debugMeta.dashEndpointCapPolicySignature,
+    joinOwnershipSignature: debugMeta.joinOwnershipSignature,
+    smoothContinuityGroupId: debugMeta.smoothContinuityGroupId,
+    materializationDistanceSpace: debugMeta.materializationDistanceSpace
+  }
+}
+
 const getRenderDebugMetaDashProductIntervals = (
   debugMeta: SolidCenterStrokeGeometryDebugMeta | undefined,
   defaultIntervalIds: readonly string[] = []
@@ -1668,37 +1859,12 @@ const getRenderDebugMetaDashProductIntervals = (
   }
 
   const intervals = [...(debugMeta.dashProductIntervals ?? [])]
-  const intervalId =
-    debugMeta.intervalId ?? debugMeta.intervalIds?.[0] ?? defaultIntervalIds[0]
-  if (
-    intervalId &&
-    isTerminalDashProductRole(debugMeta.domainPlanTerminalRole)
-  ) {
-    intervals.push({
-      intervalId,
-      splitRangeId: debugMeta.domainPlanSplitRangeId,
-      splitRangeAliasIds: debugMeta.domainPlanSplitRangeAliasIds,
-      terminalRole: debugMeta.domainPlanTerminalRole,
-      startDistance: debugMeta.domainPlanSplitRangeStartDistance,
-      endDistance: debugMeta.domainPlanSplitRangeEndDistance,
-      boundaryDomainId: debugMeta.domainPlanBoundaryDomainId,
-      boundaryPoints: debugMeta.domainPlanBoundaryPoints,
-      boundaryStartDistance: debugMeta.domainPlanBoundaryStartDistance,
-      boundaryEndDistance: debugMeta.domainPlanBoundaryEndDistance,
-      boundaryTotalLength: debugMeta.domainPlanBoundaryTotalLength,
-      boundaryRole: debugMeta.domainPlanBoundaryRole,
-      selectedSide: debugMeta.domainPlanSelectedSide,
-      materializedSelectedSide: debugMeta.domainPlanMaterializedSelectedSide,
-      filledSide: debugMeta.domainPlanFilledSide,
-      unfilledSide: debugMeta.domainPlanUnfilledSide,
-      sourceSegmentIndex: debugMeta.domainPlanSplitRangeSourceSegmentIndex,
-      sourceStartDistance: debugMeta.domainPlanSplitRangeSourceStartDistance,
-      sourceEndDistance: debugMeta.domainPlanSplitRangeSourceEndDistance,
-      endpointCapPolicySignature: debugMeta.dashEndpointCapPolicySignature,
-      joinOwnershipSignature: debugMeta.joinOwnershipSignature,
-      smoothContinuityGroupId: debugMeta.smoothContinuityGroupId,
-      materializationDistanceSpace: debugMeta.materializationDistanceSpace
-    })
+  const terminalInterval = getRenderDebugMetaTerminalDashProductInterval(
+    debugMeta,
+    defaultIntervalIds
+  )
+  if (terminalInterval) {
+    intervals.push(terminalInterval)
   }
 
   return intervals
@@ -1727,6 +1893,7 @@ const getDashProductIntervalRenderArrayKey = (
       'source-range',
       `interval:${interval.intervalId}`,
       interval.terminalRole ?? 'terminal-role',
+      `split:${interval.splitRangeId ?? interval.splitRangeAliasIds?.join(',') ?? 'no-split-range'}`,
       `segment:${interval.sourceSegmentIndex}`,
       formatDashProductIntervalKeyNumber(sourceStartDistance),
       formatDashProductIntervalKeyNumber(sourceEndDistance),
@@ -1734,7 +1901,14 @@ const getDashProductIntervalRenderArrayKey = (
     ].join('|')
   }
 
-  return ['interval-id', interval.intervalId].join('|')
+  return [
+    'interval-id',
+    interval.intervalId,
+    interval.terminalRole ?? 'terminal-role',
+    `split:${interval.splitRangeId ?? interval.splitRangeAliasIds?.join(',') ?? 'no-split-range'}`,
+    `segment:${interval.sourceSegmentIndex ?? 'no-source-segment'}`,
+    `side:${interval.materializedSelectedSide ?? interval.selectedSide ?? 'side'}`
+  ].join('|')
 }
 
 const getUniqueDashProductIntervalsForRenderArray = (
@@ -1750,6 +1924,44 @@ const getUniqueDashProductIntervalsForRenderArray = (
     }
   })
   return Array.from(intervalByKey.values())
+}
+
+const getProjectedDashProductIntervals = (
+  debugMeta: SolidCenterStrokeGeometryDebugMeta | undefined,
+  defaultIntervalIds: readonly string[],
+  overrideIntervals:
+    | SolidCenterStrokeGeometryDebugMeta['dashProductIntervals']
+    | undefined
+) => {
+  if (overrideIntervals) {
+    return overrideIntervals.length > 0
+      ? getUniqueDashProductIntervalsForRenderArray(overrideIntervals)
+      : undefined
+  }
+
+  const sourceIntervals = debugMeta?.dashProductIntervals
+  const terminalInterval = getRenderDebugMetaTerminalDashProductInterval(
+    debugMeta,
+    defaultIntervalIds
+  )
+  if (!terminalInterval) {
+    return sourceIntervals
+  }
+
+  const terminalKey = getDashProductIntervalRenderArrayKey(terminalInterval)
+  if (
+    sourceIntervals?.some(
+      (interval) =>
+        getDashProductIntervalRenderArrayKey(interval) === terminalKey
+    )
+  ) {
+    return sourceIntervals
+  }
+
+  return getUniqueDashProductIntervalsForRenderArray([
+    ...(sourceIntervals ?? []),
+    terminalInterval
+  ])
 }
 
 const getPhysicalSpanRangeKey = (span: PhysicalSpanRangeDebugRecord) =>
@@ -2089,12 +2301,12 @@ const measureStrokeRenderEntryPhase = <T>(
 ): T => {
   const sink = (
     globalThis as typeof globalThis & {
-      __asyraVectorRenderPhaseSink?: (
+      __asyraVectorRenderDetailPhaseSink?: (
         phaseName: string,
         durationMs: number
       ) => void
     }
-  ).__asyraVectorRenderPhaseSink
+  ).__asyraVectorRenderDetailPhaseSink
   if (!sink) {
     return run()
   }
@@ -2804,46 +3016,45 @@ const tryMergeRenderProjectionSharedEdgePolygonPair = (
     rightRemoveStart,
     rightRemoveEnd
   )
-  const orientedRightRemainder =
-    pointsAreWithinRenderProjectionTolerance(
-      leftRemainder[leftRemainder.length - 1],
-      rightRemainder[0]
-    ) &&
-    pointsAreWithinRenderProjectionTolerance(
-      rightRemainder[rightRemainder.length - 1],
-      leftRemainder[0]
-    )
-      ? rightRemainder
-      : [...rightRemainder].reverse()
-  if (
-    !pointsAreWithinRenderProjectionTolerance(
-      leftRemainder[leftRemainder.length - 1],
-      orientedRightRemainder[0]
-    )
-  ) {
-    return null
-  }
-
-  const merged = cleanRenderProjectionSplicedLoop([
-    ...leftRemainder,
-    ...orientedRightRemainder.slice(1)
-  ])
-  if (merged.length < 3) {
-    return null
-  }
-
   const sourceArea =
     getPolygonCoverageArea(leftPolygon) + getPolygonCoverageArea(rightPolygon)
-  const mergedArea = getPolygonCoverageArea(merged)
-  if (
-    sourceArea <= Number.EPSILON ||
-    Math.abs(sourceArea - mergedArea) / sourceArea >
-      RENDER_PROJECTION_SHARED_EDGE_AREA_TOLERANCE
-  ) {
+  if (sourceArea <= Number.EPSILON) {
     return null
   }
 
-  return merged
+  return (
+    [rightRemainder, [...rightRemainder].reverse()]
+      .flatMap((orientedRightRemainder) => {
+        if (
+          !pointsAreWithinRenderProjectionTolerance(
+            leftRemainder[leftRemainder.length - 1],
+            orientedRightRemainder[0]
+          ) ||
+          !pointsAreWithinRenderProjectionTolerance(
+            orientedRightRemainder[orientedRightRemainder.length - 1],
+            leftRemainder[0]
+          )
+        ) {
+          return []
+        }
+
+        const merged = cleanRenderProjectionSplicedLoop([
+          ...leftRemainder,
+          ...orientedRightRemainder.slice(1)
+        ])
+        if (merged.length < 3) {
+          return []
+        }
+
+        const mergedArea = getPolygonCoverageArea(merged)
+        const areaDelta = Math.abs(sourceArea - mergedArea) / sourceArea
+        return areaDelta <= RENDER_PROJECTION_SHARED_EDGE_AREA_TOLERANCE
+          ? [{ merged, areaDelta }]
+          : []
+      })
+      .sort((left, right) => left.areaDelta - right.areaDelta)[0]?.merged ??
+    null
+  )
 }
 
 const mergeRenderProjectionSharedEdgePolygonPairs = (polygons: Vec2[][]) => {
@@ -2889,7 +3100,9 @@ function findRenderProjectionSharedEdgeComponentIndexes(polygons: Vec2[][]) {
     const leftRoot = find(leftIndex)
     const rightRoot = find(rightIndex)
     if (leftRoot !== rightRoot) {
-      parent[rightRoot] = leftRoot
+      const firstRoot = Math.min(leftRoot, rightRoot)
+      const secondRoot = Math.max(leftRoot, rightRoot)
+      parent[secondRoot] = firstRoot
     }
   }
 
@@ -3222,7 +3435,11 @@ const getRenderProjectionLegalDomainViolationArea = (
   strokePosition: SolidCenterStrokeGeometryDebugMeta['strokePosition'],
   backend: Pick<GeometryBackend, 'capabilities'> &
     Partial<Pick<GeometryBackend, 'difference' | 'intersection' | 'union'>>,
-  fillRule: FillRule
+  fillRule: FillRule,
+  proofOptions: {
+    preserveInsideWinding?: boolean
+    reuseSingleLegalRegion?: boolean
+  } = {}
 ) => {
   if (
     polygons.length === 0 ||
@@ -3243,7 +3460,10 @@ const getRenderProjectionLegalDomainViolationArea = (
     const legalRegions =
       strokePosition === 'outside'
         ? legalDomainRegions
-        : backend.union(legalDomainRegions, fillRule)
+        : proofOptions.reuseSingleLegalRegion === true &&
+            legalDomainRegions.length === 1
+          ? legalDomainRegions
+          : backend.union(legalDomainRegions, fillRule)
     if (legalRegions.length === 0) {
       return 0
     }
@@ -3252,7 +3472,9 @@ const getRenderProjectionLegalDomainViolationArea = (
         polygons:
           strokePosition === 'outside'
             ? polygons
-            : polygons.map(normalizeCoveragePolygonWinding)
+            : proofOptions.preserveInsideWinding === true
+              ? polygons
+              : polygons.map(normalizeCoveragePolygonWinding)
       }
     ]
     if (
@@ -3288,20 +3510,6 @@ const getRenderProjectionLegalDomainViolationArea = (
   return 0
 }
 
-const getRenderProjectionPolygonCentroid = (polygon: Vec2[]) => {
-  const total = polygon.reduce(
-    (sum, point) => ({
-      x: sum.x + point.x,
-      y: sum.y + point.y
-    }),
-    { x: 0, y: 0 }
-  )
-  return {
-    x: total.x / Math.max(1, polygon.length),
-    y: total.y / Math.max(1, polygon.length)
-  }
-}
-
 const getRenderProjectionLegalSideSamplePoints = (polygon: Vec2[]) => [
   ...polygon,
   ...polygon.map((point, index) => {
@@ -3310,8 +3518,7 @@ const getRenderProjectionLegalSideSamplePoints = (polygon: Vec2[]) => [
       x: (point.x + next.x) / 2,
       y: (point.y + next.y) / 2
     }
-  }),
-  getRenderProjectionPolygonCentroid(polygon)
+  })
 ]
 
 const getRenderProjectionDistanceToPolygonBoundary = (
@@ -3512,16 +3719,6 @@ const clipRenderProjectionPolygonsToOutsideLegalDomains = (
     return polygons
   }
 
-  if (
-    !hasRenderProjectionLegalSideSampleViolation(
-      polygons,
-      legalDomains,
-      'outside'
-    )
-  ) {
-    return polygons
-  }
-
   const legalDomainRegions = legalDomains.flatMap((domain) =>
     domain.regions.map((region) => ({
       polygons: region.polygons.map(normalizeCoveragePolygonWinding)
@@ -3531,14 +3728,28 @@ const clipRenderProjectionPolygonsToOutsideLegalDomains = (
     return polygons
   }
 
-  const fillRule = 'nonzero'
-  const clippedPolygons = backend
-    .difference(
-      [{ polygons: polygons.map(normalizeCoveragePolygonWinding) }],
+  const hasExactResidueViolation =
+    getRenderProjectionOutsideLegalResidueArea(
+      polygons,
       legalDomainRegions,
-      fillRule
-    )
-    .flatMap((region) => region.polygons)
+      backend
+    ) > RENDER_PROJECTION_LEGAL_VIOLATION_AREA_TOLERANCE
+  const hasSampleViolation = hasRenderProjectionLegalSideSampleViolation(
+    polygons,
+    legalDomains,
+    'outside'
+  )
+  if (!hasExactResidueViolation && !hasSampleViolation) {
+    return polygons
+  }
+
+  const fillRule = 'nonzero'
+  const difference = backend.difference
+  const clippedPolygons = difference(
+    [{ polygons: polygons.map(normalizeCoveragePolygonWinding) }],
+    legalDomainRegions,
+    fillRule
+  ).flatMap((region) => region.polygons)
   const perPolygonClippedPolygons =
     clippedPolygons.length === 0 ||
     hasRenderProjectionLegalSideSampleViolation(
@@ -3547,13 +3758,11 @@ const clipRenderProjectionPolygonsToOutsideLegalDomains = (
       'outside'
     )
       ? polygons.flatMap((polygon) =>
-          backend
-            .difference(
-              [{ polygons: [normalizeCoveragePolygonWinding(polygon)] }],
-              legalDomainRegions,
-              fillRule
-            )
-            .flatMap((region) => region.polygons)
+          difference(
+            [{ polygons: [normalizeCoveragePolygonWinding(polygon)] }],
+            legalDomainRegions,
+            fillRule
+          ).flatMap((region) => region.polygons)
         )
       : []
   const exactClippedPolygons =
@@ -3680,11 +3889,15 @@ const isConstrainedDashedProductFace = (
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
   >
-) =>
-  face.debugMeta?.productSignature?.startsWith('constrained-dashed:') ===
-    true &&
-  (face.debugMeta.strokePosition === 'inside' ||
-    face.debugMeta.strokePosition === 'outside')
+) => {
+  const productSignature = face.debugMeta?.productSignature ?? ''
+  return (
+    productSignature.startsWith('constrained-dashed:') &&
+    (face.debugMeta?.strokePosition === 'inside' ||
+      face.debugMeta?.strokePosition === 'outside' ||
+      productSignature.includes('closed-constrained-domain'))
+  )
+}
 const shouldMaterializeConstrainedDashedRenderDescriptor = (
   face: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
@@ -4109,7 +4322,10 @@ const buildRenderProjectionLegalDomainSplitterCandidates = (
   )
 type ProductContractDebugMetaOverrides = Pick<
   SolidCenterStrokeGeometryDebugMeta,
+  | 'ownerStepIds'
   | 'intervalIds'
+  | 'terminalRoles'
+  | 'seamBoundaryIds'
   | 'sourceSpanIds'
   | 'sourceNetworkIds'
   | 'sourceContourIds'
@@ -4132,6 +4348,7 @@ type ProductContractDebugMetaOverrides = Pick<
   | 'seamEvidence'
   | 'protectedContinuityZone'
   | 'physicalSpanRanges'
+  | 'productEvidenceEnvelope'
 >
 
 const buildProductContractDebugMetaFromFinalFace = (
@@ -4146,13 +4363,19 @@ const buildProductContractDebugMetaFromFinalFace = (
     return undefined
   }
 
+  const ownerStepIds = overrides.ownerStepIds ?? face.ownerStepIds
   const intervalIds = overrides.intervalIds ?? face.intervalIds
+  const terminalRoles = overrides.terminalRoles ?? face.terminalRoles
+  const seamBoundaryIds = overrides.seamBoundaryIds ?? face.seamBoundaryIds
   const sourceSpanIds = overrides.sourceSpanIds ?? face.sourceSpanIds
   const sourceNetworkIds = overrides.sourceNetworkIds ?? face.sourceNetworkIds
   const sourceContourIds = overrides.sourceContourIds ?? face.sourceContourIds
   const legalDomainIds = overrides.legalDomainIds ?? face.legalDomainIds
 
   return {
+    ownerStepIds: [...ownerStepIds],
+    terminalRoles: [...terminalRoles],
+    seamBoundaryIds: [...seamBoundaryIds],
     productMode: debugMeta.productMode,
     productSignature: debugMeta.productSignature,
     routeId: debugMeta.routeId,
@@ -4186,8 +4409,9 @@ const buildProductContractDebugMetaFromFinalFace = (
     joinResolution: debugMeta.joinResolution,
     continuityEvidence: debugMeta.continuityEvidence,
     protectedContinuityZone: debugMeta.protectedContinuityZone,
-    seamEvidence: debugMeta.seamEvidence,
-    dashBodySeamBoundaries: debugMeta.dashBodySeamBoundaries,
+    seamEvidence: overrides.seamEvidence ?? debugMeta.seamEvidence,
+    dashBodySeamBoundaries:
+      overrides.dashBodySeamBoundaries ?? debugMeta.dashBodySeamBoundaries,
     domainPlanBoundaryDomainId: debugMeta.domainPlanBoundaryDomainId,
     domainPlanSplitRangeId: debugMeta.domainPlanSplitRangeId,
     domainPlanSplitRangeStartDistance:
@@ -4224,14 +4448,11 @@ const buildProductContractDebugMetaFromFinalFace = (
     domainPlanSplitRangeTerminals:
       overrides.domainPlanSplitRangeTerminals ??
       debugMeta.domainPlanSplitRangeTerminals,
-    dashProductIntervals: (() => {
-      const intervals = overrides.dashProductIntervals
-        ? overrides.dashProductIntervals
-        : getRenderDebugMetaDashProductIntervals(debugMeta, intervalIds)
-      return intervals.length > 0
-        ? getUniqueDashProductIntervalsForRenderArray(intervals)
-        : undefined
-    })(),
+    dashProductIntervals: getProjectedDashProductIntervals(
+      debugMeta,
+      intervalIds,
+      overrides.dashProductIntervals
+    ),
     dashEndpointCapPolicySignature: debugMeta.dashEndpointCapPolicySignature,
     dashEndpointCapPolicyTerminalRole:
       debugMeta.dashEndpointCapPolicyTerminalRole,
@@ -4249,6 +4470,10 @@ const buildProductContractDebugMetaFromFinalFace = (
     smoothContinuityGroupId: debugMeta.smoothContinuityGroupId,
     smoothContinuityGroupIds:
       overrides.smoothContinuityGroupIds ?? debugMeta.smoothContinuityGroupIds,
+    productEvidenceEnvelope:
+      overrides.productEvidenceEnvelope ??
+      face.productEvidenceEnvelope ??
+      debugMeta.productEvidenceEnvelope,
     domainPlanBoundaryRoles:
       overrides.domainPlanBoundaryRoles ?? debugMeta.domainPlanBoundaryRoles,
     domainPlanSplitRangeIds:
@@ -4336,8 +4561,12 @@ const buildRenderEntryFromFinalFace = (
             )
           : getRenderEntryProductPolygonsFromFinalFace(face)
     )
+    const hasVisibleRenderDescriptorPath =
+      (renderDescriptor?.strokePathGroups?.length ?? 0) > 0 ||
+      (renderDescriptor?.strokePaths?.length ?? 0) > 0
     const canonicalProductPolygons =
       isConstrainedDashedProductFace(face) &&
+      !hasVisibleRenderDescriptorPath &&
       !isConstrainedDashedSourceVertexJoinProductFace(face) &&
       !isConstrainedDashedJoinOwnedTerminalBodyProductFace(face) &&
       productPolygons.length > 1
@@ -4345,9 +4574,10 @@ const buildRenderEntryFromFinalFace = (
         : productPolygons
     const renderEntryStrokePosition = face.debugMeta?.strokePosition
     const shouldClipRenderEntryProductPolygons =
+      !isConstrainedDashedProductFace(face) &&
+      !hasVisibleRenderDescriptorPath &&
       (renderEntryStrokePosition === 'inside' ||
-        (!isConstrainedDashedProductFace(face) &&
-          renderEntryStrokePosition === 'outside')) &&
+        renderEntryStrokePosition === 'outside') &&
       (options.legalDomains?.length ?? 0) > 0
     const renderEntryProductPolygons = shouldClipRenderEntryProductPolygons
       ? clipRenderProjectionPolygonsToLegalDomains(
@@ -4364,7 +4594,11 @@ const buildRenderEntryFromFinalFace = (
       domainMode: face.debugMeta?.domainMode,
       topologyFamily: face.debugMeta?.topologyFamily,
       strokePosition: face.debugMeta?.strokePosition,
+      ownerSet: [...face.ownerSet],
+      ownerStepIds: [...face.ownerStepIds],
       intervalIds: [...face.intervalIds],
+      terminalRoles: [...face.terminalRoles],
+      seamBoundaryIds: [...face.seamBoundaryIds],
       sourceSpanIds: [...face.sourceSpanIds],
       sourceNetworkIds: [...face.sourceNetworkIds],
       sourceContourIds: [...face.sourceContourIds],
@@ -4383,6 +4617,7 @@ const buildRenderEntryFromFinalFace = (
 
     return {
       cacheKey: getProjectedGeometryId(face),
+      productIdentity: getMergedFinalFaceOutputProductIdentity([face]),
       stroke: {
         kind: face.paint.kind,
         color: face.paint.color,
@@ -4450,6 +4685,76 @@ const selectPrimaryRenderMetadataEntry = (
     (entry) => entry.debugMeta?.visibleContributor === 'source-vertex-join'
   ) ?? entries[0]
 
+const buildSingleSamePaintPolygonRenderEntry = (
+  entry: SolidCenterStrokeComputedRenderEntry,
+  polygons: Vec2[][],
+  cacheKeyPrefix: string,
+  collapseStatus: RenderProjectionCollapseStatus
+): SolidCenterStrokeComputedRenderEntry[] => [
+  {
+    ...entry,
+    cacheKey: `render:${cacheKeyPrefix}:${entry.cacheKey}`,
+    polygons,
+    fillPolygons: undefined,
+    clipPolygons: undefined,
+    fillClipPolygons: undefined,
+    fillExcludePolygons: undefined,
+    strokeMaskPolygons: undefined,
+    strokePaths: undefined,
+    strokePathGroups: undefined,
+    runtimeMeta: {
+      ...entry.runtimeMeta,
+      visualOverlapCollapseStatus: collapseStatus
+    },
+    debugMeta: entry.debugMeta
+      ? {
+          ...entry.debugMeta,
+          visualOverlapCollapseStatus: collapseStatus,
+          visualOverlapSourceFaceIds:
+            entry.debugMeta.visualOverlapSourceFaceIds?.length
+              ? entry.debugMeta.visualOverlapSourceFaceIds
+              : [entry.cacheKey]
+        }
+      : entry.debugMeta
+  }
+]
+
+const clipSamePaintInsideCompositeToLegalDomains = (
+  polygons: Vec2[][],
+  legalDomains: NonNullable<
+    SolidCenterStrokeRenderEntryOptions['legalDomains']
+  >,
+  backend: Pick<GeometryBackend, 'capabilities'> &
+    Partial<Pick<GeometryBackend, 'intersection' | 'union'>>,
+  fillRule: FillRule
+) => {
+  if (
+    polygons.length === 0 ||
+    legalDomains.length === 0 ||
+    backend.capabilities.intersection !== true ||
+    typeof backend.intersection !== 'function'
+  ) {
+    return null
+  }
+  const legalDomainRegions = legalDomains.flatMap((domain) => domain.regions)
+  if (legalDomainRegions.length === 0) {
+    return null
+  }
+  const legalRegions =
+    legalDomainRegions.length === 1
+      ? legalDomainRegions
+      : backend.capabilities.union === true && typeof backend.union === 'function'
+        ? backend.union(legalDomainRegions, fillRule)
+        : []
+  if (legalRegions.length === 0) {
+    return null
+  }
+
+  return backend
+    .intersection([{ polygons }], legalRegions, fillRule)
+    .flatMap((region) => region.polygons)
+}
+
 const mergeSamePaintPolygonRenderEntries = (
   entries: SolidCenterStrokeComputedRenderEntry[],
   cacheKeyPrefix: string,
@@ -4457,16 +4762,17 @@ const mergeSamePaintPolygonRenderEntries = (
   options: SolidCenterStrokeRenderEntryOptions
 ): SolidCenterStrokeComputedRenderEntry[] => {
   const primaryEntry = selectPrimaryRenderMetadataEntry(entries)
-  if (!primaryEntry || entries.length < 2) {
+  if (!primaryEntry) {
     return entries
   }
 
-  const sourcePolygons = entries.flatMap(
-    getVisibleProductPolygonsFromRenderEntry
+  const sourcePolygons = measureStrokeRenderEntryPhase(
+    'render entries: same-paint source polygons',
+    () => entries.flatMap(getVisibleProductPolygonsFromRenderEntry)
   )
-  const unionedPolygons = cleanRenderProjectionPolygons(
-    unionCoveragePolygons(sourcePolygons)
-  )
+  if (entries.length < 2 && sourcePolygons.length < 2) {
+    return entries
+  }
   const primaryStrokePosition =
     primaryEntry.debugMeta?.strokePosition ??
     primaryEntry.runtimeMeta.strokePosition
@@ -4477,37 +4783,202 @@ const mergeSamePaintPolygonRenderEntries = (
         entry.debugMeta?.strokePosition === 'outside' ||
         entry.runtimeMeta.strokePosition === 'outside'
     )
+  const preservesPostLegalityInsideWinding =
+    primaryStrokePosition === 'inside' &&
+    entries.every(
+      (entry) => (entry.runtimeMeta.legalDomainIds?.length ?? 0) > 0
+    )
+  let postLegalityCompositePolygons: Vec2[][] | null = null
+  try {
+    const backend = options.exactBackend ?? getGeometryBackend()
+    if (
+      backend.capabilities.union === true &&
+      typeof backend.union === 'function'
+    ) {
+      const compositePolygons = flattenFacePolygons(
+        backend.union(
+          [
+            {
+              polygons: preservesPostLegalityInsideWinding
+                ? sourcePolygons
+                : sourcePolygons.map(normalizeCoveragePolygonWinding)
+            }
+          ],
+          'nonzero'
+        ),
+        sourcePolygons
+      )
+      const canUseExactInsideLegalProof =
+        primaryStrokePosition === 'inside' &&
+        (options.legalDomains?.length ?? 0) > 0 &&
+        backend.capabilities.difference === true &&
+        typeof backend.difference === 'function'
+      const insideLegalFillRule =
+        options.legalDomains?.[0]?.fillRule ?? 'nonzero'
+      let provedCompositePolygons = compositePolygons
+      let exactInsideLegalViolationArea = canUseExactInsideLegalProof
+        ? measureStrokeRenderEntryPhase(
+            'render entries: same-paint exact legal proof',
+            () =>
+              getRenderProjectionLegalDomainViolationArea(
+                compositePolygons,
+                options.legalDomains ?? [],
+                'inside',
+                backend,
+                insideLegalFillRule,
+                {
+                  preserveInsideWinding:
+                    preservesPostLegalityInsideWinding,
+                  reuseSingleLegalRegion: true
+                }
+              )
+          )
+        : null
+      if (
+        exactInsideLegalViolationArea !== null &&
+        exactInsideLegalViolationArea >
+          RENDER_PROJECTION_LEGAL_VIOLATION_AREA_TOLERANCE
+      ) {
+        const clippedCompositePolygons = measureStrokeRenderEntryPhase(
+          'render entries: same-paint exact legal splitter clip',
+          () =>
+            clipSamePaintInsideCompositeToLegalDomains(
+              compositePolygons,
+              options.legalDomains ?? [],
+              backend,
+              insideLegalFillRule
+            )
+        )
+        if (clippedCompositePolygons?.length) {
+          const clippedViolationArea = measureStrokeRenderEntryPhase(
+            'render entries: same-paint exact legal splitter proof',
+            () =>
+              getRenderProjectionLegalDomainViolationArea(
+                clippedCompositePolygons,
+                options.legalDomains ?? [],
+                'inside',
+                backend,
+                insideLegalFillRule,
+                {
+                  preserveInsideWinding: true,
+                  reuseSingleLegalRegion: true
+                }
+              )
+          )
+          if (
+            clippedViolationArea <=
+            RENDER_PROJECTION_LEGAL_VIOLATION_AREA_TOLERANCE
+          ) {
+            provedCompositePolygons = clippedCompositePolygons
+            exactInsideLegalViolationArea = clippedViolationArea
+          }
+        }
+      }
+      const compositeKeepsLegalSide =
+        (options.legalDomains?.length ?? 0) === 0 ||
+        (exactInsideLegalViolationArea !== null
+          ? exactInsideLegalViolationArea <=
+            RENDER_PROJECTION_LEGAL_VIOLATION_AREA_TOLERANCE
+          : !hasRenderProjectionLegalSideSampleViolation(
+              compositePolygons,
+              options.legalDomains ?? [],
+              primaryStrokePosition
+            ))
+      const compositePreservesSeamCoverage =
+        renderProjectionPreservesSourceVertexSeamCoverage(
+          sourcePolygons,
+          provedCompositePolygons,
+          entries
+        )
+      if (
+        provedCompositePolygons.length > 0 &&
+        compositeKeepsLegalSide &&
+        compositePreservesSeamCoverage
+      ) {
+        emitStrokePipelineCounter(
+          'render-entry-post-legality-composite-proof-hit'
+        )
+        postLegalityCompositePolygons = provedCompositePolygons
+      } else if (provedCompositePolygons.length === 0) {
+        emitStrokePipelineCounter(
+          'render-entry-post-legality-composite-empty'
+        )
+      } else if (!compositeKeepsLegalSide) {
+        emitStrokePipelineCounter(
+          'render-entry-post-legality-composite-legal-side-rejected'
+        )
+      } else {
+        emitStrokePipelineCounter(
+          'render-entry-post-legality-composite-seam-rejected'
+        )
+      }
+    } else {
+      emitStrokePipelineCounter(
+        'render-entry-post-legality-composite-backend-unavailable'
+      )
+    }
+  } catch {
+    emitStrokePipelineCounter('render-entry-post-legality-composite-error')
+    // Continue through the fully proved composite route below.
+  }
+  if (entries.length === 1 && postLegalityCompositePolygons) {
+    return buildSingleSamePaintPolygonRenderEntry(
+      primaryEntry,
+      postLegalityCompositePolygons,
+      cacheKeyPrefix,
+      collapseStatus
+    )
+  }
+  const unionedPolygons =
+    postLegalityCompositePolygons ??
+    measureStrokeRenderEntryPhase(
+      'render entries: same-paint first union',
+      () => cleanRenderProjectionPolygons(unionCoveragePolygons(sourcePolygons))
+    )
   const unionedPolygonsKeepLegalSide =
+    postLegalityCompositePolygons !== null ||
     !hasOutsideLegalDomain ||
     !hasRenderProjectionLegalSideSampleViolation(
       unionedPolygons,
       options.legalDomains ?? [],
       'outside'
     )
+  const unionPreservesSeamCoverage =
+    postLegalityCompositePolygons !== null ||
+    measureStrokeRenderEntryPhase(
+      'render entries: same-paint seam proof',
+      () =>
+        renderProjectionPreservesSourceVertexSeamCoverage(
+          sourcePolygons,
+          unionedPolygons,
+          entries
+        )
+    )
   const polygons =
-    renderProjectionPreservesSourceVertexSeamCoverage(
-      sourcePolygons,
-      unionedPolygons,
-      entries
-    ) && unionedPolygonsKeepLegalSide
+    unionPreservesSeamCoverage && unionedPolygonsKeepLegalSide
       ? unionedPolygons
       : sourcePolygons.map(normalizeCoveragePolygonWinding)
   const legalPolygons =
-    (options.legalDomains?.length ?? 0) > 0
-      ? hasOutsideLegalDomain
-        ? clipRenderProjectionPolygonsToOutsideLegalDomains(
-            polygons,
-            options.legalDomains ?? [],
-            options.exactBackend ?? getGeometryBackend()
-          )
-        : clipRenderProjectionPolygonsToLegalDomains(
-            polygons,
-            options.legalDomains ?? [],
-            primaryStrokePosition,
-            'nonzero',
-            options.exactBackend ?? getGeometryBackend()
-          )
-      : polygons
+    postLegalityCompositePolygons ??
+    measureStrokeRenderEntryPhase(
+      'render entries: same-paint first legal clip',
+      () =>
+        (options.legalDomains?.length ?? 0) > 0
+          ? hasOutsideLegalDomain
+            ? clipRenderProjectionPolygonsToOutsideLegalDomains(
+                polygons,
+                options.legalDomains ?? [],
+                options.exactBackend ?? getGeometryBackend()
+              )
+            : clipRenderProjectionPolygonsToLegalDomains(
+                polygons,
+                options.legalDomains ?? [],
+                primaryStrokePosition,
+                'nonzero',
+                options.exactBackend ?? getGeometryBackend()
+              )
+          : polygons
+    )
   const finalLegalPolygons =
     hasOutsideLegalDomain &&
     hasRenderProjectionLegalSideSampleViolation(
@@ -4534,7 +5005,11 @@ const mergeSamePaintPolygonRenderEntries = (
   if (proofPreservedLegalPolygons.length === 0) {
     return []
   }
-  const sameEntryCompositePolygons = (() => {
+  const sameEntryCompositePolygons =
+    postLegalityCompositePolygons ??
+    measureStrokeRenderEntryPhase(
+      'render entries: same-paint composite union',
+      () => {
     try {
       const backend = options.exactBackend ?? getGeometryBackend()
       if (
@@ -4545,9 +5020,11 @@ const mergeSamePaintPolygonRenderEntries = (
           backend.union(
             [
               {
-                polygons: proofPreservedLegalPolygons.map(
-                  normalizeCoveragePolygonWinding
-                )
+                polygons: preservesPostLegalityInsideWinding
+                  ? proofPreservedLegalPolygons
+                  : proofPreservedLegalPolygons.map(
+                      normalizeCoveragePolygonWinding
+                    )
               }
             ],
             'nonzero'
@@ -4564,16 +5041,23 @@ const mergeSamePaintPolygonRenderEntries = (
         allowSharedEdgeLoopMerge: true
       })
     )
-  })()
+      }
+    )
   const sameEntryCompositeLegalPolygons =
-    hasOutsideLegalDomain && (options.legalDomains?.length ?? 0) > 0
-      ? clipRenderProjectionPolygonsToOutsideLegalDomains(
-          sameEntryCompositePolygons,
-          options.legalDomains ?? [],
-          options.exactBackend ?? getGeometryBackend()
-        )
-      : sameEntryCompositePolygons
+    postLegalityCompositePolygons ??
+    measureStrokeRenderEntryPhase(
+      'render entries: same-paint composite legal clip',
+      () =>
+        hasOutsideLegalDomain && (options.legalDomains?.length ?? 0) > 0
+          ? clipRenderProjectionPolygonsToOutsideLegalDomains(
+              sameEntryCompositePolygons,
+              options.legalDomains ?? [],
+              options.exactBackend ?? getGeometryBackend()
+            )
+          : sameEntryCompositePolygons
+    )
   const sameEntryCompositePreservesLegalSide =
+    postLegalityCompositePolygons !== null ||
     !hasOutsideLegalDomain ||
     !hasRenderProjectionLegalSideSampleViolation(
       sameEntryCompositeLegalPolygons,
@@ -4585,7 +5069,14 @@ const mergeSamePaintPolygonRenderEntries = (
     sameEntryCompositeLegalPolygons.length > 0
       ? sameEntryCompositeLegalPolygons
       : proofPreservedLegalPolygons
-
+  if (entries.length === 1) {
+    return buildSingleSamePaintPolygonRenderEntry(
+      primaryEntry,
+      renderPolygons,
+      cacheKeyPrefix,
+      collapseStatus
+    )
+  }
   const intervalIds = getUniqueStrings(
     entries.flatMap((entry) => [
       ...(entry.runtimeMeta.intervalIds ?? []),
@@ -4595,6 +5086,18 @@ const mergeSamePaintPolygonRenderEntries = (
         (interval) => interval.intervalId
       ) ?? [])
     ])
+  )
+  const ownerSet = getUniqueStrokeOwners(
+    entries.flatMap((entry) => entry.runtimeMeta.ownerSet ?? [])
+  )
+  const ownerStepIds = getUniqueStrings(
+    entries.flatMap((entry) => entry.runtimeMeta.ownerStepIds ?? [])
+  )
+  const terminalRoles = getUniqueStrings(
+    entries.flatMap((entry) => entry.runtimeMeta.terminalRoles ?? [])
+  ) as NonNullable<SolidCenterStrokeRuntimeMeta['terminalRoles']>
+  const seamBoundaryIds = getUniqueStrings(
+    entries.flatMap((entry) => entry.runtimeMeta.seamBoundaryIds ?? [])
   )
   const sourceSpanIds = getUniqueStrings(
     entries.flatMap((entry) => [
@@ -4624,37 +5127,60 @@ const mergeSamePaintPolygonRenderEntries = (
     (entry) => entry.debugMeta?.domainPlanSplitRangeTerminals ?? []
   )
   const dashProductIntervals = getUniqueDashProductIntervalsForRenderArray(
-    entries.flatMap((entry) =>
-      getRenderDebugMetaDashProductIntervals(
-        entry.debugMeta,
-        entry.runtimeMeta.intervalIds ?? []
+    flatMapUniqueArrayReferences(
+      entries.map((entry) =>
+        getRenderDebugMetaDashProductIntervals(
+          entry.debugMeta,
+          entry.runtimeMeta.intervalIds ?? []
+        )
       )
     )
   )
   const dashEndpointCapPolicySignatures = getUniqueStrings(
-    entries.flatMap(
+    flatMapUniqueArrayReferences(
+      entries.map(
       (entry) => entry.debugMeta?.dashEndpointCapPolicySignatures ?? []
+      )
     )
   )
   const dashEndpointCapPolicyTerminalRoles = getUniqueStrings(
-    entries.flatMap(
+    flatMapUniqueArrayReferences(
+      entries.map(
       (entry) => entry.debugMeta?.dashEndpointCapPolicyTerminalRoles ?? []
+      )
     )
   ) as NonNullable<
     SolidCenterStrokeGeometryDebugMeta['dashEndpointCapPolicyTerminalRoles']
   >
   const joinOwnershipRecords = getUniqueJoinOwnershipRecords(
-    entries.flatMap((entry) => entry.debugMeta?.joinOwnershipRecords ?? [])
+    flatMapUniqueArrayReferences(
+      entries.map((entry) => entry.debugMeta?.joinOwnershipRecords)
+    )
   )
   const joinOwnershipSignatures = getUniqueStrings(
-    entries.flatMap((entry) => entry.debugMeta?.joinOwnershipSignatures ?? [])
+    flatMapUniqueArrayReferences(
+      entries.map((entry) => entry.debugMeta?.joinOwnershipSignatures)
+    )
   )
   const smoothContinuityGroupIds = getUniqueStrings(
-    entries.flatMap((entry) => entry.debugMeta?.smoothContinuityGroupIds ?? [])
+    flatMapUniqueArrayReferences(
+      entries.map((entry) => entry.debugMeta?.smoothContinuityGroupIds)
+    )
   )
   const physicalSpanRanges = getUniquePhysicalSpanRangesForRenderArray(
-    entries.flatMap((entry) => entry.debugMeta?.physicalSpanRanges ?? [])
+    flatMapUniqueArrayReferences(
+      entries.map((entry) => entry.debugMeta?.physicalSpanRanges)
+    )
   )
+  const productEvidenceEnvelope =
+    getMergedConstrainedDashedProductEvidenceEnvelope(
+      entries.flatMap((entry) => {
+        const envelope =
+          entry.productIdentity.productEvidenceEnvelope ??
+          entry.debugMeta?.productEvidenceEnvelope
+        return envelope ? [envelope] : []
+      })
+    )
   const visualOverlapSourceFaceIds = getUniqueStrings(
     entries.flatMap((entry) =>
       entry.debugMeta?.visualOverlapSourceFaceIds?.length
@@ -4668,7 +5194,10 @@ const mergeSamePaintPolygonRenderEntries = (
     )
   )
   const mergedMeta = {
+    ownerStepIds,
     intervalIds,
+    terminalRoles,
+    seamBoundaryIds,
     sourceSpanIds,
     sourceNetworkIds,
     sourceContourIds,
@@ -4697,6 +5226,7 @@ const mergeSamePaintPolygonRenderEntries = (
         : undefined,
     physicalSpanRanges:
       physicalSpanRanges.length > 0 ? physicalSpanRanges : undefined,
+    productEvidenceEnvelope,
     visualOverlapCollapseStatus: collapseStatus,
     visualOverlapSourceFaceIds,
     visualOverlapSourceGeometryIds
@@ -4706,6 +5236,19 @@ const mergeSamePaintPolygonRenderEntries = (
     {
       ...primaryEntry,
       cacheKey: `render:${cacheKeyPrefix}:${entries.map((entry) => entry.cacheKey).join('|')}`,
+      productIdentity: {
+        primaryOwner: ownerSet[0],
+        ownerSet,
+        ownerStepIds,
+        intervalIds,
+        terminalRoles,
+        seamBoundaryIds,
+        sourceSpanIds,
+        sourceNetworkIds,
+        sourceContourIds,
+        legalDomainIds,
+        ...(productEvidenceEnvelope ? { productEvidenceEnvelope } : {})
+      },
       polygons: renderPolygons,
       fillPolygons: undefined,
       clipPolygons: undefined,
@@ -4716,7 +5259,11 @@ const mergeSamePaintPolygonRenderEntries = (
       strokePathGroups: undefined,
       runtimeMeta: {
         ...primaryEntry.runtimeMeta,
+        ownerSet,
+        ownerStepIds,
         intervalIds,
+        terminalRoles,
+        seamBoundaryIds,
         sourceSpanIds,
         sourceNetworkIds,
         sourceContourIds,
@@ -4737,7 +5284,19 @@ const findSamePaintOverlappingPolygonRenderEntryGroupIndexes = (
   entries: SolidCenterStrokeComputedRenderEntry[],
   options: SolidCenterStrokeRenderEntryOptions
 ) => {
+  const broadPhaseEntryCount = entries.filter(
+    canCompositePolygonRenderEntry
+  ).length
+  emitStrokePipelineCounter('render-entry-overlap-broad-phase-call-count')
+  emitStrokePipelineCounter(
+    'render-entry-overlap-broad-phase-entry-count',
+    broadPhaseEntryCount
+  )
   if (entries.length < 2) {
+    emitStrokePipelineCounter(
+      'render-entry-overlap-broad-phase-pair-check-count',
+      0
+    )
     return entries.map((_, index) => [index])
   }
 
@@ -4760,57 +5319,85 @@ const findSamePaintOverlappingPolygonRenderEntryGroupIndexes = (
       : getGeometryBackend()
   const renderPolygons = entries.map(getVisibleProductPolygonsFromRenderEntry)
   const renderBounds = renderPolygons.map(getBounds)
-
-  for (let leftIndex = 0; leftIndex < entries.length; leftIndex += 1) {
-    const leftEntry = entries[leftIndex]
-    if (!leftEntry || !canCompositePolygonRenderEntry(leftEntry)) {
-      continue
+  const entryIndexesByPaint = new Map<string, number[]>()
+  entries.forEach((entry, index) => {
+    if (!canCompositePolygonRenderEntry(entry)) {
+      return
     }
-    for (
-      let rightIndex = leftIndex + 1;
-      rightIndex < entries.length;
-      rightIndex += 1
-    ) {
-      const rightEntry = entries[rightIndex]
-      if (
-        !rightEntry ||
-        !canCompositePolygonRenderEntry(rightEntry) ||
-        getRenderEntryPaintSignature(leftEntry) !==
-          getRenderEntryPaintSignature(rightEntry) ||
-        !doBoundsTouchOrOverlap(
+    const paintSignature = getRenderEntryPaintSignature(entry)
+    const indexes = entryIndexesByPaint.get(paintSignature) ?? []
+    indexes.push(index)
+    entryIndexesByPaint.set(paintSignature, indexes)
+  })
+  let broadPhasePairCheckCount = 0
+
+  for (const indexes of entryIndexesByPaint.values()) {
+    const sortedIndexes = [...indexes].sort(
+      (leftIndex, rightIndex) =>
+        renderBounds[leftIndex].minX - renderBounds[rightIndex].minX ||
+        leftIndex - rightIndex
+    )
+    let activeIndexes: number[] = []
+
+    for (const rightIndex of sortedIndexes) {
+      const rightBounds = renderBounds[rightIndex]
+      activeIndexes = activeIndexes.filter(
+        (leftIndex) =>
+          renderBounds[leftIndex].maxX +
+            RENDER_PROJECTION_MICRO_EDGE_TOLERANCE >=
+          rightBounds.minX
+      )
+
+      for (const leftIndex of activeIndexes) {
+        broadPhasePairCheckCount += 1
+        if (
+          !doBoundsTouchOrOverlap(
+            renderBounds[leftIndex],
+            rightBounds,
+            RENDER_PROJECTION_MICRO_EDGE_TOLERANCE
+          )
+        ) {
+          continue
+        }
+
+        const hasBoundaryContact = polygonListsHaveBoundaryContact(
+          renderPolygons[leftIndex],
+          renderPolygons[rightIndex],
           renderBounds[leftIndex],
-          renderBounds[rightIndex],
-          RENDER_PROJECTION_MICRO_EDGE_TOLERANCE
+          rightBounds
         )
-      ) {
-        continue
+        if (hasBoundaryContact) {
+          unite(leftIndex, rightIndex)
+          continue
+        }
+
+        const exactOverlapArea = getExactPolygonListsOverlapArea(
+          renderPolygons[leftIndex],
+          renderPolygons[rightIndex],
+          exactBackend
+        )
+        const hasOverlap =
+          exactOverlapArea !== null
+            ? exactOverlapArea > EXACT_RENDER_OVERLAP_AREA_EPSILON
+            : polygonListsHaveInteriorOverlap(
+                renderPolygons[leftIndex],
+                renderPolygons[rightIndex],
+                renderBounds[leftIndex],
+                rightBounds
+              )
+        if (hasOverlap) {
+          unite(leftIndex, rightIndex)
+        }
       }
 
-      const exactOverlapArea = getExactPolygonListsOverlapArea(
-        renderPolygons[leftIndex],
-        renderPolygons[rightIndex],
-        exactBackend
-      )
-      const hasOverlap =
-        exactOverlapArea !== null
-          ? exactOverlapArea > EXACT_RENDER_OVERLAP_AREA_EPSILON
-          : polygonListsHaveInteriorOverlap(
-              renderPolygons[leftIndex],
-              renderPolygons[rightIndex],
-              renderBounds[leftIndex],
-              renderBounds[rightIndex]
-            )
-      const hasBoundaryContact = polygonListsHaveBoundaryContact(
-        renderPolygons[leftIndex],
-        renderPolygons[rightIndex],
-        renderBounds[leftIndex],
-        renderBounds[rightIndex]
-      )
-      if (hasOverlap || hasBoundaryContact) {
-        unite(leftIndex, rightIndex)
-      }
+      activeIndexes.push(rightIndex)
     }
   }
+
+  emitStrokePipelineCounter(
+    'render-entry-overlap-broad-phase-pair-check-count',
+    broadPhasePairCheckCount
+  )
 
   const groupedEntryIndexes = new Map<number, number[]>()
   entries.forEach((_, index) => {
@@ -5433,58 +6020,56 @@ const buildCollapsedRenderEntry = (
           )
         )
       : projectedPolygons
-  const legallyClippedPolygons =
-    !shouldPreserveProductPolygons && renderOptions.clipToLegalDomains === true
-      ? (() => {
-          try {
-            return clipRenderProjectionPolygonsToLegalDomains(
-              polygons,
-              options.legalDomains ?? [],
-              renderProjectionStrokePosition,
-              fillRule,
-              options.exactBackend ?? getGeometryBackend()
-            )
-          } catch {
-            return polygons
-          }
-        })()
-      : polygons
-  const conservativeSourceCoveredPolygons =
-    !shouldPreserveProductPolygons &&
-    renderOptions.clipToSourceCoverage === true &&
-    backend
-      ? clipRenderProjectionUnionToArrangementCoverage(
-          legallyClippedPolygons,
-          sourcePolygons,
-          backend,
-          { allowSharedEdgeLoopMerge: false, mergeSharedEdges: false }
-        )
-      : legallyClippedPolygons
-  const sourceCoveredPolygons =
-    !shouldPreserveProductPolygons &&
-    renderOptions.clipToSourceCoverage === true &&
-    backend
-      ? clipRenderProjectionUnionToArrangementCoverage(
-          legallyClippedPolygons,
-          sourcePolygons,
-          backend,
-          {
-            allowSharedEdgeLoopMerge:
-              renderOptions.allowSharedEdgeLoopMerge ?? false
-          }
-        )
-      : legallyClippedPolygons
-  const sourceCoveredLegalViolationArea =
-    !shouldPreserveProductPolygons &&
-    renderOptions.reclipToLegalDomainsAfterSourceCoverage === true
-      ? getRenderProjectionLegalDomainViolationArea(
-          sourceCoveredPolygons,
-          options.legalDomains ?? [],
-          renderProjectionStrokePosition,
-          backend,
-          fillRule
-        )
-      : 0
+  const legallyClippedPolygons = measureStrokeRenderEntryPhase(
+    'render projection: initial legal clip',
+    () =>
+      !shouldPreserveProductPolygons && renderOptions.clipToLegalDomains === true
+        ? (() => {
+            try {
+              return clipRenderProjectionPolygonsToLegalDomains(
+                polygons,
+                options.legalDomains ?? [],
+                renderProjectionStrokePosition,
+                fillRule,
+                options.exactBackend ?? getGeometryBackend()
+              )
+            } catch {
+              return polygons
+            }
+          })()
+        : polygons
+  )
+  const sourceCoveredPolygons = measureStrokeRenderEntryPhase(
+    'render projection: source coverage clip',
+    () =>
+      !shouldPreserveProductPolygons &&
+      renderOptions.clipToSourceCoverage === true &&
+      backend
+        ? clipRenderProjectionUnionToArrangementCoverage(
+            legallyClippedPolygons,
+            sourcePolygons,
+            backend,
+            {
+              allowSharedEdgeLoopMerge:
+                renderOptions.allowSharedEdgeLoopMerge ?? false
+            }
+          )
+        : legallyClippedPolygons
+  )
+  const sourceCoveredLegalViolationArea = measureStrokeRenderEntryPhase(
+    'render projection: source coverage legal-area proof',
+    () =>
+      !shouldPreserveProductPolygons &&
+      renderOptions.reclipToLegalDomainsAfterSourceCoverage === true
+        ? getRenderProjectionLegalDomainViolationArea(
+            sourceCoveredPolygons,
+            options.legalDomains ?? [],
+            renderProjectionStrokePosition,
+            backend,
+            fillRule
+          )
+        : 0
+  )
   const sourceCoveredHasLegalAreaViolation =
     !shouldPreserveProductPolygons &&
     renderOptions.reclipToLegalDomainsAfterSourceCoverage === true &&
@@ -5535,14 +6120,17 @@ const buildCollapsedRenderEntry = (
           }
         })()
       : legalSideFilteredSourceCoveredPolygons
-  const hasPostLegalCoverageMismatch =
-    renderOptions.requirePostLegalCoverageEquivalence === true &&
-    !areRenderProjectionCoveragesEquivalent(
-      reclippedSourceCoveredPolygons,
-      legallyClippedPolygons,
-      backend,
-      fillRule
-    )
+  const hasPostLegalCoverageMismatch = measureStrokeRenderEntryPhase(
+    'render projection: post-legal coverage proof',
+    () =>
+      renderOptions.requirePostLegalCoverageEquivalence === true &&
+      !areRenderProjectionCoveragesEquivalent(
+        reclippedSourceCoveredPolygons,
+        legallyClippedPolygons,
+        backend,
+        fillRule
+      )
+  )
   const hasPostLegalWrongSideViolation =
     renderOptions.requirePostLegalCoverageEquivalence === true &&
     (getRenderProjectionLegalDomainViolationArea(
@@ -5561,23 +6149,38 @@ const buildCollapsedRenderEntry = (
     hasPostLegalWrongSideViolation ||
     (hasPostLegalCoverageMismatch &&
       renderOptions.allowPostLegalCoverageReduction !== true)
+  const conservativeSourceCoveredPolygons = hasPostLegalCoverageViolation
+    ? !shouldPreserveProductPolygons &&
+      renderOptions.clipToSourceCoverage === true &&
+      backend
+      ? clipRenderProjectionUnionToArrangementCoverage(
+          legallyClippedPolygons,
+          sourcePolygons,
+          backend,
+          { allowSharedEdgeLoopMerge: false, mergeSharedEdges: false }
+        )
+      : legallyClippedPolygons
+    : sourceCoveredPolygons
   const visiblePolygons = hasPostLegalWrongSideViolation
     ? reclippedSourceCoveredPolygons
     : hasPostLegalCoverageViolation
       ? conservativeSourceCoveredPolygons
       : reclippedSourceCoveredPolygons
-  const finalVisiblePolygons =
-    !shouldPreserveProductPolygons &&
-    renderOptions.clipToLegalDomains === true &&
-    (options.legalDomains?.length ?? 0) > 0
-      ? clipRenderProjectionPolygonsToLegalDomains(
-          visiblePolygons,
-          options.legalDomains ?? [],
-          renderProjectionStrokePosition,
-          fillRule,
-          options.exactBackend ?? getGeometryBackend()
-        )
-      : visiblePolygons
+  const finalVisiblePolygons = measureStrokeRenderEntryPhase(
+    'render projection: final legal clip',
+    () =>
+      !shouldPreserveProductPolygons &&
+      renderOptions.clipToLegalDomains === true &&
+      (options.legalDomains?.length ?? 0) > 0
+        ? clipRenderProjectionPolygonsToLegalDomains(
+            visiblePolygons,
+            options.legalDomains ?? [],
+            renderProjectionStrokePosition,
+            fillRule,
+            options.exactBackend ?? getGeometryBackend()
+          )
+        : visiblePolygons
+  )
   const endpointCanonicalCandidate =
     renderOptions.preservePostLegalEndpointCanonicalization === false
       ? finalVisiblePolygons
@@ -5651,10 +6254,11 @@ const buildCollapsedRenderEntry = (
   if (renderEntryVisiblePolygons.length === 0) {
     return []
   }
-
   const sourceGeometryIds = getUniqueStrings(
     faces.flatMap((face) => face.sourceGeometryIds)
   )
+  const mergedProductIdentity = getMergedFinalFaceRuntimeIdentity(faces)
+  const outputProductIdentity = getMergedFinalFaceOutputProductIdentity(faces)
   const intervalIds = getMergedDebugIntervalIds(faces)
   const sourceSpanIds = getUniqueStrings(
     faces.flatMap((face) => face.sourceSpanIds)
@@ -5706,6 +6310,7 @@ const buildCollapsedRenderEntry = (
     {
       ...primaryEntry,
       cacheKey: `render:${cacheKeyPrefix}:${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`,
+      productIdentity: outputProductIdentity,
       polygons: renderEntryVisiblePolygons,
       fillPolygons: undefined,
       clipPolygons: undefined,
@@ -5716,6 +6321,7 @@ const buildCollapsedRenderEntry = (
       strokePathGroups: undefined,
       runtimeMeta: {
         ...primaryEntry.runtimeMeta,
+        ...mergedProductIdentity,
         intervalIds,
         sourceSpanIds,
         sourceNetworkIds,
@@ -5726,7 +6332,10 @@ const buildCollapsedRenderEntry = (
       debugMeta: shouldEmitFullStrokeDiagnostics()
         ? {
             ...primaryFace.debugMeta,
+            ownerStepIds: mergedProductIdentity.ownerStepIds,
             intervalIds,
+            terminalRoles: mergedProductIdentity.terminalRoles,
+            seamBoundaryIds: mergedProductIdentity.seamBoundaryIds,
             sourceSpanIds,
             sourceNetworkIds,
             sourceContourIds,
@@ -5761,12 +6370,17 @@ const buildCollapsedRenderEntry = (
                 : undefined,
             physicalSpanRanges:
               physicalSpanRanges.length > 0 ? physicalSpanRanges : undefined,
+            productEvidenceEnvelope:
+              outputProductIdentity.productEvidenceEnvelope,
             visualOverlapCollapseStatus: collapseStatus,
             visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
             visualOverlapSourceGeometryIds: sourceGeometryIds
           }
         : buildProductContractDebugMetaFromFinalFace(primaryFace, {
+            ownerStepIds: mergedProductIdentity.ownerStepIds,
             intervalIds,
+            terminalRoles: mergedProductIdentity.terminalRoles,
+            seamBoundaryIds: mergedProductIdentity.seamBoundaryIds,
             sourceSpanIds,
             sourceNetworkIds,
             sourceContourIds,
@@ -5801,6 +6415,8 @@ const buildCollapsedRenderEntry = (
                 : undefined,
             physicalSpanRanges:
               physicalSpanRanges.length > 0 ? physicalSpanRanges : undefined,
+            productEvidenceEnvelope:
+              outputProductIdentity.productEvidenceEnvelope,
             visualOverlapCollapseStatus: collapseStatus,
             visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
             visualOverlapSourceGeometryIds: sourceGeometryIds
@@ -5995,52 +6611,212 @@ const getFinalFaceGroupByIndexes = (
     return face ? [face] : []
   })
 
-const clipOutsideConstrainedDashedCompositeRenderEntriesToLegalSide = (
+const buildInsideConstrainedDashedMaskedDescriptorRenderEntry = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[],
   entries: SolidCenterStrokeComputedRenderEntry[],
-  options: SolidCenterStrokeRenderEntryOptions
-): SolidCenterStrokeComputedRenderEntry[] => {
-  if ((options.legalDomains?.length ?? 0) === 0) {
-    return entries
+  groupKey: string,
+  hasLegalDomains: boolean
+): SolidCenterStrokeComputedRenderEntry[] | null => {
+  if (!hasLegalDomains || entries.length < 2) {
+    return null
   }
 
-  return entries.flatMap((entry) => {
-    const strokePosition =
-      entry.debugMeta?.strokePosition ?? entry.runtimeMeta.strokePosition
-    if (strokePosition !== 'outside') {
-      return [entry]
-    }
+  const descriptorEntries = entries.filter(
+    (entry) =>
+      (entry.strokePathGroups?.length ?? 0) > 0 ||
+      (entry.strokePaths?.length ?? 0) > 0
+  )
+  const canonicalEntries = entries.filter(canCompositePolygonRenderEntry)
+  if (
+    descriptorEntries.length !== 1 ||
+    canonicalEntries.length === 0 ||
+    descriptorEntries.length + canonicalEntries.length !== entries.length
+  ) {
+    return null
+  }
 
-    const clippedPolygons = clipRenderProjectionPolygonsToOutsideLegalDomains(
-      entry.polygons,
-      options.legalDomains ?? [],
-      options.exactBackend ?? getGeometryBackend()
+  const descriptorEntry = descriptorEntries[0]
+  if (
+    !descriptorEntry.fillClipPolygons?.length ||
+    descriptorEntry.clipPolygons?.length ||
+    descriptorEntry.fillExcludePolygons?.length ||
+    descriptorEntry.fillPolygons?.length ||
+    entries.some(
+      (entry) =>
+        (entry.debugMeta?.strokePosition ??
+          entry.runtimeMeta.strokePosition) !== 'inside'
+    ) ||
+    entries.some(
+      (entry) =>
+        getRenderEntryPaintSignature(entry) !==
+        getRenderEntryPaintSignature(descriptorEntry)
     )
-    if (clippedPolygons.length > 0) {
-      return [
-        {
-          ...entry,
-          polygons: clippedPolygons,
-          strokeMaskPolygons: undefined
-        }
-      ]
+  ) {
+    return null
+  }
+
+  const descriptorEntryIndex = entries.indexOf(descriptorEntry)
+  const descriptorFace = faces[descriptorEntryIndex]
+  if (!descriptorFace) {
+    return null
+  }
+
+  const productIdentity = getMergedFinalFaceOutputProductIdentity(faces)
+  const runtimeIdentity = getMergedFinalFaceRuntimeIdentity(faces)
+  const productContractDebugMeta = buildProductContractDebugMetaFromFinalFace(
+    descriptorFace,
+    {
+      ownerStepIds: productIdentity.ownerStepIds,
+      intervalIds: productIdentity.intervalIds,
+      terminalRoles: productIdentity.terminalRoles,
+      seamBoundaryIds: productIdentity.seamBoundaryIds,
+      sourceSpanIds: productIdentity.sourceSpanIds,
+      sourceNetworkIds: productIdentity.sourceNetworkIds,
+      sourceContourIds: productIdentity.sourceContourIds,
+      legalDomainIds: productIdentity.legalDomainIds,
+      domainPlanSplitRangeTerminals: flatMapUniqueArrayReferences(
+        faces.map((face) => face.debugMeta?.domainPlanSplitRangeTerminals)
+      ),
+      dashProductIntervals: getUniqueDashProductIntervalsForRenderArray(
+        flatMapUniqueArrayReferences(
+          faces.map((face) =>
+            getRenderDebugMetaDashProductIntervals(
+              face.debugMeta,
+              face.intervalIds
+            )
+          )
+        )
+      ),
+      dashBodySeamBoundaries: flatMapUniqueArrayReferences(
+        faces.map((face) => face.debugMeta?.dashBodySeamBoundaries)
+      ),
+      dashEndpointCapPolicySignatures: getUniqueStrings(
+        flatMapUniqueArrayReferences(
+          faces.map(
+            (face) => face.debugMeta?.dashEndpointCapPolicySignatures
+          )
+        )
+      ),
+      dashEndpointCapPolicyTerminalRoles: getUniqueStrings(
+        flatMapUniqueArrayReferences(
+          faces.map(
+            (face) => face.debugMeta?.dashEndpointCapPolicyTerminalRoles
+          )
+        )
+      ) as NonNullable<
+        SolidCenterStrokeGeometryDebugMeta['dashEndpointCapPolicyTerminalRoles']
+      >,
+      joinOwnershipRecords: getUniqueJoinOwnershipRecords(
+        flatMapUniqueArrayReferences(
+          faces.map((face) => face.debugMeta?.joinOwnershipRecords)
+        )
+      ),
+      joinOwnershipSignatures: getUniqueStrings(
+        flatMapUniqueArrayReferences(
+          faces.map((face) => face.debugMeta?.joinOwnershipSignatures)
+        )
+      ),
+      smoothContinuityGroupIds: getUniqueStrings(
+        flatMapUniqueArrayReferences(
+          faces.map((face) => face.debugMeta?.smoothContinuityGroupIds)
+        )
+      ),
+      domainPlanBoundaryRoles: getUniqueStrings(
+        flatMapUniqueArrayReferences(
+          faces.map((face) => face.debugMeta?.domainPlanBoundaryRoles)
+        )
+      ) as NonNullable<
+        SolidCenterStrokeGeometryDebugMeta['domainPlanBoundaryRoles']
+      >,
+      domainPlanSplitRangeIds: getUniqueStrings(
+        flatMapUniqueArrayReferences(
+          faces.map((face) => face.debugMeta?.domainPlanSplitRangeIds)
+        )
+      ),
+      domainPlanSelectedSides: Array.from(
+        new Set(
+          flatMapUniqueArrayReferences(
+            faces.map((face) => face.debugMeta?.domainPlanSelectedSides)
+          )
+        )
+      ),
+      domainPlanSourceSegmentIndexes: Array.from(
+        new Set(
+          flatMapUniqueArrayReferences(
+            faces.map(
+              (face) => face.debugMeta?.domainPlanSourceSegmentIndexes
+            )
+          )
+        )
+      ),
+      physicalSpanRanges: getUniquePhysicalSpanRangesForRenderArray(
+        flatMapUniqueArrayReferences(
+          faces.map((face) => face.debugMeta?.physicalSpanRanges)
+        )
+      ),
+      productEvidenceEnvelope: productIdentity.productEvidenceEnvelope
     }
+  )
+  const visibleCanonicalMaskPolygons = canonicalEntries.flatMap(
+    (entry) => entry.polygons
+  )
+  const strokeMaskPolygons = [
+    ...(descriptorEntry.strokeMaskPolygons ?? []),
+    ...visibleCanonicalMaskPolygons
+  ]
+  if (strokeMaskPolygons.length === 0) {
+    return null
+  }
 
-    const legalPolygons = filterRenderProjectionPolygonsFullyToLegalSide(
-      entry.polygons,
-      options.legalDomains ?? [],
-      'outside'
-    )
-
-    return legalPolygons.length > 0
-      ? [
-          {
-            ...entry,
-            polygons: legalPolygons,
-            strokeMaskPolygons: undefined
-          }
-        ]
-      : []
-  })
+  emitStrokePipelineCounter(
+    'render-entry-constrained-dashed-inside-masked-descriptor-composite'
+  )
+  return [
+    {
+      ...descriptorEntry,
+      cacheKey: `render:constrained-dashed-inside-masked-descriptor:${groupKey}:${faces
+        .map((face) => face.faceId)
+        .join('|')}`,
+      productIdentity,
+      polygons: faces.flatMap((face) => face.polygons),
+      strokeMaskPolygons,
+      runtimeMeta: {
+        ...descriptorEntry.runtimeMeta,
+        ...runtimeIdentity,
+        ownerStage: 'Product Output render-entry materialization',
+        routeId: 'constrained-dashed-inside-mask-descriptor',
+        visibleContributor: 'visible strokePathGroups',
+        geometryBasis: 'declared route product contract',
+        intervalIds: productIdentity.intervalIds,
+        sourceSpanIds: productIdentity.sourceSpanIds,
+        sourceNetworkIds: productIdentity.sourceNetworkIds,
+        sourceContourIds: productIdentity.sourceContourIds,
+        legalDomainIds: productIdentity.legalDomainIds,
+        visualOverlapCollapseStatus: 'render-projection-merged'
+      },
+      debugMeta: {
+        ...productContractDebugMeta,
+        ownerStepIds: productIdentity.ownerStepIds,
+        intervalIds: productIdentity.intervalIds,
+        terminalRoles: productIdentity.terminalRoles,
+        seamBoundaryIds: productIdentity.seamBoundaryIds,
+        sourceSpanIds: productIdentity.sourceSpanIds,
+        sourceNetworkIds: productIdentity.sourceNetworkIds,
+        sourceContourIds: productIdentity.sourceContourIds,
+        legalDomainIds: productIdentity.legalDomainIds,
+        productEvidenceEnvelope: productIdentity.productEvidenceEnvelope,
+        visualOverlapCollapseStatus: 'render-projection-merged',
+        visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
+        visualOverlapSourceGeometryIds: getUniqueStrings(
+          faces.flatMap((face) => face.sourceGeometryIds)
+        )
+      },
+      preferSolidGraphics: false
+    }
+  ]
 }
 
 const collapseConstrainedDashedFinalFaceRenderEntries = (
@@ -6051,9 +6827,21 @@ const collapseConstrainedDashedFinalFaceRenderEntries = (
   options: SolidCenterStrokeRenderEntryOptions,
   groupKey: string
 ) => {
-  const entries = faces.map((face) =>
-    buildRenderEntryFromFinalFace(face, options)
+  const entries = measureStrokeRenderEntryPhase(
+    'render entries: constrained dashed face projection',
+    () => faces.map((face) => buildRenderEntryFromFinalFace(face, options))
   )
+  const entryByFace = new Map(
+    faces.flatMap((face, index) => {
+      const entry = entries[index]
+      return entry ? [[face, entry] as const] : []
+    })
+  )
+  const getEntriesForFaces = (selectedFaces: typeof faces) =>
+    selectedFaces.flatMap((face) => {
+      const entry = entryByFace.get(face)
+      return entry ? [entry] : []
+    })
   const isSmoothContinuityFace = (
     face: StrokeFinalFace<
       SolidCenterStrokeGeometryDebugMeta,
@@ -6066,26 +6854,73 @@ const collapseConstrainedDashedFinalFaceRenderEntries = (
     face.debugMeta?.smoothContinuityGroupId !== undefined ||
     (face.debugMeta?.smoothContinuityGroupIds?.length ?? 0) > 0
 
-  return findSamePaintOverlappingPolygonRenderEntryGroupIndexes(
-    entries,
-    options
-  ).flatMap((indexes) => {
+  const visibleDescriptorEntries = entries.filter(
+    (entry) =>
+      (entry.strokePathGroups?.length ?? 0) > 0 ||
+      (entry.strokePaths?.length ?? 0) > 0
+  )
+  const canonicalEntries = entries.filter(canCompositePolygonRenderEntry)
+  const insideMaskedDescriptorEntries =
+    buildInsideConstrainedDashedMaskedDescriptorRenderEntry(
+      faces,
+      entries,
+      groupKey,
+      (options.legalDomains?.length ?? 0) > 0
+    )
+  if (insideMaskedDescriptorEntries) {
+    return insideMaskedDescriptorEntries
+  }
+  const shouldBatchInsideCanonicalEntries =
+    (options.legalDomains?.length ?? 0) > 0 &&
+    visibleDescriptorEntries.length > 0 &&
+    canonicalEntries.length > 1 &&
+    visibleDescriptorEntries.length + canonicalEntries.length ===
+      entries.length &&
+    entries.every(
+      (entry) =>
+        (entry.debugMeta?.strokePosition ??
+          entry.runtimeMeta.strokePosition) === 'inside'
+    ) &&
+    entries.every(
+      (entry) =>
+        getRenderEntryPaintSignature(entry) ===
+        getRenderEntryPaintSignature(entries[0] as typeof entry)
+    )
+  if (shouldBatchInsideCanonicalEntries) {
+    const mergedCanonicalEntries = measureStrokeRenderEntryPhase(
+      'render entries: constrained dashed canonical batch',
+      () =>
+        mergeSamePaintPolygonRenderEntries(
+          canonicalEntries,
+          `constrained-dashed-inside-canonical-batch:${groupKey}`,
+          'render-projection-merged',
+          options
+        )
+    )
+    if (mergedCanonicalEntries.length === 1) {
+      const firstCanonicalEntry = canonicalEntries[0]
+      return entries.flatMap((entry) =>
+        entry === firstCanonicalEntry
+          ? mergedCanonicalEntries
+          : canCompositePolygonRenderEntry(entry)
+            ? []
+            : [entry]
+      )
+    }
+  }
+
+  const overlappingGroupIndexes = measureStrokeRenderEntryPhase(
+    'render entries: constrained dashed overlap groups',
+    () => findSamePaintOverlappingPolygonRenderEntryGroupIndexes(entries, options)
+  )
+
+  return measureStrokeRenderEntryPhase(
+    'render entries: constrained dashed group materialization',
+    () => overlappingGroupIndexes.flatMap((indexes) => {
     const faceGroup = getFinalFaceGroupByIndexes(faces, indexes)
     const entryGroup = getRenderEntryGroupByIndexes(entries, indexes)
     const hasSourceVertexJoinFace = faceGroup.some(
       isConstrainedDashedSourceVertexJoinProductFace
-    )
-    const hasRoundSourceVertexJoinFace = faceGroup.some(
-      (face) =>
-        isConstrainedDashedSourceVertexJoinProductFace(face) &&
-        (face.debugMeta?.authoredJoin === 'round' ||
-          face.debugMeta?.resolvedJoin === 'round' ||
-          face.debugMeta?.productSignature?.includes(
-            ':constrained-boundary-source-vertex:round:'
-          ) === true)
-    )
-    const hasPreArrangedMultiPolygonFace = faceGroup.some(
-      (face) => face.polygons.length > 1
     )
     const smoothContinuityFaces = faceGroup.filter(isSmoothContinuityFace)
     const nonSmoothContinuityFaces = faceGroup.filter(
@@ -6099,73 +6934,20 @@ const collapseConstrainedDashedFinalFaceRenderEntries = (
     )
     const hasSmoothContinuityFace = smoothContinuityFaces.length > 0
     const hasLegalDomains = (options.legalDomains?.length ?? 0) > 0
+    const hasTerminalIdentityFace = faceGroup.some((face) =>
+      hasTerminalDashProductIdentity(face.debugMeta)
+    )
+
+    if (hasSourceVertexJoinFace && hasLegalDomains) {
+      return mergeSamePaintPolygonRenderEntries(
+        entryGroup,
+        `constrained-dashed-source-vertex-join:${groupKey}:${indexes.join(',')}:post-legality`,
+        'render-projection-merged',
+        options
+      )
+    }
 
     if (hasSmoothContinuityFace && hasLegalDomains) {
-      if (hasSourceVertexJoinFace) {
-        const nonSmoothSourceVertexFaces = nonSmoothContinuityFaces.filter(
-          (face) => !isConstrainedDashedTerminalBodyProductFace(face)
-        )
-        const sourceVertexCompositeEntries =
-          nonSmoothSourceVertexFaces.length > 0
-            ? clipOutsideConstrainedDashedCompositeRenderEntriesToLegalSide(
-                buildCollapsedRenderEntry(
-                  nonSmoothSourceVertexFaces,
-                  options,
-                  `constrained-dashed-same-paint:${groupKey}:${indexes.join(',')}:non-smooth-source-vertex`,
-                  'render-projection-merged',
-                  'nonzero',
-                  {
-                    collapseSingleFace: true,
-                    clipToLegalDomains: true,
-                    clipToSourceCoverage: true,
-                    finalUnion: false,
-                    allowSharedEdgeLoopMerge: true,
-                    projection: 'arrangement',
-                    preservePostLegalEndpointCanonicalization:
-                      !hasRoundSourceVertexJoinFace,
-                    reclipToLegalDomainsAfterSourceCoverage: true,
-                    requirePostLegalCoverageEquivalence: true,
-                    allowPostLegalCoverageReduction: true
-                  }
-                ),
-                options
-              )
-            : []
-        const terminalBodyEntries = terminalBodyFaces.map((face) =>
-          buildRenderEntryFromFinalFace(face, options)
-        )
-        const nonSmoothCompositeEntries =
-          sourceVertexCompositeEntries.length > 0 &&
-          terminalBodyEntries.length > 0
-            ? mergeSamePaintPolygonRenderEntries(
-                [...terminalBodyEntries, ...sourceVertexCompositeEntries],
-                `constrained-dashed-same-paint:${groupKey}:${indexes.join(',')}:non-smooth-terminal`,
-                'render-projection-merged',
-                options
-              )
-            : [...sourceVertexCompositeEntries, ...terminalBodyEntries]
-        const smoothEntries =
-          smoothContinuityFaces.length > 1
-            ? buildCollapsedRenderEntry(
-                smoothContinuityFaces,
-                options,
-                `constrained-dashed-same-paint:${groupKey}:${indexes.join(',')}:smooth`,
-                'render-projection-merged',
-                'nonzero',
-                {
-                  finalUnion: false,
-                  allowSharedEdgeLoopMerge: true,
-                  projection: 'shared-edge',
-                  preservePostLegalEndpointCanonicalization: true
-                }
-              )
-            : smoothContinuityFaces.map((face) =>
-                buildRenderEntryFromFinalFace(face, options)
-              )
-
-        return [...nonSmoothCompositeEntries, ...smoothEntries]
-      }
-
       const nonSmoothEntries =
         nonTerminalNonSmoothContinuityFaces.length > 0
           ? buildCollapsedRenderEntry(
@@ -6180,20 +6962,15 @@ const collapseConstrainedDashedFinalFaceRenderEntries = (
                 clipToSourceCoverage: true,
                 finalUnion: false,
                 allowSharedEdgeLoopMerge: true,
-                projection: hasSourceVertexJoinFace ? 'arrangement' : 'union',
-                preservePostLegalEndpointCanonicalization:
-                  hasSourceVertexJoinFace
-                    ? !hasRoundSourceVertexJoinFace
-                    : true,
+                projection: 'union',
+                preservePostLegalEndpointCanonicalization: true,
                 reclipToLegalDomainsAfterSourceCoverage: hasLegalDomains,
                 requirePostLegalCoverageEquivalence: hasLegalDomains,
                 allowPostLegalCoverageReduction: hasLegalDomains
               }
             )
           : []
-      const terminalBodyEntries = terminalBodyFaces.map((face) =>
-        buildRenderEntryFromFinalFace(face, options)
-      )
+      const terminalBodyEntries = getEntriesForFaces(terminalBodyFaces)
       const nonSmoothCompositeEntries =
         nonSmoothEntries.length > 0 && terminalBodyEntries.length > 0
           ? mergeSamePaintPolygonRenderEntries(
@@ -6218,94 +6995,9 @@ const collapseConstrainedDashedFinalFaceRenderEntries = (
                 preservePostLegalEndpointCanonicalization: true
               }
             )
-          : smoothContinuityFaces.map((face) =>
-              buildRenderEntryFromFinalFace(face, options)
-            )
+          : getEntriesForFaces(smoothContinuityFaces)
 
       return [...nonSmoothCompositeEntries, ...smoothEntries]
-    }
-
-    if (
-      hasSourceVertexJoinFace &&
-      hasLegalDomains &&
-      (faceGroup.length > 1 ||
-        hasPreArrangedMultiPolygonFace ||
-        hasRoundSourceVertexJoinFace)
-    ) {
-      if (terminalBodyFaces.length > 0) {
-        const sourceVertexCompositeFaces = faceGroup.filter(
-          (face) => !isConstrainedDashedTerminalBodyProductFace(face)
-        )
-        const sourceVertexCompositeEntries =
-          sourceVertexCompositeFaces.length > 0
-            ? clipOutsideConstrainedDashedCompositeRenderEntriesToLegalSide(
-                buildCollapsedRenderEntry(
-                  sourceVertexCompositeFaces,
-                  options,
-                  `constrained-dashed-source-vertex-join:${groupKey}:${indexes.join(',')}:source-vertex`,
-                  'render-projection-merged',
-                  'nonzero',
-                  {
-                    collapseSingleFace: true,
-                    clipToLegalDomains: true,
-                    clipToSourceCoverage: true,
-                    finalUnion: false,
-                    allowSharedEdgeLoopMerge: true,
-                    projection: 'arrangement',
-                    preservePostLegalEndpointCanonicalization:
-                      !hasRoundSourceVertexJoinFace,
-                    reclipToLegalDomainsAfterSourceCoverage: true,
-                    requirePostLegalCoverageEquivalence: true,
-                    allowPostLegalCoverageReduction: true
-                  }
-                ),
-                options
-              )
-            : []
-        const terminalBodyEntries = terminalBodyFaces.map((face) =>
-          buildRenderEntryFromFinalFace(face, options)
-        )
-
-        return sourceVertexCompositeEntries.length > 0 &&
-          terminalBodyEntries.length > 0
-          ? mergeSamePaintPolygonRenderEntries(
-              [...terminalBodyEntries, ...sourceVertexCompositeEntries],
-              `constrained-dashed-source-vertex-join:${groupKey}:${indexes.join(',')}:terminal`,
-              'render-projection-merged',
-              options
-            )
-          : [...sourceVertexCompositeEntries, ...terminalBodyEntries]
-      }
-
-      const sourceVertexCompositeFaces = faceGroup
-      const sourceVertexCompositeEntries =
-        sourceVertexCompositeFaces.length > 0
-          ? clipOutsideConstrainedDashedCompositeRenderEntriesToLegalSide(
-              buildCollapsedRenderEntry(
-                sourceVertexCompositeFaces,
-                options,
-                `constrained-dashed-source-vertex-join:${groupKey}:${indexes.join(',')}`,
-                'render-projection-merged',
-                'nonzero',
-                {
-                  collapseSingleFace: true,
-                  clipToLegalDomains: true,
-                  clipToSourceCoverage: true,
-                  finalUnion: false,
-                  allowSharedEdgeLoopMerge: true,
-                  projection: 'arrangement',
-                  preservePostLegalEndpointCanonicalization:
-                    !hasRoundSourceVertexJoinFace,
-                  reclipToLegalDomainsAfterSourceCoverage: true,
-                  requirePostLegalCoverageEquivalence: true,
-                  allowPostLegalCoverageReduction: true
-                }
-              ),
-              options
-            )
-          : []
-
-      return sourceVertexCompositeEntries
     }
 
     if (hasSourceVertexJoinFace && faceGroup.length > 1) {
@@ -6318,6 +7010,14 @@ const collapseConstrainedDashedFinalFaceRenderEntries = (
     }
 
     if (entryGroup.length > 1 && hasLegalDomains && !hasSmoothContinuityFace) {
+      if (hasTerminalIdentityFace) {
+        return mergeSamePaintPolygonRenderEntries(
+          entryGroup,
+          `constrained-dashed-same-paint:${groupKey}:${indexes.join(',')}:post-legality-terminal`,
+          'render-projection-merged',
+          options
+        )
+      }
       return buildCollapsedRenderEntry(
         faceGroup,
         options,
@@ -6336,15 +7036,18 @@ const collapseConstrainedDashedFinalFaceRenderEntries = (
       )
     }
 
-    return entryGroup.length > 1
-      ? mergeSamePaintPolygonRenderEntries(
-          entryGroup,
-          `constrained-dashed-same-paint:${groupKey}`,
-          'render-projection-merged',
-          options
-        )
-      : entryGroup
-  })
+    if (entryGroup.length > 1) {
+      return mergeSamePaintPolygonRenderEntries(
+        entryGroup,
+        `constrained-dashed-same-paint:${groupKey}`,
+        'render-projection-merged',
+        options
+      )
+    }
+
+    return entryGroup
+    })
+  )
 }
 
 const getRenderDescriptorStrokePathGroups = (
@@ -6404,6 +7107,8 @@ const buildDashedCenterDescriptorRenderEntry = (
   const sourceGeometryIds = getUniqueStrings(
     faces.flatMap((face) => face.sourceGeometryIds)
   )
+  const mergedProductIdentity = getMergedFinalFaceRuntimeIdentity(faces)
+  const outputProductIdentity = getMergedFinalFaceOutputProductIdentity(faces)
   const intervalIds = getUniqueStrings(
     faces.flatMap((face) => face.intervalIds)
   )
@@ -6419,6 +7124,38 @@ const buildDashedCenterDescriptorRenderEntry = (
   const legalDomainIds = getUniqueStrings(
     faces.flatMap((face) => face.legalDomainIds)
   )
+  const domainPlanSplitRangeTerminals = faces.flatMap(
+    (face) => face.debugMeta?.domainPlanSplitRangeTerminals ?? []
+  )
+  const dashProductIntervals = getUniqueDashProductIntervalsForRenderArray(
+    faces.flatMap((face) =>
+      getRenderDebugMetaDashProductIntervals(face.debugMeta, face.intervalIds)
+    )
+  )
+  const dashEndpointCapPolicySignatures = getUniqueStrings(
+    faces.flatMap(
+      (face) => face.debugMeta?.dashEndpointCapPolicySignatures ?? []
+    )
+  )
+  const dashEndpointCapPolicyTerminalRoles = getUniqueStrings(
+    faces.flatMap(
+      (face) => face.debugMeta?.dashEndpointCapPolicyTerminalRoles ?? []
+    )
+  ) as NonNullable<
+    SolidCenterStrokeGeometryDebugMeta['dashEndpointCapPolicyTerminalRoles']
+  >
+  const joinOwnershipRecords = getUniqueJoinOwnershipRecords(
+    faces.flatMap((face) => face.debugMeta?.joinOwnershipRecords ?? [])
+  )
+  const joinOwnershipSignatures = getUniqueStrings(
+    faces.flatMap((face) => face.debugMeta?.joinOwnershipSignatures ?? [])
+  )
+  const smoothContinuityGroupIds = getUniqueStrings(
+    faces.flatMap((face) => face.debugMeta?.smoothContinuityGroupIds ?? [])
+  )
+  const physicalSpanRanges = getUniquePhysicalSpanRangesForRenderArray(
+    faces.flatMap((face) => face.debugMeta?.physicalSpanRanges ?? [])
+  )
   const strokePathGroups = faces.flatMap((face) =>
     getRenderDescriptorStrokePathGroups(
       face.renderDescriptor as SolidCenterStrokeRenderDescriptor | undefined
@@ -6427,20 +7164,80 @@ const buildDashedCenterDescriptorRenderEntry = (
   const debugMeta = shouldEmitFullStrokeDiagnostics()
     ? {
         ...primaryFace.debugMeta,
+        ownerStepIds: mergedProductIdentity.ownerStepIds,
         intervalIds,
+        terminalRoles: mergedProductIdentity.terminalRoles,
+        seamBoundaryIds: mergedProductIdentity.seamBoundaryIds,
         sourceSpanIds,
         sourceNetworkIds,
         sourceContourIds,
         legalDomainIds,
+        domainPlanSplitRangeTerminals:
+          domainPlanSplitRangeTerminals.length > 0
+            ? domainPlanSplitRangeTerminals
+            : undefined,
+        dashProductIntervals:
+          dashProductIntervals.length > 0 ? dashProductIntervals : undefined,
+        dashEndpointCapPolicySignatures:
+          dashEndpointCapPolicySignatures.length > 0
+            ? dashEndpointCapPolicySignatures
+            : undefined,
+        dashEndpointCapPolicyTerminalRoles:
+          dashEndpointCapPolicyTerminalRoles.length > 0
+            ? dashEndpointCapPolicyTerminalRoles
+            : undefined,
+        joinOwnershipRecords:
+          joinOwnershipRecords.length > 0 ? joinOwnershipRecords : undefined,
+        joinOwnershipSignatures:
+          joinOwnershipSignatures.length > 0
+            ? joinOwnershipSignatures
+            : undefined,
+        smoothContinuityGroupIds:
+          smoothContinuityGroupIds.length > 0
+            ? smoothContinuityGroupIds
+            : undefined,
+        physicalSpanRanges:
+          physicalSpanRanges.length > 0 ? physicalSpanRanges : undefined,
+        productEvidenceEnvelope: outputProductIdentity.productEvidenceEnvelope,
         visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
         visualOverlapSourceGeometryIds: sourceGeometryIds
       }
     : buildProductContractDebugMetaFromFinalFace(primaryFace, {
+        ownerStepIds: mergedProductIdentity.ownerStepIds,
         intervalIds,
+        terminalRoles: mergedProductIdentity.terminalRoles,
+        seamBoundaryIds: mergedProductIdentity.seamBoundaryIds,
         sourceSpanIds,
         sourceNetworkIds,
         sourceContourIds,
         legalDomainIds,
+        domainPlanSplitRangeTerminals:
+          domainPlanSplitRangeTerminals.length > 0
+            ? domainPlanSplitRangeTerminals
+            : undefined,
+        dashProductIntervals:
+          dashProductIntervals.length > 0 ? dashProductIntervals : undefined,
+        dashEndpointCapPolicySignatures:
+          dashEndpointCapPolicySignatures.length > 0
+            ? dashEndpointCapPolicySignatures
+            : undefined,
+        dashEndpointCapPolicyTerminalRoles:
+          dashEndpointCapPolicyTerminalRoles.length > 0
+            ? dashEndpointCapPolicyTerminalRoles
+            : undefined,
+        joinOwnershipRecords:
+          joinOwnershipRecords.length > 0 ? joinOwnershipRecords : undefined,
+        joinOwnershipSignatures:
+          joinOwnershipSignatures.length > 0
+            ? joinOwnershipSignatures
+            : undefined,
+        smoothContinuityGroupIds:
+          smoothContinuityGroupIds.length > 0
+            ? smoothContinuityGroupIds
+            : undefined,
+        physicalSpanRanges:
+          physicalSpanRanges.length > 0 ? physicalSpanRanges : undefined,
+        productEvidenceEnvelope: outputProductIdentity.productEvidenceEnvelope,
         visualOverlapSourceFaceIds: faces.map((face) => face.faceId),
         visualOverlapSourceGeometryIds: sourceGeometryIds
       })
@@ -6448,6 +7245,7 @@ const buildDashedCenterDescriptorRenderEntry = (
   return [
     {
       cacheKey: `render:dashed-center-descriptor:${primaryFace.visualPacketKey}|${sourceGeometryIds.join('|')}`,
+      productIdentity: outputProductIdentity,
       stroke: {
         kind: primaryFace.paint.kind,
         color: primaryFace.paint.color,
@@ -6480,6 +7278,7 @@ const buildDashedCenterDescriptorRenderEntry = (
         visualOverlapCollapseStatus:
           primaryFace.debugMeta?.visualOverlapCollapseStatus,
         revisionSet: primaryFace.debugMeta?.revisionSet,
+        ...mergedProductIdentity,
         intervalIds,
         sourceSpanIds,
         sourceNetworkIds,
@@ -6512,11 +7311,17 @@ const buildProjectionPacketFromFinalFace = (
     bounds,
     primaryOwner: face.ownerSet[0],
     ownerSet: face.ownerSet,
+    ownerStepIds: face.ownerStepIds,
     intervalIds: face.intervalIds,
+    terminalRoles: face.terminalRoles,
+    seamBoundaryIds: face.seamBoundaryIds,
     sourceSpanIds: face.sourceSpanIds,
     sourceNetworkIds: face.sourceNetworkIds,
     sourceContourIds: face.sourceContourIds,
     legalDomainIds: face.legalDomainIds,
+    ...(face.productEvidenceEnvelope
+      ? { productEvidenceEnvelope: face.productEvidenceEnvelope }
+      : {}),
     ...(debugMeta ? { debugMeta } : {})
   }
 }
@@ -6527,6 +7332,30 @@ const buildProjectedPacketsFromFinalFaces = (
     SolidCenterStrokePaintPacket
   >[]
 ) => faces.map(buildProjectionPacketFromFinalFace)
+
+const buildProjectedHitTestPacketsFromFinalFaces = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[]
+): SolidCenterStrokeHitTestPacket[] =>
+  buildProjectedPacketsFromFinalFaces(faces).map((packet) => ({
+    ...packet,
+    channel: 'hit-test',
+    visibility: 'hit-export'
+  }))
+
+const buildProjectedExportPacketsFromFinalFaces = (
+  faces: StrokeFinalFace<
+    SolidCenterStrokeGeometryDebugMeta,
+    SolidCenterStrokePaintPacket
+  >[]
+): SolidCenterStrokeExportPacket[] =>
+  buildProjectedPacketsFromFinalFaces(faces).map((packet) => ({
+    ...packet,
+    channel: 'export',
+    visibility: 'hit-export'
+  }))
 
 const collapseDashedCenterRenderEntries = (
   faces: StrokeFinalFace<
@@ -6585,6 +7414,27 @@ const collapseDashedCenterRenderEntries = (
 
     output.push([buildRenderEntryFromFinalFace(face, options)])
   })
+
+  const constrainedDashedGroupSizes = Array.from(
+    constrainedDashedGroups.values(),
+    (group) => group.length
+  )
+  emitStrokePipelineCounter(
+    'render-entry-constrained-dashed-face-count',
+    constrainedDashedGroupSizes.reduce((count, size) => count + size, 0)
+  )
+  emitStrokePipelineCounter(
+    'render-entry-constrained-dashed-group-count',
+    constrainedDashedGroupSizes.length
+  )
+  emitStrokePipelineCounter(
+    'render-entry-constrained-dashed-singleton-group-count',
+    constrainedDashedGroupSizes.filter((size) => size === 1).length
+  )
+  emitStrokePipelineCounter(
+    'render-entry-constrained-dashed-max-group-size',
+    Math.max(0, ...constrainedDashedGroupSizes)
+  )
 
   dashedGroups.forEach((group, groupKey) => {
     const slot = dashedGroupSlots.get(groupKey)
@@ -6649,14 +7499,14 @@ export const buildSolidCenterStrokeHitTestPacketsFromFinalFaces = (
   >[]
 ): SolidCenterStrokeHitTestPacket[] => {
   if (shouldEmitFullStrokeDiagnostics()) {
-    return buildProjectedPacketsFromFinalFaces(faces)
+    return buildProjectedHitTestPacketsFromFinalFaces(faces)
   }
   const cached = hitPacketCache.get(faces)
   if (cached) {
     return cached
   }
 
-  const packets = buildProjectedPacketsFromFinalFaces(faces)
+  const packets = buildProjectedHitTestPacketsFromFinalFaces(faces)
   hitPacketCache.set(faces, packets)
   return packets
 }
@@ -6675,14 +7525,14 @@ export const buildSolidCenterStrokeExportPacketsFromFinalFaces = (
   >[]
 ): SolidCenterStrokeExportPacket[] => {
   if (shouldEmitFullStrokeDiagnostics()) {
-    return buildProjectedPacketsFromFinalFaces(faces)
+    return buildProjectedExportPacketsFromFinalFaces(faces)
   }
   const cached = exportPacketCache.get(faces)
   if (cached) {
     return cached
   }
 
-  const packets = buildProjectedPacketsFromFinalFaces(faces)
+  const packets = buildProjectedExportPacketsFromFinalFaces(faces)
   exportPacketCache.set(faces, packets)
   return packets
 }
@@ -6738,7 +7588,11 @@ const getDescriptorRouteMode = (
     SolidCenterStrokePaintPacket
   >
 ): SolidCenterStrokeVisibleRenderPacket['descriptorRouteMode'] =>
-  face.renderDescriptor ? 'descriptor-visible-route' : 'canonical-product'
+  pickVisibleRenderDescriptor(
+    face.renderDescriptor as SolidCenterStrokeRenderDescriptor | undefined
+  )
+    ? 'descriptor-visible-route'
+    : 'canonical-product'
 
 const getHitExportEquivalenceReason = (
   face: StrokeFinalFace<
@@ -6756,7 +7610,7 @@ const buildVisibleRenderPacketFromFinalFace = (
     SolidCenterStrokePaintPacket
   >
 ): SolidCenterStrokeVisibleRenderPacket => {
-  const polygons = getRenderProductPolygonsFromFinalFace(face)
+  const polygons = face.polygons
   const debugMeta = buildProductContractDebugMetaFromFinalFace(face)
   const renderDescriptor = pickVisibleRenderDescriptor(
     face.renderDescriptor as SolidCenterStrokeRenderDescriptor | undefined
@@ -6766,7 +7620,7 @@ const buildVisibleRenderPacketFromFinalFace = (
     visibility: 'visible',
     geometryId: getProjectedGeometryId(face),
     polygons,
-    bounds: polygons === face.polygons ? face.bounds : getBounds(polygons),
+    bounds: face.bounds,
     stroke: {
       kind: face.paint.kind,
       color: face.paint.color,
@@ -6777,6 +7631,17 @@ const buildVisibleRenderPacketFromFinalFace = (
     },
     primaryOwner: face.ownerSet[0],
     ownerSet: face.ownerSet,
+    ownerStepIds: face.ownerStepIds,
+    intervalIds: face.intervalIds,
+    terminalRoles: face.terminalRoles,
+    seamBoundaryIds: face.seamBoundaryIds,
+    sourceSpanIds: face.sourceSpanIds,
+    sourceNetworkIds: face.sourceNetworkIds,
+    sourceContourIds: face.sourceContourIds,
+    legalDomainIds: face.legalDomainIds,
+    ...(face.productEvidenceEnvelope
+      ? { productEvidenceEnvelope: face.productEvidenceEnvelope }
+      : {}),
     descriptorRouteMode: getDescriptorRouteMode(face),
     ...(renderDescriptor ? { renderDescriptor } : {}),
     ...(debugMeta ? { debugMeta } : {})
@@ -6831,7 +7696,8 @@ export const emitSolidCenterStrokeProductOutputPacketsFromFinalFaces = (
   faces: StrokeFinalFace<
     SolidCenterStrokeGeometryDebugMeta,
     SolidCenterStrokePaintPacket
-  >[]
+  >[],
+  options: SolidCenterStrokeProductOutputOptions = {}
 ): SolidCenterStrokeProductOutputPackets => ({
   renderPackets: faces.map(buildVisibleRenderPacketFromFinalFace),
   hitTestPackets: buildSolidCenterStrokeHitTestPacketsFromFinalFaces(faces).map(
@@ -6850,10 +7716,12 @@ export const emitSolidCenterStrokeProductOutputPacketsFromFinalFaces = (
       equivalenceReason: getHitExportEquivalenceReason(faces[index])
     })
   ),
-  diagnosticPackets: faces.flatMap((face) => {
-    const packet = buildDiagnosticPacketFromFinalFace(face)
-    return packet ? [packet] : []
-  })
+  diagnosticPackets: options.includeDiagnostics
+    ? faces.flatMap((face) => {
+        const packet = buildDiagnosticPacketFromFinalFace(face)
+        return packet ? [packet] : []
+      })
+    : []
 })
 
 const hasVisibleDescriptorPathRoute = (
@@ -6913,6 +7781,21 @@ const buildRenderEntryFromVisibleRenderPacket = (
       descriptorProductPolygonsVisible: false,
       reason: getRenderEntryEvidenceReason(packet)
     },
+    productIdentity: {
+      primaryOwner: packet.primaryOwner,
+      ownerSet: [...packet.ownerSet],
+      ownerStepIds: [...packet.ownerStepIds],
+      intervalIds: [...packet.intervalIds],
+      terminalRoles: [...packet.terminalRoles],
+      seamBoundaryIds: [...packet.seamBoundaryIds],
+      sourceSpanIds: [...packet.sourceSpanIds],
+      sourceNetworkIds: [...packet.sourceNetworkIds],
+      sourceContourIds: [...packet.sourceContourIds],
+      legalDomainIds: [...packet.legalDomainIds],
+      ...(packet.productEvidenceEnvelope
+        ? { productEvidenceEnvelope: packet.productEvidenceEnvelope }
+        : {})
+    },
     ...(packet.debugMeta ? { debugMeta: packet.debugMeta } : {})
   }
 }
@@ -6949,8 +7832,13 @@ export const toSolidCenterStrokeRenderEntriesFromFinalFaces = (
   options: SolidCenterStrokeRenderEntryOptions = {}
 ) => {
   emitConstrainedDashedRenderDescriptorRouteCounters(faces)
+  const hasRenderEntryLegalDomains = (options.legalDomains?.length ?? 0) > 0
+  const hasConstrainedDashedSourceVertexJoinFace = faces.some(
+    isConstrainedDashedSourceVertexJoinProductFace
+  )
   const shouldUsePureConstrainedDashedDescriptorEntries =
-    canUsePureConstrainedDashedDescriptorRenderEntries(faces)
+    canUsePureConstrainedDashedDescriptorRenderEntries(faces) &&
+    !(hasRenderEntryLegalDomains && hasConstrainedDashedSourceVertexJoinFace)
   if (shouldUsePureConstrainedDashedDescriptorEntries) {
     emitStrokePipelineCounter(
       'render-entry-constrained-dashed-descriptor-route-hit'
@@ -6978,9 +7866,17 @@ export const toSolidCenterStrokeRenderEntriesFromFinalFaces = (
         isConstrainedDashedProductFace(face) &&
         face.debugMeta?.visualOverlapCollapseStatus !== undefined
     )
+  const shouldPreserveTerminalIdentityBeforeRenderEntryCollapse =
+    hasConstrainedDashedProductFace &&
+    faces.some(
+      (face) =>
+        isConstrainedDashedProductFace(face) &&
+        hasTerminalDashProductIdentity(face.debugMeta)
+    )
   const renderFaces =
     (hasConstrainedDashedProductFace &&
-      shouldReuseArrangedConstrainedDashedFaces) ||
+      (shouldReuseArrangedConstrainedDashedFaces ||
+        shouldPreserveTerminalIdentityBeforeRenderEntryCollapse)) ||
     shouldUseConstrainedDashedDescriptorEntries
       ? faces
       : measureStrokeRenderEntryPhase(

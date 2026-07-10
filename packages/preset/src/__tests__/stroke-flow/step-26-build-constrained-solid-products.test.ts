@@ -110,7 +110,7 @@ describe('stroke flow step 26: build-constrained-solid-products', () => {
     )
 
     expect(data.inspectorContractErrors).toEqual([])
-    expect(step?.refactorStatus).toMatch(/^(active|verified)$/)
+    expect(step?.refactorStatus).toMatch(/^(locked|active|verified)$/)
     if (step?.refactorStatus === 'active') {
       expect(activeSteps.map((entry) => entry.id)).toEqual([
         'build-constrained-solid-products'
@@ -187,6 +187,7 @@ describe('stroke flow step 26: build-constrained-solid-products', () => {
       strokePosition: 'inside',
       sourceStrokeWidth: 12,
       doubledCenterStrokeWidth: 24,
+      ownerStepId: 'build-constrained-solid-products',
       ownerStage: 'Stroke Geometry constrained solid product assembly'
     })
     expect(units[0].polygons.length).toBeGreaterThan(0)

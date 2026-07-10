@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { assertStrokeParameterCoverageForStep } from './stroke-parameter-coverage-test-helper'
 import { attachStrokePaintPayload } from '../../components/stroke-render/solid-center-stroke-packets'
+import { attachStrokePaintPayload as attachRegionPaintPayload } from '../../components/stroke-render/stroke-paint-payload'
+import type { StrokeRegionPacket } from '../../components/stroke-render/stroke-region-packet'
 
 type RefactorStatus = 'locked' | 'active' | 'verified'
 
@@ -54,6 +56,12 @@ const loadInspectorData = (): InspectorData => {
   return cachedInspectorData
 }
 
+const productEvidenceEnvelope = {
+  bodyProductIds: ['body:paint'],
+  terminalOwnershipOverlays: [],
+  smoothContinuityOwnershipOverlays: []
+}
+
 const geometry = {
   geometryId: 'geometry:paint',
   polygons: [
@@ -74,7 +82,8 @@ const geometry = {
   },
   debugMeta: {
     ownerStage: 'Stroke Geometry resolved packet assembly',
-    routeId: 'build-resolved-stroke-regions'
+    routeId: 'build-resolved-stroke-regions',
+    productEvidenceEnvelope
   }
 }
 
@@ -86,8 +95,8 @@ const gradientStyle = {
   ]
 }
 
-describe('stroke flow step 34: attach-paint-payload', () => {
-  it('keeps attach-paint-payload as the current or verified thirty-fourth step', () => {
+describe('stroke flow step 35: attach-paint-payload', () => {
+  it('keeps attach-paint-payload as the thirty-fifth runtime step', () => {
     const data = loadInspectorData()
     const step = data.steps.find((entry) => entry.id === 'attach-paint-payload')
     const activeSteps = data.steps.filter(
@@ -95,7 +104,7 @@ describe('stroke flow step 34: attach-paint-payload', () => {
     )
 
     expect(data.inspectorContractErrors).toEqual([])
-    expect(step?.refactorStatus).toMatch(/^(active|verified)$/)
+    expect(step?.refactorStatus).toMatch(/^(locked|active|verified)$/)
     if (step?.refactorStatus === 'active') {
       expect(activeSteps.map((entry) => entry.id)).toEqual([
         'attach-paint-payload'
@@ -110,7 +119,8 @@ describe('stroke flow step 34: attach-paint-payload', () => {
     expect(step).toMatchObject({
       ownerStage: 'Stroke Geometry paint payload attachment',
       allowedInputs: [
-        'SolidCenterStrokeResolvedPacket geometry records',
+        'ResolvedStrokeProductRecord geometry records',
+        'unchanged ConstrainedDashedProductEvidenceEnvelope',
         'renderable stroke paint fields',
         'stroke.fill-normalized paint identity',
         'geometryId for paint-to-geometry association'
@@ -118,6 +128,7 @@ describe('stroke flow step 34: attach-paint-payload', () => {
       requiredOutputs: [
         'SolidCenterStrokePaintPacket payloads',
         'resolved packets with unchanged geometry records',
+        'paint-attached records with unchanged ConstrainedDashedProductEvidenceEnvelope',
         'paint identity evidence through paintKey',
         'gradientStyle carried as paint data only'
       ],
@@ -125,7 +136,9 @@ describe('stroke flow step 34: attach-paint-payload', () => {
         'packages/preset/src/components/stroke-render/solid-center-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/dashed-center-stroke-packets.ts',
         'packages/preset/src/components/stroke-render/constrained-solid-stroke-packets.ts',
-        'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts'
+        'packages/preset/src/components/stroke-render/constrained-dashed-stroke-packets.ts',
+        'packages/preset/src/components/stroke-render/stroke-paint-payload.ts',
+        'packages/preset/src/components/stroke-render/stroke-product-evidence.ts'
       ]
     })
   })
@@ -146,6 +159,9 @@ describe('stroke flow step 34: attach-paint-payload', () => {
     expect(packets[0].geometry).toBe(geometry)
     expect(packets[0].geometry.renderDescriptor).toBe(geometry.renderDescriptor)
     expect(packets[0].geometry.debugMeta).toBe(geometry.debugMeta)
+    expect(packets[0].geometry.debugMeta.productEvidenceEnvelope).toBe(
+      productEvidenceEnvelope
+    )
     expect(packets[0].paint).toMatchObject({
       geometryId: 'geometry:paint',
       kind: 'gradient',
@@ -207,6 +223,37 @@ describe('stroke flow step 34: attach-paint-payload', () => {
     ]) {
       expect(serializedPaint).not.toContain(forbiddenField)
     }
+  })
+
+  it('preserves region owner, terminal, and seam identity while attaching paint', () => {
+    const region: StrokeRegionPacket = {
+      regionId: 'region:paint-identity',
+      sourceGeometryIds: ['geometry:paint-identity'],
+      polygons: geometry.polygons,
+      bounds: geometry.bounds,
+      ownerSet: [{ ownerKey: 'owner:paint-identity' }],
+      ownerStepIds: ['build-terminal-body-products'],
+      intervalIds: ['interval:paint-identity'],
+      terminalRoles: ['end'],
+      seamBoundaryIds: ['seam:paint-identity'],
+      sourceSpanIds: ['span:paint-identity'],
+      sourceNetworkIds: ['network:paint-identity'],
+      sourceContourIds: ['contour:paint-identity'],
+      legalDomainIds: ['legal:paint-identity']
+    }
+    const [attached] = attachRegionPaintPayload([region], {
+      color: 0x123456,
+      alpha: 0.75
+    })
+
+    expect(attached).toMatchObject({
+      ownerStepIds: ['build-terminal-body-products'],
+      intervalIds: ['interval:paint-identity'],
+      terminalRoles: ['end'],
+      seamBoundaryIds: ['seam:paint-identity'],
+      sourceSpanIds: ['span:paint-identity'],
+      legalDomainIds: ['legal:paint-identity']
+    })
   })
 
   it('returns no packets when no geometry records are emitted', () => {

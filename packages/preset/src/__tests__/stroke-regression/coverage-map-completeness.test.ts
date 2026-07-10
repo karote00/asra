@@ -182,8 +182,8 @@ describe('new stroke regression coverage map', () => {
       expect(source).toContain('test:local')
       expect(source).toContain('later phase')
     }
-    expect(spec).toMatch(/41 runtime inspector-?step unit tests/)
-    expect(spec).not.toContain('42 inspector step unit tests')
+    expect(spec).toMatch(/current runtime inspector-?step unit tests/)
+    expect(spec).not.toMatch(/41 runtime inspector-?step unit tests/)
   })
 
   it('keeps app visual and reported-case checks below the new regression matrix authority', () => {
@@ -192,7 +192,7 @@ describe('new stroke regression coverage map', () => {
     )
     const normalizedSpec = spec.replace(/\s+/g, ' ')
 
-    expect(spec).toContain('#### App Visual Matrix')
+    expect(spec).toContain('#### Explicit-Request App Visual Matrix')
     expect(normalizedSpec).toContain('not a primary regression authority')
     expect(normalizedSpec).toContain(
       'Reported cases and canonical visual groups are both regression samples inside'

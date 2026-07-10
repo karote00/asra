@@ -71,7 +71,7 @@ describe('stroke flow step 16: stage-product-cache', () => {
     )
 
     expect(data.inspectorContractErrors).toEqual([])
-    expect(step?.refactorStatus).toMatch(/^(active|verified)$/)
+    expect(step?.refactorStatus).toMatch(/^(locked|active|verified)$/)
     if (step?.refactorStatus === 'active') {
       expect(activeSteps.map((entry) => entry.id)).toEqual([
         'stage-product-cache'
@@ -118,11 +118,12 @@ describe('stroke flow step 16: stage-product-cache', () => {
       'stroke.width.toFixed(4)',
       'stroke.cap',
       'stroke.join',
-      'stroke.miterLimit.toFixed(4)',
+      'stroke.miterAngle.toFixed(4)',
       '[stroke.dash, stroke.gap].map'
     ]) {
       expect(signatureSource).toContain(requiredToken)
     }
+    expect(signatureSource).not.toContain('stroke.miterLimit')
   })
 
   it('keeps display-only paint format fields out of product and paint cache keys', () => {
@@ -205,6 +206,36 @@ describe('stroke flow step 16: stage-product-cache', () => {
     ]) {
       expect(source).not.toContain(forbiddenToken)
     }
+  })
+
+  it('bounds cached semantic products with deterministic LRU eviction', () => {
+    const source = readRepoFile(vectorComponentSourcePath)
+    const hitSource = extractBetween(
+      source,
+      '  const cachedProduct =',
+      '  emitStrokePipelineCounter(\n    stageCache.products.size > 0'
+    )
+    const storeSource = extractBetween(
+      source,
+      '  if (\n    !shouldAttachFullStrokeDiagnostics &&\n    canUseStrokeProductGeometryCache',
+      "  measureVectorRenderPhase('mesh render', () =>"
+    )
+
+    expect(source).toContain(
+      'const STROKE_PIPELINE_STAGE_PRODUCT_CACHE_LIMIT = 8'
+    )
+    expect(hitSource).toContain(
+      'stageCache.products.delete(strokeProductGeometrySignature)'
+    )
+    expect(hitSource).toContain(
+      'stageCache.products.set(strokeProductGeometrySignature, cachedProduct)'
+    )
+    expect(storeSource).toContain(
+      'stageCache.products.size > STROKE_PIPELINE_STAGE_PRODUCT_CACHE_LIMIT'
+    )
+    expect(storeSource).toContain(
+      'stroke-stage-cache:product-geometry-evict'
+    )
   })
 
   it('keeps hidden output as an output-channel clear without rebuilding geometry', () => {

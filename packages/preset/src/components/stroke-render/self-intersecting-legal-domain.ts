@@ -95,12 +95,12 @@ const measureSelfIntersectingPhase = <T>(
 ): T => {
   const sink = (
     globalThis as typeof globalThis & {
-      __asyraVectorRenderPhaseSink?: (
+      __asyraVectorRenderDetailPhaseSink?: (
         phaseName: string,
         durationMs: number
       ) => void
     }
-  ).__asyraVectorRenderPhaseSink
+  ).__asyraVectorRenderDetailPhaseSink
   if (!sink) {
     return run()
   }
@@ -315,6 +315,10 @@ const splitTracedSegmentsByIntersectionsInternal = <
     options.segmentSignatures ??
     segments.map((segment) => getTracedSegmentSignature(segment))
   const pairEntries = new Map<string, SelfIntersectionPairCacheEntry>()
+  let pairCacheSignatureHitCount = 0
+  let pairCacheHitCount = 0
+  let pairCacheMissCount = 0
+  let consecutivePairSkippedCount = 0
   const previousSegmentSignatures = options.previousCache?.segmentSignatures
   const canReusePreviousPairs = previousSegmentSignatures !== undefined
   if (canReusePreviousPairs) {
@@ -362,9 +366,9 @@ const splitTracedSegmentsByIntersectionsInternal = <
         rightParams
       })
       if (currentPairKey !== pairKey) {
-        emitStrokePipelineCounter('self-intersection-pair-cache-signature-hit')
+        pairCacheSignatureHitCount += 1
       }
-      emitStrokePipelineCounter('self-intersection-pair-cache-hit')
+      pairCacheHitCount += 1
     })
   }
 
@@ -397,7 +401,7 @@ const splitTracedSegmentsByIntersectionsInternal = <
         segments[rightIndex]
       )
     ) {
-      emitStrokePipelineCounter('self-intersection-consecutive-pair-skipped')
+      consecutivePairSkippedCount += 1
       return
     }
 
@@ -412,11 +416,11 @@ const splitTracedSegmentsByIntersectionsInternal = <
       splitParams[leftIndex].push(...cachedPair.leftParams)
       splitParams[rightIndex].push(...cachedPair.rightParams)
       pairEntries.set(pairKey, cachedPair)
-      emitStrokePipelineCounter('self-intersection-pair-cache-hit')
+      pairCacheHitCount += 1
       return
     }
 
-    emitStrokePipelineCounter('self-intersection-pair-cache-miss')
+    pairCacheMissCount += 1
     const intersection = segmentIntersection(
       segments[leftIndex],
       segments[rightIndex]
@@ -483,6 +487,31 @@ const splitTracedSegmentsByIntersectionsInternal = <
       }
       processPair(leftIndex, rightIndex)
     }
+  }
+
+  if (pairCacheSignatureHitCount > 0) {
+    emitStrokePipelineCounter(
+      'self-intersection-pair-cache-signature-hit',
+      pairCacheSignatureHitCount
+    )
+  }
+  if (pairCacheHitCount > 0) {
+    emitStrokePipelineCounter(
+      'self-intersection-pair-cache-hit',
+      pairCacheHitCount
+    )
+  }
+  if (pairCacheMissCount > 0) {
+    emitStrokePipelineCounter(
+      'self-intersection-pair-cache-miss',
+      pairCacheMissCount
+    )
+  }
+  if (consecutivePairSkippedCount > 0) {
+    emitStrokePipelineCounter(
+      'self-intersection-consecutive-pair-skipped',
+      consecutivePairSkippedCount
+    )
   }
 
   const result: TracedLineSegment[] = []

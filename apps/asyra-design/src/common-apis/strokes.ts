@@ -14,6 +14,7 @@ import { isEqual } from 'lodash'
 import { STROKE_PATCH_KEYS, type StrokeWritableKey } from '../constants'
 import core from '../contexts'
 import { calculateVectorBounds } from './element/vector-geometry'
+import { transactionApis } from './transaction'
 
 export type StrokePatch = Partial<Pick<StrokeAttrs, StrokeWritableKey>>
 
@@ -126,26 +127,31 @@ export const strokeApis = {
       return
     }
 
-    const vectorBoundsRepairPatch = hasGeometryAffectingStrokePatch(patch)
-      ? getVectorBoundsRepairPatch(elementId)
-      : null
-    if (vectorBoundsRepairPatch) {
-      core.changeComputedData([elementId], vectorBoundsRepairPatch, options)
-    }
+    transactionApis.startTransaction()
+    try {
+      const vectorBoundsRepairPatch = hasGeometryAffectingStrokePatch(patch)
+        ? getVectorBoundsRepairPatch(elementId)
+        : null
+      if (vectorBoundsRepairPatch) {
+        core.changeComputedData([elementId], vectorBoundsRepairPatch, options)
+      }
 
-    changedEntries.forEach(([key, value]) => {
-      updateStrokePropertyById(
-        strokeId,
-        key,
-        value,
-        {
-          ownerElementId: elementId,
-          ownerPropertyName: PropertyTypes.STROKES
-        },
-        options
-      )
-    })
-    core.commitPropertyChanges(options)
+      changedEntries.forEach(([key, value]) => {
+        updateStrokePropertyById(
+          strokeId,
+          key,
+          value,
+          {
+            ownerElementId: elementId,
+            ownerPropertyName: PropertyTypes.STROKES
+          },
+          options
+        )
+      })
+      core.commitPropertyChanges(options)
+    } finally {
+      transactionApis.endTransaction()
+    }
   },
 
   updateStrokeField: <K extends StrokeWritableKey>(

@@ -214,6 +214,10 @@ const expectedCoverageByStep: Record<
     ],
     'consume'
   ),
+  'derive-dash-body-seam-boundaries': coverageFor([
+    'preserve',
+    'output-metadata'
+  ]),
   'build-source-vertex-join-products': withRoles(
     withRoles(baseForbiddenCoverage, dashParameterIds, [
       'preserve',
@@ -228,17 +232,10 @@ const expectedCoverageByStep: Record<
     ],
     'consume'
   ),
-  'build-terminal-body-products': withRoles(
-    withRoles(baseForbiddenCoverage, joinParameterIds, 'preserve'),
-    [
-      'stroke.position',
-      'stroke.width',
-      'stroke.dash',
-      'stroke.gap',
-      'stroke.capType'
-    ],
-    'consume'
-  ),
+  'build-terminal-body-products': coverageFor([
+    'preserve',
+    'output-metadata'
+  ]),
   'build-smooth-continuity-products': withRoles(
     withRoles(baseForbiddenCoverage, joinParameterIds, 'forbid'),
     [
@@ -271,8 +268,7 @@ const expectedCoverageByStep: Record<
   'emit-render-hit-export-packets': baseOutputMetadataCoverage,
   'render-entries': coverageFor(['preserve', 'output-metadata']),
   'renderer-projection': coverageFor(['preserve', 'forbid']),
-  'hit-export': coverageFor(['preserve', 'output-metadata']),
-  'runtime-diagnostics': baseOutputMetadataCoverage
+  'hit-export': coverageFor(['preserve', 'output-metadata'])
 }
 
 let cachedInspectorData: InspectorData | null = null

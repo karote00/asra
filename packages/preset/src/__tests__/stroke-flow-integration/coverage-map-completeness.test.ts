@@ -1,10 +1,12 @@
+import { readFileSync, readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   requiredBypassOrClassificationRouteIds,
-  strokeIntegrationCoverageMap
+  strokeIntegrationCoverageMap,
+  type StrokeIntegrationCoverageCase
 } from './stroke-integration-coverage-map'
 
 interface InspectorRoute {
@@ -46,6 +48,10 @@ const require = createRequire(import.meta.url)
 const inspectorPath = resolve(
   repoRoot,
   'docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js'
+)
+const integrationTestRoot = resolve(
+  repoRoot,
+  'packages/preset/src/__tests__/stroke-flow-integration'
 )
 
 let cachedInspectorData: InspectorData | null = null
@@ -93,6 +99,8 @@ describe('new stroke integration coverage map', () => {
     expect(data.routeContractErrors).toEqual([])
     expect(data.inspectorContractErrors).toEqual([])
     expect(data.steps).toHaveLength(41)
+    expect(data.steps[27]?.id).toBe('derive-dash-body-seam-boundaries')
+    expect(data.steps.at(-1)?.id).toBe('hit-export')
     expect(data.conditionalRoutes).toHaveLength(67)
     expect(routeIds).toEqual(expectedRouteIds)
     expect(routeIds).not.toContain('visible-final-result')
@@ -120,7 +128,7 @@ describe('new stroke integration coverage map', () => {
       .map((rule) => rule.coExecutionGroup)
       .sort()
 
-    expect(data.coExecutionCompletionRules).toHaveLength(9)
+    expect(data.coExecutionCompletionRules).toHaveLength(7)
     expect(coveredCoExecutionGroups()).toEqual(expectedCoExecutionGroups)
 
     for (const rule of data.coExecutionCompletionRules) {
@@ -168,7 +176,7 @@ describe('new stroke integration coverage map', () => {
     for (const entry of strokeIntegrationCoverageMap) {
       expect(entry.id).toMatch(/^[a-z0-9-]+$/)
       expect(entry.stepRange[0]).toBeGreaterThanOrEqual(1)
-      expect(entry.stepRange[1]).toBeLessThanOrEqual(41)
+      expect(entry.stepRange[1]).toBeLessThanOrEqual(data.steps.length)
       expect(entry.stepRange[0]).toBeLessThanOrEqual(entry.stepRange[1])
       expect(entry.stepIds.length, entry.id).toBeGreaterThan(0)
       expect(entry.routeIds.length, entry.id).toBeGreaterThan(0)
@@ -196,6 +204,99 @@ describe('new stroke integration coverage map', () => {
         expect(specRuleRef).toContain(
           'docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md#'
         )
+      }
+    }
+  })
+
+  it('maps focused integration files one-to-one to the six whole-flow review families', () => {
+    const data = loadInspectorData() as InspectorData & {
+      wholeFlowReviewContract: {
+        reviewSegments: { id: string }[]
+      }
+    }
+    const contracts = strokeIntegrationCoverageMap as readonly (StrokeIntegrationCoverageCase & {
+      reviewSegmentId?: string
+      testFile?: string
+      artifactChannels?: readonly string[]
+      focusedGate?: string
+    })[]
+    const expectedSegmentIds = data.wholeFlowReviewContract.reviewSegments.map(
+      (segment) => segment.id
+    )
+    const behaviorTestFiles = readdirSync(integrationTestRoot)
+      .filter(
+        (file) =>
+          file.endsWith('.test.ts') && file !== 'coverage-map-completeness.test.ts'
+      )
+      .map((file) =>
+        `packages/preset/src/__tests__/stroke-flow-integration/${file}`
+      )
+      .sort()
+
+    expect(new Set(contracts.map((entry) => entry.reviewSegmentId))).toEqual(
+      new Set(expectedSegmentIds)
+    )
+    expect(behaviorTestFiles).toHaveLength(expectedSegmentIds.length)
+    expect(new Set(contracts.map((entry) => entry.testFile))).toEqual(
+      new Set(behaviorTestFiles)
+    )
+
+    const artifactChannelById = new Map(
+      data.artifactRegistry.map((artifact) => [artifact.id, artifact.channel])
+    )
+    for (const entry of contracts) {
+      expect(entry.reviewSegmentId, entry.id).toBeTruthy()
+      expect(entry.testFile, entry.id).toBeTruthy()
+      expect(entry.artifactChannels?.length, entry.id).toBeGreaterThan(0)
+      expect(entry.focusedGate, entry.id).toBe(
+        `yarn workspace @asyra/preset vitest run ${entry.testFile?.replace(
+          'packages/preset/',
+          ''
+        )} --reporter=dot`
+      )
+      expect(entry.artifactChannels, entry.id).toEqual(
+        unique(
+          entry.artifactIds.map((artifactId) => {
+            const channel = artifactChannelById.get(artifactId)
+            expect(channel, `${entry.id}:${artifactId}`).toBeTruthy()
+            return channel as string
+          })
+        )
+      )
+    }
+  })
+
+  it('requires every integration behavior test to register a mapped coverage case', () => {
+    const contractsById = new Map(
+      strokeIntegrationCoverageMap.map((entry) => [entry.id, entry])
+    )
+    const behaviorTestFiles = readdirSync(integrationTestRoot)
+      .filter(
+        (file) =>
+          file.endsWith('.test.ts') && file !== 'coverage-map-completeness.test.ts'
+      )
+      .sort()
+
+    for (const file of behaviorTestFiles) {
+      const repoPath =
+        `packages/preset/src/__tests__/stroke-flow-integration/${file}`
+      const source = readFileSync(resolve(integrationTestRoot, file), 'utf8')
+      const caseIds = [...source.matchAll(/integrationCase\(\s*['"]([^'"]+)/g)].map(
+        (match) => match[1]
+      )
+
+      expect(source, repoPath).not.toMatch(/\bit(?:\.each)?\(/)
+      expect(caseIds.length, repoPath).toBeGreaterThan(0)
+      for (const caseId of caseIds) {
+        const contract = contractsById.get(caseId)
+        expect(contract, `${repoPath}:${caseId}`).toBeDefined()
+        expect(contract?.testFile, `${repoPath}:${caseId}`).toBe(repoPath)
+        expect(contract?.specRuleRefs.length, caseId).toBeGreaterThan(0)
+        expect(contract?.stepIds.length, caseId).toBeGreaterThan(0)
+        expect(contract?.routeIds.length, caseId).toBeGreaterThan(0)
+        expect(contract?.artifactIds.length, caseId).toBeGreaterThan(0)
+        expect(contract?.artifactChannels.length, caseId).toBeGreaterThan(0)
+        expect(contract?.focusedGate, caseId).toContain(file)
       }
     }
   })

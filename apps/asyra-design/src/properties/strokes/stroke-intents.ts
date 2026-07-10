@@ -1,28 +1,64 @@
 import type { StrokeAttrs } from '@asyra/utils'
 
+export type StrokeStyleIntentKey =
+  | 'style'
+  | 'position'
+  | 'width'
+  | 'dash'
+  | 'gap'
+  | 'capType'
+  | 'joinType'
+  | 'miterAngle'
+
+export type StrokeStyleIntentPatch = Partial<
+  Pick<StrokeAttrs, StrokeStyleIntentKey>
+>
+
+const STROKE_STYLE_INTENT_KEYS = new Set<StrokeStyleIntentKey>([
+  'style',
+  'position',
+  'width',
+  'dash',
+  'gap',
+  'capType',
+  'joinType',
+  'miterAngle'
+])
+
 export interface StrokeStyleIntent {
   kind: 'stroke-style-intent'
   routeId: 'feature-session-intent'
   ownerStage: 'Interaction'
   strokeId: string
   ownerElementId: string
-  patch: {
-    joinType: StrokeAttrs['joinType']
-  }
+  patch: StrokeStyleIntentPatch
 }
 
-export const createStrokeJoinTypeIntent = ({
+export const createStrokeStyleIntent = ({
   stroke,
   strokeId,
   ownerElementId,
-  nextJoin
+  patch
 }: {
   stroke: StrokeAttrs | null
   strokeId: string
   ownerElementId: string | null
-  nextJoin: StrokeAttrs['joinType']
+  patch: StrokeStyleIntentPatch
 }): StrokeStyleIntent | null => {
-  if (!stroke || !strokeId || !ownerElementId || stroke.joinType === nextJoin) {
+  if (!stroke || !strokeId || !ownerElementId) {
+    return null
+  }
+
+  const entries = Object.entries(patch).filter(
+    (entry): entry is [StrokeStyleIntentKey, StrokeAttrs[StrokeStyleIntentKey]] =>
+      entry[1] !== undefined
+  )
+  if (entries.length !== 1) {
+    return null
+  }
+
+  const [key, nextValue] = entries[0]
+  if (!STROKE_STYLE_INTENT_KEYS.has(key) || Object.is(stroke[key], nextValue)) {
     return null
   }
 
@@ -33,7 +69,7 @@ export const createStrokeJoinTypeIntent = ({
     strokeId,
     ownerElementId,
     patch: {
-      joinType: nextJoin
+      [key]: nextValue
     }
   }
 }

@@ -5,7 +5,6 @@ import {
   ROUND_STROKE_CAP_ARC_SAMPLING,
   buildRoundStrokeArcPointsBetween,
   dedupeClosed,
-  distance,
   isSimpleClosedPolygon,
   normalize,
   polygonArea,
@@ -45,7 +44,11 @@ const MIN_POLYGON_AREA = 1e-4
 
 const cross = (a: Vec2, b: Vec2) => a.x * b.y - a.y * b.x
 
-const dot = (a: Vec2, b: Vec2) => a.x * b.x + a.y * b.y
+const distanceSquared = (a: Vec2, b: Vec2) => {
+  const dx = a.x - b.x
+  const dy = a.y - b.y
+  return dx * dx + dy * dy
+}
 
 const leftNormal = (tangent: Vec2) => ({ x: -tangent.y, y: tangent.x })
 
@@ -78,7 +81,7 @@ const dedupeAdjacentPoints = (points: Vec2[]) => {
   const result: Vec2[] = []
   points.forEach((point) => {
     const previous = result[result.length - 1]
-    if (!previous || distance(previous, point) > EPSILON) {
+    if (!previous || distanceSquared(previous, point) > EPSILON * EPSILON) {
       result.push(point)
     }
   })
@@ -100,13 +103,21 @@ const simplifyRail = (points: Vec2[]) => {
       return
     }
 
-    const previousDirection = normalize(subtract(previous, beforePrevious))
-    const nextDirection = normalize(subtract(point, previous))
+    const previousDx = previous.x - beforePrevious.x
+    const previousDy = previous.y - beforePrevious.y
+    const nextDx = point.x - previous.x
+    const nextDy = point.y - previous.y
+    const previousLengthSquared =
+      previousDx * previousDx + previousDy * previousDy
+    const nextLengthSquared = nextDx * nextDx + nextDy * nextDy
+    const crossProduct = previousDx * nextDy - previousDy * nextDx
+    const dotProduct = previousDx * nextDx + previousDy * nextDy
     if (
-      previousDirection &&
-      nextDirection &&
-      Math.abs(cross(previousDirection, nextDirection)) <= EPSILON &&
-      dot(previousDirection, nextDirection) > 0
+      previousLengthSquared > EPSILON * EPSILON &&
+      nextLengthSquared > EPSILON * EPSILON &&
+      crossProduct * crossProduct <=
+        EPSILON * EPSILON * previousLengthSquared * nextLengthSquared &&
+      dotProduct > 0
     ) {
       simplified[simplified.length - 1] = point
       return
@@ -174,7 +185,11 @@ const resolveMiterPoint = (
   }
 
   const maxDistance = stroke.miterLimit * (stroke.width / 2)
-  if (distance(point, intersection) > maxDistance + EPSILON) {
+  const maxDistanceWithTolerance = maxDistance + EPSILON
+  if (
+    distanceSquared(point, intersection) >
+    maxDistanceWithTolerance * maxDistanceWithTolerance
+  ) {
     return {
       x: (previousEnd.x + nextStart.x) / 2,
       y: (previousEnd.y + nextStart.y) / 2
@@ -425,7 +440,7 @@ const clipPolygonsToSuppressedEndpointCaps = (
   const endTangent =
     options.suppressEndCap === true ? getFrameTangent(frames, endIndex) : null
 
-  if (!startEndpoint && !endEndpoint) {
+  if (!startTangent && !endTangent) {
     return polygons
   }
 
@@ -548,9 +563,8 @@ export const buildDashedCenterRibbonGeometry = (
         ]
       : [...left, ...[...right].reverse()]
 
-  const polygon = dedupeClosed(outline)
   const outlinePolygons = clipPolygonsToSuppressedEndpointCaps(
-    normalizeOutputPolygons([polygon]),
+    normalizeOutputPolygons([outline]),
     frames,
     options
   )

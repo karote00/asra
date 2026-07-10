@@ -1,5 +1,4 @@
-import { writeFile } from 'node:fs/promises'
-import { expect, type Page, type TestInfo } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 import {
   createVectorPath,
   fillStrokeDashAndGap,
@@ -151,6 +150,8 @@ const DEBUG_SCENARIO_FILTERS = DEBUG_SCENARIO_FILTER.split(',')
   .filter(Boolean)
 const SHOULD_ENFORCE_120FPS =
   process.env.ASYRA_STROKE_DRAG_E2E_ENFORCE_120FPS === '1'
+const SHOULD_COLLECT_DETAIL_PHASES =
+  process.env.ASYRA_STROKE_DRAG_E2E_DETAIL_PHASES === '1'
 const MOVE_VECTOR_SCENARIO_LABEL = 'move-vector:center-solid-round'
 const STROKE_OPACITY_PERCENT = '50'
 const STROKE_WIDTH = 10
@@ -355,7 +356,7 @@ const getPercentile = (values: number[], percentile: number) => {
 }
 
 const installFrameProfiler = (page: Page, dragFrameId: string) =>
-  page.evaluate((frameId) => {
+  page.evaluate(({ frameId, collectDetailPhases }) => {
     interface FrameProfileState {
       phases: {
         phaseName: string
@@ -385,13 +386,16 @@ const installFrameProfiler = (page: Page, dragFrameId: string) =>
           phaseName: string,
           durationMs: number
         ) => void
+        __asyraVectorRenderDetailPhaseSink?: (
+          phaseName: string,
+          durationMs: number
+        ) => void
         __asyraStrokePipelineCounterSink?: (
           counterName: string,
           value: number
         ) => void
       }
     ).__asyraStrokeDragFrameProfile = state
-
     const recordPhase = (phaseName: string, durationMs: number) => {
       const endMs = performance.now()
       state.phases.push({
@@ -401,7 +405,29 @@ const installFrameProfiler = (page: Page, dragFrameId: string) =>
         endMs
       })
     }
+    const requiredCounterNames = new Set([
+      'vector-api-commit-enter-count',
+      'vector-api-commit-patch-key-count-observed',
+      'computed-mirror-commit-count',
+      'constrained-dashed-butt-drag-resolved-geometry-fill-only',
+      'product-render-per-render-frame',
+      'render-frame-count',
+      'render-frame-id',
+      'dirty-change-count',
+      'dirty-element-count',
+      'dirty-change-coalesced-count',
+      'render-entry-constrained-dashed-face-count',
+      'render-entry-constrained-dashed-group-count',
+      'render-entry-constrained-dashed-singleton-group-count',
+      'render-entry-constrained-dashed-max-group-size',
+      'render-entry-overlap-broad-phase-call-count',
+      'render-entry-overlap-broad-phase-entry-count',
+      'render-entry-overlap-broad-phase-pair-check-count'
+    ])
     const recordCounter = (counterName: string, value = 1) => {
+      if (!collectDetailPhases && !requiredCounterNames.has(counterName)) {
+        return
+      }
       state.counters[counterName] = (state.counters[counterName] ?? 0) + value
     }
 
@@ -431,13 +457,23 @@ const installFrameProfiler = (page: Page, dragFrameId: string) =>
     ).__asyraVectorRenderPhaseSink = recordPhase
     ;(
       window as typeof window & {
+        __asyraVectorRenderDetailPhaseSink?: (
+          phaseName: string,
+          durationMs: number
+        ) => void
+      }
+    ).__asyraVectorRenderDetailPhaseSink = collectDetailPhases
+      ? recordPhase
+      : undefined
+    ;(
+      window as typeof window & {
         __asyraStrokePipelineCounterSink?: (
           counterName: string,
           value: number
         ) => void
       }
     ).__asyraStrokePipelineCounterSink = recordCounter
-  }, dragFrameId)
+  }, { frameId: dragFrameId, collectDetailPhases: SHOULD_COLLECT_DETAIL_PHASES })
 
 const collectPaintFrameProfiler = (
   page: Page,
@@ -565,10 +601,12 @@ const uninstallFrameProfiler = (page: Page) =>
       __asyraStrokeDragFrameProfile?: unknown
       __asyraBrowserDragPhaseSink?: unknown
       __asyraVectorRenderPhaseSink?: unknown
+      __asyraVectorRenderDetailPhaseSink?: unknown
       __asyraStrokePipelineCounterSink?: unknown
     }
     win.__asyraBrowserDragPhaseSink = undefined
     win.__asyraVectorRenderPhaseSink = undefined
+    win.__asyraVectorRenderDetailPhaseSink = undefined
     win.__asyraStrokePipelineCounterSink = undefined
     win.__asyraStrokeDragFrameProfile = undefined
   })
@@ -2078,6 +2116,36 @@ const captureSelectedElementStrokeDiagnostics = async (page: Page) => {
         null,
       childCount: entry?.container?.children?.length ?? null
     }))
+    const strokeRenderEntries = Array.from(
+      graphic?.__asyraStrokeRenderEntries ?? []
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ).map((entry: Record<string, any>) => {
+      const polygonPoints = (entry.polygons ?? []).flat()
+      return {
+        cacheKey: entry.cacheKey,
+        polygonCount: entry.polygons?.length ?? 0,
+        polygonPointCount: polygonPoints.length,
+        polygonBounds:
+          polygonPoints.length > 0
+            ? {
+                minX: Math.min(...polygonPoints.map((point) => point.x)),
+                minY: Math.min(...polygonPoints.map((point) => point.y)),
+                maxX: Math.max(...polygonPoints.map((point) => point.x)),
+                maxY: Math.max(...polygonPoints.map((point) => point.y))
+              }
+            : null,
+        paint: entry.stroke,
+        strokeMaskPolygonCount: entry.strokeMaskPolygons?.length ?? 0,
+        fillClipPolygonCount: entry.fillClipPolygons?.length ?? 0,
+        fillExcludePolygonCount: entry.fillExcludePolygons?.length ?? 0,
+        strokePathCount: entry.strokePaths?.length ?? 0,
+        strokePathGroupCount: entry.strokePathGroups?.length ?? 0,
+        routeId: entry.debugMeta?.routeId,
+        ownerStage: entry.debugMeta?.ownerStage,
+        visibleContributor: entry.debugMeta?.visibleContributor,
+        productMode: entry.debugMeta?.productMode
+      }
+    })
     return {
       selectedId,
       pathEditingVectorId: core?.getSystemProperty?.('pathEditingVectorId'),
@@ -2120,7 +2188,10 @@ const captureSelectedElementStrokeDiagnostics = async (page: Page) => {
               graphic.__asyraCenterPathSolidStrokeRenderCount ?? null,
             centerSolidPathMaskRenderCount:
               graphic.__asyraCenterSolidPathMaskRenderCount ?? null,
-            cacheEntries
+            cacheEntries,
+            strokeRenderEntries,
+            strokeRenderFaceDebugMetas:
+              graphic.__asyraStrokeRenderFaceDebugMetas ?? []
           }
         : null,
       renderKeys: Object.keys(core?.deps?.render ?? {}),
@@ -2159,7 +2230,7 @@ const startRenderPipelineDiagnostics = async (page: Page) => {
       phases: {},
       counters: {}
     }
-    target.__asyraVectorRenderPhaseSink = (
+    const recordPhase = (
       phaseName: string,
       durationMs: number
     ) => {
@@ -2167,6 +2238,8 @@ const startRenderPipelineDiagnostics = async (page: Page) => {
       diagnostics.phases[phaseName] =
         (diagnostics.phases[phaseName] ?? 0) + durationMs
     }
+    target.__asyraVectorRenderPhaseSink = recordPhase
+    target.__asyraVectorRenderDetailPhaseSink = recordPhase
     target.__asyraStrokePipelineCounterSink = (
       counterName: string,
       value: number
@@ -2184,6 +2257,7 @@ const readRenderPipelineDiagnostics = async (page: Page) =>
     const target = window as any
     const diagnostics = target.__asyraE2EStrokePipelineDiagnostics ?? null
     target.__asyraVectorRenderPhaseSink = undefined
+    target.__asyraVectorRenderDetailPhaseSink = undefined
     target.__asyraStrokePipelineCounterSink = undefined
     return diagnostics
   })
@@ -2558,6 +2632,10 @@ const measureDrag = async (
 
     if (step === Math.ceil(DRAG_STEP_COUNT / 2)) {
       const stats = await captureSelectedElementStrokeStats(page)
+      const zeroCoverageDiagnostics =
+        stats.strokeCoverage <= 0.0005
+          ? await captureSelectedElementStrokeDiagnostics(page)
+          : null
       const currentPoint = await getPointClientPosition(page, dragPointId)
       freshnessProbe = buildFreshnessProbe(
         initialPoint,
@@ -2567,7 +2645,11 @@ const measureDrag = async (
       )
       expect(
         stats.strokeCoverage,
-        `${label}:${target} should keep stroke coverage during drag`
+        `${label}:${target} should keep stroke coverage during drag ${JSON.stringify(
+          zeroCoverageDiagnostics,
+          null,
+          2
+        )}`
       ).toBeGreaterThan(0.0005)
       expect(
         stats.doubleAlphaCoverage,
@@ -2764,7 +2846,6 @@ export const createStrokeDragRenderPerformanceUXGateCases = ({
 
 export const runStrokeDragRenderPerformanceUXGateCase = async (
   page: Page,
-  testInfo: TestInfo,
   testCase: StrokeDragRenderPerformanceTestCase
 ) => {
   await page.goto('/')
@@ -2842,17 +2923,6 @@ export const runStrokeDragRenderPerformanceUXGateCase = async (
     ).toBe(true)
   }
   expect(metrics.length + burstMetrics.length).toBeGreaterThan(0)
-  const visualReviewRaster = await captureSelectedElementRaster(page, 72)
-  const visualReviewRasterBuffer = Buffer.from(
-    visualReviewRaster.base64,
-    'base64'
-  )
-  const visualReviewPath = testInfo.outputPath('stroke-drag-product-review.png')
-  await writeFile(visualReviewPath, visualReviewRasterBuffer)
-  await testInfo.attach('stroke-drag-product-review.png', {
-    path: visualReviewPath,
-    contentType: 'image/png'
-  })
 
   const maxP95Ms =
     metrics.length > 0 ? Math.max(...metrics.map((metric) => metric.p95Ms)) : 0

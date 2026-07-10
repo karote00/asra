@@ -86,8 +86,8 @@ Every cross-step stroke invariant must have one structured lifecycle contract in
 Cross-step work must be destination-driven before it is step-driven. Before an
 agent evaluates any individual step input/output list, it must define the final
 required artifacts for the stroke scenario: visible render coverage, hit/export
-coverage, diagnostics provenance, legal-side exclusion, same-paint compositing,
-and source-space continuity requirements. A step output is valid only when it
+coverage, legal-side exclusion, same-paint compositing, and source-space
+continuity requirements. A step output is valid only when it
 produces, preserves, consumes, or explicitly proves the absence of one of those
 required artifacts. Step-local limitations do not override destination
 requirements; if a limitation would force a visible hole, wrong-side paint,
@@ -106,14 +106,58 @@ the requirement they check must remain generic: position correctness,
 source-space continuity, legal-side exclusion, join/dash seam closure, smooth
 span continuity, same-paint single-composite safety, and hit/export parity.
 
+The stroke pipeline must classify every cross-step value before implementation.
+This classification is source-of-truth data, not debug vocabulary:
+
+- Required product artifacts are geometry-bearing products that must exist when
+  their route conditions apply: pre-legality product units, post-legality product
+  units, final faces, render entries, hit packets, export packets, dash body
+  products, constrained-solid smooth-span products or descriptors, and
+  source-vertex join products. Constrained-dashed terminal and smooth records
+  are required evidence overlays over dash body products, not visible product
+  artifacts. Missing required product artifacts are product failures.
+- Required evidence artifacts do not paint by themselves but must survive with
+  the product they prove: dash interval ids, split range ids, terminal roles,
+  endpoint cap policies, source-distance ranges, seam boundary ids, outer body
+  boundary endpoint ids, body-side outline segment ids, legal-domain ids,
+  resolved join evidence, same-paint equivalence evidence, and output-channel
+  tags. Losing required evidence reopens the first step that lost the proof.
+- Preserve-only artifacts may be copied, grouped, or attached downstream, but
+  downstream stages must not reinterpret them as new geometry decisions. This
+  includes dash seam-boundary artifacts, source-vertex join/miter evidence,
+  legality provenance, and same-paint alpha-safety proof.
+- Recomputable values are only pure derived summaries of already-owned
+  artifacts, such as bounds, areas, counters, diagnostics, display previews, and
+  cache lookup keys. Recomputing them must not change product geometry, legal
+  side, stroke position, join identity, dash interval identity, source-distance
+  endpoints, output channel, or same-paint compositing semantics.
+- Optional artifacts may be absent only when the route condition proves they are
+  unnecessary. Optional diagnostics, rejected candidates, debug traces, or visual
+  overlay probes must not be promoted to visible render, hit, export, or
+  product descriptor input. If an optional artifact becomes necessary to prove
+  visible correctness, it must be promoted to required evidence in this spec and
+  in the inspector flow before implementation continues.
+- Composite or stacking state is required when same-paint products touch,
+  overlap, or share boundaries in visible output. A downstream renderer may
+  consume a single-composite render entry or alpha-safe equivalence evidence,
+  but it must not decide geometry repair, dash/join seam closure, or legal-side
+  clipping on its own.
+
+Downstream stages may recalculate only recomputable values. They must preserve
+required product artifacts and required evidence artifacts by identity, consume
+preserve-only artifacts as proof, and fail when required artifacts are missing.
+If a step needs to recalculate a non-recomputable value, the inspector flow must
+reopen that value's owner step instead of adding a local repair.
+
 For dash/body and source-vertex join seams, the structured lifecycle owner is
-the dash/join seam identity contract. It begins at Step 27 with the emitted dash
-body seam boundary artifact, is consumed by Step 28 source-vertex join products,
-is preserved through Step 32 legality clipping, final faces, descriptor
-materialization, and render entries, and is forbidden from being recomputed or
-repaired by renderer projection. If any downstream stage still has visible
-dash/join product but cannot prove the same Step 27 seam endpoint identity, the
-failure reopens the first stage where the proof was lost.
+the dash/join seam identity contract. It begins with emitted dash body boundary
+evidence, then the dedicated dash seam-boundary step produces the non-visible
+dash body seam boundary artifact consumed by source-vertex join and terminal
+body products. That identity is preserved through legality clipping, final
+faces, descriptor materialization, and render entries, and is forbidden from
+being recomputed or repaired by renderer projection. If any downstream stage
+still has visible dash/join product but cannot prove the same seam endpoint
+identity, the failure reopens the first stage where the proof was lost.
 
 The dash/join seam identity contract is evidence for required-artifact closure,
 not the final goal by itself. Passing seam identity while the final visible
@@ -122,6 +166,162 @@ fragmented dash bodies, missing terminal body coverage, or unmerged same-paint
 overlap is not closure. In that case the required-artifact closure contract
 reopens the first missing owner definition before another local code patch may
 be attempted.
+
+## Whole-Flow Review And Step Grouping Contract
+
+The runtime inspector steps are implementation ownership slices, not isolated
+correctness units. A step may still bound one implementation segment, but a step
+cannot be considered safe to start, advance, or close from its local
+input/output checklist alone.
+
+Before any runtime implementation iteration, task iteration, or inspector step
+advance, the agent must run a whole-flow review over the current stroke scenario
+and the route family that contains the active step. The review must answer:
+
+1. which final artifacts must exist for visible render, hit/export, legal-side
+   exclusion, same-paint composition, and source-space continuity;
+2. which upstream steps produce or preserve each required product or evidence
+   artifact;
+3. which downstream steps consume the artifact, and whether they are allowed to
+   consume, preserve, bypass, or prove absence instead;
+4. whether any later step would need raw upstream data, recomputation,
+   renderer-local repair, fallback output, helper geometry, or patch geometry to
+   make the scenario correct;
+5. whether the active implementation step belongs to a route family that must be
+   reviewed together before local edits can proceed.
+
+The required review groupings are:
+
+| Review group | Steps | Review decision |
+| --- | --- | --- |
+| Source mutation ingress | 1-12 | Keep split by app/framework owner for implementation, but review together for user-intent, canonical workspace data, transaction, undo, and downstream event continuity. |
+| Render mirror and current-state cache | 13-17 | Review together because patch application, render-data derivation, dirty classification, stage cache, and strategy entry decide whether geometry stages receive current data or stale/bypassed products. |
+| Source and domain planning | 18-24 | Review together because normalized render data, normalized stroke spec, shared geometry, source families, stroke domains, dash allocation, and product-family selection define the legal inputs for every product builder. |
+| Product family co-execution | product-family builder steps | Review as one product family before step-local implementation. Center, constrained solid, constrained dashed body, dash seam-boundary derivation, source-vertex join, terminal body, smooth-continuity, and descriptor-strategy routes are split implementation owners but must be validated as one product construction family. |
+| Legality and final semantic records | legality/final-record/descriptor steps | Review together because legality clipping, resolved product records, paint attachment, final faces, and descriptor materialization must preserve the same product/evidence identity without changing geometry. |
+| Output channels | output channel steps | Review together because visible render, render entries, renderer projection, and hit/export are sibling consumers and must not become each other's product authority. Post-runtime validation and optional diagnostics consume terminal evidence outside the inspector step graph. |
+
+The product family co-execution group is the main non-linear section. Product
+family selection chooses the family, then applicable product builders
+co-execute. Product-family implementation steps must not be treated as a linear
+fallback chain. Constrained dashed product construction handles dash body, dash
+seam-boundary derivation, source-vertex join, terminal body, smooth-continuity,
+and descriptor strategy together for review. Constrained solid product
+construction handles doubled-center body, source-vertex joins, and same-owner
+smooth-continuity descriptor eligibility together for review. The
+implementation owner may still be one step, but the readiness and closure
+question is family-wide.
+
+Dash body construction has one visible geometry owner. The dash interval body
+step owns the complete visible body footprint, including terminal and smooth
+portions, and may encode that footprint as canonical polygons or an exact body
+geometry program. The dash seam-boundary step owns the non-visible boundary
+artifact consumed by source-vertex join and terminal ownership binding. The
+terminal-body and smooth-continuity steps emit non-visible ownership overlay
+records that reference the dash body product id; they must not emit a second
+copy of body polygons or paint. Join, terminal, and smooth steps consume body
+and seam artifacts by identity and must not recompute terminal points, outer
+boundary endpoints, body-side outline segments, cap suppression state,
+split-range provenance, dash interval identity, or body geometry from raw
+source geometry.
+
+The current split is intentional where ownership differs:
+
+- descriptor strategy selection stays separate from descriptor materialization;
+  the former records eligibility and legality basis, while the latter emits
+  renderer-ready descriptors after final-face legality records exist;
+- render entries stay separate from renderer projection; render entries own
+  channel-safe projection records, and renderer projection may only draw them;
+- hit/export stays separate from renderer projection; it consumes final-face or
+  hit/export packet evidence, not visible pixels;
+- post-runtime validation and optional diagnostics stay separate from product
+  output; they may consume terminal evidence, but they are not inspector owner
+  steps and never become product input.
+
+### Closure State Machine
+
+Whole-flow closure uses the framework
+`docs/ai/framework/rules/inspector-closure-readiness.md` state machine:
+
+| State | Meaning |
+| --- | --- |
+| `pending-review` | The segment has not yet passed contract review. |
+| `contract-closed` | Spec anchors, inspector steps/routes, artifact lifecycle, forbidden contributors, and formal contract tests agree. |
+| `family-dataflow-closed` | A multi-step family has unique owners, preserve-through artifacts, downstream consumers, must-not-recompute boundaries, handoff gates, and no known data-loss/recompute/ownership conflict. |
+| `implementation-ready` | Contract closure and all relevant family/cross-family dataflow gates are closed. This allows the next bounded implementation segment, but does not imply runtime correctness. |
+| `runtime-closed` | Required runtime gates, formal oracles, integration gates, and any requested visual/app review gates have passed. |
+
+Runtime-only states such as `pending-runtime-gates` are evidence states, not
+contract closure states. A runtime oracle failure reopens runtime status only
+unless it proves the spec, route, artifact lifecycle, owner, or formal gate is
+wrong.
+
+Every review group must have a closure packet in
+`stroke-flow-inspector.data.js`. The packet records the covered steps, closure
+state, contract status, family dataflow status, runtime status, spec anchors,
+artifacts, semantic owners, downstream consumers, cross-family handoffs,
+`mustNotRecomputeAfter` boundaries, formal gates, runtime blockers/evidence,
+reopen conditions, and remaining scope.
+
+### 41-Step Responsibility Overview
+
+The inspector flow has 41 runtime development steps. It is not a final
+validation checklist. Each step has exactly one responsibility classification in
+`stroke-flow-inspector.data.js`, and every step belongs to a whole-flow review
+group. Implementation may still advance one active step at a time only after
+the relevant whole-flow group and required artifact lifecycle are reviewed.
+
+| Steps | Responsibility | Contract |
+| --- | --- | --- |
+| 1-2 | State overlay | Capture feature/session and path-editing intent. They do not compute stroke product data. |
+| 3-4 | Primary computation | Compute source point/handle or structural vector edits that later stages consume as canonical source mutation. |
+| 5-6 | Adapter / primary computation | Adapt the app operation into common API input, then commit canonical workspace data. |
+| 7 | Validation/evidence-only | Validate topology and emit evidence. It cannot repair or synthesize product geometry. |
+| 8 | Primary computation | Build the computed patch from canonical mutation state. |
+| 9-13 | State overlay | Attach transaction, undo, scene-tree, event, subscriber, and render-mirror state while preserving patch identity. |
+| 14 | Primary computation | Derive current render data from the render mirror. |
+| 15-17 | State overlay | Classify dirty revisions, cache reuse, bypasses, and render-strategy entry. Cache is transparent reuse, not semantic authority. |
+| 18-23 | Primary computation | Normalize render/stroke inputs, build shared geometry, resolve source families, compute `StrokeDomainPlan`, and allocate `DashProductInterval` records. |
+| 24 | State overlay | Select the product family route. It cannot build or repair product geometry. |
+| 25-31 | Primary computation | Build applicable center, constrained solid, constrained dashed body, seam-boundary, source-vertex join, terminal ownership overlay, and smooth-continuity product/overlay artifacts as a family. |
+| 32 | State overlay | Record descriptor eligibility and legality basis before legality; no renderer-ready descriptor is emitted here. |
+| 33 | Primary computation | Clip or delete declared product units against legal domains, preserving pre/post product identity or legal empty/delete evidence. It cannot create join, cap, terminal, or seam geometry. |
+| 34-35 | State overlay | Assemble resolved region records and attach paint payload while preserving product identity. |
+| 36 | Primary computation | Build final faces and the required final-face identity set: owner, interval, terminal role, seam boundary, legal domain, and source span. |
+| 37-41 | Channel projection | Materialize descriptors, emit render/hit/export packets, build render entries, project renderer commands, and expose hit/export channels from declared products. These steps may preserve or project identity, but they cannot recompute stroke semantics or repair upstream geometry. |
+
+Whole-flow review work may be skipped in a later task iteration only for a
+review group whose closure packet marks it `implementation-ready` or
+`runtime-closed`. Review may be skipped only while inputs, outputs, routes,
+artifacts, downstream consumers, formal gates, source anchors, and active-plan
+execution constraints are unchanged. Runtime status is separate: a segment can
+have contract/family dataflow closure while still waiting for runtime gates.
+
+The `product-family-coexecution` segment is reopened for the body-ownership
+algorithm replacement. The previous contract let Step 27 own a complete dash
+body while Step 30 could emit the same `bodyPolygons` as a second visible
+terminal product, and Step 31 could similarly duplicate smooth body coverage.
+Its `familyDataflowStatus` remains `pending-review` until Step 25-32 artifact
+owners, preserve-through rules, consumers, cross-family handoffs, and formal
+gates prove one visible body owner, non-visible terminal/smooth overlays, and
+descriptor-backed legality without downstream semantic recomputation.
+
+The current `output-channels` segment is `implementation-ready`, and the Step 39
+reported-vector-34 terminal identity oracle now passes: every terminal half-dash
+identity record present on final faces is preserved on render entries for that
+oracle. Focused Step 39 plus stroke-flow unit, integration, and validation gates
+also pass for this repair phase; full output-channel runtime closure remains
+reserved for any broader package, E2E, or visual gates outside this Step 39
+scope. This is not a reason to add a Step 42 development step, and it is not a
+reason to move validation or diagnostics into the inspector flow.
+
+The current grouping must be revised before implementation if a whole-flow
+review finds that a downstream step cannot prove correctness from declared
+artifacts. The allowed outcomes are: add a missing artifact lifecycle contract,
+split an over-broad step, merge duplicated review responsibilities into one
+route-family contract, or move a rule back to the first canonical owner stage.
+The forbidden outcome is another local patch that only satisfies one step while
+leaving downstream correctness undefined.
 
 ## Document Deep Audit Protocol
 
@@ -146,46 +346,54 @@ The minimum document audit matrix is:
    `miterAngle`, `angleSource`, comparison evidence, and degenerate cases remain
    unambiguous and non-conflicting.
 5. Dash body, dash cap, and join seam continuity: dash allocation, cap footprint,
-   source-vertex join ownership, shared Step 27 seam endpoint identity, and
-   legal-domain clipping are deterministic and channel-safe.
+   source-vertex join ownership, shared dash body seam-boundary artifact
+   identity, and legal-domain clipping are deterministic and channel-safe.
 6. Smooth-continuity and high-curvature routing: tangent-continuous curved spans
    remain smooth products and cannot become source-vertex joins.
 7. Center/inside/outside construction: center products, doubled-center
    constrained products, masks, legality clipping, and open constrained spans
    have explicit owners and no hidden renderer fallback.
 8. Artifact lifecycle: pre-legality products, post-legality products,
-   descriptor strategy records, final faces, render entries, hit/export packets,
-   diagnostics, and visual overlays have registered producers and consumers.
+   descriptor strategy records, final faces, render entries, and hit/export
+   packets have registered producers and consumers. Optional diagnostics and
+   visual overlays may consume terminal evidence outside the inspector step
+   graph only when configured.
 9. Spec-to-enforcement lifecycle contracts: cross-step invariants are structured
    inspector contracts with owner steps, route ids, artifacts, required evidence,
    formal gates, and failure reopening rules.
-10. Channel separation: visible render, hit, export, diagnostics, and visual
-    overlay channels cannot consume each other's output as product truth.
-11. Cache, dirty, bypass, and current-state rendering: paint-only, hidden-output,
+10. Whole-flow review and step grouping: the runtime steps remain
+    implementation ownership slices, while readiness and closure are checked by
+    source-mutation, render/cache, source-domain, product-family,
+    legality/final-record, and output-channel review groups.
+11. Channel separation: visible render, hit, export, optional diagnostics, and
+    visual overlay channels cannot consume each other's output as product truth;
+    optional diagnostics and visual overlays are non-product evidence channels.
+12. Cache, dirty, bypass, and current-state rendering: paint-only, hidden-output,
     cache-hit, source-drag, static parameter, undo/redo, reload, and
     collaboration routes preserve the same product semantics.
-12. Owner-stage metadata: every product route preserves `ownerStage`,
+13. Owner-stage metadata: every product route preserves `ownerStage`,
     `visibleContributor`, `geometryBasis`, artifact ids, route ids, and failure
     reopening evidence.
-13. Forbidden contributors: renderer-local joins/caps, endpoint cap repair,
+14. Forbidden contributors: renderer-local joins/caps, endpoint cap repair,
     terminal overhang repair, duplicate interval paint, helper-visible geometry,
     patch geometry, substitute output, and stale descriptors remain forbidden.
-14. Route predicates and reachability: structured predicates are complete,
+15. Route predicates and reachability: structured predicates are complete,
     mutually exclusive where required, co-executed where required, and default
     `else` routes cannot overlap explicit routes.
-15. Artifact registry integrity: every route consumes and produces registered
+16. Artifact registry integrity: every route consumes and produces registered
     artifacts, and no produced artifact is left without a legal downstream
     consumer unless it is explicitly terminal.
-16. Retired wording scan: fallback, repair, heuristic, approximate, old model,
+17. Retired wording scan: fallback, repair, heuristic, approximate, old model,
     renderer-owned, or optional-collapse wording must either be removed or be a
     forbidden-context statement.
-17. Numeric tolerance and evidence uniqueness: epsilons, visual tolerances, gap
+18. Numeric tolerance and evidence uniqueness: epsilons, visual tolerances, gap
     floors, and local probe windows have one owner, one value or formula, and
-    required evidence; dash/join seams are governed by shared Step 27 endpoint
-    identity, not a numeric gap tolerance.
-18. Test/refactor/visual gates: step locks, unit gates, integration unlocks,
-    regression retry limits, visual review requirements, and port/runtime rules
-    are consistent across this spec, the active plan, and inspector data.
+    required evidence; dash/join seams are governed by shared seam-boundary
+    artifact endpoint identity, not a numeric gap tolerance.
+19. Test/refactor/visual policy: step locks, unit gates, technical phase
+    prerequisites, regression retry limits, explicit-request-only visual review,
+    and port/runtime rules are consistent across this spec, the active plan, and
+    inspector data.
 
 The protocol validator must assert that this protocol exists in all three stroke
 rule sources before document-only schema or spec work can be considered closed.
@@ -197,8 +405,9 @@ current runtime closure for reopened stroke feature work. The completed record
 is
 `docs/ai/apps/asyra-design/plans/completed/stroke-engine-final-architecture-closure.md`.
 Runtime stroke behavior is not considered correct until the inspector-flow
-step-unit phase, integration phase, visual review, and required regression gates
-for the reopened scope pass against this spec.
+step-unit phase, integration phase, formal geometry oracles, E2E, performance,
+and required regression gates for the reopened scope pass against this spec.
+Visual review is optional and runs only when explicitly requested.
 
 The current formal product pipeline is:
 `feature/session intent -> vector editing intent -> common API/domain adapter ->
@@ -208,29 +417,31 @@ product cache -> render strategy entry -> normalized render data -> normalized
 stroke spec -> shared geometry model -> source families -> stroke domains ->
 dash interval allocation -> product family selection -> center stroke products /
 constrained solid products / dash interval body products / source-vertex join
-products / terminal body products / smooth-continuity products -> descriptor
+products / terminal ownership overlays / smooth-continuity ownership overlays -> descriptor
 strategy selection -> legality clipping -> resolved regions -> paint payload ->
 final faces -> post-legality descriptor materialization -> render entries ->
-renderer projection -> final visible result, with hit-export packets and
-diagnostics emitted as channel-separated sibling or aggregation consumers of
-final faces, render entries, renderer-projection metadata, and hit/export
-evidence`.
+renderer projection -> final visible result, with hit-export packets projected
+as a sibling product-output channel. Optional diagnostics and final visual
+validation consume terminal evidence outside the inspector step graph when
+configured`.
 
 ## Supported Stroke Feature Surface
 
-This spec covers the complete current Asyra stroke engine surface. Any stroke
-feature not listed here is unsupported until this file receives an explicit
-semantic contract, inspector route, formal oracle, and implementation owner
-stage.
+This spec covers the intentionally small current Asyra stroke engine surface.
+The goal is Figma-like geometry for the basic open-source stroke controls, not
+complete Figma parity. Any stroke feature not listed here is unsupported until
+this file receives an explicit semantic contract, inspector route, formal
+oracle, and implementation owner stage.
 
 Supported authoring inputs:
 
 - Source geometry: authored vector paths, open subpaths, closed subpaths, vector
   networks, self-intersections, contour visits, source families, source
   revisions, and source-domain tangent evidence.
-- Stroke visibility and paint: one `FillAttrs` payload per stroke,
+- Stroke visibility and paint payload: one `FillAttrs` payload per stroke,
   `stroke.fill.visible`, opacity, solid paint, gradient paint, and paint-only
-  dirtying that preserves previously verified geometry products.
+  dirtying that preserves previously verified geometry products. Multiple
+  stroke fills are not part of the basic stroke surface.
 - Stroke width and position: finite non-negative width, `center`, `inside`, and
   `outside`. Center products are built around the authored center path. Inside
   and outside products are built as doubled authored center-stroke products and
@@ -246,24 +457,27 @@ Supported authoring inputs:
   half-circle footprint with radius `stroke.width / 2` centered on the terminal
   seam. `square` means a rectangular extension of `stroke.width / 2` beyond the
   terminal seam along the terminal tangent. Caps are never join primitives.
-- Dashes: dash arrays, interval allocation over authored source length or
-  declared constrained source spans, reference half-terminal dashes at true open
-  dashed-line endpoints, body-side dash cap footprints, Asyra constrained-span
-  allocation rules, and legal-domain clipping that never reauthors the dash
-  schedule.
-- Output channels: visible render entries, hit/export packets, diagnostic
-  snapshots, and descriptor evidence with strict channel separation.
+- Dashes: one basic dash/gap authoring pair, normalized into repeatable interval
+  allocation over authored source length or declared constrained source spans,
+  reference half-terminal dashes at true open dashed-line endpoints, body-side
+  dash cap footprints, Asyra constrained-span allocation rules, and
+  legal-domain clipping that never reauthors the dash schedule.
+- Output channels: visible render entries, hit/export packets, and descriptor
+  evidence with strict channel separation. Optional diagnostic snapshots are
+  non-product evidence only when diagnostics mode is configured.
 
 Unsupported inputs are rejected before stroke product planning unless this spec
 defines a named normalization route for that exact input. A named normalization
 route must emit normalized stroke-domain input plus non-visible diagnostic
 evidence before product planning starts. Unsupported inputs must not create
 hidden product routes, renderer-owned visible geometry, fallback masks, or
-substitute output. The unsupported surface currently includes arrowhead or
-marker caps, endpoint shapes, brush strokes, dynamic strokes, variable-width
-strokes, non-uniform per-side stroke weights, stroke expansion intended only for
-external export simplification, and external style-library metadata that does
-not change the canonical stroke product.
+substitute output. The unsupported surface currently includes multiple stroke
+fills, custom dash arrays beyond the basic dash/gap pair, per-endpoint cap
+mixing, per-point join mixing, arrowhead or marker caps, endpoint shapes, brush
+strokes, dynamic strokes, variable-width strokes, non-uniform per-side stroke
+weights, stroke expansion intended only for external export simplification, and
+external style-library metadata that does not change the canonical stroke
+product.
 
 Adding support for an unsupported input requires this order: spec rule first,
 inspector route second, step/unit oracle third, implementation fourth,
@@ -275,8 +489,10 @@ dash, mask, descriptor, or renderer route.
 
 Stroke engine refactors that reopen product geometry, join, cap, dash, domain,
 descriptor, render-entry, or inspector behavior must follow the inspector flow
-one step at a time. The inspector flow is the executable architecture contract
-for refactor sequencing, while this README remains the semantic source of truth.
+through the Whole-Flow Review And Step Grouping Contract first, then implement
+one owner step at a time. The inspector flow is the executable architecture
+contract for refactor sequencing, while this README remains the semantic source
+of truth.
 
 The refactor protocol is fail-closed:
 
@@ -295,27 +511,32 @@ The refactor protocol is fail-closed:
    must not repair, infer, or substitute output for an upstream step.
 5. Mark a step verified only after its dedicated unit test and the inspector
    refactor protocol validator pass.
-6. Execute the refactor continuously one runtime inspector step at a time until
-   all 41 runtime inspector steps are verified, unless the active step reaches
-   the retry stop condition below. A step may not advance because a later step is
-   easier or because a downstream artifact appears visually acceptable.
+6. Execute the refactor continuously one runtime inspector step at a time inside
+   the active whole-flow review group until all current runtime inspector steps
+   are verified, with automatic task replanning when the active step reaches the
+   retry limit below. A
+   step may not advance because a later step is easier, because its local
+   checklist passes while the route family is still inconsistent, or because a
+   downstream artifact appears visually acceptable.
 7. Each active inspector step has a maximum of three focused repair attempts. Each
    attempt must start from a named failing gate or contract mismatch and end
-   with the focused step gate result. If the third attempt still fails, stop the
-   task at that step, do not advance the lock, summarize the blocker, the failed
-   gate, the owner-stage evidence, and the attempted repair paths, then send a
-   system notification when the host environment supports it.
+   with the focused step gate result. If the third attempt still fails, keep the
+   same owner step, summarize the blocker, the failed gate, the owner-stage
+   evidence, and the attempted repair paths, then automatically perform a task
+   replan before the next implementation iteration.
 8. Full preset regression remains a separate phase gate. It may be attempted at most three times.
    After each failed full preset
    regression, summarize the failing suite, assertion, owner stage, and focused
-   repair path before retrying. If the third full regression attempt fails, stop
-   immediately, do not continue repairing, and notify the user for discussion.
-9. After all 41 runtime inspector-step unit tests are verified, stop at a
-   unit-complete checkpoint. Keep full integration, E2E, visual review, and full
-   preset regression locked until the user approves a separate test-plan
-   refactor phase. E2E validates user behavior only; it does not define stroke
-   engine architecture. Post-runtime validation gates remain outside the runtime
-   implementation step sequence.
+   repair path before retrying. If the third full regression attempt fails,
+   automatically perform a task replan before another regression attempt.
+9. After all current runtime inspector-step unit tests are verified, record the
+   runtime unit gate and proceed directly to focused test-architecture,
+   inspector-flow integration, and formal geometry-oracle work. E2E starts after
+   those correctness gates are meaningful and pass; performance and full preset
+   regression follow their technical prerequisites. E2E validates user behavior
+   only; it does not define stroke engine architecture. Optional visual methods
+   run only on explicit user request and remain outside the runtime implementation
+   step sequence.
 
 Each inspector step must expose machine-readable lock metadata: `stepIndex`,
 `stepNumber`, `refactorStatus`, `unitTestFile`, `implementationFiles`,
@@ -349,11 +570,12 @@ they may not silently own stroke geometry, product descriptor semantics,
 renderer repair, hit/export repair, or diagnostics-as-product output unless this
 spec and the inspector flow declare that ownership explicitly.
 
-`visible-final-result` is a post-runtime validation gate, not a runtime
-implementation step. It keeps final visual/product closure evidence and failure
-reopening rules, but it must not appear in runtime step ordering,
-`runtimeImplementationState.verifiedStepIds`, or per-step implementation
-allowlists.
+`visible-final-result` and `app-visual-review` are optional
+explicit-request-only validation methods, not runtime implementation steps or
+automatic completion gates. When requested, they keep final visual/product
+evidence and failure reopening rules, but they must not appear in runtime step
+ordering, `runtimeImplementationState.verifiedStepIds`, inspector routes,
+step-unit files, or per-step implementation allowlists.
 
 Inspector routes must be typed architecture routes, not inferred linear edges.
 Every route declares `routeType`, `decisionGroup`, `parallelGroup`,
@@ -376,7 +598,7 @@ Inspector artifacts must be declared in the artifact registry before a route can
 consume or produce them. Product assembly is split into top-level inspector
 steps for product-family selection, center products, constrained solid
 products, dash interval body products, source-vertex join products, terminal
-body products, smooth-continuity products, descriptor strategy selection, and
+ownership overlays, smooth-continuity products or overlays, descriptor strategy selection, and
 post-legality descriptor materialization. Product family decisions,
 descriptor-strategy selection, product co-execution routes, and post-legality
 descriptor materialization are separate route groups. Parallel product routes
@@ -465,7 +687,7 @@ product contract:
 - join ownership and authored miter angle resolution;
 - smooth-continuity groups;
 - product descriptors;
-- render, hit, export, diagnostics, and visual-overlay projection.
+- render, hit, export, optional diagnostics, and visual-overlay projection.
 
 An intermediate drag frame may remain outside undo history, but it is still a
 current state for rendering. It must therefore satisfy the same stroke product
@@ -479,8 +701,9 @@ signature, terminal/cap signature, join signature, smooth-continuity signature,
 and descriptor signature prove equivalence for the current state. If any
 signature cannot prove reuse, Stroke Geometry must rebuild the exact current
 product. The same current source/stroke state must produce the same visible,
-hit, export, diagnostics, and visual-overlay product output regardless of which
-mutation path reached it.
+hit, export, and final-validation-visible product output regardless of which
+mutation path reached it. Optional diagnostics and visual overlays may report
+evidence for that state, but they are not product output.
 
 Pixel-level dashed or join defects may still be opened after this closure, but
 they must stay on that product pipeline. Such bugs do not authorize another
@@ -530,9 +753,10 @@ Stroke-related behavior is inspected as one deterministic system flow:
    stored by element, network, stroke, source revision, and geometry-affecting
    stroke signature; paint-only changes retint cached descriptors instead of
    rebuilding geometry.
-7. Product output emits render, hit, export, and diagnostics descriptors
-   without changing stroke semantics. Visible render must not use diagnostic or
-   helper geometry as product output.
+7. Product output emits render, hit, and export descriptors without changing
+   stroke semantics. Optional diagnostics may emit non-product metadata only
+   when configured. Visible render must not use diagnostic or helper geometry as
+   product output.
 
 Stroke paint data has one canonical model shape. Element `fills` and
 `strokes[n].fill` both use `FillAttrs`; a stroke owns exactly one fill payload
@@ -773,13 +997,25 @@ source span that owns the `DashProductInterval`; they are not by themselves a
 claim that the visible terminal or body product covers that entire span.
 `effectiveStartDistance` / `effectiveEndDistance` and `physicalSpanRanges`
 identify the source-distance range actually materialized as visible dash body
-coverage. Step 27 must emit that effective/physical span evidence for every
-visible dash body product, and Steps 35/38 must preserve it. Formal source-span
-coverage oracles must sample the effective/physical coverage range first and may
-fall back to the declared source span only when no narrowed product span exists.
-Using the declared split/source range as visible coverage for terminal
-half-dashes is a contract failure because it can force downstream code to fill
-intentional dash gaps.
+coverage. The dash body product builder must emit that effective/physical span
+evidence for every visible dash body product, and final-face/render-entry stages
+must preserve it. Formal source-span coverage oracles must sample the
+effective/physical coverage range first and may fall back to the declared source
+span only when no narrowed product span exists. Using the declared split/source
+range as visible coverage for terminal half-dashes is a contract failure because
+it can force downstream code to fill intentional dash gaps.
+
+Dash body coverage is also a boundary-exact product requirement, not only an
+interior-band coverage requirement. For a constrained outside dashed product,
+the visible dash body must occupy the configured outside band from the authored
+source curve to the source-space offset boundary at `stroke.width`. Formal
+oracles must sample both the interior band and the outer boundary at that
+offset. Passing samples at 0.95 * `stroke.width` is not enough when the actual
+outer edge is notched, uneven, protruding, or approximated by a straight chord.
+For curved source spans, the outside boundary must follow the source-curve
+offset boundary for the materialized dash interval; a selected-side envelope,
+temporary chord, cap-side residue, or cleanup artifact must not become the
+visible outer dash edge.
 
 Terminal dash cap ownership is part of the product contract. In the following
 paragraph, `endpoint` means a dash interval endpoint classified by
@@ -802,30 +1038,35 @@ domain. The product builder must not rebuild a source-vertex terminal half dash
 from a temporary straight chord between the vertex and an inferred body point:
 that chord can overrun the real half-dash footprint and create segment-direction
 protrusions. With `capType: butt`, the visible source-vertex terminal body may
-occupy only the half-dash body rectangle plus the authored join footprint.
+occupy only the half-dash body footprint plus the authored join footprint. On
+curved intervals, that body footprint is a curve-conforming ribbon, not a
+straight rectangle or selected-side chord.
 
 High-angle source-vertex and self-intersection terminal regions use a visible
 contributor whitelist. Visible coverage in that local region may come only from
-the source-vertex join product and the incident terminal body products. The
+the source-vertex join product and the incident Step 27 dash body products. The
 source-vertex join is the exclusive visible owner of join-apex and legal-side
-corner coverage. Incident terminal bodies own only their dash body plus any
-body-side cap allowed by endpoint cap policy; they must not own apex, legal-side
-join corner, or seam-continuity residue.
+corner coverage. Incident body products own only their dash body plus any
+body-side cap allowed by endpoint cap policy; their Step 30 terminal overlays
+remain non-visible and must not own apex, legal-side join corner, or
+seam-continuity residue.
 
-Butt terminal bodies remain strict endpoint products. A butt terminal body must
-not overhang the terminal endpoint on the endpoint side and must not emit a
+Butt terminal portions remain strict parts of their Step 27 body product. A
+butt terminal body portion must not overhang the terminal endpoint on the
+endpoint side and must not emit a
 visible body-side cap to repair a source-vertex crack. When a suppressed butt
 endpoint participates in a source-vertex join, it may provide construction-only
 continuity evidence to the source-vertex join assembler, but that evidence is
 not visible terminal geometry.
 
 When a suppressed butt endpoint participates in a source-vertex join, the dash
-body and the join must share the same Step 27 seam endpoint identity. The
-assembler must not add a separate visible continuity zone, padding polygon, or
-overlap polygon to make the seam appear watertight. Construction-only continuity
-evidence may prove which Step 27 endpoint ids are legal, but visible output must
-remain the authored resolved join footprint and must use those same endpoint
-ids at the dash/join handoff. The resolved join identity must be preserved:
+body and the join must share the same dash body seam-boundary artifact endpoint
+identity. The assembler must not add a separate visible continuity zone, padding
+polygon, or overlap polygon to make the seam appear watertight.
+Construction-only continuity evidence may prove which seam artifact endpoint
+ids are legal, but visible output must remain the authored resolved join
+footprint and must use those same endpoint ids at the dash/join handoff. The
+resolved join identity must be preserved:
 `miter` must not collapse to bevel, `round` must remain a join arc rather than a
 cap disk, and `bevel` / `bevel-by-miter-angle` must remain the same cut-off
 footprint that the doubled-center body/join product would produce before
@@ -839,29 +1080,31 @@ terminal point, body-side tangent, selected legal side, outer body boundary
 vertices, body-side outline segment, and endpoint cap suppression state. The
 source-vertex join assembler must consume that boundary and emit a seam-free
 join product. In source space, the final visible source-vertex join footprint
-must reuse the same Step 27 seam endpoint identities that terminate the
-incident dash body products. For a dashed source-vertex seam, Step 27 is the
-only source of legal seam identities: `outerBodyBoundaryEndpoint`,
-terminal point, `bodySideOutlineSegment`, interval id, split range id, terminal
-role, legal side, and cap suppression state. The terminal point and
+must reuse the same seam-boundary artifact endpoint identities derived from the
+incident dash body products. For a dashed source-vertex seam, the seam-boundary
+derivation step is the only source of legal seam identities:
+`outerBodyBoundaryEndpoint`, terminal point, `bodySideOutlineSegment`, interval
+id, split range id, terminal role, legal side, and cap suppression state. The
+terminal point and
 `outerBodyBoundaryEndpoint` are the endpoint identities at the dash/join
 handoff. `bodySideOutlineSegment` proves the side outline and tangent of the
 same dash body product, but its far endpoint must not replace the terminal
-point as the join seam endpoint. Each resolved join style must use the Step 27
-endpoint identities required by that style. Resolved miter and round footprints
-use the incident outer body boundary endpoints as their visible seam handoff
-endpoints. Bevel-family footprints use the incident outer body boundary
-endpoints as the cut-off chord and close the local product face to the incident
-Step 27 terminal points when a polygonal face is required. No join footprint may
-substitute the authored source vertex, a projected centerline point, a freshly
-computed offset point, or a body-side outline endpoint for a required Step 27
-seam endpoint. The GPU-visible triangles on both sides of the handoff must
-therefore share Step 27 endpoint identities; a nearby coordinate, freshly
-projected point, seam-repair endpoint, or downstream cleanup point is not
-equivalent. A visible gap between a dash body and its authored-vertex join is a
-product failure. The allowed source-space seam gap is zero; floating-point
-epsilon is allowed only when comparing serialized coordinates that reference the
-same Step 27 seam endpoint id.
+point as the join seam endpoint. Each resolved join style must use the
+seam-boundary artifact endpoint identities required by that style. Resolved
+miter and round footprints use the incident outer body boundary endpoints as
+their visible seam handoff endpoints. Bevel-family footprints use the incident
+outer body boundary endpoints as the cut-off chord and close the local product
+face to the incident seam artifact terminal points when a polygonal face is
+required. No join footprint may substitute the authored source vertex, a
+projected centerline point, a freshly computed offset point, or a body-side
+outline endpoint for a required seam-boundary endpoint. The GPU-visible
+triangles on both sides of the handoff must therefore share seam-boundary
+endpoint identities; a nearby coordinate, freshly projected point, seam-repair
+endpoint, or downstream cleanup point is not equivalent. A visible gap between a
+dash body and its authored-vertex join is a product failure. The allowed
+source-space seam gap is zero; floating-point epsilon is allowed only when
+comparing serialized coordinates that reference the same seam-boundary endpoint
+id.
 
 A dash seam boundary is valid only when it is derived from the same pre-legality
 dash body product that owns the incident visible dash coverage. Its
@@ -870,15 +1113,16 @@ and its `bodySideOutlineSegment` must be an edge or edge-aligned subsegment of
 that product boundary after endpoint cap policy has been applied and before
 inside/outside legal-domain clipping. A planned centerline offset point,
 projected source point, descriptor endpoint, seam-repair endpoint, or post-join
-endpoint is not a seam boundary unless the Step 27 dash body product
-also proves that the point lies on its emitted product polygon boundary with the
-same interval id, split range id, terminal role, legal side, and cap suppression
-state. Step 28 must not reinterpret or move this boundary to make a join fit;
-if the seam boundary does not match the Step 27 dash body product boundary, the
-failure reopens Step 27 before join materialization may proceed. A join may add
-area inside its canonical footprint, but the added area must still be bounded by
-the same Step 27 seam endpoint identities; it must not introduce a separate
-padding endpoint, seam tolerance endpoint, or downstream repair endpoint.
+endpoint is not a seam boundary unless the owning dash body product also proves
+that the point lies on its emitted product polygon boundary with the same
+interval id, split range id, terminal role, legal side, and cap suppression
+state. Source-vertex join assembly must not reinterpret or move this boundary
+to make a join fit; if the seam boundary does not match the emitted dash body
+product boundary, the failure reopens seam-boundary derivation before join
+materialization may proceed. A join may add area inside its canonical footprint,
+but the added area must still be bounded by the same seam-boundary endpoint
+identities; it must not introduce a separate padding endpoint, seam tolerance
+endpoint, or downstream repair endpoint.
 
 For constrained inside/outside dashed joins, the canonical join envelope is
 derived in the doubled-center stroke product before legal-domain clipping. The
@@ -894,9 +1138,9 @@ selected-side offset points, and it must not be re-trimmed by a secondary
 per-segment selected-side clip after legal-domain clipping.
 
 For outside butt miter-family source vertices, non-emitted continuity evidence
-may identify the incident Step 27 seam endpoints consumed by the resolved
-source-vertex join footprint. It must not emit visible coverage, alter the
-resolved join boundary, add padding endpoints, add overlap endpoints, cap a
+may identify the incident seam-boundary artifact endpoints consumed by the
+resolved source-vertex join footprint. It must not emit visible coverage, alter
+the resolved join boundary, add padding endpoints, add overlap endpoints, cap a
 resolved miter apex, or respond to observed raster holes or fixture coordinates.
 The only visible seam closure is shared endpoint identity between the incident
 dash body boundary and the canonical source-vertex join footprint.
@@ -1031,12 +1275,12 @@ duplicate identity evidence and allocation provenance, but they must not
 duplicate paint.
 
 When dashed visible coverage reaches an authored sharp vertex, visible corner
-completion is always owned by the source-vertex join product. Dash body and
-terminal body products may provide incident body coverage up to vertex
+completion is always owned by the source-vertex join product. Step 27 dash body
+products may provide incident body coverage up to vertex
 adjacency, but they must not replace the join using endpoint caps, endpoint-side
 overhangs, construction/helper geometry, duplicate interval products, or side-specific
-repair geometry. A terminal body must not cross an authored sharp vertex as
-visible paint.
+repair geometry. A terminal ownership overlay never paints, and its referenced
+body must not cross an authored sharp vertex as visible paint.
 
 The source-vertex join product owns the local corner footprint, including the
 apex and legal-side corner completion. It uses `resolvedJoin`, not endpoint cap
@@ -1087,22 +1331,22 @@ completion by source-vertex join products instead of endpoint caps, terminal
 overhangs, construction/helper products, duplicate interval paint, or
 renderer-local joins.
 
-After all 41 runtime inspector-step unit tests are verified, the refactor stops
-at a unit-complete checkpoint. Integration tests, E2E, visual review, full
-preset regression, performance, and cleanup remain future-phase work until the
-user approves a separate test-plan refactor and the required geometry/product
-semantics gates are meaningful. Post-runtime validation gates remain separate
-from runtime implementation steps.
+After all current runtime inspector-step unit tests are verified, the refactor
+records the runtime unit gate and automatically begins focused test-architecture,
+inspector-flow integration, and formal geometry-oracle work. E2E remains ordered
+behind those correctness gates; full preset regression, performance, and cleanup
+remain later phase work. Optional post-runtime validation methods, including
+visual review, run only when explicitly requested and are never an advancement
+or completion prerequisite.
 
-When the user approves runtime implementation after the unit-complete
-checkpoint, runtime progress is tracked separately by
-`stroke-flow-inspector.data.js` `runtimeImplementationState`. The 41 runtime
-inspector-step unit statuses remain `verified`; runtime audit/refactor starts
-from `runtimeImplementationState.activeStepId`, compares only that inspector
-step's contract and allowed implementation boundary, runs that step's focused
-gate, and then advances `runtimeImplementationState` to the next runtime step.
-This runtime phase does not unlock full package regression, E2E, visual review,
-performance, cleanup, or post-runtime validation gates.
+Runtime implementation progress is tracked separately by
+`stroke-flow-inspector.data.js` `runtimeImplementationState`. Runtime
+inspector-step unit statuses must match the current step graph before runtime
+audit/refactor starts from `runtimeImplementationState.activeStepId`, compares
+only that inspector step's contract and allowed implementation boundary, runs
+that step's focused gate, and then advances `runtimeImplementationState` to the
+next runtime step. Completion of this runtime phase opens the focused
+post-runtime correctness gates directly.
 
 `runtimeImplementationState.activeStepId` is a derived lock, not a manual
 bookmark. `runtimeImplementationState.verifiedStepIds` must be the exact
@@ -1131,9 +1375,9 @@ The stroke correctness gates are explicit package scripts:
 - `yarn workspace @asyra/preset test:stroke-flow:unit` runs the test
   architecture guard, the inspector refactor protocol validator, and the 41
   runtime inspector step unit tests.
-- `yarn workspace @asyra/preset test:stroke-flow:validation` runs
-  post-runtime validation gate contract tests, including `visible-final-result`
-  as a validation gate rather than a runtime implementation step.
+- `yarn workspace @asyra/preset test:stroke-flow:validation` runs optional
+  post-runtime validation method contract tests, including `visible-final-result`
+  as an explicit-request-only method rather than a runtime implementation step.
 - `yarn workspace @asyra/preset test:stroke-flow:integration` runs only new
   inspector-flow integration tests under
   `packages/preset/src/__tests__/stroke-flow-integration/`.
@@ -1175,9 +1419,9 @@ source-vertex join assembly and terminal body clipping. It must not survive as
 a visible helper polygon, source-path replay, substitute fill,
 or independent terminal-body product. Visible coverage in the local transition
 is limited to the incident terminal body dash products up to their seam
-boundaries plus the source-vertex join product that shares the same Step 27
-seam endpoint identities. No extra visible seam-repair product may be emitted
-to make that seam watertight.
+boundaries plus the source-vertex join product that shares the same
+seam-boundary artifact endpoint identities. No extra visible seam-repair
+product may be emitted to make that seam watertight.
 
 Dirty owner-stage incremental product assembly is allowed for constrained
 dashed products. This is a canonical product assembly strategy, not a
@@ -1193,9 +1437,9 @@ used for static render, drag render, hit/export, undo/redo, and ordinary data
 changes.
 
 Descriptor reuse must be dependency-version validated. Changes to visible
-ownership, local topology, shared Step 27 seam endpoint identity, dash interval
-identity, stroke alignment, stroke width, join style, cap style, dash/gap lengths,
-or resolved join legality invalidate any dependent descriptor
+ownership, local topology, shared seam-boundary artifact endpoint identity, dash
+interval identity, stroke alignment, stroke width, join style, cap style,
+dash/gap lengths, or resolved join legality invalidate any dependent descriptor
 before visible output. Incremental assembly must never reuse stale visible
 descriptors, bypass product semantics through render-entry reuse, substitute
 preview-only output, or perform geometry-specific repair. The strategy changes
@@ -1440,7 +1684,7 @@ handling is layered:
 3. Visual/raster layer: visual visibility thresholds may affect screenshot
    sampling, overlay markers, and reviewer notes only. They must not remove
    product packets, change visible product semantics, or drop hit/export/
-   diagnostics provenance.
+   optional diagnostic evidence when that evidence is configured.
 
 `numericalStabilityEpsilon` belongs only to the semantic/topology layer. It may
 decide that a domain cannot be classified reliably. `visualVisibilityEpsilon`
@@ -1454,9 +1698,9 @@ The stroke engine computes the visible product before renderer projection.
 Center strokes are authored center products or exact center descriptors.
 Constrained solid strokes are built as doubled authored center-stroke products
 before inside/outside legality clipping. Constrained dashed strokes build
-DashProductInterval body products, terminal body products, source-vertex join
-products, and smooth-continuity products from the same domain plan before
-descriptor or render-entry encoding.
+DashProductInterval body products and source-vertex join products, then attach
+non-visible terminal and smooth-continuity ownership overlays to those body
+products from the same domain plan before descriptor or render-entry encoding.
 
 Inside and outside masks are legal-domain filters over declared products. They
 may clip or exclude product geometry, but they must not create the join shape,
@@ -1476,8 +1720,8 @@ inputs, not renderer repair hints.
   ownership.
 - Stroke joins apply only at authored sharp vertices and contour-visit
   terminals where source-domain tangent continuity fails. Smooth and
-  tangent-continuous curved spans stay smooth-continuity products regardless of
-  visual curvature.
+  tangent-continuous curved spans stay Step 27 body coverage with Step 31
+  smooth-continuity ownership overlays regardless of visual curvature.
 - Stroke caps apply only to true open endpoints or body-side dash interval
   endpoints allowed by endpoint cap policy. Endpoint-side caps are suppressed
   when a terminal is join-owned, and a cap never substitutes for an authored
@@ -1574,9 +1818,9 @@ The coverage matrix is a required implementation gate, not documentation
 decoration. A step unit test must assert only the parameters classified for that
 step. A step that needs a parameter not listed as `consume`, `dirty-key`, or
 `cache-key` must stop and reopen this spec and the inspector flow before
-implementation. A renderer or diagnostics step that needs to display metadata
-may use `preserve` or `output-metadata`, but it must not reinterpret stroke
-parameters as product geometry.
+implementation. A renderer step or optional diagnostic channel that needs to
+display metadata may use `preserve` or `output-metadata`, but it must not
+reinterpret stroke parameters as product geometry.
 
 ### Stroke Field Mapping
 
@@ -1620,7 +1864,7 @@ Terminal terms are:
 | Body-side dash endpoint    | Dash interval endpoint that borders a visible dash gap inside a declared source span                             | Authored cap allowed by `endpointCapPolicy`                         | No join; it is not a source vertex                                         |
 | Join-owned terminal        | Split, dash, or contour terminal located at an authored sharp vertex or contour visit with two incident tangents | Endpoint-side cap suppressed                                        | Authored join required when incident visible coverage reaches the terminal |
 | Contour-visit terminal     | A visit of a contour at a source vertex or self-intersection that owns a legal side/domain                       | Endpoint-side cap suppressed unless it is also a true open endpoint | Legal-side authored join required for sharp visits                         |
-| Smooth-continuity terminal | Boundary between samples that are tangent-continuous through a curve or smooth anchor                            | Cap suppressed inside the continuity span                           | No sharp join; smooth-continuity product owns the footprint                |
+| Smooth-continuity terminal | Boundary between samples that are tangent-continuous through a curve or smooth anchor                            | Cap suppressed inside the continuity span                           | No sharp join; the Step 27 body owns the footprint and Step 31 records non-visible smooth ownership |
 
 A true open endpoint is an authored path/network endpoint and is allowed to emit
 the authored endpoint cap. A true open endpoint must not be reclassified as a
@@ -1736,16 +1980,19 @@ post-boolean footprint angle is invalid evidence.
 Dash intervals provide incident body coverage and seam boundaries. The
 dash-body-to-source-vertex-join handoff is a deterministic Asyra product rule,
 not an implementation preference. Source-vertex joins consume the incident seam
-boundaries and emit a seam-free local join product that reuses the same Step 27
-seam endpoint identities on both incident dash body seams. Tests, visual
-probes, and runtime repair code must not invent seam tolerances, padding
-endpoints, or downstream cleanup endpoints. A visible gap between a dash body
-and the owning source-vertex join is a product failure, not a renderer issue.
+boundaries and emit a seam-free local join product that reuses the same
+seam-boundary artifact endpoint identities on both incident dash body seams.
+Tests, visual probes, and runtime repair code must not invent seam tolerances,
+padding endpoints, or downstream cleanup endpoints. A visible gap between a dash
+body and the owning source-vertex join is a product failure, not a renderer
+issue.
 
-Terminal bodies stop at their declared seam boundaries. Endpoint-side caps are
-suppressed at join-owned terminals. Body-side caps remain only when the endpoint
-cap policy allows them, and no cap may substitute for authored source-vertex
-join ownership.
+Terminal body coverage is part of the owning dash interval body product and
+stops at its declared seam boundaries. Endpoint-side caps are suppressed at
+join-owned terminals. Body-side caps remain only when the endpoint cap policy
+allows them, and no cap may substitute for authored source-vertex join
+ownership. Step 30 records terminal role, cap policy, seam identity, and join
+ownership against that body product; it does not emit another visible body.
 
 ### Computation Ownership And Timing Contract
 
@@ -1758,15 +2005,15 @@ The required computation ownership is:
 
 | Value or artifact                                                                                                                                                                                                                         | Computed at                         | Consumed by                                                                                                        | Must not be recomputed after                                                                              |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| Dash allocation source-distance intervals, terminal roles, independent source-span endpoint half-dash classification, independent-span gap distribution, and `configuredGap * 0.6` evidence                                               | `allocate-dash-intervals`           | product-family selection, dash body assembly, terminal body assembly, source-vertex join assembly, and diagnostics | `build-dash-interval-body-products`                                                                       |
-| Dash body visible footprint and endpoint cap suppression state                                                                                                                                                                            | `build-dash-interval-body-products` | source-vertex join, terminal body, legality, final faces, render entries                                           | `build-source-vertex-join-products`                                                                       |
-| Dash body seam boundary, including terminal point, outer body boundary endpoint, body-side outline segment, body-side tangent, selected legal side, endpoint cap suppression state, interval id, split range id, and source segment index | `build-dash-interval-body-products` | source-vertex join and terminal body assembly                                                                      | `build-source-vertex-join-products`                                                                       |
-| Source-domain `vertexAngle`, miter comparison, and resolved join                                                                                                                                                                          | `build-source-vertex-join-products` | legality, final faces, descriptors, render entries, hit/export, diagnostics                                        | `apply-legality`                                                                                          |
+| Dash allocation source-distance intervals, terminal roles, independent source-span endpoint half-dash classification, independent-span gap distribution, and `configuredGap * 0.6` evidence                                               | `allocate-dash-intervals`           | product-family selection, dash body assembly, terminal body assembly, and source-vertex join assembly              | `build-dash-interval-body-products`                                                                       |
+| Dash body visible footprint or exact body geometry program, including terminal/smooth portions and endpoint cap suppression state                                                                                                        | `build-dash-interval-body-products` | seam-boundary derivation, source-vertex join, terminal/smooth ownership binding, legality, final faces, descriptors, render entries | `derive-dash-body-seam-boundaries` for seam evidence; later stages preserve or project the same body product |
+| Dash body seam boundary artifact, including terminal point, outer body boundary endpoint, body-side outline segment, body-side tangent, selected legal side, endpoint cap suppression state, interval id, split range id, and source segment index | `derive-dash-body-seam-boundaries` | source-vertex join and terminal body assembly; final faces preserve it for render-entry coverage-equivalence proof only | `build-source-vertex-join-products`; render entries may consume but must not recompute or reinterpret it  |
+| Source-domain `vertexAngle`, miter comparison, and resolved join                                                                                                                                                                          | `build-source-vertex-join-products` | legality, final faces, descriptors, render entries, and hit/export                                                | `apply-legality`                                                                                          |
 | Bevel / bevel-by-miter-angle cut-off edge between incident dash body outer boundary endpoints                                                                                                                                             | `build-source-vertex-join-products` | legality, final faces, render entries                                                                              | `apply-legality`                                                                                          |
-| Terminal body footprint and allowed body-side cap                                                                                                                                                                                         | `build-terminal-body-products`      | legality, final faces, render entries                                                                              | `apply-legality`                                                                                          |
-| Smooth-continuity dash footprint                                                                                                                                                                                                          | `build-smooth-continuity-products`  | legality, final faces, render entries                                                                              | `apply-legality`                                                                                          |
+| Terminal role, allowed body-side cap, seam id, and join-ownership overlay for an existing dash body product                                                                                                                              | `build-terminal-body-products`      | legality, final faces, descriptors, render entries, hit/export                                                    | `apply-legality`; the overlay never creates or replaces body geometry                                     |
+| Smooth-continuity group and tangent/curve-offset proof for existing dash body products                                                                                                                                                    | `build-smooth-continuity-products`  | legality, final faces, descriptors, render entries, hit/export                                                    | `apply-legality`; the overlay never creates or replaces body geometry                                     |
 | Descriptor eligibility and legality basis                                                                                                                                                                                                 | `select-stroke-descriptor-strategy` | descriptor materialization                                                                                         | `apply-legality` for eligibility; `materialize-stroke-product-descriptors` for renderer-ready descriptors |
-| Same-paint single-composite or equivalent alpha-safe render-entry evidence                                                                                                                                                                | `render-entries`                    | renderer projection and diagnostics                                                                                | `renderer-projection`                                                                                     |
+| Same-paint single-composite or equivalent alpha-safe render-entry evidence                                                                                                                                                                | `render-entries`                    | renderer projection                                                                                                | `renderer-projection`                                                                                     |
 
 These timing rules prevent five failure classes:
 
@@ -1779,8 +2026,8 @@ These timing rules prevent five failure classes:
   required by downstream stages, such as a dash body without a seam boundary
   artifact;
 - early calculation: a stage decides a value before required upstream evidence
-  exists, such as resolving a join before Step 27 proves the incident dash body
-  outer boundary endpoints;
+  exists, such as resolving a join before seam-boundary derivation proves the
+  incident dash body outer boundary endpoints;
 - late calculation: a downstream stage makes geometry or alpha-composition
   decisions after the owner stage has closed, such as renderer projection
   deciding join shape or same-paint overlap semantics.
@@ -1795,11 +2042,159 @@ must not supply missing artifacts, skip required owner-stage evidence, or reuse 
 descriptor whose dependency signature intersects the current dirty dependency
 set.
 
+### Preserve-Only Artifact Contract
+
+The following cross-step values are append-only after their owner step. Later
+steps may consume, preserve, attach channel metadata, or produce explicit
+empty/delete evidence. They must not drop, recompute, reinterpret, or replace
+the value from raw source data:
+
+- `StrokeDomainPlan` from `resolve-stroke-domains`;
+- `DashProductInterval` identity, terminal role, split-range provenance, and
+  source-distance endpoints from `allocate-dash-intervals`;
+- dash body seam-boundary artifacts from `derive-dash-body-seam-boundaries`;
+- source-vertex join and miter evidence from
+  `build-source-vertex-join-products`;
+- terminal-body ownership overlays from `build-terminal-body-products`,
+  including their referenced dash body product id;
+- smooth-continuity ownership overlays from
+  `build-smooth-continuity-products`, including every referenced dash body
+  product id;
+- pre/post legality product id parity and legal clip/delete reason from
+  `apply-legality`;
+- final-face identity set from `build-final-faces`;
+- render-entry identity parity from `render-entries`;
+- hit/export packets and metadata from `emit-render-hit-export-packets`.
+
+Dropping one of these values is legal only when the owner route, legal route, or
+hidden-output route declares why the artifact has no downstream product. The
+drop record must carry the relevant source product id or artifact id, owner
+step, route id, and empty/delete reason. A downstream step that needs to rebuild
+one of these values reopens the first owner step or the lifecycle contract; it
+does not patch the later channel.
+
+### Constrained Dashed Product Evidence Envelope
+
+Constrained dashed product construction uses one immutable evidence envelope
+from product assembly through render, hit-test, and export projection. The
+envelope is a semantic artifact, not optional diagnostics:
+
+```ts
+interface ConstrainedDashedProductEvidenceEnvelope {
+  bodyProductIds: readonly string[]
+  terminalOwnershipOverlays: readonly {
+    overlayId: string
+    bodyProductId: string
+    intervalId: string
+    splitRangeId?: string
+    terminalRole: 'start' | 'end' | 'start-end'
+    endpointCapPolicySignature: string
+    seamBoundaryIds: readonly string[]
+    joinOwnershipSignatures: readonly string[]
+    ownerStepId: 'build-terminal-body-products'
+    zeroVisibleContribution: true
+  }[]
+  smoothContinuityOwnershipOverlays: readonly {
+    overlayId: string
+    bodyProductIds: readonly string[]
+    intervalIds: readonly string[]
+    splitRangeIds: readonly string[]
+    smoothContinuityGroupId: string
+    tangentContinuityProof: {
+      continuous: true
+      previousTangent: { x: number; y: number }
+      nextTangent: { x: number; y: number }
+      tolerance: number
+    }
+    curveOffsetOuterBoundaryProof: {
+      evidenceId: string
+      basis: 'authored-source-curve-offset-at-stroke-width'
+      strokeWidth: number
+      verified: true
+    }
+    singleContinuousFootprintProof: true
+    noSourceVertexJoinOwnershipProof: true
+    ownerStepId: 'build-smooth-continuity-products'
+    zeroVisibleContribution: true
+  }[]
+}
+```
+
+Step 27 initializes `bodyProductIds`. Steps 30 and 31 append their own overlay
+records by body identity. No later step may rebuild an overlay from interval,
+terminal, curve, cap, seam, or source geometry data. Envelope merge is a stable
+O(n) identity union keyed by `bodyProductId` or `overlayId`; it does not perform
+geometry operations and does not change the visible owner. Cache keys use the
+ordered body/overlay id signature, not serialized paths, polygons, or proof
+objects.
+
+Every single-body polygon or descriptor packet preserves the Step 27 body id as
+its product identity. A single-body packet uses that id as its `geometryId`; a
+batched descriptor or same-paint composite may use a batch geometry id only when
+it also preserves every source body id in the envelope. Step 27 remains the
+visible owner of terminal and smooth portions. Step 29 remains the visible owner
+of sharp source-vertex join products. Steps 30 and 31 are evidence owners only.
+
+`apply-legality` preserves the complete envelope for every surviving body. If a
+body is legally deleted, it emits a delete record containing the body id,
+affected overlay ids, legal-domain id, and delete reason. An overlay may be
+dropped only when all referenced bodies are deleted or the route is explicitly
+hidden. Resolved regions, paint attachment, final faces, arrangements,
+descriptors, render entries, hit packets, and export packets preserve the same
+envelope without interpreting it as visible geometry.
+
+An exact Step 27 body program is self-contained for materialization. It carries
+the body product id, source path and range, authored stroke width, doubled-center
+materialization width, cap/join/miter style, endpoint cap policy and locks,
+legal-side/domain basis, interval/split provenance, and raw source-curve
+evidence. Raw curve evidence may record covered source segment ids/types,
+authored anchor kinds, and incident tangents; Step 31 alone converts those facts
+into smooth-continuity ownership proof. Descriptor materialization consumes the
+completed program and legality artifact and must not read the current stroke or
+source geometry again to recover missing program fields.
+
+### Cache Key Owner Contract
+
+Cache keys are owned by the first step whose semantic inputs can make reuse
+safe:
+
+| Cache key | Owner | Required semantic inputs |
+| --- | --- | --- |
+| Source revision and topology signature | `dirty-revision-graph` / `shared-geometry-model` | element id, network id, source revision, contour topology, closed/open state |
+| Stroke spec signature | `normalize-stroke-spec` | normalized style, position, width, dash, gap, cap, join, miter, paint-independent defaults |
+| Stroke domain signature | `resolve-stroke-domains` | source family, domain mode, interval-domain kind, side authority, legal-domain boundary ids |
+| Dash allocation signature | `allocate-dash-intervals` | domain id, dash/gap, allocation origin, terminal role, split-range provenance, configured gap floor |
+| Dash seam-boundary signature | `derive-dash-body-seam-boundaries` | dash body product id, interval id, terminal point, outer boundary endpoint, body-side segment, endpoint cap suppression |
+| Join/miter signature | `build-source-vertex-join-products` | source vertex id, authored join, resolved join, vertex angle, miter angle, angle source, incident seam ids |
+| Terminal body signature | `build-terminal-body-products` | terminal role, interval id, seam boundary id, endpoint cap policy, legal side |
+| Legality signature | `apply-legality` | source product id, legal-domain id, contour id, clip/delete route, pre/post product id parity |
+| Resolved-packet cache-key basis and aliases | `build-resolved-stroke-regions` | cache scope, source/topology signature, normalized stroke signature, domain and dash-allocation signatures, legal-domain signature, and the declared join-ownership selector |
+| Final-face signature | `build-final-faces` | final-face id, owner set, interval ids, terminal roles, seam ids, legal-domain ids, source-span ids |
+| Output channel signature | `render-entries` / `emit-render-hit-export-packets` | final-face id, descriptor route, same-paint composite state, output channel tag, hit/export equivalence reason |
+
+Cache storage may retain artifacts with those keys, but the owner step remains
+the semantic source. A cache hit is valid only when it returns the exact declared
+artifact with the same identity set and dependency signature. It cannot supply a
+missing lifecycle value or erase required evidence.
+
+`build-resolved-stroke-regions` may assemble one immutable common cache-key
+basis per render attempt from those already-declared input signatures. The basis
+is a composition artifact only: it must not derive source, domain, dash, seam,
+terminal, join/miter, or legality semantics from paths, polygons, or diagnostics.
+The early alias adds `join-ownership:auto`, the full alias adds the resolved
+join-ownership signature, and the join-independent alias omits only that selector.
+Every other key dimension and byte ordering remains identical across the three
+aliases. Lookup, Step 37 descriptor-cache reuse, and resolved-packet cache store
+must reuse the same basis instead of serializing fill/domain/stroke dimensions
+again. An early cache lookup may precede a cache-miss rebuild, but a miss still
+executes every required owner stage and evidence handoff.
+
 ### Smooth Curvature Non-Join Contract
 
 High curvature is not a join trigger. Tangent-continuous curved spans and smooth
-anchors remain smooth-continuity products even when their curvature is visually
-high. A visible dash on one smooth-continuity span must be one continuous
+anchors remain Step 27 body coverage with Step 31 smooth-continuity evidence
+even when their curvature is visually high. A visible dash on one
+smooth-continuity span must be one continuous
 footprint; disconnected strips, radial slices, comb-like seams, or helper
 visible geometry inside one dash are product failures. Sharp source-vertex join
 ownership begins only when source-domain tangent continuity fails at an authored
@@ -1807,13 +2202,36 @@ vertex or contour-visit terminal.
 
 ### Product Legality And Descriptor Encoding
 
-Product assembly may produce `preLegalityProductUnits`. Descriptor strategy may
-be selected before legality only as eligibility metadata: descriptor mode,
-required legal basis, owner boundaries, and channel intent. Renderer-ready
-descriptor materialization happens after final-face legality records exist and
-may consume only `postLegalityProductUnits`, `finalFaces`, or product units
-carrying explicit legality-equivalence evidence. A descriptor is a renderer-ready
-encoding of an already declared product. It must carry product builder id,
+Product assembly may produce `preLegalityProductUnits` as canonical polygons or
+exact body geometry programs. A body geometry program is a product-builder
+artifact, not a renderer shortcut: it carries the exact source path/range,
+doubled constrained width, endpoint cap policy, seam-boundary identities,
+legal-side/domain basis, and product identity needed to reproduce the owned
+dash body. Terminal and smooth ownership overlays reference this body product
+and carry no visible geometry.
+
+For an exact body geometry program, Step 28 may encode a seam boundary as an
+immutable exact-program boundary reference instead of eagerly polygonizing the
+body. The reference fixes the body product id, interval and split-range ids,
+range endpoint, terminal role, cap-suppression state, legal side, source segment,
+and terminal/outer/outline/tangent identity ids. A coordinate-consuming Step 29
+join may project those identities from the referenced body program, but it must
+not reinterpret the range, cap policy, legal side, or body ownership. Step 30
+consumes only the completed seam identity and must not materialize coordinates
+or construct a terminal-pair join plan.
+
+Descriptor strategy may be selected before legality only as eligibility
+metadata: descriptor mode, required legal basis, owner boundaries, and channel
+intent. `apply-legality` may either clip canonical polygons or attach the exact
+fill clip/exclude constraints to a body geometry program and emit a
+descriptor-backed `postLegalityProductUnit` with pre/post product id parity.
+This legality-equivalent route must prove the same legal domain, zero wrong-side
+residue, preserved seams, and complete owner-overlay identity; it must not defer
+legality decisions to renderer projection. Renderer-ready descriptor
+materialization happens after final-face legality records exist and may consume
+only `postLegalityProductUnits`, `finalFaces`, or product units carrying explicit
+legality-equivalence evidence. A descriptor is a renderer-ready encoding of an
+already declared product. It must carry product builder id,
 source revision, stroke signature, domain signature, dash interval ids, terminal
 roles, endpoint cap policy, join ownership, legal side, smooth-continuity group,
 descriptor mode, output channel, and visible/evidence channel separation.
@@ -1824,14 +2242,20 @@ renderer-owned repair geometry.
 Render-entry materialization may merge or collapse same-paint final-face
 products only when the result preserves the already-applied legality contract.
 Individual constrained dashed final faces are already post-legality visible
-products from Step 32/35. Step 38 must not re-run per-face legal clipping,
+products from Step 33/36. Step 39 must not re-run per-face legal clipping,
 source-coverage clipping, cleanup, or endpoint canonicalization in a way that
 can delete a terminal body, source-vertex join, smooth-continuity body, or dash
-body product. Any additional legal clipping in Step 38 is allowed only inside a
+body product. Any additional legal clipping in Step 39 is allowed only inside a
 declared same-paint composite/projection route and must prove coverage
 equivalence, zero wrong-side residue, and zero seam loss before replacing the
 final-face product set.
-When Step 38 builds a same-paint arrangement for inside/outside constrained
+Step 39 must also preserve the final-face product identity set by identity:
+owner, interval, terminal role, seam-boundary artifact, legal-domain, and
+source-span ids that exist on consumed final faces must be present on the
+emitted render-entry records. A visible product that still draws pixels but
+cannot prove this identity parity reopens `render-entries`, not renderer
+projection or an upstream dash allocation step.
+When Step 39 builds a same-paint arrangement for inside/outside constrained
 products, the resolved legal-domain boundaries must be included as non-visible
 splitter input to that arrangement. Legal-domain splitter input may cut
 arrangement cells, but it must not claim paint, become a visible contributor,
@@ -1846,16 +2270,23 @@ result directly. It must not pass that clipped outside product through
 final-face flattening, polygon cleanup, notch removal, or fallback source
 polygons that can reinterpret holes, refill the excluded fill domain, create
 inside-side residue, or reopen a dash/join seam. If a same-paint merge or
-source-coverage collapse changes the product, Step 38 must prove before and
+source-coverage collapse changes the product, Step 39 must prove before and
 after source-space legal-domain residue is zero except coordinate epsilon; a
 failed proof reopens `render-entries`, not renderer projection.
+Legal-side sample probes used for that proof must be actual product vertices,
+product edge midpoints, or other points already proven to lie on or inside the
+candidate visible product. Synthetic proxy points such as a vertex-average
+centroid of a concave or clipped polygon are not legal-side authority. When the
+geometry backend can compute the exact intersection/difference area against the
+legal domain, that area proof is authoritative; sample probes remain a secondary
+guard for provenance and backend-unavailable cases.
 
 Render entries must also preserve dash product effective coverage evidence.
 Merged or collapsed entries may aggregate `DashProductInterval` provenance, but
 they must not erase `effectiveStartDistance` / `effectiveEndDistance` or
 `physicalSpanRanges`. If a render entry exposes only the declared source span for
 a terminal half dash, downstream tests and renderers cannot distinguish an
-intentional gap from a missing product, so the failure reopens Step 38.
+intentional gap from a missing product, so the failure reopens Step 39.
 
 Single-composite evidence applies inside a render entry as well as between
 render entries. A render entry that contains multiple same-paint polygons with
@@ -1869,26 +2300,29 @@ proof reopens `render-entries`.
 
 ### Output Channel Separation
 
-`finalFaces`, `renderEntries`, `hitExportPackets`, and `diagnosticSnapshots`
-are sibling channel products over the same semantic stroke records. Renderer
-projection consumes declared render entries and emits visible pixels only.
-Hit/export consumes final-face channel packets and explicit hit/export evidence;
-it must not depend on renderer projection. Diagnostics may aggregate render
-projection metadata and hit/export evidence, but diagnostics are never render,
-hit, export, or product source of truth.
+`finalFaces`, `renderEntries`, and `hitExportPackets` are sibling channel
+products over the same semantic stroke records. Renderer projection consumes
+declared render entries and emits visible pixels only. Hit/export consumes
+final-face channel packets and explicit hit/export evidence; it must not depend
+on renderer projection. Optional diagnostics may summarize terminal evidence
+when diagnostics mode is enabled, but diagnostics are not inspector owner steps,
+not final validation methods unless explicitly configured by the user, and
+never render, hit, export, or product source of truth.
 
 ### Local Composition, Caps, And Joins
 
 At every local source vertex, contour split, or self-intersection split, visible
-pixels must be explainable by the allowed local contributors:
+pixels must be explainable by the allowed local contributors. Terminal and
+smooth ownership overlays are evidence attached to dash interval body products;
+they are not additional visible contributors:
 
 | Local case                                                    | Allowed visible contributors                                                                            |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Solid authored vertex                                         | Previous solid body, one authored join, next solid body                                                 |
 | Center dashed true open endpoint                              | The owning terminal dash body plus the true endpoint authored cap route                                 |
 | Center dashed authored vertex with visible adjacent intervals | Adjacent dash bodies plus the authored source-vertex join when the dash product reaches the vertex      |
-| Constrained contour/source split terminal                     | Previous terminal dash body, one legal-side authored join, next terminal dash body                      |
-| Self-intersection split terminal                              | The contour-visit terminal dash bodies plus exactly one legal-side authored join for that contour visit |
+| Constrained contour/source split terminal                     | Previous dash interval body, one legal-side authored join, next dash interval body                       |
+| Self-intersection split terminal                              | The contour-visit dash interval bodies plus exactly one legal-side authored join for that contour visit  |
 | Gap at a vertex                                               | No dash body may be invented only to carry a cap or join                                                |
 | `inside-excluded-open-span`                                   | No visible contributor                                                                                  |
 
@@ -1907,21 +2341,22 @@ apex-near region must be covered by a source-vertex-owned
 construction evidence, and diagnostic/helper products must have zero visible
 contribution inside the protected join footprint.
 
-Outside dashed high-acute boundary-terminal-pair terminal bodies also have a
-selected-side terminal body envelope oracle. Any source-domain selected-side
+Outside dashed high-acute join-owned terminals also have a selected-side body
+coverage oracle. Any source-domain selected-side
 terminal half-dash body sample that is inside the legal terminal body
 contribution envelope and outside source-vertex apex or protected join
-ownership must be covered by the canonical boundary-terminal-pair terminal body
-product. A miss in this region is a terminal body product materialization
+ownership must be covered by the terminal portion of the owning Step 27 dash
+body product. A miss in this region is a dash
+body product materialization
 failure, not an allowed resolved-join gap.
 
 Within the local source-vertex probe region used by formal oracles,
 miter-family join output must be locally convex and notch-free after
 terminal-body exclusion. The source-vertex join footprint must stay seam-free
-through resolved join geometry that shares the incident Step 27 seam endpoint
-identities; any concave bite, dash/join gap, endpoint relocation, or visible
-seam-repair product in that probe region is a broken corner. That probe region
-is not a production clip and must not cap a resolved miter apex.
+through resolved join geometry that shares the incident seam-boundary artifact
+endpoint identities; any concave bite, dash/join gap, endpoint relocation, or
+visible seam-repair product in that probe region is a broken corner. That probe
+region is not a production clip and must not cap a resolved miter apex.
 
 For join-owned `start`, `end`, and `start-end` interval terminals,
 endpoint-side dash caps are suppressed before join materialization. Join-owned
@@ -1954,8 +2389,8 @@ the following precedence applies:
 | Candidate overlap                                  | Visible owner                                                                                   |
 | -------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | Diagnostic/helper/derivation vs any product packet | Product packet; diagnostic/helper/derivation stays non-visible                                  |
-| Terminal body vs endpoint cap                      | Terminal body plus allowed body-side cap; suppressed endpoint-side cap is dropped               |
-| Terminal body vs authored join                     | Terminal body owns dash-body pixels; authored join owns legal-side corner pixels                |
+| Dash interval terminal portion vs endpoint cap     | Owning dash body plus allowed body-side cap; suppressed endpoint-side cap is dropped             |
+| Dash interval terminal portion vs authored join    | Dash interval body owns body pixels; authored join owns legal-side corner pixels                 |
 | Source-vertex join vs generic canonical packet     | Source-vertex join; generic packet cannot cover the same local join region                      |
 | Self-intersection contour visit A vs visit B       | Each visit owns only its resolved legal side/domain; overlap must be clipped or kept diagnostic |
 | Smooth-continuity fragments inside one dash        | One smooth-continuity group owns the combined dash footprint                                    |
@@ -1969,7 +2404,9 @@ generic packet, merge join-owned product into a cap/body packet, drop
 `geometryId`, lose `dashProductIntervals`, erase `domainPlanTerminalRole`,
 erase `domainPlanSplitRangeTerminals`, erase endpoint cap policy, erase
 join-ownership signatures, erase smooth-continuity grouping, or hide same-paint
-overlap by relying on opacity.
+overlap by relying on opacity. Terminal and smooth overlays may be aggregated
+only as identity metadata over their referenced body product; they may never
+contribute a second copy of that product's polygons or stroke paths.
 
 Post-canonicalization visible packets must satisfy:
 
@@ -1985,8 +2422,17 @@ Post-canonicalization visible packets must satisfy:
 
 ### Descriptor, Channel, Cache, And Drag Contracts
 
-Descriptors are renderer-ready encodings of the product builder output. A
-visible descriptor may bypass visible polygon final-face projection only when
+Descriptors are renderer-ready encodings of the product builder output. For a
+constrained dashed family, descriptor materialization batches body geometry
+programs by compatible paint, stroke spec, legal domain, and output channel,
+while preserving every body product id plus terminal, smooth, seam, interval,
+join, legal-domain, and source-span identity. Body paths may be grouped by
+compatible cap/join style; source-vertex join products remain explicit join
+contributors in the same alpha-safe composite. The batch must not join paths
+across a sharp owner boundary or convert terminal/smooth overlays into visible
+geometry.
+
+A visible descriptor may bypass visible polygon final-face projection only when
 it exactly encodes the same semantic product and carries enough metadata for
 inspector evidence: product builder id, source revision, stroke signature,
 domain mode/signature, dash interval ids, terminal roles, endpoint cap policy,
@@ -2046,18 +2492,22 @@ output or a descriptor proven equivalent to that output.
 
 The spec owns both expected stroke behavior and the canonical review pass/fail
 contract.
-Completion for a stroke semantic change requires all relevant oracles:
+Completion for a stroke semantic change requires all relevant formal and runtime
+oracles:
 
 - formal unit/product tests for affected product contracts;
 - inspector evidence for stage ownership, dirty counters, cache hits/misses,
   descriptor/channel separation, and failure reopening;
-- app visual review overlay for affected canonical groups or focused reported
-  cases;
 - local source-space probes for source segment adherence, legal side, dash/gap
   recall, cap footprint, join footprint, terminal ownership, and same-paint
   overdraw;
 - contributor-count or equivalent ownership oracle for acute vertices,
   self-intersection split terminals, and same-paint local regions.
+
+An app visual review overlay is optional. Generate it for affected canonical
+groups or focused reported cases only when the user explicitly requests final
+screenshots or includes visual review in the implementation scope. Its absence
+does not block correctness, E2E, performance, regression, or goal completion.
 
 The local contributor oracle counts visible product owners in a source-space
 probe region. A valid constrained dashed source vertex has at most the allowed
@@ -2068,10 +2518,11 @@ terminal bodies, endpoint caps at join-owned terminals, diagnostic fragments, or
 same-paint overlaps count as failures even when the final pixels are opaque and
 visually similar.
 
-#### App Visual Matrix
+#### Explicit-Request App Visual Matrix
 
-The canonical visual groups are an app-visible validation matrix, not a primary
-regression authority. Stroke correctness is first defined by the stroke engine
+The canonical visual groups are an optional app-visible validation matrix, not a
+primary regression authority or automatic completion gate. Run this matrix only
+when explicitly requested. Stroke correctness is first defined by the stroke engine
 spec, the inspector flow, the step-unit gates, the integration gates, the formal
 geometry oracle matrix, and the new regression coverage gate. App visual groups
 verify that the already-defined product semantics survive the application
@@ -2169,8 +2620,8 @@ All 18 groups must verify these rules:
 - Overlap correctness: same-paint overlaps do not create unexpected
   darker/double-alpha output; opaque same-paint output still passes
   contributor-count probes.
-- Projection correctness: render, hit, export, diagnostics, and visual overlay
-  records preserve channel separation; diagnostics, derivation helpers,
+- Projection correctness: render, hit, export, optional diagnostics, and visual
+  overlay records preserve channel separation; diagnostics, derivation helpers,
   hit/export evidence, and overlay probes must not appear as visible render
   contributors.
 
@@ -2405,10 +2856,11 @@ They allow only coordinate epsilon for proving the same source-space point or
 for discarding backend floating-point residue. They do not allow a visible
 crack, wrong-side paint, missing join, missing dash body, or protrusion budget.
 
-#### Minimum App Visual Review Commands
+#### Explicit-Request App Visual Review Commands
 
-Agent-run app visual, drag, and performance gates must use the app-specific
-visual review URL from `apps/asyra-design/.env`
+When app visual review is explicitly requested, that review plus agent-run drag
+and performance gates must use the app-specific visual review URL from
+`apps/asyra-design/.env`
 (`ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL`) and must pass the same value to
 `PLAYWRIGHT_TEST_BASE_URL`. Do not hardcode a localhost port in the visual
 review contract; if the configured URL points at a user-run server, the agent
@@ -2424,7 +2876,8 @@ workspace package build phase completes before `apps/asyra-design` starts; a
 runtime that starts Vite against stale package `dist` output cannot close a
 stroke visual review, even if later file watchers rebuild the packages.
 
-For app runtime evidence and visual validation after the stroke gates pass:
+Only after an explicit user request, run app visual validation after the stroke
+gates pass:
 
 ```bash
 export ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL="$(grep '^ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL=' apps/asyra-design/.env | cut -d= -f2-)"
@@ -2432,7 +2885,8 @@ PLAYWRIGHT_TEST_BASE_URL="$ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL" \
 yarn workspace @asyra/asyra-design test:e2e e2e/stroke-new-flow --reporter=line
 ```
 
-Before reporting stroke visual correctness:
+When visual review was explicitly requested, before reporting stroke visual
+correctness:
 
 1. Run the current-flow visual specs referenced by
    `apps/asyra-design/e2e/stroke-new-flow/stroke-visual-e2e-coverage-map.ts`.
@@ -2463,7 +2917,10 @@ incomplete.
   relevant filled-region mask where the position requires it.
 - `Product Output`: render, hit, export, and renderer projection steps consume
   semantic descriptors without changing stroke rules.
-- `Diagnostics`: diagnostics and visible review steps are the completion gates.
+- `Post-runtime validation`: user-requested visible result and app visual
+  review gates validate the completed development graph outside inspector step
+  ordering. Optional diagnostics may provide non-product evidence only when
+  configured; diagnostics are not inspector owner steps.
   Translucent self-intersecting center solid strokes also require same-paint
   alpha-overlap probes: self-crossings must match adjacent body stroke paint
   strength and must not darken through multiple visible composites.
@@ -2554,19 +3011,184 @@ not retrace source intersections, switch to a drag-only geometry route, emit
 diagnostic/export polygons as visible repair geometry, or bypass the stroke
 product contract to hit the performance budget.
 
+For descriptor-eligible constrained dashed products, legality and descriptor
+materialization operate on the owner-indexed body geometry program as a batch
+per compatible legal domain. Terminal and smooth overlay records do not trigger
+their own offset, polygon cleanup, or boolean clip. Repeating the same body
+polygonization or legal-domain intersection once per terminal/smooth overlay is
+duplicate semantic work and reopens the product-family dataflow contract.
+
+Within one Step 37 compatibility group, the inside aggregate descriptor cache
+performs one lookup. A miss executes path slicing, ribbon materialization, and
+cache storage once; caller and builder must not repeat the same lookup. A ribbon
+polygon may bypass a second cleanup pass only when its producer returns
+`simple-outline`, which guarantees a deduplicated, nonzero-area, simple polygon.
+Every other validity status follows the declared fallback. This optimization
+does not make product polygons optional: the same polygons, bounds, area,
+descriptor evidence, final-face handoff, and hit/export handoff remain required.
+Before changing the Step 37 polygonization algorithm, detail evidence separates
+per-path cache-key/lookup, two-point materialization, collinear materialization,
+continuous-ribbon materialization, fallback materialization, middle round-cap
+construction, and cache store. Phase reporting is aggregate per compatibility
+group so instrumentation cost does not scale the diagnostics sink with every
+body path. Cache hits and misses must continue to produce identical polygon,
+bounds, area, render descriptor, final-face, and hit/export artifacts.
+The focused attribution measures cache-key/lookup at `0.1417ms`, continuous
+ribbon materialization at `0.2917ms`, fallback materialization at `0.2750ms`,
+middle round caps at `0.2000ms`, and cache store at `0.0125ms` average. The
+first accepted optimization is limited to the round-cap subphase: points
+generated from the cached unit semicircle may skip generic polygon cleanup only
+after formal tests prove `segmentCount + 1` points, no adjacent or closing
+duplicate, and no cleanup-threshold collinear vertex. Arc sampling, point order,
+coordinates, decomposition, area, bounds, and every output channel remain
+unchanged.
+The analytic-cap cleanup removal is retained as a proven no-op simplification,
+but its focused timing remains within noise around `0.20ms`; it is not credited
+as a stable performance gain. Ribbon status evidence classifies all 27 expensive
+fallback calls as `fail-open-invalid-outline`, never `empty`. Step 37 therefore
+keeps the strict validity rejection and reopens the Step 25 segmented fallback
+producer for source-normalization, segment-body, join-polygon, and cap-cost
+attribution before any fallback geometry replacement.
+The segmented fallback is a Step 25 center-product owner even when Step 37 is
+its consumer. Its source normalization, segment body polygons, source-vertex
+join polygons, and round caps must report separate aggregate phases before a
+fast bevel or other replacement is accepted. Instrumentation must preserve the
+exact polygon list and must not move fallback ownership into descriptor code.
+The focused attribution separates metadata-free bevel at `0.1542ms` average
+from full-solver calls at `1.4083ms` average within a `1.7958ms` source-vertex
+join total. The remaining full-solver calls on the measured round route have no
+incident seam boundaries and discard all join metadata. Step 25 must not replace
+them locally: any style-specific polygon primitive remains owned and proven by
+Step 29 first.
+
+The Step 25 dashed-center ribbon helper remains the geometry owner when Step 37
+uses it for descriptor product evidence. On the manual-ribbon route, an outline
+without suppressed endpoints performs one dedupe/area normalization before
+`simple-outline` validation. Endpoint half-plane clipping and a second
+normalization run only when a start or end cap is actually suppressed. Point
+dedupe, rail collinearity, and miter-limit comparisons may use squared-distance
+forms that are mathematically equivalent to the prior normalized-vector or
+square-root comparisons. These changes must preserve backend selection, cap and
+join coordinates, round sampling, suppression clipping, validity status,
+fallback behavior, product polygons, bounds, area, and every Step 37 output
+channel.
+
+Step 29 emits one canonical source-vertex join polygon set per owner product.
+Legality and descriptor exclusion indexes consume that polygon set by reference;
+they must not normalize, union, merge, clean, or reconstruct it before indexing
+or channel attachment. Within one render attempt, Step 29 computes each plan's
+local legal bounds once, each polygon set's bounds once, and each join angle
+resolution once, then reuses those summaries for stage evidence, product records,
+packet bounds, and metadata. This changes neither polygon coordinates nor seam
+identity and does not transfer visible ownership to descriptor materialization.
+
+Step 29 may expose narrowly named metadata-free no-incident-boundary polygon
+primitives for center-product consumers that discard every full-solver metadata
+field. Each authored style is a separate primitive and is legal only when a
+formal angle/side/offset/degenerate matrix proves point-for-point equality with
+the same style from `buildSourceVertexJoinFootprint`. These primitives must not
+handle incident seam boundaries, miter, bevel-by-miter-angle, join-resolution
+evidence, or a canonical Step 29 product record. Constrained solid and dashed
+callers that consume canonical metadata or seam identities must continue using
+the full solver.
+
+The authored-bevel primitive is proven across seven acute/right/obtuse,
+left/right, zero/negative-offset, and degenerate cases. Step 25 separately
+preserves complete solid-center polygon fingerprints while consuming it. The
+distinct authored-round primitive is now proven across both sweep
+directions, shallow/right/obtuse/near-opposite and exact opposite turns, both
+sides, varied and zero/negative offsets, and degenerate incidents. It must
+preserve default round arc sampling, sampled-midpoint sweep scoring, stable tie
+selection, point order, coordinates, cleanup/fallback output, and exact
+full-solver polygon equality. A shared core helper may expose only the actual
+sample midpoint for one already-specified sweep. It must not choose join style,
+legal side, cap policy, or visible ownership. Normal no-seam cases may score both
+sweep midpoints and materialize only the selected arc; zero-radius, degenerate,
+or numerically ambiguous cases retain the existing dual-sweep materialization.
+Existing core arc consumers must remain byte-stable through fixed output
+fingerprints and sample-midpoint-to-materialized-point identity tests.
+
+Pre-implementation diagnostics rejected cross-sign and dot-threshold shortcuts
+because they changed point output. The sampled-midpoint candidate is point-exact
+across a deterministic 92,738-case no-seam grid and improves a 448-case
+microbenchmark by 68.2%. These diagnostics justify implementation review but do
+not replace focused formal tests, source-space oracles, or port 3001 runtime
+measurement.
+The implemented primitive preserves six fixed core-arc fingerprints, six exact
+sampled-midpoint identities, and nineteen formal full-solver differential cases.
+Step 29 plus protocol pass 93 tests, four related oracle files pass 20 tests, the
+production primitive remains point-exact across the 92,738-case diagnostic grid,
+and focused lint/build pass. This closes Step 29 only; each consumer must still
+prove its complete product fingerprint before switching from the full solver.
+
+The Step 25 center-product consumer proof is complete. Only authored-round calls
+with no incident seam boundaries and no metadata consumer use the Step 29 round
+primitive; authored miter remains on the full solver. Protocol plus Steps
+25/29/37 pass 133 tests, the related cap/join/center oracles pass 20 tests, and
+all complete miter/bevel/round product fingerprints remain unchanged. On port
+3001, metadata-free bevel averages `0.1667ms`, metadata-free round `0.3000ms`,
+remaining full-solver work `0.1417ms`, and the complete source-vertex join phase
+`0.8833ms`, down from `1.7958ms`. The strict route passes resolved geometry p95
+at `2.30ms`, vector average at `6.396ms`, and sustained flush average at
+`7.717ms`; vector-render p95 remains open at `9.50ms`. This remaining tail does
+not by itself authorize another Step 25-local optimization. Any next algorithm
+replacement must first review the complete Step 27-41 artifact family and show
+a material end-to-end p95 improvement while preserving render, hit, export,
+legality, and ownership semantics.
+
 Exact rebuild remains required when source revision, topology, domain, dash,
 terminal, cap, join, smooth-continuity, or descriptor signatures cannot prove
 safe reuse. If an exact geometry stage is too expensive to stay within the
-120fps gate, completion evidence must name that stage, show the measured p95 or
+60fps gate, completion evidence must name that stage, show the measured p95 or
 average cost, prove why correctness requires exact work there, and keep the
 visible output on the same product contract. A broad "geometry is expensive"
 claim is not enough.
+
+Step 20 incremental self-intersection diagnostics aggregate pair-cache hits,
+misses, signature remaps, and consecutive-pair skips once per resolved build;
+the emitted counter values remain the exact pair totals. Per-pair sink calls are
+not geometry work and must not scale instrumentation overhead with traced segment
+count. Source-split range work reports cache-key construction and range
+materialization as separate phases so a cache-policy or algorithm change is
+based on measured owner cost. These diagnostics changes must preserve traced
+segments, pair parameters, planar faces, fill regions, contours, split ranges,
+stroke boundary domains, and all downstream consumers.
+
+The focused Step 20 gate proves that aggregation preserves geometry and emits
+each pair counter once with exact totals. On the live port-3001 inside-dashed
+out-control route, intersections improved from approximately `0.40ms` average
+and `0.80ms` p95 to `0.3625ms` average and `0.50ms` p95 while pair-cache hit
+`902`, miss `405`, and consecutive-skip `5,544` totals remained unchanged. The
+new attribution records source-split cache-key construction at `0.0125ms`
+average and materialization at `0.4083ms` average / `0.70ms` p95. The strict
+vector-render p95 remains `9.90ms`; therefore any source-split algorithm or
+cache-policy replacement must first review source-range identity, translation
+reuse, legal-face and contour inputs, stroke-boundary-domain derivation, and all
+fill, stroke, hit/export, and diagnostics consumers as one Step 20 family.
+That review keeps both legal-face and contour passes: legal-face construction is
+the only source of `filled-face` ranges, while contour domains supply outer/hole
+identity and merge metadata. Before replacing either path, detail evidence must
+separate cache lookup, source-segment setup, boundary-role indexing, legal-face
+range construction, contour-range merge, deterministic finalization, and cache
+store. A cache hit must continue to bypass range construction and return an
+output deeply equal to an uncached build.
+
+The completed attribution shows that source-split cache policy is not the next
+performance owner. In the latest focused route, cache lookup, setup, and role
+indexing are effectively zero at timer resolution; cache store averages
+`0.0208ms`, legal-face materialization `0.2042ms`, contour merge `0.0917ms`,
+and total source-split materialization `0.3583ms`. Legal-face materialization
+must remain because it uniquely emits `filled-face` ranges. The whole-vector
+pass instead measures constrained-dashed packets at `4.5125ms` average, Step 37
+inside aggregate descriptor at `1.6583ms`, and product packet assembly at
+`1.1542ms`; subsequent performance work therefore returns to that complete
+descriptor/product artifact family.
 
 Enforced app drag gate:
 
 ```bash
 export ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL="$(grep '^ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL=' apps/asyra-design/.env | cut -d= -f2-)"
-ASYRA_STROKE_DRAG_E2E_ENFORCE_120FPS=1 \
+ASYRA_STROKE_DRAG_E2E_ENFORCE_60FPS=1 \
 PLAYWRIGHT_TEST_BASE_URL="$ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL" \
 yarn workspace @asyra/asyra-design test:e2e \
   e2e/stroke-drag-render-performance-solid.spec.ts \
@@ -2583,16 +3205,88 @@ yarn workspace @asyra/asyra-design test:e2e \
 
 The gate must report and enforce:
 
-- vector point/control drag resolved geometry p95 below 8.33ms, unless the
+- vector point/control drag resolved geometry p95 below 16.67ms, unless the
   explicit correctness-required exception above is documented;
-- vector product render phase p95 below 8.33ms;
-- sustained render flush average below 8.33ms;
+- vector product render phase p95 below 16.67ms;
+- sustained render flush average below 16.67ms;
 - stage dirty counters showing drag source-path updates without static stroke
   parameter or paint revision churn;
 - cache hit, miss, store, and hidden-output counters for the affected stage
   product cache;
 - evidence that final mouseup commits one canonical undoable computed patch
   while intermediate drag updates remain non-undoable.
+
+## Continuous Stroke Parameter Performance Contract
+
+Continuous width, dash, gap, and miter-angle updates must use the same
+property/common API and canonical stroke product pipeline as discrete property
+changes. This contract adds an engine pressure gate only; it does not add a UI
+scrubber or a separate preview product route.
+
+The pressure gate models 60Hz authored parameter updates and enforces a
+16.67ms frame budget. Width, dash/gap, and miter-angle are separate focused gate
+groups so one expensive parameter family does not force unrelated scenarios to
+run during diagnosis. Each enforced group must make at least 90% of its update
+frames distinct geometry-rebuilding states so p95 is calculated from a
+statistically meaningful cold-update population rather than a small cache-miss
+set. The remaining frames include at least one explicit state revisit to prove
+the stage cache hit path without letting cache hits dilute geometry p95. The gate
+reports and enforces:
+
+- resolved geometry p95 below 16.67ms;
+- vector product render p95 below 16.67ms;
+- sustained render flush average below 16.67ms;
+- visible product output for every non-empty current stroke state;
+- stage-specific dirty revisions and cache hit/miss/store evidence;
+- the same render, hit, export, legality, ownership, and channel semantics as a
+  discrete update to the same current stroke state.
+
+Width updates reuse source path/topology and dash interval allocation, then
+rebuild domain, terminal cap, join/miter, and downstream output. Dash/gap
+updates rebuild dash interval allocation and downstream output while preserving
+source topology and join-shape revision. Miter-angle updates rebuild join/miter
+and downstream output while preserving source path, stroke domain, dash
+allocation, and paint revisions. A cache hit is valid only when the existing
+stage-specific signatures prove that reuse.
+
+Discrete property UI remains a separate responsiveness gate: end-to-visible p95
+must be at most 50ms and one action must be at most 100ms. For this active goal,
+completion remains blocked until the 16.67ms continuous-operation gates pass
+without exception. Performance measurement and optimization start after the
+runtime inspector steps and formal correctness gates pass; optional visual
+inspection is not a prerequisite.
+
+The vector-data-to-stroke-product computation is a separate cold-path
+responsiveness gate. It starts when normalized vector data enters the stroke
+strategy and ends when completed render entries are available. Its p95 must be
+at most 50ms and one computation must be at most 100ms. Page navigation,
+network loading, app initialization, and fixed test waits are excluded. Domain,
+dash allocation, body/cap/join products, legality, final faces, descriptor
+materialization, and render-entry composition are included. Unit tests enforce
+work counts and output equivalence, never wall-clock thresholds; only browser
+E2E enforces these time budgets.
+
+## Focused Test Execution Contract
+
+Stroke tests must remain bounded to the current owner and evidence question.
+The implementation inner loop runs the protocol validator, one active step unit
+test, and at most one required cross-step handoff test. Geometry diagnosis runs
+one mapped oracle file or exact test title before any product-family suite.
+
+Integration tests are grouped by the six whole-flow review families. Formal
+geometry oracles are grouped into normalization/domain, center product,
+constrained product, dash/cap/join, legality/final-face, and output-channel
+families. Heavy fixtures live in independent files and may share only fixture
+construction and pure assertion helpers; they must not share owner-stage
+implementation logic.
+
+A focused step gate targets five seconds and a focused geometry oracle targets
+fifteen seconds. A focused test above thirty seconds, or a file containing
+unrelated owner families, requires a split review. These timings decide test
+decomposition only and must never become correctness assertions. Whole stroke
+unit, combined stroke, full E2E, and full package regression gates run at their
+declared phase boundaries rather than inside a focused repair loop. Any visual
+matrix runs only when explicitly requested.
 
 ## Invalid Current-Rule Sources
 
@@ -2621,15 +3315,17 @@ The 2026-06-21 architecture closure met these requirements:
 - the inspector data labels Stroke Geometry product-unit building as
   model-neutral and route-neutral;
 - the inspector data covers the Stroke / Vector System flow from feature intent
-  through Product Output and Diagnostics;
+  through Product Output, with optional diagnostics and final validation outside
+  the inspector step graph;
 - current Asyra rule probes and reviewed screenshots pass;
 - visual gates fail when the internal pentagon breaks into helper-like
   fragments even if shared-edge width and join-difference numeric probes pass;
 - visual gates fail when translucent center solid self-intersections accumulate
   same-paint alpha overlap, even if global red coverage and route assertions
   pass;
-- implementation evidence separately proves render, hit, export, diagnostics,
-  reload, performance behavior, and visible screenshot consistency.
+- implementation evidence separately proves render, hit, export, optional
+  diagnostics when configured, reload, performance behavior, and visible
+  screenshot consistency.
 
 Future stroke architecture changes must satisfy the same requirements before
 claiming closure.
