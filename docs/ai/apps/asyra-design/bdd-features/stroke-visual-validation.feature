@@ -5,7 +5,8 @@ Feature: Stroke visual validation
   Background:
     Given the stroke engine spec is the source of stroke semantics
     And the stroke inspector flow is the source of runtime step and route order
-    And legacy stroke tests are quarantined as historical evidence
+    And non-conforming legacy stroke tests and runtime routes are removed before visual closure
+    And formal source-space oracles are the geometry authority
     And the app visual review base URL is explicitly set by ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL
 
   Scenario: Switching high-acute joins records runtime product evidence before screenshots

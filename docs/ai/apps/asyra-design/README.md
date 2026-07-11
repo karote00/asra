@@ -13,30 +13,32 @@ This folder is the app-level implementation context for **Asyra Design**.
 7. `CONSTRAINTS.md`
 8. `PLANS.md`
 9. `rules/*`
-10. `modules/*`
-11. `features/*`
-12. `bdd-features/*`
-13. `prd/*`
-14. `epics/*`
-15. `golden-paths/*`
-16. `task-breakdowns/*`
-17. `BEST_PRACTICES.md`
-18. `decisions/releases/*` (app decision history by release timeline)
+10. `specs/*`
+11. `modules/*`
+12. `features/*`
+13. `bdd-features/*`
+14. `prd/*`
+15. `epics/*`
+16. `golden-paths/*`
+17. `task-breakdowns/*`
+18. `BEST_PRACTICES.md`
+19. `decisions/releases/*` (app decision history by release timeline)
 
 ## Interpretation Priority
 
 When docs overlap, follow this order:
 
 1. `rules/*` (hard rules)
-2. `modules/*` (app contracts and boundaries)
-3. `features/*` (feature behavior contracts)
-4. `bdd-features/*` (behavior expectations)
-5. `prd/*` (product-level requirements)
-6. `epics/*` (capability grouping and scope)
-7. `golden-paths/*` (project-approved implementation playbooks)
-8. `task-breakdowns/*` (execution slices)
-9. `BEST_PRACTICES.md` (general guidance)
-10. `PLANS.md` (future work index and active stroke task focus)
+2. `specs/*` (product semantic and inspector contracts)
+3. `modules/*` (app contracts and boundaries)
+4. `features/*` (feature behavior contracts)
+5. `bdd-features/*` (behavior expectations)
+6. `prd/*` (product-level requirements)
+7. `epics/*` (capability grouping and scope)
+8. `golden-paths/*` (project-approved implementation playbooks)
+9. `task-breakdowns/*` (execution slices)
+10. `BEST_PRACTICES.md` (general guidance)
+11. `PLANS.md` (future work index only)
 
 ## Scope
 
