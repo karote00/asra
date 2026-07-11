@@ -8,10 +8,12 @@ artifact, output-channel, cache, diagnostic, numerical, and acceptance
 contracts.
 
 The machine-readable companion is
-`docs/ai/apps/asyra-design/specs/stroke-engine/inspector.data.js`. The Inspector
-defines stage order, route predicates, artifact ownership, preservation, and
-failure ownership. It may summarize this document by stable rule id, but it
-must not introduce geometry or product semantics that are absent here.
+`docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js`.
+The Inspector defines stage order, route predicates, artifact ownership,
+preservation, and failure ownership. It may summarize this document by stable
+rule id, but it must not introduce geometry or product semantics that are
+absent here. The target data uses the framework-level Flow Inspector schema;
+Stroke is its first feature target, not the owner of the viewer contract.
 
 No implementation file, test, screenshot, analysis artifact, report, viewer,
 or decision record defines stroke behavior. Those materials may verify or
