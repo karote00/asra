@@ -67,6 +67,42 @@ describe('DataTransact user action completion', () => {
     )
   })
 
+  it('projects an explicitly immediate undoable shared change before commit without publishing it twice', () => {
+    const pushToSharedChannel = vi.fn()
+    const transact = new DataTransact({ pushToSharedChannel })
+    const subscriber = vi.fn()
+    const subscription = subscribeToUserActionCompleted(subscriber)
+    subscriber.mockClear()
+
+    transact.start()
+    transact.update(
+      createUpdateEvent({
+        shared: 'sceneTree',
+        sharedDelivery: 'immediate'
+      })
+    )
+
+    expect(pushToSharedChannel).toHaveBeenCalledTimes(1)
+    expect(pushToSharedChannel).toHaveBeenCalledWith(
+      'sceneTree',
+      expect.objectContaining({
+        id: 'test.change',
+        options: { sharedDelivery: 'immediate' }
+      })
+    )
+    expect(subscriber).not.toHaveBeenCalled()
+
+    transact.end()
+
+    expect(pushToSharedChannel).toHaveBeenCalledTimes(1)
+    expect(subscriber).toHaveBeenCalledTimes(1)
+    expect(subscriber.mock.calls[0][0].payload).toMatchObject({
+      changeCount: 1
+    })
+
+    subscription.unsubscribe()
+  })
+
   it('forwards effective mutation options to shared channel payloads', () => {
     const pushToSharedChannel = vi.fn()
     const transact = new DataTransact({ pushToSharedChannel })

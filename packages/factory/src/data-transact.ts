@@ -153,7 +153,10 @@ class DataTransact {
     const sharedChannelName = event.options?.shared
     if (sharedChannelName) {
       const sharedChange = toSharedChannelPayload(payload, event.options)
-      if (event.options?.undoable === false) {
+      if (
+        event.options?.undoable === false ||
+        event.options?.sharedDelivery === 'immediate'
+      ) {
         this.sharedDataChannelRegistry.pushToSharedChannel(
           sharedChannelName,
           sharedChange

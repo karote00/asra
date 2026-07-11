@@ -18,6 +18,8 @@
 - Group logically-related mutations in one transaction.
 - One intended user action should create one intended undo commit.
 - Session updates may use non-undoable interim writes, but the final committed state must be grouped deliberately.
+- An undoable shared change that must be visible before the outer transaction ends may opt into `sharedDelivery: 'immediate'`; it remains part of the current undo commit and must not be published again at transaction end.
+- `sharedDelivery` defaults to `'transaction-end'`. Callers must opt in per change rather than making all undoable shared changes live globally.
 - Cross-store mutations must be coordinated through API boundaries that preserve scene-tree, props-manager, selection, and render consistency.
 
 ## Validation Rule

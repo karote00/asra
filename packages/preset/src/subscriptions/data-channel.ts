@@ -597,8 +597,12 @@ export const registerDefaultDataChannelObservers = (
   const uiContextSceneTreeDataChannelObserver = defineDataChannelObserver({
     name: 'preset.uiContext.sceneTree',
     channel: SharedDataChannelNames.SCENE_TREE,
-    onChange: (change: SceneTreeChange) =>
+    onChange: (change: SceneTreeChange) => {
       handleUIContextSceneTreeChange(change, core, deps)
+      if (change.options?.sharedDelivery === 'immediate') {
+        flushPendingUIContextSync(core, deps)
+      }
+    }
   })
 
   const uiContextSelectionDataChannelObserver = defineDataChannelObserver({

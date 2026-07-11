@@ -69,16 +69,18 @@ Scene/model bridge:
 - `sceneTreeInit(): void`
 - `sceneTreeLoadData(data: SceneTreeRawData): void`
 - `sceneTreeSaveData(): SceneTreeRawData`
-- `createElement(data: CreateElementData, parent?: GroupInstanceTypes, index?: number, options?: { undoable?: boolean; shared?: string }): string`
-- `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: { undoable?: boolean; shared?: string }): void`
+- `createElement(data: CreateElementData, parent?: GroupInstanceTypes, index?: number, options?: EVENT_OPTIONS): string`
+- `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: EVENT_OPTIONS): void`
 - `refreshComputedDataFromProperty(elementId: string, propertyName: string, options?: EVENT_OPTIONS): void`
 - `getAllElementsBounds(): Bounds | null`
 - `isContainerType(type: string): boolean`
-- `selectByChannel(channel: string, ids: string[], options?: { undoable?: boolean; shared?: string }): void`
-- `selectElements(elementIds: string[], options?: { undoable?: boolean; shared?: string }): void`
-- `selectVectorPoints(pointIds: string[], options?: { undoable?: boolean; shared?: string }): void`
-- `selectVectorSegments(segmentIds: string[], options?: { undoable?: boolean; shared?: string }): void`
+- `selectByChannel(channel: string, ids: string[], options?: EVENT_OPTIONS): void`
+- `selectElements(elementIds: string[], options?: EVENT_OPTIONS): void`
+- `selectVectorPoints(pointIds: string[], options?: EVENT_OPTIONS): void`
+- `selectVectorSegments(segmentIds: string[], options?: EVENT_OPTIONS): void`
   - wrapper contract: channel must be resolvable from registered selection metadata (`action`/`eventName`); no built-in fallback channel defaults
+
+`EVENT_OPTIONS` supports `undoable`, `shared`, and `sharedDelivery`. `sharedDelivery: 'immediate'` projects that shared change during an active transaction while retaining it in the current undo commit; the default is `'transaction-end'`.
 
 Managed property bridges:
 
