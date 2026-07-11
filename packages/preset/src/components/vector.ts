@@ -8,10 +8,12 @@ import type { FillAttrs, StrokeAttrs } from '@asyra/utils'
 import core, {
   VECTOR_HANDLE_MODES,
   VECTOR_TOKENS,
-  defineComponent
+  defineComponent,
+  type EvenOddSegment,
+  type EvenOddShape
 } from '@asyra/core'
-import type { RenderStrategy } from '@asyra/core'
 import type {
+  RenderStrategy,
   VectorHandleMode,
   VectorNetwork,
   VectorPointNode,
@@ -22,83 +24,21 @@ import {
   applyRenderableFill,
   getRenderableFills
 } from './fills'
-import {
-  applyCenterDashedOverlapDiagnostics,
-  clearCenterDashedOverlapDiagnostics
-} from './stroke-render/center-dashed-overlap-diagnostics'
-import { buildConstrainedSolidLegalityClippingResult } from './stroke-render/constrained-solid-legality-clipping'
-import {
-  clearConstrainedSolidLegalityDiagnostics,
-  setConstrainedSolidLegalityDiagnostics
-} from './stroke-render/constrained-solid-legality-diagnostics'
-import {
-  buildConstrainedSolidOwnershipCandidateDiagnostics,
-  buildConstrainedSolidOwnershipDiagnostics,
-  clearConstrainedSolidOwnershipDiagnostics,
-  createEmptyConstrainedSolidOwnershipDiagnostics,
-  setConstrainedSolidOwnershipDiagnostics,
-  type ConstrainedSolidOwnershipDiagnostics
-} from './stroke-render/constrained-solid-ownership-diagnostics'
-import {
-  buildConstrainedDashedStrokeResolvedPackets,
-  hasConstrainedDashedStrokeIntent
-} from './stroke-render/constrained-dashed-stroke-packets'
-import {
-  buildArrangedStrokeFinalFacesFromResolvedPackets,
-  collapseStrokeFinalFaceVisualOverlaps
-} from './stroke-render/stroke-candidate-arrangement'
-import {
-  getGeometryBackend,
-  type PolygonRegion
-} from './stroke-render/geometry-backend'
-import type { ArrangementLegalDomain } from './stroke-render/arrangement-face-classifier'
-import {
-  buildConstrainedSolidStrokeResolvedPackets,
-  hasConstrainedSolidStrokeIntent
-} from './stroke-render/constrained-solid-stroke-packets'
-import {
-  getRenderableStrokeDashAndGap,
-  getRenderableStrokes,
-  normalizeStrokeSpec,
-  type RenderableStroke
-} from './stroke-render/renderable-stroke'
-import {
-  buildDashedCenterStrokeResolvedPackets,
-  hasDashedCenterStrokeIntent
-} from './stroke-render/dashed-center-stroke-packets'
-import {
-  buildVectorGeometryModelPath,
-  type PathGeometryBuildOptions,
-  type VectorSegmentGeometryFrameCache
-} from './stroke-render/path-geometry'
-import { buildCompoundLegalDomainNormalization } from './stroke-render/legal-domain-normalization'
-import {
-  renderSolidCenterStrokeEntries,
-  type SolidCenterStrokeRenderEntry
-} from './stroke-render/solid-center-stroke-render'
-import { shouldEmitFullStrokeDiagnostics } from './stroke-render/stroke-diagnostics-mode'
-import { buildStrokeRuntimeRevisionSet } from './stroke-render/stroke-dirty-keys'
-import {
-  attachStrokePacketDebugMeta,
-  applySolidCenterStrokeExportPacketsFromFinalFaces,
-  buildSolidCenterStrokeFinalFaces,
-  buildSolidCenterStrokeResolvedPackets,
-  createSolidCenterStrokeHitAreaFromFinalFaces,
-  hasSolidCenterStrokeIntent,
-  type SolidCenterStrokeResolvedPacket
-} from './stroke-render/solid-center-stroke-packets'
-import { toSolidCenterStrokeRenderEntriesFromFinalFaces } from './stroke-render/solid-center-stroke-packets'
-import {
-  buildPathTopologyModel,
-  normalizePathTopologyFillRule,
-  type PathTopologyFillRule,
-  type PathTopologyModel
-} from './stroke-render/path-topology-model'
-import {
-  buildResolvedVectorGeometryModel,
-  type ResolvedVectorGeometryFrameCache,
-  type ResolvedVectorGeometryNetworkModel
-} from './stroke-render/resolved-vector-geometry-model'
+
+const emitVectorRenderCounter = (counterName: string, value = 1): void => {
+  ;(
+    globalThis as typeof globalThis & {
+      __asyraVectorRenderCounterSink?: (
+        counterName: string,
+        value: number
+      ) => void
+    }
+  ).__asyraVectorRenderCounterSink?.(counterName, value)
+}
+
+const normalizeRawPathTopologyFillRule = (
+  value: unknown
+): 'evenodd' | 'nonzero' => (value === 'evenodd' ? 'evenodd' : 'nonzero')
 
 interface VectorComputedData {
   id: string
@@ -111,76 +51,9 @@ interface VectorComputedData {
   networks: Record<string, VectorNetwork>
   closed: boolean
   pointCoordinateSpace?: 'workspace'
-  fillRule: PathTopologyFillRule
+  fillRule: 'evenodd' | 'nonzero'
   fills: FillAttrs[]
   strokes?: StrokeAttrs[]
-}
-
-interface CenterPathSolidVisualStrokeGroup {
-  network: VectorNetwork
-  strokes: RenderableStroke[]
-}
-
-interface CenterSolidPathMaskVisualStrokeGroup {
-  network: VectorNetwork
-  path: VectorPathGeometryModel
-  topology: PathTopologyModel
-  strokes: RenderableStroke[]
-}
-
-const STROKE_PRODUCT_GEOMETRY_PHASE_NAMES = new Set([
-  'constrained dashed packets',
-  'constrained solid diagnostics',
-  'stroke packets',
-  'final faces',
-  'legal domains',
-  'visual overlap collapse'
-])
-
-const measureVectorRenderPhase = <T>(phaseName: string, run: () => T): T => {
-  const globalRecord = globalThis as typeof globalThis & {
-    __asyraVectorRenderPhaseSink?: (
-      phaseName: string,
-      durationMs: number
-    ) => void
-    __asyraResolvedVectorGeometryPhaseSink?: (
-      phaseName: string,
-      durationMs: number
-    ) => void
-    __asyraStrokeProductGeometryPhaseSink?: (
-      phaseName: string,
-      durationMs: number
-    ) => void
-  }
-  const diagnosticSink = globalRecord.__asyraVectorRenderPhaseSink
-  const requiredEvidenceSink =
-    phaseName === 'resolved vector geometry model'
-      ? globalRecord.__asyraResolvedVectorGeometryPhaseSink
-      : STROKE_PRODUCT_GEOMETRY_PHASE_NAMES.has(phaseName)
-        ? globalRecord.__asyraStrokeProductGeometryPhaseSink
-        : undefined
-  const sink = diagnosticSink ?? requiredEvidenceSink
-  if (!sink) {
-    return run()
-  }
-
-  const start = performance.now()
-  try {
-    return run()
-  } finally {
-    sink(phaseName, performance.now() - start)
-  }
-}
-
-const emitStrokePipelineCounter = (counterName: string, value = 1) => {
-  ;(
-    globalThis as typeof globalThis & {
-      __asyraStrokePipelineCounterSink?: (
-        counterName: string,
-        value: number
-      ) => void
-    }
-  ).__asyraStrokePipelineCounterSink?.(counterName, value)
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -193,13 +66,6 @@ const toStringArray = (value: unknown): string[] =>
   Array.isArray(value)
     ? value.filter((entry): entry is string => typeof entry === 'string')
     : []
-
-const normalizeRawPathTopologyFillRule = (
-  value: unknown
-): PathTopologyFillRule =>
-  normalizePathTopologyFillRule(
-    value === 'evenodd' || value === 'nonzero' ? value : 'nonzero'
-  )
 
 const isVectorHandleMode = (value: unknown): value is VectorHandleMode =>
   value === VECTOR_HANDLE_MODES.NONE ||
@@ -507,20 +373,9 @@ const isNormalizedVectorRenderDataInput = (
   return isNormalizedVectorNetworkMap(data.networks, points, segments)
 }
 
-const getNetworkAnchorGuardPoints = (
-  network: VectorNetwork,
-  points: Record<string, VectorPointNode>
-) =>
-  network.pointIds.flatMap((pointId) => {
-    const point = points[pointId]
-    return point?.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
-      ? [{ x: point.x, y: point.y, sharp: point.anchorType !== 'smooth' }]
-      : []
-  })
-
 const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
   if (isNormalizedVectorRenderDataInput(data)) {
-    emitStrokePipelineCounter('vector-render-normalize-fast-path-hit')
+    emitVectorRenderCounter('vector-render-normalize-fast-path-hit')
     return {
       ...data,
       points: data.points,
@@ -530,7 +385,7 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
       strokes: Array.isArray(data.strokes) ? data.strokes : []
     }
   }
-  emitStrokePipelineCounter('vector-render-normalize-full-path-count')
+  emitVectorRenderCounter('vector-render-normalize-full-path-count')
 
   const rawData = isRecord(data) ? data : {}
   const rawX = toFiniteNumber(rawData.x)
@@ -567,104 +422,6 @@ const getNumericSuffix = (value: string) => {
   return Number.parseInt(match[1], 10)
 }
 
-type SolidStrokeFinalFaceList = ReturnType<
-  typeof buildSolidCenterStrokeFinalFaces
->
-
-interface ConstrainedSolidPromotionResult {
-  packets: SolidCenterStrokeResolvedPacket[]
-  exactFaces: SolidStrokeFinalFaceList
-}
-
-const isExactConstrainedSolidCandidatePacket = (
-  packet: SolidCenterStrokeResolvedPacket
-) => {
-  const debugMeta = packet.geometry.debugMeta
-
-  return (
-    debugMeta?.productSignature?.startsWith('constrained-solid:') === true &&
-    debugMeta.productMode !== 'center-product' &&
-    debugMeta.visualOverlapCollapseStatus !== 'exact-union' &&
-    (debugMeta.sourceSpanIds?.length ?? 0) > 0
-  )
-}
-
-const isSelfIntersectingExactConstrainedSolidCandidatePacket = (
-  packet: SolidCenterStrokeResolvedPacket
-) =>
-  isExactConstrainedSolidCandidatePacket(packet) &&
-  packet.geometry.debugMeta?.topologyFamily === 'self-intersecting'
-
-const isAcceptedSelfIntersectingBoundaryDomainSolidPacket = (
-  packet: SolidCenterStrokeResolvedPacket
-) => {
-  const debugMeta = packet.geometry.debugMeta
-  if (!debugMeta) {
-    return false
-  }
-
-  return (
-    isSelfIntersectingExactConstrainedSolidCandidatePacket(packet) &&
-    debugMeta.domainPlanSideAuthority === 'implicit-fill-hole-domain' &&
-    debugMeta.domainPlanBoundaryDomainId !== undefined &&
-    (debugMeta.strokePosition === 'inside' ||
-      debugMeta.strokePosition === 'outside')
-  )
-}
-
-const canAcceptSelfIntersectingBoundaryDomainSolidPacketsWithoutLegality = (
-  packets: SolidCenterStrokeResolvedPacket[]
-) =>
-  packets.length > 0 &&
-  packets.every(isAcceptedSelfIntersectingBoundaryDomainSolidPacket)
-
-const promoteConstrainedSolidPacketsToExactArrangement = (
-  packets: SolidCenterStrokeResolvedPacket[],
-  legalDomains: ArrangementLegalDomain[] = []
-): ConstrainedSolidPromotionResult => {
-  if (packets.length === 0) {
-    return { packets: [], exactFaces: [] }
-  }
-  const hasExactConstrainedCandidates = packets.some(
-    isExactConstrainedSolidCandidatePacket
-  )
-  if (!hasExactConstrainedCandidates && legalDomains.length === 0) {
-    return { packets: [], exactFaces: [] }
-  }
-
-  const acceptedSelfIntersectingPackets = packets.filter(
-    isAcceptedSelfIntersectingBoundaryDomainSolidPacket
-  )
-  const promotablePackets = packets.filter(
-    (packet) => !isAcceptedSelfIntersectingBoundaryDomainSolidPacket(packet)
-  )
-
-  try {
-    const backend = getGeometryBackend()
-    if (backend.capabilities.buildArrangement !== true) {
-      return { packets: acceptedSelfIntersectingPackets, exactFaces: [] }
-    }
-
-    const arrangedFaces = buildArrangedStrokeFinalFacesFromResolvedPackets(
-      promotablePackets,
-      {
-        backend,
-        legalDomains
-      }
-    )
-    if (arrangedFaces.length === 0) {
-      return { packets: acceptedSelfIntersectingPackets, exactFaces: [] }
-    }
-
-    return {
-      packets: acceptedSelfIntersectingPackets,
-      exactFaces: arrangedFaces
-    }
-  } catch {
-    return { packets: acceptedSelfIntersectingPackets, exactFaces: [] }
-  }
-}
-
 const sortByStableId = <T extends { id: string }>(items: T[]): T[] =>
   [...items].sort((a, b) => {
     const aRank = getNumericSuffix(a.id)
@@ -675,313 +432,6 @@ const sortByStableId = <T extends { id: string }>(items: T[]): T[] =>
 
     return a.id.localeCompare(b.id)
   })
-
-const formatSourceModelCacheNumber = (value: number) =>
-  Number.isFinite(value) ? value.toFixed(4) : 'NaN'
-
-const buildVectorSourceRevision = (
-  vectorId: string,
-  fillRule: PathTopologyFillRule,
-  network: VectorNetwork,
-  points: Record<string, VectorPointNode>,
-  segments: Record<string, VectorSegment>,
-  geometryCacheKey: string
-): VectorSourceRevision => {
-  const counterSink = (
-    globalThis as typeof globalThis & {
-      __asyraStrokePipelineCounterSink?: (
-        counterName: string,
-        value: number
-      ) => void
-    }
-  ).__asyraStrokePipelineCounterSink
-  const start = counterSink ? performance.now() : 0
-  const pointEntries = network.pointIds.map((pointId) => {
-    const point = points[pointId]
-    return point
-      ? [
-          point.id,
-          point.kind,
-          formatSourceModelCacheNumber(point.x),
-          formatSourceModelCacheNumber(point.y),
-          point.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
-            ? point.anchorType
-            : `${point.controlForId}:${point.controlRole}`
-        ].join(':')
-      : `${pointId}:missing`
-  })
-  const segmentEntries = network.segmentIds.map((segmentId) => {
-    const segment = segments[segmentId]
-    if (!segment) {
-      return `${segmentId}:missing`
-    }
-
-    const relatedPointIds = [
-      segment.startId,
-      segment.endId,
-      segment.outControlId,
-      segment.inControlId
-    ].filter((pointId): pointId is string => !!pointId)
-    return [
-      segment.id,
-      segment.startId,
-      segment.endId,
-      segment.outControlId ?? 'none',
-      segment.inControlId ?? 'none',
-      ...relatedPointIds.map((pointId) => {
-        const point = points[pointId]
-        return point
-          ? `${point.id}:${formatSourceModelCacheNumber(point.x)}:${formatSourceModelCacheNumber(point.y)}`
-          : `${pointId}:missing`
-      })
-    ].join(':')
-  })
-
-  const key = [
-    vectorId,
-    fillRule,
-    network.id,
-    geometryCacheKey,
-    network.closed ? 'closed' : 'open',
-    pointEntries.join('|'),
-    segmentEntries.join('|')
-  ].join('||')
-
-  if (counterSink) {
-    counterSink('source-revision-key-build-count', 1)
-    counterSink(
-      'source-revision-key-build-duration-ms',
-      performance.now() - start
-    )
-    counterSink('source-revision-key-point-count', network.pointIds.length)
-    counterSink('source-revision-key-segment-count', network.segmentIds.length)
-  }
-
-  return {
-    key,
-    vectorId,
-    networkId: network.id,
-    fillRule,
-    closed: network.closed
-  }
-}
-
-const getPointBounds = (points: Vec2[]) => {
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-
-  points.forEach((point) => {
-    minX = Math.min(minX, point.x)
-    minY = Math.min(minY, point.y)
-    maxX = Math.max(maxX, point.x)
-    maxY = Math.max(maxY, point.y)
-  })
-
-  return { minX, minY, maxX, maxY }
-}
-
-const boundsOverlapOrTouch = (
-  left: ReturnType<typeof getPointBounds>,
-  right: ReturnType<typeof getPointBounds>
-) =>
-  left.maxX >= right.minX &&
-  right.maxX >= left.minX &&
-  left.maxY >= right.minY &&
-  right.maxY >= left.minY
-
-const hasOverlappingNetworkSourceBounds = (
-  networkPaths: { topology: PathTopologyModel }[]
-) => {
-  if (networkPaths.length < 2) {
-    return false
-  }
-
-  const bounds = networkPaths.map(({ topology }) =>
-    getPointBounds(topology.normalizedPoints)
-  )
-
-  for (let leftIndex = 0; leftIndex < bounds.length - 1; leftIndex += 1) {
-    for (
-      let rightIndex = leftIndex + 1;
-      rightIndex < bounds.length;
-      rightIndex += 1
-    ) {
-      if (boundsOverlapOrTouch(bounds[leftIndex], bounds[rightIndex])) {
-        return true
-      }
-    }
-  }
-
-  return false
-}
-
-const buildStrokeFinalFaceSignature = (
-  face: SolidStrokeFinalFaceList[number]
-) => {
-  const { bounds, debugMeta, faceId, polygons, sourceGeometryIds } = face
-  const revisionSet = debugMeta?.revisionSet
-  const identity =
-    sourceGeometryIds.length === 1 ? sourceGeometryIds[0] : faceId
-
-  if (revisionSet) {
-    return [
-      identity,
-      bounds.minX,
-      bounds.minY,
-      bounds.maxX,
-      bounds.maxY,
-      revisionSet.sourcePathRevision,
-      revisionSet.strokeSpecRevision,
-      revisionSet.strokeFamilyRevision ?? '',
-      revisionSet.strokeDomainRevision,
-      revisionSet.intervalAllocationRevision,
-      revisionSet.dashAndGapRevision ?? '',
-      revisionSet.terminalCapRevision ?? '',
-      revisionSet.joinShapeRevision ?? '',
-      revisionSet.smoothContinuityRevision ?? '',
-      revisionSet.productMaterializationRevision ?? '',
-      revisionSet.ownershipRevision,
-      revisionSet.legalityRevision,
-      revisionSet.resolvedRegionRevision ?? '',
-      revisionSet.renderOutputRevision ?? ''
-    ].join(',')
-  }
-
-  const polygonSignature = polygons
-    .map((polygon) => polygon.map((point) => `${point.x}:${point.y}`).join(';'))
-    .join('/')
-
-  return [
-    identity,
-    bounds.minX,
-    bounds.minY,
-    bounds.maxX,
-    bounds.maxY,
-    polygonSignature
-  ].join(',')
-}
-
-const invertConstrainedStrokePositionForHole = (
-  strokes: StrokeAttrs[] | undefined,
-  role: 'shell' | 'hole' | undefined
-): StrokeAttrs[] | undefined => {
-  if (role !== 'hole') {
-    return strokes
-  }
-
-  return strokes?.map((stroke) => {
-    if (stroke.position === 'inside') {
-      return { ...stroke, position: 'outside' }
-    }
-    if (stroke.position === 'outside') {
-      return { ...stroke, position: 'inside' }
-    }
-    return stroke
-  })
-}
-
-const getSimpleOpenUnboundedCenterProductStrokes = (
-  strokes: StrokeAttrs[] | undefined
-): StrokeAttrs[] | undefined =>
-  strokes?.map((stroke) =>
-    stroke.position === 'inside' || stroke.position === 'outside'
-      ? { ...stroke, position: 'center' }
-      : stroke
-  )
-
-const doesStrokeDebugMetaIncludeNetwork = (
-  debugMeta: { networkId?: string; sourceNetworkIds?: string[] } | undefined,
-  networkId: string
-) => {
-  if (!debugMeta) {
-    return false
-  }
-  if (debugMeta.sourceNetworkIds?.length) {
-    return debugMeta.sourceNetworkIds.includes(networkId)
-  }
-  return debugMeta.networkId === networkId
-}
-
-const mergeConstrainedSolidOwnershipDiagnostics = (
-  entries: {
-    networkId: string
-    ownershipDiagnostics: ConstrainedSolidOwnershipDiagnostics
-  }[]
-): ConstrainedSolidOwnershipDiagnostics => {
-  const emptyDiagnostics = createEmptyConstrainedSolidOwnershipDiagnostics()
-  const candidates: ConstrainedSolidOwnershipDiagnostics['candidates'] = []
-  const edges: ConstrainedSolidOwnershipDiagnostics['edges'] = []
-  const components: ConstrainedSolidOwnershipDiagnostics['components'] = []
-  const arrangementFaces: ConstrainedSolidOwnershipDiagnostics['arrangementFaces'] =
-    []
-  const ownedRegions: ConstrainedSolidOwnershipDiagnostics['ownedRegions'] = []
-
-  entries.forEach(({ networkId, ownershipDiagnostics }) => {
-    const scope = `network:${networkId}`
-    const candidateIdMap = new Map<string, string>()
-
-    ownershipDiagnostics.candidates.forEach((candidate) => {
-      const candidateId = `${scope}:${candidate.candidateId}`
-      candidateIdMap.set(candidate.candidateId, candidateId)
-      candidates.push({
-        ...candidate,
-        candidateId
-      })
-    })
-
-    ownershipDiagnostics.edges.forEach(([left, right]) => {
-      const remappedLeft = candidateIdMap.get(left)
-      const remappedRight = candidateIdMap.get(right)
-      if (!remappedLeft || !remappedRight) {
-        return
-      }
-      edges.push([remappedLeft, remappedRight])
-    })
-
-    ownershipDiagnostics.components.forEach((component) => {
-      components.push({
-        ...component,
-        componentId: `${scope}:${component.componentId}`,
-        candidateIds: component.candidateIds.map(
-          (candidateId) => candidateIdMap.get(candidateId) ?? candidateId
-        )
-      })
-    })
-
-    ownershipDiagnostics.arrangementFaces.forEach((face) => {
-      arrangementFaces.push({
-        ...face,
-        faceId: `${scope}:${face.faceId}`,
-        candidateIds: face.candidateIds.map(
-          (candidateId) => candidateIdMap.get(candidateId) ?? candidateId
-        )
-      })
-    })
-
-    ownershipDiagnostics.ownedRegions.forEach((region) => {
-      ownedRegions.push({
-        ...region,
-        regionId: `${scope}:${region.regionId}`,
-        candidateIds: region.candidateIds.map(
-          (candidateId) => candidateIdMap.get(candidateId) ?? candidateId
-        )
-      })
-    })
-  })
-
-  return {
-    arrangementPolicy:
-      entries[0]?.ownershipDiagnostics.arrangementPolicy ??
-      emptyDiagnostics.arrangementPolicy,
-    candidates,
-    edges,
-    components,
-    arrangementFaces,
-    ownedRegions
-  }
-}
 
 interface Vec2 {
   x: number
@@ -1004,66 +454,6 @@ interface EvenOddFillCache {
   segments?: Record<string, VectorSegment>
   networks?: Record<string, VectorNetwork>
 }
-
-interface VectorHitCache {
-  segmentKeyMap?: Record<string, string>
-  segmentLinesMap?: Record<string, LineSegment[]>
-  preparedFillSegments?: PreparedEvenOddHitSegment[]
-  hitArea?: { contains: (x: number, y: number) => boolean }
-  strokeHitSignature?: string
-  points?: Record<string, VectorPointNode>
-  segments?: Record<string, VectorSegment>
-  networks?: Record<string, VectorNetwork>
-  hasVisibleFill?: boolean
-}
-
-type VectorPathGeometryModel = ReturnType<typeof buildVectorGeometryModelPath>
-
-interface VectorNetworkPathModel {
-  network: VectorNetwork
-  path: VectorPathGeometryModel
-  topology: PathTopologyModel
-  sourceRevision: VectorSourceRevision
-}
-
-interface VectorSourceRevision {
-  key: string
-  vectorId: string
-  networkId: string
-  fillRule: PathTopologyFillRule
-  closed: boolean
-}
-
-interface VectorPathModelCache {
-  entries: Map<
-    string,
-    { revision: VectorSourceRevision; model: VectorNetworkPathModel }
-  >
-  segmentFrames: Map<string, VectorSegmentGeometryFrameCache>
-}
-
-interface StrokePipelineStageProductCache {
-  geometrySignature: string | null
-  finalFaces: SolidStrokeFinalFaceList
-  renderEntries: SolidCenterStrokeRenderEntry[]
-}
-
-interface StrokePipelineStageCache {
-  products: Map<string, StrokePipelineStageProductCache>
-}
-
-const STROKE_PIPELINE_STAGE_PRODUCT_CACHE_LIMIT = 8
-
-const countCenterSolidPathMaskRenderEntries = (
-  entries: SolidCenterStrokeRenderEntry[]
-) =>
-  entries.filter(
-    (entry) =>
-      entry.debugMeta?.productMode === 'center-product' &&
-      entry.debugMeta?.productSignature === 'center-product:solid-path-mask' &&
-      entry.strokePaths !== undefined &&
-      entry.strokePaths.length > 0
-  ).length
 
 const isAnchorNode = (
   node: VectorPointNode | undefined
@@ -1103,19 +493,16 @@ const getControlNode = (
 }
 
 const MIN_FLATTEN_STEPS = 12
+
 const MAX_FLATTEN_STEPS = 64
+
 const DEFAULT_FLATTEN_SEGMENT_LENGTH = 12
+
 const INTERSECTION_EPS = 1e-6
+
 const NODE_KEY_EPS = 1e-4
+
 const MAX_OPEN_SEGMENTS = 1200
-const FINAL_PATH_GEOMETRY_OPTIONS: PathGeometryBuildOptions = {
-  sampleOptions: {
-    minCubicSamples: 12,
-    maxCubicSamples: MAX_FLATTEN_STEPS,
-    useRangeLengthForSampleCount: true
-  }
-}
-const FINAL_PATH_GEOMETRY_CACHE_KEY = 'final:v3:12:64:range'
 
 const cubicBezierPoint = (
   p0: Vec2,
@@ -1876,8 +1263,6 @@ const buildFillFaces = (
   })
 }
 
-import { type EvenOddShape, type EvenOddSegment } from '@asyra/core'
-
 const buildEvenOddShape = (
   orderedNetworks: VectorNetwork[],
   points: Record<string, VectorPointNode>,
@@ -1990,284 +1375,6 @@ const drawVectorPath = (
   )
 }
 
-const drawCenterPathSolidStrokePath = (
-  graphic: Parameters<RenderStrategy>[0],
-  networks: VectorNetwork[],
-  points: Record<string, VectorPointNode>,
-  segments: Record<string, VectorSegment>,
-  stroke: RenderableStroke
-) => {
-  networks.forEach((network) =>
-    drawVectorNetworkPath(graphic, network, points, segments)
-  )
-  ;(
-    graphic as {
-      stroke?: (style: {
-        width: number
-        color: number
-        alpha: number
-        join: RenderableStroke['join']
-        cap: RenderableStroke['cap']
-        miterLimit: number
-      }) => unknown
-    }
-  ).stroke?.({
-    width: stroke.width,
-    color: stroke.color,
-    alpha: stroke.alpha,
-    join: stroke.join,
-    cap: stroke.cap,
-    miterLimit: stroke.miterLimit
-  })
-}
-
-const isCenterSolidVisualStroke = (stroke: RenderableStroke) =>
-  stroke.style === 'solid' &&
-  stroke.position === 'center' &&
-  stroke.kind === 'solid' &&
-  stroke.width > 0
-
-const isSelfIntersectingCenterSolidTopology = (topology: PathTopologyModel) =>
-  topology.topologyFamily === 'self-intersecting'
-
-const isAlphaSafeCenterPathSolidStroke = (
-  stroke: RenderableStroke,
-  topology: PathTopologyModel
-) =>
-  stroke.alpha >= 0.999 ||
-  (topology.closed && topology.topologyFamily !== 'self-intersecting')
-
-const isCenterPathSolidVisualStroke = (
-  stroke: RenderableStroke,
-  topology: PathTopologyModel
-) =>
-  isSelfIntersectingCenterSolidTopology(topology) &&
-  isCenterSolidVisualStroke(stroke) &&
-  isAlphaSafeCenterPathSolidStroke(stroke, topology)
-
-const shouldRenderCenterSolidWithPathMask = (
-  stroke: RenderableStroke,
-  topology: PathTopologyModel
-) =>
-  isCenterSolidVisualStroke(stroke) &&
-  !isAlphaSafeCenterPathSolidStroke(stroke, topology) &&
-  (isSelfIntersectingCenterSolidTopology(topology) || !topology.closed)
-
-const isCenterDashedProductStroke = (stroke: RenderableStroke) =>
-  stroke.style === 'dashed' &&
-  stroke.position === 'center' &&
-  stroke.kind === 'solid' &&
-  stroke.width > 0 &&
-  getRenderableStrokeDashAndGap(stroke) !== null
-
-const buildBoundsPolygon = (
-  bounds: ReturnType<typeof getPointBounds>,
-  padding: number
-) => [
-  { x: bounds.minX - padding, y: bounds.minY - padding },
-  { x: bounds.maxX + padding, y: bounds.minY - padding },
-  { x: bounds.maxX + padding, y: bounds.maxY + padding },
-  { x: bounds.minX - padding, y: bounds.maxY + padding }
-]
-
-const buildCenterSolidPathMaskRenderEntry = (
-  vectorId: string,
-  group: CenterSolidPathMaskVisualStrokeGroup,
-  stroke: RenderableStroke
-): SolidCenterStrokeRenderEntry | null => {
-  const strokePath = group.path.sampledPoints
-  if (strokePath.length < 2) {
-    return null
-  }
-
-  const bounds = getPointBounds(strokePath)
-  if (
-    !Number.isFinite(bounds.minX) ||
-    !Number.isFinite(bounds.minY) ||
-    !Number.isFinite(bounds.maxX) ||
-    !Number.isFinite(bounds.maxY)
-  ) {
-    return null
-  }
-
-  const padding = Math.max(1, stroke.width * Math.max(2, stroke.miterLimit))
-  const productSignature = 'center-product:solid-path-mask'
-
-  return {
-    cacheKey: `vector:${vectorId}:${group.network.id}:center:path-mask:${stroke.paintKey ?? 'solid'}`,
-    stroke: {
-      kind: stroke.kind,
-      color: stroke.color,
-      alpha: stroke.alpha,
-      gradientStyle: stroke.gradientStyle,
-      paintKey: stroke.paintKey
-    },
-    polygons: [buildBoundsPolygon(bounds, padding)],
-    strokePaths: [strokePath],
-    strokePathStyle: {
-      width: stroke.width,
-      cap: stroke.cap,
-      join: stroke.join,
-      miterLimit: stroke.miterLimit,
-      closed: group.network.closed
-    },
-    debugMeta: {
-      productMode: 'center-product',
-      productSignature,
-      domainMode: 'center-product',
-      topologyFamily: group.topology.topologyFamily,
-      strokePosition: 'center',
-      visualOverlapCollapseStatus: 'exact-union'
-    },
-    revisionSet: buildStrokeRuntimeRevisionSet({
-      points: strokePath,
-      closed: group.network.closed,
-      stroke,
-      productMode: 'center-product',
-      domainMode: 'center-product',
-      networkId: group.network.id,
-      strokeProductSignature: productSignature
-    })
-  }
-}
-
-const getSingleSolidStyleRenderableStroke = (
-  strokes: StrokeAttrs[] | undefined
-) => {
-  const renderableStrokes = getRenderableStrokes(strokes)
-  if (renderableStrokes.length !== 1) {
-    return null
-  }
-
-  const [stroke] = renderableStrokes
-  return stroke.kind === 'solid' ? stroke : null
-}
-
-const buildStrokeProductGeometrySignature = (
-  vectorId: string,
-  networkPaths: VectorNetworkPathModel[],
-  stroke: RenderableStroke | null
-) => {
-  if (!stroke) {
-    return null
-  }
-
-  return [
-    'stroke-product-geometry',
-    vectorId,
-    networkPaths
-      .map(({ network, sourceRevision }) =>
-        [network.id, sourceRevision.key].join('=')
-      )
-      .join('|'),
-    stroke.kind,
-    stroke.style,
-    stroke.position,
-    stroke.width.toFixed(4),
-    stroke.cap,
-    stroke.join,
-    stroke.miterAngle.toFixed(4),
-    [stroke.dash, stroke.gap].map((value) => value.toFixed(4)).join(',')
-  ].join('||')
-}
-
-const getStrokePaintKey = (stroke: RenderableStroke) =>
-  stroke.paintKey ?? `solid:${stroke.color}:${stroke.alpha}`
-
-const restyleStrokePathStyle = (
-  style:
-    | (Pick<RenderableStroke, 'width' | 'cap' | 'join' | 'miterLimit'> & {
-        closed?: boolean
-      })
-    | undefined,
-  stroke: RenderableStroke
-) =>
-  style
-    ? {
-        ...style,
-        cap: stroke.cap,
-        join: stroke.join,
-        miterLimit: stroke.miterLimit
-      }
-    : style
-
-const restyleStrokeRenderDescriptor = (
-  descriptor: unknown,
-  stroke: RenderableStroke
-) => {
-  if (!descriptor || typeof descriptor !== 'object') {
-    return descriptor
-  }
-
-  const typedDescriptor = descriptor as {
-    strokePathStyle?: Parameters<typeof restyleStrokePathStyle>[0]
-    strokePathGroups?: {
-      strokePaths: Vec2[][]
-      strokePathStyle?: Parameters<typeof restyleStrokePathStyle>[0]
-    }[]
-  }
-
-  return {
-    ...typedDescriptor,
-    strokePathStyle: restyleStrokePathStyle(
-      typedDescriptor.strokePathStyle,
-      stroke
-    ),
-    strokePathGroups: typedDescriptor.strokePathGroups?.map((group) => ({
-      ...group,
-      strokePathStyle: restyleStrokePathStyle(group.strokePathStyle, stroke)
-    }))
-  }
-}
-
-const retintStrokeFinalFaces = (
-  faces: SolidStrokeFinalFaceList,
-  stroke: RenderableStroke
-): SolidStrokeFinalFaceList =>
-  faces.map((face) => ({
-    ...face,
-    paintKey: getStrokePaintKey(stroke),
-    renderDescriptor: restyleStrokeRenderDescriptor(
-      face.renderDescriptor,
-      stroke
-    ),
-    paint: {
-      ...face.paint,
-      kind: stroke.kind,
-      color: stroke.color,
-      alpha: stroke.alpha,
-      gradientStyle: stroke.gradientStyle,
-      paintKey: getStrokePaintKey(stroke)
-    }
-  }))
-
-const retintStrokeRenderEntries = (
-  entries: SolidCenterStrokeRenderEntry[],
-  stroke: RenderableStroke
-): SolidCenterStrokeRenderEntry[] =>
-  entries.map((entry) => ({
-    ...entry,
-    stroke: {
-      kind: stroke.kind,
-      color: stroke.color,
-      alpha: stroke.alpha,
-      gradientStyle: stroke.gradientStyle,
-      paintKey: getStrokePaintKey(stroke)
-    },
-    strokePathStyle: restyleStrokePathStyle(entry.strokePathStyle, stroke),
-    strokePathGroups: entry.strokePathGroups?.map((group) => ({
-      ...group,
-      strokePathStyle: restyleStrokePathStyle(group.strokePathStyle, stroke)
-    }))
-  }))
-
-const shouldRenderCenterSolidFaceWithNativeVisual = (
-  face: SolidStrokeFinalFaceList[number]
-) =>
-  face.debugMeta?.productMode === 'center-product' &&
-  face.debugMeta?.productSignature === 'center-product:solid' &&
-  face.paint.kind === 'solid'
-
 const drawFillFaces = (
   graphic: Parameters<RenderStrategy>[0],
   faces: Vec2[][]
@@ -2287,44 +1394,26 @@ const drawFillFaces = (
 const getFillPayload = (fills: FillAttrs[]): FillAttrs[] =>
   Array.isArray(fills) && fills.length > 0 ? fills : []
 
+interface VectorFillHitCache {
+  preparedFillSegments: PreparedEvenOddHitSegment[]
+  points: Record<string, VectorPointNode>
+  segments: Record<string, VectorSegment>
+  networks: Record<string, VectorNetwork>
+  hasVisibleFill: boolean
+  hitArea: { contains: (x: number, y: number) => boolean }
+}
+
 const renderVectorGraphic = (
   graphic: Parameters<RenderStrategy>[0],
   data: unknown
-) => {
-  emitStrokePipelineCounter('vector-render-normalize-data-count')
-  const renderData = measureVectorRenderPhase('normalize render data', () =>
-    normalizeVectorRenderData(data)
-  )
-  ;(
-    graphic as typeof graphic & {
-      __asyraVectorRenderRouteTrace?: {
-        id: string
-        type: string
-        rawNetworkCount: number
-        rawStrokeCount: number
-        normalized: true
-      }
-    }
-  ).__asyraVectorRenderRouteTrace = {
-    id: renderData.id,
-    type: 'vector',
-    rawNetworkCount:
-      renderData.networks && typeof renderData.networks === 'object'
-        ? Object.keys(renderData.networks).length
-        : 0,
-    rawStrokeCount: Array.isArray(renderData.strokes)
-      ? renderData.strokes.length
-      : 0,
-    normalized: true
-  }
-  const graphicCache = graphic as typeof graphic & {
+): void => {
+  const renderData = normalizeVectorRenderData(data)
+  const cache = graphic as typeof graphic & {
     __asyraVectorFillCache?: FillFaceCache
     __asyraEvenOddFillCache?: EvenOddFillCache
-    __asyraVectorHitCache?: VectorHitCache
-    __asyraVectorPathModelCache?: VectorPathModelCache
-    __asyraResolvedVectorGeometryCache?: ResolvedVectorGeometryFrameCache
-    __asyraStrokePipelineStageCache?: StrokePipelineStageCache
+    __asyraVectorFillHitCache?: VectorFillHitCache
   }
+
   graphic.clear()
   ;(graphic as { hitArea: unknown | null }).hitArea = null
   setElementGeometryLocalBounds(
@@ -2337,8 +1426,6 @@ const renderVectorGraphic = (
     batched?: boolean
     _transform?: { updateLocalTransform?: () => void }
   }
-
-  // Force PixiJS to refresh rendering state
   renderStateGraphic.geometry?.clear?.()
   renderStateGraphic.batched = false
   renderStateGraphic._transform?.updateLocalTransform?.()
@@ -2352,34 +1439,7 @@ const renderVectorGraphic = (
     networks
   } = renderData
   const points = toLocalPointNodeMap(workspacePoints, { x, y })
-
   const orderedNetworks = sortByStableId(Object.values(networks))
-  if (orderedNetworks.length === 0) {
-    ;(
-      graphic as typeof graphic & {
-        __asyraVectorPathGeometryModelCount?: number
-        __asyraVectorPathTopologyModelCount?: number
-      }
-    ).__asyraVectorPathGeometryModelCount = 0
-    ;(
-      graphic as typeof graphic & {
-        __asyraVectorPathTopologyModelCount?: number
-      }
-    ).__asyraVectorPathTopologyModelCount = 0
-    ;(
-      graphic as typeof graphic & {
-        __asyraCenterPathSolidStrokeRenderCount?: number
-      }
-    ).__asyraCenterPathSolidStrokeRenderCount = 0
-    ;(
-      graphic as typeof graphic & {
-        __asyraCenterSolidPathMaskRenderCount?: number
-      }
-    ).__asyraCenterSolidPathMaskRenderCount = 0
-    applySolidCenterStrokeExportPacketsFromFinalFaces(graphic, [])
-    renderSolidCenterStrokeEntries(graphic, [])
-    return
-  }
 
   graphic.x = x
   graphic.y = y
@@ -2388,1350 +1448,138 @@ const renderVectorGraphic = (
     { x: 0, y: 0, width: renderData.width, height: renderData.height }
   )
 
-  const fillPayload = getFillPayload(fills)
-  const hasRenderableFill = getRenderableFills(fillPayload).length > 0
-  const normalizedStrokeSpec = normalizeStrokeSpec(renderData.strokes)
-  const renderableStrokesForVisibility = normalizedStrokeSpec.strokes
-  ;(
-    graphic as typeof graphic & {
-      __asyraVectorRenderableStrokeSnapshot?: {
-        rawStrokeCount: number
-        renderableStrokeCount: number
-        diagnosticReasons: string[]
-        paintKey: string | null
-        color: number | null
-        alpha: number | null
-      }
-    }
-  ).__asyraVectorRenderableStrokeSnapshot = {
-    rawStrokeCount: Array.isArray(renderData.strokes)
-      ? renderData.strokes.length
-      : 0,
-    renderableStrokeCount: normalizedStrokeSpec.strokes.length,
-    diagnosticReasons: normalizedStrokeSpec.diagnostics.map(
-      (diagnostic) => diagnostic.reason
-    ),
-    paintKey: null,
-    color: null,
-    alpha: null
-  }
-  const shouldAttachFullStrokeDiagnostics = shouldEmitFullStrokeDiagnostics()
-  if (!hasRenderableFill && renderableStrokesForVisibility.length === 0) {
-    emitStrokePipelineCounter('stroke-stage-cache:render-output-hidden')
-    ;(
-      graphic as typeof graphic & {
-        __asyraVectorPathGeometryModelCount?: number
-        __asyraVectorPathTopologyModelCount?: number
-      }
-    ).__asyraVectorPathGeometryModelCount = 0
-    ;(
-      graphic as typeof graphic & {
-        __asyraVectorPathTopologyModelCount?: number
-      }
-    ).__asyraVectorPathTopologyModelCount = 0
-    clearCenterDashedOverlapDiagnostics(graphic)
-    clearConstrainedSolidLegalityDiagnostics(graphic)
-    clearConstrainedSolidOwnershipDiagnostics(graphic)
-    ;(
-      graphic as typeof graphic & {
-        __asyraCenterPathSolidStrokeRenderCount?: number
-      }
-    ).__asyraCenterPathSolidStrokeRenderCount = 0
-    emitStrokePipelineCounter('center-product-solid-stroke-render-count', 0)
-    ;(
-      graphic as typeof graphic & {
-        __asyraCenterSolidPathMaskRenderCount?: number
-      }
-    ).__asyraCenterSolidPathMaskRenderCount = 0
-    emitStrokePipelineCounter('path-mask-center-solid-stroke-render-count', 0)
-    applySolidCenterStrokeExportPacketsFromFinalFaces(graphic, [])
-    renderSolidCenterStrokeEntries(graphic, [])
+  if (orderedNetworks.length === 0) {
     return
   }
-  let previewFill = false
 
+  const fillPayload = getFillPayload(fills)
+  const hasRenderableFill = getRenderableFills(fillPayload).length > 0
   const hasClosedNetwork =
     renderData.closed === true ||
     orderedNetworks.some(
       (network) => network.closed && network.pointIds.length > 2
     )
+  const shape = buildEvenOddShape(orderedNetworks, points, segments)
 
-  const hasGradient = fillPayload.some((f) => f.kind === 'gradient')
-  let evenOddShapeCache: EvenOddShape | null = null
-  const getEvenOddShape = () => {
-    if (!evenOddShapeCache) {
-      evenOddShapeCache = buildEvenOddShape(orderedNetworks, points, segments)
-    }
-    return evenOddShapeCache
-  }
-
-  const pathModelCache = graphicCache.__asyraVectorPathModelCache ?? {
-    entries: new Map<
-      string,
-      { revision: VectorSourceRevision; model: VectorNetworkPathModel }
-    >(),
-    segmentFrames: new Map<string, VectorSegmentGeometryFrameCache>()
-  }
-  pathModelCache.segmentFrames ??= new Map<
-    string,
-    VectorSegmentGeometryFrameCache
-  >()
-  const pathGeometryOptions = FINAL_PATH_GEOMETRY_OPTIONS
-  const pathGeometryCacheKey = FINAL_PATH_GEOMETRY_CACHE_KEY
-  const usedPathModelCacheKeys = new Set<string>()
-  const networkPaths = measureVectorRenderPhase('path/topology', () =>
-    orderedNetworks.map((network) => {
-      const sourceRevision = buildVectorSourceRevision(
-        renderData.id,
-        renderData.fillRule,
-        network,
-        points,
-        segments,
-        pathGeometryCacheKey
-      )
-      const cached = pathModelCache.entries.get(network.id)
-      if (cached?.revision.key === sourceRevision.key) {
-        usedPathModelCacheKeys.add(network.id)
-        return cached.model
-      }
-
-      const segmentFrameCache = pathModelCache.segmentFrames.get(
-        network.id
-      ) ?? { entries: new Map() }
-      const path = measureVectorRenderPhase('path/topology: geometry', () =>
-        buildVectorGeometryModelPath(
-          network,
-          points,
-          segments,
-          segmentFrameCache,
-          pathGeometryOptions
-        )
-      )
-      pathModelCache.segmentFrames.set(network.id, segmentFrameCache)
-      const topology = measureVectorRenderPhase('path/topology: topology', () =>
-        buildPathTopologyModel({
-          pathId: `vector:${renderData.id}:${network.id}`,
-          sourceId: `vector:${renderData.id}`,
-          networkId: network.id,
-          sourceRevision: sourceRevision.key,
-          sourceFamily: 'vector',
-          fillRule: renderData.fillRule,
-          points: path.sampledPoints,
-          closed: path.closed
-        })
-      )
-      const model = {
-        network,
-        path,
-        topology,
-        sourceRevision
-      }
-      pathModelCache.entries.set(network.id, {
-        revision: sourceRevision,
-        model
-      })
-      usedPathModelCacheKeys.add(network.id)
-      return model
-    })
-  )
-  Array.from(pathModelCache.entries.keys()).forEach((networkId) => {
-    if (!usedPathModelCacheKeys.has(networkId)) {
-      pathModelCache.entries.delete(networkId)
-      pathModelCache.segmentFrames.delete(networkId)
-    }
-  })
-  graphicCache.__asyraVectorPathModelCache = pathModelCache
-  ;(
-    graphic as typeof graphic & {
-      __asyraVectorPathGeometryModelCount?: number
-      __asyraVectorPathTopologyModelCount?: number
-    }
-  ).__asyraVectorPathGeometryModelCount = networkPaths.length
-  ;(
-    graphic as typeof graphic & {
-      __asyraVectorPathTopologyModelCount?: number
-    }
-  ).__asyraVectorPathTopologyModelCount = networkPaths.length
-  const hasConstrainedDashedIntent =
-    networkPaths.length > 0 &&
-    hasConstrainedDashedStrokeIntent(renderData.strokes)
-  const hasConstrainedSolidIntent = networkPaths.some(
-    ({ topology }) =>
-      topology.closed && hasConstrainedSolidStrokeIntent(renderData.strokes)
-  )
-  const hasOnlyCenterDashedProductStrokes = (() => {
-    const strokes = getRenderableStrokes(renderData.strokes)
-    return (
-      networkPaths.length > 0 &&
-      strokes.length > 0 &&
-      strokes.every(isCenterDashedProductStroke)
-    )
-  })()
-  const canUseFillOnlyResolvedGeometryForInsideDashedProduct = false
-  const singleSolidRenderableStroke = getSingleSolidStyleRenderableStroke(
-    renderData.strokes
-  )
-  ;(
-    graphic as typeof graphic & {
-      __asyraVectorRenderableStrokeSnapshot?: {
-        rawStrokeCount: number
-        renderableStrokeCount: number
-        diagnosticReasons: string[]
-        paintKey: string | null
-        color: number | null
-        alpha: number | null
-      }
-    }
-  ).__asyraVectorRenderableStrokeSnapshot = {
-    rawStrokeCount: Array.isArray(renderData.strokes)
-      ? renderData.strokes.length
-      : 0,
-    renderableStrokeCount: normalizedStrokeSpec.strokes.length,
-    diagnosticReasons: normalizedStrokeSpec.diagnostics.map(
-      (diagnostic) => diagnostic.reason
-    ),
-    paintKey: singleSolidRenderableStroke
-      ? getStrokePaintKey(singleSolidRenderableStroke)
-      : null,
-    color: singleSolidRenderableStroke?.color ?? null,
-    alpha: singleSolidRenderableStroke?.alpha ?? null
-  }
-  const strokeProductGeometrySignature = buildStrokeProductGeometrySignature(
-    renderData.id,
-    networkPaths,
-    singleSolidRenderableStroke
-  )
-  const canUseStrokeProductGeometryCache = true
-  const stageCache = graphicCache.__asyraStrokePipelineStageCache ?? {
-    products: new Map<string, StrokePipelineStageProductCache>()
-  }
-  const cachedProduct =
-    canUseStrokeProductGeometryCache && strokeProductGeometrySignature !== null
-      ? stageCache.products.get(strokeProductGeometrySignature)
-      : undefined
-  const hasCachedProduct =
-    cachedProduct !== undefined && cachedProduct.renderEntries.length > 0
-
-  if (
-    !shouldAttachFullStrokeDiagnostics &&
-    fillPayload.length === 0 &&
-    singleSolidRenderableStroke &&
-    strokeProductGeometrySignature !== null &&
-    cachedProduct &&
-    hasCachedProduct
-  ) {
-    emitStrokePipelineCounter('stroke-stage-cache:product-geometry-hit')
-    stageCache.products.delete(strokeProductGeometrySignature)
-    stageCache.products.set(strokeProductGeometrySignature, cachedProduct)
-    const cachedFaces = retintStrokeFinalFaces(
-      cachedProduct.finalFaces,
-      singleSolidRenderableStroke
-    )
-    const cachedRenderEntries = retintStrokeRenderEntries(
-      cachedProduct.renderEntries,
-      singleSolidRenderableStroke
-    )
-    measureVectorRenderPhase('hit area', () => {
-      ;(
-        graphic as {
-          hitArea: { contains: (x: number, y: number) => boolean } | null
-        }
-      ).hitArea =
-        createSolidCenterStrokeHitAreaFromFinalFaces(cachedFaces) ?? null
-    })
-    measureVectorRenderPhase('export packets', () =>
-      applySolidCenterStrokeExportPacketsFromFinalFaces(graphic, cachedFaces)
-    )
-    clearCenterDashedOverlapDiagnostics(graphic)
-    clearConstrainedSolidLegalityDiagnostics(graphic)
-    clearConstrainedSolidOwnershipDiagnostics(graphic)
-    ;(
-      graphic as typeof graphic & {
-        __asyraConstrainedDashedProductNetworkIds?: string[]
-      }
-    ).__asyraConstrainedDashedProductNetworkIds = Array.from(
-      new Set([
-        ...cachedFaces.flatMap((face) => {
-          if (
-            face.debugMeta?.productSignature?.startsWith(
-              'constrained-dashed:'
-            ) !== true
-          ) {
-            return []
-          }
-          if (
-            face.debugMeta.sourceNetworkIds &&
-            face.debugMeta.sourceNetworkIds.length > 0
-          ) {
-            return face.debugMeta.sourceNetworkIds
-          }
-          const networkId = face.debugMeta.networkId
-          return typeof networkId === 'string' ? [networkId] : []
-        })
-      ])
-    )
-    ;(
-      graphic as typeof graphic & {
-        __asyraStrokeRenderFaceDebugMetas?: SolidCenterStrokeRenderEntry['debugMeta'][]
-      }
-    ).__asyraStrokeRenderFaceDebugMetas = cachedFaces
-      .map((face) => face.debugMeta)
-      .filter((debugMeta) => debugMeta !== undefined)
-    ;(
-      graphic as typeof graphic & {
-        __asyraStrokeRenderEntries?: SolidCenterStrokeRenderEntry[]
-      }
-    ).__asyraStrokeRenderEntries = cachedRenderEntries
-    ;(
-      graphic as typeof graphic & {
-        __asyraCenterPathSolidStrokeRenderCount?: number
-      }
-    ).__asyraCenterPathSolidStrokeRenderCount = 0
-    emitStrokePipelineCounter('center-product-solid-stroke-render-count', 0)
-    const cachedCenterSolidPathMaskRenderCount =
-      countCenterSolidPathMaskRenderEntries(cachedRenderEntries)
-    ;(
-      graphic as typeof graphic & {
-        __asyraCenterSolidPathMaskRenderCount?: number
-      }
-    ).__asyraCenterSolidPathMaskRenderCount =
-      cachedCenterSolidPathMaskRenderCount
-    emitStrokePipelineCounter(
-      'path-mask-center-solid-stroke-render-count',
-      cachedCenterSolidPathMaskRenderCount
-    )
-    measureVectorRenderPhase('mesh render', () =>
-      renderSolidCenterStrokeEntries(graphic, cachedRenderEntries)
-    )
-    graphicCache.__asyraStrokePipelineStageCache = stageCache
-    return
-  }
-  emitStrokePipelineCounter(
-    stageCache.products.size > 0
-      ? 'stroke-stage-cache:product-geometry-miss'
-      : 'stroke-stage-cache:product-geometry-primed'
-  )
-  const canSkipResolvedGeometryForCenterDashedProduct =
-    hasOnlyCenterDashedProductStrokes &&
-    !hasConstrainedDashedIntent &&
-    !hasConstrainedSolidIntent
-  if (canSkipResolvedGeometryForCenterDashedProduct) {
-    emitStrokePipelineCounter('center-dashed-product-resolved-geometry-skip')
-  }
-  const needsResolvedGeometryModel =
-    (hasRenderableFill && !canSkipResolvedGeometryForCenterDashedProduct) ||
-    hasConstrainedDashedIntent ||
-    hasConstrainedSolidIntent
-  const resolvedGeometryModel = measureVectorRenderPhase(
-    'resolved vector geometry model',
-    () =>
-      buildResolvedVectorGeometryModel({
-        modelId: `vector:${renderData.id}:resolved-geometry`,
-        fillRule: renderData.fillRule,
-        networks: networkPaths.map(({ network, path, topology }) => ({
-          networkId: network.id,
-          path,
-          topology
-        })),
-        resolveSelfIntersecting: needsResolvedGeometryModel,
-        previousCache: graphicCache.__asyraResolvedVectorGeometryCache,
-        detailMode: canUseFillOnlyResolvedGeometryForInsideDashedProduct
-          ? 'fill-only'
-          : 'full'
-      })
-  )
-  graphicCache.__asyraResolvedVectorGeometryCache = resolvedGeometryModel.cache
-  const resolvedGeometryByNetworkId = new Map<
-    string,
-    ResolvedVectorGeometryNetworkModel
-  >(
-    resolvedGeometryModel.networks.map((networkGeometry) => [
-      networkGeometry.networkId,
-      networkGeometry
-    ])
-  )
-  const closedNetworkPaths = networkPaths.filter(
-    ({ topology }) => topology.closed
-  )
-  const legalDomainBackend = (() => {
-    try {
-      const backend = getGeometryBackend()
-      return backend.capabilities.union === true &&
-        backend.capabilities.difference === true
-        ? backend
-        : null
-    } catch {
-      return null
-    }
-  })()
-  const constrainedSolidExactBackend = (() => {
-    try {
-      const backend = getGeometryBackend()
-      return backend.capabilities.union === true &&
-        backend.capabilities.difference === true &&
-        backend.capabilities.intersection === true
-        ? backend
-        : null
-    } catch {
-      return null
-    }
-  })()
-  const compoundLegalDomainNormalization =
-    closedNetworkPaths.length >= 2
-      ? buildCompoundLegalDomainNormalization(
-          closedNetworkPaths.map(({ topology }) => topology),
-          {
-            legalDomainId: `vector:${renderData.id}:compound-legal-domain:0`,
-            backend: legalDomainBackend ?? undefined,
-            allowBackendNormalization: !!legalDomainBackend
-          }
-        )
-      : null
-  const compoundLegalDomainClassifications =
-    compoundLegalDomainNormalization?.status === 'normalized'
-      ? compoundLegalDomainNormalization.legalDomain.classifications
-      : []
-  const hasCompoundLegalDomain =
-    compoundLegalDomainNormalization?.status === 'normalized' &&
-    closedNetworkPaths.length >= 2 &&
-    compoundLegalDomainClassifications.length === closedNetworkPaths.length &&
-    compoundLegalDomainClassifications.some(
-      (classification) => classification.role === 'shell'
-    ) &&
-    compoundLegalDomainClassifications.some(
-      (classification) => classification.role === 'hole'
-    )
-  const compoundRoleByNetworkId = new Map(
-    compoundLegalDomainClassifications.map((classification) => [
-      classification.networkId,
-      classification
-    ])
-  )
-  const compoundLegalDomainId = hasCompoundLegalDomain
-    ? compoundLegalDomainNormalization.legalDomain.legalDomainId
-    : null
-  const getStrokesForNetwork = (network: VectorNetwork) => {
-    const compoundRole = compoundRoleByNetworkId.get(network.id)
-    return invertConstrainedStrokePositionForHole(
-      renderData.strokes,
-      compoundRole?.role
-    )
-  }
-  const getImplicitFillRegionsForNetwork = (
-    topology: PathTopologyModel,
-    resolvedSelfIntersectingGeometry:
-      | ResolvedVectorGeometryNetworkModel['selfIntersecting']
-      | undefined
-  ): PolygonRegion[] => {
-    if ((resolvedSelfIntersectingGeometry?.fillRegions.length ?? 0) > 0) {
-      return resolvedSelfIntersectingGeometry?.fillRegions ?? []
-    }
-
-    if (!hasRenderableFill || !topology.closed) {
-      return []
-    }
-
-    return [
-      {
-        polygons: [topology.normalizedPoints]
-      }
-    ]
-  }
-  const hasOpenBoundedFilledRegionDomain = (network: VectorNetwork) =>
-    (resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting?.fillRegions
-      .length ?? 0) > 0
-  const hasConstrainedDashedStrokeForNetwork = (network: VectorNetwork) =>
-    getRenderableStrokes(getStrokesForNetwork(network)).some(
-      (stroke) =>
-        stroke.style === 'dashed' &&
-        (stroke.position === 'inside' || stroke.position === 'outside') &&
-        stroke.width > 0
-    )
-  let arrangementLegalDomainsCache: ArrangementLegalDomain[] | null = null
-  const getArrangementLegalDomains = (): ArrangementLegalDomain[] => {
-    if (arrangementLegalDomainsCache) {
-      return arrangementLegalDomainsCache
-    }
-
-    arrangementLegalDomainsCache = measureVectorRenderPhase(
-      'legal domains',
-      () =>
-        compoundLegalDomainNormalization?.status === 'normalized'
-          ? [
-              {
-                legalDomainId:
-                  compoundLegalDomainNormalization.legalDomain.legalDomainId,
-                fillRule: compoundLegalDomainNormalization.legalDomain.fillRule,
-                regions: compoundLegalDomainNormalization.legalDomain.regions
-              }
-            ]
-          : closedNetworkPaths.map(({ network, path, topology }) => {
-              const selfIntersectingRegions =
-                resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
-                  ?.fillRegions ?? []
-
-              return {
-                legalDomainId: topology.legalDomains[0]?.legalDomainId,
-                fillRule: topology.fillRule,
-                regions:
-                  selfIntersectingRegions.length > 0
-                    ? selfIntersectingRegions
-                    : [
-                        {
-                          polygons: [topology.normalizedPoints]
-                        }
-                      ]
-              }
-            })
-    )
-    return arrangementLegalDomainsCache
-  }
-  const hasSourceBoundsOverlap =
-    hasOverlappingNetworkSourceBounds(closedNetworkPaths)
-  const shouldBuildGlobalOverlapConstrainedSolid =
-    hasSourceBoundsOverlap && !hasCompoundLegalDomain
-  const constrainedDashedPacketNetworkPaths = networkPaths.filter(
-    ({ network }) => hasConstrainedDashedStrokeForNetwork(network)
-  )
-  const shouldBuildConstrainedDashedPacketRoute =
-    constrainedDashedPacketNetworkPaths.length > 0
-  const constrainedDashedCandidatePackets = measureVectorRenderPhase(
-    'constrained dashed packets',
-    () =>
-      shouldBuildConstrainedDashedPacketRoute
-        ? networkPaths.flatMap(({ network, path, topology }) => {
-            if (!hasConstrainedDashedStrokeForNetwork(network)) {
-              return []
-            }
-            const compoundRole = compoundRoleByNetworkId.get(network.id)
-            const strokesForNetwork = getStrokesForNetwork(network)
-            const resolvedSelfIntersectingGeometry =
-              resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
-            const sourcePathForNetwork = path
-            const hasOpenBoundedFillRegionDomain =
-              hasOpenBoundedFilledRegionDomain(network)
-            const implicitFillRegionsForNetwork =
-              getImplicitFillRegionsForNetwork(
-                topology,
-                resolvedSelfIntersectingGeometry
-              )
-            const clipInsideToFillDomain =
-              hasRenderableFill ||
-              hasOpenBoundedFillRegionDomain ||
-              implicitFillRegionsForNetwork.length > 0
-            const dashedOptions: Parameters<
-              typeof buildConstrainedDashedStrokeResolvedPackets
-            >[4] = {
-              metadata: {
-                ownerKeyPrefix: compoundLegalDomainId
-                  ? `vector:${renderData.id}:compound`
-                  : `vector:${renderData.id}:${network.id}`,
-                networkId: network.id,
-                sourceNetworkIds: [network.id],
-                contourId: compoundRole?.contourId,
-                legalDomainId:
-                  compoundLegalDomainId ?? compoundRole?.legalDomainId
-              },
-              topology,
-              sourcePath: sourcePathForNetwork,
-              implicitFillRegions: implicitFillRegionsForNetwork,
-              sharedSourceSplitRanges:
-                resolvedSelfIntersectingGeometry?.sourceSplitRanges ?? [],
-              sharedStrokeBoundaryDomains:
-                resolvedSelfIntersectingGeometry?.strokeBoundaryDomains ?? [],
-              selectedSideGuardPoints: getNetworkAnchorGuardPoints(
-                network,
-                points
-              ),
-              clipInsideToFillDomain: clipInsideToFillDomain
-            }
-            return buildConstrainedDashedStrokeResolvedPackets(
-              `vector:${renderData.id}:${network.id}:constrained-dashed`,
-              topology.normalizedPoints,
-              topology.closed,
-              strokesForNetwork,
-              dashedOptions
-            )
-          })
-        : []
-  )
-  const shouldPreferConstrainedSolidRenderMaskProductFinal = true
-  const getConstrainedSolidCandidateMode = (_topology: PathTopologyModel) =>
-    'exact-arrangement' as const
-  const constrainedSolidDiagnostics = measureVectorRenderPhase(
-    'constrained solid diagnostics',
-    () => {
-      if (!hasConstrainedSolidIntent) {
-        return networkPaths.map(({ network, topology }) => ({
-          networkId: network.id,
-          points: topology.normalizedPoints,
-          closed: topology.closed,
-          fillRule: topology.fillRule,
-          packets: [],
-          legalityDiagnostics: { domains: [], acceptedGeometryIds: [] },
-          ownershipDiagnostics:
-            createEmptyConstrainedSolidOwnershipDiagnostics()
-        }))
-      }
-
-      if (shouldBuildGlobalOverlapConstrainedSolid) {
-        const candidatePackets = networkPaths.flatMap(
-          ({ network, path, topology }) => {
-            if (!topology.closed) {
-              return []
-            }
-            const resolvedSelfIntersectingGeometry =
-              resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
-            return buildConstrainedSolidStrokeResolvedPackets(
-              `vector:${renderData.id}:${network.id}:constrained`,
-              topology.normalizedPoints,
-              topology.closed,
-              renderData.strokes,
-              {
-                metadata: {
-                  ownerKeyPrefix: `vector:${renderData.id}:overlap`,
-                  networkId: network.id
-                },
-                topology,
-                sourcePath: path,
-                implicitFillRegions:
-                  resolvedSelfIntersectingGeometry?.fillRegions ?? [],
-                implicitLegalFaceBoundaries:
-                  resolvedSelfIntersectingGeometry?.legalFaceBoundaries ?? [],
-                implicitUnfilledFaceBoundaries:
-                  resolvedSelfIntersectingGeometry?.unfilledFaceBoundaries ??
-                  [],
-                implicitLegalBoundaryContours:
-                  resolvedSelfIntersectingGeometry?.legalBoundaryContours ?? [],
-                sharedSourceSplitRanges:
-                  resolvedSelfIntersectingGeometry?.sourceSplitRanges ?? [],
-                sharedStrokeBoundaryDomains:
-                  resolvedSelfIntersectingGeometry?.strokeBoundaryDomains ?? [],
-                selectedSideGuardPoints: getNetworkAnchorGuardPoints(
-                  network,
-                  points
-                ),
-                exactBackend: constrainedSolidExactBackend ?? undefined,
-                fillRule: topology.fillRule,
-                candidateMode: getConstrainedSolidCandidateMode(topology),
-                preferRenderMaskProductFinal:
-                  shouldPreferConstrainedSolidRenderMaskProductFinal
-              }
-            )
-          }
-        )
-        const result = buildConstrainedSolidLegalityClippingResult(
-          closedNetworkPaths.map(({ topology }) => ({
-            points: topology.normalizedPoints,
-            closed: topology.closed,
-            fillRule: topology.fillRule
-          })),
-          renderData.strokes,
-          candidatePackets
-        )
-
-        return networkPaths.map(({ network, topology }, index) => ({
-          networkId: network.id,
-          points: topology.normalizedPoints,
-          closed: topology.closed,
-          fillRule: topology.fillRule,
-          packets: result.packets.filter((packet) =>
-            doesStrokeDebugMetaIncludeNetwork(
-              packet.geometry.debugMeta,
-              network.id
-            )
-          ),
-          legalityDiagnostics:
-            index === 0
-              ? result.legalityDiagnostics
-              : { domains: [], acceptedGeometryIds: [] },
-          ownershipDiagnostics:
-            index === 0
-              ? result.ownershipDiagnostics
-              : createEmptyConstrainedSolidOwnershipDiagnostics()
-        }))
-      }
-
-      return networkPaths.flatMap(({ network, path, topology }) => {
-        if (!topology.closed) {
-          return {
-            networkId: network.id,
-            points: topology.normalizedPoints,
-            closed: topology.closed,
-            fillRule: topology.fillRule,
-            packets: [],
-            legalityDiagnostics: { domains: [], acceptedGeometryIds: [] },
-            ownershipDiagnostics:
-              createEmptyConstrainedSolidOwnershipDiagnostics()
-          }
-        }
-        const compoundRole = compoundRoleByNetworkId.get(network.id)
-        const strokesForNetwork = invertConstrainedStrokePositionForHole(
-          renderData.strokes,
-          compoundRole?.role
-        )
-        const resolvedSelfIntersectingGeometry =
-          resolvedGeometryByNetworkId.get(network.id)?.selfIntersecting
-        const candidatePackets = buildConstrainedSolidStrokeResolvedPackets(
-          `vector:${renderData.id}:${network.id}:constrained`,
-          topology.normalizedPoints,
-          topology.closed,
-          strokesForNetwork,
-          {
-            metadata: {
-              ownerKeyPrefix: compoundLegalDomainId
-                ? `vector:${renderData.id}:compound`
-                : `vector:${renderData.id}:${network.id}`,
-              networkId: network.id,
-              contourId: compoundRole?.contourId,
-              legalDomainId:
-                compoundLegalDomainId ?? compoundRole?.legalDomainId
-            },
-            topology,
-            sourcePath: path,
-            implicitFillRegions:
-              resolvedSelfIntersectingGeometry?.fillRegions ?? [],
-            implicitLegalFaceBoundaries:
-              resolvedSelfIntersectingGeometry?.legalFaceBoundaries ?? [],
-            implicitUnfilledFaceBoundaries:
-              resolvedSelfIntersectingGeometry?.unfilledFaceBoundaries ?? [],
-            implicitLegalBoundaryContours:
-              resolvedSelfIntersectingGeometry?.legalBoundaryContours ?? [],
-            sharedSourceSplitRanges:
-              resolvedSelfIntersectingGeometry?.sourceSplitRanges ?? [],
-            sharedStrokeBoundaryDomains:
-              resolvedSelfIntersectingGeometry?.strokeBoundaryDomains ?? [],
-            selectedSideGuardPoints: getNetworkAnchorGuardPoints(
-              network,
-              points
-            ),
-            exactBackend: constrainedSolidExactBackend ?? undefined,
-            fillRule: topology.fillRule,
-            candidateMode: getConstrainedSolidCandidateMode(topology),
-            preferRenderMaskProductFinal:
-              shouldPreferConstrainedSolidRenderMaskProductFinal
-          }
-        )
-
-        if (
-          canAcceptSelfIntersectingBoundaryDomainSolidPacketsWithoutLegality(
-            candidatePackets
-          )
-        ) {
-          return {
-            networkId: network.id,
-            points: topology.normalizedPoints,
-            closed: topology.closed,
-            fillRule: topology.fillRule,
-            packets: candidatePackets,
-            legalityDiagnostics: {
-              domains: [],
-              acceptedGeometryIds: candidatePackets.map(
-                (packet) => packet.geometry.geometryId
-              )
-            },
-            ownershipDiagnostics: shouldAttachFullStrokeDiagnostics
-              ? buildConstrainedSolidOwnershipCandidateDiagnostics(
-                  candidatePackets
-                )
-              : createEmptyConstrainedSolidOwnershipDiagnostics()
-          }
-        }
-
-        if (candidatePackets.some(isExactConstrainedSolidCandidatePacket)) {
-          return {
-            networkId: network.id,
-            points: topology.normalizedPoints,
-            closed: topology.closed,
-            fillRule: topology.fillRule,
-            packets: candidatePackets,
-            legalityDiagnostics: {
-              domains: [],
-              acceptedGeometryIds: candidatePackets.map(
-                (packet) => packet.geometry.geometryId
-              )
-            },
-            ownershipDiagnostics: shouldAttachFullStrokeDiagnostics
-              ? buildConstrainedSolidOwnershipDiagnostics(candidatePackets)
-              : createEmptyConstrainedSolidOwnershipDiagnostics()
-          }
-        }
-
-        const result = buildConstrainedSolidLegalityClippingResult(
-          [
-            {
-              points: topology.normalizedPoints,
-              closed: topology.closed,
-              fillRule: topology.fillRule
-            }
-          ],
-          strokesForNetwork,
-          candidatePackets
-        )
-
-        return {
-          networkId: network.id,
-          points: topology.normalizedPoints,
-          closed: topology.closed,
-          fillRule: topology.fillRule,
-          packets: result.packets,
-          legalityDiagnostics: result.legalityDiagnostics,
-          ownershipDiagnostics: result.ownershipDiagnostics
-        }
-      })
-    }
-  )
-
-  const constrainedSolidExactCandidatePackets =
-    constrainedSolidDiagnostics.flatMap((entry) =>
-      entry.packets.filter(isExactConstrainedSolidCandidatePacket)
-    )
-  const constrainedSolidPromotion =
-    promoteConstrainedSolidPacketsToExactArrangement(
-      constrainedSolidExactCandidatePackets,
-      constrainedSolidExactCandidatePackets.length > 0
-        ? getArrangementLegalDomains()
-        : []
-    )
-  const constrainedSolidPromotedCandidateGeometryIds = new Set(
-    constrainedSolidExactCandidatePackets.map(
-      (packet) => packet.geometry.geometryId
-    )
-  )
-
-  const getCenterFamilyStrokesForNetwork = (
-    network: VectorNetwork,
-    topology: PathTopologyModel
-  ) =>
-    !topology.closed && !hasConstrainedDashedStrokeForNetwork(network)
-      ? getSimpleOpenUnboundedCenterProductStrokes(renderData.strokes)
-      : renderData.strokes
-  const centerPathSolidVisualStrokeGroups: CenterPathSolidVisualStrokeGroup[] =
-    networkPaths.flatMap(({ network, topology }) => {
-      const renderStrokesForNetwork = getCenterFamilyStrokesForNetwork(
-        network,
-        topology
-      )
-      const strokes = getRenderableStrokes(renderStrokesForNetwork).filter(
-        (stroke) => isCenterPathSolidVisualStroke(stroke, topology)
-      )
-      return strokes.length > 0 ? [{ network, strokes }] : []
-    })
-  const centerSolidPathMaskVisualStrokeGroups: CenterSolidPathMaskVisualStrokeGroup[] =
-    networkPaths.flatMap(({ network, path, topology }) => {
-      const renderStrokesForNetwork = getCenterFamilyStrokesForNetwork(
-        network,
-        topology
-      )
-      const strokes = getRenderableStrokes(renderStrokesForNetwork).filter(
-        (stroke) => shouldRenderCenterSolidWithPathMask(stroke, topology)
-      )
-      return strokes.length > 0 ? [{ network, path, topology, strokes }] : []
-    })
-  const directCenterSolidVisualNetworkIds = new Set([
-    ...centerPathSolidVisualStrokeGroups.map((group) => group.network.id),
-    ...centerSolidPathMaskVisualStrokeGroups.map((group) => group.network.id)
-  ])
-  const centerPathSolidVisualNetworkIds = new Set(
-    centerPathSolidVisualStrokeGroups.map((group) => group.network.id)
-  )
-  const renderedDashedCenterPackets: ReturnType<
-    typeof buildDashedCenterStrokeResolvedPackets
-  > = []
-  const strokePackets = measureVectorRenderPhase('stroke packets', () => [
-    ...networkPaths.flatMap(({ network, path, topology }) => {
-      const renderStrokesForNetwork = getCenterFamilyStrokesForNetwork(
-        network,
-        topology
-      )
-      const hasNetworkCenterDashedIntent = hasDashedCenterStrokeIntent(
-        renderStrokesForNetwork
-      )
-      const hasNetworkCenterSolidIntent = hasSolidCenterStrokeIntent(
-        renderStrokesForNetwork
-      )
-      const shouldUseCenterSolidDescriptorEvidence =
-        !shouldAttachFullStrokeDiagnostics &&
-        centerPathSolidVisualNetworkIds.has(network.id)
-      const constrainedNetworkDiagnostics = constrainedSolidDiagnostics.find(
-        (entry) => entry.networkId === network.id
-      )
-      const networkDashedCenterPackets = hasNetworkCenterDashedIntent
-        ? attachStrokePacketDebugMeta(
-            buildDashedCenterStrokeResolvedPackets(
-              `vector:${renderData.id}:${network.id}:dashed-center`,
-              topology.normalizedPoints,
-              topology.closed,
-              renderStrokesForNetwork,
-              {
-                metadata: {
-                  ownerKeyPrefix: `vector:${renderData.id}:${network.id}`,
-                  networkId: network.id
-                },
-                topology,
-                sourcePath: path
-              }
-            ),
-            {}
-          )
-        : []
-      renderedDashedCenterPackets.push(...networkDashedCenterPackets)
-      const networkCenterSolidPackets = hasNetworkCenterSolidIntent
-        ? buildSolidCenterStrokeResolvedPackets(
-            `vector:${renderData.id}:${network.id}:center`,
-            topology.normalizedPoints,
-            topology.closed,
-            renderStrokesForNetwork,
-            {
-              metadata: {
-                ownerKeyPrefix: `vector:${renderData.id}:${network.id}`,
-                networkId: network.id
-              },
-              topology,
-              preferStrokePathRenderDescriptor:
-                shouldUseCenterSolidDescriptorEvidence
-            }
-          )
-        : []
-      if (
-        hasNetworkCenterSolidIntent &&
-        shouldUseCenterSolidDescriptorEvidence
-      ) {
-        emitStrokePipelineCounter('center-product-solid-descriptor-evidence')
-      }
-      return [
-        ...networkCenterSolidPackets,
-        ...networkDashedCenterPackets,
-        ...(topology.closed
-          ? (constrainedNetworkDiagnostics?.packets.filter(
-              (packet) =>
-                !constrainedSolidPromotedCandidateGeometryIds.has(
-                  packet.geometry.geometryId
-                )
-            ) ?? [])
-          : [])
-      ]
-    }),
-    ...constrainedSolidPromotion.packets,
-    ...constrainedDashedCandidatePackets
-  ])
-  const promotedExactStrokeFinalFaces = [
-    ...constrainedSolidPromotion.exactFaces
-  ]
-  const rawStrokeFinalFaces = measureVectorRenderPhase('final faces', () => [
-    ...buildSolidCenterStrokeFinalFaces(strokePackets),
-    ...promotedExactStrokeFinalFaces
-  ])
-  const collapseInputStrokeFinalFaces = rawStrokeFinalFaces
-  const arrangementLegalDomains = collapseInputStrokeFinalFaces.some(
-    (face) =>
-      (face.debugMeta?.productSignature?.startsWith('constrained-dashed:') ===
-        true ||
-        face.debugMeta?.productSignature?.startsWith('constrained-solid:') ===
-          true) &&
-      (face.debugMeta?.strokePosition === 'inside' ||
-        face.debugMeta?.strokePosition === 'outside')
-  )
-    ? getArrangementLegalDomains()
-    : undefined
-  const strokeFinalFaces = measureVectorRenderPhase(
-    'visual overlap collapse',
-    () => {
-      const finishCollapse = (faces: typeof collapseInputStrokeFinalFaces) =>
-        faces
-
-      if (collapseInputStrokeFinalFaces.length === 0) {
-        emitStrokePipelineCounter('visual-overlap-collapse-center-product-only')
-        return finishCollapse([])
-      }
-
-      return finishCollapse(
-        collapseStrokeFinalFaceVisualOverlaps(collapseInputStrokeFinalFaces, {
-          backend: getGeometryBackend(),
-          legalDomains: arrangementLegalDomains
-        })
-      )
-    }
-  )
-  const semanticStrokeFinalFaces = strokeFinalFaces
-  const strokeRenderFaces =
-    directCenterSolidVisualNetworkIds.size > 0
-      ? strokeFinalFaces.filter(
-          (face) =>
-            !(
-              shouldRenderCenterSolidFaceWithNativeVisual(face) &&
-              typeof face.debugMeta?.networkId === 'string' &&
-              directCenterSolidVisualNetworkIds.has(face.debugMeta.networkId)
-            )
-        )
-      : strokeFinalFaces
-  const centerSolidPathMaskRenderEntries =
-    centerSolidPathMaskVisualStrokeGroups.flatMap((group) =>
-      group.strokes.flatMap((stroke) => {
-        const entry = buildCenterSolidPathMaskRenderEntry(
-          renderData.id,
-          group,
-          stroke
-        )
-        return entry ? [entry] : []
-      })
-    )
-  const applyVectorHoverHitArea = () => {
-    const hitCache: VectorHitCache = graphicCache.__asyraVectorHitCache ?? {}
-    const hasVisibleFill =
-      hasClosedNetwork && getRenderableFills(fillPayload).length > 0
-    const strokeHitSignature = semanticStrokeFinalFaces
-      .map(buildStrokeFinalFaceSignature)
-      .join('|')
-
+  if (hasRenderableFill) {
+    const preparedFillSegments = prepareEvenOddHitSegments(shape)
+    const hitCache = cache.__asyraVectorFillHitCache
     const reuseHitArea =
-      hitCache.hitArea &&
-      hitCache.points === points &&
+      hitCache?.points === points &&
       hitCache.segments === segments &&
       hitCache.networks === networks &&
-      hitCache.strokeHitSignature === strokeHitSignature &&
-      hitCache.hasVisibleFill === hasVisibleFill
-
-    if (reuseHitArea) {
-      emitStrokePipelineCounter('vector-hit-area-stable-cache-hit')
-      ;(graphic as { hitArea: typeof hitCache.hitArea | null }).hitArea =
-        hitCache.hitArea
-      return
-    }
-
-    emitStrokePipelineCounter('vector-hit-area-rebuild')
-    hitCache.points = points
-    hitCache.segments = segments
-    hitCache.networks = networks
-    hitCache.strokeHitSignature = strokeHitSignature
-    hitCache.hasVisibleFill = hasVisibleFill
-    hitCache.preparedFillSegments = hasVisibleFill
-      ? prepareEvenOddHitSegments(getEvenOddShape())
-      : []
-    const strokeHitArea = createSolidCenterStrokeHitAreaFromFinalFaces(
-      semanticStrokeFinalFaces
-    )
-
-    if (hasVisibleFill) {
-      const fillContains = (x: number, y: number) =>
-        isPointInsidePreparedEvenOddShape(
-          { x, y },
-          hitCache.preparedFillSegments ?? []
-        )
-
-      const hitArea = {
-        contains: (x: number, y: number) =>
-          fillContains(x, y) || strokeHitArea?.contains(x, y) === true
-      }
-
-      hitCache.hitArea = hitArea
-      ;(graphic as { hitArea: typeof hitArea | null }).hitArea = hitArea
-    } else {
-      hitCache.hitArea = strokeHitArea ?? undefined
-      ;(graphic as { hitArea: typeof hitCache.hitArea | null }).hitArea =
-        strokeHitArea ?? null
-    }
-
-    graphicCache.__asyraVectorHitCache = hitCache
-  }
-
-  if (fillPayload.length > 0) {
-    if (hasGradient) {
-      const evenOddCache = graphicCache.__asyraEvenOddFillCache ?? {
-        fill: null
-      }
-      const reuseEvenOddFill =
-        evenOddCache.fill &&
-        evenOddCache.width === renderData.width &&
-        evenOddCache.height === renderData.height &&
-        evenOddCache.fillPayload === fillPayload &&
-        evenOddCache.points === points &&
-        evenOddCache.segments === segments &&
-        evenOddCache.networks === networks
-
-      if (!reuseEvenOddFill) {
-        if (evenOddCache.fill) {
-          evenOddCache.fill.dispose()
-          evenOddCache.fill = null
-        }
-
-        const shape = getEvenOddShape()
-        const evenOddFill = core.createEvenOddFillStyle({
-          width: renderData.width,
-          height: renderData.height,
-          offsetX: 0,
-          offsetY: 0,
-          shape,
-          fills: fillPayload
-        })
-
-        if (evenOddFill) {
-          evenOddCache.fill = evenOddFill
-        }
-
-        evenOddCache.width = renderData.width
-        evenOddCache.height = renderData.height
-        evenOddCache.fillPayload = fillPayload
-        evenOddCache.points = points
-        evenOddCache.segments = segments
-        evenOddCache.networks = networks
-        graphicCache.__asyraEvenOddFillCache = evenOddCache
-      } else {
-        graphicCache.__asyraEvenOddFillCache = evenOddCache
-      }
-
-      if (evenOddCache.fill) {
-        graphic.rect(0, 0, renderData.width, renderData.height)
-        ;(graphic as { fill: (style: unknown) => void }).fill(
-          evenOddCache.fill.style
-        )
-      } else if (hasClosedNetwork) {
-        previewFill = true
-      }
-    } else {
-      if (graphicCache.__asyraEvenOddFillCache?.fill) {
-        graphicCache.__asyraEvenOddFillCache.fill.dispose()
-        graphicCache.__asyraEvenOddFillCache = undefined
-      }
-      const resolvedSelfIntersectingFillFaces = orderedNetworks.flatMap(
-        (network) => {
-          const topology = networkPaths.find(
-            (pathModel) => pathModel.network.id === network.id
-          )?.topology
-          if (topology?.topologyFamily !== 'self-intersecting') {
-            return []
-          }
-          return (
-            resolvedGeometryByNetworkId
-              .get(network.id)
-              ?.selfIntersecting?.fillRegions.flatMap(
-                (region) => region.polygons
-              ) ?? []
-          )
-        }
-      )
-      const cache = graphicCache.__asyraVectorFillCache ?? {
-        faces: []
-      }
-      const {
-        flattenedSegments,
-        directedSegments,
-        segmentKeyMap,
-        segmentLinesMap
-      } = buildFlattenedSegmentsWithCache(
-        orderedNetworks,
-        points,
-        segments,
-        cache
-      )
-      const fillFaces = buildFillFaces(flattenedSegments, directedSegments)
-      const effectiveFillFaces =
-        resolvedSelfIntersectingFillFaces.length > 0
-          ? resolvedSelfIntersectingFillFaces
-          : fillFaces
-      cache.faces = effectiveFillFaces
-      cache.segmentKeyMap = segmentKeyMap
-      cache.segmentLinesMap = segmentLinesMap
-      graphicCache.__asyraVectorFillCache = cache
-
-      if (effectiveFillFaces.length > 0) {
-        drawFillFaces(graphic, effectiveFillFaces)
-        applyRenderableFill(graphic as { fill: unknown }, fillPayload, {
-          replayPath: () => drawFillFaces(graphic, effectiveFillFaces)
-        })
-      } else if (hasClosedNetwork) {
-        previewFill = true
-      }
-    }
-  } else {
-    if (graphicCache.__asyraEvenOddFillCache?.fill) {
-      graphicCache.__asyraEvenOddFillCache.fill.dispose()
-      graphicCache.__asyraEvenOddFillCache = undefined
-    }
-  }
-
-  measureVectorRenderPhase('hit area', applyVectorHoverHitArea)
-  measureVectorRenderPhase('export packets', () =>
-    applySolidCenterStrokeExportPacketsFromFinalFaces(
-      graphic,
-      semanticStrokeFinalFaces
-    )
-  )
-  if (shouldAttachFullStrokeDiagnostics) {
-    applyCenterDashedOverlapDiagnostics(graphic, renderedDashedCenterPackets)
-  } else {
-    clearCenterDashedOverlapDiagnostics(graphic)
-  }
-  if (shouldAttachFullStrokeDiagnostics) {
-    setConstrainedSolidLegalityDiagnostics(graphic, {
-      domains: constrainedSolidDiagnostics.flatMap(
-        ({ legalityDiagnostics }) => legalityDiagnostics.domains
-      ),
-      acceptedGeometryIds: constrainedSolidDiagnostics.flatMap(
-        ({ legalityDiagnostics }) => legalityDiagnostics.acceptedGeometryIds
-      )
-    })
-    setConstrainedSolidOwnershipDiagnostics(
-      graphic,
-      shouldBuildGlobalOverlapConstrainedSolid && hasConstrainedSolidIntent
-        ? (constrainedSolidDiagnostics.find(
-            ({ ownershipDiagnostics }) =>
-              ownershipDiagnostics.candidates.length > 0
-          )?.ownershipDiagnostics ??
-            createEmptyConstrainedSolidOwnershipDiagnostics())
-        : mergeConstrainedSolidOwnershipDiagnostics(
-            constrainedSolidDiagnostics.map(
-              ({ networkId, ownershipDiagnostics }) => ({
-                networkId,
-                ownershipDiagnostics
-              })
+      hitCache.hasVisibleFill === true
+    const hitArea = reuseHitArea
+      ? hitCache.hitArea
+      : {
+          contains: (hitX: number, hitY: number) =>
+            isPointInsidePreparedEvenOddShape(
+              { x: hitX, y: hitY },
+              preparedFillSegments
             )
-          )
-    )
+        }
+    cache.__asyraVectorFillHitCache = {
+      preparedFillSegments,
+      points,
+      segments,
+      networks,
+      hasVisibleFill: true,
+      hitArea
+    }
+    ;(graphic as { hitArea: typeof hitArea }).hitArea = hitArea
   } else {
-    clearConstrainedSolidLegalityDiagnostics(graphic)
-    clearConstrainedSolidOwnershipDiagnostics(graphic)
+    cache.__asyraVectorFillHitCache = undefined
   }
+
+  if (fillPayload.length === 0) {
+    if (cache.__asyraEvenOddFillCache?.fill) {
+      cache.__asyraEvenOddFillCache.fill.dispose()
+      cache.__asyraEvenOddFillCache = undefined
+    }
+    return
+  }
+
+  const hasGradient = fillPayload.some((fill) => fill.kind === 'gradient')
+  let previewFill = false
+  if (hasGradient) {
+    const evenOddCache = cache.__asyraEvenOddFillCache ?? { fill: null }
+    const reuseEvenOddFill =
+      evenOddCache.fill &&
+      evenOddCache.width === renderData.width &&
+      evenOddCache.height === renderData.height &&
+      evenOddCache.fillPayload === fillPayload &&
+      evenOddCache.points === points &&
+      evenOddCache.segments === segments &&
+      evenOddCache.networks === networks
+
+    if (!reuseEvenOddFill) {
+      evenOddCache.fill?.dispose()
+      evenOddCache.fill = core.createEvenOddFillStyle({
+        width: renderData.width,
+        height: renderData.height,
+        offsetX: 0,
+        offsetY: 0,
+        shape,
+        fills: fillPayload
+      })
+      evenOddCache.width = renderData.width
+      evenOddCache.height = renderData.height
+      evenOddCache.fillPayload = fillPayload
+      evenOddCache.points = points
+      evenOddCache.segments = segments
+      evenOddCache.networks = networks
+    }
+    cache.__asyraEvenOddFillCache = evenOddCache
+
+    if (evenOddCache.fill) {
+      graphic.rect(0, 0, renderData.width, renderData.height)
+      ;(graphic as { fill: (style: unknown) => void }).fill(
+        evenOddCache.fill.style
+      )
+    } else if (hasClosedNetwork) {
+      previewFill = true
+    }
+  } else {
+    cache.__asyraEvenOddFillCache?.fill?.dispose()
+    cache.__asyraEvenOddFillCache = undefined
+    const fillCache = cache.__asyraVectorFillCache ?? { faces: [] }
+    const {
+      flattenedSegments,
+      directedSegments,
+      segmentKeyMap,
+      segmentLinesMap
+    } = buildFlattenedSegmentsWithCache(
+      orderedNetworks,
+      points,
+      segments,
+      fillCache
+    )
+    const fillFaces = buildFillFaces(flattenedSegments, directedSegments)
+    fillCache.faces = fillFaces
+    fillCache.segmentKeyMap = segmentKeyMap
+    fillCache.segmentLinesMap = segmentLinesMap
+    cache.__asyraVectorFillCache = fillCache
+
+    if (fillFaces.length > 0) {
+      drawFillFaces(graphic, fillFaces)
+      applyRenderableFill(graphic as { fill: unknown }, fillPayload, {
+        replayPath: () => drawFillFaces(graphic, fillFaces)
+      })
+    } else if (hasClosedNetwork) {
+      previewFill = true
+    }
+  }
+
   if (previewFill) {
     applyRenderableFill(graphic as { fill: unknown }, fillPayload, {
       replayPath: () =>
         drawVectorPath(graphic, orderedNetworks, points, segments)
     })
   }
-  if (centerPathSolidVisualStrokeGroups.length > 0) {
-    centerPathSolidVisualStrokeGroups.forEach(({ network, strokes }) => {
-      strokes.forEach((stroke) =>
-        drawCenterPathSolidStrokePath(
-          graphic,
-          [network],
-          points,
-          segments,
-          stroke
-        )
-      )
-    })
-  } else if (
-    strokeRenderFaces.length === 0 &&
-    centerSolidPathMaskRenderEntries.length === 0
-  ) {
-    drawVectorPath(graphic, orderedNetworks, points, segments)
-  }
-  ;(
-    graphic as typeof graphic & {
-      __asyraCenterPathSolidStrokeRenderCount?: number
-    }
-  ).__asyraCenterPathSolidStrokeRenderCount =
-    centerPathSolidVisualStrokeGroups.reduce(
-      (sum, group) => sum + group.strokes.length,
-      0
-    )
-  emitStrokePipelineCounter(
-    'center-product-solid-stroke-render-count',
-    centerPathSolidVisualStrokeGroups.reduce(
-      (sum, group) => sum + group.strokes.length,
-      0
-    )
-  )
-  ;(
-    graphic as typeof graphic & {
-      __asyraCenterSolidPathMaskRenderCount?: number
-    }
-  ).__asyraCenterSolidPathMaskRenderCount =
-    centerSolidPathMaskRenderEntries.length
-  emitStrokePipelineCounter(
-    'path-mask-center-solid-stroke-render-count',
-    centerSolidPathMaskRenderEntries.length
-  )
-  const strokeRenderEntries = measureVectorRenderPhase('render entries', () => {
-    return [
-      ...centerSolidPathMaskRenderEntries,
-      ...toSolidCenterStrokeRenderEntriesFromFinalFaces(strokeRenderFaces, {
-        exactBackend: getGeometryBackend(),
-        legalDomains: arrangementLegalDomains
-      })
-    ]
-  })
-  ;(
-    graphic as typeof graphic & {
-      __asyraConstrainedDashedProductNetworkIds?: string[]
-    }
-  ).__asyraConstrainedDashedProductNetworkIds = Array.from(
-    new Set([
-      ...strokeRenderFaces.flatMap((face) => {
-        if (
-          face.debugMeta?.productSignature?.startsWith(
-            'constrained-dashed:'
-          ) !== true
-        ) {
-          return []
-        }
-        if (
-          face.debugMeta.sourceNetworkIds &&
-          face.debugMeta.sourceNetworkIds.length > 0
-        ) {
-          return face.debugMeta.sourceNetworkIds
-        }
-        const networkId = face.debugMeta.networkId
-        return typeof networkId === 'string' ? [networkId] : []
-      })
-    ])
-  )
-  ;(
-    graphic as typeof graphic & {
-      __asyraStrokeRenderFaceDebugMetas?: SolidCenterStrokeRenderEntry['debugMeta'][]
-    }
-  ).__asyraStrokeRenderFaceDebugMetas = strokeRenderFaces
-    .map((face) => face.debugMeta)
-    .filter((debugMeta) => debugMeta !== undefined)
-  ;(
-    graphic as typeof graphic & {
-      __asyraStrokeRenderEntries?: SolidCenterStrokeRenderEntry[]
-    }
-  ).__asyraStrokeRenderEntries = strokeRenderEntries
-
-  if (
-    !shouldAttachFullStrokeDiagnostics &&
-    canUseStrokeProductGeometryCache &&
-    fillPayload.length === 0 &&
-    singleSolidRenderableStroke &&
-    strokeProductGeometrySignature &&
-    strokeRenderEntries.length > 0
-  ) {
-    const productCacheEntry: StrokePipelineStageProductCache = {
-      geometrySignature: strokeProductGeometrySignature,
-      finalFaces: semanticStrokeFinalFaces,
-      renderEntries: strokeRenderEntries
-    }
-    stageCache.products.delete(strokeProductGeometrySignature)
-    stageCache.products.set(strokeProductGeometrySignature, productCacheEntry)
-    while (
-      stageCache.products.size > STROKE_PIPELINE_STAGE_PRODUCT_CACHE_LIMIT
-    ) {
-      const oldestGeometrySignature = stageCache.products.keys().next().value
-      if (!oldestGeometrySignature) {
-        break
-      }
-      stageCache.products.delete(oldestGeometrySignature)
-      emitStrokePipelineCounter('stroke-stage-cache:product-geometry-evict')
-    }
-    graphicCache.__asyraStrokePipelineStageCache = stageCache
-    emitStrokePipelineCounter('stroke-stage-cache:product-geometry-store')
-  } else {
-    graphicCache.__asyraStrokePipelineStageCache = stageCache
-  }
-
-  measureVectorRenderPhase('mesh render', () =>
-    renderSolidCenterStrokeEntries(graphic, strokeRenderEntries)
-  )
 }
 
 const vectorRenderStrategy: RenderStrategy = (graphic, data) => {
-  try {
-    renderVectorGraphic(graphic, data as unknown as VectorComputedData)
-  } catch (error) {
-    renderSolidCenterStrokeEntries(graphic, [])
-    throw error
-  }
+  renderVectorGraphic(graphic, data)
 }
 
 defineComponent({

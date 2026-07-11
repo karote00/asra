@@ -1,4 +1,4 @@
-import { applyPreset, enableDefaultExactGeometryBackend } from '@asyra/preset'
+import { applyPreset } from '@asyra/preset'
 import core from '../contexts'
 import { initAreaSelection } from './capabilities/init-area-selection'
 import { initGradientFillEditing } from './capabilities/init-gradient-fill-editing'
@@ -10,11 +10,6 @@ import { initFeatures } from './foundation/init-features'
 import { initInputSystem } from './foundation/init-input-system'
 import { elementApis } from '../common-apis/element'
 import { strokeApis } from '../common-apis/strokes'
-
-let exactGeometryBackendReady: Promise<void> = Promise.resolve()
-
-export const waitForExactGeometryBackend = (): Promise<void> =>
-  exactGeometryBackendReady
 
 /**
  * Initializes all framework components and configurations.
@@ -39,11 +34,6 @@ export const waitForExactGeometryBackend = (): Promise<void> =>
  */
 export const initApp = (): void => {
   applyPreset(core)
-  exactGeometryBackendReady = enableDefaultExactGeometryBackend().catch(
-    (error) => {
-      console.error('[Asyra] Failed to initialize exact stroke backend:', error)
-    }
-  )
 
   // Diagnostics: subscribe once to core load diagnostics and route reports to app-level handlers.
   initLoadDiagnostics()

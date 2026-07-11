@@ -5,45 +5,8 @@ import {
   DEFAULT_OVAL_FILLS,
   getRenderableFills
 } from './fills'
-import { createEllipseHitArea, mergeHitAreas } from './shape-hit-area'
-import { DEFAULT_OVAL_STROKES } from './stroke-render/constants'
-import {
-  applyCenterDashedOverlapDiagnostics,
-  clearCenterDashedOverlapDiagnostics
-} from './stroke-render/center-dashed-overlap-diagnostics'
-import {
-  buildConstrainedDashedStrokeResolvedPackets,
-  hasConstrainedDashedStrokeIntent
-} from './stroke-render/constrained-dashed-stroke-packets'
-import { buildConstrainedSolidLegalityClippingResult } from './stroke-render/constrained-solid-legality-clipping'
-import {
-  clearConstrainedSolidLegalityDiagnostics,
-  setConstrainedSolidLegalityDiagnostics
-} from './stroke-render/constrained-solid-legality-diagnostics'
-import {
-  clearConstrainedSolidOwnershipDiagnostics,
-  createEmptyConstrainedSolidOwnershipDiagnostics,
-  setConstrainedSolidOwnershipDiagnostics
-} from './stroke-render/constrained-solid-ownership-diagnostics'
-import {
-  buildConstrainedSolidStrokeResolvedPackets,
-  hasConstrainedSolidStrokeIntent
-} from './stroke-render/constrained-solid-stroke-packets'
-import {
-  buildDashedCenterStrokeResolvedPackets,
-  hasDashedCenterStrokeIntent
-} from './stroke-render/dashed-center-stroke-packets'
-import { renderSolidCenterStrokeEntries } from './stroke-render/solid-center-stroke-render'
-import { buildEllipseLoop } from './stroke-render/ellipse-path'
-import { buildPathTopologyModel } from './stroke-render/path-topology-model'
-import {
-  applySolidCenterStrokeExportPackets,
-  buildSolidCenterStrokeResolvedPackets,
-  createSolidCenterStrokeHitArea,
-  hasSolidCenterStrokeIntent,
-  toSolidCenterStrokeRenderEntries
-} from './stroke-render/solid-center-stroke-packets'
-import { shouldEmitFullStrokeDiagnostics } from './stroke-render/stroke-diagnostics-mode'
+import { createEllipseHitArea } from './shape-hit-area'
+import { DEFAULT_OVAL_STROKES } from './stroke-defaults'
 
 defineComponent({
   type: 'oval',
@@ -82,130 +45,14 @@ defineComponent({
         height: data.height
       }
     )
-    const pathPoints = buildEllipseLoop(data.width, data.height)
-    const pathTopology = buildPathTopologyModel({
-      pathId: `oval:${data.id ?? 'anonymous'}`,
-      sourceId: `oval:${data.id ?? 'anonymous'}`,
-      networkId: 'oval',
-      sourceFamily: 'shape',
-      points: pathPoints,
-      closed: true
-    })
-    const hasCenterDashedIntent = hasDashedCenterStrokeIntent(data.strokes)
-    const hasCenterSolidIntent = hasSolidCenterStrokeIntent(data.strokes)
-    const shouldAttachFullStrokeDiagnostics = shouldEmitFullStrokeDiagnostics()
-    const dashedCenterPackets = hasCenterDashedIntent
-      ? buildDashedCenterStrokeResolvedPackets(
-          `oval:${data.id ?? 'anonymous'}:dashed-center`,
-          pathPoints,
-          true,
-          data.strokes,
-          {
-            metadata: {
-              ownerKeyPrefix: `oval:${data.id ?? 'anonymous'}`
-            },
-            topology: pathTopology
-          }
-        )
-      : []
-    const hasConstrainedDashedIntent = hasConstrainedDashedStrokeIntent(
-      data.strokes
-    )
-    const constrainedDashedCandidatePackets = hasConstrainedDashedIntent
-      ? buildConstrainedDashedStrokeResolvedPackets(
-          `oval:${data.id ?? 'anonymous'}:constrained-dashed`,
-          pathPoints,
-          true,
-          data.strokes,
-          {
-            metadata: {
-              ownerKeyPrefix: `oval:${data.id ?? 'anonymous'}`
-            },
-            topology: pathTopology
-          }
-        )
-      : []
-    const constrainedDashedPackets = constrainedDashedCandidatePackets
-    const hasConstrainedSolidIntent = hasConstrainedSolidStrokeIntent(
-      data.strokes
-    )
-    const constrainedResult = hasConstrainedSolidIntent
-      ? buildConstrainedSolidLegalityClippingResult(
-          [{ points: pathPoints, closed: true }],
-          data.strokes,
-          buildConstrainedSolidStrokeResolvedPackets(
-            `oval:${data.id ?? 'anonymous'}:constrained`,
-            pathPoints,
-            true,
-            data.strokes,
-            {
-              metadata: {
-                ownerKeyPrefix: `oval:${data.id ?? 'anonymous'}`
-              },
-              topology: pathTopology
-            }
-          ),
-          {
-            includeOwnershipDiagnosticsForPreservedPackets:
-              shouldAttachFullStrokeDiagnostics
-          }
-        )
-      : {
-          packets: [],
-          legalityDiagnostics: { domains: [], acceptedGeometryIds: [] },
-          ownershipDiagnostics:
-            createEmptyConstrainedSolidOwnershipDiagnostics()
-        }
-    const constrainedPackets = constrainedResult.packets
-    const strokePackets = [
-      ...(hasCenterSolidIntent
-        ? buildSolidCenterStrokeResolvedPackets(
-            `oval:${data.id ?? 'anonymous'}:center`,
-            pathPoints,
-            true,
-            data.strokes,
-            {
-              metadata: {
-                ownerKeyPrefix: `oval:${data.id ?? 'anonymous'}`
-              },
-              topology: pathTopology
-            }
-          )
-        : []),
-      ...dashedCenterPackets,
-      ...constrainedDashedPackets,
-      ...constrainedPackets
-    ]
-    applySolidCenterStrokeExportPackets(graphic, strokePackets)
-    if (shouldAttachFullStrokeDiagnostics) {
-      applyCenterDashedOverlapDiagnostics(graphic, dashedCenterPackets)
-      setConstrainedSolidLegalityDiagnostics(
-        graphic,
-        constrainedResult.legalityDiagnostics
-      )
-      setConstrainedSolidOwnershipDiagnostics(
-        graphic,
-        constrainedResult.ownershipDiagnostics
-      )
-    } else {
-      clearCenterDashedOverlapDiagnostics(graphic)
-      clearConstrainedSolidLegalityDiagnostics(graphic)
-      clearConstrainedSolidOwnershipDiagnostics(graphic)
-    }
-    const fillHitArea =
+    ;(
+      graphic as { hitArea: ReturnType<typeof createEllipseHitArea> | null }
+    ).hitArea =
       getRenderableFills(data.fills).length > 0
         ? createEllipseHitArea(data.width, data.height)
         : null
-    ;(
-      graphic as {
-        hitArea: ReturnType<typeof createSolidCenterStrokeHitArea> | null
-      }
-    ).hitArea = mergeHitAreas(
-      fillHitArea,
-      createSolidCenterStrokeHitArea(strokePackets)
-    )
+
     const replayPath = () => {
-      // Draw ellipse
       graphic.ellipse(
         data.width / 2,
         data.height / 2,
@@ -215,15 +62,9 @@ defineComponent({
     }
     replayPath()
     applyRenderableFill(graphic, data.fills, { replayPath })
-    renderSolidCenterStrokeEntries(
-      graphic,
-      toSolidCenterStrokeRenderEntries(strokePackets)
-    )
 
     graphic.x = data.x
     graphic.y = data.y
-
-    // Ensure graphic is rendered (force update in E2E)
     graphic.renderable = true
     graphic.visible = true
   }

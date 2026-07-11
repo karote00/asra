@@ -3,8 +3,6 @@ import './props/components'
 import { registerEvents } from './events/register-events'
 import { registerPropertySchemas } from './props/register-property-schemas'
 import {
-  registerCenterDashedOverlapDebugRenderLayer,
-  registerConstrainedSolidLegalityDebugRenderLayer,
   registerSelectionOverlayRenderLayer,
   registerVectorPathEditingRenderLayer
 } from './render-layers'
@@ -48,18 +46,6 @@ export const applyPreset = (
       sceneTree: resolvedDeps.sceneTree,
       systemContext: resolvedDeps.systemContext,
       getSelection: (type) => core.getSelection(type)
-    }
-  )
-  registerCenterDashedOverlapDebugRenderLayer(
-    (registration, options) => core.registerRenderLayer(registration, options),
-    {
-      render: resolvedDeps.render
-    }
-  )
-  registerConstrainedSolidLegalityDebugRenderLayer(
-    (registration, options) => core.registerRenderLayer(registration, options),
-    {
-      render: resolvedDeps.render
     }
   )
   registerVectorPathEditingRenderLayer(

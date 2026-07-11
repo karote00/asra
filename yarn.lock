@@ -193,7 +193,6 @@ __metadata:
     "@types/bezier-js": "npm:^4.1.3"
     "@vitest/coverage-v8": "npm:^2.1.8"
     bezier-js: "npm:^6.1.4"
-    clipper2-wasm: "npm:0.2.1"
     typescript: "npm:^5.7.2"
     vitest: "npm:^2.1.8"
   languageName: unknown
@@ -5287,13 +5286,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/emscripten@npm:^1.39.10":
-  version: 1.41.5
-  resolution: "@types/emscripten@npm:1.41.5"
-  checksum: 10c0/ae816da716f896434e59df7a71b67c71ae7e85ca067a32aef1616572fc4757459515d42ade6f5b8fd8d69733a9dbd0cf23010fec5b2f41ce52c09501aa350e45
-  languageName: node
-  linkType: hard
-
 "@types/eslint-scope@npm:^3.7.7":
   version: 3.7.7
   resolution: "@types/eslint-scope@npm:3.7.7"
@@ -7858,15 +7850,6 @@ __metadata:
   version: 3.0.0
   resolution: "cli-width@npm:3.0.0"
   checksum: 10c0/125a62810e59a2564268c80fdff56c23159a7690c003e34aeb2e68497dccff26911998ff49c33916fcfdf71e824322cc3953e3f7b48b27267c7a062c81348a9a
-  languageName: node
-  linkType: hard
-
-"clipper2-wasm@npm:0.2.1":
-  version: 0.2.1
-  resolution: "clipper2-wasm@npm:0.2.1"
-  dependencies:
-    "@types/emscripten": "npm:^1.39.10"
-  checksum: 10c0/03a8d32ff9fce9519d8ea69814c771b694080b68582e481431481d0e053ebc2484f2f3a073dbba9d7e95d57d18f8a5afcdbe039ab0aea5a1b35a61e38c370756
   languageName: node
   linkType: hard
 

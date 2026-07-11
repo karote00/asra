@@ -26,7 +26,6 @@ import {
   type WorkspaceRawData
 } from '@asyra/utils'
 import type { PresetCoreAPIs, PresetDependencies } from '../types'
-import { subscribeToGeometryBackendSelection } from '../components/stroke-render/geometry-backend'
 import {
   SelectionActions,
   SelectionChannels,
@@ -623,10 +622,6 @@ export const registerDefaultDataChannelObservers = (
     syncElementDataMap(deps)
     syncElementSelectionAndDerived(core, deps)
     syncVectorSelections(core)
-  })
-
-  subscribeToGeometryBackendSelection(() => {
-    renderSceneTreeStore.reload()
   })
 
   subscribeToEndTransaction(() => {

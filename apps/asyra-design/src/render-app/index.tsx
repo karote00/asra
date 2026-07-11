@@ -4,7 +4,6 @@ import core from '../contexts'
 import { PixiJSRenderer } from '@asyra/render'
 import { providers } from '@asyra/reactive-events'
 import { CANVAS_BACKGROUND_COLOR } from '../constants'
-import { waitForExactGeometryBackend } from '../init'
 
 const RenderApp: React.FC = () => {
   const pixiContainerRef = useRef<HTMLDivElement>(null)
@@ -18,7 +17,6 @@ const RenderApp: React.FC = () => {
         // Phase 1: Configure renderer and persistence
         core.setRenderer(new PixiJSRenderer())
         core.setPersistence(providers.localStorage)
-        await waitForExactGeometryBackend()
 
         // Phase 3: Single startup call
         await core.start(pixiContainerRef.current, {
