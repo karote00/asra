@@ -21,6 +21,11 @@ export interface GeometryBoundsCarrier {
 interface GeometryBoundsReadable extends GeometryBoundsCarrier {
   getBounds?: () => GeometryBounds
   getLocalBounds?: () => GeometryBounds
+  toGlobal?: (
+    position: { x: number; y: number },
+    point?: { x: number; y: number },
+    skipUpdate?: boolean
+  ) => { x: number; y: number }
   worldTransform?: GeometryTransformMatrix
 }
 
@@ -69,34 +74,44 @@ export const getElementGeometryWorldBounds = (
   element: GeometryBoundsReadable
 ): GeometryBounds => {
   const geometryBounds = element.__asyraGeometryLocalBounds
-  if (geometryBounds && element.worldTransform) {
-    const topLeft = transformPoint(element.worldTransform, {
-      x: geometryBounds.x,
-      y: geometryBounds.y
-    })
-    const topRight = transformPoint(element.worldTransform, {
-      x: geometryBounds.x + geometryBounds.width,
-      y: geometryBounds.y
-    })
-    const bottomRight = transformPoint(element.worldTransform, {
-      x: geometryBounds.x + geometryBounds.width,
-      y: geometryBounds.y + geometryBounds.height
-    })
-    const bottomLeft = transformPoint(element.worldTransform, {
-      x: geometryBounds.x,
-      y: geometryBounds.y + geometryBounds.height
-    })
+  if (geometryBounds) {
+    const localCorners = [
+      { x: geometryBounds.x, y: geometryBounds.y },
+      { x: geometryBounds.x + geometryBounds.width, y: geometryBounds.y },
+      {
+        x: geometryBounds.x + geometryBounds.width,
+        y: geometryBounds.y + geometryBounds.height
+      },
+      { x: geometryBounds.x, y: geometryBounds.y + geometryBounds.height }
+    ]
+    const toGlobal = element.toGlobal
+    const worldTransform = element.worldTransform
+    const projectPoint =
+      typeof toGlobal === 'function'
+        ? (point: { x: number; y: number }) =>
+            toGlobal.call(element, point, undefined, false)
+        : worldTransform
+          ? (point: { x: number; y: number }) =>
+              transformPoint(worldTransform, point)
+          : null
 
-    const minX = Math.min(topLeft.x, topRight.x, bottomRight.x, bottomLeft.x)
-    const maxX = Math.max(topLeft.x, topRight.x, bottomRight.x, bottomLeft.x)
-    const minY = Math.min(topLeft.y, topRight.y, bottomRight.y, bottomLeft.y)
-    const maxY = Math.max(topLeft.y, topRight.y, bottomRight.y, bottomLeft.y)
+    if (projectPoint) {
+      const topLeft = projectPoint(localCorners[0])
+      const topRight = projectPoint(localCorners[1])
+      const bottomRight = projectPoint(localCorners[2])
+      const bottomLeft = projectPoint(localCorners[3])
 
-    return {
-      x: minX,
-      y: minY,
-      width: maxX - minX,
-      height: maxY - minY
+      const minX = Math.min(topLeft.x, topRight.x, bottomRight.x, bottomLeft.x)
+      const maxX = Math.max(topLeft.x, topRight.x, bottomRight.x, bottomLeft.x)
+      const minY = Math.min(topLeft.y, topRight.y, bottomRight.y, bottomLeft.y)
+      const maxY = Math.max(topLeft.y, topRight.y, bottomRight.y, bottomLeft.y)
+
+      return {
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY
+      }
     }
   }
 

@@ -72,4 +72,40 @@ describe('geometry bounds helpers', () => {
     })
     expect(getBounds).not.toHaveBeenCalled()
   })
+
+  it('projects authored bounds through the current transform instead of a stale rendered transform', () => {
+    const toGlobal = vi.fn((point: { x: number; y: number }) => ({
+      x: point.x + 120,
+      y: point.y + 80
+    }))
+    const element: GeometryBoundsCarrier & {
+      toGlobal: typeof toGlobal
+      worldTransform: GeometryTransformMatrix
+    } = {
+      toGlobal,
+      worldTransform: {
+        a: 1,
+        b: 0,
+        c: 0,
+        d: 1,
+        tx: 40,
+        ty: 20
+      }
+    }
+
+    setElementGeometryLocalBounds(element, {
+      x: 0,
+      y: 0,
+      width: 240,
+      height: 160
+    })
+
+    expect(getElementGeometryWorldBounds(element)).toEqual({
+      x: 120,
+      y: 80,
+      width: 240,
+      height: 160
+    })
+    expect(toGlobal).toHaveBeenCalledTimes(4)
+  })
 })

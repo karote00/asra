@@ -26,16 +26,22 @@ Rendering runtime and engine abstraction boundary.
 ## Runtime Contracts
 
 1. State-driven rendering
+
 - consume scene/system state
 - update visual layers based on state deltas
+- overlays that project authored element bounds during an active interaction must
+  use the current precise transform chain; a cached transform from the previous
+  render pass is not authoritative after frame-aligned scene updates
 
 2. Interaction bridge
+
 - pointer events from render are inputs, not authoritative selection/hit policy
 - hit-test policies can be framework/app-defined when bounds-based behavior is needed
 - overlay interaction targets publish `render.pointer.*` events with engine-agnostic payloads
 - pointer capture can block underlying input-system drag when configured
 
 3. Engine isolation
+
 - adapter API exposes engine-agnostic methods to other packages/app layers
 - only render package knows concrete engine primitives
 
@@ -47,9 +53,7 @@ Rendering runtime and engine abstraction boundary.
 ## Example: Overlay Interaction Flow
 
 ```ts
-import core, {
-  createRenderInteractionPointTarget
-} from '@asyra/core'
+import core, { createRenderInteractionPointTarget } from '@asyra/core'
 
 const handleTarget = createRenderInteractionPointTarget({
   id: 'gradient-handle-1',
