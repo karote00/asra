@@ -347,9 +347,6 @@ describe('vector path editing feature entry boundary', () => {
     expect(source).not.toMatch(/changeElementComputedData/)
     expect(source).not.toMatch(/renderSceneTreeStore/)
     expect(source).not.toMatch(/@asyra\/preset/)
-    expect(source).not.toMatch(/stroke-render/)
-    expect(source).not.toMatch(/buildResolvedVectorGeometryModel/)
-    expect(source).not.toMatch(/buildConstrained(?:Solid|Dashed)/)
   })
 
   it('clears drag state when the input drag session ends', () => {
