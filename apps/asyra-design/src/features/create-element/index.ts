@@ -38,10 +38,15 @@ interface CreateElementAPI {
 
 const api: CreateElementAPI = {
   createElement: (position: { x: number; y: number }, type: string) => {
-    return elementApis.createElement({
-      type,
-      clientPosition: position
-    })
+    return elementApis.createElement(
+      {
+        type,
+        clientPosition: position
+      },
+      {
+        sharedDelivery: 'immediate'
+      }
+    )
   },
   updateElementSizeAndPosition: (
     elementId: string,
@@ -117,7 +122,9 @@ export const createElementFeature = defineFeature<
 
       const elementId = api.createElement(snapshot.mousePosition, primaryTool)
       if (elementId) {
-        selectionApis.selectElements([elementId])
+        selectionApis.selectElements([elementId], {
+          sharedDelivery: 'immediate'
+        })
       }
 
       return {

@@ -377,14 +377,21 @@ export const elementApis = {
       clientY: createOptions.clientPosition.y
     })
 
+    const initialData: Record<string, DataTypes> = {
+      fills: getDefaultFillsForType(createOptions.type)
+    }
+
+    if (createOptions.width !== undefined) {
+      initialData.width = createOptions.width
+    }
+    if (createOptions.height !== undefined) {
+      initialData.height = createOptions.height
+    }
+
     return createElementAtWorkspacePos(
       createOptions.type,
       workspacePos,
-      {
-        width: 0,
-        height: 0,
-        fills: getDefaultFillsForType(createOptions.type)
-      },
+      initialData,
       options
     )
   },

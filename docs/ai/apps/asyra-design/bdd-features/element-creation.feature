@@ -11,8 +11,12 @@ Feature: Element Creation
 
   Scenario: Create rectangle by dragging
     Given I have the "Rectangle" tool selected
-    When I drag on the canvas
-    Then a rectangle should be created with drag-based size
+    When I press the left mouse button on the canvas
+    Then a rectangle using its element initial size should be visible on canvas and in Contents before release
+    When I drag without releasing the left mouse button
+    Then the rectangle should remain visible with drag-based size
+    And the selection outline should match the rectangle in the same frame
+    When I release the left mouse button
     And the new rectangle should be selected
 
   Scenario: Create oval with single click
@@ -23,6 +27,10 @@ Feature: Element Creation
 
   Scenario: Create oval by dragging
     Given I have the "Oval" tool selected
-    When I drag on the canvas
-    Then an oval should be created with drag-based size
+    When I press the left mouse button on the canvas
+    Then an oval using its element initial size should be visible on canvas and in Contents before release
+    When I drag without releasing the left mouse button
+    Then the oval should remain visible with drag-based size
+    And the selection outline should match the oval in the same frame
+    When I release the left mouse button
     And the new oval should be selected

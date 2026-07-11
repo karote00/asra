@@ -52,8 +52,10 @@ Import boundary:
 - `updateVectorAnchorPointHandlePosition(elementId: string, pointId: string, target: 'inHandle' | 'outHandle', position: PositionData, options?: { undoable: boolean }): { point: VectorAnchorPoint; index: number } | null`
 - `updateVectorAnchorPointHandles(elementId: string, updates: { pointId: string; target: 'inHandle' | 'outHandle'; position: PositionData | null; forceSmooth?: boolean }[], mutationOptions?: { undoable: boolean; skipResult?: boolean }): void`
 - `getMousePosInWorkspace(clientPos: PositionData): PositionData | null`
-- `createElement(options: { type: EntityType; clientPosition?: PositionData; points?: Record<string, VectorPointNode>; segments?: Record<string, VectorSegment>; networks?: Record<string, VectorNetwork>; closed?: boolean }, mutationOptions?: { undoable: boolean }): string | null`
+- `createElement(options: { type: EntityType; clientPosition?: PositionData; width?: number; height?: number; points?: Record<string, VectorPointNode>; segments?: Record<string, VectorSegment>; networks?: Record<string, VectorNetwork>; closed?: boolean }, mutationOptions?: EVENT_OPTIONS): string | null`
   - initializes default `fills` payload by element type
+  - omitted `width`/`height` remain absent from the creation payload so component/property initial data owns the initial dimensions
+  - create-tool sessions use `sharedDelivery: 'immediate'` for the initial undoable ADD_ELEMENT so Contents and render projection become visible before pointer-up without splitting the undo commit
 - `createVectorElementFromSinglePoint(pointId: string, position: PositionData, mutationOptions?: { undoable: boolean }): string | null`
 - `deleteElement(elementId: string, options?: { undoable: boolean }): boolean`
 - `resetElementSize(elementId: string): void`
@@ -274,6 +276,7 @@ Feature registry (`src/features/index.ts`):
   - `historyApis.undo` / `redo`
 
 - `pen-tool`
+
   - `elementApis` vector APIs
   - `selectionApis.selectVectorPoint` / `selectVectorSegment` and channel readers
   - `systemContextApis` path-editing, hover point, and compatibility point-state APIs

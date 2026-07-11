@@ -12,11 +12,11 @@ Users need low-friction shape creation with both quick default-size placement an
 
 ## Functional Requirements
 
-1. With rectangle/oval tool active, mouse down starts creation.
-2. Drag updates width/height and origin correctly for negative drag direction.
-3. Small movement uses default element size.
+1. With rectangle/oval tool active, mouse down creates and immediately projects an element using its element-owned initial data; the create interaction must not write width or height.
+2. While the pointer remains down, drag updates are projected continuously and update width/height and origin correctly for negative drag direction; the selection outline must use the same current-frame element bounds.
+3. Mouse up without movement resets the completed element to the 100×100 click-creation size.
 4. Created element is selected immediately.
-5. Creation is visible in contents panel and property panel.
+5. Creation is visible in the Contents panel and property panel during the active pointer session.
 
 ## Constraints
 
