@@ -1,15 +1,15 @@
-import { EntityTypes } from './enum'
+import { EntityType, EntityTypes } from './enum'
 
-const GroupTypesSet = new Set([
+const GroupTypesSet: Set<string> = new Set([
   EntityTypes.WORKSPACE,
   EntityTypes.FRAME,
   EntityTypes.GROUP
 ])
 
-export const isElementEntity = (entityType: EntityTypes): boolean => {
+export const isElementEntity = (entityType: EntityType): boolean => {
   return entityType in EntityTypes
 }
 
-export const isGroupEntity = (entityType: EntityTypes): boolean => {
+export const isGroupEntity = (entityType: EntityType): boolean => {
   return GroupTypesSet.has(entityType)
 }

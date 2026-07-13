@@ -35,6 +35,8 @@
       "dependsOn": [
         "^build:core",
         "^build:design-system",
+        "^build:feature-system",
+        "^build:preset",
         "^build:reactive-events",
         "^build:ui-context",
         "^build:utils"
@@ -47,14 +49,16 @@
       ],
       "dependsOn": [
         "^build:factory",
+        "^build:feature-system",
         "^build:input-system",
-        "^build:interaction-core",
+        "^build:persistence",
         "^build:props-manager",
         "^build:reactive-events",
         "^build:render",
         "^build:scene-tree",
         "^build:selection",
         "^build:system-context",
+        "^build:ui-context",
         "^build:utils"
       ]
     },
@@ -77,6 +81,16 @@
         "^build:utils"
       ]
     },
+    "build:feature-system": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:reactive-events",
+        "^build:utils"
+      ]
+    },
     "build:input-system": {
       "cache": false,
       "outputs": [
@@ -87,14 +101,26 @@
         "^build:utils"
       ]
     },
-    "build:interaction-core": {
+    "build:persistence": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
-        "^build:input-system",
-        "^build:reactive-events",
+        "^build:utils"
+      ]
+    },
+    "build:preset": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:core",
+        "^build:props-manager",
+        "^build:render",
+        "^build:scene-tree",
+        "^build:system-context",
         "^build:utils"
       ]
     },
@@ -114,6 +140,7 @@
         "dist/**"
       ],
       "dependsOn": [
+        "^build:persistence",
         "^build:utils"
       ]
     },
@@ -127,6 +154,7 @@
         "^build:reactive-events",
         "^build:scene-tree",
         "^build:selection",
+        "^build:system-context",
         "^build:utils"
       ]
     },

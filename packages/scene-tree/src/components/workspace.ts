@@ -1,29 +1,27 @@
 import type {
+  EvnetOptions,
   WorkspaceRawData,
   ElementInstanceTypes,
   GroupInstanceTypes,
   IElement
 } from '@asyra/utils'
-import { isGroupEntity, IDTypes, NameTypes, EntityTypes } from '@asyra/utils'
+import { IDTypes, NameTypes, EntityTypes } from '@asyra/utils'
+import { isGroupEntity } from '../utils'
 import Group from './group'
-import sceneTree from '../sceneTree'
+import type { ISceneTreeRegistry } from '../types'
 
 type WorkspaceDataType = Partial<WorkspaceRawData>
 
 class Workspace extends Group {
-  constructor() {
-    super()
+  private registry: ISceneTreeRegistry
+
+  constructor(registry: ISceneTreeRegistry) {
+    super({}, IDTypes.WORKSPACE, NameTypes.WORKSPACE)
+    this.registry = registry
   }
 
   _init(): void {
-    this._idType = IDTypes.WORKSPACE
-    this._nameType = NameTypes.WORKSPACE
     super._init()
-    this.data.type = EntityTypes.WORKSPACE
-  }
-
-  create(): void {
-    super.create()
     this.data.type = EntityTypes.WORKSPACE
   }
 
@@ -36,7 +34,7 @@ class Workspace extends Group {
 
     const children = this.get('children')
     for (const childId of children) {
-      const child = sceneTree.getElementById(childId)
+      const child = this.registry.getElementById(childId)
       if (
         child &&
         isGroupEntity(child.get('type')) &&
@@ -72,44 +70,39 @@ class Workspace extends Group {
       avaliableParent.addElement(element, index)
     } else {
       // Add new element to Workspace
-      const originalChildrenList = [...this.get('children')]
-      const idx = index > -1 ? index : this.get('children').length
-      originalChildrenList.splice(idx, 0, element.get('id'))
-      this.set('children', originalChildrenList)
+      super.addElement(element, index)
     }
-    sceneTree.addToMap(element)
+    this.registry.addToMap(element)
   }
 
-  removeElement(element: IElement, index: number, parent?: GroupInstanceTypes) {
+  removeElement(
+    element: IElement,
+    parent?: GroupInstanceTypes,
+    options?: EvnetOptions
+  ) {
     if (!element) {
       return
     }
 
-    let avaliableParent = parent
-    if (!avaliableParent) {
-      const firstFrame = this.firstFrame
-      if (firstFrame) {
-        avaliableParent = this.firstFrame as GroupInstanceTypes
-      }
-    }
-
     const elementId = element.get('id')
-    if (avaliableParent && avaliableParent.get('children')) {
+    if (parent && parent.get('children')) {
       // Remove element from Group type instance
-      const idx = index ?? avaliableParent?.get('children').indexOf(elementId)
-      avaliableParent.removeElement(element, idx)
+      if (parent.get('children').indexOf(elementId) < 0) {
+        return
+      }
+      parent.removeElement(element)
     } else {
-      // Add new element to Workspace
-      const originalChildrenList = [...this.get('children')]
-      const idx = index ?? this.get('children').indexOf(elementId)
-      originalChildrenList.splice(idx, 1)
-      this.set('children', originalChildrenList)
+      // Remove element from Workspace
+      if (this.get('children').indexOf(elementId) < 0) {
+        return
+      }
+      super.removeElement(element)
     }
 
-    element.cleanup()
+    element.cleanup(options)
 
     // Remove element from Workspace
-    sceneTree.removeFromMap(element)
+    this.registry.removeFromMap(element)
   }
 }
 

@@ -1,31 +1,40 @@
 import {
+  Bounds,
+  ComputedDataPatch,
   CreateElementData,
+  GroupInstanceTypes,
+  SceneTreeRawData,
   DataTypes,
-  DimensionData,
-  EVENT_OPTIONS,
-  PositionData,
-  SceneTreeRawData
+  EVENT_OPTIONS
 } from '@asyra/utils'
 
 export interface SceneTreeRawAPIs {
   sceneTreeInit: () => void
   sceneTreeLoadData: (data: SceneTreeRawData) => void
   sceneTreeSaveData: () => SceneTreeRawData
-}
-
-export interface SceneTreeActionAPIs {
-  changeComputedData: (key: string, data: DataTypes) => void
-  resizeElement: (
-    pos: PositionData,
-    dimension: DimensionData,
+  createElement: (
+    data: CreateElementData,
+    parent?: GroupInstanceTypes,
+    index?: number,
+    options?: EVENT_OPTIONS
+  ) => string
+  changeComputedData: (
+    elementIds: string[],
+    data: Record<string, DataTypes>,
     options?: EVENT_OPTIONS
   ) => void
+  changeComputedDataPatch: (
+    elementIds: string[],
+    patch: ComputedDataPatch,
+    options?: EVENT_OPTIONS
+  ) => void
+  refreshComputedDataFromProperty: (
+    elementId: string,
+    propertyName: string,
+    options?: EVENT_OPTIONS
+  ) => void
+  getAllElementsBounds: () => Bounds | null
+  isContainerType: (type: string) => boolean
 }
 
-export interface SceneTreeHandlerAPIs {
-  addRectangle: (data: CreateElementData) => void
-}
-
-export type SceneTreeAPIs = SceneTreeRawAPIs &
-  SceneTreeActionAPIs &
-  SceneTreeHandlerAPIs
+export type SceneTreeAPIs = SceneTreeRawAPIs

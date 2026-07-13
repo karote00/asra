@@ -5,7 +5,7 @@ import { Icons, IconName } from './svgs-components'
 type IconSize = Size
 
 interface IconProps {
-  name: IconName | string
+  name: IconName
   showCursor?: boolean
   size?: IconSize
   className?: string
@@ -21,17 +21,13 @@ const Icon: React.FC<IconProps> = ({
   name,
   size = Size.MD,
   showCursor = true,
-  className
+  className = ''
 }) => {
-  const SvgIcon = (
-    Icons as Record<string, React.FC<React.SVGProps<SVGElement>>>
-  )[name]
+  const SvgIcon = Icons[name]
 
   return (
     <span
-      className={`inline-flex items-center justify-center ${showCursor ? 'cursor-pointer' : ''} ${sizeMap[size]} ${
-        className || ''
-      }`}
+      className={`inline-flex items-center justify-center ${showCursor ? 'cursor-pointer' : ''} ${sizeMap[size]} ${className}`}
     >
       {SvgIcon ? <SvgIcon /> : <span>{name}</span>}
     </span>

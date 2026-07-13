@@ -1,69 +1,123 @@
 import {
-  endTransaction,
-  selectElements,
-  startTransaction,
-  sceneTreeLoadComplete,
+  addElement,
   changeComputedData,
+  changeComputedDataBatch,
+  changeComputedDataPatch,
   sceneTreeInit,
   sceneTreeLoadData
 } from '@asyra/reactive-events'
 import {
-  SceneTreeRawData,
+  Bounds,
+  ComputedDataPatch,
+  CreateElementData,
   DataTypes,
-  PositionData,
-  DimensionData,
   EVENT_OPTIONS,
-  CreateElementData
+  GroupInstanceTypes,
+  SceneTreeRawData,
+  EntityTypes,
+  id
 } from '@asyra/utils'
-import {
-  SceneTreeAPIs,
-  SceneTreeRequests,
-  FactoryRequests,
-  SelectionRequests
-} from '../types'
+import { SceneTreeAPIs } from '../types'
+
+export interface SceneTreeRequests {
+  sceneTreeSaveData: () => SceneTreeRawData
+  refreshComputedDataFromProperty: (
+    elementId: string,
+    propertyName: string,
+    options?: EVENT_OPTIONS
+  ) => void
+  getAllElementsBounds: () => Bounds | null
+  isContainerType: (type: string) => boolean
+}
 
 export const createSceneTreeAPIs = (
-  sceneTreeRequests: SceneTreeRequests,
-  factoryRequests: FactoryRequests,
-  selectionRequests: SelectionRequests
+  sceneTreeRequests: SceneTreeRequests
 ): SceneTreeAPIs => {
   return {
+    createElement(
+      data: CreateElementData,
+      parent?: GroupInstanceTypes,
+      index?: number,
+      options?: EVENT_OPTIONS
+    ) {
+      const elementType = data.type ?? EntityTypes.ELEMENT
+      const elementId = data.id ?? id(elementType)
+
+      addElement(
+        {
+          visible: true,
+          lock: false,
+          ...data,
+          id: elementId
+        },
+        index,
+        parent,
+        options
+      )
+
+      return elementId
+    },
     sceneTreeInit() {
       sceneTreeInit()
-      sceneTreeLoadComplete()
     },
     sceneTreeLoadData(data: SceneTreeRawData) {
       sceneTreeLoadData(data)
-      sceneTreeLoadComplete()
     },
     sceneTreeSaveData() {
       return sceneTreeRequests.sceneTreeSaveData()
     },
-    addRectangle(data: CreateElementData) {
-      startTransaction()
-      const inUndoRedo = factoryRequests.isInUndoRedo()
-      const newElementId = sceneTreeRequests.addRectangle(data, inUndoRedo)
-      selectElements([newElementId])
-      endTransaction()
+    getAllElementsBounds() {
+      return sceneTreeRequests.getAllElementsBounds()
     },
-    changeComputedData(key: string, data: DataTypes) {
-      startTransaction()
-      const elementIds = selectionRequests.getElementSelectionIds()
-      changeComputedData(elementIds, key, data)
-      endTransaction()
-    },
-    resizeElement(
-      pos: PositionData,
-      dimension: DimensionData,
+    changeComputedData(
+      elementIds: string[],
+      data: Record<string, DataTypes>,
       options?: EVENT_OPTIONS
     ) {
-      startTransaction()
-      const elementIds = selectionRequests.getElementSelectionIds()
-      changeComputedData(elementIds, 'x', pos.x, options)
-      changeComputedData(elementIds, 'y', pos.y, options)
-      changeComputedData(elementIds, 'width', dimension.width, options)
-      changeComputedData(elementIds, 'height', dimension.height, options)
-      endTransaction()
+      const entries = Object.entries(data ?? {})
+      if (entries.length === 0) {
+        return
+      }
+
+      if (options?.undoable === false && entries.length > 1) {
+        changeComputedDataBatch(elementIds, data, options)
+        return
+      }
+
+      entries.forEach(([key, value]) => {
+        changeComputedData(elementIds, key, value, options)
+      })
+    },
+    changeComputedDataPatch(
+      elementIds: string[],
+      patch: ComputedDataPatch,
+      options?: EVENT_OPTIONS
+    ) {
+      const hasValues = Object.keys(patch.values ?? {}).length > 0
+      const hasRecords = Object.values(patch.records ?? {}).some(
+        (recordPatch) =>
+          Object.keys(recordPatch.set ?? {}).length > 0 ||
+          (recordPatch.remove?.length ?? 0) > 0
+      )
+      if (!hasValues && !hasRecords) {
+        return
+      }
+
+      changeComputedDataPatch(elementIds, patch, options)
+    },
+    refreshComputedDataFromProperty(
+      elementId: string,
+      propertyName: string,
+      options?: EVENT_OPTIONS
+    ) {
+      sceneTreeRequests.refreshComputedDataFromProperty(
+        elementId,
+        propertyName,
+        options
+      )
+    },
+    isContainerType(type: string) {
+      return sceneTreeRequests.isContainerType(type)
     }
   }
 }

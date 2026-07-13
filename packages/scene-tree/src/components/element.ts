@@ -1,7 +1,9 @@
 import type {
+  EvnetOptions,
   ElementRawData,
   ElementAttrs,
   IElement,
+  IProps,
   PropsRawData,
   ComputedAttrs,
   PropertyComponentInstanceDataTypes
@@ -24,48 +26,49 @@ const elementChangeHandler = new ElementChangeHandler()
 
 type ElementDataType = Partial<ElementRawData>
 
-const ElementProps: (keyof ElementAttrs)[] = ['id', 'name', 'visible', 'lock']
+const ElementProps: (keyof ElementAttrs)[] = [
+  'id',
+  'name',
+  'parentId',
+  'visible',
+  'lock'
+]
 
 class Element<T extends ElementAttrs = ElementAttrs>
   extends Setter<T>
   implements IElement<T>
 {
-  _idType!: IDTypes
-  _nameType!: NameTypes
+  _idType: string = ''
+  _nameType: string = ''
+  protected computedPropertyNames: string[] = ['position', 'dimension', 'fills']
 
-  props!: Props
+  props!: IProps
   computed!: Computed<ComputedAttrs>
 
-  constructor(data?: Partial<ElementRawData>) {
+  constructor(
+    data?: Partial<ElementRawData>,
+    idPrefix?: string,
+    namePrefix?: string
+  ) {
     super(elementChangeHandler.addChange)
+    this._idType = idPrefix || IDTypes.ELEMENT
+    this._nameType = namePrefix || NameTypes.ELEMENT
+
     this._init()
 
     if (data && Object.keys(data).length) {
       this.load(data)
-    } else {
-      this.create()
     }
 
     this.setupProps(data?.props)
   }
 
   _init(): void {
-    this._idType ??= IDTypes.ELEMENT
-    this._nameType ??= NameTypes.ELEMENT
-    this.data = {
-      id: '',
-      type: EntityTypes.UNDEFINED,
-      name: '',
-      visible: false,
-      lock: true
-    } as T
-  }
-
-  create(): void {
     this.data = {
       id: id(this._idType),
-      type: EntityTypes.ELEMENT,
+      type: EntityTypes.UNDEFINED,
       name: name(this._nameType),
+      parentId: '',
       visible: true,
       lock: false
     } as T
@@ -112,6 +115,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
     data.id = this.get('id')
     data.type = this.get('type')
     data.name = this.get('name')
+    data.parentId = this.get('parentId')
     data.visible = this.get('visible')
     data.lock = this.get('lock')
 
@@ -131,36 +135,44 @@ class Element<T extends ElementAttrs = ElementAttrs>
         this.props = new Props(elementId)
       }
 
-      this.computed = new Computed(elementId, this.props)
+      this.computed = new Computed(
+        elementId,
+        this.props,
+        this.computedPropertyNames
+      )
     }
   }
 
   updateComputedData<K extends keyof ComputedAttrs>(
     key: K,
-    data: ComputedAttrs[K]
+    data: ComputedAttrs[K],
+    options?: EvnetOptions
   ) {
     if (!(key in this.data)) {
-      this.computed.set(key, data)
+      this.computed.set(key, data, options)
 
       // Convert data type from ComputedAttrs to PropertyComponentInstanceDataTypes
       type KEY = keyof PropertyComponentInstanceDataTypes
       this.props.updateData(
         key as KEY,
-        data as PropertyComponentInstanceDataTypes[KEY]
+        data as PropertyComponentInstanceDataTypes[KEY],
+        options
       )
     }
   }
 
   getAllComputedData() {
     if (this.get('type') !== EntityTypes.WORKSPACE) {
+      this.computed.setup(this.props, this.computedPropertyNames)
       return this.computed.save()
     }
 
     return {}
   }
 
-  cleanup() {
-    this.props.cleanup()
+  cleanup(options?: EvnetOptions) {
+    this.props.cleanup(options)
+    this.computed.dispose()
   }
 }
 

@@ -14,7 +14,7 @@
 2. **Scene Tree**: Represents the structured information model for interactive elements.  
 3. **Renderer**: Processes data context changes and calls the render engine to display content.  
 4. **Core**: Unified API entry point for system-level communication.  
-5. **Interaction Core + Input System**: Supports combo keys, user-defined shortcuts, and rules/decisions for context-specific actions.  
+5. **Feature System + Input System**: Supports combo keys, user-defined shortcuts, and deterministic feature/session execution for context-specific actions.  
 6. **UI Context**: Processes data context changes specifically for UI rendering; can be replaced with custom modules if desired.  
 7. **UI**: Fully customizable presentation layer; developers choose how to display data.  
 8. **Undo Behaviours**: Immutable module to ensure system stability.  
@@ -33,7 +33,7 @@ flowchart TD
     SceneTree["Scene Tree"]
     Renderer["Renderer"]
     CoreAPI["Core API"]
-    Interaction["Interaction Core + Input System"]
+    Interaction["Feature System + Input System"]
     UIContext["UI Context"]
     UI["UI"]
     Undo["Undo Behaviours (Immutable)"]
@@ -71,7 +71,7 @@ flowchart TD
     SceneTree["Scene Tree"]
     Renderer["Renderer"]
     CoreAPI["Core API"]
-    Interaction["Interaction Core + Input System"]
+    Interaction["Feature System + Input System"]
     UIContext["UI Context"]
     UI["UI"]
     Undo["Undo Behaviours (Immutable)"]

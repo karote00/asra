@@ -33,7 +33,6 @@
     "reinstall": "yarn clean && rm -rf node_modules .turbo && yarn && yarn react:build",
     "gen:turbo": "node scripts/gen-turbo.js && yarn install",
     "gen:event": "yarn workspace @asyra/reactive-events add-event",
-    "gen:interaction": "yarn workspace @asyra/reactive-events add-interaction",
     "predev": "yarn gen:turbo",
     "deps:validate": "node scripts/deps-validate.js",
     "deps:validate:verbose": "node scripts/deps-validate.js --verbose",
@@ -41,7 +40,8 @@
     "release:app": "node scripts/release-template.js",
     "release:app:verbose": "node scripts/release-template.js --verbose",
     "release:full": "node scripts/release-full.js",
-    "release:full:asyra-design": "node scripts/release-full.js --prod=asyra-design"
+    "release:full:asyra-design": "node scripts/release-full.js --prod=asyra-design",
+    "dev:description": "Run in watch mode: all packages including design-system, asyra-design app"
   },
   "workspaces": [
     "apps/*",
@@ -66,6 +66,7 @@
     "eslint-plugin-react": "^7.37.3",
     "fs-extra": "^11.3.3",
     "glob": "^13.0.0",
+    "jsdom": "16.7.0",
     "prettier": "^3.4.2",
     "turbo": "^2.3.3",
     "typescript-eslint": "^8.18.2",

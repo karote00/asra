@@ -1,25 +1,37 @@
-import { SELECTION_TYPES } from '@asyra/utils'
+import { MapRegistry } from '@asyra/utils'
 import Selection from './selections/base-selection'
 
 class SelectionManager {
-  private selections: Map<string, Selection> = new Map()
+  private selections = new MapRegistry<string, Selection>()
 
-  register(type: SELECTION_TYPES, selection: Selection): void {
-    this.selections.set(type, selection)
+  register(type: string, selection: Selection): void {
+    this.selections.register(type, selection, {
+      duplicateErrorMessage: `Selection "${type}" is already registered`
+    })
   }
 
-  get(type: SELECTION_TYPES): Selection | undefined {
+  get(type: string): Selection | undefined {
     return this.selections.get(type)
   }
 
+  getChannelByAction(action: string): string | undefined {
+    for (const [channel, selection] of this.selections.entries()) {
+      if (
+        selection.getSelectAction() === action ||
+        selection.getEventName() === action
+      ) {
+        return channel
+      }
+    }
+    return undefined
+  }
+
   clearAllSelections(): void {
-    this.selections.forEach((selection) => selection.clear())
+    this.selections.values().forEach((selection) => selection.clear())
   }
 
   getElementSelectionIds(): string[] {
-    return Array.from(
-      this.selections.get(SELECTION_TYPES.ELEMENT)?.getSelectedIds() || []
-    )
+    return Array.from(this.selections.get('element')?.getSelectedIds() || [])
   }
 }
 

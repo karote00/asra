@@ -11,7 +11,7 @@ export interface TextProps {
 }
 
 // Text Component
-const Text: React.FC<TextProps> = ({ label, classNames = 'text-gray-200' }) => {
+const Text: React.FC<TextProps> = ({ label, classNames = 'text-[#ccc]' }) => {
   const labelContent = typeof label === 'string' ? label : label.toString()
   return <span className={classNames}>{labelContent}</span>
 }

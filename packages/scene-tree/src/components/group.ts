@@ -5,7 +5,7 @@ import type {
   IGroupElement,
   ElementRawData
 } from '@asyra/utils'
-import { EntityTypes, NameTypes } from '@asyra/utils'
+import { IDTypes, NameTypes } from '@asyra/utils'
 import Element from './element'
 
 type GroupDataType = Partial<GroupRawData>
@@ -14,25 +14,22 @@ class Group<T extends GroupAttrs = GroupAttrs>
   extends Element<T>
   implements IGroupElement<T>
 {
-  constructor(data?: Partial<ElementRawData>) {
-    super(data)
+  constructor(
+    data?: Partial<ElementRawData>,
+    idPrefix?: string,
+    namePrefix?: string
+  ) {
+    super(data, idPrefix || IDTypes.GROUP, namePrefix || NameTypes.GROUP)
   }
 
   _init(): void {
-    this._nameType ??= NameTypes.GROUP
     super._init()
-    this.data.type = EntityTypes.GROUP
     this.data.children = []
   }
 
   load(data: GroupDataType): void {
     super.load(data)
     this.data.children = (data.children as string[]) || []
-  }
-
-  create(): void {
-    super.create()
-    this.data.type = EntityTypes.GROUP
   }
 
   save(): GroupRawData {
@@ -47,23 +44,26 @@ class Group<T extends GroupAttrs = GroupAttrs>
     }
 
     const children = [...this.get('children')]
-    const idx = index ?? children.length
+    const idx = index > -1 ? index : children.length
     children.splice(idx, 0, element.get('id'))
     this.set('children', children)
+    element.set('parentId', this.get('id'), { undoable: false })
   }
 
-  removeElement(element: ElementInstanceTypes, index: number) {
+  removeElement(element: ElementInstanceTypes) {
     if (!element) {
       return
     }
 
     const children = [...this.get('children')]
-    if (children.indexOf(element.get('id')) !== index) {
+    const index = children.indexOf(element.get('id'))
+    if (index < 0) {
       return
     }
 
     children.splice(index, 1)
     this.set('children', children)
+    element.set('parentId', '', { undoable: false })
   }
 }
 

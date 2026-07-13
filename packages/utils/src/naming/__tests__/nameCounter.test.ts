@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { nameCounter } from '../nameCounter'
 import { CODE_SPLIT, FIRST_NAME } from '../constants'
 import { NameTypes } from '../enum'
@@ -7,6 +7,10 @@ import { capitalizeFirstLetter } from '../../helpers'
 const addOne = (str: string): string => (Number(str) + 1).toString()
 
 describe('nameCounter', () => {
+  beforeEach(() => {
+    nameCounter.clear()
+  })
+
   describe('check current max number of name', () => {
     it('should return the current name for the specific type', () => {
       const type = NameTypes.ELEMENT
@@ -28,6 +32,18 @@ describe('nameCounter', () => {
       const next = addOne(currentName.split(CODE_SPLIT)[1])
       const expectResult = `${capitalizeFirstLetter(type)}${CODE_SPLIT}${next}`
       expect(newName).toBe(expectResult)
+    })
+
+    it('should initialize and synchronize an uninitialized type when load is called', () => {
+      const type = 'new_type'
+      const testName = `New_type${CODE_SPLIT}10`
+
+      nameCounter.load(testName, type)
+
+      expect(nameCounter.current(type)).toBe(testName)
+
+      const newName = nameCounter.increase(type)
+      expect(newName).toBe(`New_type${CODE_SPLIT}11`)
     })
   })
 
@@ -54,6 +70,24 @@ describe('nameCounter', () => {
       const result = nameCounter.valid(testName, NameTypes.WORKSPACE)
 
       expect(result).toBe(false)
+    })
+  })
+
+  describe('register/unregister type', () => {
+    it('should unregister a registered custom type', () => {
+      const type = 'custom_name_type'
+      nameCounter.registerType(type, 'Custom')
+      expect(nameCounter.hasType(type)).toBe(true)
+
+      const result = nameCounter.unregisterType(type)
+
+      expect(result).toBe(true)
+      expect(nameCounter.hasType(type)).toBe(false)
+      expect(nameCounter.current(type)).toBe(undefined)
+    })
+
+    it('should return false when unregistering unknown type', () => {
+      expect(nameCounter.unregisterType('unknown_name_type')).toBe(false)
     })
   })
 })

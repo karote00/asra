@@ -43,7 +43,7 @@ test.describe('Asyra Design Tool', () => {
     await expect(toolbar).toBeVisible()
 
     // Tool buttons should be present
-    const toolButtons = toolbar.locator('.flex.align-middle')
+    const toolButtons = toolbar.locator('[data-testid^="tool-"]')
     const buttonCount = await toolButtons.count()
     expect(buttonCount).toBeGreaterThan(0)
   })
@@ -76,7 +76,8 @@ test.describe('Asyra Design Tool', () => {
     await waitForAppReady(page)
 
     // Reset button should be visible
-    const resetButton = page.locator('text=Reset')
+    const toolbar = getToolbar(page)
+    const resetButton = toolbar.getByTestId('reset-button')
     await expect(resetButton).toBeVisible()
   })
 
@@ -85,7 +86,7 @@ test.describe('Asyra Design Tool', () => {
 
     // Zoom label should be visible
     const toolbar = getToolbar(page)
-    const zoomLabel = toolbar.locator('text=Zoom')
-    await expect(zoomLabel).toBeVisible()
+    const zoomDisplay = toolbar.getByTestId('zoom-level')
+    await expect(zoomDisplay).toBeVisible()
   })
 })

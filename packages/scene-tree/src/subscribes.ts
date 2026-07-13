@@ -1,14 +1,82 @@
 import {
   subscribeToRemoveElement,
   subscribeToChangeComputedData,
+  subscribeToChangeComputedDataBatch,
+  subscribeToChangeComputedDataPatch,
   subscribeToUpdateComputedData,
+  subscribeToUpdateComputedDataPatch,
   subscribeToSceneTreeInit,
   subscribeToSceneTreeLoadData,
   subscribeToAddElement,
-  subscribeToUpdateUndoRedoStatus
+  subscribeToUpdateTransaction,
+  subscribeToUpdateUndoRedoStatus,
+  sceneTreeLoadComplete
 } from '@asyra/reactive-events'
-import { CreateElementData, UNDO, type ComputedAttrs } from '@asyra/utils'
+import propsManager from '@asyra/props-manager'
+import {
+  PROPS_ACTIONS,
+  UNDO,
+  type ComputedDataPatch,
+  type ComputedDataPatchChange,
+  type ComputedAttrs
+} from '@asyra/utils'
 import sceneTree from './sceneTree'
+
+const toAppliedComputedDataPatch = (
+  patch: ComputedDataPatchChange
+): ComputedDataPatch => {
+  const applied: ComputedDataPatch = {}
+
+  Object.entries(patch.values ?? {}).forEach(([key, change]) => {
+    applied.values ??= {}
+    applied.values[key] = change.after
+  })
+
+  Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
+    const nextRecordPatch: NonNullable<ComputedDataPatch['records']>[string] =
+      {}
+
+    Object.entries(recordPatch.set ?? {}).forEach(([recordId, change]) => {
+      nextRecordPatch.set ??= {}
+      nextRecordPatch.set[recordId] = change.after
+    })
+
+    const removeIds = Object.keys(recordPatch.remove ?? {})
+    if (removeIds.length > 0) {
+      nextRecordPatch.remove = removeIds
+    }
+
+    if (
+      Object.keys(nextRecordPatch.set ?? {}).length > 0 ||
+      (nextRecordPatch.remove?.length ?? 0) > 0
+    ) {
+      applied.records ??= {}
+      applied.records[key] = nextRecordPatch
+    }
+  })
+
+  return applied
+}
+
+const isUpdatePropertyChange = (
+  payload: unknown
+): payload is {
+  action: string
+  id: string
+  key: string
+  before: unknown
+  after: unknown
+} =>
+  typeof payload === 'object' &&
+  payload !== null &&
+  'action' in payload &&
+  payload.action === PROPS_ACTIONS.UPDATE_PROPERTY &&
+  'id' in payload &&
+  typeof payload.id === 'string' &&
+  'key' in payload &&
+  typeof payload.key === 'string' &&
+  'before' in payload &&
+  'after' in payload
 
 export const initSceneTreeSubscribes = () => {
   let inUndoRedo = false
@@ -18,29 +86,22 @@ export const initSceneTreeSubscribes = () => {
 
   subscribeToSceneTreeInit(() => {
     sceneTree.init()
+    sceneTreeLoadComplete()
   })
 
   subscribeToSceneTreeLoadData(({ payload }) => {
     sceneTree.load(payload.data)
+    sceneTreeLoadComplete()
   })
 
-  subscribeToAddElement(({ payload }) => {
+  subscribeToAddElement(({ payload, options }) => {
     const { data, parent, index } = payload
-    sceneTree.addNewElement(
-      data as CreateElementData,
-      parent,
-      index,
-      inUndoRedo
-    )
-
-    sceneTree.commitSceneTreeTransaction()
+    sceneTree.addNewElement(data, parent, index, inUndoRedo, options)
   })
 
-  subscribeToRemoveElement(({ payload }) => {
-    const { data, parent, index } = payload
-    sceneTree.removeElement(data, index, parent)
-
-    sceneTree.commitSceneTreeTransaction()
+  subscribeToRemoveElement(({ payload, options }) => {
+    const { data, parent } = payload
+    sceneTree.removeElement(data, parent, options)
   })
 
   subscribeToChangeComputedData(async ({ payload, options }) => {
@@ -51,20 +112,100 @@ export const initSceneTreeSubscribes = () => {
       sceneTree.updateComputedData(
         elementId,
         key as KEY,
-        data as ComputedAttrs[KEY]
+        data as ComputedAttrs[KEY],
+        options
       )
     })
+    propsManager.commitChanges(options)
+    sceneTree.commitSceneTreeTransaction(options)
+  })
+
+  subscribeToChangeComputedDataBatch(async ({ payload, options }) => {
+    const { elementIds, data } = payload
+    const entries = Object.entries(data)
+
+    elementIds.forEach((elementId) => {
+      type KEY = keyof ComputedAttrs
+      entries.forEach(([key, value]) => {
+        sceneTree.updateComputedData(
+          elementId,
+          key as KEY,
+          value as ComputedAttrs[KEY],
+          options
+        )
+      })
+    })
+    propsManager.commitChanges(options)
+    sceneTree.commitSceneTreeTransaction(options)
+  })
+
+  subscribeToChangeComputedDataPatch(async ({ payload, options }) => {
+    const { elementIds, patch } = payload
+
+    elementIds.forEach((elementId) => {
+      sceneTree.patchComputedData(elementId, patch, options)
+    })
+    propsManager.cleanChanges()
     sceneTree.commitSceneTreeTransaction(options)
   })
 
   subscribeToUpdateComputedData(({ payload }) => {
     const { id, key, after } = payload
+    const options = undefined
 
     sceneTree.updateComputedData(
       id,
       key as keyof ComputedAttrs,
-      after as ComputedAttrs[keyof ComputedAttrs]
+      after as ComputedAttrs[keyof ComputedAttrs],
+      options
     )
-    sceneTree.commitSceneTreeTransaction()
+    propsManager.commitChanges(options)
+    sceneTree.commitSceneTreeTransaction(options)
+  })
+
+  subscribeToUpdateComputedDataPatch(({ payload }) => {
+    const { id, patch } = payload
+    const options = undefined
+
+    sceneTree.patchComputedData(id, toAppliedComputedDataPatch(patch), options)
+    propsManager.cleanChanges()
+    sceneTree.commitSceneTreeTransaction(options)
+  })
+
+  subscribeToUpdateTransaction(({ payload, options }) => {
+    if (!isUpdatePropertyChange(payload)) {
+      return
+    }
+
+    const sceneTreeOptions =
+      options?.shared === undefined
+        ? options
+        : {
+            ...options,
+            shared: undefined
+          }
+
+    const ownerElementId =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      typeof (payload as any).ownerElementId === 'string'
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (payload as any).ownerElementId
+        : ''
+    const ownerPropertyName =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      typeof (payload as any).ownerPropertyName === 'string'
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (payload as any).ownerPropertyName
+        : ''
+
+    if (ownerElementId && ownerPropertyName) {
+      sceneTree.refreshComputedDataFromProperty(
+        ownerElementId,
+        ownerPropertyName,
+        sceneTreeOptions
+      )
+    }
+
+    sceneTree.commitSceneTreeTransaction(sceneTreeOptions)
   })
 }

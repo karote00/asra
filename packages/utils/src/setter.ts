@@ -1,4 +1,14 @@
 import type { DataTypes, EvnetOptions } from './types'
+
+/** Change record passed to Setter callback */
+export interface SetterChangeRecord {
+  id: string
+  key: string
+  before: DataTypes
+  after: DataTypes
+  options?: EvnetOptions
+}
+import { isEqual, cloneDeep } from 'lodash'
 import { ElementInstanceDataTypes } from './sceneTree'
 import { PropertyComponentInstanceDataTypes } from './propsManager'
 
@@ -8,12 +18,22 @@ type InstanceDataType =
 
 export class Setter<T extends InstanceDataType> {
   data!: T
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private addChangeCallback: (data: any) => void
+  private addChangeCallback: (data: SetterChangeRecord) => void
+  private listeners = new Set<(data: SetterChangeRecord) => void>()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(addChangeCallback: (data: any) => void) {
+  constructor(addChangeCallback: (data: SetterChangeRecord) => void) {
     this.addChangeCallback = addChangeCallback
+  }
+
+  on(listener: (data: SetterChangeRecord) => void): () => void {
+    this.listeners.add(listener)
+    return () => {
+      this.listeners.delete(listener)
+    }
+  }
+
+  emitChange(change: SetterChangeRecord): void {
+    this.listeners.forEach((listener) => listener(change))
   }
 
   get<K extends keyof T>(key: K): T[K] {
@@ -25,37 +45,28 @@ export class Setter<T extends InstanceDataType> {
 
   set<K extends keyof T>(key: K, value: T[K], options?: EvnetOptions): void {
     if (key in this.data) {
-      const before = this._cloneData(this.data[key])
+      const before = cloneDeep(this.data[key])
       this.data[key] = value
-      const after = this._cloneData(value)
+      const after = cloneDeep(value)
 
-      this.addChangeCallback({
-        id: this.get('id'),
-        key: key as string,
-        before: before as DataTypes,
-        after: after as DataTypes
-      })
+      if (!isEqual(before, after)) {
+        const change: SetterChangeRecord = {
+          id: this.get('id' as keyof T) as string,
+          key: key as string,
+          before: before as DataTypes,
+          after: after as DataTypes,
+          options
+        }
+        this.addChangeCallback(change)
+        this.listeners.forEach((listener) => listener(change))
+      }
     }
-  }
-
-  private _cloneData<T>(data: T): T {
-    if (typeof data === 'number' || typeof data === 'string') {
-      return data
-    } else if (Array.isArray(data)) {
-      return [...data] as T
-    } else if (typeof data === 'object' && data !== null) {
-      return Object.keys(data).reduce((acc, key) => {
-        ;(acc as Record<string, unknown>)[key] = this._cloneData(
-          (data as Record<string, unknown>)[key]
-        )
-        return acc
-      }, {} as T)
-    }
-    return data
   }
 }
 
 export interface ISetter<T> {
   get<K extends keyof T>(key: K): T[K]
-  set<K extends keyof T>(key: K, value: T[K]): void
+  set<K extends keyof T>(key: K, value: T[K], options?: EvnetOptions): void
+  on(listener: (data: SetterChangeRecord) => void): () => void
+  emitChange(change: SetterChangeRecord): void
 }

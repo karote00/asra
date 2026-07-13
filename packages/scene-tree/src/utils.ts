@@ -1,22 +1,33 @@
-import { ComputedAttrs, ElementRawData, EntityTypes } from '@asyra/utils'
-import Frame from './components/frame'
-import Group from './components/group'
-import Rectangle from './components/rectangle'
+import {
+  ComputedAttrs,
+  ElementInstanceTypes,
+  ElementRawData,
+  EntityTypes
+} from '@asyra/utils'
 import Workspace from './components/workspace'
-
-const entityClassMap = {
-  [EntityTypes.UNDEFINED]: undefined,
-  [EntityTypes.FRAME]: Frame,
-  [EntityTypes.GROUP]: Group,
-  [EntityTypes.RECTANGLE]: Rectangle,
-  [EntityTypes.OVAL]: Rectangle // FIXME: Change this after finish OVAL component
-} as const
+import componentRegistry from './component-registry'
+import type { ISceneTreeRegistry } from './types'
 
 const initWorkspaceData = {
   type: EntityTypes.WORKSPACE
 }
 
-export const createElement = (elementData: Partial<ElementRawData>) => {
+export const isGroupEntity = (type: string): boolean => {
+  if (
+    type === EntityTypes.WORKSPACE ||
+    type === EntityTypes.FRAME ||
+    type === EntityTypes.GROUP
+  ) {
+    return true
+  }
+
+  const registration = componentRegistry.get(type)
+  return registration?.isContainer ?? false
+}
+
+export const createElement = (
+  elementData: Partial<ElementRawData>
+): ElementInstanceTypes | null => {
   if (
     elementData.type === EntityTypes.WORKSPACE ||
     elementData.type === EntityTypes.ELEMENT ||
@@ -26,31 +37,45 @@ export const createElement = (elementData: Partial<ElementRawData>) => {
   }
 
   const elementType = elementData.type ?? EntityTypes.UNDEFINED
-  const EntityClass = entityClassMap[elementType]
-  if (!EntityClass) {
-    throw new Error('Ivalid entity type.')
+
+  // Check registry first for custom components
+  const registration = componentRegistry.get(elementType)
+  if (registration) {
+    const EntityClass = registration.constructor
+    // Make a shallow copy to avoid modifying original object if reference is shared
+    // but here we modify the passed object as per original logic?
+    // Original logic: delete elementData.type
+    // We should follow that.
+    delete elementData.type
+
+    return new EntityClass(elementData)
   }
 
-  // Already know what type we need, and it should be insert by the component itself
-  delete elementData.type
-
-  return new EntityClass(elementData)
+  throw new Error(`No component registered for type: ${elementType}`)
 }
 
-export const createWorkspace = (workspaceData = initWorkspaceData) => {
+export const createWorkspace = (
+  registry: ISceneTreeRegistry,
+  workspaceData: Partial<ElementRawData> = initWorkspaceData
+): Workspace | null => {
   if (workspaceData.type !== EntityTypes.WORKSPACE) {
     return null
   }
 
-  const newWorkspace = new Workspace()
+  const newWorkspace = new Workspace(registry)
   newWorkspace.load(workspaceData)
   return newWorkspace
 }
 
-/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-type UnknownObject = Record<string, any>
-
-const DefaultRawKeys: (keyof ElementRawData)[] = ['id', 'type', 'name', 'props']
+const DefaultRawKeys: (keyof ElementRawData)[] = [
+  'id',
+  'type',
+  'name',
+  'parentId',
+  'visible',
+  'lock',
+  'props'
+]
 
 /**
  * Removes non-raw fields from an element object and returns the stripped fields.
@@ -60,14 +85,14 @@ const DefaultRawKeys: (keyof ElementRawData)[] = ['id', 'type', 'name', 'props']
  * @returns An object containing the stripped (non-raw) fields.
  */
 export const stripNonRawFields = (
-  elementData: UnknownObject,
+  elementData: Record<string, unknown>,
   rawKeys: (keyof ElementRawData)[] = DefaultRawKeys
 ): Record<string, ComputedAttrs[keyof ComputedAttrs]> => {
-  const stripped = {} as UnknownObject
+  const stripped = {} as Record<string, ComputedAttrs[keyof ComputedAttrs]>
 
   for (const key in elementData) {
     if (!rawKeys.includes(key as keyof ElementRawData)) {
-      stripped[key] = elementData[key]
+      stripped[key] = elementData[key] as ComputedAttrs[keyof ComputedAttrs]
     }
   }
 

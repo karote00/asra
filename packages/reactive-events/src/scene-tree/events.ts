@@ -1,5 +1,9 @@
 import type {
+  CreateElementData,
+  ComputedDataPatch,
+  ComputedDataPatchChange,
   DataTypes,
+  EVENT_OPTIONS,
   ElementRawData,
   GroupInstanceTypes,
   SceneTreeRawData
@@ -24,10 +28,11 @@ export interface SceneTreeLoadCompleteEvent {
 export interface AddElementEvent {
   type: EventTypes
   payload: {
-    data: ElementRawData
+    data: CreateElementData
     parent?: GroupInstanceTypes
     index?: number
   }
+  options?: EVENT_OPTIONS
 }
 
 export interface RemoveElementEvent {
@@ -35,8 +40,8 @@ export interface RemoveElementEvent {
   payload: {
     data: Partial<ElementRawData>
     parent?: GroupInstanceTypes
-    index: number
   }
+  options?: EVENT_OPTIONS
 }
 
 export interface UpdateComputedDataEvent {
@@ -49,6 +54,14 @@ export interface UpdateComputedDataEvent {
   }
 }
 
+export interface UpdateComputedDataPatchEvent {
+  type: EventTypes
+  payload: {
+    id: string
+    patch: ComputedDataPatchChange
+  }
+}
+
 export interface ChangeComputedDataEvent {
   type: EventTypes
   payload: {
@@ -56,9 +69,25 @@ export interface ChangeComputedDataEvent {
     key: string
     data: DataTypes
   }
-  options: {
-    undoable: boolean
+  options: EVENT_OPTIONS
+}
+
+export interface ChangeComputedDataBatchEvent {
+  type: EventTypes
+  payload: {
+    elementIds: string[]
+    data: Record<string, DataTypes>
   }
+  options: EVENT_OPTIONS
+}
+
+export interface ChangeComputedDataPatchEvent {
+  type: EventTypes
+  payload: {
+    elementIds: string[]
+    patch: ComputedDataPatch
+  }
+  options: EVENT_OPTIONS
 }
 
 export type SceneTreeEvents =
@@ -68,4 +97,7 @@ export type SceneTreeEvents =
   | AddElementEvent
   | RemoveElementEvent
   | UpdateComputedDataEvent
+  | UpdateComputedDataPatchEvent
   | ChangeComputedDataEvent
+  | ChangeComputedDataBatchEvent
+  | ChangeComputedDataPatchEvent

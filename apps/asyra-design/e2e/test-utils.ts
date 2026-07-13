@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 
 /**
  * Shared test utilities for E2E tests
@@ -80,13 +80,78 @@ export async function waitForAppReady(page: Page) {
   await page.waitForTimeout(500) // Allow rendering to complete
 }
 
+export async function setStrokeDiagnosticsMode(
+  page: Page,
+  mode: 'off' | 'summary' | 'full'
+) {
+  await page.evaluate((nextMode) => {
+    ;(
+      globalThis as unknown as {
+        __ASYRA_STROKE_DIAGNOSTICS_MODE__?: 'off' | 'summary' | 'full'
+      }
+    ).__ASYRA_STROKE_DIAGNOSTICS_MODE__ = nextMode
+  }, mode)
+}
+
 /**
  * Reset the canvas by clicking the Reset button
  */
 export async function resetCanvas(page: Page) {
-  const resetButton = page.getByTestId('reset-button')
+  await page.evaluate(() => {
+    localStorage.removeItem('FILE')
+  })
+
+  let resetButton = page.getByTestId('reset-button')
+  const canReset = await resetButton
+    .waitFor({ state: 'visible', timeout: 5_000 })
+    .then(() => true)
+    .catch(() => false)
+
+  if (!canReset) {
+    await page.goto('/')
+    await waitForAppReady(page)
+    resetButton = page.getByTestId('reset-button')
+  }
+
+  const reloadPromise = page
+    .waitForEvent('load', { timeout: 10_000 })
+    .catch(() => undefined)
   await resetButton.click()
-  await page.waitForTimeout(500)
+  await reloadPromise
+  await waitForAppReady(page)
+}
+
+export function parseStrokeDashAndGapInput(pattern: string): {
+  dash: string
+  gap: string
+} {
+  const entries = pattern
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+
+  const dash = entries[0] ?? '20'
+  return {
+    dash,
+    gap: entries[1] ?? dash
+  }
+}
+
+export async function fillStrokeDashAndGap(
+  propertiesPanel: Locator,
+  strokeIndex: number,
+  pattern: string
+) {
+  const { dash, gap } = parseStrokeDashAndGapInput(pattern)
+  const dashInput = propertiesPanel.getByTestId(
+    `prop-stroke-dash-${strokeIndex}`
+  )
+  const gapInput = propertiesPanel.getByTestId(`prop-stroke-gap-${strokeIndex}`)
+
+  await dashInput.fill(dash)
+  await dashInput.press('Enter')
+  await gapInput.fill(gap)
+  await gapInput.press('Enter')
 }
 
 /**
@@ -108,6 +173,109 @@ export async function createRectangle(
   // Switch back to Select tool
   await page.keyboard.press('v')
   await page.waitForTimeout(100)
+}
+
+/**
+ * Create an oval at the given relative canvas position
+ */
+export async function createOval(page: Page, relativeX = 0.3, relativeY = 0.3) {
+  // Switch to Oval tool
+  await page.keyboard.press('o')
+  await page.waitForTimeout(100)
+
+  // Click to create oval
+  await clickCanvas(page, relativeX, relativeY)
+  await page.waitForTimeout(500)
+
+  // Switch back to Select tool
+  await page.keyboard.press('v')
+  await page.waitForTimeout(100)
+}
+
+/**
+ * Get selected element computed position and size from core.
+ */
+export async function getSelectedElementRect(page: Page): Promise<{
+  id: string
+  x: number
+  y: number
+  width: number
+  height: number
+} | null> {
+  return page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+    if (!selectedId) {
+      return null
+    }
+
+    const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+    const computed = element?.getAllComputedData?.() ?? {}
+    const x = typeof computed.x === 'number' ? computed.x : null
+    const y = typeof computed.y === 'number' ? computed.y : null
+    const width = typeof computed.width === 'number' ? computed.width : null
+    const height = typeof computed.height === 'number' ? computed.height : null
+
+    if (x === null || y === null || width === null || height === null) {
+      return null
+    }
+
+    return {
+      id: selectedId,
+      x,
+      y,
+      width,
+      height
+    }
+  })
+}
+
+/**
+ * Resolve selected element center in client-space.
+ */
+export async function getSelectedElementClientCenter(
+  page: Page
+): Promise<{ x: number; y: number } | null> {
+  const rect = await getSelectedElementRect(page)
+  if (!rect) {
+    return null
+  }
+
+  return page.evaluate(({ x, y, width, height }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const zoom = core?.getSystemProperty?.('zoom') ?? 1
+    const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
+      x: 0,
+      y: 0
+    }
+
+    return {
+      x: (x + width / 2) * zoom + viewport.x,
+      y: (y + height / 2) * zoom + viewport.y
+    }
+  }, rect)
+}
+
+/**
+ * Drag the selected element by a client-space delta.
+ */
+export async function dragSelectedElementBy(
+  page: Page,
+  deltaX: number,
+  deltaY: number,
+  steps = 20
+) {
+  const center = await getSelectedElementClientCenter(page)
+  if (!center) {
+    throw new Error('No selected element center available for drag')
+  }
+
+  await page.mouse.move(center.x, center.y)
+  await page.mouse.down()
+  await page.mouse.move(center.x + deltaX, center.y + deltaY, { steps })
+  await page.mouse.up()
 }
 
 /**
@@ -146,8 +314,8 @@ export async function redo(page: Page) {
  */
 export async function hasSelectedElement(page: Page): Promise<boolean> {
   const propertiesPanel = getPropertiesPanel(page)
-  const layoutHeader = propertiesPanel.locator('text=Layout')
-  return await layoutHeader.isVisible()
+  const positionInput = propertiesPanel.getByTestId('prop-x')
+  return await positionInput.isVisible()
 }
 
 /**
@@ -194,9 +362,11 @@ export async function getZoomLevel(page: Page): Promise<number> {
  */
 export async function getActiveTool(
   page: Page
-): Promise<'select' | 'rectangle' | 'unknown'> {
+): Promise<'select' | 'rectangle' | 'oval' | 'pen' | 'unknown'> {
   const selectTool = page.getByTestId('tool-select')
   const rectangleTool = page.getByTestId('tool-rectangle')
+  const ovalTool = page.getByTestId('tool-oval')
+  const penTool = page.getByTestId('tool-pen')
 
   if ((await selectTool.getAttribute('data-active')) === 'true') {
     return 'select'
@@ -204,6 +374,45 @@ export async function getActiveTool(
   if ((await rectangleTool.getAttribute('data-active')) === 'true') {
     return 'rectangle'
   }
+  if ((await ovalTool.getAttribute('data-active')) === 'true') {
+    return 'oval'
+  }
+  if ((await penTool.getAttribute('data-active')) === 'true') {
+    return 'pen'
+  }
 
   return 'unknown'
+}
+
+/**
+ * Create a vector path with the Pen tool
+ */
+export async function createVectorPath(
+  page: Page,
+  startX = 0.3,
+  startY = 0.3,
+  width = 0.2,
+  height = 0.2
+) {
+  // Switch to Pen tool
+  await page.keyboard.press('p')
+  await page.waitForTimeout(100)
+
+  // Perform a drag to create the vector path
+  await dragOnCanvas(page, startX, startY, startX + width, startY + height, 20)
+  await page.waitForFunction(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const elements = core?.deps?.sceneTree?.getAllElements?.()
+    if (!(elements instanceof Map)) {
+      return false
+    }
+
+    return Array.from(elements.keys()).some((id) => id !== 'workspace')
+  })
+  await page.waitForTimeout(500)
+
+  // Switch back to Select tool
+  await page.keyboard.press('v')
+  await page.waitForTimeout(100)
 }

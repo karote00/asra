@@ -1,95 +1,44 @@
-import {
-  InputType,
-  KeyboardKey,
-  PointerKey,
-  ModifierKey,
-  InputSystemEvents,
-  PrimaryToolType,
-  DetailType
-} from '@asyra/utils'
-import keyMap from './keymap'
+import { InputType, KeyboardKey, ModifierKey, DetailType } from '@asyra/utils'
+import type { RawInputEvent } from '@asyra/utils'
 
+/**
+ * Defines a single input combination that can trigger an event.
+ *
+ * This interface is part of the framework's type system. Users create instances
+ * of this type and register them with the InputSystemRegistry.
+ *
+ * @example Keyboard shortcut
+ * const combo: InputEventCombo = {
+ *   type: InputType.KEYBOARD,
+ *   keys: [keyMap.keys.KeyZ],
+ *   modifiers: [ModifierKey.META]
+ * }
+ *
+ * @example Mouse drag
+ * const combo: InputEventCombo = {
+ *   type: InputType.POINTER,
+ *   keys: [PointerKey.LEFT_MOUSE_DOWN]
+ * }
+ *
+ * @example With callback to update system context
+ * const combo: InputEventCombo = {
+ *   type: InputType.POINTER,
+ *   keys: [PointerKey.LEFT_MOUSE_DOWN],
+ *   callback: (raw: RawInputEvent) => {
+ *     core.setSystemProperty('mousePosition', { x: raw.pointer.clientX, y: raw.pointer.clientY })
+ *   }
+ * }
+ *
+ * @example Custom device
+ * const combo: InputEventCombo = {
+ *   type: 'voice.command',  // Custom InputType
+ *   keys: ['create rectangle']
+ * }
+ */
 export interface InputEventCombo {
   type: InputType
   keys: KeyboardKey[]
   modifiers?: ModifierKey[]
   detail?: DetailType
+  callback?: (raw: RawInputEvent) => void
 }
-
-export const InputEventMappings: Record<InputSystemEvents, InputEventCombo[]> =
-  {
-    [InputSystemEvents.INPUT_DRAG_START]: [
-      { type: InputType.POINTER, keys: [PointerKey.LEFT_MOUSE_DOWN] }
-    ],
-    [InputSystemEvents.INPUT_DRAG_UPDATE]: [
-      {
-        type: InputType.POINTER,
-        keys: [PointerKey.LEFT_MOUSE_DOWN, PointerKey.LEFT_MOUSE_MOVE]
-      }
-    ],
-    [InputSystemEvents.INPUT_DRAG_END]: [
-      { type: InputType.POINTER, keys: [PointerKey.LEFT_MOUSE_UP] }
-    ],
-    [InputSystemEvents.INPUT_MOUSE_MOVE]: [
-      {
-        type: InputType.POINTER,
-        keys: [PointerKey.LEFT_MOUSE_MOVE]
-      }
-    ],
-    [InputSystemEvents.INPUT_WHEEL_SCROLL]: [
-      { type: InputType.WHEEL, keys: [PointerKey.WHEEL] }
-    ],
-    [InputSystemEvents.INPUT_SHORTCUT_ARROW]: [
-      {
-        type: InputType.KEYBOARD,
-        keys: [keyMap.keys.ArrowUp]
-      },
-      {
-        type: InputType.KEYBOARD,
-        keys: [keyMap.keys.ArrowDown]
-      },
-      {
-        type: InputType.KEYBOARD,
-        keys: [keyMap.keys.ArrowLeft]
-      },
-      {
-        type: InputType.KEYBOARD,
-        keys: [keyMap.keys.ArrowRight]
-      }
-    ],
-    [InputSystemEvents.INPUT_SHORTCUT_UNDOREDO]: [
-      {
-        type: InputType.KEYBOARD,
-        keys: [keyMap.keys.KeyZ],
-        modifiers: [ModifierKey.META]
-      },
-      {
-        type: InputType.KEYBOARD,
-        keys: [keyMap.keys.KeyZ],
-        modifiers: [ModifierKey.CTRL]
-      }
-    ],
-    [InputSystemEvents.INPUT_SHORTCUT_ZOOM_PRESET]: [
-      {
-        type: InputType.KEYBOARD,
-        keys: [keyMap.keys.Digit1],
-        modifiers: [ModifierKey.META]
-      }
-    ],
-    [InputSystemEvents.INPUT_SHORTCUT_SWITCH_PRIMARY_TOOL]: [
-      {
-        type: InputType.KEYBOARD,
-        keys: [keyMap.keys.KeyR],
-        detail: {
-          primaryTool: PrimaryToolType.RECTANGLE
-        }
-      },
-      {
-        type: InputType.KEYBOARD,
-        keys: [keyMap.keys.KeyV],
-        detail: {
-          primaryTool: PrimaryToolType.SELECT
-        }
-      }
-    ]
-  }

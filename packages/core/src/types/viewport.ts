@@ -6,9 +6,7 @@ export interface ViewportRawAPIs {
 }
 
 export interface ViewportActionAPIs {
-  zoomFit: () => void
-  panTo: (x: number, y: number) => void
-  zoomToCenter: (scale: number, centerX: number, centerY: number) => void
+  // Action APIs can be added here as needed
 }
 
 export type ViewportAPIs = ViewportRawAPIs & ViewportActionAPIs

@@ -5,7 +5,10 @@ import {
   createRectangle,
   hasSelectedElement,
   clickCanvas,
-  getContentsPanel
+  getContentsPanel,
+  getCanvasPosition,
+  getSelectedElementRect,
+  dragSelectedElementBy
 } from './test-utils'
 
 /**
@@ -77,6 +80,148 @@ test.describe('Element Selection', () => {
     // Verify element is now deselected
     isSelected = await hasSelectedElement(page)
     expect(isSelected).toBe(false)
+  })
+
+  test('should drag selected element to a new position', async ({ page }) => {
+    await createRectangle(page, 0.35, 0.35)
+
+    const before = await getSelectedElementRect(page)
+    expect(before).not.toBeNull()
+    if (!before) {
+      return
+    }
+
+    await dragSelectedElementBy(page, 120, 80, 24)
+    await page.waitForTimeout(150)
+
+    const after = await getSelectedElementRect(page)
+    expect(after).not.toBeNull()
+    if (!after) {
+      return
+    }
+
+    expect(after.id).toBe(before.id)
+    expect(after.x).toBeGreaterThan(before.x)
+    expect(after.y).toBeGreaterThan(before.y)
+  })
+
+  test('should drag hovered unlocked element even when not preselected', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.35, 0.35)
+
+    const before = await getSelectedElementRect(page)
+    expect(before).not.toBeNull()
+    if (!before) {
+      return
+    }
+
+    await clickCanvas(page, 0.9, 0.9)
+    await page.waitForTimeout(120)
+    expect(await hasSelectedElement(page)).toBe(false)
+
+    const startClient = await page.evaluate(({ x, y, width, height }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const zoom = core?.getSystemProperty?.('zoom') ?? 1
+      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
+        x: 0,
+        y: 0
+      }
+      return {
+        x: (x + width / 2) * zoom + viewport.x,
+        y: (y + height / 2) * zoom + viewport.y
+      }
+    }, before)
+
+    await page.mouse.move(startClient.x, startClient.y)
+    await page.mouse.down()
+    await page.mouse.move(startClient.x + 100, startClient.y + 70, {
+      steps: 20
+    })
+    await page.mouse.up()
+    await page.waitForTimeout(150)
+
+    const after = await getSelectedElementRect(page)
+    expect(after).not.toBeNull()
+    if (!after) {
+      return
+    }
+
+    expect(after.id).toBe(before.id)
+    expect(after.x).toBeGreaterThan(before.x)
+    expect(after.y).toBeGreaterThan(before.y)
+  })
+
+  test('should update hovered element id when moving over element bounds', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.32, 0.34)
+
+    const selectedId = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core?.deps?.selection?.getElementSelectionIds?.()?.[0] ?? null
+    })
+
+    expect(selectedId).not.toBeNull()
+    if (!selectedId) {
+      return
+    }
+
+    const elementPos = await page.evaluate((elementId) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const element = core?.deps?.sceneTree?.getElementById?.(elementId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      const x = typeof computed.x === 'number' ? computed.x : null
+      const y = typeof computed.y === 'number' ? computed.y : null
+      const width = typeof computed.width === 'number' ? computed.width : null
+      const height =
+        typeof computed.height === 'number' ? computed.height : null
+      const zoom = core?.getSystemProperty?.('zoom') ?? 1
+      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
+        x: 0,
+        y: 0
+      }
+
+      if (x === null || y === null || width === null || height === null) {
+        return null
+      }
+
+      return {
+        x: (x + width / 2) * zoom + viewport.x,
+        y: (y + height / 2) * zoom + viewport.y
+      }
+    }, selectedId)
+
+    expect(elementPos).not.toBeNull()
+    if (!elementPos) {
+      return
+    }
+
+    await page.mouse.move(elementPos.x, elementPos.y)
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          return core?.getSystemProperty?.('hoveredElementId') ?? null
+        })
+      })
+      .toBe(selectedId)
+
+    const emptyPos = await getCanvasPosition(page, 0.9, 0.9)
+    await page.mouse.move(emptyPos.x, emptyPos.y)
+    await expect
+      .poll(async () => {
+        return page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          return core?.getSystemProperty?.('hoveredElementId') ?? null
+        })
+      })
+      .toBeNull()
   })
 
   /**
@@ -157,12 +302,39 @@ test.describe('Element Selection', () => {
     // Find the element in the Contents Panel
     const contentsPanel = getContentsPanel(page)
     const rectangleItem = contentsPanel
-      .locator('[class*="flex items-center justify-between"]')
+      .locator('[data-layer-element="true"]')
       .first()
 
-    // Check if the item has the selected background style
-    const itemClass = (await rectangleItem.getAttribute('class')) ?? ''
-    // Selected items should have 'bg-panel-lighter' class
-    expect(itemClass).toContain('bg-panel-lighter')
+    // Selected items should expose data-selected
+    await expect(rectangleItem).toHaveAttribute('data-selected', 'true')
+  })
+
+  test('should multi-select elements via Contents Panel with shift', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.25, 0.3)
+    await createRectangle(page, 0.45, 0.4)
+
+    const contentsPanel = getContentsPanel(page)
+    const firstRow = contentsPanel.locator('[data-layer-element="true"]').nth(0)
+    const secondRow = contentsPanel
+      .locator('[data-layer-element="true"]')
+      .nth(1)
+
+    await firstRow.click()
+    await page.keyboard.down('Shift')
+    await secondRow.click()
+    await page.keyboard.up('Shift')
+    await page.waitForTimeout(200)
+
+    const selectedIds = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core?.deps?.selection?.getElementSelectionIds?.() ?? []
+    })
+
+    expect(selectedIds.length).toBe(2)
+    await expect(firstRow).toHaveAttribute('data-selected', 'true')
+    await expect(secondRow).toHaveAttribute('data-selected', 'true')
   })
 })

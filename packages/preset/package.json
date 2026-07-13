@@ -1,0 +1,31 @@
+{
+  "name": "@asyra/preset",
+  "version": "0.2.5",
+  "description": "Framework preset package for Asyra",
+  "author": "Asa Tsai",
+  "license": "MIT",
+  "packageManager": "yarn@4.3.1",
+  "keywords": [],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "tsc --watch --preserveWatchOutput",
+    "build:preset": "tsc",
+    "clean": "rm -rf dist",
+    "has:test": "find . -type f \\( -name \"*.test.ts\" -o -name \"*.test.tsx\" \\) | grep -q .",
+    "test": "yarn has:test && vitest || echo 'No test files found. Skipping test.'",
+    "test:local": "vitest run --no-file-parallelism",
+    "test:ci": "yarn has:test && vitest run --coverage --reporter=default --reporter=junit || echo 'No test files found. Skipping test:ci.'"
+  },
+  "devDependencies": {
+    "@types/bezier-js": "^4.1.3",
+    "@vitest/coverage-v8": "^2.1.8",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "@asyra/core": "workspace:*",
+    "@asyra/utils": "workspace:*",
+    "bezier-js": "^6.1.4"
+  }
+}

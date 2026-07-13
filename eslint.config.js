@@ -16,7 +16,7 @@ export default tseslint.config(
   js.configs.recommended,
   includeIgnoreFile(gitignorePath),
   {
-    ignores: ['.claude/**/*']
+    ignores: ['.claude/**/*', 'docs/**/*', '**/*.md', '**/*.mdx']
   },
   tseslint.configs.recommended,
   tseslint.configs.strict,

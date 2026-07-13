@@ -1,14 +1,7 @@
-import { SELECTION_TYPES } from '@asyra/utils'
 import SelectionManager from './selection-manager'
-import { elementSelection } from './selections/element-selection'
-import { vertexSelection } from './selections/vertex-selection'
-import { initSelectionSubscribes } from './subscribes'
+import BaseSelection from './selections/base-selection'
+import selectionManager from './selection-manager-instance'
 
-initSelectionSubscribes()
-
-const selectionManager = new SelectionManager()
-selectionManager.register(SELECTION_TYPES.ELEMENT, elementSelection)
-selectionManager.register(SELECTION_TYPES.VERTEX, vertexSelection)
-
-export { SelectionManager }
+export { SelectionManager, BaseSelection }
+export type { SelectionDefinition } from './selections/base-selection'
 export default selectionManager

@@ -14,10 +14,9 @@
     "clean": "rm -rf dist",
     "has:test": "find . -type f \\( -name \"*.test.ts\" -o -name \"*.test.tsx\" \\) | grep -q .",
     "test": "yarn has:test && vitest || echo 'No test files found. Skipping test.'",
-    "test:local": "yarn has:test && vitest run || echo 'No test files found. Skipping test:local.'",
+    "test:local": "vitest run",
     "test:ci": "yarn has:test && vitest run --coverage --reporter=default --reporter=junit || echo 'No test files found. Skipping test:ci.'",
-    "add-event": "tsx scripts/add-event.ts",
-    "add-interaction": "tsx scripts/add-interaction.ts"
+    "add-event": "tsx scripts/add-event.ts"
   },
   "devDependencies": {
     "@types/inquirer": "^8.2.6",
@@ -32,6 +31,7 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
+    "@asyra/persistence": "workspace:*",
     "@asyra/utils": "workspace:*",
     "rxjs": "^7.8.1"
   }

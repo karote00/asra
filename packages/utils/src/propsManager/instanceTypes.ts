@@ -1,12 +1,15 @@
-import { PropertyTypes } from './enum'
+import { PropertyType } from './enum'
 import type { PropertyComponentRawData } from './rawDataTypes'
 import type { ISetter } from '../setter'
 import { Unit } from '../constants'
 import { DataTypes, DimensionData, PositionData } from '../types'
+import type { AnchorPointType } from './constants'
+import type { FillAttrs, FillsAttrs } from './fills'
+import type { StrokeAttrs, StrokesAttrs } from './strokes'
 
 export interface BasePropertyAttrs {
   id: string
-  type: PropertyTypes
+  type: PropertyType
 }
 
 export interface PositionAttrs extends BasePropertyAttrs, PositionData {
@@ -19,9 +22,17 @@ export interface DimensionAttrs extends BasePropertyAttrs, DimensionData {
   heightUnit: Unit
 }
 
-export interface FillAttrs {
-  color: number[]
-  opacity: number
+export interface AnchorPointAttrs extends BasePropertyAttrs {
+  x: number
+  y: number
+  pointType: AnchorPointType
+  isMove?: boolean
+  inHandle: PositionData | null
+  outHandle: PositionData | null
+}
+
+export interface AnchorPointsAttrs extends BasePropertyAttrs {
+  anchorPoints: string[]
 }
 
 export interface IProperty<T extends BasePropertyAttrs = BasePropertyAttrs>
@@ -34,5 +45,15 @@ export interface IProperty<T extends BasePropertyAttrs = BasePropertyAttrs>
 export interface Position extends IProperty {}
 export interface Dimension extends IProperty {}
 
-export interface PropertyComponentInstanceTypes extends IProperty {}
-export type PropertyComponentInstanceDataTypes = PositionAttrs | DimensionAttrs
+export interface PropertyComponentInstanceTypes
+  extends IProperty<PropertyComponentInstanceDataTypes> {}
+export type PropertyComponentInstanceDataTypes =
+  | PositionAttrs
+  | DimensionAttrs
+  | FillAttrs
+  | FillsAttrs
+  | StrokeAttrs
+  | StrokesAttrs
+  | AnchorPointAttrs
+  | AnchorPointsAttrs
+  | BasePropertyAttrs

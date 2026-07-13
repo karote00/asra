@@ -1,0 +1,1300 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stroke / Vector System Inspector Flow</title>
+    <style>
+      :root {
+        --bg: #101418;
+        --panel: #151b22;
+        --panel-2: #1d2530;
+        --line: #334155;
+        --text: #e5edf5;
+        --muted: #9caab8;
+        --muted-strong: #c7d2df;
+        --accent: #59b7ff;
+        --accent-2: #f97373;
+        --warn: #f6c85f;
+        --ok: #7bd88f;
+        --future: #b894ff;
+        --scope: #94a3b8;
+        --card-w: 270px;
+        --card-h: 118px;
+        --gap-x: 220px;
+        --gap-y: 100px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        background:
+          radial-gradient(
+            circle at top left,
+            rgba(89, 183, 255, 0.12),
+            transparent 34rem
+          ),
+          var(--bg);
+        font:
+          14px/1.5 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: minmax(980px, 1fr) 430px;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .main {
+        min-width: 0;
+        overflow: auto;
+        padding: 24px;
+      }
+
+      .header {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 18px;
+      }
+
+      h1 {
+        margin: 0 0 6px;
+        font-size: 24px;
+        letter-spacing: 0;
+      }
+
+      .subtitle {
+        margin: 0;
+        max-width: 980px;
+        color: var(--muted);
+      }
+
+      .detail a {
+        color: var(--accent);
+      }
+
+      .header-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .header-link {
+        border: 1px solid rgba(89, 183, 255, 0.3);
+        border-radius: 999px;
+        padding: 5px 10px;
+        color: var(--accent);
+        background: rgba(89, 183, 255, 0.08);
+        font-size: 12px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .header-link:hover,
+      .header-link:focus-visible {
+        border-color: rgba(89, 183, 255, 0.72);
+        background: rgba(89, 183, 255, 0.16);
+      }
+
+      .filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 18px;
+      }
+
+      .guide-panel {
+        margin: 0 0 18px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 14px;
+        background: rgba(21, 27, 34, 0.74);
+      }
+
+      .guide-panel summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 13px 16px;
+        color: var(--text);
+        font-weight: 750;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .guide-panel summary::after {
+        content: 'Open';
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        border-radius: 999px;
+        padding: 3px 10px;
+        color: var(--muted-strong);
+        background: rgba(148, 163, 184, 0.1);
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .guide-panel[open] summary::after {
+        content: 'Close';
+      }
+
+      .guide-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(240px, 1fr));
+        gap: 12px;
+        padding: 0 16px 16px;
+      }
+
+      .guide-card {
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 14px;
+        padding: 15px 16px;
+        background: rgba(21, 27, 34, 0.86);
+      }
+
+      .guide-card h2 {
+        margin: 0 0 8px;
+        color: var(--text);
+        font-size: 14px;
+        letter-spacing: 0;
+      }
+
+      .guide-card p,
+      .guide-card li {
+        color: var(--muted-strong);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .guide-card p {
+        margin: 0;
+      }
+
+      .guide-card ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .legend-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .legend-item {
+        display: flex;
+        gap: 9px;
+        align-items: center;
+        color: var(--muted-strong);
+        font-size: 12px;
+      }
+
+      .legend-swatch {
+        width: 18px;
+        height: 18px;
+        flex: 0 0 auto;
+        border: 2px solid rgba(148, 163, 184, 0.42);
+        border-radius: 6px;
+        background: rgba(21, 27, 34, 0.96);
+      }
+
+      .legend-swatch.selected {
+        border-color: var(--accent);
+        background: rgba(89, 183, 255, 0.13);
+      }
+
+      .legend-swatch.risk {
+        border-color: rgba(246, 200, 95, 0.72);
+      }
+
+      .legend-swatch.blocker {
+        border-color: rgba(249, 115, 115, 0.72);
+      }
+
+      .legend-swatch.critical {
+        border-color: rgba(89, 183, 255, 0.82);
+        background: rgba(89, 183, 255, 0.1);
+      }
+
+      .legend-swatch.truth {
+        border-color: rgba(123, 216, 143, 0.72);
+      }
+
+      .legend-swatch.future {
+        border-color: rgba(184, 148, 255, 0.72);
+      }
+
+      .legend-swatch.scope {
+        border-color: rgba(148, 163, 184, 0.72);
+        opacity: 0.7;
+      }
+
+      .filter-button {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 7px 10px;
+        color: var(--muted);
+        background: rgba(21, 27, 34, 0.86);
+        cursor: pointer;
+      }
+
+      .filter-button:hover,
+      .filter-button.is-active {
+        border-color: var(--accent);
+        color: var(--text);
+        background: rgba(89, 183, 255, 0.13);
+      }
+
+      .flow-wrap {
+        position: relative;
+        min-width: 3220px;
+        min-height: 2260px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 16px;
+        background:
+          linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+          linear-gradient(
+            90deg,
+            rgba(148, 163, 184, 0.05) 1px,
+            transparent 1px
+          ),
+          rgba(9, 13, 18, 0.68);
+        background-size: 28px 28px;
+      }
+
+      .lane-label {
+        position: absolute;
+        top: 16px;
+        width: var(--card-w);
+        padding: 8px 10px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .flow-svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        overflow: visible;
+        z-index: 1;
+      }
+
+      .edge-path {
+        fill: none;
+        stroke: rgba(148, 163, 184, 0.5);
+        stroke-width: 2;
+      }
+
+      .edge-path.is-active {
+        stroke: var(--accent);
+        stroke-width: 3;
+      }
+
+      .edge-path.route-bypass {
+        stroke-dasharray: 8 6;
+      }
+
+      .edge-path.route-terminal {
+        stroke: rgba(249, 115, 115, 0.7);
+      }
+
+      .edge-path.route-parallel {
+        stroke: rgba(45, 212, 191, 0.64);
+      }
+
+      .step-card {
+        position: absolute;
+        z-index: 2;
+        width: var(--card-w);
+        min-height: var(--card-h);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 14px;
+        padding: 13px 14px;
+        color: var(--text);
+        font: inherit;
+        text-align: left;
+        background: rgba(21, 27, 34, 0.96);
+        box-shadow: 0 16px 32px rgba(0, 0, 0, 0.24);
+        cursor: pointer;
+        transition:
+          border-color 0.15s ease,
+          transform 0.15s ease,
+          background 0.15s ease;
+      }
+
+      .step-card:hover,
+      .step-card.is-selected {
+        border-color: var(--accent);
+        background: rgba(30, 41, 59, 0.98);
+        transform: translateY(-1px);
+      }
+
+      .step-card.is-risk {
+        border-color: rgba(246, 200, 95, 0.48);
+      }
+
+      .step-card.is-critical {
+        border-color: rgba(89, 183, 255, 0.48);
+      }
+
+      .step-card.is-blocker {
+        border-color: rgba(249, 115, 115, 0.62);
+      }
+
+      .step-card.is-out-of-scope {
+        border-style: dashed;
+        opacity: 0.9;
+      }
+
+      .step-card.is-future {
+        border-color: rgba(184, 148, 255, 0.58);
+      }
+
+      .step-kicker {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .step-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 34px;
+        border: 1px solid rgba(95, 214, 255, 0.34);
+        border-radius: 999px;
+        padding: 2px 7px;
+        color: var(--text);
+        background: rgba(95, 214, 255, 0.12);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      .step-title {
+        margin-top: 4px;
+        color: var(--text);
+        font-size: 15px;
+        font-weight: 750;
+      }
+
+      .step-summary {
+        margin-top: 6px;
+        color: var(--muted-strong);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+      }
+
+      .badge {
+        border-radius: 999px;
+        padding: 2px 7px;
+        color: var(--muted);
+        background: rgba(148, 163, 184, 0.12);
+        font-size: 11px;
+      }
+
+      .badge.truth {
+        color: var(--ok);
+        background: rgba(123, 216, 143, 0.13);
+      }
+
+      .badge.risk {
+        color: var(--warn);
+        background: rgba(246, 200, 95, 0.13);
+      }
+
+      .badge.blocker {
+        color: var(--accent-2);
+        background: rgba(249, 115, 115, 0.13);
+      }
+
+      .badge.critical {
+        color: var(--accent);
+        background: rgba(89, 183, 255, 0.13);
+      }
+
+      .badge.partial,
+      .badge.mismatch {
+        color: var(--warn);
+        background: rgba(246, 200, 95, 0.13);
+      }
+
+      .badge.future {
+        color: var(--future);
+        background: rgba(184, 148, 255, 0.13);
+      }
+
+      .badge.scope {
+        color: var(--scope);
+        background: rgba(148, 163, 184, 0.13);
+      }
+
+      .detail {
+        height: 100vh;
+        overflow: auto;
+        border-left: 1px solid rgba(148, 163, 184, 0.18);
+        background: rgba(15, 23, 32, 0.96);
+        padding: 24px;
+      }
+
+      .detail h2 {
+        margin: 0 0 6px;
+        font-size: 21px;
+      }
+
+      .detail-heading {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 8px;
+      }
+
+      .detail-heading h2 {
+        margin: 0;
+      }
+
+      .detail-group {
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .detail-summary {
+        margin: 14px 0 20px;
+        color: var(--muted);
+      }
+
+      .detail-section {
+        margin: 0 0 20px;
+        padding: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.035);
+      }
+
+      .detail-section h3 {
+        margin: 0 0 10px;
+        font-size: 13px;
+        color: var(--text);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      li + li {
+        margin-top: 7px;
+      }
+
+      code {
+        border-radius: 5px;
+        padding: 1px 5px;
+        color: #dbeafe;
+        background: rgba(15, 23, 42, 0.88);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      .rule-box {
+        border-color: rgba(89, 183, 255, 0.28);
+        background: rgba(89, 183, 255, 0.08);
+      }
+
+      .risk-box {
+        border-color: rgba(249, 115, 115, 0.28);
+        background: rgba(249, 115, 115, 0.08);
+      }
+
+      .command-box {
+        border-color: rgba(123, 216, 143, 0.24);
+        background: rgba(123, 216, 143, 0.07);
+      }
+
+      .evidence-box {
+        border-color: rgba(246, 200, 95, 0.28);
+        background: rgba(246, 200, 95, 0.07);
+      }
+
+      .alignment-box {
+        border-color: rgba(184, 148, 255, 0.28);
+        background: rgba(184, 148, 255, 0.07);
+      }
+
+      .trace-box {
+        border-color: rgba(45, 212, 191, 0.24);
+        background: rgba(45, 212, 191, 0.07);
+      }
+
+      .test-box {
+        border-color: rgba(251, 146, 60, 0.28);
+        background: rgba(251, 146, 60, 0.08);
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      @media (max-width: 1100px) {
+        .app {
+          grid-template-columns: minmax(760px, 1fr) 380px;
+        }
+
+        .guide-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <main class="main">
+        <div class="header">
+          <div>
+            <h1 id="inspector-title">Flow Inspector</h1>
+            <p id="inspector-subtitle" class="subtitle">
+              Loading target contract.
+            </p>
+            <div id="inspector-links" class="header-links"></div>
+          </div>
+        </div>
+        <div id="filters" class="filters"></div>
+        <details class="guide-panel">
+          <summary>Viewer controls and legend</summary>
+          <section
+            class="guide-grid"
+            aria-label="flow inspector viewer controls"
+          >
+            <article id="guide-how-to-read" class="guide-card">
+              <h2>Viewer controls</h2>
+              <ul>
+                <li>
+                  Cards and arrows are rendered from
+                  <code>stroke-flow-inspector.data.js</code>.
+                </li>
+                <li>Click a card to show the data-backed detail panel.</li>
+                <li>Use group filters to hide or show rendered nodes.</li>
+                <li>
+                  The shared viewer defines presentation only; target semantics
+                  stay in the target data file.
+                </li>
+              </ul>
+            </article>
+            <article id="guide-legend" class="guide-card">
+              <h2>Legend</h2>
+              <div class="legend-list">
+                <div class="legend-item">
+                  <span class="legend-swatch selected"></span>Selected card or
+                  active edge.
+                </div>
+                <div class="legend-item">
+                  <span class="legend-swatch"></span>Normal pipeline step.
+                </div>
+                <div class="legend-item">
+                  <span class="legend-swatch risk"></span>Target-declared risk
+                  or review emphasis.
+                </div>
+                <div class="legend-item">
+                  <span class="legend-swatch blocker"></span>Target-declared
+                  blocking contract.
+                </div>
+                <div class="legend-item">
+                  <span class="legend-swatch critical"></span>Critical
+                  invariant: important to inspect, not a failure by itself.
+                </div>
+                <div class="legend-item">
+                  <span class="legend-swatch truth"></span>Intended source of
+                  truth for downstream consumers.
+                </div>
+                <div class="legend-item">
+                  <span class="legend-swatch future"></span>Future consumer or
+                  planned devtool capability.
+                </div>
+                <div class="legend-item">
+                  <span class="legend-swatch scope"></span>Target-declared scope
+                  boundary.
+                </div>
+              </div>
+            </article>
+            <article id="guide-target-contract" class="guide-card">
+              <h2>Target contract</h2>
+              <p id="target-contract-summary">Loading target contract.</p>
+            </article>
+            <article id="guide-debug-checklist" class="guide-card">
+              <h2>Data panels</h2>
+              <ul>
+                <li>
+                  The detail panel lists fields supplied by the data file.
+                </li>
+                <li>Empty fields are hidden by the renderer.</li>
+                <li>
+                  Static checks verify required data-backed node ids exist.
+                </li>
+              </ul>
+            </article>
+            <article id="guide-alignment-checklist" class="guide-card">
+              <h2>Viewer checks</h2>
+              <ul>
+                <li>Duplicate node ids are reported in the console.</li>
+                <li>
+                  Edges that point to missing nodes are reported in the console.
+                </li>
+                <li>
+                  Missing viewer guide sections are reported in the console.
+                </li>
+              </ul>
+            </article>
+          </section>
+        </details>
+        <section
+          id="flow"
+          class="flow-wrap"
+          aria-label="feature flow diagram"
+        ></section>
+      </main>
+      <aside id="detail" class="detail" aria-label="step detail"></aside>
+    </div>
+
+    <script src="./stroke-flow-inspector.data.js"></script>
+    <!-- prettier-ignore -->
+    <script data-flow-inspector-renderer>
+/* global console, document, window */
+
+;(function () {
+  'use strict'
+
+  const data = globalThis.FLOW_INSPECTOR_DATA
+  if (!data) {
+    throw new Error(
+      'Missing FLOW_INSPECTOR_DATA. Load the target data file before the shared viewer.'
+    )
+  }
+
+  const {
+    schema,
+    target,
+    authority,
+    links = [],
+    lanes,
+    steps,
+    routes,
+    artifacts,
+    invariants,
+    acceptanceContracts
+  } = data
+
+  const requiredCollections = {
+    links,
+    lanes,
+    steps,
+    routes,
+    artifacts,
+    invariants,
+    acceptanceContracts
+  }
+  const invalidCollections = Object.entries(requiredCollections)
+    .filter(([, value]) => !Array.isArray(value))
+    .map(([name]) => name)
+  if (invalidCollections.length) {
+    throw new Error(
+      `Flow Inspector target has invalid collections: ${invalidCollections.join(', ')}`
+    )
+  }
+  if (schema?.id !== 'asyra.flow-inspector' || schema.version !== 2) {
+    throw new Error('Flow Inspector requires schema asyra.flow-inspector/v2.')
+  }
+
+  const flow = document.getElementById('flow')
+  const detail = document.getElementById('detail')
+  const filters = document.getElementById('filters')
+  const title = document.getElementById('inspector-title')
+  const subtitle = document.getElementById('inspector-subtitle')
+  const headerLinks = document.getElementById('inspector-links')
+  const targetSummary = document.getElementById('target-contract-summary')
+
+  const requiredElements = {
+    flow,
+    detail,
+    filters,
+    title,
+    subtitle,
+    headerLinks,
+    targetSummary
+  }
+  const missingElements = Object.entries(requiredElements)
+    .filter(([, element]) => !element)
+    .map(([name]) => name)
+  if (missingElements.length) {
+    throw new Error(
+      `Flow Inspector shell is missing: ${missingElements.join(', ')}`
+    )
+  }
+
+  const escapeHtml = (value) =>
+    String(value)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;')
+
+  const specLink = links.find((link) => link.kind === 'authority')
+
+  const formatItem = (value) => {
+    if (value && typeof value === 'object' && value.href && value.label) {
+      return `<a href="${escapeHtml(value.href)}">${escapeHtml(value.label)}</a>`
+    }
+    const text = String(value)
+    if (text.startsWith('#') && specLink) {
+      return `<a href="${escapeHtml(`${specLink.href}${text}`)}"><code>${escapeHtml(text)}</code></a>`
+    }
+    return escapeHtml(text).replace(/`([^`]+)`/g, '<code>$1</code>')
+  }
+
+  const section = (heading, items, className = '') => {
+    const values = items && items.length ? items : ['None']
+    return `
+      <section class="detail-section ${className}">
+        <h3>${escapeHtml(heading)}</h3>
+        <ul>${values.map((item) => `<li>${formatItem(item)}</li>`).join('')}</ul>
+      </section>`
+  }
+
+  const laneById = new Map(lanes.map((lane) => [lane.id, lane]))
+  const stepById = new Map(steps.map((step) => [step.id, step]))
+  const artifactById = new Map(
+    artifacts.map((artifact) => [artifact.id, artifact])
+  )
+  const stepsByLane = new Map(
+    lanes.map((lane) => [
+      lane.id,
+      steps
+        .filter((step) => step.laneId === lane.id)
+        .sort((left, right) => left.order - right.order)
+    ])
+  )
+
+  const layout = {
+    left: 28,
+    top: 68,
+    cardW: 270,
+    cardH: 118,
+    gapX: 220,
+    gapY: 100
+  }
+
+  let selectedId = steps[0]?.id ?? null
+  let selectedLaneId = 'All'
+
+  const isVisible = (step) =>
+    selectedLaneId === 'All' || step.laneId === selectedLaneId
+
+  const getStepLane = (step) =>
+    lanes.findIndex((lane) => lane.id === step.laneId)
+
+  const getStepRow = (step) =>
+    stepsByLane.get(step.laneId)?.findIndex((item) => item.id === step.id) ?? 0
+
+  const stepPosition = (step) => ({
+    x: layout.left + getStepLane(step) * (layout.cardW + layout.gapX),
+    y: layout.top + getStepRow(step) * (layout.cardH + layout.gapY)
+  })
+
+  const getFlowBounds = () => {
+    const visibleSteps = steps.filter(isVisible)
+    const laneIndexes = visibleSteps.map(getStepLane)
+    const rowIndexes = visibleSteps.map(getStepRow)
+    const maxLane = laneIndexes.length ? Math.max(...laneIndexes) : 0
+    const maxRow = rowIndexes.length ? Math.max(...rowIndexes) : 0
+    return {
+      width:
+        layout.left * 2 + (maxLane + 1) * layout.cardW + maxLane * layout.gapX,
+      height:
+        layout.top * 2 + (maxRow + 1) * layout.cardH + maxRow * layout.gapY
+    }
+  }
+
+  const toSvgPoint = (svg, x, y) => {
+    const point = svg.createSVGPoint()
+    point.x = x
+    point.y = y
+    const matrix = svg.getScreenCTM()
+    return matrix ? point.matrixTransform(matrix.inverse()) : { x, y }
+  }
+
+  const getEdgePath = (svg, fromCard, toCard, fromStep, toStep) => {
+    const fromBox = fromCard.getBoundingClientRect()
+    const toBox = toCard.getBoundingClientRect()
+    if (fromStep.laneId === toStep.laneId) {
+      const start = toSvgPoint(
+        svg,
+        fromBox.left + fromBox.width / 2,
+        fromBox.bottom
+      )
+      const end = toSvgPoint(svg, toBox.left + toBox.width / 2, toBox.top)
+      const midpointY = fromBox.bottom + (toBox.top - fromBox.bottom) * 0.5
+      const controlStart = toSvgPoint(
+        svg,
+        fromBox.left + fromBox.width / 2,
+        midpointY
+      )
+      const controlEnd = toSvgPoint(
+        svg,
+        toBox.left + toBox.width / 2,
+        midpointY
+      )
+      return `M ${start.x} ${start.y} C ${controlStart.x} ${controlStart.y}, ${controlEnd.x} ${controlEnd.y}, ${end.x} ${end.y}`
+    }
+
+    const direction = toBox.left >= fromBox.left ? 1 : -1
+    const startX = direction > 0 ? fromBox.right : fromBox.left
+    const startY = fromBox.top + fromBox.height / 2
+    const endX = direction > 0 ? toBox.left : toBox.right
+    const endY = toBox.top + toBox.height / 2
+    const distanceX = Math.abs(endX - startX)
+    const curve = Math.max(120, Math.min(distanceX * 0.46, layout.gapX * 0.92))
+    const start = toSvgPoint(svg, startX, startY)
+    const end = toSvgPoint(svg, endX, endY)
+    const controlStart = toSvgPoint(svg, startX + direction * curve, startY)
+    const controlEnd = toSvgPoint(svg, endX - direction * curve, endY)
+    return `M ${start.x} ${start.y} C ${controlStart.x} ${controlStart.y}, ${controlEnd.x} ${controlEnd.y}, ${end.x} ${end.y}`
+  }
+
+  const routeClass = (kind) => {
+    if (kind === 'bypass') return 'route-bypass'
+    if (kind === 'coexecute' || kind === 'fanout') return 'route-parallel'
+    return `route-${kind}`
+  }
+
+  const renderEdges = (svg) => {
+    svg.querySelectorAll('.edge-path').forEach((node) => node.remove())
+    routes.forEach((route) => {
+      if (!route.to) return
+      const from = stepById.get(route.from)
+      const to = stepById.get(route.to)
+      if (!from || !to || !isVisible(from) || !isVisible(to)) return
+      const fromCard = flow.querySelector(`[data-step-id="${route.from}"]`)
+      const toCard = flow.querySelector(`[data-step-id="${route.to}"]`)
+      if (!fromCard || !toCard) return
+
+      const path = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'path'
+      )
+      path.setAttribute('d', getEdgePath(svg, fromCard, toCard, from, to))
+      path.setAttribute(
+        'class',
+        `edge-path ${routeClass(route.kind)}${route.from === selectedId || route.to === selectedId ? ' is-active' : ''}`
+      )
+      path.setAttribute('data-route-id', route.id)
+      path.setAttribute('marker-end', 'url(#arrow)')
+      const tooltip = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'title'
+      )
+      tooltip.textContent = `${route.id}: ${route.kind}; ${route.predicate}`
+      path.appendChild(tooltip)
+      svg.appendChild(path)
+    })
+  }
+
+  const routesForStep = (stepId, direction) =>
+    routes
+      .filter((route) => route[direction] === stepId)
+      .map(
+        (route) =>
+          `${route.id} [${route.kind}]: ${route.predicate}; ${route.from} -> ${route.to ?? 'terminal'}; artifacts ${route.producedArtifacts.join(', ')}`
+      )
+
+  const artifactsOwnedBy = (stepId) =>
+    artifacts
+      .filter((artifact) => artifact.ownerStepId === stepId)
+      .map(
+        (artifact) =>
+          `${artifact.id}: ${artifact.channel}; consumers ${artifact.consumerStepIds.join(', ') || 'terminal'}`
+      )
+
+  const artifactsConsumedBy = (stepId) =>
+    artifacts
+      .filter((artifact) => artifact.consumerStepIds.includes(stepId))
+      .map(
+        (artifact) =>
+          `${artifact.id}: owner ${artifact.ownerStepId}; ${artifact.channel}`
+      )
+
+  const invariantsForStep = (stepId) =>
+    invariants
+      .filter((invariant) => invariant.stepIds.includes(stepId))
+      .map(
+        (invariant) =>
+          `${invariant.id}: ${invariant.statement}; refs ${invariant.specRefs.join(', ')}`
+      )
+
+  const acceptanceForStep = (stepId) =>
+    acceptanceContracts
+      .filter((contract) => contract.stepIds.includes(stepId))
+      .map(
+        (contract) =>
+          `${contract.id}: ${contract.assertions.join('; ')}; refs ${contract.specRefs.join(', ')}`
+      )
+
+  const renderHeader = () => {
+    document.title = target.title
+    title.textContent = target.title
+    subtitle.textContent = target.subtitle
+    headerLinks.innerHTML = links
+      .map(
+        (link) =>
+          `<a class="header-link" href="${escapeHtml(link.href)}" data-link-kind="${escapeHtml(link.kind)}">${escapeHtml(link.label)}</a>`
+      )
+      .join('')
+    targetSummary.innerHTML = [
+      `Target: <code>${escapeHtml(target.kind)}:${escapeHtml(target.id)}</code>`,
+      `Schema: <code>${escapeHtml(schema.id)}/v${escapeHtml(schema.version)}</code>`,
+      `Semantic authority: <code>${escapeHtml(authority.specPath)}</code>`,
+      `Inspector data: <code>${escapeHtml(authority.inspectorPath)}</code>`
+    ].join('<br />')
+  }
+
+  const renderFilters = () => {
+    filters.innerHTML = ''
+    ;[{ id: 'All', title: 'All' }, ...lanes].forEach((lane) => {
+      const button = document.createElement('button')
+      button.className = `filter-button${lane.id === selectedLaneId ? ' is-active' : ''}`
+      button.type = 'button'
+      button.textContent = lane.title
+      button.addEventListener('click', () => {
+        selectedLaneId = lane.id
+        const selectedStep = stepById.get(selectedId)
+        if (selectedStep && !isVisible(selectedStep)) {
+          selectedId = steps.find(isVisible)?.id ?? steps[0]?.id ?? null
+        }
+        render()
+      })
+      filters.appendChild(button)
+    })
+  }
+
+  const renderDetail = () => {
+    const selected = stepById.get(selectedId) ?? steps[0]
+    if (!selected) {
+      detail.innerHTML = '<p>No steps are declared.</p>'
+      return
+    }
+    const lane = laneById.get(selected.laneId)
+    detail.innerHTML = `
+      <div class="detail-group">${escapeHtml(lane?.title ?? selected.laneId)}</div>
+      <div class="detail-heading">
+        <span class="step-number">Step ${escapeHtml(selected.order)}</span>
+        <h2>${escapeHtml(selected.title)}</h2>
+      </div>
+      <p class="detail-summary">${escapeHtml(selected.purpose)}</p>
+      ${section('Target links', links, 'rule-box')}
+      ${section('Owner package', [selected.ownerPackage], 'alignment-box')}
+      ${section('Inputs', selected.inputs)}
+      ${section('Outputs', selected.outputs)}
+      ${section('Conditions', selected.conditions, 'trace-box')}
+      ${section('Bypasses', selected.bypasses, 'trace-box')}
+      ${section('Allowed contributors', selected.allowedContributors, 'evidence-box')}
+      ${section('Forbidden contributors', selected.forbiddenContributors, 'risk-box')}
+      ${section('Cache dimensions', selected.cacheDimensions, 'trace-box')}
+      ${section('Implementation boundary', selected.implementationBoundary)}
+      ${section('Spec references', selected.specRefs, 'rule-box')}
+      ${section('Failure owner step', [selected.failureOwnerStepId], 'risk-box')}
+      ${section('Incoming routes', routesForStep(selected.id, 'to'), 'trace-box')}
+      ${section('Outgoing routes', routesForStep(selected.id, 'from'), 'trace-box')}
+      ${section('Owned artifacts', artifactsOwnedBy(selected.id), 'trace-box')}
+      ${section('Consumed artifacts', artifactsConsumedBy(selected.id), 'trace-box')}
+      ${section('Invariants', invariantsForStep(selected.id), 'evidence-box')}
+      ${section('Acceptance contracts', acceptanceForStep(selected.id), 'test-box')}`
+  }
+
+  const renderFlow = () => {
+    flow.innerHTML = ''
+    const bounds = getFlowBounds()
+    flow.style.minWidth = `${bounds.width}px`
+    flow.style.minHeight = `${bounds.height}px`
+
+    lanes.forEach((lane, laneIndex) => {
+      const label = document.createElement('div')
+      label.className = 'lane-label'
+      label.style.left = `${layout.left + laneIndex * (layout.cardW + layout.gapX)}px`
+      label.textContent = lane.title
+      flow.appendChild(label)
+    })
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute('class', 'flow-svg')
+    svg.setAttribute('viewBox', `0 0 ${bounds.width} ${bounds.height}`)
+    svg.style.width = `${bounds.width}px`
+    svg.style.height = `${bounds.height}px`
+    svg.innerHTML = `
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(148, 163, 184, 0.62)"></path>
+        </marker>
+      </defs>`
+    flow.appendChild(svg)
+
+    steps.filter(isVisible).forEach((step) => {
+      const position = stepPosition(step)
+      const lane = laneById.get(step.laneId)
+      const tags = step.tags ?? []
+      const card = document.createElement('button')
+      card.type = 'button'
+      card.className = [
+        'step-card',
+        step.id === selectedId ? 'is-selected' : '',
+        tags.includes('risk') ? 'is-risk' : '',
+        tags.includes('critical') ? 'is-critical' : '',
+        tags.includes('blocker') ? 'is-blocker' : ''
+      ]
+        .filter(Boolean)
+        .join(' ')
+      card.style.left = `${position.x}px`
+      card.style.top = `${position.y}px`
+      card.dataset.stepId = step.id
+      card.innerHTML = `
+        <div class="step-kicker">
+          <span class="step-number">Step ${escapeHtml(step.order)}</span>
+          <span>${escapeHtml(lane?.title ?? step.laneId)}</span>
+        </div>
+        <div class="step-title">${escapeHtml(step.title)}</div>
+        <div class="step-summary">${escapeHtml(step.purpose)}</div>
+        <div class="badge-row">
+          <span class="badge truth">${escapeHtml(step.ownerPackage)}</span>
+          ${tags
+            .slice(0, 2)
+            .map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`)
+            .join('')}
+        </div>`
+      card.addEventListener('click', () => {
+        selectedId = step.id
+        render()
+      })
+      flow.appendChild(card)
+    })
+
+    renderEdges(svg)
+  }
+
+  const runStaticChecks = () => {
+    const errors = []
+    const uniqueIds = (label, items) => {
+      const seen = new Set()
+      items.forEach((item) => {
+        if (seen.has(item.id)) errors.push(`${label}:duplicate:${item.id}`)
+        seen.add(item.id)
+      })
+    }
+    uniqueIds('lane', lanes)
+    uniqueIds('step', steps)
+    uniqueIds('route', routes)
+    uniqueIds('artifact', artifacts)
+    uniqueIds('invariant', invariants)
+    uniqueIds('acceptance', acceptanceContracts)
+
+    if (!target?.id || !target?.kind || !target?.title) {
+      errors.push('target:incomplete')
+    }
+
+    const requiredStepFields = [
+      'id',
+      'order',
+      'laneId',
+      'title',
+      'ownerPackage',
+      'purpose',
+      'inputs',
+      'outputs',
+      'conditions',
+      'bypasses',
+      'allowedContributors',
+      'forbiddenContributors',
+      'cacheDimensions',
+      'implementationBoundary',
+      'specRefs',
+      'failureOwnerStepId'
+    ]
+    steps.forEach((step) => {
+      requiredStepFields.forEach((field) => {
+        if (step[field] === undefined)
+          errors.push(`${step.id}:missing:${field}`)
+      })
+      if (!laneById.has(step.laneId)) errors.push(`${step.id}:lane`)
+      if (!stepById.has(step.failureOwnerStepId)) {
+        errors.push(`${step.id}:failureOwnerStepId`)
+      }
+      step.inputs
+        .filter((input) => input.startsWith('artifact:'))
+        .forEach((artifactId) => {
+          if (!artifactById.has(artifactId)) {
+            errors.push(`${step.id}:input:${artifactId}`)
+          }
+        })
+      step.outputs.forEach((artifactId) => {
+        if (!artifactById.has(artifactId)) {
+          errors.push(`${step.id}:output:${artifactId}`)
+        }
+      })
+    })
+
+    routes.forEach((route) => {
+      if (!stepById.has(route.from)) errors.push(`${route.id}:from`)
+      if (route.to && !stepById.has(route.to)) errors.push(`${route.id}:to`)
+      route.producedArtifacts.forEach((artifactId) => {
+        const artifact = artifactById.get(artifactId)
+        if (!artifact) {
+          errors.push(`${route.id}:artifact:${artifactId}`)
+          return
+        }
+        if (artifact.ownerStepId !== route.from) {
+          errors.push(`${route.id}:artifact-owner:${artifactId}`)
+        }
+        if (route.to && !artifact.consumerStepIds.includes(route.to)) {
+          errors.push(`${route.id}:artifact-consumer:${artifactId}`)
+        }
+      })
+    })
+
+    artifacts.forEach((artifact) => {
+      const owner = stepById.get(artifact.ownerStepId)
+      if (!owner) {
+        errors.push(`${artifact.id}:owner`)
+      } else if (!owner.outputs.includes(artifact.id)) {
+        errors.push(`${artifact.id}:owner-output`)
+      }
+      artifact.consumerStepIds.forEach((stepId) => {
+        const consumer = stepById.get(stepId)
+        if (!consumer) {
+          errors.push(`${artifact.id}:consumer:${stepId}`)
+        } else if (!consumer.inputs.includes(artifact.id)) {
+          errors.push(`${artifact.id}:consumer-input:${stepId}`)
+        }
+      })
+      if (!artifact.terminal && !artifact.consumerStepIds.length) {
+        errors.push(`${artifact.id}:missing-consumer`)
+      }
+    })
+
+    invariants.forEach((invariant) => {
+      invariant.stepIds.forEach((stepId) => {
+        if (!stepById.has(stepId)) {
+          errors.push(`${invariant.id}:step:${stepId}`)
+        }
+      })
+      invariant.artifactIds.forEach((artifactId) => {
+        if (!artifactById.has(artifactId)) {
+          errors.push(`${invariant.id}:artifact:${artifactId}`)
+        }
+      })
+    })
+
+    acceptanceContracts.forEach((contract) => {
+      contract.stepIds.forEach((stepId) => {
+        if (!stepById.has(stepId)) {
+          errors.push(`${contract.id}:step:${stepId}`)
+        }
+      })
+    })
+
+    if (errors.length) {
+      console.error('Flow Inspector static check failed', {
+        target: target.id,
+        errors
+      })
+    } else {
+      console.info('Flow Inspector static check passed', {
+        target: target.id,
+        lanes: lanes.length,
+        steps: steps.length,
+        routes: routes.length,
+        artifacts: artifacts.length,
+        invariants: invariants.length,
+        acceptanceContracts: acceptanceContracts.length
+      })
+    }
+  }
+
+  const runLayoutChecks = () => {
+    const cards = [...flow.querySelectorAll('.step-card')].map((card) => {
+      const rect = card.getBoundingClientRect()
+      return {
+        id: card.dataset.stepId,
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom
+      }
+    })
+    const overlaps = []
+    cards.forEach((card, index) => {
+      cards.slice(index + 1).forEach((other) => {
+        const overlapX =
+          Math.min(card.right, other.right) - Math.max(card.left, other.left)
+        const overlapY =
+          Math.min(card.bottom, other.bottom) - Math.max(card.top, other.top)
+        if (overlapX > 8 && overlapY > 8) {
+          overlaps.push(`${card.id}:${other.id}`)
+        }
+      })
+    })
+    if (overlaps.length) {
+      console.error('Flow Inspector layout check failed', { overlaps })
+    } else {
+      console.info('Flow Inspector layout check passed', {
+        cards: cards.length
+      })
+    }
+  }
+
+  const render = () => {
+    renderHeader()
+    renderFilters()
+    renderFlow()
+    renderDetail()
+    runLayoutChecks()
+  }
+
+  runStaticChecks()
+  render()
+  window.addEventListener('resize', () => {
+    const svg = flow.querySelector('.flow-svg')
+    if (svg) renderEdges(svg)
+  })
+})()
+    </script>
+  </body>
+</html>

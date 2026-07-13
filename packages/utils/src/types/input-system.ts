@@ -6,8 +6,7 @@ export type KeyboardKey = string
 
 export type InputKey = KeyboardKey | ModifierKey | PointerKey
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type DetailType = Record<string, any>
+export type DetailType = Record<string, unknown>
 
 export interface RawInputEvent {
   type: InputType

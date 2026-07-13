@@ -4,3 +4,8 @@ initSceneTreeSubscribes()
 
 export * from './components'
 export { default, SceneTree } from './sceneTree'
+export { componentRegistry } from './component-registry'
+export { createDynamicComponent } from './create-dynamic-component'
+export { createDynamicPropsClass } from './create-dynamic-props'
+export { createElement } from './utils'
+export type { ComponentRegistration } from './component-registry'

@@ -1,5 +1,9 @@
 import type {
+  CreateElementData,
+  ComputedDataPatch,
+  ComputedDataPatchChange,
   DataTypes,
+  EVENT_OPTIONS,
   ElementRawData,
   GroupInstanceTypes,
   SceneTreeRawData
@@ -29,9 +33,10 @@ export const sceneTreeLoadComplete = () => {
 }
 
 export const addElement = (
-  elementData: ElementRawData,
+  elementData: CreateElementData,
   index?: number,
-  parent?: GroupInstanceTypes
+  parent?: GroupInstanceTypes,
+  options?: EVENT_OPTIONS
 ) => {
   publishEvent({
     type: EventTypes.ADD_ELEMENT,
@@ -39,22 +44,23 @@ export const addElement = (
       data: elementData,
       parent,
       index
-    }
+    },
+    options
   })
 }
 
 export const removeElement = (
-  elementData: ElementRawData,
-  index: number,
-  parent?: GroupInstanceTypes
+  elementData: Partial<ElementRawData>,
+  parent?: GroupInstanceTypes,
+  options?: EVENT_OPTIONS
 ) => {
   publishEvent({
     type: EventTypes.REMOVE_ELEMENT,
     payload: {
       data: elementData,
-      parent,
-      index
-    }
+      parent
+    },
+    options
   })
 }
 
@@ -75,16 +81,59 @@ export const updateComputedData = (
   })
 }
 
+export const updateComputedDataPatch = (
+  id: string,
+  patch: ComputedDataPatchChange
+) => {
+  publishEvent({
+    type: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+    payload: {
+      id,
+      patch
+    }
+  })
+}
+
 export const changeComputedData = (
   elementIds: string[],
   key: string,
   data: DataTypes,
-  options = { undoable: true }
+  options: EVENT_OPTIONS = { undoable: true }
 ) => {
   publishEvent({
     type: EventTypes.CHANGE_COMPUTED_DATA,
     payload: {
       key,
+      data,
+      elementIds
+    },
+    options
+  })
+}
+
+export const changeComputedDataPatch = (
+  elementIds: string[],
+  patch: ComputedDataPatch,
+  options: EVENT_OPTIONS = { undoable: true }
+) => {
+  publishEvent({
+    type: EventTypes.CHANGE_COMPUTED_DATA_PATCH,
+    payload: {
+      patch,
+      elementIds
+    },
+    options
+  })
+}
+
+export const changeComputedDataBatch = (
+  elementIds: string[],
+  data: Record<string, DataTypes>,
+  options: EVENT_OPTIONS = { undoable: true }
+) => {
+  publishEvent({
+    type: EventTypes.CHANGE_COMPUTED_DATA_BATCH,
+    payload: {
       data,
       elementIds
     },

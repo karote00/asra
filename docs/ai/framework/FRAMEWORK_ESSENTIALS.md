@@ -1,0 +1,68 @@
+# Framework Essentials
+
+## Prime Directive
+
+Asyra is a **deterministic execution kernel for declarative information modeling systems**, not a single product UI.
+
+Any implementation decision must preserve:
+- UI independence.
+- Engine replaceability.
+- Predictable state flow.
+- Explicit extension points.
+
+## Core Tenets
+
+1. Framework Core vs App Domain
+- Framework packages provide orchestration and primitives.
+- App-level defines domain behavior, aggregation, and workflows.
+- Preset provides default bootstrap settings only (not app-domain owner, not framework-runtime owner).
+
+2. Deterministic Data Flow
+- Inputs trigger features.
+- Features call framework APIs.
+- State changes are transaction-bounded.
+- Render/UI consume state as derived output.
+
+3. Extension-first Design
+- Register components, features, properties, render layers, and schemas.
+- Prefer registry-driven expansion over hardcoded branches.
+
+4. Safe by Default
+- Runtime updates: valid -> write; invalid -> reject.
+- Load path: valid -> write; invalid -> fallback.
+- Migration is app-owned; validation safety is framework-owned.
+
+## Extensible Runtime Guarantees
+
+Asyra products should be assembled from framework runtime contracts, preset defaults, and app-owned feature behavior.
+
+The framework guarantees:
+- feature isolation: features define bounded behavior and mutate state through API boundaries
+- transaction safety: one intended user action maps to one intended undo commit
+- schema safety: invalid runtime writes are rejected and invalid load values fall back deterministically
+- preset replaceability: defaults are optional, movable, and replaceable by product owners
+- render boundary safety: render is an output/interaction bridge, not a data authority
+
+## Current System Position
+
+- `feature-system` is active decision/session runtime.
+- `ui-context` is a convenience layer in core startup, not mandatory for custom apps.
+
+## Non-negotiable Constraints
+
+- No Pixi imports outside `@asyra/render`.
+- App-level should use `core.xxx`/approved app APIs, not internal package singletons.
+- Cross-package imports must use `@asyra/package-name`.
+- `create-app/*` is generated output; do not hand-edit it directly.
+- Pre-release legacy behavior must be upgraded or deleted; do not keep unreleased old flows as product fallbacks. See `rules/pre-release-legacy-removal.md`.
+
+## Implementation Checklist (Every Change)
+
+- confirm ownership boundary first (framework vs app)
+- run ownership triage: user customization vs preset default vs framework runtime owner
+- if placed in preset, confirm it is optional default wiring that helps users start quickly
+- keep runtime flow deterministic
+- expose extension via registration, not branching
+- preserve load validation/fallback semantics
+- remove stale pre-release branches instead of keeping them as compatibility fallbacks
+- update framework docs when contracts change

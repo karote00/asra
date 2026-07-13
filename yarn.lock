@@ -48,6 +48,8 @@ __metadata:
   dependencies:
     "@asyra/core": "workspace:*"
     "@asyra/design-system": "workspace:*"
+    "@asyra/feature-system": "workspace:*"
+    "@asyra/preset": "workspace:*"
     "@asyra/reactive-events": "workspace:*"
     "@asyra/ui-context": "workspace:*"
     "@asyra/utils": "workspace:*"
@@ -57,6 +59,7 @@ __metadata:
     "@testing-library/jest-dom": "npm:^5.17.0"
     "@testing-library/react": "npm:^13.4.0"
     "@testing-library/user-event": "npm:^13.5.0"
+    "@types/bezier-js": "npm:^4.1.3"
     "@types/jest": "npm:^27.5.2"
     "@types/node": "npm:^16.18.121"
     "@types/pixi.js": "npm:^5.0.0"
@@ -64,6 +67,7 @@ __metadata:
     "@types/react-dom": "npm:^19.0.0"
     "@vitejs/plugin-react": "npm:^4.3.4"
     autoprefixer: "npm:^10.4.20"
+    bezier-js: "npm:^6.1.4"
     playwright: "npm:^1.57.0"
     postcss: "npm:^8.4.49"
     react: "npm:^19.0.0"
@@ -83,14 +87,16 @@ __metadata:
   resolution: "@asyra/core@workspace:packages/core"
   dependencies:
     "@asyra/factory": "workspace:*"
+    "@asyra/feature-system": "workspace:*"
     "@asyra/input-system": "workspace:*"
-    "@asyra/interaction-core": "workspace:*"
+    "@asyra/persistence": "workspace:*"
     "@asyra/props-manager": "workspace:*"
     "@asyra/reactive-events": "workspace:*"
     "@asyra/render": "workspace:*"
     "@asyra/scene-tree": "workspace:*"
     "@asyra/selection": "workspace:*"
     "@asyra/system-context": "workspace:*"
+    "@asyra/ui-context": "workspace:*"
     "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
@@ -116,6 +122,7 @@ __metadata:
     "@types/react-dom": "npm:^19.0.0"
     "@vitejs/plugin-react": "npm:^4.3.4"
     autoprefixer: "npm:^10.4.20"
+    concurrently: "npm:^8.2.2"
     postcss: "npm:^8.4.49"
     postcss-cli: "npm:^11.0.0"
     storybook: "npm:^8.4.7"
@@ -144,6 +151,18 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@asyra/feature-system@workspace:*, @asyra/feature-system@workspace:packages/feature-system":
+  version: 0.0.0-use.local
+  resolution: "@asyra/feature-system@workspace:packages/feature-system"
+  dependencies:
+    "@asyra/reactive-events": "workspace:*"
+    "@asyra/utils": "workspace:*"
+    "@vitest/coverage-v8": "npm:^2.1.8"
+    typescript: "npm:^5.7.2"
+    vitest: "npm:^2.1.8"
+  languageName: unknown
+  linkType: soft
+
 "@asyra/input-system@workspace:*, @asyra/input-system@workspace:packages/input-system":
   version: 0.0.0-use.local
   resolution: "@asyra/input-system@workspace:packages/input-system"
@@ -156,14 +175,24 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asyra/interaction-core@workspace:*, @asyra/interaction-core@workspace:packages/interaction-core":
+"@asyra/persistence@workspace:*, @asyra/persistence@workspace:packages/persistence":
   version: 0.0.0-use.local
-  resolution: "@asyra/interaction-core@workspace:packages/interaction-core"
+  resolution: "@asyra/persistence@workspace:packages/persistence"
   dependencies:
-    "@asyra/input-system": "workspace:*"
-    "@asyra/reactive-events": "workspace:*"
     "@asyra/utils": "workspace:*"
+    typescript: "npm:^5.7.2"
+  languageName: unknown
+  linkType: soft
+
+"@asyra/preset@workspace:*, @asyra/preset@workspace:packages/preset":
+  version: 0.0.0-use.local
+  resolution: "@asyra/preset@workspace:packages/preset"
+  dependencies:
+    "@asyra/core": "workspace:*"
+    "@asyra/utils": "workspace:*"
+    "@types/bezier-js": "npm:^4.1.3"
     "@vitest/coverage-v8": "npm:^2.1.8"
+    bezier-js: "npm:^6.1.4"
     typescript: "npm:^5.7.2"
     vitest: "npm:^2.1.8"
   languageName: unknown
@@ -185,6 +214,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asyra/reactive-events@workspace:packages/reactive-events"
   dependencies:
+    "@asyra/persistence": "workspace:*"
     "@asyra/utils": "workspace:*"
     "@types/inquirer": "npm:^8.2.6"
     "@types/node": "npm:^25.0.2"
@@ -208,6 +238,7 @@ __metadata:
     "@asyra/reactive-events": "workspace:*"
     "@asyra/scene-tree": "workspace:*"
     "@asyra/selection": "workspace:*"
+    "@asyra/system-context": "workspace:*"
     "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     pixi.js: "npm:^8.6.3"
@@ -233,7 +264,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asyra/selection@workspace:packages/selection"
   dependencies:
-    "@asyra/reactive-events": "workspace:*"
     "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
@@ -245,7 +275,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asyra/system-context@workspace:packages/system-context"
   dependencies:
-    "@asyra/reactive-events": "workspace:*"
     "@asyra/utils": "workspace:*"
     "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
@@ -257,8 +286,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asyra/ui-context@workspace:packages/ui-context"
   dependencies:
-    "@asyra/factory": "workspace:*"
-    "@asyra/reactive-events": "workspace:*"
     "@asyra/scene-tree": "workspace:*"
     "@asyra/selection": "workspace:*"
     "@asyra/utils": "workspace:*"
@@ -268,7 +295,6 @@ __metadata:
     rxjs: "npm:^7.8.1"
     typescript: "npm:^5.7.2"
     vitest: "npm:^2.1.8"
-    yjs: "npm:13.6.20"
   languageName: unknown
   linkType: soft
 
@@ -1785,7 +1811,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/runtime@npm:^7.5.5":
+"@babel/runtime@npm:^7.21.0, @babel/runtime@npm:^7.5.5":
   version: 7.28.6
   resolution: "@babel/runtime@npm:7.28.6"
   checksum: 10c0/358cf2429992ac1c466df1a21c1601d595c46930a13c1d4662fde908d44ee78ec3c183aaff513ecb01ef8c55c3624afe0309eeeb34715672dbfadb7feedb2c0d
@@ -5194,6 +5220,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/bezier-js@npm:^4.1.3":
+  version: 4.1.3
+  resolution: "@types/bezier-js@npm:4.1.3"
+  checksum: 10c0/de13b7ef7c2fc04ffc0bfee7ff81d0332aab0b09df638173ac7e09f21e9b496f37124f0417a5722478ae55269ff2f7effe4924b4218da68027429ea48e61cb6f
+  languageName: node
+  linkType: hard
+
 "@types/body-parser@npm:*":
   version: 1.19.5
   resolution: "@types/body-parser@npm:1.19.5"
@@ -7022,6 +7055,7 @@ __metadata:
     fs-extra: "npm:^11.3.3"
     glob: "npm:^13.0.0"
     handoff-ai: "npm:^0.7.0"
+    jsdom: "npm:16.7.0"
     prettier: "npm:^3.4.2"
     turbo: "npm:^2.3.3"
     typescript-eslint: "npm:^8.18.2"
@@ -7307,6 +7341,13 @@ __metadata:
   dependencies:
     is-windows: "npm:^1.0.0"
   checksum: 10c0/7335130729d59a14b8e4753fea180ca84e287cccc20cb5f2438a95667abc5810327c414eee7b3c79ed1b5a348a40284ea872958f50caba69432c40405eb0acce
+  languageName: node
+  linkType: hard
+
+"bezier-js@npm:^6.1.4":
+  version: 6.1.4
+  resolution: "bezier-js@npm:6.1.4"
+  checksum: 10c0/2785010f1f26b5229aa2a11e0b4dbd57476eec02c62385eed11960e420421ad9894f6130349304bbbc90bc5a15ee54109ca43ddd0556dca4d63bd725c7e36b22
   languageName: node
   linkType: hard
 
@@ -8030,6 +8071,26 @@ __metadata:
   languageName: node
   linkType: hard
 
+"concurrently@npm:^8.2.2":
+  version: 8.2.2
+  resolution: "concurrently@npm:8.2.2"
+  dependencies:
+    chalk: "npm:^4.1.2"
+    date-fns: "npm:^2.30.0"
+    lodash: "npm:^4.17.21"
+    rxjs: "npm:^7.8.1"
+    shell-quote: "npm:^1.8.1"
+    spawn-command: "npm:0.0.2"
+    supports-color: "npm:^8.1.1"
+    tree-kill: "npm:^1.2.2"
+    yargs: "npm:^17.7.2"
+  bin:
+    conc: dist/bin/concurrently.js
+    concurrently: dist/bin/concurrently.js
+  checksum: 10c0/0e9683196fe9c071d944345d21d8f34aa6c0cc50c0dd897e95619f2f1c9eb4871dca851b2569da17888235b7335b4c821ca19deed35bebcd9a131ee5d247f34c
+  languageName: node
+  linkType: hard
+
 "confbox@npm:^0.1.8":
   version: 0.1.8
   resolution: "confbox@npm:0.1.8"
@@ -8557,6 +8618,15 @@ __metadata:
     es-errors: "npm:^1.3.0"
     is-data-view: "npm:^1.0.1"
   checksum: 10c0/fa7aa40078025b7810dcffc16df02c480573b7b53ef1205aa6a61533011005c1890e5ba17018c692ce7c900212b547262d33279fde801ad9843edc0863bf78c4
+  languageName: node
+  linkType: hard
+
+"date-fns@npm:^2.30.0":
+  version: 2.30.0
+  resolution: "date-fns@npm:2.30.0"
+  dependencies:
+    "@babel/runtime": "npm:^7.21.0"
+  checksum: 10c0/e4b521fbf22bc8c3db332bbfb7b094fd3e7627de0259a9d17c7551e2d2702608a7307a449206065916538e384f37b181565447ce2637ae09828427aed9cb5581
   languageName: node
   linkType: hard
 
@@ -13022,7 +13092,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jsdom@npm:^16.6.0":
+"jsdom@npm:16.7.0, jsdom@npm:^16.6.0":
   version: 16.7.0
   resolution: "jsdom@npm:16.7.0"
   dependencies:
@@ -17295,6 +17365,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"spawn-command@npm:0.0.2":
+  version: 0.0.2
+  resolution: "spawn-command@npm:0.0.2"
+  checksum: 10c0/b22f2d71239e6e628a400831861ba747750bbb40c0a53323754cf7b84330b73d81e40ff1f9055e6d1971818679510208a9302e13d9ff3b32feb67e74d7a1b3ef
+  languageName: node
+  linkType: hard
+
 "spawndamnit@npm:^3.0.1":
   version: 3.0.1
   resolution: "spawndamnit@npm:3.0.1"
@@ -17743,7 +17820,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"supports-color@npm:^8.0.0, supports-color@npm:~8.1.1":
+"supports-color@npm:^8.0.0, supports-color@npm:^8.1.1, supports-color@npm:~8.1.1":
   version: 8.1.1
   resolution: "supports-color@npm:8.1.1"
   dependencies:
@@ -18159,6 +18236,15 @@ __metadata:
   version: 0.0.3
   resolution: "tr46@npm:0.0.3"
   checksum: 10c0/047cb209a6b60c742f05c9d3ace8fa510bff609995c129a37ace03476a9b12db4dbf975e74600830ef0796e18882b2381fb5fb1f6b4f96b832c374de3ab91a11
+  languageName: node
+  linkType: hard
+
+"tree-kill@npm:^1.2.2":
+  version: 1.2.2
+  resolution: "tree-kill@npm:1.2.2"
+  bin:
+    tree-kill: cli.js
+  checksum: 10c0/7b1b7c7f17608a8f8d20a162e7957ac1ef6cd1636db1aba92f4e072dc31818c2ff0efac1e3d91064ede67ed5dc57c565420531a8134090a12ac10cf792ab14d2
   languageName: node
   linkType: hard
 
@@ -19853,7 +19939,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"yargs@npm:^17.0.0":
+"yargs@npm:^17.0.0, yargs@npm:^17.7.2":
   version: 17.7.2
   resolution: "yargs@npm:17.7.2"
   dependencies:

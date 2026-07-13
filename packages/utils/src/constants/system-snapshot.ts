@@ -1,6 +1,5 @@
 import { MouseButton } from './pointer'
 import { SystemMode } from './system-mode'
-import { PrimaryToolType } from './tool'
 import {
   KeySnapshot,
   MouseSnapshot,
@@ -17,7 +16,7 @@ export const DefaultSystemSnapshot: SystemSnapshot = {
   permissions: {}
 }
 
-export const DefaultPrimaryTool: PrimaryToolType = PrimaryToolType.SELECT
+export const DefaultPrimaryTool = 'select'
 
 export const DefaultMoseSnapshot: MouseSnapshot = {
   position: DefaultPosition,
@@ -41,9 +40,21 @@ export const DefaultKeySnapshot: KeySnapshot = {
 }
 
 export const DefaultSystemContextSnapshot: SystemContextSnapshot = {
-  system: DefaultSystemSnapshot,
   primaryTool: DefaultPrimaryTool,
-  mouse: DefaultMoseSnapshot,
-  target: DefaultTargetSnapshot,
-  key: DefaultKeySnapshot
+  systemMode: DefaultSystemSnapshot.mode,
+  systemFeatureFlags: DefaultSystemSnapshot.featureFlags,
+  systemPermissions: DefaultSystemSnapshot.permissions,
+  mouseDragStart: DefaultMoseSnapshot.dragStart,
+  mousePosition: DefaultMoseSnapshot.position,
+  mouseDelta: DefaultMoseSnapshot.delta,
+  mouseButton: DefaultMoseSnapshot.button,
+  mouseDown: DefaultMoseSnapshot.down,
+  mouseDragging: DefaultMoseSnapshot.dragging,
+  keyShift: DefaultKeySnapshot.shift,
+  keyCtrl: DefaultKeySnapshot.ctrl,
+  keyAlt: DefaultKeySnapshot.alt,
+  keyMeta: DefaultKeySnapshot.meta,
+  hoveredElementId: DefaultTargetSnapshot.hoveredElementId,
+  selectedElementIds: DefaultTargetSnapshot.selectedElementIds,
+  activeElementId: DefaultTargetSnapshot.activeElementId
 }

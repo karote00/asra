@@ -1,8 +1,3 @@
-// Core
-export enum CoreEventTypes {
-  CORE_ADD_ELEMENT = 'coreAddElement'
-}
-
 // Render
 export enum RenderEventTypes {
   INIT_RENDER = 'initRender',
@@ -31,7 +26,17 @@ export enum ElementEventTypes {
   FINISH_ADD_ELEMENT = 'finishAddElement',
   REMOVE_ELEMENT = 'removeElement',
   UPDATE_COMPUTED_DATA = 'updateComputedData',
-  CHANGE_COMPUTED_DATA = 'changeComputedData'
+  UPDATE_COMPUTED_DATA_PATCH = 'updateComputedDataPatch',
+  CHANGE_COMPUTED_DATA = 'changeComputedData',
+  CHANGE_COMPUTED_DATA_BATCH = 'changeComputedDataBatch',
+  CHANGE_COMPUTED_DATA_PATCH = 'changeComputedDataPatch'
+}
+
+// Selection
+export enum SelectionEventTypes {
+  SELECT_ELEMENTS = 'selectElements',
+  SELECT_VECTOR_POINTS = 'selectVectorPoints',
+  SELECT_VECTOR_SEGMENTS = 'selectVectorSegments'
 }
 
 // Undo
@@ -45,12 +50,8 @@ export enum UndoRedoEventTypes {
 export enum TransactionEventTypes {
   START_TRANSACTION = 'startTransaction',
   UPDATE_TRANSACTION = 'updateTransaction',
-  END_TRANSACTION = 'endTransaction'
-}
-
-// Selection
-export enum SelectionEventTypes {
-  SELECT_ELEMENTS = 'selectElements'
+  END_TRANSACTION = 'endTransaction',
+  USER_ACTION_COMPLETED = 'userActionCompleted'
 }
 
 // Properties
@@ -63,43 +64,29 @@ export enum PropsEventTypes {
   UPDATE_PROPERTY = 'updateProperty'
 }
 
-// UI-Context
-export enum UIContextEventTypes {
-  REQUEST_ELEMENT_SELECTION = 'requestElementSelection',
-  FINISH_REQUEST_ELEMENT_SELECTION = 'finishRequestElementSelection'
-}
-
-// Viewport
-export enum ViewportEventTypes {
-  REQUEST_VIEWPORT_POSITION = 'requestViewportPosition',
-  FINISH_REQUEST_VIEWPORT_POSITION = 'finishRequestViewportPosition',
-  REQUEST_VIEWPORT_SCALE = 'requestViewportScale',
-  FINISH_REQUEST_VIEWPORT_SCALE = 'finishRequestViewportScale',
-  ZOOM_FIT = 'zoomFit',
-  EMIT_ZOOM_FIT = 'emitZoomFit',
-  PAN_TO = 'panTo',
-  ZOOM_TO_CENTER = 'zoomToCenter',
-  REQUEST_RENDER_ZOOM = 'requestRenderZoom',
-  FINISH_REQUEST_RENDER_ZOOM = 'finishRequestRenderZoom'
-}
-
-// PrimaryTool
-export enum PrimaryToolEventTypes {
-  SWITCH_PRIMARY_TOOL = 'switchPrimaryTool',
-  EMIT_SWITCH_PRIMARY_TOOL = 'emitSwitchPrimaryTool',
-  REQUEST_CURRENT_PRIMARY_TOOL = 'requestCurrentPrimaryTool',
-  FINISH_REQUEST_CURRENT_PRIMARY_TOOL = 'finishRequestCurrentPrimaryTool'
-}
-
-// MouseState
-export enum MouseStateEventTypes {
-  UPDATE_MOUSE_STATE = 'updateMouseState'
-}
-
-// TargetState
-export enum TargetStateEventTypes {
-  UPDATE_TARGET_STATE = 'updateTargetState',
-  UPDATE_HOVERED_ELEMENT_ID = 'updateHoveredElementId'
+/**
+ * Renderer Events
+ *
+ * These events are published by the render engine's native event handlers.
+ * They represent the render engine's feedback about what's happening in the rendered scene.
+ *
+ * IMPORTANT: Distinction between input.* and renderer.* events:
+ * - input.* events: Raw user input actions (mouse move, click, keyboard) from DOM
+ * - renderer.* events: Render engine feedback (element hover, visibility change) from rendering layer
+ *
+ * Example: User moves mouse over a rectangle:
+ *   1. input.mouse.move fires (raw action)
+ *   2. Render engine detects rectangle under cursor
+ *   3. render.pointer.hover fires (engine feedback with elementId)
+ */
+export enum RendererEventTypes {
+  POINTER_HOVER = 'render.pointer.hover',
+  POINTER_LEAVE = 'render.pointer.leave',
+  POINTER_DOWN = 'render.pointer.down',
+  POINTER_MOVE = 'render.pointer.move',
+  POINTER_UP = 'render.pointer.up',
+  POINTER_CAPTURE_START = 'render.pointer.capture.start',
+  POINTER_CAPTURE_END = 'render.pointer.capture.end'
 }
 
 // InputSystem
@@ -107,55 +94,17 @@ export enum InputSystemEventTypes {
   SWITCH_INPUT_SYSTEM_WATCHED_ELEMENT = 'switchInputSystemWatchedElement'
 }
 
-// InteractionCore
-export enum InteractionCoreEventTypes {
-  EXECUTE_ACTION = 'executeAction',
-  START_SESSION = 'startSession',
-  UPDATE_SESSION = 'updateSession',
-  END_SESSION = 'endSession',
-  DECIDE_TO_START_TRANSACTION = 'decideToStartTransaction',
-  DECIDE_TO_END_TRANSACTION = 'decideToEndTransaction',
-  DECIDE_TO_SWITCH_PRIMARY_TOOL = 'decideToSwitchPrimaryTool',
-  DECIDE_TO_CREATE_ELEMENT = 'decideToCreateElement',
-  DECIDE_TO_SELECT_ELEMENTS = 'decideToSelectElements',
-  DECIDE_TO_RESIZE_ELEMENT = 'decideToResizeElement',
-  DECIDE_TO_END_RESIZE_ELEMENT = 'decideToEndResizeElement',
-  DECIDE_TO_RESET_ELEMENT_SIZE = 'decideToResetElementSize',
-  DECIDE_TO_UNDOREDO = 'decideToUndoRedo',
-  DECIDE_TO_ZOOM_FIT = 'decideToZoomFit',
-  DECIDE_TO_PAN_ZOOM = 'decideToPanZoom'
-}
-
-// SystemContext
-export enum SystemContextEventTypes {
-  REQUEST_SYSTEM_CONTEXT_SNAPSHOT = 'requestSystemContextSnapshot',
-  FINISH_REQUEST_SYSTEM_CONTEXT_SNAPSHOT = 'finishRequestSystemContextSnapshot'
-}
-
-// KeyState
-export enum KeyStateEventTypes {
-  UPDATE_KEY_STATE = 'updateKeyState'
-}
-
 export const EventTypes = {
-  ...CoreEventTypes,
   ...RenderEventTypes,
   ...FileEventTypes,
   ...SceneTreeEventTypes,
   ...ElementEventTypes,
+  ...SelectionEventTypes,
   ...UndoRedoEventTypes,
   ...TransactionEventTypes,
-  ...SelectionEventTypes,
   ...PropsEventTypes,
-  ...UIContextEventTypes,
-  ...ViewportEventTypes,
-  ...PrimaryToolEventTypes,
-  ...MouseStateEventTypes,
-  ...TargetStateEventTypes,
   ...InputSystemEventTypes,
-  ...InteractionCoreEventTypes,
-  ...SystemContextEventTypes,
-  ...KeyStateEventTypes
+  ...RendererEventTypes
 } as const
 
 export type EventTypes = (typeof EventTypes)[keyof typeof EventTypes]

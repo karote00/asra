@@ -1,13 +1,40 @@
-import { PropsComponentRawData } from '@asyra/utils'
-import { PropsRawAPIs, PropsRequests } from '../types'
+import type {
+  EVENT_OPTIONS,
+  PropertyComponentInstanceDataTypes,
+  PropsComponentRawData
+} from '@asyra/utils'
+import type { PropertyOwnerRef } from '../types/props'
 
-export const createPropsAPIs = (propsRequests: PropsRequests): PropsRawAPIs => {
-  return {
-    propsLoadData(data: PropsComponentRawData) {
-      propsRequests.propsLoadData(data)
-    },
-    propsSaveData() {
-      return propsRequests.propsSaveData()
-    }
-  }
+export interface PropsRequests {
+  updatePropertyById: <K extends keyof PropertyComponentInstanceDataTypes>(
+    propertyId: string,
+    key: K,
+    data: PropertyComponentInstanceDataTypes[K],
+    owner?: PropertyOwnerRef,
+    options?: EVENT_OPTIONS
+  ) => void
+  commitPropertyChanges: (options?: EVENT_OPTIONS) => void
+  propsLoadData: (data: unknown) => void
+  propsSaveData: () => PropsComponentRawData
 }
+
+export const createPropsAPIs = (requests: PropsRequests) => ({
+  updatePropertyById<K extends keyof PropertyComponentInstanceDataTypes>(
+    propertyId: string,
+    key: K,
+    data: PropertyComponentInstanceDataTypes[K],
+    owner?: PropertyOwnerRef,
+    options?: EVENT_OPTIONS
+  ) {
+    requests.updatePropertyById(propertyId, key, data, owner, options)
+  },
+  commitPropertyChanges(options?: EVENT_OPTIONS) {
+    requests.commitPropertyChanges(options)
+  },
+  propsLoadData(data: unknown) {
+    requests.propsLoadData(data)
+  },
+  propsSaveData() {
+    return requests.propsSaveData()
+  }
+})

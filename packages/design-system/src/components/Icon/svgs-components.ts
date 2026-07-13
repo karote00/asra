@@ -1,5 +1,7 @@
 import Group from './svgs/Group.svg?react'
-import Rectangle from './svgs/Rectangle.svg?react'
+import Rect from './svgs/Rect.svg?react'
+import Oval from './svgs/Oval.svg?react'
+import Pen from './svgs/Pen.svg?react'
 import Visible from './svgs/Visible.svg?react'
 import Invisible from './svgs/Invisible.svg?react'
 import Lock from './svgs/Lock.svg?react'
@@ -8,13 +10,15 @@ import Select from './svgs/Select.svg?react'
 
 const Icons = {
   Group,
-  Rectangle,
+  Rect,
+  Oval,
+  Pen,
   Visible,
   Invisible,
   Lock,
   Unlock,
   Select
-} satisfies Record<string, React.FC<React.SVGProps<SVGElement>>>
+} as const
 
 export type IconName = keyof typeof Icons
 

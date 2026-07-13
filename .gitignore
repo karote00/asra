@@ -33,3 +33,23 @@ dist
 
 # Test Repo or File
 count.bash
+chrome-dev-perf-trace.json
+
+# Local test/debug artifacts
+tmp/
+apps/*/test-results/
+apps/*/playwright-report/
+packages/*/tmp/
+docs/ai/apps/*/plans/*/artifacts/
+docs/ai/apps/*/plans/*/artifacts/transient/
+docs/ai/apps/*/plans/*/artifacts/tmp/
+docs/ai/apps/*/plans/*/artifacts/local/
+docs/ai/apps/*/plans/*/artifacts/debug/
+docs/ai/apps/*/plans/*/artifacts/canonical-stroke-matrix/
+
+# Context-RAG cache and data
+.context-rag/
+
+# Rust build artifacts (context-rag)
+target/
+Cargo.lock

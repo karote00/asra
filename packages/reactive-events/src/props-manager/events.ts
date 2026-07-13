@@ -1,4 +1,5 @@
 import type { PropertyComponentRawData } from '@asyra/utils'
+import type { EVENT_OPTIONS } from '@asyra/utils'
 import type { EventTypes } from '../types'
 
 export interface AddPropertyEvent {
@@ -6,6 +7,7 @@ export interface AddPropertyEvent {
   payload: {
     data: Partial<PropertyComponentRawData>[]
   }
+  options?: EVENT_OPTIONS
 }
 
 export interface RemovePropertyEvent {
@@ -13,6 +15,7 @@ export interface RemovePropertyEvent {
   payload: {
     data: Partial<PropertyComponentRawData>[]
   }
+  options?: EVENT_OPTIONS
 }
 
 export interface UpdatePropertyEvent {
@@ -20,6 +23,7 @@ export interface UpdatePropertyEvent {
   payload: {
     data: Partial<PropertyComponentRawData>
   }
+  options?: EVENT_OPTIONS
 }
 
 export type PropEvents =

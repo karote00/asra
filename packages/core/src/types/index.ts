@@ -1,100 +1,37 @@
-import { TransactionAPIs, TransactionActionAPIs } from './transaction'
-import {
-  ElementSelectionAPIs,
-  ElementSelectionActionAPIs
-} from './element-selection'
 import { InputSystemAPIs, InputSystemRawAPIs } from './input-system'
-import { RenderAPIs, RenderRawAPIs } from './render'
-import {
-  SceneTreeAPIs,
-  SceneTreeActionAPIs,
-  SceneTreeHandlerAPIs
-} from './scene-tree'
-import { UndoAPIs, UndoActionAPIs } from './undo'
-import { ViewportAPIs } from './viewport'
-import { PropsAPIs, PropsRawAPIs } from './props'
-import {
-  SystemContextAPIs,
-  PrimaryToolActionAPIs,
-  PrimaryToolAPIs,
-  MouseStateAPIs,
-  KeyStateAPIs
-} from './system-context'
-import {
-  InteractionCoreAPIs,
-  InteractionCoreSessionAPIs,
-  InteractionCoreActionAPIs
-} from './interaction-core'
-import {
-  Requests,
-  RequestsDeps,
-  SystemContextRequests,
-  SystemContextRequestsDeps,
-  PropsRequests,
-  PropsRequestDeps,
-  SceneTreeRequests,
-  SceneTreeRequestDeps,
-  FactoryRequests,
-  FactoryRequestDeps,
-  RenderRequests,
-  RenderRequestDeps,
-  SelectionRequests,
-  SelectionRequestDeps
-} from './requests'
+import { PropertyOwnerRef, PropsAPIs } from './props'
+import { RenderAPIs } from './render'
+import { SceneTreeAPIs } from './scene-tree'
+import { ElementSelectionActionAPIs } from './element-selection'
+import { FeatureSystemAPIs } from './feature-system'
+import { UIContextAPIs } from './ui-context'
+import { SystemManagedPropertyAPIs } from './system-properties'
 
 export { HandlerDeps } from './deps'
+export type {
+  LoadDiagnosticsHook,
+  LoadValidationDiagnostic,
+  LoadValidationScope
+} from './load-validation'
 
 export {
-  // APIs
-  TransactionAPIs,
-  TransactionActionAPIs,
+  PropertyOwnerRef,
   InputSystemRawAPIs,
   InputSystemAPIs,
-  UndoActionAPIs,
-  UndoAPIs,
-  ViewportAPIs,
-  RenderRawAPIs,
+  PropsAPIs,
   RenderAPIs,
   SceneTreeAPIs,
-  SceneTreeActionAPIs,
-  SceneTreeHandlerAPIs,
   ElementSelectionActionAPIs,
-  ElementSelectionAPIs,
-  PropsRawAPIs,
-  PropsAPIs,
-  PrimaryToolActionAPIs,
-  PrimaryToolAPIs,
-  MouseStateAPIs,
-  SystemContextAPIs,
-  InteractionCoreActionAPIs,
-  InteractionCoreSessionAPIs,
-  InteractionCoreAPIs,
-  KeyStateAPIs,
-
-  // Requests
-  Requests,
-  RequestsDeps,
-  SystemContextRequests,
-  SystemContextRequestsDeps,
-  PropsRequests,
-  PropsRequestDeps,
-  SceneTreeRequests,
-  SceneTreeRequestDeps,
-  FactoryRequests,
-  FactoryRequestDeps,
-  RenderRequests,
-  RenderRequestDeps,
-  SelectionRequests,
-  SelectionRequestDeps
+  FeatureSystemAPIs,
+  UIContextAPIs,
+  SystemManagedPropertyAPIs
 }
 
-export type CoreAPIs = TransactionAPIs &
-  InputSystemAPIs &
-  UndoAPIs &
-  ViewportAPIs &
+export type CoreAPIs = InputSystemAPIs &
+  PropsAPIs &
   RenderAPIs &
   SceneTreeAPIs &
-  ElementSelectionAPIs &
-  PropsAPIs &
-  SystemContextAPIs &
-  InteractionCoreAPIs
+  ElementSelectionActionAPIs &
+  FeatureSystemAPIs &
+  UIContextAPIs &
+  SystemManagedPropertyAPIs

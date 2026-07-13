@@ -1,5 +1,5 @@
 import { DimensionData, PositionData } from '../types'
-import { EntityTypes } from './enum'
+import { EntityType } from './enum'
 
 export interface BaseRawData {
   id: string
@@ -9,10 +9,12 @@ export interface BaseRawData {
 export interface PropsRawData {
   position: string
   dimension: string
+  [key: string]: string
 }
 
 export interface ElementRawData extends BaseRawData {
-  type: EntityTypes
+  type: EntityType
+  parentId?: string
   visible: boolean
   lock: boolean
   props?: PropsRawData
@@ -42,4 +44,5 @@ export interface SceneTreeRawData {
 
 export type CreateElementData = PositionData &
   Partial<DimensionData> &
-  Partial<ElementRawData>
+  Partial<ElementRawData> &
+  Record<string, unknown>

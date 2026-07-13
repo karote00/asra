@@ -1,5 +1,4 @@
-import { createStore } from './utils'
-import { uiContext } from '@asyra/ui-context'
+import { useProperty } from '../hooks'
 
 export const useElementSelection = (): Set<string> =>
-  createStore(uiContext.elementSelection)
+  useProperty<Set<string>>('elementSelection')

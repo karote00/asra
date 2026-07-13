@@ -1,7 +1,8 @@
-import { Input } from '@asyra/design-system'
+import { Input, PropertyControl } from '@asyra/design-system'
 import { useX, useY } from '../providers'
 import { useCallback } from 'react'
 import { changeElementComputedData } from '../controllers/scene-tree'
+import { formatInputNumber, parseFiniteInputNumber } from './number-input'
 
 const Position = () => {
   const x = useX()
@@ -9,36 +10,50 @@ const Position = () => {
 
   const handleChangeX = useCallback(
     (newValue: string) => {
-      changeElementComputedData('x', Number(newValue))
+      const nextValue = parseFiniteInputNumber(newValue)
+      if (nextValue === null) {
+        return false
+      }
+
+      changeElementComputedData('x', nextValue)
+      return true
     },
     [changeElementComputedData]
   )
 
   const handleChangeY = useCallback(
     (newValue: string) => {
-      changeElementComputedData('y', Number(newValue))
+      const nextValue = parseFiniteInputNumber(newValue)
+      if (nextValue === null) {
+        return false
+      }
+
+      changeElementComputedData('y', nextValue)
+      return true
     },
     [changeElementComputedData]
   )
 
   return (
-    <div className="flex items-center gap-2 text-gray-200 w-full px-3 py-1">
-      <div className="w-1/2">
+    <div className="grid grid-cols-2 items-center gap-2 pl-4 pr-2 h-8 min-h-8">
+      <PropertyControl>
         <Input
-          value={x}
+          value={formatInputNumber(x)}
           prefix="X"
           onChange={handleChangeX}
+          noOutline
           data-testid="prop-x"
         />
-      </div>
-      <div className="w-1/2">
+      </PropertyControl>
+      <PropertyControl>
         <Input
-          value={y}
+          value={formatInputNumber(y)}
           prefix="Y"
           onChange={handleChangeY}
+          noOutline
           data-testid="prop-y"
         />
-      </div>
+      </PropertyControl>
     </div>
   )
 }

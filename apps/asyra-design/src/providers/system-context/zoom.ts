@@ -1,4 +1,3 @@
-import { uiContext } from '@asyra/ui-context'
-import { createStore } from '../utils'
+import { useProperty } from '../../hooks'
 
-export const useZoom = (): number => createStore(uiContext.zoom)
+export const useZoom = (): number => useProperty<number>('zoom')

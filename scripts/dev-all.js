@@ -1,24 +1,11 @@
 import { exec } from 'child_process'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import fs from 'fs/promises'
+import { createWorkspaceDevAllPlan } from './dev-all-plan.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-
-async function getPackages() {
-  const packagesDir = path.resolve(__dirname, '../packages')
-  const dirs = await fs.readdir(packagesDir, { withFileTypes: true })
-  const packageDirs = dirs
-    .filter((dirent) => dirent.isDirectory())
-    .map((dirent) => dirent.name)
-
-  // Map to {dir, cmd} array
-  return packageDirs.map((pkgName) => ({
-    dir: path.join('packages', pkgName),
-    cmd: 'yarn dev'
-  }))
-}
+const repoRoot = path.resolve(__dirname, '..')
 
 /**
  * Run a shell command in a given working directory
@@ -56,19 +43,15 @@ function runCommand(cmd, cwd) {
  */
 async function runAll() {
   try {
-    // get all packages
-    const pkgs = await getPackages()
+    const plan = await createWorkspaceDevAllPlan(repoRoot)
 
-    // add asyra-design app
-    pkgs.push({
-      dir: 'apps/asyra-design',
-      cmd: 'yarn react:start'
-    })
+    for (const { dir, cmd } of plan.initialBuilds) {
+      await runCommand(cmd, path.resolve(repoRoot, dir))
+    }
 
-    // run all in parallel
     await Promise.all(
-      pkgs.map(({ dir, cmd }) => {
-        return runCommand(cmd, path.resolve(__dirname, '../' + dir))
+      [...plan.devProcesses, plan.app].map(({ dir, cmd }) => {
+        return runCommand(cmd, path.resolve(repoRoot, dir))
       })
     )
   } catch (err) {

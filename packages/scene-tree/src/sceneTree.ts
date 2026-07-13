@@ -1,21 +1,75 @@
 import type {
   ComputedAttrs,
+  ComputedDataPatch,
+  ComputedDataPatchChange,
   SceneTreeRawData,
-  WorkspaceRawData,
   ElementRawData,
+  GroupRawData,
   ElementInstanceTypes,
   GroupInstanceTypes,
   SceneTreeChange,
+  UpdateElementBatchChange,
+  UpdateElementChange,
+  UpdateElementPatchChange,
   EVENT_OPTIONS,
+  EvnetOptions,
   CreateElementData
 } from '@asyra/utils'
-import { EntityTypes, OWNER, SCENE_TREE_ACTIONS } from '@asyra/utils'
+import {
+  DataTypes,
+  EntityTypes,
+  SCENE_TREE_ACTIONS,
+  SharedDataChannelNames,
+  isRecord
+} from '@asyra/utils'
 import { EventTypes, updateTransaction } from '@asyra/reactive-events'
 import propsManager from '@asyra/props-manager'
-import { createElement, createWorkspace, stripNonRawFields } from './utils'
+import { isEqual } from 'lodash'
+import componentRegistry from './component-registry'
+import {
+  createElement,
+  createWorkspace,
+  isGroupEntity,
+  stripNonRawFields
+} from './utils'
 import type Workspace from './components/workspace'
 
 type SceneTreeDataType = SceneTreeRawData
+
+const hasPatchChanges = (patch: ComputedDataPatchChange): boolean => {
+  if (Object.keys(patch.values ?? {}).length > 0) {
+    return true
+  }
+
+  return Object.values(patch.records ?? {}).some(
+    (recordPatch) =>
+      Object.keys(recordPatch.set ?? {}).length > 0 ||
+      Object.keys(recordPatch.remove ?? {}).length > 0
+  )
+}
+
+const cloneRecord = (value: unknown): Record<string, DataTypes> =>
+  isRecord(value) ? ({ ...value } as Record<string, DataTypes>) : {}
+
+const getComputedSnapshot = (
+  element: ElementInstanceTypes
+): Record<string, DataTypes> => {
+  const snapshot = element.getAllComputedData()
+  return isRecord(snapshot) ? (snapshot as Record<string, DataTypes>) : {}
+}
+
+export interface SceneTreeLoadDiagnostic {
+  path: string
+  message: string
+}
+
+const toStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.filter((entry): entry is string => typeof entry === 'string')
+}
 
 class SceneTree {
   _elements: Map<string, ElementInstanceTypes> = new Map()
@@ -26,7 +80,7 @@ class SceneTree {
 
   _init(): void {
     if (!this.workspace && !this.workspaceList.length) {
-      const initWorkspace = createWorkspace() as ElementInstanceTypes
+      const initWorkspace = createWorkspace(this) as ElementInstanceTypes
       if (initWorkspace) {
         this.addToMap(initWorkspace)
         this.workspaceList = [initWorkspace.get('id')]
@@ -39,30 +93,219 @@ class SceneTree {
     this._init()
   }
 
-  load(data: SceneTreeDataType) {
-    if (!data) return
+  validateLoadData(data: unknown): {
+    data: SceneTreeDataType
+    diagnostics: SceneTreeLoadDiagnostic[]
+  } {
+    const diagnostics: SceneTreeLoadDiagnostic[] = []
+    const fallback: SceneTreeDataType = {
+      workspace: '',
+      workspaceList: [],
+      elements: {}
+    }
 
-    if (data.elements) {
-      for (const elementId in data.elements) {
-        const elementData = data.elements[elementId]
+    if (!isRecord(data)) {
+      diagnostics.push({
+        path: 'sceneTree',
+        message: 'Expected object payload for scene tree load'
+      })
+      return { data: fallback, diagnostics }
+    }
+
+    const workspace = typeof data.workspace === 'string' ? data.workspace : ''
+    if (data.workspace !== undefined && typeof data.workspace !== 'string') {
+      diagnostics.push({
+        path: 'sceneTree.workspace',
+        message: 'Invalid workspace id type, fallback to empty workspace id'
+      })
+    }
+
+    const workspaceList = toStringArray(data.workspaceList)
+    if (
+      data.workspaceList !== undefined &&
+      !Array.isArray(data.workspaceList)
+    ) {
+      diagnostics.push({
+        path: 'sceneTree.workspaceList',
+        message: 'Invalid workspace list type, fallback to empty workspace list'
+      })
+    }
+
+    const elements: Record<string, ElementRawData | GroupRawData> = {}
+    if (data.elements === undefined) {
+      diagnostics.push({
+        path: 'sceneTree.elements',
+        message: 'Missing elements map, fallback to empty map'
+      })
+    } else if (!isRecord(data.elements)) {
+      diagnostics.push({
+        path: 'sceneTree.elements',
+        message: 'Invalid elements map type, fallback to empty map'
+      })
+    } else {
+      Object.entries(data.elements).forEach(([entryId, rawElement]) => {
+        if (!isRecord(rawElement)) {
+          diagnostics.push({
+            path: `sceneTree.elements.${entryId}`,
+            message: 'Skipped non-object element during load'
+          })
+          return
+        }
+
+        const rawType = rawElement.type
+        if (typeof rawType !== 'string' || rawType.length === 0) {
+          diagnostics.push({
+            path: `sceneTree.elements.${entryId}.type`,
+            message: 'Skipped element with invalid type during load'
+          })
+          return
+        }
+
+        if (
+          rawType !== EntityTypes.WORKSPACE &&
+          !componentRegistry.has(rawType)
+        ) {
+          diagnostics.push({
+            path: `sceneTree.elements.${entryId}.type`,
+            message: `Skipped unregistered element type "${rawType}" during load`
+          })
+          return
+        }
+
+        const normalizedId =
+          typeof rawElement.id === 'string' && rawElement.id.length > 0
+            ? rawElement.id
+            : entryId
+        const normalizedName =
+          typeof rawElement.name === 'string' && rawElement.name.length > 0
+            ? rawElement.name
+            : normalizedId
+        const visible =
+          typeof rawElement.visible === 'boolean' ? rawElement.visible : true
+        const lock =
+          typeof rawElement.lock === 'boolean' ? rawElement.lock : false
+        const parentId =
+          typeof rawElement.parentId === 'string' ? rawElement.parentId : ''
+
+        const normalized: Record<string, unknown> = {
+          ...rawElement,
+          id: normalizedId,
+          type: rawType,
+          name: normalizedName,
+          parentId,
+          visible,
+          lock
+        }
+
+        if (
+          rawElement.parentId !== undefined &&
+          typeof rawElement.parentId !== 'string'
+        ) {
+          diagnostics.push({
+            path: `sceneTree.elements.${entryId}.parentId`,
+            message: 'Invalid parent id type, fallback to empty parent id'
+          })
+        }
+
+        if (isGroupEntity(rawType)) {
+          normalized.children = toStringArray(rawElement.children)
+        }
+
+        if (rawElement.props !== undefined) {
+          if (!isRecord(rawElement.props)) {
+            diagnostics.push({
+              path: `sceneTree.elements.${entryId}.props`,
+              message: 'Invalid props map type, fallback to empty props map'
+            })
+            normalized.props = {}
+          } else {
+            const propsMap: Record<string, string> = {}
+            Object.entries(rawElement.props).forEach(([key, value]) => {
+              if (typeof value === 'string') {
+                propsMap[key] = value
+              } else {
+                diagnostics.push({
+                  path: `sceneTree.elements.${entryId}.props.${key}`,
+                  message: 'Skipped non-string prop reference during load'
+                })
+              }
+            })
+            normalized.props = propsMap
+          }
+        }
+
+        elements[normalizedId] = normalized as unknown as
+          | ElementRawData
+          | GroupRawData
+      })
+    }
+
+    return {
+      data: {
+        workspace,
+        workspaceList,
+        elements
+      },
+      diagnostics
+    }
+  }
+
+  load(data: SceneTreeDataType | unknown) {
+    const validated = this.validateLoadData(data).data
+    this.dispose()
+
+    for (const elementId in validated.elements) {
+      const elementData = validated.elements[elementId]
+      try {
         let element
         if (elementData.type === EntityTypes.WORKSPACE) {
-          element = createWorkspace(elementData as WorkspaceRawData)
+          element = createWorkspace(this, elementData)
         } else {
           element = createElement(elementData)
         }
 
-        this.addToMap(element as ElementInstanceTypes)
+        if (element) {
+          this.addToMap(element as ElementInstanceTypes)
+        }
+      } catch {
+        // Validation should prevent this path. Keep safe fallback behavior if it happens.
       }
     }
 
-    if (data.workspace) {
-      this.workspace = data.workspace
+    const workspaceIds = Array.from(this._elements.entries())
+      .filter(([, element]) => element.get('type') === EntityTypes.WORKSPACE)
+      .map(([id]) => id)
+
+    const validWorkspaceList = validated.workspaceList.filter((workspaceId) =>
+      workspaceIds.includes(workspaceId)
+    )
+
+    const preferredWorkspace =
+      workspaceIds.includes(validated.workspace) &&
+      validated.workspace.length > 0
+        ? validated.workspace
+        : ''
+
+    if (
+      preferredWorkspace &&
+      !validWorkspaceList.includes(preferredWorkspace)
+    ) {
+      validWorkspaceList.unshift(preferredWorkspace)
     }
 
-    if (data.workspaceList) {
-      this.workspaceList = data.workspaceList
+    if (validWorkspaceList.length > 0) {
+      this.workspaceList = validWorkspaceList
+      this.workspace = validWorkspaceList[0]
+      return
     }
+
+    if (workspaceIds.length > 0) {
+      this.workspaceList = workspaceIds
+      this.workspace = workspaceIds[0]
+      return
+    }
+
+    this._init()
   }
 
   save() {
@@ -136,7 +379,6 @@ class SceneTree {
       eventName: EventTypes.ADD_ELEMENT,
       data: element.save(),
       action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-      owner: OWNER.SCENE_TREE,
       undoType: EventTypes.REMOVE_ELEMENT,
       undoAction: EventTypes.REMOVE_ELEMENT
     })
@@ -146,8 +388,8 @@ class SceneTree {
     this.addChange({
       eventName: EventTypes.REMOVE_ELEMENT,
       data: element.save(),
+      parentId: element.get('parentId') as string,
       action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
-      owner: OWNER.SCENE_TREE,
       undoType: EventTypes.ADD_ELEMENT,
       undoAction: EventTypes.ADD_ELEMENT
     })
@@ -173,7 +415,8 @@ class SceneTree {
     elementData: CreateElementData,
     parent?: GroupInstanceTypes,
     index = -1,
-    inUndoRedo = false
+    inUndoRedo = false,
+    options?: EVENT_OPTIONS
   ): string {
     const workspace = this.currentWorkspace as Workspace
     if (!workspace) {
@@ -190,18 +433,18 @@ class SceneTree {
     }
 
     if (newElement) {
-      // Override props after finish creating new instance
       Object.keys(propOverrides).forEach((propKey) => {
         newElement.updateComputedData(
           propKey as keyof ComputedAttrs,
           propOverrides[propKey]
         )
       })
-      propsManager.commitChanges()
-
       workspace.addNewElement(newElement, parent, index)
 
-      this.commitSceneTreeTransaction()
+      this.addToMap(newElement)
+
+      this.commitSceneTreeTransaction(options)
+      propsManager.commitChanges(options)
 
       return newElement.get('id')
     }
@@ -211,42 +454,255 @@ class SceneTree {
 
   removeElement(
     data: Partial<ElementRawData>,
-    index: number,
-    parent?: GroupInstanceTypes
-  ) {
+    parent?: GroupInstanceTypes,
+    options?: EVENT_OPTIONS
+  ): boolean {
     const workspace = this.currentWorkspace as Workspace
     if (!workspace) {
-      return
+      return false
     }
 
     const elementId = data.id as string
     const element = this.getElementById(elementId)
     if (!element) {
-      return
+      return false
+    }
+
+    const resolvedParentId =
+      parent?.get('id') ??
+      (data.parentId as string | undefined) ??
+      (element.get('parentId') as string)
+    const resolvedParent = resolvedParentId
+      ? (this.getElementById(resolvedParentId) as GroupInstanceTypes)
+      : undefined
+    const container = resolvedParent ?? workspace
+
+    if (!isGroupEntity(container.get('type'))) {
+      return false
+    }
+
+    const children = (container.get('children') as string[]) ?? []
+    if (!children.includes(elementId)) {
+      return false
     }
 
     this.addChangeForRemoveElement(element)
-    workspace.removeElement(element, index, parent)
+    workspace.removeElement(element, resolvedParent, options)
+    this.commitSceneTreeTransaction(options)
+    return true
   }
 
   updateComputedData<K extends keyof ComputedAttrs>(
     elementId: string,
     key: K,
-    data: ComputedAttrs[K]
+    data: ComputedAttrs[K],
+    options?: EvnetOptions
   ) {
     const element = this.getElementById(elementId)
     if (!element) {
+      return
+    }
+
+    if (options) {
+      element.updateComputedData(key, data, options)
       return
     }
 
     element.updateComputedData(key, data)
   }
 
-  commitSceneTreeTransaction(options?: EVENT_OPTIONS) {
-    this.changes.forEach((change) => {
-      updateTransaction(change.eventName, change, options)
+  patchComputedData(
+    elementId: string,
+    patch: ComputedDataPatch,
+    options?: EvnetOptions
+  ) {
+    const element = this.getElementById(elementId)
+    if (!element) {
+      return
+    }
+
+    const patchChange: ComputedDataPatchChange = {}
+    const previousChangeCount = this.changes.length
+    const computedSnapshot = getComputedSnapshot(element)
+
+    Object.entries(patch.values ?? {}).forEach(([key, after]) => {
+      const computedKey = key as keyof ComputedAttrs
+      const before = computedSnapshot[key]
+      if (isEqual(before, after)) {
+        return
+      }
+
+      element.updateComputedData(
+        computedKey,
+        after as ComputedAttrs[keyof ComputedAttrs],
+        options
+      )
+      patchChange.values ??= {}
+      patchChange.values[key] = { before, after }
     })
+
+    Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
+      const computedKey = key as keyof ComputedAttrs
+      const currentRecord = cloneRecord(computedSnapshot[key])
+      let nextRecord = { ...currentRecord }
+      const nextRecordPatch: NonNullable<
+        ComputedDataPatchChange['records']
+      >[string] = {}
+
+      Object.entries(recordPatch.set ?? {}).forEach(([recordId, after]) => {
+        const before = currentRecord[recordId]
+        if (isEqual(before, after)) {
+          return
+        }
+
+        nextRecord[recordId] = after
+        nextRecordPatch.set ??= {}
+        nextRecordPatch.set[recordId] =
+          before === undefined ? { after } : { before, after }
+      })
+      ;(recordPatch.remove ?? []).forEach((recordId) => {
+        if (!(recordId in currentRecord)) {
+          return
+        }
+
+        nextRecordPatch.remove ??= {}
+        nextRecordPatch.remove[recordId] = {
+          before: currentRecord[recordId]
+        }
+        const { [recordId]: _removed, ...withoutRecord } = nextRecord
+        nextRecord = withoutRecord
+      })
+
+      if (
+        Object.keys(nextRecordPatch.set ?? {}).length === 0 &&
+        Object.keys(nextRecordPatch.remove ?? {}).length === 0
+      ) {
+        return
+      }
+
+      element.updateComputedData(
+        computedKey,
+        nextRecord as unknown as ComputedAttrs[keyof ComputedAttrs],
+        options
+      )
+      patchChange.records ??= {}
+      patchChange.records[key] = nextRecordPatch
+    })
+
+    if (!hasPatchChanges(patchChange)) {
+      return
+    }
+
+    this.changes.splice(previousChangeCount)
+    this.addChange({
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+      id: elementId,
+      patch: patchChange
+    } as UpdateElementPatchChange)
+  }
+
+  refreshComputedDataFromProperty(
+    elementId: string,
+    propertyName: string,
+    options?: EvnetOptions
+  ) {
+    const element = this.getElementById(elementId)
+    if (!element || element.get('type') === EntityTypes.WORKSPACE) {
+      return
+    }
+
+    const propId = element.props.getPropId(propertyName)
+    if (!propId) {
+      return
+    }
+
+    const propComponent = propsManager.getPropertyById(propId)
+    if (!propComponent) {
+      return
+    }
+
+    const nextValues = propComponent.getValue() as Partial<ComputedAttrs>
+    Object.entries(nextValues).forEach(([key, value]) => {
+      const computedKey = key as keyof ComputedAttrs
+      const currentValue = element.computed.get(computedKey)
+      if (isEqual(currentValue, value)) {
+        return
+      }
+
+      if (options) {
+        element.computed.set(
+          computedKey,
+          value as ComputedAttrs[keyof ComputedAttrs],
+          options
+        )
+        return
+      }
+
+      element.computed.set(
+        computedKey,
+        value as ComputedAttrs[keyof ComputedAttrs]
+      )
+    })
+  }
+
+  commitSceneTreeTransaction(options?: EVENT_OPTIONS) {
+    const transientComputedUpdates = new Map<
+      string,
+      UpdateElementBatchChange['changes']
+    >()
+
+    this.changes.forEach((change) => {
+      const changeOptions = change.options ?? options
+      const routedOptions: EVENT_OPTIONS = {
+        ...(changeOptions ?? {}),
+        shared: changeOptions?.shared ?? SharedDataChannelNames.SCENE_TREE
+      }
+
+      if (
+        routedOptions.undoable === false &&
+        change.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA
+      ) {
+        const computedChange = change as UpdateElementChange
+        const changes = transientComputedUpdates.get(computedChange.id) ?? []
+        changes.push({
+          key: computedChange.key,
+          before: computedChange.before,
+          after: computedChange.after
+        })
+        transientComputedUpdates.set(computedChange.id, changes)
+        return
+      }
+
+      updateTransaction(change.eventName, change, routedOptions)
+    })
+
+    transientComputedUpdates.forEach((changes, id) => {
+      const batchChange: UpdateElementBatchChange = {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        id,
+        changes
+      }
+      updateTransaction(batchChange.eventName, batchChange, {
+        undoable: false,
+        shared: SharedDataChannelNames.SCENE_TREE
+      })
+    })
+
     this.cleanChanges()
+  }
+
+  dispose() {
+    this._elements.clear()
+    this._deletedMap.clear()
+    this.changes = []
+    this.workspace = ''
+    this.workspaceList = []
+  }
+
+  reset() {
+    this.dispose()
   }
 }
 

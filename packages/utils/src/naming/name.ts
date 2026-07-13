@@ -1,9 +1,8 @@
-import { NameTypes } from './enum'
 import { nameCounter } from './nameCounter'
 
-export const name = (type: NameTypes): string => nameCounter.increase(type)
+export const name = (type: string): string => nameCounter.increase(type)
 
-export const loadName = (name: string, type: NameTypes) => {
+export const loadName = (name: string, type: string) => {
   if (!isValidName(name, type)) {
     return
   }
@@ -11,5 +10,5 @@ export const loadName = (name: string, type: NameTypes) => {
   nameCounter.load(name, type)
 }
 
-export const isValidName = (name: string, type: NameTypes): boolean =>
+export const isValidName = (name: string, type: string): boolean =>
   nameCounter.valid(name, type)

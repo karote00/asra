@@ -160,7 +160,7 @@ yarn-error.log*
     process.exit(1)
   }
 
-  console.log('\n🎉 Asra Design project is ready!\n')
+  console.log('\n🎉 Asyra Design project is ready!\n')
   console.log('Next steps:')
   console.log(`  cd ${targetName}`)
   console.log('  yarn dev')

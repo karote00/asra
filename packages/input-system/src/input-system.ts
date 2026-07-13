@@ -10,18 +10,40 @@ import {
   KeyboardKey,
   arrEqual,
   PointerEventData,
-  DefaultPointerEventData,
-  InputSystemEvents
+  DefaultPointerEventData
 } from '@asyra/utils'
 import { InputFieldsList } from '@asyra/utils'
+import { PointerKey } from '@asyra/utils'
 import { CLICK_THRESHOLD, CLEAR_KEY_TIME } from './constants'
-import { InputEventCombo, InputEventMappings } from './event-mappings'
+import { InputEventCombo } from './event-mappings'
+import { InputSystemRegistry } from './registry'
 import keymap, { KeyMap } from './keymap'
 
 type Callback = (raw: RawInputEvent) => void | Promise<void>
 type Combinations = Record<string, string[]>
 
 const WHEEL_EVENT_OPTIONS: AddEventListenerOptions = { passive: false }
+
+const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraBrowserDragPhaseSink
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return run()
+  } finally {
+    sink(phaseName, performance.now() - start)
+  }
+}
 
 const getMouseButton = (button: number): MouseButton => {
   switch (button) {
@@ -36,6 +58,22 @@ const getMouseButton = (button: number): MouseButton => {
   }
 }
 
+const getMouseButtonFromButtonsMask = (buttons: number): MouseButton => {
+  if ((buttons & 1) === 1) {
+    return MouseButton.LEFT
+  }
+
+  if ((buttons & 4) === 4) {
+    return MouseButton.MIDDLE
+  }
+
+  if ((buttons & 2) === 2) {
+    return MouseButton.RIGHT
+  }
+
+  return MouseButton.NONE
+}
+
 class InputSystem {
   private _previousWatchedElement: Window | HTMLElement
   private combinations: Combinations = {}
@@ -44,6 +82,9 @@ class InputSystem {
   private listeners: Map<string, Callback[]>
   private timers: Map<string, NodeJS.Timeout>
   private _startPos: MouseData | null
+  private pointerInputBlocked: boolean
+  private pointerCaptureId: string | null
+  public registry: InputSystemRegistry
 
   constructor() {
     this._previousWatchedElement = window
@@ -52,6 +93,9 @@ class InputSystem {
     this.listeners = new Map()
     this.timers = new Map()
     this._startPos = null
+    this.pointerInputBlocked = false
+    this.pointerCaptureId = null
+    this.registry = new InputSystemRegistry()
 
     this.setupListeners()
   }
@@ -62,6 +106,7 @@ class InputSystem {
     window.addEventListener('mousedown', this.handleMouseDown)
     window.addEventListener('mouseup', this.handleMouseUp)
     window.addEventListener('mousemove', this.handleMouseMove)
+    window.addEventListener('dblclick', this.handleDoubleClick)
     window.addEventListener('wheel', this.handleWheel, WHEEL_EVENT_OPTIONS)
     window.addEventListener('contextmenu', (e: MouseEvent) =>
       e.preventDefault()
@@ -94,6 +139,10 @@ class InputSystem {
       this.handleMouseMove as EventListener
     )
     this._previousWatchedElement.removeEventListener(
+      'dblclick',
+      this.handleDoubleClick as EventListener
+    )
+    this._previousWatchedElement.removeEventListener(
       'wheel',
       this.handleWheel as EventListener,
       WHEEL_EVENT_OPTIONS
@@ -102,6 +151,7 @@ class InputSystem {
     watchedElement.addEventListener('mousedown', this.handleMouseDown)
     watchedElement.addEventListener('mouseup', this.handleMouseUp)
     watchedElement.addEventListener('mousemove', this.handleMouseMove)
+    watchedElement.addEventListener('dblclick', this.handleDoubleClick)
     watchedElement.addEventListener('wheel', this.handleWheel, {
       passive: false
     })
@@ -180,6 +230,10 @@ class InputSystem {
   }
 
   private handleMouseDown = (event: MouseEvent) => {
+    if (this.pointerInputBlocked) {
+      return
+    }
+
     const button = getMouseButton(event.button)
     const key = this.getMouseEventKey(button, 'Down')
 
@@ -199,6 +253,10 @@ class InputSystem {
   }
 
   private handleMouseUp = (event: MouseEvent) => {
+    if (this.pointerInputBlocked) {
+      return
+    }
+
     const button = getMouseButton(event.button)
     const key = this.getMouseEventKey(button, 'Up')
 
@@ -219,7 +277,15 @@ class InputSystem {
   }
 
   private handleMouseMove = (event: MouseEvent) => {
-    const button = getMouseButton(event.button)
+    if (this.pointerInputBlocked) {
+      return
+    }
+
+    const buttonFromMask = getMouseButtonFromButtonsMask(event.buttons)
+    const button =
+      buttonFromMask !== MouseButton.NONE
+        ? buttonFromMask
+        : getMouseButton(event.button)
     const key = this.getMouseEventKey(button, 'Move')
 
     if (key) {
@@ -237,17 +303,37 @@ class InputSystem {
       if (canMove) {
         this.activeKeys.add(key)
 
-        this.checkCombinations(InputType.POINTER, {
-          ...DefaultPointerEventData,
-          clientX: event.clientX,
-          clientY: event.clientY,
-          button
-        })
+        measureBrowserDragPhase('input:pointer-move', () =>
+          this.checkCombinations(InputType.POINTER, {
+            ...DefaultPointerEventData,
+            clientX: event.clientX,
+            clientY: event.clientY,
+            button
+          })
+        )
 
         // No need to keep mouse up key after trigger action
         this.activeKeys.delete(key)
       }
     }
+  }
+
+  private handleDoubleClick = (event: MouseEvent) => {
+    if (this.pointerInputBlocked) {
+      return
+    }
+
+    const button = getMouseButton(event.button)
+    this.activeKeys.add(PointerKey.MOUSE_DOUBLE_CLICK)
+
+    this.checkCombinations(InputType.POINTER, {
+      ...DefaultPointerEventData,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      button
+    })
+
+    this.activeKeys.delete(PointerKey.MOUSE_DOUBLE_CLICK)
   }
 
   private getMouseEventKey(
@@ -268,7 +354,10 @@ class InputSystem {
     )
     const activeModifiers = this.getActiveModifiers(this.activeKeys)
     const allModifiers = this.getAllModifiers(activeModifiers)
-    for (const [eventName, combos] of Object.entries(InputEventMappings)) {
+    for (const eventName of this.registry.getEventNames()) {
+      const combos = this.registry.getCombinations(eventName)
+      if (!combos) continue
+
       for (const combo of combos) {
         if (this.isExactMatch(type, currentKeys, combo, activeModifiers)) {
           const raw: RawInputEvent = {
@@ -280,7 +369,13 @@ class InputSystem {
           if (combo.detail) {
             raw.detail = combo.detail
           }
-          this.triggerAction(eventName as InputSystemEvents, raw)
+
+          // Call callback before triggering action (if defined)
+          if (combo.callback) {
+            combo.callback(raw)
+          }
+
+          this.triggerAction(eventName, raw)
         }
       }
     }
@@ -303,11 +398,13 @@ class InputSystem {
       : true
   }
 
-  private triggerAction(event: InputSystemEvents, raw: RawInputEvent) {
+  private triggerAction(event: string, raw: RawInputEvent) {
     const callbacks = this.listeners.get(event)
     if (callbacks) {
       callbacks.forEach((cb) => {
-        const result = cb(raw)
+        const result = measureBrowserDragPhase(`input:trigger:${event}`, () =>
+          cb(raw)
+        )
         // If callback returns a promise, catch any errors
         if (result instanceof Promise) {
           result.catch((error) => {
@@ -355,6 +452,46 @@ class InputSystem {
     return modifiers
   }
 
+  setPointerCaptureBlock(active: boolean, captureId?: string | null) {
+    if (active) {
+      this.pointerInputBlocked = true
+      this.pointerCaptureId = captureId ?? null
+      this.clearPointerState()
+      return
+    }
+
+    if (
+      this.pointerCaptureId &&
+      captureId &&
+      this.pointerCaptureId !== captureId
+    ) {
+      return
+    }
+
+    this.pointerInputBlocked = false
+    this.pointerCaptureId = null
+    this.clearPointerState()
+  }
+
+  private clearPointerState() {
+    this._startPos = null
+
+    for (const key of Array.from(this.activeKeys)) {
+      if (this.isPointerKey(key)) {
+        this.activeKeys.delete(key)
+        this.clearTimer(key)
+      }
+    }
+  }
+
+  private isPointerKey(key: string) {
+    if (key === PointerKey.WHEEL) {
+      return true
+    }
+
+    return key.toLowerCase().includes('mouse')
+  }
+
   getAllModifiers(modifiers: ModifierKey[]): ModifierKeys {
     const allModifiers: ModifierKeys = {
       meta: false,
@@ -368,6 +505,18 @@ class InputSystem {
     })
 
     return allModifiers
+  }
+
+  dispose() {
+    this.listeners.clear()
+    this.timers.forEach((timer) => clearTimeout(timer))
+    this.timers.clear()
+    this.activeKeys.clear()
+    this.combinations = {}
+  }
+
+  reset() {
+    this.dispose()
   }
 }
 

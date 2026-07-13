@@ -1,4 +1,9 @@
-import { PropertyTypes } from '@asyra/utils'
+import {
+  IProps,
+  PropertyType,
+  PropertyTypes,
+  type EvnetOptions
+} from '@asyra/utils'
 import type {
   PropertyComponentInstanceDataTypes,
   PropsRawData
@@ -8,24 +13,23 @@ import propsManager from '@asyra/props-manager'
 
 type PropsDataType = Partial<PropsRawData>
 
-const PROP_NAMES: PropertyTypes[] = [
+const PROP_NAMES: PropertyType[] = [
   PropertyTypes.POSITION,
   PropertyTypes.DIMENSION
 ]
 
 type AliasKeys = 'x' | 'y' | 'width' | 'height'
 
-const PROP_ALIAS: Record<AliasKeys, PropertyTypes> = {
+const PROP_ALIAS: Record<AliasKeys, PropertyType> = {
   x: PropertyTypes.POSITION,
   y: PropertyTypes.POSITION,
   width: PropertyTypes.DIMENSION,
   height: PropertyTypes.DIMENSION
 }
 
-class Props {
+class Props implements IProps {
   elementId: string
-  position?: PropsRawData[PropertyTypes.POSITION]
-  dimension?: PropsRawData[PropertyTypes.DIMENSION]
+  private propertyIds: Map<string, string> = new Map()
 
   constructor(elementId: string, data?: PropsDataType) {
     this.elementId = elementId
@@ -37,53 +41,88 @@ class Props {
     }
   }
 
+  get position() {
+    return this.propertyIds.get(PropertyTypes.POSITION)
+  }
+  get dimension() {
+    return this.propertyIds.get(PropertyTypes.DIMENSION)
+  }
+
+  getPropId(name: string): string | undefined {
+    return this.propertyIds.get(name)
+  }
+
   init() {
     const propertyComponents = PROP_NAMES.map((propName) =>
       propsManager.createProperty({ type: propName })
     )
     const propIdsMap = propsManager.addProperty(propertyComponents)
-    propsManager.commitChanges()
     if (!propIdsMap) {
       return
     }
 
     PROP_NAMES.forEach((propName) => {
-      this[propName] = propIdsMap[propName]
+      const id = propIdsMap[propName]
+      if (id) {
+        this.propertyIds.set(propName, id)
+      }
     })
   }
 
   load(data: PropsDataType = {}): void {
+    const dataObj = data as Record<string, string | undefined>
+    const propertyComponents = PROP_NAMES.map((propName) => {
+      const propId = dataObj[propName]
+      const propComponent = propId ? propsManager.getPropertyById(propId) : null
+      if (propComponent) {
+        // Restore existing prop component
+        return propComponent
+      } else {
+        // Create new prop component
+        return propsManager.createProperty({ type: propName })
+      }
+    })
+    const propIdsMap = propsManager.addProperty(propertyComponents)
+    if (!propIdsMap) {
+      return
+    }
+
     PROP_NAMES.forEach((propName) => {
-      this[propName] = data[propName]
+      const id = propIdsMap[propName]
+      if (id) {
+        this.propertyIds.set(propName, id)
+      }
     })
   }
 
   save(): PropsRawData {
-    return PROP_NAMES.reduce((acc, propName) => {
-      const key = propName as keyof PropsRawData
-      acc[key] = this[key] as string
-      return acc
-    }, {} as PropsRawData)
+    const data = {} as PropsRawData
+    this.propertyIds.forEach((id, propName) => {
+      ;(data as PropsRawData)[propName] = id
+    })
+    return data
   }
 
   updateData<K extends keyof PropertyComponentInstanceDataTypes>(
     key: K,
-    data: PropertyComponentInstanceDataTypes[K]
+    data: PropertyComponentInstanceDataTypes[K],
+    options?: EvnetOptions
   ) {
-    const propName = (PROP_ALIAS[key] || key) as PropertyTypes
-    const propComponentId = this[propName]
+    const propName = (PROP_ALIAS[key as AliasKeys] || key) as PropertyType
+    const propComponentId = this.propertyIds.get(propName)
     if (!propComponentId) {
       return
     }
 
-    propsManager.updatePropsData(propComponentId, key, data)
+    propsManager.updatePropsData(propComponentId, key, data, options)
   }
 
-  cleanup() {
-    const removedPropertyIds = PROP_NAMES.map((propName) => ({
-      id: this[propName]
-    }))
-    removeProperty(removedPropertyIds)
+  cleanup(options?: EvnetOptions) {
+    const removedPropertyIds: { id: string }[] = []
+    this.propertyIds.forEach((id) => {
+      removedPropertyIds.push({ id })
+    })
+    removeProperty(removedPropertyIds, options)
   }
 }
 

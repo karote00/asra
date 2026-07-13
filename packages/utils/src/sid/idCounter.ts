@@ -2,8 +2,6 @@ import { IDTypes } from './enum'
 import { DEFAULT_TYPE, FIRST_ID, CODE_SPLIT } from './constants'
 import { isNumber } from '../helpers'
 
-const AvaliableIDTypes = new Set<IDTypes | string>(Object.values(IDTypes))
-
 class IDCounter {
   counter: Record<string, string> = {}
 
@@ -18,7 +16,7 @@ class IDCounter {
     })
   }
 
-  current(type: IDTypes | string = IDTypes.DEFAULT): string {
+  current(type: string = IDTypes.DEFAULT): string {
     if (!type) {
       return ''
     }
@@ -26,7 +24,13 @@ class IDCounter {
     return this.counter[type]
   }
 
-  load(id: string, type: IDTypes) {
+  load(id: string, type: string) {
+    // Initialize if not exists
+    if (!this.counter[type]) {
+      this.counter[type] =
+        type === DEFAULT_TYPE ? FIRST_ID : `${type}${CODE_SPLIT}${FIRST_ID}`
+    }
+
     const currentId = this.current(type)
     if (!currentId) {
       return ''
@@ -43,7 +47,7 @@ class IDCounter {
     }
   }
 
-  update(type: IDTypes | string = IDTypes.DEFAULT, newId: string): void {
+  update(type: string = IDTypes.DEFAULT, newId: string): void {
     if (!type) {
       return
     }
@@ -51,12 +55,18 @@ class IDCounter {
     this.counter[type] = newId
   }
 
-  increase(type: IDTypes | string = IDTypes.DEFAULT): string {
+  increase(type: string = IDTypes.DEFAULT): string {
     if (!type) {
       return ''
     }
 
-    const currentId = this.current(type)
+    // Initialize if not exists
+    if (!this.counter[type]) {
+      this.counter[type] =
+        type === DEFAULT_TYPE ? FIRST_ID : `${type}${CODE_SPLIT}${FIRST_ID}`
+    }
+
+    const currentId = this.counter[type]
     if (!currentId) {
       return ''
     }
@@ -65,15 +75,16 @@ class IDCounter {
     const count = parseInt(splits[splits.length - 1])
     const next = count + 1
 
+    const prefix = splits.slice(0, -1).join(CODE_SPLIT)
     const newId =
-      type === DEFAULT_TYPE ? next.toString() : `${type}${CODE_SPLIT}${next}`
+      prefix === '' ? next.toString() : `${prefix}${CODE_SPLIT}${next}`
     this.update(type, newId)
 
     return newId
   }
 
-  valid(id: string, type: IDTypes | string = IDTypes.DEFAULT): boolean {
-    if (!id || !type || !AvaliableIDTypes.has(type)) {
+  valid(id: string, type: string = IDTypes.DEFAULT): boolean {
+    if (!id || !type) {
       return false
     }
 
@@ -81,13 +92,69 @@ class IDCounter {
       return isNumber(id)
     }
 
+    const currentId = this.counter[type]
+    const expectedPrefix = currentId ? currentId.split(CODE_SPLIT)[0] : type
+
     const splits = id.split(CODE_SPLIT)
     if (splits.length !== 2) return false
-    if (splits[0] === type) {
+    if (splits[0] === expectedPrefix) {
       return isNumber(splits[1])
     }
 
     return false
+  }
+
+  /**
+   * Register a new component type for auto-numbering
+   * Allows app-level components to register without modifying framework IDTypes
+   *
+   * @param type - Component type string (e.g., 'star', 'myCustomWidget')
+   * @param idPrefix - ID prefix string (e.g., 'star', 'myCustomWidget')
+   * @param initialValue - Optional starting number (default: 1)
+   *
+   * @example
+   * ```typescript
+   * import { idCounter } from '@asyra/sid'
+   *
+   * // Register custom component type
+   * idCounter.registerType('star', 'star')
+   * idCounter.registerType('polygon', 'polygon')
+   * ```
+   */
+  registerType(
+    type: string,
+    idPrefix: string,
+    initialValue = Number(FIRST_ID),
+    options: { override?: boolean } = {}
+  ): void {
+    if (!type || !idPrefix) {
+      return
+    }
+
+    if (this.counter[type] && options.override !== true) {
+      return
+    }
+
+    const prefixId = `${idPrefix}${CODE_SPLIT}${initialValue}`
+    this.counter[type] = prefixId
+  }
+
+  hasType(type: string): boolean {
+    if (!type) {
+      return false
+    }
+
+    return Object.prototype.hasOwnProperty.call(this.counter, type)
+  }
+
+  unregisterType(type: string): boolean {
+    if (!this.hasType(type)) {
+      return false
+    }
+
+    const { [type]: _removed, ...nextCounter } = this.counter
+    this.counter = nextCounter
+    return true
   }
 
   clear() {

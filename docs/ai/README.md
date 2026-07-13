@@ -1,43 +1,50 @@
 # AI Documentation Structure
 
-This directory contains organized documentation for AI agents working on this project.
+This directory is the AI documentation root for framework and app work.
 
-## 📁 Directory Structure
+## Directory Structure
 
-### **[project/](./project/)**
+### **[framework/](./framework/)**
 
-Core project documentation and guides:
+Framework source-of-truth contracts:
 
-- Architecture, workflows, and technical specifications
-- Original `.project/` content moved here for better organization
-- **Entry point**: Start with `project/AI_ESSENTIALS.md`
+- Architecture, package ownership, rules, and workflows.
+- Planning and completed-plan archives.
+- Framework-scoped decision history.
+- **Entry point**: `framework/README.md`
+
+### **[apps/](./apps/)**
+
+App-level source-of-truth contracts:
+
+- Per-app architecture, modules, features, BDD/PRD docs.
+- App plans and app-scoped decision history.
+- **Entry point**: `apps/README.md`
+
+### **[decisions/](./decisions/)**
+
+Global decision-history standard:
+
+- Shared rules for framework/app decision history.
+- Cross-cutting release decision log (repo-wide decisions).
+- **Entry point**: `decisions/README.md`
 
 ### **[skills/](./skills/)**
 
-Reusable AI capabilities and agent skills:
-
-- Modular abilities that can be loaded on-demand
-- Cross-project reusable patterns and expertise
-- **Entry point**: See `skills/README.md` for available capabilities
+Reusable AI capabilities and domain skills.
 
 ### **[workflows/](./workflows/)**
 
-Executable and composable development workflows:
+Executable development workflows (`/feature`, `/refactor`, `/bugfix`, `/docs`).
+Includes the shared global retrieval/search policy used by all workflows.
 
-- Feature development, bug fixing, and release processes
-- Step-by-step automation patterns
-- **Entry point**: See `workflows/README.md` for available workflows
+### **[project/](./project/)**
 
-## 🚀 Getting Started
+Legacy reference docs.
+Use as historical context only; prefer `framework/*` and `apps/*` contracts.
 
-1. **For AI Agents**: Read `project/AI_ESSENTIALS.md` first
-2. **For Humans**: Use this README to navigate the documentation structure
-3. **For Development**: Follow workflows in `workflows/` for systematic processes
+## Getting Started
 
-## 📋 Quick Reference
-
-- **Project Essentials**: `project/AI_ESSENTIALS.md`
-- **Architecture**: `project/ARCHITECTURE.md`
-- **Available Skills**: `skills/README.md`
-- **Development Workflows**: `workflows/README.md`
-- **Testing Guide**: `project/AI_ESSENTIALS.md#testing-rules`
+1. Framework work: start with `framework/README.md`
+2. App work: start with `apps/<app>/README.md`
+3. Cross-cutting governance/history: use `decisions/README.md`

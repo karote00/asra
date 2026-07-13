@@ -1,4 +1,8 @@
 import { EVENT_OPTIONS, UNDO } from '@asyra/utils'
+import type {
+  RenderPointerPayload,
+  RenderPointerCapturePayload
+} from '@asyra/utils'
 import type { EventTypes } from '../types'
 
 export interface RenderIsReadyEvent {
@@ -16,13 +20,23 @@ export interface StartTransactionEvent {
 export interface UpdateTransactionEvent {
   type: EventTypes
   eventName: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  payload: any
+  payload: unknown
   options?: EVENT_OPTIONS
 }
 
 export interface EndTransactionEvent {
   type: EventTypes
+}
+
+export interface UserActionCompletedPayload {
+  actionId: number
+  changeCount: number
+  timestamp: number
+}
+
+export interface UserActionCompletedEvent {
+  type: EventTypes
+  payload: UserActionCompletedPayload
 }
 
 export interface UpdateUndoRedoStatusEvent {
@@ -40,12 +54,55 @@ export interface RedoEvent {
   type: EventTypes
 }
 
+export interface RenderPointerHoverEvent {
+  type: EventTypes
+  payload: RenderPointerPayload
+}
+
+export interface RenderPointerLeaveEvent {
+  type: EventTypes
+  payload: RenderPointerPayload
+}
+
+export interface RenderPointerDownEvent {
+  type: EventTypes
+  payload: RenderPointerPayload
+}
+
+export interface RenderPointerMoveEvent {
+  type: EventTypes
+  payload: RenderPointerPayload
+}
+
+export interface RenderPointerUpEvent {
+  type: EventTypes
+  payload: RenderPointerPayload
+}
+
+export interface RenderPointerCaptureStartEvent {
+  type: EventTypes
+  payload: RenderPointerCapturePayload
+}
+
+export interface RenderPointerCaptureEndEvent {
+  type: EventTypes
+  payload: RenderPointerCapturePayload
+}
+
 export type AppEvent =
   | RenderIsReadyEvent
   | FileLoadCompleteEvent
   | StartTransactionEvent
   | UpdateTransactionEvent
   | EndTransactionEvent
+  | UserActionCompletedEvent
   | UpdateUndoRedoStatusEvent
   | UndoEvent
   | RedoEvent
+  | RenderPointerHoverEvent
+  | RenderPointerLeaveEvent
+  | RenderPointerDownEvent
+  | RenderPointerMoveEvent
+  | RenderPointerUpEvent
+  | RenderPointerCaptureStartEvent
+  | RenderPointerCaptureEndEvent

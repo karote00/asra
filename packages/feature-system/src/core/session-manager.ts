@@ -1,0 +1,377 @@
+import type {
+  ActiveSession,
+  SessionHandler,
+  SessionParticipant
+} from '../types/feature'
+import type {
+  SystemContextSnapshot,
+  SystemContextSnapshotWithDetail
+} from '@asyra/utils'
+import { startTransaction, endTransaction } from '@asyra/reactive-events'
+
+const DEFAULT_HANDLER_TIMEOUT_MS = 5000
+
+const measureBrowserDragAsyncPhase = async <T>(
+  phaseName: string,
+  run: () => Promise<T>
+): Promise<T> => {
+  const sink = (
+    globalThis as typeof globalThis & {
+      __asyraBrowserDragPhaseSink?: (
+        phaseName: string,
+        durationMs: number
+      ) => void
+    }
+  ).__asyraBrowserDragPhaseSink
+  if (!sink) {
+    return run()
+  }
+
+  const start = performance.now()
+  try {
+    return await run()
+  } finally {
+    sink(phaseName, performance.now() - start)
+  }
+}
+
+/**
+ * Session Manager
+ * Handles priority-based session coordination for multiple features
+ */
+export class SessionManager {
+  private activeSessions = new Map<string, ActiveSession>()
+  private sessionHandlers = new Map<string, SessionParticipant[]>()
+  private handlerTimeoutMs = DEFAULT_HANDLER_TIMEOUT_MS
+
+  private withDetail(
+    snapshot: SystemContextSnapshot,
+    detail: Record<string, unknown>,
+    signal?: AbortSignal
+  ): SystemContextSnapshot {
+    const existingDetail =
+      (snapshot as SystemContextSnapshotWithDetail).detail ?? {}
+
+    return {
+      ...snapshot,
+      detail: {
+        ...existingDetail,
+        ...detail,
+        ...(signal ? { signal } : {})
+      }
+    } as SystemContextSnapshot
+  }
+
+  private async runWithTimeout<T>(
+    handler: (() => T | Promise<T>) | undefined,
+    label: string
+  ): Promise<T | undefined> {
+    if (!handler) {
+      return undefined
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+    try {
+      const result = await Promise.race([
+        Promise.resolve().then(handler),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(
+            () => reject(new Error(`Session handler timeout: ${label}`)),
+            this.handlerTimeoutMs
+          )
+        })
+      ])
+
+      return result as T
+    } catch (error) {
+      console.error(error)
+      return undefined
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId)
+      }
+    }
+  }
+
+  /**
+   * Register a session handler for a feature
+   * @param sessionName - Name of the session (e.g., 'input.drag')
+   * @param featureName - Name of the feature registering
+   * @param priority - Execution priority (higher = runs first)
+   * @param exclusive - If true, stops lower priority features
+   * @param handler - Session lifecycle handlers
+   */
+  registerSession(
+    sessionName: string,
+    featureName: string,
+    priority: number,
+    exclusive: boolean,
+    handler: SessionHandler
+  ): void {
+    const participant: SessionParticipant = {
+      featureName,
+      priority,
+      exclusive,
+      handler,
+      state: null
+    }
+
+    if (!this.sessionHandlers.has(sessionName)) {
+      this.sessionHandlers.set(sessionName, [])
+    }
+
+    const handlers = this.sessionHandlers.get(sessionName)
+    if (handlers) {
+      handlers.push(participant)
+      // Sort by priority (descending) - higher priority runs first
+      handlers.sort((a, b) => b.priority - a.priority)
+    }
+  }
+
+  /**
+   * Handle session start with priority-based selection
+   * @param sessionName - Name of the session
+   * @param snapshot - System context snapshot
+   * @returns True if any feature participated
+   */
+  async handleStart(
+    sessionName: string,
+    snapshot: SystemContextSnapshot
+  ): Promise<boolean> {
+    const handlers = this.sessionHandlers.get(sessionName)
+    if (!handlers || handlers.length === 0) return false
+
+    startTransaction()
+
+    const abortController = new AbortController()
+    const snapshotWithSignal = this.withDetail(
+      snapshot,
+      { sessionName },
+      abortController.signal
+    )
+
+    // Priority-ordered: check features from highest to lowest priority
+    const participants: SessionParticipant[] = []
+    let exclusiveFound = false
+
+    for (const participant of handlers) {
+      // Skip if previous exclusive feature stopped us
+      if (exclusiveFound) break
+
+      try {
+        // Call onStart handler
+        const state = await this.runWithTimeout(
+          () => participant.handler.onStart?.(snapshotWithSignal),
+          `${participant.featureName}.onStart`
+        )
+
+        if (state !== null && state !== undefined) {
+          // Feature participates
+          participants.push({
+            ...participant,
+            state
+          })
+
+          // If exclusive, stop checking lower priorities
+          if (participant.exclusive) {
+            exclusiveFound = true
+          }
+        }
+      } catch (error) {
+        console.error(
+          `Feature "${participant.featureName}" error in onStart:`,
+          error
+        )
+        // Continue with next feature on error
+      }
+    }
+
+    if (participants.length === 0) {
+      endTransaction()
+      return false // No participants
+    }
+
+    // Create active session
+    const activeSession: ActiveSession = {
+      name: sessionName,
+      participants,
+      startTime: Date.now(),
+      states: new Map(),
+      abortController
+    }
+
+    participants.forEach((p) => {
+      // Use p.featureName as the key, not p.name which doesn't exist
+      if (p.state) {
+        activeSession.states.set(p.featureName, p.state)
+      }
+    })
+
+    this.activeSessions.set(sessionName, activeSession)
+    return true
+  }
+
+  /**
+   * Handle session update (only for participants)
+   * @param sessionName - Name of the session
+   * @param snapshot - System context snapshot
+   */
+  async handleUpdate(
+    sessionName: string,
+    snapshot: SystemContextSnapshot
+  ): Promise<void> {
+    const session = this.activeSessions.get(sessionName)
+    if (!session) return
+
+    const snapshotWithSignal = this.withDetail(
+      snapshot,
+      { sessionName },
+      session.abortController?.signal
+    )
+
+    // Call onUpdate for all participants (original priority order)
+    for (const participant of session.participants) {
+      try {
+        const state = session.states.get(participant.featureName)
+        if (state !== undefined) {
+          await measureBrowserDragAsyncPhase(
+            `feature-session:${participant.featureName}.onUpdate`,
+            () =>
+              this.runWithTimeout(
+                () => participant.handler.onUpdate?.(snapshotWithSignal, state),
+                `${participant.featureName}.onUpdate`
+              )
+          )
+        }
+      } catch (error) {
+        console.error(
+          `Feature "${participant.featureName}" error in onUpdate:`,
+          error
+        )
+      }
+    }
+  }
+
+  /**
+   * Handle session end (only for participants)
+   * @param sessionName - Name of the session
+   * @param snapshot - System context snapshot
+   */
+  async handleEnd(
+    sessionName: string,
+    snapshot: SystemContextSnapshot
+  ): Promise<void> {
+    const session = this.activeSessions.get(sessionName)
+    if (!session) return
+
+    const snapshotWithSignal = this.withDetail(
+      snapshot,
+      { sessionName },
+      session.abortController?.signal
+    )
+
+    // Call onEnd for all participants
+    for (const participant of session.participants) {
+      try {
+        const state = session.states.get(participant.featureName)
+        if (state !== undefined) {
+          await this.runWithTimeout(
+            () => participant.handler.onEnd?.(snapshotWithSignal, state),
+            `${participant.featureName}.onEnd`
+          )
+        }
+      } catch (error) {
+        console.error(
+          `Feature "${participant.featureName}" error in onEnd:`,
+          error
+        )
+      }
+    }
+
+    // Clear session
+    this.activeSessions.delete(sessionName)
+    endTransaction()
+  }
+
+  /**
+   * Cancel all active sessions before starting a new action
+   */
+  async cancelActiveSessions(
+    snapshot: SystemContextSnapshotWithDetail
+  ): Promise<void> {
+    if (this.activeSessions.size === 0) {
+      return
+    }
+
+    const sessionNames = Array.from(this.activeSessions.keys())
+    for (const sessionName of sessionNames) {
+      const session = this.activeSessions.get(sessionName)
+      session?.abortController?.abort()
+      const currentDetail =
+        (snapshot as SystemContextSnapshotWithDetail).detail ?? {}
+      await this.handleEnd(
+        sessionName,
+        this.withDetail(snapshot, {
+          cancelled: true,
+          cancelledBy: currentDetail.cancelledBy ?? sessionName
+        })
+      )
+    }
+  }
+
+  /**
+   * Get active session (for debugging)
+   * @param sessionName - Name of the session
+   * @returns Active session or undefined
+   */
+  getActiveSession(sessionName: string): ActiveSession | undefined {
+    return this.activeSessions.get(sessionName)
+  }
+
+  /**
+   * Get all registered session names
+   * @returns Array of session names
+   */
+  getRegisteredSessionNames(): string[] {
+    return Array.from(this.sessionHandlers.keys())
+  }
+
+  /**
+   * Get all active sessions
+   * @returns Map of session name to active session
+   */
+  getAllActiveSessions(): Map<string, ActiveSession> {
+    return new Map(this.activeSessions)
+  }
+
+  /**
+   * Clear all sessions (for cleanup)
+   */
+  clearAll(): void {
+    this.activeSessions.clear()
+  }
+
+  /**
+   * Unregister a session handler
+   * @param sessionName - Name of the session
+   * @param featureName - Name of the feature
+   * @returns True if handler was removed
+   */
+  unregisterSession(sessionName: string, featureName: string): boolean {
+    const handlers = this.sessionHandlers.get(sessionName)
+    if (!handlers) return false
+
+    const index = handlers.findIndex((h) => h.featureName === featureName)
+    if (index === -1) return false
+
+    handlers.splice(index, 1)
+
+    // Remove session entry if no handlers left
+    if (handlers.length === 0) {
+      this.sessionHandlers.delete(sessionName)
+    }
+
+    return true
+  }
+}

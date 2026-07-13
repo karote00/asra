@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Setter } from '../setter'
-import { EntityTypes } from '../sceneTree/enum'
 import type { ComputedAttrs } from '../sceneTree/instanceTypes'
+import { EntityTypes } from '../sceneTree'
 
 // Mock data structure representing an element with required ComputedAttrs
 interface MockElementData extends ComputedAttrs {
@@ -18,13 +18,15 @@ describe('Setter - Change Tracking System', () => {
 
       setter.data = {
         id: 'rect-1',
-        type: EntityTypes.RECTANGLE,
+        type: 'rect',
         name: 'Rectangle',
         x: 100,
         y: 200,
         width: 50,
         height: 30,
         rotation: 0,
+        fills: [],
+        strokes: [],
         children: [],
         metadata: { name: 'Rectangle', visible: true }
       }
@@ -43,13 +45,15 @@ describe('Setter - Change Tracking System', () => {
       const setter = new Setter<MockElementData>(changeCallback)
       setter.data = {
         id: 'test',
-        type: EntityTypes.RECTANGLE,
+        type: 'rect',
         name: 'Test',
         x: 0,
         y: 0,
         width: 0,
         height: 0,
         rotation: 0,
+        fills: [],
+        strokes: [],
         children: [],
         metadata: { name: 'Test', visible: true }
       } as MockElementData
@@ -68,13 +72,15 @@ describe('Setter - Change Tracking System', () => {
 
       setter.data = {
         id: 'rect-1',
-        type: EntityTypes.RECTANGLE,
+        type: 'rect',
         name: 'Rectangle',
         x: 100,
         y: 200,
         width: 50,
         height: 30,
         rotation: 0,
+        fills: [],
+        strokes: [],
         children: [],
         metadata: { name: 'Rectangle', visible: true }
       }
@@ -97,13 +103,15 @@ describe('Setter - Change Tracking System', () => {
 
       setter.data = {
         id: 'rect-1',
-        type: EntityTypes.RECTANGLE,
+        type: 'rect',
         name: 'Rectangle',
         x: 0,
         y: 0,
         width: 0,
         height: 0,
         rotation: 0,
+        fills: [],
+        strokes: [],
         children: ['child-1', 'child-2'],
         metadata: { name: 'Rectangle', visible: true }
       }
@@ -133,6 +141,8 @@ describe('Setter - Change Tracking System', () => {
         width: 0,
         height: 0,
         rotation: 0,
+        fills: [],
+        strokes: [],
         children: ['child-1'],
         metadata: { name: 'Group', visible: true }
       }

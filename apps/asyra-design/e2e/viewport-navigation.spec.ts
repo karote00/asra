@@ -86,11 +86,9 @@ test.describe('Viewport Navigation', () => {
 
   test('should display zoom percentage in toolbar', async ({ page }) => {
     const toolbar = getToolbar(page)
-    const zoomLabel = toolbar.locator('text=Zoom')
-    await expect(zoomLabel).toBeVisible()
-
-    const zoomValue = toolbar.locator('div').filter({ hasText: /\d+\.?\d*%/ })
-    await expect(zoomValue.first()).toBeVisible()
+    const zoomDisplay = toolbar.getByTestId('zoom-level')
+    await expect(zoomDisplay).toBeVisible()
+    await expect(zoomDisplay).toContainText(/%/)
   })
 
   test('should respect zoom limits', async ({ page }) => {

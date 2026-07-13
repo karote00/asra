@@ -41,13 +41,30 @@ yarn start
 
 This will launch a development server and open the Asyra Design UI.
 
+### Visual Review Environment
+
+App visual review uses project-owned defaults from:
+
+---bash
+apps/asyra-design/.env
+---
+
+Required values:
+
+---bash
+ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL=http://localhost:3000
+PLAYWRIGHT_TEST_BASE_URL=http://localhost:3000
+---
+
+`ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL` is the source-of-truth for Asyra Design visual review. `PLAYWRIGHT_TEST_BASE_URL` must point to the same URL when Playwright needs a generic base URL.
+
 ---
 
 ## Project Structure
 
 - `src/` — main UI source code  
 - `components/` — reusable UI components  
-- `stores/` — internal state management using `ui-context`  
+- `providers/` — app-level subscriptions/derived reads from core and `ui-context` properties  
 - `renderer/` — interface to render engine (Pixi.js by default)  
 - `utils/` — shared utility functions
 

@@ -4,27 +4,140 @@ import {
   PROPS_ACTIONS,
   PropertyComponentInstanceTypes,
   PropertyComponentInstanceDataTypes,
+  PropertySchema,
   PropertyTypes,
   Unit,
+  SharedDataChannelNames,
   PropsChange
 } from '@asyra/utils'
-import { PropsManager } from '../props-manager'
-import { createProperty } from '../utils'
+import { PropsManager } from '../manager/props-manager'
+import { createProperty } from '../factories/create-property'
+import {
+  propertySchemaRegistry,
+  registerPropertySchema
+} from '../registries/property-schema'
+import {
+  propertyComponentRegistry,
+  registerPropertyComponent
+} from '../registries/property-component'
+import {
+  PositionComponent,
+  DimensionComponent,
+  CustomComponent,
+  AnchorPointComponent,
+  AnchorPointsComponent
+} from './helpers/test-property-components'
 
-vi.mock('@asyra/reactive-events', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@asyra/reactive-events')>()
-
-  return {
-    ...actual,
-    updateTransaction: vi.fn()
+interface UpdateTransactionEvent {
+  type: string
+  eventName: string
+  payload: unknown
+  options?: {
+    undoable?: boolean
+    shared?: string
   }
-})
+}
+
+const captureUpdateTransactionEvents = () => {
+  const events: UpdateTransactionEvent[] = []
+  const subscription = ReactiveEventsModule.subscribeToEvents((event) => {
+    if (event.type === ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION) {
+      events.push(event as UpdateTransactionEvent)
+    }
+  })
+  // ReplaySubject replays last event on subscribe; reset to current test scope.
+  events.length = 0
+
+  return { events, subscription }
+}
+
+const isUnit = (value: unknown) => value === Unit.PX || value === Unit.PERCENT
+const isFiniteNumber = (value: unknown) =>
+  typeof value === 'number' && Number.isFinite(value)
+
+const registerTestSchemas = () => {
+  propertySchemaRegistry.clear()
+
+  const positionSchema: PropertySchema = {
+    type: PropertyTypes.POSITION,
+    fields: [
+      {
+        key: 'x',
+        kind: 'number',
+        validate: isFiniteNumber,
+        defaultValue: 0
+      },
+      {
+        key: 'y',
+        kind: 'number',
+        validate: isFiniteNumber,
+        defaultValue: 0
+      },
+      {
+        key: 'xUnit',
+        kind: 'string',
+        validate: isUnit,
+        defaultValue: Unit.PX
+      },
+      {
+        key: 'yUnit',
+        kind: 'string',
+        validate: isUnit,
+        defaultValue: Unit.PX
+      }
+    ]
+  }
+
+  const dimensionSchema: PropertySchema = {
+    type: PropertyTypes.DIMENSION,
+    fields: [
+      {
+        key: 'width',
+        kind: 'number',
+        validate: isFiniteNumber,
+        defaultValue: 0.1
+      },
+      {
+        key: 'height',
+        kind: 'number',
+        validate: isFiniteNumber,
+        defaultValue: 0.1
+      },
+      {
+        key: 'widthUnit',
+        kind: 'string',
+        validate: isUnit,
+        defaultValue: Unit.PX
+      },
+      {
+        key: 'heightUnit',
+        kind: 'string',
+        validate: isUnit,
+        defaultValue: Unit.PX
+      }
+    ]
+  }
+
+  registerPropertySchema(positionSchema)
+  registerPropertySchema(dimensionSchema)
+}
+
+const registerTestPropertyComponents = () => {
+  propertyComponentRegistry.clear()
+  registerPropertyComponent(PropertyTypes.POSITION, PositionComponent)
+  registerPropertyComponent(PropertyTypes.DIMENSION, DimensionComponent)
+  registerPropertyComponent(PropertyTypes.CUSTOM, CustomComponent)
+  registerPropertyComponent(PropertyTypes.ANCHOR_POINT, AnchorPointComponent)
+  registerPropertyComponent(PropertyTypes.ANCHOR_POINTS, AnchorPointsComponent)
+}
 
 describe('PropsManager', () => {
   let propsManager: PropsManager
 
   beforeEach(() => {
     vi.clearAllMocks()
+    registerTestPropertyComponents()
+    registerTestSchemas()
 
     propsManager = new PropsManager()
   })
@@ -52,8 +165,8 @@ describe('PropsManager', () => {
 
     propsManager.load(dataToLoad)
 
-    expect(propsManager.getComponentById('pp-1')?.get('id')).toBe('pp-1')
-    expect(propsManager.getComponentById('pp-2')?.get('id')).toBe('pp-2')
+    expect(propsManager.getPropertyById('pp-1')?.get('id')).toBe('pp-1')
+    expect(propsManager.getPropertyById('pp-2')?.get('id')).toBe('pp-2')
   })
 
   it('should save data correctly', () => {
@@ -141,7 +254,7 @@ describe('PropsManager', () => {
 
     propsManager.addToMap(p1Component)
 
-    expect(propsManager.getComponentById('pp-1')).toBe(p1Component)
+    expect(propsManager.getPropertyById('pp-1')).toBe(p1Component)
   })
 
   it('should add a component to the map', () => {
@@ -247,6 +360,19 @@ describe('PropsManager', () => {
     expect(() => propsManager.createProperty({})).toThrow('Type is required!')
   })
 
+  it('should throw if the property component type is not registered', () => {
+    propertyComponentRegistry.clear()
+
+    expect(() =>
+      createProperty({
+        id: 'pp-x',
+        type: PropertyTypes.POSITION
+      })
+    ).toThrow(
+      '[props-manager] Property component type "position" is not registered.'
+    )
+  })
+
   // Test addProperty
   it('should add multiple properties and return their IDs mapped by type', () => {
     const p1Data = {
@@ -335,8 +461,35 @@ describe('PropsManager', () => {
     expect(positionComponent.set).toHaveBeenCalledWith('x', 100)
   })
 
+  it('should update props data with mutation options', () => {
+    const positionData = {
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: 0,
+      y: 0,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }
+    const positionComponent = createProperty(
+      positionData
+    ) as PropertyComponentInstanceTypes
+    vi.spyOn(positionComponent, 'set')
+
+    propsManager.addToMap(positionComponent)
+    propsManager.updatePropsData(
+      'pp-1',
+      'x' as unknown as keyof PropertyComponentInstanceDataTypes,
+      100 as unknown as PropertyComponentInstanceDataTypes[keyof PropertyComponentInstanceDataTypes],
+      { undoable: false }
+    )
+    expect(positionComponent.set).toHaveBeenCalledWith('x', 100, {
+      undoable: false
+    })
+  })
+
   // Test commitChanges
   it('should commit changes and clean the changes array', () => {
+    const { events, subscription } = captureUpdateTransactionEvents()
     const change1 = {
       eventName: ReactiveEventsModule.EventTypes.ADD_PROPERTY
     } as unknown as PropsChange
@@ -348,15 +501,146 @@ describe('PropsManager', () => {
 
     propsManager.commitChanges()
 
-    expect(ReactiveEventsModule.updateTransaction).toHaveBeenCalledTimes(2)
-    expect(ReactiveEventsModule.updateTransaction).toHaveBeenCalledWith(
-      change1.eventName,
-      change1
+    expect(events).toHaveLength(2)
+    expect(events[0]).toEqual(
+      expect.objectContaining({
+        type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
+        eventName: change1.eventName,
+        payload: change1,
+        options: { shared: SharedDataChannelNames.PROPS }
+      })
     )
-    expect(ReactiveEventsModule.updateTransaction).toHaveBeenCalledWith(
-      change2.eventName,
-      change2
+    expect(events[1]).toEqual(
+      expect.objectContaining({
+        type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
+        eventName: change2.eventName,
+        payload: change2,
+        options: { shared: SharedDataChannelNames.PROPS }
+      })
     )
     expect(propsManager.changes).toEqual([])
+    subscription.unsubscribe()
+  })
+
+  it('should commit per-change options to updateTransaction', () => {
+    const { events, subscription } = captureUpdateTransactionEvents()
+    const change = {
+      eventName: ReactiveEventsModule.EventTypes.UPDATE_PROPERTY,
+      options: { undoable: false }
+    } as unknown as PropsChange
+    propsManager.addChange(change)
+
+    propsManager.commitChanges()
+
+    expect(events).toEqual([
+      expect.objectContaining({
+        type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
+        eventName: change.eventName,
+        payload: change,
+        options: {
+          undoable: false,
+          shared: SharedDataChannelNames.PROPS
+        }
+      })
+    ])
+    expect(propsManager.changes).toEqual([])
+    subscription.unsubscribe()
+  })
+
+  it('should reject invalid numeric value by schema in updatePropsData', () => {
+    const positionData = {
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: 10,
+      y: 20,
+      xUnit: Unit.PX,
+      yUnit: Unit.PX
+    }
+    const positionComponent = createProperty(
+      positionData
+    ) as PropertyComponentInstanceTypes
+    propsManager.addToMap(positionComponent)
+
+    propsManager.updatePropsData(
+      'pp-1',
+      'x' as unknown as keyof PropertyComponentInstanceDataTypes,
+      '中文' as unknown as PropertyComponentInstanceDataTypes[keyof PropertyComponentInstanceDataTypes]
+    )
+
+    const position = positionComponent as unknown as {
+      get: (key: string) => unknown
+    }
+    expect(position.get('x')).toBe(10)
+  })
+
+  it('should fallback to default value when loading invalid field data', () => {
+    const positionComponent = createProperty({
+      id: 'pp-1',
+      type: PropertyTypes.POSITION,
+      x: '中文',
+      y: null,
+      xUnit: 'invalid-unit',
+      yUnit: Unit.PERCENT
+    }) as PropertyComponentInstanceTypes
+
+    const position = positionComponent as unknown as {
+      get: (key: string) => unknown
+    }
+    expect(position.get('x')).toBe(0)
+    expect(position.get('y')).toBe(0)
+    expect(position.get('xUnit')).toBe(Unit.PX)
+    expect(position.get('yUnit')).toBe(Unit.PERCENT)
+  })
+
+  it('load should replace the entire props snapshot and remove stale components', () => {
+    propsManager.load({
+      'pp-old': {
+        id: 'pp-old',
+        type: PropertyTypes.POSITION,
+        x: 0,
+        y: 0,
+        xUnit: Unit.PX,
+        yUnit: Unit.PX
+      }
+    })
+    expect(propsManager.getPropertyById('pp-old')).toBeDefined()
+
+    // The second load is a new full snapshot. Old IDs not present in this payload
+    // must be removed from runtime state (replace semantics, not merge semantics).
+    propsManager.load({
+      'pp-new': {
+        id: 'pp-new',
+        type: PropertyTypes.DIMENSION,
+        width: 100,
+        height: 100,
+        widthUnit: Unit.PX,
+        heightUnit: Unit.PX
+      }
+    })
+
+    expect(propsManager.getPropertyById('pp-old')).toBeUndefined()
+    expect(propsManager.getPropertyById('pp-new')).toBeDefined()
+  })
+
+  it('validateLoadData should keep valid entries and report malformed props entries', () => {
+    const { data, diagnostics } = propsManager.validateLoadData({
+      'pp-valid': {
+        id: 'pp-valid',
+        type: PropertyTypes.POSITION,
+        x: 1,
+        y: 2,
+        xUnit: Unit.PX,
+        yUnit: Unit.PX
+      },
+      'pp-invalid-shape': 'invalid',
+      'pp-invalid-type': { id: 'pp-invalid-type', type: 123 }
+    })
+
+    expect(Object.keys(data)).toEqual(['pp-valid'])
+    expect(diagnostics).toHaveLength(2)
+    expect(diagnostics.map((item) => item.path)).toEqual([
+      'props.pp-invalid-shape',
+      'props.pp-invalid-type.type'
+    ])
   })
 })

@@ -1,7 +1,11 @@
-import PositionComponent from './position'
-import DimensionComponent from './dimension'
+import BasePropertyComponent from './base'
+import type {
+  PropertyComponentRawData,
+  PropertyComponentInstanceTypes
+} from '@asyra/utils'
 
-export { PositionComponent, DimensionComponent }
-export type PropertyComponentType =
-  | typeof PositionComponent
-  | typeof DimensionComponent
+export { BasePropertyComponent }
+
+export type PropertyComponentConstructor = new (
+  data: Partial<PropertyComponentRawData>
+) => PropertyComponentInstanceTypes

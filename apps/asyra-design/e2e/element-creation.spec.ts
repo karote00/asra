@@ -5,10 +5,56 @@ import {
   createRectangle,
   hasSelectedElement,
   getElementCount,
+  getContentsPanel,
+  getCanvasPosition,
   clickCanvas,
   dragOnCanvas,
   getPropertiesPanel
 } from './test-utils'
+
+interface CreateProjectionSnapshot {
+  type: string
+  modelWidth: number
+  modelHeight: number
+  renderExists: boolean
+  renderWidth: number | null
+  renderHeight: number | null
+}
+
+const getCreateProjectionSnapshot = async (
+  page: Parameters<typeof getCanvasPosition>[0]
+): Promise<CreateProjectionSnapshot | null> =>
+  page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const elements = core?.deps?.sceneTree?.getAllElements?.()
+    if (!(elements instanceof Map)) {
+      return null
+    }
+
+    const entry = Array.from(elements.entries()).find(
+      ([, element]) => element?.get?.('type') !== 'workspace'
+    )
+    if (!entry) {
+      return null
+    }
+
+    const [elementId, element] = entry
+    const computed = element.getAllComputedData?.() ?? {}
+    const graphic = core?.deps?.render?.getElementById?.(elementId)
+    const renderData = graphic?.__asyraLastRenderDataSnapshot
+
+    return {
+      type: String(element.get?.('type') ?? ''),
+      modelWidth: Number(computed.width ?? 0),
+      modelHeight: Number(computed.height ?? 0),
+      renderExists: Boolean(graphic),
+      renderWidth:
+        typeof renderData?.width === 'number' ? renderData.width : null,
+      renderHeight:
+        typeof renderData?.height === 'number' ? renderData.height : null
+    }
+  })
 
 /**
  * E2E Tests for Element Creation
@@ -26,6 +72,78 @@ test.describe('Element Creation', () => {
     await waitForAppReady(page)
     await resetCanvas(page)
   })
+
+  for (const { key, type, label } of [
+    { key: 'r', type: 'rect', label: 'rectangle' },
+    { key: 'o', type: 'oval', label: 'oval' }
+  ]) {
+    test(`should project the new ${label} on pointer-down and throughout drag before pointer-up`, async ({
+      page
+    }, testInfo) => {
+      const initialCount = await getElementCount(page)
+      const start = await getCanvasPosition(page, 0.55, 0.5)
+      const end = await getCanvasPosition(page, 0.3, 0.25)
+
+      await page.keyboard.press(key)
+      await page.mouse.move(start.x, start.y)
+      await page.mouse.down()
+
+      try {
+        const createdRow = getContentsPanel(page).locator(
+          '[data-layer-element="true"]'
+        )
+        await expect
+          .poll(() => getElementCount(page), { timeout: 2_000 })
+          .toBe(initialCount + 1)
+        await expect(createdRow).toBeVisible()
+        await expect
+          .poll(() => hasSelectedElement(page), { timeout: 2_000 })
+          .toBe(true)
+        await expect
+          .poll(
+            async () =>
+              (await getCreateProjectionSnapshot(page))?.renderExists ?? false,
+            { timeout: 2_000 }
+          )
+          .toBe(true)
+
+        const pointerDownSnapshot = await getCreateProjectionSnapshot(page)
+        expect(pointerDownSnapshot).toMatchObject({ type })
+        expect(pointerDownSnapshot?.modelWidth).toBe(0.1)
+        expect(pointerDownSnapshot?.modelHeight).toBe(0.1)
+        expect(pointerDownSnapshot?.renderWidth).toBeCloseTo(0.1)
+        expect(pointerDownSnapshot?.renderHeight).toBeCloseTo(0.1)
+        await page.screenshot({
+          path: testInfo.outputPath(`${label}-pointer-down.png`)
+        })
+
+        await page.mouse.move(end.x, end.y, { steps: 2 })
+
+        await expect
+          .poll(
+            async () =>
+              (await getCreateProjectionSnapshot(page))?.renderWidth ?? 0,
+            { timeout: 2_000 }
+          )
+          .toBeGreaterThan(50)
+        await expect
+          .poll(
+            async () =>
+              (await getCreateProjectionSnapshot(page))?.renderHeight ?? 0,
+            { timeout: 2_000 }
+          )
+          .toBeGreaterThan(50)
+        expect(await getElementCount(page)).toBe(initialCount + 1)
+        await expect(createdRow).toBeVisible()
+        expect(await hasSelectedElement(page)).toBe(true)
+        await page.screenshot({
+          path: testInfo.outputPath(`${label}-hold-drag.png`)
+        })
+      } finally {
+        await page.mouse.up()
+      }
+    })
+  }
 
   /**
    * Scenario: Create rectangle with default size on click
@@ -56,6 +174,12 @@ test.describe('Element Creation', () => {
     // Verify the new element is selected (Properties Panel shows properties)
     const isSelected = await hasSelectedElement(page)
     expect(isSelected).toBe(true)
+
+    const completedSnapshot = await getCreateProjectionSnapshot(page)
+    expect(completedSnapshot?.modelWidth).toBe(100)
+    expect(completedSnapshot?.modelHeight).toBe(100)
+    expect(completedSnapshot?.renderWidth).toBeCloseTo(100)
+    expect(completedSnapshot?.renderHeight).toBeCloseTo(100)
 
     // Verify the Contents Panel shows the new rectangle
     const contentsPanel = page.locator('[style*="grid-area: left-sidebar"]')

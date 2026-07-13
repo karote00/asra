@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { idCounter } from '../idCounter'
 import { CODE_SPLIT, FIRST_ID } from '../constants'
 import { IDTypes } from '../enum'
@@ -6,6 +6,10 @@ import { IDTypes } from '../enum'
 const addOne = (str: string): string => (Number(str) + 1).toString()
 
 describe('idCounter', () => {
+  beforeEach(() => {
+    idCounter.clear()
+  })
+
   describe('check current max number of id', () => {
     it('should return the current default id if type is not provided', () => {
       const currentId = idCounter.current()
@@ -22,7 +26,7 @@ describe('idCounter', () => {
       expect(currentId).toBe(expectResult)
     })
 
-    it('should return undefined for an invalid type', () => {
+    it('should return undefined for an uninitialized type', () => {
       const type = 'UNKNOWN_TYPE'
 
       const currentId = idCounter.current(type)
@@ -52,12 +56,31 @@ describe('idCounter', () => {
       expect(newId).toBe(expectResult)
     })
 
-    it('should return an empty string for an invalid type', () => {
-      const type = 'UNKNOWN_TYPE'
+    it('should create and return a new id for a custom type', () => {
+      const type = 'CUSTOM_TEST_TYPE'
 
       const newId = idCounter.increase(type)
 
-      expect(newId).toBe('')
+      // First call initializes to 0 and increments to 1
+      const expectResult = `${type}${CODE_SPLIT}${addOne(FIRST_ID)}`
+      expect(newId).toBe(expectResult)
+
+      // Second call should increment to 2
+      const secondId = idCounter.increase(type)
+      const expectSecond = `${type}${CODE_SPLIT}${addOne(addOne(FIRST_ID))}`
+      expect(secondId).toBe(expectSecond)
+    })
+
+    it('should initialize and synchronize an uninitialized type when load is called', () => {
+      const type = 'NEW_TYPE'
+      const testId = `${type}${CODE_SPLIT}10`
+
+      idCounter.load(testId, type)
+
+      expect(idCounter.current(type)).toBe(testId)
+
+      const newId = idCounter.increase(type)
+      expect(newId).toBe(`${type}${CODE_SPLIT}11`)
     })
   })
 
@@ -86,13 +109,13 @@ describe('idCounter', () => {
       expect(result).toBe(true)
     })
 
-    it('should return false for an invalid type', () => {
+    it('should return true for a custom type', () => {
       const type = 'UNKNOWN'
       const testId = `${type}-8`
 
       const result = idCounter.valid(testId, type)
 
-      expect(result).toBe(false)
+      expect(result).toBe(true)
     })
 
     it('should return false if the numeric part of the id is not valid', () => {
@@ -109,6 +132,24 @@ describe('idCounter', () => {
       const result = idCounter.valid(testId, IDTypes.WORKSPACE)
 
       expect(result).toBe(false)
+    })
+  })
+
+  describe('register/unregister type', () => {
+    it('should unregister a registered custom type', () => {
+      const type = 'CUSTOM_TEST_TYPE'
+      idCounter.registerType(type, type)
+      expect(idCounter.hasType(type)).toBe(true)
+
+      const result = idCounter.unregisterType(type)
+
+      expect(result).toBe(true)
+      expect(idCounter.hasType(type)).toBe(false)
+      expect(idCounter.current(type)).toBe(undefined)
+    })
+
+    it('should return false when unregistering unknown type', () => {
+      expect(idCounter.unregisterType('UNKNOWN_TYPE')).toBe(false)
     })
   })
 })

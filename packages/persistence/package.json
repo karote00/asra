@@ -1,0 +1,22 @@
+{
+  "name": "@asyra/persistence",
+  "version": "0.2.5",
+  "description": "Persistence providers and hooks for Asyra framework",
+  "author": "Asa Tsai",
+  "license": "MIT",
+  "packageManager": "yarn@4.3.1",
+  "keywords": [],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "tsc --watch --preserveWatchOutput",
+    "build:persistence": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@asyra/utils": "workspace:*"
+  }
+}
