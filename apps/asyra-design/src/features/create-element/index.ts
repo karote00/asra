@@ -100,6 +100,7 @@ export const createElementFeature = defineFeature<
 >(FeatureNames.CREATE_ELEMENT, InputSystemEvents.INPUT_DRAG, {
   priority: 10,
   exclusive: true,
+  cancelPolicy: 'rollback',
   api,
   session: {
     onStart: (snapshot: SystemContextSnapshot) => {
@@ -177,6 +178,7 @@ export const createElementFeature = defineFeature<
       ) {
         systemContextApis.switchPrimaryTool(PrimaryToolType.SELECT)
       }
-    }
+    },
+    onCancel: () => undefined
   }
 })

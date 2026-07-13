@@ -37,7 +37,16 @@
 - if no movement occurred after starting inside selection bounds, selects the
   hovered element on mouse up (or clears selection if nothing is hovered)
 
+4. Cancel
+
+- cancel policy is `rollback`
+- Escape, tool switching, a new conflicting action, handler failure, or timeout
+  restores the transaction-start element positions and selection
+- cancellation creates no move undo entry
+
 ## Notes
 
 - drag-to-move is intentionally separated from selection feature ownership
 - selection feature continues to own click/select/deselect and shift-toggle behavior
+- `onCancel` performs no canonical position write; Factory reverses recorded
+  preview writes, including those marked `undoable: false`

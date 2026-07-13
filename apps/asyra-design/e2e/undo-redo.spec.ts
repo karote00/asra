@@ -190,6 +190,54 @@ test.describe('Undo/Redo Actions', () => {
       })
   })
 
+  test('switching tools during move restores the preview without creating undo history', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.35, 0.35)
+    const before = await getSelectedElementRect(page)
+    expect(before).not.toBeNull()
+    if (!before) {
+      return
+    }
+
+    const beforeUndoCount = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+    })
+    const startX = before.x + before.width / 2
+    const startY = before.y + before.height / 2
+
+    await page.mouse.move(startX, startY)
+    await page.mouse.down()
+    await page.mouse.move(startX + 120, startY + 70, { steps: 10 })
+    await expect
+      .poll(async () => {
+        const current = await getSelectedElementRect(page)
+        return current ? Math.round(current.x) : null
+      })
+      .not.toBe(Math.round(before.x))
+
+    await page.keyboard.press('r')
+    await page.mouse.up()
+
+    await expect
+      .poll(async () => {
+        const restored = await getSelectedElementRect(page)
+        return restored
+          ? { x: Math.round(restored.x), y: Math.round(restored.y) }
+          : null
+      })
+      .toEqual({ x: Math.round(before.x), y: Math.round(before.y) })
+
+    const afterUndoCount = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+    })
+    expect(afterUndoCount).toBe(beforeUndoCount)
+  })
+
   test('drag-create uses a compact undo commit without move spam', async ({
     page
   }) => {

@@ -236,6 +236,66 @@ test.describe('Element Creation', () => {
     expect(parseInt(heightValue)).toBeGreaterThan(50)
   })
 
+  test('switching tools during create rolls back the element and immediate projection', async ({
+    page
+  }) => {
+    const initialCount = await getElementCount(page)
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).__transactionStatuses = []
+      core?.deps?.factory?.subscribeToTransactionStatus?.(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (status: any) => (window as any).__transactionStatuses.push(status)
+      )
+    })
+    const initialUndoCount = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+    })
+    const start = await getCanvasPosition(page, 0.25, 0.25)
+    const current = await getCanvasPosition(page, 0.55, 0.45)
+
+    await page.keyboard.press('r')
+    await page.mouse.move(start.x, start.y)
+    await page.mouse.down()
+    await page.mouse.move(current.x, current.y, { steps: 5 })
+    await expect.poll(() => getElementCount(page)).toBe(initialCount + 1)
+
+    await page.keyboard.press('v')
+    await page.mouse.up()
+
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (window as any).__transactionStatuses.map(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (status: any) => ({
+              status: status.status,
+              error: status.error?.message ?? null,
+              failures:
+                status.error?.failures?.map(
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (failure: any) => failure?.message ?? String(failure)
+                ) ?? []
+            })
+          )
+        )
+      )
+      .toContainEqual({ status: 'rolled-back', error: null, failures: [] })
+    await expect.poll(() => getElementCount(page)).toBe(initialCount)
+    await expect.poll(() => getCreateProjectionSnapshot(page)).toBeNull()
+    const finalUndoCount = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+    })
+    expect(finalUndoCount).toBe(initialUndoCount)
+  })
+
   /**
    * Additional test: Create multiple rectangles in sequence
    */

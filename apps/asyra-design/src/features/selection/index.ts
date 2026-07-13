@@ -112,6 +112,7 @@ export const selectionFeature = defineFeature<
 >(FeatureNames.SELECTION, InputSystemEvents.INPUT_DRAG, {
   priority: 5,
   exclusive: false,
+  cancelPolicy: 'rollback',
   api,
   session: {
     onStart: (snapshot: SystemContextSnapshot) => {
@@ -144,8 +145,7 @@ export const selectionFeature = defineFeature<
         ) {
           return null
         }
-        transactionApis.startTransaction()
-        try {
+        transactionApis.runTransaction(() => {
           if (snapshot.keyShift) {
             api.toggleSelection(hoveredElementId)
           } else {
@@ -153,9 +153,7 @@ export const selectionFeature = defineFeature<
           }
 
           clearPathEditingIfSelectionChanged()
-        } finally {
-          transactionApis.endTransaction()
-        }
+        })
 
         return { mode: 'click' }
       }
@@ -240,13 +238,10 @@ export const selectionFeature = defineFeature<
           return
         }
 
-        transactionApis.startTransaction()
-        try {
+        transactionApis.runTransaction(() => {
           selectionApis.selectElements([])
           clearPathEditingIfSelectionChanged()
-        } finally {
-          transactionApis.endTransaction()
-        }
+        })
         return
       }
 
@@ -267,13 +262,13 @@ export const selectionFeature = defineFeature<
         state.additive ? 'toggle' : 'replace'
       )
 
-      transactionApis.startTransaction()
-      try {
+      transactionApis.runTransaction(() => {
         selectionApis.selectElements(nextSelectionIds)
         clearPathEditingIfSelectionChanged()
-      } finally {
-        transactionApis.endTransaction()
-      }
+      })
+    },
+    onCancel: () => {
+      systemContextApis.clearAreaSelection()
     }
   }
 })

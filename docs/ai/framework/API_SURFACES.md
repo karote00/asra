@@ -80,7 +80,26 @@ Scene/model bridge:
 - `selectVectorSegments(segmentIds: string[], options?: EVENT_OPTIONS): void`
   - wrapper contract: channel must be resolvable from registered selection metadata (`action`/`eventName`); no built-in fallback channel defaults
 
-`EVENT_OPTIONS` supports `undoable`, `shared`, and `sharedDelivery`. `sharedDelivery: 'immediate'` projects that shared change during an active transaction while retaining it in the current undo commit; the default is `'transaction-end'`.
+`EVENT_OPTIONS` supports `undoable`, `rollbackable`, `shared`, and
+`sharedDelivery`. `undoable: false` skips ordinary history but remains
+rollbackable by default. `rollbackable: false` explicitly opts out of failure
+reversal. `sharedDelivery: 'immediate'` projects that shared change during an
+active transaction while retaining it in the current undo commit; the default
+is `'transaction-end'`.
+
+Transaction facade exports:
+
+- `startTransaction(): void`
+- `updateTransaction(eventName: string, payload: unknown, options?: EVENT_OPTIONS): void`
+- `endTransaction(options?: EndTransactionOptions): void`
+- `rollbackTransaction(failure?: TransactionFailure): void`
+- `runTransaction(callback, options?: RunTransactionOptions)`; supports sync
+  and async callbacks
+- `subscribeToSynchronousEvent(type, subscriber)`; canonical state-owner replay
+  acknowledgement only, not a replacement for ordinary event observation
+- transaction types: `TransactionOutcome`, `TransactionOrigin`,
+  `TransactionFailureKind`, `TransactionFailure`, `EndTransactionOptions`,
+  `RunTransactionOptions`, `TransactionStatus`, `TransactionStatusPayload`
 
 Managed property bridges:
 
@@ -157,11 +176,19 @@ Managed property bridges:
 `@asyra/factory`
 
 - default `factory` singleton, `Factory` class
-- transaction runtime bridge:
+- Factory instance transaction runtime:
   - `startTransaction()`
   - `updateTransaction(event)`
-  - `endTransaction()`
+  - `endTransaction(options?)`
   - `undo()`, `redo()`
+  - `getTransactionOwner()` for explicit reactive boundary wiring
+  - `registerTransactionInverter(eventName, inverter)`
+  - `registerTransactionValidator(name, validator)`
+  - `subscribeToTransactionStatus(listener): () => void`
+- default-singleton registration helpers:
+  - `registerTransactionInverter(eventName, inverter)`
+  - `registerTransactionValidator(name, validator)`
+  - `subscribeToTransactionStatus(listener): () => void`
 - shared data channel APIs:
   - `registerSharedDataChannel(name, yArray)`
   - `unregisterSharedDataChannel(name)`
@@ -231,9 +258,10 @@ Managed property bridges:
 - `keyConfig: string | undefined`
 - `definition.api?: API`
 - `definition.execution?: (snapshot) => unknown`
-- `definition.session?: { onStart?, onUpdate?, onEnd? }`
+- `definition.session?: { onStart?, onUpdate?, onEnd?, onCancel? }`
 - `definition.priority?: number`
 - `definition.exclusive?: boolean`
+- `definition.cancelPolicy?: 'rollback' | 'commit-current' | 'feature-defined'`
 
 Execution mode:
 
@@ -245,6 +273,12 @@ Session mode:
   - `${keyConfig}.start`
   - `${keyConfig}.update`
   - `${keyConfig}.end`
+- cancellation defaults to rollback
+- `feature-defined` requires `onCancel` and a returned `rollback` or
+  `commit-current` outcome
+- session snapshots expose `detail.signal`; async handlers must check it after
+  awaited work before performing mutations
+- handler errors/timeouts override cancel policy and roll back
 
 ## API Usage Rules
 

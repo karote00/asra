@@ -67,7 +67,7 @@ const githubAnchor = (heading) =>
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
 
-const createViewerDom = (entryPath, data) => {
+const createViewerDom = (entryPath, dataScript, data) => {
   const html = fs.readFileSync(entryPath, 'utf8')
   const serializedData = JSON.stringify(data).replaceAll('<', '\\u003c')
   const inlineData = `<script>
@@ -86,7 +86,9 @@ const createViewerDom = (entryPath, data) => {
     }
   </script>`
   const runnableHtml = html.replace(
-    /<script src=["']\.\/stroke-flow-inspector\.data\.js["']><\/script>/,
+    new RegExp(
+      `<script src=["']${dataScript.replaceAll('.', '\\.')}["']><\\/script>`
+    ),
     inlineData
   )
   const errors = []
@@ -109,7 +111,17 @@ const targets = [
       projectRoot,
       'docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.html'
     ),
-    dataScript: './stroke-flow-inspector.data.js'
+    dataScript: './stroke-flow-inspector.data.js',
+    filterLaneTitle: 'Integration'
+  },
+  {
+    id: 'transaction-atomicity',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/framework/plans/transaction-flow-inspector.html'
+    ),
+    dataScript: './transaction-flow-inspector.data.cjs',
+    filterLaneTitle: 'Factory State'
   }
 ]
 
@@ -339,7 +351,11 @@ for (const target of targets) {
 
   test(`${target.id} viewer renders steps, filters lanes, and updates detail`, () => {
     const data = loadData(dataPath)
-    const { dom, errors } = createViewerDom(target.entryPath, data)
+    const { dom, errors } = createViewerDom(
+      target.entryPath,
+      target.dataScript,
+      data
+    )
     const { document } = dom.window
 
     assert.deepEqual(errors, [])
@@ -356,59 +372,79 @@ for (const target of targets) {
       data.steps[0].title
     )
 
-    const integrationFilter = [
-      ...document.querySelectorAll('.filter-button')
-    ].find((button) => button.textContent === 'Integration')
-    assert.ok(integrationFilter)
-    integrationFilter.dispatchEvent(
+    const laneFilter = [...document.querySelectorAll('.filter-button')].find(
+      (button) => button.textContent === target.filterLaneTitle
+    )
+    assert.ok(laneFilter)
+    laneFilter.dispatchEvent(
       new dom.window.MouseEvent('click', { bubbles: true })
     )
     assert.equal(
       document.querySelectorAll('.step-card').length,
-      data.steps.filter((step) => step.laneId === 'integration').length
+      data.steps.filter(
+        (step) =>
+          data.lanes.find((lane) => lane.id === step.laneId)?.title ===
+          target.filterLaneTitle
+      ).length
     )
     assert.equal(
       document.querySelector('#detail h2').textContent,
-      data.steps.find((step) => step.laneId === 'integration').title
+      data.steps.find(
+        (step) =>
+          data.lanes.find((lane) => lane.id === step.laneId)?.title ===
+          target.filterLaneTitle
+      ).title
     )
     dom.window.close()
   })
 
   test(`${target.id} viewer rejects inconsistent artifact handoffs`, () => {
     const malformed = clone(loadData(dataPath))
-    const engineInput = malformed.artifacts.find(
-      (artifact) => artifact.id === 'artifact:stroke-engine-input'
+    const handoffRoute = malformed.routes.find(
+      (route) => route.to && route.producedArtifacts.length > 0
     )
-    const mirrorRoute = malformed.routes.find(
-      (route) => route.id === 'mirror-to-preset'
+    const handoffArtifact = malformed.artifacts.find(
+      (artifact) => artifact.id === handoffRoute.producedArtifacts[0]
+    )
+    const wrongOwner = malformed.steps.find(
+      (step) => step.id !== handoffArtifact.ownerStepId
+    )
+    const wrongConsumer = malformed.steps.find(
+      (step) =>
+        step.id !== handoffRoute.to &&
+        step.id !== wrongOwner.id &&
+        !step.inputs.includes(handoffArtifact.id)
     )
 
-    engineInput.ownerStepId = 'capture-stroke-intent'
-    engineInput.consumerStepIds.push('project-stroke-pixels')
-    mirrorRoute.producedArtifacts = ['artifact:user-intent']
+    handoffArtifact.ownerStepId = wrongOwner.id
+    handoffArtifact.consumerStepIds = [wrongConsumer.id]
 
-    const { dom, errors } = createViewerDom(target.entryPath, malformed)
+    const { dom, errors } = createViewerDom(
+      target.entryPath,
+      target.dataScript,
+      malformed
+    )
     const errorCodes = errors.flatMap((entry) => entry[1]?.errors ?? [])
 
     assert.ok(
-      errorCodes.includes('artifact:stroke-engine-input:owner-output'),
+      errorCodes.includes(`${handoffArtifact.id}:owner-output`),
       'runtime validation must reject an artifact absent from its owner outputs'
     )
     assert.ok(
       errorCodes.includes(
-        'artifact:stroke-engine-input:consumer-input:project-stroke-pixels'
+        `${handoffArtifact.id}:consumer-input:${wrongConsumer.id}`
       ),
       'runtime validation must reject an artifact absent from consumer inputs'
     )
     assert.ok(
       errorCodes.includes(
-        'mirror-to-preset:artifact-owner:artifact:user-intent'
+        `${handoffRoute.id}:artifact-owner:${handoffArtifact.id}`
       ),
       'runtime validation must reject a route that does not start at the artifact owner'
     )
     assert.ok(
       errorCodes.includes(
-        'mirror-to-preset:artifact-consumer:artifact:user-intent'
+        `${handoffRoute.id}:artifact-consumer:${handoffArtifact.id}`
       ),
       'runtime validation must reject a route whose destination is not an artifact consumer'
     )

@@ -1,5 +1,16 @@
 import * as Y from 'yjs'
-import type { UpdateTransactionEvent } from '@asyra/reactive-events'
+import {
+  runWithTransactionOwner,
+  transactionStatusChanged,
+  type TransactionOwner,
+  userActionCompleted,
+  type UpdateTransactionEvent
+} from '@asyra/reactive-events'
+import type {
+  EndTransactionOptions,
+  TransactionStatus,
+  TransactionStatusPayload
+} from '@asyra/utils'
 import DataTransact from './data-transact'
 import doc from './data'
 import {
@@ -7,13 +18,45 @@ import {
   type SharedDataChannelChangeHandler,
   type SharedDataChannelName
 } from './shared-data-channel'
+import type { TransactionInverter, TransactionValidator } from './transaction'
+
+export interface FactoryOptions {
+  bridgeToReactiveEvents?: boolean
+}
 
 class Factory {
   private readonly sharedDataChannels = new SharedDataChannelRegistry()
+  private readonly bridgeToReactiveEvents: boolean
+  private readonly transactionOwner: TransactionOwner
+  private readonly transactionStatusSubscribers = new Set<
+    (payload: TransactionStatusPayload) => void
+  >()
   transact: DataTransact
 
-  constructor() {
-    this.transact = new DataTransact(this.sharedDataChannels)
+  constructor(options: FactoryOptions = {}) {
+    this.bridgeToReactiveEvents = options.bridgeToReactiveEvents === true
+    this.transact = new DataTransact(this.sharedDataChannels, {
+      onStatus: (payload) => this.emitTransactionStatus(payload),
+      onUserActionCompleted: this.bridgeToReactiveEvents
+        ? userActionCompleted
+        : undefined
+    })
+    this.transactionOwner = {
+      startTransaction: () => this.startTransaction(),
+      updateTransaction: (event) => this.updateTransaction(event),
+      endTransaction: (endOptions) => this.endTransaction(endOptions),
+      undo: () => this.undo(),
+      redo: () => this.redo()
+    }
+  }
+
+  private emitTransactionStatus(payload: TransactionStatusPayload) {
+    this.transactionStatusSubscribers.forEach((subscriber) => {
+      subscriber(payload)
+    })
+    if (this.bridgeToReactiveEvents) {
+      transactionStatusChanged(payload)
+    }
   }
 
   startTransaction() {
@@ -24,20 +67,71 @@ class Factory {
     this.transact.update(event)
   }
 
-  endTransaction() {
-    this.transact.end()
+  endTransaction(options?: EndTransactionOptions) {
+    this.transact.end(options)
   }
 
   undo() {
-    this.transact.undo()
+    return runWithTransactionOwner(this.transactionOwner, () =>
+      this.transact.undo()
+    )
   }
 
   redo() {
-    this.transact.redo()
+    return runWithTransactionOwner(this.transactionOwner, () =>
+      this.transact.redo()
+    )
+  }
+
+  getTransactionOwner(): TransactionOwner {
+    return this.transactionOwner
   }
 
   isInUndoRedo() {
     return this.transact.isInUndo() || this.transact.isInRedo()
+  }
+
+  registerTransactionInverter(
+    eventName: string,
+    inverter: TransactionInverter
+  ) {
+    this.transact.registerInverter(eventName, inverter)
+  }
+
+  registerTransactionValidator(name: string, validator: TransactionValidator) {
+    this.transact.registerValidator(name, validator)
+  }
+
+  subscribeToTransactionStatus(
+    subscriber: (payload: TransactionStatusPayload) => void
+  ): () => void {
+    this.transactionStatusSubscribers.add(subscriber)
+    return () => {
+      this.transactionStatusSubscribers.delete(subscriber)
+    }
+  }
+
+  reportPersistenceStatus(
+    source: TransactionStatusPayload,
+    status: Extract<
+      TransactionStatus,
+      'persistence-skipped' | 'persisted' | 'persistence-failed'
+    >,
+    providerName?: string,
+    error?: unknown
+  ) {
+    const {
+      providerName: _sourceProviderName,
+      error: _sourceError,
+      ...base
+    } = source
+    this.emitTransactionStatus({
+      ...base,
+      status,
+      ...(providerName ? { providerName } : {}),
+      ...(error !== undefined ? { error } : {}),
+      timestamp: Date.now()
+    })
   }
 
   registerSharedDataChannel(
@@ -77,7 +171,7 @@ class Factory {
   }
 }
 
-const factory = new Factory()
+const factory = new Factory({ bridgeToReactiveEvents: true })
 export default factory
 
 export { Factory }

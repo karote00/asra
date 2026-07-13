@@ -32,6 +32,21 @@ export const observeSharedDataChannel = <TChange = unknown>(
   handler: SharedDataChannelChangeHandler<TChange>
 ) => factory.observeSharedDataChannel<TChange>(name, handler)
 
+export const registerTransactionInverter = (
+  eventName: string,
+  inverter: Parameters<Factory['registerTransactionInverter']>[1]
+) => factory.registerTransactionInverter(eventName, inverter)
+
+export const registerTransactionValidator = (
+  name: string,
+  validator: Parameters<Factory['registerTransactionValidator']>[1]
+) => factory.registerTransactionValidator(name, validator)
+
+export const subscribeToTransactionStatus = (
+  subscriber: Parameters<Factory['subscribeToTransactionStatus']>[0]
+) => factory.subscribeToTransactionStatus(subscriber)
+
 export default factory
 export { Factory }
 export * from './shared-data-channel'
+export * from './transaction'

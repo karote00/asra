@@ -1,7 +1,9 @@
 import { EVENT_OPTIONS, UNDO } from '@asyra/utils'
 import type {
   RenderPointerPayload,
-  RenderPointerCapturePayload
+  RenderPointerCapturePayload,
+  TransactionBoundaryPayload,
+  TransactionStatusPayload
 } from '@asyra/utils'
 import type { EventTypes } from '../types'
 
@@ -26,6 +28,12 @@ export interface UpdateTransactionEvent {
 
 export interface EndTransactionEvent {
   type: EventTypes
+  payload: TransactionBoundaryPayload
+}
+
+export interface TransactionStatusChangedEvent {
+  type: EventTypes
+  payload: TransactionStatusPayload
 }
 
 export interface UserActionCompletedPayload {
@@ -95,6 +103,7 @@ export type AppEvent =
   | StartTransactionEvent
   | UpdateTransactionEvent
   | EndTransactionEvent
+  | TransactionStatusChangedEvent
   | UserActionCompletedEvent
   | UpdateUndoRedoStatusEvent
   | UndoEvent

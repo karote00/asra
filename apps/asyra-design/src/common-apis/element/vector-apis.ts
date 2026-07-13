@@ -5,7 +5,7 @@ import type {
   VectorTopology,
   VectorPointNode
 } from '@asyra/core'
-import { VECTOR_TOKENS } from '@asyra/core'
+import { VECTOR_TOKENS, runTransaction } from '@asyra/core'
 import type {
   ComputedDataPatch,
   DataTypes,
@@ -13,7 +13,6 @@ import type {
   EVENT_OPTIONS
 } from '@asyra/utils'
 import { StrokeJoinTypes, createDefaultStrokes } from '@asyra/utils'
-import { startTransaction, endTransaction } from '@asyra/reactive-events'
 import { isEqual } from 'lodash'
 import core, { render, sceneTree } from '../../contexts'
 import {
@@ -1082,16 +1081,16 @@ const commitVectorTopologyOperation = (
     const commitPatch = validatedPatchRequest?.patch ?? patch
     const eventOptions =
       validatedPatchRequest?.eventOptions ?? toVectorEventOptions(options)
-    startTransaction()
-    if (!transientVectorPointDrag) {
-      reconcileVectorSelectionAfterTopologyChange(
-        elementId,
-        previousTopology,
-        nextTopology
-      )
-    }
-    core.changeComputedDataPatch([elementId], commitPatch, eventOptions)
-    endTransaction()
+    runTransaction(() => {
+      if (!transientVectorPointDrag) {
+        reconcileVectorSelectionAfterTopologyChange(
+          elementId,
+          previousTopology,
+          nextTopology
+        )
+      }
+      core.changeComputedDataPatch([elementId], commitPatch, eventOptions)
+    })
     if (transientVectorPointDrag) {
       transientWorkspaceTopologyCache.set(elementId, nextTopology)
       updateTransientComputedSnapshotFromPatch(elementId, commitPatch)
@@ -1171,9 +1170,9 @@ const commitVectorPointMutation = (
     const eventOptions =
       validatedPatchRequest?.eventOptions ?? toVectorEventOptions(options)
 
-    startTransaction()
-    core.changeComputedDataPatch([elementId], commitPatch, eventOptions)
-    endTransaction()
+    runTransaction(() =>
+      core.changeComputedDataPatch([elementId], commitPatch, eventOptions)
+    )
 
     if (transientVectorPointDrag) {
       transientWorkspaceTopologyCache.set(elementId, nextTopology)
@@ -1295,20 +1294,19 @@ const createVectorElementAtWorkspacePos = (
   data: Record<string, DataTypes>,
   options?: EVENT_OPTIONS
 ): string => {
-  startTransaction()
-  const elementId = core.createElement(
-    {
-      type: 'vector',
-      x: workspacePos.x,
-      y: workspacePos.y,
-      ...data
-    },
-    undefined,
-    undefined,
-    options
+  return runTransaction(() =>
+    core.createElement(
+      {
+        type: 'vector',
+        x: workspacePos.x,
+        y: workspacePos.y,
+        ...data
+      },
+      undefined,
+      undefined,
+      options
+    )
   )
-  endTransaction()
-  return elementId
 }
 
 export const vectorApis = {

@@ -254,6 +254,7 @@ export const moveElementsFeature = defineFeature<
 >(FeatureNames.MOVE_ELEMENTS, InputSystemEvents.INPUT_DRAG, {
   priority: 8,
   exclusive: true,
+  cancelPolicy: 'rollback',
   api,
   session: {
     onStart: (snapshot: SystemContextSnapshot) => {
@@ -318,12 +319,9 @@ export const moveElementsFeature = defineFeature<
           return
         }
 
-        transactionApis.startTransaction()
-        try {
+        transactionApis.runTransaction(() => {
           selectionApis.selectElements(nextSelectionIds)
-        } finally {
-          transactionApis.endTransaction()
-        }
+        })
 
         return
       }
@@ -343,7 +341,8 @@ export const moveElementsFeature = defineFeature<
 
       api.applyPositions(state.initialPositions, { undoable: false })
       api.applyPositions(targetPositions)
-    }
+    },
+    onCancel: () => undefined
   }
 })
 

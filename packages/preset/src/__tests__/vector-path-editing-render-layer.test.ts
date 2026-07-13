@@ -411,11 +411,13 @@ describe('vector path editing transaction boundary', () => {
     expect(vectorConsistency).not.toContain('handleModeByPointId')
   })
 
-  it('wraps computed-data writes in one explicit transaction boundary', () => {
+  it('wraps finite computed-data writes with runTransaction', () => {
     const source = changeComputedDataSource()
 
     expect(source).toMatch(
-      /startTransaction\(\)\s+core\.changeComputedData\(elementIds, data, options\)\s+endTransaction\(\)/
+      /runTransaction\(\(\) =>\s*core\.changeComputedData\(elementIds, data, options\)\s*\)/
     )
+    expect(source).not.toContain('startTransaction')
+    expect(source).not.toContain('endTransaction')
   })
 })

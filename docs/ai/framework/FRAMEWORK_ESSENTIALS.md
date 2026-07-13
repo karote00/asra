@@ -44,6 +44,10 @@ Asyra products should be assembled from framework runtime contracts, preset defa
 The framework guarantees:
 - feature isolation: features define bounded behavior and mutate state through API boundaries
 - transaction grouping: one intended user action maps to one intended undo commit
+- local failure atomicity: failed, cancelled, or invalid transactions reverse
+  their rollbackable journal without creating undo/redo history
+- explicit durability: runtime commit and persistence acknowledgement are
+  separate observable states
 - schema safety: invalid runtime writes are rejected and invalid load values fall back deterministically
 - preset replaceability: defaults are optional, movable, and replaceable by product owners
 - render boundary safety: render is an output/interaction bridge, not a data authority
@@ -55,9 +59,11 @@ The framework guarantees:
 - The default package exports provide shared singleton instances for convenience;
   exported classes allow consumers to own selected package instances without
   requiring an all-or-nothing runtime container.
-- Current transactions provide action grouping, undo/redo replay, and optional
-  shared-channel delivery. Automatic rollback of a failed active transaction and
-  explicit cancel policies are planned, not current guarantees.
+- Current transactions provide action grouping, undo/redo replay, automatic
+  local rollback, synchronous commit validation, explicit cancel policies, and
+  optional shared-channel delivery. This is application-layer ACID-inspired
+  behavior; it does not claim database serializable isolation or distributed
+  transaction guarantees.
 
 ## Non-negotiable Constraints
 

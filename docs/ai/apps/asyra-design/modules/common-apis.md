@@ -41,7 +41,8 @@
   - app-level render layer registration wrappers
 
 - `transaction.ts`
-  - direct transaction event wrappers (used where needed)
+  - `runTransaction` for finite mutation groups
+  - manual start/end/rollback wrappers for interactions that span input events
 
 ## Rules
 
@@ -51,9 +52,14 @@
 
 ## Notable Behaviors
 
-- `elementApis.changeComputedData(...)` wraps write in start/end transaction and forwards optional mutation options (for example, `undoable: false`) to core.
-- `elementApis.setElementPositions(...)` applies per-element `x/y` updates in one common-API transaction and forwards mutation options (for example, `undoable: false` for drag-frame updates).
+- `elementApis.changeComputedData(...)` uses `runTransaction` and forwards
+  optional mutation options (for example, `undoable: false`) to core.
+- `elementApis.setElementPositions(...)` applies per-element `x/y` updates in
+  one `runTransaction` boundary and forwards mutation options (for example,
+  `undoable: false` for drag-frame updates).
 - `elementApis.createElement(...)` and `selectionApis.selectElements(...)` also accept optional mutation options and forward them to core.
+- Failure in a finite common-API mutation group rolls back all recorded
+  rollbackable scene-tree, props, and selection changes before rethrowing.
 - Vector geometry updates normalize anchor points against computed bounds.
 - Canvas hit-testing uses renderer geometry (`getElementIdAtClientPos`) so
   hover targeting follows visible element fill or stroke geometry.

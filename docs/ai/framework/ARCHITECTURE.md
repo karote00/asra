@@ -42,7 +42,10 @@ Asyra architecture is designed around deterministic execution over declarative i
 
 Canonical shorthand:
 
-`Any Intent -> Feature -> API -> Transaction -> State Owner -> Projections`
+`Any Input / UI Action / Command -> Feature -> API -> State -> Render/UI`
+
+The transaction is the mutation boundary between API orchestration and state
+owners; it is not a separate source of product intent.
 
 ## Canonical State-Application Flow
 
@@ -69,8 +72,14 @@ Canonical shorthand:
 ## Ownership Rules
 
 - Feature-system owns execute/session/cancel runtime decisions.
-- Factory owns transaction grouping, undo/redo history, and shared-channel
-  buffering.
+- Reactive-events owns public transaction depth and the nested rollback-only
+  latch; Factory owns the ordered reversible journal, validation, finalization,
+  undo/redo history, and local shared-channel settlement.
+- Feature-system owns cancel/error/timeout outcome decisions and serializes
+  interaction operations.
+- Core observes only its injected Factory instance, serializes persistence after
+  committed action/undo/redo outcomes, and reports persistence separately from
+  runtime commit.
 - Scene-tree owns entity graph.
 - Props-manager owns property component values and schema validation.
 - System-context owns app/system mode flags.
@@ -106,6 +115,24 @@ Canonical shorthand:
 - App-level migrations run before package-level validation.
 - Package validators apply fallback/reject semantics.
 - Optional diagnostics can be emitted after validation without blocking load.
+- Committed action, undo, and redo outcomes enter a serial persistence queue.
+- Persistence failure is reported but does not reverse already committed
+  runtime state; no automatic retry policy is provided.
+
+## Local Transaction ACID Boundary
+
+- Atomicity: rollbackable journal entries reverse in last-in-first-out order on
+  cancel, handler failure, timeout, or validation failure.
+- Consistency: synchronous validators registered on the owning Factory run in
+  registration order before a non-empty commit.
+- Isolation: Feature operations are serialized by the interaction queue;
+  preview state may remain visible before the outer transaction closes.
+- Durability: `committed` means accepted runtime state, while `persisted` means
+  the configured provider acknowledged storage.
+- These guarantees are local application semantics. They do not lock external
+  processes or remote clients and do not provide database serializability.
+- Yjs provider/room/auth, awareness/presence, remote origin and deduplication,
+  reconnect, convergence, and collaborative conflict policy remain deferred.
 
 ## Package Deep Dives
 

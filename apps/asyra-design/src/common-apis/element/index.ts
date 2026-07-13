@@ -3,7 +3,7 @@
  * Used in: create-element, and future features
  */
 
-import { startTransaction, endTransaction } from '@asyra/reactive-events'
+import { runTransaction } from '@asyra/core'
 import {
   DEFAULT_ELEMENT_SIZE,
   EntityTypes,
@@ -51,13 +51,10 @@ const setElementFlag = (
 
   const resolvedOptions = resolveEventOptions(options)
 
-  startTransaction()
-  try {
+  runTransaction(() => {
     element.set(key, value, resolvedOptions)
     sceneTree.commitSceneTreeTransaction(resolvedOptions)
-  } finally {
-    endTransaction()
-  }
+  })
 
   return true
 }
@@ -155,21 +152,19 @@ const createElementAtWorkspacePos = (
   extraData: Record<string, DataTypes> = {},
   options?: EVENT_OPTIONS
 ): string => {
-  startTransaction()
-  const elementId = core.createElement(
-    {
-      type,
-      x: workspacePos.x,
-      y: workspacePos.y,
-      ...extraData
-    },
-    undefined,
-    undefined,
-    options
+  return runTransaction(() =>
+    core.createElement(
+      {
+        type,
+        x: workspacePos.x,
+        y: workspacePos.y,
+        ...extraData
+      },
+      undefined,
+      undefined,
+      options
+    )
   )
-  endTransaction()
-
-  return elementId
 }
 
 export const elementApis = {
@@ -414,12 +409,9 @@ export const elementApis = {
       return false
     }
 
-    startTransaction()
-    try {
-      return sceneTree.removeElement({ id: elementId }, parent, options)
-    } finally {
-      endTransaction()
-    }
+    return runTransaction(() =>
+      sceneTree.removeElement({ id: elementId }, parent, options)
+    )
   },
 
   resetElementSize: (elementId: string) => {
@@ -438,8 +430,7 @@ export const elementApis = {
       return
     }
 
-    startTransaction()
-    try {
+    runTransaction(() => {
       entries.forEach(([elementId, position]) => {
         if (
           typeof position?.x !== 'number' ||
@@ -474,9 +465,7 @@ export const elementApis = {
           options
         )
       })
-    } finally {
-      endTransaction()
-    }
+    })
   },
 
   hasMovedBeyondThreshold: (

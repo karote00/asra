@@ -5,17 +5,32 @@ export type FeatureKeyMap = string | undefined
 
 export type SessionStartHandler<T = Record<string, unknown>> = (
   snapshot: SystemContextSnapshot
-) => T | null
+) => T | null | Promise<T | null>
 
 export type SessionUpdateHandler<T = Record<string, unknown>> = (
   snapshot: SystemContextSnapshot,
   state: T
-) => void
+) => void | Promise<void>
 
 export type SessionEndHandler<T = Record<string, unknown>> = (
   snapshot: SystemContextSnapshot,
   state: T
-) => void
+) => void | Promise<void>
+
+export type SessionCancelPolicy =
+  | 'rollback'
+  | 'commit-current'
+  | 'feature-defined'
+
+export type SessionCancelOutcome = 'rollback' | 'commit-current'
+
+export type SessionCancelHandler<T = Record<string, unknown>> = (
+  snapshot: SystemContextSnapshot,
+  state: T
+) =>
+  | SessionCancelOutcome
+  | undefined
+  | Promise<SessionCancelOutcome | undefined>
 
 export type SessionState = Record<string, unknown>
 
@@ -23,6 +38,7 @@ export interface SessionHandler<T = SessionState> {
   onStart?: SessionStartHandler<T>
   onUpdate?: SessionUpdateHandler<T>
   onEnd?: SessionEndHandler<T>
+  onCancel?: SessionCancelHandler<T>
 }
 
 export interface ActiveSession {
@@ -40,6 +56,7 @@ export interface SessionParticipant {
   priority: number
   // If true, stops lower priority features from running
   exclusive: boolean
+  cancelPolicy: SessionCancelPolicy
   handler: SessionHandler
   state: SessionState | null
 }
@@ -56,6 +73,7 @@ export interface FeatureDefinition<
   priority?: number
   // Whether feature blocks lower priority features
   exclusive?: boolean
+  cancelPolicy?: SessionCancelPolicy
 }
 
 export type FeatureAPI<T = Record<string, unknown>> = T

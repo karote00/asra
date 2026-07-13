@@ -33,7 +33,11 @@
 
 ### Transaction handling
 
-- wraps selection change in start/end transaction in feature
+- session cancel policy is `rollback`
+- finite selection mutations use `runTransaction`; the drag session remains one
+  outer transaction boundary
+- cancellation clears runtime-only area-selection state and Factory reverses
+  rollbackable canonical selection changes without creating undo history
 
 ## Path Editing Interaction
 

@@ -60,7 +60,10 @@ Goal: lock data flow and extension points first.
 Actions:
 
 - write/update a short plan (runtime flow + touched packages)
-- define transaction boundaries (`start/update/end`) for state mutations
+- define transaction boundaries (`runTransaction` for finite work, or
+  `start/update/end` for long-lived sessions) for state mutations
+- define rollbackability, inverse ownership, validation, cancel policy, and
+  persistence acknowledgement for every affected transaction path
 - define extension surface changes (register APIs, schemas, hooks, adapters)
 - define deprecation impact if replacing old behavior
 - for new feature contracts, run `golden-paths/feature-acceptance-checklist.md`

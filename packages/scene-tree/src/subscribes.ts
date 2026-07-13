@@ -1,21 +1,22 @@
 import {
-  subscribeToRemoveElement,
+  EventTypes,
+  getTransactionReplayMode,
+  subscribeToSynchronousEvent,
   subscribeToChangeComputedData,
   subscribeToChangeComputedDataBatch,
   subscribeToChangeComputedDataPatch,
-  subscribeToUpdateComputedData,
-  subscribeToUpdateComputedDataPatch,
   subscribeToSceneTreeInit,
   subscribeToSceneTreeLoadData,
-  subscribeToAddElement,
   subscribeToUpdateTransaction,
-  subscribeToUpdateUndoRedoStatus,
-  sceneTreeLoadComplete
+  sceneTreeLoadComplete,
+  type AddElementEvent,
+  type RemoveElementEvent,
+  type UpdateComputedDataEvent,
+  type UpdateComputedDataPatchEvent
 } from '@asyra/reactive-events'
 import propsManager from '@asyra/props-manager'
 import {
   PROPS_ACTIONS,
-  UNDO,
   type ComputedDataPatch,
   type ComputedDataPatchChange,
   type ComputedAttrs
@@ -79,11 +80,6 @@ const isUpdatePropertyChange = (
   'after' in payload
 
 export const initSceneTreeSubscribes = () => {
-  let inUndoRedo = false
-  subscribeToUpdateUndoRedoStatus(({ payload }) => {
-    inUndoRedo = payload.status !== UNDO.NONE
-  })
-
   subscribeToSceneTreeInit(() => {
     sceneTree.init()
     sceneTreeLoadComplete()
@@ -94,15 +90,27 @@ export const initSceneTreeSubscribes = () => {
     sceneTreeLoadComplete()
   })
 
-  subscribeToAddElement(({ payload, options }) => {
-    const { data, parent, index } = payload
-    sceneTree.addNewElement(data, parent, index, inUndoRedo, options)
-  })
+  subscribeToSynchronousEvent<AddElementEvent>(
+    EventTypes.ADD_ELEMENT,
+    ({ payload, options }) => {
+      const { data, parent, index } = payload
+      sceneTree.addNewElement(
+        data,
+        parent,
+        index,
+        getTransactionReplayMode() !== null,
+        options
+      )
+    }
+  )
 
-  subscribeToRemoveElement(({ payload, options }) => {
-    const { data, parent } = payload
-    sceneTree.removeElement(data, parent, options)
-  })
+  subscribeToSynchronousEvent<RemoveElementEvent>(
+    EventTypes.REMOVE_ELEMENT,
+    ({ payload, options }) => {
+      const { data, parent } = payload
+      sceneTree.removeElement(data, parent, options)
+    }
+  )
 
   subscribeToChangeComputedData(async ({ payload, options }) => {
     const { elementIds, key, data } = payload
@@ -149,28 +157,38 @@ export const initSceneTreeSubscribes = () => {
     sceneTree.commitSceneTreeTransaction(options)
   })
 
-  subscribeToUpdateComputedData(({ payload }) => {
-    const { id, key, after } = payload
-    const options = undefined
+  subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+    EventTypes.UPDATE_COMPUTED_DATA,
+    ({ payload }) => {
+      const { id, key, after } = payload
+      const options = undefined
 
-    sceneTree.updateComputedData(
-      id,
-      key as keyof ComputedAttrs,
-      after as ComputedAttrs[keyof ComputedAttrs],
-      options
-    )
-    propsManager.commitChanges(options)
-    sceneTree.commitSceneTreeTransaction(options)
-  })
+      sceneTree.updateComputedData(
+        id,
+        key as keyof ComputedAttrs,
+        after as ComputedAttrs[keyof ComputedAttrs],
+        options
+      )
+      propsManager.commitChanges(options)
+      sceneTree.commitSceneTreeTransaction(options)
+    }
+  )
 
-  subscribeToUpdateComputedDataPatch(({ payload }) => {
-    const { id, patch } = payload
-    const options = undefined
+  subscribeToSynchronousEvent<UpdateComputedDataPatchEvent>(
+    EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+    ({ payload }) => {
+      const { id, patch } = payload
+      const options = undefined
 
-    sceneTree.patchComputedData(id, toAppliedComputedDataPatch(patch), options)
-    propsManager.cleanChanges()
-    sceneTree.commitSceneTreeTransaction(options)
-  })
+      sceneTree.patchComputedData(
+        id,
+        toAppliedComputedDataPatch(patch),
+        options
+      )
+      propsManager.cleanChanges()
+      sceneTree.commitSceneTreeTransaction(options)
+    }
+  )
 
   subscribeToUpdateTransaction(({ payload, options }) => {
     if (!isUpdatePropertyChange(payload)) {

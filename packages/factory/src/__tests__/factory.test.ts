@@ -4,6 +4,7 @@ import type _DataTransact from '../data-transact' // Keep this import for type i
 import {
   EventTypes,
   subscribeToEvents,
+  subscribeToUserActionCompleted,
   UpdateTransactionEvent,
   TransactionEventTypes
 } from '@asyra/reactive-events'
@@ -55,6 +56,77 @@ describe('Factory', () => {
     expect(factory.transact.redo).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps transaction status subscriptions isolated per Factory instance', () => {
+    const first = new Factory()
+    const second = new Factory()
+    const firstStatus = vi.fn()
+    const secondStatus = vi.fn()
+    const disposeFirst = first.subscribeToTransactionStatus(firstStatus)
+    const disposeSecond = second.subscribeToTransactionStatus(secondStatus)
+
+    first.startTransaction()
+    first.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: { id: 'first', before: 0, after: 1 }
+    })
+    first.endTransaction()
+
+    expect(firstStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'committed' })
+    )
+    expect(secondStatus).not.toHaveBeenCalled()
+
+    disposeFirst()
+    disposeSecond()
+  })
+
+  it('reports undo and redo commits on the owning Factory instance', () => {
+    const isolatedFactory = new Factory()
+    const statuses: { origin: string; status: string }[] = []
+    const dispose = isolatedFactory.subscribeToTransactionStatus((status) => {
+      statuses.push(status)
+    })
+
+    isolatedFactory.startTransaction()
+    isolatedFactory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: { id: 'value', before: 0, after: 1 }
+    })
+    isolatedFactory.endTransaction()
+    statuses.length = 0
+
+    isolatedFactory.undo()
+    isolatedFactory.redo()
+
+    expect(statuses).toEqual([
+      expect.objectContaining({ origin: 'undo', status: 'committed' }),
+      expect.objectContaining({ origin: 'redo', status: 'committed' })
+    ])
+
+    dispose()
+  })
+
+  it('does not bridge custom Factory completion to the global event bus', () => {
+    const customFactory = new Factory()
+    const subscriber = vi.fn()
+    const subscription = subscribeToUserActionCompleted(subscriber)
+    subscriber.mockClear()
+
+    customFactory.startTransaction()
+    customFactory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: { id: 'custom', before: 0, after: 1 }
+    })
+    customFactory.endTransaction()
+
+    expect(subscriber).not.toHaveBeenCalled()
+
+    subscription.unsubscribe()
+  })
+
   it('does not register shared data channels implicitly', () => {
     expect(
       factory.hasSharedDataChannel(SharedDataChannelNames.SCENE_TREE)
@@ -80,8 +152,8 @@ describe('Factory', () => {
     )
     const sharedEvent: UpdateTransactionEvent = {
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: 'test-event',
-      payload: { id: 'test-event' },
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: { id: 'test-event', before: 0, after: 1 },
       options: { shared: SharedDataChannelNames.SCENE_TREE }
     }
 
@@ -111,8 +183,12 @@ describe('Factory', () => {
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: 'test-event',
-      payload: { id: 'non-undoable-test-event' },
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        id: 'non-undoable-test-event',
+        before: 0,
+        after: 1
+      },
       options: {
         undoable: false,
         shared: SharedDataChannelNames.SCENE_TREE
@@ -151,8 +227,8 @@ describe('Factory', () => {
     factory.startTransaction()
     factory.updateTransaction({
       type: TransactionEventTypes.UPDATE_TRANSACTION,
-      eventName: 'test-event',
-      payload: { id: 'test-event' },
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: { id: 'test-event', before: 0, after: 1 },
       options: { shared: SharedDataChannelNames.SCENE_TREE }
     })
     expect(undoStackLengths).toEqual([])

@@ -1,15 +1,31 @@
 import type {
   ActiveSession,
+  SessionCancelOutcome,
+  SessionCancelPolicy,
   SessionHandler,
-  SessionParticipant
+  SessionParticipant,
+  SessionState
 } from '../types/feature'
 import type {
   SystemContextSnapshot,
-  SystemContextSnapshotWithDetail
+  SystemContextSnapshotWithDetail,
+  TransactionFailure
 } from '@asyra/utils'
-import { startTransaction, endTransaction } from '@asyra/reactive-events'
+import { endTransaction, startTransaction } from '@asyra/reactive-events'
 
 const DEFAULT_HANDLER_TIMEOUT_MS = 5000
+
+export class FeatureHandlerTimeoutError extends Error {
+  readonly label: string
+  readonly timeoutMs: number
+
+  constructor(label: string, timeoutMs: number) {
+    super(`Session handler timeout: ${label}`)
+    this.name = 'FeatureHandlerTimeoutError'
+    this.label = label
+    this.timeoutMs = timeoutMs
+  }
+}
 
 const measureBrowserDragAsyncPhase = async <T>(
   phaseName: string,
@@ -35,10 +51,11 @@ const measureBrowserDragAsyncPhase = async <T>(
   }
 }
 
-/**
- * Session Manager
- * Handles priority-based session coordination for multiple features
- */
+interface CleanupResult {
+  outcome: SessionCancelOutcome
+  error?: unknown
+}
+
 export class SessionManager {
   private activeSessions = new Map<string, ActiveSession>()
   private sessionHandlers = new Map<string, SessionParticipant[]>()
@@ -64,29 +81,24 @@ export class SessionManager {
 
   private async runWithTimeout<T>(
     handler: (() => T | Promise<T>) | undefined,
-    label: string
+    label: string,
+    abortController?: AbortController
   ): Promise<T | undefined> {
     if (!handler) {
       return undefined
     }
 
     let timeoutId: ReturnType<typeof setTimeout> | undefined
-
     try {
-      const result = await Promise.race([
+      return (await Promise.race([
         Promise.resolve().then(handler),
         new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(
-            () => reject(new Error(`Session handler timeout: ${label}`)),
-            this.handlerTimeoutMs
-          )
+          timeoutId = setTimeout(() => {
+            abortController?.abort()
+            reject(new FeatureHandlerTimeoutError(label, this.handlerTimeoutMs))
+          }, this.handlerTimeoutMs)
         })
-      ])
-
-      return result as T
-    } catch (error) {
-      console.error(error)
-      return undefined
+      ])) as T
     } finally {
       if (timeoutId !== undefined) {
         clearTimeout(timeoutId)
@@ -94,135 +106,236 @@ export class SessionManager {
     }
   }
 
-  /**
-   * Register a session handler for a feature
-   * @param sessionName - Name of the session (e.g., 'input.drag')
-   * @param featureName - Name of the feature registering
-   * @param priority - Execution priority (higher = runs first)
-   * @param exclusive - If true, stops lower priority features
-   * @param handler - Session lifecycle handlers
-   */
+  private toTransactionFailure(error: unknown): TransactionFailure {
+    return {
+      kind:
+        error instanceof FeatureHandlerTimeoutError
+          ? 'handler-timeout'
+          : 'handler-error',
+      message: error instanceof Error ? error.message : undefined,
+      cause: error
+    }
+  }
+
+  private async cleanupParticipants(
+    participants: readonly SessionParticipant[],
+    states: ReadonlyMap<string, SessionState>,
+    snapshot: SystemContextSnapshot,
+    abortController?: AbortController
+  ): Promise<CleanupResult> {
+    let outcome: SessionCancelOutcome = 'commit-current'
+    let firstError: unknown
+
+    for (const participant of participants) {
+      const state = states.get(participant.featureName)
+      if (state === undefined) {
+        continue
+      }
+
+      try {
+        const requestedOutcome = participant.handler.onCancel
+          ? await this.runWithTimeout(
+              () => participant.handler.onCancel?.(snapshot, state),
+              `${participant.featureName}.onCancel`,
+              abortController
+            )
+          : await this.runWithTimeout(
+              () => participant.handler.onEnd?.(snapshot, state),
+              `${participant.featureName}.onEnd(cancel-fallback)`,
+              abortController
+            )
+
+        let participantOutcome: SessionCancelOutcome
+        if (participant.cancelPolicy === 'feature-defined') {
+          if (
+            requestedOutcome !== 'rollback' &&
+            requestedOutcome !== 'commit-current'
+          ) {
+            throw new Error(
+              `Feature ${participant.featureName} onCancel must return rollback or commit-current`
+            )
+          }
+          participantOutcome = requestedOutcome
+        } else {
+          participantOutcome = participant.cancelPolicy
+        }
+
+        if (participantOutcome === 'rollback') {
+          outcome = 'rollback'
+        }
+      } catch (error) {
+        firstError ??= error
+        outcome = 'rollback'
+      }
+    }
+
+    return {
+      outcome,
+      ...(firstError !== undefined ? { error: firstError } : {})
+    }
+  }
+
+  private async cancelSession(
+    sessionName: string,
+    snapshot: SystemContextSnapshotWithDetail,
+    forcedError?: unknown
+  ): Promise<unknown | undefined> {
+    const session = this.activeSessions.get(sessionName)
+    if (!session) {
+      return forcedError
+    }
+
+    session.abortController?.abort()
+    const currentDetail = snapshot.detail ?? {}
+    const cleanupSnapshot = this.withDetail(
+      snapshot,
+      {
+        cancelled: true,
+        cancelledBy: currentDetail.cancelledBy ?? sessionName
+      },
+      session.abortController?.signal
+    )
+    const cleanup = await this.cleanupParticipants(
+      session.participants,
+      session.states,
+      cleanupSnapshot,
+      session.abortController
+    )
+    this.activeSessions.delete(sessionName)
+
+    const failure = forcedError ?? cleanup.error
+    const shouldRollback =
+      failure !== undefined || cleanup.outcome === 'rollback'
+    endTransaction(
+      shouldRollback
+        ? {
+            outcome: 'rollback',
+            failure:
+              failure !== undefined
+                ? this.toTransactionFailure(failure)
+                : { kind: 'cancelled' }
+          }
+        : { outcome: 'commit' }
+    )
+
+    return failure
+  }
+
   registerSession(
     sessionName: string,
     featureName: string,
     priority: number,
     exclusive: boolean,
+    cancelPolicy: SessionCancelPolicy,
     handler: SessionHandler
   ): void {
+    if (cancelPolicy === 'feature-defined' && !handler.onCancel) {
+      throw new Error(
+        `Feature ${featureName} uses feature-defined cancelPolicy without onCancel`
+      )
+    }
+
     const participant: SessionParticipant = {
       featureName,
       priority,
       exclusive,
+      cancelPolicy,
       handler,
       state: null
     }
 
-    if (!this.sessionHandlers.has(sessionName)) {
-      this.sessionHandlers.set(sessionName, [])
-    }
-
-    const handlers = this.sessionHandlers.get(sessionName)
-    if (handlers) {
-      handlers.push(participant)
-      // Sort by priority (descending) - higher priority runs first
-      handlers.sort((a, b) => b.priority - a.priority)
-    }
+    const handlers = this.sessionHandlers.get(sessionName) ?? []
+    handlers.push(participant)
+    handlers.sort((left, right) => right.priority - left.priority)
+    this.sessionHandlers.set(sessionName, handlers)
   }
 
-  /**
-   * Handle session start with priority-based selection
-   * @param sessionName - Name of the session
-   * @param snapshot - System context snapshot
-   * @returns True if any feature participated
-   */
   async handleStart(
     sessionName: string,
     snapshot: SystemContextSnapshot
   ): Promise<boolean> {
     const handlers = this.sessionHandlers.get(sessionName)
-    if (!handlers || handlers.length === 0) return false
+    if (!handlers || handlers.length === 0) {
+      return false
+    }
 
     startTransaction()
-
     const abortController = new AbortController()
     const snapshotWithSignal = this.withDetail(
       snapshot,
       { sessionName },
       abortController.signal
     )
-
-    // Priority-ordered: check features from highest to lowest priority
     const participants: SessionParticipant[] = []
+    const states = new Map<string, SessionState>()
     let exclusiveFound = false
 
     for (const participant of handlers) {
-      // Skip if previous exclusive feature stopped us
-      if (exclusiveFound) break
+      if (exclusiveFound) {
+        break
+      }
 
       try {
-        // Call onStart handler
         const state = await this.runWithTimeout(
           () => participant.handler.onStart?.(snapshotWithSignal),
-          `${participant.featureName}.onStart`
+          `${participant.featureName}.onStart`,
+          abortController
         )
+        if (state === null || state === undefined) {
+          continue
+        }
 
-        if (state !== null && state !== undefined) {
-          // Feature participates
-          participants.push({
-            ...participant,
-            state
-          })
-
-          // If exclusive, stop checking lower priorities
-          if (participant.exclusive) {
-            exclusiveFound = true
-          }
+        participants.push({ ...participant, state })
+        states.set(participant.featureName, state)
+        if (participant.exclusive) {
+          exclusiveFound = true
         }
       } catch (error) {
-        console.error(
-          `Feature "${participant.featureName}" error in onStart:`,
-          error
+        abortController.abort()
+        await this.cleanupParticipants(
+          participants,
+          states,
+          this.withDetail(
+            snapshotWithSignal,
+            {
+              cancelled: true,
+              cancelledBy: `${participant.featureName}.onStart`
+            },
+            abortController.signal
+          ),
+          abortController
         )
-        // Continue with next feature on error
+        endTransaction({
+          outcome: 'rollback',
+          failure: this.toTransactionFailure(error)
+        })
+        throw error
       }
     }
 
     if (participants.length === 0) {
       endTransaction()
-      return false // No participants
+      return false
     }
 
-    // Create active session
-    const activeSession: ActiveSession = {
+    this.activeSessions.set(sessionName, {
       name: sessionName,
       participants,
       startTime: Date.now(),
-      states: new Map(),
+      states,
       abortController
-    }
-
-    participants.forEach((p) => {
-      // Use p.featureName as the key, not p.name which doesn't exist
-      if (p.state) {
-        activeSession.states.set(p.featureName, p.state)
-      }
     })
-
-    this.activeSessions.set(sessionName, activeSession)
     return true
   }
 
-  /**
-   * Handle session update (only for participants)
-   * @param sessionName - Name of the session
-   * @param snapshot - System context snapshot
-   */
   async handleUpdate(
     sessionName: string,
     snapshot: SystemContextSnapshot
   ): Promise<void> {
     const session = this.activeSessions.get(sessionName)
-    if (!session) return
+    if (!session) {
+      return
+    }
 
     const snapshotWithSignal = this.withDetail(
       snapshot,
@@ -230,148 +343,132 @@ export class SessionManager {
       session.abortController?.signal
     )
 
-    // Call onUpdate for all participants (original priority order)
     for (const participant of session.participants) {
+      const state = session.states.get(participant.featureName)
+      if (state === undefined) {
+        continue
+      }
+
       try {
-        const state = session.states.get(participant.featureName)
-        if (state !== undefined) {
-          await measureBrowserDragAsyncPhase(
-            `feature-session:${participant.featureName}.onUpdate`,
-            () =>
-              this.runWithTimeout(
-                () => participant.handler.onUpdate?.(snapshotWithSignal, state),
-                `${participant.featureName}.onUpdate`
-              )
-          )
-        }
+        await measureBrowserDragAsyncPhase(
+          `feature-session:${participant.featureName}.onUpdate`,
+          () =>
+            this.runWithTimeout(
+              () => participant.handler.onUpdate?.(snapshotWithSignal, state),
+              `${participant.featureName}.onUpdate`,
+              session.abortController
+            )
+        )
       } catch (error) {
-        console.error(
-          `Feature "${participant.featureName}" error in onUpdate:`,
+        await this.cancelSession(
+          sessionName,
+          this.withDetail(snapshotWithSignal, {
+            cancelled: true,
+            cancelledBy: `${participant.featureName}.onUpdate`
+          }) as SystemContextSnapshotWithDetail,
           error
         )
+        throw error
       }
     }
   }
 
-  /**
-   * Handle session end (only for participants)
-   * @param sessionName - Name of the session
-   * @param snapshot - System context snapshot
-   */
   async handleEnd(
     sessionName: string,
     snapshot: SystemContextSnapshot
   ): Promise<void> {
     const session = this.activeSessions.get(sessionName)
-    if (!session) return
+    if (!session) {
+      return
+    }
 
     const snapshotWithSignal = this.withDetail(
       snapshot,
       { sessionName },
       session.abortController?.signal
     )
+    let firstError: unknown
 
-    // Call onEnd for all participants
     for (const participant of session.participants) {
+      const state = session.states.get(participant.featureName)
+      if (state === undefined) {
+        continue
+      }
+
       try {
-        const state = session.states.get(participant.featureName)
-        if (state !== undefined) {
-          await this.runWithTimeout(
-            () => participant.handler.onEnd?.(snapshotWithSignal, state),
-            `${participant.featureName}.onEnd`
-          )
-        }
-      } catch (error) {
-        console.error(
-          `Feature "${participant.featureName}" error in onEnd:`,
-          error
+        await this.runWithTimeout(
+          () => participant.handler.onEnd?.(snapshotWithSignal, state),
+          `${participant.featureName}.onEnd`,
+          session.abortController
         )
+      } catch (error) {
+        firstError ??= error
       }
     }
 
-    // Clear session
     this.activeSessions.delete(sessionName)
-    endTransaction()
+    if (firstError !== undefined) {
+      session.abortController?.abort()
+    }
+    endTransaction(
+      firstError === undefined
+        ? { outcome: 'commit' }
+        : {
+            outcome: 'rollback',
+            failure: this.toTransactionFailure(firstError)
+          }
+    )
+    if (firstError !== undefined) {
+      throw firstError
+    }
   }
 
-  /**
-   * Cancel all active sessions before starting a new action
-   */
   async cancelActiveSessions(
     snapshot: SystemContextSnapshotWithDetail
   ): Promise<void> {
-    if (this.activeSessions.size === 0) {
-      return
+    let firstError: unknown
+    for (const sessionName of [...this.activeSessions.keys()]) {
+      const error = await this.cancelSession(sessionName, snapshot)
+      firstError ??= error
     }
-
-    const sessionNames = Array.from(this.activeSessions.keys())
-    for (const sessionName of sessionNames) {
-      const session = this.activeSessions.get(sessionName)
-      session?.abortController?.abort()
-      const currentDetail =
-        (snapshot as SystemContextSnapshotWithDetail).detail ?? {}
-      await this.handleEnd(
-        sessionName,
-        this.withDetail(snapshot, {
-          cancelled: true,
-          cancelledBy: currentDetail.cancelledBy ?? sessionName
-        })
-      )
+    if (firstError !== undefined) {
+      throw firstError
     }
   }
 
-  /**
-   * Get active session (for debugging)
-   * @param sessionName - Name of the session
-   * @returns Active session or undefined
-   */
   getActiveSession(sessionName: string): ActiveSession | undefined {
     return this.activeSessions.get(sessionName)
   }
 
-  /**
-   * Get all registered session names
-   * @returns Array of session names
-   */
   getRegisteredSessionNames(): string[] {
     return Array.from(this.sessionHandlers.keys())
   }
 
-  /**
-   * Get all active sessions
-   * @returns Map of session name to active session
-   */
   getAllActiveSessions(): Map<string, ActiveSession> {
     return new Map(this.activeSessions)
   }
 
-  /**
-   * Clear all sessions (for cleanup)
-   */
   clearAll(): void {
     this.activeSessions.clear()
   }
 
-  /**
-   * Unregister a session handler
-   * @param sessionName - Name of the session
-   * @param featureName - Name of the feature
-   * @returns True if handler was removed
-   */
   unregisterSession(sessionName: string, featureName: string): boolean {
     const handlers = this.sessionHandlers.get(sessionName)
-    if (!handlers) return false
+    if (!handlers) {
+      return false
+    }
 
-    const index = handlers.findIndex((h) => h.featureName === featureName)
-    if (index === -1) return false
+    const index = handlers.findIndex(
+      (handler) => handler.featureName === featureName
+    )
+    if (index === -1) {
+      return false
+    }
 
     handlers.splice(index, 1)
-
-    // Remove session entry if no handlers left
     if (handlers.length === 0) {
       this.sessionHandlers.delete(sessionName)
     }
-
     return true
   }
 }

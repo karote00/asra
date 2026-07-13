@@ -69,10 +69,14 @@ System orchestrator and lifecycle coordinator.
   - includes only managed properties registered with `runtime: false`
 
 4. Transaction status contract
-- core may observe transaction completion for autosave, but a runtime commit is
-  not the same as persistence durability
-- automatic failure rollback and persistence acknowledgement are deferred; core
-  must not claim those guarantees before the transaction atomicity plan lands
+- each Core subscribes to the Factory instance injected into that Core, not to a
+  global end-transaction event
+- committed action, undo, and redo statuses enter one serial persistence queue
+- missing provider reports `persistence-skipped`; successful save reports
+  `persisted`; provider failure reports `persistence-failed`
+- discarded, rolled-back, and rollback-failed outcomes never request save
+- persistence failure does not roll back committed runtime state and does not
+  block later queued saves; Core provides no automatic retry policy
 
 ## App-Level Usage Rules
 

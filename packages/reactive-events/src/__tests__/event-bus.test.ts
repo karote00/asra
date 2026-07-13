@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   publishEvent,
   createSubscribeEvent,
+  subscribeToSynchronousEvent,
   subscribeToEvents,
   getEventBus,
   createEventStream
@@ -100,6 +101,27 @@ describe('Event Bus - Communication Backbone', () => {
 
       sub1.unsubscribe()
       sub2.unsubscribe()
+    })
+
+    it('synchronously surfaces a typed state-owner apply failure', () => {
+      const applyFailure = new Error('state apply failed')
+      const subscription = subscribeToSynchronousEvent<TestEvent>(
+        EventTypes.UPDATE_COMPUTED_DATA,
+        () => {
+          throw applyFailure
+        }
+      )
+
+      try {
+        expect(() =>
+          publishEvent({
+            type: EventTypes.UPDATE_COMPUTED_DATA,
+            payload: { message: 'apply' }
+          })
+        ).toThrow(applyFailure)
+      } finally {
+        subscription.unsubscribe()
+      }
     })
   })
 

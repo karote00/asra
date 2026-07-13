@@ -29,7 +29,9 @@ Goal: keep Asyra modular, deterministic, and reusable across canvas domains (des
 
 ## Runtime and Data Guarantees
 
-- [ ] Runtime flow remains deterministic: Any Intent -> Feature -> API -> Transaction -> State Owner -> Projections.
+- [ ] Runtime flow remains deterministic: Any Input / UI Action / Command ->
+  Feature -> API -> State -> Render/UI; transactions guard the API-to-state
+  mutation boundary.
 - [ ] Mutations are transaction-bounded and grouped by intended user action.
 - [ ] Undo/redo semantics are defined:
   - grouping boundary

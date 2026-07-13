@@ -12,6 +12,9 @@ Use these matrices for deterministic ownership and flow decisions.
 - app/system mode owner: `@asyra/system-context`
 - render engine owner: `@asyra/render`
 - derived UI state owner: `@asyra/ui-context` (optional)
+- transaction boundary depth/rollback-only owner: `@asyra/reactive-events`
+- reversible journal/validation/history/shared-settlement owner: `@asyra/factory`
+- commit persistence acknowledgement owner: injected `@asyra/core` + provider
 
 ## Mutation Boundary Matrix
 
@@ -21,6 +24,8 @@ Use these matrices for deterministic ownership and flow decisions.
 
 - app/common APIs
   - can: orchestrate transactions and package calls
+  - should: use `runTransaction` for finite work and manual boundaries only for
+    interactions spanning multiple input events
   - must not: bypass validation contracts
   - should: update system-context state through managed-property APIs rather than framework-level key-specific events
 
@@ -77,7 +82,9 @@ Intent path:
 3. feature-system executes feature handlers
 4. handlers call mutation/query APIs
 5. APIs mutate authoritative framework state in a transaction boundary
-6. render/ui-context and other projections react to state
+6. Factory validates commit or reverses the rollbackable journal
+7. render/ui-context and other projections react to state
+8. committed outcomes enter Core's serial persistence queue
 
 State-application path:
 

@@ -1,5 +1,3 @@
-export interface EVENT_OPTIONS {
-  undoable?: boolean
-  shared?: string
-  sharedDelivery?: 'transaction-end' | 'immediate'
-}
+import type { MutationOptions } from '../types/change'
+
+export interface EVENT_OPTIONS extends MutationOptions {}

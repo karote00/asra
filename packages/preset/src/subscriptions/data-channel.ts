@@ -1,14 +1,16 @@
 import {
   defineDataChannelObserver,
+  EventTypes,
   propertyRegistry,
   renderSceneTreeStore,
   renderSelectionStore,
-  subscribeToSelectElements,
-  subscribeToSelectVectorPoints,
-  subscribeToSelectVectorSegments,
+  subscribeToSynchronousEvent,
   uiContext,
   subscribeToEndTransaction,
-  subscribeToFileLoadComplete
+  subscribeToFileLoadComplete,
+  type SelectElementsEvent,
+  type SelectVectorPointsEvent,
+  type SelectVectorSegmentsEvent
 } from '@asyra/core'
 import {
   EntityTypes,
@@ -634,63 +636,71 @@ export const registerDefaultDataChannelObservers = (
 
   // Undo/redo publishes selection events directly from transaction history.
   // Apply those payloads to runtime so selection state is restored correctly.
-  subscribeToSelectElements((event) => {
-    const change = createSelectionChangeFromDirectEvent(
-      SelectionChannels.ELEMENT,
-      SelectionActions.SELECT_ELEMENTS,
-      SelectionEventNames.SELECT_ELEMENTS,
-      event.payload,
-      event.options
-    )
+  subscribeToSynchronousEvent<SelectElementsEvent>(
+    EventTypes.SELECT_ELEMENTS,
+    (event) => {
+      const change = createSelectionChangeFromDirectEvent(
+        SelectionChannels.ELEMENT,
+        SelectionActions.SELECT_ELEMENTS,
+        SelectionEventNames.SELECT_ELEMENTS,
+        event.payload,
+        event.options
+      )
 
-    applySelectionIdsToRuntime(
-      core,
-      SelectionChannels.ELEMENT,
-      change.after,
-      change.options
-    )
+      applySelectionIdsToRuntime(
+        core,
+        SelectionChannels.ELEMENT,
+        change.after,
+        change.options
+      )
 
-    // Direct selection events (undo/redo path) bypass shared channel observers.
-    // Mirror them to render/UI explicitly so selection visuals stay in sync.
-    updateRenderSelection(change)
-    updateUIContextSelection(change, core, deps)
-  })
-  subscribeToSelectVectorPoints((event) => {
-    const change = createSelectionChangeFromDirectEvent(
-      SelectionChannels.VECTOR_POINT,
-      SelectionActions.SELECT_VECTOR_POINTS,
-      SelectionEventNames.SELECT_VECTOR_POINTS,
-      event.payload,
-      event.options
-    )
+      // Replay events bypass shared channel observers. Mirror them to render/UI.
+      updateRenderSelection(change)
+      updateUIContextSelection(change, core, deps)
+    }
+  )
+  subscribeToSynchronousEvent<SelectVectorPointsEvent>(
+    EventTypes.SELECT_VECTOR_POINTS,
+    (event) => {
+      const change = createSelectionChangeFromDirectEvent(
+        SelectionChannels.VECTOR_POINT,
+        SelectionActions.SELECT_VECTOR_POINTS,
+        SelectionEventNames.SELECT_VECTOR_POINTS,
+        event.payload,
+        event.options
+      )
 
-    applySelectionIdsToRuntime(
-      core,
-      SelectionChannels.VECTOR_POINT,
-      change.after,
-      change.options
-    )
-    updateRenderSelection(change)
-    updateUIContextSelection(change, core, deps)
-  })
-  subscribeToSelectVectorSegments((event) => {
-    const change = createSelectionChangeFromDirectEvent(
-      SelectionChannels.VECTOR_SEGMENT,
-      SelectionActions.SELECT_VECTOR_SEGMENTS,
-      SelectionEventNames.SELECT_VECTOR_SEGMENTS,
-      event.payload,
-      event.options
-    )
+      applySelectionIdsToRuntime(
+        core,
+        SelectionChannels.VECTOR_POINT,
+        change.after,
+        change.options
+      )
+      updateRenderSelection(change)
+      updateUIContextSelection(change, core, deps)
+    }
+  )
+  subscribeToSynchronousEvent<SelectVectorSegmentsEvent>(
+    EventTypes.SELECT_VECTOR_SEGMENTS,
+    (event) => {
+      const change = createSelectionChangeFromDirectEvent(
+        SelectionChannels.VECTOR_SEGMENT,
+        SelectionActions.SELECT_VECTOR_SEGMENTS,
+        SelectionEventNames.SELECT_VECTOR_SEGMENTS,
+        event.payload,
+        event.options
+      )
 
-    applySelectionIdsToRuntime(
-      core,
-      SelectionChannels.VECTOR_SEGMENT,
-      change.after,
-      change.options
-    )
-    updateRenderSelection(change)
-    updateUIContextSelection(change, core, deps)
-  })
+      applySelectionIdsToRuntime(
+        core,
+        SelectionChannels.VECTOR_SEGMENT,
+        change.after,
+        change.options
+      )
+      updateRenderSelection(change)
+      updateUIContextSelection(change, core, deps)
+    }
+  )
 
   core.registerDataChannelObserver(renderSceneTreeDataChannelObserver)
   core.registerDataChannelObserver(selectionRuntimeDataChannelObserver)

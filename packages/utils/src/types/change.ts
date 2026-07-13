@@ -2,6 +2,7 @@ import { DataTypes } from './constants'
 
 export interface MutationOptions {
   undoable?: boolean
+  rollbackable?: boolean
   shared?: string
   sharedDelivery?: 'transaction-end' | 'immediate'
 }

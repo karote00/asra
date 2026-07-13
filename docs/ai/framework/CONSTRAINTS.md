@@ -11,9 +11,13 @@
 
 3. Transaction expectations
 - Data-changing APIs should be transaction-bounded.
-- Current transactions group changes for undo/redo and shared delivery; they do
-  not yet provide automatic rollback of every applied mutation after failure.
-- Current session cancel ends the session but does not itself guarantee rollback.
+- Transactions group changes for undo/redo and shared delivery and automatically
+  reverse recorded rollbackable mutations after failure, cancellation, or
+  validation rejection.
+- Session cancel defaults to rollback; `commit-current` and `feature-defined`
+  policies are explicit opt-ins.
+- Mutations explicitly marked `rollbackable: false`, runtime-only feature state,
+  external processes, and remote clients are outside local rollback coverage.
 
 4. Feature decision runtime
 - Feature-system is primary runtime for execute/session flow.
@@ -45,9 +49,12 @@
 - Default builtins are not implicitly registered by core.
 - Consumers must explicitly apply `@asyra/preset` when default framework registrations are required.
 
-7. Transaction atomicity
-- ACID-inspired failure atomicity, explicit cancel policies, and committed vs
-  persisted acknowledgement are planned but not implemented yet.
+7. Transaction atomicity boundary
+- Local ACID-inspired failure atomicity, explicit cancel policies, and committed
+  vs persisted acknowledgement are implemented.
+- This is not a database transaction: isolation is Feature-operation
+  serialization, not external/remote locking or serializable isolation.
+- Persistence failure does not reverse runtime commit and has no built-in retry.
 - See `plans/transaction-atomicity-and-rollback-plan.md`.
 
 8. Yjs network collaboration

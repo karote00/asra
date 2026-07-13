@@ -227,12 +227,7 @@ export const useFillInteractions = ({
   }
 
   const runDiscreteFillInteraction = (callback: () => void) => {
-    transactionApis.startTransaction()
-    try {
-      callback()
-    } finally {
-      transactionApis.endTransaction()
-    }
+    transactionApis.runTransaction(callback)
   }
 
   const commitFillInteractionPatch = (

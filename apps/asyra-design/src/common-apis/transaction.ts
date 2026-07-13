@@ -6,11 +6,15 @@
 import {
   startTransaction,
   endTransaction,
+  rollbackTransaction,
+  runTransaction,
   updateTransaction
-} from '@asyra/reactive-events'
+} from '@asyra/core'
 
 export const transactionApis = {
   startTransaction,
   endTransaction,
+  rollbackTransaction,
+  runTransaction,
   updateTransaction
 }

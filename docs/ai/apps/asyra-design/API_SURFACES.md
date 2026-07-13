@@ -170,8 +170,11 @@ Import boundary:
 `transactionApis` (`src/common-apis/transaction.ts`)
 
 - `startTransaction(): void`
-- `updateTransaction(): void`
-- `endTransaction(): void`
+- `updateTransaction(eventName, payload, options?): void`
+- `endTransaction(options?): void`
+- `rollbackTransaction(failure?): void`
+- `runTransaction(callback, options?)`: finite synchronous/asynchronous work
+  commits on success and rolls back thrown/rejected work
 
 ## Controller APIs (`src/controllers/*`)
 

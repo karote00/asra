@@ -64,6 +64,13 @@ test.describe('Delete Selected Element', () => {
   })
 
   test('delete action supports undo and redo', async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(error.message))
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        pageErrors.push(message.text())
+      }
+    })
     const initialCount = await getElementCount(page)
     await createRectangle(page, 0.5, 0.45)
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 1)
@@ -79,6 +86,52 @@ test.describe('Delete Selected Element', () => {
     await redo(page)
     await expect.poll(async () => getElementCount(page)).toBe(initialCount)
     expect(await hasSelectedElement(page)).toBe(false)
+    expect(pageErrors).toEqual([])
+  })
+
+  test('validation failure restores deleted element and props exactly', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.48, 0.42)
+    const before = await page.evaluate(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).__deleteRollbackStatuses = []
+      core.deps.factory.subscribeToTransactionStatus(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (status: any) =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (window as any).__deleteRollbackStatuses.push(status.status)
+      )
+      core.deps.factory.registerTransactionValidator(
+        'delete-rollback-e2e',
+        () => ({
+          valid: false,
+          code: 'forced-delete-failure',
+          message: 'Force delete rollback'
+        })
+      )
+      return core.save()
+    })
+
+    await page.keyboard.press('Delete')
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (window as any).__deleteRollbackStatuses as string[]
+        )
+      )
+      .toContain('rolled-back')
+
+    const after = await page.evaluate(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core.save()
+    })
+    expect(after).toEqual(before)
   })
 
   test('redo delete after sequential deletions does not throw selection-layer error', async ({

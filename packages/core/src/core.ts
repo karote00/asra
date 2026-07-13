@@ -1,7 +1,8 @@
 import type {
   SceneTreeRawData,
   CoreRawData,
-  PropertySchema
+  PropertySchema,
+  TransactionStatusPayload
 } from '@asyra/utils'
 import { isRecord } from '@asyra/utils'
 import factory, { Factory } from '@asyra/factory'
@@ -20,11 +21,9 @@ import type { FeatureSystemAPIs } from './types/feature-system'
 import render, { Render, IRenderer, RenderOptions } from '@asyra/render'
 import { IPersistenceProvider, SaveHook, LoadHook } from '@asyra/persistence'
 import {
-  EventTypes,
   type EventDefinition,
   eventRegistry,
-  fileLoadComplete,
-  subscribeToEvents
+  fileLoadComplete
 } from '@asyra/reactive-events'
 
 import {
@@ -70,6 +69,7 @@ class Core implements CoreAPIs {
   private saveHooks: SaveHook[] = []
   private loadHooks: LoadHook[] = []
   private loadDiagnosticsHooks: LoadDiagnosticsHook[] = []
+  private persistenceQueue: Promise<void> = Promise.resolve()
 
   setupInputSystem!: InputSystemAPIs['setupInputSystem']
 
@@ -129,7 +129,7 @@ class Core implements CoreAPIs {
 
     Object.assign(this, apis as CoreAPIs)
 
-    // Subscribe to endTransaction for auto-save
+    // Subscribe to this Core instance's Factory commit status for auto-save.
     this.initAutoSave()
   }
 
@@ -231,21 +231,49 @@ class Core implements CoreAPIs {
   }
 
   private initAutoSave(): void {
-    subscribeToEvents((event) => {
-      if (event.type === EventTypes.END_TRANSACTION) {
-        this.saveToPersistence().catch((error) => {
-          console.error('[Core] Auto-save failed:', error)
-        })
+    this.deps.factory.subscribeToTransactionStatus((status) => {
+      if (status.status !== 'committed') {
+        return
       }
+
+      this.persistenceQueue = this.persistenceQueue.then(() =>
+        this.persistCommittedTransaction(status)
+      )
     })
   }
 
-  private async saveToPersistence(): Promise<void> {
-    if (!this.persistence) {
-      console.warn('[Core] No persistence provider configured, skipping save')
+  private async persistCommittedTransaction(
+    transaction: TransactionStatusPayload
+  ): Promise<void> {
+    const provider = this.persistence
+    if (!provider) {
+      this.deps.factory.reportPersistenceStatus(
+        transaction,
+        'persistence-skipped'
+      )
       return
     }
 
+    try {
+      await this.saveToPersistence(provider)
+      this.deps.factory.reportPersistenceStatus(
+        transaction,
+        'persisted',
+        provider.name
+      )
+    } catch (error) {
+      this.deps.factory.reportPersistenceStatus(
+        transaction,
+        'persistence-failed',
+        provider.name,
+        error
+      )
+    }
+  }
+
+  private async saveToPersistence(
+    provider: IPersistenceProvider
+  ): Promise<void> {
     const systemContextData = this.deps.systemContext.saveManagedProperties()
 
     let data: CoreRawData = {
@@ -262,7 +290,7 @@ class Core implements CoreAPIs {
       data = hook(data)
     }
 
-    await this.persistence.save(data)
+    await provider.save(data)
   }
 
   private async loadFromPersistence(): Promise<void> {

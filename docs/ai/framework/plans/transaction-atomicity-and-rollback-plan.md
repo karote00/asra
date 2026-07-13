@@ -2,12 +2,13 @@
 
 ## Status
 
-Near-term, docs-only planning record. No runtime behavior or public API in this
-file is implemented merely because it is documented here.
+Implemented contract under final verification. Runtime behavior is governed by
+formal tests and the Transaction Flow Inspector; Yjs network collaboration
+remains a separate deferred plan.
 
 ## Context
 
-Asyra currently provides:
+Asyra provides:
 
 - nested transaction grouping with one outer commit boundary
 - one intended user action to one intended undo commit
@@ -16,14 +17,13 @@ Asyra currently provides:
 - non-undoable transaction updates
 - transaction-end or immediate shared-channel delivery
 - user-action completion after an undoable commit
-- transaction-end persistence triggering through core
+- automatic reversal of rollbackable active-transaction changes on failure or
+  cancel-policy rollback
+- synchronous pre-commit validation
+- transaction status-driven serial persistence acknowledgement through core
 
-The missing failure path is automatic reversal of already-applied changes when
-an active transaction fails or when a session cancellation policy requests
-rollback.
-
-Current transactions therefore provide action grouping and history replay, not
-database ACID guarantees.
+These transactions provide local application-layer ACID-inspired guarantees;
+they are not database transactions and do not claim serializable isolation.
 
 ## Goal
 
@@ -52,7 +52,7 @@ interactive information-modeling framework:
 
 ### Atomicity
 
-Target guarantee:
+Implemented guarantee:
 
 - a failed uncommitted action either applies all intended mutations or restores
   all recorded rollbackable mutations to their transaction-start meaning
@@ -61,7 +61,7 @@ Target guarantee:
 
 ### Consistency
 
-Target guarantee:
+Implemented guarantee:
 
 - state owners continue to enforce package-local validation/invariants
 - an optional cross-store commit validation phase verifies relationships such as
@@ -71,7 +71,7 @@ Target guarantee:
 
 ### Isolation
 
-Target guarantee:
+Implemented guarantee:
 
 - Asyra does not promise database serializable isolation
 - active session preview may be visible to Render/UI
@@ -82,13 +82,57 @@ Target guarantee:
 
 ### Durability
 
-Target guarantee:
+Implemented guarantee:
 
 - runtime `committed` and persistence `persisted` are distinct states
 - core may request persistence after commit
 - only the configured persistence provider can acknowledge durable storage
 - a persistence failure does not retroactively redefine a successful runtime
   commit as an uncommitted transaction
+
+## Public Transaction Contracts
+
+The additive public contract keeps the existing transaction boundary APIs and
+adds explicit outcome, failure, and status types:
+
+```ts
+type TransactionOutcome = 'commit' | 'rollback'
+type TransactionOrigin = 'action' | 'undo' | 'redo'
+
+interface TransactionFailure {
+  kind:
+    | 'cancelled'
+    | 'handler-error'
+    | 'handler-timeout'
+    | 'validation-failed'
+    | 'explicit'
+  message?: string
+  cause?: unknown
+}
+
+interface EndTransactionOptions {
+  outcome?: TransactionOutcome
+  failure?: TransactionFailure
+}
+
+interface RunTransactionOptions {
+  failureKind?: TransactionFailure['kind']
+}
+```
+
+- `endTransaction()` keeps commit as its default outcome.
+- `rollbackTransaction(failure?)` requests rollback of the active outer
+  transaction.
+- `runTransaction(callback, options?)` commits on synchronous or asynchronous
+  success, requests rollback on throw or rejection, and rethrows the original
+  failure when rollback succeeds. `failureKind` defaults to `explicit`.
+- any nested rollback request marks the complete outer transaction
+  rollback-only; unmatched end/rollback calls at depth zero are no-ops.
+- `rollbackable` defaults to `true` independently from `undoable`.
+- transaction status reports runtime commit/rollback separately from
+  persistence acknowledgement.
+- custom rollbackable mutations require a registered inverter; intentionally
+  irreversible effects must opt out with `rollbackable: false`.
 
 ## Required Terminology
 
@@ -118,10 +162,10 @@ Undo may:
 
 ### Cancel
 
-Stop an active feature session. Cancel is a decision, not automatically a state
-reversal.
+Stop an active feature session. Cancel is the lifecycle decision; its selected
+policy determines whether canonical state is reversed.
 
-Future explicit policies:
+Implemented policies:
 
 - `rollback`
 - `commit-current`
@@ -134,7 +178,7 @@ Future explicit policies:
 
 ## Reuse the Existing Inverse Replay Engine
 
-The implementation should extract the existing undo inverse loop into a shared
+The implementation extracts the existing undo inverse loop into a shared
 internal replay primitive rather than push a failed active transaction onto the
 public undo stack and call ordinary `undo()`.
 
@@ -168,7 +212,7 @@ replayInverse(activeTransactionChanges, {
 })
 ```
 
-Exact API naming is implementation-owned; the contract is shared inverse
+The API contract uses shared inverse
 semantics with distinct lifecycle effects.
 
 ## Rollbackable vs Undoable
@@ -176,7 +220,7 @@ semantics with distinct lifecycle effects.
 `undoable: false` means a change should not appear in normal user undo history.
 It does not necessarily mean the change may remain after transaction failure.
 
-Target mutation metadata direction:
+Mutation metadata:
 
 ```ts
 interface MutationOptions {
@@ -187,7 +231,7 @@ interface MutationOptions {
 }
 ```
 
-Target defaults:
+Defaults:
 
 - `undoable: true`
 - `rollbackable: true`
@@ -201,6 +245,9 @@ filter the same journal to create normal undo history from undoable changes.
   handler failure.
 - Feature handler exceptions and timeout failures must reach or mark the active
   transaction owner as failed.
+- Timeout aborts the active session signal before rollback. Async handlers must
+  use that signal to reject post-abort writes after await boundaries; JavaScript
+  Promise execution is not forcibly terminated.
 - A failed transaction must not silently continue to ordinary commit.
 - Recoverable feature-local errors may be handled locally only when the feature
   explicitly preserves valid canonical state.
@@ -251,6 +298,7 @@ completed with the Yjs network collaboration plan.
 - `@asyra/feature-system`: session cancel decision and handler failure/timeout
   propagation
 - state-owner packages: correct reversible change payloads and local invariants
+  plus synchronous replay acknowledgement and exact deleted-instance restoration
 - `@asyra/core`: commit vs persistence orchestration and diagnostics surfaces
 - persistence provider: durable acknowledgement
 - app/domain feature: selects explicit cancel policy when framework defaults do
@@ -258,15 +306,36 @@ completed with the Yjs network collaboration plan.
 
 ## Implementation Slices
 
-1. Formalize transaction state and failure status.
-2. Extract inverse replay from ordinary undo.
-3. Record rollbackable changes independently from normal undo history.
-4. Add active-transaction rollback without redo/user-completion effects.
-5. Propagate feature error/timeout/cancel decisions to transaction owner.
-6. Define transaction-end shared discard and immediate compensation behavior.
-7. Add optional cross-store invariant validation phase.
-8. Separate runtime commit diagnostics from persistence acknowledgement.
-9. Update API surfaces and package docs only after concrete APIs exist.
+1. [x] Formalize transaction state and failure status.
+2. [x] Extract inverse replay from ordinary undo.
+3. [x] Record rollbackable changes independently from normal undo history.
+4. [x] Add active-transaction rollback without redo/user-completion effects.
+5. [x] Propagate feature error/timeout/cancel decisions to transaction owner.
+6. [x] Define transaction-end shared discard and immediate compensation behavior.
+7. [x] Add optional cross-store invariant validation phase.
+8. [x] Separate runtime commit diagnostics from persistence acknowledgement.
+9. [x] Update API surfaces and package docs after concrete APIs exist.
+
+## Product Cases and Failure Behavior
+
+- normal action: outer boundary, ordered journal, validation, one commit, local
+  shared delivery, and persistence acknowledgement
+- empty action: closes as discarded with no history or persistence request
+- nested rollback: any inner rollback request marks the outer transaction
+  rollback-only and performs one reverse replay at outer close
+- explicit cancel: defaults to rollback; `commit-current` and
+  `feature-defined` remain explicit feature policies
+- handler error or timeout: cleanup runs, rollback wins over cancel policy, and
+  the session signal is aborted before rollback while the first failure reaches
+  the caller
+- validation failure: no commit effects occur and the rollback path restores
+  all recorded rollbackable state
+- rollback failure: remaining inverses are attempted, persistence is forbidden,
+  transaction state closes, and the rollback error reaches the caller
+- undo/redo: use the shared replay primitive with history effects distinct from
+  active-transaction rollback
+- persistence failure: reports failure without redefining or reversing the
+  successful runtime commit
 
 ## Test Plan
 
@@ -277,6 +346,8 @@ Atomicity:
 - rollback creates no undo or redo entry
 - rollback emits no normal user-action-completed event
 - nested transaction failure closes the outer transaction deterministically
+- delete followed by validation failure restores the same scene-tree element,
+  property component ids/data, and selection state
 
 Recording semantics:
 
@@ -289,6 +360,7 @@ Cancel/error:
 
 - escape/pointer cancel follows configured policy
 - handler exception and timeout cannot silently commit partial mutation
+- a cooperative async handler cannot write after its timeout-aborted signal
 - feature-defined commit-current remains explicit
 
 Shared behavior:
@@ -318,5 +390,5 @@ Consistency/durability:
 - Existing reversible change payloads remain the starting point.
 - Complex aggregate mutations may use owner-provided scoped snapshots when a
   field-by-field inverse is unsafe.
-- This file records a target contract only; implementation requires formal
-  test-first work.
+- Local behavior is implemented and remains subject to the formal regression
+  tests, package gates, and Transaction Flow Inspector contract.

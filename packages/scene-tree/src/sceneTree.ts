@@ -489,6 +489,7 @@ class SceneTree {
     this.addChangeForRemoveElement(element)
     workspace.removeElement(element, resolvedParent, options)
     this.commitSceneTreeTransaction(options)
+    propsManager.commitChanges(options)
     return true
   }
 

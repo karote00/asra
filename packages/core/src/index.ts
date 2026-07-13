@@ -94,13 +94,35 @@ export {
   EventTypes,
   defineEvent,
   registerEventDefinitions,
+  startTransaction,
+  updateTransaction,
+  endTransaction,
+  rollbackTransaction,
+  runTransaction,
+  subscribeToSynchronousEvent,
   subscribeToFileLoadComplete,
   subscribeToEndTransaction,
+  subscribeToTransactionStatusChanged,
   subscribeToSelectElements,
   subscribeToSelectVectorPoints,
   subscribeToSelectVectorSegments
 } from '@asyra/reactive-events'
-export type { EventDefinition } from '@asyra/reactive-events'
+export type {
+  EventDefinition,
+  SelectElementsEvent,
+  SelectVectorPointsEvent,
+  SelectVectorSegmentsEvent
+} from '@asyra/reactive-events'
+export type {
+  EndTransactionOptions,
+  RunTransactionOptions,
+  TransactionFailure,
+  TransactionFailureKind,
+  TransactionOrigin,
+  TransactionOutcome,
+  TransactionStatus,
+  TransactionStatusPayload
+} from '@asyra/utils'
 export {
   defineDataChannelObserver,
   registerDataChannelObserver,

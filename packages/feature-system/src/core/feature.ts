@@ -12,6 +12,7 @@ import type { CorePackages } from '../types/core-packages'
 import { FeatureRegistry } from './feature-registry'
 import { SessionManager } from './session-manager'
 import executionRegistry from './execution-registry'
+import { interactionQueue } from './interaction-queue'
 
 const featureRegistry = new FeatureRegistry()
 const sessionManager = new SessionManager()
@@ -61,7 +62,11 @@ function registerFeatureHandlers(
 ) {
   const hasSession = !!definition.session
   const hasExecution = !!definition.execution
-  const { priority = 0, exclusive = true } = definition
+  const {
+    priority = 0,
+    exclusive = true,
+    cancelPolicy = 'rollback'
+  } = definition
 
   if (!keyConfig) {
     return
@@ -88,6 +93,7 @@ function registerFeatureHandlers(
       name,
       priority,
       exclusive,
+      cancelPolicy,
       definition.session
     )
   }
@@ -119,9 +125,8 @@ function registerFeatureHandlers(
         }
 
         const eventHandler = async (raw: RawInputEvent) => {
-          await measureBrowserDragAsyncPhase(
-            `feature:event:${event}`,
-            async () => {
+          await interactionQueue.run(() =>
+            measureBrowserDragAsyncPhase(`feature:event:${event}`, async () => {
               const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
               const mergedSnapshot = {
                 ...snapshot,
@@ -143,7 +148,7 @@ function registerFeatureHandlers(
               } else if (event.includes('.end')) {
                 await sessionManager.handleEnd(keyConfig, mergedSnapshot)
               }
-            }
+            })
           )
         }
         inputSystem.on?.(event, eventHandler)
@@ -169,7 +174,11 @@ function registerFeatureHandlers(
                         detail: raw.detail ?? raw.payload,
                         payload: raw.payload
                       } as unknown as SystemContextSnapshot
-                      executionRegistry.execute(event, mergedSnapshot)
+                      void interactionQueue
+                        .run(() =>
+                          executionRegistry.execute(event, mergedSnapshot)
+                        )
+                        .catch(console.error)
                     }
                   }
                 )
@@ -181,20 +190,22 @@ function registerFeatureHandlers(
         } else {
           // Input events: Listen via inputSystem
           inputSystem.on?.(event, async (raw: RawInputEvent) => {
-            const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
-            const mergedSnapshot = {
-              ...snapshot,
-              ...(raw.detail ? { detail: raw.detail } : {})
-            } as SystemContextSnapshotWithDetail
-            await sessionManager.cancelActiveSessions({
-              ...mergedSnapshot,
-              detail: {
-                ...mergedSnapshot.detail,
-                cancelled: true,
-                cancelledBy: event
-              }
+            await interactionQueue.run(async () => {
+              const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
+              const mergedSnapshot = {
+                ...snapshot,
+                ...(raw.detail ? { detail: raw.detail } : {})
+              } as SystemContextSnapshotWithDetail
+              await sessionManager.cancelActiveSessions({
+                ...mergedSnapshot,
+                detail: {
+                  ...mergedSnapshot.detail,
+                  cancelled: true,
+                  cancelledBy: event
+                }
+              })
+              await executionRegistry.execute(event, mergedSnapshot)
             })
-            executionRegistry.execute(event, mergedSnapshot)
           })
           registeredEvents.add(event)
         }
@@ -211,6 +222,16 @@ export function defineFeature<
   keyConfig: FeatureKeyMap | undefined,
   definition: FeatureDefinition<API, State>
 ): { api: FeatureAPI<API> } {
+  if (
+    definition.session &&
+    definition.cancelPolicy === 'feature-defined' &&
+    !definition.session.onCancel
+  ) {
+    throw new Error(
+      `Feature ${name} uses feature-defined cancelPolicy without onCancel`
+    )
+  }
+
   const api = featureRegistry.register(
     name,
     definition as FeatureDefinition<Record<string, unknown>>

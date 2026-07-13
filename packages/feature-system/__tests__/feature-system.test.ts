@@ -53,4 +53,15 @@ describe('Feature System', () => {
     const manager = getSessionManager()
     expect(manager).toBeDefined()
   })
+
+  it('rejects feature-defined cancellation without onCancel', () => {
+    expect(() =>
+      defineFeature('invalid-feature-defined-cancel', undefined, {
+        cancelPolicy: 'feature-defined',
+        session: {
+          onStart: () => ({ started: true })
+        }
+      })
+    ).toThrow(/feature-defined cancelPolicy without onCancel/i)
+  })
 })

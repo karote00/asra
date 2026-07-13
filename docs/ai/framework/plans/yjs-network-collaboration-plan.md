@@ -46,7 +46,8 @@ End-state:
 
 - apps opt into collaboration explicitly
 - each collaboration/document instance owns its intended Y.Doc/provider state
-- local intents continue through Feature -> API -> Transaction -> State Owner
+- local inputs/actions/commands continue through Feature -> API -> State ->
+  Render/UI, with transactions guarding the API-to-state mutation boundary
 - remote changes pass origin/dedupe/schema/conflict checks before canonical apply
 - awareness/presence remains ephemeral and non-authoritative
 - server/offline persistence can be composed independently

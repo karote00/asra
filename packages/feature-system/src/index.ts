@@ -21,6 +21,7 @@ export {
 
 export { FeatureRegistry } from './core/feature-registry'
 export { SessionManager } from './core/session-manager'
+export { InteractionQueue, interactionQueue } from './core/interaction-queue'
 
 export * from './types'
 

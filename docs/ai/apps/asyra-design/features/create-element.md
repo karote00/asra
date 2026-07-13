@@ -38,8 +38,18 @@
 - if drag movement is below threshold, reset the completed element to the 100×100 click-creation size
 - switch primary tool back to select after creation completes
 
+4. Cancel
+
+- cancel policy is `rollback`
+- Escape, tool switching, a new conflicting action, handler failure, or timeout
+  removes the created canonical element and compensates its immediate local
+  shared projection
+- cancellation does not create an undo entry
+
 ## Notes
 
 - intended undo grouping is one create action unit; continuous drag-frame geometry updates are excluded from undo stack
 - immediate shared projection does not end or split the create transaction; pointer-up still commits one undoable create action
+- `onCancel` has no additional canonical mutation because Factory owns journal
+  reversal; feature cleanup remains runtime-only
 - movement threshold is app-owned and feature-level via `FEATURE_MOVEMENT_THRESHOLD.createElement`
