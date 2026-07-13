@@ -604,12 +604,8 @@
                   Cards and arrows are rendered from
                   <code>stroke-flow-inspector.data.js</code>.
                 </li>
-                <li>
-                  Click a card to show the data-backed detail panel.
-                </li>
-                <li>
-                  Use group filters to hide or show rendered nodes.
-                </li>
+                <li>Click a card to show the data-backed detail panel.</li>
+                <li>Use group filters to hide or show rendered nodes.</li>
                 <li>
                   The shared viewer defines presentation only; target semantics
                   stay in the target data file.
@@ -647,8 +643,8 @@
                   planned devtool capability.
                 </div>
                 <div class="legend-item">
-                  <span class="legend-swatch scope"></span>Target-declared
-                  scope boundary.
+                  <span class="legend-swatch scope"></span>Target-declared scope
+                  boundary.
                 </div>
               </div>
             </article>
@@ -662,9 +658,7 @@
                 <li>
                   The detail panel lists fields supplied by the data file.
                 </li>
-                <li>
-                  Empty fields are hidden by the renderer.
-                </li>
+                <li>Empty fields are hidden by the renderer.</li>
                 <li>
                   Static checks verify required data-backed node ids exist.
                 </li>
@@ -673,9 +667,7 @@
             <article id="guide-alignment-checklist" class="guide-card">
               <h2>Viewer checks</h2>
               <ul>
-                <li>
-                  Duplicate node ids are reported in the console.
-                </li>
+                <li>Duplicate node ids are reported in the console.</li>
                 <li>
                   Edges that point to missing nodes are reported in the console.
                 </li>
@@ -696,7 +688,10 @@
     </div>
 
     <script src="./stroke-flow-inspector.data.js"></script>
+    <!-- prettier-ignore -->
     <script data-flow-inspector-renderer>
+/* global console, document, window */
+
 ;(function () {
   'use strict'
 
@@ -713,7 +708,7 @@
     authority,
     links = [],
     lanes,
-    stages,
+    steps,
     routes,
     artifacts,
     invariants,
@@ -723,7 +718,7 @@
   const requiredCollections = {
     links,
     lanes,
-    stages,
+    steps,
     routes,
     artifacts,
     invariants,
@@ -737,8 +732,8 @@
       `Flow Inspector target has invalid collections: ${invalidCollections.join(', ')}`
     )
   }
-  if (schema?.id !== 'asyra.flow-inspector' || schema.version !== 1) {
-    throw new Error('Flow Inspector requires schema asyra.flow-inspector/v1.')
+  if (schema?.id !== 'asyra.flow-inspector' || schema.version !== 2) {
+    throw new Error('Flow Inspector requires schema asyra.flow-inspector/v2.')
   }
 
   const flow = document.getElementById('flow')
@@ -798,15 +793,15 @@
   }
 
   const laneById = new Map(lanes.map((lane) => [lane.id, lane]))
-  const stageById = new Map(stages.map((stage) => [stage.id, stage]))
+  const stepById = new Map(steps.map((step) => [step.id, step]))
   const artifactById = new Map(
     artifacts.map((artifact) => [artifact.id, artifact])
   )
-  const stagesByLane = new Map(
+  const stepsByLane = new Map(
     lanes.map((lane) => [
       lane.id,
-      stages
-        .filter((stage) => stage.laneId === lane.id)
+      steps
+        .filter((step) => step.laneId === lane.id)
         .sort((left, right) => left.order - right.order)
     ])
   )
@@ -820,38 +815,34 @@
     gapY: 100
   }
 
-  let selectedId = stages[0]?.id ?? null
+  let selectedId = steps[0]?.id ?? null
   let selectedLaneId = 'All'
 
-  const isVisible = (stage) =>
-    selectedLaneId === 'All' || stage.laneId === selectedLaneId
+  const isVisible = (step) =>
+    selectedLaneId === 'All' || step.laneId === selectedLaneId
 
-  const getStageLane = (stage) =>
-    lanes.findIndex((lane) => lane.id === stage.laneId)
+  const getStepLane = (step) =>
+    lanes.findIndex((lane) => lane.id === step.laneId)
 
-  const getStageRow = (stage) =>
-    stagesByLane.get(stage.laneId)?.findIndex((item) => item.id === stage.id) ?? 0
+  const getStepRow = (step) =>
+    stepsByLane.get(step.laneId)?.findIndex((item) => item.id === step.id) ?? 0
 
-  const stagePosition = (stage) => ({
-    x: layout.left + getStageLane(stage) * (layout.cardW + layout.gapX),
-    y: layout.top + getStageRow(stage) * (layout.cardH + layout.gapY)
+  const stepPosition = (step) => ({
+    x: layout.left + getStepLane(step) * (layout.cardW + layout.gapX),
+    y: layout.top + getStepRow(step) * (layout.cardH + layout.gapY)
   })
 
   const getFlowBounds = () => {
-    const visibleStages = stages.filter(isVisible)
-    const laneIndexes = visibleStages.map(getStageLane)
-    const rowIndexes = visibleStages.map(getStageRow)
+    const visibleSteps = steps.filter(isVisible)
+    const laneIndexes = visibleSteps.map(getStepLane)
+    const rowIndexes = visibleSteps.map(getStepRow)
     const maxLane = laneIndexes.length ? Math.max(...laneIndexes) : 0
     const maxRow = rowIndexes.length ? Math.max(...rowIndexes) : 0
     return {
       width:
-        layout.left * 2 +
-        (maxLane + 1) * layout.cardW +
-        maxLane * layout.gapX,
+        layout.left * 2 + (maxLane + 1) * layout.cardW + maxLane * layout.gapX,
       height:
-        layout.top * 2 +
-        (maxRow + 1) * layout.cardH +
-        maxRow * layout.gapY
+        layout.top * 2 + (maxRow + 1) * layout.cardH + maxRow * layout.gapY
     }
   }
 
@@ -863,10 +854,10 @@
     return matrix ? point.matrixTransform(matrix.inverse()) : { x, y }
   }
 
-  const getEdgePath = (svg, fromCard, toCard, fromStage, toStage) => {
+  const getEdgePath = (svg, fromCard, toCard, fromStep, toStep) => {
     const fromBox = fromCard.getBoundingClientRect()
     const toBox = toCard.getBoundingClientRect()
-    if (fromStage.laneId === toStage.laneId) {
+    if (fromStep.laneId === toStep.laneId) {
       const start = toSvgPoint(
         svg,
         fromBox.left + fromBox.width / 2,
@@ -911,8 +902,8 @@
     svg.querySelectorAll('.edge-path').forEach((node) => node.remove())
     routes.forEach((route) => {
       if (!route.to) return
-      const from = stageById.get(route.from)
-      const to = stageById.get(route.to)
+      const from = stepById.get(route.from)
+      const to = stepById.get(route.to)
       if (!from || !to || !isVisible(from) || !isVisible(to)) return
       const fromCard = flow.querySelector(`[data-step-id="${route.from}"]`)
       const toCard = flow.querySelector(`[data-step-id="${route.to}"]`)
@@ -939,41 +930,41 @@
     })
   }
 
-  const routesForStage = (stageId, direction) =>
+  const routesForStep = (stepId, direction) =>
     routes
-      .filter((route) => route[direction] === stageId)
+      .filter((route) => route[direction] === stepId)
       .map(
         (route) =>
           `${route.id} [${route.kind}]: ${route.predicate}; ${route.from} -> ${route.to ?? 'terminal'}; artifacts ${route.producedArtifacts.join(', ')}`
       )
 
-  const artifactsOwnedBy = (stageId) =>
+  const artifactsOwnedBy = (stepId) =>
     artifacts
-      .filter((artifact) => artifact.ownerStageId === stageId)
+      .filter((artifact) => artifact.ownerStepId === stepId)
       .map(
         (artifact) =>
-          `${artifact.id}: ${artifact.channel}; consumers ${artifact.consumerStageIds.join(', ') || 'terminal'}`
+          `${artifact.id}: ${artifact.channel}; consumers ${artifact.consumerStepIds.join(', ') || 'terminal'}`
       )
 
-  const artifactsConsumedBy = (stageId) =>
+  const artifactsConsumedBy = (stepId) =>
     artifacts
-      .filter((artifact) => artifact.consumerStageIds.includes(stageId))
+      .filter((artifact) => artifact.consumerStepIds.includes(stepId))
       .map(
         (artifact) =>
-          `${artifact.id}: owner ${artifact.ownerStageId}; ${artifact.channel}`
+          `${artifact.id}: owner ${artifact.ownerStepId}; ${artifact.channel}`
       )
 
-  const invariantsForStage = (stageId) =>
+  const invariantsForStep = (stepId) =>
     invariants
-      .filter((invariant) => invariant.stageIds.includes(stageId))
+      .filter((invariant) => invariant.stepIds.includes(stepId))
       .map(
         (invariant) =>
           `${invariant.id}: ${invariant.statement}; refs ${invariant.specRefs.join(', ')}`
       )
 
-  const acceptanceForStage = (stageId) =>
+  const acceptanceForStep = (stepId) =>
     acceptanceContracts
-      .filter((contract) => contract.stageIds.includes(stageId))
+      .filter((contract) => contract.stepIds.includes(stepId))
       .map(
         (contract) =>
           `${contract.id}: ${contract.assertions.join('; ')}; refs ${contract.specRefs.join(', ')}`
@@ -1006,9 +997,9 @@
       button.textContent = lane.title
       button.addEventListener('click', () => {
         selectedLaneId = lane.id
-        const selectedStage = stageById.get(selectedId)
-        if (selectedStage && !isVisible(selectedStage)) {
-          selectedId = stages.find(isVisible)?.id ?? stages[0]?.id ?? null
+        const selectedStep = stepById.get(selectedId)
+        if (selectedStep && !isVisible(selectedStep)) {
+          selectedId = steps.find(isVisible)?.id ?? steps[0]?.id ?? null
         }
         render()
       })
@@ -1017,16 +1008,16 @@
   }
 
   const renderDetail = () => {
-    const selected = stageById.get(selectedId) ?? stages[0]
+    const selected = stepById.get(selectedId) ?? steps[0]
     if (!selected) {
-      detail.innerHTML = '<p>No stages are declared.</p>'
+      detail.innerHTML = '<p>No steps are declared.</p>'
       return
     }
     const lane = laneById.get(selected.laneId)
     detail.innerHTML = `
       <div class="detail-group">${escapeHtml(lane?.title ?? selected.laneId)}</div>
       <div class="detail-heading">
-        <span class="step-number">Stage ${escapeHtml(selected.order)}</span>
+        <span class="step-number">Step ${escapeHtml(selected.order)}</span>
         <h2>${escapeHtml(selected.title)}</h2>
       </div>
       <p class="detail-summary">${escapeHtml(selected.purpose)}</p>
@@ -1041,13 +1032,13 @@
       ${section('Cache dimensions', selected.cacheDimensions, 'trace-box')}
       ${section('Implementation boundary', selected.implementationBoundary)}
       ${section('Spec references', selected.specRefs, 'rule-box')}
-      ${section('Failure owner stage', [selected.failureOwnerStageId], 'risk-box')}
-      ${section('Incoming routes', routesForStage(selected.id, 'to'), 'trace-box')}
-      ${section('Outgoing routes', routesForStage(selected.id, 'from'), 'trace-box')}
+      ${section('Failure owner step', [selected.failureOwnerStepId], 'risk-box')}
+      ${section('Incoming routes', routesForStep(selected.id, 'to'), 'trace-box')}
+      ${section('Outgoing routes', routesForStep(selected.id, 'from'), 'trace-box')}
       ${section('Owned artifacts', artifactsOwnedBy(selected.id), 'trace-box')}
       ${section('Consumed artifacts', artifactsConsumedBy(selected.id), 'trace-box')}
-      ${section('Invariants', invariantsForStage(selected.id), 'evidence-box')}
-      ${section('Acceptance contracts', acceptanceForStage(selected.id), 'test-box')}`
+      ${section('Invariants', invariantsForStep(selected.id), 'evidence-box')}
+      ${section('Acceptance contracts', acceptanceForStep(selected.id), 'test-box')}`
   }
 
   const renderFlow = () => {
@@ -1077,15 +1068,15 @@
       </defs>`
     flow.appendChild(svg)
 
-    stages.filter(isVisible).forEach((stage) => {
-      const position = stagePosition(stage)
-      const lane = laneById.get(stage.laneId)
-      const tags = stage.tags ?? []
+    steps.filter(isVisible).forEach((step) => {
+      const position = stepPosition(step)
+      const lane = laneById.get(step.laneId)
+      const tags = step.tags ?? []
       const card = document.createElement('button')
       card.type = 'button'
       card.className = [
         'step-card',
-        stage.id === selectedId ? 'is-selected' : '',
+        step.id === selectedId ? 'is-selected' : '',
         tags.includes('risk') ? 'is-risk' : '',
         tags.includes('critical') ? 'is-critical' : '',
         tags.includes('blocker') ? 'is-blocker' : ''
@@ -1094,20 +1085,23 @@
         .join(' ')
       card.style.left = `${position.x}px`
       card.style.top = `${position.y}px`
-      card.dataset.stepId = stage.id
+      card.dataset.stepId = step.id
       card.innerHTML = `
         <div class="step-kicker">
-          <span class="step-number">Stage ${escapeHtml(stage.order)}</span>
-          <span>${escapeHtml(lane?.title ?? stage.laneId)}</span>
+          <span class="step-number">Step ${escapeHtml(step.order)}</span>
+          <span>${escapeHtml(lane?.title ?? step.laneId)}</span>
         </div>
-        <div class="step-title">${escapeHtml(stage.title)}</div>
-        <div class="step-summary">${escapeHtml(stage.purpose)}</div>
+        <div class="step-title">${escapeHtml(step.title)}</div>
+        <div class="step-summary">${escapeHtml(step.purpose)}</div>
         <div class="badge-row">
-          <span class="badge truth">${escapeHtml(stage.ownerPackage)}</span>
-          ${tags.slice(0, 2).map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`).join('')}
+          <span class="badge truth">${escapeHtml(step.ownerPackage)}</span>
+          ${tags
+            .slice(0, 2)
+            .map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`)
+            .join('')}
         </div>`
       card.addEventListener('click', () => {
-        selectedId = stage.id
+        selectedId = step.id
         render()
       })
       flow.appendChild(card)
@@ -1126,7 +1120,7 @@
       })
     }
     uniqueIds('lane', lanes)
-    uniqueIds('stage', stages)
+    uniqueIds('step', steps)
     uniqueIds('route', routes)
     uniqueIds('artifact', artifacts)
     uniqueIds('invariant', invariants)
@@ -1136,7 +1130,7 @@
       errors.push('target:incomplete')
     }
 
-    const requiredStageFields = [
+    const requiredStepFields = [
       'id',
       'order',
       'laneId',
@@ -1152,44 +1146,73 @@
       'cacheDimensions',
       'implementationBoundary',
       'specRefs',
-      'failureOwnerStageId'
+      'failureOwnerStepId'
     ]
-    stages.forEach((stage) => {
-      requiredStageFields.forEach((field) => {
-        if (stage[field] === undefined) errors.push(`${stage.id}:missing:${field}`)
+    steps.forEach((step) => {
+      requiredStepFields.forEach((field) => {
+        if (step[field] === undefined)
+          errors.push(`${step.id}:missing:${field}`)
       })
-      if (!laneById.has(stage.laneId)) errors.push(`${stage.id}:lane`)
-      if (!stageById.has(stage.failureOwnerStageId)) {
-        errors.push(`${stage.id}:failureOwnerStageId`)
+      if (!laneById.has(step.laneId)) errors.push(`${step.id}:lane`)
+      if (!stepById.has(step.failureOwnerStepId)) {
+        errors.push(`${step.id}:failureOwnerStepId`)
       }
+      step.inputs
+        .filter((input) => input.startsWith('artifact:'))
+        .forEach((artifactId) => {
+          if (!artifactById.has(artifactId)) {
+            errors.push(`${step.id}:input:${artifactId}`)
+          }
+        })
+      step.outputs.forEach((artifactId) => {
+        if (!artifactById.has(artifactId)) {
+          errors.push(`${step.id}:output:${artifactId}`)
+        }
+      })
     })
 
     routes.forEach((route) => {
-      if (!stageById.has(route.from)) errors.push(`${route.id}:from`)
-      if (route.to && !stageById.has(route.to)) errors.push(`${route.id}:to`)
+      if (!stepById.has(route.from)) errors.push(`${route.id}:from`)
+      if (route.to && !stepById.has(route.to)) errors.push(`${route.id}:to`)
       route.producedArtifacts.forEach((artifactId) => {
-        if (!artifactById.has(artifactId)) {
+        const artifact = artifactById.get(artifactId)
+        if (!artifact) {
           errors.push(`${route.id}:artifact:${artifactId}`)
+          return
+        }
+        if (artifact.ownerStepId !== route.from) {
+          errors.push(`${route.id}:artifact-owner:${artifactId}`)
+        }
+        if (route.to && !artifact.consumerStepIds.includes(route.to)) {
+          errors.push(`${route.id}:artifact-consumer:${artifactId}`)
         }
       })
     })
 
     artifacts.forEach((artifact) => {
-      if (!stageById.has(artifact.ownerStageId)) {
+      const owner = stepById.get(artifact.ownerStepId)
+      if (!owner) {
         errors.push(`${artifact.id}:owner`)
+      } else if (!owner.outputs.includes(artifact.id)) {
+        errors.push(`${artifact.id}:owner-output`)
       }
-      artifact.consumerStageIds.forEach((stageId) => {
-        if (!stageById.has(stageId)) errors.push(`${artifact.id}:consumer:${stageId}`)
+      artifact.consumerStepIds.forEach((stepId) => {
+        const consumer = stepById.get(stepId)
+        if (!consumer) {
+          errors.push(`${artifact.id}:consumer:${stepId}`)
+        } else if (!consumer.inputs.includes(artifact.id)) {
+          errors.push(`${artifact.id}:consumer-input:${stepId}`)
+        }
       })
-      if (!artifact.terminal && !artifact.consumerStageIds.length) {
+      if (!artifact.terminal && !artifact.consumerStepIds.length) {
         errors.push(`${artifact.id}:missing-consumer`)
       }
     })
 
     invariants.forEach((invariant) => {
-      invariant.stageIds.forEach((stageId) => {
-        if (!stageById.has(stageId)) {
-          errors.push(`${invariant.id}:stage:${stageId}`)
+      invariant.stepIds.forEach((stepId) => {
+        if (!stepById.has(stepId)) {
+          errors.push(`${invariant.id}:step:${stepId}`)
         }
       })
       invariant.artifactIds.forEach((artifactId) => {
@@ -1200,20 +1223,23 @@
     })
 
     acceptanceContracts.forEach((contract) => {
-      contract.stageIds.forEach((stageId) => {
-        if (!stageById.has(stageId)) {
-          errors.push(`${contract.id}:stage:${stageId}`)
+      contract.stepIds.forEach((stepId) => {
+        if (!stepById.has(stepId)) {
+          errors.push(`${contract.id}:step:${stepId}`)
         }
       })
     })
 
     if (errors.length) {
-      console.error('Flow Inspector static check failed', { target: target.id, errors })
+      console.error('Flow Inspector static check failed', {
+        target: target.id,
+        errors
+      })
     } else {
       console.info('Flow Inspector static check passed', {
         target: target.id,
         lanes: lanes.length,
-        stages: stages.length,
+        steps: steps.length,
         routes: routes.length,
         artifacts: artifacts.length,
         invariants: invariants.length,
@@ -1248,7 +1274,9 @@
     if (overlaps.length) {
       console.error('Flow Inspector layout check failed', { overlaps })
     } else {
-      console.info('Flow Inspector layout check passed', { cards: cards.length })
+      console.info('Flow Inspector layout check passed', {
+        cards: cards.length
+      })
     }
   }
 

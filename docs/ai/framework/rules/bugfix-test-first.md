@@ -32,7 +32,7 @@ oracle has been added or strengthened to detect it.
    unit/integration/E2E/visual-oracle tests in the owning package or app.
 4. Confirm the test fails before modifying implementation, unless the only
    change is to correct a broken test oracle itself; document that exception.
-5. Implement the fix at the canonical owner stage.
+5. Implement the fix at the canonical owner step.
 6. Rerun the new or strengthened test and the relevant existing tests.
 7. For visual behavior, run app visual review after geometry/unit tests pass.
 

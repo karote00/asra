@@ -7055,6 +7055,7 @@ __metadata:
     fs-extra: "npm:^11.3.3"
     glob: "npm:^13.0.0"
     handoff-ai: "npm:^0.7.0"
+    jsdom: "npm:16.7.0"
     prettier: "npm:^3.4.2"
     turbo: "npm:^2.3.3"
     typescript-eslint: "npm:^8.18.2"
@@ -13091,7 +13092,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jsdom@npm:^16.6.0":
+"jsdom@npm:16.7.0, jsdom@npm:^16.6.0":
   version: 16.7.0
   resolution: "jsdom@npm:16.7.0"
   dependencies:

@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+/* global __dirname, require */
+
 const fs = require('node:fs')
 const path = require('node:path')
 
@@ -15,9 +18,9 @@ const targetEntries = [
 
 const embeddedScript = `    <script data-flow-inspector-renderer>\n${rendererSource}\n    </script>`
 const externalRendererPattern =
-  /    <script src=["'][^"']*tools\/flow-inspector\/viewer\.js["']><\/script>/
+  /[ ]{4}<script src=["'][^"']*tools\/flow-inspector\/viewer\.js["']><\/script>/
 const embeddedRendererPattern =
-  /    <script data-flow-inspector-renderer>\n[\s\S]*?\n    <\/script>/
+  /[ ]{4}<script data-flow-inspector-renderer>\n[\s\S]*?\n[ ]{4}<\/script>/
 
 for (const entryPath of targetEntries) {
   const html = fs.readFileSync(entryPath, 'utf8')

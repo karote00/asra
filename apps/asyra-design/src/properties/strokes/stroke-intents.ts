@@ -50,7 +50,9 @@ export const createStrokeStyleIntent = ({
   }
 
   const entries = Object.entries(patch).filter(
-    (entry): entry is [StrokeStyleIntentKey, StrokeAttrs[StrokeStyleIntentKey]] =>
+    (
+      entry
+    ): entry is [StrokeStyleIntentKey, StrokeAttrs[StrokeStyleIntentKey]] =>
       entry[1] !== undefined
   )
   if (entries.length !== 1) {

@@ -10,12 +10,12 @@ execution state.
 
 Flow Inspector helps a reader answer:
 
-- which stages participate in a target flow;
-- which package owns each stage;
-- which routes connect the stages and under what predicates;
+- which steps participate in a target flow;
+- which package owns each step;
+- which routes connect the steps and under what predicates;
 - which immutable artifacts cross each boundary;
 - which invariants and acceptance contracts apply;
-- which stage owns a failure when a contract is violated.
+- which step owns a failure when a contract is violated.
 
 ## Ownership
 
@@ -48,12 +48,12 @@ Every target supplies exactly these top-level contract collections:
 
 ```js
 {
-  schema: { id: 'asyra.flow-inspector', version: 1 },
+  schema: { id: 'asyra.flow-inspector', version: 2 },
   target: { id, kind, title, subtitle },
   authority: { specPath, inspectorPath, semanticOwner, inspectorOwner },
   links,
   lanes,
-  stages,
+  steps,
   routes,
   artifacts,
   invariants,
@@ -81,9 +81,9 @@ Each lane has a unique `id`, a human-readable `title`, and a deterministic
 `order`. Lanes organize presentation only; they do not alter routes or
 ownership.
 
-### Stages
+### Steps
 
-Each stage declares:
+Each step declares:
 
 - `id`, `order`, `laneId`, `title`, and `purpose`;
 - one `ownerPackage`;
@@ -93,29 +93,43 @@ Each stage declares:
 - `cacheDimensions`;
 - `implementationBoundary`;
 - `specRefs`;
-- `failureOwnerStageId`.
+- `failureOwnerStepId`.
 
-Stage order is descriptive and deterministic. Routes are the authority for
-connectivity. A stage may name itself or another valid stage as failure owner.
+Step order is descriptive and deterministic. Routes are the authority for
+connectivity. A step may name itself or another valid step as failure owner.
+
+`inputs` lists the union of artifacts and resources that a step may consume.
+When routes provide different input subsets, the step's `conditions` and
+`bypasses` must state the exact subset required by each route; consumers must
+not wait for an artifact that the selected bypass route does not produce.
+
+`cacheDimensions` is the exact key only for a contractually declared,
+step-owned retained candidate whose hit may bypass part of that step's work. An
+empty tuple means the step owns no retained candidate; ordinary execution
+dependencies remain explicit in `inputs` and `conditions` and must not be copied
+into `cacheDimensions` merely because they affect the result. Lower-level
+platform resource reuse that is observationally transparent, emits no target
+contract value, and cannot bypass the step's required outputs is not a target
+step cache.
 
 ### Routes
 
-Each route has a unique `id`, valid `from` and optional `to` stage ids, a
+Each route has a unique `id`, valid `from` and optional `to` step ids, a
 declared `kind`, a predicate, and `producedArtifacts`. Terminal routes omit
 `to`. Route predicates describe semantic routing and must not encode runtime
 pass/fail state.
 
 ### Artifacts
 
-Each artifact has a unique `id`, exactly one `ownerStageId`, a channel, and
-`consumerStageIds`. A non-terminal artifact must have at least one consumer.
+Each artifact has a unique `id`, exactly one `ownerStepId`, a channel, and
+`consumerStepIds`. A non-terminal artifact must have at least one consumer.
 Artifact ownership cannot be inferred from rendering order.
 
 ### Invariants and acceptance contracts
 
-Invariants bind stable statements and specification references to valid stages
+Invariants bind stable statements and specification references to valid steps
 and artifacts. Acceptance contracts bind target-level assertions and
-specification references to valid stages. They describe correctness; they do
+specification references to valid steps. They describe correctness; they do
 not record whether a current run passed.
 
 ## Renderer Contract
@@ -131,19 +145,22 @@ The shared renderer must:
 - report structural errors without fabricating missing target data;
 - remain read-only and independent of product runtime code.
 
-The renderer may use optional stage tags for generic visual emphasis. Tags are
+The renderer may use optional step tags for generic visual emphasis. Tags are
 presentation hints only and never represent execution state.
 
 ## Structural Validation
 
 A target is structurally valid only when:
 
-- all lane, stage, route, artifact, invariant, and acceptance ids are unique;
-- every stage references an existing lane and failure-owner stage;
-- every route endpoint exists and every produced artifact exists;
-- every artifact has one valid owner and all consumers exist;
-- every invariant references valid stages and artifacts;
-- every acceptance contract references valid stages;
+- all lane, step, route, artifact, invariant, and acceptance ids are unique;
+- every step references an existing lane and failure-owner step;
+- every artifact-valued step input and output exists;
+- every route endpoint and produced artifact exists, the route starts at the
+  artifact owner, and its destination is an artifact consumer;
+- every artifact has one valid owner and all consumers exist, with the artifact
+  declared in the owner's outputs and every consumer's inputs;
+- every invariant references valid steps and artifacts;
+- every acceptance contract references valid steps;
 - every specification anchor exists in the authoritative specification;
 - the data file can be loaded directly without importing another target file.
 
@@ -157,10 +174,12 @@ verified against the target specification by the target's formal gates.
 - Direct-open and synchronization gate:
   `tools/flow-inspector/viewer-entry.test.cjs`
 - Target data and HTML entry: near the target's authoritative documentation
+- Target-specific semantic handoff gate: next to the target data when the
+  generic structural gate cannot prove route-conditional behavior
 - Workspace package: not required for the static schema and renderer
 
 A future generator, result sidecar, or local server requires a separate
-contract. It must not add execution fields to schema version 1 or make the
+contract. It must not add execution fields to schema version 2 or make the
 static viewer dependent on product/runtime internals.
 
 ## First Target
@@ -173,6 +192,8 @@ Stroke Engine uses:
   `docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js`;
 - viewer entry:
   `docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.html`.
+- target-specific semantic handoff gate:
+  `docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.contract.test.cjs`.
 
 The Stroke data file exercises the generic schema with its end-to-end feature
 flow. Future features must provide their own target data and viewer entry while

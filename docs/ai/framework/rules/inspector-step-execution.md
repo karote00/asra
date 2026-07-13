@@ -8,10 +8,11 @@ The purpose is to make spec-driven implementation enforceable. Agents must not
 start from intuition, performance pressure, or local code shape when an inspector
 flow exists.
 
-For readiness and closure, this rule must be combined with
-`inspector-closure-readiness.md`. Implementation edits remain one owner step at a
-time, but the decision to start or advance that step must use the closure packet
-and review family that contains the step.
+For readiness, this rule must be combined with
+`inspector-contract-readiness.md`. Implementation edits remain one owner step at
+a time, and the decision to start or advance that step must use the current thin
+product contract, matching Inspector step and route, formal product cases, and
+bounded definition of done.
 
 ## Mandatory Execution Order
 
@@ -41,11 +42,11 @@ Every implementation segment must begin with a short card containing:
 - Allowed inputs.
 - Required outputs.
 - Conditions and bypass conditions.
-- Limitations.
 - Allowed contributors.
 - Forbidden contributors.
-- Required evidence.
-- Failure reopening rule.
+- Implementation boundary.
+- Specification references and failure owner.
+- Affected product cases and definition-of-done gates.
 - Implementation files from the inspector allowlist.
 - Focused formal tests and gates.
 - Stop conditions for the segment.
@@ -56,10 +57,10 @@ stop and repair the contract before implementation.
 
 ## Owner Boundary
 
-Each stage may consume only the inputs declared by its inspector step or route.
+Each step may consume only the inputs declared by its inspector step or route.
 Passing large upstream option bags downstream is not a substitute for an owner
 boundary. Downstream helpers must consume completed artifacts, artifact ids,
-stage signatures, or cache handles owned by their step, not raw data that lets
+step signatures, or cache handles owned by their step, not raw data that lets
 them rederive upstream semantics.
 
 If a required input is absent from the inspector contract, do not use it by
@@ -67,13 +68,14 @@ guessing. Stop and report the missing contract.
 
 ## Readiness Vs Implementation Ownership
 
-An active implementation segment may edit only one owner step or route. However,
-the readiness check for that segment must cover the whole review family and any
-cross-family handoffs that feed the active step.
+An active implementation segment may edit only one owner step or route. Its
+readiness check must still include every upstream input and downstream consumer
+named by that step, plus the product cases and DoD clauses affected by the
+change.
 
-Do not mark a step implementation-ready because its local step contract is
-complete if the family dataflow, downstream handoff, artifact lifecycle, or
-closure packet is still pending or contradictory.
+Do not advance when the local step looks complete but its public input/output,
+route, artifact consumer, forbidden contributor, product case, or failure owner
+is missing or contradictory.
 
 ## Test-First Requirement
 
@@ -90,14 +92,17 @@ for a reported bug, stop and explain the evidence gap.
 Performance is never a semantic correctness reason. A faster path is allowed only
 when it is proven equivalent to the product spec and inspector contract.
 
-Stage cache keys are stage-owned. A cache key may include only the dimensions
-that the product spec assigns to that stage. Do not add unrelated parameters to a
-cache key to make a test pass or hide stale output.
+Cache is an evidence-driven optional optimization, not a default architectural
+requirement. Introduce a step-owned retained candidate only after profiling
+identifies a material cost. Before implementation, its bounded optimization
+plan and equivalence test must name the retained value, exact key, invalidation,
+miss path, and equivalence oracle. `cacheDimensions: []` means the step owns no
+such candidate.
 
-Renderer caches, render-entry caches, descriptor caches, geometry caches, and
-diagnostic caches must stay channel-separated. Diagnostics, helper geometry,
-debug geometry, hit-test evidence, and export evidence must not become visible
-render input unless the spec explicitly defines that path as visible product.
+When profiling justifies a cache, the Inspector identifies its owning step and
+dimensions. The implementation plan and equivalence test may record internal
+key, invalidation, and miss-path details without promoting them into product
+semantics. Do not add a cache to make a test pass or hide stale output.
 
 ## Bounded Review Checklist
 
@@ -107,16 +112,15 @@ Before advancing to another step, verify:
 - The changed files are in the inspector implementation allowlist, or the work
   stopped for a boundary update decision.
 - The implementation consumes only allowed inputs.
-- The containing review family is implementation-ready, or the work is repairing
-  the family/closure contract before implementation.
-- The implementation produces the required outputs and evidence.
+- The affected product behavior, cases, and DoD gates are explicit.
+- The implementation produces the declared outputs.
 - No forbidden contributor is used.
 - No renderer fallback, patch geometry, fixture-specific route, or diagnostic
   repair path was introduced.
 - No visible render path consumes diagnostics, helper geometry, debug geometry,
   or evidence-only polygons.
-- Cache keys contain only stage-owned dimensions.
-- Dirtying and invalidation match the declared stage boundary.
+- Any cache is profiling-justified, step-owned, and covered by an exact
+  equivalence test; an empty `cacheDimensions` remains cache-free.
 - Focused tests and required gates were run, or the unrun gate is reported with
   a concrete reason.
 
@@ -130,7 +134,7 @@ Stop implementation and ask for a decision when any of these occurs:
 - The product spec and inspector flow conflict.
 - The implementation needs behavior not present in the spec.
 - The required file is outside the step implementation allowlist.
-- A downstream stage appears to need upstream raw data to make a semantic
+- A downstream step appears to need upstream raw data to make a semantic
   decision.
 - A performance shortcut cannot be proven equivalent.
 - The same focused repair fails three times.

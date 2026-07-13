@@ -72,7 +72,7 @@ Checklist:
 - [ ] no Pixi dependency leaks outside `@asyra/render`
 - [ ] migration/deprecation story is clear when behavior changes
 - [ ] pre-release legacy branches are removed or isolated to load migration/diagnostics
-- [ ] the first incorrect semantic owner stage is fixed before downstream output is changed
+- [ ] the first incorrect semantic owner step is fixed before downstream output is changed
 
 ## Phase 3: Implement in Thin Slices
 
@@ -91,8 +91,8 @@ Self-correction loop:
 2. verify whether existing formal tests detect the failure
 3. if no formal test fails, add or strengthen the official regression test/oracle and confirm it fails
 4. read affected source
-5. identify the first canonical semantic stage where the behavior becomes wrong
-6. adjust minimally at that owner stage
+5. identify the first canonical semantic step where the behavior becomes wrong
+6. adjust minimally at that owner step
 7. rerun build/test for touched scope
 
 ## Phase 4: Verification Matrix

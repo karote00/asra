@@ -47,7 +47,7 @@ formal tests detect the reported failure. If they do not, add or strengthen the
 formal regression test/oracle first and prove it fails on the current behavior.
 
 Project-wide product fixes must follow
-`rules/no-patch-fixes.md`: repair the canonical owner stage instead of adding
+`rules/no-patch-fixes.md`: repair the canonical owner step instead of adding
 patch output or fallback product paths. This applies to framework packages,
 preset defaults, reference apps, and future apps.
 

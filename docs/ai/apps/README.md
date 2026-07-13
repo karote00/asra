@@ -32,7 +32,7 @@ the formal regression test/oracle first.
 In particular, app code must follow
 `docs/ai/framework/rules/no-patch-fixes.md`: app implementations must not add
 patch UI, patch render output, patch export output, or app-specific fallback
-paths to hide a framework or app pipeline defect. Fix the canonical owner stage
+paths to hide a framework or app pipeline defect. Fix the canonical owner step
 and verify the normal product path instead.
 
 Global decision-history rules are defined in `docs/ai/decisions/README.md`.

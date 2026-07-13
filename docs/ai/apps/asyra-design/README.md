@@ -49,7 +49,7 @@ Cross-cutting history rules come from `docs/ai/decisions/README.md`.
 Asyra Design also inherits all framework hard rules, including
 `docs/ai/framework/rules/bugfix-test-first.md` and
 `docs/ai/framework/rules/no-patch-fixes.md`. App fixes must repair the canonical
-owner stage, must first prove whether existing formal tests detect the bug, and
+owner step, must first prove whether existing formal tests detect the bug, and
 must not add app-specific patch render output, patch UI state, patch export
 output, or visual fallback paths.
 

@@ -1,7 +1,7 @@
 # Framework Rules
 
 - `bugfix-test-first.md`
-- `inspector-closure-readiness.md`
+- `inspector-contract-readiness.md`
 - `inspector-step-execution.md`
 - `import-boundaries.md`
 - `data-flow-and-transactions.md`

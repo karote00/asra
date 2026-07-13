@@ -17,13 +17,12 @@ A task iteration means:
 1. Re-audit the active contracts, specs, inspector flow, tests, and current
    implementation state.
 2. Identify the first unresolved owner boundary or evidence gap.
-3. Write a revised plan that explains which owner stage will be handled next,
+3. Write a revised plan that explains which owner step will be handled next,
    which files are in scope, and which gates will prove the result.
-4. Update or reference the closure packet for the affected review segment,
-   including contract status, family dataflow status, runtime status, formal
-   gates, reopen conditions, and remaining scope.
-5. Self-review the revised plan against the review checklist, closure packet,
-   and latest evidence.
+4. Map the revised plan to the affected thin product-contract clauses,
+   Inspector step/route, executable product cases, and bounded DoD gates.
+5. Self-review the revised plan against those authorities and the latest formal
+   test evidence.
 6. Continue only after the revised plan replaces the stale local patching plan
    and the self-review can no longer identify a concrete plan issue.
 
@@ -39,16 +38,16 @@ is being used.
   output.
 - Re-check the formal tests before editing production code when the failure
   suggests missing or mis-mapped coverage.
-- Re-check implementation ownership before changing a downstream stage.
+- Re-check implementation ownership before changing a downstream step.
 - If a user has set a time limit, count the limit against the current plan; when
   it is exceeded, perform a task iteration before continuing.
 - After writing the revised plan, review it yourself for missing contracts,
   ambiguous owner boundaries, unbounded files, weak gates, downstream patching,
   or stale assumptions. Revise and review again until no concrete issue remains.
 - If the affected work is inspector-backed, apply
-  `inspector-closure-readiness.md`: do not resume implementation until the
-  relevant closure packet has explicit gate evidence, reopen conditions, and
-  runtime scope.
+  `inspector-contract-readiness.md`: do not resume implementation until the
+  active slice has explicit product behavior, public inputs/outputs, owner
+  boundaries, executable cases, and DoD gates.
 
 ## Forbidden Patterns
 
@@ -56,7 +55,7 @@ is being used.
   re-auditing the owner boundary.
 - Treating the original plan as fixed after evidence shows it is incomplete.
 - Continuing broad gates when a focused test repeatedly fails for the same
-  owner-stage reason.
+  owner-step reason.
 - Replanning only in conversation while leaving the implementation direction
   unchanged.
 - Starting the next implementation iteration after a task replan while the
@@ -76,6 +75,5 @@ Before continuing after a task iteration, verify:
 - [ ] the old failed plan is replaced by the revised plan
 - [ ] the revised plan has been self-reviewed, updated for every concrete issue
       found, and reviewed again until no concrete issue remains
-- [ ] for inspector-backed work, the affected closure packet is explicit about
-      contract status, family dataflow status, runtime status, formal gates,
-      reopen conditions, and remaining scope
+- [ ] for inspector-backed work, the active product clauses, Inspector
+      step/route, executable cases, and DoD gates agree
