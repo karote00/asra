@@ -23,33 +23,74 @@ Asyra architecture is designed around deterministic execution over declarative i
 - `@asyra/render`
 - `@asyra/ui-context` (optional convenience)
 
-5. Shared Infrastructure
+5. Transaction, Shared-Change, and Persistence Infrastructure
+- `@asyra/factory`
+- `@asyra/persistence`
+
+6. Shared Infrastructure
 - `@asyra/utils`
 
-## Canonical Runtime Flow
+## Canonical Intent Flow
 
-1. Input event arrives.
-2. Feature-system executes/sessions.
-3. Feature calls app/common APIs.
-4. APIs update framework state via transactions.
-5. Render reacts to state.
-6. UI-context recomputes derived UI properties.
-7. UI renders final derived values.
+1. An intent arrives from a human, machine, UI action, automation, AI, device,
+   or external command source.
+2. Feature-system executes the matching bounded behavior/session.
+3. Feature calls app/common APIs or the core facade.
+4. APIs update authoritative framework state inside a transaction boundary.
+5. State owners enforce package-local invariants and record changes.
+6. Render/UI and other projections react to the resulting state.
+
+Canonical shorthand:
+
+`Any Intent -> Feature -> API -> Transaction -> State Owner -> Projections`
+
+## Canonical State-Application Flow
+
+Load, undo/redo replay, and future remote collaboration updates are not new
+product intents and do not create parallel feature decisions.
+
+1. Persisted, replayed, or remote state/change input arrives.
+2. The owning pipeline performs migration, validation, conflict policy, or
+   origin checks as applicable.
+3. Apply APIs update the authoritative state owner.
+4. Render/UI and other projections recompute from authoritative state.
+
+Canonical shorthand:
+
+`Load / Replay / Remote Update -> Validate / Resolve -> Apply API -> State Owner -> Projections`
 
 ## Architecture Invariants
 
 - Single runtime owner for user-action execution/session/cancel: `feature-system`.
 - State ownership stays split by package boundaries (scene-tree, props-manager, system-context, selection).
 - Render and UI are downstream consumers of state.
+- State replay/synchronization must not create a second product-decision runtime.
 
 ## Ownership Rules
 
 - Feature-system owns execute/session/cancel runtime decisions.
+- Factory owns transaction grouping, undo/redo history, and shared-channel
+  buffering.
 - Scene-tree owns entity graph.
 - Props-manager owns property component values and schema validation.
 - System-context owns app/system mode flags.
 - Render owns graphics engine specifics.
 - UI-context owns derived UI state only.
+
+## Instance Composition
+
+- Each package may expose a default module-level instance for the common shared
+  runtime path.
+- Exported classes allow consumers to create additional instances only for the
+  subsystems they need to isolate.
+- Consumers are not required to create an all-package runtime container when
+  only one or a few package instances need separate ownership.
+- Default imports intentionally share their registered state and subscriptions.
+- Custom instances must use dependencies and subscription wiring bound to those
+  intended instances; importing a class does not imply that default singleton
+  wiring is automatically isolated.
+- A future runtime factory may be offered as optional composition convenience,
+  but it is not the required ownership model.
 
 ## Registration Surfaces
 
@@ -70,6 +111,7 @@ Asyra architecture is designed around deterministic execution over declarative i
 
 See:
 - `packages/core.md`
+- `packages/factory.md`
 - `packages/scene-tree.md`
 - `packages/system-context.md`
 - `packages/preset.md`

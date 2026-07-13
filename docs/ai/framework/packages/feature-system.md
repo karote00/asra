@@ -29,10 +29,14 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
 - `update` runs while session remains active
 - `end` finalizes session
 - `cancel` aborts active session before conflicting next action
+- current `cancel` proceeds through session end and does not itself guarantee
+  rollback of already-applied mutations
 
 3. Error behavior
 - one feature failure should not corrupt runtime state
 - runtime should isolate/report feature errors clearly
+- automatic transaction failure propagation and rollback on handler error/timeout
+  are deferred to `../plans/transaction-atomicity-and-rollback-plan.md`
 
 ## App-Level Rules
 
@@ -46,3 +50,5 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
 - Priority/exclusive behavior is deterministic.
 - Switching tools or conflicting actions handles active session correctly.
 - Long-running async feature logic does not lock future execution.
+- Tests must distinguish normal end, cancel, rollback, and commit-current once
+  explicit cancel policies are implemented.

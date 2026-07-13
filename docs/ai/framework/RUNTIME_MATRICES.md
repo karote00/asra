@@ -70,13 +70,21 @@ Use these matrices for deterministic ownership and flow decisions.
 
 ## Flow Matrix (Canonical)
 
-1. input-system emits normalized event
-2. feature-system executes feature handlers
-3. handlers call mutation/query APIs
-4. APIs mutate framework state in transaction boundary
-5. render reacts to state change
-6. ui-context recomputes derived properties
-7. app UI consumes derived values
+Intent path:
+
+1. a human, machine, UI, automation, AI, device, or external command emits an intent
+2. adapters normalize the intent when required
+3. feature-system executes feature handlers
+4. handlers call mutation/query APIs
+5. APIs mutate authoritative framework state in a transaction boundary
+6. render/ui-context and other projections react to state
+
+State-application path:
+
+1. load, undo/redo replay, or future remote change input arrives
+2. migration/validation/conflict/origin checks run as applicable
+3. apply APIs update the authoritative state owner
+4. render/ui-context and other projections react to state
 
 ## Compatibility Matrix
 

@@ -11,6 +11,9 @@
 
 3. Transaction expectations
 - Data-changing APIs should be transaction-bounded.
+- Current transactions group changes for undo/redo and shared delivery; they do
+  not yet provide automatic rollback of every applied mutation after failure.
+- Current session cancel ends the session but does not itself guarantee rollback.
 
 4. Feature decision runtime
 - Feature-system is primary runtime for execute/session flow.
@@ -41,6 +44,20 @@
 6. Preset bootstrap requirement
 - Default builtins are not implicitly registered by core.
 - Consumers must explicitly apply `@asyra/preset` when default framework registrations are required.
+
+7. Transaction atomicity
+- ACID-inspired failure atomicity, explicit cancel policies, and committed vs
+  persisted acknowledgement are planned but not implemented yet.
+- See `plans/transaction-atomicity-and-rollback-plan.md`.
+
+8. Yjs network collaboration
+- Current Yjs usage provides local shared-channel registration, buffered or
+  immediate shared delivery, and observer wiring.
+- A network provider, room/auth lifecycle, awareness/presence, remote canonical
+  apply pipeline, offline/server persistence, dedupe/origin handling, and full
+  collaboration conflict policy are not implemented yet.
+- See `plans/yjs-network-collaboration-plan.md` and
+  `plans/collaborative-conflict-policies-plan.md`.
 
 ## Documentation Rule
 

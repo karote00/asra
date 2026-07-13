@@ -23,8 +23,21 @@ Use this file to route a new framework request to the right docs first.
 - transaction/undo grouping and mutation boundaries
   - `rules/data-flow-and-transactions.md`
   - `packages/core.md`
+  - `packages/factory.md`
   - `packages/scene-tree.md`
   - `packages/props-manager.md`
+
+- transaction failure/rollback/cancel/commit/persist semantics
+  - `rules/data-flow-and-transactions.md`
+  - `packages/factory.md`
+  - `packages/feature-system.md`
+  - `plans/transaction-atomicity-and-rollback-plan.md`
+
+- Yjs shared channels/network collaboration/presence/conflict policy
+  - `packages/factory.md`
+  - `CONSTRAINTS.md`
+  - `plans/yjs-network-collaboration-plan.md`
+  - `plans/collaborative-conflict-policies-plan.md`
 
 - component/property/schema registration
   - `packages/core.md`

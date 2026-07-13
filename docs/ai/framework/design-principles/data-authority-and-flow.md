@@ -3,7 +3,10 @@
 ## Intent
 
 Preserve one-way, deterministic data flow across the framework:
-- input -> feature runtime -> mutation APIs -> state owners -> render/UI outputs
+- intent from any human/machine/UI/automation/AI/device/command source ->
+  feature runtime -> mutation APIs -> transaction -> state owners -> projections
+- load/replay/remote state input -> migration/validation/conflict policy ->
+  apply APIs -> state owners -> projections
 
 ## Why
 
@@ -16,6 +19,8 @@ Preserve one-way, deterministic data flow across the framework:
 - render and UI are state consumers, not data authorities
 - state owners remain package-local (`scene-tree`, `props-manager`, `selection`, `system-context`)
 - mutations happen through explicit API boundaries and transactions
+- state replay and synchronization reuse apply boundaries without introducing a
+  second feature-decision runtime
 
 ## Anti-Patterns
 
@@ -26,6 +31,6 @@ Preserve one-way, deterministic data flow across the framework:
 ## Design Check
 
 Before merging:
-1. Can the same input produce the same final state every time?
+1. Can the same intent or state-application input produce the same final state every time?
 2. Is there one owner for each state surface?
 3. Are outputs derived from state, not the reverse?

@@ -8,7 +8,8 @@ Framework-first rules:
 - Core is UI-agnostic.
 - App-level domain logic is first-class.
 - Builtins are optional and movable.
-- Data flow is deterministic and transaction-safe.
+- Data flow is deterministic and transaction-bounded; automatic failure
+  rollback remains a planned transaction guarantee.
 
 ## Read Order
 

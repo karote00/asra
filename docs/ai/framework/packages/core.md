@@ -37,6 +37,16 @@ System orchestrator and lifecycle coordinator.
 - `CoreConcreteAPIs = CoreBasicAPIs + CoreExtensionAPIs`.
 - `CorePresetInstallAPIs` is the strict preset-facing subset used by `@asyra/preset` bootstrapping.
 
+## Instance Contract
+
+- The package exports a default `core` instance for the common shared-runtime
+  path and exports the `Core` class for consumer-owned composition.
+- Consumers may isolate only the package instances they need; an all-package
+  runtime container is not required.
+- A custom `Core` instance must receive and consistently use the intended
+  package instances and instance-bound subscription wiring.
+- Default singleton imports intentionally share state and subscriptions.
+
 ## Runtime Contracts
 
 1. Startup contract
@@ -57,6 +67,12 @@ System orchestrator and lifecycle coordinator.
 - save: collect package states -> compose persisted payload
 - save payload may include optional `systemContext` managed-property snapshot
   - includes only managed properties registered with `runtime: false`
+
+4. Transaction status contract
+- core may observe transaction completion for autosave, but a runtime commit is
+  not the same as persistence durability
+- automatic failure rollback and persistence acknowledgement are deferred; core
+  must not claim those guarantees before the transaction atomicity plan lands
 
 ## App-Level Usage Rules
 
