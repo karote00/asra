@@ -5,6 +5,7 @@ import type {
   ExecutionRegistry
 } from '../types/execution'
 import type { SystemContextSnapshot } from '@asyra/utils'
+import { runTransaction } from '@asyra/reactive-events'
 
 /**
  * Execution Registry
@@ -40,42 +41,37 @@ export class ExecutionRegistryClass implements ExecutionRegistry {
     }
   }
 
-  execute(eventName: string, snapshot: SystemContextSnapshot): boolean {
+  async execute(
+    eventName: string,
+    snapshot: SystemContextSnapshot
+  ): Promise<boolean> {
     const handlers = this.executionHandlers.get(eventName)
     if (!handlers || handlers.length === 0) return false
 
-    // Priority-ordered: check features from highest to lowest priority
-    let ranAny = false
-    let exclusiveFound = false
+    return runTransaction(
+      async () => {
+        let ranAny = false
+        let exclusiveFound = false
 
-    for (const participant of handlers) {
-      // Skip if previous exclusive feature stopped us
-      if (exclusiveFound) break
+        for (const participant of handlers) {
+          if (exclusiveFound) {
+            break
+          }
 
-      try {
-        // Execute handler
-        const result = participant.handler(snapshot)
-
-        if (result !== null && result !== undefined) {
-          // Feature ran successfully
-          participant.result = result
-          ranAny = true
-
-          // If exclusive, stop checking lower priorities
-          if (participant.exclusive) {
-            exclusiveFound = true
+          const result = await participant.handler(snapshot)
+          if (result !== null && result !== undefined) {
+            participant.result = result
+            ranAny = true
+            if (participant.exclusive) {
+              exclusiveFound = true
+            }
           }
         }
-      } catch (error) {
-        console.error(
-          `Feature "${participant.featureName}" error in execution:`,
-          error
-        )
-        // Continue with next feature on error
-      }
-    }
 
-    return ranAny
+        return ranAny
+      },
+      { failureKind: 'handler-error' }
+    )
   }
 
   getHandlers(eventName: string): ExecutionParticipant[] {

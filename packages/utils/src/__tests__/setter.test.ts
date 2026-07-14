@@ -65,6 +65,37 @@ describe('Setter - Change Tracking System', () => {
   })
 
   describe('change tracking', () => {
+    it('signals a semantic write before change callbacks and listeners', () => {
+      const order: string[] = []
+      const changeCallback = vi.fn(() => order.push('change'))
+      const onCanonicalWrite = vi.fn(() => order.push('canonical'))
+      const setter = new Setter<MockElementData>(
+        changeCallback,
+        onCanonicalWrite
+      )
+      setter.data = {
+        id: 'rect-1',
+        type: 'rect',
+        name: 'Rectangle',
+        x: 100,
+        y: 200,
+        width: 50,
+        height: 30,
+        rotation: 0,
+        fills: [],
+        strokes: [],
+        children: [],
+        metadata: { name: 'Rectangle', visible: true }
+      }
+      setter.on(() => order.push('listener'))
+
+      setter.set('x', 150)
+      setter.set('x', 150)
+
+      expect(order).toEqual(['canonical', 'change', 'listener'])
+      expect(onCanonicalWrite).toHaveBeenCalledTimes(1)
+    })
+
     it('should demonstrate how element modifications are tracked for undo/redo', () => {
       // Demonstrates: Critical change tracking for transaction system
       const changeCallback = vi.fn()

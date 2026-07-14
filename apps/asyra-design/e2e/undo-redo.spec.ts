@@ -9,6 +9,7 @@ import {
   dragOnCanvas,
   dragSelectedElementBy,
   getSelectedElementRect,
+  getSelectedElementClientCenter,
   undo,
   redo
 } from './test-utils'
@@ -188,6 +189,115 @@ test.describe('Undo/Redo Actions', () => {
         x: Math.round(moved.x),
         y: Math.round(moved.y)
       })
+  })
+
+  test('pressing Escape during move commits the interruption position as one undoable action', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.35, 0.35)
+    const before = await getSelectedElementRect(page)
+    expect(before).not.toBeNull()
+    if (!before) {
+      return
+    }
+
+    const beforeUndoCount = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+    })
+    const start = await getSelectedElementClientCenter(page)
+    expect(start).not.toBeNull()
+    if (!start) {
+      return
+    }
+
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__movePreviewDeliveries = []
+      scope.__disposeMovePreviewObserver =
+        scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
+          'sceneTree',
+          (change: unknown) => scope.__movePreviewDeliveries.push(change)
+        )
+    })
+    await page.mouse.move(start.x, start.y)
+    await page.mouse.down()
+    await page.mouse.move(start.x + 120, start.y + 70, { steps: 10 })
+    await expect
+      .poll(async () => {
+        const current = await getSelectedElementRect(page)
+        return current
+          ? current.x > before.x + 10 && current.y > before.y + 10
+          : false
+      })
+      .toBe(true)
+    const previewDeliveries = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (window as any).__movePreviewDeliveries ?? []
+    })
+    expect(previewDeliveries).toContainEqual(
+      expect.objectContaining({
+        action: 'updateElementComputedDataBatch',
+        options: expect.objectContaining({ sharedDelivery: 'immediate' })
+      })
+    )
+    const interrupted = await getSelectedElementRect(page)
+    expect(interrupted).not.toBeNull()
+    if (!interrupted) {
+      return
+    }
+
+    const getPositionById = () =>
+      page.evaluate((elementId) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const element = core?.deps?.sceneTree?.getElementById?.(elementId)
+        const computed = element?.getAllComputedData?.()
+        return computed
+          ? { x: Number(computed.x), y: Number(computed.y) }
+          : null
+      }, before.id)
+
+    await page.keyboard.press('Escape')
+    await page.mouse.up()
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__disposeMovePreviewObserver?.()
+      delete scope.__disposeMovePreviewObserver
+      delete scope.__movePreviewDeliveries
+    })
+
+    await expect
+      .poll(async () => {
+        const committed = await getPositionById()
+        return committed
+          ? { x: Math.round(committed.x), y: Math.round(committed.y) }
+          : null
+      })
+      .toEqual({
+        x: Math.round(interrupted.x),
+        y: Math.round(interrupted.y)
+      })
+
+    const afterUndoCount = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+    })
+    expect(afterUndoCount).toBe(beforeUndoCount + 1)
+
+    await undo(page)
+    await expect
+      .poll(async () => {
+        const restored = await getPositionById()
+        return restored
+          ? { x: Math.round(restored.x), y: Math.round(restored.y) }
+          : null
+      })
+      .toEqual({ x: Math.round(before.x), y: Math.round(before.y) })
   })
 
   test('drag-create uses a compact undo commit without move spam', async ({
@@ -814,12 +924,38 @@ test.describe('Undo/Redo Actions', () => {
       }
     })
 
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__vectorPointPreviewDeliveries = []
+      scope.__disposeVectorPointPreviewObserver =
+        scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
+          'sceneTree',
+          (change: unknown) => scope.__vectorPointPreviewDeliveries.push(change)
+        )
+    })
     await page.mouse.move(before.client.x, before.client.y)
     await page.mouse.down()
     await page.mouse.move(before.client.x + 52, before.client.y + 24, {
       steps: 12
     })
+    const previewDeliveries = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (window as any).__vectorPointPreviewDeliveries ?? []
+    })
+    expect(previewDeliveries).toContainEqual(
+      expect.objectContaining({
+        options: expect.objectContaining({ sharedDelivery: 'immediate' })
+      })
+    )
     await page.mouse.up()
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__disposeVectorPointPreviewObserver?.()
+      delete scope.__disposeVectorPointPreviewObserver
+      delete scope.__vectorPointPreviewDeliveries
+    })
     await page.waitForTimeout(80)
 
     const afterMouseup = await page.evaluate(({ vectorId, pointId }) => {

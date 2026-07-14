@@ -108,6 +108,9 @@
 - virtual preview segment (pen hover before commit) follows the same rule:
   - if preview start point has `outHandle`, render bezier preview
   - otherwise render straight preview line
+- active new-point handle and selected vector-point drag frames use explicit
+  `sharedDelivery: 'immediate'` while remaining `undoable: false`; pointer-up
+  still finalizes one undoable vector patch.
 - handle style:
   - same fill color/size as anchor points
   - white 1px stroke
@@ -126,6 +129,11 @@
 - Double click: enters path editing only if double-click hits currently selected vector bounds.
 
 ## Escape / Cancel Semantics
+
+If Escape interrupts an active pen or vector-point drag, Feature System first
+finishes that session at the interruption position through `onEnd` and commits
+one undoable action. The `cancelPenEditing` execution then applies the following
+editing-mode decision.
 
 Handled by `cancelPenEditing`:
 

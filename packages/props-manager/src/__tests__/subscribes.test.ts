@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { endTransaction, EventTypes } from '@asyra/reactive-events'
+import {
+  endTransaction,
+  EventTypes,
+  startTransaction
+} from '@asyra/reactive-events'
 import type { PropsChange } from '@asyra/utils'
 import propsManager from '..'
 
@@ -9,6 +13,7 @@ describe('props-manager subscribes', () => {
   })
 
   it('clears pending property changes on endTransaction', () => {
+    startTransaction()
     const pendingChange = {
       action: 'updateProperty',
       eventName: EventTypes.UPDATE_PROPERTY,

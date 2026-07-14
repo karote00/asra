@@ -1,7 +1,8 @@
 import type {
   SceneTreeRawData,
   CoreRawData,
-  PropertySchema
+  PropertySchema,
+  TransactionStatusPayload
 } from '@asyra/utils'
 import { isRecord } from '@asyra/utils'
 import factory, { Factory } from '@asyra/factory'
@@ -20,11 +21,9 @@ import type { FeatureSystemAPIs } from './types/feature-system'
 import render, { Render, IRenderer, RenderOptions } from '@asyra/render'
 import { IPersistenceProvider, SaveHook, LoadHook } from '@asyra/persistence'
 import {
-  EventTypes,
   type EventDefinition,
   eventRegistry,
-  fileLoadComplete,
-  subscribeToEvents
+  fileLoadComplete
 } from '@asyra/reactive-events'
 
 import {
@@ -54,12 +53,38 @@ interface CoreDeps {
   systemContext: SystemContext
 }
 
+type PendingPersistence =
+  | {
+      kind: 'skipped'
+      transaction: TransactionStatusPayload
+    }
+  | {
+      kind: 'save'
+      transaction: TransactionStatusPayload
+      provider: IPersistenceProvider
+      data: CoreRawData
+    }
+  | {
+      kind: 'capture-failed'
+      transaction: TransactionStatusPayload
+      provider: IPersistenceProvider
+      error: unknown
+    }
+
 const DEFAULT_VERSION = '1.0.0'
 const DATA_VERSION = '1.0.0'
 const EMPTY_SCENE_TREE_DATA: SceneTreeRawData = {
   workspace: '',
   workspaceList: [],
   elements: {}
+}
+
+const clonePersistenceSnapshot = (data: CoreRawData): CoreRawData => {
+  if (typeof globalThis.structuredClone === 'function') {
+    return globalThis.structuredClone(data)
+  }
+
+  return JSON.parse(JSON.stringify(data)) as CoreRawData
 }
 
 class Core implements CoreAPIs {
@@ -70,6 +95,7 @@ class Core implements CoreAPIs {
   private saveHooks: SaveHook[] = []
   private loadHooks: LoadHook[] = []
   private loadDiagnosticsHooks: LoadDiagnosticsHook[] = []
+  private persistenceQueue: Promise<void> = Promise.resolve()
 
   setupInputSystem!: InputSystemAPIs['setupInputSystem']
 
@@ -124,12 +150,13 @@ class Core implements CoreAPIs {
       deps.sceneTree,
       deps.render,
       deps.selection,
-      deps.props
+      deps.props,
+      deps.factory
     )
 
     Object.assign(this, apis as CoreAPIs)
 
-    // Subscribe to endTransaction for auto-save
+    // Subscribe to this Core instance's Factory commit status for auto-save.
     this.initAutoSave()
   }
 
@@ -231,38 +258,96 @@ class Core implements CoreAPIs {
   }
 
   private initAutoSave(): void {
-    subscribeToEvents((event) => {
-      if (event.type === EventTypes.END_TRANSACTION) {
-        this.saveToPersistence().catch((error) => {
-          console.error('[Core] Auto-save failed:', error)
-        })
+    this.deps.factory.subscribeToTransactionStatus((status) => {
+      if (status.status !== 'committed') {
+        return
       }
+
+      const pending = this.captureCommittedTransaction(status)
+      this.persistenceQueue = this.persistenceQueue.then(() =>
+        this.persistCommittedTransaction(pending)
+      )
     })
   }
 
-  private async saveToPersistence(): Promise<void> {
-    if (!this.persistence) {
-      console.warn('[Core] No persistence provider configured, skipping save')
+  private captureCommittedTransaction(
+    transaction: TransactionStatusPayload
+  ): PendingPersistence {
+    const provider = this.persistence
+    if (!provider) {
+      return { kind: 'skipped', transaction }
+    }
+
+    try {
+      return {
+        kind: 'save',
+        transaction,
+        provider,
+        data: this.createPersistenceSnapshot()
+      }
+    } catch (error) {
+      return { kind: 'capture-failed', transaction, provider, error }
+    }
+  }
+
+  private async persistCommittedTransaction(
+    pending: PendingPersistence
+  ): Promise<void> {
+    if (pending.kind === 'skipped') {
+      this.deps.factory.reportPersistenceStatus(
+        pending.transaction,
+        'persistence-skipped'
+      )
       return
     }
 
+    if (pending.kind === 'capture-failed') {
+      this.deps.factory.reportPersistenceStatus(
+        pending.transaction,
+        'persistence-failed',
+        pending.provider.name,
+        pending.error
+      )
+      return
+    }
+
+    try {
+      await pending.provider.save(pending.data)
+      this.deps.factory.reportPersistenceStatus(
+        pending.transaction,
+        'persisted',
+        pending.provider.name
+      )
+    } catch (error) {
+      this.deps.factory.reportPersistenceStatus(
+        pending.transaction,
+        'persistence-failed',
+        pending.provider.name,
+        error
+      )
+    }
+  }
+
+  private createPersistenceSnapshot(): CoreRawData {
     const systemContextData = this.deps.systemContext.saveManagedProperties()
 
     let data: CoreRawData = {
       version: this.version,
-      sceneTree: await this.sceneTreeSaveData(),
+      sceneTree: this.sceneTreeSaveData(),
       props: this.deps.props.save()
     }
     if (Object.keys(systemContextData).length > 0) {
       data.systemContext = systemContextData
     }
 
+    data = clonePersistenceSnapshot(data)
+
     // Run before-save hooks (encryption, compression, metadata)
     for (const hook of this.saveHooks) {
       data = hook(data)
     }
 
-    await this.persistence.save(data)
+    return clonePersistenceSnapshot(data)
   }
 
   private async loadFromPersistence(): Promise<void> {

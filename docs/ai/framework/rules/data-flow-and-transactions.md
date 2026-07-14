@@ -2,10 +2,20 @@
 
 ## Data Flow
 
-- Input -> Feature -> API -> State -> Render/UI
+- Intent path: Any Input / UI Action / Command -> Feature -> API -> State ->
+  Render/UI.
+- Intent sources include humans, machines, UI actions, automation, AI, devices,
+  and external commands.
+- State-application path: Load / Replay / Remote Update -> Validate / Resolve ->
+  Apply API -> State Owner -> Projections.
+- Transactions are mutation boundaries between API orchestration and state
+  owners, not independent product-intent stages.
 - Feature-system is the only runtime owner for execute/session/cancel.
 - Features must mutate or query framework state through app/common APIs or core facade APIs.
 - Feature behavior should stay bounded to its trigger, priority/exclusive policy, and execution/session lifecycle.
+- Load, undo/redo replay, and remote synchronization are not new product
+  intents; they must use their owning migration/validation/apply pipeline rather
+  than introduce another feature-decision runtime.
 
 ## Event Ownership Rule
 
@@ -17,10 +27,114 @@
 - APIs that mutate model data should be transaction-bounded.
 - Group logically-related mutations in one transaction.
 - One intended user action should create one intended undo commit.
+- Use `runTransaction(...)` for finite synchronous or asynchronous work so
+  success commits and thrown/rejected work rolls back automatically.
+- Use manual `startTransaction()` / `endTransaction(...)` boundaries only when
+  an interaction intentionally spans multiple input events.
 - Session updates may use non-undoable interim writes, but the final committed state must be grouped deliberately.
-- An undoable shared change that must be visible before the outer transaction ends may opt into `sharedDelivery: 'immediate'`; it remains part of the current undo commit and must not be published again at transaction end.
-- `sharedDelivery` defaults to `'transaction-end'`. Callers must opt in per change rather than making all undoable shared changes live globally.
+- `undoable: false` excludes a mutation from ordinary undo history but does not
+  exclude it from failure rollback.
+- `rollbackable: false` opts out of failure rollback, but an event that remains
+  undoable still requires an inverse contract. A documented intentionally
+  irreversible commit-safe effect must set both `rollbackable: false` and
+  `undoable: false`.
+- A shared change that must be visible before the outer transaction ends may opt into `sharedDelivery: 'immediate'`; an undoable immediate change remains part of the current undo commit and must not be published again at transaction end.
+- `sharedDelivery` defaults to `'transaction-end'` independently from `undoable`. Callers must opt in per change rather than making shared changes live globally.
+- State-owner batching must preserve effective `rollbackable`, `shared`, and
+  `sharedDelivery` semantics and partition changes whose options differ.
 - Cross-store mutations must be coordinated through API boundaries that preserve scene-tree, props-manager, selection, and render consistency.
+
+## Current Local ACID Guarantee Boundary
+
+- Atomicity: failed, explicitly rollback-cancelled, or validation-rejected
+  transactions replay all recorded rollbackable inverses in reverse journal
+  order. Rollback creates no undo/redo entry and emits no normal user-action
+  completion. User-driven interruption defaults to commit-current instead.
+- Consistency: synchronous validators registered on the owning Factory run in
+  registration order before a requested non-empty commit. Invalid results,
+  thrown validators, and asynchronous validators cause rollback; rejected async
+  results are observed rather than leaking an unhandled rejection. Canonical
+  selection is applied before this phase, while its shared projection may still
+  be pending.
+- Isolation: Feature session/command operations use one interaction queue so
+  mutations do not interleave. Active preview may still be visible to Render/UI.
+- Durability: committed action, undo, and redo outcomes are saved through a
+  serial Core queue. Each queue item writes a deeply detached snapshot captured
+  at its committed status, so later nested state mutation or active preview
+  cannot alter it.
+  `committed` and `persisted` are separate statuses.
+- Nested rollback marks the complete outer transaction rollback-only; unmatched
+  end/rollback calls at depth zero are no-ops.
+- Nested undo/redo validates and records an inverse restoration plan per replay
+  output, independently from the mutation journal. Plans are retained after a
+  confirmed semantic apply or explicit applied-then-failed acknowledgement and
+  execute in reverse apply order; successful no-op and pre-apply failure retain
+  no plan.
+- Canonical selection replay is Factory-instance-local and targets the
+  SelectionManager injected into the owning Core. Preset subscriptions own
+  projections, not canonical rollback correctness.
+- If one inverse fails, Factory attempts the remaining inverses, reports
+  `rollback-failed`, closes the transaction, forbids persistence, and throws the
+  rollback error to the caller.
+- A custom inverter output must be a non-null event object with a string event
+  type. Invalid output is one aggregated inverse failure, not permission to
+  abort replay of the remaining journal.
+- Canonical state owners acknowledge replay synchronously; a state owner that
+  mutates and then throws must acknowledge after the mutation, while a normal
+  mutation return is acknowledged automatically and a semantic no-op returns
+  `false`. Deleted scene-tree
+  and property instances are restored from owner-managed deleted maps. Scene
+  hierarchy replay also restores the recorded parent and child index; an apply
+  exception is a rollback failure, not an observer-only error.
+- Scene-tree replay resolves the key owner before apply: Element-owned metadata
+  and flags use `Element.set`, while computed-only values use the computed/property
+  owner path.
+- Scene-tree add/remove collapses internal initialization, parentId, children,
+  and computed setter changes before publishing the transaction journal. The
+  explicit ADD/REMOVE event is the one graph-restoration owner, preventing
+  hierarchy replay from inserting or removing a child twice.
+- Transaction journal snapshots preserve declared `DataTypes`, including
+  symbol and nested `undefined` values; custom output inverters must produce at
+  least one reversible event before their primary replay output is applied.
+- Canonical journal events and local shared-delivery payloads are deeply
+  detached at mutation time, so caller-owned mutation cannot rewrite a pending
+  flush or the inverse used to compensate an immediate projection.
+- Feature timeout aborts the session signal before rollback. Async handlers must
+  cooperatively reject post-abort writes after each await boundary.
+- This is local application-layer ACID-inspired behavior, not database
+  serializable isolation. It does not lock external processes or remote clients.
+
+## Required Terminology
+
+- `rollback`: reverse an uncommitted failed or explicitly discarded
+  transaction; it must not create a normal undo/redo history entry.
+- `undo`: reverse a successfully committed user-action history entry.
+- `cancel`: stop an active session; user-driven interruption defaults to
+  commit-current, while its policy may choose rollback or feature-defined
+  behavior for a true discard.
+- `committed`: accepted by the runtime transaction owner.
+- `persisted`: durably acknowledged by the configured persistence provider;
+  runtime commit alone does not imply persistence durability.
+
+## Shared and Network Boundary
+
+- Rolled-back transaction-end shared changes are discarded before delivery.
+- A registered transaction-end append failure before application requests
+  rollback, restores the provisional history transition, leaves no final
+  undo/history or normal completion effect, and propagates the delivery error
+  after restoration. Any already-delivered prefix from that flush is
+  compensated once in reverse order.
+- An immediate local shared projection is compensated exactly once by its
+  inverse during rollback.
+- Observer exceptions do not redefine an already-applied local Yjs append as
+  undelivered; delivery accounting still permits exactly one compensation.
+- The current guarantee ends at registered local shared channels. Yjs network
+  providers, room/auth lifecycle, awareness/presence, remote origin and
+  deduplication, reconnect/convergence, and collaborative conflict policy remain
+  deferred to `../plans/yjs-network-collaboration-plan.md`.
+
+See `../plans/transaction-atomicity-and-rollback-plan.md` for the product cases
+and the Transaction Flow Inspector contract.
 
 ## Validation Rule
 

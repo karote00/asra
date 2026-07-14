@@ -362,14 +362,7 @@ const VectorPoint = () => {
   )
 
   const runDiscreteVectorPointInteraction = useCallback(
-    <T,>(action: () => T) => {
-      transactionApis.startTransaction()
-      try {
-        return action()
-      } finally {
-        transactionApis.endTransaction()
-      }
-    },
+    <T,>(action: () => T) => transactionApis.runTransaction(action),
     []
   )
 

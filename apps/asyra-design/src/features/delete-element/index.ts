@@ -1,5 +1,4 @@
-import { defineFeature } from '@asyra/core'
-import { endTransaction, startTransaction } from '@asyra/reactive-events'
+import { defineFeature, runTransaction } from '@asyra/core'
 import {
   elementApis,
   selectionApis,
@@ -25,8 +24,7 @@ export const deleteElementFeature = defineFeature(
       }
 
       const elementId = selectedIds[0]
-      startTransaction()
-      try {
+      return runTransaction(() => {
         selectionApis.selectElements([])
 
         const deleted = elementApis.deleteElement(elementId)
@@ -42,9 +40,7 @@ export const deleteElementFeature = defineFeature(
         )
 
         return { deletedElementId: elementId }
-      } finally {
-        endTransaction()
-      }
+      })
     }
   }
 )

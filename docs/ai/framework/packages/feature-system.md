@@ -16,6 +16,13 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
 - Active feature execution should run one-by-one with deterministic ordering.
 - Before running next action, current active session must be cancelable.
 - Async feature handlers are allowed, but runtime must guard against stuck sessions.
+- One interaction queue serializes command, session start/update/end, and cancel
+  operations without event coalescing.
+- Public `SessionManager` lifecycle entry points and one-shot commands share the
+  default transaction owner's interaction queue. Multiple `SessionManager`
+  instances may own separate registrations, but they participate in one active
+  session runtime: starting a registered session first cancels the current
+  active session, including one owned by another manager instance.
 
 ## Runtime Contracts
 
@@ -29,10 +36,38 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
 - `update` runs while session remains active
 - `end` finalizes session
 - `cancel` aborts active session before conflicting next action
+- `cancelPolicy` defaults to `commit-current`; explicit alternatives are
+  `rollback` and `feature-defined`
+- the public `SessionManager.registerSession(...)` boundary preserves its legacy
+  five-argument `(name, feature, priority, exclusive, handler)` form with the
+  default commit-current policy; the additive six-argument form accepts an
+  explicit policy before the handler
+- `feature-defined` requires `onCancel` and must return `rollback` or
+  `commit-current`
+- a user-driven commit-current interruption receives `onEnd` with
+  `detail.cancelled = true`, allowing the normal finalization path to convert
+  the current preview into one undoable commit
+- explicit rollback, feature-defined cancellation, and forced failure cleanup
+  use `onCancel`; definitions without `onCancel` receive `onEnd` as the legacy
+  cleanup fallback
+- if any participant requests rollback, the complete transaction rolls back
 
 3. Error behavior
 - one feature failure should not corrupt runtime state
-- runtime should isolate/report feature errors clearly
+- handler errors and `FeatureHandlerTimeoutError` always request rollback,
+  independently of cancel policy
+- timeout aborts the active session `detail.signal` before rollback; async
+  handlers must check that signal after awaited work and before any mutation
+- abort is cooperative: JavaScript cannot forcibly stop an already-running
+  Promise, so a handler that ignores the signal may continue its own code even
+  though its transaction has already failed
+- every started participant receives cleanup opportunity, then the first actual
+  error is rethrown
+- one-shot executions use `runTransaction(..., { failureKind: 'handler-error' })`
+  and stop lower-priority handlers after the first failure
+- the exported `withTransaction(...)` utility commits only after synchronous or
+  asynchronous success; throw or rejection requests rollback and rethrows the
+  original failure
 
 ## App-Level Rules
 
@@ -46,3 +81,5 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
 - Priority/exclusive behavior is deterministic.
 - Switching tools or conflicting actions handles active session correctly.
 - Long-running async feature logic does not lock future execution.
+- Tests must distinguish normal end, cancel, rollback, commit-current, handler
+  error, and timeout.

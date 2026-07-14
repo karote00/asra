@@ -127,8 +127,7 @@ export const strokeApis = {
       return
     }
 
-    transactionApis.startTransaction()
-    try {
+    transactionApis.runTransaction(() => {
       const vectorBoundsRepairPatch = hasGeometryAffectingStrokePatch(patch)
         ? getVectorBoundsRepairPatch(elementId)
         : null
@@ -149,9 +148,7 @@ export const strokeApis = {
         )
       })
       core.commitPropertyChanges(options)
-    } finally {
-      transactionApis.endTransaction()
-    }
+    })
   },
 
   updateStrokeField: <K extends StrokeWritableKey>(

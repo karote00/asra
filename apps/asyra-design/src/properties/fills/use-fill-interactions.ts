@@ -227,12 +227,7 @@ export const useFillInteractions = ({
   }
 
   const runDiscreteFillInteraction = (callback: () => void) => {
-    transactionApis.startTransaction()
-    try {
-      callback()
-    } finally {
-      transactionApis.endTransaction()
-    }
+    transactionApis.runTransaction(callback)
   }
 
   const commitFillInteractionPatch = (
@@ -381,7 +376,10 @@ export const useFillInteractions = ({
     opacity: number
   }) => {
     if (colorPickerTransactionRef.current) {
-      writePickerFill(next.color, next.opacity, { undoable: false })
+      writePickerFill(next.color, next.opacity, {
+        undoable: false,
+        sharedDelivery: 'immediate'
+      })
       return
     }
 

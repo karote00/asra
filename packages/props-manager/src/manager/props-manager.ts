@@ -205,6 +205,12 @@ class PropsManager {
 
   removeProperty(propComponentIds: string[], _options?: EVENT_OPTIONS) {
     propComponentIds.forEach((propComponentId) => {
+      const component = this.getPropertyById(propComponentId)
+      if (!component) {
+        return
+      }
+
+      this.addChangeForRemoveProperty(component)
       this.removeFromMap(propComponentId)
     })
   }

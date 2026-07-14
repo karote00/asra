@@ -433,6 +433,18 @@ describe('PropsManager', () => {
     expect(propsManager._components.has('pp-2')).toBe(false)
     expect(propsManager._deletedMap.has('pp-1')).toBe(true)
     expect(propsManager._deletedMap.has('pp-2')).toBe(true)
+    expect(propsManager.changes).toEqual([
+      expect.objectContaining({
+        eventName: ReactiveEventsModule.EventTypes.REMOVE_PROPERTY,
+        action: PROPS_ACTIONS.REMOVE_PROPERTY,
+        data: [expect.objectContaining({ id: 'pp-1' })]
+      }),
+      expect.objectContaining({
+        eventName: ReactiveEventsModule.EventTypes.REMOVE_PROPERTY,
+        action: PROPS_ACTIONS.REMOVE_PROPERTY,
+        data: [expect.objectContaining({ id: 'pp-2' })]
+      })
+    ])
   })
 
   // Test updatePropsData

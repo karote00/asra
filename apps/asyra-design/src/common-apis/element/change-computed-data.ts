@@ -1,4 +1,4 @@
-import { startTransaction, endTransaction } from '@asyra/reactive-events'
+import { runTransaction } from '@asyra/core'
 import type { DataTypes, EVENT_OPTIONS } from '@asyra/utils'
 import core from '../../contexts'
 
@@ -34,8 +34,6 @@ export const changeComputedData = (
   }
 
   measureBrowserDragPhase('computed:changeComputedData', () => {
-    startTransaction()
-    core.changeComputedData(elementIds, data, options)
-    endTransaction()
+    runTransaction(() => core.changeComputedData(elementIds, data, options))
   })
 }

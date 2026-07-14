@@ -59,7 +59,7 @@ Import boundary:
 - `createVectorElementFromSinglePoint(pointId: string, position: PositionData, mutationOptions?: { undoable: boolean }): string | null`
 - `deleteElement(elementId: string, options?: { undoable: boolean }): boolean`
 - `resetElementSize(elementId: string): void`
-- `setElementPositions(positionsById: Record<string, PositionData>, options?: { undoable: boolean }): void`
+- `setElementPositions(positionsById: Record<string, PositionData>, options?: EVENT_OPTIONS): void`
 - `hasMovedBeyondThreshold(clientDragStart: PositionData, clientCurrentPos: PositionData, threshold?: number): boolean`
 - `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: { undoable: boolean }): void`
   - `vectorGeometry` helper (exported from `src/common-apis/element`):
@@ -170,8 +170,11 @@ Import boundary:
 `transactionApis` (`src/common-apis/transaction.ts`)
 
 - `startTransaction(): void`
-- `updateTransaction(): void`
-- `endTransaction(): void`
+- `updateTransaction(eventName, payload, options?): void`
+- `endTransaction(options?): void`
+- `rollbackTransaction(failure?): void`
+- `runTransaction(callback, options?)`: finite synchronous/asynchronous work
+  commits on success and rolls back thrown/rejected work
 
 ## Controller APIs (`src/controllers/*`)
 
@@ -205,6 +208,11 @@ Input constants (`src/constants/*`):
   - flattened source of truth for usage: `FeatureNames.*`
 
 Feature registry (`src/features/index.ts`):
+
+- active drag sessions use `commit-current` for user-driven Escape, tool switch,
+  pointer cancel, and conflicting new-action interruption; the current preview
+  is finalized as one undoable action before the next feature executes
+- handler error and timeout remain rollback outcomes
 
 - `switch-primary-tool`
 - `create-element`

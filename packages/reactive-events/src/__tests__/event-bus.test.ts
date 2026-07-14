@@ -1,12 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   publishEvent,
+  publishEventToObservers,
   createSubscribeEvent,
+  subscribeToSynchronousEvent,
   subscribeToEvents,
   getEventBus,
   createEventStream
 } from '../event-bus'
 import { EventTypes } from '../types'
+import {
+  acknowledgeTransactionReplayApplied,
+  runInTransactionReplayMode,
+  wasTransactionReplayApplied
+} from '../transaction-replay'
 
 // Mock event for testing
 interface TestEvent {
@@ -100,6 +107,222 @@ describe('Event Bus - Communication Backbone', () => {
 
       sub1.unsubscribe()
       sub2.unsubscribe()
+    })
+
+    it('synchronously surfaces a typed state-owner apply failure', () => {
+      const applyFailure = new Error('state apply failed')
+      const subscription = subscribeToSynchronousEvent<TestEvent>(
+        EventTypes.UPDATE_COMPUTED_DATA,
+        () => {
+          throw applyFailure
+        }
+      )
+
+      try {
+        expect(() =>
+          publishEvent({
+            type: EventTypes.UPDATE_COMPUTED_DATA,
+            payload: { message: 'apply' }
+          })
+        ).toThrow(applyFailure)
+      } finally {
+        subscription.unsubscribe()
+      }
+    })
+
+    it('distinguishes pre-apply replay failure from applied-then-failed', () => {
+      const preApplyFailure = new Error('failed before apply')
+      const preApplySubscription = subscribeToSynchronousEvent<TestEvent>(
+        EventTypes.UPDATE_COMPUTED_DATA,
+        () => {
+          throw preApplyFailure
+        }
+      )
+
+      try {
+        expect(() =>
+          runInTransactionReplayMode('undo', () =>
+            publishEvent({
+              type: EventTypes.UPDATE_COMPUTED_DATA,
+              payload: { message: 'pre-apply' }
+            })
+          )
+        ).toThrow(preApplyFailure)
+        expect(wasTransactionReplayApplied(preApplyFailure)).toBe(false)
+      } finally {
+        preApplySubscription.unsubscribe()
+      }
+
+      const appliedFailure = new Error('failed after apply')
+      const appliedSubscription = subscribeToSynchronousEvent<TestEvent>(
+        EventTypes.UPDATE_COMPUTED_DATA,
+        () => {
+          acknowledgeTransactionReplayApplied()
+          throw appliedFailure
+        }
+      )
+
+      try {
+        expect(() =>
+          runInTransactionReplayMode('undo', () =>
+            publishEvent({
+              type: EventTypes.UPDATE_COMPUTED_DATA,
+              payload: { message: 'applied' }
+            })
+          )
+        ).toThrow(appliedFailure)
+        expect(wasTransactionReplayApplied(appliedFailure)).toBe(true)
+      } finally {
+        appliedSubscription.unsubscribe()
+      }
+    })
+
+    it('does not acknowledge a synchronous handler that reports a semantic no-op', () => {
+      const cleanupFailure = new Error('cleanup failed after no-op')
+      const noOpSubscription = subscribeToSynchronousEvent<TestEvent>(
+        EventTypes.UPDATE_COMPUTED_DATA,
+        () => false
+      )
+      const failingSubscription = subscribeToSynchronousEvent<TestEvent>(
+        EventTypes.UPDATE_COMPUTED_DATA,
+        () => {
+          throw cleanupFailure
+        }
+      )
+
+      try {
+        expect(() =>
+          runInTransactionReplayMode('undo', () =>
+            publishEvent({
+              type: EventTypes.UPDATE_COMPUTED_DATA,
+              payload: { message: 'no-op' }
+            })
+          )
+        ).toThrow(cleanupFailure)
+        expect(wasTransactionReplayApplied(cleanupFailure)).toBe(false)
+      } finally {
+        noOpSubscription.unsubscribe()
+        failingSubscription.unsubscribe()
+      }
+    })
+
+    it('does not reuse applied acknowledgement for the same error in a later replay', () => {
+      const reusedFailure = new Error('reused failure')
+      const appliedSubscription = subscribeToSynchronousEvent<TestEvent>(
+        EventTypes.UPDATE_COMPUTED_DATA,
+        () => {
+          acknowledgeTransactionReplayApplied()
+          throw reusedFailure
+        }
+      )
+
+      try {
+        expect(() =>
+          runInTransactionReplayMode('undo', () =>
+            publishEvent({
+              type: EventTypes.UPDATE_COMPUTED_DATA,
+              payload: { message: 'applied first' }
+            })
+          )
+        ).toThrow(reusedFailure)
+        expect(wasTransactionReplayApplied(reusedFailure)).toBe(true)
+      } finally {
+        appliedSubscription.unsubscribe()
+      }
+
+      const preApplySubscription = subscribeToSynchronousEvent<TestEvent>(
+        EventTypes.UPDATE_COMPUTED_DATA,
+        () => {
+          throw reusedFailure
+        }
+      )
+
+      try {
+        expect(() =>
+          runInTransactionReplayMode('undo', () =>
+            publishEvent({
+              type: EventTypes.UPDATE_COMPUTED_DATA,
+              payload: { message: 'pre-apply later' }
+            })
+          )
+        ).toThrow(reusedFailure)
+        expect(wasTransactionReplayApplied(reusedFailure)).toBe(false)
+      } finally {
+        preApplySubscription.unsubscribe()
+      }
+    })
+
+    it('preserves applied acknowledgement when a replay throws a primitive value', () => {
+      const primitiveFailure: unknown = 'primitive replay failure'
+      const appliedSubscription = subscribeToSynchronousEvent<TestEvent>(
+        EventTypes.UPDATE_COMPUTED_DATA,
+        () => {
+          acknowledgeTransactionReplayApplied()
+          throw primitiveFailure
+        }
+      )
+
+      let capturedFailure: unknown
+      try {
+        runInTransactionReplayMode('undo', () =>
+          publishEvent({
+            type: EventTypes.UPDATE_COMPUTED_DATA,
+            payload: { message: 'primitive applied failure' }
+          })
+        )
+      } catch (failure) {
+        capturedFailure = failure
+      } finally {
+        appliedSubscription.unsubscribe()
+      }
+
+      expect(capturedFailure).toBe(primitiveFailure)
+      expect(wasTransactionReplayApplied(capturedFailure)).toBe(true)
+
+      const preApplySubscription = subscribeToSynchronousEvent<TestEvent>(
+        EventTypes.UPDATE_COMPUTED_DATA,
+        () => {
+          throw primitiveFailure
+        }
+      )
+      capturedFailure = undefined
+      try {
+        runInTransactionReplayMode('undo', () =>
+          publishEvent({
+            type: EventTypes.UPDATE_COMPUTED_DATA,
+            payload: { message: 'primitive pre-apply failure' }
+          })
+        )
+      } catch (failure) {
+        capturedFailure = failure
+      } finally {
+        preApplySubscription.unsubscribe()
+      }
+
+      expect(capturedFailure).toBe(primitiveFailure)
+      expect(wasTransactionReplayApplied(capturedFailure)).toBe(false)
+    })
+
+    it('publishes handled replay to ordinary observers without reapplying synchronous state owners', () => {
+      const synchronousSubscriber = vi.fn()
+      const observer = vi.fn()
+      const synchronousSubscription = subscribeToSynchronousEvent<TestEvent>(
+        EventTypes.SELECT_ELEMENTS,
+        synchronousSubscriber
+      )
+      const observerSubscription = subscribeToEvents(observer)
+      observer.mockClear()
+      const event: TestEvent = {
+        type: EventTypes.SELECT_ELEMENTS,
+        payload: { message: 'instance-owned replay' }
+      }
+
+      publishEventToObservers(event)
+
+      expect(synchronousSubscriber).not.toHaveBeenCalled()
+      expect(observer).toHaveBeenCalledWith(event)
+      synchronousSubscription.unsubscribe()
+      observerSubscription.unsubscribe()
     })
   })
 

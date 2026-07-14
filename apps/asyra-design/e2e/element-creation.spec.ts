@@ -9,7 +9,8 @@ import {
   getCanvasPosition,
   clickCanvas,
   dragOnCanvas,
-  getPropertiesPanel
+  getPropertiesPanel,
+  undo
 } from './test-utils'
 
 interface CreateProjectionSnapshot {
@@ -85,6 +86,16 @@ test.describe('Element Creation', () => {
       const end = await getCanvasPosition(page, 0.3, 0.25)
 
       await page.keyboard.press(key)
+      await page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const scope = window as any
+        scope.__createPreviewDeliveries = []
+        scope.__disposeCreatePreviewObserver =
+          scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
+            'sceneTree',
+            (change: unknown) => scope.__createPreviewDeliveries.push(change)
+          )
+      })
       await page.mouse.move(start.x, start.y)
       await page.mouse.down()
 
@@ -116,6 +127,10 @@ test.describe('Element Creation', () => {
         await page.screenshot({
           path: testInfo.outputPath(`${label}-pointer-down.png`)
         })
+        await page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ;(window as any).__createPreviewDeliveries = []
+        })
 
         await page.mouse.move(end.x, end.y, { steps: 2 })
 
@@ -136,11 +151,28 @@ test.describe('Element Creation', () => {
         expect(await getElementCount(page)).toBe(initialCount + 1)
         await expect(createdRow).toBeVisible()
         expect(await hasSelectedElement(page)).toBe(true)
+        const previewDeliveries = await page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return (window as any).__createPreviewDeliveries ?? []
+        })
+        expect(previewDeliveries).toContainEqual(
+          expect.objectContaining({
+            action: 'updateElementComputedDataBatch',
+            options: expect.objectContaining({ sharedDelivery: 'immediate' })
+          })
+        )
         await page.screenshot({
           path: testInfo.outputPath(`${label}-hold-drag.png`)
         })
       } finally {
         await page.mouse.up()
+        await page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const scope = window as any
+          scope.__disposeCreatePreviewObserver?.()
+          delete scope.__disposeCreatePreviewObserver
+          delete scope.__createPreviewDeliveries
+        })
       }
     })
   }
@@ -234,6 +266,92 @@ test.describe('Element Creation', () => {
     // Width and height should be greater than 0 (dynamically sized)
     expect(parseInt(widthValue)).toBeGreaterThan(50)
     expect(parseInt(heightValue)).toBeGreaterThan(50)
+  })
+
+  test('switching tools during create commits the interruption shape as one undoable action', async ({
+    page
+  }) => {
+    const initialCount = await getElementCount(page)
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).__transactionStatuses = []
+      core?.deps?.factory?.subscribeToTransactionStatus?.(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (status: any) => (window as any).__transactionStatuses.push(status)
+      )
+    })
+    const initialUndoCount = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+    })
+    const start = await getCanvasPosition(page, 0.25, 0.25)
+    const current = await getCanvasPosition(page, 0.55, 0.45)
+
+    await page.keyboard.press('r')
+    await page.mouse.move(start.x, start.y)
+    await page.mouse.down()
+    await page.mouse.move(current.x, current.y, { steps: 5 })
+    await expect.poll(() => getElementCount(page)).toBe(initialCount + 1)
+    const interruptedSnapshot = await getCreateProjectionSnapshot(page)
+    expect(interruptedSnapshot).not.toBeNull()
+    if (!interruptedSnapshot) {
+      return
+    }
+
+    await page.keyboard.press('v')
+    await page.mouse.up()
+
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (window as any).__transactionStatuses.map(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (status: any) => ({
+              status: status.status,
+              error: status.error?.message ?? null,
+              failures:
+                status.error?.failures?.map(
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (failure: any) => failure?.message ?? String(failure)
+                ) ?? []
+            })
+          )
+        )
+      )
+      .toContainEqual({ status: 'committed', error: null, failures: [] })
+    await expect.poll(() => getElementCount(page)).toBe(initialCount + 1)
+    await expect
+      .poll(async () => {
+        const committed = await getCreateProjectionSnapshot(page)
+        return committed
+          ? {
+              type: committed.type,
+              width: Math.round(committed.modelWidth),
+              height: Math.round(committed.modelHeight),
+              renderExists: committed.renderExists
+            }
+          : null
+      })
+      .toEqual({
+        type: interruptedSnapshot.type,
+        width: Math.round(interruptedSnapshot.modelWidth),
+        height: Math.round(interruptedSnapshot.modelHeight),
+        renderExists: true
+      })
+    const finalUndoCount = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+    })
+    expect(finalUndoCount).toBe(initialUndoCount + 1)
+
+    await undo(page)
+    await expect.poll(() => getElementCount(page)).toBe(initialCount)
+    await expect.poll(() => getCreateProjectionSnapshot(page)).toBeNull()
   })
 
   /**

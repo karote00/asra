@@ -23,6 +23,7 @@ type Callback = (raw: RawInputEvent) => void | Promise<void>
 type Combinations = Record<string, string[]>
 
 const WHEEL_EVENT_OPTIONS: AddEventListenerOptions = { passive: false }
+const POINTER_KEYS = new Set<string>(Object.values(PointerKey))
 
 const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
   const sink = (
@@ -349,9 +350,18 @@ class InputSystem {
     type: InputType,
     pointerData: PointerEventData = DefaultPointerEventData
   ) {
-    const currentKeys = Array.from(this.activeKeys).filter(
-      (key) => !this.keyMap.isModifierKeys(key)
-    )
+    const currentKeys = Array.from(this.activeKeys).filter((key) => {
+      if (this.keyMap.isModifierKeys(key)) {
+        return false
+      }
+      if (type === InputType.KEYBOARD) {
+        return !POINTER_KEYS.has(key)
+      }
+      if (type === InputType.WHEEL) {
+        return key === SpecialEvent.WHEEL
+      }
+      return POINTER_KEYS.has(key) && key !== SpecialEvent.WHEEL
+    })
     const activeModifiers = this.getActiveModifiers(this.activeKeys)
     const allModifiers = this.getAllModifiers(activeModifiers)
     for (const eventName of this.registry.getEventNames()) {

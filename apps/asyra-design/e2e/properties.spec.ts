@@ -360,6 +360,73 @@ test.describe('Property Management', () => {
     expect(await getSelectedStrokeCount(page)).toBe(1)
   })
 
+  test('stroke color picker drag projects immediately and commits once', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.3, 0.3)
+
+    const propertiesPanel = getPropertiesPanel(page)
+    await propertiesPanel.getByTestId('prop-stroke-add').click()
+    await page.waitForTimeout(120)
+    const before = await getTransactionSnapshot(page)
+
+    await propertiesPanel
+      .getByTestId('prop-stroke-color-picker-0-trigger')
+      .click()
+    const palette = page.getByTestId('prop-stroke-color-picker-0-saturation')
+    const paletteBox = await palette.boundingBox()
+    expect(paletteBox).not.toBeNull()
+    if (!paletteBox) {
+      return
+    }
+
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__strokePreviewDeliveries = []
+      scope.__disposeStrokePreviewObserver =
+        scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
+          'props',
+          (change: unknown) => scope.__strokePreviewDeliveries.push(change)
+        )
+    })
+    await page.mouse.move(paletteBox.x + 24, paletteBox.y + 18)
+    await page.mouse.down()
+    await page.mouse.move(
+      paletteBox.x + paletteBox.width - 24,
+      paletteBox.y + 28,
+      { steps: 4 }
+    )
+    await page.waitForTimeout(120)
+
+    const during = await getTransactionSnapshot(page)
+    expect(during.undoCount).toBe(before.undoCount)
+    expect(during.isTransacting).toBeGreaterThan(0)
+    const previewDeliveries = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (window as any).__strokePreviewDeliveries ?? []
+    })
+    expect(previewDeliveries).toContainEqual(
+      expect.objectContaining({
+        options: expect.objectContaining({ sharedDelivery: 'immediate' })
+      })
+    )
+
+    await page.mouse.up()
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__disposeStrokePreviewObserver?.()
+      delete scope.__disposeStrokePreviewObserver
+      delete scope.__strokePreviewDeliveries
+    })
+    await page.waitForTimeout(200)
+
+    const after = await getTransactionSnapshot(page)
+    expect(after.undoCount).toBe(before.undoCount + 1)
+    expect(after.isTransacting).toBe(0)
+  })
+
   test('should edit dashed stroke through Dash and Gap fields', async ({
     page
   }) => {
@@ -550,6 +617,16 @@ test.describe('Property Management', () => {
     }
 
     await page.mouse.move(paletteBox.x + 24, paletteBox.y + 18)
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__fillPreviewDeliveries = []
+      scope.__disposeFillPreviewObserver =
+        scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
+          'props',
+          (change: unknown) => scope.__fillPreviewDeliveries.push(change)
+        )
+    })
     await page.mouse.down()
     await page.mouse.move(
       paletteBox.x + paletteBox.width - 24,
@@ -580,8 +657,24 @@ test.describe('Property Management', () => {
     expect(duringDragUpdates.isTransacting).toBeGreaterThan(0)
     const finalColor = await getSelectedFillColor(page)
     expect(finalColor).not.toBe(initialFillColor)
+    const previewDeliveries = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (window as any).__fillPreviewDeliveries ?? []
+    })
+    expect(previewDeliveries).toContainEqual(
+      expect.objectContaining({
+        options: expect.objectContaining({ sharedDelivery: 'immediate' })
+      })
+    )
 
     await page.mouse.up()
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__disposeFillPreviewObserver?.()
+      delete scope.__disposeFillPreviewObserver
+      delete scope.__fillPreviewDeliveries
+    })
     await page.waitForTimeout(200)
 
     const afterMouseUp = await getTransactionSnapshot(page)
@@ -652,6 +745,17 @@ test.describe('Property Management', () => {
     }
 
     await page.mouse.move(paletteBox.x + 24, paletteBox.y + 18)
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__gradientStopPreviewDeliveries = []
+      scope.__disposeGradientStopPreviewObserver =
+        scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
+          'props',
+          (change: unknown) =>
+            scope.__gradientStopPreviewDeliveries.push(change)
+        )
+    })
     await page.mouse.down()
     await page.mouse.move(
       paletteBox.x + paletteBox.width - 22,
@@ -667,8 +771,24 @@ test.describe('Property Management', () => {
     expect(duringDrag.isTransacting).toBeGreaterThan(0)
     const colorDuringDrag = await getSelectedGradientStopColor(page, 1)
     expect(colorDuringDrag).not.toBe(initialStopColor)
+    const previewDeliveries = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (window as any).__gradientStopPreviewDeliveries ?? []
+    })
+    expect(previewDeliveries).toContainEqual(
+      expect.objectContaining({
+        options: expect.objectContaining({ sharedDelivery: 'immediate' })
+      })
+    )
 
     await page.mouse.up()
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__disposeGradientStopPreviewObserver?.()
+      delete scope.__disposeGradientStopPreviewObserver
+      delete scope.__gradientStopPreviewDeliveries
+    })
     await page.waitForTimeout(200)
 
     const afterMouseUp = await getTransactionSnapshot(page)

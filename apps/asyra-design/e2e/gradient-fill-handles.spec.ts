@@ -196,6 +196,16 @@ test.describe('Gradient Fill Handles', () => {
     const clientDeltaY =
       (beforeSnapshot?.rect.height ?? 0) * (beforeSnapshot?.zoom ?? 1) * 0.25
 
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__gradientPreviewDeliveries = []
+      scope.__disposeGradientPreviewObserver =
+        scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
+          'props',
+          (change: unknown) => scope.__gradientPreviewDeliveries.push(change)
+        )
+    })
     await page.mouse.move(startHandle.x, startHandle.y)
     await page.mouse.down()
     await page.mouse.move(startHandle.x, startHandle.y + clientDeltaY, {
@@ -216,8 +226,24 @@ test.describe('Gradient Fill Handles', () => {
     const duringTransaction = await getTransactionSnapshot(page)
     expect(duringTransaction.undoCount).toBe(before.undoCount)
     expect(duringTransaction.isTransacting).toBeGreaterThan(0)
+    const previewDeliveries = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (window as any).__gradientPreviewDeliveries ?? []
+    })
+    expect(previewDeliveries).toContainEqual(
+      expect.objectContaining({
+        options: expect.objectContaining({ sharedDelivery: 'immediate' })
+      })
+    )
 
     await page.mouse.up()
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__disposeGradientPreviewObserver?.()
+      delete scope.__disposeGradientPreviewObserver
+      delete scope.__gradientPreviewDeliveries
+    })
     await page.waitForTimeout(180)
 
     const afterMouseUp = await getSelectedGradientSnapshot(page)

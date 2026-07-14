@@ -15,6 +15,12 @@ Session features must define behavior for:
 - update behavior
 - end behavior
 - cancel/conflict behavior
+- `cancelPolicy` (`commit-current` by default, `rollback`, or
+  `feature-defined`)
+- user-driven interruption runs `onEnd` with `detail.cancelled = true` so the
+  current preview becomes one undoable commit
+- `onCancel` owns runtime-only cleanup for explicit rollback or forced failure;
+  canonical rollback remains Factory journal ownership
 
 ## Execution Features
 
@@ -23,6 +29,8 @@ Execution features must define behavior for:
 - one-pass side effects/result payload
 - conflict expectations with other features (priority/exclusive impact)
 - idempotency expectations for repeated trigger events
+- execution failure behavior; one-shot handlers are transaction-wrapped and
+  lower-priority handlers do not run after the first failure
 
 ## Mutation Rule
 
@@ -33,6 +41,13 @@ Execution features must define behavior for:
 
 - If a feature conflicts with active interaction mode, return `null` early.
 - If a feature cancels another flow, make cancellation explicit and state-safe.
+- Handler errors and timeouts always roll back, regardless of cancel policy.
+- Async session handlers receive `detail.signal`; after every awaited operation,
+  check `signal.aborted` before invoking a common API or mutating runtime state.
+  Timeout cancellation is cooperative and cannot forcibly stop an ignored
+  Promise.
+- `feature-defined` cancellation must implement `onCancel` and return
+  `rollback` or `commit-current`.
 
 ## Tool/Mode Rule
 

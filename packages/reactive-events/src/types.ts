@@ -51,7 +51,8 @@ export enum TransactionEventTypes {
   START_TRANSACTION = 'startTransaction',
   UPDATE_TRANSACTION = 'updateTransaction',
   END_TRANSACTION = 'endTransaction',
-  USER_ACTION_COMPLETED = 'userActionCompleted'
+  USER_ACTION_COMPLETED = 'userActionCompleted',
+  TRANSACTION_STATUS_CHANGED = 'transactionStatusChanged'
 }
 
 // Properties

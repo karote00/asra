@@ -5,7 +5,11 @@ import { Core } from '../core'
 const createCoreForTest = () =>
   new Core({
     inputSystem: {} as never,
-    factory: {} as never,
+    factory: {
+      registerTransactionReplayHandler: vi.fn(() => () => undefined),
+      subscribeToTransactionStatus: vi.fn(() => () => undefined),
+      reportPersistenceStatus: vi.fn()
+    } as never,
     props: {} as never,
     render: {
       init: async () => ({ canvas: null }),

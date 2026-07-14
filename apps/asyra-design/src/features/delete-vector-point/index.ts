@@ -1,5 +1,4 @@
-import { VECTOR_TOKENS, defineFeature } from '@asyra/core'
-import { endTransaction, startTransaction } from '@asyra/reactive-events'
+import { VECTOR_TOKENS, defineFeature, runTransaction } from '@asyra/core'
 import {
   elementApis,
   selectionApis,
@@ -25,8 +24,7 @@ export const deleteVectorPointFeature = defineFeature(
         return null
       }
 
-      startTransaction()
-      try {
+      return runTransaction(() => {
         const selectedPoint = selectionApis
           .getSelectedVectorPoints()
           .find((selection) => selection.elementId === pathEditingVectorId)
@@ -70,9 +68,7 @@ export const deleteVectorPointFeature = defineFeature(
           elementId: pathEditingVectorId,
           structuralOperationIntent
         }
-      } finally {
-        endTransaction()
-      }
+      })
     }
   }
 )

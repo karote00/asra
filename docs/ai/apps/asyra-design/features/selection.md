@@ -33,7 +33,13 @@
 
 ### Transaction handling
 
-- wraps selection change in start/end transaction in feature
+- session cancel policy is `commit-current`
+- finite selection mutations use `runTransaction`; the drag session remains one
+  outer transaction boundary
+- user interruption clears runtime-only area-selection state through `onEnd`
+  and commits the current selection as one undoable action
+- handler failure or timeout uses `onCancel` cleanup and Factory reverses
+  rollbackable canonical selection changes without creating undo history
 
 ## Path Editing Interaction
 

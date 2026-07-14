@@ -35,6 +35,7 @@ Users need precise property editing that reflects current selection/mode state w
 19. Stroke add/remove writes may replace the top-level `strokes` list through the computed/property runtime.
 20. Single-stroke field edits update the child `STROKE` property directly through the core props bridge with owner metadata.
 21. One stroke color-picker drag session must produce exactly one undo commit even if many drag-frame color updates occur.
+22. Fill, gradient-stop, stroke color-picker, and canvas gradient-handle drag frames that are visible before pointer-up must explicitly project with `sharedDelivery: 'immediate'`; this does not create additional undo commits.
 
 ## Data Flow
 

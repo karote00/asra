@@ -13,10 +13,14 @@ Preset packages provide working defaults, not hidden ownership. App authors shou
 - Feature handlers call app/common APIs or core facade APIs for mutation and query work.
 - A feature should be testable as a bounded behavior unit without requiring direct knowledge of unrelated package internals.
 
-2. Transaction Safety Guarantee
+2. Transaction Grouping Guarantee
 - One intended user action should map to one intended undo commit.
 - Data-changing paths must be grouped behind transaction boundaries.
 - Cross-store mutations must be coordinated through API boundaries that preserve scene-tree, props-manager, selection, and render consistency.
+- Current scope is grouping, undo/redo replay, and shared-delivery timing.
+- Automatic failed-transaction rollback and explicit cancel policies are a
+  deferred guarantee tracked in
+  `../plans/transaction-atomicity-and-rollback-plan.md`.
 
 3. Schema Safety Guarantee
 - Runtime invalid writes are rejected before they corrupt active state.

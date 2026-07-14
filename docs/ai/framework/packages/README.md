@@ -3,6 +3,7 @@
 This folder describes framework package responsibilities, boundaries, and extension surfaces.
 
 - `core.md`
+- `factory.md`
 - `scene-tree.md`
 - `system-context.md`
 - `selection.md`

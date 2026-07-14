@@ -23,33 +23,86 @@ Asyra architecture is designed around deterministic execution over declarative i
 - `@asyra/render`
 - `@asyra/ui-context` (optional convenience)
 
-5. Shared Infrastructure
+5. Transaction, Shared-Change, and Persistence Infrastructure
+- `@asyra/factory`
+- `@asyra/persistence`
+
+6. Shared Infrastructure
 - `@asyra/utils`
 
-## Canonical Runtime Flow
+## Canonical Intent Flow
 
-1. Input event arrives.
-2. Feature-system executes/sessions.
-3. Feature calls app/common APIs.
-4. APIs update framework state via transactions.
-5. Render reacts to state.
-6. UI-context recomputes derived UI properties.
-7. UI renders final derived values.
+1. An intent arrives from a human, machine, UI action, automation, AI, device,
+   or external command source.
+2. Feature-system executes the matching bounded behavior/session.
+3. Feature calls app/common APIs or the core facade.
+4. APIs update authoritative framework state inside a transaction boundary.
+5. State owners enforce package-local invariants and record changes.
+6. Render/UI and other projections react to the resulting state.
+
+Canonical shorthand:
+
+`Any Input / UI Action / Command -> Feature -> API -> State -> Render/UI`
+
+The transaction is the mutation boundary between API orchestration and state
+owners; it is not a separate source of product intent.
+
+## Canonical State-Application Flow
+
+Load, undo/redo replay, and future remote collaboration updates are not new
+product intents and do not create parallel feature decisions.
+
+1. Persisted, replayed, or remote state/change input arrives.
+2. The owning pipeline performs migration, validation, conflict policy, or
+   origin checks as applicable.
+3. Apply APIs update the authoritative state owner.
+4. Render/UI and other projections recompute from authoritative state.
+
+Canonical shorthand:
+
+`Load / Replay / Remote Update -> Validate / Resolve -> Apply API -> State Owner -> Projections`
 
 ## Architecture Invariants
 
 - Single runtime owner for user-action execution/session/cancel: `feature-system`.
 - State ownership stays split by package boundaries (scene-tree, props-manager, system-context, selection).
 - Render and UI are downstream consumers of state.
+- State replay/synchronization must not create a second product-decision runtime.
 
 ## Ownership Rules
 
 - Feature-system owns execute/session/cancel runtime decisions.
+- Reactive-events owns public transaction depth and the nested rollback-only
+  latch; Factory owns the ordered reversible journal, validation, finalization,
+  undo/redo history, and local shared-channel settlement.
+- Feature-system owns cancel/error/timeout outcome decisions and serializes
+  interaction operations.
+- Core observes only its injected Factory instance, serializes persistence after
+  committed action/undo/redo outcomes, and reports persistence separately from
+  runtime commit.
 - Scene-tree owns entity graph.
 - Props-manager owns property component values and schema validation.
 - System-context owns app/system mode flags.
 - Render owns graphics engine specifics.
 - UI-context owns derived UI state only.
+
+## Instance Composition
+
+- Each package may expose a default module-level instance for the common shared
+  runtime path.
+- Exported classes allow consumers to create additional instances only for the
+  subsystems they need to isolate.
+- Consumers are not required to create an all-package runtime container when
+  only one or a few package instances need separate ownership.
+- Default imports intentionally share their registered state and subscriptions.
+- Custom instances must use dependencies and subscription wiring bound to those
+  intended instances; importing a class does not imply that default singleton
+  wiring is automatically isolated.
+- Reactive transaction depth and rollback-only state are keyed by the resolved
+  TransactionOwner, so a consumer-owned Factory replay remains independent from
+  an active default-runtime boundary.
+- A future runtime factory may be offered as optional composition convenience,
+  but it is not the required ownership model.
 
 ## Registration Surfaces
 
@@ -65,11 +118,36 @@ Asyra architecture is designed around deterministic execution over declarative i
 - App-level migrations run before package-level validation.
 - Package validators apply fallback/reject semantics.
 - Optional diagnostics can be emitted after validation without blocking load.
+- Committed action, undo, and redo outcomes capture their persistence snapshot
+  at commit time, deeply detach it from live mutable references, then enter a
+  serial provider-I/O queue.
+- Persistence failure is reported but does not reverse already committed
+  runtime state; no automatic retry policy is provided.
+
+## Local Transaction ACID Boundary
+
+- Atomicity: rollbackable journal entries reverse in last-in-first-out order on
+  explicit rollback cancellation, handler failure, timeout, or validation
+  failure. User-driven interruption defaults to commit-current and finalizes
+  one undoable action before the next queued interaction. Journal snapshots
+  preserve declared `DataTypes`, and nested replay restoration records only
+  confirmed semantic mutations, not successful no-ops.
+- Consistency: synchronous validators registered on the owning Factory run in
+  registration order before a non-empty commit.
+- Isolation: Feature operations are serialized by the interaction queue;
+  preview state may remain visible before the outer transaction closes.
+- Durability: `committed` means accepted runtime state, while `persisted` means
+  the configured provider acknowledged storage.
+- These guarantees are local application semantics. They do not lock external
+  processes or remote clients and do not provide database serializability.
+- Yjs provider/room/auth, awareness/presence, remote origin and deduplication,
+  reconnect, convergence, and collaborative conflict policy remain deferred.
 
 ## Package Deep Dives
 
 See:
 - `packages/core.md`
+- `packages/factory.md`
 - `packages/scene-tree.md`
 - `packages/system-context.md`
 - `packages/preset.md`

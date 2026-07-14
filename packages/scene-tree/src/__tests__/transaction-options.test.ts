@@ -119,6 +119,116 @@ describe('SceneTree transaction options', () => {
     subscription.unsubscribe()
   })
 
+  it('partitions transient batches and preserves effective delivery options', () => {
+    const { events, subscription } = captureUpdateTransactionEvents()
+    sceneTree.addChange(
+      createUpdateChange({
+        options: {
+          undoable: false,
+          rollbackable: false,
+          shared: 'custom-scene',
+          sharedDelivery: 'transaction-end'
+        }
+      })
+    )
+    sceneTree.addChange(
+      createUpdateChange({
+        key: 'y',
+        before: 1,
+        after: 20,
+        options: {
+          undoable: false,
+          rollbackable: true,
+          shared: SharedDataChannelNames.SCENE_TREE,
+          sharedDelivery: 'immediate'
+        }
+      })
+    )
+
+    sceneTree.commitSceneTreeTransaction()
+
+    expect(events).toHaveLength(2)
+    expect(events[0]).toMatchObject({
+      payload: {
+        id: 'element-1',
+        changes: [{ key: 'x', before: 0, after: 10 }]
+      },
+      options: {
+        undoable: false,
+        rollbackable: false,
+        shared: 'custom-scene',
+        sharedDelivery: 'transaction-end'
+      }
+    })
+    expect(events[1]).toMatchObject({
+      payload: {
+        id: 'element-1',
+        changes: [{ key: 'y', before: 1, after: 20 }]
+      },
+      options: {
+        undoable: false,
+        rollbackable: true,
+        shared: SharedDataChannelNames.SCENE_TREE,
+        sharedDelivery: 'immediate'
+      }
+    })
+
+    subscription.unsubscribe()
+  })
+
+  it('preserves write order when a transient update precedes an ordinary update', () => {
+    const { events, subscription } = captureUpdateTransactionEvents()
+    sceneTree.addChange(
+      createUpdateChange({
+        before: 0,
+        after: 10,
+        options: { undoable: false }
+      })
+    )
+    sceneTree.addChange(
+      createUpdateChange({
+        before: 10,
+        after: 20
+      })
+    )
+
+    sceneTree.commitSceneTreeTransaction()
+
+    const state: Record<string, unknown> = { x: 20 }
+    ;[...events].reverse().forEach((event) => {
+      const payload = event.payload as {
+        key?: string
+        before?: unknown
+        changes?: { key: string; before: unknown }[]
+      }
+      if (payload.changes) {
+        ;[...payload.changes].reverse().forEach((change) => {
+          state[change.key] = change.before
+        })
+        return
+      }
+      if (payload.key) {
+        state[payload.key] = payload.before
+      }
+    })
+
+    expect(events.map((event) => event.payload)).toEqual([
+      expect.objectContaining({
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+        changes: [{ key: 'x', before: 0, after: 10 }]
+      }),
+      expect.objectContaining({
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+        key: 'x',
+        before: 10,
+        after: 20
+      })
+    ])
+    expect(state.x).toBe(0)
+
+    subscription.unsubscribe()
+  })
+
   it('routes computed patch changes as one shared transaction payload', () => {
     const { events, subscription } = captureUpdateTransactionEvents()
     sceneTree.addChange({

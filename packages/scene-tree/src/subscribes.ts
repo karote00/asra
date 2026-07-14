@@ -1,26 +1,30 @@
 import {
-  subscribeToRemoveElement,
+  EventTypes,
+  getTransactionReplayMode,
+  subscribeToSynchronousEvent,
   subscribeToChangeComputedData,
   subscribeToChangeComputedDataBatch,
   subscribeToChangeComputedDataPatch,
-  subscribeToUpdateComputedData,
-  subscribeToUpdateComputedDataPatch,
   subscribeToSceneTreeInit,
   subscribeToSceneTreeLoadData,
-  subscribeToAddElement,
   subscribeToUpdateTransaction,
-  subscribeToUpdateUndoRedoStatus,
-  sceneTreeLoadComplete
+  sceneTreeLoadComplete,
+  type AddElementEvent,
+  type RemoveElementEvent,
+  type UpdateComputedDataEvent,
+  type UpdateComputedDataPatchEvent
 } from '@asyra/reactive-events'
 import propsManager from '@asyra/props-manager'
 import {
   PROPS_ACTIONS,
-  UNDO,
+  type DataTypes,
   type ComputedDataPatch,
   type ComputedDataPatchChange,
-  type ComputedAttrs
+  type ComputedAttrs,
+  type GroupInstanceTypes
 } from '@asyra/utils'
 import sceneTree from './sceneTree'
+import { isGroupEntity } from './utils'
 
 const toAppliedComputedDataPatch = (
   patch: ComputedDataPatchChange
@@ -79,11 +83,6 @@ const isUpdatePropertyChange = (
   'after' in payload
 
 export const initSceneTreeSubscribes = () => {
-  let inUndoRedo = false
-  subscribeToUpdateUndoRedoStatus(({ payload }) => {
-    inUndoRedo = payload.status !== UNDO.NONE
-  })
-
   subscribeToSceneTreeInit(() => {
     sceneTree.init()
     sceneTreeLoadComplete()
@@ -94,15 +93,42 @@ export const initSceneTreeSubscribes = () => {
     sceneTreeLoadComplete()
   })
 
-  subscribeToAddElement(({ payload, options }) => {
-    const { data, parent, index } = payload
-    sceneTree.addNewElement(data, parent, index, inUndoRedo, options)
-  })
+  subscribeToSynchronousEvent<AddElementEvent>(
+    EventTypes.ADD_ELEMENT,
+    ({ payload, options }) => {
+      const { data, parent, parentId, index } = payload
+      const recordedParent = parentId
+        ? sceneTree.getElementById(parentId)
+        : undefined
+      if (
+        parentId &&
+        (!recordedParent || !isGroupEntity(recordedParent.get('type')))
+      ) {
+        throw new Error(
+          `Cannot restore element ${data.id ?? ''}: parent ${parentId} is unavailable`
+        )
+      }
+      const resolvedParent =
+        parent ?? (recordedParent as GroupInstanceTypes | undefined)
+      return (
+        sceneTree.addNewElement(
+          data,
+          resolvedParent,
+          index,
+          getTransactionReplayMode() !== null,
+          options
+        ) !== ''
+      )
+    }
+  )
 
-  subscribeToRemoveElement(({ payload, options }) => {
-    const { data, parent } = payload
-    sceneTree.removeElement(data, parent, options)
-  })
+  subscribeToSynchronousEvent<RemoveElementEvent>(
+    EventTypes.REMOVE_ELEMENT,
+    ({ payload, options }) => {
+      const { data, parent } = payload
+      return sceneTree.removeElement(data, parent, options)
+    }
+  )
 
   subscribeToChangeComputedData(async ({ payload, options }) => {
     const { elementIds, key, data } = payload
@@ -149,28 +175,62 @@ export const initSceneTreeSubscribes = () => {
     sceneTree.commitSceneTreeTransaction(options)
   })
 
-  subscribeToUpdateComputedData(({ payload }) => {
-    const { id, key, after } = payload
-    const options = undefined
+  subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+    EventTypes.UPDATE_COMPUTED_DATA,
+    ({ payload }) => {
+      const { id, key, after } = payload
+      const options = undefined
+      const previousSceneChangeCount = sceneTree.changes.length
+      const previousPropsChangeCount = propsManager.changes.length
+      const element = sceneTree.getElementById(id)
+      if (!element) {
+        return false
+      }
+      const elementOwner = element as unknown as {
+        data: Record<string, DataTypes>
+        set: (key: string, value: DataTypes) => void
+      }
 
-    sceneTree.updateComputedData(
-      id,
-      key as keyof ComputedAttrs,
-      after as ComputedAttrs[keyof ComputedAttrs],
-      options
-    )
-    propsManager.commitChanges(options)
-    sceneTree.commitSceneTreeTransaction(options)
-  })
+      if (Object.prototype.hasOwnProperty.call(elementOwner.data, key)) {
+        elementOwner.set(key, after)
+      } else {
+        sceneTree.updateComputedData(
+          id,
+          key as keyof ComputedAttrs,
+          after as ComputedAttrs[keyof ComputedAttrs],
+          options
+        )
+      }
+      const applied =
+        sceneTree.changes.length > previousSceneChangeCount ||
+        propsManager.changes.length > previousPropsChangeCount
+      propsManager.commitChanges(options)
+      sceneTree.commitSceneTreeTransaction(options)
+      return applied
+    }
+  )
 
-  subscribeToUpdateComputedDataPatch(({ payload }) => {
-    const { id, patch } = payload
-    const options = undefined
+  subscribeToSynchronousEvent<UpdateComputedDataPatchEvent>(
+    EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+    ({ payload }) => {
+      const { id, patch } = payload
+      const options = undefined
+      const previousSceneChangeCount = sceneTree.changes.length
+      const previousPropsChangeCount = propsManager.changes.length
 
-    sceneTree.patchComputedData(id, toAppliedComputedDataPatch(patch), options)
-    propsManager.cleanChanges()
-    sceneTree.commitSceneTreeTransaction(options)
-  })
+      sceneTree.patchComputedData(
+        id,
+        toAppliedComputedDataPatch(patch),
+        options
+      )
+      const applied =
+        sceneTree.changes.length > previousSceneChangeCount ||
+        propsManager.changes.length > previousPropsChangeCount
+      propsManager.cleanChanges()
+      sceneTree.commitSceneTreeTransaction(options)
+      return applied
+    }
+  )
 
   subscribeToUpdateTransaction(({ payload, options }) => {
     if (!isUpdatePropertyChange(payload)) {

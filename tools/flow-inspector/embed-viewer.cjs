@@ -13,6 +13,10 @@ const targetEntries = [
   path.join(
     projectRoot,
     'docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.html'
+  ),
+  path.join(
+    projectRoot,
+    'docs/ai/framework/plans/transaction-flow-inspector.html'
   )
 ]
 

@@ -7,7 +7,7 @@ export interface ExecutionConfig {
 
 export type ExecutionHandler<T = Record<string, unknown>> = (
   snapshot: SystemContextSnapshot
-) => T | null
+) => T | null | Promise<T | null>
 
 export interface ExecutionParticipant {
   featureName: string
@@ -25,7 +25,7 @@ export interface ExecutionRegistry {
     handler: ExecutionHandler
   ): void
 
-  execute(eventName: string, snapshot: SystemContextSnapshot): boolean
+  execute(eventName: string, snapshot: SystemContextSnapshot): Promise<boolean>
 
   getHandlers(eventName: string): ExecutionParticipant[]
 }

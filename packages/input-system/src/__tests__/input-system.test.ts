@@ -13,7 +13,8 @@ import {
   InputType,
   RawInputEvent,
   ModifierKey,
-  PointerEventData
+  PointerEventData,
+  PointerKey
 } from '@asyra/utils'
 import keyMap from '../keymap'
 import { CLEAR_KEY_TIME } from '../constants'
@@ -286,6 +287,27 @@ describe('InputSystem', () => {
     expect(triggerActionSpy).toHaveBeenCalledTimes(1)
     expect(triggerActionSpy).toHaveBeenCalledWith(
       'INPUT_KEYBOARD_A',
+      expect.objectContaining({
+        type: InputType.KEYBOARD,
+        keys: [keyMap.keys.KeyA]
+      })
+    )
+  })
+
+  it('should deliver keyboard actions while a pointer input remains active', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const triggerActionSpy = vi.spyOn(inputSystem, 'triggerAction' as any)
+    inputSystem['activeKeys'].add(PointerKey.LEFT_MOUSE_DOWN)
+    inputSystem['activeKeys'].add(keyMap.keys.KeyA)
+    const INPUT_KEYBOARD_A = 'INPUT_KEYBOARD_A'
+    inputSystem.registry.register(INPUT_KEYBOARD_A, [
+      { type: InputType.KEYBOARD, keys: [keyMap.keys.KeyA], modifiers: [] }
+    ])
+
+    inputSystem['checkCombinations'](InputType.KEYBOARD)
+
+    expect(triggerActionSpy).toHaveBeenCalledWith(
+      INPUT_KEYBOARD_A,
       expect.objectContaining({
         type: InputType.KEYBOARD,
         keys: [keyMap.keys.KeyA]

@@ -18,10 +18,15 @@ Any implementation decision must preserve:
 - Preset provides default bootstrap settings only (not app-domain owner, not framework-runtime owner).
 
 2. Deterministic Data Flow
-- Inputs trigger features.
+- Any product intent from a human, machine, UI, automation, AI, device, or
+  external command source enters through a feature.
 - Features call framework APIs.
 - State changes are transaction-bounded.
-- Render/UI consume state as derived output.
+- Render/UI and other projections consume authoritative state as derived
+  output.
+- Load, undo/redo replay, and future remote synchronization are state-apply
+  paths, not new product intents; they use migration/validation/apply contracts
+  instead of inventing parallel feature decisions.
 
 3. Extension-first Design
 - Register components, features, properties, render layers, and schemas.
@@ -38,7 +43,12 @@ Asyra products should be assembled from framework runtime contracts, preset defa
 
 The framework guarantees:
 - feature isolation: features define bounded behavior and mutate state through API boundaries
-- transaction safety: one intended user action maps to one intended undo commit
+- transaction grouping: one intended user action maps to one intended undo commit
+- local failure atomicity: failed, validation-rejected, or explicitly
+  rollback-cancelled transactions reverse their rollbackable journal without
+  creating undo/redo history
+- explicit durability: runtime commit and persistence acknowledgement are
+  separate observable states
 - schema safety: invalid runtime writes are rejected and invalid load values fall back deterministically
 - preset replaceability: defaults are optional, movable, and replaceable by product owners
 - render boundary safety: render is an output/interaction bridge, not a data authority
@@ -47,6 +57,14 @@ The framework guarantees:
 
 - `feature-system` is active decision/session runtime.
 - `ui-context` is a convenience layer in core startup, not mandatory for custom apps.
+- The default package exports provide shared singleton instances for convenience;
+  exported classes allow consumers to own selected package instances without
+  requiring an all-or-nothing runtime container.
+- Current transactions provide action grouping, undo/redo replay, automatic
+  local rollback, synchronous commit validation, explicit cancel policies, and
+  optional shared-channel delivery. This is application-layer ACID-inspired
+  behavior; it does not claim database serializable isolation or distributed
+  transaction guarantees.
 
 ## Non-negotiable Constraints
 
