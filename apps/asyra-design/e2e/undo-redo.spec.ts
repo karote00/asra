@@ -191,7 +191,7 @@ test.describe('Undo/Redo Actions', () => {
       })
   })
 
-  test('switching tools during move restores the preview without creating undo history', async ({
+  test('pressing Escape during move commits the interruption position as one undoable action', async ({
     page
   }) => {
     await createRectangle(page, 0.35, 0.35)
@@ -243,8 +243,24 @@ test.describe('Undo/Redo Actions', () => {
         options: expect.objectContaining({ sharedDelivery: 'immediate' })
       })
     )
+    const interrupted = await getSelectedElementRect(page)
+    expect(interrupted).not.toBeNull()
+    if (!interrupted) {
+      return
+    }
 
-    await page.keyboard.press('r')
+    const getPositionById = () =>
+      page.evaluate((elementId) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const element = core?.deps?.sceneTree?.getElementById?.(elementId)
+        const computed = element?.getAllComputedData?.()
+        return computed
+          ? { x: Number(computed.x), y: Number(computed.y) }
+          : null
+      }, before.id)
+
+    await page.keyboard.press('Escape')
     await page.mouse.up()
     await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -256,19 +272,32 @@ test.describe('Undo/Redo Actions', () => {
 
     await expect
       .poll(async () => {
-        const restored = await getSelectedElementRect(page)
-        return restored
-          ? { x: Math.round(restored.x), y: Math.round(restored.y) }
+        const committed = await getPositionById()
+        return committed
+          ? { x: Math.round(committed.x), y: Math.round(committed.y) }
           : null
       })
-      .toEqual({ x: Math.round(before.x), y: Math.round(before.y) })
+      .toEqual({
+        x: Math.round(interrupted.x),
+        y: Math.round(interrupted.y)
+      })
 
     const afterUndoCount = await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
       return core?.deps?.factory?.transact?.undoStack?.length ?? 0
     })
-    expect(afterUndoCount).toBe(beforeUndoCount)
+    expect(afterUndoCount).toBe(beforeUndoCount + 1)
+
+    await undo(page)
+    await expect
+      .poll(async () => {
+        const restored = await getPositionById()
+        return restored
+          ? { x: Math.round(restored.x), y: Math.round(restored.y) }
+          : null
+      })
+      .toEqual({ x: Math.round(before.x), y: Math.round(before.y) })
   })
 
   test('drag-create uses a compact undo commit without move spam', async ({

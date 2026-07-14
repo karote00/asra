@@ -209,6 +209,11 @@ Input constants (`src/constants/*`):
 
 Feature registry (`src/features/index.ts`):
 
+- active drag sessions use `commit-current` for user-driven Escape, tool switch,
+  pointer cancel, and conflicting new-action interruption; the current preview
+  is finalized as one undoable action before the next feature executes
+- handler error and timeout remain rollback outcomes
+
 - `switch-primary-tool`
 - `create-element`
 - `move-elements`

@@ -15,10 +15,12 @@ Session features must define behavior for:
 - update behavior
 - end behavior
 - cancel/conflict behavior
-- `cancelPolicy` (`rollback` by default, `commit-current`, or
+- `cancelPolicy` (`commit-current` by default, `rollback`, or
   `feature-defined`)
-- `onCancel` cleanup for runtime-only state; canonical rollback remains Factory
-  journal ownership
+- user-driven interruption runs `onEnd` with `detail.cancelled = true` so the
+  current preview becomes one undoable commit
+- `onCancel` owns runtime-only cleanup for explicit rollback or forced failure;
+  canonical rollback remains Factory journal ownership
 
 ## Execution Features
 

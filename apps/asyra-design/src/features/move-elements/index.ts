@@ -258,7 +258,7 @@ export const moveElementsFeature = defineFeature<
 >(FeatureNames.MOVE_ELEMENTS, InputSystemEvents.INPUT_DRAG, {
   priority: 8,
   exclusive: true,
-  cancelPolicy: 'rollback',
+  cancelPolicy: 'commit-current',
   api,
   session: {
     onStart: (snapshot: SystemContextSnapshot) => {

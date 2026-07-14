@@ -9,7 +9,8 @@ import {
   getCanvasPosition,
   clickCanvas,
   dragOnCanvas,
-  getPropertiesPanel
+  getPropertiesPanel,
+  undo
 } from './test-utils'
 
 interface CreateProjectionSnapshot {
@@ -267,7 +268,7 @@ test.describe('Element Creation', () => {
     expect(parseInt(heightValue)).toBeGreaterThan(50)
   })
 
-  test('switching tools during create rolls back the element and immediate projection', async ({
+  test('switching tools during create commits the interruption shape as one undoable action', async ({
     page
   }) => {
     const initialCount = await getElementCount(page)
@@ -294,6 +295,11 @@ test.describe('Element Creation', () => {
     await page.mouse.down()
     await page.mouse.move(current.x, current.y, { steps: 5 })
     await expect.poll(() => getElementCount(page)).toBe(initialCount + 1)
+    const interruptedSnapshot = await getCreateProjectionSnapshot(page)
+    expect(interruptedSnapshot).not.toBeNull()
+    if (!interruptedSnapshot) {
+      return
+    }
 
     await page.keyboard.press('v')
     await page.mouse.up()
@@ -316,15 +322,36 @@ test.describe('Element Creation', () => {
           )
         )
       )
-      .toContainEqual({ status: 'rolled-back', error: null, failures: [] })
-    await expect.poll(() => getElementCount(page)).toBe(initialCount)
-    await expect.poll(() => getCreateProjectionSnapshot(page)).toBeNull()
+      .toContainEqual({ status: 'committed', error: null, failures: [] })
+    await expect.poll(() => getElementCount(page)).toBe(initialCount + 1)
+    await expect
+      .poll(async () => {
+        const committed = await getCreateProjectionSnapshot(page)
+        return committed
+          ? {
+              type: committed.type,
+              width: Math.round(committed.modelWidth),
+              height: Math.round(committed.modelHeight),
+              renderExists: committed.renderExists
+            }
+          : null
+      })
+      .toEqual({
+        type: interruptedSnapshot.type,
+        width: Math.round(interruptedSnapshot.modelWidth),
+        height: Math.round(interruptedSnapshot.modelHeight),
+        renderExists: true
+      })
     const finalUndoCount = await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
       return core?.deps?.factory?.transact?.undoStack?.length ?? 0
     })
-    expect(finalUndoCount).toBe(initialUndoCount)
+    expect(finalUndoCount).toBe(initialUndoCount + 1)
+
+    await undo(page)
+    await expect.poll(() => getElementCount(page)).toBe(initialCount)
+    await expect.poll(() => getCreateProjectionSnapshot(page)).toBeNull()
   })
 
   /**

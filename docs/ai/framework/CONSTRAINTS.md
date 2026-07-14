@@ -12,10 +12,10 @@
 3. Transaction expectations
 - Data-changing APIs should be transaction-bounded.
 - Transactions group changes for undo/redo and shared delivery and automatically
-  reverse recorded rollbackable mutations after failure, cancellation, or
-  validation rejection.
-- Session cancel defaults to rollback; `commit-current` and `feature-defined`
-  policies are explicit opt-ins.
+  reverse recorded rollbackable mutations after failure, explicit rollback
+  cancellation, or validation rejection.
+- User-driven session interruption defaults to `commit-current`; `rollback` and
+  `feature-defined` remain explicit policies for true discard behavior.
 - Mutations explicitly marked `rollbackable: false`, runtime-only feature state,
   external processes, and remote clients are outside local rollback coverage.
 

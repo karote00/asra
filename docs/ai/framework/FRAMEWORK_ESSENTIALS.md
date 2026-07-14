@@ -44,8 +44,9 @@ Asyra products should be assembled from framework runtime contracts, preset defa
 The framework guarantees:
 - feature isolation: features define bounded behavior and mutate state through API boundaries
 - transaction grouping: one intended user action maps to one intended undo commit
-- local failure atomicity: failed, cancelled, or invalid transactions reverse
-  their rollbackable journal without creating undo/redo history
+- local failure atomicity: failed, validation-rejected, or explicitly
+  rollback-cancelled transactions reverse their rollbackable journal without
+  creating undo/redo history
 - explicit durability: runtime commit and persistence acknowledgement are
   separate observable states
 - schema safety: invalid runtime writes are rejected and invalid load values fall back deterministically

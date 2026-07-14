@@ -41,14 +41,16 @@
 
 4. Cancel
 
-- cancel policy is `rollback`
-- Escape, tool switching, a new conflicting action, handler failure, or timeout
-  restores the transaction-start element positions and selection
-- cancellation creates no move undo entry
+- cancel policy is `commit-current`
+- Escape, tool switching, or a new conflicting action keeps the positions at
+  the interruption moment and creates one move undo entry
+- handler failure or timeout restores the transaction-start element positions
+  and selection without creating a move undo entry
 
 ## Notes
 
 - drag-to-move is intentionally separated from selection feature ownership
 - selection feature continues to own click/select/deselect and shift-toggle behavior
-- `onCancel` performs no canonical position write; Factory reverses recorded
-  preview writes, including those marked `undoable: false`
+- `onEnd` converts the current transient preview into one undoable final move;
+  `onCancel` performs no canonical write, and Factory reverses failure-path
+  preview writes including those marked `undoable: false`

@@ -198,7 +198,7 @@ Implemented policies:
 - `feature-defined`
 
 The additive `SessionManager.registerSession(...)` API keeps the legacy
-handler-only fifth argument and applies the default `rollback` policy. The
+handler-only fifth argument and applies the default `commit-current` policy. The
 six-argument form accepts an explicit policy before the handler.
 
 ### Commit and Persist
@@ -302,12 +302,20 @@ undelivered shared entry requires no compensation.
 Recommended default outcomes:
 
 - normal session end: commit
-- escape: rollback
-- pointer cancel: rollback
+- escape: commit-current
+- pointer cancel: commit-current
 - handler error/timeout: rollback
-- conflicting exclusive action/tool switch: rollback or feature-defined
+- conflicting exclusive action/tool switch: commit-current or feature-defined
 - explicit apply-current action: commit-current
+- an app-owned explicit discard action: rollback
 - empty/no-participant session: discard without history
+
+User-driven interruption is a lifecycle cancel, not a failed transaction. The
+interaction queue finishes the already-running update, then the active session
+uses its normal end contract with the interruption snapshot to turn the current
+preview into one undoable commit before the next action begins. A feature may
+still opt into `rollback` or `feature-defined` behavior when its product
+contract is a true discard.
 
 Feature-local cleanup and canonical state reversal are separate:
 
@@ -369,8 +377,10 @@ completed with the Yjs network collaboration plan.
 - empty action: closes as discarded with no history or persistence request
 - nested rollback: any inner rollback request marks the outer transaction
   rollback-only and performs one reverse replay at outer close
-- explicit cancel: defaults to rollback; `commit-current` and
-  `feature-defined` remain explicit feature policies
+- user-driven cancel: defaults to `commit-current`, finalizes the current
+  preview through the normal session-end contract, and creates one undoable
+  commit before the next interaction; `rollback` and `feature-defined` remain
+  explicit feature policies for true discard behavior
 - handler error or timeout: cleanup runs, rollback wins over cancel policy, and
   the session signal is aborted before rollback while the first failure reaches
   the caller
@@ -460,11 +470,13 @@ Recording semantics:
 
 Cancel/error:
 
-- escape/pointer cancel follows configured policy
+- escape, pointer cancel, tool switch, and a new action default to
+  `commit-current`, finalize the current preview, and create one undoable commit
+  before the next queued interaction
 - handler exception and timeout cannot silently commit partial mutation
 - a cooperative async handler cannot write after its timeout-aborted signal
-- feature-defined commit-current remains explicit
-- legacy five-argument session registration defaults to rollback
+- explicit rollback and feature-defined cancellation remain available
+- legacy five-argument session registration defaults to commit-current
 - public transaction wrappers rollback and rethrow both synchronous throws and
   asynchronous rejections
 

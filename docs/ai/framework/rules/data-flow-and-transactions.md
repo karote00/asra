@@ -46,9 +46,10 @@
 
 ## Current Local ACID Guarantee Boundary
 
-- Atomicity: failed, cancelled, or validation-rejected transactions replay all
-  recorded rollbackable inverses in reverse journal order. Rollback creates no
-  undo/redo entry and emits no normal user-action completion.
+- Atomicity: failed, explicitly rollback-cancelled, or validation-rejected
+  transactions replay all recorded rollbackable inverses in reverse journal
+  order. Rollback creates no undo/redo entry and emits no normal user-action
+  completion. User-driven interruption defaults to commit-current instead.
 - Consistency: synchronous validators registered on the owning Factory run in
   registration order before a requested non-empty commit. Invalid results,
   thrown validators, and asynchronous validators cause rollback; rejected async
@@ -105,11 +106,12 @@
 
 ## Required Terminology
 
-- `rollback`: reverse an uncommitted failed/canceled transaction; it must not
-  create a normal undo/redo history entry.
+- `rollback`: reverse an uncommitted failed or explicitly discarded
+  transaction; it must not create a normal undo/redo history entry.
 - `undo`: reverse a successfully committed user-action history entry.
-- `cancel`: stop an active session; its policy chooses rollback,
-  commit-current, or feature-defined behavior.
+- `cancel`: stop an active session; user-driven interruption defaults to
+  commit-current, while its policy may choose rollback or feature-defined
+  behavior for a true discard.
 - `committed`: accepted by the runtime transaction owner.
 - `persisted`: durably acknowledged by the configured persistence provider;
   runtime commit alone does not imply persistence durability.

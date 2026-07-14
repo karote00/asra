@@ -130,6 +130,11 @@
 
 ## Escape / Cancel Semantics
 
+If Escape interrupts an active pen or vector-point drag, Feature System first
+finishes that session at the interruption position through `onEnd` and commits
+one undoable action. The `cancelPenEditing` execution then applies the following
+editing-mode decision.
+
 Handled by `cancelPenEditing`:
 
 1. pen tool + path editing mode + connected continuation preview

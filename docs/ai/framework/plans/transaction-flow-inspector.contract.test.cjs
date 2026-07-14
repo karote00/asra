@@ -20,7 +20,7 @@ test('nested rollback is owned by the outer boundary and finalized once', () => 
   assert.equal(boundary.failureOwnerStepId, boundary.id)
 })
 
-test('feature failures cannot silently continue to commit', () => {
+test('feature interruption commits current state while failures roll back', () => {
   const decision = step('decide-feature-outcome')
   const contract = [...decision.conditions, ...decision.bypasses].join(' ')
 
@@ -29,7 +29,10 @@ test('feature failures cannot silently continue to commit', () => {
   assert.match(contract, /public transaction wrapper/i)
   assert.match(contract, /throw or rejection requests rollback/i)
   assert.match(contract, /legacy handler-only fifth argument/i)
-  assert.match(contract, /rollback as its default cancel policy/i)
+  assert.match(contract, /commit-current as its default cancel policy/i)
+  assert.match(contract, /user-driven interruption/i)
+  assert.match(contract, /finalizes the current preview/i)
+  assert.match(contract, /one undoable commit/i)
   assert.match(contract, /rollback participant wins/i)
   assert.match(contract, /all public SessionManager instances/i)
   assert.match(contract, /one active session runtime/i)

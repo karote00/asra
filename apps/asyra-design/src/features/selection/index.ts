@@ -112,7 +112,7 @@ export const selectionFeature = defineFeature<
 >(FeatureNames.SELECTION, InputSystemEvents.INPUT_DRAG, {
   priority: 5,
   exclusive: false,
-  cancelPolicy: 'rollback',
+  cancelPolicy: 'commit-current',
   api,
   session: {
     onStart: (snapshot: SystemContextSnapshot) => {

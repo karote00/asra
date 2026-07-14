@@ -677,7 +677,7 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
   {
     priority: 15,
     exclusive: true,
-    cancelPolicy: 'rollback',
+    cancelPolicy: 'commit-current',
     session: {
       onStart: (snapshot: SystemContextSnapshot) => {
         if (snapshot.primaryTool !== PrimaryToolType.PEN) {
@@ -1005,7 +1005,7 @@ export const selectVectorPointFeature = defineFeature<
 >(FeatureNames.SELECT_VECTOR_POINT, InputSystemEvents.INPUT_DRAG, {
   priority: 30,
   exclusive: true,
-  cancelPolicy: 'rollback',
+  cancelPolicy: 'commit-current',
   session: {
     onStart: (snapshot: SystemContextSnapshot) => {
       if (snapshot.primaryTool === PrimaryToolType.PEN) {

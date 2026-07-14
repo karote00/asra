@@ -133,7 +133,8 @@ export class SessionManager {
     participants: readonly SessionParticipant[],
     states: ReadonlyMap<string, SessionState>,
     snapshot: SystemContextSnapshot,
-    abortController?: AbortController
+    abortController?: AbortController,
+    forcedRollback = false
   ): Promise<CleanupResult> {
     let outcome: SessionCancelOutcome = 'commit-current'
     let failed = false
@@ -146,17 +147,25 @@ export class SessionManager {
       }
 
       try {
-        const requestedOutcome = participant.handler.onCancel
+        const shouldFinalizeCurrent =
+          !forcedRollback && participant.cancelPolicy === 'commit-current'
+        const requestedOutcome = shouldFinalizeCurrent
           ? await this.runWithTimeout(
-              () => participant.handler.onCancel?.(snapshot, state),
-              `${participant.featureName}.onCancel`,
-              abortController
-            )
-          : await this.runWithTimeout(
               () => participant.handler.onEnd?.(snapshot, state),
-              `${participant.featureName}.onEnd(cancel-fallback)`,
+              `${participant.featureName}.onEnd(interrupted)`,
               abortController
             )
+          : participant.handler.onCancel
+            ? await this.runWithTimeout(
+                () => participant.handler.onCancel?.(snapshot, state),
+                `${participant.featureName}.onCancel`,
+                abortController
+              )
+            : await this.runWithTimeout(
+                () => participant.handler.onEnd?.(snapshot, state),
+                `${participant.featureName}.onEnd(cancel-fallback)`,
+                abortController
+              )
 
         let participantOutcome: SessionCancelOutcome
         if (participant.cancelPolicy === 'feature-defined') {
@@ -215,7 +224,8 @@ export class SessionManager {
       session.participants,
       session.states,
       cleanupSnapshot,
-      session.abortController
+      session.abortController,
+      forcedFailure?.failed === true
     )
     this.activeSessions.delete(sessionName)
     this.releaseRuntimeOwnershipIfIdle()
@@ -265,7 +275,7 @@ export class SessionManager {
     const cancelPolicy =
       typeof cancelPolicyOrHandler === 'string'
         ? cancelPolicyOrHandler
-        : 'rollback'
+        : 'commit-current'
     const handler =
       typeof cancelPolicyOrHandler === 'string'
         ? explicitHandler
@@ -436,7 +446,8 @@ export class SessionManager {
             },
             abortController.signal
           ),
-          abortController
+          abortController,
+          true
         )
         endTransaction({
           outcome: 'rollback',

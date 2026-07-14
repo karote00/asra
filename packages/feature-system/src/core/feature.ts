@@ -65,7 +65,7 @@ function registerFeatureHandlers(
   const {
     priority = 0,
     exclusive = true,
-    cancelPolicy = 'rollback'
+    cancelPolicy = 'commit-current'
   } = definition
 
   if (!keyConfig) {

@@ -127,7 +127,9 @@ Canonical shorthand:
 ## Local Transaction ACID Boundary
 
 - Atomicity: rollbackable journal entries reverse in last-in-first-out order on
-  cancel, handler failure, timeout, or validation failure. Journal snapshots
+  explicit rollback cancellation, handler failure, timeout, or validation
+  failure. User-driven interruption defaults to commit-current and finalizes
+  one undoable action before the next queued interaction. Journal snapshots
   preserve declared `DataTypes`, and nested replay restoration records only
   confirmed semantic mutations, not successful no-ops.
 - Consistency: synchronous validators registered on the owning Factory run in

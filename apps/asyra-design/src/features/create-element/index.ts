@@ -100,7 +100,7 @@ export const createElementFeature = defineFeature<
 >(FeatureNames.CREATE_ELEMENT, InputSystemEvents.INPUT_DRAG, {
   priority: 10,
   exclusive: true,
-  cancelPolicy: 'rollback',
+  cancelPolicy: 'commit-current',
   api,
   session: {
     onStart: (snapshot: SystemContextSnapshot) => {

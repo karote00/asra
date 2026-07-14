@@ -167,7 +167,8 @@ Managed property bridges:
 - public `SessionManager` start, update, end, and cancel operations are
   serialized with one-shot command execution by the default transaction
   owner's queue; all instances share one active session runtime, so a new
-  registered session start cancels the previously active session first
+  registered session start finalizes the previously active session according to
+  its cancel policy before opening the next boundary
 
 `@asyra/render`
 
@@ -288,7 +289,10 @@ Session mode:
   - `${keyConfig}.start`
   - `${keyConfig}.update`
   - `${keyConfig}.end`
-- cancellation defaults to rollback
+- user-driven cancellation defaults to `commit-current` and runs the normal
+  `onEnd` finalization with `detail.cancelled = true`
+- explicit `rollback` cancellation and failure cleanup use `onCancel`, with
+  `onEnd` as the legacy fallback when no `onCancel` exists
 - `feature-defined` requires `onCancel` and a returned `rollback` or
   `commit-current` outcome
 - session snapshots expose `detail.signal`; async handlers must check it after

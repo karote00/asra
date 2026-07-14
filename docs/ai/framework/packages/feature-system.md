@@ -36,16 +36,20 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
 - `update` runs while session remains active
 - `end` finalizes session
 - `cancel` aborts active session before conflicting next action
-- `cancelPolicy` defaults to `rollback`; explicit alternatives are
-  `commit-current` and `feature-defined`
+- `cancelPolicy` defaults to `commit-current`; explicit alternatives are
+  `rollback` and `feature-defined`
 - the public `SessionManager.registerSession(...)` boundary preserves its legacy
   five-argument `(name, feature, priority, exclusive, handler)` form with the
-  default rollback policy; the additive six-argument form accepts an explicit
-  policy before the handler
+  default commit-current policy; the additive six-argument form accepts an
+  explicit policy before the handler
 - `feature-defined` requires `onCancel` and must return `rollback` or
   `commit-current`
-- existing session definitions without `onCancel` receive `onEnd` with
-  `detail.cancelled = true` for resource cleanup
+- a user-driven commit-current interruption receives `onEnd` with
+  `detail.cancelled = true`, allowing the normal finalization path to convert
+  the current preview into one undoable commit
+- explicit rollback, feature-defined cancellation, and forced failure cleanup
+  use `onCancel`; definitions without `onCancel` receive `onEnd` as the legacy
+  cleanup fallback
 - if any participant requests rollback, the complete transaction rolls back
 
 3. Error behavior

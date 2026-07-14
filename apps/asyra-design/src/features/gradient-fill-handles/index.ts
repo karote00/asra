@@ -460,7 +460,7 @@ export const dragGradientHandleFeature = defineFeature<
 >(FeatureNames.DRAG_GRADIENT_HANDLE, InputSystemEvents.INPUT_DRAG, {
   priority: 16,
   exclusive: true,
-  cancelPolicy: 'rollback',
+  cancelPolicy: 'commit-current',
   session: {
     onStart: (snapshot: SystemContextSnapshot) => {
       const activeGradientFill = getEditableGradientFillState(snapshot)
@@ -607,7 +607,7 @@ export const dragGradientStopFeature = defineFeature<
 >(FeatureNames.DRAG_GRADIENT_STOP, InputSystemEvents.INPUT_DRAG, {
   priority: 15,
   exclusive: true,
-  cancelPolicy: 'rollback',
+  cancelPolicy: 'commit-current',
   session: {
     onStart: (snapshot: SystemContextSnapshot) => {
       const activeGradientFill = getEditableGradientFillState(snapshot)

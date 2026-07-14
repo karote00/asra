@@ -144,7 +144,8 @@
         'Normal completion requests commit.',
         'Handler error or timeout always requests rollback and propagates failure.',
         'Every public transaction wrapper requests commit only after synchronous or asynchronous success; throw or rejection requests rollback and rethrows the original failure.',
-        'The public SessionManager registerSession boundary accepts the legacy handler-only fifth argument with rollback as its default cancel policy, while the additive six-argument form accepts an explicit policy.',
+        'The public SessionManager registerSession boundary accepts the legacy handler-only fifth argument with commit-current as its default cancel policy, while the additive six-argument form accepts an explicit policy.',
+        'A user-driven interruption such as Escape, pointer cancel, tool switch, or a new action is serialized after the current update, finalizes the current preview through the normal session-end contract, and requests one undoable commit before the next action starts.',
         'Timeout aborts the session signal before rollback; async handlers must reject post-abort writes after await boundaries.',
         'Any rollback participant wins over commit-current participants.',
         'All public SessionManager instances using the default transaction owner share one interaction queue and one active session runtime; a registered session start cancels the previously active session before opening its transaction boundary.',
@@ -156,6 +157,7 @@
       ],
       allowedContributors: [
         'feature priority and exclusivity',
+        'session onEnd current-preview finalization',
         'session onCancel cleanup',
         'interaction queue',
         '@asyra/input-system per-input-type key classification',

@@ -26,7 +26,7 @@ const captureEndEvents = () => {
 }
 
 describe('feature transaction lifecycle', () => {
-  it('keeps legacy five-argument session registration with rollback default', async () => {
+  it('keeps legacy five-argument session registration with commit-current default', async () => {
     const manager = new SessionManager()
     const onEnd = vi.fn()
     const { events, subscription } = captureEndEvents()
@@ -43,15 +43,12 @@ describe('feature transaction lifecycle', () => {
 
     expect(onEnd).toHaveBeenCalledOnce()
     expect(events).toHaveLength(1)
-    expect(events[0].payload).toMatchObject({
-      outcome: 'rollback',
-      failure: { kind: 'cancelled' }
-    })
+    expect(events[0].payload).toEqual({ outcome: 'commit' })
 
     subscription.unsubscribe()
   })
 
-  it('defaults session cancellation to rollback and uses onEnd as cleanup fallback', async () => {
+  it('supports explicit rollback and uses onEnd as cleanup fallback', async () => {
     const manager = new SessionManager()
     const onEnd = vi.fn()
     const { events, subscription } = captureEndEvents()
@@ -86,6 +83,8 @@ describe('feature transaction lifecycle', () => {
 
   it('supports commit-current and feature-defined cancel outcomes', async () => {
     const manager = new SessionManager()
+    const commitEnd = vi.fn()
+    const commitCancel = vi.fn()
     const { events, subscription } = captureEndEvents()
     manager.registerSession(
       'commit-drag',
@@ -95,7 +94,8 @@ describe('feature transaction lifecycle', () => {
       'commit-current',
       {
         onStart: () => ({ started: true }),
-        onCancel: vi.fn()
+        onEnd: commitEnd,
+        onCancel: commitCancel
       }
     )
     manager.registerSession(
@@ -119,6 +119,14 @@ describe('feature transaction lifecycle', () => {
       'commit',
       'commit'
     ])
+    expect(commitEnd).toHaveBeenCalledOnce()
+    expect(commitEnd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detail: expect.objectContaining({ cancelled: true })
+      }),
+      { started: true }
+    )
+    expect(commitCancel).not.toHaveBeenCalled()
 
     subscription.unsubscribe()
   })
@@ -218,6 +226,35 @@ describe('feature transaction lifecycle', () => {
     expect(events[0].payload).toMatchObject({
       outcome: 'rollback',
       failure: { kind: 'handler-error' }
+    })
+
+    subscription.unsubscribe()
+  })
+
+  it('uses failure cleanup when a later session start participant fails', async () => {
+    const manager = new SessionManager()
+    const earlierEnd = vi.fn()
+    const earlierCancel = vi.fn()
+    const failure = new Error('later start failed')
+    const { events, subscription } = captureEndEvents()
+    manager.registerSession('drag', 'earlier', 20, false, 'commit-current', {
+      onStart: () => ({ participant: 'earlier' }),
+      onEnd: earlierEnd,
+      onCancel: earlierCancel
+    })
+    manager.registerSession('drag', 'failing', 10, false, 'commit-current', {
+      onStart: () => {
+        throw failure
+      }
+    })
+
+    await expect(manager.handleStart('drag', snapshot)).rejects.toBe(failure)
+
+    expect(earlierCancel).toHaveBeenCalledOnce()
+    expect(earlierEnd).not.toHaveBeenCalled()
+    expect(events[0].payload).toMatchObject({
+      outcome: 'rollback',
+      failure: { kind: 'handler-error', cause: failure }
     })
 
     subscription.unsubscribe()
@@ -328,20 +365,13 @@ describe('feature transaction lifecycle', () => {
     const manager = new SessionManager()
     const laterCleanup = vi.fn()
     const { events, subscription } = captureEndEvents()
-    manager.registerSession(
-      'drag',
-      'undefined-cancel',
-      20,
-      false,
-      'commit-current',
-      {
-        onStart: () => ({ participant: 'undefined-cancel' }),
-        onCancel: () => {
-          throw undefined
-        }
+    manager.registerSession('drag', 'undefined-cancel', 20, false, 'rollback', {
+      onStart: () => ({ participant: 'undefined-cancel' }),
+      onCancel: () => {
+        throw undefined
       }
-    )
-    manager.registerSession('drag', 'later', 10, false, 'commit-current', {
+    })
+    manager.registerSession('drag', 'later', 10, false, 'rollback', {
       onStart: () => ({ participant: 'later' }),
       onCancel: laterCleanup
     })
@@ -383,19 +413,24 @@ describe('feature transaction lifecycle', () => {
     subscription.unsubscribe()
   })
 
-  it('serializes concurrent calls through the public session lifecycle', async () => {
+  it('finishes an active update before committing the interruption moment', async () => {
     const manager = new SessionManager()
     const order: string[] = []
+    const { events, subscription } = captureEndEvents()
     let releaseUpdate: (() => void) | undefined
     const updateGate = new Promise<void>((resolve) => {
       releaseUpdate = resolve
     })
-    manager.registerSession('drag', 'queued', 10, true, 'rollback', {
-      onStart: () => ({ started: true }),
-      onUpdate: async () => {
+    manager.registerSession('drag', 'queued', 10, true, {
+      onStart: () => ({ latest: 'start' }),
+      onUpdate: async (_snapshot, state) => {
         order.push('update:start')
         await updateGate
+        state.latest = 'cancel-moment'
         order.push('update:end')
+      },
+      onEnd: (_snapshot, state) => {
+        order.push(`end:${state.latest}`)
       },
       onCancel: () => {
         order.push('cancel')
@@ -412,7 +447,10 @@ describe('feature transaction lifecycle', () => {
     await Promise.all([update, cancel])
 
     expect(orderBeforeRelease).toEqual(['update:start'])
-    expect(order).toEqual(['update:start', 'update:end', 'cancel'])
+    expect(order).toEqual(['update:start', 'update:end', 'end:cancel-moment'])
+    expect(events[0].payload).toEqual({ outcome: 'commit' })
+
+    subscription.unsubscribe()
   })
 
   it('replaces an active session before a repeated public start', async () => {
