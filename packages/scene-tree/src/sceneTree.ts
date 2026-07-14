@@ -358,11 +358,16 @@ class SceneTree {
     this._elements.delete(elId)
   }
 
-  getRestoreElementById(elementId: string): ElementInstanceTypes {
+  getRestoreElementById(
+    elementId: string,
+    recordChange = true
+  ): ElementInstanceTypes {
     const restoredElement = this._deletedMap.get(
       elementId
     ) as ElementInstanceTypes
-    this.addChangeForAddElement(restoredElement)
+    if (recordChange) {
+      this.addChangeForAddElement(restoredElement)
+    }
     return restoredElement
   }
 
@@ -374,21 +379,32 @@ class SceneTree {
     this._deletedMap.delete(elementId)
   }
 
-  addChangeForAddElement(element: ElementInstanceTypes) {
+  addChangeForAddElement(
+    element: ElementInstanceTypes,
+    parentId = element.get('parentId') as string,
+    index?: number
+  ) {
     this.addChange({
       eventName: EventTypes.ADD_ELEMENT,
       data: element.save(),
+      ...(parentId ? { parentId } : {}),
+      ...(index !== undefined ? { index } : {}),
       action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
       undoType: EventTypes.REMOVE_ELEMENT,
       undoAction: EventTypes.REMOVE_ELEMENT
     })
   }
 
-  addChangeForRemoveElement(element: ElementInstanceTypes) {
+  addChangeForRemoveElement(
+    element: ElementInstanceTypes,
+    parentId = element.get('parentId') as string,
+    index?: number
+  ) {
     this.addChange({
       eventName: EventTypes.REMOVE_ELEMENT,
       data: element.save(),
-      parentId: element.get('parentId') as string,
+      parentId,
+      index,
       action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
       undoType: EventTypes.ADD_ELEMENT,
       undoAction: EventTypes.ADD_ELEMENT
@@ -400,14 +416,17 @@ class SceneTree {
   }
 
   createElement(
-    elementData: Partial<ElementRawData>
+    elementData: Partial<ElementRawData>,
+    recordChange = true
   ): ElementInstanceTypes | null {
     if (elementData.type === EntityTypes.WORKSPACE) {
       return null
     }
 
     const newElement = createElement(elementData) as ElementInstanceTypes
-    this.addChangeForAddElement(newElement)
+    if (recordChange) {
+      this.addChangeForAddElement(newElement)
+    }
     return newElement
   }
 
@@ -427,9 +446,9 @@ class SceneTree {
 
     const propOverrides = stripNonRawFields(elementData)
     if (inUndoRedo) {
-      newElement = this.getRestoreElementById(elementData.id as string)
+      newElement = this.getRestoreElementById(elementData.id as string, false)
     } else {
-      newElement = this.createElement(elementData)
+      newElement = this.createElement(elementData, false)
     }
 
     if (newElement) {
@@ -442,6 +461,19 @@ class SceneTree {
       workspace.addNewElement(newElement, parent, index)
 
       this.addToMap(newElement)
+
+      const actualParentId = newElement.get('parentId') as string
+      const actualParent = this.getElementById(actualParentId)
+      const actualChildren =
+        actualParent && isGroupEntity(actualParent.get('type'))
+          ? ((actualParent as GroupInstanceTypes).get('children') as string[])
+          : []
+      const actualIndex = actualChildren.indexOf(newElement.get('id'))
+      this.addChangeForAddElement(
+        newElement,
+        actualParentId,
+        actualIndex >= 0 ? actualIndex : undefined
+      )
 
       this.commitSceneTreeTransaction(options)
       propsManager.commitChanges(options)
@@ -486,7 +518,11 @@ class SceneTree {
       return false
     }
 
-    this.addChangeForRemoveElement(element)
+    this.addChangeForRemoveElement(
+      element,
+      resolvedParentId,
+      children.indexOf(elementId)
+    )
     workspace.removeElement(element, resolvedParent, options)
     this.commitSceneTreeTransaction(options)
     propsManager.commitChanges(options)

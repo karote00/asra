@@ -39,11 +39,11 @@ Provide typed cross-package event communication.
 
 ## Transaction Boundary Contract
 
-- `startTransaction()` opens or nests a transaction; only the outer boundary is
-  forwarded to the registered owner.
+- `startTransaction()` opens or nests a transaction for the currently resolved
+  `TransactionOwner`; only that owner's outer boundary is forwarded.
 - `endTransaction(options?)` defaults to commit.
 - `rollbackTransaction(failure?)` requests rollback; any nested rollback latches
-  the complete outer transaction as rollback-only.
+  the complete outer transaction for that same owner as rollback-only.
 - `runTransaction(callback, options?)` supports synchronous and asynchronous
   callbacks, commits success, rolls back thrown/rejected work, and rethrows the
   original failure when rollback succeeds.
@@ -56,7 +56,8 @@ Provide typed cross-package event communication.
   Ordinary RxJS subscribers remain observation/diagnostic consumers and are not
   canonical mutation acknowledgements.
 - `runWithTransactionOwner(...)` temporarily scopes replay boundary calls to a
-  consumer-owned Factory. It does not replace the registered default owner.
+  consumer-owned Factory. It does not replace the registered default owner or
+  share the default owner's active depth/rollback latch.
 - `TransactionEventTypes.TRANSACTION_STATUS_CHANGED` is the centralized status
   event contract; event observers are diagnostics, not the transaction owner.
 

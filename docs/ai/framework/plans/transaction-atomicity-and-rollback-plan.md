@@ -85,7 +85,8 @@ Implemented guarantee:
 Implemented guarantee:
 
 - runtime `committed` and persistence `persisted` are distinct states
-- core may request persistence after commit
+- core captures the provider and CoreRawData snapshot when commit is reported;
+  the serial queue performs provider I/O against that captured snapshot
 - only the configured persistence provider can acknowledge durable storage
 - a persistence failure does not retroactively redefine a successful runtime
   commit as an uncommitted transaction
@@ -238,6 +239,11 @@ Defaults:
 
 The active transaction journal must retain all rollbackable changes. Commit may
 filter the same journal to create normal undo history from undoable changes.
+Scene-tree add/remove journal entries capture their actual parent id and child
+index at the owning state boundary so multi-pass replay remains reversible.
+The journal entry exists before any immediate shared delivery attempt; a
+delivery failure therefore leaves the canonical mutation reversible, while an
+undelivered shared entry requires no compensation.
 
 ## Error and Timeout Propagation
 
@@ -284,6 +290,8 @@ Feature-local cleanup and canonical state reversal are separate:
 - remote observers may already have seen the forward change
 - rollback must publish a compensating inverse when distributed convergence is
   required
+- observer failure after a local Yjs append does not erase delivery accounting;
+  the appended forward change remains eligible for exactly one compensation
 - remote clients may observe transient forward state before compensation
 - rollbackable interactions should prefer transaction-end delivery when remote
   transient state is unacceptable
@@ -346,8 +354,12 @@ Atomicity:
 - rollback creates no undo or redo entry
 - rollback emits no normal user-action-completed event
 - nested transaction failure closes the outer transaction deterministically
+- consumer-owned replay boundaries remain independent from an active default
+  owner boundary
+- nested undo/redo followed by outer rollback preserves the original history
+  source for a later replay
 - delete followed by validation failure restores the same scene-tree element,
-  property component ids/data, and selection state
+  original parent/index, property component ids/data, and selection state
 
 Recording semantics:
 
@@ -367,11 +379,15 @@ Shared behavior:
 
 - transaction-end pending changes are discarded on rollback
 - immediate delivery emits deterministic compensation when enabled
+- observer failure after an applied Yjs append still produces exactly one
+  rollback compensation and does not block later registered observers
 - rollback replay does not echo as a new ordinary local action
 
 Consistency/durability:
 
 - cross-store validation failure rolls back
+- back-to-back commits persist their commit-time snapshots rather than later
+  state or an active preview
 - runtime commit and persistence failure are reported as different states
 
 ## Success Criteria

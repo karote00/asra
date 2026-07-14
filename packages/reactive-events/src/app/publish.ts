@@ -10,7 +10,10 @@ import type {
 } from '@asyra/utils'
 import { publishEvent } from '../event-bus'
 import { EventTypes } from '../types'
-import { getTransactionOwner } from '../transaction-owner'
+import {
+  getTransactionOwner,
+  type TransactionOwner
+} from '../transaction-owner'
 import type { UserActionCompletedPayload } from './events'
 
 export const renderIsReady = () => {
@@ -25,20 +28,50 @@ export const fileLoadComplete = () => {
   })
 }
 
-let transactionDepth = 0
-let rollbackOnly = false
-let rollbackOnlyFailure: TransactionFailure | undefined
+interface TransactionBoundaryState {
+  depth: number
+  rollbackOnly: boolean
+  rollbackOnlyFailure?: TransactionFailure
+}
+
+const createTransactionBoundaryState = (): TransactionBoundaryState => ({
+  depth: 0,
+  rollbackOnly: false
+})
+
+const ownerBoundaryStates = new WeakMap<
+  TransactionOwner,
+  TransactionBoundaryState
+>()
+const unownedBoundaryState = createTransactionBoundaryState()
+
+const getTransactionBoundaryState = (
+  owner: TransactionOwner | null
+): TransactionBoundaryState => {
+  if (!owner) {
+    return unownedBoundaryState
+  }
+
+  let state = ownerBoundaryStates.get(owner)
+  if (!state) {
+    state = createTransactionBoundaryState()
+    ownerBoundaryStates.set(owner, state)
+  }
+  return state
+}
 
 export const startTransaction = () => {
-  if (transactionDepth === 0) {
-    rollbackOnly = false
-    rollbackOnlyFailure = undefined
-    getTransactionOwner()?.startTransaction()
+  const owner = getTransactionOwner()
+  const state = getTransactionBoundaryState(owner)
+  if (state.depth === 0) {
+    state.rollbackOnly = false
+    state.rollbackOnlyFailure = undefined
+    owner?.startTransaction()
     publishEvent({
       type: EventTypes.START_TRANSACTION
     })
   }
-  transactionDepth += 1
+  state.depth += 1
 }
 
 export const updateTransaction = (
@@ -57,26 +90,30 @@ export const updateTransaction = (
 }
 
 export const endTransaction = (options: EndTransactionOptions = {}) => {
-  if (transactionDepth <= 0) {
+  const owner = getTransactionOwner()
+  const state = getTransactionBoundaryState(owner)
+  if (state.depth <= 0) {
     return
   }
 
   if (options.outcome === 'rollback') {
-    rollbackOnly = true
-    rollbackOnlyFailure ??= options.failure
+    state.rollbackOnly = true
+    state.rollbackOnlyFailure ??= options.failure
   }
 
-  transactionDepth -= 1
-  if (transactionDepth === 0) {
-    const outcome = rollbackOnly ? 'rollback' : (options.outcome ?? 'commit')
-    const failure = rollbackOnlyFailure ?? options.failure
+  state.depth -= 1
+  if (state.depth === 0) {
+    const outcome = state.rollbackOnly
+      ? 'rollback'
+      : (options.outcome ?? 'commit')
+    const failure = state.rollbackOnlyFailure ?? options.failure
     const payload = failure ? { outcome, failure } : { outcome }
-    rollbackOnly = false
-    rollbackOnlyFailure = undefined
+    state.rollbackOnly = false
+    state.rollbackOnlyFailure = undefined
 
     let ownerError: unknown
     try {
-      getTransactionOwner()?.endTransaction(payload)
+      owner?.endTransaction(payload)
     } catch (error) {
       ownerError = error
     } finally {

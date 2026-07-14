@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import * as Y from 'yjs'
 import { Factory } from '../factory'
 import type _DataTransact from '../data-transact' // Keep this import for type inference
 import {
@@ -79,6 +80,26 @@ describe('Factory', () => {
 
     disposeFirst()
     disposeSecond()
+  })
+
+  it('isolates transaction status listener failures from canonical commit', () => {
+    const laterStatus = vi.fn()
+    factory.subscribeToTransactionStatus(() => {
+      throw new Error('diagnostic listener failed')
+    })
+    factory.subscribeToTransactionStatus(laterStatus)
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: { id: 'value', before: 0, after: 1 }
+    })
+
+    expect(() => factory.endTransaction()).not.toThrow()
+    expect(laterStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'committed' })
+    )
   })
 
   it('reports undo and redo commits on the owning Factory instance', () => {
@@ -238,6 +259,70 @@ describe('Factory', () => {
     expect(undoStackLengths).toEqual([1])
 
     dispose()
+  })
+
+  it('isolates shared channel observer failures from later observers', () => {
+    const channel = new Y.Doc().getArray(SharedDataChannelNames.SCENE_TREE)
+    const laterObserver = vi.fn()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      channel
+    )
+    factory.observeSharedDataChannel(SharedDataChannelNames.SCENE_TREE, () => {
+      throw new Error('shared observer failed')
+    })
+    factory.observeSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      laterObserver
+    )
+
+    factory.startTransaction()
+    expect(() =>
+      factory.updateTransaction({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: { id: 'observer-safe', before: 0, after: 1 },
+        options: {
+          shared: SharedDataChannelNames.SCENE_TREE,
+          sharedDelivery: 'immediate'
+        }
+      })
+    ).not.toThrow()
+    factory.endTransaction()
+
+    expect(laterObserver).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'observer-safe' })
+    )
+  })
+
+  it('compensates an immediate append when a raw Yjs observer throws', () => {
+    const channel = new Y.Doc().getArray(SharedDataChannelNames.SCENE_TREE)
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      channel
+    )
+    channel.observe(() => {
+      throw new Error('raw Yjs observer failed')
+    })
+
+    factory.startTransaction()
+    expect(() =>
+      factory.updateTransaction({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: { id: 'compensated', before: 0, after: 1 },
+        options: {
+          shared: SharedDataChannelNames.SCENE_TREE,
+          sharedDelivery: 'immediate'
+        }
+      })
+    ).not.toThrow()
+    expect(() => factory.endTransaction({ outcome: 'rollback' })).not.toThrow()
+
+    expect(channel.toArray()).toEqual([
+      expect.objectContaining({ id: 'compensated', before: 0, after: 1 }),
+      expect.objectContaining({ id: 'compensated', before: 1, after: 0 })
+    ])
   })
 
   it('inverts computed patch payloads during undo and replays original patch during redo', () => {

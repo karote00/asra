@@ -15,6 +15,7 @@ test('nested rollback is owned by the outer boundary and finalized once', () => 
 
   assert.match(contract, /nested rollback request latches rollback/i)
   assert.match(contract, /complete outer transaction/i)
+  assert.match(contract, /isolated per resolved TransactionOwner/i)
   assert.match(contract, /depth zero is a no-op/i)
   assert.equal(boundary.failureOwnerStepId, boundary.id)
 })
@@ -34,7 +35,37 @@ test('rollback is distinct from undo history effects', () => {
 
   assert.match(contract, /replays inverses in reverse order/i)
   assert.match(contract, /without undo, redo, or user-action-completed/i)
+  assert.match(contract, /source history stack only on outer commit/i)
   assert.match(contract, /rollback-failed/i)
+})
+
+test('scene-tree add/remove journal owns hierarchy restoration metadata', () => {
+  const journal = step('record-reversible-journal')
+  const contract = journal.conditions.join(' ')
+
+  assert.match(contract, /actual parent id and child index/i)
+  assert.ok(
+    journal.implementationBoundary.includes(
+      'packages/scene-tree/src/sceneTree.ts'
+    )
+  )
+  assert.ok(
+    journal.implementationBoundary.includes(
+      'packages/utils/src/types/scene-tree.ts'
+    )
+  )
+})
+
+test('scene-tree inverse add resolves recorded hierarchy metadata', () => {
+  const finalize = step('finalize-transaction-state')
+  const contract = finalize.conditions.join(' ')
+
+  assert.match(contract, /recorded parent id and child index/i)
+  assert.ok(
+    finalize.implementationBoundary.includes(
+      'packages/reactive-events/src/scene-tree/events.ts'
+    )
+  )
 })
 
 test('shared settlement excludes Yjs network architecture', () => {
@@ -43,6 +74,8 @@ test('shared settlement excludes Yjs network architecture', () => {
 
   assert.match(contract, /compensating inverse/i)
   assert.match(contract, /discards undelivered transaction-end changes/i)
+  assert.match(contract, /applied Yjs append remains delivered/i)
+  assert.match(contract, /status observer failures cannot alter/i)
   assert.match(contract, /No Yjs network provider/i)
 })
 
@@ -55,6 +88,7 @@ test('persistence failure never owns runtime rollback', () => {
   ].join(' ')
 
   assert.match(contract, /queue in order/i)
+  assert.match(contract, /captures its configured provider and CoreRawData snapshot/i)
   assert.match(contract, /do not request persistence/i)
   assert.match(contract, /never rolls back committed runtime state/i)
   assert.equal(persistence.failureOwnerStepId, persistence.id)

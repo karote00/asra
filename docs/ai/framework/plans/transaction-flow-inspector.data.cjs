@@ -29,6 +29,7 @@
       outputs: ['artifact:transaction-boundary'],
       conditions: [
         'Only the outer start and outer close publish lifecycle boundaries.',
+        'Boundary depth and rollback-only state are isolated per resolved TransactionOwner.',
         'Any nested rollback request latches rollback for the complete outer transaction.',
         'A consumer-owned Factory replay temporarily routes boundary updates to that Factory without replacing the default owner.'
       ],
@@ -89,7 +90,8 @@
       outputs: ['artifact:active-transaction-journal'],
       conditions: [
         'Rollbackable recording is independent from normal undo history eligibility.',
-        'Every custom rollbackable mutation has a registered inverse contract.'
+        'Every custom rollbackable mutation has a registered inverse contract.',
+        'Reversible scene-tree add and remove journal entries record the actual parent id and child index required to restore graph ownership and order.'
       ],
       bypasses: [
         'A mutation explicitly marked rollbackable false is counted but has no rollback inverse.'
@@ -106,7 +108,12 @@
         'Yjs network policy'
       ],
       cacheDimensions: [],
-      implementationBoundary: ['packages/factory/src/**'],
+      implementationBoundary: [
+        'packages/factory/src/**',
+        'packages/scene-tree/src/sceneTree.ts',
+        'packages/scene-tree/src/__tests__/**',
+        'packages/utils/src/types/scene-tree.ts'
+      ],
       specRefs: ['#rollbackable-vs-undoable', '#ownership'],
       failureOwnerStepId: 'record-reversible-journal'
     },
@@ -214,7 +221,9 @@
         'Rollback replays inverses in reverse order without undo, redo, or user-action-completed effects.',
         'Undo and redo use the same replay primitive with their own history effects.',
         'Undo and redo inside an existing command boundary retain their replay journal until the outer close.',
+        'Nested replay moves its source history stack only on outer commit; outer rollback leaves the original undo or redo source available.',
         'Rollback and undo restoration reuse deleted state-owner instances instead of constructing replacement defaults.',
+        'A scene-tree inverse add resolves its recorded parent id and child index through the owning Scene Tree before restoration.',
         'A state-owner apply failure is synchronously aggregated as rollback-failed.',
         'Failed undo or redo restores its source history entry, resets replay status, and closes any boundary it opened.'
       ],
@@ -241,6 +250,7 @@
         'packages/reactive-events/src/event-bus.ts',
         'packages/reactive-events/src/transaction-owner.ts',
         'packages/reactive-events/src/transaction-replay.ts',
+        'packages/reactive-events/src/scene-tree/events.ts',
         'packages/reactive-events/src/index.ts',
         'packages/reactive-events/src/__tests__/event-bus.test.ts',
         'packages/scene-tree/src/subscribes.ts',
@@ -273,13 +283,18 @@
       outputs: ['artifact:transaction-result'],
       conditions: [
         'Committed transaction-end shared changes flush in journal order.',
-        'Rolled-back immediate local delivery publishes one compensating inverse.'
+        'Rolled-back immediate local delivery publishes one compensating inverse.',
+        'An applied Yjs append remains delivered when a synchronous observer throws, and registered observers are isolated from one another.',
+        'Instance-local status observer failures cannot alter the canonical transaction result or block downstream observers.'
       ],
       bypasses: [
         'Rollback discards undelivered transaction-end changes.',
         'No Yjs network provider, presence, remote origin, or deduplication policy is defined here.'
       ],
-      allowedContributors: ['factory shared-channel registry'],
+      allowedContributors: [
+        'factory shared-channel registry',
+        'instance-local status observers'
+      ],
       forbiddenContributors: [
         'Yjs network provider',
         'remote conflict policy',
@@ -305,6 +320,7 @@
       outputs: ['artifact:persistence-status'],
       conditions: [
         'Committed action, undo, and redo results enter the persistence queue in order.',
+        'Each committed result captures its configured provider and CoreRawData snapshot before entering the queue; queued work performs provider I/O without re-reading live runtime state.',
         'Provider success reports persisted and provider failure reports persistence-failed.'
       ],
       bypasses: [

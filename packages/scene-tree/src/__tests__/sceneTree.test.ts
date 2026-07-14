@@ -13,6 +13,7 @@ import {
   DimensionComponentRawData,
   ElementInstanceTypes,
   EntityTypes,
+  GroupInstanceTypes,
   PositionAttrs,
   PositionComponentRawData,
   PropertyTypes,
@@ -31,7 +32,10 @@ import { createDynamicComponent } from '../create-dynamic-component'
 import { initSceneTreeSubscribes } from '../subscribes'
 import {
   EventTypes,
+  publishEvent,
+  runInTransactionReplayMode,
   subscribeToEvents,
+  type AddElementEvent,
   type UpdateTransactionEvent
 } from '@asyra/reactive-events'
 
@@ -394,6 +398,142 @@ describe('SceneTree', () => {
 
     expect(sceneTree.changes.length).toBe(1)
     expect(sceneTree.changes[0].action).toBe(SCENE_TREE_ACTIONS.REMOVE_ELEMENT)
+  })
+
+  it('records the original parent and child index before removing an element', () => {
+    const observed: SceneTreeChange[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (
+        event.type === EventTypes.UPDATE_TRANSACTION &&
+        'payload' in event &&
+        (event.payload as SceneTreeChange).action ===
+          SCENE_TREE_ACTIONS.REMOVE_ELEMENT
+      ) {
+        observed.push(event.payload as SceneTreeChange)
+      }
+    })
+    sceneTree.init()
+    const workspaceId = sceneTree.workspace
+    sceneTree.addNewElement({ id: 'first', type: 'rect', x: 0, y: 0 })
+    sceneTree.addNewElement({ id: 'middle', type: 'rect', x: 0, y: 0 })
+    sceneTree.addNewElement({ id: 'last', type: 'rect', x: 0, y: 0 })
+    sceneTree.cleanChanges()
+
+    expect(sceneTree.removeElement({ id: 'middle' })).toBe(true)
+
+    expect(observed).toEqual([
+      expect.objectContaining({
+        action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
+        parentId: workspaceId,
+        index: 1
+      })
+    ])
+
+    subscription.unsubscribe()
+  })
+
+  it('restores a removed element to its original container and child index', () => {
+    const containerType = 'test-container'
+    componentRegistry.register({
+      type: containerType,
+      idPrefix: containerType,
+      namePrefix: 'Test Container',
+      constructor: createDynamicComponent(
+        containerType,
+        containerType,
+        'Test Container',
+        [],
+        {},
+        true
+      ),
+      properties: [],
+      defaults: {},
+      isContainer: true
+    })
+    sceneTreeSingleton.init()
+    sceneTreeSingleton.addNewElement({
+      id: 'container-a',
+      type: containerType,
+      x: 0,
+      y: 0
+    })
+    sceneTreeSingleton.addNewElement({
+      id: 'container-b',
+      type: containerType,
+      x: 0,
+      y: 0
+    })
+    const containerA = sceneTreeSingleton.getElementById(
+      'container-a'
+    ) as GroupInstanceTypes
+    const containerB = sceneTreeSingleton.getElementById(
+      'container-b'
+    ) as GroupInstanceTypes
+    sceneTreeSingleton.addNewElement(
+      { id: 'first', type: 'rect', x: 0, y: 0 },
+      containerB
+    )
+    sceneTreeSingleton.addNewElement(
+      { id: 'middle', type: 'rect', x: 0, y: 0 },
+      containerB
+    )
+    sceneTreeSingleton.addNewElement(
+      { id: 'last', type: 'rect', x: 0, y: 0 },
+      containerB
+    )
+    const removedData = sceneTreeSingleton.getElementById('middle')?.save()
+    if (!removedData) {
+      throw new Error('Expected middle element before removal')
+    }
+
+    expect(sceneTreeSingleton.removeElement({ id: 'middle' }, containerB)).toBe(
+      true
+    )
+    expect(containerB.get('children')).toEqual(['first', 'last'])
+
+    const replayAddChanges: SceneTreeChange[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (
+        event.type !== EventTypes.UPDATE_TRANSACTION ||
+        !('payload' in event)
+      ) {
+        return
+      }
+      const change = event.payload as SceneTreeChange
+      if (
+        change.action === SCENE_TREE_ACTIONS.ADD_ELEMENT &&
+        'data' in change &&
+        change.data.id === 'middle'
+      ) {
+        replayAddChanges.push(change)
+      }
+    })
+
+    runInTransactionReplayMode('rollback', () =>
+      publishEvent({
+        type: EventTypes.ADD_ELEMENT,
+        payload: {
+          data: { ...removedData, x: 0, y: 0 },
+          parentId: 'container-b',
+          index: 1
+        }
+      } as unknown as AddElementEvent)
+    )
+
+    expect(containerA.get('children')).toEqual(['container-b'])
+    expect(containerB.get('children')).toEqual(['first', 'middle', 'last'])
+    expect(sceneTreeSingleton.getElementById('middle')?.get('parentId')).toBe(
+      'container-b'
+    )
+    expect(replayAddChanges).toEqual([
+      expect.objectContaining({
+        parentId: 'container-b',
+        index: 1,
+        data: expect.objectContaining({ parentId: 'container-b' })
+      })
+    ])
+
+    subscription.unsubscribe()
   })
 
   // Test delete map functionality

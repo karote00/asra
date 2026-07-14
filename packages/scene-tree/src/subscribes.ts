@@ -19,9 +19,11 @@ import {
   PROPS_ACTIONS,
   type ComputedDataPatch,
   type ComputedDataPatchChange,
-  type ComputedAttrs
+  type ComputedAttrs,
+  type GroupInstanceTypes
 } from '@asyra/utils'
 import sceneTree from './sceneTree'
+import { isGroupEntity } from './utils'
 
 const toAppliedComputedDataPatch = (
   patch: ComputedDataPatchChange
@@ -93,10 +95,23 @@ export const initSceneTreeSubscribes = () => {
   subscribeToSynchronousEvent<AddElementEvent>(
     EventTypes.ADD_ELEMENT,
     ({ payload, options }) => {
-      const { data, parent, index } = payload
+      const { data, parent, parentId, index } = payload
+      const recordedParent = parentId
+        ? sceneTree.getElementById(parentId)
+        : undefined
+      if (
+        parentId &&
+        (!recordedParent || !isGroupEntity(recordedParent.get('type')))
+      ) {
+        throw new Error(
+          `Cannot restore element ${data.id ?? ''}: parent ${parentId} is unavailable`
+        )
+      }
+      const resolvedParent =
+        parent ?? (recordedParent as GroupInstanceTypes | undefined)
       sceneTree.addNewElement(
         data,
-        parent,
+        resolvedParent,
         index,
         getTransactionReplayMode() !== null,
         options

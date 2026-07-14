@@ -52,14 +52,17 @@
 - Isolation: Feature session/command operations use one interaction queue so
   mutations do not interleave. Active preview may still be visible to Render/UI.
 - Durability: committed action, undo, and redo outcomes are saved through a
-  serial Core queue. `committed` and `persisted` are separate statuses.
+  serial Core queue. Each queue item writes the snapshot captured at its
+  committed status, so later state or active preview cannot alter it.
+  `committed` and `persisted` are separate statuses.
 - Nested rollback marks the complete outer transaction rollback-only; unmatched
   end/rollback calls at depth zero are no-ops.
 - If one inverse fails, Factory attempts the remaining inverses, reports
   `rollback-failed`, closes the transaction, forbids persistence, and throws the
   rollback error to the caller.
 - Canonical state owners acknowledge replay synchronously. Deleted scene-tree
-  and property instances are restored from owner-managed deleted maps; an apply
+  and property instances are restored from owner-managed deleted maps. Scene
+  hierarchy replay also restores the recorded parent and child index; an apply
   exception is a rollback failure, not an observer-only error.
 - Feature timeout aborts the session signal before rollback. Async handlers must
   cooperatively reject post-abort writes after each await boundary.
@@ -82,6 +85,8 @@
 - Rolled-back transaction-end shared changes are discarded before delivery.
 - An immediate local shared projection is compensated exactly once by its
   inverse during rollback.
+- Observer exceptions do not redefine an already-applied local Yjs append as
+  undelivered; delivery accounting still permits exactly one compensation.
 - The current guarantee ends at registered local shared channels. Yjs network
   providers, room/auth lifecycle, awareness/presence, remote origin and
   deduplication, reconnect/convergence, and collaborative conflict policy remain

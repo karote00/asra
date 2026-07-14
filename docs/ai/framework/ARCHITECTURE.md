@@ -98,6 +98,9 @@ Canonical shorthand:
 - Custom instances must use dependencies and subscription wiring bound to those
   intended instances; importing a class does not imply that default singleton
   wiring is automatically isolated.
+- Reactive transaction depth and rollback-only state are keyed by the resolved
+  TransactionOwner, so a consumer-owned Factory replay remains independent from
+  an active default-runtime boundary.
 - A future runtime factory may be offered as optional composition convenience,
   but it is not the required ownership model.
 
@@ -115,7 +118,8 @@ Canonical shorthand:
 - App-level migrations run before package-level validation.
 - Package validators apply fallback/reject semantics.
 - Optional diagnostics can be emitted after validation without blocking load.
-- Committed action, undo, and redo outcomes enter a serial persistence queue.
+- Committed action, undo, and redo outcomes capture their persistence snapshot
+  at commit time, then enter a serial provider-I/O queue.
 - Persistence failure is reported but does not reverse already committed
   runtime state; no automatic retry policy is provided.
 

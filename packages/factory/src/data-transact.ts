@@ -281,24 +281,26 @@ class DataTransact {
     const sharedChannelName = event.options?.shared
     if (sharedChannelName) {
       const sharedChange = toSharedChannelPayload(payload, event.options)
-      const shouldDeliverImmediately =
-        event.options?.undoable === false ||
-        event.options?.sharedDelivery === 'immediate'
       journalEntry.shared = {
         name: sharedChannelName,
         change: sharedChange,
         delivered: false
       }
-      if (shouldDeliverImmediately) {
-        journalEntry.shared.delivered =
-          this.sharedDataChannelRegistry.pushToSharedChannel(
-            sharedChannelName,
-            sharedChange
-          )
-      }
     }
 
     this.journal.push(journalEntry)
+
+    if (
+      journalEntry.shared &&
+      (event.options?.undoable === false ||
+        event.options?.sharedDelivery === 'immediate')
+    ) {
+      journalEntry.shared.delivered =
+        this.sharedDataChannelRegistry.pushToSharedChannel(
+          journalEntry.shared.name,
+          journalEntry.shared.change
+        )
+    }
   }
 
   private createReplayEvents(
@@ -493,6 +495,25 @@ class DataTransact {
     })
   }
 
+  private commitNestedReplayHistory(events: AllEvent[]) {
+    if (this.inUndo) {
+      if (this.undoStack[this.undoStack.length - 1] !== events) {
+        throw new Error('Nested undo source history changed before commit')
+      }
+      this.undoStack.pop()
+      this.redoStack.push(events)
+      return
+    }
+
+    if (this.inRedo) {
+      if (this.redoStack[this.redoStack.length - 1] !== events) {
+        throw new Error('Nested redo source history changed before commit')
+      }
+      this.redoStack.pop()
+      this.undoStack.push(events)
+    }
+  }
+
   private ensureReplayTransactionId() {
     if (this.isTransacting > 0) {
       return
@@ -605,6 +626,7 @@ class DataTransact {
           }
           if (this.journal.length === 0) {
             if (this.nestedReplaySourceEvents) {
+              this.commitNestedReplayHistory(this.nestedReplaySourceEvents)
               this.emitReplayCommitted(this.nestedReplaySourceEvents)
             } else if (!this.isInUndo() && !this.isInRedo()) {
               this.emitStatus('discarded')
@@ -613,6 +635,7 @@ class DataTransact {
             this.commitUndo()
             this.flushPendingSharedChannelChanges()
             if (this.nestedReplaySourceEvents) {
+              this.commitNestedReplayHistory(this.nestedReplaySourceEvents)
               this.emitReplayCommitted(this.nestedReplaySourceEvents)
             } else if (!this.isInUndo() && !this.isInRedo()) {
               this.emitStatus('committed')
@@ -667,7 +690,10 @@ class DataTransact {
     }
 
     const hasOuterBoundary = this.isTransacting > 0
-    if (hasOuterBoundary && this.journal.length > 0) {
+    if (
+      hasOuterBoundary &&
+      (this.journal.length > 0 || this.nestedReplaySourceEvents)
+    ) {
       throw new Error('Undo cannot join a non-empty transaction journal')
     }
 
@@ -691,8 +717,10 @@ class DataTransact {
         throw new TransactionRollbackError(failures)
       }
 
-      this.undoStack.pop()
-      this.redoStack.push(lastChanges)
+      if (!hasOuterBoundary) {
+        this.undoStack.pop()
+        this.redoStack.push(lastChanges)
+      }
 
       if (!hasOuterBoundary) {
         endTransaction()
@@ -724,7 +752,10 @@ class DataTransact {
     }
 
     const hasOuterBoundary = this.isTransacting > 0
-    if (hasOuterBoundary && this.journal.length > 0) {
+    if (
+      hasOuterBoundary &&
+      (this.journal.length > 0 || this.nestedReplaySourceEvents)
+    ) {
       throw new Error('Redo cannot join a non-empty transaction journal')
     }
 
@@ -748,8 +779,10 @@ class DataTransact {
         throw new TransactionRollbackError(failures)
       }
 
-      this.redoStack.pop()
-      this.undoStack.push(lastChanges)
+      if (!hasOuterBoundary) {
+        this.redoStack.pop()
+        this.undoStack.push(lastChanges)
+      }
       if (!hasOuterBoundary) {
         endTransaction()
         openedBoundary = false

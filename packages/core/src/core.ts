@@ -53,6 +53,24 @@ interface CoreDeps {
   systemContext: SystemContext
 }
 
+type PendingPersistence =
+  | {
+      kind: 'skipped'
+      transaction: TransactionStatusPayload
+    }
+  | {
+      kind: 'save'
+      transaction: TransactionStatusPayload
+      provider: IPersistenceProvider
+      data: CoreRawData
+    }
+  | {
+      kind: 'capture-failed'
+      transaction: TransactionStatusPayload
+      provider: IPersistenceProvider
+      error: unknown
+    }
+
 const DEFAULT_VERSION = '1.0.0'
 const DATA_VERSION = '1.0.0'
 const EMPTY_SCENE_TREE_DATA: SceneTreeRawData = {
@@ -236,49 +254,77 @@ class Core implements CoreAPIs {
         return
       }
 
+      const pending = this.captureCommittedTransaction(status)
       this.persistenceQueue = this.persistenceQueue.then(() =>
-        this.persistCommittedTransaction(status)
+        this.persistCommittedTransaction(pending)
       )
     })
   }
 
-  private async persistCommittedTransaction(
+  private captureCommittedTransaction(
     transaction: TransactionStatusPayload
-  ): Promise<void> {
+  ): PendingPersistence {
     const provider = this.persistence
     if (!provider) {
-      this.deps.factory.reportPersistenceStatus(
+      return { kind: 'skipped', transaction }
+    }
+
+    try {
+      return {
+        kind: 'save',
         transaction,
+        provider,
+        data: this.createPersistenceSnapshot()
+      }
+    } catch (error) {
+      return { kind: 'capture-failed', transaction, provider, error }
+    }
+  }
+
+  private async persistCommittedTransaction(
+    pending: PendingPersistence
+  ): Promise<void> {
+    if (pending.kind === 'skipped') {
+      this.deps.factory.reportPersistenceStatus(
+        pending.transaction,
         'persistence-skipped'
       )
       return
     }
 
-    try {
-      await this.saveToPersistence(provider)
+    if (pending.kind === 'capture-failed') {
       this.deps.factory.reportPersistenceStatus(
-        transaction,
+        pending.transaction,
+        'persistence-failed',
+        pending.provider.name,
+        pending.error
+      )
+      return
+    }
+
+    try {
+      await pending.provider.save(pending.data)
+      this.deps.factory.reportPersistenceStatus(
+        pending.transaction,
         'persisted',
-        provider.name
+        pending.provider.name
       )
     } catch (error) {
       this.deps.factory.reportPersistenceStatus(
-        transaction,
+        pending.transaction,
         'persistence-failed',
-        provider.name,
+        pending.provider.name,
         error
       )
     }
   }
 
-  private async saveToPersistence(
-    provider: IPersistenceProvider
-  ): Promise<void> {
+  private createPersistenceSnapshot(): CoreRawData {
     const systemContextData = this.deps.systemContext.saveManagedProperties()
 
     let data: CoreRawData = {
       version: this.version,
-      sceneTree: await this.sceneTreeSaveData(),
+      sceneTree: this.sceneTreeSaveData(),
       props: this.deps.props.save()
     }
     if (Object.keys(systemContextData).length > 0) {
@@ -290,7 +336,7 @@ class Core implements CoreAPIs {
       data = hook(data)
     }
 
-    await provider.save(data)
+    return data
   }
 
   private async loadFromPersistence(): Promise<void> {

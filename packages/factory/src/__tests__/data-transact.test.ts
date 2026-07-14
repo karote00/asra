@@ -143,6 +143,35 @@ describe('DataTransact user action completion', () => {
     expect(pushToSharedChannel).toHaveBeenCalledTimes(1)
   })
 
+  it('retains the canonical journal when immediate shared delivery fails before append', () => {
+    const deliveryFailure = new Error('shared append failed')
+    const pushToSharedChannel = vi.fn(() => {
+      throw deliveryFailure
+    })
+    const transact = new DataTransact({ pushToSharedChannel })
+    const observed: unknown[] = []
+    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => observed.push(event.payload)
+    )
+
+    transact.start()
+    expect(() =>
+      transact.update(
+        createUpdateEvent({
+          shared: 'sceneTree',
+          sharedDelivery: 'immediate'
+        })
+      )
+    ).toThrow(deliveryFailure)
+    expect(() => transact.end({ outcome: 'rollback' })).not.toThrow()
+
+    expect(observed).toEqual([expect.objectContaining({ before: 1, after: 0 })])
+    expect(pushToSharedChannel).toHaveBeenCalledTimes(1)
+
+    subscription.unsubscribe()
+  })
+
   it('runs synchronous transaction validators in registration order', () => {
     const transact = new DataTransact()
     const order: string[] = []
@@ -483,6 +512,81 @@ describe('DataTransact user action completion', () => {
       status: 'committed',
       origin: 'redo'
     })
+
+    subscription.unsubscribe()
+  })
+
+  it('keeps nested undo history available when the outer boundary rolls back', () => {
+    const transact = new DataTransact()
+    let value = 1
+    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => {
+        value = event.payload.after as number
+        if (transact.isInUndo() || transact.isInRedo()) {
+          transact.update({
+            type: TransactionEventTypes.UPDATE_TRANSACTION,
+            eventName: EventTypes.UPDATE_COMPUTED_DATA,
+            payload: event.payload
+          })
+        }
+      }
+    )
+
+    transact.start()
+    transact.update(createUpdateEvent())
+    transact.end()
+
+    transact.start()
+    transact.undo()
+    expect(value).toBe(0)
+    transact.end({ outcome: 'rollback' })
+    expect(value).toBe(1)
+
+    transact.start()
+    transact.undo()
+    transact.end()
+    expect(value).toBe(0)
+
+    subscription.unsubscribe()
+  })
+
+  it('keeps nested redo history available when the outer boundary rolls back', () => {
+    const transact = new DataTransact()
+    let value = 1
+    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => {
+        value = event.payload.after as number
+        if (transact.isInUndo() || transact.isInRedo()) {
+          transact.update({
+            type: TransactionEventTypes.UPDATE_TRANSACTION,
+            eventName: EventTypes.UPDATE_COMPUTED_DATA,
+            payload: event.payload
+          })
+        }
+      }
+    )
+
+    transact.start()
+    transact.update(createUpdateEvent())
+    transact.end()
+
+    transact.start()
+    transact.undo()
+    transact.end()
+    expect(value).toBe(0)
+
+    transact.start()
+    transact.redo()
+    expect(value).toBe(1)
+    transact.end({ outcome: 'rollback' })
+    expect(value).toBe(0)
+
+    transact.start()
+    transact.redo()
+    transact.end()
+    expect(value).toBe(1)
 
     subscription.unsubscribe()
   })

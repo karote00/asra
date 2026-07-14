@@ -11,6 +11,7 @@ export interface AddRemoveElementChange {
   eventName: string
   data: ElementRawData
   parentId?: string
+  index?: number
   options?: MutationOptions
 }
 

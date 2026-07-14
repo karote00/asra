@@ -31,7 +31,11 @@ const processObservedItems = (
     }
 
     contents.forEach((change) => {
-      handler(change)
+      try {
+        handler(change)
+      } catch {
+        // Shared projection observers cannot invalidate an applied Yjs change.
+      }
     })
   }
 }
@@ -75,8 +79,16 @@ export class SharedDataChannelRegistry {
       return false
     }
 
-    channel.push([change])
-    return true
+    const previousLength = channel.length
+    try {
+      channel.push([change])
+      return true
+    } catch (error) {
+      if (channel.length > previousLength) {
+        return true
+      }
+      throw error
+    }
   }
 
   observe<TChange = unknown>(

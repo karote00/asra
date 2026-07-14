@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { Factory } from '@asyra/factory'
 import { EventTypes, TransactionEventTypes } from '@asyra/reactive-events'
 import type { IPersistenceProvider } from '@asyra/persistence'
-import type { TransactionStatusPayload } from '@asyra/utils'
+import type { SceneTreeRawData, TransactionStatusPayload } from '@asyra/utils'
 import { Core } from '../core'
 
 const createHarness = () => {
@@ -13,7 +13,11 @@ const createHarness = () => {
     validateLoadData: vi.fn(() => ({ data: {}, diagnostics: [] }))
   }
   const sceneTree = {
-    save: vi.fn(() => ({ workspace: '', workspaceList: [], elements: {} })),
+    save: vi.fn<() => SceneTreeRawData>(() => ({
+      workspace: '',
+      workspaceList: [],
+      elements: {}
+    })),
     load: vi.fn(),
     getAllElements: vi.fn(() => new Map()),
     validateLoadData: vi.fn(() => ({
@@ -60,13 +64,13 @@ const createHarness = () => {
     clear: vi.fn(async () => undefined)
   })
 
-  return { core, factory, commit, provider }
+  return { core, factory, commit, provider, sceneTree }
 }
 
 describe('Core transaction persistence acknowledgement', () => {
   it('persists committed action, undo, and redo in order', async () => {
     const { core, factory, commit, provider } = createHarness()
-    const save = vi.fn(async () => undefined)
+    const save = vi.fn<IPersistenceProvider['save']>(async () => undefined)
     core.setPersistence(provider(save))
 
     commit('first')
@@ -153,6 +157,30 @@ describe('Core transaction persistence acknowledgement', () => {
     ).toHaveLength(2)
 
     dispose()
+  })
+
+  it('persists the state snapshot captured by each committed transaction', async () => {
+    const { core, commit, provider, sceneTree } = createHarness()
+    const save = vi.fn<IPersistenceProvider['save']>(async () => undefined)
+    let workspace = 'first'
+    sceneTree.save.mockImplementation(() => ({
+      workspace,
+      workspaceList: [workspace],
+      elements: {}
+    }))
+    core.setPersistence(provider(save))
+
+    commit('first')
+    workspace = 'second'
+    commit('second')
+    workspace = 'uncommitted-preview'
+
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(2))
+    expect(
+      save.mock.calls.map(
+        ([data]) => (data.sceneTree as { workspace: string }).workspace
+      )
+    ).toEqual(['first', 'second'])
   })
 
   it('keeps custom Core persistence bound to its injected Factory', async () => {

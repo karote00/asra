@@ -30,6 +30,7 @@ export interface AddElementEvent {
   payload: {
     data: CreateElementData
     parent?: GroupInstanceTypes
+    parentId?: string
     index?: number
   }
   options?: EVENT_OPTIONS

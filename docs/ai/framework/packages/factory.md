@@ -34,6 +34,11 @@ infrastructure.
 - `rollbackable: false` is an explicit non-reversible opt-out and appears in
   transaction status counts
 - custom rollbackable events require `registerTransactionInverter(...)`
+- each journal entry is recorded before attempting an immediate shared
+  projection, so a failed append cannot remove the canonical mutation from
+  rollback coverage
+- scene-tree add/remove contributors record their actual parent id and child
+  index after placement or before removal, respectively
 
 2. Undo/redo replay
 - undo replays committed changes in reverse order
@@ -43,6 +48,11 @@ infrastructure.
   different history and lifecycle effects
 - replay restoration reuses deleted scene-tree/property instances so rollback
   preserves exact state instead of constructing new defaults
+- undo/redo replay nested inside an existing outer boundary defers its source
+  history stack transition until that outer boundary commits; outer rollback
+  restores runtime state and leaves the original undo/redo source available
+- scene-tree remove replay restores the deleted instance through its recorded
+  parent id and child index, preserving graph ownership and order
 - failed undo/redo replay preserves the source history entry, resets replay
   status, and closes any boundary opened by that replay
 
@@ -67,9 +77,14 @@ infrastructure.
 - `sharedDelivery: 'immediate'` exposes the change during the active transaction
 - rollback discards pending transaction-end changes
 - rollback compensates each immediate local projection exactly once
+- registered shared observers are isolated from one another; if a raw Yjs
+  observer throws after the append is already present, the change remains
+  classified as delivered so rollback can compensate it exactly once
 
 5. Status contract
 - `subscribeToTransactionStatus(listener)` is instance-local
+- status listeners and the default diagnostic event bridge are isolated; their
+  exceptions cannot change a canonical outcome or block later listeners
 - statuses distinguish discarded, committed, rolled-back, rollback-failed,
   persistence-skipped, persisted, and persistence-failed outcomes
 - runtime commit does not mean the persistence provider durably stored data

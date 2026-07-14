@@ -71,7 +71,11 @@ System orchestrator and lifecycle coordinator.
 4. Transaction status contract
 - each Core subscribes to the Factory instance injected into that Core, not to a
   global end-transaction event
-- committed action, undo, and redo statuses enter one serial persistence queue
+- committed action, undo, and redo capture their provider and CoreRawData
+  snapshot when the committed status arrives; provider writes then enter one
+  serial persistence queue
+- queued work writes the captured snapshot and never re-reads later committed
+  state or an active uncommitted preview
 - missing provider reports `persistence-skipped`; successful save reports
   `persisted`; provider failure reports `persistence-failed`
 - discarded, rolled-back, and rollback-failed outcomes never request save

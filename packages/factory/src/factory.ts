@@ -51,11 +51,19 @@ class Factory {
   }
 
   private emitTransactionStatus(payload: TransactionStatusPayload) {
-    this.transactionStatusSubscribers.forEach((subscriber) => {
-      subscriber(payload)
+    ;[...this.transactionStatusSubscribers].forEach((subscriber) => {
+      try {
+        subscriber(payload)
+      } catch {
+        // Status observers cannot change or interrupt the canonical outcome.
+      }
     })
     if (this.bridgeToReactiveEvents) {
-      transactionStatusChanged(payload)
+      try {
+        transactionStatusChanged(payload)
+      } catch {
+        // The default diagnostic bridge follows the same observer isolation.
+      }
     }
   }
 
