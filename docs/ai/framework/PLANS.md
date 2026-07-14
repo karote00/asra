@@ -10,35 +10,27 @@ This file tracks framework planning topics and points to detailed references.
 
 ## Near-Term Plans
 
-1. Transaction atomicity and rollback
-- Complete the ACID-inspired runtime transaction contract without pretending to
-  provide a database transaction.
-- Reuse the existing inverse replay logic for failed active-transaction
-  rollback, separate rollbackable from undoable recording, and define explicit
-  cancel policies.
-- Reference: `docs/ai/framework/plans/transaction-atomicity-and-rollback-plan.md`
-
-2. Preset 2D/3D init profiles
+1. Preset 2D/3D init profiles
 - Provide explicit preset init profiles (`2d`, `3d`, `hybrid`) for fast product bootstrap.
 - Preserve deterministic composition (`shared -> profile -> app override`) and backward-compatible default path.
 - Reference: `docs/ai/framework/plans/preset-2d-3d-init-profile-plan.md`
 
-3. Extendable preset
+2. Extendable preset
 - Allow users to extend preset feature/property behavior through explicit extension points.
 - Keep deterministic fallback path: `unregister -> redefine` when extension points are unavailable.
 - Reference: `docs/ai/framework/plans/extendable-preset-plan.md`
 
-4. Render-engine boundary
+3. Render-engine boundary
 - Split render orchestration from concrete engine implementation.
 - Keep Pixi as default engine via preset wiring while enabling engine swap for future domains.
 - Reference: `docs/ai/framework/plans/render-engine-boundary-plan.md`
 
-5. Canvas debugger
+4. Canvas debugger
 - Add a framework-owned debugging surface to verify render output, render-layer output, and coordinate-space correctness.
 - Keep it optional, deterministic, and renderer-boundary-safe so apps can opt in without coupling domain logic to Pixi internals.
 - Reference: `docs/ai/framework/plans/canvas-debugger-plan.md`
 
-6. Render delta update pipeline
+5. Render delta update pipeline
 - Apply data-channel deltas directly in render update flow to avoid full computed-data rehydrate.
 - Use render-side cached snapshots + key-based invalidation for heavy geometry.
 - Reference: `docs/ai/framework/plans/render-delta-update-plan.md`

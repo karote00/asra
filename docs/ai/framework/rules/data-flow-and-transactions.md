@@ -133,8 +133,9 @@
   deduplication, reconnect/convergence, and collaborative conflict policy remain
   deferred to `../plans/yjs-network-collaboration-plan.md`.
 
-See `../plans/transaction-atomicity-and-rollback-plan.md` for the product cases
-and the Transaction Flow Inspector contract.
+See `../plans/completed/transaction-atomicity-and-rollback-plan.md` for the
+product cases and `../plans/transaction-flow-inspector.data.cjs` for the
+executable Transaction Flow Inspector contract.
 
 ## Validation Rule
 

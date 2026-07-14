@@ -55,7 +55,7 @@
 - This is not a database transaction: isolation is Feature-operation
   serialization, not external/remote locking or serializable isolation.
 - Persistence failure does not reverse runtime commit and has no built-in retry.
-- See `plans/transaction-atomicity-and-rollback-plan.md`.
+- See `plans/completed/transaction-atomicity-and-rollback-plan.md`.
 
 8. Yjs network collaboration
 - Current Yjs usage provides local shared-channel registration, buffered or

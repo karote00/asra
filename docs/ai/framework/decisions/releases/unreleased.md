@@ -977,3 +977,31 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - Input-system avoids element drag conflicts during overlay capture.
 - Related Plan:
   - `docs/ai/framework/plans/completed/interactive-overlay-input-plan.md`
+
+## 2026-07-15 - Local application-level transaction ACID completed
+
+- Context:
+  - PR #77 completed and merged the local transaction atomicity, validation,
+    interaction serialization, and persistence acknowledgement work.
+- Decision:
+  - Treat Asyra's local application-level Atomicity, Consistency, Isolation, and
+    Durability contract as complete without claiming database serializability or
+    distributed transaction guarantees.
+  - User-driven interruption defaults to `commit-current` and finalizes the
+    current preview as one undoable action; handler error, timeout, validation
+    failure, explicit rollback, or a feature's true-discard policy use rollback.
+  - Persistence failure reports `persistence-failed` but does not reverse an
+    already committed runtime transaction.
+  - Yjs provider/room/auth, remote canonical apply, origin/dedupe, awareness,
+    reconnect/convergence, and collaborative conflict policy remain outside this
+    completed phase.
+- Consequences:
+  - The active plan is archived at the completed canonical path while the
+    executable Transaction Flow Inspector data, contract test, and viewer remain
+    active source-of-truth artifacts.
+  - `Preset 2D/3D Init Profiles` is now the first Near-Term Plan.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/transaction-atomicity-and-rollback-plan.md`
+- Related Commit(s):
+  - `8ea0e1c9736df40312143edaac499b6109af628e` (`feat(framework): add local transaction ACID semantics (#77)`)
+  - [PR #77](https://github.com/karote00/asyra/pull/77)

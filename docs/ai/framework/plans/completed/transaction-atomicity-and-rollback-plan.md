@@ -2,9 +2,24 @@
 
 ## Status
 
-Implemented contract under final verification. Runtime behavior is governed by
-formal tests and the Transaction Flow Inspector; Yjs network collaboration
-remains a separate deferred plan.
+Completed on 2026-07-15. Local application-level ACID semantics are implemented
+on `main` by PR #77 (`8ea0e1c9736df40312143edaac499b6109af628e`).
+Runtime behavior remains governed by formal tests and the executable Transaction
+Flow Inspector; Yjs network collaboration remains a separate deferred plan.
+
+## Completion Record
+
+- Final decision: accept the local ACID-inspired contract as complete without
+  claiming database serializability or distributed transaction guarantees.
+- Implementation summary: rollbackable journals, synchronous commit validation,
+  serialized feature interactions, explicit cancel outcomes, and detached
+  commit-time persistence snapshots now have distinct runtime owners and status
+  contracts.
+- Exit criteria: all implementation slices are complete, PR #77's CI validation
+  passed, and the Atomicity, Consistency, Isolation, and Durability regression
+  suites pass on the merged implementation.
+- Canonical executable architecture contract:
+  `docs/ai/framework/plans/transaction-flow-inspector.data.cjs`.
 
 ## Context
 
