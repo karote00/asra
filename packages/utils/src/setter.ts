@@ -19,10 +19,15 @@ type InstanceDataType =
 export class Setter<T extends InstanceDataType> {
   data!: T
   private addChangeCallback: (data: SetterChangeRecord) => void
+  private onCanonicalWrite?: () => void
   private listeners = new Set<(data: SetterChangeRecord) => void>()
 
-  constructor(addChangeCallback: (data: SetterChangeRecord) => void) {
+  constructor(
+    addChangeCallback: (data: SetterChangeRecord) => void,
+    onCanonicalWrite?: () => void
+  ) {
     this.addChangeCallback = addChangeCallback
+    this.onCanonicalWrite = onCanonicalWrite
   }
 
   on(listener: (data: SetterChangeRecord) => void): () => void {
@@ -50,6 +55,7 @@ export class Setter<T extends InstanceDataType> {
       const after = cloneDeep(value)
 
       if (!isEqual(before, after)) {
+        this.onCanonicalWrite?.()
         const change: SetterChangeRecord = {
           id: this.get('id' as keyof T) as string,
           key: key as string,

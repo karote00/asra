@@ -182,7 +182,8 @@ export const useGradientInteractions = ({
         patch,
         {
           ...(options ?? {}),
-          undoable: false
+          undoable: false,
+          sharedDelivery: 'immediate'
         },
         sourceFill
       )

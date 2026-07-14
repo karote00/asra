@@ -9,25 +9,35 @@ import {
 } from 'rxjs'
 import { EventTypes } from './types'
 import { AllEvent } from './constants'
+import { acknowledgeTransactionReplayApplied } from './transaction-replay'
 
 const eventBus = new ReplaySubject<AllEvent>(1)
-type SynchronousEventHandler = (event: AllEvent) => void
+type SynchronousEventHandler = (event: AllEvent) => unknown
 const synchronousEventHandlers = new Map<
   AllEvent['type'],
   Set<SynchronousEventHandler>
 >()
 
+export const publishEventToObservers = (event: AllEvent) => {
+  eventBus.next(event)
+}
+
 export const publishEvent = (event: AllEvent) => {
   const handlers = synchronousEventHandlers.get(event.type)
   if (handlers) {
-    ;[...handlers].forEach((handler) => handler(event))
+    ;[...handlers].forEach((handler) => {
+      const applied = handler(event)
+      if (applied !== false) {
+        acknowledgeTransactionReplayApplied()
+      }
+    })
   }
-  eventBus.next(event)
+  publishEventToObservers(event)
 }
 
 export const subscribeToSynchronousEvent = <T extends AllEvent>(
   type: T['type'],
-  subscriber: (event: T) => void
+  subscriber: (event: T) => unknown
 ): Subscription => {
   const handler = subscriber as SynchronousEventHandler
   const handlers = synchronousEventHandlers.get(type) ?? new Set()

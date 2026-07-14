@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  acknowledgeTransactionReplayApplied,
   EventTypes,
   TransactionEventTypes,
+  runWithTransactionOwner,
   subscribeToSynchronousEvent,
   subscribeToEvents,
   subscribeToUserActionCompleted,
@@ -37,6 +39,21 @@ const createUpdateEvent = (
   } as unknown as UpdateTransactionEvent['payload'],
   options
 })
+
+const runWithOwnedTransact = <T>(
+  transact: DataTransact,
+  callback: () => T
+): T =>
+  runWithTransactionOwner(
+    {
+      startTransaction: () => transact.start(),
+      updateTransaction: (event) => transact.update(event),
+      endTransaction: (options) => transact.end(options),
+      undo: () => transact.undo(),
+      redo: () => transact.redo()
+    },
+    callback
+  )
 
 describe('DataTransact user action completion', () => {
   it('reports discarded for an empty transaction', () => {
@@ -127,6 +144,129 @@ describe('DataTransact user action completion', () => {
     })
   })
 
+  it('flushes the mutation-time shared snapshot after caller payload mutation', () => {
+    const pushToSharedChannel = vi.fn().mockReturnValue(true)
+    const transact = new DataTransact({ pushToSharedChannel })
+    const payload = {
+      id: 'test.shared-snapshot',
+      before: { value: 0 },
+      after: { value: 1 }
+    }
+
+    transact.start()
+    transact.update({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: payload as unknown as UpdateTransactionEvent['payload'],
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+    payload.before.value = 40
+    payload.after.value = 41
+    transact.end()
+
+    expect(pushToSharedChannel).toHaveBeenCalledWith(
+      SharedDataChannelNames.SCENE_TREE,
+      expect.objectContaining({ before: { value: 0 }, after: { value: 1 } })
+    )
+  })
+
+  it('materializes accessor payloads in the mutation-time shared snapshot', () => {
+    const pushToSharedChannel = vi.fn().mockReturnValue(true)
+    const transact = new DataTransact({ pushToSharedChannel })
+    let before = 0
+    let after = 1
+    const payload = {
+      id: 'test.accessor-shared-snapshot',
+      get before() {
+        return { value: before }
+      },
+      get after() {
+        return { value: after }
+      }
+    }
+
+    transact.start()
+    transact.update({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: payload as unknown as UpdateTransactionEvent['payload'],
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+    before = 40
+    after = 41
+    transact.end()
+
+    expect(pushToSharedChannel).toHaveBeenCalledWith(
+      SharedDataChannelNames.SCENE_TREE,
+      expect.objectContaining({ before: { value: 0 }, after: { value: 1 } })
+    )
+  })
+
+  it('rolls back a frozen payload through a mutable detached journal clone', () => {
+    const transact = new DataTransact()
+    const observed: unknown[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (event.type === EventTypes.UPDATE_COMPUTED_DATA) {
+        observed.push((event as AllEvent & { payload: unknown }).payload)
+      }
+    })
+    const payload = Object.freeze({
+      id: 'test.frozen-rollback-snapshot',
+      before: 0,
+      after: 1
+    })
+    observed.length = 0
+
+    transact.start()
+    transact.update({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: payload as unknown as UpdateTransactionEvent['payload']
+    })
+
+    expect(() => transact.end({ outcome: 'rollback' })).not.toThrow()
+    expect(observed).toEqual([
+      { id: 'test.frozen-rollback-snapshot', before: 1, after: 0 }
+    ])
+
+    subscription.unsubscribe()
+  })
+
+  it('compensates the mutation-time immediate snapshot after caller payload mutation', () => {
+    const pushToSharedChannel = vi.fn().mockReturnValue(true)
+    const transact = new DataTransact({ pushToSharedChannel })
+    const payload = {
+      id: 'test.immediate-shared-snapshot',
+      before: { value: 0 },
+      after: { value: 1 }
+    }
+
+    transact.start()
+    transact.update({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: payload as unknown as UpdateTransactionEvent['payload'],
+      options: {
+        shared: SharedDataChannelNames.SCENE_TREE,
+        sharedDelivery: 'immediate'
+      }
+    })
+    payload.before.value = 40
+    payload.after.value = 41
+    transact.end({ outcome: 'rollback' })
+
+    expect(pushToSharedChannel.mock.calls).toEqual([
+      [
+        SharedDataChannelNames.SCENE_TREE,
+        expect.objectContaining({ before: { value: 0 }, after: { value: 1 } })
+      ],
+      [
+        SharedDataChannelNames.SCENE_TREE,
+        expect.objectContaining({ before: { value: 1 }, after: { value: 0 } })
+      ]
+    ])
+  })
+
   it('does not compensate an immediate change that was not delivered', () => {
     const pushToSharedChannel = vi.fn().mockReturnValue(false)
     const transact = new DataTransact({ pushToSharedChannel })
@@ -168,6 +308,186 @@ describe('DataTransact user action completion', () => {
 
     expect(observed).toEqual([expect.objectContaining({ before: 1, after: 0 })])
     expect(pushToSharedChannel).toHaveBeenCalledTimes(1)
+
+    subscription.unsubscribe()
+  })
+
+  it('rolls back a commit and compensates earlier transaction-end delivery when a later append fails', () => {
+    const deliveryFailure = new Error('transaction-end append failed')
+    const undoStackLengths: number[] = []
+    const harness: { transact?: DataTransact } = {}
+    const pushToSharedChannel = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        undoStackLengths.push(
+          (
+            harness.transact as unknown as {
+              undoStack: unknown[]
+            }
+          ).undoStack.length
+        )
+        return true
+      })
+      .mockImplementationOnce(() => {
+        throw deliveryFailure
+      })
+      .mockReturnValueOnce(true)
+    const statuses: TransactionStatusPayload[] = []
+    const completion = vi.fn()
+    const transact = new DataTransact(
+      { pushToSharedChannel },
+      {
+        onStatus: (status) => statuses.push(status),
+        onUserActionCompleted: completion
+      }
+    )
+    harness.transact = transact
+    const observed: unknown[] = []
+    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => observed.push(event.payload)
+    )
+
+    transact.start()
+    transact.update(createUpdateEvent({ shared: 'sceneTree' }))
+    transact.update({
+      ...createUpdateEvent({ shared: 'props' }),
+      payload: {
+        id: 'test.second-change',
+        before: 10,
+        after: 20
+      } as unknown as UpdateTransactionEvent['payload']
+    })
+
+    expect(() => transact.end()).toThrow(deliveryFailure)
+
+    expect(observed).toEqual([
+      expect.objectContaining({ before: 20, after: 10 }),
+      expect.objectContaining({ before: 1, after: 0 })
+    ])
+    expect(pushToSharedChannel.mock.calls).toEqual([
+      ['sceneTree', expect.objectContaining({ before: 0, after: 1 })],
+      ['props', expect.objectContaining({ before: 10, after: 20 })],
+      ['sceneTree', expect.objectContaining({ before: 1, after: 0 })]
+    ])
+    expect(completion).not.toHaveBeenCalled()
+    expect(undoStackLengths).toEqual([1])
+    expect(
+      (transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toHaveLength(0)
+    expect(
+      (transact as unknown as { redoStack: unknown[] }).redoStack
+    ).toHaveLength(0)
+    expect(statuses[statuses.length - 1]).toMatchObject({
+      status: 'rolled-back',
+      origin: 'action',
+      failure: { kind: 'explicit', cause: deliveryFailure }
+    })
+
+    subscription.unsubscribe()
+  })
+
+  it('restores runtime and preserves undo history when transaction-end delivery fails during undo', () => {
+    const deliveryFailure = new Error('undo append failed')
+    const pushToSharedChannel = vi.fn(() => {
+      throw deliveryFailure
+    })
+    const statuses: TransactionStatusPayload[] = []
+    const transact = new DataTransact(
+      { pushToSharedChannel },
+      { onStatus: (status) => statuses.push(status) }
+    )
+    let value = 1
+    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => {
+        value = event.payload.after as number
+        if (transact.isInUndo() || transact.isInRedo()) {
+          transact.update({
+            type: TransactionEventTypes.UPDATE_TRANSACTION,
+            eventName: EventTypes.UPDATE_COMPUTED_DATA,
+            payload: event.payload,
+            options: { shared: SharedDataChannelNames.SCENE_TREE }
+          })
+        }
+      }
+    )
+
+    transact.start()
+    transact.update(createUpdateEvent())
+    transact.end()
+    statuses.length = 0
+
+    expect(() => runWithOwnedTransact(transact, () => transact.undo())).toThrow(
+      deliveryFailure
+    )
+
+    expect(value).toBe(1)
+    expect(
+      (transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toHaveLength(1)
+    expect(
+      (transact as unknown as { redoStack: unknown[] }).redoStack
+    ).toHaveLength(0)
+    expect(statuses[statuses.length - 1]).toMatchObject({
+      status: 'rolled-back',
+      origin: 'undo',
+      failure: { kind: 'explicit', cause: deliveryFailure }
+    })
+
+    subscription.unsubscribe()
+  })
+
+  it('restores runtime and preserves redo history when transaction-end delivery fails during redo', () => {
+    const deliveryFailure = new Error('redo append failed')
+    const pushToSharedChannel = vi.fn().mockReturnValueOnce(true)
+    const statuses: TransactionStatusPayload[] = []
+    const transact = new DataTransact(
+      { pushToSharedChannel },
+      { onStatus: (status) => statuses.push(status) }
+    )
+    let value = 1
+    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => {
+        value = event.payload.after as number
+        if (transact.isInUndo() || transact.isInRedo()) {
+          transact.update({
+            type: TransactionEventTypes.UPDATE_TRANSACTION,
+            eventName: EventTypes.UPDATE_COMPUTED_DATA,
+            payload: event.payload,
+            options: { shared: SharedDataChannelNames.SCENE_TREE }
+          })
+        }
+      }
+    )
+
+    transact.start()
+    transact.update(createUpdateEvent())
+    transact.end()
+    runWithOwnedTransact(transact, () => transact.undo())
+    expect(value).toBe(0)
+    pushToSharedChannel.mockImplementation(() => {
+      throw deliveryFailure
+    })
+    statuses.length = 0
+
+    expect(() => runWithOwnedTransact(transact, () => transact.redo())).toThrow(
+      deliveryFailure
+    )
+
+    expect(value).toBe(0)
+    expect(
+      (transact as unknown as { undoStack: unknown[] }).undoStack
+    ).toHaveLength(0)
+    expect(
+      (transact as unknown as { redoStack: unknown[] }).redoStack
+    ).toHaveLength(1)
+    expect(statuses[statuses.length - 1]).toMatchObject({
+      status: 'rolled-back',
+      origin: 'redo',
+      failure: { kind: 'explicit', cause: deliveryFailure }
+    })
 
     subscription.unsubscribe()
   })
@@ -250,6 +570,29 @@ describe('DataTransact user action completion', () => {
     expect(observed).toHaveLength(1)
 
     subscription.unsubscribe()
+  })
+
+  it('observes a rejected asynchronous validator result', async () => {
+    const transact = new DataTransact()
+    const validatorFailure = new Error('async validation failed')
+    const unhandledRejections: unknown[] = []
+    const onUnhandledRejection = (reason: unknown) => {
+      unhandledRejections.push(reason)
+    }
+    process.on('unhandledRejection', onUnhandledRejection)
+    transact.registerValidator('rejected-async-validator', (() =>
+      Promise.reject(validatorFailure)) as never)
+
+    try {
+      transact.start()
+      transact.update(createUpdateEvent())
+
+      expect(() => transact.end()).toThrow(/must be synchronous/i)
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      expect(unhandledRejections).toEqual([])
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection)
+    }
   })
 
   it('bypasses validators for an explicitly rolled-back transaction', () => {
@@ -437,8 +780,8 @@ describe('DataTransact user action completion', () => {
     transact.end()
     observed.length = 0
 
-    transact.undo()
-    transact.redo()
+    runWithOwnedTransact(transact, () => transact.undo())
+    runWithOwnedTransact(transact, () => transact.redo())
 
     expect(observed).toEqual([
       { id: 'element-1', key: 'y', before: 20, after: 5 },
@@ -551,6 +894,535 @@ describe('DataTransact user action completion', () => {
     subscription.unsubscribe()
   })
 
+  it('restores nested undo runtime on outer rollback without a replay journal', () => {
+    const transact = new DataTransact()
+    let value = 1
+    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => {
+        value = event.payload.after as number
+      }
+    )
+
+    transact.start()
+    transact.update(createUpdateEvent())
+    transact.end()
+
+    transact.start()
+    transact.undo()
+    expect(value).toBe(0)
+    expect(
+      (transact as unknown as { journal: unknown[] }).journal
+    ).toHaveLength(0)
+    transact.end({ outcome: 'rollback' })
+
+    expect(value).toBe(1)
+    transact.start()
+    transact.undo()
+    transact.end()
+    expect(value).toBe(0)
+
+    subscription.unsubscribe()
+  })
+
+  it('does not restore a successful no-op nested undo on outer rollback', () => {
+    const transact = new DataTransact()
+    let value = 1
+    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => {
+        const nextValue = event.payload.after as number
+        if (Object.is(value, nextValue)) {
+          return false
+        }
+        value = nextValue
+        return true
+      }
+    )
+
+    transact.start()
+    transact.update(createUpdateEvent())
+    transact.end()
+
+    value = 0
+    transact.start()
+    transact.update(createUpdateEvent({ undoable: false, rollbackable: false }))
+    transact.end()
+
+    transact.start()
+    transact.undo()
+    expect(value).toBe(0)
+    transact.end({ outcome: 'rollback' })
+
+    expect(value).toBe(0)
+
+    subscription.unsubscribe()
+  })
+
+  it('rolls back a new action mutation attempted after a nested undo', () => {
+    const transact = new DataTransact()
+    const values: Record<string, number> = {
+      committed: 1,
+      later: 0
+    }
+    const createNamedUpdate = (
+      id: string,
+      before: number,
+      after: number
+    ): UpdateTransactionEvent => ({
+      ...createUpdateEvent(),
+      payload: { id, before, after }
+    })
+    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => {
+        values[event.payload.id] = event.payload.after as number
+        if (
+          event.payload.id === 'committed' &&
+          (transact.isInUndo() || transact.isInRedo())
+        ) {
+          transact.update({
+            type: TransactionEventTypes.UPDATE_TRANSACTION,
+            eventName: EventTypes.UPDATE_COMPUTED_DATA,
+            payload: event.payload
+          })
+        }
+      }
+    )
+
+    transact.start()
+    transact.update(createNamedUpdate('committed', 0, 1))
+    transact.end()
+
+    transact.start()
+    transact.undo()
+    expect(values).toEqual({ committed: 0, later: 0 })
+
+    values.later = 1
+    expect(() => transact.update(createNamedUpdate('later', 0, 1))).toThrow(
+      /nested (undo|redo).*new action mutation/i
+    )
+    transact.end()
+
+    expect(values).toEqual({ committed: 1, later: 0 })
+    transact.start()
+    transact.undo()
+    transact.end()
+    expect(values.committed).toBe(0)
+
+    subscription.unsubscribe()
+  })
+
+  it('restores every nested undo source when only part of replay is journaled', () => {
+    const transact = new DataTransact()
+    const values: Record<string, number> = {
+      journaled: 1,
+      direct: 1
+    }
+    const createNamedUpdate = (id: string): UpdateTransactionEvent => ({
+      ...createUpdateEvent(),
+      payload: { id, before: 0, after: 1 }
+    })
+    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => {
+        values[event.payload.id] = event.payload.after as number
+        if (
+          event.payload.id === 'journaled' &&
+          (transact.isInUndo() || transact.isInRedo())
+        ) {
+          transact.update({
+            type: TransactionEventTypes.UPDATE_TRANSACTION,
+            eventName: EventTypes.UPDATE_COMPUTED_DATA,
+            payload: event.payload
+          })
+        }
+      }
+    )
+
+    transact.start()
+    transact.update(createNamedUpdate('journaled'))
+    transact.update(createNamedUpdate('direct'))
+    transact.end()
+
+    transact.start()
+    transact.undo()
+    expect(values).toEqual({ journaled: 0, direct: 0 })
+    expect(
+      (transact as unknown as { journal: unknown[] }).journal
+    ).toHaveLength(1)
+    transact.end({ outcome: 'rollback' })
+
+    expect(values).toEqual({ journaled: 1, direct: 1 })
+
+    subscription.unsubscribe()
+  })
+
+  it('restores every applied nested replay when a later mixed source fails', () => {
+    const transact = new DataTransact()
+    const values: Record<string, number> = {
+      failing: 1,
+      direct: 1,
+      journaled: 1
+    }
+    let failReplay = true
+    const createNamedUpdate = (id: string): UpdateTransactionEvent => ({
+      ...createUpdateEvent(),
+      payload: { id, before: 0, after: 1 }
+    })
+    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => {
+        if (
+          event.payload.id === 'failing' &&
+          transact.isInUndo() &&
+          failReplay
+        ) {
+          failReplay = false
+          throw new Error('nested replay failed')
+        }
+
+        values[event.payload.id] = event.payload.after as number
+        if (
+          event.payload.id === 'journaled' &&
+          (transact.isInUndo() || transact.isInRedo())
+        ) {
+          transact.update({
+            type: TransactionEventTypes.UPDATE_TRANSACTION,
+            eventName: EventTypes.UPDATE_COMPUTED_DATA,
+            payload: event.payload
+          })
+        }
+      }
+    )
+
+    transact.start()
+    transact.update(createNamedUpdate('failing'))
+    transact.update(createNamedUpdate('direct'))
+    transact.update(createNamedUpdate('journaled'))
+    transact.end()
+
+    transact.start()
+    expect(() => transact.undo()).toThrow(TransactionRollbackError)
+    expect(values).toEqual({ failing: 1, direct: 0, journaled: 0 })
+    transact.end()
+
+    expect(values).toEqual({ failing: 1, direct: 1, journaled: 1 })
+
+    failReplay = false
+    transact.start()
+    transact.undo()
+    transact.end()
+    expect(values).toEqual({ failing: 0, direct: 0, journaled: 0 })
+
+    subscription.unsubscribe()
+  })
+
+  it('restores every applied nested redo when a later mixed source fails', () => {
+    const transact = new DataTransact()
+    const values: Record<string, number> = {
+      journaled: 1,
+      direct: 1,
+      failing: 1
+    }
+    let failReplay = false
+    const createNamedUpdate = (id: string): UpdateTransactionEvent => ({
+      ...createUpdateEvent(),
+      payload: { id, before: 0, after: 1 }
+    })
+    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => {
+        if (
+          event.payload.id === 'failing' &&
+          transact.isInRedo() &&
+          failReplay
+        ) {
+          failReplay = false
+          throw new Error('nested redo failed')
+        }
+
+        values[event.payload.id] = event.payload.after as number
+        if (
+          event.payload.id === 'journaled' &&
+          (transact.isInUndo() || transact.isInRedo())
+        ) {
+          transact.update({
+            type: TransactionEventTypes.UPDATE_TRANSACTION,
+            eventName: EventTypes.UPDATE_COMPUTED_DATA,
+            payload: event.payload
+          })
+        }
+      }
+    )
+
+    transact.start()
+    transact.update(createNamedUpdate('journaled'))
+    transact.update(createNamedUpdate('direct'))
+    transact.update(createNamedUpdate('failing'))
+    transact.end()
+    transact.start()
+    transact.undo()
+    transact.end()
+    expect(values).toEqual({ journaled: 0, direct: 0, failing: 0 })
+
+    failReplay = true
+    transact.start()
+    expect(() => transact.redo()).toThrow(TransactionRollbackError)
+    expect(values).toEqual({ journaled: 1, direct: 1, failing: 0 })
+    transact.end()
+
+    expect(values).toEqual({ journaled: 0, direct: 0, failing: 0 })
+
+    failReplay = false
+    transact.start()
+    transact.redo()
+    transact.end()
+    expect(values).toEqual({ journaled: 1, direct: 1, failing: 1 })
+
+    subscription.unsubscribe()
+  })
+
+  it('restores nested add undo from its original source direction', () => {
+    let elementExists = true
+    const transact = new DataTransact(undefined, {
+      onReplayEvent: (event) => {
+        if (event.type === EventTypes.ADD_ELEMENT) {
+          elementExists = true
+          return true
+        }
+        if (event.type === EventTypes.REMOVE_ELEMENT) {
+          elementExists = false
+          return true
+        }
+        return false
+      }
+    })
+
+    transact.start()
+    transact.update({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.ADD_ELEMENT,
+      payload: {
+        action: EventTypes.ADD_ELEMENT,
+        undoType: EventTypes.REMOVE_ELEMENT,
+        undoAction: EventTypes.REMOVE_ELEMENT,
+        data: { id: 'element-1' }
+      }
+    })
+    transact.end()
+
+    transact.start()
+    transact.undo()
+    expect(elementExists).toBe(false)
+    transact.end({ outcome: 'rollback' })
+
+    expect(elementExists).toBe(true)
+  })
+
+  it('restores a custom multi-event replay when an owner mutates and then throws', () => {
+    const values: Record<string, number> = { first: 1, second: 1 }
+    let throwAfterMutation = true
+    const transact = new DataTransact(undefined, {
+      onReplayEvent: (event) => {
+        if (String(event.type) === 'custom.multi') {
+          values.first = 1
+          values.second = 1
+          return true
+        }
+        if (event.type !== EventTypes.UPDATE_COMPUTED_DATA) {
+          return false
+        }
+
+        const payload = (event as UpdateComputedDataEvent).payload
+        values[payload.id] = payload.after as number
+        acknowledgeTransactionReplayApplied()
+        if (
+          payload.id === 'second' &&
+          transact.isInUndo() &&
+          throwAfterMutation
+        ) {
+          throwAfterMutation = false
+          throw new Error('owner failed after mutation')
+        }
+        return true
+      }
+    })
+    transact.registerInverter('custom.multi', () => [
+      {
+        type: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: { id: 'first', key: 'value', before: 1, after: 0 }
+      },
+      {
+        type: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: { id: 'second', key: 'value', before: 1, after: 0 }
+      }
+    ])
+
+    transact.start()
+    transact.update({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: 'custom.multi',
+      payload: { id: 'custom-source' }
+    })
+    transact.end()
+
+    transact.start()
+    expect(() => transact.undo()).toThrow(TransactionRollbackError)
+    expect(values).toEqual({ first: 0, second: 0 })
+    transact.end()
+
+    expect(values).toEqual({ first: 1, second: 1 })
+
+    transact.start()
+    transact.undo()
+    transact.end()
+    expect(values).toEqual({ first: 0, second: 0 })
+  })
+
+  it('rejects a custom replay output without its own inverse before apply', () => {
+    let outputApplied = false
+    const transact = new DataTransact(undefined, {
+      onReplayEvent: (event) => {
+        if (String(event.type) === 'custom.output') {
+          outputApplied = true
+          return true
+        }
+        return false
+      }
+    })
+    transact.registerInverter('custom.source', () => ({
+      type: 'custom.output' as AllEvent['type'],
+      payload: { id: 'custom-output' }
+    }))
+
+    transact.start()
+    transact.update({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: 'custom.source',
+      payload: { id: 'custom-source' }
+    })
+    transact.end()
+
+    transact.start()
+    expect(() => transact.undo()).toThrow(TransactionRollbackError)
+    expect(outputApplied).toBe(false)
+    transact.end()
+  })
+
+  it('reports rollback-failed when a nested replay restoration plan cannot apply', () => {
+    const statuses: TransactionStatusPayload[] = []
+    const transact = new DataTransact(undefined, {
+      onStatus: (status) => statuses.push(status),
+      onReplayEvent: (_event, mode) => {
+        if (mode === 'undo') {
+          acknowledgeTransactionReplayApplied()
+          throw new Error('undo apply failed')
+        }
+        if (mode === 'rollback') {
+          throw new Error('restoration apply failed')
+        }
+        return false
+      }
+    })
+
+    transact.start()
+    transact.update(createUpdateEvent())
+    transact.end()
+
+    transact.start()
+    expect(() => transact.undo()).toThrow(TransactionRollbackError)
+    expect(() => transact.end()).toThrow(TransactionRollbackError)
+    expect(statuses[statuses.length - 1]).toMatchObject({
+      status: 'rollback-failed',
+      error: expect.any(TransactionRollbackError)
+    })
+  })
+
+  it('does not restore a non-idempotent custom replay that failed before apply', () => {
+    let value = 1
+    let failBeforeApply = true
+    const transact = new DataTransact(undefined, {
+      onReplayEvent: (event) => {
+        if (String(event.type) !== 'custom.delta') {
+          return false
+        }
+        const delta = (event as AllEvent & { payload: { delta: number } })
+          .payload.delta
+        if (delta < 0 && failBeforeApply) {
+          failBeforeApply = false
+          throw new Error('delta failed before apply')
+        }
+        value += delta
+        return true
+      }
+    })
+    transact.registerInverter('custom.delta', (event) => ({
+      ...event,
+      payload: {
+        delta: -(event as AllEvent & { payload: { delta: number } }).payload
+          .delta
+      }
+    }))
+
+    transact.start()
+    transact.update({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: 'custom.delta',
+      payload: { delta: 1 }
+    })
+    transact.end()
+
+    transact.start()
+    expect(() => transact.undo()).toThrow(TransactionRollbackError)
+    expect(value).toBe(1)
+    transact.end()
+
+    expect(value).toBe(1)
+  })
+
+  it('restores an applied custom replay that throws a primitive value', () => {
+    let value = 1
+    const primitiveFailure: unknown = 'custom delta failed after apply'
+    const transact = new DataTransact(undefined, {
+      onReplayEvent: (event, mode) => {
+        if (String(event.type) !== 'custom.delta') {
+          return false
+        }
+        const delta = (event as AllEvent & { payload: { delta: number } })
+          .payload.delta
+        value += delta
+        if (mode === 'undo') {
+          acknowledgeTransactionReplayApplied()
+          throw primitiveFailure
+        }
+        return true
+      }
+    })
+    transact.registerInverter('custom.delta', (event) => ({
+      ...event,
+      payload: {
+        delta: -(event as AllEvent & { payload: { delta: number } }).payload
+          .delta
+      }
+    }))
+
+    transact.start()
+    transact.update({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: 'custom.delta',
+      payload: { delta: 1 }
+    })
+    transact.end()
+
+    transact.start()
+    expect(() => transact.undo()).toThrow(TransactionRollbackError)
+    expect(value).toBe(0)
+    transact.end()
+
+    expect(value).toBe(1)
+  })
+
   it('keeps nested redo history available when the outer boundary rolls back', () => {
     const transact = new DataTransact()
     let value = 1
@@ -586,6 +1458,79 @@ describe('DataTransact user action completion', () => {
     transact.start()
     transact.redo()
     transact.end()
+    expect(value).toBe(1)
+
+    subscription.unsubscribe()
+  })
+
+  it('restores nested redo runtime on outer rollback without a replay journal', () => {
+    const transact = new DataTransact()
+    let value = 1
+    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => {
+        value = event.payload.after as number
+      }
+    )
+
+    transact.start()
+    transact.update(createUpdateEvent())
+    transact.end()
+    transact.start()
+    transact.undo()
+    transact.end()
+    expect(value).toBe(0)
+
+    transact.start()
+    transact.redo()
+    expect(value).toBe(1)
+    expect(
+      (transact as unknown as { journal: unknown[] }).journal
+    ).toHaveLength(0)
+    transact.end({ outcome: 'rollback' })
+
+    expect(value).toBe(0)
+    transact.start()
+    transact.redo()
+    transact.end()
+    expect(value).toBe(1)
+
+    subscription.unsubscribe()
+  })
+
+  it('does not restore a successful no-op nested redo on outer rollback', () => {
+    const transact = new DataTransact()
+    let value = 1
+    const subscription = subscribeToSynchronousEvent<UpdateComputedDataEvent>(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => {
+        const nextValue = event.payload.after as number
+        if (Object.is(value, nextValue)) {
+          return false
+        }
+        value = nextValue
+        return true
+      }
+    )
+
+    transact.start()
+    transact.update(createUpdateEvent())
+    transact.end()
+    transact.start()
+    transact.undo()
+    transact.end()
+    expect(value).toBe(0)
+
+    value = 1
+    transact.start()
+    transact.update(createUpdateEvent({ undoable: false, rollbackable: false }))
+    transact.end()
+
+    transact.start()
+    transact.redo()
+    expect(value).toBe(1)
+    transact.end({ outcome: 'rollback' })
+
     expect(value).toBe(1)
 
     subscription.unsubscribe()
@@ -662,6 +1607,46 @@ describe('DataTransact user action completion', () => {
     subscription.unsubscribe()
   })
 
+  it('continues rollback after a custom inverter returns an invalid event', () => {
+    const statuses: TransactionStatusPayload[] = []
+    const transact = new DataTransact(undefined, {
+      onStatus: (status) => statuses.push(status)
+    })
+    const observed: ObservedPayloadEvent[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (event.type === EventTypes.UPDATE_COMPUTED_DATA) {
+        observed.push(event as unknown as ObservedPayloadEvent)
+      }
+    })
+    observed.length = 0
+    transact.registerInverter(
+      'custom.invalid-output',
+      () => undefined as unknown as AllEvent
+    )
+
+    transact.start()
+    transact.update(createUpdateEvent())
+    transact.update({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: 'custom.invalid-output',
+      payload: { id: 'invalid-output' }
+    })
+
+    expect(() => transact.end({ outcome: 'rollback' })).toThrow(
+      TransactionRollbackError
+    )
+    expect(observed).toHaveLength(1)
+    expect(
+      (transact as unknown as { isTransacting: number }).isTransacting
+    ).toBe(0)
+    expect(statuses[statuses.length - 1]).toMatchObject({
+      status: 'rollback-failed',
+      error: expect.any(TransactionRollbackError)
+    })
+
+    subscription.unsubscribe()
+  })
+
   it('surfaces a synchronous state-owner apply failure as rollback-failed', () => {
     const statuses: TransactionStatusPayload[] = []
     const transact = new DataTransact(undefined, {
@@ -707,6 +1692,10 @@ describe('DataTransact user action completion', () => {
       ...event,
       type: 'custom.inverse' as AllEvent['type']
     }))
+    transact.registerInverter('custom.inverse', (event) => ({
+      ...event,
+      type: 'custom.change' as AllEvent['type']
+    }))
 
     transact.start()
     transact.update({
@@ -719,6 +1708,143 @@ describe('DataTransact user action completion', () => {
     expect(observed).toHaveLength(1)
 
     subscription.unsubscribe()
+  })
+
+  it('rejects an irreversible custom inverter output before active rollback apply', () => {
+    const statuses: TransactionStatusPayload[] = []
+    const transact = new DataTransact(undefined, {
+      onStatus: (status) => statuses.push(status)
+    })
+    const outputObserver = vi.fn()
+    const subscription = subscribeToEvents((event) => {
+      if (String(event.type) === 'custom.irreversible-output') {
+        outputObserver(event)
+      }
+    })
+    transact.registerInverter('custom.source', (event) => ({
+      ...event,
+      type: 'custom.irreversible-output' as AllEvent['type']
+    }))
+
+    transact.start()
+    transact.update({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: 'custom.source',
+      payload: { id: 'custom.source' }
+    })
+
+    expect(() => transact.end({ outcome: 'rollback' })).toThrow(
+      TransactionRollbackError
+    )
+    expect(outputObserver).not.toHaveBeenCalled()
+    expect(statuses[statuses.length - 1]).toMatchObject({
+      status: 'rollback-failed',
+      error: expect.any(TransactionRollbackError)
+    })
+
+    subscription.unsubscribe()
+  })
+
+  it('rejects an empty output inverter before active rollback apply', () => {
+    const statuses: TransactionStatusPayload[] = []
+    const outputApplied = vi.fn()
+    const transact = new DataTransact(undefined, {
+      onStatus: (status) => statuses.push(status),
+      onReplayEvent: (event) => {
+        if (String(event.type) === 'custom.output') {
+          outputApplied(event)
+          return true
+        }
+        return false
+      }
+    })
+    transact.registerInverter('custom.source', (event) => ({
+      ...event,
+      type: 'custom.output' as AllEvent['type']
+    }))
+    transact.registerInverter('custom.output', () => [])
+
+    transact.start()
+    transact.update({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: 'custom.source',
+      payload: { id: 'custom.source' }
+    })
+
+    expect(() => transact.end({ outcome: 'rollback' })).toThrow(
+      TransactionRollbackError
+    )
+    expect(outputApplied).not.toHaveBeenCalled()
+    expect(statuses[statuses.length - 1]).toMatchObject({
+      status: 'rollback-failed',
+      error: expect.any(TransactionRollbackError)
+    })
+  })
+
+  it('preserves symbol and nested undefined values in rollback journal clones', () => {
+    const originalToken = Symbol('original')
+    const before = { token: originalToken, optional: undefined }
+    const after = { token: 'updated', optional: 'present' }
+    let value: { token: symbol | string; optional: string | undefined } = after
+    const transact = new DataTransact(undefined, {
+      onReplayEvent: (event) => {
+        if (String(event.type) !== 'custom.clone') {
+          return false
+        }
+        value = (
+          event as AllEvent & {
+            payload: { after: typeof value }
+          }
+        ).payload.after
+        return true
+      }
+    })
+    transact.registerInverter('custom.clone', (event) => {
+      const payload = (
+        event as AllEvent & {
+          payload: { before: typeof value; after: typeof value }
+        }
+      ).payload
+      return {
+        ...event,
+        payload: { before: payload.after, after: payload.before }
+      }
+    })
+
+    transact.start()
+    transact.update({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: 'custom.clone',
+      payload: { before, after }
+    })
+    transact.end({ outcome: 'rollback' })
+
+    expect(value.token).toBe(originalToken)
+    expect(Object.prototype.hasOwnProperty.call(value, 'optional')).toBe(true)
+    expect(value.optional).toBeUndefined()
+  })
+
+  it('rejects an empty custom inverse instead of silently completing replay', () => {
+    const statuses: TransactionStatusPayload[] = []
+    const transact = new DataTransact(undefined, {
+      onStatus: (status) => statuses.push(status)
+    })
+    transact.registerInverter('custom.empty', () => [])
+
+    transact.start()
+    transact.update({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: 'custom.empty',
+      payload: { id: 'custom.empty' }
+    })
+
+    expect(() => transact.end({ outcome: 'rollback' })).toThrow(
+      TransactionRollbackError
+    )
+    expect(statuses[statuses.length - 1]).toMatchObject({
+      status: 'rollback-failed',
+      error: expect.any(TransactionRollbackError)
+    })
   })
 
   it('rejects a custom rollbackable mutation without an inverse contract', () => {
@@ -735,6 +1861,21 @@ describe('DataTransact user action completion', () => {
     ).toThrow(/custom\.change.*inverter/i)
   })
 
+  it('rejects an undoable custom mutation without an inverse contract', () => {
+    const transact = new DataTransact()
+
+    transact.start()
+
+    expect(() =>
+      transact.update({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: 'custom.undo-effect',
+        payload: { id: 'custom.undo-effect' },
+        options: { rollbackable: false }
+      })
+    ).toThrow(/custom\.undo-effect.*inverter/i)
+  })
+
   it('allows an explicitly non-rollbackable custom mutation', () => {
     const transact = new DataTransact()
 
@@ -745,7 +1886,7 @@ describe('DataTransact user action completion', () => {
         type: TransactionEventTypes.UPDATE_TRANSACTION,
         eventName: 'custom.effect',
         payload: { id: 'custom.effect' },
-        options: { rollbackable: false }
+        options: { rollbackable: false, undoable: false }
       })
     ).not.toThrow()
   })
@@ -891,6 +2032,18 @@ describe('DataTransact user action completion', () => {
       'sceneTree',
       expect.objectContaining({ id: 'test.change' })
     )
+  })
+
+  it('defers a non-undoable shared change unless immediate delivery is explicit', () => {
+    const pushToSharedChannel = vi.fn().mockReturnValue(true)
+    const transact = new DataTransact({ pushToSharedChannel })
+
+    transact.start()
+    transact.update(createUpdateEvent({ undoable: false, shared: 'sceneTree' }))
+
+    expect(pushToSharedChannel).not.toHaveBeenCalled()
+    transact.end()
+    expect(pushToSharedChannel).toHaveBeenCalledTimes(1)
   })
 
   it('projects an explicitly immediate undoable shared change before commit without publishing it twice', () => {

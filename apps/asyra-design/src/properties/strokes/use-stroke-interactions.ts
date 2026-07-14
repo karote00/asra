@@ -271,7 +271,10 @@ export const useStrokeInteractions = ({
     opacity: number
   }) => {
     if (colorPickerTransactionRef.current) {
-      writePickerStroke(next.color, next.opacity, { undoable: false })
+      writePickerStroke(next.color, next.opacity, {
+        undoable: false,
+        sharedDelivery: 'immediate'
+      })
       return
     }
 

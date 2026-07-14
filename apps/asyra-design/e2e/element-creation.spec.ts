@@ -85,6 +85,16 @@ test.describe('Element Creation', () => {
       const end = await getCanvasPosition(page, 0.3, 0.25)
 
       await page.keyboard.press(key)
+      await page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const scope = window as any
+        scope.__createPreviewDeliveries = []
+        scope.__disposeCreatePreviewObserver =
+          scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
+            'sceneTree',
+            (change: unknown) => scope.__createPreviewDeliveries.push(change)
+          )
+      })
       await page.mouse.move(start.x, start.y)
       await page.mouse.down()
 
@@ -116,6 +126,10 @@ test.describe('Element Creation', () => {
         await page.screenshot({
           path: testInfo.outputPath(`${label}-pointer-down.png`)
         })
+        await page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ;(window as any).__createPreviewDeliveries = []
+        })
 
         await page.mouse.move(end.x, end.y, { steps: 2 })
 
@@ -136,11 +150,28 @@ test.describe('Element Creation', () => {
         expect(await getElementCount(page)).toBe(initialCount + 1)
         await expect(createdRow).toBeVisible()
         expect(await hasSelectedElement(page)).toBe(true)
+        const previewDeliveries = await page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return (window as any).__createPreviewDeliveries ?? []
+        })
+        expect(previewDeliveries).toContainEqual(
+          expect.objectContaining({
+            action: 'updateElementComputedDataBatch',
+            options: expect.objectContaining({ sharedDelivery: 'immediate' })
+          })
+        )
         await page.screenshot({
           path: testInfo.outputPath(`${label}-hold-drag.png`)
         })
       } finally {
         await page.mouse.up()
+        await page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const scope = window as any
+          scope.__disposeCreatePreviewObserver?.()
+          delete scope.__disposeCreatePreviewObserver
+          delete scope.__createPreviewDeliveries
+        })
       }
     })
   }

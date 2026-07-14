@@ -1,14 +1,34 @@
-import type { SystemContextSnapshot } from '@asyra/utils'
+import type {
+  EndTransactionOptions,
+  SystemContextSnapshot,
+  TransactionFailure
+} from '@asyra/utils'
 
 /** Minimal package deps for micro-features - optional chaining used */
 interface MicroFeaturePackages {
-  factory?: { startTransaction?: () => void; endTransaction?: () => void }
+  factory?: {
+    startTransaction?: () => void
+    endTransaction?: (options?: EndTransactionOptions) => void
+  }
   selection?: {
     getElementSelectionIds?: () => string[]
     selectElements?: (ids: string[]) => void
   }
   systemContext?: { getSystemContextSnapshot?: () => SystemContextSnapshot }
 }
+
+const toTransactionFailure = (cause: unknown): TransactionFailure => ({
+  kind: 'explicit',
+  ...(cause instanceof Error && cause.message
+    ? { message: cause.message }
+    : {}),
+  cause
+})
+
+const isPromiseLike = (value: unknown): value is PromiseLike<unknown> =>
+  (typeof value === 'object' || typeof value === 'function') &&
+  value !== null &&
+  typeof (value as PromiseLike<unknown>).then === 'function'
 
 /**
  * Micro-feature utilities for common patterns
@@ -23,9 +43,31 @@ export const withTransaction = (packages: MicroFeaturePackages) => {
   return <T>(callback: () => T): T => {
     packages.factory?.startTransaction?.()
     try {
-      return callback()
-    } finally {
+      const result = callback()
+      if (isPromiseLike(result)) {
+        return Promise.resolve(result).then(
+          (value) => {
+            packages.factory?.endTransaction?.()
+            return value
+          },
+          (error: unknown) => {
+            packages.factory?.endTransaction?.({
+              outcome: 'rollback',
+              failure: toTransactionFailure(error)
+            })
+            throw error
+          }
+        ) as T
+      }
+
       packages.factory?.endTransaction?.()
+      return result
+    } catch (error) {
+      packages.factory?.endTransaction?.({
+        outcome: 'rollback',
+        failure: toTransactionFailure(error)
+      })
+      throw error
     }
   }
 }

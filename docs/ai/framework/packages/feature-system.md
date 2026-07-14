@@ -18,6 +18,11 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
 - Async feature handlers are allowed, but runtime must guard against stuck sessions.
 - One interaction queue serializes command, session start/update/end, and cancel
   operations without event coalescing.
+- Public `SessionManager` lifecycle entry points and one-shot commands share the
+  default transaction owner's interaction queue. Multiple `SessionManager`
+  instances may own separate registrations, but they participate in one active
+  session runtime: starting a registered session first cancels the current
+  active session, including one owned by another manager instance.
 
 ## Runtime Contracts
 
@@ -33,6 +38,10 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
 - `cancel` aborts active session before conflicting next action
 - `cancelPolicy` defaults to `rollback`; explicit alternatives are
   `commit-current` and `feature-defined`
+- the public `SessionManager.registerSession(...)` boundary preserves its legacy
+  five-argument `(name, feature, priority, exclusive, handler)` form with the
+  default rollback policy; the additive six-argument form accepts an explicit
+  policy before the handler
 - `feature-defined` requires `onCancel` and must return `rollback` or
   `commit-current`
 - existing session definitions without `onCancel` receive `onEnd` with
@@ -52,6 +61,9 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
   error is rethrown
 - one-shot executions use `runTransaction(..., { failureKind: 'handler-error' })`
   and stop lower-priority handlers after the first failure
+- the exported `withTransaction(...)` utility commits only after synchronous or
+  asynchronous success; throw or rejection requests rollback and rethrows the
+  original failure
 
 ## App-Level Rules
 

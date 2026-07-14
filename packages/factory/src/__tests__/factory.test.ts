@@ -189,7 +189,7 @@ describe('Factory', () => {
     dispose()
   })
 
-  it('notifies non-undoable shared channel observers during the active transaction', () => {
+  it('defers non-undoable shared channel observers without explicit immediate delivery', () => {
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
       factory.getYjsDataChannel(SharedDataChannelNames.SCENE_TREE)
@@ -216,11 +216,13 @@ describe('Factory', () => {
       }
     })
 
+    expect(handler).not.toHaveBeenCalled()
+
+    factory.endTransaction()
+
     expect(handler).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'non-undoable-test-event' })
     )
-
-    factory.endTransaction()
 
     dispose()
   })

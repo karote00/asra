@@ -31,14 +31,32 @@ infrastructure.
 - undoable changes recorded before the outer end form one undo commit
 - rollbackable recording is independent from ordinary undo eligibility
 - `undoable: false` remains rollbackable by default
-- `rollbackable: false` is an explicit non-reversible opt-out and appears in
-  transaction status counts
-- custom rollbackable events require `registerTransactionInverter(...)`
+- `rollbackable: false` opts out of failure rollback and appears in transaction
+  status counts, but an undoable event still requires an inverse contract
+- intentionally irreversible effects must set both `rollbackable: false` and
+  `undoable: false`
+- custom events eligible for rollback or undo require
+  `registerTransactionInverter(...)`
+- a custom inverter must produce at least one replay event; an empty result is a
+  rollback failure rather than a successful no-op
+- every custom inverter result must be a non-null event object with a string
+  event type; invalid `null`/`undefined`/primitive outputs are aggregated as the
+  current entry's rollback failure and do not stop later journal inverses
+- every event emitted by a custom inverter must itself have a built-in or
+  registered inverse contract; replay executes registered output inverters far
+  enough to reject an empty output before canonical apply
+- journal snapshots preserve the declared `DataTypes` payload contract,
+  including symbol values and nested `undefined`, without JSON coercion
+- canonical journal events and local shared-delivery payloads are deeply
+  detached snapshots captured at mutation time; later caller mutation cannot
+  rewrite transaction-end delivery or immediate rollback compensation
 - each journal entry is recorded before attempting an immediate shared
   projection, so a failed append cannot remove the canonical mutation from
   rollback coverage
 - scene-tree add/remove contributors record their actual parent id and child
-  index after placement or before removal, respectively
+  index after placement or before removal, respectively; their internal
+  initialization and hierarchy setter changes are not separate reversible
+  journal entries
 
 2. Undo/redo replay
 - undo replays committed changes in reverse order
@@ -51,8 +69,34 @@ infrastructure.
 - undo/redo replay nested inside an existing outer boundary defers its source
   history stack transition until that outer boundary commits; outer rollback
   restores runtime state and leaves the original undo/redo source available
+- when production state owners apply nested replay without recording a second
+  journal, outer rollback restores runtime by replaying the source in the
+  opposite direction
+- after a successful nested replay, outer rollback restores the complete source
+  in the opposite direction even when only part of that replay was journaled;
+  journal entries remain relevant for shared compensation, not coverage guesses
+- before applying each replay output, Factory validates that output's own
+  inverse contract and derives an output-level restoration plan
+- a plan is retained only after an acknowledged semantic apply or explicit
+  applied-then-failed acknowledgement; successful no-op and pre-apply failure
+  retain no plan, plans execute in reverse apply order, and restoration apply
+  failure is aggregated as `rollback-failed`
+- Setter-backed scene-tree and props owners acknowledge after a successful
+  semantic assignment but before change callbacks/listeners, so a post-write
+  failure retains its restoration plan while a pre-write failure does not
+- add/remove replay swaps its inverse metadata so the output is reversible;
+  custom inverters must return at least one output, and every output from a
+  custom multi-event inverter must likewise have a built-in or registered
+  inverse contract
+- `registerTransactionReplayHandler(...)` binds canonical replay to one Factory
+  instance; a handler may return `false` for a semantic no-op, and handled
+  replay is then published to ordinary observers without invoking module-global
+  synchronous state owners
 - scene-tree remove replay restores the deleted instance through its recorded
   parent id and child index, preserving graph ownership and order
+- a new action mutation after nested undo/redo is recorded, fails immediately,
+  and marks the outer boundary rollback-only; finalization reverses it before
+  restoring the nested replay source
 - failed undo/redo replay preserves the source history entry, resets replay
   status, and closes any boundary opened by that replay
 
@@ -60,7 +104,8 @@ infrastructure.
 - `registerTransactionValidator(name, validator)` registers one synchronous
   validator name and rejects duplicates
 - validators run in registration order before a requested non-empty commit
-- invalid, thrown, or asynchronous validators cause rollback
+- invalid, thrown, or asynchronous validators cause rollback; rejected async
+  results are observed so they do not leak an unhandled Promise rejection
 - rollback replays journal inverses in reverse order without adding history or
   emitting user-action completion
 - inverse failure does not stop remaining inverses; final status is
@@ -75,8 +120,16 @@ infrastructure.
   registered channel
 - `sharedDelivery: 'transaction-end'` buffers delivery until outer commit
 - `sharedDelivery: 'immediate'` exposes the change during the active transaction
+- delivery timing is independent from `undoable`; non-undoable shared changes
+  also default to transaction-end unless immediate delivery is explicit
 - rollback discards pending transaction-end changes
 - rollback compensates each immediate local projection exactly once
+- if a registered transaction-end channel rejects an append before applying it,
+  Factory restores the runtime transaction, reverts its provisional history
+  transition, leaves no final undo/history or user-action completion effect,
+  and propagates the delivery error
+- if an earlier transaction-end append from the same flush was already applied,
+  rollback compensates that delivered prefix exactly once in reverse order
 - registered shared observers are isolated from one another; if a raw Yjs
   observer throws after the append is already present, the change remains
   classified as delivered so rollback can compensate it exactly once
@@ -125,6 +178,10 @@ infrastructure.
 - Undo replays inverse changes in reverse order.
 - Redo restores the committed forward sequence.
 - Transaction-end shared changes do not flush before the outer commit.
+- The eligible history transition is visible to local shared observers; it is
+  provisional until transaction-end shared settlement succeeds.
+- A failed registered transaction-end flush restores runtime state and leaves
+  action/undo/redo source history unchanged.
 - Rollback restores rollbackable entries without polluting undo/redo history.
 - Immediate local shared delivery is compensated exactly once on rollback.
 - Validators execute synchronously and in registration order.

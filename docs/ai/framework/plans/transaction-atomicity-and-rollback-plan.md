@@ -58,6 +58,10 @@ Implemented guarantee:
   all recorded rollbackable mutations to their transaction-start meaning
 - rollback must not create normal undo/redo history
 - transaction-end shared changes must be discarded on rollback
+- a registered transaction-end shared append failure before application restores
+  canonical runtime state, compensates any earlier append from the same flush,
+  restores the provisionally finalized history transition, and leaves no final
+  history or completion effect
 
 ### Consistency
 
@@ -67,7 +71,13 @@ Implemented guarantee:
 - an optional cross-store commit validation phase verifies relationships such as
   scene parent/child consistency, property ownership, topology references, and
   selection references
+- selection APIs apply their state-owner canonical mutation before commit
+  validation; transaction-end shared delivery remains a projection handoff and
+  is not the delayed owner of canonical selection state
 - failed validation triggers rollback before ordinary commit effects
+- validators are synchronous; a returned thenable is rejected as validation
+  failure, while any later rejection from that thenable is observed rather than
+  leaking as an unhandled process-level rejection
 
 ### Isolation
 
@@ -75,6 +85,8 @@ Implemented guarantee:
 
 - Asyra does not promise database serializable isolation
 - active session preview may be visible to Render/UI
+- an active session preview that requires pre-commit projection explicitly opts
+  into `sharedDelivery: 'immediate'`
 - feature priority, exclusivity, and the single session runtime remain the
   interaction concurrency boundary
 - ordinary undo history, transaction-end shared delivery, and commit-only
@@ -85,8 +97,9 @@ Implemented guarantee:
 Implemented guarantee:
 
 - runtime `committed` and persistence `persisted` are distinct states
-- core captures the provider and CoreRawData snapshot when commit is reported;
-  the serial queue performs provider I/O against that captured snapshot
+- core captures the provider and a deeply detached CoreRawData snapshot when
+  commit is reported; the serial queue performs provider I/O against that
+  captured snapshot without retaining live mutable state references
 - only the configured persistence provider can acknowledge durable storage
 - a persistence failure does not retroactively redefine a successful runtime
   commit as an uncommitted transaction
@@ -127,13 +140,25 @@ interface RunTransactionOptions {
 - `runTransaction(callback, options?)` commits on synchronous or asynchronous
   success, requests rollback on throw or rejection, and rethrows the original
   failure when rollback succeeds. `failureKind` defaults to `explicit`.
+- Feature System's public `withTransaction(...)` wrapper follows the same
+  synchronous and asynchronous outcome contract when using injected Factory
+  boundary methods.
 - any nested rollback request marks the complete outer transaction
   rollback-only; unmatched end/rollback calls at depth zero are no-ops.
 - `rollbackable` defaults to `true` independently from `undoable`.
 - transaction status reports runtime commit/rollback separately from
   persistence acknowledgement.
-- custom rollbackable mutations require a registered inverter; intentionally
-  irreversible effects must opt out with `rollbackable: false`.
+- custom mutations eligible for rollback or ordinary undo history require a
+  registered inverter, and every event
+  emitted by that inverter must itself have a built-in or registered inverse
+  contract; both source and output inverters must emit at least one reversible
+  event before canonical apply, and intentionally irreversible effects must opt out with
+  both `rollbackable: false` and `undoable: false`.
+- transaction journal snapshots preserve declared `DataTypes`, including symbol
+  and nested `undefined` values, without JSON coercion.
+- canonical journal events and local shared-delivery payloads are deeply
+  detached at mutation time; later caller mutation cannot rewrite a pending
+  transaction-end flush or immediate rollback compensation.
 
 ## Required Terminology
 
@@ -171,6 +196,10 @@ Implemented policies:
 - `rollback`
 - `commit-current`
 - `feature-defined`
+
+The additive `SessionManager.registerSession(...)` API keeps the legacy
+handler-only fifth argument and applies the default `rollback` policy. The
+six-argument form accepts an explicit policy before the handler.
 
 ### Commit and Persist
 
@@ -236,9 +265,18 @@ Defaults:
 
 - `undoable: true`
 - `rollbackable: true`
+- `sharedDelivery: 'transaction-end'`; `undoable: false` does not imply
+  immediate delivery, and interactive projection must opt in explicitly
+- state-owner batching preserves the effective rollback, channel, and delivery
+  options; only consecutive compatible transient changes are merged, and a
+  pending batch is flushed before an ordinary or incompatible change so the
+  journal preserves canonical mutation order
 
 The active transaction journal must retain all rollbackable changes. Commit may
 filter the same journal to create normal undo history from undoable changes.
+Therefore `rollbackable: false` alone does not permit an irreversible custom
+event to enter undo history; an intentionally irreversible effect must also set
+`undoable: false`.
 Scene-tree add/remove journal entries capture their actual parent id and child
 index at the owning state boundary so multi-pass replay remains reversible.
 The journal entry exists before any immediate shared delivery attempt; a
@@ -342,8 +380,51 @@ completed with the Yjs network collaboration plan.
   transaction state closes, and the rollback error reaches the caller
 - undo/redo: use the shared replay primitive with history effects distinct from
   active-transaction rollback
+- nested undo/redo followed by outer rollback replays the source in the opposite
+  direction even when production state owners create no replay journal or a
+  mixed replay journal; the complete runtime is restored and the original
+  source history remains available
+- a new action mutation after nested undo/redo is journaled, fails immediately,
+  and marks the outer boundary rollback-only; rollback reverses that action
+  journal before restoring the nested replay source
+- before nested undo/redo applies each replay output, it validates that output's
+  own inverse contract and derives an output-level restoration plan
+- a plan is retained after a confirmed semantic apply or when a state owner
+  explicitly acknowledges that it mutated before throwing; a successful no-op
+  or pre-apply failure retains no plan, so canonical state is not over-restored
+- Setter-backed canonical owners acknowledge after the first successful
+  semantic assignment and before change callbacks/listeners, so failures from
+  post-write observers retain the plan without misclassifying pre-write errors
+- output-level restoration covers add/remove by swapping inverse metadata and
+  custom multi-event inverters by requiring at least one emitted output and by
+  requiring every emitted output to be a non-null typed event whose inverter
+  produces at least one reversible event before the primary output applies;
+  invalid output is aggregated per journal entry, remaining inverses still run,
+  plans run in reverse apply order, and restoration failure is aggregated as
+  `rollback-failed`
+- scene-tree replay routes Element-owned metadata/flags to `Element.set` and
+  computed-only keys to the Computed/property owner path before synchronous
+  semantic apply acknowledgement
+- add/remove graph operations collapse their internal initialization and
+  parentId/children/computed setter changes before journal publication; the
+  explicit add/remove event with parent/index metadata is the sole reversible
+  graph owner, so rollback and undo never apply hierarchy membership twice
+- selection inverse replay is routed through the owning Factory's instance-local
+  handler to the injected SelectionManager; preset installation is not required
+  for canonical restoration and another runtime instance is not mutated
+- registration-driven selection channels receive the same instance-local replay
+  owner and an explicit selection inverter for their actual `eventName` before
+  the first rollbackable mutation; this is not limited to the three preset
+  selection event names
+- after the instance-local canonical handler succeeds, replay remains visible to
+  ordinary event observers without re-invoking global synchronous state-owner
+  subscribers
 - persistence failure: reports failure without redefining or reversing the
   successful runtime commit
+- transaction-end shared append failure before application: restores runtime
+  state, compensates earlier appends from the same flush, preserves undo/redo
+  source history after reverting its provisional transition, and propagates the
+  delivery failure
 
 ## Test Plan
 
@@ -351,13 +432,20 @@ Atomicity:
 
 - failure after the first of multiple mutations restores all rollbackable state
 - rollback replays inverse changes in reverse order
+- an invalid custom inverter output reports rollback-failed but does not prevent
+  a later valid inverse from restoring its state
+- visible, lock, and name replay restore Element-owned data rather than being
+  treated as computed-data no-ops
 - rollback creates no undo or redo entry
 - rollback emits no normal user-action-completed event
 - nested transaction failure closes the outer transaction deterministically
 - consumer-owned replay boundaries remain independent from an active default
   owner boundary
 - nested undo/redo followed by outer rollback preserves the original history
-  source for a later replay
+  source for a later replay and restores runtime when the nested replay journal
+  is empty or covers only part of the source
+- nested undo/redo that is already reflected in canonical state is a successful
+  no-op; outer rollback preserves that pre-boundary state and history source
 - delete followed by validation failure restores the same scene-tree element,
   original parent/index, property component ids/data, and selection state
 
@@ -365,7 +453,9 @@ Recording semantics:
 
 - `undoable: false`, `rollbackable: true` restores on failure but is absent from
   normal undo history
-- `rollbackable: false` is explicit and limited to documented commit-safe effects
+- `rollbackable: false`, `undoable: false` is the explicit pair for documented
+  intentionally irreversible commit-safe effects; rollback opt-out alone still
+  requires reversibility when ordinary undo remains enabled
 - mixed rollbackable/undoable changes produce the expected history entry
 
 Cancel/error:
@@ -374,20 +464,41 @@ Cancel/error:
 - handler exception and timeout cannot silently commit partial mutation
 - a cooperative async handler cannot write after its timeout-aborted signal
 - feature-defined commit-current remains explicit
+- legacy five-argument session registration defaults to rollback
+- public transaction wrappers rollback and rethrow both synchronous throws and
+  asynchronous rejections
 
 Shared behavior:
 
 - transaction-end pending changes are discarded on rollback
+- non-undoable shared changes remain pending until transaction end unless they
+  explicitly request immediate delivery
+- create, move, vector-point, gradient-handle, and color-picker product tests
+  observe their active preview through an explicit immediate shared delivery
+  without splitting the outer transaction or its single undo commit
 - immediate delivery emits deterministic compensation when enabled
+- pending and immediate shared payloads remain equal to their mutation-time
+  snapshot even when the caller later mutates its original payload
 - observer failure after an applied Yjs append still produces exactly one
   rollback compensation and does not block later registered observers
+- transaction-end shared append failure before application restores canonical
+  state, leaves no final history/completion effect, and compensates earlier
+  appends from the same flush
 - rollback replay does not echo as a new ordinary local action
 
 Consistency/durability:
 
 - cross-store validation failure rolls back
+- resolved or rejected asynchronous validator results are rejected without an
+  unhandled Promise rejection
+- cross-store validators observe the transaction's final canonical selection,
+  including selection changes whose shared projection is still pending
+- consumer-owned Factory/Selection pairs rollback and replay selection without
+  preset wiring or mutation of the default SelectionManager
 - back-to-back commits persist their commit-time snapshots rather than later
   state or an active preview
+- queued snapshots remain stable when later writes mutate nested arrays or
+  objects that were present in an earlier commit
 - runtime commit and persistence failure are reported as different states
 
 ## Success Criteria

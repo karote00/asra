@@ -1,8 +1,13 @@
-import type { AllEvent } from '@asyra/reactive-events'
+import type { AllEvent, TransactionReplayMode } from '@asyra/reactive-events'
 
 export type TransactionInverter = (
   event: AllEvent
 ) => AllEvent | readonly AllEvent[]
+
+export type TransactionReplayHandler = (
+  event: AllEvent,
+  mode: TransactionReplayMode
+) => boolean | undefined
 
 export interface TransactionValidationContext {
   changeCount: number

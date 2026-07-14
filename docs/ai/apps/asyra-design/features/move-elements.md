@@ -28,7 +28,9 @@
 
 - ignores micro movement below `FEATURE_MOVEMENT_THRESHOLD.moveElement`
 - computes workspace delta from drag start to current pointer
-- applies per-element `x/y` position updates for selected elements with `undoable: false`
+- applies per-element `x/y` position updates for selected elements with
+  `undoable: false` and explicit `sharedDelivery: 'immediate'` so the active
+  preview reaches projection observers without closing the outer transaction
 
 3. End
 

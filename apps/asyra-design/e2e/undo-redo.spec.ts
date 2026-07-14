@@ -9,6 +9,7 @@ import {
   dragOnCanvas,
   dragSelectedElementBy,
   getSelectedElementRect,
+  getSelectedElementClientCenter,
   undo,
   redo
 } from './test-utils'
@@ -205,21 +206,53 @@ test.describe('Undo/Redo Actions', () => {
       const core = (window as any).__Core__
       return core?.deps?.factory?.transact?.undoStack?.length ?? 0
     })
-    const startX = before.x + before.width / 2
-    const startY = before.y + before.height / 2
+    const start = await getSelectedElementClientCenter(page)
+    expect(start).not.toBeNull()
+    if (!start) {
+      return
+    }
 
-    await page.mouse.move(startX, startY)
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__movePreviewDeliveries = []
+      scope.__disposeMovePreviewObserver =
+        scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
+          'sceneTree',
+          (change: unknown) => scope.__movePreviewDeliveries.push(change)
+        )
+    })
+    await page.mouse.move(start.x, start.y)
     await page.mouse.down()
-    await page.mouse.move(startX + 120, startY + 70, { steps: 10 })
+    await page.mouse.move(start.x + 120, start.y + 70, { steps: 10 })
     await expect
       .poll(async () => {
         const current = await getSelectedElementRect(page)
-        return current ? Math.round(current.x) : null
+        return current
+          ? current.x > before.x + 10 && current.y > before.y + 10
+          : false
       })
-      .not.toBe(Math.round(before.x))
+      .toBe(true)
+    const previewDeliveries = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (window as any).__movePreviewDeliveries ?? []
+    })
+    expect(previewDeliveries).toContainEqual(
+      expect.objectContaining({
+        action: 'updateElementComputedDataBatch',
+        options: expect.objectContaining({ sharedDelivery: 'immediate' })
+      })
+    )
 
     await page.keyboard.press('r')
     await page.mouse.up()
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__disposeMovePreviewObserver?.()
+      delete scope.__disposeMovePreviewObserver
+      delete scope.__movePreviewDeliveries
+    })
 
     await expect
       .poll(async () => {
@@ -862,12 +895,38 @@ test.describe('Undo/Redo Actions', () => {
       }
     })
 
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__vectorPointPreviewDeliveries = []
+      scope.__disposeVectorPointPreviewObserver =
+        scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
+          'sceneTree',
+          (change: unknown) => scope.__vectorPointPreviewDeliveries.push(change)
+        )
+    })
     await page.mouse.move(before.client.x, before.client.y)
     await page.mouse.down()
     await page.mouse.move(before.client.x + 52, before.client.y + 24, {
       steps: 12
     })
+    const previewDeliveries = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (window as any).__vectorPointPreviewDeliveries ?? []
+    })
+    expect(previewDeliveries).toContainEqual(
+      expect.objectContaining({
+        options: expect.objectContaining({ sharedDelivery: 'immediate' })
+      })
+    )
     await page.mouse.up()
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__disposeVectorPointPreviewObserver?.()
+      delete scope.__disposeVectorPointPreviewObserver
+      delete scope.__vectorPointPreviewDeliveries
+    })
     await page.waitForTimeout(80)
 
     const afterMouseup = await page.evaluate(({ vectorId, pointId }) => {

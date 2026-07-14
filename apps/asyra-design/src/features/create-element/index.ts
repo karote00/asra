@@ -76,7 +76,7 @@ const api: CreateElementAPI = {
         width,
         height
       },
-      { undoable: false }
+      { undoable: false, sharedDelivery: 'immediate' }
     )
   },
   resetElementSize: (elementId: string) => {

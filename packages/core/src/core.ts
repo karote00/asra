@@ -79,6 +79,14 @@ const EMPTY_SCENE_TREE_DATA: SceneTreeRawData = {
   elements: {}
 }
 
+const clonePersistenceSnapshot = (data: CoreRawData): CoreRawData => {
+  if (typeof globalThis.structuredClone === 'function') {
+    return globalThis.structuredClone(data)
+  }
+
+  return JSON.parse(JSON.stringify(data)) as CoreRawData
+}
+
 class Core implements CoreAPIs {
   version: string = DEFAULT_VERSION
 
@@ -142,7 +150,8 @@ class Core implements CoreAPIs {
       deps.sceneTree,
       deps.render,
       deps.selection,
-      deps.props
+      deps.props,
+      deps.factory
     )
 
     Object.assign(this, apis as CoreAPIs)
@@ -331,12 +340,14 @@ class Core implements CoreAPIs {
       data.systemContext = systemContextData
     }
 
+    data = clonePersistenceSnapshot(data)
+
     // Run before-save hooks (encryption, compression, metadata)
     for (const hook of this.saveHooks) {
       data = hook(data)
     }
 
-    return data
+    return clonePersistenceSnapshot(data)
   }
 
   private async loadFromPersistence(): Promise<void> {

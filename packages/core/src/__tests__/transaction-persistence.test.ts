@@ -1,8 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { Factory } from '@asyra/factory'
+import { Factory, TransactionRollbackError } from '@asyra/factory'
 import { EventTypes, TransactionEventTypes } from '@asyra/reactive-events'
 import type { IPersistenceProvider } from '@asyra/persistence'
-import type { SceneTreeRawData, TransactionStatusPayload } from '@asyra/utils'
+import type {
+  GroupRawData,
+  SceneTreeRawData,
+  TransactionStatusPayload
+} from '@asyra/utils'
 import { Core } from '../core'
 
 const createHarness = () => {
@@ -95,6 +99,18 @@ describe('Core transaction persistence acknowledgement', () => {
       payload: { id: 'rollback', before: 0, after: 1 }
     })
     factory.endTransaction({ outcome: 'rollback' })
+    factory.registerTransactionInverter('custom.rollback-failed', () => {
+      throw new Error('inverse failed')
+    })
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: 'custom.rollback-failed',
+      payload: { id: 'rollback-failed', before: 0, after: 1 }
+    })
+    expect(() => factory.endTransaction({ outcome: 'rollback' })).toThrow(
+      TransactionRollbackError
+    )
 
     await Promise.resolve()
     await Promise.resolve()
@@ -181,6 +197,35 @@ describe('Core transaction persistence acknowledgement', () => {
         ([data]) => (data.sceneTree as { workspace: string }).workspace
       )
     ).toEqual(['first', 'second'])
+  })
+
+  it('deeply detaches a queued snapshot from later nested runtime mutations', async () => {
+    const { core, commit, provider, sceneTree } = createHarness()
+    const children = ['child-before-commit']
+    const save = vi.fn<IPersistenceProvider['save']>(async () => undefined)
+    sceneTree.save.mockImplementation(() => ({
+      workspace: 'workspace',
+      workspaceList: ['workspace'],
+      elements: {
+        workspace: {
+          id: 'workspace',
+          name: 'Workspace',
+          type: 'workspace',
+          visible: true,
+          lock: false,
+          children
+        }
+      }
+    }))
+    core.setPersistence(provider(save))
+
+    commit('nested-snapshot')
+    children.push('child-after-commit')
+
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+    const snapshot = save.mock.calls[0][0]
+    const workspace = snapshot.sceneTree.elements.workspace as GroupRawData
+    expect(workspace.children).toEqual(['child-before-commit'])
   })
 
   it('keeps custom Core persistence bound to its injected Factory', async () => {

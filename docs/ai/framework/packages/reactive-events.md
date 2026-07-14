@@ -55,6 +55,17 @@ Provide typed cross-package event communication.
   exception reaches Factory synchronously and can become `rollback-failed`.
   Ordinary RxJS subscribers remain observation/diagnostic consumers and are not
   canonical mutation acknowledgements.
+- A synchronous owner is acknowledged as applied when it returns `void`/`true`;
+  it returns `false` when the requested write is a semantic no-op. If it mutates
+  canonical state and then must throw, it calls
+  `acknowledgeTransactionReplayApplied()` before throwing; a throw before that
+  acknowledgement is treated as pre-apply failure and receives no restoration
+  plan.
+- Replay failure acknowledgement is scoped by `runInTransactionReplayMode(...)`;
+  `isTransactionReplayApplied()` exposes the current replay context to the
+  Factory replay engine, while
+  `wasTransactionReplayApplied(error)` lets Factory distinguish pre-apply from
+  applied-then-failed without replacing the original thrown error.
 - `runWithTransactionOwner(...)` temporarily scopes replay boundary calls to a
   consumer-owned Factory. It does not replace the registered default owner or
   share the default owner's active depth/rollback latch.

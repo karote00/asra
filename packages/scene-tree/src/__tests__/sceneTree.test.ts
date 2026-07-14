@@ -22,6 +22,7 @@ import {
   SharedDataChannelNames,
   Unit,
   resetIdCounter,
+  type ComputedAttrs,
   type ElementRawData
 } from '@asyra/utils'
 import sceneTreeSingleton, { SceneTree } from '../sceneTree'
@@ -35,7 +36,9 @@ import {
   publishEvent,
   runInTransactionReplayMode,
   subscribeToEvents,
+  wasTransactionReplayApplied,
   type AddElementEvent,
+  type UpdateComputedDataEvent,
   type UpdateTransactionEvent
 } from '@asyra/reactive-events'
 
@@ -536,6 +539,41 @@ describe('SceneTree', () => {
     subscription.unsubscribe()
   })
 
+  it('records one structural scene-tree event for each add and remove', () => {
+    sceneTreeSingleton.init()
+    const events: UpdateTransactionEvent[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (event.type === EventTypes.UPDATE_TRANSACTION) {
+        events.push(event as UpdateTransactionEvent)
+      }
+    })
+    const getSceneActions = () =>
+      events
+        .map((event) => (event.payload as SceneTreeChange).action)
+        .filter((action) =>
+          Object.values(SCENE_TREE_ACTIONS).includes(
+            action as SCENE_TREE_ACTIONS
+          )
+        )
+
+    events.length = 0
+    sceneTreeSingleton.addNewElement({
+      id: 'single-structural-owner',
+      type: 'rect',
+      x: 0,
+      y: 0
+    })
+    expect(getSceneActions()).toEqual([SCENE_TREE_ACTIONS.ADD_ELEMENT])
+
+    events.length = 0
+    expect(
+      sceneTreeSingleton.removeElement({ id: 'single-structural-owner' })
+    ).toBe(true)
+    expect(getSceneActions()).toEqual([SCENE_TREE_ACTIONS.REMOVE_ELEMENT])
+
+    subscription.unsubscribe()
+  })
+
   // Test delete map functionality
   it('should add an element to the deleted map', () => {
     const element = {
@@ -593,6 +631,272 @@ describe('SceneTree', () => {
       undefined,
       -1
     )
+  })
+
+  it('acknowledges replayed add after scene mutation but before commit failure', () => {
+    sceneTreeSingleton.init()
+    sceneTreeSingleton.addNewElement({
+      id: 'replay-add-failure',
+      type: 'rect',
+      x: 0,
+      y: 0
+    })
+    const removedData = sceneTreeSingleton
+      .getElementById('replay-add-failure')
+      ?.save()
+    expect(removedData).toBeDefined()
+    sceneTreeSingleton.removeElement({ id: 'replay-add-failure' })
+
+    const replayFailure = new Error('props commit failed after scene add')
+    const originalCommitChanges = propsManager.commitChanges
+    propsManager.commitChanges = vi.fn(() => {
+      throw replayFailure
+    })
+
+    let capturedFailure: unknown
+    try {
+      runInTransactionReplayMode('undo', () =>
+        publishEvent({
+          type: EventTypes.ADD_ELEMENT,
+          payload: {
+            data: removedData,
+            parentId: sceneTreeSingleton.workspace,
+            index: 0
+          }
+        } as AddElementEvent)
+      )
+    } catch (failure) {
+      capturedFailure = failure
+    } finally {
+      propsManager.commitChanges = originalCommitChanges
+    }
+
+    expect(capturedFailure).toBe(replayFailure)
+    expect(wasTransactionReplayApplied(capturedFailure)).toBe(true)
+    expect(
+      sceneTreeSingleton.getElementById('replay-add-failure')
+    ).toBeDefined()
+  })
+
+  it('acknowledges replayed remove after scene mutation but before commit failure', () => {
+    sceneTreeSingleton.init()
+    sceneTreeSingleton.addNewElement({
+      id: 'replay-remove-failure',
+      type: 'rect',
+      x: 0,
+      y: 0
+    })
+    const removableElement = sceneTreeSingleton.getElementById(
+      'replay-remove-failure'
+    )
+    expect(removableElement).toBeDefined()
+    if (!removableElement) {
+      throw new Error('Expected replay-remove-failure before removal')
+    }
+    removableElement.cleanup = vi.fn()
+
+    const replayFailure = new Error('props commit failed after scene remove')
+    const originalCommitChanges = propsManager.commitChanges
+    propsManager.commitChanges = vi.fn(() => {
+      throw replayFailure
+    })
+
+    let capturedFailure: unknown
+    try {
+      runInTransactionReplayMode('undo', () =>
+        publishEvent({
+          type: EventTypes.REMOVE_ELEMENT,
+          payload: { data: { id: 'replay-remove-failure' } }
+        } as unknown as AddElementEvent)
+      )
+    } catch (failure) {
+      capturedFailure = failure
+    } finally {
+      propsManager.commitChanges = originalCommitChanges
+    }
+
+    expect(capturedFailure).toBe(replayFailure)
+    expect(wasTransactionReplayApplied(capturedFailure)).toBe(true)
+    expect(
+      sceneTreeSingleton.getElementById('replay-remove-failure')
+    ).toBeUndefined()
+  })
+
+  it('acknowledges replayed computed data after the write but before a listener failure', () => {
+    sceneTreeSingleton.init()
+    sceneTreeSingleton.addNewElement({
+      id: 'computed-post-write-failure',
+      type: 'rect',
+      x: 0,
+      y: 0
+    })
+    const element = sceneTreeSingleton.getElementById(
+      'computed-post-write-failure'
+    )
+    expect(element).toBeDefined()
+    if (!element) {
+      throw new Error('Expected computed-post-write-failure element')
+    }
+    ;(element.computed as unknown as { data: Partial<ComputedAttrs> }).data.x =
+      0
+    const replayFailure = new Error('computed listener failed after write')
+    const unsubscribe = element.computed.on(() => {
+      throw replayFailure
+    })
+
+    let capturedFailure: unknown
+    try {
+      runInTransactionReplayMode('undo', () =>
+        publishEvent({
+          type: EventTypes.UPDATE_COMPUTED_DATA,
+          payload: {
+            id: 'computed-post-write-failure',
+            key: 'x',
+            before: 0,
+            after: 10
+          }
+        } as UpdateComputedDataEvent)
+      )
+    } catch (failure) {
+      capturedFailure = failure
+    } finally {
+      unsubscribe()
+    }
+
+    expect(capturedFailure).toBe(replayFailure)
+    expect(element.computed.get('x')).toBe(10)
+    expect(wasTransactionReplayApplied(capturedFailure)).toBe(true)
+  })
+
+  it.each([
+    ['visible', true, false],
+    ['lock', false, true],
+    ['name', 'Replay owner before', 'Replay owner after']
+  ] as const)(
+    'routes replay of element-owned %s through Element data',
+    (key, before, after) => {
+      sceneTreeSingleton.init()
+      sceneTreeSingleton.addNewElement({
+        id: `element-owner-${key}`,
+        type: 'rect',
+        name: key === 'name' ? before : undefined,
+        visible: key === 'visible' ? before : undefined,
+        lock: key === 'lock' ? before : undefined,
+        x: 0,
+        y: 0
+      })
+      const element = sceneTreeSingleton.getElementById(`element-owner-${key}`)
+      expect(element).toBeDefined()
+      if (!element) {
+        throw new Error(`Expected element-owner-${key}`)
+      }
+
+      runInTransactionReplayMode('undo', () =>
+        publishEvent({
+          type: EventTypes.UPDATE_COMPUTED_DATA,
+          payload: {
+            id: `element-owner-${key}`,
+            key,
+            before,
+            after
+          }
+        } as UpdateComputedDataEvent)
+      )
+
+      expect(element.get(key)).toBe(after)
+    }
+  )
+
+  it('does not acknowledge a replayed computed data failure before the write', () => {
+    sceneTreeSingleton.init()
+    sceneTreeSingleton.addNewElement({
+      id: 'computed-pre-write-failure',
+      type: 'rect',
+      x: 0,
+      y: 0
+    })
+    const element = sceneTreeSingleton.getElementById(
+      'computed-pre-write-failure'
+    )
+    expect(element).toBeDefined()
+    if (!element) {
+      throw new Error('Expected computed-pre-write-failure element')
+    }
+    ;(element.computed as unknown as { data: Partial<ComputedAttrs> }).data.x =
+      0
+    const replayFailure = new Error('computed failed before write')
+    const originalUpdateComputedData = element.updateComputedData
+    element.updateComputedData = vi.fn(() => {
+      throw replayFailure
+    })
+
+    let capturedFailure: unknown
+    try {
+      runInTransactionReplayMode('undo', () =>
+        publishEvent({
+          type: EventTypes.UPDATE_COMPUTED_DATA,
+          payload: {
+            id: 'computed-pre-write-failure',
+            key: 'x',
+            before: 0,
+            after: 10
+          }
+        } as UpdateComputedDataEvent)
+      )
+    } catch (failure) {
+      capturedFailure = failure
+    } finally {
+      element.updateComputedData = originalUpdateComputedData
+    }
+
+    expect(capturedFailure).toBe(replayFailure)
+    expect(element.computed.get('x')).toBe(0)
+    expect(wasTransactionReplayApplied(capturedFailure)).toBe(false)
+  })
+
+  it('does not acknowledge a no-op computed replay before a cleanup failure', () => {
+    sceneTreeSingleton.init()
+    sceneTreeSingleton.addNewElement({
+      id: 'computed-no-op-failure',
+      type: 'rect',
+      x: 10,
+      y: 0
+    })
+    const element = sceneTreeSingleton.getElementById('computed-no-op-failure')
+    expect(element).toBeDefined()
+    if (!element) {
+      throw new Error('Expected computed-no-op-failure element')
+    }
+    ;(element.computed as unknown as { data: Partial<ComputedAttrs> }).data.x =
+      10
+    const replayFailure = new Error('cleanup failed after computed no-op')
+    const originalCommitChanges = propsManager.commitChanges
+    propsManager.commitChanges = vi.fn(() => {
+      throw replayFailure
+    })
+
+    let capturedFailure: unknown
+    try {
+      runInTransactionReplayMode('undo', () =>
+        publishEvent({
+          type: EventTypes.UPDATE_COMPUTED_DATA,
+          payload: {
+            id: 'computed-no-op-failure',
+            key: 'x',
+            before: 0,
+            after: 10
+          }
+        } as UpdateComputedDataEvent)
+      )
+    } catch (failure) {
+      capturedFailure = failure
+    } finally {
+      propsManager.commitChanges = originalCommitChanges
+    }
+
+    expect(capturedFailure).toBe(replayFailure)
+    expect(element.computed.get('x')).toBe(10)
+    expect(wasTransactionReplayApplied(capturedFailure)).toBe(false)
   })
 
   // Test updateComputedData

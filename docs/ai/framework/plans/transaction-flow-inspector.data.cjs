@@ -90,11 +90,15 @@
       outputs: ['artifact:active-transaction-journal'],
       conditions: [
         'Rollbackable recording is independent from normal undo history eligibility.',
-        'Every custom rollbackable mutation has a registered inverse contract.',
-        'Reversible scene-tree add and remove journal entries record the actual parent id and child index required to restore graph ownership and order.'
+        'Canonical journal events and local shared-delivery payloads are deeply detached snapshots captured at mutation time; later caller-owned mutation cannot rewrite a pending flush or immediate rollback compensation.',
+        'Every custom mutation eligible for rollback or ordinary undo history has a registered inverse contract.',
+        'Reversible scene-tree add and remove journal entries record the actual parent id and child index required to restore graph ownership and order.',
+        'A selection state-owner mutation applies canonical state before commit validation; the shared channel remains a projection boundary rather than the delayed owner of canonical selection.',
+        'sharedDelivery defaults to transaction-end independently of undo eligibility; undoable false does not imply immediate delivery, which requires an explicit immediate opt-in.',
+        'Scene-tree transient batching preserves effective rollbackable, shared, and sharedDelivery semantics, batches only consecutive compatible changes, and flushes a pending batch before any ordinary or incompatible change so journal order matches canonical mutation order.'
       ],
       bypasses: [
-        'A mutation explicitly marked rollbackable false is counted but has no rollback inverse.'
+        'A mutation explicitly marked both rollbackable false and undoable false is counted as an intentionally irreversible effect; rollbackable false alone does not allow an irreversible event into undo history.'
       ],
       allowedContributors: [
         '@asyra/scene-tree',
@@ -110,9 +114,13 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/factory/src/**',
+        'packages/core/src/apis/element-selection.ts',
+        'packages/core/src/__tests__/element-selection-api.test.ts',
         'packages/scene-tree/src/sceneTree.ts',
         'packages/scene-tree/src/__tests__/**',
-        'packages/utils/src/types/scene-tree.ts'
+        'packages/utils/src/types/scene-tree.ts',
+        'docs/ai/framework/packages/scene-tree.md',
+        'docs/ai/framework/plans/transaction-atomicity-and-rollback-plan.md'
       ],
       specRefs: ['#rollbackable-vs-undoable', '#ownership'],
       failureOwnerStepId: 'record-reversible-journal'
@@ -135,9 +143,13 @@
       conditions: [
         'Normal completion requests commit.',
         'Handler error or timeout always requests rollback and propagates failure.',
+        'Every public transaction wrapper requests commit only after synchronous or asynchronous success; throw or rejection requests rollback and rethrows the original failure.',
+        'The public SessionManager registerSession boundary accepts the legacy handler-only fifth argument with rollback as its default cancel policy, while the additive six-argument form accepts an explicit policy.',
         'Timeout aborts the session signal before rollback; async handlers must reject post-abort writes after await boundaries.',
         'Any rollback participant wins over commit-current participants.',
-        'Keyboard and machine actions remain deliverable while pointer input is active.'
+        'All public SessionManager instances using the default transaction owner share one interaction queue and one active session runtime; a registered session start cancels the previously active session before opening its transaction boundary.',
+        'Keyboard and machine actions remain deliverable while pointer input is active.',
+        'An interactive preview that must reach Render/UI before outer completion uses an explicit sharedDelivery immediate option.'
       ],
       bypasses: [
         'An empty or non-participating action requests discard without history.'
@@ -147,7 +159,8 @@
         'session onCancel cleanup',
         'interaction queue',
         '@asyra/input-system per-input-type key classification',
-        'app-owned feature definitions'
+        'app-owned feature and interaction definitions',
+        'app interaction product tests'
       ],
       forbiddenContributors: [
         'direct state restoration',
@@ -159,7 +172,21 @@
         'packages/feature-system/src/**',
         'packages/input-system/src/input-system.ts',
         'packages/input-system/src/__tests__/input-system.test.ts',
-        'apps/asyra-design/src/features/**'
+        'apps/asyra-design/src/features/**',
+        'apps/asyra-design/src/properties/fills/use-fill-interactions.ts',
+        'apps/asyra-design/src/properties/fills/use-gradient-interactions.ts',
+        'apps/asyra-design/src/properties/strokes/use-stroke-interactions.ts',
+        'apps/asyra-design/e2e/element-creation.spec.ts',
+        'apps/asyra-design/e2e/gradient-fill-handles.spec.ts',
+        'apps/asyra-design/e2e/properties.spec.ts',
+        'apps/asyra-design/e2e/undo-redo.spec.ts',
+        'docs/ai/framework/API_SURFACES.md',
+        'docs/ai/framework/packages/feature-system.md',
+        'docs/ai/apps/asyra-design/API_SURFACES.md',
+        'docs/ai/apps/asyra-design/features/move-elements.md',
+        'docs/ai/apps/asyra-design/features/pen-tool.md',
+        'docs/ai/apps/asyra-design/prd/properties-panel.md',
+        'docs/ai/apps/asyra-design/rules/ui-data-flow.md'
       ],
       specRefs: [
         '#cancel-policy',
@@ -184,7 +211,8 @@
       outputs: ['artifact:commit-validation'],
       conditions: [
         'Validators run in registration order only for a requested non-empty commit.',
-        'A thrown or invalid result changes the requested outcome to rollback.'
+        'A thrown or invalid result changes the requested outcome to rollback.',
+        'Asynchronous validator results are rejected as a validation failure, and any returned promise rejection is observed so it cannot leak as an unhandled rejection.'
       ],
       bypasses: [
         'Rollback and empty outcomes bypass commit validation without being treated as valid commits.'
@@ -222,8 +250,17 @@
         'Undo and redo use the same replay primitive with their own history effects.',
         'Undo and redo inside an existing command boundary retain their replay journal until the outer close.',
         'Nested replay moves its source history stack only on outer commit; outer rollback leaves the original undo or redo source available.',
+        'A successful nested replay followed by outer rollback restores runtime through the complete source replay in the opposite direction even without a replay journal or with a mixed replay journal, and restoration does not record a second journal.',
+        'A new action mutation after nested undo or redo is journaled, marks the outer boundary rollback-only, and fails immediately; outer rollback reverses that action journal before restoring the nested replay source so runtime and history both return to their pre-boundary state.',
+        'Before canonical state-owner apply, nested replay derives a restoration plan for each replay output and validates that output has an inverse contract; the plan is retained only after an acknowledged semantic apply or an explicit applied-then-failed acknowledgement, while a successful no-op or pre-apply failure retains no plan. Outer rollback executes retained output plans in reverse apply order, add/remove replay swaps inverse metadata, every custom inverter must produce at least one output, and every custom inverter output inverter must itself produce at least one reversible output before the primary replay output is applied.',
+        'Transaction journal cloning preserves the declared DataTypes contract, including symbol values and nested undefined values, without JSON coercion.',
+        'Setter-backed state owners inject replay acknowledgement at the first successful semantic assignment, after the write but before change callbacks or listeners; pre-write failures and no-change writes are not acknowledged as applied.',
+        'Selection canonical replay uses a Factory instance-local replay handler bound to the injected SelectionManager and does not require preset installation; every registration-driven selection eventName receives that owner and an explicit selection inverter before its first mutation, while observer-only replay publication preserves ordinary event observation without invoking a global synchronous state owner.',
+        'The eligible history transition is visible before local shared settlement; a settlement failure restores that provisional transition before rollback completes.',
         'Rollback and undo restoration reuse deleted state-owner instances instead of constructing replacement defaults.',
         'A scene-tree inverse add resolves its recorded parent id and child index through the owning Scene Tree before restoration.',
+        'Scene-tree replay routes standalone element-owned keys to Element data and computed-only keys to Computed data before returning its synchronous semantic apply acknowledgement; add/remove graph mutations collapse their internal initialization, parentId, children, and computed setter side effects so the explicit add/remove event is the sole reversible journal and shared-projection owner for that graph operation.',
+        'Every custom inverter output is a non-null event object with a string event type; an invalid output is aggregated as that journal entry rollback failure while replay still attempts the remaining journal inverses.',
         'A state-owner apply failure is synchronously aggregated as rollback-failed.',
         'Failed undo or redo restores its source history entry, resets replay status, and closes any boundary it opened.'
       ],
@@ -235,9 +272,9 @@
         'registered inverse generators',
         'factory-owned undo and redo stacks',
         '@asyra/reactive-events synchronous typed apply route and replay context',
-        '@asyra/scene-tree restoration subscriber',
-        '@asyra/props-manager restoration subscriber',
-        '@asyra/preset selection restoration subscriber'
+        '@asyra/scene-tree canonical restoration owner',
+        '@asyra/props-manager canonical restoration owner',
+        'Factory instance-local selection restoration owner'
       ],
       forbiddenContributors: [
         'public undo invocation as rollback implementation',
@@ -247,18 +284,32 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/factory/src/**',
+        'packages/core/src/apis/element-selection.ts',
+        'packages/core/src/apis/index.ts',
+        'packages/core/src/core.ts',
+        'packages/core/src/__tests__/element-selection-api.test.ts',
         'packages/reactive-events/src/event-bus.ts',
         'packages/reactive-events/src/transaction-owner.ts',
         'packages/reactive-events/src/transaction-replay.ts',
         'packages/reactive-events/src/scene-tree/events.ts',
         'packages/reactive-events/src/index.ts',
         'packages/reactive-events/src/__tests__/event-bus.test.ts',
+        'packages/scene-tree/src/sceneTree.ts',
         'packages/scene-tree/src/subscribes.ts',
+        'packages/scene-tree/src/components/computed.ts',
+        'packages/scene-tree/src/components/element.ts',
         'packages/scene-tree/src/__tests__/**',
+        'packages/props-manager/src/components/base.ts',
         'packages/props-manager/src/manager/subscribes.ts',
         'packages/props-manager/src/__tests__/**',
+        'packages/utils/src/setter.ts',
+        'packages/utils/src/__tests__/setter.test.ts',
         'packages/preset/src/subscriptions/data-channel.ts',
-        'apps/asyra-design/e2e/delete-element.spec.ts'
+        'apps/asyra-design/e2e/delete-element.spec.ts',
+        'docs/ai/framework/packages/factory.md',
+        'docs/ai/framework/packages/scene-tree.md',
+        'docs/ai/framework/plans/transaction-atomicity-and-rollback-plan.md',
+        'docs/ai/framework/rules/data-flow-and-transactions.md'
       ],
       specRefs: [
         '#reuse-the-existing-inverse-replay-engine',
@@ -283,6 +334,8 @@
       outputs: ['artifact:transaction-result'],
       conditions: [
         'Committed transaction-end shared changes flush in journal order.',
+        'A registered transaction-end channel append failure before application requests rollback, restores the provisional history transition, leaves no final undo history or user-action-completed effect, and propagates the delivery failure after restoration.',
+        'Partially delivered transaction-end changes are compensated in reverse order when a later append fails before application.',
         'Rolled-back immediate local delivery publishes one compensating inverse.',
         'An applied Yjs append remains delivered when a synchronous observer throws, and registered observers are isolated from one another.',
         'Instance-local status observer failures cannot alter the canonical transaction result or block downstream observers.'
@@ -320,7 +373,7 @@
       outputs: ['artifact:persistence-status'],
       conditions: [
         'Committed action, undo, and redo results enter the persistence queue in order.',
-        'Each committed result captures its configured provider and CoreRawData snapshot before entering the queue; queued work performs provider I/O without re-reading live runtime state.',
+        'Each committed result captures its configured provider and CoreRawData snapshot before entering the queue; the snapshot is deeply detached from live mutable references, and queued work performs provider I/O without re-reading live runtime state.',
         'Provider success reports persisted and provider failure reports persistence-failed.'
       ],
       bypasses: [

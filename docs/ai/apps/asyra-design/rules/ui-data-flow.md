@@ -32,7 +32,7 @@
 - `useFills()` / `useFill()` should be selectors over ui-context `fills`, not hooks with local selection/transaction subscriptions.
 - `useStrokes()` / `useStroke()` should be selectors over ui-context `strokes`, not hooks with local selection/transaction subscriptions.
 - Custom color-picker preview open/close must stay UI-local and must not start model transactions.
-- Custom color-picker palette/slider drags own their transaction boundary: pointer-down starts one outer transaction, live frame updates write with `undoable: false`, finalize replays one undoable value write, then pointer-up ends the transaction.
+- Custom color-picker palette/slider drags own their transaction boundary: pointer-down starts one outer transaction, live frame updates write with `undoable: false` and `sharedDelivery: 'immediate'`, finalize replays one undoable value write, then pointer-up ends the transaction.
 
 ## Contents Panel Rule
 
@@ -52,6 +52,7 @@
 
 - Render canvas is initialized through app startup path (`core.start(...)`), not ad-hoc UI effects.
 - Pointer/keyboard interactions should flow through input mappings -> features -> APIs -> state.
+- Create resize, element move, vector-point/handle drag, and gradient-handle/stop drag frames that must project before pointer-up explicitly use `sharedDelivery: 'immediate'`; `undoable: false` alone never selects immediate delivery.
 - UI components should not treat render objects as source-of-truth for app state.
 
 ## Startup Event Rule

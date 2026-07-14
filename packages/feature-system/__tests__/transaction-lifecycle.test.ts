@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  endTransaction,
   subscribeToEndTransaction,
   type EndTransactionEvent
 } from '@asyra/reactive-events'
 import type { SystemContextSnapshot } from '@asyra/utils'
 import type { SystemContextSnapshotWithDetail } from '@asyra/utils'
+import * as publicFeatureSystem from '../src'
 import { ExecutionRegistryClass } from '../src/core/execution-registry'
 import {
   FeatureHandlerTimeoutError,
@@ -24,6 +26,31 @@ const captureEndEvents = () => {
 }
 
 describe('feature transaction lifecycle', () => {
+  it('keeps legacy five-argument session registration with rollback default', async () => {
+    const manager = new SessionManager()
+    const onEnd = vi.fn()
+    const { events, subscription } = captureEndEvents()
+
+    manager.registerSession('legacy-drag', 'legacy', 10, true, {
+      onStart: () => ({ started: true }),
+      onEnd
+    })
+
+    await expect(manager.handleStart('legacy-drag', snapshot)).resolves.toBe(
+      true
+    )
+    await manager.cancelActiveSessions({ ...snapshot, detail: {} })
+
+    expect(onEnd).toHaveBeenCalledOnce()
+    expect(events).toHaveLength(1)
+    expect(events[0].payload).toMatchObject({
+      outcome: 'rollback',
+      failure: { kind: 'cancelled' }
+    })
+
+    subscription.unsubscribe()
+  })
+
   it('defaults session cancellation to rollback and uses onEnd as cleanup fallback', async () => {
     const manager = new SessionManager()
     const onEnd = vi.fn()
@@ -221,6 +248,125 @@ describe('feature transaction lifecycle', () => {
     subscription.unsubscribe()
   })
 
+  it('treats throw undefined from an update handler as a rollback failure', async () => {
+    const manager = new SessionManager()
+    const cleanup = vi.fn()
+    const { events, subscription } = captureEndEvents()
+    manager.registerSession(
+      'drag',
+      'undefined-update',
+      10,
+      true,
+      'commit-current',
+      {
+        onStart: () => ({ started: true }),
+        onUpdate: () => {
+          throw undefined
+        },
+        onCancel: cleanup
+      }
+    )
+
+    await manager.handleStart('drag', snapshot)
+    let rejected = false
+    let rejection: unknown = 'not-captured'
+    try {
+      await manager.handleUpdate('drag', snapshot)
+    } catch (error) {
+      rejected = true
+      rejection = error
+    }
+
+    expect(rejected).toBe(true)
+    expect(rejection).toBeUndefined()
+    expect(cleanup).toHaveBeenCalledTimes(1)
+    expect(events[0].payload).toMatchObject({
+      outcome: 'rollback',
+      failure: { kind: 'handler-error' }
+    })
+
+    subscription.unsubscribe()
+  })
+
+  it('treats throw undefined from an end handler as a rollback failure', async () => {
+    const manager = new SessionManager()
+    const laterEnd = vi.fn()
+    const { events, subscription } = captureEndEvents()
+    manager.registerSession('drag', 'undefined-end', 20, false, 'rollback', {
+      onStart: () => ({ participant: 'undefined-end' }),
+      onEnd: () => {
+        throw undefined
+      }
+    })
+    manager.registerSession('drag', 'later', 10, false, 'rollback', {
+      onStart: () => ({ participant: 'later' }),
+      onEnd: laterEnd
+    })
+
+    await manager.handleStart('drag', snapshot)
+    let rejected = false
+    let rejection: unknown = 'not-captured'
+    try {
+      await manager.handleEnd('drag', snapshot)
+    } catch (error) {
+      rejected = true
+      rejection = error
+    }
+
+    expect(rejected).toBe(true)
+    expect(rejection).toBeUndefined()
+    expect(laterEnd).toHaveBeenCalledTimes(1)
+    expect(events[0].payload).toMatchObject({
+      outcome: 'rollback',
+      failure: { kind: 'handler-error' }
+    })
+
+    subscription.unsubscribe()
+  })
+
+  it('propagates throw undefined from cancellation cleanup as a handler failure', async () => {
+    const manager = new SessionManager()
+    const laterCleanup = vi.fn()
+    const { events, subscription } = captureEndEvents()
+    manager.registerSession(
+      'drag',
+      'undefined-cancel',
+      20,
+      false,
+      'commit-current',
+      {
+        onStart: () => ({ participant: 'undefined-cancel' }),
+        onCancel: () => {
+          throw undefined
+        }
+      }
+    )
+    manager.registerSession('drag', 'later', 10, false, 'commit-current', {
+      onStart: () => ({ participant: 'later' }),
+      onCancel: laterCleanup
+    })
+
+    await manager.handleStart('drag', snapshot)
+    let rejected = false
+    let rejection: unknown = 'not-captured'
+    try {
+      await manager.cancelActiveSessions({ ...snapshot, detail: {} })
+    } catch (error) {
+      rejected = true
+      rejection = error
+    }
+
+    expect(rejected).toBe(true)
+    expect(rejection).toBeUndefined()
+    expect(laterCleanup).toHaveBeenCalledTimes(1)
+    expect(events[0].payload).toMatchObject({
+      outcome: 'rollback',
+      failure: { kind: 'handler-error' }
+    })
+
+    subscription.unsubscribe()
+  })
+
   it('commits a normally completed session', async () => {
     const manager = new SessionManager()
     const { events, subscription } = captureEndEvents()
@@ -235,6 +381,136 @@ describe('feature transaction lifecycle', () => {
     expect(events[0].payload).toEqual({ outcome: 'commit' })
 
     subscription.unsubscribe()
+  })
+
+  it('serializes concurrent calls through the public session lifecycle', async () => {
+    const manager = new SessionManager()
+    const order: string[] = []
+    let releaseUpdate: (() => void) | undefined
+    const updateGate = new Promise<void>((resolve) => {
+      releaseUpdate = resolve
+    })
+    manager.registerSession('drag', 'queued', 10, true, 'rollback', {
+      onStart: () => ({ started: true }),
+      onUpdate: async () => {
+        order.push('update:start')
+        await updateGate
+        order.push('update:end')
+      },
+      onCancel: () => {
+        order.push('cancel')
+      }
+    })
+
+    await manager.handleStart('drag', snapshot)
+    const update = manager.handleUpdate('drag', snapshot)
+    await Promise.resolve()
+    const cancel = manager.cancelActiveSessions({ ...snapshot, detail: {} })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const orderBeforeRelease = [...order]
+    releaseUpdate?.()
+    await Promise.all([update, cancel])
+
+    expect(orderBeforeRelease).toEqual(['update:start'])
+    expect(order).toEqual(['update:start', 'update:end', 'cancel'])
+  })
+
+  it('replaces an active session before a repeated public start', async () => {
+    const manager = new SessionManager()
+    const cancelledStates: unknown[] = []
+    const { events, subscription } = captureEndEvents()
+    let startCount = 0
+    manager.registerSession('drag', 'replaceable', 10, true, 'rollback', {
+      onStart: () => ({ start: ++startCount }),
+      onCancel: (_snapshot, state) => {
+        cancelledStates.push(state)
+      }
+    })
+
+    let stateAfterSecondStart:
+      | { cancelledStates: unknown[]; outcomes: string[] }
+      | undefined
+    try {
+      await manager.handleStart('drag', snapshot)
+      await manager.handleStart('drag', snapshot)
+      stateAfterSecondStart = {
+        cancelledStates: [...cancelledStates],
+        outcomes: events.map((event) => event.payload.outcome)
+      }
+    } finally {
+      await manager.cancelActiveSessions({ ...snapshot, detail: {} })
+      endTransaction()
+      subscription.unsubscribe()
+    }
+
+    expect(stateAfterSecondStart).toEqual({
+      cancelledStates: [{ start: 1 }],
+      outcomes: ['rollback']
+    })
+    expect(cancelledStates).toEqual([{ start: 1 }, { start: 2 }])
+    expect(events.map((event) => event.payload.outcome)).toEqual([
+      'rollback',
+      'rollback'
+    ])
+  })
+
+  it('serializes standalone managers against the shared transaction owner', async () => {
+    const firstManager = new SessionManager()
+    const secondManager = new SessionManager()
+    const firstCleanup = vi.fn()
+    const secondCleanup = vi.fn()
+    const { events, subscription } = captureEndEvents()
+    firstManager.registerSession('first-drag', 'first', 10, true, 'rollback', {
+      onStart: () => ({ manager: 'first' }),
+      onCancel: firstCleanup
+    })
+    secondManager.registerSession(
+      'second-drag',
+      'second',
+      10,
+      true,
+      'rollback',
+      {
+        onStart: () => ({ manager: 'second' }),
+        onCancel: secondCleanup
+      }
+    )
+
+    let stateAfterSecondStart:
+      | { firstActive: boolean; cleanupCount: number; outcomes: string[] }
+      | undefined
+    try {
+      await firstManager.handleStart('first-drag', snapshot)
+      await secondManager.handleStart('second-drag', snapshot)
+      stateAfterSecondStart = {
+        firstActive: firstManager.getActiveSession('first-drag') !== undefined,
+        cleanupCount: firstCleanup.mock.calls.length,
+        outcomes: events.map((event) => event.payload.outcome)
+      }
+    } finally {
+      await secondManager.cancelActiveSessions({ ...snapshot, detail: {} })
+      await firstManager.cancelActiveSessions({ ...snapshot, detail: {} })
+      endTransaction()
+      subscription.unsubscribe()
+    }
+
+    expect(stateAfterSecondStart).toEqual({
+      firstActive: false,
+      cleanupCount: 1,
+      outcomes: ['rollback']
+    })
+    expect(secondCleanup).toHaveBeenCalledOnce()
+    expect(events.map((event) => event.payload.outcome)).toEqual([
+      'rollback',
+      'rollback'
+    ])
+  })
+
+  it('exports the identifiable timeout error from the package facade', () => {
+    expect(publicFeatureSystem).toHaveProperty(
+      'FeatureHandlerTimeoutError',
+      FeatureHandlerTimeoutError
+    )
   })
 
   it('stops lower execution handlers and rolls back when one-shot execution fails', async () => {

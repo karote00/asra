@@ -8,6 +8,7 @@ import type {
   ComputedAttrs,
   PropertyComponentInstanceDataTypes
 } from '@asyra/utils'
+import { acknowledgeTransactionReplayApplied } from '@asyra/reactive-events'
 import {
   Setter,
   IDTypes,
@@ -50,7 +51,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
     idPrefix?: string,
     namePrefix?: string
   ) {
-    super(elementChangeHandler.addChange)
+    super(elementChangeHandler.addChange, acknowledgeTransactionReplayApplied)
     this._idType = idPrefix || IDTypes.ELEMENT
     this._nameType = namePrefix || NameTypes.ELEMENT
 

@@ -111,10 +111,12 @@ export const endTransaction = (options: EndTransactionOptions = {}) => {
     state.rollbackOnly = false
     state.rollbackOnlyFailure = undefined
 
+    let ownerFailed = false
     let ownerError: unknown
     try {
       owner?.endTransaction(payload)
     } catch (error) {
+      ownerFailed = true
       ownerError = error
     } finally {
       publishEvent({
@@ -122,7 +124,7 @@ export const endTransaction = (options: EndTransactionOptions = {}) => {
         payload
       })
     }
-    if (ownerError !== undefined) {
+    if (ownerFailed) {
       throw ownerError
     }
   }

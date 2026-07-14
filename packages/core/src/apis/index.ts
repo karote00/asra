@@ -7,6 +7,7 @@ import {
 } from '@asyra/render'
 import type { PropsManager } from '@asyra/props-manager'
 import type { SelectionManager } from '@asyra/selection'
+import type { Factory } from '@asyra/factory'
 import {
   Bounds,
   EntityTypes,
@@ -29,7 +30,8 @@ export const createAPIs = (
   sceneTree: SceneTree,
   render: Render,
   selection: SelectionManager,
-  props: PropsManager
+  props: PropsManager,
+  factory: Factory
 ): CoreAPIs => {
   const sceneTreeRequests = {
     sceneTreeSaveData: () => sceneTree.save(),
@@ -146,7 +148,7 @@ export const createAPIs = (
     ...createPropsAPIs(propsRequests),
     ...createRenderAPIs(renderRequests),
     ...createSceneTreeAPIs(sceneTreeRequests),
-    ...createElementSelectionAPIs(selection),
+    ...createElementSelectionAPIs(selection, factory),
     ...createUIContextAPIs(),
     ...createSystemPropertyAPIs()
   }

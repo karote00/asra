@@ -9,6 +9,7 @@ import type {
   PropertyUnitKind,
   PropertyValueKind
 } from '@asyra/utils'
+import { acknowledgeTransactionReplayApplied } from '@asyra/reactive-events'
 import { Setter, Unit, isNil } from '@asyra/utils'
 import { getPropertySchema } from '../registries/property-schema'
 import PropsChangeHandler from './props-change-handler'
@@ -24,7 +25,7 @@ abstract class BaseComponent<
   propNames!: string[]
 
   constructor() {
-    super(propsChangeHandler.addChange)
+    super(propsChangeHandler.addChange, acknowledgeTransactionReplayApplied)
   }
 
   private getFieldSchema(key: keyof T): PropertyFieldSchema | undefined {

@@ -24,6 +24,19 @@ Own the document entity graph and computed entity data.
 - Scene-tree can expose read APIs freely; writes should stay behind controlled APIs.
 - App-level domain behavior can orchestrate scene-tree writes, but should not bypass core/app API wrappers.
 - Computed updates from property changes are driven by property-component subscriptions in `Computed`.
+- Transient computed-data batching preserves effective rollback, shared-channel,
+  and delivery options; `undoable: false` never implies immediate delivery.
+  Only consecutive compatible transient changes are batched. An ordinary or
+  incompatible change flushes the pending batch first so journal order remains
+  identical to the canonical write timeline.
+- Standalone transaction replay routes `name`, `parentId`, `visible`, `lock`,
+  and group `children` through Element-owned data; only computed-only keys route
+  through `Computed` and its property bridge. Both routes acknowledge semantic
+  apply synchronously.
+- During add/remove, initialization plus parent/children/computed setter changes
+  are internal graph side effects and are collapsed before journal publication;
+  the explicit ADD/REMOVE event with parent/index metadata is the sole
+  reversible scene-tree owner for that graph operation.
 - Reversible `addNewElement` records the actual parent id/index after placement,
   and removal records them before graph mutation. Inverse add resolves that
   parent through the owning Scene Tree and restores the same deleted instance
@@ -40,5 +53,6 @@ Own the document entity graph and computed entity data.
 - Entity creation updates graph + computed data consistently.
 - Entity removal cleans graph references.
 - Rollback/undo restoration preserves parent ownership and child order.
+- Rollback/undo restores both Element-owned flags/metadata and computed values.
 - Save/load round-trip preserves graph shape and computed data.
 - Load path skips malformed/unregistered elements and falls back to a safe workspace when metadata is invalid.

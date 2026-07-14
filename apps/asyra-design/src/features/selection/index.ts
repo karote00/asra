@@ -218,7 +218,10 @@ export const selectionFeature = defineFeature<
         state.additive ? 'toggle' : 'replace'
       )
 
-      selectionApis.selectElements(nextSelectionIds, { undoable: false })
+      selectionApis.selectElements(nextSelectionIds, {
+        undoable: false,
+        sharedDelivery: 'immediate'
+      })
 
       systemContextApis.setAreaSelection({
         dragStart: state.dragStartWorkspacePos,

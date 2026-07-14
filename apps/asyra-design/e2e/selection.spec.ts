@@ -82,6 +82,73 @@ test.describe('Element Selection', () => {
     expect(isSelected).toBe(false)
   })
 
+  test('projects area-selection preview before pointer release', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.5, 0.5)
+    const rectangle = await getSelectedElementRect(page)
+    expect(rectangle).not.toBeNull()
+    if (!rectangle) {
+      return
+    }
+
+    await clickCanvas(page, 0.9, 0.9)
+    await expect.poll(() => hasSelectedElement(page)).toBe(false)
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__selectionPreviewDeliveries = []
+      scope.__disposeSelectionPreviewObserver =
+        scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
+          'selection',
+          (change: unknown) => scope.__selectionPreviewDeliveries.push(change)
+        )
+    })
+
+    const drag = await page.evaluate(({ x, y, width, height }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const zoom = core?.getSystemProperty?.('zoom') ?? 1
+      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
+        x: 0,
+        y: 0
+      }
+      return {
+        start: {
+          x: (x - 20) * zoom + viewport.x,
+          y: (y - 20) * zoom + viewport.y
+        },
+        end: {
+          x: (x + width + 20) * zoom + viewport.x,
+          y: (y + height + 20) * zoom + viewport.y
+        }
+      }
+    }, rectangle)
+
+    await page.mouse.move(drag.start.x, drag.start.y)
+    await page.mouse.down()
+    await page.mouse.move(drag.end.x, drag.end.y, { steps: 12 })
+
+    await expect.poll(() => hasSelectedElement(page)).toBe(true)
+    const previewDeliveries = await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (window as any).__selectionPreviewDeliveries ?? []
+    })
+    expect(previewDeliveries).toContainEqual(
+      expect.objectContaining({
+        options: expect.objectContaining({ sharedDelivery: 'immediate' })
+      })
+    )
+    await page.mouse.up()
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      scope.__disposeSelectionPreviewObserver?.()
+      delete scope.__disposeSelectionPreviewObserver
+      delete scope.__selectionPreviewDeliveries
+    })
+  })
+
   test('should drag selected element to a new position', async ({ page }) => {
     await createRectangle(page, 0.35, 0.35)
 

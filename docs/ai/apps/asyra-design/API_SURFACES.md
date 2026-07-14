@@ -59,7 +59,7 @@ Import boundary:
 - `createVectorElementFromSinglePoint(pointId: string, position: PositionData, mutationOptions?: { undoable: boolean }): string | null`
 - `deleteElement(elementId: string, options?: { undoable: boolean }): boolean`
 - `resetElementSize(elementId: string): void`
-- `setElementPositions(positionsById: Record<string, PositionData>, options?: { undoable: boolean }): void`
+- `setElementPositions(positionsById: Record<string, PositionData>, options?: EVENT_OPTIONS): void`
 - `hasMovedBeyondThreshold(clientDragStart: PositionData, clientCurrentPos: PositionData, threshold?: number): boolean`
 - `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: { undoable: boolean }): void`
   - `vectorGeometry` helper (exported from `src/common-apis/element`):

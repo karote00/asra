@@ -22,7 +22,11 @@ import {
   SharedDataChannelNames,
   isRecord
 } from '@asyra/utils'
-import { EventTypes, updateTransaction } from '@asyra/reactive-events'
+import {
+  acknowledgeTransactionReplayApplied,
+  EventTypes,
+  updateTransaction
+} from '@asyra/reactive-events'
 import propsManager from '@asyra/props-manager'
 import { isEqual } from 'lodash'
 import componentRegistry from './component-registry'
@@ -452,6 +456,7 @@ class SceneTree {
     }
 
     if (newElement) {
+      const operationChangeStart = this.changes.length
       Object.keys(propOverrides).forEach((propKey) => {
         newElement.updateComputedData(
           propKey as keyof ComputedAttrs,
@@ -469,12 +474,14 @@ class SceneTree {
           ? ((actualParent as GroupInstanceTypes).get('children') as string[])
           : []
       const actualIndex = actualChildren.indexOf(newElement.get('id'))
+      this.changes.splice(operationChangeStart)
       this.addChangeForAddElement(
         newElement,
         actualParentId,
         actualIndex >= 0 ? actualIndex : undefined
       )
 
+      acknowledgeTransactionReplayApplied()
       this.commitSceneTreeTransaction(options)
       propsManager.commitChanges(options)
 
@@ -518,12 +525,19 @@ class SceneTree {
       return false
     }
 
+    const operationChangeStart = this.changes.length
     this.addChangeForRemoveElement(
       element,
       resolvedParentId,
       children.indexOf(elementId)
     )
+    const removeChange = this.changes[operationChangeStart]
     workspace.removeElement(element, resolvedParent, options)
+    this.changes.splice(operationChangeStart)
+    if (removeChange) {
+      this.changes.push(removeChange)
+    }
+    acknowledgeTransactionReplayApplied()
     this.commitSceneTreeTransaction(options)
     propsManager.commitChanges(options)
     return true
@@ -684,10 +698,32 @@ class SceneTree {
   }
 
   commitSceneTreeTransaction(options?: EVENT_OPTIONS) {
-    const transientComputedUpdates = new Map<
-      string,
-      UpdateElementBatchChange['changes']
-    >()
+    let pendingTransientComputedUpdate:
+      | {
+          batchKey: string
+          id: string
+          changes: UpdateElementBatchChange['changes']
+          options: EVENT_OPTIONS
+        }
+      | undefined
+
+    const flushPendingTransientComputedUpdate = () => {
+      if (!pendingTransientComputedUpdate) {
+        return
+      }
+      const batchChange: UpdateElementBatchChange = {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        id: pendingTransientComputedUpdate.id,
+        changes: pendingTransientComputedUpdate.changes
+      }
+      updateTransaction(
+        batchChange.eventName,
+        batchChange,
+        pendingTransientComputedUpdate.options
+      )
+      pendingTransientComputedUpdate = undefined
+    }
 
     this.changes.forEach((change) => {
       const changeOptions = change.options ?? options
@@ -701,31 +737,37 @@ class SceneTree {
         change.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA
       ) {
         const computedChange = change as UpdateElementChange
-        const changes = transientComputedUpdates.get(computedChange.id) ?? []
-        changes.push({
+        const batchKey = JSON.stringify({
+          id: computedChange.id,
+          rollbackable: routedOptions.rollbackable !== false,
+          shared: routedOptions.shared ?? null,
+          sharedDelivery: routedOptions.sharedDelivery ?? 'transaction-end'
+        })
+        if (
+          pendingTransientComputedUpdate &&
+          pendingTransientComputedUpdate.batchKey !== batchKey
+        ) {
+          flushPendingTransientComputedUpdate()
+        }
+        pendingTransientComputedUpdate ??= {
+          batchKey,
+          id: computedChange.id,
+          changes: [],
+          options: routedOptions
+        }
+        pendingTransientComputedUpdate.changes.push({
           key: computedChange.key,
           before: computedChange.before,
           after: computedChange.after
         })
-        transientComputedUpdates.set(computedChange.id, changes)
         return
       }
 
+      flushPendingTransientComputedUpdate()
       updateTransaction(change.eventName, change, routedOptions)
     })
 
-    transientComputedUpdates.forEach((changes, id) => {
-      const batchChange: UpdateElementBatchChange = {
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
-        id,
-        changes
-      }
-      updateTransaction(batchChange.eventName, batchChange, {
-        undoable: false,
-        shared: SharedDataChannelNames.SCENE_TREE
-      })
-    })
+    flushPendingTransientComputedUpdate()
 
     this.cleanChanges()
   }

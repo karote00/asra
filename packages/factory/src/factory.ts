@@ -2,6 +2,8 @@ import * as Y from 'yjs'
 import {
   runWithTransactionOwner,
   transactionStatusChanged,
+  type AllEvent,
+  type TransactionReplayMode,
   type TransactionOwner,
   userActionCompleted,
   type UpdateTransactionEvent
@@ -18,7 +20,11 @@ import {
   type SharedDataChannelChangeHandler,
   type SharedDataChannelName
 } from './shared-data-channel'
-import type { TransactionInverter, TransactionValidator } from './transaction'
+import type {
+  TransactionInverter,
+  TransactionReplayHandler,
+  TransactionValidator
+} from './transaction'
 
 export interface FactoryOptions {
   bridgeToReactiveEvents?: boolean
@@ -31,6 +37,10 @@ class Factory {
   private readonly transactionStatusSubscribers = new Set<
     (payload: TransactionStatusPayload) => void
   >()
+  private readonly transactionReplayHandlers = new Map<
+    string,
+    TransactionReplayHandler
+  >()
   transact: DataTransact
 
   constructor(options: FactoryOptions = {}) {
@@ -39,7 +49,8 @@ class Factory {
       onStatus: (payload) => this.emitTransactionStatus(payload),
       onUserActionCompleted: this.bridgeToReactiveEvents
         ? userActionCompleted
-        : undefined
+        : undefined,
+      onReplayEvent: (event, mode) => this.handleReplayEvent(event, mode)
     })
     this.transactionOwner = {
       startTransaction: () => this.startTransaction(),
@@ -104,6 +115,35 @@ class Factory {
     inverter: TransactionInverter
   ) {
     this.transact.registerInverter(eventName, inverter)
+  }
+
+  registerTransactionReplayHandler(
+    eventName: string,
+    handler: TransactionReplayHandler
+  ): () => void {
+    if (this.transactionReplayHandlers.has(eventName)) {
+      throw new Error(
+        `Transaction replay handler is already registered for ${eventName}`
+      )
+    }
+    this.transactionReplayHandlers.set(eventName, handler)
+    return () => {
+      if (this.transactionReplayHandlers.get(eventName) === handler) {
+        this.transactionReplayHandlers.delete(eventName)
+      }
+    }
+  }
+
+  private handleReplayEvent(
+    event: AllEvent,
+    mode: TransactionReplayMode
+  ): { handled: boolean; applied: boolean } {
+    const handler = this.transactionReplayHandlers.get(event.type)
+    if (!handler) {
+      return { handled: false, applied: false }
+    }
+    const result = handler(event, mode)
+    return { handled: true, applied: result !== false }
   }
 
   registerTransactionValidator(name: string, validator: TransactionValidator) {

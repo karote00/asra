@@ -119,14 +119,17 @@ Canonical shorthand:
 - Package validators apply fallback/reject semantics.
 - Optional diagnostics can be emitted after validation without blocking load.
 - Committed action, undo, and redo outcomes capture their persistence snapshot
-  at commit time, then enter a serial provider-I/O queue.
+  at commit time, deeply detach it from live mutable references, then enter a
+  serial provider-I/O queue.
 - Persistence failure is reported but does not reverse already committed
   runtime state; no automatic retry policy is provided.
 
 ## Local Transaction ACID Boundary
 
 - Atomicity: rollbackable journal entries reverse in last-in-first-out order on
-  cancel, handler failure, timeout, or validation failure.
+  cancel, handler failure, timeout, or validation failure. Journal snapshots
+  preserve declared `DataTypes`, and nested replay restoration records only
+  confirmed semantic mutations, not successful no-ops.
 - Consistency: synchronous validators registered on the owning Factory run in
   registration order before a non-empty commit.
 - Isolation: Feature operations are serialized by the interaction queue;

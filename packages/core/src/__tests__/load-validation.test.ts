@@ -36,6 +36,7 @@ const createCoreForTest = () => {
   const core = new Core({
     inputSystem: {} as never,
     factory: {
+      registerTransactionReplayHandler: vi.fn(() => () => undefined),
       subscribeToTransactionStatus: vi.fn(() => () => undefined),
       reportPersistenceStatus: vi.fn()
     } as never,

@@ -29,11 +29,20 @@ interface JournalSharedChange {
 interface TransactionJournalEntry {
   event: AllEvent
   options: EffectiveMutationOptions
+  source: 'action' | 'replay'
   shared?: JournalSharedChange
+}
+interface PreparedHistoryTransition {
+  complete: () => void
+  rollback: () => void
 }
 interface DataTransactCallbacks {
   onStatus?: (payload: TransactionStatusPayload) => void
   onUserActionCompleted?: (payload: UserActionCompletedPayload) => void
+  onReplayEvent?: (
+    event: AllEvent,
+    mode: TransactionReplayMode
+  ) => boolean | { handled: boolean; applied: boolean }
 }
 import type {
   AllEvent,
@@ -42,12 +51,16 @@ import type {
   UserActionCompletedPayload
 } from '@asyra/reactive-events'
 import {
+  acknowledgeTransactionReplayApplied,
   EventTypes,
   endTransaction,
+  isTransactionReplayApplied,
   publishEvent,
+  publishEventToObservers,
   runInTransactionReplayMode,
   startTransaction,
   userActionCompleted,
+  wasTransactionReplayApplied,
   updateUndoRedoStatus
 } from '@asyra/reactive-events'
 import type { SharedDataChannelRegistry } from './shared-data-channel'
@@ -148,8 +161,54 @@ const invertComputedDataPatchChange = (
   return inverted
 }
 
-const cloneEvent = (event: AllEvent): AllEvent =>
-  JSON.parse(JSON.stringify(event)) as AllEvent
+const cloneTransactionValue = <T>(
+  value: T,
+  seen = new WeakMap<object, unknown>()
+): T => {
+  if (value === null || typeof value !== 'object') {
+    return value
+  }
+
+  const source = value as object
+  const existing = seen.get(source)
+  if (existing) {
+    return existing as T
+  }
+
+  const clone: object = Array.isArray(value)
+    ? []
+    : Object.create(Object.getPrototypeOf(value))
+  seen.set(source, clone)
+  Reflect.ownKeys(source).forEach((key) => {
+    if (Array.isArray(source) && key === 'length') {
+      return
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(source, key)
+    if (!descriptor) {
+      return
+    }
+    const snapshotValue =
+      'value' in descriptor ? descriptor.value : Reflect.get(source, key)
+    Object.defineProperty(clone, key, {
+      value: cloneTransactionValue(snapshotValue, seen),
+      enumerable: descriptor.enumerable,
+      configurable: true,
+      writable: true
+    })
+  })
+  if (Array.isArray(source) && Array.isArray(clone)) {
+    clone.length = source.length
+  }
+
+  return clone as T
+}
+
+const cloneEvent = (event: AllEvent): AllEvent => cloneTransactionValue(event)
+
+const isReplayEvent = (value: unknown): value is AllEvent =>
+  typeof value === 'object' &&
+  value !== null &&
+  typeof (value as { type?: unknown }).type === 'string'
 
 const toReplayFailure = (cause: unknown): TransactionFailure => ({
   kind: 'explicit',
@@ -164,7 +223,10 @@ class DataTransact {
   private isTransacting = 0
   private inUndo = false
   private inRedo = false
+  private applyingReplayEvent = false
+  private restoringNestedReplay = false
   private nestedReplaySourceEvents: AllEvent[] | null = null
+  private nestedReplayRestorationPlans: AllEvent[][] = []
   private actionId = 0
   private transactionId = 0
   private currentTransactionId = 0
@@ -176,6 +238,10 @@ class DataTransact {
   private readonly onUserActionCompleted?: (
     payload: UserActionCompletedPayload
   ) => void
+  private readonly onReplayEvent?: (
+    event: AllEvent,
+    mode: TransactionReplayMode
+  ) => boolean | { handled: boolean; applied: boolean }
   private readonly sharedDataChannelRegistry: Pick<
     SharedDataChannelRegistry,
     'pushToSharedChannel'
@@ -195,6 +261,7 @@ class DataTransact {
     this.onUserActionCompleted = callbacks
       ? callbacks.onUserActionCompleted
       : userActionCompleted
+    this.onReplayEvent = callbacks?.onReplayEvent
   }
 
   start() {
@@ -204,6 +271,7 @@ class DataTransact {
     }
 
     this.journal = []
+    this.nestedReplayRestorationPlans = []
     this.rollbackOnly = false
     this.rollbackFailure = undefined
     this.transactionId += 1
@@ -247,13 +315,13 @@ class DataTransact {
   }
 
   update(event: UpdateTransactionEvent) {
-    if (this.isTransacting <= 0) {
+    if (this.isTransacting <= 0 || this.restoringNestedReplay) {
       return
     }
 
     const payload = event.payload as TransactionPayload
     const newType = event.eventName as AllEvent['type']
-    const newPayload = JSON.parse(JSON.stringify(payload))
+    const newPayload = cloneTransactionValue(payload)
     const newEvent: AllEvent = {
       type: newType,
       payload: newPayload
@@ -266,21 +334,24 @@ class DataTransact {
       sharedDelivery: event.options?.sharedDelivery ?? 'transaction-end'
     }
     if (
-      options.rollbackable &&
+      (options.rollbackable || options.undoable) &&
       !this.hasInverseContract(event.eventName, payload)
     ) {
       throw new Error(
-        `Rollbackable transaction event ${event.eventName} requires an inverter`
+        `Reversible transaction event ${event.eventName} requires an inverter`
       )
     }
     const journalEntry: TransactionJournalEntry = {
       event: newEvent,
-      options
+      options,
+      source: this.applyingReplayEvent ? 'replay' : 'action'
     }
 
     const sharedChannelName = event.options?.shared
     if (sharedChannelName) {
-      const sharedChange = toSharedChannelPayload(payload, event.options)
+      const sharedChange = cloneTransactionValue(
+        toSharedChannelPayload(newPayload, event.options)
+      )
       journalEntry.shared = {
         name: sharedChannelName,
         change: sharedChange,
@@ -290,11 +361,16 @@ class DataTransact {
 
     this.journal.push(journalEntry)
 
-    if (
-      journalEntry.shared &&
-      (event.options?.undoable === false ||
-        event.options?.sharedDelivery === 'immediate')
-    ) {
+    if (this.nestedReplaySourceEvents && journalEntry.source === 'action') {
+      const error = new Error(
+        'Nested undo or redo cannot accept a new action mutation'
+      )
+      this.rollbackOnly = true
+      this.rollbackFailure ??= toReplayFailure(error)
+      throw error
+    }
+
+    if (journalEntry.shared && event.options?.sharedDelivery === 'immediate') {
       journalEntry.shared.delivered =
         this.sharedDataChannelRegistry.pushToSharedChannel(
           journalEntry.shared.name,
@@ -311,9 +387,20 @@ class DataTransact {
       const customInverter = this.inverters.get(event.type)
       if (customInverter) {
         const result = customInverter(cloneEvent(event))
-        return (Array.isArray(result) ? result : [result]).map((item) =>
-          cloneEvent(item)
-        )
+        const replayEvents = Array.isArray(result) ? result : [result]
+        if (replayEvents.length === 0) {
+          throw new Error(
+            `Transaction inverter ${event.type} produced no replay event`
+          )
+        }
+        return replayEvents.map((item, index) => {
+          if (!isReplayEvent(item)) {
+            throw new Error(
+              `Transaction inverter ${event.type} produced an invalid replay event at index ${index}`
+            )
+          }
+          return cloneEvent(item)
+        })
       }
     }
 
@@ -367,10 +454,14 @@ class DataTransact {
     }
 
     if ('undoType' in payload && payload.undoType !== undefined) {
+      const originalType = replayEvent.type
       replayEvent.type = payload.undoType as AllEvent['type']
+      ;(payload as { undoType?: unknown }).undoType = originalType
     }
     if ('undoAction' in payload && payload.undoAction !== undefined) {
+      const originalAction = (payload as { action?: unknown }).action
       ;(payload as { action?: unknown }).action = payload.undoAction
+      ;(payload as { undoAction?: unknown }).undoAction = originalAction
     }
     if ('after' in payload) {
       const originalBefore = (payload as { before?: unknown }).before
@@ -388,31 +479,133 @@ class DataTransact {
     return [replayEvent]
   }
 
+  private applyReplayEvent(
+    event: AllEvent,
+    mode: TransactionReplayMode
+  ): boolean {
+    const previousApplyingReplayEvent = this.applyingReplayEvent
+    this.applyingReplayEvent = true
+    try {
+      return runInTransactionReplayMode(mode, () => {
+        const result = this.onReplayEvent?.(event, mode)
+        const handled =
+          typeof result === 'object' ? result.handled : result === true
+        const applied =
+          typeof result === 'object' ? result.applied : result === true
+        if (handled) {
+          if (applied) {
+            acknowledgeTransactionReplayApplied()
+          }
+          publishEventToObservers(event)
+        } else {
+          publishEvent(event)
+        }
+        return isTransactionReplayApplied()
+      })
+    } finally {
+      this.applyingReplayEvent = previousApplyingReplayEvent
+    }
+  }
+
   private replay(
     events: readonly AllEvent[],
     direction: 'forward' | 'inverse',
-    mode: TransactionReplayMode
+    mode: TransactionReplayMode,
+    restorationPlans?: AllEvent[][]
   ): unknown[] {
     const failures: unknown[] = []
     const orderedEvents =
       direction === 'inverse' ? [...events].reverse() : events
 
     orderedEvents.forEach((event) => {
+      let replayEvents: AllEvent[]
       try {
-        this.createReplayEvents(event, direction).forEach((replayEvent) => {
-          runInTransactionReplayMode(mode, () => publishEvent(replayEvent))
-        })
+        replayEvents = this.createReplayEvents(event, direction)
       } catch (error) {
         failures.push(error)
+        return
       }
+
+      replayEvents.forEach((replayEvent) => {
+        let restorationEvents: AllEvent[] | undefined
+        const mustValidateReplayOutput =
+          restorationPlans !== undefined ||
+          (direction === 'inverse' && this.inverters.has(event.type))
+        const replayPayload = (replayEvent as AllEvent & { payload?: unknown })
+          .payload
+        if (
+          mustValidateReplayOutput &&
+          !this.hasInverseContract(replayEvent.type, replayPayload)
+        ) {
+          failures.push(
+            new Error(
+              `Replay output ${replayEvent.type} requires an inverse contract`
+            )
+          )
+          return
+        }
+        if (restorationPlans || this.inverters.has(replayEvent.type)) {
+          try {
+            const inverseOutputEvents = this.createReplayEvents(
+              replayEvent,
+              'inverse'
+            ).map(cloneEvent)
+            if (inverseOutputEvents.length === 0) {
+              throw new Error(
+                `Replay output ${replayEvent.type} produced no restoration event`
+              )
+            }
+            if (restorationPlans) {
+              restorationEvents = inverseOutputEvents
+            }
+          } catch (error) {
+            failures.push(error)
+            return
+          }
+        }
+
+        try {
+          const applied = this.applyReplayEvent(replayEvent, mode)
+          if (restorationEvents && applied) {
+            restorationPlans?.push(restorationEvents)
+          }
+        } catch (error) {
+          if (restorationEvents && wasTransactionReplayApplied(error)) {
+            restorationPlans?.push(restorationEvents)
+          }
+          failures.push(error)
+        }
+      })
     })
 
     return failures
   }
 
-  private rollbackJournal(): unknown[] {
+  private restoreNestedReplay(): unknown[] {
+    const failures: unknown[] = []
+    ;[...this.nestedReplayRestorationPlans]
+      .reverse()
+      .forEach((restorationEvents) => {
+        restorationEvents.forEach((event) => {
+          try {
+            this.applyReplayEvent(cloneEvent(event), 'rollback')
+          } catch (error) {
+            failures.push(error)
+          }
+        })
+      })
+    return failures
+  }
+
+  private rollbackJournal(
+    source?: TransactionJournalEntry['source']
+  ): unknown[] {
     const rollbackableEvents = this.journal
-      .filter(({ options }) => options.rollbackable)
+      .filter(
+        (entry) =>
+          entry.options.rollbackable &&
+          (source === undefined || entry.source === source)
+      )
       .map(({ event }) => event)
     return this.replay(rollbackableEvents, 'inverse', 'rollback')
   }
@@ -522,13 +715,43 @@ class DataTransact {
     this.currentTransactionId = this.transactionId
   }
 
-  private settleRollback(failure?: TransactionFailure) {
+  private settleRollback(
+    failure?: TransactionFailure,
+    precedingFailures: unknown[] = []
+  ) {
+    if (this.nestedReplaySourceEvents) {
+      this.restoringNestedReplay = true
+      let failures: unknown[]
+      try {
+        failures = [
+          ...this.rollbackJournal('action'),
+          ...this.restoreNestedReplay()
+        ]
+      } finally {
+        this.restoringNestedReplay = false
+      }
+      const rollbackFailures = [
+        ...precedingFailures,
+        ...failures,
+        ...this.compensateImmediateSharedChanges()
+      ]
+      if (rollbackFailures.length > 0) {
+        const rollbackError = new TransactionRollbackError(rollbackFailures)
+        this.emitStatus('rollback-failed', failure, rollbackError)
+        throw rollbackError
+      }
+
+      this.emitStatus('rolled-back', failure)
+      return
+    }
+
     if (this.journal.length === 0) {
       this.emitStatus('discarded', failure)
       return
     }
 
     const failures = [
+      ...precedingFailures,
       ...this.rollbackJournal(),
       ...this.compensateImmediateSharedChanges()
     ]
@@ -578,6 +801,7 @@ class DataTransact {
         'then' in result &&
         typeof result.then === 'function'
       ) {
+        void Promise.resolve(result).catch(() => undefined)
         throw new TransactionValidationError(
           name,
           'async-validator',
@@ -586,6 +810,68 @@ class DataTransact {
       }
       if (result && result.valid === false) {
         throw new TransactionValidationError(name, result.code, result.message)
+      }
+    }
+  }
+
+  private prepareHistoryTransition(): PreparedHistoryTransition | null {
+    if (this.nestedReplaySourceEvents) {
+      const events = this.nestedReplaySourceEvents
+      this.commitNestedReplayHistory(events)
+
+      return {
+        complete: () => this.emitReplayCommitted(events),
+        rollback: () => {
+          if (this.inUndo) {
+            if (this.redoStack[this.redoStack.length - 1] !== events) {
+              throw new Error('Undo target history changed before rollback')
+            }
+            this.redoStack.pop()
+            this.undoStack.push(events)
+            return
+          }
+
+          if (this.inRedo) {
+            if (this.undoStack[this.undoStack.length - 1] !== events) {
+              throw new Error('Redo target history changed before rollback')
+            }
+            this.undoStack.pop()
+            this.redoStack.push(events)
+          }
+        }
+      }
+    }
+
+    if (this.isInUndo() || this.isInRedo()) {
+      return null
+    }
+
+    const committedChanges = this.journal
+      .filter(({ options }) => options.undoable)
+      .map(({ event }) => event)
+    if (committedChanges.length === 0) {
+      return null
+    }
+
+    const previousRedoStack = this.redoStack
+    this.undoStack.push(committedChanges)
+    this.redoStack = []
+
+    return {
+      complete: () => {
+        this.actionId += 1
+        this.onUserActionCompleted?.({
+          actionId: this.actionId,
+          changeCount: committedChanges.length,
+          timestamp: Date.now()
+        })
+      },
+      rollback: () => {
+        if (this.undoStack[this.undoStack.length - 1] !== committedChanges) {
+          throw new Error('Action undo history changed before rollback')
+        }
+        this.undoStack.pop()
+        this.redoStack = previousRedoStack
       }
     }
   }
@@ -626,18 +912,31 @@ class DataTransact {
           }
           if (this.journal.length === 0) {
             if (this.nestedReplaySourceEvents) {
-              this.commitNestedReplayHistory(this.nestedReplaySourceEvents)
-              this.emitReplayCommitted(this.nestedReplaySourceEvents)
+              this.prepareHistoryTransition()?.complete()
             } else if (!this.isInUndo() && !this.isInRedo()) {
               this.emitStatus('discarded')
             }
           } else {
-            this.commitUndo()
-            this.flushPendingSharedChannelChanges()
-            if (this.nestedReplaySourceEvents) {
-              this.commitNestedReplayHistory(this.nestedReplaySourceEvents)
-              this.emitReplayCommitted(this.nestedReplaySourceEvents)
-            } else if (!this.isInUndo() && !this.isInRedo()) {
+            const historyTransition = this.prepareHistoryTransition()
+            try {
+              this.flushPendingSharedChannelChanges()
+            } catch (error) {
+              this.rollbackFailure = toReplayFailure(error)
+              const historyFailures: unknown[] = []
+              try {
+                historyTransition?.rollback()
+              } catch (historyError) {
+                historyFailures.push(historyError)
+              }
+              this.settleRollback(this.rollbackFailure, historyFailures)
+              throw error
+            }
+            historyTransition?.complete()
+            if (
+              !this.nestedReplaySourceEvents &&
+              !this.isInUndo() &&
+              !this.isInRedo()
+            ) {
               this.emitStatus('committed')
             }
           }
@@ -648,6 +947,7 @@ class DataTransact {
         this.rollbackFailure = undefined
         if (this.nestedReplaySourceEvents) {
           this.nestedReplaySourceEvents = null
+          this.nestedReplayRestorationPlans = []
           this.inUndo = false
           this.inRedo = false
         }
@@ -664,24 +964,6 @@ class DataTransact {
         )
       }
     })
-  }
-
-  commitUndo() {
-    // If changes are coming from Undo or Redo events, they should not push back to list again
-    const committedChanges = this.journal
-      .filter(({ options }) => options.undoable)
-      .map(({ event }) => event)
-    if (!this.isInUndo() && !this.isInRedo() && committedChanges.length > 0) {
-      this.undoStack.push(committedChanges)
-      this.redoStack = []
-
-      this.actionId += 1
-      this.onUserActionCompleted?.({
-        actionId: this.actionId,
-        changeCount: committedChanges.length,
-        timestamp: Date.now()
-      })
-    }
   }
 
   undo() {
@@ -709,23 +991,21 @@ class DataTransact {
       }
       this.ensureReplayTransactionId()
 
-      if (hasOuterBoundary) {
-        this.nestedReplaySourceEvents = lastChanges
-      }
-      const failures = this.replay(lastChanges, 'inverse', 'undo')
+      this.nestedReplaySourceEvents = lastChanges
+      this.nestedReplayRestorationPlans = []
+      const failures = this.replay(
+        lastChanges,
+        'inverse',
+        'undo',
+        this.nestedReplayRestorationPlans
+      )
       if (failures.length > 0) {
         throw new TransactionRollbackError(failures)
       }
 
       if (!hasOuterBoundary) {
-        this.undoStack.pop()
-        this.redoStack.push(lastChanges)
-      }
-
-      if (!hasOuterBoundary) {
         endTransaction()
         openedBoundary = false
-        this.emitReplayCommitted(lastChanges)
       }
     } catch (error) {
       const failure = toReplayFailure(error)
@@ -771,22 +1051,21 @@ class DataTransact {
       }
       this.ensureReplayTransactionId()
 
-      if (hasOuterBoundary) {
-        this.nestedReplaySourceEvents = lastChanges
-      }
-      const failures = this.replay(lastChanges, 'forward', 'redo')
+      this.nestedReplaySourceEvents = lastChanges
+      this.nestedReplayRestorationPlans = []
+      const failures = this.replay(
+        lastChanges,
+        'forward',
+        'redo',
+        this.nestedReplayRestorationPlans
+      )
       if (failures.length > 0) {
         throw new TransactionRollbackError(failures)
       }
 
       if (!hasOuterBoundary) {
-        this.redoStack.pop()
-        this.undoStack.push(lastChanges)
-      }
-      if (!hasOuterBoundary) {
         endTransaction()
         openedBoundary = false
-        this.emitReplayCommitted(lastChanges)
       }
     } catch (error) {
       const failure = toReplayFailure(error)
@@ -822,7 +1101,10 @@ class DataTransact {
     this.isTransacting = 0
     this.inUndo = false
     this.inRedo = false
+    this.applyingReplayEvent = false
+    this.restoringNestedReplay = false
     this.nestedReplaySourceEvents = null
+    this.nestedReplayRestorationPlans = []
     this.actionId = 0
     this.transactionId = 0
     this.currentTransactionId = 0

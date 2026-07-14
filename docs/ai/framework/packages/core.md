@@ -74,13 +74,31 @@ System orchestrator and lifecycle coordinator.
 - committed action, undo, and redo capture their provider and CoreRawData
   snapshot when the committed status arrives; provider writes then enter one
   serial persistence queue
-- queued work writes the captured snapshot and never re-reads later committed
+- the captured snapshot is deeply detached before queueing; later mutations to
+  nested runtime arrays/objects and references retained by save hooks cannot
+  change queued provider input
+- queued work writes the detached snapshot and never re-reads later committed
   state or an active uncommitted preview
 - missing provider reports `persistence-skipped`; successful save reports
   `persisted`; provider failure reports `persistence-failed`
 - discarded, rolled-back, and rollback-failed outcomes never request save
 - persistence failure does not roll back committed runtime state and does not
   block later queued saves; Core provides no automatic retry policy
+
+5. Selection transaction contract
+- Core selection APIs record the reversible change and apply canonical
+  SelectionManager state before the transaction boundary closes, so Factory
+  validators observe the final selection rather than a delayed shared projection
+- selection boundaries and replay use the Factory injected into that Core; the
+  Factory's instance-local replay handler restores the injected SelectionManager
+  for rollback, undo, and redo without requiring preset installation
+- registration-driven selection channels install that replay owner and an
+  explicit selection inverter for their actual event name before their first
+  mutation; custom channels are not limited to preset selection event names
+- consumer-owned Factory/Selection pairs do not replay selection into the
+  default runtime or another custom runtime
+- selection shared channels project canonical state to Render/UI; they do not
+  own a second delayed canonical selection value
 
 ## App-Level Usage Rules
 

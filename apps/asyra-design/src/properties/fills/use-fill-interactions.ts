@@ -376,7 +376,10 @@ export const useFillInteractions = ({
     opacity: number
   }) => {
     if (colorPickerTransactionRef.current) {
-      writePickerFill(next.color, next.opacity, { undoable: false })
+      writePickerFill(next.color, next.opacity, {
+        undoable: false,
+        sharedDelivery: 'immediate'
+      })
       return
     }
 

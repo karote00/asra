@@ -12,6 +12,7 @@ import type {
   TransactionFailure
 } from '@asyra/utils'
 import { endTransaction, startTransaction } from '@asyra/reactive-events'
+import { interactionQueue } from './interaction-queue'
 
 const DEFAULT_HANDLER_TIMEOUT_MS = 5000
 
@@ -53,7 +54,18 @@ const measureBrowserDragAsyncPhase = async <T>(
 
 interface CleanupResult {
   outcome: SessionCancelOutcome
-  error?: unknown
+  failure: CapturedFailure
+}
+
+interface CapturedFailure {
+  failed: boolean
+  error: unknown
+}
+
+let activeSessionManager: SessionManager | undefined
+
+const setActiveSessionManager = (manager: SessionManager | undefined): void => {
+  activeSessionManager = manager
 }
 
 export class SessionManager {
@@ -124,6 +136,7 @@ export class SessionManager {
     abortController?: AbortController
   ): Promise<CleanupResult> {
     let outcome: SessionCancelOutcome = 'commit-current'
+    let failed = false
     let firstError: unknown
 
     for (const participant of participants) {
@@ -164,25 +177,28 @@ export class SessionManager {
           outcome = 'rollback'
         }
       } catch (error) {
-        firstError ??= error
+        if (!failed) {
+          failed = true
+          firstError = error
+        }
         outcome = 'rollback'
       }
     }
 
     return {
       outcome,
-      ...(firstError !== undefined ? { error: firstError } : {})
+      failure: { failed, error: firstError }
     }
   }
 
   private async cancelSession(
     sessionName: string,
     snapshot: SystemContextSnapshotWithDetail,
-    forcedError?: unknown
-  ): Promise<unknown | undefined> {
+    forcedFailure?: CapturedFailure
+  ): Promise<CapturedFailure> {
     const session = this.activeSessions.get(sessionName)
     if (!session) {
-      return forcedError
+      return forcedFailure ?? { failed: false, error: undefined }
     }
 
     session.abortController?.abort()
@@ -202,18 +218,17 @@ export class SessionManager {
       session.abortController
     )
     this.activeSessions.delete(sessionName)
+    this.releaseRuntimeOwnershipIfIdle()
 
-    const failure = forcedError ?? cleanup.error
-    const shouldRollback =
-      failure !== undefined || cleanup.outcome === 'rollback'
+    const failure = forcedFailure?.failed ? forcedFailure : cleanup.failure
+    const shouldRollback = failure.failed || cleanup.outcome === 'rollback'
     endTransaction(
       shouldRollback
         ? {
             outcome: 'rollback',
-            failure:
-              failure !== undefined
-                ? this.toTransactionFailure(failure)
-                : { kind: 'cancelled' }
+            failure: failure.failed
+              ? this.toTransactionFailure(failure.error)
+              : { kind: 'cancelled' }
           }
         : { outcome: 'commit' }
     )
@@ -221,6 +236,16 @@ export class SessionManager {
     return failure
   }
 
+  /**
+   * Registers either the legacy handler-only form or an explicit cancel policy.
+   */
+  registerSession(
+    sessionName: string,
+    featureName: string,
+    priority: number,
+    exclusive: boolean,
+    handler: SessionHandler
+  ): void
   registerSession(
     sessionName: string,
     featureName: string,
@@ -228,7 +253,26 @@ export class SessionManager {
     exclusive: boolean,
     cancelPolicy: SessionCancelPolicy,
     handler: SessionHandler
+  ): void
+  registerSession(
+    sessionName: string,
+    featureName: string,
+    priority: number,
+    exclusive: boolean,
+    cancelPolicyOrHandler: SessionCancelPolicy | SessionHandler,
+    explicitHandler?: SessionHandler
   ): void {
+    const cancelPolicy =
+      typeof cancelPolicyOrHandler === 'string'
+        ? cancelPolicyOrHandler
+        : 'rollback'
+    const handler =
+      typeof cancelPolicyOrHandler === 'string'
+        ? explicitHandler
+        : cancelPolicyOrHandler
+    if (!handler) {
+      throw new Error(`Feature ${featureName} must provide a session handler`)
+    }
     if (cancelPolicy === 'feature-defined' && !handler.onCancel) {
       throw new Error(
         `Feature ${featureName} uses feature-defined cancelPolicy without onCancel`
@@ -250,7 +294,96 @@ export class SessionManager {
     this.sessionHandlers.set(sessionName, handlers)
   }
 
-  async handleStart(
+  handleStart(
+    sessionName: string,
+    snapshot: SystemContextSnapshot
+  ): Promise<boolean> {
+    return interactionQueue.run(async () => {
+      if (!this.sessionHandlers.has(sessionName)) {
+        return false
+      }
+      await this.cancelRuntimeActiveSessionsNow(
+        this.withDetail(snapshot, {
+          cancelled: true,
+          cancelledBy: `${sessionName}.start`
+        }) as SystemContextSnapshotWithDetail
+      )
+      return this.handleStartNow(sessionName, snapshot)
+    })
+  }
+
+  handleSessionInput(
+    sessionName: string,
+    phase: 'start' | 'update' | 'end',
+    getSnapshot: () => SystemContextSnapshotWithDetail,
+    cancelledBy: string
+  ): Promise<boolean | undefined> {
+    return interactionQueue.run(async () => {
+      const snapshot = getSnapshot()
+      if (phase === 'start') {
+        await this.cancelRuntimeActiveSessionsNow({
+          ...snapshot,
+          detail: {
+            ...snapshot.detail,
+            cancelled: true,
+            cancelledBy
+          }
+        })
+        return this.handleStartNow(sessionName, snapshot)
+      }
+      if (phase === 'update') {
+        await this.handleUpdateNow(sessionName, snapshot)
+        return undefined
+      }
+      await this.handleEndNow(sessionName, snapshot)
+      return undefined
+    })
+  }
+
+  handleUpdate(
+    sessionName: string,
+    snapshot: SystemContextSnapshot
+  ): Promise<void> {
+    return interactionQueue.run(() =>
+      this.handleUpdateNow(sessionName, snapshot)
+    )
+  }
+
+  handleEnd(
+    sessionName: string,
+    snapshot: SystemContextSnapshot
+  ): Promise<void> {
+    return interactionQueue.run(() => this.handleEndNow(sessionName, snapshot))
+  }
+
+  cancelActiveSessions(
+    snapshot: SystemContextSnapshotWithDetail
+  ): Promise<void> {
+    return interactionQueue.run(() =>
+      this.cancelRuntimeActiveSessionsNow(snapshot)
+    )
+  }
+
+  runAfterCancellingActiveSessions<T>(
+    getSnapshot: () => SystemContextSnapshotWithDetail,
+    operation: (snapshot: SystemContextSnapshotWithDetail) => T | Promise<T>,
+    cancelledBy: string
+  ): Promise<T> {
+    return interactionQueue.run(async () => {
+      const snapshot = getSnapshot()
+      await this.cancelRuntimeActiveSessionsNow({
+        ...snapshot,
+        detail: {
+          ...snapshot.detail,
+          cancelled: true,
+          cancelledBy
+        }
+      })
+      return operation(snapshot)
+    })
+  }
+
+  private async handleStartNow(
     sessionName: string,
     snapshot: SystemContextSnapshot
   ): Promise<boolean> {
@@ -325,10 +458,11 @@ export class SessionManager {
       states,
       abortController
     })
+    setActiveSessionManager(this)
     return true
   }
 
-  async handleUpdate(
+  private async handleUpdateNow(
     sessionName: string,
     snapshot: SystemContextSnapshot
   ): Promise<void> {
@@ -366,14 +500,14 @@ export class SessionManager {
             cancelled: true,
             cancelledBy: `${participant.featureName}.onUpdate`
           }) as SystemContextSnapshotWithDetail,
-          error
+          { failed: true, error }
         )
         throw error
       }
     }
   }
 
-  async handleEnd(
+  private async handleEndNow(
     sessionName: string,
     snapshot: SystemContextSnapshot
   ): Promise<void> {
@@ -387,6 +521,7 @@ export class SessionManager {
       { sessionName },
       session.abortController?.signal
     )
+    let failed = false
     let firstError: unknown
 
     for (const participant of session.participants) {
@@ -402,37 +537,61 @@ export class SessionManager {
           session.abortController
         )
       } catch (error) {
-        firstError ??= error
+        if (!failed) {
+          failed = true
+          firstError = error
+        }
       }
     }
 
     this.activeSessions.delete(sessionName)
-    if (firstError !== undefined) {
+    this.releaseRuntimeOwnershipIfIdle()
+    if (failed) {
       session.abortController?.abort()
     }
     endTransaction(
-      firstError === undefined
-        ? { outcome: 'commit' }
-        : {
+      failed
+        ? {
             outcome: 'rollback',
             failure: this.toTransactionFailure(firstError)
           }
+        : { outcome: 'commit' }
     )
-    if (firstError !== undefined) {
+    if (failed) {
       throw firstError
     }
   }
 
-  async cancelActiveSessions(
+  private async cancelActiveSessionsNow(
     snapshot: SystemContextSnapshotWithDetail
   ): Promise<void> {
+    let failed = false
     let firstError: unknown
     for (const sessionName of [...this.activeSessions.keys()]) {
-      const error = await this.cancelSession(sessionName, snapshot)
-      firstError ??= error
+      const failure = await this.cancelSession(sessionName, snapshot)
+      if (failure.failed && !failed) {
+        failed = true
+        firstError = failure.error
+      }
     }
-    if (firstError !== undefined) {
+    if (failed) {
       throw firstError
+    }
+  }
+
+  private async cancelRuntimeActiveSessionsNow(
+    snapshot: SystemContextSnapshotWithDetail
+  ): Promise<void> {
+    const manager = activeSessionManager
+    if (!manager) {
+      return
+    }
+    await manager.cancelActiveSessionsNow(snapshot)
+  }
+
+  private releaseRuntimeOwnershipIfIdle(): void {
+    if (activeSessionManager === this && this.activeSessions.size === 0) {
+      setActiveSessionManager(undefined)
     }
   }
 
@@ -450,6 +609,7 @@ export class SessionManager {
 
   clearAll(): void {
     this.activeSessions.clear()
+    this.releaseRuntimeOwnershipIfIdle()
   }
 
   unregisterSession(sessionName: string, featureName: string): boolean {

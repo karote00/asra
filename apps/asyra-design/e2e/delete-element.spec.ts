@@ -96,6 +96,23 @@ test.describe('Delete Selected Element', () => {
     const before = await page.evaluate(async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
+      const selectionIds = core.deps.selection.getElementSelectionIds()
+      const elementId = selectionIds[0]
+      const element = core.deps.sceneTree.getElementById(elementId)
+      const propIds = Object.values(element.save().props ?? {}).filter(
+        (id): id is string => typeof id === 'string'
+      )
+      const propComponents = propIds.map((id) =>
+        core.deps.props.getPropertyById(id)
+      )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).__deleteRollbackIdentity = {
+        element,
+        elementId,
+        propComponents,
+        propIds,
+        selectionIds
+      }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(window as any).__deleteRollbackStatuses = []
       core.deps.factory.subscribeToTransactionStatus(
@@ -112,7 +129,12 @@ test.describe('Delete Selected Element', () => {
           message: 'Force delete rollback'
         })
       )
-      return core.save()
+      return {
+        data: await core.save(),
+        elementId,
+        propIds,
+        selectionIds
+      }
     })
 
     await page.keyboard.press('Delete')
@@ -129,9 +151,26 @@ test.describe('Delete Selected Element', () => {
     const after = await page.evaluate(async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const core = (window as any).__Core__
-      return core.save()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const identity = (window as any).__deleteRollbackIdentity
+      const restoredElement = core.deps.sceneTree.getElementById(
+        identity.elementId
+      )
+      return {
+        data: await core.save(),
+        sameElement: restoredElement === identity.element,
+        samePropComponents: identity.propIds.every(
+          (id: string, index: number) =>
+            core.deps.props.getPropertyById(id) ===
+            identity.propComponents[index]
+        ),
+        selectionIds: core.deps.selection.getElementSelectionIds()
+      }
     })
-    expect(after).toEqual(before)
+    expect(after.data).toEqual(before.data)
+    expect(after.sameElement).toBe(true)
+    expect(after.samePropComponents).toBe(true)
+    expect(after.selectionIds).toEqual(before.selectionIds)
   })
 
   test('redo delete after sequential deletions does not throw selection-layer error', async ({

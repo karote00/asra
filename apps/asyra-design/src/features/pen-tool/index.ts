@@ -1,4 +1,8 @@
-import { id, type SystemContextSnapshot } from '@asyra/utils'
+import {
+  id,
+  type EVENT_OPTIONS,
+  type SystemContextSnapshot
+} from '@asyra/utils'
 import {
   VECTOR_TOKENS,
   defineFeature,
@@ -487,7 +491,7 @@ const syncSelectedVectorPointMirror = (
 const updateVectorPointTargetPosition = (
   targetState: VectorPointDragTargetState,
   position: { x: number; y: number },
-  options?: { undoable: boolean; skipResult?: boolean }
+  options?: EVENT_OPTIONS & { skipResult?: boolean }
 ) => {
   if (targetState.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR) {
     return elementApis.updateVectorAnchorPointPosition(
@@ -510,7 +514,7 @@ const updateVectorPointTargetPosition = (
 const applyBezierDragForNewPoint = (
   state: PenState,
   mouseWorkspacePos: { x: number; y: number },
-  options?: { undoable: boolean; skipResult?: boolean }
+  options?: EVENT_OPTIONS & { skipResult?: boolean }
 ) => {
   if (!state.connectedPointId) {
     return false
@@ -955,6 +959,7 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
 
         applyBezierDragForNewPoint(state, mouseWorkspacePos, {
           undoable: false,
+          sharedDelivery: 'immediate',
           skipResult: true
         })
 
@@ -1191,6 +1196,7 @@ export const selectVectorPointFeature = defineFeature<
             computedPatchIntent.patch.position,
             {
               undoable: computedPatchIntent.patch.undoable,
+              sharedDelivery: 'immediate',
               skipResult: computedPatchIntent.patch.skipResult
             }
           )

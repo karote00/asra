@@ -1,4 +1,8 @@
-import type { PositionData, SystemContextSnapshot } from '@asyra/utils'
+import type {
+  EVENT_OPTIONS,
+  PositionData,
+  SystemContextSnapshot
+} from '@asyra/utils'
 import { defineFeature } from '@asyra/core'
 import {
   elementApis,
@@ -63,7 +67,7 @@ interface MoveElementsApi {
   ) => Record<string, PositionData>
   applyPositions: (
     positionsById: Record<string, PositionData>,
-    options?: { undoable: boolean }
+    options?: EVENT_OPTIONS
   ) => void
   [key: string]: unknown
 }
@@ -242,7 +246,7 @@ const api: MoveElementsApi = {
 
   applyPositions: (
     positionsById: Record<string, PositionData>,
-    options?: { undoable: boolean }
+    options?: EVENT_OPTIONS
   ) => {
     elementApis.setElementPositions(positionsById, options)
   }
@@ -288,7 +292,10 @@ export const moveElementsFeature = defineFeature<
       )
 
       measureBrowserDragPhase('move-elements:apply-positions', () =>
-        api.applyPositions(targetPositions, { undoable: false })
+        api.applyPositions(targetPositions, {
+          undoable: false,
+          sharedDelivery: 'immediate'
+        })
       )
       state.isMoving = true
     },

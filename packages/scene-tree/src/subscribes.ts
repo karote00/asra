@@ -17,6 +17,7 @@ import {
 import propsManager from '@asyra/props-manager'
 import {
   PROPS_ACTIONS,
+  type DataTypes,
   type ComputedDataPatch,
   type ComputedDataPatchChange,
   type ComputedAttrs,
@@ -109,12 +110,14 @@ export const initSceneTreeSubscribes = () => {
       }
       const resolvedParent =
         parent ?? (recordedParent as GroupInstanceTypes | undefined)
-      sceneTree.addNewElement(
-        data,
-        resolvedParent,
-        index,
-        getTransactionReplayMode() !== null,
-        options
+      return (
+        sceneTree.addNewElement(
+          data,
+          resolvedParent,
+          index,
+          getTransactionReplayMode() !== null,
+          options
+        ) !== ''
       )
     }
   )
@@ -123,7 +126,7 @@ export const initSceneTreeSubscribes = () => {
     EventTypes.REMOVE_ELEMENT,
     ({ payload, options }) => {
       const { data, parent } = payload
-      sceneTree.removeElement(data, parent, options)
+      return sceneTree.removeElement(data, parent, options)
     }
   )
 
@@ -177,15 +180,33 @@ export const initSceneTreeSubscribes = () => {
     ({ payload }) => {
       const { id, key, after } = payload
       const options = undefined
+      const previousSceneChangeCount = sceneTree.changes.length
+      const previousPropsChangeCount = propsManager.changes.length
+      const element = sceneTree.getElementById(id)
+      if (!element) {
+        return false
+      }
+      const elementOwner = element as unknown as {
+        data: Record<string, DataTypes>
+        set: (key: string, value: DataTypes) => void
+      }
 
-      sceneTree.updateComputedData(
-        id,
-        key as keyof ComputedAttrs,
-        after as ComputedAttrs[keyof ComputedAttrs],
-        options
-      )
+      if (Object.prototype.hasOwnProperty.call(elementOwner.data, key)) {
+        elementOwner.set(key, after)
+      } else {
+        sceneTree.updateComputedData(
+          id,
+          key as keyof ComputedAttrs,
+          after as ComputedAttrs[keyof ComputedAttrs],
+          options
+        )
+      }
+      const applied =
+        sceneTree.changes.length > previousSceneChangeCount ||
+        propsManager.changes.length > previousPropsChangeCount
       propsManager.commitChanges(options)
       sceneTree.commitSceneTreeTransaction(options)
+      return applied
     }
   )
 
@@ -194,14 +215,20 @@ export const initSceneTreeSubscribes = () => {
     ({ payload }) => {
       const { id, patch } = payload
       const options = undefined
+      const previousSceneChangeCount = sceneTree.changes.length
+      const previousPropsChangeCount = propsManager.changes.length
 
       sceneTree.patchComputedData(
         id,
         toAppliedComputedDataPatch(patch),
         options
       )
+      const applied =
+        sceneTree.changes.length > previousSceneChangeCount ||
+        propsManager.changes.length > previousPropsChangeCount
       propsManager.cleanChanges()
       sceneTree.commitSceneTreeTransaction(options)
+      return applied
     }
   )
 

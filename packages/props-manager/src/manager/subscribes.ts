@@ -1,4 +1,5 @@
 import {
+  acknowledgeTransactionReplayApplied,
   EventTypes,
   getTransactionReplayMode,
   subscribeToSynchronousEvent,
@@ -33,6 +34,9 @@ export const initPropXSubscribes = () => {
   subscribeToSynchronousEvent<AddPropertyEvent>(
     EventTypes.ADD_PROPERTY,
     ({ payload, options }) => {
+      const previousProperties = payload.data.map((propData) =>
+        propsManager.getPropertyById(propData.id as string)
+      )
       const propComponents = payload.data.map((propData) => {
         let newProperty
         if (getTransactionReplayMode() !== null) {
@@ -49,7 +53,14 @@ export const initPropXSubscribes = () => {
       })
 
       propsManager.addProperty(propComponents)
+      const applied = propComponents.some(
+        (property, index) => property !== previousProperties[index]
+      )
+      if (applied) {
+        acknowledgeTransactionReplayApplied()
+      }
       propsManager.commitChanges(options)
+      return applied
     }
   )
 
@@ -59,9 +70,16 @@ export const initPropXSubscribes = () => {
       const removedPropertyIds = payload.data.map(
         (propertyData) => propertyData.id as string
       )
+      const applied = removedPropertyIds.some((id) =>
+        propsManager.getPropertyById(id)
+      )
 
       propsManager.removeProperty(removedPropertyIds, options)
+      if (applied) {
+        acknowledgeTransactionReplayApplied()
+      }
       propsManager.commitChanges(options)
+      return applied
     }
   )
 
@@ -69,9 +87,10 @@ export const initPropXSubscribes = () => {
     EventTypes.UPDATE_PROPERTY,
     ({ payload, options }) => {
       if (!isUpdatePropertyChangePayload(payload)) {
-        return
+        return false
       }
 
+      const previousChangeCount = propsManager.changes.length
       propsManager.updatePropertyById(
         payload.id,
         payload.key,
@@ -84,7 +103,9 @@ export const initPropXSubscribes = () => {
           : undefined,
         options
       )
+      const applied = propsManager.changes.length > previousChangeCount
       propsManager.commitChanges(options)
+      return applied
     }
   )
 

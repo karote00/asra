@@ -125,30 +125,25 @@ function registerFeatureHandlers(
         }
 
         const eventHandler = async (raw: RawInputEvent) => {
-          await interactionQueue.run(() =>
-            measureBrowserDragAsyncPhase(`feature:event:${event}`, async () => {
-              const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
-              const mergedSnapshot = {
-                ...snapshot,
-                ...(raw.detail ? { detail: raw.detail } : {})
-              } as SystemContextSnapshotWithDetail
-
-              if (event.includes('.start')) {
-                await sessionManager.cancelActiveSessions({
-                  ...mergedSnapshot,
-                  detail: {
-                    ...mergedSnapshot.detail,
-                    cancelled: true,
-                    cancelledBy: event
-                  }
-                })
-                await sessionManager.handleStart(keyConfig, mergedSnapshot)
-              } else if (event.includes('.update')) {
-                await sessionManager.handleUpdate(keyConfig, mergedSnapshot)
-              } else if (event.includes('.end')) {
-                await sessionManager.handleEnd(keyConfig, mergedSnapshot)
-              }
-            })
+          const phase = event.endsWith('.start')
+            ? 'start'
+            : event.endsWith('.update')
+              ? 'update'
+              : 'end'
+          await measureBrowserDragAsyncPhase(`feature:event:${event}`, () =>
+            sessionManager.handleSessionInput(
+              keyConfig,
+              phase,
+              () => {
+                const snapshot =
+                  systemContext.getSystemContextSnapshot?.() ?? raw
+                return {
+                  ...snapshot,
+                  ...(raw.detail ? { detail: raw.detail } : {})
+                } as SystemContextSnapshotWithDetail
+              },
+              event
+            )
           )
         }
         inputSystem.on?.(event, eventHandler)
@@ -190,22 +185,19 @@ function registerFeatureHandlers(
         } else {
           // Input events: Listen via inputSystem
           inputSystem.on?.(event, async (raw: RawInputEvent) => {
-            await interactionQueue.run(async () => {
-              const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
-              const mergedSnapshot = {
-                ...snapshot,
-                ...(raw.detail ? { detail: raw.detail } : {})
-              } as SystemContextSnapshotWithDetail
-              await sessionManager.cancelActiveSessions({
-                ...mergedSnapshot,
-                detail: {
-                  ...mergedSnapshot.detail,
-                  cancelled: true,
-                  cancelledBy: event
-                }
-              })
-              await executionRegistry.execute(event, mergedSnapshot)
-            })
+            await sessionManager.runAfterCancellingActiveSessions(
+              () => {
+                const snapshot =
+                  systemContext.getSystemContextSnapshot?.() ?? raw
+                return {
+                  ...snapshot,
+                  ...(raw.detail ? { detail: raw.detail } : {})
+                } as SystemContextSnapshotWithDetail
+              },
+              (mergedSnapshot) =>
+                executionRegistry.execute(event, mergedSnapshot),
+              event
+            )
           })
           registeredEvents.add(event)
         }

@@ -83,7 +83,9 @@ Scene/model bridge:
 `EVENT_OPTIONS` supports `undoable`, `rollbackable`, `shared`, and
 `sharedDelivery`. `undoable: false` skips ordinary history but remains
 rollbackable by default. `rollbackable: false` explicitly opts out of failure
-reversal. `sharedDelivery: 'immediate'` projects that shared change during an
+reversal, but does not opt an undoable event out of the inverse-contract
+requirement; intentionally irreversible effects must also set
+`undoable: false`. `sharedDelivery: 'immediate'` projects that shared change during an
 active transaction while retaining it in the current undo commit; the default
 is `'transaction-end'`.
 
@@ -96,7 +98,14 @@ Transaction facade exports:
 - `runTransaction(callback, options?: RunTransactionOptions)`; supports sync
   and async callbacks
 - `subscribeToSynchronousEvent(type, subscriber)`; canonical state-owner replay
-  acknowledgement only, not a replacement for ordinary event observation
+  acknowledgement only, not a replacement for ordinary event observation;
+  return `false` to report a semantic no-op
+- `acknowledgeTransactionReplayApplied()`; call after canonical mutation when a
+  synchronous replay owner can still throw before returning
+- `isTransactionReplayApplied()`; Factory-facing query for whether the active
+  replay context has applied a semantic mutation
+- `wasTransactionReplayApplied(error)`; Factory-facing replay failure metadata
+  query that preserves the original thrown value
 - transaction types: `TransactionOutcome`, `TransactionOrigin`,
   `TransactionFailureKind`, `TransactionFailure`, `EndTransactionOptions`,
   `RunTransactionOptions`, `TransactionStatus`, `TransactionStatusPayload`
@@ -152,7 +161,13 @@ Managed property bridges:
 - `getFeatureRegistry()`
 - `getSessionManager()`
 - `setCorePackages(packages)`
-- runtime classes: `FeatureRegistry`, `SessionManager`
+- runtime classes: `FeatureRegistry`, `SessionManager`, `InteractionQueue`
+- default interaction queue: `interactionQueue`
+- identifiable handler error: `FeatureHandlerTimeoutError`
+- public `SessionManager` start, update, end, and cancel operations are
+  serialized with one-shot command execution by the default transaction
+  owner's queue; all instances share one active session runtime, so a new
+  registered session start cancels the previously active session first
 
 `@asyra/render`
 

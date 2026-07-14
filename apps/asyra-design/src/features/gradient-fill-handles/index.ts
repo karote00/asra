@@ -226,7 +226,7 @@ const applyHandleDragUpdate = (
     state.currentFill,
     'gradient',
     nextGradient,
-    { undoable: false }
+    { undoable: false, sharedDelivery: 'immediate' }
   )
 
   state.latestGradient = nextGradient
@@ -318,7 +318,7 @@ const applyStopDragUpdate = (
     state.currentFill,
     'gradient',
     nextGradient,
-    { undoable: false }
+    { undoable: false, sharedDelivery: 'immediate' }
   )
 
   state.latestGradient = nextGradient

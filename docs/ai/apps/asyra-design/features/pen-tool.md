@@ -108,6 +108,9 @@
 - virtual preview segment (pen hover before commit) follows the same rule:
   - if preview start point has `outHandle`, render bezier preview
   - otherwise render straight preview line
+- active new-point handle and selected vector-point drag frames use explicit
+  `sharedDelivery: 'immediate'` while remaining `undoable: false`; pointer-up
+  still finalizes one undoable vector patch.
 - handle style:
   - same fill color/size as anchor points
   - white 1px stroke
