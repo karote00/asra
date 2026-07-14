@@ -31,7 +31,7 @@ Use this file to route a new framework request to the right docs first.
   - `rules/data-flow-and-transactions.md`
   - `packages/factory.md`
   - `packages/feature-system.md`
-  - `plans/transaction-atomicity-and-rollback-plan.md`
+  - `plans/completed/transaction-atomicity-and-rollback-plan.md`
 
 - Yjs shared channels/network collaboration/presence/conflict policy
   - `packages/factory.md`

@@ -1,4 +1,6 @@
 const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
 const test = require('node:test')
 
 const data = require('./transaction-flow-inspector.data.cjs')
@@ -8,6 +10,21 @@ const step = (id) => {
   assert.ok(value, `Missing Inspector step: ${id}`)
   return value
 }
+
+test('completed product contract remains the resolvable Inspector authority', () => {
+  const repoRoot = path.resolve(__dirname, '../../../..')
+  const productContract = data.links.find(
+    (link) => link.id === 'product-contract'
+  )
+
+  assert.ok(productContract, 'Missing product-contract Inspector link')
+  assert.equal(
+    data.authority.specPath,
+    'docs/ai/framework/plans/completed/transaction-atomicity-and-rollback-plan.md'
+  )
+  assert.ok(fs.existsSync(path.resolve(repoRoot, data.authority.specPath)))
+  assert.ok(fs.existsSync(path.resolve(__dirname, productContract.href)))
+})
 
 test('nested rollback is owned by the outer boundary and finalized once', () => {
   const boundary = step('coordinate-transaction-boundary')

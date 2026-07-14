@@ -17,10 +17,12 @@ Preset packages provide working defaults, not hidden ownership. App authors shou
 - One intended user action should map to one intended undo commit.
 - Data-changing paths must be grouped behind transaction boundaries.
 - Cross-store mutations must be coordinated through API boundaries that preserve scene-tree, props-manager, selection, and render consistency.
-- Current scope is grouping, undo/redo replay, and shared-delivery timing.
-- Automatic failed-transaction rollback and explicit cancel policies are a
-  deferred guarantee tracked in
-  `../plans/transaction-atomicity-and-rollback-plan.md`.
+- The current local runtime includes grouping, undo/redo replay, automatic
+  failed-transaction rollback, synchronous commit validation, explicit cancel
+  policies, shared-delivery timing, and separate persistence acknowledgement.
+- This is an application-level guarantee, not database serializability or a
+  distributed transaction contract. See
+  `../plans/completed/transaction-atomicity-and-rollback-plan.md`.
 
 3. Schema Safety Guarantee
 - Runtime invalid writes are rejected before they corrupt active state.

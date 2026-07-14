@@ -2,7 +2,7 @@
   'use strict'
 
   const specPath =
-    'docs/ai/framework/plans/transaction-atomicity-and-rollback-plan.md'
+    'docs/ai/framework/plans/completed/transaction-atomicity-and-rollback-plan.md'
   const inspectorPath =
     'docs/ai/framework/plans/transaction-flow-inspector.data.cjs'
 
@@ -120,7 +120,7 @@
         'packages/scene-tree/src/__tests__/**',
         'packages/utils/src/types/scene-tree.ts',
         'docs/ai/framework/packages/scene-tree.md',
-        'docs/ai/framework/plans/transaction-atomicity-and-rollback-plan.md'
+        'docs/ai/framework/plans/completed/transaction-atomicity-and-rollback-plan.md'
       ],
       specRefs: ['#rollbackable-vs-undoable', '#ownership'],
       failureOwnerStepId: 'record-reversible-journal'
@@ -310,7 +310,7 @@
         'apps/asyra-design/e2e/delete-element.spec.ts',
         'docs/ai/framework/packages/factory.md',
         'docs/ai/framework/packages/scene-tree.md',
-        'docs/ai/framework/plans/transaction-atomicity-and-rollback-plan.md',
+        'docs/ai/framework/plans/completed/transaction-atomicity-and-rollback-plan.md',
         'docs/ai/framework/rules/data-flow-and-transactions.md'
       ],
       specRefs: [
@@ -638,14 +638,15 @@
     authority: {
       specPath,
       inspectorPath,
-      semanticOwner: 'transaction-atomicity-and-rollback-plan.md',
+      semanticOwner:
+        'completed/transaction-atomicity-and-rollback-plan.md',
       inspectorOwner: 'transaction-flow-inspector.data.cjs'
     },
     links: [
       {
         id: 'product-contract',
         label: 'Transaction Atomicity Contract',
-        href: './transaction-atomicity-and-rollback-plan.md',
+        href: './completed/transaction-atomicity-and-rollback-plan.md',
         kind: 'authority'
       },
       {

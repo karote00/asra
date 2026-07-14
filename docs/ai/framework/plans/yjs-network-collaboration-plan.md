@@ -32,9 +32,9 @@ Do not begin implementation until these contracts are stable:
 - load validation/migration
 - selective instance ownership and disposal
 
-Primary prerequisite:
+Primary completed prerequisite:
 
-`transaction-atomicity-and-rollback-plan.md`
+`completed/transaction-atomicity-and-rollback-plan.md`
 
 ## Goal
 
