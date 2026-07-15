@@ -78,6 +78,7 @@ __metadata:
     vite: "npm:^6.2.3"
     vite-plugin-eslint: "npm:^1.8.1"
     vite-plugin-vercel: "npm:^9.0.5"
+    vitest: "npm:^2.1.8"
     web-vitals: "npm:^2.1.4"
   languageName: unknown
   linkType: soft
