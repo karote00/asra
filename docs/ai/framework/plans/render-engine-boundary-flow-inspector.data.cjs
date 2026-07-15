@@ -110,18 +110,21 @@
       outputs: ['artifact:render-start-request'],
       conditions: [
         'Core calls the configured framework renderer once and keeps persistence, feature initialization, and ready publication ordered after render initialization.',
-        'Core remains unaware of Pixi resources and concrete engine methods.'
+        'Core remains unaware of Pixi resources and concrete engine methods.',
+        'The app bootstrap configures only the engine-neutral @asyra/render framework render adapter before Core startup.'
       ],
       bypasses: [
         'A missing configured adapter or engine fails startup before data observers, features, or ready publication.'
       ],
       allowedContributors: [
         '@asyra/render framework-facing renderer contract',
+        'app bootstrap configuration of the framework render adapter',
         'HTMLElement surface container',
         'engine-neutral RenderOptions'
       ],
       forbiddenContributors: [
         'pixi.js types or runtime',
+        'app bootstrap concrete engine imports or Pixi-named adapter usage',
         'concrete engine capability introspection',
         'false ready fallback'
       ],
@@ -129,7 +132,9 @@
       implementationBoundary: [
         'packages/core/src/core.ts',
         'packages/core/src/index.ts',
-        'packages/core/src/__tests__/**'
+        'packages/core/src/__tests__/**',
+        'apps/asyra-design/src/render-app/index.tsx',
+        'apps/asyra-design/src/render-app/__tests__/**'
       ],
       specRefs: ['#state-to-render-surface', '#engine-injection'],
       failureOwnerStepId: 'start-render-runtime'
@@ -189,6 +194,7 @@
         'packages/render/package.json',
         'packages/render/src/index.ts',
         'packages/render/src/render.ts',
+        'packages/render/src/renderer.ts',
         'packages/render/src/pixi-renderer.ts',
         'packages/render/src/types.ts',
         'packages/render/src/types/**',

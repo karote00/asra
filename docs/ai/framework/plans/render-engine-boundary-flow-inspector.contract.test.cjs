@@ -56,8 +56,34 @@ test('render consumes only the abstract engine contract', () => {
     adapter.implementationBoundary.includes('packages/render/src/types.ts')
   )
   assert.ok(
+    adapter.implementationBoundary.includes('packages/render/src/renderer.ts')
+  )
+  assert.ok(
     adapter.implementationBoundary.includes(
       'packages/render/src/pixi-renderer.ts'
+    )
+  )
+})
+
+test('app startup configures only the framework render adapter', () => {
+  const startup = step('start-render-runtime')
+  const contract = [
+    ...startup.conditions,
+    ...startup.allowedContributors,
+    ...startup.forbiddenContributors
+  ].join(' ')
+
+  assert.match(contract, /app bootstrap/i)
+  assert.match(contract, /framework render adapter/i)
+  assert.match(contract, /concrete engine/i)
+  assert.ok(
+    startup.implementationBoundary.includes(
+      'apps/asyra-design/src/render-app/index.tsx'
+    )
+  )
+  assert.ok(
+    startup.implementationBoundary.includes(
+      'apps/asyra-design/src/render-app/__tests__/**'
     )
   )
 })
