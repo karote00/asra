@@ -191,6 +191,7 @@ __metadata:
   dependencies:
     "@asyra/core": "workspace:*"
     "@asyra/reactive-events": "workspace:*"
+    "@asyra/render": "workspace:*"
     "@asyra/render-engine": "workspace:*"
     "@asyra/render-engine-pixi": "workspace:*"
     "@asyra/ui-context": "workspace:*"
