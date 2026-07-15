@@ -219,16 +219,12 @@ export interface RenderEngine {
   initialize(
     options: RenderEngineInitializeOptions
   ): RenderEngineInitializeResult | Promise<RenderEngineInitializeResult>
-  execute(
-    command: RenderEngineCommand
-  ): RenderEngineCommandResult | Promise<RenderEngineCommandResult>
-  query(
-    query: RenderEngineQuery
-  ): RenderEngineQueryResult | Promise<RenderEngineQueryResult>
+  execute(command: RenderEngineCommand): RenderEngineCommandResult
+  query(query: RenderEngineQuery): RenderEngineQueryResult
   subscribeToInteraction(listener: RenderEngineInteractionListener): () => void
   startFrameLoop(callback: RenderEngineFrameCallback): void
   stopFrameLoop(): void
-  destroy(): RenderEngineDestroyResult | Promise<RenderEngineDestroyResult>
+  destroy(): RenderEngineDestroyResult
 }
 
 export type RenderEngineFactory = () => RenderEngine

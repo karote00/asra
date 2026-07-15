@@ -25,9 +25,10 @@
     "build:render-engine": "tsc",
     "clean": "rm -rf dist",
     "has:test": "find . -type f \\( -name \"*.test.ts\" -o -name \"*.test.tsx\" \\) | grep -q .",
+    "test:types": "tsc --noEmit --strict --skipLibCheck --target ES2020 --module ESNext --moduleResolution Node src/__tests__/contract-signatures.type-test.ts",
     "test": "yarn has:test && vitest || echo 'No test files found. Skipping test.'",
-    "test:local": "vitest run",
-    "test:ci": "yarn has:test && vitest run --coverage --reporter=default --reporter=junit || echo 'No test files found. Skipping test:ci.'"
+    "test:local": "yarn test:types && vitest run",
+    "test:ci": "yarn has:test && yarn test:types && vitest run --coverage --reporter=default --reporter=junit || echo 'No test files found. Skipping test:ci.'"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.8",

@@ -14,7 +14,6 @@ import type {
   RenderEngineInteractionEvent,
   RenderEngineInteractionListener,
   RenderEngineObjectHandle,
-  RenderEnginePoint,
   RenderEngineQuery,
   RenderEngineQueryResult,
   RenderEngineResourceHandle
