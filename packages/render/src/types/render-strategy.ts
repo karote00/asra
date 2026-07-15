@@ -1,22 +1,42 @@
 import type { RenderElementData } from '../types'
 import type { RenderGraphics } from './render-object'
 
-export type RenderStrategyGraphic = Pick<
-  RenderGraphics,
-  | 'bezierCurveTo'
-  | 'clear'
-  | 'closePath'
-  | 'ellipse'
-  | 'fill'
-  | 'hitArea'
-  | 'lineTo'
-  | 'moveTo'
-  | 'rect'
-  | 'renderable'
-  | 'visible'
-  | 'x'
-  | 'y'
->
+/**
+ * @deprecated Use `RenderGraphics`. This independent structural facade keeps
+ * existing Pixi-annotated callbacks source-compatible without importing Pixi.
+ */
+export interface RenderStrategyGraphic {
+  bezierCurveTo(
+    controlPoint1X: number,
+    controlPoint1Y: number,
+    controlPoint2X: number,
+    controlPoint2Y: number,
+    destinationX: number,
+    destinationY: number
+  ): RenderStrategyGraphic
+  clear(): RenderStrategyGraphic
+  closePath(): RenderStrategyGraphic
+  ellipse(
+    x: number,
+    y: number,
+    radiusX: number,
+    radiusY: number
+  ): RenderStrategyGraphic
+  fill(style: unknown): RenderStrategyGraphic
+  lineTo(x: number, y: number): RenderStrategyGraphic
+  moveTo(x: number, y: number): RenderStrategyGraphic
+  rect(
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  ): RenderStrategyGraphic
+  hitArea?: unknown
+  renderable: boolean
+  visible: boolean
+  x: number
+  y: number
+}
 
 export type EngineNeutralRenderStrategy = (
   graphic: RenderGraphics,
