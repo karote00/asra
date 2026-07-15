@@ -254,6 +254,11 @@ test('cleanup is deterministic and owned resources cannot survive destroy', () =
   )
   assert.ok(
     cleanup.implementationBoundary.includes(
+      'packages/render/src/types/render-object.ts'
+    )
+  )
+  assert.ok(
+    cleanup.implementationBoundary.includes(
       'apps/asyra-design/src/render-app/index.tsx'
     )
   )
