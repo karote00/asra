@@ -92,6 +92,61 @@ test('app startup configures only the framework render adapter', () => {
   assert.ok(startup.implementationBoundary.includes('yarn.lock'))
 })
 
+test('architecture documentation sync stays with the matching owner steps', () => {
+  const documentationByOwner = new Map([
+    [
+      'define-render-engine-contract',
+      [
+        'docs/ai/framework/FRAMEWORK_ESSENTIALS.md',
+        'docs/ai/framework/ARCHITECTURE.md',
+        'docs/ai/framework/API_SURFACES.md',
+        'docs/ai/framework/RUNTIME_MATRICES.md',
+        'docs/ai/framework/CONSTRAINTS.md',
+        'docs/ai/framework/CODING_STANDARDS.md',
+        'docs/ai/framework/WORKFLOW.md',
+        'docs/ai/framework/rules/import-boundaries.md',
+        'docs/ai/framework/packages/README.md',
+        'docs/ai/framework/packages/render-engine.md',
+        'docs/ai/framework/decisions/releases/unreleased.md'
+      ]
+    ],
+    [
+      'orchestrate-render-adapter',
+      ['docs/ai/framework/packages/render.md']
+    ],
+    [
+      'execute-render-engine',
+      ['docs/ai/framework/packages/render-engine-pixi.md']
+    ],
+    [
+      'select-render-engine',
+      [
+        'docs/ai/framework/packages/preset.md',
+        'docs/ai/framework/golden-paths/README.md',
+        'docs/ai/framework/golden-paths/replace-render-engine.md'
+      ]
+    ],
+    [
+      'start-render-runtime',
+      [
+        'docs/ai/framework/packages/core.md',
+        'docs/ai/apps/asyra-design/ARCHITECTURE.md',
+        'docs/ai/apps/asyra-design/modules/init-and-startup.md'
+      ]
+    ]
+  ])
+
+  documentationByOwner.forEach((documentationFiles, ownerStepId) => {
+    const owner = step(ownerStepId)
+    documentationFiles.forEach((documentationFile) => {
+      assert.ok(
+        owner.implementationBoundary.includes(documentationFile),
+        `Missing ${ownerStepId} documentation boundary: ${documentationFile}`
+      )
+    })
+  })
+})
+
 test('the abstract contract has its own package owner and shared artifact', () => {
   const contractOwner = step('define-render-engine-contract')
   const contractArtifact = data.artifacts.find(

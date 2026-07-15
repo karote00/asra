@@ -52,7 +52,10 @@
         'packages/preset/package.json',
         'packages/preset/src/preset.ts',
         'packages/preset/src/types.ts',
-        'packages/preset/src/__tests__/**'
+        'packages/preset/src/__tests__/**',
+        'docs/ai/framework/packages/preset.md',
+        'docs/ai/framework/golden-paths/README.md',
+        'docs/ai/framework/golden-paths/replace-render-engine.md'
       ],
       specRefs: [
         '#target-package-architecture',
@@ -136,7 +139,10 @@
         'packages/core/src/__tests__/**',
         'apps/asyra-design/package.json',
         'apps/asyra-design/src/render-app/index.tsx',
-        'apps/asyra-design/src/render-app/__tests__/**'
+        'apps/asyra-design/src/render-app/__tests__/**',
+        'docs/ai/framework/packages/core.md',
+        'docs/ai/apps/asyra-design/ARCHITECTURE.md',
+        'docs/ai/apps/asyra-design/modules/init-and-startup.md'
       ],
       specRefs: ['#state-to-render-surface', '#engine-injection'],
       failureOwnerStepId: 'start-render-runtime'
@@ -206,7 +212,8 @@
         'packages/render/src/strategies/**',
         'packages/render/src/fills/**',
         'packages/render/src/projections/**',
-        'packages/render/src/__tests__/**'
+        'packages/render/src/__tests__/**',
+        'docs/ai/framework/packages/render.md'
       ],
       specRefs: [
         '#package-ownership',
@@ -257,7 +264,18 @@
         'packages/render-engine/package.json',
         'packages/render-engine/tsconfig.json',
         'packages/render-engine/vitest.config.ts',
-        'packages/render-engine/src/**'
+        'packages/render-engine/src/**',
+        'docs/ai/framework/FRAMEWORK_ESSENTIALS.md',
+        'docs/ai/framework/ARCHITECTURE.md',
+        'docs/ai/framework/API_SURFACES.md',
+        'docs/ai/framework/RUNTIME_MATRICES.md',
+        'docs/ai/framework/CONSTRAINTS.md',
+        'docs/ai/framework/CODING_STANDARDS.md',
+        'docs/ai/framework/WORKFLOW.md',
+        'docs/ai/framework/rules/import-boundaries.md',
+        'docs/ai/framework/packages/README.md',
+        'docs/ai/framework/packages/render-engine.md',
+        'docs/ai/framework/decisions/releases/unreleased.md'
       ],
       specRefs: [
         '#package-ownership',
@@ -315,7 +333,8 @@
         'packages/render-engine-pixi/package.json',
         'packages/render-engine-pixi/tsconfig.json',
         'packages/render-engine-pixi/vitest.config.ts',
-        'packages/render-engine-pixi/src/**'
+        'packages/render-engine-pixi/src/**',
+        'docs/ai/framework/packages/render-engine-pixi.md'
       ],
       specRefs: [
         '#package-ownership',
