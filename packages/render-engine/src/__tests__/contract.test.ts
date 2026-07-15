@@ -3,6 +3,7 @@ import {
   RenderEngineCapabilities,
   UnsupportedRenderEngineCapabilityError,
   assertRenderEngineCapabilities,
+  type RenderEngine,
   type RenderEngineCommand,
   type RenderEngineInteractionEvent
 } from '../index'
@@ -24,7 +25,9 @@ describe('@asyra/render-engine contract', () => {
       createEngine: () => engine,
       emitInteraction: (targetEngine, event) => {
         targetEngine.emitInteraction(event)
-      }
+      },
+      getOperationTypes: (targetEngine) =>
+        targetEngine.getOperations().map((operation) => operation.type)
     })
 
     expect(report.engine).toBe(engine)
@@ -51,6 +54,32 @@ describe('@asyra/render-engine contract', () => {
     })
     expect(engine.getOwnedObjectCount()).toBe(0)
     expect(engine.getOwnedResourceCount()).toBe(0)
+  })
+
+  it('runs through an adapter without recording-only engine methods', async () => {
+    const recording = new RecordingRenderEngine({ name: 'facade-recording' })
+    const facade: RenderEngine = {
+      name: recording.name,
+      capabilities: recording.capabilities,
+      initialize: (options) => recording.initialize(options),
+      execute: (command) => recording.execute(command),
+      query: (query) => recording.query(query),
+      subscribeToInteraction: (listener) =>
+        recording.subscribeToInteraction(listener),
+      startFrameLoop: (callback) => recording.startFrameLoop(callback),
+      stopFrameLoop: () => recording.stopFrameLoop(),
+      destroy: () => recording.destroy()
+    }
+
+    const report = await runRenderEngineContract({
+      createEngine: () => facade,
+      emitInteraction: (_engine, event) => recording.emitInteraction(event),
+      getOperationTypes: () =>
+        recording.getOperations().map((operation) => operation.type)
+    })
+
+    expect(report.engine).toBe(facade)
+    expect(report.operationTypes.at(-1)).toBe('destroy')
   })
 
   it('keeps recording engine instances isolated', async () => {

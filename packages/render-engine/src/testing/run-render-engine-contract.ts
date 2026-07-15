@@ -3,31 +3,33 @@ import {
   assertRenderEngineCapabilities
 } from '../capabilities'
 import type {
+  RenderEngine,
   RenderEngineDestroyResult,
   RenderEngineInitializeResult,
   RenderEngineInteractionEvent
 } from '../types'
-import { RecordingRenderEngine } from './recording-render-engine'
 
-export type RenderEngineContractOptions = Readonly<{
-  createEngine: () => RecordingRenderEngine
-  emitInteraction: (
-    engine: RecordingRenderEngine,
-    event: RenderEngineInteractionEvent
-  ) => void
-}>
+export type RenderEngineContractOptions<Engine extends RenderEngine> =
+  Readonly<{
+    createEngine: () => Engine
+    emitInteraction: (
+      engine: Engine,
+      event: RenderEngineInteractionEvent
+    ) => void
+    getOperationTypes: (engine: Engine) => readonly string[]
+  }>
 
-export type RenderEngineContractReport = Readonly<{
-  engine: RecordingRenderEngine
+export type RenderEngineContractReport<Engine extends RenderEngine> = Readonly<{
+  engine: Engine
   initializationResult: RenderEngineInitializeResult
   operationTypes: readonly string[]
   interactions: readonly RenderEngineInteractionEvent[]
   destroyResult: RenderEngineDestroyResult
 }>
 
-export async function runRenderEngineContract(
-  options: RenderEngineContractOptions
-): Promise<RenderEngineContractReport> {
+export async function runRenderEngineContract<Engine extends RenderEngine>(
+  options: RenderEngineContractOptions<Engine>
+): Promise<RenderEngineContractReport<Engine>> {
   const engine = options.createEngine()
   const interactions: RenderEngineInteractionEvent[] = []
   const unsubscribe = engine.subscribeToInteraction((event) => {
@@ -126,7 +128,7 @@ export async function runRenderEngineContract(
   return {
     engine,
     initializationResult,
-    operationTypes: engine.getOperations().map((operation) => operation.type),
+    operationTypes: options.getOperationTypes(engine),
     interactions,
     destroyResult
   }
