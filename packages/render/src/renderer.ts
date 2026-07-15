@@ -30,10 +30,16 @@ export class RenderAdapter implements IRenderer {
   }
 
   destroy(): void {
-    if (this.container) {
-      this.container.innerHTML = ''
+    const container = this.container
+    if (!container) {
+      return
     }
     this.container = null
+    try {
+      render.dispose()
+    } finally {
+      container.innerHTML = ''
+    }
   }
 
   getViewportPosition() {

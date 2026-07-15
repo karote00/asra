@@ -10,7 +10,8 @@ const renderRuntime = vi.hoisted(() => ({
   getViewportScale: vi.fn(() => 2),
   panTo: vi.fn(),
   zoomToCenter: vi.fn(),
-  resize: vi.fn()
+  resize: vi.fn(),
+  dispose: vi.fn()
 }))
 
 vi.mock('../render', () => ({
@@ -73,6 +74,29 @@ describe('Framework renderer facade', () => {
     expect(warn).toHaveBeenCalledWith(
       'PixiJSRenderer is deprecated. Use RenderAdapter from @asyra/render.'
     )
+  })
+
+  it('routes adapter teardown through the active render runtime exactly once', async () => {
+    const container = document.createElement('div')
+    const canvas = document.createElement('canvas')
+    const app = { canvas, instance: { name: 'engine-runtime' } }
+    renderRuntime.init.mockImplementation(async () => {
+      renderRuntime.app = app
+      return app
+    })
+    const adapter = new RenderAdapter()
+    await adapter.init(container, {
+      width: 640,
+      height: 480,
+      backgroundColor: 0x112233
+    })
+    container.appendChild(canvas)
+
+    adapter.destroy()
+    adapter.destroy()
+
+    expect(renderRuntime.dispose).toHaveBeenCalledOnce()
+    expect(container.childElementCount).toBe(0)
   })
 
   it('documents the public replacement on the deprecated class', () => {
