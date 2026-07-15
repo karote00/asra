@@ -122,6 +122,15 @@ const targets = [
     ),
     dataScript: './transaction-flow-inspector.data.cjs',
     filterLaneTitle: 'Factory State'
+  },
+  {
+    id: 'render-engine-boundary',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/framework/plans/render-engine-boundary-flow-inspector.html'
+    ),
+    dataScript: './render-engine-boundary-flow-inspector.data.cjs',
+    filterLaneTitle: 'Render Adapter'
   }
 ]
 

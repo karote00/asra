@@ -154,6 +154,45 @@ Preset does not become the runtime owner of the renderer or engine.
 
 The concrete engine must never call product features directly.
 
+## Active Inspector Authority
+
+The exact package and data-flow contract for this plan is:
+
+- Inspector data:
+  `docs/ai/framework/plans/render-engine-boundary-flow-inspector.data.cjs`;
+- direct-open viewer:
+  `docs/ai/framework/plans/render-engine-boundary-flow-inspector.html`;
+- target semantic gate:
+  `docs/ai/framework/plans/render-engine-boundary-flow-inspector.contract.test.cjs`.
+
+This plan remains the product and public-boundary authority. The Inspector maps
+engine selection, Core startup, render adaptation, concrete execution,
+interaction return, readiness, and cleanup without redefining product behavior.
+
+## Baseline Migration Inventory
+
+The extraction starts from these current ownership facts:
+
+- `@asyra/render` publicly exports the default `render` singleton, `Render`,
+  renderer lifecycle types, render strategy/layer/interaction surfaces, fill and
+  projection helpers, stores, and the Pixi-specific `PixiJSRenderer`;
+- Pixi runtime imports currently occur in the render lifecycle, scene,
+  viewport, selection and overlay layers, render strategies, fill resources,
+  mesh projection, interaction event types, and their concrete tests;
+- Core owns `setRenderer(...)`, `start(...)`, framework-facing render APIs, and
+  the injected `Render` dependency used by state/render bridges;
+- Preset owns default render layers and subscriptions but does not yet select or
+  inject a concrete engine;
+- Asyra Design currently constructs `PixiJSRenderer` directly in its render-app
+  bootstrap after `applyPreset(core)` has registered framework defaults.
+
+The target classification is fixed by `Package Ownership`: orchestration,
+registries, state synchronization, and framework interaction stay in
+`@asyra/render`; abstract lifecycle, command, handle, resource, event,
+capability, error, and contract-test types move to `@asyra/render-engine`; all
+Pixi runtime objects and SDK calls move to `@asyra/render-engine-pixi`; preset
+selects the default; Core and apps remain concrete-engine-neutral.
+
 ## Scope
 
 In scope:
