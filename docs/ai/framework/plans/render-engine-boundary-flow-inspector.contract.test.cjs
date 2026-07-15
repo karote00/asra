@@ -79,6 +79,18 @@ test('concrete execution owns Pixi resources without importing render', () => {
   assert.equal(engine.ownerPackage, '@asyra/render-engine-pixi')
   assert.match(contract, /opaque handles/i)
   assert.match(contract, /must not import @asyra\/render/i)
+  assert.ok(engine.implementationBoundary.includes('yarn.lock'))
+  assert.ok(engine.implementationBoundary.includes('turbo.json'))
+  assert.ok(
+    engine.implementationBoundary.includes(
+      'packages/render-engine-pixi/tsconfig.json'
+    )
+  )
+  assert.ok(
+    engine.implementationBoundary.includes(
+      'packages/render-engine-pixi/vitest.config.ts'
+    )
+  )
 })
 
 test('custom engines use the same command and interaction routes', () => {

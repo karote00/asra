@@ -297,7 +297,11 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'yarn.lock',
+        'turbo.json',
         'packages/render-engine-pixi/package.json',
+        'packages/render-engine-pixi/tsconfig.json',
+        'packages/render-engine-pixi/vitest.config.ts',
         'packages/render-engine-pixi/src/**'
       ],
       specRefs: [
