@@ -1,5 +1,6 @@
 import './components'
 import './props/components'
+import { createPixiRenderEngine } from '@asyra/render-engine-pixi'
 import { registerEvents } from './events/register-events'
 import { registerPropertySchemas } from './props/register-property-schemas'
 import {
@@ -13,24 +14,49 @@ import {
 } from './subscriptions'
 import { registerSelections } from './selection/register-default-selections'
 import { registerProperties } from './ui/register-properties'
-import type { PresetCoreAPIs, PresetDependencies } from './types'
+import type {
+  ApplyPresetOptions,
+  PresetCoreAPIs,
+  PresetDependencies
+} from './types'
 
-const resolvePresetDependencies = (
+const isApplyPresetOptions = (
+  value: PresetDependencies | ApplyPresetOptions
+): value is ApplyPresetOptions => 'renderEngineFactory' in value
+
+const resolvePresetComposition = (
   core: PresetCoreAPIs,
-  deps?: PresetDependencies
-): PresetDependencies => {
-  if (deps) {
-    return deps
+  dependenciesOrOptions?: PresetDependencies | ApplyPresetOptions
+): Required<Pick<ApplyPresetOptions, 'renderEngineFactory'>> & {
+  dependencies: PresetDependencies
+} => {
+  if (!dependenciesOrOptions) {
+    return {
+      dependencies: core.getPresetDependencies(),
+      renderEngineFactory: createPixiRenderEngine
+    }
+  }
+  if (isApplyPresetOptions(dependenciesOrOptions)) {
+    return {
+      dependencies:
+        dependenciesOrOptions.dependencies ?? core.getPresetDependencies(),
+      renderEngineFactory: dependenciesOrOptions.renderEngineFactory
+    }
   }
 
-  return core.getPresetDependencies()
+  return {
+    dependencies: dependenciesOrOptions,
+    renderEngineFactory: createPixiRenderEngine
+  }
 }
 
 export const applyPreset = (
   core: PresetCoreAPIs,
-  deps?: PresetDependencies
+  dependenciesOrOptions?: PresetDependencies | ApplyPresetOptions
 ): void => {
-  const resolvedDeps = resolvePresetDependencies(core, deps)
+  const { dependencies: resolvedDeps, renderEngineFactory } =
+    resolvePresetComposition(core, dependenciesOrOptions)
+  resolvedDeps.render.setEngineFactory(renderEngineFactory)
   registerEvents(core)
 
   registerSelections(core)

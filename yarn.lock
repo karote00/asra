@@ -189,6 +189,8 @@ __metadata:
   resolution: "@asyra/preset@workspace:packages/preset"
   dependencies:
     "@asyra/core": "workspace:*"
+    "@asyra/render-engine": "workspace:*"
+    "@asyra/render-engine-pixi": "workspace:*"
     "@asyra/utils": "workspace:*"
     "@types/bezier-js": "npm:^4.1.3"
     "@vitest/coverage-v8": "npm:^2.1.8"
@@ -230,7 +232,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asyra/render-engine-pixi@workspace:packages/render-engine-pixi":
+"@asyra/render-engine-pixi@workspace:*, @asyra/render-engine-pixi@workspace:packages/render-engine-pixi":
   version: 0.0.0-use.local
   resolution: "@asyra/render-engine-pixi@workspace:packages/render-engine-pixi"
   dependencies:

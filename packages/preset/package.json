@@ -25,6 +25,8 @@
   },
   "dependencies": {
     "@asyra/core": "workspace:*",
+    "@asyra/render-engine": "workspace:*",
+    "@asyra/render-engine-pixi": "workspace:*",
     "@asyra/utils": "workspace:*",
     "bezier-js": "^6.1.4"
   }
