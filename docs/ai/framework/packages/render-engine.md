@@ -12,6 +12,8 @@ custom engine implementations.
   flush commands;
 - engine-neutral queries for bounds, coordinate conversion, and hit testing;
 - opaque object/resource handles;
+- an opaque runtime identity returned from initialization for compatibility
+  facades; the contract does not define or inspect its concrete SDK type;
 - normalized pointer interaction events;
 - capability identifiers and deterministic unsupported-capability errors;
 - engine-independent contract-test utilities.
@@ -38,7 +40,9 @@ custom engine implementations.
 
 `initialize(...)` may be asynchronous. `execute(...)`, `query(...)`, and
 `destroy()` are synchronous so render orchestration observes deterministic
-command results and cleanup.
+command results and cleanup. `RenderEngineInitializeResult.runtime` is
+`unknown`: adapters may forward its identity through an existing compatibility
+API, but may not branch on its concrete type.
 
 ## Capabilities
 

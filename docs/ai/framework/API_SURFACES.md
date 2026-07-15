@@ -176,6 +176,8 @@ Managed property bridges:
 - `Render({ engine?, engineFactory? })` for direct instance/factory injection;
   configuring both providers is rejected
 - `RenderAdapter`: engine-neutral Core-facing `IRenderer` implementation
+- renderer initialization and `getInstance()` preserve the selected engine's
+  opaque runtime identity without adding a concrete SDK type to this package
 - `PixiJSRenderer`: deprecated compatibility alias for `RenderAdapter`; warns
   once and is scheduled for removal after the next major-release migration
   window
@@ -199,6 +201,7 @@ Managed property bridges:
 - `RenderEngine`, `RenderEngineFactory`
 - opaque `RenderEngineObjectHandle`, `RenderEngineResourceHandle`
 - lifecycle: `initialize`, `startFrameLoop`, `stopFrameLoop`, `destroy`
+- `RenderEngineInitializeResult.runtime`: opaque compatibility runtime identity
 - semantic command/query contracts: `RenderEngineCommand`,
   `RenderEngineCommandResult`, `RenderEngineQuery`, `RenderEngineQueryResult`
 - normalized interaction contracts: `RenderEngineInteractionEvent`,
