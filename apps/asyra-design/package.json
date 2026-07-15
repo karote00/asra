@@ -7,6 +7,7 @@
     "@asyra/core": "workspace:*",
     "@asyra/design-system": "workspace:*",
     "@asyra/feature-system": "workspace:*",
+    "@asyra/input-system": "workspace:*",
     "@asyra/preset": "workspace:*",
     "@asyra/reactive-events": "workspace:*",
     "@asyra/render": "workspace:*",

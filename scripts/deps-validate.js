@@ -15,7 +15,13 @@ import { glob } from 'glob'
 import ts from 'typescript'
 
 const INTERNAL_SCOPE = '@asyra/'
-const SOURCE_GLOB = '**/*.{ts,tsx,js,jsx}'
+const SOURCE_GLOB = '**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}'
+const MOCK_MODULE_METHODS = new Set([
+  'mock',
+  'doMock',
+  'importActual',
+  'importMock'
+])
 
 function readJSON(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
@@ -30,6 +36,21 @@ function sourceFileKind(filePath) {
 
 function moduleSpecifierText(node) {
   return node && ts.isStringLiteralLike(node) ? node.text : undefined
+}
+
+function importTypeSpecifierText(node) {
+  if (!ts.isLiteralTypeNode(node.argument)) return undefined
+  return moduleSpecifierText(node.argument.literal)
+}
+
+function isMockModuleReference(expression) {
+  return (
+    ts.isPropertyAccessExpression(expression) &&
+    ts.isIdentifier(expression.expression) &&
+    (expression.expression.text === 'vi' ||
+      expression.expression.text === 'jest') &&
+    MOCK_MODULE_METHODS.has(expression.name.text)
+  )
 }
 
 export function extractInternalImports(source, filePath) {
@@ -47,20 +68,32 @@ export function extractInternalImports(source, filePath) {
   }
 
   function visit(node) {
-    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+    for (const jsDoc of node.jsDoc ?? []) {
+      for (const tag of jsDoc.tags ?? []) {
+        if (tag.typeExpression?.type) visit(tag.typeExpression.type)
+      }
+    }
+
+    if (ts.isImportTypeNode(node)) {
+      addImport(importTypeSpecifierText(node))
+    } else if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
       addImport(moduleSpecifierText(node.moduleSpecifier))
     } else if (
       ts.isImportEqualsDeclaration(node) &&
       ts.isExternalModuleReference(node.moduleReference)
     ) {
       addImport(moduleSpecifierText(node.moduleReference.expression))
-    } else if (ts.isCallExpression(node) && node.arguments.length === 1) {
+    } else if (ts.isCallExpression(node) && node.arguments.length >= 1) {
       const isRequire =
         ts.isIdentifier(node.expression) && node.expression.text === 'require'
       const isDynamicImport =
         node.expression.kind === ts.SyntaxKind.ImportKeyword
 
-      if (isRequire || isDynamicImport) {
+      if (
+        isRequire ||
+        isDynamicImport ||
+        isMockModuleReference(node.expression)
+      ) {
         addImport(moduleSpecifierText(node.arguments[0]))
       }
     }
@@ -145,20 +178,41 @@ export async function validateDependencies({
   rootDir = process.cwd(),
   verbose = false
 } = {}) {
-  const packagesDir = path.join(rootDir, 'packages')
-  if (!fs.existsSync(packagesDir)) {
+  const rootManifestPath = path.join(rootDir, 'package.json')
+  if (!fs.existsSync(rootManifestPath)) {
     return {
       workspaces: [],
       selfDependencies: [],
       missingDependencies: new Map(),
-      setupError: 'packages/ directory not found'
+      setupError: 'root package.json not found'
     }
   }
 
-  const workspaceDirs = fs
-    .readdirSync(packagesDir)
-    .map((name) => path.join(packagesDir, name))
-    .filter((directory) => fs.existsSync(path.join(directory, 'package.json')))
+  const rootManifest = readJSON(rootManifestPath)
+  const workspacePatterns = Array.isArray(rootManifest.workspaces)
+    ? rootManifest.workspaces
+    : rootManifest.workspaces?.packages
+  if (!Array.isArray(workspacePatterns) || workspacePatterns.length === 0) {
+    return {
+      workspaces: [],
+      selfDependencies: [],
+      missingDependencies: new Map(),
+      setupError: 'root package.json does not declare workspaces'
+    }
+  }
+
+  const workspaceManifestPatterns = workspacePatterns.map(
+    (pattern) => `${pattern.replace(/\/$/, '')}/package.json`
+  )
+  const workspaceManifestPaths = await glob(workspaceManifestPatterns, {
+    cwd: rootDir,
+    absolute: true,
+    nodir: true,
+    ignore: ['**/node_modules/**']
+  })
+  const workspaceDirs = [
+    ...new Set(workspaceManifestPaths.map((manifest) => path.dirname(manifest)))
+  ].sort()
   const workspaces = workspaceDirs.map((directory) => {
     const manifest = readJSON(path.join(directory, 'package.json'))
     return {
@@ -182,10 +236,19 @@ export async function validateDependencies({
   for (const workspace of workspaces) {
     if (verbose) console.log(`\nScanning ${workspace.name}`)
 
+    const nestedManifests = await glob('**/package.json', {
+      cwd: workspace.directory,
+      nodir: true,
+      ignore: ['**/node_modules/**', '**/dist/**']
+    })
+    const nestedPackageIgnores = nestedManifests
+      .filter((manifest) => manifest !== 'package.json')
+      .map((manifest) => `${path.posix.dirname(manifest)}/**`)
+
     const files = await glob(SOURCE_GLOB, {
       cwd: workspace.directory,
       absolute: true,
-      ignore: ['**/node_modules/**', '**/dist/**']
+      ignore: ['**/node_modules/**', '**/dist/**', ...nestedPackageIgnores]
     })
 
     for (const file of files.sort()) {
