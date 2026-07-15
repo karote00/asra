@@ -5,6 +5,7 @@
 Optional preset bootstrap for framework defaults.
 
 Preset role contract:
+
 - preset is the default settings package that supports framework startup
 - preset is not app-domain ownership
 - preset is not framework-runtime ownership
@@ -24,16 +25,27 @@ Preset role contract:
 - default shared data-channel registration (`sceneTree`, `selection`, `props`)
 - default data-channel observer/subscription registration (render + ui-context quick-start behavior)
 - default selection shared-channel apply wiring and scene-tree-driven selection cleanup
+- default `@asyra/render-engine-pixi` factory selection/injection
 
 ## Must Not Own
 
 - core lifecycle ownership
 - domain/package runtime state ownership
 - app business/domain workflows
+- render-engine runtime/resource ownership
+- engine singleton fallback or concrete-engine introspection
 
 ## Current Contract
 
 - `applyPreset(core)` applies preset-provided registrations using explicit app call.
+- `applyPreset(core)` injects `createPixiRenderEngine` as the default factory for
+  the target `Render` instance. Each `Render` creates/owns its engine at init.
+- `applyPreset(core, dependencies)` preserves the existing explicit dependency
+  bundle path and still selects the default Pixi factory.
+- `applyPreset(core, { renderEngineFactory, dependencies? })` replaces the
+  default with an explicit contract-compatible factory before Core startup.
+- preset selects and injects the factory; it never constructs, stores, or
+  destroys the resulting engine instance/resources.
 - `applyPreset(core)` expects `CorePresetInstallAPIs` (concrete required APIs, no optional capability probing).
 - `applyPreset(core)` is the owner of framework default/builtin wiring that was previously implicit or app-local.
 - preset owns default event names/definitions and registers them through `core.registerEvent(...)` while `@asyra/reactive-events` provides event infra (registry + publish/subscribe wiring).
@@ -50,6 +62,9 @@ Preset role contract:
 
 - Applying preset multiple times does not corrupt runtime registration state.
 - App startup works when preset is applied explicitly.
+- Default startup creates a fresh Pixi engine per target `Render` instance.
+- A custom factory replaces the default without a Pixi singleton fallback.
+- Custom engines pass `@asyra/render-engine/testing` contract tests.
 - Ownership triage is explicit for new changes:
   - does this belong to user customization, preset defaults, or framework runtime owner?
   - does this preset default help users quickly get working functionality without locking extension paths?
