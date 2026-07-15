@@ -8,6 +8,8 @@ export class RenderAdapter implements IRenderer {
   readonly name: string = 'RenderAdapter'
 
   private container: HTMLElement | null = null
+  private initializationPending = false
+  private destroyRequested = false
 
   constructor(private readonly runtime: Render = render) {}
 
@@ -16,18 +18,28 @@ export class RenderAdapter implements IRenderer {
     options: RenderOptions
   ): Promise<RenderResult> {
     this.container = container
+    this.destroyRequested = false
+    this.initializationPending = true
 
-    const app = await this.runtime.init(
-      options.width,
-      options.height,
-      options.backgroundColor || 0x000000,
-      container
-    )
-    this.runtime.start()
+    try {
+      const app = await this.runtime.init(
+        options.width,
+        options.height,
+        options.backgroundColor || 0x000000,
+        container
+      )
+      if (this.destroyRequested) {
+        this.runtime.dispose()
+        throw new Error('Render adapter was destroyed during initialization')
+      }
+      this.runtime.start()
 
-    return {
-      canvas: app.canvas,
-      instance: app.instance
+      return {
+        canvas: app.canvas,
+        instance: app.instance
+      }
+    } finally {
+      this.initializationPending = false
     }
   }
 
@@ -37,6 +49,11 @@ export class RenderAdapter implements IRenderer {
       return
     }
     this.container = null
+    this.destroyRequested = true
+    if (this.initializationPending) {
+      container.innerHTML = ''
+      return
+    }
     try {
       this.runtime.dispose()
     } finally {

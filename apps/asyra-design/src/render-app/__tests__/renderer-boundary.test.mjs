@@ -31,5 +31,8 @@ test('Asyra Design tears down the exact framework renderer it starts', () => {
   assert.match(renderAppSource, /const renderer = new RenderAdapter\(\)/)
   assert.match(renderAppSource, /core\.setRenderer\(renderer\)/)
   assert.match(renderAppSource, /renderer\.destroy\(\)/)
+  assert.match(renderAppSource, /lifecycleRef\.current/)
+  assert.match(renderAppSource, /if \(!active\)/)
+  assert.doesNotMatch(renderAppSource, /hasInit/)
   assert.doesNotMatch(renderAppSource, /destroyRenderApp/)
 })

@@ -143,6 +143,35 @@ describe('Framework renderer facade', () => {
     expect(container.childElementCount).toBe(0)
   })
 
+  it('finishes pending initialization as cleanup without starting the runtime', async () => {
+    const container = document.createElement('div')
+    const canvas = document.createElement('canvas')
+    const app = { canvas, instance: { name: 'pending-runtime' } }
+    let resolveInitialization: ((value: typeof app) => void) | undefined
+    renderRuntime.init.mockImplementation(
+      () =>
+        new Promise<typeof app>((resolve) => {
+          resolveInitialization = resolve
+        })
+    )
+    const adapter = new RenderAdapter()
+
+    const initialization = adapter.init(container, {
+      width: 640,
+      height: 480,
+      backgroundColor: 0x112233
+    })
+    adapter.destroy()
+    resolveInitialization?.(app)
+
+    await expect(initialization).rejects.toThrow(
+      'Render adapter was destroyed during initialization'
+    )
+    expect(renderRuntime.start).not.toHaveBeenCalled()
+    expect(renderRuntime.dispose).toHaveBeenCalledOnce()
+    expect(container.childElementCount).toBe(0)
+  })
+
   it('documents the public replacement on the deprecated class', () => {
     const source = readFileSync(
       path.resolve(process.cwd(), 'src/renderer.ts'),
