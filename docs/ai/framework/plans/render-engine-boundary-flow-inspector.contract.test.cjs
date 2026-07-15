@@ -35,6 +35,7 @@ test('preset selects the default engine without becoming its runtime owner', () 
   assert.match(contract, /Pixi/i)
   assert.match(contract, /custom engine factory/i)
   assert.match(contract, /does not own the engine runtime/i)
+  assert.ok(selection.implementationBoundary.includes('yarn.lock'))
 })
 
 test('render consumes only the abstract engine contract', () => {

@@ -48,6 +48,7 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'yarn.lock',
         'packages/preset/package.json',
         'packages/preset/src/preset.ts',
         'packages/preset/src/types.ts',
