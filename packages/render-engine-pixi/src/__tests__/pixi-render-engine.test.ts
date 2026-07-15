@@ -78,7 +78,8 @@ const pixiState = vi.hoisted(() => ({
   matrices: [] as MockMatrixRecord[],
   meshes: [] as MockMeshRecord[],
   operationTypes: [] as string[],
-  nextInitError: null as Error | null
+  nextInitError: null as Error | null,
+  nextDestroyError: null as Error | null
 }))
 
 vi.mock('pixi.js', () => {
@@ -354,7 +355,13 @@ vi.mock('pixi.js', () => {
     readonly render = vi.fn(() => {
       pixiState.operationTypes.push('flush')
     })
-    readonly destroy = vi.fn()
+    readonly destroy = vi.fn(() => {
+      if (pixiState.nextDestroyError) {
+        const error = pixiState.nextDestroyError
+        pixiState.nextDestroyError = null
+        throw error
+      }
+    })
     readonly init = vi.fn(async () => {
       pixiState.operationTypes.push('initialize')
       if (pixiState.nextInitError) {
@@ -404,6 +411,7 @@ describe('PixiRenderEngine', () => {
     pixiState.meshes.length = 0
     pixiState.operationTypes.length = 0
     pixiState.nextInitError = null
+    pixiState.nextDestroyError = null
   })
 
   afterEach(() => {
@@ -423,6 +431,9 @@ describe('PixiRenderEngine', () => {
         resizeTo: runtimeWindow
       })
     )
+    const initializeOptions = getLastApplication().init.mock.calls[0]?.[0]
+    expect(initializeOptions).not.toHaveProperty('backgroundColor')
+    expect(initializeOptions).not.toHaveProperty('backgroundAlpha')
     await engine.destroy()
   })
 
@@ -851,6 +862,7 @@ describe('PixiRenderEngine', () => {
     expect(pixiState.textures[0].destroy).toHaveBeenCalledOnce()
 
     pixiState.nextInitError = new Error('pixi init failed')
+    pixiState.nextDestroyError = new Error('partial Pixi cleanup failed')
     const partial = new PixiRenderEngine()
     await expect(
       partial.initialize({ host: {}, width: 30, height: 30 })

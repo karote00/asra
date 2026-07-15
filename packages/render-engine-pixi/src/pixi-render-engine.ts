@@ -111,14 +111,18 @@ export class PixiRenderEngine implements RenderEngine {
       await app.init({
         width: options.width,
         height: options.height,
-        backgroundColor: options.backgroundColor,
-        backgroundAlpha: options.backgroundAlpha,
         antialias: options.antialias ?? true,
         resolution:
           options.resolution ??
           Math.min(runtimeWindow?.devicePixelRatio ?? 1, 2),
         autoDensity: options.autoDensity ?? true,
         autoStart: false,
+        ...(options.backgroundColor !== undefined
+          ? { backgroundColor: options.backgroundColor }
+          : {}),
+        ...(options.backgroundAlpha !== undefined
+          ? { backgroundAlpha: options.backgroundAlpha }
+          : {}),
         ...(runtimeWindow ? { resizeTo: runtimeWindow } : {})
       })
 
@@ -139,7 +143,12 @@ export class PixiRenderEngine implements RenderEngine {
       }
     } catch (error) {
       this.detachInteractionEvents(app.stage)
-      app.destroy(true)
+      try {
+        app.destroy(true)
+      } catch {
+        // Pixi plugins may not have completed initialization; preserve the
+        // owner failure instead of replacing it with a partial-cleanup error.
+      }
       this.app = null
       this.rootHandle = null
       this.objectHandles = new WeakMap()
