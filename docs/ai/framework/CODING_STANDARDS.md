@@ -3,13 +3,16 @@
 ## Import Boundaries
 
 1. Cross-package imports
+
 - Always use `@asyra/package-name`.
 - Never use deep relative imports across packages.
 
 2. Same-package imports
+
 - Use relative imports.
 
 3. App-level dependency rule
+
 - App code should call framework via exposed APIs (`core` and app wrappers).
 - Prefer `@asyra/core` facade re-exports for common feature/input helpers when available.
 - Avoid direct manipulation of package internals.
@@ -45,7 +48,14 @@
 
 ## Render and UI Standards
 
-- Render engine abstractions stay in `@asyra/render`.
+- Framework render orchestration and state synchronization stay in
+  `@asyra/render`.
+- Engine-neutral lifecycle, command, query, handle, resource, capability,
+  event, and error contracts stay in `@asyra/render-engine`.
+- Pixi imports and concrete SDK behavior stay in
+  `@asyra/render-engine-pixi`; it must not import `@asyra/render`.
+- Concrete engines and `@asyra/render` meet only through
+  `@asyra/render-engine`.
 - UI and render are outputs of data/system state updates, not authoritative sources.
 
 ## Documentation Standards

@@ -10,7 +10,10 @@ Use these matrices for deterministic ownership and flow decisions.
 - property component owner: `@asyra/props-manager`
 - selection owner: `@asyra/selection`
 - app/system mode owner: `@asyra/system-context`
-- render engine owner: `@asyra/render`
+- render orchestration/adapter owner: `@asyra/render`
+- abstract render-engine contract owner: `@asyra/render-engine`
+- default concrete Pixi runtime owner: `@asyra/render-engine-pixi`
+- default engine selection owner: `@asyra/preset`
 - derived UI state owner: `@asyra/ui-context` (optional)
 - transaction boundary depth/rollback-only owner: `@asyra/reactive-events`
 - reversible journal/validation/history/shared-settlement owner: `@asyra/factory`
@@ -19,10 +22,12 @@ Use these matrices for deterministic ownership and flow decisions.
 ## Mutation Boundary Matrix
 
 - feature handlers
+
   - can: call API boundaries
   - must not: mutate package internals directly
 
 - app/common APIs
+
   - can: orchestrate transactions and package calls
   - should: use `runTransaction` for finite work and manual boundaries only for
     interactions spanning multiple input events
@@ -30,6 +35,7 @@ Use these matrices for deterministic ownership and flow decisions.
   - should: update system-context state through managed-property APIs rather than framework-level key-specific events
 
 - package internals
+
   - can: enforce invariants and validation semantics
   - must not: assume app UI framework
 
@@ -40,10 +46,12 @@ Use these matrices for deterministic ownership and flow decisions.
 ## Validation Semantics Matrix
 
 - runtime set/update
+
   - valid: write
   - invalid: reject
 
 - load value with default
+
   - valid: write
   - invalid: fallback to default
 
@@ -54,22 +62,30 @@ Use these matrices for deterministic ownership and flow decisions.
 ## Extension Author Matrix
 
 - feature author
+
   - can: register feature behavior through explicit triggers, priority, exclusivity, and execution/session lifecycle
   - must: call app/common APIs or core facade APIs for mutation/query work
   - must not: mutate package internals or create a parallel decision runtime
 
 - preset author
-  - can: provide default components, properties, schemas, selections, features, events, render layers, and startup wiring
+
+  - can: provide default components, properties, schemas, selections, features, events, render layers, startup wiring, and a default render-engine factory
   - must: keep defaults optional, movable, and replaceable
+  - must not: own engine instances/resources or add implicit singleton fallback
   - must not: make app-domain behavior a hidden framework dependency
 
 - app/product author
+
   - can: compose core and presets, define app features, shortcuts, events, schemas, render layers, and domain workflows
+  - can: pass a contract-compatible custom render-engine factory to preset
   - should: replace preset behavior through documented unregister/redefine or override flows
   - must not: patch preset/framework internals for app-specific policy
 
 - render extension author
-  - can: register render layers, interaction targets, handlers, and engine abstractions
+  - can: register render layers, interaction targets, and handlers through
+    `@asyra/render`
+  - can: implement a custom engine through `@asyra/render-engine` without
+    importing render internals
   - must: keep render derived from state/system inputs
   - must not: make render engine state the source of truth for domain logic
 
@@ -96,6 +112,12 @@ State-application path:
 ## Compatibility Matrix
 
 - builtin defaults
+
   - status: optional
   - usage: convenience
   - extraction readiness: should stay movable
+
+- `PixiJSRenderer` export from `@asyra/render`
+  - status: deprecated compatibility alias
+  - replacement: `RenderAdapter`
+  - guarantee: same Core-facing lifecycle during the migration window

@@ -5,30 +5,69 @@ Asyra architecture is designed around deterministic execution over declarative i
 ## Layer Model
 
 1. Framework Core Layer
+
 - `@asyra/core`
 - orchestration, lifecycle, registrations, persistence hooks
 
 2. Domain Runtime Layer
+
 - `@asyra/scene-tree`
 - `@asyra/props-manager`
 - `@asyra/system-context`
 - `@asyra/selection`
 
 3. Interaction and Input Layer
+
 - `@asyra/feature-system`
 - `@asyra/input-system`
 - `@asyra/reactive-events`
 
 4. Output Layer
+
 - `@asyra/render`
+- `@asyra/render-engine`
+- `@asyra/render-engine-pixi`
 - `@asyra/ui-context` (optional convenience)
 
 5. Transaction, Shared-Change, and Persistence Infrastructure
+
 - `@asyra/factory`
 - `@asyra/persistence`
 
 6. Shared Infrastructure
+
 - `@asyra/utils`
+
+## Render Package Architecture
+
+```mermaid
+flowchart TD
+  state["Framework state<br/>SceneTree / Props / Selection"]
+  preset["@asyra/preset<br/>selects and injects the default engine"]
+  render["@asyra/render<br/>adapter + orchestration"]
+  contract["@asyra/render-engine<br/>abstract contract"]
+  pixi["@asyra/render-engine-pixi<br/>Pixi concrete implementation"]
+  custom["User render engine<br/>custom concrete implementation"]
+  surface["Render surface"]
+
+  state -->|authoritative state changes| render
+  preset -->|constructs default| pixi
+  preset -->|injects engine instance or factory| render
+  render -->|consumes| contract
+  pixi -->|implements| contract
+  custom -->|implements| contract
+  pixi -->|renders through Pixi| surface
+  custom -->|renders through custom runtime| surface
+```
+
+Dependency direction is strict:
+
+- `@asyra/render` depends on `@asyra/render-engine`, never on a concrete engine;
+- `@asyra/render-engine-pixi` depends on `@asyra/render-engine`, never on
+  `@asyra/render`;
+- `@asyra/preset` selects the default Pixi factory or an explicit custom
+  factory and injects it into the target `Render` instance;
+- Core and apps remain concrete-engine-neutral.
 
 ## Canonical Intent Flow
 
@@ -83,7 +122,12 @@ Canonical shorthand:
 - Scene-tree owns entity graph.
 - Props-manager owns property component values and schema validation.
 - System-context owns app/system mode flags.
-- Render owns graphics engine specifics.
+- Render owns state-to-engine adaptation, layer/strategy orchestration, handle
+  mapping, and normalized interaction bridging.
+- Render-engine owns engine-neutral lifecycle, commands, queries, handles,
+  resources, capabilities, events, errors, and contract-test types.
+- Render-engine-pixi owns Pixi runtime objects, SDK calls, surface execution,
+  event normalization, and concrete resource cleanup.
 - UI-context owns derived UI state only.
 
 ## Instance Composition
@@ -98,6 +142,9 @@ Canonical shorthand:
 - Custom instances must use dependencies and subscription wiring bound to those
   intended instances; importing a class does not imply that default singleton
   wiring is automatically isolated.
+- Each `Render` instance owns exactly the engine instance selected directly or
+  created by its injected factory; custom instances never fall back to the
+  module-level Pixi composition.
 - Reactive transaction depth and rollback-only state are keyed by the resolved
   TransactionOwner, so a consumer-owned Factory replay remains independent from
   an active default-runtime boundary.
@@ -146,6 +193,7 @@ Canonical shorthand:
 ## Package Deep Dives
 
 See:
+
 - `packages/core.md`
 - `packages/factory.md`
 - `packages/scene-tree.md`
@@ -158,4 +206,6 @@ See:
 - `packages/props-manager.md`
 - `packages/ui-context.md`
 - `packages/render.md`
+- `packages/render-engine.md`
+- `packages/render-engine-pixi.md`
 - `packages/feature-system.md`

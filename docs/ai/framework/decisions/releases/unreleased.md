@@ -1073,3 +1073,29 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
     implementation and verified again at closeout.
 - Related Plan:
   - `docs/ai/framework/plans/render-engine-boundary-plan.md`
+
+## 2026-07-15 - Render-engine boundary implemented as three package owners
+
+- Context:
+  - The render adapter, abstract engine contract, and Pixi SDK implementation
+    previously shared one package boundary.
+  - Preset and app startup needed a default composition that did not prevent a
+    user-owned engine implementation.
+- Decision:
+  - Keep `@asyra/render` as the active framework adapter/orchestration owner.
+  - Make `@asyra/render-engine` the pure contract owner and
+    `@asyra/render-engine-pixi` the only Pixi runtime owner.
+  - Let preset inject a fresh Pixi engine factory by default or an explicit
+    custom factory through the same contract.
+  - Replace app use of the Pixi-named renderer facade with `RenderAdapter`;
+    retain `PixiJSRenderer` only as a deprecated warn-once compatibility alias
+    through the next planned major-release migration window.
+- Consequences:
+  - Render and the Pixi engine no longer import or depend on one another.
+  - Core and Asyra Design remain concrete-engine-neutral.
+  - Contract tests prove lifecycle, commands, events, capability failure,
+    cleanup, and engine-instance isolation.
+  - This boundary does not introduce a production 3D engine, Hybrid runtime,
+    or render-mode selector.
+- Related Plan:
+  - `docs/ai/framework/plans/render-engine-boundary-plan.md`

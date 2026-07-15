@@ -5,6 +5,7 @@
 Asyra is a **deterministic execution kernel for declarative information modeling systems**, not a single product UI.
 
 Any implementation decision must preserve:
+
 - UI independence.
 - Engine replaceability.
 - Predictable state flow.
@@ -13,11 +14,13 @@ Any implementation decision must preserve:
 ## Core Tenets
 
 1. Framework Core vs App Domain
+
 - Framework packages provide orchestration and primitives.
 - App-level defines domain behavior, aggregation, and workflows.
 - Preset provides default bootstrap settings only (not app-domain owner, not framework-runtime owner).
 
 2. Deterministic Data Flow
+
 - Any product intent from a human, machine, UI, automation, AI, device, or
   external command source enters through a feature.
 - Features call framework APIs.
@@ -29,10 +32,12 @@ Any implementation decision must preserve:
   instead of inventing parallel feature decisions.
 
 3. Extension-first Design
+
 - Register components, features, properties, render layers, and schemas.
 - Prefer registry-driven expansion over hardcoded branches.
 
 4. Safe by Default
+
 - Runtime updates: valid -> write; invalid -> reject.
 - Load path: valid -> write; invalid -> fallback.
 - Migration is app-owned; validation safety is framework-owned.
@@ -42,6 +47,7 @@ Any implementation decision must preserve:
 Asyra products should be assembled from framework runtime contracts, preset defaults, and app-owned feature behavior.
 
 The framework guarantees:
+
 - feature isolation: features define bounded behavior and mutate state through API boundaries
 - transaction grouping: one intended user action maps to one intended undo commit
 - local failure atomicity: failed, validation-rejected, or explicitly
@@ -52,11 +58,16 @@ The framework guarantees:
 - schema safety: invalid runtime writes are rejected and invalid load values fall back deterministically
 - preset replaceability: defaults are optional, movable, and replaceable by product owners
 - render boundary safety: render is an output/interaction bridge, not a data authority
+- engine replaceability: render orchestration consumes the abstract
+  `@asyra/render-engine` contract, while preset selects a concrete factory
 
 ## Current System Position
 
 - `feature-system` is active decision/session runtime.
 - `ui-context` is a convenience layer in core startup, not mandatory for custom apps.
+- `render` is the active framework adapter/orchestration package;
+  `render-engine` owns its abstract contract, and `render-engine-pixi` is the
+  default concrete implementation selected by preset.
 - The default package exports provide shared singleton instances for convenience;
   exported classes allow consumers to own selected package instances without
   requiring an all-or-nothing runtime container.
@@ -68,7 +79,9 @@ The framework guarantees:
 
 ## Non-negotiable Constraints
 
-- No Pixi imports outside `@asyra/render`.
+- No Pixi imports outside `@asyra/render-engine-pixi`.
+- `@asyra/render` and concrete engines meet only through
+  `@asyra/render-engine`; they must not import one another.
 - App-level should use `core.xxx`/approved app APIs, not internal package singletons.
 - Cross-package imports must use `@asyra/package-name`.
 - `create-app/*` is generated output; do not hand-edit it directly.
@@ -79,6 +92,8 @@ The framework guarantees:
 - confirm ownership boundary first (framework vs app)
 - run ownership triage: user customization vs preset default vs framework runtime owner
 - if placed in preset, confirm it is optional default wiring that helps users start quickly
+- keep engine selection in composition and engine execution behind the
+  abstract contract
 - keep runtime flow deterministic
 - expose extension via registration, not branching
 - preserve load validation/fallback semantics
