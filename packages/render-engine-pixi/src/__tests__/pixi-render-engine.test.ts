@@ -34,10 +34,49 @@ interface MockTextureRecord {
   destroy: MockFunction
 }
 
+interface MockGradientRecord {
+  options: Record<string, unknown>
+  transform?: MockMatrixRecord
+  buildGradient: MockFunction
+  destroy: MockFunction
+}
+
+interface MockPatternRecord {
+  texture: MockTextureRecord
+  repeat: string
+  transform?: MockMatrixRecord
+  setTransform: MockFunction
+}
+
+interface MockMatrixRecord {
+  operations: { type: string; args: number[] }[]
+}
+
+interface MockMeshGeometryRecord {
+  positions: Float32Array
+  indices: Uint32Array
+  uvs: Float32Array
+  positionUpdate: MockFunction
+  uvUpdate: MockFunction
+  indexUpdate: MockFunction
+}
+
+interface MockMeshRecord {
+  geometry: MockMeshGeometryRecord
+  cursor: string
+  width: number
+  height: number
+  batched: boolean
+}
+
 const pixiState = vi.hoisted(() => ({
   applications: [] as MockApplicationRecord[],
   graphics: [] as MockGraphicsRecord[],
   textures: [] as MockTextureRecord[],
+  gradients: [] as MockGradientRecord[],
+  patterns: [] as MockPatternRecord[],
+  matrices: [] as MockMatrixRecord[],
+  meshes: [] as MockMeshRecord[],
   operationTypes: [] as string[],
   nextInitError: null as Error | null
 }))
@@ -73,6 +112,8 @@ vi.mock('pixi.js', () => {
     visible = true
     renderable = true
     eventMode = 'auto'
+    cursor = 'default'
+    batched = true
     destroyed = false
 
     addChild(child: MockContainer) {
@@ -176,6 +217,9 @@ vi.mock('pixi.js', () => {
     }
 
     fill(...args: unknown[]) {
+      ;(
+        args[0] as { buildGradient?: () => void } | undefined
+      )?.buildGradient?.()
       return this.record('fill', ...args)
     }
 
@@ -185,12 +229,35 @@ vi.mock('pixi.js', () => {
   }
 
   class MockMeshGeometry {
-    constructor(readonly options: Record<string, unknown>) {}
+    positions: Float32Array
+    indices: Uint32Array
+    uvs: Float32Array
+    readonly positionUpdate = vi.fn()
+    readonly uvUpdate = vi.fn()
+    readonly indexUpdate = vi.fn()
+
+    constructor(readonly options: Record<string, unknown>) {
+      this.positions = options.positions as Float32Array
+      this.indices = options.indices as Uint32Array
+      this.uvs = options.uvs as Float32Array
+    }
+
+    getBuffer(name: string) {
+      return name === 'aPosition'
+        ? { update: this.positionUpdate }
+        : { update: this.uvUpdate }
+    }
+
+    getIndex() {
+      return { update: this.indexUpdate }
+    }
   }
 
   class MockTexture {
     static readonly WHITE = new MockTexture('white')
     readonly destroy = vi.fn()
+    readonly width = 256
+    readonly height = 256
 
     constructor(readonly source: unknown) {
       pixiState.textures.push(this)
@@ -203,9 +270,63 @@ vi.mock('pixi.js', () => {
 
   class MockMesh extends MockContainer {
     tint = 0xffffff
+    readonly geometry: MockMeshGeometry
 
     constructor(readonly options: Record<string, unknown>) {
       super()
+      this.geometry = options.geometry as MockMeshGeometry
+      pixiState.meshes.push(this)
+    }
+  }
+
+  class MockMatrix {
+    readonly operations: { type: string; args: number[] }[] = []
+
+    constructor() {
+      pixiState.matrices.push(this)
+    }
+
+    scale(...args: number[]) {
+      this.operations.push({ type: 'scale', args })
+      return this
+    }
+
+    rotate(...args: number[]) {
+      this.operations.push({ type: 'rotate', args })
+      return this
+    }
+
+    translate(...args: number[]) {
+      this.operations.push({ type: 'translate', args })
+      return this
+    }
+  }
+
+  class MockCanvasSource {
+    constructor(readonly options: Record<string, unknown>) {}
+  }
+
+  class MockFillGradient {
+    transform?: MockMatrix
+    readonly buildGradient = vi.fn()
+    readonly destroy = vi.fn()
+
+    constructor(readonly options: Record<string, unknown>) {
+      pixiState.gradients.push(this)
+    }
+  }
+
+  class MockFillPattern {
+    transform?: MockMatrix
+    readonly setTransform = vi.fn((transform: MockMatrix) => {
+      this.transform = transform
+    })
+
+    constructor(
+      readonly texture: MockTexture,
+      readonly repeat: string
+    ) {
+      pixiState.patterns.push(this)
     }
   }
 
@@ -250,8 +371,12 @@ vi.mock('pixi.js', () => {
 
   return {
     Application: MockApplication,
+    CanvasSource: MockCanvasSource,
     Container: MockContainer,
+    FillGradient: MockFillGradient,
+    FillPattern: MockFillPattern,
     Graphics: MockGraphics,
+    Matrix: MockMatrix,
     Mesh: MockMesh,
     MeshGeometry: MockMeshGeometry,
     Texture: MockTexture
@@ -273,6 +398,10 @@ describe('PixiRenderEngine', () => {
     pixiState.applications.length = 0
     pixiState.graphics.length = 0
     pixiState.textures.length = 0
+    pixiState.gradients.length = 0
+    pixiState.patterns.length = 0
+    pixiState.matrices.length = 0
+    pixiState.meshes.length = 0
     pixiState.operationTypes.length = 0
     pixiState.nextInitError = null
   })
@@ -483,6 +612,207 @@ describe('PixiRenderEngine', () => {
         timestamp: 99
       }
     ])
+  })
+
+  it('translates abstract gradient and raster descriptors into Pixi fill resources', async () => {
+    const engine = new PixiRenderEngine()
+    await engine.initialize({ host: {}, width: 10, height: 10 })
+    const graphics = await engine.execute({
+      type: 'create-object',
+      requestId: 'resource-graphics',
+      objectType: 'graphics'
+    })
+    const gradient = await engine.execute({
+      type: 'create-resource',
+      requestId: 'gradient',
+      descriptor: {
+        kind: 'gradient',
+        data: {
+          type: 'linear',
+          start: { x: 0.2, y: 0.3 },
+          end: { x: 0.8, y: 0.9 },
+          colorStops: [
+            { offset: 0, color: '#ffffff' },
+            { offset: 1, color: '#000000' }
+          ],
+          textureSpace: 'local'
+        }
+      }
+    })
+    const rasterSource = { kind: 'offscreen-canvas' }
+    const raster = await engine.execute({
+      type: 'create-resource',
+      requestId: 'raster-pattern',
+      descriptor: {
+        kind: 'raster-pattern',
+        data: {
+          source: rasterSource,
+          width: 4,
+          height: 8,
+          repeat: 'no-repeat',
+          scale: { x: 0.25, y: 0.125 }
+        }
+      }
+    })
+    if (!graphics.object || !gradient.resource || !raster.resource) {
+      throw new Error('Expected Pixi resource handles')
+    }
+
+    await engine.execute({
+      type: 'draw',
+      object: graphics.object,
+      operations: [
+        { type: 'rect', x: 0, y: 0, width: 10, height: 10 },
+        { type: 'fill', paint: { resource: gradient.resource } },
+        { type: 'fill', paint: { resource: raster.resource } }
+      ]
+    })
+
+    expect(pixiState.gradients).toHaveLength(1)
+    expect(pixiState.gradients[0].options).toMatchObject({
+      type: 'linear',
+      colorStops: [
+        { offset: 0, color: '#ffffff' },
+        { offset: 1, color: '#000000' }
+      ],
+      textureSpace: 'local'
+    })
+    expect(pixiState.gradients[0].transform).toBeDefined()
+    expect(pixiState.patterns).toHaveLength(1)
+    expect(pixiState.patterns[0].repeat).toBe('no-repeat')
+    expect(pixiState.patterns[0].transform?.operations).toContainEqual({
+      type: 'scale',
+      args: [0.25, 0.125]
+    })
+    expect(pixiState.graphics[0].drawOperations.at(-2)?.args[0]).toBe(
+      pixiState.gradients[0]
+    )
+    expect(pixiState.graphics[0].drawOperations.at(-1)?.args[0]).toBe(
+      pixiState.patterns[0]
+    )
+
+    await engine.execute({
+      type: 'destroy-resource',
+      resource: raster.resource
+    })
+    expect(pixiState.textures.at(-1)?.destroy).toHaveBeenCalledOnce()
+    await engine.execute({
+      type: 'destroy-resource',
+      resource: gradient.resource
+    })
+    expect(pixiState.gradients[0].destroy).toHaveBeenCalledOnce()
+  })
+
+  it('updates Pixi mesh geometry and engine-facing object properties', async () => {
+    const engine = new PixiRenderEngine()
+    await engine.initialize({ host: {}, width: 10, height: 10 })
+    const mesh = await engine.execute({
+      type: 'create-object',
+      requestId: 'mesh',
+      objectType: 'mesh',
+      properties: {
+        geometry: {
+          positions: new Float32Array([0, 0, 1, 0, 1, 1]),
+          indices: new Uint32Array([0, 1, 2]),
+          uvs: new Float32Array([0, 0, 1, 0, 1, 1])
+        }
+      }
+    })
+    if (!mesh.object) {
+      throw new Error('Expected Pixi mesh handle')
+    }
+    const positions = new Float32Array([0, 0, 2, 0, 2, 2, 0, 2])
+    const indices = new Uint32Array([0, 1, 2, 0, 2, 3])
+    const uvs = new Float32Array([0, 0, 1, 0, 1, 1, 0, 1])
+
+    await engine.execute({
+      type: 'update-object',
+      object: mesh.object,
+      properties: {
+        geometry: { positions, indices, uvs },
+        cursor: 'pointer',
+        width: 20,
+        height: 30,
+        batched: false
+      }
+    })
+
+    const pixiMesh = pixiState.meshes[0]
+    expect(pixiMesh.geometry.positions).toEqual(positions)
+    expect(pixiMesh.geometry.indices).toEqual(indices)
+    expect(pixiMesh.geometry.uvs).toEqual(uvs)
+    expect(pixiMesh.geometry.positionUpdate).toHaveBeenCalledOnce()
+    expect(pixiMesh.geometry.uvUpdate).toHaveBeenCalledOnce()
+    expect(pixiMesh.geometry.indexUpdate).toHaveBeenCalledOnce()
+    expect(pixiMesh).toMatchObject({
+      cursor: 'pointer',
+      width: 20,
+      height: 30,
+      batched: false
+    })
+  })
+
+  it('creates procedural Pixi resources for radial, angular, and diamond gradients', async () => {
+    class TestOffscreenCanvas {
+      readonly context = {
+        clearRect: () => undefined,
+        fillRect: () => undefined,
+        fillStyle: '',
+        getImageData: () => ({ data: new Uint8ClampedArray([255, 0, 0, 255]) }),
+        createImageData: (width: number, height: number) => ({
+          data: new Uint8ClampedArray(width * height * 4)
+        }),
+        putImageData: () => undefined
+      }
+
+      constructor(
+        readonly width: number,
+        readonly height: number
+      ) {}
+
+      getContext(): typeof this.context {
+        return this.context
+      }
+    }
+    vi.stubGlobal('OffscreenCanvas', TestOffscreenCanvas)
+    const engine = new PixiRenderEngine()
+    await engine.initialize({ host: {}, width: 10, height: 10 })
+    const resources = []
+
+    for (const type of ['radial', 'angular', 'diamond'] as const) {
+      const resource = await engine.execute({
+        type: 'create-resource',
+        requestId: type,
+        descriptor: {
+          kind: 'gradient',
+          data: {
+            type,
+            start: { x: 0.5, y: 0.5 },
+            end: { x: 1, y: 0.5 },
+            colorStops: [
+              { offset: 0, color: '#ff0000' },
+              { offset: 1, color: '#0000ff' }
+            ]
+          }
+        }
+      })
+      if (!resource.resource) {
+        throw new Error(`Expected ${type} Pixi resource handle`)
+      }
+      resources.push(resource.resource)
+    }
+
+    expect(pixiState.patterns).toHaveLength(3)
+    resources.forEach((resource) => {
+      engine.execute({ type: 'destroy-resource', resource })
+    })
+    expect(
+      pixiState.textures
+        .slice(-3)
+        .every((texture) =>
+          vi.mocked(texture.destroy).mock.calls.some((call) => call[0] === true)
+        )
+    ).toBe(true)
   })
 
   it('isolates instances and cleans partial initialization deterministically', async () => {

@@ -17,6 +17,7 @@ import {
   type RenderEnginePaint,
   type RenderEngineQuery,
   type RenderEngineQueryResult,
+  type RenderEngineResourceDescriptor,
   type RenderEngineResourceHandle
 } from '@asyra/render-engine'
 import {
@@ -29,6 +30,10 @@ import {
   type FederatedPointerEvent,
   type Ticker
 } from 'pixi.js'
+import {
+  createPixiOwnedResource,
+  type PixiOwnedResource
+} from './pixi-resources'
 
 type PixiObject = Container | Graphics | Mesh
 
@@ -37,11 +42,6 @@ type StoredObjectHandle = RenderEngineObjectHandle &
 
 type StoredResourceHandle = RenderEngineResourceHandle &
   Readonly<{ kind: 'pixi-resource'; id: string }>
-
-type OwnedResource = Readonly<{
-  value: unknown
-  destroyOnRelease: boolean
-}>
 
 type AppendHost = Readonly<{
   appendChild: (surface: unknown) => unknown
@@ -89,7 +89,7 @@ export class PixiRenderEngine implements RenderEngine {
   private objectHandles = new WeakMap<PixiObject, RenderEngineObjectHandle>()
   private readonly resources = new Map<
     RenderEngineResourceHandle,
-    OwnedResource
+    PixiOwnedResource
   >()
   private readonly interactionListeners =
     new Set<RenderEngineInteractionListener>()
@@ -205,13 +205,7 @@ export class PixiRenderEngine implements RenderEngine {
       }
       case 'create-resource': {
         const handle = this.createResourceHandle(command.requestId)
-        this.resources.set(
-          handle,
-          this.createOwnedResource(
-            command.descriptor.kind,
-            command.descriptor.data
-          )
-        )
+        this.resources.set(handle, this.createOwnedResource(command.descriptor))
         return {
           commandType: command.type,
           status: 'applied',
@@ -393,13 +387,14 @@ export class PixiRenderEngine implements RenderEngine {
         break
       }
     }
-    this.applyObjectProperties(object, properties)
+    this.applyObjectProperties(object, properties, false)
     return object
   }
 
   private applyObjectProperties(
     object: PixiObject,
-    properties: RenderEngineObjectProperties
+    properties: RenderEngineObjectProperties,
+    updateGeometry = true
   ): void {
     const numericProperties = [
       'x',
@@ -428,6 +423,22 @@ export class PixiRenderEngine implements RenderEngine {
     if (typeof properties.eventMode === 'string') {
       object.eventMode = properties.eventMode as typeof object.eventMode
     }
+    if (typeof properties.cursor === 'string') {
+      object.cursor = properties.cursor as typeof object.cursor
+    }
+    if (typeof properties.batched === 'boolean') {
+      ;(object as PixiObject & { batched?: boolean }).batched =
+        properties.batched
+    }
+
+    const width = toFiniteNumber(properties.width)
+    const height = toFiniteNumber(properties.height)
+    if (width !== undefined && width > 0) {
+      object.width = width
+    }
+    if (height !== undefined && height > 0) {
+      object.height = height
+    }
 
     const scaleX = toFiniteNumber(properties.scaleX)
     const scaleY = toFiniteNumber(properties.scaleY)
@@ -436,6 +447,15 @@ export class PixiRenderEngine implements RenderEngine {
     }
 
     if (object instanceof Mesh) {
+      const geometry = properties.geometry as MeshProperties | undefined
+      if (geometry && updateGeometry) {
+        object.geometry.positions = toFloat32Array(geometry.positions)
+        object.geometry.uvs = toFloat32Array(geometry.uvs)
+        object.geometry.indices = toUint32Array(geometry.indices)
+        object.geometry.getBuffer('aPosition').update()
+        object.geometry.getBuffer('aUV').update()
+        object.geometry.getIndex().update()
+      }
       const tint = toFiniteNumber(properties.tint)
       if (tint !== undefined) {
         object.tint = tint
@@ -512,11 +532,10 @@ export class PixiRenderEngine implements RenderEngine {
     return { color: paint.color, alpha: paint.alpha }
   }
 
-  private createOwnedResource(kind: string, data: unknown): OwnedResource {
-    if (kind === 'texture') {
-      return { value: Texture.from(data as never), destroyOnRelease: true }
-    }
-    return { value: data, destroyOnRelease: false }
+  private createOwnedResource(
+    descriptor: RenderEngineResourceDescriptor
+  ): PixiOwnedResource {
+    return createPixiOwnedResource(descriptor)
   }
 
   private destroyOwnedResource(handle: RenderEngineResourceHandle): void {
@@ -524,9 +543,7 @@ export class PixiRenderEngine implements RenderEngine {
     if (!resource) {
       throw new Error('Pixi render engine does not own resource handle')
     }
-    if (resource.destroyOnRelease) {
-      ;(resource.value as { destroy: () => void }).destroy()
-    }
+    resource.destroy?.()
     this.resources.delete(handle)
   }
 
