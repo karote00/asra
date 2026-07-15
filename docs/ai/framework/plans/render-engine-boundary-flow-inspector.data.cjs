@@ -543,7 +543,8 @@
       allowedContributors: [
         '@asyra/render-engine destroy contract',
         'adapter-owned frame and interaction disposers',
-        'active engine instance reference'
+        'active engine instance reference',
+        'app teardown through the framework render adapter'
       ],
       forbiddenContributors: [
         'global engine singleton cleanup',
@@ -552,6 +553,8 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'apps/asyra-design/src/render-app/index.tsx',
+        'apps/asyra-design/src/render-app/__tests__/**',
         'packages/render/src/render.ts',
         'packages/render/src/renderer.ts',
         'packages/render/src/interaction/**',

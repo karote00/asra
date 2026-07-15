@@ -252,6 +252,16 @@ test('cleanup is deterministic and owned resources cannot survive destroy', () =
   assert.ok(
     cleanup.implementationBoundary.includes('packages/render/src/renderer.ts')
   )
+  assert.ok(
+    cleanup.implementationBoundary.includes(
+      'apps/asyra-design/src/render-app/index.tsx'
+    )
+  )
+  assert.ok(
+    cleanup.implementationBoundary.includes(
+      'apps/asyra-design/src/render-app/__tests__/**'
+    )
+  )
 })
 
 test('the contract does not expose production 3D or hybrid behavior', () => {
