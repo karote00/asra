@@ -84,7 +84,11 @@ export {
   type CreateMeshProjectionOptions,
   type MeshProjection
 } from '@asyra/render'
-export type { RenderStrategy } from '@asyra/render'
+export type {
+  EngineNeutralRenderStrategy,
+  RenderStrategy,
+  RenderStrategyGraphic
+} from '@asyra/render'
 export {
   getYjsDataChannel,
   registerSharedDataChannel,
