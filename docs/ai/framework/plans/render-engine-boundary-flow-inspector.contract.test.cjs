@@ -51,6 +51,23 @@ test('render consumes only the abstract engine contract', () => {
   assert.equal(adapter.cacheDimensions.length, 0)
 })
 
+test('the abstract contract has its own package owner and shared artifact', () => {
+  const contractOwner = step('define-render-engine-contract')
+  const contractArtifact = data.artifacts.find(
+    (item) => item.id === 'artifact:render-engine-contract'
+  )
+
+  assert.equal(contractOwner.ownerPackage, '@asyra/render-engine')
+  assert.deepEqual(contractOwner.cacheDimensions, [])
+  assert.ok(contractArtifact)
+  assert.equal(contractArtifact.ownerStepId, contractOwner.id)
+  assert.deepEqual(contractArtifact.consumerStepIds, [
+    'orchestrate-render-adapter',
+    'execute-render-engine',
+    'execute-custom-render-engine'
+  ])
+})
+
 test('concrete execution owns Pixi resources without importing render', () => {
   const engine = step('execute-render-engine')
   const contract = [...engine.conditions, ...engine.forbiddenContributors].join(

@@ -142,6 +142,7 @@
       purpose:
         'Own framework state synchronization, layer and strategy orchestration, opaque handle mapping, viewport behavior, and engine-neutral command dispatch.',
       inputs: [
+        'artifact:render-engine-contract',
         'artifact:engine-provider-selection',
         'artifact:direct-engine-provider',
         'artifact:render-start-request',
@@ -192,8 +193,7 @@
         'packages/render/src/strategies/**',
         'packages/render/src/fills/**',
         'packages/render/src/projections/**',
-        'packages/render/src/__tests__/**',
-        'packages/render-engine/src/**'
+        'packages/render/src/__tests__/**'
       ],
       specRefs: [
         '#package-ownership',
@@ -204,14 +204,63 @@
       failureOwnerStepId: 'orchestrate-render-adapter'
     },
     {
-      id: 'execute-render-engine',
+      id: 'define-render-engine-contract',
       order: 1,
+      laneId: 'engine',
+      title: 'Define abstract engine contract',
+      ownerPackage: '@asyra/render-engine',
+      purpose:
+        'Own the engine-independent lifecycle, command, handle, resource, result, event, capability, error, and contract-test types consumed by adapters and concrete engines.',
+      inputs: [
+        'current Pixi-backed product cases',
+        'framework adapter and concrete engine handoff requirements'
+      ],
+      outputs: ['artifact:render-engine-contract'],
+      conditions: [
+        'The contract covers only initialize, resize, create, update, remove, draw, viewport, flush, interaction, capability, and destroy behavior required by current formal cases.',
+        'Object and resource handles are opaque outside the implementing engine.',
+        'Unsupported capabilities fail through an explicit contract error.',
+        'The package exposes engine-independent contract-test utilities and no default runtime singleton.'
+      ],
+      bypasses: [
+        'No concrete engine or Render adapter may bypass the contract with implementation-specific methods.'
+      ],
+      allowedContributors: [
+        'plain TypeScript types and errors',
+        'engine-independent fake and contract-test adapter',
+        'current formal render product cases'
+      ],
+      forbiddenContributors: [
+        'pixi.js, Three.js, DOM, or another engine SDK',
+        'framework state subscriptions',
+        'render layers or Feature behavior',
+        'default engine singleton',
+        'speculative 3D or Hybrid capability identifiers'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'packages/render-engine/package.json',
+        'packages/render-engine/tsconfig.json',
+        'packages/render-engine/vitest.config.ts',
+        'packages/render-engine/src/**'
+      ],
+      specRefs: [
+        '#package-ownership',
+        '#abstract-engine-contract',
+        '#capability-behavior'
+      ],
+      failureOwnerStepId: 'define-render-engine-contract'
+    },
+    {
+      id: 'execute-render-engine',
+      order: 2,
       laneId: 'engine',
       title: 'Execute Pixi engine contract',
       ownerPackage: '@asyra/render-engine-pixi',
       purpose:
         'Translate abstract commands into Pixi surface, graphics, resources, hit tests, events, and deterministic cleanup behind opaque handles.',
       inputs: [
+        'artifact:render-engine-contract',
         'artifact:engine-command-stream',
         'artifact:adapter-destroy-command'
       ],
@@ -259,13 +308,14 @@
     },
     {
       id: 'execute-custom-render-engine',
-      order: 2,
+      order: 3,
       laneId: 'engine',
       title: 'Execute custom engine contract',
       ownerPackage: 'user RenderEngine implementation',
       purpose:
         'Execute the same abstract lifecycle, command, event, capability, and cleanup contract without changes in framework state owners.',
       inputs: [
+        'artifact:render-engine-contract',
         'artifact:engine-command-stream',
         'artifact:adapter-destroy-command'
       ],
@@ -501,6 +551,30 @@
       producedArtifacts: ['artifact:render-start-request']
     },
     {
+      id: 'contract-to-render-adapter',
+      from: 'define-render-engine-contract',
+      to: 'orchestrate-render-adapter',
+      kind: 'normal',
+      predicate: 'the framework render adapter is compiled or instantiated',
+      producedArtifacts: ['artifact:render-engine-contract']
+    },
+    {
+      id: 'contract-to-pixi-engine',
+      from: 'define-render-engine-contract',
+      to: 'execute-render-engine',
+      kind: 'normal',
+      predicate: 'the default Pixi engine implements the abstract contract',
+      producedArtifacts: ['artifact:render-engine-contract']
+    },
+    {
+      id: 'contract-to-custom-engine',
+      from: 'define-render-engine-contract',
+      to: 'execute-custom-render-engine',
+      kind: 'normal',
+      predicate: 'a custom engine implements the abstract contract',
+      producedArtifacts: ['artifact:render-engine-contract']
+    },
+    {
       id: 'project-state-to-engine',
       from: 'orchestrate-render-adapter',
       to: 'execute-render-engine',
@@ -664,6 +738,17 @@
       ownerStepId: 'start-render-runtime',
       consumerStepIds: ['orchestrate-render-adapter'],
       channel: 'core-lifecycle',
+      terminal: false
+    },
+    {
+      id: 'artifact:render-engine-contract',
+      ownerStepId: 'define-render-engine-contract',
+      consumerStepIds: [
+        'orchestrate-render-adapter',
+        'execute-render-engine',
+        'execute-custom-render-engine'
+      ],
+      channel: 'package contract',
       terminal: false
     },
     {
