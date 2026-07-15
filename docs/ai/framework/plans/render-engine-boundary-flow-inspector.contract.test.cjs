@@ -145,6 +145,13 @@ test('architecture documentation sync stays with the matching owner steps', () =
       )
     })
   })
+
+  const architecture = fs.readFileSync(
+    path.resolve(__dirname, '../ARCHITECTURE.md'),
+    'utf8'
+  )
+  assert.match(architecture, /preset -->\|selects default factory\| pixi/)
+  assert.doesNotMatch(architecture, /preset -->\|constructs default\| pixi/)
 })
 
 test('the abstract contract has its own package owner and shared artifact', () => {

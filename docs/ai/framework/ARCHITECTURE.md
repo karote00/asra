@@ -51,7 +51,7 @@ flowchart TD
   surface["Render surface"]
 
   state -->|authoritative state changes| render
-  preset -->|constructs default| pixi
+  preset -->|selects default factory| pixi
   preset -->|injects engine instance or factory| render
   render -->|consumes| contract
   pixi -->|implements| contract
