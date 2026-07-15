@@ -15,7 +15,9 @@ const renderRuntime = vi.hoisted(() => ({
 
 vi.mock('../render', () => ({
   default: renderRuntime,
-  Render: class {}
+  Render: class MockRender {
+    readonly name = 'mock-render'
+  }
 }))
 
 import { PixiJSRenderer, RenderAdapter } from '../index'
