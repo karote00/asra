@@ -35,14 +35,16 @@ own the resulting runtime or resources.
 ## Execution Contract
 
 1. `initialize(...)` creates the Pixi application, canvas/input target, and
-   root object handle.
+   root object handle. The result forwards that owned `Application` only as the
+   contract's `unknown` runtime identity for legacy renderer-instance access.
 2. `execute(...)` translates engine-neutral object, hierarchy, draw, resource,
    viewport, resize, and flush commands.
 3. `query(...)` resolves bounds, coordinate conversions, and hit testing
    without exposing Pixi objects.
 4. Pixi pointer events are normalized to `RenderEngineInteractionEvent` and
    returned with an opaque target handle.
-5. `destroy()` stops the frame loop, releases all owned objects/resources,
+5. `destroy()` stops the frame loop, releases all owned objects/resources
+   (including engine-created mesh geometry while preserving shared textures),
    destroys the application, and returns deterministic cleanup counts.
 
 Unsupported capabilities and initialization failures do not emit fallback
