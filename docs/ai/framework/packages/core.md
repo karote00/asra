@@ -19,6 +19,7 @@ System orchestrator and lifecycle coordinator.
 - app-specific domain rules
 - UI rendering details
 - engine-specific graphics primitives
+- concrete render-engine selection, capability inspection, or resources
 
 ## Extension Points
 
@@ -50,16 +51,26 @@ System orchestrator and lifecycle coordinator.
 ## Runtime Contracts
 
 1. Startup contract
-- initialize core dependencies in deterministic order
-- expose ready-to-use top-level APIs after initialization
+
+- app configures an engine-neutral `IRenderer` (normally `RenderAdapter`) before
+  calling `start(...)`
+- call the configured renderer exactly once with the host container and
+  engine-neutral `RenderOptions`
+- complete renderer/engine initialization before data-channel observers,
+  persistence load, Feature initialization, and ready publication
+- reject missing renderer or renderer/engine initialization failure without
+  initializing later phases or publishing false ready
+- remain unaware of concrete engine instances, capabilities, and resources
 
 2. Registration contract
+
 - registration calls should be idempotent where possible
 - registration errors should fail fast with clear messages
 - data-channel observer registration resolves shared data by channel name, not raw YJS object instances
 - default shared data-channel registration lifecycle is preset-owned (core/factory provide APIs only)
 
 3. Load/save contract
+
 - load: app migration hooks -> package validation/fallback -> apply state
 - `registerLoadHook` pipeline runs for both persistence load and `core.load(...)`
 - package validators (`props-manager`, `scene-tree`, `system-context`) run before state apply
@@ -69,6 +80,7 @@ System orchestrator and lifecycle coordinator.
   - includes only managed properties registered with `runtime: false`
 
 4. Transaction status contract
+
 - each Core subscribes to the Factory instance injected into that Core, not to a
   global end-transaction event
 - committed action, undo, and redo capture their provider and CoreRawData
@@ -86,6 +98,7 @@ System orchestrator and lifecycle coordinator.
   block later queued saves; Core provides no automatic retry policy
 
 5. Selection transaction contract
+
 - Core selection APIs record the reversible change and apply canonical
   SelectionManager state before the transaction boundary closes, so Factory
   validators observe the final selection rather than a delayed shared projection
@@ -105,7 +118,9 @@ System orchestrator and lifecycle coordinator.
 - App should call framework via `core.xxx` and app-level wrappers.
 - App should prefer `@asyra/core` helper re-exports (`defineFeature`, `getFeature`, `keyMap`) for common feature/input authoring paths.
 - App should not import package internals when core API exists.
-- Preset/app code should consume render abstractions through `core.xxx` when core exposes them, rather than importing `@asyra/render` directly.
+- Preset/app code should consume render abstractions through `core.xxx` when
+  Core exposes them. App bootstrap may import public `RenderAdapter` from
+  `@asyra/render` because Core accepts, but does not construct, `IRenderer`.
 - Child-property edits that must refresh computed/render state should go through core props bridge APIs (`updatePropertyById` + `commitPropertyChanges`) with owner metadata rather than rewriting parent computed arrays in app code.
 - Core/scene-tree bridge rule: scene-tree recompute should react to committed props transactions, not be manually duplicated in app handlers.
 - Cross-cutting domain logic belongs in app/common APIs, not core.
@@ -113,5 +128,8 @@ System orchestrator and lifecycle coordinator.
 ## Validation Checklist
 
 - Core initialization works without UI framework assumptions.
+- Renderer/engine failure does not initialize observers/features or publish
+  ready.
+- Core source contains no Pixi or concrete engine dependency.
 - Preset/default registrations are explicit via `@asyra/preset`, not implicit core side effects.
 - Load/save flow executes in documented order.

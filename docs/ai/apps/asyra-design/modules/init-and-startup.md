@@ -19,22 +19,29 @@
 ## Startup Order (Current)
 
 1. `initApp()`
-- `applyPreset(core)`
+
+- `applyPreset(core)` registers framework defaults and selects the fresh Pixi
+  engine factory without exposing it to the app
 - diagnostics: `initLoadDiagnostics()`
 - derived-state sync: `initSelectionCompatibility()`, `initPathEditingContinuation()`
 - capability init: `initAreaSelection()`, `initGradientFillEditing()`, `initVectorIconData()`
 - foundation: `initInputSystem()`, `initFeatures()`
 
 2. React mount
+
 - mounts `DataContexts`
 - mounts `App`
 
 3. RenderApp effect
-- `core.setRenderer(new PixiJSRenderer())`
+
+- `core.setRenderer(new RenderAdapter())`
 - `core.setPersistence(providers.localStorage)`
 - `core.start(container, options)`
+- if renderer/engine initialization rejects, Core stops before observers,
+  persistence load, features, and render-ready publication
 
 4. DataContexts effects
+
 - on render-ready: publish `fileLoadComplete()`
 - on file-load-complete: trigger `zoomFit` feature API
 
@@ -52,3 +59,6 @@
   `src/features/*` or `src/common-apis/*`.
 - Do not duplicate persistence load/save orchestration in app when core.start already handles persistence.
 - Keep startup side effects explicit in init modules.
+- Keep app startup concrete-engine-neutral; Preset owns default factory
+  selection, `Render` owns the engine instance, and the app uses
+  `RenderAdapter` only.
