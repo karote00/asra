@@ -242,6 +242,9 @@ test('cleanup is deterministic and owned resources cannot survive destroy', () =
   assert.match(contract, /owned resources/i)
   assert.match(contract, /interaction subscriptions/i)
   assert.match(contract, /partial initialization/i)
+  assert.ok(
+    cleanup.implementationBoundary.includes('packages/render/src/renderer.ts')
+  )
 })
 
 test('the contract does not expose production 3D or hybrid behavior', () => {

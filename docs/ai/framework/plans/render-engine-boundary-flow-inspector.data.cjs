@@ -553,6 +553,7 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/render/src/render.ts',
+        'packages/render/src/renderer.ts',
         'packages/render/src/interaction/**',
         'packages/render/src/__tests__/render*.test.ts'
       ],
