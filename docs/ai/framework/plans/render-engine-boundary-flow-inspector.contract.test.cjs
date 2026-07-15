@@ -133,6 +133,20 @@ test('interaction returns through render before feature execution', () => {
   assert.match(contract, /opaque engine handle/i)
   assert.match(contract, /framework interaction target/i)
   assert.match(contract, /must not execute product features/i)
+  ;[
+    'yarn.lock',
+    'packages/render/package.json',
+    'packages/render/src/render.ts',
+    'packages/render/src/layers/scene/element-interaction-handler.ts',
+    'packages/render/src/layers/scene/render-layer.ts',
+    'packages/render/src/types/interaction-handler.ts',
+    'packages/render/src/__tests__/render-engine-package-boundary.test.ts'
+  ].forEach((implementationFile) => {
+    assert.ok(
+      bridge.implementationBoundary.includes(implementationFile),
+      `Missing interaction implementation boundary: ${implementationFile}`
+    )
+  })
 })
 
 test('cleanup is deterministic and owned resources cannot survive destroy', () => {
