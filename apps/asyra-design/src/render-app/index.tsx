@@ -36,7 +36,11 @@ const RenderApp: React.FC = () => {
         })
       })
     lifecycleRef.current = lifecycle
-    void lifecycle.catch(() => undefined)
+    void lifecycle.catch((error: unknown) => {
+      if (active) {
+        console.error('[RenderApp] Render startup failed:', error)
+      }
+    })
 
     return () => {
       active = false

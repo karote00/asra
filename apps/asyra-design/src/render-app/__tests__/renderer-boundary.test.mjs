@@ -36,3 +36,18 @@ test('Asyra Design tears down the exact framework renderer it starts', () => {
   assert.doesNotMatch(renderAppSource, /hasInit/)
   assert.doesNotMatch(renderAppSource, /destroyRenderApp/)
 })
+
+test('Asyra Design reports active render startup failures', () => {
+  assert.doesNotMatch(
+    renderAppSource,
+    /void lifecycle\.catch\(\(\) => undefined\)/
+  )
+  assert.match(
+    renderAppSource,
+    /void lifecycle\.catch\(\(error: unknown\) => \{/
+  )
+  assert.match(
+    renderAppSource,
+    /if \(active\) \{\s*console\.error\(\s*'\[RenderApp\] Render startup failed:'/s
+  )
+})
