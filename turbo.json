@@ -158,6 +158,13 @@
         "^build:utils"
       ]
     },
+    "build:render-engine": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": []
+    },
     "build:scene-tree": {
       "cache": false,
       "outputs": [
