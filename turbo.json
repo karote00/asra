@@ -165,6 +165,15 @@
       ],
       "dependsOn": []
     },
+    "build:render-engine-pixi": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:render-engine"
+      ]
+    },
     "build:scene-tree": {
       "cache": false,
       "outputs": [
