@@ -34,8 +34,8 @@
     "gen:turbo": "node scripts/gen-turbo.js && yarn install",
     "gen:event": "yarn workspace @asyra/reactive-events add-event",
     "predev": "yarn gen:turbo",
-    "deps:validate": "node scripts/deps-validate.js",
-    "deps:validate:verbose": "node scripts/deps-validate.js --verbose",
+    "deps:validate": "node --test scripts/deps-validate.test.mjs && node scripts/deps-validate.js",
+    "deps:validate:verbose": "node --test scripts/deps-validate.test.mjs && node scripts/deps-validate.js --verbose",
     "bump:workspace": "node scripts/bump-workspace-versions.js",
     "release:app": "node scripts/release-template.js",
     "release:app:verbose": "node scripts/release-template.js --verbose",
@@ -69,6 +69,7 @@
     "jsdom": "16.7.0",
     "prettier": "^3.4.2",
     "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
     "typescript-eslint": "^8.18.2",
     "wait-on": "^9.0.3"
   },

@@ -189,8 +189,10 @@ __metadata:
   resolution: "@asyra/preset@workspace:packages/preset"
   dependencies:
     "@asyra/core": "workspace:*"
+    "@asyra/reactive-events": "workspace:*"
     "@asyra/render-engine": "workspace:*"
     "@asyra/render-engine-pixi": "workspace:*"
+    "@asyra/ui-context": "workspace:*"
     "@asyra/utils": "workspace:*"
     "@types/bezier-js": "npm:^4.1.3"
     "@vitest/coverage-v8": "npm:^2.1.8"
@@ -7075,6 +7077,7 @@ __metadata:
     jsdom: "npm:16.7.0"
     prettier: "npm:^3.4.2"
     turbo: "npm:^2.3.3"
+    typescript: "npm:^5.7.2"
     typescript-eslint: "npm:^8.18.2"
     wait-on: "npm:^9.0.3"
   languageName: unknown

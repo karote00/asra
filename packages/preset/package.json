@@ -18,6 +18,7 @@
     "test:ci": "yarn has:test && vitest run --coverage --reporter=default --reporter=junit || echo 'No test files found. Skipping test:ci.'"
   },
   "devDependencies": {
+    "@asyra/reactive-events": "workspace:*",
     "@types/bezier-js": "^4.1.3",
     "@vitest/coverage-v8": "^2.1.8",
     "typescript": "^5.7.2",
@@ -27,6 +28,7 @@
     "@asyra/core": "workspace:*",
     "@asyra/render-engine": "workspace:*",
     "@asyra/render-engine-pixi": "workspace:*",
+    "@asyra/ui-context": "workspace:*",
     "@asyra/utils": "workspace:*",
     "bezier-js": "^6.1.4"
   }

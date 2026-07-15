@@ -1,12 +1,6 @@
 #!/usr/bin/env node
 /**
- * deps-validate.js
- *
- * Validate internal monorepo dependencies:
- * - Only checks imports like: from '@asyra/*'
- * - Ensures dependency exists in package.json dependencies
- * - Disallows self-dependency
- * - Reports all issues at once
+ * Validate internal monorepo dependencies from actual source imports.
  *
  * Usage:
  *   yarn deps:validate
@@ -16,168 +10,262 @@
 import fs from 'fs'
 import path from 'path'
 import process from 'process'
+import { fileURLToPath } from 'url'
 import { glob } from 'glob'
+import ts from 'typescript'
 
-// ----------------------
-// CLI args
-// ----------------------
-const args = process.argv.slice(2)
-const VERBOSE = args.includes('--verbose')
-
-// ----------------------
-// Constants
-// ----------------------
-const ROOT_DIR = process.cwd()
-const PACKAGES_DIR = path.join(ROOT_DIR, 'packages')
 const INTERNAL_SCOPE = '@asyra/'
-
-// Only scan source-like files
 const SOURCE_GLOB = '**/*.{ts,tsx,js,jsx}'
 
-// Match: from '@asyra/xxx' | require('@asyra/xxx')
-const IMPORT_RE =
-  /(?:from\s+['"](@asyra\/[^'"]+)['"]|require\(\s*['"](@asyra\/[^'"]+)['"]\s*\))/g
-
-// ----------------------
-// Helpers
-// ----------------------
 function readJSON(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
 }
 
-function logVerbose(...args) {
-  if (VERBOSE) console.log(...args)
+function sourceFileKind(filePath) {
+  if (filePath.endsWith('.tsx')) return ts.ScriptKind.TSX
+  if (filePath.endsWith('.jsx')) return ts.ScriptKind.JSX
+  if (filePath.endsWith('.js')) return ts.ScriptKind.JS
+  return ts.ScriptKind.TS
 }
 
-// ----------------------
-// 1. Load all workspaces
-// ----------------------
-if (!fs.existsSync(PACKAGES_DIR)) {
-  console.error('✖ packages/ directory not found')
-  process.exit(1)
+function moduleSpecifierText(node) {
+  return node && ts.isStringLiteralLike(node) ? node.text : undefined
 }
 
-const workspaceDirs = fs
-  .readdirSync(PACKAGES_DIR)
-  .map((name) => path.join(PACKAGES_DIR, name))
-  .filter((p) => fs.existsSync(path.join(p, 'package.json')))
+export function extractInternalImports(source, filePath) {
+  const sourceFile = ts.createSourceFile(
+    filePath,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    sourceFileKind(filePath)
+  )
+  const imports = []
 
-const workspaces = workspaceDirs.map((dir) => {
-  const pkg = readJSON(path.join(dir, 'package.json'))
-  return {
-    name: pkg.name,
-    dir,
-    dependencies: Object.keys(pkg.dependencies || {})
+  function addImport(specifier) {
+    if (specifier?.startsWith(INTERNAL_SCOPE)) imports.push(specifier)
   }
-})
 
-const workspaceMap = new Map(workspaces.map((w) => [w.name, w]))
+  function visit(node) {
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+      addImport(moduleSpecifierText(node.moduleSpecifier))
+    } else if (
+      ts.isImportEqualsDeclaration(node) &&
+      ts.isExternalModuleReference(node.moduleReference)
+    ) {
+      addImport(moduleSpecifierText(node.moduleReference.expression))
+    } else if (ts.isCallExpression(node) && node.arguments.length === 1) {
+      const isRequire =
+        ts.isIdentifier(node.expression) && node.expression.text === 'require'
+      const isDynamicImport =
+        node.expression.kind === ts.SyntaxKind.ImportKeyword
 
-logVerbose(`Found ${workspaces.length} workspaces`)
+      if (isRequire || isDynamicImport) {
+        addImport(moduleSpecifierText(node.arguments[0]))
+      }
+    }
 
-// ----------------------
-// 2. Validate self-dependency
-// ----------------------
-const selfDepErrors = []
-
-for (const ws of workspaces) {
-  if (ws.dependencies.includes(ws.name)) {
-    selfDepErrors.push(ws.name)
+    ts.forEachChild(node, visit)
   }
+
+  visit(sourceFile)
+  return imports
 }
 
-if (selfDepErrors.length > 0) {
-  console.error('\n✖ Invalid dependency configuration\n')
-  for (const name of selfDepErrors) {
-    console.error(`- ${name} depends on itself`)
+export function resolveWorkspaceImport(importedPackage, workspaceNames) {
+  let owner
+
+  for (const workspaceName of workspaceNames) {
+    const ownsImport =
+      importedPackage === workspaceName ||
+      importedPackage.startsWith(`${workspaceName}/`)
+
+    if (ownsImport && (!owner || workspaceName.length > owner.length)) {
+      owner = workspaceName
+    }
   }
-  console.error('\nThis is always invalid in a monorepo.')
-  process.exit(1)
+
+  return owner
 }
 
-// ----------------------
-// 3. Scan imports
-// ----------------------
-/**
- * missingDeps:
- * Map<
- *   workspaceName,
- *   Map<missingDep, Set<filePaths>>
- * >
- */
-const missingDeps = new Map()
+function isTestFile(relativeFile) {
+  const normalized = relativeFile.replaceAll('\\', '/')
+  return (
+    /(^|\/)__(tests|mocks)__(\/|$)/.test(normalized) ||
+    /\.(test|spec)\.[cm]?[jt]sx?$/.test(normalized)
+  )
+}
 
-for (const ws of workspaces) {
-  logVerbose(`\nScanning ${ws.name}`)
+export function validateSourceImports({
+  workspaceName,
+  relativeFile,
+  source,
+  dependencies,
+  devDependencies,
+  workspaceNames
+}) {
+  const declaredDependencies = new Set(dependencies)
+  if (isTestFile(relativeFile)) {
+    for (const dependency of devDependencies) {
+      declaredDependencies.add(dependency)
+    }
+  }
 
-  const files = await glob(SOURCE_GLOB, {
-    cwd: ws.dir,
-    absolute: true,
-    ignore: ['**/node_modules/**', '**/dist/**']
+  const missing = new Set()
+  for (const importedPackage of extractInternalImports(source, relativeFile)) {
+    const owner = resolveWorkspaceImport(importedPackage, workspaceNames)
+
+    if (owner === workspaceName) continue
+    if (!owner || !declaredDependencies.has(owner)) {
+      missing.add(owner ?? importedPackage)
+    }
+  }
+
+  return [...missing]
+}
+
+function addMissingDependency(
+  missingDependencies,
+  workspaceName,
+  dependency,
+  file
+) {
+  if (!missingDependencies.has(workspaceName)) {
+    missingDependencies.set(workspaceName, new Map())
+  }
+
+  const dependencies = missingDependencies.get(workspaceName)
+  if (!dependencies.has(dependency)) {
+    dependencies.set(dependency, new Set())
+  }
+  dependencies.get(dependency).add(file)
+}
+
+export async function validateDependencies({
+  rootDir = process.cwd(),
+  verbose = false
+} = {}) {
+  const packagesDir = path.join(rootDir, 'packages')
+  if (!fs.existsSync(packagesDir)) {
+    return {
+      workspaces: [],
+      selfDependencies: [],
+      missingDependencies: new Map(),
+      setupError: 'packages/ directory not found'
+    }
+  }
+
+  const workspaceDirs = fs
+    .readdirSync(packagesDir)
+    .map((name) => path.join(packagesDir, name))
+    .filter((directory) => fs.existsSync(path.join(directory, 'package.json')))
+  const workspaces = workspaceDirs.map((directory) => {
+    const manifest = readJSON(path.join(directory, 'package.json'))
+    return {
+      name: manifest.name,
+      directory,
+      dependencies: Object.keys(manifest.dependencies || {}),
+      devDependencies: Object.keys(manifest.devDependencies || {})
+    }
   })
+  const workspaceNames = new Set(workspaces.map(({ name }) => name))
+  const selfDependencies = workspaces
+    .filter(
+      ({ name, dependencies, devDependencies }) =>
+        dependencies.includes(name) || devDependencies.includes(name)
+    )
+    .map(({ name }) => name)
+  const missingDependencies = new Map()
 
-  for (const file of files) {
-    const content = fs.readFileSync(file, 'utf-8')
-    let match
+  if (verbose) console.log(`Found ${workspaces.length} workspaces`)
 
-    while ((match = IMPORT_RE.exec(content)) !== null) {
-      const importedPkg = match[1] || match[2]
-      if (!importedPkg?.startsWith(INTERNAL_SCOPE)) continue
+  for (const workspace of workspaces) {
+    if (verbose) console.log(`\nScanning ${workspace.name}`)
 
-      // Ignore self import (allowed)
-      if (importedPkg === ws.name) continue
+    const files = await glob(SOURCE_GLOB, {
+      cwd: workspace.directory,
+      absolute: true,
+      ignore: ['**/node_modules/**', '**/dist/**']
+    })
 
-      // Imported workspace must exist
-      if (!workspaceMap.has(importedPkg)) {
-        // treat as missing dep as well
-        if (!missingDeps.has(ws.name)) {
-          missingDeps.set(ws.name, new Map())
-        }
-        const depMap = missingDeps.get(ws.name)
-        if (!depMap.has(importedPkg)) {
-          depMap.set(importedPkg, new Set())
-        }
-        depMap.get(importedPkg).add(path.relative(ws.dir, file))
-        continue
-      }
+    for (const file of files.sort()) {
+      const relativeFile = path.relative(workspace.directory, file)
+      const source = fs.readFileSync(file, 'utf-8')
+      const missing = validateSourceImports({
+        workspaceName: workspace.name,
+        relativeFile,
+        source,
+        dependencies: workspace.dependencies,
+        devDependencies: workspace.devDependencies,
+        workspaceNames
+      })
 
-      // Check dependency declaration
-      if (!ws.dependencies.includes(importedPkg)) {
-        if (!missingDeps.has(ws.name)) {
-          missingDeps.set(ws.name, new Map())
-        }
-        const depMap = missingDeps.get(ws.name)
-        if (!depMap.has(importedPkg)) {
-          depMap.set(importedPkg, new Set())
-        }
-        depMap.get(importedPkg).add(path.relative(ws.dir, file))
+      for (const dependency of missing) {
+        addMissingDependency(
+          missingDependencies,
+          workspace.name,
+          dependency,
+          relativeFile
+        )
       }
     }
   }
-}
 
-// ----------------------
-// 4. Report
-// ----------------------
-if (missingDeps.size === 0) {
-  console.log('✔ Dependency validation passed\n')
-  console.log(`Workspaces scanned: ${workspaces.length}`)
-  console.log('No missing internal dependencies found.')
-  process.exit(0)
-}
-
-console.error('\n✖ Dependency validation failed\n')
-console.error('Missing internal dependencies detected:\n')
-
-for (const [pkgName, deps] of missingDeps.entries()) {
-  console.error(`- ${pkgName}`)
-  for (const [dep, files] of deps.entries()) {
-    console.error(`  → missing dependency: ${dep}`)
-    for (const file of files) {
-      console.error(`    - ${file}`)
-    }
+  return {
+    workspaces,
+    selfDependencies,
+    missingDependencies,
+    setupError: undefined
   }
-  console.error('')
 }
 
-process.exit(1)
+function reportValidation(result) {
+  if (result.setupError) {
+    console.error(`✖ ${result.setupError}`)
+    return false
+  }
+
+  if (result.selfDependencies.length > 0) {
+    console.error('\n✖ Invalid dependency configuration\n')
+    for (const name of result.selfDependencies) {
+      console.error(`- ${name} depends on itself`)
+    }
+    console.error('\nThis is always invalid in a monorepo.')
+    return false
+  }
+
+  if (result.missingDependencies.size === 0) {
+    console.log('✔ Dependency validation passed\n')
+    console.log(`Workspaces scanned: ${result.workspaces.length}`)
+    console.log('No missing internal dependencies found.')
+    return true
+  }
+
+  console.error('\n✖ Dependency validation failed\n')
+  console.error('Missing internal dependencies detected:\n')
+
+  for (const [workspaceName, dependencies] of result.missingDependencies) {
+    console.error(`- ${workspaceName}`)
+    for (const [dependency, files] of dependencies) {
+      console.error(`  → missing dependency: ${dependency}`)
+      for (const file of files) {
+        console.error(`    - ${file}`)
+      }
+    }
+    console.error('')
+  }
+
+  return false
+}
+
+export async function main(args = process.argv.slice(2)) {
+  const result = await validateDependencies({
+    verbose: args.includes('--verbose')
+  })
+  return reportValidation(result) ? 0 : 1
+}
+
+const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : undefined
+if (invokedPath === fileURLToPath(import.meta.url)) {
+  process.exitCode = await main()
+}
