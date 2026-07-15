@@ -9,19 +9,21 @@ export class RenderAdapter implements IRenderer {
 
   private container: HTMLElement | null = null
 
+  constructor(private readonly runtime: Render = render) {}
+
   async init(
     container: HTMLElement,
     options: RenderOptions
   ): Promise<RenderResult> {
     this.container = container
 
-    const app = await render.init(
+    const app = await this.runtime.init(
       options.width,
       options.height,
       options.backgroundColor || 0x000000,
       container
     )
-    render.start()
+    this.runtime.start()
 
     return {
       canvas: app.canvas,
@@ -36,39 +38,39 @@ export class RenderAdapter implements IRenderer {
     }
     this.container = null
     try {
-      render.dispose()
+      this.runtime.dispose()
     } finally {
       container.innerHTML = ''
     }
   }
 
   getViewportPosition() {
-    const position = render.getViewportPosition()
+    const position = this.runtime.getViewportPosition()
     return { x: position.x, y: position.y }
   }
 
   getViewportScale() {
-    return render.getViewportScale()
+    return this.runtime.getViewportScale()
   }
 
   setViewportPosition(x: number, y: number): void {
-    render.panTo(x, y)
+    this.runtime.panTo(x, y)
   }
 
   setViewportScale(scale: number, centerX: number, centerY: number): void {
-    render.zoomToCenter(scale, centerX, centerY)
+    this.runtime.zoomToCenter(scale, centerX, centerY)
   }
 
   resize(width: number, height: number): void {
-    render.resize(width, height)
+    this.runtime.resize(width, height)
   }
 
   getCanvas(): HTMLCanvasElement | null {
-    return (render as Render).app?.canvas ?? null
+    return this.runtime.app?.canvas ?? null
   }
 
   getInstance(): unknown {
-    return (render as Render).app?.instance
+    return this.runtime.app?.instance
   }
 }
 

@@ -22,6 +22,7 @@ vi.mock('../render', () => ({
 }))
 
 import { PixiJSRenderer, RenderAdapter } from '../index'
+import type { Render } from '../render'
 import PixiJSRendererDefault from '../pixi-renderer'
 
 describe('Framework renderer facade', () => {
@@ -59,6 +60,48 @@ describe('Framework renderer facade', () => {
     expect(adapter.getViewportScale()).toBe(2)
     expect(adapter.getCanvas()).toBe(canvas)
     expect(adapter.getInstance()).toEqual({ name: 'engine-runtime' })
+  })
+
+  it('binds every facade operation to an explicitly selected Render instance', async () => {
+    const container = document.createElement('div')
+    const canvas = document.createElement('canvas')
+    const app = { canvas, instance: { name: 'selected-runtime' } }
+    const selectedRuntime = {
+      ...renderRuntime,
+      app: null as typeof renderRuntime.app,
+      init: vi.fn(async () => {
+        selectedRuntime.app = app
+        return app
+      }),
+      start: vi.fn(),
+      getViewportPosition: vi.fn(() => ({ x: 30, y: 40 })),
+      getViewportScale: vi.fn(() => 3),
+      dispose: vi.fn()
+    }
+    const adapter = new RenderAdapter(selectedRuntime as unknown as Render)
+
+    await adapter.init(container, {
+      width: 320,
+      height: 240,
+      backgroundColor: 0x445566
+    })
+
+    expect(selectedRuntime.init).toHaveBeenCalledWith(
+      320,
+      240,
+      0x445566,
+      container
+    )
+    expect(selectedRuntime.start).toHaveBeenCalledOnce()
+    expect(adapter.getViewportPosition()).toEqual({ x: 30, y: 40 })
+    expect(adapter.getViewportScale()).toBe(3)
+    expect(adapter.getCanvas()).toBe(canvas)
+    expect(adapter.getInstance()).toEqual({ name: 'selected-runtime' })
+    expect(renderRuntime.init).not.toHaveBeenCalled()
+
+    adapter.destroy()
+    expect(selectedRuntime.dispose).toHaveBeenCalledOnce()
+    expect(renderRuntime.dispose).not.toHaveBeenCalled()
   })
 
   it('keeps PixiJSRenderer as a warn-once compatibility alias', () => {
