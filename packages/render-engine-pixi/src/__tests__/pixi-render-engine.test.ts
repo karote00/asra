@@ -577,6 +577,41 @@ describe('PixiRenderEngine', () => {
     expect(app.ticker.remove).toHaveBeenCalledWith(expect.any(Function))
   })
 
+  it('omits undefined optional paint fields while preserving explicit alpha', async () => {
+    const engine = new PixiRenderEngine()
+    await engine.initialize({ host: {}, width: 10, height: 10 })
+    const graphics = await engine.execute({
+      type: 'create-object',
+      requestId: 'paint-graphics',
+      objectType: 'graphics'
+    })
+    if (!graphics.object) {
+      throw new Error('Expected Pixi graphics handle')
+    }
+
+    await engine.execute({
+      type: 'draw',
+      object: graphics.object,
+      operations: [
+        { type: 'rect', x: 0, y: 0, width: 10, height: 10 },
+        { type: 'fill', paint: { color: '#cccccc' } },
+        {
+          type: 'stroke',
+          paint: { color: '#000000', alpha: 0.5 },
+          width: 2
+        }
+      ]
+    })
+
+    const operations = pixiState.graphics[0].drawOperations
+    expect(operations[1].args[0]).toStrictEqual({ color: '#cccccc' })
+    expect(operations[2].args[0]).toStrictEqual({
+      color: '#000000',
+      alpha: 0.5,
+      width: 2
+    })
+  })
+
   it('normalizes Pixi pointer events to opaque handles', async () => {
     const engine = new PixiRenderEngine()
     await engine.initialize({ host: {}, width: 10, height: 10 })

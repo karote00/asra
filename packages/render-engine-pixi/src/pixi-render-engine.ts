@@ -538,7 +538,10 @@ export class PixiRenderEngine implements RenderEngine {
       }
       return resource.value
     }
-    return { color: paint.color, alpha: paint.alpha }
+    return {
+      ...(paint.color !== undefined ? { color: paint.color } : {}),
+      ...(paint.alpha !== undefined ? { alpha: paint.alpha } : {})
+    }
   }
 
   private createOwnedResource(
