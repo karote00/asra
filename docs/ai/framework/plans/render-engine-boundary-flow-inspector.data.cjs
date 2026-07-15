@@ -183,9 +183,13 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'yarn.lock',
+        'turbo.json',
         'packages/render/package.json',
         'packages/render/src/index.ts',
         'packages/render/src/render.ts',
+        'packages/render/src/pixi-renderer.ts',
+        'packages/render/src/types.ts',
         'packages/render/src/types/**',
         'packages/render/src/registries/**',
         'packages/render/src/stores/**',

@@ -49,6 +49,16 @@ test('render consumes only the abstract engine contract', () => {
   assert.match(contract, /@asyra\/render-engine/)
   assert.match(contract, /Pixi/i)
   assert.equal(adapter.cacheDimensions.length, 0)
+  assert.ok(adapter.implementationBoundary.includes('yarn.lock'))
+  assert.ok(adapter.implementationBoundary.includes('turbo.json'))
+  assert.ok(
+    adapter.implementationBoundary.includes('packages/render/src/types.ts')
+  )
+  assert.ok(
+    adapter.implementationBoundary.includes(
+      'packages/render/src/pixi-renderer.ts'
+    )
+  )
 })
 
 test('the abstract contract has its own package owner and shared artifact', () => {
