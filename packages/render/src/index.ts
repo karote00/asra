@@ -1,10 +1,10 @@
 import render, { Render } from './render'
-import PixiJSRenderer from './pixi-renderer'
+import RenderAdapter, { PixiJSRenderer } from './renderer'
 import renderSceneTreeStore from './stores/scene-tree'
 import renderSelectionStore from './stores/selection'
 
 export { IRenderer, RenderOptions, RenderResult } from './types/renderer'
-export { PixiJSRenderer }
+export { RenderAdapter, PixiJSRenderer }
 export { renderStrategyRegistry } from './registries/render-strategy'
 export { interactionHandlerRegistry } from './registries/interaction-handler'
 export { interactionTargetRegistry } from './registries/interaction-target'
