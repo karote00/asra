@@ -1,25 +1,25 @@
 import React, { useEffect, useRef } from 'react'
 import { destroyRenderApp } from '../controllers/app'
 import core from '../contexts'
-import { PixiJSRenderer } from '@asyra/render'
+import { RenderAdapter } from '@asyra/render'
 import { providers } from '@asyra/reactive-events'
 import { CANVAS_BACKGROUND_COLOR } from '../constants'
 
 const RenderApp: React.FC = () => {
-  const pixiContainerRef = useRef<HTMLDivElement>(null)
+  const renderContainerRef = useRef<HTMLDivElement>(null)
   const hasInit = useRef<boolean>(false)
 
   useEffect(() => {
     const initApp = async () => {
-      if (pixiContainerRef.current && !hasInit.current) {
+      if (renderContainerRef.current && !hasInit.current) {
         hasInit.current = true
 
         // Phase 1: Configure renderer and persistence
-        core.setRenderer(new PixiJSRenderer())
+        core.setRenderer(new RenderAdapter())
         core.setPersistence(providers.localStorage)
 
         // Phase 3: Single startup call
-        await core.start(pixiContainerRef.current, {
+        await core.start(renderContainerRef.current, {
           width: window.innerWidth,
           height: window.innerHeight,
           backgroundColor: CANVAS_BACKGROUND_COLOR,
@@ -31,14 +31,14 @@ const RenderApp: React.FC = () => {
     initApp()
 
     return () => {
-      if (pixiContainerRef.current) {
-        pixiContainerRef.current.innerHTML = ''
+      if (renderContainerRef.current) {
+        renderContainerRef.current.innerHTML = ''
         destroyRenderApp()
       }
     }
   }, [])
 
-  return <div className="absolute top-0 left-0" ref={pixiContainerRef} />
+  return <div className="absolute top-0 left-0" ref={renderContainerRef} />
 }
 
 export default RenderApp

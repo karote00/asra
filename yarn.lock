@@ -51,6 +51,7 @@ __metadata:
     "@asyra/feature-system": "workspace:*"
     "@asyra/preset": "workspace:*"
     "@asyra/reactive-events": "workspace:*"
+    "@asyra/render": "workspace:*"
     "@asyra/ui-context": "workspace:*"
     "@asyra/utils": "workspace:*"
     "@playwright/test": "npm:^1.57.0"
@@ -62,7 +63,6 @@ __metadata:
     "@types/bezier-js": "npm:^4.1.3"
     "@types/jest": "npm:^27.5.2"
     "@types/node": "npm:^16.18.121"
-    "@types/pixi.js": "npm:^5.0.0"
     "@types/react": "npm:^19.0.0"
     "@types/react-dom": "npm:^19.0.0"
     "@vitejs/plugin-react": "npm:^4.3.4"
@@ -5570,15 +5570,6 @@ __metadata:
   version: 4.0.2
   resolution: "@types/parse-json@npm:4.0.2"
   checksum: 10c0/b1b863ac34a2c2172fbe0807a1ec4d5cb684e48d422d15ec95980b81475fac4fdb3768a8b13eef39130203a7c04340fc167bae057c7ebcafd7dec9fe6c36aeb1
-  languageName: node
-  linkType: hard
-
-"@types/pixi.js@npm:^5.0.0":
-  version: 5.0.0
-  resolution: "@types/pixi.js@npm:5.0.0"
-  dependencies:
-    pixi.js: "npm:*"
-  checksum: 10c0/c02c8e07cfa66ddc24d6abb9f042ca4b19bc6e31e14285c9b3bf892e2ee7d95e9e8ddc21d3f19b4e09703c7f55c18d334525bf0297f528b43fc8d362d061665d
   languageName: node
   linkType: hard
 
@@ -14818,7 +14809,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pixi.js@npm:*, pixi.js@npm:^8.6.3":
+"pixi.js@npm:^8.6.3":
   version: 8.9.2
   resolution: "pixi.js@npm:8.9.2"
   dependencies:
