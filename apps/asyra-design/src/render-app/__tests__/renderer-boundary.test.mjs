@@ -26,3 +26,10 @@ test('Asyra Design configures only the engine-neutral framework renderer', () =>
   assert.equal(packageJson.dependencies['@asyra/render-engine-pixi'], undefined)
   assert.equal(packageJson.dependencies['@types/pixi.js'], undefined)
 })
+
+test('Asyra Design tears down the exact framework renderer it starts', () => {
+  assert.match(renderAppSource, /const renderer = new RenderAdapter\(\)/)
+  assert.match(renderAppSource, /core\.setRenderer\(renderer\)/)
+  assert.match(renderAppSource, /renderer\.destroy\(\)/)
+  assert.doesNotMatch(renderAppSource, /destroyRenderApp/)
+})

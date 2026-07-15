@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from 'react'
-import { destroyRenderApp } from '../controllers/app'
 import core from '../contexts'
 import { RenderAdapter } from '@asyra/render'
 import { providers } from '@asyra/reactive-events'
@@ -10,12 +9,14 @@ const RenderApp: React.FC = () => {
   const hasInit = useRef<boolean>(false)
 
   useEffect(() => {
+    const renderer = new RenderAdapter()
+
     const initApp = async () => {
       if (renderContainerRef.current && !hasInit.current) {
         hasInit.current = true
 
         // Phase 1: Configure renderer and persistence
-        core.setRenderer(new RenderAdapter())
+        core.setRenderer(renderer)
         core.setPersistence(providers.localStorage)
 
         // Phase 3: Single startup call
@@ -31,10 +32,7 @@ const RenderApp: React.FC = () => {
     initApp()
 
     return () => {
-      if (renderContainerRef.current) {
-        renderContainerRef.current.innerHTML = ''
-        destroyRenderApp()
-      }
+      renderer.destroy()
     }
   }, [])
 
