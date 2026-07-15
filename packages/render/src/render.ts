@@ -273,7 +273,7 @@ class Render {
       this.runtime.attachRoot(this.viewport.view)
       this.app = {
         canvas: initialized.surface as HTMLCanvasElement,
-        instance: initialized.surface,
+        instance: initialized.runtime,
         render: () => {
           engine.execute({ type: 'flush' })
         }

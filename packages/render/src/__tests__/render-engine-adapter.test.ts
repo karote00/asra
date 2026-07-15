@@ -36,6 +36,7 @@ describe('Render engine adapter', () => {
 
     expect(render.getEngine()).toBe(engine)
     expect(initialized.canvas).toBeTruthy()
+    expect(initialized.instance).toBe(engine)
     expect(engine.getOperations().map((operation) => operation.type)).toEqual(
       expect.arrayContaining([
         'initialize',

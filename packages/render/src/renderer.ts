@@ -27,7 +27,7 @@ export class RenderAdapter implements IRenderer {
 
     return {
       canvas: app.canvas,
-      instance: app
+      instance: app.instance
     }
   }
 

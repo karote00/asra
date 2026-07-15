@@ -55,7 +55,7 @@ describe('Framework renderer facade', () => {
       container
     )
     expect(renderRuntime.start).toHaveBeenCalledOnce()
-    expect(result).toEqual({ canvas, instance: app })
+    expect(result).toEqual({ canvas, instance: app.instance })
     expect(adapter.getViewportPosition()).toEqual({ x: 12, y: 24 })
     expect(adapter.getViewportScale()).toBe(2)
     expect(adapter.getCanvas()).toBe(canvas)
@@ -80,7 +80,7 @@ describe('Framework renderer facade', () => {
     }
     const adapter = new RenderAdapter(selectedRuntime as unknown as Render)
 
-    await adapter.init(container, {
+    const result = await adapter.init(container, {
       width: 320,
       height: 240,
       backgroundColor: 0x445566
@@ -97,6 +97,7 @@ describe('Framework renderer facade', () => {
     expect(adapter.getViewportScale()).toBe(3)
     expect(adapter.getCanvas()).toBe(canvas)
     expect(adapter.getInstance()).toEqual({ name: 'selected-runtime' })
+    expect(result.instance).toBe(adapter.getInstance())
     expect(renderRuntime.init).not.toHaveBeenCalled()
 
     adapter.destroy()
