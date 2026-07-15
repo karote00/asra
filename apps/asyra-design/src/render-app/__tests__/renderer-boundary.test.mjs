@@ -1,14 +1,16 @@
-const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const path = require('node:path')
-const test = require('node:test')
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 
-const renderAppSource = fs.readFileSync(
-  path.resolve(__dirname, '../index.tsx'),
+const testDirectory = path.dirname(fileURLToPath(import.meta.url))
+const renderAppSource = readFileSync(
+  path.resolve(testDirectory, '../index.tsx'),
   'utf8'
 )
 const packageJson = JSON.parse(
-  fs.readFileSync(path.resolve(__dirname, '../../../package.json'), 'utf8')
+  readFileSync(path.resolve(testDirectory, '../../../package.json'), 'utf8')
 )
 
 test('Asyra Design configures only the engine-neutral framework renderer', () => {
