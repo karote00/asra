@@ -1,8 +1,8 @@
-import type { FederatedPointerEvent } from 'pixi.js'
+import type { RenderEngineInteractionEvent } from '@asyra/render-engine'
 
 export type InteractionHandler = (
   elementId: string,
-  event: FederatedPointerEvent
+  event: RenderEngineInteractionEvent
 ) => void
 
 export interface InteractionRegistration {

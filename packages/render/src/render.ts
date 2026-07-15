@@ -2,7 +2,8 @@ import {
   RenderEngineCapabilities,
   assertRenderEngineCapabilities,
   type RenderEngine,
-  type RenderEngineFactory
+  type RenderEngineFactory,
+  type RenderEngineObjectHandle
 } from '@asyra/render-engine'
 import { DataTypes, MouseData } from '@asyra/utils'
 import type { RenderPointerPositions } from '@asyra/utils'
@@ -11,6 +12,7 @@ import { ViewportLayer } from './layers/viewport'
 import renderLayerRegistry from './registries/render-layer'
 import type { RenderLayerRegistration } from './types/render-layer'
 import RenderInteractionBridge from './interaction/interaction-bridge'
+import RenderEngineInteractionBridge from './interaction/engine-interaction-bridge'
 import interactionTargetRegistry from './registries/interaction-target'
 import renderInteractionHandlerRegistry from './registries/render-interaction-handler'
 import {
@@ -70,6 +72,8 @@ class Render {
   private _tickerActive = false
   private readonly _animateHandler: () => void
   private readonly interactionBridge: RenderInteractionBridge
+  private readonly engineInteractionBridge: RenderEngineInteractionBridge
+  private unsubscribeEngineInteraction: (() => void) | null = null
   private engine: RenderEngine | null = null
   private providedEngine: RenderEngine | null = null
   private engineFactory: RenderEngineFactory | null = null
@@ -94,6 +98,9 @@ class Render {
     }
     this.interactionBridge = new RenderInteractionBridge((event) =>
       this.getPointerPositions(event)
+    )
+    this.engineInteractionBridge = new RenderEngineInteractionBridge((handle) =>
+      this.resolveEngineInteractionTarget(handle)
     )
   }
 
@@ -272,12 +279,17 @@ class Render {
         }
       }
       this.syncCustomLayers()
+      this.unsubscribeEngineInteraction = engine.subscribeToInteraction(
+        (event) => this.engineInteractionBridge.handle(event)
+      )
       if (isPointerSurface(initialized.inputTarget)) {
         this.interactionBridge.attach(initialized.inputTarget)
       }
       return this.app
     } catch (error) {
       this.interactionBridge.detach()
+      this.unsubscribeEngineInteraction?.()
+      this.unsubscribeEngineInteraction = null
       this.runtime?.detachResourceLifecycles()
       engine.destroy()
       this.viewport.view.releaseRuntime()
@@ -429,6 +441,8 @@ class Render {
   dispose(): void {
     this.stop()
     this.interactionBridge.detach()
+    this.unsubscribeEngineInteraction?.()
+    this.unsubscribeEngineInteraction = null
     this.runtime?.detachResourceLifecycles()
     this.engine?.destroy()
     this.viewport.view.releaseRuntime()
@@ -513,6 +527,16 @@ class Render {
         y: workspacePoint.y
       }
     }
+  }
+
+  private resolveEngineInteractionTarget(
+    handle: RenderEngineObjectHandle | null
+  ): string | null {
+    let target = this.runtime?.getObject(handle) ?? null
+    while (target && !target.label && target.parent) {
+      target = target.parent
+    }
+    return target?.label || null
   }
 
   private resolveEngine(): RenderEngine {

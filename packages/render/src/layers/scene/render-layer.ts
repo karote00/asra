@@ -4,7 +4,6 @@ import {
   RenderElementData
 } from '../../types'
 import { DataTypes, getElementGeometryLocalBounds } from '@asyra/utils'
-import { ElementInteractionHandler } from './element-interaction-handler'
 import renderStrategyRegistry from '../../registries/render-strategy'
 import { defaultStrategy } from '../../strategies/default-strategy'
 import { RenderContainer, RenderGraphics } from '../../types/render-object'
@@ -37,7 +36,6 @@ export class RenderLayer {
   private currentWorkspace: RenderContainer
   private _elements: Map<string, SceneElement> = new Map()
   private _deleteMap: Map<string, SceneElement> = new Map()
-  private interactionHandler = new ElementInteractionHandler()
 
   constructor() {
     this.currentWorkspace = new RenderContainer()
@@ -50,12 +48,14 @@ export class RenderLayer {
   addToMap(elementId: string, instance: SceneElement) {
     this._elements.set(elementId, instance)
     this.removeFromDeleteMap(elementId)
-    this.interactionHandler.bindElementEvents(instance as never)
+    instance.eventMode = 'static'
+    instance.cursor = 'pointer'
   }
 
   removeFromMap(elementId: string) {
     const instance = this.getElementById(elementId) as SceneElement
-    this.interactionHandler.unbindElementEvents(instance as never)
+    instance.eventMode = 'none'
+    instance.removeAllListeners()
     this._elements.delete(elementId)
     this.addToDeleteMap(elementId, instance)
   }
@@ -74,7 +74,8 @@ export class RenderLayer {
 
   clearElements() {
     this._elements.forEach((element) => {
-      this.interactionHandler.unbindElementEvents(element as never)
+      element.eventMode = 'none'
+      element.removeAllListeners()
       if (element.parent) {
         element.parent.removeChild(element)
       }

@@ -3,13 +3,12 @@ import { renderPointerHover, renderPointerLeave } from '@asyra/reactive-events'
 /**
  * Renderer event handlers
  *
- * These handlers bridge Pixi.js native events to the framework's EventBus.
- * They normalize render-engine events so features can subscribe without
- * knowing the underlying rendering technology.
+ * These handlers publish normalized render-engine events to the framework's
+ * EventBus so features remain independent of the selected engine.
  *
  * Example flow:
- * 1. Pixi fires pointerover on element
- * 2. ElementInteractionHandler captures it
+ * 1. The selected engine returns a normalized pointerover event and handle
+ * 2. @asyra/render maps the opaque handle to an element id
  * 3. renderPointerHover publishes to EventBus
  * 4. hover-element feature subscribes and updates systemContext
  */

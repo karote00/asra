@@ -25,8 +25,7 @@
     "@asyra/selection": "workspace:*",
     "@asyra/system-context": "workspace:*",
     "@asyra/utils": "workspace:*",
-    "earcut": "^2.2.4",
-    "pixi.js": "^8.6.3"
+    "earcut": "^2.2.4"
   },
   "devDependencies": {
     "@types/earcut": "^2.1.4",
