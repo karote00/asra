@@ -1,6 +1,6 @@
-import type { Graphics } from 'pixi.js'
 import type { RenderElementData } from '../types'
 import type { RenderStrategy } from '../types/render-strategy'
+import type { RenderGraphics } from '../types/render-object'
 
 const randomHexColorCode = () => {
   const n = (Math.random() * 0xfffff * 1000000).toString(16)
@@ -11,7 +11,7 @@ const toFiniteNumber = (value: unknown, fallback = 0) =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback
 
 export const defaultRectangleStrategy: RenderStrategy = (
-  graphic: Graphics,
+  graphic: RenderGraphics,
   data: RenderElementData
 ) => {
   const width = Math.max(0, toFiniteNumber(data.width))

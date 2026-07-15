@@ -22,12 +22,9 @@ export class PixiJSRenderer implements IRenderer {
     const app = await render.init(
       options.width,
       options.height,
-      options.backgroundColor || 0x000000
+      options.backgroundColor || 0x000000,
+      container
     )
-
-    if (app.canvas && container) {
-      container.appendChild(app.canvas)
-    }
 
     // Start the render ticker to update layers (selection boxes, etc.)
     render.start()
@@ -63,7 +60,7 @@ export class PixiJSRenderer implements IRenderer {
   }
 
   resize(width: number, height: number): void {
-    // TODO: implement resize
+    render.resize(width, height)
   }
 
   getCanvas(): HTMLCanvasElement | null {
@@ -73,7 +70,7 @@ export class PixiJSRenderer implements IRenderer {
 
   getInstance(): unknown {
     const r = render as Render
-    return r.app
+    return r.app?.instance
   }
 }
 

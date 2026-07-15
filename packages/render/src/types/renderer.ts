@@ -5,8 +5,7 @@
  * Built-in implementations:
  * - PixiJSRenderer (PixiJS 2D renderer)
  *
- * Users can implement custom renderers for:
- * - ThreeJS (3D)
+ * Users can implement compatible custom renderers, including:
  * - Canvas2D (simple 2D)
  * - SVG renderer
  * - Custom specialized renderers

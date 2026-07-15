@@ -1,6 +1,6 @@
-import { Container, Graphics } from 'pixi.js'
 import type { PositionData } from '@asyra/utils'
 import type { RenderLayerRegistration } from '../types/render-layer'
+import { RenderContainer, RenderGraphics } from '../types/render-object'
 
 const OVERLAY_BEZIER_FLATNESS_TOLERANCE = 0.35
 const OVERLAY_BEZIER_MAX_SUBDIVISION_DEPTH = 10
@@ -165,11 +165,11 @@ export const sampleOverlayBezierPoints = (
 export const createOverlayLayerRegistration = (
   options: CreateOverlayLayerOptions
 ): RenderLayerRegistration => {
-  const layer = new Container()
+  const layer = new RenderContainer()
   layer.label = options.name
   layer.eventMode = 'none'
 
-  const graphics = new Graphics()
+  const graphics = new RenderGraphics()
   graphics.label = `${options.name}-graphics`
   graphics.eventMode = 'none'
   layer.addChild(graphics)

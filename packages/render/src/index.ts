@@ -33,6 +33,12 @@ export type {
   EvenOddFillResult
 } from './fills/even-odd-fill'
 export type { RenderStrategy } from './types/render-strategy'
+export type { RenderApplication, RenderEngineProviderOptions } from './render'
+export {
+  RenderContainer,
+  RenderGraphics,
+  RenderMesh
+} from './types/render-object'
 export {
   defaultStrategy,
   defaultRectangleStrategy

@@ -1,7 +1,7 @@
-import type { Graphics } from 'pixi.js'
 import type { RenderElementData } from '../types'
+import type { RenderGraphics } from './render-object'
 
 export type RenderStrategy = (
-  graphic: Graphics,
+  graphic: RenderGraphics,
   data: RenderElementData
 ) => void

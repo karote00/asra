@@ -152,6 +152,7 @@
       "dependsOn": [
         "^build:factory",
         "^build:reactive-events",
+        "^build:render-engine",
         "^build:scene-tree",
         "^build:selection",
         "^build:system-context",

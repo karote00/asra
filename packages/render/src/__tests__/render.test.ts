@@ -1,18 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Application, Container, Graphics } from 'pixi.js'
 import { MouseData } from '@asyra/utils'
+import { RecordingRenderEngine } from '@asyra/render-engine/testing'
 import { Render } from '../render'
 import * as ViewportLayerModule from '../layers/viewport'
 import { RenderContainerData, RenderElementData, SceneElement } from '../types'
+import { RenderContainer, RenderGraphics } from '../types/render-object'
 import renderStrategyRegistry from '../registries/render-strategy'
 
 describe('Render', () => {
   let render: Render
+  let engine: RecordingRenderEngine
 
   beforeEach(() => {
     vi.clearAllMocks()
 
-    render = new Render()
+    engine = new RecordingRenderEngine({ name: 'render-test' })
+    render = new Render({ engine })
   })
 
   // Test constructor
@@ -21,25 +24,20 @@ describe('Render', () => {
   })
 
   // Test init method
-  it('should initialize Pixi.js application and set up stage layers', async () => {
+  it('should initialize the injected engine and set up root layers', async () => {
     const width = 800
     const height = 600
     const backgroundColor = 0xffffff
-    const mockInit = vi.fn().mockResolvedValue(undefined)
-    const mockApp = {
-      init: mockInit,
-      stage: {
-        eventMode: 'none',
-        addChild: vi.fn()
-      }
-    }
-    render['createApplication'] = () => mockApp as unknown as Application
+    const app = await render.init(width, height, backgroundColor)
 
-    await render.init(width, height, backgroundColor)
-
-    expect(render.app).toBe(mockApp)
-    expect(mockApp.stage.addChild).toHaveBeenCalledTimes(1)
-    expect(mockApp.stage.addChild).toHaveBeenCalledWith(render.viewport.view)
+    expect(render.app).toBe(app)
+    expect(engine.getOperations().map((operation) => operation.type)).toEqual([
+      'initialize',
+      'create-object',
+      'create-object',
+      'append-child',
+      'append-child'
+    ])
   })
 
   // Test delegation methods to viewport
@@ -137,8 +135,8 @@ describe('Render', () => {
     errorSpy.mockRestore()
   })
 
-  it('should not poison Pixi transforms when direct property updates receive invalid values', () => {
-    const element = new Graphics()
+  it('should not poison render transforms when direct property updates receive invalid values', () => {
+    const element = new RenderGraphics()
     element.rect(0, 0, 24, 28).fill(0xffffff)
     element.x = 12
     element.y = 16
@@ -224,7 +222,7 @@ describe('Render', () => {
   })
 
   it('should delegate updateElementProperties to viewport', () => {
-    const element = new Container()
+    const element = new RenderContainer()
     const after = 10
     vi.spyOn(render.viewport, 'updateElementProperties')
 
@@ -237,11 +235,10 @@ describe('Render', () => {
     )
   })
 
-  it('should coalesce render requests made during layer updates into the current frame', () => {
+  it('should coalesce render requests made during layer updates into the current frame', async () => {
     const appRender = vi.fn()
-    render.app = {
-      render: appRender
-    } as unknown as Application
+    const app = await render.init(100, 100, 0)
+    app.render = appRender
 
     let shouldUpdate = true
     render.registerLayer({
@@ -326,7 +323,7 @@ describe('Render', () => {
   })
 
   it('should delegate getElementById to viewport', () => {
-    const element = new Container() as SceneElement
+    const element = new RenderContainer() as SceneElement
     vi.spyOn(render.viewport, 'getElementById').mockReturnValue(element)
 
     const result = render.getElementById('el1')
@@ -335,50 +332,70 @@ describe('Render', () => {
     expect(result).toBe(element)
   })
 
-  it('should use Pixi v8 rootBoundary for hit testing in getElementIdAtClientPos', () => {
-    const mockHit = { label: 'el1' }
-    const mockHitTest = vi.fn().mockReturnValue(mockHit)
-    const mockApp = {
-      renderer: {
-        events: {
-          rootBoundary: {
-            hitTest: mockHitTest
-          }
-        }
-      }
-    }
-    render.app = mockApp as unknown as Application
+  it('should use the abstract hit-test query in getElementIdAtClientPos', async () => {
+    await render.init(100, 100, 0)
+    const element = render.addElement({
+      id: 'el1',
+      type: 'rectangle',
+      visible: true,
+      name: 'Element',
+      lock: false,
+      width: 10,
+      height: 10
+    } as unknown as RenderElementData)
+    const target = element?.getEngineHandle() ?? null
+    const query = vi.fn(() => ({
+      type: 'hit' as const,
+      target,
+      point: { x: 10, y: 20 }
+    }))
+    engine.query = query
 
     const result = render.getElementIdAtClientPos({ x: 10, y: 20 })
 
-    expect(mockHitTest).toHaveBeenCalledWith(10, 20)
+    expect(query).toHaveBeenCalledWith({
+      type: 'hit-test',
+      point: { x: 10, y: 20 }
+    })
     expect(result).toBe('el1')
   })
 
-  it('should handle cases where rootBoundary hitTest returns an object without a label', () => {
-    const mockHit = { parent: { label: 'parentEl' } }
-    const mockHitTest = vi.fn().mockReturnValue(mockHit)
-    const mockApp = {
-      renderer: {
-        events: {
-          rootBoundary: {
-            hitTest: mockHitTest
-          }
-        }
-      }
+  it('should resolve the nearest labeled parent from an abstract hit', async () => {
+    await render.init(100, 100, 0)
+    const parent = render.addContainer({ label: 'parentEl', x: 0, y: 0 })
+    const element = render.addElement({
+      id: 'child',
+      type: 'rectangle',
+      visible: true,
+      name: 'Child',
+      lock: false,
+      width: 10,
+      height: 10
+    } as unknown as RenderElementData)
+    if (!element) {
+      throw new Error('Expected render element')
     }
-    render.app = mockApp as unknown as Application
+    parent.addChild(element)
+    element.label = ''
+    const target = element.getEngineHandle()
+    engine.query = vi.fn(() => ({
+      type: 'hit' as const,
+      target,
+      point: { x: 10, y: 20 }
+    }))
 
     const result = render.getElementIdAtClientPos({ x: 10, y: 20 })
 
     expect(result).toBe('parentEl')
   })
 
-  it('should return null if Pixi v8 events system is not available', () => {
-    const mockApp = {
-      renderer: {}
-    }
-    render.app = mockApp as unknown as Application
+  it('should return null if the abstract hit-test has no target', async () => {
+    await render.init(100, 100, 0)
+    engine.query = vi.fn(() => ({
+      type: 'hit' as const,
+      target: null,
+      point: { x: 10, y: 20 }
+    }))
 
     const result = render.getElementIdAtClientPos({ x: 10, y: 20 })
 

@@ -1,4 +1,3 @@
-import { Container, Graphics, Point } from 'pixi.js'
 import {
   SceneElement,
   RenderContainerData,
@@ -8,6 +7,7 @@ import { DataTypes, getElementGeometryLocalBounds } from '@asyra/utils'
 import { ElementInteractionHandler } from './element-interaction-handler'
 import renderStrategyRegistry from '../../registries/render-strategy'
 import { defaultStrategy } from '../../strategies/default-strategy'
+import { RenderContainer, RenderGraphics } from '../../types/render-object'
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value)
@@ -34,13 +34,13 @@ const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
 }
 
 export class RenderLayer {
-  private currentWorkspace: Container
+  private currentWorkspace: RenderContainer
   private _elements: Map<string, SceneElement> = new Map()
   private _deleteMap: Map<string, SceneElement> = new Map()
   private interactionHandler = new ElementInteractionHandler()
 
   constructor() {
-    this.currentWorkspace = new Container()
+    this.currentWorkspace = new RenderContainer()
   }
 
   get view() {
@@ -50,12 +50,12 @@ export class RenderLayer {
   addToMap(elementId: string, instance: SceneElement) {
     this._elements.set(elementId, instance)
     this.removeFromDeleteMap(elementId)
-    this.interactionHandler.bindElementEvents(instance)
+    this.interactionHandler.bindElementEvents(instance as never)
   }
 
   removeFromMap(elementId: string) {
     const instance = this.getElementById(elementId) as SceneElement
-    this.interactionHandler.unbindElementEvents(instance)
+    this.interactionHandler.unbindElementEvents(instance as never)
     this._elements.delete(elementId)
     this.addToDeleteMap(elementId, instance)
   }
@@ -74,7 +74,7 @@ export class RenderLayer {
 
   clearElements() {
     this._elements.forEach((element) => {
-      this.interactionHandler.unbindElementEvents(element)
+      this.interactionHandler.unbindElementEvents(element as never)
       if (element.parent) {
         element.parent.removeChild(element)
       }
@@ -105,9 +105,9 @@ export class RenderLayer {
     this.currentWorkspace.y = workspaceData.y
   }
 
-  private renderGraphic(graphic: Graphics, data: RenderElementData) {
+  private renderGraphic(graphic: RenderGraphics, data: RenderElementData) {
     ;(
-      graphic as Graphics & {
+      graphic as RenderGraphics & {
         __asyraLastRenderDataSnapshot?: RenderElementData
       }
     ).__asyraLastRenderDataSnapshot = data
@@ -131,7 +131,11 @@ export class RenderLayer {
   }
 
   addContainer(containerData: RenderContainerData) {
-    const container = new Container(containerData)
+    const container = new RenderContainer({
+      label: containerData.label,
+      x: containerData.x,
+      y: containerData.y
+    })
     this._elements.set(containerData.label, container)
     this.currentWorkspace.addChild(container)
 
@@ -150,7 +154,7 @@ export class RenderLayer {
           existingElement as SceneElement & { __asyraType?: string }
         ).__asyraType = data.type
 
-        if (existingElement instanceof Graphics) {
+        if (existingElement instanceof RenderGraphics) {
           this.renderGraphic(existingElement, data)
         }
 
@@ -166,7 +170,7 @@ export class RenderLayer {
         ;(element as SceneElement & { __asyraType?: string }).__asyraType =
           data.type
 
-        if (element instanceof Graphics) {
+        if (element instanceof RenderGraphics) {
           this.renderGraphic(element, data)
         }
 
@@ -175,7 +179,7 @@ export class RenderLayer {
         return element
       }
 
-      const graphic = new Graphics()
+      const graphic = new RenderGraphics()
       graphic.label = data.id
       ;(graphic as SceneElement & { __asyraType?: string }).__asyraType =
         data.type
@@ -190,7 +194,7 @@ export class RenderLayer {
 
   removeElement(elementId: string, parentId?: string) {
     const parent =
-      (this.getElementById(parentId as string) as Container) ||
+      (this.getElementById(parentId as string) as RenderContainer) ||
       this.currentWorkspace
     const element = this.getElementById(elementId)
 
@@ -261,7 +265,7 @@ export class RenderLayer {
     const strategy = data
       ? renderStrategyRegistry.get(data.type) || defaultStrategy
       : null
-    if (strategy && element instanceof Graphics && data) {
+    if (strategy && element instanceof RenderGraphics && data) {
       this.renderGraphic(element, data)
     } else {
       this.updateElementProperties(element, key, after)
@@ -269,7 +273,7 @@ export class RenderLayer {
   }
 
   updateElementProperties(
-    element: Container | Graphics,
+    element: RenderContainer | RenderGraphics,
     key: string,
     after: DataTypes
   ) {
@@ -317,7 +321,7 @@ export class RenderLayer {
    * @param workspace - The container holding all elements (typically zoomed/panned).
    * @returns A bounding box object containing { minX, minY, maxX, maxY } in local space.
    */
-  getAllElementsBounds(workspace: Container) {
+  getAllElementsBounds(workspace: RenderContainer) {
     const bounds = {
       minX: Infinity,
       minY: Infinity,
@@ -325,27 +329,21 @@ export class RenderLayer {
       maxY: -Infinity
     }
 
-    const topLeft = new Point()
-    const topRight = new Point()
-    const bottomLeft = new Point()
-    const bottomRight = new Point()
-
     for (const [, element] of this._elements) {
-      if (element instanceof Graphics && element.visible) {
+      if (element instanceof RenderGraphics && element.visible) {
         // Prefer authored geometry bounds so vector layout does not expand with stroke rendering.
         const localBounds = getElementGeometryLocalBounds(element)
 
-        // Update corner points only when necessary
-        topLeft.set(localBounds.x, localBounds.y)
-        topRight.set(localBounds.x + localBounds.width, localBounds.y)
-        bottomLeft.set(localBounds.x, localBounds.y + localBounds.height)
-        bottomRight.set(
-          localBounds.x + localBounds.width,
-          localBounds.y + localBounds.height
-        )
-
         // Convert each corner to workspace local space and update bounding box
-        const corners = [topLeft, topRight, bottomLeft, bottomRight]
+        const corners = [
+          { x: localBounds.x, y: localBounds.y },
+          { x: localBounds.x + localBounds.width, y: localBounds.y },
+          { x: localBounds.x, y: localBounds.y + localBounds.height },
+          {
+            x: localBounds.x + localBounds.width,
+            y: localBounds.y + localBounds.height
+          }
+        ]
         for (const corner of corners) {
           const localCorner = workspace.toLocal(element.toGlobal(corner))
           bounds.minX = Math.min(bounds.minX, localCorner.x)

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { Graphics } from 'pixi.js'
+import { RenderGraphics } from '../types/render-object'
 import {
   createOverlayLayerRegistration,
   sampleOverlayBezierPoints
@@ -20,9 +20,9 @@ describe('overlay layer', () => {
   })
 
   it('renders overlay beziers through sampled line segments instead of direct bezierCurveTo calls', () => {
-    const moveToSpy = vi.spyOn(Graphics.prototype, 'moveTo')
-    const lineToSpy = vi.spyOn(Graphics.prototype, 'lineTo')
-    const bezierSpy = vi.spyOn(Graphics.prototype, 'bezierCurveTo')
+    const moveToSpy = vi.spyOn(RenderGraphics.prototype, 'moveTo')
+    const lineToSpy = vi.spyOn(RenderGraphics.prototype, 'lineTo')
+    const bezierSpy = vi.spyOn(RenderGraphics.prototype, 'bezierCurveTo')
 
     const registration = createOverlayLayerRegistration({
       name: 'test-overlay',

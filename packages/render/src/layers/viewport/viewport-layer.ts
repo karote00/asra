@@ -1,4 +1,3 @@
-import { Container, Graphics } from 'pixi.js'
 import { DataTypes, DEFAULT_CANVAS_PADDING, MouseData } from '@asyra/utils'
 import { Bounds } from './types'
 import {
@@ -8,13 +7,14 @@ import {
 } from '../../types'
 import { RenderLayer } from '../scene'
 import { rectToBounds } from './utils'
+import { RenderContainer, type RenderGraphics } from '../../types/render-object'
 
 export class ViewportLayer {
-  layer: Container
+  layer: RenderContainer
   private renderLayer: RenderLayer
 
   constructor() {
-    this.layer = new Container()
+    this.layer = new RenderContainer()
     this.renderLayer = new RenderLayer()
 
     this.layer.addChild(this.renderLayer.view)
@@ -67,7 +67,7 @@ export class ViewportLayer {
   }
 
   updateElementProperties(
-    element: Container | Graphics,
+    element: RenderContainer | RenderGraphics,
     key: string,
     after: DataTypes
   ) {
