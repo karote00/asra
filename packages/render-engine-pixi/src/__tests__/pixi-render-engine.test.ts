@@ -456,6 +456,7 @@ describe('PixiRenderEngine', () => {
     })
 
     expect(report.engine).toBe(engine)
+    expect(report.initializationResult.runtime).toBe(getLastApplication())
     expect(report.interactions).toEqual([
       expect.objectContaining({
         type: 'pointerdown',

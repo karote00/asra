@@ -139,6 +139,7 @@ export class PixiRenderEngine implements RenderEngine {
       return {
         surface: app.canvas,
         inputTarget: app.canvas,
+        runtime: app,
         root: this.rootHandle
       }
     } catch (error) {
