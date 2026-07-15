@@ -59,6 +59,8 @@ test('the abstract contract has its own package owner and shared artifact', () =
 
   assert.equal(contractOwner.ownerPackage, '@asyra/render-engine')
   assert.deepEqual(contractOwner.cacheDimensions, [])
+  assert.ok(contractOwner.implementationBoundary.includes('yarn.lock'))
+  assert.ok(contractOwner.implementationBoundary.includes('turbo.json'))
   assert.ok(contractArtifact)
   assert.equal(contractArtifact.ownerStepId, contractOwner.id)
   assert.deepEqual(contractArtifact.consumerStepIds, [

@@ -239,6 +239,8 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'yarn.lock',
+        'turbo.json',
         'packages/render-engine/package.json',
         'packages/render-engine/tsconfig.json',
         'packages/render-engine/vitest.config.ts',
