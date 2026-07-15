@@ -46,6 +46,7 @@ describe('@asyra/render-engine contract', () => {
       'destroy'
     ])
     expect(report.initializationResult.root).toBeTruthy()
+    expect(report.initializationResult.runtime).toBe(engine)
     expect(report.interactions).toHaveLength(1)
     expect(report.destroyResult).toEqual({
       destroyedObjects: 2,

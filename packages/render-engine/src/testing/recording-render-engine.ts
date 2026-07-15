@@ -77,6 +77,7 @@ export class RecordingRenderEngine implements RenderEngine {
     return {
       surface: Object.freeze({ engineName: this.name }),
       inputTarget: Object.freeze({ engineName: this.name }),
+      runtime: this,
       root: this.root
     }
   }
