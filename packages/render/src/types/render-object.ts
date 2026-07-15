@@ -216,7 +216,7 @@ export class RenderObjectRuntime {
         child: childHandle
       })
     })
-    if (node instanceof RenderGraphics && node.isDrawDirty()) {
+    if (node instanceof RenderGraphics) {
       this.dirtyGraphics.add(node)
     }
     return result.object

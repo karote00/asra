@@ -75,6 +75,47 @@ describe('Render engine adapter', () => {
     second.dispose()
   })
 
+  it('replays existing graphics when a disposed Render initializes a fresh engine', async () => {
+    const engines: RecordingRenderEngine[] = []
+    const render = new Render({
+      engineFactory: () => {
+        const engine = new RecordingRenderEngine({
+          name: `reinit-${engines.length + 1}`
+        })
+        engines.push(engine)
+        return engine
+      }
+    })
+
+    await render.init(100, 100, 0, {})
+    render.switchWorkspace({ label: 'workspace', x: 0, y: 0 })
+    render.addElement({
+      id: 'rect-reinit',
+      type: 'rectangle',
+      name: 'Reinitialized rectangle',
+      visible: true,
+      lock: false,
+      x: 5,
+      y: 10,
+      width: 20,
+      height: 30
+    } as unknown as RenderElementData)
+    render.flushFrame()
+    expect(
+      engines[0].getOperations().some((operation) => operation.type === 'draw')
+    ).toBe(true)
+
+    render.dispose()
+    await render.init(100, 100, 0, {})
+    render.flushFrame()
+
+    expect(engines).toHaveLength(2)
+    expect(
+      engines[1].getOperations().some((operation) => operation.type === 'draw')
+    ).toBe(true)
+    render.dispose()
+  })
+
   it('fails initialization when no provider is configured', async () => {
     const render = new Render()
 
