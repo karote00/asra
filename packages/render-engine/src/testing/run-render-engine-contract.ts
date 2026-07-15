@@ -4,6 +4,7 @@ import {
 } from '../capabilities'
 import type {
   RenderEngineDestroyResult,
+  RenderEngineInitializeResult,
   RenderEngineInteractionEvent
 } from '../types'
 import { RecordingRenderEngine } from './recording-render-engine'
@@ -18,6 +19,7 @@ export type RenderEngineContractOptions = Readonly<{
 
 export type RenderEngineContractReport = Readonly<{
   engine: RecordingRenderEngine
+  initializationResult: RenderEngineInitializeResult
   operationTypes: readonly string[]
   interactions: readonly RenderEngineInteractionEvent[]
   destroyResult: RenderEngineDestroyResult
@@ -39,7 +41,11 @@ export async function runRenderEngineContract(
     RenderEngineCapabilities.RESOURCES
   ])
 
-  await engine.initialize({ host: {}, width: 640, height: 480 })
+  const initializationResult = await engine.initialize({
+    host: {},
+    width: 640,
+    height: 480
+  })
 
   const resourceResult = await engine.execute({
     type: 'create-resource',
@@ -65,6 +71,11 @@ export async function runRenderEngineContract(
     throw new Error('Render engine contract did not create required handles')
   }
 
+  await engine.execute({
+    type: 'append-child',
+    parent: initializationResult.root,
+    child: containerResult.object
+  })
   await engine.execute({
     type: 'append-child',
     parent: containerResult.object,
@@ -114,6 +125,7 @@ export async function runRenderEngineContract(
 
   return {
     engine,
+    initializationResult,
     operationTypes: engine.getOperations().map((operation) => operation.type),
     interactions,
     destroyResult

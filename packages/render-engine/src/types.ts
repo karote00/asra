@@ -197,6 +197,7 @@ export type RenderEngineInitializeOptions = Readonly<{
 export type RenderEngineInitializeResult = Readonly<{
   surface: unknown
   inputTarget?: unknown
+  root: RenderEngineObjectHandle
 }>
 
 export type RenderEngineDestroyResult = Readonly<{

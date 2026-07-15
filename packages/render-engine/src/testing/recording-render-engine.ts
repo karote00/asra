@@ -55,6 +55,7 @@ export class RecordingRenderEngine implements RenderEngine {
   private readonly interactionListeners =
     new Set<RenderEngineInteractionListener>()
   private frameCallback: RenderEngineFrameCallback | null = null
+  private root: StoredObjectHandle | null = null
   private initialized = false
   private destroyed = false
   private nextHandleId = 1
@@ -71,11 +72,13 @@ export class RecordingRenderEngine implements RenderEngine {
   ): RenderEngineInitializeResult {
     this.assertActive()
     this.initialized = true
+    this.root = this.createObjectHandle('root')
     this.operations.push({ type: 'initialize', options })
 
     return {
       surface: Object.freeze({ engineName: this.name }),
-      inputTarget: Object.freeze({ engineName: this.name })
+      inputTarget: Object.freeze({ engineName: this.name }),
+      root: this.root
     }
   }
 
@@ -152,6 +155,7 @@ export class RecordingRenderEngine implements RenderEngine {
     }
     this.objects.clear()
     this.resources.clear()
+    this.root = null
     this.interactionListeners.clear()
     this.frameCallback = null
     this.destroyed = true
@@ -239,7 +243,7 @@ export class RecordingRenderEngine implements RenderEngine {
   }
 
   private assertOwnedObject(handle: RenderEngineObjectHandle): void {
-    if (!this.objects.has(handle)) {
+    if (handle !== this.root && !this.objects.has(handle)) {
       throw new Error(`Render engine "${this.name}" does not own object handle`)
     }
   }

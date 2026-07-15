@@ -34,6 +34,7 @@ describe('@asyra/render-engine contract', () => {
       'create-object',
       'create-object',
       'append-child',
+      'append-child',
       'draw',
       'update-object',
       'resize',
@@ -41,6 +42,7 @@ describe('@asyra/render-engine contract', () => {
       'destroy-resource',
       'destroy'
     ])
+    expect(report.initializationResult.root).toBeTruthy()
     expect(report.interactions).toHaveLength(1)
     expect(report.destroyResult).toEqual({
       destroyedObjects: 2,
