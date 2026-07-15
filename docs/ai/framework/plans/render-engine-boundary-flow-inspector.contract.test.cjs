@@ -86,6 +86,10 @@ test('app startup configures only the framework render adapter', () => {
       'apps/asyra-design/src/render-app/__tests__/**'
     )
   )
+  assert.ok(
+    startup.implementationBoundary.includes('apps/asyra-design/package.json')
+  )
+  assert.ok(startup.implementationBoundary.includes('yarn.lock'))
 })
 
 test('the abstract contract has its own package owner and shared artifact', () => {

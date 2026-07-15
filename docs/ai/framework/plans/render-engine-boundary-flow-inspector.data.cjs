@@ -130,9 +130,11 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'yarn.lock',
         'packages/core/src/core.ts',
         'packages/core/src/index.ts',
         'packages/core/src/__tests__/**',
+        'apps/asyra-design/package.json',
         'apps/asyra-design/src/render-app/index.tsx',
         'apps/asyra-design/src/render-app/__tests__/**'
       ],
