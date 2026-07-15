@@ -7,6 +7,7 @@ const packageRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../..'
 )
+const workspaceRoot = path.resolve(packageRoot, '../..')
 
 const getSourceFiles = (directory: string): string[] =>
   fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -39,5 +40,24 @@ describe('@asyra/render-engine-pixi package boundary', () => {
       .join('\n')
 
     expect(sources).not.toMatch(/\b(?:3d|hybrid|render[- ]mode)\b/i)
+  })
+
+  it('keeps generated build edges for the concrete engine boundary', () => {
+    const turbo = JSON.parse(
+      fs.readFileSync(path.join(workspaceRoot, 'turbo.json'), 'utf8')
+    ) as {
+      tasks: Record<string, { dependsOn?: string[] }>
+    }
+
+    expect(turbo.tasks['build:render-engine-pixi'].dependsOn).toContain(
+      '^build:render-engine'
+    )
+    expect(turbo.tasks['build:preset'].dependsOn).toEqual(
+      expect.arrayContaining([
+        '^build:render-engine',
+        '^build:render-engine-pixi'
+      ])
+    )
+    expect(turbo.tasks['react:build'].dependsOn).toContain('^build:render')
   })
 })
