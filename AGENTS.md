@@ -14,7 +14,10 @@ These rules apply to every task without requiring additional document reads:
 
 - Use Traditional Chinese (Taiwan usage) or English only. Never use Simplified Chinese.
 - Do not write, move, copy, or delete files outside the project. Read-only access outside the project is allowed.
-- Do not commit unless the user explicitly asks for it.
+- On a non-main feature branch, local commits are allowed at completed,
+  validated step/stage boundaries. Never push unless the user explicitly
+  requests the remote operation. Follow
+  `docs/ai/workflows/git-commit-push-policy.md`.
 - Do not overwrite unrelated user changes in a dirty worktree.
 - Follow main branch protection before making code or documentation changes.
 - For every bug fix, first verify whether existing formal tests detect the bug; if not, add or strengthen the formal regression test before implementation.
@@ -240,4 +243,7 @@ yarn workspace @package/name build  # Package-specific build
 - **External APIs**: Use Context7 MCP server for libraries/frameworks/APIs (see `.antigravity/rules.md`)
 - Read `docs/ai/framework/FRAMEWORK_ESSENTIALS.md` before framework work
 - Use direct assignment for mocking dynamic methods: `instance.method = vi.fn()`
-- No commits without explicit user approval
+- Local step/stage commits are allowed after scoped validation and staged-diff
+  review; remote push, history rewrite, release, and merge operations still
+  require explicit user authorization. Follow
+  `docs/ai/workflows/git-commit-push-policy.md`.

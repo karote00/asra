@@ -3,12 +3,12 @@ name: docs-contract-sync
 description: Synchronize implementation changes with framework/app docs contracts across API surfaces, behavior specs, and constraints. Use when code changes must be reflected in docs.
 ---
 
-
 # Skill: docs-contract-sync
 
 ## Trigger Signals
 
 Use this skill when requests include:
+
 - "update docs with changes"
 - "docs drift"
 - "implementation vs docs"
@@ -30,6 +30,7 @@ Use this skill when requests include:
 
 1. Build list of changed code files.
 2. Map each changed area to contract type:
+
 - API surface
 - runtime behavior
 - boundary/rule
@@ -62,10 +63,13 @@ Use this skill when requests include:
 
 - Do not mention deprecated/old doc trees in new docs unless explicitly required.
 - Avoid vague wording; prefer concrete behavior contracts.
-- Do not commit/push unless user explicitly asks.
+- Local commits may close completed, validated steps/stages; never push unless
+  the user explicitly requests the remote operation. Follow
+  `docs/ai/workflows/git-commit-push-policy.md`.
 
 ## Failure Policy
 
 If behavior is still evolving:
+
 - mark section as pending explicitly
 - avoid pretending final behavior is settled

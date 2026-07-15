@@ -3,12 +3,12 @@ name: props-schema-validation-guard
 description: Enforce schema-based runtime/load validation with valid-write and invalid-fallback semantics for props data. Use when requests mention invalid property values, schema typing, or load safety.
 ---
 
-
 # Skill: props-schema-validation-guard
 
 ## Trigger Signals
 
 Use this skill when requests include:
+
 - "property validation"
 - "invalid input accepted"
 - "load fallback"
@@ -36,10 +36,12 @@ Use this skill when requests include:
 
 1. Define/confirm type contract for each property.
 2. Implement runtime write guard:
+
 - valid -> write
 - invalid -> reject/fallback
 
 3. Implement load guard:
+
 - invalid persisted value -> fallback initialized/default value
 
 4. Keep UI parser/formatter optional; system remains final validator.
@@ -62,10 +64,13 @@ Use this skill when requests include:
 
 - Do not rely only on UI validation.
 - Do not silently coerce invalid values without contract note.
-- Do not commit/push unless user explicitly asks.
+- Local commits may close completed, validated steps/stages; never push unless
+  the user explicitly requests the remote operation. Follow
+  `docs/ai/workflows/git-commit-push-policy.md`.
 
 ## Failure Policy
 
 If migration is required but out of scope:
+
 - keep backward-compatible loader
 - add explicit migration follow-up note

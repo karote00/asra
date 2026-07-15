@@ -138,7 +138,9 @@ If stuck after 3-5 attempts:
 - Seek approval at key decision points
 - Communicate ambiguities immediately
 - "Think out loud" when requested
-- No commits without explicit user approval
+- Local commits may close completed, validated step/stage boundaries on feature
+  branches. Push and other remote mutations still require explicit user
+  authorization. Follow `docs/ai/workflows/git-commit-push-policy.md`.
 
 ## Default Operating Mode
 

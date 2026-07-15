@@ -38,6 +38,20 @@ metadata:
 3. **Always prefer `git`** for core version control operations
 4. **Use `gh` only** for GitHub-specific web UI operations
 
+## Commit and Push Authority
+
+- On a non-main feature branch, local commits may be created when they close a
+  completed, validated, independently reviewable step or stage.
+- Review branch, status, staged files, bounded staged diff, and scoped gates
+  before every commit.
+- A commit never authorizes a push.
+- Never push unless the user explicitly requests a remote action. Pull-request
+  creation authorizes only its minimum required source-branch push unless the
+  user says not to push.
+- Never rewrite shared history without explicit user authorization.
+- Follow `docs/ai/workflows/git-commit-push-policy.md` as the project-wide
+  source of truth.
+
 ## Examples
 
 ✅ **Correct:**
@@ -63,3 +77,6 @@ Before executing any git/gh command, verify:
 - Is this a local operation? → Use `git`
 - Is this a PR/web operation? → Use `gh`
 - Am I unsure? → Default to `git` for core operations
+- Is this a local commit? → Confirm a completed validated step/stage and review
+  the staged diff
+- Is this a push or another remote mutation? → Require explicit user authority

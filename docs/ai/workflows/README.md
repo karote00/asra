@@ -21,11 +21,13 @@ This folder defines command entrypoints. These files should stay lightweight and
 ## Authoring Rule
 
 Workflow files should:
+
 - define intent and routing
 - reference source-of-truth docs
 - define minimal output contract
 
 Workflow files should not:
+
 - duplicate detailed architecture/business rules
 - hardcode fast-changing implementation details
 
@@ -33,11 +35,18 @@ Workflow files should not:
 
 1. Route scope: framework / app / cross-cutting
 2. Load source-of-truth docs by scope:
+
 - framework: `docs/ai/framework/*`
 - app: `docs/ai/apps/asyra-design/*`
+
 3. Follow scope workflow:
+
 - framework: `docs/ai/framework/WORKFLOW.md`
 - app: `docs/ai/apps/asyra-design/WORKFLOW.md`
+
+4. Follow the project-wide local commit and remote-operation policy:
+
+- `docs/ai/workflows/git-commit-push-policy.md`
 
 ## Shared Retrieval and Search Policy (Global)
 
