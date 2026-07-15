@@ -1,5 +1,5 @@
 import type { RenderElementData } from '../types'
-import type { RenderStrategy } from '../types/render-strategy'
+import type { EngineNeutralRenderStrategy } from '../types/render-strategy'
 import type { RenderGraphics } from '../types/render-object'
 
 const randomHexColorCode = () => {
@@ -10,7 +10,7 @@ const randomHexColorCode = () => {
 const toFiniteNumber = (value: unknown, fallback = 0) =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback
 
-export const defaultRectangleStrategy: RenderStrategy = (
+export const defaultRectangleStrategy: EngineNeutralRenderStrategy = (
   graphic: RenderGraphics,
   data: RenderElementData
 ) => {

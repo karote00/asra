@@ -13,6 +13,8 @@ results/interactions back to framework-facing APIs.
 - Preset may configure the target `Render` instance through
   `setEngineFactory(...)`; direct class consumers may pass exactly one engine
   instance or factory to `new Render(...)`.
+- A `RenderAdapter` may receive that exact `Render` instance in its constructor;
+  the no-argument constructor remains the default-singleton compatibility path.
 - A custom `Render` instance must fail when no provider is configured; it must
   not fall back to a module-level Pixi engine.
 - Render extension APIs should be surfaced through `@asyra/core` when a Core
@@ -69,12 +71,19 @@ results/interactions back to framework-facing APIs.
 ## Renderer Facade Compatibility
 
 - `RenderAdapter` is the recommended engine-neutral Core-facing renderer.
+- `RenderResult.instance` and `RenderAdapter.getInstance()` forward the selected
+  engine's opaque runtime identity. The Pixi compatibility path therefore keeps
+  returning its owned Pixi `Application` without exposing that type in the
+  abstract contract.
 - `PixiJSRenderer` is a deprecated compatibility alias with the same lifecycle
   behavior and a warn-once message.
 - Replacement: import `RenderAdapter` from `@asyra/render` and keep engine
   selection in preset or direct `Render` composition.
 - The alias remains available through the next planned major-release migration
   window; it receives compatibility/security fixes only.
+- `RenderStrategy` remains as a deprecated, Graphics-like callback signature so
+  existing explicitly annotated strategies stay assignable. New code should use
+  `EngineNeutralRenderStrategy`, whose first parameter is `RenderGraphics`.
 
 ## Glossary
 

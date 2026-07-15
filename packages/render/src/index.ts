@@ -32,7 +32,11 @@ export type {
   EvenOddFillOptions,
   EvenOddFillResult
 } from './fills/even-odd-fill'
-export type { RenderStrategy } from './types/render-strategy'
+export type {
+  EngineNeutralRenderStrategy,
+  RenderStrategy,
+  RenderStrategyGraphic
+} from './types/render-strategy'
 export type { RenderApplication, RenderEngineProviderOptions } from './render'
 export {
   RenderContainer,

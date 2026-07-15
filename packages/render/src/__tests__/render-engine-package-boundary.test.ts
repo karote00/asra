@@ -8,11 +8,13 @@ const packageRoot = path.resolve(
   '../..'
 )
 
-const getSourceFiles = (directory: string): string[] =>
+const getSourceFiles = (directory: string, includeTests = false): string[] =>
   fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const entryPath = path.join(directory, entry.name)
     if (entry.isDirectory()) {
-      return entry.name === '__tests__' ? [] : getSourceFiles(entryPath)
+      return entry.name === '__tests__' && !includeTests
+        ? []
+        : getSourceFiles(entryPath, includeTests)
     }
     return entry.name.endsWith('.ts') ? [entryPath] : []
   })
@@ -34,7 +36,7 @@ describe('@asyra/render engine package boundary', () => {
   })
 
   it('contains no production Pixi or concrete-engine import', () => {
-    const violations = getSourceFiles(path.join(packageRoot, 'src'))
+    const violations = getSourceFiles(path.join(packageRoot, 'src'), true)
       .filter((file) => {
         const source = fs.readFileSync(file, 'utf8')
         return (
