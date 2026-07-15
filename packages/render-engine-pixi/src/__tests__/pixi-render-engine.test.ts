@@ -59,6 +59,7 @@ interface MockMeshGeometryRecord {
   positionUpdate: MockFunction
   uvUpdate: MockFunction
   indexUpdate: MockFunction
+  destroy: MockFunction
 }
 
 interface MockMeshRecord {
@@ -236,6 +237,7 @@ vi.mock('pixi.js', () => {
     readonly positionUpdate = vi.fn()
     readonly uvUpdate = vi.fn()
     readonly indexUpdate = vi.fn()
+    readonly destroy = vi.fn()
 
     constructor(readonly options: Record<string, unknown>) {
       this.positions = options.positions as Float32Array
@@ -391,6 +393,7 @@ vi.mock('pixi.js', () => {
 })
 
 import { PixiRenderEngine } from '../index'
+import { Texture } from 'pixi.js'
 
 const getLastApplication = (): MockApplicationRecord => {
   const application = pixiState.applications.at(-1)
@@ -796,6 +799,37 @@ describe('PixiRenderEngine', () => {
       height: 30,
       batched: false
     })
+  })
+
+  it('destroys engine-owned mesh geometry without destroying the shared texture', async () => {
+    const engine = new PixiRenderEngine()
+    await engine.initialize({ host: {}, width: 10, height: 10 })
+    const createMesh = (requestId: string) =>
+      engine.execute({
+        type: 'create-object',
+        requestId,
+        objectType: 'mesh',
+        properties: {
+          geometry: {
+            positions: new Float32Array([0, 0, 1, 0, 1, 1]),
+            indices: new Uint32Array([0, 1, 2]),
+            uvs: new Float32Array([0, 0, 1, 0, 1, 1])
+          }
+        }
+      })
+    const removed = await createMesh('removed-mesh')
+    const retained = await createMesh('retained-mesh')
+    if (!removed.object || !retained.object) {
+      throw new Error('Expected Pixi mesh handles')
+    }
+
+    await engine.execute({ type: 'destroy-object', object: removed.object })
+    expect(pixiState.meshes[0].geometry.destroy).toHaveBeenCalledOnce()
+    expect(pixiState.meshes[1].geometry.destroy).not.toHaveBeenCalled()
+
+    await engine.destroy()
+    expect(pixiState.meshes[1].geometry.destroy).toHaveBeenCalledOnce()
+    expect(Texture.WHITE.destroy).not.toHaveBeenCalled()
   })
 
   it('creates procedural Pixi resources for radial, angular, and diamond gradients', async () => {

@@ -561,11 +561,16 @@ export class PixiRenderEngine implements RenderEngine {
 
   private destroyPixiObject(object: PixiObject): void {
     object.parent?.removeChild(object)
-    object.destroy({
-      children: false,
-      texture: false,
-      textureSource: false
-    })
+    const ownedGeometry = object instanceof Mesh ? object.geometry : null
+    try {
+      object.destroy({
+        children: false,
+        texture: false,
+        textureSource: false
+      })
+    } finally {
+      ownedGeometry?.destroy()
+    }
   }
 
   private getOwnedObject(handle: RenderEngineObjectHandle): PixiObject {
