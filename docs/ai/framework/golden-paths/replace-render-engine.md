@@ -44,13 +44,23 @@ the target framework `Render` instance; it does not create or own the engine.
 If composition already supplies explicit preset dependencies:
 
 ```ts
+import { RenderAdapter } from '@asyra/render'
+
 const dependencies = core.getPresetDependencies()
 
 applyPreset(core, {
   dependencies,
   renderEngineFactory
 })
+
+// A custom Core/Render composition must bind its renderer facade to the same
+// Render instance that received the preset-selected factory.
+core.setRenderer(new RenderAdapter(dependencies.render))
 ```
+
+The no-argument `new RenderAdapter()` remains the default-singleton
+compatibility path. Do not use it for a Core composed with a different
+`Render` instance.
 
 ## 4. Direct Render Composition
 
