@@ -55,6 +55,7 @@ export {
 export type {
   PropertyComponentConstructor,
   PropertyComponentAccessor,
+  PropertyChildRelationDefinition,
   PropertyRegistrationErrorCode,
   PropertyRegistrationInUseFailure,
   PropertyRegistrationScope,
@@ -62,6 +63,21 @@ export type {
   PropertyRegistrationUnregisterResult,
   PropertyRegistrationUnregisterSuccess
 } from '@asyra/props-manager'
+export {
+  REGISTRATION_CONTRACT_ERROR_CODES,
+  RegistrationGraph,
+  RegistrationRelationError
+} from '@asyra/utils'
+export type {
+  RegistrationContractErrorCode,
+  RegistrationNodeMetadata,
+  RegistrationOwnerMetadata,
+  RegistrationRef,
+  RegistrationRelationDeclaration,
+  RegistrationRelationMetadata,
+  RelationOperationSuccess,
+  UnregisterRegistrationSuccess
+} from '@asyra/utils'
 export { BaseSelection } from '@asyra/selection'
 export type { SelectionDefinition } from '@asyra/selection'
 export { componentRegistry } from '@asyra/scene-tree'
@@ -255,9 +271,24 @@ type CoreExtensionApiKeys =
   | 'registerPropertyComponent'
   | 'getPropertyComponent'
   | 'unregisterPropertyRegistration'
+  | 'definePropertyChildRelation'
+  | 'removePropertyChildRelation'
+  | 'getPropertyChildRelations'
+  | 'unregisterPropertyType'
+  | 'defineComponent'
+  | 'unregisterComponent'
+  | 'defineComponentPropertyRelation'
+  | 'removeComponentPropertyRelation'
+  | 'getComponentPropertyRelations'
   | 'defineFeature'
   | 'getFeature'
   | 'unregisterFeature'
+  | 'registerRenderStrategy'
+  | 'unregisterRenderStrategy'
+  | 'unregisterUIProperty'
+  | 'getRegistration'
+  | 'getRegistrations'
+  | 'getRegistrationRelations'
   | 'defineSelection'
   | 'registerSelection'
   | 'getSelection'
@@ -272,9 +303,24 @@ type CorePresetInstallApiKeys =
   | 'registerPropertySchema'
   | 'definePropertyComponent'
   | 'unregisterPropertyRegistration'
+  | 'definePropertyChildRelation'
+  | 'removePropertyChildRelation'
+  | 'getPropertyChildRelations'
+  | 'unregisterPropertyType'
+  | 'defineComponent'
+  | 'unregisterComponent'
+  | 'defineComponentPropertyRelation'
+  | 'removeComponentPropertyRelation'
+  | 'getComponentPropertyRelations'
   | 'defineFeature'
   | 'getFeature'
   | 'unregisterFeature'
+  | 'registerRenderStrategy'
+  | 'unregisterRenderStrategy'
+  | 'unregisterUIProperty'
+  | 'getRegistration'
+  | 'getRegistrations'
+  | 'getRegistrationRelations'
   | 'defineSelection'
   | 'getSelection'
   | 'defineUIProperty'

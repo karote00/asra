@@ -7,7 +7,7 @@ import type {
 import { isRecord } from '@asyra/utils'
 import factory, { Factory } from '@asyra/factory'
 import inputSystem, { InputSystem } from '@asyra/input-system'
-import sceneTree, { SceneTree } from '@asyra/scene-tree'
+import sceneTree, { componentRegistry, SceneTree } from '@asyra/scene-tree'
 import props, {
   PropsManager,
   getPropertyComponent,
@@ -21,6 +21,7 @@ import {
   defineFeature as defineFeatureRuntime,
   getFeature as getFeatureRuntime,
   unregisterFeature as unregisterFeatureRuntime,
+  getFeatureRegistry,
   type FeatureAPI,
   type FeatureDefinition,
   type FeatureKeyMap
@@ -28,7 +29,14 @@ import {
 import selection, { SelectionManager } from '@asyra/selection'
 import systemContext, { SystemContext } from '@asyra/system-context'
 import type { FeatureSystemAPIs } from './types/feature-system'
-import render, { Render, IRenderer, RenderOptions } from '@asyra/render'
+import render, {
+  Render,
+  IRenderer,
+  RenderOptions,
+  renderStrategyRegistry,
+  type RenderStrategy
+} from '@asyra/render'
+import { propertyRegistry } from '@asyra/ui-context'
 import { IPersistenceProvider, SaveHook, LoadHook } from '@asyra/persistence'
 import {
   type EventDefinition,
@@ -54,8 +62,34 @@ import type { DataChannelObserverRegistration } from './data-channel-observer'
 import * as dataChannelObserver from './data-channel-observer'
 import {
   definePropertyComponent as definePropertyComponentRuntime,
+  definePropertyChildRelation as definePropertyChildRelationRuntime,
+  getPropertyChildRelations as getPropertyChildRelationsRuntime,
+  removePropertyChildRelation as removePropertyChildRelationRuntime,
+  type PropertyChildRelationMetadata,
   type PropertyComponentDefinition
 } from './define-property-component'
+import type { PropertyChildRelationDefinition } from '@asyra/props-manager'
+import {
+  defineComponent as defineComponentRuntime,
+  defineComponentPropertyRelation as defineComponentPropertyRelationRuntime,
+  getComponentPropertyRelations as getComponentPropertyRelationsRuntime,
+  removeComponentPropertyRelation as removeComponentPropertyRelationRuntime,
+  unregisterComponent as unregisterComponentRuntime,
+  type ComponentDefinition,
+  type ComponentPropertyRelationMetadata,
+  type UnregisterComponentOptions,
+  type UnregisterComponentResult
+} from './define-component'
+import {
+  RegistrationGraph,
+  RegistrationRelationError,
+  type RegistrationGraphOperation,
+  type RegistrationNodeMetadata,
+  type RegistrationRef,
+  type RegistrationRelationMetadata,
+  type RelationOperationSuccess,
+  type UnregisterRegistrationSuccess
+} from '@asyra/utils'
 
 interface CoreDeps {
   inputSystem: InputSystem
@@ -110,6 +144,10 @@ class Core implements CoreAPIs {
   private loadHooks: LoadHook[] = []
   private loadDiagnosticsHooks: LoadDiagnosticsHook[] = []
   private persistenceQueue: Promise<void> = Promise.resolve()
+  private compositionOpen = true
+  private readonly registrationGraph = new RegistrationGraph({
+    isCompositionOpen: () => this.compositionOpen
+  })
 
   setupInputSystem!: InputSystemAPIs['setupInputSystem']
 
@@ -169,6 +207,19 @@ class Core implements CoreAPIs {
     )
 
     Object.assign(this, apis as CoreAPIs)
+
+    const defineUIProperty = this.defineUIProperty
+    const registerUIProperty = this.registerUIProperty
+    this.defineUIProperty = ((key, config) => {
+      this.assertCompositionOpen('register-node')
+      defineUIProperty(key, config)
+      this.ensureUIPropertyNode(key)
+    }) as UIContextAPIs['defineUIProperty']
+    this.registerUIProperty = ((key, config) => {
+      this.assertCompositionOpen('register-node')
+      registerUIProperty(key, config)
+      this.ensureUIPropertyNode(key)
+    }) as UIContextAPIs['registerUIProperty']
 
     // Subscribe to this Core instance's Factory commit status for auto-save.
     this.initAutoSave()
@@ -241,6 +292,9 @@ class Core implements CoreAPIs {
     container: HTMLElement,
     renderOptions: RenderOptions
   ): Promise<void> {
+    this.compositionOpen = false
+    this.registrationGraph.validateRelations()
+
     const renderer = this.customRenderer
 
     if (!renderer) {
@@ -401,7 +455,9 @@ class Core implements CoreAPIs {
     schema: PropertySchema,
     options?: Parameters<typeof registerPropertySchema>[1]
   ): void {
+    this.assertCompositionOpen('register-node')
     registerPropertySchema(schema, options)
+    this.ensurePropertyNode(schema.type)
   }
 
   getPropertySchema(type: string) {
@@ -411,7 +467,37 @@ class Core implements CoreAPIs {
   definePropertyComponent(
     definition: PropertyComponentDefinition
   ): ReturnType<typeof definePropertyComponentRuntime> {
-    return definePropertyComponentRuntime(definition)
+    this.assertCompositionOpen('register-node')
+    if (
+      'children' in definition &&
+      definition.children &&
+      !getPropertyComponent(definition.children.childType)
+    ) {
+      throw new RegistrationRelationError({
+        ok: false,
+        code: 'RELATION_TARGET_NOT_FOUND',
+        operation: 'define-relation',
+        message: `Child property runtime "${definition.children.childType}" is not registered`,
+        source: { kind: 'property', key: definition.type },
+        relationName: definition.children.key,
+        target: { kind: 'property', key: definition.children.childType }
+      })
+    }
+
+    const Constructor = definePropertyComponentRuntime(definition)
+    this.ensurePropertyNode(definition.type)
+    if ('children' in definition && definition.children) {
+      this.ensurePropertyNode(definition.children.childType)
+      this.registrationGraph.defineRelation(
+        { kind: 'property', key: definition.type },
+        {
+          name: definition.children.key,
+          target: { kind: 'property', key: definition.children.childType },
+          onTargetUnregister: 'detach'
+        }
+      )
+    }
+    return Constructor
   }
 
   registerPropertyComponent(
@@ -419,7 +505,9 @@ class Core implements CoreAPIs {
     component: Parameters<typeof registerPropertyComponent>[1],
     options?: Parameters<typeof registerPropertyComponent>[2]
   ): void {
+    this.assertCompositionOpen('register-node')
     registerPropertyComponent(type, component, options)
+    this.ensurePropertyNode(type)
   }
 
   getPropertyComponent(type: string) {
@@ -430,7 +518,195 @@ class Core implements CoreAPIs {
     type: string,
     scope: PropertyRegistrationScope = 'all'
   ) {
+    this.assertCompositionOpen('unregister-registration')
     return unregisterPropertyRegistration(type, this.deps.props, scope)
+  }
+
+  definePropertyChildRelation(
+    parentPropertyType: string,
+    relation: PropertyChildRelationDefinition
+  ): RelationOperationSuccess {
+    this.assertRelationCanBeDefined(
+      { kind: 'property', key: parentPropertyType },
+      relation.key,
+      { kind: 'property', key: relation.childType }
+    )
+    const result = definePropertyChildRelationRuntime(
+      parentPropertyType,
+      relation,
+      this.deps.props
+    )
+    this.registrationGraph.defineRelation(
+      { kind: 'property', key: parentPropertyType },
+      {
+        name: relation.key,
+        target: { kind: 'property', key: relation.childType },
+        onTargetUnregister: 'detach'
+      }
+    )
+    return result
+  }
+
+  removePropertyChildRelation(
+    parentPropertyType: string,
+    key: string
+  ): RelationOperationSuccess {
+    this.assertRelationCanBeRemoved(
+      { kind: 'property', key: parentPropertyType },
+      key
+    )
+    const result = removePropertyChildRelationRuntime(
+      parentPropertyType,
+      key,
+      this.deps.props
+    )
+    this.registrationGraph.removeRelation(
+      { kind: 'property', key: parentPropertyType },
+      key
+    )
+    return result
+  }
+
+  getPropertyChildRelations(
+    parentPropertyType: string
+  ): readonly PropertyChildRelationMetadata[] {
+    return getPropertyChildRelationsRuntime(parentPropertyType)
+  }
+
+  unregisterPropertyType(type: string): UnregisterRegistrationSuccess {
+    return this.registrationGraph.unregister({ kind: 'property', key: type })
+  }
+
+  defineComponent(definition: ComponentDefinition): void {
+    this.assertCompositionOpen('register-node')
+    if (
+      this.registrationGraph.getRegistration({
+        kind: 'component',
+        key: definition.type
+      }) &&
+      !componentRegistry.has(definition.type)
+    ) {
+      throw new RegistrationRelationError({
+        ok: false,
+        code: 'UNREGISTER_FAILED',
+        operation: 'register-node',
+        message: `Component registration "${definition.type}" must be unregistered before it can be defined again`,
+        registration: { kind: 'component', key: definition.type }
+      })
+    }
+    const propertyNames = new Set<string>()
+    for (const property of definition.properties) {
+      if (propertyNames.has(property.name)) {
+        throw new RegistrationRelationError({
+          ok: false,
+          code: 'DUPLICATE_RELATION',
+          operation: 'define-relation',
+          message: `Component property relation "${definition.type}/${property.name}" is duplicated`,
+          source: { kind: 'component', key: definition.type },
+          relationName: property.name
+        })
+      }
+      propertyNames.add(property.name)
+      if (!getPropertyComponent(property.type)) {
+        throw new RegistrationRelationError({
+          ok: false,
+          code: 'RELATION_TARGET_NOT_FOUND',
+          operation: 'define-relation',
+          message: `Property runtime "${property.type}" is not registered`,
+          source: { kind: 'component', key: definition.type },
+          relationName: property.name,
+          target: { kind: 'property', key: property.type }
+        })
+      }
+    }
+
+    defineComponentRuntime(definition)
+    this.ensureComponentNode(definition.type)
+    definition.properties.forEach((property) => {
+      this.ensurePropertyNode(property.type)
+      this.registrationGraph.defineRelation(
+        { kind: 'component', key: definition.type },
+        {
+          name: property.name,
+          target: { kind: 'property', key: property.type },
+          onTargetUnregister: 'detach'
+        }
+      )
+    })
+  }
+
+  unregisterComponent(
+    type: string,
+    options: UnregisterComponentOptions & { detailed: true }
+  ): UnregisterComponentResult
+  unregisterComponent(
+    type: string,
+    options?: UnregisterComponentOptions
+  ): boolean
+  unregisterComponent(
+    type: string,
+    options: UnregisterComponentOptions = {}
+  ): boolean | UnregisterComponentResult {
+    this.assertCompositionOpen('unregister-registration')
+    if (
+      !this.registrationGraph.getRegistration({ kind: 'component', key: type })
+    ) {
+      return unregisterComponentRuntime(type, options)
+    }
+    this.registrationGraph.unregister({ kind: 'component', key: type })
+    if (options.detailed) {
+      return { ok: true, removed: [`component:${type}`], skipped: [] }
+    }
+    return true
+  }
+
+  defineComponentPropertyRelation(
+    componentType: string,
+    property: Parameters<typeof defineComponentPropertyRelationRuntime>[1]
+  ): RelationOperationSuccess {
+    this.assertRelationCanBeDefined(
+      { kind: 'component', key: componentType },
+      property.name,
+      { kind: 'property', key: property.type }
+    )
+    const result = defineComponentPropertyRelationRuntime(
+      componentType,
+      property
+    )
+    this.registrationGraph.defineRelation(
+      { kind: 'component', key: componentType },
+      {
+        name: property.name,
+        target: { kind: 'property', key: property.type },
+        onTargetUnregister: 'detach'
+      }
+    )
+    return result
+  }
+
+  removeComponentPropertyRelation(
+    componentType: string,
+    propertyName: string
+  ): RelationOperationSuccess {
+    this.assertRelationCanBeRemoved(
+      { kind: 'component', key: componentType },
+      propertyName
+    )
+    const result = removeComponentPropertyRelationRuntime(
+      componentType,
+      propertyName
+    )
+    this.registrationGraph.removeRelation(
+      { kind: 'component', key: componentType },
+      propertyName
+    )
+    return result
+  }
+
+  getComponentPropertyRelations(
+    componentType: string
+  ): readonly ComponentPropertyRelationMetadata[] {
+    return getComponentPropertyRelationsRuntime(componentType)
   }
 
   defineFeature<
@@ -441,7 +717,25 @@ class Core implements CoreAPIs {
     keyConfig: FeatureKeyMap | undefined,
     definition: FeatureDefinition<API, State>
   ): { api: FeatureAPI<API>; dispose: () => boolean } {
-    return defineFeatureRuntime(name, keyConfig, definition)
+    this.assertCompositionOpen('register-node')
+    if (
+      this.registrationGraph.getRegistration({ kind: 'feature', key: name }) &&
+      !getFeatureRegistry().has(name)
+    ) {
+      throw new RegistrationRelationError({
+        ok: false,
+        code: 'UNREGISTER_FAILED',
+        operation: 'register-node',
+        message: `Feature registration "${name}" must be unregistered before it can be defined again`,
+        registration: { kind: 'feature', key: name }
+      })
+    }
+    const registration = defineFeatureRuntime(name, keyConfig, definition)
+    this.ensureFeatureNode(name)
+    return {
+      api: registration.api,
+      dispose: () => this.unregisterFeature(name)
+    }
   }
 
   getFeature(featureName: string): FeatureAPI {
@@ -449,7 +743,75 @@ class Core implements CoreAPIs {
   }
 
   unregisterFeature(featureName: string): boolean {
+    this.assertCompositionOpen('unregister-registration')
+    if (
+      this.registrationGraph.getRegistration({
+        kind: 'feature',
+        key: featureName
+      })
+    ) {
+      this.registrationGraph.unregister({ kind: 'feature', key: featureName })
+      return true
+    }
     return unregisterFeatureRuntime(featureName)
+  }
+
+  registerRenderStrategy(type: string, strategy: RenderStrategy): void {
+    this.assertCompositionOpen('register-node')
+    if (
+      this.registrationGraph.getRegistration({
+        kind: 'render-strategy',
+        key: type
+      }) &&
+      !renderStrategyRegistry.has(type)
+    ) {
+      throw new RegistrationRelationError({
+        ok: false,
+        code: 'UNREGISTER_FAILED',
+        operation: 'register-node',
+        message: `Render strategy "${type}" must be unregistered before it can be defined again`,
+        registration: { kind: 'render-strategy', key: type }
+      })
+    }
+    renderStrategyRegistry.register(type, strategy)
+    this.ensureRenderStrategyNode(type)
+  }
+
+  unregisterRenderStrategy(type: string): boolean {
+    this.assertCompositionOpen('unregister-registration')
+    if (
+      this.registrationGraph.getRegistration({
+        kind: 'render-strategy',
+        key: type
+      })
+    ) {
+      this.registrationGraph.unregister({ kind: 'render-strategy', key: type })
+      return true
+    }
+    return renderStrategyRegistry.unregister(type)
+  }
+
+  unregisterUIProperty(key: string): boolean {
+    this.assertCompositionOpen('unregister-registration')
+    const exists = propertyRegistry.getAllPropertyKeys().includes(key)
+    if (this.registrationGraph.getRegistration({ kind: 'ui-property', key })) {
+      this.registrationGraph.unregister({ kind: 'ui-property', key })
+      return true
+    }
+    propertyRegistry.unregister(key)
+    return exists
+  }
+
+  getRegistration(ref: RegistrationRef): RegistrationNodeMetadata | undefined {
+    return this.registrationGraph.getRegistration(ref)
+  }
+
+  getRegistrations(): readonly RegistrationNodeMetadata[] {
+    return this.registrationGraph.getRegistrations()
+  }
+
+  getRegistrationRelations(): readonly RegistrationRelationMetadata[] {
+    return this.registrationGraph.getRelations()
   }
 
   defineSelection(
@@ -476,6 +838,223 @@ class Core implements CoreAPIs {
       systemContext: this.deps.systemContext,
       render: this.deps.render
     }
+  }
+
+  private assertCompositionOpen(operation: RegistrationGraphOperation): void {
+    if (this.compositionOpen) return
+    throw new RegistrationRelationError({
+      ok: false,
+      code: 'COMPOSITION_CLOSED',
+      operation,
+      message: 'Registration composition is permanently closed'
+    })
+  }
+
+  private assertRelationCanBeDefined(
+    source: RegistrationRef,
+    relationName: string,
+    target: RegistrationRef
+  ): void {
+    this.assertCompositionOpen('define-relation')
+    if (!this.registrationGraph.getRegistration(source)) {
+      throw new RegistrationRelationError({
+        ok: false,
+        code: 'REGISTRATION_NOT_FOUND',
+        operation: 'define-relation',
+        message: `Registration "${source.kind}:${source.key}" was not found`,
+        source,
+        relationName
+      })
+    }
+    if (!this.registrationGraph.getRegistration(target)) {
+      throw new RegistrationRelationError({
+        ok: false,
+        code: 'RELATION_TARGET_NOT_FOUND',
+        operation: 'define-relation',
+        message: `Relation target "${target.kind}:${target.key}" was not found`,
+        source,
+        relationName,
+        target
+      })
+    }
+    if (
+      this.registrationGraph
+        .getOutgoingRelations(source)
+        .some((relation) => relation.name === relationName)
+    ) {
+      throw new RegistrationRelationError({
+        ok: false,
+        code: 'DUPLICATE_RELATION',
+        operation: 'define-relation',
+        message: `Relation "${source.kind}:${source.key}/${relationName}" is already defined`,
+        source,
+        relationName
+      })
+    }
+  }
+
+  private assertRelationCanBeRemoved(
+    source: RegistrationRef,
+    relationName: string
+  ): void {
+    this.assertCompositionOpen('remove-relation')
+    if (!this.registrationGraph.getRegistration(source)) {
+      throw new RegistrationRelationError({
+        ok: false,
+        code: 'REGISTRATION_NOT_FOUND',
+        operation: 'remove-relation',
+        message: `Registration "${source.kind}:${source.key}" was not found`,
+        source,
+        relationName
+      })
+    }
+    if (
+      !this.registrationGraph
+        .getOutgoingRelations(source)
+        .some((relation) => relation.name === relationName)
+    ) {
+      throw new RegistrationRelationError({
+        ok: false,
+        code: 'RELATION_NOT_FOUND',
+        operation: 'remove-relation',
+        message: `Relation "${source.kind}:${source.key}/${relationName}" was not found`,
+        source,
+        relationName
+      })
+    }
+  }
+
+  private ensurePropertyNode(type: string): void {
+    if (
+      this.registrationGraph.getRegistration({ kind: 'property', key: type })
+    ) {
+      return
+    }
+    this.registrationGraph.registerNode({
+      ref: { kind: 'property', key: type },
+      handlers: {
+        isPresent: () => Boolean(getPropertyComponent(type)),
+        preflightUnregister: () => this.assertPropertyTypeUnused(type),
+        preflightDetachRelation: () => this.assertPropertyTypeUnused(type),
+        detachRelation: (relation) => {
+          removePropertyChildRelationRuntime(
+            type,
+            relation.name,
+            this.deps.props
+          )
+        }
+      },
+      resources: [
+        {
+          key: `property:${type}`,
+          dispose: () => {
+            unregisterPropertyRegistration(type, this.deps.props, 'all')
+          }
+        }
+      ]
+    })
+  }
+
+  private ensureComponentNode(type: string): void {
+    if (
+      this.registrationGraph.getRegistration({ kind: 'component', key: type })
+    ) {
+      return
+    }
+    this.registrationGraph.registerNode({
+      ref: { kind: 'component', key: type },
+      handlers: {
+        isPresent: () => componentRegistry.has(type),
+        preflightUnregister: () => this.assertComponentTypeUnused(type),
+        preflightDetachRelation: () => this.assertComponentTypeUnused(type),
+        detachRelation: (relation) => {
+          removeComponentPropertyRelationRuntime(type, relation.name)
+        }
+      },
+      resources: [
+        {
+          key: `component:${type}`,
+          dispose: () => {
+            unregisterComponentRuntime(type, { force: true })
+          }
+        }
+      ]
+    })
+  }
+
+  private ensureFeatureNode(name: string): void {
+    this.registrationGraph.registerNode({
+      ref: { kind: 'feature', key: name },
+      handlers: { isPresent: () => getFeatureRegistry().has(name) },
+      resources: [
+        {
+          key: `feature:${name}`,
+          dispose: () => {
+            unregisterFeatureRuntime(name)
+          }
+        }
+      ]
+    })
+  }
+
+  private ensureRenderStrategyNode(type: string): void {
+    this.registrationGraph.registerNode({
+      ref: { kind: 'render-strategy', key: type },
+      handlers: { isPresent: () => renderStrategyRegistry.has(type) },
+      resources: [
+        {
+          key: `render-strategy:${type}`,
+          dispose: () => {
+            renderStrategyRegistry.unregister(type)
+          }
+        }
+      ]
+    })
+  }
+
+  private ensureUIPropertyNode(key: string): void {
+    if (this.registrationGraph.getRegistration({ kind: 'ui-property', key })) {
+      return
+    }
+    this.registrationGraph.registerNode({
+      ref: { kind: 'ui-property', key },
+      handlers: {
+        isPresent: () => propertyRegistry.getAllPropertyKeys().includes(key)
+      },
+      resources: [
+        {
+          key: `ui-property:${key}`,
+          dispose: () => propertyRegistry.unregister(key)
+        }
+      ]
+    })
+  }
+
+  private assertPropertyTypeUnused(type: string): void {
+    const propertyIds = this.deps.props.getPropertyIdsByType(type)
+    if (propertyIds.length === 0) return
+    throw new RegistrationRelationError({
+      ok: false,
+      code: 'REGISTRATION_IN_USE',
+      operation: 'unregister-registration',
+      message: `Property registration "${type}" is in use by: ${propertyIds.join(', ')}`,
+      registration: { kind: 'property', key: type }
+    })
+  }
+
+  private assertComponentTypeUnused(type: string): void {
+    const activeIds: string[] = []
+    this.deps.sceneTree.getAllElements().forEach((element) => {
+      if (element.get('type') === type) activeIds.push(element.get('id'))
+    })
+    if (activeIds.length === 0) return
+    throw new RegistrationRelationError({
+      ok: false,
+      code: 'REGISTRATION_IN_USE',
+      operation: 'unregister-registration',
+      message: `Component registration "${type}" is in use by: ${activeIds.join(', ')}`,
+      registration: { kind: 'component', key: type }
+    })
   }
 
   load(data: CoreRawData): void {
