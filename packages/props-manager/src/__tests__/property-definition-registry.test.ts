@@ -53,6 +53,43 @@ describe('ElementPropertyRegistry', () => {
     expect(polygonProps[0].name).toBe('position')
   })
 
+  it('preserves exact component-local definitions when names are shared', () => {
+    elementPropertyRegistry.register(
+      {
+        name: 'appearance',
+        type: 'fills',
+        defaultValue: { color: 'red' }
+      },
+      'rectangle'
+    )
+    elementPropertyRegistry.register(
+      {
+        name: 'appearance',
+        type: 'strokes',
+        defaultValue: { width: 2 }
+      },
+      'whiteboard-rectangle'
+    )
+
+    expect(
+      elementPropertyRegistry.getForComponent('rectangle', 'appearance')
+    ).toEqual({
+      name: 'appearance',
+      type: 'fills',
+      defaultValue: { color: 'red' }
+    })
+    expect(
+      elementPropertyRegistry.getForComponent(
+        'whiteboard-rectangle',
+        'appearance'
+      )
+    ).toEqual({
+      name: 'appearance',
+      type: 'strokes',
+      defaultValue: { width: 2 }
+    })
+  })
+
   it('should get property definition by name', () => {
     const propDef: PropertyDefinition = {
       name: 'sides',

@@ -88,6 +88,16 @@ test('component owner preserves registrations while mutating exact property slot
   assert.match(contract, /Component-local maps/i)
   assert.match(contract, /active instance/i)
   assert.match(contract, /never unregisters either registration node/i)
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'packages/core/src/define-component.ts'
+    )
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'packages/props-manager/src/registries/property-definition.ts'
+    )
+  )
 })
 
 test('property owner rebuilds child relations without unknown CUSTOM fallback', () => {

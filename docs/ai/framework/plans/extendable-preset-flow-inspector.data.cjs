@@ -220,7 +220,8 @@
       ],
       allowedContributors: [
         'scene-tree component registry',
-        'scene-tree element-property ownership registry',
+        '@asyra/props-manager element-property ownership registry',
+        'Core defineComponent composition adapter',
         'Core-owned relation coordinator',
         'public property runtime query'
       ],
@@ -236,6 +237,9 @@
         'packages/scene-tree/src/element/**',
         'packages/scene-tree/src/registries/**',
         'packages/scene-tree/src/__tests__/**',
+        'packages/props-manager/src/registries/property-definition.ts',
+        'packages/props-manager/src/__tests__/property-definition-registry.test.ts',
+        'packages/core/src/define-component.ts',
         'packages/core/src/__tests__/**',
         'docs/ai/framework/packages/scene-tree.md'
       ],

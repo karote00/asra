@@ -4,12 +4,21 @@ import sceneTree, {
 } from '@asyra/scene-tree'
 import {
   elementPropertyRegistry,
+  getPropertyComponent,
   propertySchemaRegistry,
   registerPropertySchema,
   type PropertyDefinition
 } from '@asyra/props-manager'
 import { renderStrategyRegistry, type RenderStrategy } from '@asyra/render'
-import { nameCounter, idCounter } from '@asyra/utils'
+import {
+  nameCounter,
+  idCounter,
+  RegistrationRelationError,
+  type RegistrationContractErrorCode,
+  type RegistrationGraphOperation,
+  type RegistrationRelationMetadata,
+  type RelationOperationSuccess
+} from '@asyra/utils'
 
 export interface ComponentDefinition {
   /**
@@ -59,6 +68,13 @@ export interface UnregisterComponentOptions {
   cascade?: boolean
   force?: boolean
   detailed?: boolean
+}
+
+export interface ComponentPropertyRelationMetadata
+  extends RegistrationRelationMetadata {
+  componentType: string
+  propertyName: string
+  property: PropertyDefinition
 }
 
 const createUnregisterResult = (): UnregisterComponentResult => ({
@@ -130,6 +146,268 @@ const countActiveSceneInstances = (type: string): number => {
   return count
 }
 
+const clonePropertyDefinition = (
+  property: PropertyDefinition
+): PropertyDefinition => ({
+  ...property,
+  alias: property.alias ? [...property.alias] : undefined,
+  schema: property.schema
+    ? {
+        ...property.schema,
+        fields: property.schema.fields.map((field) => ({ ...field }))
+      }
+    : undefined
+})
+
+const relationFailure = (
+  code: RegistrationContractErrorCode,
+  operation: RegistrationGraphOperation,
+  message: string,
+  details: Partial<RegistrationRelationError['result']> = {}
+): never => {
+  throw new RegistrationRelationError({
+    ok: false,
+    code,
+    operation,
+    message,
+    ...details
+  })
+}
+
+const createComponentDefaults = (
+  properties: readonly PropertyDefinition[]
+): Record<string, unknown> => {
+  const defaults: Record<string, unknown> = {}
+  properties.forEach((property) => {
+    if (property.defaultValue !== undefined) {
+      defaults[property.name] = property.defaultValue
+    }
+  })
+  return defaults
+}
+
+const assertComponentRelationMutationAllowed = (
+  componentType: string,
+  operation: 'define-relation' | 'remove-relation'
+) => {
+  if (!componentRegistry.has(componentType)) {
+    return relationFailure(
+      'REGISTRATION_NOT_FOUND',
+      operation,
+      `Component "${componentType}" is not registered`,
+      { source: { kind: 'component', key: componentType } }
+    )
+  }
+
+  const activeInstances = countActiveSceneInstances(componentType)
+  if (activeInstances > 0) {
+    return relationFailure(
+      'REGISTRATION_IN_USE',
+      operation,
+      `Component "${componentType}" has ${activeInstances} active instance(s)`,
+      {
+        registration: { kind: 'component', key: componentType },
+        source: { kind: 'component', key: componentType }
+      }
+    )
+  }
+}
+
+const rebuildComponentProperties = (
+  componentType: string,
+  properties: PropertyDefinition[]
+) => {
+  const registration = componentRegistry.get(componentType)
+  if (!registration) {
+    return relationFailure(
+      'REGISTRATION_NOT_FOUND',
+      'define-relation',
+      `Component "${componentType}" is not registered`,
+      { registration: { kind: 'component', key: componentType } }
+    )
+  }
+
+  const defaults = createComponentDefaults(properties)
+  const Constructor = createDynamicComponent(
+    registration.type,
+    registration.idPrefix,
+    registration.namePrefix,
+    properties,
+    defaults,
+    registration.isContainer
+  )
+  const nextRegistration = {
+    ...registration,
+    constructor: Constructor,
+    properties,
+    defaults
+  }
+
+  componentRegistry.replace(nextRegistration)
+  elementPropertyRegistry.replaceComponentProperties(componentType, properties)
+}
+
+export const getComponentPropertyRelations = (
+  componentType: string
+): readonly ComponentPropertyRelationMetadata[] => {
+  const registration = componentRegistry.get(componentType)
+  if (!registration) {
+    return relationFailure(
+      'REGISTRATION_NOT_FOUND',
+      'define-relation',
+      `Component "${componentType}" is not registered`,
+      { registration: { kind: 'component', key: componentType } }
+    )
+  }
+
+  return registration.properties.map((property) => ({
+    source: { kind: 'component', key: componentType },
+    name: property.name,
+    target: { kind: 'property', key: property.type },
+    onTargetUnregister: 'detach' as const,
+    componentType,
+    propertyName: property.name,
+    property: clonePropertyDefinition(property)
+  }))
+}
+
+export const removeComponentPropertyRelation = (
+  componentType: string,
+  propertyName: string
+): RelationOperationSuccess => {
+  assertComponentRelationMutationAllowed(componentType, 'remove-relation')
+  const registration = componentRegistry.get(componentType)
+  if (!registration) {
+    return relationFailure(
+      'REGISTRATION_NOT_FOUND',
+      'remove-relation',
+      `Component "${componentType}" is not registered`,
+      { source: { kind: 'component', key: componentType } }
+    )
+  }
+  const property = registration.properties.find(
+    (candidate) => candidate.name === propertyName
+  )
+  if (!property) {
+    return relationFailure(
+      'RELATION_NOT_FOUND',
+      'remove-relation',
+      `Component property relation "${componentType}/${propertyName}" was not found`,
+      {
+        source: { kind: 'component', key: componentType },
+        relationName: propertyName
+      }
+    )
+  }
+
+  const properties = registration.properties.filter(
+    (candidate) => candidate.name !== propertyName
+  )
+  rebuildComponentProperties(componentType, properties)
+
+  const relation: RegistrationRelationMetadata = {
+    source: { kind: 'component', key: componentType },
+    name: property.name,
+    target: { kind: 'property', key: property.type },
+    onTargetUnregister: 'detach'
+  }
+  return {
+    ok: true,
+    operation: 'remove-relation',
+    source: relation.source,
+    relation
+  }
+}
+
+export const defineComponentPropertyRelation = (
+  componentType: string,
+  property: PropertyDefinition
+): RelationOperationSuccess => {
+  assertComponentRelationMutationAllowed(componentType, 'define-relation')
+  const registration = componentRegistry.get(componentType)
+  if (!registration) {
+    return relationFailure(
+      'REGISTRATION_NOT_FOUND',
+      'define-relation',
+      `Component "${componentType}" is not registered`,
+      { source: { kind: 'component', key: componentType } }
+    )
+  }
+  if (
+    registration.properties.some(
+      (candidate) => candidate.name === property.name
+    )
+  ) {
+    return relationFailure(
+      'DUPLICATE_RELATION',
+      'define-relation',
+      `Component property relation "${componentType}/${property.name}" is already defined`,
+      {
+        source: { kind: 'component', key: componentType },
+        relationName: property.name
+      }
+    )
+  }
+  if (!getPropertyComponent(property.type)) {
+    return relationFailure(
+      'RELATION_TARGET_NOT_FOUND',
+      'define-relation',
+      `Property runtime "${property.type}" is not registered`,
+      {
+        source: { kind: 'component', key: componentType },
+        relationName: property.name,
+        target: { kind: 'property', key: property.type }
+      }
+    )
+  }
+  if (
+    property.schema?.type &&
+    propertySchemaRegistry.has(property.schema.type)
+  ) {
+    throw new Error(
+      `Property schema "${property.schema.type}" is already registered`
+    )
+  }
+
+  const properties = [
+    ...registration.properties,
+    clonePropertyDefinition(property)
+  ]
+  const defaults = createComponentDefaults(properties)
+  const Constructor = createDynamicComponent(
+    registration.type,
+    registration.idPrefix,
+    registration.namePrefix,
+    properties,
+    defaults,
+    registration.isContainer
+  )
+
+  if (property.schema?.type) {
+    registerPropertySchema(property.schema)
+  }
+  componentRegistry.replace({
+    ...registration,
+    constructor: Constructor,
+    properties,
+    defaults
+  })
+  elementPropertyRegistry.replaceComponentProperties(componentType, properties)
+
+  const relation: RegistrationRelationMetadata = {
+    source: { kind: 'component', key: componentType },
+    name: property.name,
+    target: { kind: 'property', key: property.type },
+    onTargetUnregister: 'detach'
+  }
+  return {
+    ok: true,
+    operation: 'define-relation',
+    source: relation.source,
+    relation
+  }
+}
+
 const addUniqueRemoved = (
   result: UnregisterComponentResult,
   removedSet: Set<string>,
@@ -188,12 +466,9 @@ export function defineComponent(definition: ComponentDefinition): void {
   idCounter.registerType(type, idPrefix, undefined, { override: true })
 
   // Phase B: register counters + properties, and derive default values.
-  const defaults: Record<string, unknown> = {}
+  const defaults = createComponentDefaults(properties)
   for (const prop of properties) {
     elementPropertyRegistry.register(prop, type)
-    if (prop.defaultValue !== undefined) {
-      defaults[prop.name] = prop.defaultValue
-    }
   }
 
   // Phase C: register schema types declared by this component definition.

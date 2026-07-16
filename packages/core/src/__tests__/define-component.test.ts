@@ -1,15 +1,45 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { defineComponent, unregisterComponent } from '../define-component'
+import {
+  defineComponent,
+  defineComponentPropertyRelation,
+  getComponentPropertyRelations,
+  removeComponentPropertyRelation,
+  unregisterComponent
+} from '../define-component'
 import sceneTree, { componentRegistry } from '@asyra/scene-tree'
-import { elementPropertyRegistry } from '@asyra/props-manager'
+import {
+  elementPropertyRegistry,
+  getPropertyComponent
+} from '@asyra/props-manager'
 import { renderStrategyRegistry } from '@asyra/render'
-import { PropertyTypes, idCounter, nameCounter } from '@asyra/utils'
+import {
+  PropertyTypes,
+  RegistrationRelationError,
+  idCounter,
+  nameCounter
+} from '@asyra/utils'
 import type { RenderStrategy } from '@asyra/render'
 import type { ElementInstanceTypes } from '@asyra/utils'
+import {
+  definePropertyComponent,
+  unregisterPropertyComponent
+} from '../define-property-component'
 
 // Use actual package imports without mocks to source files
 
-const COMPONENT_TYPES = ['star', 'polygon', 'container', 'shared-a', 'shared-b']
+const COMPONENT_TYPES = [
+  'star',
+  'polygon',
+  'container',
+  'shared-a',
+  'shared-b',
+  'relation-shape'
+]
+const RELATION_PROPERTY_TYPES = [
+  'relation-position',
+  'relation-fills',
+  'relation-strokes'
+]
 
 const cleanupType = (type: string) => {
   unregisterComponent(type, { force: true })
@@ -18,6 +48,19 @@ const cleanupType = (type: string) => {
   renderStrategyRegistry.unregister(type)
   idCounter.unregisterType(type)
   nameCounter.unregisterType(type)
+}
+
+const expectRelationError = (
+  run: () => unknown,
+  code: RegistrationRelationError['code']
+) => {
+  try {
+    run()
+    throw new Error(`Expected RegistrationRelationError ${code}`)
+  } catch (error) {
+    expect(error).toBeInstanceOf(RegistrationRelationError)
+    expect((error as RegistrationRelationError).code).toBe(code)
+  }
 }
 
 describe('defineComponent', () => {
@@ -305,5 +348,153 @@ describe('unregisterComponent', () => {
 
     expect(result.ok).toBe(true)
     expect(componentRegistry.has('star')).toBe(false)
+  })
+})
+
+describe('component property relations', () => {
+  beforeEach(() => {
+    sceneTree.dispose()
+    COMPONENT_TYPES.forEach((type) => cleanupType(type))
+    RELATION_PROPERTY_TYPES.forEach((type) => unregisterPropertyComponent(type))
+    RELATION_PROPERTY_TYPES.forEach((type) =>
+      definePropertyComponent({ type, defaults: { value: 0 } })
+    )
+  })
+
+  it('removes one slot while preserving the component, other slots, and property runtime', () => {
+    const renderStrategy: RenderStrategy = vi.fn()
+    defineComponent({
+      type: 'relation-shape',
+      idPrefix: 'relation-shape',
+      namePrefix: 'Relation Shape',
+      properties: [
+        { name: 'position', type: 'relation-position' },
+        { name: 'fills', type: 'relation-fills' }
+      ],
+      renderStrategy
+    })
+
+    const result = removeComponentPropertyRelation('relation-shape', 'fills')
+
+    expect(result).toMatchObject({
+      ok: true,
+      operation: 'remove-relation',
+      source: { kind: 'component', key: 'relation-shape' },
+      relation: {
+        name: 'fills',
+        target: { kind: 'property', key: 'relation-fills' }
+      }
+    })
+    expect(componentRegistry.has('relation-shape')).toBe(true)
+    expect(renderStrategyRegistry.has('relation-shape')).toBe(true)
+    expect(idCounter.hasType('relation-shape')).toBe(true)
+    expect(nameCounter.hasType('relation-shape')).toBe(true)
+    expect(getPropertyComponent('relation-fills')).toBeDefined()
+    expect(
+      getComponentPropertyRelations('relation-shape').map(
+        ({ propertyName }) => propertyName
+      )
+    ).toEqual(['position'])
+    expect(
+      elementPropertyRegistry
+        .getPropertiesForComponent('relation-shape')
+        .map(({ name }) => name)
+    ).toEqual(['position'])
+
+    const registration = componentRegistry.get('relation-shape')
+    expect(registration).toBeDefined()
+    if (!registration) throw new Error('Expected component registration')
+    const instance = new registration.constructor()
+    expect(instance.props.getPropId('position')).toBeDefined()
+    expect(instance.props.getPropId('fills')).toBeUndefined()
+    instance.cleanup()
+  })
+
+  it('defines a new non-equivalent slot for future instances', () => {
+    defineComponent({
+      type: 'relation-shape',
+      idPrefix: 'relation-shape',
+      namePrefix: 'Relation Shape',
+      properties: [
+        { name: 'position', type: 'relation-position' },
+        { name: 'fills', type: 'relation-fills' }
+      ]
+    })
+    removeComponentPropertyRelation('relation-shape', 'fills')
+
+    const result = defineComponentPropertyRelation('relation-shape', {
+      name: 'strokes',
+      type: 'relation-strokes'
+    })
+
+    expect(result).toMatchObject({
+      ok: true,
+      operation: 'define-relation',
+      relation: {
+        name: 'strokes',
+        target: { kind: 'property', key: 'relation-strokes' }
+      }
+    })
+    expect(
+      getComponentPropertyRelations('relation-shape').map(
+        ({ propertyName }) => propertyName
+      )
+    ).toEqual(['position', 'strokes'])
+
+    const registration = componentRegistry.get('relation-shape')
+    expect(registration).toBeDefined()
+    if (!registration) throw new Error('Expected component registration')
+    const instance = new registration.constructor()
+    expect(instance.props.getPropId('position')).toBeDefined()
+    expect(instance.props.getPropId('fills')).toBeUndefined()
+    expect(instance.props.getPropId('strokes')).toBeDefined()
+    instance.cleanup()
+  })
+
+  it('fails before mutation for active instances, missing targets, duplicates, and missing relations', () => {
+    defineComponent({
+      type: 'relation-shape',
+      idPrefix: 'relation-shape',
+      namePrefix: 'Relation Shape',
+      properties: [{ name: 'position', type: 'relation-position' }]
+    })
+
+    expectRelationError(
+      () =>
+        defineComponentPropertyRelation('relation-shape', {
+          name: 'missing',
+          type: 'missing-property-runtime'
+        }),
+      'RELATION_TARGET_NOT_FOUND'
+    )
+    expectRelationError(
+      () =>
+        defineComponentPropertyRelation('relation-shape', {
+          name: 'position',
+          type: 'relation-position'
+        }),
+      'DUPLICATE_RELATION'
+    )
+    expectRelationError(
+      () =>
+        removeComponentPropertyRelation('relation-shape', 'missing-relation'),
+      'RELATION_NOT_FOUND'
+    )
+
+    const registration = componentRegistry.get('relation-shape')
+    expect(registration).toBeDefined()
+    if (!registration) throw new Error('Expected component registration')
+    const active = new registration.constructor()
+    sceneTree.addToMap(active)
+
+    expectRelationError(
+      () => removeComponentPropertyRelation('relation-shape', 'position'),
+      'REGISTRATION_IN_USE'
+    )
+    expect(
+      getComponentPropertyRelations('relation-shape').map(
+        ({ propertyName }) => propertyName
+      )
+    ).toEqual(['position'])
   })
 })

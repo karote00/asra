@@ -6,8 +6,15 @@ export {
   getSessionManager
 } from './feature-integration'
 
-export { defineComponent, unregisterComponent } from './define-component'
+export {
+  defineComponent,
+  defineComponentPropertyRelation,
+  getComponentPropertyRelations,
+  removeComponentPropertyRelation,
+  unregisterComponent
+} from './define-component'
 export type {
+  ComponentPropertyRelationMetadata,
   ComponentDefinition,
   UnregisterComponentOptions,
   UnregisterComponentResult,

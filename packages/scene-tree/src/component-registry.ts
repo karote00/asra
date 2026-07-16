@@ -22,6 +22,13 @@ class ComponentRegistry {
     })
   }
 
+  replace(registration: ComponentRegistration): void {
+    if (!this.registry.has(registration.type)) {
+      throw new Error(`Component "${registration.type}" is not registered`)
+    }
+    this.registry.set(registration.type, registration)
+  }
+
   unregister(type: string): boolean {
     return this.registry.delete(type)
   }
