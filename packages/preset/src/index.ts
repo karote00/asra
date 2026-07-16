@@ -1,11 +1,26 @@
 export { applyPreset } from './preset'
 export type {
   ApplyPresetOptions,
+  PresetCapabilityBundle,
+  PresetCapabilityBundleContext,
+  PresetCapabilityInstallation,
   PresetApplication,
   PresetApplicationDisposeSuccess,
+  PresetCompositionCleanupResult,
+  PresetCompositionCleanupState,
+  PresetCompositionErrorCode,
+  PresetCompositionFailureResult,
+  PresetCompositionLayer,
   PresetCoreAPIs,
-  PresetDependencies
+  PresetDependencies,
+  PresetEngineBootstrap
 } from './types'
+export {
+  DEFAULT_PRESET_ENGINE_ID,
+  LEGACY_PRESET_ENGINE_FACTORY_ID,
+  PRESET_COMPOSITION_ERROR_CODES
+} from './composition/constants'
+export { PresetCompositionError } from './composition/error'
 export {
   DEFAULT_COMPONENT_DEFINITIONS,
   DEFAULT_RENDER_STRATEGY_REGISTRATIONS,

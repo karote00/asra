@@ -262,6 +262,7 @@ const createComposition = () => {
 
   return {
     core,
+    dependencies,
     schemas,
     propertyComponents,
     components,
@@ -283,6 +284,15 @@ const createComposition = () => {
     unregisterFeature,
     unregisterPropertyType
   }
+}
+
+const captureCompositionError = (run: () => unknown): unknown => {
+  try {
+    run()
+  } catch (error) {
+    return error
+  }
+  throw new Error('Expected preset composition to fail')
 }
 
 describe('preset startup composition contract', () => {
@@ -632,5 +642,262 @@ describe('preset startup composition contract', () => {
     } finally {
       application.dispose()
     }
+  })
+})
+
+describe('generic preset composition input validation', () => {
+  it('publishes stable typed composition contracts from the preset facade', () => {
+    expect(publicPreset).toHaveProperty('PresetCompositionError')
+    expect(publicPreset).toHaveProperty('PRESET_COMPOSITION_ERROR_CODES')
+    expect(publicPreset).toHaveProperty('DEFAULT_PRESET_ENGINE_ID')
+  })
+
+  it('accepts the explicit preset-owned default engine identity without changing the compatibility wiring', () => {
+    const { core, dependencies } = createComposition()
+
+    const application = applyPreset(core, {
+      engine: { id: '@asyra/render-engine-pixi' }
+    } as never)
+
+    expect(dependencies.render.setEngineFactory).toHaveBeenCalledOnce()
+    expect(application.dispose()).toMatchObject({ ok: true })
+  })
+
+  it('treats an empty options object as the omitted compatibility composition', () => {
+    const { core, dependencies } = createComposition()
+
+    const application = applyPreset(core, {})
+
+    expect(dependencies.render.setEngineFactory).toHaveBeenCalledOnce()
+    expect(application.dispose()).toMatchObject({ ok: true })
+  })
+
+  it('rejects incomplete explicit dependencies before mutation', () => {
+    const { core, dependencies } = createComposition()
+
+    const error = captureCompositionError(() =>
+      applyPreset(core, { dependencies: {} as never })
+    )
+
+    expect(error).toMatchObject({
+      name: 'PresetCompositionError',
+      result: {
+        code: 'INVALID_COMPOSITION',
+        layer: 'validation',
+        cleanup: { state: 'not-required' }
+      }
+    })
+    expect(core.registerEvent).not.toHaveBeenCalled()
+    expect(dependencies.render.setEngineFactory).not.toHaveBeenCalled()
+  })
+
+  it('accepts an identified custom engine bootstrap with its exact factory', () => {
+    const { core, dependencies } = createComposition()
+    const customFactory = vi.fn()
+
+    const application = applyPreset(core, {
+      engine: { id: '@product/render-engine', factory: customFactory }
+    })
+
+    expect(dependencies.render.setEngineFactory).toHaveBeenCalledWith(
+      customFactory
+    )
+    expect(application.dispose()).toMatchObject({ ok: true })
+  })
+
+  it('rejects malformed composition containers and engine conflicts with structured errors', () => {
+    const malformedComposition = createComposition()
+    const malformedError = captureCompositionError(() =>
+      applyPreset(malformedComposition.core, [] as never)
+    )
+
+    expect(malformedError).toMatchObject({
+      name: 'PresetCompositionError',
+      result: {
+        code: 'INVALID_COMPOSITION',
+        layer: 'validation'
+      }
+    })
+    expect(malformedComposition.core.registerEvent).not.toHaveBeenCalled()
+
+    const engineConflictComposition = createComposition()
+    const engineConflictError = captureCompositionError(() =>
+      applyPreset(engineConflictComposition.core, {
+        renderEngineFactory: vi.fn(),
+        engine: null
+      } as never)
+    )
+
+    expect(engineConflictError).toMatchObject({
+      name: 'PresetCompositionError',
+      result: {
+        code: 'INVALID_COMPOSITION',
+        layer: 'validation'
+      }
+    })
+    expect(engineConflictComposition.core.registerEvent).not.toHaveBeenCalled()
+  })
+
+  it('rejects legacy and identified engine inputs together before mutation', () => {
+    const { core, dependencies } = createComposition()
+
+    const error = captureCompositionError(() =>
+      applyPreset(core, {
+        renderEngineFactory: vi.fn(),
+        engine: { id: 'test-engine', factory: vi.fn() }
+      } as never)
+    )
+
+    expect(error).toMatchObject({
+      name: 'PresetCompositionError',
+      result: {
+        code: 'INVALID_COMPOSITION',
+        layer: 'validation',
+        cleanup: { state: 'not-required' }
+      }
+    })
+    expect(core.registerEvent).not.toHaveBeenCalled()
+    expect(dependencies.render.setEngineFactory).not.toHaveBeenCalled()
+  })
+
+  it('rejects an unknown engine bootstrap before mutation', () => {
+    const { core, dependencies } = createComposition()
+
+    const error = captureCompositionError(() =>
+      applyPreset(core, {
+        engine: { id: 'unknown-engine' }
+      } as never)
+    )
+
+    expect(error).toMatchObject({
+      name: 'PresetCompositionError',
+      result: {
+        code: 'UNKNOWN_ENGINE_BOOTSTRAP',
+        layer: 'validation',
+        engineId: 'unknown-engine'
+      }
+    })
+    expect(core.registerEvent).not.toHaveBeenCalled()
+    expect(dependencies.render.setEngineFactory).not.toHaveBeenCalled()
+  })
+
+  it('rejects duplicate bundle identities before mutation', () => {
+    const { core, dependencies } = createComposition()
+    const bundle = {
+      id: 'package/selection-tools',
+      owner: { packageName: '@product/selection', name: 'selection-tools' },
+      requires: [],
+      install: vi.fn(() => ({ outputs: ['selection'], dispose: vi.fn() }))
+    }
+
+    const error = captureCompositionError(() =>
+      applyPreset(core, {
+        dependencies,
+        capabilityBundles: [bundle, bundle]
+      } as never)
+    )
+
+    expect(error).toMatchObject({
+      name: 'PresetCompositionError',
+      result: {
+        code: 'DUPLICATE_TARGET',
+        layer: 'validation',
+        capabilityBundles: [
+          'package/selection-tools',
+          'package/selection-tools'
+        ]
+      }
+    })
+    expect(core.registerEvent).not.toHaveBeenCalled()
+    expect(dependencies.render.setEngineFactory).not.toHaveBeenCalled()
+    expect(bundle.install).not.toHaveBeenCalled()
+  })
+
+  it('distinguishes missing bundle dependencies from ordering conflicts before mutation', () => {
+    const missingComposition = createComposition()
+    const missingDependencyBundle = {
+      id: 'package/consumer',
+      owner: { packageName: '@product/consumer', name: 'consumer' },
+      requires: ['package/missing'],
+      install: vi.fn(() => ({ outputs: ['consumer'], dispose: vi.fn() }))
+    }
+
+    const missingError = captureCompositionError(() =>
+      applyPreset(missingComposition.core, {
+        dependencies: missingComposition.dependencies,
+        capabilityBundles: [missingDependencyBundle]
+      } as never)
+    )
+
+    expect(missingError).toMatchObject({
+      name: 'PresetCompositionError',
+      result: {
+        code: 'MISSING_CAPABILITY_BUNDLE',
+        layer: 'validation',
+        failedBundleId: 'package/consumer'
+      }
+    })
+    expect(missingComposition.core.registerEvent).not.toHaveBeenCalled()
+
+    const orderedComposition = createComposition()
+    const dependency = {
+      id: 'package/dependency',
+      owner: { packageName: '@product/dependency', name: 'dependency' },
+      requires: [],
+      install: vi.fn(() => ({ outputs: ['dependency'], dispose: vi.fn() }))
+    }
+    const consumer = {
+      id: 'package/consumer',
+      owner: { packageName: '@product/consumer', name: 'consumer' },
+      requires: ['package/dependency'],
+      install: vi.fn(() => ({ outputs: ['consumer'], dispose: vi.fn() }))
+    }
+
+    const orderingError = captureCompositionError(() =>
+      applyPreset(orderedComposition.core, {
+        dependencies: orderedComposition.dependencies,
+        capabilityBundles: [consumer, dependency]
+      } as never)
+    )
+
+    expect(orderingError).toMatchObject({
+      name: 'PresetCompositionError',
+      result: {
+        code: 'ORDERING_CONFLICT',
+        layer: 'validation',
+        failedBundleId: 'package/consumer'
+      }
+    })
+    expect(orderedComposition.core.registerEvent).not.toHaveBeenCalled()
+    expect(consumer.install).not.toHaveBeenCalled()
+    expect(dependency.install).not.toHaveBeenCalled()
+  })
+
+  it('rejects an incomplete or no-op bundle definition before mutation', () => {
+    const { core, dependencies } = createComposition()
+
+    const error = captureCompositionError(() =>
+      applyPreset(core, {
+        dependencies,
+        capabilityBundles: [
+          {
+            id: 'package/no-op',
+            owner: { packageName: '@product/no-op', name: 'no-op' },
+            requires: []
+          }
+        ]
+      } as never)
+    )
+
+    expect(error).toMatchObject({
+      name: 'PresetCompositionError',
+      result: {
+        code: 'INVALID_COMPOSITION',
+        layer: 'validation',
+        failedBundleId: 'package/no-op'
+      }
+    })
+    expect(core.registerEvent).not.toHaveBeenCalled()
+    expect(dependencies.render.setEngineFactory).not.toHaveBeenCalled()
   })
 })

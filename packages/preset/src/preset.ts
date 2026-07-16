@@ -1,4 +1,3 @@
-import { createPixiRenderEngine } from '@asyra/render-engine-pixi'
 import { RegistrationRelationError, type RegistrationRef } from '@asyra/utils'
 import { registerEvents } from './events/register-events'
 import {
@@ -26,6 +25,7 @@ import type {
   PresetCoreAPIs,
   PresetDependencies
 } from './types'
+import { resolvePresetComposition } from './composition/resolve'
 
 const refKey = (ref: RegistrationRef): string => `${ref.kind}\u0000${ref.key}`
 
@@ -41,38 +41,6 @@ const pendingRollbackApplications = new WeakMap<
   PresetCoreAPIs,
   PresetApplication
 >()
-
-const isApplyPresetOptions = (
-  value: PresetDependencies | ApplyPresetOptions
-): value is ApplyPresetOptions =>
-  'renderEngineFactory' in value || 'dependencies' in value
-
-const resolvePresetComposition = (
-  core: PresetCoreAPIs,
-  dependenciesOrOptions?: PresetDependencies | ApplyPresetOptions
-): Required<Pick<ApplyPresetOptions, 'renderEngineFactory'>> & {
-  dependencies: PresetDependencies
-} => {
-  if (!dependenciesOrOptions) {
-    return {
-      dependencies: core.getPresetDependencies(),
-      renderEngineFactory: createPixiRenderEngine
-    }
-  }
-  if (isApplyPresetOptions(dependenciesOrOptions)) {
-    return {
-      dependencies:
-        dependenciesOrOptions.dependencies ?? core.getPresetDependencies(),
-      renderEngineFactory:
-        dependenciesOrOptions.renderEngineFactory ?? createPixiRenderEngine
-    }
-  }
-
-  return {
-    dependencies: dependenciesOrOptions,
-    renderEngineFactory: createPixiRenderEngine
-  }
-}
 
 const installPresetRegistrations = (core: PresetCoreAPIs): void => {
   registerPropertySchemas(core)
