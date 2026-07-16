@@ -1,7 +1,7 @@
-import { definePropertyComponent } from '@asyra/core'
+import type { PropertyComponentDefinition } from '@asyra/core'
 import { PropertyTypes, createDefaultFill } from '@asyra/utils'
 
-definePropertyComponent({
+export const fillsPropertyComponentDefinition: PropertyComponentDefinition = {
   type: PropertyTypes.FILLS,
   defaults: { fills: [] as string[] },
   persistKeys: ['fills'],
@@ -31,4 +31,4 @@ definePropertyComponent({
       gradient: child.get('gradient')
     })
   }
-})
+}

@@ -54,6 +54,16 @@ describe('Preset Selection Subscriptions', () => {
         getPresetDependencies: createDeps,
         registerRenderLayer: vi.fn(),
         registerPropertySchema: vi.fn(),
+        definePropertyComponent: vi.fn(),
+        unregisterPropertyRegistration: vi.fn(() => ({
+          ok: true,
+          type: 'test-property',
+          removedSchema: true,
+          removedComponent: true
+        })),
+        defineFeature: vi.fn(),
+        getFeature: vi.fn(),
+        unregisterFeature: vi.fn(),
         defineSelection: (type, selection) => {
           selections.set(type, selection)
         },

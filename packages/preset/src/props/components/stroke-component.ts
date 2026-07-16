@@ -1,7 +1,7 @@
-import { definePropertyComponent } from '@asyra/core'
+import type { PropertyComponentDefinition } from '@asyra/core'
 import { PropertyTypes, createDefaultStroke } from '@asyra/utils'
 
-definePropertyComponent({
+export const strokePropertyComponentDefinition: PropertyComponentDefinition = {
   type: PropertyTypes.STROKE,
   defaults: createDefaultStroke() as unknown as Record<string, unknown>,
   persistKeys: [
@@ -26,4 +26,4 @@ definePropertyComponent({
     'capType',
     'miterAngle'
   ]
-})
+}

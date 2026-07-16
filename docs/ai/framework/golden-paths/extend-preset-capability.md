@@ -9,6 +9,7 @@
 ## Steps
 
 1. Classify the target
+
 - feature behavior
 - shortcut/input mapping
 - event contract
@@ -17,21 +18,74 @@
 - selection channel/default wiring
 
 2. Prefer extension when available
-- use the documented extension hook or registration surface
-- keep extension ordering explicit
-- fail fast when the target is missing or ambiguous
+
+- query `getPresetExtensionTarget(targetKey)` and verify the required strategy
+- pass ordered `PresetExtension[]` through `applyPreset(core, { extensions })`
+- keep extension keys and owners stable, and always return owned cleanup
+- handle `ExtensionContractError.code`; do not retry through duplicate tolerance
+
+Feature example:
+
+```ts
+import {
+  PRESET_EXTENSION_TARGETS,
+  applyPreset,
+  type PresetExtension
+} from '@asyra/preset'
+
+const extensions: PresetExtension[] = [
+  {
+    key: 'asyra-design.selection-feature',
+    targetKey: PRESET_EXTENSION_TARGETS.FEATURE_REGISTRATIONS,
+    owner: { packageName: '@asyra/asyra-design', name: 'selection' },
+    strategy: 'append',
+    install: ({ core }) => {
+      const registration = core.defineFeature('selection', undefined, {
+        api: { owner: 'asyra-design' }
+      })
+      return () => registration.dispose()
+    }
+  }
+]
+
+const presetApplication = applyPreset(core, { extensions })
+```
 
 3. Use replacement when extension is unavailable
-- unregister the preset capability through an approved API
-- register the app/product-owned replacement
-- preserve stable public contracts unless intentionally breaking them
+
+- do not call `applyPreset` with an unsupported strategy
+- apply defaults, call `presetApplication.unregisterTarget(targetKey)`, and
+  proceed only after its structured success result
+- register the app/product-owned replacement through public Core APIs
+- property cleanup may remove only its target-owned `schema` or `runtime` part;
+  active/live or replay-retained property instances block unregister
+
+Property runtime fallback example:
+
+```ts
+import { PRESET_EXTENSION_TARGETS, applyPreset } from '@asyra/preset'
+import { PropertyTypes } from '@asyra/utils'
+
+const presetApplication = applyPreset(core)
+const targetKey =
+  PRESET_EXTENSION_TARGETS.PROPERTY_RUNTIMES[PropertyTypes.POSITION]
+
+presetApplication.unregisterTarget(targetKey)
+core.definePropertyComponent({
+  type: PropertyTypes.POSITION,
+  defaults: { x: 0, y: 0 }
+})
+```
 
 4. Keep ownership explicit
+
 - framework owns runtime primitives and validation
 - preset owns optional defaults
 - app/product owns domain behavior and workflows
+- render engine selection remains separate and never determines a product mode
 
 5. Verify behavior
+
 - test the app/product behavior directly
 - verify transaction grouping and undo/redo semantics
 - verify runtime invalid writes are rejected

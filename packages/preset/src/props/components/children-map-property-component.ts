@@ -1,7 +1,7 @@
 import {
   BasePropertyComponent,
-  definePropertyComponent,
-  getPropertyComponentAccessor
+  getPropertyComponentAccessor,
+  type PropertyComponentDefinition
 } from '@asyra/core'
 import {
   id,
@@ -109,9 +109,9 @@ const toChildEntries = (
   return null
 }
 
-export const defineChildrenMapPropertyComponent = (
+export const createChildrenMapPropertyComponentDefinition = (
   config: ChildrenMapPropertyConfig
-) => {
+): PropertyComponentDefinition => {
   class ChildrenMapPropertyComponent extends BasePropertyComponent<ChildrenMapAttrs> {
     data: ChildrenMapAttrs = {
       id: '',
@@ -321,8 +321,8 @@ export const defineChildrenMapPropertyComponent = (
     }
   }
 
-  definePropertyComponent({
+  return {
     type: config.type,
     constructor: ChildrenMapPropertyComponent
-  })
+  }
 }

@@ -299,6 +299,20 @@ Managed property bridges:
   bundle path
 - `applyPreset(core, { renderEngineFactory, dependencies? })` replaces the
   Pixi default with a contract-compatible custom factory
+- `applyPreset(core, { extensions, renderEngineFactory?, dependencies? })`
+  applies ordered public feature/property extensions and returns a
+  `PresetApplication`
+- preset extension surface:
+  - `PRESET_EXTENSION_TARGETS.FEATURE_REGISTRATIONS`
+  - `PRESET_EXTENSION_TARGETS.PROPERTY_SCHEMAS[propertyType]`
+  - `PRESET_EXTENSION_TARGETS.PROPERTY_RUNTIMES[propertyType]`
+  - `getPresetExtensionTarget(key)`, `getPresetExtensionTargets()`
+  - `PresetExtension`, `PresetExtensionContext`, `PresetApplication`
+  - re-exported `ExtensionContractError`, stable error codes, strategies, and
+    operation result types
+- `PresetApplication.unregisterTarget(key)` is the formal first step for
+  unsupported direct extension; app redefinition then uses public Core feature
+  or property registration APIs
 - default render wiring lives here:
   - register default render YJS observers (scene-tree + selection)
   - register default render system subscriptions (`zoom`, `viewportPosition`)

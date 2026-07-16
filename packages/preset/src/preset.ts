@@ -1,8 +1,10 @@
 import './components'
-import './props/components'
 import { createPixiRenderEngine } from '@asyra/render-engine-pixi'
 import { registerEvents } from './events/register-events'
-import { registerPropertySchemas } from './props/register-property-schemas'
+import {
+  createPresetExtensionRegistry,
+  registerPresetExtensions
+} from './extension-targets'
 import {
   registerSelectionOverlayRenderLayer,
   registerVectorPathEditingRenderLayer
@@ -16,51 +18,53 @@ import { registerSelections } from './selection/register-default-selections'
 import { registerProperties } from './ui/register-properties'
 import type {
   ApplyPresetOptions,
+  PresetApplication,
   PresetCoreAPIs,
   PresetDependencies
 } from './types'
 
 const isApplyPresetOptions = (
   value: PresetDependencies | ApplyPresetOptions
-): value is ApplyPresetOptions => 'renderEngineFactory' in value
+): value is ApplyPresetOptions =>
+  'renderEngineFactory' in value ||
+  'dependencies' in value ||
+  'extensions' in value
 
 const resolvePresetComposition = (
   core: PresetCoreAPIs,
   dependenciesOrOptions?: PresetDependencies | ApplyPresetOptions
 ): Required<Pick<ApplyPresetOptions, 'renderEngineFactory'>> & {
   dependencies: PresetDependencies
+  extensions: ApplyPresetOptions['extensions']
 } => {
   if (!dependenciesOrOptions) {
     return {
       dependencies: core.getPresetDependencies(),
-      renderEngineFactory: createPixiRenderEngine
+      renderEngineFactory: createPixiRenderEngine,
+      extensions: undefined
     }
   }
   if (isApplyPresetOptions(dependenciesOrOptions)) {
     return {
       dependencies:
         dependenciesOrOptions.dependencies ?? core.getPresetDependencies(),
-      renderEngineFactory: dependenciesOrOptions.renderEngineFactory
+      renderEngineFactory:
+        dependenciesOrOptions.renderEngineFactory ?? createPixiRenderEngine,
+      extensions: dependenciesOrOptions.extensions
     }
   }
 
   return {
     dependencies: dependenciesOrOptions,
-    renderEngineFactory: createPixiRenderEngine
+    renderEngineFactory: createPixiRenderEngine,
+    extensions: undefined
   }
 }
 
-export const applyPreset = (
+const registerPresetRuntimeWiring = (
   core: PresetCoreAPIs,
-  dependenciesOrOptions?: PresetDependencies | ApplyPresetOptions
+  resolvedDeps: PresetDependencies
 ): void => {
-  const { dependencies: resolvedDeps, renderEngineFactory } =
-    resolvePresetComposition(core, dependenciesOrOptions)
-  resolvedDeps.render.setEngineFactory(renderEngineFactory)
-  registerEvents(core)
-
-  registerSelections(core)
-  registerPropertySchemas(core)
   registerProperties(core)
   registerDefaultSharedDataChannels()
   registerDefaultRenderSystemSubscriptions(core, resolvedDeps)
@@ -83,4 +87,34 @@ export const applyPreset = (
       systemContext: resolvedDeps.systemContext
     }
   )
+}
+
+export const applyPreset = (
+  core: PresetCoreAPIs,
+  dependenciesOrOptions?: PresetDependencies | ApplyPresetOptions
+): PresetApplication => {
+  const {
+    dependencies: resolvedDeps,
+    renderEngineFactory,
+    extensions = []
+  } = resolvePresetComposition(core, dependenciesOrOptions)
+  const extensionRegistry = createPresetExtensionRegistry()
+  registerPresetExtensions(extensionRegistry, extensions)
+
+  resolvedDeps.render.setEngineFactory(renderEngineFactory)
+  registerEvents(core)
+
+  registerSelections(core)
+  const application = extensionRegistry.apply({
+    core,
+    dependencies: resolvedDeps
+  })
+  try {
+    registerPresetRuntimeWiring(core, resolvedDeps)
+  } catch (error) {
+    application.dispose()
+    throw error
+  }
+
+  return application
 }

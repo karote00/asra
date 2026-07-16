@@ -46,6 +46,16 @@ const createComposition = (renderOverride?: PresetDependencies['render']) => {
     getPresetDependencies: () => dependencies,
     registerRenderLayer: vi.fn(),
     registerPropertySchema: vi.fn(),
+    definePropertyComponent: vi.fn(),
+    unregisterPropertyRegistration: vi.fn(() => ({
+      ok: true,
+      type: 'test-property',
+      removedSchema: true,
+      removedComponent: true
+    })),
+    defineFeature: vi.fn(),
+    getFeature: vi.fn(),
+    unregisterFeature: vi.fn(),
     defineSelection: vi.fn(),
     getSelection: () => undefined,
     defineUIProperty: vi.fn(),

@@ -1,7 +1,8 @@
-import { definePropertyComponent } from '@asyra/core'
+import type { PropertyComponentDefinition } from '@asyra/core'
 import { DefaultPositionData, PropertyTypes } from '@asyra/utils'
 
-definePropertyComponent({
-  type: PropertyTypes.POSITION,
-  defaults: DefaultPositionData
-})
+export const positionPropertyComponentDefinition: PropertyComponentDefinition =
+  {
+    type: PropertyTypes.POSITION,
+    defaults: DefaultPositionData
+  }
