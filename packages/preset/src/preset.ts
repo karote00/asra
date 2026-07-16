@@ -22,12 +22,14 @@ import type {
   ApplyPresetOptions,
   PresetApplication,
   PresetApplicationDisposeSuccess,
+  PresetCompositionSuccess,
   PresetCoreAPIs,
   PresetDependencies
 } from './types'
 import { resolvePresetComposition } from './composition/resolve'
 import { installCapabilityBundles } from './composition/bundles'
 import { createLayerInstallError } from './composition/error'
+import { createPresetCompositionSuccess } from './composition/result'
 
 const refKey = (ref: RegistrationRef): string => `${ref.kind}\u0000${ref.key}`
 
@@ -44,9 +46,13 @@ interface SharedPresetGroup {
   install(): void
 }
 
+interface PresetCleanupApplication {
+  dispose(): PresetApplicationDisposeSuccess
+}
+
 const pendingRollbackApplications = new WeakMap<
   PresetCoreAPIs,
-  PresetApplication
+  PresetCleanupApplication
 >()
 
 const createSharedPresetGroups = (
@@ -219,11 +225,11 @@ const unregisterPresetRegistration = (
   }
 }
 
-const createPresetApplication = (
+const createPresetApplicationLifetime = (
   core: PresetCoreAPIs,
   registrationsBeforeApply: ReadonlySet<string>,
   cleanupEntries: PresetCleanupEntry[]
-): PresetApplication => {
+): PresetCleanupApplication => {
   const ownedRefs = core
     .getRegistrations()
     .filter(
@@ -332,6 +338,7 @@ export const applyPreset = (
   const registerCleanup: RegisterPresetCleanup = (key, dispose) => {
     cleanupEntries.push({ key, dispose, completed: false })
   }
+  let compositionSuccess: PresetCompositionSuccess
 
   try {
     const sharedGroups = installSharedPresetDefaults(
@@ -353,7 +360,7 @@ export const applyPreset = (
       })
     }
     registerCleanup('render-engine-provider', disposeEngineProvider)
-    installCapabilityBundles({
+    const bundleInstallations = installCapabilityBundles({
       core,
       dependencies: resolvedDeps,
       engineId,
@@ -364,8 +371,13 @@ export const applyPreset = (
       ],
       registerCleanup
     })
+    compositionSuccess = createPresetCompositionSuccess({
+      engineId,
+      sharedGroups,
+      capabilityBundles: bundleInstallations.map(({ id }) => id)
+    })
   } catch (error) {
-    const rollbackApplication = createPresetApplication(
+    const rollbackApplication = createPresetApplicationLifetime(
       core,
       registrationsBeforeApply,
       cleanupEntries
@@ -388,5 +400,13 @@ export const applyPreset = (
     throw error
   }
 
-  return createPresetApplication(core, registrationsBeforeApply, cleanupEntries)
+  const lifetime = createPresetApplicationLifetime(
+    core,
+    registrationsBeforeApply,
+    cleanupEntries
+  )
+  return {
+    result: compositionSuccess,
+    dispose: () => lifetime.dispose()
+  }
 }

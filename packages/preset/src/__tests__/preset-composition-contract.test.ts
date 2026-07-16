@@ -1074,3 +1074,94 @@ describe('generic preset capability bundle orchestration', () => {
     expect(dispose).toHaveBeenCalledOnce()
   })
 })
+
+describe('generic preset composition success diagnostics', () => {
+  it('publishes equivalent instance-local results for omitted and explicit default composition', () => {
+    const omitted = createComposition()
+    const explicit = createComposition()
+
+    const omittedApplication = applyPreset(omitted.core)
+    const explicitApplication = applyPreset(explicit.core, {
+      engine: { id: '@asyra/render-engine-pixi' }
+    })
+
+    expect(omittedApplication.result).toEqual(explicitApplication.result)
+    expect(omittedApplication.result).not.toBe(explicitApplication.result)
+    expect(omittedApplication.result.sharedGroups).not.toBe(
+      explicitApplication.result.sharedGroups
+    )
+    expect(omittedApplication.result).toMatchObject({
+      ok: true,
+      state: 'completed',
+      engineId: '@asyra/render-engine-pixi',
+      capabilityBundles: []
+    })
+    expect(omittedApplication.result.sharedGroups).toEqual([
+      'events',
+      'property-schemas',
+      'property-components',
+      'components',
+      'render-strategies',
+      'selections',
+      'ui-properties',
+      'shared-data-channels',
+      'render-system-subscriptions',
+      'data-channel-observers',
+      'render-layers'
+    ])
+    expect(omittedApplication.result.order).toEqual([
+      ...omittedApplication.result.sharedGroups.map(
+        (groupId) => `shared-defaults:${groupId}`
+      ),
+      'concrete-engine:@asyra/render-engine-pixi',
+      'composition:completed'
+    ])
+    omittedApplication.dispose()
+    explicitApplication.dispose()
+  })
+
+  it('reports selected bundles in declared order with detached immutable diagnostics', () => {
+    const { core, dependencies } = createComposition()
+    const first = {
+      id: 'package/first',
+      owner: { packageName: '@product/first', name: 'first' },
+      requires: [] as string[],
+      install: vi.fn(() => ({ outputs: ['first-output'], dispose: vi.fn() }))
+    }
+    const second = {
+      id: 'package/second',
+      owner: { packageName: '@product/second', name: 'second' },
+      requires: ['package/first'],
+      install: vi.fn(() => ({ outputs: ['second-output'], dispose: vi.fn() }))
+    }
+
+    const application = applyPreset(core, {
+      dependencies,
+      engine: { id: '@product/render-engine', factory: vi.fn() },
+      capabilityBundles: [first, second]
+    })
+
+    first.id = 'mutated-after-apply'
+    second.requires[0] = 'mutated-after-apply'
+
+    expect(application.result).toMatchObject({
+      ok: true,
+      state: 'completed',
+      engineId: '@product/render-engine',
+      capabilityBundles: ['package/first', 'package/second']
+    })
+    expect(application.result.order.slice(-4)).toEqual([
+      'concrete-engine:@product/render-engine',
+      'capability-bundle:package/first',
+      'capability-bundle:package/second',
+      'composition:completed'
+    ])
+    expect(Object.isFrozen(application.result)).toBe(true)
+    expect(Object.isFrozen(application.result.sharedGroups)).toBe(true)
+    expect(Object.isFrozen(application.result.capabilityBundles)).toBe(true)
+    expect(Object.isFrozen(application.result.order)).toBe(true)
+    expect(application.result).not.toHaveProperty('mode')
+    expect(JSON.stringify(application.result)).not.toMatch(/"(2d|3d|hybrid)"/i)
+    application.dispose()
+  })
+})

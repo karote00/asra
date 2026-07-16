@@ -11,6 +11,7 @@ export type {
   PresetCompositionErrorCode,
   PresetCompositionFailureResult,
   PresetCompositionLayer,
+  PresetCompositionSuccess,
   PresetCoreAPIs,
   PresetDependencies,
   PresetEngineBootstrap

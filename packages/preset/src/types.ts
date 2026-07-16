@@ -15,7 +15,17 @@ export interface PresetApplicationDisposeSuccess {
   skipped: readonly RegistrationRef[]
 }
 
+export interface PresetCompositionSuccess {
+  ok: true
+  state: 'completed'
+  engineId: string
+  sharedGroups: readonly string[]
+  capabilityBundles: readonly string[]
+  order: readonly string[]
+}
+
 export interface PresetApplication {
+  readonly result: PresetCompositionSuccess
   dispose(): PresetApplicationDisposeSuccess
 }
 
