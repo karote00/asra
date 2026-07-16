@@ -26,12 +26,30 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 const isNonEmptyIdentity = (value: unknown): value is string =>
   typeof value === 'string' && value.length > 0 && value.trim() === value
 
+const hasMethods = (
+  value: Record<string, unknown>,
+  methodNames: readonly string[]
+): boolean => methodNames.every((name) => typeof value[name] === 'function')
+
 const isPresetDependencies = (value: unknown): value is PresetDependencies =>
   isObject(value) &&
   isObject(value.sceneTree) &&
+  hasMethods(value.sceneTree, ['getElementById', 'getAllElements']) &&
   isObject(value.systemContext) &&
+  hasMethods(value.systemContext, [
+    'getManagedProperty',
+    'getSystemContextSnapshot'
+  ]) &&
   isObject(value.render) &&
-  typeof value.render.setEngineFactory === 'function'
+  hasMethods(value.render, [
+    'setEngineFactory',
+    'getElementById',
+    'getViewportPosition',
+    'getViewportScale',
+    'getMousePosInWorkspace',
+    'zoomTo',
+    'panTo'
+  ])
 
 const describeBundleIds = (value: unknown): string[] => {
   if (!Array.isArray(value)) return []
@@ -85,7 +103,15 @@ const validateBundles = (value: unknown): readonly PresetCapabilityBundle[] => {
       })
     }
 
-    return candidate as unknown as PresetCapabilityBundle
+    return Object.freeze({
+      id,
+      owner: Object.freeze({
+        packageName: owner.packageName as string,
+        name: owner.name as string
+      }),
+      requires: Object.freeze([...(requires as string[])]),
+      install: install as PresetCapabilityBundle['install']
+    })
   })
 
   const seen = new Set<string>()

@@ -7,7 +7,9 @@ import type { PresetDependencies } from '../types'
 const createDeps = (): PresetDependencies =>
   ({
     sceneTree: {
-      getElementById: () => undefined
+      getElementById: () => undefined,
+      getAllElements: () => new Map(),
+      currentWorkspace: undefined
     },
     systemContext: {
       getManagedProperty: () => undefined,
@@ -18,6 +20,7 @@ const createDeps = (): PresetDependencies =>
     },
     render: {
       setEngineFactory: vi.fn(() => vi.fn()),
+      getElementById: () => undefined,
       getViewportPosition: () => ({ x: 0, y: 0 }),
       getViewportScale: () => 1,
       getMousePosInWorkspace: () => ({ x: 0, y: 0 }),

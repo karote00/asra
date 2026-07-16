@@ -27,6 +27,7 @@ const createDeps = (): PresetDependencies =>
     },
     render: {
       setEngineFactory: vi.fn(() => vi.fn()),
+      getElementById: () => undefined,
       getViewportPosition: () => ({ x: 0, y: 0 }),
       getViewportScale: () => 1,
       getMousePosInWorkspace: () => ({ x: 0, y: 0 }),

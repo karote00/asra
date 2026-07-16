@@ -60,6 +60,7 @@ const createComposition = () => {
     },
     render: {
       setEngineFactory: vi.fn(() => engineProviderCleanup),
+      getElementById: () => undefined,
       getViewportPosition: () => ({ x: 0, y: 0 }),
       getViewportScale: () => 1,
       getMousePosInWorkspace: () => ({ x: 0, y: 0 }),
@@ -809,6 +810,32 @@ describe('generic preset composition input validation', () => {
     expect(dependencies.render.setEngineFactory).not.toHaveBeenCalled()
   })
 
+  it('rejects dependency objects missing required preset runtime methods before mutation', () => {
+    const { core } = createComposition()
+    const setEngineFactory = vi.fn(() => vi.fn())
+
+    const error = captureCompositionError(() =>
+      applyPreset(core, {
+        dependencies: {
+          sceneTree: {},
+          systemContext: {},
+          render: { setEngineFactory }
+        } as never
+      })
+    )
+
+    expect(error).toMatchObject({
+      name: 'PresetCompositionError',
+      result: {
+        code: 'INVALID_COMPOSITION',
+        layer: 'validation',
+        cleanup: { state: 'not-required' }
+      }
+    })
+    expect(core.registerEvent).not.toHaveBeenCalled()
+    expect(setEngineFactory).not.toHaveBeenCalled()
+  })
+
   it('accepts an identified custom engine bootstrap with its exact factory', () => {
     const { core, dependencies } = createComposition()
     const customFactory = vi.fn()
@@ -1381,6 +1408,49 @@ describe('generic preset composition success diagnostics', () => {
     expect(Object.isFrozen(application.result.order)).toBe(true)
     expect(application.result).not.toHaveProperty('mode')
     expect(JSON.stringify(application.result)).not.toMatch(/"(2d|3d|hybrid)"/i)
+    application.dispose()
+  })
+
+  it('uses the validated bundle snapshot when an earlier installer mutates caller input', () => {
+    const { core, dependencies } = createComposition()
+    const replacementInstall = vi.fn(() => ({
+      outputs: ['replacement-output'],
+      dispose: vi.fn()
+    }))
+    const secondInstall = vi.fn(() => ({
+      outputs: ['second-output'],
+      dispose: vi.fn()
+    }))
+    const second = {
+      id: 'package/second',
+      owner: { packageName: '@product/second', name: 'second' },
+      requires: ['package/first'],
+      install: secondInstall
+    }
+    const first = {
+      id: 'package/first',
+      owner: { packageName: '@product/first', name: 'first' },
+      requires: [] as string[],
+      install: vi.fn(() => {
+        second.id = 'mutated-during-apply'
+        second.owner.name = 'mutated-during-apply'
+        second.requires[0] = 'mutated-during-apply'
+        second.install = replacementInstall
+        return { outputs: ['first-output'], dispose: vi.fn() }
+      })
+    }
+
+    const application = applyPreset(core, {
+      dependencies,
+      capabilityBundles: [first, second]
+    })
+
+    expect(secondInstall).toHaveBeenCalledOnce()
+    expect(replacementInstall).not.toHaveBeenCalled()
+    expect(application.result.capabilityBundles).toEqual([
+      'package/first',
+      'package/second'
+    ])
     application.dispose()
   })
 })

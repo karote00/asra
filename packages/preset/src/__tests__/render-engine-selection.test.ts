@@ -30,6 +30,7 @@ const createComposition = (renderOverride?: PresetDependencies['render']) => {
       renderOverride ??
       ({
         setEngineFactory,
+        getElementById: () => undefined,
         getViewportPosition: () => ({ x: 0, y: 0 }),
         getViewportScale: () => 1,
         getMousePosInWorkspace: () => ({ x: 0, y: 0 }),
