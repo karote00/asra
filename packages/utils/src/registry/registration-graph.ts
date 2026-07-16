@@ -574,6 +574,26 @@ export class RegistrationGraph {
     if (incoming?.size === 0) this.incomingRelationsByTarget.delete(targetKey)
   }
 
+  private getCurrentRelation(
+    relation: RegistrationRelationMetadata
+  ): RegistrationRelationMetadata | undefined {
+    return this.outgoingRelationsBySource
+      .get(refKey(relation.source))
+      ?.get(relation.name)
+  }
+
+  private isSameRelation(
+    current: RegistrationRelationMetadata,
+    expected: RegistrationRelationMetadata
+  ): boolean {
+    return (
+      refKey(current.source) === refKey(expected.source) &&
+      current.name === expected.name &&
+      refKey(current.target) === refKey(expected.target) &&
+      current.onTargetUnregister === expected.onTargetUnregister
+    )
+  }
+
   private prepareUnregister(root: RegistrationRef): PendingUnregister {
     const queue: RegistrationRef[] = [cloneRef(root)]
     const visited = new Set<string>()
@@ -670,6 +690,14 @@ export class RegistrationGraph {
       ) {
         const key = relationKey(relation)
         if (pending.processedDetachRelationKeys.has(key)) continue
+        const currentRelation = this.getCurrentRelation(relation)
+        if (
+          !currentRelation ||
+          !this.isSameRelation(currentRelation, relation)
+        ) {
+          pending.processedDetachRelationKeys.add(key)
+          continue
+        }
         const source = this.nodesByRef.get(refKey(relation.source))
         try {
           source?.handlers.detachRelation?.(cloneRelation(relation))
@@ -681,13 +709,16 @@ export class RegistrationGraph {
             { ...this.relationDetails(relation), cause }
           )
         }
-        this.removeRelationRecord(relation)
+        this.removeRelationRecord(currentRelation)
         pending.processedDetachRelationKeys.add(key)
       }
     }
     pending.relations.forEach((relation) => {
       if (!pending.processedDetachRelationKeys.has(relationKey(relation))) {
-        this.removeRelationRecord(relation)
+        const currentRelation = this.getCurrentRelation(relation)
+        if (currentRelation && this.isSameRelation(currentRelation, relation)) {
+          this.removeRelationRecord(currentRelation)
+        }
       }
     })
     pending.relationsProcessed = true

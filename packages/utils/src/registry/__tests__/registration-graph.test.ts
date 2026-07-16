@@ -357,6 +357,53 @@ describe('RegistrationGraph', () => {
     expect(events).toEqual(['detach:a', 'detach:b', 'detach:b'])
   })
 
+  it('reconciles a pending detach with current adjacency before retrying owner cleanup', () => {
+    let detachAttempts = 0
+    const graph = new RegistrationGraph()
+    graph.registerNode(node('property', 'fills'))
+    graph.registerNode(node('property', 'strokes'))
+    graph.registerNode(
+      node('component', 'shape', {
+        handlers: {
+          detachRelation: () => {
+            detachAttempts += 1
+            if (detachAttempts === 1) throw new Error('detach failed')
+          }
+        }
+      })
+    )
+    graph.defineRelation(ref('component', 'shape'), {
+      name: 'paint',
+      target: ref('property', 'fills'),
+      onTargetUnregister: 'detach'
+    })
+
+    expectError(
+      () => graph.unregister(ref('property', 'fills')),
+      'RELATION_REMOVE_FAILED'
+    )
+    graph.removeRelation(ref('component', 'shape'), 'paint')
+    graph.defineRelation(ref('component', 'shape'), {
+      name: 'paint',
+      target: ref('property', 'strokes'),
+      onTargetUnregister: 'detach'
+    })
+
+    expect(graph.unregister(ref('property', 'fills'))).toMatchObject({
+      ok: true,
+      detachedSources: [ref('component', 'shape')]
+    })
+    expect(detachAttempts).toBe(1)
+    expect(graph.getOutgoingRelations(ref('component', 'shape'))).toEqual([
+      {
+        source: ref('component', 'shape'),
+        name: 'paint',
+        target: ref('property', 'strokes'),
+        onTargetUnregister: 'detach'
+      }
+    ])
+  })
+
   it('rejects mutations after composition closes', () => {
     let open = true
     const graph = new RegistrationGraph({ isCompositionOpen: () => open })

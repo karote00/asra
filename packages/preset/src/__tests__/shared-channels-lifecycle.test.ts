@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import * as coreFacade from '@asyra/core'
+import core, * as coreFacade from '@asyra/core'
 import { SharedDataChannelNames } from '@asyra/utils'
 import { registerDefaultSharedDataChannels } from '../subscriptions'
 
@@ -24,10 +24,12 @@ describe('preset shared data channel lifecycle', () => {
   it('keeps channels alive until the last preset lifetime is disposed', () => {
     channelNames.forEach(unregisterChannel)
 
-    const disposeFirst =
-      registerDefaultSharedDataChannels() as unknown as () => void
-    const disposeSecond =
-      registerDefaultSharedDataChannels() as unknown as () => void
+    const disposeFirst = registerDefaultSharedDataChannels(
+      core
+    ) as unknown as () => void
+    const disposeSecond = registerDefaultSharedDataChannels(
+      core
+    ) as unknown as () => void
 
     expect(channelNames.every(coreFacade.hasSharedDataChannel)).toBe(true)
 
@@ -45,7 +47,9 @@ describe('preset shared data channel lifecycle', () => {
       coreFacade.getYjsDataChannel(SharedDataChannelNames.SCENE_TREE)
     )
 
-    const dispose = registerDefaultSharedDataChannels() as unknown as () => void
+    const dispose = registerDefaultSharedDataChannels(
+      core
+    ) as unknown as () => void
     dispose()
 
     expect(

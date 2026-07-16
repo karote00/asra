@@ -1158,6 +1158,13 @@ unregister -> app migration -> core.start()` as the public app route.
     event, selection, shared-channel, subscription, observer, and render-layer
     wiring. Dispose/apply rollback preserves app-owned channels and retries only
     pending cleanup without rerunning completed cleanup.
+  - Supplied Core instances own their shared-channel and observer wiring through
+    their injected Factory; preset does not bypass that boundary through the
+    default singleton. Failed apply rollback remains retryable on the same Core.
+  - Inline component render strategies are explicit graph-owned registrations,
+    while independently registered strategies stay independent.
+  - Registration retry reconciles pending detach work against current adjacency
+    so later formal remove/redefine operations cannot be mistaken for stale work.
   - Generic Preset Composition, product profiles, render-mode selection, and
     multi-engine composition remain outside this plan.
 - Related Plan:

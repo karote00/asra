@@ -37,6 +37,7 @@ const createComposition = () => {
   const dataChannelObservers = new Set<string>()
   const renderLayers = new Set<string>()
   const selections = new Map<string, unknown>()
+  const sharedChannels = new Set<string>()
   const registrations = new Map<string, RegistrationNodeMetadata>()
   const systemProperties = new Map<string, BehaviorSubject<unknown>>()
   const zoomTo = vi.fn()
@@ -127,6 +128,17 @@ const createComposition = () => {
     }),
     unregisterDataChannelObserver: vi.fn((name: string) =>
       dataChannelObservers.delete(name)
+    ),
+    hasSharedDataChannel: vi.fn((name: string) => sharedChannels.has(name)),
+    getYjsDataChannel: vi.fn((name: string) => ({ name })),
+    registerSharedDataChannel: vi.fn((name: string) => {
+      if (sharedChannels.has(name)) {
+        throw new Error(`Shared channel "${name}" is already registered`)
+      }
+      sharedChannels.add(name)
+    }),
+    unregisterSharedDataChannel: vi.fn((name: string) =>
+      sharedChannels.delete(name)
     ),
     registerRenderLayer: vi.fn((registration: { name: string }) => {
       renderLayers.add(registration.name)
@@ -260,6 +272,7 @@ const createComposition = () => {
     dataChannelObservers,
     renderLayers,
     selections,
+    sharedChannels,
     registrations,
     systemProperties,
     zoomTo,
@@ -383,6 +396,7 @@ describe('preset startup composition contract', () => {
       dataChannelObservers,
       renderLayers,
       selections,
+      sharedChannels,
       systemProperties,
       zoomTo
     } = createComposition()
@@ -422,15 +436,63 @@ describe('preset startup composition contract', () => {
     expect(dataChannelObservers.size).toBeGreaterThan(0)
     expect(renderLayers.size).toBe(2)
     expect(selections.size).toBeGreaterThan(0)
+    expect(sharedChannels.size).toBe(3)
 
     expect(application.dispose()).toMatchObject({ ok: true })
     expect(events.size).toBe(0)
     expect(dataChannelObservers.size).toBe(0)
     expect(renderLayers.size).toBe(0)
     expect(selections.size).toBe(0)
+    expect(sharedChannels.size).toBe(0)
 
     const reappliedApplication = isolatedApplyPreset(core)
     expect(reappliedApplication.dispose()).toMatchObject({ ok: true })
+  })
+
+  it('retries failed apply rollback cleanup before installing the next preset lifetime', () => {
+    const { core, renderLayers } = createComposition()
+    let renderLayerRegistrationCount = 0
+    let failLateRegistration = true
+    let failRollbackCleanup = true
+
+    vi.mocked(core.registerRenderLayer).mockImplementation(
+      (registration: { name: string }) => {
+        renderLayerRegistrationCount += 1
+        if (failLateRegistration && renderLayerRegistrationCount === 2) {
+          throw new Error('late preset layer registration failed')
+        }
+        if (renderLayers.has(registration.name)) {
+          throw new Error(`Render layer "${registration.name}" is stale`)
+        }
+        renderLayers.add(registration.name)
+      }
+    )
+    vi.mocked(core.unregisterRenderLayer).mockImplementation((name: string) => {
+      if (failRollbackCleanup) {
+        failRollbackCleanup = false
+        throw new Error('preset layer rollback cleanup failed')
+      }
+      return renderLayers.delete(name)
+    })
+
+    let rollbackError: unknown
+    try {
+      applyPreset(core)
+    } catch (error) {
+      rollbackError = error
+    }
+    expect(rollbackError).toBeInstanceOf(RegistrationRelationError)
+    expect((rollbackError as RegistrationRelationError).result).toMatchObject({
+      code: 'UNREGISTER_FAILED',
+      pendingCleanup: ['render-layer:selection-overlay']
+    })
+    expect(renderLayers.size).toBe(1)
+
+    failLateRegistration = false
+    const application = applyPreset(core)
+    expect(renderLayers.size).toBe(2)
+    expect(application.dispose()).toMatchObject({ ok: true })
+    expect(renderLayers.size).toBe(0)
   })
 
   it('retries only pending preset lifecycle cleanup after a disposal failure', () => {

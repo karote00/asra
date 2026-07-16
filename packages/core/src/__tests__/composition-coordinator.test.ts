@@ -202,6 +202,42 @@ describe('Core composition coordinator', () => {
     expect(() => core.getRegistrationRelations()).not.toThrow()
   })
 
+  it('tracks and recursively cleans a component definition inline render strategy', () => {
+    const { core } = createCoreForTest()
+    core.definePropertyComponent({ type: FILLS, defaults: {} })
+    const inlineStrategy = vi.fn()
+    const definition = {
+      type: SHAPE,
+      idPrefix: SHAPE,
+      namePrefix: 'Inline Render Shape',
+      properties: [{ name: 'fills', type: FILLS }],
+      renderStrategy: inlineStrategy
+    }
+
+    core.defineComponent(definition)
+
+    expect(
+      core.getRegistration({ kind: 'render-strategy', key: SHAPE })
+    ).toEqual({
+      ref: { kind: 'render-strategy', key: SHAPE },
+      owner: { packageName: 'app', name: SHAPE }
+    })
+    expect(core.getRegistrationRelations()).toContainEqual({
+      source: { kind: 'render-strategy', key: SHAPE },
+      name: 'component-owner',
+      target: { kind: 'component', key: SHAPE },
+      onTargetUnregister: 'unregister-source'
+    })
+
+    expect(core.unregisterComponent(SHAPE)).toBe(true)
+    expect(componentRegistry.has(SHAPE)).toBe(false)
+    expect(renderStrategyRegistry.has(SHAPE)).toBe(false)
+    expect(
+      core.getRegistration({ kind: 'render-strategy', key: SHAPE })
+    ).toBeUndefined()
+    expect(() => core.defineComponent(definition)).not.toThrow()
+  })
+
   it('records definition-local owner metadata and recursively unregisters declared opaque dependents', () => {
     const { core } = createCoreForTest()
     const owner = {

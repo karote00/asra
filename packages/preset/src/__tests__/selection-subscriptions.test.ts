@@ -40,6 +40,7 @@ describe('Preset Selection Subscriptions', () => {
     const observers = new Map<string, { onChange: (change: unknown) => void }>()
     const selections = new Map<string, BaseSelection>()
     const systemPropertyMap = new Map<string, BehaviorSubject<unknown>>()
+    const sharedChannels = new Set<string>()
 
     applyPreset(
       {
@@ -51,6 +52,13 @@ describe('Preset Selection Subscriptions', () => {
         registerDataChannelObserver: vi.fn((registration) => {
           observers.set(registration.name, registration)
         }),
+        hasSharedDataChannel: (name: string) => sharedChannels.has(name),
+        getYjsDataChannel: (name: string) => ({ name }),
+        registerSharedDataChannel: (name: string) => {
+          sharedChannels.add(name)
+        },
+        unregisterSharedDataChannel: (name: string) =>
+          sharedChannels.delete(name),
         getPresetDependencies: createDeps,
         registerRenderLayer: vi.fn(),
         registerPropertySchema: vi.fn(),

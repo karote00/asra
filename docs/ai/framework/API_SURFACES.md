@@ -55,6 +55,9 @@ Lifecycle and integration:
   - `registerRenderStrategy(type, strategy, registration?): void`
   - `unregisterRenderStrategy(type): boolean`
   - `unregisterUIProperty(key): boolean`
+  - an inline component `renderStrategy` receives its own render-strategy node
+    and an `unregister-source` ownership relation to that component; a strategy
+    registered separately remains independent
 - graph metadata queries:
   - `getRegistration({ kind, key })`
   - `getRegistrations()`
@@ -103,6 +106,13 @@ Render bridge:
 - `registerDataChannelObserver(registration: DataChannelObserverRegistration): void`
   - registration shape: `{ name: string; channel: string; onChange: (change) => void }`
 - `unregisterDataChannelObserver(name: string): boolean`
+- `registerSharedDataChannel(name, yArray): void`
+- `unregisterSharedDataChannel(name): boolean`
+- `hasSharedDataChannel(name): boolean`
+- `getYjsDataChannel(name): Y.Array<unknown>`
+  - these methods and data-channel observers route through the Factory injected
+    into that Core instance; standalone package helpers retain default-singleton
+    compatibility
 - `renderIsReady(): void`
 
 Scene/model bridge:
@@ -338,6 +348,9 @@ Managed property bridges:
   subscriptions, data-channel observers, and render layers; it preserves
   app-owned shared channels, skips nodes already removed through Core, and
   retries only pending cleanup after a structured cleanup failure
+- shared channels and data-channel observers are installed through the supplied
+  Core instance; a failed apply whose rollback cleanup is still pending is
+  retained and retried before a later `applyPreset` on that same Core
 - exports pure component definitions and separate render strategies for
   Rectangle, Oval, Vector, Frame, and Group; importing preset modules has no
   component-registration side effect

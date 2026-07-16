@@ -18,11 +18,20 @@ const PROPERTY_TYPE = 'core-facade-property'
 
 const createCoreForTest = () => {
   const props = new PropsManager()
+  const sharedChannels = new Map<string, unknown>()
   const core = new Core({
     inputSystem: {} as never,
     factory: {
       registerTransactionReplayHandler: vi.fn(() => () => undefined),
-      subscribeToTransactionStatus: vi.fn(() => () => undefined)
+      subscribeToTransactionStatus: vi.fn(() => () => undefined),
+      registerSharedDataChannel: vi.fn((name: string, channel: unknown) => {
+        sharedChannels.set(name, channel)
+      }),
+      unregisterSharedDataChannel: vi.fn((name: string) =>
+        sharedChannels.delete(name)
+      ),
+      hasSharedDataChannel: vi.fn((name: string) => sharedChannels.has(name)),
+      getYjsDataChannel: vi.fn((name: string) => ({ name }))
     } as never,
     props,
     render: {
@@ -33,7 +42,7 @@ const createCoreForTest = () => {
     selection: {} as never,
     systemContext: {} as never
   })
-  return { core, props }
+  return { core, props, sharedChannels }
 }
 
 describe('Core registration facade', () => {
@@ -164,6 +173,26 @@ describe('Core registration facade', () => {
     expect(presetApi.unregisterDataChannelObserver).toBe(
       core.unregisterDataChannelObserver
     )
+    expect(presetApi.registerSharedDataChannel).toBe(
+      core.registerSharedDataChannel
+    )
+    expect(presetApi.unregisterSharedDataChannel).toBe(
+      core.unregisterSharedDataChannel
+    )
+    expect(presetApi.hasSharedDataChannel).toBe(core.hasSharedDataChannel)
+    expect(presetApi.getYjsDataChannel).toBe(core.getYjsDataChannel)
+  })
+
+  it('routes shared data channels through the injected Factory', () => {
+    const { core, sharedChannels } = createCoreForTest()
+    const channel = { owner: 'injected-factory' }
+
+    core.registerSharedDataChannel('core-channel', channel as never)
+
+    expect(core.hasSharedDataChannel('core-channel')).toBe(true)
+    expect(sharedChannels.get('core-channel')).toBe(channel)
+    expect(core.unregisterSharedDataChannel('core-channel')).toBe(true)
+    expect(sharedChannels.has('core-channel')).toBe(false)
   })
 
   it('creates configured runtime values without changing schema semantics', () => {

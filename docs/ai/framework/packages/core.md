@@ -34,6 +34,7 @@ System orchestrator and lifecycle coordinator.
 - register/unregister event definitions and selection channels
 - register render interaction targets + handlers
 - register render YJS change observers (`name + channel + onChange`)
+- register/query/unregister shared data channels through the injected Factory
 - register UI/system managed properties
 - register load/save hooks
 - register load diagnostics hooks (with disposer return for app-level unsubscribe)
@@ -53,6 +54,9 @@ System orchestrator and lifecycle coordinator.
   runtime container is not required.
 - A custom `Core` instance must receive and consistently use the intended
   package instances and instance-bound subscription wiring.
+- Shared-channel access and data-channel observer activation are owned by that
+  Core's injected Factory. Different Core instances may register the same
+  observer name without sharing registrations or cleanup state.
 - Default singleton imports intentionally share state and subscriptions.
 
 ## Runtime Contracts
@@ -91,9 +95,16 @@ System orchestrator and lifecycle coordinator.
 - package definitions may carry `registration.owner` and explicit
   `registration.relations`; omitted app owners use
   `{ packageName: 'app', name: registrationKey }`
+- a component definition with an inline render strategy creates a separate
+  render-strategy node related to the component with `unregister-source`, so
+  full component unregister removes that owned strategy; an independently
+  registered same-type strategy is not inferred to be component-owned
 - feature removal disposes the feature owner's pending handlers and exact event
   subscriptions; an active feature must be ended before removal
 - data-channel observer registration resolves shared data by channel name, not raw YJS object instances
+- Core owns one observer registry per instance and activates it through the
+  injected Factory; default standalone observer helpers remain a compatibility
+  path for the default Core only
 - default shared data-channel registration lifecycle is preset-owned
   (core/factory provide register/unregister APIs only)
 - the strict preset install tier includes owner cleanup façades for events,

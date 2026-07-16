@@ -298,6 +298,10 @@ type CoreExtensionApiKeys =
   | 'getSelection'
   | 'registerDataChannelObserver'
   | 'unregisterDataChannelObserver'
+  | 'registerSharedDataChannel'
+  | 'unregisterSharedDataChannel'
+  | 'hasSharedDataChannel'
+  | 'getYjsDataChannel'
 
 type CorePresetInstallApiKeys =
   | 'registerEvent'
@@ -307,6 +311,10 @@ type CorePresetInstallApiKeys =
   | 'createRenderGradientFillStyle'
   | 'registerDataChannelObserver'
   | 'unregisterDataChannelObserver'
+  | 'registerSharedDataChannel'
+  | 'unregisterSharedDataChannel'
+  | 'hasSharedDataChannel'
+  | 'getYjsDataChannel'
   | 'registerPropertySchema'
   | 'definePropertyComponent'
   | 'unregisterPropertyRegistration'

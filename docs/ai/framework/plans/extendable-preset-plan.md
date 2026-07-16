@@ -161,7 +161,10 @@ An unregister result reports the root registration, removed relations,
 detached sources, recursively unregistered sources, removed owned
 registrations, and cleanup status. Cleanup failure preserves retryable state:
 completed cleanup steps do not run again, pending cleanup remains visible, and
-a conflicting definition cannot be registered until cleanup succeeds.
+a conflicting definition cannot be registered until cleanup succeeds. Retry
+reconciles each pending relation with current adjacency: an edge already
+removed through the formal API is complete, while a same-name relation now
+pointing to a different target is preserved.
 
 ## Owner Contracts
 
@@ -221,6 +224,8 @@ incomingRelationsByTarget
 ### `@asyra/core`: composition coordinator
 
 - Core owns one graph/coordinator for its injected runtimes.
+- Core routes shared-channel and data-channel observer APIs through its injected
+  Factory; observer registration identity is isolated per Core instance.
 - Standalone helpers continue to target the default Core compatibility
   instance; preset installers always use the supplied Core facade.
 - Graph-aware `unregisterPropertyType` detaches structural dependents, follows
@@ -242,13 +247,20 @@ incomingRelationsByTarget
   side effect.
 - Property, component, render, feature, and UI defaults write automatic owner
   metadata and declared dependencies into the supplied Core graph.
+- The compatible `defineComponent(... renderStrategy)` form creates an explicit
+  render-strategy node with an `unregister-source` ownership relation to that
+  component. A strategy registered separately through
+  `core.registerRenderStrategy` remains independent.
 - `PresetApplication.dispose()` uses the same canonical graph. Registrations
   already removed through Core are completed and are not cleaned twice. Its
   application lifetime also owns the events, selections, shared channels,
   system subscriptions, data-channel observers, and render layers installed by
   that call. Cleanup failures remain retryable and completed cleanup is not
   repeated. Graph disposal is preflighted before runtime teardown so a closed
-  composition cannot partially dismantle active wiring.
+  composition cannot partially dismantle active wiring. Shared channels and
+  data-channel observers use the supplied Core/Factory instance. If apply
+  rollback cleanup fails, that Core retains the pending lifetime and its next
+  `applyPreset` retries cleanup before installing defaults.
 
 ### App composition
 
@@ -307,12 +319,16 @@ core.unregisterPropertyType(PropertyTypes.FILLS)
 10. Direct Core unregister followed by `PresetApplication.dispose()` does not
     perform owned cleanup twice; late apply failure and disposal remove runtime
     events, selections, channels, subscriptions, observers, and layers without
-    stale callbacks, and retry only pending cleanup.
+    stale callbacks, and retry only pending cleanup. If apply rollback cleanup
+    itself fails, the next apply on that Core first resumes the old pending
+    cleanup.
 11. Migration runs before validation; migrated data loads, while an unknown
     unregistered property type is diagnosed and skipped instead of becoming
     `CUSTOM`.
 12. Existing `applyPreset(core)`, Asyra Design startup, engine boundaries, and
-    monorepo import boundaries remain compatible; no path infers product mode.
+    monorepo import boundaries remain compatible; inline component render
+    strategy ownership cleans deterministically while separately registered
+    strategies remain independent, and no path infers product mode.
 
 ## Definition of Done
 

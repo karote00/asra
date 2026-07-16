@@ -45,16 +45,21 @@ composition; it does not own app policy or framework runtime semantics.
 - constructor-mode property runtimes and render/UI registrations declare opaque
   dependencies through local `registration.relations`; Core derives structural
   component and config-child relations automatically.
-- `PresetApplication.dispose()` uses Core graph-aware unregister APIs, skips a
-  The same handle removes its events, selections, preset-owned shared channels,
+- `PresetApplication.dispose()` uses Core graph-aware unregister APIs and skips
+  nodes already removed through Core. The same handle removes its events,
+  selections, preset-owned shared channels,
   system subscriptions, data-channel observers, and render layers. App-owned
   pre-existing shared channels are preserved.
+- Shared channels and data-channel observers are installed through the supplied
+  Core instance; preset never falls back to a module-global Core or Factory.
 - cleanup failure reports pending resource keys through
   `RegistrationRelationError`; retry runs only pending cleanup.
 - graph disposal is preflighted before runtime teardown, so disposal rejected by
   a closed composition does not partially dismantle active wiring.
 - if later preset wiring fails, `applyPreset` disposes all graph and runtime
-  defaults installed by that call before rethrowing.
+  defaults installed by that call before rethrowing. If rollback cleanup itself
+  remains pending, preset retains that temporary application internally and the
+  next `applyPreset` on the same Core retries it before installing new defaults.
 
 ## App Customization Route
 

@@ -123,6 +123,7 @@ type PendingPersistence =
 
 const DEFAULT_VERSION = '1.0.0'
 const DATA_VERSION = '1.0.0'
+const INLINE_COMPONENT_RENDER_RELATION = 'component-owner'
 const EMPTY_SCENE_TREE_DATA: SceneTreeRawData = {
   workspace: '',
   workspaceList: [],
@@ -147,6 +148,7 @@ class Core implements CoreAPIs {
   private loadDiagnosticsHooks: LoadDiagnosticsHook[] = []
   private persistenceQueue: Promise<void> = Promise.resolve()
   private compositionOpen = true
+  private readonly dataChannelObservers: dataChannelObserver.DataChannelObserverRegistry
   private readonly registrationGraph = new RegistrationGraph({
     isCompositionOpen: () => this.compositionOpen
   })
@@ -200,6 +202,8 @@ class Core implements CoreAPIs {
   getSystemPropertyObservable!: SystemManagedPropertyAPIs['getSystemPropertyObservable']
 
   constructor(readonly deps: CoreDeps) {
+    this.dataChannelObservers =
+      new dataChannelObserver.DataChannelObserverRegistry(deps.factory)
     const apis = createAPIs(
       deps.sceneTree,
       deps.render,
@@ -262,11 +266,36 @@ class Core implements CoreAPIs {
   registerDataChannelObserver<TChange = unknown>(
     registration: DataChannelObserverRegistration<TChange>
   ): void {
-    dataChannelObserver.registerDataChannelObserver(registration)
+    this.dataChannelObservers.register(registration)
   }
 
   unregisterDataChannelObserver(name: string): boolean {
-    return dataChannelObserver.unregisterDataChannelObserver(name)
+    return this.dataChannelObservers.unregister(name)
+  }
+
+  registerSharedDataChannel(
+    name: Parameters<Factory['registerSharedDataChannel']>[0],
+    channel: Parameters<Factory['registerSharedDataChannel']>[1]
+  ): void {
+    this.deps.factory.registerSharedDataChannel(name, channel)
+  }
+
+  unregisterSharedDataChannel(
+    name: Parameters<Factory['unregisterSharedDataChannel']>[0]
+  ): boolean {
+    return this.deps.factory.unregisterSharedDataChannel(name)
+  }
+
+  hasSharedDataChannel(
+    name: Parameters<Factory['hasSharedDataChannel']>[0]
+  ): boolean {
+    return this.deps.factory.hasSharedDataChannel(name)
+  }
+
+  getYjsDataChannel(
+    name: Parameters<Factory['getYjsDataChannel']>[0]
+  ): ReturnType<Factory['getYjsDataChannel']> {
+    return this.deps.factory.getYjsDataChannel(name)
   }
 
   /**
@@ -336,7 +365,7 @@ class Core implements CoreAPIs {
       this.setupInputSystem(result.canvas)
     }
 
-    dataChannelObserver.initRegisteredDataChannelObservers()
+    this.dataChannelObservers.init()
 
     // Phase 2: Load data from persistence
     await this.loadFromPersistence()
@@ -660,6 +689,20 @@ class Core implements CoreAPIs {
         `Component "${definition.type}" is already registered`
       )
     }
+    const inlineRenderRef = {
+      kind: 'render-strategy',
+      key: definition.type
+    }
+    if (
+      definition.renderStrategy &&
+      (this.registrationGraph.getRegistration(inlineRenderRef) ||
+        renderStrategyRegistry.has(definition.type))
+    ) {
+      this.registrationConflict(
+        inlineRenderRef,
+        `Render strategy for "${definition.type}" is already registered`
+      )
+    }
     const propertyNames = new Set<string>()
     for (const property of definition.properties) {
       if (propertyNames.has(property.name)) {
@@ -693,6 +736,19 @@ class Core implements CoreAPIs {
 
     defineComponentRuntime(definition)
     this.ensureComponentNode(definition.type, definition.registration)
+    if (definition.renderStrategy) {
+      this.ensureRenderStrategyNode(
+        definition.type,
+        definition.registration?.owner
+          ? { owner: definition.registration.owner }
+          : undefined
+      )
+      this.registrationGraph.defineRelation(inlineRenderRef, {
+        name: INLINE_COMPONENT_RENDER_RELATION,
+        target: componentRef,
+        onTargetUnregister: 'unregister-source'
+      })
+    }
     definition.properties.forEach((property) => {
       this.ensurePropertyNode(property.type)
       this.registrationGraph.defineRelation(

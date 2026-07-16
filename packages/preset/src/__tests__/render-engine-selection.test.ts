@@ -9,6 +9,7 @@ import type { PresetCoreAPIs, PresetDependencies } from '../types'
 
 const createComposition = (renderOverride?: PresetDependencies['render']) => {
   const systemProperties = new Map<string, BehaviorSubject<unknown>>()
+  const sharedChannels = new Set<string>()
   const setEngineFactory = renderOverride
     ? vi.spyOn(renderOverride, 'setEngineFactory')
     : vi.fn()
@@ -43,6 +44,12 @@ const createComposition = (renderOverride?: PresetDependencies['render']) => {
       subscribe: () => new Subscription()
     })),
     registerDataChannelObserver: vi.fn(),
+    hasSharedDataChannel: (name: string) => sharedChannels.has(name),
+    getYjsDataChannel: (name: string) => ({ name }),
+    registerSharedDataChannel: (name: string) => {
+      sharedChannels.add(name)
+    },
+    unregisterSharedDataChannel: (name: string) => sharedChannels.delete(name),
     getPresetDependencies: () => dependencies,
     registerRenderLayer: vi.fn(),
     registerPropertySchema: vi.fn(),

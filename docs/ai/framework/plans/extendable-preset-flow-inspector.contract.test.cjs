@@ -73,6 +73,10 @@ test('shared primitive owns adjacency, deterministic traversal, and structured c
   assert.match(contract, /visited set/i)
   assert.match(contract, /RegistrationRelationError/i)
   assert.match(contract, /retryable/i)
+  assert.match(
+    contract,
+    /retry.*current adjacency.*same name.*different target.*preserved/i
+  )
   assert.match(contract, /before, after, and append/i)
   assert.doesNotMatch(
     contract,
@@ -130,7 +134,14 @@ test('Core closes composition permanently before renderer effects', () => {
   assert.match(contract, /renderer initialization later fails/i)
   assert.match(contract, /before renderer side effects/i)
   assert.match(contract, /public facade/i)
+  assert.match(contract, /injected Factory.*shared channels.*observers/i)
+  assert.match(contract, /same observer name.*different Core/i)
   assert.match(closeRoute.predicate, /before renderer effects/i)
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'packages/core/src/data-channel-observer.ts'
+    )
+  )
 })
 
 test('graph-aware unregister detaches structural sources and recursively cleans hard sources', () => {
@@ -175,6 +186,8 @@ test('preset owns explicit default installation and graph-backed disposal', () =
   )
   assert.match(contract, /retry.*pending.*completed.*not.*run again/i)
   assert.match(contract, /graph preflight.*before runtime teardown/i)
+  assert.match(contract, /supplied Core.*shared channels.*observers/i)
+  assert.match(contract, /next apply.*retry.*pending rollback cleanup/i)
   assert.match(contract, /preset-specific feature-registration target/i)
   assert.ok(owner.implementationBoundary.includes('packages/core/src/core.ts'))
   assert.ok(
@@ -221,6 +234,11 @@ test('opaque owners keep declarations local and dispose all owned runtime resour
   assert.match(contract, /queued and pending handlers/i)
   assert.match(contract, /managed source subscription/i)
   assert.match(contract, /unregister-source/i)
+  assert.match(
+    contract,
+    /inline component render strategy.*render-strategy node.*unregister-source/i
+  )
+  assert.match(contract, /separately registered render strategy.*independent/i)
   assert.match(contract, /no declared relation is not analyzed/i)
   assert.ok(owner.implementationBoundary.includes('packages/core/src/core.ts'))
 })

@@ -1,10 +1,5 @@
-import {
-  getYjsDataChannel,
-  hasSharedDataChannel,
-  registerSharedDataChannel,
-  unregisterSharedDataChannel
-} from '@asyra/core'
 import { SharedDataChannelNames } from '@asyra/utils'
+import type { PresetCoreAPIs } from '../types'
 
 type SharedDataChannelName = string
 
@@ -13,7 +8,18 @@ interface SharedChannelLifetime {
   ownedByPreset: boolean
 }
 
-const channelLifetimes = new Map<SharedDataChannelName, SharedChannelLifetime>()
+type SharedChannelCore = Pick<
+  PresetCoreAPIs,
+  | 'getYjsDataChannel'
+  | 'hasSharedDataChannel'
+  | 'registerSharedDataChannel'
+  | 'unregisterSharedDataChannel'
+>
+
+const channelLifetimesByCore = new WeakMap<
+  SharedChannelCore,
+  Map<SharedDataChannelName, SharedChannelLifetime>
+>()
 
 const DEFAULT_CHANNEL_NAMES = [
   SharedDataChannelNames.SCENE_TREE,
@@ -21,7 +27,13 @@ const DEFAULT_CHANNEL_NAMES = [
   SharedDataChannelNames.PROPS
 ] as const
 
-export const registerDefaultSharedDataChannels = (): (() => void) => {
+export const registerDefaultSharedDataChannels = (
+  core: SharedChannelCore
+): (() => void) => {
+  const channelLifetimes =
+    channelLifetimesByCore.get(core) ??
+    new Map<SharedDataChannelName, SharedChannelLifetime>()
+  channelLifetimesByCore.set(core, channelLifetimes)
   const acquiredChannels: SharedDataChannelName[] = []
   let disposed = false
 
@@ -43,10 +55,13 @@ export const registerDefaultSharedDataChannels = (): (() => void) => {
       }
 
       if (lifetime.ownedByPreset) {
-        unregisterSharedDataChannel(name)
+        core.unregisterSharedDataChannel(name)
       }
       channelLifetimes.delete(name)
       acquiredChannels.splice(index, 1)
+    }
+    if (channelLifetimes.size === 0) {
+      channelLifetimesByCore.delete(core)
     }
     disposed = true
   }
@@ -60,9 +75,9 @@ export const registerDefaultSharedDataChannels = (): (() => void) => {
         return
       }
 
-      const ownedByPreset = !hasSharedDataChannel(name)
+      const ownedByPreset = !core.hasSharedDataChannel(name)
       if (ownedByPreset) {
-        registerSharedDataChannel(name, getYjsDataChannel(name))
+        core.registerSharedDataChannel(name, core.getYjsDataChannel(name))
       }
 
       channelLifetimes.set(name, { count: 1, ownedByPreset })

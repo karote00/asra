@@ -93,7 +93,9 @@
         'PresetApplication.dispose() uses the same canonical graph and treats nodes already removed through Core as completed cleanup.',
         'One preset lifetime owns its events, selections, shared channels, system subscriptions, data-channel observers, render layers, and graph registrations.',
         'Cleanup retry reports pending resources; completed cleanup does not run again.',
-        'Preset disposal completes graph preflight before runtime teardown so a closed composition leaves active wiring intact.'
+        'Preset disposal completes graph preflight before runtime teardown so a closed composition leaves active wiring intact.',
+        'The supplied Core facade owns shared channels and data-channel observers; preset does not bypass it through default singletons.',
+        'After apply rollback cleanup fails, the next apply on that Core will retry pending rollback cleanup before installing defaults.'
       ],
       bypasses: [
         'An app that skips the preset receives no preset registrations or side effects.',
@@ -173,15 +175,19 @@
         'The first core.start() closes relation mutation and unregisterPropertyType permanently at method entry, even if renderer initialization later fails.',
         'Dangling relation validation runs after closure and before renderer side effects.',
         'Every closed or dangling failure uses RegistrationRelationError with a stable structured code.',
-        'Standalone helpers retain default-Core compatibility while preset always uses the supplied Core instance.'
+        'Standalone helpers retain default-Core compatibility while preset always uses the supplied Core instance.',
+        'Each Core injected Factory owns shared channels and data-channel observers for that Core.',
+        'The same observer name may exist on a different Core because observer registries are instance-owned.'
       ],
       bypasses: [
         'Core consumers that never call applyPreset can still register their own definitions before start.',
-        'Low-level property schema/runtime cleanup remains separate from graph-aware unregisterPropertyType.'
+        'Low-level property schema/runtime cleanup remains separate from graph-aware unregisterPropertyType.',
+        'Default-Core standalone observer helpers continue to use the default Factory compatibility instance.'
       ],
       allowedContributors: [
         '@asyra/utils registration graph',
         'Core-injected scene-tree, props-manager, render, and ui-context owners',
+        'Core-injected Factory shared-channel and observer owner',
         '@asyra/feature-system public APIs'
       ],
       forbiddenContributors: [
@@ -195,6 +201,7 @@
       implementationBoundary: [
         'packages/core/src/core.ts',
         'packages/core/src/index.ts',
+        'packages/core/src/data-channel-observer.ts',
         'packages/core/src/define-property-component.ts',
         'packages/core/src/__tests__/**',
         'docs/ai/framework/API_SURFACES.md',
@@ -347,16 +354,19 @@
         'Feature execution priority, exclusivity, and session semantics remain unchanged.',
         'Feature unregister removes queued and pending handlers, sessions, input listeners, and reactive subscriptions without stale side effects.',
         'Render strategy unregister removes only the named strategy and its owned relation declarations.',
+        'An inline component render strategy creates a distinct render-strategy node with an unregister-source relation to its component owner.',
         'UI property unregister disposes its managed source subscription and removes registry/filter metadata.',
         'Hard opaque dependencies use unregister-source and recursively clean the source owner.'
       ],
       bypasses: [
         'Opaque code with no declared relation is not analyzed by the graph.',
-        'A shared transport subscription remains until its last registered participant is removed.'
+        'A shared transport subscription remains until its last registered participant is removed.',
+        'A separately registered render strategy remains independent when the same-key component is unregistered.'
       ],
       allowedContributors: [
         'feature-system registration lifecycle',
         'render strategy registry',
+        'Core component-definition compatibility adapter',
         'ui-context PropertyRegistry',
         'registration graph owner handlers'
       ],
@@ -412,6 +422,7 @@
         'detach rebuilds and preserves the source; unregister-source queues and recursively removes the source with a visited set.',
         'Successful results list root, removed relations, detached sources, recursively unregistered sources, removed owned registrations, and cleanup status.',
         'Cleanup failure keeps retryable state; completed cleanup is not repeated and conflicting registration remains blocked.',
+        'On retry, pending relations reconcile with current adjacency; a removed edge is complete and a relation with the same name but a different target is preserved.',
         'All invalid, missing, conflict, closed, cleanup, and dangling states throw RegistrationRelationError with a stable RegistrationContractErrorCode.',
         'ExtensionRegistry, if retained for package authors, accepts only additive before, after, and append ordering.'
       ],

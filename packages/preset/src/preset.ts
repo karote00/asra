@@ -37,6 +37,11 @@ interface PresetCleanupEntry {
 
 type RegisterPresetCleanup = (key: string, dispose: () => void) => void
 
+const pendingRollbackApplications = new WeakMap<
+  PresetCoreAPIs,
+  PresetApplication
+>()
+
 const isApplyPresetOptions = (
   value: PresetDependencies | ApplyPresetOptions
 ): value is ApplyPresetOptions =>
@@ -89,7 +94,10 @@ const registerPresetRuntimeWiring = (
   registerCleanup: RegisterPresetCleanup
 ): void => {
   registerProperties(core)
-  registerCleanup('shared-data-channels', registerDefaultSharedDataChannels())
+  registerCleanup(
+    'shared-data-channels',
+    registerDefaultSharedDataChannels(core)
+  )
   registerCleanup(
     'render-system-subscriptions',
     registerDefaultRenderSystemSubscriptions(core, resolvedDeps)
@@ -274,6 +282,12 @@ export const applyPreset = (
   core: PresetCoreAPIs,
   dependenciesOrOptions?: PresetDependencies | ApplyPresetOptions
 ): PresetApplication => {
+  const pendingRollback = pendingRollbackApplications.get(core)
+  if (pendingRollback) {
+    pendingRollback.dispose()
+    pendingRollbackApplications.delete(core)
+  }
+
   const registrationsBeforeApply = new Set(
     core.getRegistrations().map(({ ref }) => refKey(ref))
   )
@@ -292,11 +306,26 @@ export const applyPreset = (
     registerCleanup('selections', registerSelections(core))
     registerPresetRuntimeWiring(core, resolvedDeps, registerCleanup)
   } catch (error) {
-    createPresetApplication(
+    const rollbackApplication = createPresetApplication(
       core,
       registrationsBeforeApply,
       cleanupEntries
-    ).dispose()
+    )
+    try {
+      rollbackApplication.dispose()
+    } catch (cleanupError) {
+      pendingRollbackApplications.set(core, rollbackApplication)
+      if (cleanupError instanceof RegistrationRelationError) {
+        throw new RegistrationRelationError({
+          ...cleanupError.result,
+          cause: {
+            applyError: error,
+            cleanupError: cleanupError.result.cause
+          }
+        })
+      }
+      throw cleanupError
+    }
     throw error
   }
 

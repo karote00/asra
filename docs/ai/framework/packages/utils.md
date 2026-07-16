@@ -56,6 +56,9 @@ Provide shared types, ids, registry primitives, and low-level helpers.
   - cleanup is reverse-order and retryable: completed resources do not rerun,
     pending resources remain queryable through the failure result, and the node
     remains registered until cleanup succeeds
+  - retry reconciles each pending detach with current adjacency: an already
+    removed edge is complete, while a newly defined same-name edge with a
+    different target or policy is preserved and never passed to the old handler
   - `RegistrationDefinitionMetadata` lets a package definition carry optional
     owner metadata and local relation declarations without moving its full
     definition into the graph
@@ -77,4 +80,4 @@ Provide shared types, ids, registry primitives, and low-level helpers.
   rollback, unregister, and cleanup behavior.
 - Registration graph tests cover detached metadata, deterministic relation
   order, structural detach, recursive hard cleanup, composition closure,
-  dangling validation, and cleanup retry.
+  dangling validation, cleanup retry, and current-adjacency reconciliation.
