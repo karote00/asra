@@ -1,10 +1,12 @@
-import './components'
 import { createPixiRenderEngine } from '@asyra/render-engine-pixi'
+import { RegistrationRelationError, type RegistrationRef } from '@asyra/utils'
 import { registerEvents } from './events/register-events'
 import {
-  createPresetExtensionRegistry,
-  registerPresetExtensions
-} from './extension-targets'
+  DEFAULT_COMPONENT_DEFINITIONS,
+  DEFAULT_RENDER_STRATEGY_REGISTRATIONS
+} from './components'
+import { registerPropertyComponents } from './props/components'
+import { registerPropertySchemas } from './props/register-property-schemas'
 import {
   registerSelectionOverlayRenderLayer,
   registerVectorPathEditingRenderLayer
@@ -16,32 +18,32 @@ import {
 } from './subscriptions'
 import { registerSelections } from './selection/register-default-selections'
 import { registerProperties } from './ui/register-properties'
+import { PRESET_REGISTRATION_OWNER } from './registration'
 import type {
   ApplyPresetOptions,
   PresetApplication,
+  PresetApplicationDisposeSuccess,
   PresetCoreAPIs,
   PresetDependencies
 } from './types'
 
+const refKey = (ref: RegistrationRef): string => `${ref.kind}\u0000${ref.key}`
+
 const isApplyPresetOptions = (
   value: PresetDependencies | ApplyPresetOptions
 ): value is ApplyPresetOptions =>
-  'renderEngineFactory' in value ||
-  'dependencies' in value ||
-  'extensions' in value
+  'renderEngineFactory' in value || 'dependencies' in value
 
 const resolvePresetComposition = (
   core: PresetCoreAPIs,
   dependenciesOrOptions?: PresetDependencies | ApplyPresetOptions
 ): Required<Pick<ApplyPresetOptions, 'renderEngineFactory'>> & {
   dependencies: PresetDependencies
-  extensions: ApplyPresetOptions['extensions']
 } => {
   if (!dependenciesOrOptions) {
     return {
       dependencies: core.getPresetDependencies(),
-      renderEngineFactory: createPixiRenderEngine,
-      extensions: undefined
+      renderEngineFactory: createPixiRenderEngine
     }
   }
   if (isApplyPresetOptions(dependenciesOrOptions)) {
@@ -49,16 +51,28 @@ const resolvePresetComposition = (
       dependencies:
         dependenciesOrOptions.dependencies ?? core.getPresetDependencies(),
       renderEngineFactory:
-        dependenciesOrOptions.renderEngineFactory ?? createPixiRenderEngine,
-      extensions: dependenciesOrOptions.extensions
+        dependenciesOrOptions.renderEngineFactory ?? createPixiRenderEngine
     }
   }
 
   return {
     dependencies: dependenciesOrOptions,
-    renderEngineFactory: createPixiRenderEngine,
-    extensions: undefined
+    renderEngineFactory: createPixiRenderEngine
   }
+}
+
+const installPresetRegistrations = (core: PresetCoreAPIs): void => {
+  registerPropertySchemas(core)
+  registerPropertyComponents(core)
+
+  DEFAULT_COMPONENT_DEFINITIONS.forEach((definition) => {
+    core.defineComponent(definition)
+  })
+  DEFAULT_RENDER_STRATEGY_REGISTRATIONS.forEach(
+    ({ type, strategy, registration }) => {
+      core.registerRenderStrategy(type, strategy, registration)
+    }
+  )
 }
 
 const registerPresetRuntimeWiring = (
@@ -89,32 +103,105 @@ const registerPresetRuntimeWiring = (
   )
 }
 
+const unregisterPresetRegistration = (
+  core: PresetCoreAPIs,
+  ref: RegistrationRef
+): void => {
+  switch (ref.kind) {
+    case 'component':
+      core.unregisterComponent(ref.key)
+      return
+    case 'feature':
+      core.unregisterFeature(ref.key)
+      return
+    case 'property':
+      core.unregisterPropertyType(ref.key)
+      return
+    case 'render-strategy':
+      core.unregisterRenderStrategy(ref.key)
+      return
+    case 'ui-property':
+      core.unregisterUIProperty(ref.key)
+      return
+    default:
+      throw new RegistrationRelationError({
+        ok: false,
+        code: 'UNREGISTER_FAILED',
+        operation: 'unregister-registration',
+        message: `Preset registration "${ref.kind}:${ref.key}" has no cleanup owner`,
+        registration: ref
+      })
+  }
+}
+
+const createPresetApplication = (
+  core: PresetCoreAPIs,
+  registrationsBeforeApply: ReadonlySet<string>
+): PresetApplication => {
+  const ownedRefs = core
+    .getRegistrations()
+    .filter(
+      ({ ref, owner }) =>
+        !registrationsBeforeApply.has(refKey(ref)) &&
+        owner.packageName === PRESET_REGISTRATION_OWNER.packageName &&
+        owner.name === PRESET_REGISTRATION_OWNER.name
+    )
+    .map(({ ref }) => ref)
+  let disposed = false
+
+  return {
+    dispose(): PresetApplicationDisposeSuccess {
+      if (disposed) {
+        return {
+          ok: true,
+          operation: 'dispose-preset',
+          removed: [],
+          skipped: [...ownedRefs]
+        }
+      }
+
+      const removed: RegistrationRef[] = []
+      const skipped: RegistrationRef[] = []
+      ;[...ownedRefs].reverse().forEach((ref) => {
+        if (!core.getRegistration(ref)) {
+          skipped.push(ref)
+          return
+        }
+        unregisterPresetRegistration(core, ref)
+        removed.push(ref)
+      })
+      disposed = true
+      return {
+        ok: true,
+        operation: 'dispose-preset',
+        removed,
+        skipped
+      }
+    }
+  }
+}
+
 export const applyPreset = (
   core: PresetCoreAPIs,
   dependenciesOrOptions?: PresetDependencies | ApplyPresetOptions
 ): PresetApplication => {
-  const {
-    dependencies: resolvedDeps,
-    renderEngineFactory,
-    extensions = []
-  } = resolvePresetComposition(core, dependenciesOrOptions)
-  const extensionRegistry = createPresetExtensionRegistry()
-  registerPresetExtensions(extensionRegistry, extensions)
+  const registrationsBeforeApply = new Set(
+    core.getRegistrations().map(({ ref }) => refKey(ref))
+  )
+  const { dependencies: resolvedDeps, renderEngineFactory } =
+    resolvePresetComposition(core, dependenciesOrOptions)
 
   resolvedDeps.render.setEngineFactory(renderEngineFactory)
   registerEvents(core)
 
-  registerSelections(core)
-  const application = extensionRegistry.apply({
-    core,
-    dependencies: resolvedDeps
-  })
   try {
+    installPresetRegistrations(core)
+    registerSelections(core)
     registerPresetRuntimeWiring(core, resolvedDeps)
   } catch (error) {
-    application.dispose()
+    createPresetApplication(core, registrationsBeforeApply).dispose()
     throw error
   }
 
-  return application
+  return createPresetApplication(core, registrationsBeforeApply)
 }

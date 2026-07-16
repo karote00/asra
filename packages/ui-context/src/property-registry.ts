@@ -1,5 +1,9 @@
 import { BehaviorSubject } from 'rxjs'
-import type { SceneTreeYjsChange, ComputedAttrs } from '@asyra/utils'
+import type {
+  SceneTreeYjsChange,
+  ComputedAttrs,
+  RegistrationDefinitionMetadata
+} from '@asyra/utils'
 import { isEqual } from 'lodash'
 
 export type PropertyValue =
@@ -29,6 +33,8 @@ export interface PropertyComputeContext {
 
 export interface PropertyRegistration<T extends PropertyValue> {
   defaultValue: T
+  /** Optional registration-graph metadata owned by the defining package. */
+  registration?: RegistrationDefinitionMetadata
   /**
    * If true, this is an aggregate property computed from selected elements.
    * The system will automatically compute shared values (MIXED if different).

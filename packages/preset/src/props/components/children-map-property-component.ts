@@ -11,6 +11,7 @@ import {
   type PropertyComponentRawData,
   type Unit
 } from '@asyra/utils'
+import { createPresetRegistration } from '../../registration'
 
 interface ChildrenMapAttrs {
   id: string
@@ -323,6 +324,13 @@ export const createChildrenMapPropertyComponentDefinition = (
 
   return {
     type: config.type,
-    constructor: ChildrenMapPropertyComponent
+    constructor: ChildrenMapPropertyComponent,
+    registration: createPresetRegistration([
+      {
+        name: config.key,
+        target: { kind: 'property', key: config.childType },
+        onTargetUnregister: 'unregister-source'
+      }
+    ])
   }
 }

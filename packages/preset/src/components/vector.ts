@@ -8,11 +8,11 @@ import type { FillAttrs, StrokeAttrs } from '@asyra/utils'
 import core, {
   VECTOR_HANDLE_MODES,
   VECTOR_TOKENS,
-  defineComponent,
   type EvenOddSegment,
   type EvenOddShape
 } from '@asyra/core'
 import type {
+  ComponentDefinition,
   RenderStrategy,
   VectorHandleMode,
   VectorNetwork,
@@ -24,6 +24,7 @@ import {
   applyRenderableFill,
   getRenderableFills
 } from './fills'
+import { PRESET_REGISTRATION } from '../registration'
 
 const emitVectorRenderCounter = (counterName: string, value = 1): void => {
   ;(
@@ -1578,14 +1579,15 @@ const renderVectorGraphic = (
   }
 }
 
-const vectorRenderStrategy: RenderStrategy = (graphic, data) => {
+export const VECTOR_RENDER_STRATEGY: RenderStrategy = (graphic, data) => {
   renderVectorGraphic(graphic, data)
 }
 
-defineComponent({
+export const VECTOR_COMPONENT_DEFINITION: ComponentDefinition = {
   type: 'vector',
   idPrefix: 'vector',
   namePrefix: 'Vector',
+  registration: PRESET_REGISTRATION,
   properties: [
     {
       name: PropertyTypes.POSITION,
@@ -1643,6 +1645,5 @@ defineComponent({
         })
       ]
     }
-  ],
-  renderStrategy: vectorRenderStrategy
-})
+  ]
+}

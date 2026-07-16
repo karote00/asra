@@ -84,6 +84,7 @@ import {
   RegistrationGraph,
   RegistrationRelationError,
   type RegistrationGraphOperation,
+  type RegistrationDefinitionMetadata,
   type RegistrationNodeMetadata,
   type RegistrationRef,
   type RegistrationRelationMetadata,
@@ -212,13 +213,37 @@ class Core implements CoreAPIs {
     const registerUIProperty = this.registerUIProperty
     this.defineUIProperty = ((key, config) => {
       this.assertCompositionOpen('register-node')
+      const source = { kind: 'ui-property', key }
+      if (
+        this.registrationGraph.getRegistration(source) ||
+        propertyRegistry.getAllPropertyKeys().includes(key)
+      ) {
+        this.registrationConflict(
+          source,
+          `[PropertyRegistry] Property "${key}" is already registered`
+        )
+      }
+      this.preflightRegistrationDefinition(source, config.registration)
       defineUIProperty(key, config)
-      this.ensureUIPropertyNode(key)
+      this.ensureUIPropertyNode(key, config.registration)
+      this.defineRegistrationRelations(source, config.registration)
     }) as UIContextAPIs['defineUIProperty']
     this.registerUIProperty = ((key, config) => {
       this.assertCompositionOpen('register-node')
+      const source = { kind: 'ui-property', key }
+      if (
+        this.registrationGraph.getRegistration(source) ||
+        propertyRegistry.getAllPropertyKeys().includes(key)
+      ) {
+        this.registrationConflict(
+          source,
+          `[PropertyRegistry] Property "${key}" is already registered`
+        )
+      }
+      this.preflightRegistrationDefinition(source, config.registration)
       registerUIProperty(key, config)
-      this.ensureUIPropertyNode(key)
+      this.ensureUIPropertyNode(key, config.registration)
+      this.defineRegistrationRelations(source, config.registration)
     }) as UIContextAPIs['registerUIProperty']
 
     // Subscribe to this Core instance's Factory commit status for auto-save.
@@ -453,11 +478,24 @@ class Core implements CoreAPIs {
 
   registerPropertySchema(
     schema: PropertySchema,
-    options?: Parameters<typeof registerPropertySchema>[1]
+    options?: Parameters<typeof registerPropertySchema>[1],
+    registration?: RegistrationDefinitionMetadata
   ): void {
     this.assertCompositionOpen('register-node')
+    const source = { kind: 'property', key: schema.type }
+    if (
+      getPropertySchema(schema.type) ||
+      this.registrationGraph.hasPendingCleanup(source)
+    ) {
+      this.registrationConflict(
+        source,
+        `Property schema "${schema.type}" is already registered`
+      )
+    }
+    this.preflightRegistrationDefinition(source, registration)
     registerPropertySchema(schema, options)
-    this.ensurePropertyNode(schema.type)
+    this.ensurePropertyNode(schema.type, registration)
+    this.defineRegistrationRelations(source, registration)
   }
 
   getPropertySchema(type: string) {
@@ -468,6 +506,23 @@ class Core implements CoreAPIs {
     definition: PropertyComponentDefinition
   ): ReturnType<typeof definePropertyComponentRuntime> {
     this.assertCompositionOpen('register-node')
+    const source = { kind: 'property', key: definition.type }
+    if (
+      getPropertyComponent(definition.type) ||
+      this.registrationGraph.hasPendingCleanup(source)
+    ) {
+      this.registrationConflict(
+        source,
+        `Property component "${definition.type}" is already registered`
+      )
+    }
+    this.preflightRegistrationDefinition(
+      source,
+      definition.registration,
+      'children' in definition && definition.children
+        ? [definition.children.key]
+        : []
+    )
     if (
       'children' in definition &&
       definition.children &&
@@ -485,7 +540,7 @@ class Core implements CoreAPIs {
     }
 
     const Constructor = definePropertyComponentRuntime(definition)
-    this.ensurePropertyNode(definition.type)
+    this.ensurePropertyNode(definition.type, definition.registration)
     if ('children' in definition && definition.children) {
       this.ensurePropertyNode(definition.children.childType)
       this.registrationGraph.defineRelation(
@@ -497,6 +552,7 @@ class Core implements CoreAPIs {
         }
       )
     }
+    this.defineRegistrationRelations(source, definition.registration)
     return Constructor
   }
 
@@ -506,6 +562,16 @@ class Core implements CoreAPIs {
     options?: Parameters<typeof registerPropertyComponent>[2]
   ): void {
     this.assertCompositionOpen('register-node')
+    const source = { kind: 'property', key: type }
+    if (
+      getPropertyComponent(type) ||
+      this.registrationGraph.hasPendingCleanup(source)
+    ) {
+      this.registrationConflict(
+        source,
+        `Property component "${type}" is already registered`
+      )
+    }
     registerPropertyComponent(type, component, options)
     this.ensurePropertyNode(type)
   }
@@ -579,20 +645,15 @@ class Core implements CoreAPIs {
 
   defineComponent(definition: ComponentDefinition): void {
     this.assertCompositionOpen('register-node')
+    const componentRef = { kind: 'component', key: definition.type }
     if (
-      this.registrationGraph.getRegistration({
-        kind: 'component',
-        key: definition.type
-      }) &&
-      !componentRegistry.has(definition.type)
+      this.registrationGraph.getRegistration(componentRef) ||
+      componentRegistry.has(definition.type)
     ) {
-      throw new RegistrationRelationError({
-        ok: false,
-        code: 'UNREGISTER_FAILED',
-        operation: 'register-node',
-        message: `Component registration "${definition.type}" must be unregistered before it can be defined again`,
-        registration: { kind: 'component', key: definition.type }
-      })
+      this.registrationConflict(
+        componentRef,
+        `Component "${definition.type}" is already registered`
+      )
     }
     const propertyNames = new Set<string>()
     for (const property of definition.properties) {
@@ -620,8 +681,13 @@ class Core implements CoreAPIs {
       }
     }
 
+    const source = componentRef
+    this.preflightRegistrationDefinition(source, definition.registration, [
+      ...propertyNames
+    ])
+
     defineComponentRuntime(definition)
-    this.ensureComponentNode(definition.type)
+    this.ensureComponentNode(definition.type, definition.registration)
     definition.properties.forEach((property) => {
       this.ensurePropertyNode(property.type)
       this.registrationGraph.defineRelation(
@@ -633,6 +699,7 @@ class Core implements CoreAPIs {
         }
       )
     })
+    this.defineRegistrationRelations(source, definition.registration)
   }
 
   unregisterComponent(
@@ -718,20 +785,20 @@ class Core implements CoreAPIs {
     definition: FeatureDefinition<API, State>
   ): { api: FeatureAPI<API>; dispose: () => boolean } {
     this.assertCompositionOpen('register-node')
+    const source = { kind: 'feature', key: name }
     if (
-      this.registrationGraph.getRegistration({ kind: 'feature', key: name }) &&
-      !getFeatureRegistry().has(name)
+      this.registrationGraph.getRegistration(source) ||
+      getFeatureRegistry().has(name)
     ) {
-      throw new RegistrationRelationError({
-        ok: false,
-        code: 'UNREGISTER_FAILED',
-        operation: 'register-node',
-        message: `Feature registration "${name}" must be unregistered before it can be defined again`,
-        registration: { kind: 'feature', key: name }
-      })
+      this.registrationConflict(
+        source,
+        `Feature "${name}" is already registered`
+      )
     }
+    this.preflightRegistrationDefinition(source, definition.registration)
     const registration = defineFeatureRuntime(name, keyConfig, definition)
-    this.ensureFeatureNode(name)
+    this.ensureFeatureNode(name, definition.registration)
+    this.defineRegistrationRelations(source, definition.registration)
     return {
       api: registration.api,
       dispose: () => this.unregisterFeature(name)
@@ -756,25 +823,26 @@ class Core implements CoreAPIs {
     return unregisterFeatureRuntime(featureName)
   }
 
-  registerRenderStrategy(type: string, strategy: RenderStrategy): void {
+  registerRenderStrategy(
+    type: string,
+    strategy: RenderStrategy,
+    registration?: RegistrationDefinitionMetadata
+  ): void {
     this.assertCompositionOpen('register-node')
+    const source = { kind: 'render-strategy', key: type }
     if (
-      this.registrationGraph.getRegistration({
-        kind: 'render-strategy',
-        key: type
-      }) &&
-      !renderStrategyRegistry.has(type)
+      this.registrationGraph.getRegistration(source) ||
+      renderStrategyRegistry.has(type)
     ) {
-      throw new RegistrationRelationError({
-        ok: false,
-        code: 'UNREGISTER_FAILED',
-        operation: 'register-node',
-        message: `Render strategy "${type}" must be unregistered before it can be defined again`,
-        registration: { kind: 'render-strategy', key: type }
-      })
+      this.registrationConflict(
+        source,
+        `Render strategy for "${type}" is already registered`
+      )
     }
+    this.preflightRegistrationDefinition(source, registration)
     renderStrategyRegistry.register(type, strategy)
-    this.ensureRenderStrategyNode(type)
+    this.ensureRenderStrategyNode(type, registration)
+    this.defineRegistrationRelations(source, registration)
   }
 
   unregisterRenderStrategy(type: string): boolean {
@@ -847,6 +915,19 @@ class Core implements CoreAPIs {
       code: 'COMPOSITION_CLOSED',
       operation,
       message: 'Registration composition is permanently closed'
+    })
+  }
+
+  private registrationConflict(
+    ref: RegistrationRef,
+    message = `Registration "${ref.kind}:${ref.key}" must be unregistered before it can be defined again`
+  ): never {
+    throw new RegistrationRelationError({
+      ok: false,
+      code: 'UNREGISTER_FAILED',
+      operation: 'register-node',
+      message,
+      registration: ref
     })
   }
 
@@ -924,7 +1005,54 @@ class Core implements CoreAPIs {
     }
   }
 
-  private ensurePropertyNode(type: string): void {
+  private preflightRegistrationDefinition(
+    source: RegistrationRef,
+    registration?: RegistrationDefinitionMetadata,
+    reservedRelationNames: readonly string[] = []
+  ): void {
+    if (!registration?.relations?.length) return
+
+    const relationNames = new Set(reservedRelationNames)
+    registration.relations.forEach((relation) => {
+      if (relationNames.has(relation.name)) {
+        throw new RegistrationRelationError({
+          ok: false,
+          code: 'DUPLICATE_RELATION',
+          operation: 'define-relation',
+          message: `Registration relation "${source.kind}:${source.key}/${relation.name}" is duplicated`,
+          source,
+          relationName: relation.name,
+          target: relation.target
+        })
+      }
+      relationNames.add(relation.name)
+      if (!this.registrationGraph.getRegistration(relation.target)) {
+        throw new RegistrationRelationError({
+          ok: false,
+          code: 'RELATION_TARGET_NOT_FOUND',
+          operation: 'define-relation',
+          message: `Relation target "${relation.target.kind}:${relation.target.key}" was not found`,
+          source,
+          relationName: relation.name,
+          target: relation.target
+        })
+      }
+    })
+  }
+
+  private defineRegistrationRelations(
+    source: RegistrationRef,
+    registration?: RegistrationDefinitionMetadata
+  ): void {
+    registration?.relations?.forEach((relation) => {
+      this.registrationGraph.defineRelation(source, relation)
+    })
+  }
+
+  private ensurePropertyNode(
+    type: string,
+    registration?: RegistrationDefinitionMetadata
+  ): void {
     if (
       this.registrationGraph.getRegistration({ kind: 'property', key: type })
     ) {
@@ -932,6 +1060,7 @@ class Core implements CoreAPIs {
     }
     this.registrationGraph.registerNode({
       ref: { kind: 'property', key: type },
+      owner: registration?.owner,
       handlers: {
         isPresent: () => Boolean(getPropertyComponent(type)),
         preflightUnregister: () => this.assertPropertyTypeUnused(type),
@@ -955,7 +1084,10 @@ class Core implements CoreAPIs {
     })
   }
 
-  private ensureComponentNode(type: string): void {
+  private ensureComponentNode(
+    type: string,
+    registration?: RegistrationDefinitionMetadata
+  ): void {
     if (
       this.registrationGraph.getRegistration({ kind: 'component', key: type })
     ) {
@@ -963,6 +1095,7 @@ class Core implements CoreAPIs {
     }
     this.registrationGraph.registerNode({
       ref: { kind: 'component', key: type },
+      owner: registration?.owner,
       handlers: {
         isPresent: () => componentRegistry.has(type),
         preflightUnregister: () => this.assertComponentTypeUnused(type),
@@ -982,9 +1115,13 @@ class Core implements CoreAPIs {
     })
   }
 
-  private ensureFeatureNode(name: string): void {
+  private ensureFeatureNode(
+    name: string,
+    registration?: RegistrationDefinitionMetadata
+  ): void {
     this.registrationGraph.registerNode({
       ref: { kind: 'feature', key: name },
+      owner: registration?.owner,
       handlers: { isPresent: () => getFeatureRegistry().has(name) },
       resources: [
         {
@@ -997,9 +1134,13 @@ class Core implements CoreAPIs {
     })
   }
 
-  private ensureRenderStrategyNode(type: string): void {
+  private ensureRenderStrategyNode(
+    type: string,
+    registration?: RegistrationDefinitionMetadata
+  ): void {
     this.registrationGraph.registerNode({
       ref: { kind: 'render-strategy', key: type },
+      owner: registration?.owner,
       handlers: { isPresent: () => renderStrategyRegistry.has(type) },
       resources: [
         {
@@ -1012,12 +1153,16 @@ class Core implements CoreAPIs {
     })
   }
 
-  private ensureUIPropertyNode(key: string): void {
+  private ensureUIPropertyNode(
+    key: string,
+    registration?: RegistrationDefinitionMetadata
+  ): void {
     if (this.registrationGraph.getRegistration({ kind: 'ui-property', key })) {
       return
     }
     this.registrationGraph.registerNode({
       ref: { kind: 'ui-property', key },
+      owner: registration?.owner,
       handlers: {
         isPresent: () => propertyRegistry.getAllPropertyKeys().includes(key)
       },

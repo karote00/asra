@@ -74,7 +74,10 @@ test('shared primitive owns adjacency, deterministic traversal, and structured c
   assert.match(contract, /RegistrationRelationError/i)
   assert.match(contract, /retryable/i)
   assert.match(contract, /before, after, and append/i)
-  assert.doesNotMatch(contract, /replace strategy|explicit replace|replace conflict/i)
+  assert.doesNotMatch(
+    contract,
+    /replace strategy|explicit replace|replace conflict/i
+  )
   assert.deepEqual(owner.cacheDimensions, [])
 })
 
@@ -155,12 +158,24 @@ test('preset owns explicit default installation and graph-backed disposal', () =
   const contract = contractText(owner)
 
   assert.equal(owner.ownerPackage, '@asyra/preset')
-  assert.match(contract, /Importing preset modules does not register components/i)
-  assert.match(contract, /applyPreset\(core\).*explicit deterministic installation/i)
+  assert.match(
+    contract,
+    /Importing preset modules does not register components/i
+  )
+  assert.match(
+    contract,
+    /applyPreset\(core\).*explicit deterministic installation/i
+  )
   assert.match(contract, /@asyra\/preset\/default-preset/i)
   assert.match(contract, /same canonical graph/i)
   assert.match(contract, /not cleaned a second time/i)
   assert.match(contract, /preset-specific feature-registration target/i)
+  assert.ok(owner.implementationBoundary.includes('packages/core/src/core.ts'))
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'packages/utils/src/registry/registration-graph.ts'
+    )
+  )
 })
 
 test('opaque owners keep declarations local and dispose all owned runtime resources', () => {
@@ -173,6 +188,7 @@ test('opaque owners keep declarations local and dispose all owned runtime resour
   assert.match(contract, /managed source subscription/i)
   assert.match(contract, /unregister-source/i)
   assert.match(contract, /no declared relation is not analyzed/i)
+  assert.ok(owner.implementationBoundary.includes('packages/core/src/core.ts'))
 })
 
 test('migration remains app-provided and precedes validation without CUSTOM fallback', () => {
@@ -205,7 +221,6 @@ test('Inspector names bounded product cases and definition of done', () => {
   ].forEach((id) =>
     assert.ok(caseIds.includes(id), `Missing product case: ${id}`)
   )
-
   ;[
     'public-contracts',
     'deterministic-graph',

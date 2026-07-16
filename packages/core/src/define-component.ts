@@ -15,6 +15,7 @@ import {
   idCounter,
   RegistrationRelationError,
   type RegistrationContractErrorCode,
+  type RegistrationDefinitionMetadata,
   type RegistrationGraphOperation,
   type RegistrationRelationMetadata,
   type RelationOperationSuccess
@@ -51,6 +52,9 @@ export interface ComponentDefinition {
    * Whether this component acts as a container (can have children)
    */
   isContainer?: boolean
+
+  /** Optional package-owner metadata; ordinary app definitions may omit it. */
+  registration?: RegistrationDefinitionMetadata
 }
 
 export interface UnregisterComponentSkippedEntry {

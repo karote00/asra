@@ -33,6 +33,15 @@ export interface RegistrationRelationDeclaration {
   onTargetUnregister: RegistrationRelationUnregisterPolicy
 }
 
+/**
+ * Optional package-owned graph metadata carried by a normal registration
+ * definition. App registrations may omit this and receive the stable app owner.
+ */
+export interface RegistrationDefinitionMetadata {
+  owner?: RegistrationOwnerMetadata
+  relations?: readonly RegistrationRelationDeclaration[]
+}
+
 export interface RegistrationRelationMetadata
   extends RegistrationRelationDeclaration {
   source: RegistrationRef
@@ -266,6 +275,10 @@ export class RegistrationGraph {
   getRegistration(ref: RegistrationRef): RegistrationNodeMetadata | undefined {
     const node = this.nodesByRef.get(refKey(ref))
     return node ? cloneNode(node) : undefined
+  }
+
+  hasPendingCleanup(ref: RegistrationRef): boolean {
+    return this.pendingRootByNode.has(refKey(ref))
   }
 
   getRegistrations(): RegistrationNodeMetadata[] {

@@ -163,6 +163,185 @@ describe('Core composition coordinator', () => {
     ).toBeDefined()
   })
 
+  it('records definition-local owner metadata and recursively unregisters declared opaque dependents', () => {
+    const { core } = createCoreForTest()
+    const owner = {
+      packageName: '@asyra/preset',
+      name: 'default-preset'
+    }
+    const target = { kind: 'property', key: FILLS }
+
+    core.definePropertyComponent({
+      type: FILLS,
+      defaults: { color: 'red' },
+      registration: { owner }
+    } as never)
+    core.registerRenderStrategy(SHAPE, vi.fn(), {
+      owner,
+      relations: [
+        {
+          name: 'fills-runtime',
+          target,
+          onTargetUnregister: 'unregister-source'
+        }
+      ]
+    } as never)
+    core.defineUIProperty('composition-ui', {
+      defaultValue: null,
+      registration: {
+        owner,
+        relations: [
+          {
+            name: 'fills-runtime',
+            target,
+            onTargetUnregister: 'unregister-source'
+          }
+        ]
+      }
+    } as never)
+    core.defineFeature(FEATURE, undefined, {
+      api: {},
+      registration: {
+        owner,
+        relations: [
+          {
+            name: 'fills-runtime',
+            target,
+            onTargetUnregister: 'unregister-source'
+          }
+        ]
+      }
+    } as never)
+
+    expect(core.getRegistration(target)?.owner).toEqual(owner)
+    expect(
+      core.getRegistrationRelations().map(({ source, name, target }) => ({
+        source,
+        name,
+        target
+      }))
+    ).toEqual([
+      {
+        source: { kind: 'feature', key: FEATURE },
+        name: 'fills-runtime',
+        target
+      },
+      {
+        source: { kind: 'render-strategy', key: SHAPE },
+        name: 'fills-runtime',
+        target
+      },
+      {
+        source: { kind: 'ui-property', key: 'composition-ui' },
+        name: 'fills-runtime',
+        target
+      }
+    ])
+
+    const result = core.unregisterPropertyType(FILLS)
+
+    expect(result.recursivelyUnregisteredSources).toEqual([
+      { kind: 'feature', key: FEATURE },
+      { kind: 'render-strategy', key: SHAPE },
+      { kind: 'ui-property', key: 'composition-ui' }
+    ])
+    expect(renderStrategyRegistry.has(SHAPE)).toBe(false)
+    expect(propertyRegistry.get('composition-ui')).toBeUndefined()
+    expect(() => core.getFeature(FEATURE)).toThrow()
+  })
+
+  it('supports unregister then redefine as the explicit full-capability fallback', () => {
+    const { core } = createCoreForTest()
+    core.registerPropertySchema({
+      type: FILLS,
+      fields: [{ key: 'color', kind: 'string', defaultValue: 'red' }]
+    })
+    core.definePropertyComponent({
+      type: FILLS,
+      defaults: { color: 'red' }
+    })
+
+    expect(core.unregisterPropertyType(FILLS)).toMatchObject({
+      ok: true,
+      root: { kind: 'property', key: FILLS }
+    })
+
+    core.registerPropertySchema({
+      type: FILLS,
+      fields: [{ key: 'outline', kind: 'string', defaultValue: 'black' }]
+    })
+    core.definePropertyComponent({
+      type: FILLS,
+      defaults: { outline: 'black' }
+    })
+
+    expect(core.getPropertySchema(FILLS)?.fields).toEqual([
+      { key: 'outline', kind: 'string', defaultValue: 'black' }
+    ])
+    expect(core.getRegistration({ kind: 'property', key: FILLS })).toEqual({
+      ref: { kind: 'property', key: FILLS },
+      owner: { packageName: 'app', name: FILLS }
+    })
+  })
+
+  it('fails fast with structured registration conflicts across public facades', () => {
+    const { core } = createCoreForTest()
+    const schema = {
+      type: FILLS,
+      fields: [{ key: 'color', kind: 'string' as const, defaultValue: 'red' }]
+    }
+    core.registerPropertySchema(schema)
+    expectRelationError(
+      () => core.registerPropertySchema(schema),
+      'UNREGISTER_FAILED'
+    )
+
+    core.definePropertyComponent({ type: FILLS, defaults: { color: 'red' } })
+    expectRelationError(
+      () =>
+        core.definePropertyComponent({
+          type: FILLS,
+          defaults: { color: 'blue' }
+        }),
+      'UNREGISTER_FAILED'
+    )
+
+    core.defineComponent({
+      type: SHAPE,
+      idPrefix: SHAPE,
+      namePrefix: 'Composition Shape',
+      properties: [{ name: 'fills', type: FILLS }]
+    })
+    expectRelationError(
+      () =>
+        core.defineComponent({
+          type: SHAPE,
+          idPrefix: SHAPE,
+          namePrefix: 'Duplicate Shape',
+          properties: [{ name: 'fills', type: FILLS }]
+        }),
+      'UNREGISTER_FAILED'
+    )
+
+    core.registerRenderStrategy(SHAPE, vi.fn())
+    expectRelationError(
+      () => core.registerRenderStrategy(SHAPE, vi.fn()),
+      'UNREGISTER_FAILED'
+    )
+
+    core.defineUIProperty('composition-ui', { defaultValue: 0 })
+    expectRelationError(
+      () => core.defineUIProperty('composition-ui', { defaultValue: 1 }),
+      'UNREGISTER_FAILED'
+    )
+
+    core.defineFeature(FEATURE, undefined, { api: {} })
+    expectRelationError(
+      () => core.defineFeature(FEATURE, undefined, { api: {} }),
+      'UNREGISTER_FAILED'
+    )
+  })
+
   it('rejects graph-aware unregister while active or replay-retained property instances exist', () => {
     const { core, props } = createCoreForTest()
     const Constructor = core.definePropertyComponent({

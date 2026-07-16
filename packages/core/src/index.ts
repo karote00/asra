@@ -70,6 +70,7 @@ export {
 } from '@asyra/utils'
 export type {
   RegistrationContractErrorCode,
+  RegistrationDefinitionMetadata,
   RegistrationNodeMetadata,
   RegistrationOwnerMetadata,
   RegistrationRef,

@@ -1,4 +1,4 @@
-import { defineComponent } from '@asyra/core'
+import type { ComponentDefinition, RenderStrategy } from '@asyra/core'
 import { PropertyTypes, setElementGeometryLocalBounds } from '@asyra/utils'
 import {
   applyRenderableFill,
@@ -7,11 +7,13 @@ import {
 } from './fills'
 import { createEllipseHitArea } from './shape-hit-area'
 import { DEFAULT_OVAL_STROKES } from './stroke-defaults'
+import { PRESET_REGISTRATION } from '../registration'
 
-defineComponent({
+export const OVAL_COMPONENT_DEFINITION: ComponentDefinition = {
   type: 'oval',
   idPrefix: 'oval',
   namePrefix: 'Oval',
+  registration: PRESET_REGISTRATION,
   properties: [
     {
       name: PropertyTypes.POSITION,
@@ -33,39 +35,40 @@ defineComponent({
       type: PropertyTypes.STROKES,
       defaultValue: DEFAULT_OVAL_STROKES
     }
-  ],
-  renderStrategy: (graphic, data) => {
-    graphic.clear()
-    setElementGeometryLocalBounds(
-      graphic as Parameters<typeof setElementGeometryLocalBounds>[0],
-      {
-        x: 0,
-        y: 0,
-        width: data.width,
-        height: data.height
-      }
-    )
-    ;(
-      graphic as { hitArea: ReturnType<typeof createEllipseHitArea> | null }
-    ).hitArea =
-      getRenderableFills(data.fills).length > 0
-        ? createEllipseHitArea(data.width, data.height)
-        : null
+  ]
+}
 
-    const replayPath = () => {
-      graphic.ellipse(
-        data.width / 2,
-        data.height / 2,
-        data.width / 2,
-        data.height / 2
-      )
+export const OVAL_RENDER_STRATEGY: RenderStrategy = (graphic, data) => {
+  graphic.clear()
+  setElementGeometryLocalBounds(
+    graphic as Parameters<typeof setElementGeometryLocalBounds>[0],
+    {
+      x: 0,
+      y: 0,
+      width: data.width,
+      height: data.height
     }
-    replayPath()
-    applyRenderableFill(graphic, data.fills, { replayPath })
+  )
+  ;(
+    graphic as { hitArea: ReturnType<typeof createEllipseHitArea> | null }
+  ).hitArea =
+    getRenderableFills(data.fills).length > 0
+      ? createEllipseHitArea(data.width, data.height)
+      : null
 
-    graphic.x = data.x
-    graphic.y = data.y
-    graphic.renderable = true
-    graphic.visible = true
+  const replayPath = () => {
+    graphic.ellipse(
+      data.width / 2,
+      data.height / 2,
+      data.width / 2,
+      data.height / 2
+    )
   }
-})
+  replayPath()
+  applyRenderableFill(graphic, data.fills, { replayPath })
+
+  graphic.x = data.x
+  graphic.y = data.y
+  graphic.renderable = true
+  graphic.visible = true
+}

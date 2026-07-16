@@ -5,6 +5,7 @@ import {
   DefaultTargetSnapshot,
   DefaultKeySnapshot,
   MIXED_STRING,
+  PropertyTypes,
   createDefaultFill,
   createDefaultStroke,
   type FillAttrs,
@@ -18,8 +19,16 @@ import {
   type SelectedVectorSegmentState,
   type HoveredVectorSegmentInsertPointState
 } from '@asyra/core'
-import type { PropertyComputeContext } from '@asyra/ui-context'
+import type {
+  PropertyComputeContext,
+  PropertyRegistration,
+  PropertyValue
+} from '@asyra/ui-context'
 import type { PresetCoreAPIs } from '../types'
+import {
+  createPresetPropertyDependencies,
+  createPresetRegistration
+} from '../registration'
 
 const DEFAULT_PRIMARY_TOOL = 'select'
 
@@ -254,27 +263,47 @@ const computeStrokesValue = ({
 }
 
 export const registerProperties = (core: PresetCoreAPIs): void => {
-  core.defineUIProperty<Set<string>>('elementSelection', {
+  const propertyDependencies: Readonly<Record<string, readonly string[]>> = {
+    x: [PropertyTypes.POSITION],
+    y: [PropertyTypes.POSITION],
+    width: [PropertyTypes.DIMENSION],
+    height: [PropertyTypes.DIMENSION],
+    fills: [PropertyTypes.FILLS],
+    strokes: [PropertyTypes.STROKES]
+  }
+  const defineUIProperty = <T extends PropertyValue>(
+    key: string,
+    config: PropertyRegistration<T>
+  ): void => {
+    core.defineUIProperty<T>(key, {
+      ...config,
+      registration: createPresetRegistration(
+        createPresetPropertyDependencies(propertyDependencies[key] ?? [])
+      )
+    })
+  }
+
+  defineUIProperty<Set<string>>('elementSelection', {
     defaultValue: new Set()
   })
 
-  core.defineUIProperty<Set<string>>('vectorPointSelection', {
+  defineUIProperty<Set<string>>('vectorPointSelection', {
     defaultValue: new Set()
   })
 
-  core.defineUIProperty<Set<string>>('vectorSegmentSelection', {
+  defineUIProperty<Set<string>>('vectorSegmentSelection', {
     defaultValue: new Set()
   })
 
-  core.defineUIProperty<string[]>('flattenedElementIds', {
+  defineUIProperty<string[]>('flattenedElementIds', {
     defaultValue: []
   })
 
-  core.defineUIProperty<Record<string, ElementPanelData>>('elementDataMap', {
+  defineUIProperty<Record<string, ElementPanelData>>('elementDataMap', {
     defaultValue: {}
   })
 
-  core.defineUIProperty<number | string>('x', {
+  defineUIProperty<number | string>('x', {
     defaultValue: 0,
     aggregate: true,
     triggers: {
@@ -284,7 +313,7 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     }
   })
 
-  core.defineUIProperty<number | string>('y', {
+  defineUIProperty<number | string>('y', {
     defaultValue: 0,
     aggregate: true,
     triggers: {
@@ -294,7 +323,7 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     }
   })
 
-  core.defineUIProperty<number | string>('width', {
+  defineUIProperty<number | string>('width', {
     defaultValue: 0,
     aggregate: true,
     triggers: {
@@ -304,7 +333,7 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     }
   })
 
-  core.defineUIProperty<number | string>('height', {
+  defineUIProperty<number | string>('height', {
     defaultValue: 0,
     aggregate: true,
     triggers: {
@@ -314,7 +343,7 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     }
   })
 
-  core.defineUIProperty<number | string>('rotation', {
+  defineUIProperty<number | string>('rotation', {
     defaultValue: 0,
     aggregate: true,
     triggers: {
@@ -324,7 +353,7 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     }
   })
 
-  core.defineUIProperty<FillRowAttrs[] | typeof MIXED_STRING>('fills', {
+  defineUIProperty<FillRowAttrs[] | typeof MIXED_STRING>('fills', {
     defaultValue: [],
     aggregate: true,
     triggers: {
@@ -336,7 +365,7 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     compute: computeFillsValue
   })
 
-  core.defineUIProperty<StrokeRowAttrs[] | typeof MIXED_STRING>('strokes', {
+  defineUIProperty<StrokeRowAttrs[] | typeof MIXED_STRING>('strokes', {
     defaultValue: [],
     aggregate: true,
     triggers: {
@@ -349,7 +378,7 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
   })
 
   const zoomObservable = core.defineSystemProperty<number>('zoom', 1)
-  core.defineUIProperty<number>('zoom', {
+  defineUIProperty<number>('zoom', {
     defaultValue: 1,
     source$: zoomObservable
   })
@@ -358,7 +387,7 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     'primaryTool',
     DEFAULT_PRIMARY_TOOL
   )
-  core.defineUIProperty<string>('primaryTool', {
+  defineUIProperty<string>('primaryTool', {
     defaultValue: DEFAULT_PRIMARY_TOOL,
     source$: primaryToolObservable
   })
@@ -433,29 +462,23 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
       null
     )
 
-  core.defineUIProperty<string | null>('pathEditingVectorId', {
+  defineUIProperty<string | null>('pathEditingVectorId', {
     defaultValue: null,
     source$: pathEditingVectorObservable
   })
-  core.defineUIProperty<string | null>('hoveredElementId', {
+  defineUIProperty<string | null>('hoveredElementId', {
     defaultValue: null,
     source$: hoveredElementObservable
   })
-  core.defineUIProperty<SelectedVectorPointState | null>(
-    'selectedVectorPoint',
-    {
-      defaultValue: null,
-      source$: selectedPointObservable
-    }
-  )
-  core.defineUIProperty<SelectedVectorSegmentState | null>(
-    'selectedVectorSegment',
-    {
-      defaultValue: null
-    }
-  )
+  defineUIProperty<SelectedVectorPointState | null>('selectedVectorPoint', {
+    defaultValue: null,
+    source$: selectedPointObservable
+  })
+  defineUIProperty<SelectedVectorSegmentState | null>('selectedVectorSegment', {
+    defaultValue: null
+  })
 
-  core.defineUIProperty<PathEditingContinuationState | null>(
+  defineUIProperty<PathEditingContinuationState | null>(
     'pathEditingContinuation',
     {
       defaultValue: null,

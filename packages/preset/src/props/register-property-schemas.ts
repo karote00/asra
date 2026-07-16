@@ -14,6 +14,7 @@ import {
   Unit
 } from '@asyra/utils'
 import type { PresetCoreAPIs } from '../types'
+import { PRESET_REGISTRATION } from '../registration'
 
 const isUnit = (value: unknown) => value === Unit.PX || value === Unit.PERCENT
 const isFiniteNumber = (value: unknown) =>
@@ -537,6 +538,6 @@ export const registerPropertySchemas = (
   core: Pick<PresetCoreAPIs, 'registerPropertySchema'>
 ) => {
   DEFAULT_PROPERTY_SCHEMAS.forEach((schema) =>
-    core.registerPropertySchema(schema)
+    core.registerPropertySchema(schema, undefined, PRESET_REGISTRATION)
   )
 }

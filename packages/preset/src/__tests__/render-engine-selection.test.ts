@@ -47,6 +47,9 @@ const createComposition = (renderOverride?: PresetDependencies['render']) => {
     registerRenderLayer: vi.fn(),
     registerPropertySchema: vi.fn(),
     definePropertyComponent: vi.fn(),
+    defineComponent: vi.fn(),
+    registerRenderStrategy: vi.fn(),
+    getRegistrations: vi.fn(() => []),
     unregisterPropertyRegistration: vi.fn(() => ({
       ok: true,
       type: 'test-property',

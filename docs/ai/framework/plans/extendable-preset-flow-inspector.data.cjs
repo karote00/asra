@@ -63,11 +63,7 @@
         'docs/ai/apps/asyra-design/modules/init-and-startup.md',
         'docs/ai/apps/asyra-design/modules/registrations.md'
       ],
-      specRefs: [
-        '#startup-composition',
-        '#app-composition',
-        '#product-cases'
-      ],
+      specRefs: ['#startup-composition', '#app-composition', '#product-cases'],
       failureOwnerStepId: 'compose-app-startup'
     },
     {
@@ -113,6 +109,9 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/core/src/core.ts',
+        'packages/core/src/__tests__/composition-coordinator.test.ts',
+        'packages/utils/src/registry/registration-graph.ts',
         'packages/preset/src/index.ts',
         'packages/preset/src/preset.ts',
         'packages/preset/src/types.ts',
@@ -350,6 +349,9 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/core/src/core.ts',
+        'packages/core/src/__tests__/composition-coordinator.test.ts',
+        'packages/utils/src/registry/registration-graph.ts',
         'packages/feature-system/src/**',
         'packages/feature-system/__tests__/**',
         'packages/render/src/registries/**',
@@ -360,10 +362,7 @@
         'docs/ai/framework/packages/render.md',
         'docs/ai/framework/packages/ui-context.md'
       ],
-      specRefs: [
-        '#registration-identity-and-owner-metadata',
-        '#product-cases'
-      ],
+      specRefs: ['#registration-identity-and-owner-metadata', '#product-cases'],
       failureOwnerStepId: 'own-opaque-registration-lifecycle'
     },
     {
@@ -560,7 +559,8 @@
       from: 'install-preset-defaults',
       to: 'coordinate-composition-state',
       kind: 'normal',
-      predicate: 'applyPreset installs exported definitions on the supplied Core',
+      predicate:
+        'applyPreset installs exported definitions on the supplied Core',
       producedArtifacts: [
         'artifact:preset-application',
         'artifact:preset-registration-declarations'
@@ -571,7 +571,8 @@
       from: 'coordinate-composition-state',
       to: 'mutate-component-property-relations',
       kind: 'conditional',
-      predicate: 'the app removes or defines a component property relation before start',
+      predicate:
+        'the app removes or defines a component property relation before start',
       producedArtifacts: ['artifact:core-registration-facade']
     },
     {
@@ -579,7 +580,8 @@
       from: 'coordinate-composition-state',
       to: 'mutate-property-child-relations',
       kind: 'conditional',
-      predicate: 'the app removes or defines a property child relation before start',
+      predicate:
+        'the app removes or defines a property child relation before start',
       producedArtifacts: ['artifact:core-registration-facade']
     },
     {
@@ -587,7 +589,8 @@
       from: 'coordinate-composition-state',
       to: 'own-opaque-registration-lifecycle',
       kind: 'conditional',
-      predicate: 'feature, render strategy, or UI property is registered or unregistered',
+      predicate:
+        'feature, render strategy, or UI property is registered or unregistered',
       producedArtifacts: ['artifact:core-registration-facade']
     },
     {
@@ -626,7 +629,8 @@
       id: 'close-before-start-effects',
       from: 'coordinate-composition-state',
       kind: 'terminal',
-      predicate: 'start closes composition and dangling validation succeeds before renderer effects',
+      predicate:
+        'start closes composition and dangling validation succeeds before renderer effects',
       producedArtifacts: [
         'artifact:composition-closed',
         'artifact:dangling-validation-result'
@@ -653,7 +657,10 @@
     {
       id: 'artifact:app-composition',
       ownerStepId: 'compose-app-startup',
-      consumerStepIds: ['install-preset-defaults', 'coordinate-composition-state']
+      consumerStepIds: [
+        'install-preset-defaults',
+        'coordinate-composition-state'
+      ]
     },
     {
       id: 'artifact:preset-application',
@@ -759,86 +766,106 @@
   const productCases = [
     {
       id: 'direct-feature-definition',
-      summary: 'An app adds a feature with core.defineFeature and no preset-specific extension route.'
+      summary:
+        'An app adds a feature with core.defineFeature and no preset-specific extension route.'
     },
     {
       id: 'explicit-preset-installation',
-      summary: 'Preset import has no component side effect and applyPreset(core) installs exported defaults deterministically.'
+      summary:
+        'Preset import has no component side effect and applyPreset(core) installs exported defaults deterministically.'
     },
     {
       id: 'component-relation-removal',
-      summary: 'Removing Rectangle/Oval fills slots preserves components and the Fills capability while new instances omit fills.'
+      summary:
+        'Removing Rectangle/Oval fills slots preserves components and the Fills capability while new instances omit fills.'
     },
     {
       id: 'relation-definition',
-      summary: 'Defining a new property slot produces new instances from exactly the updated relation set.'
+      summary:
+        'Defining a new property slot produces new instances from exactly the updated relation set.'
     },
     {
       id: 'property-capability-unregister',
-      summary: 'Graph-aware Fills unregister removes Fills relations and owned registrations while detached components remain.'
+      summary:
+        'Graph-aware Fills unregister removes Fills relations and owned registrations while detached components remain.'
     },
     {
       id: 'recursive-policy',
-      summary: 'Structural relations detach and hard opaque relations recursively unregister their source owners.'
+      summary:
+        'Structural relations detach and hard opaque relations recursively unregister their source owners.'
     },
     {
       id: 'property-child-rebuild',
-      summary: 'Property-child relation removal/definition rebuilds config runtime without stale child subscriptions.'
+      summary:
+        'Property-child relation removal/definition rebuilds config runtime without stale child subscriptions.'
     },
     {
       id: 'structured-failures',
-      summary: 'Missing, duplicate, dangling, closed, active-use, and cleanup failures use stable structured errors and retry state.'
+      summary:
+        'Missing, duplicate, dangling, closed, active-use, and cleanup failures use stable structured errors and retry state.'
     },
     {
       id: 'lifecycle-cleanup',
-      summary: 'Feature/render/UI/property/component cleanup removes only owned resources and leaves no stale side effects.'
+      summary:
+        'Feature/render/UI/property/component cleanup removes only owned resources and leaves no stale side effects.'
     },
     {
       id: 'migration-before-validation',
-      summary: 'App migration runs before validation; unknown unregistered property types are diagnosed and skipped.'
+      summary:
+        'App migration runs before validation; unknown unregistered property types are diagnosed and skipped.'
     },
     {
       id: 'startup-compatibility',
-      summary: 'Existing applyPreset(core), Asyra Design startup, engine boundary, and public framework APIs remain compatible.'
+      summary:
+        'Existing applyPreset(core), Asyra Design startup, engine boundary, and public framework APIs remain compatible.'
     },
     {
       id: 'render-mode-non-inference',
-      summary: 'No registration relation or unregister path derives product mode from render-engine capabilities.'
+      summary:
+        'No registration relation or unregister path derives product mode from render-engine capabilities.'
     }
   ]
 
   const definitionOfDone = [
     {
       id: 'public-contracts',
-      summary: 'Public relation/unregister APIs, stable owner metadata, structured results/errors, and compatibility APIs are documented and tested.'
+      summary:
+        'Public relation/unregister APIs, stable owner metadata, structured results/errors, and compatibility APIs are documented and tested.'
     },
     {
       id: 'deterministic-graph',
-      summary: 'Adjacency queries, relation mutation, recursive traversal, and cleanup order are deterministic.'
+      summary:
+        'Adjacency queries, relation mutation, recursive traversal, and cleanup order are deterministic.'
     },
     {
       id: 'composition-closure',
-      summary: 'First start permanently closes composition and validates dangling relations before renderer side effects.'
+      summary:
+        'First start permanently closes composition and validates dangling relations before renderer side effects.'
     },
     {
       id: 'cleanup',
-      summary: 'Graph unregister, owner cleanup retry, and preset disposal leave no stale resources or duplicate cleanup.'
+      summary:
+        'Graph unregister, owner cleanup retry, and preset disposal leave no stale resources or duplicate cleanup.'
     },
     {
       id: 'migration-load',
-      summary: 'Migration-before-validation and unknown-property diagnostics are proven without an implicit CUSTOM fallback.'
+      summary:
+        'Migration-before-validation and unknown-property diagnostics are proven without an implicit CUSTOM fallback.'
     },
     {
       id: 'package-boundaries',
-      summary: 'Framework, preset, and app ownership plus monorepo import boundaries pass validation with no deep imports.'
+      summary:
+        'Framework, preset, and app ownership plus monorepo import boundaries pass validation with no deep imports.'
     },
     {
       id: 'full-validation',
-      summary: 'Affected package/app/Inspector tests and root test, lint, build, dependency, and diff gates pass.'
+      summary:
+        'Affected package/app/Inspector tests and root test, lint, build, dependency, and diff gates pass.'
     },
     {
       id: 'independent-review',
-      summary: 'Self-review and read-only sub-agent review have no unresolved concrete finding.'
+      summary:
+        'Self-review and read-only sub-agent review have no unresolved concrete finding.'
     }
   ]
 

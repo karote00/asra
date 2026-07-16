@@ -18,6 +18,7 @@ import type {
   PropertyComponentInstanceDataTypes,
   PropertyComponentRawData,
   RegistrationContractErrorCode,
+  RegistrationDefinitionMetadata,
   RegistrationGraphOperation,
   RegistrationRelationMetadata,
   RelationOperationSuccess,
@@ -29,11 +30,13 @@ export interface PropertyComponentConstructorDefinition {
   type: string
   constructor: PropertyComponentConstructor
   options?: RegisterPropertyComponentOptions
+  registration?: RegistrationDefinitionMetadata
 }
 
 export interface PropertyComponentConfigDefinition
   extends PropertyComponentConfigRegistration {
   options?: RegisterPropertyComponentOptions
+  registration?: RegistrationDefinitionMetadata
 }
 
 export type PropertyComponentDefinition =
