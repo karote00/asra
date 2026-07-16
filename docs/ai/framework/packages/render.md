@@ -13,6 +13,11 @@ results/interactions back to framework-facing APIs.
 - Preset may configure the target `Render` instance through
   `setEngineFactory(...)`; direct class consumers may pass exactly one engine
   instance or factory to `new Render(...)`.
+- `setEngine(...)` and `setEngineFactory(...)` return an instance-local
+  pre-runtime cleanup handle. Cleanup restores the exact prior provider (or an
+  empty provider state), stale handles cannot erase a later selection, and
+  reverse-order cleanup unwinds nested selections deterministically without
+  constructing or destroying an engine.
 - A `RenderAdapter` may receive that exact `Render` instance in its constructor;
   the no-argument constructor remains the default-singleton compatibility path.
 - A custom `Render` instance must fail when no provider is configured; it must

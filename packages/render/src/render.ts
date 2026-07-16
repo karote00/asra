@@ -58,6 +58,8 @@ export interface RenderEngineProviderOptions {
   engineFactory?: RenderEngineFactory
 }
 
+export type RenderEngineProviderCleanup = () => void
+
 export interface RenderApplication {
   canvas: HTMLCanvasElement | null
   instance: unknown
@@ -77,6 +79,7 @@ class Render {
   private engine: RenderEngine | null = null
   private providedEngine: RenderEngine | null = null
   private engineFactory: RenderEngineFactory | null = null
+  private providerToken = Symbol('render-engine-provider')
   private runtime: RenderObjectRuntime | null = null
   private renderDirty = true
   private nextFrameRenderDirty = false
@@ -104,18 +107,14 @@ class Render {
     )
   }
 
-  setEngine(engine: RenderEngine): void {
-    this.assertProviderMutable()
-    this.providedEngine = engine
-    this.engineFactory = null
-    this.engine = null
+  setEngine(engine: RenderEngine): RenderEngineProviderCleanup {
+    return this.replaceEngineProvider(engine, null)
   }
 
-  setEngineFactory(engineFactory: RenderEngineFactory): void {
-    this.assertProviderMutable()
-    this.providedEngine = null
-    this.engineFactory = engineFactory
-    this.engine = null
+  setEngineFactory(
+    engineFactory: RenderEngineFactory
+  ): RenderEngineProviderCleanup {
+    return this.replaceEngineProvider(null, engineFactory)
   }
 
   getEngine(): RenderEngine | null {
@@ -562,6 +561,32 @@ class Render {
       throw new Error(
         'Render engine provider cannot change after initialization'
       )
+    }
+  }
+
+  private replaceEngineProvider(
+    providedEngine: RenderEngine | null,
+    engineFactory: RenderEngineFactory | null
+  ): RenderEngineProviderCleanup {
+    this.assertProviderMutable()
+    const previousProvider = {
+      providedEngine: this.providedEngine,
+      engineFactory: this.engineFactory,
+      token: this.providerToken
+    }
+    const appliedToken = Symbol('render-engine-provider')
+    this.providedEngine = providedEngine
+    this.engineFactory = engineFactory
+    this.engine = null
+    this.providerToken = appliedToken
+
+    return () => {
+      if (this.providerToken !== appliedToken) return
+      this.assertProviderMutable()
+      this.providedEngine = previousProvider.providedEngine
+      this.engineFactory = previousProvider.engineFactory
+      this.engine = null
+      this.providerToken = previousProvider.token
     }
   }
 }

@@ -76,6 +76,120 @@ describe('Render engine adapter', () => {
     second.dispose()
   })
 
+  it('returns a provider cleanup that restores the exact prior factory without constructing either engine early', async () => {
+    const originalEngine = new RecordingRenderEngine({ name: 'original' })
+    const replacementEngine = new RecordingRenderEngine({ name: 'replacement' })
+    const originalFactory = vi.fn(() => originalEngine)
+    const replacementFactory = vi.fn(() => replacementEngine)
+    const render = new Render({ engineFactory: originalFactory })
+
+    const cleanup = render.setEngineFactory(replacementFactory)
+    expect(originalFactory).not.toHaveBeenCalled()
+    expect(replacementFactory).not.toHaveBeenCalled()
+
+    cleanup()
+    await render.init(100, 100, 0, {})
+
+    expect(originalFactory).toHaveBeenCalledOnce()
+    expect(replacementFactory).not.toHaveBeenCalled()
+    expect(render.getEngine()).toBe(originalEngine)
+    render.dispose()
+  })
+
+  it('clears the selected provider when cleanup restores an empty prior state', async () => {
+    const selectedFactory = vi.fn(
+      () => new RecordingRenderEngine({ name: 'selected' })
+    )
+    const render = new Render()
+
+    const cleanup = render.setEngineFactory(selectedFactory)
+    cleanup()
+
+    await expect(render.init(100, 100, 0, {})).rejects.toThrow(
+      'Render engine provider is not configured'
+    )
+    expect(selectedFactory).not.toHaveBeenCalled()
+  })
+
+  it('prevents a stale provider cleanup from erasing a later selection', async () => {
+    const originalFactory = vi.fn(
+      () => new RecordingRenderEngine({ name: 'original' })
+    )
+    const firstFactory = vi.fn(
+      () => new RecordingRenderEngine({ name: 'first' })
+    )
+    const secondEngine = new RecordingRenderEngine({ name: 'second' })
+    const secondFactory = vi.fn(() => secondEngine)
+    const render = new Render({ engineFactory: originalFactory })
+
+    const cleanupFirst = render.setEngineFactory(firstFactory)
+    render.setEngineFactory(secondFactory)
+    cleanupFirst()
+    await render.init(100, 100, 0, {})
+
+    expect(originalFactory).not.toHaveBeenCalled()
+    expect(firstFactory).not.toHaveBeenCalled()
+    expect(secondFactory).toHaveBeenCalledOnce()
+    expect(render.getEngine()).toBe(secondEngine)
+    render.dispose()
+  })
+
+  it('restores nested provider selections in reverse cleanup order', async () => {
+    const originalEngine = new RecordingRenderEngine({ name: 'original' })
+    const originalFactory = vi.fn(() => originalEngine)
+    const firstFactory = vi.fn(
+      () => new RecordingRenderEngine({ name: 'first' })
+    )
+    const secondFactory = vi.fn(
+      () => new RecordingRenderEngine({ name: 'second' })
+    )
+    const render = new Render({ engineFactory: originalFactory })
+
+    const cleanupFirst = render.setEngineFactory(firstFactory)
+    const cleanupSecond = render.setEngineFactory(secondFactory)
+    cleanupSecond()
+    cleanupFirst()
+    await render.init(100, 100, 0, {})
+
+    expect(originalFactory).toHaveBeenCalledOnce()
+    expect(firstFactory).not.toHaveBeenCalled()
+    expect(secondFactory).not.toHaveBeenCalled()
+    expect(render.getEngine()).toBe(originalEngine)
+    render.dispose()
+  })
+
+  it('keeps provider cleanup state isolated between Render instances', async () => {
+    const firstOriginalEngine = new RecordingRenderEngine({
+      name: 'first-original'
+    })
+    const secondReplacementEngine = new RecordingRenderEngine({
+      name: 'second-replacement'
+    })
+    const firstOriginalFactory = vi.fn(() => firstOriginalEngine)
+    const secondOriginalFactory = vi.fn(
+      () => new RecordingRenderEngine({ name: 'second-original' })
+    )
+    const firstReplacementFactory = vi.fn(
+      () => new RecordingRenderEngine({ name: 'first-replacement' })
+    )
+    const secondReplacementFactory = vi.fn(() => secondReplacementEngine)
+    const first = new Render({ engineFactory: firstOriginalFactory })
+    const second = new Render({ engineFactory: secondOriginalFactory })
+
+    const cleanupFirst = first.setEngineFactory(firstReplacementFactory)
+    second.setEngineFactory(secondReplacementFactory)
+    cleanupFirst()
+    await first.init(100, 100, 0, {})
+    await second.init(100, 100, 0, {})
+
+    expect(first.getEngine()).toBe(firstOriginalEngine)
+    expect(second.getEngine()).toBe(secondReplacementEngine)
+    expect(firstReplacementFactory).not.toHaveBeenCalled()
+    expect(secondOriginalFactory).not.toHaveBeenCalled()
+    first.dispose()
+    second.dispose()
+  })
+
   it('replays existing graphics when a disposed Render initializes a fresh engine', async () => {
     const engines: RecordingRenderEngine[] = []
     const render = new Render({

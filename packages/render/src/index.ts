@@ -37,7 +37,11 @@ export type {
   RenderStrategy,
   RenderStrategyGraphic
 } from './types/render-strategy'
-export type { RenderApplication, RenderEngineProviderOptions } from './render'
+export type {
+  RenderApplication,
+  RenderEngineProviderCleanup,
+  RenderEngineProviderOptions
+} from './render'
 export {
   RenderContainer,
   RenderGraphics,
