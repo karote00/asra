@@ -26,14 +26,14 @@ Provide shared types, ids, registry primitives, and low-level helpers.
   - duplicate keys are rejected by default (throws)
   - optional duplicate hooks/messages are configured at call sites
 - `ExtensionRegistry<Context>` is the framework-neutral primitive for bounded
-  registration extension:
+  package-author additive extension:
   - target metadata uses a stable key, name, kind, owner, and explicit supported
     strategy list
-  - supported strategies are `before`, `after`, `append`, and `replace`
-  - resolution is deterministic: `before -> default or replace -> after ->
-append`, preserving input order inside each bucket
+  - supported strategies are `before`, `after`, and `append`
+  - resolution is deterministic: `before -> default -> after -> append`,
+    preserving input order inside each bucket
   - duplicate targets/extensions, missing targets, invalid/unsupported
-    strategies, replacement conflicts, apply failures, and cleanup failures use
+    strategies, apply failures, and cleanup failures use
     `ExtensionContractError` with stable `EXTENSION_ERROR_CODES` and a structured
     result payload
   - installers return cleanup functions; apply rollback, target unregister, and
@@ -41,16 +41,35 @@ append`, preserving input order inside each bucket
   - a cleanup failure keeps the target applied for deterministic retry while
     already-completed cleanup handles remain completed and are not repeated
   - metadata queries return detached values and do not expose registry authority
+- `RegistrationGraph` is the framework-neutral startup composition primitive:
+  - registration identity is a stable `{ kind, key }` pair with detached owner
+    metadata; omitted owners receive `{ packageName: 'app', name: key }`
+  - `nodesByRef`, `outgoingRelationsBySource`, and
+    `incomingRelationsByTarget` keep small adjacency records while package
+    registries remain definition source-of-truth
+  - relation queries and recursive unregister traversal use stable sorted order
+  - `detach` preserves and rebuilds a source registration;
+    `unregister-source` queues the source for recursive owned cleanup
+  - `RegistrationRelationError` exposes stable structured failure codes for
+    closed composition, missing registrations/targets/relations, duplicate or
+    dangling relations, active usage, relation removal, and cleanup failure
+  - cleanup is reverse-order and retryable: completed resources do not rerun,
+    pending resources remain queryable through the failure result, and the node
+    remains registered until cleanup succeeds
 
 ## Extension Points
 
 - shared type modules for new domain contracts
 - reusable utility primitives for package implementers
-- application-scoped extension target registries for preset/package authors
+- additive extension target registries for package authors
+- Core-scoped registration graphs coordinated by the framework owner
 
 ## Validation Checklist
 
 - Adding utility APIs does not introduce package coupling back to higher layers.
 - Shared types are consumed via `@asyra/utils` imports across packages.
-- Extension registry tests cover ordering, explicit replacement, structured
-  failure, apply rollback, unregister fallback, and cleanup behavior.
+- Extension registry tests cover additive ordering, structured failure, apply
+  rollback, unregister, and cleanup behavior.
+- Registration graph tests cover detached metadata, deterministic relation
+  order, structural detach, recursive hard cleanup, composition closure,
+  dangling validation, and cleanup retry.

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   EXTENSION_STRATEGIES,
   ExtensionContractError,
@@ -68,6 +68,10 @@ const expectContractError = (
 }
 
 describe('ExtensionRegistry', () => {
+  it('exposes additive strategies only', () => {
+    expect(EXTENSION_STRATEGIES).toEqual(['before', 'after', 'append'])
+  })
+
   it('resolves explicit strategy buckets deterministically', () => {
     const registry = new ExtensionRegistry<TestContext>()
     registerTarget(registry)
@@ -120,32 +124,6 @@ describe('ExtensionRegistry', () => {
         ]
       })
     ])
-  })
-
-  it('uses one explicit replacement instead of the default installer', () => {
-    const registry = new ExtensionRegistry<TestContext>()
-    const defaultInstall = vi.fn((context: TestContext) => {
-      context.events.push('default')
-      return cleanup(context.events, 'default')
-    })
-    registerTarget(registry, { install: defaultInstall })
-
-    registry.registerExtension({
-      key: 'app.replace',
-      targetKey: 'preset.target',
-      owner: APP_OWNER,
-      strategy: 'replace',
-      install: (context) => {
-        context.events.push('replacement')
-        return cleanup(context.events, 'replacement')
-      }
-    })
-
-    const events: string[] = []
-    registry.apply({ events })
-
-    expect(defaultInstall).not.toHaveBeenCalled()
-    expect(events).toEqual(['replacement'])
   })
 
   it('returns detached query metadata', () => {
@@ -238,7 +216,7 @@ describe('ExtensionRegistry', () => {
     )
   })
 
-  it('rejects unsupported strategies and replacement conflicts before apply', () => {
+  it('rejects unsupported and non-additive strategies before apply', () => {
     const registry = new ExtensionRegistry<TestContext>()
     registerTarget(registry, { supportedStrategies: ['after'] })
 
@@ -254,25 +232,16 @@ describe('ExtensionRegistry', () => {
       'UNSUPPORTED_STRATEGY'
     )
 
-    const replacements = new ExtensionRegistry<TestContext>()
-    registerTarget(replacements)
-    replacements.registerExtension({
-      key: 'replace:first',
-      targetKey: 'preset.target',
-      owner: APP_OWNER,
-      strategy: 'replace',
-      install: (context) => cleanup(context.events, 'replace:first')
-    })
     expectContractError(
       () =>
-        replacements.registerExtension({
-          key: 'replace:second',
+        registry.registerExtension({
+          key: 'non-additive',
           targetKey: 'preset.target',
           owner: APP_OWNER,
-          strategy: 'replace',
-          install: (context) => cleanup(context.events, 'replace:second')
+          strategy: 'replace' as ExtensionStrategy,
+          install: (context) => cleanup(context.events, 'non-additive')
         }),
-      'REPLACE_CONFLICT'
+      'INVALID_STRATEGY'
     )
   })
 

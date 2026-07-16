@@ -1,11 +1,6 @@
 import { MapRegistry } from './map-registry'
 
-export const EXTENSION_STRATEGIES = [
-  'before',
-  'after',
-  'append',
-  'replace'
-] as const
+export const EXTENSION_STRATEGIES = ['before', 'after', 'append'] as const
 
 export type ExtensionStrategy = (typeof EXTENSION_STRATEGIES)[number]
 
@@ -15,7 +10,6 @@ export const EXTENSION_ERROR_CODES = [
   'TARGET_NOT_FOUND',
   'INVALID_STRATEGY',
   'UNSUPPORTED_STRATEGY',
-  'REPLACE_CONFLICT',
   'APPLY_FAILED',
   'TARGET_NOT_APPLIED',
   'CLEANUP_FAILED'
@@ -375,23 +369,6 @@ export class ExtensionRegistry<Context> {
         }
       )
     }
-    if (
-      registration.strategy === 'replace' &&
-      this.getExtensionsForTarget(registration.targetKey).some(
-        (extension) => extension.strategy === 'replace'
-      )
-    ) {
-      return failure(
-        'REPLACE_CONFLICT',
-        'register-extension',
-        `Extension target "${registration.targetKey}" already has a replacement`,
-        {
-          targetKey: registration.targetKey,
-          extensionKey: registration.key
-        }
-      )
-    }
-
     const extension: ExtensionRecord<Context> = {
       key: registration.key,
       targetKey: registration.targetKey,
@@ -492,20 +469,11 @@ export class ExtensionRegistry<Context> {
     const before = extensions.filter((item) => item.strategy === 'before')
     const after = extensions.filter((item) => item.strategy === 'after')
     const append = extensions.filter((item) => item.strategy === 'append')
-    const replacement = extensions.find((item) => item.strategy === 'replace')
-    const defaultInstaller: ExtensionRecord<Context> = {
+    const defaultInstaller = {
       key: target.key,
-      targetKey: target.key,
-      owner: target.owner,
-      strategy: 'replace',
       install: target.install
     }
-    const resolved = [
-      ...before,
-      replacement ?? defaultInstaller,
-      ...after,
-      ...append
-    ]
+    const resolved = [...before, defaultInstaller, ...after, ...append]
     const cleanups: AppliedCleanup[] = []
 
     try {
