@@ -1216,3 +1216,40 @@ unregister -> app migration -> core.start()` as the public app route.
   - `8fa6f9915` (`feat(preset): install graph-owned defaults`)
   - `c9b2fda5a` (`docs(preset): record relation composition closure`)
   - [PR #81](https://github.com/karote00/asyra/pull/81)
+
+## 2026-07-17 - Preset startup composition is explicit and engine-neutral
+
+- Context:
+  - Preset startup needed one deterministic contract for compatibility defaults,
+    identified engine providers, optional package-owned bundles, diagnostics,
+    rollback, and cleanup without introducing product-mode profiles.
+  - The completed Render-Engine Boundary and Extendable Preset contracts provide
+    the reversible provider and graph-aware app customization foundations.
+- Decision:
+  - Resolve and validate the complete composition before mutation, then install
+    shared defaults, configure one concrete-engine provider, install explicitly
+    selected bundles in caller order, and publish one completed instance-local
+    result.
+  - Keep `applyPreset(core)`, explicit dependency input, and the legacy factory
+    overload compatible. Prefer identified `{ engine: { id, factory } }` input
+    for new custom-engine composition.
+  - Keep app customization outside preset through ordinary Core APIs; keep the
+    first `core.start()` as permanent composition closure and runtime-ready owner.
+  - Use stable `PresetCompositionError` validation/layer/cleanup codes and retain
+    reverse cleanup state so only pending handles retry.
+- Consequences:
+  - Preset diagnostics name the engine, shared groups, selected bundles, and
+    exact order without inferring `2d`, `3d`, `hybrid`, or app-domain mode.
+  - Render retains provider semantics and concrete-engine neutrality; selected
+    engine and bundle packages retain their resource/disposer ownership.
+  - Failed composition publishes no success and cannot leave an accepted partial
+    lifetime; separate Core/application instances share no result or cleanup state.
+- Related Plan:
+  - `docs/ai/framework/plans/preset-composition-plan.md`
+- Related Commit(s):
+  - `18e3c4ab4` (`feat(preset): validate generic composition inputs`)
+  - `b2b8f83d0` (`refactor(preset): order shared defaults before engine bootstrap`)
+  - `e55df62ca` (`feat(render): make engine provider selection reversible`)
+  - `a1a89becb` (`feat(preset): install ordered capability bundles`)
+  - `fbb722c12` (`feat(preset): publish composition results`)
+  - `b8fc8adfe` (`feat(preset): report retryable cleanup failures`)

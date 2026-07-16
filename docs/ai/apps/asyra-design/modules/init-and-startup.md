@@ -20,8 +20,10 @@
 
 1. `initApp()`
 
-- `applyPreset(core)` registers framework defaults and selects the fresh Pixi
-  engine factory without exposing it to the app
+- `applyPreset(core)` uses the omitted-composition compatibility path: it
+  installs all shared defaults, selects the fresh Pixi engine factory, selects
+  no optional bundles, and returns a completed composition result before app
+  initialization continues
 - the current app uses the no-customization compatibility route; when app policy
   needs customization, call public Core remove/unregister/define APIs after
   `applyPreset(core)` and before the remaining init steps
@@ -51,6 +53,8 @@
 ## Rules
 
 - Keep registration/init in deterministic order.
+- Preset completion is synchronous composition evidence, not Core readiness;
+  only the later `core.start()` owns permanent closure and ready publication.
 - Complete preset customization before diagnostics, capabilities, input-system,
   app feature initialization, and the first `core.start()`.
 - Remove only a relation when source/target capabilities should remain. Use the
@@ -70,6 +74,7 @@
 - Do not duplicate persistence load/save orchestration in app when core.start already handles persistence.
 - Keep startup side effects explicit in init modules.
 - Keep app startup concrete-engine-neutral; Preset owns default factory
-  selection, `Render` owns the engine instance, and the app uses
+  selection/diagnostics, `Render` owns reversible provider state, the concrete
+  engine package owns its instance/resources, and the app uses
   `RenderAdapter` only.
 - Renderer/engine capability must not select an app product mode.

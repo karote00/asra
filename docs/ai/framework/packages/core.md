@@ -63,6 +63,8 @@ System orchestrator and lifecycle coordinator.
 
 1. Startup contract
 
+- a completed `PresetApplication.result` only means pre-start composition
+  succeeded; it does not close composition, initialize runtime, or publish ready
 - app configures an engine-neutral `IRenderer` (normally `RenderAdapter`) before
   calling `start(...)`
 - call the configured renderer exactly once with the host container and
@@ -78,6 +80,8 @@ System orchestrator and lifecycle coordinator.
 
 2. Registration composition contract
 
+- app customization remains outside preset and uses ordinary Core APIs after
+  `applyPreset(...)` returns and before the first `start(...)`
 - registration calls fail fast on duplicate identity; Core does not silently
   skip, overwrite, or infer replacement
 - `RegistrationRelationError` carries stable structured codes for closed,

@@ -43,7 +43,7 @@ Asyra architecture is designed around deterministic execution over declarative i
 ```mermaid
 flowchart TD
   state["Framework state<br/>SceneTree / Props / Selection"]
-  preset["@asyra/preset<br/>selects and injects the default engine"]
+  preset["@asyra/preset<br/>composes defaults, provider, and bundles"]
   render["@asyra/render<br/>adapter + orchestration"]
   contract["@asyra/render-engine<br/>abstract contract"]
   pixi["@asyra/render-engine-pixi<br/>Pixi concrete implementation"]
@@ -51,8 +51,8 @@ flowchart TD
   surface["Render surface"]
 
   state -->|authoritative state changes| render
-  preset -->|selects default factory| pixi
-  preset -->|injects engine instance or factory| render
+  preset -->|selects default factory only| pixi
+  preset -->|injects validated provider factory| render
   render -->|consumes| contract
   pixi -->|implements| contract
   custom -->|implements| contract
@@ -65,8 +65,10 @@ Dependency direction is strict:
 - `@asyra/render` depends on `@asyra/render-engine`, never on a concrete engine;
 - `@asyra/render-engine-pixi` depends on `@asyra/render-engine`, never on
   `@asyra/render`;
-- `@asyra/preset` selects the default Pixi factory or an explicit custom
-  factory and injects it into the target `Render` instance;
+- `@asyra/preset` installs shared defaults, selects the default Pixi factory or
+  an identified custom factory, injects it into the target `Render` instance,
+  invokes only explicitly selected package-owned bundles, and publishes an
+  instance-local completed composition result;
 - Core and apps remain concrete-engine-neutral.
 
 ## Canonical Intent Flow
@@ -164,7 +166,11 @@ Canonical shorthand:
 The normal app route is:
 
 ```text
-applyPreset(core)
+applyPreset(core, composition?)
+-> shared defaults
+-> concrete-engine provider
+-> explicitly selected capability bundles
+-> completed preset composition result
 -> remove old relation(s)
 -> define new relation(s) or registrations
 -> optionally unregister a complete capability
@@ -173,6 +179,8 @@ applyPreset(core)
 ```
 
 - Core owns one `RegistrationGraph` and the permanent composition lock.
+- Preset owns deterministic pre-start composition and rollback coordination,
+  but does not execute app customization or declare Core ready.
 - Package registries remain definition source-of-truth; the graph stores only
   stable `{ kind, key }` identities, owner metadata, declared relations, and
   package-local cleanup handlers.

@@ -35,7 +35,12 @@ import { ProductRenderEngine } from '@product/render-engine'
 
 const renderEngineFactory: RenderEngineFactory = () => new ProductRenderEngine()
 
-applyPreset(core, { renderEngineFactory })
+const presetApplication = applyPreset(core, {
+  engine: {
+    id: '@product/render-engine',
+    factory: renderEngineFactory
+  }
+})
 ```
 
 Call `applyPreset(...)` before `core.start(...)`. Preset forwards the factory to
@@ -50,7 +55,10 @@ const dependencies = core.getPresetDependencies()
 
 applyPreset(core, {
   dependencies,
-  renderEngineFactory
+  engine: {
+    id: '@product/render-engine',
+    factory: renderEngineFactory
+  }
 })
 
 // A custom Core/Render composition must bind its renderer facade to the same
@@ -61,6 +69,10 @@ core.setRenderer(new RenderAdapter(dependencies.render))
 The no-argument `new RenderAdapter()` remains the default-singleton
 compatibility path. Do not use it for a Core composed with a different
 `Render` instance.
+
+The legacy `{ renderEngineFactory }` overload remains supported, but identified
+engine input is the preferred path because completed composition diagnostics
+retain its stable id.
 
 ## 4. Direct Render Composition
 

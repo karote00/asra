@@ -6450,3 +6450,23 @@ join` constrained dashed product path across:
     `apps/asyra-design/e2e/stroke-new-flow/stroke-visual-e2e-coverage-map.ts`.
   - Deleted pre-current-flow visual specs remain deleted unless they are rewritten
     into current-flow coverage with explicit spec and inspector references.
+
+## 2026-07-17 - App startup retains omitted preset composition compatibility
+
+- Context:
+  - Generic Preset Composition adds identified engine and optional bundle inputs
+    without moving app policy into preset.
+  - Asyra Design already initializes preset defaults before diagnostics,
+    capabilities, input-system, features, and its later RenderApp startup.
+- Decision:
+  - Keep `applyPreset(core)` as Asyra Design's omitted-composition compatibility
+    path with the default Pixi provider and no optional bundles.
+  - Keep any future app customization after preset returns through ordinary Core
+    APIs, and keep RenderApp's `core.start()` as the sole runtime-ready owner.
+- Consequences:
+  - App startup remains concrete-engine-neutral and requires no preset-specific
+    extension callback, replace surface, product mode, or concrete SDK import.
+  - The existing init-order and StrictMode startup tests remain the app-level
+    compatibility gates.
+- Related Plan:
+  - `docs/ai/framework/plans/preset-composition-plan.md`

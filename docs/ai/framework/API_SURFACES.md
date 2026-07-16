@@ -346,8 +346,19 @@ Managed property bridges:
 - `applyPreset(core, dependencies)` preserves the existing explicit dependency
   bundle path
 - `applyPreset(core, { renderEngineFactory, dependencies? })` replaces the
-  Pixi default with a contract-compatible custom factory
-- returns a `PresetApplication` whose `dispose()` removes graph registrations
+  Pixi default with a contract-compatible custom factory and reports the stable
+  legacy compatibility engine identity
+- `applyPreset(core, { engine, capabilityBundles, dependencies? })` selects one
+  stable engine bootstrap plus explicitly ordered package-owned bundles; a
+  custom engine identity requires its factory, while the preset-owned default
+  identity may omit it
+- public composition contracts include `PresetEngineBootstrap`,
+  `PresetCapabilityBundle`, `PresetCapabilityBundleContext`,
+  `PresetCapabilityInstallation`, `PresetCompositionSuccess`, and structured
+  failure/cleanup result types
+- returns a `PresetApplication` with a frozen instance-local `result` containing
+  engine identity, shared groups, selected bundles, and exact layer order; its
+  `dispose()` removes graph registrations
   plus preset-installed events, selections, owned shared channels,
   subscriptions, data-channel observers, and render layers; it preserves
   app-owned shared channels, skips nodes already removed through Core, and
@@ -355,6 +366,9 @@ Managed property bridges:
 - shared channels and data-channel observers are installed through the supplied
   Core instance; a failed apply whose rollback cleanup is still pending is
   retained and retried before a later `applyPreset` on that same Core
+- `PresetCompositionError` distinguishes validation, duplicate target, unknown
+  engine, missing bundle, ordering, layer-install, and cleanup failure; apply
+  rollback reports completed/pending cleanup keys and retains its original cause
 - exports pure component definitions and separate render strategies for
   Rectangle, Oval, Vector, Frame, and Group; importing preset modules has no
   component-registration side effect
@@ -363,6 +377,8 @@ Managed property bridges:
 - app customization uses ordinary Core relation/registration APIs after
   `applyPreset(core)`; preset exposes no app extension object, target manifest,
   or replace strategy
+- preset completion does not start Core or publish runtime readiness; the first
+  `core.start()` remains the permanent composition closure/runtime owner
 - default render wiring lives here:
   - register default render YJS observers (scene-tree + selection)
   - register default render system subscriptions (`zoom`, `viewportPosition`)

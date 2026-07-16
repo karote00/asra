@@ -30,7 +30,8 @@ only package that owns Pixi SDK imports and concrete Pixi runtime objects.
 
 Preset passes `createPixiRenderEngine` to the target `Render` instance. The
 factory creates a fresh engine for each requesting `Render`; preset does not
-own the resulting runtime or resources.
+own the resulting runtime or resources. Omitted composition and the explicit
+`@asyra/render-engine-pixi` bootstrap identity use this same provider path.
 
 ## Execution Contract
 
