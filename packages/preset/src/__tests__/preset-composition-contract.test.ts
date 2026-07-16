@@ -823,6 +823,27 @@ describe('generic preset composition input validation', () => {
     expect(application.dispose()).toMatchObject({ ok: true })
   })
 
+  it('reports the stable compatibility identity for the legacy engine factory overload', () => {
+    const { core, dependencies } = createComposition()
+    const customFactory = vi.fn()
+
+    const application = applyPreset(core, {
+      dependencies,
+      renderEngineFactory: customFactory
+    })
+
+    expect(dependencies.render.setEngineFactory).toHaveBeenCalledWith(
+      customFactory
+    )
+    expect(application.result.engineId).toBe(
+      publicPreset.LEGACY_PRESET_ENGINE_FACTORY_ID
+    )
+    expect(application.result.order).toContain(
+      `concrete-engine:${publicPreset.LEGACY_PRESET_ENGINE_FACTORY_ID}`
+    )
+    application.dispose()
+  })
+
   it('maps Render provider rejection to a structured engine-layer failure', () => {
     const { core, dependencies, registrations } = createComposition()
     vi.mocked(dependencies.render.setEngineFactory).mockImplementation(() => {
