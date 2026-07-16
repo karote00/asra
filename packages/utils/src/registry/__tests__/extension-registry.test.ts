@@ -359,6 +359,47 @@ describe('ExtensionRegistry', () => {
     )
   })
 
+  it('keeps failed cleanup applied and retries only the remaining owned resource', () => {
+    const registry = new ExtensionRegistry<TestContext>()
+    const cleanupEvents: string[] = []
+    let shouldFail = true
+    registerTarget(registry, {
+      install: () => () => {
+        cleanupEvents.push('default')
+      }
+    })
+    registry.registerExtension({
+      key: 'app.after.retryable',
+      targetKey: 'preset.target',
+      owner: APP_OWNER,
+      strategy: 'after',
+      install: () => () => {
+        cleanupEvents.push('extension')
+        if (shouldFail) {
+          throw new Error('active resource')
+        }
+      }
+    })
+
+    const application = registry.apply({ events: [] })
+    expectContractError(
+      () => application.unregisterTarget('preset.target'),
+      'CLEANUP_FAILED'
+    )
+    expect(cleanupEvents).toEqual(['extension', 'default'])
+
+    shouldFail = false
+    expect(application.unregisterTarget('preset.target')).toMatchObject({
+      ok: true,
+      targetKey: 'preset.target'
+    })
+    expect(cleanupEvents).toEqual(['extension', 'default', 'extension'])
+    expectContractError(
+      () => application.unregisterTarget('preset.target'),
+      'TARGET_NOT_APPLIED'
+    )
+  })
+
   it('supports deterministic unregister then app redefine fallback', () => {
     const events: string[] = []
     const registry = new ExtensionRegistry<TestContext>()

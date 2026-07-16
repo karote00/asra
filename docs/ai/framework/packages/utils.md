@@ -38,6 +38,8 @@ append`, preserving input order inside each bucket
     result payload
   - installers return cleanup functions; apply rollback, target unregister, and
     application disposal invoke owned cleanup in reverse order
+  - a cleanup failure keeps the target applied for deterministic retry while
+    already-completed cleanup handles remain completed and are not repeated
   - metadata queries return detached values and do not expose registry authority
 
 ## Extension Points

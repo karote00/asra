@@ -31,7 +31,9 @@ Avoid:
   Multiple entries within one bucket preserve the caller's declared order.
 - Every extension installer returns its owned cleanup function. Apply rollback,
   target unregister, and full application disposal run cleanup in reverse order;
-  cleanup failure remains a structured failure and blocks replacement.
+  cleanup failure remains a structured failure and blocks replacement. A target
+  with a failed cleanup stays applied and retryable; cleanup handles that already
+  completed successfully are not invoked again.
 - Explicit `replace` bypasses the target default and must not be implemented as
   duplicate-registration tolerance.
 

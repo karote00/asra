@@ -109,6 +109,7 @@ interface ExtensionRecord<Context> extends ExtensionMetadata {
 interface AppliedCleanup {
   key: string
   dispose: ExtensionCleanup
+  disposed: boolean
 }
 
 interface AppliedTarget {
@@ -165,8 +166,12 @@ const failure = (
 const disposeCleanups = (cleanups: AppliedCleanup[]): unknown[] => {
   const errors: unknown[] = []
   for (let index = cleanups.length - 1; index >= 0; index -= 1) {
+    if (cleanups[index].disposed) {
+      continue
+    }
     try {
       cleanups[index].dispose()
+      cleanups[index].disposed = true
     } catch (error) {
       errors.push(error)
     }
@@ -220,7 +225,7 @@ export class ExtensionRegistryApplication<Context> {
       )
     }
 
-    const [target] = this.appliedTargets.splice(index, 1)
+    const target = this.appliedTargets[index]
     const cleanupErrors = disposeCleanups(target.cleanups)
     if (cleanupErrors.length > 0) {
       return failure(
@@ -230,6 +235,8 @@ export class ExtensionRegistryApplication<Context> {
         { targetKey: key, cleanupErrors }
       )
     }
+
+    this.appliedTargets.splice(index, 1)
 
     return {
       ok: true,
@@ -246,9 +253,12 @@ export class ExtensionRegistryApplication<Context> {
     for (let index = this.appliedTargets.length - 1; index >= 0; index -= 1) {
       const target = this.appliedTargets[index]
       appliedKeys.push(...target.cleanups.map((item) => item.key))
-      cleanupErrors.push(...disposeCleanups(target.cleanups))
+      const targetCleanupErrors = disposeCleanups(target.cleanups)
+      cleanupErrors.push(...targetCleanupErrors)
+      if (targetCleanupErrors.length === 0) {
+        this.appliedTargets.splice(index, 1)
+      }
     }
-    this.appliedTargets.length = 0
 
     if (cleanupErrors.length > 0) {
       return failure(
@@ -506,7 +516,7 @@ export class ExtensionRegistry<Context> {
             `Extension installer "${item.key}" must return a cleanup function`
           )
         }
-        cleanups.push({ key: item.key, dispose })
+        cleanups.push({ key: item.key, dispose, disposed: false })
       }
     } catch (error) {
       const cleanupErrors = disposeCleanups(cleanups)
