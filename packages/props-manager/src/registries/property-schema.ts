@@ -28,8 +28,8 @@ class PropertySchemaRegistry {
     return this.registry.has(type)
   }
 
-  unregister(type: string): void {
-    this.registry.delete(type)
+  unregister(type: string): boolean {
+    return this.registry.delete(type)
   }
 
   clear(): void {
@@ -46,5 +46,8 @@ export const registerPropertySchema = (
 
 export const getPropertySchema = (type: string) =>
   propertySchemaRegistry.get(type)
+
+export const unregisterPropertySchema = (type: string): boolean =>
+  propertySchemaRegistry.unregister(type)
 
 export type { RegisterOptions as RegisterPropertySchemaOptions }

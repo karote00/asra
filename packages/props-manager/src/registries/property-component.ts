@@ -39,8 +39,8 @@ class PropertyComponentRegistry {
     return this.registry.has(type)
   }
 
-  unregister(type: string): void {
-    this.registry.delete(type)
+  unregister(type: string): boolean {
+    return this.registry.delete(type)
   }
 
   clear(): void {
@@ -58,6 +58,9 @@ export const registerPropertyComponent = (
 
 export const getPropertyComponent = (type: string) =>
   propertyComponentRegistry.get(type)
+
+export const unregisterPropertyComponent = (type: string): boolean =>
+  propertyComponentRegistry.unregister(type)
 
 export type {
   PropertyComponentConstructor,

@@ -53,6 +53,23 @@ packages/props-manager/src/
 
 - `load(...)` is replace-style (clears previous runtime maps, then applies validated data)
 
+5. Registration lifecycle
+
+- `PropsManager.getPropertyIdsByType(type)` reports active and replay-retained
+  deleted property ids for replacement safety.
+- `unregisterPropertyRegistration(type, manager?)` checks usage before any
+  mutation. Active or replay-retained instances throw
+  `PropertyRegistrationError` with stable `PROPERTY_TYPE_IN_USE` code and
+  detached property ids.
+- missing schema/constructor registration returns the structured
+  `PROPERTY_REGISTRATION_NOT_FOUND` result without touching other types.
+- safe unregister removes the existing schema and runtime constructor together
+  and reports exactly which registrations were removed; a custom definition can
+  then be registered without duplicate tolerance.
+- individual `unregisterPropertySchema(type)` and
+  `unregisterPropertyComponent(type)` primitives return whether their registry
+  entry was removed.
+
 ## Current Extension Points
 
 - element property registration
@@ -74,3 +91,6 @@ packages/props-manager/src/
 - Property load/save round-trip is stable.
 - Invalid runtime writes are rejected without corrupting stored values.
 - Schema updates are reflected in component validation behavior.
+- Registration replacement is rejected while active or replay-retained
+  instances use the type, and safe replacement leaves no stale schema or
+  constructor.

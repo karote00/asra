@@ -5,7 +5,8 @@ import stateRegistry from './registries/state'
 import {
   propertyComponentRegistry,
   registerPropertyComponent,
-  getPropertyComponent
+  getPropertyComponent,
+  unregisterPropertyComponent
 } from './registries/property-component'
 import { BasePropertyComponent } from './components'
 import {
@@ -23,6 +24,7 @@ export {
   propertyComponentRegistry,
   registerPropertyComponent,
   getPropertyComponent,
+  unregisterPropertyComponent,
   BasePropertyComponent,
   getPropertyComponentAccessor
 }
@@ -31,8 +33,21 @@ export type { PropertyComponentConstructor } from './components'
 export {
   propertySchemaRegistry,
   registerPropertySchema,
-  getPropertySchema
+  getPropertySchema,
+  unregisterPropertySchema
 } from './registries/property-schema'
 export type { RegisterPropertySchemaOptions } from './registries/property-schema'
 export type { RegisterPropertyComponentOptions } from './registries/property-component'
 export type { PropertyComponentAccessor }
+export {
+  PROPERTY_REGISTRATION_ERROR_CODES,
+  PropertyRegistrationError,
+  unregisterPropertyRegistration
+} from './registries/property-registration'
+export type {
+  PropertyRegistrationErrorCode,
+  PropertyRegistrationInUseFailure,
+  PropertyRegistrationUnregisterMissing,
+  PropertyRegistrationUnregisterResult,
+  PropertyRegistrationUnregisterSuccess
+} from './registries/property-registration'

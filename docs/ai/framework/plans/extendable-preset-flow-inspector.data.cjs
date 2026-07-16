@@ -312,6 +312,7 @@
         'packages/props-manager/src/index.ts',
         'packages/props-manager/src/manager/props-manager.ts',
         'packages/props-manager/src/registries/property-component.ts',
+        'packages/props-manager/src/registries/property-registration.ts',
         'packages/props-manager/src/registries/property-schema.ts',
         'packages/props-manager/src/registries/property-definition.ts',
         'packages/props-manager/src/types/**',

@@ -121,6 +121,23 @@ class PropsManager {
     return this._components.get(propertyId)
   }
 
+  getPropertyIdsByType(type: string): string[] {
+    const ids = new Set<string>()
+    const collect = (
+      components: Map<string, PropertyComponentInstanceTypes>
+    ): void => {
+      components.forEach((component, id) => {
+        if (component.get('type') === type) {
+          ids.add(id)
+        }
+      })
+    }
+
+    collect(this._components)
+    collect(this._deletedMap)
+    return Array.from(ids)
+  }
+
   addToMap(component: PropertyComponentInstanceTypes) {
     const comId = component.get('id')
     if (!component || !comId) {
