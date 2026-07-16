@@ -2,15 +2,32 @@
 
 ## Status and Roadmap Position
 
-First near-term architecture plan after transaction closeout.
+Completed on 2026-07-16. PR #79 merged the replaceable render-engine boundary
+to `main` at merge commit `f185f026cef3b47127003651697bdbf7a8708889`.
+`@asyra/render` remains the stable framework adapter/orchestration package,
+`@asyra/render-engine` owns the pure contract, and
+`@asyra/render-engine-pixi` owns the default Pixi implementation.
 
-This plan must complete before generic preset composition can accept a concrete
-engine factory and before any official `2d`, `3d`, or `hybrid` preset profile is
-considered. It defines render-engine replaceability while keeping
-`@asyra/render` as the stable framework render package.
+This completed phase covers only the existing Pixi-backed 2D behavior. It does
+not implement or advertise a production 3D engine, Hybrid runtime, or render
+mode selection.
 
-This phase focuses only on the existing Pixi-backed 2D behavior. It does not
-implement or advertise a production 3D engine or hybrid runtime.
+## Completion Record
+
+- Final decision: accept the three-package owner boundary and keep concrete
+  engine selection in composition rather than framework state or render mode.
+- Implementation summary: preset injects Pixi by default, custom engines use
+  the same abstract contract, render remains engine-neutral, and formal
+  contract adapters prove lifecycle, interaction, cleanup, and instance
+  isolation.
+- Compatibility summary: existing framework-facing render APIs and Asyra
+  Design startup remain compatible; `PixiJSRenderer` is retained only as the
+  documented deprecated compatibility alias for its planned migration window.
+- Exit criteria: PR #79 CI and deployment checks passed; package, dependency,
+  Inspector, app, lint, build, and interaction validation passed; framework
+  architecture docs contain the implemented package diagram.
+- Canonical executable architecture contract:
+  `docs/ai/framework/plans/render-engine-boundary-flow-inspector.data.cjs`.
 
 ## Goal
 

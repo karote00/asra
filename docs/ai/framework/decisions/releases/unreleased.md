@@ -1099,3 +1099,32 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
     or render-mode selector.
 - Related Plan:
   - `docs/ai/framework/plans/render-engine-boundary-plan.md`
+
+## 2026-07-16 - Render-engine boundary completed
+
+- Context:
+  - PR #79 merged the abstract render-engine contract, Pixi concrete owner,
+    engine-neutral render adapter, preset default injection, custom-engine
+    composition path, compatibility surface, and architecture documentation.
+  - CI validation and Vercel deployment completed successfully before merge.
+- Decision:
+  - Treat the Render-Engine Boundary plan as complete with
+    `@asyra/render` owning framework orchestration,
+    `@asyra/render-engine` owning the pure contract, and
+    `@asyra/render-engine-pixi` owning concrete Pixi execution.
+  - Keep preset as the default Pixi composition owner while allowing users to
+    inject a contract-compatible custom engine.
+  - Keep production 3D, Hybrid, and render-mode selection outside this
+    completed phase.
+- Consequences:
+  - The detailed plan is archived at its completed canonical path while the
+    Render-Engine Boundary Inspector data, contract test, and viewer remain
+    executable architecture authorities.
+  - Extendable Preset becomes the first Near-Term Plan, followed by Generic
+    Preset Composition; official 2D/3D/Hybrid profiles remain deferred and
+    trigger-gated.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/render-engine-boundary-plan.md`
+- Related Commit(s):
+  - `f185f026cef3b47127003651697bdbf7a8708889` (`feat(render): add replaceable render engine boundary (#79)`)
+  - [PR #79](https://github.com/karote00/asyra/pull/79)
