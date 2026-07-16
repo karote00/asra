@@ -19,6 +19,18 @@ const route = (id) => {
   return value
 }
 
+const contractText = (owner) =>
+  [
+    owner.purpose,
+    ...owner.inputs,
+    ...owner.outputs,
+    ...owner.conditions,
+    ...owner.bypasses,
+    ...owner.allowedContributors,
+    ...owner.forbiddenContributors,
+    ...owner.implementationBoundary
+  ].join(' ')
+
 test('active extendable-preset plan remains the resolvable product authority', () => {
   assert.equal(
     data.authority.specPath,
@@ -35,161 +47,163 @@ test('active extendable-preset plan remains the resolvable product authority', (
   )
 })
 
-test('framework primitive owns deterministic target and extension resolution', () => {
-  const owner = step('resolve-extension-contract')
-  const contract = [
-    ...owner.inputs,
-    ...owner.outputs,
-    ...owner.conditions,
-    ...owner.forbiddenContributors
-  ].join(' ')
+test('app startup owns only ordinary public composition and migration choice', () => {
+  const owner = step('compose-app-startup')
+  const contract = contractText(owner)
+
+  assert.equal(owner.ownerPackage, 'app or user composition')
+  assert.match(contract, /applyPreset\(core\)/)
+  assert.match(contract, /core\.defineFeature/i)
+  assert.match(contract, /remove.*define.*register.*unregister/i)
+  assert.match(contract, /migration/i)
+  assert.match(contract, /public/i)
+  assert.match(contract, /preset-specific app extension objects/i)
+})
+
+test('shared primitive owns adjacency, deterministic traversal, and structured contract', () => {
+  const owner = step('maintain-registration-graph')
+  const contract = contractText(owner)
 
   assert.equal(owner.ownerPackage, '@asyra/utils')
-  assert.match(contract, /stable target key/i)
-  assert.match(contract, /owner metadata/i)
-  assert.match(contract, /before.*default.*after.*append/i)
-  assert.match(contract, /structured/i)
+  assert.match(contract, /nodesByRef/i)
+  assert.match(contract, /outgoingRelationsBySource/i)
+  assert.match(contract, /incomingRelationsByTarget/i)
+  assert.match(contract, /sorted/i)
+  assert.match(contract, /queue/i)
+  assert.match(contract, /visited set/i)
+  assert.match(contract, /RegistrationRelationError/i)
+  assert.match(contract, /retryable/i)
+  assert.match(contract, /before, after, and append/i)
+  assert.doesNotMatch(contract, /replace strategy|explicit replace|replace conflict/i)
   assert.deepEqual(owner.cacheDimensions, [])
 })
 
-test('feature registration and cleanup remain owned by feature-system', () => {
-  const owner = step('register-feature-capability')
-  const contract = [
-    ...owner.conditions,
-    ...owner.bypasses,
-    ...owner.forbiddenContributors
-  ].join(' ')
+test('component owner preserves registrations while mutating exact property slots', () => {
+  const owner = step('mutate-component-property-relations')
+  const contract = contractText(owner)
 
-  assert.equal(owner.ownerPackage, '@asyra/feature-system')
-  assert.match(contract, /execution handlers/i)
-  assert.match(contract, /session handlers/i)
-  assert.match(contract, /input.*subscriptions/i)
-  assert.match(contract, /stale side effects/i)
-  assert.ok(
-    owner.implementationBoundary.includes(
-      'packages/feature-system/src/core/feature.ts'
-    )
-  )
+  assert.equal(owner.ownerPackage, '@asyra/scene-tree')
+  assert.match(contract, /automatic detach relation/i)
+  assert.match(contract, /complete next definition\/class/i)
+  assert.match(contract, /Component-local maps/i)
+  assert.match(contract, /active instance/i)
+  assert.match(contract, /never unregisters either registration node/i)
 })
 
-test('property registration and replacement remain owned by props-manager', () => {
-  const owner = step('register-property-capability')
-  const contract = [
-    ...owner.conditions,
-    ...owner.bypasses,
-    ...owner.forbiddenContributors
-  ].join(' ')
+test('property owner rebuilds child relations without unknown CUSTOM fallback', () => {
+  const owner = step('mutate-property-child-relations')
+  const contract = contractText(owner)
 
   assert.equal(owner.ownerPackage, '@asyra/props-manager')
-  assert.match(contract, /definition/i)
-  assert.match(contract, /runtime/i)
-  assert.match(contract, /schema/i)
-  assert.match(contract, /active usage/i)
-  assert.match(contract, /stale side effects/i)
+  assert.match(contract, /retains its declarative definition/i)
+  assert.match(contract, /childType.*detach relation/i)
+  assert.match(contract, /no stale subscription/i)
+  assert.match(contract, /replay-retained/i)
+  assert.match(contract, /CUSTOM/i)
 })
 
-test('preset owns defaults, hooks, ordering, and explicit application lifecycle', () => {
-  const owner = step('apply-preset-targets')
-  const contract = [
-    ...owner.inputs,
-    ...owner.outputs,
-    ...owner.conditions,
-    ...owner.bypasses,
-    ...owner.forbiddenContributors
-  ].join(' ')
-
-  assert.equal(owner.ownerPackage, '@asyra/preset')
-  assert.match(contract, /applyPreset\(core\)/)
-  assert.match(contract, /stable target/i)
-  assert.match(contract, /explicit replace/i)
-  assert.match(contract, /deterministic/i)
-  assert.match(contract, /dispose/i)
-  assert.match(contract, /property schema.*property runtime.*replace only/i)
-  assert.match(
-    contract,
-    /feature registration.*before.*after.*append.*replace/i
-  )
-})
-
-test('unsupported direct extension follows unregister then redefine fallback', () => {
-  const fallback = route('fallback-unregister-then-redefine')
-  const unregister = step('unregister-preset-target')
-  const redefine = step('redefine-app-capability')
-
-  assert.equal(fallback.from, unregister.id)
-  assert.equal(fallback.to, redefine.id)
-  assert.match(fallback.predicate, /direct extension.*not supported/i)
-  assert.match(unregister.conditions.join(' '), /dispose/i)
-  assert.match(
-    unregister.conditions.join(' '),
-    /cleanup failure.*remains applied.*retry/i
-  )
-  assert.equal(redefine.ownerPackage, 'app or user composition')
-})
-
-test('structured failure ownership covers required fail-fast cases', () => {
-  const owner = step('resolve-extension-contract')
-  const contract = owner.conditions.join(' ')
-
-  assert.match(contract, /duplicate extension key/i)
-  assert.match(contract, /missing target/i)
-  assert.match(contract, /invalid strategy/i)
-  assert.match(contract, /replace conflict/i)
-  assert.match(contract, /fail fast/i)
-  assert.match(contract, /stable error code/i)
-})
-
-test('core exposes facade routes without owning preset policy', () => {
-  const owner = step('expose-core-registration-facade')
-  const contract = [...owner.conditions, ...owner.forbiddenContributors].join(
-    ' '
-  )
+test('Core closes composition permanently before renderer effects', () => {
+  const owner = step('coordinate-composition-state')
+  const contract = contractText(owner)
+  const closeRoute = route('close-before-start-effects')
 
   assert.equal(owner.ownerPackage, '@asyra/core')
+  assert.match(contract, /permanently at method entry/i)
+  assert.match(contract, /renderer initialization later fails/i)
+  assert.match(contract, /before renderer side effects/i)
   assert.match(contract, /public facade/i)
-  assert.match(contract, /must not choose/i)
-  assert.match(contract, /app-specific/i)
+  assert.match(closeRoute.predicate, /before renderer effects/i)
 })
 
-test('app startup only chooses extension or replacement policy', () => {
-  const owner = step('compose-app-preset-customization')
-  const contract = [...owner.conditions, ...owner.forbiddenContributors].join(
-    ' '
+test('graph-aware unregister detaches structural sources and recursively cleans hard sources', () => {
+  const owner = step('unregister-registration-capability')
+  const contract = contractText(owner)
+
+  assert.equal(owner.ownerPackage, '@asyra/core')
+  assert.match(contract, /Structural detach preserves component/i)
+  assert.match(contract, /Only unregister-source dependents.*recursively/i)
+  assert.match(contract, /replay-retained/i)
+  assert.match(contract, /cannot clean.*twice/i)
+  assert.match(contract, /retryable/i)
+  assert.equal(
+    route('detach-component-source').to,
+    'mutate-component-property-relations'
   )
-
-  assert.equal(owner.ownerPackage, '@asyra/asyra-design')
-  assert.match(contract, /choose/i)
-  assert.match(contract, /public/i)
-  assert.match(contract, /framework internals/i)
+  assert.equal(
+    route('cleanup-hard-dependent').to,
+    'own-opaque-registration-lifecycle'
+  )
 })
 
-test('Inspector names the bounded product cases and definition of done', () => {
+test('preset owns explicit default installation and graph-backed disposal', () => {
+  const owner = step('install-preset-defaults')
+  const contract = contractText(owner)
+
+  assert.equal(owner.ownerPackage, '@asyra/preset')
+  assert.match(contract, /Importing preset modules does not register components/i)
+  assert.match(contract, /applyPreset\(core\).*explicit deterministic installation/i)
+  assert.match(contract, /@asyra\/preset\/default-preset/i)
+  assert.match(contract, /same canonical graph/i)
+  assert.match(contract, /not cleaned a second time/i)
+  assert.match(contract, /preset-specific feature-registration target/i)
+})
+
+test('opaque owners keep declarations local and dispose all owned runtime resources', () => {
+  const owner = step('own-opaque-registration-lifecycle')
+  const contract = contractText(owner)
+
+  assert.match(owner.ownerPackage, /feature-system.*render.*ui-context/i)
+  assert.match(contract, /registration\.relations/i)
+  assert.match(contract, /queued and pending handlers/i)
+  assert.match(contract, /managed source subscription/i)
+  assert.match(contract, /unregister-source/i)
+  assert.match(contract, /no declared relation is not analyzed/i)
+})
+
+test('migration remains app-provided and precedes validation without CUSTOM fallback', () => {
+  const owner = step('migrate-validate-load')
+  const contract = contractText(owner)
+
+  assert.equal(owner.ownerPackage, '@asyra/core')
+  assert.match(contract, /migrate.*before.*validation/i)
+  assert.match(contract, /diagnostic.*skipped.*CUSTOM/i)
+  assert.match(contract, /never performs or invents a data migration/i)
+})
+
+test('Inspector names bounded product cases and definition of done', () => {
   const caseIds = data.productCases.map((item) => item.id)
   const dodIds = data.definitionOfDone.map((item) => item.id)
 
   ;[
-    'feature-extension',
-    'property-extension',
-    'explicit-replace',
+    'direct-feature-definition',
+    'explicit-preset-installation',
+    'component-relation-removal',
+    'relation-definition',
+    'property-capability-unregister',
+    'recursive-policy',
+    'property-child-rebuild',
     'structured-failures',
-    'fallback-replacement',
     'lifecycle-cleanup',
+    'migration-before-validation',
     'startup-compatibility',
     'render-mode-non-inference'
   ].forEach((id) =>
     assert.ok(caseIds.includes(id), `Missing product case: ${id}`)
   )
+
   ;[
     'public-contracts',
-    'deterministic-ordering',
+    'deterministic-graph',
+    'composition-closure',
     'cleanup',
-    'compatibility',
+    'migration-load',
     'package-boundaries',
-    'full-validation'
+    'full-validation',
+    'independent-review'
   ].forEach((id) => assert.ok(dodIds.includes(id), `Missing DoD item: ${id}`))
 })
 
-test('scope excludes preset composition and render-mode products', () => {
+test('scope excludes generic composition and render-mode products', () => {
   const publicIdentifiers = [
     ...data.steps.flatMap((item) => [item.id, ...item.outputs]),
     ...data.routes.map((item) => item.id),
@@ -208,9 +222,33 @@ test('scope excludes preset composition and render-mode products', () => {
   assert.match(contract, /render-engine capability/i)
 })
 
-test('all routes and artifacts resolve to declared owners and consumers', () => {
+test('every step has exact execution fields and all routes/artifacts resolve', () => {
   const stepIds = new Set(data.steps.map((item) => item.id))
   const artifactIds = new Set(data.artifacts.map((item) => item.id))
+
+  data.steps.forEach((item) => {
+    assert.ok(item.ownerPackage, `Missing owner: ${item.id}`)
+    assert.ok(item.inputs.length > 0, `Missing inputs: ${item.id}`)
+    assert.ok(item.outputs.length > 0, `Missing outputs: ${item.id}`)
+    assert.ok(item.conditions.length > 0, `Missing conditions: ${item.id}`)
+    assert.ok(item.bypasses.length > 0, `Missing bypasses: ${item.id}`)
+    assert.ok(
+      item.allowedContributors.length > 0,
+      `Missing allowed contributors: ${item.id}`
+    )
+    assert.ok(
+      item.forbiddenContributors.length > 0,
+      `Missing forbidden contributors: ${item.id}`
+    )
+    assert.ok(
+      item.implementationBoundary.length > 0,
+      `Missing implementation boundary: ${item.id}`
+    )
+    assert.ok(
+      stepIds.has(item.failureOwnerStepId),
+      `Unknown failure owner: ${item.id}`
+    )
+  })
 
   data.routes.forEach((item) => {
     assert.ok(stepIds.has(item.from), `Unknown route source: ${item.from}`)
@@ -233,7 +271,7 @@ test('all routes and artifacts resolve to declared owners and consumers', () => 
     item.consumerStepIds.forEach((consumerId) => {
       assert.ok(
         stepIds.has(consumerId),
-        `Unknown artifact consumer: ${consumerId}`
+        `Unknown artifact consumer: ${item.id} -> ${consumerId}`
       )
     })
   })

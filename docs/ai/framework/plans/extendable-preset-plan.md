@@ -1,205 +1,321 @@
-# Extendable Preset Plan
+# Extendable Preset Relation and Unregister Plan
 
 ## Goal
 
-Enable users to extend preset-provided feature/property behavior without patching framework internals.
+Make preset defaults composable through ordinary public framework APIs before
+the first `Core.start()`:
 
-If direct extension is not available for a target, users must still have a deterministic fallback path:
+```text
+applyPreset(core)
+-> remove an existing relation
+-> define a new relation or registration
+-> optionally unregister an entire property capability
+-> register app-owned load migration
+-> core.start()
+```
 
-- unregister default registration
-- redefine with their own implementation
-
-## Context
-
-`@asyra/preset` is the default settings package for framework initialization.
-Today, many defaults are register-first and static once applied.
-Users need predictable customization points for:
-
-- feature behavior extension
-- property definition/runtime extension
-
-without forking preset/framework code.
-
-This plan follows the render-engine boundary so startup can distinguish
-engine injection from preset-owned feature/property extension. It provides the
-customization contract later consumed by generic preset composition.
+An app developer does not need preset target keys, preset internals, manual
+owner metadata, or a preset-specific extension object. Removing a relation does
+not claim that the old and new capabilities are equivalent.
 
 ## Scope
 
 In scope:
 
-- extension/override contract for preset-owned feature registrations
-- extension/override contract for preset-owned property registrations
-- deterministic fallback contract (`unregister -> redefine`)
-- startup ordering and conflict policy documentation
+- stable registration identity and queryable owner metadata;
+- component-property and property-child relations;
+- explicit opaque dependency declarations owned by feature, render, UI, or
+  custom-constructor definitions;
+- deterministic relation removal, definition, traversal, unregister, cleanup,
+  results, and errors;
+- public Core facades for normal app startup composition;
+- compatibility for `applyPreset(core)` and existing framework-facing APIs.
 
 Out of scope:
 
-- redesigning feature runtime semantics
-- redesigning property schema model
-- selecting or implementing a concrete render engine
-- introducing public `2d`, `3d`, or `hybrid` profiles
-- multi-engine or hybrid-runtime composition
-- introducing app-specific policy into framework packages
+- runtime graph mutation after startup;
+- feature runtime or property schema-model redesign;
+- automatic data migration or semantic equivalence inference;
+- Generic Preset Composition;
+- render-engine selection, 2D/3D/Hybrid profiles, multi-engine composition, or
+  product mode inferred from render-engine capabilities;
+- app-specific policy in framework packages.
 
-## Target Behavior
+## Product Contract
 
-1. Extension-first path
+### Startup composition
 
-- user can register an extension against a preset target by id/name.
-- extension runs via explicit strategy (for example `append`, `before`, `after`, `replace`).
+- `applyPreset(core)` installs defaults on the supplied Core instance.
+- The app may then call ordinary Core `remove`, `define`, `register`, and
+  `unregister` APIs.
+- The first call to `core.start()` permanently closes composition mutations at
+  method entry, even if later renderer initialization fails.
+- Before renderer side effects, `start()` validates that every declared
+  relation resolves to a registered target.
+- Migration stays app-owned. File loading remains `migration -> validation ->
+  load`; registration mutation does not migrate persisted data.
 
-2. Deterministic fallback path
+### Operation semantics
 
-- if a target does not expose extension points, user can:
-  - unregister preset registration
-  - register custom replacement
-- behavior is fail-fast on missing targets or duplicate registrations.
+- `remove`: remove exactly one declared relation and preserve both registration
+  nodes.
+- `define`: add one relation or registration after validating source, target,
+  duplicate identity, and composition state.
+- `unregister`: remove a registration node, every declared incoming/outgoing
+  relation, and all resources owned by registrations actually removed.
+- No app-facing or shared registry API accepts a `replace` operation or
+  strategy. Apps express non-equivalent changes as explicit remove/unregister
+  followed by define/register calls.
 
-3. Ownership clarity
+### Core app-facing APIs
 
-- framework provides registry/runtime primitives.
-- preset provides defaults and extension hooks.
-- app chooses how to extend/override.
+```ts
+core.defineComponentPropertyRelation(componentType, property)
+core.removeComponentPropertyRelation(componentType, propertyName)
+core.getComponentPropertyRelations(componentType)
 
-## Proposed Contract Direction
+core.definePropertyChildRelation(parentPropertyType, relation)
+core.removePropertyChildRelation(parentPropertyType, key)
 
-1. Registration metadata
+core.unregisterPropertyType(propertyType)
+```
 
-- each preset default registration includes stable key + owner metadata.
-- metadata is queryable for diagnostics and override validation.
+Core also exposes the existing owner APIs through its instance facade:
 
-2. Extension API surface (core-facing)
+```ts
+core.defineComponent(...)
+core.unregisterComponent(...)
 
-- add explicit APIs for extension registration by target key.
-- keep target access by key/name, not by importing package internals.
+core.defineFeature(...)
+core.unregisterFeature(...)
 
-3. Override policy
+core.registerPropertySchema(...)
+core.definePropertyComponent(...)
+core.unregisterPropertyRegistration(type, scope)
 
-- duplicate-key registration throws by default.
-- `replace` requires explicit intent and emits structured result.
+core.registerRenderStrategy(...)
+core.unregisterRenderStrategy(...)
+core.unregisterUIProperty(...)
+```
 
-4. Lifecycle
+`unregisterPropertyRegistration(type, scope)` remains the low-level
+schema/runtime cleanup API. `unregisterPropertyType(type)` is the graph-aware
+operation that removes the complete property capability.
 
-- extension registration should happen before preset apply finalization, or through explicit re-init flow.
-- unregister must cleanly dispose observers/handlers to avoid stale side effects.
+### Registration identity and owner metadata
 
-5. Relationship to preset composition
+The framework-neutral primitive uses small adjacency records:
 
-- this plan owns target extension/replacement semantics;
-- the later generic preset composition plan owns ordered startup layers;
-- neither plan infers product mode from render-engine capabilities.
+```ts
+interface RegistrationRef {
+  kind: string
+  key: string
+}
 
-## Public Contract
+interface RegistrationRelationDeclaration {
+  name: string
+  target: RegistrationRef
+  onTargetUnregister: 'detach' | 'unregister-source'
+}
+```
 
-This plan adds one bounded registration-extension contract. It does not add a
-general preset-layer composer.
+- A node identity is the stable tuple `(kind, key)`.
+- The source is derived from the owning registration definition.
+- Component `properties[]` declarations create `detach` relations.
+- Property `children.childType` declarations create `detach` relations.
+- Opaque feature, render, UI, and custom-constructor dependencies may declare
+  optional `registration.relations` on their own definitions.
+- App registrations without an explicit package owner receive stable metadata
+  `{ packageName: 'app', name: registrationKey }`.
+- Preset/package definitions provide their own owner metadata; preset defaults
+  use `@asyra/preset/default-preset`.
+- Normal app code does not need to provide owner metadata or relation metadata.
 
-1. Framework-neutral primitive
+### Structured operation contract
 
-- `@asyra/utils` owns an extension-target registry with stable target keys,
-  names, capability kind, supported strategies, queryable owner metadata,
-  structured operation results/errors, and lifecycle cleanup handles.
-- supported strategies are exactly `before`, `after`, `append`, and `replace`.
-- resolution order is `before -> default or one explicit replace -> after ->
-append`; the caller-provided extension array order is preserved within each
-  strategy bucket.
-- a second `replace`, duplicate extension key, missing target, invalid or
-  unsupported strategy, apply failure, and cleanup failure fail fast with a
-  stable error code and structured details.
-- `replace` bypasses the default installer and is never routed through ordinary
-  duplicate registration.
+Successful relation mutations return `RelationOperationSuccess`. Successful
+full unregister returns `UnregisterRegistrationSuccess`. Invalid, missing,
+conflicting, closed, dangling, or cleanup states throw
+`RegistrationRelationError` with one stable code:
 
-2. Preset surface
+```ts
+type RegistrationContractErrorCode =
+  | 'COMPOSITION_CLOSED'
+  | 'REGISTRATION_NOT_FOUND'
+  | 'RELATION_NOT_FOUND'
+  | 'DUPLICATE_RELATION'
+  | 'RELATION_TARGET_NOT_FOUND'
+  | 'REGISTRATION_IN_USE'
+  | 'RELATION_REMOVE_FAILED'
+  | 'UNREGISTER_FAILED'
+  | 'DANGLING_RELATION'
+```
 
-- `@asyra/preset` exports stable feature/property target constants, detached
-  target metadata queries, extension registration types, and the preset
-  application result/lifecycle type.
-- `applyPreset(core)` remains valid and keeps the existing default behavior.
-- the explicit dependency-bundle and custom `renderEngineFactory` overloads
-  remain valid; an additive options field accepts ordered extensions.
-- one preset application owns its applied cleanup handles, supports target
-  unregister by stable key, and disposes owned handles in reverse application
-  order.
-- property schema/runtime targets support explicit `replace`; the feature
-  registration hook supports `before`, `after`, `append`, and `replace` with
-  caller array order preserved inside each strategy bucket.
-- property definition/schema and property runtime targets are keyed by the
-  existing public property type; the feature-registration target is an
-  app-owned feature hook and does not move app feature policy into preset.
+An unregister result reports the root registration, removed relations,
+detached sources, recursively unregistered sources, removed owned
+registrations, and cleanup status. Cleanup failure preserves retryable state:
+completed cleanup steps do not run again, pending cleanup remains visible, and
+a conflicting definition cannot be registered until cleanup succeeds.
 
-3. Framework/runtime facade
+## Owner Contracts
 
-- Core exposes curated public feature and property define/query/unregister
-  operations needed by preset installers and app replacements.
-- feature-system keeps existing execution/session semantics and owns cleanup of
-  registry entries, pending registrations, execution handlers, session
-  handlers, input subscriptions, and reactive-event subscriptions.
-- props-manager keeps the current schema model and validation semantics; a
-  replacement unregister is rejected while that property type has active
-  runtime instances, then removes the owned schema/constructor registrations
-  when safe.
+### `@asyra/utils`: shared registration graph
 
-4. Deterministic fallback
+The framework-neutral graph owns:
 
-- when target metadata does not list the requested direct strategy, the formal
-  path is `presetApplication.unregisterTarget(stableKey)` followed by app-owned
-  redefinition through public Core APIs.
-- redefine cannot run after a missing-target, active-usage, or cleanup failure.
-- a cleanup failure keeps the target applied for deterministic retry; cleanup
-  handles that already completed successfully are not run again.
-- no fallback state, duplicate-registration tolerance, or automatic default
-  restoration may hide a failed replacement.
+```text
+nodesByRef
+outgoingRelationsBySource
+incomingRelationsByTarget
+```
 
-## Package Ownership
+- Nodes and relations store stable identity, owner, policy, and package-local
+  handler/locator only. Package registries remain the definition source of
+  truth.
+- Queries return detached, deterministically sorted metadata.
+- Traversal uses sorted keys, a queue, and a visited set.
+- Target unregister preflights composition state and owner handlers, handles
+  incoming relations, removes outgoing relations without inferring target
+  ownership, cleans owned resources in reverse order, then removes the node.
+- `detach` asks the source owner to rebuild and preserve its registration.
+- `unregister-source` removes the source and queues it so its formal relations
+  and resources are processed recursively.
+- The graph never analyzes arbitrary feature/render/custom code and never
+  invents undeclared dependencies.
+- If retained for package authors, `ExtensionRegistry` supports additive
+  `before`, `after`, and `append` ordering only.
 
-- `@asyra/utils`: registry, ordering, conflict, result/error, and lifecycle
-  primitives.
-- `@asyra/feature-system`: feature runtime registration and complete feature
-  unregister cleanup.
-- `@asyra/props-manager`: property schema/runtime registries, active-usage
-  checks, and safe unregister.
-- `@asyra/core`: curated public facade only; it does not choose customization
-  policy.
-- `@asyra/preset`: stable default target manifest, default installers,
-  extension hooks, and one application lifetime.
-- app/user composition: chooses extend, explicit replace, or fallback
-  replacement and owns the custom implementation.
+### `@asyra/scene-tree`: component relation owner
+
+- `defineComponent` retains a declarative definition and automatically records
+  one relation per property slot.
+- A relation mutation builds the complete next definition/class first, then
+  atomically updates component and element-property ownership indexes.
+- Removing one slot preserves component identity, counters, unrelated
+  properties, render ownership, and other resources.
+- Adding one slot validates component existence, property runtime existence,
+  and duplicate slot identity.
+- Active component instances reject relation mutation before partial work.
+- Component-local property maps and reverse indexes preserve the exact
+  definition when different components use the same property name.
+
+### `@asyra/props-manager`: property relation owner
+
+- Config-mode property components retain their definition so child relations
+  can rebuild the runtime constructor without stale child subscriptions.
+- Constructor-mode opaque dependencies are declared through local
+  `registration.relations`; hard dependencies use `unregister-source`.
+- Unknown property types no longer silently fall back to `CUSTOM` during the
+  canonical creation/load path.
+- After app migration, load validation produces a diagnostic and safely skips
+  an unregistered property type.
+- Active and replay-retained property instances reject unsafe relation mutation
+  or unregister before partial work.
+
+### `@asyra/core`: composition coordinator
+
+- Core owns one graph/coordinator for its injected runtimes.
+- Standalone helpers continue to target the default Core compatibility
+  instance; preset installers always use the supplied Core facade.
+- Graph-aware `unregisterPropertyType` detaches structural dependents, follows
+  hard dependency policies, and cleans property schema/runtime/metadata and
+  lifecycle resources.
+- Only nodes actually unregistered enter recursive cleanup. For
+  `Component X -> Parent P -> B`, unregistering `B` detaches `P -> B` while
+  preserving `P` and `X -> P`.
+- Aggregate `FILLS` and child `FILL` are separate nodes; the framework does not
+  infer that both should be unregistered.
+
+### `@asyra/preset`: explicit defaults
+
+- `applyPreset(core)`, the dependency overload, and render-engine factory
+  overload remain compatible.
+- Preset exposes definitions, not app-specific extension targets.
+- Rectangle, Oval, Vector, Frame, and Group are exported definitions installed
+  explicitly by `applyPreset`; importing preset modules has no registration
+  side effect.
+- Property, component, render, feature, and UI defaults write automatic owner
+  metadata and declared dependencies into the supplied Core graph.
+- `PresetApplication.dispose()` uses the same canonical graph. Registrations
+  already removed through Core are completed and are not cleaned twice.
+
+### App composition
+
+- The app selects defaults and customization sequence only.
+- New features use `core.defineFeature(...)` directly.
+- A relation-only customization removes old component/property relations and
+  defines new relations while leaving reusable capability registrations alive.
+- An app that needs no capability calls the graph-aware unregister API.
+- Render/UI behavior is not inferred from structural property relations; an app
+  explicitly unregisters and registers its own render/UI registrations.
+
+Example:
+
+```ts
+applyPreset(core)
+
+core.removeComponentPropertyRelation('rect', 'fills')
+core.removeComponentPropertyRelation('oval', 'fills')
+
+core.unregisterRenderStrategy('rect')
+core.unregisterRenderStrategy('oval')
+core.registerRenderStrategy('rect', whiteboardRectangleStrategy)
+core.registerRenderStrategy('oval', whiteboardOvalStrategy)
+
+core.start(...)
+```
+
+If the app has no fills capability:
+
+```ts
+core.unregisterPropertyType(PropertyTypes.FILLS)
+```
 
 ## Product Cases
 
-1. Feature extension registers an app-owned feature through the public preset
-   feature target and executes it through unchanged feature runtime semantics.
-2. Property extension registers definition/schema or runtime behavior through
-   a public property target without importing preset internals.
-3. Explicit replace bypasses the target default without producing an ordinary
-   duplicate-registration failure.
-4. Duplicate extension key, missing target, invalid or unsupported strategy,
-   and replace conflict fail fast with stable structured errors.
-5. A target without direct extension support completes `unregister -> redefine`
-   only after successful cleanup.
-6. Feature/property unregister, replacement, apply rollback, and full preset
-   disposal leave no observers, handlers, subscriptions, runtime registrations,
-   or stale side effects owned by the removed registration.
-7. Preset application order is deterministic, while `applyPreset(core)` and
-   existing framework-facing APIs remain compatible.
-8. No target, strategy, result, or startup path infers a product mode from
-   render-engine capability.
+1. An app adds a feature through `core.defineFeature` without a preset-specific
+   extension path.
+2. Importing preset modules has no component-registration side effect;
+   `applyPreset(core)` installs defaults in deterministic order.
+3. Removing Rectangle/Oval `fills` relations preserves both components,
+   Position/Dimension/Strokes relations, and the Fills capability; new
+   instances no longer create fills.
+4. Defining a Stroke relation after removal creates new instances from exactly
+   the new relation set.
+5. `unregisterPropertyType(FILLS)` removes all Fills relations and Fills-owned
+   registrations while preserving structurally detached components.
+6. `Component X -> Parent P -> B` detaches `P -> B` and preserves `P` plus
+   `X -> P`; a hard relation recursively unregisters its source and resources.
+7. Parent-child remove/define rebuilds config runtime without stale child
+   subscriptions.
+8. Missing registrations/relations, duplicate relations, dangling targets,
+   closed composition, active usage, and cleanup failures have stable
+   structured errors and retry semantics.
+9. Feature unregister removes queued handlers, sessions, listeners, and
+   subscriptions without stale behavior.
+10. Direct Core unregister followed by `PresetApplication.dispose()` does not
+    perform owned cleanup twice.
+11. Migration runs before validation; migrated data loads, while an unknown
+    unregistered property type is diagnosed and skipped instead of becoming
+    `CUSTOM`.
+12. Existing `applyPreset(core)`, Asyra Design startup, engine boundaries, and
+    monorepo import boundaries remain compatible; no path infers product mode.
 
 ## Definition of Done
 
-- stable public target identity, owner metadata, strategies, query APIs,
-  results/errors, and fallback APIs are documented and covered by formal tests;
-- feature and property extension/replacement tests prove current missing
-  behavior first, then pass through public package surfaces;
-- ordering and conflict behavior are deterministic under repeated test runs;
-- unregister/replacement/apply rollback/disposal cleanup is proven without
-  stale effects;
-- package boundaries contain no deep cross-package imports and no app policy in
-  framework packages;
-- affected package tests, the Inspector contract test, relevant Asyra Design
-  tests, `yarn test:local`, `yarn lint:ci`, `yarn react:build`, and dependency
-  boundary validation pass.
+- Public relation/unregister APIs, metadata, results, errors, ownership, and
+  startup lock are documented and covered by formal tests.
+- Each production segment first proves that current behavior lacks its product
+  case, then implements only the matching Inspector owner step.
+- Ordering and recursive traversal are deterministic across repeated runs.
+- Unregister, partial cleanup retry, direct Core cleanup, and preset disposal
+  leave no observers, handlers, subscriptions, registrations, or stale effects.
+- Affected utils/core/scene-tree/props-manager/ui-context/render/
+  feature-system/preset tests, Inspector tests, and Asyra Design tests pass.
+- `yarn test:local`, `yarn lint:ci`, `yarn react:build`, `yarn deps:validate`,
+  and `git diff --check origin/main...HEAD` pass.
+- Self-review and a read-only sub-agent review find no unresolved concrete
+  defect.
 
 ## Inspector Authority
 
@@ -210,47 +326,18 @@ append`; the caller-provided extension array order is preserved within each
 - executable contract:
   `docs/ai/framework/plans/extendable-preset-flow-inspector.contract.test.cjs`
 
-Implementation must advance one Inspector owner step at a time. The Inspector
-defines architecture ownership and routes; this plan remains the product
-behavior authority.
+Implementation advances one Inspector owner step at a time. The Inspector owns
+exact execution routes and implementation allowlists; this plan owns bounded
+product behavior.
 
-## Implementation Slices
+## Implementation Segments
 
-1. Define extension/override data contracts
-
-- target identity
-- strategy options
-- conflict/error result shape
-
-2. Add registry hooks for feature/property extension points
-
-- feature registration extension hooks
-- property definition/runtime extension hooks
-
-3. Implement fallback `unregister -> redefine` orchestration
-
-- validate active usage constraints
-- ensure cleanup ownership is deterministic
-
-4. Preset integration
-
-- register default targets with stable metadata
-- expose recommended app-level extension sequence
-
-5. Docs and tests
-
-- add framework docs for extension vs replacement flow
-- add tests for append/replace/conflict/unregister flows
-
-## Validation
-
-- user can extend one preset feature without touching framework package internals.
-- user can extend one preset property registration without touching preset internals.
-- unregister + redefine flow works deterministically when extension hook is unavailable.
-- conflict/error messages are actionable and stable.
-
-## Risks
-
-1. Extension ordering ambiguity can create non-deterministic behavior.
-2. Over-flexible hooks may bypass runtime safety boundaries.
-3. Replace flow can break existing scenes if active usage checks are weak.
+1. Repair this plan and Inspector authority.
+2. Add the shared registration graph and structured contract test-first.
+3. Add component-property and property-child owner mutations test-first.
+4. Add Core coordination, recursive unregister, dangling validation, and
+   permanent startup closure test-first.
+5. Convert preset defaults to explicit installation and remove preset-specific
+   app extension surfaces test-first.
+6. Synchronize app/framework/package docs and migration guidance.
+7. Run bounded and root gates, then self-review and read-only sub-agent review.
