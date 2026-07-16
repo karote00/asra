@@ -133,3 +133,16 @@ export const createCleanupError = ({
       ...(operation === 'apply-preset' ? { applyError } : {})
     }
   })
+
+export const withCompletedCompositionCleanup = (
+  error: PresetCompositionError,
+  completedCleanup: readonly string[]
+): PresetCompositionError =>
+  new PresetCompositionError({
+    ...error.result,
+    cleanup: {
+      state: 'completed',
+      completed: [...completedCleanup],
+      pending: []
+    }
+  })

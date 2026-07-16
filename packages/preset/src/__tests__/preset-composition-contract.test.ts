@@ -1169,6 +1169,14 @@ describe('generic preset capability bundle orchestration', () => {
         code: 'LAYER_INSTALL_FAILED',
         layer: 'capability-bundle',
         failedBundleId: 'package/second',
+        cleanup: {
+          state: 'completed',
+          completed: expect.arrayContaining([
+            'capability-bundle:package/first',
+            'render-engine-provider'
+          ]),
+          pending: []
+        },
         cause: expect.objectContaining({ message: 'bundle install failed' })
       }
     })

@@ -31,7 +31,8 @@ import { installCapabilityBundles } from './composition/bundles'
 import {
   createCleanupError,
   createLayerInstallError,
-  PresetCompositionError
+  PresetCompositionError,
+  withCompletedCompositionCleanup
 } from './composition/error'
 import { createPresetCompositionSuccess } from './composition/result'
 
@@ -52,6 +53,7 @@ interface SharedPresetGroup {
 
 interface PresetCleanupApplication {
   dispose(): PresetApplicationDisposeSuccess
+  getCompletedCleanup(): readonly string[]
 }
 
 interface PresetCleanupContext {
@@ -263,6 +265,10 @@ const createPresetApplicationLifetime = (
   let disposed = false
 
   return {
+    getCompletedCleanup: () =>
+      allCleanupEntries
+        .filter(({ completed }) => completed)
+        .map(({ key }) => key),
     dispose(): PresetApplicationDisposeSuccess {
       if (disposed) {
         return {
@@ -425,6 +431,12 @@ export const applyPreset = (
     } catch (cleanupError) {
       pendingRollbackApplications.set(core, rollbackApplication)
       throw cleanupError
+    }
+    if (error instanceof PresetCompositionError) {
+      throw withCompletedCompositionCleanup(
+        error,
+        rollbackApplication.getCompletedCleanup()
+      )
     }
     throw error
   }
