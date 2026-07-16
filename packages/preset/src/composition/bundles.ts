@@ -87,7 +87,8 @@ export const installCapabilityBundles = ({
       )
     }
 
-    registerCleanup(`capability-bundle:${bundle.id}`, () => value.dispose())
+    const disposeBundle = value.dispose.bind(value)
+    registerCleanup(`capability-bundle:${bundle.id}`, disposeBundle)
 
     if (
       !Array.isArray(value.outputs) ||

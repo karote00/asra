@@ -1172,6 +1172,40 @@ describe('generic preset capability bundle orchestration', () => {
     )
   })
 
+  it('records the exact bundle disposer returned at installation time', () => {
+    const { core, dependencies } = createComposition()
+    const originalDispose = vi.fn()
+    const replacementDispose = vi.fn()
+    const installation = {
+      outputs: ['first-output'],
+      dispose: originalDispose
+    }
+    const first = {
+      id: 'package/first',
+      owner: { packageName: '@product/first', name: 'first' },
+      requires: [],
+      install: vi.fn(() => installation)
+    }
+    const second = {
+      id: 'package/second',
+      owner: { packageName: '@product/second', name: 'second' },
+      requires: ['package/first'],
+      install: vi.fn(() => {
+        installation.dispose = replacementDispose
+        return { outputs: ['second-output'], dispose: vi.fn() }
+      })
+    }
+
+    const application = applyPreset(core, {
+      dependencies,
+      capabilityBundles: [first, second]
+    })
+
+    expect(application.dispose()).toMatchObject({ ok: true })
+    expect(originalDispose).toHaveBeenCalledTimes(1)
+    expect(replacementDispose).not.toHaveBeenCalled()
+  })
+
   it('reports cleanup state and retries only a pending bundle disposer', () => {
     const { core, dependencies } = createComposition()
     const cleanupAttempts: string[] = []
