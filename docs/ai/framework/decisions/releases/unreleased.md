@@ -1180,3 +1180,6 @@ unregister -> app migration -> core.start()` as the public app route.
   - `53f12fb64` (`feat(props-manager): add property child relation owners`)
   - `6ee041a5f` (`feat(core): coordinate startup registration composition`)
   - `8fa6f9915` (`feat(preset): install graph-owned defaults`)
+  - `6b2412816` (`fix(framework): close preset composition ownership gaps`)
+  - `cf3855ea9` (`fix(core): preflight retry ownership boundaries`)
+  - `bb481da9e` (`test(core): cover pending relation preflight routes`)

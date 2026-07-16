@@ -375,5 +375,5 @@ product behavior.
 5. [x] Convert preset defaults to explicit installation and remove preset-specific
        app extension surfaces test-first.
 6. [x] Synchronize app/framework/package docs and migration guidance.
-7. [ ] Run bounded and root gates, then self-review and read-only sub-agent
+7. [x] Run bounded and root gates, then self-review and read-only sub-agent
        review.
