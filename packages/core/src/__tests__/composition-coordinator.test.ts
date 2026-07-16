@@ -537,6 +537,120 @@ describe('Core composition coordinator', () => {
     expect(core.getPropertyChildRelations(PARENT)).toEqual([])
   })
 
+  it('preflights pending targets before declarative or opaque owners register', () => {
+    const { core } = createCoreForTest()
+    core.definePropertyComponent({ type: FILLS, defaults: {} })
+    const graph = leavePropertyTargetPending(core, FILLS)
+
+    expectRelationError(
+      () =>
+        core.defineComponent({
+          type: SHAPE,
+          idPrefix: SHAPE,
+          namePrefix: 'Pending Target Shape',
+          properties: [{ name: 'paint', type: FILLS }]
+        }),
+      'UNREGISTER_FAILED'
+    )
+    expectRelationError(
+      () =>
+        core.definePropertyComponent({
+          type: PARENT,
+          defaults: { childIds: [] },
+          children: { key: 'childIds', childType: FILLS }
+        }),
+      'UNREGISTER_FAILED'
+    )
+    expectRelationError(
+      () =>
+        core.registerRenderStrategy(SHAPE, vi.fn(), {
+          relations: [
+            {
+              name: 'paint-runtime',
+              target: { kind: 'property', key: FILLS },
+              onTargetUnregister: 'unregister-source'
+            }
+          ]
+        }),
+      'UNREGISTER_FAILED'
+    )
+
+    expect(componentRegistry.has(SHAPE)).toBe(false)
+    expect(idCounter.hasType(SHAPE)).toBe(false)
+    expect(nameCounter.hasType(SHAPE)).toBe(false)
+    expect(getPropertyComponent(PARENT)).toBeUndefined()
+    expect(renderStrategyRegistry.has(SHAPE)).toBe(false)
+    expect(
+      graph.getRegistration({ kind: 'component', key: SHAPE })
+    ).toBeUndefined()
+    expect(
+      graph.getRegistration({ kind: 'property', key: PARENT })
+    ).toBeUndefined()
+    expect(
+      graph.getRegistration({ kind: 'render-strategy', key: SHAPE })
+    ).toBeUndefined()
+
+    expect(core.unregisterPropertyType(FILLS)).toMatchObject({ ok: true })
+  })
+
+  it('rejects pending relation sources before direct owner mutation', () => {
+    const { core } = createCoreForTest()
+    core.definePropertyComponent({ type: FILLS, defaults: {} })
+    core.defineComponent({
+      type: SHAPE,
+      idPrefix: SHAPE,
+      namePrefix: 'Pending Source Shape',
+      properties: [{ name: 'paint', type: FILLS }]
+    })
+    const graph = (core as unknown as { registrationGraph: RegistrationGraph })
+      .registrationGraph
+    const blocker = { kind: 'a-test-detach-owner', key: SHAPE }
+    graph.registerNode({
+      ref: blocker,
+      handlers: {
+        detachRelation: () => {
+          throw new Error('test component detach failed')
+        }
+      }
+    })
+    graph.defineRelation(blocker, {
+      name: 'pending-component',
+      target: { kind: 'component', key: SHAPE },
+      onTargetUnregister: 'detach'
+    })
+    expectRelationError(
+      () => core.unregisterComponent(SHAPE),
+      'RELATION_REMOVE_FAILED'
+    )
+    graph.removeRelation(blocker, 'pending-component')
+
+    expectRelationError(
+      () =>
+        core.defineComponentPropertyRelation(SHAPE, {
+          name: 'secondary-paint',
+          type: FILLS
+        }),
+      'UNREGISTER_FAILED'
+    )
+    expectRelationError(
+      () => core.removeComponentPropertyRelation(SHAPE, 'paint'),
+      'UNREGISTER_FAILED'
+    )
+    expect(
+      core
+        .getComponentPropertyRelations(SHAPE)
+        .map(({ propertyName }) => propertyName)
+    ).toEqual(['paint'])
+    expect(
+      graph
+        .getOutgoingRelations({ kind: 'component', key: SHAPE })
+        .map(({ name }) => name)
+    ).toEqual(['paint'])
+
+    expect(core.unregisterComponent(SHAPE)).toBe(true)
+    expect(getPropertyComponent(FILLS)).toBeDefined()
+  })
+
   it('rejects graph-aware unregister while active or replay-retained property instances exist', () => {
     const { core, props } = createCoreForTest()
     const Constructor = core.definePropertyComponent({
