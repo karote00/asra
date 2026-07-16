@@ -78,14 +78,17 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
   delegates to `unregisterFeature(name)`.
 - `unregisterFeature(name)` returns `false` when the feature is missing and does
   not touch unrelated registrations.
-- active one-shot execution or an active session rejects unregister with
-  `FeatureUnregisterError` and stable `FEATURE_IN_USE` code before partial
-  cleanup.
+- active one-shot execution, a pending async session start, or an active session
+  rejects unregister with `FeatureUnregisterError` and stable `FEATURE_IN_USE`
+  code before partial cleanup.
 - successful unregister removes the feature registry entry, pending
   registration, execution handlers, session handlers, input listeners, and
   reactive renderer-event subscription owned by that feature.
 - features sharing one trigger keep one transport listener/subscription until
   the final participant is removed.
+- when a shared execution/session sequence is already iterating, a participant
+  successfully unregistered before its own handler starts is skipped and cannot
+  emit a stale side effect from the captured sequence.
 
 ## App-Level Rules
 

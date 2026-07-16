@@ -94,6 +94,41 @@ describe.sequential('feature unregister lifecycle', () => {
     expect(inputSystem.listenerCount('input.shared')).toBe(0)
   })
 
+  it('does not execute a queued shared participant after unregister succeeds', async () => {
+    let release: (() => void) | undefined
+    let markStarted: (() => void) | undefined
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve
+    })
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const first = vi.fn(async () => {
+      markStarted?.()
+      await gate
+      return { owner: 'first' }
+    })
+    const second = vi.fn(() => ({ owner: 'second' }))
+    defineFeature('queued-shared-first', 'input.queued-shared', {
+      execution: first,
+      exclusive: false
+    })
+    defineFeature('queued-shared-second', 'input.queued-shared', {
+      execution: second,
+      exclusive: false
+    })
+
+    const execution = inputSystem.emit('input.queued-shared')
+    await started
+    expect(unregisterFeature('queued-shared-second')).toBe(true)
+
+    release?.()
+    await execution
+    expect(first).toHaveBeenCalledOnce()
+    expect(second).not.toHaveBeenCalled()
+    expect(unregisterFeature('queued-shared-first')).toBe(true)
+  })
+
   it('removes all session handlers and transport listeners after normal end', async () => {
     const onStart = vi.fn(() => ({ started: true }))
     const onEnd = vi.fn()
@@ -169,6 +204,88 @@ describe.sequential('feature unregister lifecycle', () => {
 
     await inputSystem.emit('input.active-session.end')
     expect(unregisterFeature('active-session')).toBe(true)
+  })
+
+  it('rejects unregister while an async session start is pending', async () => {
+    let release: (() => void) | undefined
+    let markStarted: (() => void) | undefined
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve
+    })
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    defineFeature('pending-session-start', 'input.pending-session-start', {
+      session: {
+        onStart: async () => {
+          markStarted?.()
+          await gate
+          return { started: true }
+        },
+        onEnd: vi.fn()
+      }
+    })
+
+    const start = inputSystem.emit('input.pending-session-start.start')
+    await started
+    let unregisterError: unknown
+    try {
+      unregisterFeature('pending-session-start')
+    } catch (error) {
+      unregisterError = error
+    }
+
+    release?.()
+    await start
+    if (getSessionManager().getActiveSession('input.pending-session-start')) {
+      await getSessionManager().handleEnd('input.pending-session-start', {})
+    }
+
+    expect(unregisterError).toEqual(
+      expect.objectContaining<Partial<FeatureUnregisterError>>({
+        code: 'FEATURE_IN_USE',
+        featureName: 'pending-session-start'
+      })
+    )
+    if (unregisterError) {
+      expect(unregisterFeature('pending-session-start')).toBe(true)
+    }
+  })
+
+  it('does not start a queued session participant after unregister succeeds', async () => {
+    let release: (() => void) | undefined
+    let markStarted: (() => void) | undefined
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve
+    })
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const firstStart = vi.fn(async () => {
+      markStarted?.()
+      await gate
+      return { owner: 'first' }
+    })
+    const secondStart = vi.fn(() => ({ owner: 'second' }))
+    defineFeature('queued-session-first', 'input.queued-session', {
+      exclusive: false,
+      session: { onStart: firstStart, onEnd: vi.fn() }
+    })
+    defineFeature('queued-session-second', 'input.queued-session', {
+      exclusive: false,
+      session: { onStart: secondStart, onEnd: vi.fn() }
+    })
+
+    const start = inputSystem.emit('input.queued-session.start')
+    await started
+    expect(unregisterFeature('queued-session-second')).toBe(true)
+
+    release?.()
+    await start
+    expect(firstStart).toHaveBeenCalledOnce()
+    expect(secondStart).not.toHaveBeenCalled()
+    await inputSystem.emit('input.queued-session.end')
+    expect(unregisterFeature('queued-session-first')).toBe(true)
   })
 
   it('unsubscribes renderer transport before registering a replacement', async () => {

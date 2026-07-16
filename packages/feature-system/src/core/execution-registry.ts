@@ -58,6 +58,9 @@ export class ExecutionRegistryClass implements ExecutionRegistry {
           if (exclusiveFound) {
             break
           }
+          if (!this.executionHandlers.get(eventName)?.includes(participant)) {
+            continue
+          }
 
           this.markFeatureActive(participant.featureName)
           let result: Awaited<ReturnType<ExecutionHandler>>

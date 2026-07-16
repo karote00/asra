@@ -71,6 +71,7 @@ const setActiveSessionManager = (manager: SessionManager | undefined): void => {
 export class SessionManager {
   private activeSessions = new Map<string, ActiveSession>()
   private sessionHandlers = new Map<string, SessionParticipant[]>()
+  private startingFeatureCounts = new Map<string, number>()
   private handlerTimeoutMs = DEFAULT_HANDLER_TIMEOUT_MS
 
   private withDetail(
@@ -417,7 +418,11 @@ export class SessionManager {
       if (exclusiveFound) {
         break
       }
+      if (!this.sessionHandlers.get(sessionName)?.includes(participant)) {
+        continue
+      }
 
+      this.markFeatureStarting(participant.featureName)
       try {
         const state = await this.runWithTimeout(
           () => participant.handler.onStart?.(snapshotWithSignal),
@@ -454,6 +459,8 @@ export class SessionManager {
           failure: this.toTransactionFailure(error)
         })
         throw error
+      } finally {
+        this.markFeatureStartComplete(participant.featureName)
       }
     }
 
@@ -619,6 +626,9 @@ export class SessionManager {
   }
 
   isFeatureActive(featureName: string): boolean {
+    if ((this.startingFeatureCounts.get(featureName) ?? 0) > 0) {
+      return true
+    }
     for (const session of this.activeSessions.values()) {
       if (
         session.participants.some(
@@ -629,6 +639,22 @@ export class SessionManager {
       }
     }
     return false
+  }
+
+  private markFeatureStarting(featureName: string): void {
+    this.startingFeatureCounts.set(
+      featureName,
+      (this.startingFeatureCounts.get(featureName) ?? 0) + 1
+    )
+  }
+
+  private markFeatureStartComplete(featureName: string): void {
+    const count = this.startingFeatureCounts.get(featureName) ?? 0
+    if (count <= 1) {
+      this.startingFeatureCounts.delete(featureName)
+      return
+    }
+    this.startingFeatureCounts.set(featureName, count - 1)
   }
 
   unregisterFeature(featureName: string): string[] {
@@ -659,6 +685,7 @@ export class SessionManager {
 
   clearAll(): void {
     this.activeSessions.clear()
+    this.startingFeatureCounts.clear()
     this.releaseRuntimeOwnershipIfIdle()
   }
 
