@@ -28,7 +28,11 @@ import type {
 } from './types'
 import { resolvePresetComposition } from './composition/resolve'
 import { installCapabilityBundles } from './composition/bundles'
-import { createLayerInstallError } from './composition/error'
+import {
+  createCleanupError,
+  createLayerInstallError,
+  PresetCompositionError
+} from './composition/error'
 import { createPresetCompositionSuccess } from './composition/result'
 
 const refKey = (ref: RegistrationRef): string => `${ref.kind}\u0000${ref.key}`
@@ -48,6 +52,14 @@ interface SharedPresetGroup {
 
 interface PresetCleanupApplication {
   dispose(): PresetApplicationDisposeSuccess
+}
+
+interface PresetCleanupContext {
+  operation: 'apply-preset' | 'dispose-preset'
+  engineId?: string
+  capabilityBundles: readonly string[]
+  completedLayers: readonly string[]
+  applyError?: unknown
 }
 
 const pendingRollbackApplications = new WeakMap<
@@ -154,13 +166,15 @@ const createSharedPresetGroups = (
 const installSharedPresetDefaults = (
   core: PresetCoreAPIs,
   resolvedDeps: PresetDependencies,
-  registerCleanup: RegisterPresetCleanup
+  registerCleanup: RegisterPresetCleanup,
+  reportCompletedGroup: (groupId: string) => void
 ): readonly string[] => {
   const completedGroups: string[] = []
   createSharedPresetGroups(core, resolvedDeps, registerCleanup).forEach(
     (group) => {
       group.install()
       completedGroups.push(group.id)
+      reportCompletedGroup(group.id)
     }
   )
   return completedGroups
@@ -228,7 +242,8 @@ const unregisterPresetRegistration = (
 const createPresetApplicationLifetime = (
   core: PresetCoreAPIs,
   registrationsBeforeApply: ReadonlySet<string>,
-  cleanupEntries: PresetCleanupEntry[]
+  cleanupEntries: PresetCleanupEntry[],
+  context: PresetCleanupContext
 ): PresetCleanupApplication => {
   const ownedRefs = core
     .getRegistrations()
@@ -239,6 +254,12 @@ const createPresetApplicationLifetime = (
         owner.name === PRESET_REGISTRATION_OWNER.name
     )
     .map(({ ref }) => ref)
+  const registrationEntries = ownedRefs.map((registration) => ({
+    key: `registration:${registration.kind}:${registration.key}`,
+    registration,
+    completed: false
+  }))
+  const allCleanupEntries = [...registrationEntries, ...cleanupEntries]
   let disposed = false
 
   return {
@@ -255,26 +276,26 @@ const createPresetApplicationLifetime = (
       const removed: RegistrationRef[] = []
       const skipped: RegistrationRef[] = []
       const cleanupFailures: { key: string; cause: unknown }[] = []
-      const pendingCleanup: string[] = []
 
-      ;[...ownedRefs].reverse().forEach((ref) => {
+      ;[...registrationEntries].reverse().forEach((entry) => {
+        if (entry.completed) return
         try {
-          const registration = core.getRegistration(ref)
+          const registration = core.getRegistration(entry.registration)
           if (
             !registration ||
             registration.owner.packageName !==
               PRESET_REGISTRATION_OWNER.packageName ||
             registration.owner.name !== PRESET_REGISTRATION_OWNER.name
           ) {
-            skipped.push(ref)
+            skipped.push(entry.registration)
+            entry.completed = true
             return
           }
-          unregisterPresetRegistration(core, ref)
-          removed.push(ref)
+          unregisterPresetRegistration(core, entry.registration)
+          entry.completed = true
+          removed.push(entry.registration)
         } catch (cause) {
-          const key = `registration:${ref.kind}:${ref.key}`
-          cleanupFailures.push({ key, cause })
-          pendingCleanup.push(key)
+          cleanupFailures.push({ key: entry.key, cause })
         }
       })
 
@@ -286,20 +307,20 @@ const createPresetApplicationLifetime = (
             entry.completed = true
           } catch (cause) {
             cleanupFailures.push({ key: entry.key, cause })
-            pendingCleanup.push(entry.key)
           }
         })
       }
 
       if (cleanupFailures.length > 0) {
-        throw new RegistrationRelationError({
-          ok: false,
-          code: 'UNREGISTER_FAILED',
-          operation: 'unregister-registration',
-          message: 'Preset disposal has pending lifecycle cleanup',
-          registration: { kind: 'preset', key: PRESET_REGISTRATION_OWNER.name },
-          cleanupFailures,
-          pendingCleanup
+        throw createCleanupError({
+          ...context,
+          completedCleanup: allCleanupEntries
+            .filter(({ completed }) => completed)
+            .map(({ key }) => key),
+          pendingCleanup: allCleanupEntries
+            .filter(({ completed }) => !completed)
+            .map(({ key }) => key),
+          cleanupFailures
         })
       }
 
@@ -339,12 +360,14 @@ export const applyPreset = (
     cleanupEntries.push({ key, dispose, completed: false })
   }
   let compositionSuccess: PresetCompositionSuccess
+  const completedLayers: string[] = []
 
   try {
     const sharedGroups = installSharedPresetDefaults(
       core,
       resolvedDeps,
-      registerCleanup
+      registerCleanup,
+      (groupId) => completedLayers.push(`shared-defaults:${groupId}`)
     )
     const disposeEngineProvider =
       resolvedDeps.render.setEngineFactory(renderEngineFactory)
@@ -360,6 +383,7 @@ export const applyPreset = (
       })
     }
     registerCleanup('render-engine-provider', disposeEngineProvider)
+    completedLayers.push(`concrete-engine:${engineId}`)
     const bundleInstallations = installCapabilityBundles({
       core,
       dependencies: resolvedDeps,
@@ -371,30 +395,35 @@ export const applyPreset = (
       ],
       registerCleanup
     })
+    completedLayers.push(
+      ...bundleInstallations.map(({ id }) => `capability-bundle:${id}`)
+    )
     compositionSuccess = createPresetCompositionSuccess({
       engineId,
       sharedGroups,
       capabilityBundles: bundleInstallations.map(({ id }) => id)
     })
   } catch (error) {
+    const failureCompletedLayers =
+      error instanceof PresetCompositionError
+        ? error.result.completedLayers
+        : completedLayers
     const rollbackApplication = createPresetApplicationLifetime(
       core,
       registrationsBeforeApply,
-      cleanupEntries
+      cleanupEntries,
+      {
+        operation: 'apply-preset',
+        engineId,
+        capabilityBundles: capabilityBundles.map(({ id }) => id),
+        completedLayers: failureCompletedLayers,
+        applyError: error
+      }
     )
     try {
       rollbackApplication.dispose()
     } catch (cleanupError) {
       pendingRollbackApplications.set(core, rollbackApplication)
-      if (cleanupError instanceof RegistrationRelationError) {
-        throw new RegistrationRelationError({
-          ...cleanupError.result,
-          cause: {
-            applyError: error,
-            cleanupError: cleanupError.result.cause
-          }
-        })
-      }
       throw cleanupError
     }
     throw error
@@ -403,7 +432,13 @@ export const applyPreset = (
   const lifetime = createPresetApplicationLifetime(
     core,
     registrationsBeforeApply,
-    cleanupEntries
+    cleanupEntries,
+    {
+      operation: 'dispose-preset',
+      engineId: compositionSuccess.engineId,
+      capabilityBundles: compositionSuccess.capabilityBundles,
+      completedLayers: compositionSuccess.order
+    }
   )
   return {
     result: compositionSuccess,

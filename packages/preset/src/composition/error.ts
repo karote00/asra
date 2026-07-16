@@ -89,3 +89,47 @@ export const createLayerInstallError = ({
     },
     cause
   })
+
+interface CreateCleanupErrorOptions {
+  operation: PresetCompositionFailureResult['operation']
+  engineId?: string
+  capabilityBundles: readonly string[]
+  completedLayers: readonly string[]
+  completedCleanup: readonly string[]
+  pendingCleanup: readonly string[]
+  cleanupFailures: readonly { key: string; cause: unknown }[]
+  applyError?: unknown
+}
+
+export const createCleanupError = ({
+  operation,
+  engineId,
+  capabilityBundles,
+  completedLayers,
+  completedCleanup,
+  pendingCleanup,
+  cleanupFailures,
+  applyError
+}: CreateCleanupErrorOptions): PresetCompositionError =>
+  new PresetCompositionError({
+    ok: false,
+    code: PRESET_COMPOSITION_ERROR_CODES.CLEANUP_FAILED,
+    operation,
+    message: 'Preset composition has pending lifecycle cleanup',
+    layer: 'cleanup',
+    engineId,
+    capabilityBundles: [...capabilityBundles],
+    completedLayers: [...completedLayers],
+    cleanup: {
+      state: 'pending',
+      completed: [...completedCleanup],
+      pending: [...pendingCleanup]
+    },
+    cause: {
+      cleanupFailures: cleanupFailures.map(({ key, cause }) => ({
+        key,
+        cause
+      })),
+      ...(operation === 'apply-preset' ? { applyError } : {})
+    }
+  })

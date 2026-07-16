@@ -17,6 +17,7 @@ import {
 } from '@asyra/utils'
 import * as publicPreset from '../index'
 import { applyPreset } from '../preset'
+import { PresetCompositionError } from '../composition/error'
 import type { PresetCoreAPIs, PresetDependencies } from '../types'
 
 const PRESET_OWNER: RegistrationOwnerMetadata = {
@@ -525,10 +526,19 @@ describe('preset startup composition contract', () => {
     } catch (error) {
       rollbackError = error
     }
-    expect(rollbackError).toBeInstanceOf(RegistrationRelationError)
-    expect((rollbackError as RegistrationRelationError).result).toMatchObject({
-      code: 'UNREGISTER_FAILED',
-      pendingCleanup: ['render-layer:selection-overlay']
+    expect(rollbackError).toBeInstanceOf(PresetCompositionError)
+    expect((rollbackError as PresetCompositionError).result).toMatchObject({
+      code: 'CLEANUP_FAILED',
+      layer: 'cleanup',
+      cleanup: {
+        state: 'pending',
+        pending: ['render-layer:selection-overlay']
+      },
+      cause: {
+        applyError: expect.objectContaining({
+          message: 'late preset layer registration failed'
+        })
+      }
     })
     expect(renderLayers.size).toBe(1)
 
@@ -561,10 +571,15 @@ describe('preset startup composition contract', () => {
     } catch (error) {
       cleanupError = error
     }
-    expect(cleanupError).toBeInstanceOf(RegistrationRelationError)
-    expect((cleanupError as RegistrationRelationError).result).toMatchObject({
-      code: 'UNREGISTER_FAILED',
-      pendingCleanup: ['render-layer:vector-path-editing']
+    expect(cleanupError).toBeInstanceOf(PresetCompositionError)
+    expect((cleanupError as PresetCompositionError).result).toMatchObject({
+      code: 'CLEANUP_FAILED',
+      operation: 'dispose-preset',
+      layer: 'cleanup',
+      cleanup: {
+        state: 'pending',
+        pending: ['render-layer:vector-path-editing']
+      }
     })
     expect(renderLayers).toEqual(new Set([vectorLayerName]))
 
@@ -576,6 +591,35 @@ describe('preset startup composition contract', () => {
     cleanupAttempts.length = 0
     expect(application.dispose()).toMatchObject({ ok: true })
     expect(cleanupAttempts).toEqual([])
+  })
+
+  it('keeps pending cleanup state local to one Core and application lifetime', () => {
+    const first = createComposition()
+    const second = createComposition()
+    const firstApplication = applyPreset(first.core)
+    const secondApplication = applyPreset(second.core)
+    const firstVectorLayer = [...first.renderLayers].at(-1)
+    let failFirstCleanup = true
+
+    vi.mocked(first.core.unregisterRenderLayer).mockImplementation((name) => {
+      if (name === firstVectorLayer && failFirstCleanup) {
+        failFirstCleanup = false
+        throw new Error('first Core cleanup failed')
+      }
+      return first.renderLayers.delete(name)
+    })
+
+    const firstError = captureCompositionError(() => firstApplication.dispose())
+
+    expect(firstError).toBeInstanceOf(PresetCompositionError)
+    expect(
+      (firstError as PresetCompositionError).result.cleanup.pending
+    ).toEqual(['render-layer:vector-path-editing'])
+    expect(secondApplication.dispose()).toMatchObject({ ok: true })
+    expect(second.renderLayers.size).toBe(0)
+    expect(first.renderLayers).toEqual(new Set([firstVectorLayer]))
+    expect(firstApplication.dispose()).toMatchObject({ ok: true })
+    expect(first.renderLayers.size).toBe(0)
   })
 
   it('does not tear down runtime wiring when graph disposal preflight is closed', () => {
@@ -615,7 +659,16 @@ describe('preset startup composition contract', () => {
     )
     application.dispose()
 
-    expect(cleanupError).toBeInstanceOf(RegistrationRelationError)
+    expect(cleanupError).toBeInstanceOf(PresetCompositionError)
+    expect((cleanupError as PresetCompositionError).result).toMatchObject({
+      code: 'CLEANUP_FAILED',
+      operation: 'dispose-preset',
+      layer: 'cleanup',
+      cleanup: { state: 'pending' },
+      cause: expect.objectContaining({
+        cleanupFailures: expect.any(Array)
+      })
+    })
     expect(retainedRuntimeSizes.events).toBeGreaterThan(0)
     expect(retainedRuntimeSizes.observers).toBeGreaterThan(0)
     expect(retainedRuntimeSizes.layers).toBe(2)
@@ -940,13 +993,19 @@ describe('generic preset capability bundle orchestration', () => {
   it('installs selected bundles after engine bootstrap in caller-declared order with the public context', () => {
     const { core, dependencies } = createComposition()
     const timeline: string[] = []
-    const engineProviderCleanup = vi.fn()
+    const engineProviderCleanup = vi.fn(() => {
+      timeline.push('cleanup:engine')
+    })
     vi.mocked(dependencies.render.setEngineFactory).mockImplementation(() => {
       timeline.push('concrete-engine')
       return engineProviderCleanup
     })
-    const firstDispose = vi.fn()
-    const secondDispose = vi.fn()
+    const firstDispose = vi.fn(() => {
+      timeline.push('cleanup:package/first')
+    })
+    const secondDispose = vi.fn(() => {
+      timeline.push('cleanup:package/second')
+    })
     const first = {
       id: 'package/first',
       owner: { packageName: '@product/first', name: 'first' },
@@ -988,6 +1047,11 @@ describe('generic preset capability bundle orchestration', () => {
       engineId: '@product/render-engine'
     })
     expect(application.dispose()).toMatchObject({ ok: true })
+    expect(timeline.slice(-3)).toEqual([
+      'cleanup:package/second',
+      'cleanup:package/first',
+      'cleanup:engine'
+    ])
     expect([
       secondDispose.mock.invocationCallOrder[0],
       firstDispose.mock.invocationCallOrder[0]
@@ -997,6 +1061,71 @@ describe('generic preset capability bundle orchestration', () => {
         firstDispose.mock.invocationCallOrder[0]
       ].sort((a, b) => a - b)
     )
+  })
+
+  it('reports cleanup state and retries only a pending bundle disposer', () => {
+    const { core, dependencies } = createComposition()
+    const cleanupAttempts: string[] = []
+    let failSecondCleanup = true
+    vi.mocked(dependencies.render.setEngineFactory).mockReturnValue(() => {
+      cleanupAttempts.push('engine')
+    })
+    const first = {
+      id: 'package/first',
+      owner: { packageName: '@product/first', name: 'first' },
+      requires: [],
+      install: vi.fn(() => ({
+        outputs: ['first-output'],
+        dispose: () => cleanupAttempts.push('first')
+      }))
+    }
+    const second = {
+      id: 'package/second',
+      owner: { packageName: '@product/second', name: 'second' },
+      requires: ['package/first'],
+      install: vi.fn(() => ({
+        outputs: ['second-output'],
+        dispose: () => {
+          cleanupAttempts.push('second')
+          if (failSecondCleanup) {
+            failSecondCleanup = false
+            throw new Error('second bundle cleanup failed')
+          }
+        }
+      }))
+    }
+    const application = applyPreset(core, {
+      dependencies,
+      capabilityBundles: [first, second]
+    })
+
+    const cleanupError = captureCompositionError(() => application.dispose())
+
+    expect(cleanupAttempts.slice(0, 3)).toEqual(['second', 'first', 'engine'])
+    expect(cleanupError).toBeInstanceOf(PresetCompositionError)
+    expect((cleanupError as PresetCompositionError).result).toMatchObject({
+      code: 'CLEANUP_FAILED',
+      layer: 'cleanup',
+      cleanup: {
+        state: 'pending',
+        completed: expect.arrayContaining([
+          'capability-bundle:package/first',
+          'render-engine-provider'
+        ]),
+        pending: ['capability-bundle:package/second']
+      },
+      cause: expect.objectContaining({
+        cleanupFailures: [
+          expect.objectContaining({
+            key: 'capability-bundle:package/second'
+          })
+        ]
+      })
+    })
+
+    cleanupAttempts.length = 0
+    expect(application.dispose()).toMatchObject({ ok: true })
+    expect(cleanupAttempts).toEqual(['second'])
   })
 
   it('stops after a throwing bundle and cleans earlier bundle plus engine provider', () => {

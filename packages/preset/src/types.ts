@@ -80,7 +80,7 @@ export interface PresetCompositionCleanupResult {
 export interface PresetCompositionFailureResult {
   ok: false
   code: PresetCompositionErrorCode
-  operation: 'apply-preset'
+  operation: 'apply-preset' | 'dispose-preset'
   message: string
   layer: PresetCompositionLayer
   engineId?: string
