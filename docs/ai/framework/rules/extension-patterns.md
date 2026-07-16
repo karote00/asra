@@ -9,10 +9,12 @@
 - render layers
 
 Prefer:
+
 - register new behavior in one place
 - compose behavior with existing runtime contracts
 
 Avoid:
+
 - adding type-specific if/else chains across multiple packages
 - coupling app feature behavior directly into framework internals
 
@@ -24,6 +26,14 @@ Avoid:
 - Preset defaults must stay optional and replaceable by product owners.
 - If a preset capability has no direct extension hook, use an explicit replacement path (`unregister -> redefine` or an approved override flow) rather than patching package internals.
 - Extension and replacement must use stable registration keys, names, or metadata instead of importing implementation-local preset details.
+- Bounded extension targets use the shared `ExtensionRegistry` contract:
+  `before`, then default or one explicit `replace`, then `after`, then `append`.
+  Multiple entries within one bucket preserve the caller's declared order.
+- Every extension installer returns its owned cleanup function. Apply rollback,
+  target unregister, and full application disposal run cleanup in reverse order;
+  cleanup failure remains a structured failure and blocks replacement.
+- Explicit `replace` bypasses the target default and must not be implemented as
+  duplicate-registration tolerance.
 
 ## Feature and Capability Isolation
 

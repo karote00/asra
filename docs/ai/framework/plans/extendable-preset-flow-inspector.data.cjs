@@ -370,6 +370,7 @@
         'packages/utils/src/index.ts',
         'packages/utils/src/registry/__tests__/extension-registry.test.ts',
         'docs/ai/framework/CODING_STANDARDS.md',
+        'docs/ai/framework/packages/utils.md',
         'docs/ai/framework/rules/extension-patterns.md'
       ],
       specRefs: ['#public-contract', '#product-cases'],
