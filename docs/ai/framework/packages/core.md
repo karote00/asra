@@ -24,8 +24,12 @@ System orchestrator and lifecycle coordinator.
 ## Extension Points
 
 - register component definitions
-- define/unregister property schema + runtime registration pairs
+- remove/define component-property and property-child relations
+- define low-level property schema/runtime registrations and graph-aware full
+  property capabilities
 - define/query/unregister feature registrations
+- register/unregister render strategies and UI properties
+- query registration nodes, owners, and relations
 - register render layers
 - register render interaction targets + handlers
 - register render YJS change observers (`name + channel + onChange`)
@@ -63,16 +67,29 @@ System orchestrator and lifecycle coordinator.
 - reject missing renderer or renderer/engine initialization failure without
   initializing later phases or publishing false ready
 - remain unaware of concrete engine instances, capabilities, and resources
+- permanently close registration composition at the first `start(...)` method
+  entry, even if renderer initialization later rejects
+- validate every declared registration relation before renderer side effects
 
-2. Registration contract
+2. Registration composition contract
 
-- registration calls should be idempotent where possible
-- registration errors should fail fast with clear messages
+- registration calls fail fast on duplicate identity; Core does not silently
+  skip, overwrite, or infer replacement
+- `RegistrationRelationError` carries stable structured codes for closed,
+  missing, duplicate relation, active-use, dangling, and cleanup failures
 - Core registration methods are public delegates to the feature/property owner;
-  Core does not add duplicate tolerance, replacement ordering, or app policy.
-- property registration removal is atomic across schema/runtime registries and
-  refuses types retained by live or replay state; an explicit `schema` or
-  `runtime` scope lets one preset target clean up only its owned registration
+  Core does not add duplicate tolerance, semantic-equivalence ordering, or app
+  policy.
+- `removeComponentPropertyRelation` and `removePropertyChildRelation` remove one
+  edge and rebuild the source registration while preserving source/target nodes
+- `unregisterPropertyRegistration(type, scope)` remains low-level schema/runtime
+  cleanup; `unregisterPropertyType(type)` is the graph-aware full-capability API
+- full property unregister refuses live or replay-retained instances, detaches
+  structural sources, recursively unregisters declared hard sources, and
+  reports removed relations/resources in `UnregisterRegistrationSuccess`
+- package definitions may carry `registration.owner` and explicit
+  `registration.relations`; omitted app owners use
+  `{ packageName: 'app', name: registrationKey }`
 - feature removal disposes the feature owner's pending handlers and exact event
   subscriptions; an active feature must be ended before removal
 - data-channel observer registration resolves shared data by channel name, not raw YJS object instances
@@ -126,9 +143,11 @@ System orchestrator and lifecycle coordinator.
 
 - App should call framework via `core.xxx` and app-level wrappers.
 - Preset/app composition should prefer the concrete Core instance registration
-  facade (`core.defineFeature`, `core.definePropertyComponent`,
-  `core.unregisterFeature`, `core.unregisterPropertyRegistration`) so preset
-  installation uses the injected runtime owner.
+  facade. Apply defaults, remove/define exact relations, use
+  `unregisterPropertyType` only for a complete capability, then call `start`.
+- Complete implementation changes use explicit
+  `unregister owner registration -> define/register app implementation`; Core
+  exposes no replace operation.
 - App feature modules may prefer `@asyra/core` helper re-exports
   (`defineFeature`, `getFeature`, `keyMap`) for the default shared-runtime path.
 - App should not import package internals when core API exists.

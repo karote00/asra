@@ -58,6 +58,7 @@
       implementationBoundary: [
         'apps/asyra-design/src/init/init-app.ts',
         'apps/asyra-design/src/init/__tests__/**',
+        'docs/ai/apps/asyra-design/APP_ESSENTIALS.md',
         'docs/ai/apps/asyra-design/ARCHITECTURE.md',
         'docs/ai/apps/asyra-design/API_SURFACES.md',
         'docs/ai/apps/asyra-design/modules/init-and-startup.md',
@@ -120,8 +121,15 @@
         'packages/preset/src/render-strategies/**',
         'packages/preset/src/ui-properties/**',
         'packages/preset/src/__tests__/**',
+        'docs/ai/framework/ARCHITECTURE.md',
+        'docs/ai/framework/CODING_STANDARDS.md',
+        'docs/ai/framework/PLANS.md',
+        'docs/ai/framework/design-principles/extensible-runtime-guarantees.md',
+        'docs/ai/framework/decisions/releases/unreleased.md',
         'docs/ai/framework/packages/preset.md',
-        'docs/ai/framework/golden-paths/extend-preset-capability.md'
+        'docs/ai/framework/golden-paths/extend-preset-capability.md',
+        'docs/ai/framework/plans/preset-composition-plan.md',
+        'docs/ai/framework/plans/preset-2d-3d-init-profile-plan.md'
       ],
       specRefs: [
         '#asyrapreset-explicit-defaults',

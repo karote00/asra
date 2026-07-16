@@ -1,108 +1,141 @@
-# Golden Path: Extend a Preset Capability
+# Golden Path: Customize Preset Registrations
 
 ## Preconditions
 
-- The target behavior belongs to preset defaults, not framework runtime ownership.
-- The app/product requirement is domain-specific or product-specific.
-- The target registration key, feature name, property type, event name, render layer name, or selection channel is known.
+- Customization is completed before the first `core.start()`.
+- The app knows the public component type, property type, feature name, render
+  strategy key, or UI-property key it wants to change.
+- Persisted-data migration, when needed, remains app-owned and is registered
+  before load.
 
-## Steps
+## Startup Sequence
 
-1. Classify the target
-
-- feature behavior
-- shortcut/input mapping
-- event contract
-- component/property/schema behavior
-- render layer or interaction target
-- selection channel/default wiring
-
-2. Prefer extension when available
-
-- query `getPresetExtensionTarget(targetKey)` and verify the required strategy
-- pass ordered `PresetExtension[]` through `applyPreset(core, { extensions })`
-- keep extension keys and owners stable, and always return owned cleanup
-- handle `ExtensionContractError.code`; do not retry through duplicate tolerance
-
-Feature example:
-
-```ts
-import {
-  PRESET_EXTENSION_TARGETS,
-  applyPreset,
-  type PresetExtension
-} from '@asyra/preset'
-
-const extensions: PresetExtension[] = [
-  {
-    key: 'asyra-design.selection-feature',
-    targetKey: PRESET_EXTENSION_TARGETS.FEATURE_REGISTRATIONS,
-    owner: { packageName: '@asyra/asyra-design', name: 'selection' },
-    strategy: 'append',
-    install: ({ core }) => {
-      const registration = core.defineFeature('selection', undefined, {
-        api: { owner: 'asyra-design' }
-      })
-      return () => registration.dispose()
-    }
-  }
-]
-
-const presetApplication = applyPreset(core, { extensions })
+```text
+applyPreset(core)
+-> remove old relation(s)
+-> define new relation(s) or ordinary registrations
+-> optionally unregister an entire capability
+-> register load migration
+-> core.start()
 ```
 
-3. Use replacement when extension is unavailable
+## Choose the Correct Operation
 
-- do not call `applyPreset` with an unsupported strategy
-- apply defaults, call `presetApplication.unregisterTarget(targetKey)`, and
-  proceed only after its structured success result
-- register the app/product-owned replacement through public Core APIs
-- property cleanup may remove only its target-owned `schema` or `runtime` part;
-  active/live or replay-retained property instances block unregister
+### Add a capability
 
-Property runtime fallback example:
+Use the normal public API. No preset extension object is required.
 
 ```ts
-import { PRESET_EXTENSION_TARGETS, applyPreset } from '@asyra/preset'
-import { PropertyTypes } from '@asyra/utils'
+applyPreset(core)
 
-const presetApplication = applyPreset(core)
-const targetKey =
-  PRESET_EXTENSION_TARGETS.PROPERTY_RUNTIMES[PropertyTypes.POSITION]
-
-presetApplication.unregisterTarget(targetKey)
-core.definePropertyComponent({
-  type: PropertyTypes.POSITION,
-  defaults: { x: 0, y: 0 }
+core.defineFeature('whiteboard-selection', undefined, {
+  api: {
+    /* app API */
+  }
 })
 ```
 
-4. Keep ownership explicit
+Ordinary app definitions may omit owner and relation metadata. Core assigns the
+stable owner `{ packageName: 'app', name: registrationKey }`.
 
-- framework owns runtime primitives and validation
-- preset owns optional defaults
-- app/product owns domain behavior and workflows
-- render engine selection remains separate and never determines a product mode
+### Change one structural relation
 
-5. Verify behavior
+Remove the old relation and define the new, non-equivalent relation explicitly.
+Both property capabilities remain registered.
 
-- test the app/product behavior directly
-- verify transaction grouping and undo/redo semantics
-- verify runtime invalid writes are rejected
-- verify load-time fallback still works when persisted data is invalid or old
-- verify render remains derived from framework/system state
+```ts
+applyPreset(core)
+
+core.removeComponentPropertyRelation('rect', 'fills')
+core.removeComponentPropertyRelation('oval', 'fills')
+
+core.defineComponentPropertyRelation('rect', {
+  name: 'outline',
+  type: PropertyTypes.STROKES
+})
+core.defineComponentPropertyRelation('oval', {
+  name: 'outline',
+  type: PropertyTypes.STROKES
+})
+```
+
+The same rule applies to config-mode property children with
+`removePropertyChildRelation` and `definePropertyChildRelation`.
+
+### Change a complete implementation
+
+Unregister the old registration, then define the app implementation through its
+normal API. The API does not imply that the two implementations are equivalent.
+
+```ts
+applyPreset(core)
+
+core.unregisterRenderStrategy('rect')
+core.registerRenderStrategy('rect', whiteboardRectangleStrategy)
+```
+
+For a complete property capability:
+
+```ts
+core.unregisterPropertyType(PropertyTypes.FILLS)
+
+core.registerPropertySchema(appFillsSchema)
+core.definePropertyComponent(appFillsRuntime)
+```
+
+`unregisterPropertyRegistration(type, scope)` is the low-level schema/runtime
+cleanup primitive. Use `unregisterPropertyType(type)` when removing the complete
+capability and all declared relations/resources.
+
+### Remove a capability entirely
+
+```ts
+applyPreset(core)
+core.unregisterPropertyType(PropertyTypes.FILLS)
+```
+
+This detaches structural component/parent relations, recursively unregisters
+only declared `unregister-source` dependents, and cleans Fills-owned resources.
+It does not infer that the separate `FILL` child registration should also be
+removed.
+
+## Render and UI Are Explicit
+
+Removing a component-property relation does not infer product rendering or UI.
+If a Whiteboard changes Filled shapes into outline-only shapes, it explicitly
+unregisters/registers its Rectangle/Oval render strategies and any app UI
+registrations that differ from the preset.
+
+## Migration
+
+Registration composition never migrates documents. For an app version change,
+register a load hook that maps old data before package validation:
+
+```text
+old file -> app load migration -> package validation -> load
+```
+
+Unknown property types after migration are diagnosed and skipped; they do not
+fall back to `CUSTOM`.
+
+## Failure Handling
+
+- missing source/target/relation, duplicate relation, duplicate registration,
+  active use, closed composition, dangling relation, and cleanup failure fail
+  fast
+- relation/capability failures use `RegistrationRelationError` with a stable
+  `code` and structured `result`
+- cleanup failure leaves pending retry state; do not define a conflicting
+  registration until cleanup succeeds
+- the first `core.start()` closes composition permanently, including when later
+  renderer initialization fails
 
 ## Verification Checklist
 
-- The extension or replacement does not import preset/framework internals for app policy.
-- The default can still be skipped, replaced, or moved in future package extraction.
-- Duplicate registration, missing target, and override conflicts fail with actionable errors.
-- Active observers, handlers, or render targets are cleaned up when unregistering.
-- The feature or capability remains deterministic across startup order and reload.
-
-## Common Failure Cases
-
-- patching a preset implementation file for product-specific behavior
-- relying on registration order instead of explicit priority/strategy
-- replacing a capability without cleaning up observers or render interaction targets
-- preserving UI behavior while breaking save/load or undo/redo contracts
+- app imports only public package façades; no preset/framework deep imports
+- relation removal preserves source and target nodes
+- full unregister cleans observers, handlers, subscriptions, and owned registry
+  entries without stale effects
+- app-owned migration runs before validation
+- startup ordering is deterministic
+- render-engine capability never selects a product mode

@@ -56,7 +56,7 @@ packages/props-manager/src/
 5. Registration lifecycle
 
 - `PropsManager.getPropertyIdsByType(type)` reports active and replay-retained
-  deleted property ids for replacement safety.
+  deleted property ids for unregister/redefine safety.
 - `unregisterPropertyRegistration(type, manager?, scope?)` checks usage before any
   mutation. Active or replay-retained instances throw
   `PropertyRegistrationError` with stable `PROPERTY_TYPE_IN_USE` code and
@@ -71,6 +71,20 @@ packages/props-manager/src/
 - individual `unregisterPropertySchema(type)` and
   `unregisterPropertyComponent(type)` primitives return whether their registry
   entry was removed.
+
+6. Property relation ownership
+
+- config-mode `children.childType` is retained as a declarative definition so
+  Core can remove/define that relation by rebuilding the constructor atomically
+- child subscriptions are disposed when a property instance is removed,
+  replay-retained state is reset, or the runtime is rebuilt
+- constructor-mode child/dependency logic is opaque and must declare a local
+  `registration.relations` entry; hard dependencies use `unregister-source`
+- unknown property types are diagnosed and skipped during load; the factory no
+  longer constructs `CUSTOM` as an implicit fallback
+- `unregisterPropertyRegistration(type, scope)` owns low-level schema/runtime
+  cleanup. Core's `unregisterPropertyType(type)` coordinates the complete graph
+  capability and delegates final cleanup here.
 
 ## Current Extension Points
 
@@ -93,6 +107,6 @@ packages/props-manager/src/
 - Property load/save round-trip is stable.
 - Invalid runtime writes are rejected without corrupting stored values.
 - Schema updates are reflected in component validation behavior.
-- Registration replacement is rejected while active or replay-retained
-  instances use the type, and safe replacement leaves no stale schema or
-  constructor.
+- Registration removal is rejected while active or replay-retained instances
+  use the type; `unregister -> define` leaves no stale schema, constructor, or
+  child subscription.

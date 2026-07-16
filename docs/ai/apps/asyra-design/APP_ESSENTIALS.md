@@ -45,7 +45,9 @@ Asyra Design also follows the framework pre-release legacy removal rule in `docs
 
 App features should prove their own behavior through `src/common-apis/*` and core facade APIs without depending on unrelated framework or preset internals.
 
-Preset-provided behavior may be used as the default, but app-specific workflow changes should be implemented as app-owned features, app-owned common APIs, or documented preset extension/replacement flows.
+Preset-provided behavior may be used as the default, but app-specific workflow
+changes should be implemented as app-owned features, app-owned common APIs, or
+the documented pre-start relation/remove/unregister/define flow.
 
 ## Non-Negotiable App Constraints
 

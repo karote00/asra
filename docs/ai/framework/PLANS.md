@@ -10,10 +10,11 @@ This file tracks framework planning topics and points to detailed references.
 
 ## Near-Term Plans
 
-1. Extendable preset
+1. Extendable preset (implementation validation in progress)
 
-- Allow users to extend preset feature/property behavior through explicit extension points.
-- Keep deterministic fallback path: `unregister -> redefine` when extension points are unavailable.
+- Allow apps to add ordinary registrations, change structural relations, or
+  unregister/define complete capabilities before startup.
+- Keep the deterministic full-change path: `unregister -> define/register`.
 - Reference: `docs/ai/framework/plans/extendable-preset-plan.md`
 
 2. Generic preset composition
@@ -22,7 +23,7 @@ This file tracks framework planning topics and points to detailed references.
   bundles, and app customizations in deterministic order without publishing
   placeholder `2d`, `3d`, or `hybrid` profiles.
 - Preserve the current `applyPreset(core)` behavior and use the explicit
-  extension/replacement contract from the extendable-preset plan.
+  relation/unregister contract from the extendable-preset plan.
 - Reference: `docs/ai/framework/plans/preset-composition-plan.md`
 
 3. Canvas debugger

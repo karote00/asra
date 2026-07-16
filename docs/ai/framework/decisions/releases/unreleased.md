@@ -1128,3 +1128,39 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 - Related Commit(s):
   - `f185f026cef3b47127003651697bdbf7a8708889` (`feat(render): add replaceable render engine boundary (#79)`)
   - [PR #79](https://github.com/karote00/asyra/pull/79)
+
+## 2026-07-16 - Preset customization uses explicit startup registration composition
+
+- Context:
+  - App developers need to add, adjust, remove, or fully change preset defaults
+    without editing preset/framework internals.
+  - A replace API suggests semantic equivalence even when the old and new
+    property, component, render, or feature capabilities are not equivalent.
+- Decision:
+  - Use `applyPreset(core) -> remove/define relations -> optional capability
+    unregister -> app migration -> core.start()` as the public app route.
+  - Keep one Core-owned registration graph with stable identity, owner metadata,
+    deterministic traversal, explicit `detach`/`unregister-source` policies, and
+    retryable lifecycle cleanup.
+  - Remove preset-specific app extension targets and all public/shared replace
+    strategies. App features use `core.defineFeature`; full implementation
+    changes use owner unregister followed by ordinary definition/registration.
+  - Close composition permanently at the first `core.start()` method entry and
+    keep migration app-owned before validation/load.
+- Consequences:
+  - Apps customize preset defaults without deep imports, manual owner metadata,
+    or understanding preset installation internals.
+  - Relation removal preserves registrations; full unregister cleans declared
+    dependents and owned resources without inferring semantic equivalence.
+  - Preset exports pure component definitions and separate render strategies;
+    import alone has no component registration side effect.
+  - Generic Preset Composition, product profiles, render-mode selection, and
+    multi-engine composition remain outside this plan.
+- Related Plan:
+  - `docs/ai/framework/plans/extendable-preset-plan.md`
+- Related Commit(s):
+  - `f03693e37` (`feat(utils): add registration relation graph`)
+  - `7ae021668` (`feat(core): add component property relation owners`)
+  - `53f12fb64` (`feat(props-manager): add property child relation owners`)
+  - `6ee041a5f` (`feat(core): coordinate startup registration composition`)
+  - `8fa6f9915` (`feat(preset): install graph-owned defaults`)

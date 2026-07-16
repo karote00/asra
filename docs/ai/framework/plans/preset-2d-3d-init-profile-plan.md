@@ -31,7 +31,7 @@ All profiles require:
 
 1. the render-engine boundary and explicit engine injection;
 2. deterministic generic preset composition;
-3. the extendable-preset extension/replacement contract;
+3. the extendable-preset relation/unregister contract;
 4. engine and bundle diagnostics;
 5. formal compatibility, failure, and instance-isolation tests.
 
@@ -79,7 +79,8 @@ Target developer experience:
 
 - choose a supported official profile;
 - apply preset through the generic composition contract;
-- customize app-domain behavior through explicit extension/replacement paths;
+- customize app-domain behavior through explicit relation/remove/unregister/
+  define paths;
 - receive a deterministic failure when required capabilities are unavailable.
 
 ## Ownership
@@ -106,7 +107,8 @@ In scope:
 - validation of required capabilities and registration groups;
 - deterministic integration with generic preset composition;
 - actionable diagnostics and unsupported-profile failures;
-- compatibility, extension, replacement, and instance-isolation tests;
+- compatibility, relation/unregister customization, and instance-isolation
+  tests;
 - documentation that distinguishes framework abstraction from officially
   shipped engines.
 
@@ -132,7 +134,8 @@ The API must satisfy:
 - unknown or unavailable profiles fail with actionable diagnostics;
 - profile selection does not bypass explicit engine capability validation;
 - app customization runs after profile-owned default bundles;
-- duplicate and replacement behavior follows the extendable-preset contract.
+- duplicate and full implementation-change behavior follows the
+  extendable-preset unregister/define contract.
 
 ## Activation Triggers
 
@@ -166,8 +169,8 @@ reserved as supported public values before activation.
 
 4. Validation and diagnostics
 
-- verify engine availability, required capabilities, duplicate/replacement
-  behavior, failure cleanup, and instance isolation.
+- verify engine availability, required capabilities, duplicate rejection,
+  unregister-before-register behavior, failure cleanup, and instance isolation.
 
 5. App verification and documentation
 

@@ -18,6 +18,12 @@ An app developer does not need preset target keys, preset internals, manual
 owner metadata, or a preset-specific extension object. Removing a relation does
 not claim that the old and new capabilities are equivalent.
 
+## Status
+
+- Implementation segments 1-6 are complete on `codex/extendable-preset`.
+- Segment 7 root gates, self-review, and read-only sub-agent review remain
+  pending before plan completion can be claimed.
+
 ## Scope
 
 In scope:
@@ -332,12 +338,13 @@ product behavior.
 
 ## Implementation Segments
 
-1. Repair this plan and Inspector authority.
-2. Add the shared registration graph and structured contract test-first.
-3. Add component-property and property-child owner mutations test-first.
-4. Add Core coordination, recursive unregister, dangling validation, and
-   permanent startup closure test-first.
-5. Convert preset defaults to explicit installation and remove preset-specific
-   app extension surfaces test-first.
-6. Synchronize app/framework/package docs and migration guidance.
-7. Run bounded and root gates, then self-review and read-only sub-agent review.
+1. [x] Repair this plan and Inspector authority.
+2. [x] Add the shared registration graph and structured contract test-first.
+3. [x] Add component-property and property-child owner mutations test-first.
+4. [x] Add Core coordination, recursive unregister, dangling validation, and
+       permanent startup closure test-first.
+5. [x] Convert preset defaults to explicit installation and remove preset-specific
+       app extension surfaces test-first.
+6. [x] Synchronize app/framework/package docs and migration guidance.
+7. [ ] Run bounded and root gates, then self-review and read-only sub-agent
+       review.

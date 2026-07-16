@@ -176,6 +176,34 @@ test('preset owns explicit default installation and graph-backed disposal', () =
       'packages/utils/src/registry/registration-graph.ts'
     )
   )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'docs/ai/framework/decisions/releases/unreleased.md'
+    )
+  )
+})
+
+test('public docs describe relation composition without the retired preset extension surface', () => {
+  const docPaths = [
+    'docs/ai/framework/API_SURFACES.md',
+    'docs/ai/framework/packages/core.md',
+    'docs/ai/framework/packages/preset.md',
+    'docs/ai/framework/golden-paths/extend-preset-capability.md',
+    'docs/ai/apps/asyra-design/ARCHITECTURE.md',
+    'docs/ai/apps/asyra-design/modules/init-and-startup.md'
+  ]
+  const docs = docPaths
+    .map((docPath) => fs.readFileSync(path.resolve(repoRoot, docPath), 'utf8'))
+    .join('\n')
+
+  assert.match(docs, /removeComponentPropertyRelation/)
+  assert.match(docs, /defineComponentPropertyRelation/)
+  assert.match(docs, /unregisterPropertyType/)
+  assert.match(docs, /unregister.*define/i)
+  assert.doesNotMatch(
+    docs,
+    /PRESET_EXTENSION_TARGETS|PresetExtension|unregisterTarget\(/
+  )
 })
 
 test('opaque owners keep declarations local and dispose all owned runtime resources', () => {

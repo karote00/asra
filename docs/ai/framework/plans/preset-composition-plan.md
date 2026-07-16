@@ -5,8 +5,8 @@
 Near-term, after:
 
 1. the render-engine boundary provides explicit concrete-engine injection; and
-2. the extendable-preset contract defines deterministic extension and
-   replacement behavior.
+2. the extendable-preset contract defines deterministic relation and unregister
+   behavior.
 
 This plan does not introduce public `2d`, `3d`, or `hybrid` profile names.
 Official render-mode profiles remain trigger-gated in
@@ -30,8 +30,8 @@ Supported behavior:
 - Apps can explicitly supply startup composition inputs through a typed preset
   surface after the render-engine injection contract is available.
 - Each layer has one owner and a deterministic application order.
-- Duplicate targets fail fast unless the extendable-preset contract explicitly
-  authorizes replacement.
+- Duplicate targets fail fast. A complete implementation change must unregister
+  its owner registration before ordinary definition.
 - Failed composition does not report a ready runtime or silently leave an
   accepted partial profile.
 - Diagnostics identify the concrete engine and applied registration groups;
@@ -71,8 +71,8 @@ Unsupported behavior:
 4. App customizations
 
 - Owner: app code.
-- Uses the extendable-preset extension path or deterministic
-  `unregister -> redefine` fallback.
+- Uses ordinary Core relation removal/definition or deterministic owner
+  `unregister -> register` composition.
 
 Preset coordinates application order but does not become the runtime owner of
 any registration it installs.
@@ -84,7 +84,7 @@ In scope:
 - typed composition input and result contracts;
 - deterministic layer and registration ordering;
 - backward-compatible default application;
-- duplicate, missing-target, replacement, and partial-failure behavior;
+- duplicate, missing-target, unregister/define, and partial-failure behavior;
 - instance-local composition and diagnostics;
 - integration with the engine-injection and extendable-preset contracts;
 - documentation and formal tests.
@@ -108,7 +108,7 @@ Out of scope:
    `@asyra/render`, which consumes only the `@asyra/render-engine` contract.
 6. Preset applies explicitly requested capability bundles.
 7. Preset applies app-owned customization operations through the approved
-   extension/replacement contract.
+   relation/unregister contract.
 8. Preset validates the completed registration set and publishes instance-local
    diagnostics.
 9. Core proceeds to runtime-ready only after successful completion.
@@ -156,7 +156,8 @@ and cleanup responsibility.
 - shared defaults apply exactly once;
 - app customization runs after engine and capability bundles;
 - duplicate registration fails before runtime-ready;
-- explicit replacement follows the extendable-preset contract;
+- a complete implementation change follows the extendable-preset
+  unregister/define contract;
 - unknown engine bootstrap or capability bundle fails with an actionable error;
 - a failed layer does not publish successful completion diagnostics;
 - separate Core/preset instances do not share composition state;
@@ -168,7 +169,7 @@ and cleanup responsibility.
 - composition order and failure ownership are executable contracts, not only
   documentation;
 - engine selection uses the abstract render-engine boundary;
-- app customization uses the explicit extension/replacement contract;
+- app customization uses the explicit relation/unregister contract;
 - no concrete engine internals or app-domain policy leak into preset;
 - no placeholder render-mode profiles exist;
 - package tests, affected app E2E, build, lint, and live startup verification

@@ -159,6 +159,36 @@ Canonical shorthand:
 - Feature registration.
 - Render layer registration through core entrypoint.
 
+### Startup registration composition
+
+The normal app route is:
+
+```text
+applyPreset(core)
+-> remove old relation(s)
+-> define new relation(s) or registrations
+-> optionally unregister a complete capability
+-> register app migration
+-> core.start()
+```
+
+- Core owns one `RegistrationGraph` and the permanent composition lock.
+- Package registries remain definition source-of-truth; the graph stores only
+  stable `{ kind, key }` identities, owner metadata, declared relations, and
+  package-local cleanup handlers.
+- Component property slots and config-mode property children create structural
+  `detach` relations. Feature, render strategy, UI property, and constructor-mode
+  dependencies are opaque and must be declared on their local definition.
+- `remove` deletes one relation and preserves both nodes. `unregister` deletes a
+  capability and invokes only the owners selected by `detach` or
+  `unregister-source` policy.
+- There is no semantic-equivalence or replace operation. A full implementation
+  change is `unregister default -> define custom`; a non-equivalent structural
+  change is `remove old relation -> define new relation`.
+- The first `core.start()` closes composition permanently before renderer side
+  effects and validates declared relations. Registration composition is not a
+  runtime mutation or migration mechanism.
+
 ## Persistence and Loading
 
 - Core orchestrates save/load and load hooks.

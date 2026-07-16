@@ -34,6 +34,11 @@ results/interactions back to framework-facing APIs.
 - Core-facing `RenderAdapter`
 - render-side update stores (`renderSceneTreeStore`, `renderSelectionStore`) for external registration wiring
 
+Render strategies registered through Core may include local
+`RegistrationDefinitionMetadata`. Declared property dependencies are opaque;
+the graph never inspects strategy code. `unregisterRenderStrategy(type)` removes
+the named strategy and its graph relations without inferring a product mode.
+
 ## Runtime Contracts
 
 1. State-driven rendering

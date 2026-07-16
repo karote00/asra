@@ -56,6 +56,11 @@ Provide shared types, ids, registry primitives, and low-level helpers.
   - cleanup is reverse-order and retryable: completed resources do not rerun,
     pending resources remain queryable through the failure result, and the node
     remains registered until cleanup succeeds
+  - `RegistrationDefinitionMetadata` lets a package definition carry optional
+    owner metadata and local relation declarations without moving its full
+    definition into the graph
+  - `hasPendingCleanup(ref)` lets the coordinating owner block conflicting
+    registration while a previous cleanup is retryable
 
 ## Extension Points
 

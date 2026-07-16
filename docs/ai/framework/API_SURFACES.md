@@ -37,6 +37,33 @@ Lifecycle and integration:
   - returns `{ ok: false, code: 'PROPERTY_REGISTRATION_NOT_FOUND', ... }` for a
     missing type and throws `PropertyRegistrationError` with
     `PROPERTY_TYPE_IN_USE` before changing either registry when cleanup is unsafe
+- `unregisterPropertyType(type: string): UnregisterRegistrationSuccess`
+  - graph-aware full-capability removal; detaches structural dependents,
+    recursively unregisters declared hard dependents, and cleans schema/runtime
+    resources
+- component relation APIs:
+  - `defineComponent(definition: ComponentDefinition): void`
+  - `unregisterComponent(type, options?): boolean | UnregisterComponentResult`
+  - `defineComponentPropertyRelation(componentType, property): RelationOperationSuccess`
+  - `removeComponentPropertyRelation(componentType, propertyName): RelationOperationSuccess`
+  - `getComponentPropertyRelations(componentType): readonly ComponentPropertyRelationMetadata[]`
+- property-child relation APIs:
+  - `definePropertyChildRelation(parentType, relation): RelationOperationSuccess`
+  - `removePropertyChildRelation(parentType, key): RelationOperationSuccess`
+  - `getPropertyChildRelations(parentType): readonly PropertyChildRelationMetadata[]`
+- opaque registration lifecycle:
+  - `registerRenderStrategy(type, strategy, registration?): void`
+  - `unregisterRenderStrategy(type): boolean`
+  - `unregisterUIProperty(key): boolean`
+- graph metadata queries:
+  - `getRegistration({ kind, key })`
+  - `getRegistrations()`
+  - `getRegistrationRelations()`
+  - package definitions may declare optional `registration.owner` and
+    `registration.relations`; ordinary app definitions may omit both and use
+    `{ packageName: 'app', name: registrationKey }`
+- all relation mutations and `unregisterPropertyType` are startup composition
+  operations. The first `start()` call closes them permanently at method entry.
 - `defineFeature(name, keyConfig, definition): { api: FeatureAPI; dispose: () => boolean }`
 - `getFeature(name: string): FeatureAPI`
 - `unregisterFeature(name: string): boolean`
@@ -149,6 +176,11 @@ Managed property bridges:
 - `definePropertyComponent`, `unregisterPropertyComponent`
 - property registration lifecycle helpers: `unregisterPropertySchema`,
   `unregisterPropertyRegistration`, `PropertyRegistrationError`
+- registration composition types: `RegistrationDefinitionMetadata`,
+  `RegistrationRef`, `RegistrationNodeMetadata`,
+  `RegistrationRelationDeclaration`, `RegistrationRelationMetadata`,
+  `RelationOperationSuccess`, `UnregisterRegistrationSuccess`, and
+  `RegistrationRelationError`
 - props-manager registry re-export: `elementPropertyRegistry`
 - feature-system bridge exports: `initFeatureSystem`, `getFeatureRegistry`, `getSessionManager`
 - feature authoring helpers: `defineFeature`, `getFeature`, `unregisterFeature`
@@ -299,20 +331,17 @@ Managed property bridges:
   bundle path
 - `applyPreset(core, { renderEngineFactory, dependencies? })` replaces the
   Pixi default with a contract-compatible custom factory
-- `applyPreset(core, { extensions, renderEngineFactory?, dependencies? })`
-  applies ordered public feature/property extensions and returns a
-  `PresetApplication`
-- preset extension surface:
-  - `PRESET_EXTENSION_TARGETS.FEATURE_REGISTRATIONS`
-  - `PRESET_EXTENSION_TARGETS.PROPERTY_SCHEMAS[propertyType]`
-  - `PRESET_EXTENSION_TARGETS.PROPERTY_RUNTIMES[propertyType]`
-  - `getPresetExtensionTarget(key)`, `getPresetExtensionTargets()`
-  - `PresetExtension`, `PresetExtensionContext`, `PresetApplication`
-  - re-exported `ExtensionContractError`, stable error codes, strategies, and
-    operation result types
-- `PresetApplication.unregisterTarget(key)` is the formal first step for
-  unsupported direct extension; app redefinition then uses public Core feature
-  or property registration APIs
+- returns a `PresetApplication` whose `dispose()` removes the graph-owned
+  registrations installed by that call and skips nodes already removed through
+  Core
+- exports pure component definitions and separate render strategies for
+  Rectangle, Oval, Vector, Frame, and Group; importing preset modules has no
+  component-registration side effect
+- exports `PRESET_REGISTRATION_OWNER` for metadata inspection; daily app
+  customization does not require owner input or preset target keys
+- app customization uses ordinary Core relation/registration APIs after
+  `applyPreset(core)`; preset exposes no app extension object, target manifest,
+  or replace strategy
 - default render wiring lives here:
   - register default render YJS observers (scene-tree + selection)
   - register default render system subscriptions (`zoom`, `viewportPosition`)

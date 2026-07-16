@@ -89,6 +89,11 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
 - when a shared execution/session sequence is already iterating, a participant
   successfully unregistered before its own handler starts is skipped and cannot
   emit a stale side effect from the captured sequence.
+- `FeatureDefinition.registration` may declare stable owner metadata and opaque
+  graph dependencies. A hard dependency uses `unregister-source`; ordinary app
+  features may omit this metadata.
+- registration metadata does not change feature priority, exclusivity, session,
+  cancel, or execution semantics.
 
 ## App-Level Rules
 
@@ -105,4 +110,4 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
 - Tests must distinguish normal end, cancel, rollback, commit-current, handler
   error, and timeout.
 - Feature unregister tests must prove pending, execution, session, input, and
-  renderer-event resources leave no stale behavior after replacement.
+  renderer-event resources leave no stale behavior after unregister/redefine.

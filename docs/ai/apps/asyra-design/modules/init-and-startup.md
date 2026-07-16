@@ -22,9 +22,9 @@
 
 - `applyPreset(core)` registers framework defaults and selects the fresh Pixi
   engine factory without exposing it to the app
-- the current app uses the no-extension compatibility route; when app policy
-  needs customization, construct ordered public `PresetExtension[]` before this
-  call and pass `{ extensions }`
+- the current app uses the no-customization compatibility route; when app policy
+  needs customization, call public Core remove/unregister/define APIs after
+  `applyPreset(core)` and before the remaining init steps
 - diagnostics: `initLoadDiagnostics()`
 - derived-state sync: `initSelectionCompatibility()`, `initPathEditingContinuation()`
 - capability init: `initAreaSelection()`, `initGradientFillEditing()`, `initVectorIconData()`
@@ -51,11 +51,11 @@
 ## Rules
 
 - Keep registration/init in deterministic order.
-- Apply preset extensions/replacements before diagnostics, capabilities,
-  input-system, and app feature initialization.
-- Prefer a target's documented direct strategy. If metadata does not support
-  it, apply defaults, require successful
-  `presetApplication.unregisterTarget(targetKey)`, then redefine through Core.
+- Complete preset customization before diagnostics, capabilities, input-system,
+  app feature initialization, and the first `core.start()`.
+- Remove only a relation when source/target capabilities should remain. Use the
+  relevant Core unregister API before defining a complete custom
+  implementation; there is no replace API or preset extension target.
 - Do not continue redefine after missing target, active usage, or cleanup
   failure; do not add duplicate tolerance or app exceptions to framework code.
 - Init modules must be idempotent (safe to call once, no duplicate registrations).

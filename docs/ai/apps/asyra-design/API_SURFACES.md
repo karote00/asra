@@ -8,12 +8,14 @@ Import boundary:
 
 - `import { ...Apis } from 'src/common-apis'`
 - `import { defineFeature, getFeature, keyMap } from '@asyra/core'` for golden-path feature/input helpers
-- preset composition imports only public `applyPreset`,
-  `PRESET_EXTENSION_TARGETS`, and `PresetExtension` from `@asyra/preset`; custom
+- preset composition imports public `applyPreset` from `@asyra/preset`; custom
   property type constants remain public `@asyra/utils` imports
-- app replacement uses `PresetApplication.unregisterTarget(...)` followed by
-  `core.defineFeature(...)`, `core.definePropertyComponent(...)`, or
-  `core.registerPropertySchema(...)` only after cleanup succeeds
+- app startup uses ordinary Core APIs for customization:
+  `removeComponentPropertyRelation` / `defineComponentPropertyRelation` for
+  structural slots, or owner-specific `unregister -> define/register` for a
+  complete implementation change
+- `unregisterPropertyRegistration(type, scope)` is low-level schema/runtime
+  cleanup; `unregisterPropertyType(type)` removes a complete graph capability
 
 `elementApis` (`src/common-apis/element/index.ts`)
 
