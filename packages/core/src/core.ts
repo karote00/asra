@@ -16,6 +16,7 @@ import props, {
   registerPropertyComponent,
   unregisterPropertyRegistration
 } from '@asyra/props-manager'
+import type { PropertyRegistrationScope } from '@asyra/props-manager'
 import {
   defineFeature as defineFeatureRuntime,
   getFeature as getFeatureRuntime,
@@ -425,8 +426,11 @@ class Core implements CoreAPIs {
     return getPropertyComponent(type)
   }
 
-  unregisterPropertyRegistration(type: string) {
-    return unregisterPropertyRegistration(type, this.deps.props)
+  unregisterPropertyRegistration(
+    type: string,
+    scope: PropertyRegistrationScope = 'all'
+  ) {
+    return unregisterPropertyRegistration(type, this.deps.props, scope)
   }
 
   defineFeature<

@@ -124,6 +124,30 @@ describe('Core registration facade', () => {
     })
   })
 
+  it('forwards explicit property cleanup scope without adding Core policy', () => {
+    const { core } = createCoreForTest()
+    const Constructor = core.definePropertyComponent({
+      type: PROPERTY_TYPE,
+      defaults: { value: 0 }
+    })
+    core.registerPropertySchema({
+      type: PROPERTY_TYPE,
+      fields: [{ key: 'value', kind: 'number', defaultValue: 0 }]
+    })
+
+    expect(
+      core.unregisterPropertyRegistration(PROPERTY_TYPE, 'runtime')
+    ).toEqual({
+      ok: true,
+      type: PROPERTY_TYPE,
+      removedSchema: false,
+      removedComponent: true
+    })
+    expect(core.getPropertySchema(PROPERTY_TYPE)).toBeDefined()
+    expect(core.getPropertyComponent(PROPERTY_TYPE)).toBeUndefined()
+    expect(Constructor).toBeDefined()
+  })
+
   it('includes lifecycle APIs in the strict preset install tier', () => {
     const { core } = createCoreForTest()
     const presetApi: CorePresetInstallAPIs = core

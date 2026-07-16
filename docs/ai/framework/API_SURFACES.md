@@ -31,7 +31,7 @@ Lifecycle and integration:
     - `valueKeys` defaults to `persistKeys - unitKeys`
   - design contract: property components should remain data-focused; app-level business behavior (auto-layout, unit-conversion workflows) belongs in app APIs/features.
 - `unregisterPropertyComponent(type: string): boolean`
-- `unregisterPropertyRegistration(type: string): PropertyRegistrationUnregisterResult`
+- `unregisterPropertyRegistration(type: string, scope?: 'all' | 'schema' | 'runtime'): PropertyRegistrationUnregisterResult`
   - removes the property schema and runtime constructor as one registration only
     when no live or replay-retained property instance still uses the type
   - returns `{ ok: false, code: 'PROPERTY_REGISTRATION_NOT_FOUND', ... }` for a

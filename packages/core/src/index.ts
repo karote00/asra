@@ -44,6 +44,7 @@ export type {
   PropertyComponentAccessor,
   PropertyRegistrationErrorCode,
   PropertyRegistrationInUseFailure,
+  PropertyRegistrationScope,
   PropertyRegistrationUnregisterMissing,
   PropertyRegistrationUnregisterResult,
   PropertyRegistrationUnregisterSuccess

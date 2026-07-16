@@ -71,7 +71,8 @@ System orchestrator and lifecycle coordinator.
 - Core registration methods are public delegates to the feature/property owner;
   Core does not add duplicate tolerance, replacement ordering, or app policy.
 - property registration removal is atomic across schema/runtime registries and
-  refuses types retained by live or replay state
+  refuses types retained by live or replay state; an explicit `schema` or
+  `runtime` scope lets one preset target clean up only its owned registration
 - feature removal disposes the feature owner's pending handlers and exact event
   subscriptions; an active feature must be ended before removal
 - data-channel observer registration resolves shared data by channel name, not raw YJS object instances
