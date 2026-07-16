@@ -161,4 +161,10 @@ describe('ElementPropertyRegistry', () => {
     const properties = elementPropertyRegistry.getPropertiesForComponent('star')
     expect(properties).toHaveLength(3)
   })
+
+  it('does not expose replacement semantics through the shared registry', () => {
+    expect(elementPropertyRegistry).not.toHaveProperty(
+      'replaceComponentProperties'
+    )
+  })
 })

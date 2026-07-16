@@ -124,4 +124,8 @@ describe('ComponentRegistry', () => {
     expect(all.has('comp1')).toBe(true)
     expect(all.has('comp2')).toBe(true)
   })
+
+  it('does not expose replacement semantics through the public registry', () => {
+    expect(componentRegistry).not.toHaveProperty('replace')
+  })
 })

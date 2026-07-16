@@ -93,10 +93,10 @@ class ElementPropertyRegistry {
   }
 
   /**
-   * Replace one component's complete declarative property set.
+   * Rebuild one component's complete declarative property set.
    * Callers prebuild the owning component class before invoking this method.
    */
-  replaceComponentProperties(
+  rebuildComponentProperties(
     componentType: string,
     definitions: readonly PropertyDefinition[]
   ): void {

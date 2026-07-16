@@ -22,7 +22,7 @@ class ComponentRegistry {
     })
   }
 
-  replace(registration: ComponentRegistration): void {
+  rebuild(registration: ComponentRegistration): void {
     if (!this.registry.has(registration.type)) {
       throw new Error(`Component "${registration.type}" is not registered`)
     }

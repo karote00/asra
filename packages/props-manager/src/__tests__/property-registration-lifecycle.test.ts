@@ -1,6 +1,7 @@
 import type { PropertySchema } from '@asyra/utils'
 import { PropertyTypes } from '@asyra/utils'
 import { beforeEach, describe, expect, it } from 'vitest'
+import * as propsManagerPublic from '../index'
 import {
   getPropertyComponent,
   getPropertySchema,
@@ -155,15 +156,22 @@ describe('property registration lifecycle', () => {
   )
 
   it('allows a clean custom redefinition after unregister', () => {
-    class ReplacementComponent extends CustomComponent {}
+    class RedefinedComponent extends CustomComponent {}
     const manager = new PropsManager()
     registerDefault()
 
     expect(unregisterPropertyRegistration(TYPE, manager).ok).toBe(true)
     registerPropertySchema({ ...schema })
-    registerPropertyComponent(TYPE, ReplacementComponent)
+    registerPropertyComponent(TYPE, RedefinedComponent)
 
     expect(getPropertySchema(TYPE)).toEqual(schema)
-    expect(getPropertyComponent(TYPE)).toBe(ReplacementComponent)
+    expect(getPropertyComponent(TYPE)).toBe(RedefinedComponent)
+  })
+
+  it('does not expose replacement semantics through the public package registry', () => {
+    expect(propertyComponentRegistry).not.toHaveProperty('replace')
+    expect(propsManagerPublic).not.toHaveProperty(
+      'replacePropertyComponentRegistration'
+    )
   })
 })

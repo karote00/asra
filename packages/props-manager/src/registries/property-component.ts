@@ -78,7 +78,7 @@ class PropertyComponentRegistry {
     return definition ? cloneConfigDefinition(definition) : undefined
   }
 
-  replace(
+  rebuild(
     type: string,
     component: PropertyComponentConstructor,
     configDefinition?: PropertyComponentConfigRegistration
@@ -139,11 +139,11 @@ export const getPropertyComponent = (type: string) =>
 export const getPropertyComponentConfigDefinition = (type: string) =>
   propertyComponentRegistry.getConfigDefinition(type)
 
-export const replacePropertyComponentRegistration = (
+export const rebuildPropertyComponentRegistration = (
   type: string,
   component: PropertyComponentConstructor,
   configDefinition?: PropertyComponentConfigRegistration
-): void => propertyComponentRegistry.replace(type, component, configDefinition)
+): void => propertyComponentRegistry.rebuild(type, component, configDefinition)
 
 export const unregisterPropertyComponent = (type: string): boolean =>
   propertyComponentRegistry.unregister(type)

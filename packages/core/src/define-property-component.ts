@@ -5,7 +5,7 @@ import propsManager, {
   getPropertyComponentConfigDefinition,
   propertyComponentRegistry,
   registerPropertyComponent,
-  replacePropertyComponentRegistration,
+  rebuildPropertyComponentRegistration,
   type PropertyChildRelationDefinition,
   type PropertyComponentConfigRegistration,
   type PropertyComponentConstructor,
@@ -526,7 +526,7 @@ export const removePropertyChildRelation = (
 
   const nextDefinition = { ...definition, children: undefined }
   const Constructor = createPropertyComponentFromConfig(nextDefinition)
-  replacePropertyComponentRegistration(
+  rebuildPropertyComponentRegistration(
     parentPropertyType,
     Constructor,
     nextDefinition
@@ -585,7 +585,7 @@ export const definePropertyChildRelation = (
     children: { ...relationDefinition }
   }
   const Constructor = createPropertyComponentFromConfig(nextDefinition)
-  replacePropertyComponentRegistration(
+  rebuildPropertyComponentRegistration(
     parentPropertyType,
     Constructor,
     nextDefinition

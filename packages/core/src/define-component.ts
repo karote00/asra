@@ -247,8 +247,8 @@ const rebuildComponentProperties = (
     defaults
   }
 
-  componentRegistry.replace(nextRegistration)
-  elementPropertyRegistry.replaceComponentProperties(componentType, properties)
+  componentRegistry.rebuild(nextRegistration)
+  elementPropertyRegistry.rebuildComponentProperties(componentType, properties)
 }
 
 export const getComponentPropertyRelations = (
@@ -390,13 +390,13 @@ export const defineComponentPropertyRelation = (
   if (property.schema?.type) {
     registerPropertySchema(property.schema)
   }
-  componentRegistry.replace({
+  componentRegistry.rebuild({
     ...registration,
     constructor: Constructor,
     properties,
     defaults
   })
-  elementPropertyRegistry.replaceComponentProperties(componentType, properties)
+  elementPropertyRegistry.rebuildComponentProperties(componentType, properties)
 
   const relation: RegistrationRelationMetadata = {
     source: { kind: 'component', key: componentType },
