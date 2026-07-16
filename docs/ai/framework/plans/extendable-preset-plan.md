@@ -90,6 +90,125 @@ Out of scope:
 - the later generic preset composition plan owns ordered startup layers;
 - neither plan infers product mode from render-engine capabilities.
 
+## Public Contract
+
+This plan adds one bounded registration-extension contract. It does not add a
+general preset-layer composer.
+
+1. Framework-neutral primitive
+
+- `@asyra/utils` owns an extension-target registry with stable target keys,
+  names, capability kind, supported strategies, queryable owner metadata,
+  structured operation results/errors, and lifecycle cleanup handles.
+- supported strategies are exactly `before`, `after`, `append`, and `replace`.
+- resolution order is `before -> default or one explicit replace -> after ->
+append`; the caller-provided extension array order is preserved within each
+  strategy bucket.
+- a second `replace`, duplicate extension key, missing target, invalid or
+  unsupported strategy, apply failure, and cleanup failure fail fast with a
+  stable error code and structured details.
+- `replace` bypasses the default installer and is never routed through ordinary
+  duplicate registration.
+
+2. Preset surface
+
+- `@asyra/preset` exports stable feature/property target constants, detached
+  target metadata queries, extension registration types, and the preset
+  application result/lifecycle type.
+- `applyPreset(core)` remains valid and keeps the existing default behavior.
+- the explicit dependency-bundle and custom `renderEngineFactory` overloads
+  remain valid; an additive options field accepts ordered extensions.
+- one preset application owns its applied cleanup handles, supports target
+  unregister by stable key, and disposes owned handles in reverse application
+  order.
+- property definition/schema and property runtime targets are keyed by the
+  existing public property type; the feature-registration target is an
+  app-owned feature hook and does not move app feature policy into preset.
+
+3. Framework/runtime facade
+
+- Core exposes curated public feature and property define/query/unregister
+  operations needed by preset installers and app replacements.
+- feature-system keeps existing execution/session semantics and owns cleanup of
+  registry entries, pending registrations, execution handlers, session
+  handlers, input subscriptions, and reactive-event subscriptions.
+- props-manager keeps the current schema model and validation semantics; a
+  replacement unregister is rejected while that property type has active
+  runtime instances, then removes the owned schema/constructor registrations
+  when safe.
+
+4. Deterministic fallback
+
+- when target metadata does not list the requested direct strategy, the formal
+  path is `presetApplication.unregisterTarget(stableKey)` followed by app-owned
+  redefinition through public Core APIs.
+- redefine cannot run after a missing-target, active-usage, or cleanup failure.
+- no fallback state, duplicate-registration tolerance, or automatic default
+  restoration may hide a failed replacement.
+
+## Package Ownership
+
+- `@asyra/utils`: registry, ordering, conflict, result/error, and lifecycle
+  primitives.
+- `@asyra/feature-system`: feature runtime registration and complete feature
+  unregister cleanup.
+- `@asyra/props-manager`: property schema/runtime registries, active-usage
+  checks, and safe unregister.
+- `@asyra/core`: curated public facade only; it does not choose customization
+  policy.
+- `@asyra/preset`: stable default target manifest, default installers,
+  extension hooks, and one application lifetime.
+- app/user composition: chooses extend, explicit replace, or fallback
+  replacement and owns the custom implementation.
+
+## Product Cases
+
+1. Feature extension registers an app-owned feature through the public preset
+   feature target and executes it through unchanged feature runtime semantics.
+2. Property extension registers definition/schema or runtime behavior through
+   a public property target without importing preset internals.
+3. Explicit replace bypasses the target default without producing an ordinary
+   duplicate-registration failure.
+4. Duplicate extension key, missing target, invalid or unsupported strategy,
+   and replace conflict fail fast with stable structured errors.
+5. A target without direct extension support completes `unregister -> redefine`
+   only after successful cleanup.
+6. Feature/property unregister, replacement, apply rollback, and full preset
+   disposal leave no observers, handlers, subscriptions, runtime registrations,
+   or stale side effects owned by the removed registration.
+7. Preset application order is deterministic, while `applyPreset(core)` and
+   existing framework-facing APIs remain compatible.
+8. No target, strategy, result, or startup path infers a product mode from
+   render-engine capability.
+
+## Definition of Done
+
+- stable public target identity, owner metadata, strategies, query APIs,
+  results/errors, and fallback APIs are documented and covered by formal tests;
+- feature and property extension/replacement tests prove current missing
+  behavior first, then pass through public package surfaces;
+- ordering and conflict behavior are deterministic under repeated test runs;
+- unregister/replacement/apply rollback/disposal cleanup is proven without
+  stale effects;
+- package boundaries contain no deep cross-package imports and no app policy in
+  framework packages;
+- affected package tests, the Inspector contract test, relevant Asyra Design
+  tests, `yarn test:local`, `yarn lint:ci`, `yarn react:build`, and dependency
+  boundary validation pass.
+
+## Inspector Authority
+
+- exact flow data:
+  `docs/ai/framework/plans/extendable-preset-flow-inspector.data.cjs`
+- interactive viewer:
+  `docs/ai/framework/plans/extendable-preset-flow-inspector.html`
+- executable contract:
+  `docs/ai/framework/plans/extendable-preset-flow-inspector.contract.test.cjs`
+
+Implementation must advance one Inspector owner step at a time. The Inspector
+defines architecture ownership and routes; this plan remains the product
+behavior authority.
+
 ## Implementation Slices
 
 1. Define extension/override data contracts
