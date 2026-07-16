@@ -147,6 +147,7 @@ interface PendingUnregister {
   queue: RegistrationRef[]
   relations: RegistrationRelationMetadata[]
   detachedSources: RegistrationRef[]
+  processedDetachRelationKeys: Set<string>
   relationsProcessed: boolean
   removedOwnedRegistrations: string[]
 }
@@ -653,6 +654,7 @@ export class RegistrationGraph {
         )
         .sort(compareRefs)
         .map(cloneRef),
+      processedDetachRelationKeys: new Set<string>(),
       relationsProcessed: false,
       removedOwnedRegistrations: []
     }
@@ -666,6 +668,8 @@ export class RegistrationGraph {
         !removalKeys.has(refKey(relation.source)) &&
         relation.onTargetUnregister === 'detach'
       ) {
+        const key = relationKey(relation)
+        if (pending.processedDetachRelationKeys.has(key)) continue
         const source = this.nodesByRef.get(refKey(relation.source))
         try {
           source?.handlers.detachRelation?.(cloneRelation(relation))
@@ -677,9 +681,15 @@ export class RegistrationGraph {
             { ...this.relationDetails(relation), cause }
           )
         }
+        this.removeRelationRecord(relation)
+        pending.processedDetachRelationKeys.add(key)
       }
     }
-    pending.relations.forEach((relation) => this.removeRelationRecord(relation))
+    pending.relations.forEach((relation) => {
+      if (!pending.processedDetachRelationKeys.has(relationKey(relation))) {
+        this.removeRelationRecord(relation)
+      }
+    })
     pending.relationsProcessed = true
   }
 

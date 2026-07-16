@@ -308,6 +308,55 @@ describe('RegistrationGraph', () => {
     expect(result.pendingCleanup).toEqual([])
   })
 
+  it('retries only unfinished detach handlers after a relation removal failure', () => {
+    const events: string[] = []
+    let failSecondDetach = true
+    const graph = new RegistrationGraph()
+    graph.registerNode(node('property', 'fills'))
+    graph.registerNode(
+      node('component', 'a', {
+        handlers: {
+          detachRelation: () => events.push('detach:a')
+        }
+      })
+    )
+    graph.registerNode(
+      node('component', 'b', {
+        handlers: {
+          detachRelation: () => {
+            events.push('detach:b')
+            if (failSecondDetach) throw new Error('detach failed')
+          }
+        }
+      })
+    )
+    graph.defineRelation(ref('component', 'a'), {
+      name: 'fills',
+      target: ref('property', 'fills'),
+      onTargetUnregister: 'detach'
+    })
+    graph.defineRelation(ref('component', 'b'), {
+      name: 'fills',
+      target: ref('property', 'fills'),
+      onTargetUnregister: 'detach'
+    })
+
+    expectError(
+      () => graph.unregister(ref('property', 'fills')),
+      'RELATION_REMOVE_FAILED'
+    )
+    expect(events).toEqual(['detach:a', 'detach:b'])
+    expect(graph.getOutgoingRelations(ref('component', 'a'))).toEqual([])
+    expect(graph.getOutgoingRelations(ref('component', 'b'))).toHaveLength(1)
+
+    failSecondDetach = false
+    expect(graph.unregister(ref('property', 'fills'))).toMatchObject({
+      ok: true,
+      detachedSources: [ref('component', 'a'), ref('component', 'b')]
+    })
+    expect(events).toEqual(['detach:a', 'detach:b', 'detach:b'])
+  })
+
   it('rejects mutations after composition closes', () => {
     let open = true
     const graph = new RegistrationGraph({ isCompositionOpen: () => open })
