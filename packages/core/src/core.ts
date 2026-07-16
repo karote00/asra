@@ -71,10 +71,11 @@ import {
 import type { PropertyChildRelationDefinition } from '@asyra/props-manager'
 import {
   defineComponent as defineComponentRuntime,
-  defineComponentPropertyRelation as defineComponentPropertyRelationRuntime,
+  defineComponentPropertyRelationForSceneTree as defineComponentPropertyRelationRuntime,
   getComponentPropertyRelations as getComponentPropertyRelationsRuntime,
-  removeComponentPropertyRelation as removeComponentPropertyRelationRuntime,
+  removeComponentPropertyRelationForSceneTree as removeComponentPropertyRelationRuntime,
   unregisterComponent as unregisterComponentRuntime,
+  unregisterComponentGraphRegistration,
   type ComponentDefinition,
   type ComponentPropertyRelationMetadata,
   type UnregisterComponentOptions,
@@ -738,7 +739,8 @@ class Core implements CoreAPIs {
     )
     const result = defineComponentPropertyRelationRuntime(
       componentType,
-      property
+      property,
+      this.deps.sceneTree
     )
     this.registrationGraph.defineRelation(
       { kind: 'component', key: componentType },
@@ -761,7 +763,8 @@ class Core implements CoreAPIs {
     )
     const result = removeComponentPropertyRelationRuntime(
       componentType,
-      propertyName
+      propertyName,
+      this.deps.sceneTree
     )
     this.registrationGraph.removeRelation(
       { kind: 'component', key: componentType },
@@ -1106,14 +1109,18 @@ class Core implements CoreAPIs {
         preflightUnregister: () => this.assertComponentTypeUnused(type),
         preflightDetachRelation: () => this.assertComponentTypeUnused(type),
         detachRelation: (relation) => {
-          removeComponentPropertyRelationRuntime(type, relation.name)
+          removeComponentPropertyRelationRuntime(
+            type,
+            relation.name,
+            this.deps.sceneTree
+          )
         }
       },
       resources: [
         {
           key: `component:${type}`,
           dispose: () => {
-            unregisterComponentRuntime(type, { force: true })
+            unregisterComponentGraphRegistration(type)
           }
         }
       ]

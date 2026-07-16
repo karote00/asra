@@ -78,22 +78,6 @@ class PropertyComponentRegistry {
     return definition ? cloneConfigDefinition(definition) : undefined
   }
 
-  rebuild(
-    type: string,
-    component: PropertyComponentConstructor,
-    configDefinition?: PropertyComponentConfigRegistration
-  ): void {
-    if (!this.registry.has(type)) {
-      throw new Error(`Property component "${type}" is not registered`)
-    }
-    this.registry.set(type, component)
-    if (configDefinition) {
-      this.configDefinitions.set(type, cloneConfigDefinition(configDefinition))
-    } else {
-      this.configDefinitions.delete(type)
-    }
-  }
-
   unregister(type: string): boolean {
     this.configDefinitions.delete(type)
     return this.registry.delete(type)
@@ -138,12 +122,6 @@ export const getPropertyComponent = (type: string) =>
 
 export const getPropertyComponentConfigDefinition = (type: string) =>
   propertyComponentRegistry.getConfigDefinition(type)
-
-export const rebuildPropertyComponentRegistration = (
-  type: string,
-  component: PropertyComponentConstructor,
-  configDefinition?: PropertyComponentConfigRegistration
-): void => propertyComponentRegistry.rebuild(type, component, configDefinition)
 
 export const unregisterPropertyComponent = (type: string): boolean =>
   propertyComponentRegistry.unregister(type)

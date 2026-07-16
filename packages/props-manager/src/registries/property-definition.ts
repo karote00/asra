@@ -92,30 +92,6 @@ class ElementPropertyRegistry {
     return Array.from(registered.componentTypes).sort()
   }
 
-  /**
-   * Rebuild one component's complete declarative property set.
-   * Callers prebuild the owning component class before invoking this method.
-   */
-  rebuildComponentProperties(
-    componentType: string,
-    definitions: readonly PropertyDefinition[]
-  ): void {
-    const names = new Set<string>()
-    for (const definition of definitions) {
-      if (names.has(definition.name)) {
-        throw new Error(
-          `Property "${definition.name}" is duplicated in component "${componentType}"`
-        )
-      }
-      names.add(definition.name)
-    }
-
-    this.unregisterComponent(componentType)
-    definitions.forEach((definition) =>
-      this.register(definition, componentType)
-    )
-  }
-
   unregisterRelation(componentType: string, name: string): boolean {
     const componentDefinitions = this.definitionsByComponent.get(componentType)
     if (!componentDefinitions?.delete(name)) {

@@ -127,5 +127,6 @@ describe('ComponentRegistry', () => {
 
   it('does not expose replacement semantics through the public registry', () => {
     expect(componentRegistry).not.toHaveProperty('replace')
+    expect(componentRegistry).not.toHaveProperty('rebuild')
   })
 })

@@ -163,6 +163,45 @@ describe('Core composition coordinator', () => {
     ).toBeDefined()
   })
 
+  it('unregisters a component without deleting an independent render strategy owner', () => {
+    const { core } = createCoreForTest()
+    core.definePropertyComponent({ type: FILLS, defaults: {} })
+    core.defineComponent({
+      type: SHAPE,
+      idPrefix: SHAPE,
+      namePrefix: 'Composition Shape',
+      properties: [
+        {
+          name: 'fills',
+          type: FILLS,
+          schema: {
+            type: FILLS,
+            fields: [{ key: 'color', kind: 'string', defaultValue: 'red' }]
+          }
+        }
+      ]
+    })
+    const strategy = vi.fn()
+    core.registerRenderStrategy(SHAPE, strategy, {
+      relations: [
+        {
+          name: 'fills-runtime',
+          target: { kind: 'property', key: FILLS },
+          onTargetUnregister: 'unregister-source'
+        }
+      ]
+    })
+
+    expect(core.unregisterComponent(SHAPE)).toBe(true)
+    expect(componentRegistry.has(SHAPE)).toBe(false)
+    expect(renderStrategyRegistry.get(SHAPE)).toBe(strategy)
+    expect(core.getPropertySchema(FILLS)).toBeDefined()
+    expect(
+      core.getRegistration({ kind: 'render-strategy', key: SHAPE })
+    ).toBeDefined()
+    expect(() => core.getRegistrationRelations()).not.toThrow()
+  })
+
   it('records definition-local owner metadata and recursively unregisters declared opaque dependents', () => {
     const { core } = createCoreForTest()
     const owner = {
@@ -392,6 +431,27 @@ describe('Core composition coordinator', () => {
       'REGISTRATION_IN_USE'
     )
     expect(getPropertyComponent(FILLS)).toBeDefined()
+  })
+
+  it('uses the injected SceneTree to block active component relation mutations', () => {
+    const { core, sceneTree: ownedSceneTree } = createCoreForTest()
+    core.definePropertyComponent({ type: FILLS, defaults: {} })
+    core.defineComponent({
+      type: SHAPE,
+      idPrefix: SHAPE,
+      namePrefix: 'Composition Shape',
+      properties: [{ name: 'fills', type: FILLS }]
+    })
+    ownedSceneTree.addToMap({
+      get: (key: string) =>
+        key === 'id' ? 'owned-active-shape' : key === 'type' ? SHAPE : undefined
+    } as never)
+
+    expectRelationError(
+      () => core.removeComponentPropertyRelation(SHAPE, 'fills'),
+      'REGISTRATION_IN_USE'
+    )
+    expect(core.getComponentPropertyRelations(SHAPE)).toHaveLength(1)
   })
 
   it('permanently closes composition at first start entry even when renderer init fails', async () => {

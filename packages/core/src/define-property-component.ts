@@ -5,7 +5,6 @@ import propsManager, {
   getPropertyComponentConfigDefinition,
   propertyComponentRegistry,
   registerPropertyComponent,
-  rebuildPropertyComponentRegistration,
   type PropertyChildRelationDefinition,
   type PropertyComponentConfigRegistration,
   type PropertyComponentConstructor,
@@ -474,6 +473,41 @@ const assertPropertyRelationMutationAllowed = (
   return cloneConfigDefinition(definition)
 }
 
+const commitPropertyComponentRegistration = (
+  type: string,
+  component: PropertyComponentConstructor,
+  configDefinition: PropertyComponentConfigRegistration
+): void => {
+  const currentComponent = getPropertyComponent(type)
+  const currentDefinition = getPropertyComponentConfigDefinition(type)
+  if (!currentComponent) {
+    return relationFailure(
+      'REGISTRATION_NOT_FOUND',
+      'define-relation',
+      `Property runtime "${type}" is not registered`,
+      { registration: { kind: 'property', key: type } }
+    )
+  }
+
+  propertyComponentRegistry.unregister(type)
+  try {
+    propertyComponentRegistry.register(
+      type,
+      component,
+      undefined,
+      configDefinition
+    )
+  } catch (error) {
+    propertyComponentRegistry.register(
+      type,
+      currentComponent,
+      undefined,
+      currentDefinition
+    )
+    throw error
+  }
+}
+
 export const getPropertyChildRelations = (
   parentPropertyType: string
 ): readonly PropertyChildRelationMetadata[] => {
@@ -526,7 +560,7 @@ export const removePropertyChildRelation = (
 
   const nextDefinition = { ...definition, children: undefined }
   const Constructor = createPropertyComponentFromConfig(nextDefinition)
-  rebuildPropertyComponentRegistration(
+  commitPropertyComponentRegistration(
     parentPropertyType,
     Constructor,
     nextDefinition
@@ -585,7 +619,7 @@ export const definePropertyChildRelation = (
     children: { ...relationDefinition }
   }
   const Constructor = createPropertyComponentFromConfig(nextDefinition)
-  rebuildPropertyComponentRegistration(
+  commitPropertyComponentRegistration(
     parentPropertyType,
     Constructor,
     nextDefinition

@@ -7,7 +7,6 @@ import {
   registerPropertyComponent,
   getPropertyComponent,
   getPropertyComponentConfigDefinition,
-  rebuildPropertyComponentRegistration,
   unregisterPropertyComponent
 } from './registries/property-component'
 import { BasePropertyComponent } from './components'
@@ -27,7 +26,6 @@ export {
   registerPropertyComponent,
   getPropertyComponent,
   getPropertyComponentConfigDefinition,
-  rebuildPropertyComponentRegistration,
   unregisterPropertyComponent,
   BasePropertyComponent,
   getPropertyComponentAccessor

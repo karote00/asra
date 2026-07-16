@@ -166,5 +166,8 @@ describe('ElementPropertyRegistry', () => {
     expect(elementPropertyRegistry).not.toHaveProperty(
       'replaceComponentProperties'
     )
+    expect(elementPropertyRegistry).not.toHaveProperty(
+      'rebuildComponentProperties'
+    )
   })
 })

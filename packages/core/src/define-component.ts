@@ -138,11 +138,16 @@ const ensureRegistrationPreconditions = (
   }
 }
 
-const countActiveSceneInstances = (type: string): number => {
+type ComponentRelationSceneTree = Pick<typeof sceneTree, 'getAllElements'>
+
+const countActiveSceneInstances = (
+  type: string,
+  sceneTreeOwner: ComponentRelationSceneTree = sceneTree
+): number => {
   // Runtime guard source:
   // unregister is blocked by default when scene instances still use this type.
   let count = 0
-  sceneTree.getAllElements().forEach((element) => {
+  sceneTreeOwner.getAllElements().forEach((element) => {
     if (element.get('type') === type) {
       count += 1
     }
@@ -192,7 +197,8 @@ const createComponentDefaults = (
 
 const assertComponentRelationMutationAllowed = (
   componentType: string,
-  operation: 'define-relation' | 'remove-relation'
+  operation: 'define-relation' | 'remove-relation',
+  sceneTreeOwner: ComponentRelationSceneTree = sceneTree
 ) => {
   if (!componentRegistry.has(componentType)) {
     return relationFailure(
@@ -203,7 +209,10 @@ const assertComponentRelationMutationAllowed = (
     )
   }
 
-  const activeInstances = countActiveSceneInstances(componentType)
+  const activeInstances = countActiveSceneInstances(
+    componentType,
+    sceneTreeOwner
+  )
   if (activeInstances > 0) {
     return relationFailure(
       'REGISTRATION_IN_USE',
@@ -214,6 +223,33 @@ const assertComponentRelationMutationAllowed = (
         source: { kind: 'component', key: componentType }
       }
     )
+  }
+}
+
+type ComponentRegistryEntry = NonNullable<
+  ReturnType<typeof componentRegistry.get>
+>
+
+const commitComponentRegistration = (
+  current: ComponentRegistryEntry,
+  next: ComponentRegistryEntry
+): void => {
+  const restoreProperties = (properties: readonly PropertyDefinition[]) => {
+    elementPropertyRegistry.unregisterComponent(current.type)
+    properties.forEach((property) =>
+      elementPropertyRegistry.register(property, current.type)
+    )
+  }
+
+  componentRegistry.unregister(current.type)
+  try {
+    componentRegistry.register(next)
+    restoreProperties(next.properties)
+  } catch (error) {
+    componentRegistry.unregister(current.type)
+    componentRegistry.register(current)
+    restoreProperties(current.properties)
+    throw error
   }
 }
 
@@ -247,8 +283,7 @@ const rebuildComponentProperties = (
     defaults
   }
 
-  componentRegistry.rebuild(nextRegistration)
-  elementPropertyRegistry.rebuildComponentProperties(componentType, properties)
+  commitComponentRegistration(registration, nextRegistration)
 }
 
 export const getComponentPropertyRelations = (
@@ -275,11 +310,16 @@ export const getComponentPropertyRelations = (
   }))
 }
 
-export const removeComponentPropertyRelation = (
+const removeComponentPropertyRelationWithOwner = (
   componentType: string,
-  propertyName: string
+  propertyName: string,
+  sceneTreeOwner: ComponentRelationSceneTree
 ): RelationOperationSuccess => {
-  assertComponentRelationMutationAllowed(componentType, 'remove-relation')
+  assertComponentRelationMutationAllowed(
+    componentType,
+    'remove-relation',
+    sceneTreeOwner
+  )
   const registration = componentRegistry.get(componentType)
   if (!registration) {
     return relationFailure(
@@ -323,11 +363,29 @@ export const removeComponentPropertyRelation = (
   }
 }
 
-export const defineComponentPropertyRelation = (
+export const removeComponentPropertyRelation = (
   componentType: string,
-  property: PropertyDefinition
+  propertyName: string
+): RelationOperationSuccess =>
+  removeComponentPropertyRelationWithOwner(
+    componentType,
+    propertyName,
+    sceneTree
+  )
+
+export const removeComponentPropertyRelationForSceneTree =
+  removeComponentPropertyRelationWithOwner
+
+const defineComponentPropertyRelationWithOwner = (
+  componentType: string,
+  property: PropertyDefinition,
+  sceneTreeOwner: ComponentRelationSceneTree
 ): RelationOperationSuccess => {
-  assertComponentRelationMutationAllowed(componentType, 'define-relation')
+  assertComponentRelationMutationAllowed(
+    componentType,
+    'define-relation',
+    sceneTreeOwner
+  )
   const registration = componentRegistry.get(componentType)
   if (!registration) {
     return relationFailure(
@@ -390,13 +448,12 @@ export const defineComponentPropertyRelation = (
   if (property.schema?.type) {
     registerPropertySchema(property.schema)
   }
-  componentRegistry.rebuild({
+  commitComponentRegistration(registration, {
     ...registration,
     constructor: Constructor,
     properties,
     defaults
   })
-  elementPropertyRegistry.rebuildComponentProperties(componentType, properties)
 
   const relation: RegistrationRelationMetadata = {
     source: { kind: 'component', key: componentType },
@@ -411,6 +468,15 @@ export const defineComponentPropertyRelation = (
     relation
   }
 }
+
+export const defineComponentPropertyRelation = (
+  componentType: string,
+  property: PropertyDefinition
+): RelationOperationSuccess =>
+  defineComponentPropertyRelationWithOwner(componentType, property, sceneTree)
+
+export const defineComponentPropertyRelationForSceneTree =
+  defineComponentPropertyRelationWithOwner
 
 const addUniqueRemoved = (
   result: UnregisterComponentResult,
@@ -507,6 +573,18 @@ export function defineComponent(definition: ComponentDefinition): void {
   if (renderStrategy) {
     renderStrategyRegistry.register(type, renderStrategy)
   }
+}
+
+/**
+ * Graph-owned component cleanup. Property capabilities and render strategies
+ * are independent registration nodes and are intentionally preserved.
+ */
+export const unregisterComponentGraphRegistration = (type: string): boolean => {
+  if (!componentRegistry.unregister(type)) return false
+  elementPropertyRegistry.unregisterComponent(type)
+  idCounter.unregisterType(type)
+  nameCounter.unregisterType(type)
+  return true
 }
 
 /**

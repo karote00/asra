@@ -170,8 +170,12 @@ describe('property registration lifecycle', () => {
 
   it('does not expose replacement semantics through the public package registry', () => {
     expect(propertyComponentRegistry).not.toHaveProperty('replace')
+    expect(propertyComponentRegistry).not.toHaveProperty('rebuild')
     expect(propsManagerPublic).not.toHaveProperty(
       'replacePropertyComponentRegistration'
+    )
+    expect(propsManagerPublic).not.toHaveProperty(
+      'rebuildPropertyComponentRegistration'
     )
   })
 })
