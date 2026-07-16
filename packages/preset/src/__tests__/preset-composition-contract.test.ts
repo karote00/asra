@@ -424,7 +424,23 @@ describe('preset startup composition contract', () => {
       throw new Error('later preset wiring failed')
     })
 
-    expect(() => applyPreset(core)).toThrow('later preset wiring failed')
+    const error = captureCompositionError(() => applyPreset(core))
+
+    expect(error).toMatchObject({ name: 'PresetCompositionError' })
+    expect((error as PresetCompositionError).result).toMatchObject({
+      code: 'LAYER_INSTALL_FAILED',
+      layer: 'shared-defaults',
+      completedLayers: [
+        'shared-defaults:events',
+        'shared-defaults:property-schemas',
+        'shared-defaults:property-components',
+        'shared-defaults:components',
+        'shared-defaults:render-strategies',
+        'shared-defaults:selections'
+      ],
+      cleanup: { state: 'completed', pending: [] },
+      cause: expect.objectContaining({ message: 'later preset wiring failed' })
+    })
     expect(schemas.size).toBe(0)
     expect(propertyComponents.size).toBe(0)
     expect(components.size).toBe(0)
@@ -459,9 +475,19 @@ describe('preset startup composition contract', () => {
       }
     )
 
-    expect(() => isolatedApplyPreset(core)).toThrow(
-      'second render layer failed'
-    )
+    const error = captureCompositionError(() => isolatedApplyPreset(core))
+
+    expect(error).toMatchObject({ name: 'PresetCompositionError' })
+    expect((error as PresetCompositionError).result).toMatchObject({
+      code: 'LAYER_INSTALL_FAILED',
+      layer: 'shared-defaults',
+      completedLayers: expect.arrayContaining([
+        'shared-defaults:events',
+        'shared-defaults:data-channel-observers'
+      ]),
+      cleanup: { state: 'completed', pending: [] },
+      cause: expect.objectContaining({ message: 'second render layer failed' })
+    })
     expect(events.size).toBe(0)
     expect(dataChannelObservers.size).toBe(0)
     expect(renderLayers.size).toBe(0)
@@ -536,7 +562,12 @@ describe('preset startup composition contract', () => {
       },
       cause: {
         applyError: expect.objectContaining({
-          message: 'late preset layer registration failed'
+          name: 'PresetCompositionError',
+          result: expect.objectContaining({
+            cause: expect.objectContaining({
+              message: 'late preset layer registration failed'
+            })
+          })
         })
       }
     })

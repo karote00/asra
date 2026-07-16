@@ -168,13 +168,28 @@ const createSharedPresetGroups = (
 const installSharedPresetDefaults = (
   core: PresetCoreAPIs,
   resolvedDeps: PresetDependencies,
+  engineId: string,
+  capabilityBundles: readonly string[],
   registerCleanup: RegisterPresetCleanup,
   reportCompletedGroup: (groupId: string) => void
 ): readonly string[] => {
   const completedGroups: string[] = []
   createSharedPresetGroups(core, resolvedDeps, registerCleanup).forEach(
     (group) => {
-      group.install()
+      try {
+        group.install()
+      } catch (cause) {
+        throw createLayerInstallError({
+          message: `Shared preset defaults group "${group.id}" failed to install`,
+          layer: 'shared-defaults',
+          engineId,
+          capabilityBundles,
+          completedLayers: completedGroups.map(
+            (groupId) => `shared-defaults:${groupId}`
+          ),
+          cause
+        })
+      }
       completedGroups.push(group.id)
       reportCompletedGroup(group.id)
     }
@@ -372,6 +387,8 @@ export const applyPreset = (
     const sharedGroups = installSharedPresetDefaults(
       core,
       resolvedDeps,
+      engineId,
+      capabilityBundles.map(({ id }) => id),
       registerCleanup,
       (groupId) => completedLayers.push(`shared-defaults:${groupId}`)
     )
