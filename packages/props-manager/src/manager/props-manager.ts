@@ -15,6 +15,7 @@ import type {
 } from '@asyra/utils'
 import { EventTypes, updateTransaction } from '@asyra/reactive-events'
 import { createProperty } from '../factories/create-property'
+import { getPropertyComponent } from '../registries/property-component'
 import { setComponentAccessor } from './component-accessor'
 
 export interface PropsLoadDiagnostic {
@@ -70,6 +71,13 @@ class PropsManager {
         })
         return
       }
+      if (!getPropertyComponent(rawType)) {
+        diagnostics.push({
+          path: `props.${componentId}.type`,
+          message: `Skipped unregistered property component type "${rawType}" during load`
+        })
+        return
+      }
 
       const normalizedId =
         typeof rawComponent.id === 'string' && rawComponent.id.length > 0
@@ -119,6 +127,23 @@ class PropsManager {
     propertyId: string
   ): PropertyComponentInstanceTypes | undefined {
     return this._components.get(propertyId)
+  }
+
+  getPropertyIdsByType(type: string): string[] {
+    const ids = new Set<string>()
+    const collect = (
+      components: Map<string, PropertyComponentInstanceTypes>
+    ): void => {
+      components.forEach((component, id) => {
+        if (component.get('type') === type) {
+          ids.add(id)
+        }
+      })
+    }
+
+    collect(this._components)
+    collect(this._deletedMap)
+    return Array.from(ids)
   }
 
   addToMap(component: PropertyComponentInstanceTypes) {
@@ -279,6 +304,13 @@ class PropsManager {
   }
 
   dispose() {
+    const components = new Set([
+      ...this._components.values(),
+      ...this._deletedMap.values()
+    ])
+    components.forEach((component) => {
+      ;(component as unknown as { dispose?: () => void }).dispose?.()
+    })
     this._components.clear()
     this._deletedMap.clear()
     this.changes = []

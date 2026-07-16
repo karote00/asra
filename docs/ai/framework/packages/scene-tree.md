@@ -45,6 +45,7 @@ Own the document entity graph and computed entity data.
 ## Extension Points
 
 - register component/entity definitions
+- query, remove, and define exact component-property relations through Core
 - register component-level computed defaults and normalization behavior
 - validate load payload via `validateLoadData(...)` before apply
 
@@ -56,3 +57,16 @@ Own the document entity graph and computed entity data.
 - Rollback/undo restores both Element-owned flags/metadata and computed values.
 - Save/load round-trip preserves graph shape and computed data.
 - Load path skips malformed/unregistered elements and falls back to a safe workspace when metadata is invalid.
+
+## Component Relation Contract
+
+- component definitions are retained declaratively and each `properties[]` slot
+  becomes one graph `detach` relation
+- relation identity is component-local `{ componentType, propertyName }`; two
+  components may use the same property name with different exact definitions
+- remove/define builds the complete next dynamic component class and property
+  indexes before swapping registry state
+- relation mutation preserves component identity, counters, unrelated slots,
+  render registrations, and the property target
+- active component instances block mutation with a structured
+  `REGISTRATION_IN_USE` failure

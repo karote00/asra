@@ -27,11 +27,13 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
 ## Runtime Contracts
 
 1. Execution
+
 - resolve candidates by trigger/event
 - sort by priority deterministically
 - apply exclusivity policy before running handlers
 
 2. Session lifecycle
+
 - `start` opens active session context
 - `update` runs while session remains active
 - `end` finalizes session
@@ -53,6 +55,7 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
 - if any participant requests rollback, the complete transaction rolls back
 
 3. Error behavior
+
 - one feature failure should not corrupt runtime state
 - handler errors and `FeatureHandlerTimeoutError` always request rollback,
   independently of cancel policy
@@ -69,6 +72,29 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
   asynchronous success; throw or rejection requests rollback and rethrows the
   original failure
 
+4. Registration lifecycle
+
+- `defineFeature(...)` returns its existing `api` plus a `dispose()` handle that
+  delegates to `unregisterFeature(name)`.
+- `unregisterFeature(name)` returns `false` when the feature is missing and does
+  not touch unrelated registrations.
+- active one-shot execution, a pending async session start, or an active session
+  rejects unregister with `FeatureUnregisterError` and stable `FEATURE_IN_USE`
+  code before partial cleanup.
+- successful unregister removes the feature registry entry, pending
+  registration, execution handlers, session handlers, input listeners, and
+  reactive renderer-event subscription owned by that feature.
+- features sharing one trigger keep one transport listener/subscription until
+  the final participant is removed.
+- when a shared execution/session sequence is already iterating, a participant
+  successfully unregistered before its own handler starts is skipped and cannot
+  emit a stale side effect from the captured sequence.
+- `FeatureDefinition.registration` may declare stable owner metadata and opaque
+  graph dependencies. A hard dependency uses `unregister-source`; ordinary app
+  features may omit this metadata.
+- registration metadata does not change feature priority, exclusivity, session,
+  cancel, or execution semantics.
+
 ## App-Level Rules
 
 - Keep feature handlers focused on interaction logic.
@@ -83,3 +109,5 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
 - Long-running async feature logic does not lock future execution.
 - Tests must distinguish normal end, cancel, rollback, commit-current, handler
   error, and timeout.
+- Feature unregister tests must prove pending, execution, session, input, and
+  renderer-event resources leave no stale behavior after unregister/redefine.

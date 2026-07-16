@@ -28,4 +28,10 @@ export interface ExecutionRegistry {
   execute(eventName: string, snapshot: SystemContextSnapshot): Promise<boolean>
 
   getHandlers(eventName: string): ExecutionParticipant[]
+
+  unregisterFeature(featureName: string): string[]
+
+  hasHandlers(eventName: string): boolean
+
+  isFeatureActive(featureName: string): boolean
 }

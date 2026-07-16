@@ -9,10 +9,12 @@
 - render layers
 
 Prefer:
+
 - register new behavior in one place
 - compose behavior with existing runtime contracts
 
 Avoid:
+
 - adding type-specific if/else chains across multiple packages
 - coupling app feature behavior directly into framework internals
 
@@ -21,9 +23,28 @@ Avoid:
 - Builtins provide defaults.
 - App-level defines domain behavior.
 - Keep builtins portable/movable for future package extraction.
-- Preset defaults must stay optional and replaceable by product owners.
-- If a preset capability has no direct extension hook, use an explicit replacement path (`unregister -> redefine` or an approved override flow) rather than patching package internals.
-- Extension and replacement must use stable registration keys, names, or metadata instead of importing implementation-local preset details.
+- Preset defaults must stay optional and removable by product owners.
+- App startup composition expresses non-equivalent changes explicitly: remove
+  an old relation, define a new relation/registration, or unregister an entire
+  capability before defining the app-owned implementation.
+- Relation and unregister operations use stable registration keys, names, and
+  owner metadata instead of importing implementation-local preset details.
+- The package-author `ExtensionRegistry` contract is additive only: `before`,
+  then default, then `after`, then `append`. Multiple entries within one bucket
+  preserve the caller's declared order.
+- Every extension installer returns its owned cleanup function. Apply rollback,
+  target unregister, and full application disposal run cleanup in reverse order;
+  cleanup failure remains a structured failure and blocks redefinition. A target
+  with a failed cleanup stays applied and retryable; cleanup handles that already
+  completed successfully are not invoked again.
+- App-facing and shared registry APIs do not expose a semantic-equivalence
+  operation. Non-equivalent customization is a visible sequence of relation
+  removal or capability unregister followed by ordinary definition/registration.
+- `RegistrationGraph` stores only stable node/relation metadata plus
+  package-local handlers. Package registries remain definition source-of-truth;
+  the graph must not inspect arbitrary code or infer undeclared dependencies.
+- `detach` removes the relation and preserves its source registration;
+  `unregister-source` recursively unregisters and cleans the source owner.
 
 ## Feature and Capability Isolation
 

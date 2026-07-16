@@ -1,4 +1,7 @@
-import type { SystemContextSnapshot } from '@asyra/utils'
+import type {
+  RegistrationDefinitionMetadata,
+  SystemContextSnapshot
+} from '@asyra/utils'
 import type { ExecutionHandler } from './execution'
 
 export type FeatureKeyMap = string | undefined
@@ -74,6 +77,8 @@ export interface FeatureDefinition<
   // Whether feature blocks lower priority features
   exclusive?: boolean
   cancelPolicy?: SessionCancelPolicy
+  /** Optional registration-graph metadata owned by the defining package. */
+  registration?: RegistrationDefinitionMetadata
 }
 
 export type FeatureAPI<T = Record<string, unknown>> = T

@@ -1,12 +1,13 @@
-import { definePropertyComponent } from '@asyra/core'
+import type { PropertyComponentDefinition } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
 
-definePropertyComponent({
-  type: PropertyTypes.VECTOR_SEGMENT,
-  defaults: {
-    startId: '',
-    endId: '',
-    outControlId: null,
-    inControlId: null
+export const vectorSegmentPropertyComponentDefinition: PropertyComponentDefinition =
+  {
+    type: PropertyTypes.VECTOR_SEGMENT,
+    defaults: {
+      startId: '',
+      endId: '',
+      outControlId: null,
+      inControlId: null
+    }
   }
-})

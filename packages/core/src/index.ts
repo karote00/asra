@@ -6,20 +6,34 @@ export {
   getSessionManager
 } from './feature-integration'
 
-export { defineComponent, unregisterComponent } from './define-component'
+export {
+  defineComponent,
+  defineComponentPropertyRelation,
+  getComponentPropertyRelations,
+  removeComponentPropertyRelation,
+  unregisterComponent
+} from './define-component'
 export type {
+  ComponentPropertyRelationMetadata,
   ComponentDefinition,
   UnregisterComponentOptions,
   UnregisterComponentResult,
   UnregisterComponentSkippedEntry
 } from './define-component'
 export {
+  definePropertyChildRelation,
   definePropertyComponent,
+  getPropertyChildRelations,
+  removePropertyChildRelation,
   unregisterPropertyComponent
 } from './define-property-component'
-export type { PropertyComponentDefinition } from './define-property-component'
+export type {
+  PropertyChildRelationMetadata,
+  PropertyComponentDefinition
+} from './define-property-component'
 export {
   defineFeature,
+  FeatureUnregisterError,
   getFeature,
   unregisterFeature
 } from '@asyra/feature-system'
@@ -28,6 +42,10 @@ export {
   getPropertySchema,
   registerPropertyComponent,
   getPropertyComponent,
+  unregisterPropertySchema,
+  unregisterPropertyRegistration,
+  PROPERTY_REGISTRATION_ERROR_CODES,
+  PropertyRegistrationError,
   elementPropertyRegistry,
   propertySchemaRegistry,
   propertyComponentRegistry,
@@ -36,14 +54,38 @@ export {
 } from '@asyra/props-manager'
 export type {
   PropertyComponentConstructor,
-  PropertyComponentAccessor
+  PropertyComponentAccessor,
+  PropertyChildRelationDefinition,
+  PropertyRegistrationErrorCode,
+  PropertyRegistrationInUseFailure,
+  PropertyRegistrationScope,
+  PropertyRegistrationUnregisterMissing,
+  PropertyRegistrationUnregisterResult,
+  PropertyRegistrationUnregisterSuccess
 } from '@asyra/props-manager'
+export {
+  REGISTRATION_CONTRACT_ERROR_CODES,
+  RegistrationGraph,
+  RegistrationRelationError
+} from '@asyra/utils'
+export type {
+  RegistrationContractErrorCode,
+  RegistrationDefinitionMetadata,
+  RegistrationNodeMetadata,
+  RegistrationOwnerMetadata,
+  RegistrationRef,
+  RegistrationRelationDeclaration,
+  RegistrationRelationMetadata,
+  RelationOperationSuccess,
+  UnregisterRegistrationSuccess
+} from '@asyra/utils'
 export { BaseSelection } from '@asyra/selection'
 export type { SelectionDefinition } from '@asyra/selection'
 export { componentRegistry } from '@asyra/scene-tree'
 export type {
   FeatureDefinition,
   FeatureAPI,
+  FeatureKeyMap,
   SessionHandler
 } from '@asyra/feature-system'
 export { keyMap } from '@asyra/input-system'
@@ -92,6 +134,7 @@ export type {
 export {
   getYjsDataChannel,
   registerSharedDataChannel,
+  unregisterSharedDataChannel,
   hasSharedDataChannel
 } from '@asyra/factory'
 export {
@@ -223,24 +266,78 @@ type CoreExtensionApiKeys =
   | 'setSystemProperty'
   | 'getSystemPropertyObservable'
   | 'registerEvent'
+  | 'unregisterEvent'
   | 'subscribeEvent'
   | 'registerPropertySchema'
   | 'getPropertySchema'
+  | 'definePropertyComponent'
   | 'registerPropertyComponent'
   | 'getPropertyComponent'
+  | 'unregisterPropertyRegistration'
+  | 'definePropertyChildRelation'
+  | 'removePropertyChildRelation'
+  | 'getPropertyChildRelations'
+  | 'unregisterPropertyType'
+  | 'defineComponent'
+  | 'unregisterComponent'
+  | 'defineComponentPropertyRelation'
+  | 'removeComponentPropertyRelation'
+  | 'getComponentPropertyRelations'
+  | 'defineFeature'
+  | 'getFeature'
+  | 'unregisterFeature'
+  | 'registerRenderStrategy'
+  | 'unregisterRenderStrategy'
+  | 'unregisterUIProperty'
+  | 'getRegistration'
+  | 'getRegistrations'
+  | 'getRegistrationRelations'
   | 'defineSelection'
   | 'registerSelection'
+  | 'unregisterSelection'
   | 'getSelection'
   | 'registerDataChannelObserver'
   | 'unregisterDataChannelObserver'
+  | 'registerSharedDataChannel'
+  | 'unregisterSharedDataChannel'
+  | 'hasSharedDataChannel'
+  | 'getYjsDataChannel'
 
 type CorePresetInstallApiKeys =
   | 'registerEvent'
+  | 'unregisterEvent'
   | 'registerRenderLayer'
+  | 'unregisterRenderLayer'
   | 'createRenderGradientFillStyle'
   | 'registerDataChannelObserver'
+  | 'unregisterDataChannelObserver'
+  | 'registerSharedDataChannel'
+  | 'unregisterSharedDataChannel'
+  | 'hasSharedDataChannel'
+  | 'getYjsDataChannel'
   | 'registerPropertySchema'
+  | 'definePropertyComponent'
+  | 'unregisterPropertyRegistration'
+  | 'definePropertyChildRelation'
+  | 'removePropertyChildRelation'
+  | 'getPropertyChildRelations'
+  | 'unregisterPropertyType'
+  | 'defineComponent'
+  | 'unregisterComponent'
+  | 'defineComponentPropertyRelation'
+  | 'removeComponentPropertyRelation'
+  | 'getComponentPropertyRelations'
+  | 'defineFeature'
+  | 'getFeature'
+  | 'unregisterFeature'
+  | 'registerRenderStrategy'
+  | 'unregisterRenderStrategy'
+  | 'unregisterUIProperty'
+  | 'getRegistration'
+  | 'getRegistrations'
+  | 'getRegistrationRelations'
   | 'defineSelection'
+  | 'unregisterSelection'
   | 'getSelection'
   | 'defineUIProperty'
   | 'defineSystemProperty'

@@ -14,6 +14,7 @@ import {
   Unit
 } from '@asyra/utils'
 import type { PresetCoreAPIs } from '../types'
+import { PRESET_REGISTRATION } from '../registration'
 
 const isUnit = (value: unknown) => value === Unit.PX || value === Unit.PERCENT
 const isFiniteNumber = (value: unknown) =>
@@ -516,21 +517,27 @@ const vectorNetworksSchema: PropertySchema = {
   ]
 }
 
+export const DEFAULT_PROPERTY_SCHEMAS: readonly PropertySchema[] = [
+  fillSchema,
+  fillsSchema,
+  strokeSchema,
+  strokesSchema,
+  positionSchema,
+  dimensionSchema,
+  anchorPointSchema,
+  anchorPointsSchema,
+  vectorPointSchema,
+  vectorPointsSchema,
+  vectorSegmentSchema,
+  vectorSegmentsSchema,
+  vectorNetworkSchema,
+  vectorNetworksSchema
+]
+
 export const registerPropertySchemas = (
   core: Pick<PresetCoreAPIs, 'registerPropertySchema'>
 ) => {
-  core.registerPropertySchema(fillSchema)
-  core.registerPropertySchema(fillsSchema)
-  core.registerPropertySchema(strokeSchema)
-  core.registerPropertySchema(strokesSchema)
-  core.registerPropertySchema(positionSchema)
-  core.registerPropertySchema(dimensionSchema)
-  core.registerPropertySchema(anchorPointSchema)
-  core.registerPropertySchema(anchorPointsSchema)
-  core.registerPropertySchema(vectorPointSchema)
-  core.registerPropertySchema(vectorPointsSchema)
-  core.registerPropertySchema(vectorSegmentSchema)
-  core.registerPropertySchema(vectorSegmentsSchema)
-  core.registerPropertySchema(vectorNetworkSchema)
-  core.registerPropertySchema(vectorNetworksSchema)
+  DEFAULT_PROPERTY_SCHEMAS.forEach((schema) =>
+    core.registerPropertySchema(schema, undefined, PRESET_REGISTRATION)
+  )
 }

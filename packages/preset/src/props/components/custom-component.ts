@@ -1,7 +1,7 @@
-import { definePropertyComponent } from '@asyra/core'
+import type { PropertyComponentDefinition } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
 
-definePropertyComponent({
+export const customPropertyComponentDefinition: PropertyComponentDefinition = {
   type: PropertyTypes.CUSTOM,
   allowDynamicKeys: true
-})
+}

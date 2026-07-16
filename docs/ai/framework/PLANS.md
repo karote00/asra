@@ -10,28 +10,22 @@ This file tracks framework planning topics and points to detailed references.
 
 ## Near-Term Plans
 
-1. Extendable preset
-
-- Allow users to extend preset feature/property behavior through explicit extension points.
-- Keep deterministic fallback path: `unregister -> redefine` when extension points are unavailable.
-- Reference: `docs/ai/framework/plans/extendable-preset-plan.md`
-
-2. Generic preset composition
+1. Generic preset composition
 
 - Compose shared defaults, concrete-engine bootstrap, optional capability
   bundles, and app customizations in deterministic order without publishing
   placeholder `2d`, `3d`, or `hybrid` profiles.
 - Preserve the current `applyPreset(core)` behavior and use the explicit
-  extension/replacement contract from the extendable-preset plan.
+  relation/unregister contract from the completed Extendable Preset plan.
 - Reference: `docs/ai/framework/plans/preset-composition-plan.md`
 
-3. Canvas debugger
+2. Canvas debugger
 
 - Add a framework-owned debugging surface to verify render output, render-layer output, and coordinate-space correctness.
 - Keep it optional, deterministic, and renderer-boundary-safe so apps can opt in without coupling domain logic to Pixi internals.
 - Reference: `docs/ai/framework/plans/canvas-debugger-plan.md`
 
-4. Render delta update pipeline
+3. Render delta update pipeline
 
 - Apply data-channel deltas directly in render update flow to avoid full computed-data rehydrate.
 - Use render-side cached snapshots + key-based invalidation for heavy geometry.

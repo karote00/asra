@@ -31,6 +31,51 @@ Lifecycle and integration:
     - `valueKeys` defaults to `persistKeys - unitKeys`
   - design contract: property components should remain data-focused; app-level business behavior (auto-layout, unit-conversion workflows) belongs in app APIs/features.
 - `unregisterPropertyComponent(type: string): boolean`
+- `unregisterPropertyRegistration(type: string, scope?: 'all' | 'schema' | 'runtime'): PropertyRegistrationUnregisterResult`
+  - removes the property schema and runtime constructor as one registration only
+    when no live or replay-retained property instance still uses the type
+  - returns `{ ok: false, code: 'PROPERTY_REGISTRATION_NOT_FOUND', ... }` for a
+    missing type and throws `PropertyRegistrationError` with
+    `PROPERTY_TYPE_IN_USE` before changing either registry when cleanup is unsafe
+- `unregisterPropertyType(type: string): UnregisterRegistrationSuccess`
+  - graph-aware full-capability removal; detaches structural dependents,
+    recursively unregisters declared hard dependents, and cleans schema/runtime
+    resources
+- component relation APIs:
+  - `defineComponent(definition: ComponentDefinition): void`
+  - `unregisterComponent(type, options?): boolean | UnregisterComponentResult`
+  - `defineComponentPropertyRelation(componentType, property): RelationOperationSuccess`
+  - `removeComponentPropertyRelation(componentType, propertyName): RelationOperationSuccess`
+  - `getComponentPropertyRelations(componentType): readonly ComponentPropertyRelationMetadata[]`
+- property-child relation APIs:
+  - `definePropertyChildRelation(parentType, relation): RelationOperationSuccess`
+  - `removePropertyChildRelation(parentType, key): RelationOperationSuccess`
+  - `getPropertyChildRelations(parentType): readonly PropertyChildRelationMetadata[]`
+- opaque registration lifecycle:
+  - `registerRenderStrategy(type, strategy, registration?): void`
+  - `unregisterRenderStrategy(type): boolean`
+  - `unregisterUIProperty(key): boolean`
+  - an inline component `renderStrategy` receives its own render-strategy node
+    and an `unregister-source` ownership relation to that component; a strategy
+    registered separately remains independent
+- graph metadata queries:
+  - `getRegistration({ kind, key })`
+  - `getRegistrations()`
+  - `getRegistrationRelations()`
+  - package definitions may declare optional `registration.owner` and
+    `registration.relations`; ordinary app definitions may omit both and use
+    `{ packageName: 'app', name: registrationKey }`
+- all relation mutations and `unregisterPropertyType` are startup composition
+  operations. The first `start()` call closes them permanently at method entry.
+- relation definition rejects pending source or target cleanup before mutating
+  a package runtime owner. Relation removal rejects a pending source but remains
+  available to detach from a pending target for deterministic cleanup retry.
+- `defineFeature(name, keyConfig, definition): { api: FeatureAPI; dispose: () => boolean }`
+- `getFeature(name: string): FeatureAPI`
+- `unregisterFeature(name: string): boolean`
+  - unregister rejects an active feature with `FeatureUnregisterError` and
+    otherwise removes its pending execution/session handlers plus owned input or
+    reactive-event subscriptions
 - `registerSaveHook(hook: SaveHook): void`
 - `registerLoadHook(hook: LoadHook): void`
 - `registerLoadDiagnosticsHook(hook: LoadDiagnosticsHook): () => void` (returns disposer/unsubscribe)
@@ -44,8 +89,10 @@ Feature/runtime wiring:
 - `initFeatureSystem(packages: CorePackages): void`
 - `setupInputSystem(watchedElement?: HTMLElement): void`
 - `registerEvent(event: string | EventDefinition<TPayload, TOptions>): EventRegistration<TPayload, TOptions>` (register custom event channels in `@asyra/reactive-events` and get publish/subscribe handles)
+- `unregisterEvent(event: string | EventDefinition): boolean`
 - `defineSelection(type: string, selection: Selection): void` (primary declaration API for selection channel registration)
 - `registerSelection(type: string, selection: Selection): void` (compatibility alias of `defineSelection`)
+- `unregisterSelection(type: string): boolean` (disposes and removes the owned selection runtime)
 - `getSelection(type: string): Selection | undefined`
 
 Render bridge:
@@ -62,6 +109,14 @@ Render bridge:
 - `registerDataChannelObserver(registration: DataChannelObserverRegistration): void`
   - registration shape: `{ name: string; channel: string; onChange: (change) => void }`
 - `unregisterDataChannelObserver(name: string): boolean`
+- `registerSharedDataChannel(name, yArray): void`
+- `unregisterSharedDataChannel(name): boolean`
+- `hasSharedDataChannel(name): boolean`
+- `getYjsDataChannel(name): Y.Array<unknown>`
+  - these methods and data-channel observers route through the Factory injected
+    into that Core instance; standalone observer helpers share the default
+    Core's explicitly injected registry while custom Core registries remain
+    isolated
 - `renderIsReady(): void`
 
 Scene/model bridge:
@@ -135,9 +190,17 @@ Managed property bridges:
 - default `core` singleton, `Core` class
 - `defineComponent`, `unregisterComponent`
 - `definePropertyComponent`, `unregisterPropertyComponent`
+- property registration lifecycle helpers: `unregisterPropertySchema`,
+  `unregisterPropertyRegistration`, `PropertyRegistrationError`
+- registration composition types: `RegistrationDefinitionMetadata`,
+  `RegistrationRef`, `RegistrationNodeMetadata`,
+  `RegistrationRelationDeclaration`, `RegistrationRelationMetadata`,
+  `RelationOperationSuccess`, `UnregisterRegistrationSuccess`, and
+  `RegistrationRelationError`
 - props-manager registry re-export: `elementPropertyRegistry`
 - feature-system bridge exports: `initFeatureSystem`, `getFeatureRegistry`, `getSessionManager`
 - feature authoring helpers: `defineFeature`, `getFeature`, `unregisterFeature`
+- feature lifecycle error: `FeatureUnregisterError`
 - input mapping helper re-export: `keyMap`
 - vector types: `VectorAnchorPoint`, `VectorPathStyle`
 - render layer types: `RenderLayerRegistration`, `RegisterRenderLayerOptions`
@@ -284,6 +347,22 @@ Managed property bridges:
   bundle path
 - `applyPreset(core, { renderEngineFactory, dependencies? })` replaces the
   Pixi default with a contract-compatible custom factory
+- returns a `PresetApplication` whose `dispose()` removes graph registrations
+  plus preset-installed events, selections, owned shared channels,
+  subscriptions, data-channel observers, and render layers; it preserves
+  app-owned shared channels, skips nodes already removed through Core, and
+  retries only pending cleanup after a structured cleanup failure
+- shared channels and data-channel observers are installed through the supplied
+  Core instance; a failed apply whose rollback cleanup is still pending is
+  retained and retried before a later `applyPreset` on that same Core
+- exports pure component definitions and separate render strategies for
+  Rectangle, Oval, Vector, Frame, and Group; importing preset modules has no
+  component-registration side effect
+- exports `PRESET_REGISTRATION_OWNER` for metadata inspection; daily app
+  customization does not require owner input or preset target keys
+- app customization uses ordinary Core relation/registration APIs after
+  `applyPreset(core)`; preset exposes no app extension object, target manifest,
+  or replace strategy
 - default render wiring lives here:
   - register default render YJS observers (scene-tree + selection)
   - register default render system subscriptions (`zoom`, `viewportPosition`)

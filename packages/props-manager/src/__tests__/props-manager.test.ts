@@ -143,6 +143,31 @@ describe('PropsManager', () => {
   })
 
   // Test load and save
+  it('diagnoses and skips unregistered property types instead of constructing CUSTOM', () => {
+    expect(() =>
+      createProperty({ id: 'unknown-property', type: 'unknown-property-type' })
+    ).toThrow(
+      '[props-manager] Property component type "unknown-property-type" is not registered.'
+    )
+
+    const validation = propsManager.validateLoadData({
+      'unknown-property': {
+        id: 'unknown-property',
+        type: 'unknown-property-type',
+        value: 1
+      }
+    })
+
+    expect(validation.data).toEqual({})
+    expect(validation.diagnostics).toEqual([
+      {
+        path: 'props.unknown-property.type',
+        message:
+          'Skipped unregistered property component type "unknown-property-type" during load'
+      }
+    ])
+  })
+
   it('should load data correctly', () => {
     const dataToLoad = {
       'pp-1': {

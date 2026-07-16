@@ -24,9 +24,17 @@ System orchestrator and lifecycle coordinator.
 ## Extension Points
 
 - register component definitions
+- remove/define component-property and property-child relations
+- define low-level property schema/runtime registrations and graph-aware full
+  property capabilities
+- define/query/unregister feature registrations
+- register/unregister render strategies and UI properties
+- query registration nodes, owners, and relations
 - register render layers
+- register/unregister event definitions and selection channels
 - register render interaction targets + handlers
 - register render YJS change observers (`name + channel + onChange`)
+- register/query/unregister shared data channels through the injected Factory
 - register UI/system managed properties
 - register load/save hooks
 - register load diagnostics hooks (with disposer return for app-level unsubscribe)
@@ -46,6 +54,9 @@ System orchestrator and lifecycle coordinator.
   runtime container is not required.
 - A custom `Core` instance must receive and consistently use the intended
   package instances and instance-bound subscription wiring.
+- Shared-channel access and data-channel observer activation are owned by that
+  Core's injected Factory. Different Core instances may register the same
+  observer name without sharing registrations or cleanup state.
 - Default singleton imports intentionally share state and subscriptions.
 
 ## Runtime Contracts
@@ -61,13 +72,47 @@ System orchestrator and lifecycle coordinator.
 - reject missing renderer or renderer/engine initialization failure without
   initializing later phases or publishing false ready
 - remain unaware of concrete engine instances, capabilities, and resources
+- permanently close registration composition at the first `start(...)` method
+  entry, even if renderer initialization later rejects
+- validate every declared registration relation before renderer side effects
 
-2. Registration contract
+2. Registration composition contract
 
-- registration calls should be idempotent where possible
-- registration errors should fail fast with clear messages
+- registration calls fail fast on duplicate identity; Core does not silently
+  skip, overwrite, or infer replacement
+- `RegistrationRelationError` carries stable structured codes for closed,
+  missing, duplicate relation, active-use, dangling, and cleanup failures
+- Core registration methods are public delegates to the feature/property owner;
+  Core does not add duplicate tolerance, semantic-equivalence ordering, or app
+  policy.
+- `removeComponentPropertyRelation` and `removePropertyChildRelation` remove one
+  edge and rebuild the source registration while preserving source/target nodes
+- relation define preflight rejects pending source or target cleanup; remove
+  rejects a pending source but may detach from a pending target, preserving the
+  retry route and owner/graph atomicity before a package runtime owner rebuilds
+- `unregisterPropertyRegistration(type, scope)` remains low-level schema/runtime
+  cleanup; `unregisterPropertyType(type)` is the graph-aware full-capability API
+- full property unregister refuses live or replay-retained instances, detaches
+  structural sources, recursively unregisters declared hard sources, and
+  reports removed relations/resources in `UnregisterRegistrationSuccess`
+- package definitions may carry `registration.owner` and explicit
+  `registration.relations`; omitted app owners use
+  `{ packageName: 'app', name: registrationKey }`
+- a component definition with an inline render strategy creates a separate
+  render-strategy node related to the component with `unregister-source`, so
+  full component unregister removes that owned strategy; an independently
+  registered same-type strategy is not inferred to be component-owned
+- feature removal disposes the feature owner's pending handlers and exact event
+  subscriptions; an active feature must be ended before removal
 - data-channel observer registration resolves shared data by channel name, not raw YJS object instances
-- default shared data-channel registration lifecycle is preset-owned (core/factory provide APIs only)
+- Core owns one observer registry per instance and activates it through the
+  injected Factory; the default Core explicitly shares its registry with the
+  standalone observer helpers, while custom Core registries remain isolated
+- default shared data-channel registration lifecycle is preset-owned
+  (core/factory provide register/unregister APIs only)
+- the strict preset install tier includes owner cleanup façades for events,
+  selections, render layers, and data-channel observers; Core coordinates these
+  calls but does not own preset lifetime policy
 
 3. Load/save contract
 
@@ -116,7 +161,14 @@ System orchestrator and lifecycle coordinator.
 ## App-Level Usage Rules
 
 - App should call framework via `core.xxx` and app-level wrappers.
-- App should prefer `@asyra/core` helper re-exports (`defineFeature`, `getFeature`, `keyMap`) for common feature/input authoring paths.
+- Preset/app composition should prefer the concrete Core instance registration
+  facade. Apply defaults, remove/define exact relations, use
+  `unregisterPropertyType` only for a complete capability, then call `start`.
+- Complete implementation changes use explicit
+  `unregister owner registration -> define/register app implementation`; Core
+  exposes no replace operation.
+- App feature modules may prefer `@asyra/core` helper re-exports
+  (`defineFeature`, `getFeature`, `keyMap`) for the default shared-runtime path.
 - App should not import package internals when core API exists.
 - Preset/app code should consume render abstractions through `core.xxx` when
   Core exposes them. App bootstrap may import public `RenderAdapter` from

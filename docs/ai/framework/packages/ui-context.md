@@ -25,14 +25,22 @@ Apps can bypass ui-context and compute their own derived state from framework su
 ## Runtime Contracts
 
 1. Registration
+
 - app/framework registers compute functions for UI properties
 - each property has one managed observable source in ui-context
+- `PropertyRegistration.registration` may declare owner metadata and opaque
+  dependencies for Core graph coordination; ordinary app UI properties may
+  omit it
+- unregister disposes the property's managed `source$` subscription and removes
+  registry/filter metadata
 
 2. Recompute
+
 - recompute when subscribed model/system dependencies change
 - push only final derived values for UI consumption
 
 3. Isolation
+
 - ui-context can be removed/replaced without changing domain state ownership
 
 ## Validation Checklist

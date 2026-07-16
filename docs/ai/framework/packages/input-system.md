@@ -22,6 +22,10 @@ Normalize raw keyboard/mouse/pointer input into framework input events.
 - Key maps should be configurable by app domain.
 - Event contracts must stay stable and typed.
 - Pointer input can be temporarily blocked when render interaction capture is active.
+- Runtime consumers register listeners with `on(event, callback)` and release
+  the same callback with `off(event, callback)`. `off` removes only the requested
+  listener, returns `false` when it was not registered, and removes an empty
+  event bucket.
 
 ## Extension Points
 
@@ -38,3 +42,4 @@ Normalize raw keyboard/mouse/pointer input into framework input events.
 - Keyboard shortcuts resolve consistently across supported platforms.
 - Pointer down/move/up sequence remains ordered and complete.
 - Input event payloads match typed contracts.
+- Listener cleanup does not remove other consumers of the same normalized event.

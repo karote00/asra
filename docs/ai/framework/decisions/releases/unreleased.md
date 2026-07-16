@@ -1128,3 +1128,91 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 - Related Commit(s):
   - `f185f026cef3b47127003651697bdbf7a8708889` (`feat(render): add replaceable render engine boundary (#79)`)
   - [PR #79](https://github.com/karote00/asyra/pull/79)
+
+## 2026-07-16 - Preset customization uses explicit startup registration composition
+
+- Context:
+  - App developers need to add, adjust, remove, or fully change preset defaults
+    without editing preset/framework internals.
+  - A replace API suggests semantic equivalence even when the old and new
+    property, component, render, or feature capabilities are not equivalent.
+- Decision:
+  - Use `applyPreset(core) -> remove/define relations -> optional capability
+unregister -> app migration -> core.start()` as the public app route.
+  - Keep one Core-owned registration graph with stable identity, owner metadata,
+    deterministic traversal, explicit `detach`/`unregister-source` policies, and
+    retryable lifecycle cleanup.
+  - Remove preset-specific app extension targets and all public/shared replace
+    strategies. App features use `core.defineFeature`; full implementation
+    changes use owner unregister followed by ordinary definition/registration.
+  - Close composition permanently at the first `core.start()` method entry and
+    keep migration app-owned before validation/load.
+- Consequences:
+  - Apps customize preset defaults without deep imports, manual owner metadata,
+    or understanding preset installation internals.
+  - Relation removal preserves registrations; full unregister cleans declared
+    dependents and owned resources without inferring semantic equivalence.
+  - Preset exports pure component definitions and separate render strategies;
+    import alone has no component registration side effect.
+  - One `PresetApplication` lifetime now owns both graph registrations and its
+    event, selection, shared-channel, subscription, observer, and render-layer
+    wiring. Dispose/apply rollback preserves app-owned channels and retries only
+    pending cleanup without rerunning completed cleanup.
+  - Supplied Core instances own their shared-channel and observer wiring through
+    their injected Factory; preset does not bypass that boundary through the
+    default singleton. Failed apply rollback remains retryable on the same Core.
+    The default Core explicitly shares one observer registry with the standalone
+    compatibility helpers; custom Core instances keep separate registries.
+  - Inline component render strategies are explicit graph-owned registrations,
+    while independently registered strategies stay independent.
+  - Registration retry reconciles pending detach work against current adjacency
+    so later formal remove/redefine operations cannot be mistaken for stale work.
+    Core rejects relation definition against a pending source or target before
+    changing the package runtime owner, while formal removal can still detach a
+    healthy source from a pending target.
+  - Generic Preset Composition, product profiles, render-mode selection, and
+    multi-engine composition remain outside this plan.
+- Related Plan:
+  - `docs/ai/framework/plans/extendable-preset-plan.md`
+- Related Commit(s):
+  - `f03693e37` (`feat(utils): add registration relation graph`)
+  - `7ae021668` (`feat(core): add component property relation owners`)
+  - `53f12fb64` (`feat(props-manager): add property child relation owners`)
+  - `6ee041a5f` (`feat(core): coordinate startup registration composition`)
+  - `8fa6f9915` (`feat(preset): install graph-owned defaults`)
+  - `6b2412816` (`fix(framework): close preset composition ownership gaps`)
+  - `cf3855ea9` (`fix(core): preflight retry ownership boundaries`)
+  - `bb481da9e` (`test(core): cover pending relation preflight routes`)
+
+## 2026-07-17 - Extendable Preset relation composition completed
+
+- Context:
+  - PR #81 contains the completed startup registration composition contract,
+    implementation, formal coverage, framework/app documentation, and
+    executable Inspector authority.
+  - All implementation segments, bounded/root gates, self-review, and
+    read-only sub-agent review completed before closeout. PR #81 remains open
+    for owner review; this record does not claim merge completion.
+- Decision:
+  - Treat the Extendable Preset Relation and Unregister plan as implementation
+    complete and archive its product contract at the completed canonical path.
+  - Keep explicit `remove -> define` for non-equivalent relation changes and
+    `unregister -> define/register` for complete capability changes; do not add
+    app-facing or shared registry replace semantics.
+  - Keep all composition mutations before the first `core.start()`, with
+    migration app-owned and runtime validation framework-owned.
+- Consequences:
+  - The Inspector data, contract test, and viewer remain the executable
+    architecture authority and now resolve the completed product contract.
+  - Generic Preset Composition becomes the first Near-Term Plan and must consume
+    this completed relation/unregister contract without redefining it.
+  - Production 3D, Hybrid runtime composition, render-mode selection, and
+    app-specific framework policy remain outside this completed phase.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/extendable-preset-plan.md`
+- Related Commit(s):
+  - `f03693e37` (`feat(utils): add registration relation graph`)
+  - `6ee041a5f` (`feat(core): coordinate startup registration composition`)
+  - `8fa6f9915` (`feat(preset): install graph-owned defaults`)
+  - `c9b2fda5a` (`docs(preset): record relation composition closure`)
+  - [PR #81](https://github.com/karote00/asyra/pull/81)

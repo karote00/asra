@@ -1,6 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  definePropertyChildRelation,
   definePropertyComponent,
+  getPropertyChildRelations,
+  removePropertyChildRelation,
   unregisterPropertyComponent
 } from '../define-property-component'
 import {
@@ -12,6 +15,7 @@ import {
   type DataTypes,
   type PropertyComponentInstanceDataTypes,
   type PropertyComponentRawData,
+  RegistrationRelationError,
   Unit
 } from '@asyra/utils'
 
@@ -46,6 +50,19 @@ class TestPropertyComponent extends BasePropertyComponent<PropertyComponentInsta
 
   getUnit(): Record<string, Unit> {
     return {}
+  }
+}
+
+const expectRelationError = (
+  run: () => unknown,
+  code: RegistrationRelationError['code']
+) => {
+  try {
+    run()
+    throw new Error(`Expected RegistrationRelationError ${code}`)
+  } catch (error) {
+    expect(error).toBeInstanceOf(RegistrationRelationError)
+    expect((error as RegistrationRelationError).code).toBe(code)
   }
 }
 
@@ -273,5 +290,170 @@ describe('unregisterPropertyComponent', () => {
 
   it('should return false for unknown property component type', () => {
     expect(unregisterPropertyComponent('unknown-property-type')).toBe(false)
+  })
+})
+
+describe('property child relations', () => {
+  beforeEach(() => {
+    unregisterPropertyComponent(TEST_TYPE)
+    unregisterPropertyComponent(TEST_CHILD_TYPE)
+    propsManager.reset()
+    definePropertyComponent({
+      type: TEST_CHILD_TYPE,
+      defaults: { x: 0 }
+    })
+    definePropertyComponent({
+      type: TEST_TYPE,
+      defaults: { childIds: [] },
+      children: {
+        key: 'childIds',
+        childType: TEST_CHILD_TYPE
+      }
+    })
+  })
+
+  it('removes a child relation while preserving both property runtimes and disposing old subscriptions', () => {
+    const Child = getPropertyComponent(TEST_CHILD_TYPE)
+    const Parent = getPropertyComponent(TEST_TYPE)
+    expect(Child).toBeDefined()
+    expect(Parent).toBeDefined()
+    if (!Child || !Parent) throw new Error('Expected property runtimes')
+
+    const child = new Child({ id: 'relation-child', type: TEST_CHILD_TYPE })
+    propsManager.addToMap(child)
+    const parent = new Parent({
+      id: 'relation-parent',
+      type: TEST_TYPE,
+      childIds: ['relation-child']
+    } as Partial<PropertyComponentRawData>)
+    propsManager.addToMap(parent)
+    const staleParentListener = vi.fn()
+    parent.on(staleParentListener)
+
+    propsManager.reset()
+    const result = removePropertyChildRelation(TEST_TYPE, 'childIds')
+
+    expect(result).toMatchObject({
+      ok: true,
+      operation: 'remove-relation',
+      source: { kind: 'property', key: TEST_TYPE },
+      relation: {
+        name: 'childIds',
+        target: { kind: 'property', key: TEST_CHILD_TYPE }
+      }
+    })
+    expect(getPropertyComponent(TEST_TYPE)).toBeDefined()
+    expect(getPropertyComponent(TEST_CHILD_TYPE)).toBeDefined()
+    expect(getPropertyChildRelations(TEST_TYPE)).toEqual([])
+
+    child.set(
+      'x' as keyof PropertyComponentInstanceDataTypes,
+      4 as unknown as PropertyComponentInstanceDataTypes[keyof PropertyComponentInstanceDataTypes]
+    )
+    expect(staleParentListener).not.toHaveBeenCalled()
+
+    propsManager.addToMap(child)
+    const RebuiltParent = getPropertyComponent(TEST_TYPE)
+    if (!RebuiltParent) throw new Error('Expected rebuilt parent runtime')
+    const nextParent = new RebuiltParent({
+      id: 'relation-parent-next',
+      type: TEST_TYPE,
+      childIds: ['relation-child']
+    } as Partial<PropertyComponentRawData>)
+    const nextParentListener = vi.fn()
+    nextParent.on(nextParentListener)
+    child.set(
+      'x' as keyof PropertyComponentInstanceDataTypes,
+      5 as unknown as PropertyComponentInstanceDataTypes[keyof PropertyComponentInstanceDataTypes]
+    )
+    expect(nextParentListener).not.toHaveBeenCalled()
+  })
+
+  it('defines the child relation again for future parent instances', () => {
+    removePropertyChildRelation(TEST_TYPE, 'childIds')
+
+    const result = definePropertyChildRelation(TEST_TYPE, {
+      key: 'childIds',
+      childType: TEST_CHILD_TYPE
+    })
+
+    expect(result).toMatchObject({
+      ok: true,
+      operation: 'define-relation',
+      relation: {
+        name: 'childIds',
+        target: { kind: 'property', key: TEST_CHILD_TYPE }
+      }
+    })
+    expect(getPropertyChildRelations(TEST_TYPE)).toEqual([
+      expect.objectContaining({
+        key: 'childIds',
+        childType: TEST_CHILD_TYPE
+      })
+    ])
+
+    const Child = getPropertyComponent(TEST_CHILD_TYPE)
+    const Parent = getPropertyComponent(TEST_TYPE)
+    if (!Child || !Parent) throw new Error('Expected property runtimes')
+    const child = new Child({ id: 'relation-child', type: TEST_CHILD_TYPE })
+    propsManager.addToMap(child)
+    const parent = new Parent({
+      id: 'relation-parent',
+      type: TEST_TYPE,
+      childIds: ['relation-child']
+    } as Partial<PropertyComponentRawData>)
+    const listener = vi.fn()
+    parent.on(listener)
+
+    child.set(
+      'x' as keyof PropertyComponentInstanceDataTypes,
+      6 as unknown as PropertyComponentInstanceDataTypes[keyof PropertyComponentInstanceDataTypes]
+    )
+    expect(listener).toHaveBeenCalledOnce()
+  })
+
+  it('fails before mutation for active and replay-retained parents and invalid relation operations', () => {
+    expectRelationError(
+      () =>
+        definePropertyChildRelation(TEST_TYPE, {
+          key: 'childIds',
+          childType: TEST_CHILD_TYPE
+        }),
+      'DUPLICATE_RELATION'
+    )
+    expectRelationError(
+      () => removePropertyChildRelation(TEST_TYPE, 'missing'),
+      'RELATION_NOT_FOUND'
+    )
+
+    removePropertyChildRelation(TEST_TYPE, 'childIds')
+    expectRelationError(
+      () =>
+        definePropertyChildRelation(TEST_TYPE, {
+          key: 'missing',
+          childType: 'missing-property-child'
+        }),
+      'RELATION_TARGET_NOT_FOUND'
+    )
+    definePropertyChildRelation(TEST_TYPE, {
+      key: 'childIds',
+      childType: TEST_CHILD_TYPE
+    })
+
+    const Parent = getPropertyComponent(TEST_TYPE)
+    if (!Parent) throw new Error('Expected parent runtime')
+    const parent = new Parent({ id: 'active-parent', type: TEST_TYPE })
+    propsManager.addToMap(parent)
+    expectRelationError(
+      () => removePropertyChildRelation(TEST_TYPE, 'childIds'),
+      'REGISTRATION_IN_USE'
+    )
+
+    propsManager.removeFromMap('active-parent')
+    expectRelationError(
+      () => removePropertyChildRelation(TEST_TYPE, 'childIds'),
+      'REGISTRATION_IN_USE'
+    )
+    expect(getPropertyChildRelations(TEST_TYPE)).toHaveLength(1)
   })
 })

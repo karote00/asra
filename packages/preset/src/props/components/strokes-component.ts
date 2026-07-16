@@ -1,7 +1,7 @@
-import { definePropertyComponent } from '@asyra/core'
+import type { PropertyComponentDefinition } from '@asyra/core'
 import { PropertyTypes, createDefaultStroke } from '@asyra/utils'
 
-definePropertyComponent({
+export const strokesPropertyComponentDefinition: PropertyComponentDefinition = {
   type: PropertyTypes.STROKES,
   defaults: { strokes: [] as string[] },
   persistKeys: ['strokes'],
@@ -30,4 +30,4 @@ definePropertyComponent({
       miterAngle: child.get('miterAngle')
     })
   }
-})
+}

@@ -24,6 +24,14 @@
 - If behavior is package-specific, wrap shared utility rather than forking patterns.
 - Duplicate keys are not allowed for `register(...)` flows.
 - Use shared `MapRegistry.register(...)` and fail fast on duplicate keys with explicit error messages.
+- For bounded extension targets, use `ExtensionRegistry` rather than ad-hoc
+  arrays or override flags. Declare supported strategies explicitly, return a
+  cleanup function from every installer, and preserve the public structured
+  error/result contract.
+- `ExtensionRegistry` is package-author additive composition only
+  (`before`/`after`/`append`). App-facing registration composition does not use
+  a replace strategy; it uses explicit relation removal or capability
+  unregister followed by ordinary definition.
 
 ## State and Mutation Standards
 

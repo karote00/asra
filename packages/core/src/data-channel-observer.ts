@@ -1,4 +1,4 @@
-import factory from '@asyra/factory'
+import factory, { type Factory } from '@asyra/factory'
 
 export type DataChannelObserverCleanup = () => void
 
@@ -24,79 +24,101 @@ export const defineDataChannelObserver = <TChange>(
   return registration
 }
 
-const observerRegistrations = new Map<
-  string,
-  DataChannelObserverRegistration<unknown>
->()
-const activeObserverCleanups = new Map<string, DataChannelObserverCleanup>()
+type DataChannelObserverFactory = Pick<Factory, 'observeSharedDataChannel'>
 
-let hasInit = false
+export class DataChannelObserverRegistry {
+  private readonly observerRegistrations = new Map<
+    string,
+    DataChannelObserverRegistration<unknown>
+  >()
+  private readonly activeObserverCleanups = new Map<
+    string,
+    DataChannelObserverCleanup
+  >()
+  private initialized = false
 
-const activateObserver = (
-  registration: DataChannelObserverRegistration<unknown>
-): void => {
-  const cleanup = factory.observeSharedDataChannel(
-    registration.channel,
-    registration.onChange
-  )
-  activeObserverCleanups.set(registration.name, cleanup)
+  constructor(private readonly factory: DataChannelObserverFactory) {}
+
+  register<TChange = unknown>(
+    registration: DataChannelObserverRegistration<TChange>
+  ): void {
+    if (this.observerRegistrations.has(registration.name)) {
+      throw new Error(
+        `[core] Data channel observer "${registration.name}" is already registered`
+      )
+    }
+
+    this.observerRegistrations.set(
+      registration.name,
+      registration as DataChannelObserverRegistration<unknown>
+    )
+
+    if (this.initialized) {
+      this.activate(registration as DataChannelObserverRegistration<unknown>)
+    }
+  }
+
+  unregister(name: string): boolean {
+    if (!this.observerRegistrations.has(name)) {
+      return false
+    }
+
+    this.observerRegistrations.delete(name)
+    this.deactivate(name)
+    return true
+  }
+
+  init(): void {
+    if (this.initialized) return
+
+    this.observerRegistrations.forEach((registration) => {
+      this.activate(registration)
+    })
+    this.initialized = true
+  }
+
+  dispose(): void {
+    if (!this.initialized) return
+    ;[...this.activeObserverCleanups.keys()].forEach((name) => {
+      this.deactivate(name)
+    })
+    this.initialized = false
+  }
+
+  private activate(
+    registration: DataChannelObserverRegistration<unknown>
+  ): void {
+    const cleanup = this.factory.observeSharedDataChannel(
+      registration.channel,
+      registration.onChange
+    )
+    this.activeObserverCleanups.set(registration.name, cleanup)
+  }
+
+  private deactivate(name: string): void {
+    this.activeObserverCleanups.get(name)?.()
+    this.activeObserverCleanups.delete(name)
+  }
 }
 
-const deactivateObserver = (name: string): void => {
-  const cleanup = activeObserverCleanups.get(name)
-  cleanup?.()
-  activeObserverCleanups.delete(name)
-}
+const defaultDataChannelObserverRegistry = new DataChannelObserverRegistry(
+  factory
+)
+
+export const getDefaultDataChannelObserverRegistry =
+  (): DataChannelObserverRegistry => defaultDataChannelObserverRegistry
 
 export const registerDataChannelObserver = <TChange = unknown>(
   registration: DataChannelObserverRegistration<TChange>
-): void => {
-  if (observerRegistrations.has(registration.name)) {
-    throw new Error(
-      `[core] Data channel observer "${registration.name}" is already registered`
-    )
-  }
+): void => defaultDataChannelObserverRegistry.register(registration)
 
-  observerRegistrations.set(
-    registration.name,
-    registration as DataChannelObserverRegistration<unknown>
-  )
-
-  if (hasInit) {
-    activateObserver(registration as DataChannelObserverRegistration<unknown>)
-  }
-}
-
-export const unregisterDataChannelObserver = (name: string): boolean => {
-  const hasRegistration = observerRegistrations.has(name)
-  if (!hasRegistration) {
-    return false
-  }
-
-  observerRegistrations.delete(name)
-  deactivateObserver(name)
-
-  return true
-}
+export const unregisterDataChannelObserver = (name: string): boolean =>
+  defaultDataChannelObserverRegistry.unregister(name)
 
 export const initRegisteredDataChannelObservers = (): void => {
-  if (hasInit) {
-    return
-  }
-
-  observerRegistrations.forEach((registration) => {
-    activateObserver(registration)
-  })
-  hasInit = true
+  defaultDataChannelObserverRegistry.init()
 }
 
 export const disposeRegisteredDataChannelObservers = (): void => {
-  if (!hasInit) {
-    return
-  }
-
-  ;[...activeObserverCleanups.keys()].forEach((name) => {
-    deactivateObserver(name)
-  })
-  hasInit = false
+  defaultDataChannelObserverRegistry.dispose()
 }

@@ -29,6 +29,7 @@ const createDeps = (): PresetDependencies =>
 describe('Preset Event Registration', () => {
   it('registers preset event definitions through core', () => {
     const systemPropertyMap = new Map<string, BehaviorSubject<unknown>>()
+    const sharedChannels = new Set<string>()
     const registerEvent = vi.fn((event: string | { eventName: string }) => ({
       eventName: typeof event === 'string' ? event : event.eventName,
       publish: vi.fn(),
@@ -40,9 +41,29 @@ describe('Preset Event Registration', () => {
       {
         registerEvent,
         registerDataChannelObserver,
+        hasSharedDataChannel: (name: string) => sharedChannels.has(name),
+        getYjsDataChannel: (name: string) => ({ name }),
+        registerSharedDataChannel: (name: string) => {
+          sharedChannels.add(name)
+        },
+        unregisterSharedDataChannel: (name: string) =>
+          sharedChannels.delete(name),
         getPresetDependencies: createDeps,
         registerRenderLayer: vi.fn(),
         registerPropertySchema: vi.fn(),
+        definePropertyComponent: vi.fn(),
+        defineComponent: vi.fn(),
+        registerRenderStrategy: vi.fn(),
+        getRegistrations: vi.fn(() => []),
+        unregisterPropertyRegistration: vi.fn(() => ({
+          ok: true,
+          type: 'test-property',
+          removedSchema: true,
+          removedComponent: true
+        })),
+        defineFeature: vi.fn(),
+        getFeature: vi.fn(),
+        unregisterFeature: vi.fn(),
         defineSelection: vi.fn(),
         getSelection: () => undefined,
         defineUIProperty: vi.fn(),

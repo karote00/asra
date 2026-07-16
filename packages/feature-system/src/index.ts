@@ -12,6 +12,7 @@
 // Main API
 export {
   defineFeature,
+  FeatureUnregisterError,
   getFeature,
   unregisterFeature,
   getFeatureRegistry,

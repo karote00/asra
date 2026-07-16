@@ -1,5 +1,93 @@
-import './rectangle'
-import './oval'
-import './vector'
-import './frame'
-import './group'
+import type { ComponentDefinition, RenderStrategy } from '@asyra/core'
+import { EntityTypes, PropertyTypes } from '@asyra/utils'
+import {
+  createPresetPropertyDependencies,
+  createPresetRegistration
+} from '../registration'
+import {
+  RECTANGLE_COMPONENT_DEFINITION,
+  RECTANGLE_RENDER_STRATEGY
+} from './rectangle'
+import { OVAL_COMPONENT_DEFINITION, OVAL_RENDER_STRATEGY } from './oval'
+import { VECTOR_COMPONENT_DEFINITION, VECTOR_RENDER_STRATEGY } from './vector'
+import { FRAME_COMPONENT_DEFINITION, FRAME_RENDER_STRATEGY } from './frame'
+import { GROUP_COMPONENT_DEFINITION, GROUP_RENDER_STRATEGY } from './group'
+
+export {
+  RECTANGLE_COMPONENT_DEFINITION,
+  OVAL_COMPONENT_DEFINITION,
+  VECTOR_COMPONENT_DEFINITION,
+  FRAME_COMPONENT_DEFINITION,
+  GROUP_COMPONENT_DEFINITION,
+  RECTANGLE_RENDER_STRATEGY,
+  OVAL_RENDER_STRATEGY,
+  VECTOR_RENDER_STRATEGY,
+  FRAME_RENDER_STRATEGY,
+  GROUP_RENDER_STRATEGY
+}
+
+export const DEFAULT_COMPONENT_DEFINITIONS: readonly ComponentDefinition[] = [
+  RECTANGLE_COMPONENT_DEFINITION,
+  OVAL_COMPONENT_DEFINITION,
+  VECTOR_COMPONENT_DEFINITION,
+  FRAME_COMPONENT_DEFINITION,
+  GROUP_COMPONENT_DEFINITION
+]
+
+export interface PresetRenderStrategyRegistration {
+  type: string
+  strategy: RenderStrategy
+  registration: ReturnType<typeof createPresetRegistration>
+}
+
+const renderRegistration = (
+  definition: ComponentDefinition,
+  strategy: RenderStrategy,
+  propertyTypes: readonly string[]
+): PresetRenderStrategyRegistration => ({
+  type: definition.type,
+  strategy,
+  registration: createPresetRegistration(
+    createPresetPropertyDependencies(propertyTypes)
+  )
+})
+
+export const DEFAULT_RENDER_STRATEGY_REGISTRATIONS: readonly PresetRenderStrategyRegistration[] =
+  [
+    renderRegistration(
+      RECTANGLE_COMPONENT_DEFINITION,
+      RECTANGLE_RENDER_STRATEGY,
+      [PropertyTypes.POSITION, PropertyTypes.DIMENSION, PropertyTypes.FILLS]
+    ),
+    renderRegistration(OVAL_COMPONENT_DEFINITION, OVAL_RENDER_STRATEGY, [
+      PropertyTypes.POSITION,
+      PropertyTypes.DIMENSION,
+      PropertyTypes.FILLS
+    ]),
+    renderRegistration(VECTOR_COMPONENT_DEFINITION, VECTOR_RENDER_STRATEGY, [
+      PropertyTypes.POSITION,
+      PropertyTypes.DIMENSION,
+      PropertyTypes.VECTOR_POINTS,
+      PropertyTypes.VECTOR_SEGMENTS,
+      PropertyTypes.VECTOR_NETWORKS,
+      PropertyTypes.CUSTOM,
+      PropertyTypes.FILLS,
+      PropertyTypes.STROKES
+    ]),
+    renderRegistration(FRAME_COMPONENT_DEFINITION, FRAME_RENDER_STRATEGY, [
+      PropertyTypes.POSITION,
+      PropertyTypes.DIMENSION,
+      PropertyTypes.FILLS
+    ]),
+    renderRegistration(GROUP_COMPONENT_DEFINITION, GROUP_RENDER_STRATEGY, [
+      PropertyTypes.POSITION
+    ])
+  ]
+
+export const DEFAULT_COMPONENT_TYPES = [
+  'rect',
+  'oval',
+  'vector',
+  EntityTypes.FRAME,
+  EntityTypes.GROUP
+] as const
