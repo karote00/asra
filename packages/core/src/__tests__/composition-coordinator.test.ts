@@ -342,6 +342,36 @@ describe('Core composition coordinator', () => {
     )
   })
 
+  it('preflights split property relation conflicts without leaving a stale runtime', () => {
+    const { core } = createCoreForTest()
+    const relation = {
+      name: 'position-runtime',
+      target: { kind: 'property', key: POSITION },
+      onTargetUnregister: 'unregister-source' as const
+    }
+    core.definePropertyComponent({ type: POSITION, defaults: { x: 0 } })
+    core.registerPropertySchema(
+      {
+        type: FILLS,
+        fields: [{ key: 'color', kind: 'string', defaultValue: 'red' }]
+      },
+      undefined,
+      { relations: [relation] }
+    )
+
+    expectRelationError(
+      () =>
+        core.definePropertyComponent({
+          type: FILLS,
+          defaults: { color: 'red' },
+          registration: { relations: [relation] }
+        }),
+      'DUPLICATE_RELATION'
+    )
+    expect(getPropertyComponent(FILLS)).toBeUndefined()
+    expect(core.getPropertySchema(FILLS)).toBeDefined()
+  })
+
   it('rejects graph-aware unregister while active or replay-retained property instances exist', () => {
     const { core, props } = createCoreForTest()
     const Constructor = core.definePropertyComponent({

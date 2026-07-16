@@ -1012,7 +1012,12 @@ class Core implements CoreAPIs {
   ): void {
     if (!registration?.relations?.length) return
 
-    const relationNames = new Set(reservedRelationNames)
+    const relationNames = new Set([
+      ...reservedRelationNames,
+      ...this.registrationGraph
+        .getOutgoingRelations(source)
+        .map((relation) => relation.name)
+    ])
     registration.relations.forEach((relation) => {
       if (relationNames.has(relation.name)) {
         throw new RegistrationRelationError({
