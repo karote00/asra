@@ -823,6 +823,36 @@ describe('generic preset composition input validation', () => {
     expect(application.dispose()).toMatchObject({ ok: true })
   })
 
+  it('maps Render provider rejection to a structured engine-layer failure', () => {
+    const { core, dependencies, registrations } = createComposition()
+    vi.mocked(dependencies.render.setEngineFactory).mockImplementation(() => {
+      throw new Error('Render rejected the selected provider')
+    })
+
+    const error = captureCompositionError(() =>
+      applyPreset(core, {
+        dependencies,
+        engine: { id: '@product/render-engine', factory: vi.fn() }
+      })
+    )
+
+    expect(error).toBeInstanceOf(PresetCompositionError)
+    expect((error as PresetCompositionError).result).toMatchObject({
+      code: 'LAYER_INSTALL_FAILED',
+      layer: 'concrete-engine',
+      engineId: '@product/render-engine',
+      completedLayers: expect.arrayContaining([
+        'shared-defaults:events',
+        'shared-defaults:render-layers'
+      ]),
+      cleanup: { state: 'completed', pending: [] },
+      cause: expect.objectContaining({
+        message: 'Render rejected the selected provider'
+      })
+    })
+    expect(registrations.size).toBe(0)
+  })
+
   it('rejects malformed composition containers and engine conflicts with structured errors', () => {
     const malformedComposition = createComposition()
     const malformedError = captureCompositionError(() =>

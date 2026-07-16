@@ -392,8 +392,20 @@ export const applyPreset = (
       registerCleanup,
       (groupId) => completedLayers.push(`shared-defaults:${groupId}`)
     )
-    const disposeEngineProvider =
-      resolvedDeps.render.setEngineFactory(renderEngineFactory)
+    let disposeEngineProvider: unknown
+    try {
+      disposeEngineProvider =
+        resolvedDeps.render.setEngineFactory(renderEngineFactory)
+    } catch (cause) {
+      throw createLayerInstallError({
+        message: `Render rejected concrete-engine provider "${engineId}"`,
+        layer: 'concrete-engine',
+        engineId,
+        capabilityBundles: capabilityBundles.map(({ id }) => id),
+        completedLayers,
+        cause
+      })
+    }
     if (typeof disposeEngineProvider !== 'function') {
       throw createLayerInstallError({
         message: 'Render did not return engine-provider cleanup ownership',
@@ -405,7 +417,8 @@ export const applyPreset = (
         )
       })
     }
-    registerCleanup('render-engine-provider', disposeEngineProvider)
+    const cleanupEngineProvider = disposeEngineProvider as () => void
+    registerCleanup('render-engine-provider', cleanupEngineProvider)
     completedLayers.push(`concrete-engine:${engineId}`)
     const bundleInstallations = installCapabilityBundles({
       core,

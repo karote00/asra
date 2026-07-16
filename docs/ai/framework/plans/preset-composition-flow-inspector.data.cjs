@@ -240,7 +240,8 @@
         'Provider configuration does not construct an engine or publish runtime readiness.',
         'Cleanup restores the prior pre-runtime provider state or clears the selected provider when no prior provider exists.',
         'A stale cleanup handle cannot erase a later provider selection.',
-        'Each Render instance owns its provider state independently.'
+        'Each Render instance owns its provider state independently.',
+        'The preset caller boundary maps provider rejection to structured composition failure without moving provider semantics into preset.'
       ],
       bypasses: [
         'The default and explicit engine paths use the same provider-acceptance contract.',
@@ -263,7 +264,9 @@
         'packages/render/src/types.ts',
         'packages/render/src/index.ts',
         'packages/render/src/__tests__/**',
-        'docs/ai/framework/packages/render.md'
+        'docs/ai/framework/packages/render.md',
+        'packages/preset/src/preset.ts',
+        'packages/preset/src/__tests__/**'
       ],
       specRefs: [
         '#concrete-engine-bootstrap',

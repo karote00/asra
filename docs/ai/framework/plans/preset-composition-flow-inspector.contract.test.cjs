@@ -153,6 +153,16 @@ test('Render owns reversible instance-local provider acceptance without concrete
   assert.match(contract, /Each Render instance.*independently/i)
   assert.match(
     contract,
+    /preset caller boundary maps provider rejection to structured composition failure/i
+  )
+  assert.ok(
+    owner.implementationBoundary.includes('packages/preset/src/preset.ts')
+  )
+  assert.ok(
+    owner.implementationBoundary.includes('packages/preset/src/__tests__/**')
+  )
+  assert.match(
+    contract,
     /@asyra\/render-engine-pixi imports in @asyra\/render/i
   )
 })
