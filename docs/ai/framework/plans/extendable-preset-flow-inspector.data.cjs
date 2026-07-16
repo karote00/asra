@@ -83,6 +83,7 @@
       conditions: [
         'Each preset extension target has a stable target key, stable name, capability kind, supported strategies, and queryable owner metadata naming @asyra/preset.',
         'The fixed preset target manifest applies property definition targets, property runtime targets, and the feature registration hook in documented deterministic order.',
+        'Property schema and property runtime targets support replace only; the feature registration target supports before, after, append, and replace.',
         'A direct explicit replace is resolved by the extension contract and is not sent through ordinary duplicate registration.',
         'applyPreset(core), the existing explicit dependency overload, and the custom renderEngineFactory overload remain compatible.',
         'One returned preset application owns successful target cleanup handles and can dispose them in reverse application order.',
@@ -144,7 +145,7 @@
         'The target must exist in this preset application and must currently be applied.',
         'Unregister validates active usage through the owning runtime and fails before partial cleanup when replacement is unsafe.',
         'Successful unregister invokes owned dispose handles in reverse application order and reports a structured success result.',
-        'A cleanup failure is reported by stable structured error code and never masquerades as successful removal.'
+        'A cleanup failure is reported by stable structured error code, the target remains applied for deterministic retry, and the failure never masquerades as successful removal.'
       ],
       bypasses: [
         'A missing or already-unregistered target fails fast and does not run a redefine callback.',

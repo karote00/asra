@@ -104,6 +104,11 @@ test('preset owns defaults, hooks, ordering, and explicit application lifecycle'
   assert.match(contract, /explicit replace/i)
   assert.match(contract, /deterministic/i)
   assert.match(contract, /dispose/i)
+  assert.match(contract, /property schema.*property runtime.*replace only/i)
+  assert.match(
+    contract,
+    /feature registration.*before.*after.*append.*replace/i
+  )
 })
 
 test('unsupported direct extension follows unregister then redefine fallback', () => {
@@ -115,6 +120,10 @@ test('unsupported direct extension follows unregister then redefine fallback', (
   assert.equal(fallback.to, redefine.id)
   assert.match(fallback.predicate, /direct extension.*not supported/i)
   assert.match(unregister.conditions.join(' '), /dispose/i)
+  assert.match(
+    unregister.conditions.join(' '),
+    /cleanup failure.*remains applied.*retry/i
+  )
   assert.equal(redefine.ownerPackage, 'app or user composition')
 })
 

@@ -121,6 +121,9 @@ append`; the caller-provided extension array order is preserved within each
 - one preset application owns its applied cleanup handles, supports target
   unregister by stable key, and disposes owned handles in reverse application
   order.
+- property schema/runtime targets support explicit `replace`; the feature
+  registration hook supports `before`, `after`, `append`, and `replace` with
+  caller array order preserved inside each strategy bucket.
 - property definition/schema and property runtime targets are keyed by the
   existing public property type; the feature-registration target is an
   app-owned feature hook and does not move app feature policy into preset.
@@ -143,6 +146,8 @@ append`; the caller-provided extension array order is preserved within each
   path is `presetApplication.unregisterTarget(stableKey)` followed by app-owned
   redefinition through public Core APIs.
 - redefine cannot run after a missing-target, active-usage, or cleanup failure.
+- a cleanup failure keeps the target applied for deterministic retry; cleanup
+  handles that already completed successfully are not run again.
 - no fallback state, duplicate-registration tolerance, or automatic default
   restoration may hide a failed replacement.
 
