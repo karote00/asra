@@ -87,6 +87,9 @@ System orchestrator and lifecycle coordinator.
   policy.
 - `removeComponentPropertyRelation` and `removePropertyChildRelation` remove one
   edge and rebuild the source registration while preserving source/target nodes
+- relation define preflight rejects pending source or target cleanup; remove
+  rejects a pending source but may detach from a pending target, preserving the
+  retry route and owner/graph atomicity before a package runtime owner rebuilds
 - `unregisterPropertyRegistration(type, scope)` remains low-level schema/runtime
   cleanup; `unregisterPropertyType(type)` is the graph-aware full-capability API
 - full property unregister refuses live or replay-retained instances, detaches
@@ -103,8 +106,8 @@ System orchestrator and lifecycle coordinator.
   subscriptions; an active feature must be ended before removal
 - data-channel observer registration resolves shared data by channel name, not raw YJS object instances
 - Core owns one observer registry per instance and activates it through the
-  injected Factory; default standalone observer helpers remain a compatibility
-  path for the default Core only
+  injected Factory; the default Core explicitly shares its registry with the
+  standalone observer helpers, while custom Core registries remain isolated
 - default shared data-channel registration lifecycle is preset-owned
   (core/factory provide register/unregister APIs only)
 - the strict preset install tier includes owner cleanup façades for events,

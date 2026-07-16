@@ -9,7 +9,12 @@ import {
 import { renderStrategyRegistry } from '@asyra/render'
 import sceneTree, { componentRegistry, SceneTree } from '@asyra/scene-tree'
 import { propertyRegistry } from '@asyra/ui-context'
-import { RegistrationRelationError, idCounter, nameCounter } from '@asyra/utils'
+import {
+  RegistrationGraph,
+  RegistrationRelationError,
+  idCounter,
+  nameCounter
+} from '@asyra/utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { unregisterComponent as unregisterComponentDirect } from '../define-component'
 import { Core } from '../core'
@@ -69,6 +74,35 @@ const expectRelationError = (
     expect(error).toBeInstanceOf(RegistrationRelationError)
     expect((error as RegistrationRelationError).code).toBe(code)
   }
+}
+
+const leavePropertyTargetPending = (
+  core: Core,
+  propertyType: string
+): RegistrationGraph => {
+  const graph = (core as unknown as { registrationGraph: RegistrationGraph })
+    .registrationGraph
+  const source = { kind: 'a-test-detach-owner', key: propertyType }
+  graph.registerNode({
+    ref: source,
+    handlers: {
+      detachRelation: () => {
+        throw new Error('test detach failed')
+      }
+    }
+  })
+  graph.defineRelation(source, {
+    name: 'pending-target',
+    target: { kind: 'property', key: propertyType },
+    onTargetUnregister: 'detach'
+  })
+
+  expectRelationError(
+    () => core.unregisterPropertyType(propertyType),
+    'RELATION_REMOVE_FAILED'
+  )
+  graph.removeRelation(source, 'pending-target')
+  return graph
 }
 
 describe('Core composition coordinator', () => {
@@ -445,6 +479,62 @@ describe('Core composition coordinator', () => {
     )
     expect(getPropertyComponent(FILLS)).toBeUndefined()
     expect(core.getPropertySchema(FILLS)).toBeDefined()
+  })
+
+  it('rejects pending relation targets before component or property owners mutate', () => {
+    const { core } = createCoreForTest()
+    core.definePropertyComponent({ type: FILLS, defaults: {} })
+    core.definePropertyComponent({
+      type: PARENT,
+      defaults: { childIds: [] },
+      children: { key: 'childIds', childType: FILLS }
+    })
+    core.defineComponent({
+      type: SHAPE,
+      idPrefix: SHAPE,
+      namePrefix: 'Composition Shape',
+      properties: [{ name: 'paint', type: FILLS }]
+    })
+    const graph = leavePropertyTargetPending(core, FILLS)
+
+    expect(core.removeComponentPropertyRelation(SHAPE, 'paint')).toMatchObject({
+      ok: true,
+      operation: 'remove-relation'
+    })
+    expect(core.removePropertyChildRelation(PARENT, 'childIds')).toMatchObject({
+      ok: true,
+      operation: 'remove-relation'
+    })
+
+    expectRelationError(
+      () =>
+        core.defineComponentPropertyRelation(SHAPE, {
+          name: 'paint',
+          type: FILLS
+        }),
+      'UNREGISTER_FAILED'
+    )
+    expectRelationError(
+      () =>
+        core.definePropertyChildRelation(PARENT, {
+          key: 'childIds',
+          childType: FILLS
+        }),
+      'UNREGISTER_FAILED'
+    )
+
+    expect(core.getComponentPropertyRelations(SHAPE)).toEqual([])
+    expect(core.getPropertyChildRelations(PARENT)).toEqual([])
+    expect(
+      graph.getOutgoingRelations({ kind: 'component', key: SHAPE })
+    ).toEqual([])
+    expect(
+      graph.getOutgoingRelations({ kind: 'property', key: PARENT })
+    ).toEqual([])
+
+    expect(core.unregisterPropertyType(FILLS)).toMatchObject({ ok: true })
+    expect(core.getComponentPropertyRelations(SHAPE)).toEqual([])
+    expect(core.getPropertyChildRelations(PARENT)).toEqual([])
   })
 
   it('rejects graph-aware unregister while active or replay-retained property instances exist', () => {

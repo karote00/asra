@@ -96,6 +96,7 @@ import {
 interface CoreDeps {
   inputSystem: InputSystem
   factory: Factory
+  dataChannelObservers?: dataChannelObserver.DataChannelObserverRegistry
   props: PropsManager
   render: Render
   sceneTree: SceneTree
@@ -203,6 +204,7 @@ class Core implements CoreAPIs {
 
   constructor(readonly deps: CoreDeps) {
     this.dataChannelObservers =
+      deps.dataChannelObservers ??
       new dataChannelObserver.DataChannelObserverRegistry(deps.factory)
     const apis = createAPIs(
       deps.sceneTree,
@@ -572,6 +574,15 @@ class Core implements CoreAPIs {
         target: { kind: 'property', key: definition.children.childType }
       })
     }
+    if ('children' in definition && definition.children) {
+      this.assertRelationEndpointNotPending(
+        { kind: 'property', key: definition.children.childType },
+        'define-relation',
+        source,
+        definition.children.key,
+        { kind: 'property', key: definition.children.childType }
+      )
+    }
 
     const Constructor = definePropertyComponentRuntime(definition)
     this.ensurePropertyNode(definition.type, definition.registration)
@@ -727,6 +738,13 @@ class Core implements CoreAPIs {
           target: { kind: 'property', key: property.type }
         })
       }
+      this.assertRelationEndpointNotPending(
+        { kind: 'property', key: property.type },
+        'define-relation',
+        componentRef,
+        property.name,
+        { kind: 'property', key: property.type }
+      )
     }
 
     const source = componentRef
@@ -1016,6 +1034,13 @@ class Core implements CoreAPIs {
         relationName
       })
     }
+    this.assertRelationEndpointNotPending(
+      source,
+      'define-relation',
+      source,
+      relationName,
+      target
+    )
     if (!this.registrationGraph.getRegistration(target)) {
       throw new RegistrationRelationError({
         ok: false,
@@ -1027,6 +1052,13 @@ class Core implements CoreAPIs {
         target
       })
     }
+    this.assertRelationEndpointNotPending(
+      target,
+      'define-relation',
+      source,
+      relationName,
+      target
+    )
     if (
       this.registrationGraph
         .getOutgoingRelations(source)
@@ -1058,6 +1090,12 @@ class Core implements CoreAPIs {
         relationName
       })
     }
+    this.assertRelationEndpointNotPending(
+      source,
+      'remove-relation',
+      source,
+      relationName
+    )
     if (
       !this.registrationGraph
         .getOutgoingRelations(source)
@@ -1111,6 +1149,33 @@ class Core implements CoreAPIs {
           target: relation.target
         })
       }
+      this.assertRelationEndpointNotPending(
+        relation.target,
+        'define-relation',
+        source,
+        relation.name,
+        relation.target
+      )
+    })
+  }
+
+  private assertRelationEndpointNotPending(
+    ref: RegistrationRef,
+    operation: 'define-relation' | 'remove-relation',
+    source: RegistrationRef,
+    relationName: string,
+    target?: RegistrationRef
+  ): void {
+    if (!this.registrationGraph.hasPendingCleanup(ref)) return
+    throw new RegistrationRelationError({
+      ok: false,
+      code: 'UNREGISTER_FAILED',
+      operation,
+      message: `Registration "${ref.kind}:${ref.key}" still has pending cleanup`,
+      registration: ref,
+      source,
+      relationName,
+      target
     })
   }
 
@@ -1482,6 +1547,8 @@ export { Core }
 const core = new Core({
   inputSystem,
   factory,
+  dataChannelObservers:
+    dataChannelObserver.getDefaultDataChannelObserverRegistry(),
   props,
   render,
   sceneTree,

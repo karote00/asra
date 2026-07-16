@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import factory from '@asyra/factory'
 import type { IRenderer, RenderOptions } from '@asyra/render'
-import { Core } from '../core'
+import defaultCore, { Core } from '../core'
+import {
+  registerDataChannelObserver,
+  unregisterDataChannelObserver
+} from '../data-channel-observer'
 
 const createCoreForTest = (factoryOverrides: Record<string, unknown> = {}) => {
   const core = new Core({
@@ -149,5 +154,49 @@ describe('Core render startup', () => {
       'shared-channel-name',
       registration.onChange
     )
+  })
+
+  it('keeps standalone observer helpers compatible with the default Core', async () => {
+    const observerName = 'default-core-standalone-observer'
+    const cleanup = vi.fn()
+    const observe = vi.fn(() => cleanup)
+    const originalObserve = factory.observeSharedDataChannel
+    factory.observeSharedDataChannel = observe
+    defaultCore.setupInputSystem = vi.fn()
+    defaultCore.initFeatureSystem = vi.fn()
+    defaultCore.renderIsReady = vi.fn()
+    defaultCore.setRenderer(
+      createRenderer(
+        vi.fn(async () => ({
+          canvas: document.createElement('canvas'),
+          instance: {}
+        }))
+      )
+    )
+    let unregistered = false
+
+    try {
+      registerDataChannelObserver({
+        name: observerName,
+        channel: 'default-core-standalone-channel',
+        onChange: vi.fn()
+      })
+
+      await defaultCore.start(document.createElement('div'), {
+        width: 1,
+        height: 1
+      })
+
+      expect(observe).toHaveBeenCalledWith(
+        'default-core-standalone-channel',
+        expect.any(Function)
+      )
+      unregistered = unregisterDataChannelObserver(observerName)
+      expect(unregistered).toBe(true)
+      expect(cleanup).toHaveBeenCalledOnce()
+    } finally {
+      if (!unregistered) unregisterDataChannelObserver(observerName)
+      factory.observeSharedDataChannel = originalObserve
+    }
   })
 })

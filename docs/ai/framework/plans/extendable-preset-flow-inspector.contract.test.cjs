@@ -73,6 +73,7 @@ test('shared primitive owns adjacency, deterministic traversal, and structured c
   assert.match(contract, /visited set/i)
   assert.match(contract, /RegistrationRelationError/i)
   assert.match(contract, /retryable/i)
+  assert.match(contract, /pending source.*pending target.*before mutation/i)
   assert.match(
     contract,
     /retry.*current adjacency.*same name.*different target.*preserved/i
@@ -92,6 +93,7 @@ test('component owner preserves registrations while mutating exact property slot
   assert.equal(owner.ownerPackage, '@asyra/scene-tree')
   assert.match(contract, /automatic detach relation/i)
   assert.match(contract, /complete next definition\/class/i)
+  assert.match(contract, /pending source or target cleanup.*before mutation/i)
   assert.match(contract, /Component-local maps/i)
   assert.match(contract, /active instance/i)
   assert.match(contract, /never unregisters either registration node/i)
@@ -114,6 +116,7 @@ test('property owner rebuilds child relations without unknown CUSTOM fallback', 
   assert.equal(owner.ownerPackage, '@asyra/props-manager')
   assert.match(contract, /retains its declarative definition/i)
   assert.match(contract, /childType.*detach relation/i)
+  assert.match(contract, /pending source or target cleanup/i)
   assert.match(contract, /no stale subscription/i)
   assert.match(contract, /replay-retained/i)
   assert.match(contract, /CUSTOM/i)
@@ -136,6 +139,10 @@ test('Core closes composition permanently before renderer effects', () => {
   assert.match(contract, /public facade/i)
   assert.match(contract, /injected Factory.*shared channels.*observers/i)
   assert.match(contract, /same observer name.*different Core/i)
+  assert.match(
+    contract,
+    /default Core.*standalone observer helpers.*share.*default observer registry/i
+  )
   assert.match(closeRoute.predicate, /before renderer effects/i)
   assert.ok(
     owner.implementationBoundary.includes(

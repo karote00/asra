@@ -105,6 +105,9 @@ const defaultDataChannelObserverRegistry = new DataChannelObserverRegistry(
   factory
 )
 
+export const getDefaultDataChannelObserverRegistry =
+  (): DataChannelObserverRegistry => defaultDataChannelObserverRegistry
+
 export const registerDataChannelObserver = <TChange = unknown>(
   registration: DataChannelObserverRegistration<TChange>
 ): void => defaultDataChannelObserverRegistry.register(registration)

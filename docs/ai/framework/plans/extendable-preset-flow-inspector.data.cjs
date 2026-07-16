@@ -177,7 +177,8 @@
         'Every closed or dangling failure uses RegistrationRelationError with a stable structured code.',
         'Standalone helpers retain default-Core compatibility while preset always uses the supplied Core instance.',
         'Each Core injected Factory owns shared channels and data-channel observers for that Core.',
-        'The same observer name may exist on a different Core because observer registries are instance-owned.'
+        'The same observer name may exist on a different Core because observer registries are instance-owned.',
+        'The default Core and standalone observer helpers share one explicitly injected default observer registry; custom Core instances receive distinct registries.'
       ],
       bypasses: [
         'Core consumers that never call applyPreset can still register their own definitions before start.',
@@ -234,7 +235,7 @@
       conditions: [
         'defineComponent records one automatic detach relation for every declared property slot.',
         'Removal preserves component identity, counters, unrelated slots, render ownership, and registered property capabilities.',
-        'Definition validates the component, property runtime, and duplicate slot before mutation.',
+        'Definition validates the component, property runtime, duplicate slot, and pending source or target cleanup before mutation.',
         'The complete next definition/class is built before component and element-property indexes change.',
         'Component-local maps and reverse indexes preserve exact definitions when property names are reused.',
         'Any active instance of the component rejects mutation before partial work.'
@@ -293,7 +294,7 @@
       ],
       conditions: [
         'Config-mode property registration retains its declarative definition and records childType as an automatic detach relation.',
-        'Removing or defining one child relation builds the next constructor before registry mutation.',
+        'Defining one child relation rejects pending source or target cleanup; removal rejects a pending source but remains available to detach from a pending target before building the next constructor.',
         'Rebuilt runtime owns exactly the next child subscriptions and leaves no stale subscription from a removed child.',
         'Constructor-mode hard dependencies must be explicit local registration.relations using unregister-source.',
         'Active or replay-retained instances reject mutation before partial work.',
@@ -416,8 +417,8 @@
       conditions: [
         'nodesByRef, outgoingRelationsBySource, and incomingRelationsByTarget are indexed by stable deterministic identity.',
         'Queries return detached owner and relation metadata sorted by stable keys.',
-        'Define rejects a missing source, missing target, or duplicate relation before mutation.',
-        'Remove rejects a missing source or relation before mutation.',
+        'Define rejects a missing or pending source, missing or pending target, or duplicate relation before mutation.',
+        'Remove rejects a missing or pending source or missing relation before mutation.',
         'Unregister preflights composition and owner handlers, processes sorted incoming relations, removes outgoing relations, cleans owned resources in reverse order, then removes each queued node.',
         'detach rebuilds and preserves the source; unregister-source queues and recursively removes the source with a visited set.',
         'Successful results list root, removed relations, detached sources, recursively unregistered sources, removed owned registrations, and cleanup status.',

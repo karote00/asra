@@ -67,6 +67,9 @@ Lifecycle and integration:
     `{ packageName: 'app', name: registrationKey }`
 - all relation mutations and `unregisterPropertyType` are startup composition
   operations. The first `start()` call closes them permanently at method entry.
+- relation definition rejects pending source or target cleanup before mutating
+  a package runtime owner. Relation removal rejects a pending source but remains
+  available to detach from a pending target for deterministic cleanup retry.
 - `defineFeature(name, keyConfig, definition): { api: FeatureAPI; dispose: () => boolean }`
 - `getFeature(name: string): FeatureAPI`
 - `unregisterFeature(name: string): boolean`
@@ -111,8 +114,9 @@ Render bridge:
 - `hasSharedDataChannel(name): boolean`
 - `getYjsDataChannel(name): Y.Array<unknown>`
   - these methods and data-channel observers route through the Factory injected
-    into that Core instance; standalone package helpers retain default-singleton
-    compatibility
+    into that Core instance; standalone observer helpers share the default
+    Core's explicitly injected registry while custom Core registries remain
+    isolated
 - `renderIsReady(): void`
 
 Scene/model bridge:

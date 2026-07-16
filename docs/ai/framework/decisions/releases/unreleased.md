@@ -1161,10 +1161,15 @@ unregister -> app migration -> core.start()` as the public app route.
   - Supplied Core instances own their shared-channel and observer wiring through
     their injected Factory; preset does not bypass that boundary through the
     default singleton. Failed apply rollback remains retryable on the same Core.
+    The default Core explicitly shares one observer registry with the standalone
+    compatibility helpers; custom Core instances keep separate registries.
   - Inline component render strategies are explicit graph-owned registrations,
     while independently registered strategies stay independent.
   - Registration retry reconciles pending detach work against current adjacency
     so later formal remove/redefine operations cannot be mistaken for stale work.
+    Core rejects relation definition against a pending source or target before
+    changing the package runtime owner, while formal removal can still detach a
+    healthy source from a pending target.
   - Generic Preset Composition, product profiles, render-mode selection, and
     multi-engine composition remain outside this plan.
 - Related Plan:

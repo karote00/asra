@@ -198,8 +198,10 @@ incomingRelationsByTarget
 
 - `defineComponent` retains a declarative definition and automatically records
   one relation per property slot.
-- A relation mutation builds the complete next definition/class first, then
-  atomically updates component and element-property ownership indexes.
+- Relation definition rejects pending source or target cleanup; removal rejects
+  a pending source but remains available to detach from a pending target. It
+  then builds the complete next definition/class and atomically updates
+  component and element-property ownership indexes.
 - Removing one slot preserves component identity, counters, unrelated
   properties, render ownership, and other resources.
 - Adding one slot validates component existence, property runtime existence,
@@ -210,8 +212,10 @@ incomingRelationsByTarget
 
 ### `@asyra/props-manager`: property relation owner
 
-- Config-mode property components retain their definition so child relations
-  can rebuild the runtime constructor without stale child subscriptions.
+- Config-mode property components retain their definition. Child relation
+  definition rejects pending source or target cleanup; removal rejects a
+  pending source but may detach from a pending target before rebuilding the
+  runtime constructor without stale child subscriptions.
 - Constructor-mode opaque dependencies are declared through local
   `registration.relations`; hard dependencies use `unregister-source`.
 - Unknown property types no longer silently fall back to `CUSTOM` during the
@@ -227,7 +231,9 @@ incomingRelationsByTarget
 - Core routes shared-channel and data-channel observer APIs through its injected
   Factory; observer registration identity is isolated per Core instance.
 - Standalone helpers continue to target the default Core compatibility
-  instance; preset installers always use the supplied Core facade.
+  instance by sharing its explicitly injected default observer registry; custom
+  Core instances receive distinct registries, and preset installers always use
+  the supplied Core facade.
 - Graph-aware `unregisterPropertyType` detaches structural dependents, follows
   hard dependency policies, and cleans property schema/runtime/metadata and
   lifecycle resources.
