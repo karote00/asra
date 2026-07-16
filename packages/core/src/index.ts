@@ -20,6 +20,7 @@ export {
 export type { PropertyComponentDefinition } from './define-property-component'
 export {
   defineFeature,
+  FeatureUnregisterError,
   getFeature,
   unregisterFeature
 } from '@asyra/feature-system'
@@ -28,6 +29,10 @@ export {
   getPropertySchema,
   registerPropertyComponent,
   getPropertyComponent,
+  unregisterPropertySchema,
+  unregisterPropertyRegistration,
+  PROPERTY_REGISTRATION_ERROR_CODES,
+  PropertyRegistrationError,
   elementPropertyRegistry,
   propertySchemaRegistry,
   propertyComponentRegistry,
@@ -36,7 +41,12 @@ export {
 } from '@asyra/props-manager'
 export type {
   PropertyComponentConstructor,
-  PropertyComponentAccessor
+  PropertyComponentAccessor,
+  PropertyRegistrationErrorCode,
+  PropertyRegistrationInUseFailure,
+  PropertyRegistrationUnregisterMissing,
+  PropertyRegistrationUnregisterResult,
+  PropertyRegistrationUnregisterSuccess
 } from '@asyra/props-manager'
 export { BaseSelection } from '@asyra/selection'
 export type { SelectionDefinition } from '@asyra/selection'
@@ -44,6 +54,7 @@ export { componentRegistry } from '@asyra/scene-tree'
 export type {
   FeatureDefinition,
   FeatureAPI,
+  FeatureKeyMap,
   SessionHandler
 } from '@asyra/feature-system'
 export { keyMap } from '@asyra/input-system'
@@ -226,8 +237,13 @@ type CoreExtensionApiKeys =
   | 'subscribeEvent'
   | 'registerPropertySchema'
   | 'getPropertySchema'
+  | 'definePropertyComponent'
   | 'registerPropertyComponent'
   | 'getPropertyComponent'
+  | 'unregisterPropertyRegistration'
+  | 'defineFeature'
+  | 'getFeature'
+  | 'unregisterFeature'
   | 'defineSelection'
   | 'registerSelection'
   | 'getSelection'
@@ -240,6 +256,11 @@ type CorePresetInstallApiKeys =
   | 'createRenderGradientFillStyle'
   | 'registerDataChannelObserver'
   | 'registerPropertySchema'
+  | 'definePropertyComponent'
+  | 'unregisterPropertyRegistration'
+  | 'defineFeature'
+  | 'getFeature'
+  | 'unregisterFeature'
   | 'defineSelection'
   | 'getSelection'
   | 'defineUIProperty'

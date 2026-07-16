@@ -24,6 +24,8 @@ System orchestrator and lifecycle coordinator.
 ## Extension Points
 
 - register component definitions
+- define/unregister property schema + runtime registration pairs
+- define/query/unregister feature registrations
 - register render layers
 - register render interaction targets + handlers
 - register render YJS change observers (`name + channel + onChange`)
@@ -66,6 +68,12 @@ System orchestrator and lifecycle coordinator.
 
 - registration calls should be idempotent where possible
 - registration errors should fail fast with clear messages
+- Core registration methods are public delegates to the feature/property owner;
+  Core does not add duplicate tolerance, replacement ordering, or app policy.
+- property registration removal is atomic across schema/runtime registries and
+  refuses types retained by live or replay state
+- feature removal disposes the feature owner's pending handlers and exact event
+  subscriptions; an active feature must be ended before removal
 - data-channel observer registration resolves shared data by channel name, not raw YJS object instances
 - default shared data-channel registration lifecycle is preset-owned (core/factory provide APIs only)
 
@@ -116,7 +124,12 @@ System orchestrator and lifecycle coordinator.
 ## App-Level Usage Rules
 
 - App should call framework via `core.xxx` and app-level wrappers.
-- App should prefer `@asyra/core` helper re-exports (`defineFeature`, `getFeature`, `keyMap`) for common feature/input authoring paths.
+- Preset/app composition should prefer the concrete Core instance registration
+  facade (`core.defineFeature`, `core.definePropertyComponent`,
+  `core.unregisterFeature`, `core.unregisterPropertyRegistration`) so preset
+  installation uses the injected runtime owner.
+- App feature modules may prefer `@asyra/core` helper re-exports
+  (`defineFeature`, `getFeature`, `keyMap`) for the default shared-runtime path.
 - App should not import package internals when core API exists.
 - Preset/app code should consume render abstractions through `core.xxx` when
   Core exposes them. App bootstrap may import public `RenderAdapter` from

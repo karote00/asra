@@ -13,8 +13,17 @@ import props, {
   getPropertyComponent,
   getPropertySchema,
   registerPropertySchema,
-  registerPropertyComponent
+  registerPropertyComponent,
+  unregisterPropertyRegistration
 } from '@asyra/props-manager'
+import {
+  defineFeature as defineFeatureRuntime,
+  getFeature as getFeatureRuntime,
+  unregisterFeature as unregisterFeatureRuntime,
+  type FeatureAPI,
+  type FeatureDefinition,
+  type FeatureKeyMap
+} from '@asyra/feature-system'
 import selection, { SelectionManager } from '@asyra/selection'
 import systemContext, { SystemContext } from '@asyra/system-context'
 import type { FeatureSystemAPIs } from './types/feature-system'
@@ -42,6 +51,10 @@ import type {
 } from './types/load-validation'
 import type { DataChannelObserverRegistration } from './data-channel-observer'
 import * as dataChannelObserver from './data-channel-observer'
+import {
+  definePropertyComponent as definePropertyComponentRuntime,
+  type PropertyComponentDefinition
+} from './define-property-component'
 
 interface CoreDeps {
   inputSystem: InputSystem
@@ -394,6 +407,12 @@ class Core implements CoreAPIs {
     return getPropertySchema(type)
   }
 
+  definePropertyComponent(
+    definition: PropertyComponentDefinition
+  ): ReturnType<typeof definePropertyComponentRuntime> {
+    return definePropertyComponentRuntime(definition)
+  }
+
   registerPropertyComponent(
     type: string,
     component: Parameters<typeof registerPropertyComponent>[1],
@@ -404,6 +423,29 @@ class Core implements CoreAPIs {
 
   getPropertyComponent(type: string) {
     return getPropertyComponent(type)
+  }
+
+  unregisterPropertyRegistration(type: string) {
+    return unregisterPropertyRegistration(type, this.deps.props)
+  }
+
+  defineFeature<
+    API extends Record<string, unknown> = Record<string, unknown>,
+    State extends Record<string, unknown> = Record<string, unknown>
+  >(
+    name: string,
+    keyConfig: FeatureKeyMap | undefined,
+    definition: FeatureDefinition<API, State>
+  ): { api: FeatureAPI<API>; dispose: () => boolean } {
+    return defineFeatureRuntime(name, keyConfig, definition)
+  }
+
+  getFeature(featureName: string): FeatureAPI {
+    return getFeatureRuntime(featureName)
+  }
+
+  unregisterFeature(featureName: string): boolean {
+    return unregisterFeatureRuntime(featureName)
   }
 
   defineSelection(

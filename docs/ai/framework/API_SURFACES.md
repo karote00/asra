@@ -31,6 +31,18 @@ Lifecycle and integration:
     - `valueKeys` defaults to `persistKeys - unitKeys`
   - design contract: property components should remain data-focused; app-level business behavior (auto-layout, unit-conversion workflows) belongs in app APIs/features.
 - `unregisterPropertyComponent(type: string): boolean`
+- `unregisterPropertyRegistration(type: string): PropertyRegistrationUnregisterResult`
+  - removes the property schema and runtime constructor as one registration only
+    when no live or replay-retained property instance still uses the type
+  - returns `{ ok: false, code: 'PROPERTY_REGISTRATION_NOT_FOUND', ... }` for a
+    missing type and throws `PropertyRegistrationError` with
+    `PROPERTY_TYPE_IN_USE` before changing either registry when cleanup is unsafe
+- `defineFeature(name, keyConfig, definition): { api: FeatureAPI; dispose: () => boolean }`
+- `getFeature(name: string): FeatureAPI`
+- `unregisterFeature(name: string): boolean`
+  - unregister rejects an active feature with `FeatureUnregisterError` and
+    otherwise removes its pending execution/session handlers plus owned input or
+    reactive-event subscriptions
 - `registerSaveHook(hook: SaveHook): void`
 - `registerLoadHook(hook: LoadHook): void`
 - `registerLoadDiagnosticsHook(hook: LoadDiagnosticsHook): () => void` (returns disposer/unsubscribe)
@@ -135,9 +147,12 @@ Managed property bridges:
 - default `core` singleton, `Core` class
 - `defineComponent`, `unregisterComponent`
 - `definePropertyComponent`, `unregisterPropertyComponent`
+- property registration lifecycle helpers: `unregisterPropertySchema`,
+  `unregisterPropertyRegistration`, `PropertyRegistrationError`
 - props-manager registry re-export: `elementPropertyRegistry`
 - feature-system bridge exports: `initFeatureSystem`, `getFeatureRegistry`, `getSessionManager`
 - feature authoring helpers: `defineFeature`, `getFeature`, `unregisterFeature`
+- feature lifecycle error: `FeatureUnregisterError`
 - input mapping helper re-export: `keyMap`
 - vector types: `VectorAnchorPoint`, `VectorPathStyle`
 - render layer types: `RenderLayerRegistration`, `RegisterRenderLayerOptions`
