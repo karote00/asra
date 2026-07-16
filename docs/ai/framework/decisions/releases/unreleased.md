@@ -1138,7 +1138,7 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
     property, component, render, or feature capabilities are not equivalent.
 - Decision:
   - Use `applyPreset(core) -> remove/define relations -> optional capability
-    unregister -> app migration -> core.start()` as the public app route.
+unregister -> app migration -> core.start()` as the public app route.
   - Keep one Core-owned registration graph with stable identity, owner metadata,
     deterministic traversal, explicit `detach`/`unregister-source` policies, and
     retryable lifecycle cleanup.
@@ -1154,6 +1154,10 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
     dependents and owned resources without inferring semantic equivalence.
   - Preset exports pure component definitions and separate render strategies;
     import alone has no component registration side effect.
+  - One `PresetApplication` lifetime now owns both graph registrations and its
+    event, selection, shared-channel, subscription, observer, and render-layer
+    wiring. Dispose/apply rollback preserves app-owned channels and retries only
+    pending cleanup without rerunning completed cleanup.
   - Generic Preset Composition, product profiles, render-mode selection, and
     multi-engine composition remain outside this plan.
 - Related Plan:

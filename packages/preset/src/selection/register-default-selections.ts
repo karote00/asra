@@ -38,12 +38,35 @@ const DEFAULT_SELECTION_FACTORIES: Record<SelectionChannel, SelectionFactory> =
   ) as Record<SelectionChannel, SelectionFactory>
 
 export const registerSelections = (
-  core: Pick<PresetCoreAPIs, 'defineSelection' | 'getSelection'>
-): void => {
-  Object.entries(DEFAULT_SELECTION_FACTORIES).forEach(([channel, create]) => {
-    const selectionChannel = channel as SelectionChannel
-    if (!core.getSelection(selectionChannel)) {
-      core.defineSelection(selectionChannel, create())
+  core: Pick<
+    PresetCoreAPIs,
+    'defineSelection' | 'unregisterSelection' | 'getSelection'
+  >
+): (() => void) => {
+  const registeredChannels: SelectionChannel[] = []
+  let disposed = false
+
+  const dispose = (): void => {
+    if (disposed) return
+    for (let index = registeredChannels.length - 1; index >= 0; index--) {
+      core.unregisterSelection(registeredChannels[index])
+      registeredChannels.splice(index, 1)
     }
-  })
+    disposed = true
+  }
+
+  try {
+    Object.entries(DEFAULT_SELECTION_FACTORIES).forEach(([channel, create]) => {
+      const selectionChannel = channel as SelectionChannel
+      if (!core.getSelection(selectionChannel)) {
+        core.defineSelection(selectionChannel, create())
+        registeredChannels.push(selectionChannel)
+      }
+    })
+  } catch (error) {
+    dispose()
+    throw error
+  }
+
+  return dispose
 }

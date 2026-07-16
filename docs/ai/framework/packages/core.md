@@ -31,6 +31,7 @@ System orchestrator and lifecycle coordinator.
 - register/unregister render strategies and UI properties
 - query registration nodes, owners, and relations
 - register render layers
+- register/unregister event definitions and selection channels
 - register render interaction targets + handlers
 - register render YJS change observers (`name + channel + onChange`)
 - register UI/system managed properties
@@ -93,7 +94,11 @@ System orchestrator and lifecycle coordinator.
 - feature removal disposes the feature owner's pending handlers and exact event
   subscriptions; an active feature must be ended before removal
 - data-channel observer registration resolves shared data by channel name, not raw YJS object instances
-- default shared data-channel registration lifecycle is preset-owned (core/factory provide APIs only)
+- default shared data-channel registration lifecycle is preset-owned
+  (core/factory provide register/unregister APIs only)
+- the strict preset install tier includes owner cleanup façades for events,
+  selections, render layers, and data-channel observers; Core coordinates these
+  calls but does not own preset lifetime policy
 
 3. Load/save contract
 

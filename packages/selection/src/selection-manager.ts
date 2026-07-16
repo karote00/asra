@@ -14,6 +14,16 @@ class SelectionManager {
     return this.selections.get(type)
   }
 
+  unregister(type: string): boolean {
+    const selection = this.selections.get(type)
+    if (!selection) {
+      return false
+    }
+
+    selection.dispose()
+    return this.selections.delete(type)
+  }
+
   getChannelByAction(action: string): string | undefined {
     for (const [channel, selection] of this.selections.entries()) {
       if (

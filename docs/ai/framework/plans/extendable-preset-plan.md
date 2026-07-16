@@ -59,7 +59,7 @@ Out of scope:
 - Before renderer side effects, `start()` validates that every declared
   relation resolves to a registered target.
 - Migration stays app-owned. File loading remains `migration -> validation ->
-  load`; registration mutation does not migrate persisted data.
+load`; registration mutation does not migrate persisted data.
 
 ### Operation semantics
 
@@ -243,7 +243,12 @@ incomingRelationsByTarget
 - Property, component, render, feature, and UI defaults write automatic owner
   metadata and declared dependencies into the supplied Core graph.
 - `PresetApplication.dispose()` uses the same canonical graph. Registrations
-  already removed through Core are completed and are not cleaned twice.
+  already removed through Core are completed and are not cleaned twice. Its
+  application lifetime also owns the events, selections, shared channels,
+  system subscriptions, data-channel observers, and render layers installed by
+  that call. Cleanup failures remain retryable and completed cleanup is not
+  repeated. Graph disposal is preflighted before runtime teardown so a closed
+  composition cannot partially dismantle active wiring.
 
 ### App composition
 
@@ -300,7 +305,9 @@ core.unregisterPropertyType(PropertyTypes.FILLS)
 9. Feature unregister removes queued handlers, sessions, listeners, and
    subscriptions without stale behavior.
 10. Direct Core unregister followed by `PresetApplication.dispose()` does not
-    perform owned cleanup twice.
+    perform owned cleanup twice; late apply failure and disposal remove runtime
+    events, selections, channels, subscriptions, observers, and layers without
+    stale callbacks, and retry only pending cleanup.
 11. Migration runs before validation; migrated data loads, while an unknown
     unregistered property type is diagnosed and skipped instead of becoming
     `CUSTOM`.

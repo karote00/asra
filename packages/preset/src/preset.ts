@@ -29,6 +29,14 @@ import type {
 
 const refKey = (ref: RegistrationRef): string => `${ref.kind}\u0000${ref.key}`
 
+interface PresetCleanupEntry {
+  key: string
+  dispose: () => void
+  completed: boolean
+}
+
+type RegisterPresetCleanup = (key: string, dispose: () => void) => void
+
 const isApplyPresetOptions = (
   value: PresetDependencies | ApplyPresetOptions
 ): value is ApplyPresetOptions =>
@@ -77,30 +85,69 @@ const installPresetRegistrations = (core: PresetCoreAPIs): void => {
 
 const registerPresetRuntimeWiring = (
   core: PresetCoreAPIs,
-  resolvedDeps: PresetDependencies
+  resolvedDeps: PresetDependencies,
+  registerCleanup: RegisterPresetCleanup
 ): void => {
   registerProperties(core)
-  registerDefaultSharedDataChannels()
-  registerDefaultRenderSystemSubscriptions(core, resolvedDeps)
-  registerDefaultDataChannelObservers(core, resolvedDeps)
-  registerSelectionOverlayRenderLayer(
-    (registration, options) => core.registerRenderLayer(registration, options),
-    {
-      render: resolvedDeps.render,
-      sceneTree: resolvedDeps.sceneTree,
-      systemContext: resolvedDeps.systemContext,
-      getSelection: (type) => core.getSelection(type)
-    }
+  registerCleanup('shared-data-channels', registerDefaultSharedDataChannels())
+  registerCleanup(
+    'render-system-subscriptions',
+    registerDefaultRenderSystemSubscriptions(core, resolvedDeps)
   )
-  registerVectorPathEditingRenderLayer(
-    (registration, options) => core.registerRenderLayer(registration, options),
-    {
-      getSelection: (type) => core.getSelection(type),
-      render: resolvedDeps.render,
-      sceneTree: resolvedDeps.sceneTree,
-      systemContext: resolvedDeps.systemContext
-    }
+  registerCleanup(
+    'data-channel-observers',
+    registerDefaultDataChannelObservers(core, resolvedDeps)
   )
+  registerCleanup(
+    'render-layer:selection-overlay',
+    registerTrackedRenderLayer(core, (registerRenderLayer) => {
+      registerSelectionOverlayRenderLayer(registerRenderLayer, {
+        render: resolvedDeps.render,
+        sceneTree: resolvedDeps.sceneTree,
+        systemContext: resolvedDeps.systemContext,
+        getSelection: (type) => core.getSelection(type)
+      })
+    })
+  )
+  registerCleanup(
+    'render-layer:vector-path-editing',
+    registerTrackedRenderLayer(core, (registerRenderLayer) => {
+      registerVectorPathEditingRenderLayer(registerRenderLayer, {
+        getSelection: (type) => core.getSelection(type),
+        render: resolvedDeps.render,
+        sceneTree: resolvedDeps.sceneTree,
+        systemContext: resolvedDeps.systemContext
+      })
+    })
+  )
+}
+
+const registerTrackedRenderLayer = (
+  core: PresetCoreAPIs,
+  install: (registerRenderLayer: PresetCoreAPIs['registerRenderLayer']) => void
+): (() => void) => {
+  const registeredLayerNames: string[] = []
+  let disposed = false
+  const dispose = (): void => {
+    if (disposed) return
+    for (let index = registeredLayerNames.length - 1; index >= 0; index--) {
+      core.unregisterRenderLayer(registeredLayerNames[index])
+      registeredLayerNames.splice(index, 1)
+    }
+    disposed = true
+  }
+
+  try {
+    install((registration, options) => {
+      core.registerRenderLayer(registration, options)
+      registeredLayerNames.push(registration.name)
+    })
+  } catch (error) {
+    dispose()
+    throw error
+  }
+
+  return dispose
 }
 
 const unregisterPresetRegistration = (
@@ -136,7 +183,8 @@ const unregisterPresetRegistration = (
 
 const createPresetApplication = (
   core: PresetCoreAPIs,
-  registrationsBeforeApply: ReadonlySet<string>
+  registrationsBeforeApply: ReadonlySet<string>,
+  cleanupEntries: PresetCleanupEntry[]
 ): PresetApplication => {
   const ownedRefs = core
     .getRegistrations()
@@ -162,14 +210,55 @@ const createPresetApplication = (
 
       const removed: RegistrationRef[] = []
       const skipped: RegistrationRef[] = []
+      const cleanupFailures: { key: string; cause: unknown }[] = []
+      const pendingCleanup: string[] = []
+
       ;[...ownedRefs].reverse().forEach((ref) => {
-        if (!core.getRegistration(ref)) {
-          skipped.push(ref)
-          return
+        try {
+          const registration = core.getRegistration(ref)
+          if (
+            !registration ||
+            registration.owner.packageName !==
+              PRESET_REGISTRATION_OWNER.packageName ||
+            registration.owner.name !== PRESET_REGISTRATION_OWNER.name
+          ) {
+            skipped.push(ref)
+            return
+          }
+          unregisterPresetRegistration(core, ref)
+          removed.push(ref)
+        } catch (cause) {
+          const key = `registration:${ref.kind}:${ref.key}`
+          cleanupFailures.push({ key, cause })
+          pendingCleanup.push(key)
         }
-        unregisterPresetRegistration(core, ref)
-        removed.push(ref)
       })
+
+      if (cleanupFailures.length === 0) {
+        ;[...cleanupEntries].reverse().forEach((entry) => {
+          if (entry.completed) return
+          try {
+            entry.dispose()
+            entry.completed = true
+          } catch (cause) {
+            cleanupFailures.push({ key: entry.key, cause })
+            pendingCleanup.push(entry.key)
+          }
+        })
+      }
+
+      if (cleanupFailures.length > 0) {
+        throw new RegistrationRelationError({
+          ok: false,
+          code: 'UNREGISTER_FAILED',
+          operation: 'unregister-registration',
+          message: 'Preset disposal has pending lifecycle cleanup',
+          registration: { kind: 'preset', key: PRESET_REGISTRATION_OWNER.name },
+          cleanupFailures,
+          pendingCleanup
+        })
+      }
+
       disposed = true
       return {
         ok: true,
@@ -192,16 +281,24 @@ export const applyPreset = (
     resolvePresetComposition(core, dependenciesOrOptions)
 
   resolvedDeps.render.setEngineFactory(renderEngineFactory)
-  registerEvents(core)
+  const cleanupEntries: PresetCleanupEntry[] = []
+  const registerCleanup: RegisterPresetCleanup = (key, dispose) => {
+    cleanupEntries.push({ key, dispose, completed: false })
+  }
 
   try {
+    registerCleanup('events', registerEvents(core))
     installPresetRegistrations(core)
-    registerSelections(core)
-    registerPresetRuntimeWiring(core, resolvedDeps)
+    registerCleanup('selections', registerSelections(core))
+    registerPresetRuntimeWiring(core, resolvedDeps, registerCleanup)
   } catch (error) {
-    createPresetApplication(core, registrationsBeforeApply).dispose()
+    createPresetApplication(
+      core,
+      registrationsBeforeApply,
+      cleanupEntries
+    ).dispose()
     throw error
   }
 
-  return createPresetApplication(core, registrationsBeforeApply)
+  return createPresetApplication(core, registrationsBeforeApply, cleanupEntries)
 }

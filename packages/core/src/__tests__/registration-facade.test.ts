@@ -158,6 +158,12 @@ describe('Core registration facade', () => {
     expect(presetApi.unregisterPropertyRegistration).toBe(
       core.unregisterPropertyRegistration
     )
+    expect(presetApi.unregisterEvent).toBe(core.unregisterEvent)
+    expect(presetApi.unregisterRenderLayer).toBe(core.unregisterRenderLayer)
+    expect(presetApi.unregisterSelection).toBe(core.unregisterSelection)
+    expect(presetApi.unregisterDataChannelObserver).toBe(
+      core.unregisterDataChannelObserver
+    )
   })
 
   it('creates configured runtime values without changing schema semantics', () => {

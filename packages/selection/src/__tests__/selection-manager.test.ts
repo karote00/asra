@@ -63,4 +63,18 @@ describe('SelectionManager', () => {
       manager.register('element', mockBaseSelection as unknown as BaseSelection)
     ).toThrow('Selection "element" is already registered')
   })
+
+  it('unregisters and disposes an owned selection', () => {
+    const selection = {
+      ...mockBaseSelection,
+      dispose: vi.fn()
+    }
+    manager.register('element', selection as unknown as BaseSelection)
+
+    expect(manager.unregister('element')).toBe(true)
+    expect(selection.dispose).toHaveBeenCalledTimes(1)
+    expect(manager.get('element')).toBeUndefined()
+    expect(manager.unregister('element')).toBe(false)
+    expect(selection.dispose).toHaveBeenCalledTimes(1)
+  })
 })

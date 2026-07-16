@@ -9,6 +9,7 @@ import type {
 } from '@asyra/core'
 import {
   PropertyTypes,
+  RegistrationRelationError,
   type PropertySchema,
   type RegistrationNodeMetadata,
   type RegistrationOwnerMetadata,
@@ -32,8 +33,14 @@ const createComposition = () => {
   const renderStrategies = new Set<string>()
   const uiProperties = new Set<string>()
   const features = new Set<string>()
+  const events = new Set<string>()
+  const dataChannelObservers = new Set<string>()
+  const renderLayers = new Set<string>()
+  const selections = new Map<string, unknown>()
   const registrations = new Map<string, RegistrationNodeMetadata>()
   const systemProperties = new Map<string, BehaviorSubject<unknown>>()
+  const zoomTo = vi.fn()
+  const panTo = vi.fn()
 
   const dependencies = {
     sceneTree: {
@@ -53,8 +60,8 @@ const createComposition = () => {
       getViewportPosition: () => ({ x: 0, y: 0 }),
       getViewportScale: () => 1,
       getMousePosInWorkspace: () => ({ x: 0, y: 0 }),
-      zoomTo: () => undefined,
-      panTo: () => undefined
+      zoomTo,
+      panTo
     }
   } as unknown as PresetDependencies
 
@@ -103,13 +110,28 @@ const createComposition = () => {
 
   const core = {
     getPresetDependencies: () => dependencies,
-    registerEvent: vi.fn((event: string | { eventName: string }) => ({
-      eventName: typeof event === 'string' ? event : event.eventName,
-      publish: vi.fn(),
-      subscribe: () => new Subscription()
-    })),
-    registerDataChannelObserver: vi.fn(),
-    registerRenderLayer: vi.fn(),
+    registerEvent: vi.fn((event: string | { eventName: string }) => {
+      const eventName = typeof event === 'string' ? event : event.eventName
+      events.add(eventName)
+      return {
+        eventName,
+        publish: vi.fn(),
+        subscribe: () => new Subscription()
+      }
+    }),
+    unregisterEvent: vi.fn((event: string | { eventName: string }) =>
+      events.delete(typeof event === 'string' ? event : event.eventName)
+    ),
+    registerDataChannelObserver: vi.fn((registration: { name: string }) => {
+      dataChannelObservers.add(registration.name)
+    }),
+    unregisterDataChannelObserver: vi.fn((name: string) =>
+      dataChannelObservers.delete(name)
+    ),
+    registerRenderLayer: vi.fn((registration: { name: string }) => {
+      renderLayers.add(registration.name)
+    }),
+    unregisterRenderLayer: vi.fn((name: string) => renderLayers.delete(name)),
     registerPropertySchema: vi.fn(
       (
         schema: PropertySchema,
@@ -191,8 +213,11 @@ const createComposition = () => {
     ),
     getFeature: vi.fn(),
     unregisterFeature,
-    defineSelection: vi.fn(),
-    getSelection: () => undefined,
+    defineSelection: vi.fn((type: string, selection: unknown) => {
+      selections.set(type, selection)
+    }),
+    unregisterSelection: vi.fn((type: string) => selections.delete(type)),
+    getSelection: (type: string) => selections.get(type),
     defineUIProperty: vi.fn(
       (
         key: string,
@@ -216,7 +241,9 @@ const createComposition = () => {
     getSystemPropertyObservable: <T>(key: string) =>
       systemProperties.get(key) as BehaviorSubject<T> | undefined,
     createRenderGradientFillStyle: vi.fn(),
-    getRegistration: (ref: RegistrationRef) => registrations.get(refKey(ref)),
+    getRegistration: vi.fn((ref: RegistrationRef) =>
+      registrations.get(refKey(ref))
+    ),
     getRegistrations: () => [...registrations.values()],
     getRegistrationRelations: () => []
   } as unknown as PresetCoreAPIs
@@ -229,7 +256,14 @@ const createComposition = () => {
     renderStrategies,
     uiProperties,
     features,
+    events,
+    dataChannelObservers,
+    renderLayers,
+    selections,
     registrations,
+    systemProperties,
+    zoomTo,
+    panTo,
     unregisterComponent,
     unregisterRenderStrategy,
     unregisterUIProperty,
@@ -338,6 +372,148 @@ describe('preset startup composition contract', () => {
     expect(components.size).toBe(0)
     expect(renderStrategies.size).toBe(0)
     expect(registrations.size).toBe(0)
+  })
+
+  it('rolls back runtime wiring after a late failure and permits a clean retry', async () => {
+    vi.resetModules()
+    const { applyPreset: isolatedApplyPreset } = await import('../preset')
+    const {
+      core,
+      events,
+      dataChannelObservers,
+      renderLayers,
+      selections,
+      systemProperties,
+      zoomTo
+    } = createComposition()
+    const zoom = new BehaviorSubject(1)
+    systemProperties.set('zoom', zoom as BehaviorSubject<unknown>)
+
+    let renderLayerRegistrationCount = 0
+    vi.mocked(core.registerRenderLayer).mockImplementation(
+      (registration: { name: string }) => {
+        renderLayerRegistrationCount += 1
+        if (renderLayerRegistrationCount === 2) {
+          throw new Error('second render layer failed')
+        }
+        renderLayers.add(registration.name)
+      }
+    )
+
+    expect(() => isolatedApplyPreset(core)).toThrow(
+      'second render layer failed'
+    )
+    expect(events.size).toBe(0)
+    expect(dataChannelObservers.size).toBe(0)
+    expect(renderLayers.size).toBe(0)
+    expect(selections.size).toBe(0)
+
+    zoomTo.mockClear()
+    zoom.next(2)
+    expect(zoomTo).not.toHaveBeenCalled()
+
+    vi.mocked(core.registerRenderLayer).mockImplementation(
+      (registration: { name: string }) => {
+        renderLayers.add(registration.name)
+      }
+    )
+    const application = isolatedApplyPreset(core)
+    expect(events.size).toBeGreaterThan(0)
+    expect(dataChannelObservers.size).toBeGreaterThan(0)
+    expect(renderLayers.size).toBe(2)
+    expect(selections.size).toBeGreaterThan(0)
+
+    expect(application.dispose()).toMatchObject({ ok: true })
+    expect(events.size).toBe(0)
+    expect(dataChannelObservers.size).toBe(0)
+    expect(renderLayers.size).toBe(0)
+    expect(selections.size).toBe(0)
+
+    const reappliedApplication = isolatedApplyPreset(core)
+    expect(reappliedApplication.dispose()).toMatchObject({ ok: true })
+  })
+
+  it('retries only pending preset lifecycle cleanup after a disposal failure', () => {
+    const { core, renderLayers } = createComposition()
+    const application = applyPreset(core)
+    const vectorLayerName = [...renderLayers].at(-1)
+    const cleanupAttempts: string[] = []
+    let shouldFailVectorCleanup = true
+
+    vi.mocked(core.unregisterRenderLayer).mockImplementation((name: string) => {
+      cleanupAttempts.push(name)
+      if (name === vectorLayerName && shouldFailVectorCleanup) {
+        shouldFailVectorCleanup = false
+        throw new Error('vector layer cleanup failed')
+      }
+      return renderLayers.delete(name)
+    })
+
+    let cleanupError: unknown
+    try {
+      application.dispose()
+    } catch (error) {
+      cleanupError = error
+    }
+    expect(cleanupError).toBeInstanceOf(RegistrationRelationError)
+    expect((cleanupError as RegistrationRelationError).result).toMatchObject({
+      code: 'UNREGISTER_FAILED',
+      pendingCleanup: ['render-layer:vector-path-editing']
+    })
+    expect(renderLayers).toEqual(new Set([vectorLayerName]))
+
+    cleanupAttempts.length = 0
+    expect(application.dispose()).toMatchObject({ ok: true })
+    expect(cleanupAttempts).toEqual([vectorLayerName])
+    expect(renderLayers.size).toBe(0)
+
+    cleanupAttempts.length = 0
+    expect(application.dispose()).toMatchObject({ ok: true })
+    expect(cleanupAttempts).toEqual([])
+  })
+
+  it('does not tear down runtime wiring when graph disposal preflight is closed', () => {
+    const {
+      core,
+      events,
+      dataChannelObservers,
+      renderLayers,
+      selections,
+      registrations
+    } = createComposition()
+    const application = applyPreset(core)
+    vi.mocked(core.getRegistration).mockImplementation(() => {
+      throw new RegistrationRelationError({
+        ok: false,
+        code: 'COMPOSITION_CLOSED',
+        operation: 'unregister-registration',
+        message: 'Registration composition is permanently closed'
+      })
+    })
+
+    let cleanupError: unknown
+    try {
+      application.dispose()
+    } catch (error) {
+      cleanupError = error
+    }
+    const retainedRuntimeSizes = {
+      events: events.size,
+      observers: dataChannelObservers.size,
+      layers: renderLayers.size,
+      selections: selections.size
+    }
+
+    vi.mocked(core.getRegistration).mockImplementation((ref) =>
+      registrations.get(refKey(ref))
+    )
+    application.dispose()
+
+    expect(cleanupError).toBeInstanceOf(RegistrationRelationError)
+    expect(retainedRuntimeSizes.events).toBeGreaterThan(0)
+    expect(retainedRuntimeSizes.observers).toBeGreaterThan(0)
+    expect(retainedRuntimeSizes.layers).toBe(2)
+    expect(retainedRuntimeSizes.selections).toBeGreaterThan(0)
   })
 
   it('customizes actual rectangle and oval relations before startup without removing their property targets', () => {

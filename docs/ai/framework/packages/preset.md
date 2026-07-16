@@ -14,8 +14,8 @@ composition; it does not own app policy or framework runtime semantics.
   observer wiring
 - default `@asyra/render-engine-pixi` factory selection/injection
 - stable owner metadata `{ packageName: '@asyra/preset', name: 'default-preset' }`
-- one `PresetApplication` handle for graph-owned registrations installed by an
-  `applyPreset` call
+- one `PresetApplication` handle for graph registrations and runtime wiring
+  installed by an `applyPreset` call
 
 ## Must Not Own
 
@@ -46,9 +46,15 @@ composition; it does not own app policy or framework runtime semantics.
   dependencies through local `registration.relations`; Core derives structural
   component and config-child relations automatically.
 - `PresetApplication.dispose()` uses Core graph-aware unregister APIs, skips a
-  node already removed through Core, and never cleans it twice.
-- if later preset wiring fails, `applyPreset` disposes graph-owned defaults
-  installed by that call before rethrowing.
+  The same handle removes its events, selections, preset-owned shared channels,
+  system subscriptions, data-channel observers, and render layers. App-owned
+  pre-existing shared channels are preserved.
+- cleanup failure reports pending resource keys through
+  `RegistrationRelationError`; retry runs only pending cleanup.
+- graph disposal is preflighted before runtime teardown, so disposal rejected by
+  a closed composition does not partially dismantle active wiring.
+- if later preset wiring fails, `applyPreset` disposes all graph and runtime
+  defaults installed by that call before rethrowing.
 
 ## App Customization Route
 
@@ -95,5 +101,7 @@ does not infer that unregistering one should unregister the other.
 - owner metadata and declared relations are queryable through Core
 - direct Core unregister followed by `PresetApplication.dispose()` does not
   repeat cleanup
+- failed apply/dispose leaves no stale event, selection, channel, subscription,
+  observer, or render-layer wiring; cleanup retry does not repeat completed work
 - custom engine composition remains engine-neutral and never derives product
   mode

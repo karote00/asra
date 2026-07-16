@@ -83,8 +83,10 @@ Feature/runtime wiring:
 - `initFeatureSystem(packages: CorePackages): void`
 - `setupInputSystem(watchedElement?: HTMLElement): void`
 - `registerEvent(event: string | EventDefinition<TPayload, TOptions>): EventRegistration<TPayload, TOptions>` (register custom event channels in `@asyra/reactive-events` and get publish/subscribe handles)
+- `unregisterEvent(event: string | EventDefinition): boolean`
 - `defineSelection(type: string, selection: Selection): void` (primary declaration API for selection channel registration)
 - `registerSelection(type: string, selection: Selection): void` (compatibility alias of `defineSelection`)
+- `unregisterSelection(type: string): boolean` (disposes and removes the owned selection runtime)
 - `getSelection(type: string): Selection | undefined`
 
 Render bridge:
@@ -331,9 +333,11 @@ Managed property bridges:
   bundle path
 - `applyPreset(core, { renderEngineFactory, dependencies? })` replaces the
   Pixi default with a contract-compatible custom factory
-- returns a `PresetApplication` whose `dispose()` removes the graph-owned
-  registrations installed by that call and skips nodes already removed through
-  Core
+- returns a `PresetApplication` whose `dispose()` removes graph registrations
+  plus preset-installed events, selections, owned shared channels,
+  subscriptions, data-channel observers, and render layers; it preserves
+  app-owned shared channels, skips nodes already removed through Core, and
+  retries only pending cleanup after a structured cleanup failure
 - exports pure component definitions and separate render strategies for
   Rectangle, Oval, Vector, Frame, and Group; importing preset modules has no
   component-registration side effect

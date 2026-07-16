@@ -8,6 +8,7 @@ import {
   uiContext,
   subscribeToEndTransaction,
   subscribeToFileLoadComplete,
+  type DataChannelObserverRegistration,
   type SelectElementsEvent,
   type SelectVectorPointsEvent,
   type SelectVectorSegmentsEvent
@@ -585,15 +586,52 @@ const createSelectionChangeFromDirectEvent = (
   } as SelectionChange
 }
 
-let hasRegistered = false
+interface RuntimeSubscription {
+  unsubscribe(): void
+}
 
-// Register preset default shared-channel observers once.
+// Register preset default shared-channel observers for one preset lifetime.
 export const registerDefaultDataChannelObservers = (
   core: PresetCoreAPIs,
   deps: PresetDependencies
-): void => {
-  if (hasRegistered) {
-    return
+): (() => void) => {
+  const eventSubscriptions: RuntimeSubscription[] = []
+  const registeredObserverNames: string[] = []
+  let disposed = false
+
+  const dispose = (): void => {
+    if (disposed) return
+
+    const failures: unknown[] = []
+    for (let index = registeredObserverNames.length - 1; index >= 0; index--) {
+      const name = registeredObserverNames[index]
+      try {
+        core.unregisterDataChannelObserver(name)
+        registeredObserverNames.splice(index, 1)
+      } catch (error) {
+        failures.push(error)
+      }
+    }
+    for (let index = eventSubscriptions.length - 1; index >= 0; index--) {
+      try {
+        eventSubscriptions[index].unsubscribe()
+        eventSubscriptions.splice(index, 1)
+      } catch (error) {
+        failures.push(error)
+      }
+    }
+    resetPendingUIContextSync()
+
+    if (failures.length > 0) {
+      throw failures[0]
+    }
+    disposed = true
+  }
+  const registerObserver = <TChange>(
+    registration: DataChannelObserverRegistration<TChange>
+  ): void => {
+    core.registerDataChannelObserver(registration)
+    registeredObserverNames.push(registration.name)
   }
 
   const uiContextSceneTreeDataChannelObserver = defineDataChannelObserver({
@@ -621,91 +659,107 @@ export const registerDefaultDataChannelObservers = (
       applySelectionChangeToRuntime(core, change)
   })
 
-  subscribeToFileLoadComplete(() => {
-    resetPendingUIContextSync()
-    renderSceneTreeStore.reload()
-    syncFlattenedElementIds(deps)
-    syncElementDataMap(deps)
-    syncElementSelectionAndDerived(core, deps)
-    syncVectorSelections(core)
-  })
+  try {
+    eventSubscriptions.push(
+      subscribeToFileLoadComplete(() => {
+        resetPendingUIContextSync()
+        renderSceneTreeStore.reload()
+        syncFlattenedElementIds(deps)
+        syncElementDataMap(deps)
+        syncElementSelectionAndDerived(core, deps)
+        syncVectorSelections(core)
+      })
+    )
 
-  subscribeToEndTransaction(() => {
-    flushPendingUIContextSync(core, deps)
-  })
+    eventSubscriptions.push(
+      subscribeToEndTransaction(() => {
+        flushPendingUIContextSync(core, deps)
+      })
+    )
 
-  // Undo/redo publishes selection events directly from transaction history.
-  // Apply those payloads to runtime so selection state is restored correctly.
-  subscribeToSynchronousEvent<SelectElementsEvent>(
-    EventTypes.SELECT_ELEMENTS,
-    (event) => {
-      const change = createSelectionChangeFromDirectEvent(
-        SelectionChannels.ELEMENT,
-        SelectionActions.SELECT_ELEMENTS,
-        SelectionEventNames.SELECT_ELEMENTS,
-        event.payload,
-        event.options
+    // Undo/redo publishes selection events directly from transaction history.
+    // Apply those payloads to runtime so selection state is restored correctly.
+    eventSubscriptions.push(
+      subscribeToSynchronousEvent<SelectElementsEvent>(
+        EventTypes.SELECT_ELEMENTS,
+        (event) => {
+          const change = createSelectionChangeFromDirectEvent(
+            SelectionChannels.ELEMENT,
+            SelectionActions.SELECT_ELEMENTS,
+            SelectionEventNames.SELECT_ELEMENTS,
+            event.payload,
+            event.options
+          )
+
+          applySelectionIdsToRuntime(
+            core,
+            SelectionChannels.ELEMENT,
+            change.after,
+            change.options
+          )
+
+          // Replay events bypass shared channel observers. Mirror them to render/UI.
+          updateRenderSelection(change)
+          updateUIContextSelection(change, core, deps)
+        }
       )
+    )
+    eventSubscriptions.push(
+      subscribeToSynchronousEvent<SelectVectorPointsEvent>(
+        EventTypes.SELECT_VECTOR_POINTS,
+        (event) => {
+          const change = createSelectionChangeFromDirectEvent(
+            SelectionChannels.VECTOR_POINT,
+            SelectionActions.SELECT_VECTOR_POINTS,
+            SelectionEventNames.SELECT_VECTOR_POINTS,
+            event.payload,
+            event.options
+          )
 
-      applySelectionIdsToRuntime(
-        core,
-        SelectionChannels.ELEMENT,
-        change.after,
-        change.options
+          applySelectionIdsToRuntime(
+            core,
+            SelectionChannels.VECTOR_POINT,
+            change.after,
+            change.options
+          )
+          updateRenderSelection(change)
+          updateUIContextSelection(change, core, deps)
+        }
       )
+    )
+    eventSubscriptions.push(
+      subscribeToSynchronousEvent<SelectVectorSegmentsEvent>(
+        EventTypes.SELECT_VECTOR_SEGMENTS,
+        (event) => {
+          const change = createSelectionChangeFromDirectEvent(
+            SelectionChannels.VECTOR_SEGMENT,
+            SelectionActions.SELECT_VECTOR_SEGMENTS,
+            SelectionEventNames.SELECT_VECTOR_SEGMENTS,
+            event.payload,
+            event.options
+          )
 
-      // Replay events bypass shared channel observers. Mirror them to render/UI.
-      updateRenderSelection(change)
-      updateUIContextSelection(change, core, deps)
-    }
-  )
-  subscribeToSynchronousEvent<SelectVectorPointsEvent>(
-    EventTypes.SELECT_VECTOR_POINTS,
-    (event) => {
-      const change = createSelectionChangeFromDirectEvent(
-        SelectionChannels.VECTOR_POINT,
-        SelectionActions.SELECT_VECTOR_POINTS,
-        SelectionEventNames.SELECT_VECTOR_POINTS,
-        event.payload,
-        event.options
+          applySelectionIdsToRuntime(
+            core,
+            SelectionChannels.VECTOR_SEGMENT,
+            change.after,
+            change.options
+          )
+          updateRenderSelection(change)
+          updateUIContextSelection(change, core, deps)
+        }
       )
+    )
 
-      applySelectionIdsToRuntime(
-        core,
-        SelectionChannels.VECTOR_POINT,
-        change.after,
-        change.options
-      )
-      updateRenderSelection(change)
-      updateUIContextSelection(change, core, deps)
-    }
-  )
-  subscribeToSynchronousEvent<SelectVectorSegmentsEvent>(
-    EventTypes.SELECT_VECTOR_SEGMENTS,
-    (event) => {
-      const change = createSelectionChangeFromDirectEvent(
-        SelectionChannels.VECTOR_SEGMENT,
-        SelectionActions.SELECT_VECTOR_SEGMENTS,
-        SelectionEventNames.SELECT_VECTOR_SEGMENTS,
-        event.payload,
-        event.options
-      )
+    registerObserver(renderSceneTreeDataChannelObserver)
+    registerObserver(selectionRuntimeDataChannelObserver)
+    registerObserver(renderSelectionDataChannelObserver)
+    registerObserver(uiContextSceneTreeDataChannelObserver)
+    registerObserver(uiContextSelectionDataChannelObserver)
+  } catch (error) {
+    dispose()
+    throw error
+  }
 
-      applySelectionIdsToRuntime(
-        core,
-        SelectionChannels.VECTOR_SEGMENT,
-        change.after,
-        change.options
-      )
-      updateRenderSelection(change)
-      updateUIContextSelection(change, core, deps)
-    }
-  )
-
-  core.registerDataChannelObserver(renderSceneTreeDataChannelObserver)
-  core.registerDataChannelObserver(selectionRuntimeDataChannelObserver)
-  core.registerDataChannelObserver(renderSelectionDataChannelObserver)
-  core.registerDataChannelObserver(uiContextSceneTreeDataChannelObserver)
-  core.registerDataChannelObserver(uiContextSelectionDataChannelObserver)
-  hasRegistered = true
+  return dispose
 }

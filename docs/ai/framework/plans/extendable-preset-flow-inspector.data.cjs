@@ -90,20 +90,26 @@
         'Component properties and property children produce structural detach relations automatically.',
         'Feature, render, UI, and custom-constructor dependencies are declared only on their local registration definitions.',
         'applyPreset(core), explicit dependency overload, and render-engine factory overload remain compatible.',
-        'PresetApplication.dispose() uses the same canonical graph and treats nodes already removed through Core as completed cleanup.'
+        'PresetApplication.dispose() uses the same canonical graph and treats nodes already removed through Core as completed cleanup.',
+        'One preset lifetime owns its events, selections, shared channels, system subscriptions, data-channel observers, render layers, and graph registrations.',
+        'Cleanup retry reports pending resources; completed cleanup does not run again.',
+        'Preset disposal completes graph preflight before runtime teardown so a closed composition leaves active wiring intact.'
       ],
       bypasses: [
         'An app that skips the preset receives no preset registrations or side effects.',
-        'An already-unregistered node is not cleaned a second time during preset disposal.'
+        'An already-unregistered node is not cleaned a second time during preset disposal.',
+        'Shared channels supplied before applyPreset remain app-owned and survive preset disposal.'
       ],
       allowedContributors: [
         '@asyra/core public registration facade',
         'preset-owned exported definitions',
-        'preset-owned application cleanup handles'
+        'preset-owned application cleanup handles',
+        'package-owned unregister and subscription disposer APIs'
       ],
       forbiddenContributors: [
         'app-specific customization policy',
         'preset import-time component registration',
+        'module-global one-shot flags that bypass a later Core lifetime',
         'preset-specific feature-registration target',
         'Generic Preset Composition',
         '2D, 3D, Hybrid, or multi-engine product selection'
@@ -119,8 +125,13 @@
         'packages/preset/src/components/**',
         'packages/preset/src/props/**',
         'packages/preset/src/render-strategies/**',
+        'packages/preset/src/render-layers/**',
+        'packages/preset/src/events/**',
+        'packages/preset/src/selection/**',
+        'packages/preset/src/subscriptions/**',
         'packages/preset/src/ui-properties/**',
         'packages/preset/src/__tests__/**',
+        'packages/selection/src/selection-manager.ts',
         'docs/ai/framework/ARCHITECTURE.md',
         'docs/ai/framework/CODING_STANDARDS.md',
         'docs/ai/framework/PLANS.md',

@@ -461,6 +461,10 @@ class Core implements CoreAPIs {
     return eventRegistry.register(event)
   }
 
+  unregisterEvent(event: string | EventDefinition): boolean {
+    return eventRegistry.unregister(event)
+  }
+
   subscribeEvent<TPayload = unknown, TOptions = unknown>(
     event: string | EventDefinition<TPayload, TOptions>,
     handler: (payload?: TPayload, options?: TOptions) => void
@@ -897,6 +901,12 @@ class Core implements CoreAPIs {
     selection: Parameters<SelectionManager['register']>[1]
   ): void {
     this.defineSelection(type, selection)
+  }
+
+  unregisterSelection(
+    type: Parameters<SelectionManager['unregister']>[0]
+  ): boolean {
+    return this.deps.selection.unregister(type)
   }
 
   getSelection(type: Parameters<SelectionManager['get']>[0]) {

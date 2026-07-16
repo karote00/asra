@@ -169,6 +169,12 @@ test('preset owns explicit default installation and graph-backed disposal', () =
   assert.match(contract, /@asyra\/preset\/default-preset/i)
   assert.match(contract, /same canonical graph/i)
   assert.match(contract, /not cleaned a second time/i)
+  assert.match(
+    contract,
+    /events.*selections.*subscriptions.*observers.*layers/i
+  )
+  assert.match(contract, /retry.*pending.*completed.*not.*run again/i)
+  assert.match(contract, /graph preflight.*before runtime teardown/i)
   assert.match(contract, /preset-specific feature-registration target/i)
   assert.ok(owner.implementationBoundary.includes('packages/core/src/core.ts'))
   assert.ok(

@@ -134,6 +134,7 @@ export type {
 export {
   getYjsDataChannel,
   registerSharedDataChannel,
+  unregisterSharedDataChannel,
   hasSharedDataChannel
 } from '@asyra/factory'
 export {
@@ -265,6 +266,7 @@ type CoreExtensionApiKeys =
   | 'setSystemProperty'
   | 'getSystemPropertyObservable'
   | 'registerEvent'
+  | 'unregisterEvent'
   | 'subscribeEvent'
   | 'registerPropertySchema'
   | 'getPropertySchema'
@@ -292,15 +294,19 @@ type CoreExtensionApiKeys =
   | 'getRegistrationRelations'
   | 'defineSelection'
   | 'registerSelection'
+  | 'unregisterSelection'
   | 'getSelection'
   | 'registerDataChannelObserver'
   | 'unregisterDataChannelObserver'
 
 type CorePresetInstallApiKeys =
   | 'registerEvent'
+  | 'unregisterEvent'
   | 'registerRenderLayer'
+  | 'unregisterRenderLayer'
   | 'createRenderGradientFillStyle'
   | 'registerDataChannelObserver'
+  | 'unregisterDataChannelObserver'
   | 'registerPropertySchema'
   | 'definePropertyComponent'
   | 'unregisterPropertyRegistration'
@@ -323,6 +329,7 @@ type CorePresetInstallApiKeys =
   | 'getRegistrations'
   | 'getRegistrationRelations'
   | 'defineSelection'
+  | 'unregisterSelection'
   | 'getSelection'
   | 'defineUIProperty'
   | 'defineSystemProperty'
