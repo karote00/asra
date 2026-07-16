@@ -297,6 +297,8 @@
         'packages/props-manager/src/manager/**',
         'packages/props-manager/src/types/**',
         'packages/props-manager/src/__tests__/**',
+        'packages/core/src/define-property-component.ts',
+        'packages/core/src/__tests__/define-property-component.test.ts',
         'docs/ai/framework/packages/props-manager.md'
       ],
       specRefs: [

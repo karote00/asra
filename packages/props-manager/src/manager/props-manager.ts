@@ -15,6 +15,7 @@ import type {
 } from '@asyra/utils'
 import { EventTypes, updateTransaction } from '@asyra/reactive-events'
 import { createProperty } from '../factories/create-property'
+import { getPropertyComponent } from '../registries/property-component'
 import { setComponentAccessor } from './component-accessor'
 
 export interface PropsLoadDiagnostic {
@@ -67,6 +68,13 @@ class PropsManager {
         diagnostics.push({
           path: `props.${componentId}.type`,
           message: 'Skipped property component with invalid type during load'
+        })
+        return
+      }
+      if (!getPropertyComponent(rawType)) {
+        diagnostics.push({
+          path: `props.${componentId}.type`,
+          message: `Skipped unregistered property component type "${rawType}" during load`
         })
         return
       }
@@ -296,6 +304,13 @@ class PropsManager {
   }
 
   dispose() {
+    const components = new Set([
+      ...this._components.values(),
+      ...this._deletedMap.values()
+    ])
+    components.forEach((component) => {
+      ;(component as unknown as { dispose?: () => void }).dispose?.()
+    })
     this._components.clear()
     this._deletedMap.clear()
     this.changes = []

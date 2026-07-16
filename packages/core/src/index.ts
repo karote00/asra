@@ -21,10 +21,16 @@ export type {
   UnregisterComponentSkippedEntry
 } from './define-component'
 export {
+  definePropertyChildRelation,
   definePropertyComponent,
+  getPropertyChildRelations,
+  removePropertyChildRelation,
   unregisterPropertyComponent
 } from './define-property-component'
-export type { PropertyComponentDefinition } from './define-property-component'
+export type {
+  PropertyChildRelationMetadata,
+  PropertyComponentDefinition
+} from './define-property-component'
 export {
   defineFeature,
   FeatureUnregisterError,

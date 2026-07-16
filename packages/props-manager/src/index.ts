@@ -6,6 +6,8 @@ import {
   propertyComponentRegistry,
   registerPropertyComponent,
   getPropertyComponent,
+  getPropertyComponentConfigDefinition,
+  replacePropertyComponentRegistration,
   unregisterPropertyComponent
 } from './registries/property-component'
 import { BasePropertyComponent } from './components'
@@ -24,6 +26,8 @@ export {
   propertyComponentRegistry,
   registerPropertyComponent,
   getPropertyComponent,
+  getPropertyComponentConfigDefinition,
+  replacePropertyComponentRegistration,
   unregisterPropertyComponent,
   BasePropertyComponent,
   getPropertyComponentAccessor
@@ -38,6 +42,10 @@ export {
 } from './registries/property-schema'
 export type { RegisterPropertySchemaOptions } from './registries/property-schema'
 export type { RegisterPropertyComponentOptions } from './registries/property-component'
+export type {
+  PropertyChildRelationDefinition,
+  PropertyComponentConfigRegistration
+} from './registries/property-component'
 export type { PropertyComponentAccessor }
 export {
   PROPERTY_REGISTRATION_ERROR_CODES,

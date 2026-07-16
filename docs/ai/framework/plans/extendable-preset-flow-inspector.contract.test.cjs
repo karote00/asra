@@ -110,6 +110,11 @@ test('property owner rebuilds child relations without unknown CUSTOM fallback', 
   assert.match(contract, /no stale subscription/i)
   assert.match(contract, /replay-retained/i)
   assert.match(contract, /CUSTOM/i)
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'packages/core/src/define-property-component.ts'
+    )
+  )
 })
 
 test('Core closes composition permanently before renderer effects', () => {
