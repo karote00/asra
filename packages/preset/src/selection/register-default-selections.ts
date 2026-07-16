@@ -41,10 +41,12 @@ export const registerSelections = (
   core: Pick<
     PresetCoreAPIs,
     'defineSelection' | 'unregisterSelection' | 'getSelection'
-  >
+  >,
+  onCleanupReady?: (dispose: () => void) => void
 ): (() => void) => {
   const registeredChannels: SelectionChannel[] = []
   let disposed = false
+  let cleanupReported = false
 
   const dispose = (): void => {
     if (disposed) return
@@ -54,6 +56,11 @@ export const registerSelections = (
     }
     disposed = true
   }
+  const reportCleanupReady = (): void => {
+    if (cleanupReported || !onCleanupReady) return
+    onCleanupReady(dispose)
+    cleanupReported = true
+  }
 
   try {
     Object.entries(DEFAULT_SELECTION_FACTORIES).forEach(([channel, create]) => {
@@ -61,10 +68,11 @@ export const registerSelections = (
       if (!core.getSelection(selectionChannel)) {
         core.defineSelection(selectionChannel, create())
         registeredChannels.push(selectionChannel)
+        reportCleanupReady()
       }
     })
   } catch (error) {
-    dispose()
+    if (!cleanupReported) dispose()
     throw error
   }
 

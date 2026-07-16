@@ -593,11 +593,13 @@ interface RuntimeSubscription {
 // Register preset default shared-channel observers for one preset lifetime.
 export const registerDefaultDataChannelObservers = (
   core: PresetCoreAPIs,
-  deps: PresetDependencies
+  deps: PresetDependencies,
+  onCleanupReady?: (dispose: () => void) => void
 ): (() => void) => {
   const eventSubscriptions: RuntimeSubscription[] = []
   const registeredObserverNames: string[] = []
   let disposed = false
+  let cleanupReported = false
 
   const dispose = (): void => {
     if (disposed) return
@@ -627,11 +629,17 @@ export const registerDefaultDataChannelObservers = (
     }
     disposed = true
   }
+  const reportCleanupReady = (): void => {
+    if (cleanupReported || !onCleanupReady) return
+    onCleanupReady(dispose)
+    cleanupReported = true
+  }
   const registerObserver = <TChange>(
     registration: DataChannelObserverRegistration<TChange>
   ): void => {
     core.registerDataChannelObserver(registration)
     registeredObserverNames.push(registration.name)
+    reportCleanupReady()
   }
 
   const uiContextSceneTreeDataChannelObserver = defineDataChannelObserver({
@@ -670,12 +678,14 @@ export const registerDefaultDataChannelObservers = (
         syncVectorSelections(core)
       })
     )
+    reportCleanupReady()
 
     eventSubscriptions.push(
       subscribeToEndTransaction(() => {
         flushPendingUIContextSync(core, deps)
       })
     )
+    reportCleanupReady()
 
     // Undo/redo publishes selection events directly from transaction history.
     // Apply those payloads to runtime so selection state is restored correctly.
@@ -704,6 +714,7 @@ export const registerDefaultDataChannelObservers = (
         }
       )
     )
+    reportCleanupReady()
     eventSubscriptions.push(
       subscribeToSynchronousEvent<SelectVectorPointsEvent>(
         EventTypes.SELECT_VECTOR_POINTS,
@@ -727,6 +738,7 @@ export const registerDefaultDataChannelObservers = (
         }
       )
     )
+    reportCleanupReady()
     eventSubscriptions.push(
       subscribeToSynchronousEvent<SelectVectorSegmentsEvent>(
         EventTypes.SELECT_VECTOR_SEGMENTS,
@@ -750,6 +762,7 @@ export const registerDefaultDataChannelObservers = (
         }
       )
     )
+    reportCleanupReady()
 
     registerObserver(renderSceneTreeDataChannelObserver)
     registerObserver(selectionRuntimeDataChannelObserver)
@@ -757,7 +770,7 @@ export const registerDefaultDataChannelObservers = (
     registerObserver(uiContextSceneTreeDataChannelObserver)
     registerObserver(uiContextSelectionDataChannelObserver)
   } catch (error) {
-    dispose()
+    if (!cleanupReported) dispose()
     throw error
   }
 

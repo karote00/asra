@@ -449,6 +449,79 @@ describe('preset startup composition contract', () => {
     expect(registrations.size).toBe(0)
   })
 
+  it('retains retryable cleanup when shared-default installation and cleanup both fail', () => {
+    const { core, dependencies, events } = createComposition()
+    let registrationAttempts = 0
+    vi.mocked(core.registerEvent).mockImplementation(
+      (event: string | { eventName: string }) => {
+        registrationAttempts += 1
+        if (registrationAttempts === 2) {
+          throw new Error('later event registration failed')
+        }
+        const eventName = typeof event === 'string' ? event : event.eventName
+        events.add(eventName)
+        return {
+          eventName,
+          publish: vi.fn(),
+          subscribe: () => new Subscription()
+        }
+      }
+    )
+    let cleanupAttempts = 0
+    vi.mocked(core.unregisterEvent).mockImplementation(
+      (event: string | { eventName: string }) => {
+        cleanupAttempts += 1
+        if (cleanupAttempts === 1) {
+          throw new Error('event cleanup failed')
+        }
+        return events.delete(
+          typeof event === 'string' ? event : event.eventName
+        )
+      }
+    )
+
+    const cleanupError = captureCompositionError(() =>
+      applyPreset(core, { dependencies })
+    )
+
+    expect(cleanupError).toBeInstanceOf(PresetCompositionError)
+    expect((cleanupError as PresetCompositionError).result).toMatchObject({
+      code: 'CLEANUP_FAILED',
+      operation: 'apply-preset',
+      layer: 'cleanup',
+      cleanup: {
+        state: 'pending',
+        pending: ['events']
+      },
+      cause: {
+        cleanupFailures: [
+          expect.objectContaining({
+            key: 'events',
+            cause: expect.objectContaining({ message: 'event cleanup failed' })
+          })
+        ],
+        applyError: expect.objectContaining({
+          result: expect.objectContaining({
+            layer: 'shared-defaults',
+            cause: expect.objectContaining({
+              message: 'later event registration failed'
+            })
+          })
+        })
+      }
+    })
+    expect(events.size).toBe(1)
+    expect(cleanupAttempts).toBe(1)
+
+    const application = applyPreset(core, { dependencies })
+
+    expect(cleanupAttempts).toBe(2)
+    expect(application.result.state).toBe('completed')
+    expect(events.size).toBeGreaterThan(1)
+    expect(application.dispose()).toMatchObject({ ok: true })
+    expect(events.size).toBe(0)
+  })
+
   it('rolls back runtime wiring after a late failure and permits a clean retry', async () => {
     vi.resetModules()
     const { applyPreset: isolatedApplyPreset } = await import('../preset')

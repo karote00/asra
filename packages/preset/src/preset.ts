@@ -76,7 +76,8 @@ const createSharedPresetGroups = (
 ): readonly SharedPresetGroup[] => [
   {
     id: 'events',
-    install: () => registerCleanup('events', registerEvents(core))
+    install: () =>
+      registerEvents(core, (dispose) => registerCleanup('events', dispose))
   },
   {
     id: 'property-schemas',
@@ -106,7 +107,10 @@ const createSharedPresetGroups = (
   },
   {
     id: 'selections',
-    install: () => registerCleanup('selections', registerSelections(core))
+    install: () =>
+      registerSelections(core, (dispose) =>
+        registerCleanup('selections', dispose)
+      )
   },
   {
     id: 'ui-properties',
@@ -115,51 +119,51 @@ const createSharedPresetGroups = (
   {
     id: 'shared-data-channels',
     install: () =>
-      registerCleanup(
-        'shared-data-channels',
-        registerDefaultSharedDataChannels(core)
+      registerDefaultSharedDataChannels(core, (dispose) =>
+        registerCleanup('shared-data-channels', dispose)
       )
   },
   {
     id: 'render-system-subscriptions',
     install: () =>
-      registerCleanup(
-        'render-system-subscriptions',
-        registerDefaultRenderSystemSubscriptions(core, resolvedDeps)
+      registerDefaultRenderSystemSubscriptions(core, resolvedDeps, (dispose) =>
+        registerCleanup('render-system-subscriptions', dispose)
       )
   },
   {
     id: 'data-channel-observers',
     install: () =>
-      registerCleanup(
-        'data-channel-observers',
-        registerDefaultDataChannelObservers(core, resolvedDeps)
+      registerDefaultDataChannelObservers(core, resolvedDeps, (dispose) =>
+        registerCleanup('data-channel-observers', dispose)
       )
   },
   {
     id: 'render-layers',
     install: () => {
-      registerCleanup(
-        'render-layer:selection-overlay',
-        registerTrackedRenderLayer(core, (registerRenderLayer) => {
+      registerTrackedRenderLayer(
+        core,
+        (registerRenderLayer) => {
           registerSelectionOverlayRenderLayer(registerRenderLayer, {
             render: resolvedDeps.render,
             sceneTree: resolvedDeps.sceneTree,
             systemContext: resolvedDeps.systemContext,
             getSelection: (type) => core.getSelection(type)
           })
-        })
+        },
+        (dispose) => registerCleanup('render-layer:selection-overlay', dispose)
       )
-      registerCleanup(
-        'render-layer:vector-path-editing',
-        registerTrackedRenderLayer(core, (registerRenderLayer) => {
+      registerTrackedRenderLayer(
+        core,
+        (registerRenderLayer) => {
           registerVectorPathEditingRenderLayer(registerRenderLayer, {
             getSelection: (type) => core.getSelection(type),
             render: resolvedDeps.render,
             sceneTree: resolvedDeps.sceneTree,
             systemContext: resolvedDeps.systemContext
           })
-        })
+        },
+        (dispose) =>
+          registerCleanup('render-layer:vector-path-editing', dispose)
       )
     }
   }
@@ -199,10 +203,12 @@ const installSharedPresetDefaults = (
 
 const registerTrackedRenderLayer = (
   core: PresetCoreAPIs,
-  install: (registerRenderLayer: PresetCoreAPIs['registerRenderLayer']) => void
+  install: (registerRenderLayer: PresetCoreAPIs['registerRenderLayer']) => void,
+  onCleanupReady: (dispose: () => void) => void
 ): (() => void) => {
   const registeredLayerNames: string[] = []
   let disposed = false
+  let cleanupReported = false
   const dispose = (): void => {
     if (disposed) return
     for (let index = registeredLayerNames.length - 1; index >= 0; index--) {
@@ -211,14 +217,20 @@ const registerTrackedRenderLayer = (
     }
     disposed = true
   }
+  const reportCleanupReady = (): void => {
+    if (cleanupReported) return
+    onCleanupReady(dispose)
+    cleanupReported = true
+  }
 
   try {
     install((registration, options) => {
       core.registerRenderLayer(registration, options)
       registeredLayerNames.push(registration.name)
+      reportCleanupReady()
     })
   } catch (error) {
-    dispose()
+    if (!cleanupReported) dispose()
     throw error
   }
 

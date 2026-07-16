@@ -28,7 +28,8 @@ const DEFAULT_CHANNEL_NAMES = [
 ] as const
 
 export const registerDefaultSharedDataChannels = (
-  core: SharedChannelCore
+  core: SharedChannelCore,
+  onCleanupReady?: (dispose: () => void) => void
 ): (() => void) => {
   const channelLifetimes =
     channelLifetimesByCore.get(core) ??
@@ -36,6 +37,7 @@ export const registerDefaultSharedDataChannels = (
   channelLifetimesByCore.set(core, channelLifetimes)
   const acquiredChannels: SharedDataChannelName[] = []
   let disposed = false
+  let cleanupReported = false
 
   const dispose = (): void => {
     if (disposed) return
@@ -65,6 +67,11 @@ export const registerDefaultSharedDataChannels = (
     }
     disposed = true
   }
+  const reportCleanupReady = (): void => {
+    if (cleanupReported || !onCleanupReady) return
+    onCleanupReady(dispose)
+    cleanupReported = true
+  }
 
   try {
     DEFAULT_CHANNEL_NAMES.forEach((name) => {
@@ -72,6 +79,7 @@ export const registerDefaultSharedDataChannels = (
       if (lifetime) {
         lifetime.count += 1
         acquiredChannels.push(name)
+        reportCleanupReady()
         return
       }
 
@@ -82,9 +90,10 @@ export const registerDefaultSharedDataChannels = (
 
       channelLifetimes.set(name, { count: 1, ownedByPreset })
       acquiredChannels.push(name)
+      reportCleanupReady()
     })
   } catch (error) {
-    dispose()
+    if (!cleanupReported) dispose()
     throw error
   }
 
