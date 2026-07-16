@@ -22,6 +22,9 @@
 
 - `applyPreset(core)` registers framework defaults and selects the fresh Pixi
   engine factory without exposing it to the app
+- the current app uses the no-extension compatibility route; when app policy
+  needs customization, construct ordered public `PresetExtension[]` before this
+  call and pass `{ extensions }`
 - diagnostics: `initLoadDiagnostics()`
 - derived-state sync: `initSelectionCompatibility()`, `initPathEditingContinuation()`
 - capability init: `initAreaSelection()`, `initGradientFillEditing()`, `initVectorIconData()`
@@ -48,6 +51,13 @@
 ## Rules
 
 - Keep registration/init in deterministic order.
+- Apply preset extensions/replacements before diagnostics, capabilities,
+  input-system, and app feature initialization.
+- Prefer a target's documented direct strategy. If metadata does not support
+  it, apply defaults, require successful
+  `presetApplication.unregisterTarget(targetKey)`, then redefine through Core.
+- Do not continue redefine after missing target, active usage, or cleanup
+  failure; do not add duplicate tolerance or app exceptions to framework code.
 - Init modules must be idempotent (safe to call once, no duplicate registrations).
 - Foundation init is required for app boot (`input-system`, `features`).
 - Capability init is optional and scoped to a single feature area; it may:
@@ -62,3 +72,4 @@
 - Keep app startup concrete-engine-neutral; Preset owns default factory
   selection, `Render` owns the engine instance, and the app uses
   `RenderAdapter` only.
+- Renderer/engine capability must not select an app product mode.

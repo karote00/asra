@@ -77,3 +77,38 @@ Append-only rule: do not edit/delete prior entries; add a superseding entry when
   - Cross-scope hover/selection behavior is now deterministic across canvas interaction, content-panel interaction, and history replay.
 - Related App Plan:
   - `docs/ai/apps/asyra-design/plans/completed/hover-state-and-hover-selection-box-plan.md`
+
+## 2026-07-16 - Preset customization uses stable targets and owned lifecycle cleanup
+
+- Context:
+  - Preset feature/property defaults were static after registration, which made
+    app customization depend on framework or preset internals.
+  - Framework, preset, and app needed one deterministic extension/replacement
+    contract without introducing generic preset composition or product modes.
+- Decision:
+  - `@asyra/utils` owns stable target ordering, conflict/error results, and
+    retryable cleanup state.
+  - `@asyra/preset` owns stable property schema/runtime targets, the app feature
+    hook, default installers, and one returned application lifetime.
+  - Feature-system and props-manager retain runtime lifecycle ownership; Core
+    exposes only curated define/query/unregister delegates.
+  - Asyra Design keeps the compatible `applyPreset(core)` startup route and may
+    later choose public extensions or successful `unregisterTarget -> redefine`
+    without deep imports.
+- Consequences:
+  - Extension ordering and explicit replace are deterministic and queryable.
+  - Active usage and cleanup failures block fallback redefinition without
+    duplicate tolerance or hidden default state.
+  - Render-engine capability remains unrelated to product-mode selection.
+- Related Plan:
+  - `docs/ai/framework/plans/extendable-preset-plan.md`
+- Related Commit(s):
+  - `ac8b5ec14`
+  - `a9c395c22`
+  - `92e9a0f35`
+  - `71b12c1f4`
+  - `bf1a424bf`
+  - `fff9a72cd`
+  - `8009fb4c7`
+  - `85915a539`
+  - pending app/docs closeout commit

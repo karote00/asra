@@ -33,6 +33,9 @@
 
 - `applyPreset(core)` registers defaults and injects the fresh Pixi engine
   factory into the framework `Render` instance
+- the current app chooses the no-customization compatibility route; future
+  app-owned customization passes public `PresetExtension[]` to `applyPreset`
+  before diagnostics, capabilities, input-system, and feature initialization
 - diagnostics: `initLoadDiagnostics()`
 - derived-state sync: `initSelectionCompatibility()`, `initPathEditingContinuation()`
 - capability init: `initAreaSelection()`, `initGradientFillEditing()`, `initVectorIconData()`
@@ -63,6 +66,15 @@ Input -> Feature -> Common API/Controller -> Core/Framework State -> Render/UI-c
 - `controllers/*`: UI-triggered orchestration helpers
 - `init/*`: app startup, capability init, and property/derived-state wiring
 - `providers/*`: UI consumption adapters from ui-context/scene data
+
+Preset customization ownership:
+
+- framework registries/runtime own deterministic registration and cleanup
+- `@asyra/preset` owns default target metadata, installers, and application lifetime
+- app startup may choose public extend, explicit replace, or successful
+  `presetApplication.unregisterTarget(targetKey) -> core redefine`
+- app code must not deep-import preset internals or derive a product mode from
+  renderer/engine capabilities
 
 ## Key App State Surfaces
 

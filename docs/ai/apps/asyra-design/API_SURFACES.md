@@ -8,6 +8,12 @@ Import boundary:
 
 - `import { ...Apis } from 'src/common-apis'`
 - `import { defineFeature, getFeature, keyMap } from '@asyra/core'` for golden-path feature/input helpers
+- preset composition imports only public `applyPreset`,
+  `PRESET_EXTENSION_TARGETS`, and `PresetExtension` from `@asyra/preset`; custom
+  property type constants remain public `@asyra/utils` imports
+- app replacement uses `PresetApplication.unregisterTarget(...)` followed by
+  `core.defineFeature(...)`, `core.definePropertyComponent(...)`, or
+  `core.registerPropertySchema(...)` only after cleanup succeeds
 
 `elementApis` (`src/common-apis/element/index.ts`)
 
