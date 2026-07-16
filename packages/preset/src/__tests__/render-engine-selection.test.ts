@@ -12,7 +12,7 @@ const createComposition = (renderOverride?: PresetDependencies['render']) => {
   const sharedChannels = new Set<string>()
   const setEngineFactory = renderOverride
     ? vi.spyOn(renderOverride, 'setEngineFactory')
-    : vi.fn()
+    : vi.fn(() => vi.fn())
   const dependencies = {
     sceneTree: {
       getElementById: () => undefined,

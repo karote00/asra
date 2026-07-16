@@ -26,6 +26,8 @@ import type {
   PresetDependencies
 } from './types'
 import { resolvePresetComposition } from './composition/resolve'
+import { installCapabilityBundles } from './composition/bundles'
+import { createLayerInstallError } from './composition/error'
 
 const refKey = (ref: RegistrationRef): string => `${ref.kind}\u0000${ref.key}`
 
@@ -319,8 +321,12 @@ export const applyPreset = (
   const registrationsBeforeApply = new Set(
     core.getRegistrations().map(({ ref }) => refKey(ref))
   )
-  const { dependencies: resolvedDeps, renderEngineFactory } =
-    resolvePresetComposition(core, dependenciesOrOptions)
+  const {
+    dependencies: resolvedDeps,
+    engineId,
+    renderEngineFactory,
+    capabilityBundles
+  } = resolvePresetComposition(core, dependenciesOrOptions)
 
   const cleanupEntries: PresetCleanupEntry[] = []
   const registerCleanup: RegisterPresetCleanup = (key, dispose) => {
@@ -328,8 +334,36 @@ export const applyPreset = (
   }
 
   try {
-    installSharedPresetDefaults(core, resolvedDeps, registerCleanup)
-    resolvedDeps.render.setEngineFactory(renderEngineFactory)
+    const sharedGroups = installSharedPresetDefaults(
+      core,
+      resolvedDeps,
+      registerCleanup
+    )
+    const disposeEngineProvider =
+      resolvedDeps.render.setEngineFactory(renderEngineFactory)
+    if (typeof disposeEngineProvider !== 'function') {
+      throw createLayerInstallError({
+        message: 'Render did not return engine-provider cleanup ownership',
+        layer: 'concrete-engine',
+        engineId,
+        capabilityBundles: capabilityBundles.map(({ id }) => id),
+        completedLayers: sharedGroups.map(
+          (groupId) => `shared-defaults:${groupId}`
+        )
+      })
+    }
+    registerCleanup('render-engine-provider', disposeEngineProvider)
+    installCapabilityBundles({
+      core,
+      dependencies: resolvedDeps,
+      engineId,
+      bundles: capabilityBundles,
+      completedLayers: [
+        ...sharedGroups.map((groupId) => `shared-defaults:${groupId}`),
+        `concrete-engine:${engineId}`
+      ],
+      registerCleanup
+    })
   } catch (error) {
     const rollbackApplication = createPresetApplication(
       core,

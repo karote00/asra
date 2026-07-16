@@ -42,6 +42,7 @@ const createComposition = () => {
   const systemProperties = new Map<string, BehaviorSubject<unknown>>()
   const zoomTo = vi.fn()
   const panTo = vi.fn()
+  const engineProviderCleanup = vi.fn()
 
   const dependencies = {
     sceneTree: {
@@ -57,7 +58,7 @@ const createComposition = () => {
       })
     },
     render: {
-      setEngineFactory: vi.fn(),
+      setEngineFactory: vi.fn(() => engineProviderCleanup),
       getViewportPosition: () => ({ x: 0, y: 0 }),
       getViewportScale: () => 1,
       getMousePosInWorkspace: () => ({ x: 0, y: 0 }),
@@ -278,6 +279,7 @@ const createComposition = () => {
     systemProperties,
     zoomTo,
     panTo,
+    engineProviderCleanup,
     unregisterComponent,
     unregisterRenderStrategy,
     unregisterUIProperty,
@@ -931,5 +933,144 @@ describe('generic preset composition input validation', () => {
     })
     expect(core.registerEvent).not.toHaveBeenCalled()
     expect(dependencies.render.setEngineFactory).not.toHaveBeenCalled()
+  })
+})
+
+describe('generic preset capability bundle orchestration', () => {
+  it('installs selected bundles after engine bootstrap in caller-declared order with the public context', () => {
+    const { core, dependencies } = createComposition()
+    const timeline: string[] = []
+    const engineProviderCleanup = vi.fn()
+    vi.mocked(dependencies.render.setEngineFactory).mockImplementation(() => {
+      timeline.push('concrete-engine')
+      return engineProviderCleanup
+    })
+    const firstDispose = vi.fn()
+    const secondDispose = vi.fn()
+    const first = {
+      id: 'package/first',
+      owner: { packageName: '@product/first', name: 'first' },
+      requires: [],
+      install: vi.fn(() => {
+        timeline.push('package/first')
+        return { outputs: ['first-output'], dispose: firstDispose }
+      })
+    }
+    const second = {
+      id: 'package/second',
+      owner: { packageName: '@product/second', name: 'second' },
+      requires: ['package/first'],
+      install: vi.fn(() => {
+        timeline.push('package/second')
+        return { outputs: ['second-output'], dispose: secondDispose }
+      })
+    }
+
+    const application = applyPreset(core, {
+      dependencies,
+      engine: { id: '@product/render-engine', factory: vi.fn() },
+      capabilityBundles: [first, second]
+    })
+
+    expect(timeline).toEqual([
+      'concrete-engine',
+      'package/first',
+      'package/second'
+    ])
+    expect(first.install).toHaveBeenCalledWith({
+      core,
+      dependencies,
+      engineId: '@product/render-engine'
+    })
+    expect(second.install).toHaveBeenCalledWith({
+      core,
+      dependencies,
+      engineId: '@product/render-engine'
+    })
+    expect(application.dispose()).toMatchObject({ ok: true })
+    expect([
+      secondDispose.mock.invocationCallOrder[0],
+      firstDispose.mock.invocationCallOrder[0]
+    ]).toEqual(
+      [
+        secondDispose.mock.invocationCallOrder[0],
+        firstDispose.mock.invocationCallOrder[0]
+      ].sort((a, b) => a - b)
+    )
+  })
+
+  it('stops after a throwing bundle and cleans earlier bundle plus engine provider', () => {
+    const { core, dependencies, engineProviderCleanup, registrations } =
+      createComposition()
+    const firstDispose = vi.fn()
+    const first = {
+      id: 'package/first',
+      owner: { packageName: '@product/first', name: 'first' },
+      requires: [],
+      install: vi.fn(() => ({
+        outputs: ['first-output'],
+        dispose: firstDispose
+      }))
+    }
+    const second = {
+      id: 'package/second',
+      owner: { packageName: '@product/second', name: 'second' },
+      requires: ['package/first'],
+      install: vi.fn(() => {
+        throw new Error('bundle install failed')
+      })
+    }
+    const third = {
+      id: 'package/third',
+      owner: { packageName: '@product/third', name: 'third' },
+      requires: ['package/second'],
+      install: vi.fn(() => ({ outputs: ['third-output'], dispose: vi.fn() }))
+    }
+
+    const error = captureCompositionError(() =>
+      applyPreset(core, {
+        dependencies,
+        capabilityBundles: [first, second, third]
+      })
+    )
+
+    expect(error).toMatchObject({
+      name: 'PresetCompositionError',
+      result: {
+        code: 'LAYER_INSTALL_FAILED',
+        layer: 'capability-bundle',
+        failedBundleId: 'package/second',
+        cause: expect.objectContaining({ message: 'bundle install failed' })
+      }
+    })
+    expect(firstDispose).toHaveBeenCalledOnce()
+    expect(engineProviderCleanup).toHaveBeenCalledOnce()
+    expect(third.install).not.toHaveBeenCalled()
+    expect(registrations.size).toBe(0)
+  })
+
+  it('rejects an empty installation output and cleans the acquired bundle', () => {
+    const { core, dependencies } = createComposition()
+    const dispose = vi.fn()
+    const bundle = {
+      id: 'package/no-output',
+      owner: { packageName: '@product/no-output', name: 'no-output' },
+      requires: [],
+      install: vi.fn(() => ({ outputs: [], dispose }))
+    }
+
+    const error = captureCompositionError(() =>
+      applyPreset(core, { dependencies, capabilityBundles: [bundle] })
+    )
+
+    expect(error).toMatchObject({
+      name: 'PresetCompositionError',
+      result: {
+        code: 'LAYER_INSTALL_FAILED',
+        layer: 'capability-bundle',
+        failedBundleId: 'package/no-output'
+      }
+    })
+    expect(dispose).toHaveBeenCalledOnce()
   })
 })

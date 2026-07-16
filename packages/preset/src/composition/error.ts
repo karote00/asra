@@ -2,6 +2,7 @@ import type {
   PresetCompositionErrorCode,
   PresetCompositionFailureResult
 } from '../types'
+import { PRESET_COMPOSITION_ERROR_CODES } from './constants'
 
 export class PresetCompositionError extends Error {
   readonly result: PresetCompositionFailureResult
@@ -37,6 +38,46 @@ export const createValidationError = ({
     operation: 'apply-preset',
     message,
     layer: 'validation',
+    engineId,
+    capabilityBundles: [...capabilityBundles],
+    failedBundleId,
+    completedLayers: [...completedLayers],
+    cleanup: {
+      state: 'not-required',
+      completed: [],
+      pending: []
+    },
+    cause
+  })
+
+interface CreateLayerInstallErrorOptions {
+  message: string
+  layer: Exclude<
+    PresetCompositionFailureResult['layer'],
+    'validation' | 'cleanup'
+  >
+  engineId?: string
+  capabilityBundles: readonly string[]
+  failedBundleId?: string
+  completedLayers: readonly string[]
+  cause?: unknown
+}
+
+export const createLayerInstallError = ({
+  message,
+  layer,
+  engineId,
+  capabilityBundles,
+  failedBundleId,
+  completedLayers,
+  cause
+}: CreateLayerInstallErrorOptions): PresetCompositionError =>
+  new PresetCompositionError({
+    ok: false,
+    code: PRESET_COMPOSITION_ERROR_CODES.LAYER_INSTALL_FAILED,
+    operation: 'apply-preset',
+    message,
+    layer,
     engineId,
     capabilityBundles: [...capabilityBundles],
     failedBundleId,
