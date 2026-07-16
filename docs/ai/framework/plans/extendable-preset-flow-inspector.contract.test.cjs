@@ -31,12 +31,24 @@ const contractText = (owner) =>
     ...owner.implementationBoundary
   ].join(' ')
 
-test('active extendable-preset plan remains the resolvable product authority', () => {
+test('completed extendable-preset plan remains the resolvable product authority', () => {
+  const formerActiveSpecPath =
+    'docs/ai/framework/plans/extendable-preset-plan.md'
+  const productContract = data.links.find(
+    (link) => link.id === 'product-contract'
+  )
+
+  assert.ok(productContract, 'Missing product-contract Inspector link')
   assert.equal(
     data.authority.specPath,
-    'docs/ai/framework/plans/extendable-preset-plan.md'
+    'docs/ai/framework/plans/completed/extendable-preset-plan.md'
   )
   assert.ok(fs.existsSync(path.resolve(repoRoot, data.authority.specPath)))
+  assert.ok(fs.existsSync(path.resolve(__dirname, productContract.href)))
+  assert.equal(
+    fs.existsSync(path.resolve(repoRoot, formerActiveSpecPath)),
+    false
+  )
   assert.ok(
     fs.existsSync(
       path.resolve(

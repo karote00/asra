@@ -1183,3 +1183,36 @@ unregister -> app migration -> core.start()` as the public app route.
   - `6b2412816` (`fix(framework): close preset composition ownership gaps`)
   - `cf3855ea9` (`fix(core): preflight retry ownership boundaries`)
   - `bb481da9e` (`test(core): cover pending relation preflight routes`)
+
+## 2026-07-17 - Extendable Preset relation composition completed
+
+- Context:
+  - PR #81 contains the completed startup registration composition contract,
+    implementation, formal coverage, framework/app documentation, and
+    executable Inspector authority.
+  - All implementation segments, bounded/root gates, self-review, and
+    read-only sub-agent review completed before closeout. PR #81 remains open
+    for owner review; this record does not claim merge completion.
+- Decision:
+  - Treat the Extendable Preset Relation and Unregister plan as implementation
+    complete and archive its product contract at the completed canonical path.
+  - Keep explicit `remove -> define` for non-equivalent relation changes and
+    `unregister -> define/register` for complete capability changes; do not add
+    app-facing or shared registry replace semantics.
+  - Keep all composition mutations before the first `core.start()`, with
+    migration app-owned and runtime validation framework-owned.
+- Consequences:
+  - The Inspector data, contract test, and viewer remain the executable
+    architecture authority and now resolve the completed product contract.
+  - Generic Preset Composition becomes the first Near-Term Plan and must consume
+    this completed relation/unregister contract without redefining it.
+  - Production 3D, Hybrid runtime composition, render-mode selection, and
+    app-specific framework policy remain outside this completed phase.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/extendable-preset-plan.md`
+- Related Commit(s):
+  - `f03693e37` (`feat(utils): add registration relation graph`)
+  - `6ee041a5f` (`feat(core): coordinate startup registration composition`)
+  - `8fa6f9915` (`feat(preset): install graph-owned defaults`)
+  - `c9b2fda5a` (`docs(preset): record relation composition closure`)
+  - [PR #81](https://github.com/karote00/asyra/pull/81)

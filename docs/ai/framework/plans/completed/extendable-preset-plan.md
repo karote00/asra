@@ -18,11 +18,35 @@ An app developer does not need preset target keys, preset internals, manual
 owner metadata, or a preset-specific extension object. Removing a relation does
 not claim that the old and new capabilities are equivalent.
 
-## Status
+## Status and Roadmap Position
 
-- Implementation segments 1-6 are complete on `codex/extendable-preset`.
-- Segment 7 root gates, self-review, and read-only sub-agent review remain
-  pending before plan completion can be claimed.
+Completed on 2026-07-17. The implementation is complete on
+`codex/extendable-preset` and published for review in PR #81. This closeout
+archives the accepted product contract before merge by explicit owner
+direction; it does not claim that PR #81 has merged.
+
+Generic Preset Composition is now the next separate near-term phase. Production
+3D, Hybrid runtime composition, render-mode selection, and app-specific
+framework policy remain outside this completed plan.
+
+## Completion Record
+
+- Final decision: apps customize preset defaults before first start through
+  ordinary public remove, define/register, and graph-aware unregister APIs;
+  neither app-facing nor shared registry contracts expose replace semantics.
+- Implementation summary: Core coordinates one deterministic registration
+  graph; component/property owners rebuild declarative relations; preset
+  installs explicit graph-owned defaults; unregister and disposal clean only
+  declared dependents and owned lifecycle resources with retryable failure
+  state.
+- Compatibility summary: `applyPreset(core)`, framework-facing registration
+  APIs, Asyra Design startup, render-engine boundaries, and package import
+  boundaries remain compatible.
+- Exit criteria: all seven implementation segments, affected package/app and
+  Inspector tests, root test/lint/build/dependency/diff gates, self-review, and
+  read-only sub-agent review completed with no unresolved concrete finding.
+- Canonical executable architecture contract:
+  `docs/ai/framework/plans/extendable-preset-flow-inspector.data.cjs`.
 
 ## Scope
 
