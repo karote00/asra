@@ -13,4 +13,6 @@ This folder describes framework package responsibilities, boundaries, and extens
 - `props-manager.md`
 - `ui-context.md`
 - `render.md`
+- `render-engine.md`
+- `render-engine-pixi.md`
 - `feature-system.md`

@@ -1,16 +1,11 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Container, Mesh } from 'pixi.js'
+import { describe, expect, it } from 'vitest'
 import {
   buildProjectionMeshData,
   createMeshProjection
 } from '../projections/mesh-projection'
+import { RenderContainer, RenderMesh } from '../types/render-object'
 
 describe('mesh projection', () => {
-  afterEach(() => {
-    vi.useRealTimers()
-    vi.unstubAllGlobals()
-  })
-
   it('triangulates polygon geometry into indexed mesh data', () => {
     const meshData = buildProjectionMeshData({
       polygons: [
@@ -73,8 +68,8 @@ describe('mesh projection', () => {
     expect(concaveMeshData?.indices.length).toBeGreaterThanOrEqual(9)
   })
 
-  it('renders solid geometry through a pixi mesh projection', () => {
-    const host = new Container()
+  it('projects solid geometry through engine-neutral render objects', () => {
+    const host = new RenderContainer()
     const projection = createMeshProjection({
       model: {
         polygons: [
@@ -101,18 +96,23 @@ describe('mesh projection', () => {
 
     expect(projection.attach(host)).toBe(true)
     expect(host.children).toHaveLength(1)
-    expect(host.children[0]).toBeInstanceOf(Container)
+    expect(host.children[0]).toBeInstanceOf(RenderContainer)
 
-    const root = host.children[0] as Container
+    const root = host.children[0] as RenderContainer
     expect(root.children).toHaveLength(1)
-    expect(root.children[0]).toBeInstanceOf(Mesh)
+    expect(root.children[0]).toBeInstanceOf(RenderMesh)
 
-    const mesh = root.children[0] as Mesh
-    const initialGeometry = mesh.geometry
-    expect(mesh.tint).toBe(0x00ff00)
-    expect(mesh.alpha).toBe(0.5)
-    expect(mesh.geometry.getBuffer('aPosition').data.length).toBe(16)
-    expect(mesh.geometry.getIndex().data.length).toBe(12)
+    const mesh = root.children[0] as RenderMesh
+    const initialProperties = mesh.getEngineProperties()
+    const initialGeometry = initialProperties.geometry as {
+      positions: Float32Array
+      indices: Uint32Array
+      uvs: Float32Array
+    }
+    expect(initialProperties.tint).toBe(0x00ff00)
+    expect(initialProperties.alpha).toBe(0.5)
+    expect(initialGeometry.positions.length).toBe(16)
+    expect(initialGeometry.indices.length).toBe(12)
 
     projection.update({
       model: {
@@ -132,20 +132,24 @@ describe('mesh projection', () => {
       }
     })
 
-    expect(mesh.tint).toBe(0xff0000)
-    expect(mesh.alpha).toBe(1)
-    expect(mesh.geometry).toBe(initialGeometry)
-    expect(mesh.geometry.getBuffer('aPosition').data.length).toBe(8)
-    expect(mesh.geometry.getIndex().data.length).toBe(6)
+    const updatedProperties = mesh.getEngineProperties()
+    const updatedGeometry = updatedProperties.geometry as {
+      positions: Float32Array
+      indices: Uint32Array
+      uvs: Float32Array
+    }
+    expect(updatedProperties.tint).toBe(0xff0000)
+    expect(updatedProperties.alpha).toBe(1)
+    expect(updatedGeometry).not.toBe(initialGeometry)
+    expect(updatedGeometry.positions.length).toBe(8)
+    expect(updatedGeometry.indices.length).toBe(6)
 
     projection.dispose()
     expect(host.children).toHaveLength(0)
   })
 
-  it('detaches disposed projections before deferring mesh destruction', () => {
-    vi.useFakeTimers()
-    vi.stubGlobal('requestAnimationFrame', undefined)
-    const host = new Container()
+  it('detaches and destroys disposed engine-neutral projections', () => {
+    const host = new RenderContainer()
     const projection = createMeshProjection({
       model: {
         polygons: [
@@ -165,16 +169,12 @@ describe('mesh projection', () => {
     })
 
     expect(projection.attach(host)).toBe(true)
-    const root = host.children[0] as Container
+    const root = host.children[0] as RenderContainer
 
     projection.dispose()
 
     expect(host.children).toHaveLength(0)
     expect(root.visible).toBe(false)
-    expect((root as { destroyed?: boolean }).destroyed).not.toBe(true)
-
-    vi.runAllTimers()
-
-    expect((root as { destroyed?: boolean }).destroyed).toBe(true)
+    expect(root.children).toHaveLength(0)
   })
 })

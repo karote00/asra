@@ -3,12 +3,12 @@ name: transaction-boundary-checker
 description: Enforce one intended user action to one intended undo commit by auditing write timelines and transaction boundaries. Use when requests mention undo split/missing commits or transaction regressions.
 ---
 
-
 # Skill: transaction-boundary-checker
 
 ## Trigger Signals
 
 Use this skill when requests include:
+
 - "undo/redo split"
 - "multiple commits"
 - "transaction"
@@ -36,6 +36,7 @@ Use this skill when requests include:
 
 1. Build mutation timeline for one user action.
 2. Detect violations:
+
 - writes before `startTransaction`
 - writes after `endTransaction`
 - accidental nested action splits
@@ -53,25 +54,32 @@ Use this skill when requests include:
 ## Required Output Format
 
 1. `Write Timeline`
+
 - ordered list of writes per action
 
 2. `Boundary Fix`
+
 - old boundary vs new boundary
 
 3. `Validation`
+
 - manual/automated undo-redo checks
 
 4. `Residual Risks`
+
 - edge cases not covered yet
 
 ## Guardrails
 
 - Do not add transaction wrappers in random UI handlers.
 - Prefer central mutation APIs for boundary ownership.
-- Do not commit/push unless user explicitly asks.
+- Local commits may close completed, validated steps/stages; never push unless
+  the user explicitly requests the remote operation. Follow
+  `docs/ai/workflows/git-commit-push-policy.md`.
 
 ## Failure Policy
 
 If action unit is ambiguous:
+
 - keep behavior stable
 - provide 2 boundary options with concrete undo outcomes

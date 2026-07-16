@@ -2,14 +2,24 @@
 
 ## Responsibility
 
-Rendering runtime and engine abstraction boundary.
+Framework render adapter and orchestration boundary. It synchronizes
+authoritative state into engine-neutral operations and maps normalized engine
+results/interactions back to framework-facing APIs.
 
 ## Rules
 
-- Engine-specific imports (Pixi) must stay here.
-- Other packages consume render abstractions only.
-- Public exports from `@asyra/render` must not directly re-export concrete engine classes from `pixi.js`.
-- When a render abstraction is intended for preset/app consumption, surface it through `@asyra/core` facade APIs instead of requiring direct `@asyra/render` imports in those packages.
+- Depend on `@asyra/render-engine`, never on Pixi or a concrete engine package.
+- Do not expose concrete engine classes or resource types.
+- Preset may configure the target `Render` instance through
+  `setEngineFactory(...)`; direct class consumers may pass exactly one engine
+  instance or factory to `new Render(...)`.
+- A `RenderAdapter` may receive that exact `Render` instance in its constructor;
+  the no-argument constructor remains the default-singleton compatibility path.
+- A custom `Render` instance must fail when no provider is configured; it must
+  not fall back to a module-level Pixi engine.
+- Render extension APIs should be surfaced through `@asyra/core` when a Core
+  facade exists. App bootstrap may import the public `RenderAdapter` directly
+  to configure `core.setRenderer(...)`.
 - Render should react to state changes, not become source-of-truth.
 - Render mutations should reflect state/system updates, not drive them.
 - Default subscription wiring is not owned here; preset/core registration flow owns channel observer setup.
@@ -20,7 +30,8 @@ Rendering runtime and engine abstraction boundary.
 - render layer registry
 - interaction handler registry
 - interaction target registry (overlay hit-test and pointer capture)
-- custom renderer integration via core
+- direct custom engine instance/factory injection
+- Core-facing `RenderAdapter`
 - render-side update stores (`renderSceneTreeStore`, `renderSelectionStore`) for external registration wiring
 
 ## Runtime Contracts
@@ -42,8 +53,37 @@ Rendering runtime and engine abstraction boundary.
 
 3. Engine isolation
 
+- one selected engine instance belongs to one `Render` instance
+- render maps framework target ids to opaque engine handles
+- render owns abstract resource descriptors/ref-counting while the concrete
+  engine owns concrete resource objects and cleanup
+- required capabilities are checked through `@asyra/render-engine`; unsupported
+  requirements fail without concrete-engine introspection or fallback
 - adapter API exposes engine-agnostic methods to other packages/app layers
-- only render package knows concrete engine primitives
+
+4. Engine interaction return
+
+- concrete engine events are normalized by `@asyra/render-engine`
+- render maps the opaque target handle to a framework interaction target
+- the existing interaction bridge publishes framework events; render and the
+  engine do not execute product features
+
+## Renderer Facade Compatibility
+
+- `RenderAdapter` is the recommended engine-neutral Core-facing renderer.
+- `RenderResult.instance` and `RenderAdapter.getInstance()` forward the selected
+  engine's opaque runtime identity. The Pixi compatibility path therefore keeps
+  returning its owned Pixi `Application` without exposing that type in the
+  abstract contract.
+- `PixiJSRenderer` is a deprecated compatibility alias with the same lifecycle
+  behavior and a warn-once message.
+- Replacement: import `RenderAdapter` from `@asyra/render` and keep engine
+  selection in preset or direct `Render` composition.
+- The alias remains available through the next planned major-release migration
+  window; it receives compatibility/security fixes only.
+- `RenderStrategy` remains as a deprecated, Graphics-like callback signature so
+  existing explicitly annotated strategies stay assignable. New code should use
+  `EngineNeutralRenderStrategy`, whose first parameter is `RenderGraphics`.
 
 ## Glossary
 
@@ -78,4 +118,7 @@ core.registerRenderInteractionHandler('gradient-handle-1', {
 
 - Replacing render adapter does not require non-render package changes.
 - Render output matches state after load, undo/redo, and tool interactions.
-- No Pixi import appears outside `@asyra/render`.
+- `@asyra/render` imports no Pixi SDK or concrete engine package.
+- `@asyra/render` and `@asyra/render-engine-pixi` do not depend on one another.
+- A custom engine passes the shared contract adapter without framework package
+  changes.

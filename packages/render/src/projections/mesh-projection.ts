@@ -1,4 +1,5 @@
-import { Container, Mesh, MeshGeometry, Texture, earcut } from 'pixi.js'
+import earcut from 'earcut'
+import { RenderContainer, RenderMesh } from '../types/render-object'
 
 export interface GeometryPoint {
   x: number
@@ -229,92 +230,57 @@ export const buildProjectionMeshData = (
   }
 }
 
-const createGeometry = (model: GeometryModel) => {
-  const meshData = buildProjectionMeshData(model)
-  if (!meshData) {
-    return null
-  }
-
-  return new MeshGeometry({
-    positions: meshData.vertices,
-    indices: meshData.indices,
-    uvs: meshData.uvs
-  })
-}
-
-const updateGeometry = (geometry: MeshGeometry, model: GeometryModel) => {
-  const meshData = buildProjectionMeshData(model)
-  if (!meshData) {
-    return false
-  }
-
-  geometry.positions = meshData.vertices
-  geometry.uvs = meshData.uvs
-  geometry.indices = meshData.indices
-  geometry.getBuffer('aPosition').update()
-  geometry.getBuffer('aUV').update()
-  geometry.getIndex().update()
-  return true
-}
+const toRenderMeshGeometry = (meshData: ProjectionMeshData) => ({
+  positions: meshData.vertices,
+  indices: meshData.indices,
+  uvs: meshData.uvs
+})
 
 export const createMeshProjection = (
   options: CreateMeshProjectionOptions
 ): MeshProjection => {
-  const initialGeometry = createGeometry(options.model)
-  const root = new Container()
-  const mesh = new Mesh({
-    geometry:
-      initialGeometry ??
-      new MeshGeometry({
-        positions: new Float32Array(0),
-        indices: new Uint32Array(0),
-        uvs: new Float32Array(0)
-      }),
-    texture: Texture.WHITE
+  const initialGeometry = buildProjectionMeshData(options.model)
+  const root = new RenderContainer()
+  const mesh = new RenderMesh({
+    geometry: initialGeometry
+      ? toRenderMeshGeometry(initialGeometry)
+      : {
+          positions: new Float32Array(0),
+          indices: new Uint32Array(0),
+          uvs: new Float32Array(0)
+        }
   })
   root.addChild(mesh)
 
   const applyPaint = (paint: MeshProjectionPaint) => {
-    const solid = paint as MeshProjectionPaintSolid
-    mesh.tint = solid.color
-    mesh.alpha = solid.alpha
+    mesh.update({
+      tint: paint.color,
+      alpha: paint.alpha
+    })
   }
 
   const update = (next: CreateMeshProjectionOptions) => {
-    if (!updateGeometry(mesh.geometry, next.model)) {
+    const geometry = buildProjectionMeshData(next.model)
+    if (!geometry) {
       root.visible = false
       applyPaint(next.paint)
       return
     }
 
     root.visible = true
-    applyPaint(next.paint)
+    mesh.update({
+      geometry: toRenderMeshGeometry(geometry),
+      tint: next.paint.color,
+      alpha: next.paint.alpha
+    })
   }
 
   applyPaint(options.paint)
   root.visible = !!initialGeometry
-  const scheduleDestroy = () => {
-    const destroyRoot = () => {
-      if ((root as { destroyed?: boolean }).destroyed) {
-        return
-      }
-      root.destroy({
-        texture: false,
-        textureSource: false
-      })
-    }
-
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(() => requestAnimationFrame(destroyRoot))
-      return
-    }
-
-    setTimeout(destroyRoot, 0)
-  }
 
   return {
     attach: (host: unknown) => {
-      if (!(host instanceof Container)) {
+      if (!(host instanceof RenderContainer)) {
         return false
       }
 
@@ -334,7 +300,7 @@ export const createMeshProjection = (
         root.parent.removeChild(root)
       }
       root.visible = false
-      scheduleDestroy()
+      root.destroy()
     }
   }
 }

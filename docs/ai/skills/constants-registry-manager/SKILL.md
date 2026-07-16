@@ -3,12 +3,12 @@ name: constants-registry-manager
 description: Centralize and refactor constants/events/feature IDs, replace ad-hoc string literals, and maintain grouped+flattened constants contracts. Use when requests mention adding events/tools/features or reorganizing constants.
 ---
 
-
 # Skill: constants-registry-manager
 
 ## Trigger Signals
 
 Use this skill when requests include:
+
 - "add event constant"
 - "add feature name"
 - "replace string literals"
@@ -36,12 +36,14 @@ Use this skill when requests include:
 ## Deterministic Procedure
 
 1. Add identifier to proper source module:
+
 - input events -> `input-events.ts`
 - tools -> `tools.ts`
 - feature ids -> `feature-names.ts`
 - layout/shared values -> `layout.ts`
 
 2. If feature names changed:
+
 - keep grouped sources
 - keep flattened `FeatureNames` usage object
 - preserve overlap checks
@@ -67,10 +69,13 @@ Use this skill when requests include:
 
 - Do not create duplicate constant sources for same domain.
 - Do not remove old constants without updating all references.
-- Do not commit/push unless user explicitly asks.
+- Local commits may close completed, validated steps/stages; never push unless
+  the user explicitly requests the remote operation. Follow
+  `docs/ai/workflows/git-commit-push-policy.md`.
 
 ## Failure Policy
 
 If naming is disputed:
+
 - provide naming options
 - apply only non-controversial wiring changes

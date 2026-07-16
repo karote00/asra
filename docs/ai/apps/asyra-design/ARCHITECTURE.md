@@ -31,7 +31,8 @@
 
 2. `src/init/init-app.ts`
 
-- `applyPreset(core)`
+- `applyPreset(core)` registers defaults and injects the fresh Pixi engine
+  factory into the framework `Render` instance
 - diagnostics: `initLoadDiagnostics()`
 - derived-state sync: `initSelectionCompatibility()`, `initPathEditingContinuation()`
 - capability init: `initAreaSelection()`, `initGradientFillEditing()`, `initVectorIconData()`
@@ -39,9 +40,12 @@
 
 3. `src/render-app/index.tsx`
 
-- sets renderer via `core.setRenderer(new PixiJSRenderer())`
+- sets the engine-neutral framework facade via
+  `core.setRenderer(new RenderAdapter())`
 - sets persistence via `core.setPersistence(providers.localStorage)`
-- starts framework via `core.start(...)`
+- starts framework via `core.start(...)`; renderer/engine initialization must
+  succeed before observers, persistence load, features, or ready publication
+- imports no Pixi SDK or concrete render-engine package
 
 4. `src/contexts/data-change.tsx`
 

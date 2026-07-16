@@ -38,6 +38,7 @@
         "^build:feature-system",
         "^build:preset",
         "^build:reactive-events",
+        "^build:render",
         "^build:ui-context",
         "^build:utils"
       ]
@@ -117,10 +118,8 @@
       ],
       "dependsOn": [
         "^build:core",
-        "^build:props-manager",
-        "^build:render",
-        "^build:scene-tree",
-        "^build:system-context",
+        "^build:render-engine",
+        "^build:render-engine-pixi",
         "^build:utils"
       ]
     },
@@ -152,10 +151,27 @@
       "dependsOn": [
         "^build:factory",
         "^build:reactive-events",
+        "^build:render-engine",
         "^build:scene-tree",
         "^build:selection",
         "^build:system-context",
         "^build:utils"
+      ]
+    },
+    "build:render-engine": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": []
+    },
+    "build:render-engine-pixi": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:render-engine"
       ]
     },
     "build:scene-tree": {
@@ -175,7 +191,6 @@
         "dist/**"
       ],
       "dependsOn": [
-        "^build:reactive-events",
         "^build:utils"
       ]
     },
@@ -185,7 +200,6 @@
         "dist/**"
       ],
       "dependsOn": [
-        "^build:reactive-events",
         "^build:utils"
       ]
     },
@@ -195,8 +209,6 @@
         "dist/**"
       ],
       "dependsOn": [
-        "^build:factory",
-        "^build:reactive-events",
         "^build:scene-tree",
         "^build:selection",
         "^build:utils"

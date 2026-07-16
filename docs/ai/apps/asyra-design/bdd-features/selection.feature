@@ -45,3 +45,10 @@ Feature: Element Selection
     Given there is an element on canvas
     When I move mouse over the element's visible geometry
     Then that element should become the hovered target
+
+  Scenario: Keep element hover stable while dragging across another element
+    Given element A is the hovered drag target
+    And element B is elsewhere on canvas
+    When I drag element A across element B without releasing the pointer
+    Then element B should not become the hovered target during the drag
+    And element A should remain the hovered target during the drag

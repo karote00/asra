@@ -3,12 +3,12 @@ name: render-layer-registration-checker
 description: Validate render-layer registration path, z-order/update integration, and render-engine abstraction boundaries. Use when requests add/move overlays or custom render layers.
 ---
 
-
 # Skill: render-layer-registration-checker
 
 ## Trigger Signals
 
 Use this skill when requests include:
+
 - "register render layer"
 - "custom overlay"
 - "vector editing layer"
@@ -40,6 +40,7 @@ Use this skill when requests include:
 1. Ensure registration path uses `core.registerRenderLayer(...)`.
 2. Keep engine coupling inside render package abstractions.
 3. For non-render packages:
+
 - use render abstractions/interfaces only
 - do not import Pixi/engine classes directly
 
@@ -64,10 +65,13 @@ Use this skill when requests include:
 
 - Do not implement new layer by bypassing core registration.
 - Do not leak engine primitives to app/common APIs.
-- Do not commit/push unless user explicitly asks.
+- Local commits may close completed, validated steps/stages; never push unless
+  the user explicitly requests the remote operation. Follow
+  `docs/ai/workflows/git-commit-push-policy.md`.
 
 ## Failure Policy
 
 If abstraction is missing:
+
 - add minimal render-side abstraction plan
 - avoid shipping engine-coupled workaround in app/core

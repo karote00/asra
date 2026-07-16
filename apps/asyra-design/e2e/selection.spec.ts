@@ -291,6 +291,119 @@ test.describe('Element Selection', () => {
       .toBeNull()
   })
 
+  test('should keep element hover stable while dragging across another element', async ({
+    page
+  }) => {
+    await createRectangle(page, 0.25, 0.35)
+    const dragOwner = await getSelectedElementRect(page)
+    expect(dragOwner).not.toBeNull()
+    if (!dragOwner) {
+      return
+    }
+
+    await createRectangle(page, 0.65, 0.35)
+    const crossedElement = await getSelectedElementRect(page)
+    expect(crossedElement).not.toBeNull()
+    if (!crossedElement) {
+      return
+    }
+
+    const centers = await page.evaluate(
+      ({ dragOwner, crossedElement }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const core = (window as any).__Core__
+        const zoom = core?.getSystemProperty?.('zoom') ?? 1
+        const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
+          x: 0,
+          y: 0
+        }
+        const toClientCenter = (element: {
+          x: number
+          y: number
+          width: number
+          height: number
+        }) => ({
+          x: (element.x + element.width / 2) * zoom + viewport.x,
+          y: (element.y + element.height / 2) * zoom + viewport.y
+        })
+
+        return {
+          dragOwner: toClientCenter(dragOwner),
+          crossedElement: toClientCenter(crossedElement)
+        }
+      },
+      { dragOwner, crossedElement }
+    )
+
+    await page.mouse.move(centers.dragOwner.x, centers.dragOwner.y)
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const core = (window as any).__Core__
+          return core?.getSystemProperty?.('hoveredElementId') ?? null
+        })
+      )
+      .toBe(dragOwner.id)
+    await page.mouse.click(centers.dragOwner.x, centers.dragOwner.y)
+
+    await page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scope = window as any
+      const core = scope.__Core__
+      const originalSetSystemProperty = core.setSystemProperty
+      scope.__dragHoverWrites = []
+      scope.__restoreSetSystemProperty = () => {
+        core.setSystemProperty = originalSetSystemProperty
+      }
+      core.setSystemProperty = (propertyName: string, value: unknown) => {
+        if (
+          propertyName === 'hoveredElementId' &&
+          core.getSystemProperty('mouseDragging')
+        ) {
+          scope.__dragHoverWrites.push(value)
+        }
+        return originalSetSystemProperty.call(core, propertyName, value)
+      }
+    })
+
+    let dragHoverWrites: (string | null)[] = []
+    let hoveredElementIdDuringDrag: string | null = null
+    await page.mouse.move(centers.dragOwner.x, centers.dragOwner.y)
+    await page.mouse.down()
+    try {
+      await page.mouse.move(
+        centers.crossedElement.x,
+        centers.crossedElement.y,
+        { steps: 20 }
+      )
+      await page.waitForTimeout(100)
+      const dragHoverState = await page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const scope = window as any
+        return {
+          writes: scope.__dragHoverWrites ?? [],
+          hoveredElementId:
+            scope.__Core__?.getSystemProperty?.('hoveredElementId') ?? null
+        }
+      })
+      dragHoverWrites = dragHoverState.writes
+      hoveredElementIdDuringDrag = dragHoverState.hoveredElementId
+    } finally {
+      await page.mouse.up()
+      await page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const scope = window as any
+        scope.__restoreSetSystemProperty?.()
+        delete scope.__restoreSetSystemProperty
+        delete scope.__dragHoverWrites
+      })
+    }
+
+    expect(dragHoverWrites).toEqual([])
+    expect(hoveredElementIdDuringDrag).toBe(dragOwner.id)
+  })
+
   /**
    * Scenario: Select element via Contents Panel
    *   Given I have the "Select" tool selected

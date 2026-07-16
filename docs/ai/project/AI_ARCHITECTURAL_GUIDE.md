@@ -99,7 +99,10 @@ This section outlines the standard workflow for AI-assisted tasks, emphasizing u
 
 2.  **User Review & Approval:**
 
-    - **Absolutely no commits without explicit user review and approval.** (Stored in `save_memory`).
+    - Local commits may close completed, validated step/stage boundaries on a
+      feature branch. Push and other remote mutations require explicit user
+      authorization; follow
+      `docs/ai/workflows/git-commit-push-policy.md`.
     - AI will present plans and documentation for review before implementation.
 
 3.  **Self-Verification:**

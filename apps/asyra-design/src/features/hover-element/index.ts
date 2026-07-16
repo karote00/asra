@@ -30,6 +30,10 @@ export const hoverElementRenderHoverFeature = defineFeature(
     priority: 10,
     exclusive: false,
     execution: (snapshot) => {
+      if (snapshot.mouseDragging) {
+        return null
+      }
+
       const payload = (snapshot.detail ?? snapshot.payload) as
         | RenderPointerPayload
         | undefined
@@ -74,6 +78,10 @@ export const hoverElementRenderLeaveFeature = defineFeature(
     priority: 10,
     exclusive: false,
     execution: (snapshot) => {
+      if (snapshot.mouseDragging) {
+        return null
+      }
+
       const payload = (snapshot.detail ?? snapshot.payload) as
         | RenderPointerPayload
         | undefined

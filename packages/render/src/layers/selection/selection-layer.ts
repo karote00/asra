@@ -1,8 +1,8 @@
-import { Container, Graphics } from 'pixi.js'
 import systemContext from '@asyra/system-context'
 import { getElementGeometryWorldBounds } from '@asyra/utils'
 import { getSelectionLocalBounds, getSelectionWorldBounds } from './utils'
 import { SceneElement } from '../../types'
+import { RenderContainer, RenderGraphics } from '../../types/render-object'
 
 interface SelectionLayerOptions {
   getSelectedElements: () => SceneElement[]
@@ -14,18 +14,18 @@ interface SelectionLayerOptions {
  * Includes both selected and hover targets.
  */
 export class SelectionLayer {
-  layer: Container
-  private selectedBox: Graphics
-  private hoverBox: Graphics
+  layer: RenderContainer
+  private selectedBox: RenderGraphics
+  private hoverBox: RenderGraphics
   private getSelectedElements: () => SceneElement[]
   private getHoverElement: () => SceneElement | null
 
   constructor(options: SelectionLayerOptions) {
-    this.layer = new Container()
+    this.layer = new RenderContainer()
 
-    this.selectedBox = new Graphics()
+    this.selectedBox = new RenderGraphics()
     this.selectedBox.label = 'SelectedBox'
-    this.hoverBox = new Graphics()
+    this.hoverBox = new RenderGraphics()
     this.hoverBox.label = 'HoverBox'
 
     this.layer.addChild(this.selectedBox)
@@ -107,6 +107,6 @@ export class SelectionLayer {
   }
 
   get viewportZoom() {
-    return this.layer.parent.scale.x
+    return this.layer.parent?.scale.x ?? 1
   }
 }

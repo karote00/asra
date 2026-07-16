@@ -1005,3 +1005,97 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 - Related Commit(s):
   - `8ea0e1c9736df40312143edaac499b6109af628e` (`feat(framework): add local transaction ACID semantics (#77)`)
   - [PR #77](https://github.com/karote00/asyra/pull/77)
+
+## 2026-07-15 - Render-engine boundary precedes render-mode preset profiles
+
+- Context:
+  - The near-term preset plan proposed public `2d`, `3d`, and `hybrid`
+    profiles before Asyra had a production 3D engine or an explicit hybrid
+    runtime contract.
+  - A profile name would imply supported engine, render-layer, camera,
+    coordinate, hit-test, selection, and input behavior that does not yet exist.
+- Decision:
+  - Make the render-engine boundary the first Near-Term Plan after transaction
+    closeout.
+  - Use Pixi as the default concrete engine and prove replaceability with a
+    fake/contract-test adapter; a production 3D engine is not required for the
+    abstract framework boundary to be complete.
+  - Separate generic preset composition from official render-mode profiles.
+    Generic composition may coordinate shared defaults, concrete-engine
+    bootstrap, capability bundles, and app customizations after the engine and
+    extension contracts exist.
+  - Keep official `2d`, `3d`, and `hybrid` profiles deferred and trigger-gated.
+    Do not export empty, placeholder, or capability-incomplete profiles.
+- Consequences:
+  - Engine selection remains explicit and is not inferred from a product-mode
+    label.
+  - An official 3D profile requires a supported production 3D engine and
+    canonical 3D bundles.
+  - An official hybrid profile additionally requires explicit multi-engine or
+    hybrid-runtime coordination for surfaces, cameras, coordinate spaces, hit
+    testing, selection, input, and cleanup.
+  - `Extendable Preset` remains separate: it owns feature/property extension
+    and replacement semantics, while Generic Preset Composition owns startup
+    layer ordering.
+- Related Plans:
+  - `docs/ai/framework/plans/render-engine-boundary-plan.md`
+  - `docs/ai/framework/plans/extendable-preset-plan.md`
+  - `docs/ai/framework/plans/preset-composition-plan.md`
+  - `docs/ai/framework/plans/preset-2d-3d-init-profile-plan.md`
+
+## 2026-07-15 - Render package remains stable while engine packages are extracted
+
+- Context:
+  - Renaming the published `@asyra/render` package to `@asyra/renderer` would
+    add package-wide deprecation and migration cost without improving the
+    responsibility boundary.
+  - The actual architectural problem is that adapter/orchestration and the Pixi
+    concrete implementation currently share one package.
+- Decision:
+  - Keep `@asyra/render` as the active framework adapter and render
+    orchestration package.
+  - Add `@asyra/render-engine` as the engine-independent abstract contract.
+  - Add `@asyra/render-engine-pixi` as the default concrete Pixi implementation.
+  - Make preset startup construct and inject Pixi by default while allowing a
+    custom engine implementation through the same abstract contract.
+  - Do not introduce a production 3D engine, hybrid runtime, or render-mode
+    profile in this phase.
+- Consequences:
+  - The package extraction reads as a responsibility refactor rather than a
+    public package rename.
+  - `@asyra/render` and `@asyra/render-engine-pixi` must not depend on one
+    another in the completed architecture; both use
+    `@asyra/render-engine` contracts.
+  - Existing Pixi-specific exports from `@asyra/render` receive a bounded
+    deprecation lifecycle only after tested replacements exist.
+  - The Render Engine Boundary plan owns a Mermaid package architecture diagram
+    that must be synchronized into Framework Architecture documentation during
+    implementation and verified again at closeout.
+- Related Plan:
+  - `docs/ai/framework/plans/render-engine-boundary-plan.md`
+
+## 2026-07-15 - Render-engine boundary implemented as three package owners
+
+- Context:
+  - The render adapter, abstract engine contract, and Pixi SDK implementation
+    previously shared one package boundary.
+  - Preset and app startup needed a default composition that did not prevent a
+    user-owned engine implementation.
+- Decision:
+  - Keep `@asyra/render` as the active framework adapter/orchestration owner.
+  - Make `@asyra/render-engine` the pure contract owner and
+    `@asyra/render-engine-pixi` the only Pixi runtime owner.
+  - Let preset inject a fresh Pixi engine factory by default or an explicit
+    custom factory through the same contract.
+  - Replace app use of the Pixi-named renderer facade with `RenderAdapter`;
+    retain `PixiJSRenderer` only as a deprecated warn-once compatibility alias
+    through the next planned major-release migration window.
+- Consequences:
+  - Render and the Pixi engine no longer import or depend on one another.
+  - Core and Asyra Design remain concrete-engine-neutral.
+  - Contract tests prove lifecycle, commands, events, capability failure,
+    cleanup, and engine-instance isolation.
+  - This boundary does not introduce a production 3D engine, Hybrid runtime,
+    or render-mode selector.
+- Related Plan:
+  - `docs/ai/framework/plans/render-engine-boundary-plan.md`

@@ -3,10 +3,9 @@
  * Allows users to swap between different rendering engines
  *
  * Built-in implementations:
- * - PixiJSRenderer (PixiJS 2D renderer)
+ * - RenderAdapter (framework render adapter using the injected engine)
  *
- * Users can implement custom renderers for:
- * - ThreeJS (3D)
+ * Users can implement compatible custom renderers, including:
  * - Canvas2D (simple 2D)
  * - SVG renderer
  * - Custom specialized renderers

@@ -1,9 +1,9 @@
-import { Rectangle } from 'pixi.js'
 import {
   getElementGeometryLocalBounds,
   getElementGeometryWorldBounds
 } from '@asyra/utils'
 import { SceneElement } from '../../types'
+import type { RenderBounds } from '../../types/render-object'
 
 /**
  * Calculate the world bounds that cover all given elements.
@@ -11,7 +11,7 @@ import { SceneElement } from '../../types'
  */
 export function getSelectionWorldBounds(
   elements: SceneElement[]
-): Rectangle | null {
+): RenderBounds | null {
   if (elements.length === 0) return null
 
   let minX = Infinity,
@@ -28,14 +28,21 @@ export function getSelectionWorldBounds(
     maxY = Math.max(maxY, bounds.y + bounds.height)
   }
 
-  return new Rectangle(minX, minY, maxX - minX, maxY - minY)
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
 }
 
 /**
  * Get the local bounds of a single element.
  * Used for single-selection bounding box.
  */
-export const getSelectionLocalBounds = (element: SceneElement): Rectangle => {
+export const getSelectionLocalBounds = (
+  element: SceneElement
+): RenderBounds => {
   const bounds = getElementGeometryLocalBounds(element)
-  return new Rectangle(bounds.x, bounds.y, bounds.width, bounds.height)
+  return {
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height
+  }
 }

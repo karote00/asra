@@ -14,7 +14,7 @@ Core API tier types (explicit ownership contract):
 - `CoreBasicAPIs`: always-concrete lifecycle/persistence facade methods on `core` (no registration prerequisite)
 - `CoreExtensionAPIs`: registration/bridge APIs exposed by `core` for framework extension
 - `CoreConcreteAPIs`: `CoreBasicAPIs + CoreExtensionAPIs`
-- `CorePresetInstallAPIs`: strict subset required by `applyPreset(core, deps?)` (no optional `core?.api` checks)
+- `CorePresetInstallAPIs`: strict subset required by `applyPreset(...)` (no optional `core?.api` checks)
 - `CorePresetDependencies`: concrete dependency bundle returned by `core.getPresetDependencies()`
 
 Lifecycle and integration:
@@ -173,7 +173,14 @@ Managed property bridges:
 `@asyra/render`
 
 - default `render` singleton, `Render` class
-- `PixiJSRenderer`
+- `Render({ engine?, engineFactory? })` for direct instance/factory injection;
+  configuring both providers is rejected
+- `RenderAdapter`: engine-neutral Core-facing `IRenderer` implementation
+- renderer initialization and `getInstance()` preserve the selected engine's
+  opaque runtime identity without adding a concrete SDK type to this package
+- `PixiJSRenderer`: deprecated compatibility alias for `RenderAdapter`; warns
+  once and is scheduled for removal after the next major-release migration
+  window
 - `renderStrategyRegistry`
 - `interactionHandlerRegistry`
 - overlay helper: `createOverlayLayerRegistration(...)`
@@ -188,6 +195,30 @@ Managed property bridges:
 - render stores (for default/preset wiring):
   - `renderSceneTreeStore`
   - `renderSelectionStore`
+
+`@asyra/render-engine`
+
+- `RenderEngine`, `RenderEngineFactory`
+- opaque `RenderEngineObjectHandle`, `RenderEngineResourceHandle`
+- lifecycle: `initialize`, `startFrameLoop`, `stopFrameLoop`, `destroy`
+- `RenderEngineInitializeResult.runtime`: opaque compatibility runtime identity
+- semantic command/query contracts: `RenderEngineCommand`,
+  `RenderEngineCommandResult`, `RenderEngineQuery`, `RenderEngineQueryResult`
+- normalized interaction contracts: `RenderEngineInteractionEvent`,
+  `RenderEngineInteractionListener`
+- capabilities: `RenderEngineCapabilities`,
+  `assertRenderEngineCapabilities(...)`
+- deterministic failure: `UnsupportedRenderEngineCapabilityError`
+- engine-independent test adapter from `@asyra/render-engine/testing`:
+  `RecordingRenderEngine`, `runRenderEngineContract(...)`
+
+`@asyra/render-engine-pixi`
+
+- `PixiRenderEngine`: concrete implementation of `RenderEngine`
+- `createPixiRenderEngine(): RenderEngine`: fresh-engine factory used by preset
+- owns Pixi application, display objects, mesh/graphics translation, resources,
+  surface events, frame loop, and deterministic concrete cleanup
+- does not expose framework state, render layers, or product feature behavior
 
 `@asyra/factory`
 
@@ -247,7 +278,12 @@ Managed property bridges:
 
 `@asyra/preset`
 
-- `applyPreset(core)` for explicit preset bootstrap registration (builtin components, property components, props schemas, render layers, selections, and default UI/system property wiring)
+- `applyPreset(core)` for explicit preset bootstrap registration and default
+  injection of the `@asyra/render-engine-pixi` factory
+- `applyPreset(core, dependencies)` preserves the existing explicit dependency
+  bundle path
+- `applyPreset(core, { renderEngineFactory, dependencies? })` replaces the
+  Pixi default with a contract-compatible custom factory
 - default render wiring lives here:
   - register default render YJS observers (scene-tree + selection)
   - register default render system subscriptions (`zoom`, `viewportPosition`)
@@ -304,6 +340,7 @@ Session mode:
 - App-level code should prefer `core.xxx` when surface exists.
 - Prefer framework helper imports from `@asyra/core` when equivalent re-exports exist.
 - Framework defaults are preset-owned; call `applyPreset(core)` explicitly when default builtins are required.
-- Non-render packages must not import Pixi directly.
+- Only `@asyra/render-engine-pixi` may import Pixi. Framework and app consumers
+  use render/engine abstractions.
 - Model mutation requests should be transaction-bounded by caller-side API boundaries.
 - Transaction mutations are local by default; shared YJS append only happens when `options.shared` matches a registered data channel.

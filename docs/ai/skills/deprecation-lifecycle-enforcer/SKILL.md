@@ -3,12 +3,12 @@ name: deprecation-lifecycle-enforcer
 description: Apply deprecation lifecycle rules while preserving compatibility and documenting replacement owners/paths. Use when requests deprecate packages/APIs or retire legacy runtimes.
 ---
 
-
 # Skill: deprecation-lifecycle-enforcer
 
 ## Trigger Signals
 
 Use this skill when requests include:
+
 - "deprecate package"
 - "compatibility mode"
 - "retire old runtime"
@@ -35,12 +35,14 @@ Use this skill when requests include:
 ## Deterministic Procedure
 
 1. Add deprecation markers:
+
 - JSDoc `@deprecated`
 - runtime warning (if applicable and already pattern-matched)
 
 2. Keep compatibility path stable for existing callers.
 3. Block new work from landing in deprecated owner.
 4. Update docs:
+
 - package doc
 - API surfaces
 - constraints/architecture references
@@ -64,10 +66,13 @@ Use this skill when requests include:
 
 - Do not hard-remove compatibility path unless explicitly requested.
 - Do not silently change behavior under same API.
-- Do not commit/push unless user explicitly asks.
+- Local commits may close completed, validated steps/stages; never push unless
+  the user explicitly requests the remote operation. Follow
+  `docs/ai/workflows/git-commit-push-policy.md`.
 
 ## Failure Policy
 
 If replacement is incomplete:
+
 - mark deprecated but keep behavior
 - output explicit blockers and migration prerequisites

@@ -1,4 +1,3 @@
-import { CanvasSource, FillPattern, Matrix, Texture } from 'pixi.js'
 import {
   FillGradientTypes,
   FillKinds,
@@ -7,6 +6,7 @@ import {
   type FillAttrs
 } from '@asyra/utils'
 import type { RenderFillStyle } from './gradient-fill'
+import { createRenderResourceStyle } from '../types/render-object'
 
 export interface EvenOddSegment {
   type: 'line' | 'cubicBezier'
@@ -381,23 +381,20 @@ const buildTextureFill = (
   width: number,
   height: number
 ): { style: RenderFillStyle; dispose: () => void } => {
-  const source = new CanvasSource({
-    resource: canvas as unknown as HTMLCanvasElement,
-    width,
-    height
+  const resource = createRenderResourceStyle({
+    kind: 'raster-pattern',
+    data: {
+      source: canvas,
+      width,
+      height,
+      repeat: 'no-repeat',
+      scale: { x: 1 / width, y: 1 / height }
+    }
   })
 
-  const texture = new Texture({ source })
-  const pattern = new FillPattern(texture, 'no-repeat')
-  const matrix = new Matrix()
-  matrix.scale(1 / texture.width, 1 / texture.height)
-  pattern.setTransform(matrix)
-
   return {
-    style: { fill: pattern },
-    dispose: () => {
-      texture.destroy(true)
-    }
+    style: { fill: resource.style },
+    dispose: resource.dispose
   }
 }
 

@@ -1,4 +1,10 @@
-import { Application, Container, Graphics, Ticker } from 'pixi.js'
+import {
+  RenderEngineCapabilities,
+  assertRenderEngineCapabilities,
+  type RenderEngine,
+  type RenderEngineFactory,
+  type RenderEngineObjectHandle
+} from '@asyra/render-engine'
 import { DataTypes, MouseData } from '@asyra/utils'
 import type { RenderPointerPositions } from '@asyra/utils'
 import { RenderElementData, RenderContainerData } from './types'
@@ -6,15 +12,19 @@ import { ViewportLayer } from './layers/viewport'
 import renderLayerRegistry from './registries/render-layer'
 import type { RenderLayerRegistration } from './types/render-layer'
 import RenderInteractionBridge from './interaction/interaction-bridge'
+import RenderEngineInteractionBridge from './interaction/engine-interaction-bridge'
 import interactionTargetRegistry from './registries/interaction-target'
 import renderInteractionHandlerRegistry from './registries/render-interaction-handler'
+import {
+  RenderContainer,
+  RenderGraphics,
+  RenderObjectRuntime
+} from './types/render-object'
 import type {
   RenderInteractionTarget,
   RenderInteractionHandlerRegistration,
   RenderInteractionEventType
 } from './types/render-interaction'
-
-const ticker = Ticker.shared
 
 const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
   const sink = (
@@ -37,44 +47,82 @@ const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
   }
 }
 
-type RenderCallable = (...args: unknown[]) => unknown
-interface InstrumentableRenderTarget {
-  render?: RenderCallable
-  __asyraPixiRenderInstrumented?: boolean
+const isPointerSurface = (value: unknown): value is HTMLCanvasElement =>
+  typeof value === 'object' &&
+  value !== null &&
+  'addEventListener' in value &&
+  'removeEventListener' in value
+
+export interface RenderEngineProviderOptions {
+  engine?: RenderEngine
+  engineFactory?: RenderEngineFactory
 }
 
-type InstrumentablePixiApplication = Application & {
-  __asyraPixiRenderInstrumented?: boolean
+export interface RenderApplication {
+  canvas: HTMLCanvasElement | null
+  instance: unknown
+  render: () => void
 }
 
 class Render {
-  app: Application | null = null
+  app: RenderApplication | null = null
   viewport: ViewportLayer
-  private customLayerContainers: Container[] = []
-  private _tickerActive: boolean = false
-  private _animateHandler: () => void
-  private interactionBridge: RenderInteractionBridge
-  private pixiRenderInstrumentationDepth = 0
+  private customLayerContainers: RenderContainer[] = []
+  private attachedCustomLayers = new Set<RenderContainer>()
+  private _tickerActive = false
+  private readonly _animateHandler: () => void
+  private readonly interactionBridge: RenderInteractionBridge
+  private readonly engineInteractionBridge: RenderEngineInteractionBridge
+  private unsubscribeEngineInteraction: (() => void) | null = null
+  private engine: RenderEngine | null = null
+  private providedEngine: RenderEngine | null = null
+  private engineFactory: RenderEngineFactory | null = null
+  private runtime: RenderObjectRuntime | null = null
   private renderDirty = true
   private nextFrameRenderDirty = false
   private flushingFrame = false
   private updatingLayers = false
   private renderFrameId = 0
 
-  constructor() {
+  constructor(options: RenderEngineProviderOptions = {}) {
+    if (options.engine && options.engineFactory) {
+      throw new Error(
+        'Configure either a render engine instance or factory, not both'
+      )
+    }
+    this.providedEngine = options.engine ?? null
+    this.engineFactory = options.engineFactory ?? null
     this.viewport = new ViewportLayer()
-
-    // Don't auto-start ticker in constructor to support controlled initialization
-    this._tickerActive = false
     this._animateHandler = () => {
       this.flushFrame()
     }
     this.interactionBridge = new RenderInteractionBridge((event) =>
       this.getPointerPositions(event)
     )
+    this.engineInteractionBridge = new RenderEngineInteractionBridge((handle) =>
+      this.resolveEngineInteractionTarget(handle)
+    )
   }
 
-  start() {
+  setEngine(engine: RenderEngine): void {
+    this.assertProviderMutable()
+    this.providedEngine = engine
+    this.engineFactory = null
+    this.engine = null
+  }
+
+  setEngineFactory(engineFactory: RenderEngineFactory): void {
+    this.assertProviderMutable()
+    this.providedEngine = null
+    this.engineFactory = engineFactory
+    this.engine = null
+  }
+
+  getEngine(): RenderEngine | null {
+    return this.engine ?? this.providedEngine
+  }
+
+  start(): void {
     if (this._tickerActive) {
       console.warn('Render ticker already started')
       return
@@ -86,20 +134,21 @@ class Render {
     this.flushFrame()
   }
 
-  stop() {
+  stop(): void {
     if (!this._tickerActive) {
       return
     }
 
-    ticker.remove(this._animateHandler)
+    this.engine?.stopFrameLoop()
     this._tickerActive = false
   }
 
-  run() {
-    ticker.add(this._animateHandler)
+  run(): void {
+    const engine = this.requireEngine()
+    engine.startFrameLoop(this._animateHandler)
   }
 
-  updateLayers() {
+  updateLayers(): boolean {
     return measureBrowserDragPhase('render:update-layers', () => {
       let didChange = false
       this.updatingLayers = true
@@ -121,7 +170,7 @@ class Render {
     })
   }
 
-  requestRender() {
+  requestRender(): void {
     if (this.flushingFrame) {
       if (this.updatingLayers) {
         this.renderDirty = true
@@ -134,8 +183,8 @@ class Render {
     this.renderDirty = true
   }
 
-  flushFrame() {
-    if (!this.app || this.flushingFrame) {
+  flushFrame(): void {
+    if (!this.app || !this.runtime || this.flushingFrame) {
       return
     }
 
@@ -160,7 +209,8 @@ class Render {
     try {
       measureBrowserDragPhase('render:flush-frame', () => {
         const layersChanged = this.updateLayers()
-        if (!this.renderDirty && !layersChanged) {
+        const drawsChanged = this.runtime?.flushDraws() ?? false
+        if (!this.renderDirty && !layersChanged && !drawsChanged) {
           return
         }
 
@@ -181,12 +231,12 @@ class Render {
   registerLayer(
     registration: RenderLayerRegistration,
     options?: { override?: boolean }
-  ) {
+  ): void {
     renderLayerRegistry.register(registration, options)
     this.syncCustomLayers()
   }
 
-  unregisterLayer(name: string) {
+  unregisterLayer(name: string): boolean {
     const didUnregister = renderLayerRegistry.unregister(name)
     if (didUnregister) {
       this.syncCustomLayers()
@@ -194,101 +244,89 @@ class Render {
     return didUnregister
   }
 
-  private createApplication() {
-    const app = new Application()
-
-    return app
-  }
-
-  async init(width: number, height: number, backgroundColor: number) {
-    const app = this.createApplication()
-
-    await app.init({
-      width,
-      height,
-      backgroundColor,
-      resolution: Math.min(window.devicePixelRatio, 2),
-      resizeTo: window,
-      antialias: true,
-      autoDensity: true,
-      autoStart: false
-    })
-    this.installPixiRenderInstrumentation(app)
-
-    this.app = app
-    this.app.stage.eventMode = 'static'
-
-    this._setupStageLayers()
-    if (this.app.canvas) {
-      this.interactionBridge.attach(this.app.canvas)
+  async init(
+    width: number,
+    height: number,
+    backgroundColor: number,
+    host: unknown = {}
+  ): Promise<RenderApplication> {
+    if (this.app) {
+      throw new Error('Render adapter is already initialized')
     }
+    const engine = this.resolveEngine()
+    try {
+      assertRenderEngineCapabilities(engine, [
+        RenderEngineCapabilities.OBJECTS,
+        RenderEngineCapabilities.GRAPHICS,
+        RenderEngineCapabilities.INTERACTION,
+        RenderEngineCapabilities.RESOURCES
+      ])
 
-    return this.app
-  }
-
-  private installPixiRenderInstrumentation(app: Application) {
-    const instrumentedApp = app as InstrumentablePixiApplication
-    if (instrumentedApp.__asyraPixiRenderInstrumented) {
-      return
-    }
-
-    const wrapRender = (
-      target: InstrumentableRenderTarget | undefined,
-      phaseName: string
-    ) => {
-      if (!target || typeof target.render !== 'function') {
-        return
-      }
-
-      const originalRender = target.render
-      target.render = (...args: unknown[]) => {
-        if (this.pixiRenderInstrumentationDepth > 0) {
-          return originalRender.apply(target, args)
-        }
-
-        this.pixiRenderInstrumentationDepth += 1
-        try {
-          return measureBrowserDragPhase(phaseName, () =>
-            originalRender.apply(target, args)
-          )
-        } finally {
-          this.pixiRenderInstrumentationDepth -= 1
+      const initialized = await engine.initialize({
+        host,
+        width,
+        height,
+        backgroundColor
+      })
+      this.engine = engine
+      this.runtime = new RenderObjectRuntime(engine, initialized.root)
+      this.runtime.attachRoot(this.viewport.view)
+      this.app = {
+        canvas: initialized.surface as HTMLCanvasElement,
+        instance: initialized.runtime,
+        render: () => {
+          engine.execute({ type: 'flush' })
         }
       }
+      this.syncCustomLayers()
+      this.unsubscribeEngineInteraction = engine.subscribeToInteraction(
+        (event) => this.engineInteractionBridge.handle(event)
+      )
+      if (isPointerSurface(initialized.inputTarget)) {
+        this.interactionBridge.attach(initialized.inputTarget)
+      }
+      return this.app
+    } catch (error) {
+      this.interactionBridge.detach()
+      this.unsubscribeEngineInteraction?.()
+      this.unsubscribeEngineInteraction = null
+      this.runtime?.detachResourceLifecycles()
+      engine.destroy()
+      this.viewport.view.releaseRuntime()
+      this.customLayerContainers.forEach((layer) => layer.releaseRuntime())
+      this.attachedCustomLayers.clear()
+      this.runtime = null
+      this.engine = null
+      this.app = null
+      throw error
     }
-
-    wrapRender(
-      instrumentedApp as unknown as InstrumentableRenderTarget,
-      'render:pixi-app-render'
-    )
-    wrapRender(
-      instrumentedApp.renderer as unknown as InstrumentableRenderTarget,
-      'render:pixi-renderer-render'
-    )
-    instrumentedApp.__asyraPixiRenderInstrumented = true
   }
 
-  private _setupStageLayers() {
-    this.app?.stage.addChild(this.viewport.view)
-    this.syncCustomLayers()
-  }
+  private syncCustomLayers(): void {
+    const registrations = renderLayerRegistry.getAll()
+    const nextLayers = registrations
+      .map((registration) => {
+        const layer = registration.layer
+        if (layer instanceof RenderContainer) {
+          layer.zIndex = registration.zIndex ?? 0
+          return layer
+        }
+        return null
+      })
+      .filter((layer): layer is RenderContainer => layer !== null)
 
-  private syncCustomLayers() {
-    if (!this.app) {
-      return
+    if (this.runtime) {
+      this.attachedCustomLayers.forEach((layer) => {
+        this.runtime?.detachRoot(layer)
+      })
+      this.attachedCustomLayers.clear()
+      nextLayers.forEach((layer) => {
+        this.runtime?.attachRoot(layer)
+        this.attachedCustomLayers.add(layer)
+      })
     }
 
-    this.customLayerContainers.forEach((layer) => {
-      this.app?.stage.removeChild(layer)
-    })
-    this.customLayerContainers = renderLayerRegistry
-      .getAll()
-      .map((registration) => registration.layer)
-      .filter((layer): layer is Container => layer instanceof Container)
-
-    this.customLayerContainers.forEach((layer) => {
-      this.app?.stage.addChild(layer)
-    })
+    this.customLayerContainers = nextLayers
     this.requestRender()
   }
 
@@ -296,12 +334,12 @@ class Render {
     return this.viewport.getAllElementsBounds()
   }
 
-  switchWorkspace(workspaceData: RenderContainerData) {
+  switchWorkspace(workspaceData: RenderContainerData): void {
     this.viewport.switchWorkspace(workspaceData)
     this.requestRender()
   }
 
-  clearElements() {
+  clearElements(): void {
     this.viewport.clearElements()
     this.requestRender()
   }
@@ -330,60 +368,36 @@ class Render {
     before: DataTypes,
     after: DataTypes,
     data?: RenderElementData
-  ) {
+  ): void {
     this.viewport.updateElement(elementId, key, before, after, data)
     this.requestRender()
   }
 
   updateElementProperties(
-    element: Container | Graphics,
+    element: RenderContainer | RenderGraphics,
     key: string,
     after: DataTypes
-  ) {
+  ): void {
     this.viewport.updateElementProperties(element, key, after)
     this.requestRender()
   }
 
-  /**
-   * Zoom to fit all elements within the specified UI bounds
-   * @param uiBounds - The DOMRect representing the visible canvas area
-   * @returns void
-   */
-  zoomFit(uiBounds: DOMRect) {
+  zoomFit(uiBounds: DOMRect): void {
     this.viewport.zoomFit(uiBounds)
     this.requestRender()
   }
 
-  /**
-   * Move the canvas to the specified position
-   * @param x - The x-coordinate to move the canvas to
-   * @param y - The y-coordinate to move the canvas to
-   * @returns void
-   */
-  panTo(x: number, y: number) {
+  panTo(x: number, y: number): void {
     this.viewport.panTo(x, y)
     this.requestRender()
   }
 
-  /**
-   * Set the canvas zoom level
-   * @param scale - The zoom scale factor. A value of 1.0 represents 100% zoom.
-   *               Values greater than 1.0 zoom in, values less than 1.0 zoom out.
-   * @returns void
-   */
-  zoomTo(scale: number) {
+  zoomTo(scale: number): void {
     this.viewport.zoomTo(scale)
     this.requestRender()
   }
 
-  /**
-   * Set the canvas zoom level centered on a specific point
-   * @param scale - The zoom scale factor
-   * @param centerX - The x-coordinate of the zoom center
-   * @param centerY - The y-coordinate of the zoom center
-   * @returns void
-   */
-  zoomToCenter(scale: number, centerX: number, centerY: number) {
+  zoomToCenter(scale: number, centerX: number, centerY: number): void {
     this.viewport.zoomToCenter(scale, centerX, centerY)
     this.requestRender()
   }
@@ -392,7 +406,7 @@ class Render {
     return this.viewport.getPosition()
   }
 
-  getViewportScale() {
+  getViewportScale(): number {
     return this.viewport.getScale()
   }
 
@@ -401,55 +415,52 @@ class Render {
   }
 
   getElementIdAtClientPos(clientPos: { x: number; y: number }): string | null {
-    if (!this.app) {
+    if (!this.engine || !this.runtime) {
       return null
     }
-
-    const events = this.app.renderer.events
-    if (!events || !events.rootBoundary) {
+    const result = this.engine.query({ type: 'hit-test', point: clientPos })
+    if (result.type !== 'hit') {
       return null
     }
-
-    // Use Pixi's internal hit testing for precise geometry-aware detection
-    // In Pixi v8, manual hit testing is done via rootBoundary.hitTest(x, y)
-    const hit = events.rootBoundary.hitTest(clientPos.x, clientPos.y)
-
-    if (hit) {
-      // Traverse up to find an object with a label (elementId)
-      let target: Container | null = hit as Container
-      while (target && !target.label && target.parent) {
-        target = target.parent as Container
-      }
-      return (target?.label as string) ?? null
+    let target = this.runtime.getObject(result.target)
+    while (target && !target.label && target.parent) {
+      target = target.parent
     }
-
-    return null
+    return target?.label || null
   }
 
   getElementById(elementId: string) {
     return this.viewport.getElementById(elementId)
   }
 
-  dispose() {
-    this.stop()
-    this.customLayerContainers = []
-    this.interactionBridge.detach()
-
-    if (this.app) {
-      this.app.destroy(true)
-      this.app = null
-    }
+  resize(width: number, height: number): void {
+    this.requireEngine().execute({ type: 'resize', width, height })
+    this.requestRender()
   }
 
-  reset() {
-    this.dispose()
+  dispose(): void {
+    this.stop()
+    this.interactionBridge.detach()
+    this.unsubscribeEngineInteraction?.()
+    this.unsubscribeEngineInteraction = null
+    this.runtime?.detachResourceLifecycles()
+    this.engine?.destroy()
+    this.viewport.view.releaseRuntime()
+    this.customLayerContainers.forEach((layer) => layer.releaseRuntime())
+    this.attachedCustomLayers.clear()
+    this.runtime = null
+    this.engine = null
     this.app = null
+  }
+
+  reset(): void {
+    this.dispose()
   }
 
   registerInteractionTargets(
     targets: RenderInteractionTarget | RenderInteractionTarget[],
     options?: { override?: boolean }
-  ) {
+  ): void {
     if (Array.isArray(targets)) {
       interactionTargetRegistry.registerMany(targets, options)
     } else {
@@ -462,29 +473,29 @@ class Render {
     patch:
       | Partial<RenderInteractionTarget>
       | ((current: RenderInteractionTarget) => Partial<RenderInteractionTarget>)
-  ) {
+  ): void {
     interactionTargetRegistry.update(targetId, patch)
   }
 
-  unregisterInteractionTarget(targetId: string) {
+  unregisterInteractionTarget(targetId: string): boolean {
     return interactionTargetRegistry.unregister(targetId)
   }
 
-  clearInteractionTargets() {
+  clearInteractionTargets(): void {
     interactionTargetRegistry.clear()
   }
 
   registerInteractionHandler(
     targetId: string | RegExp,
     registration: RenderInteractionHandlerRegistration
-  ) {
+  ): void {
     renderInteractionHandlerRegistry.register(targetId, registration)
   }
 
   unregisterInteractionHandler(
     targetId: string,
     eventType?: RenderInteractionEventType
-  ) {
+  ): void {
     renderInteractionHandlerRegistry.unregister(targetId, eventType)
   }
 
@@ -499,14 +510,14 @@ class Render {
       x: event.clientX,
       y: event.clientY
     }
-    const bounds = this.app.canvas.getBoundingClientRect()
+    const surface = this.app.canvas as HTMLCanvasElement & {
+      getBoundingClientRect?: () => DOMRect
+    }
+    const bounds = surface.getBoundingClientRect?.()
     const canvas = bounds
       ? { x: client.x - bounds.left, y: client.y - bounds.top }
       : client
-    const workspacePoint = this.viewport.view.toLocal({
-      x: canvas.x,
-      y: canvas.y
-    })
+    const workspacePoint = this.viewport.view.toLocal(canvas)
 
     return {
       client,
@@ -515,6 +526,42 @@ class Render {
         x: workspacePoint.x,
         y: workspacePoint.y
       }
+    }
+  }
+
+  private resolveEngineInteractionTarget(
+    handle: RenderEngineObjectHandle | null
+  ): string | null {
+    let target = this.runtime?.getObject(handle) ?? null
+    while (target && !target.label && target.parent) {
+      target = target.parent
+    }
+    return target?.label || null
+  }
+
+  private resolveEngine(): RenderEngine {
+    if (this.engine) {
+      return this.engine
+    }
+    const engine = this.providedEngine ?? this.engineFactory?.()
+    if (!engine) {
+      throw new Error('Render engine provider is not configured')
+    }
+    return engine
+  }
+
+  private requireEngine(): RenderEngine {
+    if (!this.engine) {
+      throw new Error('Render adapter is not initialized')
+    }
+    return this.engine
+  }
+
+  private assertProviderMutable(): void {
+    if (this.app || this.engine) {
+      throw new Error(
+        'Render engine provider cannot change after initialization'
+      )
     }
   }
 }

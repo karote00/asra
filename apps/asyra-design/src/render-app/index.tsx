@@ -1,44 +1,54 @@
 import React, { useEffect, useRef } from 'react'
-import { destroyRenderApp } from '../controllers/app'
 import core from '../contexts'
-import { PixiJSRenderer } from '@asyra/render'
+import { RenderAdapter } from '@asyra/render'
 import { providers } from '@asyra/reactive-events'
 import { CANVAS_BACKGROUND_COLOR } from '../constants'
 
 const RenderApp: React.FC = () => {
-  const pixiContainerRef = useRef<HTMLDivElement>(null)
-  const hasInit = useRef<boolean>(false)
+  const renderContainerRef = useRef<HTMLDivElement>(null)
+  const lifecycleRef = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
-    const initApp = async () => {
-      if (pixiContainerRef.current && !hasInit.current) {
-        hasInit.current = true
+    let active = true
+    const renderer = new RenderAdapter()
+
+    const lifecycle = lifecycleRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        if (!active) {
+          return
+        }
+        const container = renderContainerRef.current
+        if (!container) {
+          return
+        }
 
         // Phase 1: Configure renderer and persistence
-        core.setRenderer(new PixiJSRenderer())
+        core.setRenderer(renderer)
         core.setPersistence(providers.localStorage)
 
         // Phase 3: Single startup call
-        await core.start(pixiContainerRef.current, {
+        await core.start(container, {
           width: window.innerWidth,
           height: window.innerHeight,
           backgroundColor: CANVAS_BACKGROUND_COLOR,
           backgroundColorAlpha: 1
         })
+      })
+    lifecycleRef.current = lifecycle
+    void lifecycle.catch((error: unknown) => {
+      if (active) {
+        console.error('[RenderApp] Render startup failed:', error)
       }
-    }
-
-    initApp()
+    })
 
     return () => {
-      if (pixiContainerRef.current) {
-        pixiContainerRef.current.innerHTML = ''
-        destroyRenderApp()
-      }
+      active = false
+      renderer.destroy()
     }
   }, [])
 
-  return <div className="absolute top-0 left-0" ref={pixiContainerRef} />
+  return <div className="absolute top-0 left-0" ref={renderContainerRef} />
 }
 
 export default RenderApp

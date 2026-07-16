@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderStrategyRegistry } from '../registries/render-strategy'
 import type { RenderStrategy } from '../types/render-strategy'
-import type { Graphics } from 'pixi.js'
+import type { RenderGraphics } from '../types/render-object'
 import type { RenderElementData } from '../types'
 
 describe('RenderStrategyRegistry', () => {
@@ -52,7 +52,7 @@ describe('RenderStrategyRegistry', () => {
   })
 
   it('should execute registered strategy when retrieved', () => {
-    const mockGraphic = {} as Graphics
+    const mockGraphic = {} as RenderGraphics
     const mockData: RenderElementData = {
       id: 'test-1',
       type: 'star',

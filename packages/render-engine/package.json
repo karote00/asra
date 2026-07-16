@@ -1,0 +1,38 @@
+{
+  "name": "@asyra/render-engine",
+  "version": "0.2.5",
+  "description": "Engine-independent render engine contracts for Asyra",
+  "author": "Asa Tsai",
+  "license": "MIT",
+  "packageManager": "yarn@4.3.1",
+  "keywords": [],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js",
+      "default": "./dist/testing/index.js"
+    }
+  },
+  "scripts": {
+    "dev": "tsc --watch --preserveWatchOutput",
+    "build:render-engine": "tsc",
+    "clean": "rm -rf dist",
+    "has:test": "find . -type f \\( -name \"*.test.ts\" -o -name \"*.test.tsx\" \\) | grep -q .",
+    "test:types": "tsc --noEmit --strict --skipLibCheck --target ES2020 --module ESNext --moduleResolution Node src/__tests__/contract-signatures.type-test.ts",
+    "test": "yarn has:test && vitest || echo 'No test files found. Skipping test.'",
+    "test:local": "yarn test:types && vitest run",
+    "test:ci": "yarn has:test && yarn test:types && vitest run --coverage --reporter=default --reporter=junit || echo 'No test files found. Skipping test:ci.'"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.8",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
