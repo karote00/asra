@@ -1,7 +1,8 @@
 ;(function () {
   'use strict'
 
-  const specPath = 'docs/ai/framework/plans/render-engine-boundary-plan.md'
+  const specPath =
+    'docs/ai/framework/plans/completed/render-engine-boundary-plan.md'
   const inspectorPath =
     'docs/ai/framework/plans/render-engine-boundary-flow-inspector.data.cjs'
 
@@ -1049,14 +1050,14 @@
     authority: {
       specPath,
       inspectorPath,
-      semanticOwner: 'render-engine-boundary-plan.md',
+      semanticOwner: 'completed/render-engine-boundary-plan.md',
       inspectorOwner: 'render-engine-boundary-flow-inspector.data.cjs'
     },
     links: [
       {
         id: 'product-contract',
         label: 'Render-Engine Boundary Plan',
-        href: './render-engine-boundary-plan.md',
+        href: './completed/render-engine-boundary-plan.md',
         kind: 'authority'
       },
       {

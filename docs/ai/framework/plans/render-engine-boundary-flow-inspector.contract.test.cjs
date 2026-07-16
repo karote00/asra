@@ -17,14 +17,25 @@ const route = (id) => {
   return value
 }
 
-test('active render-engine plan remains the resolvable product authority', () => {
+test('completed render-engine plan remains the resolvable product authority', () => {
   const repoRoot = path.resolve(__dirname, '../../../..')
+  const formerActiveSpecPath =
+    'docs/ai/framework/plans/render-engine-boundary-plan.md'
+  const productContract = data.links.find(
+    (link) => link.id === 'product-contract'
+  )
 
+  assert.ok(productContract, 'Missing product-contract Inspector link')
   assert.equal(
     data.authority.specPath,
-    'docs/ai/framework/plans/render-engine-boundary-plan.md'
+    'docs/ai/framework/plans/completed/render-engine-boundary-plan.md'
   )
   assert.ok(fs.existsSync(path.resolve(repoRoot, data.authority.specPath)))
+  assert.ok(fs.existsSync(path.resolve(__dirname, productContract.href)))
+  assert.equal(
+    fs.existsSync(path.resolve(repoRoot, formerActiveSpecPath)),
+    false
+  )
 })
 
 test('preset selects the default engine without becoming its runtime owner', () => {
@@ -110,10 +121,7 @@ test('architecture documentation sync stays with the matching owner steps', () =
         'docs/ai/framework/decisions/releases/unreleased.md'
       ]
     ],
-    [
-      'orchestrate-render-adapter',
-      ['docs/ai/framework/packages/render.md']
-    ],
+    ['orchestrate-render-adapter', ['docs/ai/framework/packages/render.md']],
     [
       'execute-render-engine',
       ['docs/ai/framework/packages/render-engine-pixi.md']

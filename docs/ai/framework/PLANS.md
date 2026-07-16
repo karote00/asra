@@ -10,22 +10,13 @@ This file tracks framework planning topics and points to detailed references.
 
 ## Near-Term Plans
 
-1. Render-engine boundary
-
-- Keep `@asyra/render` as framework adapter/orchestration, extract the abstract
-  `@asyra/render-engine` contract, and move default Pixi implementation into
-  `@asyra/render-engine-pixi` before exposing render-mode-specific choices.
-- Add explicit engine injection and prove replaceability with a contract-test
-  engine without requiring a production 3D engine.
-- Reference: `docs/ai/framework/plans/render-engine-boundary-plan.md`
-
-2. Extendable preset
+1. Extendable preset
 
 - Allow users to extend preset feature/property behavior through explicit extension points.
 - Keep deterministic fallback path: `unregister -> redefine` when extension points are unavailable.
 - Reference: `docs/ai/framework/plans/extendable-preset-plan.md`
 
-3. Generic preset composition
+2. Generic preset composition
 
 - Compose shared defaults, concrete-engine bootstrap, optional capability
   bundles, and app customizations in deterministic order without publishing
@@ -34,13 +25,13 @@ This file tracks framework planning topics and points to detailed references.
   extension/replacement contract from the extendable-preset plan.
 - Reference: `docs/ai/framework/plans/preset-composition-plan.md`
 
-4. Canvas debugger
+3. Canvas debugger
 
 - Add a framework-owned debugging surface to verify render output, render-layer output, and coordinate-space correctness.
 - Keep it optional, deterministic, and renderer-boundary-safe so apps can opt in without coupling domain logic to Pixi internals.
 - Reference: `docs/ai/framework/plans/canvas-debugger-plan.md`
 
-5. Render delta update pipeline
+4. Render delta update pipeline
 
 - Apply data-channel deltas directly in render update flow to avoid full computed-data rehydrate.
 - Use render-side cached snapshots + key-based invalidation for heavy geometry.
