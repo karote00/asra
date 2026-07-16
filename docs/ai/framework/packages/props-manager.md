@@ -57,15 +57,17 @@ packages/props-manager/src/
 
 - `PropsManager.getPropertyIdsByType(type)` reports active and replay-retained
   deleted property ids for replacement safety.
-- `unregisterPropertyRegistration(type, manager?)` checks usage before any
+- `unregisterPropertyRegistration(type, manager?, scope?)` checks usage before any
   mutation. Active or replay-retained instances throw
   `PropertyRegistrationError` with stable `PROPERTY_TYPE_IN_USE` code and
-  detached property ids.
+  detached property ids. `scope` defaults to `all`; target-owned cleanup may
+  explicitly remove only `schema` or `runtime` while preserving the sibling
+  registration.
 - missing schema/constructor registration returns the structured
   `PROPERTY_REGISTRATION_NOT_FOUND` result without touching other types.
-- safe unregister removes the existing schema and runtime constructor together
-  and reports exactly which registrations were removed; a custom definition can
-  then be registered without duplicate tolerance.
+- safe `all` unregister removes the existing schema and runtime constructor
+  together and reports exactly which registrations were removed; a custom
+  definition can then be registered without duplicate tolerance.
 - individual `unregisterPropertySchema(type)` and
   `unregisterPropertyComponent(type)` primitives return whether their registry
   entry was removed.

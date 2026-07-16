@@ -16,6 +16,15 @@ export const PROPERTY_REGISTRATION_ERROR_CODES = [
 export type PropertyRegistrationErrorCode =
   (typeof PROPERTY_REGISTRATION_ERROR_CODES)[number]
 
+export const PROPERTY_REGISTRATION_SCOPES = [
+  'all',
+  'schema',
+  'runtime'
+] as const
+
+export type PropertyRegistrationScope =
+  (typeof PROPERTY_REGISTRATION_SCOPES)[number]
+
 export interface PropertyRegistrationUnregisterSuccess {
   ok: true
   type: string
@@ -67,11 +76,17 @@ export class PropertyRegistrationError extends Error {
 
 export const unregisterPropertyRegistration = (
   type: string,
-  manager: PropsManager = propsManager
+  manager: PropsManager = propsManager,
+  scope: PropertyRegistrationScope = 'all'
 ): PropertyRegistrationUnregisterResult => {
   const hasSchema = propertySchemaRegistry.has(type)
   const hasComponent = propertyComponentRegistry.has(type)
-  if (!hasSchema && !hasComponent) {
+  const unregisterSchema = scope === 'all' || scope === 'schema'
+  const unregisterRuntime = scope === 'all' || scope === 'runtime'
+  const hasRequestedRegistration =
+    (unregisterSchema && hasSchema) || (unregisterRuntime && hasComponent)
+
+  if (!hasRequestedRegistration) {
     return {
       ok: false,
       code: 'PROPERTY_REGISTRATION_NOT_FOUND',
@@ -96,7 +111,11 @@ export const unregisterPropertyRegistration = (
   return {
     ok: true,
     type,
-    removedSchema: hasSchema ? unregisterPropertySchema(type) : false,
-    removedComponent: hasComponent ? unregisterPropertyComponent(type) : false
+    removedSchema:
+      unregisterSchema && hasSchema ? unregisterPropertySchema(type) : false,
+    removedComponent:
+      unregisterRuntime && hasComponent
+        ? unregisterPropertyComponent(type)
+        : false
   }
 }

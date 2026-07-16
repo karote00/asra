@@ -103,6 +103,57 @@ describe('property registration lifecycle', () => {
     expect(getPropertyComponent(TYPE)).toBeUndefined()
   })
 
+  it('removes only the requested schema registration for target-owned cleanup', () => {
+    const manager = new PropsManager()
+    registerDefault()
+
+    expect(unregisterPropertyRegistration(TYPE, manager, 'schema')).toEqual({
+      ok: true,
+      type: TYPE,
+      removedSchema: true,
+      removedComponent: false
+    })
+    expect(getPropertySchema(TYPE)).toBeUndefined()
+    expect(getPropertyComponent(TYPE)).toBe(CustomComponent)
+  })
+
+  it('removes only the requested runtime registration for target-owned cleanup', () => {
+    const manager = new PropsManager()
+    registerDefault()
+
+    expect(unregisterPropertyRegistration(TYPE, manager, 'runtime')).toEqual({
+      ok: true,
+      type: TYPE,
+      removedSchema: false,
+      removedComponent: true
+    })
+    expect(getPropertySchema(TYPE)).toBe(schema)
+    expect(getPropertyComponent(TYPE)).toBeUndefined()
+  })
+
+  it.each(['schema', 'runtime'] as const)(
+    'guards %s cleanup before changing either registry while the type is in use',
+    (scope) => {
+      const manager = new PropsManager()
+      registerDefault()
+      manager.addToMap(
+        new CustomComponent({ id: `${scope}-active-property`, type: TYPE })
+      )
+
+      expect(() =>
+        unregisterPropertyRegistration(TYPE, manager, scope)
+      ).toThrowError(
+        expect.objectContaining<Partial<PropertyRegistrationError>>({
+          code: 'PROPERTY_TYPE_IN_USE',
+          type: TYPE,
+          propertyIds: [`${scope}-active-property`]
+        })
+      )
+      expect(getPropertySchema(TYPE)).toBe(schema)
+      expect(getPropertyComponent(TYPE)).toBe(CustomComponent)
+    }
+  )
+
   it('allows a clean custom redefinition after unregister', () => {
     class ReplacementComponent extends CustomComponent {}
     const manager = new PropsManager()

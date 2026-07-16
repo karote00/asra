@@ -41,12 +41,14 @@ export type { RegisterPropertyComponentOptions } from './registries/property-com
 export type { PropertyComponentAccessor }
 export {
   PROPERTY_REGISTRATION_ERROR_CODES,
+  PROPERTY_REGISTRATION_SCOPES,
   PropertyRegistrationError,
   unregisterPropertyRegistration
 } from './registries/property-registration'
 export type {
   PropertyRegistrationErrorCode,
   PropertyRegistrationInUseFailure,
+  PropertyRegistrationScope,
   PropertyRegistrationUnregisterMissing,
   PropertyRegistrationUnregisterResult,
   PropertyRegistrationUnregisterSuccess
