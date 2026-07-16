@@ -9,6 +9,7 @@ import type {
   FeatureKeyMap
 } from '../types/feature'
 import type { CorePackages } from '../types/core-packages'
+import type { InputSystemLike } from '../types/core-packages'
 import { FeatureRegistry } from './feature-registry'
 import { SessionManager } from './session-manager'
 import executionRegistry from './execution-registry'
@@ -44,7 +45,19 @@ const measureBrowserDragAsyncPhase = async <T>(
 let corePackages: CorePackages = {}
 let isPackagesSet = false
 
-const registeredEvents = new Set<string>()
+type InputCallback = (raw: RawInputEvent) => void | Promise<void>
+
+interface EventBinding {
+  eventName: string
+  participantType: 'execution' | 'session'
+  sessionName?: string
+  inputSystem?: InputSystemLike
+  inputCallback?: InputCallback
+  subscription?: { unsubscribe(): void }
+  cleanupRequested: boolean
+}
+
+const eventBindings = new Map<string, EventBinding>()
 
 const pendingRegistrations: {
   featureName: string
@@ -54,6 +67,156 @@ const pendingRegistrations: {
     Record<string, unknown>
   >
 }[] = []
+
+export class FeatureUnregisterError extends Error {
+  readonly code = 'FEATURE_IN_USE'
+  readonly featureName: string
+
+  constructor(featureName: string) {
+    super(`Feature "${featureName}" cannot be unregistered while active`)
+    this.name = 'FeatureUnregisterError'
+    this.featureName = featureName
+  }
+}
+
+const removeEventBinding = (eventName: string): void => {
+  const binding = eventBindings.get(eventName)
+  if (!binding) {
+    return
+  }
+
+  eventBindings.delete(eventName)
+  binding.cleanupRequested = true
+  if (binding.inputSystem && binding.inputCallback) {
+    binding.inputSystem.off(eventName, binding.inputCallback)
+  }
+  binding.subscription?.unsubscribe()
+}
+
+const cleanupUnusedEventBindings = (): void => {
+  for (const [eventName, binding] of eventBindings) {
+    const inUse =
+      binding.participantType === 'session'
+        ? sessionManager.hasSessionHandlers(binding.sessionName as string)
+        : executionRegistry.hasHandlers(eventName)
+    if (!inUse) {
+      removeEventBinding(eventName)
+    }
+  }
+}
+
+const registerSessionEventBinding = (
+  eventName: string,
+  sessionName: string,
+  inputSystem: InputSystemLike,
+  systemContext: NonNullable<CorePackages['systemContext']>
+): void => {
+  if (eventBindings.has(eventName)) {
+    return
+  }
+
+  const inputCallback: InputCallback = async (raw) => {
+    const phase = eventName.endsWith('.start')
+      ? 'start'
+      : eventName.endsWith('.update')
+        ? 'update'
+        : 'end'
+    await measureBrowserDragAsyncPhase(`feature:event:${eventName}`, () =>
+      sessionManager.handleSessionInput(
+        sessionName,
+        phase,
+        () => {
+          const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
+          return {
+            ...snapshot,
+            ...(raw.detail ? { detail: raw.detail } : {})
+          } as SystemContextSnapshotWithDetail
+        },
+        eventName
+      )
+    )
+  }
+  inputSystem.on(eventName, inputCallback)
+  eventBindings.set(eventName, {
+    eventName,
+    participantType: 'session',
+    sessionName,
+    inputSystem,
+    inputCallback,
+    cleanupRequested: false
+  })
+}
+
+const registerExecutionEventBinding = (
+  eventName: string,
+  inputSystem: InputSystemLike,
+  systemContext: NonNullable<CorePackages['systemContext']>
+): void => {
+  if (eventBindings.has(eventName)) {
+    return
+  }
+
+  if (eventName.startsWith('render.')) {
+    const binding: EventBinding = {
+      eventName,
+      participantType: 'execution',
+      cleanupRequested: false
+    }
+    eventBindings.set(eventName, binding)
+
+    import('@asyra/reactive-events')
+      .then((module) => {
+        const subscription = module
+          .getEventBus()
+          .subscribe(
+            (raw: { type: string; detail?: unknown; payload?: unknown }) => {
+              if (raw.type !== eventName) {
+                return
+              }
+              const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
+              const mergedSnapshot = {
+                ...snapshot,
+                detail: raw.detail ?? raw.payload,
+                payload: raw.payload
+              } as unknown as SystemContextSnapshot
+              void interactionQueue
+                .run(() => executionRegistry.execute(eventName, mergedSnapshot))
+                .catch(console.error)
+            }
+          )
+
+        if (binding.cleanupRequested) {
+          subscription.unsubscribe()
+          return
+        }
+        binding.subscription = subscription
+      })
+      .catch(console.error)
+    return
+  }
+
+  const inputCallback: InputCallback = async (raw) => {
+    await sessionManager.runAfterCancellingActiveSessions(
+      () => {
+        const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
+        return {
+          ...snapshot,
+          ...(raw.detail ? { detail: raw.detail } : {})
+        } as SystemContextSnapshotWithDetail
+      },
+      (mergedSnapshot) => executionRegistry.execute(eventName, mergedSnapshot),
+      eventName
+    )
+  }
+  inputSystem.on(eventName, inputCallback)
+  eventBindings.set(eventName, {
+    eventName,
+    participantType: 'execution',
+    inputSystem,
+    inputCallback,
+    cleanupRequested: false
+  })
+}
 
 function registerFeatureHandlers(
   name: string,
@@ -112,95 +275,18 @@ function registerFeatureHandlers(
   const { inputSystem, systemContext } = corePackages
   if (inputSystem && systemContext) {
     for (const event of eventsToRegister) {
-      if (registeredEvents.has(event)) {
-        continue
-      }
-
-      const isRendererEvent = event.startsWith('render.')
-
       if (hasSession) {
-        // Sessions don't support renderer events
-        if (isRendererEvent) {
+        if (event.startsWith('render.')) {
           continue
         }
-
-        const eventHandler = async (raw: RawInputEvent) => {
-          const phase = event.endsWith('.start')
-            ? 'start'
-            : event.endsWith('.update')
-              ? 'update'
-              : 'end'
-          await measureBrowserDragAsyncPhase(`feature:event:${event}`, () =>
-            sessionManager.handleSessionInput(
-              keyConfig,
-              phase,
-              () => {
-                const snapshot =
-                  systemContext.getSystemContextSnapshot?.() ?? raw
-                return {
-                  ...snapshot,
-                  ...(raw.detail ? { detail: raw.detail } : {})
-                } as SystemContextSnapshotWithDetail
-              },
-              event
-            )
-          )
-        }
-        inputSystem.on?.(event, eventHandler)
-        registeredEvents.add(event)
+        registerSessionEventBinding(
+          event,
+          keyConfig,
+          inputSystem,
+          systemContext
+        )
       } else if (hasExecution) {
-        if (isRendererEvent) {
-          // Subscribe to EventBus for renderer events
-          import('@asyra/reactive-events')
-            .then((module) => {
-              if (module.getEventBus) {
-                const eventBus = module.getEventBus()
-                eventBus.subscribe(
-                  (raw: {
-                    type: string
-                    detail?: unknown
-                    payload?: unknown
-                  }) => {
-                    if (raw.type === event) {
-                      const snapshot =
-                        systemContext.getSystemContextSnapshot?.() ?? raw
-                      const mergedSnapshot = {
-                        ...snapshot,
-                        detail: raw.detail ?? raw.payload,
-                        payload: raw.payload
-                      } as unknown as SystemContextSnapshot
-                      void interactionQueue
-                        .run(() =>
-                          executionRegistry.execute(event, mergedSnapshot)
-                        )
-                        .catch(console.error)
-                    }
-                  }
-                )
-              }
-            })
-            .catch(console.error)
-
-          registeredEvents.add(event)
-        } else {
-          // Input events: Listen via inputSystem
-          inputSystem.on?.(event, async (raw: RawInputEvent) => {
-            await sessionManager.runAfterCancellingActiveSessions(
-              () => {
-                const snapshot =
-                  systemContext.getSystemContextSnapshot?.() ?? raw
-                return {
-                  ...snapshot,
-                  ...(raw.detail ? { detail: raw.detail } : {})
-                } as SystemContextSnapshotWithDetail
-              },
-              (mergedSnapshot) =>
-                executionRegistry.execute(event, mergedSnapshot),
-              event
-            )
-          })
-          registeredEvents.add(event)
-        }
+        registerExecutionEventBinding(event, inputSystem, systemContext)
       }
     }
   }
@@ -213,7 +299,7 @@ export function defineFeature<
   name: string,
   keyConfig: FeatureKeyMap | undefined,
   definition: FeatureDefinition<API, State>
-): { api: FeatureAPI<API> } {
+): { api: FeatureAPI<API>; dispose: () => boolean } {
   if (
     definition.session &&
     definition.cancelPolicy === 'feature-defined' &&
@@ -251,7 +337,10 @@ export function defineFeature<
     }
   }
 
-  return { api } as { api: FeatureAPI<API> }
+  return {
+    api,
+    dispose: () => unregisterFeature(name)
+  } as { api: FeatureAPI<API>; dispose: () => boolean }
 }
 
 export function setCorePackages(packages: CorePackages) {
@@ -283,7 +372,26 @@ export function getFeature(featureName: string): FeatureAPI {
 }
 
 export function unregisterFeature(featureName: string): boolean {
-  return featureRegistry.unregister(featureName)
+  if (!featureRegistry.has(featureName)) {
+    return false
+  }
+  if (
+    executionRegistry.isFeatureActive(featureName) ||
+    sessionManager.isFeatureActive(featureName)
+  ) {
+    throw new FeatureUnregisterError(featureName)
+  }
+
+  for (let index = pendingRegistrations.length - 1; index >= 0; index -= 1) {
+    if (pendingRegistrations[index].featureName === featureName) {
+      pendingRegistrations.splice(index, 1)
+    }
+  }
+  executionRegistry.unregisterFeature(featureName)
+  sessionManager.unregisterFeature(featureName)
+  const removed = featureRegistry.unregister(featureName)
+  cleanupUnusedEventBindings()
+  return removed
 }
 
 export function getFeatureRegistry(): FeatureRegistry {

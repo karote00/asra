@@ -614,6 +614,45 @@ export class SessionManager {
     return Array.from(this.sessionHandlers.keys())
   }
 
+  hasSessionHandlers(sessionName: string): boolean {
+    return (this.sessionHandlers.get(sessionName)?.length ?? 0) > 0
+  }
+
+  isFeatureActive(featureName: string): boolean {
+    for (const session of this.activeSessions.values()) {
+      if (
+        session.participants.some(
+          (participant) => participant.featureName === featureName
+        )
+      ) {
+        return true
+      }
+    }
+    return false
+  }
+
+  unregisterFeature(featureName: string): string[] {
+    const affectedSessions: string[] = []
+
+    for (const [sessionName, handlers] of this.sessionHandlers) {
+      const nextHandlers = handlers.filter(
+        (participant) => participant.featureName !== featureName
+      )
+      if (nextHandlers.length === handlers.length) {
+        continue
+      }
+
+      affectedSessions.push(sessionName)
+      if (nextHandlers.length === 0) {
+        this.sessionHandlers.delete(sessionName)
+      } else {
+        this.sessionHandlers.set(sessionName, nextHandlers)
+      }
+    }
+
+    return affectedSessions
+  }
+
   getAllActiveSessions(): Map<string, ActiveSession> {
     return new Map(this.activeSessions)
   }

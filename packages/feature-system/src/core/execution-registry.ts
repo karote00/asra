@@ -14,6 +14,7 @@ import { runTransaction } from '@asyra/reactive-events'
  */
 export class ExecutionRegistryClass implements ExecutionRegistry {
   private executionHandlers = new Map<string, ExecutionParticipant[]>()
+  private activeFeatureCounts = new Map<string, number>()
 
   register(
     eventName: string,
@@ -58,7 +59,13 @@ export class ExecutionRegistryClass implements ExecutionRegistry {
             break
           }
 
-          const result = await participant.handler(snapshot)
+          this.markFeatureActive(participant.featureName)
+          let result: Awaited<ReturnType<ExecutionHandler>>
+          try {
+            result = await participant.handler(snapshot)
+          } finally {
+            this.markFeatureInactive(participant.featureName)
+          }
           if (result !== null && result !== undefined) {
             participant.result = result
             ranAny = true
@@ -76,6 +83,52 @@ export class ExecutionRegistryClass implements ExecutionRegistry {
 
   getHandlers(eventName: string): ExecutionParticipant[] {
     return this.executionHandlers.get(eventName) || []
+  }
+
+  unregisterFeature(featureName: string): string[] {
+    const affectedEvents: string[] = []
+
+    for (const [eventName, handlers] of this.executionHandlers) {
+      const nextHandlers = handlers.filter(
+        (participant) => participant.featureName !== featureName
+      )
+      if (nextHandlers.length === handlers.length) {
+        continue
+      }
+
+      affectedEvents.push(eventName)
+      if (nextHandlers.length === 0) {
+        this.executionHandlers.delete(eventName)
+      } else {
+        this.executionHandlers.set(eventName, nextHandlers)
+      }
+    }
+
+    return affectedEvents
+  }
+
+  hasHandlers(eventName: string): boolean {
+    return (this.executionHandlers.get(eventName)?.length ?? 0) > 0
+  }
+
+  isFeatureActive(featureName: string): boolean {
+    return (this.activeFeatureCounts.get(featureName) ?? 0) > 0
+  }
+
+  private markFeatureActive(featureName: string): void {
+    this.activeFeatureCounts.set(
+      featureName,
+      (this.activeFeatureCounts.get(featureName) ?? 0) + 1
+    )
+  }
+
+  private markFeatureInactive(featureName: string): void {
+    const count = this.activeFeatureCounts.get(featureName) ?? 0
+    if (count <= 1) {
+      this.activeFeatureCounts.delete(featureName)
+      return
+    }
+    this.activeFeatureCounts.set(featureName, count - 1)
   }
 }
 

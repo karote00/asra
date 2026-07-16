@@ -375,6 +375,29 @@ describe('InputSystem', () => {
     expect(listener2).toHaveBeenCalledWith(rawEvent)
   })
 
+  it('should remove only the requested registered listener', () => {
+    const listener1 = vi.fn()
+    const listener2 = vi.fn()
+    const eventName = 'INPUT_LISTENER_CLEANUP'
+    inputSystem.on(eventName, listener1)
+    inputSystem.on(eventName, listener2)
+
+    expect(inputSystem.off(eventName, listener1)).toBe(true)
+    expect(inputSystem.off(eventName, listener1)).toBe(false)
+
+    const rawEvent: RawInputEvent = {
+      type: InputType.KEYBOARD,
+      keys: [keyMap.keys.KeyA],
+      modifiers: { meta: false, ctrl: false, alt: false, shift: false },
+      pointer: {} as PointerEventData
+    }
+    inputSystem['triggerAction'](eventName, rawEvent)
+
+    expect(listener1).not.toHaveBeenCalled()
+    expect(listener2).toHaveBeenCalledOnce()
+    expect(inputSystem.off(eventName, listener2)).toBe(true)
+  })
+
   it('should handle async listeners correctly', async () => {
     const asyncListener = vi.fn(() => Promise.resolve())
     inputSystem.on('INPUT_KEYBOARD_A', asyncListener)

@@ -126,6 +126,24 @@ class InputSystem {
     return this
   }
 
+  off(action: string, callback: Callback): boolean {
+    const callbacks = this.listeners.get(action)
+    if (!callbacks) {
+      return false
+    }
+
+    const index = callbacks.indexOf(callback)
+    if (index < 0) {
+      return false
+    }
+
+    callbacks.splice(index, 1)
+    if (callbacks.length === 0) {
+      this.listeners.delete(action)
+    }
+    return true
+  }
+
   switchWatchedElement(watchedElement: HTMLElement) {
     this._previousWatchedElement.removeEventListener(
       'mousedown',

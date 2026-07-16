@@ -266,7 +266,8 @@
         'packages/feature-system/__tests__/**',
         'packages/input-system/src/input-system.ts',
         'packages/input-system/src/__tests__/**',
-        'docs/ai/framework/packages/feature-system.md'
+        'docs/ai/framework/packages/feature-system.md',
+        'docs/ai/framework/packages/input-system.md'
       ],
       specRefs: ['#scope', '#public-contract', '#product-cases'],
       failureOwnerStepId: 'register-feature-capability'
