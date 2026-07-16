@@ -356,6 +356,38 @@ describe('preset startup composition contract', () => {
     ).toBe(true)
   })
 
+  it('completes every observable shared-default group before concrete-engine bootstrap', () => {
+    const { core, dependencies } = createComposition()
+
+    const application = applyPreset(core)
+    const firstCallOrder = (mock: {
+      mock: { invocationCallOrder: number[] }
+    }) => mock.mock.invocationCallOrder[0]
+    const sharedGroupOrder = [
+      firstCallOrder(vi.mocked(core.registerEvent)),
+      firstCallOrder(vi.mocked(core.registerPropertySchema)),
+      firstCallOrder(vi.mocked(core.definePropertyComponent)),
+      firstCallOrder(vi.mocked(core.defineComponent)),
+      firstCallOrder(vi.mocked(core.registerRenderStrategy)),
+      firstCallOrder(vi.mocked(core.defineSelection)),
+      firstCallOrder(vi.mocked(core.defineUIProperty)),
+      firstCallOrder(vi.mocked(core.registerSharedDataChannel)),
+      firstCallOrder(vi.mocked(core.registerDataChannelObserver)),
+      firstCallOrder(vi.mocked(core.registerRenderLayer))
+    ]
+    const engineBootstrapOrder = firstCallOrder(
+      vi.mocked(dependencies.render.setEngineFactory)
+    )
+
+    expect(sharedGroupOrder).toEqual(
+      [...sharedGroupOrder].sort((a, b) => a - b)
+    )
+    expect(new Set(sharedGroupOrder).size).toBe(sharedGroupOrder.length)
+    expect(engineBootstrapOrder).toBeGreaterThan(sharedGroupOrder.at(-1) ?? 0)
+    expect(dependencies.render.setEngineFactory).toHaveBeenCalledOnce()
+    expect(application.dispose()).toMatchObject({ ok: true })
+  })
+
   it('lets an app define an ordinary feature after applying the preset', () => {
     const { core, features } = createComposition()
 

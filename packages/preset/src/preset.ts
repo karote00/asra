@@ -37,65 +37,125 @@ interface PresetCleanupEntry {
 
 type RegisterPresetCleanup = (key: string, dispose: () => void) => void
 
+interface SharedPresetGroup {
+  id: string
+  install(): void
+}
+
 const pendingRollbackApplications = new WeakMap<
   PresetCoreAPIs,
   PresetApplication
 >()
 
-const installPresetRegistrations = (core: PresetCoreAPIs): void => {
-  registerPropertySchemas(core)
-  registerPropertyComponents(core)
-
-  DEFAULT_COMPONENT_DEFINITIONS.forEach((definition) => {
-    core.defineComponent(definition)
-  })
-  DEFAULT_RENDER_STRATEGY_REGISTRATIONS.forEach(
-    ({ type, strategy, registration }) => {
-      core.registerRenderStrategy(type, strategy, registration)
-    }
-  )
-}
-
-const registerPresetRuntimeWiring = (
+const createSharedPresetGroups = (
   core: PresetCoreAPIs,
   resolvedDeps: PresetDependencies,
   registerCleanup: RegisterPresetCleanup
-): void => {
-  registerProperties(core)
-  registerCleanup(
-    'shared-data-channels',
-    registerDefaultSharedDataChannels(core)
-  )
-  registerCleanup(
-    'render-system-subscriptions',
-    registerDefaultRenderSystemSubscriptions(core, resolvedDeps)
-  )
-  registerCleanup(
-    'data-channel-observers',
-    registerDefaultDataChannelObservers(core, resolvedDeps)
-  )
-  registerCleanup(
-    'render-layer:selection-overlay',
-    registerTrackedRenderLayer(core, (registerRenderLayer) => {
-      registerSelectionOverlayRenderLayer(registerRenderLayer, {
-        render: resolvedDeps.render,
-        sceneTree: resolvedDeps.sceneTree,
-        systemContext: resolvedDeps.systemContext,
-        getSelection: (type) => core.getSelection(type)
+): readonly SharedPresetGroup[] => [
+  {
+    id: 'events',
+    install: () => registerCleanup('events', registerEvents(core))
+  },
+  {
+    id: 'property-schemas',
+    install: () => registerPropertySchemas(core)
+  },
+  {
+    id: 'property-components',
+    install: () => registerPropertyComponents(core)
+  },
+  {
+    id: 'components',
+    install: () => {
+      DEFAULT_COMPONENT_DEFINITIONS.forEach((definition) => {
+        core.defineComponent(definition)
       })
-    })
+    }
+  },
+  {
+    id: 'render-strategies',
+    install: () => {
+      DEFAULT_RENDER_STRATEGY_REGISTRATIONS.forEach(
+        ({ type, strategy, registration }) => {
+          core.registerRenderStrategy(type, strategy, registration)
+        }
+      )
+    }
+  },
+  {
+    id: 'selections',
+    install: () => registerCleanup('selections', registerSelections(core))
+  },
+  {
+    id: 'ui-properties',
+    install: () => registerProperties(core)
+  },
+  {
+    id: 'shared-data-channels',
+    install: () =>
+      registerCleanup(
+        'shared-data-channels',
+        registerDefaultSharedDataChannels(core)
+      )
+  },
+  {
+    id: 'render-system-subscriptions',
+    install: () =>
+      registerCleanup(
+        'render-system-subscriptions',
+        registerDefaultRenderSystemSubscriptions(core, resolvedDeps)
+      )
+  },
+  {
+    id: 'data-channel-observers',
+    install: () =>
+      registerCleanup(
+        'data-channel-observers',
+        registerDefaultDataChannelObservers(core, resolvedDeps)
+      )
+  },
+  {
+    id: 'render-layers',
+    install: () => {
+      registerCleanup(
+        'render-layer:selection-overlay',
+        registerTrackedRenderLayer(core, (registerRenderLayer) => {
+          registerSelectionOverlayRenderLayer(registerRenderLayer, {
+            render: resolvedDeps.render,
+            sceneTree: resolvedDeps.sceneTree,
+            systemContext: resolvedDeps.systemContext,
+            getSelection: (type) => core.getSelection(type)
+          })
+        })
+      )
+      registerCleanup(
+        'render-layer:vector-path-editing',
+        registerTrackedRenderLayer(core, (registerRenderLayer) => {
+          registerVectorPathEditingRenderLayer(registerRenderLayer, {
+            getSelection: (type) => core.getSelection(type),
+            render: resolvedDeps.render,
+            sceneTree: resolvedDeps.sceneTree,
+            systemContext: resolvedDeps.systemContext
+          })
+        })
+      )
+    }
+  }
+]
+
+const installSharedPresetDefaults = (
+  core: PresetCoreAPIs,
+  resolvedDeps: PresetDependencies,
+  registerCleanup: RegisterPresetCleanup
+): readonly string[] => {
+  const completedGroups: string[] = []
+  createSharedPresetGroups(core, resolvedDeps, registerCleanup).forEach(
+    (group) => {
+      group.install()
+      completedGroups.push(group.id)
+    }
   )
-  registerCleanup(
-    'render-layer:vector-path-editing',
-    registerTrackedRenderLayer(core, (registerRenderLayer) => {
-      registerVectorPathEditingRenderLayer(registerRenderLayer, {
-        getSelection: (type) => core.getSelection(type),
-        render: resolvedDeps.render,
-        sceneTree: resolvedDeps.sceneTree,
-        systemContext: resolvedDeps.systemContext
-      })
-    })
-  )
+  return completedGroups
 }
 
 const registerTrackedRenderLayer = (
@@ -262,17 +322,14 @@ export const applyPreset = (
   const { dependencies: resolvedDeps, renderEngineFactory } =
     resolvePresetComposition(core, dependenciesOrOptions)
 
-  resolvedDeps.render.setEngineFactory(renderEngineFactory)
   const cleanupEntries: PresetCleanupEntry[] = []
   const registerCleanup: RegisterPresetCleanup = (key, dispose) => {
     cleanupEntries.push({ key, dispose, completed: false })
   }
 
   try {
-    registerCleanup('events', registerEvents(core))
-    installPresetRegistrations(core)
-    registerCleanup('selections', registerSelections(core))
-    registerPresetRuntimeWiring(core, resolvedDeps, registerCleanup)
+    installSharedPresetDefaults(core, resolvedDeps, registerCleanup)
+    resolvedDeps.render.setEngineFactory(renderEngineFactory)
   } catch (error) {
     const rollbackApplication = createPresetApplication(
       core,
