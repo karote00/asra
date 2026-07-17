@@ -51,8 +51,9 @@ flowchart TD
   surface["Render surface"]
 
   state -->|authoritative state changes| render
-  preset -->|selects default factory only| pixi
-  preset -->|injects validated provider factory| render
+  preset -->|selects 2D provider| pixi
+  preset -->|binds through Core provider facade| core
+  core -->|stores abstract provider| render
   render -->|consumes| contract
   pixi -->|implements| contract
   custom -->|implements| contract

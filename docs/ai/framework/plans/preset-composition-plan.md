@@ -1,301 +1,227 @@
-# Generic Preset Composition Plan
+# Preset Profile and Selectable Defaults Plan
 
-## Status and Dependencies
+## Status and Authority
 
 Active after the completed Render-Engine Boundary and Extendable Preset plans.
-PR #81 merged both required contracts to `main` at merge commit
-`3a43a2d704174252cbf832a51356c8b442bc6ab1`.
+This plan supersedes the unreleased Generic Preset Composition API implemented
+on the current feature branch. The removed `renderEngineFactory`, identified
+engine bootstrap, capability-bundle, dependency-overload, and
+`PresetApplication` paths are not compatibility contracts.
 
-This plan does not introduce public `2d`, `3d`, or `hybrid` profile names.
-Official render-mode profiles remain trigger-gated in
-`preset-2d-3d-init-profile-plan.md`.
+The exact owner flow is defined by
+`preset-composition-flow-inspector.data.cjs`. Implementation advances one
+Inspector owner step at a time and follows the Inspector readiness and step
+execution rules.
 
 ## Goal
 
-Make preset startup deterministic and composable without coupling framework
-bootstrap to a dimension label, product mode, or concrete render-engine
-implementation.
-
-Preset-owned composition stops at:
+Expose two independent preset choices before Core startup:
 
 ```text
-shared preset defaults
--> concrete-engine bootstrap
--> explicitly selected optional capability bundles
--> completed composition result
+profile -> preset-owned render-engine provider policy only
+defaults -> selectable official preset modules only
 ```
 
-App-owned startup then continues independently:
-
-```text
-applyPreset(core, composition?)
--> app remove/define/unregister/register through ordinary Core APIs
--> app register migration
--> core.start()
-```
-
-Preset never executes app customization and never declares the Core runtime
-ready.
+The app completes preset selection, optional app customization, and optional
+custom provider binding before `core.start()`. The first `core.start()` closes
+composition permanently and owns runtime initialization/readiness.
 
 ## Product Contract
 
-### Supported behavior
-
-- `applyPreset(core)` keeps its current compatibility behavior and installs the
-  default Pixi-backed startup wiring.
-- The second argument remains backward-compatible with the explicit dependency
-  and `renderEngineFactory` overloads while gaining typed engine identity and
-  capability-bundle selection.
-- Preset applies exactly one deterministic layer order: shared defaults,
-  concrete-engine bootstrap, selected bundles in caller-declared order, then a
-  completed composition result.
-- Apps customize registrations only after `applyPreset(...)` returns, through
-  ordinary public Core relation/remove/unregister/define/register APIs.
-- The first `core.start()` remains the permanent registration-composition
-  closure and runtime startup owner.
-- Successful diagnostics identify the concrete engine, applied shared groups,
-  selected bundles, and exact layer order. They do not infer product mode.
-
-### Unsupported behavior
-
-- preset-owned app customization callbacks, extension objects, targets, or
-  apply-back flows;
-- public/shared registry `replace`, replace strategies, semantic-equivalence
-  inference, or duplicate-registration fallback;
-- selecting an official render-mode profile that has no concrete runtime;
-- treating engine capabilities as app-domain feature ownership;
-- importing concrete engine internals outside the allowed preset selection
-  boundary;
-- empty/no-op bundles or fallback output that simulates unsupported behavior;
-- automatic engine fallback or product-mode inference.
-
-## Public Typed Contract
-
-The public names below are the contract target; implementation may split their
-source files inside the Inspector allowlist without changing their meaning.
+### Public identifiers and catalog
 
 ```ts
-interface PresetEngineBootstrap {
-  id: string
-  factory?: RenderEngineFactory
-}
+const PresetProfiles = {
+  '2D': '2D',
+  '3D': '3D',
+  HYBRID: 'HYBRID',
+  CUSTOM: 'CUSTOM'
+} as const
 
-interface PresetCapabilityBundle {
-  id: string
-  owner: RegistrationOwnerMetadata
-  requires: readonly string[]
-  install(context: PresetCapabilityBundleContext): PresetCapabilityInstallation
-}
-
-interface PresetCapabilityInstallation {
-  outputs: readonly string[]
-  dispose(): void
-}
+const PresetDefaults = {
+  BASIC_SHAPES: 'basic-shapes',
+  CONTAINERS: 'containers',
+  VECTOR: 'vector',
+  INPUT: 'input',
+  SELECTION: 'selection',
+  VECTOR_EDITING: 'vector-editing',
+  VIEWPORT: 'viewport',
+  UI_CONTEXT: 'ui-context'
+} as const
 
 interface ApplyPresetOptions {
-  dependencies?: PresetDependencies
-  renderEngineFactory?: RenderEngineFactory // compatibility path
-  engine?: PresetEngineBootstrap
-  capabilityBundles?: readonly PresetCapabilityBundle[]
+  profile?: PresetProfile
+  defaults?: readonly PresetDefaultId[]
 }
 
-interface PresetCompositionSuccess {
-  ok: true
-  state: 'completed'
-  engineId: string
-  sharedGroups: readonly string[]
-  capabilityBundles: readonly string[]
-  order: readonly string[]
-}
-
-interface PresetApplication {
-  readonly result: PresetCompositionSuccess
-  dispose(): PresetApplicationDisposeSuccess
+interface PresetApplyResult {
+  readonly profile: PresetProfile
+  readonly presetEngineId: string | null
+  readonly selectedDefaults: readonly PresetDefaultId[]
+  readonly appliedDefaults: readonly PresetDefaultId[]
 }
 ```
 
-The default engine bootstrap identity is stable and preset-owned. An explicit
-custom bootstrap supplies both a non-empty stable `id` and a factory. The
-legacy `renderEngineFactory` option remains supported and maps to a stable
-compatibility diagnostic identity; supplying both legacy and new engine inputs
-is invalid.
+`PresetCatalog` is deeply frozen and contains separate profile and default
+lists. Profile entries expose `id`, `available`, and `presetEngineId`; default
+entries expose `id`, `available`, and public `requires`. A profile entry never
+lists or selects defaults. Catalog engine ids are preset-owned diagnostics;
+they are not dynamic-import paths and callers cannot supply them.
 
-A bundle has a package owner, stable identity, explicit selected-bundle
-dependencies, installation outputs, and an owned disposer. Bundle dependencies
-must appear earlier in the selected list. Preset does not reorder bundles or
-copy registry conflict semantics.
+`PresetDefaults.VECTOR_EDITING` requires `VECTOR` and `SELECTION`.
+`PresetDefaults.UI_CONTEXT` requires `SELECTION`. Preset-private property,
+event, shared-channel, render-projection, and observer prerequisites are not
+public default ids.
 
-### Structured failures
+### Application semantics
 
-`PresetCompositionError` exposes a stable `code` and structured `result` with
-the failed layer, selected engine/bundles known at failure time, completed
-layers, cleanup state, pending cleanup keys, and original cause where present.
-The stable code set covers:
+- `applyPreset(core)` means profile `2D` plus every available default.
+- Omitting `defaults` selects every available default for every profile,
+  including `CUSTOM`; profile never filters defaults.
+- `defaults: []` installs no default module while retaining the selected
+  profile's engine policy.
+- Explicit defaults are a set-like request. Duplicate, unknown, or unavailable
+  ids fail before mutation. Preset expands public dependencies and installs in
+  canonical catalog order, never caller order.
+- `selectedDefaults` contains the canonicalized caller selection (or all
+  available defaults when omitted). `appliedDefaults` includes public
+  dependency closure. Both and the result are detached and deeply frozen.
+- Profile `2D` is available and binds the preset-owned Pixi provider through
+  the Core facade. `CUSTOM` is available and binds no provider.
+- Profiles `3D` and `HYBRID` are stable known identifiers but unavailable.
+  Selecting either fails before any default or provider mutation.
+- A successful apply is permanent for that Core composition. A second apply
+  fails before mutation; app customization instead uses ordinary Core APIs.
+- `applyPreset` after the first `core.start()` fails even when no defaults or
+  provider would otherwise be installed.
 
-- `INVALID_COMPOSITION`;
-- `DUPLICATE_TARGET`;
-- `UNKNOWN_ENGINE_BOOTSTRAP`;
-- `MISSING_CAPABILITY_BUNDLE`;
-- `ORDERING_CONFLICT`;
-- `LAYER_INSTALL_FAILED`;
+### Core render provider and startup
+
+```ts
+type RenderEngineProvider = () => RenderEngine
+
+core.setRenderEngineProvider(provider)
+core.hasRenderEngineProvider()
+core.destroyRenderer()
+```
+
+- A provider is a zero-argument concrete-engine creator, unrelated to
+  `@asyra/factory`. Core accepts one provider during open composition and
+  Render invokes it only during startup.
+- A second provider or a post-start provider/renderer change fails. Apps that
+  need a custom engine select `CUSTOM` and set their provider before start.
+- Core owns an engine-neutral `RenderAdapter` by default. `setRenderer()`
+  remains an advanced full-renderer replacement API.
+- With the Core-owned adapter, an absent provider is a valid headless startup:
+  no canvas or input surface is created, while observers, load, features, and
+  ready publication still complete.
+- Direct `Render.init()` without a provider remains a strict error. A provider
+  that throws, returns an invalid engine, fails initialization, or lacks
+  required capabilities is not headless and fails Core startup before later
+  phases or ready publication.
+- `destroyRenderer()` delegates renderer resource teardown and does not reopen
+  composition or remove preset/app registrations.
+
+### Official default modules
+
+1. `BASIC_SHAPES`: Rectangle and Oval definitions, strategies, and required
+   position/dimension/fill/stroke defaults.
+2. `CONTAINERS`: Frame and Group definitions, strategies, and required model
+   defaults.
+3. `VECTOR`: Vector definition/strategy and vector topology property defaults.
+4. `INPUT`: normalized input event definitions plus mouse, keyboard, and
+   primary-tool state defaults.
+5. `SELECTION`: element selection runtime/state, shared projection, and
+   selection overlay.
+6. `VECTOR_EDITING`: vector point/segment selections, path-editing state, and
+   vector-editing layer.
+7. `VIEWPORT`: zoom/viewport state and Render pan/zoom subscriptions.
+8. `UI_CONTEXT`: derived element, selection, and property-panel UI values plus
+   their scene/selection synchronization.
+
+Framework developers add or change these modules inside `@asyra/preset`; apps
+cannot inject installers, callbacks, bundle metadata, or cleanup owners.
+
+### Failures and cleanup
+
+`PresetApplyError` exposes one stable code from:
+
+- `INVALID_OPTIONS`;
+- `UNKNOWN_PROFILE`;
+- `UNAVAILABLE_PROFILE`;
+- `UNKNOWN_DEFAULT`;
+- `UNAVAILABLE_DEFAULT`;
+- `DUPLICATE_DEFAULT`;
+- `COMPOSITION_CLOSED`;
+- `ALREADY_APPLIED`;
+- `ENGINE_PROVIDER_CONFLICT`;
+- `DEFAULT_INSTALL_FAILED`;
 - `CLEANUP_FAILED`.
 
-Validation failures happen before installation. Installation failure rolls
-back installed owned resources in reverse order. Cleanup failure preserves a
-deterministic retryable state; completed cleanup is not repeated. A failed
-composition never publishes `PresetCompositionSuccess` and never leaves an
-accepted partial composition.
+Validation errors mutate nothing. Installation failure stops later modules and
+rolls back acquired preset-owned resources in exact reverse order. Cleanup
+failure reports completed and pending cleanup keys plus the original cause;
+the next apply on that Core retries pending cleanup before any new validation
+or installation. No public disposer or application handle is exposed.
 
-## Ownership and Composition Layers
+## Ownership and Flow
 
-1. Shared preset defaults
-
-- Owner: `@asyra/preset`.
-- Contains engine-independent optional defaults and explicit runtime wiring.
-- Installs each shared registration group exactly once.
-
-2. Concrete-engine bootstrap
-
-- Selection and stable diagnostic identity owner: `@asyra/preset`.
-- Abstract contract owner: `@asyra/render-engine`.
-- Provider acceptance and instance/resource lifecycle owner: `@asyra/render`.
-- Concrete implementation/cleanup owner: selected engine package, with
-  `@asyra/render-engine-pixi` as the default.
-- Preset injects a factory; it never owns the resulting engine runtime.
-
-3. Optional capability bundles
-
-- Definition, outputs, dependency declaration, and disposer owner: the package
-  that exports the bundle.
-- Selection order and rollback coordination owner: `@asyra/preset`.
-- Bundles are explicit and independently selectable; no dimension label or
-  engine capability implies a bundle.
-
-4. App customization
-
-- Owner: app code after `applyPreset(...)` returns.
-- Uses ordinary Core relation removal/definition or deterministic owner
-  `unregister -> register` composition.
-- Is not a preset composition layer and is not invoked by preset.
-
-5. Runtime start
-
-- Owner: `@asyra/core` through `core.start()`.
-- Preset success means startup composition completed, not runtime-ready.
-
-## Scope
-
-In scope:
-
-- typed composition input, success diagnostics, and structured failure
-  contracts;
-- deterministic shared-default, engine-bootstrap, and selected-bundle order;
-- backward-compatible default application;
-- duplicate, unknown/missing, ordering, partial-failure, cleanup-retry, and
-  instance-isolation behavior;
-- integration with engine injection and completed Extendable Preset contracts;
-- documentation, executable Inspector authority, and formal tests.
-
-Out of scope:
-
-- extracting Pixi or defining a new render engine;
-- production 3D or multi-engine runtime;
-- official `2d`, `3d`, or `hybrid` profiles or placeholder profile names;
-- camera, coordinate-space, hit-test, selection, or input multi-engine
-  coordination;
-- app-domain feature bundles or product mode inference;
-- feature-runtime, property-schema, or completed relation/unregister redesign.
-
-## Architecture Flow
-
-1. App supplies Core plus optional typed preset composition input.
-2. Preset resolves the compatibility-safe default when input is omitted and
-   validates all engine and bundle identities/dependencies before mutation.
-3. Preset applies shared defaults exactly once in their declared group order.
-4. Preset passes the selected concrete-engine factory to `@asyra/render`;
-   Render accepts the provider without constructing the runtime.
-5. Preset invokes explicitly selected package-owned bundles in caller-declared
-   order and records each installation output/disposer.
-6. Preset publishes an instance-local completed composition result only after
-   all selected layers succeed.
-7. `applyPreset(...)` returns. App code may now customize through ordinary Core
-   APIs and register app migration.
-8. App calls `core.start()`. Core closes registration composition permanently
-   and owns runtime startup/readiness.
-
-Any failure in steps 3-5 routes to reverse-order cleanup. A cleanup failure
-remains structured and retryable; no success result is published.
+1. App calls `applyPreset(core, options?)`.
+2. Preset snapshots and validates strict options, profile availability,
+   default ids/dependencies, composition state, duplicate apply, and provider
+   conflict before mutation.
+3. Preset installs selected/default dependency closure in canonical order,
+   acquiring private shared prerequisites exactly once.
+4. For `2D`, Preset binds the Pixi provider through
+   `core.setRenderEngineProvider`; for `CUSTOM`, it performs no provider call.
+5. Preset returns one frozen `PresetApplyResult`. App may use ordinary Core
+   APIs and may bind a custom provider for `CUSTOM`.
+6. App calls `core.start()`. Core closes composition, validates relations, and
+   initializes its renderer. Missing provider alone selects headless startup;
+   all actual provider/engine failures remain errors.
+7. Core initializes observers, persistence load, features, and publishes ready.
 
 ## Product Cases
 
-- omitted composition preserves current Asyra Design startup behavior;
-- explicit default-engine composition produces the same registration/runtime
-  wiring and stable engine identity;
-- shared defaults apply exactly once and in deterministic order;
-- optional bundles install in explicit order with package-owned outputs;
-- app customization occurs only after return through ordinary Core APIs;
-- the public surface contains no preset-specific app extension object/callback;
-- complete implementation change remains `unregister -> define/register` and no
-  public/shared replace contract exists;
-- duplicate bundle/engine targets fail before mutation;
-- unknown engine bootstrap, missing bundle dependency, and ordering conflict
-  fail with stable structured errors;
-- a failed layer publishes no success and cleans installed resources in reverse
-  order;
-- cleanup retry runs only pending cleanup and leaves no stale observer, handler,
-  subscription, layer, registration, or engine provider/resource;
-- separate Core/PresetApplication instances do not share result, selected
-  bundles, cleanup state, or diagnostics;
-- `core.start()` remains runtime owner and permanent composition closure;
-- diagnostics never emit or infer `2d`, `3d`, `hybrid`, or app-domain mode;
-- Asyra Design keeps its default startup sequence and public import boundaries.
+- omitted options equal explicit `2D` plus all defaults;
+- `CUSTOM` plus omitted defaults installs all defaults and no provider;
+- empty defaults install no modules for either `2D` or `CUSTOM`;
+- identical explicit defaults resolve identically across `2D` and `CUSTOM`;
+- vector editing expands only `VECTOR` and `SELECTION` public dependencies;
+- UI context expands only `SELECTION` as a public dependency;
+- unavailable/unknown profiles, invalid/default ids, legacy option keys,
+  duplicate defaults, closed composition, duplicate apply, and provider
+  conflict fail before accepted mutation;
+- partial installation failure and cleanup retry leave no stale registrations,
+  events, channels, observers, subscriptions, layers, or provider;
+- Core-owned adapter starts without app `setRenderer()`;
+- headless Core startup resolves with no canvas/input while direct Render stays
+  strict and real provider/engine failures remain visible;
+- Asyra Design keeps the same default UI, interaction, load, undo/redo, and
+  render behavior.
 
 ## Definition of Done
 
-- the compatibility path is behaviorally unchanged;
-- composition order, inputs/results/errors, failure ownership, and cleanup are
-  executable contracts;
-- engine selection uses only the abstract boundary and a reversible Render
-  provider configuration before runtime construction;
-- bundles have explicit package ownership, dependency, output, and cleanup
-  contracts;
-- app customization remains outside preset and uses ordinary Core APIs;
-- no placeholder render-mode profile or product-mode inference exists;
-- affected package, Inspector, and Asyra Design startup tests pass;
-- instance-isolation and failure-cleanup tests pass;
-- `yarn test:local`, `yarn lint:ci`, `yarn react:build`,
-  `yarn deps:validate`, and `git diff --check origin/main...HEAD` pass;
-- required live startup verification passes;
-- self-review and read-only sub-agent review have no unresolved concrete issue.
-
-## Inspector Authority
-
-- exact flow data:
-  `docs/ai/framework/plans/preset-composition-flow-inspector.data.cjs`
-- interactive viewer:
-  `docs/ai/framework/plans/preset-composition-flow-inspector.html`
-- executable contract:
-  `docs/ai/framework/plans/preset-composition-flow-inspector.contract.test.cjs`
-
-Implementation advances one Inspector owner step at a time. This plan owns the
-public product contract; the Inspector owns exact routes, implementation
-allowlists, failure owners, and cleanup owners.
+- active plan, Inspectors, package/app docs, golden paths, and decision history
+  contain no live legacy bundle/factory/application contract;
+- profile/default constants and catalog have one preset-owned source of truth;
+- eight modules are independently selectable with deterministic private
+  prerequisite acquisition and cleanup;
+- provider selection uses only Core and abstract render-engine boundaries;
+- affected package/app/Inspector tests, root tests, lint, build, dependency
+  validation, diff check, live startup, and synchronized visual review pass;
+- no 3D/Hybrid runtime or package import is introduced;
+- the plan remains active until user-reviewed closeout is explicitly requested.
 
 ## Implementation Segments
 
-1. [x] Repair plan authority and establish executable Inspector readiness.
-2. [ ] Add typed input/result/error contracts and preflight validation
-       test-first.
-3. [ ] Extract deterministic shared groups without changing compatibility
-       behavior, test-first.
-4. [ ] Add reversible concrete-engine provider coordination, test-first.
-5. [ ] Add deterministic package-owned bundle installation and rollback,
-       test-first.
-6. [ ] Publish instance-local success/diagnostics and retryable cleanup state,
-       test-first.
-7. [ ] Prove ordinary post-return app customization, Core startup ownership,
-       Asyra Design compatibility, and package/import boundaries.
-8. [ ] Synchronize docs and run bounded/root/live gates plus independent review.
+1. [ ] Repair plan and Inspector authority.
+2. [ ] Rename and test the abstract provider contract and strict Render path.
+3. [ ] Add and test Core provider/default-renderer/headless/teardown ownership.
+4. [ ] Add and test preset identifiers, catalog, strict validation, and result.
+5. [ ] Split and test eight default modules plus private prerequisites.
+6. [ ] Migrate and verify Asyra Design startup.
+7. [ ] Synchronize docs and run full validation/review.
 
 Do not move this plan to `completed/` until the user reviews the implementation
 and explicitly requests closeout.

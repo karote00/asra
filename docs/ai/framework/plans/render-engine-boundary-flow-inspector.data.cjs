@@ -19,29 +19,33 @@
       id: 'select-render-engine',
       order: 1,
       laneId: 'composition',
-      title: 'Select render engine provider',
-      ownerPackage: '@asyra/preset',
+      title: 'Accept render engine provider',
+      ownerPackage: '@asyra/core',
       purpose:
-        'Install the Pixi engine factory by default or forward an explicit custom engine factory through the same startup boundary.',
+        'Accept one preset-owned 2D or app-owned custom provider through Core composition without constructing an engine.',
       inputs: [
-        'applyPreset(core) startup request',
-        'optional custom engine factory implementing @asyra/render-engine'
+        'validated preset 2D provider request or app custom provider request',
+        'public Core render-engine provider facade'
       ],
       outputs: ['artifact:engine-provider-selection'],
       conditions: [
-        'The compatibility applyPreset(core) path selects a fresh @asyra/render-engine-pixi engine factory for the target Render instance.',
-        'An explicit custom engine factory replaces the Pixi default before Core startup without changing a non-render package.',
-        'Preset selects and injects the provider but does not own the engine runtime or its resources.'
+        'Preset profile 2D statically supplies @asyra/render-engine-pixi through this Core facade.',
+        'Preset profile CUSTOM supplies nothing; the app may bind its own provider through the same Core facade before startup.',
+        'Profile choice never selects preset defaults and catalog engine ids are diagnostics rather than import paths.',
+        'Core accepts at most one provider during open composition and does not construct or own the engine runtime resources.'
       ],
       bypasses: [
-        'A direct Render class consumer may skip preset and inject an engine instance through the direct custom-engine route.'
+        'CUSTOM bypasses preset provider binding.',
+        'A direct Render class consumer may skip Core and preset and inject an engine instance through the strict direct custom-engine route.'
       ],
       allowedContributors: [
-        '@asyra/render-engine-pixi public factory',
-        'explicit user-supplied RenderEngine factory',
+        '@asyra/render-engine-pixi public provider',
+        'app-owned custom RenderEngine provider',
         '@asyra/core render-engine injection facade'
       ],
       forbiddenContributors: [
+        'custom provider passed through preset',
+        'dynamic import from a catalog engine id',
         'production 3D or Hybrid engine selection',
         'render mode selection',
         'app-domain feature bundles',
@@ -54,9 +58,13 @@
         'packages/preset/src/preset.ts',
         'packages/preset/src/types.ts',
         'packages/preset/src/__tests__/**',
+        'packages/core/src/core.ts',
+        'packages/core/src/index.ts',
+        'packages/core/src/__tests__/**',
         'docs/ai/framework/packages/preset.md',
         'docs/ai/framework/golden-paths/README.md',
-        'docs/ai/framework/golden-paths/replace-render-engine.md'
+        'docs/ai/framework/golden-paths/replace-render-engine.md',
+        'docs/ai/framework/plans/preset-composition-plan.md'
       ],
       specRefs: [
         '#target-package-architecture',
@@ -80,7 +88,7 @@
         'The consumer owns choosing the instance; the Render adapter owns using it for exactly that Render instance.'
       ],
       bypasses: [
-        'The route is bypassed when preset supplies the default or explicit custom factory.'
+        'The route is bypassed when profile 2D supplies the preset provider through Core.'
       ],
       allowedContributors: [
         'user-owned RenderEngine implementation',
@@ -109,20 +117,25 @@
       title: 'Start render runtime',
       ownerPackage: '@asyra/core',
       purpose:
-        'Forward the framework surface container and render options to the configured Render adapter before loading state and publishing readiness.',
+        'Own the default engine-neutral Render adapter, close composition, and coordinate rendered or headless startup before publishing readiness.',
       inputs: ['Core.start(container, renderOptions) request'],
       outputs: ['artifact:render-start-request'],
       conditions: [
-        'Core calls the configured framework renderer once and keeps persistence, feature initialization, and ready publication ordered after render initialization.',
+        'Core owns and calls one default engine-neutral @asyra/render adapter unless an advanced renderer replacement was supplied before startup.',
+        'The first startup entry closes composition permanently before renderer side effects.',
         'Core remains unaware of Pixi resources and concrete engine methods.',
-        'The app bootstrap configures only the engine-neutral @asyra/render framework render adapter before Core startup.'
+        'An exact missing-provider result from the Core-owned adapter selects headless startup with no canvas or input surface.',
+        'Headless startup still orders data observers, persistence load, feature initialization, and ready publication normally.',
+        'Provider callback, engine validation, initialization, capability, and advanced-renderer failures reject startup.'
       ],
       bypasses: [
-        'A missing configured adapter or engine fails startup before data observers, features, or ready publication.'
+        'Headless startup bypasses only canvas append and input-surface setup.',
+        'Direct Render and RenderAdapter consumers remain strict when no provider is configured.'
       ],
       allowedContributors: [
         '@asyra/render framework-facing renderer contract',
-        'app bootstrap configuration of the framework render adapter',
+        'Core-owned default RenderAdapter',
+        'advanced app renderer replacement before startup',
         'HTMLElement surface container',
         'engine-neutral RenderOptions'
       ],
@@ -130,7 +143,7 @@
         'pixi.js types or runtime',
         'app bootstrap concrete engine imports or Pixi-named adapter usage',
         'concrete engine capability introspection',
-        'false ready fallback'
+        'generic render error swallowing'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -179,6 +192,7 @@
         'A successful concrete result is normalized before Core observes adapter initialization success.'
       ],
       bypasses: [
+        'Without a provider, direct Render initialization emits one exact missing-provider failure; only Core may normalize that failure to headless.',
         'A layer whose shouldUpdate predicate is false emits no draw operations for that frame.',
         'A non-dirty frame does not flush a surface.',
         'A failed engine initialization produces a failed adapter outcome and no ready state.'
@@ -457,15 +471,15 @@
       title: 'Publish render ready',
       ownerPackage: '@asyra/core',
       purpose:
-        'Publish framework readiness only after successful adapter and engine initialization plus the existing ordered Core startup phases.',
+        'Publish framework readiness after rendered or exact missing-provider headless initialization plus the existing ordered Core startup phases.',
       inputs: ['artifact:render-adapter-init-outcome'],
       outputs: ['artifact:render-ready'],
       conditions: [
-        'A successful engine initialization and normalized adapter outcome are required before data observers, persistence load, features, and render-ready publication complete.',
+        'A successful engine initialization or the Core-normalized exact missing-provider headless outcome permits the ordered later phases and render-ready publication.',
         'Core observes an engine-neutral outcome and never inspects Pixi or custom engine resources.'
       ],
       bypasses: [
-        'Any adapter or engine initialization failure rejects Core.start and does not publish render ready.'
+        'Any provider callback, engine validation, initialization, capability, or advanced-renderer failure rejects Core.start and does not publish render ready.'
       ],
       allowedContributors: [
         '@asyra/render initialization outcome',
@@ -474,7 +488,7 @@
       ],
       forbiddenContributors: [
         'concrete engine instance',
-        'fallback ready state',
+        'generic fallback ready state',
         'partial initialization success'
       ],
       cacheDimensions: [],
@@ -573,7 +587,7 @@
       from: 'select-render-engine',
       to: 'orchestrate-render-adapter',
       kind: 'normal',
-      predicate: 'applyPreset(core) uses its compatibility default',
+      predicate: 'preset profile 2D supplies its provider through Core',
       producedArtifacts: ['artifact:engine-provider-selection']
     },
     {
@@ -581,7 +595,7 @@
       from: 'select-render-engine',
       to: 'orchestrate-render-adapter',
       kind: 'conditional',
-      predicate: 'preset receives an explicit custom engine factory',
+      predicate: 'app binds an explicit custom engine provider through Core',
       producedArtifacts: ['artifact:engine-provider-selection']
     },
     {
@@ -1051,13 +1065,21 @@
       specPath,
       inspectorPath,
       semanticOwner: 'completed/render-engine-boundary-plan.md',
-      inspectorOwner: 'render-engine-boundary-flow-inspector.data.cjs'
+      inspectorOwner: 'render-engine-boundary-flow-inspector.data.cjs',
+      activeAmendmentSpecPath:
+        'docs/ai/framework/plans/preset-composition-plan.md'
     },
     links: [
       {
         id: 'product-contract',
         label: 'Render-Engine Boundary Plan',
         href: './completed/render-engine-boundary-plan.md',
+        kind: 'authority'
+      },
+      {
+        id: 'active-provider-amendment',
+        label: 'Preset Profile and Selectable Defaults Plan',
+        href: './preset-composition-plan.md',
         kind: 'authority'
       },
       {

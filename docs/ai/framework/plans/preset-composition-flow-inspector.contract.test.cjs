@@ -55,179 +55,168 @@ test('active plan and direct-open Inspector are the resolvable authorities', () 
   })
 })
 
-test('product authority stops preset composition before app customization and Core start', () => {
-  assert.match(
-    spec,
-    /shared preset defaults[\s\S]*concrete-engine bootstrap[\s\S]*optional capability bundles[\s\S]*completed composition result/i
-  )
-  assert.match(
-    spec,
-    /applyPreset\(core, composition\?\)[\s\S]*app remove\/define\/unregister\/register[\s\S]*app register migration[\s\S]*core\.start\(\)/i
-  )
-  assert.match(spec, /Preset never executes app customization/i)
-  assert.match(
-    spec,
-    /Preset success means startup composition completed, not runtime-ready/i
-  )
-  assert.doesNotMatch(
-    spec,
-    /optional capability bundles\s*->\s*app customizations/i
-  )
-})
-
-test('public typed contract names engine, bundle, result, and cleanup ownership explicitly', () => {
+test('public contract makes profile and defaults independent', () => {
   const publicContract = spec.slice(
-    spec.indexOf('## Public Typed Contract'),
-    spec.indexOf('## Ownership and Composition Layers')
+    spec.indexOf('### Public identifiers and catalog'),
+    spec.indexOf('### Application semantics')
   )
 
-  assert.match(publicContract, /interface PresetEngineBootstrap/)
-  assert.match(publicContract, /id: string/)
-  assert.match(publicContract, /factory\?: RenderEngineFactory/)
-  assert.match(publicContract, /interface PresetCapabilityBundle/)
-  assert.match(publicContract, /owner: RegistrationOwnerMetadata/)
-  assert.match(publicContract, /requires: readonly string\[\]/)
-  assert.match(publicContract, /outputs: readonly string\[\]/)
-  assert.match(publicContract, /dispose\(\): void/)
-  assert.match(publicContract, /interface PresetCompositionSuccess/)
-  assert.match(publicContract, /state: 'completed'/)
-  assert.match(publicContract, /readonly result: PresetCompositionSuccess/)
-  assert.doesNotMatch(
-    publicContract,
-    /PresetExtension|extensions:|extension target|replace strategy/i
+  ;['2D', '3D', 'HYBRID', 'CUSTOM'].forEach((id) =>
+    assert.match(publicContract, new RegExp(`['\"]${id}['\"]`))
   )
-})
-
-test('structured composition errors cover every required stable failure class', () => {
   ;[
-    'INVALID_COMPOSITION',
-    'DUPLICATE_TARGET',
-    'UNKNOWN_ENGINE_BOOTSTRAP',
-    'MISSING_CAPABILITY_BUNDLE',
-    'ORDERING_CONFLICT',
-    'LAYER_INSTALL_FAILED',
-    'CLEANUP_FAILED'
-  ].forEach((code) => assert.match(spec, new RegExp(`\\b${code}\\b`)))
+    'BASIC_SHAPES',
+    'CONTAINERS',
+    'VECTOR',
+    'INPUT',
+    'SELECTION',
+    'VECTOR_EDITING',
+    'VIEWPORT',
+    'UI_CONTEXT'
+  ].forEach((id) => assert.match(publicContract, new RegExp(`\\b${id}\\b`)))
 
-  assert.match(spec, /failed layer/i)
-  assert.match(spec, /pending cleanup keys/i)
-  assert.match(spec, /never publishes `PresetCompositionSuccess`/i)
+  assert.match(publicContract, /interface ApplyPresetOptions/)
+  assert.match(publicContract, /profile\?: PresetProfile/)
+  assert.match(publicContract, /defaults\?: readonly PresetDefaultId\[\]/)
+  assert.match(publicContract, /interface PresetApplyResult/)
+  assert.match(publicContract, /presetEngineId: string \| null/)
+  assert.match(publicContract, /selectedDefaults: readonly PresetDefaultId\[\]/)
+  assert.match(publicContract, /appliedDefaults: readonly PresetDefaultId\[\]/)
+  assert.match(publicContract, /profile entry never\s+lists or selects defaults/i)
+  assert.match(publicContract, /not dynamic-import paths/i)
 })
 
-test('preset validates complete engine and bundle selection before mutation', () => {
-  const owner = step('resolve-preset-composition')
+test('removed unreleased composition APIs are not compatibility contracts', () => {
+  assert.match(
+    spec,
+    /removed `renderEngineFactory`[\s\S]*engine bootstrap[\s\S]*capability-bundle[\s\S]*dependency-overload[\s\S]*`PresetApplication`/i
+  )
+  assert.match(spec, /not compatibility contracts/i)
+
+  const result = contractText(step('publish-preset-result'))
+  const request = contractText(step('request-preset'))
+  assert.match(request, /never supplies installers, callbacks, engine ids/i)
+  assert.match(request, /capability bundle or arbitrary installer input/i)
+  assert.match(result, /No public disposer, application handle/i)
+  assert.match(result, /PresetApplication or public dispose method/i)
+})
+
+test('preset resolves all strict input before mutation', () => {
+  const owner = step('resolve-preset-request')
   const contract = contractText(owner)
 
   assert.equal(owner.ownerPackage, '@asyra/preset')
-  assert.match(contract, /before any composition mutation/i)
-  assert.match(contract, /stable.*Pixi bootstrap identity/i)
-  assert.match(contract, /legacy renderEngineFactory/i)
-  assert.match(contract, /legacy and new engine inputs together/i)
-  assert.match(contract, /duplicate targets fail before mutation/i)
-  assert.match(contract, /missing dependency.*ordering conflict/i)
-  assert.match(contract, /no-op bundle definitions fail before installation/i)
+  assert.match(contract, /before mutation/i)
+  assert.match(contract, /Profile and defaults are independent axes/i)
+  assert.match(contract, /Omitted defaults select every available default/i)
+  assert.match(contract, /canonicalized in catalog order/i)
+  assert.match(contract, /public dependencies are expanded deterministically/i)
+  assert.match(contract, /Unknown option keys/i)
+  assert.match(contract, /duplicates, closed composition, duplicate apply/i)
+  assert.match(contract, /3D and HYBRID are known unavailable profiles/i)
+  assert.match(contract, /import no engine package/i)
+  assert.match(contract, /profile-based default filtering/i)
+  assert.match(contract, /dynamic import from a catalog engine id/i)
   assert.deepEqual(owner.cacheDimensions, [])
 })
 
-test('shared defaults apply exactly once without copying registry conflict semantics', () => {
-  const owner = step('install-shared-preset-defaults')
+test('preset installs only the selected public default dependency closure', () => {
+  const owner = step('install-preset-defaults')
   const contract = contractText(owner)
 
   assert.equal(owner.ownerPackage, '@asyra/preset')
-  assert.match(contract, /exactly once/i)
-  assert.match(contract, /stable.*order/i)
-  assert.match(contract, /ordinary Core duplicate\/conflict semantics/i)
-  assert.match(contract, /compatibility path.*same observable defaults/i)
-  assert.match(contract, /No shared group.*engine identity.*product mode/i)
+  assert.match(contract, /eight-module public dependency closure/i)
+  assert.match(contract, /canonical order/i)
+  assert.match(contract, /Private property, event, channel, projection, observer/i)
+  assert.match(contract, /deduplicated/i)
+  assert.match(contract, /Unselected public modules install no product-visible/i)
+  assert.match(contract, /caller-provided installer or disposer/i)
+  assert.match(contract, /app-domain FeatureSystem behavior/i)
 })
 
-test('Render owns reversible instance-local provider acceptance without concrete imports', () => {
-  const owner = step('accept-concrete-engine-provider')
-  const contract = contractText(owner)
-
-  assert.equal(owner.ownerPackage, '@asyra/render')
-  assert.match(contract, /reversible pre-runtime provider cleanup/i)
-  assert.match(contract, /does not construct an engine/i)
-  assert.match(contract, /restore.*prior.*provider.*clear.*no prior provider/i)
-  assert.match(contract, /stale cleanup handle cannot erase a later provider/i)
-  assert.match(contract, /Each Render instance.*independently/i)
-  assert.match(
-    contract,
-    /preset caller boundary maps provider rejection to structured composition failure/i
-  )
-  assert.ok(
-    owner.implementationBoundary.includes('packages/preset/src/preset.ts')
-  )
-  assert.ok(
-    owner.implementationBoundary.includes('packages/preset/src/__tests__/**')
-  )
-  assert.match(
-    contract,
-    /@asyra\/render-engine-pixi imports in @asyra\/render/i
-  )
-})
-
-test('preset coordinates explicit bundle order while packages own outputs and cleanup', () => {
-  const owner = step('install-capability-bundles')
+test('profile provider policy is independent and uses Core only', () => {
+  const owner = step('select-profile-provider')
   const contract = contractText(owner)
 
   assert.equal(owner.ownerPackage, '@asyra/preset')
-  assert.match(contract, /caller-declared order is preserved/i)
-  assert.match(contract, /no inferred topological reorder/i)
-  assert.match(contract, /explicit outputs.*package-owned disposer/i)
-  assert.match(contract, /never treats outputs as registry authority/i)
-  assert.match(contract, /empty.*without a no-op bundle/i)
-  assert.match(contract, /bundle inferred from engine capabilities/i)
+  assert.match(contract, /independently from installed defaults/i)
+  assert.match(contract, /2D requests the statically imported Pixi provider/i)
+  assert.match(contract, /CUSTOM requests no provider/i)
+  assert.match(contract, /engine ids remain diagnostics/i)
+  assert.match(contract, /CUSTOM bypasses provider binding without bypassing default installation/i)
+  assert.match(contract, /custom app engine passed through preset/i)
+  assert.match(contract, /profile-derived default selection/i)
 })
 
-test('success publication is instance-local and cannot declare Core ready or product mode', () => {
-  const owner = step('publish-composition-result')
+test('Core accepts one provider without constructing an engine', () => {
+  const owner = step('accept-core-provider')
+  const contract = contractText(owner)
+
+  assert.equal(owner.ownerPackage, '@asyra/core')
+  assert.match(contract, /without constructing an engine/i)
+  assert.match(contract, /zero-argument RenderEngine creator unrelated to @asyra\/factory/i)
+  assert.match(contract, /duplicate or post-start provider fails/i)
+  assert.match(contract, /exposes provider presence/i)
+  assert.match(contract, /concrete engine construction/i)
+  assert.match(contract, /@asyra\/factory runtime or types/i)
+})
+
+test('Render keeps direct provider initialization strict', () => {
+  const storage = contractText(step('accept-render-provider'))
+  const runtime = contractText(step('initialize-render-runtime'))
+
+  assert.match(storage, /instance-locally/i)
+  assert.match(storage, /without invoking it/i)
+  assert.match(storage, /invoked only by Render initialization/i)
+  assert.match(storage, /@asyra\/render-engine-pixi import/i)
+
+  assert.match(runtime, /direct Render strict/i)
+  assert.match(runtime, /stable missing-provider error/i)
+  assert.match(runtime, /Only Core may treat the exact missing-provider outcome as headless/i)
+  assert.match(runtime, /Provider callback, invalid engine, initialization, and capability failures/i)
+  assert.match(runtime, /generic error swallowing/i)
+})
+
+test('result is detached, frozen, and is not a lifecycle handle', () => {
+  const owner = step('publish-preset-result')
   const contract = contractText(owner)
 
   assert.equal(owner.ownerPackage, '@asyra/preset')
-  assert.match(contract, /only after every selected layer has completed/i)
-  assert.match(contract, /detached from caller-owned mutable inputs/i)
-  assert.match(contract, /local to the supplied Core\/application lifetime/i)
-  assert.match(contract, /does not mean Core runtime-ready/i)
-  assert.match(contract, /No success object.*failure/i)
-  assert.match(contract, /2D, 3D, Hybrid, or app-domain mode fields/i)
+  assert.match(contract, /deeply frozen result/i)
+  assert.match(contract, /profile, presetEngineId, selectedDefaults, and appliedDefaults only/i)
+  assert.match(contract, /detached and canonical/i)
+  assert.match(contract, /No public disposer, application handle/i)
+  assert.match(contract, /not Core runtime readiness/i)
 })
 
-test('cleanup reverses only acquired resources and preserves deterministic retry state', () => {
-  const owner = step('dispose-preset-composition')
+test('Core owns default renderer, exact headless normalization, and teardown', () => {
+  const owner = step('start-core-runtime')
+  const contract = contractText(owner)
+
+  assert.equal(owner.ownerPackage, '@asyra/core')
+  assert.match(contract, /owns an engine-neutral RenderAdapter unless/i)
+  assert.match(contract, /first start closes composition/i)
+  assert.match(contract, /missing-provider outcome.*accepted as headless/i)
+  assert.match(contract, /no canvas or input surface/i)
+  assert.match(contract, /observers, load, features, and ready/i)
+  assert.match(contract, /Provider callback, engine initialization, capability.*failures stop/i)
+  assert.match(contract, /destroyRenderer delegates resource teardown/i)
+  assert.match(contract, /never reopens composition/i)
+  assert.match(contract, /Headless bypasses canvas append and input setup only/i)
+})
+
+test('cleanup is reverse, internal, and retryable', () => {
+  const owner = step('rollback-preset-apply')
   const contract = contractText(owner)
 
   assert.equal(owner.ownerPackage, '@asyra/preset')
-  assert.match(contract, /exact reverse installation order/i)
-  assert.match(contract, /Completed cleanup handles are not invoked again/i)
+  assert.match(contract, /exact reverse acquisition order/i)
+  assert.match(contract, /Completed cleanup is never repeated/i)
+  assert.match(contract, /pending cleanup retries before the next apply/i)
   assert.match(contract, /CLEANUP_FAILED/i)
-  assert.match(
-    contract,
-    /next apply.*same Core.*retries pending rollback cleanup/i
-  )
-  assert.match(
-    contract,
-    /observer.*handler.*subscription.*layer.*registration.*provider.*engine resource/i
-  )
-  assert.equal(route('bundle-failure-cleanup').to, 'dispose-preset-composition')
-})
-
-test('app customization and Core runtime start remain independent owner steps', () => {
-  const app = contractText(step('apply-app-customization'))
-  const core = contractText(step('close-and-start-core-runtime'))
-
-  assert.match(app, /remove old relation then define new relation/i)
-  assert.match(
-    app,
-    /unregister owner registration then ordinary define\/register/i
-  )
-  assert.match(app, /after preset composition has completed/i)
-  assert.match(app, /preset executing app operations/i)
-
-  assert.match(core, /permanently.*method entry/i)
-  assert.match(core, /before renderer side effects/i)
-  assert.match(core, /before observers, load, features, and ready publication/i)
-  assert.match(core, /preset publishing runtime-ready/i)
+  assert.match(contract, /public PresetApplication\.dispose/i)
+  assert.equal(route('apply-failure-cleanup').to, 'rollback-preset-apply')
+  assert.equal(route('provider-failure-cleanup').to, 'rollback-preset-apply')
 })
 
 test('Inspector names bounded product cases and definition of done', () => {
@@ -235,54 +224,29 @@ test('Inspector names bounded product cases and definition of done', () => {
   const dodIds = new Set(data.definitionOfDone.map((item) => item.id))
 
   ;[
-    'omitted-default-compatibility',
-    'explicit-default-equivalence',
-    'shared-defaults-exactly-once',
-    'bundle-order',
-    'post-return-app-customization',
-    'no-app-extension-surface',
-    'duplicate-target',
-    'unknown-engine',
-    'missing-bundle',
-    'ordering-conflict',
+    'omitted-options',
+    'custom-all-defaults',
+    'empty-defaults',
+    'profile-default-independence',
+    'dependency-expansion',
+    'unavailable-profiles',
+    'strict-validation',
     'partial-failure-cleanup',
     'cleanup-retry',
-    'instance-isolation',
-    'core-start-ownership',
-    'render-mode-non-goal',
+    'core-default-renderer',
+    'headless-core-start',
+    'strict-render-failure',
     'asyra-design-compatibility'
   ].forEach((id) => assert.ok(caseIds.has(id), `Missing product case: ${id}`))
+
   ;[
     'public-contract',
-    'deterministic-order',
-    'compatibility',
+    'module-selection',
     'failure-cleanup',
-    'instance-isolation',
-    'ownership-boundaries',
-    'non-goals',
-    'full-validation',
-    'independent-review'
+    'core-render-ownership',
+    'boundary-safety',
+    'full-validation'
   ].forEach((id) => assert.ok(dodIds.has(id), `Missing DoD item: ${id}`))
-})
-
-test('public flow exposes no render-mode profile or preset app-extension artifact', () => {
-  const publicIdentifiers = [
-    ...data.steps.flatMap((item) => [item.id, ...item.outputs]),
-    ...data.routes.flatMap((item) => [item.id, ...item.producedArtifacts]),
-    ...data.artifacts.map((item) => item.id)
-  ].join(' ')
-
-  assert.doesNotMatch(
-    publicIdentifiers,
-    /(^|[-:])(2d|3d|hybrid|profile|preset-extension|extension-target)([-:]|$)/i
-  )
-
-  const forbidden = data.steps
-    .flatMap((item) => item.forbiddenContributors)
-    .join(' ')
-  assert.match(forbidden, /2D, 3D, Hybrid/i)
-  assert.match(forbidden, /preset-specific app extension/i)
-  assert.match(forbidden, /public\/shared replace semantics/i)
 })
 
 test('every owner step is exact and all routes and artifacts resolve', () => {
@@ -341,4 +305,8 @@ test('every owner step is exact and all routes and artifacts resolve', () => {
       )
     })
   })
+
+  assert.ok(Object.isFrozen(data))
+  assert.ok(Object.isFrozen(data.steps))
+  assert.ok(Object.isFrozen(data.steps[0]))
 })

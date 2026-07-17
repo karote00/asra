@@ -17,7 +17,7 @@ const route = (id) => {
   return value
 }
 
-test('completed render-engine plan remains the resolvable product authority', () => {
+test('completed boundary authority has a resolvable active provider amendment', () => {
   const repoRoot = path.resolve(__dirname, '../../../..')
   const formerActiveSpecPath =
     'docs/ai/framework/plans/render-engine-boundary-plan.md'
@@ -31,6 +31,15 @@ test('completed render-engine plan remains the resolvable product authority', ()
     'docs/ai/framework/plans/completed/render-engine-boundary-plan.md'
   )
   assert.ok(fs.existsSync(path.resolve(repoRoot, data.authority.specPath)))
+  assert.equal(
+    data.authority.activeAmendmentSpecPath,
+    'docs/ai/framework/plans/preset-composition-plan.md'
+  )
+  assert.ok(
+    fs.existsSync(
+      path.resolve(repoRoot, data.authority.activeAmendmentSpecPath)
+    )
+  )
   assert.ok(fs.existsSync(path.resolve(__dirname, productContract.href)))
   assert.equal(
     fs.existsSync(path.resolve(repoRoot, formerActiveSpecPath)),
@@ -38,14 +47,16 @@ test('completed render-engine plan remains the resolvable product authority', ()
   )
 })
 
-test('preset selects the default engine without becoming its runtime owner', () => {
+test('Core accepts the preset 2D or app custom provider without owning runtime', () => {
   const selection = step('select-render-engine')
   const contract = [...selection.conditions, ...selection.bypasses].join(' ')
 
-  assert.equal(selection.ownerPackage, '@asyra/preset')
-  assert.match(contract, /Pixi/i)
-  assert.match(contract, /custom engine factory/i)
-  assert.match(contract, /does not own the engine runtime/i)
+  assert.equal(selection.ownerPackage, '@asyra/core')
+  assert.match(contract, /Preset profile 2D.*Pixi/i)
+  assert.match(contract, /Preset profile CUSTOM supplies nothing/i)
+  assert.match(contract, /app may bind its own provider through the same Core facade/i)
+  assert.match(contract, /Profile choice never selects preset defaults/i)
+  assert.match(contract, /does not construct or own the engine runtime resources/i)
   assert.ok(selection.implementationBoundary.includes('yarn.lock'))
 })
 
@@ -76,16 +87,20 @@ test('render consumes only the abstract engine contract', () => {
   )
 })
 
-test('app startup configures only the framework render adapter', () => {
+test('Core owns the default adapter and exact missing-provider headless route', () => {
   const startup = step('start-render-runtime')
   const contract = [
     ...startup.conditions,
+    ...startup.bypasses,
     ...startup.allowedContributors,
     ...startup.forbiddenContributors
   ].join(' ')
 
-  assert.match(contract, /app bootstrap/i)
-  assert.match(contract, /framework render adapter/i)
+  assert.match(contract, /Core owns and calls one default engine-neutral/i)
+  assert.match(contract, /missing-provider.*headless/i)
+  assert.match(contract, /Headless startup still orders data observers/i)
+  assert.match(contract, /Direct Render and RenderAdapter consumers remain strict/i)
+  assert.match(contract, /advanced app renderer replacement before startup/i)
   assert.match(contract, /concrete engine/i)
   assert.ok(
     startup.implementationBoundary.includes(
@@ -158,7 +173,7 @@ test('architecture documentation sync stays with the matching owner steps', () =
     path.resolve(__dirname, '../ARCHITECTURE.md'),
     'utf8'
   )
-  assert.match(architecture, /preset -->\|selects default factory\| pixi/)
+  assert.match(architecture, /preset -->\|selects 2D provider\| pixi/)
   assert.doesNotMatch(architecture, /preset -->\|constructs default\| pixi/)
 })
 
@@ -214,13 +229,13 @@ test('custom engines use the same command and interaction routes', () => {
   assert.equal(interactionRoute.to, 'bridge-render-interaction')
 })
 
-test('ready publication is owned by core and cannot bypass engine success', () => {
+test('ready publication accepts rendered or exact headless success only', () => {
   const ready = step('publish-render-ready')
   const contract = [...ready.conditions, ...ready.bypasses].join(' ')
 
   assert.equal(ready.ownerPackage, '@asyra/core')
-  assert.match(contract, /successful engine initialization/i)
-  assert.match(contract, /failure/i)
+  assert.match(contract, /successful engine initialization or the Core-normalized exact missing-provider headless outcome/i)
+  assert.match(contract, /provider callback, engine validation, initialization, capability/i)
   assert.match(contract, /does not publish/i)
 })
 
