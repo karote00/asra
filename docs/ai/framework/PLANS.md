@@ -59,7 +59,7 @@ This file tracks framework planning topics and points to detailed references.
 6. Official 2D/3D/hybrid preset profiles
 
 - Publish a render-mode profile only after its concrete engine and canonical
-  feature/property/schema/render/input bundles exist and pass the engine
+  feature/property/schema/render/input default modules exist and pass the engine
   boundary contract.
 - `3d` requires a supported 3D engine; `hybrid` additionally requires an
   explicit multi-engine composition and interaction contract.

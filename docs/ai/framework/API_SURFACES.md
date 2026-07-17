@@ -15,7 +15,7 @@ Core API tier types (explicit ownership contract):
 - `CoreExtensionAPIs`: registration/bridge APIs exposed by `core` for framework extension
 - `CoreConcreteAPIs`: `CoreBasicAPIs + CoreExtensionAPIs`
 - `CorePresetInstallAPIs`: strict subset required by `applyPreset(...)` (no optional `core?.api` checks)
-- `CorePresetDependencies`: concrete dependency bundle returned by `core.getPresetDependencies()`
+- `CorePresetDependencies`: concrete dependency object returned by `core.getPresetDependencies()`
 
 Lifecycle and integration:
 

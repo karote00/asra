@@ -75,8 +75,8 @@ Checklist:
 - [ ] no Pixi dependency leaks outside `@asyra/render-engine-pixi`
 - [ ] render orchestration and concrete engines depend only on
       `@asyra/render-engine`, never on one another
-- [ ] preset engine selection uses a factory and keeps custom replacement
-      explicit
+- [ ] preset binds only the official `2D` provider through Core, and profile
+      `CUSTOM` keeps app-owned provider selection explicit
 - [ ] migration/deprecation story is clear when behavior changes
 - [ ] pre-release legacy branches are removed or isolated to load migration/diagnostics
 - [ ] the first incorrect semantic owner step is fixed before downstream output is changed

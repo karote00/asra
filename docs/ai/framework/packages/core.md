@@ -46,7 +46,8 @@ System orchestrator and lifecycle coordinator.
 - `CoreBasicAPIs` are concrete, always-available core facade methods and must not rely on optional registration checks.
 - `CoreExtensionAPIs` are concrete registration/bridge APIs exposed by core for package/preset/app extensions.
 - `CoreConcreteAPIs = CoreBasicAPIs + CoreExtensionAPIs`.
-- `CorePresetInstallAPIs` is the strict preset-facing subset used by `@asyra/preset` bootstrapping.
+- `CorePresetInstallAPIs` is the strict preset-facing subset used by
+  `@asyra/preset` composition installation.
 
 ## Instance Contract
 

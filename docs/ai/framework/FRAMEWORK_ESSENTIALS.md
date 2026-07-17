@@ -17,7 +17,8 @@ Any implementation decision must preserve:
 
 - Framework packages provide orchestration and primitives.
 - App-level defines domain behavior, aggregation, and workflows.
-- Preset provides default bootstrap settings only (not app-domain owner, not framework-runtime owner).
+- Preset provides optional official defaults and preset profile policy only
+  (not app-domain owner, not framework-runtime owner).
 
 2. Deterministic Data Flow
 
@@ -59,7 +60,8 @@ The framework guarantees:
 - preset replaceability: defaults are optional, movable, and replaceable by product owners
 - render boundary safety: render is an output/interaction bridge, not a data authority
 - engine replaceability: render orchestration consumes the abstract
-  `@asyra/render-engine` contract, while preset selects a concrete factory
+  `@asyra/render-engine` contract; preset binds the official `2D` provider
+  through Core, while apps bind custom providers only with profile `CUSTOM`
 
 ## Current System Position
 

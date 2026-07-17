@@ -43,7 +43,8 @@ Asyra architecture is designed around deterministic execution over declarative i
 ```mermaid
 flowchart TD
   state["Framework state<br/>SceneTree / Props / Selection"]
-  preset["@asyra/preset<br/>composes defaults, provider, and bundles"]
+  preset["@asyra/preset<br/>resolves profile and installs official defaults"]
+  core["@asyra/core<br/>provider facade + renderer lifecycle"]
   render["@asyra/render<br/>adapter + orchestration"]
   contract["@asyra/render-engine<br/>abstract contract"]
   pixi["@asyra/render-engine-pixi<br/>Pixi concrete implementation"]
