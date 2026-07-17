@@ -1,7 +1,16 @@
 import { describe, expect, it, vi } from 'vitest'
-import { BaseSelection, renderSelectionStore } from '@asyra/core'
+import {
+  BaseSelection,
+  propertyRegistry,
+  renderSelectionStore,
+  uiContext
+} from '@asyra/core'
 import { SCENE_TREE_ACTIONS, type SelectionChange } from '@asyra/utils'
-import { EventTypes, publishEvent } from '@asyra/reactive-events'
+import {
+  EventTypes,
+  publishEvent,
+  runTransaction
+} from '@asyra/reactive-events'
 import { registerSelections } from '../selection/register-default-selections'
 import { registerDefaultDataChannelObservers } from '../subscriptions/data-channel'
 import type { PresetCoreAPIs, PresetDependencies } from '../types'
@@ -36,6 +45,83 @@ const createDeps = (): PresetDependencies =>
   }) as unknown as PresetDependencies
 
 describe('Preset Selection Subscriptions', () => {
+  it('keeps pending UI context transactions isolated per Core observer lifetime', () => {
+    const createCore = () => {
+      const observers = new Map<
+        string,
+        { onChange: (change: unknown) => void }
+      >()
+      const core = {
+        getSelection: () => undefined,
+        registerDataChannelObserver: (registration: {
+          name: string
+          onChange: (change: unknown) => void
+        }) => {
+          observers.set(registration.name, registration)
+        },
+        unregisterDataChannelObserver: (name: string) => observers.delete(name)
+      } as unknown as PresetCoreAPIs
+
+      return { core, observers }
+    }
+
+    const first = createCore()
+    const second = createCore()
+    const firstDependencies = createDeps()
+    const secondDependencies = createDeps()
+    const firstGetAllElements = vi.fn(() => new Map())
+    const secondGetAllElements = vi.fn(() => new Map())
+    firstDependencies.sceneTree.getAllElements = firstGetAllElements
+    secondDependencies.sceneTree.getAllElements = secondGetAllElements
+    propertyRegistry.register('flattenedElementIds', { defaultValue: [] })
+    propertyRegistry.register('elementDataMap', { defaultValue: {} })
+
+    // Register the second lifetime first so a shared pending queue would be
+    // flushed with the wrong dependency set at the transaction boundary.
+    const disposeSecond = registerDefaultDataChannelObservers(
+      second.core,
+      secondDependencies,
+      undefined,
+      { uiContext: true }
+    )
+    const disposeFirst = registerDefaultDataChannelObservers(
+      first.core,
+      firstDependencies,
+      undefined,
+      { uiContext: true }
+    )
+
+    try {
+      first.observers.get('preset.uiContext.sceneTree')?.onChange({
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: { id: 'first-element', type: 'rectangle' },
+        parentId: 'first-workspace'
+      })
+
+      runTransaction(() => undefined)
+
+      expect(firstGetAllElements).toHaveBeenCalledOnce()
+      expect(secondGetAllElements).not.toHaveBeenCalled()
+
+      first.observers.get('preset.uiContext.sceneTree')?.onChange({
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: { id: 'first-element-2', type: 'rectangle' },
+        parentId: 'first-workspace'
+      })
+      disposeSecond()
+
+      runTransaction(() => undefined)
+
+      expect(firstGetAllElements).toHaveBeenCalledTimes(2)
+      expect(secondGetAllElements).not.toHaveBeenCalled()
+    } finally {
+      disposeFirst()
+      disposeSecond()
+      propertyRegistry.unregister('flattenedElementIds')
+      propertyRegistry.unregister('elementDataMap')
+    }
+  })
+
   it('applies selection channel changes and removes deleted selection ids via observers', () => {
     const observers = new Map<string, { onChange: (change: unknown) => void }>()
     const selections = new Map<string, BaseSelection>()
@@ -146,5 +232,178 @@ describe('Preset Selection Subscriptions', () => {
     disposeObservers()
     disposeSelections()
     renderSelectionSpy.mockRestore()
+  })
+
+  it('syncs vector-editing selection mirrors without the UI context default', () => {
+    const observers = new Map<string, { onChange: (change: unknown) => void }>()
+    const selections = new Map<string, BaseSelection>()
+    const core = {
+      defineSelection: (type: string, selection: BaseSelection) => {
+        selections.set(type, selection)
+      },
+      unregisterSelection: (type: string) => selections.delete(type),
+      getSelection: (type: string) => selections.get(type),
+      registerDataChannelObserver: (registration: {
+        name: string
+        onChange: (change: unknown) => void
+      }) => {
+        observers.set(registration.name, registration)
+      },
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    propertyRegistry.register('vectorPointSelection', {
+      defaultValue: new Set<string>()
+    })
+    propertyRegistry.register('vectorSegmentSelection', {
+      defaultValue: new Set<string>()
+    })
+    const disposeSelections = registerSelections(core, undefined, [
+      SelectionChannels.VECTOR_POINT,
+      SelectionChannels.VECTOR_SEGMENT
+    ])
+    const disposeSelectionObservers = registerDefaultDataChannelObservers(
+      core,
+      createDeps(),
+      undefined,
+      { selection: true }
+    )
+    const disposeVectorEditingObservers = registerDefaultDataChannelObservers(
+      core,
+      createDeps(),
+      undefined,
+      { vectorEditing: true }
+    )
+
+    try {
+      const runtimeObserver = observers.get('preset.selection.runtime')
+      const vectorEditingObserver = observers.get(
+        'preset.vectorEditing.selection'
+      )
+      expect(runtimeObserver).toBeDefined()
+      expect(vectorEditingObserver).toBeDefined()
+
+      const pointChange = {
+        selectionType: SelectionChannels.VECTOR_POINT,
+        action: SelectionActions.SELECT_VECTOR_POINTS,
+        eventName: SelectionEventNames.SELECT_VECTOR_POINTS,
+        before: [],
+        after: ['point-1']
+      } satisfies SelectionChange
+      runtimeObserver?.onChange(pointChange)
+      vectorEditingObserver?.onChange(pointChange)
+
+      const segmentChange = {
+        selectionType: SelectionChannels.VECTOR_SEGMENT,
+        action: SelectionActions.SELECT_VECTOR_SEGMENTS,
+        eventName: SelectionEventNames.SELECT_VECTOR_SEGMENTS,
+        before: [],
+        after: ['segment-1']
+      } satisfies SelectionChange
+      runtimeObserver?.onChange(segmentChange)
+      vectorEditingObserver?.onChange(segmentChange)
+
+      expect(uiContext.get('vectorPointSelection')).toEqual(
+        new Set(['point-1'])
+      )
+      expect(uiContext.get('vectorSegmentSelection')).toEqual(
+        new Set(['segment-1'])
+      )
+
+      publishEvent({
+        type: EventTypes.SELECT_VECTOR_POINTS,
+        payload: {
+          selectionType: SelectionChannels.VECTOR_POINT,
+          action: SelectionActions.SELECT_VECTOR_POINTS,
+          eventName: SelectionEventNames.SELECT_VECTOR_POINTS,
+          before: ['point-1'],
+          after: ['point-2']
+        }
+      })
+
+      expect(
+        Array.from(
+          selections.get(SelectionChannels.VECTOR_POINT)?.getSelectedIds() ?? []
+        )
+      ).toEqual(['point-2'])
+      expect(uiContext.get('vectorPointSelection')).toEqual(
+        new Set(['point-2'])
+      )
+    } finally {
+      disposeVectorEditingObservers()
+      disposeSelectionObservers()
+      disposeSelections()
+      propertyRegistry.unregister('vectorPointSelection')
+      propertyRegistry.unregister('vectorSegmentSelection')
+    }
+  })
+
+  it('does not let UI context projection write vector-editing properties', () => {
+    const observers = new Map<string, { onChange: (change: unknown) => void }>()
+    const selections = new Map<string, BaseSelection>()
+    const core = {
+      defineSelection: (type: string, selection: BaseSelection) => {
+        selections.set(type, selection)
+      },
+      unregisterSelection: (type: string) => selections.delete(type),
+      getSelection: (type: string) => selections.get(type),
+      registerDataChannelObserver: (registration: {
+        name: string
+        onChange: (change: unknown) => void
+      }) => {
+        observers.set(registration.name, registration)
+      },
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const appPointSelection = new Set(['app-point'])
+    const appSegmentSelection = new Set(['app-segment'])
+    propertyRegistry.register('vectorPointSelection', {
+      defaultValue: appPointSelection
+    })
+    propertyRegistry.register('vectorSegmentSelection', {
+      defaultValue: appSegmentSelection
+    })
+    const disposeSelections = registerSelections(core, undefined, [
+      SelectionChannels.VECTOR_POINT,
+      SelectionChannels.VECTOR_SEGMENT
+    ])
+    selections
+      .get(SelectionChannels.VECTOR_POINT)
+      ?.select(['preset-owned-point'])
+    selections
+      .get(SelectionChannels.VECTOR_SEGMENT)
+      ?.select(['preset-owned-segment'])
+    const disposeObservers = registerDefaultDataChannelObservers(
+      core,
+      createDeps(),
+      undefined,
+      { uiContext: true }
+    )
+
+    try {
+      const uiContextObserver = observers.get('preset.uiContext.selection')
+      expect(uiContextObserver).toBeDefined()
+      uiContextObserver?.onChange({
+        selectionType: SelectionChannels.VECTOR_POINT,
+        action: SelectionActions.SELECT_VECTOR_POINTS,
+        eventName: SelectionEventNames.SELECT_VECTOR_POINTS,
+        before: [],
+        after: ['preset-owned-point']
+      } satisfies SelectionChange)
+      uiContextObserver?.onChange({
+        selectionType: SelectionChannels.VECTOR_SEGMENT,
+        action: SelectionActions.SELECT_VECTOR_SEGMENTS,
+        eventName: SelectionEventNames.SELECT_VECTOR_SEGMENTS,
+        before: [],
+        after: ['preset-owned-segment']
+      } satisfies SelectionChange)
+
+      expect(uiContext.get('vectorPointSelection')).toBe(appPointSelection)
+      expect(uiContext.get('vectorSegmentSelection')).toBe(appSegmentSelection)
+    } finally {
+      disposeObservers()
+      disposeSelections()
+      propertyRegistry.unregister('vectorPointSelection')
+      propertyRegistry.unregister('vectorSegmentSelection')
+    }
   })
 })

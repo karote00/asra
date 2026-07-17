@@ -1,10 +1,15 @@
 import { registerUIContextProperties } from '../../ui/register-properties'
 import type { PresetDefaultInstallContext } from '../types'
-import { acquireFrameworkEvents, acquireUIContextProjection } from '../helpers'
+import {
+  acquireBaseProperties,
+  acquireFrameworkEvents,
+  acquireUIContextProjection
+} from '../helpers'
 
 export const installUIContextDefault = (
   context: PresetDefaultInstallContext
 ): void => {
+  acquireBaseProperties(context)
   acquireFrameworkEvents(context)
   registerUIContextProperties(context.core)
   acquireUIContextProjection(context)

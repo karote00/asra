@@ -3,7 +3,10 @@ import { SelectionChannels } from '../../selection/channels'
 import { registerSelections } from '../../selection/register-default-selections'
 import { registerVectorEditingProperties } from '../../ui/register-properties'
 import type { PresetDefaultInstallContext } from '../types'
-import { registerTrackedRenderLayer } from '../helpers'
+import {
+  acquireVectorEditingProjection,
+  registerTrackedRenderLayer
+} from '../helpers'
 
 export const installVectorEditingDefault = (
   context: PresetDefaultInstallContext
@@ -15,6 +18,7 @@ export const installVectorEditingDefault = (
     ])
   )
   registerVectorEditingProperties(context.core)
+  acquireVectorEditingProjection(context)
   context.privatePrerequisites.acquire('render-layer:vector-path-editing', () =>
     registerTrackedRenderLayer(context, (register) => {
       registerVectorPathEditingRenderLayer(register, {

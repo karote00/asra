@@ -112,6 +112,24 @@ export const acquireSelectionProjection = (
   )
 }
 
+export const acquireVectorEditingProjection = (
+  context: PresetDefaultInstallContext
+): void => {
+  context.privatePrerequisites.acquire('channels:selection', () =>
+    registerDefaultSharedDataChannels(context.core, undefined, [
+      SharedDataChannelNames.SELECTION
+    ])
+  )
+  context.privatePrerequisites.acquire('observers:vector-editing', () =>
+    registerDefaultDataChannelObservers(
+      context.core,
+      context.dependencies,
+      undefined,
+      { vectorEditing: true }
+    )
+  )
+}
+
 export const acquireUIContextProjection = (
   context: PresetDefaultInstallContext
 ): void => {

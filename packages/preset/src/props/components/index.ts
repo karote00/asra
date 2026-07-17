@@ -21,7 +21,6 @@ export const BASE_PROPERTY_COMPONENT_DEFINITIONS: readonly PropertyComponentDefi
   [
     positionPropertyComponentDefinition,
     dimensionPropertyComponentDefinition,
-    customPropertyComponentDefinition,
     fillPropertyComponentDefinition,
     fillsPropertyComponentDefinition,
     strokePropertyComponentDefinition,
@@ -30,6 +29,7 @@ export const BASE_PROPERTY_COMPONENT_DEFINITIONS: readonly PropertyComponentDefi
 
 export const VECTOR_PROPERTY_COMPONENT_DEFINITIONS: readonly PropertyComponentDefinition[] =
   [
+    customPropertyComponentDefinition,
     anchorPointPropertyComponentDefinition,
     anchorPointsPropertyComponentDefinition,
     vectorPointPropertyComponentDefinition,

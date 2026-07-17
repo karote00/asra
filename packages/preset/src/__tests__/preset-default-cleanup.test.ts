@@ -1,11 +1,19 @@
 import { BaseSelection } from '@asyra/core'
-import type { RegistrationNodeMetadata } from '@asyra/utils'
+import { PropertyTypes, type RegistrationNodeMetadata } from '@asyra/utils'
+import { BehaviorSubject } from 'rxjs'
 import { describe, expect, it, vi } from 'vitest'
 import { createOwnedStateCleanup } from '../defaults/owned-state'
 import { installSelectionDefault } from '../defaults/modules/selection'
+import { installUIContextDefault } from '../defaults/modules/ui-context'
+import { installVectorEditingDefault } from '../defaults/modules/vector-editing'
+import { createPrivatePrerequisiteManager } from '../defaults/private-manager'
 import type { PrivatePrerequisiteInstaller } from '../defaults/types'
 import { PRESET_REGISTRATION_OWNER } from '../registration'
 import { SelectionChannels } from '../selection/channels'
+import {
+  BASE_PROPERTY_COMPONENT_DEFINITIONS,
+  VECTOR_PROPERTY_COMPONENT_DEFINITIONS
+} from '../props/components'
 import type { PresetCoreAPIs } from '../types'
 
 const appOwner = { packageName: '@app/test', name: 'test' }
@@ -156,5 +164,132 @@ describe('Preset default cleanup ownership', () => {
 
     selectionCleanup?.()
     expect(selections.has(SelectionChannels.ELEMENT)).toBe(false)
+  })
+
+  it('acquires private base properties for the UI context default', () => {
+    const registeredPropertyTypes = new Set<string>()
+    const cleanups: (() => void)[] = []
+    const core = {
+      registerEvent: vi.fn(),
+      unregisterEvent: vi.fn(),
+      registerPropertySchema: vi.fn(),
+      definePropertyComponent: vi.fn((definition: { type: string }) => {
+        registeredPropertyTypes.add(definition.type)
+        return vi.fn()
+      }),
+      defineUIProperty: vi.fn(
+        (
+          _key: string,
+          config: {
+            registration?: {
+              relations?: readonly {
+                target: { kind: string; key: string }
+              }[]
+            }
+          }
+        ) => {
+          config.registration?.relations?.forEach(({ target }) => {
+            if (
+              target.kind === 'property' &&
+              !registeredPropertyTypes.has(target.key)
+            ) {
+              throw new Error(
+                `Missing private property registration "${target.key}"`
+              )
+            }
+          })
+        }
+      ),
+      getSystemPropertyObservable: vi.fn(() => undefined),
+      hasSharedDataChannel: vi.fn(() => false),
+      getYjsDataChannel: vi.fn(() => ({})),
+      registerSharedDataChannel: vi.fn(),
+      unregisterSharedDataChannel: vi.fn(),
+      registerDataChannelObserver: vi.fn(),
+      unregisterDataChannelObserver: vi.fn(),
+      getSelection: vi.fn(() => undefined)
+    } as unknown as PresetCoreAPIs
+    const privatePrerequisites = createPrivatePrerequisiteManager(
+      (_key, dispose) => cleanups.push(dispose)
+    )
+
+    try {
+      expect(() =>
+        installUIContextDefault({
+          core,
+          dependencies: {} as never,
+          privatePrerequisites
+        })
+      ).not.toThrow()
+      expect([...registeredPropertyTypes]).toEqual(
+        expect.arrayContaining([
+          PropertyTypes.POSITION,
+          PropertyTypes.DIMENSION,
+          PropertyTypes.FILLS,
+          PropertyTypes.STROKES
+        ])
+      )
+      expect(registeredPropertyTypes.has(PropertyTypes.CUSTOM)).toBe(false)
+    } finally {
+      cleanups.reverse().forEach((dispose) => dispose())
+    }
+  })
+
+  it('keeps the custom property component in the vector-only group', () => {
+    expect(
+      BASE_PROPERTY_COMPONENT_DEFINITIONS.map(({ type }) => type)
+    ).not.toContain(PropertyTypes.CUSTOM)
+    expect(
+      VECTOR_PROPERTY_COMPONENT_DEFINITIONS.map(({ type }) => type)
+    ).toContain(PropertyTypes.CUSTOM)
+  })
+
+  it('acquires vector selection projection with the vector-editing module', () => {
+    const selections = new Map<string, BaseSelection>()
+    const observers = new Map<string, { name: string }>()
+    const cleanups: (() => void)[] = []
+    const core = {
+      getSelection: (type: string) => selections.get(type),
+      defineSelection: (type: string, selection: BaseSelection) => {
+        selections.set(type, selection)
+      },
+      unregisterSelection: (type: string) => selections.delete(type),
+      defineUIProperty: vi.fn(),
+      defineSystemProperty: vi.fn(
+        (_key: string, defaultValue: unknown) =>
+          new BehaviorSubject(defaultValue)
+      ),
+      registerRenderLayer: vi.fn(),
+      unregisterRenderLayer: vi.fn(),
+      hasSharedDataChannel: vi.fn(() => false),
+      getYjsDataChannel: vi.fn(() => ({})),
+      registerSharedDataChannel: vi.fn(),
+      unregisterSharedDataChannel: vi.fn(),
+      registerDataChannelObserver: vi.fn((registration: { name: string }) => {
+        observers.set(registration.name, registration)
+      }),
+      unregisterDataChannelObserver: vi.fn((name: string) =>
+        observers.delete(name)
+      )
+    } as unknown as PresetCoreAPIs
+    const privatePrerequisites = createPrivatePrerequisiteManager(
+      (_key, dispose) => cleanups.push(dispose)
+    )
+
+    try {
+      installVectorEditingDefault({
+        core,
+        dependencies: {
+          render: {},
+          sceneTree: {},
+          systemContext: {}
+        } as never,
+        privatePrerequisites
+      })
+
+      expect(observers.has('preset.vectorEditing.selection')).toBe(true)
+    } finally {
+      cleanups.reverse().forEach((dispose) => dispose())
+    }
   })
 })
