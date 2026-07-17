@@ -142,7 +142,7 @@
         'docs/ai/framework/decisions/releases/unreleased.md',
         'docs/ai/framework/packages/preset.md',
         'docs/ai/framework/golden-paths/extend-preset-capability.md',
-        'docs/ai/framework/plans/preset-composition-plan.md',
+        'docs/ai/framework/plans/completed/preset-composition-plan.md',
         'docs/ai/framework/plans/preset-2d-3d-init-profile-plan.md'
       ],
       specRefs: [

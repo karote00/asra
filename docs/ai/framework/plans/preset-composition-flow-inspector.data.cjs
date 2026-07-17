@@ -1,7 +1,8 @@
 ;(function () {
   'use strict'
 
-  const specPath = 'docs/ai/framework/plans/preset-composition-plan.md'
+  const specPath =
+    'docs/ai/framework/plans/completed/preset-composition-plan.md'
   const inspectorPath =
     'docs/ai/framework/plans/preset-composition-flow-inspector.data.cjs'
 
@@ -810,7 +811,7 @@
       {
         id: 'product-contract',
         label: 'Product contract',
-        href: './preset-composition-plan.md'
+        href: './completed/preset-composition-plan.md'
       },
       {
         id: 'contract-test',

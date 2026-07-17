@@ -1269,3 +1269,45 @@ unregister -> app migration -> core.start()` as the public app route.
   - `1d45cb509` (`docs: redefine preset profile and defaults contract`)
   - `4c291e227` (`refactor: add preset profiles and selectable defaults`)
   - `8efef5e04` (`refactor: let core own app renderer lifecycle`)
+
+## 2026-07-18 - Preset profile and selectable defaults completed
+
+- Context:
+  - The independent profile/default contract, Core provider and headless
+    lifecycle, eight preset modules, deterministic rollback, Asyra Design
+    migration, and synchronized documentation are implemented on
+    `codex/generic-preset-composition`.
+  - Package, app, Inspector, root, build, lint, dependency, diff, E2E, and live
+    visual gates passed. Final self-review found no unresolved concrete issue,
+    and the product owner directly verified Asyra Design before requesting
+    closeout.
+- Decision:
+  - Treat the Preset Profile and Selectable Defaults plan as implementation
+    complete and archive its product contract at the completed canonical path.
+  - Keep `profile` limited to preset render-engine provider policy and
+    `defaults` limited to fixed official modules. `applyPreset(core)` remains
+    `2D` plus all defaults; `CUSTOM` remains the provider-free preset route.
+  - Keep Core as the only public provider and renderer-lifecycle facade, with
+    exact missing-provider normalization limited to Core-owned headless startup.
+  - This entry completes the 2026-07-17 preset startup composition decision
+    without changing its product semantics.
+- Consequences:
+  - The Preset Composition Inspector data, contract test, and viewer remain the
+    executable architecture authority and now resolve the completed product
+    contract.
+  - Generic Preset Composition is removed from active plans. Production 3D and
+    Hybrid profiles remain deferred and unavailable until their independent
+    engine and product contracts exist.
+  - This closeout records local completion only; no branch was pushed, merged,
+    or released.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/preset-composition-plan.md`
+- Related Commit(s):
+  - `1d45cb509` (`docs: redefine preset profile and defaults contract`)
+  - `4c291e227` (`refactor: add preset profiles and selectable defaults`)
+  - `8efef5e04` (`refactor: let core own app renderer lifecycle`)
+  - `554b94d47` (`docs: align preset profile and provider contracts`)
+  - `082e9449b` (`docs: record preset implementation validation`)
+  - `3a2a6c654` (`fix(core): preserve configured provider failures`)
+  - `6f76b8aab` (`fix(preset): isolate selectable default prerequisites`)
+  - `8a29217b8` (`docs(framework): align preset provider terminology`)

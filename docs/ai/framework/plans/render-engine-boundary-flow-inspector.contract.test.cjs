@@ -17,7 +17,7 @@ const route = (id) => {
   return value
 }
 
-test('completed boundary authority has a resolvable active provider amendment', () => {
+test('completed boundary authority has a resolvable completed provider amendment', () => {
   const repoRoot = path.resolve(__dirname, '../../../..')
   const formerActiveSpecPath =
     'docs/ai/framework/plans/render-engine-boundary-plan.md'
@@ -32,12 +32,12 @@ test('completed boundary authority has a resolvable active provider amendment', 
   )
   assert.ok(fs.existsSync(path.resolve(repoRoot, data.authority.specPath)))
   assert.equal(
-    data.authority.activeAmendmentSpecPath,
-    'docs/ai/framework/plans/preset-composition-plan.md'
+    data.authority.completedAmendmentSpecPath,
+    'docs/ai/framework/plans/completed/preset-composition-plan.md'
   )
   assert.ok(
     fs.existsSync(
-      path.resolve(repoRoot, data.authority.activeAmendmentSpecPath)
+      path.resolve(repoRoot, data.authority.completedAmendmentSpecPath)
     )
   )
   assert.ok(fs.existsSync(path.resolve(__dirname, productContract.href)))

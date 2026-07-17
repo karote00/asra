@@ -64,7 +64,7 @@
         'docs/ai/framework/packages/preset.md',
         'docs/ai/framework/golden-paths/README.md',
         'docs/ai/framework/golden-paths/replace-render-engine.md',
-        'docs/ai/framework/plans/preset-composition-plan.md'
+        'docs/ai/framework/plans/completed/preset-composition-plan.md'
       ],
       specRefs: [
         '#target-package-architecture',
@@ -1066,8 +1066,8 @@
       inspectorPath,
       semanticOwner: 'completed/render-engine-boundary-plan.md',
       inspectorOwner: 'render-engine-boundary-flow-inspector.data.cjs',
-      activeAmendmentSpecPath:
-        'docs/ai/framework/plans/preset-composition-plan.md'
+      completedAmendmentSpecPath:
+        'docs/ai/framework/plans/completed/preset-composition-plan.md'
     },
     links: [
       {
@@ -1077,9 +1077,9 @@
         kind: 'authority'
       },
       {
-        id: 'active-provider-amendment',
+        id: 'completed-provider-amendment',
         label: 'Preset Profile and Selectable Defaults Plan',
-        href: './preset-composition-plan.md',
+        href: './completed/preset-composition-plan.md',
         kind: 'authority'
       },
       {

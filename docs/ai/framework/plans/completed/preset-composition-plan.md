@@ -2,16 +2,39 @@
 
 ## Status and Authority
 
-Active after the completed Render-Engine Boundary and Extendable Preset plans.
-This plan supersedes the unreleased Generic Preset Composition API implemented
-on the current feature branch. The removed `renderEngineFactory`, identified
-engine bootstrap, capability-bundle, dependency-overload, and
+Completed on 2026-07-18 after implementation review and direct Asyra Design
+verification by the product owner. The implementation is complete on
+`codex/generic-preset-composition`; this closeout records local completion and
+does not claim a push, pull request, merge, or release.
+
+This completed plan supersedes the unreleased Generic Preset Composition API
+implemented earlier on the feature branch. The removed `renderEngineFactory`,
+identified engine bootstrap, capability-bundle, dependency-overload, and
 `PresetApplication` paths are not compatibility contracts.
 
 The exact owner flow is defined by
 `preset-composition-flow-inspector.data.cjs`. Implementation advances one
 Inspector owner step at a time and follows the Inspector readiness and step
 execution rules.
+
+## Completion Record
+
+- Final decision: `profile` owns only preset render-engine provider policy;
+  `defaults` owns only selectable official modules. Omitted options mean `2D`
+  plus all eight defaults, while `CUSTOM` binds no preset provider.
+- Implementation summary: Core owns the engine-neutral default renderer,
+  provider facade, exact headless normalization, and teardown; Preset owns the
+  frozen catalog, strict composition validation, deterministic module
+  installation, private prerequisites, rollback, and cleanup retry.
+- Compatibility summary: Asyra Design keeps `applyPreset(core)` and its visible
+  startup, interaction, load, undo/redo, and render behavior without app-owned
+  renderer construction.
+- Exit criteria: all seven segments, affected package/app and Inspector tests,
+  root test/lint/build/dependency/diff gates, synchronized visual review, final
+  self-review, and direct product-owner app verification passed with no
+  unresolved concrete finding.
+- Canonical executable architecture contract:
+  `docs/ai/framework/plans/preset-composition-flow-inspector.data.cjs`.
 
 ## Goal
 
@@ -202,7 +225,7 @@ or installation. No public disposer or application handle is exposed.
 
 ## Definition of Done
 
-- active plan, Inspectors, package/app docs, golden paths, and decision history
+- completed plan, Inspectors, package/app docs, golden paths, and decision history
   contain no live legacy bundle/factory/application contract;
 - profile/default constants and catalog have one preset-owned source of truth;
 - eight modules are independently selectable with deterministic private
@@ -211,7 +234,7 @@ or installation. No public disposer or application handle is exposed.
 - affected package/app/Inspector tests, root tests, lint, build, dependency
   validation, diff check, live startup, and synchronized visual review pass;
 - no 3D/Hybrid runtime or package import is introduced;
-- the plan remains active until user-reviewed closeout is explicitly requested.
+- closeout occurs only after user review and an explicit completion request.
 
 ## Implementation Segments
 
@@ -222,6 +245,3 @@ or installation. No public disposer or application handle is exposed.
 5. [x] Split and test eight default modules plus private prerequisites.
 6. [x] Migrate and verify Asyra Design startup.
 7. [x] Synchronize docs and run full validation/review.
-
-Do not move this plan to `completed/` until the user reviews the implementation
-and explicitly requests closeout.

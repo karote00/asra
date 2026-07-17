@@ -4,16 +4,6 @@ Never record completed plans here.
 
 This file tracks framework planning topics and points to detailed references.
 
-## In Progress
-
-- Generic preset composition
-  - Keep engine `profile` and official `defaults` as independent choices.
-  - Default `applyPreset(core)` to `2D` plus all eight defaults; keep `3D` and
-    `HYBRID` as unavailable catalog ids without placeholder runtimes.
-  - Let Core own the default renderer and custom provider facade while preset
-    owns only fixed official modules and preset profile policy.
-  - Reference: `docs/ai/framework/plans/preset-composition-plan.md`
-
 ## Near-Term Plans
 
 1. Canvas debugger

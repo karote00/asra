@@ -35,12 +35,18 @@ const contractText = (owner) =>
     ...owner.implementationBoundary
   ].join(' ')
 
-test('active plan and direct-open Inspector are the resolvable authorities', () => {
+test('completed plan and direct-open Inspector are the resolvable authorities', () => {
+  const formerActiveSpecPath =
+    'docs/ai/framework/plans/preset-composition-plan.md'
   assert.equal(
     data.authority.specPath,
-    'docs/ai/framework/plans/preset-composition-plan.md'
+    'docs/ai/framework/plans/completed/preset-composition-plan.md'
   )
   assert.ok(fs.existsSync(path.resolve(repoRoot, data.authority.specPath)))
+  assert.equal(
+    fs.existsSync(path.resolve(repoRoot, formerActiveSpecPath)),
+    false
+  )
   assert.ok(fs.existsSync(path.resolve(repoRoot, data.authority.inspectorPath)))
   assert.ok(
     fs.existsSync(
