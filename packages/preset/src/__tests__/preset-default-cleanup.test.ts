@@ -3,6 +3,7 @@ import type { RegistrationNodeMetadata } from '@asyra/utils'
 import { describe, expect, it, vi } from 'vitest'
 import { createOwnedStateCleanup } from '../defaults/owned-state'
 import { installSelectionDefault } from '../defaults/modules/selection'
+import type { PrivatePrerequisiteInstaller } from '../defaults/types'
 import { PRESET_REGISTRATION_OWNER } from '../registration'
 import { SelectionChannels } from '../selection/channels'
 import type { PresetCoreAPIs } from '../types'
@@ -130,7 +131,7 @@ describe('Preset default cleanup ownership', () => {
     const selections = new Map<string, BaseSelection>()
     let selectionCleanup: (() => void) | undefined
     const acquire = vi.fn(
-      (key: string, install: () => void | (() => void)): void => {
+      (key: string, install: PrivatePrerequisiteInstaller): void => {
         if (key === 'selection:element') {
           selectionCleanup = install() ?? undefined
         }

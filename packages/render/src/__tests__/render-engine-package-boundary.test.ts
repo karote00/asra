@@ -67,6 +67,8 @@ describe('@asyra/render engine package boundary', () => {
     ].join('\n')
 
     expect(publicSource).toMatch(/RenderEngineProvider/)
-    expect(publicSource).not.toMatch(/RenderEngineFactory|engineFactory|setEngineFactory/)
+    expect(publicSource).not.toMatch(
+      /RenderEngineFactory|engineFactory|setEngineFactory/
+    )
   })
 })

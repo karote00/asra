@@ -265,7 +265,9 @@ describe('SystemContext', () => {
     expect(systemContext.unregisterProperty('temporary-property')).toBe(true)
     expect(completed).toBe(true)
     expect(systemContext.hasManagedProperty('temporary-property')).toBe(false)
-    expect(systemContext.getManagedProperty('temporary-property')).toBeUndefined()
+    expect(
+      systemContext.getManagedProperty('temporary-property')
+    ).toBeUndefined()
     expect(systemContext.unregisterProperty('temporary-property')).toBe(false)
     expect(systemContext.hasManagedProperty('primaryTool')).toBe(true)
   })

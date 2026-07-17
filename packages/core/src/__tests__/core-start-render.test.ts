@@ -129,7 +129,9 @@ describe('Core render startup', () => {
     const core = createCoreForTest(
       { observeSharedDataChannel: initObservers },
       {
-        init: vi.fn(async () => Promise.reject(new MissingRenderEngineProviderError())),
+        init: vi.fn(async () =>
+          Promise.reject(new MissingRenderEngineProviderError())
+        ),
         start: runtimeStart
       }
     )
@@ -185,7 +187,9 @@ describe('Core render startup', () => {
 
   it('rejects renderer replacement after start closes composition', async () => {
     const core = createCoreForTest()
-    core.setRenderer(createRenderer(vi.fn(async () => ({ canvas: null, instance: null }))))
+    core.setRenderer(
+      createRenderer(vi.fn(async () => ({ canvas: null, instance: null })))
+    )
     await core.start(document.createElement('div'), { width: 1, height: 1 })
 
     expect(() => core.setRenderer(createRenderer(vi.fn()))).toThrow(

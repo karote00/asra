@@ -43,6 +43,7 @@ import {
   installPresetDefaults
 } from '../defaults/install'
 import { createPrivatePrerequisiteManager } from '../defaults/private-manager'
+import type { PrivatePrerequisiteInstaller } from '../defaults/types'
 
 const createInstallInput = (appliedDefaults: readonly string[]) => ({
   core: {
@@ -159,7 +160,7 @@ describe('Preset default modules', () => {
   it('does not mark a failed private prerequisite as acquired', () => {
     const failure = new Error('private install failed')
     const install = vi
-      .fn<() => void | (() => void)>()
+      .fn<PrivatePrerequisiteInstaller>()
       .mockImplementationOnce(() => {
         throw failure
       })

@@ -60,12 +60,8 @@ const rollback = (entries: PresetCleanupEntry[], applyError: unknown): void => {
 const retryPendingRollback = (core: PresetCoreAPIs): void => {
   const pending = pendingRollbacks.get(core)
   if (!pending) return
-  try {
-    rollback(pending.entries, pending.applyError)
-    pendingRollbacks.delete(core)
-  } catch (error) {
-    throw error
-  }
+  rollback(pending.entries, pending.applyError)
+  pendingRollbacks.delete(core)
 }
 
 export const applyPreset = (

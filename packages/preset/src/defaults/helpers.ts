@@ -57,6 +57,7 @@ export const acquireBaseProperties = (
       context.core,
       BASE_PROPERTY_COMPONENT_DEFINITIONS
     )
+    return undefined
   })
 }
 
@@ -70,6 +71,7 @@ export const acquireVectorProperties = (
       context.core,
       VECTOR_PROPERTY_COMPONENT_DEFINITIONS
     )
+    return undefined
   })
 }
 
