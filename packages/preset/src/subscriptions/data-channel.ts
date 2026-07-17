@@ -383,30 +383,37 @@ const createPendingUIContextSync = (): PendingUIContextSync => ({
   dirtyPropertyKeys: new Set()
 })
 
-let pendingUIContextSync = createPendingUIContextSync()
-
-const resetPendingUIContextSync = (): void => {
-  pendingUIContextSync = createPendingUIContextSync()
+interface UIContextSyncLifetime {
+  pending: PendingUIContextSync
 }
 
-const hasPendingUIContextSync = (): boolean =>
-  pendingUIContextSync.flattenedElementIds ||
-  pendingUIContextSync.fullElementDataMap ||
-  pendingUIContextSync.elementSelectionAndDerived ||
-  pendingUIContextSync.dirtyElementDataMapIds.size > 0 ||
-  pendingUIContextSync.dirtyPropertyKeys.size > 0
+const createUIContextSyncLifetime = (): UIContextSyncLifetime => ({
+  pending: createPendingUIContextSync()
+})
+
+const resetPendingUIContextSync = (lifetime: UIContextSyncLifetime): void => {
+  lifetime.pending = createPendingUIContextSync()
+}
+
+const hasPendingUIContextSync = (lifetime: UIContextSyncLifetime): boolean =>
+  lifetime.pending.flattenedElementIds ||
+  lifetime.pending.fullElementDataMap ||
+  lifetime.pending.elementSelectionAndDerived ||
+  lifetime.pending.dirtyElementDataMapIds.size > 0 ||
+  lifetime.pending.dirtyPropertyKeys.size > 0
 
 const flushPendingUIContextSync = (
+  lifetime: UIContextSyncLifetime,
   core: PresetCoreAPIs,
   deps: PresetDependencies
 ): void => {
-  if (!hasPendingUIContextSync()) {
+  if (!hasPendingUIContextSync(lifetime)) {
     emitStrokePipelineCounter('ui-context-transaction-flush-skip')
     return
   }
 
-  const pending = pendingUIContextSync
-  resetPendingUIContextSync()
+  const pending = lifetime.pending
+  resetPendingUIContextSync(lifetime)
 
   measureBrowserDragPhase('ui-context:flush', () => {
     emitStrokePipelineCounter('ui-context-transaction-flush')
@@ -447,7 +454,7 @@ const flushPendingUIContextSync = (
 }
 
 // Selection channel updates only affect selection-derived UI properties.
-const updateUIContextSelection = (
+const updateUIContextElementSelection = (
   change: SelectionChange,
   core: PresetCoreAPIs,
   deps: PresetDependencies
@@ -457,6 +464,14 @@ const updateUIContextSelection = (
     case SelectionActions.DESELECT_ELEMENTS:
       syncElementSelectionAndDerived(core, deps)
       break
+  }
+}
+
+const updateVectorEditingSelection = (
+  change: SelectionChange,
+  core: PresetCoreAPIs
+) => {
+  switch (change.action) {
     case SelectionActions.SELECT_VECTOR_POINTS:
     case SelectionActions.DESELECT_VECTOR_POINTS:
       uiContext.set(
@@ -478,35 +493,36 @@ const updateUIContextSelection = (
 const handleUIContextSceneTreeChange = (
   change: SceneTreeChange,
   core: PresetCoreAPIs,
-  deps: PresetDependencies
+  deps: PresetDependencies,
+  lifetime: UIContextSyncLifetime
 ) => {
   const updatedPropertyKeys = getMatchingPropertiesForSceneTreeChange(change)
   updatedPropertyKeys.forEach((key) => {
-    pendingUIContextSync.dirtyPropertyKeys.add(key)
+    lifetime.pending.dirtyPropertyKeys.add(key)
   })
 
   switch (change.action) {
     case SCENE_TREE_ACTIONS.ADD_ELEMENT:
-      pendingUIContextSync.flattenedElementIds = true
-      pendingUIContextSync.fullElementDataMap = true
+      lifetime.pending.flattenedElementIds = true
+      lifetime.pending.fullElementDataMap = true
       break
     case SCENE_TREE_ACTIONS.REMOVE_ELEMENT: {
       const removedId = (change as AddRemoveElementChange).data.id
       if (typeof removedId === 'string' && removedId.length > 0) {
         syncSelectionOnElementRemoval(core, removedId)
-        pendingUIContextSync.elementSelectionAndDerived = true
+        lifetime.pending.elementSelectionAndDerived = true
       }
-      pendingUIContextSync.flattenedElementIds = true
-      pendingUIContextSync.fullElementDataMap = true
+      lifetime.pending.flattenedElementIds = true
+      lifetime.pending.fullElementDataMap = true
       break
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA: {
       const { id, key } = change as UpdateElementChange
       if (shouldUpdateElementDataMapForComputedKey(key)) {
-        pendingUIContextSync.dirtyElementDataMapIds.add(id)
+        lifetime.pending.dirtyElementDataMapIds.add(id)
       }
       if (key === 'children') {
-        pendingUIContextSync.flattenedElementIds = true
+        lifetime.pending.flattenedElementIds = true
       }
       break
     }
@@ -514,10 +530,10 @@ const handleUIContextSceneTreeChange = (
       const { id, changes } = change as UpdateElementBatchChange
       changes.forEach(({ key }) => {
         if (shouldUpdateElementDataMapForComputedKey(key)) {
-          pendingUIContextSync.dirtyElementDataMapIds.add(id)
+          lifetime.pending.dirtyElementDataMapIds.add(id)
         }
         if (key === 'children') {
-          pendingUIContextSync.flattenedElementIds = true
+          lifetime.pending.flattenedElementIds = true
         }
       })
       break
@@ -526,10 +542,10 @@ const handleUIContextSceneTreeChange = (
       const { id, patch } = change as UpdateElementPatchChange
       Object.keys(patch.values ?? {}).forEach((key) => {
         if (shouldUpdateElementDataMapForComputedKey(key)) {
-          pendingUIContextSync.dirtyElementDataMapIds.add(id)
+          lifetime.pending.dirtyElementDataMapIds.add(id)
         }
         if (key === 'children') {
-          pendingUIContextSync.flattenedElementIds = true
+          lifetime.pending.flattenedElementIds = true
         }
       })
       break
@@ -590,14 +606,34 @@ interface RuntimeSubscription {
   unsubscribe(): void
 }
 
+export interface PresetDataChannelObserverOptions {
+  readonly renderScene?: boolean
+  readonly selection?: boolean
+  readonly vectorEditing?: boolean
+  readonly uiContext?: boolean
+}
+
 // Register preset default shared-channel observers for one preset lifetime.
 export const registerDefaultDataChannelObservers = (
   core: PresetCoreAPIs,
-  deps: PresetDependencies
+  deps: PresetDependencies,
+  onCleanupReady?: (dispose: () => void) => void,
+  options: PresetDataChannelObserverOptions = {
+    renderScene: true,
+    selection: true,
+    vectorEditing: true,
+    uiContext: true
+  }
 ): (() => void) => {
+  const renderSceneEnabled = options.renderScene === true
+  const selectionEnabled = options.selection === true
+  const vectorEditingEnabled = options.vectorEditing === true
+  const uiContextEnabled = options.uiContext === true
   const eventSubscriptions: RuntimeSubscription[] = []
   const registeredObserverNames: string[] = []
+  const uiContextSyncLifetime = createUIContextSyncLifetime()
   let disposed = false
+  let cleanupReported = false
 
   const dispose = (): void => {
     if (disposed) return
@@ -620,27 +656,33 @@ export const registerDefaultDataChannelObservers = (
         failures.push(error)
       }
     }
-    resetPendingUIContextSync()
+    resetPendingUIContextSync(uiContextSyncLifetime)
 
     if (failures.length > 0) {
       throw failures[0]
     }
     disposed = true
   }
+  const reportCleanupReady = (): void => {
+    if (cleanupReported || !onCleanupReady) return
+    onCleanupReady(dispose)
+    cleanupReported = true
+  }
   const registerObserver = <TChange>(
     registration: DataChannelObserverRegistration<TChange>
   ): void => {
     core.registerDataChannelObserver(registration)
     registeredObserverNames.push(registration.name)
+    reportCleanupReady()
   }
 
   const uiContextSceneTreeDataChannelObserver = defineDataChannelObserver({
     name: 'preset.uiContext.sceneTree',
     channel: SharedDataChannelNames.SCENE_TREE,
     onChange: (change: SceneTreeChange) => {
-      handleUIContextSceneTreeChange(change, core, deps)
+      handleUIContextSceneTreeChange(change, core, deps, uiContextSyncLifetime)
       if (change.options?.sharedDelivery === 'immediate') {
-        flushPendingUIContextSync(core, deps)
+        flushPendingUIContextSync(uiContextSyncLifetime, core, deps)
       }
     }
   })
@@ -649,7 +691,14 @@ export const registerDefaultDataChannelObservers = (
     name: 'preset.uiContext.selection',
     channel: SharedDataChannelNames.SELECTION,
     onChange: (change: SelectionChange) =>
-      updateUIContextSelection(change, core, deps)
+      updateUIContextElementSelection(change, core, deps)
+  })
+
+  const vectorEditingSelectionDataChannelObserver = defineDataChannelObserver({
+    name: 'preset.vectorEditing.selection',
+    channel: SharedDataChannelNames.SELECTION,
+    onChange: (change: SelectionChange) =>
+      updateVectorEditingSelection(change, core)
   })
 
   const selectionRuntimeDataChannelObserver = defineDataChannelObserver({
@@ -660,104 +709,145 @@ export const registerDefaultDataChannelObservers = (
   })
 
   try {
-    eventSubscriptions.push(
-      subscribeToFileLoadComplete(() => {
-        resetPendingUIContextSync()
-        renderSceneTreeStore.reload()
-        syncFlattenedElementIds(deps)
-        syncElementDataMap(deps)
-        syncElementSelectionAndDerived(core, deps)
-        syncVectorSelections(core)
-      })
-    )
+    if (renderSceneEnabled || uiContextEnabled || vectorEditingEnabled) {
+      eventSubscriptions.push(
+        subscribeToFileLoadComplete(() => {
+          if (renderSceneEnabled) {
+            renderSceneTreeStore.reload()
+          }
+          if (uiContextEnabled) {
+            resetPendingUIContextSync(uiContextSyncLifetime)
+            syncFlattenedElementIds(deps)
+            syncElementDataMap(deps)
+            syncElementSelectionAndDerived(core, deps)
+          }
+          if (vectorEditingEnabled) {
+            syncVectorSelections(core)
+          }
+        })
+      )
+      reportCleanupReady()
+    }
 
-    eventSubscriptions.push(
-      subscribeToEndTransaction(() => {
-        flushPendingUIContextSync(core, deps)
-      })
-    )
+    if (uiContextEnabled) {
+      eventSubscriptions.push(
+        subscribeToEndTransaction(() => {
+          flushPendingUIContextSync(uiContextSyncLifetime, core, deps)
+        })
+      )
+      reportCleanupReady()
+    }
 
     // Undo/redo publishes selection events directly from transaction history.
     // Apply those payloads to runtime so selection state is restored correctly.
-    eventSubscriptions.push(
-      subscribeToSynchronousEvent<SelectElementsEvent>(
-        EventTypes.SELECT_ELEMENTS,
-        (event) => {
-          const change = createSelectionChangeFromDirectEvent(
-            SelectionChannels.ELEMENT,
-            SelectionActions.SELECT_ELEMENTS,
-            SelectionEventNames.SELECT_ELEMENTS,
-            event.payload,
-            event.options
-          )
+    if (selectionEnabled || uiContextEnabled) {
+      eventSubscriptions.push(
+        subscribeToSynchronousEvent<SelectElementsEvent>(
+          EventTypes.SELECT_ELEMENTS,
+          (event) => {
+            const change = createSelectionChangeFromDirectEvent(
+              SelectionChannels.ELEMENT,
+              SelectionActions.SELECT_ELEMENTS,
+              SelectionEventNames.SELECT_ELEMENTS,
+              event.payload,
+              event.options
+            )
 
-          applySelectionIdsToRuntime(
-            core,
-            SelectionChannels.ELEMENT,
-            change.after,
-            change.options
-          )
+            if (selectionEnabled) {
+              applySelectionIdsToRuntime(
+                core,
+                SelectionChannels.ELEMENT,
+                change.after,
+                change.options
+              )
 
-          // Replay events bypass shared channel observers. Mirror them to render/UI.
-          updateRenderSelection(change)
-          updateUIContextSelection(change, core, deps)
-        }
+              // Replay events bypass shared channel observers. Mirror them to render.
+              updateRenderSelection(change)
+            }
+            if (uiContextEnabled) {
+              updateUIContextElementSelection(change, core, deps)
+            }
+          }
+        )
       )
-    )
-    eventSubscriptions.push(
-      subscribeToSynchronousEvent<SelectVectorPointsEvent>(
-        EventTypes.SELECT_VECTOR_POINTS,
-        (event) => {
-          const change = createSelectionChangeFromDirectEvent(
-            SelectionChannels.VECTOR_POINT,
-            SelectionActions.SELECT_VECTOR_POINTS,
-            SelectionEventNames.SELECT_VECTOR_POINTS,
-            event.payload,
-            event.options
-          )
+      reportCleanupReady()
+    }
 
-          applySelectionIdsToRuntime(
-            core,
-            SelectionChannels.VECTOR_POINT,
-            change.after,
-            change.options
-          )
-          updateRenderSelection(change)
-          updateUIContextSelection(change, core, deps)
-        }
+    if (selectionEnabled || vectorEditingEnabled) {
+      eventSubscriptions.push(
+        subscribeToSynchronousEvent<SelectVectorPointsEvent>(
+          EventTypes.SELECT_VECTOR_POINTS,
+          (event) => {
+            const change = createSelectionChangeFromDirectEvent(
+              SelectionChannels.VECTOR_POINT,
+              SelectionActions.SELECT_VECTOR_POINTS,
+              SelectionEventNames.SELECT_VECTOR_POINTS,
+              event.payload,
+              event.options
+            )
+
+            if (selectionEnabled) {
+              applySelectionIdsToRuntime(
+                core,
+                SelectionChannels.VECTOR_POINT,
+                change.after,
+                change.options
+              )
+              updateRenderSelection(change)
+            }
+            if (vectorEditingEnabled) {
+              updateVectorEditingSelection(change, core)
+            }
+          }
+        )
       )
-    )
-    eventSubscriptions.push(
-      subscribeToSynchronousEvent<SelectVectorSegmentsEvent>(
-        EventTypes.SELECT_VECTOR_SEGMENTS,
-        (event) => {
-          const change = createSelectionChangeFromDirectEvent(
-            SelectionChannels.VECTOR_SEGMENT,
-            SelectionActions.SELECT_VECTOR_SEGMENTS,
-            SelectionEventNames.SELECT_VECTOR_SEGMENTS,
-            event.payload,
-            event.options
-          )
+      reportCleanupReady()
+      eventSubscriptions.push(
+        subscribeToSynchronousEvent<SelectVectorSegmentsEvent>(
+          EventTypes.SELECT_VECTOR_SEGMENTS,
+          (event) => {
+            const change = createSelectionChangeFromDirectEvent(
+              SelectionChannels.VECTOR_SEGMENT,
+              SelectionActions.SELECT_VECTOR_SEGMENTS,
+              SelectionEventNames.SELECT_VECTOR_SEGMENTS,
+              event.payload,
+              event.options
+            )
 
-          applySelectionIdsToRuntime(
-            core,
-            SelectionChannels.VECTOR_SEGMENT,
-            change.after,
-            change.options
-          )
-          updateRenderSelection(change)
-          updateUIContextSelection(change, core, deps)
-        }
+            if (selectionEnabled) {
+              applySelectionIdsToRuntime(
+                core,
+                SelectionChannels.VECTOR_SEGMENT,
+                change.after,
+                change.options
+              )
+              updateRenderSelection(change)
+            }
+            if (vectorEditingEnabled) {
+              updateVectorEditingSelection(change, core)
+            }
+          }
+        )
       )
-    )
+      reportCleanupReady()
+    }
 
-    registerObserver(renderSceneTreeDataChannelObserver)
-    registerObserver(selectionRuntimeDataChannelObserver)
-    registerObserver(renderSelectionDataChannelObserver)
-    registerObserver(uiContextSceneTreeDataChannelObserver)
-    registerObserver(uiContextSelectionDataChannelObserver)
+    if (renderSceneEnabled) {
+      registerObserver(renderSceneTreeDataChannelObserver)
+    }
+    if (selectionEnabled) {
+      registerObserver(selectionRuntimeDataChannelObserver)
+      registerObserver(renderSelectionDataChannelObserver)
+    }
+    if (uiContextEnabled) {
+      registerObserver(uiContextSceneTreeDataChannelObserver)
+      registerObserver(uiContextSelectionDataChannelObserver)
+    }
+    if (vectorEditingEnabled) {
+      registerObserver(vectorEditingSelectionDataChannelObserver)
+    }
   } catch (error) {
-    dispose()
+    if (!cleanupReported) dispose()
     throw error
   }
 

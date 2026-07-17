@@ -2,64 +2,115 @@
 
 ## Responsibility
 
-Optional startup defaults for framework consumers. Preset provides a working
-composition; it does not own app policy or framework runtime semantics.
-
-## Owns
-
-- explicit property schema/runtime defaults
-- pure Rectangle, Oval, Vector, Frame, and Group component definitions
-- separate default render strategy registrations
-- builtin event, selection, render-layer, UI-property, shared-channel, and
-  observer wiring
-- default `@asyra/render-engine-pixi` factory selection/injection
-- stable owner metadata `{ packageName: '@asyra/preset', name: 'default-preset' }`
-- one `PresetApplication` handle for graph registrations and runtime wiring
-  installed by an `applyPreset` call
-
-## Must Not Own
-
-- Core lifecycle or registration graph semantics
-- app business/domain workflows or customization policy
-- semantic equivalence or a replace operation
-- render-engine runtime/resources, product mode, Generic Preset Composition,
-  profiles, or multi-engine composition
+Provide selectable official framework defaults and preset-owned render-engine
+profile policy before Core startup. Preset does not own app policy or runtime
+readiness.
 
 ## Public Contract
 
-- `applyPreset(core)` explicitly installs defaults on the supplied Core.
-- `applyPreset(core, dependencies)` preserves the explicit dependency overload.
-- `applyPreset(core, { renderEngineFactory, dependencies? })` preserves custom
-  engine-factory composition without selecting a product mode.
-- `ApplyPresetOptions` has no extension array. Apps add features with
-  `core.defineFeature(...)` and customize registrations through ordinary Core
-  APIs after `applyPreset`.
-- importing `@asyra/preset` or its component definitions does not register
-  components. `applyPreset(core)` installs defaults in deterministic order:
-  property schemas, property runtimes, component definitions, render
-  strategies, then remaining preset wiring.
-- component definitions and render strategies are exported separately so
-  consumers do not accidentally create an untracked inline render registration.
-- preset property/component/render/UI nodes use
-  `PRESET_REGISTRATION_OWNER`. App registrations may omit owner metadata.
-- constructor-mode property runtimes and render/UI registrations declare opaque
-  dependencies through local `registration.relations`; Core derives structural
-  component and config-child relations automatically.
-- `PresetApplication.dispose()` uses Core graph-aware unregister APIs and skips
-  nodes already removed through Core. The same handle removes its events,
-  selections, preset-owned shared channels,
-  system subscriptions, data-channel observers, and render layers. App-owned
-  pre-existing shared channels are preserved.
-- Shared channels and data-channel observers are installed through the supplied
-  Core instance; preset never falls back to a module-global Core or Factory.
-- cleanup failure reports pending resource keys through
-  `RegistrationRelationError`; retry runs only pending cleanup.
-- graph disposal is preflighted before runtime teardown, so disposal rejected by
-  a closed composition does not partially dismantle active wiring.
-- if later preset wiring fails, `applyPreset` disposes all graph and runtime
-  defaults installed by that call before rethrowing. If rollback cleanup itself
-  remains pending, preset retains that temporary application internally and the
-  next `applyPreset` on the same Core retries it before installing new defaults.
+```ts
+import {
+  applyPreset,
+  PresetCatalog,
+  PresetDefaults,
+  PresetProfiles
+} from '@asyra/preset'
+
+const result = applyPreset(core, {
+  profile: PresetProfiles['2D'],
+  defaults: [PresetDefaults.BASIC_SHAPES, PresetDefaults.SELECTION]
+})
+```
+
+- `profile` selects only preset engine policy.
+- `defaults` selects only official product modules.
+- `applyPreset(core)` selects profile `2D` and all eight available defaults.
+- Omitting `defaults` selects all available defaults for every profile;
+  `defaults: []` installs none.
+- Explicit defaults are set-like input. Duplicate, unknown, or unavailable ids
+  fail before mutation. Preset expands public dependencies and installs in
+  catalog order.
+- The returned `PresetApplyResult` contains only `profile`, `presetEngineId`,
+  `selectedDefaults`, and `appliedDefaults`. It and its arrays are detached and
+  deeply frozen; it is not a lifecycle handle and exposes no disposer.
+
+`PresetProfiles` contains `2D`, `3D`, `HYBRID`, and `CUSTOM`. `2D` and `CUSTOM`
+are available. `3D` and `HYBRID` are reserved but unavailable and fail before
+mutation. `2D` registers the preset-owned Pixi provider; `CUSTOM` registers no
+provider.
+
+`PresetDefaults` contains, in canonical order:
+
+1. `BASIC_SHAPES`
+2. `CONTAINERS`
+3. `VECTOR`
+4. `INPUT`
+5. `SELECTION`
+6. `VECTOR_EDITING`
+7. `VIEWPORT`
+8. `UI_CONTEXT`
+
+`VECTOR_EDITING` publicly requires `VECTOR` and `SELECTION`; `UI_CONTEXT`
+requires `SELECTION`. Property, event, channel, projection, observer, and
+subscription prerequisites are private and never appear as selectable ids.
+
+`PresetCatalog` is deeply frozen. Profile entries expose `id`, `available`, and
+`presetEngineId`; default entries expose `id`, `available`, and `requires`.
+Catalog engine ids are diagnostics, not dynamic-import paths.
+
+## Composition Order
+
+```text
+resolve and validate strict request
+-> install selected default dependency closure in catalog order
+-> bind the profile-owned provider when profile is 2D
+-> publish frozen PresetApplyResult
+-> app uses ordinary Core APIs for optional customization
+-> core.start()
+```
+
+All customization and any app-owned provider binding must finish before the
+first `core.start()`. A custom engine uses `profile: CUSTOM`, followed by
+`core.setRenderEngineProvider(() => engine)`; custom providers never pass
+through preset.
+
+## Failure and Cleanup
+
+`PresetApplyError` exposes one stable code from `PRESET_APPLY_ERROR_CODES`:
+
+- `INVALID_OPTIONS`
+- `UNKNOWN_PROFILE`
+- `UNAVAILABLE_PROFILE`
+- `UNKNOWN_DEFAULT`
+- `UNAVAILABLE_DEFAULT`
+- `DUPLICATE_DEFAULT`
+- `COMPOSITION_CLOSED`
+- `ALREADY_APPLIED`
+- `ENGINE_PROVIDER_CONFLICT`
+- `DEFAULT_INSTALL_FAILED`
+- `CLEANUP_FAILED`
+
+Validation failures mutate nothing. Installation or provider failure rolls back
+all acquired preset-owned resources in reverse order. If cleanup fails, the
+error reports frozen `completedCleanup` and `pendingCleanup` arrays plus the
+original cause. The next apply on that Core retries only pending cleanup before
+new validation or mutation.
+
+A successful apply is permanent for that Core composition. A second apply
+fails; apps customize successful defaults through ordinary Core APIs.
+
+## Ownership Boundary
+
+- Core owns composition lock, registration graph, provider facade, startup,
+  default renderer, and teardown facade.
+- Render owns instance-local abstract provider storage and engine orchestration.
+- The concrete engine package owns SDK runtime and resources.
+- Preset owns the fixed catalog, official module installers, private
+  prerequisites, profile policy, apply result, and failed-apply rollback.
+- App owns which preset choices to request and any later Core customization.
+
+Preset must not accept app-provided installers, disposers, dependency objects,
+engine ids, custom providers, extension callbacks, or replace semantics.
 
 ## App Customization Route
 
@@ -67,46 +118,20 @@ composition; it does not own app policy or framework runtime semantics.
 applyPreset(core)
 
 core.removeComponentPropertyRelation('rect', 'fills')
-core.removeComponentPropertyRelation('oval', 'fills')
-
 core.unregisterRenderStrategy('rect')
-core.unregisterRenderStrategy('oval')
-core.registerRenderStrategy('rect', whiteboardRectangleStrategy)
-core.registerRenderStrategy('oval', whiteboardOvalStrategy)
+core.registerRenderStrategy('rect', productRectangleStrategy)
 
-core.start(container, renderOptions)
+await core.start(container, renderOptions)
 ```
-
-Removing a relation preserves the property capability. If the app needs no
-Fills capability at all, it may instead call:
-
-```ts
-core.unregisterPropertyType(PropertyTypes.FILLS)
-```
-
-`FILLS` and its child `FILL` are separate registration nodes. The framework
-does not infer that unregistering one should unregister the other.
-
-## Ownership Boundary
-
-- `@asyra/utils`: graph primitives, stable metadata, deterministic traversal,
-  structured errors/results, retry state
-- Core: composition lock, public façade, graph coordination
-- scene-tree/props-manager/feature/render/ui-context: definitions and owned
-  lifecycle cleanup
-- preset: defaults and explicit declarations
-- app: which relations/capabilities to remove and what to define next
 
 ## Validation Checklist
 
-- preset import has no component-registration side effect
-- `applyPreset(core)` and both overloads remain compatible
-- no preset extension target, app extension object, or replace strategy is
-  exported
-- owner metadata and declared relations are queryable through Core
-- direct Core unregister followed by `PresetApplication.dispose()` does not
-  repeat cleanup
-- failed apply/dispose leaves no stale event, selection, channel, subscription,
-  observer, or render-layer wiring; cleanup retry does not repeat completed work
-- custom engine composition remains engine-neutral and never derives product
-  mode
+- imports are side-effect free;
+- profile and defaults resolve independently;
+- every module is independently selectable and private prerequisites dedupe;
+- unselected modules install no product registrations or state;
+- unknown, unavailable, duplicate, legacy, closed, conflict, and duplicate-apply
+  inputs fail before mutation;
+- failed apply leaves no stale registration, property, event, selection,
+  channel, observer, subscription, layer, or provider;
+- no 3D/Hybrid runtime is imported or bundled.

@@ -59,4 +59,16 @@ describe('@asyra/render engine package boundary', () => {
 
     expect(violations).toEqual([])
   })
+
+  it('uses provider terminology without the unreleased factory API', () => {
+    const publicSource = [
+      fs.readFileSync(path.join(packageRoot, 'src/render.ts'), 'utf8'),
+      fs.readFileSync(path.join(packageRoot, 'src/index.ts'), 'utf8')
+    ].join('\n')
+
+    expect(publicSource).toMatch(/RenderEngineProvider/)
+    expect(publicSource).not.toMatch(
+      /RenderEngineFactory|engineFactory|setEngineFactory/
+    )
+  })
 })

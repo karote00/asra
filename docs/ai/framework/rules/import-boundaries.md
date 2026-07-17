@@ -30,5 +30,5 @@ Avoid:
   `@asyra/render`.
 - Only `@asyra/render-engine-pixi` may import `pixi.js`.
 - Preset may depend on both the abstract contract and the default concrete
-  engine solely to select/inject a factory.
+  engine solely to bind the preset-owned `2D` provider through Core.
 - Core, apps, and other framework packages remain concrete-engine-neutral.

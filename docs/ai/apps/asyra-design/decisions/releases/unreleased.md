@@ -6450,3 +6450,23 @@ join` constrained dashed product path across:
     `apps/asyra-design/e2e/stroke-new-flow/stroke-visual-e2e-coverage-map.ts`.
   - Deleted pre-current-flow visual specs remain deleted unless they are rewritten
     into current-flow coverage with explicit spec and inspector references.
+
+## 2026-07-17 - App startup uses the default preset and Core-owned renderer
+
+- Context:
+  - The new preset contract defaults to profile `2D` plus all official defaults.
+  - Core now owns an engine-neutral default renderer and exposes renderer
+    teardown, so the app no longer needs to construct an adapter.
+- Decision:
+  - Keep `applyPreset(core)` as Asyra Design's default 2D/all-defaults request.
+  - Keep any future app customization after preset returns through ordinary Core
+    APIs, and keep RenderApp's `core.start()` as the sole runtime-ready owner.
+  - Remove the App-owned `RenderAdapter` and `setRenderer()` call; delegate
+    effect cleanup to `core.destroyRenderer()`.
+- Consequences:
+  - App startup remains concrete-engine-neutral and requires no preset-specific
+    extension callback, installer, provider, or concrete SDK import.
+  - The existing init-order and StrictMode startup tests remain the app-level
+    product gates.
+- Related Plan:
+  - `docs/ai/framework/plans/preset-composition-plan.md`

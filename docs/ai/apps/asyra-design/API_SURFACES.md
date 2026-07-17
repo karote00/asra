@@ -8,8 +8,11 @@ Import boundary:
 
 - `import { ...Apis } from 'src/common-apis'`
 - `import { defineFeature, getFeature, keyMap } from '@asyra/core'` for golden-path feature/input helpers
-- preset composition imports public `applyPreset` from `@asyra/preset`; custom
-  property type constants remain public `@asyra/utils` imports
+- preset composition imports public `applyPreset` and, when needed,
+  `PresetProfiles`, `PresetDefaults`, `PresetCatalog`, or the public
+  option/result/error types from `@asyra/preset`; the app never deep-imports
+  preset composition internals. Custom property type constants remain public
+  `@asyra/utils` imports
 - app startup uses ordinary Core APIs for customization:
   `removeComponentPropertyRelation` / `defineComponentPropertyRelation` for
   structural slots, or owner-specific `unregister -> define/register` for a

@@ -1,22 +1,46 @@
 import type { CorePresetDependencies, CorePresetInstallAPIs } from '@asyra/core'
-import type { RenderEngineFactory } from '@asyra/render-engine'
-import type { RegistrationRef } from '@asyra/utils'
+import type {
+  PRESET_APPLY_ERROR_CODES,
+  PresetDefaults,
+  PresetProfiles
+} from './constants'
 
-export type PresetDependencies = CorePresetDependencies
-export type PresetCoreAPIs = CorePresetInstallAPIs
+export type PresetProfile = (typeof PresetProfiles)[keyof typeof PresetProfiles]
 
-export interface PresetApplicationDisposeSuccess {
-  ok: true
-  operation: 'dispose-preset'
-  removed: readonly RegistrationRef[]
-  skipped: readonly RegistrationRef[]
-}
+export type PresetDefaultId =
+  (typeof PresetDefaults)[keyof typeof PresetDefaults]
 
-export interface PresetApplication {
-  dispose(): PresetApplicationDisposeSuccess
-}
+export type PresetApplyErrorCode =
+  (typeof PRESET_APPLY_ERROR_CODES)[keyof typeof PRESET_APPLY_ERROR_CODES]
 
 export interface ApplyPresetOptions {
-  dependencies?: PresetDependencies
-  renderEngineFactory?: RenderEngineFactory
+  profile?: PresetProfile
+  defaults?: readonly PresetDefaultId[]
 }
+
+export interface PresetApplyResult {
+  readonly profile: PresetProfile
+  readonly presetEngineId: string | null
+  readonly selectedDefaults: readonly PresetDefaultId[]
+  readonly appliedDefaults: readonly PresetDefaultId[]
+}
+
+export interface PresetProfileCatalogEntry {
+  readonly id: PresetProfile
+  readonly available: boolean
+  readonly presetEngineId: string | null
+}
+
+export interface PresetDefaultCatalogEntry {
+  readonly id: PresetDefaultId
+  readonly available: boolean
+  readonly requires: readonly PresetDefaultId[]
+}
+
+export interface PresetCatalogContract {
+  readonly profiles: readonly PresetProfileCatalogEntry[]
+  readonly defaults: readonly PresetDefaultCatalogEntry[]
+}
+
+export type PresetCoreAPIs = CorePresetInstallAPIs
+export type PresetDependencies = CorePresetDependencies

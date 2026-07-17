@@ -28,9 +28,12 @@ only package that owns Pixi SDK imports and concrete Pixi runtime objects.
 - `PixiRenderEngine implements RenderEngine`;
 - `createPixiRenderEngine(): RenderEngine`.
 
-Preset passes `createPixiRenderEngine` to the target `Render` instance. The
-factory creates a fresh engine for each requesting `Render`; preset does not
-own the resulting runtime or resources.
+For profile `2D`, Preset passes `createPixiRenderEngine` through
+`core.setRenderEngineProvider(...)`. The Core-owned Render invokes that
+provider during `core.start(...)`, creates one fresh engine, and owns its
+runtime cleanup. Profile `CUSTOM` receives no provider from Preset. The
+catalog's `presetEngineId` is diagnostic metadata, not a dynamic-import or
+package-resolution path.
 
 ## Execution Contract
 

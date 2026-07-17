@@ -262,7 +262,7 @@ const computeStrokesValue = ({
   return toStrokeRows(baseStrokes)
 }
 
-export const registerProperties = (core: PresetCoreAPIs): void => {
+const createDefineUIProperty = (core: PresetCoreAPIs) => {
   const propertyDependencies: Readonly<Record<string, readonly string[]>> = {
     x: [PropertyTypes.POSITION],
     y: [PropertyTypes.POSITION],
@@ -271,7 +271,7 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     fills: [PropertyTypes.FILLS],
     strokes: [PropertyTypes.STROKES]
   }
-  const defineUIProperty = <T extends PropertyValue>(
+  return <T extends PropertyValue>(
     key: string,
     config: PropertyRegistration<T>
   ): void => {
@@ -282,16 +282,43 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
       )
     })
   }
+}
+
+export const PRESET_SYSTEM_PROPERTY_KEYS = Object.freeze([
+  'zoom',
+  'viewportPosition',
+  'primaryTool',
+  'systemMode',
+  'systemFeatureFlags',
+  'systemPermissions',
+  'mouseDragStart',
+  'mousePosition',
+  'mouseDelta',
+  'mouseButton',
+  'mouseDown',
+  'mouseDragging',
+  'keyShift',
+  'keyCtrl',
+  'keyAlt',
+  'keyMeta',
+  'hoveredElementId',
+  'selectedElementIds',
+  'activeElementId',
+  'pathEditingVectorId',
+  'pathEditingMode',
+  'pathEditingStartNewSubpath',
+  'selectedVectorPoint',
+  'hoveredVectorPoint',
+  'selectedVectorSegment',
+  'hoveredVectorSegment',
+  'hoveredVectorSegmentInsertPoint',
+  'pathEditingContinuation'
+] as const)
+
+export const registerUIContextProperties = (core: PresetCoreAPIs): void => {
+  const defineUIProperty = createDefineUIProperty(core)
 
   defineUIProperty<Set<string>>('elementSelection', {
-    defaultValue: new Set()
-  })
-
-  defineUIProperty<Set<string>>('vectorPointSelection', {
-    defaultValue: new Set()
-  })
-
-  defineUIProperty<Set<string>>('vectorSegmentSelection', {
     defaultValue: new Set()
   })
 
@@ -377,11 +404,24 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     compute: computeStrokesValue
   })
 
+  defineUIProperty<string | null>('hoveredElementId', {
+    defaultValue: null,
+    source$: core.getSystemPropertyObservable('hoveredElementId')
+  })
+}
+
+export const registerViewportProperties = (core: PresetCoreAPIs): void => {
+  const defineUIProperty = createDefineUIProperty(core)
+
   const zoomObservable = core.defineSystemProperty<number>('zoom', 1)
   defineUIProperty<number>('zoom', {
     defaultValue: 1,
     source$: zoomObservable
   })
+}
+
+export const registerInputProperties = (core: PresetCoreAPIs): void => {
+  const defineUIProperty = createDefineUIProperty(core)
 
   const primaryToolObservable = core.defineSystemProperty<string>(
     'primaryTool',
@@ -413,8 +453,10 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
   core.defineSystemProperty('keyCtrl', DefaultKeySnapshot.ctrl)
   core.defineSystemProperty('keyAlt', DefaultKeySnapshot.alt)
   core.defineSystemProperty('keyMeta', DefaultKeySnapshot.meta)
+}
 
-  const hoveredElementObservable = core.defineSystemProperty(
+export const registerSelectionProperties = (core: PresetCoreAPIs): void => {
+  core.defineSystemProperty(
     'hoveredElementId',
     DefaultTargetSnapshot.hoveredElementId
   )
@@ -426,6 +468,18 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     'activeElementId',
     DefaultTargetSnapshot.activeElementId
   )
+}
+
+export const registerVectorEditingProperties = (core: PresetCoreAPIs): void => {
+  const defineUIProperty = createDefineUIProperty(core)
+
+  defineUIProperty<Set<string>>('vectorPointSelection', {
+    defaultValue: new Set()
+  })
+
+  defineUIProperty<Set<string>>('vectorSegmentSelection', {
+    defaultValue: new Set()
+  })
 
   const pathEditingVectorObservable = core.defineSystemProperty<string | null>(
     'pathEditingVectorId',
@@ -466,10 +520,6 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
     defaultValue: null,
     source$: pathEditingVectorObservable
   })
-  defineUIProperty<string | null>('hoveredElementId', {
-    defaultValue: null,
-    source$: hoveredElementObservable
-  })
   defineUIProperty<SelectedVectorPointState | null>('selectedVectorPoint', {
     defaultValue: null,
     source$: selectedPointObservable
@@ -485,4 +535,12 @@ export const registerProperties = (core: PresetCoreAPIs): void => {
       source$: pathEditingContinuationObservable
     }
   )
+}
+
+export const registerProperties = (core: PresetCoreAPIs): void => {
+  registerInputProperties(core)
+  registerSelectionProperties(core)
+  registerVectorEditingProperties(core)
+  registerViewportProperties(core)
+  registerUIContextProperties(core)
 }

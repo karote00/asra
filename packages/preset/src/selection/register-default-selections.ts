@@ -9,7 +9,7 @@ import {
 
 type SelectionFactory = () => BaseSelection
 
-const DEFAULT_SELECTION_DEFINITIONS: Record<
+export const DEFAULT_SELECTION_DEFINITIONS: Record<
   SelectionChannel,
   SelectionDefinition
 > = {
@@ -41,10 +41,15 @@ export const registerSelections = (
   core: Pick<
     PresetCoreAPIs,
     'defineSelection' | 'unregisterSelection' | 'getSelection'
-  >
+  >,
+  onCleanupReady?: (dispose: () => void) => void,
+  channels: readonly SelectionChannel[] = Object.keys(
+    DEFAULT_SELECTION_DEFINITIONS
+  ) as SelectionChannel[]
 ): (() => void) => {
   const registeredChannels: SelectionChannel[] = []
   let disposed = false
+  let cleanupReported = false
 
   const dispose = (): void => {
     if (disposed) return
@@ -54,17 +59,23 @@ export const registerSelections = (
     }
     disposed = true
   }
+  const reportCleanupReady = (): void => {
+    if (cleanupReported || !onCleanupReady) return
+    onCleanupReady(dispose)
+    cleanupReported = true
+  }
 
   try {
-    Object.entries(DEFAULT_SELECTION_FACTORIES).forEach(([channel, create]) => {
-      const selectionChannel = channel as SelectionChannel
+    channels.forEach((selectionChannel) => {
+      const create = DEFAULT_SELECTION_FACTORIES[selectionChannel]
       if (!core.getSelection(selectionChannel)) {
         core.defineSelection(selectionChannel, create())
         registeredChannels.push(selectionChannel)
+        reportCleanupReady()
       }
     })
   } catch (error) {
-    dispose()
+    if (!cleanupReported) dispose()
     throw error
   }
 

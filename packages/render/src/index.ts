@@ -4,6 +4,12 @@ import renderSceneTreeStore from './stores/scene-tree'
 import renderSelectionStore from './stores/selection'
 
 export { IRenderer, RenderOptions, RenderResult } from './types/renderer'
+export {
+  InvalidRenderEngineProviderResultError,
+  MissingRenderEngineProviderError,
+  RenderErrorCodes,
+  type RenderErrorCode
+} from './errors'
 export { RenderAdapter, PixiJSRenderer }
 export { renderStrategyRegistry } from './registries/render-strategy'
 export { interactionHandlerRegistry } from './registries/interaction-handler'
@@ -37,7 +43,11 @@ export type {
   RenderStrategy,
   RenderStrategyGraphic
 } from './types/render-strategy'
-export type { RenderApplication, RenderEngineProviderOptions } from './render'
+export type {
+  RenderApplication,
+  RenderEngineProviderCleanup,
+  RenderEngineProviderOptions
+} from './render'
 export {
   RenderContainer,
   RenderGraphics,

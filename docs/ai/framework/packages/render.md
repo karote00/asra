@@ -10,16 +10,21 @@ results/interactions back to framework-facing APIs.
 
 - Depend on `@asyra/render-engine`, never on Pixi or a concrete engine package.
 - Do not expose concrete engine classes or resource types.
-- Preset may configure the target `Render` instance through
-  `setEngineFactory(...)`; direct class consumers may pass exactly one engine
-  instance or factory to `new Render(...)`.
+- Core or a direct consumer may configure the target `Render` instance through
+  `setEngineProvider(...)`; direct class consumers may pass exactly one engine
+  instance or provider to `new Render(...)`.
+- `setEngine(...)` and `setEngineProvider(...)` return an instance-local
+  pre-runtime cleanup handle. Cleanup restores the exact prior provider (or an
+  empty provider state), stale handles cannot erase a later selection, and
+  reverse-order cleanup unwinds nested selections deterministically without
+  constructing or destroying an engine.
 - A `RenderAdapter` may receive that exact `Render` instance in its constructor;
-  the no-argument constructor remains the default-singleton compatibility path.
-- A custom `Render` instance must fail when no provider is configured; it must
-  not fall back to a module-level Pixi engine.
+  Core constructs its default adapter with the injected Core-bound instance.
+- Every direct `Render`/`RenderAdapter` initialization fails with
+  `MissingRenderEngineProviderError` when no provider is configured; Render
+  never chooses headless or falls back to Pixi.
 - Render extension APIs should be surfaced through `@asyra/core` when a Core
-  facade exists. App bootstrap may import the public `RenderAdapter` directly
-  to configure `core.setRenderer(...)`.
+  facade exists. Normal app bootstrap relies on the Core-owned adapter.
 - Render should react to state changes, not become source-of-truth.
 - Render mutations should reflect state/system updates, not drive them.
 - Default subscription wiring is not owned here; preset/core registration flow owns channel observer setup.
@@ -30,7 +35,7 @@ results/interactions back to framework-facing APIs.
 - render layer registry
 - interaction handler registry
 - interaction target registry (overlay hit-test and pointer capture)
-- direct custom engine instance/factory injection
+- direct custom engine instance/provider injection
 - Core-facing `RenderAdapter`
 - render-side update stores (`renderSceneTreeStore`, `renderSelectionStore`) for external registration wiring
 
@@ -59,6 +64,8 @@ the named strategy and its graph relations without inferring a product mode.
 3. Engine isolation
 
 - one selected engine instance belongs to one `Render` instance
+- a provider is invoked only during initialization; provider callback and
+  invalid result errors remain distinct from provider absence
 - render maps framework target ids to opaque engine handles
 - render owns abstract resource descriptors/ref-counting while the concrete
   engine owns concrete resource objects and cleanup
@@ -75,15 +82,17 @@ the named strategy and its graph relations without inferring a product mode.
 
 ## Renderer Facade Compatibility
 
-- `RenderAdapter` is the recommended engine-neutral Core-facing renderer.
+- `RenderAdapter` is the engine-neutral Core-facing renderer and is owned by
+  Core on the default path.
 - `RenderResult.instance` and `RenderAdapter.getInstance()` forward the selected
   engine's opaque runtime identity. The Pixi compatibility path therefore keeps
   returning its owned Pixi `Application` without exposing that type in the
   abstract contract.
 - `PixiJSRenderer` is a deprecated compatibility alias with the same lifecycle
   behavior and a warn-once message.
-- Replacement: import `RenderAdapter` from `@asyra/render` and keep engine
-  selection in preset or direct `Render` composition.
+- Replacement: import `RenderAdapter` from `@asyra/render` only when replacing
+  Core's complete renderer facade; keep engine selection in preset/Core provider
+  composition or direct `Render` composition.
 - The alias remains available through the next planned major-release migration
   window; it receives compatibility/security fixes only.
 - `RenderStrategy` remains as a deprecated, Graphics-like callback signature so

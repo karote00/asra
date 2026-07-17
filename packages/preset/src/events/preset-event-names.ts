@@ -31,8 +31,10 @@ export type PresetEventDefinitions = DefinitionsFromNames<
   typeof PresetEventNames
 >
 
-const FrameworkEventDefinitions = defineEventsFromNames(FrameworkEventNames)
-const BasicInputEventDefinitions = defineEventsFromNames(InputSystemEvents)
+export const FrameworkEventDefinitions =
+  defineEventsFromNames(FrameworkEventNames)
+export const BasicInputEventDefinitions =
+  defineEventsFromNames(InputSystemEvents)
 
 export const PresetEventDefinitions: PresetEventDefinitions = {
   ...FrameworkEventDefinitions,

@@ -15,7 +15,7 @@ Core API tier types (explicit ownership contract):
 - `CoreExtensionAPIs`: registration/bridge APIs exposed by `core` for framework extension
 - `CoreConcreteAPIs`: `CoreBasicAPIs + CoreExtensionAPIs`
 - `CorePresetInstallAPIs`: strict subset required by `applyPreset(...)` (no optional `core?.api` checks)
-- `CorePresetDependencies`: concrete dependency bundle returned by `core.getPresetDependencies()`
+- `CorePresetDependencies`: concrete dependency object returned by `core.getPresetDependencies()`
 
 Lifecycle and integration:
 
@@ -215,6 +215,14 @@ Managed property bridges:
   - `CoreConcreteAPIs`
   - `CorePresetInstallAPIs`
   - `CorePresetDependencies`
+- render lifecycle facade:
+  - `setRenderEngineProvider(provider)`
+  - `hasRenderEngineProvider()`
+  - `setRenderer(renderer)` for advanced full-renderer replacement
+  - `destroyRenderer()`
+- managed-property lifecycle queries used by fixed preset installers:
+  - `hasSystemProperty(key)`
+  - `unregisterSystemProperty(key)`
 
 `@asyra/feature-system`
 
@@ -236,8 +244,13 @@ Managed property bridges:
 `@asyra/render`
 
 - default `render` singleton, `Render` class
-- `Render({ engine?, engineFactory? })` for direct instance/factory injection;
+- `Render({ engine?, engineProvider? })` for direct instance/provider injection;
   configuring both providers is rejected
+- `setEngineProvider(provider)` stores a reversible instance-local provider
+  without invoking it
+- `MissingRenderEngineProviderError` and
+  `InvalidRenderEngineProviderResultError` distinguish provider absence from an
+  invalid provider result
 - `RenderAdapter`: engine-neutral Core-facing `IRenderer` implementation
 - renderer initialization and `getInstance()` preserve the selected engine's
   opaque runtime identity without adding a concrete SDK type to this package
@@ -261,7 +274,7 @@ Managed property bridges:
 
 `@asyra/render-engine`
 
-- `RenderEngine`, `RenderEngineFactory`
+- `RenderEngine`, `RenderEngineProvider`
 - opaque `RenderEngineObjectHandle`, `RenderEngineResourceHandle`
 - lifecycle: `initialize`, `startFrameLoop`, `stopFrameLoop`, `destroy`
 - `RenderEngineInitializeResult.runtime`: opaque compatibility runtime identity
@@ -278,7 +291,8 @@ Managed property bridges:
 `@asyra/render-engine-pixi`
 
 - `PixiRenderEngine`: concrete implementation of `RenderEngine`
-- `createPixiRenderEngine(): RenderEngine`: fresh-engine factory used by preset
+- `createPixiRenderEngine(): RenderEngine`: fresh engine creator used by the
+  preset-owned `2D` provider
 - owns Pixi application, display objects, mesh/graphics translation, resources,
   surface events, frame loop, and deterministic concrete cleanup
 - does not expose framework state, render layers, or product feature behavior
@@ -341,20 +355,23 @@ Managed property bridges:
 
 `@asyra/preset`
 
-- `applyPreset(core)` for explicit preset bootstrap registration and default
-  injection of the `@asyra/render-engine-pixi` factory
-- `applyPreset(core, dependencies)` preserves the existing explicit dependency
-  bundle path
-- `applyPreset(core, { renderEngineFactory, dependencies? })` replaces the
-  Pixi default with a contract-compatible custom factory
-- returns a `PresetApplication` whose `dispose()` removes graph registrations
-  plus preset-installed events, selections, owned shared channels,
-  subscriptions, data-channel observers, and render layers; it preserves
-  app-owned shared channels, skips nodes already removed through Core, and
-  retries only pending cleanup after a structured cleanup failure
+- `PresetProfiles`: stable `2D`, `3D`, `HYBRID`, and `CUSTOM` ids; only `2D`
+  and `CUSTOM` are currently available
+- `PresetDefaults`: eight official selectable default ids
+- deeply frozen `PresetCatalog` with separate profile/default availability and
+  public dependency metadata
+- `applyPreset(core, { profile?, defaults? })`; omitted options mean `2D` plus
+  all defaults, omitted defaults mean all, and `defaults: []` means none
+- explicit defaults are canonicalized as a set, expanded by public dependencies,
+  and installed in catalog order independently of profile
+- `PresetApplyResult` is detached and deeply frozen, with `profile`,
+  `presetEngineId`, `selectedDefaults`, and `appliedDefaults`; it exposes no
+  disposer or application handle
+- `PresetApplyError` plus `PRESET_APPLY_ERROR_CODES` covers strict validation,
+  provider conflict, default installation, and retryable cleanup failure
 - shared channels and data-channel observers are installed through the supplied
-  Core instance; a failed apply whose rollback cleanup is still pending is
-  retained and retried before a later `applyPreset` on that same Core
+  Core instance; failed apply rollback retries only pending cleanup before a
+  later apply on that Core
 - exports pure component definitions and separate render strategies for
   Rectangle, Oval, Vector, Frame, and Group; importing preset modules has no
   component-registration side effect
@@ -363,11 +380,15 @@ Managed property bridges:
 - app customization uses ordinary Core relation/registration APIs after
   `applyPreset(core)`; preset exposes no app extension object, target manifest,
   or replace strategy
+- preset completion does not start Core or publish runtime readiness; the first
+  `core.start()` remains the permanent composition closure/runtime owner
 - default render wiring lives here:
   - register default render YJS observers (scene-tree + selection)
   - register default render system subscriptions (`zoom`, `viewportPosition`)
 - exports `InputSystemEvents` and `PresetEventNames` constants for preset-owned event namespaces
 - exports `SelectionChannels` and `SelectionActions` for default canvas selection profile contracts
+- custom engines never pass through preset: select `CUSTOM`, then call
+  `core.setRenderEngineProvider(provider)` before `core.start()`
 
 `@asyra/ui-context`
 

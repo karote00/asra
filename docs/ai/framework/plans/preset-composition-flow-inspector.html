@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Generic Preset Composition Flow Inspector</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+        background: #0d1117;
+        color: #e6edf3;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(680px, 1fr) 420px;
+        min-height: 100vh;
+      }
+      main,
+      aside {
+        padding: 24px;
+      }
+      aside {
+        border-left: 1px solid #30363d;
+        background: #0b0f14;
+      }
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+      .summary,
+      .muted {
+        color: #8b949e;
+      }
+      .links,
+      .filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 16px 0;
+      }
+      a,
+      button {
+        color: #58a6ff;
+      }
+      button {
+        border: 1px solid #30363d;
+        border-radius: 999px;
+        padding: 6px 10px;
+        background: #161b22;
+        cursor: pointer;
+      }
+      button.active {
+        border-color: #58a6ff;
+        background: #13233a;
+      }
+      .lane {
+        margin-top: 24px;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 12px;
+      }
+      .card,
+      .detail-section {
+        border: 1px solid #30363d;
+        border-radius: 12px;
+        background: #161b22;
+      }
+      .card {
+        min-height: 150px;
+        padding: 16px;
+        color: inherit;
+        text-align: left;
+      }
+      .card.selected {
+        border-color: #58a6ff;
+      }
+      .card h3 {
+        color: #e6edf3;
+      }
+      .detail-section {
+        margin-bottom: 12px;
+        padding: 14px;
+      }
+      .detail-section h3 {
+        color: #7ee787;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      ul {
+        margin: 0;
+        padding-left: 20px;
+      }
+      code {
+        color: #d2a8ff;
+        overflow-wrap: anywhere;
+      }
+      @media (max-width: 980px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        aside {
+          border-top: 1px solid #30363d;
+          border-left: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <main>
+        <h1 id="title">Generic Preset Composition Flow</h1>
+        <p id="summary" class="summary"></p>
+        <div id="links" class="links"></div>
+        <div id="filters" class="filters"></div>
+        <div id="flow"></div>
+      </main>
+      <aside id="detail" aria-label="Inspector step detail">
+        <p class="muted">Select an owner step to inspect its exact contract.</p>
+      </aside>
+    </div>
+    <script src="./preset-composition-flow-inspector.data.cjs"></script>
+    <script>
+      ;(function () {
+        'use strict'
+
+        const data = globalThis.FLOW_INSPECTOR_DATA
+        if (!data) {
+          throw new Error('Missing Generic Preset Composition Inspector data')
+        }
+
+        const title = document.getElementById('title')
+        const summary = document.getElementById('summary')
+        const links = document.getElementById('links')
+        const filters = document.getElementById('filters')
+        const flow = document.getElementById('flow')
+        const detail = document.getElementById('detail')
+        let activeLane = 'all'
+        let selectedStepId = data.steps[0]?.id
+
+        title.textContent = data.target.title
+        summary.textContent = data.target.summary
+
+        data.links.forEach((item) => {
+          const anchor = document.createElement('a')
+          anchor.href = item.href
+          anchor.textContent = item.label
+          links.append(anchor)
+        })
+
+        const renderList = (label, values) => {
+          const section = document.createElement('section')
+          section.className = 'detail-section'
+          const heading = document.createElement('h3')
+          heading.textContent = label
+          const list = document.createElement('ul')
+          values.forEach((value) => {
+            const item = document.createElement('li')
+            const code = document.createElement('code')
+            code.textContent = value
+            item.append(code)
+            list.append(item)
+          })
+          section.append(heading, list)
+          return section
+        }
+
+        const renderDetail = () => {
+          const step = data.steps.find((item) => item.id === selectedStepId)
+          detail.replaceChildren()
+          if (!step) return
+
+          const heading = document.createElement('h2')
+          heading.textContent = step.title
+          const owner = document.createElement('p')
+          owner.className = 'muted'
+          owner.textContent = `${step.id} · ${step.ownerPackage}`
+          const purpose = document.createElement('p')
+          purpose.textContent = step.purpose
+          detail.append(heading, owner, purpose)
+          ;[
+            ['Inputs', step.inputs],
+            ['Outputs', step.outputs],
+            ['Conditions', step.conditions],
+            ['Bypasses', step.bypasses],
+            ['Allowed contributors', step.allowedContributors],
+            ['Forbidden contributors', step.forbiddenContributors],
+            ['Implementation boundary', step.implementationBoundary],
+            ['Spec refs', step.specRefs],
+            ['Failure owner', [step.failureOwnerStepId]],
+            ['Cleanup owner', [step.cleanupOwnerStepId]],
+            ['Cache dimensions', step.cacheDimensions]
+          ].forEach(([label, values]) => {
+            detail.append(renderList(label, values))
+          })
+        }
+
+        const renderFlow = () => {
+          flow.replaceChildren()
+          data.lanes
+            .filter((lane) => activeLane === 'all' || lane.id === activeLane)
+            .sort((left, right) => left.order - right.order)
+            .forEach((lane) => {
+              const section = document.createElement('section')
+              section.className = 'lane'
+              const heading = document.createElement('h2')
+              heading.textContent = lane.title
+              const cards = document.createElement('div')
+              cards.className = 'cards'
+
+              data.steps
+                .filter((step) => step.laneId === lane.id)
+                .sort((left, right) => left.order - right.order)
+                .forEach((step) => {
+                  const card = document.createElement('button')
+                  card.type = 'button'
+                  card.className = `card${
+                    step.id === selectedStepId ? ' selected' : ''
+                  }`
+                  const cardTitle = document.createElement('h3')
+                  cardTitle.textContent = step.title
+                  const cardOwner = document.createElement('p')
+                  cardOwner.className = 'muted'
+                  cardOwner.textContent = step.ownerPackage
+                  const cardPurpose = document.createElement('p')
+                  cardPurpose.textContent = step.purpose
+                  card.append(cardTitle, cardOwner, cardPurpose)
+                  card.addEventListener('click', () => {
+                    selectedStepId = step.id
+                    renderFlow()
+                    renderDetail()
+                  })
+                  cards.append(card)
+                })
+
+              section.append(heading, cards)
+              flow.append(section)
+            })
+        }
+
+        ;[
+          { id: 'all', title: 'All owners' },
+          ...data.lanes.sort((left, right) => left.order - right.order)
+        ].forEach((lane) => {
+          const button = document.createElement('button')
+          button.type = 'button'
+          button.textContent = lane.title
+          button.className = lane.id === activeLane ? 'active' : ''
+          button.addEventListener('click', () => {
+            activeLane = lane.id
+            Array.from(filters.children).forEach((child) => {
+              child.classList.toggle('active', child === button)
+            })
+            renderFlow()
+          })
+          filters.append(button)
+        })
+
+        renderFlow()
+        renderDetail()
+      })()
+    </script>
+  </body>
+</html>

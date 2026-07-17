@@ -1,10 +1,20 @@
 export { applyPreset } from './preset'
+export { PresetCatalog } from './catalog'
+export {
+  PresetDefaults,
+  PresetProfiles,
+  PRESET_APPLY_ERROR_CODES
+} from './constants'
+export { PresetApplyError } from './composition/error'
 export type {
   ApplyPresetOptions,
-  PresetApplication,
-  PresetApplicationDisposeSuccess,
-  PresetCoreAPIs,
-  PresetDependencies
+  PresetApplyErrorCode,
+  PresetApplyResult,
+  PresetCatalogContract,
+  PresetDefaultCatalogEntry,
+  PresetDefaultId,
+  PresetProfile,
+  PresetProfileCatalogEntry
 } from './types'
 export {
   DEFAULT_COMPONENT_DEFINITIONS,

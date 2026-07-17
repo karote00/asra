@@ -4,28 +4,15 @@ Never record completed plans here.
 
 This file tracks framework planning topics and points to detailed references.
 
-## In Progress
-
-- None.
-
 ## Near-Term Plans
 
-1. Generic preset composition
-
-- Compose shared defaults, concrete-engine bootstrap, optional capability
-  bundles, and app customizations in deterministic order without publishing
-  placeholder `2d`, `3d`, or `hybrid` profiles.
-- Preserve the current `applyPreset(core)` behavior and use the explicit
-  relation/unregister contract from the completed Extendable Preset plan.
-- Reference: `docs/ai/framework/plans/preset-composition-plan.md`
-
-2. Canvas debugger
+1. Canvas debugger
 
 - Add a framework-owned debugging surface to verify render output, render-layer output, and coordinate-space correctness.
 - Keep it optional, deterministic, and renderer-boundary-safe so apps can opt in without coupling domain logic to Pixi internals.
 - Reference: `docs/ai/framework/plans/canvas-debugger-plan.md`
 
-3. Render delta update pipeline
+2. Render delta update pipeline
 
 - Apply data-channel deltas directly in render update flow to avoid full computed-data rehydrate.
 - Use render-side cached snapshots + key-based invalidation for heavy geometry.
@@ -62,7 +49,7 @@ This file tracks framework planning topics and points to detailed references.
 6. Official 2D/3D/hybrid preset profiles
 
 - Publish a render-mode profile only after its concrete engine and canonical
-  feature/property/schema/render/input bundles exist and pass the engine
+  feature/property/schema/render/input default modules exist and pass the engine
   boundary contract.
 - `3d` requires a supported 3D engine; `hybrid` additionally requires an
   explicit multi-engine composition and interaction contract.

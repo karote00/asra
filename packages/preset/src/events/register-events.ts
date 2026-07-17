@@ -1,11 +1,17 @@
+import type { EventDefinition } from '@asyra/core'
 import { PresetEventDefinitions } from './preset-event-names'
 import type { PresetCoreAPIs } from '../types'
 
 export const registerEvents = (
-  core: Pick<PresetCoreAPIs, 'registerEvent' | 'unregisterEvent'>
+  core: Pick<PresetCoreAPIs, 'registerEvent' | 'unregisterEvent'>,
+  onCleanupReady?: (dispose: () => void) => void,
+  definitions: readonly EventDefinition[] = Object.values(
+    PresetEventDefinitions
+  )
 ): (() => void) => {
   const registeredEventNames: string[] = []
   let disposed = false
+  let cleanupReported = false
 
   const dispose = (): void => {
     if (disposed) return
@@ -15,14 +21,20 @@ export const registerEvents = (
     }
     disposed = true
   }
+  const reportCleanupReady = (): void => {
+    if (cleanupReported || !onCleanupReady) return
+    onCleanupReady(dispose)
+    cleanupReported = true
+  }
 
   try {
-    Object.values(PresetEventDefinitions).forEach((definition) => {
+    definitions.forEach((definition) => {
       core.registerEvent(definition)
       registeredEventNames.push(definition.eventName)
+      reportCleanupReady()
     })
   } catch (error) {
-    dispose()
+    if (!cleanupReported) dispose()
     throw error
   }
 

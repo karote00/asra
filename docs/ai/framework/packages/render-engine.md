@@ -28,7 +28,7 @@ custom engine implementations.
 
 ## Public Surface
 
-- `RenderEngine`, `RenderEngineFactory`;
+- `RenderEngine`, `RenderEngineProvider`;
 - `RenderEngineCommand`, `RenderEngineCommandResult`;
 - `RenderEngineQuery`, `RenderEngineQueryResult`;
 - `RenderEngineObjectHandle`, `RenderEngineResourceHandle`;

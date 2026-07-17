@@ -2,7 +2,7 @@ import {
   RenderEngineCapabilities,
   assertRenderEngineCapabilities,
   type RenderEngine,
-  type RenderEngineFactory,
+  type RenderEngineProvider,
   type RenderEngineObjectHandle
 } from '@asyra/render-engine'
 import { DataTypes, MouseData } from '@asyra/utils'
@@ -25,6 +25,10 @@ import type {
   RenderInteractionHandlerRegistration,
   RenderInteractionEventType
 } from './types/render-interaction'
+import {
+  InvalidRenderEngineProviderResultError,
+  MissingRenderEngineProviderError
+} from './errors'
 
 const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
   const sink = (
@@ -55,8 +59,10 @@ const isPointerSurface = (value: unknown): value is HTMLCanvasElement =>
 
 export interface RenderEngineProviderOptions {
   engine?: RenderEngine
-  engineFactory?: RenderEngineFactory
+  engineProvider?: RenderEngineProvider
 }
+
+export type RenderEngineProviderCleanup = () => void
 
 export interface RenderApplication {
   canvas: HTMLCanvasElement | null
@@ -76,7 +82,8 @@ class Render {
   private unsubscribeEngineInteraction: (() => void) | null = null
   private engine: RenderEngine | null = null
   private providedEngine: RenderEngine | null = null
-  private engineFactory: RenderEngineFactory | null = null
+  private engineProvider: RenderEngineProvider | null = null
+  private providerToken = Symbol('render-engine-provider')
   private runtime: RenderObjectRuntime | null = null
   private renderDirty = true
   private nextFrameRenderDirty = false
@@ -85,13 +92,13 @@ class Render {
   private renderFrameId = 0
 
   constructor(options: RenderEngineProviderOptions = {}) {
-    if (options.engine && options.engineFactory) {
+    if (options.engine && options.engineProvider) {
       throw new Error(
-        'Configure either a render engine instance or factory, not both'
+        'Configure either a render engine instance or provider, not both'
       )
     }
     this.providedEngine = options.engine ?? null
-    this.engineFactory = options.engineFactory ?? null
+    this.engineProvider = options.engineProvider ?? null
     this.viewport = new ViewportLayer()
     this._animateHandler = () => {
       this.flushFrame()
@@ -104,18 +111,14 @@ class Render {
     )
   }
 
-  setEngine(engine: RenderEngine): void {
-    this.assertProviderMutable()
-    this.providedEngine = engine
-    this.engineFactory = null
-    this.engine = null
+  setEngine(engine: RenderEngine): RenderEngineProviderCleanup {
+    return this.replaceEngineProvider(engine, null)
   }
 
-  setEngineFactory(engineFactory: RenderEngineFactory): void {
-    this.assertProviderMutable()
-    this.providedEngine = null
-    this.engineFactory = engineFactory
-    this.engine = null
+  setEngineProvider(
+    engineProvider: RenderEngineProvider
+  ): RenderEngineProviderCleanup {
+    return this.replaceEngineProvider(null, engineProvider)
   }
 
   getEngine(): RenderEngine | null {
@@ -543,9 +546,15 @@ class Render {
     if (this.engine) {
       return this.engine
     }
-    const engine = this.providedEngine ?? this.engineFactory?.()
+    if (this.providedEngine) {
+      return this.providedEngine
+    }
+    if (!this.engineProvider) {
+      throw new MissingRenderEngineProviderError()
+    }
+    const engine = this.engineProvider()
     if (!engine) {
-      throw new Error('Render engine provider is not configured')
+      throw new InvalidRenderEngineProviderResultError()
     }
     return engine
   }
@@ -562,6 +571,32 @@ class Render {
       throw new Error(
         'Render engine provider cannot change after initialization'
       )
+    }
+  }
+
+  private replaceEngineProvider(
+    providedEngine: RenderEngine | null,
+    engineProvider: RenderEngineProvider | null
+  ): RenderEngineProviderCleanup {
+    this.assertProviderMutable()
+    const previousProvider = {
+      providedEngine: this.providedEngine,
+      engineProvider: this.engineProvider,
+      token: this.providerToken
+    }
+    const appliedToken = Symbol('render-engine-provider')
+    this.providedEngine = providedEngine
+    this.engineProvider = engineProvider
+    this.engine = null
+    this.providerToken = appliedToken
+
+    return () => {
+      if (this.providerToken !== appliedToken) return
+      this.assertProviderMutable()
+      this.providedEngine = previousProvider.providedEngine
+      this.engineProvider = previousProvider.engineProvider
+      this.engine = null
+      this.providerToken = previousProvider.token
     }
   }
 }

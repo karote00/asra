@@ -20,9 +20,10 @@
 
 1. `initApp()`
 
-- `applyPreset(core)` registers framework defaults and selects the fresh Pixi
-  engine factory without exposing it to the app
-- the current app uses the no-customization compatibility route; when app policy
+- `applyPreset(core)` selects the `2D` profile, installs all eight official
+  defaults, and registers the preset-owned Pixi engine provider without
+  constructing the engine
+- the current app uses the default no-customization route; when app policy
   needs customization, call public Core remove/unregister/define APIs after
   `applyPreset(core)` and before the remaining init steps
 - diagnostics: `initLoadDiagnostics()`
@@ -37,11 +38,13 @@
 
 3. RenderApp effect
 
-- `core.setRenderer(new RenderAdapter())`
 - `core.setPersistence(providers.localStorage)`
-- `core.start(container, options)`
+- `core.start(container, options)` uses the Core-owned default `RenderAdapter`;
+  the app does not call `setRenderer()`
 - if renderer/engine initialization rejects, Core stops before observers,
   persistence load, features, and render-ready publication
+- effect cleanup calls `core.destroyRenderer()`; teardown does not reopen
+  composition
 
 4. DataContexts effects
 
@@ -51,6 +54,8 @@
 ## Rules
 
 - Keep registration/init in deterministic order.
+- Preset completion is synchronous composition evidence, not Core readiness;
+  only the later `core.start()` owns permanent closure and ready publication.
 - Complete preset customization before diagnostics, capabilities, input-system,
   app feature initialization, and the first `core.start()`.
 - Remove only a relation when source/target capabilities should remain. Use the
@@ -69,7 +74,8 @@
   `src/features/*` or `src/common-apis/*`.
 - Do not duplicate persistence load/save orchestration in app when core.start already handles persistence.
 - Keep startup side effects explicit in init modules.
-- Keep app startup concrete-engine-neutral; Preset owns default factory
-  selection, `Render` owns the engine instance, and the app uses
-  `RenderAdapter` only.
+- Keep app startup concrete-engine-neutral; Preset owns default provider
+  selection/diagnostics, `Render` owns reversible provider state, the concrete
+  engine package owns its instance/resources, and Core owns the default
+  `RenderAdapter` lifecycle.
 - Renderer/engine capability must not select an app product mode.

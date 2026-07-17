@@ -47,7 +47,9 @@ inheriting unrelated preset assumptions.
 
 - Render output is derived from framework state and system state.
 - Render layers and interaction targets are registered extension points, not hidden data owners.
-- Engine-specific primitives stay inside `@asyra/render`; app and preset behavior consume render capabilities through core-facing abstractions where available.
+- Engine-specific primitives stay inside the selected concrete engine package;
+  `@asyra/render`, app, and preset behavior consume the engine-neutral
+  `@asyra/render-engine` contract or Core-facing abstractions.
 
 ## Why
 

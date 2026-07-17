@@ -1008,6 +1008,10 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 
 ## 2026-07-15 - Render-engine boundary precedes render-mode preset profiles
 
+Status: the profile availability and generic-composition portions are
+superseded by the 2026-07-17 Preset profile/default decision below. The package
+boundary remains historical authority.
+
 - Context:
   - The near-term preset plan proposed public `2d`, `3d`, and `hybrid`
     profiles before Asyra had a production 3D engine or an explicit hybrid
@@ -1021,9 +1025,8 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
     fake/contract-test adapter; a production 3D engine is not required for the
     abstract framework boundary to be complete.
   - Separate generic preset composition from official render-mode profiles.
-    Generic composition may coordinate shared defaults, concrete-engine
-    bootstrap, capability bundles, and app customizations after the engine and
-    extension contracts exist.
+    Generic composition may coordinate official defaults and preset profile
+    provider policy while app customization remains Core-owned.
   - Keep official `2d`, `3d`, and `hybrid` profiles deferred and trigger-gated.
     Do not export empty, placeholder, or capability-incomplete profiles.
 - Consequences:
@@ -1076,6 +1079,10 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 
 ## 2026-07-15 - Render-engine boundary implemented as three package owners
 
+Status: provider naming, custom-engine composition, and default adapter
+ownership are superseded by the 2026-07-17 Preset profile/default decision
+below. The three-package ownership boundary remains active.
+
 - Context:
   - The render adapter, abstract engine contract, and Pixi SDK implementation
     previously shared one package boundary.
@@ -1085,8 +1092,8 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
   - Keep `@asyra/render` as the active framework adapter/orchestration owner.
   - Make `@asyra/render-engine` the pure contract owner and
     `@asyra/render-engine-pixi` the only Pixi runtime owner.
-  - Let preset inject a fresh Pixi engine factory by default or an explicit
-    custom factory through the same contract.
+  - Let preset bind a fresh Pixi engine provider by default; custom providers
+    bind through Core using the same abstract contract.
   - Replace app use of the Pixi-named renderer facade with `RenderAdapter`;
     retain `PixiJSRenderer` only as a deprecated warn-once compatibility alias
     through the next planned major-release migration window.
@@ -1131,6 +1138,10 @@ Backfilled entries use decision dates inferred from related commit dates/ranges.
 
 ## 2026-07-16 - Preset customization uses explicit startup registration composition
 
+Status: the public preset-lifetime portion is superseded by the 2026-07-17
+Preset profile/default decision below. Relation removal and graph-aware Core
+customization remain active.
+
 - Context:
   - App developers need to add, adjust, remove, or fully change preset defaults
     without editing preset/framework internals.
@@ -1154,10 +1165,10 @@ unregister -> app migration -> core.start()` as the public app route.
     dependents and owned resources without inferring semantic equivalence.
   - Preset exports pure component definitions and separate render strategies;
     import alone has no component registration side effect.
-  - One `PresetApplication` lifetime now owns both graph registrations and its
+  - Failed preset application rollback owns acquired graph registrations and
     event, selection, shared-channel, subscription, observer, and render-layer
-    wiring. Dispose/apply rollback preserves app-owned channels and retries only
-    pending cleanup without rerunning completed cleanup.
+    wiring. It preserves app-owned channels and retries only pending cleanup
+    without rerunning completed cleanup.
   - Supplied Core instances own their shared-channel and observer wiring through
     their injected Factory; preset does not bypass that boundary through the
     default singleton. Failed apply rollback remains retryable on the same Core.
@@ -1216,3 +1227,87 @@ unregister -> app migration -> core.start()` as the public app route.
   - `8fa6f9915` (`feat(preset): install graph-owned defaults`)
   - `c9b2fda5a` (`docs(preset): record relation composition closure`)
   - [PR #81](https://github.com/karote00/asyra/pull/81)
+
+## 2026-07-17 - Preset startup composition is explicit and engine-neutral
+
+- Context:
+  - Review of the first Generic Preset Composition implementation found that
+    engine bootstrap inputs, app-provided installers, and a public application
+    lifetime did not match the intended product semantics.
+  - Apps need two independent choices before startup: preset engine profile and
+    official default modules.
+- Decision:
+  - Make `profile` select only preset engine policy and `defaults` select only
+    the fixed official module catalog.
+  - Default `applyPreset(core)` to profile `2D` plus all eight defaults. Keep
+    `3D` and `HYBRID` as unavailable ids without importing placeholder runtimes;
+    `CUSTOM` binds no provider.
+  - Bind custom engines only through
+    `core.setRenderEngineProvider(provider)` before startup. Core owns the
+    default `RenderAdapter`; only exact provider absence becomes headless.
+  - Hard-remove the unreleased engine bootstrap, arbitrary installer,
+    dependency-input, legacy-provider, and public preset-lifetime surfaces.
+  - Return one frozen `PresetApplyResult`; retain reverse failed-apply cleanup
+    and pending-only retry internally.
+- Consequences:
+  - Profile choice never filters defaults. Omitted defaults mean all; an empty
+    list means none; explicit choices expand public dependencies in catalog
+    order.
+  - Apps cannot inject preset installers or cleanup owners. Framework developers
+    maintain the eight product modules and private shared prerequisites.
+  - Direct Render remains strict, real provider/engine failures remain visible,
+    and Asyra Design no longer constructs or sets its own adapter.
+- Related Plan:
+  - `docs/ai/framework/plans/preset-composition-plan.md`
+- Related Commit(s):
+  - `18e3c4ab4` (`feat(preset): validate generic composition inputs`)
+  - `b2b8f83d0` (`refactor(preset): order shared defaults before engine bootstrap`)
+  - `e55df62ca` (`feat(render): make engine provider selection reversible`)
+  - `a1a89becb` (`feat(preset): install ordered capability bundles`)
+  - `fbb722c12` (`feat(preset): publish composition results`)
+  - `b8fc8adfe` (`feat(preset): report retryable cleanup failures`)
+  - `1d45cb509` (`docs: redefine preset profile and defaults contract`)
+  - `4c291e227` (`refactor: add preset profiles and selectable defaults`)
+  - `8efef5e04` (`refactor: let core own app renderer lifecycle`)
+
+## 2026-07-18 - Preset profile and selectable defaults completed
+
+- Context:
+  - The independent profile/default contract, Core provider and headless
+    lifecycle, eight preset modules, deterministic rollback, Asyra Design
+    migration, and synchronized documentation are implemented on
+    `codex/generic-preset-composition`.
+  - Package, app, Inspector, root, build, lint, dependency, diff, E2E, and live
+    visual gates passed. Final self-review found no unresolved concrete issue,
+    and the product owner directly verified Asyra Design before requesting
+    closeout.
+- Decision:
+  - Treat the Preset Profile and Selectable Defaults plan as implementation
+    complete and archive its product contract at the completed canonical path.
+  - Keep `profile` limited to preset render-engine provider policy and
+    `defaults` limited to fixed official modules. `applyPreset(core)` remains
+    `2D` plus all defaults; `CUSTOM` remains the provider-free preset route.
+  - Keep Core as the only public provider and renderer-lifecycle facade, with
+    exact missing-provider normalization limited to Core-owned headless startup.
+  - This entry completes the 2026-07-17 preset startup composition decision
+    without changing its product semantics.
+- Consequences:
+  - The Preset Composition Inspector data, contract test, and viewer remain the
+    executable architecture authority and now resolve the completed product
+    contract.
+  - Generic Preset Composition is removed from active plans. Production 3D and
+    Hybrid profiles remain deferred and unavailable until their independent
+    engine and product contracts exist.
+  - This closeout records local completion only; no branch was pushed, merged,
+    or released.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/preset-composition-plan.md`
+- Related Commit(s):
+  - `1d45cb509` (`docs: redefine preset profile and defaults contract`)
+  - `4c291e227` (`refactor: add preset profiles and selectable defaults`)
+  - `8efef5e04` (`refactor: let core own app renderer lifecycle`)
+  - `554b94d47` (`docs: align preset profile and provider contracts`)
+  - `082e9449b` (`docs: record preset implementation validation`)
+  - `3a2a6c654` (`fix(core): preserve configured provider failures`)
+  - `6f76b8aab` (`fix(preset): isolate selectable default prerequisites`)
+  - `8a29217b8` (`docs(framework): align preset provider terminology`)

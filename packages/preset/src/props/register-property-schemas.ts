@@ -517,13 +517,16 @@ const vectorNetworksSchema: PropertySchema = {
   ]
 }
 
-export const DEFAULT_PROPERTY_SCHEMAS: readonly PropertySchema[] = [
+export const BASE_PROPERTY_SCHEMAS: readonly PropertySchema[] = [
   fillSchema,
   fillsSchema,
   strokeSchema,
   strokesSchema,
   positionSchema,
-  dimensionSchema,
+  dimensionSchema
+]
+
+export const VECTOR_PROPERTY_SCHEMAS: readonly PropertySchema[] = [
   anchorPointSchema,
   anchorPointsSchema,
   vectorPointSchema,
@@ -534,10 +537,16 @@ export const DEFAULT_PROPERTY_SCHEMAS: readonly PropertySchema[] = [
   vectorNetworksSchema
 ]
 
+export const DEFAULT_PROPERTY_SCHEMAS: readonly PropertySchema[] = [
+  ...BASE_PROPERTY_SCHEMAS,
+  ...VECTOR_PROPERTY_SCHEMAS
+]
+
 export const registerPropertySchemas = (
-  core: Pick<PresetCoreAPIs, 'registerPropertySchema'>
+  core: Pick<PresetCoreAPIs, 'registerPropertySchema'>,
+  schemas: readonly PropertySchema[] = DEFAULT_PROPERTY_SCHEMAS
 ) => {
-  DEFAULT_PROPERTY_SCHEMAS.forEach((schema) =>
+  schemas.forEach((schema) =>
     core.registerPropertySchema(schema, undefined, PRESET_REGISTRATION)
   )
 }

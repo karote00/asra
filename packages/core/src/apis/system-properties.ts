@@ -35,5 +35,10 @@ export const createSystemPropertyAPIs = () => ({
 
   getSystemPropertyObservable: <T>(key: string) => {
     return systemContext.getManagedPropertyObservable<T>(key)
-  }
+  },
+
+  hasSystemProperty: (key: string) => systemContext.hasManagedProperty(key),
+
+  unregisterSystemProperty: (key: string) =>
+    systemContext.unregisterProperty(key)
 })

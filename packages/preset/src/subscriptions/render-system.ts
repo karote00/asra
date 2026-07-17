@@ -4,10 +4,12 @@ import type { PresetCoreAPIs, PresetDependencies } from '../types'
 
 export const registerDefaultRenderSystemSubscriptions = (
   core: PresetCoreAPIs,
-  deps: PresetDependencies
+  deps: PresetDependencies,
+  onCleanupReady?: (dispose: () => void) => void
 ): (() => void) => {
   const subscriptions: Subscription[] = []
   let disposed = false
+  let cleanupReported = false
   const dispose = (): void => {
     if (disposed) return
     for (let index = subscriptions.length - 1; index >= 0; index--) {
@@ -15,6 +17,11 @@ export const registerDefaultRenderSystemSubscriptions = (
       subscriptions.splice(index, 1)
     }
     disposed = true
+  }
+  const reportCleanupReady = (): void => {
+    if (cleanupReported || !onCleanupReady) return
+    onCleanupReady(dispose)
+    cleanupReported = true
   }
   const zoomObservable = core.getSystemPropertyObservable<number>('zoom')
   const viewportPositionObservable = core.defineSystemProperty<PositionData>(
@@ -31,6 +38,7 @@ export const registerDefaultRenderSystemSubscriptions = (
           }
         })
       )
+      reportCleanupReady()
     }
 
     subscriptions.push(
@@ -40,8 +48,9 @@ export const registerDefaultRenderSystemSubscriptions = (
         }
       })
     )
+    reportCleanupReady()
   } catch (error) {
-    dispose()
+    if (!cleanupReported) dispose()
     throw error
   }
 

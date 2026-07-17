@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const harness = vi.hoisted(() => ({
-  adapters: [] as { destroy: ReturnType<typeof vi.fn> }[],
   core: {
     deps: {
       render: {},
@@ -13,21 +12,11 @@ const harness = vi.hoisted(() => ({
       selection: {},
       inputSystem: {}
     },
-    setRenderer: vi.fn(),
     setPersistence: vi.fn(),
-    start: vi.fn()
+    start: vi.fn(),
+    destroyRenderer: vi.fn()
   },
   localStorageProvider: {}
-}))
-
-vi.mock('@asyra/render', () => ({
-  RenderAdapter: class {
-    readonly destroy = vi.fn()
-
-    constructor() {
-      harness.adapters.push(this)
-    }
-  }
 }))
 
 vi.mock('@asyra/core', () => ({
@@ -59,10 +48,9 @@ import RenderApp from '../index'
 
 describe('RenderApp StrictMode lifecycle', () => {
   beforeEach(() => {
-    harness.adapters.length = 0
-    harness.core.setRenderer.mockReset()
     harness.core.setPersistence.mockReset()
     harness.core.start.mockReset().mockResolvedValue(undefined)
+    harness.core.destroyRenderer.mockReset()
     document.body.replaceChildren()
     globalThis.IS_REACT_ACT_ENVIRONMENT = true
   })
@@ -72,7 +60,7 @@ describe('RenderApp StrictMode lifecycle', () => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = false
   })
 
-  it('starts only the live adapter and destroys each StrictMode instance', async () => {
+  it('starts only the live Core lifetime and delegates StrictMode teardown', async () => {
     const host = document.createElement('div')
     document.body.append(host)
     const root = createRoot(host)
@@ -87,12 +75,7 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
     })
 
-    expect(harness.adapters).toHaveLength(2)
-    const [discardedAdapter, liveAdapter] = harness.adapters
-    expect(discardedAdapter.destroy).toHaveBeenCalledTimes(1)
-    expect(liveAdapter.destroy).not.toHaveBeenCalled()
-    expect(harness.core.setRenderer).toHaveBeenCalledTimes(1)
-    expect(harness.core.setRenderer).toHaveBeenCalledWith(liveAdapter)
+    expect(harness.core.destroyRenderer).toHaveBeenCalledTimes(1)
     expect(harness.core.setPersistence).toHaveBeenCalledWith(
       harness.localStorageProvider
     )
@@ -109,7 +92,6 @@ describe('RenderApp StrictMode lifecycle', () => {
       root.unmount()
     })
 
-    expect(discardedAdapter.destroy).toHaveBeenCalledTimes(1)
-    expect(liveAdapter.destroy).toHaveBeenCalledTimes(1)
+    expect(harness.core.destroyRenderer).toHaveBeenCalledTimes(2)
   })
 })
