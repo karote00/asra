@@ -66,11 +66,12 @@ Dependency direction is strict:
 - `@asyra/render` depends on `@asyra/render-engine`, never on a concrete engine;
 - `@asyra/render-engine-pixi` depends on `@asyra/render-engine`, never on
   `@asyra/render`;
-- `@asyra/preset` installs shared defaults, selects the default Pixi factory or
-  an identified custom factory, injects it into the target `Render` instance,
-  invokes only explicitly selected package-owned bundles, and publishes an
-  instance-local completed composition result;
-- Core and apps remain concrete-engine-neutral.
+- `@asyra/preset` installs the selected official default dependency closure and
+  binds the preset-owned Pixi provider only for profile `2D`; custom providers
+  bind through Core when profile is `CUSTOM`;
+- Core owns the default `RenderAdapter`, provider facade, exact headless
+  normalization, startup, and renderer teardown;
+- Render, Core, and apps remain concrete-engine-neutral.
 
 ## Canonical Intent Flow
 
@@ -146,7 +147,7 @@ Canonical shorthand:
   intended instances; importing a class does not imply that default singleton
   wiring is automatically isolated.
 - Each `Render` instance owns exactly the engine instance selected directly or
-  created by its injected factory; custom instances never fall back to the
+  created by its injected provider; custom instances never fall back to the
   module-level Pixi composition.
 - Reactive transaction depth and rollback-only state are keyed by the resolved
   TransactionOwner, so a consumer-owned Factory replay remains independent from
@@ -167,14 +168,15 @@ Canonical shorthand:
 The normal app route is:
 
 ```text
-applyPreset(core, composition?)
--> shared defaults
--> concrete-engine provider
--> explicitly selected capability bundles
--> completed preset composition result
+applyPreset(core, { profile?, defaults? })
+-> strict profile/default resolution
+-> selected official defaults in catalog order
+-> profile-owned provider when profile is 2D
+-> frozen preset apply result
 -> remove old relation(s)
 -> define new relation(s) or registrations
 -> optionally unregister a complete capability
+-> optionally bind an app provider when profile is CUSTOM
 -> register app migration
 -> core.start()
 ```
@@ -182,6 +184,10 @@ applyPreset(core, composition?)
 - Core owns one `RegistrationGraph` and the permanent composition lock.
 - Preset owns deterministic pre-start composition and rollback coordination,
   but does not execute app customization or declare Core ready.
+- Profile selects engine policy only; defaults select official modules only.
+- Core owns an engine-neutral `RenderAdapter` by default. An exact missing
+  provider becomes headless only in Core startup; direct Render and real engine
+  failures remain strict.
 - Package registries remain definition source-of-truth; the graph stores only
   stable `{ kind, key }` identities, owner metadata, declared relations, and
   package-local cleanup handlers.

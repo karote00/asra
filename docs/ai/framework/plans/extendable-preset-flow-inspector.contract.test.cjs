@@ -183,7 +183,7 @@ test('graph-aware unregister detaches structural sources and recursively cleans 
   )
 })
 
-test('preset owns explicit default installation and graph-backed disposal', () => {
+test('preset owns explicit default installation and graph-backed failed-apply cleanup', () => {
   const owner = step('install-preset-defaults')
   const contract = contractText(owner)
 
@@ -204,7 +204,7 @@ test('preset owns explicit default installation and graph-backed disposal', () =
     /events.*selections.*subscriptions.*observers.*layers/i
   )
   assert.match(contract, /retry.*pending.*completed.*not.*run again/i)
-  assert.match(contract, /graph preflight.*before runtime teardown/i)
+  assert.match(contract, /graph preflight.*before accepted preset mutation/i)
   assert.match(contract, /supplied Core.*shared channels.*observers/i)
   assert.match(contract, /next apply.*retry.*pending rollback cleanup/i)
   assert.match(contract, /preset-specific feature-registration target/i)

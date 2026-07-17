@@ -1,8 +1,7 @@
 ;(function () {
   'use strict'
 
-  const specPath =
-    'docs/ai/framework/plans/completed/extendable-preset-plan.md'
+  const specPath = 'docs/ai/framework/plans/completed/extendable-preset-plan.md'
   const inspectorPath =
     'docs/ai/framework/plans/extendable-preset-flow-inspector.data.cjs'
 
@@ -75,14 +74,14 @@
       title: 'Install explicit preset defaults',
       ownerPackage: '@asyra/preset',
       purpose:
-        'Install exported property, component, feature, render, and UI defaults through the supplied Core instance and own one application lifetime.',
+        'Install selected exported property, component, render, and UI defaults through the supplied Core registration graph.',
       inputs: [
-        'applyPreset(core) or a compatible dependency/engine overload',
+        'applyPreset(core, options?) current profile/default contract',
         'exported preset definitions',
         'artifact:registration-graph-contract'
       ],
       outputs: [
-        'artifact:preset-application',
+        'artifact:preset-default-registration-state',
         'artifact:preset-registration-declarations'
       ],
       conditions: [
@@ -90,23 +89,24 @@
         'Preset defaults use stable @asyra/preset/default-preset owner metadata without requiring app input.',
         'Component properties and property children produce structural detach relations automatically.',
         'Feature, render, UI, and custom-constructor dependencies are declared only on their local registration definitions.',
-        'applyPreset(core), explicit dependency overload, and render-engine factory overload remain compatible.',
-        'PresetApplication.dispose() uses the same canonical graph and treats nodes already removed through Core as completed cleanup.',
-        'One preset lifetime owns its events, selections, shared channels, system subscriptions, data-channel observers, render layers, and graph registrations.',
-        'Cleanup retry reports pending resources; completed cleanup does not run again.',
-        'Preset disposal completes graph preflight before runtime teardown so a closed composition leaves active wiring intact.',
+        'applyPreset(core, options?) uses the current profile/default contract and installs only preset-owned catalog modules.',
+        'Successful preset application is permanent for that open Core composition and exposes no public lifecycle handle.',
+        'Preset registration installation and later app Core customization use the same canonical graph.',
+        'Failed apply rollback owns acquired events, selections, shared channels, system subscriptions, data-channel observers, render layers, and graph registrations.',
+        'Failed-apply cleanup retry reports pending resources; completed cleanup does not run again.',
+        'Validation and graph preflight complete before accepted preset mutation so a closed composition leaves active wiring intact.',
         'The supplied Core facade owns shared channels and data-channel observers; preset does not bypass it through default singletons.',
         'After apply rollback cleanup fails, the next apply on that Core will retry pending rollback cleanup before installing defaults.'
       ],
       bypasses: [
         'An app that skips the preset receives no preset registrations or side effects.',
-        'An already-unregistered node is not cleaned a second time during preset disposal.',
-        'Shared channels supplied before applyPreset remain app-owned and survive preset disposal.'
+        'An already-unregistered node is not cleaned a second time during recursive graph cleanup.',
+        'Shared channels supplied before applyPreset remain app-owned and survive failed-apply rollback.'
       ],
       allowedContributors: [
         '@asyra/core public registration facade',
         'preset-owned exported definitions',
-        'preset-owned application cleanup handles',
+        'preset-owned failed-apply cleanup handles',
         'package-owned unregister and subscription disposer APIs'
       ],
       forbiddenContributors: [
@@ -481,7 +481,7 @@
         'Structural detach preserves component and parent-property source registrations.',
         'Only unregister-source dependents are recursively queued and cleaned.',
         'Active component, active property, or replay-retained property usage fails before partial mutation.',
-        'Direct Core unregister and PresetApplication.dispose share completion state and cannot clean the same owned resource twice.',
+        'Direct Core unregister and recursive graph cleanup share completion state and cannot clean the same owned resource twice.',
         'Cleanup failure remains retryable and blocks conflicting registration until pending cleanup completes.'
       ],
       bypasses: [
@@ -594,7 +594,7 @@
       predicate:
         'applyPreset installs exported definitions on the supplied Core',
       producedArtifacts: [
-        'artifact:preset-application',
+        'artifact:preset-default-registration-state',
         'artifact:preset-registration-declarations'
       ]
     },
@@ -695,7 +695,7 @@
       ]
     },
     {
-      id: 'artifact:preset-application',
+      id: 'artifact:preset-default-registration-state',
       ownerStepId: 'install-preset-defaults',
       consumerStepIds: ['unregister-registration-capability']
     },
@@ -877,7 +877,7 @@
     {
       id: 'cleanup',
       summary:
-        'Graph unregister, owner cleanup retry, and preset disposal leave no stale resources or duplicate cleanup.'
+        'Graph unregister, owner cleanup retry, and failed preset apply rollback leave no stale resources or duplicate cleanup.'
     },
     {
       id: 'migration-load',

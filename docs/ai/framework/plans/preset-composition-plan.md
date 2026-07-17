@@ -215,12 +215,12 @@ or installation. No public disposer or application handle is exposed.
 
 ## Implementation Segments
 
-1. [ ] Repair plan and Inspector authority.
-2. [ ] Rename and test the abstract provider contract and strict Render path.
-3. [ ] Add and test Core provider/default-renderer/headless/teardown ownership.
-4. [ ] Add and test preset identifiers, catalog, strict validation, and result.
-5. [ ] Split and test eight default modules plus private prerequisites.
-6. [ ] Migrate and verify Asyra Design startup.
+1. [x] Repair plan and Inspector authority.
+2. [x] Rename and test the abstract provider contract and strict Render path.
+3. [x] Add and test Core provider/default-renderer/headless/teardown ownership.
+4. [x] Add and test preset identifiers, catalog, strict validation, and result.
+5. [x] Split and test eight default modules plus private prerequisites.
+6. [x] Migrate and verify Asyra Design startup.
 7. [ ] Synchronize docs and run full validation/review.
 
 Do not move this plan to `completed/` until the user reviews the implementation

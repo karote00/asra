@@ -36,6 +36,8 @@ System orchestrator and lifecycle coordinator.
 - register render YJS change observers (`name + channel + onChange`)
 - register/query/unregister shared data channels through the injected Factory
 - register UI/system managed properties
+- query and unregister managed properties during open composition
+- register/query one render-engine provider before startup
 - register load/save hooks
 - register load diagnostics hooks (with disposer return for app-level unsubscribe)
 
@@ -63,20 +65,27 @@ System orchestrator and lifecycle coordinator.
 
 1. Startup contract
 
-- a completed `PresetApplication.result` only means pre-start composition
-  succeeded; it does not close composition, initialize runtime, or publish ready
-- app configures an engine-neutral `IRenderer` (normally `RenderAdapter`) before
-  calling `start(...)`
-- call the configured renderer exactly once with the host container and
+- a `PresetApplyResult` only means pre-start preset application succeeded; it
+  does not close composition, initialize runtime, or publish ready
+- Core constructs and owns an engine-neutral `RenderAdapter` by default;
+  `setRenderer(...)` remains an advanced full-renderer replacement API
+- `setRenderEngineProvider(...)` stores exactly one pre-start provider through
+  the Core-bound Render instance without invoking it
+- call the Core-owned or advanced renderer exactly once with the host container and
   engine-neutral `RenderOptions`
 - complete renderer/engine initialization before data-channel observers,
   persistence load, Feature initialization, and ready publication
-- reject missing renderer or renderer/engine initialization failure without
-  initializing later phases or publishing false ready
+- with the Core-owned adapter only, normalize the exact missing-provider error
+  to headless startup: no canvas/input surface, but observers, persistence load,
+  Feature initialization, and ready still complete
+- reject provider callback, invalid-engine, capability, engine initialization,
+  and advanced-renderer failures without initializing later phases or
+  publishing false ready
 - remain unaware of concrete engine instances, capabilities, and resources
 - permanently close registration composition at the first `start(...)` method
   entry, even if renderer initialization later rejects
 - validate every declared registration relation before renderer side effects
+- `destroyRenderer()` delegates teardown and never reopens composition
 
 2. Registration composition contract
 
@@ -175,8 +184,8 @@ System orchestrator and lifecycle coordinator.
   (`defineFeature`, `getFeature`, `keyMap`) for the default shared-runtime path.
 - App should not import package internals when core API exists.
 - Preset/app code should consume render abstractions through `core.xxx` when
-  Core exposes them. App bootstrap may import public `RenderAdapter` from
-  `@asyra/render` because Core accepts, but does not construct, `IRenderer`.
+  Core exposes them. Normal app bootstrap does not construct a `RenderAdapter`;
+  import one only for an advanced full-renderer replacement.
 - Child-property edits that must refresh computed/render state should go through core props bridge APIs (`updatePropertyById` + `commitPropertyChanges`) with owner metadata rather than rewriting parent computed arrays in app code.
 - Core/scene-tree bridge rule: scene-tree recompute should react to committed props transactions, not be manually duplicated in app handlers.
 - Cross-cutting domain logic belongs in app/common APIs, not core.
@@ -184,8 +193,8 @@ System orchestrator and lifecycle coordinator.
 ## Validation Checklist
 
 - Core initialization works without UI framework assumptions.
-- Renderer/engine failure does not initialize observers/features or publish
-  ready.
+- Real renderer/engine failure does not initialize observers/features or publish
+  ready; missing provider alone completes the documented headless Core path.
 - Core source contains no Pixi or concrete engine dependency.
 - Preset/default registrations are explicit via `@asyra/preset`, not implicit core side effects.
 - Load/save flow executes in documented order.

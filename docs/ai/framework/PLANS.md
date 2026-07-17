@@ -7,12 +7,11 @@ This file tracks framework planning topics and points to detailed references.
 ## In Progress
 
 - Generic preset composition
-  - Compose shared defaults, one concrete-engine bootstrap, explicitly selected
-    optional capability bundles, and a completed result in deterministic order.
-  - Keep app customization as the next independent app-owned phase and do not
-    publish placeholder `2d`, `3d`, or `hybrid` profiles.
-  - Preserve `applyPreset(core)` plus explicit dependencies and legacy factory
-    compatibility while consuming the completed Extendable Preset contract.
+  - Keep engine `profile` and official `defaults` as independent choices.
+  - Default `applyPreset(core)` to `2D` plus all eight defaults; keep `3D` and
+    `HYBRID` as unavailable catalog ids without placeholder runtimes.
+  - Let Core own the default renderer and custom provider facade while preset
+    owns only fixed official modules and preset profile policy.
   - Reference: `docs/ai/framework/plans/preset-composition-plan.md`
 
 ## Near-Term Plans

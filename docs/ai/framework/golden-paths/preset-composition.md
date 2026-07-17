@@ -1,142 +1,119 @@
 # Compose a Preset Before App Startup
 
-Use this path when an app needs deterministic framework defaults plus an
-identified render-engine provider and optional package-owned capability
-bundles. Preset composition ends before app customization and Core startup.
+Use this path to select official defaults and a preset engine profile before
+Core startup. Profile selection and defaults selection are independent.
 
-## 1. Keep the Default Compatibility Path
+## Default Composition
 
 ```ts
 import core from '@asyra/core'
 import { applyPreset } from '@asyra/preset'
 
-const presetApplication = applyPreset(core)
+const result = applyPreset(core)
 ```
 
-Omitted composition selects `@asyra/render-engine-pixi`, installs every shared
-default group, selects no optional bundles, and returns a completed
-instance-local result. It does not construct the engine or start Core.
+This selects profile `2D`, registers the preset-owned Pixi provider, installs
+all eight defaults, and returns a frozen result. It does not construct the
+engine or start Core.
 
-## 2. Select an Identified Custom Engine
+## Select Defaults Explicitly
 
 ```ts
-import type { RenderEngineFactory } from '@asyra/render-engine'
+import { applyPreset, PresetDefaults, PresetProfiles } from '@asyra/preset'
+
+const result = applyPreset(core, {
+  profile: PresetProfiles['2D'],
+  defaults: [PresetDefaults.BASIC_SHAPES, PresetDefaults.VECTOR_EDITING]
+})
+```
+
+Preset canonicalizes the selection, expands `VECTOR_EDITING` to include
+`VECTOR` and `SELECTION`, and installs the dependency closure in catalog order.
+Use `defaults: []` when no official module is wanted; the selected profile
+engine policy still applies.
+
+Inspect `PresetCatalog.profiles` and `PresetCatalog.defaults` during app
+development to discover stable ids, availability, and public dependencies.
+Catalog engine ids are diagnostics only.
+
+## Use a Custom Engine
+
+```ts
+import type { RenderEngine, RenderEngineProvider } from '@asyra/render-engine'
+import { applyPreset, PresetProfiles } from '@asyra/preset'
 import { ProductRenderEngine } from '@product/render-engine'
 
-const factory: RenderEngineFactory = () => new ProductRenderEngine()
+applyPreset(core, { profile: PresetProfiles.CUSTOM })
 
-const presetApplication = applyPreset(core, {
-  engine: {
-    id: '@product/render-engine',
-    factory
-  }
-})
+const provider: RenderEngineProvider = (): RenderEngine =>
+  new ProductRenderEngine()
+core.setRenderEngineProvider(provider)
+
+await core.start(container, renderOptions)
 ```
 
-The id is a stable diagnostic identity. Preset passes the validated factory to
-the supplied `Render` instance and retains its reversible provider-cleanup
-handle; it never owns the concrete engine runtime or resources.
+Preset installs all defaults because `defaults` is omitted, but `CUSTOM` binds
+no engine provider. The app binds its provider through Core before startup.
+The provider callback runs only when `core.start()` initializes Render.
 
-The legacy `{ renderEngineFactory }` overload remains compatible and reports
-`@asyra/preset/legacy-render-engine-factory`. Do not supply legacy and
-identified engine inputs together.
-
-## 3. Add Explicit Package-Owned Bundles
+## Apply App Policy, Then Start
 
 ```ts
-import type { PresetCapabilityBundle } from '@asyra/preset'
-
-const selectionTools: PresetCapabilityBundle = {
-  id: '@product/selection-tools',
-  owner: {
-    packageName: '@product/selection-tools',
-    name: 'selection-tools'
-  },
-  requires: [],
-  install({ core, dependencies, engineId }) {
-    const dispose = installSelectionTools({ core, dependencies, engineId })
-    return {
-      outputs: ['selection-tools'],
-      dispose
-    }
-  }
-}
-
-const presetApplication = applyPreset(core, {
-  capabilityBundles: [selectionTools]
+const result = applyPreset(core, {
+  defaults: [PresetDefaults.BASIC_SHAPES]
 })
-```
-
-Bundle ids are unique. Every `requires` id must be selected earlier in the
-array; preset preserves caller order and never infers or topologically reorders
-bundles. Each bundle package owns its outputs and disposer. Empty/no-op bundles
-are invalid.
-
-## 4. Inspect Completion, Then Apply App Policy
-
-```ts
-if (presetApplication.result.state !== 'completed') {
-  throw new Error('Preset composition did not complete')
-}
 
 core.removeComponentPropertyRelation('rect', 'fills')
 core.unregisterRenderStrategy('rect')
 core.registerRenderStrategy('rect', productRectangleStrategy)
 
-registerAppMigration(core)
 await core.start(container, renderOptions)
 ```
 
 The stable order is:
 
 ```text
-shared defaults
--> concrete-engine provider
--> selected bundles in caller order
--> completed composition result
--> app ordinary Core customization
--> app migration registration
+strict preset resolution
+-> official defaults in catalog order
+-> optional preset profile provider
+-> frozen apply result
+-> ordinary app Core customization
+-> optional CUSTOM provider binding
 -> core.start()
 ```
 
-Preset never executes the app operations and never declares Core ready. The
-first `core.start()` permanently closes registration composition and owns
-runtime startup/readiness.
+The first `core.start()` permanently closes composition and owns runtime
+readiness. Preset never executes app callbacks or publishes ready.
 
-## 5. Handle Failure and Cleanup
-
-Validation fails before mutation. Shared-default, provider, or bundle failure
-throws `PresetCompositionError` and rolls back acquired owned resources.
-`CLEANUP_FAILED` reports completed and pending cleanup keys; retry invokes only
-pending handles. The next `applyPreset` on the same Core first retries any
-pending apply rollback.
+## Handle Apply Failure
 
 ```ts
-import { PresetCompositionError } from '@asyra/preset'
+import { PresetApplyError } from '@asyra/preset'
 
 try {
-  applyPreset(core, composition)
+  applyPreset(core, options)
 } catch (error) {
-  if (error instanceof PresetCompositionError) {
-    reportCompositionFailure(error.result)
+  if (error instanceof PresetApplyError) {
+    reportPresetFailure({
+      code: error.code,
+      defaultId: error.defaultId,
+      completedCleanup: error.completedCleanup,
+      pendingCleanup: error.pendingCleanup
+    })
   }
   throw error
 }
 ```
 
-Dispose a successful application only while registration composition remains
-open:
-
-```ts
-presetApplication.dispose()
-```
+Validation fails before mutation. Installation and provider failures roll back
+acquired resources in reverse order. A cleanup failure remains internal and is
+retried before the next apply; successful apply exposes no disposer.
 
 ## Boundaries
 
-- Import only public package facades; cross-package deep imports are forbidden.
-- Do not infer `2d`, `3d`, `hybrid`, app mode, or bundle selection from engine
-  capabilities.
-- Do not add a preset app-customization callback, replace semantics, duplicate
-  tolerance, fallback engine, or placeholder output.
-- A custom Core/Render composition must supply matching explicit dependencies
-  and bind `RenderAdapter` to that same `Render` instance.
+- Import public package facades only.
+- Do not pass installers, dependency objects, engine ids, providers, or cleanup
+  callbacks through preset.
+- Do not infer defaults from profile or engine capabilities.
+- `3D` and `HYBRID` are unavailable until a future plan marks them available;
+  they import no placeholder runtime today.

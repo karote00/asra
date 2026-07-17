@@ -6451,22 +6451,22 @@ join` constrained dashed product path across:
   - Deleted pre-current-flow visual specs remain deleted unless they are rewritten
     into current-flow coverage with explicit spec and inspector references.
 
-## 2026-07-17 - App startup retains omitted preset composition compatibility
+## 2026-07-17 - App startup uses the default preset and Core-owned renderer
 
 - Context:
-  - Generic Preset Composition adds identified engine and optional bundle inputs
-    without moving app policy into preset.
-  - Asyra Design already initializes preset defaults before diagnostics,
-    capabilities, input-system, features, and its later RenderApp startup.
+  - The new preset contract defaults to profile `2D` plus all official defaults.
+  - Core now owns an engine-neutral default renderer and exposes renderer
+    teardown, so the app no longer needs to construct an adapter.
 - Decision:
-  - Keep `applyPreset(core)` as Asyra Design's omitted-composition compatibility
-    path with the default Pixi provider and no optional bundles.
+  - Keep `applyPreset(core)` as Asyra Design's default 2D/all-defaults request.
   - Keep any future app customization after preset returns through ordinary Core
     APIs, and keep RenderApp's `core.start()` as the sole runtime-ready owner.
+  - Remove the App-owned `RenderAdapter` and `setRenderer()` call; delegate
+    effect cleanup to `core.destroyRenderer()`.
 - Consequences:
   - App startup remains concrete-engine-neutral and requires no preset-specific
-    extension callback, replace surface, product mode, or concrete SDK import.
+    extension callback, installer, provider, or concrete SDK import.
   - The existing init-order and StrictMode startup tests remain the app-level
-    compatibility gates.
+    product gates.
 - Related Plan:
   - `docs/ai/framework/plans/preset-composition-plan.md`

@@ -69,15 +69,15 @@ Use these matrices for deterministic ownership and flow decisions.
 
 - preset author
 
-  - can: provide default components, properties, schemas, selections, features, events, render layers, startup wiring, and a default render-engine factory
-  - must: keep defaults optional, movable, and replaceable
+  - can: maintain the fixed official default catalog, module installers, private prerequisites, and preset-owned `2D` provider policy
+  - must: keep defaults independently selectable and profile-independent
   - must not: own engine instances/resources or add implicit singleton fallback
   - must not: make app-domain behavior a hidden framework dependency
 
 - app/product author
 
   - can: compose core and presets, define app features, shortcuts, events, schemas, render layers, and domain workflows
-  - can: pass a contract-compatible custom render-engine factory to preset
+  - can: select preset profile `CUSTOM` and bind a contract-compatible custom render-engine provider through Core before startup
   - should: replace preset behavior through documented unregister/redefine or override flows
   - must not: patch preset/framework internals for app-specific policy
 

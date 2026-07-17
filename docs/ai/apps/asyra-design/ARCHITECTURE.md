@@ -31,10 +31,9 @@
 
 2. `src/init/init-app.ts`
 
-- `applyPreset(core)` installs shared defaults, injects the fresh Pixi engine
-  factory into the framework `Render` instance, selects no optional bundles,
-  and completes preset composition before app initialization continues
-- the current app chooses the no-customization compatibility route; an app that
+- `applyPreset(core)` selects profile `2D`, installs all eight official defaults,
+  and stores the preset-owned Pixi provider without constructing the engine
+- the current app chooses the default no-customization route; an app that
   customizes defaults performs ordinary Core remove/unregister/define calls
   after `applyPreset(core)` and before diagnostics, capabilities, input-system,
   feature initialization, and the first `core.start()`
@@ -45,13 +44,13 @@
 
 3. `src/render-app/index.tsx`
 
-- sets the engine-neutral framework facade via
-  `core.setRenderer(new RenderAdapter())`
 - sets persistence via `core.setPersistence(providers.localStorage)`
-- starts framework via `core.start(...)`; renderer/engine initialization must
+- starts framework via `core.start(...)` using Core's default `RenderAdapter`;
+  renderer/engine initialization must
   succeed before observers, persistence load, features, or ready publication
 - remains the sole runtime-start/ready owner; preset completion does not close
   registration composition or publish ready
+- cleanup calls `core.destroyRenderer()` and does not reopen composition
 - imports no Pixi SDK or concrete render-engine package
 
 4. `src/contexts/data-change.tsx`
