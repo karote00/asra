@@ -13,11 +13,9 @@ const packageJson = JSON.parse(
   readFileSync(path.resolve(testDirectory, '../../../package.json'), 'utf8')
 )
 
-test('Asyra Design configures only the engine-neutral framework renderer', () => {
-  assert.match(
-    renderAppSource,
-    /import\s+\{\s*RenderAdapter\s*\}\s+from ['"]@asyra\/render['"]/
-  )
+test('Asyra Design delegates default renderer ownership to Core', () => {
+  assert.doesNotMatch(renderAppSource, /RenderAdapter|core\.setRenderer/)
+  assert.doesNotMatch(renderAppSource, /from ['"]@asyra\/render['"]/)
   assert.doesNotMatch(
     renderAppSource,
     /Pixi|@asyra\/render-engine-pixi|from ['"]pixi\.js['"]/i
@@ -27,10 +25,9 @@ test('Asyra Design configures only the engine-neutral framework renderer', () =>
   assert.equal(packageJson.dependencies['@types/pixi.js'], undefined)
 })
 
-test('Asyra Design tears down the exact framework renderer it starts', () => {
-  assert.match(renderAppSource, /const renderer = new RenderAdapter\(\)/)
-  assert.match(renderAppSource, /core\.setRenderer\(renderer\)/)
-  assert.match(renderAppSource, /renderer\.destroy\(\)/)
+test('Asyra Design tears down the Core-owned renderer lifecycle', () => {
+  assert.match(renderAppSource, /core\.destroyRenderer\(\)/)
+  assert.doesNotMatch(renderAppSource, /renderer\.destroy\(\)/)
   assert.match(renderAppSource, /lifecycleRef\.current/)
   assert.match(renderAppSource, /if \(!active\)/)
   assert.doesNotMatch(renderAppSource, /hasInit/)

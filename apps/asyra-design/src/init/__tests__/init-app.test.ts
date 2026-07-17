@@ -45,7 +45,7 @@ describe('initApp preset composition', () => {
     applyPreset.mockClear()
   })
 
-  it('keeps the compatibility preset path before app-owned initialization', () => {
+  it('applies the default preset before app-owned initialization', () => {
     initApp()
 
     expect(applyPreset).toHaveBeenCalledOnce()

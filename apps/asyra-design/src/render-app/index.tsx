@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from 'react'
 import core from '../contexts'
-import { RenderAdapter } from '@asyra/render'
 import { providers } from '@asyra/reactive-events'
 import { CANVAS_BACKGROUND_COLOR } from '../constants'
 
@@ -10,7 +9,6 @@ const RenderApp: React.FC = () => {
 
   useEffect(() => {
     let active = true
-    const renderer = new RenderAdapter()
 
     const lifecycle = lifecycleRef.current
       .catch(() => undefined)
@@ -23,8 +21,7 @@ const RenderApp: React.FC = () => {
           return
         }
 
-        // Phase 1: Configure renderer and persistence
-        core.setRenderer(renderer)
+        // Configure persistence before Core-owned renderer startup.
         core.setPersistence(providers.localStorage)
 
         // Phase 3: Single startup call
@@ -44,7 +41,7 @@ const RenderApp: React.FC = () => {
 
     return () => {
       active = false
-      renderer.destroy()
+      core.destroyRenderer()
     }
   }, [])
 
