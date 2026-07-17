@@ -410,7 +410,8 @@ class Core implements CoreAPIs {
     } catch (error) {
       if (
         renderer !== this.defaultRenderer ||
-        !(error instanceof MissingRenderEngineProviderError)
+        !(error instanceof MissingRenderEngineProviderError) ||
+        this.hasRenderEngineProvider()
       ) {
         throw error
       }

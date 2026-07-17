@@ -154,6 +154,29 @@ describe('Core render startup', () => {
     expect(core.renderIsReady).toHaveBeenCalledOnce()
   })
 
+  it('does not reinterpret a configured provider failure as headless', async () => {
+    const initObservers = vi.fn(() => vi.fn())
+    const failure = new MissingRenderEngineProviderError()
+    const core = createCoreForTest(
+      { observeSharedDataChannel: initObservers },
+      { init: vi.fn(async () => Promise.reject(failure)) }
+    )
+    core.registerDataChannelObserver({
+      name: 'configured-provider-failure-observer',
+      channel: 'configured-provider-failure-channel',
+      onChange: vi.fn()
+    })
+    core.setRenderEngineProvider(() => ({}) as never)
+
+    await expect(
+      core.start(document.createElement('div'), { width: 1, height: 1 })
+    ).rejects.toBe(failure)
+
+    expect(initObservers).not.toHaveBeenCalled()
+    expect(core.initFeatureSystem).not.toHaveBeenCalled()
+    expect(core.renderIsReady).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['provider callback', new Error('provider callback failed')],
     ['engine initialization', new Error('engine initialization failed')],
