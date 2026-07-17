@@ -132,7 +132,8 @@
       ],
       allowedContributors: [
         'preset-owned component/property/event/selection/render/UI installers',
-        'public CorePresetInstallAPIs'
+        'public CorePresetInstallAPIs',
+        'SystemContext-owned managed-property lifecycle through Core'
       ],
       forbiddenContributors: [
         'app-domain FeatureSystem behavior',
@@ -151,7 +152,12 @@
         'packages/preset/src/subscriptions/**',
         'packages/preset/src/render-layers/**',
         'packages/preset/src/ui/**',
-        'packages/preset/src/__tests__/**'
+        'packages/preset/src/__tests__/**',
+        'packages/core/src/apis/system-properties.ts',
+        'packages/core/src/types/system-properties.ts',
+        'packages/core/src/index.ts',
+        'packages/core/src/__tests__/**',
+        'packages/system-context/src/**'
       ],
       specRefs: ['#official-default-modules', '#failures-and-cleanup'],
       failureOwnerStepId: 'install-preset-defaults',
@@ -189,6 +195,7 @@
         'packages/preset/package.json',
         'packages/preset/src/preset.ts',
         'packages/preset/src/catalog.ts',
+        'packages/preset/src/composition/profile-provider.ts',
         'packages/preset/src/__tests__/**'
       ],
       specRefs: ['#application-semantics', '#ownership-and-flow'],

@@ -40,4 +40,14 @@ describe('@asyra/render-engine package boundary', () => {
 
     expect(sources).not.toMatch(/\b(?:3d|hybrid|render[- ]mode)\b/i)
   })
+
+  it('publishes provider terminology without the unreleased factory alias', () => {
+    const publicSource = [
+      fs.readFileSync(path.join(packageRoot, 'src/index.ts'), 'utf8'),
+      fs.readFileSync(path.join(packageRoot, 'src/types.ts'), 'utf8')
+    ].join('\n')
+
+    expect(publicSource).toMatch(/RenderEngineProvider/)
+    expect(publicSource).not.toMatch(/RenderEngineFactory/)
+  })
 })

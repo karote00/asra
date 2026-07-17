@@ -21,7 +21,7 @@ const channelLifetimesByCore = new WeakMap<
   Map<SharedDataChannelName, SharedChannelLifetime>
 >()
 
-const DEFAULT_CHANNEL_NAMES = [
+export const DEFAULT_CHANNEL_NAMES = [
   SharedDataChannelNames.SCENE_TREE,
   SharedDataChannelNames.SELECTION,
   SharedDataChannelNames.PROPS
@@ -29,7 +29,8 @@ const DEFAULT_CHANNEL_NAMES = [
 
 export const registerDefaultSharedDataChannels = (
   core: SharedChannelCore,
-  onCleanupReady?: (dispose: () => void) => void
+  onCleanupReady?: (dispose: () => void) => void,
+  channelNames: readonly SharedDataChannelName[] = DEFAULT_CHANNEL_NAMES
 ): (() => void) => {
   const channelLifetimes =
     channelLifetimesByCore.get(core) ??
@@ -74,7 +75,7 @@ export const registerDefaultSharedDataChannels = (
   }
 
   try {
-    DEFAULT_CHANNEL_NAMES.forEach((name) => {
+    channelNames.forEach((name) => {
       const lifetime = channelLifetimes.get(name)
       if (lifetime) {
         lifetime.count += 1

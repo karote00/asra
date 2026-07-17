@@ -1,10 +1,10 @@
-import { BehaviorSubject, Subscription } from 'rxjs'
 import { describe, expect, it, vi } from 'vitest'
 import { BaseSelection, renderSelectionStore } from '@asyra/core'
 import { SCENE_TREE_ACTIONS, type SelectionChange } from '@asyra/utils'
 import { EventTypes, publishEvent } from '@asyra/reactive-events'
-import { applyPreset } from '../preset'
-import type { PresetDependencies } from '../types'
+import { registerSelections } from '../selection/register-default-selections'
+import { registerDefaultDataChannelObservers } from '../subscriptions/data-channel'
+import type { PresetCoreAPIs, PresetDependencies } from '../types'
 import {
   SelectionActions,
   SelectionChannels,
@@ -26,7 +26,6 @@ const createDeps = (): PresetDependencies =>
       })
     },
     render: {
-      setEngineFactory: vi.fn(() => vi.fn()),
       getElementById: () => undefined,
       getViewportPosition: () => ({ x: 0, y: 0 }),
       getViewportScale: () => 1,
@@ -40,62 +39,28 @@ describe('Preset Selection Subscriptions', () => {
   it('applies selection channel changes and removes deleted selection ids via observers', () => {
     const observers = new Map<string, { onChange: (change: unknown) => void }>()
     const selections = new Map<string, BaseSelection>()
-    const systemPropertyMap = new Map<string, BehaviorSubject<unknown>>()
-    const sharedChannels = new Set<string>()
-
-    applyPreset(
-      {
-        registerEvent: vi.fn((event: string | { eventName: string }) => ({
-          eventName: typeof event === 'string' ? event : event.eventName,
-          publish: vi.fn(),
-          subscribe: () => new Subscription()
-        })),
-        registerDataChannelObserver: vi.fn((registration) => {
-          observers.set(registration.name, registration)
-        }),
-        hasSharedDataChannel: (name: string) => sharedChannels.has(name),
-        getYjsDataChannel: (name: string) => ({ name }),
-        registerSharedDataChannel: (name: string) => {
-          sharedChannels.add(name)
-        },
-        unregisterSharedDataChannel: (name: string) =>
-          sharedChannels.delete(name),
-        getPresetDependencies: createDeps,
-        registerRenderLayer: vi.fn(),
-        registerPropertySchema: vi.fn(),
-        definePropertyComponent: vi.fn(),
-        defineComponent: vi.fn(),
-        registerRenderStrategy: vi.fn(),
-        getRegistrations: vi.fn(() => []),
-        unregisterPropertyRegistration: vi.fn(() => ({
-          ok: true,
-          type: 'test-property',
-          removedSchema: true,
-          removedComponent: true
-        })),
-        defineFeature: vi.fn(),
-        getFeature: vi.fn(),
-        unregisterFeature: vi.fn(),
-        defineSelection: (type, selection) => {
-          selections.set(type, selection)
-        },
-        getSelection: (type) => selections.get(type),
-        defineUIProperty: vi.fn(),
-        defineSystemProperty: <T>(key: string, defaultValue: T) => {
-          const existing = systemPropertyMap.get(key)
-          if (existing) {
-            return existing as BehaviorSubject<T>
-          }
-
-          const state = new BehaviorSubject<T>(defaultValue)
-          systemPropertyMap.set(key, state as BehaviorSubject<unknown>)
-          return state
-        },
-        getSystemPropertyObservable: <T>(key: string) =>
-          systemPropertyMap.get(key) as BehaviorSubject<T> | undefined,
-        createRenderGradientFillStyle: () => null as never
+    const core = {
+      defineSelection: (type: string, selection: BaseSelection) => {
+        selections.set(type, selection)
       },
-      createDeps()
+      unregisterSelection: (type: string) => selections.delete(type),
+      getSelection: (type: string) => selections.get(type),
+      registerDataChannelObserver: (registration: {
+        name: string
+        onChange: (change: unknown) => void
+      }) => {
+        observers.set(registration.name, registration)
+      },
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const dependencies = createDeps()
+
+    const disposeSelections = registerSelections(core)
+    const disposeObservers = registerDefaultDataChannelObservers(
+      core,
+      dependencies,
+      undefined,
+      { selection: true, uiContext: true }
     )
 
     const selectionRuntimeObserver = observers.get('preset.selection.runtime')
@@ -177,5 +142,9 @@ describe('Preset Selection Subscriptions', () => {
       )
     ).toEqual(['rect-1', 'vector-1'])
     expect(renderSelectionSpy).toHaveBeenCalledWith(SelectionChannels.ELEMENT)
+
+    disposeObservers()
+    disposeSelections()
+    renderSelectionSpy.mockRestore()
   })
 })

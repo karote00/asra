@@ -15,6 +15,8 @@ export interface ManagedPropertyStateAPIs {
   getManagedPropertyObservable: <T>(
     key: string
   ) => BehaviorSubject<T> | undefined
+  hasManagedProperty: (key: string) => boolean
+  unregisterProperty: (key: string) => boolean
   loadManagedProperties: (data: unknown) => ManagedPropertyLoadDiagnostic[]
   saveManagedProperties: () => Record<string, unknown>
 }

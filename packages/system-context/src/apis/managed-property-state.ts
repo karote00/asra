@@ -41,6 +41,10 @@ export const createManagedPropertyStateAPIs = (
     return managedPropertyState.getObservable<T>(key)
   },
 
+  hasManagedProperty: (key: string) => managedPropertyState.has(key),
+
+  unregisterProperty: (key: string) => managedPropertyState.unregister(key),
+
   /**
    * Load managed properties with registration/type guards.
    * Unknown keys and invalid values are ignored with diagnostics.

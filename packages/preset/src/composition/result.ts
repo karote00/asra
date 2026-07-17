@@ -1,33 +1,25 @@
-import type { PresetCompositionSuccess } from '../types'
+import type {
+  PresetApplyResult,
+  PresetDefaultId,
+  PresetProfile
+} from '../types'
 
-interface CreatePresetCompositionSuccessOptions {
-  engineId: string
-  sharedGroups: readonly string[]
-  capabilityBundles: readonly string[]
+export interface CreatePresetApplyResultInput {
+  readonly profile: PresetProfile
+  readonly presetEngineId: string | null
+  readonly selectedDefaults: readonly PresetDefaultId[]
+  readonly appliedDefaults: readonly PresetDefaultId[]
 }
 
-export const createPresetCompositionSuccess = ({
-  engineId,
-  sharedGroups,
-  capabilityBundles
-}: CreatePresetCompositionSuccessOptions): PresetCompositionSuccess => {
-  const detachedSharedGroups = Object.freeze([...sharedGroups])
-  const detachedCapabilityBundles = Object.freeze([...capabilityBundles])
-  const order = Object.freeze([
-    ...detachedSharedGroups.map((groupId) => `shared-defaults:${groupId}`),
-    `concrete-engine:${engineId}`,
-    ...detachedCapabilityBundles.map(
-      (bundleId) => `capability-bundle:${bundleId}`
-    ),
-    'composition:completed'
-  ])
-
-  return Object.freeze({
-    ok: true,
-    state: 'completed',
-    engineId,
-    sharedGroups: detachedSharedGroups,
-    capabilityBundles: detachedCapabilityBundles,
-    order
+export const createPresetApplyResult = ({
+  profile,
+  presetEngineId,
+  selectedDefaults,
+  appliedDefaults
+}: CreatePresetApplyResultInput): PresetApplyResult =>
+  Object.freeze({
+    profile,
+    presetEngineId,
+    selectedDefaults: Object.freeze([...selectedDefaults]),
+    appliedDefaults: Object.freeze([...appliedDefaults])
   })
-}

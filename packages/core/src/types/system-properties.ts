@@ -24,4 +24,6 @@ export interface SystemManagedPropertyAPIs {
   getSystemPropertyObservable: <T>(
     key: string
   ) => BehaviorSubject<T> | undefined
+  hasSystemProperty: (key: string) => boolean
+  unregisterSystemProperty: (key: string) => boolean
 }

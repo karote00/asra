@@ -218,6 +218,16 @@ export class ManagedPropertyState {
     return this.properties.has(key)
   }
 
+  unregister(key: string): boolean {
+    const property = this.properties.get(key)
+    if (!property) {
+      return false
+    }
+    this.properties.delete(key)
+    property.state.complete()
+    return true
+  }
+
   getAllKeys(): string[] {
     return Array.from(this.properties.keys())
   }

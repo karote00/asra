@@ -590,12 +590,26 @@ interface RuntimeSubscription {
   unsubscribe(): void
 }
 
+export interface PresetDataChannelObserverOptions {
+  readonly renderScene?: boolean
+  readonly selection?: boolean
+  readonly uiContext?: boolean
+}
+
 // Register preset default shared-channel observers for one preset lifetime.
 export const registerDefaultDataChannelObservers = (
   core: PresetCoreAPIs,
   deps: PresetDependencies,
-  onCleanupReady?: (dispose: () => void) => void
+  onCleanupReady?: (dispose: () => void) => void,
+  options: PresetDataChannelObserverOptions = {
+    renderScene: true,
+    selection: true,
+    uiContext: true
+  }
 ): (() => void) => {
+  const renderSceneEnabled = options.renderScene === true
+  const selectionEnabled = options.selection === true
+  const uiContextEnabled = options.uiContext === true
   const eventSubscriptions: RuntimeSubscription[] = []
   const registeredObserverNames: string[] = []
   let disposed = false
@@ -668,107 +682,134 @@ export const registerDefaultDataChannelObservers = (
   })
 
   try {
-    eventSubscriptions.push(
-      subscribeToFileLoadComplete(() => {
-        resetPendingUIContextSync()
-        renderSceneTreeStore.reload()
-        syncFlattenedElementIds(deps)
-        syncElementDataMap(deps)
-        syncElementSelectionAndDerived(core, deps)
-        syncVectorSelections(core)
-      })
-    )
-    reportCleanupReady()
+    if (renderSceneEnabled || uiContextEnabled) {
+      eventSubscriptions.push(
+        subscribeToFileLoadComplete(() => {
+          if (renderSceneEnabled) {
+            renderSceneTreeStore.reload()
+          }
+          if (!uiContextEnabled) return
+          resetPendingUIContextSync()
+          syncFlattenedElementIds(deps)
+          syncElementDataMap(deps)
+          syncElementSelectionAndDerived(core, deps)
+          syncVectorSelections(core)
+        })
+      )
+      reportCleanupReady()
+    }
 
-    eventSubscriptions.push(
-      subscribeToEndTransaction(() => {
-        flushPendingUIContextSync(core, deps)
-      })
-    )
-    reportCleanupReady()
+    if (uiContextEnabled) {
+      eventSubscriptions.push(
+        subscribeToEndTransaction(() => {
+          flushPendingUIContextSync(core, deps)
+        })
+      )
+      reportCleanupReady()
+    }
 
     // Undo/redo publishes selection events directly from transaction history.
     // Apply those payloads to runtime so selection state is restored correctly.
-    eventSubscriptions.push(
-      subscribeToSynchronousEvent<SelectElementsEvent>(
-        EventTypes.SELECT_ELEMENTS,
-        (event) => {
-          const change = createSelectionChangeFromDirectEvent(
-            SelectionChannels.ELEMENT,
-            SelectionActions.SELECT_ELEMENTS,
-            SelectionEventNames.SELECT_ELEMENTS,
-            event.payload,
-            event.options
-          )
+    if (selectionEnabled || uiContextEnabled) {
+      eventSubscriptions.push(
+        subscribeToSynchronousEvent<SelectElementsEvent>(
+          EventTypes.SELECT_ELEMENTS,
+          (event) => {
+            const change = createSelectionChangeFromDirectEvent(
+              SelectionChannels.ELEMENT,
+              SelectionActions.SELECT_ELEMENTS,
+              SelectionEventNames.SELECT_ELEMENTS,
+              event.payload,
+              event.options
+            )
 
-          applySelectionIdsToRuntime(
-            core,
-            SelectionChannels.ELEMENT,
-            change.after,
-            change.options
-          )
+            if (selectionEnabled) {
+              applySelectionIdsToRuntime(
+                core,
+                SelectionChannels.ELEMENT,
+                change.after,
+                change.options
+              )
 
-          // Replay events bypass shared channel observers. Mirror them to render/UI.
-          updateRenderSelection(change)
-          updateUIContextSelection(change, core, deps)
-        }
+              // Replay events bypass shared channel observers. Mirror them to render.
+              updateRenderSelection(change)
+            }
+            if (uiContextEnabled) {
+              updateUIContextSelection(change, core, deps)
+            }
+          }
+        )
       )
-    )
-    reportCleanupReady()
-    eventSubscriptions.push(
-      subscribeToSynchronousEvent<SelectVectorPointsEvent>(
-        EventTypes.SELECT_VECTOR_POINTS,
-        (event) => {
-          const change = createSelectionChangeFromDirectEvent(
-            SelectionChannels.VECTOR_POINT,
-            SelectionActions.SELECT_VECTOR_POINTS,
-            SelectionEventNames.SELECT_VECTOR_POINTS,
-            event.payload,
-            event.options
-          )
+      reportCleanupReady()
+      eventSubscriptions.push(
+        subscribeToSynchronousEvent<SelectVectorPointsEvent>(
+          EventTypes.SELECT_VECTOR_POINTS,
+          (event) => {
+            const change = createSelectionChangeFromDirectEvent(
+              SelectionChannels.VECTOR_POINT,
+              SelectionActions.SELECT_VECTOR_POINTS,
+              SelectionEventNames.SELECT_VECTOR_POINTS,
+              event.payload,
+              event.options
+            )
 
-          applySelectionIdsToRuntime(
-            core,
-            SelectionChannels.VECTOR_POINT,
-            change.after,
-            change.options
-          )
-          updateRenderSelection(change)
-          updateUIContextSelection(change, core, deps)
-        }
+            if (selectionEnabled) {
+              applySelectionIdsToRuntime(
+                core,
+                SelectionChannels.VECTOR_POINT,
+                change.after,
+                change.options
+              )
+              updateRenderSelection(change)
+            }
+            if (uiContextEnabled) {
+              updateUIContextSelection(change, core, deps)
+            }
+          }
+        )
       )
-    )
-    reportCleanupReady()
-    eventSubscriptions.push(
-      subscribeToSynchronousEvent<SelectVectorSegmentsEvent>(
-        EventTypes.SELECT_VECTOR_SEGMENTS,
-        (event) => {
-          const change = createSelectionChangeFromDirectEvent(
-            SelectionChannels.VECTOR_SEGMENT,
-            SelectionActions.SELECT_VECTOR_SEGMENTS,
-            SelectionEventNames.SELECT_VECTOR_SEGMENTS,
-            event.payload,
-            event.options
-          )
+      reportCleanupReady()
+      eventSubscriptions.push(
+        subscribeToSynchronousEvent<SelectVectorSegmentsEvent>(
+          EventTypes.SELECT_VECTOR_SEGMENTS,
+          (event) => {
+            const change = createSelectionChangeFromDirectEvent(
+              SelectionChannels.VECTOR_SEGMENT,
+              SelectionActions.SELECT_VECTOR_SEGMENTS,
+              SelectionEventNames.SELECT_VECTOR_SEGMENTS,
+              event.payload,
+              event.options
+            )
 
-          applySelectionIdsToRuntime(
-            core,
-            SelectionChannels.VECTOR_SEGMENT,
-            change.after,
-            change.options
-          )
-          updateRenderSelection(change)
-          updateUIContextSelection(change, core, deps)
-        }
+            if (selectionEnabled) {
+              applySelectionIdsToRuntime(
+                core,
+                SelectionChannels.VECTOR_SEGMENT,
+                change.after,
+                change.options
+              )
+              updateRenderSelection(change)
+            }
+            if (uiContextEnabled) {
+              updateUIContextSelection(change, core, deps)
+            }
+          }
+        )
       )
-    )
-    reportCleanupReady()
+      reportCleanupReady()
+    }
 
-    registerObserver(renderSceneTreeDataChannelObserver)
-    registerObserver(selectionRuntimeDataChannelObserver)
-    registerObserver(renderSelectionDataChannelObserver)
-    registerObserver(uiContextSceneTreeDataChannelObserver)
-    registerObserver(uiContextSelectionDataChannelObserver)
+    if (renderSceneEnabled) {
+      registerObserver(renderSceneTreeDataChannelObserver)
+    }
+    if (selectionEnabled) {
+      registerObserver(selectionRuntimeDataChannelObserver)
+      registerObserver(renderSelectionDataChannelObserver)
+    }
+    if (uiContextEnabled) {
+      registerObserver(uiContextSceneTreeDataChannelObserver)
+      registerObserver(uiContextSelectionDataChannelObserver)
+    }
   } catch (error) {
     if (!cleanupReported) dispose()
     throw error

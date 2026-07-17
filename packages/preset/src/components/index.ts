@@ -34,6 +34,18 @@ export const DEFAULT_COMPONENT_DEFINITIONS: readonly ComponentDefinition[] = [
   GROUP_COMPONENT_DEFINITION
 ]
 
+export const BASIC_SHAPE_COMPONENT_DEFINITIONS: readonly ComponentDefinition[] =
+  [RECTANGLE_COMPONENT_DEFINITION, OVAL_COMPONENT_DEFINITION]
+
+export const CONTAINER_COMPONENT_DEFINITIONS: readonly ComponentDefinition[] = [
+  FRAME_COMPONENT_DEFINITION,
+  GROUP_COMPONENT_DEFINITION
+]
+
+export const VECTOR_COMPONENT_DEFINITIONS: readonly ComponentDefinition[] = [
+  VECTOR_COMPONENT_DEFINITION
+]
+
 export interface PresetRenderStrategyRegistration {
   type: string
   strategy: RenderStrategy
@@ -83,6 +95,15 @@ export const DEFAULT_RENDER_STRATEGY_REGISTRATIONS: readonly PresetRenderStrateg
       PropertyTypes.POSITION
     ])
   ]
+
+export const BASIC_SHAPE_RENDER_STRATEGY_REGISTRATIONS =
+  DEFAULT_RENDER_STRATEGY_REGISTRATIONS.slice(0, 2)
+
+export const VECTOR_RENDER_STRATEGY_REGISTRATIONS =
+  DEFAULT_RENDER_STRATEGY_REGISTRATIONS.slice(2, 3)
+
+export const CONTAINER_RENDER_STRATEGY_REGISTRATIONS =
+  DEFAULT_RENDER_STRATEGY_REGISTRATIONS.slice(3, 5)
 
 export const DEFAULT_COMPONENT_TYPES = [
   'rect',

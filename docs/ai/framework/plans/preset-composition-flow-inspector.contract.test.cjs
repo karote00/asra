@@ -132,6 +132,10 @@ test('preset installs only the selected public default dependency closure', () =
   assert.match(contract, /Unselected public modules install no product-visible/i)
   assert.match(contract, /caller-provided installer or disposer/i)
   assert.match(contract, /app-domain FeatureSystem behavior/i)
+  assert.match(contract, /SystemContext-owned managed-property lifecycle/i)
+  assert.ok(
+    owner.implementationBoundary.includes('packages/system-context/src/**')
+  )
 })
 
 test('profile provider policy is independent and uses Core only', () => {

@@ -1,92 +1,46 @@
 import type { CorePresetDependencies, CorePresetInstallAPIs } from '@asyra/core'
-import type { RenderEngineFactory } from '@asyra/render-engine'
-import type { RegistrationOwnerMetadata, RegistrationRef } from '@asyra/utils'
-import type { PresetCompositionErrorCode } from './composition/constants'
+import type {
+  PRESET_APPLY_ERROR_CODES,
+  PresetDefaults,
+  PresetProfiles
+} from './constants'
 
-export type { PresetCompositionErrorCode } from './composition/constants'
+export type PresetProfile = (typeof PresetProfiles)[keyof typeof PresetProfiles]
 
-export type PresetDependencies = CorePresetDependencies
-export type PresetCoreAPIs = CorePresetInstallAPIs
+export type PresetDefaultId =
+  (typeof PresetDefaults)[keyof typeof PresetDefaults]
 
-export interface PresetApplicationDisposeSuccess {
-  ok: true
-  operation: 'dispose-preset'
-  removed: readonly RegistrationRef[]
-  skipped: readonly RegistrationRef[]
-}
-
-export interface PresetCompositionSuccess {
-  ok: true
-  state: 'completed'
-  engineId: string
-  sharedGroups: readonly string[]
-  capabilityBundles: readonly string[]
-  order: readonly string[]
-}
-
-export interface PresetApplication {
-  readonly result: PresetCompositionSuccess
-  dispose(): PresetApplicationDisposeSuccess
-}
-
-export interface PresetEngineBootstrap {
-  id: string
-  factory?: RenderEngineFactory
-}
-
-export interface PresetCapabilityBundleContext {
-  core: PresetCoreAPIs
-  dependencies: PresetDependencies
-  engineId: string
-}
-
-export interface PresetCapabilityInstallation {
-  outputs: readonly string[]
-  dispose(): void
-}
-
-export interface PresetCapabilityBundle {
-  id: string
-  owner: RegistrationOwnerMetadata
-  requires: readonly string[]
-  install(context: PresetCapabilityBundleContext): PresetCapabilityInstallation
-}
+export type PresetApplyErrorCode =
+  (typeof PRESET_APPLY_ERROR_CODES)[keyof typeof PRESET_APPLY_ERROR_CODES]
 
 export interface ApplyPresetOptions {
-  dependencies?: PresetDependencies
-  renderEngineFactory?: RenderEngineFactory
-  engine?: PresetEngineBootstrap
-  capabilityBundles?: readonly PresetCapabilityBundle[]
+  profile?: PresetProfile
+  defaults?: readonly PresetDefaultId[]
 }
 
-export type PresetCompositionLayer =
-  | 'validation'
-  | 'shared-defaults'
-  | 'concrete-engine'
-  | 'capability-bundle'
-  | 'cleanup'
-
-export type PresetCompositionCleanupState =
-  | 'not-required'
-  | 'completed'
-  | 'pending'
-
-export interface PresetCompositionCleanupResult {
-  state: PresetCompositionCleanupState
-  completed: readonly string[]
-  pending: readonly string[]
+export interface PresetApplyResult {
+  readonly profile: PresetProfile
+  readonly presetEngineId: string | null
+  readonly selectedDefaults: readonly PresetDefaultId[]
+  readonly appliedDefaults: readonly PresetDefaultId[]
 }
 
-export interface PresetCompositionFailureResult {
-  ok: false
-  code: PresetCompositionErrorCode
-  operation: 'apply-preset' | 'dispose-preset'
-  message: string
-  layer: PresetCompositionLayer
-  engineId?: string
-  capabilityBundles: readonly string[]
-  failedBundleId?: string
-  completedLayers: readonly string[]
-  cleanup: PresetCompositionCleanupResult
-  cause?: unknown
+export interface PresetProfileCatalogEntry {
+  readonly id: PresetProfile
+  readonly available: boolean
+  readonly presetEngineId: string | null
 }
+
+export interface PresetDefaultCatalogEntry {
+  readonly id: PresetDefaultId
+  readonly available: boolean
+  readonly requires: readonly PresetDefaultId[]
+}
+
+export interface PresetCatalogContract {
+  readonly profiles: readonly PresetProfileCatalogEntry[]
+  readonly defaults: readonly PresetDefaultCatalogEntry[]
+}
+
+export type PresetCoreAPIs = CorePresetInstallAPIs
+export type PresetDependencies = CorePresetDependencies

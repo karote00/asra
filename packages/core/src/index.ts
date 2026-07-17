@@ -215,6 +215,10 @@ export type {
 } from './types/load-validation'
 type CoreBasicApiKeys =
   | 'setRenderer'
+  | 'destroyRenderer'
+  | 'setRenderEngineProvider'
+  | 'hasRenderEngineProvider'
+  | 'isCompositionOpen'
   | 'setPersistence'
   | 'registerSaveHook'
   | 'registerLoadHook'
@@ -265,6 +269,8 @@ type CoreExtensionApiKeys =
   | 'getSystemProperty'
   | 'setSystemProperty'
   | 'getSystemPropertyObservable'
+  | 'hasSystemProperty'
+  | 'unregisterSystemProperty'
   | 'registerEvent'
   | 'unregisterEvent'
   | 'subscribeEvent'
@@ -304,6 +310,9 @@ type CoreExtensionApiKeys =
   | 'getYjsDataChannel'
 
 type CorePresetInstallApiKeys =
+  | 'setRenderEngineProvider'
+  | 'hasRenderEngineProvider'
+  | 'isCompositionOpen'
   | 'registerEvent'
   | 'unregisterEvent'
   | 'registerRenderLayer'
@@ -341,6 +350,8 @@ type CorePresetInstallApiKeys =
   | 'getSelection'
   | 'defineUIProperty'
   | 'defineSystemProperty'
+  | 'hasSystemProperty'
+  | 'unregisterSystemProperty'
   | 'getSystemPropertyObservable'
   | 'getPresetDependencies'
 

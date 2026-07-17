@@ -228,4 +228,4 @@ export interface RenderEngine {
   destroy(): RenderEngineDestroyResult
 }
 
-export type RenderEngineFactory = () => RenderEngine
+export type RenderEngineProvider = () => RenderEngine

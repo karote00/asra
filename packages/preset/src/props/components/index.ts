@@ -17,7 +17,7 @@ import { vectorSegmentPropertyComponentDefinition } from './vector-segment-compo
 import { vectorSegmentsPropertyComponentDefinition } from './vector-segments-component'
 import { PRESET_REGISTRATION } from '../../registration'
 
-export const DEFAULT_PROPERTY_COMPONENT_DEFINITIONS: readonly PropertyComponentDefinition[] =
+export const BASE_PROPERTY_COMPONENT_DEFINITIONS: readonly PropertyComponentDefinition[] =
   [
     positionPropertyComponentDefinition,
     dimensionPropertyComponentDefinition,
@@ -25,7 +25,11 @@ export const DEFAULT_PROPERTY_COMPONENT_DEFINITIONS: readonly PropertyComponentD
     fillPropertyComponentDefinition,
     fillsPropertyComponentDefinition,
     strokePropertyComponentDefinition,
-    strokesPropertyComponentDefinition,
+    strokesPropertyComponentDefinition
+  ]
+
+export const VECTOR_PROPERTY_COMPONENT_DEFINITIONS: readonly PropertyComponentDefinition[] =
+  [
     anchorPointPropertyComponentDefinition,
     anchorPointsPropertyComponentDefinition,
     vectorPointPropertyComponentDefinition,
@@ -36,10 +40,17 @@ export const DEFAULT_PROPERTY_COMPONENT_DEFINITIONS: readonly PropertyComponentD
     vectorNetworksPropertyComponentDefinition
   ]
 
+export const DEFAULT_PROPERTY_COMPONENT_DEFINITIONS: readonly PropertyComponentDefinition[] =
+  [
+    ...BASE_PROPERTY_COMPONENT_DEFINITIONS,
+    ...VECTOR_PROPERTY_COMPONENT_DEFINITIONS
+  ]
+
 export const registerPropertyComponents = (
-  core: Pick<PresetCoreAPIs, 'definePropertyComponent'>
+  core: Pick<PresetCoreAPIs, 'definePropertyComponent'>,
+  definitions: readonly PropertyComponentDefinition[] = DEFAULT_PROPERTY_COMPONENT_DEFINITIONS
 ): void => {
-  DEFAULT_PROPERTY_COMPONENT_DEFINITIONS.forEach((definition) => {
+  definitions.forEach((definition) => {
     core.definePropertyComponent({
       ...definition,
       registration: {

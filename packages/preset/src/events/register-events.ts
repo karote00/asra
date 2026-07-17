@@ -1,9 +1,13 @@
+import type { EventDefinition } from '@asyra/core'
 import { PresetEventDefinitions } from './preset-event-names'
 import type { PresetCoreAPIs } from '../types'
 
 export const registerEvents = (
   core: Pick<PresetCoreAPIs, 'registerEvent' | 'unregisterEvent'>,
-  onCleanupReady?: (dispose: () => void) => void
+  onCleanupReady?: (dispose: () => void) => void,
+  definitions: readonly EventDefinition[] = Object.values(
+    PresetEventDefinitions
+  )
 ): (() => void) => {
   const registeredEventNames: string[] = []
   let disposed = false
@@ -24,7 +28,7 @@ export const registerEvents = (
   }
 
   try {
-    Object.values(PresetEventDefinitions).forEach((definition) => {
+    definitions.forEach((definition) => {
       core.registerEvent(definition)
       registeredEventNames.push(definition.eventName)
       reportCleanupReady()

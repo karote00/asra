@@ -31,11 +31,16 @@ import systemContext, { SystemContext } from '@asyra/system-context'
 import type { FeatureSystemAPIs } from './types/feature-system'
 import render, {
   Render,
+  RenderAdapter,
+  MissingRenderEngineProviderError,
   IRenderer,
   RenderOptions,
+  RenderResult,
   renderStrategyRegistry,
+  type RenderEngineProviderCleanup,
   type RenderStrategy
 } from '@asyra/render'
+import type { RenderEngineProvider } from '@asyra/render-engine'
 import { propertyRegistry } from '@asyra/ui-context'
 import { IPersistenceProvider, SaveHook, LoadHook } from '@asyra/persistence'
 import {
@@ -142,7 +147,9 @@ const clonePersistenceSnapshot = (data: CoreRawData): CoreRawData => {
 class Core implements CoreAPIs {
   version: string = DEFAULT_VERSION
 
-  private customRenderer: IRenderer | null = null
+  private readonly defaultRenderer: IRenderer
+  private renderer: IRenderer
+  private renderEngineProviderToken: symbol | null = null
   private persistence: IPersistenceProvider | null = null
   private saveHooks: SaveHook[] = []
   private loadHooks: LoadHook[] = []
@@ -201,8 +208,12 @@ class Core implements CoreAPIs {
   getSystemProperty!: SystemManagedPropertyAPIs['getSystemProperty']
   setSystemProperty!: SystemManagedPropertyAPIs['setSystemProperty']
   getSystemPropertyObservable!: SystemManagedPropertyAPIs['getSystemPropertyObservable']
+  hasSystemProperty!: SystemManagedPropertyAPIs['hasSystemProperty']
+  unregisterSystemProperty!: SystemManagedPropertyAPIs['unregisterSystemProperty']
 
   constructor(readonly deps: CoreDeps) {
+    this.defaultRenderer = new RenderAdapter(deps.render)
+    this.renderer = this.defaultRenderer
     this.dataChannelObservers =
       deps.dataChannelObservers ??
       new dataChannelObserver.DataChannelObserverRegistry(deps.factory)
@@ -215,6 +226,12 @@ class Core implements CoreAPIs {
     )
 
     Object.assign(this, apis as CoreAPIs)
+
+    const unregisterSystemProperty = this.unregisterSystemProperty
+    this.unregisterSystemProperty = ((key) => {
+      this.assertCompositionOpen('unregister-registration')
+      return unregisterSystemProperty(key)
+    }) as SystemManagedPropertyAPIs['unregisterSystemProperty']
 
     const defineUIProperty = this.defineUIProperty
     const registerUIProperty = this.registerUIProperty
@@ -257,12 +274,44 @@ class Core implements CoreAPIs {
     this.initAutoSave()
   }
 
-  /**
-   * Set a custom renderer (PixiJS, ThreeJS, custom)
-   * @param renderer - Renderer implementation
-   */
+  /** Set an advanced full renderer replacement before startup. */
   setRenderer(renderer: IRenderer): void {
-    this.customRenderer = renderer
+    this.assertCompositionOpen('register-node')
+    this.renderer = renderer
+  }
+
+  destroyRenderer(): void {
+    this.renderer.destroy()
+  }
+
+  setRenderEngineProvider(
+    provider: RenderEngineProvider
+  ): RenderEngineProviderCleanup {
+    this.assertCompositionOpen('register-node')
+    if (this.renderEngineProviderToken) {
+      throw new Error('Core render engine provider is already configured')
+    }
+
+    const renderCleanup = this.deps.render.setEngineProvider(provider)
+    const token = Symbol('core-render-engine-provider')
+    this.renderEngineProviderToken = token
+
+    return () => {
+      if (this.renderEngineProviderToken !== token) {
+        return
+      }
+      this.assertCompositionOpen('unregister-registration')
+      renderCleanup()
+      this.renderEngineProviderToken = null
+    }
+  }
+
+  hasRenderEngineProvider(): boolean {
+    return this.renderEngineProviderToken !== null
+  }
+
+  isCompositionOpen(): boolean {
+    return this.compositionOpen
   }
 
   registerDataChannelObserver<TChange = unknown>(
@@ -352,14 +401,21 @@ class Core implements CoreAPIs {
     this.compositionOpen = false
     this.registrationGraph.validateRelations()
 
-    const renderer = this.customRenderer
-
-    if (!renderer) {
-      throw new Error('No renderer configured. Call core.setRenderer() first.')
-    }
+    const renderer = this.renderer
 
     // Phase 1: Initialize renderer
-    const result = await renderer.init(container, renderOptions)
+    let result: RenderResult
+    try {
+      result = await renderer.init(container, renderOptions)
+    } catch (error) {
+      if (
+        renderer !== this.defaultRenderer ||
+        !(error instanceof MissingRenderEngineProviderError)
+      ) {
+        throw error
+      }
+      result = { canvas: null, instance: null }
+    }
 
     if (result.canvas && container) {
       container.appendChild(result.canvas)

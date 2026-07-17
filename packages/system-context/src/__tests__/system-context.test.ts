@@ -255,4 +255,18 @@ describe('SystemContext', () => {
       }
     ])
   })
+
+  it('unregisters only the target managed property and completes its observable', () => {
+    const state = systemContext.registerProperty('temporary-property', 1)
+    let completed = false
+    state.subscribe({ complete: () => (completed = true) })
+
+    expect(systemContext.hasManagedProperty('temporary-property')).toBe(true)
+    expect(systemContext.unregisterProperty('temporary-property')).toBe(true)
+    expect(completed).toBe(true)
+    expect(systemContext.hasManagedProperty('temporary-property')).toBe(false)
+    expect(systemContext.getManagedProperty('temporary-property')).toBeUndefined()
+    expect(systemContext.unregisterProperty('temporary-property')).toBe(false)
+    expect(systemContext.hasManagedProperty('primaryTool')).toBe(true)
+  })
 })
