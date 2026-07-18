@@ -579,10 +579,11 @@ describe('SceneTree transaction options', () => {
   })
 
   it('commits an absent record id whose explicit value is undefined', () => {
+    const updateComputedData = vi.fn()
     const element = {
       get: vi.fn(() => 'element-1'),
       getAllComputedData: vi.fn(() => ({ points: {} })),
-      updateComputedData: vi.fn()
+      updateComputedData
     } as unknown as ElementInstanceTypes
     sceneTree.addToMap(element)
 
@@ -591,13 +592,13 @@ describe('SceneTree transaction options', () => {
     })
 
     expect(element.updateComputedData).toHaveBeenCalledTimes(1)
-    const updatedRecord = element.updateComputedData.mock.calls[0]?.[1] as
+    const updatedRecord = updateComputedData.mock.calls[0]?.[1] as
       | Record<string, unknown>
       | undefined
     expect(updatedRecord).toBeDefined()
-    expect(
-      Object.prototype.hasOwnProperty.call(updatedRecord, 'point-1')
-    ).toBe(true)
+    expect(Object.prototype.hasOwnProperty.call(updatedRecord, 'point-1')).toBe(
+      true
+    )
     expect(updatedRecord?.['point-1']).toBeUndefined()
     expect(sceneTree.changes).toMatchObject([
       {
@@ -635,10 +636,11 @@ describe('SceneTree transaction options', () => {
       enumerable: true,
       value: after
     })
+    const updateComputedData = vi.fn()
     const element = {
       get: vi.fn(() => 'element-1'),
       getAllComputedData: vi.fn(() => ({ points: {} })),
-      updateComputedData: vi.fn()
+      updateComputedData
     } as unknown as ElementInstanceTypes
     sceneTree.addToMap(element)
 
@@ -646,13 +648,13 @@ describe('SceneTree transaction options', () => {
       records: { points: { set } }
     })
 
-    const updatedRecord = element.updateComputedData.mock.calls[0]?.[1] as
+    const updatedRecord = updateComputedData.mock.calls[0]?.[1] as
       | Record<string, unknown>
       | undefined
     expect(Object.getPrototypeOf(updatedRecord)).toBe(Object.prototype)
-    expect(Object.prototype.hasOwnProperty.call(updatedRecord, '__proto__')).toBe(
-      true
-    )
+    expect(
+      Object.prototype.hasOwnProperty.call(updatedRecord, '__proto__')
+    ).toBe(true)
     expect(updatedRecord?.__proto__).toBe(after)
   })
 

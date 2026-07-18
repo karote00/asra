@@ -128,9 +128,8 @@ export class RenderLayer {
         : undefined
     ;(parent ?? this.currentWorkspace).addChild(element)
 
-    const children = (
-      data as RenderElementData & { children?: unknown }
-    ).children
+    const children = (data as RenderElementData & { children?: unknown })
+      .children
     if (!Array.isArray(children)) {
       return
     }

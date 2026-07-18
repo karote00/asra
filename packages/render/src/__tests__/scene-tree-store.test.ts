@@ -710,10 +710,7 @@ describe('RenderSceneTree computed data mirror', () => {
     sceneTreeMock.getElementById.mockReturnValue(element)
     seedStore(store, 'vector-1')
     const after = { id: '__proto__', x: 10, y: 20 }
-    const set = Object.create(null) as Record<
-      string,
-      { after: typeof after }
-    >
+    const set = Object.create(null) as Record<string, { after: typeof after }>
     Object.defineProperty(set, '__proto__', {
       enumerable: true,
       value: { after }
