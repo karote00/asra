@@ -73,6 +73,9 @@
         'packages/utils/src/types/scene-tree.ts',
         'packages/scene-tree/src/sceneTree.ts',
         'packages/scene-tree/src/subscribes.ts',
+        'packages/scene-tree/src/components/element-change-handler.ts',
+        'packages/scene-tree/src/components/element.ts',
+        'packages/scene-tree/src/components/computed.ts',
         'packages/scene-tree/src/__tests__/**',
         'docs/ai/framework/packages/scene-tree.md',
         'docs/ai/framework/plans/render-delta-update-plan.md'

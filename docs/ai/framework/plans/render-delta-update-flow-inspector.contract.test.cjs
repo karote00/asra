@@ -133,6 +133,11 @@ test('Scene Tree is canonical and Factory transports ordered changes only', () =
   assert.match(contractText(commit), /record patches/i)
   assert.match(contractText(commit), /record base.*already.*record/i)
   assert.match(contractText(commit), /record id.*either.*set.*remove/i)
+  ;[
+    'packages/scene-tree/src/components/element-change-handler.ts',
+    'packages/scene-tree/src/components/element.ts',
+    'packages/scene-tree/src/components/computed.ts'
+  ].forEach((file) => assert.ok(commit.implementationBoundary.includes(file)))
   assert.equal(delivery.ownerPackage, '@asyra/factory')
   assert.match(contractText(delivery), /exactly once/i)
   assert.match(contractText(delivery), /journal order/i)
