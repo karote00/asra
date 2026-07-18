@@ -108,6 +108,11 @@ fails; apps customize successful defaults through ordinary Core APIs.
 - Preset owns the fixed catalog, official module installers, private
   prerequisites, profile policy, apply result, and failed-apply rollback.
 - App owns which preset choices to request and any later Core customization.
+- The preset-owned Scene Tree shared-channel observer routes committed add,
+  remove, scalar, ordered batch, and record-patch envelopes to the matching
+  public Render scene-tree store operation without composing or retaining a
+  snapshot. It records the structured Render projection outcome for bounded
+  diagnostics, and its idempotent disposer clears Render projection state once.
 
 Preset must not accept app-provided installers, disposers, dependency objects,
 engine ids, custom providers, extension callbacks, or replace semantics.

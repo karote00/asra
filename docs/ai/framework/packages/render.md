@@ -61,14 +61,38 @@ drawing; Render adds no inferred mapping or fallback geometry.
   use the current precise transform chain; a cached transform from the previous
   render pass is not authoritative after frame-aligned scene updates
 
-2. Interaction bridge
+2. Scene Tree delta projection
+
+- `renderSceneTreeStore` owns one derived complete snapshot per live
+  non-workspace element, keyed only by `elementId`; Scene Tree remains the sole
+  canonical state owner and the shared data channel owns no snapshot state
+- add and load explicitly merge the element's complete saved and computed data
+  into one snapshot; ordinary updates never seed a missing base
+- scalar, ordered batch, and record patch updates validate every supplied
+  `before` image before atomically installing a new snapshot; record patches
+  require an existing record base and never substitute `{}`
+- a missing base or failed precondition emits no partial strategy input and
+  performs one explicit authoritative resync; the structured outcome is
+  `applied`, `resynced`, `removed`, or `failed`, and failed resync removes stale
+  visual output
+- direct `x`, `y`, `rotation`, and `visible` updates retain the direct property
+  route after projection validation; mixed or computed updates coalesce per
+  element and rerun the unchanged strategy signature once from the final complete
+  snapshot
+- Render does not retain a strategy dependency graph or hard-code vector schema
+  keys; profiling permits only the existing `elementId` snapshot dimension
+- remove, reload, observer teardown, and Render teardown clear matching snapshots
+  and pending frame work idempotently; stable snapshot count never exceeds live
+  non-workspace elements
+
+3. Interaction bridge
 
 - pointer events from render are inputs, not authoritative selection/hit policy
 - hit-test policies can be framework/app-defined when bounds-based behavior is needed
 - overlay interaction targets publish `render.pointer.*` events with engine-agnostic payloads
 - pointer capture can block underlying input-system drag when configured
 
-3. Engine isolation
+4. Engine isolation
 
 - one selected engine instance belongs to one `Render` instance
 - a provider is invoked only during initialization; provider callback and
@@ -80,14 +104,14 @@ drawing; Render adds no inferred mapping or fallback geometry.
   requirements fail without concrete-engine introspection or fallback
 - adapter API exposes engine-agnostic methods to other packages/app layers
 
-4. Engine interaction return
+5. Engine interaction return
 
 - concrete engine events are normalized by `@asyra/render-engine`
 - render maps the opaque target handle to a framework interaction target
 - the existing interaction bridge publishes framework events; render and the
   engine do not execute product features
 
-5. Optional pipeline diagnostics
+6. Optional pipeline diagnostics
 
 - render-layer registration and pipeline observers belong to one `Render`
   instance; registrations and evidence never cross instance boundaries

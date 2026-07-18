@@ -29,6 +29,11 @@ Own the document entity graph and computed entity data.
   Only consecutive compatible transient changes are batched. An ordinary or
   incompatible change flushes the pending batch first so journal order remains
   identical to the canonical write timeline.
+- Committed scalar changes carry one exact `key`, `before`, and `after`; a
+  transient batch preserves scalar order and effective options as one envelope.
+  Computed record patches retain exact before evidence for replacement/removal,
+  omit equal writes and missing removals, and collapse value plus record
+  set/remove mutations into one committed patch change.
 - Standalone transaction replay routes `name`, `parentId`, `visible`, `lock`,
   and group `children` through Element-owned data; only computed-only keys route
   through `Computed` and its property bridge. Both routes acknowledge semantic

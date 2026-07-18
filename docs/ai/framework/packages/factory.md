@@ -27,6 +27,7 @@ infrastructure.
 ## Current Runtime Contracts
 
 1. Transaction journal and grouping
+
 - nested starts share one outer transaction boundary
 - undoable changes recorded before the outer end form one undo commit
 - rollbackable recording is independent from ordinary undo eligibility
@@ -59,6 +60,7 @@ infrastructure.
   journal entries
 
 2. Undo/redo replay
+
 - undo replays committed changes in reverse order
 - redo replays committed changes in forward order
 - replay does not create another ordinary undo commit
@@ -101,6 +103,7 @@ infrastructure.
   status, and closes any boundary opened by that replay
 
 3. Commit validation and rollback
+
 - `registerTransactionValidator(name, validator)` registers one synchronous
   validator name and rejects duplicates
 - validators run in registration order before a requested non-empty commit
@@ -115,6 +118,7 @@ infrastructure.
   aggregated with other inverse failures
 
 4. Shared delivery
+
 - local transaction recording is the default
 - changes append to a shared channel only when `options.shared` names a
   registered channel
@@ -124,6 +128,9 @@ infrastructure.
   also default to transaction-end unless immediate delivery is explicit
 - rollback discards pending transaction-end changes
 - rollback compensates each immediate local projection exactly once
+- transaction-end shared delivery walks committed journal entries in mutation
+  order; each registered observer receives one delivery per entry, and pending
+  rolled-back or uncommitted entries are never exposed
 - if a registered transaction-end channel rejects an append before applying it,
   Factory restores the runtime transaction, reverts its provisional history
   transition, leaves no final undo/history or user-action completion effect,
@@ -133,8 +140,12 @@ infrastructure.
 - registered shared observers are isolated from one another; if a raw Yjs
   observer throws after the append is already present, the change remains
   classified as delivered so rollback can compensate it exactly once
+- shared channels transport detached committed payloads only; they do not own
+  canonical Scene Tree state, Render snapshots, or an independent revision
+  authority
 
 5. Status contract
+
 - `subscribeToTransactionStatus(listener)` is instance-local
 - status listeners and the default diagnostic event bridge are isolated; their
   exceptions cannot change a canonical outcome or block later listeners
