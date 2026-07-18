@@ -2,6 +2,7 @@ import type {
   ComputedAttrs,
   ComputedDataPatch,
   ComputedDataPatchChange,
+  ComputedDataRecordValue,
   SceneTreeRawData,
   ElementRawData,
   GroupRawData,
@@ -61,7 +62,8 @@ const getOverlappingPatchKey = (
 
 const cloneRecord = (
   value: Record<string, unknown>
-): Record<string, DataTypes> => ({ ...value }) as Record<string, DataTypes>
+): Record<string, ComputedDataRecordValue> =>
+  ({ ...value }) as Record<string, ComputedDataRecordValue>
 
 const getComputedSnapshot = (
   element: ElementInstanceTypes

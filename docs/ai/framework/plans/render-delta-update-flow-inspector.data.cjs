@@ -49,6 +49,7 @@
         'Scalar changes carry one key, before, after, and raw or computed owner provenance; transient scalar changes may be grouped into one option-preserving ordered batch that preserves each entry owner.',
         'Record patches describe top-level value changes and record set/remove changes with exact before evidence; every top-level value patch base must already exist in the computed snapshot and every top-level record base must already be a record.',
         'Record replacement and removal preserve own-property existence: an existing record value of undefined still carries a before property, while only an absent record id is encoded as an addition.',
+        'The canonical shared patch type permits explicit undefined in a record-child before or after envelope while top-level scalar values retain the DataTypes contract.',
         'A top-level key belongs to either the value-change map or the record-patch map; overlapping keys are rejected before canonical mutation.',
         'Within one top-level record, a record id belongs to either set or remove; overlap is rejected before canonical mutation.',
         'Equal writes are omitted and a record patch is collapsed into one committed change.',
@@ -73,6 +74,7 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/utils/src/types/scene-tree.ts',
+        'docs/ai/framework/packages/utils.md',
         'packages/reactive-events/src/scene-tree/events.ts',
         'packages/reactive-events/src/scene-tree/publish.ts',
         'packages/reactive-events/src/__tests__/**',

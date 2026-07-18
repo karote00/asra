@@ -141,11 +141,16 @@ test('Scene Tree is canonical and Factory transports ordered changes only', () =
   )
   assert.match(
     contractText(commit),
+    /shared patch type permits explicit undefined.*record-child before or after.*top-level scalar.*DataTypes/i
+  )
+  assert.match(
+    contractText(commit),
     /top-level value patch base.*already exist.*computed snapshot/i
   )
   assert.match(contractText(commit), /record base.*already.*record/i)
   assert.match(contractText(commit), /record id.*either.*set.*remove/i)
   ;[
+    'docs/ai/framework/packages/utils.md',
     'packages/reactive-events/src/scene-tree/events.ts',
     'packages/reactive-events/src/scene-tree/publish.ts',
     'packages/reactive-events/src/__tests__/**',

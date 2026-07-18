@@ -22,6 +22,10 @@ Provide shared types, ids, registry primitives, and low-level helpers.
 - Utils should stay pure and reusable across framework and apps.
 - Shared types should be canonical (avoid duplicated shape definitions across packages).
 - When a type is part of framework contract, define it here once.
+- `ComputedDataPatchChange` distinguishes record addition from replacement by
+  own `before` property existence. Its record-child value envelope permits
+  explicit `undefined` because nested records may own that value; top-level
+  scalar/value patch fields retain the ordinary `DataTypes` contract.
 - `MapRegistry.register(key, value)` is the base registration primitive for map-like registries:
   - duplicate keys are rejected by default (throws)
   - optional duplicate hooks/messages are configured at call sites

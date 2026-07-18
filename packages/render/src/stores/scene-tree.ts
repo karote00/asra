@@ -1,5 +1,6 @@
 import type {
   ComputedDataPatchChange,
+  ComputedDataRecordValue,
   DataTypes,
   ElementRawData,
   SceneTreeDataOwner,
@@ -408,7 +409,9 @@ class ComputedDataMirror {
       if (!isRecord(currentRecord)) {
         return false
       }
-      let nextRecord = { ...currentRecord } as Record<string, DataTypes>
+      let nextRecord = {
+        ...currentRecord
+      } as Record<string, ComputedDataRecordValue>
 
       for (const [recordId, change] of Object.entries(recordPatch.set ?? {})) {
         const recordExists = hasOwn(nextRecord, recordId)

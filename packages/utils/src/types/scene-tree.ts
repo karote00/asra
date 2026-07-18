@@ -41,8 +41,10 @@ export interface UpdateElementBatchChange {
   options?: MutationOptions
 }
 
+export type ComputedDataRecordValue = DataTypes | undefined
+
 export interface ComputedDataRecordPatch {
-  set?: Record<string, DataTypes>
+  set?: Record<string, ComputedDataRecordValue>
   remove?: string[]
 }
 
@@ -65,14 +67,14 @@ export interface ComputedDataPatchChange {
       set?: Record<
         string,
         {
-          before?: DataTypes
-          after: DataTypes
+          before?: ComputedDataRecordValue
+          after: ComputedDataRecordValue
         }
       >
       remove?: Record<
         string,
         {
-          before: DataTypes
+          before: ComputedDataRecordValue
         }
       >
     }

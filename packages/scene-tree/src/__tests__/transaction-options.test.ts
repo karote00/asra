@@ -5,7 +5,8 @@ import {
   SCENE_TREE_ACTIONS,
   SharedDataChannelNames,
   type SceneTreeChange,
-  type ElementInstanceTypes
+  type ElementInstanceTypes,
+  type UpdateElementPatchChange
 } from '@asyra/utils'
 import { SceneTree } from '../sceneTree'
 
@@ -569,7 +570,8 @@ describe('SceneTree transaction options', () => {
     ) {
       throw new Error('Expected one computed data patch change')
     }
-    const replacement = change.patch.records?.points.set?.['point-1']
+    const replacement = (change as UpdateElementPatchChange).patch.records
+      ?.points.set?.['point-1']
     expect(replacement).toEqual({ before: undefined, after })
     expect(Object.prototype.hasOwnProperty.call(replacement, 'before')).toBe(
       true
