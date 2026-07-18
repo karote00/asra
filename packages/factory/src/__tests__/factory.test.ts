@@ -227,6 +227,87 @@ describe('Factory', () => {
     dispose()
   })
 
+  it('delivers each committed journal snapshot once and in order to every observer', () => {
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      factory.getYjsDataChannel(SharedDataChannelNames.SCENE_TREE)
+    )
+
+    interface OrderedChange {
+      id: string
+      before: number
+      after: number
+      evidence: { sequence: number }
+    }
+    const firstObserverChanges: OrderedChange[] = []
+    const secondObserverChanges: OrderedChange[] = []
+    const disposeFirst = factory.observeSharedDataChannel<OrderedChange>(
+      SharedDataChannelNames.SCENE_TREE,
+      (change) => firstObserverChanges.push(change)
+    )
+    const disposeSecond = factory.observeSharedDataChannel<OrderedChange>(
+      SharedDataChannelNames.SCENE_TREE,
+      (change) => secondObserverChanges.push(change)
+    )
+
+    factory.startTransaction()
+    ;[1, 2, 3].forEach((sequence) => {
+      const payload = {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+        id: 'ordered-element',
+        key: 'x',
+        before: sequence - 1,
+        after: sequence,
+        evidence: { sequence }
+      }
+      factory.updateTransaction({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        payload,
+        options: { shared: SharedDataChannelNames.SCENE_TREE }
+      })
+      payload.after = 100 + sequence
+      payload.evidence.sequence = 100 + sequence
+    })
+
+    expect(firstObserverChanges).toEqual([])
+    expect(secondObserverChanges).toEqual([])
+
+    factory.endTransaction()
+
+    const expectedChanges = [1, 2, 3].map((sequence) =>
+      expect.objectContaining({
+        id: 'ordered-element',
+        before: sequence - 1,
+        after: sequence,
+        evidence: { sequence }
+      })
+    )
+    expect(firstObserverChanges).toEqual(expectedChanges)
+    expect(secondObserverChanges).toEqual(expectedChanges)
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+        id: 'rolled-back-element',
+        key: 'x',
+        before: 0,
+        after: 1
+      },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+    factory.endTransaction({ outcome: 'rollback' })
+
+    expect(firstObserverChanges).toHaveLength(3)
+    expect(secondObserverChanges).toHaveLength(3)
+
+    disposeFirst()
+    disposeSecond()
+  })
+
   it('commits undo before notifying shared channel observers', () => {
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
