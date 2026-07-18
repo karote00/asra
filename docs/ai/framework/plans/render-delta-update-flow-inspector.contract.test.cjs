@@ -173,7 +173,15 @@ test('Preset routes complete envelopes without creating another snapshot owner',
     /does not assemble or retain|without assembling state/i
   )
   assert.match(contract, /applied, resynced, removed, or failed/i)
+  assert.match(
+    contract,
+    /Initial registration.*re-registration.*observer.*authoritative Render rebuild/i
+  )
   assert.match(contract, /teardown invokes Render projection cleanup/i)
+  assert.match(
+    route('registration-or-reregistration-seed').predicate,
+    /initial registration or re-registration/i
+  )
 })
 
 test('initial snapshots are explicit complete Scene Tree projections', () => {
@@ -323,8 +331,16 @@ test('cleanup bounds snapshots and pending work across every lifecycle path', ()
   )
   assert.match(contract, /never exceeds live non-workspace/i)
   assert.match(contract, /cannot retain orphaned snapshots/i)
+  assert.match(contract, /destroys the detached Render node/i)
+  assert.match(contract, /prior-engine handles/i)
+  assert.match(contract, /workspace label and transform to neutral values/i)
   assert.ok(
     cleanup.implementationBoundary.includes('packages/render/src/render.ts')
+  )
+  assert.ok(
+    cleanup.implementationBoundary.includes(
+      'packages/render/src/layers/scene/render-layer.ts'
+    )
   )
   assert.match(cleanup.inputs.join(' '), /Render teardown/i)
   assert.doesNotMatch(
@@ -382,6 +398,10 @@ test('acceptance covers equivalence, failure, lifecycle, compatibility, and budg
   assert.match(
     acceptance('lifecycle-parity').assertions.join(' '),
     /same-name raw.*computed.*owner/i
+  )
+  assert.match(
+    acceptance('lifecycle-parity').assertions.join(' '),
+    /re-registration.*current Scene Tree.*remove destroys.*redo creates/i
   )
   assert.match(
     acceptance('failure-and-resync').assertions.join(' '),

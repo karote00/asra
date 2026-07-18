@@ -119,6 +119,14 @@ returns `failed`.
 The data-channel observer only routes the committed payload and receives the
 projection outcome. It does not assemble or retain the snapshot.
 
+Initial registration and every later re-registration of the Preset Render
+observer perform the same explicit full rebuild immediately after the observer is
+installed. Shared-channel delivery is not replayable, so commits that occurred
+while the observer was absent are recovered from the current authoritative Scene
+Tree snapshot, never from retained Render output or a data-channel backlog. A
+registration that cannot complete this rebuild fails at the Preset registration
+owner and uses its existing cleanup rollback.
+
 ### 3. Ordering, duplicates, and missing delivery
 
 Factory owns ordered, exactly-once delivery of transaction journal entries to each
@@ -171,15 +179,24 @@ shape and require no migration.
 
 - Load clears all snapshots and pending work before rebuilding each live
   non-workspace element from Scene Tree.
+- Initial observer registration and re-registration rebuild from the current
+  Scene Tree before registration returns; they do not wait for a later delta or
+  file-load event.
 - Undo, redo, and persistence replay commit through the same Scene Tree change and
   shared-channel route as an ordinary action; batch expansion preserves every
   entry owner and Scene Tree replay consumes that owner without inference. They do
   not use a second Render API.
-- Remove deletes the snapshot and pending work before visual removal.
+- Remove deletes the snapshot and pending work before visual removal, then
+  destroys the detached Render node and releases its abstract engine handle and
+  resources. Undo/redo re-add creates a fresh Render node from the complete
+  authoritative snapshot; Render node identity is not a product contract.
+- Load with no current workspace clears the retained workspace snapshot and
+  resets the Render workspace identity and transform to their neutral state.
 - Preset observer teardown and Render teardown clear snapshots and pending work.
 - At every stable boundary, snapshot count is at most the number of live
   non-workspace elements; repeated load/add/remove/resync cannot grow an orphaned
-  entry set.
+  entry set, removed-node restore map, stale strategy snapshot, or prior-engine
+  handle set.
 
 ### 7. Equivalence and stale-output oracle
 
@@ -196,6 +213,11 @@ The formal app oracle exercises one real action, Factory inverse replay (undo),
 Factory forward replay (redo), and `core.load()` rebuild. At each stable boundary,
 the last complete strategy snapshot deep-equals the fresh authoritative
 composition.
+
+Lifecycle tests also cover observer dispose/re-registration, remove/re-add, and
+Render dispose/re-init. Re-registration must immediately equal the current Scene
+Tree, removed nodes must release their engine objects, and a later engine instance
+must never receive a handle created by an earlier engine.
 
 ## Profiling and Cache Decision
 

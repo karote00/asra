@@ -20,13 +20,13 @@
     decision:
       'Retain the existing elementId-only derived projection as the semantic delta target; add no cache dimension and no vector geometry cache.',
     invalidation:
-      'Remove, load reset, failed projection, failed resync, observer teardown, and Render teardown clear the matching entry and pending work.',
+      'Remove, load reset, failed projection, failed resync, observer teardown, and Render teardown clear the matching entry and pending work; removed Render nodes are destroyed rather than retained for restore.',
     equivalenceOracle:
       'At the same committed boundary, strategy data deep-equals {...element.save(), ...element.getAllComputedData()} and produces the same engine-neutral command trace.',
     cleanup:
-      'Remove clears one entry; load and teardown clear the map; resync replaces one entry rather than adding a second entry.',
+      'Remove clears one entry and destroys its Render node; load and teardown clear the map; resync replaces one entry rather than adding a second entry.',
     memoryBound:
-      'At stable boundaries there is at most one entry per live non-workspace Scene Tree element.'
+      'At stable boundaries there is at most one entry per live non-workspace Scene Tree element and one live Render node per such element, with no retained removed-node map.'
   }
 
   const steps = [
@@ -145,12 +145,16 @@
       title: 'Route the Render projection request',
       ownerPackage: '@asyra/preset',
       purpose:
-        'Map each committed Scene Tree action to the matching public Render scene-tree store operation without assembling state.',
-      inputs: ['artifact:ordered-shared-delta'],
+        'Map each committed Scene Tree action and observer registration lifecycle to the matching public Render scene-tree store operation without assembling state.',
+      inputs: [
+        'artifact:ordered-shared-delta',
+        'Render observer registration lifecycle'
+      ],
       outputs: ['artifact:render-projection-request'],
       conditions: [
         'Add routes by element id, remove routes the removed id and parent, and scalar, batch, and patch changes retain their complete before/after envelope plus raw or computed owner provenance.',
         'The observer receives applied, resynced, removed, or failed projection evidence and never treats swallowed exceptions as correctness control flow.',
+        'Initial registration and every re-registration install the observer before invoking the explicit authoritative Render rebuild route.',
         'File-load completion invokes the explicit Render rebuild route.',
         'Observer teardown invokes Render projection cleanup.'
       ],
@@ -498,7 +502,7 @@
       title: 'Clear derived projection state',
       ownerPackage: '@asyra/render',
       purpose:
-        'Remove entries and pending work deterministically on element removal, load reset, observer teardown, and Render teardown.',
+        'Remove entries, pending work, removed Render nodes, and stale workspace identity deterministically on element removal, load reset, observer teardown, and Render teardown.',
       inputs: [
         'remove projection request',
         'load reset request',
@@ -507,24 +511,29 @@
       ],
       outputs: ['artifact:render-projection-cleanup'],
       conditions: [
-        'Remove deletes the matching entry and pending id before visual removal.',
+        'Remove deletes the matching entry and pending id before visual removal, then destroys the detached Render node and releases its abstract engine handle and resources.',
         'Load clears every entry and pending update before explicit rebuild.',
+        'A load with no current workspace clears retained workspace metadata and resets the Render workspace label and transform to neutral values.',
         'Observer and Render teardown clear entries, pending flags, and scheduled work idempotently.',
         'Stable entry count never exceeds live non-workspace Scene Tree element count.',
-        'Repeated add, remove, load, resync, and teardown cannot retain orphaned snapshots.'
+        'Repeated add, remove, load, resync, and teardown cannot retain orphaned snapshots, removed-node restore entries, or prior-engine handles.',
+        'Undo and redo re-add from a complete authoritative snapshot and do not require Render node identity preservation.'
       ],
       bypasses: [
         'Cleanup is idempotent when no matching entry or pending update exists.'
       ],
       allowedContributors: [
         'Render scene-tree store lifecycle API',
+        'Render scene layer node destruction',
         'Preset data-channel observer cleanup',
         'Render lifecycle cleanup'
       ],
       forbiddenContributors: [
         'orphaned element snapshots',
         'orphaned pending updates',
-        'strategy or engine-owned cache cleanup',
+        'removed-node restore caches',
+        'prior-engine object handles',
+        'new RenderEngine or Pixi cleanup semantics',
         'app-specific teardown branches'
       ],
       cacheDimensions: ['elementId'],
@@ -532,6 +541,8 @@
       implementationBoundary: [
         'packages/render/src/render.ts',
         'packages/render/src/stores/scene-tree.ts',
+        'packages/render/src/layers/scene/render-layer.ts',
+        'packages/render/src/__tests__/render.test.ts',
         'packages/render/src/__tests__/render-engine-adapter.test.ts',
         'packages/render/src/__tests__/scene-tree-store.test.ts',
         'packages/preset/src/subscriptions/data-channel.ts',
@@ -565,6 +576,15 @@
       kind: 'normal',
       predicate: 'the Render Scene Tree observer is registered',
       producedArtifacts: ['artifact:ordered-shared-delta']
+    },
+    {
+      id: 'registration-or-reregistration-seed',
+      from: 'route-render-delta',
+      to: 'seed-render-snapshot',
+      kind: 'conditional',
+      predicate:
+        'the Render observer has just been installed for an initial registration or re-registration',
+      producedArtifacts: ['artifact:render-projection-request']
     },
     {
       id: 'add-or-load-seed',
@@ -810,7 +830,7 @@
     {
       id: 'cache-dimension-stays-bounded',
       statement:
-        'The existing derived projection is keyed only by elementId, is bounded by live non-workspace elements, and adds no vector geometry cache.',
+        'The existing derived projection is keyed only by elementId, live Render nodes are bounded by live non-workspace elements with no removed-node restore map, and no vector geometry cache is added.',
       stepIds: [
         'seed-render-snapshot',
         'apply-render-delta',
@@ -871,9 +891,10 @@
       stepIds: allStepIds,
       specRefs: ['#load-undo-redo-replay-remove-and-cleanup'],
       assertions: [
-        'all state transitions use the canonical committed route or explicit load rebuild and leave no orphaned snapshot or pending update',
+        'all state transitions use the canonical committed route or explicit registration/load rebuild and leave no orphaned snapshot, pending update, removed Render node, or prior-engine handle',
         'the formal app oracle deep-compares fresh and strategy snapshots after action, Factory undo replay, Factory redo replay, and core.load rebuild',
-        'same-name raw and computed fields preserve their carried owner through rollback, undo, redo, and replay'
+        'same-name raw and computed fields preserve their carried owner through rollback, undo, redo, and replay',
+        'observer re-registration immediately rebuilds from current Scene Tree state, remove destroys the detached node, and redo creates a fresh equivalent node'
       ]
     },
     {

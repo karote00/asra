@@ -114,7 +114,10 @@ fails; apps customize successful defaults through ordinary Core APIs.
   snapshot. Scalar and batch routes preserve each canonical `raw` or `computed`
   owner together with its complete before/after evidence; Preset does not infer
   ownership. It records the structured Render projection outcome for bounded
-  diagnostics, and its idempotent disposer clears Render projection state once.
+  diagnostics. Initial registration and every re-registration install the
+  observer first and then invoke the public Render full-rebuild route so changes
+  committed during an observer gap cannot leave stale output. Its idempotent
+  disposer clears Render projection state once.
 
 Preset must not accept app-provided installers, disposers, dependency objects,
 engine ids, custom providers, extension callbacks, or replace semantics.
