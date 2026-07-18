@@ -1918,12 +1918,28 @@ describe('RenderSceneTree computed data mirror', () => {
       { points: {} }
     )
     sceneTreeMock.getElementById.mockReturnValue(element)
-    seedStore(store, 'vector-1')
+    sceneTreeMock.currentWorkspace = {
+      save: () => ({
+        id: 'workspace-old',
+        type: EntityTypes.WORKSPACE,
+        children: ['vector-1']
+      })
+    }
+    sceneTreeMock.getAllElements.mockReturnValue(
+      new Map([['vector-1', element]])
+    )
+
+    store.reload()
+
+    expect(store.getProjectionSnapshotCount()).toBe(1)
     renderMock.clearElements.mockClear()
     sceneTreeMock.currentWorkspace = null
 
     store.reload()
 
+    expect(
+      (store as unknown as { _workspace?: unknown })._workspace ?? null
+    ).toBeNull()
     expect(store.getProjectionSnapshotCount()).toBe(0)
     expect(store.hasPendingChanges()).toBe(false)
     expect(renderMock.clearElements).toHaveBeenCalledTimes(1)

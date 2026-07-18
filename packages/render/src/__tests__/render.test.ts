@@ -205,6 +205,83 @@ describe('Render', () => {
     expect(render.viewport.removeElement).toHaveBeenCalledWith('el1', 'parent1')
   })
 
+  it('destroys removed nodes and recreates them without prior-engine handles', async () => {
+    const firstEngine = new RecordingRenderEngine({ name: 'remove-first' })
+    const lifecycleRender = new Render({ engine: firstEngine })
+    await lifecycleRender.init(100, 100, 0, {})
+    lifecycleRender.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const initialData = {
+      id: 'remove-readd-element',
+      type: 'rectangle',
+      name: 'Initial',
+      visible: true,
+      lock: false,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const initialNode = lifecycleRender.addElement(initialData)
+    const initialHandle = initialNode?.getEngineHandle()
+
+    expect(initialHandle).not.toBeNull()
+    lifecycleRender.removeElement(initialData.id)
+
+    expect(initialNode?.getEngineHandle()).toBeNull()
+    expect(
+      firstEngine
+        .getOperations()
+        .filter((operation) => operation.type === 'destroy-object')
+    ).toHaveLength(1)
+
+    lifecycleRender.dispose()
+    const secondEngine = new RecordingRenderEngine({ name: 'remove-second' })
+    lifecycleRender.setEngine(secondEngine)
+    await lifecycleRender.init(100, 100, 0, {})
+    lifecycleRender.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const recreatedNode = lifecycleRender.addElement({
+      ...initialData,
+      name: 'Recreated',
+      width: 40
+    })
+
+    expect(recreatedNode).not.toBe(initialNode)
+    expect(recreatedNode?.getEngineHandle()).not.toBe(initialHandle)
+    expect(
+      secondEngine.getOperations().some(
+        (operation) =>
+          operation.type === 'create-object' &&
+          operation.command.requestId === initialData.id
+      )
+    ).toBe(true)
+
+    lifecycleRender.dispose()
+  })
+
+  it('clears workspace identity and transform with scene elements', async () => {
+    const workspaceEngine = new RecordingRenderEngine({
+      name: 'workspace-reset'
+    })
+    const workspaceRender = new Render({ engine: workspaceEngine })
+    await workspaceRender.init(100, 100, 0, {})
+    workspaceRender.switchWorkspace({ label: 'workspace-old', x: 24, y: 36 })
+    const resetStartIndex = workspaceEngine.getOperations().length
+
+    workspaceRender.clearElements()
+
+    const resetProperties = workspaceEngine
+      .getOperations()
+      .slice(resetStartIndex)
+      .flatMap((operation) =>
+        operation.type === 'update-object'
+          ? [operation.command.properties]
+          : []
+      )
+    expect(resetProperties).toContainEqual({ label: '' })
+    expect(resetProperties).toContainEqual({ x: 0 })
+    expect(resetProperties).toContainEqual({ y: 0 })
+
+    workspaceRender.dispose()
+  })
+
   it('should delegate updateElement to viewport', () => {
     const before = 0
     const after = 10

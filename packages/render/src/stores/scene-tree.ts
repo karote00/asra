@@ -439,7 +439,6 @@ class ComputedDataMirror {
 }
 
 class RenderSceneTree {
-  private _workspace: WorkspaceRawData | null
   private computedDataMirror = new ComputedDataMirror()
   private pendingElementUpdates = new Set<string>()
   private pendingFrameFlush = false
@@ -448,7 +447,6 @@ class RenderSceneTree {
   private flushingPendingChanges = false
 
   constructor() {
-    this._workspace = null
     this.frameAlignedFlush = installPendingRenderLayer(this)
   }
 
@@ -459,7 +457,6 @@ class RenderSceneTree {
 
     const currentWorkspaceData =
       sceneTree.currentWorkspace.save() as WorkspaceRawData
-    this._workspace = currentWorkspaceData
 
     // Create root render node
     render.switchWorkspace({

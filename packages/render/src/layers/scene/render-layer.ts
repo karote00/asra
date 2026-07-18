@@ -35,7 +35,6 @@ const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
 export class RenderLayer {
   private currentWorkspace: RenderContainer
   private _elements: Map<string, SceneElement> = new Map()
-  private _deleteMap: Map<string, SceneElement> = new Map()
 
   constructor() {
     this.currentWorkspace = new RenderContainer()
@@ -47,7 +46,6 @@ export class RenderLayer {
 
   addToMap(elementId: string, instance: SceneElement) {
     this._elements.set(elementId, instance)
-    this.removeFromDeleteMap(elementId)
     instance.eventMode = 'static'
     instance.cursor = 'pointer'
   }
@@ -57,15 +55,7 @@ export class RenderLayer {
     instance.eventMode = 'none'
     instance.removeAllListeners()
     this._elements.delete(elementId)
-    this.addToDeleteMap(elementId, instance)
-  }
-
-  addToDeleteMap(elementId: string, instance: SceneElement) {
-    this._deleteMap.set(elementId, instance)
-  }
-
-  removeFromDeleteMap(elementId: string) {
-    this._deleteMap.delete(elementId)
+    instance.destroy({ children: true })
   }
 
   getAllElements() {
@@ -81,23 +71,15 @@ export class RenderLayer {
       }
       element.destroy({ children: true })
     })
-    this._deleteMap.forEach((element) => {
-      if (element.parent) {
-        element.parent.removeChild(element)
-      }
-      element.destroy({ children: true })
-    })
     this._elements.clear()
-    this._deleteMap.clear()
     this.currentWorkspace.removeChildren()
+    this.currentWorkspace.label = ''
+    this.currentWorkspace.x = 0
+    this.currentWorkspace.y = 0
   }
 
   getElementById(elementId: string): SceneElement | undefined {
     return this._elements.get(elementId)
-  }
-
-  getRestoreElement(elementId: string): SceneElement | undefined {
-    return this._deleteMap.get(elementId)
   }
 
   switchWorkspace(workspaceData: RenderContainerData) {
@@ -164,20 +146,6 @@ export class RenderLayer {
         }
 
         return existingElement
-      }
-
-      const element = this.getRestoreElement(data.id)
-      if (element) {
-        ;(element as SceneElement & { __asyraType?: string }).__asyraType =
-          data.type
-
-        if (element instanceof RenderGraphics) {
-          this.renderGraphic(element, data)
-        }
-
-        this.addToMap(data.id, element)
-        this.currentWorkspace.addChild(element)
-        return element
       }
 
       const graphic = new RenderGraphics()
