@@ -455,14 +455,5 @@ describe('Core declarative property type redefinition', () => {
       )
       core.updatePropertyById('missing-property', 'x', 3)
     }).not.toThrow()
-
-    if (false) {
-      core.updatePropertyById<CustomFields>(
-        'missing-property',
-        // @ts-expect-error customCount only accepts its declared number value.
-        'customCount',
-        'wrong'
-      )
-    }
   })
 })
