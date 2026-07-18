@@ -119,28 +119,49 @@ class ComputedDataMirror {
       return null
     }
 
-    const { rawDataSnapshot, computedDataSnapshot } = measureBrowserDragPhase(
-      'render-scene-tree:mirror-seed',
-      () => ({
-        rawDataSnapshot: element.save() as unknown as Record<string, unknown>,
-        computedDataSnapshot: element.getAllComputedData() as Record<
-          string,
-          DataTypes
-        >
-      })
-    )
-    const entry = {
-      rawDataSnapshot: { ...rawDataSnapshot },
-      computedDataSnapshot: { ...computedDataSnapshot },
-      renderDataSnapshot: {
+    try {
+      const { rawData, computedData } = measureBrowserDragPhase(
+        'render-scene-tree:mirror-seed',
+        () => ({
+          rawData: element.save() as unknown,
+          computedData: element.getAllComputedData() as unknown
+        })
+      )
+      if (!isRecord(rawData) || !isRecord(computedData)) {
+        throw new Error('Render snapshot parts must be records')
+      }
+
+      const rawDataSnapshot = { ...rawData }
+      const computedDataSnapshot = {
+        ...computedData
+      } as Record<string, DataTypes>
+      const renderDataSnapshot = {
         ...rawDataSnapshot,
         ...computedDataSnapshot
-      } as unknown as RenderElementData
+      }
+      if (
+        renderDataSnapshot.id !== elementId ||
+        typeof renderDataSnapshot.type !== 'string' ||
+        renderDataSnapshot.type.length === 0 ||
+        renderDataSnapshot.type === EntityTypes.WORKSPACE
+      ) {
+        throw new Error('Render snapshot identity is incomplete')
+      }
+
+      const entry = {
+        rawDataSnapshot,
+        computedDataSnapshot,
+        renderDataSnapshot: renderDataSnapshot as unknown as RenderElementData
+      }
+      this.entries.set(elementId, entry)
+      emitStrokePipelineCounter('computed-mirror-seed')
+      emitStrokePipelineCounter(`computed-mirror-seed-${reason}`)
+      return entry
+    } catch (error) {
+      this.delete(elementId)
+      emitStrokePipelineCounter('computed-mirror-seed-failed')
+      throw error
     }
-    this.entries.set(elementId, entry)
-    emitStrokePipelineCounter('computed-mirror-seed')
-    emitStrokePipelineCounter(`computed-mirror-seed-${reason}`)
-    return entry
   }
 
   get(elementId: string): ComputedDataMirrorEntry | null {
@@ -347,12 +368,18 @@ class RenderSceneTree {
       if (element.get('type') === EntityTypes.WORKSPACE) {
         return
       }
-      const renderElementData = this.computedDataMirror.seed(
-        elementId,
-        'reload'
-      )?.renderDataSnapshot
-      if (renderElementData) {
-        this.addElement(renderElementData)
+      try {
+        const renderElementData = this.computedDataMirror.seed(
+          elementId,
+          'reload'
+        )?.renderDataSnapshot
+        if (renderElementData) {
+          this.addElement(renderElementData)
+        }
+      } catch {
+        this.pendingElementUpdates.delete(elementId)
+        this.computedDataMirror.delete(elementId)
+        emitStrokePipelineCounter('computed-mirror-reload-seed-failed')
       }
     })
   }
@@ -398,12 +425,20 @@ class RenderSceneTree {
   }
 
   addElementById(id: string) {
-    const entry = this.computedDataMirror.seed(id, 'add')
-    if (!entry) {
-      return this.projectionOutcome(id, 'removed')
+    try {
+      const entry = this.computedDataMirror.seed(id, 'add')
+      if (!entry) {
+        return this.projectionOutcome(id, 'removed')
+      }
+      this.addElement(entry.renderDataSnapshot)
+      return this.projectionOutcome(id, 'applied')
+    } catch {
+      this.pendingElementUpdates.delete(id)
+      this.computedDataMirror.delete(id)
+      emitStrokePipelineCounter('computed-mirror-add-seed-failed')
+      render.removeElement(id)
+      return this.projectionOutcome(id, 'failed')
     }
-    this.addElement(entry.renderDataSnapshot)
-    return this.projectionOutcome(id, 'applied')
   }
 
   addElement(data: RenderElementData) {

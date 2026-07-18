@@ -67,7 +67,8 @@ drawing; Render adds no inferred mapping or fallback geometry.
   non-workspace element, keyed only by `elementId`; Scene Tree remains the sole
   canonical state owner and the shared data channel owns no snapshot state
 - add and load explicitly merge the element's complete saved and computed data
-  into one snapshot; ordinary updates never seed a missing base
+  into one snapshot; the requested id, non-empty type, and non-workspace checks
+  must pass before install, and ordinary updates never seed a missing base
 - scalar, ordered batch, and record patch updates validate every supplied
   `before` image before atomically installing a new snapshot; record patches
   require an existing record base and never substitute `{}`

@@ -130,6 +130,41 @@ describe('RenderSceneTree computed data mirror', () => {
     )
   })
 
+  it('should run: discard a reload snapshot when visual add fails', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const first = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: {} }
+    )
+    const second = createElement(
+      'vector-2',
+      { type: 'vector', visible: true },
+      { points: {} }
+    )
+    sceneTreeMock.currentWorkspace = {
+      save: () => ({ id: 'workspace-1', type: EntityTypes.WORKSPACE })
+    }
+    sceneTreeMock.getAllElements.mockReturnValue(
+      new Map([
+        ['vector-1', first],
+        ['vector-2', second]
+      ])
+    )
+    sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
+      elementId === 'vector-1' ? first : second
+    )
+    renderMock.addElement.mockImplementationOnce(() => {
+      throw new Error('visual add failed')
+    })
+
+    expect(() => store.reload()).not.toThrow()
+
+    expect(renderMock.addElement).toHaveBeenCalledTimes(2)
+    expect(store.getProjectionSnapshotCount()).toBe(1)
+  })
+
   it('should run: exclude workspace elements from reload snapshots', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
@@ -162,6 +197,64 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(workspace.getAllComputedData).not.toHaveBeenCalled()
     expect(vector.save).toHaveBeenCalledTimes(1)
     expect(vector.getAllComputedData).toHaveBeenCalledTimes(1)
+  })
+
+  it('should run: fail closed for invalid explicit add snapshots', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const cases = [
+      {
+        elementId: 'vector-1',
+        element: {
+          get: vi.fn((key: string) =>
+            key === 'id' ? 'vector-1' : key === 'type' ? 'vector' : undefined
+          ),
+          save: vi.fn(() => ({ id: 'other-vector', type: 'vector' })),
+          getAllComputedData: vi.fn(() => ({ points: {} }))
+        }
+      },
+      {
+        elementId: 'workspace-1',
+        element: createElement(
+          'workspace-1',
+          { type: EntityTypes.WORKSPACE },
+          {}
+        )
+      }
+    ]
+
+    for (const { elementId, element } of cases) {
+      renderMock.addElement.mockClear()
+      renderMock.removeElement.mockClear()
+      sceneTreeMock.getElementById.mockReturnValue(element)
+      const store = new RenderSceneTree()
+
+      expect(store.addElementById(elementId)).toEqual({
+        status: 'failed',
+        elementId
+      })
+      expect(store.getProjectionSnapshotCount()).toBe(0)
+      expect(renderMock.addElement).not.toHaveBeenCalled()
+      expect(renderMock.removeElement).toHaveBeenCalledWith(elementId)
+    }
+  })
+
+  it('should run: return failed when explicit add composition throws', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    sceneTreeMock.getElementById.mockReturnValue({
+      save: vi.fn(() => {
+        throw new Error('composition failed')
+      }),
+      getAllComputedData: vi.fn(() => ({ points: {} }))
+    })
+
+    expect(store.addElementById('vector-1')).toEqual({
+      status: 'failed',
+      elementId: 'vector-1'
+    })
+    expect(store.getProjectionSnapshotCount()).toBe(0)
+    expect(renderMock.addElement).not.toHaveBeenCalled()
+    expect(renderMock.removeElement).toHaveBeenCalledWith('vector-1')
   })
 
   it('should run: explicitly resync a missing update base from Scene Tree', async () => {

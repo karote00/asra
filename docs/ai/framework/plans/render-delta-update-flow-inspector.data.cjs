@@ -192,7 +192,8 @@
         'Add and load are the only ordinary seed reasons; first use and update may not seed implicitly.',
         'Workspace elements are not cached or rendered.',
         'Load clears every entry and pending update before rebuilding live elements.',
-        'The installed snapshot passes id/type completeness validation.'
+        'The installed snapshot passes requested-id and non-empty-type completeness validation.',
+        'An existing add target that throws or fails completeness validation clears stale output and returns failed.'
       ],
       bypasses: [
         'A missing add element follows the removed outcome and emits no visual.',
