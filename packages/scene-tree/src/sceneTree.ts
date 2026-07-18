@@ -670,8 +670,9 @@ class SceneTree {
 
         nextRecord[recordId] = after
         nextRecordPatch.set ??= {}
-        nextRecordPatch.set[recordId] =
-          recordExists ? { before, after } : { after }
+        nextRecordPatch.set[recordId] = recordExists
+          ? { before, after }
+          : { after }
       })
       ;(recordPatch.remove ?? []).forEach((recordId) => {
         if (!(recordId in currentRecord)) {

@@ -172,12 +172,9 @@ describe('Preset Selection Subscriptions', () => {
 
     try {
       expect(() =>
-        registerDefaultDataChannelObservers(
-          core,
-          createDeps(),
-          undefined,
-          { renderScene: true }
-        )
+        registerDefaultDataChannelObservers(core, createDeps(), undefined, {
+          renderScene: true
+        })
       ).toThrow('authoritative rebuild failed')
       expect(observers.has('preset.render.sceneTree')).toBe(false)
       expect(clearProjection).toHaveBeenCalledTimes(1)

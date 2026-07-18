@@ -136,8 +136,7 @@ const isDataEqual = (
   }
   return leftKeys.every(
     (key) =>
-      hasOwn(right, key) &&
-      isDataEqual(left[key], right[key], comparedPairs)
+      hasOwn(right, key) && isDataEqual(left[key], right[key], comparedPairs)
   )
 }
 
