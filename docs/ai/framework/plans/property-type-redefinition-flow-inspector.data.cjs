@@ -2,7 +2,7 @@
   'use strict'
 
   const specPath =
-    'docs/ai/framework/plans/property-type-redefinition-plan.md'
+    'docs/ai/framework/plans/completed/property-type-redefinition-plan.md'
   const inspectorPath =
     'docs/ai/framework/plans/property-type-redefinition-flow-inspector.data.cjs'
 
@@ -706,7 +706,7 @@
       {
         id: 'product-contract',
         label: 'Product Contract',
-        href: './property-type-redefinition-plan.md',
+        href: './completed/property-type-redefinition-plan.md',
         kind: 'authority'
       },
       {

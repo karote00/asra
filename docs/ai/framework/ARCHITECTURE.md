@@ -201,11 +201,11 @@ applyPreset(core, { profile?, defaults? })
 - There is no semantic-equivalence or replace operation. A full implementation
   change is `unregister default -> define custom`; a non-equivalent structural
   change is `remove old relation -> define new relation`.
-- A bounded pre-start declarative property-type redefinition API is planned in
-  `plans/property-type-redefinition-plan.md`. It will atomically rebuild one
+- The bounded pre-start declarative property-type redefinition API defined in
+  `plans/completed/property-type-redefinition-plan.md` atomically rebuilds one
   config-mode schema/runtime definition without inferring semantic equivalence
-  or adding a general registry replace operation. Until implemented, the
-  current unregister-then-define contract remains authoritative.
+  or adding a general registry replace operation. Constructor-mode types keep
+  the existing unregister-then-define contract.
 - The first `core.start()` closes composition permanently before renderer side
   effects and validates declared relations. Registration composition is not a
   runtime mutation or migration mechanism.

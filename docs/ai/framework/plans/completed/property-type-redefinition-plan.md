@@ -1,9 +1,37 @@
 # Declarative Property Type Redefinition Plan
 
-## Status
+## Status and Authority
 
-Accepted product and architecture plan. The APIs and runtime behavior described
-here are not implemented yet.
+Completed on 2026-07-19 after implementation review and direct Asyra Design
+verification by the product owner. The implementation is complete on
+`codex/property-type-redefinition-implementation` and published for review in
+PR #86. This closeout archives the accepted product contract before merge by
+explicit owner direction; it does not claim that PR #86 has merged or shipped.
+
+The exact owner flow remains defined by
+`docs/ai/framework/plans/property-type-redefinition-flow-inspector.data.cjs`.
+
+## Completion Record
+
+- Final decision: apps may inspect and atomically redefine one complete
+  config-mode property type through Core after optional preset composition and
+  before the first `core.start()`; constructor-mode types keep their existing
+  unregister/define path.
+- Implementation summary: Props Manager owns normalized detached definitions,
+  validation, usage guards, and atomic schema/runtime rebuild; Core owns the
+  public facade, composition lock, relation preservation, structural startup
+  validation, and app ownership transfer; Scene Tree, Render, and UI Context
+  retain typed downstream projection boundaries.
+- Compatibility summary: official preset types use the same Core route as app
+  types, builtin call sites remain source-compatible, render-engine/Pixi
+  boundaries are unchanged, and load migration remains app-owned before
+  package validation.
+- Exit criteria: all Inspector segments, affected package/app and root gates,
+  lint, build, dependency boundaries, bounded sub-agent and independent
+  reviews, regression repairs, and direct product-owner app verification passed
+  with no unresolved P0/P1/P2 finding.
+- Canonical executable architecture contract:
+  `docs/ai/framework/plans/property-type-redefinition-flow-inspector.data.cjs`.
 
 ## Product Contract
 
@@ -323,11 +351,11 @@ flow boundaries. Formal tests own executable evidence.
 Each segment begins with a fresh Inspector Step Execution Card and advances one
 owner step at a time:
 
-1. Props Manager normalized definition projection and atomic declarative
+1. [x] Props Manager normalized definition projection and atomic declarative
    rebuild, test-first.
-2. Core facade, composition/ownership coordination, and final structural
+2. [x] Core facade, composition/ownership coordination, and final structural
    relation validation, test-first.
-3. Scene Tree canonical custom-field projection verification.
-4. Render and UI-context typed app-consumer surfaces, one package owner at a
+3. [x] Scene Tree canonical custom-field projection verification.
+4. [x] Render and UI-context typed app-consumer surfaces, one package owner at a
    time.
-5. Preset/Core integration, golden paths, API/package docs, and full gates.
+5. [x] Preset/Core integration, golden paths, API/package docs, and full gates.

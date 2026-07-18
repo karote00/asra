@@ -1347,3 +1347,49 @@ unregister -> app migration -> core.start()` as the public app route.
   - `fbc216ab2b219c9e950e6dfabad102b2a396b981` (`feat(render): add canvas pipeline debugger`)
   - `77026a8d79a22bcb8ed22d3ff8f6a99f660343ec` (PR #83 merge commit)
   - [PR #83](https://github.com/karote00/asyra/pull/83)
+
+## 2026-07-19 - Declarative Property Type Redefinition completed
+
+- Context:
+  - PR #86 contains the complete pre-start property redefinition contract,
+    implementation, formal package coverage, executable Inspector authority,
+    golden paths, and synchronized framework/app documentation.
+  - Bounded sub-agent and independent reviews were resolved, and the product
+    owner verified through an uncommitted Asyra Design example that Fill fields
+    can be changed and Dimension fields added with explicit typed UI/data
+    consumers and no render coupling.
+- Decision:
+  - Treat Declarative Property Type Redefinition as implementation complete and
+    archive its product contract at the completed canonical path.
+  - Keep `getPropertyTypeDefinition()` and `redefinePropertyType()` as the only
+    high-level Core route for complete config-mode field customization after
+    optional preset composition and before the first `core.start()`.
+  - Keep semantic consumers explicit and owner-local: relations, render
+    strategies, UI properties, commands, and migrations are never rewritten or
+    inferred from removed/added fields.
+- Consequences:
+  - Props Manager remains the sole schema/runtime rebuild owner; Core coordinates
+    composition, owner transfer, relation preservation, and final structural
+    validation without adding general registry replace semantics.
+  - Official preset types and app types use the same public Core API, while
+    constructor-mode types retain unregister/define composition.
+  - Custom fields remain typed through id-first property updates, engine-neutral
+    render strategies, and UI compute elements; render-engine/Pixi and load
+    migration ownership remain unchanged.
+  - The plan is removed from active framework plans. Its Inspector data,
+    contract test, and viewer remain executable architecture authorities and now
+    resolve the completed product contract.
+  - PR #86 remains open for owner review; this closeout does not claim merge or
+    release completion.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/property-type-redefinition-plan.md`
+- Related Commit(s):
+  - `341ddee24` (`feat(props-manager): add atomic property type definition owner`)
+  - `a57a3640c` (`feat(core): coordinate declarative property redefinition`)
+  - `a2c06ec4c` (`test(scene-tree): verify canonical custom field projection`)
+  - `8b21fef07` (`feat(render): type app-defined strategy data`)
+  - `b009d20c5` (`feat(ui-context): type app-defined compute data`)
+  - `4b66ba0c9` (`test(preset): verify public property redefinition flow`)
+  - `ff5f8a1ee` (`fix(props-manager): distinguish object and array values`)
+  - `779d6a427` (`fix(preset): align fill definitions for redefinition`)
+  - [PR #86](https://github.com/karote00/asyra/pull/86)

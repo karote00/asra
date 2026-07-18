@@ -57,7 +57,7 @@ Lifecycle and integration:
     explicitly allowed dynamic aliases retain their dynamic-key policy
   - this is not a general registry replace path and does not rewrite relations,
     render strategies, UI properties, commands, or migrations
-  - authority: `plans/property-type-redefinition-plan.md`
+  - authority: `plans/completed/property-type-redefinition-plan.md`
 - component relation APIs:
   - `defineComponent(definition: ComponentDefinition): void`
   - `unregisterComponent(type, options?): boolean | UnregisterComponentResult`
