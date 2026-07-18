@@ -258,6 +258,64 @@ describe('Render', () => {
     lifecycleRender.dispose()
   })
 
+  it('preserves live children when a projected parent is removed and re-added', async () => {
+    const hierarchyEngine = new RecordingRenderEngine({
+      name: 'parent-remove-readd'
+    })
+    const hierarchyRender = new Render({ engine: hierarchyEngine })
+    await hierarchyRender.init(100, 100, 0, {})
+    hierarchyRender.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const childData = {
+      id: 'child-1',
+      parentId: 'group-1',
+      type: 'rectangle',
+      name: 'Child',
+      visible: true,
+      lock: false,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const parentData = {
+      id: 'group-1',
+      type: 'group',
+      name: 'Group',
+      visible: true,
+      lock: false,
+      children: ['child-1']
+    } as unknown as RenderElementData
+    const child = hierarchyRender.addElement(childData)
+    const parent = hierarchyRender.addElement(parentData)
+    if (!child || !parent) {
+      throw new Error('Expected parent and child render nodes')
+    }
+    expect(child.parent).toBe(parent)
+    const childHandle = child.getEngineHandle()
+    const parentHandle = parent.getEngineHandle()
+    const destroyCountBefore = hierarchyEngine
+      .getOperations()
+      .filter((operation) => operation.type === 'destroy-object').length
+
+    hierarchyRender.removeElement(parentData.id)
+
+    expect(child.getEngineHandle()).toBe(childHandle)
+    expect(hierarchyRender.getElementById(childData.id)).toBe(child)
+    expect(child.parent).toBeNull()
+    expect(
+      hierarchyEngine
+        .getOperations()
+        .filter((operation) => operation.type === 'destroy-object')
+    ).toHaveLength(destroyCountBefore + 1)
+
+    const recreatedParent = hierarchyRender.addElement(parentData)
+
+    expect(recreatedParent).not.toBe(parent)
+    expect(recreatedParent?.getEngineHandle()).not.toBe(parentHandle)
+    expect(child.getEngineHandle()).toBe(childHandle)
+    expect(child.parent).toBe(recreatedParent)
+
+    hierarchyRender.dispose()
+  })
+
   it('clears workspace identity and transform with scene elements', async () => {
     const workspaceEngine = new RecordingRenderEngine({
       name: 'workspace-reset'

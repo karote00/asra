@@ -95,7 +95,7 @@ describe('RenderSceneTree computed data mirror', () => {
     await Promise.resolve()
   }
 
-  it('should run: clear stale render elements before rebuilding a scene-tree reload', async () => {
+  it('should run: reset projection before rebuilding a scene-tree reload', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
     const vector = createElement(
@@ -124,7 +124,12 @@ describe('RenderSceneTree computed data mirror', () => {
 
     store.reload()
 
-    expect(renderMock.clearElements).toHaveBeenCalledTimes(1)
+    expect(renderMock.clearElements).not.toHaveBeenCalled()
+    expect(renderMock.switchWorkspace).toHaveBeenCalledWith({
+      label: '',
+      x: 0,
+      y: 0
+    })
     expect(renderMock.switchWorkspace).toHaveBeenCalledWith({
       label: 'workspace-1',
       x: 0,
@@ -173,7 +178,10 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(() => store.reload()).toThrow('visual add failed')
 
     expect(renderMock.addElement).toHaveBeenCalledTimes(2)
-    expect(renderMock.clearElements).toHaveBeenCalledTimes(2)
+    expect(renderMock.removeElement).toHaveBeenCalledTimes(2)
+    expect(renderMock.removeElement).toHaveBeenCalledWith('vector-1')
+    expect(renderMock.removeElement).toHaveBeenCalledWith('vector-2')
+    expect(renderMock.clearElements).not.toHaveBeenCalled()
     expect(store.getProjectionSnapshotCount()).toBe(0)
   })
 
@@ -1992,6 +2000,31 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(renderMock.updateElement).not.toHaveBeenCalled()
   })
 
+  it('should run: clear only Scene Tree-projected visual ids', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+    renderMock.removeElement.mockClear()
+    renderMock.clearElements.mockClear()
+
+    store.clearProjection()
+
+    expect(renderMock.removeElement).toHaveBeenCalledTimes(1)
+    expect(renderMock.removeElement).toHaveBeenCalledWith('vector-1')
+    expect(renderMock.clearElements).not.toHaveBeenCalled()
+    expect(renderMock.switchWorkspace).toHaveBeenCalledWith({
+      label: '',
+      x: 0,
+      y: 0
+    })
+  })
+
   it('should run: clear projection state on Render teardown', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
@@ -2010,6 +2043,7 @@ describe('RenderSceneTree computed data mirror', () => {
       { p1: { x: 1, y: 1 } },
       { undoable: false }
     )
+    renderMock.removeElement.mockClear()
     renderMock.clearElements.mockClear()
 
     expect(pendingRenderTeardownCleanup).not.toBeNull()
@@ -2018,7 +2052,9 @@ describe('RenderSceneTree computed data mirror', () => {
 
     expect(store.getProjectionSnapshotCount()).toBe(0)
     expect(store.hasPendingChanges()).toBe(false)
-    expect(renderMock.clearElements).toHaveBeenCalledTimes(2)
+    expect(renderMock.removeElement).toHaveBeenCalledTimes(1)
+    expect(renderMock.removeElement).toHaveBeenCalledWith('vector-1')
+    expect(renderMock.clearElements).not.toHaveBeenCalled()
     await flushScheduledFrame()
     expect(renderMock.updateElement).not.toHaveBeenCalled()
   })
@@ -2046,6 +2082,7 @@ describe('RenderSceneTree computed data mirror', () => {
     store.reload()
 
     expect(store.getProjectionSnapshotCount()).toBe(1)
+    renderMock.removeElement.mockClear()
     renderMock.clearElements.mockClear()
     sceneTreeMock.currentWorkspace = null
 
@@ -2056,6 +2093,8 @@ describe('RenderSceneTree computed data mirror', () => {
     ).toBeNull()
     expect(store.getProjectionSnapshotCount()).toBe(0)
     expect(store.hasPendingChanges()).toBe(false)
-    expect(renderMock.clearElements).toHaveBeenCalledTimes(1)
+    expect(renderMock.removeElement).toHaveBeenCalledTimes(1)
+    expect(renderMock.removeElement).toHaveBeenCalledWith('vector-1')
+    expect(renderMock.clearElements).not.toHaveBeenCalled()
   })
 })

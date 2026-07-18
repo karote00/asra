@@ -201,6 +201,10 @@ class ComputedDataMirror {
     return this.entries.size
   }
 
+  get elementIds() {
+    return [...this.entries.keys()]
+  }
+
   delete(elementId: string) {
     this.entries.delete(elementId)
     emitStrokePipelineCounter('computed-mirror-invalidate')
@@ -527,8 +531,6 @@ class RenderSceneTree {
           this.addElement(renderElementData)
         }
       } catch (error) {
-        this.pendingElementUpdates.delete(elementId)
-        this.computedDataMirror.delete(elementId)
         emitStrokePipelineCounter('computed-mirror-reload-seed-failed')
         this.clearProjection()
         throw error
@@ -842,8 +844,12 @@ class RenderSceneTree {
   }
 
   clearProjection() {
+    const projectedElementIds = this.computedDataMirror.elementIds
     this.resetProjection()
-    render.clearElements()
+    projectedElementIds.forEach((elementId) => {
+      render.removeElement(elementId)
+    })
+    render.switchWorkspace({ label: '', x: 0, y: 0 })
   }
 
   private flushPendingChanges() {

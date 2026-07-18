@@ -51,11 +51,19 @@ export class RenderLayer {
   }
 
   removeFromMap(elementId: string) {
-    const instance = this.getElementById(elementId) as SceneElement
+    const instance = this.getElementById(elementId)
+    if (!instance) {
+      return undefined
+    }
     instance.eventMode = 'none'
     instance.removeAllListeners()
+    ;[...instance.children].forEach((child) => {
+      instance.removeChild(child)
+    })
+    instance.parent?.removeChild(instance)
     this._elements.delete(elementId)
-    instance.destroy({ children: true })
+    instance.destroy({ children: false })
+    return instance
   }
 
   getAllElements() {
@@ -113,6 +121,30 @@ export class RenderLayer {
     }
   }
 
+  private placeElement(element: SceneElement, data: RenderElementData) {
+    const parent =
+      typeof data.parentId === 'string'
+        ? this.getElementById(data.parentId)
+        : undefined
+    ;(parent ?? this.currentWorkspace).addChild(element)
+
+    const children = (
+      data as RenderElementData & { children?: unknown }
+    ).children
+    if (!Array.isArray(children)) {
+      return
+    }
+    children.forEach((childId: unknown, index: number) => {
+      if (typeof childId !== 'string') {
+        return
+      }
+      const child = this.getElementById(childId)
+      if (child) {
+        element.addChildAt(child, index)
+      }
+    })
+  }
+
   addContainer(containerData: RenderContainerData) {
     const container = new RenderContainer({
       label: containerData.label,
@@ -141,9 +173,7 @@ export class RenderLayer {
           this.renderGraphic(existingElement, data)
         }
 
-        if (existingElement.parent !== this.currentWorkspace) {
-          this.currentWorkspace.addChild(existingElement)
-        }
+        this.placeElement(existingElement, data)
 
         return existingElement
       }
@@ -156,20 +186,16 @@ export class RenderLayer {
       this.renderGraphic(graphic, data)
 
       this.addToMap(data.id, graphic)
-      this.currentWorkspace.addChild(graphic)
+      this.placeElement(graphic, data)
       return graphic
     })
   }
 
-  removeElement(elementId: string, parentId?: string) {
-    const parent =
-      (this.getElementById(parentId as string) as RenderContainer) ||
-      this.currentWorkspace
+  removeElement(elementId: string, _parentId?: string) {
     const element = this.getElementById(elementId)
 
-    if (parent && element) {
+    if (element) {
       this.removeFromMap(elementId)
-      parent.removeChild(element)
     }
 
     return element
