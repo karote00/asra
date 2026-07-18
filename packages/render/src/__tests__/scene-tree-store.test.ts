@@ -1125,6 +1125,82 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(renderMock.updateElement).not.toHaveBeenCalled()
   })
 
+  it('should run: keep projection entries bounded across repeated lifecycle routes', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const first = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: { A: { id: 'A', x: 0, y: 0 } } }
+    )
+    const second = createElement(
+      'vector-2',
+      { type: 'vector', visible: true },
+      { points: { B: { id: 'B', x: 10, y: 10 } } }
+    )
+    const third = createElement(
+      'rectangle-1',
+      { type: 'rectangle', visible: true },
+      { width: 80, height: 60 }
+    )
+    const liveElements = new Map([
+      ['vector-1', first],
+      ['vector-2', second]
+    ])
+    sceneTreeMock.currentWorkspace = {
+      save: () => ({ id: 'workspace-1', type: EntityTypes.WORKSPACE })
+    }
+    sceneTreeMock.getAllElements.mockImplementation(() => liveElements)
+    sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
+      liveElements.get(elementId)
+    )
+    const expectStableProjectionBound = () => {
+      expect(store.getProjectionSnapshotCount()).toBeLessThanOrEqual(
+        liveElements.size
+      )
+      expect(store.hasPendingChanges()).toBe(false)
+    }
+
+    store.reload()
+    expect(store.getProjectionSnapshotCount()).toBe(2)
+    expectStableProjectionBound()
+
+    liveElements.delete('vector-1')
+    store.removeElement({ id: 'vector-1', type: EntityTypes.ELEMENT })
+    expect(store.getProjectionSnapshotCount()).toBe(1)
+    expectStableProjectionBound()
+
+    liveElements.set('rectangle-1', third)
+    store.addElementById('rectangle-1')
+    expect(store.getProjectionSnapshotCount()).toBe(2)
+    expectStableProjectionBound()
+
+    const outcome = store.updateElement(
+      'vector-2',
+      'points',
+      { stale: true },
+      { B: { id: 'B', x: 20, y: 20 } }
+    )
+    expect(outcome).toEqual({ status: 'resynced', elementId: 'vector-2' })
+    expect(store.getProjectionSnapshotCount()).toBe(2)
+    await flushScheduledFrame()
+    expectStableProjectionBound()
+
+    liveElements.delete('vector-2')
+    store.reload()
+    expect(store.getProjectionSnapshotCount()).toBe(1)
+    expectStableProjectionBound()
+
+    store.addElementById('rectangle-1')
+    expect(store.getProjectionSnapshotCount()).toBe(1)
+    expectStableProjectionBound()
+
+    store.resetProjection()
+    store.resetProjection()
+    expect(store.getProjectionSnapshotCount()).toBe(0)
+    expect(store.hasPendingChanges()).toBe(false)
+  })
+
   it('should run: clear snapshots and pending frame work idempotently', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
