@@ -34,11 +34,14 @@ Own the document entity graph and computed entity data.
   owner, scalar order, and effective options as one envelope.
   Computed record patches retain exact before evidence for replacement/removal,
   omit equal writes and missing removals, and collapse value plus record
-  set/remove mutations into one committed patch change. A top-level key cannot
-  appear in both the value and record maps of that patch; overlapping requests
-  fail before canonical mutation. Every record base must already be a record,
-  and one record id cannot appear in both `set` and `remove`; invalid requests
-  fail before any canonical mutation instead of creating an empty record base.
+  set/remove mutations into one committed patch change. Top-level value patches
+  replace existing computed keys and never create a missing computed owner. A
+  top-level key cannot appear in both the value and record maps of that patch;
+  overlapping requests fail before canonical mutation. Every value base must
+  already exist, every record base must already be a record, and one record id
+  cannot appear in both `set` and `remove`; invalid requests fail before any
+  canonical mutation instead of publishing a phantom patch or creating an empty
+  record base.
 - Standalone transaction replay consumes the carried `raw|computed` owner and
   never infers it from the key or current data. `raw` routes through Element;
   `computed` routes through Computed and its property bridge even when a raw

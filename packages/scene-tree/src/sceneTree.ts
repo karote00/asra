@@ -96,6 +96,19 @@ const validateComputedDataRecordPatches = (
   })
 }
 
+const validateComputedDataValuePatches = (
+  patch: ComputedDataPatch,
+  computedSnapshot: Record<string, DataTypes>
+): void => {
+  Object.keys(patch.values ?? {}).forEach((key) => {
+    if (!Object.prototype.hasOwnProperty.call(computedSnapshot, key)) {
+      throw new Error(
+        `Computed data patch value base "${key}" must already exist`
+      )
+    }
+  })
+}
+
 export interface SceneTreeLoadDiagnostic {
   path: string
   message: string
@@ -616,6 +629,7 @@ class SceneTree {
     const patchChange: ComputedDataPatchChange = {}
     const previousChangeCount = this.changes.length
     const computedSnapshot = getComputedSnapshot(element)
+    validateComputedDataValuePatches(patch, computedSnapshot)
     validateComputedDataRecordPatches(patch, computedSnapshot)
 
     Object.entries(patch.values ?? {}).forEach(([key, after]) => {

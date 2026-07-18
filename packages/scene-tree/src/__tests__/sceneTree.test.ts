@@ -987,6 +987,33 @@ describe('SceneTree', () => {
     expect(element.updateComputedData).toHaveBeenCalledWith('x', 100)
   })
 
+  it.each([
+    ['computed-only', 'pointCoordinateSpace', 'workspace'],
+    ['raw same-name', 'visible', false]
+  ] as const)(
+    'rejects a missing %s top-level value patch before real Element mutation',
+    (_case, key, after) => {
+      const element = new MockRectangle({
+        id: `missing-value-base-${key}`,
+        type: 'rect',
+        visible: true
+      })
+      sceneTree.addToMap(element)
+      const beforeSnapshot = element.getAllComputedData()
+
+      expect(() =>
+        sceneTree.patchComputedData(element.get('id'), {
+          values: { [key]: after }
+        })
+      ).toThrow(
+        `Computed data patch value base "${key}" must already exist`
+      )
+
+      expect(element.getAllComputedData()).toEqual(beforeSnapshot)
+      expect(sceneTree.changes).toEqual([])
+    }
+  )
+
   it('updates computed data when a property component changes', () => {
     const element = new MockRectangle()
     sceneTree.addToMap(element)

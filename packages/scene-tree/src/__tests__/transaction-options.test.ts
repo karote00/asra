@@ -575,7 +575,7 @@ describe('SceneTree transaction options', () => {
     })
   })
 
-  it('patches computed keys from snapshot without reading missing setter keys', () => {
+  it('rejects a missing top-level value base without reading setter keys', () => {
     const element = {
       get: vi.fn(() => 'element-1'),
       getAllComputedData: vi.fn(() => ({
@@ -597,26 +597,12 @@ describe('SceneTree transaction options', () => {
           pointCoordinateSpace: 'workspace'
         }
       })
-    ).not.toThrow()
+    ).toThrow(
+      'Computed data patch value base "pointCoordinateSpace" must already exist'
+    )
 
     expect(element.computed.get).not.toHaveBeenCalled()
-    expect(element.updateComputedData).toHaveBeenCalledWith(
-      'pointCoordinateSpace',
-      'workspace',
-      undefined
-    )
-    expect(sceneTree.changes).toEqual([
-      expect.objectContaining({
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
-        patch: {
-          values: {
-            pointCoordinateSpace: {
-              before: undefined,
-              after: 'workspace'
-            }
-          }
-        }
-      })
-    ])
+    expect(element.updateComputedData).not.toHaveBeenCalled()
+    expect(sceneTree.changes).toEqual([])
   })
 })
