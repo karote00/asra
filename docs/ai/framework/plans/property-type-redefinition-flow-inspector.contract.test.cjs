@@ -79,10 +79,22 @@ test('Core coordinates a bounded pre-start redefinition without general replace 
   assert.match(contract, /open composition/i)
   assert.match(contract, /same type/i)
   assert.match(contract, /owner metadata changes to the app only after/i)
+  assert.match(contract, /metadata-only owner transfer/i)
+  assert.match(contract, /preserves.*relations.*handlers.*resources/i)
   assert.match(contract, /relations are preserved/i)
   assert.match(contract, /stale fixed component aliases or property-child keys/i)
   assert.match(contract, /general registry overwrite/i)
   assert.match(contract, /runtime redefinition after core\.start/i)
+  assert.ok(
+    core.implementationBoundary.includes(
+      'packages/utils/src/registry/registration-graph.ts'
+    )
+  )
+  assert.ok(
+    core.implementationBoundary.includes(
+      'packages/utils/src/registry/__tests__/registration-graph.test.ts'
+    )
+  )
 })
 
 test('Props Manager owns detached projection and atomic schema/runtime rebuild', () => {

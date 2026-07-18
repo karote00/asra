@@ -147,8 +147,10 @@ The Core facade owns composition coordination:
    mutation;
 7. atomically swap schema and runtime, preserving child configuration and graph
    relations;
-8. transfer registration owner metadata to the app and return a detached
-   committed definition.
+8. transfer registration owner metadata to the app through a narrow
+   RegistrationGraph metadata-only operation that preserves node identity,
+   relations, handlers, and resources, then return a detached committed
+   definition.
 
 If the updater throws, validation fails, staging fails, or commit cannot
 complete, the previous schema, constructor, owner, and relations remain intact.
@@ -230,6 +232,8 @@ of scope.
 - `@asyra/core` owns the app-facing getter/redefinition facade, permanent
   composition lock, graph owner update, preserved relation coordination, and
   final structural relation validation.
+- Core's `RegistrationGraph` dependency supplies only the metadata mutation
+  primitive; it does not decide whether or when app ownership transfers.
 - `@asyra/scene-tree` continues to project property `getValue()` into computed
   element data; it does not interpret custom field meaning.
 - `@asyra/render` supplies typed engine-neutral render-strategy input and does
