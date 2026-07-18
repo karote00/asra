@@ -229,6 +229,9 @@ of scope.
 - `@asyra/props-manager` owns normalized definition projection, schema/runtime
   validation, usage guards, staging, atomic swap, rollback, and runtime/load
   validation semantics.
+- The existing Core config-mode definition entry delegates constructor creation
+  to the Props Manager builder; Core does not retain a second config runtime
+  builder.
 - `@asyra/core` owns the app-facing getter/redefinition facade, permanent
   composition lock, graph owner update, preserved relation coordination, and
   final structural relation validation.
