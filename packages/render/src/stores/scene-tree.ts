@@ -542,9 +542,7 @@ class RenderSceneTree {
   }
 
   commitPendingComputedDataChanges() {
-    if (this.hasPendingChanges()) {
-      this.scheduleFlush()
-    }
+    this.scheduleFlush()
   }
 
   private recordDirtyChange(
@@ -562,6 +560,10 @@ class RenderSceneTree {
   }
 
   private scheduleFlush() {
+    if (!this.hasPendingChanges()) {
+      return
+    }
+
     if (this.pendingFlush) {
       emitStrokePipelineCounter('render-scene-tree-flush-coalesced')
       return

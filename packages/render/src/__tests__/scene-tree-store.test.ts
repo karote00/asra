@@ -543,6 +543,53 @@ describe('RenderSceneTree computed data mirror', () => {
     )
   })
 
+  it('should run: schedule the next computed update after an empty delta', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const emptyDeltaRoutes: Array<
+      (store: InstanceType<typeof RenderSceneTree>) => unknown
+    > = [
+      (store) =>
+        store.updateElementBatch('vector-1', [], { undoable: false }),
+      (store) =>
+        store.updateElementPatch('vector-1', {}, { undoable: false })
+    ]
+
+    for (const routeEmptyDelta of emptyDeltaRoutes) {
+      renderMock.requestRender.mockClear()
+      renderMock.updateElement.mockClear()
+      const store = new RenderSceneTree()
+      const element = createElement(
+        'vector-1',
+        { type: 'vector', visible: true },
+        { points: {} }
+      )
+      sceneTreeMock.getElementById.mockReturnValue(element)
+      seedStore(store, 'vector-1')
+
+      routeEmptyDelta(store)
+      await flushScheduledFrame()
+      renderMock.requestRender.mockClear()
+
+      store.updateElement(
+        'vector-1',
+        'points',
+        {},
+        { p1: { x: 1, y: 1 } },
+        { undoable: false }
+      )
+
+      expect(renderMock.requestRender).toHaveBeenCalledTimes(1)
+      await flushScheduledFrame()
+      expect(renderMock.updateElement).toHaveBeenCalledWith(
+        'vector-1',
+        'computed',
+        undefined,
+        undefined,
+        expect.objectContaining({ points: { p1: { x: 1, y: 1 } } })
+      )
+    }
+  })
+
   it('should run: apply a computed change batch as one pending render update', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
