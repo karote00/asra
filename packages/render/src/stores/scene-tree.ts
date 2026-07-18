@@ -527,6 +527,8 @@ class RenderSceneTree {
     try {
       const entry = this.computedDataMirror.seed(id, 'add')
       if (!entry) {
+        this.pendingElementUpdates.delete(id)
+        render.removeElement(id)
         return this.projectionOutcome(id, 'removed')
       }
       this.addElement(entry.renderDataSnapshot)

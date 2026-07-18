@@ -266,6 +266,38 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(renderMock.removeElement).toHaveBeenCalledWith('vector-1')
   })
 
+  it('should run: remove stale output and pending work for a missing explicit add target', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+    store.updateElement(
+      'vector-1',
+      'computed',
+      'points',
+      {},
+      { p1: { x: 1, y: 1 } },
+      { undoable: false }
+    )
+    expect(store.hasPendingChanges()).toBe(true)
+    sceneTreeMock.getElementById.mockReturnValue(null)
+    renderMock.removeElement.mockClear()
+
+    const outcome = store.addElementById('vector-1')
+
+    expect(outcome).toEqual({ status: 'removed', elementId: 'vector-1' })
+    expect(store.getProjectionSnapshotCount()).toBe(0)
+    expect(store.hasPendingChanges()).toBe(false)
+    expect(renderMock.removeElement).toHaveBeenCalledWith('vector-1')
+    await flushScheduledFrame()
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
+  })
+
   it('should run: explicitly resync a missing update base from Scene Tree', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
