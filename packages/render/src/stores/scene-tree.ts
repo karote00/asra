@@ -314,7 +314,10 @@ class ComputedDataMirror {
     const computedDataSnapshot = { ...entry.computedDataSnapshot }
     const ownerSnapshot =
       owner === 'raw' ? rawDataSnapshot : computedDataSnapshot
-    if (!isDataEqual(ownerSnapshot[key], before)) {
+    if (
+      !hasOwn(ownerSnapshot, key) ||
+      !isDataEqual(ownerSnapshot[key], before)
+    ) {
       return null
     }
     const effectiveBefore = getEffectiveValue(
@@ -322,7 +325,7 @@ class ComputedDataMirror {
       computedDataSnapshot,
       key
     )
-    ownerSnapshot[key] = after
+    setOwn(ownerSnapshot, key, after)
     const effectiveAfter = getEffectiveValue(
       rawDataSnapshot,
       computedDataSnapshot,
@@ -371,7 +374,10 @@ class ComputedDataMirror {
       }
       const ownerSnapshot =
         owner === 'raw' ? rawDataSnapshot : computedDataSnapshot
-      if (!isDataEqual(ownerSnapshot[key], before)) {
+      if (
+        !hasOwn(ownerSnapshot, key) ||
+        !isDataEqual(ownerSnapshot[key], before)
+      ) {
         return null
       }
       const effectiveBefore = getEffectiveValue(
@@ -379,7 +385,7 @@ class ComputedDataMirror {
         computedDataSnapshot,
         key
       )
-      ownerSnapshot[key] = after
+      setOwn(ownerSnapshot, key, after)
       const effectiveAfter = getEffectiveValue(
         rawDataSnapshot,
         computedDataSnapshot,
@@ -416,16 +422,19 @@ class ComputedDataMirror {
     const computedDataSnapshot = { ...entry.computedDataSnapshot }
     let changeCount = 0
     for (const [key, change] of Object.entries(patch.values ?? {})) {
-      if (!isDataEqual(computedDataSnapshot[key], change.before)) {
+      if (
+        !hasOwn(computedDataSnapshot, key) ||
+        !isDataEqual(computedDataSnapshot[key], change.before)
+      ) {
         return false
       }
-      computedDataSnapshot[key] = change.after
+      setOwn(computedDataSnapshot, key, change.after)
       changeCount += 1
     }
 
     for (const [key, recordPatch] of Object.entries(patch.records ?? {})) {
       const currentRecord = computedDataSnapshot[key]
-      if (!isRecord(currentRecord)) {
+      if (!hasOwn(computedDataSnapshot, key) || !isRecord(currentRecord)) {
         return false
       }
       let nextRecord = {
@@ -460,7 +469,7 @@ class ComputedDataMirror {
         changeCount += 1
       }
 
-      computedDataSnapshot[key] = nextRecord
+      setOwn(computedDataSnapshot, key, nextRecord)
     }
 
     if (

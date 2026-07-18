@@ -585,6 +585,87 @@ describe('RenderSceneTree computed data mirror', () => {
     )
   })
 
+  it('should run: resync a value patch whose top-level base is absent', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+    element.getAllComputedData.mockReturnValue({
+      points: {},
+      pointCoordinateSpace: 'workspace'
+    })
+
+    const outcome = store.updateElementPatch(
+      'vector-1',
+      {
+        values: {
+          pointCoordinateSpace: {
+            before: undefined,
+            after: 'workspace'
+          }
+        }
+      },
+      { undoable: false }
+    )
+    await flushScheduledFrame()
+
+    expect(outcome).toEqual({ status: 'resynced', elementId: 'vector-1' })
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(2)
+    expect(renderMock.updateElement).toHaveBeenCalledWith(
+      'vector-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({ pointCoordinateSpace: 'workspace' })
+    )
+  })
+
+  it('should run: resync a record patch whose special-name base is inherited', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+    const canonicalComputed: Record<string, unknown> = { points: {} }
+    Object.defineProperty(canonicalComputed, '__proto__', {
+      value: { child: 'canonical' },
+      enumerable: true,
+      configurable: true,
+      writable: true
+    })
+    element.getAllComputedData.mockReturnValue(canonicalComputed)
+    const records: Record<string, unknown> = {}
+    Object.defineProperty(records, '__proto__', {
+      value: { set: { child: { after: 'delta' } } },
+      enumerable: true,
+      configurable: true,
+      writable: true
+    })
+
+    const outcome = store.updateElementPatch(
+      'vector-1',
+      { records },
+      { undoable: false }
+    )
+    await flushScheduledFrame()
+
+    const snapshot = renderMock.updateElement.mock.calls.at(-1)?.[4] as
+      | Record<string, unknown>
+      | undefined
+    expect(outcome).toEqual({ status: 'resynced', elementId: 'vector-1' })
+    expect(Object.hasOwn(snapshot ?? {}, '__proto__')).toBe(true)
+    expect(snapshot?.['__proto__']).toEqual({ child: 'canonical' })
+  })
+
   it('should run: reject a record patch without an existing record base', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
