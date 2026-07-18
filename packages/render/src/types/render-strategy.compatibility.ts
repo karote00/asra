@@ -1,5 +1,9 @@
 import type { RenderElementData } from '../types'
-import type { RenderStrategy, RenderStrategyGraphic } from './render-strategy'
+import type {
+  EngineNeutralRenderStrategy,
+  RenderStrategy,
+  RenderStrategyGraphic
+} from './render-strategy'
 import type { RenderGraphics } from './render-object'
 
 type Assert<T extends true> = T
@@ -49,4 +53,21 @@ type _RenderStrategyAcceptsLegacyAnnotatedGraphic = Assert<
 
 type _RenderGraphicsImplementsCompatibilityFacade = Assert<
   RenderGraphics extends RenderStrategyGraphic ? true : false
+>
+
+interface AppDeclaredRenderData {
+  customCount: number
+  customLabel: string
+}
+
+type AppStrategyData = Parameters<
+  EngineNeutralRenderStrategy<AppDeclaredRenderData>
+>[1]
+
+type _AppStrategyDataRetainsCanonicalAndCustomFields = Assert<
+  AppStrategyData extends RenderElementData & AppDeclaredRenderData
+    ? RenderElementData & AppDeclaredRenderData extends AppStrategyData
+      ? true
+      : false
+    : false
 >
