@@ -130,7 +130,9 @@ infrastructure.
 - rollback compensates each immediate local projection exactly once
 - transaction-end shared delivery walks committed journal entries in mutation
   order; each registered observer receives one delivery per entry, and pending
-  rolled-back or uncommitted entries are never exposed
+  rolled-back or uncommitted entries are never exposed; scalar/batch
+  `raw|computed` owner provenance remains part of the detached immutable payload
+  and is never interpreted or rewritten by Factory
 - if a registered transaction-end channel rejects an append before applying it,
   Factory restores the runtime transaction, reverts its provisional history
   transition, leaves no final undo/history or user-action completion effect,

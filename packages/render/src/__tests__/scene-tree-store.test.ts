@@ -278,6 +278,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
     const outcome = store.updateElement(
       'vector-1',
+      'computed',
       'points',
       {},
       { p1: { x: 1, y: 1 } },
@@ -310,6 +311,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
     const outcome = store.updateElement(
       'vector-1',
+      'computed',
       'points',
       {},
       { p1: { x: 1, y: 1 } },
@@ -343,6 +345,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
     const outcome = store.updateElement(
       'vector-1',
+      'computed',
       'points',
       { p1: { x: 99, y: 99 } },
       { p1: { x: 10, y: 12 } },
@@ -361,6 +364,34 @@ describe('RenderSceneTree computed data mirror', () => {
       undefined,
       expect.objectContaining({ points: { p1: { x: 10, y: 12 } } })
     )
+  })
+
+  it('should run: reject a scalar without declared owner provenance', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: { p1: { x: 0, y: 0 } } }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+    element.getAllComputedData.mockReturnValue({
+      points: { p1: { x: 10, y: 12 } }
+    })
+
+    const outcome = store.updateElement(
+      'vector-1',
+      undefined as never,
+      'points',
+      { p1: { x: 0, y: 0 } },
+      { p1: { x: 10, y: 12 } },
+      { undoable: false }
+    )
+    await flushScheduledFrame()
+
+    expect(outcome).toEqual({ status: 'resynced', elementId: 'vector-1' })
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(2)
   })
 
   it('should run: reject a whole batch when a later before value mismatches', async () => {
@@ -385,11 +416,13 @@ describe('RenderSceneTree computed data mirror', () => {
       'vector-1',
       [
         {
+          owner: 'computed',
           key: 'points',
           before: { p1: { x: 0, y: 0 } },
           after: { p1: { x: 10, y: 12 } }
         },
         {
+          owner: 'computed',
           key: 'segments',
           before: { missing: true },
           after: { s1: { startId: 'p1' } }
@@ -415,6 +448,47 @@ describe('RenderSceneTree computed data mirror', () => {
         points: { p1: { x: 10, y: 12 } },
         segments: { s1: { startId: 'p1' } }
       })
+    )
+  })
+
+  it('should run: reject a whole batch when any owner provenance is invalid', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: {}, segments: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    const publishedSnapshot = seedStore(store, 'vector-1')
+    element.getAllComputedData.mockReturnValue({
+      points: { p1: { x: 1, y: 1 } },
+      segments: { s1: { startId: 'p1' } }
+    })
+
+    const outcome = store.updateElementBatch(
+      'vector-1',
+      [
+        {
+          owner: 'computed',
+          key: 'points',
+          before: {},
+          after: { p1: { x: 1, y: 1 } }
+        },
+        {
+          owner: 'legacy' as never,
+          key: 'segments',
+          before: {},
+          after: { s1: { startId: 'p1' } }
+        }
+      ],
+      { undoable: false }
+    )
+    await flushScheduledFrame()
+
+    expect(outcome).toEqual({ status: 'resynced', elementId: 'vector-1' })
+    expect(publishedSnapshot).toEqual(
+      expect.objectContaining({ points: {}, segments: {} })
     )
   })
 
@@ -476,6 +550,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
     const outcome = store.updateElement(
       'vector-1',
+      'computed',
       'points',
       { missing: true },
       { p1: { x: 1, y: 1 } },
@@ -504,6 +579,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
     const outcome = store.updateElement(
       'vector-1',
+      'computed',
       'points',
       { missing: true },
       { p1: { x: 1, y: 1 } },
@@ -529,6 +605,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
     const outcome = store.updateElement(
       'vector-1',
+      'computed',
       'points',
       { p1: { x: 0, y: 0 } },
       { p1: { x: 10, y: 12 } },
@@ -568,6 +645,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
     store.updateElement(
       'vector-1',
+      'computed',
       'points',
       { p1: { x: 0, y: 0 } },
       { p1: { x: 12, y: 8 } },
@@ -575,6 +653,7 @@ describe('RenderSceneTree computed data mirror', () => {
     )
     store.updateElement(
       'vector-1',
+      'computed',
       'segments',
       {},
       { s1: { startId: 'p1' } },
@@ -582,6 +661,7 @@ describe('RenderSceneTree computed data mirror', () => {
     )
     store.updateElement(
       'vector-1',
+      'computed',
       'networks',
       {},
       { n1: { segmentIds: ['s1'] } },
@@ -628,6 +708,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
     store.updateElement(
       'vector-1',
+      'computed',
       'points',
       {},
       { p1: { x: 1, y: 1 } },
@@ -672,6 +753,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
       store.updateElement(
         'vector-1',
+        'computed',
         'points',
         {},
         { p1: { x: 1, y: 1 } },
@@ -713,16 +795,19 @@ describe('RenderSceneTree computed data mirror', () => {
       'vector-1',
       [
         {
+          owner: 'computed',
           key: 'points',
           before: { p1: { x: 0, y: 0 } },
           after: { p1: { x: 12, y: 8 } }
         },
         {
+          owner: 'computed',
           key: 'segments',
           before: {},
           after: { s1: { startId: 'p1' } }
         },
         {
+          owner: 'computed',
           key: 'networks',
           before: {},
           after: { n1: { segmentIds: ['s1'] } }
@@ -766,8 +851,8 @@ describe('RenderSceneTree computed data mirror', () => {
     const outcome = store.updateElementBatch(
       'rectangle-1',
       [
-        { key: 'x', before: 0, after: 10 },
-        { key: 'y', before: 0, after: 20 }
+        { owner: 'computed', key: 'x', before: 0, after: 10 },
+        { owner: 'computed', key: 'y', before: 0, after: 20 }
       ],
       { undoable: false }
     )
@@ -792,6 +877,7 @@ describe('RenderSceneTree computed data mirror', () => {
     renderMock.updateElement.mockClear()
     store.updateElement(
       'rectangle-1',
+      'computed',
       'points',
       {},
       { p1: { x: 1, y: 1 } },
@@ -824,8 +910,9 @@ describe('RenderSceneTree computed data mirror', () => {
     store.updateElementBatch(
       'vector-1',
       [
-        { key: 'x', before: 0, after: 10 },
+        { owner: 'computed', key: 'x', before: 0, after: 10 },
         {
+          owner: 'computed',
           key: 'points',
           before: {},
           after: { p1: { x: 10, y: 12 } }
@@ -864,12 +951,22 @@ describe('RenderSceneTree computed data mirror', () => {
     sceneTreeMock.getElementById.mockReturnValue(element)
     seedStore(store, 'vector-1')
 
-    store.updateElement('vector-1', 'points', initialPoints, middlePoints, {
-      undoable: false
-    })
-    store.updateElement('vector-1', 'points', middlePoints, finalPoints, {
-      undoable: false
-    })
+    store.updateElement(
+      'vector-1',
+      'computed',
+      'points',
+      initialPoints,
+      middlePoints,
+      { undoable: false }
+    )
+    store.updateElement(
+      'vector-1',
+      'computed',
+      'points',
+      middlePoints,
+      finalPoints,
+      { undoable: false }
+    )
     await flushScheduledFrame()
 
     expect(renderMock.updateElement).toHaveBeenCalledTimes(1)
@@ -1022,6 +1119,7 @@ describe('RenderSceneTree computed data mirror', () => {
     renderMock.updateElement.mockImplementationOnce(() => {
       store.updateElement(
         'vector-1',
+        'computed',
         'segments',
         {},
         { s1: { startId: 'p1' } },
@@ -1031,6 +1129,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
     store.updateElement(
       'vector-1',
+      'computed',
       'points',
       { p1: { x: 0, y: 0 } },
       { p1: { x: 12, y: 8 } },
@@ -1076,7 +1175,9 @@ describe('RenderSceneTree computed data mirror', () => {
     sceneTreeMock.getElementById.mockReturnValue(element)
     seedStore(store, 'vector-1')
 
-    store.updateElement('vector-1', 'x', 0, 24, { undoable: false })
+    store.updateElement('vector-1', 'computed', 'x', 0, 24, {
+      undoable: false
+    })
     store.commitPendingComputedDataChanges()
     await flushScheduledFrame()
 
@@ -1093,6 +1194,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
     store.updateElement(
       'vector-1',
+      'computed',
       'points',
       { p1: { x: 0, y: 0 } },
       { p1: { x: 4, y: 6 } },
@@ -1128,12 +1230,12 @@ describe('RenderSceneTree computed data mirror', () => {
     seedStore(store, 'vector-1')
 
     expect(
-      store.updateElement('vector-1', 'visible', true, false, {
+      store.updateElement('vector-1', 'raw', 'visible', true, false, {
         undoable: false
       })
     ).toEqual({ status: 'applied', elementId: 'vector-1' })
     expect(
-      store.updateElement('vector-1', 'name', 'Before', 'After', {
+      store.updateElement('vector-1', 'raw', 'name', 'Before', 'After', {
         undoable: false
       })
     ).toEqual({ status: 'applied', elementId: 'vector-1' })
@@ -1156,6 +1258,116 @@ describe('RenderSceneTree computed data mirror', () => {
     )
   })
 
+  it('should run: apply a same-name computed owner without changing the raw slice', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { visible: true, width: 100, points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+
+    expect(
+      store.updateElement(
+        'vector-1',
+        'computed',
+        'visible',
+        true,
+        false,
+        { undoable: false }
+      )
+    ).toEqual({ status: 'applied', elementId: 'vector-1' })
+    expect(
+      store.updateElement(
+        'vector-1',
+        'computed',
+        'width',
+        100,
+        120,
+        { undoable: false }
+      )
+    ).toEqual({ status: 'applied', elementId: 'vector-1' })
+
+    expect(element.save).toHaveBeenCalledTimes(1)
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(1)
+    await flushScheduledFrame()
+    expect(renderMock.updateElement).toHaveBeenCalledWith(
+      'vector-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({ visible: false, width: 120 })
+    )
+  })
+
+  it('should run: keep a shadowed raw direct change out of the visual route', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { visible: false, points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+    renderMock.updateElement.mockClear()
+    renderMock.requestRender.mockClear()
+
+    expect(
+      store.updateElement(
+        'vector-1',
+        'raw',
+        'visible',
+        true,
+        false,
+        { undoable: false }
+      )
+    ).toEqual({ status: 'applied', elementId: 'vector-1' })
+
+    expect(element.save).toHaveBeenCalledTimes(1)
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(1)
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
+    expect(renderMock.requestRender).not.toHaveBeenCalled()
+  })
+
+  it('should run: atomically apply mixed same-name raw and computed owners', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { visible: true, width: 100, points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+
+    expect(
+      store.updateElementBatch(
+        'vector-1',
+        [
+          { owner: 'raw', key: 'visible', before: true, after: false },
+          { owner: 'computed', key: 'visible', before: true, after: false },
+          { owner: 'computed', key: 'width', before: 100, after: 120 }
+        ],
+        { undoable: false }
+      )
+    ).toEqual({ status: 'applied', elementId: 'vector-1' })
+
+    expect(element.save).toHaveBeenCalledTimes(1)
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(1)
+    await flushScheduledFrame()
+    expect(renderMock.updateElement).toHaveBeenCalledTimes(1)
+    expect(renderMock.updateElement).toHaveBeenCalledWith(
+      'vector-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({ visible: false, width: 120 })
+    )
+  })
+
   it('should run: atomically apply mixed raw and computed batch keys', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
@@ -1171,8 +1383,9 @@ describe('RenderSceneTree computed data mirror', () => {
       store.updateElementBatch(
         'vector-1',
         [
-          { key: 'visible', before: true, after: false },
+          { owner: 'raw', key: 'visible', before: true, after: false },
           {
+            owner: 'computed',
             key: 'points',
             before: {},
             after: { p1: { x: 4, y: 6 } }
@@ -1241,9 +1454,14 @@ describe('RenderSceneTree computed data mirror', () => {
     sceneTreeMock.getElementById.mockReturnValue(element)
     seedStore(store, 'vector-1')
 
-    store.updateElement('vector-1', 'strokes', initialStrokes, nextStrokes, {
-      undoable: false
-    })
+    store.updateElement(
+      'vector-1',
+      'computed',
+      'strokes',
+      initialStrokes,
+      nextStrokes,
+      { undoable: false }
+    )
     store.commitPendingComputedDataChanges()
     await flushScheduledFrame()
 
@@ -1277,7 +1495,7 @@ describe('RenderSceneTree computed data mirror', () => {
     sceneTreeMock.getElementById.mockReturnValue(element)
     seedStore(store, 'vector-1')
 
-    store.updateElement('vector-1', 'width', 120, 160)
+    store.updateElement('vector-1', 'computed', 'width', 120, 160)
     store.commitPendingComputedDataChanges()
     await flushScheduledFrame()
 
@@ -1327,15 +1545,15 @@ describe('RenderSceneTree computed data mirror', () => {
     }
 
     computedState.width = 140
-    store.updateElement('vector-1', 'width', 100, 140)
+    store.updateElement('vector-1', 'computed', 'width', 100, 140)
     await expectLatestStrategyDataToEqualFreshSnapshot()
 
     computedState.width = 100
-    store.updateElement('vector-1', 'width', 140, 100)
+    store.updateElement('vector-1', 'computed', 'width', 140, 100)
     await expectLatestStrategyDataToEqualFreshSnapshot()
 
     computedState.width = 140
-    store.updateElement('vector-1', 'width', 100, 140)
+    store.updateElement('vector-1', 'computed', 'width', 100, 140)
     await expectLatestStrategyDataToEqualFreshSnapshot()
 
     computedState.points = { A: pointAfter, B: replayPoint }
@@ -1369,6 +1587,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
     store.updateElement(
       'vector-1',
+      'computed',
       'points',
       {},
       { p1: { x: 1, y: 1 } },
@@ -1440,6 +1659,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
     const outcome = store.updateElement(
       'vector-2',
+      'computed',
       'points',
       { stale: true },
       { B: { id: 'B', x: 20, y: 20 } }
@@ -1476,6 +1696,7 @@ describe('RenderSceneTree computed data mirror', () => {
     seedStore(store, 'vector-1')
     store.updateElement(
       'vector-1',
+      'computed',
       'points',
       {},
       { p1: { x: 1, y: 1 } },
@@ -1506,6 +1727,7 @@ describe('RenderSceneTree computed data mirror', () => {
     seedStore(store, 'vector-1')
     store.updateElement(
       'vector-1',
+      'computed',
       'points',
       {},
       { p1: { x: 1, y: 1 } },

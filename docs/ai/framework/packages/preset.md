@@ -111,7 +111,9 @@ fails; apps customize successful defaults through ordinary Core APIs.
 - The preset-owned Scene Tree shared-channel observer routes committed add,
   remove, scalar, ordered batch, and record-patch envelopes to the matching
   public Render scene-tree store operation without composing or retaining a
-  snapshot. It records the structured Render projection outcome for bounded
+  snapshot. Scalar and batch routes preserve each canonical `raw` or `computed`
+  owner together with its complete before/after evidence; Preset does not infer
+  ownership. It records the structured Render projection outcome for bounded
   diagnostics, and its idempotent disposer clears Render projection state once.
 
 Preset must not accept app-provided installers, disposers, dependency objects,

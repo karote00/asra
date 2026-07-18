@@ -137,6 +137,7 @@ describe('Preset Selection Subscriptions', () => {
         action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
         eventName: 'update-computed',
         id: 'vector-1',
+        owner: 'computed',
         key: 'visible',
         before: true,
         after: false,
@@ -147,8 +148,8 @@ describe('Preset Selection Subscriptions', () => {
         eventName: 'update-computed',
         id: 'vector-1',
         changes: [
-          { key: 'x', before: 0, after: 10 },
-          { key: 'y', before: 0, after: 20 }
+          { owner: 'raw', key: 'x', before: 0, after: 10 },
+          { owner: 'computed', key: 'y', before: 0, after: 20 }
         ],
         options: { undoable: false }
       })
@@ -174,14 +175,19 @@ describe('Preset Selection Subscriptions', () => {
       })
 
       expect(add).toHaveBeenCalledWith('vector-1')
-      expect(scalar).toHaveBeenCalledWith('vector-1', 'visible', true, false, {
-        undoable: false
-      })
+      expect(scalar).toHaveBeenCalledWith(
+        'vector-1',
+        'computed',
+        'visible',
+        true,
+        false,
+        { undoable: false }
+      )
       expect(batch).toHaveBeenCalledWith(
         'vector-1',
         [
-          { key: 'x', before: 0, after: 10 },
-          { key: 'y', before: 0, after: 20 }
+          { owner: 'raw', key: 'x', before: 0, after: 10 },
+          { owner: 'computed', key: 'y', before: 0, after: 20 }
         ],
         { undoable: false }
       )

@@ -2,6 +2,7 @@ import type {
   ComputedDataPatchChange,
   DataTypes,
   ElementRawData,
+  SceneTreeDataOwner,
   WorkspaceRawData
 } from '@asyra/utils'
 import { EntityTypes } from '@asyra/utils'
@@ -20,6 +21,16 @@ interface ComputedDataMirrorEntry {
   renderDataSnapshot: RenderElementData
 }
 
+interface EffectiveTopLevelChange {
+  key: string
+  before: DataTypes
+  after: DataTypes
+}
+
+interface TopLevelApplyResult {
+  effectiveChanges: EffectiveTopLevelChange[]
+}
+
 type RenderProjectionStatus = 'applied' | 'resynced' | 'removed' | 'failed'
 
 interface RenderProjectionOutcome {
@@ -32,6 +43,19 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const hasOwn = (record: Record<string, unknown>, key: string) =>
   Object.prototype.hasOwnProperty.call(record, key)
+
+const isSceneTreeDataOwner = (
+  value: unknown
+): value is SceneTreeDataOwner => value === 'raw' || value === 'computed'
+
+const getEffectiveValue = (
+  rawDataSnapshot: Record<string, unknown>,
+  computedDataSnapshot: Record<string, DataTypes>,
+  key: string
+): unknown =>
+  hasOwn(computedDataSnapshot, key)
+    ? computedDataSnapshot[key]
+    : rawDataSnapshot[key]
 
 const isDataEqual = (left: unknown, right: unknown): boolean => {
   if (Object.is(left, right)) {
@@ -193,49 +217,97 @@ class ComputedDataMirror {
 
   applyTopLevelChange(
     elementId: string,
+    owner: SceneTreeDataOwner,
     key: string,
     before: DataTypes,
     after: DataTypes
-  ) {
+  ): TopLevelApplyResult | null {
+    if (!isSceneTreeDataOwner(owner)) {
+      return null
+    }
     const entry = this.get(elementId)
     if (!entry) {
-      return false
+      return null
     }
 
     const rawDataSnapshot = { ...entry.rawDataSnapshot }
     const computedDataSnapshot = { ...entry.computedDataSnapshot }
-    const ownerSnapshot = hasOwn(rawDataSnapshot, key)
-      ? rawDataSnapshot
-      : computedDataSnapshot
+    const ownerSnapshot =
+      owner === 'raw' ? rawDataSnapshot : computedDataSnapshot
     if (!isDataEqual(ownerSnapshot[key], before)) {
-      return false
+      return null
     }
+    const effectiveBefore = getEffectiveValue(
+      rawDataSnapshot,
+      computedDataSnapshot,
+      key
+    )
     ownerSnapshot[key] = after
+    const effectiveAfter = getEffectiveValue(
+      rawDataSnapshot,
+      computedDataSnapshot,
+      key
+    )
 
     this.installSnapshot(elementId, rawDataSnapshot, computedDataSnapshot)
     emitStrokePipelineCounter('computed-mirror-staged-change-count')
-    return true
+    return {
+      effectiveChanges: isDataEqual(effectiveBefore, effectiveAfter)
+        ? []
+        : [
+            {
+              key,
+              before: effectiveBefore as DataTypes,
+              after: effectiveAfter as DataTypes
+            }
+          ]
+    }
   }
 
   applyTopLevelChanges(
     elementId: string,
-    changes: { key: string; before: DataTypes; after: DataTypes }[]
-  ) {
+    changes: {
+      owner: SceneTreeDataOwner
+      key: string
+      before: DataTypes
+      after: DataTypes
+    }[]
+  ): TopLevelApplyResult | null {
     const entry = this.get(elementId)
     if (!entry) {
-      return false
+      return null
     }
 
     const rawDataSnapshot = { ...entry.rawDataSnapshot }
     const computedDataSnapshot = { ...entry.computedDataSnapshot }
-    for (const { key, before, after } of changes) {
-      const ownerSnapshot = hasOwn(rawDataSnapshot, key)
-        ? rawDataSnapshot
-        : computedDataSnapshot
-      if (!isDataEqual(ownerSnapshot[key], before)) {
-        return false
+    const effectiveChanges: EffectiveTopLevelChange[] = []
+    for (const { owner, key, before, after } of changes) {
+      if (!isSceneTreeDataOwner(owner)) {
+        return null
       }
+      const ownerSnapshot =
+        owner === 'raw' ? rawDataSnapshot : computedDataSnapshot
+      if (!isDataEqual(ownerSnapshot[key], before)) {
+        return null
+      }
+      const effectiveBefore = getEffectiveValue(
+        rawDataSnapshot,
+        computedDataSnapshot,
+        key
+      )
       ownerSnapshot[key] = after
+      const effectiveAfter = getEffectiveValue(
+        rawDataSnapshot,
+        computedDataSnapshot,
+        key
+      )
+      if (!isDataEqual(effectiveBefore, effectiveAfter)) {
+        effectiveChanges.push({
+          key,
+          before: effectiveBefore as DataTypes,
+          after: effectiveAfter as DataTypes
+        })
+      }
     }
 
     this.installSnapshot(elementId, rawDataSnapshot, computedDataSnapshot)
@@ -244,7 +316,7 @@ class ComputedDataMirror {
       changes.length
     )
     emitStrokePipelineCounter('computed-mirror-batch-apply-count')
-    return true
+    return { effectiveChanges }
   }
 
   applyComputedPatch(elementId: string, patch: ComputedDataPatchChange) {
@@ -442,25 +514,37 @@ class RenderSceneTree {
 
   updateElement(
     elementId: string,
+    owner: SceneTreeDataOwner,
     key: string,
     before: DataTypes,
     after: DataTypes,
     _options?: { undoable?: boolean }
   ) {
-    const didStage = this.computedDataMirror.applyTopLevelChange(
+    const applyResult = this.computedDataMirror.applyTopLevelChange(
       elementId,
+      owner,
       key,
       before,
       after
     )
-    if (!didStage) {
+    if (!applyResult) {
       return this.resyncElement(elementId)
+    }
+
+    const [effectiveChange] = applyResult.effectiveChanges
+    if (!effectiveChange) {
+      return this.projectionOutcome(elementId, 'applied')
     }
 
     if (key === 'visible' || DIRECT_RENDER_PROPERTY_KEYS.has(key)) {
       this.recordDirtyChange(elementId, 1, this.pendingFrameFlush)
       measureBrowserDragPhase('render-scene-tree:update-direct-property', () =>
-        render.updateElement(elementId, key, before, after)
+        render.updateElement(
+          elementId,
+          key,
+          effectiveChange.before,
+          effectiveChange.after
+        )
       )
       this.pendingFrameFlush = true
       this.scheduleFlush()
@@ -480,30 +564,40 @@ class RenderSceneTree {
 
   updateElementBatch(
     elementId: string,
-    changes: { key: string; before: DataTypes; after: DataTypes }[],
+    changes: {
+      owner: SceneTreeDataOwner
+      key: string
+      before: DataTypes
+      after: DataTypes
+    }[],
     _options?: { undoable?: boolean }
   ) {
-    const didStage = this.computedDataMirror.applyTopLevelChanges(
+    const applyResult = this.computedDataMirror.applyTopLevelChanges(
       elementId,
       changes
     )
-    if (!didStage) {
+    if (!applyResult) {
       return this.resyncElement(elementId)
     }
 
-    const hasComputedFullUpdate = changes.some(
+    const { effectiveChanges } = applyResult
+    if (effectiveChanges.length === 0) {
+      return this.projectionOutcome(elementId, 'applied')
+    }
+
+    const hasComputedFullUpdate = effectiveChanges.some(
       ({ key }) => key !== 'visible' && !DIRECT_RENDER_PROPERTY_KEYS.has(key)
     )
 
     this.recordDirtyChange(
       elementId,
-      changes.length,
+      effectiveChanges.length,
       hasComputedFullUpdate
         ? this.pendingElementUpdates.has(elementId)
         : this.pendingFrameFlush
     )
 
-    changes.forEach(({ key, before, after }) => {
+    effectiveChanges.forEach(({ key, before, after }) => {
       if (
         !hasComputedFullUpdate &&
         (key === 'visible' || DIRECT_RENDER_PROPERTY_KEYS.has(key))

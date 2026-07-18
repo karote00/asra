@@ -122,6 +122,7 @@ const getMatchingPropertiesForSceneTreeChange = (
             action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
             eventName: patchChange.eventName,
             id: patchChange.id,
+            owner: 'computed',
             key,
             before: null,
             after: null,
@@ -135,11 +136,12 @@ const getMatchingPropertiesForSceneTreeChange = (
   const batchChange = change as UpdateElementBatchChange
   return Array.from(
     new Set(
-      batchChange.changes.flatMap(({ key, before, after }) =>
+      batchChange.changes.flatMap(({ owner, key, before, after }) =>
         propertyRegistry.getMatchingProperties({
           action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
           eventName: batchChange.eventName,
           id: batchChange.id,
+          owner,
           key,
           before,
           after,
@@ -167,9 +169,17 @@ const updateRenderSceneTree = (change: SceneTreeChange) => {
       )
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA: {
-      const { id, key, before, after, options } = change as UpdateElementChange
+      const { id, owner, key, before, after, options } =
+        change as UpdateElementChange
       return recordRenderProjectionOutcome(
-        renderSceneTreeStore.updateElement(id, key, before, after, options)
+        renderSceneTreeStore.updateElement(
+          id,
+          owner,
+          key,
+          before,
+          after,
+          options
+        )
       )
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH: {

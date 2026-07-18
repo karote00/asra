@@ -235,6 +235,7 @@ describe('Factory', () => {
 
     interface OrderedChange {
       id: string
+      owner: 'raw' | 'computed'
       before: number
       after: number
       evidence: { sequence: number }
@@ -255,6 +256,7 @@ describe('Factory', () => {
       const payload = {
         action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
         id: 'ordered-element',
+        owner: sequence % 2 === 0 ? ('raw' as const) : ('computed' as const),
         key: 'x',
         before: sequence - 1,
         after: sequence,
@@ -278,6 +280,7 @@ describe('Factory', () => {
     const expectedChanges = [1, 2, 3].map((sequence) =>
       expect.objectContaining({
         id: 'ordered-element',
+        owner: sequence % 2 === 0 ? 'raw' : 'computed',
         before: sequence - 1,
         after: sequence,
         evidence: { sequence }
@@ -293,6 +296,7 @@ describe('Factory', () => {
       payload: {
         action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
         id: 'rolled-back-element',
+        owner: 'computed',
         key: 'x',
         before: 0,
         after: 1
