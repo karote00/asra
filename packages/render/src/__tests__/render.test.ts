@@ -235,6 +235,120 @@ describe('Render', () => {
     )
   })
 
+  it('passes complete vector and non-vector snapshots through the same strategy signature', () => {
+    const vectorStrategy = vi.fn()
+    const rectangleStrategy = vi.fn()
+    const vectorData = {
+      id: 'vector-complete-data',
+      type: 'complete-data-vector',
+      visible: true,
+      name: 'Vector',
+      lock: false,
+      points: { point1: { x: 10, y: 20 } },
+      fills: { fill1: { color: 0xff00ff } }
+    } as unknown as RenderElementData
+    const rectangleData = {
+      id: 'rectangle-complete-data',
+      type: 'complete-data-rectangle',
+      visible: true,
+      name: 'Rectangle',
+      lock: false,
+      x: 12,
+      y: 16,
+      width: 80,
+      height: 60
+    } as unknown as RenderElementData
+
+    renderStrategyRegistry.register(vectorData.type, vectorStrategy)
+    renderStrategyRegistry.register(rectangleData.type, rectangleStrategy)
+
+    try {
+      render.addElement(vectorData)
+      render.addElement(rectangleData)
+
+      expect(vectorStrategy).toHaveBeenCalledTimes(1)
+      expect(vectorStrategy.mock.calls[0]?.[1]).toBe(vectorData)
+      expect(rectangleStrategy).toHaveBeenCalledTimes(1)
+      expect(rectangleStrategy.mock.calls[0]?.[1]).toBe(rectangleData)
+    } finally {
+      renderStrategyRegistry.unregister(vectorData.type)
+      renderStrategyRegistry.unregister(rectangleData.type)
+    }
+  })
+
+  it('emits the same draw trace from a delta snapshot and a fresh snapshot', async () => {
+    const strategyType = 'delta-trace-equivalence'
+    const strategy = vi.fn((graphic, data: RenderElementData) => {
+      graphic
+        .clear()
+        .rect(data.x, data.y, data.width, data.height)
+        .fill(0x336699)
+    })
+    const initialData = {
+      id: 'trace-element',
+      type: strategyType,
+      visible: true,
+      name: 'Trace Element',
+      lock: false,
+      x: 0,
+      y: 0,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const finalData = {
+      ...initialData,
+      x: 30,
+      y: 40,
+      width: 80,
+      height: 60
+    }
+    const freshEngine = new RecordingRenderEngine({ name: 'fresh-trace' })
+    const freshRender = new Render({ engine: freshEngine })
+    const drawOperationsAfter = (
+      targetEngine: RecordingRenderEngine,
+      startIndex: number
+    ) =>
+      targetEngine
+        .getOperations()
+        .slice(startIndex)
+        .flatMap((operation) =>
+          operation.type === 'draw' ? [operation.command.operations] : []
+        )
+
+    renderStrategyRegistry.register(strategyType, strategy)
+
+    try {
+      await render.init(100, 100, 0)
+      render.addElement(initialData)
+      render.flushFrame()
+      const deltaStartIndex = engine.getOperations().length
+
+      render.updateElement(
+        finalData.id,
+        'computed',
+        undefined,
+        undefined,
+        finalData
+      )
+      render.flushFrame()
+      const deltaDrawOperations = drawOperationsAfter(engine, deltaStartIndex)
+
+      await freshRender.init(100, 100, 0)
+      const freshStartIndex = freshEngine.getOperations().length
+      freshRender.addElement(finalData)
+      freshRender.flushFrame()
+      const freshDrawOperations = drawOperationsAfter(
+        freshEngine,
+        freshStartIndex
+      )
+
+      expect(deltaDrawOperations).toEqual(freshDrawOperations)
+      expect(deltaDrawOperations).toHaveLength(1)
+    } finally {
+      renderStrategyRegistry.unregister(strategyType)
+    }
+  })
+
   it('should coalesce render requests made during layer updates into the current frame', async () => {
     const appRender = vi.fn()
     const app = await render.init(100, 100, 0)
