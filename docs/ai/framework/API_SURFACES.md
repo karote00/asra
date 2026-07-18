@@ -190,7 +190,7 @@ Managed property bridges:
 - `setUIProperty<T>(key: string, value: T): void`
 - `getUIPropertySubject<T>(key: string): BehaviorSubject<T> | undefined`
 - `onUIPropertyChange<T>(key: string, callback: (value: T) => void): () => void`
-- `updatePropertyById<TFields, K extends keyof TFields>(propertyId: string, key: K, value: TFields[K], owner?: { ownerElementId: string; ownerPropertyName: string }, options?: EVENT_OPTIONS): void`
+- `updatePropertyById<TFields>(propertyId: string, ...update: { [K in Extract<keyof TFields, string>]: [key: K, value: TFields[K], owner?: { ownerElementId: string; ownerPropertyName: string }, options?: EVENT_OPTIONS] }[Extract<keyof TFields, string>]): void`
   - app code may supply a local custom-field interface; existing builtin calls
     retain their inferred source-compatible signature
 - `commitPropertyChanges(options?: EVENT_OPTIONS): void`

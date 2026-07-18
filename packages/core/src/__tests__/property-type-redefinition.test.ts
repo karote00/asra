@@ -438,15 +438,31 @@ describe('Core declarative property type redefinition', () => {
   it('accepts app-declared fields in id-first updates without an unsafe cast', () => {
     interface CustomFields {
       customCount: number
+      customLabel: string
     }
     const { core } = createCoreForTest()
 
-    expect(() =>
+    expect(() => {
       core.updatePropertyById<CustomFields>(
         'missing-property',
         'customCount',
         3
       )
-    ).not.toThrow()
+      core.updatePropertyById<CustomFields>(
+        'missing-property',
+        'customLabel',
+        'ready'
+      )
+      core.updatePropertyById('missing-property', 'x', 3)
+    }).not.toThrow()
+
+    if (false) {
+      core.updatePropertyById<CustomFields>(
+        'missing-property',
+        // @ts-expect-error customCount only accepts its declared number value.
+        'customCount',
+        'wrong'
+      )
+    }
   })
 })
