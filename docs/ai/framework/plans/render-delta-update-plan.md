@@ -66,8 +66,10 @@ Preset data-channel observer:
 `after` is the committed value. `before` is a projection precondition, not an
 alternative source of truth. A top-level value patch never creates a computed
 owner; a missing value base is rejected before canonical mutation. Record addition
-requires the record id to be absent; record replacement/removal requires its
-recorded `before` value to deep-equal the current derived value. Missing record
+requires the record id to be absent; record replacement/removal carries a `before`
+own property even when its value is `undefined`, and requires that recorded value
+to deep-equal the current derived value. Property existence, not
+`before === undefined`, distinguishes addition from replacement. Missing record
 bases are invalid and must never become `{}`.
 
 Batch and record patch validation completes before any cached object is changed.

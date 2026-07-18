@@ -137,6 +137,10 @@ test('Scene Tree is canonical and Factory transports ordered changes only', () =
   assert.match(contractText(commit), /record patches/i)
   assert.match(
     contractText(commit),
+    /existing record value of undefined.*carries a before property.*absent record id.*addition/i
+  )
+  assert.match(
+    contractText(commit),
     /top-level value patch base.*already exist.*computed snapshot/i
   )
   assert.match(contractText(commit), /record base.*already.*record/i)

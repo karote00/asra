@@ -659,6 +659,10 @@ class SceneTree {
       >[string] = {}
 
       Object.entries(recordPatch.set ?? {}).forEach(([recordId, after]) => {
+        const recordExists = Object.prototype.hasOwnProperty.call(
+          currentRecord,
+          recordId
+        )
         const before = currentRecord[recordId]
         if (isEqual(before, after)) {
           return
@@ -667,7 +671,7 @@ class SceneTree {
         nextRecord[recordId] = after
         nextRecordPatch.set ??= {}
         nextRecordPatch.set[recordId] =
-          before === undefined ? { after } : { before, after }
+          recordExists ? { before, after } : { after }
       })
       ;(recordPatch.remove ?? []).forEach((recordId) => {
         if (!(recordId in currentRecord)) {

@@ -33,7 +33,9 @@ Own the document entity graph and computed entity data.
   canonical `raw` or `computed` owner; a transient batch preserves each entry's
   owner, scalar order, and effective options as one envelope.
   Computed record patches retain exact before evidence for replacement/removal,
-  omit equal writes and missing removals, and collapse value plus record
+  including an own `before` property when an existing record value is
+  `undefined`; only an absent record id is an addition. They omit equal writes
+  and missing removals, and collapse value plus record
   set/remove mutations into one committed patch change. Top-level value patches
   replace existing computed keys and never create a missing computed owner. A
   top-level key cannot appear in both the value and record maps of that patch;

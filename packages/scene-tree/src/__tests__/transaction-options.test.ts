@@ -541,6 +541,41 @@ describe('SceneTree transaction options', () => {
     subscription.unsubscribe()
   })
 
+  it('preserves own-property existence when replacing an undefined record value', () => {
+    const after = { id: 'point-1', x: 10, y: 20 }
+    const element = {
+      get: vi.fn(() => 'element-1'),
+      getAllComputedData: vi.fn(() => ({
+        points: { 'point-1': undefined }
+      })),
+      updateComputedData: vi.fn()
+    } as unknown as ElementInstanceTypes
+    sceneTree.addToMap(element)
+
+    sceneTree.patchComputedData('element-1', {
+      records: {
+        points: {
+          set: { 'point-1': after }
+        }
+      }
+    })
+
+    const change = sceneTree.changes[0]
+    expect(change.action).toBe(
+      SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH
+    )
+    if (
+      change.action !== SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH
+    ) {
+      throw new Error('Expected one computed data patch change')
+    }
+    const replacement = change.patch.records?.points.set?.['point-1']
+    expect(replacement).toEqual({ before: undefined, after })
+    expect(Object.prototype.hasOwnProperty.call(replacement, 'before')).toBe(
+      true
+    )
+  })
+
   it('calls updateTransaction without options when neither path provides options', () => {
     const { events, subscription } = captureUpdateTransactionEvents()
     const change = createUpdateChange()
