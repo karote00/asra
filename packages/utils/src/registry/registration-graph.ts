@@ -73,6 +73,7 @@ export interface RegistrationNodeDefinition {
 
 export type RegistrationGraphOperation =
   | 'register-node'
+  | 'transfer-owner'
   | 'define-relation'
   | 'remove-relation'
   | 'unregister-registration'
@@ -313,6 +314,26 @@ export class RegistrationGraph {
     ]
       .sort(compareRelations)
       .map(cloneRelation)
+  }
+
+  transferRegistrationOwner(
+    ref: RegistrationRef,
+    owner: RegistrationOwnerMetadata
+  ): RegistrationNodeMetadata {
+    this.assertCompositionOpen('transfer-owner')
+    const node = this.nodesByRef.get(refKey(ref))
+    if (!node) {
+      return relationFailure(
+        'REGISTRATION_NOT_FOUND',
+        'transfer-owner',
+        `Registration "${ref.kind}:${ref.key}" was not found`,
+        { registration: cloneRef(ref) }
+      )
+    }
+    this.assertNodeNotPending(ref, 'transfer-owner')
+
+    node.owner = cloneOwner(owner)
+    return cloneNode(node)
   }
 
   defineRelation(

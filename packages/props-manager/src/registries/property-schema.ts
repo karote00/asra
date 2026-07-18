@@ -32,12 +32,28 @@ class PropertySchemaRegistry {
     return this.registry.delete(type)
   }
 
+  restoreAfterFailedDeclarativeCommit(schema: PropertySchema): void {
+    this.registry.set(schema.type, schema)
+  }
+
   clear(): void {
     this.registry.clear()
   }
 }
 
-export const propertySchemaRegistry = new PropertySchemaRegistry()
+const propertySchemaRegistryOwner = new PropertySchemaRegistry()
+
+export const propertySchemaRegistry = {
+  register: propertySchemaRegistryOwner.register.bind(
+    propertySchemaRegistryOwner
+  ),
+  get: propertySchemaRegistryOwner.get.bind(propertySchemaRegistryOwner),
+  has: propertySchemaRegistryOwner.has.bind(propertySchemaRegistryOwner),
+  unregister: propertySchemaRegistryOwner.unregister.bind(
+    propertySchemaRegistryOwner
+  ),
+  clear: propertySchemaRegistryOwner.clear.bind(propertySchemaRegistryOwner)
+}
 
 export const registerPropertySchema = (
   schema: PropertySchema,
@@ -49,5 +65,10 @@ export const getPropertySchema = (type: string) =>
 
 export const unregisterPropertySchema = (type: string): boolean =>
   propertySchemaRegistry.unregister(type)
+
+export const restorePropertySchemaAfterFailedDeclarativeCommit = (
+  schema: PropertySchema
+): void =>
+  propertySchemaRegistryOwner.restoreAfterFailedDeclarativeCommit(schema)
 
 export type { RegisterOptions as RegisterPropertySchemaOptions }

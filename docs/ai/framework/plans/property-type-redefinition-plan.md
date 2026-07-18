@@ -147,8 +147,10 @@ The Core facade owns composition coordination:
    mutation;
 7. atomically swap schema and runtime, preserving child configuration and graph
    relations;
-8. transfer registration owner metadata to the app and return a detached
-   committed definition.
+8. transfer registration owner metadata to the app through a narrow
+   RegistrationGraph metadata-only operation that preserves node identity,
+   relations, handlers, and resources, then return a detached committed
+   definition.
 
 If the updater throws, validation fails, staging fails, or commit cannot
 complete, the previous schema, constructor, owner, and relations remain intact.
@@ -227,9 +229,16 @@ of scope.
 - `@asyra/props-manager` owns normalized definition projection, schema/runtime
   validation, usage guards, staging, atomic swap, rollback, and runtime/load
   validation semantics.
+- The existing Core config-mode definition entry delegates constructor creation
+  to the Props Manager builder; Core does not retain a second config runtime
+  builder.
 - `@asyra/core` owns the app-facing getter/redefinition facade, permanent
   composition lock, graph owner update, preserved relation coordination, and
-  final structural relation validation.
+  final structural relation validation. Its existing props API adapter owns the
+  public id-first custom-field generic without changing Props Manager's runtime
+  write owner.
+- Core's `RegistrationGraph` dependency supplies only the metadata mutation
+  primitive; it does not decide whether or when app ownership transfers.
 - `@asyra/scene-tree` continues to project property `getValue()` into computed
   element data; it does not interpret custom field meaning.
 - `@asyra/render` supplies typed engine-neutral render-strategy input and does
@@ -289,6 +298,8 @@ of scope.
   redefined through the same Core facade available to apps.
 - Golden paths document add, remove, nested top-level replacement, explicit
   render/UI replacement, and app-owned migration.
+- Preset package and Asyra Design startup/API contracts document the same
+  public-Core-only composition route without deep imports.
 - No general registry replace operation, nested path API, automatic consumer
   rewrite, render-engine change, fallback field mapping, or app deep import is
   introduced.

@@ -60,6 +60,12 @@
       implementationBoundary: [
         'docs/ai/framework/golden-paths/extend-preset-capability.md',
         'docs/ai/framework/API_SURFACES.md',
+        'docs/ai/framework/packages/preset.md',
+        'docs/ai/apps/asyra-design/API_SURFACES.md',
+        'docs/ai/apps/asyra-design/modules/init-and-startup.md',
+        'docs/ai/apps/asyra-design/modules/registrations.md',
+        'docs/ai/apps/asyra-design/ARCHITECTURE.md',
+        'packages/preset/src/props/components/**',
         'packages/preset/src/__tests__/**',
         'packages/core/src/__tests__/**'
       ],
@@ -94,6 +100,8 @@
         'A read request returns a detached definition and never mutates graph or registries.',
         'A redefine request requires open composition, no pending cleanup, one existing property identity, and the same type in the updater result.',
         'Graph owner metadata changes to the app only after Props Manager reports an atomic committed definition.',
+        'Core uses a RegistrationGraph metadata-only owner transfer that preserves node identity, relations, handlers, and resources; RegistrationGraph does not decide when app ownership applies.',
+        'The existing Core config definition entry delegates config runtime construction to the Props Manager builder so there is no second config builder owner.',
         'Incoming and outgoing relations are preserved; final startup validation rejects stale fixed component aliases or property-child keys.',
         'The Core type facade supports app-declared id-first property fields without an unsafe cast.'
       ],
@@ -104,11 +112,15 @@
       ],
       allowedContributors: [
         '@asyra/props-manager definition owner API',
+        '@asyra/props-manager config-mode constructor builder',
         'Core RegistrationGraph and permanent composition lock',
+        'RegistrationGraph metadata-only owner transfer primitive',
         'existing component/property relation metadata'
       ],
       forbiddenContributors: [
         'partial direct writes to schema or constructor registries',
+        'a second config-mode constructor builder in Core',
+        'unregister and re-register as an owner transfer mechanism',
         'general registry overwrite or duplicate tolerance',
         'semantic inspection of render, UI, feature, or migration functions',
         'runtime redefinition after core.start()'
@@ -116,9 +128,14 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/core/src/core.ts',
+        'packages/core/src/define-property-component.ts',
+        'packages/core/src/apis/props.ts',
+        'packages/core/src/apis/index.ts',
         'packages/core/src/index.ts',
         'packages/core/src/types/**',
         'packages/core/src/__tests__/**',
+        'packages/utils/src/registry/registration-graph.ts',
+        'packages/utils/src/registry/__tests__/registration-graph.test.ts',
         'docs/ai/framework/packages/core.md',
         'docs/ai/framework/API_SURFACES.md'
       ],
@@ -271,6 +288,7 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/render/src/types/render-strategy.ts',
+        'packages/render/src/types/render-strategy.compatibility.ts',
         'packages/render/src/types.ts',
         'packages/render/src/index.ts',
         'packages/render/src/__tests__/**',

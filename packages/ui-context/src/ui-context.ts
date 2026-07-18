@@ -9,11 +9,11 @@ import {
 } from './property-registry'
 
 class UIContext {
-  registerProperty<T extends PropertyValue>(
-    key: string,
-    config: PropertyRegistration<T>
-  ): void {
-    propertyRegistry.register<T>(key, config)
+  registerProperty<
+    T extends PropertyValue,
+    TElementData extends object = Record<never, never>
+  >(key: string, config: PropertyRegistration<T, TElementData>): void {
+    propertyRegistry.register<T, TElementData>(key, config)
   }
 
   get<T extends PropertyValue>(key: string): T | undefined {

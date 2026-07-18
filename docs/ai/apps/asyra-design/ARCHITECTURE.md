@@ -34,9 +34,10 @@
 - `applyPreset(core)` selects profile `2D`, installs all eight official defaults,
   and stores the preset-owned Pixi provider without constructing the engine
 - the current app chooses the default no-customization route; an app that
-  customizes defaults performs ordinary Core remove/unregister/define calls
-  after `applyPreset(core)` and before diagnostics, capabilities, input-system,
-  feature initialization, and the first `core.start()`
+  customizes defaults performs ordinary Core get/redefine, relation, or
+  unregister/define calls after `applyPreset(core)` and before diagnostics,
+  capabilities, input-system, feature initialization, and the first
+  `core.start()`
 - DEV-only diagnostics dynamically import
   `@asyra/core/canvas-pipeline-debugger` and expose a disabled
   `window.__AsyraCanvasPipelineDebugger__` handle; HMR disposes the prior
@@ -78,10 +79,12 @@ Preset customization ownership:
 
 - framework registries/runtime own deterministic registration and cleanup
 - `@asyra/preset` owns explicit defaults, local relation declarations, stable
-  preset owner metadata, deterministic composition diagnostics/rollback, and
-  its graph-backed application cleanup handle
+  preset owner metadata, deterministic composition diagnostics, and failed-
+  apply rollback; successful apply returns no lifecycle or cleanup handle
 - app startup removes/defines exact relations for structural changes, or uses
-  `Core unregister -> define/register` for a complete implementation change
+  Core `getPropertyTypeDefinition -> redefinePropertyType` for a declarative
+  fixed-field change and `unregister -> define/register` for a complete
+  implementation change
 - app code must not deep-import preset internals or derive a product mode from
   renderer/engine capabilities
 

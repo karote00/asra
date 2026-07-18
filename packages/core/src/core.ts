@@ -9,12 +9,16 @@ import factory, { Factory } from '@asyra/factory'
 import inputSystem, { InputSystem } from '@asyra/input-system'
 import sceneTree, { componentRegistry, SceneTree } from '@asyra/scene-tree'
 import props, {
+  commitDeclarativePropertyTypeDefinition,
+  getDeclarativePropertyTypeDefinition,
   PropsManager,
   getPropertyComponent,
   getPropertySchema,
   registerPropertySchema,
   registerPropertyComponent,
-  unregisterPropertyRegistration
+  unregisterPropertyRegistration,
+  PropertyTypeDefinitionError,
+  type PropertyTypeDefinition
 } from '@asyra/props-manager'
 import type { PropertyRegistrationScope } from '@asyra/props-manager'
 import {
@@ -156,6 +160,8 @@ class Core implements CoreAPIs {
   private loadDiagnosticsHooks: LoadDiagnosticsHook[] = []
   private persistenceQueue: Promise<void> = Promise.resolve()
   private compositionOpen = true
+  private propertyTypeRedefinitionInProgress = false
+  private readonly redefinedPropertyTypes = new Set<string>()
   private readonly dataChannelObservers: dataChannelObserver.DataChannelObserverRegistry
   private readonly registrationGraph = new RegistrationGraph({
     isCompositionOpen: () => this.compositionOpen
@@ -398,8 +404,18 @@ class Core implements CoreAPIs {
     container: HTMLElement,
     renderOptions: RenderOptions
   ): Promise<void> {
+    if (this.propertyTypeRedefinitionInProgress) {
+      throw new RegistrationRelationError({
+        ok: false,
+        code: 'UNREGISTER_FAILED',
+        operation: 'transfer-owner',
+        message:
+          'Core cannot start while a property type redefinition is in progress'
+      })
+    }
     this.compositionOpen = false
     this.registrationGraph.validateRelations()
+    this.validateRedefinedPropertyRelations()
 
     const renderer = this.renderer
 
@@ -682,6 +698,52 @@ class Core implements CoreAPIs {
     return getPropertyComponent(type)
   }
 
+  getPropertyTypeDefinition<TFields extends object = Record<string, unknown>>(
+    type: string
+  ): Readonly<PropertyTypeDefinition<TFields>> | undefined {
+    this.assertCompositionOpen('transfer-owner', true)
+    return getDeclarativePropertyTypeDefinition<TFields>(type)
+  }
+
+  redefinePropertyType<TFields extends object = Record<string, unknown>>(
+    type: string,
+    update: (
+      current: Readonly<PropertyTypeDefinition<TFields>>
+    ) => PropertyTypeDefinition<TFields>
+  ): Readonly<PropertyTypeDefinition<TFields>> {
+    const target = { kind: 'property', key: type }
+    this.assertPropertyTypeRedefinitionTarget(target)
+    this.propertyTypeRedefinitionInProgress = true
+
+    try {
+      const current = getDeclarativePropertyTypeDefinition<TFields>(type)
+      if (!current) {
+        throw new PropertyTypeDefinitionError({
+          ok: false,
+          code: 'PROPERTY_TYPE_DEFINITION_DRIFT',
+          type,
+          message: `Property type "${type}" has no declarative definition`
+        })
+      }
+
+      const next = update(current)
+      this.assertPropertyTypeRedefinitionTarget(target, true)
+      const committed = commitDeclarativePropertyTypeDefinition(
+        type,
+        next,
+        this.deps.props
+      )
+      this.registrationGraph.transferRegistrationOwner(target, {
+        packageName: 'app',
+        name: type
+      })
+      this.redefinedPropertyTypes.add(type)
+      return committed
+    } finally {
+      this.propertyTypeRedefinitionInProgress = false
+    }
+  }
+
   unregisterPropertyRegistration(
     type: string,
     scope: PropertyRegistrationScope = 'all'
@@ -742,7 +804,13 @@ class Core implements CoreAPIs {
   }
 
   unregisterPropertyType(type: string): UnregisterRegistrationSuccess {
-    return this.registrationGraph.unregister({ kind: 'property', key: type })
+    this.assertCompositionOpen('unregister-registration')
+    const result = this.registrationGraph.unregister({
+      kind: 'property',
+      key: type
+    })
+    this.redefinedPropertyTypes.delete(type)
+    return result
   }
 
   defineComponent(definition: ComponentDefinition): void {
@@ -1052,13 +1120,137 @@ class Core implements CoreAPIs {
     }
   }
 
-  private assertCompositionOpen(operation: RegistrationGraphOperation): void {
-    if (this.compositionOpen) return
+  private assertCompositionOpen(
+    operation: RegistrationGraphOperation,
+    allowDuringPropertyRedefinition = false
+  ): void {
+    if (
+      this.compositionOpen &&
+      (allowDuringPropertyRedefinition ||
+        !this.propertyTypeRedefinitionInProgress)
+    ) {
+      return
+    }
     throw new RegistrationRelationError({
       ok: false,
-      code: 'COMPOSITION_CLOSED',
+      code: this.compositionOpen ? 'UNREGISTER_FAILED' : 'COMPOSITION_CLOSED',
       operation,
-      message: 'Registration composition is permanently closed'
+      message: this.compositionOpen
+        ? 'Registration mutation is blocked while a property type redefinition is in progress'
+        : 'Registration composition is permanently closed'
+    })
+  }
+
+  private assertPropertyTypeRedefinitionTarget(
+    target: RegistrationRef,
+    allowInProgress = false
+  ): void {
+    this.assertCompositionOpen('transfer-owner', allowInProgress)
+    if (!this.registrationGraph.getRegistration(target)) {
+      throw new RegistrationRelationError({
+        ok: false,
+        code: 'REGISTRATION_NOT_FOUND',
+        operation: 'transfer-owner',
+        message: `Registration "${target.kind}:${target.key}" was not found`,
+        registration: target
+      })
+    }
+    if (this.registrationGraph.hasPendingCleanup(target)) {
+      throw new RegistrationRelationError({
+        ok: false,
+        code: 'UNREGISTER_FAILED',
+        operation: 'transfer-owner',
+        message: `Registration "${target.kind}:${target.key}" has pending cleanup`,
+        registration: target
+      })
+    }
+  }
+
+  private validateRedefinedPropertyRelations(): void {
+    this.redefinedPropertyTypes.forEach((type) => {
+      const target = { kind: 'property', key: type }
+      const definition = getDeclarativePropertyTypeDefinition(type)
+      if (!definition) {
+        this.failStructuralPropertyRelation(
+          target,
+          type,
+          target,
+          `Redefined property type "${type}" is no longer registered`
+        )
+      }
+
+      const fieldsByKey = new Map(
+        definition.fields.map((field) => [field.key, field])
+      )
+      const dynamicReservedKeys = new Set([
+        'id',
+        'type',
+        ...definition.fields.map((field) => field.key),
+        ...definition.dynamicReservedKeys
+      ])
+      const aliasIsProjected = (alias: string) => {
+        const field = fieldsByKey.get(alias)
+        if (field) return field.project
+        return definition.allowDynamicKeys && !dynamicReservedKeys.has(alias)
+      }
+
+      this.registrationGraph
+        .getIncomingRelations(target)
+        .forEach((relation) => {
+          if (relation.source.kind !== 'component') return
+          const componentRelation = getComponentPropertyRelationsRuntime(
+            relation.source.key
+          ).find(
+            (candidate) =>
+              candidate.name === relation.name &&
+              candidate.property.type === type
+          )
+          if (!componentRelation) {
+            this.failStructuralPropertyRelation(
+              relation.source,
+              relation.name,
+              target,
+              `Component property relation "${relation.source.key}/${relation.name}" no longer resolves to "${type}"`
+            )
+          }
+
+          componentRelation.property.alias?.forEach((alias) => {
+            if (aliasIsProjected(alias)) return
+            this.failStructuralPropertyRelation(
+              relation.source,
+              relation.name,
+              target,
+              `Component property alias "${relation.source.key}/${relation.name}.${alias}" is not projected by "${type}"`
+            )
+          })
+        })
+
+      getPropertyChildRelationsRuntime(type).forEach((relation) => {
+        if (fieldsByKey.get(relation.key)?.project) return
+        this.failStructuralPropertyRelation(
+          relation.source,
+          relation.name,
+          relation.target,
+          `Property child key "${type}.${relation.key}" is not projected by its redefined type`
+        )
+      })
+    })
+  }
+
+  private failStructuralPropertyRelation(
+    source: RegistrationRef,
+    relationName: string,
+    target: RegistrationRef,
+    message: string
+  ): never {
+    throw new RegistrationRelationError({
+      ok: false,
+      code: 'DANGLING_RELATION',
+      operation: 'validate-relations',
+      message,
+      source,
+      relationName,
+      target
     })
   }
 

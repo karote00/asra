@@ -41,14 +41,23 @@ Lifecycle and integration:
   - graph-aware full-capability removal; detaches structural dependents,
     recursively unregisters declared hard dependents, and cleans schema/runtime
     resources
-- planned, not yet implemented:
-  - `getPropertyTypeDefinition(type)` returns a detached normalized config-mode
-    field definition
-  - `redefinePropertyType(type, updater)` atomically rebuilds that definition
-    during open composition
+- `getPropertyTypeDefinition<TFields>(type): Readonly<PropertyTypeDefinition<TFields>> | undefined`
+  - returns a deeply detached, complete, normalized config-mode definition
+    during open composition; a missing type returns `undefined`
+- `redefinePropertyType<TFields>(type, updater): Readonly<PropertyTypeDefinition<TFields>>`
+  - runs the updater synchronously with the complete detached definition,
+    requires unchanged type identity, and returns the detached committed result
+  - atomically rebuilds schema, runtime constructor/config, defaults,
+    persistence keys, value projection, and unit projection through Props
+    Manager, then transfers only graph owner metadata to the app
+  - rejects constructor mode, active/replay-retained instances, pending cleanup,
+    closed composition, schema/runtime drift, and invalid definitions without
+    changing the prior definition, owner, or relations
+  - startup rejects stale fixed component aliases and property-child keys;
+    explicitly allowed dynamic aliases retain their dynamic-key policy
+  - this is not a general registry replace path and does not rewrite relations,
+    render strategies, UI properties, commands, or migrations
   - authority: `plans/property-type-redefinition-plan.md`
-  - the planned API is not a general registry replace path and does not rewrite
-    relations, render strategies, UI properties, or migrations
 - component relation APIs:
   - `defineComponent(definition: ComponentDefinition): void`
   - `unregisterComponent(type, options?): boolean | UnregisterComponentResult`
@@ -181,7 +190,9 @@ Managed property bridges:
 - `setUIProperty<T>(key: string, value: T): void`
 - `getUIPropertySubject<T>(key: string): BehaviorSubject<T> | undefined`
 - `onUIPropertyChange<T>(key: string, callback: (value: T) => void): () => void`
-- `updatePropertyById(propertyId: string, key: string, value: unknown, owner?: { ownerElementId: string; ownerPropertyName: string }, options?: EVENT_OPTIONS): void`
+- `updatePropertyById<TFields>(propertyId: string, ...update: { [K in Extract<keyof TFields, string>]: [key: K, value: TFields[K], owner?: { ownerElementId: string; ownerPropertyName: string }, options?: EVENT_OPTIONS] }[Extract<keyof TFields, string>]): void`
+  - app code may supply a local custom-field interface; existing builtin calls
+    retain their inferred source-compatible signature
 - `commitPropertyChanges(options?: EVENT_OPTIONS): void`
 - `defineSystemProperty<T>(key: string, defaultValue: T): BehaviorSubject<T>` (primary declaration API)
 - `defineSystemProperty<T>(key: string, defaultValue: T, options?: { runtime?: boolean; silent?: boolean; validate?: (value: unknown) => value is T }): BehaviorSubject<T>`
@@ -200,6 +211,9 @@ Managed property bridges:
 - `definePropertyComponent`, `unregisterPropertyComponent`
 - property registration lifecycle helpers: `unregisterPropertySchema`,
   `unregisterPropertyRegistration`, `PropertyRegistrationError`
+- declarative property definition contract: `PropertyTypeDefinition`,
+  `PropertyTypeFieldDefinition`, `PropertyTypeDefinitionError`, and
+  `PROPERTY_TYPE_DEFINITION_ERROR_CODES`
 - registration composition types: `RegistrationDefinitionMetadata`,
   `RegistrationRef`, `RegistrationNodeMetadata`,
   `RegistrationRelationDeclaration`, `RegistrationRelationMetadata`,
@@ -280,6 +294,9 @@ Managed property bridges:
   once and is scheduled for removal after the next major-release migration
   window
 - `renderStrategyRegistry`
+- `EngineNeutralRenderStrategy<TAppData>` receives
+  `RenderElementData & TAppData`; the app strategy owns custom-field drawing
+  semantics and Render adds no engine-specific type or fallback behavior
 - `interactionHandlerRegistry`
 - overlay helper: `createOverlayLayerRegistration(...)`
 - overlay interaction helpers:
@@ -413,8 +430,8 @@ Managed property bridges:
 - exports `PRESET_REGISTRATION_OWNER` for metadata inspection; daily app
   customization does not require owner input or preset target keys
 - app customization uses ordinary Core relation/registration APIs after
-  `applyPreset(core)`; preset exposes no app extension object, target manifest,
-  or replace strategy
+  `applyPreset(core)`, including bounded declarative property redefinition;
+  preset exposes no app extension object, target manifest, or replace strategy
 - preset completion does not start Core or publish runtime readiness; the first
   `core.start()` remains the permanent composition closure/runtime owner
 - default render wiring lives here:
@@ -430,7 +447,10 @@ Managed property bridges:
 - default `uiContext` singleton
 - `UIContext` class
 - `propertyRegistry` (ui-context derived UI property registry, unrelated to props-manager element property registry)
-- registration and compute types
+- `PropertyComputeContext<TElementData>.elements` exposes
+  `ComputedAttrs & TElementData` to app callbacks
+- `PropertyRegistration<TValue, TElementData>` remains assignable through the
+  default Core UI-property facade; UI Context remains derived-only
 
 `@asyra/input-system`
 

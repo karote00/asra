@@ -1,9 +1,15 @@
 import type { PropertyComponentDefinition } from '@asyra/core'
 import { PropertyTypes, createDefaultStroke } from '@asyra/utils'
 
+const {
+  id: _strokeId,
+  type: _strokeType,
+  ...strokePropertyDefaults
+} = createDefaultStroke()
+
 export const strokePropertyComponentDefinition: PropertyComponentDefinition = {
   type: PropertyTypes.STROKE,
-  defaults: createDefaultStroke() as unknown as Record<string, unknown>,
+  defaults: strokePropertyDefaults,
   persistKeys: [
     'style',
     'position',

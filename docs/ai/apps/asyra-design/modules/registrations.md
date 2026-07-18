@@ -39,6 +39,7 @@ Preset structural customization, when a product needs it, occurs earlier in
 
 ```text
 applyPreset(core)
+-> optionally get/redefine one declarative property type
 -> remove/define component or property relations
 -> optionally unregister/define a complete capability
 -> continue app registrations
@@ -50,5 +51,9 @@ applyPreset(core)
 - Register new UI-facing derived properties here (not ad-hoc in components).
 - Register new system properties when they represent app interaction mode/state.
 - Avoid duplicate key registration with conflicting defaults.
-- Do not use a replace API or preset target manifest. Relation removal preserves
-  registrations; unregister is reserved for a capability the app does not need.
+- Do not use a general replace API or preset target manifest. The bounded
+  `redefinePropertyType()` facade changes one complete config-mode fixed-field
+  definition only. Relation removal preserves registrations; unregister is
+  reserved for a capability the app does not need.
+- Custom fields used by UI belong in an explicit typed UI-property registration;
+  the property schema never makes UI Context a model owner.

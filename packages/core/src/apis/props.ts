@@ -3,13 +3,13 @@ import type {
   PropertyComponentInstanceDataTypes,
   PropsComponentRawData
 } from '@asyra/utils'
-import type { PropertyOwnerRef } from '../types/props'
+import type { PropertyFieldUpdate, PropertyOwnerRef } from '../types/props'
 
 export interface PropsRequests {
-  updatePropertyById: <K extends keyof PropertyComponentInstanceDataTypes>(
+  updatePropertyById: (
     propertyId: string,
-    key: K,
-    data: PropertyComponentInstanceDataTypes[K],
+    key: string,
+    data: unknown,
     owner?: PropertyOwnerRef,
     options?: EVENT_OPTIONS
   ) => void
@@ -19,13 +19,10 @@ export interface PropsRequests {
 }
 
 export const createPropsAPIs = (requests: PropsRequests) => ({
-  updatePropertyById<K extends keyof PropertyComponentInstanceDataTypes>(
-    propertyId: string,
-    key: K,
-    data: PropertyComponentInstanceDataTypes[K],
-    owner?: PropertyOwnerRef,
-    options?: EVENT_OPTIONS
-  ) {
+  updatePropertyById<
+    TFields extends object = PropertyComponentInstanceDataTypes
+  >(propertyId: string, ...update: PropertyFieldUpdate<TFields>) {
+    const [key, data, owner, options] = update
     requests.updatePropertyById(propertyId, key, data, owner, options)
   },
   commitPropertyChanges(options?: EVENT_OPTIONS) {

@@ -46,6 +46,8 @@ export {
   unregisterPropertyRegistration,
   PROPERTY_REGISTRATION_ERROR_CODES,
   PropertyRegistrationError,
+  PROPERTY_TYPE_DEFINITION_ERROR_CODES,
+  PropertyTypeDefinitionError,
   elementPropertyRegistry,
   propertySchemaRegistry,
   propertyComponentRegistry,
@@ -61,7 +63,11 @@ export type {
   PropertyRegistrationScope,
   PropertyRegistrationUnregisterMissing,
   PropertyRegistrationUnregisterResult,
-  PropertyRegistrationUnregisterSuccess
+  PropertyRegistrationUnregisterSuccess,
+  PropertyTypeDefinition,
+  PropertyTypeDefinitionErrorCode,
+  PropertyTypeDefinitionFailure,
+  PropertyTypeFieldDefinition
 } from '@asyra/props-manager'
 export {
   REGISTRATION_CONTRACT_ERROR_CODES,
@@ -276,6 +282,8 @@ type CoreExtensionApiKeys =
   | 'subscribeEvent'
   | 'registerPropertySchema'
   | 'getPropertySchema'
+  | 'getPropertyTypeDefinition'
+  | 'redefinePropertyType'
   | 'definePropertyComponent'
   | 'registerPropertyComponent'
   | 'getPropertyComponent'
@@ -325,6 +333,8 @@ type CorePresetInstallApiKeys =
   | 'hasSharedDataChannel'
   | 'getYjsDataChannel'
   | 'registerPropertySchema'
+  | 'getPropertyTypeDefinition'
+  | 'redefinePropertyType'
   | 'definePropertyComponent'
   | 'unregisterPropertyRegistration'
   | 'definePropertyChildRelation'

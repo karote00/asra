@@ -13,6 +13,7 @@ import {
   EntityTypes,
   ComputedAttrs,
   PropsComponentRawData,
+  PropertyComponentInstanceDataTypes,
   EVENT_OPTIONS
 } from '@asyra/utils'
 
@@ -135,7 +136,13 @@ export const createAPIs = (
 
   const propsRequests: PropsRequests = {
     updatePropertyById: (propertyId, key, data, owner, options) =>
-      props.updatePropertyById(propertyId, key, data, owner, options),
+      props.updatePropertyById(
+        propertyId,
+        key as keyof PropertyComponentInstanceDataTypes,
+        data as never,
+        owner,
+        options
+      ),
     commitPropertyChanges: (options) => props.commitChanges(options),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     propsLoadData: (data: unknown) => props.load(data as any),

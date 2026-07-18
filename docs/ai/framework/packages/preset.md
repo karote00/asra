@@ -124,11 +124,13 @@ core.registerRenderStrategy('rect', productRectangleStrategy)
 await core.start(container, renderOptions)
 ```
 
-Planned config-mode field customization is tracked by
-`plans/property-type-redefinition-plan.md`. It will use the same public Core
-facade after `applyPreset(core)` and will not add a preset-specific extension or
-replacement object. Until that API is implemented, apps use the existing
-explicit unregister-then-define route.
+Official config-mode property types can be inspected and redefined through
+`core.getPropertyTypeDefinition()` and `core.redefinePropertyType()` after
+`applyPreset(core)` and before the first `core.start()`. The successful property
+owner transfers to the app while existing graph relations remain. Preset adds
+no extension object, deep-import path, field mapping, or replace registry.
+Constructor-mode types and complete capability replacement retain the explicit
+unregister-then-define route.
 
 ## Validation Checklist
 

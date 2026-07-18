@@ -67,6 +67,16 @@ test('app composition uses public Core and keeps semantic consumers explicit', (
   assert.match(contract, /deep imports/i)
   assert.match(contract, /direct Props Manager singleton/i)
   assert.match(contract, /fallback B-to-C mapping/i)
+  const requiredDocs = [
+    'docs/ai/framework/packages/preset.md',
+    'docs/ai/apps/asyra-design/API_SURFACES.md',
+    'docs/ai/apps/asyra-design/modules/init-and-startup.md',
+    'docs/ai/apps/asyra-design/modules/registrations.md',
+    'docs/ai/apps/asyra-design/ARCHITECTURE.md'
+  ]
+  requiredDocs.forEach((requiredPath) => {
+    assert.ok(app.implementationBoundary.includes(requiredPath))
+  })
   assert.deepEqual(app.cacheDimensions, [])
 })
 
@@ -79,10 +89,37 @@ test('Core coordinates a bounded pre-start redefinition without general replace 
   assert.match(contract, /open composition/i)
   assert.match(contract, /same type/i)
   assert.match(contract, /owner metadata changes to the app only after/i)
+  assert.match(contract, /metadata-only owner transfer/i)
+  assert.match(contract, /preserves.*relations.*handlers.*resources/i)
+  assert.match(
+    contract,
+    /existing Core config.*delegates.*Props Manager.*no second.*builder owner/i
+  )
   assert.match(contract, /relations are preserved/i)
   assert.match(contract, /stale fixed component aliases or property-child keys/i)
   assert.match(contract, /general registry overwrite/i)
   assert.match(contract, /runtime redefinition after core\.start/i)
+  assert.ok(
+    core.implementationBoundary.includes(
+      'packages/core/src/define-property-component.ts'
+    )
+  )
+  assert.ok(
+    core.implementationBoundary.includes('packages/core/src/apis/props.ts')
+  )
+  assert.ok(
+    core.implementationBoundary.includes('packages/core/src/apis/index.ts')
+  )
+  assert.ok(
+    core.implementationBoundary.includes(
+      'packages/utils/src/registry/registration-graph.ts'
+    )
+  )
+  assert.ok(
+    core.implementationBoundary.includes(
+      'packages/utils/src/registry/__tests__/registration-graph.test.ts'
+    )
+  )
 })
 
 test('Props Manager owns detached projection and atomic schema/runtime rebuild', () => {
@@ -123,6 +160,11 @@ test('render and UI consumers are typed, explicit, and remain downstream', () =>
   assert.match(renderContract, /strategy alone decides/i)
   assert.match(renderContract, /Pixi or concrete render-engine types/i)
   assert.match(renderContract, /fallback geometry/i)
+  assert.ok(
+    render.implementationBoundary.includes(
+      'packages/render/src/types/render-strategy.compatibility.ts'
+    )
+  )
 
   assert.equal(ui.ownerPackage, '@asyra/ui-context')
   assert.match(uiContract, /app-declared element data type/i)

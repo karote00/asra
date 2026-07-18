@@ -28,9 +28,14 @@ Import boundary:
   preset composition internals. Custom property type constants remain public
   `@asyra/utils` imports
 - app startup uses ordinary Core APIs for customization:
+  `getPropertyTypeDefinition` / `redefinePropertyType` for one atomic
+  declarative fixed-field change,
   `removeComponentPropertyRelation` / `defineComponentPropertyRelation` for
   structural slots, or owner-specific `unregister -> define/register` for a
   complete implementation change
+- property redefinition does not adapt render/UI/commands or migrate stored
+  documents; those app-owned consumers remain explicit and load hooks run
+  before package validation
 - `unregisterPropertyRegistration(type, scope)` is low-level schema/runtime
   cleanup; `unregisterPropertyType(type)` removes a complete graph capability
 

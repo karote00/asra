@@ -6,15 +6,33 @@ import type {
   PropertyComponentInstanceDataTypes,
   PropertyComponentRawData,
   PropertyFieldSchema,
-  PropertyUnitKind,
-  PropertyValueKind
+  PropertyUnitKind
 } from '@asyra/utils'
 import { acknowledgeTransactionReplayApplied } from '@asyra/reactive-events'
 import { Setter, Unit, isNil } from '@asyra/utils'
 import { getPropertySchema } from '../registries/property-schema'
+import { matchesPropertyValueKind } from '../registries/property-value-kind'
 import PropsChangeHandler from './props-change-handler'
 
 const propsChangeHandler = new PropsChangeHandler()
+
+const cloneFallbackValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map((item) => cloneFallbackValue(item))
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.entries(value).reduce<Record<string, unknown>>(
+      (cloned, [key, item]) => {
+        cloned[key] = cloneFallbackValue(item)
+        return cloned
+      },
+      {}
+    )
+  }
+
+  return value
+}
 
 abstract class BaseComponent<
     T extends PropertyComponentInstanceDataTypes = PositionAttrs
@@ -37,27 +55,9 @@ abstract class BaseComponent<
     return schema.fields.find((field) => field.key === key)
   }
 
-  private matchKind(kind: PropertyValueKind, value: unknown): boolean {
-    switch (kind) {
-      case 'number':
-        return typeof value === 'number' && Number.isFinite(value)
-      case 'string':
-        return typeof value === 'string'
-      case 'boolean':
-        return typeof value === 'boolean'
-      case 'object':
-        return value === null || (!!value && typeof value === 'object')
-      case 'array':
-        return Array.isArray(value)
-      case 'custom':
-      default:
-        return true
-    }
-  }
-
   private tryFallback(field: PropertyFieldSchema, shouldFallback: boolean) {
     if (shouldFallback && field.defaultValue !== undefined) {
-      return { valid: true, value: field.defaultValue as unknown }
+      return { valid: true, value: cloneFallbackValue(field.defaultValue) }
     }
 
     return { valid: false, value: undefined as unknown }
@@ -75,7 +75,7 @@ abstract class BaseComponent<
 
     const nextValue = value
 
-    if (!this.matchKind(field.kind, nextValue)) {
+    if (!matchesPropertyValueKind(field.kind, nextValue)) {
       return this.tryFallback(field, shouldFallback)
     }
 
@@ -88,8 +88,14 @@ abstract class BaseComponent<
       return this.tryFallback(field, shouldFallback)
     }
 
-    if (field.validate && !field.validate(nextValue as never)) {
-      return this.tryFallback(field, shouldFallback)
+    if (field.validate) {
+      try {
+        if (!field.validate(nextValue as never)) {
+          return this.tryFallback(field, shouldFallback)
+        }
+      } catch {
+        return this.tryFallback(field, shouldFallback)
+      }
     }
 
     return { valid: true, value: nextValue }
