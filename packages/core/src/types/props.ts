@@ -12,10 +12,13 @@ export interface PropertyOwnerRef {
 export interface PropsRawAPIs {
   propsLoadData: (data: PropsComponentRawData) => void
   propsSaveData: () => PropsComponentRawData
-  updatePropertyById: <K extends keyof PropertyComponentInstanceDataTypes>(
+  updatePropertyById: <
+    TFields extends object = PropertyComponentInstanceDataTypes,
+    K extends Extract<keyof TFields, string> = Extract<keyof TFields, string>
+  >(
     propertyId: string,
     key: K,
-    data: PropertyComponentInstanceDataTypes[K],
+    data: TFields[K],
     owner?: PropertyOwnerRef,
     options?: EVENT_OPTIONS
   ) => void

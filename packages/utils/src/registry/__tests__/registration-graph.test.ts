@@ -93,6 +93,96 @@ describe('RegistrationGraph', () => {
     ).toBe('a')
   })
 
+  it('transfers only owner metadata while preserving node behavior and relations', () => {
+    const events: string[] = []
+    const graph = new RegistrationGraph()
+    const source = ref('component', 'shape')
+    const target = ref('property', 'style')
+    graph.registerNode(
+      node('component', 'shape', {
+        handlers: {
+          detachRelation: (relation) => events.push(`detach:${relation.name}`)
+        }
+      })
+    )
+    graph.registerNode(
+      node('property', 'style', {
+        owner: { packageName: '@asyra/preset', name: 'default-style' },
+        resources: [
+          { key: 'style-runtime', dispose: () => events.push('dispose:style') }
+        ]
+      })
+    )
+    graph.defineRelation(source, {
+      name: 'style',
+      target,
+      onTargetUnregister: 'detach'
+    })
+    const relations = graph.getRelations()
+    const appOwner = { packageName: 'app', name: 'style' }
+
+    const result = graph.transferRegistrationOwner(target, appOwner)
+
+    appOwner.name = 'mutated-input'
+    ;(result.owner as { name: string }).name = 'mutated-result'
+    expect(graph.getRegistration(target)?.owner).toEqual({
+      packageName: 'app',
+      name: 'style'
+    })
+    expect(graph.getRelations()).toEqual(relations)
+
+    graph.unregister(target)
+    expect(events).toEqual(['detach:style', 'dispose:style'])
+  })
+
+  it('rejects owner transfer for missing, pending, or closed registrations', () => {
+    let compositionOpen = true
+    const graph = new RegistrationGraph({
+      isCompositionOpen: () => compositionOpen
+    })
+    const target = ref('property', 'style')
+    graph.registerNode(
+      node('property', 'style', {
+        resources: [
+          {
+            key: 'style-runtime',
+            dispose: () => {
+              throw new Error('cleanup failed')
+            }
+          }
+        ]
+      })
+    )
+
+    expectError(
+      () =>
+        graph.transferRegistrationOwner(ref('property', 'missing'), {
+          packageName: 'app',
+          name: 'missing'
+        }),
+      'REGISTRATION_NOT_FOUND'
+    )
+    expectError(() => graph.unregister(target), 'UNREGISTER_FAILED')
+    expectError(
+      () =>
+        graph.transferRegistrationOwner(target, {
+          packageName: 'app',
+          name: 'style'
+        }),
+      'UNREGISTER_FAILED'
+    )
+
+    compositionOpen = false
+    expectError(
+      () =>
+        graph.transferRegistrationOwner(target, {
+          packageName: 'app',
+          name: 'style'
+        }),
+      'COMPOSITION_CLOSED'
+    )
+  })
+
   it('fails fast for missing registrations, targets, duplicate relations, and missing relations', () => {
     const graph = new RegistrationGraph()
     graph.registerNode(node('component', 'rect'))

@@ -27,6 +27,8 @@ System orchestrator and lifecycle coordinator.
 - remove/define component-property and property-child relations
 - define low-level property schema/runtime registrations and graph-aware full
   property capabilities
+- read and atomically redefine complete declarative property-type definitions
+  during open composition
 - define/query/unregister feature registrations
 - register/unregister render strategies and UI properties
 - query registration nodes, owners, and relations
@@ -99,6 +101,17 @@ System orchestrator and lifecycle coordinator.
 - Core registration methods are public delegates to the feature/property owner;
   Core does not add duplicate tolerance, semantic-equivalence ordering, or app
   policy.
+- `getPropertyTypeDefinition(type)` returns a deeply detached normalized
+  config-mode definition without changing ownership or relations;
+  `redefinePropertyType(type, updater)` synchronously rebuilds the complete
+  definition through Props Manager, then transfers only graph owner metadata to
+  `{ packageName: 'app', name: type }`
+- declarative redefinition is available only before the first `start()` and
+  rejects constructor-mode types, active/replay-retained instances, pending
+  cleanup, identity changes, invalid definitions, or schema/runtime drift
+- the successful metadata-only owner transfer preserves the registration node,
+  handlers, resources, and all incoming/outgoing relations; startup rejects
+  stale fixed component aliases or property-child keys before renderer effects
 - `removeComponentPropertyRelation` and `removePropertyChildRelation` remove one
   edge and rebuild the source registration while preserving source/target nodes
 - relation define preflight rejects pending source or target cleanup; remove
@@ -207,17 +220,18 @@ System orchestrator and lifecycle coordinator.
 - Core/scene-tree bridge rule: scene-tree recompute should react to committed props transactions, not be manually duplicated in app handlers.
 - Cross-cutting domain logic belongs in app/common APIs, not core.
 
-## Planned Declarative Property Type Redefinition
+## Declarative Property Type Redefinition
 
-`plans/property-type-redefinition-plan.md` defines a not-yet-implemented,
-pre-start Core facade for reading and atomically redefining one config-mode
-property type. Core will coordinate the permanent composition lock, graph owner
-metadata, preserved relations, and final structural validation while Props
-Manager remains the schema/runtime rebuild owner.
+`getPropertyTypeDefinition()` and `redefinePropertyType()` are the pre-start
+Core facade for reading and atomically redefining one config-mode property type.
+Core coordinates the permanent composition lock, graph owner metadata,
+preserved relations, and final structural validation while Props Manager
+remains the schema/runtime rebuild owner.
 
-The planned operation is a bounded declarative exception, not a general replace
-strategy. Render strategies, UI properties, relations, app commands, and load
-migrations remain explicit ordinary app composition.
+The operation is a bounded declarative exception, not a general replace
+strategy. Constructor-mode types retain unregister/define composition. Render
+strategies, UI properties, relations, app commands, and load migrations remain
+explicit ordinary app composition.
 
 ## Validation Checklist
 

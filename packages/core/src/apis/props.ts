@@ -6,10 +6,10 @@ import type {
 import type { PropertyOwnerRef } from '../types/props'
 
 export interface PropsRequests {
-  updatePropertyById: <K extends keyof PropertyComponentInstanceDataTypes>(
+  updatePropertyById: (
     propertyId: string,
-    key: K,
-    data: PropertyComponentInstanceDataTypes[K],
+    key: string,
+    data: unknown,
     owner?: PropertyOwnerRef,
     options?: EVENT_OPTIONS
   ) => void
@@ -19,10 +19,13 @@ export interface PropsRequests {
 }
 
 export const createPropsAPIs = (requests: PropsRequests) => ({
-  updatePropertyById<K extends keyof PropertyComponentInstanceDataTypes>(
+  updatePropertyById<
+    TFields extends object = PropertyComponentInstanceDataTypes,
+    K extends Extract<keyof TFields, string> = Extract<keyof TFields, string>
+  >(
     propertyId: string,
     key: K,
-    data: PropertyComponentInstanceDataTypes[K],
+    data: TFields[K],
     owner?: PropertyOwnerRef,
     options?: EVENT_OPTIONS
   ) {
