@@ -186,6 +186,10 @@ test('initial snapshots are explicit complete Scene Tree projections', () => {
   assert.match(contract, /first use and update may not seed implicitly/i)
   assert.match(contract, /Workspace elements are not cached or rendered/i)
   assert.match(contract, /Load clears every entry and pending update/i)
+  assert.match(
+    contract,
+    /missing add.*pending update.*stale visual.*removed/i
+  )
 })
 
 test('scalar, batch, and record patches validate and install atomically', () => {
@@ -220,6 +224,10 @@ test('mismatch performs one explicit resync or removes stale output', () => {
     /No resync outcome renders the rejected partial delta/i
   )
   assert.match(contract, /stale visual retention after failed resync/i)
+  assert.match(
+    route('mismatch-to-resync').predicate,
+    /incomplete candidate/i
+  )
   assert.equal(route('mismatch-to-resync').kind, 'failure')
   assert.equal(route('resync-to-cleanup').kind, 'failure')
 })
@@ -253,6 +261,9 @@ test('strategy ownership is complete-data, engine-neutral, and non-vector compat
   )
   assert.match(strategyContract, /Scene Tree reads/i)
   assert.match(strategyContract, /Pixi types or methods/i)
+  assert.ok(
+    strategy.implementationBoundary.includes('docs/ai/framework/PLANS.md')
+  )
   assert.match(handoffContract, /existing @asyra\/render-engine commands/i)
   assert.match(handoffContract, /@asyra\/render-engine-pixi changes/i)
   assert.equal(
@@ -327,6 +338,10 @@ test('the product contract and formal oracle lock count and timing budgets', () 
     path.resolve(repoRoot, data.authority.specPath),
     'utf8'
   )
+  const planIndex = fs.readFileSync(
+    path.resolve(repoRoot, 'docs/ai/framework/PLANS.md'),
+    'utf8'
+  )
   const oraclePath = path.resolve(
     repoRoot,
     'apps/asyra-design/e2e/render-delta-performance.spec.ts'
@@ -340,6 +355,8 @@ test('the product contract and formal oracle lock count and timing budgets', () 
     plan,
     /does not permit a new or expanded\s+vector geometry cache/i
   )
+  assert.match(planIndex, /elementId.*complete Render snapshot/i)
+  assert.doesNotMatch(planIndex, /key-based invalidation/i)
   assert.match(oracle, /DENSE_POINT_COUNT = 56/)
   assert.match(oracle, /fullRehydrateCallsDuringDelta\)\.toBe\(0\)/)
   assert.match(oracle, /renderSnapshotDeltaApplies\)\.toBe\(SAMPLE_FRAMES\)/)

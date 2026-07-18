@@ -111,9 +111,10 @@ Add and load use an explicit Render resync reader over the public Scene Tree own
 to compose `{ ...element.save(), ...element.getAllComputedData() }`. First-use and
 ordinary update paths may not seed implicitly. A complete base is required before
 any delta can render. The merged snapshot must have the requested `id`, a non-empty
-`type`, and must not be a workspace. A missing canonical add target returns
-`removed`; an existing target that throws or fails this completeness check clears
-stale output and returns `failed`.
+`type`, and must not be a workspace. A missing canonical add target clears its
+matching pending update and stale visual before returning `removed`; an existing
+target that throws or fails this completeness check clears stale output and
+returns `failed`.
 
 The data-channel observer only routes the committed payload and receives the
 projection outcome. It does not assemble or retain the snapshot.

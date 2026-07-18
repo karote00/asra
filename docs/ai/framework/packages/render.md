@@ -69,6 +69,9 @@ drawing; Render adds no inferred mapping or fallback geometry.
 - add and load explicitly merge the element's complete saved and computed data
   into one snapshot; the requested id, non-empty type, and non-workspace checks
   must pass before install, and ordinary updates never seed a missing base
+- a missing canonical add target clears matching pending work and stale visual
+  before returning `removed`; an invalid existing target clears stale output and
+  returns `failed`
 - scalar, ordered batch, and record patch updates validate every supplied
   `before` image before atomically installing a new snapshot; record patches
   require an existing record base and never substitute `{}`

@@ -206,7 +206,7 @@
         'An existing add target that throws or fails completeness validation clears stale output and returns failed.'
       ],
       bypasses: [
-        'A missing add element follows the removed outcome and emits no visual.',
+        'A missing add target clears its pending update and stale visual, then returns removed without emitting new output.',
         'Ordinary valid deltas use atomic projection instead of full seed.'
       ],
       allowedContributors: [
@@ -435,6 +435,7 @@
         'packages/preset/src/__tests__/**',
         'apps/asyra-design/e2e/render-delta-performance.spec.ts',
         'docs/ai/framework/packages/render.md',
+        'docs/ai/framework/PLANS.md',
         'docs/ai/framework/plans/render-delta-update-plan.md'
       ],
       specRefs: [
@@ -603,7 +604,8 @@
       from: 'apply-render-delta',
       to: 'flush-render-snapshot',
       kind: 'normal',
-      predicate: 'every delta precondition validates',
+      predicate:
+        'every delta precondition and candidate completeness check validates',
       producedArtifacts: ['artifact:accepted-render-snapshot']
     },
     {
@@ -611,7 +613,8 @@
       from: 'apply-render-delta',
       to: 'resync-render-snapshot',
       kind: 'failure',
-      predicate: 'the base is missing or any before/record precondition fails',
+      predicate:
+        'the base is missing, any before/record precondition fails, or an incomplete candidate is produced',
       producedArtifacts: ['artifact:projection-mismatch']
     },
     {
