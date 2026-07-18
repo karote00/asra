@@ -13,6 +13,12 @@ vi.mock('../../contexts', () => ({ default: core }))
 vi.mock('../diagnostics/init-load-diagnostics', () => ({
   initLoadDiagnostics: () => calls.push('diagnostics')
 }))
+vi.mock('../diagnostics/init-canvas-pipeline-debugger', () => ({
+  initCanvasPipelineDebugger: () => {
+    calls.push('canvas-pipeline-debugger')
+    return Promise.resolve(undefined)
+  }
+}))
 vi.mock('../derived-state/init-selection-compatibility', () => ({
   initSelectionCompatibility: () => calls.push('selection-compatibility')
 }))
@@ -52,6 +58,7 @@ describe('initApp preset composition', () => {
     expect(applyPreset).toHaveBeenCalledWith(core)
     expect(calls).toEqual([
       'preset',
+      'canvas-pipeline-debugger',
       'diagnostics',
       'selection-compatibility',
       'path-editing-continuation',

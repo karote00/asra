@@ -1,5 +1,7 @@
 import type {
   RenderEngine,
+  RenderEngineCommand,
+  RenderEngineCommandResult,
   RenderEngineDrawOperation,
   RenderEngineObjectHandle,
   RenderEngineObjectProperties,
@@ -169,26 +171,46 @@ export class RenderObjectRuntime {
 
   constructor(
     readonly engine: RenderEngine,
-    private readonly root: RenderEngineObjectHandle
+    private readonly root: RenderEngineObjectHandle,
+    private readonly beforeExecute?: (
+      command: RenderEngineCommand,
+      node?: RenderNode,
+      relatedNode?: RenderNode
+    ) => void
   ) {}
+
+  private execute(
+    command: RenderEngineCommand,
+    node?: RenderNode,
+    relatedNode?: RenderNode
+  ): RenderEngineCommandResult {
+    this.beforeExecute?.(command, node, relatedNode)
+    return this.engine.execute(command)
+  }
 
   attachRoot(node: RenderNode): void {
     const handle = this.attachNode(node)
-    this.engine.execute({
-      type: 'append-child',
-      parent: this.root,
-      child: handle
-    })
+    this.execute(
+      {
+        type: 'append-child',
+        parent: this.root,
+        child: handle
+      },
+      node
+    )
   }
 
   detachRoot(node: RenderNode): void {
     const handle = node.getEngineHandle()
     if (handle) {
-      this.engine.execute({
-        type: 'remove-child',
-        parent: this.root,
-        child: handle
-      })
+      this.execute(
+        {
+          type: 'remove-child',
+          parent: this.root,
+          child: handle
+        },
+        node
+      )
     }
   }
 
@@ -197,12 +219,15 @@ export class RenderObjectRuntime {
     if (existingHandle) {
       return existingHandle
     }
-    const result = this.engine.execute({
-      type: 'create-object',
-      requestId: node.label || node.objectType,
-      objectType: node.objectType,
-      properties: node.getEngineProperties()
-    })
+    const result = this.execute(
+      {
+        type: 'create-object',
+        requestId: node.label || node.objectType,
+        objectType: node.objectType,
+        properties: node.getEngineProperties()
+      },
+      node
+    )
     if (!result.object) {
       throw new Error('Render engine did not return an object handle')
     }
@@ -210,11 +235,15 @@ export class RenderObjectRuntime {
     this.objectByHandle.set(result.object, node)
     node.children.forEach((child) => {
       const childHandle = this.attachNode(child)
-      this.engine.execute({
-        type: 'append-child',
-        parent: result.object as RenderEngineObjectHandle,
-        child: childHandle
-      })
+      this.execute(
+        {
+          type: 'append-child',
+          parent: result.object as RenderEngineObjectHandle,
+          child: childHandle
+        },
+        child,
+        node
+      )
     })
     if (node instanceof RenderGraphics) {
       this.dirtyGraphics.add(node)
@@ -228,18 +257,26 @@ export class RenderObjectRuntime {
       return
     }
     const childHandle = this.attachNode(child)
-    this.engine.execute({
-      type: 'append-child',
-      parent: parentHandle,
-      child: childHandle
-    })
-    if (index !== undefined) {
-      this.engine.execute({
-        type: 'set-child-index',
+    this.execute(
+      {
+        type: 'append-child',
         parent: parentHandle,
-        child: childHandle,
-        index
-      })
+        child: childHandle
+      },
+      child,
+      parent
+    )
+    if (index !== undefined) {
+      this.execute(
+        {
+          type: 'set-child-index',
+          parent: parentHandle,
+          child: childHandle,
+          index
+        },
+        child,
+        parent
+      )
     }
   }
 
@@ -247,11 +284,15 @@ export class RenderObjectRuntime {
     const parentHandle = parent.getEngineHandle()
     const childHandle = child.getEngineHandle()
     if (parentHandle && childHandle) {
-      this.engine.execute({
-        type: 'remove-child',
-        parent: parentHandle,
-        child: childHandle
-      })
+      this.execute(
+        {
+          type: 'remove-child',
+          parent: parentHandle,
+          child: childHandle
+        },
+        child,
+        parent
+      )
     }
   }
 
@@ -259,12 +300,16 @@ export class RenderObjectRuntime {
     const parentHandle = parent.getEngineHandle()
     const childHandle = child.getEngineHandle()
     if (parentHandle && childHandle) {
-      this.engine.execute({
-        type: 'set-child-index',
-        parent: parentHandle,
-        child: childHandle,
-        index
-      })
+      this.execute(
+        {
+          type: 'set-child-index',
+          parent: parentHandle,
+          child: childHandle,
+          index
+        },
+        child,
+        parent
+      )
     }
   }
 
@@ -274,7 +319,7 @@ export class RenderObjectRuntime {
   ): void {
     const handle = node.getEngineHandle()
     if (handle) {
-      this.engine.execute({ type: 'update-object', object: handle, properties })
+      this.execute({ type: 'update-object', object: handle, properties }, node)
     }
   }
 
@@ -284,7 +329,7 @@ export class RenderObjectRuntime {
       return
     }
     this.objectByHandle.delete(handle)
-    this.engine.execute({ type: 'destroy-object', object: handle })
+    this.execute({ type: 'destroy-object', object: handle }, node)
     node.unbindRuntime()
   }
 
@@ -301,11 +346,14 @@ export class RenderObjectRuntime {
     for (const graphics of this.dirtyGraphics) {
       const handle = graphics.getEngineHandle()
       if (handle) {
-        this.engine.execute({
-          type: 'draw',
-          object: handle,
-          operations: graphics.getDrawOperations()
-        })
+        this.execute(
+          {
+            type: 'draw',
+            object: handle,
+            operations: graphics.getDrawOperations()
+          },
+          graphics
+        )
         graphics.markDrawClean()
       }
     }
@@ -329,11 +377,14 @@ export class RenderObjectRuntime {
       }
       let record = this.resourceByStyle.get(resourceCandidate)
       if (!record) {
-        const result = this.engine.execute({
-          type: 'create-resource',
-          requestId: resourceStyle.__asyraRenderResourceDescriptor.kind,
-          descriptor: resourceStyle.__asyraRenderResourceDescriptor
-        })
+        const result = this.execute(
+          {
+            type: 'create-resource',
+            requestId: resourceStyle.__asyraRenderResourceDescriptor.kind,
+            descriptor: resourceStyle.__asyraRenderResourceDescriptor
+          },
+          owner
+        )
         if (!result.resource) {
           throw new Error('Render engine did not return a resource handle')
         }
@@ -397,7 +448,7 @@ export class RenderObjectRuntime {
     if (this.resourceByStyle.get(style) !== record) {
       return
     }
-    this.engine.execute({
+    this.execute({
       type: 'destroy-resource',
       resource: record.handle
     })

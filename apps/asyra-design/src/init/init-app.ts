@@ -4,6 +4,7 @@ import { initAreaSelection } from './capabilities/init-area-selection'
 import { initGradientFillEditing } from './capabilities/init-gradient-fill-editing'
 import { initVectorIconData } from './capabilities/init-vector-icon-data'
 import { initLoadDiagnostics } from './diagnostics/init-load-diagnostics'
+import { initCanvasPipelineDebugger } from './diagnostics/init-canvas-pipeline-debugger'
 import { initSelectionCompatibility } from './derived-state/init-selection-compatibility'
 import { initPathEditingContinuation } from './derived-state/init-path-editing-continuation'
 import { initFeatures } from './foundation/init-features'
@@ -34,6 +35,9 @@ import { strokeApis } from '../common-apis/strokes'
  */
 export const initApp = (): void => {
   applyPreset(core)
+
+  // DEV runtime diagnostics are loaded from an optional package subpath.
+  void initCanvasPipelineDebugger()
 
   // Diagnostics: subscribe once to core load diagnostics and route reports to app-level handlers.
   initLoadDiagnostics()

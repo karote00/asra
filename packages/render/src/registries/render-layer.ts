@@ -1,7 +1,7 @@
 import { MapRegistry } from '@asyra/utils'
 import type { RenderLayerRegistration } from '../types/render-layer'
 
-class RenderLayerRegistry {
+export class RenderLayerRegistry {
   private layers = new MapRegistry<string, RenderLayerRegistration>()
   private sortedLayers: RenderLayerRegistration[] | null = null
 
@@ -51,6 +51,3 @@ class RenderLayerRegistry {
     this.sortedLayers = null
   }
 }
-
-export const renderLayerRegistry = new RenderLayerRegistry()
-export default renderLayerRegistry

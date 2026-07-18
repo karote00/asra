@@ -183,6 +183,39 @@ describe('Core registration facade', () => {
     expect(presetApi.getYjsDataChannel).toBe(core.getYjsDataChannel)
   })
 
+  it('preserves render-layer shouldUpdate through the Core facade contract', () => {
+    const registerLayer = vi.fn()
+    const core = new Core({
+      inputSystem: {} as never,
+      factory: {
+        registerTransactionReplayHandler: vi.fn(() => () => undefined),
+        subscribeToTransactionStatus: vi.fn(() => () => undefined)
+      } as never,
+      props: new PropsManager(),
+      render: {
+        getViewportPosition: () => ({ x: 0, y: 0 }),
+        getViewportScale: () => 1,
+        registerLayer
+      } as never,
+      sceneTree: {} as never,
+      selection: {} as never,
+      systemContext: {} as never
+    })
+    const shouldUpdate = vi.fn(() => false)
+
+    core.registerRenderLayer({
+      name: 'diagnostic-layer',
+      layer: {},
+      shouldUpdate,
+      update: () => true
+    })
+
+    expect(registerLayer).toHaveBeenCalledWith(
+      expect.objectContaining({ shouldUpdate }),
+      undefined
+    )
+  })
+
   it('routes shared data channels through the injected Factory', () => {
     const { core, sharedChannels } = createCoreForTest()
     const channel = { owner: 'injected-factory' }
