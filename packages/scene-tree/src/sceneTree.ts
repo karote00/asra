@@ -65,6 +65,24 @@ const cloneRecord = (
 ): Record<string, ComputedDataRecordValue> =>
   ({ ...value }) as Record<string, ComputedDataRecordValue>
 
+const hasOwnRecordValue = (
+  value: Record<string, unknown>,
+  key: string
+): boolean => Object.prototype.hasOwnProperty.call(value, key)
+
+const setOwnEnumerableValue = (
+  value: object,
+  key: string,
+  nextValue: unknown
+): void => {
+  Object.defineProperty(value, key, {
+    configurable: true,
+    enumerable: true,
+    value: nextValue,
+    writable: true
+  })
+}
+
 const getComputedSnapshot = (
   element: ElementInstanceTypes
 ): Record<string, DataTypes> => {
@@ -661,30 +679,29 @@ class SceneTree {
       >[string] = {}
 
       Object.entries(recordPatch.set ?? {}).forEach(([recordId, after]) => {
-        const recordExists = Object.prototype.hasOwnProperty.call(
-          currentRecord,
-          recordId
-        )
+        const recordExists = hasOwnRecordValue(currentRecord, recordId)
         const before = currentRecord[recordId]
-        if (isEqual(before, after)) {
+        if (recordExists && isEqual(before, after)) {
           return
         }
 
-        nextRecord[recordId] = after
+        setOwnEnumerableValue(nextRecord, recordId, after)
         nextRecordPatch.set ??= {}
-        nextRecordPatch.set[recordId] = recordExists
-          ? { before, after }
-          : { after }
+        setOwnEnumerableValue(
+          nextRecordPatch.set,
+          recordId,
+          recordExists ? { before, after } : { after }
+        )
       })
       ;(recordPatch.remove ?? []).forEach((recordId) => {
-        if (!(recordId in currentRecord)) {
+        if (!hasOwnRecordValue(currentRecord, recordId)) {
           return
         }
 
         nextRecordPatch.remove ??= {}
-        nextRecordPatch.remove[recordId] = {
+        setOwnEnumerableValue(nextRecordPatch.remove, recordId, {
           before: currentRecord[recordId]
-        }
+        })
         const { [recordId]: _removed, ...withoutRecord } = nextRecord
         nextRecord = withoutRecord
       })

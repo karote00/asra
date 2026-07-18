@@ -578,6 +578,84 @@ describe('SceneTree transaction options', () => {
     )
   })
 
+  it('commits an absent record id whose explicit value is undefined', () => {
+    const element = {
+      get: vi.fn(() => 'element-1'),
+      getAllComputedData: vi.fn(() => ({ points: {} })),
+      updateComputedData: vi.fn()
+    } as unknown as ElementInstanceTypes
+    sceneTree.addToMap(element)
+
+    sceneTree.patchComputedData('element-1', {
+      records: { points: { set: { 'point-1': undefined } } }
+    })
+
+    expect(element.updateComputedData).toHaveBeenCalledTimes(1)
+    const updatedRecord = element.updateComputedData.mock.calls[0]?.[1] as
+      | Record<string, unknown>
+      | undefined
+    expect(updatedRecord).toBeDefined()
+    expect(
+      Object.prototype.hasOwnProperty.call(updatedRecord, 'point-1')
+    ).toBe(true)
+    expect(updatedRecord?.['point-1']).toBeUndefined()
+    expect(sceneTree.changes).toMatchObject([
+      {
+        patch: {
+          records: {
+            points: {
+              set: { 'point-1': { after: undefined } }
+            }
+          }
+        }
+      }
+    ])
+  })
+
+  it('ignores removal of an inherited record id', () => {
+    const element = {
+      get: vi.fn(() => 'element-1'),
+      getAllComputedData: vi.fn(() => ({ points: {} })),
+      updateComputedData: vi.fn()
+    } as unknown as ElementInstanceTypes
+    sceneTree.addToMap(element)
+
+    sceneTree.patchComputedData('element-1', {
+      records: { points: { remove: ['toString'] } }
+    })
+
+    expect(element.updateComputedData).not.toHaveBeenCalled()
+    expect(sceneTree.changes).toEqual([])
+  })
+
+  it('stores a __proto__ record id as an own property', () => {
+    const after = { id: '__proto__', x: 10, y: 20 }
+    const set = Object.create(null) as Record<string, typeof after>
+    Object.defineProperty(set, '__proto__', {
+      enumerable: true,
+      value: after
+    })
+    const element = {
+      get: vi.fn(() => 'element-1'),
+      getAllComputedData: vi.fn(() => ({ points: {} })),
+      updateComputedData: vi.fn()
+    } as unknown as ElementInstanceTypes
+    sceneTree.addToMap(element)
+
+    sceneTree.patchComputedData('element-1', {
+      records: { points: { set } }
+    })
+
+    const updatedRecord = element.updateComputedData.mock.calls[0]?.[1] as
+      | Record<string, unknown>
+      | undefined
+    expect(Object.getPrototypeOf(updatedRecord)).toBe(Object.prototype)
+    expect(Object.prototype.hasOwnProperty.call(updatedRecord, '__proto__')).toBe(
+      true
+    )
+    expect(updatedRecord?.__proto__).toBe(after)
+  })
+
   it('calls updateTransaction without options when neither path provides options', () => {
     const { events, subscription } = captureUpdateTransactionEvents()
     const change = createUpdateChange()
