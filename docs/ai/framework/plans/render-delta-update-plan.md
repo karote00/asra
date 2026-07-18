@@ -2,69 +2,199 @@
 
 ## Goal
 
-Use data-channel commit deltas directly in the render pipeline so render strategies
-operate on cached element snapshots that are patched incrementally, avoiding full
-rehydration of computed data on every change.
+Project committed Scene Tree changes into a complete Render-owned derived snapshot,
+apply scalar, batch, and record deltas atomically, and preserve the same render
+result as a fresh authoritative snapshot without moving canonical ownership out of
+Scene Tree.
 
-## Context
+## Authority and Baseline
 
-Current render updates re-fetch `element.save()` + `element.getAllComputedData()`
-for every computed-data update. This full snapshot rebuild is costly during dense
-vector edits and defeats the benefit of having precise change payloads in the
-data channel. The render pipeline should apply deltas to a cached snapshot and
-only recompute heavy geometry when relevant keys change.
+- Scene Tree remains the canonical owner of element raw and computed data.
+- Factory shared data channels transport committed changes in transaction order;
+  they do not become a second state owner.
+- Render owns one derived snapshot per live non-workspace element. A strategy may
+  consume that complete snapshot but must never read Scene Tree directly.
+- The current implementation already contains an element-id keyed Render mirror,
+  but it silently reseeds missing entries, permits an empty-object record base,
+  and does not define atomic failure, resync, teardown, or equivalence semantics.
+- The formal dense-vector profile is
+  `apps/asyra-design/e2e/render-delta-performance.spec.ts`: 56 points, a
+  self-intersecting closed path, a solid fill, and 12 transient drag frames.
 
 ## Scope
 
 In scope:
-- render-side element data caching and delta patch application
-- render-store update path changes
-- render strategy invalidation based on changed keys
-- vector render strategy cache usage for topology/fill-driven recompute
+
+- the Scene Tree committed-change to Render projection contract
+- explicit initial snapshot, delta validation, atomic patching, and resync
+- add, remove, load, undo, redo, replay, frame coalescing, and teardown parity
+- exact full-snapshot equivalence and bounded cache lifecycle tests
+- the existing engine-neutral strategy and command handoff
+- a formal dense-vector count and timing budget
 
 Out of scope:
-- changing scene-tree mutation semantics
-- changing data channel schemas
-- altering feature behavior or input-system flows
 
-## Target Behavior
+- new Scene Tree mutation semantics or canonical state
+- a new data-channel state owner, revision authority, or persistence format
+- new vector geometry/fill caches or hard-coded vector invalidator lists
+- render-engine or Pixi contract/implementation changes
+- Feature System, Input System, tool, session, or product behavior changes
+- app deep imports or fallback product output
 
-1. Render updates apply only the committed change payload (delta).
-2. Render strategy receives a complete cached snapshot updated by deltas.
-3. Heavy vector fill recompute runs only when topology/fill keys change.
-4. Dragging points no longer rehydrates full computed data every frame.
+## Product Contract
 
-## Implementation Slices
+### 1. Committed delta semantics
 
-1. Render element cache
-- Add `RenderElementData` cache per element id in render scene-tree store.
-- Initialize on add/create and on first use.
+Render accepts only committed `SceneTreeChange` payloads routed by the registered
+Preset data-channel observer:
 
-2. Delta patching
-- Apply data-channel deltas to cached snapshot (`cached[key] = after`).
-- Avoid re-reading full computed data on update.
+- add and load establish an authoritative complete base snapshot
+- scalar change carries one top-level `key`, `before`, and `after`
+- batch carries an ordered list of scalar changes and is one atomic projection
+- record patch carries top-level value changes plus record `set` and `remove`
+  entries; the top-level record must already exist as a record
+- remove invalidates the snapshot and every pending frame update before removing
+  the visual
 
-3. Strategy invalidation rules
-- Track which keys changed and only recompute heavy work when needed.
-- For vectors, treat `points`, `segments`, `networks`, `fills`, `strokeStyle`
-  as heavy invalidators.
+`after` is the committed value. `before` is a projection precondition, not an
+alternative source of truth. Record addition requires the record id to be absent;
+record replacement/removal requires its recorded `before` value to deep-equal the
+current derived value. Missing record bases are invalid and must never become
+`{}`.
 
-4. Vector render cache integration
-- Keep flattened-segment/face caches per element and recompute only on invalidators.
-- Preserve even-odd correctness and closed-path handling.
+Batch and record patch validation completes before any cached object is changed.
+One failed precondition rejects the entire delta; no prefix may become visible.
+Accepted changes install a new top-level snapshot atomically. Changed records are
+copied before modification so a previously published strategy snapshot is not
+mutated later.
 
-5. Validation + regression checks
-- Add tests for render-store delta patching.
-- Add tests for vector render strategy heavy recompute triggers.
+### 2. Snapshot ownership and initial source
 
-## Risks
+The Render scene-tree store owns the derived snapshot only. Its sole cache key is
+`elementId`; it has no vector type, property key, record id, zoom, or app-specific
+dimension.
 
-1. Cache drift if any change path bypasses delta updates.
-2. Partial updates may miss dependent keys (e.g., `points` implies `networks`).
-3. Incorrect invalidation may cause stale visuals.
+Add and load use an explicit Render resync reader over the public Scene Tree owner
+to compose `{ ...element.save(), ...element.getAllComputedData() }`. First-use and
+ordinary update paths may not seed implicitly. A complete base is required before
+any delta can render.
 
-## Success Criteria
+The data-channel observer only routes the committed payload and receives the
+projection outcome. It does not assemble or retain the snapshot.
 
-- Dragging dense vectors avoids full computed-data rehydrate on every frame.
-- Render output remains correct after load/undo/redo.
-- No regression in non-vector render updates.
+### 3. Ordering, duplicates, and missing delivery
+
+Factory owns ordered, exactly-once delivery of transaction journal entries to each
+registered shared-channel observer. Render does not invent a second sequence or
+revision authority.
+
+Render validates every supplied `before` image. A detectable missing, duplicate,
+or out-of-order delta therefore becomes a projection mismatch and enters the
+explicit resync route. Because the current change schema has no revision, Render
+does not claim to classify an ABA-shaped stale duplicate by itself; such delivery
+violates the Factory exactly-once contract and is prevented and tested at that
+owner boundary.
+
+### 4. Explicit resync and failure
+
+Missing base, invalid record base, or any `before` mismatch produces no partial
+strategy call and no fallback snapshot. Render marks the entry invalid, removes
+its pending update, and performs one explicit authoritative resync from Scene
+Tree.
+
+- successful resync replaces the entire derived snapshot and schedules normal
+  rendering from that complete snapshot
+- if the canonical element no longer exists, Render removes the stale visual and
+  treats the entry as removed
+- if a complete authoritative snapshot cannot be composed, Render clears the
+  stale visual and returns a failed projection outcome
+
+Projection outcomes are `applied`, `resynced`, `removed`, or `failed`; observer
+error swallowing is not used as correctness control flow. Every resync and failure
+has bounded diagnostic evidence.
+
+### 5. Frame ordering and strategy input
+
+Multiple accepted deltas for one element may patch the derived snapshot in commit
+order and coalesce to one frame. The strategy receives the final complete
+owner-defined snapshot for that frame. Direct `x`, `y`, `rotation`, and `visible`
+updates may retain their existing direct property route after the same snapshot
+validation succeeds. A mixed batch uses the complete strategy route.
+
+The delta itself is the changed-key record. This task does not add a retained
+dependency graph or change the public strategy signature: every computed render
+update reruns its strategy, which is the stale-visual safety rule. Profiling did
+not justify a vector-specific invalidation cache, so Render must not hard-code
+`points`, `segments`, `networks`, fills, strokes, or any future schema key.
+
+Non-vector strategies continue receiving the same complete `RenderElementData`
+shape and require no migration.
+
+### 6. Load, undo, redo, replay, remove, and cleanup
+
+- Load clears all snapshots and pending work before rebuilding each live
+  non-workspace element from Scene Tree.
+- Undo, redo, and persistence replay commit through the same Scene Tree change and
+  shared-channel route as an ordinary action; they do not use a second Render API.
+- Remove deletes the snapshot and pending work before visual removal.
+- Preset observer teardown and Render teardown clear snapshots and pending work.
+- At every stable boundary, snapshot count is at most the number of live
+  non-workspace elements; repeated load/add/remove/resync cannot grow an orphaned
+  entry set.
+
+### 7. Equivalence and stale-output oracle
+
+For scalar, batch, record patch, coalesced frame, load, undo, redo, replay, and
+resync cases, the complete data supplied to the strategy must deep-equal a fresh
+authoritative composition of `element.save()` and `element.getAllComputedData()`
+at the same committed boundary.
+
+The engine-neutral draw-command trace produced from the delta snapshot must equal
+the trace produced from that fresh snapshot. A rejected delta emits no trace from
+partial data. A failed resync leaves no stale visual.
+
+## Profiling and Cache Decision
+
+Three repeated Chromium runs of the formal fixture produced these observed ranges:
+
+| Phase                                          | Count/run | Observed p95 | Formal total / p95 / max budget |
+| ---------------------------------------------- | --------: | -----------: | ------------------------------: |
+| Scene Tree canonical patch                     |        12 |   1.0–1.4 ms |                   24 / 4 / 6 ms |
+| transaction publish + Render snapshot delivery |        12 |       0.1 ms |                    6 / 1 / 2 ms |
+| vector strategy geometry                       |        12 |   1.5–1.8 ms |                   24 / 4 / 6 ms |
+| engine handoff per frame                       |        12 |   0.9–1.0 ms |                   18 / 3 / 5 ms |
+
+The combined phase p95 budget is 12 ms. Render delta apply count must be 12 and
+Render full rehydrate count must be 0. The fresh full-snapshot reference measured
+0.1 ms p95, so profiling does not permit a new or expanded vector geometry cache.
+The existing element-id derived snapshot remains the semantic target of the delta
+projection; its dimension may not expand without new profiling.
+
+## Owner Slices
+
+1. Scene Tree committed delta and Factory ordered delivery contracts.
+2. Render explicit seed/resync and cache lifecycle.
+3. Render atomic scalar, batch, and record-patch projection.
+4. Render frame coalescing, full strategy input, and engine-neutral handoff.
+5. Lifecycle/equivalence/performance integration, documentation, and visible-app
+   evidence.
+
+Each slice follows the matching dedicated Inspector owner step and begins with a
+failing formal test when the current implementation violates this contract.
+
+## Definition of Done
+
+- the dedicated Inspector data, viewer, and contract test resolve every owner,
+  route, artifact, failure owner, implementation boundary, and cache dimension
+- missing base and record-base mismatch never seed silently or create `{}`
+- scalar, batch, and record patch projection is atomic and exact
+- add/load/resync are explicit; remove/load/teardown leave no orphaned entries or
+  pending updates
+- ordered delivery plus Render precondition tests cover missing, duplicate, and
+  out-of-order behavior without assigning canonical ownership to the data channel
+- load, undo, redo, replay, direct properties, mixed batches, and non-vector
+  strategies preserve fresh-snapshot equivalence
+- no strategy receives partial data and no failed projection leaves stale output
+- dense-vector count, total, p95, max, and combined p95 budgets pass
+- render-engine/Pixi, Feature System, Input System, and app import boundaries remain
+  unchanged

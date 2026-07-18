@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Render Delta Update Pipeline Inspector</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page: #09111f;
+        --panel: #111c2e;
+        --panel-strong: #17253b;
+        --line: #30415d;
+        --text: #edf4ff;
+        --muted: #9eb0ca;
+        --accent: #67e8f9;
+        --good: #86efac;
+        --warn: #fcd34d;
+        --bad: #fda4af;
+        --shadow: 0 18px 45px rgb(0 0 0 / 28%);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        background:
+          radial-gradient(circle at 20% 0%, #153052 0, transparent 34rem),
+          var(--page);
+        color: var(--text);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+
+      a {
+        color: var(--accent);
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .shell {
+        width: min(1680px, 100%);
+        margin: 0 auto;
+        padding: 28px;
+      }
+
+      header {
+        display: grid;
+        gap: 18px;
+        padding: 24px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgb(17 28 46 / 88%);
+        box-shadow: var(--shadow);
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: clamp(1.7rem, 4vw, 3rem);
+        line-height: 1.05;
+      }
+
+      h2 {
+        margin-bottom: 14px;
+        font-size: 1.15rem;
+      }
+
+      .subtitle,
+      .meta,
+      .empty {
+        color: var(--muted);
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .toolbar input,
+      .toolbar select {
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #0b1526;
+        color: var(--text);
+        padding: 9px 12px;
+      }
+
+      .toolbar input {
+        min-width: min(360px, 100%);
+        flex: 1;
+      }
+
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .links a,
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 5px 10px;
+        background: #0b1526;
+        font-size: 0.78rem;
+        text-decoration: none;
+      }
+
+      main {
+        display: grid;
+        gap: 22px;
+        margin-top: 22px;
+      }
+
+      .section {
+        min-width: 0;
+        padding: 20px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgb(17 28 46 / 82%);
+      }
+
+      .lanes {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(280px, 1fr));
+        gap: 14px;
+        overflow-x: auto;
+        padding-bottom: 6px;
+      }
+
+      .lane {
+        min-width: 280px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #0b1526;
+      }
+
+      .lane-title {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        margin: -12px -12px 12px;
+        padding: 12px;
+        border-bottom: 1px solid var(--line);
+        border-radius: 14px 14px 0 0;
+        background: var(--panel-strong);
+        color: var(--accent);
+        font-size: 0.86rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .cards {
+        display: grid;
+        gap: 12px;
+      }
+
+      .step {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--panel);
+        overflow: hidden;
+      }
+
+      .step summary {
+        display: grid;
+        gap: 6px;
+        cursor: pointer;
+        padding: 14px;
+      }
+
+      .step summary::marker {
+        color: var(--accent);
+      }
+
+      .step-title {
+        font-weight: 700;
+      }
+
+      .owner {
+        color: var(--good);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.76rem;
+      }
+
+      .step-body {
+        display: grid;
+        gap: 14px;
+        padding: 0 14px 14px;
+      }
+
+      .step-body h3 {
+        margin-bottom: 7px;
+        color: var(--muted);
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .step-body ul,
+      .compact-list {
+        display: grid;
+        gap: 6px;
+        margin: 0;
+        padding-left: 18px;
+        color: #d7e3f5;
+        font-size: 0.82rem;
+        line-height: 1.45;
+      }
+
+      .cache {
+        border-left: 3px solid var(--warn);
+        padding-left: 10px;
+      }
+
+      .grid-two {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 14px;
+      }
+
+      .record {
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #0b1526;
+      }
+
+      .record h3 {
+        margin-bottom: 8px;
+        color: var(--accent);
+        font-size: 0.94rem;
+      }
+
+      .route-kind {
+        color: var(--warn);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+      }
+
+      code {
+        color: #c4b5fd;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.8em;
+      }
+
+      @media (max-width: 700px) {
+        .shell {
+          padding: 14px;
+        }
+
+        header,
+        .section {
+          padding: 16px;
+        }
+
+        .toolbar {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .toolbar input,
+        .toolbar select {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <div>
+          <p class="meta" id="target-kind"></p>
+          <h1 id="title">Render Delta Update Pipeline Inspector</h1>
+          <p class="subtitle" id="subtitle"></p>
+        </div>
+        <div class="toolbar" aria-label="Inspector filters">
+          <input
+            id="search"
+            type="search"
+            placeholder="Filter steps by owner, contract, file, or artifact"
+          />
+          <select id="lane-filter" aria-label="Filter by lane">
+            <option value="">All lanes</option>
+          </select>
+        </div>
+        <nav class="links" id="links" aria-label="Inspector sources"></nav>
+      </header>
+
+      <main>
+        <section class="section" aria-labelledby="owner-flow-title">
+          <h2 id="owner-flow-title">Owner flow</h2>
+          <div class="lanes" id="lanes"></div>
+        </section>
+
+        <section class="section" aria-labelledby="routes-title">
+          <h2 id="routes-title">Routes</h2>
+          <div class="grid-two" id="routes"></div>
+        </section>
+
+        <section class="section" aria-labelledby="invariants-title">
+          <h2 id="invariants-title">Invariants</h2>
+          <div class="grid-two" id="invariants"></div>
+        </section>
+
+        <section class="section" aria-labelledby="acceptance-title">
+          <h2 id="acceptance-title">Acceptance contracts</h2>
+          <div class="grid-two" id="acceptance"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./render-delta-update-flow-inspector.data.cjs"></script>
+    <script>
+      ;(() => {
+        'use strict'
+
+        const data = globalThis.FLOW_INSPECTOR_DATA
+        if (!data) {
+          document.body.textContent = 'Inspector data failed to load.'
+          return
+        }
+
+        const byId = (id) => document.getElementById(id)
+        const escapeHtml = (value) =>
+          String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;')
+        const list = (values) =>
+          `<ul>${values.map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul>`
+        const section = (title, values, className = '') =>
+          values.length
+            ? `<section class="${className}"><h3>${escapeHtml(title)}</h3>${list(values)}</section>`
+            : ''
+
+        byId('title').textContent = data.target.title
+        byId('subtitle').textContent = data.target.subtitle
+        byId('target-kind').textContent =
+          `${data.target.kind} · schema ${data.schema.version} · ${data.steps.length} owner steps`
+        byId('links').innerHTML = data.links
+          .map(
+            (link) =>
+              `<a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`
+          )
+          .join('')
+
+        const laneFilter = byId('lane-filter')
+        data.lanes
+          .slice()
+          .sort((left, right) => left.order - right.order)
+          .forEach((lane) => {
+            const option = document.createElement('option')
+            option.value = lane.id
+            option.textContent = lane.title
+            laneFilter.append(option)
+          })
+
+        const cacheEvidence = (item) => {
+          if (!item.cacheEvidence) return ''
+          return section(
+            `Cache evidence · ${item.cacheDimensions.join(', ')}`,
+            [
+              `Measured: ${item.cacheEvidence.measuredPhase}`,
+              item.cacheEvidence.baseline,
+              item.cacheEvidence.decision,
+              `Invalidation: ${item.cacheEvidence.invalidation}`,
+              `Equivalence: ${item.cacheEvidence.equivalenceOracle}`,
+              `Cleanup: ${item.cacheEvidence.cleanup}`,
+              `Memory: ${item.cacheEvidence.memoryBound}`
+            ],
+            'cache'
+          )
+        }
+
+        const renderStep = (item) => `
+          <details class="step" data-search="${escapeHtml(JSON.stringify(item).toLowerCase())}">
+            <summary>
+              <span class="step-title">${escapeHtml(item.title)}</span>
+              <span class="owner">${escapeHtml(item.ownerPackage)} · ${escapeHtml(item.id)}</span>
+            </summary>
+            <div class="step-body">
+              <p>${escapeHtml(item.purpose)}</p>
+              ${section('Inputs', item.inputs)}
+              ${section('Outputs', item.outputs)}
+              ${section('Conditions', item.conditions)}
+              ${section('Bypasses', item.bypasses)}
+              ${section('Allowed contributors', item.allowedContributors)}
+              ${section('Forbidden contributors', item.forbiddenContributors)}
+              ${cacheEvidence(item)}
+              ${section('Implementation boundary', item.implementationBoundary)}
+              ${section('Spec refs', item.specRefs)}
+              <p class="meta">Failure owner: <code>${escapeHtml(item.failureOwnerStepId)}</code></p>
+            </div>
+          </details>`
+
+        const renderFlow = () => {
+          const query = byId('search').value.trim().toLowerCase()
+          const selectedLane = laneFilter.value
+          const visibleLanes = data.lanes
+            .slice()
+            .sort((left, right) => left.order - right.order)
+            .filter((lane) => !selectedLane || lane.id === selectedLane)
+
+          byId('lanes').innerHTML = visibleLanes
+            .map((lane) => {
+              const steps = data.steps
+                .filter((item) => item.laneId === lane.id)
+                .sort((left, right) => left.order - right.order)
+                .filter((item) =>
+                  JSON.stringify(item).toLowerCase().includes(query)
+                )
+              return `
+                <section class="lane">
+                  <h3 class="lane-title">${escapeHtml(lane.title)}</h3>
+                  <div class="cards">
+                    ${steps.length ? steps.map(renderStep).join('') : '<p class="empty">No matching steps.</p>'}
+                  </div>
+                </section>`
+            })
+            .join('')
+        }
+
+        byId('routes').innerHTML = data.routes
+          .map(
+            (item) => `
+              <article class="record">
+                <p class="route-kind">${escapeHtml(item.kind)}</p>
+                <h3>${escapeHtml(item.id)}</h3>
+                <p><code>${escapeHtml(item.from)}</code>${item.to ? ` → <code>${escapeHtml(item.to)}</code>` : ' → terminal'}</p>
+                <p class="meta">${escapeHtml(item.predicate)}</p>
+              </article>`
+          )
+          .join('')
+
+        byId('invariants').innerHTML = data.invariants
+          .map(
+            (item) => `
+              <article class="record">
+                <h3>${escapeHtml(item.id)}</h3>
+                <p>${escapeHtml(item.statement)}</p>
+                <p class="meta">Owners: ${escapeHtml(item.stepIds.join(', '))}</p>
+              </article>`
+          )
+          .join('')
+
+        byId('acceptance').innerHTML = data.acceptanceContracts
+          .map(
+            (item) => `
+              <article class="record">
+                <h3>${escapeHtml(item.title)}</h3>
+                ${list(item.assertions)}
+                <p class="meta">Steps: ${escapeHtml(item.stepIds.join(', '))}</p>
+              </article>`
+          )
+          .join('')
+
+        byId('search').addEventListener('input', renderFlow)
+        laneFilter.addEventListener('change', renderFlow)
+        renderFlow()
+      })()
+    </script>
+  </body>
+</html>
