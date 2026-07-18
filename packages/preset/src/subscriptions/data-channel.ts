@@ -876,6 +876,7 @@ export const registerDefaultDataChannelObservers = (
 
     if (renderSceneEnabled) {
       registerObserver(renderSceneTreeDataChannelObserver)
+      renderSceneTreeStore.reload()
     }
     if (selectionEnabled) {
       registerObserver(selectionRuntimeDataChannelObserver)

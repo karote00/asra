@@ -46,6 +46,61 @@ const createDeps = (): PresetDependencies =>
   }) as unknown as PresetDependencies
 
 describe('Preset Selection Subscriptions', () => {
+  it('rebuilds Render projection immediately after every observer registration', () => {
+    const lifecycle: string[] = []
+    const observers = new Map<string, { onChange: (change: unknown) => void }>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (registration: {
+        name: string
+        onChange: (change: unknown) => void
+      }) => {
+        observers.set(registration.name, registration)
+        lifecycle.push(`register:${registration.name}`)
+      },
+      unregisterDataChannelObserver: (name: string) => {
+        observers.delete(name)
+        lifecycle.push(`unregister:${name}`)
+      }
+    } as unknown as PresetCoreAPIs
+    const reload = vi
+      .spyOn(renderSceneTreeStore, 'reload')
+      .mockImplementation(() => {
+        expect(observers.has('preset.render.sceneTree')).toBe(true)
+        lifecycle.push('reload')
+      })
+
+    try {
+      const disposeFirst = registerDefaultDataChannelObservers(
+        core,
+        createDeps(),
+        undefined,
+        { renderScene: true }
+      )
+      disposeFirst()
+
+      const disposeSecond = registerDefaultDataChannelObservers(
+        core,
+        createDeps(),
+        undefined,
+        { renderScene: true }
+      )
+
+      expect(reload).toHaveBeenCalledTimes(2)
+      expect(lifecycle).toEqual([
+        'register:preset.render.sceneTree',
+        'reload',
+        'unregister:preset.render.sceneTree',
+        'register:preset.render.sceneTree',
+        'reload'
+      ])
+
+      disposeSecond()
+    } finally {
+      reload.mockRestore()
+    }
+  })
+
   it('clears Render projection state once when the render observer is disposed', () => {
     const observers = new Map<string, { onChange: (change: unknown) => void }>()
     const core = {
@@ -62,6 +117,9 @@ describe('Preset Selection Subscriptions', () => {
       }
     const resetProjection = vi
       .spyOn(projectionStore, 'resetProjection')
+      .mockImplementation(() => undefined)
+    const reload = vi
+      .spyOn(renderSceneTreeStore, 'reload')
       .mockImplementation(() => undefined)
 
     try {
@@ -84,6 +142,7 @@ describe('Preset Selection Subscriptions', () => {
       disposeSelection()
       expect(resetProjection).toHaveBeenCalledTimes(1)
     } finally {
+      reload.mockRestore()
       resetProjection.mockRestore()
     }
   })
@@ -104,6 +163,9 @@ describe('Preset Selection Subscriptions', () => {
     const scalar = vi.spyOn(renderSceneTreeStore, 'updateElement')
     const batch = vi.spyOn(renderSceneTreeStore, 'updateElementBatch')
     const patch = vi.spyOn(renderSceneTreeStore, 'updateElementPatch')
+    const reload = vi
+      .spyOn(renderSceneTreeStore, 'reload')
+      .mockImplementation(() => undefined)
     add.mockReturnValue({ status: 'applied', elementId: 'vector-1' })
     remove.mockReturnValue({ status: 'removed', elementId: 'vector-1' })
     scalar.mockReturnValue({ status: 'resynced', elementId: 'vector-1' })
@@ -223,6 +285,7 @@ describe('Preset Selection Subscriptions', () => {
       scalar.mockRestore()
       batch.mockRestore()
       patch.mockRestore()
+      reload.mockRestore()
     }
   })
 
