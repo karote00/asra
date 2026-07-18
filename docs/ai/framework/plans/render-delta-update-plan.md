@@ -191,8 +191,11 @@ shape and require no migration.
   not use a second Render API.
 - Remove deletes the snapshot and pending work before visual removal, then
   destroys the detached Render node and releases its abstract engine handle and
-  resources. Undo/redo re-add creates a fresh Render node from the complete
-  authoritative snapshot; Render node identity is not a product contract.
+  resources. Removing a projected parent first detaches projected children that
+  remain live canonical elements, so only the removed parent is destroyed and
+  those children retain their nodes and engine handles. Undo/redo re-add creates
+  a fresh Render node from the complete authoritative snapshot and restores its
+  child relationships; Render node identity is not a product contract.
 - Load with no current workspace clears the retained workspace snapshot and
   resets the Render workspace identity and transform to their neutral state.
 - Preset observer teardown and Render teardown clear snapshots and pending work,

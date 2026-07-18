@@ -98,12 +98,15 @@ drawing; Render adds no inferred mapping or fallback geometry.
   keys; profiling permits only the existing `elementId` snapshot dimension
 - initial observer registration and every re-registration invoke the explicit
   full rebuild route after the observer is installed; Render never relies on a
-  later delta to recover an observer gap
+  later delta to recover an observer gap. Any element rebuild failure clears the
+  partial projection and throws to the lifecycle caller
 - remove, reload, observer teardown, and Render teardown clear matching snapshots
   and pending frame work idempotently; observer and Render teardown also destroy
   every Scene Tree-projected visual node and release its abstract engine
-  handle/resources. Removed nodes never enter a retained restore map, and
-  undo/redo re-adds from a fresh complete snapshot
+  handle/resources. Projection cleanup addresses only mirror-owned ids and does
+  not clear unrelated scene or custom-layer nodes. Removing a projected parent
+  detaches live canonical children before destroying only the parent; undo/redo
+  re-adds it from a fresh complete snapshot and restores the child relationships
 - a reload with no current workspace clears retained workspace metadata and
   resets workspace identity/transform; stable snapshot and Scene Tree-projected
   Render-node counts never exceed live non-workspace elements. Custom and overlay

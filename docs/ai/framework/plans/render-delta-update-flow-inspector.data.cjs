@@ -519,6 +519,7 @@
       outputs: ['artifact:render-projection-cleanup'],
       conditions: [
         'Remove deletes the matching entry and pending id before visual removal, then destroys the detached Render node and releases its abstract engine handle and resources.',
+        'Removing a projected parent detaches its live projected children and destroys only the removed parent; children that remain canonical keep their own nodes and engine handles.',
         'Load clears every entry and pending update before explicit rebuild.',
         'A load with no current workspace clears retained workspace metadata and resets the Render workspace label and transform to neutral values.',
         'Observer and Render teardown clear entries, pending flags, scheduled work, and every Scene Tree-projected visual node idempotently, releasing its abstract engine handle and resources.',

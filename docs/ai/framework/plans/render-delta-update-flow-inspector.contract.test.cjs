@@ -359,6 +359,10 @@ test('cleanup bounds snapshots and pending work across every lifecycle path', ()
     /Scene Tree-projected Render-node count never exceed.*live non-workspace/i
   )
   assert.match(contract, /custom and overlay nodes are not part/i)
+  assert.match(
+    contract,
+    /projected parent.*detaches.*live projected children.*destroys only.*parent/i
+  )
   assert.match(contract, /cannot retain orphaned snapshots/i)
   assert.match(contract, /destroys the detached Render node/i)
   assert.match(contract, /prior-engine handles/i)

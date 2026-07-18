@@ -118,7 +118,9 @@ fails; apps customize successful defaults through ordinary Core APIs.
   observer first and then invoke the public Render full-rebuild route so changes
   committed during an observer gap cannot leave stale output. Its idempotent
   disposer clears Render projection state and every Scene Tree-projected visual
-  node once, including their abstract engine handles/resources.
+  node once, including their abstract engine handles/resources. If the rebuild
+  fails, registration fails and the existing cleanup rollback unregisters the
+  observer and clears any partial projection.
 
 Preset must not accept app-provided installers, disposers, dependency objects,
 engine ids, custom providers, extension callbacks, or replace semantics.
