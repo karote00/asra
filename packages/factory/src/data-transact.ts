@@ -109,6 +109,19 @@ const toSharedChannelPayload = (
   } as TransactionPayload
 }
 
+const setOwnEnumerableValue = (
+  target: object,
+  key: PropertyKey,
+  value: unknown
+): void => {
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: true,
+    configurable: true,
+    writable: true
+  })
+}
+
 const invertComputedDataPatchChange = (
   patch: ComputedDataPatchChange
 ): ComputedDataPatchChange => {
@@ -116,10 +129,10 @@ const invertComputedDataPatchChange = (
 
   Object.entries(patch.values ?? {}).forEach(([key, change]) => {
     inverted.values ??= {}
-    inverted.values[key] = {
+    setOwnEnumerableValue(inverted.values, key, {
       before: change.after,
       after: change.before
-    }
+    })
   })
 
   Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
@@ -130,24 +143,24 @@ const invertComputedDataPatchChange = (
     Object.entries(recordPatch.set ?? {}).forEach(([recordId, change]) => {
       if (!('before' in change)) {
         nextRecordPatch.remove ??= {}
-        nextRecordPatch.remove[recordId] = {
+        setOwnEnumerableValue(nextRecordPatch.remove, recordId, {
           before: change.after
-        }
+        })
         return
       }
 
       nextRecordPatch.set ??= {}
-      nextRecordPatch.set[recordId] = {
+      setOwnEnumerableValue(nextRecordPatch.set, recordId, {
         before: change.after,
         after: change.before
-      }
+      })
     })
 
     Object.entries(recordPatch.remove ?? {}).forEach(([recordId, change]) => {
       nextRecordPatch.set ??= {}
-      nextRecordPatch.set[recordId] = {
+      setOwnEnumerableValue(nextRecordPatch.set, recordId, {
         after: change.before
-      }
+      })
     })
 
     if (
@@ -155,7 +168,7 @@ const invertComputedDataPatchChange = (
       Object.keys(nextRecordPatch.remove ?? {}).length > 0
     ) {
       inverted.records ??= {}
-      inverted.records[key] = nextRecordPatch
+      setOwnEnumerableValue(inverted.records, key, nextRecordPatch)
     }
   })
 

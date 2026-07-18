@@ -501,4 +501,66 @@ describe('Factory', () => {
 
     subscription.unsubscribe()
   })
+
+  it('preserves special own record ids while inverting computed patches', () => {
+    const observedPatches: unknown[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (
+        event.type === EventTypes.UPDATE_COMPUTED_DATA_PATCH &&
+        'payload' in event
+      ) {
+        observedPatches.push((event.payload as { patch: unknown }).patch)
+      }
+    })
+    const recordSet: Record<string, unknown> = {}
+    Object.defineProperty(recordSet, '__proto__', {
+      value: {
+        after: { id: '__proto__', x: 10, y: 20 }
+      },
+      enumerable: true,
+      configurable: true,
+      writable: true
+    })
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+      payload: {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+        id: 'vector-special-id',
+        patch: {
+          records: {
+            points: { set: recordSet }
+          }
+        }
+      }
+    })
+    factory.endTransaction()
+
+    factory.undo()
+    factory.redo()
+
+    const inverseRemove = (
+      observedPatches[0] as {
+        records: { points: { remove: Record<string, unknown> } }
+      }
+    ).records.points.remove
+    const replaySet = (
+      observedPatches[1] as {
+        records: { points: { set: Record<string, unknown> } }
+      }
+    ).records.points.set
+    expect(Object.hasOwn(inverseRemove, '__proto__')).toBe(true)
+    expect(inverseRemove['__proto__']).toEqual({
+      before: { id: '__proto__', x: 10, y: 20 }
+    })
+    expect(Object.hasOwn(replaySet, '__proto__')).toBe(true)
+    expect(replaySet['__proto__']).toEqual({
+      after: { id: '__proto__', x: 10, y: 20 }
+    })
+
+    subscription.unsubscribe()
+  })
 })
