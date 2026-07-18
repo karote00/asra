@@ -82,12 +82,19 @@ const isDataEqual = (left: unknown, right: unknown): boolean => {
     return true
   }
   if (Array.isArray(left) || Array.isArray(right)) {
-    return (
-      Array.isArray(left) &&
-      Array.isArray(right) &&
-      left.length === right.length &&
-      left.every((value, index) => isDataEqual(value, right[index]))
-    )
+    if (
+      !Array.isArray(left) ||
+      !Array.isArray(right) ||
+      left.length !== right.length
+    ) {
+      return false
+    }
+    for (let index = 0; index < left.length; index += 1) {
+      if (!isDataEqual(left[index], right[index])) {
+        return false
+      }
+    }
+    return true
   }
   if (!isRecord(left) || !isRecord(right)) {
     return false

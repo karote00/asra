@@ -398,6 +398,55 @@ describe('RenderSceneTree computed data mirror', () => {
     )
   })
 
+  it('should run: reject a dense before value for a cached sparse array', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'generic-1',
+      { type: 'generic', visible: true },
+      { samples: Array(1) }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'generic-1')
+    element.getAllComputedData.mockReturnValue({ samples: [456] })
+
+    const outcome = store.updateElement(
+      'generic-1',
+      'computed',
+      'samples',
+      [123],
+      [456],
+      { undoable: false }
+    )
+
+    expect(outcome).toEqual({ status: 'resynced', elementId: 'generic-1' })
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(2)
+  })
+
+  it('should run: accept canonical undefined slots for a cached sparse array', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'generic-1',
+      { type: 'generic', visible: true },
+      { samples: Array(1) }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'generic-1')
+
+    const outcome = store.updateElement(
+      'generic-1',
+      'computed',
+      'samples',
+      [undefined],
+      [456],
+      { undoable: false }
+    )
+
+    expect(outcome).toEqual({ status: 'applied', elementId: 'generic-1' })
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(1)
+  })
+
   it('should run: reject a scalar without declared owner provenance', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
