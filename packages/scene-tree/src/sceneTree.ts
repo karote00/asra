@@ -52,6 +52,13 @@ const hasPatchChanges = (patch: ComputedDataPatchChange): boolean => {
   )
 }
 
+const getOverlappingPatchKey = (
+  patch: ComputedDataPatch
+): string | undefined => {
+  const recordKeys = new Set(Object.keys(patch.records ?? {}))
+  return Object.keys(patch.values ?? {}).find((key) => recordKeys.has(key))
+}
+
 const cloneRecord = (value: unknown): Record<string, DataTypes> =>
   isRecord(value) ? ({ ...value } as Record<string, DataTypes>) : {}
 
@@ -570,6 +577,13 @@ class SceneTree {
     const element = this.getElementById(elementId)
     if (!element) {
       return
+    }
+
+    const overlappingKey = getOverlappingPatchKey(patch)
+    if (overlappingKey) {
+      throw new Error(
+        `Computed data patch key "${overlappingKey}" cannot be both value and record`
+      )
     }
 
     const patchChange: ComputedDataPatchChange = {}

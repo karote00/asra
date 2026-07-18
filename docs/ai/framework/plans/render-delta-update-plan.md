@@ -53,6 +53,8 @@ Preset data-channel observer:
 - batch carries an ordered list of scalar changes and is one atomic projection
 - record patch carries top-level value changes plus record `set` and `remove`
   entries; the top-level record must already exist as a record
+- one top-level key may appear in either the value-change map or the record-patch
+  map, never both; Scene Tree rejects an overlapping patch before mutation
 - remove invalidates the snapshot and every pending frame update before removing
   the visual
 

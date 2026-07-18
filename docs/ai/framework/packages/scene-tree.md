@@ -33,7 +33,9 @@ Own the document entity graph and computed entity data.
   transient batch preserves scalar order and effective options as one envelope.
   Computed record patches retain exact before evidence for replacement/removal,
   omit equal writes and missing removals, and collapse value plus record
-  set/remove mutations into one committed patch change.
+  set/remove mutations into one committed patch change. A top-level key cannot
+  appear in both the value and record maps of that patch; overlapping requests
+  fail before canonical mutation.
 - Standalone transaction replay routes `name`, `parentId`, `visible`, `lock`,
   and group `children` through Element-owned data; only computed-only keys route
   through `Computed` and its property bridge. Both routes acknowledge semantic

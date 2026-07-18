@@ -293,6 +293,32 @@ describe('SceneTree transaction options', () => {
     subscription.unsubscribe()
   })
 
+  it('rejects overlapping value and record patch keys before mutation', () => {
+    const element = {
+      get: vi.fn(() => 'element-1'),
+      getAllComputedData: vi.fn(() => ({
+        points: { A: { id: 'A', x: 0, y: 0 } }
+      })),
+      updateComputedData: vi.fn()
+    } as unknown as ElementInstanceTypes
+    sceneTree.addToMap(element)
+
+    expect(() =>
+      sceneTree.patchComputedData('element-1', {
+        values: {
+          points: { Z: { id: 'Z', x: 9, y: 9 } }
+        },
+        records: {
+          points: {
+            set: { B: { id: 'B', x: 1, y: 1 } }
+          }
+        }
+      })
+    ).toThrow('Computed data patch key "points" cannot be both value and record')
+    expect(element.updateComputedData).not.toHaveBeenCalled()
+    expect(sceneTree.changes).toEqual([])
+  })
+
   it('commits one exact record patch while omitting equal and missing entries', () => {
     const { events, subscription } = captureUpdateTransactionEvents()
     const keptPoint = { id: 'kept', x: 1, y: 1 }
