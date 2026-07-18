@@ -88,8 +88,14 @@ abstract class BaseComponent<
       return this.tryFallback(field, shouldFallback)
     }
 
-    if (field.validate && !field.validate(nextValue as never)) {
-      return this.tryFallback(field, shouldFallback)
+    if (field.validate) {
+      try {
+        if (!field.validate(nextValue as never)) {
+          return this.tryFallback(field, shouldFallback)
+        }
+      } catch {
+        return this.tryFallback(field, shouldFallback)
+      }
     }
 
     return { valid: true, value: nextValue }

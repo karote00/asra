@@ -59,3 +59,16 @@ export type {
   PropertyRegistrationUnregisterResult,
   PropertyRegistrationUnregisterSuccess
 } from './registries/property-registration'
+export {
+  commitDeclarativePropertyTypeDefinition,
+  createPropertyComponentFromConfig,
+  getDeclarativePropertyTypeDefinition,
+  PROPERTY_TYPE_DEFINITION_ERROR_CODES,
+  PropertyTypeDefinitionError
+} from './registries/declarative-property-type'
+export type {
+  PropertyTypeDefinition,
+  PropertyTypeDefinitionErrorCode,
+  PropertyTypeDefinitionFailure,
+  PropertyTypeFieldDefinition
+} from './registries/declarative-property-type'

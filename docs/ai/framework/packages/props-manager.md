@@ -94,18 +94,29 @@ packages/props-manager/src/
 - property schema registration
 - state registry for UI/derived helpers
 
-## Planned Declarative Redefinition
+## Declarative Redefinition Owner
 
-`plans/property-type-redefinition-plan.md` assigns Props Manager the planned
-normalized definition projection and atomic schema/config-runtime rebuild for
-config-mode property types. The implementation must stage the complete next
-schema and constructor before mutation, preserve child configuration, reject
-active or replay-retained use, and restore the exact old definition on any
-failure.
+Props Manager owns the low-level definition handoff used by Core's bounded
+pre-start property-type redefinition facade:
 
-Constructor-mode behavior, semantic field migration, relation changes, render,
-and UI remain outside this owner. The current unregister-then-define APIs remain
-authoritative until the plan is implemented.
+- `getDeclarativePropertyTypeDefinition(type)` projects a complete normalized
+  config-mode definition and returns a deeply detached value;
+- `commitDeclarativePropertyTypeDefinition(type, definition, manager?)`
+  validates and stages the complete schema/config runtime before atomically
+  committing both registries;
+- active and replay-retained instances reuse the stable
+  `PROPERTY_TYPE_IN_USE` registration failure;
+- constructor mode, schema/runtime drift, invalid complete definitions, and
+  commit failure use `PropertyTypeDefinitionError` with stable codes;
+- failed commit restores the exact prior schema, constructor, config, and child
+  configuration;
+- the config runtime derives defaults, persistence, value projection, unit
+  projection, runtime reject, and load fallback from the committed definition.
+
+These exports are the package-owner handoff for Core coordination, not an app
+composition bypass. Apps use the Core public facade. Constructor-mode behavior,
+semantic field migration, relation changes, render, and UI remain outside this
+owner; constructor-mode customization keeps the unregister-then-define flow.
 
 ## Notes
 
@@ -120,6 +131,8 @@ authoritative until the plan is implemented.
 - Property load/save round-trip is stable.
 - Invalid runtime writes are rejected without corrupting stored values.
 - Schema updates are reflected in component validation behavior.
+- Declarative definition reads and committed results are deeply detached.
+- Declarative schema/runtime commits are atomic and preserve child config.
 - Registration removal is rejected while active or replay-retained instances
   use the type; `unregister -> define` leaves no stale schema, constructor, or
   child subscription.

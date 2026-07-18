@@ -83,15 +83,43 @@ class PropertyComponentRegistry {
     return this.registry.delete(type)
   }
 
+  restoreAfterFailedDeclarativeCommit(
+    type: string,
+    component: PropertyComponentConstructor,
+    configDefinition: PropertyComponentConfigRegistration
+  ): void {
+    this.registry.set(type, component)
+    this.configDefinitions.set(type, cloneConfigDefinition(configDefinition))
+  }
+
   clear(): void {
     this.registry.clear()
     this.configDefinitions.clear()
   }
 }
 
+const cloneValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map((item) => cloneValue(item))
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.entries(value).reduce<Record<string, unknown>>(
+      (cloned, [key, item]) => {
+        cloned[key] = cloneValue(item)
+        return cloned
+      },
+      {}
+    )
+  }
+
+  return value
+}
+
 const cloneRecord = (
   value: Record<string, unknown> | undefined
-): Record<string, unknown> | undefined => (value ? { ...value } : undefined)
+): Record<string, unknown> | undefined =>
+  value ? (cloneValue(value) as Record<string, unknown>) : undefined
 
 const cloneConfigDefinition = (
   definition: PropertyComponentConfigRegistration
@@ -107,7 +135,24 @@ const cloneConfigDefinition = (
   children: definition.children ? { ...definition.children } : undefined
 })
 
-export const propertyComponentRegistry = new PropertyComponentRegistry()
+const propertyComponentRegistryOwner = new PropertyComponentRegistry()
+
+export const propertyComponentRegistry = {
+  register: propertyComponentRegistryOwner.register.bind(
+    propertyComponentRegistryOwner
+  ),
+  get: propertyComponentRegistryOwner.get.bind(propertyComponentRegistryOwner),
+  has: propertyComponentRegistryOwner.has.bind(propertyComponentRegistryOwner),
+  getConfigDefinition: propertyComponentRegistryOwner.getConfigDefinition.bind(
+    propertyComponentRegistryOwner
+  ),
+  unregister: propertyComponentRegistryOwner.unregister.bind(
+    propertyComponentRegistryOwner
+  ),
+  clear: propertyComponentRegistryOwner.clear.bind(
+    propertyComponentRegistryOwner
+  )
+}
 
 export const registerPropertyComponent = (
   type: string,
@@ -125,6 +170,17 @@ export const getPropertyComponentConfigDefinition = (type: string) =>
 
 export const unregisterPropertyComponent = (type: string): boolean =>
   propertyComponentRegistry.unregister(type)
+
+export const restorePropertyComponentAfterFailedDeclarativeCommit = (
+  type: string,
+  component: PropertyComponentConstructor,
+  configDefinition: PropertyComponentConfigRegistration
+): void =>
+  propertyComponentRegistryOwner.restoreAfterFailedDeclarativeCommit(
+    type,
+    component,
+    configDefinition
+  )
 
 export type {
   PropertyComponentConstructor,
