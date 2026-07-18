@@ -571,6 +571,136 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(renderMock.flushFrame).not.toHaveBeenCalled()
   })
 
+  it('should run: route a direct-only batch through individual property updates', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'rectangle-1',
+      { type: 'rectangle', visible: true },
+      { x: 0, y: 0, points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'rectangle-1')
+
+    const outcome = store.updateElementBatch(
+      'rectangle-1',
+      [
+        { key: 'x', before: 0, after: 10 },
+        { key: 'y', before: 0, after: 20 }
+      ],
+      { undoable: false }
+    )
+
+    expect(outcome).toEqual({ status: 'applied', elementId: 'rectangle-1' })
+    expect(renderMock.updateElement).toHaveBeenCalledTimes(2)
+    expect(renderMock.updateElement).toHaveBeenNthCalledWith(
+      1,
+      'rectangle-1',
+      'x',
+      0,
+      10
+    )
+    expect(renderMock.updateElement).toHaveBeenNthCalledWith(
+      2,
+      'rectangle-1',
+      'y',
+      0,
+      20
+    )
+
+    renderMock.updateElement.mockClear()
+    store.updateElement(
+      'rectangle-1',
+      'points',
+      {},
+      { p1: { x: 1, y: 1 } },
+      {
+        undoable: false
+      }
+    )
+    await flushScheduledFrame()
+
+    expect(renderMock.updateElement).toHaveBeenCalledWith(
+      'rectangle-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({ x: 10, y: 20 })
+    )
+  })
+
+  it('should run: route a mixed batch once through the final complete snapshot', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { x: 0, points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+
+    store.updateElementBatch(
+      'vector-1',
+      [
+        { key: 'x', before: 0, after: 10 },
+        {
+          key: 'points',
+          before: {},
+          after: { p1: { x: 10, y: 12 } }
+        }
+      ],
+      { undoable: false }
+    )
+
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
+    await flushScheduledFrame()
+
+    expect(renderMock.updateElement).toHaveBeenCalledTimes(1)
+    expect(renderMock.updateElement).toHaveBeenCalledWith(
+      'vector-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({
+        x: 10,
+        points: { p1: { x: 10, y: 12 } }
+      })
+    )
+  })
+
+  it('should run: preserve commit order while coalescing one element to one frame', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const initialPoints = { p1: { x: 0, y: 0 } }
+    const middlePoints = { p1: { x: 10, y: 10 } }
+    const finalPoints = { p1: { x: 20, y: 20 } }
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: initialPoints }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+
+    store.updateElement('vector-1', 'points', initialPoints, middlePoints, {
+      undoable: false
+    })
+    store.updateElement('vector-1', 'points', middlePoints, finalPoints, {
+      undoable: false
+    })
+    await flushScheduledFrame()
+
+    expect(renderMock.updateElement).toHaveBeenCalledTimes(1)
+    expect(renderMock.updateElement).toHaveBeenCalledWith(
+      'vector-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({ points: finalPoints })
+    )
+  })
+
   it('should run: apply a computed patch as one pending render update', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
