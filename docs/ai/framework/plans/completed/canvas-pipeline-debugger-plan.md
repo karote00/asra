@@ -1,5 +1,39 @@
 # Canvas Pipeline Debugger Plan
 
+## Status and Authority
+
+Completed on 2026-07-18. PR #83 merged the optional Canvas Pipeline Debugger
+to `main` at merge commit
+`77026a8d79a22bcb8ed22d3ff8f6a99f660343ec`.
+
+The debugger remains a development-runtime diagnostic surface only. It stops
+at deterministic, engine-neutral pre-handoff evidence and does not claim pixel,
+hit-test, concrete-engine, or product-data authority.
+
+The exact owner flow remains defined by
+`docs/ai/framework/plans/canvas-pipeline-debugger-flow-inspector.data.cjs`.
+
+## Completion Record
+
+- Final decision: keep one optional, disabled-by-default Core facade for app
+  developers to inspect canonical Render inputs, layer evaluation, bounded
+  trace data, and focused expected-geometry projection during DEV runtime.
+- Implementation summary: Render owns instance-bound observation and detached
+  pre-engine evidence; the optional Render subpath owns deterministic trace and
+  non-interactive overlay projection; Core owns session lifecycle; Asyra Design
+  owns DEV-only loading, console exposure, HMR disposal, and production bypass.
+- Compatibility summary: the Core and Render roots remain free of debugger
+  exports, engine boundaries remain unchanged, and no debugger data enters
+  persistence, undo/redo, collaboration, export, hit testing, or canonical
+  product rendering.
+- Exit criteria: PR #83 validation passed; package, app, root, lint, build,
+  dependency, Inspector, production-exclusion, and diff gates passed; bounded
+  reviews found no unresolved concrete issue; synchronized live-app review
+  confirmed an observed focused projection and readable debugger-only overlay
+  with no retained fault.
+- Canonical executable architecture contract:
+  `docs/ai/framework/plans/canvas-pipeline-debugger-flow-inspector.data.cjs`.
+
 ## Product Contract
 
 Canvas Pipeline Debugger is an optional framework diagnostic surface for app
