@@ -779,6 +779,23 @@ const restoreRegistrations = (
   restorePropertyComponentAfterFailedDeclarativeCommit(type, component, config)
 }
 
+const assertPropertyTypeUnused = (
+  type: string,
+  manager: PropsManager
+): void => {
+  const propertyIds = manager.getPropertyIdsByType(type)
+  if (propertyIds.length === 0) return
+
+  throw new PropertyRegistrationError({
+    ok: false,
+    code: 'PROPERTY_TYPE_IN_USE',
+    type,
+    propertyIds,
+    removedSchema: false,
+    removedComponent: false
+  })
+}
+
 export const commitDeclarativePropertyTypeDefinition = <
   TFields extends object = Record<string, unknown>
 >(
@@ -795,17 +812,7 @@ export const commitDeclarativePropertyTypeDefinition = <
     )
   }
 
-  const propertyIds = manager.getPropertyIdsByType(type)
-  if (propertyIds.length > 0) {
-    throw new PropertyRegistrationError({
-      ok: false,
-      code: 'PROPERTY_TYPE_IN_USE',
-      type,
-      propertyIds,
-      removedSchema: false,
-      removedComponent: false
-    })
-  }
+  assertPropertyTypeUnused(type, manager)
 
   const currentSchema = getPropertySchema(type)
   const currentComponent = getPropertyComponent(type)
@@ -823,18 +830,15 @@ export const commitDeclarativePropertyTypeDefinition = <
   const nextConfig = toConfigRegistration(normalized, currentConfig)
   const nextComponent = createPropertyComponentFromConfig(nextConfig)
 
-  let committed: Readonly<PropertyTypeDefinition<TFields>> | undefined
+  // Definition validators are app-provided synchronous callbacks. Recheck
+  // usage after every staging callback and immediately before registry writes.
+  assertPropertyTypeUnused(type, manager)
+
   try {
     propertySchemaRegistry.unregister(type)
     propertyComponentRegistry.unregister(type)
     registerPropertySchema(nextSchema)
     registerPropertyComponent(type, nextComponent, undefined, nextConfig)
-    committed = getDeclarativePropertyTypeDefinition<TFields>(type)
-    if (!committed) {
-      throw new Error(
-        `Property type "${type}" committed without a readable definition`
-      )
-    }
   } catch (error) {
     restoreRegistrations(type, currentSchema, currentComponent, currentConfig)
     return failDefinition(
@@ -844,5 +848,5 @@ export const commitDeclarativePropertyTypeDefinition = <
       error
     )
   }
-  return committed
+  return normalized
 }

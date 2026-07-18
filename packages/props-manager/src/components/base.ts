@@ -16,6 +16,24 @@ import PropsChangeHandler from './props-change-handler'
 
 const propsChangeHandler = new PropsChangeHandler()
 
+const cloneFallbackValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map((item) => cloneFallbackValue(item))
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.entries(value).reduce<Record<string, unknown>>(
+      (cloned, [key, item]) => {
+        cloned[key] = cloneFallbackValue(item)
+        return cloned
+      },
+      {}
+    )
+  }
+
+  return value
+}
+
 abstract class BaseComponent<
     T extends PropertyComponentInstanceDataTypes = PositionAttrs
   >
@@ -57,7 +75,7 @@ abstract class BaseComponent<
 
   private tryFallback(field: PropertyFieldSchema, shouldFallback: boolean) {
     if (shouldFallback && field.defaultValue !== undefined) {
-      return { valid: true, value: field.defaultValue as unknown }
+      return { valid: true, value: cloneFallbackValue(field.defaultValue) }
     }
 
     return { valid: false, value: undefined as unknown }

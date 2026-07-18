@@ -390,6 +390,50 @@ describe('declarative property type definition owner', () => {
     }
   )
 
+  it('rejects property usage introduced while staging the next definition', () => {
+    registerDeclarativeType()
+    const manager = new PropsManager()
+    let introducedUsage = false
+    const definitionWithStagingUsage: PropertyTypeDefinition = {
+      ...nextDefinition(),
+      fields: nextDefinition().fields.map((field) =>
+        field.key === 'count'
+          ? {
+              ...field,
+              validate: (value: unknown) => {
+                if (!introducedUsage) {
+                  introducedUsage = true
+                  manager.addToMap(
+                    new InitialComponent({
+                      id: 'introduced-during-staging',
+                      type: TYPE
+                    })
+                  )
+                }
+                return validatePositive(value)
+              }
+            }
+          : field
+      )
+    }
+
+    expect(() =>
+      commitDeclarativePropertyTypeDefinition(
+        TYPE,
+        definitionWithStagingUsage,
+        manager
+      )
+    ).toThrowError(
+      expect.objectContaining<Partial<PropertyRegistrationError>>({
+        code: 'PROPERTY_TYPE_IN_USE',
+        type: TYPE,
+        propertyIds: ['introduced-during-staging']
+      })
+    )
+    expect(getPropertySchema(TYPE)).toBe(schema)
+    expect(getPropertyComponent(TYPE)).toBe(InitialComponent)
+  })
+
   it('atomically commits schema, runtime config, projections, and validation while preserving children', () => {
     registerDeclarativeType()
     const requested = nextDefinition()
@@ -497,6 +541,33 @@ describe('declarative property type definition owner', () => {
     expect(loaded.get('count' as never)).toBe(10)
     expect(() => loaded.set('count' as never, 13 as never)).not.toThrow()
     expect(loaded.get('count' as never)).toBe(10)
+  })
+
+  it('clones mutable defaults before using them as invalid-load fallback values', () => {
+    registerDeclarativeType()
+    commitDeclarativePropertyTypeDefinition(TYPE, nextDefinition())
+    const Component = getPropertyComponent(TYPE)
+    if (!Component) throw new Error('Expected committed property constructor')
+
+    const first = new Component({
+      id: 'mutable-fallback-first',
+      type: TYPE,
+      config: 'invalid'
+    })
+    const firstConfig = first.get('config' as never) as unknown as {
+      nested: number[]
+    }
+    firstConfig.nested.push(99)
+
+    expect(getDeclarativePropertyTypeDefinition(TYPE)).toEqual(nextDefinition())
+
+    const second = new Component({
+      id: 'mutable-fallback-second',
+      type: TYPE,
+      config: 'invalid'
+    })
+    expect(second.get('config' as never)).toEqual({ nested: [3, 4] })
+    expect(second.get('config' as never)).not.toBe(firstConfig)
   })
 
   it('rolls back both registries when the second commit write fails', () => {
