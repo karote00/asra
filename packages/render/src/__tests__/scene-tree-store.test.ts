@@ -647,13 +647,11 @@ describe('RenderSceneTree computed data mirror', () => {
 
   it('should run: schedule the next computed update after an empty delta', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
-    const emptyDeltaRoutes: Array<
-      (store: InstanceType<typeof RenderSceneTree>) => unknown
-    > = [
-      (store) =>
-        store.updateElementBatch('vector-1', [], { undoable: false }),
-      (store) =>
-        store.updateElementPatch('vector-1', {}, { undoable: false })
+    const emptyDeltaRoutes: ((
+      store: InstanceType<typeof RenderSceneTree>
+    ) => unknown)[] = [
+      (store) => store.updateElementBatch('vector-1', [], { undoable: false }),
+      (store) => store.updateElementPatch('vector-1', {}, { undoable: false })
     ]
 
     for (const routeEmptyDelta of emptyDeltaRoutes) {

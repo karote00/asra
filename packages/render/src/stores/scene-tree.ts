@@ -212,11 +212,7 @@ class ComputedDataMirror {
     }
     ownerSnapshot[key] = after
 
-    this.installSnapshot(
-      elementId,
-      rawDataSnapshot,
-      computedDataSnapshot
-    )
+    this.installSnapshot(elementId, rawDataSnapshot, computedDataSnapshot)
     emitStrokePipelineCounter('computed-mirror-staged-change-count')
     return true
   }
@@ -242,11 +238,7 @@ class ComputedDataMirror {
       ownerSnapshot[key] = after
     }
 
-    this.installSnapshot(
-      elementId,
-      rawDataSnapshot,
-      computedDataSnapshot
-    )
+    this.installSnapshot(elementId, rawDataSnapshot, computedDataSnapshot)
     emitStrokePipelineCounter(
       'computed-mirror-staged-change-count',
       changes.length
@@ -309,11 +301,7 @@ class ComputedDataMirror {
       computedDataSnapshot[key] = nextRecord
     }
 
-    this.installSnapshot(
-      elementId,
-      entry.rawDataSnapshot,
-      computedDataSnapshot
-    )
+    this.installSnapshot(elementId, entry.rawDataSnapshot, computedDataSnapshot)
     emitStrokePipelineCounter(
       'computed-mirror-staged-change-count',
       changeCount

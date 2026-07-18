@@ -314,7 +314,9 @@ describe('SceneTree transaction options', () => {
           }
         }
       })
-    ).toThrow('Computed data patch key "points" cannot be both value and record')
+    ).toThrow(
+      'Computed data patch key "points" cannot be both value and record'
+    )
     expect(element.updateComputedData).not.toHaveBeenCalled()
     expect(sceneTree.changes).toEqual([])
   })
