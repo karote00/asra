@@ -26,12 +26,22 @@ export interface TriggerConfig {
   onSelectionChange?: boolean
 }
 
-export interface PropertyComputeContext {
+export interface PropertyComputeContext<
+  TElementData extends object = Record<never, never>
+> {
   selectedIds: Set<string>
-  elements: ComputedAttrs[]
+  elements: (ComputedAttrs & TElementData)[]
 }
 
-export interface PropertyRegistration<T extends PropertyValue> {
+/** Preserve default-facade assignability while retaining app callback input. */
+type PropertyCompute<T extends PropertyValue, TElementData extends object> = {
+  bivarianceHack(context: PropertyComputeContext<TElementData>): T
+}['bivarianceHack']
+
+export interface PropertyRegistration<
+  T extends PropertyValue,
+  TElementData extends object = Record<never, never>
+> {
   defaultValue: T
   /** Optional registration-graph metadata owned by the defining package. */
   registration?: RegistrationDefinitionMetadata
@@ -49,7 +59,7 @@ export interface PropertyRegistration<T extends PropertyValue> {
    * Custom compute function for derived properties.
    * When provided, it takes priority over aggregate computation.
    */
-  compute?: (context: PropertyComputeContext) => T
+  compute?: PropertyCompute<T, TElementData>
   /**
    * Value to use when selection is empty. Defaults to defaultValue.
    */
@@ -70,17 +80,17 @@ export interface PropertyRegistration<T extends PropertyValue> {
 export class PropertyRegistry {
   private properties = new Map<string, BehaviorSubject<PropertyValue>>()
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous property types */
-  private registrations = new Map<string, PropertyRegistration<any>>()
+  private registrations = new Map<string, PropertyRegistration<any, any>>()
   private subscriptions = new Map<string, import('rxjs').Subscription>()
   private yjsFilters = new Map<
     string,
     (change: SceneTreeYjsChange['payload']) => boolean
   >()
 
-  register<T extends PropertyValue>(
-    key: string,
-    config: PropertyRegistration<T>
-  ): void {
+  register<
+    T extends PropertyValue,
+    TElementData extends object = Record<never, never>
+  >(key: string, config: PropertyRegistration<T, TElementData>): void {
     if (this.properties.has(key)) {
       console.warn(
         `[PropertyRegistry] Property "${key}" already registered, skipping`
@@ -189,10 +199,13 @@ export class PropertyRegistry {
       .map(([key]) => key)
   }
 
-  getRegistration<T extends PropertyValue>(
-    key: string
-  ): PropertyRegistration<T> | undefined {
-    return this.registrations.get(key) as PropertyRegistration<T> | undefined
+  getRegistration<
+    T extends PropertyValue,
+    TElementData extends object = Record<never, never>
+  >(key: string): PropertyRegistration<T, TElementData> | undefined {
+    return this.registrations.get(key) as
+      | PropertyRegistration<T, TElementData>
+      | undefined
   }
 
   unregister(key: string): void {
