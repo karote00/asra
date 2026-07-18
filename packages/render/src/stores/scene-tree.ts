@@ -20,6 +20,38 @@ interface ComputedDataMirrorEntry {
   renderDataSnapshot: RenderElementData
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+
+const hasOwn = (record: Record<string, unknown>, key: string) =>
+  Object.prototype.hasOwnProperty.call(record, key)
+
+const isDataEqual = (left: unknown, right: unknown): boolean => {
+  if (Object.is(left, right)) {
+    return true
+  }
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => isDataEqual(value, right[index]))
+    )
+  }
+  if (!isRecord(left) || !isRecord(right)) {
+    return false
+  }
+
+  const leftKeys = Object.keys(left)
+  const rightKeys = Object.keys(right)
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every(
+      (key) => hasOwn(right, key) && isDataEqual(left[key], right[key])
+    )
+  )
+}
+
 const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
   const sink = (
     globalThis as typeof globalThis & {
@@ -109,33 +141,59 @@ class ComputedDataMirror {
     return null
   }
 
-  applyComputedChange(elementId: string, key: string, after: DataTypes) {
+  private installComputedSnapshot(
+    elementId: string,
+    entry: ComputedDataMirrorEntry,
+    computedDataSnapshot: Record<string, DataTypes>
+  ) {
+    const nextEntry: ComputedDataMirrorEntry = {
+      rawDataSnapshot: entry.rawDataSnapshot,
+      computedDataSnapshot,
+      renderDataSnapshot: {
+        ...entry.rawDataSnapshot,
+        ...computedDataSnapshot
+      } as unknown as RenderElementData
+    }
+    this.entries.set(elementId, nextEntry)
+  }
+
+  applyComputedChange(
+    elementId: string,
+    key: string,
+    before: DataTypes,
+    after: DataTypes
+  ) {
     const entry = this.get(elementId)
-    if (!entry) {
+    if (!entry || !isDataEqual(entry.computedDataSnapshot[key], before)) {
       return false
     }
 
-    entry.computedDataSnapshot[key] = after
-    ;(entry.renderDataSnapshot as unknown as Record<string, DataTypes>)[key] =
-      after
+    this.installComputedSnapshot(elementId, entry, {
+      ...entry.computedDataSnapshot,
+      [key]: after
+    })
     emitStrokePipelineCounter('computed-mirror-staged-change-count')
     return true
   }
 
   applyComputedChanges(
     elementId: string,
-    changes: { key: string; after: DataTypes }[]
+    changes: { key: string; before: DataTypes; after: DataTypes }[]
   ) {
     const entry = this.get(elementId)
     if (!entry) {
       return false
     }
 
-    changes.forEach(({ key, after }) => {
-      entry.computedDataSnapshot[key] = after
-      ;(entry.renderDataSnapshot as unknown as Record<string, DataTypes>)[key] =
-        after
-    })
+    const computedDataSnapshot = { ...entry.computedDataSnapshot }
+    for (const { key, before, after } of changes) {
+      if (!isDataEqual(computedDataSnapshot[key], before)) {
+        return false
+      }
+      computedDataSnapshot[key] = after
+    }
+
+    this.installComputedSnapshot(elementId, entry, computedDataSnapshot)
     emitStrokePipelineCounter(
       'computed-mirror-staged-change-count',
       changes.length
@@ -150,42 +208,55 @@ class ComputedDataMirror {
       return false
     }
 
+    const computedDataSnapshot = { ...entry.computedDataSnapshot }
     let changeCount = 0
-    Object.entries(patch.values ?? {}).forEach(([key, change]) => {
-      entry.computedDataSnapshot[key] = change.after
-      ;(entry.renderDataSnapshot as unknown as Record<string, DataTypes>)[key] =
-        change.after
+    for (const [key, change] of Object.entries(patch.values ?? {})) {
+      if (!isDataEqual(computedDataSnapshot[key], change.before)) {
+        return false
+      }
+      computedDataSnapshot[key] = change.after
       changeCount += 1
-    })
+    }
 
-    Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
-      const currentRecord = entry.computedDataSnapshot[key]
-      let nextRecord =
-        currentRecord &&
-        typeof currentRecord === 'object' &&
-        !Array.isArray(currentRecord)
-          ? ({ ...(currentRecord as Record<string, DataTypes>) } as Record<
-              string,
-              DataTypes
-            >)
-          : {}
+    for (const [key, recordPatch] of Object.entries(patch.records ?? {})) {
+      const currentRecord = computedDataSnapshot[key]
+      if (!isRecord(currentRecord)) {
+        return false
+      }
+      let nextRecord = { ...currentRecord } as Record<string, DataTypes>
 
-      Object.entries(recordPatch.set ?? {}).forEach(([recordId, change]) => {
+      for (const [recordId, change] of Object.entries(recordPatch.set ?? {})) {
+        const recordExists = hasOwn(nextRecord, recordId)
+        if (
+          ('before' in change &&
+            (!recordExists ||
+              !isDataEqual(nextRecord[recordId], change.before))) ||
+          (!('before' in change) && recordExists)
+        ) {
+          return false
+        }
         nextRecord[recordId] = change.after
         changeCount += 1
-      })
+      }
 
-      Object.keys(recordPatch.remove ?? {}).forEach((recordId) => {
-        const { [recordId]: _removed, ...withoutRecord } = nextRecord
-        nextRecord = withoutRecord
+      for (const [recordId, change] of Object.entries(
+        recordPatch.remove ?? {}
+      )) {
+        if (
+          !hasOwn(nextRecord, recordId) ||
+          !isDataEqual(nextRecord[recordId], change.before)
+        ) {
+          return false
+        }
+        const { [recordId]: _removed, ...retainedRecord } = nextRecord
+        nextRecord = retainedRecord
         changeCount += 1
-      })
+      }
 
-      entry.computedDataSnapshot[key] = nextRecord
-      ;(entry.renderDataSnapshot as unknown as Record<string, DataTypes>)[key] =
-        nextRecord
-    })
+      computedDataSnapshot[key] = nextRecord
+    }
 
+    this.installComputedSnapshot(elementId, entry, computedDataSnapshot)
     emitStrokePipelineCounter(
       'computed-mirror-staged-change-count',
       changeCount
@@ -287,6 +358,7 @@ class RenderSceneTree {
     const didStage = this.computedDataMirror.applyComputedChange(
       elementId,
       key,
+      before,
       after
     )
     if (!didStage) {
@@ -320,7 +392,7 @@ class RenderSceneTree {
   ) {
     const didStage = this.computedDataMirror.applyComputedChanges(
       elementId,
-      changes.map(({ key, after }) => ({ key, after }))
+      changes
     )
     if (!didStage) {
       return

@@ -61,7 +61,11 @@ const seedStore = (
   elementId: string
 ) => {
   store.addElementById(elementId)
+  const snapshot = renderMock.addElement.mock.calls.at(-1)?.[0] as
+    | Record<string, unknown>
+    | undefined
   renderMock.addElement.mockClear()
+  return snapshot
 }
 
 describe('RenderSceneTree computed data mirror', () => {
@@ -183,6 +187,136 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(renderMock.requestRender).not.toHaveBeenCalled()
   })
 
+  it('should run: reject a scalar before mismatch without mutating the published snapshot', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: { p1: { x: 0, y: 0 } } }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    const publishedSnapshot = seedStore(store, 'vector-1')
+
+    store.updateElement(
+      'vector-1',
+      'points',
+      { p1: { x: 99, y: 99 } },
+      { p1: { x: 10, y: 12 } },
+      { undoable: false }
+    )
+    await flushScheduledFrame()
+
+    expect(publishedSnapshot).toEqual(
+      expect.objectContaining({ points: { p1: { x: 0, y: 0 } } })
+    )
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
+    expect(renderMock.requestRender).not.toHaveBeenCalled()
+  })
+
+  it('should run: reject a whole batch when a later before value mismatches', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      {
+        points: { p1: { x: 0, y: 0 } },
+        segments: {}
+      }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    const publishedSnapshot = seedStore(store, 'vector-1')
+
+    store.updateElementBatch(
+      'vector-1',
+      [
+        {
+          key: 'points',
+          before: { p1: { x: 0, y: 0 } },
+          after: { p1: { x: 10, y: 12 } }
+        },
+        {
+          key: 'segments',
+          before: { missing: true },
+          after: { s1: { startId: 'p1' } }
+        }
+      ],
+      { undoable: false }
+    )
+    await flushScheduledFrame()
+
+    expect(publishedSnapshot).toEqual(
+      expect.objectContaining({
+        points: { p1: { x: 0, y: 0 } },
+        segments: {}
+      })
+    )
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
+    expect(renderMock.requestRender).not.toHaveBeenCalled()
+  })
+
+  it('should run: reject a record patch without an existing record base', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { segments: {}, networks: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    const publishedSnapshot = seedStore(store, 'vector-1')
+
+    store.updateElementPatch(
+      'vector-1',
+      {
+        records: {
+          points: {
+            set: {
+              p1: { after: { id: 'p1', x: 0, y: 0 } }
+            }
+          }
+        }
+      },
+      { undoable: false }
+    )
+    await flushScheduledFrame()
+
+    expect(publishedSnapshot).not.toHaveProperty('points')
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
+    expect(renderMock.requestRender).not.toHaveBeenCalled()
+  })
+
+  it('should run: install a new snapshot without mutating the previously published value', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: { p1: { x: 0, y: 0 } } }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    const publishedSnapshot = seedStore(store, 'vector-1')
+
+    store.updateElement(
+      'vector-1',
+      'points',
+      { p1: { x: 0, y: 0 } },
+      { p1: { x: 10, y: 12 } },
+      { undoable: false }
+    )
+    await flushScheduledFrame()
+
+    const nextSnapshot = renderMock.updateElement.mock.calls[0]?.[4]
+    expect(nextSnapshot).not.toBe(publishedSnapshot)
+    expect(publishedSnapshot).toEqual(
+      expect.objectContaining({ points: { p1: { x: 0, y: 0 } } })
+    )
+    expect(nextSnapshot).toEqual(
+      expect.objectContaining({ points: { p1: { x: 10, y: 12 } } })
+    )
+  })
+
   it('should run: stage multiple computed changes and render once from the mirror', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
@@ -205,7 +339,7 @@ describe('RenderSceneTree computed data mirror', () => {
     store.updateElement(
       'vector-1',
       'points',
-      {},
+      { p1: { x: 0, y: 0 } },
       { p1: { x: 12, y: 8 } },
       { undoable: false }
     )
@@ -271,7 +405,7 @@ describe('RenderSceneTree computed data mirror', () => {
       [
         {
           key: 'points',
-          before: {},
+          before: { p1: { x: 0, y: 0 } },
           after: { p1: { x: 12, y: 8 } }
         },
         {
@@ -375,6 +509,58 @@ describe('RenderSceneTree computed data mirror', () => {
     )
   })
 
+  it('should run: apply record replacement, addition, and removal atomically', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const pointA = { id: 'A', x: 0, y: 0 }
+    const pointB = { id: 'B', x: 20, y: 20 }
+    const nextPointA = { id: 'A', x: 10, y: 10 }
+    const pointC = { id: 'C', x: 30, y: 30 }
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      {
+        points: { A: pointA, B: pointB },
+        segments: {},
+        networks: {}
+      }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    const publishedSnapshot = seedStore(store, 'vector-1')
+
+    store.updateElementPatch(
+      'vector-1',
+      {
+        records: {
+          points: {
+            set: {
+              A: { before: pointA, after: nextPointA },
+              C: { after: pointC }
+            },
+            remove: {
+              B: { before: pointB }
+            }
+          }
+        }
+      },
+      { undoable: false }
+    )
+    await flushScheduledFrame()
+
+    expect(publishedSnapshot).toEqual(
+      expect.objectContaining({ points: { A: pointA, B: pointB } })
+    )
+    expect(renderMock.updateElement).toHaveBeenCalledWith(
+      'vector-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({
+        points: { A: nextPointA, C: pointC }
+      })
+    )
+  })
+
   it('should run: keep changes staged during a frame flush for the next frame', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
@@ -407,7 +593,7 @@ describe('RenderSceneTree computed data mirror', () => {
     store.updateElement(
       'vector-1',
       'points',
-      {},
+      { p1: { x: 0, y: 0 } },
       { p1: { x: 12, y: 8 } },
       { undoable: false }
     )
@@ -469,7 +655,7 @@ describe('RenderSceneTree computed data mirror', () => {
     store.updateElement(
       'vector-1',
       'points',
-      {},
+      { p1: { x: 0, y: 0 } },
       { p1: { x: 4, y: 6 } },
       { undoable: false }
     )
