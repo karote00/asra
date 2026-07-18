@@ -654,6 +654,78 @@ describe('RenderSceneTree computed data mirror', () => {
     )
   })
 
+  it('should run: resync when cyclic before values have different topology', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const cachedBefore: Record<string, unknown> = { label: 'before' }
+    cachedBefore.next = cachedBefore
+    const suppliedBefore: Record<string, unknown> = { label: 'before' }
+    const suppliedPeer: Record<string, unknown> = { label: 'before' }
+    suppliedBefore.next = suppliedPeer
+    suppliedPeer.next = suppliedBefore
+    const canonicalAfter: Record<string, unknown> = { label: 'after' }
+    canonicalAfter.next = canonicalAfter
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { metadata: cachedBefore }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+    element.getAllComputedData.mockReturnValue({ metadata: canonicalAfter })
+
+    const outcome = store.updateElement(
+      'vector-1',
+      'computed',
+      'metadata',
+      suppliedBefore,
+      canonicalAfter,
+      { undoable: false }
+    )
+    await flushScheduledFrame()
+
+    expect(outcome).toEqual({ status: 'resynced', elementId: 'vector-1' })
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(2)
+  })
+
+  it('should run: store a __proto__ record id as an own projected value', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+    const after = { id: '__proto__', x: 10, y: 20 }
+    const set = Object.create(null) as Record<
+      string,
+      { after: typeof after }
+    >
+    Object.defineProperty(set, '__proto__', {
+      enumerable: true,
+      value: { after }
+    })
+
+    const outcome = store.updateElementPatch(
+      'vector-1',
+      { records: { points: { set } } },
+      { undoable: false }
+    )
+    await flushScheduledFrame()
+
+    const snapshot = renderMock.updateElement.mock.calls.at(-1)?.[4] as
+      | { points?: Record<string, unknown> }
+      | undefined
+    expect(outcome).toEqual({ status: 'applied', elementId: 'vector-1' })
+    expect(Object.getPrototypeOf(snapshot?.points)).toBe(Object.prototype)
+    expect(
+      Object.prototype.hasOwnProperty.call(snapshot?.points, '__proto__')
+    ).toBe(true)
+    expect(snapshot?.points?.__proto__).toBe(after)
+  })
+
   it('should run: remove stale output when a mismatch has no canonical element', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()

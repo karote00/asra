@@ -45,6 +45,15 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const hasOwn = (record: Record<string, unknown>, key: string) =>
   Object.prototype.hasOwnProperty.call(record, key)
 
+const setOwn = (record: object, key: string, value: unknown): void => {
+  Object.defineProperty(record, key, {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true
+  })
+}
+
 const isSceneTreeDataOwner = (value: unknown): value is SceneTreeDataOwner =>
   value === 'raw' || value === 'computed'
 
@@ -78,29 +87,33 @@ const getEffectiveValue = (
     ? computedDataSnapshot[key]
     : rawDataSnapshot[key]
 
-type ComparedDataPairs = WeakMap<object, WeakSet<object>>
+interface ComparedDataPairs {
+  leftToRight: WeakMap<object, object>
+  rightToLeft: WeakMap<object, object>
+}
 
 const rememberComparedPair = (
   left: object,
   right: object,
   comparedPairs: ComparedDataPairs
-): boolean => {
-  const comparedRightValues = comparedPairs.get(left)
-  if (comparedRightValues?.has(right)) {
-    return true
+): 'new' | 'equal' | 'mismatch' => {
+  const mappedRight = comparedPairs.leftToRight.get(left)
+  const mappedLeft = comparedPairs.rightToLeft.get(right)
+  if (mappedRight !== undefined || mappedLeft !== undefined) {
+    return mappedRight === right && mappedLeft === left ? 'equal' : 'mismatch'
   }
-  if (comparedRightValues) {
-    comparedRightValues.add(right)
-  } else {
-    comparedPairs.set(left, new WeakSet([right]))
-  }
-  return false
+  comparedPairs.leftToRight.set(left, right)
+  comparedPairs.rightToLeft.set(right, left)
+  return 'new'
 }
 
 const isDataEqual = (
   left: unknown,
   right: unknown,
-  comparedPairs: ComparedDataPairs = new WeakMap()
+  comparedPairs: ComparedDataPairs = {
+    leftToRight: new WeakMap(),
+    rightToLeft: new WeakMap()
+  }
 ): boolean => {
   if (Object.is(left, right)) {
     return true
@@ -113,8 +126,9 @@ const isDataEqual = (
     ) {
       return false
     }
-    if (rememberComparedPair(left, right, comparedPairs)) {
-      return true
+    const pairStatus = rememberComparedPair(left, right, comparedPairs)
+    if (pairStatus !== 'new') {
+      return pairStatus === 'equal'
     }
     for (let index = 0; index < left.length; index += 1) {
       if (!isDataEqual(left[index], right[index], comparedPairs)) {
@@ -132,8 +146,9 @@ const isDataEqual = (
   if (leftKeys.length !== rightKeys.length) {
     return false
   }
-  if (rememberComparedPair(left, right, comparedPairs)) {
-    return true
+  const pairStatus = rememberComparedPair(left, right, comparedPairs)
+  if (pairStatus !== 'new') {
+    return pairStatus === 'equal'
   }
   return leftKeys.every(
     (key) =>
@@ -423,7 +438,7 @@ class ComputedDataMirror {
         ) {
           return false
         }
-        nextRecord[recordId] = change.after
+        setOwn(nextRecord, recordId, change.after)
         changeCount += 1
       }
 
