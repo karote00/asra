@@ -14,7 +14,18 @@ This file tracks framework planning topics and points to detailed references.
   missing output from debug geometry.
 - Reference: `docs/ai/framework/plans/canvas-pipeline-debugger-plan.md`
 
-2. Render delta update pipeline
+2. Declarative property type redefinition
+
+- Let app developers inspect and atomically redefine one config-mode property
+  type after preset composition and before `core.start()`.
+- Keep relation, render strategy, UI-context, and migration changes explicit
+  through existing Core APIs; do not infer that removed and added fields are
+  semantically equivalent.
+- Provide typed custom-field consumption without requiring app casts in the
+  normal property update, render strategy, or UI aggregation paths.
+- Reference: `docs/ai/framework/plans/property-type-redefinition-plan.md`
+
+3. Render delta update pipeline
 
 - Apply data-channel deltas directly in render update flow to avoid full computed-data rehydrate.
 - Use render-side cached snapshots + key-based invalidation for heavy geometry.

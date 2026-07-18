@@ -25,6 +25,10 @@ const targetEntries = [
   path.join(
     projectRoot,
     'docs/ai/framework/plans/canvas-pipeline-debugger-flow-inspector.html'
+  ),
+  path.join(
+    projectRoot,
+    'docs/ai/framework/plans/property-type-redefinition-flow-inspector.html'
   )
 ]
 

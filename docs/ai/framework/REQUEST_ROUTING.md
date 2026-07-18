@@ -43,6 +43,8 @@ Use this file to route a new framework request to the right docs first.
   - `packages/core.md`
   - `packages/props-manager.md`
   - `rules/extension-patterns.md`
+  - planned config-mode field customization:
+    `plans/property-type-redefinition-plan.md`
 
 - render engine abstraction and custom render layers
   - `packages/render.md`

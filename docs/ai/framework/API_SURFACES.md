@@ -41,6 +41,14 @@ Lifecycle and integration:
   - graph-aware full-capability removal; detaches structural dependents,
     recursively unregisters declared hard dependents, and cleans schema/runtime
     resources
+- planned, not yet implemented:
+  - `getPropertyTypeDefinition(type)` returns a detached normalized config-mode
+    field definition
+  - `redefinePropertyType(type, updater)` atomically rebuilds that definition
+    during open composition
+  - authority: `plans/property-type-redefinition-plan.md`
+  - the planned API is not a general registry replace path and does not rewrite
+    relations, render strategies, UI properties, or migrations
 - component relation APIs:
   - `defineComponent(definition: ComponentDefinition): void`
   - `unregisterComponent(type, options?): boolean | UnregisterComponentResult`

@@ -140,6 +140,15 @@ const targets = [
     ),
     dataScript: './canvas-pipeline-debugger-flow-inspector.data.cjs',
     filterLaneTitle: 'Diagnostic Projection'
+  },
+  {
+    id: 'property-type-redefinition',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/framework/plans/property-type-redefinition-flow-inspector.html'
+    ),
+    dataScript: './property-type-redefinition-flow-inspector.data.cjs',
+    filterLaneTitle: 'Property Runtime'
   }
 ]
 
