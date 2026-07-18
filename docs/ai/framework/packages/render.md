@@ -71,10 +71,12 @@ drawing; Render adds no inferred mapping or fallback geometry.
   must pass before install, and ordinary updates never seed a missing base
 - a missing canonical add target clears matching pending work and stale visual
   before returning `removed`; an invalid existing target clears stale output and
-  returns `failed`
+  returns `failed`. An unsuccessful visual add, including a caught strategy
+  failure, is a rebuild failure for add, reload, and resync
 - scalar, ordered batch, and record patch updates validate every supplied
-  `before` image before atomically installing a new snapshot; record patches
-  require an existing record base and never substitute `{}`. Deep comparison is
+  `before` image and require every addressed top-level base to be an own property
+  before atomically installing a new snapshot; record patches require an own
+  existing record base and never substitute `{}`. Deep comparison is
   cycle-safe across records and arrays while preserving sparse-array semantics
 - every scalar, batch, and patch candidate is merged with computed-over-raw
   precedence and must retain the requested id, a non-empty type, and a
@@ -93,7 +95,8 @@ drawing; Render adds no inferred mapping or fallback geometry.
 - direct `x`, `y`, `rotation`, and `visible` updates retain the direct property
   route after projection validation; mixed or computed updates coalesce per
   element and rerun the unchanged strategy signature once from the final complete
-  snapshot
+  snapshot. That complete snapshot also synchronizes generic `parentId` and
+  `children` hierarchy without reordering unchanged siblings
 - Render does not retain a strategy dependency graph or hard-code vector schema
   keys; profiling permits only the existing `elementId` snapshot dimension
 - initial observer registration and every re-registration invoke the explicit
@@ -106,7 +109,9 @@ drawing; Render adds no inferred mapping or fallback geometry.
   handle/resources. Projection cleanup addresses only mirror-owned ids and does
   not clear unrelated scene or custom-layer nodes. Removing a projected parent
   detaches live canonical children before destroying only the parent; undo/redo
-  re-adds it from a fresh complete snapshot and restores the child relationships
+  re-adds it from a fresh complete snapshot and restores the child relationships.
+  If release fails, the mirror and Render layer retain retry ownership, continue
+  cleaning other projected ids, and retry the failed id on later cleanup
 - a reload with no current workspace clears retained workspace metadata and
   resets workspace identity/transform; stable snapshot and Scene Tree-projected
   Render-node counts never exceed live non-workspace elements. Custom and overlay

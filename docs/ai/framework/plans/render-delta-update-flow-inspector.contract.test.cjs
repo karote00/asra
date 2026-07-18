@@ -149,6 +149,10 @@ test('Scene Tree is canonical and Factory transports ordered changes only', () =
   )
   assert.match(contractText(commit), /record base.*already.*record/i)
   assert.match(contractText(commit), /record id.*either.*set.*remove/i)
+  assert.match(
+    contractText(commit),
+    /special property names.*own enumerable data properties.*canonical apply and replay/i
+  )
   ;[
     'docs/ai/framework/packages/utils.md',
     'packages/reactive-events/src/scene-tree/events.ts',
@@ -171,6 +175,10 @@ test('Scene Tree is canonical and Factory transports ordered changes only', () =
   assert.match(
     contractText(delivery),
     /set entry with a before property whose value is undefined.*inverts to a set.*without a before property.*remove/i
+  )
+  assert.match(
+    contractText(delivery),
+    /top-level key and record id.*own enumerable data property.*special property names/i
   )
 })
 
@@ -217,6 +225,10 @@ test('initial snapshots are explicit complete Scene Tree projections', () => {
   )
   assert.match(
     contract,
+    /unsuccessful visual add.*strategy failure.*add, reload, or resync.*rebuild failure/i
+  )
+  assert.match(
+    contract,
     /missing add.*pending update.*stale visual.*removed/i
   )
 })
@@ -235,6 +247,10 @@ test('scalar, batch, and record patches validate and install atomically', () => 
     /comparison is cycle-safe for distinct cyclic records and arrays.*exact sparse-array semantics/i
   )
   assert.match(contract, /top-level record base must be a record/i)
+  assert.match(
+    contract,
+    /scalar, batch, and patch top-level base.*own property.*before equality/i
+  )
   assert.match(
     contract,
     /candidate merged snapshot.*requested id.*non-empty type.*non-workspace.*before install/i
@@ -274,6 +290,10 @@ test('frame coalescing passes complete snapshots and retains direct updates', ()
   assert.match(contract, /mixed direct\/computed batch/i)
   assert.match(contract, /Direct property-only updates preserve/i)
   assert.match(contract, /partial delta objects/i)
+  assert.match(
+    contract,
+    /complete snapshot.*parentId and children.*stable sibling order/i
+  )
 })
 
 test('strategy ownership is complete-data, engine-neutral, and non-vector compatible', () => {
@@ -367,6 +387,10 @@ test('cleanup bounds snapshots and pending work across every lifecycle path', ()
   assert.match(contract, /destroys the detached Render node/i)
   assert.match(contract, /prior-engine handles/i)
   assert.match(contract, /workspace label and transform to neutral values/i)
+  assert.match(
+    contract,
+    /release failure.*retain.*ownership.*other projected nodes.*subsequent cleanup retries/i
+  )
   assert.ok(
     cleanup.implementationBoundary.includes('packages/render/src/render.ts')
   )

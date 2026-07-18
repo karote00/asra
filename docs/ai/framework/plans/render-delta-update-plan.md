@@ -55,7 +55,8 @@ Preset data-channel observer:
   atomic projection
 - record patch carries replacements for existing top-level computed values plus
   record `set` and `remove` entries; each top-level value base must already exist
-  in the computed snapshot and each top-level record must already be a record
+  as an own property in the computed snapshot and each top-level record must be
+  an own record
 - one top-level key may appear in either the value-change map or the record-patch
   map, never both; Scene Tree rejects an overlapping patch before mutation
 - one record id may appear in either a record `set` map or `remove` list, never
@@ -96,7 +97,9 @@ the same name as raw fields such as `visible`, `name`, or `lock`.
 Factory preserves that owner provenance when it expands an owner-qualified batch
 for rollback, undo, or redo. Scene Tree replay consumes the carried owner and
 never re-infers it from the key or current raw/computed state. A replay event
-without valid owner provenance is rejected before mutation.
+without valid owner provenance is rejected before mutation. Factory inversion and
+Scene Tree patch replay materialize top-level keys and record ids as own
+enumerable data properties so legal special names survive the round trip.
 
 The installed strategy input remains the complete merged snapshot, with computed
 data taking the same precedence as a fresh
@@ -117,7 +120,8 @@ any delta can render. The merged snapshot must have the requested `id`, a non-em
 `type`, and must not be a workspace. A missing canonical add target clears its
 matching pending update and stale visual before returning `removed`; an existing
 target that throws or fails this completeness check clears stale output and
-returns `failed`.
+returns `failed`. A visual add that reports failure, including a caught strategy
+failure, is an authoritative add/load/resync rebuild failure.
 
 The data-channel observer only routes the committed payload and receives the
 projection outcome. It does not assemble or retain the snapshot.
@@ -168,6 +172,8 @@ order and coalesce to one frame. The strategy receives the final complete
 owner-defined snapshot for that frame. Direct `x`, `y`, `rotation`, and `visible`
 updates may retain their existing direct property route after the same snapshot
 validation succeeds. A mixed batch uses the complete strategy route.
+Every complete snapshot update also synchronizes generic `parentId` and
+`children` hierarchy; unchanged parent ownership preserves stable sibling order.
 
 The delta itself is the changed-key record. This task does not add a retained
 dependency graph or change the public strategy signature: every computed render
@@ -201,7 +207,9 @@ shape and require no migration.
 - Preset observer teardown and Render teardown clear snapshots and pending work,
   destroy every Scene Tree-projected visual node, and release its abstract engine
   handle/resources. Custom or overlay layer nodes are outside this projection
-  count and remain owned by their respective lifecycle.
+  count and remain owned by their respective lifecycle. A failed node release
+  retains mirror and Render-layer retry ownership while cleanup continues across
+  other projected ids; a later cleanup retries the failed id.
 - At every stable boundary, snapshot count is at most the number of live
   non-workspace elements, and the Scene Tree projection owns at most one Render
   node per such element; repeated load/add/remove/resync cannot grow an orphaned

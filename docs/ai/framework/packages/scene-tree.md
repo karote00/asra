@@ -39,8 +39,8 @@ Own the document entity graph and computed entity data.
   set/remove mutations into one committed patch change. Top-level value patches
   replace existing computed keys and never create a missing computed owner. A
   top-level key cannot appear in both the value and record maps of that patch;
-  overlapping requests fail before canonical mutation. Every value base must
-  already exist, every record base must already be a record, and one record id
+  overlapping requests fail before canonical mutation. Every value base must be
+  an own property, every record base must be an own record, and one record id
   cannot appear in both `set` and `remove`; invalid requests fail before any
   canonical mutation instead of publishing a phantom patch or creating an empty
   record base.
@@ -49,6 +49,8 @@ Own the document entity graph and computed entity data.
   `computed` routes through Computed and its property bridge even when a raw
   field has the same name. Missing or invalid owner provenance is rejected
   before mutation. Both valid routes acknowledge semantic apply synchronously.
+  Patch replay materializes top-level keys and record ids as own enumerable data
+  properties, including legal special names such as `__proto__`.
 - During add/remove, initialization plus parent/children/computed setter changes
   are internal graph side effects and are collapsed before journal publication;
   the explicit ADD/REMOVE event with parent/index metadata is the sole

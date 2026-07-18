@@ -49,6 +49,7 @@
         'Scalar changes carry one key, before, after, and raw or computed owner provenance; transient scalar changes may be grouped into one option-preserving ordered batch that preserves each entry owner.',
         'Record patches describe top-level value changes and record set/remove changes with exact before evidence; every top-level value patch base must already exist in the computed snapshot and every top-level record base must already be a record.',
         'Record replacement and removal preserve own-property existence: an existing record value of undefined still carries a before property, while only an absent record id is encoded as an addition.',
+        'Special property names are materialized as own enumerable data properties during canonical apply and replay.',
         'The canonical shared patch type permits explicit undefined in a record-child before or after envelope while top-level scalar values retain the DataTypes contract.',
         'A top-level key belongs to either the value-change map or the record-patch map; overlapping keys are rejected before canonical mutation.',
         'Within one top-level record, a record id belongs to either set or remove; overlap is rejected before canonical mutation.',
@@ -111,6 +112,7 @@
         'Undo, redo, and replay delivery use the same shared channel and ordering contract.',
         'Factory batch replay expansion preserves the raw or computed owner carried by every scalar entry.',
         'Factory patch inversion preserves record own-property provenance: a set entry with a before property whose value is undefined inverts to a set, while only an entry without a before property inverts to remove.',
+        'Patch inversion materializes every top-level key and record id as an own enumerable data property, including special property names.',
         'Transport tests own duplicate and out-of-order prevention because the change schema has no independent Render revision.'
       ],
       bypasses: [
@@ -212,6 +214,7 @@
         'Workspace elements are not cached or rendered.',
         'Load clears every entry and pending update before rebuilding live elements.',
         'Any element rebuild failure fails the whole reload, clears its partial projection, and throws to the lifecycle caller.',
+        'An unsuccessful visual add, including a strategy failure, is an add, reload, or resync rebuild failure rather than a successful hidden projection.',
         'The installed snapshot passes requested-id and non-empty-type completeness validation.',
         'An existing add target that throws or fails completeness validation clears stale output and returns failed.'
       ],
@@ -266,6 +269,7 @@
         'A complete elementId base is required and no update path seeds implicitly.',
         'Scalar before deep-equals the cached value in its declared raw or computed owner before after is installed.',
         'Every scalar and batch entry validates and updates only its declared raw or computed owner; Render never infers ownership from key presence or a hard-coded property list.',
+        'Every scalar, batch, and patch top-level base must be an own property and pass before equality; inherited or absent bases route to resync.',
         'A raw value shadowed by a same-name computed value updates the raw slice without publishing the shadowed raw value through the direct visual route.',
         'Every batch precondition validates before any batch value is installed.',
         'Record additions require absence; replacements and removals require exact before values; the top-level record base must be a record.',
@@ -372,6 +376,7 @@
         'Commit order is reflected in the final derived snapshot before pending ids are cleared.',
         'A computed update invokes the strategy with the complete final RenderElementData snapshot.',
         'A mixed direct/computed batch uses the complete strategy route.',
+        'The complete snapshot synchronizes generic parentId and children hierarchy while preserving stable sibling order when ownership is unchanged.',
         'Direct property-only updates preserve the existing direct route after successful snapshot projection.',
         'A rejected or failed projection cannot reach this step.'
       ],
@@ -523,6 +528,7 @@
         'Load clears every entry and pending update before explicit rebuild.',
         'A load with no current workspace clears retained workspace metadata and resets the Render workspace label and transform to neutral values.',
         'Observer and Render teardown clear entries, pending flags, scheduled work, and every Scene Tree-projected visual node idempotently, releasing its abstract engine handle and resources.',
+        'On a release failure, the mirror and Render layer retain exact retry ownership, cleanup continues across other projected nodes, and subsequent cleanup retries the failed node.',
         'Stable entry count and Scene Tree-projected Render-node count never exceed live non-workspace Scene Tree element count; custom and overlay nodes are not part of this projection bound.',
         'Repeated add, remove, load, resync, and teardown cannot retain orphaned snapshots, projected nodes, removed-node restore entries, or prior-engine handles.',
         'Undo and redo re-add from a complete authoritative snapshot and do not require Render node identity preservation.'
