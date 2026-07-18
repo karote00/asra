@@ -17,9 +17,9 @@ describe('ElementChangeHandler canonical owner provenance', () => {
   it.each(['raw', 'computed'] as const)(
     'emits %s owner provenance with the committed scalar change',
     (owner) => {
-      const addChange = vi.spyOn(sceneTree, 'addChange').mockImplementation(() =>
-        undefined
-      )
+      const addChange = vi
+        .spyOn(sceneTree, 'addChange')
+        .mockImplementation(() => undefined)
       const handler = new ElementChangeHandler(owner)
 
       handler.addChange({
@@ -44,9 +44,9 @@ describe('ElementChangeHandler canonical owner provenance', () => {
   it.each(['raw', 'computed'] as const)(
     'preserves %s provenance through the Setter callback boundary',
     (owner) => {
-      const addChange = vi.spyOn(sceneTree, 'addChange').mockImplementation(() =>
-        undefined
-      )
+      const addChange = vi
+        .spyOn(sceneTree, 'addChange')
+        .mockImplementation(() => undefined)
       const handler = new ElementChangeHandler(owner)
       const setter = new Setter<ElementAttrs>(handler.addChange)
       setter.data = {

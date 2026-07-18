@@ -1270,24 +1270,14 @@ describe('RenderSceneTree computed data mirror', () => {
     seedStore(store, 'vector-1')
 
     expect(
-      store.updateElement(
-        'vector-1',
-        'computed',
-        'visible',
-        true,
-        false,
-        { undoable: false }
-      )
+      store.updateElement('vector-1', 'computed', 'visible', true, false, {
+        undoable: false
+      })
     ).toEqual({ status: 'applied', elementId: 'vector-1' })
     expect(
-      store.updateElement(
-        'vector-1',
-        'computed',
-        'width',
-        100,
-        120,
-        { undoable: false }
-      )
+      store.updateElement('vector-1', 'computed', 'width', 100, 120, {
+        undoable: false
+      })
     ).toEqual({ status: 'applied', elementId: 'vector-1' })
 
     expect(element.save).toHaveBeenCalledTimes(1)
@@ -1316,14 +1306,9 @@ describe('RenderSceneTree computed data mirror', () => {
     renderMock.requestRender.mockClear()
 
     expect(
-      store.updateElement(
-        'vector-1',
-        'raw',
-        'visible',
-        true,
-        false,
-        { undoable: false }
-      )
+      store.updateElement('vector-1', 'raw', 'visible', true, false, {
+        undoable: false
+      })
     ).toEqual({ status: 'applied', elementId: 'vector-1' })
 
     expect(element.save).toHaveBeenCalledTimes(1)

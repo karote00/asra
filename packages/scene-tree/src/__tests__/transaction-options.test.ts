@@ -387,22 +387,27 @@ describe('SceneTree transaction options', () => {
     ['missing', {}],
     ['scalar', { mode: 'plain' }],
     ['array', { mode: [] }]
-  ])('rejects a %s record base before canonical mutation', (_case, snapshot) => {
-    const element = {
-      get: vi.fn(() => 'element-1'),
-      getAllComputedData: vi.fn(() => snapshot),
-      updateComputedData: vi.fn()
-    } as unknown as ElementInstanceTypes
-    sceneTree.addToMap(element)
+  ])(
+    'rejects a %s record base before canonical mutation',
+    (_case, snapshot) => {
+      const element = {
+        get: vi.fn(() => 'element-1'),
+        getAllComputedData: vi.fn(() => snapshot),
+        updateComputedData: vi.fn()
+      } as unknown as ElementInstanceTypes
+      sceneTree.addToMap(element)
 
-    expect(() =>
-      sceneTree.patchComputedData('element-1', {
-        records: { mode: { set: { child: 'value' } } }
-      })
-    ).toThrow('Computed data patch record base "mode" must already be a record')
-    expect(element.updateComputedData).not.toHaveBeenCalled()
-    expect(sceneTree.changes).toEqual([])
-  })
+      expect(() =>
+        sceneTree.patchComputedData('element-1', {
+          records: { mode: { set: { child: 'value' } } }
+        })
+      ).toThrow(
+        'Computed data patch record base "mode" must already be a record'
+      )
+      expect(element.updateComputedData).not.toHaveBeenCalled()
+      expect(sceneTree.changes).toEqual([])
+    }
+  )
 
   it('rejects a record id present in both set and remove before mutation', () => {
     const element = {

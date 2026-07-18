@@ -44,9 +44,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const hasOwn = (record: Record<string, unknown>, key: string) =>
   Object.prototype.hasOwnProperty.call(record, key)
 
-const isSceneTreeDataOwner = (
-  value: unknown
-): value is SceneTreeDataOwner => value === 'raw' || value === 'computed'
+const isSceneTreeDataOwner = (value: unknown): value is SceneTreeDataOwner =>
+  value === 'raw' || value === 'computed'
 
 const getEffectiveValue = (
   rawDataSnapshot: Record<string, unknown>,
