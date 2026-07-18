@@ -170,9 +170,7 @@ describe('RenderSceneTree computed data mirror', () => {
     sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
       elementId === 'vector-1' ? first : second
     )
-    renderMock.addElement
-      .mockReturnValueOnce({})
-      .mockReturnValueOnce(undefined)
+    renderMock.addElement.mockReturnValueOnce({}).mockReturnValueOnce(undefined)
 
     expect(() => store.reload()).toThrow(
       'Render failed to rebuild element vector-2'

@@ -407,29 +407,21 @@ describe('Render', () => {
     expect(workspace.children.map((child) => child.label)).toEqual(stableOrder)
     expect(target.parent).toBe(group)
 
-    render.updateElement(
-      groupData.id,
-      'computed',
-      undefined,
-      undefined,
-      { ...groupData, children: [] }
-    )
+    render.updateElement(groupData.id, 'computed', undefined, undefined, {
+      ...groupData,
+      children: []
+    })
 
     expect(group.children).toEqual([])
     expect(target.parent).toBeNull()
 
-    render.updateElement(
-      targetData.id,
-      'computed',
-      undefined,
-      undefined,
-      { ...targetData, parentId: groupData.id }
-    )
+    render.updateElement(targetData.id, 'computed', undefined, undefined, {
+      ...targetData,
+      parentId: groupData.id
+    })
 
     expect(target.parent).toBe(group)
-    expect(group.children.map((child) => child.label)).toEqual([
-      targetData.id
-    ])
+    expect(group.children.map((child) => child.label)).toEqual([targetData.id])
   })
 
   it('clears workspace identity and transform with scene elements', async () => {
