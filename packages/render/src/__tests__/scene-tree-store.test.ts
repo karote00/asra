@@ -1016,6 +1016,88 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(renderMock.flushFrame).not.toHaveBeenCalled()
   })
 
+  it('should run: apply raw-owner scalar changes without authoritative resync', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true, name: 'Before' },
+      { points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+
+    expect(
+      store.updateElement('vector-1', 'visible', true, false, {
+        undoable: false
+      })
+    ).toEqual({ status: 'applied', elementId: 'vector-1' })
+    expect(
+      store.updateElement('vector-1', 'name', 'Before', 'After', {
+        undoable: false
+      })
+    ).toEqual({ status: 'applied', elementId: 'vector-1' })
+
+    expect(element.save).toHaveBeenCalledTimes(1)
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(1)
+    await flushScheduledFrame()
+    expect(renderMock.updateElement).toHaveBeenCalledWith(
+      'vector-1',
+      'visible',
+      true,
+      false
+    )
+    expect(renderMock.updateElement).toHaveBeenCalledWith(
+      'vector-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({ visible: false, name: 'After' })
+    )
+  })
+
+  it('should run: atomically apply mixed raw and computed batch keys', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+
+    expect(
+      store.updateElementBatch(
+        'vector-1',
+        [
+          { key: 'visible', before: true, after: false },
+          {
+            key: 'points',
+            before: {},
+            after: { p1: { x: 4, y: 6 } }
+          }
+        ],
+        { undoable: false }
+      )
+    ).toEqual({ status: 'applied', elementId: 'vector-1' })
+
+    expect(element.save).toHaveBeenCalledTimes(1)
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(1)
+    await flushScheduledFrame()
+    expect(renderMock.updateElement).toHaveBeenCalledTimes(1)
+    expect(renderMock.updateElement).toHaveBeenCalledWith(
+      'vector-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({
+        visible: false,
+        points: { p1: { x: 4, y: 6 } }
+      })
+    )
+  })
+
   it('should run: mirror computed stroke fill changes into the next render snapshot', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()

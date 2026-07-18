@@ -71,6 +71,9 @@ drawing; Render adds no inferred mapping or fallback geometry.
 - scalar, ordered batch, and record patch updates validate every supplied
   `before` image before atomically installing a new snapshot; record patches
   require an existing record base and never substitute `{}`
+- scalar and batch keys already present in the explicit raw snapshot update that
+  raw slice; all other keys update the computed slice, with no hard-coded raw or
+  vector property list
 - a missing base or failed precondition emits no partial strategy input and
   performs one explicit authoritative resync; the structured outcome is
   `applied`, `resynced`, `removed`, or `failed`, and failed resync removes stale

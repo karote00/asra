@@ -70,6 +70,12 @@ Accepted changes install a new top-level snapshot atomically. Changed records ar
 copied before modification so a previously published strategy snapshot is not
 mutated later.
 
+The explicit base records raw and computed ownership separately. A scalar or
+batch key already present in the seeded raw slice validates and updates that raw
+slice; every other key validates and updates the computed slice. The installed
+strategy input remains the complete merged snapshot. Render does not infer this
+ownership from a hard-coded property list.
+
 ### 2. Snapshot ownership and initial source
 
 The Render scene-tree store owns the derived snapshot only. Its sole cache key is

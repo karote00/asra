@@ -154,42 +154,53 @@ class ComputedDataMirror {
     return null
   }
 
-  private installComputedSnapshot(
+  private installSnapshot(
     elementId: string,
-    entry: ComputedDataMirrorEntry,
+    rawDataSnapshot: Record<string, unknown>,
     computedDataSnapshot: Record<string, DataTypes>
   ) {
     const nextEntry: ComputedDataMirrorEntry = {
-      rawDataSnapshot: entry.rawDataSnapshot,
+      rawDataSnapshot,
       computedDataSnapshot,
       renderDataSnapshot: {
-        ...entry.rawDataSnapshot,
+        ...rawDataSnapshot,
         ...computedDataSnapshot
       } as unknown as RenderElementData
     }
     this.entries.set(elementId, nextEntry)
   }
 
-  applyComputedChange(
+  applyTopLevelChange(
     elementId: string,
     key: string,
     before: DataTypes,
     after: DataTypes
   ) {
     const entry = this.get(elementId)
-    if (!entry || !isDataEqual(entry.computedDataSnapshot[key], before)) {
+    if (!entry) {
       return false
     }
 
-    this.installComputedSnapshot(elementId, entry, {
-      ...entry.computedDataSnapshot,
-      [key]: after
-    })
+    const rawDataSnapshot = { ...entry.rawDataSnapshot }
+    const computedDataSnapshot = { ...entry.computedDataSnapshot }
+    const ownerSnapshot = hasOwn(rawDataSnapshot, key)
+      ? rawDataSnapshot
+      : computedDataSnapshot
+    if (!isDataEqual(ownerSnapshot[key], before)) {
+      return false
+    }
+    ownerSnapshot[key] = after
+
+    this.installSnapshot(
+      elementId,
+      rawDataSnapshot,
+      computedDataSnapshot
+    )
     emitStrokePipelineCounter('computed-mirror-staged-change-count')
     return true
   }
 
-  applyComputedChanges(
+  applyTopLevelChanges(
     elementId: string,
     changes: { key: string; before: DataTypes; after: DataTypes }[]
   ) {
@@ -198,15 +209,23 @@ class ComputedDataMirror {
       return false
     }
 
+    const rawDataSnapshot = { ...entry.rawDataSnapshot }
     const computedDataSnapshot = { ...entry.computedDataSnapshot }
     for (const { key, before, after } of changes) {
-      if (!isDataEqual(computedDataSnapshot[key], before)) {
+      const ownerSnapshot = hasOwn(rawDataSnapshot, key)
+        ? rawDataSnapshot
+        : computedDataSnapshot
+      if (!isDataEqual(ownerSnapshot[key], before)) {
         return false
       }
-      computedDataSnapshot[key] = after
+      ownerSnapshot[key] = after
     }
 
-    this.installComputedSnapshot(elementId, entry, computedDataSnapshot)
+    this.installSnapshot(
+      elementId,
+      rawDataSnapshot,
+      computedDataSnapshot
+    )
     emitStrokePipelineCounter(
       'computed-mirror-staged-change-count',
       changes.length
@@ -269,7 +288,11 @@ class ComputedDataMirror {
       computedDataSnapshot[key] = nextRecord
     }
 
-    this.installComputedSnapshot(elementId, entry, computedDataSnapshot)
+    this.installSnapshot(
+      elementId,
+      entry.rawDataSnapshot,
+      computedDataSnapshot
+    )
     emitStrokePipelineCounter(
       'computed-mirror-staged-change-count',
       changeCount
@@ -401,7 +424,7 @@ class RenderSceneTree {
     after: DataTypes,
     _options?: { undoable?: boolean }
   ) {
-    const didStage = this.computedDataMirror.applyComputedChange(
+    const didStage = this.computedDataMirror.applyTopLevelChange(
       elementId,
       key,
       before,
@@ -421,7 +444,7 @@ class RenderSceneTree {
       return this.projectionOutcome(elementId, 'applied')
     }
 
-    // Computed data updates arrive per-key; commit once the transaction ends.
+    // Non-direct updates commit through the complete frame snapshot.
     this.recordDirtyChange(
       elementId,
       1,
@@ -437,7 +460,7 @@ class RenderSceneTree {
     changes: { key: string; before: DataTypes; after: DataTypes }[],
     _options?: { undoable?: boolean }
   ) {
-    const didStage = this.computedDataMirror.applyComputedChanges(
+    const didStage = this.computedDataMirror.applyTopLevelChanges(
       elementId,
       changes
     )

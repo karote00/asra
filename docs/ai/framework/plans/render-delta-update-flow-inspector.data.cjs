@@ -244,6 +244,7 @@
       conditions: [
         'A complete elementId base is required and no update path seeds implicitly.',
         'Scalar before deep-equals the cached value before after is installed.',
+        'A key present in the seeded raw slice validates and updates that slice; every other scalar key validates and updates the computed slice without a hard-coded property list.',
         'Every batch precondition validates before any batch value is installed.',
         'Record additions require absence; replacements and removals require exact before values; the top-level record base must be a record.',
         'Accepted changes install a new top-level snapshot and clone every changed record.',
