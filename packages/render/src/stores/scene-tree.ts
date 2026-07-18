@@ -20,6 +20,13 @@ interface ComputedDataMirrorEntry {
   renderDataSnapshot: RenderElementData
 }
 
+type RenderProjectionStatus = 'applied' | 'resynced' | 'removed' | 'failed'
+
+interface RenderProjectionOutcome {
+  status: RenderProjectionStatus
+  elementId: string
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
@@ -98,7 +105,7 @@ class ComputedDataMirror {
 
   seed(
     elementId: string,
-    reason: 'reload' | 'add'
+    reason: 'reload' | 'add' | 'resync'
   ): ComputedDataMirrorEntry | null {
     const element = sceneTree.getElementById(elementId)
     if (!element) {
@@ -330,12 +337,49 @@ class RenderSceneTree {
     return this.computedDataMirror.composeRenderData(id)
   }
 
-  addElementById(id: string) {
-    this.computedDataMirror.seed(id, 'add')
-    const renderElementData = this._getRenderData(id)
-    if (renderElementData) {
-      this.addElement(renderElementData)
+  private projectionOutcome(
+    elementId: string,
+    status: RenderProjectionStatus
+  ): RenderProjectionOutcome {
+    return { status, elementId }
+  }
+
+  private resyncElement(elementId: string): RenderProjectionOutcome {
+    emitStrokePipelineCounter('computed-mirror-projection-mismatch')
+    this.pendingElementUpdates.delete(elementId)
+    this.computedDataMirror.delete(elementId)
+
+    try {
+      const entry = this.computedDataMirror.seed(elementId, 'resync')
+      if (!entry) {
+        emitStrokePipelineCounter('computed-mirror-resync-removed')
+        render.removeElement(elementId)
+        return this.projectionOutcome(elementId, 'removed')
+      }
+
+      emitStrokePipelineCounter('computed-mirror-resync-success')
+      if (render.getElementById(elementId)) {
+        this.pendingElementUpdates.add(elementId)
+        this.scheduleFlush()
+      } else {
+        this.addElement(entry.renderDataSnapshot)
+      }
+      return this.projectionOutcome(elementId, 'resynced')
+    } catch {
+      this.computedDataMirror.delete(elementId)
+      emitStrokePipelineCounter('computed-mirror-resync-failed')
+      render.removeElement(elementId)
+      return this.projectionOutcome(elementId, 'failed')
     }
+  }
+
+  addElementById(id: string) {
+    const entry = this.computedDataMirror.seed(id, 'add')
+    if (!entry) {
+      return this.projectionOutcome(id, 'removed')
+    }
+    this.addElement(entry.renderDataSnapshot)
+    return this.projectionOutcome(id, 'applied')
   }
 
   addElement(data: RenderElementData) {
@@ -346,6 +390,7 @@ class RenderSceneTree {
     this.computedDataMirror.delete(data.id)
     this.pendingElementUpdates.delete(data.id)
     render.removeElement(data.id, parentId)
+    return this.projectionOutcome(data.id, 'removed')
   }
 
   updateElement(
@@ -362,7 +407,7 @@ class RenderSceneTree {
       after
     )
     if (!didStage) {
-      return
+      return this.resyncElement(elementId)
     }
 
     if (key === 'visible' || DIRECT_RENDER_PROPERTY_KEYS.has(key)) {
@@ -372,7 +417,7 @@ class RenderSceneTree {
       )
       this.pendingFrameFlush = true
       this.scheduleFlush()
-      return
+      return this.projectionOutcome(elementId, 'applied')
     }
 
     // Computed data updates arrive per-key; commit once the transaction ends.
@@ -383,6 +428,7 @@ class RenderSceneTree {
     )
     this.pendingElementUpdates.add(elementId)
     this.scheduleFlush()
+    return this.projectionOutcome(elementId, 'applied')
   }
 
   updateElementBatch(
@@ -395,7 +441,7 @@ class RenderSceneTree {
       changes
     )
     if (!didStage) {
-      return
+      return this.resyncElement(elementId)
     }
 
     const hasComputedFullUpdate = changes.some(
@@ -427,6 +473,7 @@ class RenderSceneTree {
       this.pendingElementUpdates.add(elementId)
     }
     this.scheduleFlush()
+    return this.projectionOutcome(elementId, 'applied')
   }
 
   updateElementPatch(
@@ -445,7 +492,7 @@ class RenderSceneTree {
       patch
     )
     if (!didStage) {
-      return
+      return this.resyncElement(elementId)
     }
 
     const directValueChanges = Object.entries(patch.values ?? {}).filter(
@@ -490,6 +537,7 @@ class RenderSceneTree {
       this.pendingElementUpdates.add(elementId)
     }
     this.scheduleFlush()
+    return this.projectionOutcome(elementId, 'applied')
   }
 
   commitPendingComputedDataChanges() {
