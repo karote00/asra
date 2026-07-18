@@ -294,6 +294,9 @@ Managed property bridges:
   once and is scheduled for removal after the next major-release migration
   window
 - `renderStrategyRegistry`
+- `EngineNeutralRenderStrategy<TAppData>` receives
+  `RenderElementData & TAppData`; the app strategy owns custom-field drawing
+  semantics and Render adds no engine-specific type or fallback behavior
 - `interactionHandlerRegistry`
 - overlay helper: `createOverlayLayerRegistration(...)`
 - overlay interaction helpers:
@@ -427,8 +430,8 @@ Managed property bridges:
 - exports `PRESET_REGISTRATION_OWNER` for metadata inspection; daily app
   customization does not require owner input or preset target keys
 - app customization uses ordinary Core relation/registration APIs after
-  `applyPreset(core)`; preset exposes no app extension object, target manifest,
-  or replace strategy
+  `applyPreset(core)`, including bounded declarative property redefinition;
+  preset exposes no app extension object, target manifest, or replace strategy
 - preset completion does not start Core or publish runtime readiness; the first
   `core.start()` remains the permanent composition closure/runtime owner
 - default render wiring lives here:
@@ -444,7 +447,10 @@ Managed property bridges:
 - default `uiContext` singleton
 - `UIContext` class
 - `propertyRegistry` (ui-context derived UI property registry, unrelated to props-manager element property registry)
-- registration and compute types
+- `PropertyComputeContext<TElementData>.elements` exposes
+  `ComputedAttrs & TElementData` to app callbacks
+- `PropertyRegistration<TValue, TElementData>` remains assignable through the
+  default Core UI-property facade; UI Context remains derived-only
 
 `@asyra/input-system`
 

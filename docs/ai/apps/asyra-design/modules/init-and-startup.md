@@ -24,8 +24,9 @@
   defaults, and registers the preset-owned Pixi engine provider without
   constructing the engine
 - the current app uses the default no-customization route; when app policy
-  needs customization, call public Core remove/unregister/define APIs after
-  `applyPreset(core)` and before the remaining init steps
+  needs customization, call public Core get/redefine, relation, or
+  unregister/define APIs after `applyPreset(core)` and before the remaining init
+  steps
 - diagnostics: `initLoadDiagnostics()`
 - derived-state sync: `initSelectionCompatibility()`, `initPathEditingContinuation()`
 - capability init: `initAreaSelection()`, `initGradientFillEditing()`, `initVectorIconData()`
@@ -60,7 +61,12 @@
   app feature initialization, and the first `core.start()`.
 - Remove only a relation when source/target capabilities should remain. Use the
   relevant Core unregister API before defining a complete custom
-  implementation; there is no replace API or preset extension target.
+  implementation. Use `redefinePropertyType()` only for the bounded atomic
+  fixed-field config-mode contract; there is no general replace API or preset
+  extension target.
+- Redefinition never maps old/new field meaning or rewrites render, UI,
+  commands, relations, or persisted data. Register any app semantic migration
+  before package validation and adapt each consumer explicitly.
 - Do not continue redefine after missing target, active usage, or cleanup
   failure; do not add duplicate tolerance or app exceptions to framework code.
 - Init modules must be idempotent (safe to call once, no duplicate registrations).

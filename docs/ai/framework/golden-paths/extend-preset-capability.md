@@ -12,6 +12,7 @@
 
 ```text
 applyPreset(core)
+-> optionally read/redefine one declarative property type
 -> remove old relation(s)
 -> define new relation(s) or ordinary registrations
 -> optionally unregister an entire capability
@@ -106,16 +107,76 @@ If a Whiteboard changes Filled shapes into outline-only shapes, it explicitly
 unregisters/registers its Rectangle/Oval render strategies and any app UI
 registrations that differ from the preset.
 
-## Planned Fixed-Field Redefinition
+## Redefine Declarative Fixed Fields
 
-The planned `core.redefinePropertyType(...)` flow is specified by
-`docs/ai/framework/plans/property-type-redefinition-plan.md`. It will provide a
-single atomic config-mode schema/runtime field redefinition during open
-composition. It will not redefine component/child relations, render strategies,
-UI properties, app commands, or migrations.
+Use the public Core facade after preset composition and before the first
+`core.start()`. The getter returns a deeply detached, normalized, complete
+config-mode definition. The updater is synchronous and replaces the complete
+top-level field list; adding C and removing B does not tell the framework that
+their meanings are equivalent.
 
-Until the plan is implemented, the complete-property unregister-then-define
-route above remains the executable golden path.
+```ts
+import core, { type EngineNeutralRenderStrategy } from '@asyra/core'
+import { applyPreset } from '@asyra/preset'
+import type { PropertyComputeContext } from '@asyra/ui-context'
+import { PropertyTypes } from '@asyra/utils'
+
+interface AppPositionFields {
+  alignment: number
+}
+
+applyPreset(core)
+
+const current = core.getPropertyTypeDefinition(PropertyTypes.POSITION)
+if (!current) throw new Error('Preset POSITION definition is missing')
+
+core.redefinePropertyType(PropertyTypes.POSITION, (definition) => ({
+  ...definition,
+  fields: [
+    ...definition.fields.filter((field) => field.key !== 'legacyAlignment'),
+    {
+      key: 'alignment',
+      kind: 'number',
+      defaultValue: 0,
+      persist: true,
+      project: true,
+      unit: false
+    }
+  ]
+}))
+```
+
+Successful redefinition rebuilds schema, runtime/defaults, persistence keys,
+value projection, and unit projection atomically, then transfers only that
+property registration's owner metadata to the app. Existing incoming/outgoing
+relations remain. If a removed projected field is still named by a fixed
+component alias or property-child key, startup fails until the app explicitly
+uses the existing relation APIs.
+
+For nested data such as `stroke.fill`, replace the complete top-level `fill`
+field definition. There is no nested property-path mutation API. Constructor-
+mode types continue to use the complete unregister-then-define route above.
+
+Render and UI semantics remain app-owned and explicit:
+
+```ts
+const strategy: EngineNeutralRenderStrategy<AppPositionFields> = (
+  graphic,
+  data
+) => {
+  // The app alone decides how data.alignment affects engine-neutral drawing.
+}
+
+core.unregisterRenderStrategy('rect')
+core.registerRenderStrategy('rect', strategy)
+
+core.unregisterUIProperty('alignment')
+core.defineUIProperty('alignment', {
+  defaultValue: 0,
+  compute: (context: PropertyComputeContext<AppPositionFields>) =>
+    context.elements[0]?.alignment ?? 0
+})
+```
 
 ## Migration
 
@@ -124,6 +185,13 @@ register a load hook that maps old data before package validation:
 
 ```text
 old file -> app load migration -> package validation -> load
+```
+
+Only the app may define a semantic B-to-C conversion. Register that deterministic
+transform before startup; redefinition itself never rewrites stored documents.
+
+```ts
+core.registerLoadHook((data) => migrateLegacyAlignmentToAlignment(data))
 ```
 
 Unknown property types after migration are diagnosed and skipped; they do not
@@ -148,5 +216,7 @@ fall back to `CUSTOM`.
 - full unregister cleans observers, handlers, subscriptions, and owned registry
   entries without stale effects
 - app-owned migration runs before validation
+- declarative redefinition uses only `core.getPropertyTypeDefinition()` and
+  `core.redefinePropertyType()`; no preset deep import or Props singleton
 - startup ordering is deterministic
 - render-engine capability never selects a product mode
