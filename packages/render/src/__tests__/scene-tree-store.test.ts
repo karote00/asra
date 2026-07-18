@@ -139,7 +139,7 @@ describe('RenderSceneTree computed data mirror', () => {
     )
   })
 
-  it('should run: discard a reload snapshot when visual add fails', async () => {
+  it('should run: fail a reload and clear partial projection when visual add fails', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
     const first = createElement(
@@ -164,14 +164,17 @@ describe('RenderSceneTree computed data mirror', () => {
     sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
       elementId === 'vector-1' ? first : second
     )
-    renderMock.addElement.mockImplementationOnce(() => {
-      throw new Error('visual add failed')
-    })
+    renderMock.addElement
+      .mockImplementationOnce(() => undefined)
+      .mockImplementationOnce(() => {
+        throw new Error('visual add failed')
+      })
 
-    expect(() => store.reload()).not.toThrow()
+    expect(() => store.reload()).toThrow('visual add failed')
 
     expect(renderMock.addElement).toHaveBeenCalledTimes(2)
-    expect(store.getProjectionSnapshotCount()).toBe(1)
+    expect(renderMock.clearElements).toHaveBeenCalledTimes(2)
+    expect(store.getProjectionSnapshotCount()).toBe(0)
   })
 
   it('should run: exclude workspace elements from reload snapshots', async () => {

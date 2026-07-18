@@ -526,10 +526,12 @@ class RenderSceneTree {
         if (renderElementData) {
           this.addElement(renderElementData)
         }
-      } catch {
+      } catch (error) {
         this.pendingElementUpdates.delete(elementId)
         this.computedDataMirror.delete(elementId)
         emitStrokePipelineCounter('computed-mirror-reload-seed-failed')
+        this.clearProjection()
+        throw error
       }
     })
   }
