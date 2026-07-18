@@ -79,6 +79,26 @@ const ELEMENT_DATA_MAP_COMPUTED_KEYS = new Set([
 const shouldUpdateElementDataMapForComputedKey = (key: string): boolean =>
   ELEMENT_DATA_MAP_COMPUTED_KEYS.has(key)
 
+const RENDER_PROJECTION_OUTCOMES = new Set([
+  'applied',
+  'resynced',
+  'removed',
+  'failed'
+])
+
+const recordRenderProjectionOutcome = (outcome: unknown) => {
+  const status =
+    outcome && typeof outcome === 'object' && 'status' in outcome
+      ? (outcome as { status?: unknown }).status
+      : undefined
+  if (typeof status === 'string' && RENDER_PROJECTION_OUTCOMES.has(status)) {
+    emitStrokePipelineCounter(`render-projection-outcome-${status}`)
+  } else {
+    emitStrokePipelineCounter('render-projection-outcome-missing')
+  }
+  return outcome
+}
+
 const getMatchingPropertiesForSceneTreeChange = (
   change: SceneTreeChange
 ): string[] => {
@@ -134,30 +154,35 @@ const getMatchingPropertiesForSceneTreeChange = (
 const updateRenderSceneTree = (change: SceneTreeChange) => {
   switch (change.action) {
     case SCENE_TREE_ACTIONS.ADD_ELEMENT: {
-      renderSceneTreeStore.addElementById(
-        (change as AddRemoveElementChange).data.id
+      return recordRenderProjectionOutcome(
+        renderSceneTreeStore.addElementById(
+          (change as AddRemoveElementChange).data.id
+        )
       )
-      break
     }
     case SCENE_TREE_ACTIONS.REMOVE_ELEMENT: {
       const { parentId, data } = change as AddRemoveElementChange
-      renderSceneTreeStore.removeElement(data, parentId)
-      break
+      return recordRenderProjectionOutcome(
+        renderSceneTreeStore.removeElement(data, parentId)
+      )
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA: {
       const { id, key, before, after, options } = change as UpdateElementChange
-      renderSceneTreeStore.updateElement(id, key, before, after, options)
-      break
+      return recordRenderProjectionOutcome(
+        renderSceneTreeStore.updateElement(id, key, before, after, options)
+      )
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH: {
       const { id, changes, options } = change as UpdateElementBatchChange
-      renderSceneTreeStore.updateElementBatch(id, changes, options)
-      break
+      return recordRenderProjectionOutcome(
+        renderSceneTreeStore.updateElementBatch(id, changes, options)
+      )
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH: {
       const { id, patch, options } = change as UpdateElementPatchChange
-      renderSceneTreeStore.updateElementPatch(id, patch, options)
-      break
+      return recordRenderProjectionOutcome(
+        renderSceneTreeStore.updateElementPatch(id, patch, options)
+      )
     }
   }
 }

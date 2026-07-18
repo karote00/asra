@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   BaseSelection,
   propertyRegistry,
+  renderSceneTreeStore,
   renderSelectionStore,
   uiContext
 } from '@asyra/core'
@@ -45,6 +46,138 @@ const createDeps = (): PresetDependencies =>
   }) as unknown as PresetDependencies
 
 describe('Preset Selection Subscriptions', () => {
+  it('routes complete Scene Tree deltas and records Render projection outcomes', () => {
+    const observers = new Map<string, { onChange: (change: unknown) => void }>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (registration: {
+        name: string
+        onChange: (change: unknown) => void
+      }) => observers.set(registration.name, registration),
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const dependencies = createDeps()
+    const add = vi.spyOn(renderSceneTreeStore, 'addElementById')
+    const remove = vi.spyOn(renderSceneTreeStore, 'removeElement')
+    const scalar = vi.spyOn(renderSceneTreeStore, 'updateElement')
+    const batch = vi.spyOn(renderSceneTreeStore, 'updateElementBatch')
+    const patch = vi.spyOn(renderSceneTreeStore, 'updateElementPatch')
+    add.mockReturnValue({ status: 'applied', elementId: 'vector-1' })
+    remove.mockReturnValue({ status: 'removed', elementId: 'vector-1' })
+    scalar.mockReturnValue({ status: 'resynced', elementId: 'vector-1' })
+    batch.mockReturnValue({ status: 'applied', elementId: 'vector-1' })
+    patch.mockReturnValue({ status: 'failed', elementId: 'vector-1' })
+
+    const counters: string[] = []
+    const runtimeGlobal = globalThis as typeof globalThis & {
+      __asyraStrokePipelineCounterSink?: (name: string) => void
+    }
+    const previousCounterSink = runtimeGlobal.__asyraStrokePipelineCounterSink
+    runtimeGlobal.__asyraStrokePipelineCounterSink = (name) => {
+      counters.push(name)
+    }
+
+    const dispose = registerDefaultDataChannelObservers(
+      core,
+      dependencies,
+      undefined,
+      { renderScene: true }
+    )
+    const observer = observers.get('preset.render.sceneTree')
+    expect(observer).toBeDefined()
+
+    try {
+      observer?.onChange({
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: { id: 'vector-1', type: 'vector' }
+      })
+      observer?.onChange({
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+        eventName: 'update-computed',
+        id: 'vector-1',
+        key: 'visible',
+        before: true,
+        after: false,
+        options: { undoable: false }
+      })
+      observer?.onChange({
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+        eventName: 'update-computed',
+        id: 'vector-1',
+        changes: [
+          { key: 'x', before: 0, after: 10 },
+          { key: 'y', before: 0, after: 20 }
+        ],
+        options: { undoable: false }
+      })
+      observer?.onChange({
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+        eventName: 'update-computed-patch',
+        id: 'vector-1',
+        patch: {
+          records: {
+            points: {
+              set: {
+                p1: { after: { id: 'p1', x: 0, y: 0 } }
+              }
+            }
+          }
+        },
+        options: { undoable: false }
+      })
+      observer?.onChange({
+        action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
+        data: { id: 'vector-1', type: 'vector' },
+        parentId: 'workspace-1'
+      })
+
+      expect(add).toHaveBeenCalledWith('vector-1')
+      expect(scalar).toHaveBeenCalledWith('vector-1', 'visible', true, false, {
+        undoable: false
+      })
+      expect(batch).toHaveBeenCalledWith(
+        'vector-1',
+        [
+          { key: 'x', before: 0, after: 10 },
+          { key: 'y', before: 0, after: 20 }
+        ],
+        { undoable: false }
+      )
+      expect(patch).toHaveBeenCalledWith(
+        'vector-1',
+        {
+          records: {
+            points: {
+              set: {
+                p1: { after: { id: 'p1', x: 0, y: 0 } }
+              }
+            }
+          }
+        },
+        { undoable: false }
+      )
+      expect(remove).toHaveBeenCalledWith(
+        { id: 'vector-1', type: 'vector' },
+        'workspace-1'
+      )
+      expect(counters).toEqual([
+        'render-projection-outcome-applied',
+        'render-projection-outcome-resynced',
+        'render-projection-outcome-applied',
+        'render-projection-outcome-failed',
+        'render-projection-outcome-removed'
+      ])
+    } finally {
+      dispose()
+      runtimeGlobal.__asyraStrokePipelineCounterSink = previousCounterSink
+      add.mockRestore()
+      remove.mockRestore()
+      scalar.mockRestore()
+      batch.mockRestore()
+      patch.mockRestore()
+    }
+  })
+
   it('keeps pending UI context transactions isolated per Core observer lifetime', () => {
     const createCore = () => {
       const observers = new Map<
