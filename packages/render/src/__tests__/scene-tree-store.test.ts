@@ -592,6 +592,105 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(renderMock.updateElement).not.toHaveBeenCalled()
   })
 
+  it('should run: fail closed when a scalar candidate changes the element identity', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { id: 'vector-1', points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+    element.getAllComputedData.mockReturnValue({
+      id: 'other-vector',
+      points: {}
+    })
+
+    const outcome = store.updateElement(
+      'vector-1',
+      'computed',
+      'id',
+      'vector-1',
+      'other-vector',
+      { undoable: false }
+    )
+
+    expect(outcome).toEqual({ status: 'failed', elementId: 'vector-1' })
+    expect(store.getProjectionSnapshotCount()).toBe(0)
+    expect(renderMock.removeElement).toHaveBeenCalledWith('vector-1')
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
+  })
+
+  it('should run: fail closed when a batch candidate clears the element type', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+    element.save.mockReturnValue({
+      id: 'vector-1',
+      type: '',
+      visible: true
+    })
+
+    const outcome = store.updateElementBatch(
+      'vector-1',
+      [
+        {
+          owner: 'raw',
+          key: 'type',
+          before: 'vector',
+          after: ''
+        }
+      ],
+      { undoable: false }
+    )
+
+    expect(outcome).toEqual({ status: 'failed', elementId: 'vector-1' })
+    expect(store.getProjectionSnapshotCount()).toBe(0)
+    expect(renderMock.removeElement).toHaveBeenCalledWith('vector-1')
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
+  })
+
+  it('should run: fail closed when a patch candidate becomes a workspace', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { type: 'vector', points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+    element.getAllComputedData.mockReturnValue({
+      type: EntityTypes.WORKSPACE,
+      points: {}
+    })
+
+    const outcome = store.updateElementPatch(
+      'vector-1',
+      {
+        values: {
+          type: {
+            before: 'vector',
+            after: EntityTypes.WORKSPACE
+          }
+        }
+      },
+      { undoable: false }
+    )
+
+    expect(outcome).toEqual({ status: 'failed', elementId: 'vector-1' })
+    expect(store.getProjectionSnapshotCount()).toBe(0)
+    expect(renderMock.removeElement).toHaveBeenCalledWith('vector-1')
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
+  })
+
   it('should run: install a new snapshot without mutating the previously published value', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()

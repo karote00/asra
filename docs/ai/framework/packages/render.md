@@ -72,6 +72,10 @@ drawing; Render adds no inferred mapping or fallback geometry.
 - scalar, ordered batch, and record patch updates validate every supplied
   `before` image before atomically installing a new snapshot; record patches
   require an existing record base and never substitute `{}`
+- every scalar, batch, and patch candidate is merged with computed-over-raw
+  precedence and must retain the requested id, a non-empty type, and a
+  non-workspace type before install; an incomplete candidate enters the explicit
+  resync route and fails closed if the authoritative snapshot remains incomplete
 - scalar and batch entries carry canonical `raw` or `computed` owner provenance;
   Render validates and updates only that declared slice and never infers owner
   from key presence, a hard-coded property list, or element type

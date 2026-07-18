@@ -47,6 +47,27 @@ const hasOwn = (record: Record<string, unknown>, key: string) =>
 const isSceneTreeDataOwner = (value: unknown): value is SceneTreeDataOwner =>
   value === 'raw' || value === 'computed'
 
+const composeCompleteRenderData = (
+  elementId: string,
+  rawDataSnapshot: Record<string, unknown>,
+  computedDataSnapshot: Record<string, DataTypes>
+): RenderElementData | null => {
+  const renderDataSnapshot = {
+    ...rawDataSnapshot,
+    ...computedDataSnapshot
+  }
+  if (
+    renderDataSnapshot.id !== elementId ||
+    typeof renderDataSnapshot.type !== 'string' ||
+    renderDataSnapshot.type.length === 0 ||
+    renderDataSnapshot.type === EntityTypes.WORKSPACE
+  ) {
+    return null
+  }
+
+  return renderDataSnapshot as unknown as RenderElementData
+}
+
 const getEffectiveValue = (
   rawDataSnapshot: Record<string, unknown>,
   computedDataSnapshot: Record<string, DataTypes>,
@@ -158,23 +179,19 @@ class ComputedDataMirror {
       const computedDataSnapshot = {
         ...computedData
       } as Record<string, DataTypes>
-      const renderDataSnapshot = {
-        ...rawDataSnapshot,
-        ...computedDataSnapshot
-      }
-      if (
-        renderDataSnapshot.id !== elementId ||
-        typeof renderDataSnapshot.type !== 'string' ||
-        renderDataSnapshot.type.length === 0 ||
-        renderDataSnapshot.type === EntityTypes.WORKSPACE
-      ) {
+      const renderDataSnapshot = composeCompleteRenderData(
+        elementId,
+        rawDataSnapshot,
+        computedDataSnapshot
+      )
+      if (!renderDataSnapshot) {
         throw new Error('Render snapshot identity is incomplete')
       }
 
       const entry = {
         rawDataSnapshot,
         computedDataSnapshot,
-        renderDataSnapshot: renderDataSnapshot as unknown as RenderElementData
+        renderDataSnapshot
       }
       this.entries.set(elementId, entry)
       emitStrokePipelineCounter('computed-mirror-seed')
@@ -202,16 +219,23 @@ class ComputedDataMirror {
     elementId: string,
     rawDataSnapshot: Record<string, unknown>,
     computedDataSnapshot: Record<string, DataTypes>
-  ) {
+  ): boolean {
+    const renderDataSnapshot = composeCompleteRenderData(
+      elementId,
+      rawDataSnapshot,
+      computedDataSnapshot
+    )
+    if (!renderDataSnapshot) {
+      return false
+    }
+
     const nextEntry: ComputedDataMirrorEntry = {
       rawDataSnapshot,
       computedDataSnapshot,
-      renderDataSnapshot: {
-        ...rawDataSnapshot,
-        ...computedDataSnapshot
-      } as unknown as RenderElementData
+      renderDataSnapshot
     }
     this.entries.set(elementId, nextEntry)
+    return true
   }
 
   applyTopLevelChange(
@@ -248,7 +272,11 @@ class ComputedDataMirror {
       key
     )
 
-    this.installSnapshot(elementId, rawDataSnapshot, computedDataSnapshot)
+    if (
+      !this.installSnapshot(elementId, rawDataSnapshot, computedDataSnapshot)
+    ) {
+      return null
+    }
     emitStrokePipelineCounter('computed-mirror-staged-change-count')
     return {
       effectiveChanges: isDataEqual(effectiveBefore, effectiveAfter)
@@ -309,7 +337,11 @@ class ComputedDataMirror {
       }
     }
 
-    this.installSnapshot(elementId, rawDataSnapshot, computedDataSnapshot)
+    if (
+      !this.installSnapshot(elementId, rawDataSnapshot, computedDataSnapshot)
+    ) {
+      return null
+    }
     emitStrokePipelineCounter(
       'computed-mirror-staged-change-count',
       changes.length
@@ -372,7 +404,15 @@ class ComputedDataMirror {
       computedDataSnapshot[key] = nextRecord
     }
 
-    this.installSnapshot(elementId, entry.rawDataSnapshot, computedDataSnapshot)
+    if (
+      !this.installSnapshot(
+        elementId,
+        entry.rawDataSnapshot,
+        computedDataSnapshot
+      )
+    ) {
+      return false
+    }
     emitStrokePipelineCounter(
       'computed-mirror-staged-change-count',
       changeCount
