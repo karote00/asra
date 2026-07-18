@@ -124,6 +124,12 @@ core.registerRenderStrategy('rect', productRectangleStrategy)
 await core.start(container, renderOptions)
 ```
 
+Planned config-mode field customization is tracked by
+`plans/property-type-redefinition-plan.md`. It will use the same public Core
+facade after `applyPreset(core)` and will not add a preset-specific extension or
+replacement object. Until that API is implemented, apps use the existing
+explicit unregister-then-define route.
+
 ## Validation Checklist
 
 - imports are side-effect free;

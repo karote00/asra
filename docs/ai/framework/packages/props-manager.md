@@ -94,6 +94,19 @@ packages/props-manager/src/
 - property schema registration
 - state registry for UI/derived helpers
 
+## Planned Declarative Redefinition
+
+`plans/property-type-redefinition-plan.md` assigns Props Manager the planned
+normalized definition projection and atomic schema/config-runtime rebuild for
+config-mode property types. The implementation must stage the complete next
+schema and constructor before mutation, preserve child configuration, reject
+active or replay-retained use, and restore the exact old definition on any
+failure.
+
+Constructor-mode behavior, semantic field migration, relation changes, render,
+and UI remain outside this owner. The current unregister-then-define APIs remain
+authoritative until the plan is implemented.
+
 ## Notes
 
 - `manager/props-manager.ts` is the runtime center for add/remove/update/load/save.

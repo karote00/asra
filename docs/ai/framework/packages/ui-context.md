@@ -22,6 +22,12 @@ Derived UI-property registration and aggregation runtime.
 
 Apps can bypass ui-context and compute their own derived state from framework subscriptions.
 
+Planned app-defined field typing is tracked by
+`plans/property-type-redefinition-plan.md`. It will allow an app UI-property
+compute callback to declare its custom element-data shape without making
+ui-context canonical property state or automatically creating UI behavior for
+new fields.
+
 ## Runtime Contracts
 
 1. Registration

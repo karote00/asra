@@ -106,6 +106,17 @@ If a Whiteboard changes Filled shapes into outline-only shapes, it explicitly
 unregisters/registers its Rectangle/Oval render strategies and any app UI
 registrations that differ from the preset.
 
+## Planned Fixed-Field Redefinition
+
+The planned `core.redefinePropertyType(...)` flow is specified by
+`docs/ai/framework/plans/property-type-redefinition-plan.md`. It will provide a
+single atomic config-mode schema/runtime field redefinition during open
+composition. It will not redefine component/child relations, render strategies,
+UI properties, app commands, or migrations.
+
+Until the plan is implemented, the complete-property unregister-then-define
+route above remains the executable golden path.
+
 ## Migration
 
 Registration composition never migrates documents. For an app version change,

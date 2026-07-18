@@ -207,6 +207,18 @@ System orchestrator and lifecycle coordinator.
 - Core/scene-tree bridge rule: scene-tree recompute should react to committed props transactions, not be manually duplicated in app handlers.
 - Cross-cutting domain logic belongs in app/common APIs, not core.
 
+## Planned Declarative Property Type Redefinition
+
+`plans/property-type-redefinition-plan.md` defines a not-yet-implemented,
+pre-start Core facade for reading and atomically redefining one config-mode
+property type. Core will coordinate the permanent composition lock, graph owner
+metadata, preserved relations, and final structural validation while Props
+Manager remains the schema/runtime rebuild owner.
+
+The planned operation is a bounded declarative exception, not a general replace
+strategy. Render strategies, UI properties, relations, app commands, and load
+migrations remain explicit ordinary app composition.
+
 ## Validation Checklist
 
 - Core initialization works without UI framework assumptions.
