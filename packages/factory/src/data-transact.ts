@@ -128,7 +128,7 @@ const invertComputedDataPatchChange = (
     >[string] = {}
 
     Object.entries(recordPatch.set ?? {}).forEach(([recordId, change]) => {
-      if (change.before === undefined) {
+      if (!('before' in change)) {
         nextRecordPatch.remove ??= {}
         nextRecordPatch.remove[recordId] = {
           before: change.after

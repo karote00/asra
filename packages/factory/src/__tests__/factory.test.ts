@@ -439,6 +439,10 @@ describe('Factory', () => {
                 before: { id: 'A', x: 0, y: 0 },
                 after: { id: 'A', x: 10, y: 10 }
               },
+              U: {
+                before: undefined,
+                after: { id: 'U', x: 15, y: 15 }
+              },
               B: {
                 after: { id: 'B', x: 20, y: 20 }
               }
@@ -475,6 +479,10 @@ describe('Factory', () => {
               A: {
                 before: { id: 'A', x: 10, y: 10 },
                 after: { id: 'A', x: 0, y: 0 }
+              },
+              U: {
+                before: { id: 'U', x: 15, y: 15 },
+                after: undefined
               },
               C: {
                 after: { id: 'C', x: 30, y: 30 }

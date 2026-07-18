@@ -108,6 +108,7 @@
         'Transaction-end delivery preserves journal order and each registered observer receives one delivery per committed entry.',
         'Undo, redo, and replay delivery use the same shared channel and ordering contract.',
         'Factory batch replay expansion preserves the raw or computed owner carried by every scalar entry.',
+        'Factory patch inversion preserves record own-property provenance: a set entry with a before property whose value is undefined inverts to a set, while only an entry without a before property inverts to remove.',
         'Transport tests own duplicate and out-of-order prevention because the change schema has no independent Render revision.'
       ],
       bypasses: [

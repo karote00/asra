@@ -163,6 +163,10 @@ test('Scene Tree is canonical and Factory transports ordered changes only', () =
     contractText(delivery),
     /batch replay.*preserves.*owner/i
   )
+  assert.match(
+    contractText(delivery),
+    /set entry with a before property whose value is undefined.*inverts to a set.*without a before property.*remove/i
+  )
 })
 
 test('Preset routes complete envelopes without creating another snapshot owner', () => {
