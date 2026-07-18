@@ -6,15 +6,7 @@ This file tracks framework planning topics and points to detailed references.
 
 ## Near-Term Plans
 
-1. Canvas Pipeline Debugger
-
-- Add an optional DEV-runtime surface for app developers to inspect canonical
-  Render input, layer evaluation, and engine-neutral pre-handoff evidence.
-- Do not inspect pixels, hit testing, concrete-engine results, or reconstruct
-  missing output from debug geometry.
-- Reference: `docs/ai/framework/plans/canvas-pipeline-debugger-plan.md`
-
-2. Declarative property type redefinition
+1. Declarative property type redefinition
 
 - Let app developers inspect and atomically redefine one config-mode property
   type after preset composition and before `core.start()`.
@@ -25,7 +17,7 @@ This file tracks framework planning topics and points to detailed references.
   normal property update, render strategy, or UI aggregation paths.
 - Reference: `docs/ai/framework/plans/property-type-redefinition-plan.md`
 
-3. Render delta update pipeline
+2. Render delta update pipeline
 
 - Apply data-channel deltas directly in render update flow to avoid full computed-data rehydrate.
 - Use render-side cached snapshots + key-based invalidation for heavy geometry.

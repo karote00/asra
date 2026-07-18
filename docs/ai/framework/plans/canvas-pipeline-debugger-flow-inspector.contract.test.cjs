@@ -29,7 +29,7 @@ test('product contract and dedicated Inspector remain resolvable authorities', (
 
   assert.equal(
     data.authority.specPath,
-    'docs/ai/framework/plans/canvas-pipeline-debugger-plan.md'
+    'docs/ai/framework/plans/completed/canvas-pipeline-debugger-plan.md'
   )
   assert.equal(
     data.authority.inspectorPath,
@@ -131,7 +131,7 @@ test('overlay remains non-interactive and cleanup is debugger-owned', () => {
 
 test('overlay faults enter the session read model before cleanup', () => {
   const spec = fs.readFileSync(
-    path.resolve(__dirname, 'canvas-pipeline-debugger-plan.md'),
+    path.resolve(__dirname, 'completed/canvas-pipeline-debugger-plan.md'),
     'utf8'
   )
   const session = step('control-debug-session')
@@ -171,7 +171,7 @@ test('overlay faults enter the session read model before cleanup', () => {
 
 test('Inspector names bounded product cases and definition of done', () => {
   const spec = fs.readFileSync(
-    path.resolve(__dirname, 'canvas-pipeline-debugger-plan.md'),
+    path.resolve(__dirname, 'completed/canvas-pipeline-debugger-plan.md'),
     'utf8'
   )
   const acceptance = data.acceptanceContracts

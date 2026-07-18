@@ -2,7 +2,7 @@
   'use strict'
 
   const specPath =
-    'docs/ai/framework/plans/canvas-pipeline-debugger-plan.md'
+    'docs/ai/framework/plans/completed/canvas-pipeline-debugger-plan.md'
   const inspectorPath =
     'docs/ai/framework/plans/canvas-pipeline-debugger-flow-inspector.data.cjs'
 
@@ -527,7 +527,7 @@
       {
         id: 'product-contract',
         label: 'Product Contract',
-        href: './canvas-pipeline-debugger-plan.md',
+        href: './completed/canvas-pipeline-debugger-plan.md',
         kind: 'framework'
       },
       {

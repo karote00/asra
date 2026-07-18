@@ -1311,3 +1311,39 @@ unregister -> app migration -> core.start()` as the public app route.
   - `3a2a6c654` (`fix(core): preserve configured provider failures`)
   - `6f76b8aab` (`fix(preset): isolate selectable default prerequisites`)
   - `8a29217b8` (`docs(framework): align preset provider terminology`)
+
+## 2026-07-18 - Canvas Pipeline Debugger completed
+
+- Context:
+  - PR #83 merged the optional Canvas Pipeline Debugger, its dedicated
+    Inspector, formal Render/Core/app coverage, Asyra Design DEV wiring, and
+    production-bundle exclusion to `main`.
+  - PR validation passed. A synchronized live-app closeout review additionally
+    confirmed that a focused element becomes `observed`, exposes canonical
+    workspace/canvas projection, renders a readable debugger-only outline after
+    ordinary selection is cleared, and retains no debugger fault.
+- Decision:
+  - Treat the Canvas Pipeline Debugger plan as implementation complete and
+    archive its product contract at the completed canonical path.
+  - Keep the debugger optional, disabled by default, deterministic,
+    instance-bound, and engine-neutral. Observation stops before the concrete
+    engine call and never claims pixel, hit-test, engine-result, or product-data
+    authority.
+  - Keep the app-facing API limited to
+    `@asyra/core/canvas-pipeline-debugger`; Render support remains an optional
+    non-app-facing subpath and Pixi remains confined to its concrete engine
+    package.
+- Consequences:
+  - Canvas Pipeline Debugger is removed from active framework plans. Its
+    Inspector data, contract test, and direct-open viewer remain the executable
+    architecture authority and now resolve the completed product contract.
+  - Scene Tree and Props Manager do not gain separate debuggers without a future
+    concrete runtime-observability requirement.
+  - Debugger data remains transient and cannot become persistence, undo/redo,
+    collaboration, export, interaction, or canonical render input.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/canvas-pipeline-debugger-plan.md`
+- Related Commit(s):
+  - `fbc216ab2b219c9e950e6dfabad102b2a396b981` (`feat(render): add canvas pipeline debugger`)
+  - `77026a8d79a22bcb8ed22d3ff8f6a99f660343ec` (PR #83 merge commit)
+  - [PR #83](https://github.com/karote00/asyra/pull/83)
