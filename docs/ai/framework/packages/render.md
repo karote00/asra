@@ -80,6 +80,24 @@ the named strategy and its graph relations without inferring a product mode.
 - the existing interaction bridge publishes framework events; render and the
   engine do not execute product features
 
+5. Optional pipeline diagnostics
+
+- render-layer registration and pipeline observers belong to one `Render`
+  instance; registrations and evidence never cross instance boundaries
+- the canonical adapter may emit detached element, viewport, layer, frame, and
+  pre-engine handoff evidence only while an observer is enabled
+- command evidence is normalized before `engine.execute(...)` and contains no
+  opaque handle, engine result, query, hit-test, pixel, or concrete-engine data
+- debugger-owned overlay commands are excluded from product pipeline evidence
+- observer failure is isolated from canonical rendering; diagnostics never
+  provide fallback geometry or become render-state authority
+- the snapshot fault field retains the latest observation or Core-routed overlay
+  projection failure message and clears when observation is re-enabled; concrete
+  engine failures remain outside this debugger field
+- the optional `@asyra/render/canvas-pipeline-debugger` subpath owns bounded
+  trace/snapshot projection and a graphics-only expected-geometry layer; it does
+  not add engine text, DOM UI, or a concrete-engine dependency
+
 ## Renderer Facade Compatibility
 
 - `RenderAdapter` is the engine-neutral Core-facing renderer and is owned by

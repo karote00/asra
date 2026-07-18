@@ -9,15 +9,25 @@ import { DataTypes, MouseData } from '@asyra/utils'
 import type { RenderPointerPositions } from '@asyra/utils'
 import { RenderElementData, RenderContainerData } from './types'
 import { ViewportLayer } from './layers/viewport'
-import renderLayerRegistry from './registries/render-layer'
+import { RenderLayerRegistry } from './registries/render-layer'
 import type { RenderLayerRegistration } from './types/render-layer'
 import RenderInteractionBridge from './interaction/interaction-bridge'
 import RenderEngineInteractionBridge from './interaction/engine-interaction-bridge'
 import interactionTargetRegistry from './registries/interaction-target'
 import renderInteractionHandlerRegistry from './registries/render-interaction-handler'
 import {
+  CanvasPipelineEvidenceKinds,
+  hasCanvasPipelineEvidenceSubscribers,
+  isCanvasPipelineDebuggerOwned,
+  publishCanvasPipelineEvidence,
+  snapshotCanvasPipelineCommand,
+  snapshotCanvasPipelineValue
+} from './diagnostics/canvas-pipeline'
+import type { RenderEngineCommand } from '@asyra/render-engine'
+import {
   RenderContainer,
   RenderGraphics,
+  type RenderNode,
   RenderObjectRuntime
 } from './types/render-object'
 import type {
@@ -90,6 +100,8 @@ class Render {
   private flushingFrame = false
   private updatingLayers = false
   private renderFrameId = 0
+  private currentFrameHandoffCount = 0
+  private readonly renderLayerRegistry = new RenderLayerRegistry()
 
   constructor(options: RenderEngineProviderOptions = {}) {
     if (options.engine && options.engineProvider) {
@@ -156,8 +168,9 @@ class Render {
       let didChange = false
       this.updatingLayers = true
       try {
-        renderLayerRegistry.getAll().forEach((registration) => {
+        this.renderLayerRegistry.getAll().forEach((registration) => {
           if (registration.shouldUpdate && !registration.shouldUpdate()) {
+            this.publishLayerEvidence(registration, 'bypassed')
             return
           }
           const updateResult = measureBrowserDragPhase(
@@ -165,6 +178,10 @@ class Render {
             () => registration.update?.()
           )
           didChange = didChange || updateResult === true
+          this.publishLayerEvidence(
+            registration,
+            updateResult === true ? 'changed' : 'unchanged'
+          )
         })
       } finally {
         this.updatingLayers = false
@@ -193,6 +210,8 @@ class Render {
 
     this.flushingFrame = true
     this.renderFrameId += 1
+    this.currentFrameHandoffCount = 0
+    this.publishFrameEvidence('start')
     ;(
       globalThis as typeof globalThis & {
         __asyraStrokePipelineCounterSink?: (
@@ -214,6 +233,7 @@ class Render {
         const layersChanged = this.updateLayers()
         const drawsChanged = this.runtime?.flushDraws() ?? false
         if (!this.renderDirty && !layersChanged && !drawsChanged) {
+          this.publishFrameEvidence('complete', 'skipped')
           return
         }
 
@@ -221,7 +241,11 @@ class Render {
           this.app?.render()
         })
         this.renderDirty = false
+        this.publishFrameEvidence('complete', 'rendered')
       })
+    } catch (error) {
+      this.publishFrameEvidence('complete', 'failed')
+      throw error
     } finally {
       this.flushingFrame = false
       if (this.nextFrameRenderDirty) {
@@ -235,12 +259,22 @@ class Render {
     registration: RenderLayerRegistration,
     options?: { override?: boolean }
   ): void {
-    renderLayerRegistry.register(registration, options)
-    this.syncCustomLayers()
+    this.renderLayerRegistry.register(registration, options)
+    try {
+      this.syncCustomLayers()
+    } catch (error) {
+      this.renderLayerRegistry.unregister(registration.name)
+      try {
+        this.syncCustomLayers()
+      } catch {
+        // Preserve the original engine-boundary failure after rollback effort.
+      }
+      throw error
+    }
   }
 
   unregisterLayer(name: string): boolean {
-    const didUnregister = renderLayerRegistry.unregister(name)
+    const didUnregister = this.renderLayerRegistry.unregister(name)
     if (didUnregister) {
       this.syncCustomLayers()
     }
@@ -272,13 +306,20 @@ class Render {
         backgroundColor
       })
       this.engine = engine
-      this.runtime = new RenderObjectRuntime(engine, initialized.root)
+      this.runtime = new RenderObjectRuntime(
+        engine,
+        initialized.root,
+        (command, node, relatedNode) =>
+          this.publishEngineHandoff(command, node, relatedNode)
+      )
       this.runtime.attachRoot(this.viewport.view)
       this.app = {
         canvas: initialized.surface as HTMLCanvasElement,
         instance: initialized.runtime,
         render: () => {
-          engine.execute({ type: 'flush' })
+          const command = { type: 'flush' } as const
+          this.publishEngineHandoff(command)
+          engine.execute(command)
         }
       }
       this.syncCustomLayers()
@@ -306,7 +347,7 @@ class Render {
   }
 
   private syncCustomLayers(): void {
-    const registrations = renderLayerRegistry.getAll()
+    const registrations = this.renderLayerRegistry.getAll()
     const nextLayers = registrations
       .map((registration) => {
         const layer = registration.layer
@@ -348,18 +389,23 @@ class Render {
   }
 
   addContainer(containerData: RenderContainerData) {
+    this.publishElementEvidence('add', containerData.label, () => containerData)
     const container = this.viewport.addContainer(containerData)
     this.requestRender()
     return container
   }
 
   addElement(data: RenderElementData) {
+    if (data && typeof data.id === 'string') {
+      this.publishElementEvidence('add', data.id, () => data)
+    }
     const element = this.viewport.addElement(data)
     this.requestRender()
     return element
   }
 
   removeElement(elementId: string, parentId?: string) {
+    this.publishElementEvidence('remove', elementId, () => ({ parentId }))
     const didRemove = this.viewport.removeElement(elementId, parentId)
     this.requestRender()
     return didRemove
@@ -372,6 +418,12 @@ class Render {
     after: DataTypes,
     data?: RenderElementData
   ): void {
+    this.publishElementEvidence('update', elementId, () => ({
+      key,
+      before,
+      after,
+      data
+    }))
     this.viewport.updateElement(elementId, key, before, after, data)
     this.requestRender()
   }
@@ -381,26 +433,40 @@ class Render {
     key: string,
     after: DataTypes
   ): void {
+    this.publishElementEvidence('update', element.label, () => ({ key, after }))
     this.viewport.updateElementProperties(element, key, after)
     this.requestRender()
   }
 
   zoomFit(uiBounds: DOMRect): void {
+    this.publishViewportEvidence('zoom-fit', () => ({
+      x: uiBounds.x,
+      y: uiBounds.y,
+      width: uiBounds.width,
+      height: uiBounds.height
+    }))
     this.viewport.zoomFit(uiBounds)
     this.requestRender()
   }
 
   panTo(x: number, y: number): void {
+    this.publishViewportEvidence('pan', () => ({ x, y }))
     this.viewport.panTo(x, y)
     this.requestRender()
   }
 
   zoomTo(scale: number): void {
+    this.publishViewportEvidence('zoom', () => ({ scale }))
     this.viewport.zoomTo(scale)
     this.requestRender()
   }
 
   zoomToCenter(scale: number, centerX: number, centerY: number): void {
+    this.publishViewportEvidence('zoom-center', () => ({
+      scale,
+      centerX,
+      centerY
+    }))
     this.viewport.zoomToCenter(scale, centerX, centerY)
     this.requestRender()
   }
@@ -437,8 +503,128 @@ class Render {
   }
 
   resize(width: number, height: number): void {
-    this.requireEngine().execute({ type: 'resize', width, height })
+    this.publishViewportEvidence('resize', () => ({ width, height }))
+    const command = { type: 'resize', width, height } as const
+    this.publishEngineHandoff(command)
+    this.requireEngine().execute(command)
     this.requestRender()
+  }
+
+  private publishElementEvidence(
+    operation: 'add' | 'update' | 'remove',
+    elementId: string,
+    createData: () => unknown
+  ): void {
+    if (!hasCanvasPipelineEvidenceSubscribers(this)) {
+      return
+    }
+    publishCanvasPipelineEvidence(this, () => ({
+      kind: CanvasPipelineEvidenceKinds.ELEMENT_INPUT,
+      frameId: this.renderFrameId,
+      operation,
+      elementId,
+      data: snapshotCanvasPipelineValue(createData())
+    }))
+  }
+
+  private publishViewportEvidence(
+    operation: 'pan' | 'zoom' | 'zoom-center' | 'zoom-fit' | 'resize',
+    createData: () => unknown
+  ): void {
+    if (!hasCanvasPipelineEvidenceSubscribers(this)) {
+      return
+    }
+    publishCanvasPipelineEvidence(this, () => ({
+      kind: CanvasPipelineEvidenceKinds.VIEWPORT_INPUT,
+      frameId: this.renderFrameId,
+      operation,
+      data: snapshotCanvasPipelineValue(createData())
+    }))
+  }
+
+  private publishLayerEvidence(
+    registration: RenderLayerRegistration,
+    outcome: 'bypassed' | 'unchanged' | 'changed'
+  ): void {
+    if (
+      !hasCanvasPipelineEvidenceSubscribers(this) ||
+      (registration.layer instanceof RenderContainer &&
+        isCanvasPipelineDebuggerOwned(registration.layer))
+    ) {
+      return
+    }
+    publishCanvasPipelineEvidence(this, () => ({
+      kind: CanvasPipelineEvidenceKinds.LAYER_EVALUATION,
+      frameId: this.renderFrameId,
+      layerName: registration.name,
+      zIndex: registration.zIndex ?? 0,
+      outcome
+    }))
+  }
+
+  private publishEngineHandoff(
+    command: RenderEngineCommand,
+    node?: RenderNode,
+    relatedNode?: RenderNode
+  ): void {
+    if (
+      !hasCanvasPipelineEvidenceSubscribers(this) ||
+      isCanvasPipelineDebuggerOwned(node) ||
+      isCanvasPipelineDebuggerOwned(relatedNode)
+    ) {
+      return
+    }
+    if (this.flushingFrame) {
+      this.currentFrameHandoffCount += 1
+    }
+    publishCanvasPipelineEvidence(this, () => ({
+      kind: CanvasPipelineEvidenceKinds.ENGINE_HANDOFF,
+      frameId: this.renderFrameId,
+      command: snapshotCanvasPipelineCommand(command, {
+        elementId: node?.label || null,
+        objectType: node?.objectType,
+        renderRole: node === this.viewport.view ? 'viewport' : undefined,
+        relatedElementId: relatedNode?.label || null,
+        relatedObjectType: relatedNode?.objectType,
+        projection: node
+          ? {
+              localBounds: node.getLocalBounds(),
+              worldTransform: {
+                a: node.worldTransform.a,
+                b: node.worldTransform.b,
+                c: node.worldTransform.c,
+                d: node.worldTransform.d,
+                tx: node.worldTransform.tx,
+                ty: node.worldTransform.ty
+              },
+              viewportTransform: {
+                a: this.viewport.view.worldTransform.a,
+                b: this.viewport.view.worldTransform.b,
+                c: this.viewport.view.worldTransform.c,
+                d: this.viewport.view.worldTransform.d,
+                tx: this.viewport.view.worldTransform.tx,
+                ty: this.viewport.view.worldTransform.ty
+              }
+            }
+          : undefined
+      })
+    }))
+  }
+
+  private publishFrameEvidence(
+    phase: 'start' | 'complete',
+    outcome?: 'rendered' | 'skipped' | 'failed'
+  ): void {
+    if (!hasCanvasPipelineEvidenceSubscribers(this)) {
+      return
+    }
+    publishCanvasPipelineEvidence(this, () => ({
+      kind: CanvasPipelineEvidenceKinds.FRAME,
+      frameId: this.renderFrameId,
+      phase,
+      outcome,
+      handoffCount: this.currentFrameHandoffCount
+    }))
   }
 
   dispose(): void {

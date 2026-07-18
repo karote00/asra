@@ -131,6 +131,15 @@ const targets = [
     ),
     dataScript: './render-engine-boundary-flow-inspector.data.cjs',
     filterLaneTitle: 'Render Adapter'
+  },
+  {
+    id: 'canvas-pipeline-debugger',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/framework/plans/canvas-pipeline-debugger-flow-inspector.html'
+    ),
+    dataScript: './canvas-pipeline-debugger-flow-inspector.data.cjs',
+    filterLaneTitle: 'Diagnostic Projection'
   }
 ]
 

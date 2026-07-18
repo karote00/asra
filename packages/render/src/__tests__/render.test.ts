@@ -262,6 +262,102 @@ describe('Render', () => {
     expect(appRender).toHaveBeenCalledTimes(1)
   })
 
+  it('isolates registered layers between Render instances', () => {
+    const secondRender = new Render({
+      engine: new RecordingRenderEngine({ name: 'second-render' })
+    })
+    const firstUpdate = vi.fn(() => true)
+    const secondUpdate = vi.fn(() => true)
+
+    render.registerLayer({
+      name: 'first-instance-layer',
+      layer: {},
+      update: firstUpdate
+    })
+    secondRender.registerLayer({
+      name: 'second-instance-layer',
+      layer: {},
+      update: secondUpdate
+    })
+
+    render.updateLayers()
+
+    expect(firstUpdate).toHaveBeenCalledTimes(1)
+    expect(secondUpdate).not.toHaveBeenCalled()
+
+    secondRender.updateLayers()
+
+    expect(firstUpdate).toHaveBeenCalledTimes(1)
+    expect(secondUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  it('evaluates layers by zIndex and stops evaluating an unregistered layer', () => {
+    const order: string[] = []
+    render.registerLayer({
+      name: 'later-layer',
+      layer: {},
+      zIndex: 20,
+      update: () => {
+        order.push('later')
+        return false
+      }
+    })
+    render.registerLayer({
+      name: 'earlier-layer',
+      layer: {},
+      zIndex: 10,
+      update: () => {
+        order.push('earlier')
+        return false
+      }
+    })
+
+    render.updateLayers()
+    expect(order).toEqual(['earlier', 'later'])
+
+    expect(render.unregisterLayer('earlier-layer')).toBe(true)
+    order.length = 0
+    render.updateLayers()
+
+    expect(order).toEqual(['later'])
+  })
+
+  it('rolls back a layer registration when runtime attachment fails', async () => {
+    await render.init(100, 100, 0)
+    const execute = engine.execute.bind(engine)
+    let failNextLayerAttach = true
+    engine.execute = vi.fn((command) => {
+      if (
+        failNextLayerAttach &&
+        command.type === 'create-object' &&
+        command.properties?.label === 'failing-layer-root'
+      ) {
+        failNextLayerAttach = false
+        throw new Error('layer attachment failed')
+      }
+      return execute(command)
+    })
+
+    expect(() =>
+      render.registerLayer({
+        name: 'recoverable-layer',
+        layer: new RenderContainer({ label: 'failing-layer-root' })
+      })
+    ).toThrow('layer attachment failed')
+
+    const replacementUpdate = vi.fn(() => false)
+    expect(() =>
+      render.registerLayer({
+        name: 'recoverable-layer',
+        layer: new RenderContainer({ label: 'replacement-layer-root' }),
+        update: replacementUpdate
+      })
+    ).not.toThrow()
+
+    render.updateLayers()
+    expect(replacementUpdate).toHaveBeenCalledOnce()
+  })
+
   it('should delegate zoomFit to viewport', () => {
     const uiBounds = new DOMRect(0, 0, 100, 100)
     vi.spyOn(render.viewport, 'zoomFit')

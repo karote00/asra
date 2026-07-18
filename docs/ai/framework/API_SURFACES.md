@@ -224,6 +224,20 @@ Managed property bridges:
   - `hasSystemProperty(key)`
   - `unregisterSystemProperty(key)`
 
+`@asyra/core/canvas-pipeline-debugger` (optional DEV runtime surface)
+
+- `createCanvasPipelineDebugger(core, options?)`
+- options: `enabled` defaults to `false`, `traceCapacity` defaults to `256`,
+  and `overlay` accepts `visible` plus `focusedElementIds`
+- handle methods: `enable`, `disable`, `isEnabled`, `setOverlayVisible`,
+  `setFocusedElementIds`, `getSnapshot`, `getTrace`, `clearTrace`, `dispose`
+- `getSnapshot().fault` is `null` before failure and otherwise retains the latest
+  observation, normalization, subscriber, or overlay projection failure message;
+  re-enabling clears it
+- exported trace/snapshot/focused projection types and stable disposed/duplicate
+  session errors
+- the root Core entry does not import or re-export this subpath
+
 `@asyra/feature-system`
 
 - `defineFeature(name, keyConfig, definition)`
@@ -271,6 +285,19 @@ Managed property bridges:
 - render stores (for default/preset wiring):
   - `renderSceneTreeStore`
   - `renderSelectionStore`
+
+`@asyra/render/canvas-pipeline-debugger` (optional Core-facade support surface)
+
+- `createCanvasPipelineDebuggerAdapter(render, options)` owns bounded trace,
+  immutable snapshot/HUD data, and focused expected-geometry projection
+- `CanvasPipelineDebuggerAdapter.reportFault(error)` records a Core-routed
+  overlay failure in the snapshot read model without adding a trace entry
+- `createCanvasPipelineDebuggerOverlay(adapter, options?)` creates one
+  non-interactive graphics-only layer registration; the Core optional facade
+  owns registering and unregistering it
+- this subpath is not an app-facing bypass; apps use
+  `@asyra/core/canvas-pipeline-debugger`
+- no root Render export imports the optional implementation
 
 `@asyra/render-engine`
 

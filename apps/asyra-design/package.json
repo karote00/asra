@@ -47,7 +47,7 @@
     "react:build": "vite build --config vite.config.ts",
     "preview": "vite preview",
     "test": "yarn test:local",
-    "test:local": "node --test src/render-app/__tests__/renderer-boundary.test.mjs && vitest run --environment jsdom --no-file-parallelism src/init/__tests__/init-app.test.ts src/render-app/__tests__/render-app-strict-mode.test.tsx",
+    "test:local": "node --test src/render-app/__tests__/renderer-boundary.test.mjs src/init/__tests__/canvas-pipeline-debugger-production-exclusion.test.mjs && vitest run --environment jsdom --no-file-parallelism src/init/__tests__/init-app.test.ts src/init/__tests__/init-canvas-pipeline-debugger.test.ts src/render-app/__tests__/render-app-strict-mode.test.tsx",
     "test:ci": "yarn test:local",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",

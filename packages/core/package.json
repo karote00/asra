@@ -8,6 +8,18 @@
   "keywords": [],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./canvas-pipeline-debugger": {
+      "types": "./dist/canvas-pipeline-debugger/index.d.ts",
+      "import": "./dist/canvas-pipeline-debugger/index.js",
+      "default": "./dist/canvas-pipeline-debugger/index.js"
+    }
+  },
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
     "build:core": "tsc",

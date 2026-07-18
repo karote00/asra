@@ -2,6 +2,20 @@
 
 This file is the app-level API contract map.
 
+## DEV Runtime Diagnostics
+
+- `initCanvasPipelineDebugger()` dynamically imports the optional Core facade
+  only when `import.meta.env.DEV` is true
+- `window.__AsyraCanvasPipelineDebugger__` is a disabled-by-default
+  `CanvasPipelineDebugger` console handle, independent from `__AsyraE2E__`
+- the console handle's `getSnapshot().fault` retains the latest observation or
+  overlay projection failure message until the debugger is re-enabled or
+  disposed
+- `destroyCanvasPipelineDebugger()` disposes the handle and is also registered
+  for HMR cleanup
+- production startup has no debugger handle, trace, layer, or optional debugger
+  implementation chunk
+
 ## Common APIs (`src/common-apis/*`)
 
 Import boundary:

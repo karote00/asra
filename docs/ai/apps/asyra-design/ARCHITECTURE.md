@@ -37,6 +37,10 @@
   customizes defaults performs ordinary Core remove/unregister/define calls
   after `applyPreset(core)` and before diagnostics, capabilities, input-system,
   feature initialization, and the first `core.start()`
+- DEV-only diagnostics dynamically import
+  `@asyra/core/canvas-pipeline-debugger` and expose a disabled
+  `window.__AsyraCanvasPipelineDebugger__` handle; HMR disposes the prior
+  handle, while production bypasses the import and runtime entirely
 - diagnostics: `initLoadDiagnostics()`
 - derived-state sync: `initSelectionCompatibility()`, `initPathEditingContinuation()`
 - capability init: `initAreaSelection()`, `initGradientFillEditing()`, `initVectorIconData()`

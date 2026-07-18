@@ -6,11 +6,13 @@ This file tracks framework planning topics and points to detailed references.
 
 ## Near-Term Plans
 
-1. Canvas debugger
+1. Canvas Pipeline Debugger
 
-- Add a framework-owned debugging surface to verify render output, render-layer output, and coordinate-space correctness.
-- Keep it optional, deterministic, and renderer-boundary-safe so apps can opt in without coupling domain logic to Pixi internals.
-- Reference: `docs/ai/framework/plans/canvas-debugger-plan.md`
+- Add an optional DEV-runtime surface for app developers to inspect canonical
+  Render input, layer evaluation, and engine-neutral pre-handoff evidence.
+- Do not inspect pixels, hit testing, concrete-engine results, or reconstruct
+  missing output from debug geometry.
+- Reference: `docs/ai/framework/plans/canvas-pipeline-debugger-plan.md`
 
 2. Render delta update pipeline
 

@@ -25,3 +25,7 @@ export {
   destroyLoadDiagnostics,
   formatLoadDiagnostics
 } from './diagnostics/init-load-diagnostics'
+export {
+  initCanvasPipelineDebugger,
+  destroyCanvasPipelineDebugger
+} from './diagnostics/init-canvas-pipeline-debugger'

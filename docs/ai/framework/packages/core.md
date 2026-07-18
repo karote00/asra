@@ -172,6 +172,22 @@ System orchestrator and lifecycle coordinator.
 - selection shared channels project canonical state to Render/UI; they do not
   own a second delayed canonical selection value
 
+6. Optional Canvas Pipeline Debugger contract
+
+- apps create a development runtime session only through
+  `@asyra/core/canvas-pipeline-debugger` and pass the intended Core instance
+- the optional facade binds that Core's Render instance; it never substitutes
+  the default Core or exposes `core.deps` to the app
+- one non-disposed debugger may own a Render instance; disable removes its
+  observer and Core-registered overlay while preserving reads, and dispose
+  clears data and releases the session slot
+- hidden overlay state keeps trace observation active without a registered
+  layer; all registration and cleanup use the Core render-layer facade
+- an overlay projection failure is recorded through the Render debugger
+  projector before Core marks the session disabled and runs asynchronous layer
+  cleanup; Core does not assemble or own the snapshot fault model
+- root `@asyra/core` does not import or re-export the optional implementation
+
 ## App-Level Usage Rules
 
 - App should call framework via `core.xxx` and app-level wrappers.
@@ -197,5 +213,8 @@ System orchestrator and lifecycle coordinator.
 - Real renderer/engine failure does not initialize observers/features or publish
   ready; missing provider alone completes the documented headless Core path.
 - Core source contains no Pixi or concrete engine dependency.
+- The optional Canvas Pipeline Debugger uses only the Core facade and
+  engine-neutral Render subpath; no concrete engine or product-state write is
+  introduced.
 - Preset/default registrations are explicit via `@asyra/preset`, not implicit core side effects.
 - Load/save flow executes in documented order.
