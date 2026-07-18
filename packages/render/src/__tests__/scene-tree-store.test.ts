@@ -5,6 +5,7 @@ let pendingRenderLayer: {
   shouldUpdate?: () => boolean
   update?: () => boolean | undefined
 } | null = null
+let pendingRenderTeardownCleanup: (() => void) | null = null
 
 const renderMock = {
   switchWorkspace: vi.fn(),
@@ -15,6 +16,14 @@ const renderMock = {
   clearElements: vi.fn(),
   flushFrame: vi.fn(),
   requestRender: vi.fn(),
+  registerTeardownCleanup: vi.fn((cleanup: () => void) => {
+    pendingRenderTeardownCleanup = cleanup
+    return () => {
+      if (pendingRenderTeardownCleanup === cleanup) {
+        pendingRenderTeardownCleanup = null
+      }
+    }
+  }),
   registerLayer: vi.fn(
     (registration: {
       shouldUpdate?: () => boolean
@@ -1484,6 +1493,34 @@ describe('RenderSceneTree computed data mirror', () => {
 
     expect(store.getProjectionSnapshotCount()).toBe(0)
     expect(store.hasPendingChanges()).toBe(false)
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
+  })
+
+  it('should run: clear projection state on Render teardown', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+    store.updateElement(
+      'vector-1',
+      'points',
+      {},
+      { p1: { x: 1, y: 1 } },
+      { undoable: false }
+    )
+
+    expect(pendingRenderTeardownCleanup).not.toBeNull()
+    pendingRenderTeardownCleanup?.()
+    pendingRenderTeardownCleanup?.()
+
+    expect(store.getProjectionSnapshotCount()).toBe(0)
+    expect(store.hasPendingChanges()).toBe(false)
+    await flushScheduledFrame()
     expect(renderMock.updateElement).not.toHaveBeenCalled()
   })
 

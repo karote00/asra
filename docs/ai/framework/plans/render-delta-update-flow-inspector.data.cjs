@@ -517,7 +517,9 @@
       cacheDimensions: ['elementId'],
       cacheEvidence: snapshotCacheEvidence,
       implementationBoundary: [
+        'packages/render/src/render.ts',
         'packages/render/src/stores/scene-tree.ts',
+        'packages/render/src/__tests__/render-engine-adapter.test.ts',
         'packages/render/src/__tests__/scene-tree-store.test.ts',
         'packages/preset/src/subscriptions/data-channel.ts',
         'packages/preset/src/__tests__/**',
@@ -572,7 +574,8 @@
       from: 'route-render-delta',
       to: 'cleanup-render-projection',
       kind: 'conditional',
-      predicate: 'the request is remove, load reset, or observer teardown',
+      predicate:
+        'the request is remove, load reset, observer teardown, or Render teardown',
       producedArtifacts: ['artifact:render-projection-request']
     },
     {

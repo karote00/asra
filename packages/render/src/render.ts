@@ -102,6 +102,7 @@ class Render {
   private renderFrameId = 0
   private currentFrameHandoffCount = 0
   private readonly renderLayerRegistry = new RenderLayerRegistry()
+  private readonly teardownCleanups = new Set<() => void>()
 
   constructor(options: RenderEngineProviderOptions = {}) {
     if (options.engine && options.engineProvider) {
@@ -279,6 +280,13 @@ class Render {
       this.syncCustomLayers()
     }
     return didUnregister
+  }
+
+  registerTeardownCleanup(cleanup: () => void): () => void {
+    this.teardownCleanups.add(cleanup)
+    return () => {
+      this.teardownCleanups.delete(cleanup)
+    }
   }
 
   async init(
@@ -628,6 +636,18 @@ class Render {
   }
 
   dispose(): void {
+    let cleanupFailure: unknown
+    let hasCleanupFailure = false
+    this.teardownCleanups.forEach((cleanup) => {
+      try {
+        cleanup()
+      } catch (error) {
+        if (!hasCleanupFailure) {
+          cleanupFailure = error
+          hasCleanupFailure = true
+        }
+      }
+    })
     this.stop()
     this.interactionBridge.detach()
     this.unsubscribeEngineInteraction?.()
@@ -640,6 +660,9 @@ class Render {
     this.runtime = null
     this.engine = null
     this.app = null
+    if (hasCleanupFailure) {
+      throw cleanupFailure
+    }
   }
 
   reset(): void {

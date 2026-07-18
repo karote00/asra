@@ -402,6 +402,20 @@ describe('Render engine adapter', () => {
     }
   })
 
+  it('runs registered teardown cleanup on every Render disposal', () => {
+    const render = new Render()
+    const cleanup = vi.fn()
+    const unregister = render.registerTeardownCleanup(cleanup)
+
+    render.dispose()
+    render.dispose()
+    expect(cleanup).toHaveBeenCalledTimes(2)
+
+    unregister()
+    render.dispose()
+    expect(cleanup).toHaveBeenCalledTimes(2)
+  })
+
   it('rejects conflicting instance and callback providers', () => {
     const engine = new RecordingRenderEngine({ name: 'direct' })
     const engineProvider = (): RenderEngine =>

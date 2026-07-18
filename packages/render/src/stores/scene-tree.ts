@@ -727,6 +727,7 @@ class RenderSceneTree {
 
 let activeRenderSceneTree: RenderSceneTree | null = null
 let pendingRenderLayerInstalled = false
+let pendingRenderTeardownInstalled = false
 
 const installPendingRenderLayer = (store: RenderSceneTree) => {
   activeRenderSceneTree = store
@@ -739,6 +740,19 @@ const installPendingRenderLayer = (store: RenderSceneTree) => {
 
   if (typeof renderWithLayer.registerLayer !== 'function') {
     return false
+  }
+
+  const renderWithLifecycle = render as typeof render & {
+    registerTeardownCleanup?: (cleanup: () => void) => () => void
+  }
+  if (
+    !pendingRenderTeardownInstalled &&
+    typeof renderWithLifecycle.registerTeardownCleanup === 'function'
+  ) {
+    renderWithLifecycle.registerTeardownCleanup(() => {
+      activeRenderSceneTree?.resetProjection()
+    })
+    pendingRenderTeardownInstalled = true
   }
 
   if (!pendingRenderLayerInstalled) {

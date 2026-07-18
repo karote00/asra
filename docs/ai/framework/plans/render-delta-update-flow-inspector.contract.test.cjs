@@ -276,6 +276,13 @@ test('cleanup bounds snapshots and pending work across every lifecycle path', ()
   )
   assert.match(contract, /never exceeds live non-workspace/i)
   assert.match(contract, /cannot retain orphaned snapshots/i)
+  assert.ok(
+    cleanup.implementationBoundary.includes('packages/render/src/render.ts')
+  )
+  assert.match(
+    route('remove-or-teardown-projection').predicate,
+    /Render teardown/i
+  )
 })
 
 test('the product contract and formal oracle lock count and timing budgets', () => {
