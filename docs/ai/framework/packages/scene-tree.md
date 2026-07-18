@@ -49,10 +49,12 @@ Own the document entity graph and computed entity data.
 - register component-level computed defaults and normalization behavior
 - validate load payload via `validateLoadData(...)` before apply
 
-Planned app-defined field typing is tracked by
-`plans/property-type-redefinition-plan.md`. Scene Tree will continue to project
-the canonical result of property `getValue()` into computed element data; it
-will not interpret custom field meaning or become a second schema owner.
+App-defined property fields use the same projection path as builtin fields.
+Scene Tree projects only the complete canonical result of property `getValue()`
+into computed element data during setup, property subscriptions, and explicit
+owner refresh. It does not reconstruct removed or non-projected fields from
+schema/defaults, interpret custom field meaning, or become a second schema
+owner.
 
 ## Validation Checklist
 
