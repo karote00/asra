@@ -49,12 +49,16 @@ Render accepts only committed `SceneTreeChange` payloads routed by the registere
 Preset data-channel observer:
 
 - add and load establish an authoritative complete base snapshot
-- scalar change carries one top-level `key`, `before`, and `after`
-- batch carries an ordered list of scalar changes and is one atomic projection
+- scalar change carries one top-level `key`, `before`, `after`, and its canonical
+  `raw` or `computed` owner provenance
+- batch carries an ordered list of owner-qualified scalar changes and is one
+  atomic projection
 - record patch carries top-level value changes plus record `set` and `remove`
   entries; the top-level record must already exist as a record
 - one top-level key may appear in either the value-change map or the record-patch
   map, never both; Scene Tree rejects an overlapping patch before mutation
+- one record id may appear in either a record `set` map or `remove` list, never
+  both; Scene Tree rejects the ambiguous patch before mutation
 - remove invalidates the snapshot and every pending frame update before removing
   the visual
 
@@ -70,11 +74,19 @@ Accepted changes install a new top-level snapshot atomically. Changed records ar
 copied before modification so a previously published strategy snapshot is not
 mutated later.
 
-The explicit base records raw and computed ownership separately. A scalar or
-batch key already present in the seeded raw slice validates and updates that raw
-slice; every other key validates and updates the computed slice. The installed
-strategy input remains the complete merged snapshot. Render does not infer this
-ownership from a hard-coded property list.
+The explicit base records raw and computed ownership separately. Scene Tree is
+the only owner that knows which canonical setter produced a scalar change, so it
+records that `raw` or `computed` provenance on every scalar and batch entry.
+Render validates and updates only the declared slice. It never infers ownership
+from a key name, the presence of a key in either slice, or a hard-coded property
+list. This remains exact when declarative properties project computed fields with
+the same name as raw fields such as `visible`, `name`, or `lock`.
+
+The installed strategy input remains the complete merged snapshot, with computed
+data taking the same precedence as a fresh
+`{ ...element.save(), ...element.getAllComputedData() }`. A raw change shadowed
+by a same-name computed value updates the raw projection but does not issue a
+direct visual change from the shadowed raw value.
 
 ### 2. Snapshot ownership and initial source
 
@@ -207,6 +219,8 @@ failing formal test when the current implementation violates this contract.
   route, artifact, failure owner, implementation boundary, and cache dimension
 - missing base and record-base mismatch never seed silently or create `{}`
 - scalar, batch, and record patch projection is atomic and exact
+- same-name raw/computed fields follow canonical owner provenance and preserve
+  fresh merged-snapshot precedence
 - add/load/resync are explicit; remove/load/teardown leave no orphaned entries or
   pending updates
 - ordered delivery plus Render precondition tests cover missing, duplicate, and

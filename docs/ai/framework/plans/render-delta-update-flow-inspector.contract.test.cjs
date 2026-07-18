@@ -129,7 +129,10 @@ test('Scene Tree is canonical and Factory transports ordered changes only', () =
   assert.equal(commit.ownerPackage, '@asyra/scene-tree')
   assert.match(contractText(commit), /sole canonical owner/i)
   assert.match(contractText(commit), /scalar.*before.*after/i)
+  assert.match(contractText(commit), /raw.*computed.*owner provenance/i)
   assert.match(contractText(commit), /record patches/i)
+  assert.match(contractText(commit), /record base.*already.*record/i)
+  assert.match(contractText(commit), /record id.*either.*set.*remove/i)
   assert.equal(delivery.ownerPackage, '@asyra/factory')
   assert.match(contractText(delivery), /exactly once/i)
   assert.match(contractText(delivery), /journal order/i)
@@ -143,6 +146,7 @@ test('Preset routes complete envelopes without creating another snapshot owner',
 
   assert.equal(observer.ownerPackage, '@asyra/preset')
   assert.match(contract, /complete before\/after envelope/i)
+  assert.match(contract, /raw.*computed.*owner provenance/i)
   assert.match(
     contract,
     /does not assemble or retain|without assembling state/i
@@ -169,6 +173,7 @@ test('scalar, batch, and record patches validate and install atomically', () => 
 
   assert.match(contract, /complete elementId base is required/i)
   assert.match(contract, /Scalar before deep-equals/i)
+  assert.match(contract, /declared raw or computed owner/i)
   assert.match(contract, /batch precondition validates before any batch value/i)
   assert.match(contract, /Record additions require absence/i)
   assert.match(contract, /top-level record base must be a record/i)
@@ -285,8 +290,9 @@ test('cleanup bounds snapshots and pending work across every lifecycle path', ()
   assert.ok(
     cleanup.implementationBoundary.includes('packages/render/src/render.ts')
   )
-  assert.match(
-    route('remove-or-teardown-projection').predicate,
+  assert.match(cleanup.inputs.join(' '), /Render teardown/i)
+  assert.doesNotMatch(
+    route('remove-load-or-observer-cleanup').predicate,
     /Render teardown/i
   )
 })

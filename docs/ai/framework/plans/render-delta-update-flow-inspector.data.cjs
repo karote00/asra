@@ -46,9 +46,10 @@
       outputs: ['artifact:committed-scene-tree-delta'],
       conditions: [
         'Scene Tree remains the sole canonical owner of element raw and computed state.',
-        'Scalar changes carry one key, before, and after; transient scalar changes may be grouped into one option-preserving ordered batch.',
-        'Record patches describe top-level value changes and record set/remove changes with exact before evidence.',
+        'Scalar changes carry one key, before, after, and raw or computed owner provenance; transient scalar changes may be grouped into one option-preserving ordered batch that preserves each entry owner.',
+        'Record patches describe top-level value changes and record set/remove changes with exact before evidence; every top-level record base must already be a record.',
         'A top-level key belongs to either the value-change map or the record-patch map; overlapping keys are rejected before canonical mutation.',
+        'Within one top-level record, a record id belongs to either set or remove; overlap is rejected before canonical mutation.',
         'Equal writes are omitted and a record patch is collapsed into one committed change.',
         'Undo, redo, and persistence replay re-enter this same owner and emit ordinary committed changes.'
       ],
@@ -139,7 +140,7 @@
       inputs: ['artifact:ordered-shared-delta'],
       outputs: ['artifact:render-projection-request'],
       conditions: [
-        'Add routes by element id, remove routes the removed id and parent, and scalar, batch, and patch changes retain their complete before/after envelope.',
+        'Add routes by element id, remove routes the removed id and parent, and scalar, batch, and patch changes retain their complete before/after envelope plus raw or computed owner provenance.',
         'The observer receives applied, resynced, removed, or failed projection evidence and never treats swallowed exceptions as correctness control flow.',
         'File-load completion invokes the explicit Render rebuild route.',
         'Observer teardown invokes Render projection cleanup.'
@@ -244,8 +245,9 @@
       ],
       conditions: [
         'A complete elementId base is required and no update path seeds implicitly.',
-        'Scalar before deep-equals the cached value before after is installed.',
-        'A key present in the seeded raw slice validates and updates that slice; every other scalar key validates and updates the computed slice without a hard-coded property list.',
+        'Scalar before deep-equals the cached value in its declared raw or computed owner before after is installed.',
+        'Every scalar and batch entry validates and updates only its declared raw or computed owner; Render never infers ownership from key presence or a hard-coded property list.',
+        'A raw value shadowed by a same-name computed value updates the raw slice without publishing the shadowed raw value through the direct visual route.',
         'Every batch precondition validates before any batch value is installed.',
         'Record additions require absence; replacements and removals require exact before values; the top-level record base must be a record.',
         'Accepted changes install a new top-level snapshot and clone every changed record.',
@@ -570,12 +572,12 @@
       producedArtifacts: ['artifact:render-projection-request']
     },
     {
-      id: 'remove-or-teardown-projection',
+      id: 'remove-load-or-observer-cleanup',
       from: 'route-render-delta',
       to: 'cleanup-render-projection',
       kind: 'conditional',
       predicate:
-        'the request is remove, load reset, observer teardown, or Render teardown',
+        'the request is remove, load reset, or Preset observer teardown',
       producedArtifacts: ['artifact:render-projection-request']
     },
     {
@@ -829,7 +831,7 @@
         '#equivalence-and-stale-output-oracle'
       ],
       assertions: [
-        'accepted scalar, atomic batch, record set/remove patch, direct property, mixed batch, and coalesced frame output deep-equals fresh authoritative snapshot output'
+        'accepted scalar, atomic batch, record set/remove patch, direct property, mixed raw/computed same-name ownership, mixed batch, and coalesced frame output deep-equals fresh authoritative snapshot output'
       ]
     },
     {
