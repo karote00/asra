@@ -51,7 +51,8 @@
         'A top-level key belongs to either the value-change map or the record-patch map; overlapping keys are rejected before canonical mutation.',
         'Within one top-level record, a record id belongs to either set or remove; overlap is rejected before canonical mutation.',
         'Equal writes are omitted and a record patch is collapsed into one committed change.',
-        'Undo, redo, and persistence replay re-enter this same owner and emit ordinary committed changes.'
+        'Undo, redo, and persistence replay consume the carried owner provenance, never infer it from the key or current state, re-enter this same owner, and emit ordinary committed changes.',
+        'A scalar replay without valid raw or computed owner provenance is rejected before mutation.'
       ],
       bypasses: [
         'A mutation that produces no semantic difference emits no Render delta.',
@@ -71,6 +72,9 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/utils/src/types/scene-tree.ts',
+        'packages/reactive-events/src/scene-tree/events.ts',
+        'packages/reactive-events/src/scene-tree/publish.ts',
+        'packages/reactive-events/src/__tests__/**',
         'packages/scene-tree/src/sceneTree.ts',
         'packages/scene-tree/src/subscribes.ts',
         'packages/scene-tree/src/components/element-change-handler.ts',
@@ -101,6 +105,7 @@
         'The channel transports an immutable transaction snapshot and does not own element state.',
         'Transaction-end delivery preserves journal order and each registered observer receives one delivery per committed entry.',
         'Undo, redo, and replay delivery use the same shared channel and ordering contract.',
+        'Factory batch replay expansion preserves the raw or computed owner carried by every scalar entry.',
         'Transport tests own duplicate and out-of-order prevention because the change schema has no independent Render revision.'
       ],
       bypasses: [
@@ -861,7 +866,8 @@
       specRefs: ['#load-undo-redo-replay-remove-and-cleanup'],
       assertions: [
         'all state transitions use the canonical committed route or explicit load rebuild and leave no orphaned snapshot or pending update',
-        'the formal app oracle deep-compares fresh and strategy snapshots after action, Factory undo replay, Factory redo replay, and core.load rebuild'
+        'the formal app oracle deep-compares fresh and strategy snapshots after action, Factory undo replay, Factory redo replay, and core.load rebuild',
+        'same-name raw and computed fields preserve their carried owner through rollback, undo, redo, and replay'
       ]
     },
     {

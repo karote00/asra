@@ -130,10 +130,17 @@ test('Scene Tree is canonical and Factory transports ordered changes only', () =
   assert.match(contractText(commit), /sole canonical owner/i)
   assert.match(contractText(commit), /scalar.*before.*after/i)
   assert.match(contractText(commit), /raw.*computed.*owner provenance/i)
+  assert.match(
+    contractText(commit),
+    /replay.*consume.*owner.*never.*infer/i
+  )
   assert.match(contractText(commit), /record patches/i)
   assert.match(contractText(commit), /record base.*already.*record/i)
   assert.match(contractText(commit), /record id.*either.*set.*remove/i)
   ;[
+    'packages/reactive-events/src/scene-tree/events.ts',
+    'packages/reactive-events/src/scene-tree/publish.ts',
+    'packages/reactive-events/src/__tests__/**',
     'packages/scene-tree/src/components/element-change-handler.ts',
     'packages/scene-tree/src/components/element.ts',
     'packages/scene-tree/src/components/computed.ts'
@@ -143,6 +150,10 @@ test('Scene Tree is canonical and Factory transports ordered changes only', () =
   assert.match(contractText(delivery), /journal order/i)
   assert.match(contractText(delivery), /does not own element state/i)
   assert.match(contractText(delivery), /no independent Render revision/i)
+  assert.match(
+    contractText(delivery),
+    /batch replay.*preserves.*owner/i
+  )
 })
 
 test('Preset routes complete envelopes without creating another snapshot owner', () => {
@@ -341,5 +352,9 @@ test('acceptance covers equivalence, failure, lifecycle, compatibility, and budg
   assert.match(
     acceptance('lifecycle-parity').assertions.join(' '),
     /action.*undo replay.*redo replay.*core\.load/i
+  )
+  assert.match(
+    acceptance('lifecycle-parity').assertions.join(' '),
+    /same-name raw.*computed.*owner/i
   )
 })

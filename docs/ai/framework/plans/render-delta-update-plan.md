@@ -82,6 +82,11 @@ from a key name, the presence of a key in either slice, or a hard-coded property
 list. This remains exact when declarative properties project computed fields with
 the same name as raw fields such as `visible`, `name`, or `lock`.
 
+Factory preserves that owner provenance when it expands an owner-qualified batch
+for rollback, undo, or redo. Scene Tree replay consumes the carried owner and
+never re-infers it from the key or current raw/computed state. A replay event
+without valid owner provenance is rejected before mutation.
+
 The installed strategy input remains the complete merged snapshot, with computed
 data taking the same precedence as a fresh
 `{ ...element.save(), ...element.getAllComputedData() }`. A raw change shadowed
@@ -158,7 +163,9 @@ shape and require no migration.
 - Load clears all snapshots and pending work before rebuilding each live
   non-workspace element from Scene Tree.
 - Undo, redo, and persistence replay commit through the same Scene Tree change and
-  shared-channel route as an ordinary action; they do not use a second Render API.
+  shared-channel route as an ordinary action; batch expansion preserves every
+  entry owner and Scene Tree replay consumes that owner without inference. They do
+  not use a second Render API.
 - Remove deletes the snapshot and pending work before visual removal.
 - Preset observer teardown and Render teardown clear snapshots and pending work.
 - At every stable boundary, snapshot count is at most the number of live
@@ -221,6 +228,9 @@ failing formal test when the current implementation violates this contract.
 - scalar, batch, and record patch projection is atomic and exact
 - same-name raw/computed fields follow canonical owner provenance and preserve
   fresh merged-snapshot precedence
+- rollback, undo, redo, and replay preserve owner provenance through Factory
+  batch expansion and Scene Tree application, including same-name raw/computed
+  fields
 - add/load/resync are explicit; remove/load/teardown leave no orphaned entries or
   pending updates
 - ordered delivery plus Render precondition tests cover missing, duplicate, and
