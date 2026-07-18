@@ -96,7 +96,7 @@ test.describe('Render delta performance budget', () => {
 
   test('profiles the current dense-vector owner phases without adding cache semantics', async ({
     page
-  }) => {
+  }, testInfo) => {
     test.setTimeout(120_000)
 
     const rawProfile = await page.evaluate(
@@ -332,6 +332,7 @@ test.describe('Render delta performance budget', () => {
         }
 
         return {
+          elementId,
           sampleFrames,
           fullRehydrateCallsDuringDelta:
             counters.get('computed-mirror-seed') ?? 0,
@@ -393,5 +394,131 @@ test.describe('Render delta performance budget', () => {
         summary.strategyGeometry.p95Ms +
         summary.engineHandoff.p95Ms
     ).toBeLessThanOrEqual(CRITICAL_PATH_P95_BUDGET_MS)
+
+    const visualReviewState = await page.evaluate((elementId) => {
+      // E2E-only access to the currently composed framework runtime.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      const element = core?.deps?.sceneTree?.getElementById?.(elementId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      const renderElement = core?.deps?.render?.getElementById?.(elementId)
+      const renderedSnapshot =
+        renderElement?.__asyraLastRenderDataSnapshot ?? {}
+      const zoom = core?.getSystemProperty?.('zoom') ?? 1
+      const viewportPosition = core?.getSystemProperty?.(
+        'viewportPosition'
+      ) ?? {
+        x: 0,
+        y: 0
+      }
+      const usesWorkspacePoints = computed.pointCoordinateSpace === 'workspace'
+      const clientPoints = Object.values(computed.points ?? {}).map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (point: any) => ({
+          x:
+            (point.x + (usesWorkspacePoints ? 0 : (computed.x ?? 0))) * zoom +
+            viewportPosition.x,
+          y:
+            (point.y + (usesWorkspacePoints ? 0 : (computed.y ?? 0))) * zoom +
+            viewportPosition.y
+        })
+      )
+      const clientBounds = clientPoints.reduce(
+        (bounds, point) => ({
+          minX: Math.min(bounds.minX, point.x),
+          minY: Math.min(bounds.minY, point.y),
+          maxX: Math.max(bounds.maxX, point.x),
+          maxY: Math.max(bounds.maxY, point.y)
+        }),
+        {
+          minX: Number.POSITIVE_INFINITY,
+          minY: Number.POSITIVE_INFINITY,
+          maxX: Number.NEGATIVE_INFINITY,
+          maxY: Number.NEGATIVE_INFINITY
+        }
+      )
+      const cropMargin = 40
+
+      return {
+        elementId,
+        computed: {
+          points: computed.points ?? {},
+          segments: computed.segments ?? {},
+          networks: computed.networks ?? {},
+          fills: computed.fills ?? []
+        },
+        rendered: {
+          points: renderedSnapshot.points ?? {},
+          segments: renderedSnapshot.segments ?? {},
+          networks: renderedSnapshot.networks ?? {},
+          fills: renderedSnapshot.fills ?? []
+        },
+        pointCount: Object.keys(computed.points ?? {}).length,
+        segmentCount: Object.keys(computed.segments ?? {}).length,
+        networkCount: Object.keys(computed.networks ?? {}).length,
+        pathEditingMode: core?.getSystemProperty?.('pathEditingMode') ?? false,
+        mouseDown: core?.getSystemProperty?.('mouseDown') ?? false,
+        mouseDragging: core?.getSystemProperty?.('mouseDragging') ?? false,
+        zoom,
+        viewportPosition,
+        screenshotClip: {
+          x: Math.max(0, Math.floor(clientBounds.minX - cropMargin)),
+          y: Math.max(0, Math.floor(clientBounds.minY - cropMargin)),
+          width: Math.ceil(
+            clientBounds.maxX - clientBounds.minX + cropMargin * 2
+          ),
+          height: Math.ceil(
+            clientBounds.maxY - clientBounds.minY + cropMargin * 2
+          )
+        }
+      }
+    }, rawProfile.elementId)
+
+    expect(visualReviewState.pointCount).toBe(DENSE_POINT_COUNT)
+    expect(visualReviewState.segmentCount).toBe(DENSE_POINT_COUNT)
+    expect(visualReviewState.networkCount).toBe(1)
+    expect(visualReviewState.rendered).toEqual(visualReviewState.computed)
+    expect(visualReviewState.pathEditingMode).toBe(false)
+    expect(visualReviewState.mouseDown).toBe(false)
+    expect(visualReviewState.mouseDragging).toBe(false)
+
+    const screenshotPath = testInfo.outputPath('dense-vector-final.png')
+    await page.screenshot({
+      path: screenshotPath,
+      fullPage: true,
+      animations: 'disabled'
+    })
+    await testInfo.attach('dense-vector-final', {
+      path: screenshotPath,
+      contentType: 'image/png'
+    })
+    const screenshotCropPath = testInfo.outputPath(
+      'dense-vector-final-crop.png'
+    )
+    await page.screenshot({
+      path: screenshotCropPath,
+      clip: visualReviewState.screenshotClip,
+      animations: 'disabled'
+    })
+    await testInfo.attach('dense-vector-final-crop', {
+      path: screenshotCropPath,
+      contentType: 'image/png'
+    })
+
+    // This bounded line records the exact live state used by screenshot review.
+    // eslint-disable-next-line no-console
+    console.info(
+      `RENDER_DELTA_VISUAL_STATE ${JSON.stringify({
+        elementId: visualReviewState.elementId,
+        pointCount: visualReviewState.pointCount,
+        segmentCount: visualReviewState.segmentCount,
+        networkCount: visualReviewState.networkCount,
+        fillCount: visualReviewState.computed.fills.length,
+        zoom: visualReviewState.zoom,
+        viewportPosition: visualReviewState.viewportPosition,
+        screenshotClip: visualReviewState.screenshotClip,
+        pathEditingMode: visualReviewState.pathEditingMode
+      })}`
+    )
   })
 })
