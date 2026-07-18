@@ -28,6 +28,7 @@ import {
   registerPropertySchema,
   restorePropertySchemaAfterFailedDeclarativeCommit
 } from './property-schema'
+import { matchesPropertyValueKind } from './property-value-kind'
 
 export interface PropertyTypeFieldDefinition<T = unknown> {
   readonly key: string
@@ -155,23 +156,6 @@ const VALUE_KINDS = new Set<PropertyValueKind>([
 const UNIT_KINDS = new Set<PropertyUnitKind>(['px', 'pct', 'auto', 'custom'])
 const FIXED_RESERVED_KEYS = new Set(['id', 'type'])
 
-const matchesKind = (kind: PropertyValueKind, value: unknown): boolean => {
-  switch (kind) {
-    case 'number':
-      return typeof value === 'number' && Number.isFinite(value)
-    case 'string':
-      return typeof value === 'string'
-    case 'boolean':
-      return typeof value === 'boolean'
-    case 'object':
-      return value === null || (!!value && typeof value === 'object')
-    case 'array':
-      return Array.isArray(value)
-    case 'custom':
-      return true
-  }
-}
-
 const hasDuplicates = (keys: readonly string[]) =>
   new Set(keys).size !== keys.length
 
@@ -180,7 +164,7 @@ const validateDefault = (
   field: PropertyTypeFieldDefinition,
   code: PropertyTypeDefinitionErrorCode
 ): void => {
-  if (!matchesKind(field.kind, field.defaultValue)) {
+  if (!matchesPropertyValueKind(field.kind, field.defaultValue)) {
     failDefinition(
       code,
       type,

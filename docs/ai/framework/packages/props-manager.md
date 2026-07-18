@@ -41,6 +41,8 @@ packages/props-manager/src/
 
 - base component applies schema validation for load/set/update behavior
 - package owns fallback/reject behavior for property data
+- schema value kinds remain disjoint: `object` accepts `null` or a non-array
+  object, while arrays require `array`
 - manager-level `validateLoadData(...)` skips malformed entries before component creation
 
 3. Change tracking

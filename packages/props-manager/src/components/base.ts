@@ -6,12 +6,12 @@ import type {
   PropertyComponentInstanceDataTypes,
   PropertyComponentRawData,
   PropertyFieldSchema,
-  PropertyUnitKind,
-  PropertyValueKind
+  PropertyUnitKind
 } from '@asyra/utils'
 import { acknowledgeTransactionReplayApplied } from '@asyra/reactive-events'
 import { Setter, Unit, isNil } from '@asyra/utils'
 import { getPropertySchema } from '../registries/property-schema'
+import { matchesPropertyValueKind } from '../registries/property-value-kind'
 import PropsChangeHandler from './props-change-handler'
 
 const propsChangeHandler = new PropsChangeHandler()
@@ -55,24 +55,6 @@ abstract class BaseComponent<
     return schema.fields.find((field) => field.key === key)
   }
 
-  private matchKind(kind: PropertyValueKind, value: unknown): boolean {
-    switch (kind) {
-      case 'number':
-        return typeof value === 'number' && Number.isFinite(value)
-      case 'string':
-        return typeof value === 'string'
-      case 'boolean':
-        return typeof value === 'boolean'
-      case 'object':
-        return value === null || (!!value && typeof value === 'object')
-      case 'array':
-        return Array.isArray(value)
-      case 'custom':
-      default:
-        return true
-    }
-  }
-
   private tryFallback(field: PropertyFieldSchema, shouldFallback: boolean) {
     if (shouldFallback && field.defaultValue !== undefined) {
       return { valid: true, value: cloneFallbackValue(field.defaultValue) }
@@ -93,7 +75,7 @@ abstract class BaseComponent<
 
     const nextValue = value
 
-    if (!this.matchKind(field.kind, nextValue)) {
+    if (!matchesPropertyValueKind(field.kind, nextValue)) {
       return this.tryFallback(field, shouldFallback)
     }
 

@@ -324,6 +324,15 @@ describe('declarative property type definition owner', () => {
         ...nextDefinition(),
         fields: [
           {
+            ...nextDefinition().fields[0],
+            defaultValue: []
+          }
+        ]
+      },
+      {
+        ...nextDefinition(),
+        fields: [
+          {
             ...nextDefinition().fields[5],
             project: true
           }
@@ -541,6 +550,36 @@ describe('declarative property type definition owner', () => {
     expect(loaded.get('count' as never)).toBe(10)
     expect(() => loaded.set('count' as never, 13 as never)).not.toThrow()
     expect(loaded.get('count' as never)).toBe(10)
+  })
+
+  it('rejects an array runtime write for an object field', () => {
+    registerDeclarativeType()
+    commitDeclarativePropertyTypeDefinition(TYPE, nextDefinition())
+    const Component = getPropertyComponent(TYPE)
+    if (!Component) throw new Error('Expected committed property constructor')
+    const property = new Component({
+      id: 'object-runtime-kind',
+      type: TYPE
+    })
+
+    property.set('config' as never, [] as never)
+
+    expect(property.get('config' as never)).toEqual({ nested: [3, 4] })
+  })
+
+  it('uses the object default when load receives an array for an object field', () => {
+    registerDeclarativeType()
+    commitDeclarativePropertyTypeDefinition(TYPE, nextDefinition())
+    const Component = getPropertyComponent(TYPE)
+    if (!Component) throw new Error('Expected committed property constructor')
+
+    const loaded = new Component({
+      id: 'object-load-kind',
+      type: TYPE,
+      config: []
+    })
+
+    expect(loaded.get('config' as never)).toEqual({ nested: [3, 4] })
   })
 
   it('clones mutable defaults before using them as invalid-load fallback values', () => {
