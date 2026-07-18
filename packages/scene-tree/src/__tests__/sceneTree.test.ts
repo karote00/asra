@@ -890,7 +890,7 @@ describe('SceneTree', () => {
     )
 
     const points = computedData.points as Record<string, unknown>
-    expect(Object.hasOwn(points, '__proto__')).toBe(true)
+    expect(Object.prototype.hasOwnProperty.call(points, '__proto__')).toBe(true)
     expect(points['__proto__']).toEqual({
       id: '__proto__',
       x: 10,

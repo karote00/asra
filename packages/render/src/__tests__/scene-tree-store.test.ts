@@ -660,7 +660,9 @@ describe('RenderSceneTree computed data mirror', () => {
       | Record<string, unknown>
       | undefined
     expect(outcome).toEqual({ status: 'resynced', elementId: 'vector-1' })
-    expect(Object.hasOwn(snapshot ?? {}, '__proto__')).toBe(true)
+    expect(
+      Object.prototype.hasOwnProperty.call(snapshot ?? {}, '__proto__')
+    ).toBe(true)
     expect(snapshot?.['__proto__']).toEqual({ child: 'canonical' })
   })
 

@@ -552,11 +552,15 @@ describe('Factory', () => {
         records: { points: { set: Record<string, unknown> } }
       }
     ).records.points.set
-    expect(Object.hasOwn(inverseRemove, '__proto__')).toBe(true)
+    expect(
+      Object.prototype.hasOwnProperty.call(inverseRemove, '__proto__')
+    ).toBe(true)
     expect(inverseRemove['__proto__']).toEqual({
       before: { id: '__proto__', x: 10, y: 20 }
     })
-    expect(Object.hasOwn(replaySet, '__proto__')).toBe(true)
+    expect(Object.prototype.hasOwnProperty.call(replaySet, '__proto__')).toBe(
+      true
+    )
     expect(replaySet['__proto__']).toEqual({
       after: { id: '__proto__', x: 10, y: 20 }
     })
