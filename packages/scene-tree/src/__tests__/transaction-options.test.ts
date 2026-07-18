@@ -87,6 +87,50 @@ describe('SceneTree transaction options', () => {
     subscription.unsubscribe()
   })
 
+  it('preserves each canonical owner in a mixed transient batch', () => {
+    const { events, subscription } = captureUpdateTransactionEvents()
+    sceneTree.addChange({
+      ...createUpdateChange({
+        key: 'visible',
+        before: true,
+        after: false,
+        options: { undoable: false }
+      }),
+      owner: 'raw'
+    } as SceneTreeChange)
+    sceneTree.addChange({
+      ...createUpdateChange({
+        key: 'visible',
+        before: true,
+        after: false,
+        options: { undoable: false }
+      }),
+      owner: 'computed'
+    } as SceneTreeChange)
+
+    sceneTree.commitSceneTreeTransaction()
+
+    expect(events).toHaveLength(1)
+    expect(events[0].payload).toMatchObject({
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+      changes: [
+        {
+          owner: 'raw',
+          key: 'visible',
+          before: true,
+          after: false
+        },
+        {
+          owner: 'computed',
+          key: 'visible',
+          before: true,
+          after: false
+        }
+      ]
+    })
+    subscription.unsubscribe()
+  })
+
   it('uses commit fallback options when batching transient computed changes', () => {
     const { events, subscription } = captureUpdateTransactionEvents()
     const change = createUpdateChange()
@@ -316,6 +360,71 @@ describe('SceneTree transaction options', () => {
       })
     ).toThrow(
       'Computed data patch key "points" cannot be both value and record'
+    )
+    expect(element.updateComputedData).not.toHaveBeenCalled()
+    expect(sceneTree.changes).toEqual([])
+  })
+
+  it('rejects an empty-string value and record overlap before mutation', () => {
+    const element = {
+      get: vi.fn(() => 'element-1'),
+      getAllComputedData: vi.fn(() => ({ '': {} })),
+      updateComputedData: vi.fn()
+    } as unknown as ElementInstanceTypes
+    sceneTree.addToMap(element)
+
+    expect(() =>
+      sceneTree.patchComputedData('element-1', {
+        values: { '': 'replacement' },
+        records: { '': { set: { child: 'value' } } }
+      })
+    ).toThrow('Computed data patch key "" cannot be both value and record')
+    expect(element.updateComputedData).not.toHaveBeenCalled()
+    expect(sceneTree.changes).toEqual([])
+  })
+
+  it.each([
+    ['missing', {}],
+    ['scalar', { mode: 'plain' }],
+    ['array', { mode: [] }]
+  ])('rejects a %s record base before canonical mutation', (_case, snapshot) => {
+    const element = {
+      get: vi.fn(() => 'element-1'),
+      getAllComputedData: vi.fn(() => snapshot),
+      updateComputedData: vi.fn()
+    } as unknown as ElementInstanceTypes
+    sceneTree.addToMap(element)
+
+    expect(() =>
+      sceneTree.patchComputedData('element-1', {
+        records: { mode: { set: { child: 'value' } } }
+      })
+    ).toThrow('Computed data patch record base "mode" must already be a record')
+    expect(element.updateComputedData).not.toHaveBeenCalled()
+    expect(sceneTree.changes).toEqual([])
+  })
+
+  it('rejects a record id present in both set and remove before mutation', () => {
+    const element = {
+      get: vi.fn(() => 'element-1'),
+      getAllComputedData: vi.fn(() => ({
+        points: { A: { id: 'A', x: 0, y: 0 } }
+      })),
+      updateComputedData: vi.fn()
+    } as unknown as ElementInstanceTypes
+    sceneTree.addToMap(element)
+
+    expect(() =>
+      sceneTree.patchComputedData('element-1', {
+        records: {
+          points: {
+            set: { A: { id: 'A', x: 1, y: 1 } },
+            remove: ['A']
+          }
+        }
+      })
+    ).toThrow(
+      'Computed data patch record "points.A" cannot be both set and removed'
     )
     expect(element.updateComputedData).not.toHaveBeenCalled()
     expect(sceneTree.changes).toEqual([])

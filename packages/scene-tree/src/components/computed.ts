@@ -11,7 +11,7 @@ import {
 } from '@asyra/utils'
 import ElementChangeHandler from './element-change-handler'
 
-const elementChangeHandler = new ElementChangeHandler()
+const elementChangeHandler = new ElementChangeHandler('computed')
 
 class Computed<T extends ComputedAttrs>
   extends Setter<T>

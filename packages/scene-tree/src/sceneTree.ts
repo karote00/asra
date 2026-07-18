@@ -59,14 +59,41 @@ const getOverlappingPatchKey = (
   return Object.keys(patch.values ?? {}).find((key) => recordKeys.has(key))
 }
 
-const cloneRecord = (value: unknown): Record<string, DataTypes> =>
-  isRecord(value) ? ({ ...value } as Record<string, DataTypes>) : {}
+const cloneRecord = (
+  value: Record<string, unknown>
+): Record<string, DataTypes> => ({ ...value }) as Record<string, DataTypes>
 
 const getComputedSnapshot = (
   element: ElementInstanceTypes
 ): Record<string, DataTypes> => {
   const snapshot = element.getAllComputedData()
-  return isRecord(snapshot) ? (snapshot as Record<string, DataTypes>) : {}
+  if (!isRecord(snapshot)) {
+    throw new Error('Computed data snapshot must be a record')
+  }
+  return snapshot as Record<string, DataTypes>
+}
+
+const validateComputedDataRecordPatches = (
+  patch: ComputedDataPatch,
+  computedSnapshot: Record<string, DataTypes>
+): void => {
+  Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
+    if (!isRecord(computedSnapshot[key])) {
+      throw new Error(
+        `Computed data patch record base "${key}" must already be a record`
+      )
+    }
+
+    const removedIds = new Set(recordPatch.remove ?? [])
+    const overlappingRecordId = Object.keys(recordPatch.set ?? {}).find(
+      (recordId) => removedIds.has(recordId)
+    )
+    if (overlappingRecordId !== undefined) {
+      throw new Error(
+        `Computed data patch record "${key}.${overlappingRecordId}" cannot be both set and removed`
+      )
+    }
+  })
 }
 
 export interface SceneTreeLoadDiagnostic {
@@ -580,7 +607,7 @@ class SceneTree {
     }
 
     const overlappingKey = getOverlappingPatchKey(patch)
-    if (overlappingKey) {
+    if (overlappingKey !== undefined) {
       throw new Error(
         `Computed data patch key "${overlappingKey}" cannot be both value and record`
       )
@@ -589,6 +616,7 @@ class SceneTree {
     const patchChange: ComputedDataPatchChange = {}
     const previousChangeCount = this.changes.length
     const computedSnapshot = getComputedSnapshot(element)
+    validateComputedDataRecordPatches(patch, computedSnapshot)
 
     Object.entries(patch.values ?? {}).forEach(([key, after]) => {
       const computedKey = key as keyof ComputedAttrs
@@ -608,7 +636,9 @@ class SceneTree {
 
     Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
       const computedKey = key as keyof ComputedAttrs
-      const currentRecord = cloneRecord(computedSnapshot[key])
+      const currentRecord = cloneRecord(
+        computedSnapshot[key] as Record<string, unknown>
+      )
       let nextRecord = { ...currentRecord }
       const nextRecordPatch: NonNullable<
         ComputedDataPatchChange['records']
@@ -770,6 +800,7 @@ class SceneTree {
           options: routedOptions
         }
         pendingTransientComputedUpdate.changes.push({
+          owner: computedChange.owner,
           key: computedChange.key,
           before: computedChange.before,
           after: computedChange.after

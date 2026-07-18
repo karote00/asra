@@ -23,7 +23,7 @@ import Props from './props'
 import Computed from './computed'
 import ElementChangeHandler from './element-change-handler'
 
-const elementChangeHandler = new ElementChangeHandler()
+const elementChangeHandler = new ElementChangeHandler('raw')
 
 type ElementDataType = Partial<ElementRawData>
 

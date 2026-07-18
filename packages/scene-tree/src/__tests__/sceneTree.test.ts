@@ -1079,6 +1079,7 @@ describe('SceneTree', () => {
       action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
       eventName: EventTypes.UPDATE_COMPUTED_DATA,
       id: 'vector-1',
+      owner: 'computed',
       key: 'points',
       before: {},
       after: { p1: { x: 0, y: 0 } },
@@ -1088,6 +1089,7 @@ describe('SceneTree', () => {
       action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
       eventName: EventTypes.UPDATE_COMPUTED_DATA,
       id: 'vector-1',
+      owner: 'computed',
       key: 'segments',
       before: {},
       after: { s1: { startId: 'p1', endId: 'p2' } },
@@ -1097,6 +1099,7 @@ describe('SceneTree', () => {
       action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
       eventName: EventTypes.UPDATE_COMPUTED_DATA,
       id: 'vector-1',
+      owner: 'computed',
       key: 'networks',
       before: {},
       after: { n1: { pointIds: ['p1', 'p2'], segmentIds: ['s1'] } },
@@ -1115,16 +1118,19 @@ describe('SceneTree', () => {
           id: 'vector-1',
           changes: [
             {
+              owner: 'computed',
               key: 'points',
               before: {},
               after: { p1: { x: 0, y: 0 } }
             },
             {
+              owner: 'computed',
               key: 'segments',
               before: {},
               after: { s1: { startId: 'p1', endId: 'p2' } }
             },
             {
+              owner: 'computed',
               key: 'networks',
               before: {},
               after: { n1: { pointIds: ['p1', 'p2'], segmentIds: ['s1'] } }
