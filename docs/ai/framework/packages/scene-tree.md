@@ -39,10 +39,11 @@ Own the document entity graph and computed entity data.
   fail before canonical mutation. Every record base must already be a record,
   and one record id cannot appear in both `set` and `remove`; invalid requests
   fail before any canonical mutation instead of creating an empty record base.
-- Standalone transaction replay routes `name`, `parentId`, `visible`, `lock`,
-  and group `children` through Element-owned data; only computed-only keys route
-  through `Computed` and its property bridge. Both routes acknowledge semantic
-  apply synchronously.
+- Standalone transaction replay consumes the carried `raw|computed` owner and
+  never infers it from the key or current data. `raw` routes through Element;
+  `computed` routes through Computed and its property bridge even when a raw
+  field has the same name. Missing or invalid owner provenance is rejected
+  before mutation. Both valid routes acknowledge semantic apply synchronously.
 - During add/remove, initialization plus parent/children/computed setter changes
   are internal graph side effects and are collapsed before journal publication;
   the explicit ADD/REMOVE event with parent/index metadata is the sole

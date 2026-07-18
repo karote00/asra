@@ -76,7 +76,8 @@ export const updateComputedData = (
       id,
       key,
       before,
-      after
+      after,
+      owner: 'computed'
     }
   })
 }

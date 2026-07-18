@@ -149,7 +149,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
     data: ComputedAttrs[K],
     options?: EvnetOptions
   ) {
-    if (!(key in this.data)) {
+    if (key in this.computed.data || !(key in this.data)) {
       this.computed.set(key, data, options)
 
       // Convert data type from ComputedAttrs to PropertyComponentInstanceDataTypes

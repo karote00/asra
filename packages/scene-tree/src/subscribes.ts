@@ -178,8 +178,11 @@ export const initSceneTreeSubscribes = () => {
   subscribeToSynchronousEvent<UpdateComputedDataEvent>(
     EventTypes.UPDATE_COMPUTED_DATA,
     ({ payload }) => {
-      const { id, key, after } = payload
+      const { id, key, after, owner } = payload
       const options = undefined
+      if (owner !== 'raw' && owner !== 'computed') {
+        return false
+      }
       const previousSceneChangeCount = sceneTree.changes.length
       const previousPropsChangeCount = propsManager.changes.length
       const element = sceneTree.getElementById(id)
@@ -187,11 +190,10 @@ export const initSceneTreeSubscribes = () => {
         return false
       }
       const elementOwner = element as unknown as {
-        data: Record<string, DataTypes>
         set: (key: string, value: DataTypes) => void
       }
 
-      if (Object.prototype.hasOwnProperty.call(elementOwner.data, key)) {
+      if (owner === 'raw') {
         elementOwner.set(key, after)
       } else {
         sceneTree.updateComputedData(

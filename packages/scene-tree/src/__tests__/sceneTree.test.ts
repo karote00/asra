@@ -753,7 +753,8 @@ describe('SceneTree', () => {
             id: 'computed-post-write-failure',
             key: 'x',
             before: 0,
-            after: 10
+            after: 10,
+            owner: 'computed'
           }
         } as UpdateComputedDataEvent)
       )
@@ -798,12 +799,86 @@ describe('SceneTree', () => {
             id: `element-owner-${key}`,
             key,
             before,
-            after
+            after,
+            owner: 'raw'
           }
         } as UpdateComputedDataEvent)
       )
 
       expect(element.get(key)).toBe(after)
+    }
+  )
+
+  it('routes a same-name computed replay through Computed without mutating raw data', () => {
+    sceneTreeSingleton.init()
+    sceneTreeSingleton.addNewElement({
+      id: 'same-name-computed-owner',
+      type: 'rect',
+      visible: true,
+      x: 0,
+      y: 0
+    })
+    const element = sceneTreeSingleton.getElementById(
+      'same-name-computed-owner'
+    )
+    expect(element).toBeDefined()
+    if (!element) {
+      throw new Error('Expected same-name-computed-owner element')
+    }
+    const computedData = (
+      element.computed as unknown as { data: Record<string, DataTypes> }
+    ).data
+    computedData.visible = true
+
+    runInTransactionReplayMode('undo', () =>
+      publishEvent({
+        type: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: {
+          id: 'same-name-computed-owner',
+          key: 'visible',
+          before: true,
+          after: false,
+          owner: 'computed'
+        }
+      } as UpdateComputedDataEvent)
+    )
+
+    expect(element.get('visible')).toBe(true)
+    expect(computedData.visible).toBe(false)
+  })
+
+  it.each([undefined, 'invalid'] as const)(
+    'rejects replay owner %s before canonical mutation',
+    (owner) => {
+      sceneTreeSingleton.init()
+      const id = `invalid-replay-owner-${String(owner)}`
+      sceneTreeSingleton.addNewElement({
+        id,
+        type: 'rect',
+        visible: true,
+        x: 0,
+        y: 0
+      })
+      const element = sceneTreeSingleton.getElementById(id)
+      expect(element).toBeDefined()
+      if (!element) {
+        throw new Error(`Expected ${id} element`)
+      }
+
+      runInTransactionReplayMode('undo', () =>
+        publishEvent({
+          type: EventTypes.UPDATE_COMPUTED_DATA,
+          payload: {
+            id,
+            key: 'visible',
+            before: true,
+            after: false,
+            owner
+          }
+        } as unknown as UpdateComputedDataEvent)
+      )
+
+      expect(element.get('visible')).toBe(true)
     }
   )
 
@@ -839,7 +914,8 @@ describe('SceneTree', () => {
             id: 'computed-pre-write-failure',
             key: 'x',
             before: 0,
-            after: 10
+            after: 10,
+            owner: 'computed'
           }
         } as UpdateComputedDataEvent)
       )
@@ -884,7 +960,8 @@ describe('SceneTree', () => {
             id: 'computed-no-op-failure',
             key: 'x',
             before: 0,
-            after: 10
+            after: 10,
+            owner: 'computed'
           }
         } as UpdateComputedDataEvent)
       )
