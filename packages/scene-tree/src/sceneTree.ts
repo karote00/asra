@@ -98,7 +98,10 @@ const validateComputedDataRecordPatches = (
   computedSnapshot: Record<string, DataTypes>
 ): void => {
   Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
-    if (!isRecord(computedSnapshot[key])) {
+    if (
+      !hasOwnRecordValue(computedSnapshot, key) ||
+      !isRecord(computedSnapshot[key])
+    ) {
       throw new Error(
         `Computed data patch record base "${key}" must already be a record`
       )

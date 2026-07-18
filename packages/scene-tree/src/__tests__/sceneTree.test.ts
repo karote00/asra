@@ -39,6 +39,7 @@ import {
   wasTransactionReplayApplied,
   type AddElementEvent,
   type UpdateComputedDataEvent,
+  type UpdateComputedDataPatchEvent,
   type UpdateTransactionEvent
 } from '@asyra/reactive-events'
 
@@ -845,6 +846,56 @@ describe('SceneTree', () => {
 
     expect(element.get('visible')).toBe(true)
     expect(computedData.visible).toBe(false)
+  })
+
+  it('preserves a special own record id during computed patch replay', () => {
+    sceneTreeSingleton.init()
+    sceneTreeSingleton.addNewElement({
+      id: 'special-record-replay',
+      type: 'rect',
+      x: 0,
+      y: 0
+    })
+    const element = sceneTreeSingleton.getElementById('special-record-replay')
+    expect(element).toBeDefined()
+    if (!element) {
+      throw new Error('Expected special-record-replay element')
+    }
+    const computedData = (
+      element.computed as unknown as { data: Record<string, DataTypes> }
+    ).data
+    computedData.points = {}
+    const set: Record<string, unknown> = {}
+    Object.defineProperty(set, '__proto__', {
+      value: {
+        after: { id: '__proto__', x: 10, y: 20 }
+      },
+      enumerable: true,
+      configurable: true,
+      writable: true
+    })
+
+    runInTransactionReplayMode('undo', () =>
+      publishEvent({
+        type: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+        payload: {
+          id: 'special-record-replay',
+          patch: {
+            records: {
+              points: { set }
+            }
+          }
+        }
+      } as UpdateComputedDataPatchEvent)
+    )
+
+    const points = computedData.points as Record<string, unknown>
+    expect(Object.hasOwn(points, '__proto__')).toBe(true)
+    expect(points['__proto__']).toEqual({
+      id: '__proto__',
+      x: 10,
+      y: 20
+    })
   })
 
   it.each([undefined, 'invalid'] as const)(

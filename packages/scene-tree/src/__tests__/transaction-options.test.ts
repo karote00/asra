@@ -410,6 +410,32 @@ describe('SceneTree transaction options', () => {
     }
   )
 
+  it('rejects an inherited special-name record base before mutation', () => {
+    const records: Record<string, { set: Record<string, string> }> = {}
+    Object.defineProperty(records, '__proto__', {
+      value: { set: { child: 'value' } },
+      enumerable: true,
+      configurable: true,
+      writable: true
+    })
+    const element = {
+      get: vi.fn(() => 'element-special-base'),
+      getAllComputedData: vi.fn(() => ({})),
+      updateComputedData: vi.fn()
+    } as unknown as ElementInstanceTypes
+    sceneTree.addToMap(element)
+
+    expect(() =>
+      sceneTree.patchComputedData('element-special-base', {
+        records
+      })
+    ).toThrow(
+      'Computed data patch record base "__proto__" must already be a record'
+    )
+    expect(element.updateComputedData).not.toHaveBeenCalled()
+    expect(sceneTree.changes).toEqual([])
+  })
+
   it('rejects a record id present in both set and remove before mutation', () => {
     const element = {
       get: vi.fn(() => 'element-1'),
