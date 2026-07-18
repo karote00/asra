@@ -1,5 +1,10 @@
 import core, { type PropertyTypeDefinition } from '@asyra/core'
-import { PropertyTypes, type Unit } from '@asyra/utils'
+import {
+  PropertyTypes,
+  type FillAttrs,
+  type StrokeAttrs,
+  type Unit
+} from '@asyra/utils'
 import { describe, expect, it } from 'vitest'
 import { applyPreset, PresetDefaults, PresetProfiles } from '../index'
 
@@ -26,6 +31,10 @@ describe('preset property type redefinition integration', () => {
     const current = core.getPropertyTypeDefinition<AppPositionFields>(
       PropertyTypes.POSITION
     )
+    const fill = core.getPropertyTypeDefinition<FillAttrs>(PropertyTypes.FILL)
+    const stroke = core.getPropertyTypeDefinition<StrokeAttrs>(
+      PropertyTypes.STROKE
+    )
 
     expect(current?.fields.map((field) => field.key)).toEqual([
       'x',
@@ -33,7 +42,49 @@ describe('preset property type redefinition integration', () => {
       'xUnit',
       'yUnit'
     ])
+    expect(fill?.fields.map((field) => field.key)).toEqual([
+      'kind',
+      'defaultColorFormat',
+      'colorFormat',
+      'color',
+      'opacity',
+      'visible',
+      'gradient'
+    ])
+    expect(stroke?.fields.map((field) => field.key)).toEqual([
+      'style',
+      'position',
+      'width',
+      'dash',
+      'gap',
+      'fill',
+      'joinType',
+      'capType',
+      'miterAngle'
+    ])
     expect(presetOwner?.packageName).toBe('@asyra/preset')
+
+    const committedFill = core.redefinePropertyType<FillAttrs>(
+      PropertyTypes.FILL,
+      (definition) => ({
+        ...definition,
+        fields: definition.fields.map((field) =>
+          field.key === 'opacity'
+            ? {
+                ...field,
+                validate: (value) =>
+                  typeof value === 'number' && value >= 0 && value <= 2
+              }
+            : field
+        )
+      })
+    )
+
+    expect(
+      committedFill.fields
+        .find((field) => field.key === 'opacity')
+        ?.validate?.(1.5)
+    ).toBe(true)
 
     const committed = core.redefinePropertyType<AppPositionFields>(
       PropertyTypes.POSITION,

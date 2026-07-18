@@ -1,9 +1,15 @@
 import type { PropertyComponentDefinition } from '@asyra/core'
 import { PropertyTypes, createDefaultFill } from '@asyra/utils'
 
+const {
+  id: _fillId,
+  type: _fillType,
+  ...fillPropertyDefaults
+} = createDefaultFill()
+
 export const fillPropertyComponentDefinition: PropertyComponentDefinition = {
   type: PropertyTypes.FILL,
-  defaults: createDefaultFill() as unknown as Record<string, unknown>,
+  defaults: fillPropertyDefaults,
   persistKeys: [
     'kind',
     'defaultColorFormat',

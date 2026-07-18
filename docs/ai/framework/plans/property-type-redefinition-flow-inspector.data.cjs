@@ -65,6 +65,7 @@
         'docs/ai/apps/asyra-design/modules/init-and-startup.md',
         'docs/ai/apps/asyra-design/modules/registrations.md',
         'docs/ai/apps/asyra-design/ARCHITECTURE.md',
+        'packages/preset/src/props/components/**',
         'packages/preset/src/__tests__/**',
         'packages/core/src/__tests__/**'
       ],
