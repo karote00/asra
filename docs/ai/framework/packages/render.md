@@ -44,11 +44,12 @@ Render strategies registered through Core may include local
 the graph never inspects strategy code. `unregisterRenderStrategy(type)` removes
 the named strategy and its graph relations without inferring a product mode.
 
-Planned app-defined field typing is tracked by
-`plans/property-type-redefinition-plan.md`. It will let an
-`EngineNeutralRenderStrategy` declare its custom computed-data shape without an
-unsafe cast. The plan changes type ergonomics only: render remains downstream,
-engine-neutral, and unaware of property meaning.
+`EngineNeutralRenderStrategy<TAppData>` intersects an app-declared computed-data
+shape with the required `RenderElementData`, so a strategy can consume custom
+property fields without an unsafe cast. This is type ergonomics only: render
+remains downstream, engine-neutral, and unaware of property meaning. The
+registered strategy alone decides whether and how a custom field affects
+drawing; Render adds no inferred mapping or fallback geometry.
 
 ## Runtime Contracts
 

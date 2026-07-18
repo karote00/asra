@@ -38,10 +38,9 @@ export interface RenderStrategyGraphic {
   y: number
 }
 
-export type EngineNeutralRenderStrategy = (
-  graphic: RenderGraphics,
-  data: RenderElementData
-) => void
+export type EngineNeutralRenderStrategy<
+  TAppData extends object = Record<never, never>
+> = (graphic: RenderGraphics, data: RenderElementData & TAppData) => void
 
 /**
  * @deprecated Use `EngineNeutralRenderStrategy`. This bivariant compatibility
