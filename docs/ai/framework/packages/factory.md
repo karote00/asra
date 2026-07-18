@@ -63,6 +63,8 @@ infrastructure.
 
 - undo replays committed changes in reverse order
 - redo replays committed changes in forward order
+- scalar events expanded from a batch retain each entry's `raw|computed` owner
+  unchanged across rollback, undo, and redo
 - replay does not create another ordinary undo commit
 - rollback, undo, and redo share the same inverse/replay primitives while keeping
   different history and lifecycle effects

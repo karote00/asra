@@ -3,6 +3,7 @@ import type {
   EndTransactionOptions,
   PropsChange,
   SceneTreeChange,
+  SceneTreeDataOwner,
   ElementSelectionChange,
   TransactionFailure,
   TransactionOrigin,
@@ -425,6 +426,7 @@ class DataTransact {
             key: string
             before: unknown
             after: unknown
+            owner?: SceneTreeDataOwner
           }
           return {
             type: replayEvent.type,
@@ -436,7 +438,10 @@ class DataTransact {
                   ? typedChange.after
                   : typedChange.before,
               after:
-                direction === 'inverse' ? typedChange.before : typedChange.after
+                direction === 'inverse' ? typedChange.before : typedChange.after,
+              ...('owner' in typedChange
+                ? { owner: typedChange.owner }
+                : {})
             }
           } as AllEvent
         })
