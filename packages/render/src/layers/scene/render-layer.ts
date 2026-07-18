@@ -126,20 +126,41 @@ export class RenderLayer {
       typeof data.parentId === 'string'
         ? this.getElementById(data.parentId)
         : undefined
-    ;(parent ?? this.currentWorkspace).addChild(element)
+    const targetParent = parent ?? this.currentWorkspace
+    if (element.parent !== targetParent) {
+      targetParent.addChild(element)
+    }
 
     const children = (data as RenderElementData & { children?: unknown })
       .children
     if (!Array.isArray(children)) {
       return
     }
-    children.forEach((childId: unknown, index: number) => {
+    const desiredChildren: SceneElement[] = []
+    const desiredChildSet = new Set<SceneElement>()
+    children.forEach((childId: unknown) => {
       if (typeof childId !== 'string') {
         return
       }
       const child = this.getElementById(childId)
-      if (child) {
+      if (!child || child === element || desiredChildSet.has(child)) {
+        return
+      }
+      desiredChildren.push(child)
+      desiredChildSet.add(child)
+    })
+    ;[...element.children].forEach((child) => {
+      if (!desiredChildSet.has(child)) {
+        element.removeChild(child)
+      }
+    })
+    desiredChildren.forEach((child, index) => {
+      if (child.parent !== element) {
         element.addChildAt(child, index)
+        return
+      }
+      if (element.children[index] !== child) {
+        element.setChildIndex(child, index)
       }
     })
   }
@@ -262,6 +283,7 @@ export class RenderLayer {
       : null
     if (strategy && element instanceof RenderGraphics && data) {
       this.renderGraphic(element, data)
+      this.placeElement(element, data)
     } else {
       this.updateElementProperties(element, key, after)
     }

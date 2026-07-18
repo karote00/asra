@@ -357,6 +357,81 @@ describe('Render', () => {
     hierarchyRender.dispose()
   })
 
+  it('synchronizes hierarchy from complete snapshots without reordering stable siblings', () => {
+    render.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const firstData = {
+      id: 'stable-first',
+      type: 'rectangle',
+      name: 'Stable First',
+      visible: true,
+      lock: false,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const secondData = {
+      ...firstData,
+      id: 'stable-second',
+      name: 'Stable Second'
+    }
+    const targetData = {
+      ...firstData,
+      id: 'target-child',
+      name: 'Target Child'
+    }
+    const groupData = {
+      id: 'group-1',
+      type: 'group',
+      name: 'Group',
+      visible: true,
+      lock: false,
+      children: ['target-child']
+    } as unknown as RenderElementData
+    const first = render.addElement(firstData)
+    const second = render.addElement(secondData)
+    const target = render.addElement(targetData)
+    const group = render.addElement(groupData)
+    if (!first || !second || !target || !group || !group.parent) {
+      throw new Error('Expected hierarchy render nodes')
+    }
+    const workspace = group.parent
+    const stableOrder = workspace.children.map((child) => child.label)
+
+    render.updateElement(
+      firstData.id,
+      'computed',
+      undefined,
+      undefined,
+      firstData
+    )
+
+    expect(workspace.children.map((child) => child.label)).toEqual(stableOrder)
+    expect(target.parent).toBe(group)
+
+    render.updateElement(
+      groupData.id,
+      'computed',
+      undefined,
+      undefined,
+      { ...groupData, children: [] }
+    )
+
+    expect(group.children).toEqual([])
+    expect(target.parent).toBeNull()
+
+    render.updateElement(
+      targetData.id,
+      'computed',
+      undefined,
+      undefined,
+      { ...targetData, parentId: groupData.id }
+    )
+
+    expect(target.parent).toBe(group)
+    expect(group.children.map((child) => child.label)).toEqual([
+      targetData.id
+    ])
+  })
+
   it('clears workspace identity and transform with scene elements', async () => {
     const workspaceEngine = new RecordingRenderEngine({
       name: 'workspace-reset'
