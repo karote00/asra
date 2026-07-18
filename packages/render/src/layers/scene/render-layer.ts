@@ -168,13 +168,14 @@ export class RenderLayer {
           existingElement as SceneElement & { __asyraType?: string }
         ).__asyraType = data.type
 
-        if (existingElement instanceof RenderGraphics) {
-          this.renderGraphic(existingElement, data)
-        }
+        const didRender =
+          existingElement instanceof RenderGraphics
+            ? this.renderGraphic(existingElement, data)
+            : true
 
         this.placeElement(existingElement, data)
 
-        return existingElement
+        return didRender ? existingElement : undefined
       }
 
       const graphic = new RenderGraphics()
@@ -182,11 +183,11 @@ export class RenderLayer {
       ;(graphic as SceneElement & { __asyraType?: string }).__asyraType =
         data.type
 
-      this.renderGraphic(graphic, data)
+      const didRender = this.renderGraphic(graphic, data)
 
       this.addToMap(data.id, graphic)
       this.placeElement(graphic, data)
-      return graphic
+      return didRender ? graphic : undefined
     })
   }
 

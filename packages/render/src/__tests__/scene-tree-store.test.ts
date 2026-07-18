@@ -81,6 +81,7 @@ const seedStore = (
 describe('RenderSceneTree computed data mirror', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    renderMock.addElement.mockReturnValue({})
     renderMock.getElementById.mockReturnValue({})
     sceneTreeMock.currentWorkspace = null
     sceneTreeMock.getAllElements.mockReturnValue(new Map())
@@ -170,12 +171,12 @@ describe('RenderSceneTree computed data mirror', () => {
       elementId === 'vector-1' ? first : second
     )
     renderMock.addElement
-      .mockImplementationOnce(() => undefined)
-      .mockImplementationOnce(() => {
-        throw new Error('visual add failed')
-      })
+      .mockReturnValueOnce({})
+      .mockReturnValueOnce(undefined)
 
-    expect(() => store.reload()).toThrow('visual add failed')
+    expect(() => store.reload()).toThrow(
+      'Render failed to rebuild element vector-2'
+    )
 
     expect(renderMock.addElement).toHaveBeenCalledTimes(2)
     expect(renderMock.removeElement).toHaveBeenCalledTimes(2)

@@ -105,15 +105,16 @@ describe('Render', () => {
       graphic.rect(0, 0, data.width, data.height).fill(0xff00ff)
     })
 
-    expect(() =>
-      render.addElement({
+    let failedElement: SceneElement | undefined
+    expect(() => {
+      failedElement = render.addElement({
         id: 'bad-vector',
         type: 'throwing-test-vector',
         visible: true,
         name: 'Bad Vector',
         lock: false
       } as unknown as RenderElementData)
-    ).not.toThrow()
+    }).not.toThrow()
     expect(() =>
       render.addElement({
         id: 'good-rect',
@@ -126,6 +127,7 @@ describe('Render', () => {
       } as unknown as RenderElementData)
     ).not.toThrow()
 
+    expect(failedElement).toBeUndefined()
     expect(render.getElementById('bad-vector')?.visible).toBe(false)
     expect(render.getElementById('good-rect')?.visible).toBe(true)
     expect(errorSpy).toHaveBeenCalledTimes(1)

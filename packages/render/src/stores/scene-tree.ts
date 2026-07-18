@@ -598,7 +598,11 @@ class RenderSceneTree {
   }
 
   addElement(data: RenderElementData) {
-    render.addElement(data)
+    const element = render.addElement(data)
+    if (!element) {
+      throw new Error(`Render failed to rebuild element ${data.id}`)
+    }
+    return element
   }
 
   removeElement(data: ElementRawData, parentId?: string) {
