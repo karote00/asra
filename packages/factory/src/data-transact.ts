@@ -438,10 +438,10 @@ class DataTransact {
                   ? typedChange.after
                   : typedChange.before,
               after:
-                direction === 'inverse' ? typedChange.before : typedChange.after,
-              ...('owner' in typedChange
-                ? { owner: typedChange.owner }
-                : {})
+                direction === 'inverse'
+                  ? typedChange.before
+                  : typedChange.after,
+              ...('owner' in typedChange ? { owner: typedChange.owner } : {})
             }
           } as AllEvent
         })
