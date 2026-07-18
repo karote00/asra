@@ -258,6 +258,45 @@ describe('Render', () => {
     lifecycleRender.dispose()
   })
 
+  it('retains a node for retry when the engine destroy command fails', async () => {
+    const retryEngine = new RecordingRenderEngine({ name: 'remove-retry' })
+    const retryRender = new Render({ engine: retryEngine })
+    await retryRender.init(100, 100, 0, {})
+    retryRender.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const node = retryRender.addElement({
+      id: 'retry-element',
+      type: 'rectangle',
+      name: 'Retry Element',
+      visible: true,
+      lock: false,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData)
+    expect(node).toBeDefined()
+    const initialHandle = node?.getEngineHandle()
+    const originalExecute = retryEngine.execute.bind(retryEngine)
+    let shouldFailDestroy = true
+    vi.spyOn(retryEngine, 'execute').mockImplementation((command) => {
+      if (command.type === 'destroy-object' && shouldFailDestroy) {
+        shouldFailDestroy = false
+        throw new Error('destroy failed')
+      }
+      return originalExecute(command)
+    })
+
+    expect(() => retryRender.removeElement('retry-element')).toThrow(
+      'destroy failed'
+    )
+    expect(retryRender.getElementById('retry-element')).toBe(node)
+    expect(node?.getEngineHandle()).toBe(initialHandle)
+
+    expect(() => retryRender.removeElement('retry-element')).not.toThrow()
+    expect(retryRender.getElementById('retry-element')).toBeUndefined()
+    expect(node?.getEngineHandle()).toBeNull()
+
+    retryRender.dispose()
+  })
+
   it('preserves live children when a projected parent is removed and re-added', async () => {
     const hierarchyEngine = new RecordingRenderEngine({
       name: 'parent-remove-readd'

@@ -61,8 +61,8 @@ export class RenderLayer {
       instance.removeChild(child)
     })
     instance.parent?.removeChild(instance)
-    this._elements.delete(elementId)
     instance.destroy({ children: false })
+    this._elements.delete(elementId)
     return instance
   }
 

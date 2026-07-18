@@ -2022,6 +2022,58 @@ describe('RenderSceneTree computed data mirror', () => {
     })
   })
 
+  it('should run: retain failed cleanup ownership and retry without skipping other ids', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const elements = new Map([
+      [
+        'vector-failed',
+        createElement(
+          'vector-failed',
+          { type: 'vector', visible: true },
+          { points: {} }
+        )
+      ],
+      [
+        'vector-released',
+        createElement(
+          'vector-released',
+          { type: 'vector', visible: true },
+          { points: {} }
+        )
+      ]
+    ])
+    sceneTreeMock.getElementById.mockImplementation((id: string) =>
+      elements.get(id)
+    )
+    seedStore(store, 'vector-failed')
+    seedStore(store, 'vector-released')
+    const releaseFailure = new Error('engine release failed')
+    renderMock.removeElement.mockImplementationOnce(() => {
+      throw releaseFailure
+    })
+
+    expect(() => store.clearProjection()).toThrow(releaseFailure)
+
+    expect(renderMock.removeElement.mock.calls).toEqual([
+      ['vector-failed'],
+      ['vector-released']
+    ])
+    expect(store.getProjectionSnapshotCount()).toBe(1)
+    expect(renderMock.switchWorkspace).toHaveBeenCalledWith({
+      label: '',
+      x: 0,
+      y: 0
+    })
+
+    renderMock.removeElement.mockClear()
+    store.clearProjection()
+
+    expect(renderMock.removeElement).toHaveBeenCalledTimes(1)
+    expect(renderMock.removeElement).toHaveBeenCalledWith('vector-failed')
+    expect(store.getProjectionSnapshotCount()).toBe(0)
+  })
+
   it('should run: clear projection state on Render teardown', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()

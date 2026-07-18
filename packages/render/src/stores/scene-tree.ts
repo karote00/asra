@@ -845,11 +845,32 @@ class RenderSceneTree {
 
   clearProjection() {
     const projectedElementIds = this.computedDataMirror.elementIds
-    this.resetProjection()
+    this.pendingElementUpdates.clear()
+    this.pendingFrameFlush = false
+    this.pendingFlush = false
+    let releasedEntryCount = 0
+    let firstFailure: unknown
     projectedElementIds.forEach((elementId) => {
-      render.removeElement(elementId)
+      try {
+        render.removeElement(elementId)
+        this.computedDataMirror.delete(elementId)
+        releasedEntryCount += 1
+      } catch (error) {
+        firstFailure ??= error
+      }
     })
-    render.switchWorkspace({ label: '', x: 0, y: 0 })
+    try {
+      render.switchWorkspace({ label: '', x: 0, y: 0 })
+    } catch (error) {
+      firstFailure ??= error
+    }
+    emitStrokePipelineCounter(
+      'computed-mirror-reset-entry-count',
+      releasedEntryCount
+    )
+    if (firstFailure !== undefined) {
+      throw firstFailure
+    }
   }
 
   private flushPendingChanges() {
