@@ -47,7 +47,7 @@
       conditions: [
         'Scene Tree remains the sole canonical owner of element raw and computed state.',
         'Scalar changes carry one key, before, after, and raw or computed owner provenance; transient scalar changes may be grouped into one option-preserving ordered batch that preserves each entry owner.',
-        'Record patches describe top-level value changes and record set/remove changes with exact before evidence; every top-level record base must already be a record.',
+        'Record patches describe top-level value changes and record set/remove changes with exact before evidence; every top-level value patch base must already exist in the computed snapshot and every top-level record base must already be a record.',
         'A top-level key belongs to either the value-change map or the record-patch map; overlapping keys are rejected before canonical mutation.',
         'Within one top-level record, a record id belongs to either set or remove; overlap is rejected before canonical mutation.',
         'Equal writes are omitted and a record patch is collapsed into one committed change.',
@@ -258,6 +258,7 @@
         'A raw value shadowed by a same-name computed value updates the raw slice without publishing the shadowed raw value through the direct visual route.',
         'Every batch precondition validates before any batch value is installed.',
         'Record additions require absence; replacements and removals require exact before values; the top-level record base must be a record.',
+        'The candidate merged snapshot retains the requested id, non-empty type, and non-workspace type before install; an incomplete candidate is a projection mismatch.',
         'Accepted changes install a new top-level snapshot and clone every changed record.',
         'Multiple accepted changes for one element preserve commit order and may coalesce to one frame.'
       ],
@@ -856,7 +857,8 @@
         '#explicit-resync-and-failure'
       ],
       assertions: [
-        'Factory prevents duplicate/out-of-order delivery; detectable mismatch performs one explicit resync; missing or invalid canonical state removes stale output'
+        'Factory prevents duplicate/out-of-order delivery; detectable mismatch performs one explicit resync; missing or invalid canonical state removes stale output',
+        'an incomplete candidate enters explicit resync and returns failed when the authoritative snapshot remains incomplete'
       ]
     },
     {

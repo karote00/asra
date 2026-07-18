@@ -135,6 +135,10 @@ test('Scene Tree is canonical and Factory transports ordered changes only', () =
     /replay.*consume.*owner.*never.*infer/i
   )
   assert.match(contractText(commit), /record patches/i)
+  assert.match(
+    contractText(commit),
+    /top-level value patch base.*already exist.*computed snapshot/i
+  )
   assert.match(contractText(commit), /record base.*already.*record/i)
   assert.match(contractText(commit), /record id.*either.*set.*remove/i)
   ;[
@@ -193,6 +197,10 @@ test('scalar, batch, and record patches validate and install atomically', () => 
   assert.match(contract, /batch precondition validates before any batch value/i)
   assert.match(contract, /Record additions require absence/i)
   assert.match(contract, /top-level record base must be a record/i)
+  assert.match(
+    contract,
+    /candidate merged snapshot.*requested id.*non-empty type.*non-workspace.*before install/i
+  )
   assert.match(contract, /new top-level snapshot/i)
   assert.match(contract, /empty-object record fallback/i)
   assert.match(contract, /partial batch publication/i)
@@ -356,5 +364,9 @@ test('acceptance covers equivalence, failure, lifecycle, compatibility, and budg
   assert.match(
     acceptance('lifecycle-parity').assertions.join(' '),
     /same-name raw.*computed.*owner/i
+  )
+  assert.match(
+    acceptance('failure-and-resync').assertions.join(' '),
+    /incomplete candidate.*resync.*failed/i
   )
 })

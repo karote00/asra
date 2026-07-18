@@ -53,8 +53,9 @@ Preset data-channel observer:
   `raw` or `computed` owner provenance
 - batch carries an ordered list of owner-qualified scalar changes and is one
   atomic projection
-- record patch carries top-level value changes plus record `set` and `remove`
-  entries; the top-level record must already exist as a record
+- record patch carries replacements for existing top-level computed values plus
+  record `set` and `remove` entries; each top-level value base must already exist
+  in the computed snapshot and each top-level record must already be a record
 - one top-level key may appear in either the value-change map or the record-patch
   map, never both; Scene Tree rejects an overlapping patch before mutation
 - one record id may appear in either a record `set` map or `remove` list, never
@@ -63,16 +64,23 @@ Preset data-channel observer:
   the visual
 
 `after` is the committed value. `before` is a projection precondition, not an
-alternative source of truth. Record addition requires the record id to be absent;
-record replacement/removal requires its recorded `before` value to deep-equal the
-current derived value. Missing record bases are invalid and must never become
-`{}`.
+alternative source of truth. A top-level value patch never creates a computed
+owner; a missing value base is rejected before canonical mutation. Record addition
+requires the record id to be absent; record replacement/removal requires its
+recorded `before` value to deep-equal the current derived value. Missing record
+bases are invalid and must never become `{}`.
 
 Batch and record patch validation completes before any cached object is changed.
 One failed precondition rejects the entire delta; no prefix may become visible.
 Accepted changes install a new top-level snapshot atomically. Changed records are
 copied before modification so a previously published strategy snapshot is not
 mutated later.
+
+Before installation, every scalar, batch, and patch candidate is merged with the
+same computed-over-raw precedence and must still have the requested `id`, a
+non-empty `type`, and a non-workspace type. An incomplete candidate is a projection
+mismatch: it is never published and enters the same explicit authoritative resync
+route as a failed `before` precondition.
 
 The explicit base records raw and computed ownership separately. Scene Tree is
 the only owner that knows which canonical setter produced a scalar change, so it
@@ -225,7 +233,10 @@ failing formal test when the current implementation violates this contract.
 - the dedicated Inspector data, viewer, and contract test resolve every owner,
   route, artifact, failure owner, implementation boundary, and cache dimension
 - missing base and record-base mismatch never seed silently or create `{}`
+- missing top-level value bases fail before canonical mutation and emit no delta
 - scalar, batch, and record patch projection is atomic and exact
+- every accepted delta candidate retains requested-id, non-empty-type, and
+  non-workspace completeness before strategy publication
 - same-name raw/computed fields follow canonical owner provenance and preserve
   fresh merged-snapshot precedence
 - rollback, undo, redo, and replay preserve owner provenance through Factory
