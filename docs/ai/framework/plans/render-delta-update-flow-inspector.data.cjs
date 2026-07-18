@@ -265,6 +265,7 @@
         'A raw value shadowed by a same-name computed value updates the raw slice without publishing the shadowed raw value through the direct visual route.',
         'Every batch precondition validates before any batch value is installed.',
         'Record additions require absence; replacements and removals require exact before values; the top-level record base must be a record.',
+        'Deep before and effective-value comparison is cycle-safe for distinct cyclic records and arrays and retains exact sparse-array semantics.',
         'The candidate merged snapshot retains the requested id, non-empty type, and non-workspace type before install; an incomplete candidate is a projection mismatch.',
         'Accepted changes install a new top-level snapshot and clone every changed record.',
         'Multiple accepted changes for one element preserve commit order and may coalesce to one frame.'

@@ -76,7 +76,8 @@ Batch and record patch validation completes before any cached object is changed.
 One failed precondition rejects the entire delta; no prefix may become visible.
 Accepted changes install a new top-level snapshot atomically. Changed records are
 copied before modification so a previously published strategy snapshot is not
-mutated later.
+mutated later. Deep precondition comparison is cycle-safe for the complete
+`DataTypes` domain and retains exact sparse-array semantics.
 
 Before installation, every scalar, batch, and patch candidate is merged with the
 same computed-over-raw precedence and must still have the requested `id`, a

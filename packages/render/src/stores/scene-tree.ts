@@ -77,7 +77,30 @@ const getEffectiveValue = (
     ? computedDataSnapshot[key]
     : rawDataSnapshot[key]
 
-const isDataEqual = (left: unknown, right: unknown): boolean => {
+type ComparedDataPairs = WeakMap<object, WeakSet<object>>
+
+const rememberComparedPair = (
+  left: object,
+  right: object,
+  comparedPairs: ComparedDataPairs
+): boolean => {
+  const comparedRightValues = comparedPairs.get(left)
+  if (comparedRightValues?.has(right)) {
+    return true
+  }
+  if (comparedRightValues) {
+    comparedRightValues.add(right)
+  } else {
+    comparedPairs.set(left, new WeakSet([right]))
+  }
+  return false
+}
+
+const isDataEqual = (
+  left: unknown,
+  right: unknown,
+  comparedPairs: ComparedDataPairs = new WeakMap()
+): boolean => {
   if (Object.is(left, right)) {
     return true
   }
@@ -89,8 +112,11 @@ const isDataEqual = (left: unknown, right: unknown): boolean => {
     ) {
       return false
     }
+    if (rememberComparedPair(left, right, comparedPairs)) {
+      return true
+    }
     for (let index = 0; index < left.length; index += 1) {
-      if (!isDataEqual(left[index], right[index])) {
+      if (!isDataEqual(left[index], right[index], comparedPairs)) {
         return false
       }
     }
@@ -102,11 +128,16 @@ const isDataEqual = (left: unknown, right: unknown): boolean => {
 
   const leftKeys = Object.keys(left)
   const rightKeys = Object.keys(right)
-  return (
-    leftKeys.length === rightKeys.length &&
-    leftKeys.every(
-      (key) => hasOwn(right, key) && isDataEqual(left[key], right[key])
-    )
+  if (leftKeys.length !== rightKeys.length) {
+    return false
+  }
+  if (rememberComparedPair(left, right, comparedPairs)) {
+    return true
+  }
+  return leftKeys.every(
+    (key) =>
+      hasOwn(right, key) &&
+      isDataEqual(left[key], right[key], comparedPairs)
   )
 }
 

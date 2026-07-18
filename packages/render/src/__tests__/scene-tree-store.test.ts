@@ -617,6 +617,43 @@ describe('RenderSceneTree computed data mirror', () => {
     )
   })
 
+  it('should run: compare distinct cyclic scalar values without overflowing', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const cachedBefore: Record<string, unknown> = { label: 'before' }
+    cachedBefore.self = cachedBefore
+    const suppliedBefore: Record<string, unknown> = { label: 'before' }
+    suppliedBefore.self = suppliedBefore
+    const after: Record<string, unknown> = { label: 'after' }
+    after.self = after
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { metadata: cachedBefore }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+
+    const outcome = store.updateElement(
+      'vector-1',
+      'computed',
+      'metadata',
+      suppliedBefore,
+      after,
+      { undoable: false }
+    )
+    await flushScheduledFrame()
+
+    expect(outcome).toEqual({ status: 'applied', elementId: 'vector-1' })
+    expect(renderMock.updateElement).toHaveBeenCalledWith(
+      'vector-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({ metadata: after })
+    )
+  })
+
   it('should run: remove stale output when a mismatch has no canonical element', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()

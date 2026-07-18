@@ -74,7 +74,8 @@ drawing; Render adds no inferred mapping or fallback geometry.
   returns `failed`
 - scalar, ordered batch, and record patch updates validate every supplied
   `before` image before atomically installing a new snapshot; record patches
-  require an existing record base and never substitute `{}`
+  require an existing record base and never substitute `{}`. Deep comparison is
+  cycle-safe across records and arrays while preserving sparse-array semantics
 - every scalar, batch, and patch candidate is merged with computed-over-raw
   precedence and must retain the requested id, a non-empty type, and a
   non-workspace type before install; an incomplete candidate enters the explicit

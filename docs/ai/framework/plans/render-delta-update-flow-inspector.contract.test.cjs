@@ -217,6 +217,10 @@ test('scalar, batch, and record patches validate and install atomically', () => 
   assert.match(contract, /declared raw or computed owner/i)
   assert.match(contract, /batch precondition validates before any batch value/i)
   assert.match(contract, /Record additions require absence/i)
+  assert.match(
+    contract,
+    /comparison is cycle-safe for distinct cyclic records and arrays.*exact sparse-array semantics/i
+  )
   assert.match(contract, /top-level record base must be a record/i)
   assert.match(
     contract,
