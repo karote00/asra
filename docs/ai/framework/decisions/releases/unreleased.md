@@ -1379,8 +1379,9 @@ unregister -> app migration -> core.start()` as the public app route.
   - The plan is removed from active framework plans. Its Inspector data,
     contract test, and viewer remain executable architecture authorities and now
     resolve the completed product contract.
-  - PR #86 remains open for owner review; this closeout does not claim merge or
-    release completion.
+  - PR #86 merged to `main` at
+    `91cee525af34ebb9f2fa717610663d61b245589a`; this closeout records the merged
+    plan state but does not claim release completion.
 - Related Plan:
   - `docs/ai/framework/plans/completed/property-type-redefinition-plan.md`
 - Related Commit(s):
@@ -1392,4 +1393,5 @@ unregister -> app migration -> core.start()` as the public app route.
   - `4b66ba0c9` (`test(preset): verify public property redefinition flow`)
   - `ff5f8a1ee` (`fix(props-manager): distinguish object and array values`)
   - `779d6a427` (`fix(preset): align fill definitions for redefinition`)
+  - `91cee525a` (`Framework: declarative property type redefinition (#86)`)
   - [PR #86](https://github.com/karote00/asyra/pull/86)

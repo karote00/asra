@@ -4,9 +4,9 @@
 
 Completed on 2026-07-19 after implementation review and direct Asyra Design
 verification by the product owner. The implementation is complete on
-`codex/property-type-redefinition-implementation` and published for review in
-PR #86. This closeout archives the accepted product contract before merge by
-explicit owner direction; it does not claim that PR #86 has merged or shipped.
+`codex/property-type-redefinition-implementation` and merged to `main` through
+PR #86 at `91cee525af34ebb9f2fa717610663d61b245589a`. This closeout archives the
+accepted product contract after merge; it does not claim a shipped release.
 
 The exact owner flow remains defined by
 `docs/ai/framework/plans/property-type-redefinition-flow-inspector.data.cjs`.
