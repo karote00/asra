@@ -164,6 +164,11 @@ The engine-neutral draw-command trace produced from the delta snapshot must equa
 the trace produced from that fresh snapshot. A rejected delta emits no trace from
 partial data. A failed resync leaves no stale visual.
 
+The formal app oracle exercises one real action, Factory inverse replay (undo),
+Factory forward replay (redo), and `core.load()` rebuild. At each stable boundary,
+the last complete strategy snapshot deep-equals the fresh authoritative
+composition.
+
 ## Profiling and Cache Decision
 
 Three repeated Chromium runs of the formal fixture produced these observed ranges:
@@ -176,10 +181,13 @@ Three repeated Chromium runs of the formal fixture produced these observed range
 | engine handoff per frame                       |        12 |   0.9–1.0 ms |                   18 / 3 / 5 ms |
 
 The combined phase p95 budget is 12 ms. Render delta apply count must be 12 and
-Render full rehydrate count must be 0. The fresh full-snapshot reference measured
-0.1 ms p95, so profiling does not permit a new or expanded vector geometry cache.
-The existing element-id derived snapshot remains the semantic target of the delta
-projection; its dimension may not expand without new profiling.
+Render full rehydrate count must be 0. Across all canonical/UI consumers,
+`element.save()` is bounded to 12 calls and `getAllComputedData()` to 13 calls;
+these are separate from the zero Render seed count. The fresh full-snapshot
+reference measured 0.1 ms p95, so profiling does not permit a new or expanded
+vector geometry cache. The existing element-id derived snapshot remains the
+semantic target of the delta projection; its dimension may not expand without new
+profiling.
 
 ## Owner Slices
 

@@ -855,7 +855,8 @@
       stepIds: allStepIds,
       specRefs: ['#load-undo-redo-replay-remove-and-cleanup'],
       assertions: [
-        'all state transitions use the canonical committed route or explicit load rebuild and leave no orphaned snapshot or pending update'
+        'all state transitions use the canonical committed route or explicit load rebuild and leave no orphaned snapshot or pending update',
+        'the formal app oracle deep-compares fresh and strategy snapshots after action, Factory undo replay, Factory redo replay, and core.load rebuild'
       ]
     },
     {

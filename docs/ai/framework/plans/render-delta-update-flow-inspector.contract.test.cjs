@@ -18,6 +18,12 @@ const route = (id) => {
   return value
 }
 
+const acceptance = (id) => {
+  const value = data.acceptanceContracts.find((item) => item.id === id)
+  assert.ok(value, `Missing Inspector acceptance contract: ${id}`)
+  return value
+}
+
 const contractText = (value) =>
   [
     value.purpose,
@@ -299,7 +305,10 @@ test('the product contract and formal oracle lock count and timing budgets', () 
   assert.match(plan, /56 points/i)
   assert.match(plan, /Render full rehydrate count must be 0/i)
   assert.match(plan, /combined phase p95 budget is 12 ms/i)
-  assert.match(plan, /does not permit a new or expanded vector geometry cache/i)
+  assert.match(
+    plan,
+    /does not permit a new or expanded\s+vector geometry cache/i
+  )
   assert.match(oracle, /DENSE_POINT_COUNT = 56/)
   assert.match(oracle, /fullRehydrateCallsDuringDelta\)\.toBe\(0\)/)
   assert.match(oracle, /renderSnapshotDeltaApplies\)\.toBe\(SAMPLE_FRAMES\)/)
@@ -317,5 +326,9 @@ test('acceptance covers equivalence, failure, lifecycle, compatibility, and budg
       'non-vector-compatibility',
       'dense-vector-budget'
     ]
+  )
+  assert.match(
+    acceptance('lifecycle-parity').assertions.join(' '),
+    /action.*undo replay.*redo replay.*core\.load/i
   )
 })

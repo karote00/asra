@@ -377,6 +377,14 @@ test.describe('Render delta performance budget', () => {
     expect(summary.fullRehydrateReference.count).toBe(SAMPLE_FRAMES)
     expect(summary.fullRehydrateReference.totalMs).toBeGreaterThan(0)
     expect(summary.fullRehydrateCallsDuringDelta).toBe(0)
+    // These all-owner counts include canonical/UI consumers. Render's own
+    // authoritative read is the separately instrumented seed count above.
+    expect(summary.elementSaveCallsDuringDelta).toBeLessThanOrEqual(
+      SAMPLE_FRAMES
+    )
+    expect(summary.computedSnapshotCallsDuringDelta).toBeLessThanOrEqual(
+      SAMPLE_FRAMES + 1
+    )
     expect(summary.renderSnapshotDeltaApplies).toBe(SAMPLE_FRAMES)
     expectPhaseWithinBudget(summary.sceneTree, PHASE_BUDGETS.sceneTree)
     expectPhaseWithinBudget(
@@ -520,5 +528,170 @@ test.describe('Render delta performance budget', () => {
         pathEditingMode: visualReviewState.pathEditingMode
       })}`
     )
+  })
+
+  test('preserves fresh snapshot equivalence through action replay and load', async ({
+    page
+  }) => {
+    test.setTimeout(120_000)
+
+    const result = await page.evaluate(async () => {
+      // E2E-only access to the currently composed framework runtime.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const core = (window as any).__Core__
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elementApis = (window as any).__AsyraE2E__?.elementApis
+      const factory = core?.deps?.factory
+      if (
+        !core ||
+        !elementApis ||
+        typeof factory?.undo !== 'function' ||
+        typeof factory?.redo !== 'function'
+      ) {
+        throw new Error('Asyra replay runtime is unavailable')
+      }
+
+      const waitForStableFrame = () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+        )
+      const initialPoints = {
+        A: {
+          id: 'A',
+          kind: 'anchor',
+          anchorType: 'sharp',
+          x: 100,
+          y: 100
+        },
+        B: {
+          id: 'B',
+          kind: 'anchor',
+          anchorType: 'sharp',
+          x: 220,
+          y: 100
+        },
+        C: {
+          id: 'C',
+          kind: 'anchor',
+          anchorType: 'sharp',
+          x: 160,
+          y: 220
+        }
+      }
+      const elementId = elementApis.createElement(
+        {
+          type: 'vector',
+          points: initialPoints,
+          segments: {
+            AB: {
+              id: 'AB',
+              startId: 'A',
+              endId: 'B',
+              outControlId: null,
+              inControlId: null
+            },
+            BC: {
+              id: 'BC',
+              startId: 'B',
+              endId: 'C',
+              outControlId: null,
+              inControlId: null
+            },
+            CA: {
+              id: 'CA',
+              startId: 'C',
+              endId: 'A',
+              outControlId: null,
+              inControlId: null
+            }
+          },
+          networks: {
+            triangle: {
+              id: 'triangle',
+              pointIds: ['A', 'B', 'C'],
+              segmentIds: ['AB', 'BC', 'CA'],
+              closed: true
+            }
+          },
+          closed: true
+        },
+        { undoable: false }
+      )
+      if (!elementId) {
+        throw new Error('Failed to create replay equivalence fixture')
+      }
+      await waitForStableFrame()
+
+      const clone = (value: unknown) =>
+        JSON.parse(JSON.stringify(value)) as Record<string, unknown>
+      const capture = (phase: string) => {
+        const element = core.deps.sceneTree.getElementById(elementId)
+        const renderElement = core.deps.render.getElementById(elementId)
+        if (!element || !renderElement) {
+          throw new Error(`Missing projection during ${phase}`)
+        }
+        const fresh = {
+          ...element.save(),
+          ...element.getAllComputedData()
+        }
+        const rendered = renderElement.__asyraLastRenderDataSnapshot
+        if (!rendered) {
+          throw new Error(`Missing strategy snapshot during ${phase}`)
+        }
+        const normalizedFresh = clone(fresh)
+        return {
+          phase,
+          pointAX: Number(
+            (normalizedFresh.points as Record<string, { x?: unknown }>)?.A?.x ??
+              Number.NaN
+          ),
+          fresh: normalizedFresh,
+          rendered: clone(rendered)
+        }
+      }
+
+      const actionPoints = {
+        ...initialPoints,
+        A: { ...initialPoints.A, x: 140 }
+      }
+      elementApis.changeComputedData(
+        [elementId],
+        { points: actionPoints },
+        { undoable: true }
+      )
+      await waitForStableFrame()
+      const action = capture('action')
+
+      factory.undo()
+      await waitForStableFrame()
+      const undo = capture('undo')
+
+      factory.redo()
+      await waitForStableFrame()
+      const redo = capture('redo')
+      const persisted = await core.save()
+
+      elementApis.changeComputedData(
+        [elementId],
+        {
+          points: {
+            ...actionPoints,
+            A: { ...actionPoints.A, x: 180 }
+          }
+        },
+        { undoable: false }
+      )
+      await waitForStableFrame()
+      core.load(persisted)
+      await waitForStableFrame()
+      const load = capture('load')
+
+      return [action, undo, redo, load]
+    })
+
+    expect(result.map(({ pointAX }) => pointAX)).toEqual([140, 100, 140, 140])
+    result.forEach(({ rendered, fresh }) => {
+      expect(rendered).toEqual(fresh)
+    })
   })
 })
