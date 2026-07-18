@@ -46,6 +46,48 @@ const createDeps = (): PresetDependencies =>
   }) as unknown as PresetDependencies
 
 describe('Preset Selection Subscriptions', () => {
+  it('clears Render projection state once when the render observer is disposed', () => {
+    const observers = new Map<string, { onChange: (change: unknown) => void }>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (registration: {
+        name: string
+        onChange: (change: unknown) => void
+      }) => observers.set(registration.name, registration),
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const projectionStore =
+      renderSceneTreeStore as typeof renderSceneTreeStore & {
+        resetProjection: () => void
+      }
+    const resetProjection = vi
+      .spyOn(projectionStore, 'resetProjection')
+      .mockImplementation(() => undefined)
+
+    try {
+      const disposeRender = registerDefaultDataChannelObservers(
+        core,
+        createDeps(),
+        undefined,
+        { renderScene: true }
+      )
+      disposeRender()
+      disposeRender()
+      expect(resetProjection).toHaveBeenCalledTimes(1)
+
+      const disposeSelection = registerDefaultDataChannelObservers(
+        core,
+        createDeps(),
+        undefined,
+        { selection: true }
+      )
+      disposeSelection()
+      expect(resetProjection).toHaveBeenCalledTimes(1)
+    } finally {
+      resetProjection.mockRestore()
+    }
+  })
+
   it('routes complete Scene Tree deltas and records Render projection outcomes', () => {
     const observers = new Map<string, { onChange: (change: unknown) => void }>()
     const core = {

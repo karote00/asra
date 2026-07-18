@@ -938,4 +938,54 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(renderMock.removeElement).toHaveBeenCalledWith('vector-1', undefined)
     expect(renderMock.updateElement).not.toHaveBeenCalled()
   })
+
+  it('should run: clear snapshots and pending frame work idempotently', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+    store.updateElement(
+      'vector-1',
+      'points',
+      {},
+      { p1: { x: 1, y: 1 } },
+      { undoable: false }
+    )
+
+    expect(store.getProjectionSnapshotCount()).toBe(1)
+    expect(store.hasPendingChanges()).toBe(true)
+
+    store.resetProjection()
+    store.resetProjection()
+    await flushScheduledFrame()
+
+    expect(store.getProjectionSnapshotCount()).toBe(0)
+    expect(store.hasPendingChanges()).toBe(false)
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
+  })
+
+  it('should run: clear stale projection state when reload has no workspace', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+    renderMock.clearElements.mockClear()
+    sceneTreeMock.currentWorkspace = null
+
+    store.reload()
+
+    expect(store.getProjectionSnapshotCount()).toBe(0)
+    expect(store.hasPendingChanges()).toBe(false)
+    expect(renderMock.clearElements).toHaveBeenCalledTimes(1)
+  })
 })

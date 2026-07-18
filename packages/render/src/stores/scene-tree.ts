@@ -95,7 +95,13 @@ class ComputedDataMirror {
   private entries = new Map<string, ComputedDataMirrorEntry>()
 
   clear() {
+    const clearedEntryCount = this.entries.size
     this.entries.clear()
+    return clearedEntryCount
+  }
+
+  get size() {
+    return this.entries.size
   }
 
   delete(elementId: string) {
@@ -297,18 +303,13 @@ class RenderSceneTree {
   }
 
   reload() {
+    this.resetProjection()
+    render.clearElements()
     if (!sceneTree.currentWorkspace) return
-
-    this.pendingElementUpdates.clear()
-    this.pendingFrameFlush = false
-    this.pendingFlush = false
-    this.computedDataMirror.clear()
 
     const currentWorkspaceData =
       sceneTree.currentWorkspace.save() as WorkspaceRawData
     this._workspace = currentWorkspaceData
-
-    render.clearElements()
 
     // Create root render node
     render.switchWorkspace({
@@ -585,6 +586,21 @@ class RenderSceneTree {
 
   hasPendingChanges() {
     return this.pendingFrameFlush || this.pendingElementUpdates.size > 0
+  }
+
+  getProjectionSnapshotCount() {
+    return this.computedDataMirror.size
+  }
+
+  resetProjection() {
+    const clearedEntryCount = this.computedDataMirror.clear()
+    this.pendingElementUpdates.clear()
+    this.pendingFrameFlush = false
+    this.pendingFlush = false
+    emitStrokePipelineCounter(
+      'computed-mirror-reset-entry-count',
+      clearedEntryCount
+    )
   }
 
   private flushPendingChanges() {

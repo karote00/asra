@@ -681,6 +681,13 @@ export const registerDefaultDataChannelObservers = (
         failures.push(error)
       }
     }
+    if (renderSceneEnabled) {
+      try {
+        renderSceneTreeStore.resetProjection()
+      } catch (error) {
+        failures.push(error)
+      }
+    }
     resetPendingUIContextSync(uiContextSyncLifetime)
 
     if (failures.length > 0) {
