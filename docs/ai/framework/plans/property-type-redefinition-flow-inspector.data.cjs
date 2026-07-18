@@ -60,6 +60,11 @@
       implementationBoundary: [
         'docs/ai/framework/golden-paths/extend-preset-capability.md',
         'docs/ai/framework/API_SURFACES.md',
+        'docs/ai/framework/packages/preset.md',
+        'docs/ai/apps/asyra-design/API_SURFACES.md',
+        'docs/ai/apps/asyra-design/modules/init-and-startup.md',
+        'docs/ai/apps/asyra-design/modules/registrations.md',
+        'docs/ai/apps/asyra-design/ARCHITECTURE.md',
         'packages/preset/src/__tests__/**',
         'packages/core/src/__tests__/**'
       ],

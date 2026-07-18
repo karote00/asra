@@ -67,6 +67,16 @@ test('app composition uses public Core and keeps semantic consumers explicit', (
   assert.match(contract, /deep imports/i)
   assert.match(contract, /direct Props Manager singleton/i)
   assert.match(contract, /fallback B-to-C mapping/i)
+  const requiredDocs = [
+    'docs/ai/framework/packages/preset.md',
+    'docs/ai/apps/asyra-design/API_SURFACES.md',
+    'docs/ai/apps/asyra-design/modules/init-and-startup.md',
+    'docs/ai/apps/asyra-design/modules/registrations.md',
+    'docs/ai/apps/asyra-design/ARCHITECTURE.md'
+  ]
+  requiredDocs.forEach((requiredPath) => {
+    assert.ok(app.implementationBoundary.includes(requiredPath))
+  })
   assert.deepEqual(app.cacheDimensions, [])
 })
 
