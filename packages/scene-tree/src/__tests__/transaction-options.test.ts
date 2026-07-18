@@ -293,6 +293,112 @@ describe('SceneTree transaction options', () => {
     subscription.unsubscribe()
   })
 
+  it('commits one exact record patch while omitting equal and missing entries', () => {
+    const { events, subscription } = captureUpdateTransactionEvents()
+    const keptPoint = { id: 'kept', x: 1, y: 1 }
+    const replacedBefore = { id: 'replaced', x: 2, y: 2 }
+    const replacedAfter = { id: 'replaced', x: 20, y: 20 }
+    const removedPoint = { id: 'removed', x: 3, y: 3 }
+    const addedPoint = { id: 'added', x: 4, y: 4 }
+    const element = {
+      get: vi.fn(() => 'element-1'),
+      getAllComputedData: vi.fn(() => ({
+        id: 'element-1',
+        x: 10,
+        points: {
+          kept: keptPoint,
+          replaced: replacedBefore,
+          removed: removedPoint
+        }
+      })),
+      updateComputedData: vi.fn()
+    } as unknown as ElementInstanceTypes
+    sceneTree.addToMap(element)
+
+    sceneTree.patchComputedData('element-1', {
+      values: { x: 10 },
+      records: {
+        points: {
+          set: {
+            kept: keptPoint,
+            replaced: replacedAfter,
+            added: addedPoint
+          },
+          remove: ['removed', 'missing']
+        }
+      }
+    })
+
+    expect(element.updateComputedData).toHaveBeenCalledTimes(1)
+    expect(element.updateComputedData).toHaveBeenCalledWith(
+      'points',
+      {
+        kept: keptPoint,
+        replaced: replacedAfter,
+        added: addedPoint
+      },
+      undefined
+    )
+    expect(sceneTree.changes).toEqual([
+      {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+        eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+        id: 'element-1',
+        patch: {
+          records: {
+            points: {
+              set: {
+                replaced: {
+                  before: replacedBefore,
+                  after: replacedAfter
+                },
+                added: { after: addedPoint }
+              },
+              remove: {
+                removed: { before: removedPoint }
+              }
+            }
+          }
+        }
+      }
+    ])
+
+    sceneTree.commitSceneTreeTransaction({ undoable: false })
+
+    expect(events).toEqual([
+      expect.objectContaining({
+        type: ReactiveEventsModule.EventTypes.UPDATE_TRANSACTION,
+        eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+        payload: {
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+          eventName: ReactiveEventsModule.EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+          id: 'element-1',
+          patch: {
+            records: {
+              points: {
+                set: {
+                  replaced: {
+                    before: replacedBefore,
+                    after: replacedAfter
+                  },
+                  added: { after: addedPoint }
+                },
+                remove: {
+                  removed: { before: removedPoint }
+                }
+              }
+            }
+          }
+        },
+        options: {
+          undoable: false,
+          shared: SharedDataChannelNames.SCENE_TREE
+        }
+      })
+    ])
+    subscription.unsubscribe()
+  })
+
   it('calls updateTransaction without options when neither path provides options', () => {
     const { events, subscription } = captureUpdateTransactionEvents()
     const change = createUpdateChange()
