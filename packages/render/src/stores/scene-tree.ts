@@ -451,8 +451,7 @@ class RenderSceneTree {
   }
 
   reload() {
-    this.resetProjection()
-    render.clearElements()
+    this.clearProjection()
     if (!sceneTree.currentWorkspace) return
 
     const currentWorkspaceData =
@@ -792,6 +791,11 @@ class RenderSceneTree {
     )
   }
 
+  clearProjection() {
+    this.resetProjection()
+    render.clearElements()
+  }
+
   private flushPendingChanges() {
     if (this.flushingPendingChanges) {
       emitStrokePipelineCounter('render-scene-tree-flush-reentrant-skipped')
@@ -877,7 +881,7 @@ const installPendingRenderLayer = (store: RenderSceneTree) => {
     typeof renderWithLifecycle.registerTeardownCleanup === 'function'
   ) {
     renderWithLifecycle.registerTeardownCleanup(() => {
-      activeRenderSceneTree?.resetProjection()
+      activeRenderSceneTree?.clearProjection()
     })
     pendingRenderTeardownInstalled = true
   }

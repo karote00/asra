@@ -693,7 +693,7 @@ export const registerDefaultDataChannelObservers = (
     }
     if (renderSceneEnabled) {
       try {
-        renderSceneTreeStore.resetProjection()
+        renderSceneTreeStore.clearProjection()
       } catch (error) {
         failures.push(error)
       }

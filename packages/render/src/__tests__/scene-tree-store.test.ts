@@ -1898,6 +1898,7 @@ describe('RenderSceneTree computed data mirror', () => {
       { p1: { x: 1, y: 1 } },
       { undoable: false }
     )
+    renderMock.clearElements.mockClear()
 
     expect(pendingRenderTeardownCleanup).not.toBeNull()
     pendingRenderTeardownCleanup?.()
@@ -1905,6 +1906,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
     expect(store.getProjectionSnapshotCount()).toBe(0)
     expect(store.hasPendingChanges()).toBe(false)
+    expect(renderMock.clearElements).toHaveBeenCalledTimes(2)
     await flushScheduledFrame()
     expect(renderMock.updateElement).not.toHaveBeenCalled()
   })

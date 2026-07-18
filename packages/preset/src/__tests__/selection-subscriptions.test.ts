@@ -101,7 +101,7 @@ describe('Preset Selection Subscriptions', () => {
     }
   })
 
-  it('clears Render projection state once when the render observer is disposed', () => {
+  it('clears Render projection state and visual nodes once when the render observer is disposed', () => {
     const observers = new Map<string, { onChange: (change: unknown) => void }>()
     const core = {
       getSelection: () => undefined,
@@ -113,10 +113,10 @@ describe('Preset Selection Subscriptions', () => {
     } as unknown as PresetCoreAPIs
     const projectionStore =
       renderSceneTreeStore as typeof renderSceneTreeStore & {
-        resetProjection: () => void
+        clearProjection: () => void
       }
-    const resetProjection = vi
-      .spyOn(projectionStore, 'resetProjection')
+    const clearProjection = vi
+      .spyOn(projectionStore, 'clearProjection')
       .mockImplementation(() => undefined)
     const reload = vi
       .spyOn(renderSceneTreeStore, 'reload')
@@ -131,7 +131,7 @@ describe('Preset Selection Subscriptions', () => {
       )
       disposeRender()
       disposeRender()
-      expect(resetProjection).toHaveBeenCalledTimes(1)
+      expect(clearProjection).toHaveBeenCalledTimes(1)
 
       const disposeSelection = registerDefaultDataChannelObservers(
         core,
@@ -140,10 +140,50 @@ describe('Preset Selection Subscriptions', () => {
         { selection: true }
       )
       disposeSelection()
-      expect(resetProjection).toHaveBeenCalledTimes(1)
+      expect(clearProjection).toHaveBeenCalledTimes(1)
     } finally {
       reload.mockRestore()
-      resetProjection.mockRestore()
+      clearProjection.mockRestore()
+    }
+  })
+
+  it('clears Render projection and visual nodes when registration rebuild rolls back', () => {
+    const observers = new Map<string, { onChange: (change: unknown) => void }>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (registration: {
+        name: string
+        onChange: (change: unknown) => void
+      }) => observers.set(registration.name, registration),
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const projectionStore =
+      renderSceneTreeStore as typeof renderSceneTreeStore & {
+        clearProjection: () => void
+      }
+    const clearProjection = vi
+      .spyOn(projectionStore, 'clearProjection')
+      .mockImplementation(() => undefined)
+    const reload = vi
+      .spyOn(renderSceneTreeStore, 'reload')
+      .mockImplementation(() => {
+        throw new Error('authoritative rebuild failed')
+      })
+
+    try {
+      expect(() =>
+        registerDefaultDataChannelObservers(
+          core,
+          createDeps(),
+          undefined,
+          { renderScene: true }
+        )
+      ).toThrow('authoritative rebuild failed')
+      expect(observers.has('preset.render.sceneTree')).toBe(false)
+      expect(clearProjection).toHaveBeenCalledTimes(1)
+    } finally {
+      reload.mockRestore()
+      clearProjection.mockRestore()
     }
   })
 
