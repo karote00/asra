@@ -95,6 +95,12 @@ test('Core coordinates a bounded pre-start redefinition without general replace 
     )
   )
   assert.ok(
+    core.implementationBoundary.includes('packages/core/src/apis/props.ts')
+  )
+  assert.ok(
+    core.implementationBoundary.includes('packages/core/src/apis/index.ts')
+  )
+  assert.ok(
     core.implementationBoundary.includes(
       'packages/utils/src/registry/registration-graph.ts'
     )

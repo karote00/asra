@@ -234,7 +234,9 @@ of scope.
   builder.
 - `@asyra/core` owns the app-facing getter/redefinition facade, permanent
   composition lock, graph owner update, preserved relation coordination, and
-  final structural relation validation.
+  final structural relation validation. Its existing props API adapter owns the
+  public id-first custom-field generic without changing Props Manager's runtime
+  write owner.
 - Core's `RegistrationGraph` dependency supplies only the metadata mutation
   primitive; it does not decide whether or when app ownership transfers.
 - `@asyra/scene-tree` continues to project property `getValue()` into computed
