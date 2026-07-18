@@ -542,7 +542,9 @@ class RenderSceneTree {
   }
 
   commitPendingComputedDataChanges() {
-    this.scheduleFlush()
+    if (this.hasPendingChanges()) {
+      this.scheduleFlush()
+    }
   }
 
   private recordDirtyChange(

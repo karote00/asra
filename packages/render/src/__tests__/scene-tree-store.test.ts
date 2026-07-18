@@ -509,6 +509,40 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(renderMock.flushFrame).not.toHaveBeenCalled()
   })
 
+  it('should run: schedule the next computed update after an empty commit', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+
+    store.commitPendingComputedDataChanges()
+    await flushScheduledFrame()
+    renderMock.requestRender.mockClear()
+
+    store.updateElement(
+      'vector-1',
+      'points',
+      {},
+      { p1: { x: 1, y: 1 } },
+      { undoable: false }
+    )
+
+    expect(renderMock.requestRender).toHaveBeenCalledTimes(1)
+    await flushScheduledFrame()
+    expect(renderMock.updateElement).toHaveBeenCalledWith(
+      'vector-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({ points: { p1: { x: 1, y: 1 } } })
+    )
+  })
+
   it('should run: apply a computed change batch as one pending render update', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
