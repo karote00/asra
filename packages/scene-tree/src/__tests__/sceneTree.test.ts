@@ -1005,9 +1005,7 @@ describe('SceneTree', () => {
         sceneTree.patchComputedData(element.get('id'), {
           values: { [key]: after }
         })
-      ).toThrow(
-        `Computed data patch value base "${key}" must already exist`
-      )
+      ).toThrow(`Computed data patch value base "${key}" must already exist`)
 
       expect(element.getAllComputedData()).toEqual(beforeSnapshot)
       expect(sceneTree.changes).toEqual([])
