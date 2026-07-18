@@ -159,6 +159,7 @@
         'Add routes by element id, remove routes the removed id and parent, and scalar, batch, and patch changes retain their complete before/after envelope plus raw or computed owner provenance.',
         'The observer receives applied, resynced, removed, or failed projection evidence and never treats swallowed exceptions as correctness control flow.',
         'Initial registration and every re-registration install the observer before invoking the explicit authoritative Render rebuild route.',
+        'A rebuild failure means registration fails and its cleanup rollback unregisters the observer and clears the Render projection.',
         'File-load completion invokes the explicit Render rebuild route.',
         'Observer teardown invokes Render projection cleanup.'
       ],
@@ -210,6 +211,7 @@
         'Add and load are the only ordinary seed reasons; first use and update may not seed implicitly.',
         'Workspace elements are not cached or rendered.',
         'Load clears every entry and pending update before rebuilding live elements.',
+        'Any element rebuild failure fails the whole reload, clears its partial projection, and throws to the lifecycle caller.',
         'The installed snapshot passes requested-id and non-empty-type completeness validation.',
         'An existing add target that throws or fails completeness validation clears stale output and returns failed.'
       ],
