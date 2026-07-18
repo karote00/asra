@@ -314,7 +314,7 @@ test('all non-empty cache dimensions have profiling and lifecycle evidence', () 
     assert.match(item.cacheEvidence.decision, /add no cache dimension/i)
     assert.match(
       item.cacheEvidence.memoryBound,
-      /one entry per live non-workspace/i
+      /one entry.*one live Scene Tree-projected Render node per live non-workspace/i
     )
   })
 })
@@ -327,9 +327,13 @@ test('cleanup bounds snapshots and pending work across every lifecycle path', ()
   assert.match(contract, /Load clears every entry/i)
   assert.match(
     contract,
-    /teardown clear entries, pending flags, and scheduled work/i
+    /teardown clear entries, pending flags, scheduled work, and every Scene Tree-projected visual node/i
   )
-  assert.match(contract, /never exceeds live non-workspace/i)
+  assert.match(
+    contract,
+    /Scene Tree-projected Render-node count never exceed.*live non-workspace/i
+  )
+  assert.match(contract, /custom and overlay nodes are not part/i)
   assert.match(contract, /cannot retain orphaned snapshots/i)
   assert.match(contract, /destroys the detached Render node/i)
   assert.match(contract, /prior-engine handles/i)

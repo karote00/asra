@@ -20,13 +20,13 @@
     decision:
       'Retain the existing elementId-only derived projection as the semantic delta target; add no cache dimension and no vector geometry cache.',
     invalidation:
-      'Remove, load reset, failed projection, failed resync, observer teardown, and Render teardown clear the matching entry and pending work; removed Render nodes are destroyed rather than retained for restore.',
+      'Remove, load reset, failed projection, failed resync, observer teardown, and Render teardown clear the matching entry and pending work; teardown also destroys every Scene Tree-projected visual node, and removed Render nodes are destroyed rather than retained for restore.',
     equivalenceOracle:
       'At the same committed boundary, strategy data deep-equals {...element.save(), ...element.getAllComputedData()} and produces the same engine-neutral command trace.',
     cleanup:
-      'Remove clears one entry and destroys its Render node; load and teardown clear the map; resync replaces one entry rather than adding a second entry.',
+      'Remove clears one entry and destroys its Render node; load and teardown clear the map and every Scene Tree-projected visual node; resync replaces one entry rather than adding a second entry.',
     memoryBound:
-      'At stable boundaries there is at most one entry per live non-workspace Scene Tree element and one live Render node per such element, with no retained removed-node map.'
+      'At stable boundaries there is at most one entry and one live Scene Tree-projected Render node per live non-workspace Scene Tree element, with no retained removed-node map; custom and overlay layer nodes stay under their own lifecycle owners.'
   }
 
   const steps = [
@@ -502,7 +502,7 @@
       title: 'Clear derived projection state',
       ownerPackage: '@asyra/render',
       purpose:
-        'Remove entries, pending work, removed Render nodes, and stale workspace identity deterministically on element removal, load reset, observer teardown, and Render teardown.',
+        'Remove entries, pending work, Scene Tree-projected Render nodes, and stale workspace identity deterministically on element removal, load reset, observer teardown, and Render teardown.',
       inputs: [
         'remove projection request',
         'load reset request',
@@ -514,9 +514,9 @@
         'Remove deletes the matching entry and pending id before visual removal, then destroys the detached Render node and releases its abstract engine handle and resources.',
         'Load clears every entry and pending update before explicit rebuild.',
         'A load with no current workspace clears retained workspace metadata and resets the Render workspace label and transform to neutral values.',
-        'Observer and Render teardown clear entries, pending flags, and scheduled work idempotently.',
-        'Stable entry count never exceeds live non-workspace Scene Tree element count.',
-        'Repeated add, remove, load, resync, and teardown cannot retain orphaned snapshots, removed-node restore entries, or prior-engine handles.',
+        'Observer and Render teardown clear entries, pending flags, scheduled work, and every Scene Tree-projected visual node idempotently, releasing its abstract engine handle and resources.',
+        'Stable entry count and Scene Tree-projected Render-node count never exceed live non-workspace Scene Tree element count; custom and overlay nodes are not part of this projection bound.',
+        'Repeated add, remove, load, resync, and teardown cannot retain orphaned snapshots, projected nodes, removed-node restore entries, or prior-engine handles.',
         'Undo and redo re-add from a complete authoritative snapshot and do not require Render node identity preservation.'
       ],
       bypasses: [
@@ -681,7 +681,8 @@
       id: 'cleanup-terminal',
       from: 'cleanup-render-projection',
       kind: 'terminal',
-      predicate: 'derived entries and pending work are cleared',
+      predicate:
+        'derived entries, pending work, and Scene Tree-projected visual nodes are cleared',
       producedArtifacts: ['artifact:render-projection-cleanup']
     }
   ]

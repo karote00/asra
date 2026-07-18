@@ -192,11 +192,15 @@ shape and require no migration.
   authoritative snapshot; Render node identity is not a product contract.
 - Load with no current workspace clears the retained workspace snapshot and
   resets the Render workspace identity and transform to their neutral state.
-- Preset observer teardown and Render teardown clear snapshots and pending work.
+- Preset observer teardown and Render teardown clear snapshots and pending work,
+  destroy every Scene Tree-projected visual node, and release its abstract engine
+  handle/resources. Custom or overlay layer nodes are outside this projection
+  count and remain owned by their respective lifecycle.
 - At every stable boundary, snapshot count is at most the number of live
-  non-workspace elements; repeated load/add/remove/resync cannot grow an orphaned
-  entry set, removed-node restore map, stale strategy snapshot, or prior-engine
-  handle set.
+  non-workspace elements, and the Scene Tree projection owns at most one Render
+  node per such element; repeated load/add/remove/resync cannot grow an orphaned
+  entry set, projected-node set, removed-node restore map, stale strategy
+  snapshot, or prior-engine handle set.
 
 ### 7. Equivalence and stale-output oracle
 

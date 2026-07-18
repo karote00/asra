@@ -99,12 +99,15 @@ drawing; Render adds no inferred mapping or fallback geometry.
   full rebuild route after the observer is installed; Render never relies on a
   later delta to recover an observer gap
 - remove, reload, observer teardown, and Render teardown clear matching snapshots
-  and pending frame work idempotently; removed nodes are destroyed immediately
-  with their abstract engine handles/resources instead of entering a retained
-  restore map, and undo/redo re-adds from a fresh complete snapshot
+  and pending frame work idempotently; observer and Render teardown also destroy
+  every Scene Tree-projected visual node and release its abstract engine
+  handle/resources. Removed nodes never enter a retained restore map, and
+  undo/redo re-adds from a fresh complete snapshot
 - a reload with no current workspace clears retained workspace metadata and
-  resets workspace identity/transform; stable snapshot and Render-node counts
-  never exceed live non-workspace elements
+  resets workspace identity/transform; stable snapshot and Scene Tree-projected
+  Render-node counts never exceed live non-workspace elements. Custom and overlay
+  layer nodes remain under their respective lifecycle owners and are not included
+  in this projection bound
 
 3. Interaction bridge
 
