@@ -1033,6 +1033,62 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(renderMock.requestRender).toHaveBeenCalled()
   })
 
+  it('should run: preserve fresh-snapshot equivalence through action, undo, redo, and replay', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const pointBefore = { id: 'A', x: 0, y: 0 }
+    const pointAfter = { id: 'A', x: 20, y: 16 }
+    const replayPoint = { id: 'B', x: 30, y: 24 }
+    const computedState: Record<string, unknown> = {
+      width: 100,
+      points: { A: pointBefore },
+      segments: {}
+    }
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true, name: 'Vector' },
+      computedState
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+
+    const expectLatestStrategyDataToEqualFreshSnapshot = async () => {
+      await flushScheduledFrame()
+      const strategyData = renderMock.updateElement.mock.calls.at(-1)?.[4]
+      const freshSnapshot = {
+        ...element.save(),
+        ...element.getAllComputedData()
+      }
+      expect(strategyData).toEqual(freshSnapshot)
+      renderMock.updateElement.mockClear()
+    }
+
+    computedState.width = 140
+    store.updateElement('vector-1', 'width', 100, 140)
+    await expectLatestStrategyDataToEqualFreshSnapshot()
+
+    computedState.width = 100
+    store.updateElement('vector-1', 'width', 140, 100)
+    await expectLatestStrategyDataToEqualFreshSnapshot()
+
+    computedState.width = 140
+    store.updateElement('vector-1', 'width', 100, 140)
+    await expectLatestStrategyDataToEqualFreshSnapshot()
+
+    computedState.points = { A: pointAfter, B: replayPoint }
+    store.updateElementPatch('vector-1', {
+      records: {
+        points: {
+          set: {
+            A: { before: pointBefore, after: pointAfter },
+            B: { after: replayPoint }
+          }
+        }
+      }
+    })
+    await expectLatestStrategyDataToEqualFreshSnapshot()
+  })
+
   it('should run: remove pending mirror data when an element is removed', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
