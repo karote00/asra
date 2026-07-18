@@ -36,7 +36,7 @@ test('plan and dedicated Inspector remain resolvable authorities', () => {
 
   assert.equal(
     data.authority.specPath,
-    'docs/ai/framework/plans/property-type-redefinition-plan.md'
+    'docs/ai/framework/plans/completed/property-type-redefinition-plan.md'
   )
   assert.equal(
     data.authority.inspectorPath,
@@ -201,7 +201,7 @@ test('routes preserve owner boundaries for definition read, rebuild, and consume
 
 test('product contract names bounded cases and rejects scope expansion', () => {
   const spec = fs.readFileSync(
-    path.resolve(__dirname, 'property-type-redefinition-plan.md'),
+    path.resolve(__dirname, 'completed/property-type-redefinition-plan.md'),
     'utf8'
   )
   const acceptance = data.acceptanceContracts
