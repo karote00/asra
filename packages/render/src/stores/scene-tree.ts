@@ -66,7 +66,7 @@ class ComputedDataMirror {
 
   seed(
     elementId: string,
-    reason: 'reload' | 'add' | 'undoable-refresh' | 'cache-miss-reseed'
+    reason: 'reload' | 'add'
   ): ComputedDataMirrorEntry | null {
     const element = sceneTree.getElementById(elementId)
     if (!element) {
@@ -98,7 +98,7 @@ class ComputedDataMirror {
     return entry
   }
 
-  ensure(elementId: string): ComputedDataMirrorEntry | null {
+  get(elementId: string): ComputedDataMirrorEntry | null {
     const entry = this.entries.get(elementId)
     if (entry) {
       emitStrokePipelineCounter('computed-mirror-hit')
@@ -106,11 +106,11 @@ class ComputedDataMirror {
     }
 
     emitStrokePipelineCounter('computed-mirror-cache-miss')
-    return this.seed(elementId, 'cache-miss-reseed')
+    return null
   }
 
   applyComputedChange(elementId: string, key: string, after: DataTypes) {
-    const entry = this.ensure(elementId)
+    const entry = this.get(elementId)
     if (!entry) {
       return false
     }
@@ -126,7 +126,7 @@ class ComputedDataMirror {
     elementId: string,
     changes: { key: string; after: DataTypes }[]
   ) {
-    const entry = this.ensure(elementId)
+    const entry = this.get(elementId)
     if (!entry) {
       return false
     }
@@ -145,7 +145,7 @@ class ComputedDataMirror {
   }
 
   applyComputedPatch(elementId: string, patch: ComputedDataPatchChange) {
-    const entry = this.ensure(elementId)
+    const entry = this.get(elementId)
     if (!entry) {
       return false
     }
@@ -195,7 +195,7 @@ class ComputedDataMirror {
   }
 
   composeRenderData(elementId: string): RenderElementData | null {
-    const entry = this.ensure(elementId)
+    const entry = this.get(elementId)
     if (!entry) {
       return null
     }
@@ -242,9 +242,14 @@ class RenderSceneTree {
     // Create all element render node
     sceneTree.getAllElements().forEach((element) => {
       const elementId = element.get('id')
-      this.computedDataMirror.seed(elementId, 'reload')
-      const renderElementData = this._getRenderData(elementId)
-      if (element.get('type') !== EntityTypes.WORKSPACE && renderElementData) {
+      if (element.get('type') === EntityTypes.WORKSPACE) {
+        return
+      }
+      const renderElementData = this.computedDataMirror.seed(
+        elementId,
+        'reload'
+      )?.renderDataSnapshot
+      if (renderElementData) {
         this.addElement(renderElementData)
       }
     })
@@ -277,13 +282,8 @@ class RenderSceneTree {
     key: string,
     before: DataTypes,
     after: DataTypes,
-    options?: { undoable?: boolean }
+    _options?: { undoable?: boolean }
   ) {
-    if (options?.undoable !== false) {
-      this.computedDataMirror.seed(elementId, 'undoable-refresh')
-      emitStrokePipelineCounter(`computed-mirror-undoable-refresh-key-${key}`)
-    }
-
     const didStage = this.computedDataMirror.applyComputedChange(
       elementId,
       key,
@@ -316,15 +316,8 @@ class RenderSceneTree {
   updateElementBatch(
     elementId: string,
     changes: { key: string; before: DataTypes; after: DataTypes }[],
-    options?: { undoable?: boolean }
+    _options?: { undoable?: boolean }
   ) {
-    if (options?.undoable !== false) {
-      this.computedDataMirror.seed(elementId, 'undoable-refresh')
-      changes.forEach(({ key }) => {
-        emitStrokePipelineCounter(`computed-mirror-undoable-refresh-key-${key}`)
-      })
-    }
-
     const didStage = this.computedDataMirror.applyComputedChanges(
       elementId,
       changes.map(({ key, after }) => ({ key, after }))

@@ -56,6 +56,14 @@ const createElement = (
   getAllComputedData: vi.fn(() => ({ ...computed }))
 })
 
+const seedStore = (
+  store: { addElementById: (elementId: string) => void },
+  elementId: string
+) => {
+  store.addElementById(elementId)
+  renderMock.addElement.mockClear()
+}
+
 describe('RenderSceneTree computed data mirror', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -116,6 +124,65 @@ describe('RenderSceneTree computed data mirror', () => {
     )
   })
 
+  it('should run: exclude workspace elements from reload snapshots', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const workspace = createElement(
+      'workspace-1',
+      { type: EntityTypes.WORKSPACE },
+      {}
+    )
+    const vector = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: {}, segments: {}, networks: {} }
+    )
+    sceneTreeMock.currentWorkspace = {
+      save: () => ({ id: 'workspace-1', type: EntityTypes.WORKSPACE })
+    }
+    sceneTreeMock.getAllElements.mockReturnValue(
+      new Map([
+        ['workspace-1', workspace],
+        ['vector-1', vector]
+      ])
+    )
+    sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
+      elementId === 'workspace-1' ? workspace : vector
+    )
+
+    store.reload()
+
+    expect(workspace.save).not.toHaveBeenCalled()
+    expect(workspace.getAllComputedData).not.toHaveBeenCalled()
+    expect(vector.save).toHaveBeenCalledTimes(1)
+    expect(vector.getAllComputedData).toHaveBeenCalledTimes(1)
+  })
+
+  it('should run: reject a missing update base without implicitly reading Scene Tree', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+
+    store.updateElement(
+      'vector-1',
+      'points',
+      {},
+      { p1: { x: 1, y: 1 } },
+      { undoable: false }
+    )
+    await flushScheduledFrame()
+
+    expect(element.save).not.toHaveBeenCalled()
+    expect(element.getAllComputedData).not.toHaveBeenCalled()
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
+    expect(renderMock.requestRender).not.toHaveBeenCalled()
+  })
+
   it('should run: stage multiple computed changes and render once from the mirror', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
@@ -133,6 +200,7 @@ describe('RenderSceneTree computed data mirror', () => {
       }
     )
     sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
 
     store.updateElement(
       'vector-1',
@@ -196,6 +264,7 @@ describe('RenderSceneTree computed data mirror', () => {
       }
     )
     sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
 
     store.updateElementBatch(
       'vector-1',
@@ -261,6 +330,7 @@ describe('RenderSceneTree computed data mirror', () => {
       }
     )
     sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
 
     store.updateElementPatch(
       'vector-1',
@@ -322,6 +392,7 @@ describe('RenderSceneTree computed data mirror', () => {
       }
     )
     sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
 
     renderMock.updateElement.mockImplementationOnce(() => {
       store.updateElement(
@@ -378,6 +449,7 @@ describe('RenderSceneTree computed data mirror', () => {
       }
     )
     sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
 
     store.updateElement('vector-1', 'x', 0, 24, { undoable: false })
     store.commitPendingComputedDataChanges()
@@ -460,6 +532,7 @@ describe('RenderSceneTree computed data mirror', () => {
       }
     )
     sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
 
     store.updateElement('vector-1', 'strokes', initialStrokes, nextStrokes, {
       undoable: false
@@ -478,7 +551,7 @@ describe('RenderSceneTree computed data mirror', () => {
     )
   })
 
-  it('should run: reseed the computed mirror before undoable updates to prevent cache drift', async () => {
+  it('should run: apply an undoable update without rebuilding an explicit base', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
     const element = createElement(
@@ -490,42 +563,26 @@ describe('RenderSceneTree computed data mirror', () => {
       },
       {
         points: { p1: { x: 0, y: 0 } },
-        segments: {}
+        segments: {},
+        width: 120
       }
     )
     sceneTreeMock.getElementById.mockReturnValue(element)
-
-    store.updateElement(
-      'vector-1',
-      'points',
-      {},
-      { p1: { x: 12, y: 8 } },
-      { undoable: false }
-    )
-    store.commitPendingComputedDataChanges()
-    await flushScheduledFrame()
-
-    element.getAllComputedData.mockReturnValue({
-      points: { p1: { x: 80, y: 40 } },
-      segments: { s1: { startId: 'p1' } },
-      width: 120
-    })
-    renderMock.updateElement.mockClear()
-    renderMock.requestRender.mockClear()
+    seedStore(store, 'vector-1')
 
     store.updateElement('vector-1', 'width', 120, 160)
     store.commitPendingComputedDataChanges()
     await flushScheduledFrame()
 
-    expect(element.getAllComputedData).toHaveBeenCalledTimes(2)
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(1)
     expect(renderMock.updateElement).toHaveBeenCalledWith(
       'vector-1',
       'computed',
       undefined,
       undefined,
       expect.objectContaining({
-        points: { p1: { x: 80, y: 40 } },
-        segments: { s1: { startId: 'p1' } },
+        points: { p1: { x: 0, y: 0 } },
+        segments: {},
         width: 160
       })
     )
@@ -545,6 +602,7 @@ describe('RenderSceneTree computed data mirror', () => {
       { points: {} }
     )
     sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
 
     store.updateElement(
       'vector-1',
