@@ -145,6 +145,7 @@ test('Scene Tree is canonical and Factory transports ordered changes only', () =
     'packages/reactive-events/src/scene-tree/events.ts',
     'packages/reactive-events/src/scene-tree/publish.ts',
     'packages/reactive-events/src/__tests__/**',
+    'docs/ai/framework/packages/reactive-events.md',
     'packages/scene-tree/src/components/element-change-handler.ts',
     'packages/scene-tree/src/components/element.ts',
     'packages/scene-tree/src/components/computed.ts'
