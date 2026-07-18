@@ -287,6 +287,7 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/render/src/types/render-strategy.ts',
+        'packages/render/src/types/render-strategy.compatibility.ts',
         'packages/render/src/types.ts',
         'packages/render/src/index.ts',
         'packages/render/src/__tests__/**',

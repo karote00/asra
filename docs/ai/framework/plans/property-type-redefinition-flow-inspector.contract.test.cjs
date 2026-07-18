@@ -160,6 +160,11 @@ test('render and UI consumers are typed, explicit, and remain downstream', () =>
   assert.match(renderContract, /strategy alone decides/i)
   assert.match(renderContract, /Pixi or concrete render-engine types/i)
   assert.match(renderContract, /fallback geometry/i)
+  assert.ok(
+    render.implementationBoundary.includes(
+      'packages/render/src/types/render-strategy.compatibility.ts'
+    )
+  )
 
   assert.equal(ui.ownerPackage, '@asyra/ui-context')
   assert.match(uiContract, /app-declared element data type/i)
