@@ -246,11 +246,13 @@ describe('Render', () => {
     expect(recreatedNode).not.toBe(initialNode)
     expect(recreatedNode?.getEngineHandle()).not.toBe(initialHandle)
     expect(
-      secondEngine.getOperations().some(
-        (operation) =>
-          operation.type === 'create-object' &&
-          operation.command.requestId === initialData.id
-      )
+      secondEngine
+        .getOperations()
+        .some(
+          (operation) =>
+            operation.type === 'create-object' &&
+            operation.command.requestId === initialData.id
+        )
     ).toBe(true)
 
     lifecycleRender.dispose()
@@ -271,9 +273,7 @@ describe('Render', () => {
       .getOperations()
       .slice(resetStartIndex)
       .flatMap((operation) =>
-        operation.type === 'update-object'
-          ? [operation.command.properties]
-          : []
+        operation.type === 'update-object' ? [operation.command.properties] : []
       )
     expect(resetProperties).toContainEqual({ label: '' })
     expect(resetProperties).toContainEqual({ x: 0 })
