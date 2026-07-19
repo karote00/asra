@@ -490,6 +490,39 @@ describe('RenderSceneTree computed data mirror', () => {
     )
   })
 
+  it('should run: compare enumerable named own properties on arrays', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const cachedSamples = Object.assign([123], { source: 'cached' })
+    const suppliedBefore = Object.assign([123], { source: 'stale' })
+    const canonicalSamples = Object.assign([456], { source: 'canonical' })
+    const element = createElement(
+      'generic-1',
+      { type: 'generic', visible: true },
+      { samples: cachedSamples }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'generic-1')
+    element.getAllComputedData.mockReturnValue({
+      samples: canonicalSamples
+    })
+
+    const outcome = store.updateElement(
+      'generic-1',
+      'computed',
+      'samples',
+      suppliedBefore,
+      [456],
+      { undoable: false }
+    )
+
+    expect(outcome).toEqual({ status: 'resynced', elementId: 'generic-1' })
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(2)
+    expect(renderMock.addElement).toHaveBeenCalledWith(
+      expect.objectContaining({ samples: canonicalSamples })
+    )
+  })
+
   it('should run: reject a scalar without declared owner provenance', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()

@@ -130,17 +130,18 @@ const isDataEqual = (
     if (pairStatus !== 'new') {
       return pairStatus === 'equal'
     }
-    for (let index = 0; index < left.length; index += 1) {
-      const leftHasIndex = Object.prototype.hasOwnProperty.call(left, index)
-      const rightHasIndex = Object.prototype.hasOwnProperty.call(right, index)
-      if (
-        leftHasIndex !== rightHasIndex ||
-        (leftHasIndex && !isDataEqual(left[index], right[index], comparedPairs))
-      ) {
-        return false
-      }
+    const leftKeys = Object.keys(left)
+    const rightKeys = Object.keys(right)
+    if (leftKeys.length !== rightKeys.length) {
+      return false
     }
-    return true
+    const leftRecord = left as unknown as Record<string, unknown>
+    const rightRecord = right as unknown as Record<string, unknown>
+    return leftKeys.every(
+      (key) =>
+        hasOwn(rightRecord, key) &&
+        isDataEqual(leftRecord[key], rightRecord[key], comparedPairs)
+    )
   }
   if (!isRecord(left) || !isRecord(right)) {
     return false
