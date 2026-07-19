@@ -198,6 +198,12 @@ test('opt-in composition owns the disabled and provider-less cases', () => {
       'packages/collaboration/src/__tests__/collaboration-disabled.test.ts'
     )
   )
+  assert.ok(
+    step('compose-collaboration-opt-in').implementationBoundary.includes(
+      'docs/ai/framework/packages/collaboration.md'
+    ),
+    'public collaboration composition requires a package contract'
+  )
 })
 
 test('local timeline preserves Factory transaction ownership and formal compensation', () => {

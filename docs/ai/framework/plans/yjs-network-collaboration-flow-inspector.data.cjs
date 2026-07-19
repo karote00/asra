@@ -62,6 +62,13 @@
         'packages/collaboration/src/types.ts',
         'packages/collaboration/src/__tests__/collaboration-disabled.test.ts',
         'docs/examples/yjs-network-collaboration.mjs',
+        'docs/ai/framework/packages/collaboration.md',
+        'docs/ai/framework/packages/README.md',
+        'docs/ai/framework/API_SURFACES.md',
+        'docs/ai/framework/ARCHITECTURE.md',
+        'docs/ai/framework/RUNTIME_MATRICES.md',
+        'docs/ai/framework/CONSTRAINTS.md',
+        'docs/ai/framework/packages/factory.md',
         'yarn.lock'
       ],
       specRefs: [
