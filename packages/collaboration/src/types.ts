@@ -15,6 +15,11 @@ export type CollaborationPermissionPolicy = (
 
 export type CollaborationFactory = Pick<Factory, 'subscribeToSharedDelivery'>
 
+export interface CollaborationLifecycleResource {
+  destroy?: () => void | Promise<void>
+  dispose?: () => void | Promise<void>
+}
+
 export interface CollaborationCompositionInput<
   TOperationDefinition = unknown,
   TPermissionPolicy extends CollaborationPermissionPolicy = CollaborationPermissionPolicy,
@@ -58,3 +63,14 @@ export interface CollaborationComposition<
   readonly connectionMetadata?: Readonly<Record<string, unknown>>
   readonly resourceOwnership: Readonly<CollaborationResourceOwnershipMap>
 }
+
+export type CollaborationInstanceCompositionInput<
+  TOperationDefinition = unknown
+> = CollaborationCompositionInput<
+  TOperationDefinition,
+  CollaborationPermissionPolicy,
+  CollaborationLifecycleResource,
+  import('yjs').Doc,
+  CollaborationLifecycleResource,
+  CollaborationLifecycleResource
+>

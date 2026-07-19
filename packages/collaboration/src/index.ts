@@ -1,10 +1,15 @@
 import type {
   CollaborationComposition,
   CollaborationCompositionInput,
+  CollaborationInstanceCompositionInput,
   CollaborationPermissionPolicy,
   CollaborationResourceOwnership,
   CollaborationResourceOwnershipMap
 } from './types'
+import {
+  CollaborationInstance,
+  createCollaboration as createCollaborationInstance
+} from './collaboration-instance'
 
 const requireIdentity = (name: string, value: string): string => {
   if (!value.trim()) {
@@ -112,10 +117,23 @@ export const defineCollaborationComposition = <
   })
 }
 
+export const createCollaboration = <TOperationDefinition = unknown>(
+  input: CollaborationInstanceCompositionInput<TOperationDefinition>
+): CollaborationInstance<TOperationDefinition> =>
+  createCollaborationInstance(input, defineCollaborationComposition)
+
+export { AwarenessRuntime } from './awareness'
+export {
+  CollaborationDisposalError,
+  CollaborationInstance
+} from './collaboration-instance'
+
 export type {
   CollaborationComposition,
   CollaborationCompositionInput,
   CollaborationFactory,
+  CollaborationInstanceCompositionInput,
+  CollaborationLifecycleResource,
   CollaborationPermissionPolicy,
   CollaborationResourceOwnership,
   CollaborationResourceOwnershipMap
