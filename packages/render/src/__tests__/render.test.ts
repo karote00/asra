@@ -335,9 +335,9 @@ describe('Render', () => {
     expect(teardownRender.getElementById('teardown-retry-element')).toBe(node)
     expect(node?.getEngineHandle()).toBe(initialHandle)
     expect(
-      teardownEngine.getOperations().some((operation) =>
-        operation.type === 'destroy'
-      )
+      teardownEngine
+        .getOperations()
+        .some((operation) => operation.type === 'destroy')
     ).toBe(false)
 
     expect(() => teardownRender.dispose()).not.toThrow()
