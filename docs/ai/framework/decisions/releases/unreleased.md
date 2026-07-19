@@ -1596,3 +1596,34 @@ unregister -> app migration -> core.start()` as the public app route.
   - `docs/ai/framework/plans/app-level-migration-flow-inspector.data.cjs`
 - Related Commit(s):
   - pending local contract-correction commit
+
+## 2026-07-19 - Confirm app-level migration Gate 1 closeout
+
+- Context:
+  - PR #90 merged the app-level migration formalization and its corrected
+    connected-dispatch semantics into `main` at `19bbe2c51`.
+  - The completed plan record, dedicated Inspector, public contracts, reusable
+    example, and formal tests now describe the same app-owned version-chain and
+    framework-owned load orchestration boundary.
+  - The user explicitly authorized final closeout after that merge.
+- Decision:
+  - Confirm Framework Release Gate 1 as closed without creating a second plan
+    record or moving schema-history ownership into framework packages.
+  - Retain the completed plan at its canonical completed path and keep Gate 1
+    absent from `PLANS.md`.
+  - Keep Framework Release Gate 2 as the next gate. This closeout does not start
+    its implementation; its product contract and dedicated Inspector must pass
+    readiness first.
+- Consequences:
+  - The final Gate 1 contract is the single synchronous direct/provider load
+    flow shipped by PR #90: raw input, the app-owned connected migration
+    dispatcher and any later hooks, mandatory package validation/fallback,
+    atomic canonical apply, then observational diagnostics.
+  - No production behavior changes are required by this closeout record.
+  - This closeout does not authorize merge, release, tag, or publication.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/props-manager-app-level-migration-plan.md`
+  - `docs/ai/framework/plans/app-level-migration-flow-inspector.data.cjs`
+  - `docs/ai/framework/PLANS.md`
+- Related Commit(s):
+  - `19bbe2c51` (`feat(framework): formalize connected app migrations`, PR #90)

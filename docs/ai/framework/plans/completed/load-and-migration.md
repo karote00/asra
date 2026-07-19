@@ -9,7 +9,8 @@
 
 ## 2. App-level migration pipeline formalization
 
-- Completed on July 19, 2026 as Framework Release Gate 1.
+- Completed on July 19, 2026 as Framework Release Gate 1; final closeout was
+  confirmed after the connected-dispatch contract shipped in PR #90.
 - Apps own one connected linear migration chain, its domain transforms, and one
   conditional dispatcher. The dispatcher follows matching current-version
   transitions and passes an unmatched version through unchanged. Core retains
