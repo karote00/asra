@@ -44,6 +44,9 @@ packages/props-manager/src/
 - schema value kinds remain disjoint: `object` accepts `null` or a non-array
   object, while arrays require `array`
 - manager-level `validateLoadData(...)` skips malformed entries before component creation
+- `validateLoadData(...)` returns an owner-issued, instance-bound, one-shot
+  artifact; `applyValidatedLoad(...)` accepts only that complete artifact and
+  does not rerun validation
 
 3. Change tracking
 
@@ -53,7 +56,8 @@ packages/props-manager/src/
 
 4. Load state application
 
-- `load(...)` is replace-style (clears previous runtime maps, then applies validated data)
+- `load(...)` remains the raw convenience facade and delegates to
+  validate-then-artifact-apply; artifact apply is replace-style
 
 5. Registration lifecycle
 

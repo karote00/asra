@@ -13,6 +13,11 @@ export type {
   LoadValidationDiagnostic,
   LoadValidationScope
 } from './load-validation'
+export {
+  LOAD_HOOK_EXECUTION_ERROR_CODES,
+  LoadHookExecutionError
+} from './load-migration'
+export type { LoadHookExecutionErrorCode } from './load-migration'
 
 export {
   PropertyOwnerRef,

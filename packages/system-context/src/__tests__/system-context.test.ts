@@ -220,6 +220,83 @@ describe('SystemContext', () => {
     ])
   })
 
+  it('separates managed-property load validation from canonical apply', () => {
+    systemContext.registerProperty('zoom', 100, { runtime: false })
+    systemContext.registerProperty('pathEditingVectorId', '', {
+      runtime: false
+    })
+    const validation = systemContext.validateManagedProperties({
+      zoom: 240,
+      pathEditingVectorId: 123,
+      unknownKey: true
+    })
+
+    expect(validation.data).toEqual({ zoom: 240 })
+    expect(validation.diagnostics.map((item) => item.path)).toEqual([
+      'systemContext.pathEditingVectorId',
+      'systemContext.unknownKey'
+    ])
+    expect(systemContext.getManagedProperty('zoom')).toBe(100)
+    expect(systemContext.getManagedProperty('pathEditingVectorId')).toBe('')
+
+    systemContext.applyValidatedManagedProperties(validation)
+
+    expect(systemContext.getManagedProperty('zoom')).toBe(240)
+    expect(systemContext.getManagedProperty('pathEditingVectorId')).toBe('')
+  })
+
+  it('does not rerun managed-property validators while applying validated data', () => {
+    let validationCalls = 0
+    systemContext.registerProperty('zoom', 100, {
+      runtime: false,
+      validate: (value): value is number => {
+        validationCalls += 1
+        return validationCalls === 1 && typeof value === 'number'
+      }
+    })
+
+    const validation = systemContext.validateManagedProperties({ zoom: 240 })
+
+    expect(validation.data).toEqual({ zoom: 240 })
+    expect(validationCalls).toBe(1)
+
+    systemContext.applyValidatedManagedProperties(validation)
+
+    expect(validationCalls).toBe(1)
+    expect(systemContext.getManagedProperty('zoom')).toBe(240)
+  })
+
+  it('rejects fabricated, foreign, and reused managed-property artifacts', () => {
+    systemContext.registerProperty('zoom', 100, { runtime: false })
+    const validation = systemContext.validateManagedProperties({ zoom: 240 })
+    const foreignState = new ManagedPropertyState()
+    const foreignContext = new SystemContext({
+      managedPropertyState: foreignState
+    })
+    foreignContext.registerProperty('zoom', 100, { runtime: false })
+    const forged = {
+      data: { zoom: 'invalid' },
+      diagnostics: validation.diagnostics
+    }
+
+    validation.data.zoom = 'invalid-after-validation'
+
+    expect(() =>
+      foreignContext.applyValidatedManagedProperties(validation)
+    ).toThrow(/owner-issued.*artifact/i)
+    expect(() =>
+      systemContext.applyValidatedManagedProperties(forged as typeof validation)
+    ).toThrow(/owner-issued.*artifact/i)
+    expect(systemContext.getManagedProperty('zoom')).toBe(100)
+
+    systemContext.applyValidatedManagedProperties(validation)
+
+    expect(systemContext.getManagedProperty('zoom')).toBe(240)
+    expect(() =>
+      systemContext.applyValidatedManagedProperties(validation)
+    ).toThrow(/owner-issued.*artifact/i)
+  })
+
   it('saveManagedProperties should serialize registered values as plain object data', () => {
     systemContext.registerProperty('zoom', 100, { runtime: false })
     systemContext.registerProperty('pathEditingVectorId', '', {

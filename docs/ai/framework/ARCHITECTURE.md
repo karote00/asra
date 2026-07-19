@@ -217,9 +217,36 @@ applyPreset(core, { profile?, defaults? })
 ## Persistence and Loading
 
 - Core orchestrates save/load and load hooks.
-- App-level migrations run before package-level validation.
-- Package validators apply fallback/reject semantics.
-- Optional diagnostics can be emitted after validation without blocking load.
+- The first instance-local app load hook receives the raw document before Core
+  normalization. Direct `core.load(...)`, provider load results, and hook input
+  remain `unknown` until app eligibility logic narrows them; synchronous hooks
+  run in registration order and each result must satisfy
+  `VersionedLoadDocument`. Package fields remain raw until owner validation.
+- Core snapshots the instance-local hook registry at load start; registration
+  during a hook cannot extend the in-flight chain.
+- App-level migrations and version eligibility run before package-level
+  validation. App code owns its connected linear migration chain, domain
+  transforms, and one conditional dispatcher. The dispatcher repeatedly follows
+  only the current document version; when no matching version exists, the
+  document continues unchanged to Core normalization and package validation.
+  One app helper module installs at most one non-empty dispatcher per Core
+  instance; its app-owned installation guard is instance-isolated and is not a
+  Core schema-history registry.
+  Core owns ordered hook invocation and stable invalid/Promise-result failures
+  only, never app target-version policy. Core contains an eventual rejected hook
+  Promise after reporting the one synchronous unsupported-async failure.
+- Props Manager, Scene Tree, and System Context each own their validation and
+  fallback result. Core obtains all three results before changing the document
+  version or applying any package state. Each result is an owner-issued,
+  instance-bound, one-shot apply artifact; package apply consumes the complete
+  artifact without validator replay. A validation failure applies no canonical
+  prefix.
+- Optional diagnostics are emitted only after successful canonical apply. Each
+  hook receives detached validation/apply-input evidence plus applied
+  managed-system serialization. The evidence is not a canonical state artifact
+  or state owner. Evidence is assembled only when diagnostics and an observer
+  exist; assembly, mutation, or hook failure cannot change migration,
+  validation, apply, load success, or later current diagnostic hooks.
 - Committed action, undo, and redo outcomes capture their persistence snapshot
   at commit time, deeply detach it from live mutable references, then enter a
   serial provider-I/O queue.
@@ -251,7 +278,8 @@ applyPreset(core, { profile?, defaults? })
 
 The first public framework release is gated, in order, by:
 
-1. app-level migration pipeline formalization and closeout;
+1. app-level migration pipeline formalization and closeout (completed July 19,
+   2026);
 2. optional-at-runtime Yjs network collaboration and conflict-policy foundation;
 3. canonical Group hierarchy behaviors plus Preset basic operations;
 4. optional AI agent runtime with replaceable provider and app-owned actions;
@@ -260,6 +288,8 @@ The first public framework release is gated, in order, by:
 Auto-layout, its unit/UI aggregation family, and production `3D`/`HYBRID`
 remain post-release Roadmap capabilities. Detailed scope and status are owned by
 `PLANS.md`; this sequence does not claim that an unclosed gate is implemented.
+Framework Release Gate 2 is now the next gate, but its implementation remains
+blocked until its product contract and dedicated Inspector pass readiness.
 
 ## Package Deep Dives
 

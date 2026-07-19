@@ -23,10 +23,27 @@ export interface PropsLoadDiagnostic {
   message: string
 }
 
+export interface PropsLoadValidationResult {
+  data: PropsComponentRawData
+  diagnostics: PropsLoadDiagnostic[]
+}
+
+const cloneLoadData = (data: PropsComponentRawData): PropsComponentRawData => {
+  if (typeof globalThis.structuredClone === 'function') {
+    return globalThis.structuredClone(data)
+  }
+
+  return JSON.parse(JSON.stringify(data)) as PropsComponentRawData
+}
+
 class PropsManager {
   _components: Map<string, PropertyComponentInstanceTypes> = new Map()
   _deletedMap: Map<string, PropertyComponentInstanceTypes> = new Map()
   changes: PropsChange[] = []
+  private validatedLoadArtifacts = new WeakMap<
+    PropsLoadValidationResult,
+    PropsComponentRawData
+  >()
 
   constructor() {
     setComponentAccessor({
@@ -39,10 +56,20 @@ class PropsManager {
     })
   }
 
-  validateLoadData(data: unknown): {
-    data: PropsComponentRawData
+  private createLoadValidationResult(
+    data: PropsComponentRawData,
     diagnostics: PropsLoadDiagnostic[]
-  } {
+  ): PropsLoadValidationResult {
+    const validatedSnapshot = cloneLoadData(data)
+    const result = {
+      data: cloneLoadData(validatedSnapshot),
+      diagnostics
+    }
+    this.validatedLoadArtifacts.set(result, validatedSnapshot)
+    return result
+  }
+
+  validateLoadData(data: unknown): PropsLoadValidationResult {
     const diagnostics: PropsLoadDiagnostic[] = []
     const sanitized: PropsComponentRawData = {}
 
@@ -51,7 +78,7 @@ class PropsManager {
         path: 'props',
         message: 'Expected object map for props data'
       })
-      return { data: sanitized, diagnostics }
+      return this.createLoadValidationResult(sanitized, diagnostics)
     }
 
     Object.entries(data).forEach(([componentId, rawComponent]) => {
@@ -91,11 +118,17 @@ class PropsManager {
       } as PropertyComponentRawData
     })
 
-    return { data: sanitized, diagnostics }
+    return this.createLoadValidationResult(sanitized, diagnostics)
   }
 
-  load(data: PropsComponentRawData | unknown) {
-    const validated = this.validateLoadData(data).data
+  applyValidatedLoad(result: PropsLoadValidationResult): void {
+    const validated = this.validatedLoadArtifacts.get(result)
+    if (!validated) {
+      throw new Error(
+        '[PropsManager] Expected an owner-issued one-shot validated load artifact'
+      )
+    }
+    this.validatedLoadArtifacts.delete(result)
     this.dispose()
 
     Object.keys(validated).forEach((componentId) => {
@@ -104,6 +137,11 @@ class PropsManager {
       ) as PropertyComponentInstanceTypes
       this.addToMap(newProperty)
     })
+  }
+
+  load(data: PropsComponentRawData | unknown) {
+    const result = this.validateLoadData(data)
+    this.applyValidatedLoad(result)
   }
 
   save(): PropsComponentRawData {

@@ -80,7 +80,7 @@ Use this file to route a new framework request to the right docs first.
   - `rules/load-validation-and-migration.md`
   - `packages/props-manager.md`
   - `PLANS.md`
-  - `plans/props-manager-app-level-migration-plan.md`
+  - `plans/completed/props-manager-app-level-migration-plan.md`
   - `plans/completed/*` (for completed migration/validation history)
   - `decisions/releases/*` (for release-scoped rationale history)
 

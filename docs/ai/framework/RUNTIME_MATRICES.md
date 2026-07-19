@@ -105,9 +105,19 @@ Intent path:
 State-application path:
 
 1. load, undo/redo replay, or future remote change input arrives
-2. migration/validation/conflict/origin checks run as applicable
-3. apply APIs update the authoritative state owner
-4. render/ui-context and other projections react to state
+2. app migration/conflict/origin checks run as applicable
+3. every affected package owner completes validation/fallback before apply
+4. apply APIs update the authoritative state owner
+5. render/ui-context and other projections react to state
+
+Load-specific ordering:
+
+1. Core receives direct or provider data
+2. instance-local app load hooks complete
+3. Props Manager, Scene Tree, and System Context validation results complete
+4. Core returns each complete owner-issued one-shot artifact to its package
+   apply facade without validator replay
+5. Core emits detached diagnostics observations
 
 ## Compatibility Matrix
 

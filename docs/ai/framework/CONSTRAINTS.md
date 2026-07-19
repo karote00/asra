@@ -51,7 +51,13 @@
 3. Validation diagnostics
 
 - Package validation is active, and core can emit cross-package load diagnostics via hook.
-- Diagnostics are non-blocking and focused on load-time fallback/reject visibility.
+- Diagnostics are non-blocking and focused on load-time fallback/reject
+  visibility. They receive detached post-apply validation/apply-input evidence,
+  including applied managed-system serialization; the evidence is not a
+  canonical state artifact or state owner. Mutation or throw cannot repair,
+  replace, or fail canonical load state. Evidence assembly is lazy and
+  contained: no diagnostics or no observer performs no assembly, and assembly
+  failure skips emission without changing load success.
 
 4. Registry consistency
 
@@ -108,6 +114,33 @@
 - App-owned registered actions and ordinary transaction/validation/state paths
   remain authoritative; model output is never canonical scene state.
 - See `plans/ai-agent-runtime-plan.md`.
+
+11. App-level migration hooks
+
+- Core load and `registerLoadHook` are synchronous after provider I/O resolves.
+- Promise-returning hooks are unsupported and fail before validation/apply;
+  Core contains their eventual rejection behind the synchronous
+  `ASYNC_UNSUPPORTED` failure. Asynchronous preparation belongs in the
+  persistence provider or another app-owned pre-load input boundary.
+- Direct and provider load results remain raw `unknown` input until app hook
+  logic narrows version eligibility; every successful hook still returns a
+  `VersionedLoadDocument`. Package fields are not trusted until the complete
+  chain reaches package-owner validation.
+- Core snapshots instance-local load hooks before execution; a registration
+  created inside a hook is deferred to the next load.
+- Package validation results are owner-issued, instance-bound, one-shot
+  artifacts. Canonical apply accepts no plain/foreign/reused result and never
+  reruns package validators.
+- Apps own one connected linear migration chain, its domain transforms, and its
+  conditional dispatcher. Version ids may be non-contiguous, but registration
+  must reject an incomplete or sparse batch, disconnected component, branch,
+  merge, duplicate source/target, self-transition, or cycle before installing
+  the dispatcher. A document with no matching version passes through unchanged;
+  Framework packages do not contain app schema history or enforce an app
+  target-version policy.
+- One app helper module cannot split one migration history across repeated
+  non-empty registrations on the same Core instance. Empty batches do not claim
+  the app-owned installation slot, and separate Core instances remain isolated.
 
 ## Documentation Rule
 

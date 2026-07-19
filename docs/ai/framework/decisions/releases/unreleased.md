@@ -1505,3 +1505,94 @@ unregister -> app migration -> core.start()` as the public app route.
   - `docs/ai/framework/plans/auto-layout-behavior-engine-plan.md`
 - Related Commit(s):
   - pending
+
+## 2026-07-19 - Formalize app-level migration and close Framework Release Gate 1
+
+- Context:
+  - The Gate 1 audit began from PR #89 merged into the latest `main` and
+    confirmed that Core already provided `registerLoadHook(...)`, ordered load
+    hooks, package validation before canonical apply, provider/direct load
+    convergence, and observational load diagnostics.
+  - Formal Inspector routes and regression tests exposed bounded gaps in raw
+    input semantics, async-result rejection, validation artifact authority,
+    diagnostics containment, and instance isolation. They did not justify a
+    second migration pipeline or a framework-owned app schema history.
+- Decision:
+  - Close Framework Release Gate 1 and archive its product contract at the
+    completed canonical path.
+  - Keep apps as owners of document versions and domain `vN -> vN+1`
+    transforms. Keep Core as owner only of hook orchestration, package
+    validation/fallback, canonical apply ordering, and observational
+    diagnostics.
+  - Keep one synchronous load pipeline for direct `core.load(...)` and
+    persistence-provider loads: nullish bypass or raw document, ordered app
+    hooks, all package validation, canonical apply, then diagnostics.
+- Consequences:
+  - Public `VersionedLoadDocument` and stable load-hook failures define the
+    synchronous boundary; Promise-like and structurally invalid hook results
+    fail before package validation or partial canonical apply.
+  - Owner-issued, instance-bound validation artifacts prevent forged,
+    cross-instance, reused, or post-validation-mutated results from bypassing
+    package validation. Hook and diagnostics registrations remain isolated per
+    Core instance.
+  - Diagnostics evidence is detached, lazily assembled only after successful
+    canonical apply, and fully failure-contained; it cannot change migration,
+    validation, or apply outcomes.
+  - No app-specific version branch, UI migration authority, duplicate state
+    owner, or compatibility fallback was added to framework packages.
+  - Release Gate 2 (Yjs) is next in sequence but may begin implementation only
+    after its own product contract and Inspector pass readiness review. This
+    closeout does not authorize push, pull request creation, merge, release, or
+    publication.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/props-manager-app-level-migration-plan.md`
+  - `docs/ai/framework/plans/app-level-migration-flow-inspector.data.cjs`
+  - `docs/ai/framework/PLANS.md`
+- Related Commit(s):
+  - pending local closeout commit
+
+## 2026-07-19 - Correct app-level migration dispatch semantics
+
+- Context:
+  - A later product-contract review clarified that independent app migration
+    steps are not an unconditional Core hook queue and that version identifiers
+    need not be numerically adjacent.
+  - Rejecting an otherwise well-formed document only because its string version
+    had no registered transition hid app compatibility behavior that should
+    remain visible to the app and its package validators.
+- Decision:
+  - Keep app schema history outside framework packages. Validate one complete
+    app-owned batch as a connected linear migration chain with one head and one
+    tail, allowing opaque non-contiguous version identifiers but rejecting
+    incomplete or sparse batches, disconnected components, branches, merges,
+    duplicate sources/targets, self-transitions, and cycles before Core
+    registration.
+  - Compile the batch into one synchronous app dispatcher registered through
+    `core.registerLoadHook(...)`. For each matched current version, run exactly
+    that transform, require its declared target version, and continue lookup on
+    the returned document without recursively entering `core.load(...)`.
+  - Permit one non-empty helper installation per Core instance. Reject a second
+    non-empty registration before adding another hook so app schema history
+    cannot be split across dispatchers. Empty batches do not claim the slot;
+    the instance-isolated guard remains app-owned rather than becoming a Core
+    schema registry.
+  - Treat no matching version as normal migration termination and pass the
+    document unchanged to Core normalization and mandatory package validation.
+    Keep missing-version eligibility, thrown transforms, invalid transform
+    results, and asynchronous transform results as app-owned migration failures.
+- Consequences:
+  - A document can begin at any registered point and runs only the remaining
+    suffix; an already-terminal, unknown, or future string version runs no
+    transform and remains observable by normal app/package behavior.
+  - The app dispatcher contains rejected transform Promises and reports stable
+    invalid/asynchronous app migration errors before package validation. Core's
+    existing hook ordering, direct/provider parity, validation/apply atomicity,
+    diagnostics containment, and instance isolation remain unchanged.
+  - This contract correction does not perform a closeout, change any release
+    gate state, start Release Gate 2, or authorize push, pull request, merge, or
+    publication. Those actions remain subject to explicit user direction.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/props-manager-app-level-migration-plan.md`
+  - `docs/ai/framework/plans/app-level-migration-flow-inspector.data.cjs`
+- Related Commit(s):
+  - pending local contract-correction commit

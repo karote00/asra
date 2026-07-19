@@ -67,6 +67,10 @@ import type {
   LoadDiagnosticsHook,
   LoadValidationDiagnostic
 } from './types/load-validation'
+import {
+  LOAD_HOOK_EXECUTION_ERROR_CODES,
+  LoadHookExecutionError
+} from './types/load-migration'
 import type { DataChannelObserverRegistration } from './data-channel-observer'
 import * as dataChannelObserver from './data-channel-observer'
 import {
@@ -146,6 +150,14 @@ const clonePersistenceSnapshot = (data: CoreRawData): CoreRawData => {
   }
 
   return JSON.parse(JSON.stringify(data)) as CoreRawData
+}
+
+const cloneLoadObservation = <T>(value: T): T => {
+  if (typeof globalThis.structuredClone === 'function') {
+    return globalThis.structuredClone(value)
+  }
+
+  return JSON.parse(JSON.stringify(value)) as T
 }
 
 class Core implements CoreAPIs {
@@ -372,8 +384,8 @@ class Core implements CoreAPIs {
   }
 
   /**
-   * Register a hook to transform data after loading
-   * @param hook - Function that receives and returns CoreData
+   * Register an app-owned hook in the synchronous load-migration chain.
+   * @param hook - Function that receives raw input and returns a versioned document
    */
   registerLoadHook(hook: LoadHook): void {
     this.loadHooks.push(hook)
@@ -554,9 +566,7 @@ class Core implements CoreAPIs {
     }
 
     const data = await this.persistence.load()
-    if (data) {
-      this.applyLoadedData(data)
-    }
+    this.load(data)
   }
 
   registerEvent<TPayload = unknown, TOptions = unknown>(
@@ -1594,8 +1604,8 @@ class Core implements CoreAPIs {
     })
   }
 
-  load(data: CoreRawData): void {
-    if (!data) {
+  load(data: unknown): void {
+    if (data == null) {
       return
     }
 
@@ -1685,10 +1695,29 @@ class Core implements CoreAPIs {
     return normalized
   }
 
-  private runLoadHooks(data: CoreRawData): CoreRawData {
+  private runLoadHooks(data: unknown): unknown {
     let nextData = data
-    for (const hook of this.loadHooks) {
-      nextData = hook(nextData)
+    const loadHooks = [...this.loadHooks]
+    for (const [hookIndex, hook] of loadHooks.entries()) {
+      const result: unknown = hook(nextData)
+      if (
+        isRecord(result) &&
+        'then' in result &&
+        typeof result.then === 'function'
+      ) {
+        void Promise.resolve(result).catch(() => undefined)
+        throw new LoadHookExecutionError(
+          LOAD_HOOK_EXECUTION_ERROR_CODES.ASYNC_UNSUPPORTED,
+          hookIndex
+        )
+      }
+      if (!isRecord(result) || typeof result.version !== 'string') {
+        throw new LoadHookExecutionError(
+          LOAD_HOOK_EXECUTION_ERROR_CODES.INVALID_RESULT,
+          hookIndex
+        )
+      }
+      nextData = result
     }
 
     return nextData
@@ -1697,16 +1726,11 @@ class Core implements CoreAPIs {
   private applyLoadedData(rawData: unknown): void {
     const diagnostics: LoadValidationDiagnostic[] = []
 
-    const normalizedInput = this.normalizeLoadData(
-      rawData,
-      diagnostics,
-      'core.input'
-    )
-    const migrated = this.runLoadHooks(normalizedInput)
+    const migrated = this.runLoadHooks(rawData)
     const normalizedAfterHooks = this.normalizeLoadData(
       migrated,
       diagnostics,
-      'core.hooks'
+      this.loadHooks.length > 0 ? 'core.hooks' : 'core.input'
     )
 
     const propsValidation = this.deps.props.validateLoadData(
@@ -1731,25 +1755,25 @@ class Core implements CoreAPIs {
       }))
     )
 
-    this.version = normalizedAfterHooks.version
-    this.deps.props.load(propsValidation.data)
-    this.deps.sceneTree.load(sceneValidation.data)
-
-    const systemDiagnostics = this.deps.systemContext.loadManagedProperties(
+    const systemValidation = this.deps.systemContext.validateManagedProperties(
       normalizedAfterHooks.systemContext
     )
     diagnostics.push(
-      ...systemDiagnostics.map((item) => ({
+      ...systemValidation.diagnostics.map((item) => ({
         scope: 'system-context' as const,
         path: item.path,
         message: item.message
       }))
     )
 
+    this.version = normalizedAfterHooks.version
+    this.deps.props.applyValidatedLoad(propsValidation)
+    this.deps.sceneTree.applyValidatedLoad(sceneValidation)
+    this.deps.systemContext.applyValidatedManagedProperties(systemValidation)
+
     fileLoadComplete()
 
-    this.emitLoadDiagnostics(
-      diagnostics,
+    this.emitLoadDiagnostics(diagnostics, () =>
       this.composeLoadedData(
         normalizedAfterHooks.version,
         sceneValidation.data,
@@ -1779,15 +1803,27 @@ class Core implements CoreAPIs {
 
   private emitLoadDiagnostics(
     diagnostics: LoadValidationDiagnostic[],
-    data: CoreRawData
+    createData: () => CoreRawData
   ): void {
-    if (diagnostics.length === 0 || this.loadDiagnosticsHooks.length === 0) {
+    const hooks = [...this.loadDiagnosticsHooks]
+    if (diagnostics.length === 0 || hooks.length === 0) {
       return
     }
 
-    this.loadDiagnosticsHooks.forEach((hook) => {
-      hook(diagnostics, data)
-    })
+    let data: CoreRawData
+    try {
+      data = createData()
+    } catch {
+      return
+    }
+
+    for (const hook of hooks) {
+      try {
+        hook(cloneLoadObservation(diagnostics), cloneLoadObservation(data))
+      } catch {
+        continue
+      }
+    }
   }
 }
 

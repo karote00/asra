@@ -152,6 +152,19 @@ export interface SceneTreeLoadDiagnostic {
   message: string
 }
 
+export interface SceneTreeLoadValidationResult {
+  data: SceneTreeRawData
+  diagnostics: SceneTreeLoadDiagnostic[]
+}
+
+const cloneLoadData = (data: SceneTreeRawData): SceneTreeRawData => {
+  if (typeof globalThis.structuredClone === 'function') {
+    return globalThis.structuredClone(data)
+  }
+
+  return JSON.parse(JSON.stringify(data)) as SceneTreeRawData
+}
+
 const toStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) {
     return []
@@ -166,6 +179,10 @@ class SceneTree {
   workspace: string = ''
   workspaceList: string[] = []
   changes: SceneTreeChange[] = []
+  private validatedLoadArtifacts = new WeakMap<
+    SceneTreeLoadValidationResult,
+    SceneTreeRawData
+  >()
 
   _init(): void {
     if (!this.workspace && !this.workspaceList.length) {
@@ -182,10 +199,20 @@ class SceneTree {
     this._init()
   }
 
-  validateLoadData(data: unknown): {
-    data: SceneTreeDataType
+  private createLoadValidationResult(
+    data: SceneTreeRawData,
     diagnostics: SceneTreeLoadDiagnostic[]
-  } {
+  ): SceneTreeLoadValidationResult {
+    const validatedSnapshot = cloneLoadData(data)
+    const result = {
+      data: cloneLoadData(validatedSnapshot),
+      diagnostics
+    }
+    this.validatedLoadArtifacts.set(result, validatedSnapshot)
+    return result
+  }
+
+  validateLoadData(data: unknown): SceneTreeLoadValidationResult {
     const diagnostics: SceneTreeLoadDiagnostic[] = []
     const fallback: SceneTreeDataType = {
       workspace: '',
@@ -198,7 +225,7 @@ class SceneTree {
         path: 'sceneTree',
         message: 'Expected object payload for scene tree load'
       })
-      return { data: fallback, diagnostics }
+      return this.createLoadValidationResult(fallback, diagnostics)
     }
 
     const workspace = typeof data.workspace === 'string' ? data.workspace : ''
@@ -329,18 +356,24 @@ class SceneTree {
       })
     }
 
-    return {
-      data: {
+    return this.createLoadValidationResult(
+      {
         workspace,
         workspaceList,
         elements
       },
       diagnostics
-    }
+    )
   }
 
-  load(data: SceneTreeDataType | unknown) {
-    const validated = this.validateLoadData(data).data
+  applyValidatedLoad(result: SceneTreeLoadValidationResult): void {
+    const validated = this.validatedLoadArtifacts.get(result)
+    if (!validated) {
+      throw new Error(
+        '[SceneTree] Expected an owner-issued one-shot validated load artifact'
+      )
+    }
+    this.validatedLoadArtifacts.delete(result)
     this.dispose()
 
     for (const elementId in validated.elements) {
@@ -395,6 +428,11 @@ class SceneTree {
     }
 
     this._init()
+  }
+
+  load(data: SceneTreeDataType | unknown) {
+    const result = this.validateLoadData(data)
+    this.applyValidatedLoad(result)
   }
 
   save() {

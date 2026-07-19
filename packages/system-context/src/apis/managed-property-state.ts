@@ -45,6 +45,17 @@ export const createManagedPropertyStateAPIs = (
 
   unregisterProperty: (key: string) => managedPropertyState.unregister(key),
 
+  validateManagedProperties: (data: unknown) => {
+    return managedPropertyState.validateLoadData(data)
+  },
+
+  /** Apply only an artifact returned by validateManagedProperties; validators do not rerun. */
+  applyValidatedManagedProperties: (
+    result: ReturnType<ManagedPropertyState['validateLoadData']>
+  ) => {
+    managedPropertyState.applyValidatedData(result)
+  },
+
   /**
    * Load managed properties with registration/type guards.
    * Unknown keys and invalid values are ignored with diagnostics.

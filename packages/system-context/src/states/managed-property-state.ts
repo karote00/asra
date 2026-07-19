@@ -27,6 +27,26 @@ export interface ManagedPropertyLoadDiagnostic {
   message: string
 }
 
+export interface ManagedPropertyLoadValidationResult {
+  data: Record<string, unknown>
+  diagnostics: ManagedPropertyLoadDiagnostic[]
+}
+
+interface ManagedPropertyValidatedArtifact {
+  data: Record<string, unknown>
+  properties: Map<string, ManagedProperty<unknown>>
+}
+
+const cloneLoadData = (
+  data: Record<string, unknown>
+): Record<string, unknown> => {
+  if (typeof globalThis.structuredClone === 'function') {
+    return globalThis.structuredClone(data)
+  }
+
+  return JSON.parse(JSON.stringify(data)) as Record<string, unknown>
+}
+
 const createValidatorFromDefault = <T>(
   defaultValue: T
 ): ManagedPropertyValidator<T> => {
@@ -67,6 +87,27 @@ const createValidatorFromDefault = <T>(
 
 export class ManagedPropertyState {
   private properties = new Map<string, ManagedProperty<unknown>>()
+  private validatedLoadArtifacts = new WeakMap<
+    ManagedPropertyLoadValidationResult,
+    ManagedPropertyValidatedArtifact
+  >()
+
+  private createLoadValidationResult(
+    data: Record<string, unknown>,
+    diagnostics: ManagedPropertyLoadDiagnostic[],
+    properties: Map<string, ManagedProperty<unknown>>
+  ): ManagedPropertyLoadValidationResult {
+    const validatedSnapshot = cloneLoadData(data)
+    const result = {
+      data: cloneLoadData(validatedSnapshot),
+      diagnostics
+    }
+    this.validatedLoadArtifacts.set(result, {
+      data: validatedSnapshot,
+      properties
+    })
+    return result
+  }
 
   register<T>(
     key: string,
@@ -131,15 +172,17 @@ export class ManagedPropertyState {
     }
   }
 
-  validateLoadData(data: unknown): {
-    data: Record<string, unknown>
-    diagnostics: ManagedPropertyLoadDiagnostic[]
-  } {
+  validateLoadData(data: unknown): ManagedPropertyLoadValidationResult {
     const diagnostics: ManagedPropertyLoadDiagnostic[] = []
     const sanitized: Record<string, unknown> = {}
+    const validatedProperties = new Map<string, ManagedProperty<unknown>>()
 
     if (data === undefined) {
-      return { data: sanitized, diagnostics }
+      return this.createLoadValidationResult(
+        sanitized,
+        diagnostics,
+        validatedProperties
+      )
     }
 
     if (!isRecord(data)) {
@@ -148,7 +191,11 @@ export class ManagedPropertyState {
         path: 'systemContext',
         message: 'Expected object map for managed properties'
       })
-      return { data: sanitized, diagnostics }
+      return this.createLoadValidationResult(
+        sanitized,
+        diagnostics,
+        validatedProperties
+      )
     }
 
     Object.entries(data).forEach(([key, value]) => {
@@ -181,17 +228,42 @@ export class ManagedPropertyState {
       }
 
       sanitized[key] = value
+      validatedProperties.set(key, prop)
     })
 
-    return { data: sanitized, diagnostics }
+    return this.createLoadValidationResult(
+      sanitized,
+      diagnostics,
+      validatedProperties
+    )
+  }
+
+  applyValidatedData(result: ManagedPropertyLoadValidationResult): void {
+    const artifact = this.validatedLoadArtifacts.get(result)
+    if (!artifact) {
+      throw new Error(
+        '[ManagedPropertyState] Expected an owner-issued one-shot validated load artifact'
+      )
+    }
+
+    artifact.properties.forEach((property, key) => {
+      if (this.properties.get(key) !== property) {
+        throw new Error(
+          '[ManagedPropertyState] Expected an owner-issued one-shot validated load artifact with current registrations'
+        )
+      }
+    })
+
+    this.validatedLoadArtifacts.delete(result)
+    Object.entries(artifact.data).forEach(([key, value]) => {
+      artifact.properties.get(key)?.state.next(value)
+    })
   }
 
   load(data: unknown): ManagedPropertyLoadDiagnostic[] {
-    const { data: sanitized, diagnostics } = this.validateLoadData(data)
-    Object.entries(sanitized).forEach(([key, value]) => {
-      this.setIfRegistered(key, value)
-    })
-    return diagnostics
+    const result = this.validateLoadData(data)
+    this.applyValidatedData(result)
+    return result.diagnostics
   }
 
   save(): Record<string, unknown> {
