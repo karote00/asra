@@ -523,6 +523,7 @@
         'packages/collaboration/src/inbound-pipeline.ts',
         'packages/factory/src/factory.ts',
         'packages/factory/src/data-transact.ts',
+        'packages/utils/src/types/transaction.ts',
         'packages/collaboration/src/__tests__/remote-canonical-apply.test.ts'
       ],
       specRefs: [

@@ -267,6 +267,12 @@ test('inbound pipeline orders decode, dedupe, validation, policy, transaction, a
   orderedRouteIds.forEach((id) =>
     assert.ok(data.routes.some((route) => route.id === id), id)
   )
+  assert.ok(
+    step('run-remote-apply-transaction').implementationBoundary.includes(
+      'packages/utils/src/types/transaction.ts'
+    ),
+    'remote transaction origin type owner must be in the implementation boundary'
+  )
 })
 
 test('awareness is a separate ephemeral observational route', () => {
