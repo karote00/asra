@@ -54,12 +54,15 @@ export class CollaborationInstance<TOperationDefinition = unknown> {
   readonly permissionPolicy: CollaborationPermissionPolicy
 
   private readonly composition: InstanceComposition<TOperationDefinition>
-  private readonly disposers: Array<() => void | Promise<void>> = []
+  private readonly disposers: (() => void | Promise<void>)[] = []
   private disposed = false
   private disposePromise: Promise<void> | null = null
 
   constructor(composition: InstanceComposition<TOperationDefinition>) {
-    if (composition.yDoc !== undefined && !(composition.yDoc instanceof Y.Doc)) {
+    if (
+      composition.yDoc !== undefined &&
+      !(composition.yDoc instanceof Y.Doc)
+    ) {
       throw new Error('[collaboration] yDoc must be a Y.Doc')
     }
     this.composition = composition
@@ -71,7 +74,9 @@ export class CollaborationInstance<TOperationDefinition = unknown> {
     this.factory = composition.factory
     this.yDoc = composition.yDoc ?? new Y.Doc()
     this.provider = composition.provider
-    this.awareness = composition.awareness ?? new AwarenessRuntime()
+    this.awareness =
+      composition.awareness ??
+      new AwarenessRuntime({ actorId: composition.actorId })
     this.persistence = composition.persistence
     this.operationDefinitions = composition.operationDefinitions
     this.permissionPolicy = composition.permissionPolicy
