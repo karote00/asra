@@ -42,8 +42,13 @@ interface RenderProjectionOutcome {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
-const hasOwn = (record: Record<string, unknown>, key: string) =>
+const hasOwn = (record: object, key: PropertyKey) =>
   Object.prototype.hasOwnProperty.call(record, key)
+
+const getEnumerableOwnKeys = (value: object): PropertyKey[] =>
+  Reflect.ownKeys(value).filter((key) =>
+    Object.prototype.propertyIsEnumerable.call(value, key)
+  )
 
 const setOwn = (record: object, key: string, value: unknown): void => {
   Object.defineProperty(record, key, {
@@ -130,13 +135,13 @@ const isDataEqual = (
     if (pairStatus !== 'new') {
       return pairStatus === 'equal'
     }
-    const leftKeys = Object.keys(left)
-    const rightKeys = Object.keys(right)
+    const leftKeys = getEnumerableOwnKeys(left)
+    const rightKeys = getEnumerableOwnKeys(right)
     if (leftKeys.length !== rightKeys.length) {
       return false
     }
-    const leftRecord = left as unknown as Record<string, unknown>
-    const rightRecord = right as unknown as Record<string, unknown>
+    const leftRecord = left as unknown as Record<PropertyKey, unknown>
+    const rightRecord = right as unknown as Record<PropertyKey, unknown>
     return leftKeys.every(
       (key) =>
         hasOwn(rightRecord, key) &&

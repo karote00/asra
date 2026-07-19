@@ -523,6 +523,50 @@ describe('RenderSceneTree computed data mirror', () => {
     )
   })
 
+  it('should run: compare enumerable symbol own properties on arrays', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const source = Symbol('sample-source')
+    const createSamples = (value: number, metadata: string) => {
+      const samples = [value]
+      Object.defineProperty(samples, source, {
+        configurable: true,
+        enumerable: true,
+        value: metadata,
+        writable: true
+      })
+      return samples
+    }
+    const cachedSamples = createSamples(123, 'cached')
+    const suppliedBefore = createSamples(123, 'stale')
+    const canonicalSamples = createSamples(456, 'canonical')
+    const element = createElement(
+      'generic-1',
+      { type: 'generic', visible: true },
+      { samples: cachedSamples }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'generic-1')
+    element.getAllComputedData.mockReturnValue({
+      samples: canonicalSamples
+    })
+
+    const outcome = store.updateElement(
+      'generic-1',
+      'computed',
+      'samples',
+      suppliedBefore,
+      [456],
+      { undoable: false }
+    )
+
+    expect(outcome).toEqual({ status: 'resynced', elementId: 'generic-1' })
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(2)
+    expect(renderMock.addElement).toHaveBeenCalledWith(
+      expect.objectContaining({ samples: canonicalSamples })
+    )
+  })
+
   it('should run: reject a scalar without declared owner provenance', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
