@@ -409,6 +409,78 @@ describe('Render', () => {
     hierarchyRender.dispose()
   })
 
+  it('retries a failed child detach before destroying a projected parent', async () => {
+    const retryEngine = new RecordingRenderEngine({
+      name: 'parent-detach-retry'
+    })
+    const retryRender = new Render({ engine: retryEngine })
+    await retryRender.init(100, 100, 0, {})
+    retryRender.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const childData = {
+      id: 'detach-retry-child',
+      parentId: 'detach-retry-parent',
+      type: 'rectangle',
+      name: 'Detach Retry Child',
+      visible: true,
+      lock: false,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const parentData = {
+      id: 'detach-retry-parent',
+      type: 'group',
+      name: 'Detach Retry Parent',
+      visible: true,
+      lock: false,
+      children: ['detach-retry-child']
+    } as unknown as RenderElementData
+    const child = retryRender.addElement(childData)
+    const parent = retryRender.addElement(parentData)
+    if (!child || !parent) {
+      throw new Error('Expected retry parent and child render nodes')
+    }
+    const childHandle = child.getEngineHandle()
+    const parentHandle = parent.getEngineHandle()
+    const originalExecute = retryEngine.execute.bind(retryEngine)
+    let shouldFailDetach = true
+    const executeSpy = vi
+      .spyOn(retryEngine, 'execute')
+      .mockImplementation((command) => {
+        if (
+          command.type === 'remove-child' &&
+          command.child === childHandle &&
+          shouldFailDetach
+        ) {
+          shouldFailDetach = false
+          throw new Error('child detach failed')
+        }
+        return originalExecute(command)
+      })
+
+    expect(() => retryRender.removeElement(parentData.id)).toThrow(
+      'child detach failed'
+    )
+    expect(retryRender.getElementById(parentData.id)).toBe(parent)
+    expect(parent.children).toContain(child)
+    expect(child.parent).toBe(parent)
+    expect(parent.getEngineHandle()).toBe(parentHandle)
+    expect(child.getEngineHandle()).toBe(childHandle)
+
+    expect(() => retryRender.removeElement(parentData.id)).not.toThrow()
+    expect(retryRender.getElementById(parentData.id)).toBeUndefined()
+    expect(parent.getEngineHandle()).toBeNull()
+    expect(child.parent).toBeNull()
+    expect(child.getEngineHandle()).toBe(childHandle)
+    expect(
+      executeSpy.mock.calls.filter(
+        ([command]) =>
+          command.type === 'remove-child' && command.child === childHandle
+      )
+    ).toHaveLength(2)
+
+    retryRender.dispose()
+  })
+
   it('synchronizes hierarchy from complete snapshots without reordering stable siblings', () => {
     render.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
     const firstData = {

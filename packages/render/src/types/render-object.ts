@@ -727,8 +727,8 @@ export class RenderNode {
   removeChild<T extends RenderNode>(child: T): T {
     const index = this.children.indexOf(child)
     if (index >= 0) {
-      this.children.splice(index, 1)
       this.runtime?.removeChild(this, child)
+      this.children.splice(index, 1)
       child.parent = null
     }
     return child
