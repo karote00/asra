@@ -1,5 +1,22 @@
 # AI Agent Runtime Plan
 
+## Status
+
+Framework Release Gate 4: required after the Group hierarchy gate closes and
+before the final release-readiness audit.
+
+The package ships in the first public framework release but remains optional to
+install and activate at app runtime. Before implementation begins, create the
+matching Inspector owner flow for app intent/context, provider request/result,
+Feature System lifecycle, plan validation, permission/confirmation, transaction
+execution, canonical state mutation, collaboration routing, audit output,
+failure, and cleanup.
+
+Release inclusion requires at least one production-capable provider adapter or
+generic provider integration through the replaceable boundary. The exact first
+adapter is decided by the Inspector without making that provider mandatory for
+apps or exposing browser-held secrets by default.
+
 ## Context
 
 Asyra is a canvas-tool framework, not a model provider. AI support should
@@ -34,6 +51,9 @@ End-state:
 - apps can opt into AI without making AI a core framework dependency
 - natural-language intent becomes structured action plans
 - action plans are validated before execution
+- the app invokes planning/execution inside an app-owned Feature System
+  execution or session; the AI runtime does not become another intent lifecycle
+  owner
 - accepted plans execute through app-owned APIs and transaction runners
 - one accepted AI plan maps to one intended undo commit by default
 - collaboration-compatible apps can route AI-originated changes through the same
@@ -49,6 +69,7 @@ Out of scope for this framework plan:
 - allowing arbitrary code execution from model output
 - allowing AI to bypass Asyra transaction, validation, persistence, or
   collaboration paths
+- creating another execute/session/cancel runtime beside Feature System
 - requiring apps to use AI at all
 - requiring browser clients to hold secret API keys directly
 
@@ -91,6 +112,11 @@ Responsibilities:
 - error handling for invalid action plans, validation failures, partial execution
   prevention, and retry planning
 - optional audit/explanation output describing what the AI planned and executed
+
+The runtime is invoked by an app-owned feature and consumes that feature's
+cancellation/lifecycle signal. It may coordinate provider planning, validation,
+and the accepted action sequence, but Feature System remains the sole owner of
+execute/session/cancel decisions and operation serialization.
 
 The package should not own app-domain actions. For example, the runtime may know
 that an action named `create_shape` exists after the app registers it, but it
@@ -186,7 +212,8 @@ framework default.
 
 Canonical AI action flow:
 
-1. User submits a natural-language request.
+1. An app-owned feature receives the user's natural-language request and invokes
+   the AI runtime with its lifecycle/cancellation context.
 2. App context provider summarizes current state and constraints.
 3. Runtime sends request, context, and available action definitions to the
    provider.
@@ -194,7 +221,8 @@ Canonical AI action flow:
 5. Runtime validates the plan.
 6. Runtime optionally returns a preview for user confirmation.
 7. Runtime executes all accepted actions through app-provided executors inside
-   one transaction runner call.
+   one transaction runner call while the app feature remains the lifecycle
+   owner.
 8. Render updates as derived output from state changes.
 9. If the app uses shared mutation channels, collaborators receive the same state
    changes through the normal collaborative path.
@@ -253,7 +281,7 @@ The runtime should support useful behavior without requiring web search or
 generated media. Apps can add those capabilities as separate registered actions
 or provider extensions.
 
-## Future Implementation Test Plan
+## Implementation Test Plan
 
 Action registry tests:
 - registers actions
@@ -285,10 +313,44 @@ Integration tests:
 - undo reverts the full AI action batch
 - shared/collaborative mutation path receives AI-originated changes when enabled
 
+Release-boundary tests:
+- importing and starting an app without AI activation creates no provider,
+  network request, model configuration, secret read, or AI runtime side effect
+- the production-capable adapter passes structured-output, malformed-result,
+  provider-failure, redaction, abort, timeout, and cleanup cases
+- all planned actions validate before the first mutation and a rejected plan
+  applies no canonical prefix
+- one accepted plan creates one intended undo commit unless the approved plan
+  explicitly declares bounded transaction groups
+- AI-originated shared changes use the same origin/dedupe/conflict/remote apply
+  path as ordinary app actions when collaboration is enabled
+- model output cannot call unregistered actions, internal package APIs, Render
+  objects, arbitrary code, or app-private state
+- provider planning and action execution honor the owning Feature System abort,
+  timeout, and cleanup lifecycle without introducing another session queue
+
+## Release-Gate Definition of Done
+
+- the product contract and Inspector agree on every owner, input/output,
+  Feature System lifecycle, permission, transaction, provider, collaboration,
+  failure, and cleanup route;
+- the reusable runtime package and first production-capable adapter are built,
+  typed, documented, and independently replaceable;
+- registry, validation, permission, confirmation, preflight, execution,
+  rollback/no-partial-mutation, audit, redaction, abort, timeout, and instance
+  isolation tests pass;
+- one reference-app integration proves app-owned actions, complete undo,
+  optional collaboration delivery, and provider replacement through public APIs;
+- non-AI consumers retain unchanged startup, bundle/runtime ownership, and no
+  provider or secret side effect;
+- public package/API/security/example/Golden Path docs and release decisions
+  agree;
+- the plan is archived and the final release-readiness gate may begin.
+
 ## Assumptions
 
 - The package name is `@asyra/ai-agent-runtime`.
-- The plan remains in Deferred Plans until implementation priority changes.
+- This is Framework Release Gate 4 and begins only after Gates 1-3 close.
 - This is a docs-only planning record; no package scaffolding or runtime
   implementation is included yet.
 - The framework package remains app-agnostic and optional.

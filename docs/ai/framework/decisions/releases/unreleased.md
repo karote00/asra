@@ -1446,3 +1446,62 @@ unregister -> app migration -> core.start()` as the public app route.
   - `2465a6663` (`fix(render): retain failed hierarchy handoffs`)
   - `7009b471d` (`fix(render): rollback failed reparent handoffs`)
   - [PR #88](https://github.com/karote00/asyra/pull/88)
+
+## 2026-07-19 - Define first framework release gate sequence
+
+- Context:
+  - The Render Delta Update Pipeline closeout left no Near-Term framework plan,
+    while the remaining Deferred list mixed release prerequisites with optional
+    future capabilities.
+  - Most design-oriented canvas tools require a CRDT collaboration foundation
+    even though individual apps may choose not to activate collaboration.
+  - The first release is also expected to provide a safe opt-in AI action
+    runtime without turning any model provider or app-domain agent into a Core
+    dependency.
+  - Preset already installs an official Group component, but Scene Tree, Factory,
+    collaboration, Preset operations, load/save, and Render do not yet expose one
+    complete atomic group/ungroup/reparent/subtree contract.
+  - This supersedes the 2026-02-28 priority decisions that kept app migration and
+    Yjs collaboration in the deferred queue; it does not rewrite those historical
+    entries.
+- Decision:
+  - Require five ordered gates before the first public Asyra Framework release:
+    app-level migration formalization/closeout, optional-at-runtime Yjs network
+    collaboration and conflict policy, Group hierarchy behavior with Preset
+    basic operations, optional AI agent runtime with a replaceable production
+    provider boundary, and framework release-readiness audit/closeout.
+  - Keep Scene Tree as canonical hierarchy owner, Factory/Yjs as transaction and
+    shared-delivery infrastructure, Preset as official Group default/basic
+    operation owner, Render as derived hierarchy projection, and apps as owners
+    of selection, commands, hover/click behavior, and UI presentation.
+  - Keep Auto-layout and its unit/UI aggregation family at the lowest
+    post-release priority. Keep production 3D/Hybrid profile activation on the
+    post-release Roadmap.
+- Consequences:
+  - Collaboration ships in the framework release but remains explicitly
+    opt-in, so non-collaborative apps incur no provider, room, awareness, network,
+    or lifecycle activation.
+  - Group work extends the existing component/container baseline instead of
+    registering a duplicate Group or placing design-tool UI policy in framework
+    packages.
+  - AI ships as an optional package/runtime: app-owned registered actions and
+    Feature System lifecycle plus ordinary transaction, validation,
+    collaboration, canonical state, and Render paths remain authoritative,
+    while apps that omit AI activate no provider, model network, secret, or AI
+    lifecycle behavior.
+  - Each gate remains queued rather than implementation-ready until its thin
+    product contract and exact Inspector owner flow pass readiness review.
+  - The final gate audits packed artifacts, public APIs, clean-consumer use,
+    generated templates, formal gates, and release records; it does not itself
+    authorize push, merge, tag, or publication.
+- Related Plan:
+  - `docs/ai/framework/PLANS.md`
+  - `docs/ai/framework/plans/props-manager-app-level-migration-plan.md`
+  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
+  - `docs/ai/framework/plans/collaborative-conflict-policies-plan.md`
+  - `docs/ai/framework/plans/group-component-and-hierarchy-behaviors-plan.md`
+  - `docs/ai/framework/plans/ai-agent-runtime-plan.md`
+  - `docs/ai/framework/plans/framework-release-readiness-and-closeout-plan.md`
+  - `docs/ai/framework/plans/auto-layout-behavior-engine-plan.md`
+- Related Commit(s):
+  - pending

@@ -124,7 +124,11 @@ Canonical shorthand:
 - Core observes only its injected Factory instance, serializes persistence after
   committed action/undo/redo outcomes, and reports persistence separately from
   runtime commit.
-- Scene-tree owns entity graph.
+- Scene-tree owns entity graph. In Release Gate 3 it remains the canonical owner
+  for parent membership, child order, cycle prevention, and
+  group/reparent/subtree invariants; Preset will own the optional official Group
+  defaults and basic operation adapters, while apps own Group interaction and
+  UI policy. These complete operations are planned, not current behavior.
 - Props-manager owns property component values and schema validation.
 - System-context owns app/system mode flags.
 - Render owns state-to-engine adaptation, layer/strategy orchestration, handle
@@ -239,7 +243,23 @@ applyPreset(core, { profile?, defaults? })
 - These guarantees are local application semantics. They do not lock external
   processes or remote clients and do not provide database serializability.
 - Yjs provider/room/auth, awareness/presence, remote origin and deduplication,
-  reconnect, convergence, and collaborative conflict policy remain deferred.
+  reconnect, convergence, and collaborative conflict policy are not implemented
+  yet and are required by Framework Release Gate 2. Runtime activation remains
+  optional for non-collaborative apps.
+
+## Framework Release Sequence
+
+The first public framework release is gated, in order, by:
+
+1. app-level migration pipeline formalization and closeout;
+2. optional-at-runtime Yjs network collaboration and conflict-policy foundation;
+3. canonical Group hierarchy behaviors plus Preset basic operations;
+4. optional AI agent runtime with replaceable provider and app-owned actions;
+5. framework release-readiness audit and closeout.
+
+Auto-layout, its unit/UI aggregation family, and production `3D`/`HYBRID`
+remain post-release Roadmap capabilities. Detailed scope and status are owned by
+`PLANS.md`; this sequence does not claim that an unclosed gate is implemented.
 
 ## Package Deep Dives
 

@@ -77,6 +77,26 @@ owner refresh. It does not reconstruct removed or non-projected fields from
 schema/defaults, interpret custom field meaning, or become a second schema
 owner.
 
+## Release-Blocking Group Hierarchy Contract
+
+Scene Tree currently owns container membership and sibling order, but the first
+framework release additionally requires one atomic public contract for group,
+ungroup, reparent/reorder, and subtree lifecycle behavior.
+
+- Scene Tree owns validation, exact before/after parent/index evidence, cycle
+  prevention, one-parent membership, deterministic order, and subtree
+  restoration for every registered `isContainer` component.
+- The Core-facing operation boundary is ID-based; apps and Preset must not need
+  internal Group instances or mutate `parentId`/`children` directly.
+- A hierarchy move preserves entity identity and is not modeled as deleting and
+  recreating a different entity.
+- Preset owns only official Group defaults and basic coordinate/bounds adapters;
+  app interaction and UI policy remain outside Scene Tree.
+
+This target is not implemented yet. Its supported cases and release gate are
+defined by
+`../plans/group-component-and-hierarchy-behaviors-plan.md`.
+
 ## Validation Checklist
 
 - Entity creation updates graph + computed data consistently.

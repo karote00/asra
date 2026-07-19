@@ -186,12 +186,19 @@ infrastructure.
   their nested transaction calls back to that same instance; they do not touch
   the default Factory history or statuses.
 
-## Deferred Contracts
+## Release-Blocking Planned Contracts
 
-- Yjs network collaboration:
+- Yjs network collaboration is required before the first framework release but
+  remains optional to activate at app runtime:
   `../plans/yjs-network-collaboration-plan.md`
-- advanced domain conflict policy:
+- deterministic framework conflict policy and app extension points are part of
+  that same release gate:
   `../plans/collaborative-conflict-policies-plan.md`
+
+These contracts are not implemented by the current local shared-channel
+infrastructure. Until the release gate closes, Factory must not be described as
+providing provider/room/auth, remote canonical apply, awareness, reconnect, or
+network convergence.
 
 ## Validation Checklist
 
