@@ -1,4 +1,16 @@
 import type { Factory } from '@asyra/factory'
+import type { AwarenessRuntime } from './awareness'
+import type {
+  AppConflictPolicy,
+  FrameworkInvariantConfiguration
+} from './conflict-policy'
+import type {
+  CanonicalOperationApply,
+  OperationDefinition
+} from './operation-registry'
+import type { SharedOperationEnvelope } from './operation-envelope'
+import type { CollaborationUpdatePersistence } from './persistence'
+import type { CollaborationProvider } from './provider'
 
 export type CollaborationResourceOwnership = 'owned' | 'borrowed'
 
@@ -10,10 +22,19 @@ export interface CollaborationResourceOwnershipMap {
 }
 
 export type CollaborationPermissionPolicy = (
-  operation: unknown
+  operation: SharedOperationEnvelope
 ) => boolean | Promise<boolean>
 
-export type CollaborationFactory = Pick<Factory, 'subscribeToSharedDelivery'>
+export type CollaborationFactory = Pick<Factory, 'subscribeToSharedDelivery'> &
+  Partial<Pick<Factory, 'runRemoteTransaction' | 'isRemoteAsyncHandlerError'>>
+
+export type CollaborationOperationDefinition<TPayload = unknown> = Omit<
+  OperationDefinition<TPayload>,
+  'apply'
+> &
+  Readonly<{
+    apply: CanonicalOperationApply<TPayload>
+  }>
 
 export interface CollaborationLifecycleResource {
   destroy?: () => void | Promise<void>
@@ -22,7 +43,8 @@ export interface CollaborationLifecycleResource {
 
 export interface CollaborationCompositionInput<
   TOperationDefinition = unknown,
-  TPermissionPolicy extends CollaborationPermissionPolicy = CollaborationPermissionPolicy,
+  TPermissionPolicy extends
+    CollaborationPermissionPolicy = CollaborationPermissionPolicy,
   TProvider = unknown,
   TYDoc = unknown,
   TAwareness = unknown,
@@ -38,13 +60,17 @@ export interface CollaborationCompositionInput<
   yDoc?: TYDoc
   awareness?: TAwareness
   persistence?: TPersistence
+  sessionId?: string
+  frameworkInvariants?: FrameworkInvariantConfiguration
+  conflictPolicies?: readonly AppConflictPolicy[]
   connectionMetadata?: Readonly<Record<string, unknown>>
   resourceOwnership?: Partial<CollaborationResourceOwnershipMap>
 }
 
 export interface CollaborationComposition<
   TOperationDefinition = unknown,
-  TPermissionPolicy extends CollaborationPermissionPolicy = CollaborationPermissionPolicy,
+  TPermissionPolicy extends
+    CollaborationPermissionPolicy = CollaborationPermissionPolicy,
   TProvider = unknown,
   TYDoc = unknown,
   TAwareness = unknown,
@@ -60,17 +86,19 @@ export interface CollaborationComposition<
   readonly yDoc?: TYDoc
   readonly awareness?: TAwareness
   readonly persistence?: TPersistence
+  readonly sessionId?: string
+  readonly frameworkInvariants?: FrameworkInvariantConfiguration
+  readonly conflictPolicies?: readonly AppConflictPolicy[]
   readonly connectionMetadata?: Readonly<Record<string, unknown>>
   readonly resourceOwnership: Readonly<CollaborationResourceOwnershipMap>
 }
 
-export type CollaborationInstanceCompositionInput<
-  TOperationDefinition = unknown
-> = CollaborationCompositionInput<
-  TOperationDefinition,
-  CollaborationPermissionPolicy,
-  CollaborationLifecycleResource,
-  import('yjs').Doc,
-  CollaborationLifecycleResource,
-  CollaborationLifecycleResource
->
+export type CollaborationInstanceCompositionInput =
+  CollaborationCompositionInput<
+    CollaborationOperationDefinition,
+    CollaborationPermissionPolicy,
+    CollaborationProvider,
+    import('yjs').Doc,
+    AwarenessRuntime,
+    CollaborationUpdatePersistence
+  >

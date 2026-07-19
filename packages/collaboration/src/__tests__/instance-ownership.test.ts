@@ -1,4 +1,5 @@
 import * as Y from 'yjs'
+import { Factory, LocalSharedDataChannel } from '@asyra/factory'
 import { describe, expect, it, vi } from 'vitest'
 import {
   AwarenessRuntime,
@@ -6,9 +7,57 @@ import {
   createCollaboration,
   type CollaborationInstanceCompositionInput
 } from '..'
+import {
+  MemoryCollaborationHub,
+  MemoryCollaborationProvider
+} from '../providers/memory-provider'
+import type { CollaborationUpdatePersistence } from '../persistence'
+import type { CollaborationProvider } from '../provider'
+import { readOperationLog } from '../yjs-document'
 
 const createFactory = () => ({
   subscribeToSharedDelivery: vi.fn(() => () => undefined)
+})
+
+const createProvider = (
+  overrides: Partial<CollaborationProvider> = {}
+): CollaborationProvider => ({
+  identity: {
+    documentId: 'document-a',
+    roomId: 'room-a',
+    actorId: 'actor-a'
+  },
+  connect: vi.fn(),
+  disconnect: vi.fn(),
+  reconnect: vi.fn(),
+  destroy: vi.fn(),
+  getStatus: vi.fn(
+    (): ReturnType<CollaborationProvider['getStatus']> => 'idle'
+  ),
+  onStatusChange: vi.fn(() => () => undefined),
+  sendUpdate: vi.fn(),
+  onUpdate: vi.fn(() => () => undefined),
+  requestSync: vi.fn(async () => new Uint8Array()),
+  exchangeStateVector: vi.fn(async () => ({
+    remoteStateVector: new Uint8Array(),
+    missingRemoteUpdate: new Uint8Array()
+  })),
+  sendSyncUpdate: vi.fn(),
+  onAcknowledgement: vi.fn(() => () => undefined),
+  sendAwareness: vi.fn(),
+  onAwareness: vi.fn(() => () => undefined),
+  onAwarenessDisconnect: vi.fn(() => () => undefined),
+  onFailure: vi.fn(() => () => undefined),
+  ...overrides
+})
+
+const createPersistence = (
+  overrides: Partial<CollaborationUpdatePersistence> = {}
+): CollaborationUpdatePersistence => ({
+  append: vi.fn(),
+  load: vi.fn(async () => []),
+  dispose: vi.fn(),
+  ...overrides
 })
 
 const input = (
@@ -69,18 +118,40 @@ describe('CollaborationInstance ownership and disposal', () => {
   })
 
   it('does not connect an injected provider during construction', () => {
-    const provider = { connect: vi.fn(), destroy: vi.fn() }
+    const provider = createProvider()
     const instance = createCollaboration(input({ provider }))
 
     expect(instance.provider).toBe(provider)
     expect(provider.connect).not.toHaveBeenCalled()
   })
 
+  it('rejects an operation-enabled composition without the remote transaction boundary', () => {
+    expect(() =>
+      createCollaboration(
+        input({
+          operationDefinitions: [
+            {
+              channel: 'document',
+              eventName: 'set-value',
+              schemaVersion: 1,
+              validate: (payload): payload is { value: number } =>
+                typeof (payload as { value?: unknown } | undefined)?.value ===
+                'number',
+              apply: () => true
+            }
+          ]
+        })
+      )
+    ).toThrow(
+      '[collaboration] operation-enabled Factory requires the remote transaction boundary'
+    )
+  })
+
   it('destroys owned resources once and detaches all instance disposers', async () => {
     const yDoc = new Y.Doc()
     const awareness = new AwarenessRuntime()
-    const provider = { destroy: vi.fn() }
-    const persistence = { dispose: vi.fn() }
+    const provider = createProvider()
+    const persistence = createPersistence()
     const destroyDoc = vi.fn()
     const disposeAwareness = vi.fn()
     yDoc.destroy = destroyDoc
@@ -119,8 +190,8 @@ describe('CollaborationInstance ownership and disposal', () => {
   it('does not destroy borrowed resources or affect another shared instance', async () => {
     const sharedDoc = new Y.Doc()
     const sharedAwareness = new AwarenessRuntime()
-    const provider = { destroy: vi.fn() }
-    const persistence = { dispose: vi.fn() }
+    const provider = createProvider()
+    const persistence = createPersistence()
     const destroyDoc = vi.fn()
     const disposeAwareness = vi.fn()
     sharedDoc.destroy = destroyDoc
@@ -135,7 +206,6 @@ describe('CollaborationInstance ownership and disposal', () => {
     )
     const second = createCollaboration(
       input({
-        actorId: 'actor-b',
         yDoc: sharedDoc,
         awareness: sharedAwareness,
         provider,
@@ -160,19 +230,19 @@ describe('CollaborationInstance ownership and disposal', () => {
     const yDoc = new Y.Doc()
     const destroyDoc = vi.fn()
     yDoc.destroy = destroyDoc
+    const failingAwareness = new AwarenessRuntime()
+    failingAwareness.dispose = vi.fn(() => {
+      throw secondFailure
+    })
     const instance = createCollaboration(
       input({
         yDoc,
-        provider: {
+        provider: createProvider({
           destroy: vi.fn(() => {
             throw firstFailure
           })
-        },
-        awareness: {
-          dispose: vi.fn(() => {
-            throw secondFailure
-          })
-        },
+        }),
+        awareness: failingAwareness,
         resourceOwnership: {
           provider: 'owned',
           awareness: 'owned',
@@ -190,5 +260,135 @@ describe('CollaborationInstance ownership and disposal', () => {
     expect(detached).toHaveBeenCalledTimes(1)
     expect(destroyDoc).toHaveBeenCalledTimes(1)
     expect(instance.isDisposed()).toBe(true)
+  })
+
+  it('starts one isolated local-to-remote canonical pipeline without receiver echo', async () => {
+    interface SetValuePayload {
+      before: number
+      after: number
+    }
+    const channelName = 'document'
+    const eventName = 'set-value'
+    const hub = new MemoryCollaborationHub()
+    const client = (actorId: string) => {
+      const factory = new Factory()
+      factory.registerSharedDataChannel(
+        channelName,
+        new LocalSharedDataChannel()
+      )
+      const state = { value: 0 }
+      const deliveries = vi.fn()
+      factory.subscribeToSharedDelivery(deliveries)
+      factory.registerTransactionInverter(eventName, (event) => {
+        const payload = (event as unknown as { payload: SetValuePayload })
+          .payload
+        return {
+          type: event.type,
+          payload: { before: payload.after, after: payload.before }
+        } as typeof event
+      })
+      factory.registerTransactionReplayHandler(eventName, (event) => {
+        state.value = (
+          event as unknown as { payload: SetValuePayload }
+        ).payload.after
+        return true
+      })
+      const apply = (payload: SetValuePayload) => {
+        state.value = payload.after
+        factory.updateTransaction({
+          type: 'updateTransaction' as Parameters<
+            Factory['updateTransaction']
+          >[0]['type'],
+          eventName,
+          payload,
+          options: {
+            undoable: true,
+            rollbackable: true,
+            shared: channelName,
+            sharedDelivery: 'transaction-end'
+          }
+        })
+      }
+      const provider = new MemoryCollaborationProvider(hub, {
+        documentId: 'document-a',
+        roomId: 'room-a',
+        actorId
+      })
+      const instance = createCollaboration({
+        documentId: 'document-a',
+        roomId: 'room-a',
+        actorId,
+        factory,
+        provider,
+        operationDefinitions: [
+          {
+            channel: channelName,
+            eventName,
+            schemaVersion: 1,
+            validate: (payload): payload is SetValuePayload => {
+              if (!payload || typeof payload !== 'object') return false
+              const candidate = payload as Partial<SetValuePayload>
+              return (
+                typeof candidate.before === 'number' &&
+                typeof candidate.after === 'number'
+              )
+            },
+            apply: (envelope) => {
+              apply(envelope.payload as SetValuePayload)
+              return true
+            }
+          }
+        ],
+        permissionPolicy: () => true,
+        resourceOwnership: { provider: 'owned' }
+      })
+      return { apply, deliveries, factory, instance, provider, state }
+    }
+    const first = client('actor-a')
+    const second = client('actor-b')
+
+    expect(first.provider.getStatus()).toBe('idle')
+    await Promise.all([first.instance.start(), second.instance.start()])
+    first.deliveries.mockClear()
+    second.deliveries.mockClear()
+    first.factory.startTransaction()
+    first.apply({ before: 0, after: 1 })
+    first.factory.endTransaction()
+    await Promise.all([first.instance.whenIdle(), second.instance.whenIdle()])
+
+    expect(first.state.value).toBe(1)
+    expect(second.state.value).toBe(1)
+    expect(first.deliveries).toHaveBeenCalledTimes(1)
+    expect(second.deliveries).not.toHaveBeenCalled()
+    expect(readOperationLog(first.instance.yDoc)).toEqual(
+      readOperationLog(second.instance.yDoc)
+    )
+
+    await first.instance.updateAwareness({
+      cursor: { x: 10, y: 20 },
+      tool: 'select'
+    })
+    await second.instance.whenIdle()
+    expect(second.instance.awareness.getRemote('actor-a')?.state).toEqual(
+      expect.objectContaining({ cursor: { x: 10, y: 20 }, tool: 'select' })
+    )
+
+    await first.instance.disconnect()
+    await second.instance.whenIdle()
+    expect(second.instance.awareness.getRemote('actor-a')).toBeUndefined()
+    first.factory.startTransaction()
+    first.apply({ before: 1, after: 2 })
+    first.factory.endTransaction()
+    await first.instance.whenIdle()
+    expect(second.state.value).toBe(1)
+
+    await first.instance.reconnect()
+    await Promise.all([first.instance.whenIdle(), second.instance.whenIdle()])
+    expect(second.state.value).toBe(2)
+    expect(readOperationLog(first.instance.yDoc)).toEqual(
+      readOperationLog(second.instance.yDoc)
+    )
+
+    await Promise.all([first.instance.dispose(), second.instance.dispose()])
   })
 })

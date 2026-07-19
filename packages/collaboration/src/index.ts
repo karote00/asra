@@ -37,7 +37,8 @@ const resolveOwnership = (
 
 export const defineCollaborationComposition = <
   TOperationDefinition = unknown,
-  TPermissionPolicy extends CollaborationPermissionPolicy = CollaborationPermissionPolicy,
+  TPermissionPolicy extends
+    CollaborationPermissionPolicy = CollaborationPermissionPolicy,
   TProvider = unknown,
   TYDoc = unknown,
   TAwareness = unknown,
@@ -110,6 +111,13 @@ export const defineCollaborationComposition = <
     ...(input.persistence !== undefined
       ? { persistence: input.persistence }
       : {}),
+    ...(input.sessionId !== undefined ? { sessionId: input.sessionId } : {}),
+    ...(input.frameworkInvariants !== undefined
+      ? { frameworkInvariants: input.frameworkInvariants }
+      : {}),
+    ...(input.conflictPolicies !== undefined
+      ? { conflictPolicies: Object.freeze([...input.conflictPolicies]) }
+      : {}),
     ...(input.connectionMetadata !== undefined
       ? { connectionMetadata: input.connectionMetadata }
       : {}),
@@ -117,9 +125,9 @@ export const defineCollaborationComposition = <
   })
 }
 
-export const createCollaboration = <TOperationDefinition = unknown>(
-  input: CollaborationInstanceCompositionInput<TOperationDefinition>
-): CollaborationInstance<TOperationDefinition> =>
+export const createCollaboration = (
+  input: CollaborationInstanceCompositionInput
+): CollaborationInstance =>
   createCollaborationInstance(input, defineCollaborationComposition)
 
 export { AwarenessRuntime } from './awareness'
@@ -134,6 +142,7 @@ export type {
   CollaborationFactory,
   CollaborationInstanceCompositionInput,
   CollaborationLifecycleResource,
+  CollaborationOperationDefinition,
   CollaborationPermissionPolicy,
   CollaborationResourceOwnership,
   CollaborationResourceOwnershipMap
