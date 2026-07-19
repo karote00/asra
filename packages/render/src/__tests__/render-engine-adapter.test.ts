@@ -11,6 +11,7 @@ import {
   RenderAdapter,
   RenderErrorCodes
 } from '../index'
+import renderStrategyRegistry from '../registries/render-strategy'
 import { Render } from '../render'
 import type { RenderElementData } from '../types'
 
@@ -350,6 +351,69 @@ describe('Render engine adapter', () => {
         properties: { rotation: Math.PI / 2 }
       }
     })
+  })
+
+  it('hands off a computed draw before flush and skips a clean frame', async () => {
+    const strategyType = 'ordered-delta-handoff'
+    const engine = new RecordingRenderEngine({ name: 'ordered-handoff' })
+    const render = new Render({ engine })
+    const initialData = {
+      id: 'ordered-element',
+      type: strategyType,
+      name: 'Ordered element',
+      visible: true,
+      lock: false,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const finalData = { ...initialData, width: 80, height: 60 }
+
+    renderStrategyRegistry.register(strategyType, (graphic, data) => {
+      graphic.clear().rect(0, 0, data.width, data.height).fill(0x336699)
+    })
+
+    try {
+      await render.init(100, 100, 0, {})
+      render.addElement(initialData)
+      render.flushFrame()
+      const deltaStartIndex = engine.getOperations().length
+
+      render.updateElement(
+        finalData.id,
+        'computed',
+        undefined,
+        undefined,
+        finalData
+      )
+      render.flushFrame()
+
+      expect(
+        engine
+          .getOperations()
+          .slice(deltaStartIndex)
+          .map((operation) => operation.type)
+      ).toEqual(['update-object', 'draw', 'flush'])
+
+      const cleanFrameStartIndex = engine.getOperations().length
+      render.flushFrame()
+      expect(engine.getOperations()).toHaveLength(cleanFrameStartIndex)
+    } finally {
+      renderStrategyRegistry.unregister(strategyType)
+    }
+  })
+
+  it('runs registered teardown cleanup on every Render disposal', () => {
+    const render = new Render()
+    const cleanup = vi.fn()
+    const unregister = render.registerTeardownCleanup(cleanup)
+
+    render.dispose()
+    render.dispose()
+    expect(cleanup).toHaveBeenCalledTimes(2)
+
+    unregister()
+    render.dispose()
+    expect(cleanup).toHaveBeenCalledTimes(2)
   })
 
   it('rejects conflicting instance and callback providers', () => {

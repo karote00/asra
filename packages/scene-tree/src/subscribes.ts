@@ -26,6 +26,19 @@ import {
 import sceneTree from './sceneTree'
 import { isGroupEntity } from './utils'
 
+const setOwnEnumerableValue = (
+  target: object,
+  key: PropertyKey,
+  value: unknown
+): void => {
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: true,
+    configurable: true,
+    writable: true
+  })
+}
+
 const toAppliedComputedDataPatch = (
   patch: ComputedDataPatchChange
 ): ComputedDataPatch => {
@@ -33,7 +46,7 @@ const toAppliedComputedDataPatch = (
 
   Object.entries(patch.values ?? {}).forEach(([key, change]) => {
     applied.values ??= {}
-    applied.values[key] = change.after
+    setOwnEnumerableValue(applied.values, key, change.after)
   })
 
   Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
@@ -42,7 +55,7 @@ const toAppliedComputedDataPatch = (
 
     Object.entries(recordPatch.set ?? {}).forEach(([recordId, change]) => {
       nextRecordPatch.set ??= {}
-      nextRecordPatch.set[recordId] = change.after
+      setOwnEnumerableValue(nextRecordPatch.set, recordId, change.after)
     })
 
     const removeIds = Object.keys(recordPatch.remove ?? {})
@@ -55,7 +68,7 @@ const toAppliedComputedDataPatch = (
       (nextRecordPatch.remove?.length ?? 0) > 0
     ) {
       applied.records ??= {}
-      applied.records[key] = nextRecordPatch
+      setOwnEnumerableValue(applied.records, key, nextRecordPatch)
     }
   })
 
@@ -168,9 +181,7 @@ export const initSceneTreeSubscribes = () => {
   subscribeToChangeComputedDataPatch(async ({ payload, options }) => {
     const { elementIds, patch } = payload
 
-    elementIds.forEach((elementId) => {
-      sceneTree.patchComputedData(elementId, patch, options)
-    })
+    sceneTree.patchComputedDataForElements(elementIds, patch, options)
     propsManager.cleanChanges()
     sceneTree.commitSceneTreeTransaction(options)
   })
@@ -178,8 +189,11 @@ export const initSceneTreeSubscribes = () => {
   subscribeToSynchronousEvent<UpdateComputedDataEvent>(
     EventTypes.UPDATE_COMPUTED_DATA,
     ({ payload }) => {
-      const { id, key, after } = payload
+      const { id, key, after, owner } = payload
       const options = undefined
+      if (owner !== 'raw' && owner !== 'computed') {
+        return false
+      }
       const previousSceneChangeCount = sceneTree.changes.length
       const previousPropsChangeCount = propsManager.changes.length
       const element = sceneTree.getElementById(id)
@@ -187,11 +201,10 @@ export const initSceneTreeSubscribes = () => {
         return false
       }
       const elementOwner = element as unknown as {
-        data: Record<string, DataTypes>
         set: (key: string, value: DataTypes) => void
       }
 
-      if (Object.prototype.hasOwnProperty.call(elementOwner.data, key)) {
+      if (owner === 'raw') {
         elementOwner.set(key, after)
       } else {
         sceneTree.updateComputedData(

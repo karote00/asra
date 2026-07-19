@@ -102,6 +102,7 @@ class Render {
   private renderFrameId = 0
   private currentFrameHandoffCount = 0
   private readonly renderLayerRegistry = new RenderLayerRegistry()
+  private readonly teardownCleanups = new Set<() => void>()
 
   constructor(options: RenderEngineProviderOptions = {}) {
     if (options.engine && options.engineProvider) {
@@ -281,6 +282,13 @@ class Render {
     return didUnregister
   }
 
+  registerTeardownCleanup(cleanup: () => void): () => void {
+    this.teardownCleanups.add(cleanup)
+    return () => {
+      this.teardownCleanups.delete(cleanup)
+    }
+  }
+
   async init(
     width: number,
     height: number,
@@ -395,11 +403,14 @@ class Render {
     return container
   }
 
-  addElement(data: RenderElementData) {
+  addElement(data: RenderElementData, siblingIndex?: number) {
     if (data && typeof data.id === 'string') {
       this.publishElementEvidence('add', data.id, () => data)
     }
-    const element = this.viewport.addElement(data)
+    const element =
+      siblingIndex === undefined
+        ? this.viewport.addElement(data)
+        : this.viewport.addElement(data, siblingIndex)
     this.requestRender()
     return element
   }
@@ -628,6 +639,21 @@ class Render {
   }
 
   dispose(): void {
+    let cleanupFailure: unknown
+    let hasCleanupFailure = false
+    this.teardownCleanups.forEach((cleanup) => {
+      try {
+        cleanup()
+      } catch (error) {
+        if (!hasCleanupFailure) {
+          cleanupFailure = error
+          hasCleanupFailure = true
+        }
+      }
+    })
+    if (hasCleanupFailure) {
+      throw cleanupFailure
+    }
     this.stop()
     this.interactionBridge.detach()
     this.unsubscribeEngineInteraction?.()

@@ -3,6 +3,7 @@ import type {
   EndTransactionOptions,
   PropsChange,
   SceneTreeChange,
+  SceneTreeDataOwner,
   ElementSelectionChange,
   TransactionFailure,
   TransactionOrigin,
@@ -108,6 +109,19 @@ const toSharedChannelPayload = (
   } as TransactionPayload
 }
 
+const setOwnEnumerableValue = (
+  target: object,
+  key: PropertyKey,
+  value: unknown
+): void => {
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: true,
+    configurable: true,
+    writable: true
+  })
+}
+
 const invertComputedDataPatchChange = (
   patch: ComputedDataPatchChange
 ): ComputedDataPatchChange => {
@@ -115,10 +129,10 @@ const invertComputedDataPatchChange = (
 
   Object.entries(patch.values ?? {}).forEach(([key, change]) => {
     inverted.values ??= {}
-    inverted.values[key] = {
+    setOwnEnumerableValue(inverted.values, key, {
       before: change.after,
       after: change.before
-    }
+    })
   })
 
   Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
@@ -127,26 +141,26 @@ const invertComputedDataPatchChange = (
     >[string] = {}
 
     Object.entries(recordPatch.set ?? {}).forEach(([recordId, change]) => {
-      if (change.before === undefined) {
+      if (!Object.prototype.hasOwnProperty.call(change, 'before')) {
         nextRecordPatch.remove ??= {}
-        nextRecordPatch.remove[recordId] = {
+        setOwnEnumerableValue(nextRecordPatch.remove, recordId, {
           before: change.after
-        }
+        })
         return
       }
 
       nextRecordPatch.set ??= {}
-      nextRecordPatch.set[recordId] = {
+      setOwnEnumerableValue(nextRecordPatch.set, recordId, {
         before: change.after,
         after: change.before
-      }
+      })
     })
 
     Object.entries(recordPatch.remove ?? {}).forEach(([recordId, change]) => {
       nextRecordPatch.set ??= {}
-      nextRecordPatch.set[recordId] = {
+      setOwnEnumerableValue(nextRecordPatch.set, recordId, {
         after: change.before
-      }
+      })
     })
 
     if (
@@ -154,7 +168,7 @@ const invertComputedDataPatchChange = (
       Object.keys(nextRecordPatch.remove ?? {}).length > 0
     ) {
       inverted.records ??= {}
-      inverted.records[key] = nextRecordPatch
+      setOwnEnumerableValue(inverted.records, key, nextRecordPatch)
     }
   })
 
@@ -425,6 +439,7 @@ class DataTransact {
             key: string
             before: unknown
             after: unknown
+            owner?: SceneTreeDataOwner
           }
           return {
             type: replayEvent.type,
@@ -436,7 +451,10 @@ class DataTransact {
                   ? typedChange.after
                   : typedChange.before,
               after:
-                direction === 'inverse' ? typedChange.before : typedChange.after
+                direction === 'inverse'
+                  ? typedChange.before
+                  : typedChange.after,
+              ...('owner' in typedChange ? { owner: typedChange.owner } : {})
             }
           } as AllEvent
         })

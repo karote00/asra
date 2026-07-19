@@ -665,16 +665,28 @@ describe('DataTransact user action completion', () => {
       payload: {
         id: 'element-1',
         changes: [
-          { key: 'x', before: 0, after: 10 },
-          { key: 'y', before: 5, after: 20 }
+          { key: 'x', before: 0, after: 10, owner: 'raw' },
+          { key: 'y', before: 5, after: 20, owner: 'computed' }
         ]
       }
     })
     transact.end({ outcome: 'rollback' })
 
     expect(observed).toEqual([
-      { id: 'element-1', key: 'y', before: 20, after: 5 },
-      { id: 'element-1', key: 'x', before: 10, after: 0 }
+      {
+        id: 'element-1',
+        key: 'y',
+        before: 20,
+        after: 5,
+        owner: 'computed'
+      },
+      {
+        id: 'element-1',
+        key: 'x',
+        before: 10,
+        after: 0,
+        owner: 'raw'
+      }
     ])
 
     subscription.unsubscribe()
@@ -699,8 +711,8 @@ describe('DataTransact user action completion', () => {
         action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
         id: 'element-1',
         changes: [
-          { key: 'x', before: 0, after: 10 },
-          { key: 'y', before: 5, after: 20 }
+          { key: 'x', before: 0, after: 10, owner: 'raw' },
+          { key: 'y', before: 5, after: 20, owner: 'computed' }
         ]
       },
       options: {
@@ -716,13 +728,15 @@ describe('DataTransact user action completion', () => {
         action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
         key: 'y',
         before: 20,
-        after: 5
+        after: 5,
+        owner: 'computed'
       }),
       expect.objectContaining({
         action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
         key: 'x',
         before: 10,
-        after: 0
+        after: 0,
+        owner: 'raw'
       })
     ])
     expect(pushToSharedChannel.mock.calls).toEqual([
@@ -738,7 +752,8 @@ describe('DataTransact user action completion', () => {
           action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
           key: 'y',
           before: 20,
-          after: 5
+          after: 5,
+          owner: 'computed'
         })
       ],
       [
@@ -747,7 +762,8 @@ describe('DataTransact user action completion', () => {
           action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
           key: 'x',
           before: 10,
-          after: 0
+          after: 0,
+          owner: 'raw'
         })
       ]
     ])
@@ -772,8 +788,8 @@ describe('DataTransact user action completion', () => {
       payload: {
         id: 'element-1',
         changes: [
-          { key: 'x', before: 0, after: 10 },
-          { key: 'y', before: 5, after: 20 }
+          { key: 'x', before: 0, after: 10, owner: 'raw' },
+          { key: 'y', before: 5, after: 20, owner: 'computed' }
         ]
       }
     })
@@ -784,10 +800,34 @@ describe('DataTransact user action completion', () => {
     runWithOwnedTransact(transact, () => transact.redo())
 
     expect(observed).toEqual([
-      { id: 'element-1', key: 'y', before: 20, after: 5 },
-      { id: 'element-1', key: 'x', before: 10, after: 0 },
-      { id: 'element-1', key: 'x', before: 0, after: 10 },
-      { id: 'element-1', key: 'y', before: 5, after: 20 }
+      {
+        id: 'element-1',
+        key: 'y',
+        before: 20,
+        after: 5,
+        owner: 'computed'
+      },
+      {
+        id: 'element-1',
+        key: 'x',
+        before: 10,
+        after: 0,
+        owner: 'raw'
+      },
+      {
+        id: 'element-1',
+        key: 'x',
+        before: 0,
+        after: 10,
+        owner: 'raw'
+      },
+      {
+        id: 'element-1',
+        key: 'y',
+        before: 5,
+        after: 20,
+        owner: 'computed'
+      }
     ])
 
     subscription.unsubscribe()

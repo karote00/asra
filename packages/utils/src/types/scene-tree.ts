@@ -4,6 +4,8 @@ import { DataTypes } from './constants'
 import type { MutationOptions } from './change'
 import type { YjsChange } from './yjs'
 
+export type SceneTreeDataOwner = 'raw' | 'computed'
+
 export interface AddRemoveElementChange {
   action: SCENE_TREE_ACTIONS
   undoType: string
@@ -19,6 +21,7 @@ export interface UpdateElementChange {
   action: SCENE_TREE_ACTIONS
   eventName: string
   id: string
+  owner: SceneTreeDataOwner
   key: string
   before: DataTypes
   after: DataTypes
@@ -30,6 +33,7 @@ export interface UpdateElementBatchChange {
   eventName: string
   id: string
   changes: {
+    owner: SceneTreeDataOwner
     key: string
     before: DataTypes
     after: DataTypes
@@ -37,8 +41,10 @@ export interface UpdateElementBatchChange {
   options?: MutationOptions
 }
 
+export type ComputedDataRecordValue = DataTypes | undefined
+
 export interface ComputedDataRecordPatch {
-  set?: Record<string, DataTypes>
+  set?: Record<string, ComputedDataRecordValue>
   remove?: string[]
 }
 
@@ -61,14 +67,14 @@ export interface ComputedDataPatchChange {
       set?: Record<
         string,
         {
-          before?: DataTypes
-          after: DataTypes
+          before?: ComputedDataRecordValue
+          after: ComputedDataRecordValue
         }
       >
       remove?: Record<
         string,
         {
-          before: DataTypes
+          before: ComputedDataRecordValue
         }
       >
     }

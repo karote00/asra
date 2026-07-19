@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   BaseSelection,
   propertyRegistry,
+  renderSceneTreeStore,
   renderSelectionStore,
   uiContext
 } from '@asyra/core'
@@ -45,6 +46,326 @@ const createDeps = (): PresetDependencies =>
   }) as unknown as PresetDependencies
 
 describe('Preset Selection Subscriptions', () => {
+  it('rebuilds Render projection immediately after every observer registration', () => {
+    const lifecycle: string[] = []
+    const observers = new Map<string, { onChange: (change: unknown) => void }>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (registration: {
+        name: string
+        onChange: (change: unknown) => void
+      }) => {
+        observers.set(registration.name, registration)
+        lifecycle.push(`register:${registration.name}`)
+      },
+      unregisterDataChannelObserver: (name: string) => {
+        observers.delete(name)
+        lifecycle.push(`unregister:${name}`)
+      }
+    } as unknown as PresetCoreAPIs
+    const reload = vi
+      .spyOn(renderSceneTreeStore, 'reload')
+      .mockImplementation(() => {
+        expect(observers.has('preset.render.sceneTree')).toBe(true)
+        lifecycle.push('reload')
+      })
+
+    try {
+      const disposeFirst = registerDefaultDataChannelObservers(
+        core,
+        createDeps(),
+        undefined,
+        { renderScene: true }
+      )
+      disposeFirst()
+
+      const disposeSecond = registerDefaultDataChannelObservers(
+        core,
+        createDeps(),
+        undefined,
+        { renderScene: true }
+      )
+
+      expect(reload).toHaveBeenCalledTimes(2)
+      expect(lifecycle).toEqual([
+        'register:preset.render.sceneTree',
+        'reload',
+        'unregister:preset.render.sceneTree',
+        'register:preset.render.sceneTree',
+        'reload'
+      ])
+
+      disposeSecond()
+    } finally {
+      reload.mockRestore()
+    }
+  })
+
+  it('propagates a file-load Render rebuild failure to the lifecycle caller', () => {
+    const observers = new Map<string, { onChange: (change: unknown) => void }>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (registration: {
+        name: string
+        onChange: (change: unknown) => void
+      }) => observers.set(registration.name, registration),
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const reloadFailure = new Error('file-load Render rebuild failed')
+    const reload = vi
+      .spyOn(renderSceneTreeStore, 'reload')
+      .mockImplementationOnce(() => undefined)
+    let dispose: (() => void) | undefined
+
+    try {
+      dispose = registerDefaultDataChannelObservers(
+        core,
+        createDeps(),
+        undefined,
+        { renderScene: true }
+      )
+      reload.mockImplementation(() => {
+        throw reloadFailure
+      })
+
+      expect(() =>
+        publishEvent({ type: EventTypes.FILE_LOAD_COMPLETE })
+      ).toThrow(reloadFailure)
+    } finally {
+      dispose?.()
+      reload.mockRestore()
+    }
+  })
+
+  it('clears Render projection state and visual nodes once when the render observer is disposed', () => {
+    const observers = new Map<string, { onChange: (change: unknown) => void }>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (registration: {
+        name: string
+        onChange: (change: unknown) => void
+      }) => observers.set(registration.name, registration),
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const projectionStore =
+      renderSceneTreeStore as typeof renderSceneTreeStore & {
+        clearProjection: () => void
+      }
+    const clearProjection = vi
+      .spyOn(projectionStore, 'clearProjection')
+      .mockImplementation(() => undefined)
+    const reload = vi
+      .spyOn(renderSceneTreeStore, 'reload')
+      .mockImplementation(() => undefined)
+
+    try {
+      const disposeRender = registerDefaultDataChannelObservers(
+        core,
+        createDeps(),
+        undefined,
+        { renderScene: true }
+      )
+      disposeRender()
+      disposeRender()
+      expect(clearProjection).toHaveBeenCalledTimes(1)
+
+      const disposeSelection = registerDefaultDataChannelObservers(
+        core,
+        createDeps(),
+        undefined,
+        { selection: true }
+      )
+      disposeSelection()
+      expect(clearProjection).toHaveBeenCalledTimes(1)
+    } finally {
+      reload.mockRestore()
+      clearProjection.mockRestore()
+    }
+  })
+
+  it('clears Render projection and visual nodes when registration rebuild rolls back', () => {
+    const observers = new Map<string, { onChange: (change: unknown) => void }>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (registration: {
+        name: string
+        onChange: (change: unknown) => void
+      }) => observers.set(registration.name, registration),
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const projectionStore =
+      renderSceneTreeStore as typeof renderSceneTreeStore & {
+        clearProjection: () => void
+      }
+    const clearProjection = vi
+      .spyOn(projectionStore, 'clearProjection')
+      .mockImplementation(() => undefined)
+    const reload = vi
+      .spyOn(renderSceneTreeStore, 'reload')
+      .mockImplementation(() => {
+        throw new Error('authoritative rebuild failed')
+      })
+
+    try {
+      expect(() =>
+        registerDefaultDataChannelObservers(core, createDeps(), undefined, {
+          renderScene: true
+        })
+      ).toThrow('authoritative rebuild failed')
+      expect(observers.has('preset.render.sceneTree')).toBe(false)
+      expect(clearProjection).toHaveBeenCalledTimes(1)
+    } finally {
+      reload.mockRestore()
+      clearProjection.mockRestore()
+    }
+  })
+
+  it('routes complete Scene Tree deltas and records Render projection outcomes', () => {
+    const observers = new Map<string, { onChange: (change: unknown) => void }>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (registration: {
+        name: string
+        onChange: (change: unknown) => void
+      }) => observers.set(registration.name, registration),
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const dependencies = createDeps()
+    const add = vi.spyOn(renderSceneTreeStore, 'addElementById')
+    const remove = vi.spyOn(renderSceneTreeStore, 'removeElement')
+    const scalar = vi.spyOn(renderSceneTreeStore, 'updateElement')
+    const batch = vi.spyOn(renderSceneTreeStore, 'updateElementBatch')
+    const patch = vi.spyOn(renderSceneTreeStore, 'updateElementPatch')
+    const reload = vi
+      .spyOn(renderSceneTreeStore, 'reload')
+      .mockImplementation(() => undefined)
+    add.mockReturnValue({ status: 'applied', elementId: 'vector-1' })
+    remove.mockReturnValue({ status: 'removed', elementId: 'vector-1' })
+    scalar.mockReturnValue({ status: 'resynced', elementId: 'vector-1' })
+    batch.mockReturnValue({ status: 'applied', elementId: 'vector-1' })
+    patch.mockReturnValue({ status: 'failed', elementId: 'vector-1' })
+
+    const counters: string[] = []
+    const runtimeGlobal = globalThis as typeof globalThis & {
+      __asyraStrokePipelineCounterSink?: (name: string) => void
+    }
+    const previousCounterSink = runtimeGlobal.__asyraStrokePipelineCounterSink
+    runtimeGlobal.__asyraStrokePipelineCounterSink = (name) => {
+      counters.push(name)
+    }
+
+    const dispose = registerDefaultDataChannelObservers(
+      core,
+      dependencies,
+      undefined,
+      { renderScene: true }
+    )
+    const observer = observers.get('preset.render.sceneTree')
+    expect(observer).toBeDefined()
+
+    try {
+      observer?.onChange({
+        action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+        data: { id: 'vector-1', type: 'vector' },
+        parentId: 'group-1',
+        index: 1
+      })
+      observer?.onChange({
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+        eventName: 'update-computed',
+        id: 'vector-1',
+        owner: 'computed',
+        key: 'visible',
+        before: true,
+        after: false,
+        options: { undoable: false }
+      })
+      observer?.onChange({
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+        eventName: 'update-computed',
+        id: 'vector-1',
+        changes: [
+          { owner: 'raw', key: 'x', before: 0, after: 10 },
+          { owner: 'computed', key: 'y', before: 0, after: 20 }
+        ],
+        options: { undoable: false }
+      })
+      observer?.onChange({
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+        eventName: 'update-computed-patch',
+        id: 'vector-1',
+        patch: {
+          records: {
+            points: {
+              set: {
+                p1: { after: { id: 'p1', x: 0, y: 0 } }
+              }
+            }
+          }
+        },
+        options: { undoable: false }
+      })
+      observer?.onChange({
+        action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
+        data: { id: 'vector-1', type: 'vector' },
+        parentId: 'group-1',
+        index: 1
+      })
+
+      expect(add).toHaveBeenCalledWith('vector-1', 'group-1', 1)
+      expect(scalar).toHaveBeenCalledWith(
+        'vector-1',
+        'computed',
+        'visible',
+        true,
+        false,
+        { undoable: false }
+      )
+      expect(batch).toHaveBeenCalledWith(
+        'vector-1',
+        [
+          { owner: 'raw', key: 'x', before: 0, after: 10 },
+          { owner: 'computed', key: 'y', before: 0, after: 20 }
+        ],
+        { undoable: false }
+      )
+      expect(patch).toHaveBeenCalledWith(
+        'vector-1',
+        {
+          records: {
+            points: {
+              set: {
+                p1: { after: { id: 'p1', x: 0, y: 0 } }
+              }
+            }
+          }
+        },
+        { undoable: false }
+      )
+      expect(remove).toHaveBeenCalledWith(
+        { id: 'vector-1', type: 'vector' },
+        'group-1',
+        1
+      )
+      expect(counters).toEqual([
+        'render-projection-outcome-applied',
+        'render-projection-outcome-resynced',
+        'render-projection-outcome-applied',
+        'render-projection-outcome-failed',
+        'render-projection-outcome-removed'
+      ])
+    } finally {
+      dispose()
+      runtimeGlobal.__asyraStrokePipelineCounterSink = previousCounterSink
+      add.mockRestore()
+      remove.mockRestore()
+      scalar.mockRestore()
+      batch.mockRestore()
+      patch.mockRestore()
+      reload.mockRestore()
+    }
+  })
+
   it('keeps pending UI context transactions isolated per Core observer lifetime', () => {
     const createCore = () => {
       const observers = new Map<

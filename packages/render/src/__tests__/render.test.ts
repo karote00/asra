@@ -105,15 +105,16 @@ describe('Render', () => {
       graphic.rect(0, 0, data.width, data.height).fill(0xff00ff)
     })
 
-    expect(() =>
-      render.addElement({
+    let failedElement: SceneElement | undefined
+    expect(() => {
+      failedElement = render.addElement({
         id: 'bad-vector',
         type: 'throwing-test-vector',
         visible: true,
         name: 'Bad Vector',
         lock: false
       } as unknown as RenderElementData)
-    ).not.toThrow()
+    }).not.toThrow()
     expect(() =>
       render.addElement({
         id: 'good-rect',
@@ -126,6 +127,7 @@ describe('Render', () => {
       } as unknown as RenderElementData)
     ).not.toThrow()
 
+    expect(failedElement).toBeUndefined()
     expect(render.getElementById('bad-vector')?.visible).toBe(false)
     expect(render.getElementById('good-rect')?.visible).toBe(true)
     expect(errorSpy).toHaveBeenCalledTimes(1)
@@ -205,6 +207,726 @@ describe('Render', () => {
     expect(render.viewport.removeElement).toHaveBeenCalledWith('el1', 'parent1')
   })
 
+  it('destroys removed nodes and recreates them without prior-engine handles', async () => {
+    const firstEngine = new RecordingRenderEngine({ name: 'remove-first' })
+    const lifecycleRender = new Render({ engine: firstEngine })
+    await lifecycleRender.init(100, 100, 0, {})
+    lifecycleRender.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const initialData = {
+      id: 'remove-readd-element',
+      type: 'rectangle',
+      name: 'Initial',
+      visible: true,
+      lock: false,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const initialNode = lifecycleRender.addElement(initialData)
+    const initialHandle = initialNode?.getEngineHandle()
+
+    expect(initialHandle).not.toBeNull()
+    lifecycleRender.removeElement(initialData.id)
+
+    expect(initialNode?.getEngineHandle()).toBeNull()
+    expect(
+      firstEngine
+        .getOperations()
+        .filter((operation) => operation.type === 'destroy-object')
+    ).toHaveLength(1)
+
+    lifecycleRender.dispose()
+    const secondEngine = new RecordingRenderEngine({ name: 'remove-second' })
+    lifecycleRender.setEngine(secondEngine)
+    await lifecycleRender.init(100, 100, 0, {})
+    lifecycleRender.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const recreatedNode = lifecycleRender.addElement({
+      ...initialData,
+      name: 'Recreated',
+      width: 40
+    })
+
+    expect(recreatedNode).not.toBe(initialNode)
+    expect(recreatedNode?.getEngineHandle()).not.toBe(initialHandle)
+    expect(
+      secondEngine
+        .getOperations()
+        .some(
+          (operation) =>
+            operation.type === 'create-object' &&
+            operation.command.requestId === initialData.id
+        )
+    ).toBe(true)
+
+    lifecycleRender.dispose()
+  })
+
+  it('retains a node for retry when the engine destroy command fails', async () => {
+    const retryEngine = new RecordingRenderEngine({ name: 'remove-retry' })
+    const retryRender = new Render({ engine: retryEngine })
+    await retryRender.init(100, 100, 0, {})
+    retryRender.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const node = retryRender.addElement({
+      id: 'retry-element',
+      type: 'rectangle',
+      name: 'Retry Element',
+      visible: true,
+      lock: false,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData)
+    expect(node).toBeDefined()
+    const initialHandle = node?.getEngineHandle()
+    const originalExecute = retryEngine.execute.bind(retryEngine)
+    let shouldFailDestroy = true
+    vi.spyOn(retryEngine, 'execute').mockImplementation((command) => {
+      if (command.type === 'destroy-object' && shouldFailDestroy) {
+        shouldFailDestroy = false
+        throw new Error('destroy failed')
+      }
+      return originalExecute(command)
+    })
+
+    expect(() => retryRender.removeElement('retry-element')).toThrow(
+      'destroy failed'
+    )
+    expect(retryRender.getElementById('retry-element')).toBe(node)
+    expect(node?.getEngineHandle()).toBe(initialHandle)
+
+    expect(() => retryRender.removeElement('retry-element')).not.toThrow()
+    expect(retryRender.getElementById('retry-element')).toBeUndefined()
+    expect(node?.getEngineHandle()).toBeNull()
+
+    retryRender.dispose()
+  })
+
+  it('keeps the active runtime intact when teardown projection cleanup fails', async () => {
+    const teardownEngine = new RecordingRenderEngine({
+      name: 'teardown-cleanup-retry'
+    })
+    const teardownRender = new Render({ engine: teardownEngine })
+    await teardownRender.init(100, 100, 0, {})
+    teardownRender.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const node = teardownRender.addElement({
+      id: 'teardown-retry-element',
+      type: 'rectangle',
+      name: 'Teardown Retry Element',
+      visible: true,
+      lock: false,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData)
+    const initialApp = teardownRender.app
+    const initialHandle = node?.getEngineHandle()
+    const originalExecute = teardownEngine.execute.bind(teardownEngine)
+    let shouldFailDestroy = true
+    vi.spyOn(teardownEngine, 'execute').mockImplementation((command) => {
+      if (command.type === 'destroy-object' && shouldFailDestroy) {
+        shouldFailDestroy = false
+        throw new Error('teardown cleanup failed')
+      }
+      return originalExecute(command)
+    })
+    teardownRender.registerTeardownCleanup(() => {
+      teardownRender.removeElement('teardown-retry-element')
+    })
+
+    expect(() => teardownRender.dispose()).toThrow('teardown cleanup failed')
+    expect(teardownRender.app).toBe(initialApp)
+    expect(teardownRender.getElementById('teardown-retry-element')).toBe(node)
+    expect(node?.getEngineHandle()).toBe(initialHandle)
+    expect(
+      teardownEngine
+        .getOperations()
+        .some((operation) => operation.type === 'destroy')
+    ).toBe(false)
+
+    expect(() => teardownRender.dispose()).not.toThrow()
+    expect(teardownRender.app).toBeNull()
+    expect(
+      teardownEngine
+        .getOperations()
+        .map((operation) => operation.type)
+        .filter((operation) => operation === 'destroy-object')
+    ).toHaveLength(1)
+    expect(teardownEngine.getOperations().at(-1)?.type).toBe('destroy')
+  })
+
+  it('preserves live children when a projected parent is removed and re-added', async () => {
+    const hierarchyEngine = new RecordingRenderEngine({
+      name: 'parent-remove-readd'
+    })
+    const hierarchyRender = new Render({ engine: hierarchyEngine })
+    await hierarchyRender.init(100, 100, 0, {})
+    hierarchyRender.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const childData = {
+      id: 'child-1',
+      parentId: 'group-1',
+      type: 'rectangle',
+      name: 'Child',
+      visible: true,
+      lock: false,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const parentData = {
+      id: 'group-1',
+      type: 'group',
+      name: 'Group',
+      visible: true,
+      lock: false,
+      children: ['child-1']
+    } as unknown as RenderElementData
+    const child = hierarchyRender.addElement(childData)
+    const parent = hierarchyRender.addElement(parentData)
+    if (!child || !parent) {
+      throw new Error('Expected parent and child render nodes')
+    }
+    expect(child.parent).toBe(parent)
+    const childHandle = child.getEngineHandle()
+    const parentHandle = parent.getEngineHandle()
+    const destroyCountBefore = hierarchyEngine
+      .getOperations()
+      .filter((operation) => operation.type === 'destroy-object').length
+
+    hierarchyRender.removeElement(parentData.id)
+
+    expect(child.getEngineHandle()).toBe(childHandle)
+    expect(hierarchyRender.getElementById(childData.id)).toBe(child)
+    expect(child.parent).toBeNull()
+    expect(
+      hierarchyEngine
+        .getOperations()
+        .filter((operation) => operation.type === 'destroy-object')
+    ).toHaveLength(destroyCountBefore + 1)
+
+    const recreatedParent = hierarchyRender.addElement(parentData)
+
+    expect(recreatedParent).not.toBe(parent)
+    expect(recreatedParent?.getEngineHandle()).not.toBe(parentHandle)
+    expect(child.getEngineHandle()).toBe(childHandle)
+    expect(child.parent).toBe(recreatedParent)
+
+    hierarchyRender.dispose()
+  })
+
+  it('retries a failed child detach before destroying a projected parent', async () => {
+    const retryEngine = new RecordingRenderEngine({
+      name: 'parent-detach-retry'
+    })
+    const retryRender = new Render({ engine: retryEngine })
+    await retryRender.init(100, 100, 0, {})
+    retryRender.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const childData = {
+      id: 'detach-retry-child',
+      parentId: 'detach-retry-parent',
+      type: 'rectangle',
+      name: 'Detach Retry Child',
+      visible: true,
+      lock: false,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const parentData = {
+      id: 'detach-retry-parent',
+      type: 'group',
+      name: 'Detach Retry Parent',
+      visible: true,
+      lock: false,
+      children: ['detach-retry-child']
+    } as unknown as RenderElementData
+    const child = retryRender.addElement(childData)
+    const parent = retryRender.addElement(parentData)
+    if (!child || !parent) {
+      throw new Error('Expected retry parent and child render nodes')
+    }
+    const childHandle = child.getEngineHandle()
+    const parentHandle = parent.getEngineHandle()
+    const originalExecute = retryEngine.execute.bind(retryEngine)
+    let shouldFailDetach = true
+    const executeSpy = vi
+      .spyOn(retryEngine, 'execute')
+      .mockImplementation((command) => {
+        if (
+          command.type === 'remove-child' &&
+          command.child === childHandle &&
+          shouldFailDetach
+        ) {
+          shouldFailDetach = false
+          throw new Error('child detach failed')
+        }
+        return originalExecute(command)
+      })
+
+    expect(() => retryRender.removeElement(parentData.id)).toThrow(
+      'child detach failed'
+    )
+    expect(retryRender.getElementById(parentData.id)).toBe(parent)
+    expect(parent.children).toContain(child)
+    expect(child.parent).toBe(parent)
+    expect(parent.getEngineHandle()).toBe(parentHandle)
+    expect(child.getEngineHandle()).toBe(childHandle)
+
+    expect(() => retryRender.removeElement(parentData.id)).not.toThrow()
+    expect(retryRender.getElementById(parentData.id)).toBeUndefined()
+    expect(parent.getEngineHandle()).toBeNull()
+    expect(child.parent).toBeNull()
+    expect(child.getEngineHandle()).toBe(childHandle)
+    expect(
+      executeSpy.mock.calls.filter(
+        ([command]) =>
+          command.type === 'remove-child' && command.child === childHandle
+      )
+    ).toHaveLength(2)
+
+    retryRender.dispose()
+  })
+
+  it('retries a failed hierarchy append from the same complete snapshot', async () => {
+    await render.init(100, 100, 0, {})
+    render.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const childData = {
+      id: 'append-retry-child',
+      type: 'rectangle',
+      visible: true,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const parentData = {
+      id: 'append-retry-parent',
+      type: 'group',
+      visible: true,
+      children: []
+    } as unknown as RenderElementData
+    const child = render.addElement(childData)
+    const parent = render.addElement(parentData)
+    if (!child || !parent) {
+      throw new Error('Expected append retry nodes')
+    }
+    const previousParent = child.parent
+    if (!previousParent) {
+      throw new Error('Expected the child to start in the workspace')
+    }
+    const childHandle = child.getEngineHandle()
+    const parentHandle = parent.getEngineHandle()
+    const originalExecute = engine.execute.bind(engine)
+    let shouldFailAppend = true
+    const executeSpy = vi
+      .spyOn(engine, 'execute')
+      .mockImplementation((command) => {
+        if (
+          command.type === 'append-child' &&
+          command.parent === parentHandle &&
+          command.child === childHandle &&
+          shouldFailAppend
+        ) {
+          shouldFailAppend = false
+          throw new Error('hierarchy append failed')
+        }
+        return originalExecute(command)
+      })
+    const completeParentData = {
+      ...parentData,
+      children: [childData.id]
+    }
+
+    expect(() =>
+      render.updateElement(
+        parentData.id,
+        'computed',
+        undefined,
+        undefined,
+        completeParentData
+      )
+    ).toThrow('hierarchy append failed')
+    expect(parent.children).toEqual([])
+    expect(previousParent.children).toContain(child)
+    expect(child.parent).toBe(previousParent)
+
+    expect(() =>
+      render.updateElement(
+        parentData.id,
+        'computed',
+        undefined,
+        undefined,
+        completeParentData
+      )
+    ).not.toThrow()
+    expect(child.parent).toBe(parent)
+    expect(previousParent.children).not.toContain(child)
+    expect(parent.children).toEqual([child])
+    expect(
+      executeSpy.mock.calls.filter(
+        ([command]) =>
+          command.type === 'append-child' &&
+          command.parent === parentHandle &&
+          command.child === childHandle
+      )
+    ).toHaveLength(2)
+  })
+
+  it.each(['append-child', 'set-child-index'] as const)(
+    'preserves the previous parent when a reparent %s handoff fails',
+    async (failureCommand) => {
+      await render.init(100, 100, 0, {})
+      render.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+      const childData = {
+        id: 'reparent-retry-child',
+        type: 'rectangle',
+        visible: true,
+        width: 20,
+        height: 20
+      } as unknown as RenderElementData
+      const previousParentData = {
+        id: 'reparent-retry-previous-parent',
+        type: 'group',
+        visible: true,
+        children: [childData.id]
+      } as unknown as RenderElementData
+      const nextParentData = {
+        id: 'reparent-retry-next-parent',
+        type: 'group',
+        visible: true,
+        children: []
+      } as unknown as RenderElementData
+      const child = render.addElement(childData)
+      const previousParent = render.addElement(previousParentData)
+      const nextParent = render.addElement(nextParentData)
+      if (!child || !previousParent || !nextParent) {
+        throw new Error('Expected reparent retry nodes')
+      }
+      const childHandle = child.getEngineHandle()
+      const previousParentHandle = previousParent.getEngineHandle()
+      const nextParentHandle = nextParent.getEngineHandle()
+      const originalExecute = engine.execute.bind(engine)
+      let shouldFailHandoff = true
+      let currentEngineParent = previousParentHandle
+      const executeSpy = vi
+        .spyOn(engine, 'execute')
+        .mockImplementation((command) => {
+          if ('child' in command && command.child === childHandle) {
+            if (command.type === 'remove-child') {
+              if (command.parent !== currentEngineParent) {
+                throw new Error('remove-child parent mismatch')
+              }
+              const result = originalExecute(command)
+              currentEngineParent = null
+              return result
+            }
+            if (command.type === 'append-child') {
+              if (
+                currentEngineParent !== null &&
+                currentEngineParent !== command.parent
+              ) {
+                throw new Error('engine requires explicit remove before append')
+              }
+              if (
+                command.parent === nextParentHandle &&
+                failureCommand === 'append-child' &&
+                shouldFailHandoff
+              ) {
+                shouldFailHandoff = false
+                throw new Error('append-child reparent failed')
+              }
+              const result = originalExecute(command)
+              currentEngineParent = command.parent
+              return result
+            }
+            if (command.type === 'set-child-index') {
+              if (command.parent !== currentEngineParent) {
+                throw new Error('set-child-index parent mismatch')
+              }
+              if (
+                command.parent === nextParentHandle &&
+                failureCommand === 'set-child-index' &&
+                shouldFailHandoff
+              ) {
+                shouldFailHandoff = false
+                throw new Error('set-child-index reparent failed')
+              }
+            }
+          }
+          return originalExecute(command)
+        })
+      const completeNextParentData = {
+        ...nextParentData,
+        children: [childData.id]
+      }
+
+      expect(() =>
+        render.updateElement(
+          nextParentData.id,
+          'computed',
+          undefined,
+          undefined,
+          completeNextParentData
+        )
+      ).toThrow(`${failureCommand} reparent failed`)
+      expect(previousParent.children).toEqual([child])
+      expect(nextParent.children).toEqual([])
+      expect(child.parent).toBe(previousParent)
+      expect(currentEngineParent).toBe(previousParentHandle)
+
+      expect(() =>
+        render.updateElement(
+          nextParentData.id,
+          'computed',
+          undefined,
+          undefined,
+          completeNextParentData
+        )
+      ).not.toThrow()
+      expect(previousParent.children).toEqual([])
+      expect(nextParent.children).toEqual([child])
+      expect(child.parent).toBe(nextParent)
+      expect(currentEngineParent).toBe(nextParentHandle)
+      expect(
+        executeSpy.mock.calls.filter(
+          ([command]) =>
+            command.type === 'append-child' &&
+            command.parent === nextParentHandle &&
+            command.child === childHandle
+        )
+      ).toHaveLength(2)
+      expect(
+        executeSpy.mock.calls.filter(
+          ([command]) =>
+            command.type === 'remove-child' &&
+            command.parent === previousParentHandle &&
+            command.child === childHandle
+        )
+      ).toHaveLength(2)
+      expect(
+        executeSpy.mock.calls.filter(
+          ([command]) =>
+            command.type === 'append-child' &&
+            command.parent === previousParentHandle &&
+            command.child === childHandle
+        )
+      ).toHaveLength(1)
+    }
+  )
+
+  it('retries a failed sibling reorder from the same complete snapshot', async () => {
+    await render.init(100, 100, 0, {})
+    render.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const firstData = {
+      id: 'reorder-first',
+      type: 'rectangle',
+      visible: true,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const secondData = {
+      ...firstData,
+      id: 'reorder-second'
+    }
+    const parentData = {
+      id: 'reorder-parent',
+      type: 'group',
+      visible: true,
+      children: [firstData.id, secondData.id]
+    } as unknown as RenderElementData
+    const first = render.addElement(firstData)
+    const second = render.addElement(secondData)
+    const parent = render.addElement(parentData)
+    if (!first || !second || !parent) {
+      throw new Error('Expected reorder retry nodes')
+    }
+    const secondHandle = second.getEngineHandle()
+    const parentHandle = parent.getEngineHandle()
+    const originalExecute = engine.execute.bind(engine)
+    let shouldFailReorder = true
+    const executeSpy = vi
+      .spyOn(engine, 'execute')
+      .mockImplementation((command) => {
+        if (
+          command.type === 'set-child-index' &&
+          command.parent === parentHandle &&
+          command.child === secondHandle &&
+          shouldFailReorder
+        ) {
+          shouldFailReorder = false
+          throw new Error('sibling reorder failed')
+        }
+        return originalExecute(command)
+      })
+    const reorderedParentData = {
+      ...parentData,
+      children: [secondData.id, firstData.id]
+    }
+
+    expect(() =>
+      render.updateElement(
+        parentData.id,
+        'computed',
+        undefined,
+        undefined,
+        reorderedParentData
+      )
+    ).toThrow('sibling reorder failed')
+    expect(parent.children).toEqual([first, second])
+
+    expect(() =>
+      render.updateElement(
+        parentData.id,
+        'computed',
+        undefined,
+        undefined,
+        reorderedParentData
+      )
+    ).not.toThrow()
+    expect(parent.children).toEqual([second, first])
+    expect(
+      executeSpy.mock.calls.filter(
+        ([command]) =>
+          command.type === 'set-child-index' && command.child === secondHandle
+      )
+    ).toHaveLength(2)
+  })
+
+  it('retains handle lookup until a failed destroy can be retried', async () => {
+    await render.init(100, 100, 0, {})
+    render.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const elementData = {
+      id: 'destroy-lookup-retry',
+      type: 'rectangle',
+      visible: true,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const element = render.addElement(elementData)
+    if (!element) {
+      throw new Error('Expected destroy retry node')
+    }
+    const handle = element.getEngineHandle()
+    const originalExecute = engine.execute.bind(engine)
+    let shouldFailDestroy = true
+    const executeSpy = vi
+      .spyOn(engine, 'execute')
+      .mockImplementation((command) => {
+        if (
+          command.type === 'destroy-object' &&
+          command.object === handle &&
+          shouldFailDestroy
+        ) {
+          shouldFailDestroy = false
+          throw new Error('destroy lookup failed')
+        }
+        return originalExecute(command)
+      })
+    const querySpy = vi.spyOn(engine, 'query').mockReturnValue({
+      type: 'hit',
+      target: handle,
+      point: { x: 5, y: 5 }
+    })
+
+    expect(() => render.removeElement(elementData.id)).toThrow(
+      'destroy lookup failed'
+    )
+    expect(render.getElementIdAtClientPos({ x: 5, y: 5 })).toBe(elementData.id)
+
+    expect(() => render.removeElement(elementData.id)).not.toThrow()
+    expect(element.getEngineHandle()).toBeNull()
+    expect(
+      executeSpy.mock.calls.filter(
+        ([command]) =>
+          command.type === 'destroy-object' && command.object === handle
+      )
+    ).toHaveLength(2)
+    querySpy.mockRestore()
+  })
+
+  it('synchronizes hierarchy from complete snapshots without reordering stable siblings', () => {
+    render.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const firstData = {
+      id: 'stable-first',
+      type: 'rectangle',
+      name: 'Stable First',
+      visible: true,
+      lock: false,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const secondData = {
+      ...firstData,
+      id: 'stable-second',
+      name: 'Stable Second'
+    }
+    const targetData = {
+      ...firstData,
+      id: 'target-child',
+      name: 'Target Child'
+    }
+    const groupData = {
+      id: 'group-1',
+      type: 'group',
+      name: 'Group',
+      visible: true,
+      lock: false,
+      children: ['target-child']
+    } as unknown as RenderElementData
+    const first = render.addElement(firstData)
+    const second = render.addElement(secondData)
+    const target = render.addElement(targetData)
+    const group = render.addElement(groupData)
+    if (!first || !second || !target || !group || !group.parent) {
+      throw new Error('Expected hierarchy render nodes')
+    }
+    const workspace = group.parent
+    const stableOrder = workspace.children.map((child) => child.label)
+
+    render.updateElement(
+      firstData.id,
+      'computed',
+      undefined,
+      undefined,
+      firstData
+    )
+
+    expect(workspace.children.map((child) => child.label)).toEqual(stableOrder)
+    expect(target.parent).toBe(group)
+
+    render.updateElement(groupData.id, 'computed', undefined, undefined, {
+      ...groupData,
+      children: []
+    })
+
+    expect(group.children).toEqual([])
+    expect(target.parent).toBeNull()
+
+    render.updateElement(targetData.id, 'computed', undefined, undefined, {
+      ...targetData,
+      parentId: groupData.id
+    })
+
+    expect(target.parent).toBe(group)
+    expect(group.children.map((child) => child.label)).toEqual([targetData.id])
+  })
+
+  it('clears workspace identity and transform with scene elements', async () => {
+    const workspaceEngine = new RecordingRenderEngine({
+      name: 'workspace-reset'
+    })
+    const workspaceRender = new Render({ engine: workspaceEngine })
+    await workspaceRender.init(100, 100, 0, {})
+    workspaceRender.switchWorkspace({ label: 'workspace-old', x: 24, y: 36 })
+    const resetStartIndex = workspaceEngine.getOperations().length
+
+    workspaceRender.clearElements()
+
+    const resetProperties = workspaceEngine
+      .getOperations()
+      .slice(resetStartIndex)
+      .flatMap((operation) =>
+        operation.type === 'update-object' ? [operation.command.properties] : []
+      )
+    expect(resetProperties).toContainEqual({ label: '' })
+    expect(resetProperties).toContainEqual({ x: 0 })
+    expect(resetProperties).toContainEqual({ y: 0 })
+
+    workspaceRender.dispose()
+  })
+
   it('should delegate updateElement to viewport', () => {
     const before = 0
     const after = 10
@@ -233,6 +955,120 @@ describe('Render', () => {
       'x',
       after
     )
+  })
+
+  it('passes complete vector and non-vector snapshots through the same strategy signature', () => {
+    const vectorStrategy = vi.fn()
+    const rectangleStrategy = vi.fn()
+    const vectorData = {
+      id: 'vector-complete-data',
+      type: 'complete-data-vector',
+      visible: true,
+      name: 'Vector',
+      lock: false,
+      points: { point1: { x: 10, y: 20 } },
+      fills: { fill1: { color: 0xff00ff } }
+    } as unknown as RenderElementData
+    const rectangleData = {
+      id: 'rectangle-complete-data',
+      type: 'complete-data-rectangle',
+      visible: true,
+      name: 'Rectangle',
+      lock: false,
+      x: 12,
+      y: 16,
+      width: 80,
+      height: 60
+    } as unknown as RenderElementData
+
+    renderStrategyRegistry.register(vectorData.type, vectorStrategy)
+    renderStrategyRegistry.register(rectangleData.type, rectangleStrategy)
+
+    try {
+      render.addElement(vectorData)
+      render.addElement(rectangleData)
+
+      expect(vectorStrategy).toHaveBeenCalledTimes(1)
+      expect(vectorStrategy.mock.calls[0]?.[1]).toBe(vectorData)
+      expect(rectangleStrategy).toHaveBeenCalledTimes(1)
+      expect(rectangleStrategy.mock.calls[0]?.[1]).toBe(rectangleData)
+    } finally {
+      renderStrategyRegistry.unregister(vectorData.type)
+      renderStrategyRegistry.unregister(rectangleData.type)
+    }
+  })
+
+  it('emits the same draw trace from a delta snapshot and a fresh snapshot', async () => {
+    const strategyType = 'delta-trace-equivalence'
+    const strategy = vi.fn((graphic, data: RenderElementData) => {
+      graphic
+        .clear()
+        .rect(data.x, data.y, data.width, data.height)
+        .fill(0x336699)
+    })
+    const initialData = {
+      id: 'trace-element',
+      type: strategyType,
+      visible: true,
+      name: 'Trace Element',
+      lock: false,
+      x: 0,
+      y: 0,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const finalData = {
+      ...initialData,
+      x: 30,
+      y: 40,
+      width: 80,
+      height: 60
+    }
+    const freshEngine = new RecordingRenderEngine({ name: 'fresh-trace' })
+    const freshRender = new Render({ engine: freshEngine })
+    const drawOperationsAfter = (
+      targetEngine: RecordingRenderEngine,
+      startIndex: number
+    ) =>
+      targetEngine
+        .getOperations()
+        .slice(startIndex)
+        .flatMap((operation) =>
+          operation.type === 'draw' ? [operation.command.operations] : []
+        )
+
+    renderStrategyRegistry.register(strategyType, strategy)
+
+    try {
+      await render.init(100, 100, 0)
+      render.addElement(initialData)
+      render.flushFrame()
+      const deltaStartIndex = engine.getOperations().length
+
+      render.updateElement(
+        finalData.id,
+        'computed',
+        undefined,
+        undefined,
+        finalData
+      )
+      render.flushFrame()
+      const deltaDrawOperations = drawOperationsAfter(engine, deltaStartIndex)
+
+      await freshRender.init(100, 100, 0)
+      const freshStartIndex = freshEngine.getOperations().length
+      freshRender.addElement(finalData)
+      freshRender.flushFrame()
+      const freshDrawOperations = drawOperationsAfter(
+        freshEngine,
+        freshStartIndex
+      )
+
+      expect(deltaDrawOperations).toEqual(freshDrawOperations)
+      expect(deltaDrawOperations).toHaveLength(1)
+    } finally {
+      renderStrategyRegistry.unregister(strategyType)
+    }
   })
 
   it('should coalesce render requests made during layer updates into the current frame', async () => {

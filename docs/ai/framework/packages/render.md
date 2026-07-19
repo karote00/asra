@@ -61,14 +61,101 @@ drawing; Render adds no inferred mapping or fallback geometry.
   use the current precise transform chain; a cached transform from the previous
   render pass is not authoritative after frame-aligned scene updates
 
-2. Interaction bridge
+2. Scene Tree delta projection
+
+- `renderSceneTreeStore` owns one derived complete snapshot per live
+  non-workspace element, keyed only by `elementId`; Scene Tree remains the sole
+  canonical state owner and the shared data channel owns no snapshot state
+- add and load explicitly merge the element's complete saved and computed data
+  into one snapshot; the requested id, non-empty type, and non-workspace checks
+  must pass before install, and ordinary updates never seed a missing base
+- load rebuilds parents before their children and siblings in canonical parent
+  `children` order, independent of Scene Tree `Map` insertion order, and passes
+  each exact sibling index to Render placement
+- ADD/REMOVE envelopes retain canonical `parentId` and sibling `index`. An add
+  places the child at that exact index, and add/remove atomically patch an
+  existing non-workspace parent `children` mirror before queuing its complete
+  snapshot; a parent membership precondition mismatch enters explicit resync.
+  Workspace-root adds use the committed index directly because workspaces are not
+  mirrored
+- a missing canonical add target clears matching pending work and stale visual
+  before returning `removed`; an invalid existing target clears stale output and
+  returns `failed`. An unsuccessful visual add, including a caught strategy
+  failure, is a rebuild failure for add, reload, and resync. Its synchronous
+  result returns to the projection controller before that controller reports the
+  final outcome
+- scalar, ordered batch, and record patch updates validate every supplied
+  `before` image and require every addressed top-level base to be an own property
+  before atomically installing a new snapshot; record patches require an own
+  existing record base and never substitute `{}`. Deep comparison is
+  cycle-safe across records and arrays, compares every enumerable own string or
+  symbol array property, and preserves sparse-array semantics; an array hole and
+  an own `undefined` slot are not equivalent
+- every scalar, batch, and patch candidate is merged with computed-over-raw
+  precedence and must retain the requested id, a non-empty type, and a
+  non-workspace type before install; an incomplete candidate enters the explicit
+  resync route and fails closed if the authoritative snapshot remains incomplete
+- scalar and batch entries carry canonical `raw` or `computed` owner provenance;
+  Render validates and updates only that declared slice and never infers owner
+  from key presence, a hard-coded property list, or element type
+- the complete merged snapshot keeps computed precedence over same-name raw
+  fields; a shadowed raw update changes the raw projection without sending its
+  ineffective value through the direct visual route
+- a missing base or failed precondition emits no partial strategy input and
+  performs one explicit authoritative resync through the existing synchronous
+  add-or-update route; the structured outcome is `applied`, `resynced`,
+  `removed`, or `failed`. Resync returns success only after the complete strategy
+  rebuild succeeds, and a composition or strategy failure removes stale visual
+  output and returns `failed`
+- direct `x`, `y`, `rotation`, and `visible` updates retain the direct property
+  route after projection validation; mixed or computed updates coalesce per
+  element and rerun the unchanged strategy signature once from the final complete
+  snapshot. That complete snapshot also synchronizes generic `parentId` and
+  `children` hierarchy without reordering unchanged siblings
+- Render does not retain a strategy dependency graph or hard-code vector schema
+  keys; profiling permits only the existing `elementId` snapshot dimension
+- initial observer registration and every re-registration invoke the explicit
+  full rebuild route after the observer is installed; Render never relies on a
+  later delta to recover an observer gap. Any element rebuild failure clears the
+  partial projection and throws to the lifecycle caller
+- remove, reload, observer teardown, and Render teardown clear pending frame work
+  idempotently; observer and Render teardown also release every Scene
+  Tree-projected visual node and its abstract engine handle/resources before
+  discarding the matching snapshot. Projection cleanup addresses only Scene
+  Tree-projected ids retained by mirror or projected-visual ownership and does
+  not clear unrelated scene or custom-layer nodes. Removing a projected parent
+  detaches live canonical children before destroying only the parent; undo/redo
+  re-adds it from a fresh complete snapshot and restores the exact sibling index
+  while synchronizing the non-workspace parent mirror.
+  Mirror ownership and projected-visual ownership are tracked separately.
+  Projected ownership is discarded only after visual release succeeds, and any
+  valid mirror present at that boundary is retained across release failure.
+  The opaque handle-to-node lookup is retained until the engine destroy command
+  succeeds, so a failed destroy preserves hit-query resolution and exact retry
+  ownership for that projected node.
+  Resync invalidates a mismatched mirror before its authoritative read; if that
+  read or seed fails and visual release also fails, the invalidated resync mirror
+  remains absent and only projected visual retry ownership remains. Cleanup still
+  continues across other projected ids, and a successfully seeded authoritative
+  resync mirror remains valid if its later visual cleanup fails. Retry ownership
+  uses only the existing `elementId` cache dimension
+- a reload with no current workspace clears retained workspace metadata and
+  resets workspace identity/transform; stable snapshot and Scene Tree-projected
+  Render-node counts never exceed live non-workspace elements. Custom and overlay
+  layer nodes remain under their respective lifecycle owners and are not included
+  in this projection bound
+- hierarchy parent and sibling-order bookkeeping commits only after the matching
+  engine append or set-child-index handoff succeeds; a failed handoff preserves
+  the pre-command local hierarchy so the same complete snapshot can retry it
+
+3. Interaction bridge
 
 - pointer events from render are inputs, not authoritative selection/hit policy
 - hit-test policies can be framework/app-defined when bounds-based behavior is needed
 - overlay interaction targets publish `render.pointer.*` events with engine-agnostic payloads
 - pointer capture can block underlying input-system drag when configured
 
-3. Engine isolation
+4. Engine isolation
 
 - one selected engine instance belongs to one `Render` instance
 - a provider is invoked only during initialization; provider callback and
@@ -80,14 +167,14 @@ drawing; Render adds no inferred mapping or fallback geometry.
   requirements fail without concrete-engine introspection or fallback
 - adapter API exposes engine-agnostic methods to other packages/app layers
 
-4. Engine interaction return
+5. Engine interaction return
 
 - concrete engine events are normalized by `@asyra/render-engine`
 - render maps the opaque target handle to a framework interaction target
 - the existing interaction bridge publishes framework events; render and the
   engine do not execute product features
 
-5. Optional pipeline diagnostics
+6. Optional pipeline diagnostics
 
 - render-layer registration and pipeline observers belong to one `Render`
   instance; registrations and evidence never cross instance boundaries

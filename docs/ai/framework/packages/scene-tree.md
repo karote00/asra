@@ -29,10 +29,31 @@ Own the document entity graph and computed entity data.
   Only consecutive compatible transient changes are batched. An ordinary or
   incompatible change flushes the pending batch first so journal order remains
   identical to the canonical write timeline.
-- Standalone transaction replay routes `name`, `parentId`, `visible`, `lock`,
-  and group `children` through Element-owned data; only computed-only keys route
-  through `Computed` and its property bridge. Both routes acknowledge semantic
-  apply synchronously.
+- Committed scalar changes carry one exact `key`, `before`, `after`, and
+  canonical `raw` or `computed` owner; a transient batch preserves each entry's
+  owner, scalar order, and effective options as one envelope.
+  Computed record patches retain exact before evidence for replacement/removal,
+  including an own `before` property when an existing record value is
+  `undefined`; only an absent record id is an addition. They omit equal writes
+  and missing removals, and collapse value plus record
+  set/remove mutations into one committed patch change. Top-level value patches
+  replace existing computed keys and never create a missing computed owner. A
+  top-level key cannot appear in both the value and record maps of that patch;
+  overlapping requests fail before canonical mutation. Every value base must be
+  an own property, every record base must be an own record, and one record id
+  cannot appear in both `set` and `remove`; invalid requests fail before any
+  canonical mutation instead of publishing a phantom patch or creating an empty
+  record base. A multi-element patch deduplicates target ids, reads each existing
+  target snapshot once, and prevalidates all targets before mutating the first;
+  one invalid target rejects the full request without applying a canonical
+  prefix, while each valid target applies once.
+- Standalone transaction replay consumes the carried `raw|computed` owner and
+  never infers it from the key or current data. `raw` routes through Element;
+  `computed` routes through Computed and its property bridge even when a raw
+  field has the same name. Missing or invalid owner provenance is rejected
+  before mutation. Both valid routes acknowledge semantic apply synchronously.
+  Patch replay materializes top-level keys and record ids as own enumerable data
+  properties, including legal special names such as `__proto__`.
 - During add/remove, initialization plus parent/children/computed setter changes
   are internal graph side effects and are collapsed before journal publication;
   the explicit ADD/REMOVE event with parent/index metadata is the sole

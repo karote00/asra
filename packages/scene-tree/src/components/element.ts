@@ -23,7 +23,7 @@ import Props from './props'
 import Computed from './computed'
 import ElementChangeHandler from './element-change-handler'
 
-const elementChangeHandler = new ElementChangeHandler()
+const elementChangeHandler = new ElementChangeHandler('raw')
 
 type ElementDataType = Partial<ElementRawData>
 
@@ -149,7 +149,7 @@ class Element<T extends ElementAttrs = ElementAttrs>
     data: ComputedAttrs[K],
     options?: EvnetOptions
   ) {
-    if (!(key in this.data)) {
+    if (key in this.computed.data || !(key in this.data)) {
       this.computed.set(key, data, options)
 
       // Convert data type from ComputedAttrs to PropertyComponentInstanceDataTypes

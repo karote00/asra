@@ -79,6 +79,26 @@ const ELEMENT_DATA_MAP_COMPUTED_KEYS = new Set([
 const shouldUpdateElementDataMapForComputedKey = (key: string): boolean =>
   ELEMENT_DATA_MAP_COMPUTED_KEYS.has(key)
 
+const RENDER_PROJECTION_OUTCOMES = new Set([
+  'applied',
+  'resynced',
+  'removed',
+  'failed'
+])
+
+const recordRenderProjectionOutcome = (outcome: unknown) => {
+  const status =
+    outcome && typeof outcome === 'object' && 'status' in outcome
+      ? (outcome as { status?: unknown }).status
+      : undefined
+  if (typeof status === 'string' && RENDER_PROJECTION_OUTCOMES.has(status)) {
+    emitStrokePipelineCounter(`render-projection-outcome-${status}`)
+  } else {
+    emitStrokePipelineCounter('render-projection-outcome-missing')
+  }
+  return outcome
+}
+
 const getMatchingPropertiesForSceneTreeChange = (
   change: SceneTreeChange
 ): string[] => {
@@ -102,6 +122,7 @@ const getMatchingPropertiesForSceneTreeChange = (
             action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
             eventName: patchChange.eventName,
             id: patchChange.id,
+            owner: 'computed',
             key,
             before: null,
             after: null,
@@ -115,11 +136,12 @@ const getMatchingPropertiesForSceneTreeChange = (
   const batchChange = change as UpdateElementBatchChange
   return Array.from(
     new Set(
-      batchChange.changes.flatMap(({ key, before, after }) =>
+      batchChange.changes.flatMap(({ owner, key, before, after }) =>
         propertyRegistry.getMatchingProperties({
           action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
           eventName: batchChange.eventName,
           id: batchChange.id,
+          owner,
           key,
           before,
           after,
@@ -134,30 +156,42 @@ const getMatchingPropertiesForSceneTreeChange = (
 const updateRenderSceneTree = (change: SceneTreeChange) => {
   switch (change.action) {
     case SCENE_TREE_ACTIONS.ADD_ELEMENT: {
-      renderSceneTreeStore.addElementById(
-        (change as AddRemoveElementChange).data.id
+      const { data, parentId, index } = change as AddRemoveElementChange
+      return recordRenderProjectionOutcome(
+        renderSceneTreeStore.addElementById(data.id, parentId, index)
       )
-      break
     }
     case SCENE_TREE_ACTIONS.REMOVE_ELEMENT: {
-      const { parentId, data } = change as AddRemoveElementChange
-      renderSceneTreeStore.removeElement(data, parentId)
-      break
+      const { parentId, index, data } = change as AddRemoveElementChange
+      return recordRenderProjectionOutcome(
+        renderSceneTreeStore.removeElement(data, parentId, index)
+      )
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA: {
-      const { id, key, before, after, options } = change as UpdateElementChange
-      renderSceneTreeStore.updateElement(id, key, before, after, options)
-      break
+      const { id, owner, key, before, after, options } =
+        change as UpdateElementChange
+      return recordRenderProjectionOutcome(
+        renderSceneTreeStore.updateElement(
+          id,
+          owner,
+          key,
+          before,
+          after,
+          options
+        )
+      )
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH: {
       const { id, changes, options } = change as UpdateElementBatchChange
-      renderSceneTreeStore.updateElementBatch(id, changes, options)
-      break
+      return recordRenderProjectionOutcome(
+        renderSceneTreeStore.updateElementBatch(id, changes, options)
+      )
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH: {
       const { id, patch, options } = change as UpdateElementPatchChange
-      renderSceneTreeStore.updateElementPatch(id, patch, options)
-      break
+      return recordRenderProjectionOutcome(
+        renderSceneTreeStore.updateElementPatch(id, patch, options)
+      )
     }
   }
 }
@@ -656,6 +690,13 @@ export const registerDefaultDataChannelObservers = (
         failures.push(error)
       }
     }
+    if (renderSceneEnabled) {
+      try {
+        renderSceneTreeStore.clearProjection()
+      } catch (error) {
+        failures.push(error)
+      }
+    }
     resetPendingUIContextSync(uiContextSyncLifetime)
 
     if (failures.length > 0) {
@@ -709,12 +750,18 @@ export const registerDefaultDataChannelObservers = (
   })
 
   try {
-    if (renderSceneEnabled || uiContextEnabled || vectorEditingEnabled) {
+    if (renderSceneEnabled) {
+      eventSubscriptions.push(
+        subscribeToSynchronousEvent(EventTypes.FILE_LOAD_COMPLETE, () => {
+          renderSceneTreeStore.reload()
+        })
+      )
+      reportCleanupReady()
+    }
+
+    if (uiContextEnabled || vectorEditingEnabled) {
       eventSubscriptions.push(
         subscribeToFileLoadComplete(() => {
-          if (renderSceneEnabled) {
-            renderSceneTreeStore.reload()
-          }
           if (uiContextEnabled) {
             resetPendingUIContextSync(uiContextSyncLifetime)
             syncFlattenedElementIds(deps)
@@ -834,6 +881,7 @@ export const registerDefaultDataChannelObservers = (
 
     if (renderSceneEnabled) {
       registerObserver(renderSceneTreeDataChannelObserver)
+      renderSceneTreeStore.reload()
     }
     if (selectionEnabled) {
       registerObserver(selectionRuntimeDataChannelObserver)

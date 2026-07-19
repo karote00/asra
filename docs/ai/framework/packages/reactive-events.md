@@ -55,6 +55,11 @@ Provide typed cross-package event communication.
   exception reaches Factory synchronously and can become `rollback-failed`.
   Ordinary RxJS subscribers remain observation/diagnostic consumers and are not
   canonical mutation acknowledgements.
+- `SceneTreeEventTypes.UPDATE_COMPUTED_DATA` carries an explicit
+  `owner: 'raw' | 'computed'` replay provenance field. The computed publisher
+  supplies `computed`; canonical subscribers route only by the declared owner
+  and reject missing or invalid provenance instead of inferring it from a key or
+  current state.
 - A synchronous owner is acknowledged as applied when it returns `void`/`true`;
   it returns `false` when the requested write is a semantic no-op. If it mutates
   canonical state and then must throw, it calls

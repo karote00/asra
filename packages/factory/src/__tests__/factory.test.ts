@@ -227,6 +227,91 @@ describe('Factory', () => {
     dispose()
   })
 
+  it('delivers each committed journal snapshot once and in order to every observer', () => {
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      factory.getYjsDataChannel(SharedDataChannelNames.SCENE_TREE)
+    )
+
+    interface OrderedChange {
+      id: string
+      owner: 'raw' | 'computed'
+      before: number
+      after: number
+      evidence: { sequence: number }
+    }
+    const firstObserverChanges: OrderedChange[] = []
+    const secondObserverChanges: OrderedChange[] = []
+    const disposeFirst = factory.observeSharedDataChannel<OrderedChange>(
+      SharedDataChannelNames.SCENE_TREE,
+      (change) => firstObserverChanges.push(change)
+    )
+    const disposeSecond = factory.observeSharedDataChannel<OrderedChange>(
+      SharedDataChannelNames.SCENE_TREE,
+      (change) => secondObserverChanges.push(change)
+    )
+
+    factory.startTransaction()
+    ;[1, 2, 3].forEach((sequence) => {
+      const payload = {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+        id: 'ordered-element',
+        owner: sequence % 2 === 0 ? ('raw' as const) : ('computed' as const),
+        key: 'x',
+        before: sequence - 1,
+        after: sequence,
+        evidence: { sequence }
+      }
+      factory.updateTransaction({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        payload,
+        options: { shared: SharedDataChannelNames.SCENE_TREE }
+      })
+      payload.after = 100 + sequence
+      payload.evidence.sequence = 100 + sequence
+    })
+
+    expect(firstObserverChanges).toEqual([])
+    expect(secondObserverChanges).toEqual([])
+
+    factory.endTransaction()
+
+    const expectedChanges = [1, 2, 3].map((sequence) =>
+      expect.objectContaining({
+        id: 'ordered-element',
+        owner: sequence % 2 === 0 ? 'raw' : 'computed',
+        before: sequence - 1,
+        after: sequence,
+        evidence: { sequence }
+      })
+    )
+    expect(firstObserverChanges).toEqual(expectedChanges)
+    expect(secondObserverChanges).toEqual(expectedChanges)
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
+        id: 'rolled-back-element',
+        owner: 'computed',
+        key: 'x',
+        before: 0,
+        after: 1
+      },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+    factory.endTransaction({ outcome: 'rollback' })
+
+    expect(firstObserverChanges).toHaveLength(3)
+    expect(secondObserverChanges).toHaveLength(3)
+
+    disposeFirst()
+    disposeSecond()
+  })
+
   it('commits undo before notifying shared channel observers', () => {
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
@@ -354,6 +439,10 @@ describe('Factory', () => {
                 before: { id: 'A', x: 0, y: 0 },
                 after: { id: 'A', x: 10, y: 10 }
               },
+              U: {
+                before: undefined,
+                after: { id: 'U', x: 15, y: 15 }
+              },
               B: {
                 after: { id: 'B', x: 20, y: 20 }
               }
@@ -391,6 +480,10 @@ describe('Factory', () => {
                 before: { id: 'A', x: 10, y: 10 },
                 after: { id: 'A', x: 0, y: 0 }
               },
+              U: {
+                before: { id: 'U', x: 15, y: 15 },
+                after: undefined
+              },
               C: {
                 after: { id: 'C', x: 30, y: 30 }
               }
@@ -405,6 +498,124 @@ describe('Factory', () => {
       },
       payload.patch
     ])
+
+    subscription.unsubscribe()
+  })
+
+  it('treats an inherited record before value as absent during patch inversion', () => {
+    const observedPatches: unknown[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (
+        event.type === EventTypes.UPDATE_COMPUTED_DATA_PATCH &&
+        'payload' in event
+      ) {
+        observedPatches.push((event.payload as { patch: unknown }).patch)
+      }
+    })
+    const inheritedChange = Object.assign(
+      Object.create({ before: { id: 'A', x: 0, y: 0 } }) as {
+        before: { id: string; x: number; y: number }
+        after: { id: string; x: number; y: number }
+      },
+      { after: { id: 'A', x: 10, y: 10 } }
+    )
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+      payload: {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+        id: 'vector-inherited-before',
+        patch: {
+          records: {
+            points: {
+              set: { A: inheritedChange }
+            }
+          }
+        }
+      }
+    })
+    factory.endTransaction()
+
+    factory.undo()
+
+    expect(observedPatches[0]).toEqual({
+      records: {
+        points: {
+          remove: {
+            A: { before: { id: 'A', x: 10, y: 10 } }
+          }
+        }
+      }
+    })
+
+    subscription.unsubscribe()
+  })
+
+  it('preserves special own record ids while inverting computed patches', () => {
+    const observedPatches: unknown[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (
+        event.type === EventTypes.UPDATE_COMPUTED_DATA_PATCH &&
+        'payload' in event
+      ) {
+        observedPatches.push((event.payload as { patch: unknown }).patch)
+      }
+    })
+    const recordSet: Record<string, unknown> = {}
+    Object.defineProperty(recordSet, '__proto__', {
+      value: {
+        after: { id: '__proto__', x: 10, y: 20 }
+      },
+      enumerable: true,
+      configurable: true,
+      writable: true
+    })
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+      payload: {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+        id: 'vector-special-id',
+        patch: {
+          records: {
+            points: { set: recordSet }
+          }
+        }
+      }
+    })
+    factory.endTransaction()
+
+    factory.undo()
+    factory.redo()
+
+    const inverseRemove = (
+      observedPatches[0] as {
+        records: { points: { remove: Record<string, unknown> } }
+      }
+    ).records.points.remove
+    const replaySet = (
+      observedPatches[1] as {
+        records: { points: { set: Record<string, unknown> } }
+      }
+    ).records.points.set
+    expect(
+      Object.prototype.hasOwnProperty.call(inverseRemove, '__proto__')
+    ).toBe(true)
+    expect(inverseRemove['__proto__']).toEqual({
+      before: { id: '__proto__', x: 10, y: 20 }
+    })
+    expect(Object.prototype.hasOwnProperty.call(replaySet, '__proto__')).toBe(
+      true
+    )
+    expect(replaySet['__proto__']).toEqual({
+      after: { id: '__proto__', x: 10, y: 20 }
+    })
 
     subscription.unsubscribe()
   })

@@ -6,6 +6,7 @@ import type {
   EVENT_OPTIONS,
   ElementRawData,
   GroupInstanceTypes,
+  SceneTreeDataOwner,
   SceneTreeRawData
 } from '@asyra/utils'
 import { EventTypes } from '../types'
@@ -52,6 +53,7 @@ export interface UpdateComputedDataEvent {
     key: string
     before: DataTypes
     after: DataTypes
+    owner: SceneTreeDataOwner
   }
 }
 

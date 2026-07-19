@@ -108,6 +108,24 @@ fails; apps customize successful defaults through ordinary Core APIs.
 - Preset owns the fixed catalog, official module installers, private
   prerequisites, profile policy, apply result, and failed-apply rollback.
 - App owns which preset choices to request and any later Core customization.
+- The preset-owned Scene Tree shared-channel observer routes committed add,
+  remove, scalar, ordered batch, and record-patch envelopes to the matching
+  public Render scene-tree store operation without composing or retaining a
+  snapshot. ADD and REMOVE forward canonical `parentId` and sibling `index`
+  unchanged so Render can maintain exact parent membership and order. Scalar and
+  batch routes preserve each canonical `raw` or `computed` owner together with
+  its complete before/after evidence; Preset does not infer ownership. It records
+  the structured Render projection outcome for bounded diagnostics. Initial
+  registration and every re-registration install the
+  observer first and then invoke the public Render full-rebuild route so changes
+  committed during an observer gap cannot leave stale output. Its idempotent
+  disposer clears Render projection state and every Scene Tree-projected visual
+  node once, including their abstract engine handles/resources. If the rebuild
+  fails, registration fails and the existing cleanup rollback unregisters the
+  observer and clears any partial projection. File-load completion invokes the
+  Render rebuild through a synchronous lifecycle handler so a rebuild failure
+  propagates to the caller; UI-context and vector-editing file-load work remains
+  on their separate observer route.
 
 Preset must not accept app-provided installers, disposers, dependency objects,
 engine ids, custom providers, extension callbacks, or replace semantics.

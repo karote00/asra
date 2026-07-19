@@ -2,6 +2,7 @@ import type {
   ComputedAttrs,
   ComputedDataPatch,
   ComputedDataPatchChange,
+  ComputedDataRecordValue,
   SceneTreeRawData,
   ElementRawData,
   GroupRawData,
@@ -52,14 +53,98 @@ const hasPatchChanges = (patch: ComputedDataPatchChange): boolean => {
   )
 }
 
-const cloneRecord = (value: unknown): Record<string, DataTypes> =>
-  isRecord(value) ? ({ ...value } as Record<string, DataTypes>) : {}
+const getOverlappingPatchKey = (
+  patch: ComputedDataPatch
+): string | undefined => {
+  const recordKeys = new Set(Object.keys(patch.records ?? {}))
+  return Object.keys(patch.values ?? {}).find((key) => recordKeys.has(key))
+}
+
+const cloneRecord = (
+  value: Record<string, unknown>
+): Record<string, ComputedDataRecordValue> =>
+  ({ ...value }) as Record<string, ComputedDataRecordValue>
+
+const hasOwnRecordValue = (
+  value: Record<string, unknown>,
+  key: string
+): boolean => Object.prototype.hasOwnProperty.call(value, key)
+
+const setOwnEnumerableValue = (
+  value: object,
+  key: string,
+  nextValue: unknown
+): void => {
+  Object.defineProperty(value, key, {
+    configurable: true,
+    enumerable: true,
+    value: nextValue,
+    writable: true
+  })
+}
 
 const getComputedSnapshot = (
   element: ElementInstanceTypes
 ): Record<string, DataTypes> => {
   const snapshot = element.getAllComputedData()
-  return isRecord(snapshot) ? (snapshot as Record<string, DataTypes>) : {}
+  if (!isRecord(snapshot)) {
+    throw new Error('Computed data snapshot must be a record')
+  }
+  return snapshot as Record<string, DataTypes>
+}
+
+const validateComputedDataRecordPatches = (
+  patch: ComputedDataPatch,
+  computedSnapshot: Record<string, DataTypes>
+): void => {
+  Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
+    if (
+      !hasOwnRecordValue(computedSnapshot, key) ||
+      !isRecord(computedSnapshot[key])
+    ) {
+      throw new Error(
+        `Computed data patch record base "${key}" must already be a record`
+      )
+    }
+
+    const removedIds = new Set(recordPatch.remove ?? [])
+    const overlappingRecordId = Object.keys(recordPatch.set ?? {}).find(
+      (recordId) => removedIds.has(recordId)
+    )
+    if (overlappingRecordId !== undefined) {
+      throw new Error(
+        `Computed data patch record "${key}.${overlappingRecordId}" cannot be both set and removed`
+      )
+    }
+  })
+}
+
+const validateComputedDataValuePatches = (
+  patch: ComputedDataPatch,
+  computedSnapshot: Record<string, DataTypes>
+): void => {
+  Object.keys(patch.values ?? {}).forEach((key) => {
+    if (!Object.prototype.hasOwnProperty.call(computedSnapshot, key)) {
+      throw new Error(
+        `Computed data patch value base "${key}" must already exist`
+      )
+    }
+  })
+}
+
+const validateComputedDataPatch = (
+  patch: ComputedDataPatch,
+  computedSnapshot: Record<string, DataTypes>
+): void => {
+  const overlappingKey = getOverlappingPatchKey(patch)
+  if (overlappingKey !== undefined) {
+    throw new Error(
+      `Computed data patch key "${overlappingKey}" cannot be both value and record`
+    )
+  }
+
+  validateComputedDataValuePatches(patch, computedSnapshot)
+  validateComputedDataRecordPatches(patch, computedSnapshot)
 }
 
 export interface SceneTreeLoadDiagnostic {
@@ -572,9 +657,26 @@ class SceneTree {
       return
     }
 
+    const computedSnapshot = getComputedSnapshot(element)
+    validateComputedDataPatch(patch, computedSnapshot)
+    this.applyComputedDataPatch(
+      elementId,
+      element,
+      patch,
+      computedSnapshot,
+      options
+    )
+  }
+
+  private applyComputedDataPatch(
+    elementId: string,
+    element: ElementInstanceTypes,
+    patch: ComputedDataPatch,
+    computedSnapshot: Record<string, DataTypes>,
+    options?: EvnetOptions
+  ): void {
     const patchChange: ComputedDataPatchChange = {}
     const previousChangeCount = this.changes.length
-    const computedSnapshot = getComputedSnapshot(element)
 
     Object.entries(patch.values ?? {}).forEach(([key, after]) => {
       const computedKey = key as keyof ComputedAttrs
@@ -589,37 +691,43 @@ class SceneTree {
         options
       )
       patchChange.values ??= {}
-      patchChange.values[key] = { before, after }
+      setOwnEnumerableValue(patchChange.values, key, { before, after })
     })
 
     Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
       const computedKey = key as keyof ComputedAttrs
-      const currentRecord = cloneRecord(computedSnapshot[key])
+      const currentRecord = cloneRecord(
+        computedSnapshot[key] as Record<string, unknown>
+      )
       let nextRecord = { ...currentRecord }
       const nextRecordPatch: NonNullable<
         ComputedDataPatchChange['records']
       >[string] = {}
 
       Object.entries(recordPatch.set ?? {}).forEach(([recordId, after]) => {
+        const recordExists = hasOwnRecordValue(currentRecord, recordId)
         const before = currentRecord[recordId]
-        if (isEqual(before, after)) {
+        if (recordExists && isEqual(before, after)) {
           return
         }
 
-        nextRecord[recordId] = after
+        setOwnEnumerableValue(nextRecord, recordId, after)
         nextRecordPatch.set ??= {}
-        nextRecordPatch.set[recordId] =
-          before === undefined ? { after } : { before, after }
+        setOwnEnumerableValue(
+          nextRecordPatch.set,
+          recordId,
+          recordExists ? { before, after } : { after }
+        )
       })
       ;(recordPatch.remove ?? []).forEach((recordId) => {
-        if (!(recordId in currentRecord)) {
+        if (!hasOwnRecordValue(currentRecord, recordId)) {
           return
         }
 
         nextRecordPatch.remove ??= {}
-        nextRecordPatch.remove[recordId] = {
+        setOwnEnumerableValue(nextRecordPatch.remove, recordId, {
           before: currentRecord[recordId]
-        }
+        })
         const { [recordId]: _removed, ...withoutRecord } = nextRecord
         nextRecord = withoutRecord
       })
@@ -637,7 +745,7 @@ class SceneTree {
         options
       )
       patchChange.records ??= {}
-      patchChange.records[key] = nextRecordPatch
+      setOwnEnumerableValue(patchChange.records, key, nextRecordPatch)
     })
 
     if (!hasPatchChanges(patchChange)) {
@@ -651,6 +759,39 @@ class SceneTree {
       id: elementId,
       patch: patchChange
     } as UpdateElementPatchChange)
+  }
+
+  patchComputedDataForElements(
+    elementIds: string[],
+    patch: ComputedDataPatch,
+    options?: EvnetOptions
+  ) {
+    const targets = [...new Set(elementIds)].flatMap((elementId) => {
+      const element = this.getElementById(elementId)
+      return element
+        ? [
+            {
+              elementId,
+              element,
+              computedSnapshot: getComputedSnapshot(element)
+            }
+          ]
+        : []
+    })
+
+    targets.forEach(({ computedSnapshot }) => {
+      validateComputedDataPatch(patch, computedSnapshot)
+    })
+
+    targets.forEach(({ elementId, element, computedSnapshot }) => {
+      this.applyComputedDataPatch(
+        elementId,
+        element,
+        patch,
+        computedSnapshot,
+        options
+      )
+    })
   }
 
   refreshComputedDataFromProperty(
@@ -756,6 +897,7 @@ class SceneTree {
           options: routedOptions
         }
         pendingTransientComputedUpdate.changes.push({
+          owner: computedChange.owner,
           key: computedChange.key,
           before: computedChange.before,
           after: computedChange.after

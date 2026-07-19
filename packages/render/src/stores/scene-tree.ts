@@ -1,7 +1,9 @@
 import type {
   ComputedDataPatchChange,
+  ComputedDataRecordValue,
   DataTypes,
   ElementRawData,
+  SceneTreeDataOwner,
   WorkspaceRawData
 } from '@asyra/utils'
 import { EntityTypes } from '@asyra/utils'
@@ -18,6 +20,180 @@ interface ComputedDataMirrorEntry {
   rawDataSnapshot: Record<string, unknown>
   computedDataSnapshot: Record<string, DataTypes>
   renderDataSnapshot: RenderElementData
+}
+
+interface EffectiveTopLevelChange {
+  key: string
+  before: DataTypes
+  after: DataTypes
+}
+
+interface TopLevelApplyResult {
+  effectiveChanges: EffectiveTopLevelChange[]
+}
+
+type ChildMembershipAction = 'add' | 'remove'
+
+type RenderProjectionStatus = 'applied' | 'resynced' | 'removed' | 'failed'
+
+interface RenderProjectionOutcome {
+  status: RenderProjectionStatus
+  elementId: string
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+
+const hasOwn = (record: object, key: PropertyKey) =>
+  Object.prototype.hasOwnProperty.call(record, key)
+
+const getEnumerableOwnKeys = (value: object): PropertyKey[] =>
+  Reflect.ownKeys(value).filter((key) =>
+    Object.prototype.propertyIsEnumerable.call(value, key)
+  )
+
+const isArrayIndexKey = (key: PropertyKey): key is string => {
+  if (typeof key !== 'string' || key === '') {
+    return false
+  }
+  const index = Number(key)
+  return (
+    Number.isInteger(index) &&
+    index >= 0 &&
+    index < 2 ** 32 - 1 &&
+    String(index) === key
+  )
+}
+
+const cloneArrayWithEnumerableProperties = <T>(value: T[]): T[] => {
+  const clone = value.slice()
+  getEnumerableOwnKeys(value).forEach((key) => {
+    if (isArrayIndexKey(key)) {
+      return
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key)
+    if (descriptor) {
+      Object.defineProperty(clone, key, descriptor)
+    }
+  })
+  return clone
+}
+
+const setOwn = (record: object, key: string, value: unknown): void => {
+  Object.defineProperty(record, key, {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true
+  })
+}
+
+const isSceneTreeDataOwner = (value: unknown): value is SceneTreeDataOwner =>
+  value === 'raw' || value === 'computed'
+
+const composeCompleteRenderData = (
+  elementId: string,
+  rawDataSnapshot: Record<string, unknown>,
+  computedDataSnapshot: Record<string, DataTypes>
+): RenderElementData | null => {
+  const renderDataSnapshot = {
+    ...rawDataSnapshot,
+    ...computedDataSnapshot
+  }
+  if (
+    renderDataSnapshot.id !== elementId ||
+    typeof renderDataSnapshot.type !== 'string' ||
+    renderDataSnapshot.type.length === 0 ||
+    renderDataSnapshot.type === EntityTypes.WORKSPACE
+  ) {
+    return null
+  }
+
+  return renderDataSnapshot as unknown as RenderElementData
+}
+
+const getEffectiveValue = (
+  rawDataSnapshot: Record<string, unknown>,
+  computedDataSnapshot: Record<string, DataTypes>,
+  key: string
+): unknown =>
+  hasOwn(computedDataSnapshot, key)
+    ? computedDataSnapshot[key]
+    : rawDataSnapshot[key]
+
+interface ComparedDataPairs {
+  leftToRight: WeakMap<object, object>
+  rightToLeft: WeakMap<object, object>
+}
+
+const rememberComparedPair = (
+  left: object,
+  right: object,
+  comparedPairs: ComparedDataPairs
+): 'new' | 'equal' | 'mismatch' => {
+  const mappedRight = comparedPairs.leftToRight.get(left)
+  const mappedLeft = comparedPairs.rightToLeft.get(right)
+  if (mappedRight !== undefined || mappedLeft !== undefined) {
+    return mappedRight === right && mappedLeft === left ? 'equal' : 'mismatch'
+  }
+  comparedPairs.leftToRight.set(left, right)
+  comparedPairs.rightToLeft.set(right, left)
+  return 'new'
+}
+
+const isDataEqual = (
+  left: unknown,
+  right: unknown,
+  comparedPairs: ComparedDataPairs = {
+    leftToRight: new WeakMap(),
+    rightToLeft: new WeakMap()
+  }
+): boolean => {
+  if (Object.is(left, right)) {
+    return true
+  }
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (
+      !Array.isArray(left) ||
+      !Array.isArray(right) ||
+      left.length !== right.length
+    ) {
+      return false
+    }
+    const pairStatus = rememberComparedPair(left, right, comparedPairs)
+    if (pairStatus !== 'new') {
+      return pairStatus === 'equal'
+    }
+    const leftKeys = getEnumerableOwnKeys(left)
+    const rightKeys = getEnumerableOwnKeys(right)
+    if (leftKeys.length !== rightKeys.length) {
+      return false
+    }
+    const leftRecord = left as unknown as Record<PropertyKey, unknown>
+    const rightRecord = right as unknown as Record<PropertyKey, unknown>
+    return leftKeys.every(
+      (key) =>
+        hasOwn(rightRecord, key) &&
+        isDataEqual(leftRecord[key], rightRecord[key], comparedPairs)
+    )
+  }
+  if (!isRecord(left) || !isRecord(right)) {
+    return false
+  }
+
+  const leftKeys = Object.keys(left)
+  const rightKeys = Object.keys(right)
+  if (leftKeys.length !== rightKeys.length) {
+    return false
+  }
+  const pairStatus = rememberComparedPair(left, right, comparedPairs)
+  if (pairStatus !== 'new') {
+    return pairStatus === 'equal'
+  }
+  return leftKeys.every(
+    (key) =>
+      hasOwn(right, key) && isDataEqual(left[key], right[key], comparedPairs)
+  )
 }
 
 const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
@@ -56,7 +232,17 @@ class ComputedDataMirror {
   private entries = new Map<string, ComputedDataMirrorEntry>()
 
   clear() {
+    const clearedEntryCount = this.entries.size
     this.entries.clear()
+    return clearedEntryCount
+  }
+
+  get size() {
+    return this.entries.size
+  }
+
+  get elementIds() {
+    return [...this.entries.keys()]
   }
 
   delete(elementId: string) {
@@ -66,7 +252,7 @@ class ComputedDataMirror {
 
   seed(
     elementId: string,
-    reason: 'reload' | 'add' | 'undoable-refresh' | 'cache-miss-reseed'
+    reason: 'reload' | 'add' | 'resync'
   ): ComputedDataMirrorEntry | null {
     const element = sceneTree.getElementById(elementId)
     if (!element) {
@@ -74,31 +260,48 @@ class ComputedDataMirror {
       return null
     }
 
-    const { rawDataSnapshot, computedDataSnapshot } = measureBrowserDragPhase(
-      'render-scene-tree:mirror-seed',
-      () => ({
-        rawDataSnapshot: element.save() as unknown as Record<string, unknown>,
-        computedDataSnapshot: element.getAllComputedData() as Record<
-          string,
-          DataTypes
-        >
-      })
-    )
-    const entry = {
-      rawDataSnapshot: { ...rawDataSnapshot },
-      computedDataSnapshot: { ...computedDataSnapshot },
-      renderDataSnapshot: {
-        ...rawDataSnapshot,
-        ...computedDataSnapshot
-      } as unknown as RenderElementData
+    try {
+      const { rawData, computedData } = measureBrowserDragPhase(
+        'render-scene-tree:mirror-seed',
+        () => ({
+          rawData: element.save() as unknown,
+          computedData: element.getAllComputedData() as unknown
+        })
+      )
+      if (!isRecord(rawData) || !isRecord(computedData)) {
+        throw new Error('Render snapshot parts must be records')
+      }
+
+      const rawDataSnapshot = { ...rawData }
+      const computedDataSnapshot = {
+        ...computedData
+      } as Record<string, DataTypes>
+      const renderDataSnapshot = composeCompleteRenderData(
+        elementId,
+        rawDataSnapshot,
+        computedDataSnapshot
+      )
+      if (!renderDataSnapshot) {
+        throw new Error('Render snapshot identity is incomplete')
+      }
+
+      const entry = {
+        rawDataSnapshot,
+        computedDataSnapshot,
+        renderDataSnapshot
+      }
+      this.entries.set(elementId, entry)
+      emitStrokePipelineCounter('computed-mirror-seed')
+      emitStrokePipelineCounter(`computed-mirror-seed-${reason}`)
+      return entry
+    } catch (error) {
+      this.delete(elementId)
+      emitStrokePipelineCounter('computed-mirror-seed-failed')
+      throw error
     }
-    this.entries.set(elementId, entry)
-    emitStrokePipelineCounter('computed-mirror-seed')
-    emitStrokePipelineCounter(`computed-mirror-seed-${reason}`)
-    return entry
   }
 
-  ensure(elementId: string): ComputedDataMirrorEntry | null {
+  get(elementId: string): ComputedDataMirrorEntry | null {
     const entry = this.entries.get(elementId)
     if (entry) {
       emitStrokePipelineCounter('computed-mirror-hit')
@@ -106,86 +309,222 @@ class ComputedDataMirror {
     }
 
     emitStrokePipelineCounter('computed-mirror-cache-miss')
-    return this.seed(elementId, 'cache-miss-reseed')
+    return null
   }
 
-  applyComputedChange(elementId: string, key: string, after: DataTypes) {
-    const entry = this.ensure(elementId)
-    if (!entry) {
+  private installSnapshot(
+    elementId: string,
+    rawDataSnapshot: Record<string, unknown>,
+    computedDataSnapshot: Record<string, DataTypes>
+  ): boolean {
+    const renderDataSnapshot = composeCompleteRenderData(
+      elementId,
+      rawDataSnapshot,
+      computedDataSnapshot
+    )
+    if (!renderDataSnapshot) {
       return false
     }
 
-    entry.computedDataSnapshot[key] = after
-    ;(entry.renderDataSnapshot as unknown as Record<string, DataTypes>)[key] =
-      after
-    emitStrokePipelineCounter('computed-mirror-staged-change-count')
+    const nextEntry: ComputedDataMirrorEntry = {
+      rawDataSnapshot,
+      computedDataSnapshot,
+      renderDataSnapshot
+    }
+    this.entries.set(elementId, nextEntry)
     return true
   }
 
-  applyComputedChanges(
+  applyTopLevelChange(
     elementId: string,
-    changes: { key: string; after: DataTypes }[]
-  ) {
-    const entry = this.ensure(elementId)
+    owner: SceneTreeDataOwner,
+    key: string,
+    before: DataTypes,
+    after: DataTypes
+  ): TopLevelApplyResult | null {
+    if (!isSceneTreeDataOwner(owner)) {
+      return null
+    }
+    const entry = this.get(elementId)
     if (!entry) {
-      return false
+      return null
     }
 
-    changes.forEach(({ key, after }) => {
-      entry.computedDataSnapshot[key] = after
-      ;(entry.renderDataSnapshot as unknown as Record<string, DataTypes>)[key] =
-        after
-    })
+    const rawDataSnapshot = { ...entry.rawDataSnapshot }
+    const computedDataSnapshot = { ...entry.computedDataSnapshot }
+    const ownerSnapshot =
+      owner === 'raw' ? rawDataSnapshot : computedDataSnapshot
+    if (
+      !hasOwn(ownerSnapshot, key) ||
+      !isDataEqual(ownerSnapshot[key], before)
+    ) {
+      return null
+    }
+    const effectiveBefore = getEffectiveValue(
+      rawDataSnapshot,
+      computedDataSnapshot,
+      key
+    )
+    setOwn(ownerSnapshot, key, after)
+    const effectiveAfter = getEffectiveValue(
+      rawDataSnapshot,
+      computedDataSnapshot,
+      key
+    )
+
+    if (
+      !this.installSnapshot(elementId, rawDataSnapshot, computedDataSnapshot)
+    ) {
+      return null
+    }
+    emitStrokePipelineCounter('computed-mirror-staged-change-count')
+    return {
+      effectiveChanges: isDataEqual(effectiveBefore, effectiveAfter)
+        ? []
+        : [
+            {
+              key,
+              before: effectiveBefore as DataTypes,
+              after: effectiveAfter as DataTypes
+            }
+          ]
+    }
+  }
+
+  applyTopLevelChanges(
+    elementId: string,
+    changes: {
+      owner: SceneTreeDataOwner
+      key: string
+      before: DataTypes
+      after: DataTypes
+    }[]
+  ): TopLevelApplyResult | null {
+    const entry = this.get(elementId)
+    if (!entry) {
+      return null
+    }
+
+    const rawDataSnapshot = { ...entry.rawDataSnapshot }
+    const computedDataSnapshot = { ...entry.computedDataSnapshot }
+    const effectiveChanges: EffectiveTopLevelChange[] = []
+    for (const { owner, key, before, after } of changes) {
+      if (!isSceneTreeDataOwner(owner)) {
+        return null
+      }
+      const ownerSnapshot =
+        owner === 'raw' ? rawDataSnapshot : computedDataSnapshot
+      if (
+        !hasOwn(ownerSnapshot, key) ||
+        !isDataEqual(ownerSnapshot[key], before)
+      ) {
+        return null
+      }
+      const effectiveBefore = getEffectiveValue(
+        rawDataSnapshot,
+        computedDataSnapshot,
+        key
+      )
+      setOwn(ownerSnapshot, key, after)
+      const effectiveAfter = getEffectiveValue(
+        rawDataSnapshot,
+        computedDataSnapshot,
+        key
+      )
+      if (!isDataEqual(effectiveBefore, effectiveAfter)) {
+        effectiveChanges.push({
+          key,
+          before: effectiveBefore as DataTypes,
+          after: effectiveAfter as DataTypes
+        })
+      }
+    }
+
+    if (
+      !this.installSnapshot(elementId, rawDataSnapshot, computedDataSnapshot)
+    ) {
+      return null
+    }
     emitStrokePipelineCounter(
       'computed-mirror-staged-change-count',
       changes.length
     )
     emitStrokePipelineCounter('computed-mirror-batch-apply-count')
-    return true
+    return { effectiveChanges }
   }
 
   applyComputedPatch(elementId: string, patch: ComputedDataPatchChange) {
-    const entry = this.ensure(elementId)
+    const entry = this.get(elementId)
     if (!entry) {
       return false
     }
 
+    const computedDataSnapshot = { ...entry.computedDataSnapshot }
     let changeCount = 0
-    Object.entries(patch.values ?? {}).forEach(([key, change]) => {
-      entry.computedDataSnapshot[key] = change.after
-      ;(entry.renderDataSnapshot as unknown as Record<string, DataTypes>)[key] =
-        change.after
+    for (const [key, change] of Object.entries(patch.values ?? {})) {
+      if (
+        !hasOwn(computedDataSnapshot, key) ||
+        !isDataEqual(computedDataSnapshot[key], change.before)
+      ) {
+        return false
+      }
+      setOwn(computedDataSnapshot, key, change.after)
       changeCount += 1
-    })
+    }
 
-    Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
-      const currentRecord = entry.computedDataSnapshot[key]
-      let nextRecord =
-        currentRecord &&
-        typeof currentRecord === 'object' &&
-        !Array.isArray(currentRecord)
-          ? ({ ...(currentRecord as Record<string, DataTypes>) } as Record<
-              string,
-              DataTypes
-            >)
-          : {}
+    for (const [key, recordPatch] of Object.entries(patch.records ?? {})) {
+      const currentRecord = computedDataSnapshot[key]
+      if (!hasOwn(computedDataSnapshot, key) || !isRecord(currentRecord)) {
+        return false
+      }
+      let nextRecord = {
+        ...currentRecord
+      } as Record<string, ComputedDataRecordValue>
 
-      Object.entries(recordPatch.set ?? {}).forEach(([recordId, change]) => {
-        nextRecord[recordId] = change.after
+      for (const [recordId, change] of Object.entries(recordPatch.set ?? {})) {
+        const recordExists = hasOwn(nextRecord, recordId)
+        const hasOwnBefore = Object.prototype.hasOwnProperty.call(
+          change,
+          'before'
+        )
+        if (
+          (hasOwnBefore &&
+            (!recordExists ||
+              !isDataEqual(nextRecord[recordId], change.before))) ||
+          (!hasOwnBefore && recordExists)
+        ) {
+          return false
+        }
+        setOwn(nextRecord, recordId, change.after)
         changeCount += 1
-      })
+      }
 
-      Object.keys(recordPatch.remove ?? {}).forEach((recordId) => {
-        const { [recordId]: _removed, ...withoutRecord } = nextRecord
-        nextRecord = withoutRecord
+      for (const [recordId, change] of Object.entries(
+        recordPatch.remove ?? {}
+      )) {
+        if (
+          !hasOwn(nextRecord, recordId) ||
+          !isDataEqual(nextRecord[recordId], change.before)
+        ) {
+          return false
+        }
+        const { [recordId]: _removed, ...retainedRecord } = nextRecord
+        nextRecord = retainedRecord
         changeCount += 1
-      })
+      }
 
-      entry.computedDataSnapshot[key] = nextRecord
-      ;(entry.renderDataSnapshot as unknown as Record<string, DataTypes>)[key] =
-        nextRecord
-    })
+      setOwn(computedDataSnapshot, key, nextRecord)
+    }
 
+    if (
+      !this.installSnapshot(
+        elementId,
+        entry.rawDataSnapshot,
+        computedDataSnapshot
+      )
+    ) {
+      return false
+    }
     emitStrokePipelineCounter(
       'computed-mirror-staged-change-count',
       changeCount
@@ -194,8 +533,51 @@ class ComputedDataMirror {
     return true
   }
 
+  applyChildMembershipChange(
+    elementId: string,
+    childId: string,
+    index: number | undefined,
+    action: ChildMembershipAction
+  ): TopLevelApplyResult | null {
+    const entry = this.get(elementId)
+    const currentChildren = entry?.rawDataSnapshot.children
+    if (
+      !entry ||
+      !Array.isArray(currentChildren) ||
+      index === undefined ||
+      !Number.isInteger(index) ||
+      index < 0
+    ) {
+      return null
+    }
+
+    const nextChildren = cloneArrayWithEnumerableProperties(currentChildren)
+    if (action === 'add') {
+      if (index > currentChildren.length || currentChildren.includes(childId)) {
+        return null
+      }
+      nextChildren.splice(index, 0, childId)
+    } else {
+      if (
+        index >= currentChildren.length ||
+        currentChildren[index] !== childId
+      ) {
+        return null
+      }
+      nextChildren.splice(index, 1)
+    }
+
+    return this.applyTopLevelChange(
+      elementId,
+      'raw',
+      'children',
+      currentChildren,
+      nextChildren
+    )
+  }
+
   composeRenderData(elementId: string): RenderElementData | null {
-    const entry = this.ensure(elementId)
+    const entry = this.get(elementId)
     if (!entry) {
       return null
     }
@@ -205,8 +587,8 @@ class ComputedDataMirror {
 }
 
 class RenderSceneTree {
-  private _workspace: WorkspaceRawData | null
   private computedDataMirror = new ComputedDataMirror()
+  private projectedElementIds = new Set<string>()
   private pendingElementUpdates = new Set<string>()
   private pendingFrameFlush = false
   private pendingFlush = false
@@ -214,23 +596,69 @@ class RenderSceneTree {
   private flushingPendingChanges = false
 
   constructor() {
-    this._workspace = null
     this.frameAlignedFlush = installPendingRenderLayer(this)
   }
 
-  reload() {
-    if (!sceneTree.currentWorkspace) return
+  private getCanonicalReloadEntries(
+    currentWorkspaceData: WorkspaceRawData,
+    seededEntries: Map<string, ComputedDataMirrorEntry>
+  ): { elementId: string; siblingIndex?: number }[] {
+    const visitedElementIds = new Set<string>()
+    const entries: { elementId: string; siblingIndex?: number }[] = []
 
-    this.pendingElementUpdates.clear()
-    this.pendingFrameFlush = false
-    this.pendingFlush = false
-    this.computedDataMirror.clear()
+    const visitHierarchy = (
+      roots: { elementId: string; siblingIndex?: number }[]
+    ) => {
+      const pending = [...roots].reverse()
+      while (pending.length > 0) {
+        const entry = pending.pop()
+        if (!entry || visitedElementIds.has(entry.elementId)) {
+          continue
+        }
+        const seededEntry = seededEntries.get(entry.elementId)
+        if (!seededEntry) {
+          continue
+        }
+
+        visitedElementIds.add(entry.elementId)
+        entries.push(entry)
+        const children = seededEntry.rawDataSnapshot.children
+        if (Array.isArray(children)) {
+          for (let index = children.length - 1; index >= 0; index -= 1) {
+            const childId = children[index]
+            if (typeof childId === 'string') {
+              pending.push({ elementId: childId, siblingIndex: index })
+            }
+          }
+        }
+      }
+    }
+
+    if (Array.isArray(currentWorkspaceData.children)) {
+      visitHierarchy(
+        currentWorkspaceData.children.flatMap((elementId, index) =>
+          typeof elementId === 'string'
+            ? [{ elementId, siblingIndex: index }]
+            : []
+        )
+      )
+    }
+
+    seededEntries.forEach((_entry, elementId) => {
+      if (!visitedElementIds.has(elementId)) {
+        visitHierarchy([{ elementId }])
+      }
+    })
+
+    return entries
+  }
+
+  reload() {
+    this.clearProjection()
+    if (!sceneTree.currentWorkspace) return
 
     const currentWorkspaceData =
       sceneTree.currentWorkspace.save() as WorkspaceRawData
-    this._workspace = currentWorkspaceData
-
-    render.clearElements()
 
     // Create root render node
     render.switchWorkspace({
@@ -239,71 +667,236 @@ class RenderSceneTree {
       y: 0
     })
 
-    // Create all element render node
-    sceneTree.getAllElements().forEach((element) => {
-      const elementId = element.get('id')
-      this.computedDataMirror.seed(elementId, 'reload')
-      const renderElementData = this._getRenderData(elementId)
-      if (element.get('type') !== EntityTypes.WORKSPACE && renderElementData) {
-        this.addElement(renderElementData)
-      }
-    })
+    // Rebuild parents before children and siblings in canonical hierarchy order.
+    try {
+      const seededEntries = new Map<string, ComputedDataMirrorEntry>()
+      sceneTree.getAllElements().forEach((element) => {
+        const elementId = element.get('id')
+        if (element.get('type') === EntityTypes.WORKSPACE) {
+          return
+        }
+        const entry = this.computedDataMirror.seed(elementId, 'reload')
+        if (entry) {
+          seededEntries.set(elementId, entry)
+        }
+      })
+
+      this.getCanonicalReloadEntries(
+        currentWorkspaceData,
+        seededEntries
+      ).forEach(({ elementId, siblingIndex }) => {
+        const renderElementData =
+          seededEntries.get(elementId)?.renderDataSnapshot
+        if (renderElementData) {
+          this.addElement(renderElementData, siblingIndex)
+        }
+      })
+    } catch (error) {
+      emitStrokePipelineCounter('computed-mirror-reload-seed-failed')
+      this.clearProjection()
+      throw error
+    }
   }
 
   private _getRenderData(id: string) {
     return this.computedDataMirror.composeRenderData(id)
   }
 
-  addElementById(id: string) {
-    this.computedDataMirror.seed(id, 'add')
-    const renderElementData = this._getRenderData(id)
-    if (renderElementData) {
-      this.addElement(renderElementData)
+  private projectionOutcome(
+    elementId: string,
+    status: RenderProjectionStatus
+  ): RenderProjectionOutcome {
+    return { status, elementId }
+  }
+
+  private releaseProjectedElement(elementId: string) {
+    this.projectedElementIds.add(elementId)
+    render.removeElement(elementId)
+    this.projectedElementIds.delete(elementId)
+  }
+
+  private resyncElement(elementId: string): RenderProjectionOutcome {
+    emitStrokePipelineCounter('computed-mirror-projection-mismatch')
+    this.pendingElementUpdates.delete(elementId)
+    this.computedDataMirror.delete(elementId)
+
+    let entry: ComputedDataMirrorEntry | null
+    try {
+      entry = this.computedDataMirror.seed(elementId, 'resync')
+    } catch {
+      emitStrokePipelineCounter('computed-mirror-resync-failed')
+      this.releaseProjectedElement(elementId)
+      this.computedDataMirror.delete(elementId)
+      return this.projectionOutcome(elementId, 'failed')
+    }
+
+    if (!entry) {
+      emitStrokePipelineCounter('computed-mirror-resync-removed')
+      this.releaseProjectedElement(elementId)
+      return this.projectionOutcome(elementId, 'removed')
+    }
+
+    try {
+      this.addElement(entry.renderDataSnapshot)
+    } catch {
+      emitStrokePipelineCounter('computed-mirror-resync-failed')
+      this.releaseProjectedElement(elementId)
+      this.computedDataMirror.delete(elementId)
+      return this.projectionOutcome(elementId, 'failed')
+    }
+
+    emitStrokePipelineCounter('computed-mirror-resync-success')
+    return this.projectionOutcome(elementId, 'resynced')
+  }
+
+  addElementById(id: string, parentId?: string, index?: number) {
+    let entry: ComputedDataMirrorEntry | null
+    try {
+      entry = this.computedDataMirror.seed(id, 'add')
+    } catch {
+      this.pendingElementUpdates.delete(id)
+      emitStrokePipelineCounter('computed-mirror-add-seed-failed')
+      this.releaseProjectedElement(id)
+      this.computedDataMirror.delete(id)
+      return this.projectionOutcome(id, 'failed')
+    }
+
+    if (!entry) {
+      this.pendingElementUpdates.delete(id)
+      this.releaseProjectedElement(id)
+      return this.projectionOutcome(id, 'removed')
+    }
+
+    try {
+      this.addElement(entry.renderDataSnapshot, index)
+      const parentOutcome = this.synchronizeParentMembership(
+        parentId,
+        id,
+        index,
+        'add'
+      )
+      if (
+        parentOutcome?.status === 'failed' ||
+        parentOutcome?.status === 'removed'
+      ) {
+        this.pendingElementUpdates.delete(id)
+        this.releaseProjectedElement(id)
+        this.computedDataMirror.delete(id)
+        return this.projectionOutcome(id, 'failed')
+      }
+      return this.projectionOutcome(id, 'applied')
+    } catch {
+      this.pendingElementUpdates.delete(id)
+      emitStrokePipelineCounter('computed-mirror-add-seed-failed')
+      this.releaseProjectedElement(id)
+      this.computedDataMirror.delete(id)
+      return this.projectionOutcome(id, 'failed')
     }
   }
 
-  addElement(data: RenderElementData) {
-    render.addElement(data)
+  addElement(data: RenderElementData, siblingIndex?: number) {
+    this.projectedElementIds.add(data.id)
+    const element =
+      siblingIndex === undefined
+        ? render.addElement(data)
+        : render.addElement(data, siblingIndex)
+    if (!element) {
+      throw new Error(`Render failed to rebuild element ${data.id}`)
+    }
+    return element
   }
 
-  removeElement(data: ElementRawData, parentId?: string) {
-    this.computedDataMirror.delete(data.id)
+  removeElement(data: ElementRawData, parentId?: string, index?: number) {
     this.pendingElementUpdates.delete(data.id)
+    this.projectedElementIds.add(data.id)
     render.removeElement(data.id, parentId)
+    this.projectedElementIds.delete(data.id)
+    this.computedDataMirror.delete(data.id)
+    const parentOutcome = this.synchronizeParentMembership(
+      parentId,
+      data.id,
+      index,
+      'remove'
+    )
+    return parentOutcome?.status === 'failed'
+      ? this.projectionOutcome(data.id, 'failed')
+      : this.projectionOutcome(data.id, 'removed')
+  }
+
+  private synchronizeParentMembership(
+    parentId: string | undefined,
+    childId: string,
+    index: number | undefined,
+    action: ChildMembershipAction
+  ): RenderProjectionOutcome | null {
+    if (!parentId) {
+      return null
+    }
+    const parent = sceneTree.getElementById(parentId)
+    if (!parent || parent.get('type') === EntityTypes.WORKSPACE) {
+      return null
+    }
+
+    const applyResult = this.computedDataMirror.applyChildMembershipChange(
+      parentId,
+      childId,
+      index,
+      action
+    )
+    if (!applyResult) {
+      return this.resyncElement(parentId)
+    }
+
+    this.recordDirtyChange(
+      parentId,
+      1,
+      this.pendingElementUpdates.has(parentId)
+    )
+    this.pendingElementUpdates.add(parentId)
+    this.scheduleFlush()
+    return this.projectionOutcome(parentId, 'applied')
   }
 
   updateElement(
     elementId: string,
+    owner: SceneTreeDataOwner,
     key: string,
     before: DataTypes,
     after: DataTypes,
-    options?: { undoable?: boolean }
+    _options?: { undoable?: boolean }
   ) {
-    if (options?.undoable !== false) {
-      this.computedDataMirror.seed(elementId, 'undoable-refresh')
-      emitStrokePipelineCounter(`computed-mirror-undoable-refresh-key-${key}`)
-    }
-
-    const didStage = this.computedDataMirror.applyComputedChange(
+    const applyResult = this.computedDataMirror.applyTopLevelChange(
       elementId,
+      owner,
       key,
+      before,
       after
     )
-    if (!didStage) {
-      return
+    if (!applyResult) {
+      return this.resyncElement(elementId)
+    }
+
+    const [effectiveChange] = applyResult.effectiveChanges
+    if (!effectiveChange) {
+      return this.projectionOutcome(elementId, 'applied')
     }
 
     if (key === 'visible' || DIRECT_RENDER_PROPERTY_KEYS.has(key)) {
       this.recordDirtyChange(elementId, 1, this.pendingFrameFlush)
       measureBrowserDragPhase('render-scene-tree:update-direct-property', () =>
-        render.updateElement(elementId, key, before, after)
+        render.updateElement(
+          elementId,
+          key,
+          effectiveChange.before,
+          effectiveChange.after
+        )
       )
       this.pendingFrameFlush = true
       this.scheduleFlush()
-      return
+      return this.projectionOutcome(elementId, 'applied')
     }
 
-    // Computed data updates arrive per-key; commit once the transaction ends.
+    // Non-direct updates commit through the complete frame snapshot.
     this.recordDirtyChange(
       elementId,
       1,
@@ -311,41 +904,45 @@ class RenderSceneTree {
     )
     this.pendingElementUpdates.add(elementId)
     this.scheduleFlush()
+    return this.projectionOutcome(elementId, 'applied')
   }
 
   updateElementBatch(
     elementId: string,
-    changes: { key: string; before: DataTypes; after: DataTypes }[],
-    options?: { undoable?: boolean }
+    changes: {
+      owner: SceneTreeDataOwner
+      key: string
+      before: DataTypes
+      after: DataTypes
+    }[],
+    _options?: { undoable?: boolean }
   ) {
-    if (options?.undoable !== false) {
-      this.computedDataMirror.seed(elementId, 'undoable-refresh')
-      changes.forEach(({ key }) => {
-        emitStrokePipelineCounter(`computed-mirror-undoable-refresh-key-${key}`)
-      })
-    }
-
-    const didStage = this.computedDataMirror.applyComputedChanges(
+    const applyResult = this.computedDataMirror.applyTopLevelChanges(
       elementId,
-      changes.map(({ key, after }) => ({ key, after }))
+      changes
     )
-    if (!didStage) {
-      return
+    if (!applyResult) {
+      return this.resyncElement(elementId)
     }
 
-    const hasComputedFullUpdate = changes.some(
+    const { effectiveChanges } = applyResult
+    if (effectiveChanges.length === 0) {
+      return this.projectionOutcome(elementId, 'applied')
+    }
+
+    const hasComputedFullUpdate = effectiveChanges.some(
       ({ key }) => key !== 'visible' && !DIRECT_RENDER_PROPERTY_KEYS.has(key)
     )
 
     this.recordDirtyChange(
       elementId,
-      changes.length,
+      effectiveChanges.length,
       hasComputedFullUpdate
         ? this.pendingElementUpdates.has(elementId)
         : this.pendingFrameFlush
     )
 
-    changes.forEach(({ key, before, after }) => {
+    effectiveChanges.forEach(({ key, before, after }) => {
       if (
         !hasComputedFullUpdate &&
         (key === 'visible' || DIRECT_RENDER_PROPERTY_KEYS.has(key))
@@ -362,6 +959,7 @@ class RenderSceneTree {
       this.pendingElementUpdates.add(elementId)
     }
     this.scheduleFlush()
+    return this.projectionOutcome(elementId, 'applied')
   }
 
   updateElementPatch(
@@ -380,7 +978,7 @@ class RenderSceneTree {
       patch
     )
     if (!didStage) {
-      return
+      return this.resyncElement(elementId)
     }
 
     const directValueChanges = Object.entries(patch.values ?? {}).filter(
@@ -425,6 +1023,7 @@ class RenderSceneTree {
       this.pendingElementUpdates.add(elementId)
     }
     this.scheduleFlush()
+    return this.projectionOutcome(elementId, 'applied')
   }
 
   commitPendingComputedDataChanges() {
@@ -446,6 +1045,10 @@ class RenderSceneTree {
   }
 
   private scheduleFlush() {
+    if (!this.hasPendingChanges()) {
+      return
+    }
+
     if (this.pendingFlush) {
       emitStrokePipelineCounter('render-scene-tree-flush-coalesced')
       return
@@ -472,6 +1075,54 @@ class RenderSceneTree {
 
   hasPendingChanges() {
     return this.pendingFrameFlush || this.pendingElementUpdates.size > 0
+  }
+
+  getProjectionSnapshotCount() {
+    return this.computedDataMirror.size
+  }
+
+  resetProjection() {
+    const clearedEntryCount = this.computedDataMirror.clear()
+    this.pendingElementUpdates.clear()
+    this.pendingFrameFlush = false
+    this.pendingFlush = false
+    emitStrokePipelineCounter(
+      'computed-mirror-reset-entry-count',
+      clearedEntryCount
+    )
+  }
+
+  clearProjection() {
+    const projectedElementIds = new Set([
+      ...this.projectedElementIds,
+      ...this.computedDataMirror.elementIds
+    ])
+    this.pendingElementUpdates.clear()
+    this.pendingFrameFlush = false
+    this.pendingFlush = false
+    let releasedEntryCount = 0
+    let firstFailure: unknown
+    projectedElementIds.forEach((elementId) => {
+      try {
+        this.releaseProjectedElement(elementId)
+        this.computedDataMirror.delete(elementId)
+        releasedEntryCount += 1
+      } catch (error) {
+        firstFailure ??= error
+      }
+    })
+    try {
+      render.switchWorkspace({ label: '', x: 0, y: 0 })
+    } catch (error) {
+      firstFailure ??= error
+    }
+    emitStrokePipelineCounter(
+      'computed-mirror-reset-entry-count',
+      releasedEntryCount
+    )
+    if (firstFailure !== undefined) {
+      throw firstFailure
+    }
   }
 
   private flushPendingChanges() {
@@ -503,30 +1154,39 @@ class RenderSceneTree {
 
     return measureBrowserDragPhase('render-scene-tree:flush', () => {
       this.flushingPendingChanges = true
+      const hadPendingFrameFlush = this.pendingFrameFlush
       try {
         this.pendingFlush = false
         emitStrokePipelineCounter('computed-mirror-commit-count')
         this.pendingFrameFlush = false
         const ids = Array.from(this.pendingElementUpdates)
         emitStrokePipelineCounter('product-render-per-render-frame', ids.length)
-        this.pendingElementUpdates.clear()
         ids.forEach((id) => {
+          this.pendingElementUpdates.delete(id)
           const data = this._getRenderData(id)
           if (data) {
-            measureBrowserDragPhase('render-scene-tree:update-element', () =>
-              render.updateElement(
-                id,
-                'computed',
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                undefined as any as DataTypes,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                undefined as any as DataTypes,
-                data
+            try {
+              measureBrowserDragPhase('render-scene-tree:update-element', () =>
+                render.updateElement(
+                  id,
+                  'computed',
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  undefined as any as DataTypes,
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  undefined as any as DataTypes,
+                  data
+                )
               )
-            )
+            } catch (error) {
+              this.pendingElementUpdates.add(id)
+              throw error
+            }
           }
         })
         return true
+      } catch (error) {
+        this.pendingFrameFlush ||= hadPendingFrameFlush
+        throw error
       } finally {
         this.flushingPendingChanges = false
       }
@@ -536,6 +1196,7 @@ class RenderSceneTree {
 
 let activeRenderSceneTree: RenderSceneTree | null = null
 let pendingRenderLayerInstalled = false
+let pendingRenderTeardownInstalled = false
 
 const installPendingRenderLayer = (store: RenderSceneTree) => {
   activeRenderSceneTree = store
@@ -548,6 +1209,19 @@ const installPendingRenderLayer = (store: RenderSceneTree) => {
 
   if (typeof renderWithLayer.registerLayer !== 'function') {
     return false
+  }
+
+  const renderWithLifecycle = render as typeof render & {
+    registerTeardownCleanup?: (cleanup: () => void) => () => void
+  }
+  if (
+    !pendingRenderTeardownInstalled &&
+    typeof renderWithLifecycle.registerTeardownCleanup === 'function'
+  ) {
+    renderWithLifecycle.registerTeardownCleanup(() => {
+      activeRenderSceneTree?.clearProjection()
+    })
+    pendingRenderTeardownInstalled = true
   }
 
   if (!pendingRenderLayerInstalled) {

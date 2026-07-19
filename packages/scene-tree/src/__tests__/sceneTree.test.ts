@@ -39,6 +39,7 @@ import {
   wasTransactionReplayApplied,
   type AddElementEvent,
   type UpdateComputedDataEvent,
+  type UpdateComputedDataPatchEvent,
   type UpdateTransactionEvent
 } from '@asyra/reactive-events'
 
@@ -753,7 +754,8 @@ describe('SceneTree', () => {
             id: 'computed-post-write-failure',
             key: 'x',
             before: 0,
-            after: 10
+            after: 10,
+            owner: 'computed'
           }
         } as UpdateComputedDataEvent)
       )
@@ -798,12 +800,136 @@ describe('SceneTree', () => {
             id: `element-owner-${key}`,
             key,
             before,
-            after
+            after,
+            owner: 'raw'
           }
         } as UpdateComputedDataEvent)
       )
 
       expect(element.get(key)).toBe(after)
+    }
+  )
+
+  it('routes a same-name computed replay through Computed without mutating raw data', () => {
+    sceneTreeSingleton.init()
+    sceneTreeSingleton.addNewElement({
+      id: 'same-name-computed-owner',
+      type: 'rect',
+      visible: true,
+      x: 0,
+      y: 0
+    })
+    const element = sceneTreeSingleton.getElementById(
+      'same-name-computed-owner'
+    )
+    expect(element).toBeDefined()
+    if (!element) {
+      throw new Error('Expected same-name-computed-owner element')
+    }
+    const computedData = (
+      element.computed as unknown as { data: Record<string, DataTypes> }
+    ).data
+    computedData.visible = true
+
+    runInTransactionReplayMode('undo', () =>
+      publishEvent({
+        type: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: {
+          id: 'same-name-computed-owner',
+          key: 'visible',
+          before: true,
+          after: false,
+          owner: 'computed'
+        }
+      } as UpdateComputedDataEvent)
+    )
+
+    expect(element.get('visible')).toBe(true)
+    expect(computedData.visible).toBe(false)
+  })
+
+  it('preserves a special own record id during computed patch replay', () => {
+    sceneTreeSingleton.init()
+    sceneTreeSingleton.addNewElement({
+      id: 'special-record-replay',
+      type: 'rect',
+      x: 0,
+      y: 0
+    })
+    const element = sceneTreeSingleton.getElementById('special-record-replay')
+    expect(element).toBeDefined()
+    if (!element) {
+      throw new Error('Expected special-record-replay element')
+    }
+    const computedData = (
+      element.computed as unknown as { data: Record<string, DataTypes> }
+    ).data
+    computedData.points = {}
+    const set: Record<string, unknown> = {}
+    Object.defineProperty(set, '__proto__', {
+      value: {
+        after: { id: '__proto__', x: 10, y: 20 }
+      },
+      enumerable: true,
+      configurable: true,
+      writable: true
+    })
+
+    runInTransactionReplayMode('undo', () =>
+      publishEvent({
+        type: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+        payload: {
+          id: 'special-record-replay',
+          patch: {
+            records: {
+              points: { set }
+            }
+          }
+        }
+      } as UpdateComputedDataPatchEvent)
+    )
+
+    const points = computedData.points as Record<string, unknown>
+    expect(Object.prototype.hasOwnProperty.call(points, '__proto__')).toBe(true)
+    expect(points['__proto__']).toEqual({
+      id: '__proto__',
+      x: 10,
+      y: 20
+    })
+  })
+
+  it.each([undefined, 'invalid'] as const)(
+    'rejects replay owner %s before canonical mutation',
+    (owner) => {
+      sceneTreeSingleton.init()
+      const id = `invalid-replay-owner-${String(owner)}`
+      sceneTreeSingleton.addNewElement({
+        id,
+        type: 'rect',
+        visible: true,
+        x: 0,
+        y: 0
+      })
+      const element = sceneTreeSingleton.getElementById(id)
+      expect(element).toBeDefined()
+      if (!element) {
+        throw new Error(`Expected ${id} element`)
+      }
+
+      runInTransactionReplayMode('undo', () =>
+        publishEvent({
+          type: EventTypes.UPDATE_COMPUTED_DATA,
+          payload: {
+            id,
+            key: 'visible',
+            before: true,
+            after: false,
+            owner
+          }
+        } as unknown as UpdateComputedDataEvent)
+      )
+
+      expect(element.get('visible')).toBe(true)
     }
   )
 
@@ -839,7 +965,8 @@ describe('SceneTree', () => {
             id: 'computed-pre-write-failure',
             key: 'x',
             before: 0,
-            after: 10
+            after: 10,
+            owner: 'computed'
           }
         } as UpdateComputedDataEvent)
       )
@@ -884,7 +1011,8 @@ describe('SceneTree', () => {
             id: 'computed-no-op-failure',
             key: 'x',
             before: 0,
-            after: 10
+            after: 10,
+            owner: 'computed'
           }
         } as UpdateComputedDataEvent)
       )
@@ -909,6 +1037,31 @@ describe('SceneTree', () => {
     sceneTree.updateComputedData('el-computed', 'x', 100)
     expect(element.updateComputedData).toHaveBeenCalledWith('x', 100)
   })
+
+  it.each([
+    ['computed-only', 'pointCoordinateSpace', 'workspace'],
+    ['raw same-name', 'visible', false]
+  ] as const)(
+    'rejects a missing %s top-level value patch before real Element mutation',
+    (_case, key, after) => {
+      const element = new MockRectangle({
+        id: `missing-value-base-${key}`,
+        type: 'rect',
+        visible: true
+      })
+      sceneTree.addToMap(element)
+      const beforeSnapshot = element.getAllComputedData()
+
+      expect(() =>
+        sceneTree.patchComputedData(element.get('id'), {
+          values: { [key]: after }
+        })
+      ).toThrow(`Computed data patch value base "${key}" must already exist`)
+
+      expect(element.getAllComputedData()).toEqual(beforeSnapshot)
+      expect(sceneTree.changes).toEqual([])
+    }
+  )
 
   it('updates computed data when a property component changes', () => {
     const element = new MockRectangle()
@@ -1079,6 +1232,7 @@ describe('SceneTree', () => {
       action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
       eventName: EventTypes.UPDATE_COMPUTED_DATA,
       id: 'vector-1',
+      owner: 'computed',
       key: 'points',
       before: {},
       after: { p1: { x: 0, y: 0 } },
@@ -1088,6 +1242,7 @@ describe('SceneTree', () => {
       action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
       eventName: EventTypes.UPDATE_COMPUTED_DATA,
       id: 'vector-1',
+      owner: 'computed',
       key: 'segments',
       before: {},
       after: { s1: { startId: 'p1', endId: 'p2' } },
@@ -1097,6 +1252,7 @@ describe('SceneTree', () => {
       action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
       eventName: EventTypes.UPDATE_COMPUTED_DATA,
       id: 'vector-1',
+      owner: 'computed',
       key: 'networks',
       before: {},
       after: { n1: { pointIds: ['p1', 'p2'], segmentIds: ['s1'] } },
@@ -1115,16 +1271,19 @@ describe('SceneTree', () => {
           id: 'vector-1',
           changes: [
             {
+              owner: 'computed',
               key: 'points',
               before: {},
               after: { p1: { x: 0, y: 0 } }
             },
             {
+              owner: 'computed',
               key: 'segments',
               before: {},
               after: { s1: { startId: 'p1', endId: 'p2' } }
             },
             {
+              owner: 'computed',
               key: 'networks',
               before: {},
               after: { n1: { pointIds: ['p1', 'p2'], segmentIds: ['s1'] } }
