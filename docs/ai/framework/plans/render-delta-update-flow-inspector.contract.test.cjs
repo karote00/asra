@@ -246,6 +246,10 @@ test('scalar, batch, and record patches validate and install atomically', () => 
     contract,
     /comparison is cycle-safe for distinct cyclic records and arrays.*exact sparse-array semantics/i
   )
+  assert.match(
+    contract,
+    /array hole.*own undefined slot.*not equivalent/i
+  )
   assert.match(contract, /top-level record base must be a record/i)
   assert.match(
     contract,
@@ -266,6 +270,14 @@ test('mismatch performs one explicit resync or removes stale output', () => {
 
   assert.match(contract, /invalidated before the authoritative read/i)
   assert.match(contract, /One successful full composition/i)
+  assert.match(
+    contract,
+    /authoritative visual rebuild succeeds.*returns resynced/i
+  )
+  assert.match(
+    contract,
+    /strategy rebuild failure.*returns failed/i
+  )
   assert.match(contract, /missing element removes the visual/i)
   assert.match(contract, /clears the visual and returns failed/i)
   assert.match(
@@ -278,6 +290,15 @@ test('mismatch performs one explicit resync or removes stale output', () => {
     /incomplete candidate/i
   )
   assert.equal(route('mismatch-to-resync').kind, 'failure')
+  assert.equal(route('resync-to-strategy').to, 'execute-render-strategy')
+  assert.match(
+    route('resync-to-strategy').predicate,
+    /synchronous visual rebuild/i
+  )
+  assert.equal(
+    data.routes.some((item) => item.id === 'resync-to-frame'),
+    false
+  )
   assert.equal(route('resync-to-cleanup').kind, 'failure')
 })
 
@@ -368,11 +389,11 @@ test('cleanup bounds snapshots and pending work across every lifecycle path', ()
   const cleanup = step('cleanup-render-projection')
   const contract = contractText(cleanup)
 
-  assert.match(contract, /before visual removal/i)
+  assert.match(contract, /pending id before visual release/i)
   assert.match(contract, /Load clears every entry/i)
   assert.match(
     contract,
-    /teardown clear entries, pending flags, scheduled work, and every Scene Tree-projected visual node/i
+    /teardown clear pending flags and scheduled work.*release every Scene Tree-projected visual node.*discard each successfully released entry/i
   )
   assert.match(
     contract,
@@ -390,6 +411,14 @@ test('cleanup bounds snapshots and pending work across every lifecycle path', ()
   assert.match(
     contract,
     /release failure.*retain.*ownership.*other projected nodes.*subsequent cleanup retries/i
+  )
+  assert.match(
+    contract,
+    /mirror ownership.*projected visual ownership.*tracked separately/i
+  )
+  assert.match(
+    contract,
+    /visual release succeeds.*matching mirror.*projected id.*discarded/i
   )
   assert.ok(
     cleanup.implementationBoundary.includes('packages/render/src/render.ts')
@@ -463,5 +492,13 @@ test('acceptance covers equivalence, failure, lifecycle, compatibility, and budg
   assert.match(
     acceptance('failure-and-resync').assertions.join(' '),
     /incomplete candidate.*resync.*failed/i
+  )
+  assert.match(
+    acceptance('failure-and-resync').assertions.join(' '),
+    /strategy rebuild succeeds.*strategy rebuild failure.*returns failed/i
+  )
+  assert.match(
+    acceptance('lifecycle-parity').assertions.join(' '),
+    /release succeeds.*failed release.*retry ownership/i
   )
 })

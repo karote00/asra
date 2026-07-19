@@ -61,8 +61,8 @@ Preset data-channel observer:
   map, never both; Scene Tree rejects an overlapping patch before mutation
 - one record id may appear in either a record `set` map or `remove` list, never
   both; Scene Tree rejects the ambiguous patch before mutation
-- remove invalidates the snapshot and every pending frame update before removing
-  the visual
+- remove invalidates every pending frame update before removing the visual;
+  snapshot ownership is retained until that visual release succeeds
 
 `after` is the committed value. `before` is a projection precondition, not an
 alternative source of truth. A top-level value patch never creates a computed
@@ -78,7 +78,8 @@ One failed precondition rejects the entire delta; no prefix may become visible.
 Accepted changes install a new top-level snapshot atomically. Changed records are
 copied before modification so a previously published strategy snapshot is not
 mutated later. Deep precondition comparison is cycle-safe for the complete
-`DataTypes` domain and retains exact sparse-array semantics.
+`DataTypes` domain and retains exact sparse-array semantics: an array hole and an
+own `undefined` slot are not equivalent.
 
 Before installation, every scalar, batch, and patch candidate is merged with the
 same computed-over-raw precedence and must still have the requested `id`, a
@@ -154,12 +155,15 @@ strategy call and no fallback snapshot. Render marks the entry invalid, removes
 its pending update, and performs one explicit authoritative resync from Scene
 Tree.
 
-- successful resync replaces the entire derived snapshot and schedules normal
-  rendering from that complete snapshot
+- successful resync replaces the entire derived snapshot and synchronously uses
+  the existing Render add-or-update route to rebuild from that complete snapshot;
+  it returns `resynced` only after the strategy rebuild succeeds
 - if the canonical element no longer exists, Render removes the stale visual and
   treats the entry as removed
 - if a complete authoritative snapshot cannot be composed, Render clears the
   stale visual and returns a failed projection outcome
+- if the authoritative strategy rebuild fails, Render clears the stale visual
+  and returns a failed projection outcome instead of reporting deferred success
 
 Projection outcomes are `applied`, `resynced`, `removed`, or `failed`; observer
 error swallowing is not used as correctness control flow. Every resync and failure
@@ -195,9 +199,11 @@ shape and require no migration.
   shared-channel route as an ordinary action; batch expansion preserves every
   entry owner and Scene Tree replay consumes that owner without inference. They do
   not use a second Render API.
-- Remove deletes the snapshot and pending work before visual removal, then
-  destroys the detached Render node and releases its abstract engine handle and
-  resources. Removing a projected parent first detaches projected children that
+- Remove clears pending work before visual removal, then destroys the detached
+  Render node and releases its abstract engine handle and resources. Mirror
+  ownership and projected-visual ownership are tracked separately; the matching
+  snapshot and projected id are discarded only after visual release succeeds.
+  Removing a projected parent first detaches projected children that
   remain live canonical elements, so only the removed parent is destroyed and
   those children retain their nodes and engine handles. Undo/redo re-add creates
   a fresh Render node from the complete authoritative snapshot and restores its
@@ -209,7 +215,8 @@ shape and require no migration.
   handle/resources. Custom or overlay layer nodes are outside this projection
   count and remain owned by their respective lifecycle. A failed node release
   retains mirror and Render-layer retry ownership while cleanup continues across
-  other projected ids; a later cleanup retries the failed id.
+  other projected ids; a later cleanup retries the failed id. This retry
+  bookkeeping is keyed only by the existing `elementId` dimension.
 - At every stable boundary, snapshot count is at most the number of live
   non-workspace elements, and the Scene Tree projection owns at most one Render
   node per such element; repeated load/add/remove/resync cannot grow an orphaned
@@ -276,6 +283,7 @@ failing formal test when the current implementation violates this contract.
 - missing base and record-base mismatch never seed silently or create `{}`
 - missing top-level value bases fail before canonical mutation and emit no delta
 - scalar, batch, and record patch projection is atomic and exact
+- sparse-array equality distinguishes a hole from an own `undefined` slot
 - every accepted delta candidate retains requested-id, non-empty-type, and
   non-workspace completeness before strategy publication
 - same-name raw/computed fields follow canonical owner provenance and preserve
@@ -283,7 +291,8 @@ failing formal test when the current implementation violates this contract.
 - rollback, undo, redo, and replay preserve owner provenance through Factory
   batch expansion and Scene Tree application, including same-name raw/computed
   fields
-- add/load/resync are explicit; remove/load/teardown leave no orphaned entries or
+- add/load/resync are explicit; resync reports success only after its complete
+  strategy rebuild succeeds; remove/load/teardown leave no orphaned entries or
   pending updates
 - ordered delivery plus Render precondition tests cover missing, duplicate, and
   out-of-order behavior without assigning canonical ownership to the data channel

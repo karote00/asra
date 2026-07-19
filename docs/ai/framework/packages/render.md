@@ -77,7 +77,8 @@ drawing; Render adds no inferred mapping or fallback geometry.
   `before` image and require every addressed top-level base to be an own property
   before atomically installing a new snapshot; record patches require an own
   existing record base and never substitute `{}`. Deep comparison is
-  cycle-safe across records and arrays while preserving sparse-array semantics
+  cycle-safe across records and arrays while preserving sparse-array semantics;
+  an array hole and an own `undefined` slot are not equivalent
 - every scalar, batch, and patch candidate is merged with computed-over-raw
   precedence and must retain the requested id, a non-empty type, and a
   non-workspace type before install; an incomplete candidate enters the explicit
@@ -89,9 +90,11 @@ drawing; Render adds no inferred mapping or fallback geometry.
   fields; a shadowed raw update changes the raw projection without sending its
   ineffective value through the direct visual route
 - a missing base or failed precondition emits no partial strategy input and
-  performs one explicit authoritative resync; the structured outcome is
-  `applied`, `resynced`, `removed`, or `failed`, and failed resync removes stale
-  visual output
+  performs one explicit authoritative resync through the existing synchronous
+  add-or-update route; the structured outcome is `applied`, `resynced`,
+  `removed`, or `failed`. Resync returns success only after the complete strategy
+  rebuild succeeds, and a composition or strategy failure removes stale visual
+  output and returns `failed`
 - direct `x`, `y`, `rotation`, and `visible` updates retain the direct property
   route after projection validation; mixed or computed updates coalesce per
   element and rerun the unchanged strategy signature once from the final complete
@@ -103,15 +106,18 @@ drawing; Render adds no inferred mapping or fallback geometry.
   full rebuild route after the observer is installed; Render never relies on a
   later delta to recover an observer gap. Any element rebuild failure clears the
   partial projection and throws to the lifecycle caller
-- remove, reload, observer teardown, and Render teardown clear matching snapshots
-  and pending frame work idempotently; observer and Render teardown also destroy
-  every Scene Tree-projected visual node and release its abstract engine
-  handle/resources. Projection cleanup addresses only mirror-owned ids and does
+- remove, reload, observer teardown, and Render teardown clear pending frame work
+  idempotently; observer and Render teardown also release every Scene
+  Tree-projected visual node and its abstract engine handle/resources before
+  discarding the matching snapshot. Projection cleanup addresses only Scene
+  Tree-projected ids retained by mirror or projected-visual ownership and does
   not clear unrelated scene or custom-layer nodes. Removing a projected parent
   detaches live canonical children before destroying only the parent; undo/redo
   re-adds it from a fresh complete snapshot and restores the child relationships.
-  If release fails, the mirror and Render layer retain retry ownership, continue
-  cleaning other projected ids, and retry the failed id on later cleanup
+  Mirror ownership and projected-visual ownership are tracked separately and are
+  discarded only after visual release succeeds. If release fails, both retain
+  retry ownership, continue cleaning other projected ids, and retry the failed id
+  on later cleanup; this uses only the existing `elementId` cache dimension
 - a reload with no current workspace clears retained workspace metadata and
   resets workspace identity/transform; stable snapshot and Scene Tree-projected
   Render-node counts never exceed live non-workspace elements. Custom and overlay

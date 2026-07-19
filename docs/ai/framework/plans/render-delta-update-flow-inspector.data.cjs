@@ -20,11 +20,11 @@
     decision:
       'Retain the existing elementId-only derived projection as the semantic delta target; add no cache dimension and no vector geometry cache.',
     invalidation:
-      'Remove, load reset, failed projection, failed resync, observer teardown, and Render teardown clear the matching entry and pending work; teardown also destroys every Scene Tree-projected visual node, and removed Render nodes are destroyed rather than retained for restore.',
+      'Remove, load reset, failed projection, failed resync, observer teardown, and Render teardown clear pending work immediately; matching mirror and projected-visual ownership are discarded only after visual release succeeds, while release failure retains exact elementId retry ownership.',
     equivalenceOracle:
       'At the same committed boundary, strategy data deep-equals {...element.save(), ...element.getAllComputedData()} and produces the same engine-neutral command trace.',
     cleanup:
-      'Remove clears one entry and destroys its Render node; load and teardown clear the map and every Scene Tree-projected visual node; resync replaces one entry rather than adding a second entry.',
+      'Remove destroys its Render node before discarding matching mirror and projected-visual ownership; load and teardown release every tracked Scene Tree-projected node, retain failed elementId cleanup ownership, and discard each matching entry only after release succeeds.',
     memoryBound:
       'At stable boundaries there is at most one entry and one live Scene Tree-projected Render node per live non-workspace Scene Tree element, with no retained removed-node map; custom and overlay layer nodes stay under their own lifecycle owners.'
   }
@@ -273,7 +273,7 @@
         'A raw value shadowed by a same-name computed value updates the raw slice without publishing the shadowed raw value through the direct visual route.',
         'Every batch precondition validates before any batch value is installed.',
         'Record additions require absence; replacements and removals require exact before values; the top-level record base must be a record.',
-        'Deep before and effective-value comparison is cycle-safe for distinct cyclic records and arrays and retains exact sparse-array semantics.',
+        'Deep before and effective-value comparison is cycle-safe for distinct cyclic records and arrays and retains exact sparse-array semantics: an array hole and an own undefined slot are not equivalent.',
         'The candidate merged snapshot retains the requested id, non-empty type, and non-workspace type before install; an incomplete candidate is a projection mismatch.',
         'Accepted changes install a new top-level snapshot and clone every changed record.',
         'Multiple accepted changes for one element preserve commit order and may coalesce to one frame.'
@@ -325,7 +325,8 @@
       outputs: ['artifact:render-resync-outcome'],
       conditions: [
         'The mismatched entry and pending update are invalidated before the authoritative read.',
-        'One successful full composition replaces the entire entry and returns resynced.',
+        'One successful full composition replaces the entire entry, then uses the existing Render add-or-update route for one synchronous authoritative visual rebuild.',
+        'When the authoritative visual rebuild succeeds, the step returns resynced; a strategy rebuild failure clears the visual and returns failed.',
         'A canonically missing element removes the visual and returns removed.',
         'An invalid or unavailable authoritative snapshot clears the visual and returns failed.',
         'Every mismatch, resync, removal, and failure emits bounded owner evidence.'
@@ -337,11 +338,13 @@
       allowedContributors: [
         '@asyra/scene-tree public element API',
         'Render scene-tree store',
+        'existing Render add-or-update strategy route',
         'structured projection outcome diagnostics'
       ],
       forbiddenContributors: [
         'silent fallback snapshot',
         'strategy-level Scene Tree reads',
+        'deferred success before the strategy rebuild outcome',
         'retry loops',
         'stale visual retention after failed resync'
       ],
@@ -349,6 +352,7 @@
       cacheEvidence: snapshotCacheEvidence,
       implementationBoundary: [
         'packages/render/src/stores/scene-tree.ts',
+        'packages/render/src/layers/scene/render-layer.ts',
         'packages/render/src/__tests__/scene-tree-store.test.ts',
         'docs/ai/framework/packages/render.md',
         'docs/ai/framework/plans/render-delta-update-plan.md'
@@ -368,8 +372,7 @@
       purpose:
         'Coalesce accepted updates per element and hand the final complete snapshot to the normal Render layer update route once per frame.',
       inputs: [
-        'artifact:accepted-render-snapshot',
-        'artifact:render-resync-outcome'
+        'artifact:accepted-render-snapshot'
       ],
       outputs: ['artifact:complete-strategy-request'],
       conditions: [
@@ -419,7 +422,10 @@
       ownerPackage: '@asyra/render',
       purpose:
         'Resolve the registered engine-neutral strategy and rebuild visual commands from one complete derived snapshot.',
-      inputs: ['artifact:complete-strategy-request'],
+      inputs: [
+        'artifact:complete-strategy-request',
+        'artifact:render-resync-outcome'
+      ],
       outputs: ['artifact:engine-neutral-draw-commands'],
       conditions: [
         'Every computed render update reruns the selected strategy from complete RenderElementData.',
@@ -523,11 +529,12 @@
       ],
       outputs: ['artifact:render-projection-cleanup'],
       conditions: [
-        'Remove deletes the matching entry and pending id before visual removal, then destroys the detached Render node and releases its abstract engine handle and resources.',
+        'Remove clears the matching pending id before visual release, then destroys the detached Render node and releases its abstract engine handle and resources.',
+        'Mirror ownership and projected visual ownership are tracked separately; only after visual release succeeds are the matching mirror and projected id discarded.',
         'Removing a projected parent detaches its live projected children and destroys only the removed parent; children that remain canonical keep their own nodes and engine handles.',
         'Load clears every entry and pending update before explicit rebuild.',
         'A load with no current workspace clears retained workspace metadata and resets the Render workspace label and transform to neutral values.',
-        'Observer and Render teardown clear entries, pending flags, scheduled work, and every Scene Tree-projected visual node idempotently, releasing its abstract engine handle and resources.',
+        'Observer and Render teardown clear pending flags and scheduled work, then idempotently release every Scene Tree-projected visual node and discard each successfully released entry and projected id.',
         'On a release failure, the mirror and Render layer retain exact retry ownership, cleanup continues across other projected nodes, and subsequent cleanup retries the failed node.',
         'Stable entry count and Scene Tree-projected Render-node count never exceed live non-workspace Scene Tree element count; custom and overlay nodes are not part of this projection bound.',
         'Repeated add, remove, load, resync, and teardown cannot retain orphaned snapshots, projected nodes, removed-node restore entries, or prior-engine handles.',
@@ -652,11 +659,12 @@
       producedArtifacts: ['artifact:projection-mismatch']
     },
     {
-      id: 'resync-to-frame',
+      id: 'resync-to-strategy',
       from: 'resync-render-snapshot',
-      to: 'flush-render-snapshot',
+      to: 'execute-render-strategy',
       kind: 'conditional',
-      predicate: 'one complete authoritative resync succeeds',
+      predicate:
+        'one complete authoritative snapshot is composed for the synchronous visual rebuild',
       producedArtifacts: ['artifact:render-resync-outcome']
     },
     {
@@ -665,7 +673,7 @@
       to: 'cleanup-render-projection',
       kind: 'failure',
       predicate:
-        'the canonical element is missing or full snapshot composition fails',
+        'the canonical element is missing, full snapshot composition fails, or the strategy rebuild fails',
       producedArtifacts: ['artifact:render-resync-outcome']
     },
     {
@@ -751,7 +759,10 @@
     {
       id: 'artifact:render-resync-outcome',
       ownerStepId: 'resync-render-snapshot',
-      consumerStepIds: ['flush-render-snapshot', 'cleanup-render-projection'],
+      consumerStepIds: [
+        'execute-render-strategy',
+        'cleanup-render-projection'
+      ],
       channel: 'Render projection outcome',
       terminal: false
     },
@@ -897,7 +908,8 @@
       ],
       assertions: [
         'Factory prevents duplicate/out-of-order delivery; detectable mismatch performs one explicit resync; missing or invalid canonical state removes stale output',
-        'an incomplete candidate enters explicit resync and returns failed when the authoritative snapshot remains incomplete'
+        'an incomplete candidate enters explicit resync and returns failed when the authoritative snapshot remains incomplete',
+        'resync returns resynced only after its synchronous authoritative strategy rebuild succeeds; a strategy rebuild failure clears stale output and returns failed'
       ]
     },
     {
@@ -909,7 +921,8 @@
         'all state transitions use the canonical committed route or explicit registration/load rebuild and leave no orphaned snapshot, pending update, removed Render node, or prior-engine handle',
         'the formal app oracle deep-compares fresh and strategy snapshots after action, Factory undo replay, Factory redo replay, and core.load rebuild',
         'same-name raw and computed fields preserve their carried owner through rollback, undo, redo, and replay',
-        'observer re-registration immediately rebuilds from current Scene Tree state, remove destroys the detached node, and redo creates a fresh equivalent node'
+        'observer re-registration immediately rebuilds from current Scene Tree state, remove destroys the detached node, and redo creates a fresh equivalent node',
+        'mirror and projected-visual ownership are discarded only after release succeeds; a failed release retains elementId retry ownership while cleanup continues across other projected ids'
       ]
     },
     {
