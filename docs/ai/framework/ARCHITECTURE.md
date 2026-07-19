@@ -192,9 +192,12 @@ and cannot emit another network operation. The wrapper routes reactive
 transaction calls to the intended Factory and does not let remote handler
 options disable rollbackability. Registered state-owner handlers use
 `defineCanonicalOperationApply(...)` to enforce the trusted synchronous apply
-contract before the remote transaction consumes them. Local undo/redo may publish their own
-inverse/forward operations; immediate rollback publishes one linked
-compensation through the same remote pipeline.
+contract before the remote transaction consumes them. This trusted boundary is
+not an asynchronous code sandbox: a runtime thenable rolls back synchronous
+journal mutations but cannot cancel effects scheduled by a contract-violating
+handler after return. Local undo/redo may publish their own inverse/forward
+operations; immediate rollback publishes one linked compensation through the
+same remote pipeline.
 
 Provider transport, connection authentication, room access, server durability,
 and update compaction remain replaceable app/server boundaries. Awareness is a

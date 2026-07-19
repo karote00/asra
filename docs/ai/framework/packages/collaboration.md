@@ -55,8 +55,11 @@ each handler with `defineCanonicalOperationApply(...)`: TypeScript rejects a
 Promise return, and a native async function is rejected during registration
 without invocation. A `void` or `true` return is an applied operation and
 `false` is a semantic no-op. JavaScript callers must also keep the wrapped
-handler synchronous; any runtime thenable that escapes registration fails
-closed through the rollbackable remote transaction boundary.
+handler synchronous. A contract-violating runtime thenable records
+`apply-failed` and rolls back synchronous journal mutations, but JavaScript
+cannot cancel effects that the handler scheduled after return. Scheduling such
+effects violates this trusted registration contract; the wrapper is not an
+asynchronous code sandbox.
 
 Construction validates identity and registration but does not subscribe,
 connect, recover, or send. `start()` binds observers, replays optional persisted

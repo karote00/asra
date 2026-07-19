@@ -150,8 +150,11 @@ End-state:
   `defineCanonicalOperationApply(...)` and are synchronous: `void` or `true`
   means applied, while `false` means a semantic no-op. TypeScript rejects a
   Promise-returning handler, a native async handler is rejected before
-  invocation, and any runtime thenable that escapes those trusted-registration
-  checks fails closed through the rollbackable remote transaction.
+  invocation, and a contract-violating runtime thenable records `apply-failed`
+  while rolling back synchronous journal mutations. JavaScript cannot
+  cancel effects that the trusted handler schedules after return; scheduling
+  such effects violates the registration contract and is not an asynchronous
+  isolation boundary.
 - The stable shared operation envelope includes operation id, transaction id,
   document id, actor id, protocol version, schema version, origin, channel,
   event name, typed/validated payload, and an optional compensated operation id.

@@ -532,7 +532,8 @@
       ],
       conditions: [
         'One remote semantic operation is applied inside one intended remote transaction boundary.',
-        'Canonical apply is a defineCanonicalOperationApply handler: void or true means applied, false means a semantic no-op, native async is rejected before invocation, and any escaped runtime thenable triggers rollback with an apply-failed outcome.',
+        'Canonical apply is a trusted synchronous state-owner boundary registered with defineCanonicalOperationApply: void or true means applied, false means a semantic no-op, TypeScript rejects Promise returns, and native async is rejected before invocation.',
+        'A contract-violating runtime thenable records apply-failed and rolls back synchronous journal mutations, but JavaScript cannot cancel handler-scheduled effects after return; scheduling them violates the trusted registration contract.',
         'Reactive transaction calls inside the handler route to the intended Factory, and remote-origin mutation options cannot disable rollbackability.',
         'Remote changes remain rollbackable on apply failure but are excluded from ordinary local-user undo history.',
         'Remote-origin local projection delivery is allowed while collaboration publication suppresses echo.',

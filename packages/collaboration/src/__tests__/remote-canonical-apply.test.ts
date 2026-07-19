@@ -296,7 +296,7 @@ describe('remote canonical apply transaction', () => {
     expect(target.state.value).toBe(0)
   })
 
-  it('fails closed and rolls back when a registered handler returns a promise', () => {
+  it('rejects a runtime thenable and rolls back its synchronous journal', () => {
     const target = harness()
     const { decision, outcomes } = validatedDecision()
 

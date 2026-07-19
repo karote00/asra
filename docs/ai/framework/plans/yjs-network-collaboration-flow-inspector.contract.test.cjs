@@ -283,6 +283,11 @@ test('inbound pipeline orders decode, dedupe, validation, policy, transaction, a
   assert.match(transaction, /one intended remote transaction boundary/i)
   assert.match(transaction, /excluded from ordinary local-user undo/i)
   assert.match(transaction, /suppresses echo/i)
+  assert.match(transaction, /trusted synchronous state-owner boundary/i)
+  assert.match(
+    transaction,
+    /runtime thenable.*rolls back.*synchronous journal.*cannot cancel.*scheduled/i
+  )
   assert.match(owner, /one canonical Scene Tree, Props, Selection, or System owner/i)
   assert.match(owner, /Y\.Doc, provider, awareness, Render, or UI state authority/i)
 
