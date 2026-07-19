@@ -35,12 +35,14 @@ export interface SharedOperationEnvelope<TPayload = unknown> {
   readonly actorId: string
   readonly protocolVersion: typeof COLLABORATION_PROTOCOL_VERSION
   readonly schemaVersion: number
-  readonly origin: SharedDeliveryOrigin
+  readonly origin: SharedOperationOrigin
   readonly channel: string
   readonly eventName: string
   readonly payload: TPayload
   readonly compensatesOperationId?: string
 }
+
+export type SharedOperationOrigin = SharedDeliveryOrigin | 'automation'
 
 export interface OperationIdentitySource {
   operationId(actorId: string, deliveryId: string): string
