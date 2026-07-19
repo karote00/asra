@@ -445,6 +445,7 @@ class DataTransact {
 
   private emitCompensationSharedDelivery(
     entry: TransactionJournalEntry,
+    eventName: string,
     payload: TransactionPayload,
     compensationIndex: number
   ): void {
@@ -457,7 +458,7 @@ class DataTransact {
       origin: 'rollback-compensation',
       kind: 'compensation',
       channel: shared.name,
-      eventName: entry.event.type,
+      eventName,
       payload: cloneTransactionValue(payload),
       sharedDelivery: entry.options.sharedDelivery,
       compensatesDeliveryId: this.forwardDeliveryId(entry)
@@ -775,6 +776,7 @@ class DataTransact {
             }
             this.emitCompensationSharedDelivery(
               entry,
+              inverseEvent.type,
               inversePayload,
               compensationIndex
             )

@@ -116,6 +116,37 @@ describe('Factory local shared delivery contract', () => {
     ])
   })
 
+  it('publishes compensation on the inverse event route', () => {
+    const { factory, deliveries } = createHarness()
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.ADD_ELEMENT,
+      payload: {
+        id: 'temporary-element',
+        undoType: EventTypes.REMOVE_ELEMENT
+      },
+      options: {
+        shared: SharedDataChannelNames.SCENE_TREE,
+        sharedDelivery: 'immediate'
+      }
+    })
+    factory.endTransaction({ outcome: 'rollback' })
+
+    expect(deliveries).toEqual([
+      expect.objectContaining({
+        kind: 'forward',
+        eventName: EventTypes.ADD_ELEMENT
+      }),
+      expect.objectContaining({
+        kind: 'compensation',
+        eventName: EventTypes.REMOVE_ELEMENT,
+        compensatesDeliveryId: '1:0:forward'
+      })
+    ])
+  })
+
   it('publishes committed undo and redo replay as inverse and forward deliveries', () => {
     const { factory, deliveries, projected } = createHarness()
     factory.registerTransactionReplayHandler(
