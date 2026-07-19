@@ -1,3 +1,12 @@
+/**
+ * Executable workspace example.
+ *
+ * Run with:
+ * yarn workspace @asyra/collaboration example:collaboration
+ *
+ * Direct Node execution is not the supported monorepo resolution path; the
+ * workspace runner resolves the same public package imports apps consume.
+ */
 import { Factory, LocalSharedDataChannel } from '@asyra/factory'
 import {
   createCollaboration,

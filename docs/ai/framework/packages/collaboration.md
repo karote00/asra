@@ -183,6 +183,12 @@ Apps may omit Awareness projection entirely.
 ## Example and Authorities
 
 - End-to-end composition: `docs/examples/yjs-network-collaboration.mjs`
+- Supported executable workspace runner:
+  `yarn workspace @asyra/collaboration example:collaboration`
 - Product contract: `../plans/yjs-network-collaboration-plan.md`
 - Dedicated Inspector: `../plans/yjs-network-collaboration-flow-inspector.html`
 - Conflict sub-plan: `../plans/collaborative-conflict-policies-plan.md`
+
+The runner executes the public `.mjs` composition through the workspace's
+supported package resolver. Direct Node execution of monorepo build output is
+not claimed because current emitted ESM uses bundler-resolved internal imports.
