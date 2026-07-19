@@ -1,7 +1,7 @@
 import * as Y from 'yjs'
 import type { SharedOperationEnvelope } from './operation-envelope'
 
-const OPERATION_LOG_NAME = 'asyra:collaboration:operations:v1'
+export const YJS_OPERATION_LOG_NAME = 'asyra:collaboration:operations:v1'
 
 export const LOCAL_YJS_OPERATION_ORIGIN = Object.freeze({
   kind: 'local-operation'
@@ -99,7 +99,7 @@ const encodeEnvelope = (envelope: SharedOperationEnvelope): string => {
 }
 
 const operationLog = (document: Y.Doc): Y.Array<string> =>
-  document.getArray<string>(OPERATION_LOG_NAME)
+  document.getArray<string>(YJS_OPERATION_LOG_NAME)
 
 export const appendOperationToYDoc = (
   document: Y.Doc,
@@ -131,3 +131,151 @@ export const readOperationLog = (
   document: Y.Doc
 ): readonly SharedOperationEnvelope[] =>
   operationLog(document).toArray().map((entry) => JSON.parse(entry))
+
+export type InboundYjsUpdateSource = 'provider' | 'persistence'
+
+const INBOUND_PROVIDER_YJS_ORIGIN = Object.freeze({
+  kind: 'inbound-provider-update'
+})
+const INBOUND_PERSISTENCE_YJS_ORIGIN = Object.freeze({
+  kind: 'inbound-persistence-update'
+})
+
+export const inboundYjsOrigin = (source: InboundYjsUpdateSource): object =>
+  source === 'provider'
+    ? INBOUND_PROVIDER_YJS_ORIGIN
+    : INBOUND_PERSISTENCE_YJS_ORIGIN
+
+export type InboundYjsDecodeFailureCode =
+  | 'malformed-binary'
+  | 'non-operation-content'
+  | 'non-append-update'
+  | 'malformed-operation-entry'
+
+export class InboundYjsDecodeFailure extends Error {
+  readonly code: InboundYjsDecodeFailureCode
+  readonly source: InboundYjsUpdateSource
+  readonly cause?: unknown
+
+  constructor(
+    code: InboundYjsDecodeFailureCode,
+    source: InboundYjsUpdateSource,
+    message: string,
+    cause?: unknown
+  ) {
+    super(message)
+    this.name = 'InboundYjsDecodeFailure'
+    this.code = code
+    this.source = source
+    this.cause = cause
+  }
+}
+
+export interface DecodedInboundYjsUpdate {
+  readonly source: InboundYjsUpdateSource
+  readonly operations: readonly unknown[]
+}
+
+const freezeDecodedValue = <T>(
+  value: T,
+  seen = new WeakSet<object>()
+): T => {
+  if (value === null || typeof value !== 'object') return value
+  const object = value as object
+  if (seen.has(object)) return value
+  seen.add(object)
+  Reflect.ownKeys(object).forEach((key) =>
+    freezeDecodedValue(Reflect.get(object, key), seen)
+  )
+  return Object.freeze(value)
+}
+
+const decodeOperationEntry = (
+  entry: unknown,
+  source: InboundYjsUpdateSource
+): unknown => {
+  if (typeof entry !== 'string') {
+    throw new InboundYjsDecodeFailure(
+      'malformed-operation-entry',
+      source,
+      '[collaboration] Yjs operation entry must be encoded text'
+    )
+  }
+  try {
+    const decoded: unknown = JSON.parse(entry)
+    if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) {
+      throw new Error('operation entry must decode to an object')
+    }
+    return freezeDecodedValue(decoded)
+  } catch (error) {
+    throw new InboundYjsDecodeFailure(
+      'malformed-operation-entry',
+      source,
+      '[collaboration] Yjs operation entry could not be decoded',
+      error
+    )
+  }
+}
+
+export const applyInboundYjsUpdate = (
+  document: Y.Doc,
+  update: Uint8Array,
+  source: InboundYjsUpdateSource
+): DecodedInboundYjsUpdate => {
+  const log = operationLog(document) as Y.Array<unknown>
+  const origin = inboundYjsOrigin(source)
+  const insertedEntries: unknown[] = []
+  let changedNonOperationContent = false
+  let deletedOperationContent = false
+
+  const observeLog = (event: Y.YArrayEvent<unknown>): void => {
+    event.changes.delta.forEach((change) => {
+      if (change.insert) insertedEntries.push(...change.insert)
+      if (change.delete) deletedOperationContent = true
+    })
+  }
+  const observeTransaction = (transaction: Y.Transaction): void => {
+    if (transaction.origin !== origin) return
+    for (const changedType of transaction.changed.keys()) {
+      if (changedType !== log) changedNonOperationContent = true
+    }
+  }
+
+  log.observe(observeLog)
+  document.on('afterTransaction', observeTransaction)
+  try {
+    Y.applyUpdate(document, update.slice(), origin)
+  } catch (error) {
+    throw new InboundYjsDecodeFailure(
+      'malformed-binary',
+      source,
+      '[collaboration] inbound Yjs update could not be applied',
+      error
+    )
+  } finally {
+    log.unobserve(observeLog)
+    document.off('afterTransaction', observeTransaction)
+  }
+
+  if (changedNonOperationContent) {
+    throw new InboundYjsDecodeFailure(
+      'non-operation-content',
+      source,
+      '[collaboration] inbound update changed a non-operation Yjs type'
+    )
+  }
+  if (deletedOperationContent) {
+    throw new InboundYjsDecodeFailure(
+      'non-append-update',
+      source,
+      '[collaboration] inbound operation log updates must be append-only'
+    )
+  }
+
+  return Object.freeze({
+    source,
+    operations: Object.freeze(
+      insertedEntries.map((entry) => decodeOperationEntry(entry, source))
+    )
+  })
+}
