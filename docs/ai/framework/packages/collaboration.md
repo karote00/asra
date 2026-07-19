@@ -77,6 +77,10 @@ Provider or persisted update -> Yjs decode/origin -> operation-id dedupe
 -> registered canonical apply handler -> state owner -> projections
 ```
 
+Inbound binary is staged against a detached Y.Doc before integration. A
+malformed, non-operation, non-append, or undecodable update is rejected without
+changing the instance-owned Y.Doc.
+
 Remote Factory transactions are rollbackable, excluded from ordinary local
 undo history, and suppress new shared publication. Local action, automation,
 undo, redo, and rollback-compensation origins remain explicit in the envelope.

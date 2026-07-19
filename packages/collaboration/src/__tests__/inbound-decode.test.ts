@@ -86,28 +86,52 @@ describe('inbound Yjs update decode', () => {
     const source = new Y.Doc()
     source.getMap('intruder').set('canonical-looking-value', 1)
     const update = Y.encodeStateAsUpdate(source)
+    const target = new Y.Doc()
 
     expect(() =>
-      applyInboundYjsUpdate(new Y.Doc(), update, 'provider')
+      applyInboundYjsUpdate(target, update, 'provider')
     ).toThrowError(
       expect.objectContaining<Partial<InboundYjsDecodeFailure>>({
         code: 'non-operation-content'
       })
     )
+    expect(target.share.has('intruder')).toBe(false)
+    expect(readOperationLog(target)).toEqual([])
   })
 
   it('terminates an unparseable operation entry before downstream validation', () => {
     const source = new Y.Doc()
     source.getArray<string>(YJS_OPERATION_LOG_NAME).push(['not-json'])
     const update = Y.encodeStateAsUpdate(source)
+    const target = new Y.Doc()
 
     expect(() =>
-      applyInboundYjsUpdate(new Y.Doc(), update, 'persistence')
+      applyInboundYjsUpdate(target, update, 'persistence')
     ).toThrowError(
       expect.objectContaining<Partial<InboundYjsDecodeFailure>>({
         code: 'malformed-operation-entry',
         source: 'persistence'
       })
     )
+    expect(readOperationLog(target)).toEqual([])
+  })
+
+  it('rejects an operation-log deletion without changing the owned document', () => {
+    const source = new Y.Doc()
+    appendOperationToYDoc(source, envelope)
+    const target = new Y.Doc()
+    Y.applyUpdate(target, Y.encodeStateAsUpdate(source))
+    const targetState = Y.encodeStateVector(target)
+    source.getArray<string>(YJS_OPERATION_LOG_NAME).delete(0, 1)
+    const deletion = Y.encodeStateAsUpdate(source, targetState)
+
+    expect(() =>
+      applyInboundYjsUpdate(target, deletion, 'provider')
+    ).toThrowError(
+      expect.objectContaining<Partial<InboundYjsDecodeFailure>>({
+        code: 'non-append-update'
+      })
+    )
+    expect(readOperationLog(target)).toEqual([envelope])
   })
 })

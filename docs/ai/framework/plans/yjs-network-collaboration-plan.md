@@ -101,7 +101,9 @@ End-state:
   classification, operation-id dedupe, protocol/schema and registered
   channel/event payload validation, app/server permission, framework/app
   conflict policy, remote transaction, canonical state-owner apply, then
-  projections.
+  projections. Decode stages untrusted binary first, so malformed,
+  non-operation, non-append, or undecodable updates leave the owned Y.Doc
+  unchanged.
 - Duplicate, delayed, reordered, and replayed envelopes have deterministic
   accept, repair, reject, or duplicate outcomes. An operation-id replay with a
   different envelope is rejected as an identity collision.

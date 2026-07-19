@@ -361,7 +361,8 @@
       ],
       conditions: [
         'Provider and offline-persistence updates use explicit non-local Y.Doc origins.',
-        'Only semantic operation entries are forwarded to validation; Yjs update integration itself does not mutate canonical package state.'
+        'Only semantic operation entries are forwarded to validation; Yjs update integration itself does not mutate canonical package state.',
+        'Malformed, non-operation, non-append, or undecodable updates are staged and rejected without changing the owned Y.Doc.'
       ],
       bypasses: [
         'An empty state-vector diff produces no operation.',

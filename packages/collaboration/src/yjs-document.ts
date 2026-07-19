@@ -212,7 +212,7 @@ const decodeOperationEntry = (
   }
 }
 
-export const applyInboundYjsUpdate = (
+const decodeInboundYjsUpdate = (
   document: Y.Doc,
   update: Uint8Array,
   source: InboundYjsUpdateSource
@@ -273,4 +273,31 @@ export const applyInboundYjsUpdate = (
       insertedEntries.map((entry) => decodeOperationEntry(entry, source))
     )
   })
+}
+
+export const applyInboundYjsUpdate = (
+  document: Y.Doc,
+  update: Uint8Array,
+  source: InboundYjsUpdateSource
+): DecodedInboundYjsUpdate => {
+  const stagedDocument = new Y.Doc()
+  let decoded: DecodedInboundYjsUpdate
+  try {
+    Y.applyUpdate(stagedDocument, Y.encodeStateAsUpdate(document))
+    decoded = decodeInboundYjsUpdate(stagedDocument, update, source)
+  } finally {
+    stagedDocument.destroy()
+  }
+
+  try {
+    Y.applyUpdate(document, update.slice(), inboundYjsOrigin(source))
+  } catch (error) {
+    throw new InboundYjsDecodeFailure(
+      'malformed-binary',
+      source,
+      '[collaboration] validated inbound Yjs update could not be applied',
+      error
+    )
+  }
+  return decoded
 }
