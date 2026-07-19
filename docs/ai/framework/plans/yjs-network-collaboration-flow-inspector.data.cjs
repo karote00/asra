@@ -173,7 +173,6 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/factory/package.json',
-        'packages/factory/src/data.ts',
         'packages/factory/src/data-transact.ts',
         'packages/factory/src/factory.ts',
         'packages/factory/src/shared-data-channel.ts',

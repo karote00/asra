@@ -153,6 +153,21 @@ test('every step has exact execution fields and every route and artifact resolve
   })
 })
 
+test('every implementation boundary resolves to an existing project target', () => {
+  data.steps.forEach((item) => {
+    item.implementationBoundary.forEach((boundary) => {
+      const wildcardIndex = boundary.search(/[?*[{]/)
+      const target = (
+        wildcardIndex === -1 ? boundary : boundary.slice(0, wildcardIndex)
+      ).replace(/\/$/, '')
+      assert.ok(
+        target && fs.existsSync(path.resolve(repoRoot, target)),
+        `${item.id} missing implementation boundary ${boundary}`
+      )
+    })
+  })
+})
+
 test('all local and external specification anchors resolve', () => {
   const defaultSpec = fs.readFileSync(
     path.resolve(repoRoot, data.authority.specPath),
