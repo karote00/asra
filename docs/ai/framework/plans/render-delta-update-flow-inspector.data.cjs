@@ -204,6 +204,7 @@
         'Compose and install one complete derived snapshot for add or load by explicitly reading the authoritative Scene Tree owner.',
       inputs: [
         'artifact:render-projection-request',
+        'artifact:strategy-rebuild-result',
         'public Scene Tree element reader',
         'add or load reason'
       ],
@@ -320,6 +321,7 @@
         'Recover a detected projection mismatch from one explicit authoritative snapshot or remove stale output when recovery is impossible.',
       inputs: [
         'artifact:projection-mismatch',
+        'artifact:strategy-rebuild-result',
         'public Scene Tree element reader'
       ],
       outputs: [
@@ -430,10 +432,14 @@
         'artifact:complete-strategy-request',
         'artifact:authoritative-resync-request'
       ],
-      outputs: ['artifact:engine-neutral-draw-commands'],
+      outputs: [
+        'artifact:engine-neutral-draw-commands',
+        'artifact:strategy-rebuild-result'
+      ],
       conditions: [
         'Every add, load, authoritative resync, or computed frame update reruns the selected strategy from complete RenderElementData.',
         'Add and load complete snapshots and authoritative resync requests execute synchronously; accepted delta snapshots enter through the frame-coalesced strategy request.',
+        'A synchronous add, load, or resync call returns an explicit strategy rebuild success or failure result to its projection controller before that controller reports an outcome.',
         'Non-vector and vector strategies retain the same public input signature.',
         'The produced command trace equals the trace from a fresh authoritative snapshot.',
         'No new dependency graph or vector geometry cache is introduced because profiling did not justify it.'
@@ -527,6 +533,8 @@
       purpose:
         'Remove entries, pending work, Scene Tree-projected Render nodes, and stale workspace identity deterministically on element removal, load reset, observer teardown, and Render teardown.',
       inputs: [
+        'artifact:render-projection-request',
+        'artifact:render-resync-outcome',
         'remove projection request',
         'load reset request',
         'Preset observer teardown',
@@ -691,6 +699,24 @@
       producedArtifacts: ['artifact:complete-strategy-request']
     },
     {
+      id: 'strategy-result-to-seed',
+      from: 'execute-render-strategy',
+      to: 'seed-render-snapshot',
+      kind: 'conditional',
+      predicate:
+        'the synchronous add or load strategy call returns success or failure to its seed controller',
+      producedArtifacts: ['artifact:strategy-rebuild-result']
+    },
+    {
+      id: 'strategy-result-to-resync',
+      from: 'execute-render-strategy',
+      to: 'resync-render-snapshot',
+      kind: 'conditional',
+      predicate:
+        'the synchronous authoritative resync strategy call returns success or failure before the resync outcome is formed',
+      producedArtifacts: ['artifact:strategy-rebuild-result']
+    },
+    {
       id: 'strategy-to-engine',
       from: 'execute-render-strategy',
       to: 'handoff-engine-commands',
@@ -781,6 +807,13 @@
       ownerStepId: 'flush-render-snapshot',
       consumerStepIds: ['execute-render-strategy'],
       channel: 'Render layer update',
+      terminal: false
+    },
+    {
+      id: 'artifact:strategy-rebuild-result',
+      ownerStepId: 'execute-render-strategy',
+      consumerStepIds: ['seed-render-snapshot', 'resync-render-snapshot'],
+      channel: 'Render add-or-update synchronous return',
       terminal: false
     },
     {

@@ -99,10 +99,12 @@ test('every step exposes the exact Inspector execution contract', () => {
 
 test('every route and artifact resolves to one declared owner graph', () => {
   const stepIds = new Set(data.steps.map((item) => item.id))
+  const stepById = new Map(data.steps.map((item) => [item.id, item]))
   const artifactById = new Map(data.artifacts.map((item) => [item.id, item]))
 
   data.routes.forEach((item) => {
     assert.ok(stepIds.has(item.from), `Unknown route source: ${item.id}`)
+    const source = stepById.get(item.from)
     if (item.kind !== 'terminal') {
       assert.ok(stepIds.has(item.to), `Unknown route target: ${item.id}`)
     }
@@ -111,6 +113,16 @@ test('every route and artifact resolves to one declared owner graph', () => {
         artifactById.has(artifactId),
         `Unknown route artifact: ${artifactId}`
       )
+      assert.ok(
+        source.outputs.includes(artifactId),
+        `${item.id} artifact ${artifactId} is not declared by source ${item.from}`
+      )
+      if (item.kind !== 'terminal') {
+        assert.ok(
+          stepById.get(item.to).inputs.includes(artifactId),
+          `${item.id} artifact ${artifactId} is not consumed by target ${item.to}`
+        )
+      }
     })
   })
 
@@ -341,6 +353,21 @@ test('seed and resync routes carry complete requests before strategy outcomes', 
   )
   assert.deepEqual(artifact('artifact:render-resync-outcome').consumerStepIds, [
     'cleanup-render-projection'
+  ])
+  assert.ok(
+    step('execute-render-strategy').outputs.includes(
+      'artifact:strategy-rebuild-result'
+    )
+  )
+  assert.deepEqual(route('strategy-result-to-seed').producedArtifacts, [
+    'artifact:strategy-rebuild-result'
+  ])
+  assert.deepEqual(route('strategy-result-to-resync').producedArtifacts, [
+    'artifact:strategy-rebuild-result'
+  ])
+  assert.deepEqual(artifact('artifact:strategy-rebuild-result').consumerStepIds, [
+    'seed-render-snapshot',
+    'resync-render-snapshot'
   ])
 })
 

@@ -123,7 +123,9 @@ any delta can render. The merged snapshot must have the requested `id`, a non-em
 matching pending update and stale visual before returning `removed`; an existing
 target that throws or fails this completeness check clears stale output and
 returns `failed`. A visual add that reports failure, including a caught strategy
-failure, is an authoritative add/load/resync rebuild failure.
+failure, is an authoritative add/load/resync rebuild failure. The synchronous
+strategy call returns that rebuild result to the add/load controller before the
+controller reports its projection outcome.
 
 The data-channel observer only routes the committed payload and receives the
 projection outcome. It does not assemble or retain the snapshot.
@@ -158,7 +160,8 @@ Tree.
 
 - successful resync replaces the entire derived snapshot and synchronously uses
   the existing Render add-or-update route to rebuild from that complete snapshot;
-  it returns `resynced` only after the strategy rebuild succeeds
+  the strategy result returns to the resync controller before the outcome is
+  formed, and it returns `resynced` only after that rebuild succeeds
 - if the canonical element no longer exists, Render removes the stale visual and
   treats the entry as removed
 - if a complete authoritative snapshot cannot be composed, Render clears the

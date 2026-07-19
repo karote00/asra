@@ -72,7 +72,9 @@ drawing; Render adds no inferred mapping or fallback geometry.
 - a missing canonical add target clears matching pending work and stale visual
   before returning `removed`; an invalid existing target clears stale output and
   returns `failed`. An unsuccessful visual add, including a caught strategy
-  failure, is a rebuild failure for add, reload, and resync
+  failure, is a rebuild failure for add, reload, and resync. Its synchronous
+  result returns to the projection controller before that controller reports the
+  final outcome
 - scalar, ordered batch, and record patch updates validate every supplied
   `before` image and require every addressed top-level base to be an own property
   before atomically installing a new snapshot; record patches require an own
