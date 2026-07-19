@@ -45,7 +45,7 @@ test('authority resolves to the active product contract and dedicated viewer', (
   assert.deepEqual(data.schema, { id: 'asyra.flow-inspector', version: 2 })
   assert.equal(
     data.authority.specPath,
-    'docs/ai/framework/plans/render-delta-update-plan.md'
+    'docs/ai/framework/plans/completed/render-delta-update-plan.md'
   )
   assert.equal(
     data.authority.inspectorPath,
@@ -433,7 +433,9 @@ test('strategy ownership is complete-data, engine-neutral, and non-vector compat
   assert.match(strategyContract, /Scene Tree reads/i)
   assert.match(strategyContract, /Pixi types or methods/i)
   assert.ok(
-    strategy.implementationBoundary.includes('docs/ai/framework/PLANS.md')
+    strategy.implementationBoundary.includes(
+      'docs/ai/framework/plans/completed/render-delta-update-plan.md'
+    )
   )
   assert.match(handoffContract, /existing @asyra\/render-engine commands/i)
   assert.match(
@@ -554,10 +556,6 @@ test('the product contract and formal oracle lock count and timing budgets', () 
     path.resolve(repoRoot, data.authority.specPath),
     'utf8'
   )
-  const planIndex = fs.readFileSync(
-    path.resolve(repoRoot, 'docs/ai/framework/PLANS.md'),
-    'utf8'
-  )
   const oraclePath = path.resolve(
     repoRoot,
     'apps/asyra-design/e2e/render-delta-performance.spec.ts'
@@ -575,8 +573,8 @@ test('the product contract and formal oracle lock count and timing budgets', () 
     plan,
     /does not permit a new or expanded\s+vector geometry cache/i
   )
-  assert.match(planIndex, /elementId.*complete Render snapshot/i)
-  assert.doesNotMatch(planIndex, /key-based invalidation/i)
+  assert.match(plan, /sole cache key is\s+`elementId`/i)
+  assert.doesNotMatch(plan, /key-based invalidation/i)
   assert.match(oracle, /DENSE_POINT_COUNT = 56/)
   assert.match(oracle, /fullRehydrateCallsDuringDelta\)\.toBe\(0\)/)
   assert.match(oracle, /renderSnapshotDeltaApplies\)\.toBe\(SAMPLE_FRAMES\)/)

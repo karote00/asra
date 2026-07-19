@@ -1,7 +1,7 @@
 ;(function () {
   'use strict'
 
-  const specPath = 'docs/ai/framework/plans/render-delta-update-plan.md'
+  const specPath = 'docs/ai/framework/plans/completed/render-delta-update-plan.md'
   const inspectorPath =
     'docs/ai/framework/plans/render-delta-update-flow-inspector.data.cjs'
 
@@ -88,7 +88,7 @@
         'packages/scene-tree/src/components/computed.ts',
         'packages/scene-tree/src/__tests__/**',
         'docs/ai/framework/packages/scene-tree.md',
-        'docs/ai/framework/plans/render-delta-update-plan.md'
+        'docs/ai/framework/plans/completed/render-delta-update-plan.md'
       ],
       specRefs: [
         '#committed-delta-semantics',
@@ -137,7 +137,7 @@
         'packages/factory/src/shared-data-channel.ts',
         'packages/factory/src/__tests__/**',
         'docs/ai/framework/packages/factory.md',
-        'docs/ai/framework/plans/render-delta-update-plan.md'
+        'docs/ai/framework/plans/completed/render-delta-update-plan.md'
       ],
       specRefs: [
         '#ordering-duplicates-and-missing-delivery',
@@ -187,7 +187,7 @@
         'packages/preset/src/subscriptions/data-channel.ts',
         'packages/preset/src/__tests__/**',
         'docs/ai/framework/packages/preset.md',
-        'docs/ai/framework/plans/render-delta-update-plan.md'
+        'docs/ai/framework/plans/completed/render-delta-update-plan.md'
       ],
       specRefs: [
         '#snapshot-ownership-and-initial-source',
@@ -252,7 +252,7 @@
         'packages/preset/src/subscriptions/data-channel.ts',
         'packages/preset/src/__tests__/**',
         'docs/ai/framework/packages/render.md',
-        'docs/ai/framework/plans/render-delta-update-plan.md'
+        'docs/ai/framework/plans/completed/render-delta-update-plan.md'
       ],
       specRefs: [
         '#snapshot-ownership-and-initial-source',
@@ -312,7 +312,7 @@
         'packages/render/src/stores/scene-tree.ts',
         'packages/render/src/__tests__/scene-tree-store.test.ts',
         'docs/ai/framework/packages/render.md',
-        'docs/ai/framework/plans/render-delta-update-plan.md'
+        'docs/ai/framework/plans/completed/render-delta-update-plan.md'
       ],
       specRefs: [
         '#committed-delta-semantics',
@@ -371,7 +371,7 @@
         'packages/render/src/layers/scene/render-layer.ts',
         'packages/render/src/__tests__/scene-tree-store.test.ts',
         'docs/ai/framework/packages/render.md',
-        'docs/ai/framework/plans/render-delta-update-plan.md'
+        'docs/ai/framework/plans/completed/render-delta-update-plan.md'
       ],
       specRefs: [
         '#explicit-resync-and-failure',
@@ -423,7 +423,7 @@
         'packages/render/src/__tests__/scene-tree-store.test.ts',
         'packages/render/src/__tests__/**',
         'docs/ai/framework/packages/render.md',
-        'docs/ai/framework/plans/render-delta-update-plan.md'
+        'docs/ai/framework/plans/completed/render-delta-update-plan.md'
       ],
       specRefs: [
         '#frame-ordering-and-strategy-input',
@@ -480,8 +480,7 @@
         'packages/preset/src/__tests__/**',
         'apps/asyra-design/e2e/render-delta-performance.spec.ts',
         'docs/ai/framework/packages/render.md',
-        'docs/ai/framework/PLANS.md',
-        'docs/ai/framework/plans/render-delta-update-plan.md'
+        'docs/ai/framework/plans/completed/render-delta-update-plan.md'
       ],
       specRefs: [
         '#frame-ordering-and-strategy-input',
@@ -528,7 +527,7 @@
         'packages/render/src/__tests__/**',
         'apps/asyra-design/e2e/render-delta-performance.spec.ts',
         'docs/ai/framework/packages/render.md',
-        'docs/ai/framework/plans/render-delta-update-plan.md'
+        'docs/ai/framework/plans/completed/render-delta-update-plan.md'
       ],
       specRefs: [
         '#profiling-and-cache-decision',
@@ -598,7 +597,7 @@
         'packages/preset/src/__tests__/**',
         'docs/ai/framework/packages/render.md',
         'docs/ai/framework/packages/preset.md',
-        'docs/ai/framework/plans/render-delta-update-plan.md'
+        'docs/ai/framework/plans/completed/render-delta-update-plan.md'
       ],
       specRefs: [
         '#load-undo-redo-replay-remove-and-cleanup',
@@ -1032,7 +1031,7 @@
       {
         id: 'product-contract',
         label: 'Render Delta Update Plan',
-        href: './render-delta-update-plan.md',
+        href: './completed/render-delta-update-plan.md',
         kind: 'authority'
       },
       {

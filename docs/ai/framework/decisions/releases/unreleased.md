@@ -1395,3 +1395,54 @@ unregister -> app migration -> core.start()` as the public app route.
   - `779d6a427` (`fix(preset): align fill definitions for redefinition`)
   - `91cee525a` (`Framework: declarative property type redefinition (#86)`)
   - [PR #86](https://github.com/karote00/asyra/pull/86)
+
+## 2026-07-19 - Render Delta Update Pipeline completed
+
+- Context:
+  - PR #88 contains the committed Scene Tree delta contract, ordered Factory
+    delivery, Preset routing, atomic Render projection, explicit resync and
+    lifecycle behavior, executable Inspector authority, package documentation,
+    regression coverage, and formal app performance/visual evidence.
+  - Inspector, package, monorepo, dependency, lint, build, Chromium E2E,
+    synchronized visual, primary review, and independent review gates passed.
+    The product owner then manually verified Asyra Design before requesting
+    closeout.
+- Decision:
+  - Treat the Render Delta Update Pipeline as implementation complete and
+    archive its product contract at the completed canonical path.
+  - Keep Scene Tree as the sole canonical raw/computed owner, Factory as the
+    ordered exactly-once delivery owner, Preset as the observer/lifecycle route,
+    and Render as the sole owner of its complete derived snapshot.
+  - Keep scalar, batch, and record patch application atomic; use explicit
+    authoritative seed/resync for add, load, registration, and mismatch; retain
+    complete-snapshot frame coalescing and engine-neutral hierarchy handoff.
+- Consequences:
+  - Ordinary Render updates no longer require full computed-data rehydrate;
+    direct properties retain their fast path while computed changes rerun the
+    public strategy from one complete validated snapshot.
+  - Load and re-registration rebuild parent-first in canonical sibling order;
+    failed projection, cleanup, and hierarchy handoff paths retain bounded retry
+    ownership without fallback output or another state owner.
+  - Non-vector strategies and app-defined data-channel observers remain
+    compatible, and RenderEngine/Pixi, Feature System, Input System, persistence,
+    and app import boundaries remain unchanged.
+  - The plan is removed from active framework plans. Its Inspector data,
+    contract test, and viewer remain executable architecture authorities and now
+    resolve the completed product contract.
+  - PR #88 remains open for human review; this closeout records implementation
+    completion and does not claim merge or release completion.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/render-delta-update-plan.md`
+- Related Commit(s):
+  - `a837ff515` (`docs: define render delta inspector contract`)
+  - `4be863e5e` (`fix(render): require explicit snapshot seeds`)
+  - `131deeead` (`fix(render): apply snapshot deltas atomically`)
+  - `2f1e529d9` (`fix(render): resync mismatched delta snapshots`)
+  - `50a336737` (`fix(scene-tree): preserve delta owner provenance`)
+  - `a6629eda6` (`fix(preset): rebuild render projection on registration`)
+  - `42cb31250` (`fix(render): fail partial authoritative reloads`)
+  - `be4eb71b9` (`fix(render): retain failed cleanup ownership`)
+  - `50528b384` (`fix(render): preserve canonical load rebuilds`)
+  - `2465a6663` (`fix(render): retain failed hierarchy handoffs`)
+  - `7009b471d` (`fix(render): rollback failed reparent handoffs`)
+  - [PR #88](https://github.com/karote00/asyra/pull/88)

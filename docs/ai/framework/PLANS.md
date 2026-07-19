@@ -4,15 +4,6 @@ Never record completed plans here.
 
 This file tracks framework planning topics and points to detailed references.
 
-## Near-Term Plans
-
-1. Render delta update pipeline
-
-- Apply data-channel deltas directly in render update flow to avoid full computed-data rehydrate.
-- Retain one `elementId`-keyed complete Render snapshot and apply owner-qualified
-  deltas; profiling does not permit key-specific geometry invalidation caches.
-- Reference: `docs/ai/framework/plans/render-delta-update-plan.md`
-
 ## Deferred Plans
 
 1. Auto-layout behavior engine.
