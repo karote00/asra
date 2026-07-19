@@ -369,6 +369,7 @@ export class CollaborationInstance {
         identitySource: this.identitySource,
         registry: this.operationRegistry
       })
+      this.operationOutcomes.recordLocal(envelope)
       const binary = appendOperationToYDoc(this.yDoc, envelope)
       const durability = await this.durability.settleLocalUpdate(binary)
       this.emitOutcome({

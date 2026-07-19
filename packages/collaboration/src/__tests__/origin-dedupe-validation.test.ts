@@ -4,6 +4,7 @@ import {
   validateRemoteOperation
 } from '../inbound-pipeline'
 import { OperationRegistry } from '../operation-registry'
+import type { SharedOperationEnvelope } from '../operation-envelope'
 
 const definition = {
   channel: 'scene',
@@ -13,8 +14,7 @@ const definition = {
     if (!payload || typeof payload !== 'object') return false
     const candidate = payload as { id?: unknown; value?: unknown }
     return (
-      typeof candidate.id === 'string' &&
-      typeof candidate.value === 'number'
+      typeof candidate.id === 'string' && typeof candidate.value === 'number'
     )
   }
 }
@@ -80,6 +80,30 @@ describe('remote origin, dedupe, protocol, and payload validation', () => {
     expect(canonicalApply).not.toHaveBeenCalled()
   })
 
+  it('classifies a locally committed operation replay before remote policy or apply', () => {
+    const context = setup()
+    const localEnvelope = envelope() as SharedOperationEnvelope
+
+    context.outcomes.recordLocal(localEnvelope)
+
+    expect(
+      validateRemoteOperation({ decoded: envelope(), ...context })
+    ).toEqual({
+      status: 'duplicate',
+      operationId: 'actor-a:session-a:1:forward',
+      recordedOutcome: {
+        status: 'accepted',
+        operationId: 'actor-a:session-a:1:forward'
+      }
+    })
+    expect(
+      validateRemoteOperation({
+        decoded: envelope({ payload: { id: 'node-a', value: 2 } }),
+        ...context
+      })
+    ).toEqual(expect.objectContaining({ code: 'operation-identity-collision' }))
+  })
+
   it('rejects an operation-id replay with different content as a collision', () => {
     const context = setup()
     validateRemoteOperation({ decoded: envelope(), ...context })
@@ -136,7 +160,11 @@ describe('remote origin, dedupe, protocol, and payload validation', () => {
 
   it('rejects document mismatch, unknown route, and invalid payload', () => {
     expect(
-      validateRemoteOperation({ decoded: envelope(), ...setup(), documentId: 'other' })
+      validateRemoteOperation({
+        decoded: envelope(),
+        ...setup(),
+        documentId: 'other'
+      })
     ).toEqual(expect.objectContaining({ code: 'document-mismatch' }))
     expect(
       validateRemoteOperation({

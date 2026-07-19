@@ -69,6 +69,26 @@ const freezeOutcome = <T extends object>(value: T): Readonly<T> =>
 export class OperationOutcomeRegistry {
   private readonly outcomes = new Map<string, StoredOutcome>()
 
+  recordLocal(envelope: SharedOperationEnvelope): void {
+    const fingerprint = stableSerialize(envelope)
+    const existing = this.outcomes.get(envelope.operationId)
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) {
+        throw new Error(
+          '[collaboration] local operation identity collides with a recorded outcome'
+        )
+      }
+      return
+    }
+    this.outcomes.set(envelope.operationId, {
+      fingerprint,
+      outcome: freezeOutcome({
+        status: 'accepted',
+        operationId: envelope.operationId
+      })
+    })
+  }
+
   inspect(
     operationId: string,
     fingerprint: string
@@ -197,7 +217,10 @@ const stableSerialize = (value: unknown): string => {
   }
   return `{${Object.keys(value)
     .sort()
-    .map((key) => `${JSON.stringify(key)}:${stableSerialize(Reflect.get(value, key))}`)
+    .map(
+      (key) =>
+        `${JSON.stringify(key)}:${stableSerialize(Reflect.get(value, key))}`
+    )
     .join(',')}}`
 }
 
@@ -357,7 +380,7 @@ export type RemoteCanonicalApplyOutcome =
 export interface RunRemoteCanonicalApplyInput {
   readonly operation: ConflictAcceptedOperation
   readonly factory: Factory
-  readonly apply: (envelope: SharedOperationEnvelope) => boolean | void
+  readonly apply: (envelope: SharedOperationEnvelope) => unknown
   readonly outcomes: OperationOutcomeRegistry
 }
 
@@ -368,7 +391,9 @@ export const runRemoteCanonicalApply = ({
   outcomes
 }: RunRemoteCanonicalApplyInput): RemoteCanonicalApplyOutcome => {
   try {
-    const applied = factory.runRemoteTransaction(() => apply(operation.envelope))
+    const applied = factory.runRemoteTransaction(() =>
+      apply(operation.envelope)
+    )
     const result = Object.freeze({
       status: operation.status,
       operationId: operation.envelope.operationId,
