@@ -1,9 +1,6 @@
 import * as Y from 'yjs'
 import type { CollaborationProvider, ProviderFailure } from './provider'
-import {
-  applyInboundYjsUpdate,
-  type YjsBinaryUpdate
-} from './yjs-document'
+import { applyInboundYjsUpdate, type YjsBinaryUpdate } from './yjs-document'
 
 export interface PersistedCollaborationUpdate extends YjsBinaryUpdate {
   readonly documentId: string
@@ -32,10 +29,7 @@ const clonePersistedUpdate = (
 export class MemoryCollaborationUpdatePersistence
   implements CollaborationUpdatePersistence
 {
-  private readonly updates = new Map<
-    string,
-    PersistedCollaborationUpdate[]
-  >()
+  private readonly updates = new Map<string, PersistedCollaborationUpdate[]>()
   private disposed = false
 
   constructor(
@@ -213,12 +207,14 @@ export class CollaborationDurabilityRuntime {
   async synchronizeWithProvider(): Promise<
     Readonly<{
       receivedOperationCount: number
+      receivedOperations: readonly unknown[]
       sentUpdateByteLength: number
     }>
   > {
     if (!this.provider) {
       return Object.freeze({
         receivedOperationCount: 0,
+        receivedOperations: Object.freeze([]),
         sentUpdateByteLength: 0
       })
     }
@@ -238,6 +234,7 @@ export class CollaborationDurabilityRuntime {
     this.emit(this.documentId, 'network-converged')
     return Object.freeze({
       receivedOperationCount: decoded.operations.length,
+      receivedOperations: decoded.operations,
       sentUpdateByteLength: missingLocalUpdate.byteLength
     })
   }

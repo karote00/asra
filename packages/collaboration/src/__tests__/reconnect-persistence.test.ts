@@ -192,10 +192,7 @@ describe('state-vector reconnect convergence', () => {
     const providerB = new MemoryCollaborationProvider(hub, identity('actor-b'))
     await providerA.connect()
     const documentA = new Y.Doc()
-    const operationA = appendOperationToYDoc(
-      documentA,
-      envelope('actor-a', 1)
-    )
+    const operationA = appendOperationToYDoc(documentA, envelope('actor-a', 1))
     await providerA.sendUpdate(operationA)
 
     const documentB = new Y.Doc()
@@ -213,18 +210,17 @@ describe('state-vector reconnect convergence', () => {
     const firstSync = await runtimeB.synchronizeWithProvider()
 
     expect(firstSync.receivedOperationCount).toBe(1)
+    expect(firstSync.receivedOperations).toEqual([envelope('actor-a', 1)])
     expect(readOperationLog(documentA)).toEqual(readOperationLog(documentB))
     expect(
       new Set(readOperationLog(documentB).map((item) => item.operationId))
     ).toEqual(
-      new Set([
-        'actor-a:session:1:forward',
-        'actor-b:session:1:forward'
-      ])
+      new Set(['actor-a:session:1:forward', 'actor-b:session:1:forward'])
     )
 
     const secondSync = await runtimeB.synchronizeWithProvider()
     expect(secondSync.receivedOperationCount).toBe(0)
+    expect(secondSync.receivedOperations).toEqual([])
     expect(secondSync.sentUpdateByteLength).toBeLessThanOrEqual(2)
     expect(readOperationLog(documentA)).toEqual(readOperationLog(documentB))
   })
