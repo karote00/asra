@@ -660,6 +660,7 @@
         'packages/collaboration/src/persistence.ts',
         'packages/collaboration/src/collaboration-instance.ts',
         'packages/collaboration/src/provider.ts',
+        'packages/collaboration/src/providers/memory-provider.ts',
         'packages/collaboration/src/__tests__/reconnect-persistence.test.ts'
       ],
       specRefs: [

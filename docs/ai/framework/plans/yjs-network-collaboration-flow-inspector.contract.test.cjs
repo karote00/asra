@@ -235,6 +235,12 @@ test('provider boundary is replaceable and acknowledgement states are separate',
     /Runtime committed.*locally persisted.*network sent\/converged.*durably acknowledged.*distinct/i
   )
   assert.match(persistence, /failure never reverses.*committed canonical/i)
+  assert.ok(
+    step('persist-sync-and-acknowledge').implementationBoundary.includes(
+      'packages/collaboration/src/providers/memory-provider.ts'
+    ),
+    'reconnect persistence step must include its state-vector provider adapter'
+  )
 })
 
 test('inbound pipeline orders decode, dedupe, validation, policy, transaction, and canonical owner', () => {
