@@ -5,6 +5,7 @@ import {
   AwarenessRuntime,
   CollaborationDisposalError,
   createCollaboration,
+  defineCanonicalOperationApply,
   type CollaborationInstanceCompositionInput
 } from '..'
 import {
@@ -138,7 +139,7 @@ describe('CollaborationInstance ownership and disposal', () => {
               validate: (payload): payload is { value: number } =>
                 typeof (payload as { value?: unknown } | undefined)?.value ===
                 'number',
-              apply: () => true
+              apply: defineCanonicalOperationApply(() => true)
             }
           ]
         })
@@ -337,10 +338,10 @@ describe('CollaborationInstance ownership and disposal', () => {
                 typeof candidate.after === 'number'
               )
             },
-            apply: (envelope) => {
+            apply: defineCanonicalOperationApply((envelope) => {
               apply(envelope.payload as SetValuePayload)
               return true
-            }
+            })
           }
         ],
         permissionPolicy: () => true,

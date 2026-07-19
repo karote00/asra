@@ -1,8 +1,7 @@
 ;(function () {
   'use strict'
 
-  const specPath =
-    'docs/ai/framework/plans/yjs-network-collaboration-plan.md'
+  const specPath = 'docs/ai/framework/plans/yjs-network-collaboration-plan.md'
   const inspectorPath =
     'docs/ai/framework/plans/yjs-network-collaboration-flow-inspector.data.cjs'
 
@@ -222,7 +221,8 @@
         'The envelope contains operation, transaction, document, actor, protocol, schema, origin, channel, event, and validated payload fields.',
         'A compensation envelope names the exact operation it compensates.',
         'Operation and actor-scoped transaction identity remain stable for the one published delivery.',
-        'Registration retains the app or state-owner canonical apply handler without executing it during local envelope creation.'
+        'Registration retains the app or state-owner canonical apply handler without executing it during local envelope creation.',
+        'Canonical apply registration uses defineCanonicalOperationApply so TypeScript Promise returns fail compilation and native async functions fail registration before invocation.'
       ],
       bypasses: [
         'Unregistered channel/event or invalid local payload is rejected before Y.Doc mutation or provider send.'
@@ -243,9 +243,14 @@
       implementationBoundary: [
         'packages/collaboration/src/operation-envelope.ts',
         'packages/collaboration/src/operation-registry.ts',
+        'packages/collaboration/src/index.ts',
+        'packages/collaboration/src/__tests__/collaboration-disabled.test.ts',
         'packages/collaboration/src/__tests__/operation-envelope.test.ts'
       ],
-      specRefs: ['#shared-operation-envelope', '#public-input-and-output-contracts'],
+      specRefs: [
+        '#shared-operation-envelope',
+        '#public-input-and-output-contracts'
+      ],
       failureOwnerStepId: 'create-shared-operation-envelope'
     },
     {
@@ -520,7 +525,7 @@
       ],
       conditions: [
         'One remote semantic operation is applied inside one intended remote transaction boundary.',
-        'Canonical apply is synchronous: void or true means applied, false means a semantic no-op, and a Promise triggers rollback with an apply-failed outcome.',
+        'Canonical apply is a defineCanonicalOperationApply handler: void or true means applied, false means a semantic no-op, native async is rejected before invocation, and any escaped runtime thenable triggers rollback with an apply-failed outcome.',
         'Reactive transaction calls inside the handler route to the intended Factory, and remote-origin mutation options cannot disable rollbackability.',
         'Remote changes remain rollbackable on apply failure but are excluded from ordinary local-user undo history.',
         'Remote-origin local projection delivery is allowed while collaboration publication suppresses echo.',
@@ -543,10 +548,13 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/collaboration/src/inbound-pipeline.ts',
+        'packages/collaboration/src/operation-registry.ts',
+        'packages/collaboration/src/index.ts',
         'packages/factory/src/factory.ts',
         'packages/factory/src/data-transact.ts',
         'packages/factory/src/__tests__/factory.test.ts',
         'packages/utils/src/types/transaction.ts',
+        'packages/collaboration/src/__tests__/collaboration-disabled.test.ts',
         'packages/collaboration/src/__tests__/remote-canonical-apply.test.ts'
       ],
       specRefs: [
@@ -779,7 +787,10 @@
         'packages/collaboration/src/__tests__/awareness.test.ts',
         'docs/examples/yjs-network-collaboration.mjs'
       ],
-      specRefs: ['#awareness-and-presence', '#ownership-and-forbidden-boundaries'],
+      specRefs: [
+        '#awareness-and-presence',
+        '#ownership-and-forbidden-boundaries'
+      ],
       failureOwnerStepId: 'project-awareness-state'
     }
   ]
@@ -805,7 +816,8 @@
       from: 'own-collaboration-instance',
       to: 'publish-local-committed-change',
       kind: 'handoff',
-      predicate: 'The instance subscribes to its intended Factory shared-delivery boundary.',
+      predicate:
+        'The instance subscribes to its intended Factory shared-delivery boundary.',
       producedArtifacts: ['artifact:collaboration-instance']
     },
     {
@@ -829,14 +841,16 @@
       from: 'own-collaboration-instance',
       to: 'transport-provider-update',
       kind: 'bypass',
-      predicate: 'The explicit collaboration instance is provider-less and offline.',
+      predicate:
+        'The explicit collaboration instance is provider-less and offline.',
       producedArtifacts: ['artifact:no-provider-composition']
     },
     {
       id: 'dispose-instance',
       from: 'own-collaboration-instance',
       kind: 'terminal',
-      predicate: 'The instance is disposed and releases only its owned lifecycle.',
+      predicate:
+        'The instance is disposed and releases only its owned lifecycle.',
       producedArtifacts: ['artifact:instance-disposed']
     },
     {
@@ -844,7 +858,8 @@
       from: 'publish-local-committed-change',
       to: 'create-shared-operation-envelope',
       kind: 'handoff',
-      predicate: 'A registered local shared change is delivered at its configured settlement point.',
+      predicate:
+        'A registered local shared change is delivered at its configured settlement point.',
       producedArtifacts: ['artifact:local-shared-delivery']
     },
     {
@@ -852,7 +867,8 @@
       from: 'publish-local-committed-change',
       to: 'create-shared-operation-envelope',
       kind: 'compensation',
-      predicate: 'Rollback reverses an already delivered immediate shared change exactly once.',
+      predicate:
+        'Rollback reverses an already delivered immediate shared change exactly once.',
       producedArtifacts: ['artifact:local-compensation-delivery']
     },
     {
@@ -882,7 +898,8 @@
       from: 'append-yjs-update',
       to: 'transport-provider-update',
       kind: 'transport',
-      predicate: 'A provider is present and the update has local transport origin.',
+      predicate:
+        'A provider is present and the update has local transport origin.',
       producedArtifacts: ['artifact:yjs-binary-update']
     },
     {
@@ -913,7 +930,8 @@
       from: 'transport-provider-update',
       to: 'persist-sync-and-acknowledge',
       kind: 'observational',
-      predicate: 'Connection, reconnection, offline, failure, or disposal status changes.',
+      predicate:
+        'Connection, reconnection, offline, failure, or disposal status changes.',
       producedArtifacts: ['artifact:provider-status']
     },
     {
@@ -921,7 +939,8 @@
       from: 'transport-provider-update',
       to: 'persist-sync-and-acknowledge',
       kind: 'observational',
-      predicate: 'The provider reports durable acknowledgement or acknowledgement failure.',
+      predicate:
+        'The provider reports durable acknowledgement or acknowledgement failure.',
       producedArtifacts: ['artifact:durable-acknowledgement']
     },
     {
@@ -952,7 +971,8 @@
       from: 'decode-inbound-update',
       to: 'validate-origin-dedupe-protocol',
       kind: 'handoff',
-      predicate: 'The binary update integrates and yields a semantic operation envelope.',
+      predicate:
+        'The binary update integrates and yields a semantic operation envelope.',
       producedArtifacts: ['artifact:decoded-operation-envelope']
     },
     {
@@ -967,21 +987,24 @@
       from: 'validate-origin-dedupe-protocol',
       to: 'decide-permission-conflict',
       kind: 'handoff',
-      predicate: 'Origin, identity, document, protocol, schema, route, and payload are valid and unseen.',
+      predicate:
+        'Origin, identity, document, protocol, schema, route, and payload are valid and unseen.',
       producedArtifacts: ['artifact:validated-remote-operation']
     },
     {
       id: 'dedupe-remote-operation',
       from: 'validate-origin-dedupe-protocol',
       kind: 'terminal',
-      predicate: 'An identical operation id and envelope already has a recorded outcome.',
+      predicate:
+        'An identical operation id and envelope already has a recorded outcome.',
       producedArtifacts: ['artifact:duplicate-operation-outcome']
     },
     {
       id: 'reject-invalid-remote-operation',
       from: 'validate-origin-dedupe-protocol',
       kind: 'terminal',
-      predicate: 'Echo, identity collision, document mismatch, unsupported version/route, or invalid payload is detected.',
+      predicate:
+        'Echo, identity collision, document mismatch, unsupported version/route, or invalid payload is detected.',
       producedArtifacts: ['artifact:remote-validation-rejection']
     },
     {
@@ -989,14 +1012,16 @@
       from: 'decide-permission-conflict',
       to: 'run-remote-apply-transaction',
       kind: 'handoff',
-      predicate: 'Permission passes and deterministic policy accepts or returns a schema-valid repair.',
+      predicate:
+        'Permission passes and deterministic policy accepts or returns a schema-valid repair.',
       producedArtifacts: ['artifact:accepted-or-repaired-operation']
     },
     {
       id: 'policy-rejected',
       from: 'decide-permission-conflict',
       kind: 'terminal',
-      predicate: 'Permission, framework invariant, or app-domain policy rejects before apply.',
+      predicate:
+        'Permission, framework invariant, or app-domain policy rejects before apply.',
       producedArtifacts: ['artifact:permission-or-conflict-rejection']
     },
     {
@@ -1011,7 +1036,8 @@
       id: 'remote-apply-failed',
       from: 'run-remote-apply-transaction',
       kind: 'terminal',
-      predicate: 'The canonical apply handler throws and Factory completes rollback or rollback-failed handling.',
+      predicate:
+        'The canonical apply handler throws and Factory completes rollback or rollback-failed handling.',
       producedArtifacts: ['artifact:remote-apply-failure']
     },
     {
@@ -1026,7 +1052,8 @@
       id: 'state-owner-rejected',
       from: 'apply-canonical-state-owner',
       kind: 'terminal',
-      predicate: 'The owning package rejects its invariant or validation contract.',
+      predicate:
+        'The owning package rejects its invariant or validation contract.',
       producedArtifacts: ['artifact:state-owner-rejection']
     },
     {
@@ -1048,21 +1075,24 @@
       id: 'collaboration-persistence-failed',
       from: 'persist-sync-and-acknowledge',
       kind: 'terminal',
-      predicate: 'The optional update persistence adapter rejects load or storage acknowledgement.',
+      predicate:
+        'The optional update persistence adapter rejects load or storage acknowledgement.',
       producedArtifacts: ['artifact:collaboration-persistence-failure']
     },
     {
       id: 'network-converged',
       from: 'persist-sync-and-acknowledge',
       kind: 'terminal',
-      predicate: 'State-vector exchange delivers all missing updates and peers converge.',
+      predicate:
+        'State-vector exchange delivers all missing updates and peers converge.',
       producedArtifacts: ['artifact:network-convergence']
     },
     {
       id: 'durability-observed',
       from: 'persist-sync-and-acknowledge',
       kind: 'terminal',
-      predicate: 'Durable acknowledgement or failure is recorded separately from runtime commit.',
+      predicate:
+        'Durable acknowledgement or failure is recorded separately from runtime commit.',
       producedArtifacts: ['artifact:durability-outcome']
     },
     {
@@ -1099,44 +1129,242 @@
   ]
 
   const artifacts = [
-    ['collaboration-composition', 'compose-collaboration-opt-in', ['own-collaboration-instance'], false, 'composition'],
-    ['collaboration-disabled', 'compose-collaboration-opt-in', [], true, 'terminal'],
-    ['collaboration-instance', 'own-collaboration-instance', ['publish-local-committed-change', 'own-awareness-state'], false, 'instance'],
-    ['provider-composition', 'own-collaboration-instance', ['transport-provider-update'], false, 'composition'],
-    ['no-provider-composition', 'own-collaboration-instance', ['transport-provider-update'], false, 'bypass'],
+    [
+      'collaboration-composition',
+      'compose-collaboration-opt-in',
+      ['own-collaboration-instance'],
+      false,
+      'composition'
+    ],
+    [
+      'collaboration-disabled',
+      'compose-collaboration-opt-in',
+      [],
+      true,
+      'terminal'
+    ],
+    [
+      'collaboration-instance',
+      'own-collaboration-instance',
+      ['publish-local-committed-change', 'own-awareness-state'],
+      false,
+      'instance'
+    ],
+    [
+      'provider-composition',
+      'own-collaboration-instance',
+      ['transport-provider-update'],
+      false,
+      'composition'
+    ],
+    [
+      'no-provider-composition',
+      'own-collaboration-instance',
+      ['transport-provider-update'],
+      false,
+      'bypass'
+    ],
     ['instance-disposed', 'own-collaboration-instance', [], true, 'terminal'],
-    ['local-shared-delivery', 'publish-local-committed-change', ['create-shared-operation-envelope'], false, 'local'],
-    ['local-shared-discard', 'publish-local-committed-change', [], true, 'terminal'],
-    ['local-compensation-delivery', 'publish-local-committed-change', ['create-shared-operation-envelope'], false, 'local'],
-    ['shared-operation-envelope', 'create-shared-operation-envelope', ['append-yjs-update'], false, 'semantic'],
-    ['local-operation-rejection', 'create-shared-operation-envelope', [], true, 'terminal'],
-    ['yjs-binary-update', 'append-yjs-update', ['transport-provider-update', 'persist-sync-and-acknowledge'], false, 'binary'],
+    [
+      'local-shared-delivery',
+      'publish-local-committed-change',
+      ['create-shared-operation-envelope'],
+      false,
+      'local'
+    ],
+    [
+      'local-shared-discard',
+      'publish-local-committed-change',
+      [],
+      true,
+      'terminal'
+    ],
+    [
+      'local-compensation-delivery',
+      'publish-local-committed-change',
+      ['create-shared-operation-envelope'],
+      false,
+      'local'
+    ],
+    [
+      'shared-operation-envelope',
+      'create-shared-operation-envelope',
+      ['append-yjs-update'],
+      false,
+      'semantic'
+    ],
+    [
+      'local-operation-rejection',
+      'create-shared-operation-envelope',
+      [],
+      true,
+      'terminal'
+    ],
+    [
+      'yjs-binary-update',
+      'append-yjs-update',
+      ['transport-provider-update', 'persist-sync-and-acknowledge'],
+      false,
+      'binary'
+    ],
     ['yjs-append-failure', 'append-yjs-update', [], true, 'terminal'],
-    ['provider-status', 'transport-provider-update', ['persist-sync-and-acknowledge'], false, 'status'],
-    ['inbound-binary-update', 'transport-provider-update', ['decode-inbound-update'], false, 'binary'],
-    ['durable-acknowledgement', 'transport-provider-update', ['persist-sync-and-acknowledge'], false, 'status'],
+    [
+      'provider-status',
+      'transport-provider-update',
+      ['persist-sync-and-acknowledge'],
+      false,
+      'status'
+    ],
+    [
+      'inbound-binary-update',
+      'transport-provider-update',
+      ['decode-inbound-update'],
+      false,
+      'binary'
+    ],
+    [
+      'durable-acknowledgement',
+      'transport-provider-update',
+      ['persist-sync-and-acknowledge'],
+      false,
+      'status'
+    ],
     ['provider-failure', 'transport-provider-update', [], true, 'terminal'],
-    ['inbound-awareness', 'transport-provider-update', ['own-awareness-state'], false, 'ephemeral'],
-    ['awareness-disconnect', 'transport-provider-update', ['own-awareness-state'], false, 'ephemeral'],
-    ['decoded-operation-envelope', 'decode-inbound-update', ['validate-origin-dedupe-protocol'], false, 'semantic'],
+    [
+      'inbound-awareness',
+      'transport-provider-update',
+      ['own-awareness-state'],
+      false,
+      'ephemeral'
+    ],
+    [
+      'awareness-disconnect',
+      'transport-provider-update',
+      ['own-awareness-state'],
+      false,
+      'ephemeral'
+    ],
+    [
+      'decoded-operation-envelope',
+      'decode-inbound-update',
+      ['validate-origin-dedupe-protocol'],
+      false,
+      'semantic'
+    ],
     ['inbound-decode-failure', 'decode-inbound-update', [], true, 'terminal'],
-    ['validated-remote-operation', 'validate-origin-dedupe-protocol', ['decide-permission-conflict'], false, 'semantic'],
-    ['duplicate-operation-outcome', 'validate-origin-dedupe-protocol', [], true, 'terminal'],
-    ['remote-validation-rejection', 'validate-origin-dedupe-protocol', [], true, 'terminal'],
-    ['accepted-or-repaired-operation', 'decide-permission-conflict', ['run-remote-apply-transaction'], false, 'semantic'],
-    ['permission-or-conflict-rejection', 'decide-permission-conflict', [], true, 'terminal'],
-    ['canonical-apply-request', 'run-remote-apply-transaction', ['apply-canonical-state-owner'], false, 'apply'],
-    ['remote-apply-failure', 'run-remote-apply-transaction', [], true, 'terminal'],
-    ['canonical-state-change', 'apply-canonical-state-owner', ['project-canonical-state'], false, 'canonical'],
-    ['state-owner-rejection', 'apply-canonical-state-owner', [], true, 'terminal'],
+    [
+      'validated-remote-operation',
+      'validate-origin-dedupe-protocol',
+      ['decide-permission-conflict'],
+      false,
+      'semantic'
+    ],
+    [
+      'duplicate-operation-outcome',
+      'validate-origin-dedupe-protocol',
+      [],
+      true,
+      'terminal'
+    ],
+    [
+      'remote-validation-rejection',
+      'validate-origin-dedupe-protocol',
+      [],
+      true,
+      'terminal'
+    ],
+    [
+      'accepted-or-repaired-operation',
+      'decide-permission-conflict',
+      ['run-remote-apply-transaction'],
+      false,
+      'semantic'
+    ],
+    [
+      'permission-or-conflict-rejection',
+      'decide-permission-conflict',
+      [],
+      true,
+      'terminal'
+    ],
+    [
+      'canonical-apply-request',
+      'run-remote-apply-transaction',
+      ['apply-canonical-state-owner'],
+      false,
+      'apply'
+    ],
+    [
+      'remote-apply-failure',
+      'run-remote-apply-transaction',
+      [],
+      true,
+      'terminal'
+    ],
+    [
+      'canonical-state-change',
+      'apply-canonical-state-owner',
+      ['project-canonical-state'],
+      false,
+      'canonical'
+    ],
+    [
+      'state-owner-rejection',
+      'apply-canonical-state-owner',
+      [],
+      true,
+      'terminal'
+    ],
     ['canonical-projection', 'project-canonical-state', [], true, 'terminal'],
-    ['persisted-collaboration-update', 'persist-sync-and-acknowledge', ['decode-inbound-update'], false, 'persistence'],
-    ['collaboration-persistence-failure', 'persist-sync-and-acknowledge', [], true, 'terminal'],
-    ['network-convergence', 'persist-sync-and-acknowledge', [], true, 'terminal'],
-    ['durability-outcome', 'persist-sync-and-acknowledge', [], true, 'terminal'],
-    ['outbound-awareness', 'own-awareness-state', ['transport-provider-update'], false, 'ephemeral'],
-    ['remote-awareness-snapshot', 'own-awareness-state', ['project-awareness-state'], false, 'ephemeral'],
-    ['awareness-cleared', 'own-awareness-state', ['project-awareness-state'], false, 'ephemeral'],
+    [
+      'persisted-collaboration-update',
+      'persist-sync-and-acknowledge',
+      ['decode-inbound-update'],
+      false,
+      'persistence'
+    ],
+    [
+      'collaboration-persistence-failure',
+      'persist-sync-and-acknowledge',
+      [],
+      true,
+      'terminal'
+    ],
+    [
+      'network-convergence',
+      'persist-sync-and-acknowledge',
+      [],
+      true,
+      'terminal'
+    ],
+    [
+      'durability-outcome',
+      'persist-sync-and-acknowledge',
+      [],
+      true,
+      'terminal'
+    ],
+    [
+      'outbound-awareness',
+      'own-awareness-state',
+      ['transport-provider-update'],
+      false,
+      'ephemeral'
+    ],
+    [
+      'remote-awareness-snapshot',
+      'own-awareness-state',
+      ['project-awareness-state'],
+      false,
+      'ephemeral'
+    ],
+    [
+      'awareness-cleared',
+      'own-awareness-state',
+      ['project-awareness-state'],
+      false,
+      'ephemeral'
+    ],
     ['awareness-projection', 'project-awareness-state', [], true, 'terminal']
   ].map(([id, ownerStepId, consumerStepIds, terminal, channel]) => ({
     id: `artifact:${id}`,
@@ -1255,7 +1483,10 @@
         'own-collaboration-instance',
         'transport-provider-update'
       ],
-      specRefs: ['#representative-product-cases', '#bounded-definition-of-done'],
+      specRefs: [
+        '#representative-product-cases',
+        '#bounded-definition-of-done'
+      ],
       assertions: [
         'Disabled, no-provider, connect, disconnect, reconnect, connection failure, acknowledgement failure, disposal, independent instances, intentional shared wiring, and one-instance disposal are formal cases.'
       ]
@@ -1278,7 +1509,8 @@
     },
     {
       id: 'canonical-apply-history',
-      title: 'Permission, canonical apply, echo, undo, rollback, and compensation',
+      title:
+        'Permission, canonical apply, echo, undo, rollback, and compensation',
       stepIds: [
         'publish-local-committed-change',
         'decide-permission-conflict',

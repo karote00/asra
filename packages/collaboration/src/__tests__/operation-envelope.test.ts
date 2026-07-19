@@ -6,6 +6,7 @@ import {
   LocalOperationRejection
 } from '../operation-envelope'
 import {
+  defineCanonicalOperationApply,
   OperationRegistry,
   type OperationDefinition
 } from '../operation-registry'
@@ -16,7 +17,8 @@ interface MovePayload {
   tags: string[]
 }
 
-const applyMove = vi.fn(() => true)
+const applyMoveImplementation = vi.fn(() => true)
+const applyMove = defineCanonicalOperationApply(applyMoveImplementation)
 
 const moveDefinition: OperationDefinition<MovePayload> = {
   channel: 'scene',
@@ -98,7 +100,7 @@ describe('shared operation envelope', () => {
     localDelivery.payload.tags.push('mutated')
     expect(envelope.payload.point.x).toBe(10)
     expect(envelope.payload.tags).toEqual(['selected'])
-    expect(applyMove).not.toHaveBeenCalled()
+    expect(applyMoveImplementation).not.toHaveBeenCalled()
   })
 
   it('rejects an unregistered route before creating an envelope', () => {
@@ -202,6 +204,8 @@ describe('operation registry', () => {
             apply: 'invalid'
           } as unknown as OperationDefinition
         ])
-    ).toThrow('[collaboration] canonical apply handler must be a function')
+    ).toThrow(
+      '[collaboration] canonical apply handler must use defineCanonicalOperationApply'
+    )
   })
 })

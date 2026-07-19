@@ -257,7 +257,8 @@ Managed property bridges:
   `createCollaboration(...)`, `CollaborationInstance`
 - lifecycle: `start`, `disconnect`, `reconnect`, `whenIdle`, `dispose`
 - operation registration: `CollaborationOperationDefinition`,
-  `OperationRegistry`, `SharedOperationEnvelope`,
+  `defineCanonicalOperationApply(...)`, `OperationRegistry`,
+  `SharedOperationEnvelope`,
   `COLLABORATION_PROTOCOL_VERSION`
 - provider contract: `CollaborationProvider`, `ProviderFailure`,
   `providerStatus`, `MemoryCollaborationHub`,

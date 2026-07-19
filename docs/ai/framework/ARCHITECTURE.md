@@ -190,7 +190,9 @@ non-authoritative. Locally published operation outcomes suppress own-operation
 replay. Remote apply is rollbackable, non-undoable in ordinary local history,
 and cannot emit another network operation. The wrapper routes reactive
 transaction calls to the intended Factory and does not let remote handler
-options disable rollbackability. Local undo/redo may publish their own
+options disable rollbackability. Registered state-owner handlers use
+`defineCanonicalOperationApply(...)` to enforce the trusted synchronous apply
+contract before the remote transaction consumes them. Local undo/redo may publish their own
 inverse/forward operations; immediate rollback publishes one linked
 compensation through the same remote pipeline.
 

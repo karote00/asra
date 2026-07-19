@@ -3,7 +3,11 @@ import {
   type SharedOperationEnvelope,
   type SharedOperationOrigin
 } from './operation-envelope'
-import { OperationRegistry } from './operation-registry'
+import {
+  isCanonicalOperationApply,
+  OperationRegistry,
+  type CanonicalOperationApply
+} from './operation-registry'
 import type { Factory } from '@asyra/factory'
 import type { ConflictAcceptedOperation } from './conflict-policy'
 
@@ -434,7 +438,10 @@ export interface RemoteCanonicalApplyAcceptedOutcome {
 export interface RemoteCanonicalApplyFailedOutcome {
   readonly status: 'apply-failed'
   readonly operationId: string
-  readonly code: 'canonical-apply-failed' | 'async-handler-not-supported'
+  readonly code:
+    | 'canonical-apply-failed'
+    | 'async-handler-not-supported'
+    | 'invalid-canonical-apply-handler'
   readonly error: unknown
 }
 
@@ -445,7 +452,7 @@ export type RemoteCanonicalApplyOutcome =
 export interface RunRemoteCanonicalApplyInput {
   readonly operation: ConflictAcceptedOperation
   readonly factory: Factory
-  readonly apply: (envelope: SharedOperationEnvelope) => unknown
+  readonly apply: CanonicalOperationApply
   readonly outcomes: OperationOutcomeRegistry
 }
 
@@ -455,6 +462,23 @@ export const runRemoteCanonicalApply = ({
   apply,
   outcomes
 }: RunRemoteCanonicalApplyInput): RemoteCanonicalApplyOutcome => {
+  if (!isCanonicalOperationApply(apply)) {
+    const error = new Error(
+      '[collaboration] canonical apply handler must use defineCanonicalOperationApply'
+    )
+    const result = Object.freeze({
+      status: 'apply-failed' as const,
+      operationId: operation.receivedEnvelope.operationId,
+      code: 'invalid-canonical-apply-handler' as const,
+      error
+    })
+    outcomes.record(operation.receivedEnvelope, {
+      status: 'apply-failed',
+      operationId: operation.receivedEnvelope.operationId,
+      code: result.code
+    })
+    return result
+  }
   try {
     const applied = factory.runRemoteTransaction(() =>
       apply(operation.envelope)

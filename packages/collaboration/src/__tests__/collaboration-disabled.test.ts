@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   AwarenessValidationError,
   createConflictPolicyPipeline,
+  defineCanonicalOperationApply,
   defineCollaborationComposition,
   MemoryCollaborationHub,
   MemoryCollaborationProvider,
@@ -54,9 +55,9 @@ describe('optional collaboration composition', () => {
       schemaVersion: 1,
       validate: (payload): payload is { value: number } =>
         typeof (payload as { value?: unknown } | undefined)?.value === 'number',
-      apply: (envelope) => {
+      apply: defineCanonicalOperationApply((envelope) => {
         apply(envelope.payload)
-      }
+      })
     }
     const envelope = {
       payload: { value: 1 }
@@ -64,6 +65,23 @@ describe('optional collaboration composition', () => {
 
     expect(definition.apply(envelope)).toBeUndefined()
     expect(apply).toHaveBeenCalledWith({ value: 1 })
+  })
+
+  it('rejects async canonical handlers before they can run', () => {
+    const compileTimeAsyncRejection = () => {
+      // @ts-expect-error canonical handlers cannot return a Promise
+      defineCanonicalOperationApply(async () => undefined)
+    }
+    expect(compileTimeAsyncRejection).toEqual(expect.any(Function))
+    let invoked = false
+    const asyncHandler = async () => {
+      invoked = true
+    }
+
+    expect(() => defineCanonicalOperationApply(asyncHandler as never)).toThrow(
+      '[collaboration] canonical apply handler must be synchronous'
+    )
+    expect(invoked).toBe(false)
   })
 
   it('is absent from non-collaborative framework package dependencies and sources', () => {

@@ -39,15 +39,19 @@ Use `createCollaboration(...)` with:
 - `documentId`, `roomId`, and `actorId`;
 - the intended `Factory`;
 - registered `{ channel, eventName, schemaVersion, validate, apply }`
-  definitions;
+  definitions, with `apply` created by `defineCanonicalOperationApply(...)`;
 - `permissionPolicy`;
 - optional `frameworkInvariants` and ordered `conflictPolicies`;
 - optional provider, collaboration update persistence, Y.Doc, Awareness,
   session identity, connection metadata, and resource ownership.
 
-Canonical `apply` handlers are synchronous. A `void` or `true` return is an
-applied operation, `false` is a semantic no-op, and a returned Promise is
-rejected through the rollbackable remote transaction boundary.
+Canonical `apply` handlers are trusted synchronous state-owner boundaries. Wrap
+each handler with `defineCanonicalOperationApply(...)`: TypeScript rejects a
+Promise return, and a native async function is rejected during registration
+without invocation. A `void` or `true` return is an applied operation and
+`false` is a semantic no-op. JavaScript callers must also keep the wrapped
+handler synchronous; any runtime thenable that escapes registration fails
+closed through the rollbackable remote transaction boundary.
 
 Construction validates identity and registration but does not subscribe,
 connect, recover, or send. `start()` binds observers, replays optional persisted

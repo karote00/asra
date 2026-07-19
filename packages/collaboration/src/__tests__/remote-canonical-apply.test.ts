@@ -10,7 +10,10 @@ import {
   runRemoteCanonicalApply,
   validateRemoteOperation
 } from '../inbound-pipeline'
-import { OperationRegistry } from '../operation-registry'
+import {
+  defineCanonicalOperationApply,
+  OperationRegistry
+} from '../operation-registry'
 
 interface ValuePayload {
   id: string
@@ -131,7 +134,7 @@ describe('remote canonical apply transaction', () => {
     const result = runRemoteCanonicalApply({
       operation: decision,
       factory: target.factory,
-      apply: handler,
+      apply: defineCanonicalOperationApply(handler),
       outcomes
     })
 
@@ -183,10 +186,10 @@ describe('remote canonical apply transaction', () => {
     const result = runRemoteCanonicalApply({
       operation: decision,
       factory: target.factory,
-      apply: (envelope) => {
+      apply: defineCanonicalOperationApply((envelope) => {
         target.apply(envelope.payload as ValuePayload)
         throw new Error('canonical handler failed')
-      },
+      }),
       outcomes
     })
 
@@ -212,7 +215,7 @@ describe('remote canonical apply transaction', () => {
     const result = runRemoteCanonicalApply({
       operation: decision,
       factory: target.factory,
-      apply: (envelope) => {
+      apply: defineCanonicalOperationApply((envelope) => {
         const payload = envelope.payload as ValuePayload
         target.state.value = payload.after
         target.factory.updateTransaction({
@@ -228,7 +231,7 @@ describe('remote canonical apply transaction', () => {
           }
         })
         throw new Error('canonical handler failed')
-      },
+      }),
       outcomes
     })
 
@@ -256,10 +259,10 @@ describe('remote canonical apply transaction', () => {
     runRemoteCanonicalApply({
       operation: decision,
       factory: target.factory,
-      apply: (envelope) => {
+      apply: defineCanonicalOperationApply((envelope) => {
         target.apply(envelope.payload as ValuePayload, 'immediate')
         throw new Error('failed after projection')
-      },
+      }),
       outcomes
     })
 
@@ -278,7 +281,7 @@ describe('remote canonical apply transaction', () => {
     const result = runRemoteCanonicalApply({
       operation: decision,
       factory: target.factory,
-      apply: () => false,
+      apply: defineCanonicalOperationApply(() => false),
       outcomes
     })
 
@@ -300,12 +303,12 @@ describe('remote canonical apply transaction', () => {
     const result = runRemoteCanonicalApply({
       operation: decision,
       factory: target.factory,
-      apply: (envelope) => {
+      apply: defineCanonicalOperationApply((envelope) => {
         target.apply(envelope.payload as ValuePayload)
         return Promise.reject(
           new Error('async handler rejected')
         ) as unknown as boolean
-      },
+      }),
       outcomes
     })
 
@@ -325,11 +328,11 @@ describe('remote canonical apply transaction', () => {
     const result = runRemoteCanonicalApply({
       operation: decision,
       factory: target.factory,
-      apply: () => {
+      apply: defineCanonicalOperationApply(() => {
         throw new Error(
           '[collaboration] remote canonical apply handler must be synchronous'
         )
-      },
+      }),
       outcomes
     })
 
@@ -354,9 +357,9 @@ describe('remote canonical apply transaction', () => {
     const result = runRemoteCanonicalApply({
       operation: decision,
       factory: target.factory,
-      apply: () => {
+      apply: defineCanonicalOperationApply(() => {
         target.factory.undo()
-      },
+      }),
       outcomes
     })
 
@@ -383,7 +386,9 @@ describe('remote canonical apply transaction', () => {
     const result = runRemoteCanonicalApply({
       operation: decision,
       factory: target.factory,
-      apply: (envelope) => stateOwner.validateAndApply(envelope.payload),
+      apply: defineCanonicalOperationApply((envelope) =>
+        stateOwner.validateAndApply(envelope.payload)
+      ),
       outcomes
     })
 

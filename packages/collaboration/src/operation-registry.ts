@@ -1,8 +1,40 @@
 import type { SharedOperationEnvelope } from './operation-envelope'
 
+const CANONICAL_OPERATION_APPLY = Symbol('canonical-operation-apply')
+
 export type CanonicalOperationApply<TPayload = unknown> = {
-  bivarianceHack(envelope: SharedOperationEnvelope<TPayload>): void
-}['bivarianceHack']
+  bivarianceHack(envelope: SharedOperationEnvelope<TPayload>): unknown
+}['bivarianceHack'] & {
+  readonly [CANONICAL_OPERATION_APPLY]: true
+}
+
+export const defineCanonicalOperationApply = <
+  TPayload = unknown,
+  TResult = void
+>(
+  apply: (
+    envelope: SharedOperationEnvelope<TPayload>
+  ) => TResult & (TResult extends PromiseLike<unknown> ? never : unknown)
+): CanonicalOperationApply<TPayload> => {
+  if (Object.prototype.toString.call(apply) === '[object AsyncFunction]') {
+    throw new Error(
+      '[collaboration] canonical apply handler must be synchronous'
+    )
+  }
+  const canonicalApply = (
+    envelope: SharedOperationEnvelope<TPayload>
+  ): TResult => apply(envelope)
+  Object.defineProperty(canonicalApply, CANONICAL_OPERATION_APPLY, {
+    value: true
+  })
+  return canonicalApply as CanonicalOperationApply<TPayload>
+}
+
+export const isCanonicalOperationApply = (
+  value: unknown
+): value is CanonicalOperationApply =>
+  typeof value === 'function' &&
+  Reflect.get(value, CANONICAL_OPERATION_APPLY) === true
 
 export interface OperationDefinition<TPayload = unknown> {
   channel: string
@@ -47,10 +79,10 @@ export class OperationRegistry {
     }
     if (
       definition.apply !== undefined &&
-      typeof definition.apply !== 'function'
+      !isCanonicalOperationApply(definition.apply)
     ) {
       throw new Error(
-        '[collaboration] canonical apply handler must be a function'
+        '[collaboration] canonical apply handler must use defineCanonicalOperationApply'
       )
     }
 

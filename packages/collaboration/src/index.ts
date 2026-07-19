@@ -188,7 +188,10 @@ export type {
   SharedOperationEnvelope,
   SharedOperationOrigin
 } from './operation-envelope'
-export { OperationRegistry } from './operation-registry'
+export {
+  defineCanonicalOperationApply,
+  OperationRegistry
+} from './operation-registry'
 export type {
   CanonicalOperationApply,
   OperationDefinition

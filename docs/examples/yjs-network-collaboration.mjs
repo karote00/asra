@@ -1,6 +1,7 @@
 import { Factory, LocalSharedDataChannel } from '@asyra/factory'
 import {
   createCollaboration,
+  defineCanonicalOperationApply,
   MemoryCollaborationHub,
   MemoryCollaborationProvider,
   MemoryCollaborationUpdatePersistence
@@ -92,10 +93,10 @@ export const createCollaboratingCounter = async ({
         eventName: SET_VALUE,
         schemaVersion: 1,
         validate: isSetValuePayload,
-        apply: (envelope) => {
+        apply: defineCanonicalOperationApply((envelope) => {
           recordAndApply(envelope.payload)
           return true
-        }
+        })
       }
     ],
     permissionPolicy,
