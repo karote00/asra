@@ -422,6 +422,8 @@
         'A repeated identical operation id returns the recorded deterministic outcome without mutation.',
         'A repeated operation id with different content is rejected as an identity collision.',
         'A locally published operation is recorded in the instance outcome registry before transport so its own replay is a duplicate.',
+        'A compensation proceeds only when its exact same-actor, non-compensation forward has a final accepted or repaired outcome with applied=true; missing, rejected, apply-failed, or semantic no-op forwards reject before permission or canonical apply.',
+        'Factory/Yjs append dependencies reveal a valid forward before its compensation; an unavailable final forward outcome is invalid linkage and does not create a second pending replay queue.',
         'Remote apply and compensation are classified as inbound and cannot echo as local publication.'
       ],
       bypasses: [

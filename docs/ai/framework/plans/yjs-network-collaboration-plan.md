@@ -119,7 +119,13 @@ End-state:
 - Transaction-end rollback discards unflushed shared changes. A delivered
   immediate change produces one linked compensation operation; that operation
   re-enters the ordinary remote origin, dedupe, validation, permission,
-  conflict, and canonical-apply pipeline at peers.
+  conflict, and canonical-apply pipeline at peers. Compensation validation
+  requires the exact same-actor, non-compensation forward outcome to be final,
+  accepted or repaired, and actually applied; missing, rejected, apply-failed,
+  or semantic no-op forwards cannot authorize an inverse mutation. Factory/Yjs
+  append order makes a valid compensation causally dependent on its forward, so
+  an absent final outcome is rejected as an incomplete linkage rather than
+  placed in a second replay queue.
 - Awareness is a separate ephemeral observational route. It is excluded from
   Y.Doc document operations, Core save/load, collaboration update persistence,
   and ordinary undo/redo; it grants no mutation permission and can be removed

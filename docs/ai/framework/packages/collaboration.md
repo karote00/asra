@@ -117,6 +117,14 @@ change rolls back, Factory publishes one linked compensation operation; peers
 run it through the same decode, dedupe, validation, permission, conflict, and
 canonical-apply route.
 
+The instance outcome registry records whether each forward operation actually
+mutated canonical state. A compensation proceeds only when its exact
+same-actor, non-compensation forward is final, accepted or repaired, and
+`applied`; a missing, rejected, apply-failed, or semantic no-op forward produces
+no inverse mutation. The Yjs operation-log dependency orders valid
+forward/compensation pairs, so an unavailable forward is an invalid linkage
+rather than a second pending queue.
+
 ## Provider and Durability Boundary
 
 `CollaborationProvider` defines connect/disconnect/reconnect/status, binary

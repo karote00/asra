@@ -27,6 +27,10 @@ export type ValidationRejectionCode =
   | 'unregistered-operation'
   | 'invalid-payload'
   | 'invalid-compensation'
+  | 'compensation-forward-unavailable'
+  | 'compensation-forward-actor-mismatch'
+  | 'compensation-target-not-forward'
+  | 'compensation-forward-not-applied'
   | 'operation-identity-collision'
 
 export interface RemoteValidationRejection {
@@ -49,6 +53,7 @@ export interface RecordedOperationOutcome {
     | 'rejected'
     | 'apply-failed'
   readonly operationId: string
+  readonly applied: boolean
   readonly code?: string
 }
 
@@ -65,6 +70,8 @@ export type RemoteValidationResult =
 
 interface StoredOutcome {
   readonly fingerprint: string
+  readonly actorId: string
+  readonly origin: SharedOperationOrigin
   outcome: RecordedOperationOutcome
 }
 
@@ -87,9 +94,12 @@ export class OperationOutcomeRegistry {
     }
     this.outcomes.set(envelope.operationId, {
       fingerprint,
+      actorId: envelope.actorId,
+      origin: envelope.origin,
       outcome: freezeOutcome({
         status: 'accepted',
-        operationId: envelope.operationId
+        operationId: envelope.operationId,
+        applied: true
       })
     })
   }
@@ -113,11 +123,31 @@ export class OperationOutcomeRegistry {
   reserve(envelope: SharedOperationEnvelope, fingerprint: string): void {
     this.outcomes.set(envelope.operationId, {
       fingerprint,
+      actorId: envelope.actorId,
+      origin: envelope.origin,
       outcome: freezeOutcome({
         status: 'validated',
-        operationId: envelope.operationId
+        operationId: envelope.operationId,
+        applied: false
       })
     })
+  }
+
+  lookup(operationId: string):
+    | Readonly<{
+        actorId: string
+        origin: SharedOperationOrigin
+        outcome: RecordedOperationOutcome
+      }>
+    | undefined {
+    const existing = this.outcomes.get(operationId)
+    return existing
+      ? Object.freeze({
+          actorId: existing.actorId,
+          origin: existing.origin,
+          outcome: existing.outcome
+        })
+      : undefined
   }
 
   record(
@@ -134,6 +164,15 @@ export class OperationOutcomeRegistry {
     if (outcome.operationId !== envelope.operationId) {
       throw new Error(
         '[collaboration] recorded outcome operationId does not match envelope'
+      )
+    }
+    if (
+      outcome.applied &&
+      outcome.status !== 'accepted' &&
+      outcome.status !== 'repaired'
+    ) {
+      throw new Error(
+        '[collaboration] only accepted or repaired outcomes can be applied'
       )
     }
     existing.outcome = freezeOutcome(outcome) as RecordedOperationOutcome
@@ -398,12 +437,18 @@ export const validateRemoteOperation = ({
   }
 
   const isCompensation = candidate.origin === 'rollback-compensation'
-  const compensationId = candidate.compensatesOperationId
-  if (
-    (isCompensation &&
-      (!compensationId || compensationId === candidate.operationId)) ||
-    (!isCompensation && compensationId !== undefined)
-  ) {
+  const rawCompensationId = candidate.compensatesOperationId
+  let compensationId: string | undefined
+  if (isCompensation) {
+    if (
+      typeof rawCompensationId !== 'string' ||
+      !rawCompensationId.trim() ||
+      rawCompensationId === candidate.operationId
+    ) {
+      return rejection('invalid-compensation', candidate.operationId)
+    }
+    compensationId = rawCompensationId
+  } else if (rawCompensationId !== undefined) {
     return rejection('invalid-compensation', candidate.operationId)
   }
 
@@ -422,6 +467,35 @@ export const validateRemoteOperation = ({
   }
   if (!validPayload) {
     return rejection('invalid-payload', candidate.operationId)
+  }
+
+  if (compensationId !== undefined) {
+    const forward = outcomes.lookup(compensationId)
+    if (!forward) {
+      return rejection(
+        'compensation-forward-unavailable',
+        candidate.operationId
+      )
+    }
+    if (forward.actorId !== candidate.actorId) {
+      return rejection(
+        'compensation-forward-actor-mismatch',
+        candidate.operationId
+      )
+    }
+    if (forward.origin === 'rollback-compensation') {
+      return rejection('compensation-target-not-forward', candidate.operationId)
+    }
+    if (
+      !forward.outcome.applied ||
+      (forward.outcome.status !== 'accepted' &&
+        forward.outcome.status !== 'repaired')
+    ) {
+      return rejection(
+        'compensation-forward-not-applied',
+        candidate.operationId
+      )
+    }
   }
 
   const immutableEnvelope = freezeDeep(candidate)
@@ -475,6 +549,7 @@ export const runRemoteCanonicalApply = ({
     outcomes.record(operation.receivedEnvelope, {
       status: 'apply-failed',
       operationId: operation.receivedEnvelope.operationId,
+      applied: false,
       code: result.code
     })
     return result
@@ -490,7 +565,8 @@ export const runRemoteCanonicalApply = ({
     })
     outcomes.record(operation.receivedEnvelope, {
       status: operation.status,
-      operationId: operation.receivedEnvelope.operationId
+      operationId: operation.receivedEnvelope.operationId,
+      applied: result.applied
     })
     return result
   } catch (error) {
@@ -507,6 +583,7 @@ export const runRemoteCanonicalApply = ({
     outcomes.record(operation.receivedEnvelope, {
       status: 'apply-failed',
       operationId: operation.receivedEnvelope.operationId,
+      applied: false,
       code
     })
     return result

@@ -273,7 +273,8 @@ Managed property bridges:
 - Awareness: `AwarenessRuntime`, validation/observation/state types, and
   instance `updateAwareness`, `leaveAwareness`, `expireAwareness`
 - diagnostics-only outcomes: immutable local published/rejected and remote
-  duplicate/accepted/repaired/rejected/apply-failed outcomes
+  duplicate/accepted/repaired/rejected/apply-failed outcomes, including the
+  recorded `applied` bit used by exact forward/compensation linkage
 - importing this root entry creates no instance, Y.Doc, provider, room,
   persistence adapter, Awareness runtime, or network connection; Core and
   Preset do not re-export it

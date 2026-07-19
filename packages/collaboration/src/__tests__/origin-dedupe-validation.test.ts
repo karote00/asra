@@ -57,7 +57,8 @@ describe('remote origin, dedupe, protocol, and payload validation', () => {
     if (first.status !== 'validated') throw new Error('expected validation')
     context.outcomes.record(first.envelope, {
       status: 'accepted',
-      operationId: first.envelope.operationId
+      operationId: first.envelope.operationId,
+      applied: true
     })
     const permission = vi.fn()
     const canonicalApply = vi.fn()
@@ -72,7 +73,8 @@ describe('remote origin, dedupe, protocol, and payload validation', () => {
       operationId: 'actor-a:session-a:1:forward',
       recordedOutcome: {
         status: 'accepted',
-        operationId: 'actor-a:session-a:1:forward'
+        operationId: 'actor-a:session-a:1:forward',
+        applied: true
       }
     })
     expect(Object.isFrozen(duplicate)).toBe(true)
@@ -93,7 +95,8 @@ describe('remote origin, dedupe, protocol, and payload validation', () => {
       operationId: 'actor-a:session-a:1:forward',
       recordedOutcome: {
         status: 'accepted',
-        operationId: 'actor-a:session-a:1:forward'
+        operationId: 'actor-a:session-a:1:forward',
+        applied: true
       }
     })
     expect(
@@ -292,13 +295,15 @@ describe('remote origin, dedupe, protocol, and payload validation', () => {
   })
 
   it('validates exact compensation metadata', () => {
+    const validContext = setup()
+    validContext.outcomes.recordLocal(envelope() as SharedOperationEnvelope)
     const valid = validateRemoteOperation({
       decoded: envelope({
         operationId: 'actor-a:session-a:1:compensation',
         origin: 'rollback-compensation',
         compensatesOperationId: 'actor-a:session-a:1:forward'
       }),
-      ...setup()
+      ...validContext
     })
     const missing = validateRemoteOperation({
       decoded: envelope({
@@ -316,6 +321,15 @@ describe('remote origin, dedupe, protocol, and payload validation', () => {
       }),
       ...setup()
     })
+    const malformed = validateRemoteOperation({
+      decoded: envelope({
+        operationId: 'actor-a:session-a:4:compensation',
+        transactionId: 'actor-a:session-a:4',
+        origin: 'rollback-compensation',
+        compensatesOperationId: 123
+      }),
+      ...setup()
+    })
 
     expect(valid.status).toBe('validated')
     expect(missing).toEqual(
@@ -323,6 +337,132 @@ describe('remote origin, dedupe, protocol, and payload validation', () => {
     )
     expect(unexpected).toEqual(
       expect.objectContaining({ code: 'invalid-compensation' })
+    )
+    expect(malformed).toEqual(
+      expect.objectContaining({ code: 'invalid-compensation' })
+    )
+  })
+
+  it('requires compensation to reference an applied same-actor forward', () => {
+    const unavailable = validateRemoteOperation({
+      decoded: envelope({
+        operationId: 'actor-a:session-a:2:compensation',
+        transactionId: 'actor-a:session-a:2',
+        origin: 'rollback-compensation',
+        compensatesOperationId: 'actor-a:session-a:1:forward'
+      }),
+      ...setup()
+    })
+
+    const actorContext = setup()
+    actorContext.outcomes.recordLocal(
+      envelope({
+        operationId: 'actor-b:session-b:1:forward',
+        transactionId: 'actor-b:session-b:1',
+        actorId: 'actor-b'
+      }) as SharedOperationEnvelope
+    )
+    const actorMismatch = validateRemoteOperation({
+      decoded: envelope({
+        operationId: 'actor-a:session-a:2:compensation',
+        transactionId: 'actor-a:session-a:2',
+        origin: 'rollback-compensation',
+        compensatesOperationId: 'actor-b:session-b:1:forward'
+      }),
+      ...actorContext
+    })
+
+    const noOpContext = setup()
+    const noOpForward = validateRemoteOperation({
+      decoded: envelope(),
+      ...noOpContext
+    })
+    if (noOpForward.status !== 'validated') {
+      throw new Error('expected forward validation')
+    }
+    noOpContext.outcomes.record(noOpForward.envelope, {
+      status: 'accepted',
+      operationId: noOpForward.envelope.operationId,
+      applied: false
+    })
+    const notApplied = validateRemoteOperation({
+      decoded: envelope({
+        operationId: 'actor-a:session-a:2:compensation',
+        transactionId: 'actor-a:session-a:2',
+        origin: 'rollback-compensation',
+        compensatesOperationId: noOpForward.envelope.operationId
+      }),
+      ...noOpContext
+    })
+
+    expect(unavailable).toEqual(
+      expect.objectContaining({ code: 'compensation-forward-unavailable' })
+    )
+    expect(actorMismatch).toEqual(
+      expect.objectContaining({ code: 'compensation-forward-actor-mismatch' })
+    )
+    expect(notApplied).toEqual(
+      expect.objectContaining({ code: 'compensation-forward-not-applied' })
+    )
+  })
+
+  it.each(['rejected', 'apply-failed'] as const)(
+    'does not compensate a %s forward outcome',
+    (status) => {
+      const context = setup()
+      const forward = validateRemoteOperation({
+        decoded: envelope(),
+        ...context
+      })
+      if (forward.status !== 'validated') {
+        throw new Error('expected forward validation')
+      }
+      context.outcomes.record(forward.envelope, {
+        status,
+        operationId: forward.envelope.operationId,
+        applied: false,
+        code: `test-${status}`
+      })
+
+      expect(
+        validateRemoteOperation({
+          decoded: envelope({
+            operationId: 'actor-a:session-a:2:compensation',
+            transactionId: 'actor-a:session-a:2',
+            origin: 'rollback-compensation',
+            compensatesOperationId: forward.envelope.operationId
+          }),
+          ...context
+        })
+      ).toEqual(
+        expect.objectContaining({ code: 'compensation-forward-not-applied' })
+      )
+    }
+  )
+
+  it('does not let a compensation target another compensation', () => {
+    const context = setup()
+    context.outcomes.recordLocal(envelope() as SharedOperationEnvelope)
+    const firstCompensation = envelope({
+      operationId: 'actor-a:session-a:2:compensation',
+      transactionId: 'actor-a:session-a:2',
+      origin: 'rollback-compensation',
+      compensatesOperationId: 'actor-a:session-a:1:forward'
+    }) as SharedOperationEnvelope
+    context.outcomes.recordLocal(firstCompensation)
+
+    expect(
+      validateRemoteOperation({
+        decoded: envelope({
+          operationId: 'actor-a:session-a:3:compensation',
+          transactionId: 'actor-a:session-a:3',
+          origin: 'rollback-compensation',
+          compensatesOperationId: firstCompensation.operationId
+        }),
+        ...context
+      })
+    ).toEqual(
+      expect.objectContaining({ code: 'compensation-target-not-forward' })
     )
   })
 

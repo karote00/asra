@@ -441,6 +441,7 @@ export class CollaborationInstance {
         this.operationOutcomes.record(validation.envelope, {
           status: 'rejected',
           operationId: validation.envelope.operationId,
+          applied: false,
           code: `${decision.owner}:${decision.code}`
         })
         this.emitOutcome({ direction: 'remote', source, outcome: decision })
@@ -458,6 +459,7 @@ export class CollaborationInstance {
         this.operationOutcomes.record(validation.envelope, {
           status: 'apply-failed',
           operationId: validation.envelope.operationId,
+          applied: false,
           code: 'missing-canonical-apply-handler'
         })
         this.emitOutcome({
