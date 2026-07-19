@@ -648,6 +648,9 @@ class Render {
         }
       }
     })
+    if (hasCleanupFailure) {
+      throw cleanupFailure
+    }
     this.stop()
     this.interactionBridge.detach()
     this.unsubscribeEngineInteraction?.()
@@ -660,9 +663,6 @@ class Render {
     this.runtime = null
     this.engine = null
     this.app = null
-    if (hasCleanupFailure) {
-      throw cleanupFailure
-    }
   }
 
   reset(): void {

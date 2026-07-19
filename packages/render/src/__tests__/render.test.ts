@@ -299,6 +299,58 @@ describe('Render', () => {
     retryRender.dispose()
   })
 
+  it('keeps the active runtime intact when teardown projection cleanup fails', async () => {
+    const teardownEngine = new RecordingRenderEngine({
+      name: 'teardown-cleanup-retry'
+    })
+    const teardownRender = new Render({ engine: teardownEngine })
+    await teardownRender.init(100, 100, 0, {})
+    teardownRender.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const node = teardownRender.addElement({
+      id: 'teardown-retry-element',
+      type: 'rectangle',
+      name: 'Teardown Retry Element',
+      visible: true,
+      lock: false,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData)
+    const initialApp = teardownRender.app
+    const initialHandle = node?.getEngineHandle()
+    const originalExecute = teardownEngine.execute.bind(teardownEngine)
+    let shouldFailDestroy = true
+    vi.spyOn(teardownEngine, 'execute').mockImplementation((command) => {
+      if (command.type === 'destroy-object' && shouldFailDestroy) {
+        shouldFailDestroy = false
+        throw new Error('teardown cleanup failed')
+      }
+      return originalExecute(command)
+    })
+    teardownRender.registerTeardownCleanup(() => {
+      teardownRender.removeElement('teardown-retry-element')
+    })
+
+    expect(() => teardownRender.dispose()).toThrow('teardown cleanup failed')
+    expect(teardownRender.app).toBe(initialApp)
+    expect(teardownRender.getElementById('teardown-retry-element')).toBe(node)
+    expect(node?.getEngineHandle()).toBe(initialHandle)
+    expect(
+      teardownEngine.getOperations().some((operation) =>
+        operation.type === 'destroy'
+      )
+    ).toBe(false)
+
+    expect(() => teardownRender.dispose()).not.toThrow()
+    expect(teardownRender.app).toBeNull()
+    expect(
+      teardownEngine
+        .getOperations()
+        .map((operation) => operation.type)
+        .filter((operation) => operation === 'destroy-object')
+    ).toHaveLength(1)
+    expect(teardownEngine.getOperations().at(-1)?.type).toBe('destroy')
+  })
+
   it('preserves live children when a projected parent is removed and re-added', async () => {
     const hierarchyEngine = new RecordingRenderEngine({
       name: 'parent-remove-readd'
