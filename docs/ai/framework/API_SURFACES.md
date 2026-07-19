@@ -200,9 +200,11 @@ Scene/model bridge:
 rollbackable by default. `rollbackable: false` explicitly opts out of failure
 reversal, but does not opt an undoable event out of the inverse-contract
 requirement; intentionally irreversible effects must also set
-`undoable: false`. `sharedDelivery: 'immediate'` projects that shared change during an
-active transaction while retaining it in the current undo commit; the default
-is `'transaction-end'`. A committed local undo emits a transaction-end inverse
+`undoable: false`. The Factory remote-apply wrapper is the exception: it forces
+remote-origin changes to remain rollbackable and ignores a remote handler's
+`rollbackable: false`. `sharedDelivery: 'immediate'` projects that shared change
+during an active transaction while retaining it in the current undo commit;
+the default is `'transaction-end'`. A committed local undo emits a transaction-end inverse
 shared delivery and redo emits the forward delivery for channels delivered by
 the original action. Remote-origin replay remains excluded.
 

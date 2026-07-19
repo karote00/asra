@@ -198,6 +198,9 @@ or network convergence. The explicit optional `@asyra/collaboration` instance
 subscribes to Factory's detached committed deliveries and owns those network
 concerns. Factory contributes the local transaction/history/shared-settlement
 boundary and the rollbackable, non-undoable remote transaction wrapper only.
+That wrapper temporarily owns nested reactive transaction calls and forces
+remote-origin journal entries to remain rollbackable even when handler options
+request `rollbackable: false`.
 
 The active Gate 2 contracts are:
 

@@ -90,9 +90,11 @@ Enumerable accessors are rejected without execution, while prototype-named
 JSON keys are preserved as own data properties rather than changing a clone's
 prototype.
 
-Remote Factory transactions are rollbackable, excluded from ordinary local
-undo history, and suppress new shared publication. Local action, automation,
-undo, redo, and rollback-compensation origins remain explicit in the envelope.
+Remote Factory transactions route nested reactive transaction calls to the
+instance's intended Factory, force every remote mutation to remain rollbackable,
+exclude those mutations from ordinary local undo history, and suppress new
+shared publication. Local action, automation, undo, redo, and
+rollback-compensation origins remain explicit in the envelope.
 Locally published operations enter the instance outcome registry before Yjs or
 provider transport, so a provider replay of the sender's own operation is a
 deterministic duplicate; a reused ID with different content is an identity

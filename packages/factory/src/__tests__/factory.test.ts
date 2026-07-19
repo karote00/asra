@@ -6,6 +6,7 @@ import {
   EventTypes,
   subscribeToEvents,
   subscribeToUserActionCompleted,
+  updateTransaction,
   UpdateTransactionEvent,
   TransactionEventTypes
 } from '@asyra/reactive-events'
@@ -45,6 +46,32 @@ describe('Factory', () => {
   it('should call DataTransact.end when endTransaction is called', () => {
     factory.endTransaction()
     expect(factory.transact.end).toHaveBeenCalledTimes(1)
+  })
+
+  it('routes remote state-owner updates to this Factory and forces rollbackability', () => {
+    const statuses: {
+      origin: string
+      status: string
+      rollbackableChangeCount: number
+    }[] = []
+    factory.subscribeToTransactionStatus((status) => statuses.push(status))
+
+    factory.runRemoteTransaction(() => {
+      updateTransaction(
+        EventTypes.UPDATE_COMPUTED_DATA,
+        { id: 'remote', before: 0, after: 1 },
+        { undoable: true, rollbackable: false }
+      )
+    })
+
+    expect(factory.transact.update).toHaveBeenCalledTimes(1)
+    expect(statuses).toEqual([
+      expect.objectContaining({
+        origin: 'remote',
+        status: 'committed',
+        rollbackableChangeCount: 1
+      })
+    ])
   })
 
   it('should call DataTransact.undo when undo is called', () => {

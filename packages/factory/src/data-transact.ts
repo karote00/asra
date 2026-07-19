@@ -364,7 +364,8 @@ class DataTransact {
     const origin = this.transactionOrigin()
     const options: EffectiveMutationOptions = {
       undoable: origin === 'remote' ? false : event.options?.undoable !== false,
-      rollbackable: event.options?.rollbackable !== false,
+      rollbackable:
+        origin === 'remote' ? true : event.options?.rollbackable !== false,
       shared: event.options?.shared,
       sharedDelivery: event.options?.sharedDelivery ?? 'transaction-end'
     }
@@ -387,7 +388,7 @@ class DataTransact {
     if (sharedChannelName) {
       const sharedOptions =
         origin === 'remote'
-          ? { ...event.options, undoable: false }
+          ? { ...event.options, undoable: false, rollbackable: true }
           : event.options
       const sharedChange = cloneTransactionValue(
         toSharedChannelPayload(newPayload, sharedOptions)

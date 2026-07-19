@@ -118,7 +118,7 @@ class Factory {
   runRemoteTransaction<T>(mutate: () => T): T {
     this.transact.start('remote')
     try {
-      const result = mutate()
+      const result = runWithTransactionOwner(this.transactionOwner, mutate)
       if (
         result !== null &&
         (typeof result === 'object' || typeof result === 'function') &&

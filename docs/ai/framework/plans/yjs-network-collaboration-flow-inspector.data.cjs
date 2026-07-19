@@ -516,6 +516,7 @@
       conditions: [
         'One remote semantic operation is applied inside one intended remote transaction boundary.',
         'Canonical apply is synchronous: void or true means applied, false means a semantic no-op, and a Promise triggers rollback with an apply-failed outcome.',
+        'Reactive transaction calls inside the handler route to the intended Factory, and remote-origin mutation options cannot disable rollbackability.',
         'Remote changes remain rollbackable on apply failure but are excluded from ordinary local-user undo history.',
         'Remote-origin local projection delivery is allowed while collaboration publication suppresses echo.',
         'A synchronous handler failure rolls back the remote journal and records one apply-failed outcome.'
@@ -539,6 +540,7 @@
         'packages/collaboration/src/inbound-pipeline.ts',
         'packages/factory/src/factory.ts',
         'packages/factory/src/data-transact.ts',
+        'packages/factory/src/__tests__/factory.test.ts',
         'packages/utils/src/types/transaction.ts',
         'packages/collaboration/src/__tests__/remote-canonical-apply.test.ts'
       ],

@@ -205,6 +205,50 @@ describe('remote canonical apply transaction', () => {
     )
   })
 
+  it('forces remote mutations to remain rollbackable when a handler opts out', () => {
+    const target = harness()
+    const { decision, outcomes } = validatedDecision()
+
+    const result = runRemoteCanonicalApply({
+      operation: decision,
+      factory: target.factory,
+      apply: (envelope) => {
+        const payload = envelope.payload as ValuePayload
+        target.state.value = payload.after
+        target.factory.updateTransaction({
+          type: 'updateTransaction' as Parameters<
+            Factory['updateTransaction']
+          >[0]['type'],
+          eventName: TEST_EVENT,
+          payload,
+          options: {
+            undoable: true,
+            rollbackable: false,
+            shared: TEST_CHANNEL
+          }
+        })
+        throw new Error('canonical handler failed')
+      },
+      outcomes
+    })
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'apply-failed',
+        code: 'canonical-apply-failed'
+      })
+    )
+    expect(target.state.value).toBe(0)
+    expect(target.statuses.at(-1)).toEqual(
+      expect.objectContaining({
+        origin: 'remote',
+        status: 'rolled-back',
+        rollbackableChangeCount: 1,
+        nonRollbackableChangeCount: 0
+      })
+    )
+  })
+
   it('compensates immediate local projection on failure without publishing remote forward or compensation', () => {
     const target = harness()
     const { decision, outcomes } = validatedDecision()

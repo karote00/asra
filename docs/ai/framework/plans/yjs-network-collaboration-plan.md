@@ -108,8 +108,10 @@ End-state:
   accept, repair, reject, or duplicate outcomes. An operation-id replay with a
   different envelope is rejected as an identity collision.
 - Remote canonical apply is non-undoable in the receiving user's ordinary
-  local history and never emits a new local network operation. Local user undo
-  and redo may emit their own inverse/forward operations.
+  local history, is always rollbackable even when a handler requests otherwise,
+  and never emits a new local network operation. Reactive transaction calls
+  inside the handler are routed to the instance's intended Factory. Local user
+  undo and redo may emit their own inverse/forward operations.
 - Transaction-end rollback discards unflushed shared changes. A delivered
   immediate change produces one linked compensation operation; that operation
   re-enters the ordinary remote origin, dedupe, validation, permission,
