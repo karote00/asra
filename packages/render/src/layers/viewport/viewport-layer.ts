@@ -48,8 +48,10 @@ export class ViewportLayer {
     return this.renderLayer.addContainer(containerData)
   }
 
-  addElement(data: RenderElementData) {
-    return this.renderLayer.addElement(data)
+  addElement(data: RenderElementData, siblingIndex?: number) {
+    return siblingIndex === undefined
+      ? this.renderLayer.addElement(data)
+      : this.renderLayer.addElement(data, siblingIndex)
   }
 
   removeElement(elementId: string, parentId?: string) {

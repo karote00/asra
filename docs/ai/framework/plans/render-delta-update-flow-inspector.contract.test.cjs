@@ -257,6 +257,13 @@ test('initial snapshots are explicit complete Scene Tree projections', () => {
     contract,
     /add envelope.*parentId.*sibling index.*parent children mirror.*explicit parent resync/i
   )
+  ;[
+    'packages/render/src/render.ts',
+    'packages/render/src/layers/viewport/viewport-layer.ts',
+    'packages/render/src/layers/scene/render-layer.ts',
+    'packages/render/src/__tests__/render.test.ts',
+    'packages/render/src/__tests__/viewport-layer.test.ts'
+  ].forEach((file) => assert.ok(seed.implementationBoundary.includes(file)))
 })
 
 test('scalar, batch, and record patches validate and install atomically', () => {

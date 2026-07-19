@@ -558,7 +558,10 @@ class ComputedDataMirror {
       }
       nextChildren.splice(index, 0, childId)
     } else {
-      if (index >= currentChildren.length || currentChildren[index] !== childId) {
+      if (
+        index >= currentChildren.length ||
+        currentChildren[index] !== childId
+      ) {
         return null
       }
       nextChildren.splice(index, 1)

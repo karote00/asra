@@ -506,18 +506,20 @@ describe('Render', () => {
     const parentHandle = parent.getEngineHandle()
     const originalExecute = engine.execute.bind(engine)
     let shouldFailAppend = true
-    const executeSpy = vi.spyOn(engine, 'execute').mockImplementation((command) => {
-      if (
-        command.type === 'append-child' &&
-        command.parent === parentHandle &&
-        command.child === childHandle &&
-        shouldFailAppend
-      ) {
-        shouldFailAppend = false
-        throw new Error('hierarchy append failed')
-      }
-      return originalExecute(command)
-    })
+    const executeSpy = vi
+      .spyOn(engine, 'execute')
+      .mockImplementation((command) => {
+        if (
+          command.type === 'append-child' &&
+          command.parent === parentHandle &&
+          command.child === childHandle &&
+          shouldFailAppend
+        ) {
+          shouldFailAppend = false
+          throw new Error('hierarchy append failed')
+        }
+        return originalExecute(command)
+      })
     const completeParentData = {
       ...parentData,
       children: [childData.id]
@@ -584,18 +586,20 @@ describe('Render', () => {
     const parentHandle = parent.getEngineHandle()
     const originalExecute = engine.execute.bind(engine)
     let shouldFailReorder = true
-    const executeSpy = vi.spyOn(engine, 'execute').mockImplementation((command) => {
-      if (
-        command.type === 'set-child-index' &&
-        command.parent === parentHandle &&
-        command.child === secondHandle &&
-        shouldFailReorder
-      ) {
-        shouldFailReorder = false
-        throw new Error('sibling reorder failed')
-      }
-      return originalExecute(command)
-    })
+    const executeSpy = vi
+      .spyOn(engine, 'execute')
+      .mockImplementation((command) => {
+        if (
+          command.type === 'set-child-index' &&
+          command.parent === parentHandle &&
+          command.child === secondHandle &&
+          shouldFailReorder
+        ) {
+          shouldFailReorder = false
+          throw new Error('sibling reorder failed')
+        }
+        return originalExecute(command)
+      })
     const reorderedParentData = {
       ...parentData,
       children: [secondData.id, firstData.id]
@@ -647,17 +651,19 @@ describe('Render', () => {
     const handle = element.getEngineHandle()
     const originalExecute = engine.execute.bind(engine)
     let shouldFailDestroy = true
-    const executeSpy = vi.spyOn(engine, 'execute').mockImplementation((command) => {
-      if (
-        command.type === 'destroy-object' &&
-        command.object === handle &&
-        shouldFailDestroy
-      ) {
-        shouldFailDestroy = false
-        throw new Error('destroy lookup failed')
-      }
-      return originalExecute(command)
-    })
+    const executeSpy = vi
+      .spyOn(engine, 'execute')
+      .mockImplementation((command) => {
+        if (
+          command.type === 'destroy-object' &&
+          command.object === handle &&
+          shouldFailDestroy
+        ) {
+          shouldFailDestroy = false
+          throw new Error('destroy lookup failed')
+        }
+        return originalExecute(command)
+      })
     const querySpy = vi.spyOn(engine, 'query').mockReturnValue({
       type: 'hit',
       target: handle,
