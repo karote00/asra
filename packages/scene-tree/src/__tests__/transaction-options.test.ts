@@ -411,6 +411,31 @@ describe('SceneTree transaction options', () => {
     }
   )
 
+  it('prevalidates every element in a multi-element patch before canonical mutation', () => {
+    const firstElement = {
+      get: vi.fn(() => 'element-first'),
+      getAllComputedData: vi.fn(() => ({ x: 0 })),
+      updateComputedData: vi.fn()
+    } as unknown as ElementInstanceTypes
+    const invalidSecondElement = {
+      get: vi.fn(() => 'element-invalid-second'),
+      getAllComputedData: vi.fn(() => ({})),
+      updateComputedData: vi.fn()
+    } as unknown as ElementInstanceTypes
+    sceneTree.addToMap(firstElement)
+    sceneTree.addToMap(invalidSecondElement)
+
+    expect(() =>
+      sceneTree.patchComputedDataForElements(
+        ['element-first', 'element-invalid-second'],
+        { values: { x: 1 } }
+      )
+    ).toThrow('Computed data patch value base "x" must already exist')
+    expect(firstElement.updateComputedData).not.toHaveBeenCalled()
+    expect(invalidSecondElement.updateComputedData).not.toHaveBeenCalled()
+    expect(sceneTree.changes).toEqual([])
+  })
+
   it('rejects an inherited special-name record base before mutation', () => {
     const records: Record<string, { set: Record<string, string> }> = {}
     Object.defineProperty(records, '__proto__', {

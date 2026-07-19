@@ -43,7 +43,9 @@ Own the document entity graph and computed entity data.
   an own property, every record base must be an own record, and one record id
   cannot appear in both `set` and `remove`; invalid requests fail before any
   canonical mutation instead of publishing a phantom patch or creating an empty
-  record base.
+  record base. A multi-element patch prevalidates every existing target snapshot
+  before mutating the first target; one invalid target rejects the full request
+  without applying a canonical prefix.
 - Standalone transaction replay consumes the carried `raw|computed` owner and
   never infers it from the key or current data. `raw` routes through Element;
   `computed` routes through Computed and its property bridge even when a raw

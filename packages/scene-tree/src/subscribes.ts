@@ -181,9 +181,7 @@ export const initSceneTreeSubscribes = () => {
   subscribeToChangeComputedDataPatch(async ({ payload, options }) => {
     const { elementIds, patch } = payload
 
-    elementIds.forEach((elementId) => {
-      sceneTree.patchComputedData(elementId, patch, options)
-    })
+    sceneTree.patchComputedDataForElements(elementIds, patch, options)
     propsManager.cleanChanges()
     sceneTree.commitSceneTreeTransaction(options)
   })

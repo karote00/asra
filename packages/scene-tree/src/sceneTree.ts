@@ -132,6 +132,21 @@ const validateComputedDataValuePatches = (
   })
 }
 
+const validateComputedDataPatch = (
+  patch: ComputedDataPatch,
+  computedSnapshot: Record<string, DataTypes>
+): void => {
+  const overlappingKey = getOverlappingPatchKey(patch)
+  if (overlappingKey !== undefined) {
+    throw new Error(
+      `Computed data patch key "${overlappingKey}" cannot be both value and record`
+    )
+  }
+
+  validateComputedDataValuePatches(patch, computedSnapshot)
+  validateComputedDataRecordPatches(patch, computedSnapshot)
+}
+
 export interface SceneTreeLoadDiagnostic {
   path: string
   message: string
@@ -642,18 +657,10 @@ class SceneTree {
       return
     }
 
-    const overlappingKey = getOverlappingPatchKey(patch)
-    if (overlappingKey !== undefined) {
-      throw new Error(
-        `Computed data patch key "${overlappingKey}" cannot be both value and record`
-      )
-    }
-
     const patchChange: ComputedDataPatchChange = {}
     const previousChangeCount = this.changes.length
     const computedSnapshot = getComputedSnapshot(element)
-    validateComputedDataValuePatches(patch, computedSnapshot)
-    validateComputedDataRecordPatches(patch, computedSnapshot)
+    validateComputedDataPatch(patch, computedSnapshot)
 
     Object.entries(patch.values ?? {}).forEach(([key, after]) => {
       const computedKey = key as keyof ComputedAttrs
@@ -736,6 +743,25 @@ class SceneTree {
       id: elementId,
       patch: patchChange
     } as UpdateElementPatchChange)
+  }
+
+  patchComputedDataForElements(
+    elementIds: string[],
+    patch: ComputedDataPatch,
+    options?: EvnetOptions
+  ) {
+    const targets = elementIds.flatMap((elementId) => {
+      const element = this.getElementById(elementId)
+      return element ? [{ elementId, element }] : []
+    })
+
+    targets.forEach(({ element }) => {
+      validateComputedDataPatch(patch, getComputedSnapshot(element))
+    })
+
+    targets.forEach(({ elementId }) => {
+      this.patchComputedData(elementId, patch, options)
+    })
   }
 
   refreshComputedDataFromProperty(
