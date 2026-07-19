@@ -73,11 +73,7 @@ const assertTransportValue = (
     }
     const descriptor = Object.getOwnPropertyDescriptor(value, key)
     if (!descriptor?.enumerable) continue
-    assertTransportValue(
-      Reflect.get(value, key),
-      `${path}.${key}`,
-      seen
-    )
+    assertTransportValue(Reflect.get(value, key), `${path}.${key}`, seen)
   }
   seen.delete(value)
 }
@@ -130,7 +126,9 @@ export const appendOperationToYDoc = (
 export const readOperationLog = (
   document: Y.Doc
 ): readonly SharedOperationEnvelope[] =>
-  operationLog(document).toArray().map((entry) => JSON.parse(entry))
+  operationLog(document)
+    .toArray()
+    .map((entry) => JSON.parse(entry))
 
 export type InboundYjsUpdateSource = 'provider' | 'persistence'
 
@@ -176,10 +174,7 @@ export interface DecodedInboundYjsUpdate {
   readonly operations: readonly unknown[]
 }
 
-const freezeDecodedValue = <T>(
-  value: T,
-  seen = new WeakSet<object>()
-): T => {
+const freezeDecodedValue = <T>(value: T, seen = new WeakSet<object>()): T => {
   if (value === null || typeof value !== 'object') return value
   const object = value as object
   if (seen.has(object)) return value

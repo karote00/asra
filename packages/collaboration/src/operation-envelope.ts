@@ -51,7 +51,9 @@ export interface OperationIdentitySource {
 
 const requireIdentityPart = (name: string, value: string): string => {
   if (!value.trim()) {
-    throw new Error(`[collaboration] ${name} is required for operation identity`)
+    throw new Error(
+      `[collaboration] ${name} is required for operation identity`
+    )
   }
   return encodeURIComponent(value)
 }
@@ -77,10 +79,7 @@ export const createOperationIdentitySource = (
   })
 }
 
-const cloneValue = <T>(
-  value: T,
-  seen = new WeakMap<object, unknown>()
-): T => {
+const cloneValue = <T>(value: T, seen = new WeakMap<object, unknown>()): T => {
   if (value === null || typeof value !== 'object') return value
   const source = value as object
   const existing = seen.get(source)
@@ -200,7 +199,9 @@ export const createSharedOperationEnvelope = <TPayload>({
     throw new LocalOperationRejection(
       'invalid-identity',
       delivery,
-      error instanceof Error ? error.message : '[collaboration] invalid identity'
+      error instanceof Error
+        ? error.message
+        : '[collaboration] invalid identity'
     )
   }
 

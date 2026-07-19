@@ -49,8 +49,7 @@ export class MemoryCollaborationHub {
   async connect(provider: MemoryCollaborationProvider): Promise<void> {
     let authorized = true
     try {
-      authorized =
-        (await this.authorizeConnection?.(provider.identity)) ?? true
+      authorized = (await this.authorizeConnection?.(provider.identity)) ?? true
     } catch (error) {
       throw new ProviderFailure(
         'connection-failed',
@@ -201,7 +200,9 @@ const cloneIdentity = (
     roomId: identity.roomId,
     actorId: identity.actorId,
     ...(identity.connectionMetadata
-      ? { connectionMetadata: Object.freeze({ ...identity.connectionMetadata }) }
+      ? {
+          connectionMetadata: Object.freeze({ ...identity.connectionMetadata })
+        }
       : {})
   })
 
@@ -321,10 +322,7 @@ export class MemoryCollaborationProvider implements CollaborationProvider {
   ): Promise<ProviderStateVectorExchange> {
     this.requireConnected()
     try {
-      const result = this.hub.exchangeStateVector(
-        this,
-        cloneBytes(stateVector)
-      )
+      const result = this.hub.exchangeStateVector(this, cloneBytes(stateVector))
       return Object.freeze({
         remoteStateVector: cloneBytes(result.remoteStateVector),
         missingRemoteUpdate: cloneBytes(result.missingRemoteUpdate)
@@ -414,10 +412,7 @@ export class MemoryCollaborationProvider implements CollaborationProvider {
 
   receiveAwarenessDisconnect(event: ProviderAwarenessDisconnect): void {
     if (this.status !== 'connected') return
-    this.emit(
-      this.awarenessDisconnectSubscribers,
-      Object.freeze({ ...event })
-    )
+    this.emit(this.awarenessDisconnectSubscribers, Object.freeze({ ...event }))
   }
 
   private requireUsable(): void {

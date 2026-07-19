@@ -86,7 +86,10 @@ export const registerDefaultSharedDataChannels = (
 
       const ownedByPreset = !core.hasSharedDataChannel(name)
       if (ownedByPreset) {
-        core.registerSharedDataChannel(name, core.createLocalSharedDataChannel())
+        core.registerSharedDataChannel(
+          name,
+          core.createLocalSharedDataChannel()
+        )
       }
 
       channelLifetimes.set(name, { count: 1, ownedByPreset })

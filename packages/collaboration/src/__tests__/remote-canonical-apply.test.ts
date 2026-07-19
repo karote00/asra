@@ -73,35 +73,28 @@ const harness = () => {
   const channel = new LocalSharedDataChannel()
   factory.registerSharedDataChannel(TEST_CHANNEL, channel)
   const projection: ValuePayload[] = []
-  factory.observeSharedDataChannel<ValuePayload>(
-    TEST_CHANNEL,
-    (payload) => projection.push(payload)
+  factory.observeSharedDataChannel<ValuePayload>(TEST_CHANNEL, (payload) =>
+    projection.push(payload)
   )
   const deliveries: SharedDelivery[] = []
   factory.subscribeToSharedDelivery((delivery) => deliveries.push(delivery))
-  const statuses: Array<
-    Parameters<Parameters<Factory['subscribeToTransactionStatus']>[0]>[0]
-  > = []
+  const statuses: Parameters<
+    Parameters<Factory['subscribeToTransactionStatus']>[0]
+  >[0][] = []
   factory.subscribeToTransactionStatus((status) => statuses.push(status))
   const state = { value: 0 }
 
-  factory.registerTransactionInverter(
-    TEST_EVENT,
-    (event) => {
-      const payload = (event as unknown as { payload: ValuePayload }).payload
-      return {
-        type: event.type,
-        payload: { ...payload, before: payload.after, after: payload.before }
-      } as typeof event
-    }
-  )
-  factory.registerTransactionReplayHandler(
-    TEST_EVENT,
-    (event) => {
-      state.value = (event as unknown as { payload: ValuePayload }).payload.after
-      return true
-    }
-  )
+  factory.registerTransactionInverter(TEST_EVENT, (event) => {
+    const payload = (event as unknown as { payload: ValuePayload }).payload
+    return {
+      type: event.type,
+      payload: { ...payload, before: payload.after, after: payload.before }
+    } as typeof event
+  })
+  factory.registerTransactionReplayHandler(TEST_EVENT, (event) => {
+    state.value = (event as unknown as { payload: ValuePayload }).payload.after
+    return true
+  })
 
   const apply = (
     payload: ValuePayload,
@@ -265,7 +258,9 @@ describe('remote canonical apply transaction', () => {
       factory: target.factory,
       apply: (envelope) => {
         target.apply(envelope.payload as ValuePayload)
-        return Promise.reject(new Error('async handler rejected')) as unknown as boolean
+        return Promise.reject(
+          new Error('async handler rejected')
+        ) as unknown as boolean
       },
       outcomes
     })

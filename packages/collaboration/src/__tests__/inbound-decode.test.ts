@@ -62,10 +62,7 @@ describe('inbound Yjs update decode', () => {
     expect(
       applyInboundYjsUpdate(target, binary.update, 'provider').operations
     ).toEqual([])
-    const emptyDiff = Y.encodeStateAsUpdate(
-      source,
-      Y.encodeStateVector(source)
-    )
+    const emptyDiff = Y.encodeStateAsUpdate(source, Y.encodeStateVector(source))
     expect(
       applyInboundYjsUpdate(target, emptyDiff, 'provider').operations
     ).toEqual([])
@@ -75,11 +72,7 @@ describe('inbound Yjs update decode', () => {
     const target = new Y.Doc()
 
     expect(() =>
-      applyInboundYjsUpdate(
-        target,
-        new Uint8Array([255, 255, 255]),
-        'provider'
-      )
+      applyInboundYjsUpdate(target, new Uint8Array([255, 255, 255]), 'provider')
     ).toThrowError(
       expect.objectContaining<Partial<InboundYjsDecodeFailure>>({
         code: 'malformed-binary',

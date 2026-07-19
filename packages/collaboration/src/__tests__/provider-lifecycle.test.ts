@@ -58,7 +58,10 @@ describe('collaboration provider lifecycle', () => {
     const provider = new MemoryCollaborationProvider(hub, identity)
 
     await expect(
-      provider.sendUpdate({ operationId: 'operation-a', update: new Uint8Array() })
+      provider.sendUpdate({
+        operationId: 'operation-a',
+        update: new Uint8Array()
+      })
     ).rejects.toEqual(
       expect.objectContaining<Partial<ProviderFailure>>({
         code: 'not-connected'
@@ -68,7 +71,10 @@ describe('collaboration provider lifecycle', () => {
     await provider.disconnect()
     await provider.reconnect()
     await expect(
-      provider.sendUpdate({ operationId: 'operation-a', update: new Uint8Array() })
+      provider.sendUpdate({
+        operationId: 'operation-a',
+        update: new Uint8Array()
+      })
     ).resolves.toBeUndefined()
   })
 

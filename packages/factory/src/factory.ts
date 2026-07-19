@@ -130,18 +130,14 @@ class Factory {
       this.transact.end()
       return result
     } catch (error) {
-      try {
-        this.transact.end({
-          outcome: 'rollback',
-          failure: {
-            kind: 'handler-error',
-            message: error instanceof Error ? error.message : undefined,
-            cause: error
-          }
-        })
-      } catch (rollbackError) {
-        throw rollbackError
-      }
+      this.transact.end({
+        outcome: 'rollback',
+        failure: {
+          kind: 'handler-error',
+          message: error instanceof Error ? error.message : undefined,
+          cause: error
+        }
+      })
       throw error
     }
   }

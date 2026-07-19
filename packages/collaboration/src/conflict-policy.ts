@@ -180,7 +180,9 @@ export class ConflictPolicyPipeline {
         )
       }
       if (ids.has(policy.id)) {
-        throw new Error(`[collaboration] duplicate conflict policy ${policy.id}`)
+        throw new Error(
+          `[collaboration] duplicate conflict policy ${policy.id}`
+        )
       }
       ids.add(policy.id)
       return Object.freeze({
@@ -214,11 +216,7 @@ export class ConflictPolicyPipeline {
       )
     }
     if (!permitted) {
-      return reject(
-        'permission',
-        'unauthorized',
-        receivedEnvelope.operationId
-      )
+      return reject('permission', 'unauthorized', receivedEnvelope.operationId)
     }
 
     for (const policy of this.policies) {

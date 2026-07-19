@@ -1,8 +1,6 @@
 import type { TransactionOrigin } from '@asyra/utils'
 
-export type SharedDeliveryOrigin =
-  | TransactionOrigin
-  | 'rollback-compensation'
+export type SharedDeliveryOrigin = TransactionOrigin | 'rollback-compensation'
 
 export interface SharedDelivery<TPayload = unknown> {
   deliveryId: string
@@ -51,6 +49,5 @@ export const cloneSharedValue = <T>(
   return clone as T
 }
 
-export const cloneSharedDelivery = (
-  delivery: SharedDelivery
-): SharedDelivery => cloneSharedValue(delivery)
+export const cloneSharedDelivery = (delivery: SharedDelivery): SharedDelivery =>
+  cloneSharedValue(delivery)
