@@ -2,7 +2,8 @@
 
 ## Completion
 
-- Status: completed on July 19, 2026; Framework Release Gate 1 is closed.
+- Status: completed on July 19, 2026; Framework Release Gate 1 closeout was
+  confirmed after PR #90 merged into `main` at `19bbe2c51`.
 - Final decision: retain the single Core load pipeline and app-owned schema
   history. Core owns synchronous hook orchestration, package validation/fallback
   coordination, canonical apply, and observational diagnostics only.
@@ -10,11 +11,12 @@
   input parity, hook result/failure semantics, owner-issued validation artifacts,
   instance isolation, and diagnostics containment were closed without adding a
   second migration state owner or framework-owned app version branches.
-- Post-closeout contract correction: one app-owned migration registry now
-  validates its complete batch as a single connected linear chain and registers
-  one conditional dispatcher through `core.registerLoadHook(...)`. A document
-  version with no matching migration terminates app migration normally and
-  continues to package validation; Core still owns no app target-version policy.
+- Final contract correction: PR #90 formalized one app-owned migration registry
+  that validates its complete batch as a single connected linear chain and
+  registers one conditional dispatcher through `core.registerLoadHook(...)`.
+  A document version with no matching migration terminates app migration
+  normally and continues to package validation; Core still owns no app
+  target-version policy.
 - Exit criteria: the dedicated Inspector, reusable typed example, focused and
   root tests, dependency validation, lint, production build, and two independent
   final reviews passed with no P0/P1/P2 findings.
