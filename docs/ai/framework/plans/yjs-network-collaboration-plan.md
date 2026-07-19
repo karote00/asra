@@ -117,9 +117,10 @@ End-state:
   inside the handler are routed to the instance's intended Factory. Local user
   undo and redo may emit their own inverse/forward operations.
 - Transaction-end rollback discards unflushed shared changes. A delivered
-  immediate change produces one linked compensation operation; that operation
-  re-enters the ordinary remote origin, dedupe, validation, permission,
-  conflict, and canonical-apply pipeline at peers. Compensation validation
+  immediate change produces one linked compensation operation whose route and
+  payload come from the same inverse replay event; that operation re-enters the
+  ordinary remote origin, dedupe, validation, permission, conflict, and
+  canonical-apply pipeline at peers. Compensation validation
   requires the exact same-actor, non-compensation forward outcome to be final,
   accepted or repaired, and actually applied; missing, rejected, apply-failed,
   or semantic no-op forwards cannot authorize an inverse mutation. Factory/Yjs

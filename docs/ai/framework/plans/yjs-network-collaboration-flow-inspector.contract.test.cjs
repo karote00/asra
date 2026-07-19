@@ -229,6 +229,7 @@ test('local timeline preserves Factory transaction ownership and formal compensa
   assert.match(local, /local channels that do not require a Y\.Doc/i)
   assert.match(local, /Rollback before transaction-end flush.*no shared operation/i)
   assert.match(local, /Remote-origin.*excluded from.*network publication/i)
+  assert.match(local, /compensation.*inverse event route.*inverse payload/i)
   assert.match(envelope, /operation.*transaction.*document.*actor.*protocol.*schema.*origin.*channel.*event.*payload/i)
   assert.match(envelope, /compensation envelope names the exact operation/i)
   assert.match(envelope, /canonical apply handler/i)

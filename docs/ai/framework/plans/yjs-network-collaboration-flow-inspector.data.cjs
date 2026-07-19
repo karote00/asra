@@ -153,6 +153,7 @@
       conditions: [
         'The ordinary local flow remains Intent -> Feature -> API -> local transaction -> state owner -> commit before transaction-end network publication.',
         'Immediate shared delivery identifies the originating journal change so one later compensation can link to it.',
+        'Immediate rollback compensation uses the inverse event route together with the inverse payload produced by the same Factory replay primitive.',
         'Local shared projection observers receive detached payloads through Factory-owned local channels that do not require a Y.Doc.',
         'Action, automation, undo, redo, remote, load/migration, and compensation origins remain distinguishable.'
       ],

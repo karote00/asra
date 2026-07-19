@@ -136,7 +136,8 @@ infrastructure.
 - delivery timing is independent from `undoable`; non-undoable shared changes
   also default to transaction-end unless immediate delivery is explicit
 - rollback discards pending transaction-end changes
-- rollback compensates each immediate local projection exactly once
+- rollback compensates each immediate local projection exactly once, using the
+  inverse event route and inverse payload produced by the same replay primitive
 - a committed local undo publishes inverse shared replay at transaction-end;
   redo publishes the forward replay; only channels actually delivered by the
   original committed action remain eligible
