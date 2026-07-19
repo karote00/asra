@@ -25,6 +25,11 @@ export interface ProviderAcknowledgement {
   readonly durability: 'durable'
 }
 
+export interface ProviderStateVectorExchange {
+  readonly remoteStateVector: Uint8Array
+  readonly missingRemoteUpdate: Uint8Array
+}
+
 export interface ProviderAwarenessMessage {
   readonly actorId: string
   readonly clock: number
@@ -41,18 +46,26 @@ export type ProviderFailureCode =
   | 'connection-failed'
   | 'not-connected'
   | 'invalid-awareness-actor'
+  | 'acknowledgement-failed'
   | 'transport-failed'
   | 'disposed'
 
 export class ProviderFailure extends Error {
   readonly code: ProviderFailureCode
   readonly cause?: unknown
+  readonly operationId?: string
 
-  constructor(code: ProviderFailureCode, message: string, cause?: unknown) {
+  constructor(
+    code: ProviderFailureCode,
+    message: string,
+    cause?: unknown,
+    operationId?: string
+  ) {
     super(message)
     this.name = 'ProviderFailure'
     this.code = code
     this.cause = cause
+    this.operationId = operationId
   }
 }
 
@@ -69,6 +82,10 @@ export interface CollaborationProvider {
   sendUpdate(update: YjsBinaryUpdate): Promise<void>
   onUpdate(subscriber: (update: InboundBinaryUpdate) => void): () => void
   requestSync(stateVector: Uint8Array): Promise<Uint8Array>
+  exchangeStateVector(
+    stateVector: Uint8Array
+  ): Promise<ProviderStateVectorExchange>
+  sendSyncUpdate(update: Uint8Array): Promise<void>
   onAcknowledgement(
     subscriber: (acknowledgement: ProviderAcknowledgement) => void
   ): () => void

@@ -8,11 +8,16 @@ import {
   type ProviderAcknowledgement,
   type ProviderAwarenessDisconnect,
   type ProviderAwarenessMessage,
+  type ProviderStateVectorExchange,
   ProviderFailure
 } from '../provider'
 
 export interface MemoryCollaborationHubOptions {
   authorizeConnection?: (
+    identity: CollaborationProviderIdentity
+  ) => boolean | Promise<boolean>
+  acknowledgeUpdate?: (
+    update: YjsBinaryUpdate,
     identity: CollaborationProviderIdentity
   ) => boolean | Promise<boolean>
 }
@@ -34,9 +39,11 @@ const cloneAwareness = (
 export class MemoryCollaborationHub {
   private readonly rooms = new Map<string, MemoryRoom>()
   private readonly authorizeConnection?: MemoryCollaborationHubOptions['authorizeConnection']
+  private readonly acknowledgeUpdate?: MemoryCollaborationHubOptions['acknowledgeUpdate']
 
   constructor(options: MemoryCollaborationHubOptions = {}) {
     this.authorizeConnection = options.authorizeConnection
+    this.acknowledgeUpdate = options.acknowledgeUpdate
   }
 
   async connect(provider: MemoryCollaborationProvider): Promise<void> {
@@ -73,10 +80,10 @@ export class MemoryCollaborationHub {
     room.providers.forEach((peer) => peer.receiveAwarenessDisconnect(event))
   }
 
-  receiveUpdate(
+  async receiveUpdate(
     sender: MemoryCollaborationProvider,
     binary: YjsBinaryUpdate
-  ): void {
+  ): Promise<void> {
     const room = this.room(sender.identity)
     if (binary.update.byteLength > 0) {
       Y.applyUpdate(room.document, binary.update)
@@ -90,6 +97,27 @@ export class MemoryCollaborationHub {
           })
         )
       })
+    }
+
+    let acknowledged = true
+    try {
+      acknowledged =
+        (await this.acknowledgeUpdate?.(binary, sender.identity)) ?? true
+    } catch (error) {
+      throw new ProviderFailure(
+        'acknowledgement-failed',
+        '[collaboration] durable acknowledgement failed',
+        error,
+        binary.operationId
+      )
+    }
+    if (!acknowledged) {
+      throw new ProviderFailure(
+        'acknowledgement-failed',
+        '[collaboration] durable acknowledgement was rejected',
+        undefined,
+        binary.operationId
+      )
     }
 
     sender.receiveAcknowledgement(
@@ -119,6 +147,39 @@ export class MemoryCollaborationHub {
     return stateVector.byteLength === 0
       ? Y.encodeStateAsUpdate(document)
       : Y.encodeStateAsUpdate(document, stateVector)
+  }
+
+  exchangeStateVector(
+    provider: MemoryCollaborationProvider,
+    stateVector: Uint8Array
+  ): ProviderStateVectorExchange {
+    const document = this.room(provider.identity).document
+    return Object.freeze({
+      remoteStateVector: Y.encodeStateVector(document),
+      missingRemoteUpdate:
+        stateVector.byteLength === 0
+          ? Y.encodeStateAsUpdate(document)
+          : Y.encodeStateAsUpdate(document, stateVector)
+    })
+  }
+
+  receiveSyncUpdate(
+    sender: MemoryCollaborationProvider,
+    update: Uint8Array
+  ): void {
+    if (update.byteLength <= 2) return
+    const room = this.room(sender.identity)
+    Y.applyUpdate(room.document, update)
+    room.providers.forEach((peer) => {
+      if (peer === sender) return
+      peer.receiveUpdate(
+        Object.freeze({
+          operationId: `sync:${sender.identity.actorId}`,
+          update: cloneBytes(update),
+          fromActorId: sender.identity.actorId
+        })
+      )
+    })
   }
 
   private room(identity: CollaborationProviderIdentity): MemoryRoom {
@@ -233,7 +294,7 @@ export class MemoryCollaborationProvider implements CollaborationProvider {
   async sendUpdate(update: YjsBinaryUpdate): Promise<void> {
     this.requireConnected()
     try {
-      this.hub.receiveUpdate(this, {
+      await this.hub.receiveUpdate(this, {
         operationId: update.operationId,
         update: cloneBytes(update.update)
       })
@@ -252,6 +313,33 @@ export class MemoryCollaborationProvider implements CollaborationProvider {
       return cloneBytes(this.hub.sync(this, cloneBytes(stateVector)))
     } catch (error) {
       return this.failTransport(error)
+    }
+  }
+
+  async exchangeStateVector(
+    stateVector: Uint8Array
+  ): Promise<ProviderStateVectorExchange> {
+    this.requireConnected()
+    try {
+      const result = this.hub.exchangeStateVector(
+        this,
+        cloneBytes(stateVector)
+      )
+      return Object.freeze({
+        remoteStateVector: cloneBytes(result.remoteStateVector),
+        missingRemoteUpdate: cloneBytes(result.missingRemoteUpdate)
+      })
+    } catch (error) {
+      return this.failTransport(error)
+    }
+  }
+
+  async sendSyncUpdate(update: Uint8Array): Promise<void> {
+    this.requireConnected()
+    try {
+      this.hub.receiveSyncUpdate(this, cloneBytes(update))
+    } catch (error) {
+      this.failTransport(error)
     }
   }
 
