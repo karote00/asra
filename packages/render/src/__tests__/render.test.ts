@@ -557,94 +557,154 @@ describe('Render', () => {
     expect(
       executeSpy.mock.calls.filter(
         ([command]) =>
-          command.type === 'append-child' && command.child === childHandle
-      )
-    ).toHaveLength(2)
-  })
-
-  it('preserves the previous parent when a reparent append fails', async () => {
-    await render.init(100, 100, 0, {})
-    render.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
-    const childData = {
-      id: 'reparent-retry-child',
-      type: 'rectangle',
-      visible: true,
-      width: 20,
-      height: 20
-    } as unknown as RenderElementData
-    const previousParentData = {
-      id: 'reparent-retry-previous-parent',
-      type: 'group',
-      visible: true,
-      children: [childData.id]
-    } as unknown as RenderElementData
-    const nextParentData = {
-      id: 'reparent-retry-next-parent',
-      type: 'group',
-      visible: true,
-      children: []
-    } as unknown as RenderElementData
-    const child = render.addElement(childData)
-    const previousParent = render.addElement(previousParentData)
-    const nextParent = render.addElement(nextParentData)
-    if (!child || !previousParent || !nextParent) {
-      throw new Error('Expected reparent retry nodes')
-    }
-    const childHandle = child.getEngineHandle()
-    const nextParentHandle = nextParent.getEngineHandle()
-    const originalExecute = engine.execute.bind(engine)
-    let shouldFailAppend = true
-    const executeSpy = vi
-      .spyOn(engine, 'execute')
-      .mockImplementation((command) => {
-        if (
           command.type === 'append-child' &&
-          command.parent === nextParentHandle &&
-          command.child === childHandle &&
-          shouldFailAppend
-        ) {
-          shouldFailAppend = false
-          throw new Error('reparent append failed')
-        }
-        return originalExecute(command)
-      })
-    const completeNextParentData = {
-      ...nextParentData,
-      children: [childData.id]
-    }
-
-    expect(() =>
-      render.updateElement(
-        nextParentData.id,
-        'computed',
-        undefined,
-        undefined,
-        completeNextParentData
-      )
-    ).toThrow('reparent append failed')
-    expect(previousParent.children).toEqual([child])
-    expect(nextParent.children).toEqual([])
-    expect(child.parent).toBe(previousParent)
-
-    expect(() =>
-      render.updateElement(
-        nextParentData.id,
-        'computed',
-        undefined,
-        undefined,
-        completeNextParentData
-      )
-    ).not.toThrow()
-    expect(previousParent.children).toEqual([])
-    expect(nextParent.children).toEqual([child])
-    expect(child.parent).toBe(nextParent)
-    expect(
-      executeSpy.mock.calls.filter(
-        ([command]) =>
-          command.type === 'append-child' && command.child === childHandle
+          command.parent === parentHandle &&
+          command.child === childHandle
       )
     ).toHaveLength(2)
   })
+
+  it.each(['append-child', 'set-child-index'] as const)(
+    'preserves the previous parent when a reparent %s handoff fails',
+    async (failureCommand) => {
+      await render.init(100, 100, 0, {})
+      render.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+      const childData = {
+        id: 'reparent-retry-child',
+        type: 'rectangle',
+        visible: true,
+        width: 20,
+        height: 20
+      } as unknown as RenderElementData
+      const previousParentData = {
+        id: 'reparent-retry-previous-parent',
+        type: 'group',
+        visible: true,
+        children: [childData.id]
+      } as unknown as RenderElementData
+      const nextParentData = {
+        id: 'reparent-retry-next-parent',
+        type: 'group',
+        visible: true,
+        children: []
+      } as unknown as RenderElementData
+      const child = render.addElement(childData)
+      const previousParent = render.addElement(previousParentData)
+      const nextParent = render.addElement(nextParentData)
+      if (!child || !previousParent || !nextParent) {
+        throw new Error('Expected reparent retry nodes')
+      }
+      const childHandle = child.getEngineHandle()
+      const previousParentHandle = previousParent.getEngineHandle()
+      const nextParentHandle = nextParent.getEngineHandle()
+      const originalExecute = engine.execute.bind(engine)
+      let shouldFailHandoff = true
+      let currentEngineParent = previousParentHandle
+      const executeSpy = vi
+        .spyOn(engine, 'execute')
+        .mockImplementation((command) => {
+          if ('child' in command && command.child === childHandle) {
+            if (command.type === 'remove-child') {
+              if (command.parent !== currentEngineParent) {
+                throw new Error('remove-child parent mismatch')
+              }
+              const result = originalExecute(command)
+              currentEngineParent = null
+              return result
+            }
+            if (command.type === 'append-child') {
+              if (
+                currentEngineParent !== null &&
+                currentEngineParent !== command.parent
+              ) {
+                throw new Error('engine requires explicit remove before append')
+              }
+              if (
+                command.parent === nextParentHandle &&
+                failureCommand === 'append-child' &&
+                shouldFailHandoff
+              ) {
+                shouldFailHandoff = false
+                throw new Error('append-child reparent failed')
+              }
+              const result = originalExecute(command)
+              currentEngineParent = command.parent
+              return result
+            }
+            if (command.type === 'set-child-index') {
+              if (command.parent !== currentEngineParent) {
+                throw new Error('set-child-index parent mismatch')
+              }
+              if (
+                command.parent === nextParentHandle &&
+                failureCommand === 'set-child-index' &&
+                shouldFailHandoff
+              ) {
+                shouldFailHandoff = false
+                throw new Error('set-child-index reparent failed')
+              }
+            }
+          }
+          return originalExecute(command)
+        })
+      const completeNextParentData = {
+        ...nextParentData,
+        children: [childData.id]
+      }
+
+      expect(() =>
+        render.updateElement(
+          nextParentData.id,
+          'computed',
+          undefined,
+          undefined,
+          completeNextParentData
+        )
+      ).toThrow(`${failureCommand} reparent failed`)
+      expect(previousParent.children).toEqual([child])
+      expect(nextParent.children).toEqual([])
+      expect(child.parent).toBe(previousParent)
+      expect(currentEngineParent).toBe(previousParentHandle)
+
+      expect(() =>
+        render.updateElement(
+          nextParentData.id,
+          'computed',
+          undefined,
+          undefined,
+          completeNextParentData
+        )
+      ).not.toThrow()
+      expect(previousParent.children).toEqual([])
+      expect(nextParent.children).toEqual([child])
+      expect(child.parent).toBe(nextParent)
+      expect(currentEngineParent).toBe(nextParentHandle)
+      expect(
+        executeSpy.mock.calls.filter(
+          ([command]) =>
+            command.type === 'append-child' &&
+            command.parent === nextParentHandle &&
+            command.child === childHandle
+        )
+      ).toHaveLength(2)
+      expect(
+        executeSpy.mock.calls.filter(
+          ([command]) =>
+            command.type === 'remove-child' &&
+            command.parent === previousParentHandle &&
+            command.child === childHandle
+        )
+      ).toHaveLength(2)
+      expect(
+        executeSpy.mock.calls.filter(
+          ([command]) =>
+            command.type === 'append-child' &&
+            command.parent === previousParentHandle &&
+            command.child === childHandle
+        )
+      ).toHaveLength(1)
+    }
+  )
 
   it('retries a failed sibling reorder from the same complete snapshot', async () => {
     await render.init(100, 100, 0, {})

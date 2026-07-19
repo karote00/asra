@@ -724,7 +724,30 @@ export class RenderNode {
     const previousParent = child.parent
     const previousIndex = previousParent?.children.indexOf(child) ?? -1
     const boundedIndex = Math.max(0, Math.min(index, this.children.length))
-    this.runtime?.appendChild(this, child, boundedIndex)
+    if (previousParent && previousIndex >= 0) {
+      previousParent.runtime?.removeChild(previousParent, child)
+    }
+    try {
+      this.runtime?.appendChild(this, child, boundedIndex)
+    } catch (error) {
+      if (previousParent && previousIndex >= 0) {
+        try {
+          this.runtime?.removeChild(this, child)
+        } catch {
+          // The target append may have failed before attaching the child.
+        }
+        try {
+          previousParent.runtime?.appendChild(
+            previousParent,
+            child,
+            previousIndex
+          )
+        } catch {
+          // Preserve the target handoff failure after rollback effort.
+        }
+      }
+      throw error
+    }
     if (previousParent && previousIndex >= 0) {
       previousParent.children.splice(previousIndex, 1)
     }
