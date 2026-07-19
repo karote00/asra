@@ -2,8 +2,20 @@
 
 ## Status
 
-Deferred final collaboration architecture phase. This is a docs-only planning
-record and does not claim that network collaboration is currently implemented.
+Framework Release Gate 2: required after the app-level migration pipeline
+formalization and closeout.
+
+Network collaboration remains unimplemented today, but it is no longer a
+post-release deferred capability. The first public Asyra Framework release must
+ship the provider-replaceable CRDT foundation and the supported conflict-policy
+contract in this plan. Runtime activation remains optional: a canvas tool that
+does not need collaboration must not create a Y.Doc, provider, room, awareness
+runtime, network connection, or collaboration bundle side effect.
+
+Before implementation begins, create the matching Inspector owner flow and
+prove every prerequisite below against current formal contracts. A missing or
+unstable prerequisite is repaired inside this release gate before downstream
+network work advances.
 
 ## Context
 
@@ -22,7 +34,8 @@ The framework does not yet provide a complete network collaboration system.
 
 ## Prerequisites
 
-Do not begin implementation until these contracts are stable:
+Do not advance from the Release Gate 2 readiness segment until these contracts
+are stable:
 
 - authoritative state ownership
 - transaction atomicity and rollback
@@ -347,11 +360,16 @@ Conflict and permissions:
 - undo/rollback/origin behavior is deterministic
 - apps can supply authentication, authorization, persistence, and domain policy
   without patching framework internals
+- non-collaborative apps retain the current local transaction, persistence,
+  render, and package-loading behavior without collaboration activation
+- the framework release includes the tested collaboration packages/contracts;
+  provider connection and room participation remain explicit app composition
 
 ## Assumptions
 
-- This is the final collaboration architecture phase, intentionally deferred
-  until local kernel contracts stabilize.
+- This is the second required framework release gate; it starts only after Gate
+  1 closes and its local-kernel prerequisites pass the Inspector readiness
+  review.
 - Existing shared-channel infrastructure is reused where it preserves the target
   ownership and apply rules.
 - Exact package/API shape remains open until implementation planning starts.

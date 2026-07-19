@@ -2,11 +2,12 @@
 
 ## Parent Plan and Status
 
-This is a deferred sub-plan of
+This is a required sub-plan of Framework Release Gate 2:
 `docs/ai/framework/plans/yjs-network-collaboration-plan.md`.
 
 It must not be implemented before local transaction atomicity, remote canonical
 apply, origin/dedupe handling, and collaboration provider boundaries are stable.
+It does not make app-specific conflict UX a framework responsibility.
 
 ## Goal
 
@@ -38,3 +39,30 @@ Out of scope:
 2. Add policy invocation points in transaction/apply pipeline.
 3. Add default no-op policy set in preset.
 4. Add tests for deterministic outcomes under concurrent edits.
+
+## Release Scope
+
+- Provide a replaceable policy registration/invocation contract at the remote
+  canonical apply boundary.
+- Ship deterministic framework-owned defaults for invariants the framework
+  itself owns, including entity existence, hierarchy membership/order, property
+  validation, and unsupported-operation rejection.
+- Permit apps to register domain policies for app-owned geometry, topology,
+  locks, permissions, and workflow semantics without patching Yjs transport or
+  canonical state owners.
+- Keep awareness, selection presentation, merge dialogs, conflict indicators,
+  and manual resolution UI outside the framework policy owner.
+- A conflict policy may resolve, repair, or reject before canonical commit; it
+  must not patch Render/UI output or create a second state authority.
+
+## Definition of Done
+
+- the matching Yjs Inspector names the policy input, owner, output, rejection,
+  repair, bypass, and downstream canonical-apply routes;
+- duplicate, reordered, concurrent, unauthorized, unsupported, and repaired
+  operations converge or reject deterministically without echo;
+- local undo excludes remote-origin work and rollback compensation re-enters the
+  same conflict/origin pipeline;
+- framework defaults and app extension points have formal instance-isolation
+  and convergence tests;
+- the parent Yjs gate and this sub-plan close together before Release Gate 3.

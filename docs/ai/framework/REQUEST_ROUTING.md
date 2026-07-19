@@ -39,6 +39,23 @@ Use this file to route a new framework request to the right docs first.
   - `plans/yjs-network-collaboration-plan.md`
   - `plans/collaborative-conflict-policies-plan.md`
 
+- group/ungroup/reparent/reorder/subtree hierarchy behavior
+  - `packages/scene-tree.md`
+  - `packages/preset.md`
+  - `packages/factory.md`
+  - `plans/group-component-and-hierarchy-behaviors-plan.md`
+
+- AI intent/action planning/provider/permission/transaction execution
+  - `FRAMEWORK_ESSENTIALS.md`
+  - `packages/feature-system.md`
+  - `packages/factory.md`
+  - `plans/ai-agent-runtime-plan.md`
+
+- auto-layout/unit-aware layout/UI aggregation Roadmap
+  - `CONSTRAINTS.md`
+  - `plans/auto-layout-behavior-engine-plan.md`
+  - `plans/unit-conversion-and-ui-aggregation-plan.md`
+
 - component/property/schema registration
   - `packages/core.md`
   - `packages/props-manager.md`
@@ -63,8 +80,16 @@ Use this file to route a new framework request to the right docs first.
   - `rules/load-validation-and-migration.md`
   - `packages/props-manager.md`
   - `PLANS.md`
+  - `plans/props-manager-app-level-migration-plan.md`
   - `plans/completed/*` (for completed migration/validation history)
   - `decisions/releases/*` (for release-scoped rationale history)
+
+- framework release readiness/package publication closeout
+  - `PLANS.md`
+  - `plans/framework-release-readiness-and-closeout-plan.md`
+  - `rules/generated-artifacts.md`
+  - `rules/pre-release-legacy-removal.md`
+  - `decisions/releases/README.md`
 
 - deprecated package behavior/removal timeline
   - `rules/deprecation-lifecycle.md`
