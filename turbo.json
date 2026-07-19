@@ -36,11 +36,21 @@
         "^build:core",
         "^build:design-system",
         "^build:feature-system",
+        "^build:input-system",
         "^build:preset",
         "^build:reactive-events",
         "^build:render",
         "^build:ui-context",
         "^build:utils"
+      ]
+    },
+    "build:collaboration": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "^build:factory"
       ]
     },
     "build:core": {
@@ -56,6 +66,7 @@
         "^build:props-manager",
         "^build:reactive-events",
         "^build:render",
+        "^build:render-engine",
         "^build:scene-tree",
         "^build:selection",
         "^build:system-context",
@@ -120,7 +131,10 @@
         "^build:core",
         "^build:render-engine",
         "^build:render-engine-pixi",
-        "^build:utils"
+        "^build:ui-context",
+        "^build:utils",
+        "^build:reactive-events",
+        "^build:render"
       ]
     },
     "build:props-manager": {

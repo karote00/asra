@@ -58,6 +58,8 @@
       implementationBoundary: [
         'packages/collaboration/package.json',
         'packages/collaboration/tsconfig.json',
+        'scripts/gen-turbo.js',
+        'turbo.json',
         'packages/collaboration/src/index.ts',
         'packages/collaboration/src/types.ts',
         'packages/collaboration/src/__tests__/collaboration-disabled.test.ts',

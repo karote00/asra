@@ -104,6 +104,27 @@ describe('optional collaboration composition', () => {
     })
   })
 
+  it('is present in the generated workspace build graph', () => {
+    const turbo = JSON.parse(
+      fs.readFileSync(path.join(repoRoot, 'turbo.json'), 'utf8')
+    ) as {
+      tasks?: Record<
+        string,
+        {
+          cache?: boolean
+          outputs?: readonly string[]
+          dependsOn?: readonly string[]
+        }
+      >
+    }
+
+    expect(turbo.tasks?.['build:collaboration']).toEqual({
+      cache: false,
+      outputs: ['dist/**'],
+      dependsOn: ['^build:factory']
+    })
+  })
+
   it('normalizes a frozen composition without invoking injected resources', () => {
     const input = baseInput()
     const provider = { connect: vi.fn() }
