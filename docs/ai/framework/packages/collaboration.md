@@ -148,7 +148,11 @@ unverified transport peer as the operation author.
 in-memory reference adapters, not a mandatory transport authority. The hub
 stages live and state-vector sync updates before integrating its room history,
 so malformed or non-operation Yjs content is rejected without polluting the
-room, broadcasting to peers, or issuing a durability acknowledgement.
+room, broadcasting to peers, or issuing a durability acknowledgement. Every
+new operation in a live or sync upload must name the authenticated sender as
+its actor before the hub integrates room history, broadcasts, or acknowledges
+it; previously validated multi-author room history remains available through
+state-vector download.
 
 Runtime commit, local collaboration-update persistence, network send,
 state-vector convergence, and durable acknowledgement are separate observable

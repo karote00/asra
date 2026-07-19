@@ -249,6 +249,10 @@ test('provider boundary is replaceable and acknowledgement states are separate',
   assert.match(provider, /state-vector exchange/i)
   assert.match(provider, /hard-coded WebSocket.*P2P.*hosted provider authority/i)
   assert.match(provider, /never grants authority from awareness/i)
+  assert.match(
+    provider,
+    /authenticated sender.*room history.*broadcast.*acknowledgement/i
+  )
   assert.match(provider, /Remote-origin Y\.Doc updates are never sent back/i)
   assert.match(persistence, /stores binary document updates only and never awareness/i)
   assert.match(persistence, /only the missing update diff/i)
