@@ -495,6 +495,7 @@
       conditions: [
         'Render issues only existing @asyra/render-engine commands and opaque handles.',
         'The frame handoff preserves command ordering and uses the normal layer/update/flush route.',
+        'Local hierarchy parent and sibling-order bookkeeping commits only after the corresponding engine append and set-child-index handoff succeeds; a failed handoff retains the pre-command local state so the same complete snapshot can retry it.',
         'The dense-vector fixture meets count, total, p95, max, and combined p95 budgets.'
       ],
       bypasses: [
@@ -553,6 +554,7 @@
         'Load clears every entry and pending update before explicit rebuild.',
         'A load with no current workspace clears retained workspace metadata and resets the Render workspace label and transform to neutral values.',
         'Observer and Render teardown clear pending flags and scheduled work, then idempotently release every Scene Tree-projected visual node and discard each successfully released entry and projected id.',
+        'The opaque handle-to-node lookup remains available until its engine destroy command succeeds, so a failed destroy retains the exact lookup and projected-node retry owner.',
         'On a release failure, projected visual ownership retains exact elementId retry ownership; any valid mirror is retained across release failure, while an invalidated resync mirror remains absent and only projected visual retry ownership remains. Cleanup continues across other projected nodes, and subsequent cleanup retries the failed node.',
         'Stable entry count and Scene Tree-projected Render-node count never exceed live non-workspace Scene Tree element count; custom and overlay nodes are not part of this projection bound.',
         'Repeated add, remove, load, resync, and teardown cannot retain orphaned snapshots, projected nodes, removed-node restore entries, or prior-engine handles.',

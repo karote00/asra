@@ -412,6 +412,10 @@ test('strategy ownership is complete-data, engine-neutral, and non-vector compat
     strategy.implementationBoundary.includes('docs/ai/framework/PLANS.md')
   )
   assert.match(handoffContract, /existing @asyra\/render-engine commands/i)
+  assert.match(
+    handoffContract,
+    /Local hierarchy parent and sibling-order bookkeeping commits only after.*engine append and set-child-index.*succeeds.*failed handoff retains the pre-command local state.*same complete snapshot.*retry/i
+  )
   assert.match(handoffContract, /@asyra\/render-engine-pixi changes/i)
   assert.equal(
     handoff.implementationBoundary.some((entry) =>
@@ -484,6 +488,10 @@ test('cleanup bounds snapshots and pending work across every lifecycle path', ()
     /remove envelope.*parentId.*sibling index.*parent mirror.*complete snapshot.*explicit parent resync/i
   )
   assert.match(contract, /prior-engine handles/i)
+  assert.match(
+    contract,
+    /handle-to-node lookup remains available until.*engine destroy command succeeds.*failed destroy retains.*lookup.*retry owner/i
+  )
   assert.match(contract, /workspace label and transform to neutral values/i)
   assert.match(
     contract,

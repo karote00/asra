@@ -127,6 +127,9 @@ drawing; Render adds no inferred mapping or fallback geometry.
   Mirror ownership and projected-visual ownership are tracked separately.
   Projected ownership is discarded only after visual release succeeds, and any
   valid mirror present at that boundary is retained across release failure.
+  The opaque handle-to-node lookup is retained until the engine destroy command
+  succeeds, so a failed destroy preserves hit-query resolution and exact retry
+  ownership for that projected node.
   Resync invalidates a mismatched mirror before its authoritative read; if that
   read or seed fails and visual release also fails, the invalidated resync mirror
   remains absent and only projected visual retry ownership remains. Cleanup still
@@ -138,6 +141,9 @@ drawing; Render adds no inferred mapping or fallback geometry.
   Render-node counts never exceed live non-workspace elements. Custom and overlay
   layer nodes remain under their respective lifecycle owners and are not included
   in this projection bound
+- hierarchy parent and sibling-order bookkeeping commits only after the matching
+  engine append or set-child-index handoff succeeds; a failed handoff preserves
+  the pre-command local hierarchy so the same complete snapshot can retry it
 
 3. Interaction bridge
 

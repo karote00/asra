@@ -481,6 +481,205 @@ describe('Render', () => {
     retryRender.dispose()
   })
 
+  it('retries a failed hierarchy append from the same complete snapshot', async () => {
+    await render.init(100, 100, 0, {})
+    render.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const childData = {
+      id: 'append-retry-child',
+      type: 'rectangle',
+      visible: true,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const parentData = {
+      id: 'append-retry-parent',
+      type: 'group',
+      visible: true,
+      children: []
+    } as unknown as RenderElementData
+    const child = render.addElement(childData)
+    const parent = render.addElement(parentData)
+    if (!child || !parent) {
+      throw new Error('Expected append retry nodes')
+    }
+    const childHandle = child.getEngineHandle()
+    const parentHandle = parent.getEngineHandle()
+    const originalExecute = engine.execute.bind(engine)
+    let shouldFailAppend = true
+    const executeSpy = vi.spyOn(engine, 'execute').mockImplementation((command) => {
+      if (
+        command.type === 'append-child' &&
+        command.parent === parentHandle &&
+        command.child === childHandle &&
+        shouldFailAppend
+      ) {
+        shouldFailAppend = false
+        throw new Error('hierarchy append failed')
+      }
+      return originalExecute(command)
+    })
+    const completeParentData = {
+      ...parentData,
+      children: [childData.id]
+    }
+
+    expect(() =>
+      render.updateElement(
+        parentData.id,
+        'computed',
+        undefined,
+        undefined,
+        completeParentData
+      )
+    ).toThrow('hierarchy append failed')
+    expect(parent.children).toEqual([])
+    expect(child.parent).toBeNull()
+
+    expect(() =>
+      render.updateElement(
+        parentData.id,
+        'computed',
+        undefined,
+        undefined,
+        completeParentData
+      )
+    ).not.toThrow()
+    expect(child.parent).toBe(parent)
+    expect(parent.children).toEqual([child])
+    expect(
+      executeSpy.mock.calls.filter(
+        ([command]) =>
+          command.type === 'append-child' && command.child === childHandle
+      )
+    ).toHaveLength(2)
+  })
+
+  it('retries a failed sibling reorder from the same complete snapshot', async () => {
+    await render.init(100, 100, 0, {})
+    render.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const firstData = {
+      id: 'reorder-first',
+      type: 'rectangle',
+      visible: true,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const secondData = {
+      ...firstData,
+      id: 'reorder-second'
+    }
+    const parentData = {
+      id: 'reorder-parent',
+      type: 'group',
+      visible: true,
+      children: [firstData.id, secondData.id]
+    } as unknown as RenderElementData
+    const first = render.addElement(firstData)
+    const second = render.addElement(secondData)
+    const parent = render.addElement(parentData)
+    if (!first || !second || !parent) {
+      throw new Error('Expected reorder retry nodes')
+    }
+    const secondHandle = second.getEngineHandle()
+    const parentHandle = parent.getEngineHandle()
+    const originalExecute = engine.execute.bind(engine)
+    let shouldFailReorder = true
+    const executeSpy = vi.spyOn(engine, 'execute').mockImplementation((command) => {
+      if (
+        command.type === 'set-child-index' &&
+        command.parent === parentHandle &&
+        command.child === secondHandle &&
+        shouldFailReorder
+      ) {
+        shouldFailReorder = false
+        throw new Error('sibling reorder failed')
+      }
+      return originalExecute(command)
+    })
+    const reorderedParentData = {
+      ...parentData,
+      children: [secondData.id, firstData.id]
+    }
+
+    expect(() =>
+      render.updateElement(
+        parentData.id,
+        'computed',
+        undefined,
+        undefined,
+        reorderedParentData
+      )
+    ).toThrow('sibling reorder failed')
+    expect(parent.children).toEqual([first, second])
+
+    expect(() =>
+      render.updateElement(
+        parentData.id,
+        'computed',
+        undefined,
+        undefined,
+        reorderedParentData
+      )
+    ).not.toThrow()
+    expect(parent.children).toEqual([second, first])
+    expect(
+      executeSpy.mock.calls.filter(
+        ([command]) =>
+          command.type === 'set-child-index' && command.child === secondHandle
+      )
+    ).toHaveLength(2)
+  })
+
+  it('retains handle lookup until a failed destroy can be retried', async () => {
+    await render.init(100, 100, 0, {})
+    render.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const elementData = {
+      id: 'destroy-lookup-retry',
+      type: 'rectangle',
+      visible: true,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const element = render.addElement(elementData)
+    if (!element) {
+      throw new Error('Expected destroy retry node')
+    }
+    const handle = element.getEngineHandle()
+    const originalExecute = engine.execute.bind(engine)
+    let shouldFailDestroy = true
+    const executeSpy = vi.spyOn(engine, 'execute').mockImplementation((command) => {
+      if (
+        command.type === 'destroy-object' &&
+        command.object === handle &&
+        shouldFailDestroy
+      ) {
+        shouldFailDestroy = false
+        throw new Error('destroy lookup failed')
+      }
+      return originalExecute(command)
+    })
+    const querySpy = vi.spyOn(engine, 'query').mockReturnValue({
+      type: 'hit',
+      target: handle,
+      point: { x: 5, y: 5 }
+    })
+
+    expect(() => render.removeElement(elementData.id)).toThrow(
+      'destroy lookup failed'
+    )
+    expect(render.getElementIdAtClientPos({ x: 5, y: 5 })).toBe(elementData.id)
+
+    expect(() => render.removeElement(elementData.id)).not.toThrow()
+    expect(element.getEngineHandle()).toBeNull()
+    expect(
+      executeSpy.mock.calls.filter(
+        ([command]) =>
+          command.type === 'destroy-object' && command.object === handle
+      )
+    ).toHaveLength(2)
+    querySpy.mockRestore()
+  })
+
   it('synchronizes hierarchy from complete snapshots without reordering stable siblings', () => {
     render.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
     const firstData = {

@@ -191,6 +191,10 @@ ADD/REMOVE parent membership uses the same complete parent-snapshot frame route,
 so insertion, removal, undo, and redo cannot leave the parent mirror behind the
 canonical child order. Workspace-root insertion uses the committed sibling index
 directly because workspace elements are intentionally not mirrored.
+Local hierarchy parent and sibling-order bookkeeping commits only after the
+matching engine append or set-child-index command succeeds. If that handoff
+fails, the pre-command local hierarchy is retained so the same complete snapshot
+can retry the command instead of treating the failed attempt as already applied.
 
 The delta itself is the changed-key record. This task does not add a retained
 dependency graph or change the public strategy signature: every computed render
@@ -230,10 +234,13 @@ shape and require no migration.
   handle/resources. Custom or overlay layer nodes are outside this projection
   count and remain owned by their respective lifecycle. A failed node release
   always retains the projected `elementId` retry ownership while cleanup
-  continues across other projected ids. Any valid mirror present at that
-  lifecycle boundary is retained across release failure. Resync invalidates its
-  mismatched mirror before the authoritative read; if that read or seed fails and
-  visual release also fails, the invalidated resync mirror remains absent and
+  continues across other projected ids. The opaque handle-to-node lookup is not
+  discarded until the engine destroy command succeeds, so a failed destroy
+  retains exact hit-query resolution and retry ownership. Any valid mirror
+  present at that lifecycle boundary is retained across release failure. Resync
+  invalidates its mismatched mirror before the authoritative read; if that read
+  or seed fails and visual release also fails, the invalidated resync mirror
+  remains absent and
   only projected visual retry ownership remains. A successfully seeded authoritative
   resync mirror remains valid and is retained if its later visual cleanup fails.
   This retry bookkeeping uses only the existing `elementId` dimension.

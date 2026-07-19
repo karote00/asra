@@ -328,8 +328,8 @@ export class RenderObjectRuntime {
     if (!handle) {
       return
     }
-    this.objectByHandle.delete(handle)
     this.execute({ type: 'destroy-object', object: handle }, node)
+    this.objectByHandle.delete(handle)
     node.unbindRuntime()
   }
 
@@ -718,9 +718,9 @@ export class RenderNode {
   addChildAt<T extends RenderNode>(child: T, index: number): T {
     child.parent?.removeChild(child)
     const boundedIndex = Math.max(0, Math.min(index, this.children.length))
+    this.runtime?.appendChild(this, child, boundedIndex)
     this.children.splice(boundedIndex, 0, child)
     child.parent = this as unknown as RenderContainer
-    this.runtime?.appendChild(this, child, boundedIndex)
     return child
   }
 
@@ -745,10 +745,10 @@ export class RenderNode {
     if (currentIndex < 0) {
       return
     }
-    this.children.splice(currentIndex, 1)
-    const boundedIndex = Math.max(0, Math.min(index, this.children.length))
-    this.children.splice(boundedIndex, 0, child)
+    const boundedIndex = Math.max(0, Math.min(index, this.children.length - 1))
     this.runtime?.setChildIndex(this, child, boundedIndex)
+    this.children.splice(currentIndex, 1)
+    this.children.splice(boundedIndex, 0, child)
   }
 
   toGlobal(point: RenderEnginePoint): RenderEnginePoint {
