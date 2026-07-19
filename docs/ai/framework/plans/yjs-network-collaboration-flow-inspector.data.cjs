@@ -317,6 +317,7 @@
       conditions: [
         'Connect, disconnect, reconnect, status observation, binary update transport, state-vector exchange, awareness transport, acknowledgement observation, and disposal use the provider contract.',
         'The provider receives app/server-owned authentication metadata and room identity but never grants authority from awareness.',
+        'The in-memory reference hub stages live and sync updates against the room history and rejects non-operation, non-append, malformed, or undecodable Yjs changes before they can pollute or broadcast from the room Y.Doc.',
         'Remote-origin Y.Doc updates are never sent back as local updates.'
       ],
       bypasses: [

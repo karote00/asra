@@ -1,5 +1,5 @@
 import * as Y from 'yjs'
-import type { YjsBinaryUpdate } from '../yjs-document'
+import { applyInboundYjsUpdate, type YjsBinaryUpdate } from '../yjs-document'
 import {
   type CollaborationProvider,
   type CollaborationProviderIdentity,
@@ -85,7 +85,7 @@ export class MemoryCollaborationHub {
   ): Promise<void> {
     const room = this.room(sender.identity)
     if (binary.update.byteLength > 0) {
-      Y.applyUpdate(room.document, binary.update)
+      applyInboundYjsUpdate(room.document, binary.update, 'provider')
       room.providers.forEach((peer) => {
         if (peer === sender) return
         peer.receiveUpdate(
@@ -168,7 +168,7 @@ export class MemoryCollaborationHub {
   ): void {
     if (update.byteLength <= 2) return
     const room = this.room(sender.identity)
-    Y.applyUpdate(room.document, update)
+    applyInboundYjsUpdate(room.document, update, 'provider')
     room.providers.forEach((peer) => {
       if (peer === sender) return
       peer.receiveUpdate(

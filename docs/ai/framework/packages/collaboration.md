@@ -129,7 +129,10 @@ Multi-author sync aggregates omit it; custom providers must never label an
 unverified transport peer as the operation author.
 
 `MemoryCollaborationHub` and `MemoryCollaborationProvider` are deterministic
-in-memory reference adapters, not a mandatory transport authority.
+in-memory reference adapters, not a mandatory transport authority. The hub
+stages live and state-vector sync updates before integrating its room history,
+so malformed or non-operation Yjs content is rejected without polluting the
+room, broadcasting to peers, or issuing a durability acknowledgement.
 
 Runtime commit, local collaboration-update persistence, network send,
 state-vector convergence, and durable acknowledgement are separate observable

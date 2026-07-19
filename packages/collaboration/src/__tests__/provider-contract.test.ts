@@ -1,6 +1,10 @@
 import * as Y from 'yjs'
 import { describe, expect, it, vi } from 'vitest'
-import { appendOperationToYDoc, readOperationLog } from '../yjs-document'
+import {
+  appendOperationToYDoc,
+  applyInboundYjsUpdate,
+  readOperationLog
+} from '../yjs-document'
 import type { SharedOperationEnvelope } from '../operation-envelope'
 import { providerStatus } from '../provider'
 import {
@@ -106,6 +110,62 @@ describe('replaceable collaboration provider contract', () => {
     expect(missing.byteLength).toBeLessThan(
       (await sender.requestSync(new Uint8Array())).byteLength
     )
+  })
+
+  it('rejects a non-operation live update without polluting room history', async () => {
+    const hub = new MemoryCollaborationHub()
+    const sender = new MemoryCollaborationProvider(hub, identity('actor-a'))
+    const receiver = new MemoryCollaborationProvider(hub, identity('actor-b'))
+    const inbound = vi.fn()
+    const acknowledgements = vi.fn()
+    receiver.onUpdate(inbound)
+    sender.onAcknowledgement(acknowledgements)
+    await sender.connect()
+    await receiver.connect()
+    const invalidDocument = new Y.Doc()
+    invalidDocument.getMap('intruder').set('value', 1)
+
+    await expect(
+      sender.sendUpdate({
+        operationId: 'actor-a:session-a:1:forward',
+        update: Y.encodeStateAsUpdate(invalidDocument)
+      })
+    ).rejects.toMatchObject({ code: 'transport-failed' })
+
+    expect(inbound).not.toHaveBeenCalled()
+    expect(acknowledgements).not.toHaveBeenCalled()
+    const synchronized = new Y.Doc()
+    const result = applyInboundYjsUpdate(
+      synchronized,
+      await receiver.requestSync(new Uint8Array()),
+      'provider'
+    )
+    expect(result.operations).toEqual([])
+  })
+
+  it('rejects a non-operation sync update without polluting room history', async () => {
+    const hub = new MemoryCollaborationHub()
+    const sender = new MemoryCollaborationProvider(hub, identity('actor-a'))
+    const receiver = new MemoryCollaborationProvider(hub, identity('actor-b'))
+    const inbound = vi.fn()
+    receiver.onUpdate(inbound)
+    await sender.connect()
+    await receiver.connect()
+    const invalidDocument = new Y.Doc()
+    invalidDocument.getArray('intruder').push(['value'])
+
+    await expect(
+      sender.sendSyncUpdate(Y.encodeStateAsUpdate(invalidDocument))
+    ).rejects.toMatchObject({ code: 'transport-failed' })
+
+    expect(inbound).not.toHaveBeenCalled()
+    const synchronized = new Y.Doc()
+    const result = applyInboundYjsUpdate(
+      synchronized,
+      await receiver.requestSync(new Uint8Array()),
+      'provider'
+    )
+    expect(result.operations).toEqual([])
   })
 
   it('transports opaque awareness and emits disconnect cleanup without granting authority', async () => {
