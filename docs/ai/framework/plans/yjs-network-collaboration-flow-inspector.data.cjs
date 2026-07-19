@@ -38,6 +38,7 @@
       conditions: [
         'Only an explicit import and collaboration-instance creation activates the collaboration bundle.',
         'Authentication, authorization, room access, and durable backend policy are supplied by app/server composition.',
+        'Connection authentication metadata belongs to the explicitly supplied provider identity and is not duplicated as an unused collaboration-composition input.',
         'Injected resources declare owned or borrowed disposal semantics.'
       ],
       bypasses: [

@@ -43,7 +43,12 @@ Use `createCollaboration(...)` with:
 - `permissionPolicy`;
 - optional `frameworkInvariants` and ordered `conflictPolicies`;
 - optional provider, collaboration update persistence, Y.Doc, Awareness,
-  session identity, connection metadata, and resource ownership.
+  session identity, and resource ownership.
+
+Connection authentication metadata is not duplicated on collaboration
+composition. It belongs to the explicitly supplied provider's
+`CollaborationProviderIdentity`, which the app/server connection boundary
+consumes.
 
 Canonical `apply` handlers are trusted synchronous state-owner boundaries. Wrap
 each handler with `defineCanonicalOperationApply(...)`: TypeScript rejects a

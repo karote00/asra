@@ -153,6 +153,17 @@ describe('optional collaboration composition', () => {
     expect(input.factory.subscribeToSharedDelivery).not.toHaveBeenCalled()
   })
 
+  it('keeps connection metadata on provider identity instead of composition', () => {
+    const compileTimeDeadFieldRejection = () =>
+      defineCollaborationComposition({
+        ...baseInput(),
+        // @ts-expect-error connection metadata belongs to provider identity
+        connectionMetadata: { accessToken: 'provider-owned' }
+      })
+
+    expect(compileTimeDeadFieldRejection).toEqual(expect.any(Function))
+  })
+
   it('defaults absent resources to owned creation and injected resources to borrowed', () => {
     const withoutResources = defineCollaborationComposition(baseInput())
     expect(withoutResources.resourceOwnership).toEqual({

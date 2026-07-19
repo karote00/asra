@@ -118,9 +118,6 @@ export const defineCollaborationComposition = <
     ...(input.conflictPolicies !== undefined
       ? { conflictPolicies: Object.freeze([...input.conflictPolicies]) }
       : {}),
-    ...(input.connectionMetadata !== undefined
-      ? { connectionMetadata: input.connectionMetadata }
-      : {}),
     resourceOwnership
   })
 }

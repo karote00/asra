@@ -63,7 +63,6 @@ export interface CollaborationCompositionInput<
   sessionId?: string
   frameworkInvariants?: FrameworkInvariantConfiguration
   conflictPolicies?: readonly AppConflictPolicy[]
-  connectionMetadata?: Readonly<Record<string, unknown>>
   resourceOwnership?: Partial<CollaborationResourceOwnershipMap>
 }
 
@@ -89,7 +88,6 @@ export interface CollaborationComposition<
   readonly sessionId?: string
   readonly frameworkInvariants?: FrameworkInvariantConfiguration
   readonly conflictPolicies?: readonly AppConflictPolicy[]
-  readonly connectionMetadata?: Readonly<Record<string, unknown>>
   readonly resourceOwnership: Readonly<CollaborationResourceOwnershipMap>
 }
 
