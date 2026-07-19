@@ -123,6 +123,7 @@ describe('CollaborationInstance ownership and disposal', () => {
 
     expect(instance.provider).toBe(provider)
     expect(provider.connect).not.toHaveBeenCalled()
+    expect(provider.onAcknowledgement).not.toHaveBeenCalled()
   })
 
   it('rejects an operation-enabled composition without the remote transaction boundary', () => {

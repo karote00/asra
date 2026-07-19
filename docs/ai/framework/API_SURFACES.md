@@ -263,7 +263,7 @@ Managed property bridges:
   `providerStatus`, `MemoryCollaborationHub`,
   `MemoryCollaborationProvider`
 - persistence/durability: `CollaborationUpdatePersistence`,
-  `CollaborationDurabilityRuntime`,
+  `CollaborationDurabilityRuntime` with lazy/idempotent `start()`,
   `MemoryCollaborationUpdatePersistence`, and distinct durability event/outcome
   types
 - permission/conflict policy: `createConflictPolicyPipeline`,

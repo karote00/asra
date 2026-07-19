@@ -109,14 +109,20 @@ export class CollaborationDurabilityRuntime {
   >()
   private readonly pendingAcknowledgements = new Set<string>()
   private readonly sentOperations = new Set<string>()
-  private readonly detachAcknowledgement?: () => void
+  private detachAcknowledgement?: () => void
+  private started = false
 
   constructor(options: CollaborationDurabilityRuntimeOptions) {
     this.document = options.document
     this.documentId = options.documentId
     this.persistence = options.persistence
     this.provider = options.provider
-    this.detachAcknowledgement = options.provider?.onAcknowledgement(
+  }
+
+  start(): void {
+    if (this.started) return
+    this.started = true
+    this.detachAcknowledgement = this.provider?.onAcknowledgement(
       (acknowledgement) => {
         if (this.sentOperations.has(acknowledgement.operationId)) {
           this.emit(acknowledgement.operationId, 'durable-acknowledged')
@@ -137,6 +143,7 @@ export class CollaborationDurabilityRuntime {
   async settleLocalUpdate(
     update: YjsBinaryUpdate
   ): Promise<CollaborationDurabilityOutcome> {
+    this.start()
     const events: CollaborationDurabilityEvent[] = []
     const record = (
       phase: CollaborationDurabilityPhase,
@@ -191,6 +198,7 @@ export class CollaborationDurabilityRuntime {
   }
 
   async recoverFromPersistence(): Promise<readonly unknown[]> {
+    this.start()
     if (!this.persistence) return Object.freeze([])
     const recovered: unknown[] = []
     for (const record of await this.persistence.load(this.documentId)) {
@@ -211,6 +219,7 @@ export class CollaborationDurabilityRuntime {
       sentUpdateByteLength: number
     }>
   > {
+    this.start()
     if (!this.provider) {
       return Object.freeze({
         receivedOperationCount: 0,

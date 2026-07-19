@@ -52,8 +52,11 @@ rejected through the rollbackable remote transaction boundary.
 Construction validates identity and registration but does not subscribe,
 connect, recover, or send. `start()` binds observers, replays optional persisted
 updates through the inbound pipeline, connects the provider when supplied, and
-exchanges state vectors. Provider-less `start()` remains an offline explicit
-collaboration composition and opens no network connection.
+exchanges state vectors. Durability acknowledgement tracking is also lazy: a
+`CollaborationDurabilityRuntime` starts it explicitly with `start()` or
+automatically before its first settle, recovery, or synchronization operation.
+Provider-less `start()` remains an offline explicit collaboration composition
+and opens no network connection.
 
 Lifecycle and observation methods include:
 

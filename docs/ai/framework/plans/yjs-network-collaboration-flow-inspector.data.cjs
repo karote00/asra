@@ -97,6 +97,7 @@
       ],
       conditions: [
         'The instance owns or receives exactly one Y.Doc, provider, Factory-backed shared registry, document/room identity, awareness runtime, and disposal lifecycle.',
+        'Construction validates and retains resources without subscribing, recovering, connecting, or sending; explicit start activates observers and durability acknowledgement tracking.',
         'Separate instances remain isolated unless the app intentionally injects a shared resource.',
         'Disposal removes document, provider, shared-delivery, update, acknowledgement, and awareness observers according to explicit resource ownership.'
       ],

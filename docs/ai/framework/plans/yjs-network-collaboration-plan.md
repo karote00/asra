@@ -89,6 +89,9 @@ End-state:
   provider, one Factory-backed shared-channel registry, one document/room
   identity, one awareness runtime, and one disposal lifecycle. Injected
   resources have explicit borrowed/owned disposal semantics.
+- Instance construction is inert: it validates and retains resources without
+  subscribing, recovering, connecting, or sending. Explicit `start()` activates
+  observers and durability acknowledgement tracking.
 - Provider-less composition is supported for an explicitly created offline
   collaboration instance. An app that does not create the instance has no
   Y.Doc, provider, room, awareness, network, or collaboration persistence side

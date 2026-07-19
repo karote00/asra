@@ -308,6 +308,7 @@ export class CollaborationInstance {
 
   private async activate(): Promise<void> {
     this.bindObservers()
+    this.durability.start()
     const recovered = await this.durability.recoverFromPersistence()
     if (this.disposed) return
     await this.processRemoteOperations(recovered, 'persistence')
