@@ -101,6 +101,42 @@ describe('Preset Selection Subscriptions', () => {
     }
   })
 
+  it('propagates a file-load Render rebuild failure to the lifecycle caller', () => {
+    const observers = new Map<string, { onChange: (change: unknown) => void }>()
+    const core = {
+      getSelection: () => undefined,
+      registerDataChannelObserver: (registration: {
+        name: string
+        onChange: (change: unknown) => void
+      }) => observers.set(registration.name, registration),
+      unregisterDataChannelObserver: (name: string) => observers.delete(name)
+    } as unknown as PresetCoreAPIs
+    const reloadFailure = new Error('file-load Render rebuild failed')
+    const reload = vi
+      .spyOn(renderSceneTreeStore, 'reload')
+      .mockImplementationOnce(() => undefined)
+    let dispose: (() => void) | undefined
+
+    try {
+      dispose = registerDefaultDataChannelObservers(
+        core,
+        createDeps(),
+        undefined,
+        { renderScene: true }
+      )
+      reload.mockImplementation(() => {
+        throw reloadFailure
+      })
+
+      expect(() =>
+        publishEvent({ type: EventTypes.FILE_LOAD_COMPLETE })
+      ).toThrow(reloadFailure)
+    } finally {
+      dispose?.()
+      reload.mockRestore()
+    }
+  })
+
   it('clears Render projection state and visual nodes once when the render observer is disposed', () => {
     const observers = new Map<string, { onChange: (change: unknown) => void }>()
     const core = {

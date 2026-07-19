@@ -163,7 +163,7 @@
         'The observer receives applied, resynced, removed, or failed projection evidence and never treats swallowed exceptions as correctness control flow.',
         'Initial registration and every re-registration install the observer before invoking the explicit authoritative Render rebuild route.',
         'A rebuild failure means registration fails and its cleanup rollback unregisters the observer and clears the Render projection.',
-        'File-load completion invokes the explicit Render rebuild route.',
+        'File-load completion invokes the explicit Render rebuild route synchronously so any failure reaches the lifecycle caller.',
         'Observer teardown invokes Render projection cleanup.'
       ],
       bypasses: [
@@ -215,6 +215,7 @@
         'Add and load are the only ordinary seed reasons; first use and update may not seed implicitly.',
         'Workspace elements are not cached or rendered.',
         'Load clears every entry and pending update before rebuilding live elements.',
+        'Load rebuilds in canonical parent children order independent of Scene Tree Map insertion order and forwards each exact sibling index.',
         'Any element rebuild failure fails the whole reload, clears its partial projection, and throws to the lifecycle caller.',
         'An unsuccessful visual add, including a strategy failure, is an add, reload, or resync rebuild failure rather than a successful hidden projection.',
         'An add envelope forwards canonical parentId and sibling index; Render places the child at that index, atomically patches an existing non-workspace parent children mirror, and queues the complete parent snapshot. A parent membership precondition mismatch enters explicit parent resync.',

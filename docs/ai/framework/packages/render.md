@@ -69,6 +69,9 @@ drawing; Render adds no inferred mapping or fallback geometry.
 - add and load explicitly merge the element's complete saved and computed data
   into one snapshot; the requested id, non-empty type, and non-workspace checks
   must pass before install, and ordinary updates never seed a missing base
+- load rebuilds parents before their children and siblings in canonical parent
+  `children` order, independent of Scene Tree `Map` insertion order, and passes
+  each exact sibling index to Render placement
 - ADD/REMOVE envelopes retain canonical `parentId` and sibling `index`. An add
   places the child at that exact index, and add/remove atomically patch an
   existing non-workspace parent `children` mirror before queuing its complete

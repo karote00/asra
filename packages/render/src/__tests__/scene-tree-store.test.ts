@@ -218,6 +218,153 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(vector.getAllComputedData).toHaveBeenCalledTimes(1)
   })
 
+  it('should run: rebuild workspace-root siblings in canonical order instead of map insertion order', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const rootA = createElement(
+      'root-a',
+      { type: 'rectangle', parentId: 'workspace-1' },
+      {}
+    )
+    const rootB = createElement(
+      'root-b',
+      { type: 'rectangle', parentId: 'workspace-1' },
+      {}
+    )
+    const rootC = createElement(
+      'root-c',
+      { type: 'rectangle', parentId: 'workspace-1' },
+      {}
+    )
+    const elements = new Map([
+      ['root-c', rootC],
+      ['root-b', rootB],
+      ['root-a', rootA]
+    ])
+    sceneTreeMock.currentWorkspace = {
+      save: () => ({
+        id: 'workspace-1',
+        type: EntityTypes.WORKSPACE,
+        children: ['root-a', 'root-b', 'root-c']
+      })
+    }
+    sceneTreeMock.getAllElements.mockReturnValue(elements)
+    sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
+      elements.get(elementId)
+    )
+
+    store.reload()
+
+    expect(
+      renderMock.addElement.mock.calls.map(([data, siblingIndex]) => [
+        data.id,
+        siblingIndex
+      ])
+    ).toEqual([
+      ['root-a', 0],
+      ['root-b', 1],
+      ['root-c', 2]
+    ])
+  })
+
+  it('should run: rebuild a leaf without reading an absent hierarchy field', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const leafRaw = {
+      type: 'rectangle',
+      parentId: 'workspace-1'
+    }
+    const leaf = createElement('leaf-1', leafRaw, {})
+    leaf.get.mockImplementation((key: string) => {
+      if (key === 'id') {
+        return 'leaf-1'
+      }
+      if (key in leafRaw) {
+        return leafRaw[key as keyof typeof leafRaw]
+      }
+      throw new Error(`Unknown leaf field: ${key}`)
+    })
+    const elements = new Map([['leaf-1', leaf]])
+    sceneTreeMock.currentWorkspace = {
+      save: () => ({
+        id: 'workspace-1',
+        type: EntityTypes.WORKSPACE,
+        children: ['leaf-1']
+      })
+    }
+    sceneTreeMock.getAllElements.mockReturnValue(elements)
+    sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
+      elements.get(elementId)
+    )
+
+    store.reload()
+
+    expect(renderMock.addElement).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'leaf-1', type: 'rectangle' }),
+      0
+    )
+  })
+
+  it('should run: rebuild nested siblings after their parent in canonical order', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const group = createElement(
+      'group-1',
+      {
+        type: 'group',
+        parentId: 'workspace-1',
+        children: ['child-a', 'child-b', 'child-c']
+      },
+      {}
+    )
+    const childA = createElement(
+      'child-a',
+      { type: 'rectangle', parentId: 'group-1' },
+      {}
+    )
+    const childB = createElement(
+      'child-b',
+      { type: 'rectangle', parentId: 'group-1' },
+      {}
+    )
+    const childC = createElement(
+      'child-c',
+      { type: 'rectangle', parentId: 'group-1' },
+      {}
+    )
+    const elements = new Map([
+      ['child-c', childC],
+      ['group-1', group],
+      ['child-b', childB],
+      ['child-a', childA]
+    ])
+    sceneTreeMock.currentWorkspace = {
+      save: () => ({
+        id: 'workspace-1',
+        type: EntityTypes.WORKSPACE,
+        children: ['group-1']
+      })
+    }
+    sceneTreeMock.getAllElements.mockReturnValue(elements)
+    sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
+      elements.get(elementId)
+    )
+
+    store.reload()
+
+    expect(
+      renderMock.addElement.mock.calls.map(([data, siblingIndex]) => [
+        data.id,
+        siblingIndex
+      ])
+    ).toEqual([
+      ['group-1', 0],
+      ['child-a', 0],
+      ['child-b', 1],
+      ['child-c', 2]
+    ])
+  })
+
   it('should run: synchronize parent mirrors from add and remove hierarchy envelopes', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()

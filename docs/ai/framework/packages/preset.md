@@ -122,7 +122,10 @@ fails; apps customize successful defaults through ordinary Core APIs.
   disposer clears Render projection state and every Scene Tree-projected visual
   node once, including their abstract engine handles/resources. If the rebuild
   fails, registration fails and the existing cleanup rollback unregisters the
-  observer and clears any partial projection.
+  observer and clears any partial projection. File-load completion invokes the
+  Render rebuild through a synchronous lifecycle handler so a rebuild failure
+  propagates to the caller; UI-context and vector-editing file-load work remains
+  on their separate observer route.
 
 Preset must not accept app-provided installers, disposers, dependency objects,
 engine ids, custom providers, extension callbacks, or replace semantics.

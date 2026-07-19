@@ -599,6 +599,60 @@ class RenderSceneTree {
     this.frameAlignedFlush = installPendingRenderLayer(this)
   }
 
+  private getCanonicalReloadEntries(
+    currentWorkspaceData: WorkspaceRawData,
+    seededEntries: Map<string, ComputedDataMirrorEntry>
+  ): { elementId: string; siblingIndex?: number }[] {
+    const visitedElementIds = new Set<string>()
+    const entries: { elementId: string; siblingIndex?: number }[] = []
+
+    const visitHierarchy = (
+      roots: { elementId: string; siblingIndex?: number }[]
+    ) => {
+      const pending = [...roots].reverse()
+      while (pending.length > 0) {
+        const entry = pending.pop()
+        if (!entry || visitedElementIds.has(entry.elementId)) {
+          continue
+        }
+        const seededEntry = seededEntries.get(entry.elementId)
+        if (!seededEntry) {
+          continue
+        }
+
+        visitedElementIds.add(entry.elementId)
+        entries.push(entry)
+        const children = seededEntry.rawDataSnapshot.children
+        if (Array.isArray(children)) {
+          for (let index = children.length - 1; index >= 0; index -= 1) {
+            const childId = children[index]
+            if (typeof childId === 'string') {
+              pending.push({ elementId: childId, siblingIndex: index })
+            }
+          }
+        }
+      }
+    }
+
+    if (Array.isArray(currentWorkspaceData.children)) {
+      visitHierarchy(
+        currentWorkspaceData.children.flatMap((elementId, index) =>
+          typeof elementId === 'string'
+            ? [{ elementId, siblingIndex: index }]
+            : []
+        )
+      )
+    }
+
+    seededEntries.forEach((_entry, elementId) => {
+      if (!visitedElementIds.has(elementId)) {
+        visitHierarchy([{ elementId }])
+      }
+    })
+
+    return entries
+  }
+
   reload() {
     this.clearProjection()
     if (!sceneTree.currentWorkspace) return
@@ -613,26 +667,35 @@ class RenderSceneTree {
       y: 0
     })
 
-    // Create all element render node
-    sceneTree.getAllElements().forEach((element) => {
-      const elementId = element.get('id')
-      if (element.get('type') === EntityTypes.WORKSPACE) {
-        return
-      }
-      try {
-        const renderElementData = this.computedDataMirror.seed(
-          elementId,
-          'reload'
-        )?.renderDataSnapshot
-        if (renderElementData) {
-          this.addElement(renderElementData)
+    // Rebuild parents before children and siblings in canonical hierarchy order.
+    try {
+      const seededEntries = new Map<string, ComputedDataMirrorEntry>()
+      sceneTree.getAllElements().forEach((element) => {
+        const elementId = element.get('id')
+        if (element.get('type') === EntityTypes.WORKSPACE) {
+          return
         }
-      } catch (error) {
-        emitStrokePipelineCounter('computed-mirror-reload-seed-failed')
-        this.clearProjection()
-        throw error
-      }
-    })
+        const entry = this.computedDataMirror.seed(elementId, 'reload')
+        if (entry) {
+          seededEntries.set(elementId, entry)
+        }
+      })
+
+      this.getCanonicalReloadEntries(
+        currentWorkspaceData,
+        seededEntries
+      ).forEach(({ elementId, siblingIndex }) => {
+        const renderElementData =
+          seededEntries.get(elementId)?.renderDataSnapshot
+        if (renderElementData) {
+          this.addElement(renderElementData, siblingIndex)
+        }
+      })
+    } catch (error) {
+      emitStrokePipelineCounter('computed-mirror-reload-seed-failed')
+      this.clearProjection()
+      throw error
+    }
   }
 
   private _getRenderData(id: string) {

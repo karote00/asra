@@ -136,6 +136,10 @@ failure, is an authoritative add/load/resync rebuild failure. The synchronous
 strategy call returns that rebuild result to the add/load controller before the
 controller reports its projection outcome.
 
+Load rebuilds parents before their children and siblings in canonical parent
+`children` order, independent of Scene Tree `Map` insertion order, and forwards
+each exact sibling index to Render placement.
+
 The data-channel observer only routes the committed payload and receives the
 projection outcome. It does not assemble or retain the snapshot.
 
@@ -146,6 +150,10 @@ while the observer was absent are recovered from the current authoritative Scene
 Tree snapshot, never from retained Render output or a data-channel backlog. A
 registration that cannot complete this rebuild fails at the Preset registration
 owner and uses its existing cleanup rollback.
+
+File-load completion invokes the Render rebuild through Preset's synchronous
+lifecycle handler so any failure propagates to the `core.load()` caller. UI and
+vector-editing file-load consumers remain separate observers.
 
 ### 3. Ordering, duplicates, and missing delivery
 
@@ -212,7 +220,11 @@ shape and require no migration.
 ### 6. Load, undo, redo, replay, remove, and cleanup
 
 - Load clears all snapshots and pending work before rebuilding each live
-  non-workspace element from Scene Tree.
+  non-workspace element from Scene Tree in canonical parent `children` order,
+  with parent-first placement and each exact sibling index rather than Scene
+  Tree `Map` insertion order.
+- Preset invokes that file-load Render rebuild synchronously so rebuild failure
+  reaches the lifecycle caller instead of becoming an observer-only error.
 - Initial observer registration and re-registration rebuild from the current
   Scene Tree before registration returns; they do not wait for a later delta or
   file-load event.
@@ -325,12 +337,15 @@ failing formal test when the current implementation violates this contract.
 - add/load/resync are explicit; resync reports success only after its complete
   strategy rebuild succeeds; remove/load/teardown leave no orphaned entries or
   pending updates
-- add/remove/undo/redo preserve the committed sibling index and keep every
-  non-workspace parent `children` mirror equal to canonical Scene Tree order
+- add/remove/undo/redo preserve the committed sibling index; load preserves
+  canonical root and nested sibling order independent of Scene Tree `Map`
+  insertion order; every non-workspace parent `children` mirror remains equal
+  to canonical Scene Tree order
 - ordered delivery plus Render precondition tests cover missing, duplicate, and
   out-of-order behavior without assigning canonical ownership to the data channel
 - load, undo, redo, replay, direct properties, mixed batches, and non-vector
-  strategies preserve fresh-snapshot equivalence
+  strategies preserve fresh-snapshot equivalence; file-load rebuild failure
+  propagates synchronously to its lifecycle caller
 - no strategy receives partial data and no failed projection leaves stale output
 - dense-vector count, total, p95, max, and combined p95 budgets pass
 - render-engine/Pixi, Feature System, Input System, and app import boundaries remain

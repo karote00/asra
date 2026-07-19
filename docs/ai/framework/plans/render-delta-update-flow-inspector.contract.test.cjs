@@ -224,6 +224,10 @@ test('Preset routes complete envelopes without creating another snapshot owner',
     contract,
     /rebuild failure.*registration fails.*cleanup rollback/i
   )
+  assert.match(
+    contract,
+    /file-load.*synchronous.*failure.*lifecycle caller/i
+  )
   assert.match(contract, /teardown invokes Render projection cleanup/i)
   assert.match(
     route('registration-or-reregistration-seed').predicate,
@@ -241,6 +245,10 @@ test('initial snapshots are explicit complete Scene Tree projections', () => {
   assert.match(contract, /first use and update may not seed implicitly/i)
   assert.match(contract, /Workspace elements are not cached or rendered/i)
   assert.match(contract, /Load clears every entry and pending update/i)
+  assert.match(
+    contract,
+    /load.*canonical parent children order.*Map insertion order.*exact sibling index/i
+  )
   assert.match(
     contract,
     /any element.*rebuild failure.*whole reload.*partial projection.*throws/i

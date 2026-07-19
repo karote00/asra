@@ -750,12 +750,18 @@ export const registerDefaultDataChannelObservers = (
   })
 
   try {
-    if (renderSceneEnabled || uiContextEnabled || vectorEditingEnabled) {
+    if (renderSceneEnabled) {
+      eventSubscriptions.push(
+        subscribeToSynchronousEvent(EventTypes.FILE_LOAD_COMPLETE, () => {
+          renderSceneTreeStore.reload()
+        })
+      )
+      reportCleanupReady()
+    }
+
+    if (uiContextEnabled || vectorEditingEnabled) {
       eventSubscriptions.push(
         subscribeToFileLoadComplete(() => {
-          if (renderSceneEnabled) {
-            renderSceneTreeStore.reload()
-          }
           if (uiContextEnabled) {
             resetPendingUIContextSync(uiContextSyncLifetime)
             syncFlattenedElementIds(deps)
