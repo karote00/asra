@@ -4,6 +4,8 @@ import {
   type SharedOperationOrigin
 } from './operation-envelope'
 import { OperationRegistry } from './operation-registry'
+import type { Factory } from '@asyra/factory'
+import type { ConflictAcceptedOperation } from './conflict-policy'
 
 export type ValidationRejectionCode =
   | 'malformed-envelope'
@@ -333,4 +335,66 @@ export const validateRemoteOperation = ({
   const immutableEnvelope = freezeDeep(candidate)
   outcomes.reserve(immutableEnvelope, fingerprint)
   return Object.freeze({ status: 'validated', envelope: immutableEnvelope })
+}
+
+export interface RemoteCanonicalApplyAcceptedOutcome {
+  readonly status: 'accepted' | 'repaired'
+  readonly operationId: string
+  readonly applied: boolean
+}
+
+export interface RemoteCanonicalApplyFailedOutcome {
+  readonly status: 'apply-failed'
+  readonly operationId: string
+  readonly code: 'canonical-apply-failed' | 'async-handler-not-supported'
+  readonly error: unknown
+}
+
+export type RemoteCanonicalApplyOutcome =
+  | RemoteCanonicalApplyAcceptedOutcome
+  | RemoteCanonicalApplyFailedOutcome
+
+export interface RunRemoteCanonicalApplyInput {
+  readonly operation: ConflictAcceptedOperation
+  readonly factory: Factory
+  readonly apply: (envelope: SharedOperationEnvelope) => boolean | void
+  readonly outcomes: OperationOutcomeRegistry
+}
+
+export const runRemoteCanonicalApply = ({
+  operation,
+  factory,
+  apply,
+  outcomes
+}: RunRemoteCanonicalApplyInput): RemoteCanonicalApplyOutcome => {
+  try {
+    const applied = factory.runRemoteTransaction(() => apply(operation.envelope))
+    const result = Object.freeze({
+      status: operation.status,
+      operationId: operation.envelope.operationId,
+      applied: applied !== false
+    })
+    outcomes.record(operation.receivedEnvelope, {
+      status: operation.status,
+      operationId: operation.receivedEnvelope.operationId
+    })
+    return result
+  } catch (error) {
+    const code: RemoteCanonicalApplyFailedOutcome['code'] =
+      factory.isRemoteAsyncHandlerError(error)
+        ? 'async-handler-not-supported'
+        : 'canonical-apply-failed'
+    const result = Object.freeze({
+      status: 'apply-failed' as const,
+      operationId: operation.receivedEnvelope.operationId,
+      code,
+      error
+    })
+    outcomes.record(operation.receivedEnvelope, {
+      status: 'apply-failed',
+      operationId: operation.receivedEnvelope.operationId,
+      code
+    })
+    return result
+  }
 }

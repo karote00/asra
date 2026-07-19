@@ -247,6 +247,7 @@ class DataTransact {
   private actionId = 0
   private transactionId = 0
   private currentTransactionId = 0
+  private activeOrigin: TransactionOrigin = 'action'
   private rollbackOnly = false
   private rollbackFailure: TransactionFailure | undefined
   private readonly inverters = new Map<string, TransactionInverter>()
@@ -283,12 +284,22 @@ class DataTransact {
     this.onSharedDelivery = callbacks?.onSharedDelivery
   }
 
-  start() {
+  start(origin?: TransactionOrigin) {
+    if (
+      this.isTransacting > 0 &&
+      origin !== undefined &&
+      origin !== this.activeOrigin
+    ) {
+      throw new Error(
+        `Nested transaction origin ${origin} cannot join ${this.activeOrigin}`
+      )
+    }
     this.isTransacting++
     if (this.isTransacting > 1) {
       return
     }
 
+    this.activeOrigin = origin ?? 'action'
     this.journal = []
     this.nestedReplayRestorationPlans = []
     this.rollbackOnly = false
@@ -346,8 +357,10 @@ class DataTransact {
       payload: newPayload
     }
 
+    const origin = this.transactionOrigin()
     const options: EffectiveMutationOptions = {
-      undoable: event.options?.undoable !== false,
+      undoable:
+        origin === 'remote' ? false : event.options?.undoable !== false,
       rollbackable: event.options?.rollbackable !== false,
       shared: event.options?.shared,
       sharedDelivery: event.options?.sharedDelivery ?? 'transaction-end'
@@ -369,8 +382,12 @@ class DataTransact {
 
     const sharedChannelName = event.options?.shared
     if (sharedChannelName) {
+      const sharedOptions =
+        origin === 'remote'
+          ? { ...event.options, undoable: false }
+          : event.options
       const sharedChange = cloneTransactionValue(
-        toSharedChannelPayload(newPayload, event.options)
+        toSharedChannelPayload(newPayload, sharedOptions)
       )
       journalEntry.shared = {
         name: sharedChannelName,
@@ -407,6 +424,7 @@ class DataTransact {
   }
 
   private emitForwardSharedDelivery(entry: TransactionJournalEntry): void {
+    if (this.transactionOrigin() === 'remote') return
     const shared = entry.shared
     if (!shared) return
     this.onSharedDelivery?.({
@@ -426,6 +444,7 @@ class DataTransact {
     payload: TransactionPayload,
     compensationIndex: number
   ): void {
+    if (this.transactionOrigin() === 'remote') return
     const shared = entry.shared
     if (!shared) return
     this.onSharedDelivery?.({
@@ -727,7 +746,7 @@ class DataTransact {
     if (this.isInRedo()) {
       return 'redo'
     }
-    return 'action'
+    return this.activeOrigin
   }
 
   private emitStatus(
@@ -1016,6 +1035,7 @@ class DataTransact {
         this.journal = []
         this.rollbackOnly = false
         this.rollbackFailure = undefined
+        this.activeOrigin = 'action'
         if (this.nestedReplaySourceEvents) {
           this.nestedReplaySourceEvents = null
           this.nestedReplayRestorationPlans = []
@@ -1042,6 +1062,9 @@ class DataTransact {
   }
 
   undo() {
+    if (this.isTransacting > 0 && this.activeOrigin === 'remote') {
+      throw new Error('Remote transaction cannot consume local undo history')
+    }
     if (!this.undoStack.length) {
       return
     }
@@ -1102,6 +1125,9 @@ class DataTransact {
   }
 
   redo() {
+    if (this.isTransacting > 0 && this.activeOrigin === 'remote') {
+      throw new Error('Remote transaction cannot consume local redo history')
+    }
     if (!this.redoStack.length) {
       return
     }
@@ -1183,6 +1209,7 @@ class DataTransact {
     this.actionId = 0
     this.transactionId = 0
     this.currentTransactionId = 0
+    this.activeOrigin = 'action'
     this.rollbackOnly = false
     this.rollbackFailure = undefined
   }

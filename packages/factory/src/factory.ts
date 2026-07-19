@@ -35,6 +35,13 @@ export interface FactoryOptions {
   bridgeToReactiveEvents?: boolean
 }
 
+class RemoteAsyncHandlerError extends Error {
+  constructor() {
+    super('[collaboration] remote canonical apply handler must be synchronous')
+    this.name = 'RemoteAsyncHandlerError'
+  }
+}
+
 class Factory {
   private readonly sharedDataChannels = new SharedDataChannelRegistry()
   private readonly bridgeToReactiveEvents: boolean
@@ -106,6 +113,41 @@ class Factory {
 
   endTransaction(options?: EndTransactionOptions) {
     this.transact.end(options)
+  }
+
+  runRemoteTransaction<T>(mutate: () => T): T {
+    this.transact.start('remote')
+    try {
+      const result = mutate()
+      if (
+        result !== null &&
+        (typeof result === 'object' || typeof result === 'function') &&
+        typeof (result as { then?: unknown }).then === 'function'
+      ) {
+        void Promise.resolve(result).catch(() => undefined)
+        throw new RemoteAsyncHandlerError()
+      }
+      this.transact.end()
+      return result
+    } catch (error) {
+      try {
+        this.transact.end({
+          outcome: 'rollback',
+          failure: {
+            kind: 'handler-error',
+            message: error instanceof Error ? error.message : undefined,
+            cause: error
+          }
+        })
+      } catch (rollbackError) {
+        throw rollbackError
+      }
+      throw error
+    }
+  }
+
+  isRemoteAsyncHandlerError(error: unknown): boolean {
+    return error instanceof RemoteAsyncHandlerError
   }
 
   undo() {
