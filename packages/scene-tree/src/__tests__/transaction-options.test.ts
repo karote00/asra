@@ -4,6 +4,7 @@ import type { UpdateTransactionEvent } from '@asyra/reactive-events'
 import {
   SCENE_TREE_ACTIONS,
   SharedDataChannelNames,
+  type ComputedDataPatch,
   type SceneTreeChange,
   type ElementInstanceTypes,
   type UpdateElementPatchChange
@@ -446,8 +447,10 @@ describe('SceneTree transaction options', () => {
         configurable: true,
         writable: true
       })
-      const specialMap: Record<string, unknown> = {}
-      Object.defineProperty(specialMap, '__proto__', {
+      const values: NonNullable<ComputedDataPatch['values']> = { x: 1 }
+      const records: NonNullable<ComputedDataPatch['records']> =
+        kind === 'record' ? {} : { points: { set: { added: 'after' } } }
+      Object.defineProperty(kind === 'value' ? values : records, '__proto__', {
         value: kind === 'value' ? 'after' : { set: { added: 'after' } },
         enumerable: true,
         configurable: true,
@@ -461,14 +464,8 @@ describe('SceneTree transaction options', () => {
       sceneTree.addToMap(element)
 
       sceneTree.patchComputedData('element-special-top-level', {
-        values:
-          kind === 'value'
-            ? ({ x: 1, ...specialMap } as Record<string, never>)
-            : { x: 1 },
-        records:
-          kind === 'record'
-            ? (specialMap as never)
-            : { points: { set: { added: 'after' } } }
+        values,
+        records
       })
 
       const change = sceneTree.changes[0] as UpdateElementPatchChange

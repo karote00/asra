@@ -135,8 +135,7 @@ const isDataEqual = (
       const rightHasIndex = Object.prototype.hasOwnProperty.call(right, index)
       if (
         leftHasIndex !== rightHasIndex ||
-        (leftHasIndex &&
-          !isDataEqual(left[index], right[index], comparedPairs))
+        (leftHasIndex && !isDataEqual(left[index], right[index], comparedPairs))
       ) {
         return false
       }
