@@ -291,6 +291,12 @@ test('awareness is a separate ephemeral observational route', () => {
   assert.match(awareness, /collaboration Y\.Doc operation array/i)
   assert.match(projection, /without feeding it into document state.*authorization.*save\/load.*undo/i)
   assert.ok(
+    step('own-awareness-state').implementationBoundary.includes(
+      'packages/collaboration/src/collaboration-instance.ts'
+    ),
+    'awareness owner must bind the collaboration instance identity and lifecycle'
+  )
+  assert.ok(
     data.routes.every((route) => {
       if (!route.id.includes('awareness')) return true
       return !['run-remote-apply-transaction', 'apply-canonical-state-owner'].includes(

@@ -714,6 +714,7 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/collaboration/src/awareness.ts',
+        'packages/collaboration/src/collaboration-instance.ts',
         'packages/collaboration/src/__tests__/awareness.test.ts'
       ],
       specRefs: ['#awareness-and-presence', '#supported-behavior'],
