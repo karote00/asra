@@ -78,8 +78,9 @@ One failed precondition rejects the entire delta; no prefix may become visible.
 Accepted changes install a new top-level snapshot atomically. Changed records are
 copied before modification so a previously published strategy snapshot is not
 mutated later. Deep precondition comparison is cycle-safe for the complete
-`DataTypes` domain and retains exact sparse-array semantics: an array hole and an
-own `undefined` slot are not equivalent.
+`DataTypes` domain, compares every enumerable own array property, and retains
+exact sparse-array semantics: an array hole and an own `undefined` slot are not
+equivalent.
 
 Before installation, every scalar, batch, and patch candidate is merged with the
 same computed-over-raw precedence and must still have the requested `id`, a
@@ -214,9 +215,14 @@ shape and require no migration.
   destroy every Scene Tree-projected visual node, and release its abstract engine
   handle/resources. Custom or overlay layer nodes are outside this projection
   count and remain owned by their respective lifecycle. A failed node release
-  retains mirror and Render-layer retry ownership while cleanup continues across
-  other projected ids; a later cleanup retries the failed id. This retry
-  bookkeeping is keyed only by the existing `elementId` dimension.
+  always retains the projected `elementId` retry ownership while cleanup
+  continues across other projected ids. Any valid mirror present at that
+  lifecycle boundary is retained across release failure. Resync invalidates its
+  mismatched mirror before the authoritative read; if that read or seed fails and
+  visual release also fails, the invalidated resync mirror remains absent and
+  only projected visual retry ownership remains. A successfully seeded authoritative
+  resync mirror remains valid and is retained if its later visual cleanup fails.
+  This retry bookkeeping uses only the existing `elementId` dimension.
 - At every stable boundary, snapshot count is at most the number of live
   non-workspace elements, and the Scene Tree projection owns at most one Render
   node per such element; repeated load/add/remove/resync cannot grow an orphaned

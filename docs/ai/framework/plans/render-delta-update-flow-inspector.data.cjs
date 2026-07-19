@@ -20,11 +20,11 @@
     decision:
       'Retain the existing elementId-only derived projection as the semantic delta target; add no cache dimension and no vector geometry cache.',
     invalidation:
-      'Remove, load reset, failed projection, failed resync, observer teardown, and Render teardown clear pending work immediately; matching mirror and projected-visual ownership are discarded only after visual release succeeds, while release failure retains exact elementId retry ownership.',
+      'Remove, load reset, failed projection, failed resync, observer teardown, and Render teardown clear pending work immediately; projected-visual ownership is discarded only after visual release succeeds. Any valid mirror is retained across release failure, while an invalidated resync mirror remains absent and only projected visual retry ownership remains.',
     equivalenceOracle:
       'At the same committed boundary, strategy data deep-equals {...element.save(), ...element.getAllComputedData()} and produces the same engine-neutral command trace.',
     cleanup:
-      'Remove destroys its Render node before discarding matching mirror and projected-visual ownership; load and teardown release every tracked Scene Tree-projected node, retain failed elementId cleanup ownership, and discard each matching entry only after release succeeds.',
+      'Remove destroys its Render node before discarding projected-visual ownership and any matching valid mirror; load and teardown release every tracked Scene Tree-projected node, retain failed elementId cleanup ownership, and discard each still-valid matching entry only after release succeeds.',
     memoryBound:
       'At stable boundaries there is at most one entry and one live Scene Tree-projected Render node per live non-workspace Scene Tree element, with no retained removed-node map; custom and overlay layer nodes stay under their own lifecycle owners.'
   }
@@ -273,7 +273,7 @@
         'A raw value shadowed by a same-name computed value updates the raw slice without publishing the shadowed raw value through the direct visual route.',
         'Every batch precondition validates before any batch value is installed.',
         'Record additions require absence; replacements and removals require exact before values; the top-level record base must be a record.',
-        'Deep before and effective-value comparison is cycle-safe for distinct cyclic records and arrays and retains exact sparse-array semantics: an array hole and an own undefined slot are not equivalent.',
+        'Deep before and effective-value comparison is cycle-safe for distinct cyclic records and arrays, compares every enumerable own array property, and retains exact sparse-array semantics: an array hole and an own undefined slot are not equivalent.',
         'The candidate merged snapshot retains the requested id, non-empty type, and non-workspace type before install; an incomplete candidate is a projection mismatch.',
         'Accepted changes install a new top-level snapshot and clone every changed record.',
         'Multiple accepted changes for one element preserve commit order and may coalesce to one frame.'
@@ -322,7 +322,10 @@
         'artifact:projection-mismatch',
         'public Scene Tree element reader'
       ],
-      outputs: ['artifact:render-resync-outcome'],
+      outputs: [
+        'artifact:authoritative-resync-request',
+        'artifact:render-resync-outcome'
+      ],
       conditions: [
         'The mismatched entry and pending update are invalidated before the authoritative read.',
         'One successful full composition replaces the entire entry, then uses the existing Render add-or-update route for one synchronous authoritative visual rebuild.',
@@ -423,12 +426,14 @@
       purpose:
         'Resolve the registered engine-neutral strategy and rebuild visual commands from one complete derived snapshot.',
       inputs: [
+        'artifact:complete-render-snapshot',
         'artifact:complete-strategy-request',
-        'artifact:render-resync-outcome'
+        'artifact:authoritative-resync-request'
       ],
       outputs: ['artifact:engine-neutral-draw-commands'],
       conditions: [
-        'Every computed render update reruns the selected strategy from complete RenderElementData.',
+        'Every add, load, authoritative resync, or computed frame update reruns the selected strategy from complete RenderElementData.',
+        'Add and load complete snapshots and authoritative resync requests execute synchronously; accepted delta snapshots enter through the frame-coalesced strategy request.',
         'Non-vector and vector strategies retain the same public input signature.',
         'The produced command trace equals the trace from a fresh authoritative snapshot.',
         'No new dependency graph or vector geometry cache is introduced because profiling did not justify it.'
@@ -530,12 +535,12 @@
       outputs: ['artifact:render-projection-cleanup'],
       conditions: [
         'Remove clears the matching pending id before visual release, then destroys the detached Render node and releases its abstract engine handle and resources.',
-        'Mirror ownership and projected visual ownership are tracked separately; only after visual release succeeds are the matching mirror and projected id discarded.',
+        'Mirror ownership and projected visual ownership are tracked separately; only after visual release succeeds are projected ownership and any matching valid mirror discarded.',
         'Removing a projected parent detaches its live projected children and destroys only the removed parent; children that remain canonical keep their own nodes and engine handles.',
         'Load clears every entry and pending update before explicit rebuild.',
         'A load with no current workspace clears retained workspace metadata and resets the Render workspace label and transform to neutral values.',
         'Observer and Render teardown clear pending flags and scheduled work, then idempotently release every Scene Tree-projected visual node and discard each successfully released entry and projected id.',
-        'On a release failure, the mirror and Render layer retain exact retry ownership, cleanup continues across other projected nodes, and subsequent cleanup retries the failed node.',
+        'On a release failure, projected visual ownership retains exact elementId retry ownership; any valid mirror is retained across release failure, while an invalidated resync mirror remains absent and only projected visual retry ownership remains. Cleanup continues across other projected nodes, and subsequent cleanup retries the failed node.',
         'Stable entry count and Scene Tree-projected Render-node count never exceed live non-workspace Scene Tree element count; custom and overlay nodes are not part of this projection bound.',
         'Repeated add, remove, load, resync, and teardown cannot retain orphaned snapshots, projected nodes, removed-node restore entries, or prior-engine handles.',
         'Undo and redo re-add from a complete authoritative snapshot and do not require Render node identity preservation.'
@@ -633,11 +638,12 @@
       producedArtifacts: ['artifact:render-projection-request']
     },
     {
-      id: 'seed-to-frame',
+      id: 'seed-to-strategy',
       from: 'seed-render-snapshot',
-      to: 'flush-render-snapshot',
+      to: 'execute-render-strategy',
       kind: 'normal',
-      predicate: 'a complete add or load snapshot is installed',
+      predicate:
+        'a complete add or load snapshot is installed for the synchronous visual rebuild',
       producedArtifacts: ['artifact:complete-render-snapshot']
     },
     {
@@ -665,7 +671,7 @@
       kind: 'conditional',
       predicate:
         'one complete authoritative snapshot is composed for the synchronous visual rebuild',
-      producedArtifacts: ['artifact:render-resync-outcome']
+      producedArtifacts: ['artifact:authoritative-resync-request']
     },
     {
       id: 'resync-to-cleanup',
@@ -738,7 +744,7 @@
     {
       id: 'artifact:complete-render-snapshot',
       ownerStepId: 'seed-render-snapshot',
-      consumerStepIds: ['apply-render-delta', 'flush-render-snapshot'],
+      consumerStepIds: ['apply-render-delta', 'execute-render-strategy'],
       channel: 'Render scene-tree store',
       terminal: false
     },
@@ -757,12 +763,16 @@
       terminal: false
     },
     {
+      id: 'artifact:authoritative-resync-request',
+      ownerStepId: 'resync-render-snapshot',
+      consumerStepIds: ['execute-render-strategy'],
+      channel: 'Render add-or-update route',
+      terminal: false
+    },
+    {
       id: 'artifact:render-resync-outcome',
       ownerStepId: 'resync-render-snapshot',
-      consumerStepIds: [
-        'execute-render-strategy',
-        'cleanup-render-projection'
-      ],
+      consumerStepIds: ['cleanup-render-projection'],
       channel: 'Render projection outcome',
       terminal: false
     },
@@ -829,6 +839,7 @@
       ],
       artifactIds: [
         'artifact:accepted-render-snapshot',
+        'artifact:authoritative-resync-request',
         'artifact:render-resync-outcome',
         'artifact:complete-strategy-request'
       ],
@@ -922,7 +933,7 @@
         'the formal app oracle deep-compares fresh and strategy snapshots after action, Factory undo replay, Factory redo replay, and core.load rebuild',
         'same-name raw and computed fields preserve their carried owner through rollback, undo, redo, and replay',
         'observer re-registration immediately rebuilds from current Scene Tree state, remove destroys the detached node, and redo creates a fresh equivalent node',
-        'mirror and projected-visual ownership are discarded only after release succeeds; a failed release retains elementId retry ownership while cleanup continues across other projected ids'
+        'projected-visual ownership and any valid mirror are discarded only after release succeeds; a failed release retains elementId retry ownership while cleanup continues across other projected ids, and an invalidated resync mirror remains absent while only projected visual retry ownership remains'
       ]
     },
     {

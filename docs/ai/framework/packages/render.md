@@ -114,10 +114,15 @@ drawing; Render adds no inferred mapping or fallback geometry.
   not clear unrelated scene or custom-layer nodes. Removing a projected parent
   detaches live canonical children before destroying only the parent; undo/redo
   re-adds it from a fresh complete snapshot and restores the child relationships.
-  Mirror ownership and projected-visual ownership are tracked separately and are
-  discarded only after visual release succeeds. If release fails, both retain
-  retry ownership, continue cleaning other projected ids, and retry the failed id
-  on later cleanup; this uses only the existing `elementId` cache dimension
+  Mirror ownership and projected-visual ownership are tracked separately.
+  Projected ownership is discarded only after visual release succeeds, and any
+  valid mirror present at that boundary is retained across release failure.
+  Resync invalidates a mismatched mirror before its authoritative read; if that
+  read or seed fails and visual release also fails, the invalidated resync mirror
+  remains absent and only projected visual retry ownership remains. Cleanup still
+  continues across other projected ids, and a successfully seeded authoritative
+  resync mirror remains valid if its later visual cleanup fails. Retry ownership
+  uses only the existing `elementId` cache dimension
 - a reload with no current workspace clears retained workspace metadata and
   resets workspace identity/transform; stable snapshot and Scene Tree-projected
   Render-node counts never exceed live non-workspace elements. Custom and overlay

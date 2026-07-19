@@ -18,6 +18,12 @@ const route = (id) => {
   return value
 }
 
+const artifact = (id) => {
+  const value = data.artifacts.find((item) => item.id === id)
+  assert.ok(value, `Missing Inspector artifact: ${id}`)
+  return value
+}
+
 const acceptance = (id) => {
   const value = data.acceptanceContracts.find((item) => item.id === id)
   assert.ok(value, `Missing Inspector acceptance contract: ${id}`)
@@ -302,6 +308,42 @@ test('mismatch performs one explicit resync or removes stale output', () => {
   assert.equal(route('resync-to-cleanup').kind, 'failure')
 })
 
+test('seed and resync routes carry complete requests before strategy outcomes', () => {
+  assert.equal(route('seed-to-strategy').to, 'execute-render-strategy')
+  assert.deepEqual(route('seed-to-strategy').producedArtifacts, [
+    'artifact:complete-render-snapshot'
+  ])
+  assert.equal(
+    data.routes.some((item) => item.id === 'seed-to-frame'),
+    false
+  )
+  assert.deepEqual(route('resync-to-strategy').producedArtifacts, [
+    'artifact:authoritative-resync-request'
+  ])
+  assert.ok(
+    step('execute-render-strategy').inputs.includes(
+      'artifact:authoritative-resync-request'
+    )
+  )
+  assert.equal(
+    step('execute-render-strategy').inputs.includes(
+      'artifact:render-resync-outcome'
+    ),
+    false
+  )
+  assert.deepEqual(
+    artifact('artifact:complete-render-snapshot').consumerStepIds,
+    ['apply-render-delta', 'execute-render-strategy']
+  )
+  assert.deepEqual(
+    artifact('artifact:authoritative-resync-request').consumerStepIds,
+    ['execute-render-strategy']
+  )
+  assert.deepEqual(artifact('artifact:render-resync-outcome').consumerStepIds, [
+    'cleanup-render-projection'
+  ])
+})
+
 test('frame coalescing passes complete snapshots and retains direct updates', () => {
   const flush = step('flush-render-snapshot')
   const contract = contractText(flush)
@@ -412,13 +454,18 @@ test('cleanup bounds snapshots and pending work across every lifecycle path', ()
     contract,
     /release failure.*retain.*ownership.*other projected nodes.*subsequent cleanup retries/i
   )
+  assert.match(contract, /valid mirror.*retained.*release failure/i)
+  assert.match(
+    contract,
+    /invalidated resync mirror.*remains absent.*projected.*retry/i
+  )
   assert.match(
     contract,
     /mirror ownership.*projected visual ownership.*tracked separately/i
   )
   assert.match(
     contract,
-    /visual release succeeds.*matching mirror.*projected id.*discarded/i
+    /visual release succeeds.*projected ownership.*matching valid mirror.*discarded/i
   )
   assert.ok(
     cleanup.implementationBoundary.includes('packages/render/src/render.ts')
@@ -449,6 +496,10 @@ test('the product contract and formal oracle lock count and timing budgets', () 
     'apps/asyra-design/e2e/render-delta-performance.spec.ts'
   )
   const oracle = fs.readFileSync(oraclePath, 'utf8')
+  const renderPackageContract = fs.readFileSync(
+    path.resolve(repoRoot, 'docs/ai/framework/packages/render.md'),
+    'utf8'
+  )
 
   assert.match(plan, /56 points/i)
   assert.match(plan, /Render full rehydrate count must be 0/i)
@@ -464,6 +515,14 @@ test('the product contract and formal oracle lock count and timing budgets', () 
   assert.match(oracle, /renderSnapshotDeltaApplies\)\.toBe\(SAMPLE_FRAMES\)/)
   assert.match(oracle, /CRITICAL_PATH_P95_BUDGET_MS = 12/)
   assert.match(oracle, /totalMs: 24, p95Ms: 4, maxMs: 6/)
+  ;[plan, renderPackageContract].forEach((contract) => {
+    const normalizedContract = contract.replace(/\s+/g, ' ')
+    assert.match(normalizedContract, /valid mirror.*release failure/i)
+    assert.match(
+      normalizedContract,
+      /invalidated resync mirror.*remains absent.*projected.*retry/i
+    )
+  })
 })
 
 test('acceptance covers equivalence, failure, lifecycle, compatibility, and budget', () => {
