@@ -77,11 +77,61 @@ const allowedInputFields = new Set([
 ])
 const allowedRemoteFields = new Set([...allowedInputFields, 'heartbeatAt'])
 const inboundMessageFields = new Set(['actorId', 'clock', 'state'])
+const inboundDisconnectFields = new Set(['actorId', 'reason'])
 
 interface InertAwarenessMessage {
   readonly actorId: unknown
   readonly clock: unknown
   readonly state: unknown
+}
+
+interface InertAwarenessDisconnect {
+  readonly actorId: unknown
+  readonly reason: unknown
+}
+
+const readInboundDisconnect = (event: unknown): InertAwarenessDisconnect => {
+  if (!event || typeof event !== 'object' || Array.isArray(event)) {
+    throw new AwarenessValidationError(
+      'invalid-state',
+      '[collaboration] awareness disconnect must be a record'
+    )
+  }
+  const prototype = Object.getPrototypeOf(event)
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new AwarenessValidationError(
+      'invalid-state',
+      '[collaboration] awareness disconnect must be a plain record'
+    )
+  }
+  const candidate = event as Record<string, unknown>
+  const descriptors = new Map<string, PropertyDescriptor>()
+  for (const key of Reflect.ownKeys(candidate)) {
+    if (typeof key !== 'string' || !inboundDisconnectFields.has(key)) {
+      throw new AwarenessValidationError(
+        'invalid-state',
+        '[collaboration] awareness disconnect contains an unsupported field'
+      )
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(candidate, key)
+    if (!descriptor?.enumerable || !('value' in descriptor)) {
+      throw new AwarenessValidationError(
+        'invalid-state',
+        '[collaboration] awareness disconnect accessors are not supported'
+      )
+    }
+    descriptors.set(key, descriptor)
+  }
+  if ([...inboundDisconnectFields].some((field) => !descriptors.has(field))) {
+    throw new AwarenessValidationError(
+      'invalid-state',
+      '[collaboration] awareness disconnect is missing a required field'
+    )
+  }
+  return Object.freeze({
+    actorId: descriptors.get('actorId')?.value,
+    reason: descriptors.get('reason')?.value
+  })
 }
 
 const readInboundMessage = (message: unknown): InertAwarenessMessage => {
@@ -363,7 +413,15 @@ export class AwarenessRuntime {
 
   handleDisconnect(event: ProviderAwarenessDisconnect): boolean {
     this.requireUsable()
-    return this.remove(event.actorId, 'disconnect')
+    const candidate = readInboundDisconnect(event)
+    const actorId = requireActor(candidate.actorId)
+    if (candidate.reason !== 'disconnect') {
+      throw new AwarenessValidationError(
+        'invalid-state',
+        '[collaboration] awareness disconnect reason is invalid'
+      )
+    }
+    return this.remove(actorId, 'disconnect')
   }
 
   expire(): readonly string[] {

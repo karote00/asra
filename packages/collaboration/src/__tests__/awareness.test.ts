@@ -154,6 +154,32 @@ describe('ephemeral awareness ownership', () => {
     ])
   })
 
+  it('rejects disconnect accessors without executing them or clearing presence', () => {
+    const runtime = new AwarenessRuntime({ actorId: 'actor-local' })
+    runtime.applyRemote({
+      actorId: 'actor-remote',
+      clock: 1,
+      state: { tool: 'select' }
+    })
+    let actorReads = 0
+    const disconnect = { reason: 'disconnect' }
+    Object.defineProperty(disconnect, 'actorId', {
+      enumerable: true,
+      get: () => {
+        actorReads += 1
+        return 'actor-remote'
+      }
+    })
+
+    expect(() => runtime.handleDisconnect(disconnect as never)).toThrowError(
+      expect.objectContaining<Partial<AwarenessValidationError>>({
+        code: 'invalid-state'
+      })
+    )
+    expect(actorReads).toBe(0)
+    expect(runtime.getRemote('actor-remote')).toBeDefined()
+  })
+
   it('rejects unselected fields and malformed actor/clock input', () => {
     const runtime = new AwarenessRuntime({ actorId: 'actor-local' })
 
