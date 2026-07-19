@@ -331,4 +331,35 @@ describe('remote canonical apply transaction', () => {
     target.factory.undo()
     expect(target.state.value).toBe(0)
   })
+
+  it('preserves a package state-owner rejection without fabricating a canonical prefix', () => {
+    const target = harness()
+    const { decision, outcomes } = validatedDecision()
+    const stateOwner = {
+      validateAndApply: vi.fn(() => {
+        throw new Error('package invariant rejected operation')
+      })
+    }
+
+    const result = runRemoteCanonicalApply({
+      operation: decision,
+      factory: target.factory,
+      apply: (envelope) => stateOwner.validateAndApply(envelope.payload),
+      outcomes
+    })
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: 'apply-failed',
+        code: 'canonical-apply-failed'
+      })
+    )
+    expect(stateOwner.validateAndApply).toHaveBeenCalledTimes(1)
+    expect(target.state.value).toBe(0)
+    expect(target.projection).toEqual([])
+    expect(target.deliveries).toEqual([])
+    expect(target.statuses).toEqual([
+      expect.objectContaining({ origin: 'remote', status: 'discarded' })
+    ])
+  })
 })
