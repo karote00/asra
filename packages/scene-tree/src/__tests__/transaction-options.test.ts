@@ -436,6 +436,58 @@ describe('SceneTree transaction options', () => {
     expect(sceneTree.changes).toEqual([])
   })
 
+  it.each(['value', 'record'] as const)(
+    'commits a mixed patch with a special top-level %s key as one complete envelope',
+    (kind) => {
+      const computedSnapshot: Record<string, unknown> = { x: 0, points: {} }
+      Object.defineProperty(computedSnapshot, '__proto__', {
+        value: kind === 'value' ? 'before' : { existing: 'before' },
+        enumerable: true,
+        configurable: true,
+        writable: true
+      })
+      const specialMap: Record<string, unknown> = {}
+      Object.defineProperty(specialMap, '__proto__', {
+        value: kind === 'value' ? 'after' : { set: { added: 'after' } },
+        enumerable: true,
+        configurable: true,
+        writable: true
+      })
+      const element = {
+        get: vi.fn(() => 'element-special-top-level'),
+        getAllComputedData: vi.fn(() => computedSnapshot),
+        updateComputedData: vi.fn()
+      } as unknown as ElementInstanceTypes
+      sceneTree.addToMap(element)
+
+      sceneTree.patchComputedData('element-special-top-level', {
+        values:
+          kind === 'value'
+            ? ({ x: 1, ...specialMap } as Record<string, never>)
+            : { x: 1 },
+        records:
+          kind === 'record'
+            ? (specialMap as never)
+            : { points: { set: { added: 'after' } } }
+      })
+
+      const change = sceneTree.changes[0] as UpdateElementPatchChange
+      const specialOutput =
+        kind === 'value' ? change.patch.values : change.patch.records
+      expect(change.action).toBe(
+        SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH
+      )
+      expect(
+        Object.prototype.hasOwnProperty.call(specialOutput, '__proto__')
+      ).toBe(true)
+      expect(specialOutput?.['__proto__']).toEqual(
+        kind === 'value'
+          ? { before: 'before', after: 'after' }
+          : { set: { added: { after: 'after' } } }
+      )
+    }
+  )
+
   it('rejects a record id present in both set and remove before mutation', () => {
     const element = {
       get: vi.fn(() => 'element-1'),

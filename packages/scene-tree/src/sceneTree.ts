@@ -668,7 +668,7 @@ class SceneTree {
         options
       )
       patchChange.values ??= {}
-      patchChange.values[key] = { before, after }
+      setOwnEnumerableValue(patchChange.values, key, { before, after })
     })
 
     Object.entries(patch.records ?? {}).forEach(([key, recordPatch]) => {
@@ -722,7 +722,7 @@ class SceneTree {
         options
       )
       patchChange.records ??= {}
-      patchChange.records[key] = nextRecordPatch
+      setOwnEnumerableValue(patchChange.records, key, nextRecordPatch)
     })
 
     if (!hasPatchChanges(patchChange)) {
