@@ -56,10 +56,13 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/collaboration/package.json',
+        'packages/collaboration/tsconfig.json',
         'packages/collaboration/src/index.ts',
         'packages/collaboration/src/types.ts',
         'packages/collaboration/src/__tests__/collaboration-disabled.test.ts',
-        'docs/examples/yjs-network-collaboration.mjs'
+        'docs/examples/yjs-network-collaboration.mjs',
+        'yarn.lock'
       ],
       specRefs: [
         '#supported-behavior',
@@ -104,9 +107,14 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/collaboration/package.json',
+        'packages/collaboration/tsconfig.json',
         'packages/collaboration/src/collaboration-instance.ts',
         'packages/collaboration/src/awareness.ts',
-        'packages/collaboration/src/__tests__/instance-ownership.test.ts'
+        'packages/collaboration/src/__tests__/instance-ownership.test.ts',
+        'packages/collaboration/src/index.ts',
+        'packages/collaboration/src/types.ts',
+        'yarn.lock'
       ],
       specRefs: ['#supported-behavior', '#instance-ownership'],
       failureOwnerStepId: 'own-collaboration-instance'

@@ -84,6 +84,17 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@asyra/collaboration@workspace:packages/collaboration":
+  version: 0.0.0-use.local
+  resolution: "@asyra/collaboration@workspace:packages/collaboration"
+  dependencies:
+    "@asyra/factory": "workspace:*"
+    "@vitest/coverage-v8": "npm:^2.1.8"
+    typescript: "npm:^5.7.2"
+    vitest: "npm:^2.1.8"
+  languageName: unknown
+  linkType: soft
+
 "@asyra/core@workspace:*, @asyra/core@workspace:packages/core":
   version: 0.0.0-use.local
   resolution: "@asyra/core@workspace:packages/core"
