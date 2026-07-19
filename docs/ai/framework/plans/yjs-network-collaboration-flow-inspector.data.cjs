@@ -408,6 +408,7 @@
       ],
       conditions: [
         'Document id, actor id, operation id, transaction id, origin, protocol version, schema version, channel, event name, and payload are validated.',
+        'Inbound record fields are inert data: accessors are rejected without execution and prototype-named JSON keys remain own data properties.',
         'A repeated identical operation id returns the recorded deterministic outcome without mutation.',
         'A repeated operation id with different content is rejected as an identity collision.',
         'A locally published operation is recorded in the instance outcome registry before transport so its own replay is a duplicate.',
@@ -705,6 +706,7 @@
       ],
       conditions: [
         'Presence includes only app-selected identity, cursor, selection, viewport, tool, editing, and heartbeat metadata.',
+        'Awareness records reject accessors without execution and preserve prototype-named JSON keys as inert own data properties.',
         'Remote state is removed on disconnect, explicit leave, or timeout.',
         'Awareness cannot authorize a canonical mutation and does not enter document undo/redo.'
       ],

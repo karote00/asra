@@ -201,6 +201,49 @@ describe('ephemeral awareness ownership', () => {
     ).toBe(true)
   })
 
+  it('preserves prototype-named JSON keys as inert awareness data', () => {
+    const runtime = new AwarenessRuntime({ actorId: 'actor-local' })
+    const identity = JSON.parse(
+      '{"__proto__":{"claimedPermission":"write"},"displayName":"Asa"}'
+    ) as Record<string, never>
+
+    expect(
+      runtime.applyRemote({
+        actorId: 'actor-remote',
+        clock: 1,
+        state: { identity }
+      })
+    ).toBe(true)
+
+    const cloned = runtime.getRemote('actor-remote')?.state.identity as Record<
+      string,
+      unknown
+    >
+    expect(Object.getPrototypeOf(cloned)).toBe(Object.prototype)
+    expect(Object.prototype.hasOwnProperty.call(cloned, '__proto__')).toBe(true)
+    expect(cloned.__proto__).toEqual({ claimedPermission: 'write' })
+    expect('claimedPermission' in cloned).toBe(false)
+  })
+
+  it('rejects accessor-backed awareness data without executing it', () => {
+    const runtime = new AwarenessRuntime({ actorId: 'actor-local' })
+    const getter = vi.fn(() => 'Asa')
+    const identity = {}
+    Object.defineProperty(identity, 'displayName', {
+      enumerable: true,
+      get: getter
+    })
+
+    expect(() =>
+      runtime.updateLocal({ identity: identity as never })
+    ).toThrowError(
+      expect.objectContaining<Partial<AwarenessValidationError>>({
+        code: 'invalid-state'
+      })
+    )
+    expect(getter).not.toHaveBeenCalled()
+  })
+
   it('never writes Y.Doc, persistence, transaction, or permission state', () => {
     const yDoc = new Y.Doc()
     const persistence = { append: vi.fn() }

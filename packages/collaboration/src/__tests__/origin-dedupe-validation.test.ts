@@ -180,6 +180,50 @@ describe('remote origin, dedupe, protocol, and payload validation', () => {
     ).toEqual(expect.objectContaining({ code: 'invalid-payload' }))
   })
 
+  it('preserves prototype-named JSON keys as data without inherited payload authority', () => {
+    const nested = JSON.parse(
+      '{"__proto__":{"claimedPermission":"write"},"label":"safe"}'
+    ) as Record<string, unknown>
+
+    const result = validateRemoteOperation({
+      decoded: envelope({
+        payload: { id: 'node-a', value: 1, nested }
+      }),
+      ...setup()
+    })
+
+    expect(result.status).toBe('validated')
+    if (result.status !== 'validated') throw new Error('expected validation')
+    const cloned = (
+      result.envelope.payload as { nested: Record<string, unknown> }
+    ).nested
+    expect(Object.getPrototypeOf(cloned)).toBe(Object.prototype)
+    expect(Object.prototype.hasOwnProperty.call(cloned, '__proto__')).toBe(true)
+    expect(cloned.__proto__).toEqual({ claimedPermission: 'write' })
+    expect(
+      Object.prototype.hasOwnProperty.call(cloned, 'claimedPermission')
+    ).toBe(false)
+    expect('claimedPermission' in cloned).toBe(false)
+  })
+
+  it('rejects accessor-backed envelope fields without executing them', () => {
+    const getter = vi.fn(() => ({ id: 'node-a', value: 1 }))
+    const decoded = envelope() as Record<string, unknown>
+    Object.defineProperty(decoded, 'payload', {
+      enumerable: true,
+      get: getter
+    })
+
+    expect(validateRemoteOperation({ decoded, ...setup() })).toEqual(
+      expect.objectContaining({
+        status: 'rejected',
+        owner: 'validation',
+        code: 'malformed-envelope'
+      })
+    )
+    expect(getter).not.toHaveBeenCalled()
+  })
+
   it('validates exact compensation metadata', () => {
     const valid = validateRemoteOperation({
       decoded: envelope({

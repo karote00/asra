@@ -180,7 +180,14 @@ const cloneJsonValue = (
   seen.add(value)
 
   if (Array.isArray(value)) {
-    const result = value.map((item) => cloneJsonValue(item, seen))
+    const result: unknown[] = []
+    for (let index = 0; index < value.length; index += 1) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, index)
+      if (!descriptor || !('value' in descriptor)) {
+        throw new Error('array must contain data values')
+      }
+      result.push(cloneJsonValue(descriptor.value, seen))
+    }
     seen.delete(value)
     return result
   }
@@ -193,7 +200,13 @@ const cloneJsonValue = (
     if (typeof key !== 'string') throw new Error('symbol key')
     const descriptor = Object.getOwnPropertyDescriptor(value, key)
     if (!descriptor?.enumerable) continue
-    result[key] = cloneJsonValue(Reflect.get(value, key), seen)
+    if (!('value' in descriptor)) throw new Error('accessor value')
+    Object.defineProperty(result, key, {
+      value: cloneJsonValue(descriptor.value, seen),
+      enumerable: true,
+      configurable: true,
+      writable: true
+    })
   }
   seen.delete(value)
   return result
@@ -213,14 +226,25 @@ const freezeDeep = <T>(value: T, seen = new WeakSet<object>()): T => {
 const stableSerialize = (value: unknown): string => {
   if (value === null || typeof value !== 'object') return JSON.stringify(value)
   if (Array.isArray(value)) {
-    return `[${value.map((item) => stableSerialize(item)).join(',')}]`
+    const items: string[] = []
+    for (let index = 0; index < value.length; index += 1) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, index)
+      if (!descriptor || !('value' in descriptor)) {
+        throw new Error('array must contain data values')
+      }
+      items.push(stableSerialize(descriptor.value))
+    }
+    return `[${items.join(',')}]`
   }
   return `{${Object.keys(value)
     .sort()
-    .map(
-      (key) =>
-        `${JSON.stringify(key)}:${stableSerialize(Reflect.get(value, key))}`
-    )
+    .map((key) => {
+      const descriptor = Object.getOwnPropertyDescriptor(value, key)
+      if (!descriptor || !('value' in descriptor)) {
+        throw new Error('object must contain data values')
+      }
+      return `${JSON.stringify(key)}:${stableSerialize(descriptor.value)}`
+    })
     .join(',')}}`
 }
 
@@ -228,7 +252,9 @@ const stringField = (
   candidate: Record<string, unknown>,
   field: string
 ): string | undefined => {
-  const value = candidate[field]
+  const descriptor = Object.getOwnPropertyDescriptor(candidate, field)
+  const value =
+    descriptor && 'value' in descriptor ? descriptor.value : undefined
   return typeof value === 'string' && value.trim() ? value : undefined
 }
 
@@ -239,7 +265,14 @@ const basicEnvelope = (
     return rejection('malformed-envelope')
   }
   const candidate = decoded as Record<string, unknown>
-  if (Object.keys(candidate).some((key) => !requiredKeys.has(key))) {
+  const candidateKeys = Reflect.ownKeys(candidate)
+  if (
+    candidateKeys.some((key) => {
+      if (typeof key !== 'string' || !requiredKeys.has(key)) return true
+      const descriptor = Object.getOwnPropertyDescriptor(candidate, key)
+      return !descriptor?.enumerable || !('value' in descriptor)
+    })
+  ) {
     return rejection('malformed-envelope')
   }
 
@@ -258,24 +291,31 @@ const basicEnvelope = (
 
   let payload: unknown
   try {
-    payload = cloneJsonValue(candidate.payload)
+    payload = cloneJsonValue(
+      Object.getOwnPropertyDescriptor(candidate, 'payload')?.value
+    )
   } catch {
     return rejection('invalid-payload', operationId)
   }
+
+  const dataField = (field: string): unknown =>
+    Object.getOwnPropertyDescriptor(candidate, field)?.value
 
   return {
     operationId,
     transactionId,
     documentId,
     actorId,
-    protocolVersion: candidate.protocolVersion as 1,
-    schemaVersion: candidate.schemaVersion as number,
-    origin: candidate.origin as SharedOperationOrigin,
+    protocolVersion: dataField('protocolVersion') as 1,
+    schemaVersion: dataField('schemaVersion') as number,
+    origin: dataField('origin') as SharedOperationOrigin,
     channel,
     eventName,
     payload,
-    ...(candidate.compensatesOperationId !== undefined
-      ? { compensatesOperationId: candidate.compensatesOperationId as string }
+    ...(dataField('compensatesOperationId') !== undefined
+      ? {
+          compensatesOperationId: dataField('compensatesOperationId') as string
+        }
       : {})
   }
 }

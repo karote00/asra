@@ -110,7 +110,17 @@ const cloneAwarenessValue = (
   seen.add(value)
 
   if (Array.isArray(value)) {
-    const result = value.map((item) => cloneAwarenessValue(item, seen))
+    const result: AwarenessValue[] = []
+    for (let index = 0; index < value.length; index += 1) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, index)
+      if (!descriptor || !('value' in descriptor)) {
+        throw new AwarenessValidationError(
+          'invalid-state',
+          '[collaboration] awareness arrays must contain data values'
+        )
+      }
+      result.push(cloneAwarenessValue(descriptor.value, seen))
+    }
     seen.delete(value)
     return result
   }
@@ -131,7 +141,18 @@ const cloneAwarenessValue = (
     }
     const descriptor = Object.getOwnPropertyDescriptor(value, key)
     if (!descriptor?.enumerable) continue
-    result[key] = cloneAwarenessValue(Reflect.get(value, key), seen)
+    if (!('value' in descriptor)) {
+      throw new AwarenessValidationError(
+        'invalid-state',
+        '[collaboration] awareness accessors are not supported'
+      )
+    }
+    Object.defineProperty(result, key, {
+      value: cloneAwarenessValue(descriptor.value, seen),
+      enumerable: true,
+      configurable: true,
+      writable: true
+    })
   }
   seen.delete(value)
   return result

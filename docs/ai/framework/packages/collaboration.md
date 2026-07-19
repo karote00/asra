@@ -81,6 +81,11 @@ Inbound binary is staged against a detached Y.Doc before integration. A
 malformed, non-operation, non-append, or undecodable update is rejected without
 changing the instance-owned Y.Doc.
 
+Inbound operation and Awareness records are treated as inert JSON data.
+Enumerable accessors are rejected without execution, while prototype-named
+JSON keys are preserved as own data properties rather than changing a clone's
+prototype.
+
 Remote Factory transactions are rollbackable, excluded from ordinary local
 undo history, and suppress new shared publication. Local action, automation,
 undo, redo, and rollback-compensation origins remain explicit in the envelope.

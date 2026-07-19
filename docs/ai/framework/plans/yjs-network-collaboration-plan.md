@@ -117,7 +117,8 @@ End-state:
 - Awareness is a separate ephemeral observational route. It is excluded from
   Y.Doc document operations, Core save/load, collaboration update persistence,
   and ordinary undo/redo; it grants no mutation permission and can be removed
-  on disconnect or timeout.
+  on disconnect or timeout. Its nested records follow the same inert-data
+  boundary as operation payloads.
 - Provider transport, local/offline collaboration update persistence, runtime
   commit, network send/convergence, and durable server acknowledgement are
   separate observable states. Failure in a later state does not retroactively
@@ -136,6 +137,8 @@ End-state:
 - The stable shared operation envelope includes operation id, transaction id,
   document id, actor id, protocol version, schema version, origin, channel,
   event name, typed/validated payload, and an optional compensated operation id.
+  Inbound records are inert JSON data: accessors are rejected without execution
+  and prototype-named keys remain own data properties.
 - The provider adapter exposes connection lifecycle/status, room/auth
   composition, binary update send/receive, state-vector synchronization,
   awareness send/receive, durable acknowledgement observation, and disposal.
