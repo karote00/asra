@@ -570,28 +570,33 @@ class RenderSceneTree {
     this.pendingElementUpdates.delete(elementId)
     this.computedDataMirror.delete(elementId)
 
+    let entry: ComputedDataMirrorEntry | null
     try {
-      const entry = this.computedDataMirror.seed(elementId, 'resync')
-      if (!entry) {
-        emitStrokePipelineCounter('computed-mirror-resync-removed')
-        this.releaseProjectedElement(elementId)
-        return this.projectionOutcome(elementId, 'removed')
-      }
-
-      emitStrokePipelineCounter('computed-mirror-resync-success')
-      if (render.getElementById(elementId)) {
-        this.pendingElementUpdates.add(elementId)
-        this.scheduleFlush()
-      } else {
-        this.addElement(entry.renderDataSnapshot)
-      }
-      return this.projectionOutcome(elementId, 'resynced')
+      entry = this.computedDataMirror.seed(elementId, 'resync')
     } catch {
       emitStrokePipelineCounter('computed-mirror-resync-failed')
       this.releaseProjectedElement(elementId)
       this.computedDataMirror.delete(elementId)
       return this.projectionOutcome(elementId, 'failed')
     }
+
+    if (!entry) {
+      emitStrokePipelineCounter('computed-mirror-resync-removed')
+      this.releaseProjectedElement(elementId)
+      return this.projectionOutcome(elementId, 'removed')
+    }
+
+    try {
+      this.addElement(entry.renderDataSnapshot)
+    } catch {
+      emitStrokePipelineCounter('computed-mirror-resync-failed')
+      this.releaseProjectedElement(elementId)
+      this.computedDataMirror.delete(elementId)
+      return this.projectionOutcome(elementId, 'failed')
+    }
+
+    emitStrokePipelineCounter('computed-mirror-resync-success')
+    return this.projectionOutcome(elementId, 'resynced')
   }
 
   addElementById(id: string) {

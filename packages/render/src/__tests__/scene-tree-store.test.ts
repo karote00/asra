@@ -331,11 +331,7 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(outcome).toEqual({ status: 'resynced', elementId: 'vector-1' })
     expect(element.save).toHaveBeenCalledTimes(1)
     expect(element.getAllComputedData).toHaveBeenCalledTimes(1)
-    expect(renderMock.updateElement).toHaveBeenCalledWith(
-      'vector-1',
-      'computed',
-      undefined,
-      undefined,
+    expect(renderMock.addElement).toHaveBeenCalledWith(
       expect.objectContaining({ points: { p1: { x: 1, y: 1 } } })
     )
   })
@@ -371,6 +367,43 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(renderMock.updateElement).not.toHaveBeenCalled()
   })
 
+  it('should run: fail a resync when rebuilding an existing visual fails', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: { p1: { x: 0, y: 0 } } }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+    element.getAllComputedData.mockReturnValue({
+      points: { p1: { x: 10, y: 12 } }
+    })
+    renderMock.addElement.mockReturnValueOnce(undefined)
+
+    const outcome = store.updateElement(
+      'vector-1',
+      'computed',
+      'points',
+      { stale: true },
+      { p1: { x: 10, y: 12 } },
+      { undoable: false }
+    )
+
+    expect(outcome).toEqual({ status: 'failed', elementId: 'vector-1' })
+    expect(renderMock.addElement).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'vector-1',
+        points: { p1: { x: 10, y: 12 } }
+      })
+    )
+    expect(renderMock.removeElement).toHaveBeenCalledWith('vector-1')
+    expect(renderMock.updateElement).not.toHaveBeenCalled()
+    expect(store.getProjectionSnapshotCount()).toBe(0)
+    expect(store.hasPendingChanges()).toBe(false)
+  })
+
   it('should run: reject a scalar before mismatch without mutating the published snapshot', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
@@ -399,11 +432,7 @@ describe('RenderSceneTree computed data mirror', () => {
       expect.objectContaining({ points: { p1: { x: 0, y: 0 } } })
     )
     expect(outcome).toEqual({ status: 'resynced', elementId: 'vector-1' })
-    expect(renderMock.updateElement).toHaveBeenCalledWith(
-      'vector-1',
-      'computed',
-      undefined,
-      undefined,
+    expect(renderMock.addElement).toHaveBeenCalledWith(
       expect.objectContaining({ points: { p1: { x: 10, y: 12 } } })
     )
   })
@@ -530,11 +559,7 @@ describe('RenderSceneTree computed data mirror', () => {
       })
     )
     expect(outcome).toEqual({ status: 'resynced', elementId: 'vector-1' })
-    expect(renderMock.updateElement).toHaveBeenCalledWith(
-      'vector-1',
-      'computed',
-      undefined,
-      undefined,
+    expect(renderMock.addElement).toHaveBeenCalledWith(
       expect.objectContaining({
         points: { p1: { x: 10, y: 12 } },
         segments: { s1: { startId: 'p1' } }
@@ -614,11 +639,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
     expect(outcome).toEqual({ status: 'resynced', elementId: 'vector-1' })
     expect(element.getAllComputedData).toHaveBeenCalledTimes(2)
-    expect(renderMock.updateElement).toHaveBeenCalledWith(
-      'vector-1',
-      'computed',
-      undefined,
-      undefined,
+    expect(renderMock.addElement).toHaveBeenCalledWith(
       expect.objectContaining({ pointCoordinateSpace: 'workspace' })
     )
   })
@@ -656,7 +677,7 @@ describe('RenderSceneTree computed data mirror', () => {
     )
     await flushScheduledFrame()
 
-    const snapshot = renderMock.updateElement.mock.calls.at(-1)?.[4] as
+    const snapshot = renderMock.addElement.mock.calls.at(-1)?.[0] as
       | Record<string, unknown>
       | undefined
     expect(outcome).toEqual({ status: 'resynced', elementId: 'vector-1' })
@@ -699,11 +720,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
     expect(publishedSnapshot).not.toHaveProperty('points')
     expect(outcome).toEqual({ status: 'resynced', elementId: 'vector-1' })
-    expect(renderMock.updateElement).toHaveBeenCalledWith(
-      'vector-1',
-      'computed',
-      undefined,
-      undefined,
+    expect(renderMock.addElement).toHaveBeenCalledWith(
       expect.objectContaining({
         points: { p1: { id: 'p1', x: 0, y: 0 } }
       })
