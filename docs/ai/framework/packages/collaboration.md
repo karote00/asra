@@ -93,6 +93,10 @@ Enumerable accessors are rejected without execution, while prototype-named
 JSON keys are preserved as own data properties rather than changing a clone's
 prototype.
 
+Registered payload validators are fail-closed per operation: an exception
+produces an invalid-payload or invalid-repair rejection without aborting later
+operations decoded from the same update.
+
 Remote Factory transactions route nested reactive transaction calls to the
 instance's intended Factory, force every remote mutation to remain rollbackable,
 exclude those mutations from ordinary local undo history, and suppress new

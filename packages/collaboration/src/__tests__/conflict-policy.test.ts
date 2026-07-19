@@ -13,22 +13,23 @@ interface Payload {
   parentId?: string
 }
 
+const isPayload = (payload: unknown): payload is Payload => {
+  if (!payload || typeof payload !== 'object') return false
+  const candidate = payload as Partial<Payload>
+  return (
+    typeof candidate.entityId === 'string' &&
+    typeof candidate.value === 'number' &&
+    (candidate.parentId === undefined || typeof candidate.parentId === 'string')
+  )
+}
+
 const registry = () =>
   new OperationRegistry([
     {
       channel: 'scene',
       eventName: 'set-value',
       schemaVersion: 1,
-      validate: (payload): payload is Payload => {
-        if (!payload || typeof payload !== 'object') return false
-        const candidate = payload as Partial<Payload>
-        return (
-          typeof candidate.entityId === 'string' &&
-          typeof candidate.value === 'number' &&
-          (candidate.parentId === undefined ||
-            typeof candidate.parentId === 'string')
-        )
-      }
+      validate: isPayload
     }
   ])
 
@@ -190,6 +191,45 @@ describe('permission and conflict policy pipeline', () => {
         status: 'rejected',
         owner: 'framework',
         policyId: 'framework:hierarchy-membership-order',
+        code: 'invalid-repair'
+      })
+    )
+  })
+
+  it('contains a validator error while revalidating a repaired payload', async () => {
+    const operationRegistry = new OperationRegistry([
+      {
+        channel: 'scene',
+        eventName: 'set-value',
+        schemaVersion: 1,
+        validate: (payload): payload is Payload => {
+          if ((payload as Partial<Payload> | null)?.value === 2) {
+            throw new Error('repair validator failed')
+          }
+          return isPayload(payload)
+        }
+      }
+    ])
+    const instance = createConflictPolicyPipeline({
+      operationRegistry,
+      permissionPolicy: () => true,
+      frameworkInvariants: {},
+      appPolicies: [
+        {
+          id: 'repair-to-throwing-value',
+          decide: () => ({
+            decision: 'repair',
+            payload: { entityId: 'node-a', value: 2 }
+          })
+        }
+      ]
+    })
+
+    expect(await instance.decide(operation())).toEqual(
+      expect.objectContaining({
+        status: 'rejected',
+        owner: 'app',
+        policyId: 'repair-to-throwing-value',
         code: 'invalid-repair'
       })
     )

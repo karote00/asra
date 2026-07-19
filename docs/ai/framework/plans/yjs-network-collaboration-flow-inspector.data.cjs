@@ -410,6 +410,7 @@
       conditions: [
         'Document id, actor id, operation id, transaction id, origin, protocol version, schema version, channel, event name, and payload are validated.',
         'Inbound record fields are inert data: accessors are rejected without execution and prototype-named JSON keys remain own data properties.',
+        'A payload validator exception rejects only that operation and cannot abort later operations decoded from the same update.',
         'A repeated identical operation id returns the recorded deterministic outcome without mutation.',
         'A repeated operation id with different content is rejected as an identity collision.',
         'A locally published operation is recorded in the instance outcome registry before transport so its own replay is a duplicate.',
@@ -466,7 +467,7 @@
         'Permission runs before conflict resolution and never derives authority from awareness.',
         'Framework invariant policies cannot be replaced or overridden by an app policy.',
         'App policies run in deterministic registration order only after framework invariants pass.',
-        'A repair is revalidated against the registered operation payload before apply.',
+        'A repair is revalidated against the registered operation payload before apply, and a validator exception becomes an invalid-repair rejection.',
         'Accept, repair, reject, and not-applicable outcomes are deterministic for the same operation and policy set.'
       ],
       bypasses: [

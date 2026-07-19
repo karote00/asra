@@ -180,6 +180,49 @@ describe('remote origin, dedupe, protocol, and payload validation', () => {
     ).toEqual(expect.objectContaining({ code: 'invalid-payload' }))
   })
 
+  it('contains a throwing payload validator so a following operation can continue', () => {
+    const registry = new OperationRegistry([
+      {
+        ...definition,
+        validate: (
+          payload: unknown
+        ): payload is { id: string; value: number } => {
+          if ((payload as { id?: unknown } | null)?.id === 'throw') {
+            throw new Error('validator failed')
+          }
+          return definition.validate(payload)
+        }
+      }
+    ])
+    const outcomes = new OperationOutcomeRegistry()
+    const context = { registry, outcomes, documentId: 'document-a' }
+
+    expect(
+      validateRemoteOperation({
+        decoded: envelope({
+          operationId: 'actor-a:session-a:1:throw',
+          payload: { id: 'throw', value: 1 }
+        }),
+        ...context
+      })
+    ).toEqual(
+      expect.objectContaining({
+        status: 'rejected',
+        owner: 'validation',
+        code: 'invalid-payload'
+      })
+    )
+    expect(
+      validateRemoteOperation({
+        decoded: envelope({
+          operationId: 'actor-a:session-a:1:following',
+          payload: { id: 'following', value: 2 }
+        }),
+        ...context
+      }).status
+    ).toBe('validated')
+  })
+
   it('preserves prototype-named JSON keys as data without inherited payload authority', () => {
     const nested = JSON.parse(
       '{"__proto__":{"claimedPermission":"write"},"label":"safe"}'

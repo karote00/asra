@@ -391,7 +391,13 @@ export const validateRemoteOperation = ({
   if (candidate.schemaVersion !== definition.schemaVersion) {
     return rejection('unsupported-schema', candidate.operationId)
   }
-  if (!definition.validate(candidate.payload)) {
+  let validPayload: boolean
+  try {
+    validPayload = definition.validate(candidate.payload)
+  } catch {
+    validPayload = false
+  }
+  if (!validPayload) {
     return rejection('invalid-payload', candidate.operationId)
   }
 

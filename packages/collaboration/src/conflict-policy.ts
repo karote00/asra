@@ -276,7 +276,13 @@ export class ConflictPolicyPipeline {
         envelope.channel,
         envelope.eventName
       )
-      if (!definition?.validate(payload)) {
+      let validRepair = false
+      try {
+        validRepair = definition?.validate(payload) === true
+      } catch {
+        validRepair = false
+      }
+      if (!validRepair) {
         return reject(
           policy.owner,
           'invalid-repair',
