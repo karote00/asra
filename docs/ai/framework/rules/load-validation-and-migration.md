@@ -10,7 +10,7 @@
 1. read raw document
 2. run app-level migration hooks in order
 3. run package-level validation/fallback
-4. apply validated runtime state
+4. return each owner-issued validated artifact to its package apply facade
 5. optionally emit diagnostics
 
 ## Validation Semantics
@@ -25,5 +25,16 @@
 
 - Migration functions should be pure and deterministic.
 - Prefer one-step migrations (`vN -> vN+1`) over big jump converters.
+- Register synchronous app hooks in declared step order. Missing and unsupported
+  versions are app-policy failures; each successful step must return its declared
+  next version. Core snapshots the chain before each load. Promise results are
+  not supported by the synchronous Core load contract.
+- Package validation results are instance-bound, one-shot artifacts. Plain,
+  foreign, or reused results cannot be applied, and artifact apply never reruns
+  validators.
 - No package-internal version branching for app document history.
 - UI parser/formatter is UX only, never correctness authority.
+
+Reusable app-owned example:
+
+- `docs/examples/app-owned-versioned-load-migration.mjs`

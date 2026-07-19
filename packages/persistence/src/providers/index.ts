@@ -20,7 +20,7 @@ export class LocalStoragePersistence implements IPersistenceProvider {
     }
   }
 
-  async load(): Promise<CoreRawData | null> {
+  async load(): Promise<unknown | null> {
     try {
       const serialized = localStorage.getItem(this.storageKey)
       if (!serialized) {

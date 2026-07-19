@@ -219,6 +219,11 @@ export type {
   LoadValidationDiagnostic,
   LoadValidationScope
 } from './types/load-validation'
+export {
+  LOAD_HOOK_EXECUTION_ERROR_CODES,
+  LoadHookExecutionError
+} from './types/load-migration'
+export type { LoadHookExecutionErrorCode } from './types/load-migration'
 type CoreBasicApiKeys =
   | 'setRenderer'
   | 'destroyRenderer'

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>App-level Migration Inspector</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        background: #101418;
+        color: #e5edf5;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+      }
+      header {
+        max-width: 1100px;
+        margin: 0 auto 24px;
+      }
+      h1 {
+        margin-bottom: 6px;
+      }
+      a {
+        color: #59b7ff;
+      }
+      #flow {
+        max-width: 1100px;
+        margin: 0 auto;
+        display: grid;
+        gap: 16px;
+      }
+      .inventory {
+        max-width: 1100px;
+        margin: 24px auto 0;
+        border: 1px solid #334155;
+        border-radius: 14px;
+        padding: 16px;
+        background: #151b22;
+      }
+      .inventory-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 12px;
+      }
+      .inventory-card {
+        border-left: 3px solid #59b7ff;
+        padding-left: 12px;
+      }
+      .lane {
+        border: 1px solid #334155;
+        border-radius: 14px;
+        padding: 16px;
+        background: #151b22;
+      }
+      .lane h2 {
+        margin-top: 0;
+        font-size: 16px;
+        color: #9caab8;
+      }
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+      }
+      button {
+        width: 100%;
+        min-height: 150px;
+        text-align: left;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 14px;
+        color: inherit;
+        background: #1d2530;
+      }
+      button:hover,
+      button:focus {
+        border-color: #59b7ff;
+      }
+      .owner {
+        color: #7bd88f;
+      }
+      dialog {
+        width: min(760px, calc(100vw - 48px));
+        border: 1px solid #334155;
+        border-radius: 14px;
+        color: inherit;
+        background: #151b22;
+      }
+      dialog::backdrop {
+        background: rgb(0 0 0 / 70%);
+      }
+      .section {
+        margin-top: 16px;
+      }
+      .section h3 {
+        margin-bottom: 6px;
+        font-size: 14px;
+        color: #f6c85f;
+      }
+      .close {
+        min-height: auto;
+        width: auto;
+        float: right;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1 id="title">App-level Migration Inspector</h1>
+      <p id="subtitle"></p>
+      <a href="./completed/props-manager-app-level-migration-plan.md">Product contract</a>
+    </header>
+    <main id="flow"></main>
+    <section class="inventory">
+      <h2>Routes</h2>
+      <div class="inventory-grid" id="routes"></div>
+    </section>
+    <section class="inventory">
+      <h2>Artifacts</h2>
+      <div class="inventory-grid" id="artifacts"></div>
+    </section>
+    <dialog id="detail">
+      <button class="close" autofocus>Close</button>
+      <div id="detail-body"></div>
+    </dialog>
+    <script src="./app-level-migration-flow-inspector.data.cjs"></script>
+    <script>
+      const data = globalThis.FLOW_INSPECTOR_DATA
+      if (!data || data.schema?.id !== 'asyra.flow-inspector')
+        throw new Error('Missing App-level Migration Inspector data')
+      document.querySelector('#title').textContent = data.target.title
+      document.querySelector('#subtitle').textContent = data.target.subtitle
+      const flow = document.querySelector('#flow')
+      const routes = document.querySelector('#routes')
+      const artifacts = document.querySelector('#artifacts')
+      const detail = document.querySelector('#detail')
+      const detailBody = document.querySelector('#detail-body')
+      const escapeHtml = (value) =>
+        String(value)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+      const section = (title, values) =>
+        `<div class="section"><h3>${escapeHtml(title)}</h3><ul>${values.map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul></div>`
+      ;[...data.lanes]
+        .sort((a, b) => a.order - b.order)
+        .forEach((lane) => {
+          const node = document.createElement('section')
+          node.className = 'lane'
+          const steps = data.steps
+            .filter((step) => step.laneId === lane.id)
+            .sort((a, b) => a.order - b.order)
+          node.innerHTML = `<h2>${escapeHtml(lane.title)}</h2><div class="steps">${steps.map((step) => `<button data-step="${escapeHtml(step.id)}"><strong>${escapeHtml(step.title)}</strong><p class="owner">${escapeHtml(step.ownerPackage)}</p><span>${escapeHtml(step.purpose)}</span></button>`).join('')}</div>`
+          flow.appendChild(node)
+        })
+      routes.innerHTML = data.routes
+        .map(
+          (route) =>
+            `<article class="inventory-card"><strong>${escapeHtml(route.id)}</strong><p>${escapeHtml(route.from)} → ${escapeHtml(route.to ?? 'terminal')}</p><span>${escapeHtml(route.predicate)}</span></article>`
+        )
+        .join('')
+      artifacts.innerHTML = data.artifacts
+        .map(
+          (artifact) =>
+            `<article class="inventory-card"><strong>${escapeHtml(artifact.id)}</strong><p>${escapeHtml(artifact.title)}</p><span>Owner: ${escapeHtml(artifact.ownerStepId)} · ${artifact.terminal ? 'terminal' : 'handoff'}</span></article>`
+        )
+        .join('')
+      flow.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-step]')
+        if (!button) return
+        const step = data.steps.find((item) => item.id === button.dataset.step)
+        detailBody.innerHTML = `<h2>${escapeHtml(step.title)}</h2><p>${escapeHtml(step.purpose)}</p>${section('Inputs', step.inputs)}${section('Outputs', step.outputs)}${section('Conditions', step.conditions)}${section('Bypasses', step.bypasses)}${section('Allowed contributors', step.allowedContributors)}${section('Forbidden contributors', step.forbiddenContributors)}${section('Implementation boundary', step.implementationBoundary)}${section('Specification references', step.specRefs)}${section('Failure owner', [step.failureOwnerStepId])}`
+        detail.showModal()
+      })
+      detail
+        .querySelector('.close')
+        .addEventListener('click', () => detail.close())
+    </script>
+  </body>
+</html>

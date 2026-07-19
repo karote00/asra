@@ -31,6 +31,10 @@ Own global runtime state for modes and interaction/system flags.
 - read managed property observable
 - set managed property value through API path
 - load managed property snapshot with registration/type guards
+- validate a managed property snapshot without mutating runtime state, then
+  apply the complete owner-issued artifact through a separate owner API;
+  fabricated/foreign/reused artifacts fail before mutation and the apply stage
+  does not rerun validators
 - save managed property snapshot for persistence
 - control persistence per property via registration option:
   - `runtime: true` (default) => runtime-only, not persisted
@@ -43,3 +47,7 @@ Own global runtime state for modes and interaction/system flags.
 - State changes propagate to subscribers predictably.
 - Runtime set rejects values that fail the managed-property validator.
 - Load ignores unregistered or invalid managed-property values and keeps initialized safe defaults.
+- Core can obtain the complete managed-property validation result before any
+  package state apply begins; applying that result remains System Context-owned
+  and does not repeat validation after other package apply begins. Artifact
+  identity and managed-property registration identity are instance-bound.

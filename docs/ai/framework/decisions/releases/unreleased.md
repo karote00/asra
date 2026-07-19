@@ -1505,3 +1505,48 @@ unregister -> app migration -> core.start()` as the public app route.
   - `docs/ai/framework/plans/auto-layout-behavior-engine-plan.md`
 - Related Commit(s):
   - pending
+
+## 2026-07-19 - Formalize app-level migration and close Framework Release Gate 1
+
+- Context:
+  - The Gate 1 audit began from PR #89 merged into the latest `main` and
+    confirmed that Core already provided `registerLoadHook(...)`, ordered load
+    hooks, package validation before canonical apply, provider/direct load
+    convergence, and observational load diagnostics.
+  - Formal Inspector routes and regression tests exposed bounded gaps in raw
+    input semantics, async-result rejection, validation artifact authority,
+    diagnostics containment, and instance isolation. They did not justify a
+    second migration pipeline or a framework-owned app schema history.
+- Decision:
+  - Close Framework Release Gate 1 and archive its product contract at the
+    completed canonical path.
+  - Keep apps as owners of document versions and domain `vN -> vN+1`
+    transforms. Keep Core as owner only of hook orchestration, package
+    validation/fallback, canonical apply ordering, and observational
+    diagnostics.
+  - Keep one synchronous load pipeline for direct `core.load(...)` and
+    persistence-provider loads: nullish bypass or raw document, ordered app
+    hooks, all package validation, canonical apply, then diagnostics.
+- Consequences:
+  - Public `VersionedLoadDocument` and stable load-hook failures define the
+    synchronous boundary; Promise-like and structurally invalid hook results
+    fail before package validation or partial canonical apply.
+  - Owner-issued, instance-bound validation artifacts prevent forged,
+    cross-instance, reused, or post-validation-mutated results from bypassing
+    package validation. Hook and diagnostics registrations remain isolated per
+    Core instance.
+  - Diagnostics evidence is detached, lazily assembled only after successful
+    canonical apply, and fully failure-contained; it cannot change migration,
+    validation, or apply outcomes.
+  - No app-specific version branch, UI migration authority, duplicate state
+    owner, or compatibility fallback was added to framework packages.
+  - Release Gate 2 (Yjs) is next in sequence but may begin implementation only
+    after its own product contract and Inspector pass readiness review. This
+    closeout does not authorize push, pull request creation, merge, release, or
+    publication.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/props-manager-app-level-migration-plan.md`
+  - `docs/ai/framework/plans/app-level-migration-flow-inspector.data.cjs`
+  - `docs/ai/framework/PLANS.md`
+- Related Commit(s):
+  - pending local closeout commit

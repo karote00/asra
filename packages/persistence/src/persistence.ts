@@ -23,9 +23,9 @@ export interface IPersistenceProvider {
 
   /**
    * Load data from persistence layer
-   * @returns Saved data or null if no saved data exists
+   * @returns Raw saved data, or a nullish value if no saved data exists
    */
-  load(): Promise<CoreRawData | null>
+  load(): Promise<unknown | null>
 
   /**
    * Clear all persisted data

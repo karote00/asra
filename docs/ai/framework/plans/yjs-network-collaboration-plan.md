@@ -2,8 +2,9 @@
 
 ## Status
 
-Framework Release Gate 2: required after the app-level migration pipeline
-formalization and closeout.
+Framework Release Gate 2: next after the completed app-level migration pipeline
+formalization and closeout. This plan has not started implementation; its
+product contract and dedicated Inspector must pass readiness first.
 
 Network collaboration remains unimplemented today, but it is no longer a
 post-release deferred capability. The first public Asyra Framework release must

@@ -1390,6 +1390,47 @@ describe('SceneTree', () => {
     ])
   })
 
+  it('applies only its own one-shot validated artifact without rerunning validation', () => {
+    const validation = sceneTree.validateLoadData({
+      workspace: '',
+      workspaceList: [],
+      elements: {
+        'rect-1': {
+          id: 'rect-1',
+          type: 'rect',
+          name: 'Rect',
+          visible: true,
+          lock: false
+        }
+      }
+    })
+    const foreignSceneTree = new SceneTree()
+    const forged = {
+      data: validation.data,
+      diagnostics: validation.diagnostics
+    }
+
+    validation.data.elements['rect-1'].type = 'unknown-after-validation'
+    sceneTree.validateLoadData = vi.fn(() => {
+      throw new Error('validation must not rerun during apply')
+    })
+
+    expect(() => foreignSceneTree.applyValidatedLoad(validation)).toThrow(
+      /owner-issued.*artifact/i
+    )
+    expect(() =>
+      sceneTree.applyValidatedLoad(forged as typeof validation)
+    ).toThrow(/owner-issued.*artifact/i)
+
+    sceneTree.applyValidatedLoad(validation)
+
+    expect(sceneTree.validateLoadData).not.toHaveBeenCalled()
+    expect(sceneTree.getElementById('rect-1')?.get('type')).toBe('rect')
+    expect(() => sceneTree.applyValidatedLoad(validation)).toThrow(
+      /owner-issued.*artifact/i
+    )
+  })
+
   it('load should keep valid elements and create a safe workspace when workspace metadata is invalid', () => {
     sceneTree.load({
       workspace: 123 as unknown as string,

@@ -21,6 +21,8 @@ Lifecycle and integration:
 
 - `setRenderer(renderer: IRenderer): void`
 - `setPersistence(provider: IPersistenceProvider): void`
+  - `IPersistenceProvider.load(): Promise<unknown | null>` returns raw input; a
+    resolved `null` or `undefined` means no persisted document
 - `definePropertyComponent(definition: PropertyComponentDefinition): PropertyComponentConstructor`
 - `PropertyComponentDefinition` supports:
   - constructor mode: `{ type, constructor, options? }`
@@ -95,9 +97,40 @@ Lifecycle and integration:
     reactive-event subscriptions
 - `registerSaveHook(hook: SaveHook): void`
 - `registerLoadHook(hook: LoadHook): void`
+  - `LoadHook = (data: unknown) => VersionedLoadDocument`; app code narrows raw
+    input and returns an object with a string `version`
+  - hooks are instance-local and run synchronously in registration order
+  - Core snapshots the registration chain at load start; hooks registered while
+    it runs become eligible on the next load
+  - the first hook receives the unnormalized raw document; later hooks receive
+    only the previous successful result
+  - each result must be a non-array `VersionedLoadDocument`; package fields
+    remain subject to later package-owner validation
+  - Promise results throw `LoadHookExecutionError` with
+    `ASYNC_UNSUPPORTED` while Core contains an eventual rejection; other invalid
+    results use `INVALID_RESULT`
+  - app code owns supported versions and adjacent domain transforms; Core does
+    not infer version history
 - `registerLoadDiagnosticsHook(hook: LoadDiagnosticsHook): () => void` (returns disposer/unsubscribe)
+  - runs only after successful canonical apply and only when diagnostics exist
+  - every hook receives its own detached diagnostics and detached post-apply
+    load evidence assembled from the normalized version, validated package
+    apply inputs, and applied managed-system serialization; it is not a
+    canonical state artifact or state owner
+  - Core assembles evidence only when diagnostics and an observer exist;
+    assembly failure skips emission without changing successful load outcome
+  - mutation, disposal, or throw from one hook cannot change canonical state,
+    the successful load outcome, or later hooks in the current emission
 - `start(container: HTMLElement, renderOptions: RenderOptions): Promise<void>`
-- `load(data: CoreRawData): void`
+- `load(data: unknown): void`
+  - treats every non-nullish input as raw document evidence for the app hook
+    chain; direct `null` or `undefined` is the no-document bypass
+  - runs the same synchronous hook/validation/apply path as provider-backed load
+  - obtains Props Manager, Scene Tree, and System Context validation/fallback
+    results before updating `core.version` or applying any package state
+  - returns each complete owner-issued, instance-bound, one-shot artifact to its
+    package apply facade; apply never accepts plain data or reruns validators
+  - a thrown migration hook or package validator applies no canonical prefix
 - `save(): Promise<CoreRawData>`
 - `CoreRawData.systemContext?: Record<string, unknown>` (optional managed-property snapshot)
 
@@ -231,6 +264,8 @@ Managed property bridges:
   - `registerDataChannelObserver(...)`
   - `unregisterDataChannelObserver(...)`
 - load validation types: `LoadValidationDiagnostic`, `LoadValidationScope`, `LoadDiagnosticsHook`
+- load-hook failure contract: `LoadHookExecutionError`,
+  `LoadHookExecutionErrorCode`, and `LOAD_HOOK_EXECUTION_ERROR_CODES`
 - core API tier types:
   - `CoreBasicAPIs`
   - `CoreExtensionAPIs`
@@ -377,6 +412,8 @@ Managed property bridges:
 `@asyra/props-manager`
 
 - default `propsManager` singleton, `PropsManager` class
+- load pipeline: `validateLoadData(raw)` returns an owner-issued artifact;
+  `applyValidatedLoad(result)` consumes that artifact once without revalidation
 - manager id-first helpers: `getPropertyById(propertyId)`, `updatePropertyById(propertyId, key, value, options?)`
 - registries: `elementPropertyRegistry`, `stateRegistry`
 - schema APIs: `registerPropertySchema`, `getPropertySchema`, `propertySchemaRegistry`
@@ -386,6 +423,8 @@ Managed property bridges:
 `@asyra/scene-tree`
 
 - default scene tree singleton, `SceneTree` class
+- load pipeline: `validateLoadData(raw)` returns an owner-issued artifact;
+  `applyValidatedLoad(result)` consumes that artifact once without revalidation
 - `componentRegistry`
 - `createDynamicComponent`, `createDynamicPropsClass`, `createElement`
 
@@ -400,6 +439,11 @@ Managed property bridges:
 - default `systemContext` singleton
 - `SystemContext` class
 - managed property load/save helpers: `loadManagedProperties`, `saveManagedProperties`
+- split Core orchestration helpers:
+  `validateManagedProperties(data)` returns sanitized data plus diagnostics
+  without mutation, and `applyValidatedManagedProperties(result)` consumes that
+  owner-issued artifact once; fabricated/foreign/reused results are rejected
+  before mutation and apply does not rerun validators
 - package boundary is storage/validation only; default event-to-property subscription wiring is preset-owned
 - managed-property `runtime` flag:
   - `runtime: true` (default) => runtime-only, excluded from save/load persistence

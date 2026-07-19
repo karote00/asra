@@ -680,4 +680,44 @@ describe('PropsManager', () => {
       'props.pp-invalid-type.type'
     ])
   })
+
+  it('applies only its own one-shot validated artifact without rerunning validation', () => {
+    const validation = propsManager.validateLoadData({
+      'pp-valid': {
+        id: 'pp-valid',
+        type: PropertyTypes.POSITION,
+        x: 1,
+        y: 2,
+        xUnit: Unit.PX,
+        yUnit: Unit.PX
+      }
+    })
+    const foreignManager = new PropsManager()
+    const forged = {
+      data: validation.data,
+      diagnostics: validation.diagnostics
+    }
+
+    validation.data['pp-valid'].type = 'unregistered-after-validation'
+    propsManager.validateLoadData = vi.fn(() => {
+      throw new Error('validation must not rerun during apply')
+    })
+
+    expect(() => foreignManager.applyValidatedLoad(validation)).toThrow(
+      /owner-issued.*artifact/i
+    )
+    expect(() =>
+      propsManager.applyValidatedLoad(forged as typeof validation)
+    ).toThrow(/owner-issued.*artifact/i)
+
+    propsManager.applyValidatedLoad(validation)
+
+    expect(propsManager.validateLoadData).not.toHaveBeenCalled()
+    expect(propsManager.getPropertyById('pp-valid')?.get('type')).toBe(
+      PropertyTypes.POSITION
+    )
+    expect(() => propsManager.applyValidatedLoad(validation)).toThrow(
+      /owner-issued.*artifact/i
+    )
+  })
 })

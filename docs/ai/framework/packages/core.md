@@ -145,8 +145,32 @@ System orchestrator and lifecycle coordinator.
 
 - load: app migration hooks -> package validation/fallback -> apply state
 - `registerLoadHook` pipeline runs for both persistence load and `core.load(...)`
-- package validators (`props-manager`, `scene-tree`, `system-context`) run before state apply
-- diagnostics hooks receive non-blocking validation warnings after apply
+- the first registered hook receives the raw document before Core normalization;
+  its input type is `unknown`, so app code owns narrowing and version
+  eligibility; hooks remain synchronous, instance-local, and registration
+  ordered
+- Core snapshots the instance registry before each load; registration during a
+  hook affects only later loads, never the in-flight chain
+- every hook result must satisfy `VersionedLoadDocument` (a document object with
+  a string version); package fields remain raw until the complete chain reaches
+  owner validation. Promise and invalid results throw the stable Core-owned
+  `LoadHookExecutionError`, and Core contains an eventual rejected Promise
+  behind that single synchronous failure
+- Core owns hook orchestration and result enforcement only; apps own missing,
+  unsupported, current-version, and adjacent domain-transform policy
+- package validators (`props-manager`, `scene-tree`, `system-context`) all
+  complete before Core updates the document version or applies any package state
+- each validator returns an owner-issued, instance-bound, one-shot artifact;
+  Core returns the complete artifact to the same package apply facade, which
+  rejects fabricated/foreign/reused artifacts and does not rerun validation
+- any thrown package validator stops with no canonical version or package prefix
+- diagnostics hooks receive independent detached validation warnings and
+  detached post-apply load evidence assembled from normalized/validated apply
+  inputs and applied managed-system serialization; that evidence is not a
+  canonical state artifact or state owner, and one hook's mutation, disposal,
+  or throw cannot change canonical state, load success, or later current hooks.
+  Core assembles evidence only when diagnostics and an observer exist; assembly
+  failure skips emission and preserves load success
 - save: collect package states -> compose persisted payload
 - save payload may include optional `systemContext` managed-property snapshot
   - includes only managed properties registered with `runtime: false`

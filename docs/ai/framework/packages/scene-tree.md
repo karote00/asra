@@ -69,6 +69,9 @@ Own the document entity graph and computed entity data.
 - query, remove, and define exact component-property relations through Core
 - register component-level computed defaults and normalization behavior
 - validate load payload via `validateLoadData(...)` before apply
+- consume only that Scene Tree instance's owner-issued one-shot result through
+  `applyValidatedLoad(...)`; plain/foreign/reused artifacts fail before mutation
+  and validators do not rerun during apply
 
 App-defined property fields use the same projection path as builtin fields.
 Scene Tree projects only the complete canonical result of property `getValue()`

@@ -16,6 +16,8 @@ export class SystemContext implements SystemContextAPIs {
   getManagedPropertyObservable!: ManagedPropertyStateAPIs['getManagedPropertyObservable']
   hasManagedProperty!: ManagedPropertyStateAPIs['hasManagedProperty']
   unregisterProperty!: ManagedPropertyStateAPIs['unregisterProperty']
+  validateManagedProperties!: ManagedPropertyStateAPIs['validateManagedProperties']
+  applyValidatedManagedProperties!: ManagedPropertyStateAPIs['applyValidatedManagedProperties']
   loadManagedProperties!: ManagedPropertyStateAPIs['loadManagedProperties']
   saveManagedProperties!: ManagedPropertyStateAPIs['saveManagedProperties']
 

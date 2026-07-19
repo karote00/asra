@@ -11,13 +11,6 @@ release. A release gate may begin implementation only after its product contract
 and matching Inspector owner flow satisfy
 `docs/ai/framework/rules/inspector-contract-readiness.md`.
 
-1. App-level migration pipeline formalization and closeout
-
-- Audit the existing ordered load-hook pipeline, formalize version-step and
-  failure semantics, add the reusable app migration example/template, and close
-  any remaining contract or test gap.
-- Reference: `docs/ai/framework/plans/props-manager-app-level-migration-plan.md`
-
 2. Yjs network collaboration and conflict-policy foundation
 
 - Ship optional-at-runtime, provider-replaceable CRDT collaboration as part of
