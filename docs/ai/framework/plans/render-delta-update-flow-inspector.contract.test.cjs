@@ -249,6 +249,10 @@ test('initial snapshots are explicit complete Scene Tree projections', () => {
     contract,
     /missing add.*pending update.*stale visual.*removed/i
   )
+  assert.match(
+    contract,
+    /add envelope.*parentId.*sibling index.*parent children mirror.*explicit parent resync/i
+  )
 })
 
 test('scalar, batch, and record patches validate and install atomically', () => {
@@ -475,6 +479,10 @@ test('cleanup bounds snapshots and pending work across every lifecycle path', ()
   )
   assert.match(contract, /cannot retain orphaned snapshots/i)
   assert.match(contract, /destroys the detached Render node/i)
+  assert.match(
+    contract,
+    /remove envelope.*parentId.*sibling index.*parent mirror.*complete snapshot.*explicit parent resync/i
+  )
   assert.match(contract, /prior-engine handles/i)
   assert.match(contract, /workspace label and transform to neutral values/i)
   assert.match(

@@ -403,11 +403,11 @@ class Render {
     return container
   }
 
-  addElement(data: RenderElementData) {
+  addElement(data: RenderElementData, siblingIndex?: number) {
     if (data && typeof data.id === 'string') {
       this.publishElementEvidence('add', data.id, () => data)
     }
-    const element = this.viewport.addElement(data)
+    const element = this.viewport.addElement(data, siblingIndex)
     this.requestRender()
     return element
   }

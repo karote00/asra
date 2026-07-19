@@ -218,6 +218,70 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(vector.getAllComputedData).toHaveBeenCalledTimes(1)
   })
 
+  it('should run: synchronize parent mirrors from add and remove hierarchy envelopes', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const parentRaw = {
+      type: 'group',
+      visible: true,
+      children: ['child-a', 'child-c']
+    }
+    const parent = createElement('group-1', parentRaw, { revision: 0 })
+    const child = createElement(
+      'child-b',
+      {
+        type: 'rectangle',
+        visible: true,
+        parentId: 'group-1'
+      },
+      { width: 20, height: 20 }
+    )
+    sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
+      elementId === 'group-1' ? parent : child
+    )
+    seedStore(store, 'group-1')
+
+    parentRaw.children = ['child-a', 'child-b', 'child-c']
+    expect(store.addElementById('child-b', 'group-1', 1)).toEqual({
+      status: 'applied',
+      elementId: 'child-b'
+    })
+    await flushScheduledFrame()
+
+    expect(renderMock.updateElement).toHaveBeenLastCalledWith(
+      'group-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({
+        id: 'group-1',
+        children: ['child-a', 'child-b', 'child-c']
+      })
+    )
+
+    renderMock.updateElement.mockClear()
+    parentRaw.children = ['child-a', 'child-c']
+    expect(
+      store.removeElement(
+        { id: 'child-b', type: EntityTypes.ELEMENT },
+        'group-1',
+        1
+      )
+    ).toEqual({ status: 'removed', elementId: 'child-b' })
+    await flushScheduledFrame()
+
+    expect(renderMock.updateElement).toHaveBeenLastCalledWith(
+      'group-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({
+        id: 'group-1',
+        children: ['child-a', 'child-c']
+      })
+    )
+  })
+
   it('should run: fail closed for invalid explicit add snapshots', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const cases = [

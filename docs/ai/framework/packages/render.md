@@ -69,6 +69,12 @@ drawing; Render adds no inferred mapping or fallback geometry.
 - add and load explicitly merge the element's complete saved and computed data
   into one snapshot; the requested id, non-empty type, and non-workspace checks
   must pass before install, and ordinary updates never seed a missing base
+- ADD/REMOVE envelopes retain canonical `parentId` and sibling `index`. An add
+  places the child at that exact index, and add/remove atomically patch an
+  existing non-workspace parent `children` mirror before queuing its complete
+  snapshot; a parent membership precondition mismatch enters explicit resync.
+  Workspace-root adds use the committed index directly because workspaces are not
+  mirrored
 - a missing canonical add target clears matching pending work and stale visual
   before returning `removed`; an invalid existing target clears stale output and
   returns `failed`. An unsuccessful visual add, including a caught strategy
@@ -116,7 +122,8 @@ drawing; Render adds no inferred mapping or fallback geometry.
   Tree-projected ids retained by mirror or projected-visual ownership and does
   not clear unrelated scene or custom-layer nodes. Removing a projected parent
   detaches live canonical children before destroying only the parent; undo/redo
-  re-adds it from a fresh complete snapshot and restores the child relationships.
+  re-adds it from a fresh complete snapshot and restores the exact sibling index
+  while synchronizing the non-workspace parent mirror.
   Mirror ownership and projected-visual ownership are tracked separately.
   Projected ownership is discarded only after visual release succeeds, and any
   valid mirror present at that boundary is retained across release failure.

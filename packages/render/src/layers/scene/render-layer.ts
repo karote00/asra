@@ -121,14 +121,27 @@ export class RenderLayer {
     }
   }
 
-  private placeElement(element: SceneElement, data: RenderElementData) {
+  private placeElement(
+    element: SceneElement,
+    data: RenderElementData,
+    siblingIndex?: number
+  ) {
     const parent =
       typeof data.parentId === 'string'
         ? this.getElementById(data.parentId)
         : undefined
     const targetParent = parent ?? this.currentWorkspace
     if (element.parent !== targetParent) {
-      targetParent.addChild(element)
+      if (siblingIndex === undefined) {
+        targetParent.addChild(element)
+      } else {
+        targetParent.addChildAt(element, siblingIndex)
+      }
+    } else if (
+      siblingIndex !== undefined &&
+      targetParent.children[siblingIndex] !== element
+    ) {
+      targetParent.setChildIndex(element, siblingIndex)
     }
 
     const children = (data as RenderElementData & { children?: unknown })
@@ -177,7 +190,7 @@ export class RenderLayer {
     return container
   }
 
-  addElement(data: RenderElementData) {
+  addElement(data: RenderElementData, siblingIndex?: number) {
     if (!data || typeof data.id !== 'string' || typeof data.type !== 'string') {
       return undefined
     }
@@ -194,7 +207,7 @@ export class RenderLayer {
             ? this.renderGraphic(existingElement, data)
             : true
 
-        this.placeElement(existingElement, data)
+        this.placeElement(existingElement, data, siblingIndex)
 
         return didRender ? existingElement : undefined
       }
@@ -207,7 +220,7 @@ export class RenderLayer {
       const didRender = this.renderGraphic(graphic, data)
 
       this.addToMap(data.id, graphic)
-      this.placeElement(graphic, data)
+      this.placeElement(graphic, data, siblingIndex)
       return didRender ? graphic : undefined
     })
   }

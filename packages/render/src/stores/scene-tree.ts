@@ -32,6 +32,8 @@ interface TopLevelApplyResult {
   effectiveChanges: EffectiveTopLevelChange[]
 }
 
+type ChildMembershipAction = 'add' | 'remove'
+
 type RenderProjectionStatus = 'applied' | 'resynced' | 'removed' | 'failed'
 
 interface RenderProjectionOutcome {
@@ -49,6 +51,33 @@ const getEnumerableOwnKeys = (value: object): PropertyKey[] =>
   Reflect.ownKeys(value).filter((key) =>
     Object.prototype.propertyIsEnumerable.call(value, key)
   )
+
+const isArrayIndexKey = (key: PropertyKey): key is string => {
+  if (typeof key !== 'string' || key === '') {
+    return false
+  }
+  const index = Number(key)
+  return (
+    Number.isInteger(index) &&
+    index >= 0 &&
+    index < 2 ** 32 - 1 &&
+    String(index) === key
+  )
+}
+
+const cloneArrayWithEnumerableProperties = <T>(value: T[]): T[] => {
+  const clone = value.slice()
+  getEnumerableOwnKeys(value).forEach((key) => {
+    if (isArrayIndexKey(key)) {
+      return
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key)
+    if (descriptor) {
+      Object.defineProperty(clone, key, descriptor)
+    }
+  })
+  return clone
+}
 
 const setOwn = (record: object, key: string, value: unknown): void => {
   Object.defineProperty(record, key, {
@@ -504,6 +533,46 @@ class ComputedDataMirror {
     return true
   }
 
+  applyChildMembershipChange(
+    elementId: string,
+    childId: string,
+    index: number | undefined,
+    action: ChildMembershipAction
+  ): TopLevelApplyResult | null {
+    const entry = this.get(elementId)
+    const currentChildren = entry?.rawDataSnapshot.children
+    if (
+      !entry ||
+      !Array.isArray(currentChildren) ||
+      index === undefined ||
+      !Number.isInteger(index) ||
+      index < 0
+    ) {
+      return null
+    }
+
+    const nextChildren = cloneArrayWithEnumerableProperties(currentChildren)
+    if (action === 'add') {
+      if (index > currentChildren.length || currentChildren.includes(childId)) {
+        return null
+      }
+      nextChildren.splice(index, 0, childId)
+    } else {
+      if (index >= currentChildren.length || currentChildren[index] !== childId) {
+        return null
+      }
+      nextChildren.splice(index, 1)
+    }
+
+    return this.applyTopLevelChange(
+      elementId,
+      'raw',
+      'children',
+      currentChildren,
+      nextChildren
+    )
+  }
+
   composeRenderData(elementId: string): RenderElementData | null {
     const entry = this.get(elementId)
     if (!entry) {
@@ -614,7 +683,7 @@ class RenderSceneTree {
     return this.projectionOutcome(elementId, 'resynced')
   }
 
-  addElementById(id: string) {
+  addElementById(id: string, parentId?: string, index?: number) {
     let entry: ComputedDataMirrorEntry | null
     try {
       entry = this.computedDataMirror.seed(id, 'add')
@@ -633,7 +702,22 @@ class RenderSceneTree {
     }
 
     try {
-      this.addElement(entry.renderDataSnapshot)
+      this.addElement(entry.renderDataSnapshot, index)
+      const parentOutcome = this.synchronizeParentMembership(
+        parentId,
+        id,
+        index,
+        'add'
+      )
+      if (
+        parentOutcome?.status === 'failed' ||
+        parentOutcome?.status === 'removed'
+      ) {
+        this.pendingElementUpdates.delete(id)
+        this.releaseProjectedElement(id)
+        this.computedDataMirror.delete(id)
+        return this.projectionOutcome(id, 'failed')
+      }
       return this.projectionOutcome(id, 'applied')
     } catch {
       this.pendingElementUpdates.delete(id)
@@ -644,22 +728,67 @@ class RenderSceneTree {
     }
   }
 
-  addElement(data: RenderElementData) {
+  addElement(data: RenderElementData, siblingIndex?: number) {
     this.projectedElementIds.add(data.id)
-    const element = render.addElement(data)
+    const element =
+      siblingIndex === undefined
+        ? render.addElement(data)
+        : render.addElement(data, siblingIndex)
     if (!element) {
       throw new Error(`Render failed to rebuild element ${data.id}`)
     }
     return element
   }
 
-  removeElement(data: ElementRawData, parentId?: string) {
+  removeElement(data: ElementRawData, parentId?: string, index?: number) {
     this.pendingElementUpdates.delete(data.id)
     this.projectedElementIds.add(data.id)
     render.removeElement(data.id, parentId)
     this.projectedElementIds.delete(data.id)
     this.computedDataMirror.delete(data.id)
-    return this.projectionOutcome(data.id, 'removed')
+    const parentOutcome = this.synchronizeParentMembership(
+      parentId,
+      data.id,
+      index,
+      'remove'
+    )
+    return parentOutcome?.status === 'failed'
+      ? this.projectionOutcome(data.id, 'failed')
+      : this.projectionOutcome(data.id, 'removed')
+  }
+
+  private synchronizeParentMembership(
+    parentId: string | undefined,
+    childId: string,
+    index: number | undefined,
+    action: ChildMembershipAction
+  ): RenderProjectionOutcome | null {
+    if (!parentId) {
+      return null
+    }
+    const parent = sceneTree.getElementById(parentId)
+    if (!parent || parent.get('type') === EntityTypes.WORKSPACE) {
+      return null
+    }
+
+    const applyResult = this.computedDataMirror.applyChildMembershipChange(
+      parentId,
+      childId,
+      index,
+      action
+    )
+    if (!applyResult) {
+      return this.resyncElement(parentId)
+    }
+
+    this.recordDirtyChange(
+      parentId,
+      1,
+      this.pendingElementUpdates.has(parentId)
+    )
+    this.pendingElementUpdates.add(parentId)
+    this.scheduleFlush()
+    return this.projectionOutcome(parentId, 'applied')
   }
 
   updateElement(

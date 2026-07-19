@@ -156,16 +156,15 @@ const getMatchingPropertiesForSceneTreeChange = (
 const updateRenderSceneTree = (change: SceneTreeChange) => {
   switch (change.action) {
     case SCENE_TREE_ACTIONS.ADD_ELEMENT: {
+      const { data, parentId, index } = change as AddRemoveElementChange
       return recordRenderProjectionOutcome(
-        renderSceneTreeStore.addElementById(
-          (change as AddRemoveElementChange).data.id
-        )
+        renderSceneTreeStore.addElementById(data.id, parentId, index)
       )
     }
     case SCENE_TREE_ACTIONS.REMOVE_ELEMENT: {
-      const { parentId, data } = change as AddRemoveElementChange
+      const { parentId, index, data } = change as AddRemoveElementChange
       return recordRenderProjectionOutcome(
-        renderSceneTreeStore.removeElement(data, parentId)
+        renderSceneTreeStore.removeElement(data, parentId, index)
       )
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA: {

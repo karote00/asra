@@ -49,6 +49,11 @@ Render accepts only committed `SceneTreeChange` payloads routed by the registere
 Preset data-channel observer:
 
 - add and load establish an authoritative complete base snapshot
+- add and remove carry canonical `parentId` plus sibling `index`; Preset forwards
+  that metadata unchanged, Render places an added child at the exact index, and
+  atomically patches an existing non-workspace parent `children` mirror before
+  queuing the complete parent snapshot. A parent membership precondition mismatch
+  enters explicit parent resync instead of accepting stale sibling order
 - scalar change carries one top-level `key`, `before`, `after`, and its canonical
   `raw` or `computed` owner provenance
 - batch carries an ordered list of owner-qualified scalar changes and is one
@@ -182,6 +187,10 @@ updates may retain their existing direct property route after the same snapshot
 validation succeeds. A mixed batch uses the complete strategy route.
 Every complete snapshot update also synchronizes generic `parentId` and
 `children` hierarchy; unchanged parent ownership preserves stable sibling order.
+ADD/REMOVE parent membership uses the same complete parent-snapshot frame route,
+so insertion, removal, undo, and redo cannot leave the parent mirror behind the
+canonical child order. Workspace-root insertion uses the committed sibling index
+directly because workspace elements are intentionally not mirrored.
 
 The delta itself is the changed-key record. This task does not add a retained
 dependency graph or change the public strategy signature: every computed render
@@ -211,7 +220,9 @@ shape and require no migration.
   remain live canonical elements, so only the removed parent is destroyed and
   those children retain their nodes and engine handles. Undo/redo re-add creates
   a fresh Render node from the complete authoritative snapshot and restores its
-  child relationships; Render node identity is not a product contract.
+  exact committed sibling index; the matching non-workspace parent membership is
+  projected into its mirror and complete snapshot. Render node identity is not a
+  product contract.
 - Load with no current workspace clears the retained workspace snapshot and
   resets the Render workspace identity and transform to their neutral state.
 - Preset observer teardown and Render teardown clear snapshots and pending work,
@@ -303,6 +314,8 @@ failing formal test when the current implementation violates this contract.
 - add/load/resync are explicit; resync reports success only after its complete
   strategy rebuild succeeds; remove/load/teardown leave no orphaned entries or
   pending updates
+- add/remove/undo/redo preserve the committed sibling index and keep every
+  non-workspace parent `children` mirror equal to canonical Scene Tree order
 - ordered delivery plus Render precondition tests cover missing, duplicate, and
   out-of-order behavior without assigning canonical ownership to the data channel
 - load, undo, redo, replay, direct properties, mixed batches, and non-vector

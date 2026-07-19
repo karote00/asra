@@ -216,6 +216,7 @@
         'Load clears every entry and pending update before rebuilding live elements.',
         'Any element rebuild failure fails the whole reload, clears its partial projection, and throws to the lifecycle caller.',
         'An unsuccessful visual add, including a strategy failure, is an add, reload, or resync rebuild failure rather than a successful hidden projection.',
+        'An add envelope forwards canonical parentId and sibling index; Render places the child at that index, atomically patches an existing non-workspace parent children mirror, and queues the complete parent snapshot. A parent membership precondition mismatch enters explicit parent resync.',
         'The installed snapshot passes requested-id and non-empty-type completeness validation.',
         'An existing add target that throws or fails completeness validation clears stale output and returns failed.'
       ],
@@ -240,6 +241,8 @@
         'packages/render/src/stores/scene-tree.ts',
         'packages/render/src/types.ts',
         'packages/render/src/__tests__/scene-tree-store.test.ts',
+        'packages/preset/src/subscriptions/data-channel.ts',
+        'packages/preset/src/__tests__/**',
         'docs/ai/framework/packages/render.md',
         'docs/ai/framework/plans/render-delta-update-plan.md'
       ],
@@ -385,6 +388,7 @@
         'A computed update invokes the strategy with the complete final RenderElementData snapshot.',
         'A mixed direct/computed batch uses the complete strategy route.',
         'The complete snapshot synchronizes generic parentId and children hierarchy while preserving stable sibling order when ownership is unchanged.',
+        'Accepted add and remove parent-membership updates enter this same complete parent snapshot frame route.',
         'Direct property-only updates preserve the existing direct route after successful snapshot projection.',
         'A rejected or failed projection cannot reach this step.'
       ],
@@ -543,6 +547,7 @@
       outputs: ['artifact:render-projection-cleanup'],
       conditions: [
         'Remove clears the matching pending id before visual release, then destroys the detached Render node and releases its abstract engine handle and resources.',
+        'A remove envelope forwards canonical parentId and sibling index; after child release succeeds, Render atomically removes that membership from an existing non-workspace parent mirror and queues its complete snapshot. A parent membership precondition mismatch enters explicit parent resync.',
         'Mirror ownership and projected visual ownership are tracked separately; only after visual release succeeds are projected ownership and any matching valid mirror discarded.',
         'Removing a projected parent detaches its live projected children and destroys only the removed parent; children that remain canonical keep their own nodes and engine handles.',
         'Load clears every entry and pending update before explicit rebuild.',

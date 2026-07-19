@@ -230,7 +230,9 @@ describe('Preset Selection Subscriptions', () => {
     try {
       observer?.onChange({
         action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-        data: { id: 'vector-1', type: 'vector' }
+        data: { id: 'vector-1', type: 'vector' },
+        parentId: 'group-1',
+        index: 1
       })
       observer?.onChange({
         action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
@@ -270,10 +272,11 @@ describe('Preset Selection Subscriptions', () => {
       observer?.onChange({
         action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
         data: { id: 'vector-1', type: 'vector' },
-        parentId: 'workspace-1'
+        parentId: 'group-1',
+        index: 1
       })
 
-      expect(add).toHaveBeenCalledWith('vector-1')
+      expect(add).toHaveBeenCalledWith('vector-1', 'group-1', 1)
       expect(scalar).toHaveBeenCalledWith(
         'vector-1',
         'computed',
@@ -305,7 +308,8 @@ describe('Preset Selection Subscriptions', () => {
       )
       expect(remove).toHaveBeenCalledWith(
         { id: 'vector-1', type: 'vector' },
-        'workspace-1'
+        'group-1',
+        1
       )
       expect(counters).toEqual([
         'render-projection-outcome-applied',
