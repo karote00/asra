@@ -166,14 +166,17 @@ Render bridge:
 - `registerDataChannelObserver(registration: DataChannelObserverRegistration): void`
   - registration shape: `{ name: string; channel: string; onChange: (change) => void }`
 - `unregisterDataChannelObserver(name: string): boolean`
-- `registerSharedDataChannel(name, yArray): void`
+- `registerSharedDataChannel(name, channel): void`
 - `unregisterSharedDataChannel(name): boolean`
 - `hasSharedDataChannel(name): boolean`
-- `getYjsDataChannel(name): Y.Array<unknown>`
+- `createLocalSharedDataChannel(): LocalSharedDataChannel`
   - these methods and data-channel observers route through the Factory injected
     into that Core instance; standalone observer helpers share the default
     Core's explicitly injected registry while custom Core registries remain
     isolated
+  - local channels are delivery-only and do not create or retain a Y.Doc;
+    network Yjs ownership belongs to explicit `@asyra/collaboration`
+    composition
 - `renderIsReady(): void`
 
 Scene/model bridge:
@@ -408,13 +411,15 @@ Managed property bridges:
   - `registerTransactionValidator(name, validator)`
   - `subscribeToTransactionStatus(listener): () => void`
 - shared data channel APIs:
-  - `registerSharedDataChannel(name, yArray)`
+  - `registerSharedDataChannel(name, channel)`
   - `unregisterSharedDataChannel(name)`
   - `hasSharedDataChannel(name)`
   - `observeSharedDataChannel(name, handler)`
-  - `getYjsDataChannel(name)` (returns YJS array for a channel name from factory doc)
+  - `createLocalSharedDataChannel()` (fresh delivery-only local channel)
   - `getSharedDataChannelStrict(name)` (strict accessor; throws if not registered)
   - `getSharedDataChannel(name)` (safe accessor; returns `undefined` when missing)
+  - `subscribeToSharedDelivery(handler)` (detached delivery metadata for
+    explicit collaboration composition; observer failure cannot alter commit)
 
 `@asyra/props-manager`
 

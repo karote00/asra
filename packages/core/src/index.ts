@@ -138,7 +138,7 @@ export type {
   RenderStrategyGraphic
 } from '@asyra/render'
 export {
-  getYjsDataChannel,
+  createLocalSharedDataChannel,
   registerSharedDataChannel,
   unregisterSharedDataChannel,
   hasSharedDataChannel
@@ -320,7 +320,7 @@ type CoreExtensionApiKeys =
   | 'registerSharedDataChannel'
   | 'unregisterSharedDataChannel'
   | 'hasSharedDataChannel'
-  | 'getYjsDataChannel'
+  | 'createLocalSharedDataChannel'
 
 type CorePresetInstallApiKeys =
   | 'setRenderEngineProvider'
@@ -336,7 +336,7 @@ type CorePresetInstallApiKeys =
   | 'registerSharedDataChannel'
   | 'unregisterSharedDataChannel'
   | 'hasSharedDataChannel'
-  | 'getYjsDataChannel'
+  | 'createLocalSharedDataChannel'
   | 'registerPropertySchema'
   | 'getPropertyTypeDefinition'
   | 'redefinePropertyType'

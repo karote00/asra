@@ -28,6 +28,7 @@ interface JournalSharedChange {
 }
 
 interface TransactionJournalEntry {
+  index: number
   event: AllEvent
   options: EffectiveMutationOptions
   source: 'action' | 'replay'
@@ -44,6 +45,7 @@ interface DataTransactCallbacks {
     event: AllEvent,
     mode: TransactionReplayMode
   ) => boolean | { handled: boolean; applied: boolean }
+  onSharedDelivery?: (delivery: SharedDelivery) => void
 }
 import type {
   AllEvent,
@@ -72,6 +74,7 @@ import {
   type TransactionValidationContext,
   type TransactionValidator
 } from './transaction'
+import type { SharedDelivery } from './shared-delivery'
 
 const BUILT_IN_INVERTIBLE_EVENT_TYPES = new Set<string>([
   EventTypes.ADD_ELEMENT,
@@ -256,6 +259,7 @@ class DataTransact {
     event: AllEvent,
     mode: TransactionReplayMode
   ) => boolean | { handled: boolean; applied: boolean }
+  private readonly onSharedDelivery?: (delivery: SharedDelivery) => void
   private readonly sharedDataChannelRegistry: Pick<
     SharedDataChannelRegistry,
     'pushToSharedChannel'
@@ -276,6 +280,7 @@ class DataTransact {
       ? callbacks.onUserActionCompleted
       : userActionCompleted
     this.onReplayEvent = callbacks?.onReplayEvent
+    this.onSharedDelivery = callbacks?.onSharedDelivery
   }
 
   start() {
@@ -356,6 +361,7 @@ class DataTransact {
       )
     }
     const journalEntry: TransactionJournalEntry = {
+      index: this.journal.length,
       event: newEvent,
       options,
       source: this.applyingReplayEvent ? 'replay' : 'action'
@@ -390,7 +396,49 @@ class DataTransact {
           journalEntry.shared.name,
           journalEntry.shared.change
         )
+      if (journalEntry.shared.delivered) {
+        this.emitForwardSharedDelivery(journalEntry)
+      }
     }
+  }
+
+  private forwardDeliveryId(entry: TransactionJournalEntry): string {
+    return `${this.currentTransactionId}:${entry.index}:forward`
+  }
+
+  private emitForwardSharedDelivery(entry: TransactionJournalEntry): void {
+    const shared = entry.shared
+    if (!shared) return
+    this.onSharedDelivery?.({
+      deliveryId: this.forwardDeliveryId(entry),
+      transactionId: this.currentTransactionId,
+      origin: this.transactionOrigin(),
+      kind: 'forward',
+      channel: shared.name,
+      eventName: entry.event.type,
+      payload: cloneTransactionValue(shared.change),
+      sharedDelivery: entry.options.sharedDelivery
+    })
+  }
+
+  private emitCompensationSharedDelivery(
+    entry: TransactionJournalEntry,
+    payload: TransactionPayload,
+    compensationIndex: number
+  ): void {
+    const shared = entry.shared
+    if (!shared) return
+    this.onSharedDelivery?.({
+      deliveryId: `${this.currentTransactionId}:${entry.index}:compensation:${compensationIndex}`,
+      transactionId: this.currentTransactionId,
+      origin: 'rollback-compensation',
+      kind: 'compensation',
+      channel: shared.name,
+      eventName: entry.event.type,
+      payload: cloneTransactionValue(payload),
+      sharedDelivery: entry.options.sharedDelivery,
+      compensatesDeliveryId: this.forwardDeliveryId(entry)
+    })
   }
 
   private createReplayEvents(
@@ -643,7 +691,7 @@ class DataTransact {
           payload: shared.change
         } as AllEvent
         this.createReplayEvents(sharedEvent, 'inverse').forEach(
-          (inverseEvent) => {
+          (inverseEvent, compensationIndex) => {
             const inversePayload = (
               inverseEvent as AllEvent & { payload: TransactionPayload }
             ).payload
@@ -657,6 +705,11 @@ class DataTransact {
                 `Failed to compensate shared channel ${shared.name}`
               )
             }
+            this.emitCompensationSharedDelivery(
+              entry,
+              inversePayload,
+              compensationIndex
+            )
           }
         )
       } catch (error) {
@@ -974,12 +1027,16 @@ class DataTransact {
   }
 
   flushPendingSharedChannelChanges() {
-    this.journal.forEach(({ shared }) => {
+    this.journal.forEach((entry) => {
+      const { shared } = entry
       if (shared && !shared.delivered) {
         shared.delivered = this.sharedDataChannelRegistry.pushToSharedChannel(
           shared.name,
           shared.change
         )
+        if (shared.delivered) {
+          this.emitForwardSharedDelivery(entry)
+        }
       }
     })
   }

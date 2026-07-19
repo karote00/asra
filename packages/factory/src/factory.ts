@@ -1,4 +1,3 @@
-import * as Y from 'yjs'
 import {
   runWithTransactionOwner,
   transactionStatusChanged,
@@ -14,12 +13,18 @@ import type {
   TransactionStatusPayload
 } from '@asyra/utils'
 import DataTransact from './data-transact'
-import doc from './data'
 import {
+  LocalSharedDataChannel,
   SharedDataChannelRegistry,
+  type SharedDataChannel,
   type SharedDataChannelChangeHandler,
   type SharedDataChannelName
 } from './shared-data-channel'
+import {
+  cloneSharedDelivery,
+  type SharedDelivery,
+  type SharedDeliverySubscriber
+} from './shared-delivery'
 import type {
   TransactionInverter,
   TransactionReplayHandler,
@@ -37,6 +42,8 @@ class Factory {
   private readonly transactionStatusSubscribers = new Set<
     (payload: TransactionStatusPayload) => void
   >()
+  private readonly sharedDeliverySubscribers =
+    new Set<SharedDeliverySubscriber>()
   private readonly transactionReplayHandlers = new Map<
     string,
     TransactionReplayHandler
@@ -50,7 +57,8 @@ class Factory {
       onUserActionCompleted: this.bridgeToReactiveEvents
         ? userActionCompleted
         : undefined,
-      onReplayEvent: (event, mode) => this.handleReplayEvent(event, mode)
+      onReplayEvent: (event, mode) => this.handleReplayEvent(event, mode),
+      onSharedDelivery: (delivery) => this.emitSharedDelivery(delivery)
     })
     this.transactionOwner = {
       startTransaction: () => this.startTransaction(),
@@ -59,6 +67,16 @@ class Factory {
       undo: () => this.undo(),
       redo: () => this.redo()
     }
+  }
+
+  private emitSharedDelivery(delivery: SharedDelivery): void {
+    ;[...this.sharedDeliverySubscribers].forEach((subscriber) => {
+      try {
+        subscriber(cloneSharedDelivery(delivery))
+      } catch {
+        // Collaboration observers cannot alter local canonical settlement.
+      }
+    })
   }
 
   private emitTransactionStatus(payload: TransactionStatusPayload) {
@@ -184,7 +202,7 @@ class Factory {
 
   registerSharedDataChannel(
     name: SharedDataChannelName,
-    channel: Y.Array<unknown>
+    channel: SharedDataChannel
   ): void {
     this.sharedDataChannels.register(name, channel)
   }
@@ -197,17 +215,17 @@ class Factory {
     return this.sharedDataChannels.has(name)
   }
 
-  getYjsDataChannel(name: SharedDataChannelName): Y.Array<unknown> {
-    return doc.getArray(name)
+  createLocalSharedDataChannel(): LocalSharedDataChannel {
+    return new LocalSharedDataChannel()
   }
 
   getSharedDataChannel(
     name: SharedDataChannelName
-  ): Y.Array<unknown> | undefined {
+  ): SharedDataChannel | undefined {
     return this.sharedDataChannels.get(name)
   }
 
-  getSharedDataChannelStrict(name: SharedDataChannelName): Y.Array<unknown> {
+  getSharedDataChannelStrict(name: SharedDataChannelName): SharedDataChannel {
     return this.sharedDataChannels.import(name)
   }
 
@@ -216,6 +234,13 @@ class Factory {
     handler: SharedDataChannelChangeHandler<TChange>
   ): () => void {
     return this.sharedDataChannels.observe(name, handler)
+  }
+
+  subscribeToSharedDelivery(subscriber: SharedDeliverySubscriber): () => void {
+    this.sharedDeliverySubscribers.add(subscriber)
+    return () => {
+      this.sharedDeliverySubscribers.delete(subscriber)
+    }
   }
 }
 

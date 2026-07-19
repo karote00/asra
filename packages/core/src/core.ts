@@ -361,10 +361,10 @@ class Core implements CoreAPIs {
     return this.deps.factory.hasSharedDataChannel(name)
   }
 
-  getYjsDataChannel(
-    name: Parameters<Factory['getYjsDataChannel']>[0]
-  ): ReturnType<Factory['getYjsDataChannel']> {
-    return this.deps.factory.getYjsDataChannel(name)
+  createLocalSharedDataChannel(): ReturnType<
+    Factory['createLocalSharedDataChannel']
+  > {
+    return this.deps.factory.createLocalSharedDataChannel()
   }
 
   /**

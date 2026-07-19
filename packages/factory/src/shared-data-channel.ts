@@ -1,5 +1,5 @@
-import * as Y from 'yjs'
 import { MapRegistry } from '@asyra/utils'
+import { cloneSharedValue } from './shared-delivery'
 
 export type SharedDataChannelName = string
 
@@ -7,36 +7,31 @@ export type SharedDataChannelChangeHandler<TChange = unknown> = (
   change: TChange
 ) => void
 
-// Y.Array is invariant in T, so we store channels as Y.Array<unknown> in registry.
-// Actual payload typing is handled by observer registration sites.
-type SharedDataChannel = Y.Array<unknown>
+export interface SharedDataChannel {
+  append(change: unknown): void
+  observe(handler: SharedDataChannelChangeHandler): () => void
+}
 
 const noop = (): void => undefined
 
-interface YObservedItemLike {
-  content?: {
-    getContent?: () => unknown
-  }
-}
+export class LocalSharedDataChannel implements SharedDataChannel {
+  private readonly handlers = new Set<SharedDataChannelChangeHandler>()
 
-const processObservedItems = (
-  items: Iterable<unknown>,
-  handler: SharedDataChannelChangeHandler
-): void => {
-  for (const item of items) {
-    // YJS internals expose inserted/deleted content through item.content.getContent().
-    const contents = (item as YObservedItemLike).content?.getContent?.()
-    if (!Array.isArray(contents)) {
-      continue
-    }
-
-    contents.forEach((change) => {
+  append(change: unknown): void {
+    ;[...this.handlers].forEach((handler) => {
       try {
-        handler(change)
+        handler(cloneSharedValue(change))
       } catch {
-        // Shared projection observers cannot invalidate an applied Yjs change.
+        // Local projection observers cannot invalidate an applied change.
       }
     })
+  }
+
+  observe(handler: SharedDataChannelChangeHandler): () => void {
+    this.handlers.add(handler)
+    return () => {
+      this.handlers.delete(handler)
+    }
   }
 }
 
@@ -78,17 +73,8 @@ export class SharedDataChannelRegistry {
     if (!channel) {
       return false
     }
-
-    const previousLength = channel.length
-    try {
-      channel.push([change])
-      return true
-    } catch (error) {
-      if (channel.length > previousLength) {
-        return true
-      }
-      throw error
-    }
+    channel.append(change)
+    return true
   }
 
   observe<TChange = unknown>(
@@ -100,20 +86,6 @@ export class SharedDataChannelRegistry {
       return noop
     }
 
-    const observer = (event: Y.YArrayEvent<unknown>) => {
-      processObservedItems(
-        event.changes.added,
-        handler as SharedDataChannelChangeHandler
-      )
-      processObservedItems(
-        event.changes.deleted,
-        handler as SharedDataChannelChangeHandler
-      )
-    }
-
-    channel.observe(observer)
-    return () => {
-      channel.unobserve(observer)
-    }
+    return channel.observe(handler as SharedDataChannelChangeHandler)
   }
 }

@@ -10,7 +10,7 @@ interface SharedChannelLifetime {
 
 type SharedChannelCore = Pick<
   PresetCoreAPIs,
-  | 'getYjsDataChannel'
+  | 'createLocalSharedDataChannel'
   | 'hasSharedDataChannel'
   | 'registerSharedDataChannel'
   | 'unregisterSharedDataChannel'
@@ -86,7 +86,7 @@ export const registerDefaultSharedDataChannels = (
 
       const ownedByPreset = !core.hasSharedDataChannel(name)
       if (ownedByPreset) {
-        core.registerSharedDataChannel(name, core.getYjsDataChannel(name))
+        core.registerSharedDataChannel(name, core.createLocalSharedDataChannel())
       }
 
       channelLifetimes.set(name, { count: 1, ownedByPreset })

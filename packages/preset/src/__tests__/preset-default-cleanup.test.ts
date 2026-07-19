@@ -202,7 +202,7 @@ describe('Preset default cleanup ownership', () => {
       ),
       getSystemPropertyObservable: vi.fn(() => undefined),
       hasSharedDataChannel: vi.fn(() => false),
-      getYjsDataChannel: vi.fn(() => ({})),
+      createLocalSharedDataChannel: vi.fn(() => ({})),
       registerSharedDataChannel: vi.fn(),
       unregisterSharedDataChannel: vi.fn(),
       registerDataChannelObserver: vi.fn(),
@@ -262,7 +262,7 @@ describe('Preset default cleanup ownership', () => {
       registerRenderLayer: vi.fn(),
       unregisterRenderLayer: vi.fn(),
       hasSharedDataChannel: vi.fn(() => false),
-      getYjsDataChannel: vi.fn(() => ({})),
+      createLocalSharedDataChannel: vi.fn(() => ({})),
       registerSharedDataChannel: vi.fn(),
       unregisterSharedDataChannel: vi.fn(),
       registerDataChannelObserver: vi.fn((registration: { name: string }) => {

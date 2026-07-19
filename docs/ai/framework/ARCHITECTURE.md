@@ -157,6 +157,9 @@ Canonical shorthand:
 - Reactive transaction depth and rollback-only state are keyed by the resolved
   TransactionOwner, so a consumer-owned Factory replay remains independent from
   an active default-runtime boundary.
+- Factory local shared projection channels are delivery-only and create no
+  Y.Doc. The optional collaboration package owns Y.Doc/provider state only when
+  an app explicitly composes a collaboration instance.
 - A future runtime factory may be offered as optional composition convenience,
   but it is not the required ownership model.
 

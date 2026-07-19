@@ -35,8 +35,9 @@ System orchestrator and lifecycle coordinator.
 - register render layers
 - register/unregister event definitions and selection channels
 - register render interaction targets + handlers
-- register render YJS change observers (`name + channel + onChange`)
+- register render shared-change observers (`name + channel + onChange`)
 - register/query/unregister shared data channels through the injected Factory
+- create fresh delivery-only local shared channels without a Y.Doc
 - register UI/system managed properties
 - query and unregister managed properties during open composition
 - register/query one render-engine provider before startup

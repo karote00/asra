@@ -2,7 +2,7 @@
 
 ## Responsibility
 
-Transaction grouping, undo/redo history, and Yjs-backed shared data-channel
+Transaction grouping, undo/redo history, and local shared data-channel
 infrastructure.
 
 ## Owns
@@ -14,7 +14,8 @@ infrastructure.
 - user-action completion emission after an undoable commit
 - pending shared-channel changes and transaction-end flush
 - shared data-channel registration/lookup/observation
-- module-level default Yjs document used by the `getYjsDataChannel(...)` helper
+- detached shared-delivery metadata for explicit collaboration subscribers
+- fresh delivery-only local channels that do not retain a document log
 
 ## Must Not Own
 
@@ -170,11 +171,12 @@ infrastructure.
   framework runtime bundle.
 - Each `Factory` instance owns its transaction history and shared-channel
   registry, validators, inverters, and status subscriptions.
-- Creating a `Factory` does not currently create or inject another Y.Doc;
-  `getYjsDataChannel(...)` still resolves channels from the module-level default
-  document.
-- Consumers that need another Y.Doc may create channels from their consumer-owned
-  document and register those channels on the intended `Factory` instance.
+- Creating or importing a `Factory` does not create or inject a Y.Doc.
+- Preset/default local projections use `LocalSharedDataChannel`; the channel
+  delivers changes to observers and does not retain a second document history.
+- Explicit collaboration subscribes to instance-local detached shared-delivery
+  metadata and owns its Y.Doc in `@asyra/collaboration`; Factory remains the
+  transaction/history/shared-settlement owner.
 - Each intended isolation boundary must explicitly choose its Factory, channel
   ownership, and event subscription wiring.
 - Default imports intentionally share the default factory transaction history
