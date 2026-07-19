@@ -251,4 +251,38 @@ describe('ephemeral awareness ownership', () => {
     expect(second.getRemote('actor-c')?.state).toEqual({ tool: 'pen' })
     expect(second.isDisposed()).toBe(false)
   })
+
+  it('lets an app project and remove presence without changing canonical state', () => {
+    const yDoc = new Y.Doc()
+    const canonicalDocument = Object.freeze({
+      elements: Object.freeze([{ id: 'node-a', x: 10 }])
+    })
+    const projectedPresence = new Map<string, unknown>()
+    const runtime = new AwarenessRuntime({ actorId: 'actor-local' })
+    runtime.observe((event) => {
+      if (event.type === 'updated') {
+        projectedPresence.set(event.snapshot.actorId, event.snapshot.state)
+        return
+      }
+      projectedPresence.delete(event.actorId)
+    })
+
+    runtime.applyRemote({
+      actorId: 'actor-remote',
+      clock: 1,
+      state: { cursor: { x: 20, y: 30 }, tool: 'select' }
+    })
+
+    expect(projectedPresence.get('actor-remote')).toEqual({
+      cursor: { x: 20, y: 30 },
+      tool: 'select'
+    })
+    runtime.handleDisconnect({
+      actorId: 'actor-remote',
+      reason: 'disconnect'
+    })
+    expect(projectedPresence.size).toBe(0)
+    expect(canonicalDocument).toEqual({ elements: [{ id: 'node-a', x: 10 }] })
+    expect(readOperationLog(yDoc)).toEqual([])
+  })
 })
