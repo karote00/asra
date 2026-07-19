@@ -235,7 +235,10 @@ describe('permission and conflict policy pipeline', () => {
       { id: 'first', decide: () => ({ decision: 'accept' }) }
     ]
     const instance = pipeline({ appPolicies: policies })
-    policies.push({ id: 'late', decide: () => ({ decision: 'reject', code: 'late' }) })
+    policies.push({
+      id: 'late',
+      decide: () => ({ decision: 'reject', code: 'late' })
+    })
 
     expect(instance.policyIds()).toEqual([
       'framework:entity-existence',
@@ -263,7 +266,9 @@ describe('permission and conflict policy pipeline', () => {
       }
     }
     const instance = pipeline({ frameworkInvariants: configuration })
-    ;(configuration as { entity: FrameworkInvariantConfiguration['entity'] }).entity = {
+    ;(
+      configuration as { entity: FrameworkInvariantConfiguration['entity'] }
+    ).entity = {
       describe: () => ({ entityId: 'node-a', intent: 'update' }),
       exists: () => true
     }
@@ -298,5 +303,53 @@ describe('permission and conflict policy pipeline', () => {
         code: 'invalid-policy-decision'
       })
     )
+  })
+
+  it('lets an app policy converge reordered non-commutative property updates', async () => {
+    const applyInOrder = async (values: readonly number[]) => {
+      const state = { value: 0 }
+      const instance = pipeline({
+        appPolicies: [
+          {
+            id: 'app:max-register',
+            decide: ({ envelope }) => {
+              const payload = envelope.payload as Payload
+              return payload.value < state.value
+                ? {
+                    decision: 'repair' as const,
+                    payload: { ...payload, value: state.value }
+                  }
+                : { decision: 'accept' as const }
+            }
+          }
+        ]
+      })
+      const outcomes: string[] = []
+      for (const value of values) {
+        const base = operation({ entityId: 'node-a', value })
+        const candidate: ValidatedRemoteOperation = {
+          status: 'validated',
+          envelope: {
+            ...base.envelope,
+            operationId: `actor-a:session-a:${value}:forward`,
+            transactionId: `actor-a:session-a:${value}`
+          }
+        }
+        const outcome = await instance.decide(candidate)
+        if (outcome.status === 'rejected') throw new Error('unexpected reject')
+        outcomes.push(outcome.status)
+        state.value = (outcome.envelope.payload as Payload).value
+      }
+      return { outcomes, value: state.value }
+    }
+
+    expect(await applyInOrder([1, 2])).toEqual({
+      outcomes: ['accepted', 'accepted'],
+      value: 2
+    })
+    expect(await applyInOrder([2, 1])).toEqual({
+      outcomes: ['accepted', 'repaired'],
+      value: 2
+    })
   })
 })
