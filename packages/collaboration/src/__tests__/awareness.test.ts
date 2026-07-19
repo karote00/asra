@@ -227,11 +227,11 @@ describe('ephemeral awareness ownership', () => {
 
   it('rejects accessor-backed awareness data without executing it', () => {
     const runtime = new AwarenessRuntime({ actorId: 'actor-local' })
-    const getter = vi.fn(() => 'Asa')
+    const nestedGetter = vi.fn(() => 'Asa')
     const identity = {}
     Object.defineProperty(identity, 'displayName', {
       enumerable: true,
-      get: getter
+      get: nestedGetter
     })
 
     expect(() =>
@@ -241,7 +241,20 @@ describe('ephemeral awareness ownership', () => {
         code: 'invalid-state'
       })
     )
-    expect(getter).not.toHaveBeenCalled()
+    expect(nestedGetter).not.toHaveBeenCalled()
+
+    const topLevelGetter = vi.fn(() => ({ displayName: 'Asa' }))
+    const input = {}
+    Object.defineProperty(input, 'identity', {
+      enumerable: true,
+      get: topLevelGetter
+    })
+    expect(() => runtime.updateLocal(input)).toThrowError(
+      expect.objectContaining<Partial<AwarenessValidationError>>({
+        code: 'invalid-state'
+      })
+    )
+    expect(topLevelGetter).not.toHaveBeenCalled()
   })
 
   it('never writes Y.Doc, persistence, transaction, or permission state', () => {

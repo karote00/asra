@@ -238,8 +238,12 @@ export class AwarenessRuntime {
   updateLocal(input: AwarenessStateInput): ProviderAwarenessMessage {
     this.requireUsable()
     requireActor(this.actorId)
+    const selectedState = cloneState(
+      input as Record<string, unknown>,
+      allowedInputFields
+    )
     const state = cloneState(
-      { ...input, heartbeatAt: this.now() },
+      { ...selectedState, heartbeatAt: this.now() },
       allowedRemoteFields
     )
     this.clock += 1
