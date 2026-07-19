@@ -448,11 +448,15 @@ class ComputedDataMirror {
 
       for (const [recordId, change] of Object.entries(recordPatch.set ?? {})) {
         const recordExists = hasOwn(nextRecord, recordId)
+        const hasOwnBefore = Object.prototype.hasOwnProperty.call(
+          change,
+          'before'
+        )
         if (
-          ('before' in change &&
+          (hasOwnBefore &&
             (!recordExists ||
               !isDataEqual(nextRecord[recordId], change.before))) ||
-          (!('before' in change) && recordExists)
+          (!hasOwnBefore && recordExists)
         ) {
           return false
         }

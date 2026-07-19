@@ -731,6 +731,49 @@ describe('RenderSceneTree computed data mirror', () => {
     )
   })
 
+  it('should run: treat an inherited record before value as an addition', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const initialPoint = { id: 'A', x: 0, y: 0 }
+    const canonicalPoint = { id: 'A', x: 20, y: 20 }
+    const element = createElement(
+      'vector-1',
+      { type: 'vector', visible: true },
+      { points: { A: initialPoint } }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+    element.getAllComputedData.mockReturnValue({
+      points: { A: canonicalPoint }
+    })
+    const inheritedChange = Object.assign(
+      Object.create({ before: initialPoint }) as {
+        before: typeof initialPoint
+        after: typeof initialPoint
+      },
+      { after: { id: 'A', x: 10, y: 10 } }
+    )
+
+    const outcome = store.updateElementPatch(
+      'vector-1',
+      {
+        records: {
+          points: {
+            set: { A: inheritedChange }
+          }
+        }
+      },
+      { undoable: false }
+    )
+    await flushScheduledFrame()
+
+    expect(outcome).toEqual({ status: 'resynced', elementId: 'vector-1' })
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(2)
+    expect(renderMock.addElement).toHaveBeenCalledWith(
+      expect.objectContaining({ points: { A: canonicalPoint } })
+    )
+  })
+
   it('should run: compare distinct cyclic scalar values without overflowing', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()

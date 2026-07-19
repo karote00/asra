@@ -141,7 +141,7 @@ const invertComputedDataPatchChange = (
     >[string] = {}
 
     Object.entries(recordPatch.set ?? {}).forEach(([recordId, change]) => {
-      if (!('before' in change)) {
+      if (!Object.prototype.hasOwnProperty.call(change, 'before')) {
         nextRecordPatch.remove ??= {}
         setOwnEnumerableValue(nextRecordPatch.remove, recordId, {
           before: change.after

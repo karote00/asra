@@ -502,6 +502,58 @@ describe('Factory', () => {
     subscription.unsubscribe()
   })
 
+  it('treats an inherited record before value as absent during patch inversion', () => {
+    const observedPatches: unknown[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (
+        event.type === EventTypes.UPDATE_COMPUTED_DATA_PATCH &&
+        'payload' in event
+      ) {
+        observedPatches.push((event.payload as { patch: unknown }).patch)
+      }
+    })
+    const inheritedChange = Object.assign(
+      Object.create({ before: { id: 'A', x: 0, y: 0 } }) as {
+        before: { id: string; x: number; y: number }
+        after: { id: string; x: number; y: number }
+      },
+      { after: { id: 'A', x: 10, y: 10 } }
+    )
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+      payload: {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+        id: 'vector-inherited-before',
+        patch: {
+          records: {
+            points: {
+              set: { A: inheritedChange }
+            }
+          }
+        }
+      }
+    })
+    factory.endTransaction()
+
+    factory.undo()
+
+    expect(observedPatches[0]).toEqual({
+      records: {
+        points: {
+          remove: {
+            A: { before: { id: 'A', x: 10, y: 10 } }
+          }
+        }
+      }
+    })
+
+    subscription.unsubscribe()
+  })
+
   it('preserves special own record ids while inverting computed patches', () => {
     const observedPatches: unknown[] = []
     const subscription = subscribeToEvents((event) => {
