@@ -210,6 +210,7 @@ test('local timeline preserves Factory transaction ownership and formal compensa
   assert.match(local, /Remote-origin.*excluded from.*network publication/i)
   assert.match(envelope, /operation.*transaction.*document.*actor.*protocol.*schema.*origin.*channel.*event.*payload/i)
   assert.match(envelope, /compensation envelope names the exact operation/i)
+  assert.match(envelope, /canonical apply handler/i)
   assert.ok(
     data.routes.some(
       (route) =>

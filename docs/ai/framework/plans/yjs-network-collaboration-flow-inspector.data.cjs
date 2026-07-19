@@ -211,7 +211,8 @@
       conditions: [
         'The envelope contains operation, transaction, document, actor, protocol, schema, origin, channel, event, and validated payload fields.',
         'A compensation envelope names the exact operation it compensates.',
-        'Operation and actor-scoped transaction identity remain stable for the one published delivery.'
+        'Operation and actor-scoped transaction identity remain stable for the one published delivery.',
+        'Registration retains the app or state-owner canonical apply handler without executing it during local envelope creation.'
       ],
       bypasses: [
         'Unregistered channel/event or invalid local payload is rejected before Y.Doc mutation or provider send.'
@@ -220,7 +221,8 @@
         'artifact:local-shared-delivery',
         'artifact:local-compensation-delivery',
         'instance identity and operation id source',
-        'registered payload validator'
+        'registered payload validator',
+        'registered app or state-owner canonical apply handler'
       ],
       forbiddenContributors: [
         'Yjs transaction origin as the only semantic metadata',
