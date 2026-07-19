@@ -254,6 +254,7 @@ test('inbound pipeline orders decode, dedupe, validation, policy, transaction, a
   assert.match(contractText(decode), /does not mutate canonical package state/i)
   assert.match(validation, /identity collision/i)
   assert.match(validation, /repeated identical operation id.*without mutation/i)
+  assert.match(validation, /locally published operation.*outcome registry/i)
   assert.match(validation, /unsupported versions\/routes.*malformed payloads/i)
   assert.match(policy, /Permission runs before conflict/i)
   assert.match(policy, /Framework invariant policies cannot be replaced/i)
@@ -279,6 +280,12 @@ test('inbound pipeline orders decode, dedupe, validation, policy, transaction, a
       'packages/utils/src/types/transaction.ts'
     ),
     'remote transaction origin type owner must be in the implementation boundary'
+  )
+  assert.ok(
+    step('validate-origin-dedupe-protocol').implementationBoundary.includes(
+      'packages/collaboration/src/collaboration-instance.ts'
+    ),
+    'local publication must register its outcome before an own-operation replay'
   )
 })
 

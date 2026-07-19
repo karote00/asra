@@ -400,6 +400,7 @@
         'Document id, actor id, operation id, transaction id, origin, protocol version, schema version, channel, event name, and payload are validated.',
         'A repeated identical operation id returns the recorded deterministic outcome without mutation.',
         'A repeated operation id with different content is rejected as an identity collision.',
+        'A locally published operation is recorded in the instance outcome registry before transport so its own replay is a duplicate.',
         'Remote apply and compensation are classified as inbound and cannot echo as local publication.'
       ],
       bypasses: [
@@ -421,6 +422,7 @@
         'packages/collaboration/src/inbound-pipeline.ts',
         'packages/collaboration/src/operation-envelope.ts',
         'packages/collaboration/src/operation-registry.ts',
+        'packages/collaboration/src/collaboration-instance.ts',
         'packages/collaboration/src/__tests__/origin-dedupe-validation.test.ts'
       ],
       specRefs: [
