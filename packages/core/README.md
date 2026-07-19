@@ -12,10 +12,16 @@ receives the unnormalized raw document as `unknown`, so app code narrows version
 Every successful hook must return a `VersionedLoadDocument`; package fields stay
 raw until the complete chain reaches package-owner validation.
 
-The app owns supported versions and domain transforms. Core rejects Promise or
+The app owns its connected linear migration chain and domain transforms. A
+copyable app helper can validate the complete batch and install one conditional
+dispatcher that repeatedly follows the current version; when no matching
+version exists, the document passes through unchanged. The helper permits one
+non-empty installation per Core instance, treats empty batches as no-ops, and
+keeps its instance-isolated installation guard app-owned. Core rejects Promise or
 invalid hook results before validation through `LoadHookExecutionError`, and
 contains an eventual rejected Promise behind that single synchronous failure.
-It does not infer app schema history or provide a second migration pipeline.
+It does not infer app schema history, enforce an app target version, or provide
+a second migration pipeline.
 
 After migration, Props Manager, Scene Tree, and System Context each produce a
 validation/fallback result as an owner-issued, instance-bound, one-shot
@@ -34,4 +40,4 @@ or later hooks in that emission. Core assembles evidence only when diagnostics
 and an observer exist; assembly failure skips emission and preserves load success.
 
 See `docs/examples/app-owned-versioned-load-migration.mjs` for a reusable
-adjacent-step example.
+connected-registry example.

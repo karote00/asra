@@ -131,9 +131,16 @@
 - Package validation results are owner-issued, instance-bound, one-shot
   artifacts. Canonical apply accepts no plain/foreign/reused result and never
   reruns package validators.
-- Apps own supported document versions and adjacent transforms. Framework
-  packages do not contain app schema history or infer missing/unsupported
-  version policy.
+- Apps own one connected linear migration chain, its domain transforms, and its
+  conditional dispatcher. Version ids may be non-contiguous, but registration
+  must reject an incomplete or sparse batch, disconnected component, branch,
+  merge, duplicate source/target, self-transition, or cycle before installing
+  the dispatcher. A document with no matching version passes through unchanged;
+  Framework packages do not contain app schema history or enforce an app
+  target-version policy.
+- One app helper module cannot split one migration history across repeated
+  non-empty registrations on the same Core instance. Empty batches do not claim
+  the app-owned installation slot, and separate Core instances remain isolated.
 
 ## Documentation Rule
 

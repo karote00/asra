@@ -1550,3 +1550,49 @@ unregister -> app migration -> core.start()` as the public app route.
   - `docs/ai/framework/PLANS.md`
 - Related Commit(s):
   - pending local closeout commit
+
+## 2026-07-19 - Correct app-level migration dispatch semantics
+
+- Context:
+  - A later product-contract review clarified that independent app migration
+    steps are not an unconditional Core hook queue and that version identifiers
+    need not be numerically adjacent.
+  - Rejecting an otherwise well-formed document only because its string version
+    had no registered transition hid app compatibility behavior that should
+    remain visible to the app and its package validators.
+- Decision:
+  - Keep app schema history outside framework packages. Validate one complete
+    app-owned batch as a connected linear migration chain with one head and one
+    tail, allowing opaque non-contiguous version identifiers but rejecting
+    incomplete or sparse batches, disconnected components, branches, merges,
+    duplicate sources/targets, self-transitions, and cycles before Core
+    registration.
+  - Compile the batch into one synchronous app dispatcher registered through
+    `core.registerLoadHook(...)`. For each matched current version, run exactly
+    that transform, require its declared target version, and continue lookup on
+    the returned document without recursively entering `core.load(...)`.
+  - Permit one non-empty helper installation per Core instance. Reject a second
+    non-empty registration before adding another hook so app schema history
+    cannot be split across dispatchers. Empty batches do not claim the slot;
+    the instance-isolated guard remains app-owned rather than becoming a Core
+    schema registry.
+  - Treat no matching version as normal migration termination and pass the
+    document unchanged to Core normalization and mandatory package validation.
+    Keep missing-version eligibility, thrown transforms, invalid transform
+    results, and asynchronous transform results as app-owned migration failures.
+- Consequences:
+  - A document can begin at any registered point and runs only the remaining
+    suffix; an already-terminal, unknown, or future string version runs no
+    transform and remains observable by normal app/package behavior.
+  - The app dispatcher contains rejected transform Promises and reports stable
+    invalid/asynchronous app migration errors before package validation. Core's
+    existing hook ordering, direct/provider parity, validation/apply atomicity,
+    diagnostics containment, and instance isolation remain unchanged.
+  - This contract correction does not perform a closeout, change any release
+    gate state, start Release Gate 2, or authorize push, pull request, merge, or
+    publication. Those actions remain subject to explicit user direction.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/props-manager-app-level-migration-plan.md`
+  - `docs/ai/framework/plans/app-level-migration-flow-inspector.data.cjs`
+- Related Commit(s):
+  - pending local contract-correction commit

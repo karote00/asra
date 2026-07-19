@@ -4,7 +4,6 @@ import { registerAppVersionMigrations } from './app-owned-versioned-load-migrati
 declare const core: Core
 
 registerAppVersionMigrations(core, {
-  versions: ['v1', 'v2'],
   migrations: [
     {
       from: 'v1',

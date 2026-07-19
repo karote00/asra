@@ -10,6 +10,11 @@
   input parity, hook result/failure semantics, owner-issued validation artifacts,
   instance isolation, and diagnostics containment were closed without adding a
   second migration state owner or framework-owned app version branches.
+- Post-closeout contract correction: one app-owned migration registry now
+  validates its complete batch as a single connected linear chain and registers
+  one conditional dispatcher through `core.registerLoadHook(...)`. A document
+  version with no matching migration terminates app migration normally and
+  continues to package validation; Core still owns no app target-version policy.
 - Exit criteria: the dedicated Inspector, reusable typed example, focused and
   root tests, dependency validation, lint, production build, and two independent
   final reviews passed with no P0/P1/P2 findings.
@@ -36,8 +41,9 @@ Define how app-level users migrate document formats using framework hooks, acros
 
 2. Run app migration pipeline (versioned)
 
-- via `core.registerLoadHook(...)` chain
-- each hook transforms one version step
+- validate one app-owned batch of independent `{ from, to, migrate }` steps
+- register one dispatcher through `core.registerLoadHook(...)`
+- repeatedly look up the current document version and run only its matching step
 
 3. Framework validation/fallback pipeline
 
@@ -62,7 +68,9 @@ Define how app-level users migrate document formats using framework hooks, acros
 2. Migration functions
 
 - pure, deterministic, idempotent
-- one-step migrations (`v1 -> v2`, `v2 -> v3`) preferred
+- declare one exact `from -> to` transition per transform
+- version ids are opaque and may be non-contiguous
+- all registered transitions must form one connected linear chain
 
 3. Domain transforms
 
@@ -74,7 +82,8 @@ Define how app-level users migrate document formats using framework hooks, acros
 
 1. Hook orchestration
 
-- execute load hooks in order
+- execute the app dispatcher as an ordinary synchronous load hook
+- enforce only the public load-hook result contract, never an app target version
 
 2. Validation/fallback safety
 
@@ -99,18 +108,24 @@ Define how app-level users migrate document formats using framework hooks, acros
 
 ## Required Formalization
 
-- Define how an app identifies the document version before the first hook and
-  how each successful hook advances exactly one declared version step.
-- Preserve registration order deterministically and run the same hook chain for
-  persistence-provider load and direct `core.load(...)`.
-- Define empty-chain, already-current, missing-version, unsupported-version,
-  thrown-hook, invalid-result, and asynchronous-hook behavior explicitly.
+- Define how an app identifies the document version before dispatch and how
+  each successful transform advances exactly to its declared `to` version.
+- Validate the complete registration batch before installing the dispatcher:
+  it must be a dense array with one complete step in every slot. Versions may be
+  non-contiguous, but every step must form one connected linear chain with one
+  head and one tail, no duplicate source/target, self-transition, branch, merge,
+  disconnected component, or cycle.
+- Run the same conditional migration dispatch for persistence-provider load and
+  direct `core.load(...)`; steps before the document's current version are not
+  invoked.
+- Define empty-chain, already-terminal, missing-version, unmatched-version,
+  thrown-transform, invalid-result, and asynchronous-hook behavior explicitly.
 - A migration failure must stop before package validation or canonical state
   apply and must not expose a partially migrated runtime document.
 - Package validation remains mandatory after migration; an app hook cannot
   declare invalid package data safe or bypass fallback/reject semantics.
-- Provide one reusable app-owned `vN -> vN+1` migration example or template
-  without embedding app schema history in framework packages.
+- Provide one reusable app-owned connected-registry example or template without
+  embedding app schema history in framework packages.
 - Keep optional diagnostics observational and unable to change the migration,
   validation, or apply outcome.
 
@@ -130,9 +145,10 @@ framework-owned app version registry.
 - Direct and provider entries use the same nullish no-document sentinel:
   `null` or `undefined` invokes no migration, validation, apply, completion
   event, or diagnostics. Every other falsy value remains raw document evidence.
-- `Core` passes the unnormalized raw document to the first registered load hook.
-  This preserves app ownership of missing, unsupported, and legacy version
-  decisions. Core normalization begins only after the complete hook chain.
+- `Core` passes the unnormalized raw document to the registered app dispatcher
+  load hook. This preserves app ownership of version lookup and legacy domain
+  transforms. Core normalization begins only after the dispatcher and any other
+  load hooks complete.
 - Hooks execute synchronously in registration order. A hook must return a
   non-array document object with a string `version`. Returning a Promise is an
   unsupported asynchronous hook result; returning any other invalid result is
@@ -142,26 +158,51 @@ framework-owned app version registry.
   load and cannot extend the in-flight document chain.
 - The empty hook chain passes the raw payload directly to Core normalization and
   package validation. It does not invent an app migration policy.
-- An already-current document is a semantic no-op in the app-owned version
-  chain, then continues through package validation and canonical apply.
-- Apps declare supported versions and one-step transforms. The reusable example
-  registers `v1 -> v2` before `v2 -> v3`, bypasses steps already reached, rejects
-  a missing version, and rejects versions outside the app-declared chain.
-- Each app hook owns its transform and version advancement. Core owns only
-  registration-order invocation and result-shape enforcement; package
-  validators do not inspect app version history.
+- The app registers the complete transition batch atomically. Registration
+  rejects a disconnected, branching, merging, self-referential, cyclic, or
+  duplicate chain before installing any Core load hook. Array order and numeric
+  version continuity are not semantic; exact `to === next.from` connectivity is.
+- One app helper module may install only one non-empty migration batch on each
+  Core instance. A second non-empty registration fails before adding another
+  hook, preventing a connected history from being split across dispatchers.
+  Empty batches remain no-ops and do not claim the per-Core installation slot;
+  separate Core instances retain isolated registrations.
+- The dispatcher looks up only the current document version. When a matching
+  transition exists, it runs that transform, requires the declared `to` version,
+  and repeats lookup with the returned document. Earlier transitions are never
+  invoked for a document that begins in the middle of the chain. This is one
+  synchronous loop inside the dispatcher; it never recursively calls
+  `core.load(...)`.
+- Every registered transform is synchronous. A transform Promise is an
+  app-migration asynchronous-result failure whose eventual rejection is
+  contained; any other non-document result is an invalid-step-result failure.
+  These are distinct from initial document eligibility such as a missing
+  version, and all stop before the dispatcher returns to Core.
+- No matching transition is the normal app-migration terminal condition,
+  including an already-current, unknown, future, or otherwise unregistered
+  string version. The document continues unchanged to Core normalization and
+  package validation; neither the app helper nor Core rejects it as unsupported.
+- A registered transform owns its domain change and exact version advancement.
+  Core owns only load-hook registration-order invocation and result-shape
+  enforcement; package validators do not inspect app version history.
 - `core.load(...)` remains synchronous. Provider I/O may be asynchronous, but
   once a provider returns a document it enters the same synchronous hook,
   validation, and apply pipeline as direct load.
 
 ## Failure And Atomicity Semantics
 
-- A thrown app hook error propagates unchanged and stops the chain. A Core-owned
-  invalid or asynchronous result throws one stable load-hook execution error
-  identifying the hook index and failure code. Core contains an eventual
-  rejected asynchronous result behind that single synchronous failure.
+- A thrown app hook error propagates unchanged and stops the chain. The
+  app-owned dispatcher reports invalid or asynchronous transform results with
+  stable app migration failure codes and contains an eventual rejected
+  transform Promise. For any other registered load hook, a Core-owned invalid
+  or asynchronous result throws one stable load-hook execution error identifying
+  the hook index and failure code, and Core contains an eventual rejected
+  Promise behind that single synchronous failure.
 - Migration failure invokes no package validator, applies no version or package
   state, emits no file-load-complete event, and invokes no diagnostics hook.
+- Invalid migration registration fails before installing the dispatcher and
+  therefore cannot affect any later load. An unmatched document version is not
+  a migration failure and proceeds to package validation unchanged.
 - All package validation/fallback results are obtained before canonical state
   apply begins. A validation failure, including a thrown validator, applies no
   version or package state.
@@ -182,13 +223,16 @@ framework-owned app version registry.
 ## Product Cases
 
 - no persisted document: startup does not invoke migration;
-- already-current document: canonical validation and apply proceed without a
-  semantic rewrite;
-- `v1 -> v2 -> v3`: hooks run once in registration/version order and validation
-  observes only the complete `v3` result;
+- already-terminal or unknown string version: no transform runs and canonical
+  validation/apply decides whether the document remains usable;
+- non-contiguous `v1 -> v3 -> v8`: conditional lookup runs only the matching
+  suffix and validation observes only the terminal transformed document;
+- out-of-order batch declaration still produces the same connected lookup
+  chain, while a disconnected, branching, merging, self-looping, duplicate, or
+  cyclic registration fails before a Core hook is installed;
 - direct `core.load(...)` and provider-backed load use identical ordering;
-- thrown hook, unsupported version, or invalid hook result applies no canonical
-  prefix and surfaces one deterministic failure;
+- thrown transform or invalid hook result applies no canonical prefix and
+  surfaces one deterministic failure; an unmatched version is passed through;
 - migrated but package-invalid data still follows package fallback/reject rules;
 - fabricated, foreign-instance, or reused validated artifacts cannot bypass a
   package validator or mutate canonical state;

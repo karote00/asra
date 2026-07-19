@@ -219,19 +219,166 @@ test('raw direct and provider loads share one pre-validation migration route', (
   )
 })
 
-test('app owns version eligibility and one-step domain history', () => {
+test('app owns one connected registry and conditional version dispatch', () => {
   const ownerStep = step('own-versioned-migrations')
   const owner = contractText(ownerStep)
-  assert.match(owner, /Missing and unsupported versions.*app-owned policy/i)
-  assert.match(owner, /Already-current.*bypass/i)
-  assert.match(owner, /exactly its declared next version/i)
+  assert.match(owner, /one connected linear chain.*one head and one tail/i)
+  assert.match(owner, /Version ids are opaque.*non-contiguous/i)
+  assert.match(owner, /Duplicate source or target.*cycle fails registration/i)
+  assert.match(owner, /looks up only the current version/i)
+  assert.match(owner, /loop inside the dispatcher.*never re-enters core\.load/i)
+  assert.match(owner, /dense array.*every slot/i)
+  assert.match(owner, /at most one non-empty migration batch per Core instance/i)
+  assert.match(owner, /second non-empty registration fails.*another hook/i)
+  assert.match(owner, /empty batch.*no-op.*does not claim/i)
+  assert.match(owner, /app-owned per-Core WeakSet installation guard/i)
+  assert.match(owner, /Core-owned app migration installation registry/i)
+  assert.match(owner, /transform returns synchronously.*non-array document/i)
+  assert.match(owner, /Promise.*app-owned asynchronous-result failure/i)
+  assert.match(owner, /eventual rejection is contained/i)
+  assert.match(owner, /invalid-step-result failure.*initial missing-version/i)
+  assert.match(owner, /no matching transition.*normal terminal pass-through/i)
+  assert.match(owner, /Transitions before.*current version are not invoked/i)
   assert.match(owner, /package-internal app version branches/i)
   assert.match(owner, /automatic Core schema-history inference/i)
+  assert.match(owner, /fixed-queue invocation.*non-matching/i)
+
+  const registrationRoute = data.routes.find(
+    (route) => route.id === 'register-app-migrations'
+  )
+  assert.ok(registrationRoute)
+  assert.match(registrationRoute.predicate, /non-empty.*connected linear/i)
+  assert.deepEqual(registrationRoute.producedArtifacts, [
+    'artifact:registered-migration-dispatcher'
+  ])
+
+  const emptyBatchRoute = data.routes.find(
+    (route) => route.id === 'empty-app-migration-batch'
+  )
+  assert.ok(emptyBatchRoute)
+  assert.equal(emptyBatchRoute.to, 'orchestrate-load-hooks')
+  assert.match(emptyBatchRoute.predicate, /empty batch.*no dispatcher/i)
+  assert.deepEqual(emptyBatchRoute.producedArtifacts, [
+    'artifact:empty-migration-batch'
+  ])
+  assert.ok(
+    step('orchestrate-load-hooks').inputs.includes(
+      'artifact:empty-migration-batch'
+    )
+  )
+
+  const registrationFailure = data.routes.find(
+    (route) => route.id === 'migration-registration-failure'
+  )
+  assert.ok(registrationFailure)
+  assert.equal(registrationFailure.kind, 'terminal')
+  assert.match(
+    registrationFailure.predicate,
+    /disconnected component.*cycle.*second non-empty registration/i
+  )
+  assert.deepEqual(registrationFailure.producedArtifacts, [
+    'artifact:migration-registration-failure'
+  ])
+
+  const executionFailure = data.routes.find(
+    (route) => route.id === 'app-migration-execution-failure'
+  )
+  assert.ok(executionFailure)
+  assert.equal(executionFailure.kind, 'terminal')
+  assert.match(
+    executionFailure.predicate,
+    /missing-version eligibility.*transform throws.*invalid.*asynchronous/i
+  )
+  assert.deepEqual(executionFailure.producedArtifacts, [
+    'artifact:app-migration-execution-failure'
+  ])
+  const executionFailureArtifact = data.artifacts.find(
+    (artifact) =>
+      artifact.id === 'artifact:app-migration-execution-failure'
+  )
+  assert.ok(executionFailureArtifact)
+  assert.equal(executionFailureArtifact.ownerStepId, 'own-versioned-migrations')
+  assert.equal(executionFailureArtifact.terminal, true)
+
+  const additionalHooks = step('own-additional-load-hooks')
+  const additionalHookContract = contractText(additionalHooks)
+  assert.match(additionalHookContract, /optional non-migration app load hooks/i)
+  assert.match(additionalHookContract, /throw.*same error instance/i)
+  assert.match(additionalHookContract, /not migration authority/i)
+  ;[
+    'artifact:registered-additional-load-hooks',
+    'artifact:no-additional-load-hooks'
+  ].forEach((artifactId) => {
+    assert.ok(step('orchestrate-load-hooks').inputs.includes(artifactId))
+  })
+
+  const additionalHookFailure = data.routes.find(
+    (route) => route.id === 'additional-app-load-hook-throw'
+  )
+  assert.ok(additionalHookFailure)
+  assert.equal(additionalHookFailure.kind, 'terminal')
+  assert.match(additionalHookFailure.predicate, /synchronous throw.*unchanged/i)
+  assert.deepEqual(additionalHookFailure.producedArtifacts, [
+    'artifact:app-load-hook-throw'
+  ])
+  const additionalHookFailureArtifact = data.artifacts.find(
+    (artifact) => artifact.id === 'artifact:app-load-hook-throw'
+  )
+  assert.ok(additionalHookFailureArtifact)
+  assert.equal(
+    additionalHookFailureArtifact.ownerStepId,
+    'own-additional-load-hooks'
+  )
+  assert.equal(additionalHookFailureArtifact.terminal, true)
+
+  const coreFailureRoute = data.routes.find(
+    (route) => route.id === 'migration-failure-terminal'
+  )
+  assert.ok(coreFailureRoute)
+  assert.match(coreFailureRoute.predicate, /crossing the Core boundary/i)
+  assert.doesNotMatch(coreFailureRoute.predicate, /transform/i)
   assert.ok(
     ownerStep.implementationBoundary.includes(
       'docs/examples/app-owned-versioned-load-migration.type-test.ts'
     )
   )
+
+  const migrationRule = fs.readFileSync(
+    path.resolve(
+      repoRoot,
+      'docs/ai/framework/rules/load-validation-and-migration.md'
+    ),
+    'utf8'
+  )
+  assert.match(migrationRule, /one connected linear chain/i)
+  assert.match(migrationRule, /no matching transition.*terminates migration/is)
+  assert.match(migrationRule, /Promise.*app-owned asynchronous-result failure/is)
+  assert.match(migrationRule, /eventual\s+rejection is contained/i)
+  assert.match(migrationRule, /invalid-step-result failure/i)
+  assert.doesNotMatch(migrationRule, /unsupported versions are app-policy failures/i)
+
+  ;[
+    'docs/ai/framework/API_SURFACES.md',
+    'docs/ai/framework/ARCHITECTURE.md',
+    'docs/ai/framework/CONSTRAINTS.md',
+    'docs/ai/framework/packages/core.md',
+    'packages/core/README.md'
+  ].forEach((relativePath) => {
+    const crossDocumentContract = fs.readFileSync(
+      path.resolve(repoRoot, relativePath),
+      'utf8'
+    )
+    assert.match(
+      crossDocumentContract,
+      /connected (?:linear )?(?:migration |transition )?(?:chain|batch|registry)/i,
+      relativePath
+    )
+    assert.match(
+      crossDocumentContract,
+      /(?:unmatched|no matching).*version.*(?:pass|continue)/is,
+      relativePath
+    )
+  })
 })
 
 test('all package validators finish before canonical apply', () => {
@@ -331,12 +478,12 @@ test('product contract names every required migration case and bounded DoD', () 
   )
   ;[
     /empty hook chain/i,
-    /already-current/i,
-    /missing version/i,
-    /unsupported version/i,
-    /v1 -> v2 -> v3/i,
-    /thrown app hook/i,
-    /invalid or asynchronous result/i,
+    /missing[- ]version/i,
+    /no matching transition.*terminal/i,
+    /non-contiguous `v1 -> v3 -> v8`/i,
+    /disconnected.*cycle/i,
+    /thrown transform/i,
+    /invalid or asynchronous transform results/i,
     /direct.*provider/i,
     /validation failure/i,
     /Diagnostics receive detached/i,
@@ -372,4 +519,8 @@ test('Golden Path names only the canonical state carried by the load envelope', 
     goldenPath,
     /diagnostics.*mutation.*throw.*assembly failure.*successful load/is
   )
+  assert.match(goldenPath, /complete batch.*one connected linear chain/is)
+  assert.match(goldenPath, /stop normally when no transition matches/i)
+  assert.match(goldenPath, /fixed queue instead of conditional lookup/i)
+  assert.doesNotMatch(goldenPath, /reject missing\/unsupported app versions/i)
 })

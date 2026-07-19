@@ -61,36 +61,53 @@
       id: 'own-versioned-migrations',
       order: 1,
       laneId: 'app',
-      title: 'Own versioned migration chain',
+      title: 'Own connected migration registry',
       ownerPackage: 'app or user composition',
       purpose:
-        'Declare supported document versions and pure one-step domain transforms without moving schema history into framework packages.',
+        'Validate one connected batch of app-owned transitions and compile one conditional dispatcher without moving schema history into framework packages.',
       inputs: [
-        'app current document version',
-        'app supported version sequence',
-        'app-owned vN -> vN+1 transforms'
+        'app-owned batch of { from, to, migrate } transitions',
+        'opaque app document version ids',
+        'pure app domain transforms'
       ],
-      outputs: ['artifact:registered-migration-hooks'],
+      outputs: [
+        'artifact:registered-migration-dispatcher',
+        'artifact:empty-migration-batch',
+        'artifact:migration-registration-failure',
+        'artifact:app-migration-execution-failure'
+      ],
       conditions: [
-        'Hooks are registered in declared version-step order before load.',
-        'Missing and unsupported versions fail through the app-owned policy.',
-        'Already-current and already-reached versions bypass semantic rewriting.',
-        'Every successful transform returns exactly its declared next version.'
+        'The complete batch is validated atomically before one dispatcher is registered through public core.registerLoadHook.',
+        'One helper module installs at most one non-empty migration batch per Core instance; a second non-empty registration fails before adding another hook.',
+        'An empty batch is always a no-op and does not claim the per-Core installation slot.',
+        'The batch is a dense array whose every slot declares one complete transition.',
+        'Version ids are opaque and may be non-contiguous; all transitions still form one connected linear chain with one head and one tail.',
+        'Duplicate source or target, self-transition, branch, merge, disconnected component, or cycle fails registration before installing the dispatcher.',
+        'At load time the dispatcher looks up only the current version, runs its matching transform, requires exactly the declared to version, and repeats with the returned document.',
+        'Repeated lookup is one synchronous loop inside the dispatcher and never re-enters core.load.',
+        'Every registered transform returns synchronously with a non-array document object and a string version; a Promise is an app-owned asynchronous-result failure and its eventual rejection is contained.',
+        'A matched transform returning any other invalid shape is an invalid-step-result failure, distinct from initial missing-version eligibility.',
+        'A thrown registered transform propagates the same error instance as an app-owned migration execution failure.',
+        'A string version with no matching transition is a normal terminal pass-through, not an unsupported-version failure.'
       ],
       bypasses: [
-        'An app with no schema history may register no load hook.',
-        'An already-current document invokes hooks only as version-policy no-ops.'
+        'An empty migration batch registers no dispatcher.',
+        'An already-terminal, unknown, future, or otherwise unmatched string version invokes no transform and continues unchanged to Core normalization and package validation.',
+        'Transitions before a document current version are not invoked.'
       ],
       allowedContributors: [
         'public core.registerLoadHook API',
-        'app document-version constants',
+        'app-owned per-Core WeakSet installation guard',
+        'opaque app document-version ids',
         'pure app domain transforms'
       ],
       forbiddenContributors: [
         'package-internal app version branches',
         'UI parser or formatter authority',
         'automatic Core schema-history inference',
-        'runtime fallback that hides unsupported versions'
+        'Core target-version or supported-version enforcement',
+        'Core-owned app migration installation registry',
+        'fixed-queue invocation of non-matching migration transforms'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -108,6 +125,50 @@
       failureOwnerStepId: 'own-versioned-migrations'
     },
     {
+      id: 'own-additional-load-hooks',
+      order: 2,
+      laneId: 'app',
+      title: 'Own optional additional load hooks',
+      ownerPackage: 'app or user composition',
+      purpose:
+        'Register optional non-migration app load hooks that are not migration authority and retain ownership of their synchronous thrown failures.',
+      inputs: ['optional non-migration app load hooks'],
+      outputs: [
+        'artifact:registered-additional-load-hooks',
+        'artifact:no-additional-load-hooks',
+        'artifact:app-load-hook-throw'
+      ],
+      conditions: [
+        'Additional hooks use the same public core.registerLoadHook surface and the app chooses their registration order.',
+        'A synchronous throw propagates the same error instance and remains owned by the app hook contributor.',
+        'A returned value still crosses the Core load-hook result boundary for VersionedLoadDocument validation.'
+      ],
+      bypasses: [
+        'An app with no additional load hook produces a no-additional-hooks handoff.'
+      ],
+      allowedContributors: [
+        'public core.registerLoadHook API',
+        'app-owned non-migration load-hook callbacks'
+      ],
+      forbiddenContributors: [
+        'a second migration authority',
+        'package-validation bypass',
+        'diagnostics that repair hook output'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'packages/core/src/__tests__/load-validation.test.ts',
+        'packages/core/README.md',
+        'docs/ai/framework/API_SURFACES.md',
+        'docs/ai/framework/ARCHITECTURE.md'
+      ],
+      specRefs: [
+        '#version-and-hook-semantics',
+        '#failure-and-atomicity-semantics'
+      ],
+      failureOwnerStepId: 'own-additional-load-hooks'
+    },
+    {
       id: 'orchestrate-load-hooks',
       order: 1,
       laneId: 'core',
@@ -115,10 +176,22 @@
       ownerPackage: '@asyra/core',
       purpose:
         'Invoke instance-local app hooks synchronously in registration order and admit only a versioned document result to validation.',
-      inputs: ['artifact:raw-document', 'artifact:registered-migration-hooks'],
+      inputs: [
+        'artifact:raw-document',
+        'artifact:registered-migration-dispatcher',
+        'artifact:empty-migration-batch',
+        'artifact:registered-additional-load-hooks',
+        'artifact:no-additional-load-hooks'
+      ],
       outputs: ['artifact:migrated-document', 'artifact:migration-failure'],
       conditions: [
         'The first hook receives unknown raw input; each later hook receives only the prior successful versioned result.',
+        'The app migration registry is exposed to Core as one ordinary synchronous dispatcher hook; Core does not inspect its transition graph or target version.',
+        'Core consumes exactly one app registration outcome: a registered dispatcher or an empty-batch no-dispatcher handoff.',
+        'Core also consumes exactly one additional-hook outcome: registered additional hooks or a no-additional-hooks handoff.',
+        'A dispatcher-thrown app migration failure propagates unchanged while failure ownership remains with own-versioned-migrations.',
+        'A synchronous additional app-hook throw propagates unchanged while failure ownership remains with own-additional-load-hooks.',
+        'An unmatched string version returned unchanged by the dispatcher remains a valid VersionedLoadDocument and continues to package validation.',
         'Every hook result satisfies public VersionedLoadDocument: a non-array object with a string version; package fields remain subject to package validation after the complete chain.',
         'A Promise result fails as unsupported asynchronous hook semantics.',
         'Core contains an eventual Promise rejection behind the single synchronous unsupported-async failure.',
@@ -131,7 +204,10 @@
         'An empty chain performs no app semantic transform.'
       ],
       allowedContributors: [
-        'artifact:registered-migration-hooks',
+        'artifact:registered-migration-dispatcher',
+        'artifact:empty-migration-batch',
+        'artifact:registered-additional-load-hooks',
+        'artifact:no-additional-load-hooks',
         'Core instance-local hook registry',
         'Core load-hook result guard'
       ],
@@ -433,8 +509,57 @@
       from: 'own-versioned-migrations',
       to: 'orchestrate-load-hooks',
       kind: 'normal',
-      predicate: 'the app registers zero or more ordered hooks',
-      producedArtifacts: ['artifact:registered-migration-hooks']
+      predicate:
+        'the app provides one valid non-empty connected linear migration chain',
+      producedArtifacts: ['artifact:registered-migration-dispatcher']
+    },
+    {
+      id: 'empty-app-migration-batch',
+      from: 'own-versioned-migrations',
+      to: 'orchestrate-load-hooks',
+      kind: 'normal',
+      predicate: 'the app provides an empty batch and registers no dispatcher',
+      producedArtifacts: ['artifact:empty-migration-batch']
+    },
+    {
+      id: 'migration-registration-failure',
+      from: 'own-versioned-migrations',
+      kind: 'terminal',
+      predicate:
+        'the batch is not a dense complete array, has a duplicate source/target, self-transition, branch, merge, disconnected component, or cycle, or is a second non-empty registration on the same Core instance',
+      producedArtifacts: ['artifact:migration-registration-failure']
+    },
+    {
+      id: 'app-migration-execution-failure',
+      from: 'own-versioned-migrations',
+      kind: 'terminal',
+      predicate:
+        'the dispatcher rejects missing-version eligibility or a matched app transform throws or returns an invalid or asynchronous result when Core invokes it',
+      producedArtifacts: ['artifact:app-migration-execution-failure']
+    },
+    {
+      id: 'register-additional-app-load-hooks',
+      from: 'own-additional-load-hooks',
+      to: 'orchestrate-load-hooks',
+      kind: 'normal',
+      predicate: 'the app registers one or more additional non-migration hooks',
+      producedArtifacts: ['artifact:registered-additional-load-hooks']
+    },
+    {
+      id: 'no-additional-app-load-hooks',
+      from: 'own-additional-load-hooks',
+      to: 'orchestrate-load-hooks',
+      kind: 'normal',
+      predicate: 'the app registers no additional load hook',
+      producedArtifacts: ['artifact:no-additional-load-hooks']
+    },
+    {
+      id: 'additional-app-load-hook-throw',
+      from: 'own-additional-load-hooks',
+      kind: 'terminal',
+      predicate:
+        'an additional app load hook makes a synchronous throw that Core propagates unchanged',
+      producedArtifacts: ['artifact:app-load-hook-throw']
     },
     {
       id: 'migration-to-props-validation',
@@ -464,7 +589,8 @@
       id: 'migration-failure-terminal',
       from: 'orchestrate-load-hooks',
       kind: 'terminal',
-      predicate: 'a hook throws or returns an invalid or asynchronous result',
+      predicate:
+        'a hook result crossing the Core boundary is invalid or asynchronous',
       producedArtifacts: ['artifact:migration-failure']
     },
     {
@@ -571,12 +697,60 @@
       consumerStepIds: []
     },
     {
-      id: 'artifact:registered-migration-hooks',
-      title: 'App-owned ordered migration registrations',
+      id: 'artifact:registered-migration-dispatcher',
+      title: 'App-owned connected migration dispatcher',
       ownerStepId: 'own-versioned-migrations',
-      channel: 'core.registerLoadHook',
+      channel: 'single core.registerLoadHook registration',
       terminal: false,
       consumerStepIds: ['orchestrate-load-hooks']
+    },
+    {
+      id: 'artifact:empty-migration-batch',
+      title: 'No app migration dispatcher registration',
+      ownerStepId: 'own-versioned-migrations',
+      channel: 'empty registration bypass',
+      terminal: false,
+      consumerStepIds: ['orchestrate-load-hooks']
+    },
+    {
+      id: 'artifact:migration-registration-failure',
+      title: 'Invalid app migration-chain registration',
+      ownerStepId: 'own-versioned-migrations',
+      channel: 'synchronous registration throw',
+      terminal: true,
+      consumerStepIds: []
+    },
+    {
+      id: 'artifact:app-migration-execution-failure',
+      title: 'App-owned migration eligibility or transform failure',
+      ownerStepId: 'own-versioned-migrations',
+      channel: 'synchronous dispatcher throw',
+      terminal: true,
+      consumerStepIds: []
+    },
+    {
+      id: 'artifact:registered-additional-load-hooks',
+      title: 'Optional additional app load-hook registrations',
+      ownerStepId: 'own-additional-load-hooks',
+      channel: 'core.registerLoadHook registrations',
+      terminal: false,
+      consumerStepIds: ['orchestrate-load-hooks']
+    },
+    {
+      id: 'artifact:no-additional-load-hooks',
+      title: 'No additional app load-hook registration',
+      ownerStepId: 'own-additional-load-hooks',
+      channel: 'empty additional-hook registration bypass',
+      terminal: false,
+      consumerStepIds: ['orchestrate-load-hooks']
+    },
+    {
+      id: 'artifact:app-load-hook-throw',
+      title: 'App-owned additional load-hook throw',
+      ownerStepId: 'own-additional-load-hooks',
+      channel: 'synchronous hook throw',
+      terminal: true,
+      consumerStepIds: []
     },
     {
       id: 'artifact:migrated-document',
@@ -696,7 +870,7 @@
         'The app owns version eligibility and transforms; framework packages contain no app schema history.',
       stepIds: ['own-versioned-migrations', 'orchestrate-load-hooks'],
       artifactIds: [
-        'artifact:registered-migration-hooks',
+        'artifact:registered-migration-dispatcher',
         'artifact:migrated-document'
       ],
       specRefs: ['#principle', '#version-and-hook-semantics']
@@ -704,7 +878,7 @@
     {
       id: 'migration-precedes-validation-and-apply',
       statement:
-        'The complete ordered hook chain succeeds before any package validator, and every validator succeeds before canonical apply.',
+        'The conditional migration dispatcher and complete Core hook chain succeed before any package validator, and every validator succeeds before canonical apply.',
       stepIds: [
         'orchestrate-load-hooks',
         'validate-props-data',
@@ -750,10 +924,14 @@
     {
       id: 'version-chain',
       title: 'Version-step semantics',
-      stepIds: ['own-versioned-migrations', 'orchestrate-load-hooks'],
+      stepIds: [
+        'own-versioned-migrations',
+        'own-additional-load-hooks',
+        'orchestrate-load-hooks'
+      ],
       specRefs: ['#version-and-hook-semantics', '#product-cases'],
       assertions: [
-        'Empty, current, missing, unsupported, v1 -> v2 -> v3, thrown, invalid, synchronous, and asynchronous cases have deterministic outcomes.'
+        'Empty, missing-version, unmatched-version pass-through, non-contiguous connected chain, middle-chain start, invalid or repeated registration, per-Core isolation, thrown transform, invalid result, synchronous, and asynchronous cases have deterministic outcomes.'
       ]
     },
     {

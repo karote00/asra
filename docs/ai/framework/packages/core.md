@@ -156,8 +156,14 @@ System orchestrator and lifecycle coordinator.
   owner validation. Promise and invalid results throw the stable Core-owned
   `LoadHookExecutionError`, and Core contains an eventual rejected Promise
   behind that single synchronous failure
-- Core owns hook orchestration and result enforcement only; apps own missing,
-  unsupported, current-version, and adjacent domain-transform policy
+- Core owns hook orchestration and result enforcement only. Apps own missing
+  document eligibility plus one connected linear migration chain and its domain
+  transforms. The app dispatcher follows matching current-version transitions;
+  when no matching version exists, the document passes through unchanged and
+  Core does not enforce an app target version
+- an app helper may guard one non-empty dispatcher installation per Core
+  instance, but that instance-local guard remains app-owned and is not a Core
+  schema registry; empty batches install nothing
 - package validators (`props-manager`, `scene-tree`, `system-context`) all
   complete before Core updates the document version or applies any package state
 - each validator returns an owner-issued, instance-bound, one-shot artifact;

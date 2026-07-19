@@ -10,10 +10,12 @@
 ## 2. App-level migration pipeline formalization
 
 - Completed on July 19, 2026 as Framework Release Gate 1.
-- Apps own supported versions and adjacent domain transforms; Core retains one
-  synchronous raw-document -> migration hooks -> package validation/fallback ->
-  canonical apply -> observational diagnostics pipeline for direct and provider
-  loads.
+- Apps own one connected linear migration chain, its domain transforms, and one
+  conditional dispatcher. The dispatcher follows matching current-version
+  transitions and passes an unmatched version through unchanged. Core retains
+  one synchronous raw-document -> migration hooks -> package
+  validation/fallback -> canonical apply -> observational diagnostics pipeline
+  for direct and provider loads, without app target-version policy.
 - Formal coverage closes ordering, failure atomicity, nullish no-document
   parity, validated-artifact ownership, diagnostics containment, and instance
   isolation without adding app schema history to framework packages.

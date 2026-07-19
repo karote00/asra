@@ -225,10 +225,16 @@ applyPreset(core, { profile?, defaults? })
 - Core snapshots the instance-local hook registry at load start; registration
   during a hook cannot extend the in-flight chain.
 - App-level migrations and version eligibility run before package-level
-  validation. App code owns supported versions and domain transforms; Core owns
-  ordered invocation and stable invalid/Promise-result failures only. Core
-  contains an eventual rejected hook Promise after reporting the one synchronous
-  unsupported-async failure.
+  validation. App code owns its connected linear migration chain, domain
+  transforms, and one conditional dispatcher. The dispatcher repeatedly follows
+  only the current document version; when no matching version exists, the
+  document continues unchanged to Core normalization and package validation.
+  One app helper module installs at most one non-empty dispatcher per Core
+  instance; its app-owned installation guard is instance-isolated and is not a
+  Core schema-history registry.
+  Core owns ordered hook invocation and stable invalid/Promise-result failures
+  only, never app target-version policy. Core contains an eventual rejected hook
+  Promise after reporting the one synchronous unsupported-async failure.
 - Props Manager, Scene Tree, and System Context each own their validation and
   fallback result. Core obtains all three results before changing the document
   version or applying any package state. Each result is an owner-issued,

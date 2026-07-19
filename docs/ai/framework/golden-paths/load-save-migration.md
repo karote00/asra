@@ -9,18 +9,34 @@
 
 1. Define version increment and migration targets
 
-- identify `fromVersion -> toVersion` steps
-- keep migration steps explicit and ordered
+- identify independent `fromVersion -> toVersion` transforms
+- treat version ids as opaque; numeric continuity is not required
+- require the complete batch to form one connected linear chain
 
-2. Register app-level load migration hooks
+2. Register one app-level migration dispatcher
 
 - apply migration transforms before package state application
 - keep migration functions pure and deterministic
-- register synchronous adjacent steps in version order
-- rely on Core's per-load registration snapshot; hooks registered during a load
-  begin with the next load
-- reject missing/unsupported app versions and require every step to return its
-  declared next version
+- validate the batch before Core registration: one head/tail, unique source and
+  target, a complete transition in every dense array slot, and no
+  self-transition, branch, merge, disconnected component, or cycle
+- compile the batch into one synchronous `core.registerLoadHook(...)`
+  dispatcher; array order does not define the chain
+- install at most one non-empty batch per Core instance from this helper; reject
+  a second non-empty installation before another hook is added, while empty
+  batches remain no-ops and do not claim the installation slot
+- repeatedly look up only the current document version and require each
+  executed transform to return exactly its declared `to` version
+- perform repeated lookup as one synchronous dispatcher loop; never recursively
+  call `core.load(...)`
+- require each transform to return synchronously with a non-array document and
+  string version; report a Promise as an app-owned asynchronous-result failure,
+  contain its eventual rejection, and report any other invalid transform result
+  as an invalid-step-result failure
+- stop normally when no transition matches; pass the terminal, unknown, future,
+  or otherwise unmatched string version unchanged to package validation
+- rely on Core's per-load load-hook snapshot; the app transition registry is
+  fixed when its dispatcher is registered
 - reusable copyable helper:
   `docs/examples/app-owned-versioned-load-migration.mjs`
 
@@ -56,9 +72,14 @@
 ## Verification Checklist
 
 - Legacy version file loads successfully after migration.
-- Already-current input bypasses semantic transforms but still validates.
-- Missing/unsupported versions and invalid/Promise hook results stop before
-  package validation and apply.
+- A document starting in the middle of the chain invokes only its matching
+  suffix; earlier transforms are not called.
+- A terminal or unmatched string version bypasses transforms but still enters
+  package validation/apply.
+- Disconnected, branching, merging, duplicate, self-looping, or cyclic batches
+  fail registration before installing a Core load hook.
+- Missing-version eligibility and invalid/Promise transform or hook results stop
+  before package validation and apply.
 - Invalid loaded fields fallback without runtime corruption.
 - Diagnostics mutation, hook throw, or evidence assembly failure does not
   change the successful load outcome.
@@ -68,5 +89,7 @@
 ## Common Failure Cases
 
 - Migration hooks run after state application (wrong order).
+- Migration steps are invoked as a fixed queue instead of conditional lookup.
+- Registration accepts multiple disconnected chains or graph cycles.
 - Package internals include app document version branching.
 - Validation logic relies on UI parsers instead of framework validators.

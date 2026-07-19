@@ -109,8 +109,15 @@ Lifecycle and integration:
   - Promise results throw `LoadHookExecutionError` with
     `ASYNC_UNSUPPORTED` while Core contains an eventual rejection; other invalid
     results use `INVALID_RESULT`
-  - app code owns supported versions and adjacent domain transforms; Core does
-    not infer version history
+  - app migration composition validates one connected linear migration chain
+    and exposes it as one conditional dispatcher hook; the dispatcher follows
+    the current version until no matching version remains, then passes that
+    document through
+  - one app helper module installs at most one non-empty dispatcher per Core
+    instance; its app-owned installation guard remains isolated across Core
+    instances and empty batches do not claim the slot
+  - Core does not infer app version history, enforce an app target version, or
+    invoke every registered transform as a fixed queue
 - `registerLoadDiagnosticsHook(hook: LoadDiagnosticsHook): () => void` (returns disposer/unsubscribe)
   - runs only after successful canonical apply and only when diagnostics exist
   - every hook receives its own detached diagnostics and detached post-apply
