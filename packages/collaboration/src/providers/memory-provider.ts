@@ -36,6 +36,41 @@ const cloneAwareness = (
   value: ProviderAwarenessMessage
 ): ProviderAwarenessMessage => structuredClone(value)
 
+const validateUpdateAuthors = (
+  document: Y.Doc,
+  update: Uint8Array,
+  actorId: string
+): void => {
+  const stagedDocument = new Y.Doc()
+  try {
+    Y.applyUpdate(stagedDocument, Y.encodeStateAsUpdate(document))
+    const decoded = applyInboundYjsUpdate(stagedDocument, update, 'provider')
+    for (const operation of decoded.operations) {
+      if (
+        !operation ||
+        typeof operation !== 'object' ||
+        Array.isArray(operation)
+      ) {
+        throw new Error(
+          '[collaboration] provider history operation must be a record'
+        )
+      }
+      const descriptor = Object.getOwnPropertyDescriptor(operation, 'actorId')
+      if (
+        !descriptor ||
+        !('value' in descriptor) ||
+        descriptor.value !== actorId
+      ) {
+        throw new Error(
+          '[collaboration] provider history operation actor must match the authenticated sender'
+        )
+      }
+    }
+  } finally {
+    stagedDocument.destroy()
+  }
+}
+
 export class MemoryCollaborationHub {
   private readonly rooms = new Map<string, MemoryRoom>()
   private readonly authorizeConnection?: MemoryCollaborationHubOptions['authorizeConnection']
@@ -85,6 +120,11 @@ export class MemoryCollaborationHub {
   ): Promise<void> {
     const room = this.room(sender.identity)
     if (binary.update.byteLength > 0) {
+      validateUpdateAuthors(
+        room.document,
+        binary.update,
+        sender.identity.actorId
+      )
       applyInboundYjsUpdate(room.document, binary.update, 'provider')
       room.providers.forEach((peer) => {
         if (peer === sender) return
@@ -168,6 +208,7 @@ export class MemoryCollaborationHub {
   ): void {
     if (update.byteLength <= 2) return
     const room = this.room(sender.identity)
+    validateUpdateAuthors(room.document, update, sender.identity.actorId)
     applyInboundYjsUpdate(room.document, update, 'provider')
     room.providers.forEach((peer) => {
       if (peer === sender) return

@@ -143,6 +143,42 @@ describe('replaceable collaboration provider contract', () => {
     expect(result.operations).toEqual([])
   })
 
+  it('rejects a live operation whose actor does not match the authenticated sender without polluting reconnect history', async () => {
+    const hub = new MemoryCollaborationHub()
+    const sender = new MemoryCollaborationProvider(hub, identity('actor-a'))
+    const onlinePeer = new MemoryCollaborationProvider(hub, identity('actor-b'))
+    const inbound = vi.fn()
+    const acknowledgements = vi.fn()
+    onlinePeer.onUpdate(inbound)
+    sender.onAcknowledgement(acknowledgements)
+    await sender.connect()
+    await onlinePeer.connect()
+    const source = new Y.Doc()
+    const forged = appendOperationToYDoc(source, {
+      ...envelope('actor-victim:session-a:1:forward', { value: 1 }),
+      actorId: 'actor-victim'
+    })
+
+    await expect(sender.sendUpdate(forged)).rejects.toMatchObject({
+      code: 'transport-failed'
+    })
+
+    expect(inbound).not.toHaveBeenCalled()
+    expect(acknowledgements).not.toHaveBeenCalled()
+    const reconnectingPeer = new MemoryCollaborationProvider(
+      hub,
+      identity('actor-c')
+    )
+    await reconnectingPeer.connect()
+    const synchronized = new Y.Doc()
+    const result = applyInboundYjsUpdate(
+      synchronized,
+      await reconnectingPeer.requestSync(new Uint8Array()),
+      'provider'
+    )
+    expect(result.operations).toEqual([])
+  })
+
   it('rejects a non-operation sync update without polluting room history', async () => {
     const hub = new MemoryCollaborationHub()
     const sender = new MemoryCollaborationProvider(hub, identity('actor-a'))
@@ -156,6 +192,34 @@ describe('replaceable collaboration provider contract', () => {
 
     await expect(
       sender.sendSyncUpdate(Y.encodeStateAsUpdate(invalidDocument))
+    ).rejects.toMatchObject({ code: 'transport-failed' })
+
+    expect(inbound).not.toHaveBeenCalled()
+    const synchronized = new Y.Doc()
+    const result = applyInboundYjsUpdate(
+      synchronized,
+      await receiver.requestSync(new Uint8Array()),
+      'provider'
+    )
+    expect(result.operations).toEqual([])
+  })
+
+  it('rejects a sync operation whose actor does not match the authenticated sender', async () => {
+    const hub = new MemoryCollaborationHub()
+    const sender = new MemoryCollaborationProvider(hub, identity('actor-a'))
+    const receiver = new MemoryCollaborationProvider(hub, identity('actor-b'))
+    const inbound = vi.fn()
+    receiver.onUpdate(inbound)
+    await sender.connect()
+    await receiver.connect()
+    const source = new Y.Doc()
+    appendOperationToYDoc(source, {
+      ...envelope('actor-victim:session-a:1:forward', { value: 1 }),
+      actorId: 'actor-victim'
+    })
+
+    await expect(
+      sender.sendSyncUpdate(Y.encodeStateAsUpdate(source))
     ).rejects.toMatchObject({ code: 'transport-failed' })
 
     expect(inbound).not.toHaveBeenCalled()
