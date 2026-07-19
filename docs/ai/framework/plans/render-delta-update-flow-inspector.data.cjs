@@ -155,7 +155,8 @@
         'Map each committed Scene Tree action and observer registration lifecycle to the matching public Render scene-tree store operation without assembling state.',
       inputs: [
         'artifact:ordered-shared-delta',
-        'Render observer registration lifecycle'
+        'Render observer registration lifecycle',
+        'file-load lifecycle event'
       ],
       outputs: ['artifact:render-projection-request'],
       conditions: [
@@ -167,7 +168,7 @@
         'Observer teardown invokes Render projection cleanup.'
       ],
       bypasses: [
-        'Selection and UI-context observers remain separate consumers.',
+        'Selection, UI-context, and vector-editing observers remain separate consumers.',
         'Disabled render-scene defaults do not register this observer.'
       ],
       allowedContributors: [

@@ -502,6 +502,10 @@ describe('Render', () => {
     if (!child || !parent) {
       throw new Error('Expected append retry nodes')
     }
+    const previousParent = child.parent
+    if (!previousParent) {
+      throw new Error('Expected the child to start in the workspace')
+    }
     const childHandle = child.getEngineHandle()
     const parentHandle = parent.getEngineHandle()
     const originalExecute = engine.execute.bind(engine)
@@ -535,7 +539,8 @@ describe('Render', () => {
       )
     ).toThrow('hierarchy append failed')
     expect(parent.children).toEqual([])
-    expect(child.parent).toBeNull()
+    expect(previousParent.children).toContain(child)
+    expect(child.parent).toBe(previousParent)
 
     expect(() =>
       render.updateElement(
@@ -547,7 +552,92 @@ describe('Render', () => {
       )
     ).not.toThrow()
     expect(child.parent).toBe(parent)
+    expect(previousParent.children).not.toContain(child)
     expect(parent.children).toEqual([child])
+    expect(
+      executeSpy.mock.calls.filter(
+        ([command]) =>
+          command.type === 'append-child' && command.child === childHandle
+      )
+    ).toHaveLength(2)
+  })
+
+  it('preserves the previous parent when a reparent append fails', async () => {
+    await render.init(100, 100, 0, {})
+    render.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const childData = {
+      id: 'reparent-retry-child',
+      type: 'rectangle',
+      visible: true,
+      width: 20,
+      height: 20
+    } as unknown as RenderElementData
+    const previousParentData = {
+      id: 'reparent-retry-previous-parent',
+      type: 'group',
+      visible: true,
+      children: [childData.id]
+    } as unknown as RenderElementData
+    const nextParentData = {
+      id: 'reparent-retry-next-parent',
+      type: 'group',
+      visible: true,
+      children: []
+    } as unknown as RenderElementData
+    const child = render.addElement(childData)
+    const previousParent = render.addElement(previousParentData)
+    const nextParent = render.addElement(nextParentData)
+    if (!child || !previousParent || !nextParent) {
+      throw new Error('Expected reparent retry nodes')
+    }
+    const childHandle = child.getEngineHandle()
+    const nextParentHandle = nextParent.getEngineHandle()
+    const originalExecute = engine.execute.bind(engine)
+    let shouldFailAppend = true
+    const executeSpy = vi
+      .spyOn(engine, 'execute')
+      .mockImplementation((command) => {
+        if (
+          command.type === 'append-child' &&
+          command.parent === nextParentHandle &&
+          command.child === childHandle &&
+          shouldFailAppend
+        ) {
+          shouldFailAppend = false
+          throw new Error('reparent append failed')
+        }
+        return originalExecute(command)
+      })
+    const completeNextParentData = {
+      ...nextParentData,
+      children: [childData.id]
+    }
+
+    expect(() =>
+      render.updateElement(
+        nextParentData.id,
+        'computed',
+        undefined,
+        undefined,
+        completeNextParentData
+      )
+    ).toThrow('reparent append failed')
+    expect(previousParent.children).toEqual([child])
+    expect(nextParent.children).toEqual([])
+    expect(child.parent).toBe(previousParent)
+
+    expect(() =>
+      render.updateElement(
+        nextParentData.id,
+        'computed',
+        undefined,
+        undefined,
+        completeNextParentData
+      )
+    ).not.toThrow()
+    expect(previousParent.children).toEqual([])
+    expect(nextParent.children).toEqual([child])
+    expect(child.parent).toBe(nextParent)
     expect(
       executeSpy.mock.calls.filter(
         ([command]) =>

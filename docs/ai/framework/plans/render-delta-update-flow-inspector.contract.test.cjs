@@ -228,6 +228,11 @@ test('Preset routes complete envelopes without creating another snapshot owner',
     contract,
     /file-load.*synchronous.*failure.*lifecycle caller/i
   )
+  assert.ok(observer.inputs.includes('file-load lifecycle event'))
+  assert.match(
+    observer.bypasses.join(' '),
+    /Selection.*UI-context.*vector-editing.*separate consumers/i
+  )
   assert.match(contract, /teardown invokes Render projection cleanup/i)
   assert.match(
     route('registration-or-reregistration-seed').predicate,

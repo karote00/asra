@@ -1154,30 +1154,39 @@ class RenderSceneTree {
 
     return measureBrowserDragPhase('render-scene-tree:flush', () => {
       this.flushingPendingChanges = true
+      const hadPendingFrameFlush = this.pendingFrameFlush
       try {
         this.pendingFlush = false
         emitStrokePipelineCounter('computed-mirror-commit-count')
         this.pendingFrameFlush = false
         const ids = Array.from(this.pendingElementUpdates)
         emitStrokePipelineCounter('product-render-per-render-frame', ids.length)
-        this.pendingElementUpdates.clear()
         ids.forEach((id) => {
+          this.pendingElementUpdates.delete(id)
           const data = this._getRenderData(id)
           if (data) {
-            measureBrowserDragPhase('render-scene-tree:update-element', () =>
-              render.updateElement(
-                id,
-                'computed',
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                undefined as any as DataTypes,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                undefined as any as DataTypes,
-                data
+            try {
+              measureBrowserDragPhase('render-scene-tree:update-element', () =>
+                render.updateElement(
+                  id,
+                  'computed',
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  undefined as any as DataTypes,
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  undefined as any as DataTypes,
+                  data
+                )
               )
-            )
+            } catch (error) {
+              this.pendingElementUpdates.add(id)
+              throw error
+            }
           }
         })
         return true
+      } catch (error) {
+        this.pendingFrameFlush ||= hadPendingFrameFlush
+        throw error
       } finally {
         this.flushingPendingChanges = false
       }

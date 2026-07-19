@@ -1887,6 +1887,56 @@ describe('RenderSceneTree computed data mirror', () => {
     )
   })
 
+  it('should run: retain a complete snapshot for the next frame when its handoff fails', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'vector-1',
+      {
+        type: 'vector',
+        visible: true,
+        name: 'Vector'
+      },
+      {
+        points: { p1: { x: 0, y: 0 } },
+        segments: {},
+        networks: {}
+      }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'vector-1')
+
+    const handoffFailure = new Error('hierarchy handoff failed')
+    renderMock.updateElement.mockImplementationOnce(() => {
+      throw handoffFailure
+    })
+
+    store.updateElement(
+      'vector-1',
+      'computed',
+      'points',
+      { p1: { x: 0, y: 0 } },
+      { p1: { x: 12, y: 8 } },
+      { undoable: false }
+    )
+
+    expect(() => pendingRenderLayer?.update?.()).toThrow(handoffFailure)
+    expect(store.hasPendingChanges()).toBe(true)
+
+    expect(pendingRenderLayer?.update?.()).toBe(true)
+    expect(store.hasPendingChanges()).toBe(false)
+    expect(renderMock.updateElement).toHaveBeenCalledTimes(2)
+    expect(renderMock.updateElement).toHaveBeenLastCalledWith(
+      'vector-1',
+      'computed',
+      undefined,
+      undefined,
+      expect.objectContaining({
+        points: { p1: { x: 12, y: 8 } }
+      })
+    )
+  })
+
   it('should run: keep direct property updates mirrored for later full renders', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()

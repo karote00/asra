@@ -716,9 +716,18 @@ export class RenderNode {
   }
 
   addChildAt<T extends RenderNode>(child: T, index: number): T {
-    child.parent?.removeChild(child)
+    if (child.parent === this) {
+      this.setChildIndex(child, index)
+      return child
+    }
+
+    const previousParent = child.parent
+    const previousIndex = previousParent?.children.indexOf(child) ?? -1
     const boundedIndex = Math.max(0, Math.min(index, this.children.length))
     this.runtime?.appendChild(this, child, boundedIndex)
+    if (previousParent && previousIndex >= 0) {
+      previousParent.children.splice(previousIndex, 1)
+    }
     this.children.splice(boundedIndex, 0, child)
     child.parent = this as unknown as RenderContainer
     return child
