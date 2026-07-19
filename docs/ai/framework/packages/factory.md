@@ -137,6 +137,9 @@ infrastructure.
   also default to transaction-end unless immediate delivery is explicit
 - rollback discards pending transaction-end changes
 - rollback compensates each immediate local projection exactly once
+- a committed local undo publishes inverse shared replay at transaction-end;
+  redo publishes the forward replay; only channels actually delivered by the
+  original committed action remain eligible
 - transaction-end shared delivery walks committed journal entries in mutation
   order; each registered observer receives one delivery per entry, and pending
   rolled-back or uncommitted entries are never exposed; scalar/batch
@@ -188,19 +191,22 @@ infrastructure.
   their nested transaction calls back to that same instance; they do not touch
   the default Factory history or statuses.
 
-## Release-Blocking Planned Contracts
+## Optional Collaboration Boundary
 
-- Yjs network collaboration is required before the first framework release but
-  remains optional to activate at app runtime:
-  `../plans/yjs-network-collaboration-plan.md`
-- deterministic framework conflict policy and app extension points are part of
-  that same release gate:
-  `../plans/collaborative-conflict-policies-plan.md`
+Factory still does not own provider/room/auth, Y.Doc, Awareness, remote policy,
+or network convergence. The explicit optional `@asyra/collaboration` instance
+subscribes to Factory's detached committed deliveries and owns those network
+concerns. Factory contributes the local transaction/history/shared-settlement
+boundary and the rollbackable, non-undoable remote transaction wrapper only.
 
-These contracts are not implemented by the current local shared-channel
-infrastructure. Until the release gate closes, Factory must not be described as
-providing provider/room/auth, remote canonical apply, awareness, reconnect, or
-network convergence.
+The active Gate 2 contracts are:
+
+- `collaboration.md`
+- `../plans/yjs-network-collaboration-plan.md`
+- `../plans/collaborative-conflict-policies-plan.md`
+
+Gate 2 implementation presence does not close the plan; closeout remains a
+user decision.
 
 ## Validation Checklist
 

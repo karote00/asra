@@ -2,7 +2,13 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  AwarenessValidationError,
+  createConflictPolicyPipeline,
   defineCollaborationComposition,
+  MemoryCollaborationHub,
+  MemoryCollaborationProvider,
+  MemoryCollaborationUpdatePersistence,
+  ProviderFailure,
   type CollaborationCompositionInput
 } from '..'
 
@@ -27,6 +33,17 @@ const baseInput = (): CollaborationCompositionInput<string, () => boolean> => ({
 })
 
 describe('optional collaboration composition', () => {
+  it('exports provider-neutral runtime building blocks without creating them', () => {
+    ;[
+      AwarenessValidationError,
+      createConflictPolicyPipeline,
+      MemoryCollaborationHub,
+      MemoryCollaborationProvider,
+      MemoryCollaborationUpdatePersistence,
+      ProviderFailure
+    ].forEach((value) => expect(value).toEqual(expect.any(Function)))
+  })
+
   it('is absent from non-collaborative framework package dependencies and sources', () => {
     ;['core', 'factory', 'preset', 'persistence'].forEach((packageName) => {
       const packageRoot = path.join(repoRoot, 'packages', packageName)
@@ -125,11 +142,14 @@ describe('optional collaboration composition', () => {
     ['documentId', '   '],
     ['roomId', ''],
     ['actorId', '']
-  ] as const)('rejects an invalid %s before resource activation', (key, value) => {
-    expect(() =>
-      defineCollaborationComposition({ ...baseInput(), [key]: value })
-    ).toThrow(`${key} is required`)
-  })
+  ] as const)(
+    'rejects an invalid %s before resource activation',
+    (key, value) => {
+      expect(() =>
+        defineCollaborationComposition({ ...baseInput(), [key]: value })
+      ).toThrow(`${key} is required`)
+    }
+  )
 
   it('rejects an invalid Factory facade before resource activation', () => {
     expect(() =>

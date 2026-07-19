@@ -2,21 +2,21 @@
 
 ## Status
 
-Framework Release Gate 2: next after the completed app-level migration pipeline
-formalization and closeout. This plan has not started implementation; its
-product contract and dedicated Inspector must pass readiness first.
+Framework Release Gate 2: active after the completed app-level migration
+pipeline formalization and closeout. The product contract and dedicated
+Inspector passed readiness before production implementation began. The local
+implementation now covers the owner steps below and is undergoing full gate and
+dual-review validation.
 
-Network collaboration remains unimplemented today, but it is no longer a
-post-release deferred capability. The first public Asyra Framework release must
-ship the provider-replaceable CRDT foundation and the supported conflict-policy
-contract in this plan. Runtime activation remains optional: a canvas tool that
-does not need collaboration must not create a Y.Doc, provider, room, awareness
-runtime, network connection, or collaboration bundle side effect.
+This plan remains active. Implementation-ready or review-ready status does not
+authorize moving it to `completed`, removing it from `PLANS.md`, declaring Gate
+2 closed, or beginning Gate 3 closeout. Only the user may direct those actions.
 
-Before implementation begins, create the matching Inspector owner flow and
-prove every prerequisite below against current formal contracts. A missing or
-unstable prerequisite is repaired inside this release gate before downstream
-network work advances.
+The first public Asyra Framework release must ship this provider-replaceable
+CRDT foundation and conflict-policy contract. Runtime activation remains
+optional: a canvas tool that does not need collaboration must not create a
+Y.Doc, provider, room, Awareness runtime, network connection, or collaboration
+bundle side effect.
 
 ## Context
 
@@ -38,7 +38,9 @@ instance registry behavior while ensuring non-collaborative startup creates no
 Y.Doc. Network Yjs ownership now belongs exclusively to the explicit optional
 collaboration composition defined by this plan.
 
-The framework does not yet provide a complete network collaboration system.
+The optional collaboration package now composes the previously local-only
+prerequisites into the network flow specified below. Gate validation and review
+remain required before any closeout decision.
 
 ## Prerequisites
 
@@ -415,8 +417,10 @@ Detailed policy registration and deterministic resolution are owned by:
 
 ## Ownership
 
-- `@asyra/factory` or a future optional collaboration package: Y.Doc/channel
-  bridge and transaction-origin integration
+- `@asyra/factory`: local transaction/history/shared-settlement and remote
+  transaction origin integration
+- `@asyra/collaboration`: optional Y.Doc/provider/Awareness/update-persistence
+  composition and inbound operation pipeline
 - provider adapter: network transport and connection state
 - server/app: authentication, authorization, room policy, durable backend
 - state-owner packages: canonical apply and package-local invariants

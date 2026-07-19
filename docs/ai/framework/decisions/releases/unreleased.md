@@ -1627,3 +1627,48 @@ unregister -> app migration -> core.start()` as the public app route.
   - `docs/ai/framework/PLANS.md`
 - Related Commit(s):
   - `19bbe2c51` (`feat(framework): formalize connected app migrations`, PR #90)
+
+## 2026-07-19 - Implement optional Yjs collaboration foundation without closeout
+
+- Context:
+  - Gate 2 began from PR #91 merged into the latest `main` and a dedicated Yjs
+    Network Collaboration Inspector that passed readiness before production
+    implementation.
+  - Existing Factory shared channels already owned local projection,
+    transaction-end buffering, immediate delivery, rollback, and transaction
+    history, but the old local Yjs convenience was not an explicit
+    provider/room/canonical-apply product contract.
+- Decision:
+  - Keep Factory as local transaction/history/shared-settlement owner and make
+    its local channels Y.Doc-free. A committed action, undo, redo, or formal
+    rollback compensation becomes detached semantic delivery only after the
+    owning transaction boundary permits it.
+  - Add explicit optional `@asyra/collaboration` composition for instance-owned
+    Y.Doc, replaceable provider, Awareness, collaboration update persistence,
+    stable operation envelopes, instance-local dedupe, permission/conflict
+    policy, and remote Factory transaction/canonical apply.
+  - Keep auth, room access, durable backend policy, and non-commutative domain
+    conflict semantics app/server owned. Keep Yjs, provider state, Awareness,
+    durability outcomes, Render, and UI non-authoritative.
+  - Distinguish runtime commit, local update persistence, network send and
+    convergence, and durable acknowledgement. Use state-vector exchange for
+    missing updates and a separate ephemeral Awareness route.
+- Consequences:
+  - Apps that omit collaboration create no Y.Doc, provider, room, Awareness,
+    collaboration persistence, or network side effect. Construction is inert;
+    `CollaborationInstance.start()` is the explicit activation point.
+  - Identical local/remote replay is deterministic, operation-ID collision is
+    rejected, remote apply cannot echo or enter ordinary local undo, and
+    immediate rollback compensation re-enters the normal inbound pipeline.
+  - `MemoryCollaborationProvider` and persistence adapters are reference
+    implementations, not mandatory authorities.
+  - This record documents implementation direction only. Gate 2 remains active;
+    it does not move the plan, declare closeout, or authorize push, pull request,
+    merge, tag, release, or publication.
+- Related Plan:
+  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
+  - `docs/ai/framework/plans/yjs-network-collaboration-flow-inspector.data.cjs`
+  - `docs/ai/framework/plans/collaborative-conflict-policies-plan.md`
+- Related Commit(s):
+  - local Gate 2 implementation commits on
+    `codex/yjs-network-collaboration-foundation`

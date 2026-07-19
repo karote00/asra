@@ -84,13 +84,18 @@
 
 8. Yjs network collaboration
 
-- Current Yjs usage provides local shared-channel registration, buffered or
-  immediate shared delivery, and observer wiring.
-- A network provider, room/auth lifecycle, awareness/presence, remote canonical
-  apply pipeline, offline/server persistence, dedupe/origin handling, and full
-  collaboration conflict policy are not implemented yet.
-- These capabilities are required by Framework Release Gate 2 but remain
-  optional to activate at app runtime.
+- Local Factory channels remain Y.Doc-free delivery/projection channels.
+- `@asyra/collaboration` provides explicit instance-owned Y.Doc transport,
+  replaceable provider lifecycle, Awareness, collaboration update persistence,
+  origin/dedupe/validation, permission/conflict policy, remote canonical apply,
+  and state-vector reconnect.
+- Construction does not connect; apps call `start()` explicitly. Apps that omit
+  the package create no collaboration resources or side effects.
+- Authentication, room access, durable backend policy, and app-domain conflict
+  semantics remain app/server owned. Awareness and Yjs are not canonical state
+  or authorization authorities.
+- Framework Release Gate 2 remains active until user-directed closeout even
+  when implementation and validation are ready.
 - See `plans/yjs-network-collaboration-plan.md` and
   `plans/collaborative-conflict-policies-plan.md`.
 

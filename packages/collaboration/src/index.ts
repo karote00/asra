@@ -130,11 +130,100 @@ export const createCollaboration = (
 ): CollaborationInstance =>
   createCollaborationInstance(input, defineCollaborationComposition)
 
-export { AwarenessRuntime } from './awareness'
+export { AwarenessRuntime, AwarenessValidationError } from './awareness'
+export type {
+  AwarenessObservation,
+  AwarenessRemovalReason,
+  AwarenessRuntimeOptions,
+  AwarenessState,
+  AwarenessStateInput,
+  AwarenessValidationErrorCode,
+  AwarenessValue,
+  RemoteAwarenessSnapshot
+} from './awareness'
 export {
   CollaborationDisposalError,
   CollaborationInstance
 } from './collaboration-instance'
+export type { CollaborationOperationOutcome } from './collaboration-instance'
+export {
+  createConflictPolicyPipeline,
+  ConflictPolicyPipeline
+} from './conflict-policy'
+export type {
+  AppConflictPolicy,
+  ConflictAcceptedOperation,
+  ConflictPipelineOutcome,
+  ConflictPolicyContext,
+  ConflictPolicyDecision,
+  ConflictRejectedOperation,
+  CreateConflictPolicyPipelineInput,
+  EntityInvariantDescriptor,
+  FrameworkInvariantConfiguration
+} from './conflict-policy'
+export {
+  OperationOutcomeRegistry,
+  runRemoteCanonicalApply,
+  validateRemoteOperation
+} from './inbound-pipeline'
+export type {
+  DuplicateOperationOutcome,
+  RecordedOperationOutcome,
+  RemoteCanonicalApplyOutcome,
+  RemoteValidationRejection,
+  RemoteValidationResult,
+  ValidatedRemoteOperation,
+  ValidationRejectionCode
+} from './inbound-pipeline'
+export {
+  COLLABORATION_PROTOCOL_VERSION,
+  createOperationIdentitySource,
+  createSharedOperationEnvelope,
+  LocalOperationRejection
+} from './operation-envelope'
+export type {
+  CreateSharedOperationEnvelopeInput,
+  LocalOperationRejectionCode,
+  OperationIdentitySource,
+  SharedOperationEnvelope,
+  SharedOperationOrigin
+} from './operation-envelope'
+export { OperationRegistry } from './operation-registry'
+export type {
+  CanonicalOperationApply,
+  OperationDefinition
+} from './operation-registry'
+export {
+  CollaborationDurabilityRuntime,
+  MemoryCollaborationUpdatePersistence
+} from './persistence'
+export type {
+  CollaborationDurabilityEvent,
+  CollaborationDurabilityOutcome,
+  CollaborationDurabilityPhase,
+  CollaborationDurabilityRuntimeOptions,
+  CollaborationUpdatePersistence,
+  MemoryCollaborationUpdatePersistenceOptions,
+  PersistedCollaborationUpdate
+} from './persistence'
+export { ProviderFailure, providerStatus } from './provider'
+export type {
+  CollaborationProvider,
+  CollaborationProviderIdentity,
+  CollaborationProviderStatus,
+  InboundBinaryUpdate,
+  ProviderAcknowledgement,
+  ProviderAwarenessDisconnect,
+  ProviderAwarenessMessage,
+  ProviderFailureCode,
+  ProviderStateVectorExchange
+} from './provider'
+export {
+  MemoryCollaborationHub,
+  MemoryCollaborationProvider
+} from './providers/memory-provider'
+export type { MemoryCollaborationHubOptions } from './providers/memory-provider'
+export type { InboundYjsUpdateSource, YjsBinaryUpdate } from './yjs-document'
 
 export type {
   CollaborationComposition,

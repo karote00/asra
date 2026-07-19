@@ -61,6 +61,7 @@
         'packages/collaboration/src/index.ts',
         'packages/collaboration/src/types.ts',
         'packages/collaboration/src/__tests__/collaboration-disabled.test.ts',
+        'packages/collaboration/src/__tests__/collaboration-example.test.js',
         'docs/examples/yjs-network-collaboration.mjs',
         'docs/ai/framework/packages/collaboration.md',
         'docs/ai/framework/packages/README.md',
@@ -69,6 +70,7 @@
         'docs/ai/framework/RUNTIME_MATRICES.md',
         'docs/ai/framework/CONSTRAINTS.md',
         'docs/ai/framework/packages/factory.md',
+        'docs/ai/framework/decisions/releases/unreleased.md',
         'yarn.lock'
       ],
       specRefs: [

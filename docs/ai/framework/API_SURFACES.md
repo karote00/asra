@@ -202,7 +202,9 @@ reversal, but does not opt an undoable event out of the inverse-contract
 requirement; intentionally irreversible effects must also set
 `undoable: false`. `sharedDelivery: 'immediate'` projects that shared change during an
 active transaction while retaining it in the current undo commit; the default
-is `'transaction-end'`.
+is `'transaction-end'`. A committed local undo emits a transaction-end inverse
+shared delivery and redo emits the forward delivery for channels delivered by
+the original action. Remote-origin replay remains excluded.
 
 Transaction facade exports:
 
@@ -246,6 +248,34 @@ Managed property bridges:
 - `getSystemPropertyObservable<T>(key: string): BehaviorSubject<T> | undefined`
 
 ## Package Export Map
+
+`@asyra/collaboration` (optional runtime)
+
+- composition: `defineCollaborationComposition(...)`,
+  `createCollaboration(...)`, `CollaborationInstance`
+- lifecycle: `start`, `disconnect`, `reconnect`, `whenIdle`, `dispose`
+- operation registration: `CollaborationOperationDefinition`,
+  `OperationRegistry`, `SharedOperationEnvelope`,
+  `COLLABORATION_PROTOCOL_VERSION`
+- provider contract: `CollaborationProvider`, `ProviderFailure`,
+  `providerStatus`, `MemoryCollaborationHub`,
+  `MemoryCollaborationProvider`
+- persistence/durability: `CollaborationUpdatePersistence`,
+  `CollaborationDurabilityRuntime`,
+  `MemoryCollaborationUpdatePersistence`, and distinct durability event/outcome
+  types
+- permission/conflict policy: `createConflictPolicyPipeline`,
+  `ConflictPolicyPipeline`, framework invariant and app policy contracts
+- Awareness: `AwarenessRuntime`, validation/observation/state types, and
+  instance `updateAwareness`, `leaveAwareness`, `expireAwareness`
+- diagnostics-only outcomes: immutable local published/rejected and remote
+  duplicate/accepted/repaired/rejected/apply-failed outcomes
+- importing this root entry creates no instance, Y.Doc, provider, room,
+  persistence adapter, Awareness runtime, or network connection; Core and
+  Preset do not re-export it
+
+See `packages/collaboration.md` and
+`../../examples/yjs-network-collaboration.mjs`.
 
 `@asyra/core`
 

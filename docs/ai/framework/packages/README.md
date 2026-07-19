@@ -4,6 +4,7 @@ This folder describes framework package responsibilities, boundaries, and extens
 
 - `core.md`
 - `factory.md`
+- `collaboration.md`
 - `scene-tree.md`
 - `system-context.md`
 - `selection.md`

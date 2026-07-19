@@ -1,7 +1,29 @@
-import { AwarenessRuntime } from '@asyra/collaboration'
+import { Factory, LocalSharedDataChannel } from '@asyra/factory'
+import {
+  createCollaboration,
+  MemoryCollaborationHub,
+  MemoryCollaborationProvider,
+  MemoryCollaborationUpdatePersistence
+} from '@asyra/collaboration'
 
-// Awareness is an optional, app-owned presentation input. It is not document
-// state and must not be used to authorize or apply canonical mutations.
+const CHANNEL = 'document'
+const SET_VALUE = 'set-value'
+
+const isSetValuePayload = (payload) =>
+  Boolean(
+    payload &&
+      typeof payload === 'object' &&
+      typeof payload.before === 'number' &&
+      typeof payload.after === 'number'
+  )
+
+// The hub represents an app/server-owned room, authentication, and durable-ack
+// boundary. Production apps can replace it with any CollaborationProvider.
+export const createMemoryCollaborationServer = (options = {}) =>
+  new MemoryCollaborationHub(options)
+
+// Awareness is app-owned presentation state. It never authorizes or applies a
+// canonical mutation and it is absent from Y.Doc and update persistence.
 export const projectRemotePresence = (awareness, present) =>
   awareness.observe((event) => {
     if (event.type === 'updated') {
@@ -11,14 +33,105 @@ export const projectRemotePresence = (awareness, present) =>
     present.delete(event.actorId)
   })
 
-export const createAwarenessExample = ({ actorId, present = new Map() }) => {
-  const awareness = new AwarenessRuntime({ actorId })
-  const stopProjection = projectRemotePresence(awareness, present)
+export const createCollaboratingCounter = async ({
+  hub,
+  documentId,
+  roomId,
+  actorId,
+  permissionPolicy = () => true,
+  conflictPolicies = []
+}) => {
+  const factory = new Factory()
+  factory.registerSharedDataChannel(CHANNEL, new LocalSharedDataChannel())
+  const state = { value: 0 }
+
+  factory.registerTransactionInverter(SET_VALUE, (event) => ({
+    type: event.type,
+    payload: {
+      ...event.payload,
+      before: event.payload.after,
+      after: event.payload.before
+    }
+  }))
+  factory.registerTransactionReplayHandler(SET_VALUE, (event) => {
+    state.value = event.payload.after
+    return true
+  })
+
+  const recordAndApply = (payload) => {
+    factory.updateTransaction({
+      type: 'updateTransaction',
+      eventName: SET_VALUE,
+      payload,
+      options: {
+        undoable: true,
+        rollbackable: true,
+        shared: CHANNEL,
+        sharedDelivery: 'transaction-end'
+      }
+    })
+    state.value = payload.after
+  }
+
+  const provider = new MemoryCollaborationProvider(hub, {
+    documentId,
+    roomId,
+    actorId
+  })
+  const persistence = new MemoryCollaborationUpdatePersistence()
+  const collaboration = createCollaboration({
+    documentId,
+    roomId,
+    actorId,
+    factory,
+    provider,
+    persistence,
+    operationDefinitions: [
+      {
+        channel: CHANNEL,
+        eventName: SET_VALUE,
+        schemaVersion: 1,
+        validate: isSetValuePayload,
+        apply: (envelope) => {
+          recordAndApply(envelope.payload)
+          return true
+        }
+      }
+    ],
+    permissionPolicy,
+    conflictPolicies,
+    resourceOwnership: {
+      provider: 'owned',
+      persistence: 'owned'
+    }
+  })
+  const remotePresence = new Map()
+  const stopPresenceProjection = projectRemotePresence(
+    collaboration.awareness,
+    remotePresence
+  )
+
+  // Construction is inert. start() is the explicit connection/recovery point.
+  await collaboration.start()
 
   return Object.freeze({
-    awareness,
-    present,
-    updateLocalPresence: (state) => awareness.updateLocal(state),
-    stopProjection
+    collaboration,
+    factory,
+    remotePresence,
+    getValue: () => state.value,
+    setValue: (after) => {
+      factory.startTransaction()
+      recordAndApply({ before: state.value, after })
+      factory.endTransaction()
+    },
+    undo: () => factory.undo(),
+    redo: () => factory.redo(),
+    updatePresence: (presence) => collaboration.updateAwareness(presence),
+    disconnect: () => collaboration.disconnect(),
+    reconnect: () => collaboration.reconnect(),
+    dispose: async () => {
+      stopPresenceProjection()
+      await collaboration.dispose()
+    }
   })
 }

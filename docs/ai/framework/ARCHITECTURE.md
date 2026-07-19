@@ -93,7 +93,7 @@ owners; it is not a separate source of product intent.
 
 ## Canonical State-Application Flow
 
-Load, undo/redo replay, and future remote collaboration updates are not new
+Load, undo/redo replay, and remote collaboration updates are not new
 product intents and do not create parallel feature decisions.
 
 1. Persisted, replayed, or remote state/change input arrives.
@@ -162,6 +162,40 @@ Canonical shorthand:
   an app explicitly composes a collaboration instance.
 - A future runtime factory may be offered as optional composition convenience,
   but it is not the required ownership model.
+
+### Optional network collaboration composition
+
+`@asyra/collaboration` is an optional sibling composition, not a Core or Preset
+startup dependency. Construction is inert; `CollaborationInstance.start()` is
+the explicit observer-binding, recovery, provider-connect, and state-vector
+exchange point.
+
+```text
+Local canonical commit
+-> Factory detached shared delivery
+-> validated semantic envelope
+-> instance Y.Doc binary update
+-> optional collaboration persistence/provider
+
+Provider/persisted binary update
+-> Yjs decode with inbound origin
+-> instance-local dedupe + protocol/schema/route/payload validation
+-> permission -> framework invariants -> ordered app policies
+-> Factory remote transaction -> registered canonical apply handler
+-> state owner -> Render/UI projection
+```
+
+Y.Doc, provider state, Awareness, durability outcomes, Render, and UI remain
+non-authoritative. Locally published operation outcomes suppress own-operation
+replay. Remote apply is rollbackable, non-undoable in ordinary local history,
+and cannot emit another network operation. Local undo/redo may publish their own
+inverse/forward operations; immediate rollback publishes one linked
+compensation through the same remote pipeline.
+
+Provider transport, connection authentication, room access, server durability,
+and update compaction remain replaceable app/server boundaries. Awareness is a
+separate ephemeral observational route and never enters document persistence,
+authorization, or canonical apply.
 
 ## Registration Surfaces
 
@@ -272,10 +306,12 @@ applyPreset(core, { profile?, defaults? })
   the configured provider acknowledged storage.
 - These guarantees are local application semantics. They do not lock external
   processes or remote clients and do not provide database serializability.
-- Yjs provider/room/auth, awareness/presence, remote origin and deduplication,
-  reconnect, convergence, and collaborative conflict policy are not implemented
-  yet and are required by Framework Release Gate 2. Runtime activation remains
-  optional for non-collaborative apps.
+- Optional Yjs provider/room composition, Awareness, inbound origin/dedupe,
+  permission/conflict policy, remote canonical apply, update persistence, and
+  state-vector reconnect are implemented in `@asyra/collaboration`. Runtime
+  activation remains explicit and optional; app/server policy and
+  non-commutative domain conflict semantics remain consumer-owned extension
+  inputs. Gate 2 remains active until user-directed review and closeout.
 
 ## Framework Release Sequence
 
@@ -291,8 +327,9 @@ The first public framework release is gated, in order, by:
 Auto-layout, its unit/UI aggregation family, and production `3D`/`HYBRID`
 remain post-release Roadmap capabilities. Detailed scope and status are owned by
 `PLANS.md`; this sequence does not claim that an unclosed gate is implemented.
-Framework Release Gate 2 is now the next gate, but its implementation remains
-blocked until its product contract and dedicated Inspector pass readiness.
+Framework Release Gate 2 implementation and its dedicated Inspector are present
+for validation and review. The gate remains active; only the user may direct
+closeout or advance the release sequence.
 
 ## Package Deep Dives
 
@@ -300,6 +337,7 @@ See:
 
 - `packages/core.md`
 - `packages/factory.md`
+- `packages/collaboration.md`
 - `packages/scene-tree.md`
 - `packages/system-context.md`
 - `packages/preset.md`
