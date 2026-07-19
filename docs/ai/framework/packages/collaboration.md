@@ -45,6 +45,10 @@ Use `createCollaboration(...)` with:
 - optional provider, collaboration update persistence, Y.Doc, Awareness,
   session identity, connection metadata, and resource ownership.
 
+Canonical `apply` handlers are synchronous. A `void` or `true` return is an
+applied operation, `false` is a semantic no-op, and a returned Promise is
+rejected through the rollbackable remote transaction boundary.
+
 Construction validates identity and registration but does not subscribe,
 connect, recover, or send. `start()` binds observers, replays optional persisted
 updates through the inbound pipeline, connects the provider when supplied, and

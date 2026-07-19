@@ -1,9 +1,7 @@
 import type { SharedOperationEnvelope } from './operation-envelope'
 
 export type CanonicalOperationApply<TPayload = unknown> = {
-  bivarianceHack(
-    envelope: SharedOperationEnvelope<TPayload>
-  ): boolean | undefined
+  bivarianceHack(envelope: SharedOperationEnvelope<TPayload>): void
 }['bivarianceHack']
 
 export interface OperationDefinition<TPayload = unknown> {

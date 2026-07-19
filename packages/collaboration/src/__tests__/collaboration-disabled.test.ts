@@ -9,7 +9,9 @@ import {
   MemoryCollaborationProvider,
   MemoryCollaborationUpdatePersistence,
   ProviderFailure,
-  type CollaborationCompositionInput
+  type CollaborationCompositionInput,
+  type CollaborationOperationDefinition,
+  type SharedOperationEnvelope
 } from '..'
 
 const repoRoot = path.resolve(__dirname, '../../../..')
@@ -42,6 +44,26 @@ describe('optional collaboration composition', () => {
       MemoryCollaborationUpdatePersistence,
       ProviderFailure
     ].forEach((value) => expect(value).toEqual(expect.any(Function)))
+  })
+
+  it('accepts a synchronous canonical apply handler with no explicit return', () => {
+    const apply = vi.fn()
+    const definition: CollaborationOperationDefinition<{ value: number }> = {
+      channel: 'document',
+      eventName: 'set-value',
+      schemaVersion: 1,
+      validate: (payload): payload is { value: number } =>
+        typeof (payload as { value?: unknown } | undefined)?.value === 'number',
+      apply: (envelope) => {
+        apply(envelope.payload)
+      }
+    }
+    const envelope = {
+      payload: { value: 1 }
+    } as SharedOperationEnvelope<{ value: number }>
+
+    expect(definition.apply(envelope)).toBeUndefined()
+    expect(apply).toHaveBeenCalledWith({ value: 1 })
   })
 
   it('is absent from non-collaborative framework package dependencies and sources', () => {

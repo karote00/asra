@@ -134,6 +134,8 @@ End-state:
   validators and canonical apply handlers, permission policy, optional
   conflict policies, optional provider, optional persistence adapter, optional
   Y.Doc/awareness runtime, and explicit resource ownership.
+  Canonical apply handlers are synchronous: `void` or `true` means applied,
+  while `false` means a semantic no-op.
 - The stable shared operation envelope includes operation id, transaction id,
   document id, actor id, protocol version, schema version, origin, channel,
   event name, typed/validated payload, and an optional compensated operation id.
