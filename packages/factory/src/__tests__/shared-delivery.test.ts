@@ -1,11 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { EventTypes, TransactionEventTypes } from '@asyra/reactive-events'
 import { SharedDataChannelNames } from '@asyra/utils'
-import {
-  Factory,
-  LocalSharedDataChannel,
-  type SharedDelivery
-} from '..'
+import { Factory, LocalSharedDataChannel, type SharedDelivery } from '..'
 
 const update = (
   factory: Factory,
@@ -116,6 +112,49 @@ describe('Factory local shared delivery contract', () => {
         compensatesDeliveryId: '1:0:forward',
         payload: expect.objectContaining({ before: 1, after: 0 }),
         sharedDelivery: 'immediate'
+      })
+    ])
+  })
+
+  it('publishes committed undo and redo replay as inverse and forward deliveries', () => {
+    const { factory, deliveries, projected } = createHarness()
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      () => true
+    )
+    factory.startTransaction()
+    update(factory)
+    factory.endTransaction()
+    deliveries.length = 0
+    projected.length = 0
+
+    factory.undo()
+
+    expect(projected).toEqual([
+      expect.objectContaining({ before: 1, after: 0 })
+    ])
+    expect(deliveries).toEqual([
+      expect.objectContaining({
+        origin: 'undo',
+        kind: 'forward',
+        payload: expect.objectContaining({ before: 1, after: 0 }),
+        sharedDelivery: 'transaction-end'
+      })
+    ])
+
+    deliveries.length = 0
+    projected.length = 0
+    factory.redo()
+
+    expect(projected).toEqual([
+      expect.objectContaining({ before: 0, after: 1 })
+    ])
+    expect(deliveries).toEqual([
+      expect.objectContaining({
+        origin: 'redo',
+        kind: 'forward',
+        payload: expect.objectContaining({ before: 0, after: 1 }),
+        sharedDelivery: 'transaction-end'
       })
     ])
   })

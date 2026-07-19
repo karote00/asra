@@ -293,7 +293,10 @@ describe('CollaborationInstance ownership and disposal', () => {
         ).payload.after
         return true
       })
-      const apply = (payload: SetValuePayload) => {
+      const apply = (
+        payload: SetValuePayload,
+        sharedDelivery: 'transaction-end' | 'immediate' = 'transaction-end'
+      ) => {
         state.value = payload.after
         factory.updateTransaction({
           type: 'updateTransaction' as Parameters<
@@ -305,7 +308,7 @@ describe('CollaborationInstance ownership and disposal', () => {
             undoable: true,
             rollbackable: true,
             shared: channelName,
-            sharedDelivery: 'transaction-end'
+            sharedDelivery
           }
         })
       }
@@ -346,6 +349,12 @@ describe('CollaborationInstance ownership and disposal', () => {
     }
     const first = client('actor-a')
     const second = client('actor-b')
+    const settleClients = async () => {
+      await first.instance.whenIdle()
+      await second.instance.whenIdle()
+      await first.instance.whenIdle()
+      await second.instance.whenIdle()
+    }
 
     expect(first.provider.getStatus()).toBe('idle')
     await Promise.all([first.instance.start(), second.instance.start()])
@@ -354,7 +363,7 @@ describe('CollaborationInstance ownership and disposal', () => {
     first.factory.startTransaction()
     first.apply({ before: 0, after: 1 })
     first.factory.endTransaction()
-    await Promise.all([first.instance.whenIdle(), second.instance.whenIdle()])
+    await settleClients()
 
     expect(first.state.value).toBe(1)
     expect(second.state.value).toBe(1)
@@ -383,8 +392,46 @@ describe('CollaborationInstance ownership and disposal', () => {
     expect(second.state.value).toBe(1)
 
     await first.instance.reconnect()
-    await Promise.all([first.instance.whenIdle(), second.instance.whenIdle()])
+    await settleClients()
     expect(second.state.value).toBe(2)
+    expect(readOperationLog(first.instance.yDoc)).toEqual(
+      readOperationLog(second.instance.yDoc)
+    )
+
+    first.factory.undo()
+    await settleClients()
+    expect(first.state.value).toBe(1)
+    expect(second.state.value).toBe(1)
+    second.factory.undo()
+    expect(second.state.value).toBe(1)
+
+    const beforeRollbackLogLength = readOperationLog(first.instance.yDoc).length
+    first.factory.startTransaction()
+    first.apply({ before: 1, after: 4 })
+    first.factory.endTransaction({ outcome: 'rollback' })
+    await settleClients()
+    expect(first.state.value).toBe(1)
+    expect(second.state.value).toBe(1)
+    expect(readOperationLog(first.instance.yDoc)).toHaveLength(
+      beforeRollbackLogLength
+    )
+
+    first.factory.startTransaction()
+    first.apply({ before: 1, after: 3 }, 'immediate')
+    first.factory.endTransaction({ outcome: 'rollback' })
+    await settleClients()
+    const rollbackOperations = readOperationLog(first.instance.yDoc).slice(-2)
+    expect(first.state.value).toBe(1)
+    expect(second.state.value).toBe(1)
+    expect(rollbackOperations[0]).toEqual(
+      expect.objectContaining({ origin: 'action' })
+    )
+    expect(rollbackOperations[1]).toEqual(
+      expect.objectContaining({
+        origin: 'rollback-compensation',
+        compensatesOperationId: rollbackOperations[0]?.operationId
+      })
+    )
     expect(readOperationLog(first.instance.yDoc)).toEqual(
       readOperationLog(second.instance.yDoc)
     )
