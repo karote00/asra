@@ -501,6 +501,7 @@ class ComputedDataMirror {
 
 class RenderSceneTree {
   private computedDataMirror = new ComputedDataMirror()
+  private projectedElementIds = new Set<string>()
   private pendingElementUpdates = new Set<string>()
   private pendingFrameFlush = false
   private pendingFlush = false
@@ -558,6 +559,12 @@ class RenderSceneTree {
     return { status, elementId }
   }
 
+  private releaseProjectedElement(elementId: string) {
+    this.projectedElementIds.add(elementId)
+    render.removeElement(elementId)
+    this.projectedElementIds.delete(elementId)
+  }
+
   private resyncElement(elementId: string): RenderProjectionOutcome {
     emitStrokePipelineCounter('computed-mirror-projection-mismatch')
     this.pendingElementUpdates.delete(elementId)
@@ -567,7 +574,7 @@ class RenderSceneTree {
       const entry = this.computedDataMirror.seed(elementId, 'resync')
       if (!entry) {
         emitStrokePipelineCounter('computed-mirror-resync-removed')
-        render.removeElement(elementId)
+        this.releaseProjectedElement(elementId)
         return this.projectionOutcome(elementId, 'removed')
       }
 
@@ -580,33 +587,45 @@ class RenderSceneTree {
       }
       return this.projectionOutcome(elementId, 'resynced')
     } catch {
-      this.computedDataMirror.delete(elementId)
       emitStrokePipelineCounter('computed-mirror-resync-failed')
-      render.removeElement(elementId)
+      this.releaseProjectedElement(elementId)
+      this.computedDataMirror.delete(elementId)
       return this.projectionOutcome(elementId, 'failed')
     }
   }
 
   addElementById(id: string) {
+    let entry: ComputedDataMirrorEntry | null
     try {
-      const entry = this.computedDataMirror.seed(id, 'add')
-      if (!entry) {
-        this.pendingElementUpdates.delete(id)
-        render.removeElement(id)
-        return this.projectionOutcome(id, 'removed')
-      }
+      entry = this.computedDataMirror.seed(id, 'add')
+    } catch {
+      this.pendingElementUpdates.delete(id)
+      emitStrokePipelineCounter('computed-mirror-add-seed-failed')
+      this.releaseProjectedElement(id)
+      this.computedDataMirror.delete(id)
+      return this.projectionOutcome(id, 'failed')
+    }
+
+    if (!entry) {
+      this.pendingElementUpdates.delete(id)
+      this.releaseProjectedElement(id)
+      return this.projectionOutcome(id, 'removed')
+    }
+
+    try {
       this.addElement(entry.renderDataSnapshot)
       return this.projectionOutcome(id, 'applied')
     } catch {
       this.pendingElementUpdates.delete(id)
-      this.computedDataMirror.delete(id)
       emitStrokePipelineCounter('computed-mirror-add-seed-failed')
-      render.removeElement(id)
+      this.releaseProjectedElement(id)
+      this.computedDataMirror.delete(id)
       return this.projectionOutcome(id, 'failed')
     }
   }
 
   addElement(data: RenderElementData) {
+    this.projectedElementIds.add(data.id)
     const element = render.addElement(data)
     if (!element) {
       throw new Error(`Render failed to rebuild element ${data.id}`)
@@ -615,9 +634,11 @@ class RenderSceneTree {
   }
 
   removeElement(data: ElementRawData, parentId?: string) {
-    this.computedDataMirror.delete(data.id)
     this.pendingElementUpdates.delete(data.id)
+    this.projectedElementIds.add(data.id)
     render.removeElement(data.id, parentId)
+    this.projectedElementIds.delete(data.id)
+    this.computedDataMirror.delete(data.id)
     return this.projectionOutcome(data.id, 'removed')
   }
 
@@ -857,7 +878,10 @@ class RenderSceneTree {
   }
 
   clearProjection() {
-    const projectedElementIds = this.computedDataMirror.elementIds
+    const projectedElementIds = new Set([
+      ...this.projectedElementIds,
+      ...this.computedDataMirror.elementIds
+    ])
     this.pendingElementUpdates.clear()
     this.pendingFrameFlush = false
     this.pendingFlush = false
@@ -865,7 +889,7 @@ class RenderSceneTree {
     let firstFailure: unknown
     projectedElementIds.forEach((elementId) => {
       try {
-        render.removeElement(elementId)
+        this.releaseProjectedElement(elementId)
         this.computedDataMirror.delete(elementId)
         releasedEntryCount += 1
       } catch (error) {

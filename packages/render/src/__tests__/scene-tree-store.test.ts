@@ -2156,6 +2156,98 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(store.getProjectionSnapshotCount()).toBe(0)
   })
 
+  it('should run: retry a single remove whose visual release fails', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'remove-retry',
+      { type: 'vector', visible: true },
+      { points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'remove-retry')
+    const releaseFailure = new Error('single remove release failed')
+    renderMock.removeElement.mockImplementationOnce(() => {
+      throw releaseFailure
+    })
+
+    expect(() =>
+      store.removeElement({ id: 'remove-retry', type: EntityTypes.ELEMENT })
+    ).toThrow(releaseFailure)
+    expect(store.getProjectionSnapshotCount()).toBe(1)
+
+    store.clearProjection()
+
+    expect(renderMock.removeElement.mock.calls).toEqual([
+      ['remove-retry', undefined],
+      ['remove-retry']
+    ])
+    expect(store.getProjectionSnapshotCount()).toBe(0)
+  })
+
+  it('should run: retry visual cleanup after an add rebuild and release both fail', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'add-retry',
+      { type: 'vector', visible: true },
+      { points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    renderMock.addElement.mockReturnValueOnce(undefined)
+    const releaseFailure = new Error('add cleanup release failed')
+    renderMock.removeElement.mockImplementationOnce(() => {
+      throw releaseFailure
+    })
+
+    expect(() => store.addElementById('add-retry')).toThrow(releaseFailure)
+
+    store.clearProjection()
+
+    expect(renderMock.removeElement.mock.calls).toEqual([
+      ['add-retry'],
+      ['add-retry']
+    ])
+    expect(store.getProjectionSnapshotCount()).toBe(0)
+  })
+
+  it('should run: retry visual cleanup after a resync seed and release both fail', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const element = createElement(
+      'resync-retry',
+      { type: 'vector', visible: true },
+      { points: {} }
+    )
+    sceneTreeMock.getElementById.mockReturnValue(element)
+    seedStore(store, 'resync-retry')
+    element.getAllComputedData.mockImplementationOnce(() => {
+      throw new Error('resync seed failed')
+    })
+    const releaseFailure = new Error('resync cleanup release failed')
+    renderMock.removeElement.mockImplementationOnce(() => {
+      throw releaseFailure
+    })
+
+    expect(() =>
+      store.updateElement(
+        'resync-retry',
+        'computed',
+        'points',
+        { stale: true },
+        { next: true }
+      )
+    ).toThrow(releaseFailure)
+
+    store.clearProjection()
+
+    expect(renderMock.removeElement.mock.calls).toEqual([
+      ['resync-retry'],
+      ['resync-retry']
+    ])
+    expect(store.getProjectionSnapshotCount()).toBe(0)
+  })
+
   it('should run: clear projection state on Render teardown', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
