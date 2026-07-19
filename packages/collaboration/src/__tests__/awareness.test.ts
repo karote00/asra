@@ -257,6 +257,32 @@ describe('ephemeral awareness ownership', () => {
     expect(topLevelGetter).not.toHaveBeenCalled()
   })
 
+  it.each(['actorId', 'clock', 'state'] as const)(
+    'rejects an accessor-backed inbound %s field without executing it',
+    (field) => {
+      const runtime = new AwarenessRuntime({ actorId: 'actor-local' })
+      const getter = vi.fn(
+        () => ({ actorId: 'actor-remote', clock: 1, state: {} })[field]
+      )
+      const message: Record<string, unknown> = {
+        actorId: 'actor-remote',
+        clock: 1,
+        state: { tool: 'select' }
+      }
+      Object.defineProperty(message, field, {
+        enumerable: true,
+        get: getter
+      })
+
+      expect(() => runtime.applyRemote(message as never)).toThrowError(
+        expect.objectContaining<Partial<AwarenessValidationError>>({
+          code: 'invalid-state'
+        })
+      )
+      expect(getter).not.toHaveBeenCalled()
+    }
+  )
+
   it('never writes Y.Doc, persistence, transaction, or permission state', () => {
     const yDoc = new Y.Doc()
     const persistence = { append: vi.fn() }

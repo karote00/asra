@@ -723,7 +723,7 @@
       ],
       conditions: [
         'Presence includes only app-selected identity, cursor, selection, viewport, tool, editing, and heartbeat metadata.',
-        'Awareness records reject accessors without execution and preserve prototype-named JSON keys as inert own data properties.',
+        'The inbound Awareness message and its nested state records reject accessors without execution and preserve prototype-named JSON keys as inert own data properties.',
         'Remote state is removed on disconnect, explicit leave, or timeout.',
         'Awareness cannot authorize a canonical mutation and does not enter document undo/redo.'
       ],

@@ -76,6 +76,58 @@ const allowedInputFields = new Set([
   'editing'
 ])
 const allowedRemoteFields = new Set([...allowedInputFields, 'heartbeatAt'])
+const inboundMessageFields = new Set(['actorId', 'clock', 'state'])
+
+interface InertAwarenessMessage {
+  readonly actorId: unknown
+  readonly clock: unknown
+  readonly state: unknown
+}
+
+const readInboundMessage = (message: unknown): InertAwarenessMessage => {
+  if (!message || typeof message !== 'object' || Array.isArray(message)) {
+    throw new AwarenessValidationError(
+      'invalid-state',
+      '[collaboration] awareness message must be a record'
+    )
+  }
+  const prototype = Object.getPrototypeOf(message)
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new AwarenessValidationError(
+      'invalid-state',
+      '[collaboration] awareness message must be a plain record'
+    )
+  }
+  const candidate = message as Record<string, unknown>
+  const descriptors = new Map<string, PropertyDescriptor>()
+  for (const key of Reflect.ownKeys(candidate)) {
+    if (typeof key !== 'string' || !inboundMessageFields.has(key)) {
+      throw new AwarenessValidationError(
+        'invalid-state',
+        '[collaboration] awareness message contains an unsupported field'
+      )
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(candidate, key)
+    if (!descriptor?.enumerable || !('value' in descriptor)) {
+      throw new AwarenessValidationError(
+        'invalid-state',
+        '[collaboration] awareness message accessors are not supported'
+      )
+    }
+    descriptors.set(key, descriptor)
+  }
+  if ([...inboundMessageFields].some((field) => !descriptors.has(field))) {
+    throw new AwarenessValidationError(
+      'invalid-state',
+      '[collaboration] awareness message is missing a required field'
+    )
+  }
+  return Object.freeze({
+    actorId: descriptors.get('actorId')?.value,
+    clock: descriptors.get('clock')?.value,
+    state: descriptors.get('state')?.value
+  })
+}
 
 const cloneAwarenessValue = (
   value: unknown,
@@ -169,8 +221,8 @@ const freezeDeep = <T>(value: T, seen = new WeakSet<object>()): T => {
   return Object.freeze(value)
 }
 
-const requireActor = (actorId: string): string => {
-  if (!actorId.trim()) {
+const requireActor = (actorId: unknown): string => {
+  if (typeof actorId !== 'string' || !actorId.trim()) {
     throw new AwarenessValidationError(
       'invalid-actor',
       '[collaboration] awareness actorId is required'
@@ -263,25 +315,31 @@ export class AwarenessRuntime {
 
   applyRemote(message: ProviderAwarenessMessage): boolean {
     this.requireUsable()
-    const actorId = requireActor(message.actorId)
-    if (!Number.isSafeInteger(message.clock) || message.clock < 0) {
+    const candidate = readInboundMessage(message)
+    const actorId = requireActor(candidate.actorId)
+    if (
+      typeof candidate.clock !== 'number' ||
+      !Number.isSafeInteger(candidate.clock) ||
+      candidate.clock < 0
+    ) {
       throw new AwarenessValidationError(
         'invalid-clock',
         '[collaboration] awareness clock must be a non-negative safe integer'
       )
     }
+    const clock = candidate.clock
     if (actorId === this.actorId) return false
-    if (message.clock <= (this.remoteClocks.get(actorId) ?? -1)) return false
+    if (clock <= (this.remoteClocks.get(actorId) ?? -1)) return false
 
-    if (message.state === null) {
-      this.remoteClocks.set(actorId, message.clock)
+    if (candidate.state === null) {
+      this.remoteClocks.set(actorId, clock)
       this.remove(actorId, 'leave')
       return true
     }
     if (
-      !message.state ||
-      typeof message.state !== 'object' ||
-      Array.isArray(message.state)
+      !candidate.state ||
+      typeof candidate.state !== 'object' ||
+      Array.isArray(candidate.state)
     ) {
       throw new AwarenessValidationError(
         'invalid-state',
@@ -290,14 +348,14 @@ export class AwarenessRuntime {
     }
     const snapshot = freezeDeep({
       actorId,
-      clock: message.clock,
+      clock,
       state: cloneState(
-        message.state as Record<string, unknown>,
+        candidate.state as Record<string, unknown>,
         allowedRemoteFields
       ),
       lastSeenAt: this.now()
     })
-    this.remoteClocks.set(actorId, message.clock)
+    this.remoteClocks.set(actorId, clock)
     this.remote.set(actorId, snapshot)
     this.emit({ type: 'updated', snapshot })
     return true
