@@ -336,7 +336,7 @@ describe('remote canonical apply transaction', () => {
     const target = harness()
     const { decision, outcomes } = validatedDecision()
     const stateOwner = {
-      validateAndApply: vi.fn(() => {
+      validateAndApply: vi.fn((_payload: unknown) => {
         throw new Error('package invariant rejected operation')
       })
     }
