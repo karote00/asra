@@ -1,8 +1,17 @@
+import type { SharedOperationEnvelope } from './operation-envelope'
+
+export type CanonicalOperationApply<TPayload = unknown> = {
+  bivarianceHack(
+    envelope: SharedOperationEnvelope<TPayload>
+  ): boolean | undefined
+}['bivarianceHack']
+
 export interface OperationDefinition<TPayload = unknown> {
   channel: string
   eventName: string
   schemaVersion: number
   validate: (payload: unknown) => payload is TPayload
+  apply?: CanonicalOperationApply<TPayload>
 }
 
 const requireRoutePart = (name: string, value: string): string => {
@@ -38,6 +47,14 @@ export class OperationRegistry {
     if (typeof definition.validate !== 'function') {
       throw new Error('[collaboration] operation validator is required')
     }
+    if (
+      definition.apply !== undefined &&
+      typeof definition.apply !== 'function'
+    ) {
+      throw new Error(
+        '[collaboration] canonical apply handler must be a function'
+      )
+    }
 
     const key = routeKey(channel, eventName)
     if (this.definitions.has(key)) {
@@ -50,7 +67,8 @@ export class OperationRegistry {
       channel,
       eventName,
       schemaVersion: definition.schemaVersion,
-      validate: definition.validate
+      validate: definition.validate,
+      ...(definition.apply ? { apply: definition.apply } : {})
     }) as OperationDefinition<TPayload>
     this.definitions.set(key, registered)
     return registered

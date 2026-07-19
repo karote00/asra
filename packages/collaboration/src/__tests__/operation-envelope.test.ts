@@ -1,5 +1,5 @@
 import type { SharedDelivery } from '@asyra/factory'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   createOperationIdentitySource,
   createSharedOperationEnvelope,
@@ -16,6 +16,8 @@ interface MovePayload {
   tags: string[]
 }
 
+const applyMove = vi.fn(() => true)
+
 const moveDefinition: OperationDefinition<MovePayload> = {
   channel: 'scene',
   eventName: 'move-node',
@@ -30,7 +32,8 @@ const moveDefinition: OperationDefinition<MovePayload> = {
       Array.isArray(candidate.tags) &&
       candidate.tags.every((tag) => typeof tag === 'string')
     )
-  }
+  },
+  apply: applyMove
 }
 
 const delivery = (
@@ -95,6 +98,7 @@ describe('shared operation envelope', () => {
     localDelivery.payload.tags.push('mutated')
     expect(envelope.payload.point.x).toBe(10)
     expect(envelope.payload.tags).toEqual(['selected'])
+    expect(applyMove).not.toHaveBeenCalled()
   })
 
   it('rejects an unregistered route before creating an envelope', () => {
@@ -184,5 +188,20 @@ describe('operation registry', () => {
           { ...moveDefinition, schemaVersion: 0 } as OperationDefinition
         ])
     ).toThrow('[collaboration] schemaVersion must be a positive integer')
+  })
+
+  it('retains the canonical apply handler without executing it', () => {
+    const registry = new OperationRegistry([moveDefinition])
+
+    expect(registry.resolve('scene', 'move-node')?.apply).toBe(applyMove)
+    expect(
+      () =>
+        new OperationRegistry([
+          {
+            ...moveDefinition,
+            apply: 'invalid'
+          } as unknown as OperationDefinition
+        ])
+    ).toThrow('[collaboration] canonical apply handler must be a function')
   })
 })
