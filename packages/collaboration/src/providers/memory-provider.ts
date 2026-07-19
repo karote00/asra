@@ -174,8 +174,7 @@ export class MemoryCollaborationHub {
       peer.receiveUpdate(
         Object.freeze({
           operationId: `sync:${sender.identity.actorId}`,
-          update: cloneBytes(update),
-          fromActorId: sender.identity.actorId
+          update: cloneBytes(update)
         })
       )
     })

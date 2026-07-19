@@ -398,6 +398,7 @@
         'Reject echoes, identity collisions, unsupported versions/routes, malformed payloads, and deterministic duplicates before policy or state apply.',
       inputs: [
         'artifact:decoded-operation-envelope',
+        'optional authenticated live-update author from provider ingestion',
         'registered operation definitions',
         'instance document identity',
         'instance operation outcome registry'
@@ -409,6 +410,7 @@
       ],
       conditions: [
         'Document id, actor id, operation id, transaction id, origin, protocol version, schema version, channel, event name, and payload are validated.',
+        'When provider ingestion supplies an authenticated live-update author, it must equal the envelope actor before dedupe, permission, conflict, or apply.',
         'Inbound record fields are inert data: accessors are rejected without execution and prototype-named JSON keys remain own data properties.',
         'A payload validator exception rejects only that operation and cannot abort later operations decoded from the same update.',
         'A repeated identical operation id returns the recorded deterministic outcome without mutation.',
@@ -427,6 +429,7 @@
       ],
       forbiddenContributors: [
         'provider connection state as payload validity',
+        'an unauthenticated transport peer presented as an operation author',
         'global cross-instance dedupe registry',
         'canonical apply before validation'
       ],

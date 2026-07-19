@@ -119,6 +119,10 @@ canonical-apply route.
 updates, state-vector exchange, Awareness, durable acknowledgement, failure
 observation, and disposal. Authentication, room access, authorization, durable
 backend policy, update compaction, and server history remain app/server owned.
+For live one-author delivery, `InboundBinaryUpdate.fromActorId` is the
+provider-authenticated operation author and must match `envelope.actorId`.
+Multi-author sync aggregates omit it; custom providers must never label an
+unverified transport peer as the operation author.
 
 `MemoryCollaborationHub` and `MemoryCollaborationProvider` are deterministic
 in-memory reference adapters, not a mandatory transport authority.

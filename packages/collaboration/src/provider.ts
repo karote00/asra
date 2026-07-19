@@ -17,7 +17,8 @@ export interface CollaborationProviderIdentity {
 }
 
 export interface InboundBinaryUpdate extends YjsBinaryUpdate {
-  readonly fromActorId: string
+  /** Authenticated operation author; omitted for multi-author sync aggregates. */
+  readonly fromActorId?: string
 }
 
 export interface ProviderAcknowledgement {

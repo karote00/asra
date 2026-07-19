@@ -403,7 +403,11 @@ export class CollaborationInstance {
       })
       return
     }
-    await this.processRemoteOperations(operations, 'provider')
+    await this.processRemoteOperations(
+      operations,
+      'provider',
+      update.fromActorId
+    )
   }
 
   private async synchronizeProviderOperations(): Promise<void> {
@@ -416,12 +420,14 @@ export class CollaborationInstance {
 
   private async processRemoteOperations(
     operations: readonly unknown[],
-    source: InboundYjsUpdateSource
+    source: InboundYjsUpdateSource,
+    authenticatedActorId?: string
   ): Promise<void> {
     for (const decoded of operations) {
       const validation = validateRemoteOperation({
         decoded,
         documentId: this.identity.documentId,
+        authenticatedActorId,
         registry: this.operationRegistry,
         outcomes: this.operationOutcomes
       })

@@ -13,6 +13,7 @@ export type ValidationRejectionCode =
   | 'invalid-transaction-id'
   | 'invalid-document-id'
   | 'invalid-actor-id'
+  | 'actor-mismatch'
   | 'document-mismatch'
   | 'unsupported-protocol'
   | 'unsupported-schema'
@@ -331,6 +332,7 @@ const allowedOrigins = new Set<SharedOperationOrigin>([
 export interface ValidateRemoteOperationInput {
   decoded: unknown
   documentId: string
+  authenticatedActorId?: string
   registry: OperationRegistry
   outcomes: OperationOutcomeRegistry
 }
@@ -338,6 +340,7 @@ export interface ValidateRemoteOperationInput {
 export const validateRemoteOperation = ({
   decoded,
   documentId,
+  authenticatedActorId,
   registry,
   outcomes
 }: ValidateRemoteOperationInput): RemoteValidationResult => {
@@ -347,6 +350,16 @@ export const validateRemoteOperation = ({
       'operationId'
     )
     if (rawOperationId) {
+      const rawActorId = stringField(
+        decoded as Record<string, unknown>,
+        'actorId'
+      )
+      if (
+        authenticatedActorId !== undefined &&
+        rawActorId !== authenticatedActorId
+      ) {
+        return rejection('actor-mismatch', rawOperationId)
+      }
       try {
         const identityResult = outcomes.inspect(
           rawOperationId,
@@ -366,6 +379,12 @@ export const validateRemoteOperation = ({
 
   if (candidate.documentId !== documentId) {
     return rejection('document-mismatch', candidate.operationId)
+  }
+  if (
+    authenticatedActorId !== undefined &&
+    candidate.actorId !== authenticatedActorId
+  ) {
+    return rejection('actor-mismatch', candidate.operationId)
   }
   if (candidate.protocolVersion !== COLLABORATION_PROTOCOL_VERSION) {
     return rejection('unsupported-protocol', candidate.operationId)

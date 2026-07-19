@@ -261,7 +261,8 @@ Managed property bridges:
   `COLLABORATION_PROTOCOL_VERSION`
 - provider contract: `CollaborationProvider`, `ProviderFailure`,
   `providerStatus`, `MemoryCollaborationHub`,
-  `MemoryCollaborationProvider`
+  `MemoryCollaborationProvider`, and optional authenticated-author
+  `InboundBinaryUpdate.fromActorId`
 - persistence/durability: `CollaborationUpdatePersistence`,
   `CollaborationDurabilityRuntime` with lazy/idempotent `start()`,
   `MemoryCollaborationUpdatePersistence`, and distinct durability event/outcome

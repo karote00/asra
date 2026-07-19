@@ -158,6 +158,30 @@ describe('remote origin, dedupe, protocol, and payload validation', () => {
     )
   })
 
+  it('binds a live provider operation to its authenticated author', () => {
+    expect(
+      validateRemoteOperation({
+        decoded: envelope(),
+        ...setup(),
+        authenticatedActorId: 'actor-b'
+      })
+    ).toEqual(
+      expect.objectContaining({
+        status: 'rejected',
+        owner: 'validation',
+        code: 'actor-mismatch',
+        operationId: 'actor-a:session-a:1:forward'
+      })
+    )
+    expect(
+      validateRemoteOperation({
+        decoded: envelope(),
+        ...setup(),
+        authenticatedActorId: 'actor-a'
+      }).status
+    ).toBe('validated')
+  })
+
   it('rejects document mismatch, unknown route, and invalid payload', () => {
     expect(
       validateRemoteOperation({

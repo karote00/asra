@@ -150,6 +150,9 @@ End-state:
 - The provider adapter exposes connection lifecycle/status, room/auth
   composition, binary update send/receive, state-vector synchronization,
   awareness send/receive, durable acknowledgement observation, and disposal.
+  A live inbound update may carry an authenticated operation author, which must
+  match the envelope actor. Multi-author state-vector aggregates omit that
+  field and rely on the app/server-validated history boundary.
 - Remote processing returns an immutable outcome identifying duplicate,
   accepted, repaired, rejected, or apply-failed behavior and the owner/code of
   any failure. Diagnostics observe this outcome but cannot repair it.
