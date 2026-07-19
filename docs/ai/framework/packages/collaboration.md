@@ -147,6 +147,12 @@ entity existence, hierarchy membership/order, and property validation. Ordered
 app policies may return `not-applicable`, `accept`, `repair`, or `reject`.
 Every repair is cloned, frozen, and revalidated before canonical apply.
 
+Entity existence rejects missing updates and treats repeated delete as
+idempotent. An existing-id create is detected by the framework but deferred to
+an explicit deterministic app/state-owner policy because an existence boolean
+cannot choose the payload winner. If every extension is not applicable, the
+framework rejects the unresolved collision; it never uses arrival order.
+
 Yjs log convergence does not make arbitrary app operations commutative. Apps
 must register deterministic domain policy for non-commutative geometry,
 topology, locking, or property semantics. Such policy reads canonical owner

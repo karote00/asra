@@ -475,13 +475,14 @@
       conditions: [
         'Permission runs before conflict resolution and never derives authority from awareness.',
         'Framework invariant policies cannot be replaced or overridden by an app policy.',
-        'App policies run in deterministic registration order only after framework invariants pass.',
+        'App policies run in deterministic registration order after framework invariants pass or detect a same-id create collision that requires an explicit domain decision.',
+        'Entity existence owns missing-update rejection and repeated-delete idempotence; an existing-id create requires an app/state-owner accept, repair, or reject decision, and all-not-applicable extensions produce an unresolved framework rejection instead of arrival-order settlement.',
         'A repair is revalidated against the registered operation payload before apply, and a validator exception becomes an invalid-repair rejection.',
         'Accept, repair, reject, and not-applicable outcomes are deterministic for the same operation and policy set.'
       ],
       bypasses: [
         'Unauthorized or framework-rejected operations produce no remote transaction.',
-        'No applicable extension falls through to the framework accept result after invariant checks.'
+        'No applicable extension falls through to the framework accept result only when no detected same-id create collision requires explicit resolution; an unresolved collision rejects.'
       ],
       allowedContributors: [
         'artifact:validated-remote-operation',

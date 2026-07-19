@@ -163,6 +163,11 @@ End-state:
 - Conflict policy returns accept, repair, reject, or not-applicable before the
   remote transaction begins. A repair produces another schema-valid operation
   payload; rejection produces no canonical mutation.
+  Framework entity-existence policy owns missing-update rejection and
+  idempotent repeated delete. When two creates target an already-present id,
+  existence alone cannot choose between their payloads: the framework requires
+  an explicit deterministic app/state-owner policy decision and rejects the
+  collision if every extension reports not-applicable.
 
 ### Ownership and forbidden boundaries
 
@@ -200,7 +205,8 @@ End-state:
 - independent instance isolation, explicit shared wiring, and disposing one
   instance without affecting another;
 - deterministic conflict accept, repair, and reject; framework-owned invariant
-  rejection/repair; app-owned domain policy extension.
+  rejection/repair; app-owned domain policy extension; concurrent same-id
+  create convergence with an explicit deterministic extension.
 
 ### Bounded definition of done
 

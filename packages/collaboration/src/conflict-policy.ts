@@ -60,8 +60,19 @@ export type ConflictPipelineOutcome =
   | ConflictAcceptedOperation
   | ConflictRejectedOperation
 
-interface ExecutablePolicy extends AppConflictPolicy {
+type ExecutablePolicyDecision =
+  | ConflictPolicyDecision
+  | Readonly<{
+      decision: 'require-app-resolution'
+      code: string
+    }>
+
+interface ExecutablePolicy {
+  readonly id: string
   readonly owner: 'framework' | 'app'
+  decide(
+    context: ConflictPolicyContext
+  ): ExecutablePolicyDecision | Promise<ExecutablePolicyDecision>
 }
 
 const FRAMEWORK_POLICY_IDS = Object.freeze([
@@ -119,12 +130,17 @@ const frameworkPolicies = (
     Object.freeze({
       id: FRAMEWORK_POLICY_IDS[0],
       owner: 'framework' as const,
-      decide: ({ envelope }: ConflictPolicyContext): ConflictPolicyDecision => {
+      decide: ({
+        envelope
+      }: ConflictPolicyContext): ExecutablePolicyDecision => {
         const descriptor = entity?.describe(envelope)
         if (!descriptor) return { decision: 'not-applicable' }
         const exists = entity?.exists(descriptor.entityId) ?? false
         if (descriptor.intent === 'create' && exists) {
-          return { decision: 'reject', code: 'entity-already-exists' }
+          return {
+            decision: 'require-app-resolution',
+            code: 'unresolved-entity-create-conflict'
+          }
         }
         if (descriptor.intent === 'update' && !exists) {
           return { decision: 'reject', code: 'entity-missing' }
@@ -204,6 +220,9 @@ export class ConflictPolicyPipeline {
     const receivedEnvelope = cloneEnvelope(operation.envelope)
     let envelope = receivedEnvelope
     let repaired = false
+    let requiredAppResolution:
+      | Readonly<{ code: string; policyId: string }>
+      | undefined
 
     let permitted: boolean
     try {
@@ -220,7 +239,7 @@ export class ConflictPolicyPipeline {
     }
 
     for (const policy of this.policies) {
-      let decision: ConflictPolicyDecision
+      let decision: ExecutablePolicyDecision
       try {
         decision = await policy.decide(Object.freeze({ envelope }))
       } catch {
@@ -233,10 +252,18 @@ export class ConflictPolicyPipeline {
       }
       if (
         !decision ||
-        !['not-applicable', 'accept', 'reject', 'repair'].includes(
-          decision.decision
-        ) ||
-        (decision.decision === 'reject' && !decision.code?.trim())
+        ![
+          'not-applicable',
+          'accept',
+          'reject',
+          'repair',
+          'require-app-resolution'
+        ].includes(decision.decision) ||
+        ((decision.decision === 'reject' ||
+          decision.decision === 'require-app-resolution') &&
+          !decision.code?.trim()) ||
+        (decision.decision === 'require-app-resolution' &&
+          policy.owner !== 'framework')
       ) {
         return reject(
           policy.owner,
@@ -245,10 +272,18 @@ export class ConflictPolicyPipeline {
           policy.id
         )
       }
-      if (
-        decision.decision === 'not-applicable' ||
-        decision.decision === 'accept'
-      ) {
+      if (decision.decision === 'require-app-resolution') {
+        requiredAppResolution = Object.freeze({
+          code: decision.code,
+          policyId: policy.id
+        })
+        continue
+      }
+      if (decision.decision === 'not-applicable') {
+        continue
+      }
+      if (decision.decision === 'accept') {
+        if (policy.owner === 'app') requiredAppResolution = undefined
         continue
       }
       if (decision.decision === 'reject') {
@@ -292,6 +327,16 @@ export class ConflictPolicyPipeline {
       }
       envelope = deepFreeze({ ...envelope, payload })
       repaired = true
+      if (policy.owner === 'app') requiredAppResolution = undefined
+    }
+
+    if (requiredAppResolution) {
+      return reject(
+        'framework',
+        requiredAppResolution.code,
+        receivedEnvelope.operationId,
+        requiredAppResolution.policyId
+      )
     }
 
     return Object.freeze({

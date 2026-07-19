@@ -113,6 +113,94 @@ describe('permission and conflict policy pipeline', () => {
     expect(repeatedDelete.status).toBe('accepted')
   })
 
+  it('requires an explicit app decision for an existing-id create collision', async () => {
+    const frameworkInvariants: FrameworkInvariantConfiguration = {
+      entity: {
+        describe: (envelope) => ({
+          entityId: (envelope.payload as Payload).entityId,
+          intent: 'create'
+        }),
+        exists: () => true
+      }
+    }
+    const unresolved = await pipeline({ frameworkInvariants }).decide(
+      operation()
+    )
+    const decide = vi.fn(() => ({ decision: 'accept' as const }))
+    const resolved = await pipeline({
+      frameworkInvariants,
+      appPolicies: [{ id: 'app:entity-create-winner', decide }]
+    }).decide(operation())
+
+    expect(unresolved).toEqual(
+      expect.objectContaining({
+        status: 'rejected',
+        owner: 'framework',
+        policyId: 'framework:entity-existence',
+        code: 'unresolved-entity-create-conflict'
+      })
+    )
+    expect(resolved.status).toBe('accepted')
+    expect(decide).toHaveBeenCalledTimes(1)
+  })
+
+  it('lets an explicit create-collision policy converge opposite delivery orders', async () => {
+    const applyInOrder = async (values: readonly number[]) => {
+      const state = { exists: false, value: 0 }
+      const instance = pipeline({
+        frameworkInvariants: {
+          entity: {
+            describe: (envelope) => ({
+              entityId: (envelope.payload as Payload).entityId,
+              intent: 'create'
+            }),
+            exists: () => state.exists
+          }
+        },
+        appPolicies: [
+          {
+            id: 'app:max-create-register',
+            decide: ({ envelope }) => {
+              const payload = envelope.payload as Payload
+              return payload.value < state.value
+                ? {
+                    decision: 'repair' as const,
+                    payload: { ...payload, value: state.value }
+                  }
+                : { decision: 'accept' as const }
+            }
+          }
+        ]
+      })
+      const outcomes: string[] = []
+      for (const value of values) {
+        const candidate = operation({ entityId: 'node-a', value })
+        const outcome = await instance.decide({
+          ...candidate,
+          envelope: {
+            ...candidate.envelope,
+            operationId: `actor-a:session-a:${value}:forward`,
+            transactionId: `actor-a:session-a:${value}`
+          }
+        })
+        if (outcome.status === 'rejected') throw new Error('unexpected reject')
+        outcomes.push(outcome.status)
+        state.exists = true
+        state.value = (outcome.envelope.payload as Payload).value
+      }
+      return { outcomes, value: state.value }
+    }
+
+    expect(await applyInOrder([1, 2])).toEqual({
+      outcomes: ['accepted', 'accepted'],
+      value: 2
+    })
+    expect(await applyInOrder([2, 1])).toEqual({
+      outcomes: ['accepted', 'repaired'],
+      value: 2
+    })
+  })
+
   it('runs fixed hierarchy and property invariants before app policies', async () => {
     const app = vi.fn(() => ({ decision: 'accept' as const }))
     const hierarchyRejected = await pipeline({

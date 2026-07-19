@@ -47,6 +47,12 @@ Out of scope:
 - Ship deterministic framework-owned defaults for invariants the framework
   itself owns, including entity existence, hierarchy membership/order, property
   validation, and unsupported-operation rejection.
+- Entity-existence defaults reject an update to a missing entity and treat a
+  repeated delete as idempotent. A create targeting an existing id is a
+  framework-detected collision, but its payload winner is not derivable from
+  existence alone: ordered app/state-owner policies must explicitly accept,
+  repair, or reject it. If none applies, the framework rejects the unresolved
+  collision instead of using arrival order.
 - Permit apps to register domain policies for app-owned geometry, topology,
   locks, permissions, and workflow semantics without patching Yjs transport or
   canonical state owners.
@@ -60,7 +66,8 @@ Out of scope:
 - the matching Yjs Inspector names the policy input, owner, output, rejection,
   repair, bypass, and downstream canonical-apply routes;
 - duplicate, reordered, concurrent, unauthorized, unsupported, and repaired
-  operations converge or reject deterministically without echo;
+  operations converge or reject deterministically without echo, including
+  opposite delivery orders for an explicitly resolved same-id create;
 - local undo excludes remote-origin work and rollback compensation re-enters the
   same conflict/origin pipeline;
 - framework defaults and app extension points have formal instance-isolation
