@@ -131,7 +131,13 @@ const isDataEqual = (
       return pairStatus === 'equal'
     }
     for (let index = 0; index < left.length; index += 1) {
-      if (!isDataEqual(left[index], right[index], comparedPairs)) {
+      const leftHasIndex = Object.prototype.hasOwnProperty.call(left, index)
+      const rightHasIndex = Object.prototype.hasOwnProperty.call(right, index)
+      if (
+        leftHasIndex !== rightHasIndex ||
+        (leftHasIndex &&
+          !isDataEqual(left[index], right[index], comparedPairs))
+      ) {
         return false
       }
     }

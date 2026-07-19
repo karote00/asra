@@ -462,7 +462,7 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(element.getAllComputedData).toHaveBeenCalledTimes(2)
   })
 
-  it('should run: accept canonical undefined slots for a cached sparse array', async () => {
+  it('should run: resync an own undefined slot for a cached sparse array', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree')
     const store = new RenderSceneTree()
     const element = createElement(
@@ -472,6 +472,7 @@ describe('RenderSceneTree computed data mirror', () => {
     )
     sceneTreeMock.getElementById.mockReturnValue(element)
     seedStore(store, 'generic-1')
+    element.getAllComputedData.mockReturnValue({ samples: [456] })
 
     const outcome = store.updateElement(
       'generic-1',
@@ -482,8 +483,11 @@ describe('RenderSceneTree computed data mirror', () => {
       { undoable: false }
     )
 
-    expect(outcome).toEqual({ status: 'applied', elementId: 'generic-1' })
-    expect(element.getAllComputedData).toHaveBeenCalledTimes(1)
+    expect(outcome).toEqual({ status: 'resynced', elementId: 'generic-1' })
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(2)
+    expect(renderMock.addElement).toHaveBeenCalledWith(
+      expect.objectContaining({ samples: [456] })
+    )
   })
 
   it('should run: reject a scalar without declared owner provenance', async () => {
