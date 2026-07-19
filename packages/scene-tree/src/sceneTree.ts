@@ -657,10 +657,26 @@ class SceneTree {
       return
     }
 
-    const patchChange: ComputedDataPatchChange = {}
-    const previousChangeCount = this.changes.length
     const computedSnapshot = getComputedSnapshot(element)
     validateComputedDataPatch(patch, computedSnapshot)
+    this.applyComputedDataPatch(
+      elementId,
+      element,
+      patch,
+      computedSnapshot,
+      options
+    )
+  }
+
+  private applyComputedDataPatch(
+    elementId: string,
+    element: ElementInstanceTypes,
+    patch: ComputedDataPatch,
+    computedSnapshot: Record<string, DataTypes>,
+    options?: EvnetOptions
+  ): void {
+    const patchChange: ComputedDataPatchChange = {}
+    const previousChangeCount = this.changes.length
 
     Object.entries(patch.values ?? {}).forEach(([key, after]) => {
       const computedKey = key as keyof ComputedAttrs
@@ -750,17 +766,31 @@ class SceneTree {
     patch: ComputedDataPatch,
     options?: EvnetOptions
   ) {
-    const targets = elementIds.flatMap((elementId) => {
+    const targets = [...new Set(elementIds)].flatMap((elementId) => {
       const element = this.getElementById(elementId)
-      return element ? [{ elementId, element }] : []
+      return element
+        ? [
+            {
+              elementId,
+              element,
+              computedSnapshot: getComputedSnapshot(element)
+            }
+          ]
+        : []
     })
 
-    targets.forEach(({ element }) => {
-      validateComputedDataPatch(patch, getComputedSnapshot(element))
+    targets.forEach(({ computedSnapshot }) => {
+      validateComputedDataPatch(patch, computedSnapshot)
     })
 
-    targets.forEach(({ elementId }) => {
-      this.patchComputedData(elementId, patch, options)
+    targets.forEach(({ elementId, element, computedSnapshot }) => {
+      this.applyComputedDataPatch(
+        elementId,
+        element,
+        patch,
+        computedSnapshot,
+        options
+      )
     })
   }
 

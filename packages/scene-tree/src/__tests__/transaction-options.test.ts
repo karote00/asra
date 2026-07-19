@@ -436,6 +436,27 @@ describe('SceneTree transaction options', () => {
     expect(sceneTree.changes).toEqual([])
   })
 
+  it('applies a duplicated multi-element patch target only once', () => {
+    let currentX = 0
+    const element = {
+      get: vi.fn(() => 'element-duplicate-target'),
+      getAllComputedData: vi.fn(() => ({ x: currentX })),
+      updateComputedData: vi.fn((_key: string, value: number) => {
+        currentX = value
+      })
+    } as unknown as ElementInstanceTypes
+    sceneTree.addToMap(element)
+
+    sceneTree.patchComputedDataForElements(
+      ['element-duplicate-target', 'element-duplicate-target'],
+      { values: { x: 1 } }
+    )
+
+    expect(element.getAllComputedData).toHaveBeenCalledTimes(1)
+    expect(element.updateComputedData).toHaveBeenCalledTimes(1)
+    expect(sceneTree.changes).toHaveLength(1)
+  })
+
   it('rejects an inherited special-name record base before mutation', () => {
     const records: Record<string, { set: Record<string, string> }> = {}
     Object.defineProperty(records, '__proto__', {

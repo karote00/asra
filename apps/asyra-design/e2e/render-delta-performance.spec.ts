@@ -236,8 +236,8 @@ test.describe('Render delta performance budget', () => {
         let elementSaveCallsDuringDelta = 0
         let computedSnapshotCallsDuringDelta = 0
 
-        const originalPatchComputedData =
-          sceneTree.patchComputedData.bind(sceneTree)
+        const originalPatchComputedDataForElements =
+          sceneTree.patchComputedDataForElements.bind(sceneTree)
         const originalCommitSceneTreeTransaction =
           sceneTree.commitSceneTreeTransaction.bind(sceneTree)
         const originalEngineExecute = engine.execute.bind(engine)
@@ -249,10 +249,10 @@ test.describe('Render delta performance budget', () => {
         core.setSystemProperty('mouseDown', true)
         core.setSystemProperty('mouseDragging', true)
 
-        sceneTree.patchComputedData = (...args: unknown[]) => {
+        sceneTree.patchComputedDataForElements = (...args: unknown[]) => {
           const start = performance.now()
           try {
-            return originalPatchComputedData(...args)
+            return originalPatchComputedDataForElements(...args)
           } finally {
             sceneTreeSamples.push(performance.now() - start)
           }
@@ -310,7 +310,8 @@ test.describe('Render delta performance budget', () => {
             requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
           )
         } finally {
-          sceneTree.patchComputedData = originalPatchComputedData
+          sceneTree.patchComputedDataForElements =
+            originalPatchComputedDataForElements
           sceneTree.commitSceneTreeTransaction =
             originalCommitSceneTreeTransaction
           engine.execute = originalEngineExecute

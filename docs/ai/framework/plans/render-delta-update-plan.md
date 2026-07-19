@@ -66,9 +66,10 @@ Preset data-channel observer:
   map, never both; Scene Tree rejects an overlapping patch before mutation
 - one record id may appear in either a record `set` map or `remove` list, never
   both; Scene Tree rejects the ambiguous patch before mutation
-- one multi-element computed patch prevalidates every existing target snapshot
-  before mutating the first target; any invalid target rejects the full request
-  without applying a canonical prefix
+- one multi-element computed patch deduplicates target ids, reads each existing
+  target snapshot once, and prevalidates every target before mutating the first;
+  any invalid target rejects the full request without applying a canonical
+  prefix, and each valid target applies once
 - remove invalidates every pending frame update before removing the visual;
   snapshot ownership is retained until that visual release succeeds
 

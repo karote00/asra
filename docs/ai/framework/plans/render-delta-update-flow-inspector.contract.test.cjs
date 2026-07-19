@@ -169,7 +169,7 @@ test('Scene Tree is canonical and Factory transports ordered changes only', () =
   assert.match(contractText(commit), /record id.*either.*set.*remove/i)
   assert.match(
     contractText(commit),
-    /multi-element computed patch prevalidates.*every existing target snapshot before the first target mutates.*invalid target.*no canonical prefix/i
+    /multi-element computed patch deduplicates target ids.*reads each existing target snapshot once.*prevalidates every target before the first mutation.*invalid target.*no canonical prefix.*valid target applies once/i
   )
   assert.match(
     contractText(commit),
