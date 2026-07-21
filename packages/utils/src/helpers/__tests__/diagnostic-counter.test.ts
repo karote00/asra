@@ -25,4 +25,12 @@ describe('emitDiagnosticCounter', () => {
     expect(sink).toHaveBeenNthCalledWith(1, 'default', 1)
     expect(sink).toHaveBeenNthCalledWith(2, 'explicit', 3)
   })
+
+  it('isolates diagnostic sink failures from product behavior', () => {
+    runtimeGlobal.__asyraDiagnosticCounterSink = () => {
+      throw new Error('diagnostic sink failed')
+    }
+
+    expect(() => emitDiagnosticCounter('isolated')).not.toThrow()
+  })
 })

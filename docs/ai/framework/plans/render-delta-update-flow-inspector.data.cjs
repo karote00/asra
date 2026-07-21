@@ -507,6 +507,7 @@
         'Render issues only existing @asyra/render-engine commands and opaque handles.',
         'The frame handoff preserves command ordering and uses the normal layer/update/flush route.',
         'Local hierarchy parent and sibling-order bookkeeping commits only after the corresponding engine append and set-child-index handoff succeeds; a failed handoff retains the pre-command local state so the same complete snapshot can retry it.',
+        'A diagnostic sink failure is isolated and cannot change the product result.',
         'The dense-vector fixture meets count, total, p95, max, and combined p95 budgets.'
       ],
       bypasses: [
@@ -527,6 +528,7 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/utils/src/helpers/diagnostic-counter.ts',
+        'packages/utils/src/helpers/__tests__/diagnostic-counter.test.ts',
         'packages/render/src/render.ts',
         'packages/render/src/types/render-object.ts',
         'packages/render/src/__tests__/**',

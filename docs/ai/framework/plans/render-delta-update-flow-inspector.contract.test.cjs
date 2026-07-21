@@ -461,9 +461,18 @@ test('strategy ownership is complete-data, engine-neutral, and non-vector compat
     handoff.allowedContributors.join(' '),
     /formal diagnostic counter sink/i
   )
+  assert.match(
+    handoffContract,
+    /diagnostic sink failure.*cannot change.*product result/i
+  )
   assert.ok(
     handoff.implementationBoundary.includes(
       'packages/utils/src/helpers/diagnostic-counter.ts'
+    )
+  )
+  assert.ok(
+    handoff.implementationBoundary.includes(
+      'packages/utils/src/helpers/__tests__/diagnostic-counter.test.ts'
     )
   )
   assert.equal(
