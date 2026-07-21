@@ -992,7 +992,7 @@
       {
         id: 'flow-inspector-contract',
         label: 'Flow Inspector Contract',
-        href: './flow-inspector-dashboard-plan.md',
+        href: '../FLOW_INSPECTOR.md',
         kind: 'framework'
       }
     ],

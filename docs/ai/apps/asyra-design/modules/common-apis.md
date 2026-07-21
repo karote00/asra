@@ -10,14 +10,28 @@
 
   - canvas cursor updates
 
-- `element.ts`
+- `element/apis.ts` with an export-only `element/index.ts`
 
   - create element
   - renderer-backed geometry hit-test for canvas targeting
   - element lock/visible query + toggle helpers
   - element position query + batch move helper
-  - vector anchor point queries and updates
   - computed data mutation helper (`changeComputedData`)
+
+- `element/vector-apis.ts` and focused `element/vector-*` modules
+
+  - vector anchor point queries and updates
+  - topology validation and repair
+  - vector operation intents, handle modes, geometry, and Bezier adaptation
+
+- `fills.ts` / `strokes.ts`
+
+  - repeatable appearance-property mutations
+  - gradient geometry and stroke-related vector-bounds repair
+
+- `property-patch.ts`
+
+  - app-owned changed-field traversal shared by fill and stroke mutations
 
 - `selection.ts`
 
@@ -41,6 +55,7 @@
   - app-level render layer registration wrappers
 
 - `transaction.ts`
+
   - `runTransaction` for finite mutation groups
   - manual start/end/rollback wrappers for interactions that span input events
 
@@ -59,13 +74,18 @@
   features use `sharedDelivery: 'immediate'` so one synchronous multi-element
   update becomes one shared publication while the outer session remains one
   undo commit.
-- `elementApis.createElement(...)` and `selectionApis.selectElements(...)` also accept optional mutation options and forward them to core.
+- `elementApis.createElement(...)` and `selectionApis.selectElements(...)` also
+  accept optional mutation options and forward them to Core.
 - Failure in a finite common-API mutation group rolls back all recorded
   rollbackable scene-tree, props, and selection changes before rethrowing.
 - Vector geometry updates normalize anchor points against computed bounds.
 - Canvas hit-testing uses renderer geometry (`getElementIdAtClientPos`) so
   hover targeting follows visible element fill or stroke geometry.
 - Bounds utilities remain in use for area selection and intersection queries.
-- Vector handle mode helpers read/write anchor-level canonical computed data (`none`, `mirror-angle`, `mirror-angle-length`) for drag and panel edits; they do not use a transient app-only map.
-- Vector topology commits validate segment/network consistency and fail fast on invalid references.
-- Vector geometry helper (`vectorGeometry.*`) centralizes topology repairs for add/move/split/update flows and builds computed-data patches.
+- Vector handle mode helpers read/write anchor-level canonical computed data
+  (`none`, `mirror-angle`, `mirror-angle-length`) for drag and panel edits; they
+  do not use a transient app-only map.
+- Vector topology commits validate segment/network consistency and fail fast on
+  invalid references.
+- `vectorGeometry.*` centralizes topology repairs for add/move/split/update
+  flows and builds computed-data patches.

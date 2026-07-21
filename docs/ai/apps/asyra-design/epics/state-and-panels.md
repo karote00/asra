@@ -14,21 +14,25 @@ Keep app UI panels and tool indicators synchronized with runtime state through e
 ## Implementation Streams
 
 1. registration layer
-- `registrations/ui-properties.ts`
-- `registrations/aggregate-properties.ts`
-- `registrations/system-properties.ts`
+
+- `packages/preset/src/ui/register-properties.ts`
+- `packages/preset/src/defaults/modules/{input,selection,vector-editing,viewport,ui-context}.ts`
+- Asyra Design selects these defaults through `applyPreset(core)` and does not
+  own a parallel registration directory.
 
 2. provider/hook layer
-- `hooks/useProperty.ts`
-- `providers/*`
+
+- `apps/asyra-design/src/hooks/useProperty.ts`
+- `apps/asyra-design/src/providers/*`
 
 3. panel layer
-- `properties/*`
-- `contents/*`
-- `toolbar/*`
+
+- `apps/asyra-design/src/properties/*`
+- `apps/asyra-design/src/contents/*`
+- `apps/asyra-design/src/toolbar/*`
 
 ## Done Criteria
 
 - panel visibility rules are stable and documented
-- provider keys align with registration keys
+- provider keys reuse Preset-managed keys or explicit app-owned keys
 - E2E selectors remain stable

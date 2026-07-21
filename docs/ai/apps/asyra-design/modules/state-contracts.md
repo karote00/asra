@@ -100,7 +100,7 @@ This file defines app-level state keys, owners, and primary consumers.
   - readers: gradient-handles render layer
   - value contract: `{ elementId, fillId, handleIndex } | null`
 
-## UI Context Keys (App Registered)
+## UI Context Keys (Preset Registered)
 
 - `elementSelection`
   - source: selection state
@@ -123,7 +123,8 @@ This file defines app-level state keys, owners, and primary consumers.
   - consumers: property panel inputs
 
 - `fills`
-  - source: app-registered ui-context `compute` over selected elements (`computed.fills`)
+  - source: Preset UI-context `compute` over selected elements
+    (`computed.fills`)
   - consumers: property panel fills section via `useFills()` / `useFill()`
   - value contract:
     - no selection -> `[]`

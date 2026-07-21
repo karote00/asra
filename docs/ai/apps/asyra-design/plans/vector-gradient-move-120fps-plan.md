@@ -1,12 +1,19 @@
 # Plan: Gradient Vector Move Drag 120 FPS (Multi-Selection)
 
+## Status
+
+Deferred profiling candidate. This plan is not active and is not the queued
+next implementation plan. Re-activate it only when current multi-selection
+drag profiling demonstrates that the existing render path misses an agreed
+interaction budget.
+
 ## Scope
 
 Reach ~120 FPS while drag-moving vector elements with gradient fills, focusing
 on multi-selection scenarios. Single-selection performance is acceptable after
 current caching fixes; future work should only apply to multi-selection.
 
-Targets:
+Candidate targets:
 
 - maintain correct final fill rendering after drag ends
 - preserve hit testing and undo semantics

@@ -8,6 +8,8 @@ Never record completed plans here.
 - Queued next implementation plan after the current Yjs collaboration Gate 2
   changes are reviewed, staged, and committed:
   `plans/durable-collaboration-server-and-continuous-sync-plan.md`.
+- Deferred profiling candidate, neither active nor queued:
+  `plans/vector-gradient-move-120fps-plan.md`.
 - Stroke semantics are owned by
   `docs/ai/apps/asyra-design/specs/stroke-engine/SPEC.md`.
 - Stroke step, route, artifact, invariant, and acceptance contracts are owned

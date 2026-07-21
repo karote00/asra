@@ -20,27 +20,25 @@ bundle side effect.
 
 ## Context
 
-At the start of this gate, Asyra provided local collaboration infrastructure:
+Asyra provides the following local shared-delivery infrastructure independently
+of network collaboration:
 
-- one module-level default Yjs document used by the current
-  `getYjsDataChannel(...)` helper
 - shared data-channel registration by channel name
 - local-first transaction recording
-- opt-in shared delivery through `options.shared`
+- opt-in shared delivery through mutation options
 - transaction-end buffered delivery
 - immediate shared delivery when explicitly requested
 - registered shared-channel observers for render/UI/default runtime wiring
 
-The first implemented owner step replaced the module-level Y.Doc convenience
-with Factory-owned delivery-only local channels and detached shared-delivery
-metadata. This preserves local projection, buffering, rollback, undo/redo, and
-instance registry behavior while ensuring non-collaborative startup creates no
-Y.Doc. Network Yjs ownership now belongs exclusively to the explicit optional
-collaboration composition defined by this plan.
+Factory owns delivery-only local channels and detached shared-delivery metadata.
+Local projection, buffering, rollback, undo/redo, and instance registry behavior
+do not require a Y.Doc. Network Yjs ownership belongs exclusively to the
+explicit optional collaboration composition defined by this plan, so
+non-collaborative startup creates no Y.Doc.
 
-The optional collaboration package now composes the previously local-only
-prerequisites into the network flow specified below. Gate validation and review
-remain required before any closeout decision.
+The optional collaboration package composes these local prerequisites into the
+network flow specified below. Gate validation and review remain required before
+any closeout decision.
 
 ## Prerequisites
 
