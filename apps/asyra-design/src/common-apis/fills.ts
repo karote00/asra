@@ -6,9 +6,9 @@ import {
   type FillGradientData,
   type PositionData
 } from '@asyra/utils'
-import { isEqual } from 'lodash'
 import { FILL_PATCH_KEYS, type FillWritableKey } from '../constants'
 import core, { render, sceneTree } from '../contexts'
+import { getChangedDefinedPatchEntries } from './property-patch'
 
 export type FillPatch = Partial<Pick<FillAttrs, FillWritableKey>>
 
@@ -157,22 +157,6 @@ const computeNextGradientForHandleWithDelta = (
     )
   }
 }
-
-const getChangedPatchEntries = (currentFill: FillAttrs, patch: FillPatch) =>
-  FILL_PATCH_KEYS.flatMap((key) => {
-    if (!(key in patch)) {
-      return []
-    }
-
-    const nextValue = patch[key]
-    if (nextValue === undefined) {
-      return []
-    }
-
-    return isEqual(currentFill[key], nextValue)
-      ? []
-      : ([[key, nextValue]] as const)
-  })
 
 const getElementFill = (
   elementId: string,
@@ -554,7 +538,11 @@ export const fillApis = {
     patch: FillPatch,
     options?: EVENT_OPTIONS
   ) => {
-    const changedEntries = getChangedPatchEntries(currentFill, patch)
+    const changedEntries = getChangedDefinedPatchEntries(
+      FILL_PATCH_KEYS,
+      currentFill,
+      patch
+    )
     if (changedEntries.length === 0) {
       return
     }

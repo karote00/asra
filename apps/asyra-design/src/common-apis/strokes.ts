@@ -12,10 +12,10 @@ import type {
   VectorSegment,
   VectorTopology
 } from '@asyra/core'
-import { isEqual } from 'lodash'
 import { STROKE_PATCH_KEYS, type StrokeWritableKey } from '../constants'
 import core from '../contexts'
 import { calculateVectorBounds } from './element/vector-geometry'
+import { getChangedDefinedPatchEntries } from './property-patch'
 import { transactionApis } from './transaction'
 
 export type StrokePatch = Partial<Pick<StrokeAttrs, StrokeWritableKey>>
@@ -32,25 +32,6 @@ const updateStrokePropertyById = core.updatePropertyById as <
   },
   options?: EVENT_OPTIONS
 ) => void
-
-const getChangedPatchEntries = (
-  currentStroke: StrokeAttrs,
-  patch: StrokePatch
-) =>
-  STROKE_PATCH_KEYS.flatMap((key) => {
-    if (!(key in patch)) {
-      return []
-    }
-
-    const nextValue = patch[key]
-    if (nextValue === undefined) {
-      return []
-    }
-
-    return isEqual(currentStroke[key], nextValue)
-      ? []
-      : ([[key, nextValue]] as const)
-  })
 
 const hasGeometryAffectingStrokePatch = (patch: StrokePatch) =>
   STROKE_PATCH_KEYS.some((key) => key !== 'fill' && key in patch)
@@ -118,7 +99,11 @@ export const strokeApis = {
     patch: StrokePatch,
     options?: EVENT_OPTIONS
   ) => {
-    const changedEntries = getChangedPatchEntries(currentStroke, patch)
+    const changedEntries = getChangedDefinedPatchEntries(
+      STROKE_PATCH_KEYS,
+      currentStroke,
+      patch
+    )
     if (changedEntries.length === 0) {
       return
     }
