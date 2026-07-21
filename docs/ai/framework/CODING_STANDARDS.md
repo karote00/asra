@@ -54,6 +54,14 @@
 - Use longer, descriptive names only when contract readability/interoperability clearly requires it.
 - If external readability requires long names, prefer adapter/alias layers instead of expanding persisted core schema keys.
 
+## Code Readability Standards
+
+- Use `return` for an empty early exit when the function contract permits
+  `undefined`; do not spell the statement as `return undefined`.
+- Keep an explicit `undefined` only where an expression or data value is
+  required, such as a property value, conditional expression, or returned
+  object field.
+
 ## Render and UI Standards
 
 - Framework render orchestration and state synchronization stay in

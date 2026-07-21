@@ -117,6 +117,8 @@ Input -> Feature -> Common API/Controller -> Core/Framework State -> Render/UI-c
 - `common-apis/*`: reusable app mutation/query operations
 - `controllers/*`: UI-triggered orchestration helpers
 - `init/*`: app startup, capability init, and property/derived-state wiring
+- `render-layers/*`: app-owned overlay projection; system-property reads use the
+  Core facade contract rather than reaching through `core.deps.systemContext`
 - `providers/*`: UI consumption adapters from ui-context/scene data
 
 Preset customization ownership:

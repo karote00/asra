@@ -1863,6 +1863,19 @@ unregister -> app migration -> core.start()` as the public app route.
     ownership in Core, structural vector intent ownership at the Asyra Design
     element common-API boundary, and canonical vector selection/state shapes
     in Core.
+  - Use Design System's public icon-name contract, one Props Manager
+    registration-options contract, one Utils registration-owner contract, and
+    Utils-owned point/rect/bounds/transform/RGBA primitives across Render,
+    Preset, and Asyra Design. Domain-specific public names remain aliases when
+    they communicate consumer meaning.
+  - Route Asyra Design overlay system-property reads through the Core facade and
+    keep one app E2E helper for workspace-rectangle center projection.
+  - Express empty function exits with `return` and keep explicit `undefined`
+    for expression/data positions. Reuse Utils `Bounds` for app Bézier bounds.
+  - Share repeated owner-local workflows for app property interaction
+    transactions, vector-icon snapshots/events, Feature System input snapshots,
+    and Preset computed-key pending state without moving their behavior across
+    package boundaries.
   - Reuse the existing Utils `clampUnit(...)` primitive only in consumers that
     already depend on Utils and implement the identical numeric contract.
 - Consequences:
@@ -1882,3 +1895,7 @@ unregister -> app migration -> core.start()` as the public app route.
   - `57ee6bb00` (`refactor(factory): centralize detached value cloning`)
   - `45a922d2e` (`refactor(types): consolidate shared contracts`)
   - `dcfc39194` (`refactor(utils): reuse canonical unit clamp`)
+  - `b471e1621` (`refactor(types): finish shared contract ownership`)
+  - `16f441157` (`refactor(asyra-design): reuse app boundary contracts`)
+  - `67b34e31a` (`refactor(readability): finish empty return cleanup`)
+  - `c4f6f8d3f` (`refactor(readability): consolidate repeated local workflows`)

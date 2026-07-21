@@ -7,14 +7,18 @@ Provide shared types, ids, registry primitives, and low-level helpers.
 ## Owns
 
 - shared type definitions used across packages
-- canonical `SharedDeliveryMode` timing and `Rect`/`PositionData` geometry
-  contracts, plus pure `rectFromPoints(...)` normalization
+- canonical `SharedDeliveryMode` timing plus `PositionData`, `Rect`, `Bounds`,
+  `GeometryTransformMatrix`, and `RGBAColor` low-level contracts
+- semantic geometry aliases such as `FillGradientHandle` and `GeometryBounds`,
+  which retain consumer meaning without parallel shape declarations
 - id generation and id loading helpers
   - `idCounter.setNamespace(value?)` optionally scopes every non-default
     registered counter prefix while preserving its numeric sequence
   - IDs from another namespace remain valid owner data but do not advance the
     local namespace's counter; clearing the counter also clears the namespace
 - common registry utility primitives
+- `RegistrationOwnerMetadata`, shared by extension and registration-graph
+  metadata
 - framework-safe helper functions/constants
 - the domain-neutral own-property primitive used when canonical state and
   transaction replay must preserve special keys and explicit `undefined` as

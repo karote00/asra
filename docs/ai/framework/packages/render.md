@@ -28,6 +28,10 @@ results/interactions back to framework-facing APIs.
 - Render owns the engine-neutral `RenderLayerRegistration` shape. Core
   re-exports that type and owns only its facade registration options and
   callback surface.
+- Render-owned semantic aliases for points, rectangles, bounds, transforms, and
+  RGBA values reuse the canonical low-level contracts from `@asyra/utils`.
+  Concrete engine adapters may retain boundary-local wire shapes when importing
+  Utils would violate the engine package boundary.
 - Render should react to state changes, not become source-of-truth.
 - Render mutations should reflect state/system updates, not drive them.
 - Default subscription wiring is not owned here; preset/core registration flow owns channel observer setup.

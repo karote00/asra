@@ -9,6 +9,7 @@ This package is a shared UI library, not part of the framework execution kernel.
 
 - components: `Text`, `Icon`, `Button`, `Input`, `ColorPicker`, and
   `PropertyControl`;
+- `IconName`, the canonical public name contract accepted by `Icon`;
 - Color Picker public types and helpers exported by its component module;
 - stylesheet entrypoint: `@asyra/design-system/index.css`.
 
