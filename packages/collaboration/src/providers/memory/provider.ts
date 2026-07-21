@@ -8,22 +8,11 @@ import {
   type ProviderAwarenessDisconnect,
   type ProviderAwarenessMessage,
   type ProviderStateVectorExchange,
+  createProviderIdentitySnapshot,
   ProviderFailure
 } from '../../provider'
 import { MemoryHub, type MemoryPeer } from './hub'
 import { cloneAwareness, cloneBytes } from './cloning'
-
-const cloneIdentity = (identity: ProviderIdentity): ProviderIdentity =>
-  Object.freeze({
-    documentId: identity.documentId,
-    roomId: identity.roomId,
-    actorId: identity.actorId,
-    ...(identity.connectionMetadata
-      ? {
-          connectionMetadata: Object.freeze({ ...identity.connectionMetadata })
-        }
-      : {})
-  })
 
 export class MemoryProvider implements Provider, MemoryPeer {
   readonly identity: ProviderIdentity
@@ -56,7 +45,7 @@ export class MemoryProvider implements Provider, MemoryPeer {
     private readonly hub: MemoryHub,
     identity: ProviderIdentity
   ) {
-    this.identity = cloneIdentity(identity)
+    this.identity = createProviderIdentitySnapshot(identity)
   }
 
   connect(): Promise<void> {

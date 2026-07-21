@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ProviderFailure } from '../provider'
+import { createProviderIdentitySnapshot, ProviderFailure } from '../provider'
 import { MemoryHub, MemoryProvider } from '../providers/memory'
 
 const identity = {
@@ -10,6 +10,15 @@ const identity = {
 }
 
 describe('collaboration provider lifecycle', () => {
+  it('creates one immutable provider identity snapshot contract', () => {
+    const snapshot = createProviderIdentitySnapshot(identity)
+
+    expect(snapshot).toEqual(identity)
+    expect(snapshot).not.toBe(identity)
+    expect(Object.isFrozen(snapshot)).toBe(true)
+    expect(Object.isFrozen(snapshot.connectionMetadata)).toBe(true)
+  })
+
   it('does not connect during construction and exposes ordered lifecycle status', async () => {
     const authorizeConnection = vi.fn(() => true)
     const hub = new MemoryHub({ authorizeConnection })

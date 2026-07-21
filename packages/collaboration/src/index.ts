@@ -50,6 +50,7 @@ export type {
 export {
   PROVIDER_FAILURE_CODES,
   ProviderFailure,
+  createProviderIdentitySnapshot,
   isProviderFailureCode
 } from './provider'
 export type {

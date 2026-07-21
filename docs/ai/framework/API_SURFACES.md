@@ -267,7 +267,8 @@ Managed property bridges:
   `SharedOperationEnvelope`
 - provider contract: `Provider`, `ProviderIdentity`, `ProviderStatus`,
   `ProviderFailure`, `PROVIDER_FAILURE_CODES`,
-  `isProviderFailureCode(...)`, `MemoryHub`, `MemoryProvider`, and optional
+  `isProviderFailureCode(...)`, `createProviderIdentitySnapshot(...)`,
+  `MemoryHub`, `MemoryProvider`, and optional
   authenticated-author `InboundBinaryUpdate.fromActorId`
 - persistence/durability: `UpdatePersistence`, `MemoryPersistence`,
   `PersistedUpdate`, and distinct `DurabilityEvent`, `DurabilityOutcome`, and

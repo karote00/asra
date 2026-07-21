@@ -16,6 +16,20 @@ export interface ProviderIdentity {
   readonly connectionMetadata?: Readonly<Record<string, unknown>>
 }
 
+export const createProviderIdentitySnapshot = (
+  identity: ProviderIdentity
+): ProviderIdentity =>
+  Object.freeze({
+    documentId: identity.documentId,
+    roomId: identity.roomId,
+    actorId: identity.actorId,
+    ...(identity.connectionMetadata
+      ? {
+          connectionMetadata: Object.freeze({ ...identity.connectionMetadata })
+        }
+      : {})
+  })
+
 export interface InboundBinaryUpdate extends YjsBinaryUpdate {
   /** Authenticated operation author; omitted for multi-author sync aggregates. */
   readonly fromActorId?: string

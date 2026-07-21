@@ -1,5 +1,6 @@
 import {
   ProviderFailure,
+  createProviderIdentitySnapshot,
   isProviderFailureCode,
   type Provider,
   type ProviderIdentity,
@@ -31,20 +32,6 @@ export interface CollaborationWebSocketProviderOptions {
   endpoint: string
   identity: ProviderIdentity
 }
-
-const cloneIdentity = (identity: ProviderIdentity): ProviderIdentity =>
-  Object.freeze({
-    documentId: identity.documentId,
-    roomId: identity.roomId,
-    actorId: identity.actorId,
-    ...(identity.connectionMetadata
-      ? {
-          connectionMetadata: Object.freeze({
-            ...identity.connectionMetadata
-          })
-        }
-      : {})
-  })
 
 const encodeBytes = (bytes: Uint8Array): string => {
   let binary = ''
@@ -131,7 +118,7 @@ export class CollaborationWebSocketProvider implements Provider {
 
   constructor(options: CollaborationWebSocketProviderOptions) {
     this.endpoint = options.endpoint
-    this.identity = cloneIdentity(options.identity)
+    this.identity = createProviderIdentitySnapshot(options.identity)
   }
 
   connect(): Promise<void> {

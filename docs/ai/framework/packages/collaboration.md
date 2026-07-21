@@ -45,6 +45,9 @@ Connection authentication metadata is not duplicated on collaboration
 composition. It belongs to the explicitly supplied provider's
 `ProviderIdentity`, which the app/server connection boundary
 consumes.
+Provider implementations use `createProviderIdentitySnapshot(...)` to retain
+one shallow-cloned, frozen identity and metadata record without assigning
+product meaning to any metadata field.
 
 Canonical `apply` handlers are trusted synchronous state-owner boundaries. Wrap
 each handler with `defineCanonicalOperationApply(...)`: TypeScript rejects a
