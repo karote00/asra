@@ -23,6 +23,8 @@ packages/props-manager/src/
 - load-time fallback and runtime reject logic
 - detached cloning of nested declarative property-definition values used by
   the package owner and Core facade
+- detached cloning of property-component config registrations before Core
+  stores or returns declarative definitions
 
 ## Rules
 

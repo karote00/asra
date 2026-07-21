@@ -14,8 +14,8 @@ System orchestrator and lifecycle coordinator.
 - top-level registration entrypoints for framework extension
 - request API composition across packages
 - canonical vector model tokens, discriminant guards, generated-id ordering,
-  and segment-to-anchor handle reference lookup; editing policy remains outside
-  Core
+  control identifiers, point-target position projection, and segment-to-anchor
+  handle reference lookup; editing and presentation policy remain outside Core
 
 ## Must Not Own
 

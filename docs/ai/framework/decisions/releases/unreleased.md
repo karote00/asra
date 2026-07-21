@@ -1768,3 +1768,45 @@ unregister -> app migration -> core.start()` as the public app route.
   - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
 - Related Commit(s):
   - pending local Gate 2 validation
+
+## 2026-07-21 - Consolidate repository contracts by semantic owner
+
+- Context:
+  - Repository-wide maintenance found repeated low-level geometry, numeric,
+    diagnostic, vector-selection, property-config, icon, and test-action
+    implementations, plus anonymous contract variants and filenames that did
+    not communicate their primary responsibility.
+  - Identical-looking helpers are not automatically the same contract: adapter
+    cloning, untrusted-input freezing, and renderer-local replay closures can
+    have different owners and change independently.
+- Decision:
+  - Centralize only behavior with the same semantics and owner. Put pure
+    numeric, geometry, registration-key, validation, and diagnostic dispatch
+    primitives in Utils; canonical vector control identifiers and point-target
+    projection in Core; official vector selection ids and synthetic-handle
+    presentation defaults in Preset; and property-component config cloning in
+    Props Manager.
+  - Share app property icons and E2E action helpers inside Asyra Design without
+    moving app behavior into framework packages.
+  - Keep separate identity clones at provider adapter boundaries, separate deep
+    freezes at distinct untrusted-data boundaries, and tiny renderer-local path
+    replay closures. Their similar implementation does not establish shared
+    ownership.
+  - Prefer named contract variants and responsibility-based module names.
+    Classify supported package contracts under `docs/ai/framework/packages/`
+    and archive historical audits or superseded notes under `docs/ai/project/`.
+- Consequences:
+  - Shared behavior now has one canonical implementation without creating a
+    miscellaneous cross-layer owner or changing product behavior.
+  - Remaining repetition is deliberate, local to its trust or adapter boundary,
+    and may evolve independently.
+  - The three repository-wide maintenance plans remain active until user review;
+    this decision does not authorize closeout, push, merge, tag, release, or
+    publication.
+- Related Plan:
+  - `docs/ai/framework/plans/project-wide-duplicate-contract-and-ownership-consolidation-plan.md`
+  - `docs/ai/framework/plans/project-wide-code-readability-analysis-and-refactor-plan.md`
+  - `docs/ai/framework/plans/project-wide-documentation-contract-audit-plan.md`
+- Related Commit(s):
+  - local repository-maintenance commits on
+    `codex/yjs-network-collaboration-foundation`

@@ -6,6 +6,12 @@ Provide selectable official framework defaults and preset-owned render-engine
 profile policy before Core startup. Preset does not own app policy or runtime
 readiness.
 
+Preset also owns official vector-editing presentation defaults shared by the
+installed editing layer and an app using that preset: vector point and segment
+selection-id encoding, plus synthetic handle derivation for missing control
+points. These helpers do not create canonical vector data or move editing
+policy into Utils.
+
 ## Public Contract
 
 ```ts
