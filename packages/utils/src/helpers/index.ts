@@ -1,5 +1,6 @@
 export * from './color'
 export * from './browser-drag-phase'
+export * from './own-property'
 export * from './stroke-pipeline-counter'
 export * from './string-utils'
 export * from './type-checks'

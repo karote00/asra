@@ -18,6 +18,7 @@ import {
 import propsManager from '@asyra/props-manager'
 import {
   PROPS_ACTIONS,
+  setOwnEnumerableValue,
   type DataTypes,
   type ComputedDataPatch,
   type ComputedDataPatchChange,
@@ -26,7 +27,6 @@ import {
 } from '@asyra/utils'
 import sceneTree from './sceneTree'
 import { isGroupEntity } from './entity-data'
-import { setOwnEnumerableValue } from './own-values'
 
 const toAppliedComputedDataPatch = (
   patch: ComputedDataPatchChange

@@ -65,7 +65,8 @@
       allowedContributors: [
         '@asyra/scene-tree element and computed components',
         '@asyra/props-manager committed projection',
-        '@asyra/reactive-events transaction request'
+        '@asyra/reactive-events transaction request',
+        '@asyra/utils own-property primitive'
       ],
       forbiddenContributors: [
         '@asyra/render snapshot state',
@@ -75,6 +76,7 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/utils/src/helpers/own-property.ts',
         'packages/utils/src/types/scene-tree.ts',
         'docs/ai/framework/packages/utils.md',
         'packages/reactive-events/src/scene-tree/events.ts',
@@ -123,7 +125,8 @@
       allowedContributors: [
         '@asyra/factory transaction journal',
         'registered Scene Tree Yjs shared channel',
-        'shared-channel observer registry'
+        'shared-channel observer registry',
+        '@asyra/utils own-property primitive'
       ],
       forbiddenContributors: [
         'canonical element snapshots',
@@ -133,6 +136,7 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/utils/src/helpers/own-property.ts',
         'packages/factory/src/data-transact.ts',
         'packages/factory/src/shared-data-channel.ts',
         'packages/factory/src/__tests__/**',

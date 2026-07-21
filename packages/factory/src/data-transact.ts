@@ -11,7 +11,7 @@ import type {
   TransactionStatusPayload,
   UpdateElementPatchChange
 } from '@asyra/utils'
-import { UNDO } from '@asyra/utils'
+import { UNDO, setOwnEnumerableValue } from '@asyra/utils'
 
 type TransactionPayload = PropsChange | SceneTreeChange | ElementSelectionChange
 interface EffectiveMutationOptions {
@@ -113,19 +113,6 @@ const toSharedChannelPayload = (
       ...payloadOptions
     }
   } as TransactionPayload
-}
-
-const setOwnEnumerableValue = (
-  target: object,
-  key: PropertyKey,
-  value: unknown
-): void => {
-  Object.defineProperty(target, key, {
-    value,
-    enumerable: true,
-    configurable: true,
-    writable: true
-  })
 }
 
 const invertComputedDataPatchChange = (

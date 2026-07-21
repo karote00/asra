@@ -16,6 +16,9 @@ Provide shared types, ids, registry primitives, and low-level helpers.
     local namespace's counter; clearing the counter also clears the namespace
 - common registry utility primitives
 - framework-safe helper functions/constants
+- the domain-neutral own-property primitive used when canonical state and
+  transaction replay must preserve special keys and explicit `undefined` as
+  writable enumerable own values
 - pure numeric and geometry primitives shared by render, preset, design-system,
   and app owners, including unit clamping, point projection/distance, cubic
   subdivision, and geometry bounds

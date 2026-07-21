@@ -21,7 +21,8 @@ import {
   EntityTypes,
   SCENE_TREE_ACTIONS,
   SharedDataChannelNames,
-  isRecord
+  isRecord,
+  setOwnEnumerableValue
 } from '@asyra/utils'
 import {
   acknowledgeTransactionReplayApplied,
@@ -38,7 +39,6 @@ import {
   stripNonRawFields
 } from './entity-data'
 import type Workspace from './components/workspace'
-import { setOwnEnumerableValue } from './own-values'
 
 type SceneTreeDataType = SceneTreeRawData
 
