@@ -173,7 +173,7 @@ export class RenderLayer {
 
   addElement(data: RenderElementData, siblingIndex?: number) {
     if (!data || typeof data.id !== 'string' || typeof data.type !== 'string') {
-      return undefined
+      return
     }
 
     return measureBrowserDragPhase('render-layer:add-or-update-element', () => {

@@ -33,7 +33,7 @@ const toControlRole = (value: unknown): VectorControlRole | undefined => {
     return value
   }
 
-  return undefined
+  return
 }
 
 const toStringOrUndefined = (value: unknown): string | undefined =>

@@ -772,7 +772,7 @@ export class RegistrationGraph {
   private getPendingCleanup(
     pending: PendingUnregister | undefined
   ): string[] | undefined {
-    if (!pending) return undefined
+    if (!pending) return
     const keys: string[] = []
     for (const item of [...pending.queue].reverse()) {
       const node = this.nodesByRef.get(refKey(item))

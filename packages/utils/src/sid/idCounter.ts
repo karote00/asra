@@ -41,9 +41,9 @@ class IDCounter {
         : undefined
     }
     const countText = value.slice(separatorIndex + CODE_SPLIT.length)
-    if (!countText) return undefined
+    if (!countText) return
     const count = Number(countText)
-    if (!Number.isSafeInteger(count) || count < 0) return undefined
+    if (!Number.isSafeInteger(count) || count < 0) return
     return { prefix: value.slice(0, separatorIndex), count }
   }
 

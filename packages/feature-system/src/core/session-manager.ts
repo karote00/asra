@@ -75,7 +75,7 @@ export class SessionManager {
     abortController?: AbortController
   ): Promise<T | undefined> {
     if (!handler) {
-      return undefined
+      return
     }
 
     let timeoutId: ReturnType<typeof setTimeout> | undefined
@@ -321,10 +321,10 @@ export class SessionManager {
       }
       if (phase === 'update') {
         await this.handleUpdateNow(sessionName, snapshot)
-        return undefined
+        return
       }
       await this.handleEndNow(sessionName, snapshot)
-      return undefined
+      return
     })
   }
 

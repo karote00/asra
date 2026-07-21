@@ -403,9 +403,9 @@ class DataTransact {
   private createForwardSharedDelivery(
     entry: TransactionJournalEntry
   ): SharedDelivery | undefined {
-    if (this.transactionOrigin() === 'remote') return undefined
+    if (this.transactionOrigin() === 'remote') return
     const shared = entry.shared
-    if (!shared) return undefined
+    if (!shared) return
     return {
       deliveryId: this.forwardDeliveryId(entry),
       transactionId: this.currentTransactionId,
@@ -452,7 +452,7 @@ class DataTransact {
     deliveries: readonly SharedDelivery[],
     origin: SharedPublication['origin']
   ): SharedPublication | undefined {
-    if (deliveries.length === 0) return undefined
+    if (deliveries.length === 0) return
     return {
       publicationId: this.nextPublicationId(),
       transactionId: this.currentTransactionId,
@@ -508,9 +508,9 @@ class DataTransact {
     payload: TransactionPayload,
     compensationIndex: number
   ): SharedDelivery | undefined {
-    if (this.transactionOrigin() === 'remote') return undefined
+    if (this.transactionOrigin() === 'remote') return
     const shared = entry.shared
-    if (!shared) return undefined
+    if (!shared) return
     const delivery: SharedDelivery = {
       deliveryId: `${this.currentTransactionId}:${entry.index}:compensation:${compensationIndex}`,
       transactionId: this.currentTransactionId,

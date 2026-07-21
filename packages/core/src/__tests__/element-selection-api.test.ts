@@ -48,7 +48,7 @@ describe('createElementSelectionAPIs.selectElements', () => {
         if (action === 'selectElements') return channels.element
         if (action === 'selectVectorPoints') return channels.vectorPoint
         if (action === 'selectVectorSegments') return channels.vectorSegment
-        return undefined
+        return
       }
     }
   }

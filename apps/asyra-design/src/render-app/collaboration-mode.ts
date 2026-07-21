@@ -15,7 +15,7 @@ const queryValue = (
 export const getCollaborationMode = (): CollaborationMode | undefined => {
   const search = new URLSearchParams(window.location.search)
   const fileId = queryValue(search, 'fileId')
-  if (!fileId) return undefined
+  if (!fileId) return
 
   const endpoint =
     import.meta.env.VITE_ASYRA_DESIGN_COLLABORATION_WS_URL?.trim()

@@ -185,7 +185,7 @@ const isFailurePayload = (
 export const parseCollaborationClientMessage = (
   value: unknown
 ): CollaborationClientMessage | undefined => {
-  if (!isRecord(value) || !isNonBlankString(value.type)) return undefined
+  if (!isRecord(value) || !isNonBlankString(value.type)) return
 
   switch (value.type) {
     case CollaborationMessageTypes.HELLO:
@@ -230,21 +230,21 @@ export const parseCollaborationClientMessage = (
           }
         : undefined
     default:
-      return undefined
+      return
   }
 }
 
 export const parseCollaborationServerMessage = (
   value: unknown
 ): CollaborationServerMessage | undefined => {
-  if (!isRecord(value) || !isNonBlankString(value.type)) return undefined
+  if (!isRecord(value) || !isNonBlankString(value.type)) return
 
   switch (value.type) {
     case CollaborationMessageTypes.READY:
       return { type: value.type }
     case CollaborationMessageTypes.RESPONSE:
       if (!isNonBlankString(value.requestId) || typeof value.ok !== 'boolean') {
-        return undefined
+        return
       }
       if (!value.ok) {
         return isFailurePayload(value.error)
@@ -314,6 +314,6 @@ export const parseCollaborationServerMessage = (
           }
         : undefined
     default:
-      return undefined
+      return
   }
 }

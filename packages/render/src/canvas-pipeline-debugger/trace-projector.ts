@@ -66,7 +66,7 @@ const projectGeometry = (
     applyInverseMatrix(viewportTransform, point)
   )
   if (workspaceCorners.some((point) => point === null)) {
-    return undefined
+    return
   }
   const resolvedWorkspaceCorners = workspaceCorners as {
     x: number

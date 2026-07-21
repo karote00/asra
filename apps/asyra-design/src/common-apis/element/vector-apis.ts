@@ -202,7 +202,7 @@ const toVectorEventOptions = (
   options?: VectorOperationOptions
 ): EVENT_OPTIONS | undefined => {
   if (!options) {
-    return undefined
+    return
   }
 
   const {

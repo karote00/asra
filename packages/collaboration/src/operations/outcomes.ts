@@ -93,7 +93,7 @@ export class OperationOutcomeRegistry {
     fingerprint: string
   ): DuplicateOperationOutcome | RemoteValidationRejection | undefined {
     const existing = this.outcomes.get(operationId)
-    if (!existing) return undefined
+    if (!existing) return
     if (existing.fingerprint !== fingerprint) {
       return identityCollision(operationId)
     }

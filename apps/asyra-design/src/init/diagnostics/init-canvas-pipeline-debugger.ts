@@ -15,7 +15,7 @@ export const initCanvasPipelineDebugger = async (): Promise<
   CanvasPipelineDebugger | undefined
 > => {
   if (!import.meta.env.DEV) {
-    return undefined
+    return
   }
   const requestId = ++initializationId
   try {
@@ -24,7 +24,7 @@ export const initCanvasPipelineDebugger = async (): Promise<
       '@asyra/core/canvas-pipeline-debugger'
     )
     if (requestId !== initializationId) {
-      return undefined
+      return
     }
     const handle = createCanvasPipelineDebugger(core, { enabled: false })
     activeHandle = handle
@@ -35,7 +35,7 @@ export const initCanvasPipelineDebugger = async (): Promise<
       '[Asyra Design] Canvas Pipeline Debugger failed to load',
       error
     )
-    return undefined
+    return
   }
 }
 

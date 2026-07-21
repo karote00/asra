@@ -305,7 +305,7 @@ describe('unregisterComponent', () => {
         if (key === 'type') {
           return 'star'
         }
-        return undefined
+        return
       })
     } as unknown as ElementInstanceTypes
     sceneTree.addToMap(activeElement)
@@ -339,7 +339,7 @@ describe('unregisterComponent', () => {
         if (key === 'type') {
           return 'star'
         }
-        return undefined
+        return
       })
     } as unknown as ElementInstanceTypes
     sceneTree.addToMap(activeElement)

@@ -418,7 +418,7 @@ export const getDeclarativePropertyTypeDefinition = <
   const component = getPropertyComponent(type)
   const config = getPropertyComponentConfigDefinition(type)
 
-  if (!schema && !component && !config) return undefined
+  if (!schema && !component && !config) return
   if (component && !config) {
     return failDefinition(
       'PROPERTY_TYPE_NOT_DECLARATIVE',

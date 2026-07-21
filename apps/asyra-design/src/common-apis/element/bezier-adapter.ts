@@ -1,12 +1,7 @@
 import { Bezier } from 'bezier-js'
-import { clampUnit, type PositionData } from '@asyra/utils'
+import { clampUnit, type Bounds, type PositionData } from '@asyra/utils'
 
-export interface CubicBezierBounds {
-  minX: number
-  maxX: number
-  minY: number
-  maxY: number
-}
+export type CubicBezierBounds = Bounds
 
 export const getCubicBezierSegmentBounds = (
   p0: PositionData,
