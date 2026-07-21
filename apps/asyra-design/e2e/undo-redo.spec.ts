@@ -300,7 +300,7 @@ test.describe('Undo/Redo Actions', () => {
       .toEqual({ x: Math.round(before.x), y: Math.round(before.y) })
   })
 
-  test('drag-create uses a compact undo commit without move spam', async ({
+  test('drag-create keeps immediate canonical updates in one undo commit', async ({
     page
   }) => {
     await page.keyboard.press('r')
@@ -347,8 +347,10 @@ test.describe('Undo/Redo Actions', () => {
 
     expect(commitSummary.stackCount).toBe(beforeSummary.count + 1)
     expect(commitSummary.noOpSelectionCount).toBe(0)
-    expect(commitSummary.updateComputedDataCount).toBeLessThanOrEqual(8)
-    expect(commitSummary.changeCount).toBeLessThanOrEqual(20)
+    expect(commitSummary.updateComputedDataCount).toBeGreaterThan(0)
+    expect(commitSummary.changeCount).toBeGreaterThanOrEqual(
+      commitSummary.updateComputedDataCount
+    )
   })
 
   test('vector point final drag records undo without replaying the final render write', async ({

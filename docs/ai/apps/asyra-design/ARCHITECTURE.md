@@ -22,6 +22,17 @@
 
 - `@asyra/core` and dependent runtime packages
 
+## Configuration Ownership
+
+- `app-environment.mjs` owns parsing and validation of the app origin and the
+  reference WebSocket server's host and port.
+- `ASYRA_DESIGN_APP_URL` is the canonical app-origin input consumed by Vite,
+  Playwright, visual review, and reference-server Origin validation.
+- `VITE_ASYRA_DESIGN_COLLABORATION_WS_URL` identifies the browser's WebSocket
+  service endpoint. It is independent from the app origin because the app and
+  WebSocket server are separate services.
+- RenderApp does not parse build-tool or test-runner configuration.
+
 ## Startup Flow
 
 1. `src/index.tsx`
@@ -49,13 +60,24 @@
 
 3. `src/render-app/index.tsx`
 
-- sets persistence via `core.setPersistence(providers.localStorage)`
+- owns the runtime collaboration opt-in decision from the app URL's non-empty
+  `fileId`; that value maps to the collaboration document and room identity,
+  while a full UUID actor identity is generated per page and configures the
+  canonical ID-counter namespace before collaborative actions
+- owns persistence selection before Core startup: ordinary URLs use
+  `providers.localStorage`, while the public reference composition uses the
+  ephemeral memory provider
 - starts framework via `core.start(...)` using Core's default `RenderAdapter`;
   renderer/engine initialization must
   succeed before observers, persistence load, features, or ready publication
 - remains the sole runtime-start/ready owner; preset completion does not close
   registration composition or publish ready
-- cleanup calls `core.destroyRenderer()` and does not reopen composition
+- owns the mount-lifetime teardown request for the Core renderer and optional
+  collaboration runtime; the runtime disposer owns idempotent resource cleanup.
+  Teardown does not reopen composition, and an unmount during pending startup
+  cannot activate collaboration afterward
+- collaboration setup has one failure boundary; a partial setup is disposed
+  before the startup failure is reported
 - imports no Pixi SDK or concrete render-engine package
 
 4. `src/contexts/data-change.tsx`
@@ -66,6 +88,28 @@
 ## Data Flow (App)
 
 Input -> Feature -> Common API/Controller -> Core/Framework State -> Render/UI-context -> React Providers -> UI
+
+## Optional Collaboration Ownership
+
+- RenderApp owns opt-in timing and mount-lifetime activation/teardown requests;
+  the collaboration runtime owns instance startup, failure cleanup, and
+  disposal, including HMR cleanup. Core and Preset do not activate
+  collaboration implicitly.
+- `src/collaboration/factory-adapter.ts` exposes only the registered
+  Scene Tree and Props document channels to the collaboration instance.
+- `src/collaboration/operations.ts` owns thin route/schema
+  definitions that forward validated payloads through the app's ordinary
+  canonical state-application path. It does not reconstruct app behavior from
+  canonical state.
+- `src/collaboration/protocol.ts` is the one typed browser/server
+  wire boundary; the browser provider and reference server validate untrusted
+  messages against it before invoking provider operations.
+- Factory owns shared-publication timing and batching. A synchronous immediate
+  delivery action is one publication; an outer pointer session may contain
+  several publications while remaining one local undo commit.
+- Scene Tree and Props remain canonical state owners for local and remote
+  changes. Awareness is ephemeral and cannot carry canonical create or move
+  geometry; Render remains a downstream projection.
 
 ## Module Ownership (App)
 

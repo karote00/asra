@@ -26,7 +26,7 @@ Use this skill when:
 - Unit/integration test command that emits a manifest.
 - Manifest path.
 - E2E replay spec path.
-- Existing local app URL, usually `http://localhost:3000`.
+- Existing app URL resolved from `ASYRA_DESIGN_APP_URL`.
 - Fixture reconstruction rules keyed by `caseKey` and `fixtureKind`.
 
 For canonical stroke matrix:
@@ -40,12 +40,12 @@ yarn workspace @asyra/preset vitest run src/__tests__/stroke-canonical-matrix.te
 - Replay command:
 
 ```bash
-PLAYWRIGHT_TEST_BASE_URL=http://localhost:3000 ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL=http://localhost:3000 yarn workspace @asyra/asyra-design test:e2e e2e/stroke-canonical-failure-replay.spec.ts --reporter=line
+ASYRA_DESIGN_APP_URL=http://localhost:3000 yarn workspace @asyra/asyra-design test:e2e e2e/stroke-canonical-failure-replay.spec.ts --reporter=line
 ```
 
 ## Preflight
 
-1. Confirm the relevant app server is already available when the user expects `localhost:3000`.
+1. Resolve `ASYRA_DESIGN_APP_URL` and confirm the relevant app server is already available there.
 2. Confirm the unit test writes or clears the manifest every run.
 3. Confirm the replay spec reads JSON only, not unit test source.
 4. Confirm artifact paths are inside the project.
@@ -101,7 +101,7 @@ Report concisely:
 - Unit tests must remain browser-independent.
 - E2E replay must not import unit test files.
 - Do not use screenshot generation as a substitute for unit assertions.
-- Do not start extra dev servers if `localhost:3000` is already serving the app.
+- Do not start an extra dev server if `ASYRA_DESIGN_APP_URL` is already serving the app.
 - Do not store artifacts outside the project.
 - Keep repetitive failures capped deterministically so replay remains usable.
 

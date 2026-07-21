@@ -6470,3 +6470,98 @@ join` constrained dashed product path across:
     product gates.
 - Related Plan:
   - `docs/ai/framework/plans/preset-composition-plan.md`
+
+## 2026-07-20 - Collaboration drag uses canonical immediate delivery
+
+- Context:
+  - A synchronous drag update can change several elements or state owners. It
+    must not become one WebSocket send per low-level transaction, but peers
+    still need the real canonical element before pointer-up.
+- Decision:
+  - Use `sharedDelivery: 'immediate'` on mouse-down create, each applied drag
+    update, and only those mouse-up paths that perform another canonical write.
+  - Let Factory batch all changes from one synchronous delivery action into one
+    publication/Yjs update/provider send.
+  - Keep every applied create/move update in one outer session transaction so
+    the complete pointer session remains one undo commit.
+  - Do not restore initial state or replay final state solely for publication.
+    Do not transport canonical element geometry through Awareness or an
+    app-owned preview Render layer.
+- Consequences:
+  - Peers render the same canonical element throughout create/move, including
+    before pointer-up.
+  - One pointer session may produce several immediate publications without
+    splitting local undo history; a multi-element update is still one send.
+  - Mouse-up emits no duplicate when the final state already matches the last
+    update, but sends a 100×100 reset or newer final pointer state when needed.
+- Related Plan:
+  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
+
+## 2026-07-20 - Collaboration is a deployable open-source reference with one app URL
+
+- Context:
+  - The real multi-window CRDT composition is useful reference code for apps that
+    fork Asyra Design, not a disposable one-time test fixture.
+  - Separate Vite, visual-review, and Playwright base URL variables forced users
+    to repeat the same origin and made non-default ports or deployed domains
+    easy to configure inconsistently.
+- Decision:
+  - Keep the public memory-only WebSocket server, app composition, manual
+    console handle, and collaboration E2E suite in the app.
+  - Retain the dynamically loaded collaboration composition in production
+    builds; any URL with a valid `fileId` may activate it, while ordinary URLs
+    remain collaboration-free.
+  - Use `ASYRA_DESIGN_APP_URL` as the single app origin for Vite, ordinary
+    Playwright, visual review, collaboration E2E, and WebSocket Origin checks.
+  - Keep the WebSocket service endpoint separately configurable because it is a
+    distinct service.
+  - Let RenderApp own unmount and aborted-startup teardown requests; let the
+    collaboration runtime own HMR teardown, partial-setup cleanup, and explicit
+    disposal.
+  - Put composition setup inside one failure boundary so partial instances are
+    disposed.
+  - Generate a full UUID actor identity per page and use it as the canonical
+    ID-counter namespace before collaborative actions; do not add an app-state
+    collision winner to the collaboration pipeline.
+  - Reject malformed successful sync responses at the WebSocket provider
+    boundary instead of converting missing binary fields into empty updates.
+  - Treat a malformed server frame as a terminal transport failure: reject all
+    pending requests and close the invalid connection.
+- Consequences:
+  - Local non-default ports and deployed app origins need one app URL override.
+  - Forkers retain a working CRDT reference while authentication, file
+    permission, durability, and production security remain explicit backend
+    responsibilities.
+  - Concurrent pages generate distinct element and property IDs even before
+    either page receives the other's create operation.
+- Related Plan:
+  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
+
+## 2026-07-20 - Compile the collaboration reference backend before Node runtime
+
+- Context:
+  - The reference WebSocket backend previously used Vite's SSR module loader at
+    runtime so it could execute the workspace collaboration package directly.
+  - That made a frontend build tool a backend production dependency and left
+    the server implementation as untyped `.mjs` source.
+- Decision:
+  - Author the reference backend in `collaboration-server.ts`.
+  - Type-check it with its dedicated TypeScript config and build a Node 18 SSR
+    bundle with a dedicated Vite build config.
+  - Execute only the compiled
+    `dist/collaboration-server/collaboration-server.js` artifact at
+    runtime; keep Vite in `devDependencies` and keep `ws` as the backend runtime
+    dependency.
+  - Load the app working directory's `.env` in the compiled runtime, while
+    preserving explicit process environment values as overrides.
+  - Keep the real Asyra Design browser integration suite app-owned and name its
+    script `test:e2e:collaboration`; framework transport tests remain in
+    `@asyra/collaboration`.
+- Consequences:
+  - Forkers can inspect typed backend source and deploy JavaScript that does not
+    load Vite at runtime.
+  - The manual server command performs its dependency build and server build
+    before starting Node, so a clean checkout does not depend on stale package
+    outputs.
+- Related Plan:
+  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`

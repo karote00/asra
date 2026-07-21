@@ -46,8 +46,10 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asyra/asyra-design@workspace:apps/asyra-design"
   dependencies:
+    "@asyra/collaboration": "workspace:*"
     "@asyra/core": "workspace:*"
     "@asyra/design-system": "workspace:*"
+    "@asyra/factory": "workspace:*"
     "@asyra/feature-system": "workspace:*"
     "@asyra/input-system": "workspace:*"
     "@asyra/preset": "workspace:*"
@@ -66,6 +68,7 @@ __metadata:
     "@types/node": "npm:^16.18.121"
     "@types/react": "npm:^19.0.0"
     "@types/react-dom": "npm:^19.0.0"
+    "@types/ws": "npm:^8.18.1"
     "@vitejs/plugin-react": "npm:^4.3.4"
     autoprefixer: "npm:^10.4.20"
     bezier-js: "npm:^6.1.4"
@@ -81,10 +84,11 @@ __metadata:
     vite-plugin-vercel: "npm:^9.0.5"
     vitest: "npm:^2.1.8"
     web-vitals: "npm:^2.1.4"
+    ws: "npm:^8.18.2"
   languageName: unknown
   linkType: soft
 
-"@asyra/collaboration@workspace:packages/collaboration":
+"@asyra/collaboration@workspace:*, @asyra/collaboration@workspace:packages/collaboration":
   version: 0.0.0-use.local
   resolution: "@asyra/collaboration@workspace:packages/collaboration"
   dependencies:
@@ -5753,7 +5757,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/ws@npm:^8.5.5":
+"@types/ws@npm:^8.18.1, @types/ws@npm:^8.5.5":
   version: 8.18.1
   resolution: "@types/ws@npm:8.18.1"
   dependencies:
@@ -19884,6 +19888,21 @@ __metadata:
     utf-8-validate:
       optional: true
   checksum: 10c0/4b50f67931b8c6943c893f59c524f0e4905bbd183016cfb0f2b8653aa7f28dad4e456b9d99d285bbb67cca4fedd9ce90dfdfaa82b898a11414ebd66ee99141e4
+  languageName: node
+  linkType: hard
+
+"ws@npm:^8.18.2":
+  version: 8.21.1
+  resolution: "ws@npm:8.21.1"
+  peerDependencies:
+    bufferutil: ^4.0.1
+    utf-8-validate: ">=5.0.2"
+  peerDependenciesMeta:
+    bufferutil:
+      optional: true
+    utf-8-validate:
+      optional: true
+  checksum: 10c0/c4c6f1d95f6d465262de2037c57c715725d67e078dd49420ede4e19115668aba159cb64d85c5e89c06eb2826be599e62e5095860ad6cc54ff42e8bd7684e1db8
   languageName: node
   linkType: hard
 

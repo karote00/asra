@@ -1,63 +1,66 @@
 import React, { StrictMode, act } from 'react'
 import { createRoot } from 'react-dom/client'
+import { providers } from '@asyra/reactive-events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-const harness = vi.hoisted(() => ({
-  core: {
-    deps: {
-      render: {},
-      systemContext: {},
-      sceneTree: {},
-      factory: {},
-      selection: {},
-      inputSystem: {}
-    },
-    setPersistence: vi.fn(),
-    start: vi.fn(),
-    destroyRenderer: vi.fn()
-  },
-  localStorageProvider: {}
-}))
-
-vi.mock('@asyra/core', () => ({
-  default: harness.core,
-  VECTOR_HANDLE_MODES: {
-    NONE: 'none',
-    MIRROR_ANGLE: 'mirror-angle',
-    MIRROR_ANGLE_LENGTH: 'mirror-angle-length'
-  }
-}))
-
-vi.mock('@asyra/preset', () => ({
-  InputSystemEvents: {}
-}))
-
-vi.mock('@asyra/reactive-events', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@asyra/reactive-events')>()
-
-  return {
-    ...actual,
-    providers: {
-      ...actual.providers,
-      localStorage: harness.localStorageProvider
-    }
-  }
-})
-
+import core from '../../contexts'
+import * as collaborationRuntime from '../../collaboration/runtime'
 import RenderApp from '../index'
 
+const COLLABORATION_ENDPOINT = 'ws://127.0.0.1:4101/asyra-design-collaboration'
+const ACTOR_UUID = '12345678-1234-4123-8123-123456789abc'
+const collaborationHandle = {
+  identity: Object.freeze({
+    documentId: 'file-1',
+    roomId: 'file-1',
+    actorId: `actor-${ACTOR_UUID}`
+  }),
+  getStatus: () => 'connected' as const,
+  disconnect: async () => undefined,
+  reconnect: async () => undefined,
+  whenIdle: async () => undefined,
+  dispose: async () => undefined
+} satisfies NonNullable<Window['__AsyraCollaboration__']>
+
+const setReactActEnvironment = (active: boolean) => {
+  ;(
+    globalThis as typeof globalThis & {
+      IS_REACT_ACT_ENVIRONMENT: boolean
+    }
+  ).IS_REACT_ACT_ENVIRONMENT = active
+}
+
 describe('RenderApp StrictMode lifecycle', () => {
-  beforeEach(() => {
-    harness.core.setPersistence.mockReset()
-    harness.core.start.mockReset().mockResolvedValue(undefined)
-    harness.core.destroyRenderer.mockReset()
+  beforeEach(async () => {
+    vi.restoreAllMocks()
+    vi.unstubAllEnvs()
+    window.history.replaceState({}, '', '/')
+    await providers.memory.clear()
+    await providers.localStorage.clear()
+
+    vi.spyOn(core, 'setPersistence').mockImplementation(() => undefined)
+    vi.spyOn(core, 'start').mockResolvedValue(undefined)
+    vi.spyOn(core, 'destroyRenderer').mockImplementation(() => undefined)
+    vi.spyOn(providers.memory, 'save')
+    vi.spyOn(collaborationRuntime, 'startCollaboration').mockResolvedValue(
+      collaborationHandle
+    )
+    vi.spyOn(collaborationRuntime, 'disposeCollaboration').mockResolvedValue(
+      undefined
+    )
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ACTOR_UUID)
+
     document.body.replaceChildren()
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true
+    setReactActEnvironment(true)
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     document.body.replaceChildren()
-    globalThis.IS_REACT_ACT_ENVIRONMENT = false
+    setReactActEnvironment(false)
+    window.history.replaceState({}, '', '/')
+    await providers.memory.clear()
+    await providers.localStorage.clear()
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
   })
 
   it('starts only the live Core lifetime and delegates StrictMode teardown', async () => {
@@ -75,12 +78,10 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
     })
 
-    expect(harness.core.destroyRenderer).toHaveBeenCalledTimes(1)
-    expect(harness.core.setPersistence).toHaveBeenCalledWith(
-      harness.localStorageProvider
-    )
-    expect(harness.core.start).toHaveBeenCalledTimes(1)
-    expect(harness.core.start).toHaveBeenCalledWith(
+    expect(core.destroyRenderer).toHaveBeenCalledTimes(1)
+    expect(core.setPersistence).toHaveBeenCalledWith(providers.localStorage)
+    expect(core.start).toHaveBeenCalledTimes(1)
+    expect(core.start).toHaveBeenCalledWith(
       expect.any(HTMLDivElement),
       expect.objectContaining({
         width: window.innerWidth,
@@ -92,6 +93,71 @@ describe('RenderApp StrictMode lifecycle', () => {
       root.unmount()
     })
 
-    expect(harness.core.destroyRenderer).toHaveBeenCalledTimes(2)
+    expect(core.destroyRenderer).toHaveBeenCalledTimes(2)
+  })
+
+  it('boots explicit DEV collaboration through an empty canonical memory document', async () => {
+    vi.stubEnv('VITE_ASYRA_DESIGN_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
+    window.history.replaceState({}, '', '/?fileId=file-1')
+    const host = document.createElement('div')
+    document.body.append(host)
+    const root = createRoot(host)
+
+    await act(async () => {
+      root.render(
+        <StrictMode>
+          <RenderApp />
+        </StrictMode>
+      )
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(providers.memory.save).toHaveBeenCalledWith({
+      version: '1.0.0',
+      sceneTree: { workspace: '', workspaceList: [], elements: {} },
+      props: {}
+    })
+    expect(core.setPersistence).toHaveBeenCalledWith(providers.memory)
+    expect(collaborationRuntime.startCollaboration).toHaveBeenCalledWith({
+      fileId: 'file-1',
+      actorId: `actor-${ACTOR_UUID}`,
+      endpoint: COLLABORATION_ENDPOINT
+    })
+
+    await act(async () => root.unmount())
+    expect(collaborationRuntime.disposeCollaboration).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not activate collaboration after unmount aborts startup', async () => {
+    vi.stubEnv('VITE_ASYRA_DESIGN_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
+    window.history.replaceState({}, '', '/?fileId=file-aborted')
+    let finishCoreStart: (() => void) | undefined
+    vi.mocked(core.start).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishCoreStart = resolve
+        })
+    )
+    const host = document.createElement('div')
+    document.body.append(host)
+    const root = createRoot(host)
+
+    await act(async () => {
+      root.render(<RenderApp />)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(core.start).toHaveBeenCalledTimes(1)
+
+    await act(async () => root.unmount())
+    await act(async () => {
+      finishCoreStart?.()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(collaborationRuntime.startCollaboration).not.toHaveBeenCalled()
   })
 })

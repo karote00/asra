@@ -414,11 +414,15 @@ export const elementApis = {
     )
   },
 
-  resetElementSize: (elementId: string) => {
-    applyComputedDataChange([elementId], {
-      width: DEFAULT_ELEMENT_SIZE,
-      height: DEFAULT_ELEMENT_SIZE
-    })
+  resetElementSize: (elementId: string, options?: EVENT_OPTIONS) => {
+    applyComputedDataChange(
+      [elementId],
+      {
+        width: DEFAULT_ELEMENT_SIZE,
+        height: DEFAULT_ELEMENT_SIZE
+      },
+      options
+    )
   },
 
   setElementPositions: (

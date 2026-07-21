@@ -1,6 +1,7 @@
 # App Modules
 
 - `init-and-startup.md`
+- `collaboration-reference.md`
 - `input-mapping.md`
 - `common-apis.md`
 - `controllers-and-state.md`

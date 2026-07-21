@@ -1,6 +1,7 @@
 import type {
   EVENT_OPTIONS,
   PositionData,
+  Rect,
   SystemContextSnapshot
 } from '@asyra/utils'
 import { defineFeature } from '@asyra/core'
@@ -20,16 +21,10 @@ import {
 interface MoveElementsState {
   dragStartWorkspacePos: PositionData
   initialPositions: Record<string, PositionData>
+  latestPositions: Record<string, PositionData> | null
   isMoving: boolean
   startedFromSelectionBounds: boolean
   [key: string]: unknown
-}
-
-interface Bounds {
-  x: number
-  y: number
-  width: number
-  height: number
 }
 
 const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
@@ -72,7 +67,7 @@ interface MoveElementsApi {
   [key: string]: unknown
 }
 
-const getSelectionBounds = (elementIds: string[]): Bounds | null => {
+const getSelectionBounds = (elementIds: string[]): Rect | null => {
   let minX = Infinity
   let minY = Infinity
   let maxX = -Infinity
@@ -106,7 +101,7 @@ const getSelectionBounds = (elementIds: string[]): Bounds | null => {
   }
 }
 
-const isPointInsideBounds = (point: PositionData, bounds: Bounds): boolean => {
+const isPointInsideBounds = (point: PositionData, bounds: Rect): boolean => {
   return (
     point.x >= bounds.x &&
     point.x <= bounds.x + bounds.width &&
@@ -252,6 +247,118 @@ const api: MoveElementsApi = {
   }
 }
 
+const positionsMatch = (
+  left: Record<string, PositionData>,
+  right: Record<string, PositionData>
+): boolean => {
+  const leftEntries = Object.entries(left)
+  return (
+    leftEntries.length === Object.keys(right).length &&
+    leftEntries.every(
+      ([elementId, position]) =>
+        right[elementId]?.x === position.x && right[elementId]?.y === position.y
+    )
+  )
+}
+
+export const moveElementsSession = {
+  onStart: (snapshot: SystemContextSnapshot) => {
+    const initialState = api.resolveInitialPositions(snapshot)
+    if (!initialState) {
+      return null
+    }
+
+    return {
+      ...initialState,
+      latestPositions: null,
+      isMoving: false
+    }
+  },
+
+  onUpdate: (snapshot: SystemContextSnapshot, state: MoveElementsState) => {
+    if (!snapshot.mouseDragging || !api.hasMovedBeyondThreshold(snapshot)) {
+      return
+    }
+
+    const currentWorkspacePos = elementApis.getMousePosInWorkspace(
+      snapshot.mousePosition
+    )
+    if (!currentWorkspacePos) {
+      return
+    }
+
+    const targetPositions = api.calculateTargetPositions(
+      state.dragStartWorkspacePos,
+      currentWorkspacePos,
+      state.initialPositions
+    )
+
+    measureBrowserDragPhase('move-elements:apply-positions', () =>
+      api.applyPositions(targetPositions, {
+        sharedDelivery: 'immediate'
+      })
+    )
+    state.latestPositions = targetPositions
+    state.isMoving = true
+  },
+
+  onEnd: (snapshot: SystemContextSnapshot, state: MoveElementsState) => {
+    if (!state.isMoving) {
+      if (!state.startedFromSelectionBounds) {
+        return
+      }
+
+      const hoveredElementId =
+        snapshot.hoveredElementId ??
+        elementApis.getElementIdAtClientPos(snapshot.mousePosition)
+      const hoveredSelectionId =
+        hoveredElementId &&
+        !elementApis.isElementLocked(hoveredElementId) &&
+        elementApis.isElementVisible(hoveredElementId)
+          ? hoveredElementId
+          : null
+
+      const nextSelectionIds = hoveredSelectionId ? [hoveredSelectionId] : []
+      const currentSelectionIds = selectionApis.getSelectedIds()
+
+      if (
+        nextSelectionIds.length === currentSelectionIds.length &&
+        nextSelectionIds.every((id) => currentSelectionIds.includes(id))
+      ) {
+        return
+      }
+
+      transactionApis.runTransaction(() => {
+        selectionApis.selectElements(nextSelectionIds)
+      })
+
+      return
+    }
+
+    const currentWorkspacePos = elementApis.getMousePosInWorkspace(
+      snapshot.mousePosition
+    )
+    if (!currentWorkspacePos) {
+      return
+    }
+
+    const targetPositions = api.calculateTargetPositions(
+      state.dragStartWorkspacePos,
+      currentWorkspacePos,
+      state.initialPositions
+    )
+
+    if (
+      !state.latestPositions ||
+      !positionsMatch(targetPositions, state.latestPositions)
+    ) {
+      api.applyPositions(targetPositions, { sharedDelivery: 'immediate' })
+      state.latestPositions = targetPositions
+    }
+  },
+  onCancel: () => undefined
+}
+
 export const moveElementsFeature = defineFeature<
   MoveElementsApi,
   MoveElementsState
@@ -260,97 +367,7 @@ export const moveElementsFeature = defineFeature<
   exclusive: true,
   cancelPolicy: 'commit-current',
   api,
-  session: {
-    onStart: (snapshot: SystemContextSnapshot) => {
-      const initialState = api.resolveInitialPositions(snapshot)
-      if (!initialState) {
-        return null
-      }
-
-      return {
-        ...initialState,
-        isMoving: false
-      }
-    },
-
-    onUpdate: (snapshot: SystemContextSnapshot, state: MoveElementsState) => {
-      if (!snapshot.mouseDragging || !api.hasMovedBeyondThreshold(snapshot)) {
-        return
-      }
-
-      const currentWorkspacePos = elementApis.getMousePosInWorkspace(
-        snapshot.mousePosition
-      )
-      if (!currentWorkspacePos) {
-        return
-      }
-
-      const targetPositions = api.calculateTargetPositions(
-        state.dragStartWorkspacePos,
-        currentWorkspacePos,
-        state.initialPositions
-      )
-
-      measureBrowserDragPhase('move-elements:apply-positions', () =>
-        api.applyPositions(targetPositions, {
-          undoable: false,
-          sharedDelivery: 'immediate'
-        })
-      )
-      state.isMoving = true
-    },
-
-    onEnd: (snapshot: SystemContextSnapshot, state: MoveElementsState) => {
-      if (!state.isMoving) {
-        if (!state.startedFromSelectionBounds) {
-          return
-        }
-
-        const hoveredElementId =
-          snapshot.hoveredElementId ??
-          elementApis.getElementIdAtClientPos(snapshot.mousePosition)
-        const hoveredSelectionId =
-          hoveredElementId &&
-          !elementApis.isElementLocked(hoveredElementId) &&
-          elementApis.isElementVisible(hoveredElementId)
-            ? hoveredElementId
-            : null
-
-        const nextSelectionIds = hoveredSelectionId ? [hoveredSelectionId] : []
-        const currentSelectionIds = selectionApis.getSelectedIds()
-
-        if (
-          nextSelectionIds.length === currentSelectionIds.length &&
-          nextSelectionIds.every((id) => currentSelectionIds.includes(id))
-        ) {
-          return
-        }
-
-        transactionApis.runTransaction(() => {
-          selectionApis.selectElements(nextSelectionIds)
-        })
-
-        return
-      }
-
-      const currentWorkspacePos = elementApis.getMousePosInWorkspace(
-        snapshot.mousePosition
-      )
-      if (!currentWorkspacePos) {
-        return
-      }
-
-      const targetPositions = api.calculateTargetPositions(
-        state.dragStartWorkspacePos,
-        currentWorkspacePos,
-        state.initialPositions
-      )
-
-      api.applyPositions(state.initialPositions, { undoable: false })
-      api.applyPositions(targetPositions)
-    },
-    onCancel: () => undefined
-  }
+  session: moveElementsSession
 })
 
 export default moveElementsFeature

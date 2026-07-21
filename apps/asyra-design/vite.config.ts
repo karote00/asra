@@ -2,6 +2,14 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import vercel from 'vite-plugin-vercel'
 import tailwindcss from 'tailwindcss'
+import {
+  loadAsyraDesignEnvironment,
+  resolveAsyraDesignEnvironment
+} from './app-environment.mjs'
+
+const appEnvironment = resolveAsyraDesignEnvironment(
+  loadAsyraDesignEnvironment()
+)
 
 export default defineConfig({
   css: {
@@ -11,7 +19,8 @@ export default defineConfig({
   },
   plugins: [vercel(), react()],
   server: {
-    port: 3000,
+    host: appEnvironment.viteHost,
+    port: appEnvironment.vitePort,
     open: true
   },
   define: {

@@ -1,4 +1,10 @@
-import type { SystemContextSnapshot } from '@asyra/utils'
+import {
+  rectFromPoints,
+  type EVENT_OPTIONS,
+  type PositionData,
+  type Rect,
+  type SystemContextSnapshot
+} from '@asyra/utils'
 import { defineFeature } from '@asyra/core'
 import {
   elementApis,
@@ -14,30 +20,28 @@ import {
 
 interface CreateElementState {
   elementId: string | null
-  dragStartWorkspacePos: { x: number; y: number } | null
+  dragStartWorkspacePos: PositionData | null
+  latestBounds: Rect | null
   [key: string]: unknown
 }
 
 interface CreateElementAPI {
-  createElement: (
-    position: { x: number; y: number },
-    type: string
-  ) => string | null
+  createElement: (position: PositionData, type: string) => string | null
   updateElementSizeAndPosition: (
     elementId: string,
-    dragStart: { x: number; y: number },
-    currentPos: { x: number; y: number }
-  ) => void
-  resetElementSize: (elementId: string) => void
+    dragStart: PositionData,
+    currentPos: PositionData
+  ) => Rect
+  resetElementSize: (elementId: string, options?: EVENT_OPTIONS) => void
   hasMovedBeyondThreshold: (
-    clientDragStart: { x: number; y: number },
-    clientCurrentPos: { x: number; y: number }
+    clientDragStart: PositionData,
+    clientCurrentPos: PositionData
   ) => boolean
   [key: string]: unknown
 }
 
 const api: CreateElementAPI = {
-  createElement: (position: { x: number; y: number }, type: string) => {
+  createElement: (position: PositionData, type: string) => {
     return elementApis.createElement(
       {
         type,
@@ -50,41 +54,26 @@ const api: CreateElementAPI = {
   },
   updateElementSizeAndPosition: (
     elementId: string,
-    dragStart: { x: number; y: number },
-    currentPos: { x: number; y: number }
+    dragStart: PositionData,
+    currentPos: PositionData
   ) => {
-    let width = currentPos.x - dragStart.x
-    let height = currentPos.y - dragStart.y
-    let x = dragStart.x
-    let y = dragStart.y
-
-    if (width < 0) {
-      width = Math.abs(width)
-      x = currentPos.x
-    }
-
-    if (height < 0) {
-      height = Math.abs(height)
-      y = currentPos.y
-    }
+    const bounds = rectFromPoints(dragStart, currentPos)
 
     elementApis.changeComputedData(
       [elementId],
+      { ...bounds },
       {
-        x,
-        y,
-        width,
-        height
-      },
-      { undoable: false, sharedDelivery: 'immediate' }
+        sharedDelivery: 'immediate'
+      }
     )
+    return bounds
   },
-  resetElementSize: (elementId: string) => {
-    elementApis.resetElementSize(elementId)
+  resetElementSize: (elementId, options) => {
+    elementApis.resetElementSize(elementId, options)
   },
   hasMovedBeyondThreshold: (
-    clientDragStart: { x: number; y: number },
-    clientCurrentPos: { x: number; y: number }
+    clientDragStart: PositionData,
+    clientCurrentPos: PositionData
   ) => {
     return elementApis.hasMovedBeyondThreshold(
       clientDragStart,
@@ -92,6 +81,112 @@ const api: CreateElementAPI = {
       FEATURE_MOVEMENT_THRESHOLD.createElement
     )
   }
+}
+
+const boundsMatch = (left: Rect | null, right: Rect | null): boolean =>
+  Boolean(
+    left &&
+      right &&
+      left.x === right.x &&
+      left.y === right.y &&
+      left.width === right.width &&
+      left.height === right.height
+  )
+
+export const createElementSession = {
+  onStart: (snapshot: SystemContextSnapshot) => {
+    const { primaryTool } = snapshot
+
+    if (
+      primaryTool !== PrimaryToolType.RECTANGLE &&
+      primaryTool !== PrimaryToolType.OVAL
+    ) {
+      return null
+    }
+    const dragStartWorkspace = elementApis.getMousePosInWorkspace({
+      x: snapshot.mousePosition.x,
+      y: snapshot.mousePosition.y
+    })
+    if (!dragStartWorkspace) {
+      return null
+    }
+
+    const elementId = api.createElement(snapshot.mousePosition, primaryTool)
+    if (elementId) {
+      selectionApis.selectElements([elementId])
+    }
+
+    return {
+      elementId,
+      dragStartWorkspacePos: dragStartWorkspace,
+      latestBounds: null
+    } as CreateElementState
+  },
+  onUpdate: (snapshot: SystemContextSnapshot, state: CreateElementState) => {
+    if (!state || state.elementId === null || !state.dragStartWorkspacePos) {
+      return
+    }
+
+    if (!snapshot.mouseDragging) {
+      return
+    }
+
+    const currentWorkspacePos = elementApis.getMousePosInWorkspace({
+      x: snapshot.mousePosition.x,
+      y: snapshot.mousePosition.y
+    })
+    if (!currentWorkspacePos) {
+      return
+    }
+
+    state.latestBounds = api.updateElementSizeAndPosition(
+      state.elementId,
+      state.dragStartWorkspacePos,
+      currentWorkspacePos
+    )
+  },
+  onEnd: (snapshot: SystemContextSnapshot, state: CreateElementState) => {
+    if (!state || state.elementId === null) {
+      return
+    }
+
+    // If user just clicked without significant drag, reset to default size
+    // This handles accidental movements (hand tremors, etc.)
+    const hasSignificantMove = api.hasMovedBeyondThreshold(
+      snapshot.mouseDragStart || snapshot.mousePosition,
+      snapshot.mousePosition
+    )
+
+    if (!hasSignificantMove) {
+      api.resetElementSize(state.elementId, { sharedDelivery: 'immediate' })
+    } else {
+      const currentWorkspacePos = elementApis.getMousePosInWorkspace({
+        x: snapshot.mousePosition.x,
+        y: snapshot.mousePosition.y
+      })
+      if (currentWorkspacePos && state.dragStartWorkspacePos) {
+        const finalBounds = rectFromPoints(
+          state.dragStartWorkspacePos,
+          currentWorkspacePos
+        )
+        if (!boundsMatch(finalBounds, state.latestBounds)) {
+          state.latestBounds = api.updateElementSizeAndPosition(
+            state.elementId,
+            state.dragStartWorkspacePos,
+            currentWorkspacePos
+          )
+        }
+      }
+    }
+
+    if (
+      snapshot.primaryTool === PrimaryToolType.RECTANGLE ||
+      snapshot.primaryTool === PrimaryToolType.OVAL
+    ) {
+      systemContextApis.switchPrimaryTool(PrimaryToolType.SELECT)
+    }
+  },
+  onCancel: () => undefined
 }
 
 export const createElementFeature = defineFeature<
@@ -102,83 +197,5 @@ export const createElementFeature = defineFeature<
   exclusive: true,
   cancelPolicy: 'commit-current',
   api,
-  session: {
-    onStart: (snapshot: SystemContextSnapshot) => {
-      const { primaryTool } = snapshot
-
-      if (
-        primaryTool !== PrimaryToolType.RECTANGLE &&
-        primaryTool !== PrimaryToolType.OVAL
-      ) {
-        return null
-      }
-
-      const dragStartWorkspace = elementApis.getMousePosInWorkspace({
-        x: snapshot.mousePosition.x,
-        y: snapshot.mousePosition.y
-      })
-      if (!dragStartWorkspace) {
-        return null
-      }
-
-      const elementId = api.createElement(snapshot.mousePosition, primaryTool)
-      if (elementId) {
-        selectionApis.selectElements([elementId], {
-          sharedDelivery: 'immediate'
-        })
-      }
-
-      return {
-        elementId,
-        dragStartWorkspacePos: dragStartWorkspace
-      } as CreateElementState
-    },
-    onUpdate: (snapshot: SystemContextSnapshot, state: CreateElementState) => {
-      if (!state || state.elementId === null || !state.dragStartWorkspacePos) {
-        return
-      }
-
-      if (!snapshot.mouseDragging) {
-        return
-      }
-
-      const currentWorkspacePos = elementApis.getMousePosInWorkspace({
-        x: snapshot.mousePosition.x,
-        y: snapshot.mousePosition.y
-      })
-      if (!currentWorkspacePos) {
-        return
-      }
-
-      api.updateElementSizeAndPosition(
-        state.elementId,
-        state.dragStartWorkspacePos,
-        currentWorkspacePos
-      )
-    },
-    onEnd: (snapshot: SystemContextSnapshot, state: CreateElementState) => {
-      if (!state || state.elementId === null) {
-        return
-      }
-
-      // If user just clicked without significant drag, reset to default size
-      // This handles accidental movements (hand tremors, etc.)
-      const hasSignificantMove = api.hasMovedBeyondThreshold(
-        snapshot.mouseDragStart || snapshot.mousePosition,
-        snapshot.mousePosition
-      )
-
-      if (!hasSignificantMove) {
-        api.resetElementSize(state.elementId)
-      }
-
-      if (
-        snapshot.primaryTool === PrimaryToolType.RECTANGLE ||
-        snapshot.primaryTool === PrimaryToolType.OVAL
-      ) {
-        systemContextApis.switchPrimaryTool(PrimaryToolType.SELECT)
-      }
-    },
-    onCancel: () => undefined
-  }
+  session: createElementSession
 })

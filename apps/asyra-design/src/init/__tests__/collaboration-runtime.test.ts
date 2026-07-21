@@ -1,0 +1,82 @@
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import * as collaborationModule from '@asyra/collaboration'
+import { IDTypes, idCounter } from '@asyra/utils'
+import { CollaborationWebSocketProvider } from '../../collaboration/websocket-provider'
+import {
+  disposeCollaboration,
+  startCollaboration
+} from '../../collaboration/runtime'
+
+const harness = {
+  collaboration: {
+    identity: {
+      documentId: 'file-runtime',
+      roomId: 'file-runtime',
+      actorId: 'actor-runtime'
+    },
+    provider: { getStatus: vi.fn(() => 'idle') },
+    updateAwareness: vi.fn(),
+    observeOperationOutcomes: vi.fn(() => vi.fn()),
+    start: vi.fn(async () => undefined),
+    disconnect: vi.fn(async () => undefined),
+    reconnect: vi.fn(async () => undefined),
+    whenIdle: vi.fn(async () => undefined),
+    dispose: vi.fn(async () => undefined)
+  }
+}
+
+beforeEach(async () => {
+  await disposeCollaboration()
+  vi.restoreAllMocks()
+  idCounter.clear()
+  harness.collaboration.updateAwareness.mockReset()
+  harness.collaboration.start.mockReset().mockResolvedValue(undefined)
+  harness.collaboration.dispose.mockReset().mockResolvedValue(undefined)
+  delete window.__AsyraCollaboration__
+})
+
+afterEach(async () => {
+  await disposeCollaboration()
+  idCounter.clear()
+  vi.restoreAllMocks()
+})
+
+it('starts the real app collaboration composition without an Awareness preview route', async () => {
+  const createCollaboration = vi
+    .spyOn(collaborationModule, 'createCollaboration')
+    .mockReturnValue(harness.collaboration as never)
+
+  await startCollaboration({
+    fileId: 'file-runtime',
+    actorId: 'actor-runtime',
+    endpoint: 'ws://127.0.0.1:4101/asyra-design-collaboration'
+  })
+
+  expect(createCollaboration).toHaveBeenCalledOnce()
+  const composition = createCollaboration.mock.calls[0][0]
+  expect(composition.provider).toBeInstanceOf(CollaborationWebSocketProvider)
+  expect(composition.provider?.identity).toEqual({
+    documentId: 'file-runtime',
+    roomId: 'file-runtime',
+    actorId: 'actor-runtime',
+    connectionMetadata: { fileId: 'file-runtime' }
+  })
+  expect(
+    composition.operationDefinitions.map(
+      ({ channel, eventName }) => `${channel}/${eventName}`
+    )
+  ).toEqual([
+    'sceneTree/addElement',
+    'sceneTree/removeElement',
+    'sceneTree/updateComputedData',
+    'sceneTree/updateComputedDataPatch',
+    'props/addProperty',
+    'props/removeProperty',
+    'props/updateProperty'
+  ])
+  expect(composition.conflictPolicies).toBeUndefined()
+  expect('frameworkInvariants' in composition).toBe(false)
+  expect(idCounter.current(IDTypes.ELEMENT)).toBe('el-actor-runtime-0')
+  expect(harness.collaboration.updateAwareness).not.toHaveBeenCalled()
+  expect(window.__AsyraCollaboration__).toBeDefined()
+})

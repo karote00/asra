@@ -4,7 +4,7 @@ import {
   type RegisterRenderLayerOptions,
   type RenderLayerRegistration
 } from '@asyra/core'
-import type { PositionData } from '@asyra/utils'
+import { rectFromPoints, type PositionData, type Rect } from '@asyra/utils'
 import type { AreaSelectionState } from '../common-apis/system-context'
 
 const AREA_SELECTION_LAYER_NAME = 'area-selection-layer'
@@ -21,26 +21,9 @@ type RegisterRenderLayer = (
   options?: RegisterRenderLayerOptions
 ) => void
 
-const getRectFromPoints = (
-  start: PositionData,
-  current: PositionData
-): { x: number; y: number; width: number; height: number } => {
-  const x = Math.min(start.x, current.x)
-  const y = Math.min(start.y, current.y)
-  return {
-    x,
-    y,
-    width: Math.abs(current.x - start.x),
-    height: Math.abs(current.y - start.y)
-  }
-}
-
-const getRectPoints = (rect: {
-  x: number
-  y: number
-  width: number
-  height: number
-}): [PositionData, PositionData, PositionData, PositionData] => {
+const getRectPoints = (
+  rect: Rect
+): [PositionData, PositionData, PositionData, PositionData] => {
   const topLeft = { x: rect.x, y: rect.y }
   const topRight = { x: rect.x + rect.width, y: rect.y }
   const bottomRight = {
@@ -115,7 +98,7 @@ export const registerAreaSelectionRenderLayer = (
       const currentCanvas = deps.viewportApis.getCanvasPositionFromWorkspace(
         selection.dragCurrent
       )
-      const rect = getRectFromPoints(startCanvas, currentCanvas)
+      const rect = rectFromPoints(startCanvas, currentCanvas)
 
       if (rect.width <= 0 || rect.height <= 0) {
         return true

@@ -55,8 +55,10 @@
 - `elementApis.changeComputedData(...)` uses `runTransaction` and forwards
   optional mutation options (for example, `undoable: false`) to core.
 - `elementApis.setElementPositions(...)` applies per-element `x/y` updates in
-  one `runTransaction` boundary and forwards mutation options (for example,
-  `undoable: false` for drag-frame updates).
+  one `runTransaction` boundary and forwards mutation options. Create/move
+  features use `sharedDelivery: 'immediate'` so one synchronous multi-element
+  update becomes one shared publication while the outer session remains one
+  undo commit.
 - `elementApis.createElement(...)` and `selectionApis.selectElements(...)` also accept optional mutation options and forward them to core.
 - Failure in a finite common-API mutation group rolls back all recorded
   rollbackable scene-tree, props, and selection changes before rethrowing.

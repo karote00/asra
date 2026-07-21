@@ -1,4 +1,9 @@
-import type { PositionData, SystemContextSnapshot } from '@asyra/utils'
+import {
+  rectFromPoints,
+  type PositionData,
+  type Rect,
+  type SystemContextSnapshot
+} from '@asyra/utils'
 import { defineFeature } from '@asyra/core'
 import {
   elementApis,
@@ -69,18 +74,8 @@ const clearPathEditingIfSelectionChanged = () => {
   systemContextApis.switchPrimaryTool(PrimaryToolType.SELECT)
 }
 
-const getSelectionBounds = (
-  start: PositionData,
-  current: PositionData
-): { x: number; y: number; width: number; height: number } => ({
-  x: Math.min(start.x, current.x),
-  y: Math.min(start.y, current.y),
-  width: Math.abs(current.x - start.x),
-  height: Math.abs(current.y - start.y)
-})
-
 const resolveSelectionIds = (
-  selectionBounds: { x: number; y: number; width: number; height: number },
+  selectionBounds: Rect,
   baseSelectionIds: string[],
   mode: 'replace' | 'toggle'
 ) => {
@@ -208,7 +203,7 @@ export const selectionFeature = defineFeature<
 
       state.hasMoved = true
 
-      const selectionBounds = getSelectionBounds(
+      const selectionBounds = rectFromPoints(
         state.dragStartWorkspacePos,
         currentWorkspacePos
       )
@@ -219,8 +214,7 @@ export const selectionFeature = defineFeature<
       )
 
       selectionApis.selectElements(nextSelectionIds, {
-        undoable: false,
-        sharedDelivery: 'immediate'
+        undoable: false
       })
 
       systemContextApis.setAreaSelection({
@@ -255,7 +249,7 @@ export const selectionFeature = defineFeature<
         return
       }
 
-      const selectionBounds = getSelectionBounds(
+      const selectionBounds = rectFromPoints(
         state.dragStartWorkspacePos,
         currentWorkspacePos
       )
@@ -270,7 +264,7 @@ export const selectionFeature = defineFeature<
         clearPathEditingIfSelectionChanged()
       })
     },
-    onCancel: () => {
+    onCancel: (): undefined => {
       systemContextApis.clearAreaSelection()
     }
   }

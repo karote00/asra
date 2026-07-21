@@ -14,6 +14,11 @@ Purpose: keep app docs aligned with implemented source modules.
   - `src/init/index.ts`, `src/init/init-app.ts`, `src/init/foundation/*`, `src/init/capabilities/*`, `src/init/derived-state/*`, `src/init/diagnostics/*`
   - docs: `modules/init-and-startup.md`, `modules/input-mapping.md`
 
+- App environment and optional collaboration composition
+
+  - `.env`, `app-environment.mjs`, `vite.config.ts`, `vite.collaboration-server.config.ts`, `tsconfig.collaboration-server.json`, `playwright*.config.ts`, `collaboration-server.ts`, `src/collaboration/*`, `src/render-app/collaboration-mode.ts`
+  - docs: `modules/collaboration-reference.md`, `API_SURFACES.md`, `ARCHITECTURE.md`
+
 - Input/event mapping
 
   - `src/config/key-combinations.ts`, `src/constants/*`
@@ -51,7 +56,7 @@ Purpose: keep app docs aligned with implemented source modules.
 
 - E2E behavior guardrails
   - `e2e/*.spec.ts`
-  - docs: `modules/e2e.md`, `rules/testing-contracts.md`
+  - docs: `modules/e2e.md`, `modules/collaboration-reference.md`, `rules/testing-contracts.md`
 
 ## Known Placeholder or Infra Files
 
