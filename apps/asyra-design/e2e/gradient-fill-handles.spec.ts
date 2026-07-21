@@ -1,106 +1,18 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 import {
   createRectangle,
   getCanvasPosition,
-  getPropertiesPanel,
   getTransactionSnapshot,
   resetCanvas,
   setSelectedGradient,
   undo,
   waitForAppReady
 } from './test-utils'
-
-interface GradientHandle {
-  x: number
-  y: number
-}
-
-interface GradientStop {
-  position: number
-  color: string
-  opacity: number
-}
-
-interface SelectedGradientSnapshot {
-  elementId: string
-  fillId: string
-  rect: {
-    x: number
-    y: number
-    width: number
-    height: number
-  }
-  zoom: number
-  viewport: {
-    x: number
-    y: number
-  }
-  gradient: {
-    gradientType: string
-    gradientHandles: GradientHandle[]
-    gradientStops: GradientStop[]
-  } | null
-}
-
-const getSelectedGradientSnapshot = async (
-  page: Page
-): Promise<SelectedGradientSnapshot | null> =>
-  page.evaluate(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
-    const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
-    if (!selectedId) {
-      return null
-    }
-
-    const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
-    const computed = element?.getAllComputedData?.() ?? {}
-    const firstFill = computed?.fills?.[0]
-    if (!firstFill?.id) {
-      return null
-    }
-
-    return {
-      elementId: selectedId,
-      fillId: firstFill.id,
-      rect: {
-        x: computed.x,
-        y: computed.y,
-        width: computed.width,
-        height: computed.height
-      },
-      zoom: core.getSystemProperty?.('zoom') ?? 1,
-      viewport: core.getSystemProperty?.('viewportPosition') ?? { x: 0, y: 0 },
-      gradient: firstFill.gradient
-    }
-  })
-
-const openGradientFillEditor = async (page: Page) => {
-  const propertiesPanel = getPropertiesPanel(page)
-  await propertiesPanel.getByTestId('prop-fill-color-picker-0-trigger').click()
-  await page.getByTestId('prop-fill-mode-gradient-0').click()
-  await expect(page.getByTestId('prop-fill-gradient-editor-0')).toBeVisible()
-}
-
-const getGradientHandleClientPosition = async (
-  page: Page,
-  handleIndex: number
-) => {
-  const snapshot = await getSelectedGradientSnapshot(page)
-  if (!snapshot?.gradient?.gradientHandles?.[handleIndex]) {
-    throw new Error(`Gradient handle ${handleIndex} not available`)
-  }
-
-  const handle = snapshot.gradient.gradientHandles[handleIndex]
-  return {
-    x:
-      (snapshot.rect.x + handle.x * snapshot.rect.width) * snapshot.zoom +
-      snapshot.viewport.x,
-    y:
-      (snapshot.rect.y + handle.y * snapshot.rect.height) * snapshot.zoom +
-      snapshot.viewport.y
-  }
-}
+import {
+  getGradientHandleClientPosition,
+  getSelectedGradientSnapshot,
+  openGradientFillEditor
+} from './gradient-test-utils'
 
 test.describe('Gradient Fill Handles', () => {
   test.beforeEach(async ({ page }) => {
