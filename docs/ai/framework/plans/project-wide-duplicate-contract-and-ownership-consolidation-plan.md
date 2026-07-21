@@ -2,12 +2,9 @@
 
 ## Status
 
-Queued repository-maintenance plan. Execution begins only when the user asks
-to start the project-wide analysis.
-
-Creating this plan does not authorize repository scanning, contract changes,
-code changes, formatter rewrites, staging, or commits. When execution begins,
-candidate discovery and semantic analysis precede every consolidation decision.
+Implementation complete; awaiting user review and explicit closeout approval.
+The plan remains active and must not be archived until the review condition in
+the Definition of Done is satisfied.
 
 This maintenance plan is not a product runtime flow and does not create a new
 Flow Inspector, readiness matrix, audit ledger, or second semantic authority.

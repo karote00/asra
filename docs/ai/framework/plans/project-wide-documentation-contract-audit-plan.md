@@ -2,13 +2,9 @@
 
 ## Status
 
-Queued repository-maintenance plan. Execution begins only when the user asks
-for the project-wide scan.
-
-Creating this plan does not authorize the scan, any contract correction, code
-change, formatter rewrite, staging, or commit. The first execution pass is
-report-only by default. Repairs require a separate user instruction after the
-findings are reviewed.
+Report and authorized repair passes complete; awaiting user review and explicit
+closeout approval. The plan remains active and must not be archived until the
+review condition in the Definition of Done is satisfied.
 
 This audit is not a product runtime flow, so it does not create a Flow
 Inspector, readiness matrix, audit ledger, or second semantic authority. If a

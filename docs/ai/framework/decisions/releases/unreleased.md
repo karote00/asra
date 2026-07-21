@@ -1810,3 +1810,38 @@ unregister -> app migration -> core.start()` as the public app route.
 - Related Commit(s):
   - local repository-maintenance commits on
     `codex/yjs-network-collaboration-foundation`
+
+## 2026-07-22 - Correct repository-maintenance review findings
+
+- Context:
+  - Independent review found that the maintenance plans still declared a
+    queued state after implementation, Factory and Scene Tree retained the
+    same own-value descriptor helper, and a public diagnostics primitive used
+    across Render, Preset, and the app still carried a stroke-specific name.
+- Decision:
+  - Keep all three maintenance plans active but mark implementation and repair
+    work complete while they await explicit user review and closeout approval.
+  - Put the domain-neutral `setOwnEnumerableValue(...)` primitive in Utils and
+    let Scene Tree canonical apply/replay and Factory patch inversion consume
+    that single owner. Keep patch meaning and special-key behavior unchanged.
+  - Name the optional observation primitive `emitDiagnosticCounter(...)`, its
+    callback `DiagnosticCounterSink`, and its global hook
+    `__asyraDiagnosticCounterSink`. Counter names, values, timing, budgets, and
+    product behavior remain unchanged; no compatibility alias is retained for
+    the unreleased stroke-specific vocabulary.
+- Consequences:
+  - Special own-property materialization now has one implementation while the
+    Render Delta Inspector still assigns semantic state and transport behavior
+    to Scene Tree and Factory respectively.
+  - The Utils diagnostics API now describes all current consumers without
+    implying that stroke owns Render, UI Context, vector, or projection
+    counters.
+  - This correction does not close or archive the maintenance plans and does
+    not authorize push, merge, tag, release, or publication.
+- Related Plan:
+  - `docs/ai/framework/plans/project-wide-duplicate-contract-and-ownership-consolidation-plan.md`
+  - `docs/ai/framework/plans/project-wide-code-readability-analysis-and-refactor-plan.md`
+  - `docs/ai/framework/plans/project-wide-documentation-contract-audit-plan.md`
+- Related Commit(s):
+  - `d46d7cc3c` (`refactor(utils): centralize own property writes`)
+  - `0eb306f91` (`refactor(utils): generalize diagnostic counters`)

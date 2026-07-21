@@ -2,14 +2,9 @@
 
 ## Status
 
-Queued repository-maintenance plan. Execution begins only when the user asks
-to start the project-wide readability work.
-
-Creating this plan does not authorize the repository scan, code or contract
-changes, formatter rewrites, staging, or commits. Once the user starts this
-plan, the authorized workflow is analysis followed by owner-bounded execution;
-it does not stop after producing a findings report unless a stop condition
-requires a product or ownership decision.
+Implementation complete; awaiting user review and explicit closeout approval.
+The plan remains active and must not be archived until the review condition in
+the Definition of Done is satisfied.
 
 This maintenance plan does not create a new product Flow Inspector, readiness
 matrix, readability score ledger, or second semantic authority. A finding that
