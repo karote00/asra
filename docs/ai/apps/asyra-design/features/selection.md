@@ -2,7 +2,7 @@
 
 ## Sources
 
-- `src/features/selection/index.ts`
+- `src/features/selection/feature.ts`
 
 ## Selection Feature
 

@@ -70,7 +70,7 @@ Import boundary:
 - `unregisterPropertyRegistration(type, scope)` is low-level schema/runtime
   cleanup; `unregisterPropertyType(type)` removes a complete graph capability
 
-`elementApis` (`src/common-apis/element/index.ts`)
+`elementApis` (`src/common-apis/element/apis.ts`)
 
 - `isContainerType(type: string): boolean`
 - `getElementIdAtWorkspacePos(workspacePos: PositionData): string | null`

@@ -2,7 +2,7 @@
 
 ## Source
 
-- `src/features/create-element/index.ts`
+- `src/features/create-element/feature.ts`
 
 ## Trigger
 

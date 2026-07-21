@@ -2,7 +2,7 @@
 
 ## Source
 
-- `src/features/move-elements/index.ts`
+- `src/features/move-elements/feature.ts`
 
 ## Trigger
 

@@ -2,7 +2,7 @@
 
 ## Source
 
-- `src/features/pen-tool/index.ts`
+- `src/features/pen-tool/feature.ts`
 
 ## Related Features
 

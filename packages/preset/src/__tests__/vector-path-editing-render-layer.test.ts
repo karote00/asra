@@ -15,7 +15,10 @@ import {
 } from '../render-layers/selection-overlay-render-layer'
 
 const penToolFeatureSource = () =>
-  readFileSync('../../apps/asyra-design/src/features/pen-tool/index.ts', 'utf8')
+  readFileSync(
+    '../../apps/asyra-design/src/features/pen-tool/feature.ts',
+    'utf8'
+  )
 
 const keyCombinationsSource = () =>
   readFileSync('../../apps/asyra-design/src/config/key-combinations.ts', 'utf8')
