@@ -1,7 +1,4 @@
-import type {
-  SelectedVectorSegmentState,
-  VectorPointTarget
-} from '@asyra/core'
+import type { SelectedVectorSegmentState, VectorPointTarget } from '@asyra/core'
 import type {
   StructuralVectorChangedRecord,
   StructuralVectorOperation,
