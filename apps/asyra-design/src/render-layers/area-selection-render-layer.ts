@@ -5,15 +5,12 @@ import {
 } from '@asyra/core'
 import { rectFromPoints, type PositionData, type Rect } from '@asyra/utils'
 import type { AreaSelectionState } from '../common-apis/system-context'
+import type { SystemPropertyReader } from './system-property-reader'
 
 const AREA_SELECTION_LAYER_NAME = 'area-selection-layer'
 const AREA_SELECTION_STROKE_COLOR = 0x157ae7
 const AREA_SELECTION_STROKE_WIDTH = 1
 const AREA_SELECTION_FILL_ALPHA = 0.3
-
-interface SystemContextLike {
-  getManagedProperty: <T>(key: string) => T | undefined
-}
 
 const getRectPoints = (
   rect: Rect
@@ -53,7 +50,7 @@ const drawRectOutline = (
 export const registerAreaSelectionRenderLayer = (
   registerRenderLayer: RegisterRenderLayer,
   deps: {
-    systemContext: SystemContextLike
+    systemProperties: SystemPropertyReader
     viewportApis: {
       getCanvasPositionFromWorkspace: (pos: PositionData) => PositionData
     }
@@ -65,7 +62,7 @@ export const registerAreaSelectionRenderLayer = (
     zIndex: 9,
     update: (canvas: OverlayCanvas) => {
       const selection =
-        deps.systemContext.getManagedProperty<AreaSelectionState | null>(
+        deps.systemProperties.getSystemProperty<AreaSelectionState | null>(
           'areaSelection'
         ) ?? null
       const drawSignature = selection

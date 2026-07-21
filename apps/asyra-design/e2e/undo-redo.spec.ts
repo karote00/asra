@@ -9,6 +9,7 @@ import {
   dragOnCanvas,
   dragSelectedElementBy,
   getSelectedElementRect,
+  getElementRectClientCenter,
   getSelectedElementClientCenter,
   undo,
   redo
@@ -1090,19 +1091,7 @@ test.describe('Undo/Redo Actions', () => {
     expect(await getSelectedElementRect(page)).toBeNull()
 
     // Drag A from unselected state -> should select A and move.
-    const aCenter = await page.evaluate(({ x, y, width, height }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      const zoom = core?.getSystemProperty?.('zoom') ?? 1
-      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
-        x: 0,
-        y: 0
-      }
-      return {
-        x: (x + width / 2) * zoom + viewport.x,
-        y: (y + height / 2) * zoom + viewport.y
-      }
-    }, aBefore)
+    const aCenter = await getElementRectClientCenter(page, aBefore)
     await page.mouse.move(aCenter.x, aCenter.y)
     await page.mouse.down()
     await page.mouse.move(aCenter.x + 80, aCenter.y + 50, { steps: 16 })
@@ -1119,19 +1108,7 @@ test.describe('Undo/Redo Actions', () => {
     expect(aMoved.y).toBeGreaterThan(aBefore.y)
 
     // Drag B while B is unselected -> should switch selection to B and move B.
-    const bCenter = await page.evaluate(({ x, y, width, height }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      const zoom = core?.getSystemProperty?.('zoom') ?? 1
-      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
-        x: 0,
-        y: 0
-      }
-      return {
-        x: (x + width / 2) * zoom + viewport.x,
-        y: (y + height / 2) * zoom + viewport.y
-      }
-    }, bBefore)
+    const bCenter = await getElementRectClientCenter(page, bBefore)
     await page.mouse.move(bCenter.x, bCenter.y)
     await page.mouse.down()
     await page.mouse.move(bCenter.x + 95, bCenter.y + 60, { steps: 20 })
@@ -1220,32 +1197,12 @@ test.describe('Undo/Redo Actions', () => {
     await clickCanvas(page, 0.95, 0.95)
     await page.waitForTimeout(120)
 
-    const toClientCenter = async (rect: {
-      x: number
-      y: number
-      width: number
-      height: number
-    }) =>
-      page.evaluate(({ x, y, width, height }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const core = (window as any).__Core__
-        const zoom = core?.getSystemProperty?.('zoom') ?? 1
-        const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
-          x: 0,
-          y: 0
-        }
-        return {
-          x: (x + width / 2) * zoom + viewport.x,
-          y: (y + height / 2) * zoom + viewport.y
-        }
-      }, rect)
-
     const dragRectBy = async (
       rect: { x: number; y: number; width: number; height: number },
       dx: number,
       dy: number
     ) => {
-      const center = await toClientCenter(rect)
+      const center = await getElementRectClientCenter(page, rect)
       await page.mouse.move(center.x, center.y)
       await page.mouse.down()
       await page.mouse.move(center.x + dx, center.y + dy, { steps: 20 })

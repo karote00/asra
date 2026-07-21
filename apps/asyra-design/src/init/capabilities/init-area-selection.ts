@@ -1,4 +1,4 @@
-import core, { systemContext } from '../../contexts'
+import core from '../../contexts'
 import type { AreaSelectionState } from '../../common-apis/system-context'
 import { viewportApis } from '../../common-apis/viewport'
 import { registerAreaSelectionRenderLayer } from '../../render-layers/area-selection-render-layer'
@@ -15,7 +15,7 @@ export const initAreaSelection = () => {
   registerAreaSelectionRenderLayer(
     (registration, options) => core.registerRenderLayer(registration, options),
     {
-      systemContext,
+      systemProperties: core,
       viewportApis
     }
   )

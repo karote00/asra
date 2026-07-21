@@ -8,6 +8,8 @@ import {
   getContentsPanel,
   getCanvasPosition,
   getSelectedElementRect,
+  getElementRectClientCenter,
+  getSelectedElementClientCenter,
   dragSelectedElementBy
 } from './test-utils'
 
@@ -187,19 +189,7 @@ test.describe('Element Selection', () => {
     await page.waitForTimeout(120)
     expect(await hasSelectedElement(page)).toBe(false)
 
-    const startClient = await page.evaluate(({ x, y, width, height }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      const zoom = core?.getSystemProperty?.('zoom') ?? 1
-      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
-        x: 0,
-        y: 0
-      }
-      return {
-        x: (x + width / 2) * zoom + viewport.x,
-        y: (y + height / 2) * zoom + viewport.y
-      }
-    }, before)
+    const startClient = await getElementRectClientCenter(page, before)
 
     await page.mouse.move(startClient.x, startClient.y)
     await page.mouse.down()
@@ -236,31 +226,7 @@ test.describe('Element Selection', () => {
       return
     }
 
-    const elementPos = await page.evaluate((elementId) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      const element = core?.deps?.sceneTree?.getElementById?.(elementId)
-      const computed = element?.getAllComputedData?.() ?? {}
-      const x = typeof computed.x === 'number' ? computed.x : null
-      const y = typeof computed.y === 'number' ? computed.y : null
-      const width = typeof computed.width === 'number' ? computed.width : null
-      const height =
-        typeof computed.height === 'number' ? computed.height : null
-      const zoom = core?.getSystemProperty?.('zoom') ?? 1
-      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
-        x: 0,
-        y: 0
-      }
-
-      if (x === null || y === null || width === null || height === null) {
-        return null
-      }
-
-      return {
-        x: (x + width / 2) * zoom + viewport.x,
-        y: (y + height / 2) * zoom + viewport.y
-      }
-    }, selectedId)
+    const elementPos = await getSelectedElementClientCenter(page)
 
     expect(elementPos).not.toBeNull()
     if (!elementPos) {

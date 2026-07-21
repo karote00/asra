@@ -10,6 +10,7 @@ import type {
   GradientHandleState,
   GradientStopState
 } from '../common-apis/system-context'
+import type { SystemPropertyReader } from './system-property-reader'
 
 const GRADIENT_FILL_HANDLES_LAYER_NAME = 'gradient-fill-handles-layer'
 const HANDLE_LINE_COLOR = 0x4c95ff
@@ -30,10 +31,6 @@ const STOP_ACTIVE_STROKE_COLOR = 0x4c95ff
 const STOP_STROKE_WIDTH = 2
 /** Gap between the gradient line and the rectangle edge. */
 const STOP_OFFSET_FROM_LINE = STOP_TRIANGLE_HEIGHT + 2
-
-interface SystemContextLike {
-  getManagedProperty: <T>(key: string) => T | undefined
-}
 
 const isHandleActive = (
   handleState: GradientHandleState | null,
@@ -163,7 +160,7 @@ const drawStopIndicator = (
 export const registerGradientFillHandlesRenderLayer = (
   registerRenderLayer: RegisterRenderLayer,
   deps: {
-    systemContext: SystemContextLike
+    systemProperties: SystemPropertyReader
   }
 ) => {
   let lastDrawSignature = ''
@@ -172,7 +169,7 @@ export const registerGradientFillHandlesRenderLayer = (
     zIndex: 12,
     update: (canvas: OverlayCanvas) => {
       const activeGradientFill =
-        deps.systemContext.getManagedProperty<ActiveGradientFillState | null>(
+        deps.systemProperties.getSystemProperty<ActiveGradientFillState | null>(
           'activeGradientFill'
         ) ?? null
       if (!activeGradientFill) {
@@ -203,19 +200,19 @@ export const registerGradientFillHandlesRenderLayer = (
       }
 
       const hoveredHandle =
-        deps.systemContext.getManagedProperty<GradientHandleState | null>(
+        deps.systemProperties.getSystemProperty<GradientHandleState | null>(
           'hoveredGradientHandle'
         ) ?? null
       const selectedHandle =
-        deps.systemContext.getManagedProperty<GradientHandleState | null>(
+        deps.systemProperties.getSystemProperty<GradientHandleState | null>(
           'selectedGradientHandle'
         ) ?? null
       const hoveredStop =
-        deps.systemContext.getManagedProperty<GradientStopState | null>(
+        deps.systemProperties.getSystemProperty<GradientStopState | null>(
           'hoveredGradientStop'
         ) ?? null
       const selectedStop =
-        deps.systemContext.getManagedProperty<GradientStopState | null>(
+        deps.systemProperties.getSystemProperty<GradientStopState | null>(
           'selectedGradientStop'
         ) ?? null
 

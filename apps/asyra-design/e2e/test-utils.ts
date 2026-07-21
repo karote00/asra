@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
+import type { Rect } from '@asyra/utils'
 
 /**
  * Shared test utilities for E2E tests
@@ -195,13 +196,13 @@ export async function createOval(page: Page, relativeX = 0.3, relativeY = 0.3) {
 /**
  * Get selected element computed position and size from core.
  */
-export async function getSelectedElementRect(page: Page): Promise<{
+export interface ElementRect extends Rect {
   id: string
-  x: number
-  y: number
-  width: number
-  height: number
-} | null> {
+}
+
+export async function getSelectedElementRect(
+  page: Page
+): Promise<ElementRect | null> {
   return page.evaluate(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const core = (window as any).__Core__
@@ -231,17 +232,10 @@ export async function getSelectedElementRect(page: Page): Promise<{
   })
 }
 
-/**
- * Resolve selected element center in client-space.
- */
-export async function getSelectedElementClientCenter(
-  page: Page
-): Promise<{ x: number; y: number } | null> {
-  const rect = await getSelectedElementRect(page)
-  if (!rect) {
-    return null
-  }
-
+export async function getElementRectClientCenter(
+  page: Page,
+  rect: Rect
+): Promise<{ x: number; y: number }> {
   return page.evaluate(({ x, y, width, height }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const core = (window as any).__Core__
@@ -256,6 +250,20 @@ export async function getSelectedElementClientCenter(
       y: (y + height / 2) * zoom + viewport.y
     }
   }, rect)
+}
+
+/**
+ * Resolve selected element center in client-space.
+ */
+export async function getSelectedElementClientCenter(
+  page: Page
+): Promise<{ x: number; y: number } | null> {
+  const rect = await getSelectedElementRect(page)
+  if (!rect) {
+    return null
+  }
+
+  return getElementRectClientCenter(page, rect)
 }
 
 /**

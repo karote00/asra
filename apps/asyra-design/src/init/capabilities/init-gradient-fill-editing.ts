@@ -1,4 +1,4 @@
-import core, { systemContext } from '../../contexts'
+import core from '../../contexts'
 import type {
   ActiveGradientFillState,
   GradientHandleState
@@ -28,7 +28,7 @@ export const initGradientFillEditing = () => {
   registerGradientFillHandlesRenderLayer(
     (registration, options) => core.registerRenderLayer(registration, options),
     {
-      systemContext
+      systemProperties: core
     }
   )
 
