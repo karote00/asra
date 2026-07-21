@@ -15,9 +15,9 @@ import {
   type DataTypes,
   type PropertyComponentInstanceDataTypes,
   type PropertyComponentRawData,
-  RegistrationRelationError,
   Unit
 } from '@asyra/utils'
+import { expectRelationError } from './registration-test-utils'
 
 const TEST_TYPE = 'test-property-type'
 const TEST_CHILD_TYPE = 'test-property-child-type'
@@ -50,19 +50,6 @@ class TestPropertyComponent extends BasePropertyComponent<PropertyComponentInsta
 
   getUnit(): Record<string, Unit> {
     return {}
-  }
-}
-
-const expectRelationError = (
-  run: () => unknown,
-  code: RegistrationRelationError['code']
-) => {
-  try {
-    run()
-    throw new Error(`Expected RegistrationRelationError ${code}`)
-  } catch (error) {
-    expect(error).toBeInstanceOf(RegistrationRelationError)
-    expect((error as RegistrationRelationError).code).toBe(code)
   }
 }
 

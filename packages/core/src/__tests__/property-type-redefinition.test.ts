@@ -12,13 +12,13 @@ import {
   idCounter,
   nameCounter,
   RegistrationGraph,
-  RegistrationRelationError,
   type PropertyFieldSchema,
   type RegistrationOwnerMetadata
 } from '@asyra/utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { unregisterComponent as unregisterComponentDirect } from '../define-component'
 import { Core } from '../core'
+import { expectRelationError } from './registration-test-utils'
 
 const STYLE = 'redefinition-style'
 const CHILD = 'redefinition-child'
@@ -62,19 +62,6 @@ const cleanup = () => {
   })
   propertyComponentRegistry.clear()
   propertySchemaRegistry.clear()
-}
-
-const expectRelationError = (
-  run: () => unknown,
-  code: RegistrationRelationError['code']
-) => {
-  try {
-    run()
-    throw new Error(`Expected RegistrationRelationError ${code}`)
-  } catch (error) {
-    expect(error).toBeInstanceOf(RegistrationRelationError)
-    expect((error as RegistrationRelationError).code).toBe(code)
-  }
 }
 
 const fieldsToDefaults = (fields: readonly PropertyFieldSchema[]) =>

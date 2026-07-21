@@ -12,18 +12,14 @@ import {
   getPropertyComponent
 } from '@asyra/props-manager'
 import { renderStrategyRegistry } from '@asyra/render'
-import {
-  PropertyTypes,
-  RegistrationRelationError,
-  idCounter,
-  nameCounter
-} from '@asyra/utils'
+import { PropertyTypes, idCounter, nameCounter } from '@asyra/utils'
 import type { RenderStrategy } from '@asyra/render'
 import type { ElementInstanceTypes } from '@asyra/utils'
 import {
   definePropertyComponent,
   unregisterPropertyComponent
 } from '../define-property-component'
+import { expectRelationError } from './registration-test-utils'
 
 // Use actual package imports without mocks to source files
 
@@ -48,19 +44,6 @@ const cleanupType = (type: string) => {
   renderStrategyRegistry.unregister(type)
   idCounter.unregisterType(type)
   nameCounter.unregisterType(type)
-}
-
-const expectRelationError = (
-  run: () => unknown,
-  code: RegistrationRelationError['code']
-) => {
-  try {
-    run()
-    throw new Error(`Expected RegistrationRelationError ${code}`)
-  } catch (error) {
-    expect(error).toBeInstanceOf(RegistrationRelationError)
-    expect((error as RegistrationRelationError).code).toBe(code)
-  }
 }
 
 describe('defineComponent', () => {

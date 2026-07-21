@@ -9,15 +9,11 @@ import {
 import { renderStrategyRegistry } from '@asyra/render'
 import sceneTree, { componentRegistry, SceneTree } from '@asyra/scene-tree'
 import { propertyRegistry } from '@asyra/ui-context'
-import {
-  RegistrationGraph,
-  RegistrationRelationError,
-  idCounter,
-  nameCounter
-} from '@asyra/utils'
+import { RegistrationGraph, idCounter, nameCounter } from '@asyra/utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { unregisterComponent as unregisterComponentDirect } from '../define-component'
 import { Core } from '../core'
+import { expectRelationError } from './registration-test-utils'
 
 const POSITION = 'composition-position'
 const FILLS = 'composition-fills'
@@ -61,19 +57,6 @@ const cleanup = () => {
   propertyRegistry.unregister('composition-ui')
   propertyComponentRegistry.clear()
   propertySchemaRegistry.clear()
-}
-
-const expectRelationError = (
-  run: () => unknown,
-  code: RegistrationRelationError['code']
-) => {
-  try {
-    run()
-    throw new Error(`Expected RegistrationRelationError ${code}`)
-  } catch (error) {
-    expect(error).toBeInstanceOf(RegistrationRelationError)
-    expect((error as RegistrationRelationError).code).toBe(code)
-  }
 }
 
 const leavePropertyTargetPending = (
