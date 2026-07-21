@@ -37,96 +37,156 @@ export type RenderEnginePaint = Readonly<{
   resource?: RenderEngineResourceHandle
 }>
 
+export type RenderEngineClearOperation = Readonly<{ type: 'clear' }>
+
+export type RenderEngineRectOperation = Readonly<{
+  type: 'rect'
+  x: number
+  y: number
+  width: number
+  height: number
+}>
+
+export type RenderEngineEllipseOperation = Readonly<{
+  type: 'ellipse'
+  x: number
+  y: number
+  radiusX: number
+  radiusY: number
+}>
+
+export type RenderEngineCircleOperation = Readonly<{
+  type: 'circle'
+  x: number
+  y: number
+  radius: number
+}>
+
+export type RenderEngineMoveToOperation = Readonly<{
+  type: 'move-to'
+  x: number
+  y: number
+}>
+
+export type RenderEngineLineToOperation = Readonly<{
+  type: 'line-to'
+  x: number
+  y: number
+}>
+
+export type RenderEngineBezierCurveToOperation = Readonly<{
+  type: 'bezier-curve-to'
+  controlPoint1: RenderEnginePoint
+  controlPoint2: RenderEnginePoint
+  destination: RenderEnginePoint
+}>
+
+export type RenderEngineClosePathOperation = Readonly<{ type: 'close-path' }>
+
+export type RenderEngineFillOperation = Readonly<{
+  type: 'fill'
+  paint: RenderEnginePaint
+}>
+
+export type RenderEngineStrokeOperation = Readonly<{
+  type: 'stroke'
+  paint: RenderEnginePaint
+  width: number
+}>
+
 export type RenderEngineDrawOperation =
-  | Readonly<{ type: 'clear' }>
-  | Readonly<{
-      type: 'rect'
-      x: number
-      y: number
-      width: number
-      height: number
-    }>
-  | Readonly<{
-      type: 'ellipse'
-      x: number
-      y: number
-      radiusX: number
-      radiusY: number
-    }>
-  | Readonly<{ type: 'circle'; x: number; y: number; radius: number }>
-  | Readonly<{ type: 'move-to'; x: number; y: number }>
-  | Readonly<{ type: 'line-to'; x: number; y: number }>
-  | Readonly<{
-      type: 'bezier-curve-to'
-      controlPoint1: RenderEnginePoint
-      controlPoint2: RenderEnginePoint
-      destination: RenderEnginePoint
-    }>
-  | Readonly<{ type: 'close-path' }>
-  | Readonly<{ type: 'fill'; paint: RenderEnginePaint }>
-  | Readonly<{
-      type: 'stroke'
-      paint: RenderEnginePaint
-      width: number
-    }>
+  | RenderEngineClearOperation
+  | RenderEngineRectOperation
+  | RenderEngineEllipseOperation
+  | RenderEngineCircleOperation
+  | RenderEngineMoveToOperation
+  | RenderEngineLineToOperation
+  | RenderEngineBezierCurveToOperation
+  | RenderEngineClosePathOperation
+  | RenderEngineFillOperation
+  | RenderEngineStrokeOperation
+
+export type RenderEngineCreateObjectCommand = Readonly<{
+  type: 'create-object'
+  requestId: string
+  objectType: RenderEngineObjectType
+  properties?: RenderEngineObjectProperties
+}>
+
+export type RenderEngineUpdateObjectCommand = Readonly<{
+  type: 'update-object'
+  object: RenderEngineObjectHandle
+  properties: RenderEngineObjectProperties
+}>
+
+export type RenderEngineDestroyObjectCommand = Readonly<{
+  type: 'destroy-object'
+  object: RenderEngineObjectHandle
+}>
+
+export type RenderEngineAppendChildCommand = Readonly<{
+  type: 'append-child'
+  parent: RenderEngineObjectHandle
+  child: RenderEngineObjectHandle
+}>
+
+export type RenderEngineRemoveChildCommand = Readonly<{
+  type: 'remove-child'
+  parent: RenderEngineObjectHandle
+  child: RenderEngineObjectHandle
+}>
+
+export type RenderEngineSetChildIndexCommand = Readonly<{
+  type: 'set-child-index'
+  parent: RenderEngineObjectHandle
+  child: RenderEngineObjectHandle
+  index: number
+}>
+
+export type RenderEngineDrawCommand = Readonly<{
+  type: 'draw'
+  object: RenderEngineObjectHandle
+  operations: readonly RenderEngineDrawOperation[]
+}>
+
+export type RenderEngineCreateResourceCommand = Readonly<{
+  type: 'create-resource'
+  requestId: string
+  descriptor: RenderEngineResourceDescriptor
+}>
+
+export type RenderEngineDestroyResourceCommand = Readonly<{
+  type: 'destroy-resource'
+  resource: RenderEngineResourceHandle
+}>
+
+export type RenderEngineResizeCommand = Readonly<{
+  type: 'resize'
+  width: number
+  height: number
+}>
+
+export type RenderEngineSetViewportCommand = Readonly<{
+  type: 'set-viewport'
+  position: RenderEnginePoint
+  scale: RenderEnginePoint
+}>
+
+export type RenderEngineFlushCommand = Readonly<{ type: 'flush' }>
 
 export type RenderEngineCommand =
-  | Readonly<{
-      type: 'create-object'
-      requestId: string
-      objectType: RenderEngineObjectType
-      properties?: RenderEngineObjectProperties
-    }>
-  | Readonly<{
-      type: 'update-object'
-      object: RenderEngineObjectHandle
-      properties: RenderEngineObjectProperties
-    }>
-  | Readonly<{
-      type: 'destroy-object'
-      object: RenderEngineObjectHandle
-    }>
-  | Readonly<{
-      type: 'append-child'
-      parent: RenderEngineObjectHandle
-      child: RenderEngineObjectHandle
-    }>
-  | Readonly<{
-      type: 'remove-child'
-      parent: RenderEngineObjectHandle
-      child: RenderEngineObjectHandle
-    }>
-  | Readonly<{
-      type: 'set-child-index'
-      parent: RenderEngineObjectHandle
-      child: RenderEngineObjectHandle
-      index: number
-    }>
-  | Readonly<{
-      type: 'draw'
-      object: RenderEngineObjectHandle
-      operations: readonly RenderEngineDrawOperation[]
-    }>
-  | Readonly<{
-      type: 'create-resource'
-      requestId: string
-      descriptor: RenderEngineResourceDescriptor
-    }>
-  | Readonly<{
-      type: 'destroy-resource'
-      resource: RenderEngineResourceHandle
-    }>
-  | Readonly<{
-      type: 'resize'
-      width: number
-      height: number
-    }>
-  | Readonly<{
-      type: 'set-viewport'
-      position: RenderEnginePoint
-      scale: RenderEnginePoint
-    }>
-  | Readonly<{ type: 'flush' }>
+  | RenderEngineCreateObjectCommand
+  | RenderEngineUpdateObjectCommand
+  | RenderEngineDestroyObjectCommand
+  | RenderEngineAppendChildCommand
+  | RenderEngineRemoveChildCommand
+  | RenderEngineSetChildIndexCommand
+  | RenderEngineDrawCommand
+  | RenderEngineCreateResourceCommand
+  | RenderEngineDestroyResourceCommand
+  | RenderEngineResizeCommand
+  | RenderEngineSetViewportCommand
+  | RenderEngineFlushCommand
 
 export type RenderEngineCommandResult = Readonly<{
   commandType: RenderEngineCommand['type']
@@ -135,28 +195,54 @@ export type RenderEngineCommandResult = Readonly<{
   resource?: RenderEngineResourceHandle
 }>
 
+export type RenderEngineGetBoundsQuery = Readonly<{
+  type: 'get-bounds'
+  object: RenderEngineObjectHandle
+}>
+
+export type RenderEngineToLocalQuery = Readonly<{
+  type: 'to-local'
+  object: RenderEngineObjectHandle
+  point: RenderEnginePoint
+}>
+
+export type RenderEngineToGlobalQuery = Readonly<{
+  type: 'to-global'
+  object: RenderEngineObjectHandle
+  point: RenderEnginePoint
+}>
+
+export type RenderEngineHitTestQuery = Readonly<{
+  type: 'hit-test'
+  point: RenderEnginePoint
+}>
+
 export type RenderEngineQuery =
-  | Readonly<{ type: 'get-bounds'; object: RenderEngineObjectHandle }>
-  | Readonly<{
-      type: 'to-local'
-      object: RenderEngineObjectHandle
-      point: RenderEnginePoint
-    }>
-  | Readonly<{
-      type: 'to-global'
-      object: RenderEngineObjectHandle
-      point: RenderEnginePoint
-    }>
-  | Readonly<{ type: 'hit-test'; point: RenderEnginePoint }>
+  | RenderEngineGetBoundsQuery
+  | RenderEngineToLocalQuery
+  | RenderEngineToGlobalQuery
+  | RenderEngineHitTestQuery
+
+export type RenderEngineBoundsQueryResult = Readonly<{
+  type: 'bounds'
+  bounds: RenderEngineBounds
+}>
+
+export type RenderEnginePointQueryResult = Readonly<{
+  type: 'point'
+  point: RenderEnginePoint
+}>
+
+export type RenderEngineHitQueryResult = Readonly<{
+  type: 'hit'
+  target: RenderEngineObjectHandle | null
+  point: RenderEnginePoint
+}>
 
 export type RenderEngineQueryResult =
-  | Readonly<{ type: 'bounds'; bounds: RenderEngineBounds }>
-  | Readonly<{ type: 'point'; point: RenderEnginePoint }>
-  | Readonly<{
-      type: 'hit'
-      target: RenderEngineObjectHandle | null
-      point: RenderEnginePoint
-    }>
+  | RenderEngineBoundsQueryResult
+  | RenderEnginePointQueryResult
+  | RenderEngineHitQueryResult
 
 export type RenderEngineInteractionType =
   | 'pointerdown'
@@ -166,18 +252,20 @@ export type RenderEngineInteractionType =
   | 'pointerover'
   | 'pointerout'
 
+export type RenderEngineInteractionModifiers = Readonly<{
+  altKey: boolean
+  ctrlKey: boolean
+  metaKey: boolean
+  shiftKey: boolean
+}>
+
 export type RenderEngineInteractionEvent = Readonly<{
   type: RenderEngineInteractionType
   pointerId: number
   button: number
   buttons: number
   position: RenderEnginePoint
-  modifiers: Readonly<{
-    altKey: boolean
-    ctrlKey: boolean
-    metaKey: boolean
-    shiftKey: boolean
-  }>
+  modifiers: RenderEngineInteractionModifiers
   target: RenderEngineObjectHandle | null
   timestamp: number
 }>
