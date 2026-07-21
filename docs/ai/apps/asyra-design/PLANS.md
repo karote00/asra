@@ -5,6 +5,9 @@ Never record completed plans here.
 ## Current Status
 
 - Current plan in this index: none.
+- Queued next implementation plan after the current Yjs collaboration Gate 2
+  changes are reviewed, staged, and committed:
+  `plans/durable-collaboration-server-and-continuous-sync-plan.md`.
 - Stroke semantics are owned by
   `docs/ai/apps/asyra-design/specs/stroke-engine/SPEC.md`.
 - Stroke step, route, artifact, invariant, and acceptance contracts are owned
