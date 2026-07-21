@@ -383,7 +383,6 @@ See `packages/collaboration.md` and
 - `EngineNeutralRenderStrategy<TAppData>` receives
   `RenderElementData & TAppData`; the app strategy owns custom-field drawing
   semantics and Render adds no engine-specific type or fallback behavior
-- `interactionHandlerRegistry`
 - overlay helper: `createOverlayLayerRegistration(...)`
 - overlay interaction helpers:
   - `createRenderInteractionPointTarget(...)`

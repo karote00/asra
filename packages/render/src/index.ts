@@ -12,7 +12,6 @@ export {
 } from './errors'
 export { RenderAdapter, PixiJSRenderer }
 export { renderStrategyRegistry } from './registries/render-strategy'
-export { interactionHandlerRegistry } from './registries/interaction-handler'
 export { interactionTargetRegistry } from './registries/interaction-target'
 export { renderInteractionHandlerRegistry } from './registries/render-interaction-handler'
 export {
