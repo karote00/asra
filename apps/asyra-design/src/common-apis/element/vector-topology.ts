@@ -35,11 +35,7 @@ export interface VectorTopologyEndpoint {
   side: VectorTopologyEndpointSide
 }
 
-export interface VectorTopologyContinuation {
-  networkId: string
-  pointId: string
-  side: VectorTopologyEndpointSide
-}
+export type VectorTopologyContinuation = VectorTopologyEndpoint
 
 interface VectorAnchorViewOptions {
   includeSyntheticHandles?: boolean

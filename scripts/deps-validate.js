@@ -39,7 +39,7 @@ function moduleSpecifierText(node) {
 }
 
 function importTypeSpecifierText(node) {
-  if (!ts.isLiteralTypeNode(node.argument)) return undefined
+  if (!ts.isLiteralTypeNode(node.argument)) return
   return moduleSpecifierText(node.argument.literal)
 }
 

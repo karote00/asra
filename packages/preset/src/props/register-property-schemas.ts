@@ -28,6 +28,12 @@ const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 const isOpacity = (value: unknown) =>
   isFiniteNumber(value) && (value as number) >= 0 && (value as number) <= 1
+const isNullableFinitePoint = (value: unknown) =>
+  value === null ||
+  (typeof value === 'object' &&
+    value !== null &&
+    Number.isFinite((value as { x?: unknown }).x) &&
+    Number.isFinite((value as { y?: unknown }).y))
 
 const COLOR_FORMAT_SET = new Set(Object.values(FillColorFormats))
 const isFillColorFormat = (value: unknown) =>
@@ -345,23 +351,13 @@ const anchorPointSchema: PropertySchema = {
     {
       key: 'inHandle',
       kind: 'object',
-      validate: (value) =>
-        value === null ||
-        (typeof value === 'object' &&
-          value !== null &&
-          Number.isFinite((value as { x?: unknown }).x) &&
-          Number.isFinite((value as { y?: unknown }).y)),
+      validate: isNullableFinitePoint,
       defaultValue: null
     },
     {
       key: 'outHandle',
       kind: 'object',
-      validate: (value) =>
-        value === null ||
-        (typeof value === 'object' &&
-          value !== null &&
-          Number.isFinite((value as { x?: unknown }).x) &&
-          Number.isFinite((value as { y?: unknown }).y)),
+      validate: isNullableFinitePoint,
       defaultValue: null
     }
   ]

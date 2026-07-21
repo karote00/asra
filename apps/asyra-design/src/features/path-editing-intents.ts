@@ -1,4 +1,7 @@
-import type { VectorPointTarget } from '@asyra/core'
+import type {
+  SelectedVectorSegmentState,
+  VectorPointTarget
+} from '@asyra/core'
 import type {
   StructuralVectorChangedRecord,
   StructuralVectorOperation,
@@ -14,10 +17,10 @@ export interface PathEditingHoveredPointInput {
   y: number
 }
 
-export interface PathEditingHoveredSegmentInput {
-  elementId: string
-  segmentId: string
-}
+export type PathEditingHoveredSegmentInput = Pick<
+  SelectedVectorSegmentState,
+  'elementId' | 'segmentId'
+>
 
 interface PathEditingIntentEvidence {
   selectedElementIds: string[]
