@@ -3,13 +3,17 @@ import type {
   ProviderAwarenessMessage
 } from './provider'
 
+export interface AwarenessRecord {
+  [key: string]: AwarenessValue
+}
+
 export type AwarenessValue =
   | null
   | string
   | number
   | boolean
   | AwarenessValue[]
-  | { [key: string]: AwarenessValue }
+  | AwarenessRecord
 
 export type AwarenessStateInput = Readonly<
   Record<string, AwarenessValue | undefined>
@@ -32,16 +36,20 @@ export interface RemoteAwarenessSnapshot {
 
 export type AwarenessRemovalReason = 'disconnect' | 'leave' | 'timeout'
 
+export interface AwarenessUpdatedObservation {
+  readonly type: 'updated'
+  readonly snapshot: RemoteAwarenessSnapshot
+}
+
+export interface AwarenessRemovedObservation {
+  readonly type: 'removed'
+  readonly actorId: string
+  readonly reason: AwarenessRemovalReason
+}
+
 export type AwarenessObservation =
-  | Readonly<{
-      type: 'updated'
-      snapshot: RemoteAwarenessSnapshot
-    }>
-  | Readonly<{
-      type: 'removed'
-      actorId: string
-      reason: AwarenessRemovalReason
-    }>
+  | AwarenessUpdatedObservation
+  | AwarenessRemovedObservation
 
 export type AwarenessValidationErrorCode =
   | 'invalid-actor'

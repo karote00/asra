@@ -36,7 +36,7 @@ import {
   createWorkspace,
   isGroupEntity,
   stripNonRawFields
-} from './utils'
+} from './entity-data'
 import type Workspace from './components/workspace'
 import { setOwnEnumerableValue } from './own-values'
 

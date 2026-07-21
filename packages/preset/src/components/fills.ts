@@ -16,16 +16,18 @@ import {
   type RenderFillStyle
 } from '@asyra/core'
 
-type RenderableFill =
-  | {
-      kind: 'solid'
-      color: number
-      alpha: number
-    }
-  | {
-      kind: 'gradient'
-      style: RenderFillStyle
-    }
+interface SolidRenderableFill {
+  kind: 'solid'
+  color: number
+  alpha: number
+}
+
+interface GradientRenderableFill {
+  kind: 'gradient'
+  style: RenderFillStyle
+}
+
+type RenderableFill = SolidRenderableFill | GradientRenderableFill
 
 const normalizeFillEntry = (value: unknown): FillAttrs | null => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {

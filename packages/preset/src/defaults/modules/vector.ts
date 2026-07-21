@@ -8,7 +8,7 @@ import {
   acquireRenderSceneProjection,
   acquireVectorProperties,
   installComponentsAndStrategies
-} from '../helpers'
+} from '../installation'
 
 export const installVectorDefault = (
   context: PresetDefaultInstallContext

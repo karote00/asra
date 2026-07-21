@@ -2,10 +2,29 @@ import type { SharedOperationEnvelope } from './envelope'
 import { OperationRegistry } from './registry'
 import type { ValidatedRemoteOperation } from './validation'
 
+export interface NotApplicableConflictDecision {
+  readonly decision: 'not-applicable'
+}
+
+export interface AcceptConflictDecision {
+  readonly decision: 'accept'
+}
+
+export interface RejectConflictDecision {
+  readonly decision: 'reject'
+  readonly code: string
+}
+
+export interface RepairConflictDecision {
+  readonly decision: 'repair'
+  readonly payload: unknown
+}
+
 export type ConflictPolicyDecision =
-  | Readonly<{ decision: 'not-applicable' | 'accept' }>
-  | Readonly<{ decision: 'reject'; code: string }>
-  | Readonly<{ decision: 'repair'; payload: unknown }>
+  | NotApplicableConflictDecision
+  | AcceptConflictDecision
+  | RejectConflictDecision
+  | RepairConflictDecision
 
 export interface ConflictPolicyContext {
   readonly envelope: SharedOperationEnvelope

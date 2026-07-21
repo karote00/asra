@@ -6,7 +6,7 @@ import type {
   IElement
 } from '@asyra/utils'
 import { IDTypes, NameTypes, EntityTypes } from '@asyra/utils'
-import { isGroupEntity } from '../utils'
+import { isGroupEntity } from '../entity-data'
 import Group from './group'
 import type { ISceneTreeRegistry } from '../types'
 

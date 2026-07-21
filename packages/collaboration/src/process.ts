@@ -69,29 +69,40 @@ interface LifecycleResource {
   dispose?: () => void | Promise<void>
 }
 
+export interface LocalPublishedOperationOutcome {
+  readonly direction: 'local'
+  readonly status: 'published'
+  readonly envelope: SharedOperationEnvelope
+  readonly durability: DurabilityOutcome
+}
+
+export interface LocalRejectedOperationOutcome {
+  readonly direction: 'local'
+  readonly status: 'rejected'
+  readonly error: unknown
+}
+
+export interface RemoteProcessedOperationOutcome {
+  readonly direction: 'remote'
+  readonly source: InboundYjsUpdateSource
+  readonly outcome:
+    | RemoteValidationResult
+    | ConflictOutcome
+    | OperationApplyOutcome
+}
+
+export interface RemoteFailedOperationOutcome {
+  readonly direction: 'remote'
+  readonly source: InboundYjsUpdateSource
+  readonly status: 'decode-failed' | 'runtime-failed'
+  readonly error: unknown
+}
+
 export type CollaborationOperationOutcome =
-  | Readonly<{
-      direction: 'local'
-      status: 'published'
-      envelope: SharedOperationEnvelope
-      durability: DurabilityOutcome
-    }>
-  | Readonly<{
-      direction: 'local'
-      status: 'rejected'
-      error: unknown
-    }>
-  | Readonly<{
-      direction: 'remote'
-      source: InboundYjsUpdateSource
-      outcome: RemoteValidationResult | ConflictOutcome | OperationApplyOutcome
-    }>
-  | Readonly<{
-      direction: 'remote'
-      source: InboundYjsUpdateSource
-      status: 'decode-failed' | 'runtime-failed'
-      error: unknown
-    }>
+  | LocalPublishedOperationOutcome
+  | LocalRejectedOperationOutcome
+  | RemoteProcessedOperationOutcome
+  | RemoteFailedOperationOutcome
 
 const callLifecycle = async (
   resource: LifecycleResource | undefined

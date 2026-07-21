@@ -1,6 +1,6 @@
 import systemContext from '@asyra/system-context'
 import { getElementGeometryWorldBounds } from '@asyra/utils'
-import { getSelectionLocalBounds, getSelectionWorldBounds } from './utils'
+import { getSelectionLocalBounds, getSelectionWorldBounds } from './bounds'
 import { SceneElement } from '../../types'
 import { RenderContainer, RenderGraphics } from '../../types/render-object'
 

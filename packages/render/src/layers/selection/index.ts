@@ -1,2 +1,2 @@
 export * from './selection-layer'
-export * from './utils'
+export * from './bounds'

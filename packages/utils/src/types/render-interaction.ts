@@ -1,4 +1,4 @@
-import type { PositionData } from './common'
+import type { PositionData } from './geometry'
 import type { MouseButton } from '../constants'
 
 export type RenderPointerTargetKind = 'element' | 'overlay'

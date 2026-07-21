@@ -6,7 +6,7 @@ import type { PresetDefaultInstallContext } from '../types'
 import {
   acquireVectorEditingProjection,
   registerTrackedRenderLayer
-} from '../helpers'
+} from '../installation'
 
 export const installVectorEditingDefault = (
   context: PresetDefaultInstallContext

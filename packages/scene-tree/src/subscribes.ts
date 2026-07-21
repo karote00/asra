@@ -25,7 +25,7 @@ import {
   type GroupInstanceTypes
 } from '@asyra/utils'
 import sceneTree from './sceneTree'
-import { isGroupEntity } from './utils'
+import { isGroupEntity } from './entity-data'
 import { setOwnEnumerableValue } from './own-values'
 
 const toAppliedComputedDataPatch = (

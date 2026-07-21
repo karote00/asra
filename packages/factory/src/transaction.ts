@@ -24,9 +24,13 @@ export interface TransactionValidationFailure {
   message: string
 }
 
+export interface TransactionValidationSuccess {
+  valid: true
+}
+
 export type TransactionValidationResult =
   | undefined
-  | { valid: true }
+  | TransactionValidationSuccess
   | TransactionValidationFailure
 
 export type TransactionValidator = (

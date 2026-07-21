@@ -6,7 +6,7 @@ import {
   SceneElement
 } from '../../types'
 import { RenderLayer } from '../scene'
-import { rectToBounds } from './utils'
+import { rectToBounds } from './geometry'
 import { RenderContainer, type RenderGraphics } from '../../types/render-object'
 
 export class ViewportLayer {

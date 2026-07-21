@@ -4,18 +4,31 @@ export { Awareness, AwarenessValidationError } from './awareness'
 export type {
   AwarenessObservation,
   AwarenessOptions,
+  AwarenessRecord,
+  AwarenessRemovedObservation,
   AwarenessRemovalReason,
   AwarenessState,
   AwarenessStateInput,
+  AwarenessUpdatedObservation,
   AwarenessValidationErrorCode,
   AwarenessValue,
   RemoteAwarenessSnapshot
 } from './awareness'
-export type { CollaborationOperationOutcome } from './process'
 export type {
+  CollaborationOperationOutcome,
+  LocalPublishedOperationOutcome,
+  LocalRejectedOperationOutcome,
+  RemoteFailedOperationOutcome,
+  RemoteProcessedOperationOutcome
+} from './process'
+export type {
+  AcceptConflictDecision,
   AppConflictPolicy,
   ConflictPolicyContext,
-  ConflictPolicyDecision
+  ConflictPolicyDecision,
+  NotApplicableConflictDecision,
+  RejectConflictDecision,
+  RepairConflictDecision
 } from './operations/conflict'
 export type {
   SharedOperationEnvelope,

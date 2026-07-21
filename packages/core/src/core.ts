@@ -117,23 +117,29 @@ interface CoreDeps {
   systemContext: SystemContext
 }
 
+interface SkippedPendingPersistence {
+  kind: 'skipped'
+  transaction: TransactionStatusPayload
+}
+
+interface SavePendingPersistence {
+  kind: 'save'
+  transaction: TransactionStatusPayload
+  provider: IPersistenceProvider
+  data: CoreRawData
+}
+
+interface CaptureFailedPendingPersistence {
+  kind: 'capture-failed'
+  transaction: TransactionStatusPayload
+  provider: IPersistenceProvider
+  error: unknown
+}
+
 type PendingPersistence =
-  | {
-      kind: 'skipped'
-      transaction: TransactionStatusPayload
-    }
-  | {
-      kind: 'save'
-      transaction: TransactionStatusPayload
-      provider: IPersistenceProvider
-      data: CoreRawData
-    }
-  | {
-      kind: 'capture-failed'
-      transaction: TransactionStatusPayload
-      provider: IPersistenceProvider
-      error: unknown
-    }
+  | SkippedPendingPersistence
+  | SavePendingPersistence
+  | CaptureFailedPendingPersistence
 
 const DEFAULT_VERSION = '1.0.0'
 const DATA_VERSION = '1.0.0'

@@ -1,4 +1,4 @@
-export * from './common'
+export * from './geometry'
 export * from './constants'
 export * from './yjs'
 export * from './change'

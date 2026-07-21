@@ -83,50 +83,70 @@ interface VectorHandleUpdate {
   forceSmooth?: boolean
 }
 
+interface AppendAnchorOperation {
+  type: 'appendAnchor'
+  pointId: string
+}
+
+interface RemoveAnchorOperation {
+  type: 'removeAnchor'
+  pointId: string
+}
+
+interface SplitSegmentOperation {
+  type: 'splitSegment'
+  segmentId: string
+  pointId: string
+}
+
+interface ConnectEndpointsOperation {
+  type: 'connectEndpoints'
+  sourcePointId: string
+  targetPointId: string
+}
+
+interface ConnectAnchorsOperation {
+  type: 'connectAnchors'
+  sourcePointId: string
+  targetPointId: string
+}
+
+interface SetClosedOperation {
+  type: 'setClosed'
+  closed: boolean
+}
+
+interface SetAnchorTypeOperation {
+  type: 'setAnchorType'
+  pointId: string
+}
+
+interface SetHandleModeOperation {
+  type: 'setHandleMode'
+  pointId: string
+  mode: VectorHandleMode
+}
+
+interface SetHandlesOperation {
+  type: 'setHandles'
+  updates: VectorHandleUpdate[]
+}
+
+interface RemoveLastSinglePointSubpathOperation {
+  type: 'removeLastSinglePointSubpath'
+}
+
 type VectorTopologyOperation =
-  | {
-      type: 'appendAnchor'
-      pointId: string
-    }
-  | {
-      type: 'removeAnchor'
-      pointId: string
-    }
-  | {
-      type: 'splitSegment'
-      segmentId: string
-      pointId: string
-    }
-  | {
-      type: 'connectEndpoints'
-      sourcePointId: string
-      targetPointId: string
-    }
-  | {
-      type: 'connectAnchors'
-      sourcePointId: string
-      targetPointId: string
-    }
-  | {
-      type: 'setClosed'
-      closed: boolean
-    }
-  | {
-      type: 'setAnchorType'
-      pointId: string
-    }
-  | {
-      type: 'setHandleMode'
-      pointId: string
-      mode: VectorHandleMode
-    }
-  | {
-      type: 'setHandles'
-      updates: VectorHandleUpdate[]
-    }
-  | {
-      type: 'removeLastSinglePointSubpath'
-    }
+  | AppendAnchorOperation
+  | RemoveAnchorOperation
+  | SplitSegmentOperation
+  | ConnectEndpointsOperation
+  | ConnectAnchorsOperation
+  | SetClosedOperation
+  | SetAnchorTypeOperation
+  | SetHandleModeOperation
+  | SetHandlesOperation
+  | RemoveLastSinglePointSubpathOperation
 
 type CommonApiStructuralOperation =
   | 'append-anchor'
