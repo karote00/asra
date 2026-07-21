@@ -2,14 +2,13 @@ import {
   COLLABORATION_PROTOCOL_VERSION,
   type SharedOperationEnvelope,
   type SharedOperationOrigin
-} from './operation-envelope'
+} from './envelope'
+import { OperationRegistry } from './registry'
 import {
-  isCanonicalOperationApply,
-  OperationRegistry,
-  type CanonicalOperationApply
-} from './operation-registry'
-import type { Factory } from '@asyra/factory'
-import type { ConflictAcceptedOperation } from './conflict-policy'
+  fingerprintOperation,
+  OperationOutcomeRegistry,
+  type DuplicateOperationOutcome
+} from './outcomes'
 
 export type ValidationRejectionCode =
   | 'malformed-envelope'
@@ -45,139 +44,10 @@ export interface ValidatedRemoteOperation {
   readonly envelope: SharedOperationEnvelope
 }
 
-export interface RecordedOperationOutcome {
-  readonly status:
-    | 'validated'
-    | 'accepted'
-    | 'repaired'
-    | 'rejected'
-    | 'apply-failed'
-  readonly operationId: string
-  readonly applied: boolean
-  readonly code?: string
-}
-
-export interface DuplicateOperationOutcome {
-  readonly status: 'duplicate'
-  readonly operationId: string
-  readonly recordedOutcome: RecordedOperationOutcome
-}
-
 export type RemoteValidationResult =
   | ValidatedRemoteOperation
   | DuplicateOperationOutcome
   | RemoteValidationRejection
-
-interface StoredOutcome {
-  readonly fingerprint: string
-  readonly actorId: string
-  readonly origin: SharedOperationOrigin
-  outcome: RecordedOperationOutcome
-}
-
-const freezeOutcome = <T extends object>(value: T): Readonly<T> =>
-  Object.freeze({ ...value })
-
-export class OperationOutcomeRegistry {
-  private readonly outcomes = new Map<string, StoredOutcome>()
-
-  recordLocal(envelope: SharedOperationEnvelope): void {
-    const fingerprint = stableSerialize(envelope)
-    const existing = this.outcomes.get(envelope.operationId)
-    if (existing) {
-      if (existing.fingerprint !== fingerprint) {
-        throw new Error(
-          '[collaboration] local operation identity collides with a recorded outcome'
-        )
-      }
-      return
-    }
-    this.outcomes.set(envelope.operationId, {
-      fingerprint,
-      actorId: envelope.actorId,
-      origin: envelope.origin,
-      outcome: freezeOutcome({
-        status: 'accepted',
-        operationId: envelope.operationId,
-        applied: true
-      })
-    })
-  }
-
-  inspect(
-    operationId: string,
-    fingerprint: string
-  ): DuplicateOperationOutcome | RemoteValidationRejection | undefined {
-    const existing = this.outcomes.get(operationId)
-    if (!existing) return undefined
-    if (existing.fingerprint !== fingerprint) {
-      return rejection('operation-identity-collision', operationId)
-    }
-    return Object.freeze({
-      status: 'duplicate',
-      operationId,
-      recordedOutcome: existing.outcome
-    })
-  }
-
-  reserve(envelope: SharedOperationEnvelope, fingerprint: string): void {
-    this.outcomes.set(envelope.operationId, {
-      fingerprint,
-      actorId: envelope.actorId,
-      origin: envelope.origin,
-      outcome: freezeOutcome({
-        status: 'validated',
-        operationId: envelope.operationId,
-        applied: false
-      })
-    })
-  }
-
-  lookup(operationId: string):
-    | Readonly<{
-        actorId: string
-        origin: SharedOperationOrigin
-        outcome: RecordedOperationOutcome
-      }>
-    | undefined {
-    const existing = this.outcomes.get(operationId)
-    return existing
-      ? Object.freeze({
-          actorId: existing.actorId,
-          origin: existing.origin,
-          outcome: existing.outcome
-        })
-      : undefined
-  }
-
-  record(
-    envelope: SharedOperationEnvelope,
-    outcome: RecordedOperationOutcome
-  ): void {
-    const existing = this.outcomes.get(envelope.operationId)
-    const fingerprint = stableSerialize(envelope)
-    if (!existing || existing.fingerprint !== fingerprint) {
-      throw new Error(
-        '[collaboration] operation outcome does not match its reservation'
-      )
-    }
-    if (outcome.operationId !== envelope.operationId) {
-      throw new Error(
-        '[collaboration] recorded outcome operationId does not match envelope'
-      )
-    }
-    if (
-      outcome.applied &&
-      outcome.status !== 'accepted' &&
-      outcome.status !== 'repaired'
-    ) {
-      throw new Error(
-        '[collaboration] only accepted or repaired outcomes can be applied'
-      )
-    }
-    existing.outcome = freezeOutcome(outcome) as RecordedOperationOutcome
-  }
-}
 
 const rejection = (
   code: ValidationRejectionCode,
@@ -265,31 +135,6 @@ const freezeDeep = <T>(value: T, seen = new WeakSet<object>()): T => {
     freezeDeep(Reflect.get(object, key), seen)
   )
   return Object.freeze(value)
-}
-
-const stableSerialize = (value: unknown): string => {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value)
-  if (Array.isArray(value)) {
-    const items: string[] = []
-    for (let index = 0; index < value.length; index += 1) {
-      const descriptor = Object.getOwnPropertyDescriptor(value, index)
-      if (!descriptor || !('value' in descriptor)) {
-        throw new Error('array must contain data values')
-      }
-      items.push(stableSerialize(descriptor.value))
-    }
-    return `[${items.join(',')}]`
-  }
-  return `{${Object.keys(value)
-    .sort()
-    .map((key) => {
-      const descriptor = Object.getOwnPropertyDescriptor(value, key)
-      if (!descriptor || !('value' in descriptor)) {
-        throw new Error('object must contain data values')
-      }
-      return `${JSON.stringify(key)}:${stableSerialize(descriptor.value)}`
-    })
-    .join(',')}}`
 }
 
 const stringField = (
@@ -406,7 +251,7 @@ export const validateRemoteOperation = ({
       try {
         const identityResult = outcomes.inspect(
           rawOperationId,
-          stableSerialize(decoded)
+          fingerprintOperation(decoded)
         )
         if (identityResult) return identityResult
       } catch {
@@ -416,7 +261,7 @@ export const validateRemoteOperation = ({
   }
   const candidate = basicEnvelope(decoded)
   if ('status' in candidate) return candidate
-  const fingerprint = stableSerialize(candidate)
+  const fingerprint = fingerprintOperation(candidate)
   const previous = outcomes.inspect(candidate.operationId, fingerprint)
   if (previous) return previous
 
@@ -501,91 +346,4 @@ export const validateRemoteOperation = ({
   const immutableEnvelope = freezeDeep(candidate)
   outcomes.reserve(immutableEnvelope, fingerprint)
   return Object.freeze({ status: 'validated', envelope: immutableEnvelope })
-}
-
-export interface RemoteCanonicalApplyAcceptedOutcome {
-  readonly status: 'accepted' | 'repaired'
-  readonly operationId: string
-  readonly applied: boolean
-}
-
-export interface RemoteCanonicalApplyFailedOutcome {
-  readonly status: 'apply-failed'
-  readonly operationId: string
-  readonly code:
-    | 'canonical-apply-failed'
-    | 'async-handler-not-supported'
-    | 'invalid-canonical-apply-handler'
-  readonly error: unknown
-}
-
-export type RemoteCanonicalApplyOutcome =
-  | RemoteCanonicalApplyAcceptedOutcome
-  | RemoteCanonicalApplyFailedOutcome
-
-export interface RunRemoteCanonicalApplyInput {
-  readonly operation: ConflictAcceptedOperation
-  readonly factory: Factory
-  readonly apply: CanonicalOperationApply
-  readonly outcomes: OperationOutcomeRegistry
-}
-
-export const runRemoteCanonicalApply = ({
-  operation,
-  factory,
-  apply,
-  outcomes
-}: RunRemoteCanonicalApplyInput): RemoteCanonicalApplyOutcome => {
-  if (!isCanonicalOperationApply(apply)) {
-    const error = new Error(
-      '[collaboration] canonical apply handler must use defineCanonicalOperationApply'
-    )
-    const result = Object.freeze({
-      status: 'apply-failed' as const,
-      operationId: operation.receivedEnvelope.operationId,
-      code: 'invalid-canonical-apply-handler' as const,
-      error
-    })
-    outcomes.record(operation.receivedEnvelope, {
-      status: 'apply-failed',
-      operationId: operation.receivedEnvelope.operationId,
-      applied: false,
-      code: result.code
-    })
-    return result
-  }
-  try {
-    const applied = factory.runRemoteTransaction(() =>
-      apply(operation.envelope)
-    )
-    const result = Object.freeze({
-      status: operation.status,
-      operationId: operation.envelope.operationId,
-      applied: applied !== false
-    })
-    outcomes.record(operation.receivedEnvelope, {
-      status: operation.status,
-      operationId: operation.receivedEnvelope.operationId,
-      applied: result.applied
-    })
-    return result
-  } catch (error) {
-    const code: RemoteCanonicalApplyFailedOutcome['code'] =
-      factory.isRemoteAsyncHandlerError(error)
-        ? 'async-handler-not-supported'
-        : 'canonical-apply-failed'
-    const result = Object.freeze({
-      status: 'apply-failed' as const,
-      operationId: operation.receivedEnvelope.operationId,
-      code,
-      error
-    })
-    outcomes.record(operation.receivedEnvelope, {
-      status: 'apply-failed',
-      operationId: operation.receivedEnvelope.operationId,
-      applied: false,
-      code
-    })
-    return result
-  }
 }

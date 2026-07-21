@@ -7,7 +7,13 @@ Provide shared types, ids, registry primitives, and low-level helpers.
 ## Owns
 
 - shared type definitions used across packages
+- canonical `SharedDeliveryMode` timing and `Rect`/`PositionData` geometry
+  contracts, plus pure `rectFromPoints(...)` normalization
 - id generation and id loading helpers
+  - `idCounter.setNamespace(value?)` optionally scopes every non-default
+    registered counter prefix while preserving its numeric sequence
+  - IDs from another namespace remain valid owner data but do not advance the
+    local namespace's counter; clearing the counter also clears the namespace
 - common registry utility primitives
 - framework-safe helper functions/constants
 

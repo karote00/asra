@@ -1,4 +1,4 @@
-import type { SharedOperationEnvelope } from './operation-envelope'
+import type { SharedOperationEnvelope } from './envelope'
 
 const CANONICAL_OPERATION_APPLY = Symbol('canonical-operation-apply')
 

@@ -1,6 +1,6 @@
 import type { YjsBinaryUpdate } from './yjs-document'
 
-export type CollaborationProviderStatus =
+export type ProviderStatus =
   | 'offline'
   | 'idle'
   | 'connecting'
@@ -9,7 +9,7 @@ export type CollaborationProviderStatus =
   | 'failed'
   | 'disposed'
 
-export interface CollaborationProviderIdentity {
+export interface ProviderIdentity {
   readonly documentId: string
   readonly roomId: string
   readonly actorId: string
@@ -42,14 +42,23 @@ export interface ProviderAwarenessDisconnect {
   readonly reason: 'disconnect'
 }
 
-export type ProviderFailureCode =
-  | 'connection-rejected'
-  | 'connection-failed'
-  | 'not-connected'
-  | 'invalid-awareness-actor'
-  | 'acknowledgement-failed'
-  | 'transport-failed'
-  | 'disposed'
+export const PROVIDER_FAILURE_CODES = Object.freeze([
+  'connection-rejected',
+  'connection-failed',
+  'not-connected',
+  'invalid-awareness-actor',
+  'acknowledgement-failed',
+  'transport-failed',
+  'disposed'
+] as const)
+
+export type ProviderFailureCode = (typeof PROVIDER_FAILURE_CODES)[number]
+
+export const isProviderFailureCode = (
+  value: unknown
+): value is ProviderFailureCode =>
+  typeof value === 'string' &&
+  PROVIDER_FAILURE_CODES.some((failureCode) => failureCode === value)
 
 export class ProviderFailure extends Error {
   readonly code: ProviderFailureCode
@@ -70,16 +79,14 @@ export class ProviderFailure extends Error {
   }
 }
 
-export interface CollaborationProvider {
-  readonly identity: CollaborationProviderIdentity
+export interface Provider {
+  readonly identity: ProviderIdentity
   connect(): Promise<void>
   disconnect(): Promise<void>
   reconnect(): Promise<void>
   destroy(): Promise<void>
-  getStatus(): CollaborationProviderStatus
-  onStatusChange(
-    subscriber: (status: CollaborationProviderStatus) => void
-  ): () => void
+  getStatus(): ProviderStatus
+  onStatusChange(subscriber: (status: ProviderStatus) => void): () => void
   sendUpdate(update: YjsBinaryUpdate): Promise<void>
   onUpdate(subscriber: (update: InboundBinaryUpdate) => void): () => void
   requestSync(stateVector: Uint8Array): Promise<Uint8Array>
@@ -99,7 +106,3 @@ export interface CollaborationProvider {
   ): () => void
   onFailure(subscriber: (failure: ProviderFailure) => void): () => void
 }
-
-export const providerStatus = (
-  provider: CollaborationProvider | undefined
-): CollaborationProviderStatus => provider?.getStatus() ?? 'offline'

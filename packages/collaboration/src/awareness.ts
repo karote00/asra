@@ -11,17 +11,16 @@ export type AwarenessValue =
   | AwarenessValue[]
   | { [key: string]: AwarenessValue }
 
-export interface AwarenessStateInput {
-  identity?: AwarenessValue
-  cursor?: AwarenessValue
-  selection?: AwarenessValue
-  viewport?: AwarenessValue
-  tool?: AwarenessValue
-  editing?: AwarenessValue
+export type AwarenessStateInput = Readonly<
+  Record<string, AwarenessValue | undefined>
+> & {
+  readonly heartbeatAt?: never
 }
 
-export interface AwarenessState extends AwarenessStateInput {
-  heartbeatAt?: number
+export type AwarenessState = Readonly<
+  Record<string, AwarenessValue | undefined>
+> & {
+  readonly heartbeatAt?: number
 }
 
 export interface RemoteAwarenessSnapshot {
@@ -47,7 +46,7 @@ export type AwarenessObservation =
 export type AwarenessValidationErrorCode =
   | 'invalid-actor'
   | 'invalid-clock'
-  | 'unsupported-field'
+  | 'reserved-field'
   | 'invalid-state'
   | 'disposed'
 
@@ -61,21 +60,12 @@ export class AwarenessValidationError extends Error {
   }
 }
 
-export interface AwarenessRuntimeOptions {
+export interface AwarenessOptions {
   readonly actorId?: string
   readonly timeoutMs?: number
   readonly now?: () => number
 }
 
-const allowedInputFields = new Set([
-  'identity',
-  'cursor',
-  'selection',
-  'viewport',
-  'tool',
-  'editing'
-])
-const allowedRemoteFields = new Set([...allowedInputFields, 'heartbeatAt'])
 const inboundMessageFields = new Set(['actorId', 'clock', 'state'])
 const inboundDisconnectFields = new Set(['actorId', 'reason'])
 
@@ -283,15 +273,16 @@ const requireActor = (actorId: unknown): string => {
 
 const cloneState = (
   input: Record<string, unknown>,
-  allowedFields: ReadonlySet<string>
+  allowHeartbeatAt: boolean
 ): AwarenessState => {
-  for (const key of Object.keys(input)) {
-    if (!allowedFields.has(key)) {
-      throw new AwarenessValidationError(
-        'unsupported-field',
-        `[collaboration] unsupported awareness field ${key}`
-      )
-    }
+  if (
+    !allowHeartbeatAt &&
+    Object.prototype.hasOwnProperty.call(input, 'heartbeatAt')
+  ) {
+    throw new AwarenessValidationError(
+      'reserved-field',
+      '[collaboration] awareness heartbeatAt is runtime-owned'
+    )
   }
   return freezeDeep(cloneAwarenessValue(input) as AwarenessState)
 }
@@ -302,14 +293,11 @@ const cloneSnapshot = (
   freezeDeep({
     actorId: snapshot.actorId,
     clock: snapshot.clock,
-    state: cloneState(
-      snapshot.state as Record<string, unknown>,
-      allowedRemoteFields
-    ),
+    state: cloneState(snapshot.state as Record<string, unknown>, true),
     lastSeenAt: snapshot.lastSeenAt
   })
 
-export class AwarenessRuntime {
+export class Awareness {
   readonly actorId: string
   private readonly timeoutMs: number
   private readonly now: () => number
@@ -321,7 +309,7 @@ export class AwarenessRuntime {
     (event: AwarenessObservation) => void
   >()
 
-  constructor(options: AwarenessRuntimeOptions = {}) {
+  constructor(options: AwarenessOptions = {}) {
     this.actorId = options.actorId ?? ''
     this.timeoutMs = options.timeoutMs ?? 30_000
     this.now = options.now ?? Date.now
@@ -340,13 +328,10 @@ export class AwarenessRuntime {
   updateLocal(input: AwarenessStateInput): ProviderAwarenessMessage {
     this.requireUsable()
     requireActor(this.actorId)
-    const selectedState = cloneState(
-      input as Record<string, unknown>,
-      allowedInputFields
-    )
+    const selectedState = cloneState(input as Record<string, unknown>, false)
     const state = cloneState(
       { ...selectedState, heartbeatAt: this.now() },
-      allowedRemoteFields
+      true
     )
     this.clock += 1
     return freezeDeep({ actorId: this.actorId, clock: this.clock, state })
@@ -399,10 +384,7 @@ export class AwarenessRuntime {
     const snapshot = freezeDeep({
       actorId,
       clock,
-      state: cloneState(
-        candidate.state as Record<string, unknown>,
-        allowedRemoteFields
-      ),
+      state: cloneState(candidate.state as Record<string, unknown>, true),
       lastSeenAt: this.now()
     })
     this.remoteClocks.set(actorId, clock)
@@ -421,7 +403,16 @@ export class AwarenessRuntime {
         '[collaboration] awareness disconnect reason is invalid'
       )
     }
+    this.remoteClocks.delete(actorId)
     return this.remove(actorId, 'disconnect')
+  }
+
+  clearRemote(reason: 'disconnect'): readonly string[] {
+    this.requireUsable()
+    const actorIds = [...this.remote.keys()]
+    this.remoteClocks.clear()
+    actorIds.forEach((actorId) => this.remove(actorId, reason))
+    return Object.freeze(actorIds)
   }
 
   expire(): readonly string[] {
@@ -488,7 +479,7 @@ export class AwarenessRuntime {
     if (this.disposed) {
       throw new AwarenessValidationError(
         'disposed',
-        '[collaboration] awareness runtime is disposed'
+        '[collaboration] awareness is disposed'
       )
     }
   }

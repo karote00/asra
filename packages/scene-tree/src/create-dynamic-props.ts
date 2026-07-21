@@ -62,7 +62,10 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
           this[prop.name] = propId
           propsManager.addToMap(propComponent)
         } else {
-          const component = propsManager.createProperty({ type: prop.type })
+          const component = propsManager.createProperty({
+            ...(propId ? { id: propId } : {}),
+            type: prop.type
+          })
           propsManager.addToMap(component)
           this[prop.name] = component.get('id')
         }

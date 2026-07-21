@@ -605,8 +605,8 @@ class SceneTree {
       )
 
       acknowledgeTransactionReplayApplied()
-      this.commitSceneTreeTransaction(options)
       propsManager.commitChanges(options)
+      this.commitSceneTreeTransaction(options)
 
       return newElement.get('id')
     }

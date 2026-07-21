@@ -55,10 +55,7 @@ test('dedicated Yjs Inspector and product authorities resolve', () => {
   assert.ok(fs.existsSync(path.resolve(repoRoot, data.authority.inspectorPath)))
   assert.ok(
     fs.existsSync(
-      path.resolve(
-        __dirname,
-        'yjs-network-collaboration-flow-inspector.html'
-      )
+      path.resolve(__dirname, 'yjs-network-collaboration-flow-inspector.html')
     )
   )
   assert.notEqual(
@@ -134,10 +131,16 @@ test('every step has exact execution fields and every route and artifact resolve
 
   data.artifacts.forEach((artifact) => {
     const owner = step(artifact.ownerStepId)
-    assert.ok(owner.outputs.includes(artifact.id), `${artifact.id} owner output`)
+    assert.ok(
+      owner.outputs.includes(artifact.id),
+      `${artifact.id} owner output`
+    )
     artifact.consumerStepIds.forEach((id) => {
       assert.ok(stepIds.has(id), `${artifact.id} unknown consumer ${id}`)
-      assert.ok(step(id).inputs.includes(artifact.id), `${artifact.id} input ${id}`)
+      assert.ok(
+        step(id).inputs.includes(artifact.id),
+        `${artifact.id} input ${id}`
+      )
     })
     if (!artifact.terminal) {
       assert.ok(artifact.consumerStepIds.length > 0, `${artifact.id} consumer`)
@@ -203,14 +206,62 @@ test('opt-in composition owns the disabled and provider-less cases', () => {
 
   assert.match(compose, /explicit import.*instance creation activates/i)
   assert.match(compose, /no Y\.Doc.*provider.*room.*awareness.*network/i)
+  assert.match(
+    compose,
+    /one non-empty fileId.*both internal document and room identity.*actor per page/i
+  )
+  assert.match(
+    compose,
+    /document, room, and actor.*not independent URL inputs/i
+  )
+  assert.match(
+    compose,
+    /full page actor identity.*ID-counter namespace.*cross-actor unique.*does not resolve.*entity-ID collisions/i
+  )
+  assert.match(
+    compose,
+    /production bundles retain.*dynamic composition.*deployed public use/i
+  )
+  assert.match(
+    compose,
+    /URL without fileId.*excludes.*collaboration composition.*normal persistence/i
+  )
+  assert.match(
+    compose,
+    /one app URL.*Vite.*Playwright.*visual review.*Origin check.*non-default local port.*deployed/i
+  )
+  assert.match(
+    compose,
+    /ordinary.*Playwright.*excludes.*collaboration spec.*dedicated.*only that spec.*WebSocket server/i
+  )
+  assert.match(
+    compose,
+    /RenderApp owns unmount.*aborted-startup teardown requests.*runtime owns HMR teardown.*disposal.*provider.*Awareness.*Core.*not.*lifecycle/i
+  )
+  assert.match(compose, /composition setup failure.*dispose.*instance/i)
   assert.match(compose, /authentication.*authorization.*room access/i)
-  assert.match(instance, /exactly one Y\.Doc.*provider.*Factory-backed shared registry/i)
+  assert.match(
+    instance,
+    /exactly one Y\.Doc.*provider.*Factory-backed shared registry/i
+  )
   assert.match(instance, /provider-less.*offline/i)
   assert.match(instance, /Borrowed resources.*not destroyed/i)
+  assert.match(
+    instance,
+    /destroy.*owned provider.*before.*pending start.*work queue.*abort.*I\/O/i
+  )
+  assert.match(
+    instance,
+    /inbound work.*rechecks.*disposal.*asynchronous permission.*cannot enter canonical apply/i
+  )
+  assert.match(
+    instance,
+    /Recovery.*provider connection.*state-vector synchronization.*reconnect.*recheck disposal.*cannot mark.*started/i
+  )
   assert.match(instance, /Separate instances remain isolated/i)
   assert.ok(
     step('compose-collaboration-opt-in').implementationBoundary.includes(
-      'packages/collaboration/src/__tests__/collaboration-disabled.test.ts'
+      'packages/collaboration/src/__tests__/composition.test.ts'
     )
   )
   assert.ok(
@@ -219,25 +270,117 @@ test('opt-in composition owns the disabled and provider-less cases', () => {
     ),
     'public collaboration composition requires a package contract'
   )
+  assert.ok(
+    step('compose-collaboration-opt-in').implementationBoundary.includes(
+      'apps/asyra-design/src/render-app/__tests__/collaboration-mode.test.ts'
+    )
+  )
+  assert.ok(
+    step('compose-collaboration-opt-in').implementationBoundary.includes(
+      'apps/asyra-design/*environment*.mjs'
+    ),
+    'the app URL must have one shared configuration owner'
+  )
+  assert.ok(
+    step('compose-collaboration-opt-in').implementationBoundary.includes(
+      'scripts/run-e2e.sh'
+    ),
+    'the project E2E runner must consume the same app URL owner'
+  )
 })
 
 test('local timeline preserves Factory transaction ownership and formal compensation', () => {
   const local = contractText(step('publish-local-committed-change'))
   const envelope = contractText(step('create-shared-operation-envelope'))
+  const append = contractText(step('append-yjs-update'))
 
-  assert.match(local, /Intent -> Feature -> API -> local transaction -> state owner -> commit/i)
+  assert.match(
+    local,
+    /Intent -> Feature -> API -> local transaction -> state owner.*before.*external publication/i
+  )
   assert.match(local, /local channels that do not require a Y\.Doc/i)
-  assert.match(local, /Rollback before transaction-end flush.*no shared operation/i)
+  assert.match(
+    local,
+    /sharedDelivery selects.*immediate.*local projection.*collaboration.*transaction-end.*outer commit/i
+  )
+  assert.match(
+    local,
+    /one synchronous immediate delivery action.*one ordered publication.*multiple elements or state owners/i
+  )
+  assert.match(
+    local,
+    /outer pointer session.*several immediate publications.*one intended local undo commit/i
+  )
+  assert.match(
+    local,
+    /Already-published immediate entries.*excluded.*transaction-end publication.*never sent twice/i
+  )
+  assert.match(
+    local,
+    /preserve repeated semantic deliveries.*A -> B -> C -> B/i
+  )
+  assert.match(
+    local,
+    /snapshots each transaction status.*before external completion observers.*reentrant nested action.*outer transaction identity.*publication order/i
+  )
+  assert.match(
+    local,
+    /does not infer create, move, drag, throttle, or render-preview/i
+  )
+  assert.match(
+    local,
+    /discarded before.*flush.*no network operation.*rollback after publication.*linked compensation/i
+  )
   assert.match(local, /Remote-origin.*excluded from.*network publication/i)
-  assert.match(local, /compensation.*inverse event route.*inverse payload/i)
-  assert.match(envelope, /operation.*transaction.*document.*actor.*protocol.*schema.*origin.*channel.*event.*payload/i)
+  assert.match(
+    local,
+    /nested child property.*child add.*parent reference update/i
+  )
+  assert.match(
+    local,
+    /every property add referenced.*before.*Scene Tree element add.*never.*fallback properties/i
+  )
+  assert.ok(
+    step('publish-local-committed-change').implementationBoundary.includes(
+      'packages/props-manager/src/manager/props-manager.ts'
+    )
+  )
+  assert.ok(
+    step('publish-local-committed-change').implementationBoundary.includes(
+      'packages/scene-tree/src/sceneTree.ts'
+    )
+  )
+  assert.ok(
+    step('publish-local-committed-change').implementationBoundary.includes(
+      'packages/utils/src/render/viewport.ts'
+    ),
+    'canonical pointer rectangles must reuse the shared geometry helper'
+  )
+  assert.ok(
+    step('publish-local-committed-change').implementationBoundary.includes(
+      'apps/asyra-design/src/render-layers/area-selection-render-layer.ts'
+    ),
+    'the area-selection projection must consume the same completed rectangle'
+  )
+  assert.match(
+    envelope,
+    /operation.*transaction.*document.*actor.*protocol.*schema.*origin.*channel.*event.*payload/i
+  )
   assert.match(envelope, /compensation envelope names the exact operation/i)
   assert.match(envelope, /canonical apply handler/i)
+  assert.match(
+    envelope,
+    /one action publication.*one or more.*ordered.*operation envelopes/i
+  )
+  assert.match(
+    append,
+    /one action publication.*one Y\.Doc transaction.*one binary update/i
+  )
   assert.ok(
     data.routes.some(
       (route) =>
-        route.id === 'local-shared-compensation' &&
-        route.kind === 'compensation'
+        route.id === 'local-shared-forward' &&
+        route.producedArtifacts.includes('artifact:local-action-publication')
     )
   )
 })
@@ -248,14 +391,56 @@ test('provider boundary is replaceable and acknowledgement states are separate',
 
   assert.match(provider, /Connect.*disconnect.*reconnect/i)
   assert.match(provider, /state-vector exchange/i)
-  assert.match(provider, /hard-coded WebSocket.*P2P.*hosted provider authority/i)
+  assert.match(
+    provider,
+    /hard-coded WebSocket.*P2P.*hosted provider authority/i
+  )
   assert.match(provider, /never grants authority from awareness/i)
   assert.match(
     provider,
-    /authenticated sender.*room history.*broadcast.*acknowledgement/i
+    /accepted connection identity.*room history.*broadcast.*acknowledgement/i
+  )
+  assert.match(
+    provider,
+    /opaque connection metadata.*success or failure.*without assigning product meaning/i
+  )
+  assert.match(
+    provider,
+    /public reference implementation.*only fileId.*no user\/session authentication or permission check.*no protected-document authorization claim/i
   )
   assert.match(provider, /Remote-origin Y\.Doc updates are never sent back/i)
-  assert.match(persistence, /stores binary document updates only and never awareness/i)
+  assert.match(provider, /one binary action update.*exactly one provider send/i)
+  assert.match(
+    provider,
+    /Asyra Design.*reference composition.*sceneTree.*props.*selection stays local/i
+  )
+  assert.match(provider, /without a non-empty fileId.*no WebSocket provider/i)
+  assert.match(
+    provider,
+    /public memory server.*authenticated or durable backend/i
+  )
+  assert.ok(
+    step('transport-provider-update').implementationBoundary.includes(
+      'apps/asyra-design/e2e/*collaboration*.spec.ts'
+    ),
+    'the real-app multi-window verification must remain a formal E2E boundary'
+  )
+  assert.ok(
+    step('transport-provider-update').implementationBoundary.includes(
+      'apps/asyra-design/*collaboration*.ts'
+    ),
+    'the typed reference server and its build configs must remain in the provider boundary'
+  )
+  assert.ok(
+    step('transport-provider-update').implementationBoundary.includes(
+      'apps/asyra-design/src/collaboration/protocol.ts'
+    ),
+    'the app-owned client/server wire protocol must have one provider-boundary owner'
+  )
+  assert.match(
+    persistence,
+    /stores binary document updates only and never awareness/i
+  )
   assert.match(persistence, /only the missing update diff/i)
   assert.match(
     persistence,
@@ -264,7 +449,7 @@ test('provider boundary is replaceable and acknowledgement states are separate',
   assert.match(persistence, /failure never reverses.*committed canonical/i)
   assert.ok(
     step('persist-sync-and-acknowledge').implementationBoundary.includes(
-      'packages/collaboration/src/providers/memory-provider.ts'
+      'packages/collaboration/src/providers/memory/hub.ts'
     ),
     'reconnect persistence step must include its state-vector provider adapter'
   )
@@ -283,8 +468,16 @@ test('inbound pipeline orders decode, dedupe, validation, policy, transaction, a
   assert.match(validation, /locally published operation.*outcome registry/i)
   assert.match(validation, /unsupported versions\/routes.*malformed payloads/i)
   assert.match(policy, /Permission runs before conflict/i)
-  assert.match(policy, /Framework invariant policies cannot be replaced/i)
+  assert.match(
+    policy,
+    /Framework transport and operation validation cannot be replaced/i
+  )
+  assert.match(policy, /explicitly registered app-domain policies/i)
   assert.match(policy, /repair is revalidated/i)
+  assert.doesNotMatch(
+    policy,
+    /Asyra Design|lexicograph|normalized element-create|remove\/add/i
+  )
   assert.match(transaction, /one intended remote transaction boundary/i)
   assert.match(transaction, /excluded from ordinary local-user undo/i)
   assert.match(transaction, /suppresses echo/i)
@@ -293,8 +486,22 @@ test('inbound pipeline orders decode, dedupe, validation, policy, transaction, a
     transaction,
     /runtime thenable.*rolls back.*synchronous journal.*cannot cancel.*scheduled/i
   )
-  assert.match(owner, /one canonical Scene Tree, Props, Selection, or System owner/i)
-  assert.match(owner, /Y\.Doc, provider, awareness, Render, or UI state authority/i)
+  assert.match(
+    owner,
+    /one canonical Scene Tree, Props, Selection, or System owner/i
+  )
+  assert.match(
+    owner,
+    /Y\.Doc, provider, awareness, Render, or UI state authority/i
+  )
+  assert.match(
+    owner,
+    /forwards the validated payload.*ordinary canonical apply path/i
+  )
+  assert.match(
+    owner,
+    /does not reread canonical state.*reconstruct.*rewrite.*app behavior/i
+  )
 
   const orderedRouteIds = [
     'decode-operation',
@@ -304,7 +511,10 @@ test('inbound pipeline orders decode, dedupe, validation, policy, transaction, a
     'canonical-state-applied'
   ]
   orderedRouteIds.forEach((id) =>
-    assert.ok(data.routes.some((route) => route.id === id), id)
+    assert.ok(
+      data.routes.some((route) => route.id === id),
+      id
+    )
   )
   assert.ok(
     step('run-remote-apply-transaction').implementationBoundary.includes(
@@ -314,7 +524,7 @@ test('inbound pipeline orders decode, dedupe, validation, policy, transaction, a
   )
   assert.ok(
     step('validate-origin-dedupe-protocol').implementationBoundary.includes(
-      'packages/collaboration/src/collaboration-instance.ts'
+      'packages/collaboration/src/collaboration.ts'
     ),
     'local publication must register its outcome before an own-operation replay'
   )
@@ -324,23 +534,44 @@ test('awareness is a separate ephemeral observational route', () => {
   const awareness = contractText(step('own-awareness-state'))
   const projection = contractText(step('project-awareness-state'))
 
-  assert.match(awareness, /removed on disconnect.*leave.*timeout/i)
-  assert.match(awareness, /cannot authorize.*does not enter document undo\/redo/i)
+  assert.match(awareness, /removed on (?:peer )?disconnect.*leave.*timeout/i)
+  assert.match(
+    awareness,
+    /cannot authorize.*does not enter document undo\/redo/i
+  )
   assert.match(awareness, /Core save\/load payload/i)
   assert.match(awareness, /collaboration Y\.Doc operation array/i)
-  assert.match(projection, /without feeding it into document state.*authorization.*save\/load.*undo/i)
+  assert.match(
+    awareness,
+    /Canonical element create, geometry, style, hierarchy, and deletion changes never enter Awareness/i
+  )
+  assert.match(
+    projection,
+    /without feeding it into document state.*authorization.*save\/load.*undo/i
+  )
+  assert.match(
+    projection,
+    /Presence projection is removable and observational/i
+  )
+  assert.ok(
+    !step('project-awareness-state').implementationBoundary.includes(
+      'apps/asyra-design/src/render-layers'
+    ),
+    'canonical element transport must not require an Awareness Render layer'
+  )
   assert.ok(
     step('own-awareness-state').implementationBoundary.includes(
-      'packages/collaboration/src/collaboration-instance.ts'
+      'packages/collaboration/src/collaboration.ts'
     ),
     'awareness owner must bind the collaboration instance identity and lifecycle'
   )
   assert.ok(
     data.routes.every((route) => {
       if (!route.id.includes('awareness')) return true
-      return !['run-remote-apply-transaction', 'apply-canonical-state-owner'].includes(
-        route.to
-      )
+      return ![
+        'run-remote-apply-transaction',
+        'apply-canonical-state-owner'
+      ].includes(route.to)
     })
   )
 })
@@ -355,8 +586,11 @@ test('acceptance contracts cover the bounded release-gate product cases', () => 
     /two-client convergence.*duplicate.*delayed.*reordered.*replayed/i,
     /invalid protocol\/schema\/route\/payload/i,
     /Unauthorized.*unsupported.*remote apply failure.*echo prevention/i,
-    /local-user-only undo.*pre-flush rollback.*immediate compensation/i,
-    /framework invariant.*app-domain extension/i,
+    /local-user-only undo.*pre-flush discard.*post-flush compensation.*immediate canonical transport/i,
+    /one immediate delivery action.*one Yjs update.*one provider send.*multiple affected elements/i,
+    /outer pointer session.*mouse-down.*drag-update.*mouse-up.*one local undo commit/i,
+    /Canonical element create, geometry, style, hierarchy, and deletion changes.*absent from Awareness/i,
+    /explicitly registered app-domain.*package invariants.*canonical owners/i,
     /disconnect\/timeout cleanup.*save\/load.*undo exclusion/i,
     /independent instances.*intentional shared wiring.*one-instance disposal/i
   ].forEach((pattern) => assert.match(text, pattern))

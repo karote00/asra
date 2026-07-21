@@ -92,22 +92,50 @@ End-state:
 - Instance construction is inert: it validates and retains resources without
   subscribing, recovering, connecting, or sending. Explicit `start()` activates
   observers and durability acknowledgement tracking.
+- Disposal first detaches observers and destroys owned provider/persistence
+  adapters so their lifecycle can abort pending connect, synchronization, or
+  send I/O. Work that was queued but had not started when disposal began is
+  bypassed; already-started work may settle after adapter teardown but must
+  recheck disposal after asynchronous permission/conflict policy and cannot
+  enter canonical apply. The instance then awaits startup/work-queue settlement and destroys
+  remaining owned Awareness/Y.Doc resources. Borrowed adapters are detached but
+  never destroyed, and a late provider connect cannot revive a disposed adapter
+  or leave it joined to a room.
 - Provider-less composition is supported for an explicitly created offline
   collaboration instance. An app that does not create the instance has no
   Y.Doc, provider, room, awareness, network, or collaboration persistence side
   effect.
-- Local committed shared changes are transported as validated semantic
-  operation envelopes after the ordinary local state-owner transaction. Yjs
-  update state, provider connection state, awareness, Render, and UI are never
-  canonical document owners.
+- `sharedDelivery` selects the complete shared-pipeline delivery boundary. An
+  `immediate` change reaches local shared projections and, when collaboration
+  is composed, one immediate collaboration publication without waiting for the
+  outer undo transaction to close. A `transaction-end` change remains buffered
+  until that outer transaction commits.
+- One delivery action produces at most one ordered action publication.
+  Synchronous changes caused by that action, including changes for multiple
+  elements or state owners, are batched before Collaboration validates the
+  operation envelopes, appends them in one Y.Doc transaction, creates one
+  binary update, and invokes the provider send boundary exactly once. A
+  pointer session may contain several delivery actions while remaining one
+  intended local undo commit.
+- Repeated semantic changes remain ordered app intent. Factory/collaboration do
+  not deduplicate by event name or payload value, so a valid A -> B -> C -> B
+  timeline reaches the pipeline as four distinct deliveries.
+- Canonical drag changes marked `sharedDelivery: 'immediate'` use the same
+  shared operation pipeline as any other canonical change. Apps decide when a
+  pointer update is meaningful enough to mutate; Factory and Collaboration do
+  not infer product-specific create, move, throttle, or preview policy.
 - Provider updates enter one inbound pipeline in this order: decode and origin
   classification, operation-id dedupe, protocol/schema and registered
-  channel/event payload validation, app/server permission, framework/app
-  conflict policy, remote transaction, canonical state-owner apply, then
-  projections. Decode stages untrusted binary first, so malformed,
+  channel/event payload validation, app/server permission, optional registered
+  app-domain conflict policy, remote transaction, canonical state-owner apply,
+  then projections. Decode stages untrusted binary first, so malformed,
   non-operation, non-append, or undecodable updates leave the owned Y.Doc
   unchanged. A throwing registered validator rejects only its operation and
   cannot abort later operations decoded from the same update.
+- The operation array is append-only at the Yjs item origin: delete, prepend,
+  and insertion before an existing right neighbour are rejected in staging.
+  Concurrent items that were each appended to the causal tail remain valid
+  even when Yjs deterministically merges them into either visible order.
 - Duplicate, delayed, reordered, and replayed envelopes have deterministic
   accept, repair, reject, or duplicate outcomes. An operation-id replay with a
   different envelope is rejected as an identity collision.
@@ -116,22 +144,19 @@ End-state:
   and never emits a new local network operation. Reactive transaction calls
   inside the handler are routed to the instance's intended Factory. Local user
   undo and redo may emit their own inverse/forward operations.
-- Transaction-end rollback discards unflushed shared changes. A delivered
-  immediate change produces one linked compensation operation whose route and
-  payload come from the same inverse replay event; that operation re-enters the
-  ordinary remote origin, dedupe, validation, permission, conflict, and
-  canonical-apply pipeline at peers. Compensation validation
-  requires the exact same-actor, non-compensation forward outcome to be final,
-  accepted or repaired, and actually applied; missing, rejected, apply-failed,
-  or semantic no-op forwards cannot authorize an inverse mutation. Factory/Yjs
-  append order makes a valid compensation causally dependent on its forward, so
-  an absent final outcome is rejected as an incomplete linkage rather than
-  placed in a second replay queue.
+- Rollback or discard removes an immediate publication that has not yet left
+  Factory. An immediate publication that already entered Collaboration is
+  reversed by linked compensation envelopes in deterministic reverse order.
+  Compensation passes the ordinary origin, dedupe, validation, permission,
+  conflict, and canonical-apply pipeline; transaction-end changes discarded
+  before commit produce no network operation.
 - Awareness is a separate ephemeral observational route. It is excluded from
   Y.Doc document operations, Core save/load, collaboration update persistence,
   and ordinary undo/redo; it grants no mutation permission and can be removed
   on disconnect or timeout. Its nested records follow the same inert-data
-  boundary as operation payloads.
+  boundary as operation payloads. Canonical element create, geometry, style,
+  hierarchy, and deletion changes never use Awareness as a transport or render
+  substitute.
 - Provider transport, local/offline collaboration update persistence, runtime
   commit, network send/convergence, and durable server acknowledgement are
   separate observable states. Failure in a later state does not retroactively
@@ -139,6 +164,36 @@ End-state:
 - Reconnect exchanges Yjs state vectors and only missing updates. Isolated
   instances share nothing by default; intentional shared Y.Doc/provider wiring
   is explicit.
+- The project-owned Asyra Design public reference implementation composes a
+  replaceable WebSocket provider only when an app URL supplies one non-empty
+  `fileId`. That one value is the public document identity and maps internally
+  to both collaboration document and room identity; each page generates its
+  own actor identity instead of exposing actor, room, or document parameters in
+  the URL. Before collaborative actions begin, the app supplies that full actor
+  identity as the canonical ID-counter namespace, so simultaneous element and
+  property creation remains cross-actor unique without a collaboration-layer
+  entity collision policy. The composition transports registered `sceneTree` and `props` operations
+  through the ordinary inbound pipeline and canonical state-owner handlers;
+  local selection remains outside document transport. Any URL without
+  `fileId` bypasses the composition and creates no collaboration connection;
+  production builds retain the dynamic path for deployed public use.
+  Connection parameters remain app-defined opaque provider metadata: the
+  provider forwards them without assigning product meaning, while the selected
+  app/server endpoint decides whether to accept or reject the connection and
+  reports that result through provider status/failure.
+- Asyra Design RenderApp owns unmount and aborted-startup teardown requests.
+  The collaboration runtime owns HMR teardown, setup-failure cleanup, and
+  explicit disposal of the activated instance, including its provider,
+  Awareness observers, and owned resources. Core does not adopt that app-owned
+  lifecycle.
+- Asyra Design owns one `ASYRA_DESIGN_APP_URL` configuration value for the app
+  origin used by Vite, ordinary Playwright, visual review, collaboration E2E,
+  and the reference WebSocket server's Origin check. A non-default local port or a
+  deployed `http(s)` origin is changed once at this app boundary; parallel
+  visual-review and Playwright URL variables are not separate authorities.
+- Ordinary Playwright discovery excludes the collaboration spec. The dedicated
+  collaboration config discovers only that spec and owns the reference WebSocket
+  server composition, so normal E2E and CI do not silently require it.
 
 ### Public input and output contracts
 
@@ -156,7 +211,9 @@ End-state:
   cancel effects that the trusted handler schedules after return; scheduling
   such effects violates the registration contract and is not an asynchronous
   isolation boundary.
-- The stable shared operation envelope includes operation id, transaction id,
+- The stable action publication includes one publication id, one transaction
+  id, and an ordered non-empty list of stable shared operation envelopes. Each
+  envelope includes operation id, transaction id,
   document id, actor id, protocol version, schema version, origin, channel,
   event name, typed/validated payload, and an optional compensated operation id.
   Inbound records are inert JSON data: accessors are rejected without execution
@@ -164,6 +221,8 @@ End-state:
 - The provider adapter exposes connection lifecycle/status, room/auth
   composition, binary update send/receive, state-vector synchronization,
   awareness send/receive, durable acknowledgement observation, and disposal.
+  One locally published binary action update maps to exactly one provider
+  `sendUpdate(...)` call.
   A live inbound update may carry an authenticated operation author, which must
   match the envelope actor. Multi-author state-vector aggregates omit that
   field and rely on the app/server-validated history boundary.
@@ -173,11 +232,11 @@ End-state:
 - Conflict policy returns accept, repair, reject, or not-applicable before the
   remote transaction begins. A repair produces another schema-valid operation
   payload; rejection produces no canonical mutation.
-  Framework entity-existence policy owns missing-update rejection and
-  idempotent repeated delete. When two creates target an already-present id,
-  existence alone cannot choose between their payloads: the framework requires
-  an explicit deterministic app/state-owner policy decision and rejects the
-  collision if every extension reports not-applicable.
+  Framework transport and operation validation always runs first and cannot be
+  replaced by a policy. Package-local entity, hierarchy, property, geometry,
+  and topology behavior remains in canonical state owners. When no explicitly
+  registered app-domain policy applies, the validated payload proceeds
+  unchanged through the ordinary canonical apply path.
 
 ### Ownership and forbidden boundaries
 
@@ -186,8 +245,9 @@ End-state:
   lifecycle, and conflict-policy registry. It does not own app authentication,
   durable backend room policy, or package canonical state.
 - `@asyra/factory` remains the one local transaction/history/shared-settlement
-  owner and exposes committed local shared deliveries with transaction/origin
-  metadata. Its default local projection channels must not require a Y.Doc.
+  owner. It batches each immediate delivery action or committed transaction-end
+  delivery as one publication with transaction/origin metadata. Its default
+  local projection channels must not require a Y.Doc.
 - State-owner packages own canonical apply and package invariants. Apps supply
   app-domain permission and conflict extensions through the public
   collaboration boundary.
@@ -207,16 +267,28 @@ End-state:
 - two-client convergence; duplicate, delayed, reordered, and replayed update;
   invalid protocol/schema, invalid channel/event payload, unauthorized and
   unsupported operation, remote apply failure, and echo prevention;
-- local-user-only undo; rollback before shared flush; immediate-send rollback
-  compensation;
+- local-user-only undo; rollback before an immediate flush; compensation after
+  an immediate flush; transaction-end discard before commit;
+- mouse-down create, meaningful drag updates, and mouse-up finalization each
+  producing at most one Yjs update and one provider send while changing
+  multiple elements or properties, with one outer pointer-session undo commit;
 - awareness update, timeout/disconnect cleanup, save/load exclusion, update
-  persistence exclusion, and undo exclusion;
+  persistence exclusion, undo exclusion, and canonical element-change
+  exclusion;
 - offline recovery and state-vector missing-update synchronization;
 - independent instance isolation, explicit shared wiring, and disposing one
   instance without affecting another;
-- deterministic conflict accept, repair, and reject; framework-owned invariant
-  rejection/repair; app-owned domain policy extension; concurrent same-id
-  create convergence with an explicit deterministic extension.
+- explicit Asyra Design reference composition with three real app windows,
+  one shared public `fileId`, automatically distinct page actors, canonical
+  create/update/delete convergence including nested property-backed default
+  fills whose referenced property adds precede element creation,
+  rendered-canvas parity, disconnect/reconnect catch-up, local-selection
+  exclusion, production-bundle availability with runtime opt-in, different-file
+  room isolation, and a non-default app port resolved
+  from the same app URL used by Vite and both Playwright configurations;
+- deterministic permission rejection plus explicitly registered app-domain
+  conflict accept, repair, reject, and not-applicable behavior; package-owned
+  invariant handling through canonical apply.
 
 ### Bounded definition of done
 
@@ -242,6 +314,8 @@ End-state:
 - letting remote updates mutate render/UI mirrors without canonical state apply
 - replacing app authentication/authorization policy
 - implementing app-specific collaboration UI in the framework
+- treating the public Asyra Design memory WebSocket server as an authenticated
+  backend, durable service, or mandatory provider
 - starting this work before local transaction failure semantics are stable
 
 ## Canonical Collaboration Flows
@@ -254,8 +328,11 @@ Any Intent
 -> App/Core API
 -> Local Transaction
 -> State Owner
--> Commit
--> Shared Operation / Yjs Update
+-> sharedDelivery boundary
+-> Immediate, or Commit for transaction-end
+-> One Action Publication
+-> Ordered Shared Operation Envelopes
+-> One Yjs Update
 -> Provider
 -> Server / Peers
 ```
@@ -265,7 +342,7 @@ Any Intent
 ```text
 Provider Update
 -> Origin / Dedupe / Schema Checks
--> Conflict Policy
+-> Permission / Optional App Conflict Policy
 -> Remote Apply Transaction
 -> State Owner
 -> Projections
@@ -289,12 +366,12 @@ Define an optional provider adapter contract for:
 Candidate direction:
 
 ```ts
-interface CollaborationProvider {
+interface Provider {
   connect(): Promise<void>
   disconnect(): Promise<void>
   destroy(): Promise<void>
-  getStatus(): CollaborationStatus
-  onStatusChange(callback: (status: CollaborationStatus) => void): () => void
+  getStatus(): ProviderStatus
+  onStatusChange(callback: (status: ProviderStatus) => void): () => void
 }
 ```
 
@@ -343,6 +420,13 @@ Required properties:
 - registered channel/event routing
 - typed/validated payload
 
+One delivery action may contribute several semantic envelopes, including
+changes for several elements or state owners. Those envelopes preserve their
+deterministic operation identities and ordering but are appended in one Y.Doc
+transaction and transported as one binary action update. An outer pointer
+session may produce several such immediate publications while retaining one
+local undo transaction.
+
 ## Remote Canonical Apply
 
 Remote observers must not stop at render/UI mirror updates.
@@ -354,7 +438,7 @@ Required pipeline:
 3. deduplicate operation IDs
 4. validate protocol/schema version
 5. validate registered channel/event shape
-6. evaluate permission/conflict policy at the owning boundary
+6. evaluate permission and any explicitly registered app-domain conflict policy
 7. apply through a remote transaction/apply API
 8. update canonical state owners
 9. recompute projections
@@ -397,13 +481,23 @@ Suggested awareness fields:
 
 Awareness rules:
 
-- remote state is removed on disconnect/timeout
+- presence field names and values are app-owned JSON-safe data; the framework
+  reserves only `heartbeatAt` for its local liveness timestamp
+- remote state is removed on peer leave/disconnect, timeout, explicit local
+  disconnect, or provider failure; transport loss clears every local remote
+  snapshot and its clock so reconnect can repopulate presence
 - presence does not participate in normal document undo/redo
 - presence cannot authorize a mutation
 - Render/UI may project presence without treating it as model truth
+- canonical element create, geometry, style, hierarchy, and deletion changes
+  are not awareness fields; they travel through registered document operations
+  and remote canonical apply
 
 ## Authentication and Authorization
 
+- Connection metadata is an opaque app/server contract. A provider transports
+  it and reports connection success or failure; it does not define which fields
+  identify a file, user, branch, tenant, or permission policy.
 - Provider connection authenticates the user/session.
 - Server/authoritative boundaries validate document-room access.
 - Read/write/admin permission is app/server policy, not inferred from awareness.
@@ -411,6 +505,9 @@ Awareness rules:
   Yjs update shape.
 - Rejected operations require diagnostics without corrupting the local canonical
   state.
+- The Asyra Design public reference server chooses `{ fileId }`, performs no
+  user/session authentication or permission check, and intentionally supports
+  only public-room access; it makes no protected-document authorization claim.
 
 ## Persistence and Offline Behavior
 
@@ -429,14 +526,23 @@ Runtime commit and durable server acknowledgement remain distinct.
 
 - Normal user undo tracks only the intended local origin by default.
 - Remote operations must not enter another user's ordinary local undo history.
-- Rollback before transaction-end shared flush discards pending local operations.
-- Immediate shared changes that later roll back require compensating inverse
-  operations and may be transiently visible to peers.
-- Remote compensation applies through the same origin/dedupe/conflict pipeline.
+- One intended pointer session creates one intended undo commit. Each
+  immediate delivery action inside that session creates at most one
+  collaboration publication, while transaction-end changes create at most one
+  publication when the outer transaction commits.
+- Rollback discards immediate entries that have not flushed, publishes linked
+  compensation for already-flushed immediate entries, and discards pending
+  transaction-end entries.
+- Compatible explicit remote compensation still applies through the same
+  origin/dedupe/conflict pipeline.
 
 ## Conflict Policy
 
-Yjs/CRDT convergence does not replace application-domain invariants.
+Yjs/CRDT convergence does not replace application-domain invariants. The
+collaboration framework validates transport and registered operation contracts,
+then invokes only policies explicitly supplied by the app. It does not inspect
+canonical app state to invent entity, hierarchy, property, geometry, or
+topology behavior.
 
 Examples requiring explicit policy:
 
@@ -460,7 +566,8 @@ Detailed policy registration and deterministic resolution are owned by:
 - provider adapter: network transport and connection state
 - server/app: authentication, authorization, room policy, durable backend
 - state-owner packages: canonical apply and package-local invariants
-- conflict policy registry: domain resolution/repair decisions
+- conflict policy registry: explicitly registered app-domain
+  resolution/repair decisions
 - awareness runtime: ephemeral presence
 - render/UI: derived collaboration projections only
 
@@ -473,7 +580,8 @@ Detailed policy registration and deterministic resolution are owned by:
 5. Add first replaceable network provider adapter and room/auth handshake.
 6. Add awareness/presence transport and cleanup.
 7. Add browser offline and server persistence interfaces.
-8. Integrate local-only undo and rollback compensation.
+8. Integrate immediate and transaction-end publication batching with local-only
+   undo, rollback discard, and linked compensation.
 9. Implement advanced conflict-policy sub-plan.
 10. Add reconnect, convergence, recovery, and load tests.
 11. Update public API/package docs only as concrete surfaces land.
@@ -505,12 +613,18 @@ Presence:
 - cursor/selection presence appears and updates
 - disconnected users are removed
 - presence is absent from document save/load and undo history
+- canonical element changes are absent from Awareness and remain correct when
+  all presence state is absent
 
 History and failure:
 
 - local undo does not undo remote operations
-- rollback before shared flush sends nothing
-- immediate shared rollback emits deterministic compensation
+- one immediate delivery action changing multiple elements produces one Yjs
+  update and one provider send
+- an outer pointer session may publish mouse-down, selected drag-update, and
+  mouse-up actions while remaining one local undo commit
+- rollback before immediate flush sends nothing; rollback after flush sends one
+  linked compensation batch; transaction-end rollback sends nothing
 - persistence failure is distinct from runtime/network convergence
 
 Conflict and permissions:
@@ -527,6 +641,8 @@ Conflict and permissions:
 - presence remains ephemeral
 - multiple collaboration instances are selectively composable and isolated
 - undo/rollback/origin behavior is deterministic
+- one immediate delivery action or committed transaction-end batch maps to one
+  collaboration action publication, one Yjs update, and one provider send
 - apps can supply authentication, authorization, persistence, and domain policy
   without patching framework internals
 - non-collaborative apps retain the current local transaction, persistence,

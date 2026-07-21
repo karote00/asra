@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ProviderFailure } from '../provider'
-import {
-  MemoryCollaborationHub,
-  MemoryCollaborationProvider
-} from '../providers/memory-provider'
+import { MemoryHub, MemoryProvider } from '../providers/memory'
 
 const identity = {
   documentId: 'document-a',
@@ -15,8 +12,8 @@ const identity = {
 describe('collaboration provider lifecycle', () => {
   it('does not connect during construction and exposes ordered lifecycle status', async () => {
     const authorizeConnection = vi.fn(() => true)
-    const hub = new MemoryCollaborationHub({ authorizeConnection })
-    const provider = new MemoryCollaborationProvider(hub, identity)
+    const hub = new MemoryHub({ authorizeConnection })
+    const provider = new MemoryProvider(hub, identity)
     const statuses: string[] = []
     provider.onStatusChange((status) => statuses.push(status))
 
@@ -37,10 +34,10 @@ describe('collaboration provider lifecycle', () => {
   })
 
   it('owns connection failure reporting without mutating any product owner', async () => {
-    const hub = new MemoryCollaborationHub({
+    const hub = new MemoryHub({
       authorizeConnection: () => false
     })
-    const provider = new MemoryCollaborationProvider(hub, identity)
+    const provider = new MemoryProvider(hub, identity)
     const failures = vi.fn()
     provider.onFailure(failures)
 
@@ -54,8 +51,8 @@ describe('collaboration provider lifecycle', () => {
   })
 
   it('rejects transport while disconnected and resumes after reconnect', async () => {
-    const hub = new MemoryCollaborationHub()
-    const provider = new MemoryCollaborationProvider(hub, identity)
+    const hub = new MemoryHub()
+    const provider = new MemoryProvider(hub, identity)
 
     await expect(
       provider.sendUpdate({
@@ -79,8 +76,8 @@ describe('collaboration provider lifecycle', () => {
   })
 
   it('disposes idempotently, detaches observers, and prevents reuse', async () => {
-    const hub = new MemoryCollaborationHub()
-    const provider = new MemoryCollaborationProvider(hub, identity)
+    const hub = new MemoryHub()
+    const provider = new MemoryProvider(hub, identity)
     const statuses = vi.fn()
     provider.onStatusChange(statuses)
     await provider.connect()
@@ -94,5 +91,98 @@ describe('collaboration provider lifecycle', () => {
       expect.objectContaining<Partial<ProviderFailure>>({ code: 'disposed' })
     )
     expect(statuses).toHaveBeenCalledTimes(3)
+  })
+
+  it('cannot revive or remain joined when authorization resolves after disposal', async () => {
+    let resolveAuthorization: ((allowed: boolean) => void) | undefined
+    const hub = new MemoryHub({
+      authorizeConnection: () =>
+        new Promise<boolean>((resolve) => {
+          resolveAuthorization = resolve
+        })
+    })
+    const provider = new MemoryProvider(hub, identity)
+    const connection = provider.connect().catch((error) => error)
+    await vi.waitFor(() => expect(provider.getStatus()).toBe('connecting'))
+
+    await provider.destroy()
+    resolveAuthorization?.(true)
+    const outcome = await connection
+
+    expect(outcome).toEqual(
+      expect.objectContaining<Partial<ProviderFailure>>({ code: 'disposed' })
+    )
+    expect(provider.getStatus()).toBe('disposed')
+  })
+
+  it('cannot revive a connection after disconnect cancels pending authorization', async () => {
+    let resolveAuthorization: ((allowed: boolean) => void) | undefined
+    const hub = new MemoryHub({
+      authorizeConnection: () =>
+        new Promise<boolean>((resolve) => {
+          resolveAuthorization = resolve
+        })
+    })
+    const provider = new MemoryProvider(hub, identity)
+    const connection = provider.connect().catch((error) => error)
+    await vi.waitFor(() => expect(provider.getStatus()).toBe('connecting'))
+
+    await provider.disconnect()
+    resolveAuthorization?.(true)
+    const outcome = await connection
+
+    expect(outcome).toEqual(
+      expect.objectContaining<Partial<ProviderFailure>>({
+        code: 'not-connected'
+      })
+    )
+    expect(provider.getStatus()).toBe('disconnected')
+  })
+
+  it('coalesces concurrent connect calls into one authorization and room join', async () => {
+    let resolveAuthorization: ((allowed: boolean) => void) | undefined
+    let authorizationCount = 0
+    const authorizeConnection = () => {
+      authorizationCount += 1
+      return new Promise<boolean>((resolve) => {
+        resolveAuthorization = resolve
+      })
+    }
+    const hub = new MemoryHub({ authorizeConnection })
+    const provider = new MemoryProvider(hub, identity)
+
+    const first = provider.connect()
+    const second = provider.connect()
+    expect(authorizationCount).toBe(1)
+    resolveAuthorization?.(true)
+    await Promise.all([first, second])
+
+    expect(provider.getStatus()).toBe('connected')
+    await expect(
+      provider.sendUpdate({
+        operationId: 'empty-update',
+        update: new Uint8Array()
+      })
+    ).resolves.toBeUndefined()
+  })
+
+  it('settles a pending connection immediately when destroyed', async () => {
+    const hub = new MemoryHub({
+      authorizeConnection: () => new Promise<boolean>(() => undefined)
+    })
+    const provider = new MemoryProvider(hub, identity)
+    const connection = provider.connect().catch((error) => error)
+
+    await provider.destroy()
+    const outcome = await Promise.race([
+      connection,
+      new Promise<'still-pending'>((resolve) =>
+        setTimeout(() => resolve('still-pending'), 25)
+      )
+    ])
+
+    expect(outcome).toEqual(
+      expect.objectContaining<Partial<ProviderFailure>>({ code: 'disposed' })
+    )
   })
 })

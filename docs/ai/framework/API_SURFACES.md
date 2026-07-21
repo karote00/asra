@@ -196,17 +196,23 @@ Scene/model bridge:
   - wrapper contract: channel must be resolvable from registered selection metadata (`action`/`eventName`); no built-in fallback channel defaults
 
 `EVENT_OPTIONS` supports `undoable`, `rollbackable`, `shared`, and
-`sharedDelivery`. `undoable: false` skips ordinary history but remains
+`sharedDelivery`; `SharedDeliveryMode` is the canonical
+`'transaction-end' | 'immediate'` timing type used by both mutation options and
+Factory delivery metadata. `undoable: false` skips ordinary history but remains
 rollbackable by default. `rollbackable: false` explicitly opts out of failure
 reversal, but does not opt an undoable event out of the inverse-contract
 requirement; intentionally irreversible effects must also set
 `undoable: false`. The Factory remote-apply wrapper is the exception: it forces
 remote-origin changes to remain rollbackable and ignores a remote handler's
-`rollbackable: false`. `sharedDelivery: 'immediate'` projects that shared change
-during an active transaction while retaining it in the current undo commit;
-the default is `'transaction-end'`. A committed local undo emits a transaction-end inverse
-shared delivery and redo emits the forward delivery for channels delivered by
-the original action. Remote-origin replay remains excluded.
+`rollbackable: false`. `sharedDelivery: 'immediate'` completes local
+shared-channel delivery and optional collaboration publication during an
+active transaction while retaining the change in the current undo commit; the
+default is `'transaction-end'`. All shared changes made by one synchronous
+immediate delivery action are one ordered publication. A pointer session may
+emit several such publications without splitting its undo commit. A committed
+local undo emits one ordered inverse publication and redo emits one forward
+publication for channels delivered by the original action. Remote-origin
+replay remains excluded.
 
 Transaction facade exports:
 
@@ -253,30 +259,30 @@ Managed property bridges:
 
 `@asyra/collaboration` (optional runtime)
 
-- composition: `defineCollaborationComposition(...)`,
-  `createCollaboration(...)`, `CollaborationInstance`
+- composition: `createCollaboration(...)`, `Collaboration`,
+  `CreateCollaborationInput`, `DisposalError`
 - lifecycle: `start`, `disconnect`, `reconnect`, `whenIdle`, `dispose`
 - operation registration: `CollaborationOperationDefinition`,
-  `defineCanonicalOperationApply(...)`, `OperationRegistry`,
-  `SharedOperationEnvelope`,
-  `COLLABORATION_PROTOCOL_VERSION`
-- provider contract: `CollaborationProvider`, `ProviderFailure`,
-  `providerStatus`, `MemoryCollaborationHub`,
-  `MemoryCollaborationProvider`, and optional authenticated-author
-  `InboundBinaryUpdate.fromActorId`
-- persistence/durability: `CollaborationUpdatePersistence`,
-  `CollaborationDurabilityRuntime` with lazy/idempotent `start()`,
-  `MemoryCollaborationUpdatePersistence`, and distinct durability event/outcome
-  types
-- permission/conflict policy: `createConflictPolicyPipeline`,
-  `ConflictPolicyPipeline`, framework invariant and app policy contracts
-- Awareness: `AwarenessRuntime`, validation/observation/state types, and
-  instance `updateAwareness`, `leaveAwareness`, `expireAwareness`
+  `defineCanonicalOperationApply(...)`, `CanonicalOperationApply`,
+  `SharedOperationEnvelope`
+- provider contract: `Provider`, `ProviderIdentity`, `ProviderStatus`,
+  `ProviderFailure`, `PROVIDER_FAILURE_CODES`,
+  `isProviderFailureCode(...)`, `MemoryHub`, `MemoryProvider`, and optional
+  authenticated-author `InboundBinaryUpdate.fromActorId`
+- persistence/durability: `UpdatePersistence`, `MemoryPersistence`,
+  `PersistedUpdate`, and distinct `DurabilityEvent`, `DurabilityOutcome`, and
+  `DurabilityPhase` types
+- permission/conflict policy: `AppConflictPolicy`, `ConflictPolicyDecision`,
+  and related app policy contracts
+- Awareness: `Awareness`, `AwarenessOptions`, validation/observation/state
+  types, and collaboration `updateAwareness`, `leaveAwareness`,
+  `expireAwareness`; `AwarenessStateInput` accepts app-selected JSON-safe
+  fields and reserves `heartbeatAt` for runtime liveness
 - diagnostics-only outcomes: immutable local published/rejected and remote
   duplicate/accepted/repaired/rejected/apply-failed outcomes, including the
   recorded `applied` bit used by exact forward/compensation linkage
-- importing this root entry creates no instance, Y.Doc, provider, room,
-  persistence adapter, Awareness runtime, or network connection; Core and
+- importing this root entry creates no collaboration, Y.Doc, provider, room,
+  persistence adapter, Awareness state, or network connection; Core and
   Preset do not re-export it
 
 See `packages/collaboration.md` and
@@ -437,6 +443,10 @@ See `packages/collaboration.md` and
   - `updateTransaction(event)`
   - `endTransaction(options?)`
   - `undo()`, `redo()`
+  - `runRemoteTransaction(callback)` (rollbackable, non-undoable remote origin)
+  - `applyRemoteEvent(event, apply)` (one detached event forwarded unchanged to
+    the registered state-owner apply callback)
+  - `isRemoteAsyncHandlerError(error)`
   - `getTransactionOwner()` for explicit reactive boundary wiring
   - `registerTransactionInverter(eventName, inverter)`
   - `registerTransactionValidator(name, validator)`
@@ -454,7 +464,9 @@ See `packages/collaboration.md` and
   - `getSharedDataChannelStrict(name)` (strict accessor; throws if not registered)
   - `getSharedDataChannel(name)` (safe accessor; returns `undefined` when missing)
   - `subscribeToSharedDelivery(handler)` (detached delivery metadata for
-    explicit collaboration composition; observer failure cannot alter commit)
+    local projection observation; observer failure cannot alter commit)
+  - `subscribeToSharedPublication(handler)` (one detached ordered batch per
+    synchronous immediate delivery action or committed transaction-end batch)
 
 `@asyra/props-manager`
 

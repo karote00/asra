@@ -1,11 +1,11 @@
 import * as Y from 'yjs'
 import { describe, expect, it, vi } from 'vitest'
-import { AwarenessRuntime, AwarenessValidationError } from '../awareness'
+import { Awareness, AwarenessValidationError } from '../awareness'
 import { createCollaboration } from '..'
 import { readOperationLog } from '../yjs-document'
 
 const factory = () => ({
-  subscribeToSharedDelivery: vi.fn(() => () => undefined)
+  subscribeToSharedPublication: vi.fn(() => () => undefined)
 })
 
 describe('ephemeral awareness ownership', () => {
@@ -20,7 +20,7 @@ describe('ephemeral awareness ownership', () => {
       permissionPolicy: () => true,
       yDoc
     })
-    const awareness = instance.awareness as AwarenessRuntime
+    const awareness = instance.awareness as Awareness
 
     expect(awareness.actorId).toBe('actor-a')
     expect(awareness.localClock()).toBe(0)
@@ -29,7 +29,7 @@ describe('ephemeral awareness ownership', () => {
 
   it('creates detached outbound presence with a monotonic clock and runtime heartbeat only on update', () => {
     let now = 100
-    const runtime = new AwarenessRuntime({
+    const runtime = new Awareness({
       actorId: 'actor-a',
       now: () => now
     })
@@ -73,7 +73,7 @@ describe('ephemeral awareness ownership', () => {
 
   it('accepts only increasing remote clocks and isolates observer mutations', () => {
     let now = 100
-    const runtime = new AwarenessRuntime({
+    const runtime = new Awareness({
       actorId: 'actor-local',
       now: () => now
     })
@@ -119,7 +119,7 @@ describe('ephemeral awareness ownership', () => {
 
   it('clears remote presence on disconnect, explicit leave, and timeout', () => {
     let now = 100
-    const runtime = new AwarenessRuntime({
+    const runtime = new Awareness({
       actorId: 'actor-local',
       timeoutMs: 50,
       now: () => now
@@ -154,8 +154,37 @@ describe('ephemeral awareness ownership', () => {
     ])
   })
 
+  it('clears every remote snapshot when the local transport is lost', () => {
+    const runtime = new Awareness({ actorId: 'actor-local' })
+    const removed = vi.fn()
+    runtime.observe((event) => {
+      if (event.type === 'removed') removed(event)
+    })
+    runtime.applyRemote({
+      actorId: 'actor-a',
+      clock: 4,
+      state: { tool: 'select' }
+    })
+    runtime.applyRemote({
+      actorId: 'actor-b',
+      clock: 7,
+      state: { tool: 'pen' }
+    })
+
+    expect(runtime.clearRemote('disconnect')).toEqual(['actor-a', 'actor-b'])
+    expect(runtime.remoteActors()).toEqual([])
+    expect(removed).toHaveBeenCalledTimes(2)
+    expect(
+      runtime.applyRemote({
+        actorId: 'actor-a',
+        clock: 1,
+        state: { tool: 'select' }
+      })
+    ).toBe(true)
+  })
+
   it('rejects disconnect accessors without executing them or clearing presence', () => {
-    const runtime = new AwarenessRuntime({ actorId: 'actor-local' })
+    const runtime = new Awareness({ actorId: 'actor-local' })
     runtime.applyRemote({
       actorId: 'actor-remote',
       clock: 1,
@@ -180,14 +209,13 @@ describe('ephemeral awareness ownership', () => {
     expect(runtime.getRemote('actor-remote')).toBeDefined()
   })
 
-  it('rejects unselected fields and malformed actor/clock input', () => {
-    const runtime = new AwarenessRuntime({ actorId: 'actor-local' })
+  it('accepts app-selected fields and rejects malformed actor/clock input', () => {
+    const runtime = new Awareness({ actorId: 'actor-local' })
 
-    expect(() => runtime.updateLocal({ role: 'admin' } as never)).toThrowError(
-      expect.objectContaining<Partial<AwarenessValidationError>>({
-        code: 'unsupported-field'
-      })
-    )
+    expect(runtime.updateLocal({ role: 'reviewer' }).state).toEqual({
+      role: 'reviewer',
+      heartbeatAt: expect.any(Number)
+    })
     expect(() =>
       runtime.applyRemote({ actorId: '', clock: 1, state: { tool: 'pen' } })
     ).toThrowError(
@@ -207,28 +235,32 @@ describe('ephemeral awareness ownership', () => {
       })
     )
 
-    expect(() =>
-      runtime.applyRemote({
-        actorId: 'actor-remote',
-        clock: 2,
-        state: { unsupported: true }
-      })
-    ).toThrowError(
-      expect.objectContaining<Partial<AwarenessValidationError>>({
-        code: 'unsupported-field'
-      })
-    )
     expect(
       runtime.applyRemote({
         actorId: 'actor-remote',
         clock: 2,
-        state: { tool: 'pen' }
+        state: { appStatus: 'reviewing' }
       })
     ).toBe(true)
+    expect(runtime.getRemote('actor-remote')?.state).toEqual({
+      appStatus: 'reviewing'
+    })
+  })
+
+  it('reserves heartbeatAt for the Awareness runtime', () => {
+    const runtime = new Awareness({ actorId: 'actor-local' })
+
+    expect(() =>
+      runtime.updateLocal({ heartbeatAt: 123 } as never)
+    ).toThrowError(
+      expect.objectContaining<Partial<AwarenessValidationError>>({
+        code: 'reserved-field'
+      })
+    )
   })
 
   it('preserves prototype-named JSON keys as inert awareness data', () => {
-    const runtime = new AwarenessRuntime({ actorId: 'actor-local' })
+    const runtime = new Awareness({ actorId: 'actor-local' })
     const identity = JSON.parse(
       '{"__proto__":{"claimedPermission":"write"},"displayName":"Asa"}'
     ) as Record<string, never>
@@ -252,7 +284,7 @@ describe('ephemeral awareness ownership', () => {
   })
 
   it('rejects accessor-backed awareness data without executing it', () => {
-    const runtime = new AwarenessRuntime({ actorId: 'actor-local' })
+    const runtime = new Awareness({ actorId: 'actor-local' })
     const nestedGetter = vi.fn(() => 'Asa')
     const identity = {}
     Object.defineProperty(identity, 'displayName', {
@@ -286,7 +318,7 @@ describe('ephemeral awareness ownership', () => {
   it.each(['actorId', 'clock', 'state'] as const)(
     'rejects an accessor-backed inbound %s field without executing it',
     (field) => {
-      const runtime = new AwarenessRuntime({ actorId: 'actor-local' })
+      const runtime = new Awareness({ actorId: 'actor-local' })
       const getter = vi.fn(
         () => ({ actorId: 'actor-remote', clock: 1, state: {} })[field]
       )
@@ -314,7 +346,7 @@ describe('ephemeral awareness ownership', () => {
     const persistence = { append: vi.fn() }
     const transaction = { update: vi.fn(), undo: vi.fn() }
     const permission = vi.fn(() => false)
-    const runtime = new AwarenessRuntime({ actorId: 'actor-a' })
+    const runtime = new Awareness({ actorId: 'actor-a' })
 
     const message = runtime.updateLocal({
       cursor: { x: 10, y: 20 },
@@ -335,8 +367,8 @@ describe('ephemeral awareness ownership', () => {
   })
 
   it('disposes state and observers without affecting another instance', () => {
-    const first = new AwarenessRuntime({ actorId: 'actor-a' })
-    const second = new AwarenessRuntime({ actorId: 'actor-b' })
+    const first = new Awareness({ actorId: 'actor-a' })
+    const second = new Awareness({ actorId: 'actor-b' })
     const firstObserver = vi.fn()
     first.observe(firstObserver)
     first.applyRemote({
@@ -366,7 +398,7 @@ describe('ephemeral awareness ownership', () => {
       elements: Object.freeze([{ id: 'node-a', x: 10 }])
     })
     const projectedPresence = new Map<string, unknown>()
-    const runtime = new AwarenessRuntime({ actorId: 'actor-local' })
+    const runtime = new Awareness({ actorId: 'actor-local' })
     runtime.observe((event) => {
       if (event.type === 'updated') {
         projectedPresence.set(event.snapshot.actorId, event.snapshot.state)

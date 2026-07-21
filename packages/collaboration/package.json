@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
     "build:collaboration": "tsc",
-    "example:collaboration": "vitest run src/__tests__/collaboration-example.test.js",
+    "example:collaboration": "vitest run src/__tests__/documentation-example.test.js",
     "test": "vitest",
     "test:local": "vitest run",
     "test:ci": "vitest run --coverage --reporter=default --reporter=junit"

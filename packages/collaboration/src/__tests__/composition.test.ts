@@ -1,16 +1,17 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import * as Y from 'yjs'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  Awareness,
   AwarenessValidationError,
-  createConflictPolicyPipeline,
+  createCollaboration,
   defineCanonicalOperationApply,
-  defineCollaborationComposition,
-  MemoryCollaborationHub,
-  MemoryCollaborationProvider,
-  MemoryCollaborationUpdatePersistence,
+  MemoryHub,
+  MemoryProvider,
+  MemoryPersistence,
   ProviderFailure,
-  type CollaborationCompositionInput,
+  type CreateCollaborationInput,
   type CollaborationOperationDefinition,
   type SharedOperationEnvelope
 } from '..'
@@ -24,25 +25,24 @@ const listSourceFiles = (directory: string): string[] =>
     return /\.[cm]?[jt]sx?$/.test(entry.name) ? [absolutePath] : []
   })
 
-const baseInput = (): CollaborationCompositionInput<string, () => boolean> => ({
+const baseInput = (): CreateCollaborationInput => ({
   documentId: 'document-a',
   roomId: 'room-a',
   actorId: 'actor-a',
   factory: {
-    subscribeToSharedDelivery: vi.fn(() => () => undefined)
+    subscribeToSharedPublication: vi.fn(() => () => undefined)
   },
   operationDefinitions: [],
   permissionPolicy: () => true
 })
 
 describe('optional collaboration composition', () => {
-  it('exports provider-neutral runtime building blocks without creating them', () => {
+  it('exports provider-neutral building blocks without creating them', () => {
     ;[
       AwarenessValidationError,
-      createConflictPolicyPipeline,
-      MemoryCollaborationHub,
-      MemoryCollaborationProvider,
-      MemoryCollaborationUpdatePersistence,
+      MemoryHub,
+      MemoryProvider,
+      MemoryPersistence,
       ProviderFailure
     ].forEach((value) => expect(value).toEqual(expect.any(Function)))
   })
@@ -125,88 +125,48 @@ describe('optional collaboration composition', () => {
     })
   })
 
-  it('normalizes a frozen composition without invoking injected resources', () => {
+  it('constructs collaboration without activating injected resources', async () => {
     const input = baseInput()
-    const provider = { connect: vi.fn() }
-    const yDoc = { transact: vi.fn() }
-    const awareness = { clear: vi.fn() }
-    const persistence = { load: vi.fn() }
+    const yDoc = new Y.Doc()
+    const awareness = new Awareness()
     const permissionPolicy = vi.fn(() => true)
 
-    const composition = defineCollaborationComposition({
+    const collaboration = createCollaboration({
       ...input,
-      provider,
       yDoc,
       awareness,
-      persistence,
       permissionPolicy,
       resourceOwnership: {
-        provider: 'owned',
         yDoc: 'borrowed',
-        awareness: 'borrowed',
-        persistence: 'borrowed'
+        awareness: 'borrowed'
       }
     })
 
-    expect(composition).toMatchObject({
-      documentId: 'document-a',
-      roomId: 'room-a',
-      actorId: 'actor-a',
-      provider,
+    expect(collaboration).toMatchObject({
+      identity: {
+        documentId: 'document-a',
+        roomId: 'room-a',
+        actorId: 'actor-a'
+      },
       yDoc,
-      awareness,
-      persistence,
-      resourceOwnership: {
-        provider: 'owned',
-        yDoc: 'borrowed',
-        awareness: 'borrowed',
-        persistence: 'borrowed'
-      }
+      awareness
     })
-    expect(Object.isFrozen(composition)).toBe(true)
-    expect(Object.isFrozen(composition.operationDefinitions)).toBe(true)
-    expect(Object.isFrozen(composition.resourceOwnership)).toBe(true)
-    expect(provider.connect).not.toHaveBeenCalled()
-    expect(yDoc.transact).not.toHaveBeenCalled()
-    expect(awareness.clear).not.toHaveBeenCalled()
-    expect(persistence.load).not.toHaveBeenCalled()
+    expect(Object.isFrozen(collaboration.operationDefinitions)).toBe(true)
     expect(permissionPolicy).not.toHaveBeenCalled()
-    expect(input.factory.subscribeToSharedDelivery).not.toHaveBeenCalled()
+    expect(input.factory.subscribeToSharedPublication).not.toHaveBeenCalled()
+
+    await collaboration.dispose()
   })
 
   it('keeps connection metadata on provider identity instead of composition', () => {
     const compileTimeDeadFieldRejection = () =>
-      defineCollaborationComposition({
+      createCollaboration({
         ...baseInput(),
         // @ts-expect-error connection metadata belongs to provider identity
         connectionMetadata: { accessToken: 'provider-owned' }
       })
 
     expect(compileTimeDeadFieldRejection).toEqual(expect.any(Function))
-  })
-
-  it('defaults absent resources to owned creation and injected resources to borrowed', () => {
-    const withoutResources = defineCollaborationComposition(baseInput())
-    expect(withoutResources.resourceOwnership).toEqual({
-      provider: 'borrowed',
-      yDoc: 'owned',
-      awareness: 'owned',
-      persistence: 'borrowed'
-    })
-
-    const withResources = defineCollaborationComposition({
-      ...baseInput(),
-      provider: {},
-      yDoc: {},
-      awareness: {},
-      persistence: {}
-    })
-    expect(withResources.resourceOwnership).toEqual({
-      provider: 'borrowed',
-      yDoc: 'borrowed',
-      awareness: 'borrowed',
-      persistence: 'borrowed'
-    })
   })
 
   it.each([
@@ -218,23 +178,23 @@ describe('optional collaboration composition', () => {
     'rejects an invalid %s before resource activation',
     (key, value) => {
       expect(() =>
-        defineCollaborationComposition({ ...baseInput(), [key]: value })
+        createCollaboration({ ...baseInput(), [key]: value })
       ).toThrow(`${key} is required`)
     }
   )
 
   it('rejects an invalid Factory facade before resource activation', () => {
     expect(() =>
-      defineCollaborationComposition({
+      createCollaboration({
         ...baseInput(),
         factory: {} as never
       })
-    ).toThrow('factory.subscribeToSharedDelivery is required')
+    ).toThrow('factory.subscribeToSharedPublication is required')
   })
 
   it('rejects invalid resource ownership before resource activation', () => {
     expect(() =>
-      defineCollaborationComposition({
+      createCollaboration({
         ...baseInput(),
         resourceOwnership: { yDoc: 'shared' as never }
       })

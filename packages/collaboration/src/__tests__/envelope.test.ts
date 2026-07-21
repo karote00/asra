@@ -3,13 +3,13 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createOperationIdentitySource,
   createSharedOperationEnvelope,
-  LocalOperationRejection
-} from '../operation-envelope'
+  OperationRejection
+} from '../operations/envelope'
 import {
   defineCanonicalOperationApply,
   OperationRegistry,
   type OperationDefinition
-} from '../operation-registry'
+} from '../operations/registry'
 
 interface MovePayload {
   id: string
@@ -107,7 +107,7 @@ describe('shared operation envelope', () => {
     expect(() =>
       createEnvelope(delivery({ eventName: 'unknown-event' }))
     ).toThrowError(
-      expect.objectContaining<Partial<LocalOperationRejection>>({
+      expect.objectContaining<Partial<OperationRejection>>({
         code: 'unregistered-operation',
         channel: 'scene',
         eventName: 'unknown-event'
@@ -127,7 +127,7 @@ describe('shared operation envelope', () => {
         })
       )
     ).toThrowError(
-      expect.objectContaining<Partial<LocalOperationRejection>>({
+      expect.objectContaining<Partial<OperationRejection>>({
         code: 'invalid-payload',
         channel: 'scene',
         eventName: 'move-node'
@@ -164,7 +164,7 @@ describe('shared operation envelope', () => {
         })
       )
     ).toThrowError(
-      expect.objectContaining<Partial<LocalOperationRejection>>({
+      expect.objectContaining<Partial<OperationRejection>>({
         code: 'invalid-compensation'
       })
     )
@@ -172,7 +172,7 @@ describe('shared operation envelope', () => {
     expect(() =>
       createEnvelope(delivery({ compensatesDeliveryId: 'another-delivery' }))
     ).toThrowError(
-      expect.objectContaining<Partial<LocalOperationRejection>>({
+      expect.objectContaining<Partial<OperationRejection>>({
         code: 'invalid-compensation'
       })
     )

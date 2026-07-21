@@ -4,16 +4,14 @@ import {
   type SharedDelivery
 } from '@asyra/factory'
 import { describe, expect, it, vi } from 'vitest'
-import type { ConflictAcceptedOperation } from '../conflict-policy'
-import {
-  OperationOutcomeRegistry,
-  runRemoteCanonicalApply,
-  validateRemoteOperation
-} from '../inbound-pipeline'
+import type { AcceptedOperation } from '../operations/conflict'
+import { applyOperation } from '../operations/apply'
+import { OperationOutcomeRegistry } from '../operations/outcomes'
+import { validateRemoteOperation } from '../operations/validation'
 import {
   defineCanonicalOperationApply,
   OperationRegistry
-} from '../operation-registry'
+} from '../operations/registry'
 
 interface ValuePayload {
   id: string
@@ -63,7 +61,7 @@ const validatedDecision = () => {
     outcomes
   })
   if (result.status !== 'validated') throw new Error('expected validation')
-  const decision: ConflictAcceptedOperation = {
+  const decision: AcceptedOperation = {
     status: 'accepted',
     receivedEnvelope: result.envelope,
     envelope: result.envelope
@@ -126,12 +124,12 @@ describe('remote canonical apply transaction', () => {
   it('commits one rollbackable, non-undoable remote transaction with local projection and no network echo', () => {
     const target = harness()
     const { decision, outcomes } = validatedDecision()
-    const handler = vi.fn((envelope: ConflictAcceptedOperation['envelope']) => {
+    const handler = vi.fn((envelope: AcceptedOperation['envelope']) => {
       target.apply(envelope.payload as ValuePayload)
       return true
     })
 
-    const result = runRemoteCanonicalApply({
+    const result = applyOperation({
       operation: decision,
       factory: target.factory,
       apply: defineCanonicalOperationApply(handler),
@@ -183,7 +181,7 @@ describe('remote canonical apply transaction', () => {
     const target = harness()
     const { decision, outcomes } = validatedDecision()
 
-    const result = runRemoteCanonicalApply({
+    const result = applyOperation({
       operation: decision,
       factory: target.factory,
       apply: defineCanonicalOperationApply((envelope) => {
@@ -212,7 +210,7 @@ describe('remote canonical apply transaction', () => {
     const target = harness()
     const { decision, outcomes } = validatedDecision()
 
-    const result = runRemoteCanonicalApply({
+    const result = applyOperation({
       operation: decision,
       factory: target.factory,
       apply: defineCanonicalOperationApply((envelope) => {
@@ -256,7 +254,7 @@ describe('remote canonical apply transaction', () => {
     const target = harness()
     const { decision, outcomes } = validatedDecision()
 
-    runRemoteCanonicalApply({
+    applyOperation({
       operation: decision,
       factory: target.factory,
       apply: defineCanonicalOperationApply((envelope) => {
@@ -278,7 +276,7 @@ describe('remote canonical apply transaction', () => {
     const target = harness()
     const { decision, outcomes } = validatedDecision()
 
-    const result = runRemoteCanonicalApply({
+    const result = applyOperation({
       operation: decision,
       factory: target.factory,
       apply: defineCanonicalOperationApply(() => false),
@@ -300,7 +298,7 @@ describe('remote canonical apply transaction', () => {
     const target = harness()
     const { decision, outcomes } = validatedDecision()
 
-    const result = runRemoteCanonicalApply({
+    const result = applyOperation({
       operation: decision,
       factory: target.factory,
       apply: defineCanonicalOperationApply((envelope) => {
@@ -325,7 +323,7 @@ describe('remote canonical apply transaction', () => {
     const target = harness()
     const { decision, outcomes } = validatedDecision()
 
-    const result = runRemoteCanonicalApply({
+    const result = applyOperation({
       operation: decision,
       factory: target.factory,
       apply: defineCanonicalOperationApply(() => {
@@ -354,7 +352,7 @@ describe('remote canonical apply transaction', () => {
     target.statuses.length = 0
     const { decision, outcomes } = validatedDecision()
 
-    const result = runRemoteCanonicalApply({
+    const result = applyOperation({
       operation: decision,
       factory: target.factory,
       apply: defineCanonicalOperationApply(() => {
@@ -383,7 +381,7 @@ describe('remote canonical apply transaction', () => {
       })
     }
 
-    const result = runRemoteCanonicalApply({
+    const result = applyOperation({
       operation: decision,
       factory: target.factory,
       apply: defineCanonicalOperationApply((envelope) =>

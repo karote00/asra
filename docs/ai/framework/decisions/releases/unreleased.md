@@ -1656,12 +1656,12 @@ unregister -> app migration -> core.start()` as the public app route.
 - Consequences:
   - Apps that omit collaboration create no Y.Doc, provider, room, Awareness,
     collaboration persistence, or network side effect. Construction is inert;
-    `CollaborationInstance.start()` is the explicit activation point.
+    `Collaboration.start()` is the explicit activation point.
   - Identical local/remote replay is deterministic, operation-ID collision is
     rejected, remote apply cannot echo or enter ordinary local undo, and
     immediate rollback compensation re-enters the normal inbound pipeline.
-  - `MemoryCollaborationProvider` and persistence adapters are reference
-    implementations, not mandatory authorities.
+  - `MemoryProvider` and persistence adapters are reference implementations,
+    not mandatory authorities.
   - This record documents implementation direction only. Gate 2 remains active;
     it does not move the plan, declare closeout, or authorize push, pull request,
     merge, tag, release, or publication.
@@ -1672,3 +1672,99 @@ unregister -> app migration -> core.start()` as the public app route.
 - Related Commit(s):
   - local Gate 2 implementation commits on
     `codex/yjs-network-collaboration-foundation`
+
+## 2026-07-20 - Batch collaboration by synchronous delivery action
+
+- Context:
+  - One synchronous app action can create several low-level transactions across
+    elements or state owners. Sending each transaction independently creates
+    avoidable transport overhead.
+  - Remote peers need canonical element creation and geometry before pointer-up,
+    not a second Awareness-owned document preview.
+- Decision:
+  - `sharedDelivery` selects complete shared-pipeline timing. `immediate`
+    publishes without waiting for the outer transaction; `transaction-end`
+    waits for commit.
+  - Batch all changes made by one synchronous immediate delivery action into
+    one ordered publication, one Y.Doc transaction/update, and one provider
+    send. Do the same for one committed transaction-end batch.
+  - Preserve the app-authored timeline, including repeated A -> B -> C -> B;
+    Factory and collaboration do not semantically deduplicate it.
+  - Forward one remote event unchanged to its registered state owner. Keep an
+    ordered batch as one event through rollback, undo, and redo; the state owner
+    alone interprets and applies its entries.
+  - Keep canonical element creation and geometry out of Awareness.
+- Consequences:
+  - A pointer session may emit mouse-down, selected drag-update, and conditional
+    mouse-up publications while remaining one local undo commit.
+  - Already-published immediate entries are not sent again at transaction end.
+    Pre-flush rollback discards the pending batch; post-publication rollback
+    emits one linked reverse compensation batch.
+  - Awareness remains optional ephemeral presence and never becomes a canonical
+    element transport.
+  - Factory no longer rewrites a state-owner batch into scalar app operations.
+- Related Plan:
+  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
+  - `docs/ai/framework/plans/yjs-network-collaboration-flow-inspector.data.cjs`
+- Related Commit(s):
+  - pending local Gate 2 validation
+
+## 2026-07-21 - Simplify collaboration ownership and public API boundaries
+
+- Context:
+  - A package-wide review found implementation-oriented names, mixed operation
+    pipeline responsibilities, combined provider/persistence owners, and root
+    exports for helpers that app composition does not consume.
+  - Framework Release Gate 2 is still pre-release, so compatibility aliases
+    would preserve an API that has not yet become a release contract.
+- Decision:
+  - Use `Collaboration` in `collaboration.ts` as the public lifecycle owner and
+    keep `createCollaboration(...)` as the composition entry. Process each
+    Factory publication through the internal `processPublication` boundary.
+  - Group envelope, registry, outcome, validation, conflict, and canonical
+    apply owners under `operations/`, and keep their pipeline helpers internal.
+  - Use the public `Provider`, `MemoryHub`, and `MemoryProvider` contracts. Split
+    memory room/author validation from client lifecycle/subscriptions.
+  - Keep `UpdatePersistence` and `MemoryPersistence` separate from the internal
+    `Durability` coordinator. Use `Awareness` as the ephemeral state owner with
+    app-owned JSON-safe fields and only `heartbeatAt` reserved for framework
+    liveness.
+  - Export only app composition, provider, persistence, policy, awareness,
+    durability observation, envelope type, and canonical apply contracts from
+    the package root; do not add aliases for the superseded names.
+- Consequences:
+  - App and reference-server consumers use shorter package-context names while
+    provider wire messages, room identity, operation envelopes, validation
+    order, transaction behavior, reconnect, acknowledgement, and Awareness
+    semantics remain unchanged.
+  - Each source file or folder has one primary owner, and Inspector
+    implementation boundaries point to the new canonical paths.
+  - This decision does not close Gate 2 or authorize push, pull request, merge,
+    tag, release, or publication.
+- Related Plan:
+  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
+  - `docs/ai/framework/plans/yjs-network-collaboration-flow-inspector.data.cjs`
+- Related Commit(s):
+  - pending local Gate 2 validation
+
+## 2026-07-21 - Keep collaborative entity identity in the canonical ID owner
+
+- Context:
+  - Independent pages begin with the same local component and property
+    counters, so simultaneous creation can otherwise reuse an app entity ID.
+  - A collaboration-layer payload comparison or winner rule would duplicate
+    app state semantics and cannot repair every nested property identity.
+- Decision:
+  - Let the Utils ID owner optionally namespace non-default registered counters.
+  - Have Asyra Design use its full per-page actor identity as that namespace
+    before collaborative actions begin.
+  - Accept IDs from other namespaces without advancing the local namespace's
+    numeric counter; keep ordinary non-collaborative IDs unchanged.
+- Consequences:
+  - Concurrent element, component, and property creation is cross-actor unique.
+  - Collaboration continues to transport validated operations unchanged and
+    owns no same-entity-ID winner policy.
+- Related Plan:
+  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
+- Related Commit(s):
+  - pending local Gate 2 validation

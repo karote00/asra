@@ -92,4 +92,16 @@ describe('Scene Tree canonical property projection', () => {
 
     expect(computed.save()).not.toHaveProperty('customCount')
   })
+
+  it('preserves a referenced property id when the property arrives after the element', () => {
+    const Props = createDynamicPropsClass([
+      { name: 'style', type: CUSTOM_TYPE, alias: ['customCount'] }
+    ])
+    const elementProps = new Props('remote-element', {
+      style: 'remote-property-17'
+    })
+
+    expect(elementProps.getPropId('style')).toBe('remote-property-17')
+    expect(propsManager.getPropertyById('remote-property-17')).toBeDefined()
+  })
 })

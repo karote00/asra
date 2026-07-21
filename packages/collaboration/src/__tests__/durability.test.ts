@@ -1,14 +1,9 @@
 import * as Y from 'yjs'
 import { describe, expect, it, vi } from 'vitest'
-import type { SharedOperationEnvelope } from '../operation-envelope'
-import {
-  CollaborationDurabilityRuntime,
-  MemoryCollaborationUpdatePersistence
-} from '../persistence'
-import {
-  MemoryCollaborationHub,
-  MemoryCollaborationProvider
-} from '../providers/memory-provider'
+import type { SharedOperationEnvelope } from '../operations/envelope'
+import { Durability } from '../durability'
+import { MemoryPersistence } from '../persistence'
+import { MemoryHub, MemoryProvider } from '../providers/memory'
 import {
   appendOperationToYDoc,
   applyInboundYjsUpdate,
@@ -41,13 +36,10 @@ describe('collaboration update persistence and durability states', () => {
   it('keeps runtime commit, local persistence, network send, and durable acknowledgement distinct', async () => {
     const document = new Y.Doc()
     const binary = appendOperationToYDoc(document, envelope('actor-a', 1))
-    const persistence = new MemoryCollaborationUpdatePersistence()
-    const provider = new MemoryCollaborationProvider(
-      new MemoryCollaborationHub(),
-      identity('actor-a')
-    )
+    const persistence = new MemoryPersistence()
+    const provider = new MemoryProvider(new MemoryHub(), identity('actor-a'))
     await provider.connect()
-    const runtime = new CollaborationDurabilityRuntime({
+    const runtime = new Durability({
       document,
       documentId: 'document-a',
       persistence,
@@ -77,16 +69,13 @@ describe('collaboration update persistence and durability states', () => {
     const document = new Y.Doc()
     const binary = appendOperationToYDoc(document, envelope('actor-a', 1))
     const persistenceFailure = new Error('local persistence failed')
-    const persistence = new MemoryCollaborationUpdatePersistence({
+    const persistence = new MemoryPersistence({
       appendFailure: persistenceFailure
     })
-    const provider = new MemoryCollaborationProvider(
-      new MemoryCollaborationHub(),
-      identity('actor-a')
-    )
+    const provider = new MemoryProvider(new MemoryHub(), identity('actor-a'))
     await provider.connect()
     const canonicalState = { value: 1 }
-    const runtime = new CollaborationDurabilityRuntime({
+    const runtime = new Durability({
       document,
       documentId: 'document-a',
       persistence,
@@ -111,8 +100,8 @@ describe('collaboration update persistence and durability states', () => {
     const document = new Y.Doc()
     const binary = appendOperationToYDoc(document, envelope('actor-a', 1))
     const acknowledgementFailure = new Error('durable store unavailable')
-    const provider = new MemoryCollaborationProvider(
-      new MemoryCollaborationHub({
+    const provider = new MemoryProvider(
+      new MemoryHub({
         acknowledgeUpdate: () => {
           throw acknowledgementFailure
         }
@@ -121,7 +110,7 @@ describe('collaboration update persistence and durability states', () => {
     )
     await provider.connect()
     const canonicalState = { value: 1 }
-    const runtime = new CollaborationDurabilityRuntime({
+    const runtime = new Durability({
       document,
       documentId: 'document-a',
       provider
@@ -144,7 +133,7 @@ describe('collaboration update persistence and durability states', () => {
   it('uses explicit skipped states when persistence and provider are absent', async () => {
     const document = new Y.Doc()
     const binary = appendOperationToYDoc(document, envelope('actor-a', 1))
-    const runtime = new CollaborationDurabilityRuntime({
+    const runtime = new Durability({
       document,
       documentId: 'document-a'
     })
@@ -161,14 +150,14 @@ describe('collaboration update persistence and durability states', () => {
   it('recovers persisted binary document updates without an awareness record', async () => {
     const source = new Y.Doc()
     const binary = appendOperationToYDoc(source, envelope('actor-a', 1))
-    const persistence = new MemoryCollaborationUpdatePersistence()
+    const persistence = new MemoryPersistence()
     await persistence.append({
       documentId: 'document-a',
       operationId: binary.operationId,
       update: binary.update
     })
     const recovered = new Y.Doc()
-    const runtime = new CollaborationDurabilityRuntime({
+    const runtime = new Durability({
       document: recovered,
       documentId: 'document-a',
       persistence
@@ -187,9 +176,9 @@ describe('collaboration update persistence and durability states', () => {
 
 describe('state-vector reconnect convergence', () => {
   it('pulls and pushes only missing updates so offline peers converge in both directions', async () => {
-    const hub = new MemoryCollaborationHub()
-    const providerA = new MemoryCollaborationProvider(hub, identity('actor-a'))
-    const providerB = new MemoryCollaborationProvider(hub, identity('actor-b'))
+    const hub = new MemoryHub()
+    const providerA = new MemoryProvider(hub, identity('actor-a'))
+    const providerB = new MemoryProvider(hub, identity('actor-b'))
     await providerA.connect()
     const documentA = new Y.Doc()
     const operationA = appendOperationToYDoc(documentA, envelope('actor-a', 1))
@@ -201,7 +190,7 @@ describe('state-vector reconnect convergence', () => {
       applyInboundYjsUpdate(documentA, binary.update, 'provider')
     })
     await providerB.connect()
-    const runtimeB = new CollaborationDurabilityRuntime({
+    const runtimeB = new Durability({
       document: documentB,
       documentId: 'document-a',
       provider: providerB

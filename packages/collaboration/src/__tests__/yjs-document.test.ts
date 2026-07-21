@@ -1,6 +1,6 @@
 import * as Y from 'yjs'
 import { describe, expect, it, vi } from 'vitest'
-import type { SharedOperationEnvelope } from '../operation-envelope'
+import type { SharedOperationEnvelope } from '../operations/envelope'
 import {
   appendOperationToYDoc,
   LOCAL_YJS_OPERATION_ORIGIN,

@@ -3,7 +3,7 @@ import { URL } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   createCollaboratingCounter,
-  createMemoryCollaborationServer
+  createMemoryHub
 } from '../../../../docs/examples/yjs-network-collaboration.mjs'
 
 describe('Yjs collaboration documentation example', () => {
@@ -13,12 +13,12 @@ describe('Yjs collaboration documentation example', () => {
     )
 
     expect(manifest.scripts?.['example:collaboration']).toBe(
-      'vitest run src/__tests__/collaboration-example.test.js'
+      'vitest run src/__tests__/documentation-example.test.js'
     )
   })
 
   it('connects two explicit clients, converges canonical state, and projects awareness', async () => {
-    const hub = createMemoryCollaborationServer()
+    const hub = createMemoryHub()
     const first = await createCollaboratingCounter({
       hub,
       documentId: 'document-a',

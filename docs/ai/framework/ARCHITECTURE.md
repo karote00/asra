@@ -166,13 +166,14 @@ Canonical shorthand:
 ### Optional network collaboration composition
 
 `@asyra/collaboration` is an optional sibling composition, not a Core or Preset
-startup dependency. Construction is inert; `CollaborationInstance.start()` is
-the explicit observer-binding, recovery, provider-connect, and state-vector
+startup dependency. Construction is inert; `Collaboration.start()` is the
+explicit observer-binding, recovery, provider-connect, and state-vector
 exchange point.
 
 ```text
-Local canonical commit
--> Factory detached shared delivery
+Local canonical state-owner mutation
+-> Factory sharedDelivery boundary
+-> immediate publication, or outer commit then transaction-end publication
 -> validated semantic envelope
 -> instance Y.Doc binary update
 -> optional collaboration persistence/provider
@@ -180,7 +181,7 @@ Local canonical commit
 Provider/persisted binary update
 -> Yjs decode with inbound origin
 -> instance-local dedupe + protocol/schema/route/payload validation
--> permission -> framework invariants -> ordered app policies
+-> permission -> optional ordered app-domain policies
 -> Factory remote transaction -> registered canonical apply handler
 -> state owner -> Render/UI projection
 ```
@@ -315,10 +316,10 @@ applyPreset(core, { profile?, defaults? })
   processes or remote clients and do not provide database serializability.
 - Optional Yjs provider/room composition, Awareness, inbound origin/dedupe,
   permission/conflict policy, remote canonical apply, update persistence, and
-  state-vector reconnect are implemented in `@asyra/collaboration`. Runtime
+  state-vector reconnect belong to `@asyra/collaboration`. Runtime
   activation remains explicit and optional; app/server policy and
   non-commutative domain conflict semantics remain consumer-owned extension
-  inputs. Gate 2 remains active until user-directed review and closeout.
+  inputs.
 
 ## Framework Release Sequence
 
@@ -333,10 +334,7 @@ The first public framework release is gated, in order, by:
 
 Auto-layout, its unit/UI aggregation family, and production `3D`/`HYBRID`
 remain post-release Roadmap capabilities. Detailed scope and status are owned by
-`PLANS.md`; this sequence does not claim that an unclosed gate is implemented.
-Framework Release Gate 2 implementation and its dedicated Inspector are present
-for validation and review. The gate remains active; only the user may direct
-closeout or advance the release sequence.
+`PLANS.md`.
 
 ## Package Deep Dives
 

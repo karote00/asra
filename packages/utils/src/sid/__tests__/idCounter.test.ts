@@ -82,6 +82,17 @@ describe('idCounter', () => {
       const newId = idCounter.increase(type)
       expect(newId).toBe(`${type}${CODE_SPLIT}11`)
     })
+
+    it('keeps actor-scoped counters distinct without adopting another actor counter', () => {
+      idCounter.setNamespace('actor-a')
+
+      expect(idCounter.increase(IDTypes.ELEMENT)).toBe('el-actor-a-1')
+      expect(idCounter.valid('el-actor-b-99', IDTypes.ELEMENT)).toBe(true)
+
+      idCounter.load('el-actor-b-99', IDTypes.ELEMENT)
+
+      expect(idCounter.increase(IDTypes.ELEMENT)).toBe('el-actor-a-2')
+    })
   })
 
   describe('valid id', () => {
@@ -132,6 +143,10 @@ describe('idCounter', () => {
       const result = idCounter.valid(testId, IDTypes.WORKSPACE)
 
       expect(result).toBe(false)
+    })
+
+    it('rejects an empty namespace segment', () => {
+      expect(idCounter.valid('el--1', IDTypes.ELEMENT)).toBe(false)
     })
   })
 

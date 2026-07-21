@@ -1,5 +1,5 @@
 import * as Y from 'yjs'
-import type { SharedOperationEnvelope } from './operation-envelope'
+import type { SharedOperationEnvelope } from './operations/envelope'
 
 export const YJS_OPERATION_LOG_NAME = 'asyra:collaboration:operations:v1'
 
@@ -100,25 +100,39 @@ const operationLog = (document: Y.Doc): Y.Array<string> =>
 export const appendOperationToYDoc = (
   document: Y.Doc,
   envelope: SharedOperationEnvelope
+): YjsBinaryUpdate =>
+  appendOperationsToYDoc(document, envelope.operationId, [envelope])
+
+export const appendOperationsToYDoc = (
+  document: Y.Doc,
+  publicationId: string,
+  envelopes: readonly SharedOperationEnvelope[]
 ): YjsBinaryUpdate => {
-  const encodedEnvelope = encodeEnvelope(envelope)
+  if (envelopes.length === 0) {
+    throw new YjsAppendFailure(
+      'yjs-append-failed',
+      publicationId,
+      '[collaboration] action publication requires at least one operation'
+    )
+  }
+  const encodedEnvelopes = envelopes.map(encodeEnvelope)
   const previousState = Y.encodeStateVector(document)
 
   try {
     document.transact(() => {
-      operationLog(document).push([encodedEnvelope])
+      operationLog(document).push(encodedEnvelopes)
     }, LOCAL_YJS_OPERATION_ORIGIN)
   } catch (error) {
     throw new YjsAppendFailure(
       'yjs-append-failed',
-      envelope.operationId,
-      '[collaboration] failed to append operation to Y.Doc',
+      publicationId,
+      '[collaboration] failed to append action publication to Y.Doc',
       error
     )
   }
 
   return Object.freeze({
-    operationId: envelope.operationId,
+    operationId: publicationId,
     update: Y.encodeStateAsUpdate(document, previousState)
   })
 }
@@ -222,8 +236,12 @@ const decodeInboundYjsUpdate = (
   const insertedEntries: unknown[] = []
   let changedNonOperationContent = false
   let deletedOperationContent = false
+  let insertedBeforeOperationContent = false
 
   const observeLog = (event: Y.YArrayEvent<unknown>): void => {
+    if ([...event.changes.added].some((item) => item.rightOrigin !== null)) {
+      insertedBeforeOperationContent = true
+    }
     event.changes.delta.forEach((change) => {
       if (change.insert) insertedEntries.push(...change.insert)
       if (change.delete) deletedOperationContent = true
@@ -259,7 +277,7 @@ const decodeInboundYjsUpdate = (
       '[collaboration] inbound update changed a non-operation Yjs type'
     )
   }
-  if (deletedOperationContent) {
+  if (deletedOperationContent || insertedBeforeOperationContent) {
     throw new InboundYjsDecodeFailure(
       'non-append-update',
       source,

@@ -37,13 +37,21 @@
       ],
       conditions: [
         'Only an explicit import and collaboration-instance creation activates the collaboration bundle.',
+        'Asyra Design imports its public reference collaboration composition only when an app URL supplies one non-empty fileId and after ordinary app state owners and projections are ready; production bundles retain the dynamic composition for deployed public use.',
+        'The public reference composition maps the one public fileId to both internal document and room identity and generates the actor per page; document, room, and actor are not independent URL inputs.',
+        'Before collaborative user actions begin, Asyra Design supplies the full page actor identity as the canonical ID-counter namespace so concurrent element and property creation is cross-actor unique; collaboration does not resolve app entity-ID collisions by rereading payloads.',
+        'Asyra Design owns one app URL used by Vite, ordinary Playwright, visual review, collaboration E2E, and the reference WebSocket Origin check; one override supports a non-default local port or deployed http(s) origin.',
+        'Ordinary Asyra Design Playwright discovery excludes the collaboration spec, while the dedicated collaboration config discovers only that spec and owns the WebSocket server composition.',
+        'Asyra Design RenderApp owns unmount and aborted-startup teardown requests; the collaboration runtime owns HMR teardown, setup-failure cleanup, and explicit disposal of the app-owned provider, Awareness observers, and owned resources; Core does not own this collaboration lifecycle.',
+        'Asyra Design composition setup failure disposes the partially created collaboration instance before the failure is reported.',
         'The public .mjs composition has a manifest-declared workspace runner that executes its two-client convergence and Awareness smoke test through supported package resolution.',
         'Authentication, authorization, room access, and durable backend policy are supplied by app/server composition.',
         'Connection authentication metadata belongs to the explicitly supplied provider identity and is not duplicated as an unused collaboration-composition input.',
         'Injected resources declare owned or borrowed disposal semantics.'
       ],
       bypasses: [
-        'When collaboration is disabled, Core, Factory, Preset, and Persistence create no Y.Doc, provider, room, awareness, network connection, or collaboration persistence side effect.'
+        'When collaboration is disabled, Core, Factory, Preset, and Persistence create no Y.Doc, provider, room, awareness, network connection, or collaboration persistence side effect.',
+        'Every Asyra Design URL without fileId excludes the collaboration composition at runtime and retains the normal persistence path.'
       ],
       allowedContributors: [
         'public @asyra/collaboration composition API',
@@ -62,9 +70,9 @@
         'scripts/gen-turbo.js',
         'turbo.json',
         'packages/collaboration/src/index.ts',
-        'packages/collaboration/src/types.ts',
-        'packages/collaboration/src/__tests__/collaboration-disabled.test.ts',
-        'packages/collaboration/src/__tests__/collaboration-example.test.js',
+        'packages/collaboration/src/composition.ts',
+        'packages/collaboration/src/__tests__/composition.test.ts',
+        'packages/collaboration/src/__tests__/documentation-example.test.js',
         'docs/examples/yjs-network-collaboration.mjs',
         'docs/ai/framework/packages/collaboration.md',
         'docs/ai/framework/packages/README.md',
@@ -74,6 +82,25 @@
         'docs/ai/framework/CONSTRAINTS.md',
         'docs/ai/framework/packages/factory.md',
         'docs/ai/framework/decisions/releases/unreleased.md',
+        'apps/asyra-design/src/**/collaboration-mode.ts',
+        'apps/asyra-design/src/render-app/__tests__/collaboration-mode.test.ts',
+        'apps/asyra-design/src/collaboration/runtime.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-runtime.test.ts',
+        'packages/utils/src/sid/idCounter.ts',
+        'packages/utils/src/sid/__tests__/idCounter.test.ts',
+        'apps/asyra-design/src/collaboration/factory-adapter.ts',
+        'apps/asyra-design/src/render-app/index.tsx',
+        'apps/asyra-design/src/types.d.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-production-bundle.test.mjs',
+        'apps/asyra-design/*environment*.mjs',
+        'apps/asyra-design/vite.config.ts',
+        'apps/asyra-design/playwright.config.ts',
+        'apps/asyra-design/playwright.collaboration.config.ts',
+        'apps/asyra-design/playwright-config.test.mjs',
+        'apps/asyra-design/README.md',
+        'apps/asyra-design/.env',
+        'apps/asyra-design/package.json',
+        'scripts/run-e2e.sh',
         'yarn.lock'
       ],
       specRefs: [
@@ -102,7 +129,10 @@
         'The instance owns or receives exactly one Y.Doc, provider, Factory-backed shared registry, document/room identity, awareness runtime, and disposal lifecycle.',
         'Construction validates and retains resources without subscribing, recovering, connecting, or sending; explicit start activates observers and durability acknowledgement tracking.',
         'Separate instances remain isolated unless the app intentionally injects a shared resource.',
-        'Disposal removes document, provider, shared-delivery, update, acknowledgement, and awareness observers according to explicit resource ownership.'
+        'Disposal removes document, provider, shared-delivery, update, acknowledgement, and awareness observers according to explicit resource ownership.',
+        'Disposal bypasses queued work that has not started, destroys an owned provider before awaiting pending start or already-started work queue settlement so provider destruction can abort outstanding I/O, and only detaches a borrowed provider.',
+        'Recovery, provider connection, state-vector synchronization, and reconnect recheck disposal after every asynchronous boundary and cannot mark a disposed collaboration as started.',
+        'Already-started inbound work rechecks instance disposal after asynchronous permission or conflict policy settlement and cannot enter canonical apply after disposal begins.'
       ],
       bypasses: [
         'An explicitly created provider-less instance remains an offline Yjs document composition and opens no network connection.',
@@ -122,11 +152,11 @@
       implementationBoundary: [
         'packages/collaboration/package.json',
         'packages/collaboration/tsconfig.json',
-        'packages/collaboration/src/collaboration-instance.ts',
+        'packages/collaboration/src/collaboration.ts',
         'packages/collaboration/src/awareness.ts',
-        'packages/collaboration/src/__tests__/instance-ownership.test.ts',
+        'packages/collaboration/src/__tests__/collaboration.test.ts',
         'packages/collaboration/src/index.ts',
-        'packages/collaboration/src/types.ts',
+        'packages/collaboration/src/composition.ts',
         'yarn.lock'
       ],
       specRefs: ['#supported-behavior', '#instance-ownership'],
@@ -136,36 +166,47 @@
       id: 'publish-local-committed-change',
       order: 1,
       laneId: 'local',
-      title: 'Publish committed local shared change',
+      title: 'Publish local shared delivery action',
       ownerPackage: '@asyra/factory',
       purpose:
-        'Expose one detached shared delivery after the canonical local transaction reaches its configured immediate or transaction-end settlement point.',
+        'Batch one immediate delivery action or one committed transaction-end delivery into one ordered collaboration publication while preserving the outer local undo boundary.',
       inputs: [
         'artifact:collaboration-instance',
         'local transaction journal',
-        'state-owner change with shared channel metadata'
+        'state-owner change with shared channel and sharedDelivery metadata'
       ],
       outputs: [
         'artifact:local-shared-delivery',
-        'artifact:local-shared-discard',
-        'artifact:local-compensation-delivery'
+        'artifact:local-action-publication',
+        'artifact:local-action-discard'
       ],
       conditions: [
-        'The ordinary local flow remains Intent -> Feature -> API -> local transaction -> state owner -> commit before transaction-end network publication.',
-        'Immediate shared delivery identifies the originating journal change so one later compensation can link to it.',
-        'Immediate rollback compensation uses the inverse event route together with the inverse payload produced by the same Factory replay primitive.',
+        'The ordinary local flow remains Intent -> Feature -> API -> local transaction -> state owner before any external publication; provider transport never precedes canonical mutation.',
+        'sharedDelivery selects the complete shared-pipeline timing: immediate reaches local projection and collaboration without waiting for the outer undo transaction, while transaction-end waits for outer commit.',
+        'One synchronous immediate delivery action emits at most one ordered publication containing all of its changes, including changes for multiple elements or state owners. One committed transaction-end batch also emits at most one publication.',
+        'An outer pointer session may emit several immediate publications while remaining one intended local undo commit.',
+        'Already-published immediate entries are excluded from the outer transaction-end publication and are never sent twice.',
+        'Factory and collaboration preserve repeated semantic deliveries in journal order; they do not deduplicate by event name, payload value, or a repeated A -> B -> C -> B app timeline.',
+        'Factory snapshots each transaction status and publication before external completion observers run, so a reentrant nested action cannot replace the outer transaction identity, counts, or publication order.',
         'Local shared projection observers receive detached payloads through Factory-owned local channels that do not require a Y.Doc.',
-        'Action, automation, undo, redo, remote, load/migration, and compensation origins remain distinguishable.'
+        'A canonical Props owner that creates a nested child property journals the child add before publishing a parent reference update, so every referenced property id has an ordinary state-owner operation.',
+        'For element creation, every property add referenced by the saved element payload settles before the Scene Tree element add, so a peer never has to fabricate fallback properties while applying the canonical element.',
+        'Action, automation, undo, redo, remote, load/migration, and compensation origins remain distinguishable.',
+        'Factory batches by the delivery boundary selected by app/API mutation options and does not infer create, move, drag, throttle, or render-preview product semantics.',
+        'App pointer geometry and its area-selection projection consume one completed shared Rect calculation instead of redefining the rectangle contract downstream.',
+        'Immediate entries discarded before their publication flush produce no network operation; rollback after publication emits linked compensation in deterministic reverse order.',
+        'The one outer action transaction remains one intended local undo commit regardless of its immediate publication count.'
       ],
       bypasses: [
         'A mutation without an explicitly registered shared channel remains local.',
-        'Rollback before transaction-end flush produces a discard and no shared operation.',
+        'Rollback or discard before an immediate flush discards that pending publication; transaction-end rollback before commit produces no network operation.',
         'Remote-origin apply may update local projections but is excluded from new local network publication.'
       ],
       allowedContributors: [
         '@asyra/reactive-events transaction boundary',
         'Factory journal and shared-settlement owner',
-        'canonical state-owner mutation metadata'
+        'canonical state-owner mutation metadata',
+        'feature/API-owned shared delivery timing'
       ],
       forbiddenContributors: [
         'Y.Doc as transaction owner',
@@ -182,6 +223,16 @@
         'packages/factory/src/__tests__/factory.test.ts',
         'packages/factory/src/__tests__/factory-instance-replay.test.ts',
         'packages/factory/src/__tests__/shared-delivery.test.ts',
+        'packages/utils/src/types/change.ts',
+        'packages/utils/src/render/viewport.ts',
+        'apps/asyra-design/src/features/create-element/index.ts',
+        'apps/asyra-design/src/features/move-elements/index.ts',
+        'apps/asyra-design/src/features/selection/index.ts',
+        'apps/asyra-design/src/render-layers/area-selection-render-layer.ts',
+        'packages/props-manager/src/manager/props-manager.ts',
+        'packages/props-manager/src/__tests__/property-type-redefinition.test.ts',
+        'packages/scene-tree/src/sceneTree.ts',
+        'packages/scene-tree/src/__tests__/property-type-projection.test.ts',
         'packages/core/src/core.ts',
         'packages/core/src/index.ts',
         'packages/core/src/__tests__/registration-facade.test.ts',
@@ -210,21 +261,21 @@
       title: 'Create and validate operation envelope',
       ownerPackage: '@asyra/collaboration',
       purpose:
-        'Turn an eligible local shared delivery into one typed, versioned, identity-stable semantic operation.',
+        'Turn one eligible action publication into one or more typed, versioned, identity-stable, ordered semantic operation envelopes.',
       inputs: [
-        'artifact:local-shared-delivery',
-        'artifact:local-compensation-delivery',
+        'artifact:local-action-publication',
         'artifact:collaboration-instance',
         'registered channel/event payload definitions'
       ],
       outputs: [
-        'artifact:shared-operation-envelope',
+        'artifact:shared-operation-envelope-batch',
         'artifact:local-operation-rejection'
       ],
       conditions: [
         'The envelope contains operation, transaction, document, actor, protocol, schema, origin, channel, event, and validated payload fields.',
         'A compensation envelope names the exact operation it compensates.',
-        'Operation and actor-scoped transaction identity remain stable for the one published delivery.',
+        'One action publication becomes one or more ordered operation envelopes while retaining one publication identity and the actor-scoped outer transaction identity.',
+        'Every envelope is validated before any entry from the action batch mutates Y.Doc or reaches provider transport.',
         'Registration retains the app or state-owner canonical apply handler without executing it during local envelope creation.',
         'Canonical apply registration uses defineCanonicalOperationApply so TypeScript Promise returns fail compilation and native async functions fail registration before invocation.'
       ],
@@ -232,8 +283,7 @@
         'Unregistered channel/event or invalid local payload is rejected before Y.Doc mutation or provider send.'
       ],
       allowedContributors: [
-        'artifact:local-shared-delivery',
-        'artifact:local-compensation-delivery',
+        'artifact:local-action-publication',
         'instance identity and operation id source',
         'registered payload validator',
         'registered app or state-owner canonical apply handler'
@@ -245,11 +295,11 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
-        'packages/collaboration/src/operation-envelope.ts',
-        'packages/collaboration/src/operation-registry.ts',
+        'packages/collaboration/src/operations/envelope.ts',
+        'packages/collaboration/src/operations/registry.ts',
         'packages/collaboration/src/index.ts',
-        'packages/collaboration/src/__tests__/collaboration-disabled.test.ts',
-        'packages/collaboration/src/__tests__/operation-envelope.test.ts'
+        'packages/collaboration/src/__tests__/composition.test.ts',
+        'packages/collaboration/src/__tests__/envelope.test.ts'
       ],
       specRefs: [
         '#shared-operation-envelope',
@@ -261,25 +311,26 @@
       id: 'append-yjs-update',
       order: 1,
       laneId: 'transport',
-      title: 'Append operation to the owned Y.Doc',
+      title: 'Append one action batch to the owned Y.Doc',
       ownerPackage: '@asyra/collaboration',
       purpose:
-        'Encode a validated semantic operation into the instance Y.Doc without transferring canonical document ownership to Yjs.',
+        'Encode one validated action publication as one Y.Doc transaction and one binary update without transferring canonical document ownership to Yjs.',
       inputs: [
-        'artifact:shared-operation-envelope',
+        'artifact:shared-operation-envelope-batch',
         'artifact:collaboration-instance'
       ],
       outputs: ['artifact:yjs-binary-update', 'artifact:yjs-append-failure'],
       conditions: [
         'The Y.Doc transaction carries local transport origin for echo classification while all remote-required metadata remains in the envelope.',
-        'Each generated binary update is eligible for provider transport and collaboration update persistence independently from runtime commit.'
+        'One action publication appends all ordered envelopes in one Y.Doc transaction and emits exactly one binary update.',
+        'The generated binary action update is eligible for provider transport and collaboration update persistence independently from runtime commit.'
       ],
       bypasses: [
         'A rejected local operation produces no Y.Doc update.',
         'An explicit provider-less composition retains the update locally without transport.'
       ],
       allowedContributors: [
-        'artifact:shared-operation-envelope',
+        'artifact:shared-operation-envelope-batch',
         'instance-owned or injected Y.Doc'
       ],
       forbiddenContributors: [
@@ -290,7 +341,7 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/collaboration/src/yjs-document.ts',
-        'packages/collaboration/src/collaboration-instance.ts',
+        'packages/collaboration/src/collaboration.ts',
         'packages/collaboration/src/__tests__/yjs-document.test.ts'
       ],
       specRefs: ['#shared-operation-envelope', '#origin-and-echo-prevention'],
@@ -301,7 +352,7 @@
       order: 2,
       laneId: 'transport',
       title: 'Transport provider update',
-      ownerPackage: 'replaceable CollaborationProvider adapter',
+      ownerPackage: 'replaceable Provider adapter',
       purpose:
         'Connect to the composed room/auth boundary, send and receive binary updates, expose connection and acknowledgement state, and remain replaceable.',
       inputs: [
@@ -320,32 +371,53 @@
       ],
       conditions: [
         'Connect, disconnect, reconnect, status observation, binary update transport, state-vector exchange, awareness transport, acknowledgement observation, and disposal use the provider contract.',
-        'The provider receives app/server-owned authentication metadata and room identity but never grants authority from awareness.',
+        'The provider forwards app-defined opaque connection metadata and reports connection success or failure without assigning product meaning to file, user, branch, tenant, authentication, or permission fields.',
+        'The provider never grants authority from awareness.',
+        'The Asyra Design public reference implementation supplies only fileId as app-defined connection metadata; its memory server intentionally performs no user/session authentication or permission check and makes no protected-document authorization claim.',
+        'The Asyra Design reference composition forwards only registered sceneTree and props document operations through this provider boundary; selection stays local and every URL without fileId bypasses the composition.',
+        'The Asyra Design browser provider and reference server consume one app-owned typed wire-protocol contract for message discriminants and payload shapes.',
         'The in-memory reference hub stages live and sync updates against the room history and rejects non-operation, non-append, malformed, or undecodable Yjs changes before they can pollute or broadcast from the room Y.Doc.',
-        'The in-memory reference hub binds every newly received operation actor to the authenticated sender before integrating room history, broadcast, or acknowledgement.',
+        'The in-memory reference hub binds every newly received operation actor to the accepted connection identity before integrating room history, broadcast, or acknowledgement.',
+        'One binary action update from one local action publication invokes exactly one provider send.',
         'Remote-origin Y.Doc updates are never sent back as local updates.'
       ],
       bypasses: [
         'No-provider composition produces an offline status and no network side effect.',
+        'Asyra Design without a non-empty fileId creates no WebSocket provider or reference-server dependency.',
         'Disconnect halts transport and emits awareness cleanup without destroying canonical state.'
       ],
       allowedContributors: [
         'provider-neutral binary and status contract',
-        'app/server room and authentication boundary',
+        'app/server connection-parameter interpretation and optional authentication boundary',
+        'Asyra Design public reference composition and memory WebSocket server',
+        'Asyra Design app-owned typed WebSocket wire protocol',
         'artifact:yjs-binary-update',
         'artifact:outbound-awareness'
       ],
       forbiddenContributors: [
         'provider as canonical state owner',
         'hard-coded WebSocket, P2P, or hosted provider authority',
+        'selection as persisted document transport',
+        'public memory server as an authenticated or durable backend',
         'awareness-derived write permission'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'packages/collaboration/src/provider.ts',
-        'packages/collaboration/src/providers/memory-provider.ts',
-        'packages/collaboration/src/__tests__/provider-contract.test.ts',
-        'packages/collaboration/src/__tests__/provider-lifecycle.test.ts'
+        'packages/collaboration/src/providers/memory/hub.ts',
+        'packages/collaboration/src/providers/memory/provider.ts',
+        'packages/collaboration/src/__tests__/provider.test.ts',
+        'packages/collaboration/src/__tests__/provider-lifecycle.test.ts',
+        'apps/asyra-design/src/collaboration/websocket-provider.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-websocket-provider.test.ts',
+        'apps/asyra-design/src/collaboration/runtime.ts',
+        'apps/asyra-design/src/**/collaboration-mode.ts',
+        'apps/asyra-design/src/collaboration/protocol.ts',
+        'apps/asyra-design/*environment*.mjs',
+        'apps/asyra-design/.env',
+        'apps/asyra-design/*collaboration*.ts',
+        'apps/asyra-design/*collaboration*.mjs',
+        'apps/asyra-design/e2e/*collaboration*.spec.ts'
       ],
       specRefs: [
         '#provider-boundary',
@@ -374,7 +446,7 @@
       conditions: [
         'Provider and offline-persistence updates use explicit non-local Y.Doc origins.',
         'Only semantic operation entries are forwarded to validation; Yjs update integration itself does not mutate canonical package state.',
-        'Malformed, non-operation, non-append, or undecodable updates are staged and rejected without changing the owned Y.Doc.'
+        'Malformed, non-operation, non-append, or undecodable updates are staged and rejected without changing the owned Y.Doc; delete, prepend, and insertion before an existing right neighbour are non-append updates, while concurrent causal-tail appends remain valid regardless of merged visible order.'
       ],
       bypasses: [
         'An empty state-vector diff produces no operation.',
@@ -393,8 +465,8 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/collaboration/src/yjs-document.ts',
-        'packages/collaboration/src/collaboration-instance.ts',
-        'packages/collaboration/src/__tests__/inbound-decode.test.ts'
+        'packages/collaboration/src/collaboration.ts',
+        'packages/collaboration/src/__tests__/decode.test.ts'
       ],
       specRefs: ['#remote-canonical-apply', '#canonical-collaboration-flows'],
       failureOwnerStepId: 'decode-inbound-update'
@@ -448,11 +520,12 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
-        'packages/collaboration/src/inbound-pipeline.ts',
-        'packages/collaboration/src/operation-envelope.ts',
-        'packages/collaboration/src/operation-registry.ts',
-        'packages/collaboration/src/collaboration-instance.ts',
-        'packages/collaboration/src/__tests__/origin-dedupe-validation.test.ts'
+        'packages/collaboration/src/operations/outcomes.ts',
+        'packages/collaboration/src/operations/validation.ts',
+        'packages/collaboration/src/operations/envelope.ts',
+        'packages/collaboration/src/operations/registry.ts',
+        'packages/collaboration/src/collaboration.ts',
+        'packages/collaboration/src/__tests__/validation.test.ts'
       ],
       specRefs: [
         '#remote-canonical-apply',
@@ -468,11 +541,10 @@
       title: 'Decide permission and conflict policy',
       ownerPackage: '@asyra/collaboration policy pipeline',
       purpose:
-        'Evaluate app/server permission, framework invariants, and ordered app-domain extensions before the remote transaction begins.',
+        'Evaluate app/server permission and ordered explicitly registered app-domain policies before the remote transaction begins.',
       inputs: [
         'artifact:validated-remote-operation',
         'app/server permission policy',
-        'framework-owned invariant policies',
         'app-owned conflict policy extensions'
       ],
       outputs: [
@@ -481,20 +553,20 @@
       ],
       conditions: [
         'Permission runs before conflict resolution and never derives authority from awareness.',
-        'Framework invariant policies cannot be replaced or overridden by an app policy.',
-        'App policies run in deterministic registration order after framework invariants pass or detect a same-id create collision that requires an explicit domain decision.',
-        'Entity existence owns missing-update rejection and repeated-delete idempotence; an existing-id create requires an app/state-owner accept, repair, or reject decision, and all-not-applicable extensions produce an unresolved framework rejection instead of arrival-order settlement.',
+        'Framework transport and operation validation cannot be replaced or overridden by a policy.',
+        'Only explicitly registered app-domain policies run, in deterministic registration order, after validation and permission pass.',
+        'When every registered app-domain policy reports not-applicable, the validated operation continues unchanged to canonical apply.',
         'A repair is revalidated against the registered operation payload before apply, and a validator exception becomes an invalid-repair rejection.',
-        'Accept, repair, reject, and not-applicable outcomes are deterministic for the same operation and policy set.'
+        'Accept, repair, reject, and not-applicable outcomes are deterministic for the same operation and policy set.',
+        'The policy pipeline does not infer entity, hierarchy, property, geometry, or topology semantics from canonical app state; those semantics remain in registered app policies and canonical state owners.'
       ],
       bypasses: [
-        'Unauthorized or framework-rejected operations produce no remote transaction.',
-        'No applicable extension falls through to the framework accept result only when no detected same-id create collision requires explicit resolution; an unresolved collision rejects.'
+        'Unauthorized or app-policy-rejected operations produce no remote transaction.',
+        'No registered or applicable app-domain policy accepts the validated operation unchanged.'
       ],
       allowedContributors: [
         'artifact:validated-remote-operation',
         'app/server permission callback',
-        'framework-owned invariant policy registry',
         'app-owned domain policy registry'
       ],
       forbiddenContributors: [
@@ -504,9 +576,9 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
-        'packages/collaboration/src/conflict-policy.ts',
-        'packages/collaboration/src/inbound-pipeline.ts',
-        'packages/collaboration/src/__tests__/conflict-policy.test.ts'
+        'packages/collaboration/src/operations/conflict.ts',
+        'packages/collaboration/src/collaboration.ts',
+        'packages/collaboration/src/__tests__/conflict.test.ts'
       ],
       specRefs: [
         '#conflict-policy',
@@ -557,15 +629,15 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
-        'packages/collaboration/src/inbound-pipeline.ts',
-        'packages/collaboration/src/operation-registry.ts',
+        'packages/collaboration/src/operations/apply.ts',
+        'packages/collaboration/src/operations/registry.ts',
         'packages/collaboration/src/index.ts',
         'packages/factory/src/factory.ts',
         'packages/factory/src/data-transact.ts',
         'packages/factory/src/__tests__/factory.test.ts',
         'packages/utils/src/types/transaction.ts',
-        'packages/collaboration/src/__tests__/collaboration-disabled.test.ts',
-        'packages/collaboration/src/__tests__/remote-canonical-apply.test.ts'
+        'packages/collaboration/src/__tests__/composition.test.ts',
+        'packages/collaboration/src/__tests__/apply.test.ts'
       ],
       specRefs: [
         '#remote-canonical-apply',
@@ -589,6 +661,8 @@
       ],
       conditions: [
         'The registered operation handler uses the same public/apply API and package validator/invariant boundary as other canonical state application.',
+        'The registered operation handler forwards the validated payload unchanged through the ordinary canonical apply path unless an explicitly registered app-domain policy produced a separately validated repair.',
+        'The collaboration adapter does not reread canonical state to reconstruct, filter, reorder, or rewrite app behavior.',
         'Entity, hierarchy, property, selection, and system invariants remain owned by their packages.',
         'A semantic no-op is acknowledged without fabricating a mutation.'
       ],
@@ -610,7 +684,10 @@
         'packages/props-manager/src/**',
         'packages/selection/src/**',
         'packages/system-context/src/**',
-        'packages/collaboration/src/__tests__/remote-canonical-apply.test.ts'
+        'apps/asyra-design/src/collaboration/operations.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-operations.test.ts',
+        'apps/asyra-design/e2e/*collaboration*.spec.ts',
+        'packages/collaboration/src/__tests__/apply.test.ts'
       ],
       specRefs: [
         '#remote-canonical-apply',
@@ -698,11 +775,13 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/collaboration/src/durability.ts',
         'packages/collaboration/src/persistence.ts',
-        'packages/collaboration/src/collaboration-instance.ts',
+        'packages/collaboration/src/collaboration.ts',
         'packages/collaboration/src/provider.ts',
-        'packages/collaboration/src/providers/memory-provider.ts',
-        'packages/collaboration/src/__tests__/reconnect-persistence.test.ts'
+        'packages/collaboration/src/providers/memory/hub.ts',
+        'packages/collaboration/src/providers/memory/provider.ts',
+        'packages/collaboration/src/__tests__/durability.test.ts'
       ],
       specRefs: [
         '#persistence-and-offline-behavior',
@@ -731,10 +810,11 @@
         'artifact:awareness-cleared'
       ],
       conditions: [
-        'Presence includes only app-selected identity, cursor, selection, viewport, tool, editing, and heartbeat metadata.',
+        'Presence accepts app-selected JSON-safe fields; identity, cursor, selection, viewport, tool, and editing are common examples, while the framework reserves only heartbeatAt for liveness.',
         'The inbound Awareness message and its nested state records reject accessors without execution and preserve prototype-named JSON keys as inert own data properties.',
-        'Remote state is removed on disconnect, explicit leave, or timeout.',
-        'Awareness cannot authorize a canonical mutation and does not enter document undo/redo.'
+        'Remote state is removed on peer disconnect, explicit leave, timeout, explicit local disconnect, or provider failure; local transport loss clears every remote snapshot and clock so reconnect can repopulate presence.',
+        'Awareness cannot authorize a canonical mutation and does not enter document undo/redo.',
+        'Canonical element create, geometry, style, hierarchy, and deletion changes never enter Awareness.'
       ],
       bypasses: [
         'An app with no awareness update emits no presence transport.',
@@ -756,8 +836,9 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/collaboration/src/awareness.ts',
-        'packages/collaboration/src/collaboration-instance.ts',
-        'packages/collaboration/src/__tests__/awareness.test.ts'
+        'packages/collaboration/src/collaboration.ts',
+        'packages/collaboration/src/__tests__/awareness.test.ts',
+        'apps/asyra-design/src/collaboration'
       ],
       specRefs: ['#awareness-and-presence', '#supported-behavior'],
       failureOwnerStepId: 'own-awareness-state'
@@ -785,16 +866,18 @@
       allowedContributors: [
         'artifact:remote-awareness-snapshot',
         'artifact:awareness-cleared',
-        'app-owned presentation policy'
+        'app-owned presence presentation policy'
       ],
       forbiddenContributors: [
         'canonical mutation',
         'permission or conflict decision',
-        'document persistence'
+        'document persistence',
+        'canonical element appearance or geometry transport'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'packages/collaboration/src/__tests__/awareness.test.ts',
+        'apps/asyra-design/src/collaboration',
         'docs/examples/yjs-network-collaboration.mjs'
       ],
       specRefs: [
@@ -869,32 +952,25 @@
       to: 'create-shared-operation-envelope',
       kind: 'handoff',
       predicate:
-        'A registered local shared change is delivered at its configured settlement point.',
-      producedArtifacts: ['artifact:local-shared-delivery']
-    },
-    {
-      id: 'local-shared-compensation',
-      from: 'publish-local-committed-change',
-      to: 'create-shared-operation-envelope',
-      kind: 'compensation',
-      predicate:
-        'Rollback reverses an already delivered immediate shared change exactly once.',
-      producedArtifacts: ['artifact:local-compensation-delivery']
+        'An immediate delivery action flushes or the outer transaction commits one or more transaction-end shared changes.',
+      producedArtifacts: ['artifact:local-action-publication']
     },
     {
       id: 'discard-before-flush',
       from: 'publish-local-committed-change',
       kind: 'terminal',
-      predicate: 'Rollback occurs before transaction-end shared flush.',
-      producedArtifacts: ['artifact:local-shared-discard']
+      predicate:
+        'Rollback or discard occurs before an immediate flush or before transaction-end commit.',
+      producedArtifacts: ['artifact:local-action-discard']
     },
     {
       id: 'validated-local-envelope',
       from: 'create-shared-operation-envelope',
       to: 'append-yjs-update',
       kind: 'handoff',
-      predicate: 'Identity, version, route, and payload contracts are valid.',
-      producedArtifacts: ['artifact:shared-operation-envelope']
+      predicate:
+        'Every ordered envelope in the action publication passes identity, version, route, and payload validation.',
+      producedArtifacts: ['artifact:shared-operation-envelope-batch']
     },
     {
       id: 'reject-local-envelope',
@@ -1031,7 +1107,7 @@
       from: 'decide-permission-conflict',
       kind: 'terminal',
       predicate:
-        'Permission, framework invariant, or app-domain policy rejects before apply.',
+        'Permission or an explicitly registered app-domain policy rejects before apply.',
       producedArtifacts: ['artifact:permission-or-conflict-rejection']
     },
     {
@@ -1178,26 +1254,26 @@
     [
       'local-shared-delivery',
       'publish-local-committed-change',
+      [],
+      true,
+      'local'
+    ],
+    [
+      'local-action-publication',
+      'publish-local-committed-change',
       ['create-shared-operation-envelope'],
       false,
       'local'
     ],
     [
-      'local-shared-discard',
+      'local-action-discard',
       'publish-local-committed-change',
       [],
       true,
       'terminal'
     ],
     [
-      'local-compensation-delivery',
-      'publish-local-committed-change',
-      ['create-shared-operation-envelope'],
-      false,
-      'local'
-    ],
-    [
-      'shared-operation-envelope',
+      'shared-operation-envelope-batch',
       'create-shared-operation-envelope',
       ['append-yjs-update'],
       false,
@@ -1409,7 +1485,7 @@
         'own-awareness-state'
       ],
       artifactIds: [
-        'artifact:shared-operation-envelope',
+        'artifact:shared-operation-envelope-batch',
         'artifact:canonical-state-change',
         'artifact:remote-awareness-snapshot'
       ],
@@ -1437,16 +1513,15 @@
     {
       id: 'undo-rollback-echo',
       statement:
-        'Remote apply is excluded from local-user undo and network echo; pre-flush rollback discards, while immediate rollback emits one linked compensation operation.',
+        'Remote apply is excluded from local-user undo and network echo; rollback discards an unflushed immediate or transaction-end publication and emits linked compensation for an immediate publication that already flushed.',
       stepIds: [
         'publish-local-committed-change',
         'create-shared-operation-envelope',
         'run-remote-apply-transaction'
       ],
       artifactIds: [
-        'artifact:local-shared-discard',
-        'artifact:local-compensation-delivery',
-        'artifact:shared-operation-envelope'
+        'artifact:local-action-discard',
+        'artifact:shared-operation-envelope-batch'
       ],
       specRefs: ['#undoredo-and-rollback', '#origin-and-echo-prevention']
     },
@@ -1476,7 +1551,7 @@
         'persist-sync-and-acknowledge'
       ],
       artifactIds: [
-        'artifact:local-shared-delivery',
+        'artifact:local-action-publication',
         'artifact:network-convergence',
         'artifact:durability-outcome'
       ],
@@ -1514,13 +1589,15 @@
       ],
       specRefs: ['#representative-product-cases'],
       assertions: [
-        'Two-client convergence, duplicate, delayed, reordered, replayed, invalid protocol/schema/route/payload, offline recovery, and state-vector missing-update synchronization are formal cases.'
+        'Two-client convergence, duplicate, delayed, reordered, replayed, invalid protocol/schema/route/payload, offline recovery, and state-vector missing-update synchronization are formal cases.',
+        'One immediate delivery action or committed transaction-end batch produces one Yjs update and one provider send even when multiple affected elements contribute ordered semantic changes.',
+        'One outer pointer session may produce mouse-down, selected drag-update, and mouse-up publications while remaining one local undo commit.'
       ]
     },
     {
       id: 'canonical-apply-history',
       title:
-        'Permission, canonical apply, echo, undo, rollback, and compensation',
+        'Permission, canonical apply, echo, undo, rollback, and publication discard',
       stepIds: [
         'publish-local-committed-change',
         'decide-permission-conflict',
@@ -1530,19 +1607,19 @@
       ],
       specRefs: ['#representative-product-cases'],
       assertions: [
-        'Unauthorized, unsupported, remote apply failure, echo prevention, local-user-only undo, pre-flush rollback, immediate compensation, and projection ordering are formal cases.'
+        'Unauthorized, unsupported, remote apply failure, echo prevention, local-user-only undo, pre-flush discard, post-flush compensation, transaction-end rollback discard, immediate canonical transport, and projection ordering are formal cases.'
       ]
     },
     {
       id: 'conflict-policy',
-      title: 'Deterministic framework and app conflict policy',
+      title: 'Deterministic permission and app conflict policy',
       stepIds: ['decide-permission-conflict', 'apply-canonical-state-owner'],
       specRefs: [
         '#conflict-policy',
         './collaborative-conflict-policies-plan.md#definition-of-done'
       ],
       assertions: [
-        'Accept, repair, reject, framework invariant, and app-domain extension outcomes are deterministic and execute before canonical commit.'
+        'Permission plus explicitly registered app-domain accept, repair, reject, and not-applicable outcomes are deterministic and execute before canonical commit; package invariants remain in canonical owners.'
       ]
     },
     {
@@ -1555,7 +1632,8 @@
       ],
       specRefs: ['#awareness-and-presence', '#representative-product-cases'],
       assertions: [
-        'Awareness update, disconnect/timeout cleanup, save/load/update-persistence exclusion, undo exclusion, and non-authority are formal cases.'
+        'Awareness update, disconnect/timeout cleanup, save/load/update-persistence exclusion, undo exclusion, and non-authority are formal cases.',
+        'Canonical element create, geometry, style, hierarchy, and deletion changes are absent from Awareness and use document operation transport.'
       ]
     }
   ]

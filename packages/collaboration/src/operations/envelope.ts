@@ -1,27 +1,27 @@
 import type { SharedDelivery, SharedDeliveryOrigin } from '@asyra/factory'
-import type { OperationDefinition } from './operation-registry'
-import { OperationRegistry } from './operation-registry'
+import type { OperationDefinition } from './registry'
+import { OperationRegistry } from './registry'
 
 export const COLLABORATION_PROTOCOL_VERSION = 1 as const
 
-export type LocalOperationRejectionCode =
+export type OperationRejectionCode =
   | 'unregistered-operation'
   | 'invalid-payload'
   | 'invalid-compensation'
   | 'invalid-identity'
 
-export class LocalOperationRejection extends Error {
-  readonly code: LocalOperationRejectionCode
+export class OperationRejection extends Error {
+  readonly code: OperationRejectionCode
   readonly channel: string
   readonly eventName: string
 
   constructor(
-    code: LocalOperationRejectionCode,
+    code: OperationRejectionCode,
     delivery: Pick<SharedDelivery, 'channel' | 'eventName'>,
     message: string
   ) {
     super(message)
-    this.name = 'LocalOperationRejection'
+    this.name = 'OperationRejection'
     this.code = code
     this.channel = delivery.channel
     this.eventName = delivery.eventName
@@ -123,7 +123,7 @@ const validateCompensation = (delivery: SharedDelivery): void => {
     (delivery.kind === 'compensation' && !hasCompensation) ||
     (delivery.kind === 'forward' && hasCompensation)
   ) {
-    throw new LocalOperationRejection(
+    throw new OperationRejection(
       'invalid-compensation',
       delivery,
       '[collaboration] compensation must name exactly one forwarded delivery'
@@ -140,7 +140,7 @@ const requireDefinition = <TPayload>(
     delivery.eventName
   )
   if (!definition) {
-    throw new LocalOperationRejection(
+    throw new OperationRejection(
       'unregistered-operation',
       delivery,
       `[collaboration] unregistered operation ${delivery.channel}/${delivery.eventName}`
@@ -166,7 +166,7 @@ export const createSharedOperationEnvelope = <TPayload>({
   const definition = requireDefinition(registry, delivery)
   const payload = cloneValue(delivery.payload)
   if (!definition.validate(payload)) {
-    throw new LocalOperationRejection(
+    throw new OperationRejection(
       'invalid-payload',
       delivery,
       `[collaboration] invalid payload for ${delivery.channel}/${delivery.eventName}`
@@ -196,7 +196,7 @@ export const createSharedOperationEnvelope = <TPayload>({
     requireIdentityPart('documentId', identity.documentId)
     requireIdentityPart('actorId', identity.actorId)
   } catch (error) {
-    throw new LocalOperationRejection(
+    throw new OperationRejection(
       'invalid-identity',
       delivery,
       error instanceof Error

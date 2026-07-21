@@ -1,28 +1,27 @@
 import * as Y from 'yjs'
-import { Factory, LocalSharedDataChannel } from '@asyra/factory'
+import {
+  Factory,
+  LocalSharedDataChannel,
+  type SharedDelivery
+} from '@asyra/factory'
 import { describe, expect, it, vi } from 'vitest'
 import {
-  AwarenessRuntime,
-  CollaborationDisposalError,
+  Awareness,
+  DisposalError,
   createCollaboration,
   defineCanonicalOperationApply,
-  type CollaborationInstanceCompositionInput
+  type CreateCollaborationInput
 } from '..'
-import {
-  MemoryCollaborationHub,
-  MemoryCollaborationProvider
-} from '../providers/memory-provider'
-import type { CollaborationUpdatePersistence } from '../persistence'
-import type { CollaborationProvider } from '../provider'
+import { MemoryHub, MemoryProvider } from '../providers/memory'
+import type { UpdatePersistence } from '../persistence'
+import type { Provider, ProviderStateVectorExchange } from '../provider'
 import { readOperationLog } from '../yjs-document'
 
 const createFactory = () => ({
-  subscribeToSharedDelivery: vi.fn(() => () => undefined)
+  subscribeToSharedPublication: vi.fn(() => () => undefined)
 })
 
-const createProvider = (
-  overrides: Partial<CollaborationProvider> = {}
-): CollaborationProvider => ({
+const createProvider = (overrides: Partial<Provider> = {}): Provider => ({
   identity: {
     documentId: 'document-a',
     roomId: 'room-a',
@@ -32,17 +31,18 @@ const createProvider = (
   disconnect: vi.fn(),
   reconnect: vi.fn(),
   destroy: vi.fn(),
-  getStatus: vi.fn(
-    (): ReturnType<CollaborationProvider['getStatus']> => 'idle'
-  ),
+  getStatus: vi.fn((): ReturnType<Provider['getStatus']> => 'idle'),
   onStatusChange: vi.fn(() => () => undefined),
   sendUpdate: vi.fn(),
   onUpdate: vi.fn(() => () => undefined),
   requestSync: vi.fn(async () => new Uint8Array()),
-  exchangeStateVector: vi.fn(async () => ({
-    remoteStateVector: new Uint8Array(),
-    missingRemoteUpdate: new Uint8Array()
-  })),
+  exchangeStateVector: vi.fn(async () => {
+    const remoteDocument = new Y.Doc()
+    return {
+      remoteStateVector: Y.encodeStateVector(remoteDocument),
+      missingRemoteUpdate: Y.encodeStateAsUpdate(remoteDocument)
+    }
+  }),
   sendSyncUpdate: vi.fn(),
   onAcknowledgement: vi.fn(() => () => undefined),
   sendAwareness: vi.fn(),
@@ -53,8 +53,8 @@ const createProvider = (
 })
 
 const createPersistence = (
-  overrides: Partial<CollaborationUpdatePersistence> = {}
-): CollaborationUpdatePersistence => ({
+  overrides: Partial<UpdatePersistence> = {}
+): UpdatePersistence => ({
   append: vi.fn(),
   load: vi.fn(async () => []),
   dispose: vi.fn(),
@@ -62,8 +62,8 @@ const createPersistence = (
 })
 
 const input = (
-  overrides: Partial<CollaborationInstanceCompositionInput> = {}
-): CollaborationInstanceCompositionInput => ({
+  overrides: Partial<CreateCollaborationInput> = {}
+): CreateCollaborationInput => ({
   documentId: 'document-a',
   roomId: 'room-a',
   actorId: 'actor-a',
@@ -73,7 +73,47 @@ const input = (
   ...overrides
 })
 
-describe('CollaborationInstance ownership and disposal', () => {
+const createPublicationHarness = (provider: Provider) => {
+  const factory = new Factory()
+  factory.registerSharedDataChannel('document', new LocalSharedDataChannel())
+  const instance = createCollaboration(
+    input({
+      factory,
+      provider,
+      operationDefinitions: [
+        {
+          channel: 'document',
+          eventName: 'set-value',
+          schemaVersion: 1,
+          validate: (payload): payload is { value: number } =>
+            typeof (payload as { value?: unknown } | undefined)?.value ===
+            'number',
+          apply: defineCanonicalOperationApply(() => true)
+        }
+      ],
+      resourceOwnership: { provider: 'owned' }
+    })
+  )
+  const publish = () => {
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: 'updateTransaction' as Parameters<
+        Factory['updateTransaction']
+      >[0]['type'],
+      eventName: 'set-value',
+      payload: { value: 1 },
+      options: {
+        undoable: false,
+        rollbackable: false,
+        shared: 'document'
+      }
+    })
+    factory.endTransaction()
+  }
+  return { instance, publish }
+}
+
+describe('Collaboration ownership, processing, and disposal', () => {
   it('creates isolated Y.Doc and awareness resources only for explicit instances', () => {
     const first = createCollaboration(input())
     const second = createCollaboration(
@@ -83,7 +123,7 @@ describe('CollaborationInstance ownership and disposal', () => {
     expect(first.yDoc).toBeInstanceOf(Y.Doc)
     expect(second.yDoc).toBeInstanceOf(Y.Doc)
     expect(first.yDoc).not.toBe(second.yDoc)
-    expect(first.awareness).toBeInstanceOf(AwarenessRuntime)
+    expect(first.awareness).toBeInstanceOf(Awareness)
     expect(first.awareness).not.toBe(second.awareness)
     expect(first.provider).toBeUndefined()
     expect(first.identity).toEqual({
@@ -95,7 +135,7 @@ describe('CollaborationInstance ownership and disposal', () => {
 
   it('receives intentional shared wiring without creating fallback resources', () => {
     const sharedDoc = new Y.Doc()
-    const sharedAwareness = new AwarenessRuntime()
+    const sharedAwareness = new Awareness()
     const factory = createFactory()
     const first = createCollaboration(
       input({ factory, yDoc: sharedDoc, awareness: sharedAwareness })
@@ -149,10 +189,14 @@ describe('CollaborationInstance ownership and disposal', () => {
     )
   })
 
-  it('destroys owned resources once and detaches all instance disposers', async () => {
+  it('destroys owned resources once and detaches all observers', async () => {
     const yDoc = new Y.Doc()
-    const awareness = new AwarenessRuntime()
-    const provider = createProvider()
+    const awareness = new Awareness()
+    const detachSharedPublication = vi.fn()
+    const detachProviderUpdate = vi.fn()
+    const provider = createProvider({
+      onUpdate: vi.fn(() => detachProviderUpdate)
+    })
     const persistence = createPersistence()
     const destroyDoc = vi.fn()
     const disposeAwareness = vi.fn()
@@ -164,6 +208,9 @@ describe('CollaborationInstance ownership and disposal', () => {
         awareness,
         provider,
         persistence,
+        factory: {
+          subscribeToSharedPublication: vi.fn(() => detachSharedPublication)
+        },
         resourceOwnership: {
           yDoc: 'owned',
           awareness: 'owned',
@@ -172,16 +219,14 @@ describe('CollaborationInstance ownership and disposal', () => {
         }
       })
     )
-    const detachFirst = vi.fn()
-    const detachSecond = vi.fn()
-    instance.ownDisposer(detachFirst)
-    instance.ownDisposer(detachSecond)
+
+    await instance.start()
 
     await instance.dispose()
     await instance.dispose()
 
-    expect(detachSecond).toHaveBeenCalledTimes(1)
-    expect(detachFirst).toHaveBeenCalledTimes(1)
+    expect(detachSharedPublication).toHaveBeenCalledTimes(1)
+    expect(detachProviderUpdate).toHaveBeenCalledTimes(1)
     expect(provider.destroy).toHaveBeenCalledTimes(1)
     expect(persistence.dispose).toHaveBeenCalledTimes(1)
     expect(disposeAwareness).toHaveBeenCalledTimes(1)
@@ -189,9 +234,147 @@ describe('CollaborationInstance ownership and disposal', () => {
     expect(instance.isDisposed()).toBe(true)
   })
 
+  it('destroys an owned provider before awaiting a pending connection', async () => {
+    let rejectConnect: ((error: Error) => void) | undefined
+    const connectFailure = new Error('connection aborted by disposal')
+    const provider = createProvider({
+      connect: vi.fn(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectConnect = reject
+          })
+      ),
+      destroy: vi.fn(async () => rejectConnect?.(connectFailure))
+    })
+    const instance = createCollaboration(
+      input({ provider, resourceOwnership: { provider: 'owned' } })
+    )
+    const startPromise = instance.start().catch((error) => error)
+    await Promise.resolve()
+
+    const disposePromise = instance.dispose()
+
+    try {
+      await vi.waitFor(
+        () => expect(provider.destroy).toHaveBeenCalledTimes(1),
+        { timeout: 100 }
+      )
+    } finally {
+      rejectConnect?.(connectFailure)
+      await Promise.all([startPromise, disposePromise])
+    }
+  })
+
+  it('does not become started when disposal settles an in-flight state-vector exchange', async () => {
+    let resolveExchange:
+      | ((exchange: ProviderStateVectorExchange) => void)
+      | undefined
+    const provider = createProvider({
+      exchangeStateVector: vi.fn(
+        () =>
+          new Promise<ProviderStateVectorExchange>((resolve) => {
+            resolveExchange = resolve
+          })
+      ),
+      destroy: vi.fn(async () => {
+        const remoteDocument = new Y.Doc()
+        resolveExchange?.({
+          remoteStateVector: Y.encodeStateVector(remoteDocument),
+          missingRemoteUpdate: Y.encodeStateAsUpdate(remoteDocument)
+        })
+        remoteDocument.destroy()
+      })
+    })
+    const instance = createCollaboration(
+      input({ provider, resourceOwnership: { provider: 'owned' } })
+    )
+    const startPromise = instance.start()
+    await vi.waitFor(
+      () => expect(provider.exchangeStateVector).toHaveBeenCalledTimes(1),
+      { timeout: 100 }
+    )
+
+    await Promise.all([startPromise, instance.dispose()])
+
+    expect(instance.isDisposed()).toBe(true)
+    expect(instance.isStarted()).toBe(false)
+  })
+
+  it('bypasses a queued local publication after disposal begins', async () => {
+    const provider = createProvider()
+    const { instance, publish } = createPublicationHarness(provider)
+    await instance.start()
+
+    publish()
+    await instance.dispose()
+
+    expect(readOperationLog(instance.yDoc)).toEqual([])
+    expect(provider.sendUpdate).not.toHaveBeenCalled()
+  })
+
+  it('destroys an owned provider to settle an in-flight send before queue teardown', async () => {
+    let rejectSend: ((error: Error) => void) | undefined
+    const sendFailure = new Error('send aborted by disposal')
+    const provider = createProvider({
+      sendUpdate: vi.fn(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectSend = reject
+          })
+      ),
+      destroy: vi.fn(async () => rejectSend?.(sendFailure))
+    })
+    const { instance, publish } = createPublicationHarness(provider)
+    await instance.start()
+    publish()
+    await vi.waitFor(
+      () => expect(provider.sendUpdate).toHaveBeenCalledTimes(1),
+      { timeout: 100 }
+    )
+
+    const disposePromise = instance.dispose()
+
+    await vi.waitFor(() => expect(provider.destroy).toHaveBeenCalledTimes(1), {
+      timeout: 100
+    })
+    rejectSend?.(sendFailure)
+    await disposePromise
+  })
+
+  it('clears local remote-awareness snapshots on disconnect and provider failure', async () => {
+    let statusSubscriber: Parameters<Provider['onStatusChange']>[0] | undefined
+    const provider = createProvider({
+      onStatusChange: vi.fn((subscriber) => {
+        statusSubscriber = subscriber
+        return () => undefined
+      })
+    })
+    const instance = createCollaboration(input({ provider }))
+    await instance.start()
+    instance.awareness.applyRemote({
+      actorId: 'actor-b',
+      clock: 1,
+      state: { tool: 'select' }
+    })
+
+    await instance.disconnect()
+    expect(instance.awareness.remoteActors()).toEqual([])
+
+    instance.awareness.applyRemote({
+      actorId: 'actor-b',
+      clock: 1,
+      state: { tool: 'pen' }
+    })
+    statusSubscriber?.('failed')
+    await instance.whenIdle()
+    expect(instance.awareness.remoteActors()).toEqual([])
+
+    await instance.dispose()
+  })
+
   it('does not destroy borrowed resources or affect another shared instance', async () => {
     const sharedDoc = new Y.Doc()
-    const sharedAwareness = new AwarenessRuntime()
+    const sharedAwareness = new Awareness()
     const provider = createProvider()
     const persistence = createPersistence()
     const destroyDoc = vi.fn()
@@ -232,7 +415,7 @@ describe('CollaborationInstance ownership and disposal', () => {
     const yDoc = new Y.Doc()
     const destroyDoc = vi.fn()
     yDoc.destroy = destroyDoc
-    const failingAwareness = new AwarenessRuntime()
+    const failingAwareness = new Awareness()
     failingAwareness.dispose = vi.fn(() => {
       throw secondFailure
     })
@@ -252,14 +435,10 @@ describe('CollaborationInstance ownership and disposal', () => {
         }
       })
     )
-    const detached = vi.fn()
-    instance.ownDisposer(detached)
-
     const rejection = await instance.dispose().catch((error) => error)
 
-    expect(rejection).toBeInstanceOf(CollaborationDisposalError)
+    expect(rejection).toBeInstanceOf(DisposalError)
     expect(rejection.failures).toEqual([firstFailure, secondFailure])
-    expect(detached).toHaveBeenCalledTimes(1)
     expect(destroyDoc).toHaveBeenCalledTimes(1)
     expect(instance.isDisposed()).toBe(true)
   })
@@ -271,7 +450,7 @@ describe('CollaborationInstance ownership and disposal', () => {
     }
     const channelName = 'document'
     const eventName = 'set-value'
-    const hub = new MemoryCollaborationHub()
+    const hub = new MemoryHub()
     const client = (actorId: string) => {
       const factory = new Factory()
       factory.registerSharedDataChannel(
@@ -297,7 +476,7 @@ describe('CollaborationInstance ownership and disposal', () => {
       })
       const apply = (
         payload: SetValuePayload,
-        sharedDelivery: 'transaction-end' | 'immediate' = 'transaction-end'
+        sharedDelivery: SharedDelivery['sharedDelivery'] = 'transaction-end'
       ) => {
         state.value = payload.after
         factory.updateTransaction({
@@ -314,7 +493,7 @@ describe('CollaborationInstance ownership and disposal', () => {
           }
         })
       }
-      const provider = new MemoryCollaborationProvider(hub, {
+      const provider = new MemoryProvider(hub, {
         documentId: 'document-a',
         roomId: 'room-a',
         actorId
@@ -422,22 +601,101 @@ describe('CollaborationInstance ownership and disposal', () => {
     first.apply({ before: 1, after: 3 }, 'immediate')
     first.factory.endTransaction({ outcome: 'rollback' })
     await settleClients()
-    const rollbackOperations = readOperationLog(first.instance.yDoc).slice(-2)
     expect(first.state.value).toBe(1)
     expect(second.state.value).toBe(1)
-    expect(rollbackOperations[0]).toEqual(
-      expect.objectContaining({ origin: 'action' })
-    )
-    expect(rollbackOperations[1]).toEqual(
-      expect.objectContaining({
-        origin: 'rollback-compensation',
-        compensatesOperationId: rollbackOperations[0]?.operationId
-      })
+    expect(readOperationLog(first.instance.yDoc)).toHaveLength(
+      beforeRollbackLogLength
     )
     expect(readOperationLog(first.instance.yDoc)).toEqual(
       readOperationLog(second.instance.yDoc)
     )
 
     await Promise.all([first.instance.dispose(), second.instance.dispose()])
+  })
+
+  it('does not apply a remote operation after disposal begins during async permission', async () => {
+    const channelName = 'document'
+    const eventName = 'set-value'
+    const hub = new MemoryHub()
+    let permissionStarted: (() => void) | undefined
+    const permissionPending = new Promise<void>((resolve) => {
+      permissionStarted = resolve
+    })
+    let resolvePermission: ((allowed: boolean) => void) | undefined
+    const state = { value: 0 }
+
+    const createClient = (
+      actorId: string,
+      permissionPolicy: CreateCollaborationInput['permissionPolicy']
+    ) => {
+      const factory = new Factory()
+      factory.registerSharedDataChannel(
+        channelName,
+        new LocalSharedDataChannel()
+      )
+      const provider = new MemoryProvider(hub, {
+        documentId: 'document-a',
+        roomId: 'room-a',
+        actorId
+      })
+      const instance = createCollaboration({
+        documentId: 'document-a',
+        roomId: 'room-a',
+        actorId,
+        factory,
+        provider,
+        operationDefinitions: [
+          {
+            channel: channelName,
+            eventName,
+            schemaVersion: 1,
+            validate: (payload): payload is { value: number } =>
+              typeof (payload as { value?: unknown } | undefined)?.value ===
+              'number',
+            apply: defineCanonicalOperationApply((envelope) => {
+              state.value = (envelope.payload as { value: number }).value
+              return true
+            })
+          }
+        ],
+        permissionPolicy,
+        resourceOwnership: { provider: 'owned' }
+      })
+      return { factory, instance }
+    }
+
+    const sender = createClient('actor-a', () => true)
+    const receiver = createClient(
+      'actor-b',
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolvePermission = resolve
+          permissionStarted?.()
+        })
+    )
+    await Promise.all([sender.instance.start(), receiver.instance.start()])
+
+    sender.factory.startTransaction()
+    sender.factory.updateTransaction({
+      type: 'updateTransaction' as Parameters<
+        Factory['updateTransaction']
+      >[0]['type'],
+      eventName,
+      payload: { value: 1 },
+      options: {
+        undoable: false,
+        rollbackable: false,
+        shared: channelName
+      }
+    })
+    sender.factory.endTransaction()
+    await permissionPending
+
+    const disposal = receiver.instance.dispose()
+    resolvePermission?.(true)
+    await disposal
+
+    expect(state.value).toBe(0)
+    await sender.instance.dispose()
   })
 })

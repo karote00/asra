@@ -37,22 +37,19 @@ Out of scope:
 
 1. Define policy interface and registration contract.
 2. Add policy invocation points in transaction/apply pipeline.
-3. Add default no-op policy set in preset.
-4. Add tests for deterministic outcomes under concurrent edits.
+3. Add tests for deterministic outcomes under concurrent edits.
 
 ## Release Scope
 
 - Provide a replaceable policy registration/invocation contract at the remote
   canonical apply boundary.
-- Ship deterministic framework-owned defaults for invariants the framework
-  itself owns, including entity existence, hierarchy membership/order, property
-  validation, and unsupported-operation rejection.
-- Entity-existence defaults reject an update to a missing entity and treat a
-  repeated delete as idempotent. A create targeting an existing id is a
-  framework-detected collision, but its payload winner is not derivable from
-  existence alone: ordered app/state-owner policies must explicitly accept,
-  repair, or reject it. If none applies, the framework rejects the unresolved
-  collision instead of using arrival order.
+- Keep collaboration-owned origin, dedupe, protocol, schema, route, payload,
+  and permission validation ahead of every app policy; policies cannot replace
+  those framework checks.
+- Leave entity existence, hierarchy membership/order, property validation,
+  geometry, and topology semantics in their canonical package or app owners.
+  The collaboration policy pipeline does not reconstruct those decisions by
+  reading canonical state.
 - Permit apps to register domain policies for app-owned geometry, topology,
   locks, permissions, and workflow semantics without patching Yjs transport or
   canonical state owners.
@@ -66,10 +63,10 @@ Out of scope:
 - the matching Yjs Inspector names the policy input, owner, output, rejection,
   repair, bypass, and downstream canonical-apply routes;
 - duplicate, reordered, concurrent, unauthorized, unsupported, and repaired
-  operations converge or reject deterministically without echo, including
-  opposite delivery orders for an explicitly resolved same-id create;
+  operations converge or reject deterministically without echo through an
+  explicitly registered app-domain policy;
 - local undo excludes remote-origin work and rollback compensation re-enters the
   same conflict/origin pipeline;
-- framework defaults and app extension points have formal instance-isolation
+- default pass-through and app extension points have formal instance-isolation
   and convergence tests;
 - the parent Yjs gate and this sub-plan close together before Release Gate 3.

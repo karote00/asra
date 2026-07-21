@@ -50,9 +50,7 @@ class PropsManager {
       getPropertyById: (propertyId) => this.getPropertyById(propertyId),
       addToMap: (component) => this.addToMap(component),
       createComponent: (data) =>
-        createProperty(
-          data as Partial<PropertyComponentRawData>
-        ) as PropertyComponentInstanceTypes
+        this.createProperty(data as Partial<PropertyComponentRawData>)
     })
   }
 

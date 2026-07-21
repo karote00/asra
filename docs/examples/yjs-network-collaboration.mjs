@@ -11,9 +11,9 @@ import { Factory, LocalSharedDataChannel } from '@asyra/factory'
 import {
   createCollaboration,
   defineCanonicalOperationApply,
-  MemoryCollaborationHub,
-  MemoryCollaborationProvider,
-  MemoryCollaborationUpdatePersistence
+  MemoryHub,
+  MemoryProvider,
+  MemoryPersistence
 } from '@asyra/collaboration'
 
 const CHANNEL = 'document'
@@ -28,9 +28,8 @@ const isSetValuePayload = (payload) =>
   )
 
 // The hub represents an app/server-owned room, authentication, and durable-ack
-// boundary. Production apps can replace it with any CollaborationProvider.
-export const createMemoryCollaborationServer = (options = {}) =>
-  new MemoryCollaborationHub(options)
+// boundary. Production apps can replace it with any Provider.
+export const createMemoryHub = (options = {}) => new MemoryHub(options)
 
 // Awareness is app-owned presentation state. It never authorizes or applies a
 // canonical mutation and it is absent from Y.Doc and update persistence.
@@ -83,12 +82,12 @@ export const createCollaboratingCounter = async ({
     state.value = payload.after
   }
 
-  const provider = new MemoryCollaborationProvider(hub, {
+  const provider = new MemoryProvider(hub, {
     documentId,
     roomId,
     actorId
   })
-  const persistence = new MemoryCollaborationUpdatePersistence()
+  const persistence = new MemoryPersistence()
   const collaboration = createCollaboration({
     documentId,
     roomId,

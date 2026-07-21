@@ -1,10 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-  OperationOutcomeRegistry,
-  validateRemoteOperation
-} from '../inbound-pipeline'
-import { OperationRegistry } from '../operation-registry'
-import type { SharedOperationEnvelope } from '../operation-envelope'
+import { validateRemoteOperation } from '../operations/validation'
+import { OperationOutcomeRegistry } from '../operations/outcomes'
+import { OperationRegistry } from '../operations/registry'
+import type { SharedOperationEnvelope } from '../operations/envelope'
 
 const definition = {
   channel: 'scene',

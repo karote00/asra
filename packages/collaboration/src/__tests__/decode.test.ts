@@ -1,6 +1,6 @@
 import * as Y from 'yjs'
 import { describe, expect, it, vi } from 'vitest'
-import type { SharedOperationEnvelope } from '../operation-envelope'
+import type { SharedOperationEnvelope } from '../operations/envelope'
 import {
   appendOperationToYDoc,
   applyInboundYjsUpdate,
@@ -133,5 +133,90 @@ describe('inbound Yjs update decode', () => {
       })
     )
     expect(readOperationLog(target)).toEqual([envelope])
+  })
+
+  it.each([
+    ['prepend', 0],
+    ['mid-insert', 1]
+  ] as const)(
+    'rejects a %s operation-log insertion without changing the owned document',
+    (_label, index) => {
+      const source = new Y.Doc()
+      const first = envelope
+      const last = {
+        ...envelope,
+        operationId: 'actor-a:session-a:2:forward',
+        transactionId: 'actor-a:session-a:2',
+        payload: { value: 3 }
+      }
+      appendOperationToYDoc(source, first)
+      appendOperationToYDoc(source, last)
+      const target = new Y.Doc()
+      Y.applyUpdate(target, Y.encodeStateAsUpdate(source))
+      const targetState = Y.encodeStateVector(target)
+      const inserted = {
+        ...envelope,
+        operationId: `actor-a:session-a:${index + 3}:forward`,
+        transactionId: `actor-a:session-a:${index + 3}`,
+        payload: { value: 2 }
+      }
+      source
+        .getArray<string>(YJS_OPERATION_LOG_NAME)
+        .insert(index, [JSON.stringify(inserted)])
+      const insertion = Y.encodeStateAsUpdate(source, targetState)
+
+      expect(() =>
+        applyInboundYjsUpdate(target, insertion, 'provider')
+      ).toThrowError(
+        expect.objectContaining<Partial<InboundYjsDecodeFailure>>({
+          code: 'non-append-update'
+        })
+      )
+      expect(readOperationLog(target)).toEqual([first, last])
+    }
+  )
+
+  it('accepts legal concurrent tail appends regardless of Yjs merge order', () => {
+    const base = new Y.Doc()
+    appendOperationToYDoc(base, envelope)
+    const first = new Y.Doc()
+    const second = new Y.Doc()
+    const baseUpdate = Y.encodeStateAsUpdate(base)
+    Y.applyUpdate(first, baseUpdate)
+    Y.applyUpdate(second, baseUpdate)
+    const baseState = Y.encodeStateVector(base)
+    const firstTail = appendOperationToYDoc(first, {
+      ...envelope,
+      operationId: 'actor-a:session-a:2:forward',
+      transactionId: 'actor-a:session-a:2',
+      payload: { value: 2 }
+    })
+    const secondTail = appendOperationToYDoc(second, {
+      ...envelope,
+      operationId: 'actor-b:session-b:1:forward',
+      transactionId: 'actor-b:session-b:1',
+      actorId: 'actor-b',
+      payload: { value: 3 }
+    })
+    const target = new Y.Doc()
+    Y.applyUpdate(target, baseUpdate)
+
+    expect(() =>
+      applyInboundYjsUpdate(
+        target,
+        Y.encodeStateAsUpdate(first, baseState),
+        'provider'
+      )
+    ).not.toThrow()
+    expect(() =>
+      applyInboundYjsUpdate(
+        target,
+        Y.encodeStateAsUpdate(second, baseState),
+        'provider'
+      )
+    ).not.toThrow()
+    expect(readOperationLog(target)).toHaveLength(3)
+    expect(firstTail.update.byteLength).toBeGreaterThan(0)
+    expect(secondTail.update.byteLength).toBeGreaterThan(0)
   })
 })

@@ -124,8 +124,8 @@ Remote collaboration ordering:
 3. the instance-local outcome registry handles duplicate or collision before
    permission or mutation
 4. protocol/schema/route/payload validation completes
-5. app/server permission runs before fixed framework invariants and ordered app
-   conflict policies
+5. app/server permission runs before any explicitly registered app-domain
+   conflict policies; collaboration does not reconstruct package invariants
 6. accepted/repaired input enters one Factory remote transaction and the
    registered canonical state-owner handler
 7. canonical projections update; remote shared echo and ordinary local undo

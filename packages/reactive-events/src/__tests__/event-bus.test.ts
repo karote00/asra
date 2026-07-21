@@ -49,6 +49,37 @@ describe('Event Bus - Communication Backbone', () => {
 
       subscription.unsubscribe()
     })
+
+    it('returns the aggregate synchronous canonical apply result', () => {
+      const noOp = subscribeToSynchronousEvent<TestEvent>(
+        EventTypes.ADD_PROPERTY,
+        () => false
+      )
+      let applied: ReturnType<typeof subscribeToSynchronousEvent> | undefined
+      try {
+        expect(
+          publishEvent({
+            type: EventTypes.ADD_PROPERTY,
+            payload: { message: 'no-op' }
+          })
+        ).toBe(false)
+
+        applied = subscribeToSynchronousEvent<TestEvent>(
+          EventTypes.ADD_PROPERTY,
+          () => true
+        )
+
+        expect(
+          publishEvent({
+            type: EventTypes.ADD_PROPERTY,
+            payload: { message: 'applied' }
+          })
+        ).toBe(true)
+      } finally {
+        applied?.unsubscribe()
+        noOp.unsubscribe()
+      }
+    })
   })
 
   describe('createSubscribeEvent', () => {

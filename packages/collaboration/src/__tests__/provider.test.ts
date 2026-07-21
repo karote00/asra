@@ -5,12 +5,9 @@ import {
   applyInboundYjsUpdate,
   readOperationLog
 } from '../yjs-document'
-import type { SharedOperationEnvelope } from '../operation-envelope'
-import { providerStatus } from '../provider'
-import {
-  MemoryCollaborationHub,
-  MemoryCollaborationProvider
-} from '../providers/memory-provider'
+import type { SharedOperationEnvelope } from '../operations/envelope'
+import { PROVIDER_FAILURE_CODES, isProviderFailureCode } from '../provider'
+import { MemoryHub, MemoryProvider } from '../providers/memory'
 
 const identity = (actorId: string, roomId = 'room-a') => ({
   documentId: 'document-a',
@@ -36,10 +33,25 @@ const envelope = (
 })
 
 describe('replaceable collaboration provider contract', () => {
+  it('owns one frozen runtime registry for provider failure codes', () => {
+    expect(PROVIDER_FAILURE_CODES).toEqual([
+      'connection-rejected',
+      'connection-failed',
+      'not-connected',
+      'invalid-awareness-actor',
+      'acknowledgement-failed',
+      'transport-failed',
+      'disposed'
+    ])
+    expect(Object.isFrozen(PROVIDER_FAILURE_CODES)).toBe(true)
+    expect(isProviderFailureCode('transport-failed')).toBe(true)
+    expect(isProviderFailureCode('unknown-provider-failure')).toBe(false)
+  })
+
   it('transports binary updates to room peers, excludes sender echo, and acknowledges independently', async () => {
-    const hub = new MemoryCollaborationHub()
-    const first = new MemoryCollaborationProvider(hub, identity('actor-a'))
-    const second = new MemoryCollaborationProvider(hub, identity('actor-b'))
+    const hub = new MemoryHub()
+    const first = new MemoryProvider(hub, identity('actor-a'))
+    const second = new MemoryProvider(hub, identity('actor-b'))
     const firstInbound = vi.fn()
     const secondInbound = vi.fn()
     const acknowledgements = vi.fn()
@@ -73,12 +85,9 @@ describe('replaceable collaboration provider contract', () => {
   })
 
   it('isolates document rooms and returns only state-vector-missing updates', async () => {
-    const hub = new MemoryCollaborationHub()
-    const sender = new MemoryCollaborationProvider(hub, identity('actor-a'))
-    const otherRoom = new MemoryCollaborationProvider(
-      hub,
-      identity('actor-b', 'room-b')
-    )
+    const hub = new MemoryHub()
+    const sender = new MemoryProvider(hub, identity('actor-a'))
+    const otherRoom = new MemoryProvider(hub, identity('actor-b', 'room-b'))
     const otherRoomInbound = vi.fn()
     otherRoom.onUpdate(otherRoomInbound)
     await sender.connect()
@@ -113,9 +122,9 @@ describe('replaceable collaboration provider contract', () => {
   })
 
   it('rejects a non-operation live update without polluting room history', async () => {
-    const hub = new MemoryCollaborationHub()
-    const sender = new MemoryCollaborationProvider(hub, identity('actor-a'))
-    const receiver = new MemoryCollaborationProvider(hub, identity('actor-b'))
+    const hub = new MemoryHub()
+    const sender = new MemoryProvider(hub, identity('actor-a'))
+    const receiver = new MemoryProvider(hub, identity('actor-b'))
     const inbound = vi.fn()
     const acknowledgements = vi.fn()
     receiver.onUpdate(inbound)
@@ -144,9 +153,9 @@ describe('replaceable collaboration provider contract', () => {
   })
 
   it('rejects a live operation whose actor does not match the authenticated sender without polluting reconnect history', async () => {
-    const hub = new MemoryCollaborationHub()
-    const sender = new MemoryCollaborationProvider(hub, identity('actor-a'))
-    const onlinePeer = new MemoryCollaborationProvider(hub, identity('actor-b'))
+    const hub = new MemoryHub()
+    const sender = new MemoryProvider(hub, identity('actor-a'))
+    const onlinePeer = new MemoryProvider(hub, identity('actor-b'))
     const inbound = vi.fn()
     const acknowledgements = vi.fn()
     onlinePeer.onUpdate(inbound)
@@ -165,10 +174,7 @@ describe('replaceable collaboration provider contract', () => {
 
     expect(inbound).not.toHaveBeenCalled()
     expect(acknowledgements).not.toHaveBeenCalled()
-    const reconnectingPeer = new MemoryCollaborationProvider(
-      hub,
-      identity('actor-c')
-    )
+    const reconnectingPeer = new MemoryProvider(hub, identity('actor-c'))
     await reconnectingPeer.connect()
     const synchronized = new Y.Doc()
     const result = applyInboundYjsUpdate(
@@ -180,9 +186,9 @@ describe('replaceable collaboration provider contract', () => {
   })
 
   it('rejects a non-operation sync update without polluting room history', async () => {
-    const hub = new MemoryCollaborationHub()
-    const sender = new MemoryCollaborationProvider(hub, identity('actor-a'))
-    const receiver = new MemoryCollaborationProvider(hub, identity('actor-b'))
+    const hub = new MemoryHub()
+    const sender = new MemoryProvider(hub, identity('actor-a'))
+    const receiver = new MemoryProvider(hub, identity('actor-b'))
     const inbound = vi.fn()
     receiver.onUpdate(inbound)
     await sender.connect()
@@ -205,9 +211,9 @@ describe('replaceable collaboration provider contract', () => {
   })
 
   it('rejects a sync operation whose actor does not match the authenticated sender', async () => {
-    const hub = new MemoryCollaborationHub()
-    const sender = new MemoryCollaborationProvider(hub, identity('actor-a'))
-    const receiver = new MemoryCollaborationProvider(hub, identity('actor-b'))
+    const hub = new MemoryHub()
+    const sender = new MemoryProvider(hub, identity('actor-a'))
+    const receiver = new MemoryProvider(hub, identity('actor-b'))
     const inbound = vi.fn()
     receiver.onUpdate(inbound)
     await sender.connect()
@@ -233,9 +239,9 @@ describe('replaceable collaboration provider contract', () => {
   })
 
   it('transports opaque awareness and emits disconnect cleanup without granting authority', async () => {
-    const hub = new MemoryCollaborationHub()
-    const sender = new MemoryCollaborationProvider(hub, identity('actor-a'))
-    const receiver = new MemoryCollaborationProvider(hub, identity('actor-b'))
+    const hub = new MemoryHub()
+    const sender = new MemoryProvider(hub, identity('actor-a'))
+    const receiver = new MemoryProvider(hub, identity('actor-b'))
     const awareness = vi.fn()
     const disconnect = vi.fn()
     receiver.onAwareness((message) => {
@@ -262,9 +268,5 @@ describe('replaceable collaboration provider contract', () => {
       actorId: 'actor-a',
       reason: 'disconnect'
     })
-  })
-
-  it('reports offline without constructing a provider', () => {
-    expect(providerStatus(undefined)).toBe('offline')
   })
 })
