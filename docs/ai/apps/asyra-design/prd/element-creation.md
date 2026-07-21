@@ -30,5 +30,5 @@ Users need low-friction shape creation with both quick default-size placement an
 
 ## References
 
-- `apps/asyra-design/src/features/create-element/index.ts`
+- `apps/asyra-design/src/features/create-element/feature.ts`
 - `apps/asyra-design/src/common-apis/element/index.ts`
