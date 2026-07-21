@@ -108,7 +108,9 @@ test('Core coordinates a bounded pre-start redefinition without general replace 
     core.implementationBoundary.includes('packages/core/src/apis/props.ts')
   )
   assert.ok(
-    core.implementationBoundary.includes('packages/core/src/apis/index.ts')
+    core.implementationBoundary.includes(
+      'packages/core/src/apis/create-apis.ts'
+    )
   )
   assert.ok(
     core.implementationBoundary.includes(
