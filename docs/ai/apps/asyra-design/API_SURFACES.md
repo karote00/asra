@@ -33,8 +33,8 @@ This file is the app-level API contract map.
   WebSocket adapter forwards it unchanged and reports `connected` or `failed`
 - `src/collaboration/protocol.ts` is the app-owned wire
   contract shared by the browser provider and reference server; it owns message
-  discriminants, client/server payload types, and runtime parsing of untrusted
-  JSON
+  discriminants, named request/server message variants composed into the
+  public client/server unions, and runtime parsing of untrusted JSON
 - the memory-only public reference server performs no authentication or permission
   check and makes no production authorization claim
 - URLs without `fileId` keep the normal local persistence path and create no

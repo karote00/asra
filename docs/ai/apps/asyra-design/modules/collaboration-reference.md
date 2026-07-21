@@ -106,7 +106,8 @@ not assign meaning to `fileId` or other metadata.
 `src/collaboration/protocol.ts` is the single app-owned contract
 for browser-to-server and server-to-browser message discriminants and payload
 shapes. Both the browser provider and the Node reference server consume its
-typed messages and runtime parsers. Incoming JSON is rejected at this boundary
+named message variants, composed client/server unions, and runtime parsers.
+Incoming JSON is rejected at this boundary
 unless its complete message shape is valid; binary payload strings are
 validated before byte decoding. Successful sync responses must contain the
 expected encoded binary fields; a missing or malformed field fails with

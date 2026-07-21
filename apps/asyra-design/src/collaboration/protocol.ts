@@ -5,6 +5,7 @@ import type {
   ProviderAwarenessMessage
 } from '@asyra/collaboration'
 import { isRecord } from '@asyra/utils'
+import { isNonBlankString } from './wire-values'
 
 export const CollaborationMessageTypes = {
   HELLO: 'hello',
@@ -28,30 +29,43 @@ export interface CollaborationHelloMessage {
   readonly identity: ProviderIdentity
 }
 
+export interface SendUpdateRequest {
+  readonly type: typeof CollaborationMessageTypes.SEND_UPDATE
+  readonly requestId: string
+  readonly operationId: string
+  readonly update: string
+}
+
+export interface RequestSyncRequest {
+  readonly type: typeof CollaborationMessageTypes.REQUEST_SYNC
+  readonly requestId: string
+  readonly stateVector: string
+}
+
+export interface ExchangeStateVectorRequest {
+  readonly type: typeof CollaborationMessageTypes.EXCHANGE_STATE_VECTOR
+  readonly requestId: string
+  readonly stateVector: string
+}
+
+export interface SendSyncUpdateRequest {
+  readonly type: typeof CollaborationMessageTypes.SEND_SYNC_UPDATE
+  readonly requestId: string
+  readonly update: string
+}
+
+export interface SendAwarenessRequest {
+  readonly type: typeof CollaborationMessageTypes.SEND_AWARENESS
+  readonly requestId: string
+  readonly message: ProviderAwarenessMessage
+}
+
 export type CollaborationRequestMessage =
-  | {
-      readonly type: typeof CollaborationMessageTypes.SEND_UPDATE
-      readonly requestId: string
-      readonly operationId: string
-      readonly update: string
-    }
-  | {
-      readonly type:
-        | typeof CollaborationMessageTypes.REQUEST_SYNC
-        | typeof CollaborationMessageTypes.EXCHANGE_STATE_VECTOR
-      readonly requestId: string
-      readonly stateVector: string
-    }
-  | {
-      readonly type: typeof CollaborationMessageTypes.SEND_SYNC_UPDATE
-      readonly requestId: string
-      readonly update: string
-    }
-  | {
-      readonly type: typeof CollaborationMessageTypes.SEND_AWARENESS
-      readonly requestId: string
-      readonly message: ProviderAwarenessMessage
-    }
+  | SendUpdateRequest
+  | RequestSyncRequest
+  | ExchangeStateVectorRequest
+  | SendSyncUpdateRequest
+  | SendAwarenessRequest
 
 type WithoutRequestId<T> = T extends CollaborationRequestMessage
   ? Omit<T, 'requestId'>
@@ -69,46 +83,73 @@ export interface CollaborationFailurePayload {
   readonly message: string
 }
 
-export type CollaborationServerMessage =
-  | { readonly type: typeof CollaborationMessageTypes.READY }
-  | {
-      readonly type: typeof CollaborationMessageTypes.RESPONSE
-      readonly requestId: string
-      readonly ok: true
-      readonly result?: unknown
-    }
-  | {
-      readonly type: typeof CollaborationMessageTypes.RESPONSE
-      readonly requestId: string
-      readonly ok: false
-      readonly error: CollaborationFailurePayload
-    }
-  | {
-      readonly type: typeof CollaborationMessageTypes.UPDATE
-      readonly operationId: string
-      readonly update: string
-      readonly fromActorId?: string
-    }
-  | ({
-      readonly type: typeof CollaborationMessageTypes.ACKNOWLEDGEMENT
-    } & ProviderAcknowledgement)
-  | ({
-      readonly type: typeof CollaborationMessageTypes.AWARENESS
-    } & ProviderAwarenessMessage)
-  | ({
-      readonly type: typeof CollaborationMessageTypes.AWARENESS_DISCONNECT
-    } & ProviderAwarenessDisconnect)
-  | {
-      readonly type:
-        | typeof CollaborationMessageTypes.FAILURE
-        | typeof CollaborationMessageTypes.CONNECTION_ERROR
-      readonly code: string
-      readonly message: string
-      readonly operationId?: string
-    }
+export interface ReadyMessage {
+  readonly type: typeof CollaborationMessageTypes.READY
+}
 
-const isNonEmptyString = (value: unknown): value is string =>
-  typeof value === 'string' && value.trim().length > 0
+export interface SuccessfulResponseMessage {
+  readonly type: typeof CollaborationMessageTypes.RESPONSE
+  readonly requestId: string
+  readonly ok: true
+  readonly result?: unknown
+}
+
+export interface FailedResponseMessage {
+  readonly type: typeof CollaborationMessageTypes.RESPONSE
+  readonly requestId: string
+  readonly ok: false
+  readonly error: CollaborationFailurePayload
+}
+
+export interface UpdateMessage {
+  readonly type: typeof CollaborationMessageTypes.UPDATE
+  readonly operationId: string
+  readonly update: string
+  readonly fromActorId?: string
+}
+
+export type AcknowledgementMessage = Readonly<
+  {
+    type: typeof CollaborationMessageTypes.ACKNOWLEDGEMENT
+  } & ProviderAcknowledgement
+>
+
+export type AwarenessMessage = Readonly<
+  {
+    type: typeof CollaborationMessageTypes.AWARENESS
+  } & ProviderAwarenessMessage
+>
+
+export type AwarenessDisconnectMessage = Readonly<
+  {
+    type: typeof CollaborationMessageTypes.AWARENESS_DISCONNECT
+  } & ProviderAwarenessDisconnect
+>
+
+interface ProviderFailureMessage {
+  readonly code: string
+  readonly message: string
+  readonly operationId?: string
+}
+
+export interface FailureMessage extends ProviderFailureMessage {
+  readonly type: typeof CollaborationMessageTypes.FAILURE
+}
+
+export interface ConnectionErrorMessage extends ProviderFailureMessage {
+  readonly type: typeof CollaborationMessageTypes.CONNECTION_ERROR
+}
+
+export type CollaborationServerMessage =
+  | ReadyMessage
+  | SuccessfulResponseMessage
+  | FailedResponseMessage
+  | UpdateMessage
+  | AcknowledgementMessage
+  | AwarenessMessage
+  | AwarenessDisconnectMessage
+  | FailureMessage
+  | ConnectionErrorMessage
 
 const isOptionalString = (value: unknown): value is string | undefined =>
   value === undefined || typeof value === 'string'
@@ -120,16 +161,16 @@ const isBase64 = (value: unknown): value is string =>
 
 const isProviderIdentity = (value: unknown): value is ProviderIdentity =>
   isRecord(value) &&
-  isNonEmptyString(value.documentId) &&
-  isNonEmptyString(value.roomId) &&
-  isNonEmptyString(value.actorId) &&
+  isNonBlankString(value.documentId) &&
+  isNonBlankString(value.roomId) &&
+  isNonBlankString(value.actorId) &&
   (value.connectionMetadata === undefined || isRecord(value.connectionMetadata))
 
 const isAwarenessMessage = (
   value: unknown
 ): value is ProviderAwarenessMessage =>
   isRecord(value) &&
-  isNonEmptyString(value.actorId) &&
+  isNonBlankString(value.actorId) &&
   typeof value.clock === 'number' &&
   Number.isFinite(value.clock) &&
   Object.prototype.hasOwnProperty.call(value, 'state')
@@ -138,13 +179,13 @@ const isFailurePayload = (
   value: unknown
 ): value is CollaborationFailurePayload =>
   isRecord(value) &&
-  isNonEmptyString(value.code) &&
-  isNonEmptyString(value.message)
+  isNonBlankString(value.code) &&
+  isNonBlankString(value.message)
 
 export const parseCollaborationClientMessage = (
   value: unknown
 ): CollaborationClientMessage | undefined => {
-  if (!isRecord(value) || !isNonEmptyString(value.type)) return undefined
+  if (!isRecord(value) || !isNonBlankString(value.type)) return undefined
 
   switch (value.type) {
     case CollaborationMessageTypes.HELLO:
@@ -152,8 +193,8 @@ export const parseCollaborationClientMessage = (
         ? { type: value.type, identity: value.identity }
         : undefined
     case CollaborationMessageTypes.SEND_UPDATE:
-      return isNonEmptyString(value.requestId) &&
-        isNonEmptyString(value.operationId) &&
+      return isNonBlankString(value.requestId) &&
+        isNonBlankString(value.operationId) &&
         isBase64(value.update)
         ? {
             type: value.type,
@@ -164,7 +205,7 @@ export const parseCollaborationClientMessage = (
         : undefined
     case CollaborationMessageTypes.REQUEST_SYNC:
     case CollaborationMessageTypes.EXCHANGE_STATE_VECTOR:
-      return isNonEmptyString(value.requestId) && isBase64(value.stateVector)
+      return isNonBlankString(value.requestId) && isBase64(value.stateVector)
         ? {
             type: value.type,
             requestId: value.requestId,
@@ -172,7 +213,7 @@ export const parseCollaborationClientMessage = (
           }
         : undefined
     case CollaborationMessageTypes.SEND_SYNC_UPDATE:
-      return isNonEmptyString(value.requestId) && isBase64(value.update)
+      return isNonBlankString(value.requestId) && isBase64(value.update)
         ? {
             type: value.type,
             requestId: value.requestId,
@@ -180,7 +221,7 @@ export const parseCollaborationClientMessage = (
           }
         : undefined
     case CollaborationMessageTypes.SEND_AWARENESS:
-      return isNonEmptyString(value.requestId) &&
+      return isNonBlankString(value.requestId) &&
         isAwarenessMessage(value.message)
         ? {
             type: value.type,
@@ -196,13 +237,13 @@ export const parseCollaborationClientMessage = (
 export const parseCollaborationServerMessage = (
   value: unknown
 ): CollaborationServerMessage | undefined => {
-  if (!isRecord(value) || !isNonEmptyString(value.type)) return undefined
+  if (!isRecord(value) || !isNonBlankString(value.type)) return undefined
 
   switch (value.type) {
     case CollaborationMessageTypes.READY:
       return { type: value.type }
     case CollaborationMessageTypes.RESPONSE:
-      if (!isNonEmptyString(value.requestId) || typeof value.ok !== 'boolean') {
+      if (!isNonBlankString(value.requestId) || typeof value.ok !== 'boolean') {
         return undefined
       }
       if (!value.ok) {
@@ -224,7 +265,7 @@ export const parseCollaborationServerMessage = (
           : {})
       }
     case CollaborationMessageTypes.UPDATE:
-      return isNonEmptyString(value.operationId) &&
+      return isNonBlankString(value.operationId) &&
         isBase64(value.update) &&
         isOptionalString(value.fromActorId)
         ? {
@@ -235,7 +276,7 @@ export const parseCollaborationServerMessage = (
           }
         : undefined
     case CollaborationMessageTypes.ACKNOWLEDGEMENT:
-      return isNonEmptyString(value.operationId) &&
+      return isNonBlankString(value.operationId) &&
         value.durability === 'durable'
         ? {
             type: value.type,
@@ -253,7 +294,7 @@ export const parseCollaborationServerMessage = (
           }
         : undefined
     case CollaborationMessageTypes.AWARENESS_DISCONNECT:
-      return isNonEmptyString(value.actorId) && value.reason === 'disconnect'
+      return isNonBlankString(value.actorId) && value.reason === 'disconnect'
         ? {
             type: value.type,
             actorId: value.actorId,
@@ -262,8 +303,8 @@ export const parseCollaborationServerMessage = (
         : undefined
     case CollaborationMessageTypes.FAILURE:
     case CollaborationMessageTypes.CONNECTION_ERROR:
-      return isNonEmptyString(value.code) &&
-        isNonEmptyString(value.message) &&
+      return isNonBlankString(value.code) &&
+        isNonBlankString(value.message) &&
         isOptionalString(value.operationId)
         ? {
             type: value.type,

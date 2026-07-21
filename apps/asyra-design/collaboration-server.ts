@@ -22,6 +22,7 @@ import {
   type CollaborationRequestMessage,
   type CollaborationServerMessage
 } from './src/collaboration/protocol'
+import { isNonBlankString } from './src/collaboration/wire-values'
 
 const appEnvironment = resolveAsyraDesignEnvironment(
   loadAsyraDesignEnvironment(process.env, resolve(process.cwd(), '.env'))
@@ -31,9 +32,6 @@ const host = appEnvironment.collaborationWebSocketHost
 const port = appEnvironment.collaborationWebSocketPort
 const socketPath = '/asyra-design-collaboration'
 const allowedOrigin = appEnvironment.appURL
-
-const isNonEmptyString = (value: unknown): value is string =>
-  typeof value === 'string' && value.trim().length > 0
 
 const encodeBytes = (bytes: Uint8Array): string =>
   Buffer.from(bytes).toString('base64')
@@ -145,7 +143,7 @@ webSocketServer.on('connection', (socket) => {
       )
     }
     const fileId = connectionMetadata.fileId
-    if (!isNonEmptyString(fileId)) {
+    if (!isNonBlankString(fileId)) {
       throw new ProviderFailure(
         'connection-rejected',
         '[collaboration] app-defined fileId and actor identity are required'
