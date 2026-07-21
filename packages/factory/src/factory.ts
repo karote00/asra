@@ -1,4 +1,5 @@
 import {
+  runTransaction,
   runWithTransactionOwner,
   transactionStatusChanged,
   type AllEvent,
@@ -22,10 +23,14 @@ import {
 } from './shared-data-channel'
 import {
   cloneSharedDelivery,
+  cloneSharedPublication,
   type SharedDelivery,
-  type SharedDeliverySubscriber
+  type SharedDeliverySubscriber,
+  type SharedPublication,
+  type SharedPublicationSubscriber
 } from './shared-delivery'
 import type {
+  CanonicalEventApply,
   TransactionInverter,
   TransactionReplayHandler,
   TransactionValidator
@@ -51,6 +56,8 @@ class Factory {
   >()
   private readonly sharedDeliverySubscribers =
     new Set<SharedDeliverySubscriber>()
+  private readonly sharedPublicationSubscribers =
+    new Set<SharedPublicationSubscriber>()
   private readonly transactionReplayHandlers = new Map<
     string,
     TransactionReplayHandler
@@ -65,7 +72,9 @@ class Factory {
         ? userActionCompleted
         : undefined,
       onReplayEvent: (event, mode) => this.handleReplayEvent(event, mode),
-      onSharedDelivery: (delivery) => this.emitSharedDelivery(delivery)
+      onSharedDelivery: (delivery) => this.emitSharedDelivery(delivery),
+      onSharedPublication: (publication) =>
+        this.emitSharedPublication(publication)
     })
     this.transactionOwner = {
       startTransaction: () => this.startTransaction(),
@@ -80,6 +89,16 @@ class Factory {
     ;[...this.sharedDeliverySubscribers].forEach((subscriber) => {
       try {
         subscriber(cloneSharedDelivery(delivery))
+      } catch {
+        // Collaboration observers cannot alter local canonical settlement.
+      }
+    })
+  }
+
+  private emitSharedPublication(publication: SharedPublication): void {
+    ;[...this.sharedPublicationSubscribers].forEach((subscriber) => {
+      try {
+        subscriber(cloneSharedPublication(publication))
       } catch {
         // Collaboration observers cannot alter local canonical settlement.
       }
@@ -117,29 +136,48 @@ class Factory {
 
   runRemoteTransaction<T>(mutate: () => T): T {
     this.transact.start('remote')
-    try {
-      const result = runWithTransactionOwner(this.transactionOwner, mutate)
-      if (
-        result !== null &&
-        (typeof result === 'object' || typeof result === 'function') &&
-        typeof (result as { then?: unknown }).then === 'function'
-      ) {
-        void Promise.resolve(result).catch(() => undefined)
-        throw new RemoteAsyncHandlerError()
-      }
-      this.transact.end()
-      return result
-    } catch (error) {
-      this.transact.end({
-        outcome: 'rollback',
-        failure: {
-          kind: 'handler-error',
-          message: error instanceof Error ? error.message : undefined,
-          cause: error
-        }
-      })
-      throw error
+    const reactiveBoundaryOwner: TransactionOwner = {
+      startTransaction: () => undefined,
+      updateTransaction: (event) => this.updateTransaction(event),
+      endTransaction: () => undefined,
+      undo: () => this.undo(),
+      redo: () => this.redo()
     }
+
+    return runWithTransactionOwner(reactiveBoundaryOwner, () =>
+      runTransaction(
+        () => {
+          try {
+            const result = mutate()
+            if (
+              result !== null &&
+              (typeof result === 'object' || typeof result === 'function') &&
+              typeof (result as { then?: unknown }).then === 'function'
+            ) {
+              void Promise.resolve(result).catch(() => undefined)
+              throw new RemoteAsyncHandlerError()
+            }
+            this.transact.end()
+            return result
+          } catch (error) {
+            this.transact.end({
+              outcome: 'rollback',
+              failure: {
+                kind: 'handler-error',
+                message: error instanceof Error ? error.message : undefined,
+                cause: error
+              }
+            })
+            throw error
+          }
+        },
+        { failureKind: 'handler-error' }
+      )
+    )
+  }
+
+  applyRemoteEvent(event: AllEvent, apply: CanonicalEventApply): boolean {
+    return this.transact.applyForwardEvent(event, apply)
   }
 
   isRemoteAsyncHandlerError(error: unknown): boolean {
@@ -278,6 +316,15 @@ class Factory {
     this.sharedDeliverySubscribers.add(subscriber)
     return () => {
       this.sharedDeliverySubscribers.delete(subscriber)
+    }
+  }
+
+  subscribeToSharedPublication(
+    subscriber: SharedPublicationSubscriber
+  ): () => void {
+    this.sharedPublicationSubscribers.add(subscriber)
+    return () => {
+      this.sharedPublicationSubscribers.delete(subscriber)
     }
   }
 }

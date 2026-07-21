@@ -50,6 +50,10 @@ export const subscribeToSharedDelivery = (
   subscriber: Parameters<Factory['subscribeToSharedDelivery']>[0]
 ) => factory.subscribeToSharedDelivery(subscriber)
 
+export const subscribeToSharedPublication = (
+  subscriber: Parameters<Factory['subscribeToSharedPublication']>[0]
+) => factory.subscribeToSharedPublication(subscriber)
+
 export default factory
 export { Factory }
 export * from './shared-data-channel'

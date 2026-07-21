@@ -4,6 +4,7 @@ import { LocalSharedDataChannel } from '../shared-data-channel'
 import type _DataTransact from '../data-transact' // Keep this import for type inference
 import {
   EventTypes,
+  subscribeToEndTransaction,
   subscribeToEvents,
   subscribeToUserActionCompleted,
   updateTransaction,
@@ -72,6 +73,87 @@ describe('Factory', () => {
         rollbackableChangeCount: 1
       })
     ])
+  })
+
+  it('publishes the remote transaction end after shared projections settle', () => {
+    const projection = new LocalSharedDataChannel()
+    const order: string[] = []
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      projection
+    )
+    const disposeProjection = projection.observe(() => order.push('projection'))
+    const endSubscription = subscribeToEndTransaction(() => order.push('end'))
+    order.length = 0
+
+    try {
+      factory.runRemoteTransaction(() => {
+        updateTransaction(
+          EventTypes.UPDATE_COMPUTED_DATA,
+          { id: 'remote', before: 0, after: 1 },
+          { shared: SharedDataChannelNames.SCENE_TREE }
+        )
+      })
+
+      expect(order).toEqual(['projection', 'end'])
+    } finally {
+      endSubscription.unsubscribe()
+      disposeProjection()
+    }
+  })
+
+  it('forwards one remote event unchanged without state-owner payload interpretation', () => {
+    const appliedEvents: unknown[] = []
+    const event = {
+      type: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        id: 'remote-element',
+        changes: [
+          { owner: 'computed', key: 'x', before: 0, after: 1 },
+          { owner: 'computed', key: 'x', before: 1, after: 2 },
+          { owner: 'computed', key: 'x', before: 2, after: 1 }
+        ]
+      }
+    } as const
+
+    const applied = factory.runRemoteTransaction(() =>
+      factory.applyRemoteEvent(event, (forwardEvent) => {
+        appliedEvents.push(forwardEvent)
+        return true
+      })
+    )
+
+    expect(applied).toBe(true)
+    expect(appliedEvents).toEqual([event])
+    expect(appliedEvents[0]).not.toBe(event)
+    expect((appliedEvents[0] as typeof event).payload).not.toBe(event.payload)
+  })
+
+  it('reports the state owner result for the one forwarded remote event', () => {
+    const event = {
+      type: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        id: 'remote-element',
+        changes: [
+          { owner: 'computed', key: 'x', before: 0, after: 1 },
+          { owner: 'computed', key: 'y', before: 0, after: 1 }
+        ]
+      }
+    } as const
+
+    const noOp = factory.runRemoteTransaction(() =>
+      factory.applyRemoteEvent(event, () => false)
+    )
+    const applied = factory.runRemoteTransaction(() =>
+      factory.applyRemoteEvent(event, () => true)
+    )
+
+    expect(noOp).toBe(false)
+    expect(applied).toBe(true)
   })
 
   it('should call DataTransact.undo when undo is called', () => {

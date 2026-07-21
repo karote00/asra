@@ -3,7 +3,7 @@ import type {
   EndTransactionOptions,
   PropsChange,
   SceneTreeChange,
-  SceneTreeDataOwner,
+  SharedDeliveryMode,
   ElementSelectionChange,
   TransactionFailure,
   TransactionOrigin,
@@ -11,20 +11,21 @@ import type {
   TransactionStatusPayload,
   UpdateElementPatchChange
 } from '@asyra/utils'
-import { SCENE_TREE_ACTIONS, UNDO } from '@asyra/utils'
+import { UNDO } from '@asyra/utils'
 
 type TransactionPayload = PropsChange | SceneTreeChange | ElementSelectionChange
 interface EffectiveMutationOptions {
   undoable: boolean
   rollbackable: boolean
   shared?: string
-  sharedDelivery: 'transaction-end' | 'immediate'
+  sharedDelivery: SharedDeliveryMode
 }
 
 interface JournalSharedChange {
   name: string
   change: TransactionPayload
   delivered: boolean
+  published: boolean
 }
 
 interface TransactionJournalEntry {
@@ -46,6 +47,7 @@ interface DataTransactCallbacks {
     mode: TransactionReplayMode
   ) => boolean | { handled: boolean; applied: boolean }
   onSharedDelivery?: (delivery: SharedDelivery) => void
+  onSharedPublication?: (publication: SharedPublication) => void
 }
 import type {
   AllEvent,
@@ -71,10 +73,11 @@ import {
   TransactionRollbackError,
   TransactionValidationError,
   type TransactionInverter,
+  type CanonicalEventApply,
   type TransactionValidationContext,
   type TransactionValidator
 } from './transaction'
-import type { SharedDelivery } from './shared-delivery'
+import type { SharedDelivery, SharedPublication } from './shared-delivery'
 
 const BUILT_IN_INVERTIBLE_EVENT_TYPES = new Set<string>([
   EventTypes.ADD_ELEMENT,
@@ -254,6 +257,14 @@ class DataTransact {
   private activeOrigin: TransactionOrigin = 'action'
   private rollbackOnly = false
   private rollbackFailure: TransactionFailure | undefined
+  private readonly pendingSharedPublications: SharedPublication[] = []
+  private emittingSharedPublications = false
+  private readonly pendingImmediatePublicationEntries: TransactionJournalEntry[] =
+    []
+  private immediatePublicationToken = 0
+  private publicationSequence = 0
+  private readonly pendingTransactionStatuses: TransactionStatusPayload[] = []
+  private emittingTransactionStatuses = false
   private readonly inverters = new Map<string, TransactionInverter>()
   private readonly validators = new Map<string, TransactionValidator>()
   private readonly onStatus?: (payload: TransactionStatusPayload) => void
@@ -265,6 +276,9 @@ class DataTransact {
     mode: TransactionReplayMode
   ) => boolean | { handled: boolean; applied: boolean }
   private readonly onSharedDelivery?: (delivery: SharedDelivery) => void
+  private readonly onSharedPublication?: (
+    publication: SharedPublication
+  ) => void
   private readonly sharedDataChannelRegistry: Pick<
     SharedDataChannelRegistry,
     'pushToSharedChannel'
@@ -286,6 +300,7 @@ class DataTransact {
       : userActionCompleted
     this.onReplayEvent = callbacks?.onReplayEvent
     this.onSharedDelivery = callbacks?.onSharedDelivery
+    this.onSharedPublication = callbacks?.onSharedPublication
   }
 
   start(origin?: TransactionOrigin) {
@@ -305,6 +320,9 @@ class DataTransact {
 
     this.activeOrigin = origin ?? 'action'
     this.journal = []
+    this.pendingImmediatePublicationEntries.length = 0
+    this.immediatePublicationToken += 1
+    this.publicationSequence = 0
     this.nestedReplayRestorationPlans = []
     this.rollbackOnly = false
     this.rollbackFailure = undefined
@@ -396,7 +414,8 @@ class DataTransact {
       journalEntry.shared = {
         name: sharedChannelName,
         change: sharedChange,
-        delivered: false
+        delivered: false,
+        published: false
       }
     }
 
@@ -419,6 +438,7 @@ class DataTransact {
         )
       if (journalEntry.shared.delivered) {
         this.emitForwardSharedDelivery(journalEntry)
+        this.queueImmediatePublicationEntry(journalEntry)
       }
     }
   }
@@ -429,9 +449,18 @@ class DataTransact {
 
   private emitForwardSharedDelivery(entry: TransactionJournalEntry): void {
     if (this.transactionOrigin() === 'remote') return
+    const delivery = this.createForwardSharedDelivery(entry)
+    if (!delivery) return
+    this.onSharedDelivery?.(delivery)
+  }
+
+  private createForwardSharedDelivery(
+    entry: TransactionJournalEntry
+  ): SharedDelivery | undefined {
+    if (this.transactionOrigin() === 'remote') return undefined
     const shared = entry.shared
-    if (!shared) return
-    this.onSharedDelivery?.({
+    if (!shared) return undefined
+    return {
       deliveryId: this.forwardDeliveryId(entry),
       transactionId: this.currentTransactionId,
       origin: this.transactionOrigin(),
@@ -440,7 +469,91 @@ class DataTransact {
       eventName: entry.event.type,
       payload: cloneTransactionValue(shared.change),
       sharedDelivery: entry.options.sharedDelivery
+    }
+  }
+
+  private nextPublicationId(): string {
+    this.publicationSequence += 1
+    return `${this.currentTransactionId}:publication:${this.publicationSequence}`
+  }
+
+  private createSharedPublication(
+    entries: readonly TransactionJournalEntry[],
+    origin: SharedPublication['origin'] = this.transactionOrigin()
+  ): SharedPublication | undefined {
+    if (this.transactionOrigin() === 'remote') return
+    const publishableEntries = entries.filter((entry) => {
+      if (!entry.shared?.delivered || entry.shared.published) {
+        return false
+      }
+      return true
     })
+    const deliveries = publishableEntries.flatMap((entry) => {
+      if (!entry.shared) {
+        return []
+      }
+      const delivery = this.createForwardSharedDelivery(entry)
+      return delivery ? [delivery] : []
+    })
+    if (deliveries.length === 0) return
+    publishableEntries.forEach((entry) => {
+      if (entry.shared) entry.shared.published = true
+    })
+    return this.createSharedPublicationFromDeliveries(deliveries, origin)
+  }
+
+  private createSharedPublicationFromDeliveries(
+    deliveries: readonly SharedDelivery[],
+    origin: SharedPublication['origin']
+  ): SharedPublication | undefined {
+    if (deliveries.length === 0) return undefined
+    return {
+      publicationId: this.nextPublicationId(),
+      transactionId: this.currentTransactionId,
+      origin,
+      deliveries
+    }
+  }
+
+  private queueImmediatePublicationEntry(entry: TransactionJournalEntry): void {
+    this.pendingImmediatePublicationEntries.push(entry)
+    const token = ++this.immediatePublicationToken
+    queueMicrotask(() => {
+      if (token !== this.immediatePublicationToken) return
+      this.queuePendingImmediatePublication()
+      this.flushSharedPublications()
+    })
+  }
+
+  private queuePendingImmediatePublication(): void {
+    this.immediatePublicationToken += 1
+    const entries = this.pendingImmediatePublicationEntries.splice(0)
+    this.queueSharedPublication(this.createSharedPublication(entries))
+  }
+
+  private discardPendingImmediatePublication(): void {
+    this.immediatePublicationToken += 1
+    this.pendingImmediatePublicationEntries.length = 0
+  }
+
+  private queueSharedPublication(
+    publication: SharedPublication | undefined
+  ): void {
+    if (!publication) return
+    this.pendingSharedPublications.push(publication)
+  }
+
+  private flushSharedPublications(): void {
+    if (this.emittingSharedPublications) return
+    this.emittingSharedPublications = true
+    try {
+      let publication: SharedPublication | undefined
+      while ((publication = this.pendingSharedPublications.shift())) {
+        this.onSharedPublication?.(publication)
+      }
+    } finally {
+      this.emittingSharedPublications = false
+    }
   }
 
   private emitCompensationSharedDelivery(
@@ -448,11 +561,11 @@ class DataTransact {
     eventName: string,
     payload: TransactionPayload,
     compensationIndex: number
-  ): void {
-    if (this.transactionOrigin() === 'remote') return
+  ): SharedDelivery | undefined {
+    if (this.transactionOrigin() === 'remote') return undefined
     const shared = entry.shared
-    if (!shared) return
-    this.onSharedDelivery?.({
+    if (!shared) return undefined
+    const delivery: SharedDelivery = {
       deliveryId: `${this.currentTransactionId}:${entry.index}:compensation:${compensationIndex}`,
       transactionId: this.currentTransactionId,
       origin: 'rollback-compensation',
@@ -462,7 +575,9 @@ class DataTransact {
       payload: cloneTransactionValue(payload),
       sharedDelivery: entry.options.sharedDelivery,
       compensatesDeliveryId: this.forwardDeliveryId(entry)
-    })
+    }
+    this.onSharedDelivery?.(delivery)
+    return delivery
   }
 
   private createReplayEvents(
@@ -492,44 +607,41 @@ class DataTransact {
 
     const replayEvent = cloneEvent(event)
     const payload = (replayEvent as AllEvent & { payload: unknown }).payload
-    if (payload && typeof payload === 'object' && 'changes' in payload) {
+    if (
+      direction === 'inverse' &&
+      payload &&
+      typeof payload === 'object' &&
+      'changes' in payload
+    ) {
       const changes = payload.changes
       if (Array.isArray(changes)) {
         const { changes: _changes, ...basePayload } = payload
-        const scalarBasePayload =
-          (basePayload as { action?: unknown }).action ===
-          SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH
-            ? {
-                ...basePayload,
-                action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA
-              }
-            : basePayload
-        const orderedChanges =
-          direction === 'inverse' ? [...changes].reverse() : changes
-        return orderedChanges.map((change) => {
-          const typedChange = change as {
-            key: string
-            before: unknown
-            after: unknown
-            owner?: SceneTreeDataOwner
+        const inverseChanges = [...changes].reverse().map((change, index) => {
+          if (
+            !change ||
+            typeof change !== 'object' ||
+            !('before' in change) ||
+            !('after' in change)
+          ) {
+            throw new Error(
+              `Transaction event ${event.type} has an invalid change at index ${index}`
+            )
           }
           return {
+            ...change,
+            before: change.after,
+            after: change.before
+          }
+        })
+        return [
+          {
             type: replayEvent.type,
             payload: {
-              ...scalarBasePayload,
-              key: typedChange.key,
-              before:
-                direction === 'inverse'
-                  ? typedChange.after
-                  : typedChange.before,
-              after:
-                direction === 'inverse'
-                  ? typedChange.before
-                  : typedChange.after,
-              ...('owner' in typedChange ? { owner: typedChange.owner } : {})
+              ...basePayload,
+              changes: inverseChanges
             }
           } as AllEvent
-        })
+        ]
       }
     }
 
@@ -567,6 +679,10 @@ class DataTransact {
     }
 
     return [replayEvent]
+  }
+
+  applyForwardEvent(event: AllEvent, apply: CanonicalEventApply): boolean {
+    return apply(cloneEvent(event)) !== false
   }
 
   private applyReplayEvent(
@@ -711,7 +827,8 @@ class DataTransact {
             sharedDelivery: 'transaction-end'
           })
         ),
-        delivered: false
+        delivered: false,
+        published: false
       }
     })
   }
@@ -747,6 +864,7 @@ class DataTransact {
 
   private compensateImmediateSharedChanges(): unknown[] {
     const failures: unknown[] = []
+    const publishedCompensations: SharedDelivery[] = []
 
     ;[...this.journal].reverse().forEach((entry) => {
       const shared = entry.shared
@@ -774,18 +892,29 @@ class DataTransact {
                 `Failed to compensate shared channel ${shared.name}`
               )
             }
-            this.emitCompensationSharedDelivery(
+            const compensation = this.emitCompensationSharedDelivery(
               entry,
               inverseEvent.type,
               inversePayload,
               compensationIndex
             )
+            if (shared.published && compensation) {
+              publishedCompensations.push(compensation)
+            }
           }
         )
       } catch (error) {
         failures.push(error)
       }
     })
+
+    this.queueSharedPublication(
+      this.createSharedPublicationFromDeliveries(
+        publishedCompensations,
+        'rollback-compensation'
+      )
+    )
+    this.flushSharedPublications()
 
     return failures
   }
@@ -800,12 +929,12 @@ class DataTransact {
     return this.activeOrigin
   }
 
-  private emitStatus(
+  private createStatusPayload(
     status: TransactionStatus,
     failure?: TransactionFailure,
     error?: unknown
-  ) {
-    this.onStatus?.({
+  ): TransactionStatusPayload {
+    return {
       transactionId: this.currentTransactionId,
       origin: this.transactionOrigin(),
       status,
@@ -813,7 +942,33 @@ class DataTransact {
       ...(failure ? { failure } : {}),
       ...(error !== undefined ? { error } : {}),
       timestamp: Date.now()
-    })
+    }
+  }
+
+  private queueStatus(payload: TransactionStatusPayload): void {
+    this.pendingTransactionStatuses.push(payload)
+  }
+
+  private flushStatuses(): void {
+    if (this.emittingTransactionStatuses) return
+    this.emittingTransactionStatuses = true
+    try {
+      let payload: TransactionStatusPayload | undefined
+      while ((payload = this.pendingTransactionStatuses.shift())) {
+        this.onStatus?.(payload)
+      }
+    } finally {
+      this.emittingTransactionStatuses = false
+    }
+  }
+
+  private emitStatus(
+    status: TransactionStatus,
+    failure?: TransactionFailure,
+    error?: unknown
+  ) {
+    this.queueStatus(this.createStatusPayload(status, failure, error))
+    this.flushStatuses()
   }
 
   private emitReplayCommitted(events: readonly AllEvent[]) {
@@ -860,6 +1015,7 @@ class DataTransact {
     failure?: TransactionFailure,
     precedingFailures: unknown[] = []
   ) {
+    this.discardPendingImmediatePublication()
     if (this.nestedReplaySourceEvents) {
       this.restoringNestedReplay = true
       let failures: unknown[]
@@ -1081,17 +1237,27 @@ class DataTransact {
               this.settleRollback(this.rollbackFailure, historyFailures)
               throw error
             }
-            historyTransition?.complete()
-            if (
+            this.queuePendingImmediatePublication()
+            const sharedPublication = this.createSharedPublication(
+              this.journal.filter(
+                (entry) => entry.options.sharedDelivery === 'transaction-end'
+              )
+            )
+            this.queueSharedPublication(sharedPublication)
+            const committedStatus =
               !this.nestedReplaySourceEvents &&
               !this.isInUndo() &&
               !this.isInRedo()
-            ) {
-              this.emitStatus('committed')
-            }
+                ? this.createStatusPayload('committed')
+                : undefined
+            if (committedStatus) this.queueStatus(committedStatus)
+            historyTransition?.complete()
+            this.flushSharedPublications()
+            this.flushStatuses()
           }
         }
       } finally {
+        this.discardPendingImmediatePublication()
         this.journal = []
         this.rollbackOnly = false
         this.rollbackFailure = undefined
@@ -1258,6 +1424,9 @@ class DataTransact {
   }
 
   dispose() {
+    this.discardPendingImmediatePublication()
+    this.pendingSharedPublications.length = 0
+    this.publicationSequence = 0
     this.journal = []
     this.undoStack = []
     this.redoStack = []

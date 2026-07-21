@@ -1,10 +1,12 @@
 import { DataTypes } from './constants'
 
+export type SharedDeliveryMode = 'transaction-end' | 'immediate'
+
 export interface MutationOptions {
   undoable?: boolean
   rollbackable?: boolean
   shared?: string
-  sharedDelivery?: 'transaction-end' | 'immediate'
+  sharedDelivery?: SharedDeliveryMode
 }
 
 export interface ChangeHandler {

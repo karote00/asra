@@ -9,6 +9,8 @@ export type TransactionReplayHandler = (
   mode: TransactionReplayMode
 ) => boolean | undefined
 
+export type CanonicalEventApply = (event: AllEvent) => boolean | undefined
+
 export interface TransactionValidationContext {
   changeCount: number
   undoableChangeCount: number

@@ -1,4 +1,4 @@
-import type { TransactionOrigin } from '@asyra/utils'
+import type { SharedDeliveryMode, TransactionOrigin } from '@asyra/utils'
 
 export type SharedDeliveryOrigin = TransactionOrigin | 'rollback-compensation'
 
@@ -10,11 +10,22 @@ export interface SharedDelivery<TPayload = unknown> {
   channel: string
   eventName: string
   payload: TPayload
-  sharedDelivery: 'transaction-end' | 'immediate'
+  sharedDelivery: SharedDeliveryMode
   compensatesDeliveryId?: string
 }
 
 export type SharedDeliverySubscriber = (delivery: SharedDelivery) => void
+
+export interface SharedPublication {
+  publicationId: string
+  transactionId: number
+  origin: SharedDeliveryOrigin
+  deliveries: readonly SharedDelivery[]
+}
+
+export type SharedPublicationSubscriber = (
+  publication: SharedPublication
+) => void
 
 export const cloneSharedValue = <T>(
   value: T,
@@ -51,3 +62,7 @@ export const cloneSharedValue = <T>(
 
 export const cloneSharedDelivery = (delivery: SharedDelivery): SharedDelivery =>
   cloneSharedValue(delivery)
+
+export const cloneSharedPublication = (
+  publication: SharedPublication
+): SharedPublication => cloneSharedValue(publication)
