@@ -2,9 +2,12 @@
 
 ## Status
 
-Implementation complete; awaiting user review and explicit closeout approval.
-The plan remains active and must not be archived until the review condition in
-the Definition of Done is satisfied.
+The authorized readability repair and repository verification are complete.
+The final pass leaves package-root public facades as facades, keeps required
+test-runtime module loading intact, and reports no remaining concrete
+readability finding that warrants a behavior-preserving change. The plan
+remains active only for the user-review condition in the Definition of Done and
+must not be archived until the user approves it.
 
 This maintenance plan does not create a new product Flow Inspector, readiness
 matrix, readability score ledger, or second semantic authority. A finding that

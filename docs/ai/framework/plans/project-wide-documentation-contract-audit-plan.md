@@ -2,9 +2,11 @@
 
 ## Status
 
-Report and authorized repair passes complete; awaiting user review and explicit
-closeout approval. The plan remains active and must not be archived until the
-review condition in the Definition of Done is satisfied.
+The authorized documentation repair and repository verification are complete.
+Current owner, path, plan-routing, Inspector navigation, and discoverability
+drift found by the final pass is repaired. The plan remains active only for the
+user-review condition in the Definition of Done and must not be archived until
+the user approves it.
 
 This audit is not a product runtime flow, so it does not create a Flow
 Inspector, readiness matrix, audit ledger, or second semantic authority. If a
