@@ -3,18 +3,20 @@ import {
   StrokeJoinTypes,
   createDefaultStroke,
   isRecord,
-  setElementGeometryLocalBounds,
-  subdivideCubicBezierAtHalf
+  setElementGeometryLocalBounds
 } from '@asyra/utils'
 import type { FillAttrs, PositionData, StrokeAttrs } from '@asyra/utils'
 import core, {
   VECTOR_HANDLE_MODES,
   VECTOR_TOKENS,
   isVectorAnchorNode as isAnchorNode,
+  isPointInsidePreparedEvenOddShape,
   isVectorHandleMode,
+  prepareEvenOddShape,
   sortVectorItemsById,
   type EvenOddSegment,
-  type EvenOddShape
+  type EvenOddShape,
+  type PreparedEvenOddShape
 } from '@asyra/core'
 import type {
   ComponentDefinition,
@@ -769,13 +771,6 @@ interface DirectedSegment {
   end: Vec2
 }
 
-interface PreparedEvenOddHitSegment {
-  type: 'line' | 'cubicBezier'
-  points: number[]
-  minY: number
-  maxY: number
-}
-
 const buildFlattenedSegmentsWithCache = (
   orderedNetworks: VectorNetwork[],
   points: Record<string, VectorPointNode>,
@@ -913,174 +908,6 @@ const evenOddContains = (point: Vec2, segments: DirectedSegment[]) => {
   })
 
   return inside
-}
-
-const prepareEvenOddHitSegments = (
-  shape: EvenOddShape
-): PreparedEvenOddHitSegment[] => {
-  const prepared: PreparedEvenOddHitSegment[] = []
-
-  shape.paths.forEach((path) => {
-    path.segments.forEach((segment) => {
-      const pointList = segment.points
-      if (segment.type === 'line' && pointList.length === 4) {
-        prepared.push({
-          type: 'line',
-          points: pointList,
-          minY: Math.min(pointList[1], pointList[3]),
-          maxY: Math.max(pointList[1], pointList[3])
-        })
-        return
-      }
-
-      if (segment.type === 'cubicBezier' && pointList.length === 8) {
-        prepared.push({
-          type: 'cubicBezier',
-          points: pointList,
-          minY: Math.min(
-            pointList[1],
-            pointList[3],
-            pointList[5],
-            pointList[7]
-          ),
-          maxY: Math.max(pointList[1], pointList[3], pointList[5], pointList[7])
-        })
-      }
-    })
-  })
-
-  return prepared
-}
-
-const collectLineIntersectionsAtY = (
-  y: number,
-  p1: Vec2,
-  p2: Vec2,
-  intersections: number[]
-) => {
-  if (Math.abs(p1.y - p2.y) <= INTERSECTION_EPS) {
-    return
-  }
-
-  const minY = Math.min(p1.y, p2.y)
-  const maxY = Math.max(p1.y, p2.y)
-  if (y < minY || y >= maxY) {
-    return
-  }
-
-  const t = (y - p1.y) / (p2.y - p1.y)
-  const x = p1.x + (p2.x - p1.x) * t
-  intersections.push(x)
-}
-
-const distanceToLine = (point: Vec2, a: Vec2, b: Vec2) => {
-  const dx = b.x - a.x
-  const dy = b.y - a.y
-  const denom = Math.hypot(dx, dy)
-  if (denom <= INTERSECTION_EPS) {
-    return Math.hypot(point.x - a.x, point.y - a.y)
-  }
-
-  return Math.abs(dy * point.x - dx * point.y + b.x * a.y - b.y * a.x) / denom
-}
-
-const collectCubicIntersectionsAtY = (
-  y: number,
-  p0: Vec2,
-  p1: Vec2,
-  p2: Vec2,
-  p3: Vec2,
-  intersections: number[],
-  depth = 0
-) => {
-  const minY = Math.min(p0.y, p1.y, p2.y, p3.y)
-  const maxY = Math.max(p0.y, p1.y, p2.y, p3.y)
-  if (y < minY || y >= maxY) {
-    return
-  }
-
-  const flatness =
-    Math.max(distanceToLine(p1, p0, p3), distanceToLine(p2, p0, p3)) || 0
-  if (depth >= 12 || flatness <= 0.2) {
-    collectLineIntersectionsAtY(y, p0, p3, intersections)
-    return
-  }
-
-  const { left, right } = subdivideCubicBezierAtHalf(p0, p1, p2, p3)
-  collectCubicIntersectionsAtY(
-    y,
-    left[0],
-    left[1],
-    left[2],
-    left[3],
-    intersections,
-    depth + 1
-  )
-  collectCubicIntersectionsAtY(
-    y,
-    right[0],
-    right[1],
-    right[2],
-    right[3],
-    intersections,
-    depth + 1
-  )
-}
-
-const isPointInsidePreparedEvenOddShape = (
-  point: Vec2,
-  preparedSegments: PreparedEvenOddHitSegment[]
-) => {
-  if (preparedSegments.length === 0) {
-    return false
-  }
-
-  const intersections: number[] = []
-  preparedSegments.forEach((segment) => {
-    if (point.y < segment.minY || point.y >= segment.maxY) {
-      return
-    }
-
-    if (segment.type === 'line') {
-      const [x1, y1, x2, y2] = segment.points
-      collectLineIntersectionsAtY(
-        point.y,
-        { x: x1, y: y1 },
-        { x: x2, y: y2 },
-        intersections
-      )
-      return
-    }
-
-    const [x1, y1, cx1, cy1, cx2, cy2, x2, y2] = segment.points
-    collectCubicIntersectionsAtY(
-      point.y,
-      { x: x1, y: y1 },
-      { x: cx1, y: cy1 },
-      { x: cx2, y: cy2 },
-      { x: x2, y: y2 },
-      intersections
-    )
-  })
-
-  if (intersections.length === 0) {
-    return false
-  }
-
-  intersections.sort((a, b) => a - b)
-
-  for (let i = 0; i + 1 < intersections.length; i += 2) {
-    const startX = intersections[i]
-    const endX = intersections[i + 1]
-    if (
-      point.x >= startX - INTERSECTION_EPS &&
-      point.x <= endX + INTERSECTION_EPS
-    ) {
-      return true
-    }
-  }
-
-  return false
 }
 
 const buildFillFaces = (
@@ -1348,7 +1175,7 @@ const getFillPayload = (fills: FillAttrs[]): FillAttrs[] =>
   Array.isArray(fills) && fills.length > 0 ? fills : []
 
 interface VectorFillHitCache {
-  preparedFillSegments: PreparedEvenOddHitSegment[]
+  preparedFillShape: PreparedEvenOddShape
   points: Record<string, VectorPointNode>
   segments: Record<string, VectorSegment>
   networks: Record<string, VectorNetwork>
@@ -1415,7 +1242,7 @@ const renderVectorGraphic = (
   const shape = buildEvenOddShape(orderedNetworks, points, segments)
 
   if (hasRenderableFill) {
-    const preparedFillSegments = prepareEvenOddHitSegments(shape)
+    const preparedFillShape = prepareEvenOddShape(shape)
     const hitCache = cache.__asyraVectorFillHitCache
     const reuseHitArea =
       hitCache?.points === points &&
@@ -1428,11 +1255,11 @@ const renderVectorGraphic = (
           contains: (hitX: number, hitY: number) =>
             isPointInsidePreparedEvenOddShape(
               { x: hitX, y: hitY },
-              preparedFillSegments
+              preparedFillShape
             )
         }
     cache.__asyraVectorFillHitCache = {
-      preparedFillSegments,
+      preparedFillShape,
       points,
       segments,
       networks,

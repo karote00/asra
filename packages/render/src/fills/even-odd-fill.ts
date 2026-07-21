@@ -43,11 +43,15 @@ export interface EvenOddFillResult {
 type Vec2 = PositionData
 type RGBA = RGBAColor
 
-interface PreparedSegment {
+export interface PreparedEvenOddSegment {
   type: 'line' | 'cubicBezier'
   points: number[]
   minY: number
   maxY: number
+}
+
+export interface PreparedEvenOddShape {
+  segments: PreparedEvenOddSegment[]
 }
 
 const FLATNESS_EPSILON = 0.2
@@ -244,8 +248,10 @@ const createFillSampler = (
   return createSolidSampler(fill)
 }
 
-const prepareSegments = (shape: EvenOddShape): PreparedSegment[] => {
-  const prepared: PreparedSegment[] = []
+export const prepareEvenOddShape = (
+  shape: EvenOddShape
+): PreparedEvenOddShape => {
+  const segments: PreparedEvenOddSegment[] = []
 
   shape.paths.forEach((path) => {
     path.segments.forEach((segment) => {
@@ -253,7 +259,7 @@ const prepareSegments = (shape: EvenOddShape): PreparedSegment[] => {
       if (segment.type === 'line' && points.length === 4) {
         const minY = Math.min(points[1], points[3])
         const maxY = Math.max(points[1], points[3])
-        prepared.push({
+        segments.push({
           type: segment.type,
           points,
           minY,
@@ -265,7 +271,7 @@ const prepareSegments = (shape: EvenOddShape): PreparedSegment[] => {
       if (segment.type === 'cubicBezier' && points.length === 8) {
         const minY = Math.min(points[1], points[3], points[5], points[7])
         const maxY = Math.max(points[1], points[3], points[5], points[7])
-        prepared.push({
+        segments.push({
           type: segment.type,
           points,
           minY,
@@ -275,7 +281,7 @@ const prepareSegments = (shape: EvenOddShape): PreparedSegment[] => {
     })
   })
 
-  return prepared
+  return { segments }
 }
 
 const collectLineIntersection = (
@@ -353,6 +359,60 @@ const collectCubicIntersections = (
   )
 }
 
+const collectHorizontalIntersections = (
+  y: number,
+  preparedShape: PreparedEvenOddShape
+): number[] => {
+  const intersections: number[] = []
+
+  preparedShape.segments.forEach((segment) => {
+    if (y < segment.minY || y >= segment.maxY) {
+      return
+    }
+
+    if (segment.type === 'line') {
+      const [x1, y1, x2, y2] = segment.points
+      collectLineIntersection(
+        y,
+        { x: x1, y: y1 },
+        { x: x2, y: y2 },
+        intersections
+      )
+      return
+    }
+
+    const [x1, y1, cx1, cy1, cx2, cy2, x2, y2] = segment.points
+    collectCubicIntersections(
+      y,
+      { x: x1, y: y1 },
+      { x: cx1, y: cy1 },
+      { x: cx2, y: cy2 },
+      { x: x2, y: y2 },
+      intersections
+    )
+  })
+
+  intersections.sort((a, b) => a - b)
+  return intersections
+}
+
+export const isPointInsidePreparedEvenOddShape = (
+  point: PositionData,
+  preparedShape: PreparedEvenOddShape
+): boolean => {
+  const intersections = collectHorizontalIntersections(point.y, preparedShape)
+
+  for (let index = 0; index + 1 < intersections.length; index += 2) {
+    const startX = intersections[index]
+    const endX = intersections[index + 1]
+    if (point.x >= startX - EPSILON && point.x <= endX + EPSILON) {
+      return true
+    }
+  }
+
+  return false
+}
+
 const buildTextureFill = (
   canvas: HTMLCanvasElement | OffscreenCanvas,
   width: number,
@@ -410,8 +470,8 @@ export const createEvenOddFillStyle = (
     return null
   }
 
-  const preparedSegments = prepareSegments(options.shape)
-  if (preparedSegments.length === 0) {
+  const preparedShape = prepareEvenOddShape(options.shape)
+  if (preparedShape.segments.length === 0) {
     return null
   }
 
@@ -428,40 +488,11 @@ export const createEvenOddFillStyle = (
 
   for (let row = 0; row < height; row += 1) {
     const y = offsetY + (row + 0.5) * scaleY
-    const intersections: number[] = []
-
-    preparedSegments.forEach((segment) => {
-      if (y < segment.minY || y >= segment.maxY) {
-        return
-      }
-
-      if (segment.type === 'line') {
-        const [x1, y1, x2, y2] = segment.points
-        collectLineIntersection(
-          y,
-          { x: x1, y: y1 },
-          { x: x2, y: y2 },
-          intersections
-        )
-        return
-      }
-
-      const [x1, y1, cx1, cy1, cx2, cy2, x2, y2] = segment.points
-      collectCubicIntersections(
-        y,
-        { x: x1, y: y1 },
-        { x: cx1, y: cy1 },
-        { x: cx2, y: cy2 },
-        { x: x2, y: y2 },
-        intersections
-      )
-    })
+    const intersections = collectHorizontalIntersections(y, preparedShape)
 
     if (intersections.length === 0) {
       continue
     }
-
-    intersections.sort((a, b) => a - b)
 
     for (let i = 0; i + 1 < intersections.length; i += 2) {
       const startX = intersections[i]

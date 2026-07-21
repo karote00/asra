@@ -383,6 +383,12 @@ See `packages/collaboration.md` and
 - `EngineNeutralRenderStrategy<TAppData>` receives
   `RenderElementData & TAppData`; the app strategy owns custom-field drawing
   semantics and Render adds no engine-specific type or fallback behavior
+- `prepareEvenOddShape(shape)` prepares the shared engine-neutral segment
+  representation used by even-odd raster and hit-test consumers
+- `isPointInsidePreparedEvenOddShape(point, preparedShape)` evaluates the same
+  prepared even-odd geometry without reconstructing the intersection algorithm
+- `createEvenOddFillStyle(options)` rasterizes that canonical even-odd geometry
+  into an engine-neutral resource descriptor
 - overlay helper: `createOverlayLayerRegistration(...)`
 - overlay interaction helpers:
   - `createRenderInteractionPointTarget(...)`

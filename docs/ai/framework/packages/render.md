@@ -64,6 +64,13 @@ drawing; Render adds no inferred mapping or fallback geometry.
 
 - consume scene/system state
 - update visual layers based on state deltas
+- `prepareEvenOddShape(...)` owns the engine-neutral line/cubic preparation and
+  intersection semantics shared by even-odd rasterization and downstream
+  strategy hit testing; consumers may cache the prepared shape but must not
+  recreate the intersection algorithm
+- `createEvenOddFillStyle(...)` and
+  `isPointInsidePreparedEvenOddShape(...)` consume that same prepared geometry,
+  keeping visible fill and hit-test parity under one Render-owned contract
 - overlays that project authored element bounds during an active interaction must
   use the current precise transform chain; a cached transform from the previous
   render pass is not authoritative after frame-aligned scene updates

@@ -21,7 +21,11 @@ export {
   type RenderGradientPoint,
   type RenderFillStyle
 } from './fills/gradient-fill'
-export { createEvenOddFillStyle } from './fills/even-odd-fill'
+export {
+  createEvenOddFillStyle,
+  isPointInsidePreparedEvenOddShape,
+  prepareEvenOddShape
+} from './fills/even-odd-fill'
 export {
   createMeshProjection,
   type GeometryPoint,
@@ -34,6 +38,8 @@ export type {
   EvenOddSegment,
   EvenOddPath,
   EvenOddShape,
+  PreparedEvenOddSegment,
+  PreparedEvenOddShape,
   EvenOddFillOptions,
   EvenOddFillResult
 } from './fills/even-odd-fill'
