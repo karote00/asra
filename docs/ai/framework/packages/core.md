@@ -36,6 +36,8 @@ System orchestrator and lifecycle coordinator.
 - register/unregister render strategies and UI properties
 - query registration nodes, owners, and relations
 - register render layers
+  - `RenderLayerRegistration` remains Render-owned; Core exposes the canonical
+    `RegisterRenderLayer` facade callback and its override options
 - register/unregister event definitions and selection channels
 - register render interaction targets + handlers
 - register render shared-change observers (`name + channel + onChange`)

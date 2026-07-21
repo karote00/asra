@@ -25,6 +25,9 @@ results/interactions back to framework-facing APIs.
   never chooses headless or falls back to Pixi.
 - Render extension APIs should be surfaced through `@asyra/core` when a Core
   facade exists. Normal app bootstrap relies on the Core-owned adapter.
+- Render owns the engine-neutral `RenderLayerRegistration` shape. Core
+  re-exports that type and owns only its facade registration options and
+  callback surface.
 - Render should react to state changes, not become source-of-truth.
 - Render mutations should reflect state/system updates, not drive them.
 - Default subscription wiring is not owned here; preset/core registration flow owns channel observer setup.

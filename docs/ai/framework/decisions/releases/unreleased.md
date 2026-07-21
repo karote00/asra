@@ -1845,3 +1845,40 @@ unregister -> app migration -> core.start()` as the public app route.
 - Related Commit(s):
   - `d46d7cc3c` (`refactor(utils): centralize own property writes`)
   - `0eb306f91` (`refactor(utils): generalize diagnostic counters`)
+
+## 2026-07-22 - Complete bounded maintenance review corrections
+
+- Context:
+  - Final maintenance review found that an optional diagnostic sink could
+    still throw into product flow, Factory retained two implementations of the
+    same detached-value clone, several exact type contracts had parallel
+    declarations, and four existing Utils consumers repeated unit clamping.
+- Decision:
+  - Isolate diagnostic sink failures and prove the rule through the Utils test
+    and Render Delta Inspector contract.
+  - Use one Factory-internal clone primitive for transaction journals, local
+    shared channels, deliveries, and publications while preserving the
+    mutation-time detached snapshot contract.
+  - Keep raw render-layer registration owned by Render, Core facade callback
+    ownership in Core, structural vector intent ownership at the Asyra Design
+    element common-API boundary, and canonical vector selection/state shapes
+    in Core.
+  - Reuse the existing Utils `clampUnit(...)` primitive only in consumers that
+    already depend on Utils and implement the identical numeric contract.
+- Consequences:
+  - Optional diagnostics cannot change canonical product outcomes.
+  - The consolidated implementations and type declarations retain their
+    existing runtime payloads, transaction behavior, dependency direction, and
+    app-owned collaboration policy.
+  - Similar but independently owned adapter, trust-boundary, opacity, and
+    concrete-renderer code remains separate. The maintenance plans remain
+    active until user review and explicit closeout approval.
+- Related Plan:
+  - `docs/ai/framework/plans/project-wide-duplicate-contract-and-ownership-consolidation-plan.md`
+  - `docs/ai/framework/plans/project-wide-code-readability-analysis-and-refactor-plan.md`
+  - `docs/ai/framework/plans/project-wide-documentation-contract-audit-plan.md`
+- Related Commit(s):
+  - `b9e4b2869` (`fix(utils): isolate diagnostic observer failures`)
+  - `57ee6bb00` (`refactor(factory): centralize detached value cloning`)
+  - `45a922d2e` (`refactor(types): consolidate shared contracts`)
+  - `dcfc39194` (`refactor(utils): reuse canonical unit clamp`)
