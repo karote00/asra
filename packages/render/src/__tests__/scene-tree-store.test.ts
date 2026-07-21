@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { EntityTypes } from '@asyra/utils'
+import sceneTree from '@asyra/scene-tree'
+import render from '../render'
 
 let pendingRenderLayer: {
   shouldUpdate?: () => boolean
@@ -7,46 +9,9 @@ let pendingRenderLayer: {
 } | null = null
 let pendingRenderTeardownCleanup: (() => void) | null = null
 
-const renderMock = {
-  switchWorkspace: vi.fn(),
-  addElement: vi.fn(),
-  removeElement: vi.fn(),
-  updateElement: vi.fn(),
-  getElementById: vi.fn(() => ({})),
-  clearElements: vi.fn(),
-  flushFrame: vi.fn(),
-  requestRender: vi.fn(),
-  registerTeardownCleanup: vi.fn((cleanup: () => void) => {
-    pendingRenderTeardownCleanup = cleanup
-    return () => {
-      if (pendingRenderTeardownCleanup === cleanup) {
-        pendingRenderTeardownCleanup = null
-      }
-    }
-  }),
-  registerLayer: vi.fn(
-    (registration: {
-      shouldUpdate?: () => boolean
-      update?: () => boolean | undefined
-    }) => {
-      pendingRenderLayer = registration
-    }
-  )
-}
-
-const sceneTreeMock = {
-  currentWorkspace: null as null | { save: () => Record<string, unknown> },
-  getAllElements: vi.fn(),
-  getElementById: vi.fn()
-}
-
-vi.mock('../render', () => ({
-  default: renderMock
-}))
-
-vi.mock('@asyra/scene-tree', () => ({
-  default: sceneTreeMock
-}))
+const renderMock = vi.mocked(render)
+const sceneTreeMock = vi.mocked(sceneTree)
+let currentWorkspace: null | { save: () => Record<string, unknown> } = null
 
 const createElement = (
   id: string,
@@ -80,12 +45,34 @@ const seedStore = (
 
 describe('RenderSceneTree computed data mirror', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-    renderMock.addElement.mockReturnValue({})
-    renderMock.getElementById.mockReturnValue({})
-    sceneTreeMock.currentWorkspace = null
-    sceneTreeMock.getAllElements.mockReturnValue(new Map())
-    sceneTreeMock.getElementById.mockReset()
+    vi.restoreAllMocks()
+    currentWorkspace = null
+    vi.spyOn(render, 'switchWorkspace').mockImplementation(() => undefined)
+    vi.spyOn(render, 'addElement').mockReturnValue({} as never)
+    vi.spyOn(render, 'removeElement').mockReturnValue(undefined)
+    vi.spyOn(render, 'updateElement').mockImplementation(() => undefined)
+    vi.spyOn(render, 'getElementById').mockReturnValue({} as never)
+    vi.spyOn(render, 'clearElements').mockImplementation(() => undefined)
+    vi.spyOn(render, 'flushFrame').mockImplementation(() => undefined)
+    vi.spyOn(render, 'requestRender').mockImplementation(() => undefined)
+    vi.spyOn(render, 'registerTeardownCleanup').mockImplementation(
+      (cleanup) => {
+        pendingRenderTeardownCleanup = cleanup
+        return () => {
+          if (pendingRenderTeardownCleanup === cleanup) {
+            pendingRenderTeardownCleanup = null
+          }
+        }
+      }
+    )
+    vi.spyOn(render, 'registerLayer').mockImplementation((registration) => {
+      pendingRenderLayer = registration
+    })
+    vi.spyOn(sceneTree, 'currentWorkspace', 'get').mockImplementation(
+      () => currentWorkspace as never
+    )
+    vi.spyOn(sceneTree, 'getAllElements').mockReturnValue(new Map())
+    vi.spyOn(sceneTree, 'getElementById').mockReturnValue(undefined)
   })
 
   const flushScheduledFrame = async () => {
@@ -112,7 +99,7 @@ describe('RenderSceneTree computed data mirror', () => {
         networks: {}
       }
     )
-    sceneTreeMock.currentWorkspace = {
+    currentWorkspace = {
       save: () => ({
         id: 'workspace-1',
         type: EntityTypes.WORKSPACE
@@ -158,7 +145,7 @@ describe('RenderSceneTree computed data mirror', () => {
       { type: 'vector', visible: true },
       { points: {} }
     )
-    sceneTreeMock.currentWorkspace = {
+    currentWorkspace = {
       save: () => ({ id: 'workspace-1', type: EntityTypes.WORKSPACE })
     }
     sceneTreeMock.getAllElements.mockReturnValue(
@@ -197,7 +184,7 @@ describe('RenderSceneTree computed data mirror', () => {
       { type: 'vector', visible: true },
       { points: {}, segments: {}, networks: {} }
     )
-    sceneTreeMock.currentWorkspace = {
+    currentWorkspace = {
       save: () => ({ id: 'workspace-1', type: EntityTypes.WORKSPACE })
     }
     sceneTreeMock.getAllElements.mockReturnValue(
@@ -241,7 +228,7 @@ describe('RenderSceneTree computed data mirror', () => {
       ['root-b', rootB],
       ['root-a', rootA]
     ])
-    sceneTreeMock.currentWorkspace = {
+    currentWorkspace = {
       save: () => ({
         id: 'workspace-1',
         type: EntityTypes.WORKSPACE,
@@ -285,7 +272,7 @@ describe('RenderSceneTree computed data mirror', () => {
       throw new Error(`Unknown leaf field: ${key}`)
     })
     const elements = new Map([['leaf-1', leaf]])
-    sceneTreeMock.currentWorkspace = {
+    currentWorkspace = {
       save: () => ({
         id: 'workspace-1',
         type: EntityTypes.WORKSPACE,
@@ -338,7 +325,7 @@ describe('RenderSceneTree computed data mirror', () => {
       ['child-b', childB],
       ['child-a', childA]
     ])
-    sceneTreeMock.currentWorkspace = {
+    currentWorkspace = {
       save: () => ({
         id: 'workspace-1',
         type: EntityTypes.WORKSPACE,
@@ -2395,7 +2382,7 @@ describe('RenderSceneTree computed data mirror', () => {
       ['vector-1', first],
       ['vector-2', second]
     ])
-    sceneTreeMock.currentWorkspace = {
+    currentWorkspace = {
       save: () => ({ id: 'workspace-1', type: EntityTypes.WORKSPACE })
     }
     sceneTreeMock.getAllElements.mockImplementation(() => liveElements)
@@ -2693,7 +2680,7 @@ describe('RenderSceneTree computed data mirror', () => {
       { points: {} }
     )
     sceneTreeMock.getElementById.mockReturnValue(element)
-    sceneTreeMock.currentWorkspace = {
+    currentWorkspace = {
       save: () => ({
         id: 'workspace-old',
         type: EntityTypes.WORKSPACE,
@@ -2709,7 +2696,7 @@ describe('RenderSceneTree computed data mirror', () => {
     expect(store.getProjectionSnapshotCount()).toBe(1)
     renderMock.removeElement.mockClear()
     renderMock.clearElements.mockClear()
-    sceneTreeMock.currentWorkspace = null
+    currentWorkspace = null
 
     store.reload()
 

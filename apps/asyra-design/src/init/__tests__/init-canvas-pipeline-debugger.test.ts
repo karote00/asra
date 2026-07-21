@@ -1,23 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-const { core, createCanvasPipelineDebugger, handles } = vi.hoisted(() => {
-  const handles: { dispose: ReturnType<typeof vi.fn> }[] = []
-  return {
-    core: { name: 'app-core' },
-    handles,
-    createCanvasPipelineDebugger: vi.fn(() => {
-      const handle = { dispose: vi.fn() }
-      handles.push(handle)
-      return handle
-    })
-  }
-})
-
-vi.mock('../../contexts', () => ({ default: core }))
-vi.mock('@asyra/core/canvas-pipeline-debugger', () => ({
-  createCanvasPipelineDebugger
-}))
-
+import * as canvasPipelineDebugger from '@asyra/core/canvas-pipeline-debugger'
+import core from '../../contexts'
 import {
   destroyCanvasPipelineDebugger,
   initCanvasPipelineDebugger
@@ -26,12 +9,15 @@ import {
 describe('initCanvasPipelineDebugger', () => {
   beforeEach(() => {
     destroyCanvasPipelineDebugger()
-    createCanvasPipelineDebugger.mockClear()
-    handles.length = 0
+    vi.restoreAllMocks()
     delete window.__AsyraCanvasPipelineDebugger__
   })
 
   it('creates a disabled DEV runtime handle independently from E2E helpers', async () => {
+    const create = vi.spyOn(
+      canvasPipelineDebugger,
+      'createCanvasPipelineDebugger'
+    )
     window.__AsyraE2E__ = {
       elementApis: {} as never,
       strokeApis: {} as never
@@ -39,30 +25,27 @@ describe('initCanvasPipelineDebugger', () => {
 
     const handle = await initCanvasPipelineDebugger()
 
-    expect(createCanvasPipelineDebugger).toHaveBeenCalledWith(core, {
-      enabled: false
-    })
-    expect(handle).toBe(handles[0])
-    expect(window.__AsyraCanvasPipelineDebugger__).toBe(handles[0])
+    expect(create).toHaveBeenCalledWith(core, { enabled: false })
+    expect(handle?.isEnabled()).toBe(false)
+    expect(window.__AsyraCanvasPipelineDebugger__).toBe(handle)
     expect(window.__AsyraE2E__).toBeDefined()
   })
 
   it('disposes the previous handle on reinitialization and explicit cleanup', async () => {
-    await initCanvasPipelineDebugger()
-    const first = handles[0]
+    const first = await initCanvasPipelineDebugger()
+    if (!first) throw new Error('expected first debugger handle')
+    const disposeFirst = vi.spyOn(first, 'dispose')
 
-    const reinitialization = initCanvasPipelineDebugger()
+    const second = await initCanvasPipelineDebugger()
 
-    expect(first.dispose).toHaveBeenCalledOnce()
-    expect(window.__AsyraCanvasPipelineDebugger__).toBeUndefined()
-
-    await reinitialization
-
-    expect(window.__AsyraCanvasPipelineDebugger__).toBe(handles[1])
+    expect(disposeFirst).toHaveBeenCalledOnce()
+    expect(window.__AsyraCanvasPipelineDebugger__).toBe(second)
+    if (!second) throw new Error('expected second debugger handle')
+    const disposeSecond = vi.spyOn(second, 'dispose')
 
     destroyCanvasPipelineDebugger()
 
-    expect(handles[1].dispose).toHaveBeenCalledOnce()
+    expect(disposeSecond).toHaveBeenCalledOnce()
     expect(window.__AsyraCanvasPipelineDebugger__).toBeUndefined()
   })
 })

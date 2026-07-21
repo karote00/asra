@@ -1,18 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RecordingRenderEngine } from '@asyra/render-engine/testing'
 import type { RenderEngineInteractionEvent } from '@asyra/render-engine'
+import * as reactiveEvents from '@asyra/reactive-events'
 import { Render } from '../render'
 import type { RenderElementData } from '../types'
-
-const reactiveEvents = vi.hoisted(() => ({
-  renderPointerHover: vi.fn(),
-  renderPointerLeave: vi.fn()
-}))
-
-vi.mock('@asyra/reactive-events', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@asyra/reactive-events')>()),
-  ...reactiveEvents
-}))
 
 const createInteraction = (
   type: RenderEngineInteractionEvent['type'],
@@ -35,7 +26,13 @@ const createInteraction = (
 
 describe('engine interaction bridge', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.restoreAllMocks()
+    vi.spyOn(reactiveEvents, 'renderPointerHover').mockImplementation(
+      () => undefined
+    )
+    vi.spyOn(reactiveEvents, 'renderPointerLeave').mockImplementation(
+      () => undefined
+    )
   })
 
   it('maps normalized engine hover events through the opaque target handle', async () => {

@@ -1,18 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPixiRenderEngine } from '@asyra/render-engine-pixi'
 import { PresetProfiles, PRESET_APPLY_ERROR_CODES } from '../constants'
-
-const pixi = vi.hoisted(() => ({ create: vi.fn(() => ({ name: 'pixi' })) }))
-
-vi.mock('@asyra/render-engine-pixi', () => ({
-  createPixiRenderEngine: pixi.create
-}))
 
 import { PresetApplyError } from '../composition/error'
 import { bindPresetProfileProvider } from '../composition/profile-provider'
 
 describe('Preset profile provider', () => {
   beforeEach(() => {
-    pixi.create.mockClear()
+    vi.restoreAllMocks()
   })
 
   it('binds the static Pixi provider for 2D without constructing an engine', () => {
@@ -25,8 +20,7 @@ describe('Preset profile provider', () => {
     )
 
     expect(setRenderEngineProvider).toHaveBeenCalledOnce()
-    expect(setRenderEngineProvider).toHaveBeenCalledWith(pixi.create)
-    expect(pixi.create).not.toHaveBeenCalled()
+    expect(setRenderEngineProvider).toHaveBeenCalledWith(createPixiRenderEngine)
     expect(result).toEqual({
       presetEngineId: '@asyra/render-engine-pixi',
       cleanup

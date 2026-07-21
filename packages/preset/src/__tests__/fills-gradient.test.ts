@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import core from '@asyra/core'
 import {
   FillColorFormats,
   FillGradientTypes,
@@ -7,21 +8,6 @@ import {
   type FillAttrs
 } from '@asyra/utils'
 import { toRenderableGradient } from '../components/fills'
-
-const { createRenderGradientFillStyle } = vi.hoisted(() => ({
-  createRenderGradientFillStyle: vi.fn((options) => ({
-    fill: {
-      mocked: true,
-      options
-    }
-  }))
-}))
-
-vi.mock('@asyra/core', () => ({
-  default: {
-    createRenderGradientFillStyle
-  }
-}))
 
 const createGradientFill = (overrides: Partial<FillAttrs> = {}): FillAttrs => ({
   ...createDefaultFill({
@@ -66,10 +52,9 @@ const expectLinearGradientCall = (options: {
   end: { x: number; y: number }
   colorStops: { offset: number; color: string }[]
 }) => {
-  const actual =
-    createRenderGradientFillStyle.mock.calls[
-      createRenderGradientFillStyle.mock.calls.length - 1
-    ]?.[0]
+  const actual = vi.mocked(core.createRenderGradientFillStyle).mock.calls[
+    vi.mocked(core.createRenderGradientFillStyle).mock.calls.length - 1
+  ]?.[0]
   expect(actual).toMatchObject({
     type: 'linear',
     start: options.start,
@@ -88,7 +73,16 @@ const expectLinearGradientCall = (options: {
 
 describe('toRenderableGradient', () => {
   beforeEach(() => {
-    createRenderGradientFillStyle.mockClear()
+    vi.restoreAllMocks()
+    vi.spyOn(core, 'createRenderGradientFillStyle').mockImplementation(
+      (options) =>
+        ({
+          fill: {
+            mocked: true,
+            options
+          }
+        }) as never
+    )
   })
 
   it('maps linear gradient fills to render gradient options', () => {
@@ -129,7 +123,7 @@ describe('toRenderableGradient', () => {
 
     const result = toRenderableGradient(fill)
 
-    expect(createRenderGradientFillStyle).toHaveBeenCalledTimes(1)
+    expect(core.createRenderGradientFillStyle).toHaveBeenCalledTimes(1)
     expectLinearGradientCall({
       start: { x: 0.5, y: 0 },
       end: { x: 0.5, y: 1 },
@@ -386,7 +380,7 @@ describe('toRenderableGradient', () => {
 
     toRenderableGradient(fill)
 
-    expect(createRenderGradientFillStyle).toHaveBeenCalledWith({
+    expect(core.createRenderGradientFillStyle).toHaveBeenCalledWith({
       type: 'radial',
       start: { x: 0.5, y: 0.25 },
       end: { x: 0.5, y: 0.75 },
@@ -434,7 +428,7 @@ describe('toRenderableGradient', () => {
 
     toRenderableGradient(fill)
 
-    expect(createRenderGradientFillStyle).toHaveBeenCalledWith({
+    expect(core.createRenderGradientFillStyle).toHaveBeenCalledWith({
       type: 'radial',
       start: { x: 0.5, y: 0.5 },
       end: { x: 1.0, y: 0.5 },
@@ -479,7 +473,7 @@ describe('toRenderableGradient', () => {
 
     toRenderableGradient(fill)
 
-    expect(createRenderGradientFillStyle).toHaveBeenCalledWith({
+    expect(core.createRenderGradientFillStyle).toHaveBeenCalledWith({
       type: 'angular',
       start: { x: 0.5, y: 0 },
       end: { x: 0.5, y: 1 },
@@ -523,7 +517,7 @@ describe('toRenderableGradient', () => {
 
     toRenderableGradient(fill)
 
-    expect(createRenderGradientFillStyle).toHaveBeenCalledWith({
+    expect(core.createRenderGradientFillStyle).toHaveBeenCalledWith({
       type: 'diamond',
       start: { x: 0.5, y: 0.25 },
       end: { x: 0.5, y: 0.75 },
@@ -567,7 +561,7 @@ describe('toRenderableGradient', () => {
 
     toRenderableGradient(fill)
 
-    expect(createRenderGradientFillStyle).toHaveBeenCalledWith({
+    expect(core.createRenderGradientFillStyle).toHaveBeenCalledWith({
       type: 'linear',
       start: { x: 0.5, y: 0 },
       end: { x: 0.5, y: 1 },
