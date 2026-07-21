@@ -4,6 +4,21 @@ const path = require('node:path')
 const test = require('node:test')
 
 const data = require('./render-engine-boundary-flow-inspector.data.cjs')
+const repoRoot = path.resolve(__dirname, '../../../..')
+
+const assertImplementationBoundary = (owner, implementationFile, label) => {
+  assert.ok(
+    owner.implementationBoundary.includes(implementationFile),
+    `Missing ${label} implementation boundary: ${implementationFile}`
+  )
+  const concretePath = implementationFile.endsWith('/**')
+    ? implementationFile.slice(0, -3)
+    : implementationFile
+  assert.ok(
+    fs.existsSync(path.resolve(repoRoot, concretePath)),
+    `${label} implementation boundary does not resolve: ${implementationFile}`
+  )
+}
 
 const step = (id) => {
   const value = data.steps.find((item) => item.id === id)
@@ -18,7 +33,6 @@ const route = (id) => {
 }
 
 test('completed boundary authority has a resolvable completed provider amendment', () => {
-  const repoRoot = path.resolve(__dirname, '../../../..')
   const formerActiveSpecPath =
     'docs/ai/framework/plans/render-engine-boundary-plan.md'
   const productContract = data.links.find(
@@ -253,14 +267,27 @@ test('interaction returns through render before feature execution', () => {
     'yarn.lock',
     'packages/render/package.json',
     'packages/render/src/render.ts',
-    'packages/render/src/layers/scene/element-interaction-handler.ts',
+    'packages/render/src/interaction/**',
+    'packages/render/src/handlers/**',
     'packages/render/src/layers/scene/render-layer.ts',
-    'packages/render/src/types/interaction-handler.ts',
+    'packages/render/src/registries/render-interaction-handler.ts',
+    'packages/render/src/types/render-interaction.ts',
     'packages/render/src/__tests__/render-engine-package-boundary.test.ts'
   ].forEach((implementationFile) => {
-    assert.ok(
-      bridge.implementationBoundary.includes(implementationFile),
-      `Missing interaction implementation boundary: ${implementationFile}`
+    assertImplementationBoundary(
+      bridge,
+      implementationFile,
+      'interaction'
+    )
+  })
+  ;[
+    'packages/render/src/layers/scene/element-interaction-handler.ts',
+    'packages/render/src/types/interaction-handler.ts'
+  ].forEach((retiredImplementationFile) => {
+    assert.equal(
+      bridge.implementationBoundary.includes(retiredImplementationFile),
+      false,
+      `Retired interaction boundary must be removed: ${retiredImplementationFile}`
     )
   })
 })
