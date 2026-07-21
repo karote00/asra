@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   RegistrationGraph,
   RegistrationRelationError,
+  getRegistrationRefKey,
   type RegistrationNodeDefinition,
   type RegistrationRef
 } from '../registration-graph'
@@ -35,6 +36,12 @@ const expectError = (
 }
 
 describe('RegistrationGraph', () => {
+  it('creates stable keys for registration references', () => {
+    expect(getRegistrationRefKey(ref('component', 'rect'))).toBe(
+      'component\u0000rect'
+    )
+  })
+
   it('returns stable sorted node/relation metadata with default app ownership', () => {
     const graph = new RegistrationGraph()
     graph.registerNode(node('property', 'z'))

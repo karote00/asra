@@ -1,6 +1,7 @@
 import {
   type DataTypes,
   PropertyTypes,
+  isFiniteNumber,
   isRecord,
   type EVENT_OPTIONS,
   type StrokeAttrs
@@ -53,9 +54,6 @@ const getChangedPatchEntries = (
 
 const hasGeometryAffectingStrokePatch = (patch: StrokePatch) =>
   STROKE_PATCH_KEYS.some((key) => key !== 'fill' && key in patch)
-
-const isFiniteNumber = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value)
 
 const nearlyEqual = (left: unknown, right: number) =>
   isFiniteNumber(left) && Math.abs(left - right) <= 1e-6

@@ -7,6 +7,7 @@ import {
 import {
   VECTOR_TOKENS,
   defineFeature,
+  getVectorPointTargetPosition,
   VECTOR_TOPOLOGY_POINT_ID_TYPE,
   type VectorAnchorPoint,
   type VectorEndpointSide,
@@ -327,21 +328,6 @@ const hasMovedBeyondVectorPointDragThreshold = (
   )
 }
 
-const getPointTargetPosition = (
-  point: VectorAnchorPoint,
-  target: VectorPointTarget
-) => {
-  if (target === VECTOR_TOKENS.POINT.TARGET.ANCHOR) {
-    return { x: point.x, y: point.y }
-  }
-
-  if (target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE) {
-    return point.inHandle
-  }
-
-  return point.outHandle
-}
-
 const getHandleTargetPosition = (
   point: VectorAnchorPoint | null | undefined,
   target: VectorHandleTarget
@@ -446,7 +432,10 @@ const syncSelectedVectorPointMirror = (
     return false
   }
 
-  const targetPosition = getPointTargetPosition(selectedPoint.point, target)
+  const targetPosition = getVectorPointTargetPosition(
+    selectedPoint.point,
+    target
+  )
   if (!targetPosition) {
     return false
   }
@@ -1101,7 +1090,7 @@ export const selectVectorPointFeature = defineFeature<
       const initialTargetPos =
         activeHoveredPoint.target === VECTOR_TOKENS.POINT.TARGET.ANCHOR
           ? selectedPoint &&
-            getPointTargetPosition(
+            getVectorPointTargetPosition(
               selectedPoint.point,
               activeHoveredPoint.target
             )
@@ -1225,7 +1214,7 @@ export const selectVectorPointFeature = defineFeature<
         )
         const currentTargetPos =
           currentPoint &&
-          getPointTargetPosition(currentPoint.point, dragTarget.target)
+          getVectorPointTargetPosition(currentPoint.point, dragTarget.target)
         if (
           !currentTargetPos ||
           currentTargetPos.x !== computedPatchIntent.patch.position.x ||

@@ -1,6 +1,6 @@
 import propsManager, {
   createPropertyComponentFromConfig as createPropertyComponentFromConfigOwner,
-  clonePropertyDefinitionRecord,
+  clonePropertyComponentConfigRegistration,
   getPropertyComponent,
   getPropertyComponentConfigDefinition,
   propertyComponentRegistry,
@@ -12,11 +12,11 @@ import propsManager, {
   type PropsManager
 } from '@asyra/props-manager'
 import {
+  failRegistrationRelation as relationFailure,
   type RegistrationDefinitionMetadata,
   type RegistrationRelationMetadata,
   type RelationOperationSuccess
 } from '@asyra/utils'
-import { failRegistrationRelation as relationFailure } from './registration-relation-failure'
 
 export interface PropertyComponentConstructorDefinition {
   type: string
@@ -40,20 +40,6 @@ export interface PropertyChildRelationMetadata
     PropertyChildRelationDefinition {
   parentPropertyType: string
 }
-
-const cloneConfigDefinition = (
-  definition: PropertyComponentConfigRegistration
-): PropertyComponentConfigDefinition => ({
-  ...definition,
-  defaults: clonePropertyDefinitionRecord(definition.defaults),
-  persistKeys: definition.persistKeys ? [...definition.persistKeys] : undefined,
-  valueKeys: definition.valueKeys ? [...definition.valueKeys] : undefined,
-  unitKeys: definition.unitKeys ? [...definition.unitKeys] : undefined,
-  dynamicReservedKeys: definition.dynamicReservedKeys
-    ? [...definition.dynamicReservedKeys]
-    : undefined,
-  children: definition.children ? { ...definition.children } : undefined
-})
 
 const createPropertyComponentFromConfig = createPropertyComponentFromConfigOwner
 
@@ -93,7 +79,9 @@ const assertPropertyRelationMutationAllowed = (
       { source: { kind: 'property', key: parentPropertyType } }
     )
   }
-  return cloneConfigDefinition(definition)
+  return clonePropertyComponentConfigRegistration(
+    definition
+  ) as PropertyComponentConfigDefinition
 }
 
 const commitPropertyComponentRegistration = (

@@ -33,3 +33,5 @@ export {
 export { PRESET_REGISTRATION_OWNER } from './registration'
 export * from './events'
 export * from './selection/channels'
+export * from './selection/ids'
+export * from './vector/synthetic-handle'

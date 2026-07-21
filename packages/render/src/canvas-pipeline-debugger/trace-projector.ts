@@ -1,4 +1,5 @@
 import type { Render } from '../render'
+import { transformGeometryPoint } from '@asyra/utils'
 import {
   subscribeToCanvasPipelineEvidence,
   type CanvasPipelineEvidence,
@@ -27,14 +28,6 @@ const stableUnique = (ids: readonly string[]): string[] => {
     return true
   })
 }
-
-const applyMatrix = (
-  matrix: CanvasPipelineMatrixSnapshot,
-  point: { x: number; y: number }
-) => ({
-  x: matrix.a * point.x + matrix.c * point.y + matrix.tx,
-  y: matrix.b * point.x + matrix.d * point.y + matrix.ty
-})
 
 const applyInverseMatrix = (
   matrix: CanvasPipelineMatrixSnapshot,
@@ -67,7 +60,7 @@ const projectGeometry = (
     { x: localBounds.x, y: localBounds.y + localBounds.height }
   ]
   const observedCanvasCorners = localCorners.map((point) =>
-    applyMatrix(worldTransform, point)
+    transformGeometryPoint(worldTransform, point)
   )
   const workspaceCorners = observedCanvasCorners.map((point) =>
     applyInverseMatrix(viewportTransform, point)
@@ -80,7 +73,7 @@ const projectGeometry = (
     y: number
   }[]
   const canvasCorners = resolvedWorkspaceCorners.map((point) =>
-    applyMatrix(latestViewportTransform ?? viewportTransform, point)
+    transformGeometryPoint(latestViewportTransform ?? viewportTransform, point)
   )
   return freezeDeep({
     localBounds: { ...localBounds },

@@ -1,6 +1,10 @@
 import { Input, PropertyControl } from '@asyra/design-system'
 import { type ReactNode, useCallback } from 'react'
-import { VECTOR_TOKENS, type VectorPointTarget } from '@asyra/core'
+import {
+  VECTOR_TOKENS,
+  getVectorPointTargetPosition,
+  type VectorPointTarget
+} from '@asyra/core'
 import {
   isVectorHandleMode,
   VectorHandleModes,
@@ -27,26 +31,6 @@ const getTargetLabel = (target: VectorPointTarget) => {
   }
 
   return 'Anchor'
-}
-
-const getTargetPosition = (
-  point: {
-    x: number
-    y: number
-    inHandle: { x: number; y: number } | null
-    outHandle: { x: number; y: number } | null
-  },
-  target: VectorPointTarget
-) => {
-  if (target === VECTOR_TOKENS.POINT.TARGET.ANCHOR) {
-    return { x: point.x, y: point.y }
-  }
-
-  if (target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE) {
-    return point.inHandle
-  }
-
-  return point.outHandle
 }
 
 const TargetHeader = ({
@@ -332,7 +316,10 @@ const VectorPoint = () => {
         return false
       }
 
-      const targetPosition = getTargetPosition(updatedPoint.point, nextTarget)
+      const targetPosition = getVectorPointTargetPosition(
+        updatedPoint.point,
+        nextTarget
+      )
 
       if (!targetPosition) {
         return false

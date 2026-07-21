@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { roundFloat } from '../number'
+import { clampUnit, roundFloat } from '../number'
 
 describe('Number Utilities - Precision Handling', () => {
   describe('roundFloat', () => {
@@ -23,6 +23,14 @@ describe('Number Utilities - Precision Handling', () => {
       expect(roundFloat(0)).toBe(0)
       expect(roundFloat(-3.14159)).toBe(-3.14)
       expect(roundFloat(999.999)).toBe(1000)
+    })
+  })
+
+  describe('clampUnit', () => {
+    it('clamps values to the inclusive unit interval', () => {
+      expect(clampUnit(-0.1)).toBe(0)
+      expect(clampUnit(0.25)).toBe(0.25)
+      expect(clampUnit(1.1)).toBe(1)
     })
   })
 })

@@ -21,6 +21,7 @@ import {
   type AddRemoveElementChange,
   type ComputedAttrs,
   type GroupRawData,
+  emitStrokePipelineCounter,
   measureBrowserDragPhase,
   type SceneTreeChange,
   type SelectionChange,
@@ -37,17 +38,6 @@ import {
   SelectionEventNames,
   type SelectionChannel
 } from '../selection/channels'
-
-const emitStrokePipelineCounter = (counterName: string, value = 1): void => {
-  ;(
-    globalThis as typeof globalThis & {
-      __asyraStrokePipelineCounterSink?: (
-        counterName: string,
-        value?: number
-      ) => void
-    }
-  ).__asyraStrokePipelineCounterSink?.(counterName, value)
-}
 
 const ELEMENT_DATA_MAP_COMPUTED_KEYS = new Set([
   'name',

@@ -37,6 +37,11 @@ export type VectorPointKind =
   (typeof VECTOR_TOKENS.POINT.KIND)[keyof typeof VECTOR_TOKENS.POINT.KIND]
 export type VectorControlRole =
   (typeof VECTOR_TOKENS.CONTROL.ROLE)[keyof typeof VECTOR_TOKENS.CONTROL.ROLE]
+
+export const getVectorControlId = (
+  anchorId: string,
+  role: VectorControlRole
+): string => `${anchorId}:${role}`
 export type VectorEndpointSide =
   (typeof VECTOR_TOKENS.ENDPOINT.SIDE)[keyof typeof VECTOR_TOKENS.ENDPOINT.SIDE]
 export type VectorPointTarget =
@@ -55,6 +60,19 @@ export interface VectorAnchorPoint extends PositionData {
   isMove?: boolean
   inHandle: PositionData | null
   outHandle: PositionData | null
+}
+
+export const getVectorPointTargetPosition = (
+  point: Pick<VectorAnchorPoint, 'x' | 'y' | 'inHandle' | 'outHandle'>,
+  target: VectorPointTarget
+): PositionData | null => {
+  if (target === VECTOR_TOKENS.POINT.TARGET.ANCHOR) {
+    return { x: point.x, y: point.y }
+  }
+
+  return target === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE
+    ? point.inHandle
+    : point.outHandle
 }
 
 export interface VectorPointNode extends PositionData {

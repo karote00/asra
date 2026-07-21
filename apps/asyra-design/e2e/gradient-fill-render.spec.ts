@@ -1,5 +1,10 @@
 import { expect, test, type Page } from '@playwright/test'
-import { createRectangle, resetCanvas, waitForAppReady } from './test-utils'
+import {
+  createRectangle,
+  resetCanvas,
+  setSelectedGradient,
+  waitForAppReady
+} from './test-utils'
 
 interface GradientHandle {
   x: number
@@ -80,39 +85,6 @@ const openGradientFillEditor = async (page: Page) => {
   await trigger.click()
   await page.getByTestId('prop-fill-mode-gradient-0').click()
   await expect(page.getByTestId('prop-fill-gradient-editor-0')).toBeVisible()
-}
-
-const setSelectedGradient = async (
-  page: Page,
-  gradient: SelectedGradientSnapshot['gradient']
-) => {
-  await page.evaluate((nextGradient) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
-    const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
-    if (!selectedId) {
-      return
-    }
-
-    const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
-    const computed = element?.getAllComputedData?.() ?? {}
-    const fillId = computed?.fills?.[0]?.id
-    if (!fillId || !nextGradient) {
-      return
-    }
-
-    core.updatePropertyById(
-      fillId,
-      'gradient',
-      nextGradient,
-      {
-        ownerElementId: selectedId,
-        ownerPropertyName: 'fills'
-      },
-      { undoable: false }
-    )
-    core.commitPropertyChanges({ undoable: false })
-  }, gradient)
 }
 
 const getGradientHandleClientPosition = async (

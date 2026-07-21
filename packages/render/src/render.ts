@@ -5,7 +5,12 @@ import {
   type RenderEngineProvider,
   type RenderEngineObjectHandle
 } from '@asyra/render-engine'
-import { DataTypes, MouseData, measureBrowserDragPhase } from '@asyra/utils'
+import {
+  DataTypes,
+  MouseData,
+  emitStrokePipelineCounter,
+  measureBrowserDragPhase
+} from '@asyra/utils'
 import type { RenderPointerPositions } from '@asyra/utils'
 import { RenderElementData, RenderContainerData } from './types'
 import { ViewportLayer } from './layers/viewport'
@@ -192,22 +197,8 @@ class Render {
     this.renderFrameId += 1
     this.currentFrameHandoffCount = 0
     this.publishFrameEvidence('start')
-    ;(
-      globalThis as typeof globalThis & {
-        __asyraStrokePipelineCounterSink?: (
-          counterName: string,
-          value: number
-        ) => void
-      }
-    ).__asyraStrokePipelineCounterSink?.('render-frame-count', 1)
-    ;(
-      globalThis as typeof globalThis & {
-        __asyraStrokePipelineCounterSink?: (
-          counterName: string,
-          value: number
-        ) => void
-      }
-    ).__asyraStrokePipelineCounterSink?.('render-frame-id', this.renderFrameId)
+    emitStrokePipelineCounter('render-frame-count')
+    emitStrokePipelineCounter('render-frame-id', this.renderFrameId)
     try {
       measureBrowserDragPhase('render:flush-frame', () => {
         const layersChanged = this.updateLayers()

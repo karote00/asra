@@ -1,12 +1,16 @@
-import { DataTypes, DEFAULT_CANVAS_PADDING, MouseData } from '@asyra/utils'
-import { Bounds } from './types'
+import {
+  DataTypes,
+  DEFAULT_CANVAS_PADDING,
+  MouseData,
+  rectToBounds,
+  type Bounds
+} from '@asyra/utils'
 import {
   RenderContainerData,
   RenderElementData,
   SceneElement
 } from '../../types'
 import { RenderLayer } from '../scene'
-import { rectToBounds } from './geometry'
 import { RenderContainer, type RenderGraphics } from '../../types/render-object'
 
 export class ViewportLayer {

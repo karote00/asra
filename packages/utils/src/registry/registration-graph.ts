@@ -18,6 +18,9 @@ export interface RegistrationRef {
   key: string
 }
 
+export const getRegistrationRefKey = (ref: RegistrationRef): string =>
+  `${ref.kind}\u0000${ref.key}`
+
 export interface RegistrationOwnerMetadata {
   packageName: string
   name: string
@@ -153,13 +156,13 @@ interface PendingUnregister {
   removedOwnedRegistrations: string[]
 }
 
-const refKey = (ref: RegistrationRef): string => `${ref.kind}\u0000${ref.key}`
+const refKey = getRegistrationRefKey
 
 const compareRefs = (left: RegistrationRef, right: RegistrationRef): number =>
-  refKey(left).localeCompare(refKey(right))
+  getRegistrationRefKey(left).localeCompare(getRegistrationRefKey(right))
 
 const relationKey = (relation: RegistrationRelationMetadata): string =>
-  `${refKey(relation.source)}\u0000${relation.name}`
+  `${getRegistrationRefKey(relation.source)}\u0000${relation.name}`
 
 const compareRelations = (
   left: RegistrationRelationMetadata,
@@ -188,7 +191,7 @@ const cloneRelation = (
   onTargetUnregister: relation.onTargetUnregister
 })
 
-const relationFailure = (
+export const failRegistrationRelation = (
   code: RegistrationContractErrorCode,
   operation: RegistrationGraphOperation,
   message: string,
@@ -205,6 +208,8 @@ const relationFailure = (
     ...details
   })
 }
+
+const relationFailure = failRegistrationRelation
 
 export class RegistrationGraph {
   private readonly nodesByRef = new Map<string, NodeRecord>()

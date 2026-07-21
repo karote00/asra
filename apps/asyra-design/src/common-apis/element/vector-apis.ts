@@ -6,6 +6,7 @@ import type {
 } from '@asyra/core'
 import {
   VECTOR_TOKENS,
+  getVectorControlId as getControlId,
   isVectorAnchorNode as isAnchorNode,
   isVectorControlNode as isControlNode,
   runTransaction
@@ -19,6 +20,7 @@ import type {
 import {
   StrokeJoinTypes,
   createDefaultStrokes,
+  emitStrokePipelineCounter,
   measureBrowserDragPhase
 } from '@asyra/utils'
 import { isEqual } from 'lodash'
@@ -32,7 +34,6 @@ import {
   createVectorTopologyFromSinglePoint,
   getAnchorContinuationInTopology,
   getAnchorEndpointInTopology,
-  getControlId,
   getOrderedNetworks,
   isClosedVectorTopology,
   isVectorTopology,
@@ -237,17 +238,6 @@ const toVectorEventOptions = (
 
 const transientWorkspaceTopologyCache = new Map<string, VectorTopology>()
 const transientComputedSnapshotCache = new Map<string, VectorComputedData>()
-
-const emitStrokePipelineCounter = (counterName: string, value = 1) => {
-  ;(
-    globalThis as typeof globalThis & {
-      __asyraStrokePipelineCounterSink?: (
-        counterName: string,
-        value: number
-      ) => void
-    }
-  ).__asyraStrokePipelineCounterSink?.(counterName, value)
-}
 
 const recordVectorCommitError = (error: unknown) => {
   const message =

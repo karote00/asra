@@ -1,4 +1,5 @@
 import {
+  clampUnit,
   type EVENT_OPTIONS,
   type FillAttrs,
   type FillGradientData,
@@ -14,7 +15,6 @@ import { convertUserColorToDefault } from './color-format'
 import { applyFillPatch, getChangedFillPatch, hasFillPatch } from './fill-patch'
 import { sortGradientStopsForPreview } from './gradient-stops'
 
-const clampUnit = (value: number) => Math.max(0, Math.min(1, value))
 const DRAG_EPSILON = 0.0001
 
 interface UseGradientInteractionsArgs {

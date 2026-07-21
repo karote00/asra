@@ -1,5 +1,6 @@
 import type { StrokeRowAttrs } from '@asyra/utils'
 import StrokeItem from './stroke'
+import { PlusIcon } from '../icons'
 
 interface StrokeListProps {
   strokes: StrokeRowAttrs[]
@@ -8,20 +9,6 @@ interface StrokeListProps {
   onAdd: () => void
   onRemoveStroke: (index: number) => void
 }
-
-const PlusIcon = () => (
-  <svg
-    width="12"
-    height="12"
-    viewBox="0 0 12 12"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-    strokeLinecap="round"
-  >
-    <path d="M6 2v8M2 6h8" />
-  </svg>
-)
 
 const StrokeList = ({
   strokes,

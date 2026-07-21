@@ -2,7 +2,7 @@ import { Input, PropertyControl } from '@asyra/design-system'
 import { FillKinds, type FillAttrs, type FillGradientStop } from '@asyra/utils'
 import type React from 'react'
 import { convertToHexUpper } from './color-format'
-import { MinusIcon } from './fill'
+import { MinusIcon } from '../icons'
 import FillColorRow from './fill-color-row'
 import { formatInputNumber } from '../number-input'
 

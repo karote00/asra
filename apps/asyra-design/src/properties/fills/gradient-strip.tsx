@@ -1,8 +1,6 @@
-import { type FillGradientData } from '@asyra/utils'
+import { clampUnit, type FillGradientData } from '@asyra/utils'
 import type React from 'react'
 import { toGradientPreviewCss } from './gradient-preview'
-
-const clampUnit = (value: number) => Math.max(0, Math.min(1, value))
 
 interface GradientStripProps {
   index: number

@@ -16,12 +16,14 @@ import {
   VECTOR_TOPOLOGY_NETWORK_ID_TYPE,
   VECTOR_TOPOLOGY_POINT_ID_TYPE,
   VECTOR_TOPOLOGY_SEGMENT_ID_TYPE,
+  getVectorControlId as getControlId,
   getVectorNetworkAnchorHandleRefs,
   isVectorAnchorNode as isAnchorNode,
   isVectorControlNode as isControlNode,
   sortVectorItemsById
 } from '@asyra/core'
-import { id, type PositionData } from '@asyra/utils'
+import { clampUnit, id, type PositionData } from '@asyra/utils'
+import { resolveSyntheticVectorHandlePosition } from '@asyra/preset'
 import { splitCubicBezierAtT } from './bezier-adapter'
 
 export type VectorAnchorSubpaths = VectorAnchorPoint[][]
@@ -55,10 +57,6 @@ export type VectorTopologyData = Pick<
 >
 
 type VectorTopologyLike = VectorTopologyData
-const SYNTHETIC_HANDLE_MIN_LENGTH = 14
-const SYNTHETIC_HANDLE_MAX_LENGTH = 56
-const SYNTHETIC_HANDLE_POINT_EPSILON = 0.5
-
 const hasObjectValue = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
 
@@ -75,61 +73,6 @@ const omitKeys = <T extends Record<string, unknown>>(
   keys: string[]
 ): T => keys.reduce((acc, key) => omitKey(acc, key), source)
 
-const getDistance = (from: PositionData, to: PositionData): number =>
-  Math.hypot(to.x - from.x, to.y - from.y)
-
-const isVisibleHandlePosition = (
-  anchor: PositionData,
-  handle: PositionData | null | undefined
-): handle is PositionData =>
-  !!handle && getDistance(anchor, handle) > SYNTHETIC_HANDLE_POINT_EPSILON
-
-const clampSyntheticHandleLength = (
-  desiredLength: number,
-  segmentLength: number
-): number => {
-  if (segmentLength <= SYNTHETIC_HANDLE_POINT_EPSILON) {
-    return 0
-  }
-
-  return Math.min(
-    SYNTHETIC_HANDLE_MAX_LENGTH,
-    segmentLength * 0.45,
-    Math.max(SYNTHETIC_HANDLE_MIN_LENGTH, desiredLength)
-  )
-}
-
-const createSyntheticHandlePosition = (
-  anchor: PositionData,
-  neighbor: PositionData | null,
-  mirroredHandle: PositionData | null
-): PositionData | null => {
-  if (!neighbor) {
-    return null
-  }
-
-  const dx = neighbor.x - anchor.x
-  const dy = neighbor.y - anchor.y
-  const segmentLength = Math.hypot(dx, dy)
-  if (segmentLength <= SYNTHETIC_HANDLE_POINT_EPSILON) {
-    return null
-  }
-
-  const mirroredLength = isVisibleHandlePosition(anchor, mirroredHandle)
-    ? getDistance(anchor, mirroredHandle)
-    : segmentLength / 3
-  const handleLength = clampSyntheticHandleLength(mirroredLength, segmentLength)
-  if (handleLength <= SYNTHETIC_HANDLE_POINT_EPSILON) {
-    return null
-  }
-
-  const scale = handleLength / segmentLength
-  return {
-    x: anchor.x + dx * scale,
-    y: anchor.y + dy * scale
-  }
-}
-
 const resolveAnchorViewHandlePosition = (
   anchor: PositionData,
   actualHandle: PositionData | null,
@@ -137,19 +80,17 @@ const resolveAnchorViewHandlePosition = (
   mirroredHandle: PositionData | null,
   options?: VectorAnchorViewOptions
 ): PositionData | null => {
-  if (isVisibleHandlePosition(anchor, actualHandle)) {
-    return { x: actualHandle.x, y: actualHandle.y }
-  }
-
   if (!options?.includeSyntheticHandles) {
     return actualHandle
   }
 
-  return createSyntheticHandlePosition(anchor, neighbor, mirroredHandle)
+  return resolveSyntheticVectorHandlePosition(
+    anchor,
+    actualHandle,
+    neighbor,
+    mirroredHandle
+  )
 }
-
-export const getControlId = (anchorId: string, role: VectorControlRole) =>
-  `${anchorId}:${role}`
 
 export const createEmptyVectorTopology = (): VectorTopology => ({
   points: {},
@@ -925,8 +866,6 @@ const pruneUnusedControls = (
 
 const SPLIT_T_EPSILON = 1e-6
 const CONTROL_POINT_EPSILON_SQUARED = 1e-8
-
-const clampUnit = (value: number) => Math.max(0, Math.min(1, value))
 
 const isNonDegenerateControl = (
   control: PositionData,

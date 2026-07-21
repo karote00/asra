@@ -3,7 +3,9 @@ import {
   createRectangle,
   getCanvasPosition,
   getPropertiesPanel,
+  getTransactionSnapshot,
   resetCanvas,
+  setSelectedGradient,
   undo,
   waitForAppReady
 } from './test-utils'
@@ -73,57 +75,11 @@ const getSelectedGradientSnapshot = async (
     }
   })
 
-const getTransactionSnapshot = async (page: Page) =>
-  page.evaluate(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
-    const transact = core?.deps?.factory?.transact
-    const undoStack = transact?.undoStack ?? []
-
-    return {
-      undoCount: undoStack.length,
-      isTransacting: transact?.isTransacting ?? 0
-    }
-  })
-
 const openGradientFillEditor = async (page: Page) => {
   const propertiesPanel = getPropertiesPanel(page)
   await propertiesPanel.getByTestId('prop-fill-color-picker-0-trigger').click()
   await page.getByTestId('prop-fill-mode-gradient-0').click()
   await expect(page.getByTestId('prop-fill-gradient-editor-0')).toBeVisible()
-}
-
-const setSelectedGradient = async (
-  page: Page,
-  gradient: SelectedGradientSnapshot['gradient']
-) => {
-  await page.evaluate((nextGradient) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const core = (window as any).__Core__
-    const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
-    if (!selectedId) {
-      return
-    }
-
-    const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
-    const computed = element?.getAllComputedData?.() ?? {}
-    const fillId = computed?.fills?.[0]?.id
-    if (!fillId || !nextGradient) {
-      return
-    }
-
-    core.updatePropertyById(
-      fillId,
-      'gradient',
-      nextGradient,
-      {
-        ownerElementId: selectedId,
-        ownerPropertyName: 'fills'
-      },
-      { undoable: false }
-    )
-    core.commitPropertyChanges({ undoable: false })
-  }, gradient)
 }
 
 const getGradientHandleClientPosition = async (

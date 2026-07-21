@@ -53,7 +53,10 @@ class PropertyComponentRegistry {
         `Property component "${type}" is already registered`
     })
     if (configDefinition) {
-      this.configDefinitions.set(type, cloneConfigDefinition(configDefinition))
+      this.configDefinitions.set(
+        type,
+        clonePropertyComponentConfigRegistration(configDefinition)
+      )
     }
   }
 
@@ -69,7 +72,9 @@ class PropertyComponentRegistry {
     type: string
   ): PropertyComponentConfigRegistration | undefined {
     const definition = this.configDefinitions.get(type)
-    return definition ? cloneConfigDefinition(definition) : undefined
+    return definition
+      ? clonePropertyComponentConfigRegistration(definition)
+      : undefined
   }
 
   unregister(type: string): boolean {
@@ -83,7 +88,10 @@ class PropertyComponentRegistry {
     configDefinition: PropertyComponentConfigRegistration
   ): void {
     this.registry.set(type, component)
-    this.configDefinitions.set(type, cloneConfigDefinition(configDefinition))
+    this.configDefinitions.set(
+      type,
+      clonePropertyComponentConfigRegistration(configDefinition)
+    )
   }
 
   clear(): void {
@@ -92,7 +100,7 @@ class PropertyComponentRegistry {
   }
 }
 
-const cloneConfigDefinition = (
+export const clonePropertyComponentConfigRegistration = (
   definition: PropertyComponentConfigRegistration
 ): PropertyComponentConfigRegistration => ({
   ...definition,

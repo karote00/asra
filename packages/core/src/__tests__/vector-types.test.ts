@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   VECTOR_HANDLE_MODES,
   VECTOR_TOKENS,
+  getVectorControlId,
   getVectorNetworkAnchorHandleRefs,
+  getVectorPointTargetPosition,
   isVectorAnchorNode,
   isVectorControlNode,
   isVectorHandleMode,
@@ -25,6 +27,34 @@ const control: VectorPointNode = {
 }
 
 describe('vector type guards', () => {
+  it('creates canonical control ids from the anchor and role', () => {
+    expect(getVectorControlId('anchor-1', VECTOR_TOKENS.CONTROL.ROLE.IN)).toBe(
+      'anchor-1:in'
+    )
+    expect(getVectorControlId('anchor-1', VECTOR_TOKENS.CONTROL.ROLE.OUT)).toBe(
+      'anchor-1:out'
+    )
+  })
+
+  it('projects the selected anchor or handle position', () => {
+    const point = {
+      x: 10,
+      y: 20,
+      inHandle: { x: 5, y: 15 },
+      outHandle: null
+    }
+
+    expect(
+      getVectorPointTargetPosition(point, VECTOR_TOKENS.POINT.TARGET.ANCHOR)
+    ).toEqual({ x: 10, y: 20 })
+    expect(
+      getVectorPointTargetPosition(point, VECTOR_TOKENS.POINT.TARGET.IN_HANDLE)
+    ).toEqual({ x: 5, y: 15 })
+    expect(
+      getVectorPointTargetPosition(point, VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE)
+    ).toBeNull()
+  })
+
   it('narrows vector point nodes by their canonical kind token', () => {
     expect(isVectorAnchorNode(anchor)).toBe(true)
     expect(isVectorAnchorNode(control)).toBe(false)

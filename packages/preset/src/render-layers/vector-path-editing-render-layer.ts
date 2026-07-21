@@ -1,6 +1,7 @@
 import {
   VECTOR_TOKENS,
   createOverlayLayerRegistration,
+  getVectorControlId as getControlId,
   getVectorNetworkAnchorHandleRefs,
   sampleOverlayBezierPoints,
   sortVectorItemsById,
@@ -15,8 +16,17 @@ import type {
   VectorPointNode,
   VectorSegment
 } from '@asyra/core'
-import type { PositionData } from '@asyra/utils'
+import {
+  emitStrokePipelineCounter,
+  projectWorkspacePointToViewport,
+  type PositionData
+} from '@asyra/utils'
 import { SelectionChannels } from '../selection/channels'
+import {
+  decodeVectorPointSelectionId,
+  type VectorPointSelectionRef
+} from '../selection/ids'
+import { resolveSyntheticVectorHandlePosition } from '../vector/synthetic-handle'
 import type { PresetDependencies } from '../types'
 
 const VECTOR_EDITING_LAYER_NAME = 'vector-editing-layer'
@@ -47,10 +57,6 @@ export const VECTOR_EDITING_SELECTED_SEGMENT_STROKE: OverlayStrokeStyle = {
   width: 3,
   color: SELECTED_POINT_OUTLINE_COLOR
 }
-const SYNTHETIC_HANDLE_MIN_LENGTH = 14
-const SYNTHETIC_HANDLE_MAX_LENGTH = 56
-const SYNTHETIC_HANDLE_POINT_EPSILON = 0.5
-
 export interface OverlayAnchorPoint extends PositionData {
   id: string
   inHandle: PositionData | null
@@ -131,12 +137,6 @@ interface HoveredVectorSegmentInsertPointState {
   y: number
 }
 
-interface VectorPointSelectionRef {
-  elementId: string
-  pointId: string
-  target: VectorPointTarget
-}
-
 interface SelectedHandleAnchorRef {
   pointId: string
   index?: number | null
@@ -186,17 +186,6 @@ const measureVectorEditingOverlayPhase = <T>(
   } finally {
     sink(phaseName, performance.now() - start)
   }
-}
-
-const emitStrokePipelineCounter = (counterName: string, value = 1) => {
-  ;(
-    globalThis as typeof globalThis & {
-      __asyraStrokePipelineCounterSink?: (
-        counterName: string,
-        value: number
-      ) => void
-    }
-  ).__asyraStrokePipelineCounterSink?.(counterName, value)
 }
 
 const appendPositionSignature = (
@@ -409,125 +398,7 @@ const buildOverlayVectorDataSignature = (
   return parts.join('|')
 }
 
-const getControlId = (
-  anchorId: string,
-  role:
-    | typeof VECTOR_TOKENS.CONTROL.ROLE.IN
-    | typeof VECTOR_TOKENS.CONTROL.ROLE.OUT
-) => `${anchorId}:${role}`
-
-const decodeSelectionToken = (value: string) => {
-  try {
-    return decodeURIComponent(value)
-  } catch {
-    return value
-  }
-}
-
-const decodeVectorPointSelectionId = (
-  value: string
-): VectorPointSelectionRef | null => {
-  const parts = value.split(':')
-  if (parts.length !== 3) {
-    return null
-  }
-
-  const elementId = decodeSelectionToken(parts[0])
-  const pointId = decodeSelectionToken(parts[1])
-  const target = decodeSelectionToken(parts[2])
-  if (
-    !elementId ||
-    !pointId ||
-    (target !== VECTOR_TOKENS.POINT.TARGET.ANCHOR &&
-      target !== VECTOR_TOKENS.POINT.TARGET.IN_HANDLE &&
-      target !== VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE)
-  ) {
-    return null
-  }
-
-  return {
-    elementId,
-    pointId,
-    target
-  }
-}
-
-const toScreenPosition = (
-  point: PositionData,
-  viewportPosition: PositionData,
-  viewportScale: number
-): PositionData => ({
-  x: point.x * viewportScale + viewportPosition.x,
-  y: point.y * viewportScale + viewportPosition.y
-})
-
-const getDistance = (from: PositionData, to: PositionData): number =>
-  Math.hypot(to.x - from.x, to.y - from.y)
-
-const isVisibleHandlePosition = (
-  anchor: PositionData,
-  handle: PositionData | null | undefined
-): handle is PositionData =>
-  !!handle && getDistance(anchor, handle) > SYNTHETIC_HANDLE_POINT_EPSILON
-
-const clampSyntheticHandleLength = (
-  desiredLength: number,
-  segmentLength: number
-): number => {
-  if (segmentLength <= SYNTHETIC_HANDLE_POINT_EPSILON) {
-    return 0
-  }
-
-  return Math.min(
-    SYNTHETIC_HANDLE_MAX_LENGTH,
-    segmentLength * 0.45,
-    Math.max(SYNTHETIC_HANDLE_MIN_LENGTH, desiredLength)
-  )
-}
-
-const createSyntheticHandlePosition = (
-  anchor: PositionData,
-  neighbor: PositionData | null,
-  mirroredHandle: PositionData | null
-): PositionData | null => {
-  if (!neighbor) {
-    return null
-  }
-
-  const dx = neighbor.x - anchor.x
-  const dy = neighbor.y - anchor.y
-  const segmentLength = Math.hypot(dx, dy)
-  if (segmentLength <= SYNTHETIC_HANDLE_POINT_EPSILON) {
-    return null
-  }
-
-  const mirroredLength = isVisibleHandlePosition(anchor, mirroredHandle)
-    ? getDistance(anchor, mirroredHandle)
-    : segmentLength / 3
-  const handleLength = clampSyntheticHandleLength(mirroredLength, segmentLength)
-  if (handleLength <= SYNTHETIC_HANDLE_POINT_EPSILON) {
-    return null
-  }
-
-  const scale = handleLength / segmentLength
-  return {
-    x: anchor.x + dx * scale,
-    y: anchor.y + dy * scale
-  }
-}
-
-export const resolveOverlayHandlePosition = (
-  anchor: PositionData,
-  actualHandle: PositionData | null | undefined,
-  neighbor: PositionData | null,
-  mirroredHandle: PositionData | null
-): PositionData | null => {
-  if (isVisibleHandlePosition(anchor, actualHandle)) {
-    return { x: actualHandle.x, y: actualHandle.y }
-  }
-
-  return createSyntheticHandlePosition(anchor, neighbor, mirroredHandle)
-}
+export const resolveOverlayHandlePosition = resolveSyntheticVectorHandlePosition
 
 const getPathEditingVectorDataWithDeps = (
   deps: Pick<PresetDependencies, 'sceneTree' | 'systemContext'>,
@@ -793,13 +664,24 @@ const projectOverlayVectorDataToScreen = (
     segmentIds: [...subpath.segmentIds],
     points: subpath.points.map((point) => ({
       id: point.id,
-      x: point.x * viewportScale + viewportPosition.x,
-      y: point.y * viewportScale + viewportPosition.y,
+      ...projectWorkspacePointToViewport(
+        point,
+        viewportPosition,
+        viewportScale
+      ),
       inHandle: point.inHandle
-        ? toScreenPosition(point.inHandle, viewportPosition, viewportScale)
+        ? projectWorkspacePointToViewport(
+            point.inHandle,
+            viewportPosition,
+            viewportScale
+          )
         : null,
       outHandle: point.outHandle
-        ? toScreenPosition(point.outHandle, viewportPosition, viewportScale)
+        ? projectWorkspacePointToViewport(
+            point.outHandle,
+            viewportPosition,
+            viewportScale
+          )
         : null
     }))
   }))
@@ -807,17 +689,29 @@ const projectOverlayVectorDataToScreen = (
     Object.entries(vectorData.segmentsById).map(([segmentId, segment]) => [
       segmentId,
       (() => {
-        const from = toScreenPosition(
+        const from = projectWorkspacePointToViewport(
           segment.from,
           viewportPosition,
           viewportScale
         )
-        const to = toScreenPosition(segment.to, viewportPosition, viewportScale)
+        const to = projectWorkspacePointToViewport(
+          segment.to,
+          viewportPosition,
+          viewportScale
+        )
         const inHandle = segment.inHandle
-          ? toScreenPosition(segment.inHandle, viewportPosition, viewportScale)
+          ? projectWorkspacePointToViewport(
+              segment.inHandle,
+              viewportPosition,
+              viewportScale
+            )
           : null
         const outHandle = segment.outHandle
-          ? toScreenPosition(segment.outHandle, viewportPosition, viewportScale)
+          ? projectWorkspacePointToViewport(
+              segment.outHandle,
+              viewportPosition,
+              viewportScale
+            )
           : null
         return {
           ...segment,
@@ -1371,7 +1265,7 @@ export const registerVectorPathEditingRenderLayer = (
         clientX: snapshot.mousePosition.x,
         clientY: snapshot.mousePosition.y
       })
-      const mouseScreenPos = toScreenPosition(
+      const mouseScreenPos = projectWorkspacePointToViewport(
         mouseWorkspacePos,
         viewportPosition,
         viewportScale
@@ -1450,7 +1344,7 @@ export const registerVectorPathEditingRenderLayer = (
         hoveredVectorSegmentInsertPoint?.elementId !== pathEditingVectorId ||
         hoveredVectorSegmentInsertPoint?.segmentId !== activeHoveredSegmentId
           ? null
-          : toScreenPosition(
+          : projectWorkspacePointToViewport(
               {
                 x: hoveredVectorSegmentInsertPoint.x,
                 y: hoveredVectorSegmentInsertPoint.y

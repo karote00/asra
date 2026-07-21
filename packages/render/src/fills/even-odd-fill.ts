@@ -3,6 +3,7 @@ import {
   FillKinds,
   clampOpacity,
   parseColor,
+  subdivideCubicBezierAtHalf,
   type FillAttrs
 } from '@asyra/utils'
 import type { RenderFillStyle } from './gradient-fill'
@@ -317,22 +318,6 @@ const distanceToLine = (point: Vec2, a: Vec2, b: Vec2): number => {
   return Math.abs(dy * point.x - dx * point.y + b.x * a.y - b.y * a.x) / denom
 }
 
-const subdivideCubic = (p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2) => {
-  const p01 = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 }
-  const p12 = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
-  const p23 = { x: (p2.x + p3.x) / 2, y: (p2.y + p3.y) / 2 }
-
-  const p012 = { x: (p01.x + p12.x) / 2, y: (p01.y + p12.y) / 2 }
-  const p123 = { x: (p12.x + p23.x) / 2, y: (p12.y + p23.y) / 2 }
-
-  const p0123 = { x: (p012.x + p123.x) / 2, y: (p012.y + p123.y) / 2 }
-
-  return {
-    left: [p0, p01, p012, p0123] as const,
-    right: [p0123, p123, p23, p3] as const
-  }
-}
-
 const collectCubicIntersections = (
   y: number,
   p0: Vec2,
@@ -355,7 +340,7 @@ const collectCubicIntersections = (
     return
   }
 
-  const { left, right } = subdivideCubic(p0, p1, p2, p3)
+  const { left, right } = subdivideCubicBezierAtHalf(p0, p1, p2, p3)
   collectCubicIntersections(
     y,
     left[0],

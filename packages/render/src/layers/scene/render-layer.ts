@@ -6,14 +6,12 @@ import {
 import {
   DataTypes,
   getElementGeometryLocalBounds,
+  isFiniteNumber,
   measureBrowserDragPhase
 } from '@asyra/utils'
 import renderStrategyRegistry from '../../registries/render-strategy'
 import { defaultStrategy } from '../../strategies/default-strategy'
 import { RenderContainer, RenderGraphics } from '../../types/render-object'
-
-const isFiniteNumber = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value)
 
 export class RenderLayer {
   private currentWorkspace: RenderContainer
@@ -36,7 +34,7 @@ export class RenderLayer {
   removeFromMap(elementId: string) {
     const instance = this.getElementById(elementId)
     if (!instance) {
-      return undefined
+      return
     }
     instance.eventMode = 'none'
     instance.removeAllListeners()

@@ -20,6 +20,15 @@ export interface ViewportState {
   position: PositionData
 }
 
+export const projectWorkspacePointToViewport = (
+  point: PositionData,
+  viewportPosition: PositionData,
+  viewportScale: number
+): PositionData => ({
+  x: point.x * viewportScale + viewportPosition.x,
+  y: point.y * viewportScale + viewportPosition.y
+})
+
 export const rectFromPoints = (
   start: PositionData,
   current: PositionData

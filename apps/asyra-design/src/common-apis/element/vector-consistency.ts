@@ -8,6 +8,7 @@ import type {
 } from '@asyra/core'
 import {
   VECTOR_TOKENS,
+  getVectorControlId as getControlId,
   isVectorAnchorNode as isAnchorNode,
   isVectorControlNode as isControlNode
 } from '@asyra/core'
@@ -19,7 +20,6 @@ import {
   connectAnchorEndpointsInTopology,
   connectAnchorPointsInTopology,
   getAnchorEndpointInTopology,
-  getControlId,
   isClosedVectorTopology,
   removeAnchorPointFromTopology,
   setAnchorHandleModeInTopology,

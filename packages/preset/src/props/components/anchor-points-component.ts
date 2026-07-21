@@ -6,9 +6,7 @@ import {
   isAnchorPointType,
   type AnchorPointType
 } from '@asyra/utils'
-
-const toNumber = (value: unknown, defaultValue = 0) =>
-  typeof value === 'number' ? value : defaultValue
+import { toNumberValue } from './number-value'
 
 const toPointType = (value: unknown): AnchorPointType =>
   isAnchorPointType(value) ? value : AnchorPointTypes.SHARP
@@ -36,8 +34,8 @@ export const anchorPointsPropertyComponentDefinition: PropertyComponentDefinitio
       mode: 'ids-or-objects',
       toChildData: (item) => ({
         id: typeof item.id === 'string' ? item.id : undefined,
-        x: toNumber(item.x),
-        y: toNumber(item.y),
+        x: toNumberValue(item.x),
+        y: toNumberValue(item.y),
         pointType: toPointType(item.type ?? item.pointType),
         isMove: typeof item.isMove === 'boolean' ? item.isMove : undefined,
         inHandle: toHandle(item.inHandle),
@@ -45,8 +43,8 @@ export const anchorPointsPropertyComponentDefinition: PropertyComponentDefinitio
       }),
       toValue: (child, childId) => ({
         id: childId,
-        x: toNumber(child.get('x')),
-        y: toNumber(child.get('y')),
+        x: toNumberValue(child.get('x')),
+        y: toNumberValue(child.get('y')),
         type: toPointType(child.get('pointType')),
         isMove:
           typeof child.get('isMove') === 'boolean'

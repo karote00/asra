@@ -12,7 +12,13 @@ import type {
   VectorPointNode,
   VectorSegment
 } from '@asyra/core'
-import { getElementGeometryWorldBounds, type PositionData } from '@asyra/utils'
+import {
+  getElementGeometryWorldBounds,
+  projectWorkspacePointToViewport,
+  transformGeometryPoint,
+  type GeometryTransformMatrix,
+  type PositionData
+} from '@asyra/utils'
 import { SelectionChannels } from '../selection/channels'
 import type { PresetDependencies } from '../types'
 
@@ -28,18 +34,9 @@ interface LocalBounds {
   height: number
 }
 
-interface TransformMatrix {
-  a: number
-  b: number
-  c: number
-  d: number
-  tx: number
-  ty: number
-}
-
 interface RenderElementShape {
   getBounds: () => LocalBounds
-  worldTransform: TransformMatrix
+  worldTransform: GeometryTransformMatrix
 }
 
 interface ElementSelectionReader {
@@ -80,22 +77,12 @@ const getElementSelectionIds = (deps: SelectionOverlayRenderLayerDeps) => {
     : [...renderSelectionStore.elementSelection]
 }
 
-const transformPoint = (
-  matrix: TransformMatrix,
-  point: PositionData
-): PositionData => ({
-  x: matrix.a * point.x + matrix.c * point.y + matrix.tx,
-  y: matrix.b * point.x + matrix.d * point.y + matrix.ty
-})
-
 export const projectWorkspacePointToOverlayScreen = (
   point: PositionData,
   viewportPosition: PositionData,
   viewportScale: number
-): PositionData => ({
-  x: point.x * viewportScale + viewportPosition.x,
-  y: point.y * viewportScale + viewportPosition.y
-})
+): PositionData =>
+  projectWorkspacePointToViewport(point, viewportPosition, viewportScale)
 
 const getBoundsCorners = (
   element: RenderElementShape
@@ -162,14 +149,14 @@ const getElementType = (
 
 const drawRectGeometryOutline = (
   canvas: OverlayCanvas,
-  matrix: TransformMatrix,
+  matrix: GeometryTransformMatrix,
   width: number,
   height: number
 ) => {
-  const p0 = transformPoint(matrix, { x: 0, y: 0 })
-  const p1 = transformPoint(matrix, { x: width, y: 0 })
-  const p2 = transformPoint(matrix, { x: width, y: height })
-  const p3 = transformPoint(matrix, { x: 0, y: height })
+  const p0 = transformGeometryPoint(matrix, { x: 0, y: 0 })
+  const p1 = transformGeometryPoint(matrix, { x: width, y: 0 })
+  const p2 = transformGeometryPoint(matrix, { x: width, y: height })
+  const p3 = transformGeometryPoint(matrix, { x: 0, y: height })
 
   drawOutline(
     canvas,
@@ -181,7 +168,7 @@ const drawRectGeometryOutline = (
 
 const drawOvalGeometryOutline = (
   canvas: OverlayCanvas,
-  matrix: TransformMatrix,
+  matrix: GeometryTransformMatrix,
   width: number,
   height: number
 ) => {
@@ -199,7 +186,7 @@ const drawOvalGeometryOutline = (
       x: center.x + Math.cos(t) * radiusX,
       y: center.y + Math.sin(t) * radiusY
     }
-    const worldPoint = transformPoint(matrix, localPoint)
+    const worldPoint = transformGeometryPoint(matrix, localPoint)
 
     if (!firstPoint) {
       firstPoint = worldPoint

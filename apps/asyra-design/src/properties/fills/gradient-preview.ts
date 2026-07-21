@@ -1,8 +1,10 @@
-import { FillGradientTypes, type FillGradientData } from '@asyra/utils'
+import {
+  FillGradientTypes,
+  clampUnit,
+  type FillGradientData
+} from '@asyra/utils'
 import { toCssColorWithOpacity } from './color-format'
 import { sortGradientStopsForPreview } from './gradient-stops'
-
-const clampUnit = (value: number) => Math.max(0, Math.min(1, value))
 
 export const toGradientPreviewCss = (gradient: FillGradientData): string => {
   const stops = sortGradientStopsForPreview(gradient.gradientStops)

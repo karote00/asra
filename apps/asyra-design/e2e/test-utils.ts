@@ -278,6 +278,52 @@ export async function dragSelectedElementBy(
   await page.mouse.up()
 }
 
+export const getTransactionSnapshot = async (page: Page) =>
+  page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const transact = core?.deps?.factory?.transact
+    const undoStack = transact?.undoStack ?? []
+
+    return {
+      undoCount: undoStack.length,
+      isTransacting: transact?.isTransacting ?? 0
+    }
+  })
+
+export const setSelectedGradient = async (
+  page: Page,
+  gradient: unknown
+): Promise<void> => {
+  await page.evaluate((nextGradient) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+    if (!selectedId) {
+      return
+    }
+
+    const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+    const computed = element?.getAllComputedData?.() ?? {}
+    const fillId = computed?.fills?.[0]?.id
+    if (!fillId || !nextGradient) {
+      return
+    }
+
+    core.updatePropertyById(
+      fillId,
+      'gradient',
+      nextGradient,
+      {
+        ownerElementId: selectedId,
+        ownerPropertyName: 'fills'
+      },
+      { undoable: false }
+    )
+    core.commitPropertyChanges({ undoable: false })
+  }, gradient)
+}
+
 /**
  * Perform an Undo operation
  */

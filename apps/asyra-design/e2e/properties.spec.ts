@@ -6,6 +6,7 @@ import {
   createVectorPath,
   clickCanvas,
   getPropertiesPanel,
+  getTransactionSnapshot,
   getContentsPanel,
   undo,
   redo
@@ -141,18 +142,6 @@ test.describe('Property Management', () => {
       },
       { strokePatch, strokeIndex }
     )
-
-  const getTransactionSnapshot = async (page: Page) =>
-    page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      const transact = core?.deps?.factory?.transact
-      const undoStack = transact?.undoStack ?? []
-      return {
-        undoCount: undoStack.length,
-        isTransacting: transact?.isTransacting ?? 0
-      }
-    })
 
   test.beforeEach(async ({ page }) => {
     await page.goto('/')

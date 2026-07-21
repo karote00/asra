@@ -194,6 +194,8 @@ export {
   isVectorAnchorNode,
   isVectorControlNode,
   isVectorHandleMode,
+  getVectorControlId,
+  getVectorPointTargetPosition,
   sortVectorItemsById,
   getVectorNetworkAnchorHandleRefs
 } from './types/vector'

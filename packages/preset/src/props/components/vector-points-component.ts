@@ -6,11 +6,9 @@ import {
 import type { VectorControlRole, VectorPointNode } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
 import { createChildrenMapPropertyComponentDefinition } from './children-map-property-component'
+import { toNumberValue } from './number-value'
 
 type VectorPointKind = VectorPointNode['kind']
-
-const toNumber = (value: unknown, defaultValue = 0) =>
-  typeof value === 'number' ? value : defaultValue
 
 const toAnchorType = (value: unknown): 'smooth' | 'sharp' =>
   value === 'smooth' ? 'smooth' : 'sharp'
@@ -53,8 +51,8 @@ export const vectorPointsPropertyComponentDefinition =
       if (kind === VECTOR_TOKENS.POINT.KIND.CONTROL) {
         return {
           kind,
-          x: toNumber(item.x),
-          y: toNumber(item.y),
+          x: toNumberValue(item.x),
+          y: toNumberValue(item.y),
           controlForId: toStringOrUndefined(item.controlForId),
           controlRole: toControlRole(item.controlRole)
         }
@@ -62,16 +60,16 @@ export const vectorPointsPropertyComponentDefinition =
 
       return {
         kind,
-        x: toNumber(item.x),
-        y: toNumber(item.y),
+        x: toNumberValue(item.x),
+        y: toNumberValue(item.y),
         anchorType: toAnchorType(item.anchorType),
         handleMode: toHandleMode(item.handleMode)
       }
     },
     toValue: (child, childId) => {
       const kind = toPointKind(child.get('kind'))
-      const x = toNumber(child.get('x'))
-      const y = toNumber(child.get('y'))
+      const x = toNumberValue(child.get('x'))
+      const y = toNumberValue(child.get('y'))
 
       if (kind === VECTOR_TOKENS.POINT.KIND.CONTROL) {
         return {

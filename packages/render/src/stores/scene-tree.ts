@@ -6,7 +6,12 @@ import type {
   SceneTreeDataOwner,
   WorkspaceRawData
 } from '@asyra/utils'
-import { EntityTypes, isRecord, measureBrowserDragPhase } from '@asyra/utils'
+import {
+  EntityTypes,
+  emitStrokePipelineCounter,
+  isRecord,
+  measureBrowserDragPhase
+} from '@asyra/utils'
 import sceneTree from '@asyra/scene-tree'
 import { RenderElementData } from '../types'
 
@@ -191,17 +196,6 @@ const isDataEqual = (
     (key) =>
       hasOwn(right, key) && isDataEqual(left[key], right[key], comparedPairs)
   )
-}
-
-const emitStrokePipelineCounter = (counterName: string, value = 1) => {
-  ;(
-    globalThis as typeof globalThis & {
-      __asyraStrokePipelineCounterSink?: (
-        counterName: string,
-        value: number
-      ) => void
-    }
-  ).__asyraStrokePipelineCounterSink?.(counterName, value)
 }
 
 class ComputedDataMirror {

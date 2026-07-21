@@ -15,14 +15,13 @@ import {
   StrokeStyles,
   createDefaultFill,
   createDefaultStroke,
+  isFiniteNumber,
   Unit
 } from '@asyra/utils'
 import type { PresetCoreAPIs } from '../types'
 import { PRESET_REGISTRATION } from '../registration'
 
 const isUnit = (value: unknown) => value === Unit.PX || value === Unit.PERCENT
-const isFiniteNumber = (value: unknown) =>
-  typeof value === 'number' && Number.isFinite(value)
 const isStringArray = (value: unknown) =>
   Array.isArray(value) && value.every((item) => typeof item === 'string')
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>

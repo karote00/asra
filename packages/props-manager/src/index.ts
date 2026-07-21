@@ -5,6 +5,7 @@ import stateRegistry from './registries/state'
 import {
   propertyComponentRegistry,
   registerPropertyComponent,
+  clonePropertyComponentConfigRegistration,
   getPropertyComponent,
   getPropertyComponentConfigDefinition,
   unregisterPropertyComponent
@@ -24,6 +25,7 @@ export {
   stateRegistry,
   propertyComponentRegistry,
   registerPropertyComponent,
+  clonePropertyComponentConfigRegistration,
   getPropertyComponent,
   getPropertyComponentConfigDefinition,
   unregisterPropertyComponent,
