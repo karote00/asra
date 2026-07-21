@@ -60,7 +60,7 @@
         'packages/core/src/index.ts',
         'apps/asyra-design/src/common-apis/transaction.ts',
         'apps/asyra-design/src/common-apis/strokes.ts',
-        'apps/asyra-design/src/common-apis/element/index.ts',
+        'apps/asyra-design/src/common-apis/element/apis.ts',
         'apps/asyra-design/src/common-apis/element/change-computed-data.ts',
         'apps/asyra-design/src/common-apis/element/vector-apis.ts',
         'apps/asyra-design/src/properties/vector-point.tsx',

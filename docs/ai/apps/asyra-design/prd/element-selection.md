@@ -46,4 +46,4 @@ Users need predictable single-selection behavior from both canvas and layer/cont
 - `apps/asyra-design/src/features/selection/feature.ts`
 - `apps/asyra-design/src/features/hover-element/index.ts`
 - `apps/asyra-design/src/common-apis/selection.ts`
-- `apps/asyra-design/src/common-apis/element/index.ts`
+- `apps/asyra-design/src/common-apis/element/apis.ts`

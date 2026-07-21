@@ -94,7 +94,7 @@ System properties:
 ## References
 
 - `apps/asyra-design/src/features/pen-tool/feature.ts`
-- `apps/asyra-design/src/common-apis/element/index.ts`
+- `apps/asyra-design/src/common-apis/element/apis.ts`
 - `apps/asyra-design/src/common-apis/system-context.ts`
 - `apps/asyra-design/src/properties/vector-point.tsx`
 - `apps/asyra-design/e2e/pen-tool.spec.ts`
