@@ -1,8 +1,7 @@
 import {
   createOverlayLayerRegistration,
   type OverlayCanvas,
-  type RegisterRenderLayerOptions,
-  type RenderLayerRegistration
+  type RegisterRenderLayer
 } from '@asyra/core'
 import { rectFromPoints, type PositionData, type Rect } from '@asyra/utils'
 import type { AreaSelectionState } from '../common-apis/system-context'
@@ -15,11 +14,6 @@ const AREA_SELECTION_FILL_ALPHA = 0.3
 interface SystemContextLike {
   getManagedProperty: <T>(key: string) => T | undefined
 }
-
-type RegisterRenderLayer = (
-  registration: RenderLayerRegistration,
-  options?: RegisterRenderLayerOptions
-) => void
 
 const getRectPoints = (
   rect: Rect

@@ -1,8 +1,7 @@
 import {
   createOverlayLayerRegistration,
   type OverlayCanvas,
-  type RegisterRenderLayerOptions,
-  type RenderLayerRegistration
+  type RegisterRenderLayer
 } from '@asyra/core'
 import { parseColor, rgbaToColorInt, type PositionData } from '@asyra/utils'
 import { fillApis, type GradientHandleIndex } from '../common-apis/fills'
@@ -35,11 +34,6 @@ const STOP_OFFSET_FROM_LINE = STOP_TRIANGLE_HEIGHT + 2
 interface SystemContextLike {
   getManagedProperty: <T>(key: string) => T | undefined
 }
-
-type RegisterRenderLayer = (
-  registration: RenderLayerRegistration,
-  options?: RegisterRenderLayerOptions
-) => void
 
 const isHandleActive = (
   handleState: GradientHandleState | null,

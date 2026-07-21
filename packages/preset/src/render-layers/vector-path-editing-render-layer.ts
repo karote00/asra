@@ -9,8 +9,10 @@ import {
   type OverlayStrokeStyle
 } from '@asyra/core'
 import type {
-  RegisterRenderLayerOptions,
-  RenderLayerRegistration,
+  HoveredVectorSegmentInsertPointState,
+  RegisterRenderLayer,
+  SelectedVectorPointState,
+  SelectedVectorSegmentState,
   VectorNetwork,
   VectorPointTarget,
   VectorPointNode,
@@ -116,27 +118,6 @@ interface VectorComputedData {
   networks?: Record<string, VectorNetwork>
 }
 
-interface SelectedVectorPointState {
-  elementId: string
-  pointId: string
-  index: number
-  target: VectorPointTarget
-  x: number
-  y: number
-}
-
-interface SelectedVectorSegmentState {
-  elementId: string
-  segmentId: string
-}
-
-interface HoveredVectorSegmentInsertPointState {
-  elementId: string
-  segmentId: string
-  x: number
-  y: number
-}
-
 interface SelectedHandleAnchorRef {
   pointId: string
   index?: number | null
@@ -149,11 +130,6 @@ const PenPreviewMode = {
 } as const
 
 type PenPreviewMode = (typeof PenPreviewMode)[keyof typeof PenPreviewMode]
-
-type RegisterRenderLayer = (
-  registration: RenderLayerRegistration,
-  options?: RegisterRenderLayerOptions
-) => void
 
 interface VectorPointSelectionReader {
   getSelectedIds(): Set<string>

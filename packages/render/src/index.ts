@@ -43,6 +43,7 @@ export type {
   RenderStrategy,
   RenderStrategyGraphic
 } from './types/render-strategy'
+export type { RenderLayerRegistration } from './types/render-layer'
 export type {
   RenderApplication,
   RenderEngineProviderCleanup,

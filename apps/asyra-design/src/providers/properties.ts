@@ -4,7 +4,10 @@ import {
   type StrokeRowAttrs
 } from '@asyra/utils'
 import { useProperty } from '../hooks'
-import type { SelectedVectorPointState } from '../common-apis/system-context'
+import type {
+  SelectedVectorPointState,
+  SelectedVectorSegmentState
+} from '../common-apis/system-context'
 
 type MixedNumber = number | typeof MIXED_STRING
 type MixedFills = FillRowAttrs[] | typeof MIXED_STRING
@@ -52,11 +55,6 @@ export const useVectorPointSelection = (): Set<string> =>
 
 export const useVectorSegmentSelection = (): Set<string> =>
   useProperty<Set<string>>('vectorSegmentSelection')
-
-interface SelectedVectorSegmentState extends Record<string, unknown> {
-  elementId: string
-  segmentId: string
-}
 
 export const useSelectedVectorPoint = (): SelectedVectorPointState | null =>
   useProperty<SelectedVectorPointState | null>('selectedVectorPoint')

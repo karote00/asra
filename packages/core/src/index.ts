@@ -222,7 +222,8 @@ export type {
 } from './types/vector'
 export type {
   RenderLayerRegistration,
-  RegisterRenderLayerOptions
+  RegisterRenderLayerOptions,
+  RegisterRenderLayer
 } from './types/render'
 export type {
   LoadDiagnosticsHook,

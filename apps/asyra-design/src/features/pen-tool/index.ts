@@ -35,9 +35,9 @@ import {
   createPathEditingVectorOperationRequest,
   createStructuralVectorOperationPatchIntent,
   type PointHandleComputedPatchIntent,
-  type PathEditingVectorOperationRequest,
-  type StructuralVectorOperationPatchIntent
+  type PathEditingVectorOperationRequest
 } from '../path-editing-intents'
+import type { StructuralVectorOperationPatchIntent } from '../../common-apis/element/vector-operation-intent'
 
 interface PenState extends Record<string, unknown> {
   elementId: string

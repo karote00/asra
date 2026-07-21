@@ -1,17 +1,17 @@
-import { VECTOR_TOKENS, type VectorPointTarget } from '@asyra/core'
+import {
+  VECTOR_TOKENS,
+  type SelectedVectorSegmentState,
+  type VectorSelectionRef
+} from '@asyra/core'
 
 const SELECTION_ID_SEPARATOR = ':'
 
-export interface VectorPointSelectionRef {
-  elementId: string
-  pointId: string
-  target: VectorPointTarget
-}
+export type VectorPointSelectionRef = VectorSelectionRef
 
-export interface VectorSegmentSelectionRef {
-  elementId: string
-  segmentId: string
-}
+export type VectorSegmentSelectionRef = Pick<
+  SelectedVectorSegmentState,
+  'elementId' | 'segmentId'
+>
 
 const encodeSelectionToken = (value: string): string =>
   encodeURIComponent(value)
@@ -24,7 +24,9 @@ const decodeSelectionToken = (value: string): string => {
   }
 }
 
-const isVectorPointTarget = (value: string): value is VectorPointTarget =>
+const isVectorPointTarget = (
+  value: string
+): value is VectorSelectionRef['target'] =>
   value === VECTOR_TOKENS.POINT.TARGET.ANCHOR ||
   value === VECTOR_TOKENS.POINT.TARGET.IN_HANDLE ||
   value === VECTOR_TOKENS.POINT.TARGET.OUT_HANDLE

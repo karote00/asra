@@ -6,8 +6,7 @@ import {
   type OverlayCanvas
 } from '@asyra/core'
 import type {
-  RegisterRenderLayerOptions,
-  RenderLayerRegistration,
+  RegisterRenderLayer,
   VectorNetwork,
   VectorPointNode,
   VectorSegment
@@ -53,11 +52,6 @@ interface VectorComputedData {
   segments?: Record<string, VectorSegment>
   networks?: Record<string, VectorNetwork>
 }
-
-type RegisterRenderLayer = (
-  registration: RenderLayerRegistration,
-  options?: RegisterRenderLayerOptions
-) => void
 
 interface SelectionOverlayRenderLayerDeps
   extends Pick<PresetDependencies, 'render' | 'sceneTree' | 'systemContext'> {

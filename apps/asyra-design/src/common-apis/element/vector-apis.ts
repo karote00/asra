@@ -64,6 +64,11 @@ import type {
 } from './types'
 import { selectionApis } from '../selection'
 import { systemContextApis } from '../system-context'
+import type {
+  StructuralVectorChangedRecord,
+  StructuralVectorOperation,
+  StructuralVectorOperationPatchIntent
+} from './vector-operation-intent'
 
 const DEFAULT_VECTOR_STYLE: VectorPathStyle = {
   closed: false,
@@ -149,35 +154,8 @@ type VectorTopologyOperation =
   | SetHandlesOperation
   | RemoveLastSinglePointSubpathOperation
 
-type CommonApiStructuralOperation =
-  | 'append-anchor'
-  | 'remove-anchor'
-  | 'split-segment'
-  | 'connect-anchors'
-  | 'close-subpath'
-  | 'set-anchor-type'
-  | 'set-handle-mode'
-  | 'update-handle-position'
-
-interface CommonApiVectorOperationIntent {
-  kind: 'operation-scoped-topology-patch-intent'
-  routeId: 'structural-vector-operation'
-  ownerStage: 'Interaction'
-  operation: CommonApiStructuralOperation
-  elementId: string
-  patch: {
-    changedRecords: string[]
-    undoable: boolean
-  }
-  inputEvidence: {
-    operation: CommonApiStructuralOperation
-    inputIds: string[]
-  }
-  outputRevision: string
-}
-
 interface VectorOperationIntentOptions {
-  structuralOperationIntent?: CommonApiVectorOperationIntent | null
+  structuralOperationIntent?: StructuralVectorOperationPatchIntent | null
 }
 
 type VectorPointMutationOptions = EVENT_OPTIONS &
@@ -202,7 +180,7 @@ export interface ValidatedVectorComputedPatchRequest {
   ownerStage: 'Model Commit'
   sourceRouteId: 'structural-vector-operation'
   elementId: string
-  operation: CommonApiStructuralOperation
+  operation: StructuralVectorOperation
   patch: ComputedDataPatch
   eventOptions: {
     undoable: boolean
@@ -210,7 +188,7 @@ export interface ValidatedVectorComputedPatchRequest {
   inputEvidence: {
     intentRevision: string
     inputIds: string[]
-    changedRecords: string[]
+    changedRecords: StructuralVectorChangedRecord[]
   }
   validation: {
     elementMatched: true
@@ -353,9 +331,9 @@ export const createValidatedVectorComputedPatchRequest = ({
   operation,
   patch
 }: {
-  intent: CommonApiVectorOperationIntent | null | undefined
+  intent: StructuralVectorOperationPatchIntent | null | undefined
   elementId: string
-  operation: CommonApiStructuralOperation
+  operation: StructuralVectorOperation
   patch: ComputedDataPatch
 }): ValidatedVectorComputedPatchRequest | null => {
   if (
@@ -401,7 +379,7 @@ export const createValidatedVectorComputedPatchRequest = ({
 
 const getStructuralOperationForTopologyOperation = (
   operation: VectorTopologyOperation
-): CommonApiStructuralOperation | null => {
+): StructuralVectorOperation | null => {
   if (operation.type === 'appendAnchor') {
     return 'append-anchor'
   }
@@ -438,9 +416,12 @@ const getValidatedVectorComputedPatchRequest = ({
   operation,
   patch
 }: {
-  structuralOperationIntent: CommonApiVectorOperationIntent | null | undefined
+  structuralOperationIntent:
+    | StructuralVectorOperationPatchIntent
+    | null
+    | undefined
   elementId: string
-  operation: CommonApiStructuralOperation | null
+  operation: StructuralVectorOperation | null
   patch: ComputedDataPatch
 }) => {
   if (!structuralOperationIntent) {
