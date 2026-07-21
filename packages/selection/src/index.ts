@@ -1,6 +1,7 @@
 import SelectionManager from './selection-manager'
 import BaseSelection from './selections/base-selection'
-import selectionManager from './selection-manager-instance'
+
+const selectionManager = new SelectionManager()
 
 export { SelectionManager, BaseSelection }
 export type { SelectionDefinition } from './selections/base-selection'
