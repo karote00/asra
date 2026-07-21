@@ -91,6 +91,12 @@ Use this file to route a new framework request to the right docs first.
   - `rules/pre-release-legacy-removal.md`
   - `decisions/releases/README.md`
 
+- repository-wide documentation contract, owner, or reality audit
+  - `design-principles/docs-as-contract.md`
+  - `docs/ai/workflows/docs-reality-check.md`
+  - `plans/project-wide-documentation-contract-audit-plan.md`
+  - affected framework/app source-of-truth documents
+
 - deprecated package behavior/removal timeline
   - `rules/deprecation-lifecycle.md`
   - deprecated package doc in `packages/*`

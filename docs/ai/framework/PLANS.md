@@ -53,6 +53,40 @@ and matching Inspector owner flow satisfy
 - Reference:
   `docs/ai/framework/plans/framework-release-readiness-and-closeout-plan.md`
 
+## Repository-Wide Maintenance Plans
+
+1. Project-wide documentation contract audit
+
+- Re-scan current framework, app, package, workflow, skill, plan, Inspector,
+  README, routing, and source-coverage documents by contract class.
+- The first pass is report-only. Owner-bounded repairs begin only after the
+  user reviews the findings and explicitly authorizes repair mode.
+- Reference:
+  `docs/ai/framework/plans/project-wide-documentation-contract-audit-plan.md`
+
+2. Project-wide duplicate contract and ownership consolidation
+
+- Find repeated declarations, predicates, validation decisions,
+  transformations, and misplaced responsibilities across framework packages,
+  Preset, apps, servers, tests, and shared infrastructure.
+- Classify semantic duplicates separately from intentional boundary-local
+  repetition, then execute owner-bounded consolidation only after the canonical
+  contract, dependency direction, compatibility impact, and required tests are
+  explicit.
+- Reference:
+  `docs/ai/framework/plans/project-wide-duplicate-contract-and-ownership-consolidation-plan.md`
+
+3. Project-wide code readability analysis and refactor
+
+- Scan filenames, type structures, control flow, naming, and module
+  responsibilities across framework packages, Preset, apps, servers, tests,
+  and shared infrastructure.
+- Analyze each candidate's semantics and owner before editing, then execute
+  clear owner-bounded refactors without treating line count, automated
+  complexity, or extraction volume as readability authorities.
+- Reference:
+  `docs/ai/framework/plans/project-wide-code-readability-analysis-and-refactor-plan.md`
+
 ## Post-Release Roadmap
 
 1. Official 2D/3D/hybrid preset profiles
