@@ -8,7 +8,7 @@ import propsManager, {
   type PropertyChildRelationDefinition,
   type PropertyComponentConfigRegistration,
   type PropertyComponentConstructor,
-  type RegisterPropertyComponentOptions,
+  type PropertyRegistrationOptions,
   type PropsManager
 } from '@asyra/props-manager'
 import {
@@ -21,13 +21,13 @@ import {
 export interface PropertyComponentConstructorDefinition {
   type: string
   constructor: PropertyComponentConstructor
-  options?: RegisterPropertyComponentOptions
+  options?: PropertyRegistrationOptions
   registration?: RegistrationDefinitionMetadata
 }
 
 export interface PropertyComponentConfigDefinition
   extends PropertyComponentConfigRegistration {
-  options?: RegisterPropertyComponentOptions
+  options?: PropertyRegistrationOptions
   registration?: RegistrationDefinitionMetadata
 }
 

@@ -5,7 +5,9 @@ import {
   clampUnit,
   parseColor,
   subdivideCubicBezierAtHalf,
-  type FillAttrs
+  type FillAttrs,
+  type PositionData,
+  type RGBAColor
 } from '@asyra/utils'
 import type { RenderFillStyle } from './gradient-fill'
 import { createRenderResourceStyle } from '../types/render-object'
@@ -38,17 +40,8 @@ export interface EvenOddFillResult {
   dispose: () => void
 }
 
-interface Vec2 {
-  x: number
-  y: number
-}
-
-interface RGBA {
-  r: number
-  g: number
-  b: number
-  a: number
-}
+type Vec2 = PositionData
+type RGBA = RGBAColor
 
 interface PreparedSegment {
   type: 'line' | 'cubicBezier'

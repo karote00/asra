@@ -1,4 +1,5 @@
 import type {
+  Bounds,
   PositionData,
   RenderInteractionCaptureMode,
   RenderPointerPayload
@@ -6,12 +7,7 @@ import type {
 
 export type RenderInteractionTargetSpace = 'canvas' | 'workspace'
 
-export interface RenderInteractionTargetBounds {
-  minX: number
-  minY: number
-  maxX: number
-  maxY: number
-}
+export type RenderInteractionTargetBounds = Bounds
 
 export interface RenderInteractionTarget {
   id: string

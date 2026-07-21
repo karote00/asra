@@ -6,7 +6,7 @@ import {
   setElementGeometryLocalBounds,
   subdivideCubicBezierAtHalf
 } from '@asyra/utils'
-import type { FillAttrs, StrokeAttrs } from '@asyra/utils'
+import type { FillAttrs, PositionData, StrokeAttrs } from '@asyra/utils'
 import core, {
   VECTOR_HANDLE_MODES,
   VECTOR_TOKENS,
@@ -410,10 +410,7 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
   }
 }
 
-interface Vec2 {
-  x: number
-  y: number
-}
+type Vec2 = PositionData
 
 interface FillFaceCache {
   faces: Vec2[][]

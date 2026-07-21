@@ -2,15 +2,11 @@ import {
   transformGeometryPoint,
   type GeometryTransformMatrix
 } from './geometry'
+import type { Rect } from './viewport'
 
 export type { GeometryTransformMatrix } from './geometry'
 
-export interface GeometryBounds {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+export type GeometryBounds = Rect
 
 export interface GeometryBoundsCarrier {
   __asyraGeometryLocalBounds?: GeometryBounds | null

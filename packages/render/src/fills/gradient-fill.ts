@@ -1,12 +1,10 @@
+import type { PositionData } from '@asyra/utils'
 import {
   createRenderResourceStyle,
   type RenderResourceStyle
 } from '../types/render-object'
 
-export interface RenderGradientPoint {
-  x: number
-  y: number
-}
+export type RenderGradientPoint = PositionData
 
 export interface RenderGradientColorStop {
   offset: number

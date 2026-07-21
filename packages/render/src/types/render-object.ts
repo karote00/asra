@@ -1,3 +1,4 @@
+import type { Rect } from '@asyra/utils'
 import type {
   RenderEngine,
   RenderEngineCommand,
@@ -13,12 +14,7 @@ import type {
   RenderEngineResourceHandle
 } from '@asyra/render-engine'
 
-export interface RenderBounds {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+export type RenderBounds = Rect
 
 export interface RenderResourceStyle {
   readonly __asyraRenderResourceDescriptor: RenderEngineResourceDescriptor

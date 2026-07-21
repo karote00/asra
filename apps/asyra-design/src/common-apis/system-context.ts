@@ -6,7 +6,6 @@
 
 import core, { systemContext } from '../contexts'
 import {
-  type VectorPointTarget as CoreVectorPointTarget,
   type SelectedVectorPointState as CoreSelectedVectorPointState,
   type VectorEditingContinuation as CoreVectorEditingContinuation,
   type SelectedVectorSegmentState as CoreSelectedVectorSegmentState,
@@ -15,7 +14,6 @@ import {
 import type { PositionData } from '@asyra/utils'
 import { selectionApis } from './selection'
 
-export type VectorPointTarget = CoreVectorPointTarget
 export type SelectedVectorPointState = CoreSelectedVectorPointState
 
 export type SelectedVectorSegmentState = CoreSelectedVectorSegmentState

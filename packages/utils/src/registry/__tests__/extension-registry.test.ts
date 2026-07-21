@@ -4,20 +4,20 @@ import {
   ExtensionContractError,
   ExtensionRegistry,
   type ExtensionCleanup,
-  type ExtensionOwnerMetadata,
   type ExtensionStrategy
 } from '../extension-registry'
+import type { RegistrationOwnerMetadata } from '../registration-owner'
 
 interface TestContext {
   events: string[]
 }
 
-const PRESET_OWNER: ExtensionOwnerMetadata = {
+const PRESET_OWNER: RegistrationOwnerMetadata = {
   packageName: '@asyra/preset',
   name: 'default preset'
 }
 
-const APP_OWNER: ExtensionOwnerMetadata = {
+const APP_OWNER: RegistrationOwnerMetadata = {
   packageName: '@asyra/test-app',
   name: 'test app'
 }

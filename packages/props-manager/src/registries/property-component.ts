@@ -1,6 +1,7 @@
 import { MapRegistry } from '@asyra/utils'
 import type { PropertyComponentConstructor } from '../components'
 import { clonePropertyDefinitionRecord } from './property-definition-value'
+import type { PropertyRegistrationOptions } from './registration-options'
 
 export interface PropertyChildRelationDefinition {
   key: string
@@ -26,10 +27,6 @@ export interface PropertyComponentConfigRegistration {
   children?: PropertyChildRelationDefinition
 }
 
-interface RegisterOptions {
-  duplicateErrorMessage?: string
-}
-
 class PropertyComponentRegistry {
   private registry = new MapRegistry<string, PropertyComponentConstructor>()
   private configDefinitions = new Map<
@@ -40,7 +37,7 @@ class PropertyComponentRegistry {
   register(
     type: string,
     component: PropertyComponentConstructor,
-    options: RegisterOptions = {},
+    options: PropertyRegistrationOptions = {},
     configDefinition?: PropertyComponentConfigRegistration
   ): void {
     if (!type) {
@@ -136,7 +133,7 @@ export const propertyComponentRegistry = {
 export const registerPropertyComponent = (
   type: string,
   component: PropertyComponentConstructor,
-  options?: RegisterOptions,
+  options?: PropertyRegistrationOptions,
   configDefinition?: PropertyComponentConfigRegistration
 ) =>
   propertyComponentRegistry.register(type, component, options, configDefinition)
@@ -161,7 +158,4 @@ export const restorePropertyComponentAfterFailedDeclarativeCommit = (
     configDefinition
   )
 
-export type {
-  PropertyComponentConstructor,
-  RegisterOptions as RegisterPropertyComponentOptions
-}
+export type { PropertyComponentConstructor }

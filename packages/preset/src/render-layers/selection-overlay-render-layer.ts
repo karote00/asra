@@ -16,7 +16,8 @@ import {
   projectWorkspacePointToViewport,
   transformGeometryPoint,
   type GeometryTransformMatrix,
-  type PositionData
+  type PositionData,
+  type Rect
 } from '@asyra/utils'
 import { SelectionChannels } from '../selection/channels'
 import type { PresetDependencies } from '../types'
@@ -26,12 +27,7 @@ const SELECTION_STROKE_COLOR = 0x157ae7
 export const SELECTION_OVERLAY_STROKE_WIDTH = 2
 export const SELECTION_OVERLAY_VECTOR_HOVER_STROKE_WIDTH = 2
 
-interface LocalBounds {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+type LocalBounds = Rect
 
 interface RenderElementShape {
   getBounds: () => LocalBounds

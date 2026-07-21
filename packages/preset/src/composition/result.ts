@@ -1,22 +1,11 @@
-import type {
-  PresetApplyResult,
-  PresetDefaultId,
-  PresetProfile
-} from '../types'
-
-export interface CreatePresetApplyResultInput {
-  readonly profile: PresetProfile
-  readonly presetEngineId: string | null
-  readonly selectedDefaults: readonly PresetDefaultId[]
-  readonly appliedDefaults: readonly PresetDefaultId[]
-}
+import type { PresetApplyResult } from '../types'
 
 export const createPresetApplyResult = ({
   profile,
   presetEngineId,
   selectedDefaults,
   appliedDefaults
-}: CreatePresetApplyResultInput): PresetApplyResult =>
+}: PresetApplyResult): PresetApplyResult =>
   Object.freeze({
     profile,
     presetEngineId,

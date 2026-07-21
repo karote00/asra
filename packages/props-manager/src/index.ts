@@ -40,8 +40,7 @@ export {
   getPropertySchema,
   unregisterPropertySchema
 } from './registries/property-schema'
-export type { RegisterPropertySchemaOptions } from './registries/property-schema'
-export type { RegisterPropertyComponentOptions } from './registries/property-component'
+export type { PropertyRegistrationOptions } from './registries/registration-options'
 export type {
   PropertyChildRelationDefinition,
   PropertyComponentConfigRegistration

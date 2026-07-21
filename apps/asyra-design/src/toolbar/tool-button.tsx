@@ -1,10 +1,8 @@
-import { type ComponentProps, useCallback } from 'react'
-import { Icon } from '@asyra/design-system'
+import { useCallback } from 'react'
+import { Icon, type IconName } from '@asyra/design-system'
 import { usePrimaryTool } from '../providers'
 import { resetData, switchPrimaryTool } from '../controllers/app'
 import { PrimaryToolType } from '../constants'
-
-type IconName = ComponentProps<typeof Icon>['name']
 
 const PRIMARY_TOOL_ICON_MAP: Record<string, IconName> = {
   [PrimaryToolType.SELECT]: 'Select',

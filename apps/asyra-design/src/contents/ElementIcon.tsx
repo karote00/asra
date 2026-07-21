@@ -1,9 +1,6 @@
-import type { ComponentProps } from 'react'
-import { Icon } from '@asyra/design-system'
+import { Icon, type IconName } from '@asyra/design-system'
 import { EntityTypes } from '@asyra/utils'
 import { VectorShapeIcon } from './VectorShapeIcon'
-
-type IconName = ComponentProps<typeof Icon>['name']
 
 const ELEMENT_ICON_MAP: Record<string, IconName> = {
   [EntityTypes.GROUP]: 'Group',

@@ -1,3 +1,5 @@
+import type { RegistrationOwnerMetadata } from './registration-owner'
+
 export const REGISTRATION_CONTRACT_ERROR_CODES = [
   'COMPOSITION_CLOSED',
   'REGISTRATION_NOT_FOUND',
@@ -20,11 +22,6 @@ export interface RegistrationRef {
 
 export const getRegistrationRefKey = (ref: RegistrationRef): string =>
   `${ref.kind}\u0000${ref.key}`
-
-export interface RegistrationOwnerMetadata {
-  packageName: string
-  name: string
-}
 
 export type RegistrationRelationUnregisterPolicy =
   | 'detach'

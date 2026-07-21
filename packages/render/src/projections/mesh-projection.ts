@@ -1,20 +1,16 @@
 import earcut from 'earcut'
-import { getPointDistanceSquared } from '@asyra/utils'
+import {
+  getPointDistanceSquared,
+  type Bounds,
+  type PositionData
+} from '@asyra/utils'
 import { RenderContainer, RenderMesh } from '../types/render-object'
 
-export interface GeometryPoint {
-  x: number
-  y: number
-}
+export type GeometryPoint = PositionData
 
 export interface GeometryModel {
   polygons: GeometryPoint[][]
-  bounds?: {
-    minX: number
-    minY: number
-    maxX: number
-    maxY: number
-  }
+  bounds?: Bounds
 }
 
 export interface MeshProjectionPaintSolid {
@@ -42,12 +38,7 @@ export interface ProjectionMeshData {
   vertices: Float32Array
   indices: Uint32Array
   uvs: Float32Array
-  bounds: {
-    minX: number
-    minY: number
-    maxX: number
-    maxY: number
-  }
+  bounds: Bounds
 }
 
 const EMPTY_BOUNDS = {

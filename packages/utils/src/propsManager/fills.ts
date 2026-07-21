@@ -1,4 +1,5 @@
 import type { BasePropertyAttrs } from './instanceTypes'
+import type { PositionData } from '../types'
 
 export const FillColorFormats = {
   HEX: 'hex',
@@ -36,10 +37,7 @@ export interface FillGradientStop {
   opacity: number
 }
 
-export interface FillGradientHandle {
-  x: number
-  y: number
-}
+export type FillGradientHandle = PositionData
 
 export interface FillGradientData {
   gradientType: FillGradientType | string
