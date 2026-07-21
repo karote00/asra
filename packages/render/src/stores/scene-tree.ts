@@ -6,7 +6,7 @@ import type {
   SceneTreeDataOwner,
   WorkspaceRawData
 } from '@asyra/utils'
-import { EntityTypes, measureBrowserDragPhase } from '@asyra/utils'
+import { EntityTypes, isRecord, measureBrowserDragPhase } from '@asyra/utils'
 import sceneTree from '@asyra/scene-tree'
 import { RenderElementData } from '../types'
 
@@ -40,9 +40,6 @@ interface RenderProjectionOutcome {
   status: RenderProjectionStatus
   elementId: string
 }
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
 
 const hasOwn = (record: object, key: PropertyKey) =>
   Object.prototype.hasOwnProperty.call(record, key)

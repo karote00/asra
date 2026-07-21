@@ -190,14 +190,22 @@ export {
   VECTOR_ANCHOR_ID_TYPE,
   VECTOR_TOPOLOGY_NETWORK_ID_TYPE,
   VECTOR_TOPOLOGY_SEGMENT_ID_TYPE,
-  VECTOR_TOPOLOGY_POINT_ID_TYPE
+  VECTOR_TOPOLOGY_POINT_ID_TYPE,
+  isVectorAnchorNode,
+  isVectorControlNode,
+  isVectorHandleMode,
+  sortVectorItemsById,
+  getVectorNetworkAnchorHandleRefs
 } from './types/vector'
 export type {
   VectorAnchorPoint,
+  VectorAnchorPointNode,
+  VectorAnchorHandleRefs,
   VectorAnchorType,
   VectorPathStyle,
   VectorHandleMode,
   VectorPointNode,
+  VectorControlPointNode,
   VectorPointTarget,
   VectorEndpointSide,
   VectorControlRole,

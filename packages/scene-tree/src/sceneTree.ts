@@ -38,6 +38,7 @@ import {
   stripNonRawFields
 } from './utils'
 import type Workspace from './components/workspace'
+import { setOwnEnumerableValue } from './own-values'
 
 type SceneTreeDataType = SceneTreeRawData
 
@@ -69,19 +70,6 @@ const hasOwnRecordValue = (
   value: Record<string, unknown>,
   key: string
 ): boolean => Object.prototype.hasOwnProperty.call(value, key)
-
-const setOwnEnumerableValue = (
-  value: object,
-  key: string,
-  nextValue: unknown
-): void => {
-  Object.defineProperty(value, key, {
-    configurable: true,
-    enumerable: true,
-    value: nextValue,
-    writable: true
-  })
-}
 
 const getComputedSnapshot = (
   element: ElementInstanceTypes

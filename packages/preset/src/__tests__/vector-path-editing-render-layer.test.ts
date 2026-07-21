@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
+import { getVectorNetworkAnchorHandleRefs } from '@asyra/core'
 import {
   VECTOR_EDITING_HOVER_SEGMENT_STROKE,
   VECTOR_EDITING_SELECTED_SEGMENT_STROKE,
-  getNetworkAnchorHandleRefs,
   getVisibleHandleAnchorIds,
   resolveOverlayHandlePosition
 } from '../render-layers/vector-path-editing-render-layer'
@@ -101,7 +101,7 @@ describe('vector path editing handle visibility', () => {
   })
 
   it('resolves closed first-anchor handles from segment references instead of control id naming', () => {
-    const refs = getNetworkAnchorHandleRefs(
+    const refs = getVectorNetworkAnchorHandleRefs(
       {
         pointIds: ['first', 'middle', 'last'],
         segmentIds: ['s0', 's1', 's2']
@@ -138,7 +138,7 @@ describe('vector path editing handle visibility', () => {
   })
 
   it('does not wrap open endpoint handle ownership across subpath ends', () => {
-    const refs = getNetworkAnchorHandleRefs(
+    const refs = getVectorNetworkAnchorHandleRefs(
       {
         pointIds: ['first', 'last'],
         segmentIds: ['s0']

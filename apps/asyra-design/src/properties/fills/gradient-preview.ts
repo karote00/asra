@@ -1,15 +1,11 @@
 import { FillGradientTypes, type FillGradientData } from '@asyra/utils'
 import { toCssColorWithOpacity } from './color-format'
+import { sortGradientStopsForPreview } from './gradient-stops'
 
 const clampUnit = (value: number) => Math.max(0, Math.min(1, value))
 
-const sortStopsForPreview = (stops: FillGradientData['gradientStops']) =>
-  stops
-    .map((stop, index) => ({ stop, index }))
-    .sort((a, b) => a.stop.position - b.stop.position)
-
 export const toGradientPreviewCss = (gradient: FillGradientData): string => {
-  const stops = sortStopsForPreview(gradient.gradientStops)
+  const stops = sortGradientStopsForPreview(gradient.gradientStops)
     .map(
       ({ stop }) =>
         `${toCssColorWithOpacity(stop.color, stop.opacity)} ${Math.round(

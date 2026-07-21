@@ -2,19 +2,22 @@ import {
   PropertyTypes,
   StrokeJoinTypes,
   createDefaultStroke,
+  isRecord,
   setElementGeometryLocalBounds
 } from '@asyra/utils'
 import type { FillAttrs, StrokeAttrs } from '@asyra/utils'
 import core, {
   VECTOR_HANDLE_MODES,
   VECTOR_TOKENS,
+  isVectorAnchorNode as isAnchorNode,
+  isVectorHandleMode,
+  sortVectorItemsById,
   type EvenOddSegment,
   type EvenOddShape
 } from '@asyra/core'
 import type {
   ComponentDefinition,
   RenderStrategy,
-  VectorHandleMode,
   VectorNetwork,
   VectorPointNode,
   VectorSegment
@@ -57,9 +60,6 @@ interface VectorComputedData {
   strokes?: StrokeAttrs[]
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  !!value && typeof value === 'object' && !Array.isArray(value)
-
 const toFiniteNumber = (value: unknown, defaultValue = 0) =>
   typeof value === 'number' && Number.isFinite(value) ? value : defaultValue
 
@@ -67,11 +67,6 @@ const toStringArray = (value: unknown): string[] =>
   Array.isArray(value)
     ? value.filter((entry): entry is string => typeof entry === 'string')
     : []
-
-const isVectorHandleMode = (value: unknown): value is VectorHandleMode =>
-  value === VECTOR_HANDLE_MODES.NONE ||
-  value === VECTOR_HANDLE_MODES.MIRROR_ANGLE ||
-  value === VECTOR_HANDLE_MODES.MIRROR_ANGLE_LENGTH
 
 const normalizeVectorPointNodeMap = (
   value: unknown
@@ -414,26 +409,6 @@ const normalizeVectorRenderData = (data: unknown): VectorComputedData => {
   }
 }
 
-const getNumericSuffix = (value: string) => {
-  const match = value.match(/[-_](\d+)$/)
-  if (!match) {
-    return Number.NaN
-  }
-
-  return Number.parseInt(match[1], 10)
-}
-
-const sortByStableId = <T extends { id: string }>(items: T[]): T[] =>
-  [...items].sort((a, b) => {
-    const aRank = getNumericSuffix(a.id)
-    const bRank = getNumericSuffix(b.id)
-    if (!Number.isNaN(aRank) && !Number.isNaN(bRank)) {
-      return aRank - bRank
-    }
-
-    return a.id.localeCompare(b.id)
-  })
-
 interface Vec2 {
   x: number
   y: number
@@ -455,11 +430,6 @@ interface EvenOddFillCache {
   segments?: Record<string, VectorSegment>
   networks?: Record<string, VectorNetwork>
 }
-
-const isAnchorNode = (
-  node: VectorPointNode | undefined
-): node is VectorPointNode & { kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR } =>
-  !!node && node.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
 
 const getAnchorNode = (
   points: Record<string, VectorPointNode>,
@@ -1440,7 +1410,7 @@ const renderVectorGraphic = (
     networks
   } = renderData
   const points = toLocalPointNodeMap(workspacePoints, { x, y })
-  const orderedNetworks = sortByStableId(Object.values(networks))
+  const orderedNetworks = sortVectorItemsById(Object.values(networks))
 
   graphic.x = x
   graphic.y = y

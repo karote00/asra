@@ -1,5 +1,6 @@
 import propsManager, {
   createPropertyComponentFromConfig as createPropertyComponentFromConfigOwner,
+  clonePropertyDefinitionRecord,
   getPropertyComponent,
   getPropertyComponentConfigDefinition,
   propertyComponentRegistry,
@@ -10,14 +11,12 @@ import propsManager, {
   type RegisterPropertyComponentOptions,
   type PropsManager
 } from '@asyra/props-manager'
-import type {
-  RegistrationContractErrorCode,
-  RegistrationDefinitionMetadata,
-  RegistrationGraphOperation,
-  RegistrationRelationMetadata,
-  RelationOperationSuccess
+import {
+  type RegistrationDefinitionMetadata,
+  type RegistrationRelationMetadata,
+  type RelationOperationSuccess
 } from '@asyra/utils'
-import { RegistrationRelationError } from '@asyra/utils'
+import { failRegistrationRelation as relationFailure } from './registration-relation-failure'
 
 export interface PropertyComponentConstructorDefinition {
   type: string
@@ -42,35 +41,11 @@ export interface PropertyChildRelationMetadata
   parentPropertyType: string
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
-const cloneValue = (value: unknown): unknown => {
-  if (Array.isArray(value)) {
-    return value.map((item) => cloneValue(item))
-  }
-
-  if (isRecord(value)) {
-    return Object.entries(value).reduce<Record<string, unknown>>(
-      (acc, [key, item]) => {
-        acc[key] = cloneValue(item)
-        return acc
-      },
-      {}
-    )
-  }
-
-  return value
-}
-
-const cloneRecord = (value: Record<string, unknown>) =>
-  cloneValue(value) as Record<string, unknown>
-
 const cloneConfigDefinition = (
   definition: PropertyComponentConfigRegistration
 ): PropertyComponentConfigDefinition => ({
   ...definition,
-  defaults: definition.defaults ? cloneRecord(definition.defaults) : undefined,
+  defaults: clonePropertyDefinitionRecord(definition.defaults),
   persistKeys: definition.persistKeys ? [...definition.persistKeys] : undefined,
   valueKeys: definition.valueKeys ? [...definition.valueKeys] : undefined,
   unitKeys: definition.unitKeys ? [...definition.unitKeys] : undefined,
@@ -81,21 +56,6 @@ const cloneConfigDefinition = (
 })
 
 const createPropertyComponentFromConfig = createPropertyComponentFromConfigOwner
-
-const relationFailure = (
-  code: RegistrationContractErrorCode,
-  operation: RegistrationGraphOperation,
-  message: string,
-  details: Partial<RegistrationRelationError['result']> = {}
-): never => {
-  throw new RegistrationRelationError({
-    ok: false,
-    code,
-    operation,
-    message,
-    ...details
-  })
-}
 
 const assertPropertyRelationMutationAllowed = (
   parentPropertyType: string,

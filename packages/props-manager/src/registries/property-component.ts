@@ -1,12 +1,6 @@
-import type {
-  PropertyComponentInstanceTypes,
-  PropertyComponentRawData
-} from '@asyra/utils'
 import { MapRegistry } from '@asyra/utils'
-
-type PropertyComponentConstructor = new (
-  data: Partial<PropertyComponentRawData>
-) => PropertyComponentInstanceTypes
+import type { PropertyComponentConstructor } from '../components'
+import { clonePropertyDefinitionRecord } from './property-definition-value'
 
 export interface PropertyChildRelationDefinition {
   key: string
@@ -98,34 +92,11 @@ class PropertyComponentRegistry {
   }
 }
 
-const cloneValue = (value: unknown): unknown => {
-  if (Array.isArray(value)) {
-    return value.map((item) => cloneValue(item))
-  }
-
-  if (value && typeof value === 'object') {
-    return Object.entries(value).reduce<Record<string, unknown>>(
-      (cloned, [key, item]) => {
-        cloned[key] = cloneValue(item)
-        return cloned
-      },
-      {}
-    )
-  }
-
-  return value
-}
-
-const cloneRecord = (
-  value: Record<string, unknown> | undefined
-): Record<string, unknown> | undefined =>
-  value ? (cloneValue(value) as Record<string, unknown>) : undefined
-
 const cloneConfigDefinition = (
   definition: PropertyComponentConfigRegistration
 ): PropertyComponentConfigRegistration => ({
   ...definition,
-  defaults: cloneRecord(definition.defaults),
+  defaults: clonePropertyDefinitionRecord(definition.defaults),
   persistKeys: definition.persistKeys ? [...definition.persistKeys] : undefined,
   valueKeys: definition.valueKeys ? [...definition.valueKeys] : undefined,
   unitKeys: definition.unitKeys ? [...definition.unitKeys] : undefined,

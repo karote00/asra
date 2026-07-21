@@ -6,7 +6,11 @@ import type {
   VectorSegment,
   VectorTopology
 } from '@asyra/core'
-import { VECTOR_TOKENS } from '@asyra/core'
+import {
+  VECTOR_TOKENS,
+  isVectorAnchorNode as isAnchorNode,
+  isVectorControlNode as isControlNode
+} from '@asyra/core'
 import type { DataTypes, PositionData } from '@asyra/utils'
 import { VectorHandleModes, type VectorHandleMode } from '../../constants'
 import type { VectorPointTarget } from './types'
@@ -39,17 +43,6 @@ interface AnchorHandleSnapshot {
   inHandle: PositionData | null
   outHandle: PositionData | null
 }
-
-const isAnchorNode = (
-  node: VectorPointNode | undefined
-): node is VectorPointNode & { kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR } =>
-  !!node && node.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
-
-const isControlNode = (
-  node: VectorPointNode | undefined
-): node is VectorPointNode & {
-  kind: typeof VECTOR_TOKENS.POINT.KIND.CONTROL
-} => !!node && node.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
 
 const getAnchorHandleSnapshot = (
   topology: VectorTopology,

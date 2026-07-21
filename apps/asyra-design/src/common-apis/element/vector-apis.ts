@@ -2,10 +2,14 @@ import type {
   VectorAnchorPoint,
   VectorEndpointSide,
   VectorPathStyle,
-  VectorTopology,
-  VectorPointNode
+  VectorTopology
 } from '@asyra/core'
-import { VECTOR_TOKENS, runTransaction } from '@asyra/core'
+import {
+  VECTOR_TOKENS,
+  isVectorAnchorNode as isAnchorNode,
+  isVectorControlNode as isControlNode,
+  runTransaction
+} from '@asyra/core'
 import type {
   ComputedDataPatch,
   DataTypes,
@@ -662,18 +666,6 @@ const getVectorTopologyWorkspace = (elementId: string): VectorTopology => {
 
 const measureVectorTopologyUpdate = <T>(operationName: string, run: () => T) =>
   measureBrowserDragPhase(`vector-api:topology-update:${operationName}`, run)
-
-const isAnchorNode = (
-  point: VectorPointNode | undefined
-): point is VectorPointNode & {
-  kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR
-} => !!point && point.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
-
-const isControlNode = (
-  point: VectorPointNode | undefined
-): point is VectorPointNode & {
-  kind: typeof VECTOR_TOKENS.POINT.KIND.CONTROL
-} => !!point && point.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
 
 const hasHandleTarget = (
   topology: VectorTopology,

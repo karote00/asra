@@ -13,17 +13,9 @@ import type {
   CanvasPipelineSnapshot,
   CanvasPipelineTraceEntry
 } from './types'
+import { freezeEvidence as freezeDeep } from '../diagnostics/freeze-evidence'
 
 const DEFAULT_TRACE_CAPACITY = 256
-
-const freezeDeep = <T>(value: T): T => {
-  if (!value || typeof value !== 'object' || Object.isFrozen(value)) {
-    return value
-  }
-  Object.freeze(value)
-  Object.values(value).forEach(freezeDeep)
-  return value
-}
 
 const stableUnique = (ids: readonly string[]): string[] => {
   const seen = new Set<string>()

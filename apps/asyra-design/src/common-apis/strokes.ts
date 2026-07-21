@@ -1,6 +1,7 @@
 import {
   type DataTypes,
   PropertyTypes,
+  isRecord,
   type EVENT_OPTIONS,
   type StrokeAttrs
 } from '@asyra/utils'
@@ -52,9 +53,6 @@ const getChangedPatchEntries = (
 
 const hasGeometryAffectingStrokePatch = (patch: StrokePatch) =>
   STROKE_PATCH_KEYS.some((key) => key !== 'fill' && key in patch)
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  !!value && typeof value === 'object' && !Array.isArray(value)
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value)

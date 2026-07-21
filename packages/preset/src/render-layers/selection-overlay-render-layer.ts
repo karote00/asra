@@ -2,6 +2,7 @@ import {
   VECTOR_TOKENS,
   createOverlayLayerRegistration,
   renderSelectionStore,
+  sortVectorItemsById,
   type OverlayCanvas
 } from '@asyra/core'
 import type {
@@ -78,26 +79,6 @@ const getElementSelectionIds = (deps: SelectionOverlayRenderLayerDeps) => {
     ? selectedIds
     : [...renderSelectionStore.elementSelection]
 }
-
-const getNumericSuffix = (value: string) => {
-  const match = value.match(/[-_](\d+)$/)
-  if (!match) {
-    return Number.NaN
-  }
-
-  return Number.parseInt(match[1], 10)
-}
-
-const sortByStableId = <T extends { id: string }>(items: T[]): T[] =>
-  [...items].sort((a, b) => {
-    const aRank = getNumericSuffix(a.id)
-    const bRank = getNumericSuffix(b.id)
-    if (!Number.isNaN(aRank) && !Number.isNaN(bRank)) {
-      return aRank - bRank
-    }
-
-    return a.id.localeCompare(b.id)
-  })
 
 const transformPoint = (
   matrix: TransformMatrix,
@@ -268,7 +249,7 @@ const drawVectorHoverOutline = (
     return false
   }
 
-  const orderedNetworks = sortByStableId(Object.values(networks))
+  const orderedNetworks = sortVectorItemsById(Object.values(networks))
   if (orderedNetworks.length === 0) {
     return false
   }

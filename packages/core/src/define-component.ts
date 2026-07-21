@@ -13,13 +13,11 @@ import { renderStrategyRegistry, type RenderStrategy } from '@asyra/render'
 import {
   nameCounter,
   idCounter,
-  RegistrationRelationError,
-  type RegistrationContractErrorCode,
   type RegistrationDefinitionMetadata,
-  type RegistrationGraphOperation,
   type RegistrationRelationMetadata,
   type RelationOperationSuccess
 } from '@asyra/utils'
+import { failRegistrationRelation as relationFailure } from './registration-relation-failure'
 
 export interface ComponentDefinition {
   /**
@@ -167,21 +165,6 @@ const clonePropertyDefinition = (
       }
     : undefined
 })
-
-const relationFailure = (
-  code: RegistrationContractErrorCode,
-  operation: RegistrationGraphOperation,
-  message: string,
-  details: Partial<RegistrationRelationError['result']> = {}
-): never => {
-  throw new RegistrationRelationError({
-    ok: false,
-    code,
-    operation,
-    message,
-    ...details
-  })
-}
 
 const createComponentDefaults = (
   properties: readonly PropertyDefinition[]

@@ -66,6 +66,81 @@ export interface VectorPointNode extends PositionData {
   controlRole?: VectorControlRole
 }
 
+export type VectorAnchorPointNode = VectorPointNode & {
+  kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR
+}
+
+export type VectorControlPointNode = VectorPointNode & {
+  kind: typeof VECTOR_TOKENS.POINT.KIND.CONTROL
+}
+
+export const isVectorAnchorNode = (
+  point: VectorPointNode | null | undefined
+): point is VectorAnchorPointNode =>
+  point?.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
+
+export const isVectorControlNode = (
+  point: VectorPointNode | null | undefined
+): point is VectorControlPointNode =>
+  point?.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
+
+export const isVectorHandleMode = (value: unknown): value is VectorHandleMode =>
+  value === VECTOR_HANDLE_MODES.NONE ||
+  value === VECTOR_HANDLE_MODES.MIRROR_ANGLE ||
+  value === VECTOR_HANDLE_MODES.MIRROR_ANGLE_LENGTH
+
+const getTrailingVectorIdNumber = (value: string): number => {
+  const match = value.match(/[-_](\d+)$/)
+  return match ? Number.parseInt(match[1], 10) : Number.NaN
+}
+
+export const sortVectorItemsById = <T extends { id: string }>(
+  items: readonly T[]
+): T[] =>
+  [...items].sort((left, right) => {
+    const leftRank = getTrailingVectorIdNumber(left.id)
+    const rightRank = getTrailingVectorIdNumber(right.id)
+    if (!Number.isNaN(leftRank) && !Number.isNaN(rightRank)) {
+      return leftRank - rightRank
+    }
+
+    return left.id.localeCompare(right.id)
+  })
+
+export interface VectorAnchorHandleRefs {
+  inControlId: string | null
+  outControlId: string | null
+}
+
+export const getVectorNetworkAnchorHandleRefs = (
+  network: Pick<VectorNetwork, 'pointIds' | 'segmentIds'>,
+  segments: Readonly<Record<string, VectorSegment>>
+): Map<string, VectorAnchorHandleRefs> => {
+  const refs = new Map<string, VectorAnchorHandleRefs>()
+  network.pointIds.forEach((pointId) => {
+    refs.set(pointId, { inControlId: null, outControlId: null })
+  })
+
+  network.segmentIds.forEach((segmentId) => {
+    const segment = segments[segmentId]
+    if (!segment) {
+      return
+    }
+
+    const startRefs = refs.get(segment.startId)
+    if (startRefs && segment.outControlId) {
+      startRefs.outControlId = segment.outControlId
+    }
+
+    const endRefs = refs.get(segment.endId)
+    if (endRefs && segment.inControlId) {
+      endRefs.inControlId = segment.inControlId
+    }
+  })
+
+  return refs
+}
+
 export interface VectorSegment {
   id: string
   startId: string

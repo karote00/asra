@@ -21,6 +21,8 @@ packages/props-manager/src/
 - element property registry
 - property schema registry
 - load-time fallback and runtime reject logic
+- detached cloning of nested declarative property-definition values used by
+  the package owner and Core facade
 
 ## Rules
 

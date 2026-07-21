@@ -1,15 +1,17 @@
-import type {
-  DataTypes,
-  EvnetOptions,
-  PropertyComponentInstanceDataTypes,
-  PropertyComponentRawData,
-  PropertyFieldSchema,
-  PropertySchema,
-  PropertyUnitKind,
-  PropertyValueKind,
-  Unit
+import {
+  isRecord,
+  type DataTypes,
+  type EvnetOptions,
+  type PropertyComponentInstanceDataTypes,
+  type PropertyComponentRawData,
+  type PropertyFieldSchema,
+  type PropertySchema,
+  type PropertyUnitKind,
+  type PropertyValueKind,
+  type Unit
 } from '@asyra/utils'
 import { BasePropertyComponent } from '../components'
+import type { PropertyComponentConstructor } from '../components'
 import propsManager, { PropsManager } from '../manager/props-manager'
 import { getPropertyComponentAccessor } from '../manager/component-accessor'
 import {
@@ -18,9 +20,12 @@ import {
   propertyComponentRegistry,
   registerPropertyComponent,
   restorePropertyComponentAfterFailedDeclarativeCommit,
-  type PropertyComponentConfigRegistration,
-  type PropertyComponentConstructor
+  type PropertyComponentConfigRegistration
 } from './property-component'
+import {
+  clonePropertyDefinitionRecord,
+  clonePropertyDefinitionValue
+} from './property-definition-value'
 import { PropertyRegistrationError } from './property-registration'
 import {
   getPropertySchema,
@@ -96,30 +101,6 @@ const failDefinition = (
     cause
   )
 }
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
-const cloneValue = (value: unknown): unknown => {
-  if (Array.isArray(value)) {
-    return value.map((item) => cloneValue(item))
-  }
-
-  if (isRecord(value)) {
-    return Object.entries(value).reduce<Record<string, unknown>>(
-      (cloned, [key, item]) => {
-        cloned[key] = cloneValue(item)
-        return cloned
-      },
-      {}
-    )
-  }
-
-  return value
-}
-
-const cloneRecord = (value: Record<string, unknown>) =>
-  cloneValue(value) as Record<string, unknown>
 
 const valuesEqual = (left: unknown, right: unknown): boolean => {
   if (Object.is(left, right)) return true
@@ -317,7 +298,7 @@ const normalizeDefinition = <TFields extends object>(
     const normalizedField: PropertyTypeFieldDefinition = {
       key: field.key,
       kind: field.kind as PropertyValueKind,
-      defaultValue: cloneValue(field.defaultValue),
+      defaultValue: clonePropertyDefinitionValue(field.defaultValue),
       validate: field.validate as ((value: unknown) => boolean) | undefined,
       allowedUnits: field.allowedUnits
         ? field.allowedUnits.length > 0
@@ -407,7 +388,7 @@ const projectRegisteredDefinition = <TFields extends object>(
     return {
       key: field.key,
       kind: field.kind,
-      defaultValue: cloneValue(field.defaultValue),
+      defaultValue: clonePropertyDefinitionValue(field.defaultValue),
       validate: field.validate as ((value: unknown) => boolean) | undefined,
       allowedUnits: field.allowedUnits ? [...field.allowedUnits] : undefined,
       persist: persistSet.has(field.key),
@@ -464,7 +445,7 @@ const toPropertySchema = <TFields extends object>(
     (field): PropertyFieldSchema => ({
       key: field.key,
       kind: field.kind,
-      defaultValue: cloneValue(field.defaultValue),
+      defaultValue: clonePropertyDefinitionValue(field.defaultValue),
       validate: field.validate,
       allowedUnits: field.allowedUnits ? [...field.allowedUnits] : undefined
     })
@@ -478,7 +459,7 @@ const toConfigRegistration = <TFields extends object>(
   type: definition.type,
   defaults: definition.fields.reduce<Record<string, unknown>>(
     (defaults, field) => {
-      defaults[field.key] = cloneValue(field.defaultValue)
+      defaults[field.key] = clonePropertyDefinitionValue(field.defaultValue)
       return defaults
     },
     {}
@@ -599,7 +580,7 @@ export const createPropertyComponentFromConfig = (
       this.data = {
         id: '',
         type: definition.type,
-        ...cloneRecord(defaults)
+        ...clonePropertyDefinitionRecord(defaults)
       } as PropertyComponentInstanceDataTypes
       this.load(data as PropertyComponentRawData)
     }
@@ -668,7 +649,7 @@ export const createPropertyComponentFromConfig = (
       Object.entries(rawData).forEach(([key, value]) => {
         if (!isAllowedDynamicKey(key) || value === undefined) return
         ;(this.data as unknown as Record<string, unknown>)[key] =
-          cloneValue(value)
+          clonePropertyDefinitionValue(value)
       })
     }
 

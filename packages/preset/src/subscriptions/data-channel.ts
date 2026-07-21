@@ -30,6 +30,7 @@ import {
   type WorkspaceRawData
 } from '@asyra/utils'
 import type { PresetCoreAPIs, PresetDependencies } from '../types'
+import { createCleanupReporter } from '../cleanup-reporter'
 import {
   SelectionActions,
   SelectionChannels,
@@ -646,7 +647,6 @@ export const registerDefaultDataChannelObservers = (
   const registeredObserverNames: string[] = []
   const uiContextSyncLifetime = createUIContextSyncLifetime()
   let disposed = false
-  let cleanupReported = false
 
   const dispose = (): void => {
     if (disposed) return
@@ -683,17 +683,13 @@ export const registerDefaultDataChannelObservers = (
     }
     disposed = true
   }
-  const reportCleanupReady = (): void => {
-    if (cleanupReported || !onCleanupReady) return
-    onCleanupReady(dispose)
-    cleanupReported = true
-  }
+  const cleanupReporter = createCleanupReporter(onCleanupReady, dispose)
   const registerObserver = <TChange>(
     registration: DataChannelObserverRegistration<TChange>
   ): void => {
     core.registerDataChannelObserver(registration)
     registeredObserverNames.push(registration.name)
-    reportCleanupReady()
+    cleanupReporter.report()
   }
 
   const uiContextSceneTreeDataChannelObserver = defineDataChannelObserver({
@@ -735,7 +731,7 @@ export const registerDefaultDataChannelObservers = (
           renderSceneTreeStore.reload()
         })
       )
-      reportCleanupReady()
+      cleanupReporter.report()
     }
 
     if (uiContextEnabled || vectorEditingEnabled) {
@@ -752,7 +748,7 @@ export const registerDefaultDataChannelObservers = (
           }
         })
       )
-      reportCleanupReady()
+      cleanupReporter.report()
     }
 
     if (uiContextEnabled) {
@@ -761,7 +757,7 @@ export const registerDefaultDataChannelObservers = (
           flushPendingUIContextSync(uiContextSyncLifetime, core, deps)
         })
       )
-      reportCleanupReady()
+      cleanupReporter.report()
     }
 
     // Undo/redo publishes selection events directly from transaction history.
@@ -796,7 +792,7 @@ export const registerDefaultDataChannelObservers = (
           }
         )
       )
-      reportCleanupReady()
+      cleanupReporter.report()
     }
 
     if (selectionEnabled || vectorEditingEnabled) {
@@ -827,7 +823,7 @@ export const registerDefaultDataChannelObservers = (
           }
         )
       )
-      reportCleanupReady()
+      cleanupReporter.report()
       eventSubscriptions.push(
         subscribeToSynchronousEvent<SelectVectorSegmentsEvent>(
           EventTypes.SELECT_VECTOR_SEGMENTS,
@@ -855,7 +851,7 @@ export const registerDefaultDataChannelObservers = (
           }
         )
       )
-      reportCleanupReady()
+      cleanupReporter.report()
     }
 
     if (renderSceneEnabled) {
@@ -874,7 +870,7 @@ export const registerDefaultDataChannelObservers = (
       registerObserver(vectorEditingSelectionDataChannelObserver)
     }
   } catch (error) {
-    if (!cleanupReported) dispose()
+    if (!cleanupReporter.hasReported()) dispose()
     throw error
   }
 

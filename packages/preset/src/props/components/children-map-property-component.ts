@@ -5,6 +5,7 @@ import {
 } from '@asyra/core'
 import {
   id,
+  isRecord,
   loadId,
   IDTypes,
   type DataTypes,
@@ -42,9 +43,6 @@ interface ChildrenMapPropertyConfig {
     childId: string
   ) => Record<string, unknown> | null
 }
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const syncLoadedId = (childIdType: string | undefined, childId: string) => {
   if (!childIdType || childId.length === 0) {

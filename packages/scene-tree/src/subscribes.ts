@@ -26,19 +26,7 @@ import {
 } from '@asyra/utils'
 import sceneTree from './sceneTree'
 import { isGroupEntity } from './utils'
-
-const setOwnEnumerableValue = (
-  target: object,
-  key: PropertyKey,
-  value: unknown
-): void => {
-  Object.defineProperty(target, key, {
-    value,
-    enumerable: true,
-    configurable: true,
-    writable: true
-  })
-}
+import { setOwnEnumerableValue } from './own-values'
 
 const toAppliedComputedDataPatch = (
   patch: ComputedDataPatchChange

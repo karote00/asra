@@ -1,7 +1,9 @@
 import {
   VECTOR_TOKENS,
   createOverlayLayerRegistration,
+  getVectorNetworkAnchorHandleRefs,
   sampleOverlayBezierPoints,
+  sortVectorItemsById,
   type OverlayCanvas,
   type OverlayStrokeStyle
 } from '@asyra/core'
@@ -197,15 +199,6 @@ const emitStrokePipelineCounter = (counterName: string, value = 1) => {
   ).__asyraStrokePipelineCounterSink?.(counterName, value)
 }
 
-const getNumericSuffix = (value: string) => {
-  const match = value.match(/[-_](\d+)$/)
-  if (!match) {
-    return Number.NaN
-  }
-
-  return Number.parseInt(match[1], 10)
-}
-
 const appendPositionSignature = (
   parts: string[],
   prefix: string,
@@ -332,17 +325,6 @@ const buildOverlayDrawSignature = (input: {
   return parts.join('|')
 }
 
-const sortByStableId = <T extends { id: string }>(items: T[]): T[] =>
-  [...items].sort((a, b) => {
-    const aRank = getNumericSuffix(a.id)
-    const bRank = getNumericSuffix(b.id)
-    if (!Number.isNaN(aRank) && !Number.isNaN(bRank)) {
-      return aRank - bRank
-    }
-
-    return a.id.localeCompare(b.id)
-  })
-
 const appendSortedVectorPointSignature = (
   parts: string[],
   points: NonNullable<VectorComputedData['points']>
@@ -468,43 +450,6 @@ const decodeVectorPointSelectionId = (
     pointId,
     target
   }
-}
-
-interface AnchorHandleRefs {
-  inControlId: string | null
-  outControlId: string | null
-}
-
-export const getNetworkAnchorHandleRefs = (
-  network: Pick<VectorNetwork, 'pointIds' | 'segmentIds'>,
-  segments: Record<string, VectorSegment>
-): Map<string, AnchorHandleRefs> => {
-  const refs = new Map<string, AnchorHandleRefs>()
-  network.pointIds.forEach((pointId) => {
-    refs.set(pointId, {
-      inControlId: null,
-      outControlId: null
-    })
-  })
-
-  network.segmentIds.forEach((segmentId) => {
-    const segment = segments[segmentId]
-    if (!segment) {
-      return
-    }
-
-    const startRefs = refs.get(segment.startId)
-    if (startRefs && segment.outControlId) {
-      startRefs.outControlId = segment.outControlId
-    }
-
-    const endRefs = refs.get(segment.endId)
-    if (endRefs && segment.inControlId) {
-      endRefs.inControlId = segment.inControlId
-    }
-  })
-
-  return refs
 }
 
 const toScreenPosition = (
@@ -665,13 +610,13 @@ const getPathEditingVectorDataWithDeps = (
     Object.keys(computedNetworks).length
   )
 
-  const orderedNetworks = sortByStableId(Object.values(computedNetworks))
+  const orderedNetworks = sortVectorItemsById(Object.values(computedNetworks))
   const subpaths: OverlaySubpath[] = []
   const segmentsById: Record<string, OverlaySegmentGeometry> = {}
 
   orderedNetworks.forEach((network) => {
     const points: OverlayAnchorPoint[] = []
-    const anchorHandleRefs = getNetworkAnchorHandleRefs(
+    const anchorHandleRefs = getVectorNetworkAnchorHandleRefs(
       network,
       computedSegments
     )

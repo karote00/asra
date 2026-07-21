@@ -46,6 +46,10 @@ export type {
 } from './registries/property-component'
 export type { PropertyComponentAccessor }
 export {
+  clonePropertyDefinitionRecord,
+  clonePropertyDefinitionValue
+} from './registries/property-definition-value'
+export {
   PROPERTY_REGISTRATION_ERROR_CODES,
   PROPERTY_REGISTRATION_SCOPES,
   PropertyRegistrationError,

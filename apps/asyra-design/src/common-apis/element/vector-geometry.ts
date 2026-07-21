@@ -1,14 +1,8 @@
 import type { VectorPointNode, VectorTopology } from '@asyra/core'
-import { VECTOR_TOKENS } from '@asyra/core'
+import { VECTOR_TOKENS, isVectorAnchorNode as isAnchorNode } from '@asyra/core'
 import { getCubicBezierSegmentBounds } from './bezier-adapter'
 
 const MIN_VECTOR_SIZE = 0.1
-
-const isAnchorNode = (
-  point: VectorPointNode | undefined
-): point is VectorPointNode & {
-  kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR
-} => !!point && point.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
 
 const includePoint = (
   point: VectorPointNode,

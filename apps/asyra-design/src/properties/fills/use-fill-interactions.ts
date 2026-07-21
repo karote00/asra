@@ -8,33 +8,11 @@ import {
 import { isEqual } from 'lodash'
 import { useEffect, useMemo, useRef } from 'react'
 import { fillApis, transactionApis, type FillPatch } from '../../common-apis'
-import { ALLOWED_COLOR_FORMATS, FILL_PATCH_KEYS } from '../../constants'
+import { ALLOWED_COLOR_FORMATS } from '../../constants'
 import { systemContextApis } from '../../common-apis'
 import { convertUserColorToDefault, convertToHexUpper } from './color-format'
+import { applyFillPatch, getChangedFillPatch, hasFillPatch } from './fill-patch'
 import { toGradientPreviewCss } from './gradient-preview'
-
-const hasFillPatch = (patch: FillPatch) => Object.keys(patch).length > 0
-
-const applyFillPatch = (
-  sourceFill: FillAttrs,
-  patch: FillPatch
-): FillAttrs => ({
-  ...sourceFill,
-  ...patch
-})
-
-const getChangedFillPatch = (
-  sourceFill: FillAttrs,
-  nextFill: FillAttrs
-): FillPatch =>
-  FILL_PATCH_KEYS.reduce<FillPatch>((patch, key) => {
-    const nextValue = nextFill[key]
-    if (!isEqual(sourceFill[key], nextValue)) {
-      Object.assign(patch, { [key]: nextValue })
-    }
-
-    return patch
-  }, {})
 
 const createColorPatch = (sourceFill: FillAttrs, color: string): FillPatch => {
   const patch: FillPatch = {}

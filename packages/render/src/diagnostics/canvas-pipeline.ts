@@ -3,6 +3,7 @@ import type {
   RenderEngineDrawOperation,
   RenderEngineObjectType
 } from '@asyra/render-engine'
+import { freezeEvidence as freezeDeep } from './freeze-evidence'
 
 let canvasPipelineDebuggerOwnedObjects: WeakSet<object> | undefined
 
@@ -142,15 +143,6 @@ const subscriptionsByOwner = new WeakMap<
   object,
   Set<CanvasPipelineEvidenceSubscription>
 >()
-
-const freezeDeep = <T>(value: T): T => {
-  if (!value || typeof value !== 'object' || Object.isFrozen(value)) {
-    return value
-  }
-  Object.freeze(value)
-  Object.values(value).forEach(freezeDeep)
-  return value
-}
 
 const detachValue = (
   value: unknown,

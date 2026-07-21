@@ -13,6 +13,9 @@ System orchestrator and lifecycle coordinator.
 - curated facade re-exports for high-value helpers
 - top-level registration entrypoints for framework extension
 - request API composition across packages
+- canonical vector model tokens, discriminant guards, generated-id ordering,
+  and segment-to-anchor handle reference lookup; editing policy remains outside
+  Core
 
 ## Must Not Own
 

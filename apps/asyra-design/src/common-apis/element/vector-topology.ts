@@ -1,5 +1,6 @@
 import type {
   VectorAnchorPoint,
+  VectorAnchorHandleRefs,
   VectorAnchorType,
   VectorControlRole,
   VectorEndpointSide,
@@ -14,7 +15,11 @@ import {
   VECTOR_TOKENS,
   VECTOR_TOPOLOGY_NETWORK_ID_TYPE,
   VECTOR_TOPOLOGY_POINT_ID_TYPE,
-  VECTOR_TOPOLOGY_SEGMENT_ID_TYPE
+  VECTOR_TOPOLOGY_SEGMENT_ID_TYPE,
+  getVectorNetworkAnchorHandleRefs,
+  isVectorAnchorNode as isAnchorNode,
+  isVectorControlNode as isControlNode,
+  sortVectorItemsById
 } from '@asyra/core'
 import { id, type PositionData } from '@asyra/utils'
 import { splitCubicBezierAtT } from './bezier-adapter'
@@ -57,26 +62,6 @@ const SYNTHETIC_HANDLE_POINT_EPSILON = 0.5
 const hasObjectValue = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
 
-const getNumericSuffix = (value: string) => {
-  const match = value.match(/[-_](\d+)$/)
-  if (!match) {
-    return Number.NaN
-  }
-
-  return Number.parseInt(match[1], 10)
-}
-
-const sortByStableId = <T extends { id: string }>(items: T[]): T[] =>
-  [...items].sort((a, b) => {
-    const aRank = getNumericSuffix(a.id)
-    const bRank = getNumericSuffix(b.id)
-    if (!Number.isNaN(aRank) && !Number.isNaN(bRank)) {
-      return aRank - bRank
-    }
-
-    return a.id.localeCompare(b.id)
-  })
-
 const omitKey = <T extends Record<string, unknown>>(
   source: T,
   key: string
@@ -89,17 +74,6 @@ const omitKeys = <T extends Record<string, unknown>>(
   source: T,
   keys: string[]
 ): T => keys.reduce((acc, key) => omitKey(acc, key), source)
-
-const isAnchorNode = (
-  node: VectorPointNode | null | undefined
-): node is VectorPointNode & { kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR } =>
-  !!node && node.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
-
-const isControlNode = (
-  node: VectorPointNode | null | undefined
-): node is VectorPointNode & {
-  kind: typeof VECTOR_TOKENS.POINT.KIND.CONTROL
-} => !!node && node.kind === VECTOR_TOKENS.POINT.KIND.CONTROL
 
 const getDistance = (from: PositionData, to: PositionData): number =>
   Math.hypot(to.x - from.x, to.y - from.y)
@@ -214,7 +188,7 @@ export const isClosedVectorTopology = (
 
 export const getOrderedNetworks = (
   topology: VectorTopologyLike
-): VectorNetwork[] => sortByStableId(Object.values(topology.networks))
+): VectorNetwork[] => sortVectorItemsById(Object.values(topology.networks))
 
 export const getAnchorEndpointInTopology = (
   topology: VectorTopologyLike,
@@ -283,48 +257,11 @@ export const getAnchorContinuationInTopology = (
   }
 }
 
-interface AnchorHandleRefs {
-  inControlId: string | null
-  outControlId: string | null
-}
-
-const getNetworkAnchorHandleRefs = (
-  network: Pick<VectorNetwork, 'pointIds' | 'segmentIds'>,
-  segments: Record<string, VectorSegment>
-): Map<string, AnchorHandleRefs> => {
-  const refs = new Map<string, AnchorHandleRefs>()
-  network.pointIds.forEach((pointId) => {
-    refs.set(pointId, {
-      inControlId: null,
-      outControlId: null
-    })
-  })
-
-  network.segmentIds.forEach((segmentId) => {
-    const segment = segments[segmentId]
-    if (!segment) {
-      return
-    }
-
-    const startRefs = refs.get(segment.startId)
-    if (startRefs && segment.outControlId) {
-      startRefs.outControlId = segment.outControlId
-    }
-
-    const endRefs = refs.get(segment.endId)
-    if (endRefs && segment.inControlId) {
-      endRefs.inControlId = segment.inControlId
-    }
-  })
-
-  return refs
-}
-
 const getAnchorViewFromTopology = (
   topology: VectorTopologyLike,
   pointId: string,
   isMove: boolean,
-  handleRefs?: AnchorHandleRefs,
+  handleRefs?: VectorAnchorHandleRefs,
   options?: VectorAnchorViewOptions & {
     previousAnchor?: PositionData | null
     nextAnchor?: PositionData | null
@@ -385,7 +322,7 @@ export const vectorTopologyToAnchorSubpaths = (
 
   networks.forEach((network) => {
     const subpath: VectorAnchorPoint[] = []
-    const anchorHandleRefs = getNetworkAnchorHandleRefs(
+    const anchorHandleRefs = getVectorNetworkAnchorHandleRefs(
       network,
       topology.segments
     )
@@ -442,7 +379,7 @@ export const vectorTopologyToAnchorPoints = (
   const points: VectorAnchorPoint[] = []
 
   networks.forEach((network, networkIndex) => {
-    const anchorHandleRefs = getNetworkAnchorHandleRefs(
+    const anchorHandleRefs = getVectorNetworkAnchorHandleRefs(
       network,
       topology.segments
     )

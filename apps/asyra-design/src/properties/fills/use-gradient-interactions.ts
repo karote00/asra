@@ -9,37 +9,13 @@ import { isEqual } from 'lodash'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type React from 'react'
 import type { FillPatch } from '../../common-apis'
-import { FILL_PATCH_KEYS } from '../../constants'
 import { systemContextApis } from '../../common-apis'
 import { convertUserColorToDefault } from './color-format'
+import { applyFillPatch, getChangedFillPatch, hasFillPatch } from './fill-patch'
+import { sortGradientStopsForPreview } from './gradient-stops'
 
 const clampUnit = (value: number) => Math.max(0, Math.min(1, value))
-const hasFillPatch = (patch: FillPatch) => Object.keys(patch).length > 0
 const DRAG_EPSILON = 0.0001
-const applyFillPatch = (
-  sourceFill: FillAttrs,
-  patch: FillPatch
-): FillAttrs => ({
-  ...sourceFill,
-  ...patch
-})
-const getChangedFillPatch = (
-  sourceFill: FillAttrs,
-  nextFill: FillAttrs
-): FillPatch =>
-  FILL_PATCH_KEYS.reduce<FillPatch>((patch, key) => {
-    const nextValue = nextFill[key]
-    if (!isEqual(sourceFill[key], nextValue)) {
-      Object.assign(patch, { [key]: nextValue })
-    }
-
-    return patch
-  }, {})
-
-const sortStopsForPreview = (stops: FillGradientStop[]) =>
-  stops
-    .map((stop, index) => ({ stop, index }))
-    .sort((a, b) => a.stop.position - b.stop.position)
 
 interface UseGradientInteractionsArgs {
   fill: FillAttrs
@@ -78,7 +54,7 @@ export const useGradientInteractions = ({
   const dragRectRef = useRef<{ left: number; width: number } | null>(null)
 
   const orderedStops = useMemo(
-    () => sortStopsForPreview(gradient.gradientStops),
+    () => sortGradientStopsForPreview(gradient.gradientStops),
     [gradient.gradientStops]
   )
 
