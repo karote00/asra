@@ -22,6 +22,13 @@ export const useVectorIconPathMap = (elementId: string): string | null => {
   // 1) subscribe: notify when this element's path changes
   // 2) getSnapshot: current value for client render
   // 3) getServerSnapshot: current value for SSR render
+  const getSnapshot = () => {
+    const map = core.getUIProperty<Record<string, string>>(
+      UI_PROPERTIES.VECTOR_ICON_PATH_MAP
+    )
+    return map?.[elementId] ?? null
+  }
+
   return useSyncExternalStore(
     (callback) => {
       const subject = core.getUIPropertySubject<Record<string, string>>(
@@ -47,17 +54,7 @@ export const useVectorIconPathMap = (elementId: string): string | null => {
 
       return () => subscription.unsubscribe()
     },
-    () => {
-      const map = core.getUIProperty<Record<string, string>>(
-        UI_PROPERTIES.VECTOR_ICON_PATH_MAP
-      )
-      return map?.[elementId] ?? null
-    },
-    () => {
-      const map = core.getUIProperty<Record<string, string>>(
-        UI_PROPERTIES.VECTOR_ICON_PATH_MAP
-      )
-      return map?.[elementId] ?? null
-    }
+    getSnapshot,
+    getSnapshot
   )
 }

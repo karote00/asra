@@ -101,6 +101,15 @@ const enqueueElementIconPathUpdate = (elementId: string) => {
   scheduleFlush()
 }
 
+const enqueueElementIconPathUpdateFromEvent = (event: {
+  payload: { data: { id: unknown } }
+}): void => {
+  const elementId = event.payload.data.id
+  if (typeof elementId === 'string' && elementId.length > 0) {
+    enqueueElementIconPathUpdate(elementId)
+  }
+}
+
 const rebuildIconPathMap = () => {
   const nextMap: VectorIconPathMap = {}
 
@@ -151,19 +160,8 @@ export const initVectorIconData = (): void => {
     })
   }
 
-  subscribeToAddElement((event) => {
-    const elementId = event.payload.data.id
-    if (typeof elementId === 'string' && elementId.length > 0) {
-      enqueueElementIconPathUpdate(elementId)
-    }
-  })
-
-  subscribeToRemoveElement((event) => {
-    const elementId = event.payload.data.id
-    if (typeof elementId === 'string' && elementId.length > 0) {
-      enqueueElementIconPathUpdate(elementId)
-    }
-  })
+  subscribeToAddElement(enqueueElementIconPathUpdateFromEvent)
+  subscribeToRemoveElement(enqueueElementIconPathUpdateFromEvent)
 
   subscribeToUpdateComputedData((event) => {
     if (!VECTOR_ICON_KEYS.has(event.payload.key)) {

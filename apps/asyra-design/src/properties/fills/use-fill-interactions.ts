@@ -10,6 +10,10 @@ import { useEffect, useMemo, useRef } from 'react'
 import { fillApis, transactionApis, type FillPatch } from '../../common-apis'
 import { ALLOWED_COLOR_FORMATS } from '../../constants'
 import { systemContextApis } from '../../common-apis'
+import {
+  endInteractionTransaction,
+  startInteractionTransaction
+} from '../interaction-transaction'
 import { convertUserColorToDefault, convertToHexUpper } from './color-format'
 import { applyFillPatch, getChangedFillPatch, hasFillPatch } from './fill-patch'
 import { toGradientPreviewCss } from './gradient-preview'
@@ -241,22 +245,14 @@ export const useFillInteractions = ({
   }
 
   const startFillInteractionTransaction = () => {
-    const currentFill = pickerFillRef.current
-    if (colorPickerTransactionRef.current || !currentFill) {
-      return
-    }
-
-    colorPickerTransactionRef.current = true
-    transactionApis.startTransaction()
+    startInteractionTransaction(
+      colorPickerTransactionRef,
+      pickerFillRef.current !== null
+    )
   }
 
   const endFillInteractionTransaction = () => {
-    if (!colorPickerTransactionRef.current) {
-      return
-    }
-
-    colorPickerTransactionRef.current = false
-    transactionApis.endTransaction()
+    endInteractionTransaction(colorPickerTransactionRef)
   }
 
   const handleKindChange = (nextKind: FillAttrs['kind']) => {

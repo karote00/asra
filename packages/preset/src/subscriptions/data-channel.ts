@@ -493,6 +493,19 @@ const updateVectorEditingSelection = (
   }
 }
 
+const markComputedKeyPending = (
+  lifetime: UIContextSyncLifetime,
+  elementId: string,
+  key: string
+): void => {
+  if (shouldUpdateElementDataMapForComputedKey(key)) {
+    lifetime.pending.dirtyElementDataMapIds.add(elementId)
+  }
+  if (key === 'children') {
+    lifetime.pending.flattenedElementIds = true
+  }
+}
+
 // Scene-tree channel updates affect list/map mirrors, and may trigger aggregate recompute.
 const handleUIContextSceneTreeChange = (
   change: SceneTreeChange,
@@ -522,35 +535,20 @@ const handleUIContextSceneTreeChange = (
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA: {
       const { id, key } = change as UpdateElementChange
-      if (shouldUpdateElementDataMapForComputedKey(key)) {
-        lifetime.pending.dirtyElementDataMapIds.add(id)
-      }
-      if (key === 'children') {
-        lifetime.pending.flattenedElementIds = true
-      }
+      markComputedKeyPending(lifetime, id, key)
       break
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH: {
       const { id, changes } = change as UpdateElementBatchChange
       changes.forEach(({ key }) => {
-        if (shouldUpdateElementDataMapForComputedKey(key)) {
-          lifetime.pending.dirtyElementDataMapIds.add(id)
-        }
-        if (key === 'children') {
-          lifetime.pending.flattenedElementIds = true
-        }
+        markComputedKeyPending(lifetime, id, key)
       })
       break
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH: {
       const { id, patch } = change as UpdateElementPatchChange
       Object.keys(patch.values ?? {}).forEach((key) => {
-        if (shouldUpdateElementDataMapForComputedKey(key)) {
-          lifetime.pending.dirtyElementDataMapIds.add(id)
-        }
-        if (key === 'children') {
-          lifetime.pending.flattenedElementIds = true
-        }
+        markComputedKeyPending(lifetime, id, key)
       })
       break
     }

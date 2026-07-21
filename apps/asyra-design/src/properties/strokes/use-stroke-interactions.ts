@@ -6,13 +6,13 @@ import {
 } from '@asyra/utils'
 import { isEqual } from 'lodash'
 import { useEffect, useMemo, useRef } from 'react'
-import {
-  strokeApis,
-  transactionApis,
-  type StrokePatch
-} from '../../common-apis'
+import { strokeApis, type StrokePatch } from '../../common-apis'
 import { ALLOWED_COLOR_FORMATS, STROKE_PATCH_KEYS } from '../../constants'
 import { parseFiniteInputNumber } from '../number-input'
+import {
+  endInteractionTransaction,
+  startInteractionTransaction
+} from '../interaction-transaction'
 import {
   convertUserColorToDefault,
   convertToHexUpper
@@ -185,22 +185,14 @@ export const useStrokeInteractions = ({
   }
 
   const startStrokeInteractionTransaction = () => {
-    const currentStroke = pickerStrokeRef.current
-    if (colorPickerTransactionRef.current || !currentStroke) {
-      return
-    }
-
-    colorPickerTransactionRef.current = true
-    transactionApis.startTransaction()
+    startInteractionTransaction(
+      colorPickerTransactionRef,
+      pickerStrokeRef.current !== null
+    )
   }
 
   const endStrokeInteractionTransaction = () => {
-    if (!colorPickerTransactionRef.current) {
-      return
-    }
-
-    colorPickerTransactionRef.current = false
-    transactionApis.endTransaction()
+    endInteractionTransaction(colorPickerTransactionRef)
   }
 
   const handleVisibleChange = (nextVisible: boolean) => {

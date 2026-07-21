@@ -82,6 +82,17 @@ const cleanupUnusedEventBindings = (): void => {
   }
 }
 
+const createInputSnapshot = (
+  systemContext: NonNullable<CorePackages['systemContext']>,
+  raw: RawInputEvent
+): SystemContextSnapshotWithDetail => {
+  const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
+  return {
+    ...snapshot,
+    ...(raw.detail ? { detail: raw.detail } : {})
+  } as SystemContextSnapshotWithDetail
+}
+
 const registerSessionEventBinding = (
   eventName: string,
   sessionName: string,
@@ -102,13 +113,7 @@ const registerSessionEventBinding = (
       sessionManager.handleSessionInput(
         sessionName,
         phase,
-        () => {
-          const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
-          return {
-            ...snapshot,
-            ...(raw.detail ? { detail: raw.detail } : {})
-          } as SystemContextSnapshotWithDetail
-        },
+        () => createInputSnapshot(systemContext, raw),
         eventName
       )
     )
@@ -174,13 +179,7 @@ const registerExecutionEventBinding = (
 
   const inputCallback: InputCallback = async (raw) => {
     await sessionManager.runAfterCancellingActiveSessions(
-      () => {
-        const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
-        return {
-          ...snapshot,
-          ...(raw.detail ? { detail: raw.detail } : {})
-        } as SystemContextSnapshotWithDetail
-      },
+      () => createInputSnapshot(systemContext, raw),
       (mergedSnapshot) => executionRegistry.execute(eventName, mergedSnapshot),
       eventName
     )
