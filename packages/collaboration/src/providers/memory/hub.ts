@@ -9,6 +9,7 @@ import {
   type ProviderIdentity,
   type ProviderStateVectorExchange
 } from '../../provider'
+import { cloneAwareness, cloneBytes } from './cloning'
 
 export interface MemoryHubOptions {
   authorizeConnection?: (
@@ -35,12 +36,6 @@ interface MemoryRoom {
 
 const roomKey = (identity: ProviderIdentity): string =>
   JSON.stringify([identity.documentId, identity.roomId])
-
-const cloneBytes = (value: Uint8Array): Uint8Array => value.slice()
-
-const cloneAwareness = (
-  value: ProviderAwarenessMessage
-): ProviderAwarenessMessage => structuredClone(value)
 
 const validateUpdateAuthors = (
   document: Y.Doc,

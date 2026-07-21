@@ -11,12 +11,7 @@ import {
   ProviderFailure
 } from '../../provider'
 import { MemoryHub, type MemoryPeer } from './hub'
-
-const cloneBytes = (value: Uint8Array): Uint8Array => value.slice()
-
-const cloneAwareness = (
-  value: ProviderAwarenessMessage
-): ProviderAwarenessMessage => structuredClone(value)
+import { cloneAwareness, cloneBytes } from './cloning'
 
 const cloneIdentity = (identity: ProviderIdentity): ProviderIdentity =>
   Object.freeze({
