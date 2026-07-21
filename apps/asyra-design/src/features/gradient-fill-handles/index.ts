@@ -1,5 +1,6 @@
 import { defineFeature } from '@asyra/core'
 import { isEqual } from 'lodash'
+import { clampUnit } from '@asyra/utils'
 import type {
   FillAttrs,
   FillGradientData,
@@ -191,7 +192,7 @@ const getStopPositionFromClientPos = (
   // Project the canvas position onto the gradient line
   const t =
     ((canvasPos.x - start.x) * dx + (canvasPos.y - start.y) * dy) / lengthSq
-  return Math.max(0, Math.min(1, t))
+  return clampUnit(t)
 }
 
 const applyHandleDragUpdate = (

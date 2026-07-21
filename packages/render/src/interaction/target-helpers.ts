@@ -1,4 +1,5 @@
 import {
+  clampUnit,
   getPointDistanceSquared,
   type PositionData,
   type RenderInteractionCaptureMode
@@ -78,7 +79,7 @@ const distanceSquaredToSegment = (
   }
 
   const t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSq
-  const clamped = Math.max(0, Math.min(1, t))
+  const clamped = clampUnit(t)
   const proj = {
     x: start.x + clamped * dx,
     y: start.y + clamped * dy

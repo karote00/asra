@@ -2,6 +2,7 @@ import {
   FillGradientTypes,
   FillKinds,
   clampOpacity,
+  clampUnit,
   parseColor,
   subdivideCubicBezierAtHalf,
   type FillAttrs
@@ -98,8 +99,6 @@ const getCanvasContext = (
 const normalizeFillEntries = (fills: FillAttrs[]): FillAttrs[] =>
   Array.isArray(fills) ? fills.filter((fill) => !!fill) : []
 
-const clamp01 = (value: number) => Math.max(0, Math.min(1, value))
-
 const toRGBA = (value: string, opacity: number): RGBA | null => {
   const parsed = parseColor(value)
   if (!parsed) {
@@ -140,7 +139,7 @@ const createGradientSampler = (
       }
 
       return {
-        position: clamp01(stop.position),
+        position: clampUnit(stop.position),
         color: rgba
       }
     })
@@ -203,7 +202,7 @@ const createGradientSampler = (
   }
 
   return (x, y) => {
-    const t = clamp01(getT(x, y))
+    const t = clampUnit(getT(x, y))
 
     if (stops.length === 1) {
       return stops[0].color
@@ -226,7 +225,7 @@ const createGradientSampler = (
       return upper.color
     }
 
-    const ratio = clamp01(
+    const ratio = clampUnit(
       (t - lower.position) / (upper.position - lower.position)
     )
     return {
@@ -514,7 +513,7 @@ export const createEvenOddFillStyle = (
             return
           }
 
-          const srcA = clamp01(color.a)
+          const srcA = clampUnit(color.a)
           const outA = srcA + dstA * (1 - srcA)
           if (outA <= EPSILON) {
             dstR = 0

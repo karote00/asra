@@ -1,5 +1,5 @@
 import { Bezier } from 'bezier-js'
-import type { PositionData } from '@asyra/utils'
+import { clampUnit, type PositionData } from '@asyra/utils'
 
 export interface CubicBezierBounds {
   minX: number
@@ -63,7 +63,7 @@ export const projectPointToCubicBezier = (
     typeof (projected as { t?: unknown }).t === 'number'
       ? ((projected as { t: number }).t ?? 0)
       : 0
-  const t = Math.max(0, Math.min(1, rawT))
+  const t = clampUnit(rawT)
 
   return {
     position: { x: projected.x, y: projected.y },
@@ -78,7 +78,7 @@ export const splitCubicBezierAtT = (
   p3: PositionData,
   t: number
 ): CubicBezierSplitControls => {
-  const clampedT = Math.max(0, Math.min(1, t))
+  const clampedT = clampUnit(t)
   const curve = new Bezier(p0.x, p0.y, p1.x, p1.y, p2.x, p2.y, p3.x, p3.y)
   const splitResult = curve.split(clampedT) as unknown as {
     left?: { points?: { x: number; y: number }[] }
