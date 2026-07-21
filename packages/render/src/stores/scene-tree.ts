@@ -8,7 +8,7 @@ import type {
 } from '@asyra/utils'
 import {
   EntityTypes,
-  emitStrokePipelineCounter,
+  emitDiagnosticCounter,
   isRecord,
   measureBrowserDragPhase
 } from '@asyra/utils'
@@ -217,7 +217,7 @@ class ComputedDataMirror {
 
   delete(elementId: string) {
     this.entries.delete(elementId)
-    emitStrokePipelineCounter('computed-mirror-invalidate')
+    emitDiagnosticCounter('computed-mirror-invalidate')
   }
 
   seed(
@@ -261,12 +261,12 @@ class ComputedDataMirror {
         renderDataSnapshot
       }
       this.entries.set(elementId, entry)
-      emitStrokePipelineCounter('computed-mirror-seed')
-      emitStrokePipelineCounter(`computed-mirror-seed-${reason}`)
+      emitDiagnosticCounter('computed-mirror-seed')
+      emitDiagnosticCounter(`computed-mirror-seed-${reason}`)
       return entry
     } catch (error) {
       this.delete(elementId)
-      emitStrokePipelineCounter('computed-mirror-seed-failed')
+      emitDiagnosticCounter('computed-mirror-seed-failed')
       throw error
     }
   }
@@ -274,11 +274,11 @@ class ComputedDataMirror {
   get(elementId: string): ComputedDataMirrorEntry | null {
     const entry = this.entries.get(elementId)
     if (entry) {
-      emitStrokePipelineCounter('computed-mirror-hit')
+      emitDiagnosticCounter('computed-mirror-hit')
       return entry
     }
 
-    emitStrokePipelineCounter('computed-mirror-cache-miss')
+    emitDiagnosticCounter('computed-mirror-cache-miss')
     return null
   }
 
@@ -347,7 +347,7 @@ class ComputedDataMirror {
     ) {
       return null
     }
-    emitStrokePipelineCounter('computed-mirror-staged-change-count')
+    emitDiagnosticCounter('computed-mirror-staged-change-count')
     return {
       effectiveChanges: isDataEqual(effectiveBefore, effectiveAfter)
         ? []
@@ -415,11 +415,8 @@ class ComputedDataMirror {
     ) {
       return null
     }
-    emitStrokePipelineCounter(
-      'computed-mirror-staged-change-count',
-      changes.length
-    )
-    emitStrokePipelineCounter('computed-mirror-batch-apply-count')
+    emitDiagnosticCounter('computed-mirror-staged-change-count', changes.length)
+    emitDiagnosticCounter('computed-mirror-batch-apply-count')
     return { effectiveChanges }
   }
 
@@ -495,11 +492,8 @@ class ComputedDataMirror {
     ) {
       return false
     }
-    emitStrokePipelineCounter(
-      'computed-mirror-staged-change-count',
-      changeCount
-    )
-    emitStrokePipelineCounter('computed-mirror-patch-apply-count')
+    emitDiagnosticCounter('computed-mirror-staged-change-count', changeCount)
+    emitDiagnosticCounter('computed-mirror-patch-apply-count')
     return true
   }
 
@@ -662,7 +656,7 @@ class RenderSceneTree {
         }
       })
     } catch (error) {
-      emitStrokePipelineCounter('computed-mirror-reload-seed-failed')
+      emitDiagnosticCounter('computed-mirror-reload-seed-failed')
       this.clearProjection()
       throw error
     }
@@ -686,7 +680,7 @@ class RenderSceneTree {
   }
 
   private resyncElement(elementId: string): RenderProjectionOutcome {
-    emitStrokePipelineCounter('computed-mirror-projection-mismatch')
+    emitDiagnosticCounter('computed-mirror-projection-mismatch')
     this.pendingElementUpdates.delete(elementId)
     this.computedDataMirror.delete(elementId)
 
@@ -694,14 +688,14 @@ class RenderSceneTree {
     try {
       entry = this.computedDataMirror.seed(elementId, 'resync')
     } catch {
-      emitStrokePipelineCounter('computed-mirror-resync-failed')
+      emitDiagnosticCounter('computed-mirror-resync-failed')
       this.releaseProjectedElement(elementId)
       this.computedDataMirror.delete(elementId)
       return this.projectionOutcome(elementId, 'failed')
     }
 
     if (!entry) {
-      emitStrokePipelineCounter('computed-mirror-resync-removed')
+      emitDiagnosticCounter('computed-mirror-resync-removed')
       this.releaseProjectedElement(elementId)
       return this.projectionOutcome(elementId, 'removed')
     }
@@ -709,13 +703,13 @@ class RenderSceneTree {
     try {
       this.addElement(entry.renderDataSnapshot)
     } catch {
-      emitStrokePipelineCounter('computed-mirror-resync-failed')
+      emitDiagnosticCounter('computed-mirror-resync-failed')
       this.releaseProjectedElement(elementId)
       this.computedDataMirror.delete(elementId)
       return this.projectionOutcome(elementId, 'failed')
     }
 
-    emitStrokePipelineCounter('computed-mirror-resync-success')
+    emitDiagnosticCounter('computed-mirror-resync-success')
     return this.projectionOutcome(elementId, 'resynced')
   }
 
@@ -725,7 +719,7 @@ class RenderSceneTree {
       entry = this.computedDataMirror.seed(id, 'add')
     } catch {
       this.pendingElementUpdates.delete(id)
-      emitStrokePipelineCounter('computed-mirror-add-seed-failed')
+      emitDiagnosticCounter('computed-mirror-add-seed-failed')
       this.releaseProjectedElement(id)
       this.computedDataMirror.delete(id)
       return this.projectionOutcome(id, 'failed')
@@ -757,7 +751,7 @@ class RenderSceneTree {
       return this.projectionOutcome(id, 'applied')
     } catch {
       this.pendingElementUpdates.delete(id)
-      emitStrokePipelineCounter('computed-mirror-add-seed-failed')
+      emitDiagnosticCounter('computed-mirror-add-seed-failed')
       this.releaseProjectedElement(id)
       this.computedDataMirror.delete(id)
       return this.projectionOutcome(id, 'failed')
@@ -939,7 +933,7 @@ class RenderSceneTree {
   ) {
     if (options?.undoable !== false) {
       Object.keys(patch.values ?? {}).forEach((key) => {
-        emitStrokePipelineCounter(`computed-mirror-undoable-refresh-key-${key}`)
+        emitDiagnosticCounter(`computed-mirror-undoable-refresh-key-${key}`)
       })
     }
 
@@ -1005,12 +999,12 @@ class RenderSceneTree {
     changeCount: number,
     didCoalesce: boolean
   ) {
-    emitStrokePipelineCounter('dirty-change-count', changeCount)
+    emitDiagnosticCounter('dirty-change-count', changeCount)
     if (didCoalesce) {
-      emitStrokePipelineCounter('dirty-change-coalesced-count', changeCount)
+      emitDiagnosticCounter('dirty-change-coalesced-count', changeCount)
     }
     if (!this.pendingElementUpdates.has(elementId)) {
-      emitStrokePipelineCounter('dirty-element-count')
+      emitDiagnosticCounter('dirty-element-count')
     }
   }
 
@@ -1020,13 +1014,13 @@ class RenderSceneTree {
     }
 
     if (this.pendingFlush) {
-      emitStrokePipelineCounter('render-scene-tree-flush-coalesced')
+      emitDiagnosticCounter('render-scene-tree-flush-coalesced')
       return
     }
 
     this.pendingFlush = true
     if (this.frameAlignedFlush) {
-      emitStrokePipelineCounter('render-scene-tree-frame-aligned-flush')
+      emitDiagnosticCounter('render-scene-tree-frame-aligned-flush')
       render.requestRender()
       return
     }
@@ -1056,7 +1050,7 @@ class RenderSceneTree {
     this.pendingElementUpdates.clear()
     this.pendingFrameFlush = false
     this.pendingFlush = false
-    emitStrokePipelineCounter(
+    emitDiagnosticCounter(
       'computed-mirror-reset-entry-count',
       clearedEntryCount
     )
@@ -1086,7 +1080,7 @@ class RenderSceneTree {
     } catch (error) {
       firstFailure ??= error
     }
-    emitStrokePipelineCounter(
+    emitDiagnosticCounter(
       'computed-mirror-reset-entry-count',
       releasedEntryCount
     )
@@ -1097,7 +1091,7 @@ class RenderSceneTree {
 
   private flushPendingChanges() {
     if (this.flushingPendingChanges) {
-      emitStrokePipelineCounter('render-scene-tree-flush-reentrant-skipped')
+      emitDiagnosticCounter('render-scene-tree-flush-reentrant-skipped')
       return
     }
 
@@ -1113,7 +1107,7 @@ class RenderSceneTree {
 
   private applyPendingChanges() {
     if (this.flushingPendingChanges) {
-      emitStrokePipelineCounter('render-scene-tree-flush-reentrant-skipped')
+      emitDiagnosticCounter('render-scene-tree-flush-reentrant-skipped')
       return false
     }
 
@@ -1127,10 +1121,10 @@ class RenderSceneTree {
       const hadPendingFrameFlush = this.pendingFrameFlush
       try {
         this.pendingFlush = false
-        emitStrokePipelineCounter('computed-mirror-commit-count')
+        emitDiagnosticCounter('computed-mirror-commit-count')
         this.pendingFrameFlush = false
         const ids = Array.from(this.pendingElementUpdates)
-        emitStrokePipelineCounter('product-render-per-render-frame', ids.length)
+        emitDiagnosticCounter('product-render-per-render-frame', ids.length)
         ids.forEach((id) => {
           this.pendingElementUpdates.delete(id)
           const data = this._getRenderData(id)

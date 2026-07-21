@@ -22,8 +22,9 @@ Provide shared types, ids, registry primitives, and low-level helpers.
 - pure numeric and geometry primitives shared by render, preset, design-system,
   and app owners, including unit clamping, point projection/distance, cubic
   subdivision, and geometry bounds
-- the optional stroke-pipeline counter dispatch primitive; counter names,
-  budgets, and interpretation remain with the consuming owner
+- the optional diagnostic-counter dispatch primitive; counter names, budgets,
+  and interpretation remain with the consuming owner, and diagnostics never
+  control product behavior
 - optional browser drag-phase measurement helpers that call the shared
   diagnostics sink without owning phase names, product budgets, or reporting
   policy

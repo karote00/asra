@@ -17,7 +17,7 @@ import type {
   VectorSegment
 } from '@asyra/core'
 import {
-  emitStrokePipelineCounter,
+  emitDiagnosticCounter,
   projectWorkspacePointToViewport,
   type PositionData
 } from '@asyra/utils'
@@ -462,21 +462,21 @@ const getPathEditingVectorDataWithDeps = (
     cached.vectorId === pathEditingVectorId &&
     cached.signature === signature
   ) {
-    emitStrokePipelineCounter('editing-overlay-model-cache-hit')
+    emitDiagnosticCounter('editing-overlay-model-cache-hit')
     return cached.data
   }
 
-  emitStrokePipelineCounter('editing-overlay-model-cache-miss')
-  emitStrokePipelineCounter('editing-overlay-full-topology-walk')
-  emitStrokePipelineCounter(
+  emitDiagnosticCounter('editing-overlay-model-cache-miss')
+  emitDiagnosticCounter('editing-overlay-full-topology-walk')
+  emitDiagnosticCounter(
     'editing-overlay-walk-point-count',
     Object.keys(computedPoints).length
   )
-  emitStrokePipelineCounter(
+  emitDiagnosticCounter(
     'editing-overlay-walk-segment-count',
     Object.keys(computedSegments).length
   )
-  emitStrokePipelineCounter(
+  emitDiagnosticCounter(
     'editing-overlay-walk-network-count',
     Object.keys(computedNetworks).length
   )
@@ -654,11 +654,11 @@ const projectOverlayVectorDataToScreen = (
     cached.viewportY === viewportPosition.y &&
     cached.viewportScale === viewportScale
   ) {
-    emitStrokePipelineCounter('editing-overlay-screen-cache-hit')
+    emitDiagnosticCounter('editing-overlay-screen-cache-hit')
     return cached.data
   }
 
-  emitStrokePipelineCounter('editing-overlay-screen-cache-miss')
+  emitDiagnosticCounter('editing-overlay-screen-cache-miss')
   const subpaths = vectorData.subpaths.map((subpath) => ({
     closed: subpath.closed,
     segmentIds: [...subpath.segmentIds],
@@ -1205,10 +1205,10 @@ export const registerVectorPathEditingRenderLayer = (
         startNewSubpath
       })
       if (drawState.current?.signature === drawSignature) {
-        emitStrokePipelineCounter('editing-overlay-draw-cache-hit')
+        emitDiagnosticCounter('editing-overlay-draw-cache-hit')
         return false
       }
-      emitStrokePipelineCounter('editing-overlay-draw-cache-miss')
+      emitDiagnosticCounter('editing-overlay-draw-cache-miss')
       drawState.current = { signature: drawSignature }
       canvas.clear()
 

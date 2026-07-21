@@ -457,6 +457,15 @@ test('strategy ownership is complete-data, engine-neutral, and non-vector compat
     /Local hierarchy parent and sibling-order bookkeeping commits only after.*engine append and set-child-index.*succeeds.*failed handoff retains the pre-command local state.*same complete snapshot.*retry/i
   )
   assert.match(handoffContract, /@asyra\/render-engine-pixi changes/i)
+  assert.match(
+    handoff.allowedContributors.join(' '),
+    /formal diagnostic counter sink/i
+  )
+  assert.ok(
+    handoff.implementationBoundary.includes(
+      'packages/utils/src/helpers/diagnostic-counter.ts'
+    )
+  )
   assert.equal(
     handoff.implementationBoundary.some((entry) =>
       entry.startsWith('packages/render-engine')

@@ -8,7 +8,7 @@ import {
 import {
   DataTypes,
   MouseData,
-  emitStrokePipelineCounter,
+  emitDiagnosticCounter,
   measureBrowserDragPhase
 } from '@asyra/utils'
 import type { RenderPointerPositions } from '@asyra/utils'
@@ -197,8 +197,8 @@ class Render {
     this.renderFrameId += 1
     this.currentFrameHandoffCount = 0
     this.publishFrameEvidence('start')
-    emitStrokePipelineCounter('render-frame-count')
-    emitStrokePipelineCounter('render-frame-id', this.renderFrameId)
+    emitDiagnosticCounter('render-frame-count')
+    emitDiagnosticCounter('render-frame-id', this.renderFrameId)
     try {
       measureBrowserDragPhase('render:flush-frame', () => {
         const layersChanged = this.updateLayers()

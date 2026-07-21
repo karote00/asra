@@ -219,10 +219,9 @@ test.describe('Render delta performance budget', () => {
         const runtimeGlobal = globalThis as any
         const previousPhaseSink = runtimeGlobal.__asyraBrowserDragPhaseSink
         runtimeGlobal.__asyraBrowserDragPhaseSink = pushSample
-        const previousCounterSink =
-          runtimeGlobal.__asyraStrokePipelineCounterSink
+        const previousCounterSink = runtimeGlobal.__asyraDiagnosticCounterSink
         const counters = new Map<string, number>()
-        runtimeGlobal.__asyraStrokePipelineCounterSink = (
+        runtimeGlobal.__asyraDiagnosticCounterSink = (
           counterName: string,
           value: number
         ) => {
@@ -318,7 +317,7 @@ test.describe('Render delta performance budget', () => {
           element.save = originalElementSave
           element.getAllComputedData = originalGetAllComputedData
           runtimeGlobal.__asyraBrowserDragPhaseSink = previousPhaseSink
-          runtimeGlobal.__asyraStrokePipelineCounterSink = previousCounterSink
+          runtimeGlobal.__asyraDiagnosticCounterSink = previousCounterSink
           core.setSystemProperty('mouseDragging', false)
           core.setSystemProperty('mouseDown', false)
           core.setSystemProperty('pathEditingMode', false)

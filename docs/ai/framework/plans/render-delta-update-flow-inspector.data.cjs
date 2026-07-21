@@ -516,7 +516,7 @@
       allowedContributors: [
         '@asyra/render runtime and engine-neutral command buffer',
         '@asyra/render-engine public contract',
-        'formal profiling sink'
+        'formal diagnostic counter sink'
       ],
       forbiddenContributors: [
         '@asyra/render-engine-pixi changes',
@@ -526,6 +526,7 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/utils/src/helpers/diagnostic-counter.ts',
         'packages/render/src/render.ts',
         'packages/render/src/types/render-object.ts',
         'packages/render/src/__tests__/**',

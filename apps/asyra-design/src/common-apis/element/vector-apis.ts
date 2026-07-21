@@ -20,7 +20,7 @@ import type {
 import {
   StrokeJoinTypes,
   createDefaultStrokes,
-  emitStrokePipelineCounter,
+  emitDiagnosticCounter,
   measureBrowserDragPhase
 } from '@asyra/utils'
 import { isEqual } from 'lodash'
@@ -651,10 +651,10 @@ const getVectorTopologyWorkspace = (elementId: string): VectorTopology => {
     if (canReadTransientWorkspaceTopologyCache()) {
       const cachedTopology = transientWorkspaceTopologyCache.get(elementId)
       if (cachedTopology) {
-        emitStrokePipelineCounter('vector-api-transient-topology-cache-hit')
+        emitDiagnosticCounter('vector-api-transient-topology-cache-hit')
         return cachedTopology
       }
-      emitStrokePipelineCounter('vector-api-transient-topology-cache-miss')
+      emitDiagnosticCounter('vector-api-transient-topology-cache-miss')
     }
 
     const computed = getVectorComputed(elementId)
@@ -1025,7 +1025,7 @@ const commitVectorTopologyOperation = (
     const transientVectorPointDrag = isTransientVectorPointDragUpdate(options)
     assertVectorTopologyOperationCanPatch(elementId)
 
-    emitStrokePipelineCounter('vector-api-operation-commit-count')
+    emitDiagnosticCounter('vector-api-operation-commit-count')
     let patch: ComputedDataPatch
     try {
       patch = measureBrowserDragPhase(
@@ -1045,18 +1045,15 @@ const commitVectorTopologyOperation = (
         }
       )
     } catch (error) {
-      emitStrokePipelineCounter('vector-api-operation-build-patch-error-count')
+      emitDiagnosticCounter('vector-api-operation-build-patch-error-count')
       recordVectorCommitError(error)
       throw error
     }
 
     const patchKeyCount = getComputedDataPatchOperationCount(patch)
-    emitStrokePipelineCounter(
-      'vector-api-operation-patch-key-count',
-      patchKeyCount
-    )
+    emitDiagnosticCounter('vector-api-operation-patch-key-count', patchKeyCount)
     if (!hasComputedDataPatchOperations(patch)) {
-      emitStrokePipelineCounter('vector-api-operation-empty-patch-count')
+      emitDiagnosticCounter('vector-api-operation-empty-patch-count')
       if (!transientVectorPointDrag) {
         clearTransientVectorCaches(elementId)
       }
@@ -1102,8 +1099,8 @@ const commitVectorPointMutation = (
 ) => {
   measureBrowserDragPhase('vector-api:commit', () => {
     const transientVectorPointDrag = isTransientVectorPointDragUpdate(options)
-    emitStrokePipelineCounter('vector-api-commit-enter-count')
-    emitStrokePipelineCounter(
+    emitDiagnosticCounter('vector-api-commit-enter-count')
+    emitDiagnosticCounter(
       transientVectorPointDrag
         ? 'vector-api-commit-transient-count'
         : 'vector-api-commit-non-transient-count'
@@ -1117,7 +1114,7 @@ const commitVectorPointMutation = (
         options?.closed
       )
     )
-    emitStrokePipelineCounter('vector-api-commit-build-patch-observed')
+    emitDiagnosticCounter('vector-api-commit-build-patch-observed')
 
     const pointPatchCount = Object.keys(patch.records?.points?.set ?? {}).length
     const patchKeyCount =
@@ -1129,13 +1126,10 @@ const commitVectorPointMutation = (
           (recordPatch.remove?.length ?? 0),
         0
       )
-    emitStrokePipelineCounter('vector-api-commit-patch-key-count-observed')
-    emitStrokePipelineCounter(
-      'vector-api-commit-patch-key-count',
-      patchKeyCount
-    )
-    emitStrokePipelineCounter('vector-api-point-mutation-patch-count')
-    emitStrokePipelineCounter(
+    emitDiagnosticCounter('vector-api-commit-patch-key-count-observed')
+    emitDiagnosticCounter('vector-api-commit-patch-key-count', patchKeyCount)
+    emitDiagnosticCounter('vector-api-point-mutation-patch-count')
+    emitDiagnosticCounter(
       'vector-api-point-mutation-point-patch-count',
       pointPatchCount
     )
@@ -1150,7 +1144,7 @@ const commitVectorPointMutation = (
         )
       })
     ) {
-      emitStrokePipelineCounter('vector-api-point-mutation-empty-patch-count')
+      emitDiagnosticCounter('vector-api-point-mutation-empty-patch-count')
       return
     }
 

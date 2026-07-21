@@ -21,7 +21,7 @@ import {
   type AddRemoveElementChange,
   type ComputedAttrs,
   type GroupRawData,
-  emitStrokePipelineCounter,
+  emitDiagnosticCounter,
   measureBrowserDragPhase,
   type SceneTreeChange,
   type SelectionChange,
@@ -62,9 +62,9 @@ const recordRenderProjectionOutcome = (outcome: unknown) => {
       ? (outcome as { status?: unknown }).status
       : undefined
   if (typeof status === 'string' && RENDER_PROJECTION_OUTCOMES.has(status)) {
-    emitStrokePipelineCounter(`render-projection-outcome-${status}`)
+    emitDiagnosticCounter(`render-projection-outcome-${status}`)
   } else {
-    emitStrokePipelineCounter('render-projection-outcome-missing')
+    emitDiagnosticCounter('render-projection-outcome-missing')
   }
   return outcome
 }
@@ -412,7 +412,7 @@ const flushPendingUIContextSync = (
   deps: PresetDependencies
 ): void => {
   if (!hasPendingUIContextSync(lifetime)) {
-    emitStrokePipelineCounter('ui-context-transaction-flush-skip')
+    emitDiagnosticCounter('ui-context-transaction-flush-skip')
     return
   }
 
@@ -420,18 +420,18 @@ const flushPendingUIContextSync = (
   resetPendingUIContextSync(lifetime)
 
   measureBrowserDragPhase('ui-context:flush', () => {
-    emitStrokePipelineCounter('ui-context-transaction-flush')
+    emitDiagnosticCounter('ui-context-transaction-flush')
 
     if (pending.flattenedElementIds) {
-      emitStrokePipelineCounter('ui-context-sync-flattened-ids')
+      emitDiagnosticCounter('ui-context-sync-flattened-ids')
       syncFlattenedElementIds(deps)
     }
 
     if (pending.fullElementDataMap) {
-      emitStrokePipelineCounter('ui-context-sync-element-data-map-full')
+      emitDiagnosticCounter('ui-context-sync-element-data-map-full')
       syncElementDataMap(deps)
     } else if (pending.dirtyElementDataMapIds.size > 0) {
-      emitStrokePipelineCounter(
+      emitDiagnosticCounter(
         'ui-context-sync-element-data-map-entry',
         pending.dirtyElementDataMapIds.size
       )
@@ -439,12 +439,12 @@ const flushPendingUIContextSync = (
     }
 
     if (pending.elementSelectionAndDerived) {
-      emitStrokePipelineCounter('ui-context-sync-element-selection-derived')
+      emitDiagnosticCounter('ui-context-sync-element-selection-derived')
       syncElementSelectionAndDerived(core, deps)
     }
 
     if (pending.dirtyPropertyKeys.size > 0) {
-      emitStrokePipelineCounter(
+      emitDiagnosticCounter(
         'ui-context-recompute-property-key-count',
         pending.dirtyPropertyKeys.size
       )
