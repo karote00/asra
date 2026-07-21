@@ -519,6 +519,10 @@ See `packages/collaboration.md` and
 - `PresetProfiles`: stable `2D`, `3D`, `HYBRID`, and `CUSTOM` ids; only `2D`
   and `CUSTOM` are currently available
 - `PresetDefaults`: eight official selectable default ids
+- grouped `ViewportSystemPropertyKeys`, `InputSystemPropertyKeys`,
+  `SelectionSystemPropertyKeys`, and `VectorEditingSystemPropertyKeys`, plus
+  flattened `PresetSystemPropertyKeys` and `PRESET_SYSTEM_PROPERTY_KEYS`, form
+  the typed contract for official Preset-managed property keys
 - deeply frozen `PresetCatalog` with separate profile/default availability and
   public dependency metadata
 - `applyPreset(core, { profile?, defaults? })`; omitted options mean `2D` plus

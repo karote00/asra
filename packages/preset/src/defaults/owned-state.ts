@@ -1,6 +1,6 @@
 import { getRegistrationRefKey, type RegistrationRef } from '@asyra/utils'
 import { PRESET_REGISTRATION_OWNER } from '../registration'
-import { PRESET_SYSTEM_PROPERTY_KEYS } from '../ui/register-properties'
+import { PRESET_SYSTEM_PROPERTY_KEYS } from '../system-property-keys'
 import type { PresetCoreAPIs } from '../types'
 
 const unregisterRegistration = (

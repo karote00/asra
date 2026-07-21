@@ -31,6 +31,15 @@ export {
   GROUP_RENDER_STRATEGY
 } from './components'
 export { PRESET_REGISTRATION_OWNER } from './registration'
+export {
+  InputSystemPropertyKeys,
+  PRESET_SYSTEM_PROPERTY_KEYS,
+  PresetSystemPropertyKeys,
+  SelectionSystemPropertyKeys,
+  VectorEditingSystemPropertyKeys,
+  ViewportSystemPropertyKeys,
+  type PresetSystemPropertyKey
+} from './system-property-keys'
 export * from './events'
 export * from './selection/channels'
 export * from './selection/ids'

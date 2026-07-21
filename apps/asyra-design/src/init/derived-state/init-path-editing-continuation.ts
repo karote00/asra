@@ -3,6 +3,7 @@ import {
   subscribeToUpdateComputedData
 } from '@asyra/reactive-events'
 import { VECTOR_TOKENS } from '@asyra/core'
+import { PresetSystemPropertyKeys } from '@asyra/preset'
 import core from '../../contexts'
 import { elementApis } from '../../common-apis'
 import type {
@@ -21,7 +22,7 @@ const calculateContinuation = (
   }
 
   const selectedPoint = core.getSystemProperty<SelectedVectorPointState | null>(
-    'selectedVectorPoint'
+    PresetSystemPropertyKeys.SELECTED_VECTOR_POINT
   )
   const subpaths = elementApis.getVectorAnchorSubpaths(vectorId)
 
@@ -68,19 +69,26 @@ const calculateContinuation = (
 }
 
 const syncContinuation = () => {
-  const vectorId = core.getSystemProperty<string | null>('pathEditingVectorId')
+  const vectorId = core.getSystemProperty<string | null>(
+    PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID
+  )
   const startNewSubpath =
-    core.getSystemProperty<boolean>('pathEditingStartNewSubpath') ?? false
+    core.getSystemProperty<boolean>(
+      PresetSystemPropertyKeys.PATH_EDITING_START_NEW_SUBPATH
+    ) ?? false
 
   if (!vectorId) {
-    core.setSystemProperty('pathEditingContinuation', null)
+    core.setSystemProperty(
+      PresetSystemPropertyKeys.PATH_EDITING_CONTINUATION,
+      null
+    )
     return
   }
 
   const nextContinuation = calculateContinuation(vectorId, startNewSubpath)
   const currentContinuation =
     core.getSystemProperty<PathEditingContinuationState | null>(
-      'pathEditingContinuation'
+      PresetSystemPropertyKeys.PATH_EDITING_CONTINUATION
     )
 
   // Simple shallow check for change
@@ -90,17 +98,24 @@ const syncContinuation = () => {
     nextContinuation?.networkId !== currentContinuation?.networkId ||
     nextContinuation?.elementId !== currentContinuation?.elementId
   ) {
-    core.setSystemProperty('pathEditingContinuation', nextContinuation)
+    core.setSystemProperty(
+      PresetSystemPropertyKeys.PATH_EDITING_CONTINUATION,
+      nextContinuation
+    )
   }
 }
 
 export const initPathEditingContinuation = () => {
   // Sync on path editing state changes
   core
-    .getSystemPropertyObservable<string | null>('pathEditingVectorId')
+    .getSystemPropertyObservable<
+      string | null
+    >(PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID)
     ?.subscribe(() => syncContinuation())
   core
-    .getSystemPropertyObservable<boolean>('pathEditingStartNewSubpath')
+    .getSystemPropertyObservable<boolean>(
+      PresetSystemPropertyKeys.PATH_EDITING_START_NEW_SUBPATH
+    )
     ?.subscribe(() => syncContinuation())
 
   // Sync on selection changes (specifically vector points)
@@ -110,7 +125,7 @@ export const initPathEditingContinuation = () => {
   subscribeToUpdateComputedData((event) => {
     if (VECTOR_TOPOLOGY_KEYS.has(event.payload.key)) {
       const vectorId = core.getSystemProperty<string | null>(
-        'pathEditingVectorId'
+        PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID
       )
       if (event.payload.id === vectorId) {
         syncContinuation()
@@ -121,7 +136,7 @@ export const initPathEditingContinuation = () => {
   subscribeToChangeComputedData((event) => {
     if (VECTOR_TOPOLOGY_KEYS.has(event.payload.key)) {
       const vectorId = core.getSystemProperty<string | null>(
-        'pathEditingVectorId'
+        PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID
       )
       if (vectorId && event.payload.elementIds.includes(vectorId)) {
         syncContinuation()

@@ -21,6 +21,7 @@ import {
 } from '@asyra/utils'
 import { SelectionChannels } from '../selection/channels'
 import type { PresetDependencies } from '../types'
+import { PresetSystemPropertyKeys } from '../system-property-keys'
 
 const SELECTION_OVERLAY_LAYER_NAME = 'selection-overlay-layer'
 const SELECTION_STROKE_COLOR = 0x157ae7
@@ -505,14 +506,14 @@ export const registerSelectionOverlayRenderLayer = (
     update: (canvas: OverlayCanvas) => {
       const pathEditingVectorId =
         deps.systemContext.getManagedProperty<string | null>(
-          'pathEditingVectorId'
+          PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID
         ) ?? null
 
       const selectedIds = getElementSelectionIds(deps)
       const selectedElementId = selectedIds.length === 1 ? selectedIds[0] : null
       const hoveredElementId =
         deps.systemContext.getManagedProperty<string | null>(
-          'hoveredElementId'
+          PresetSystemPropertyKeys.HOVERED_ELEMENT_ID
         ) ?? null
       const drawSignatureParts = [
         pathEditingVectorId ?? '',

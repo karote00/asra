@@ -6,6 +6,7 @@ import {
   subscribeToSceneTreeLoadComplete,
   subscribeToUpdateComputedData
 } from '@asyra/reactive-events'
+import { PresetSystemPropertyKeys } from '@asyra/preset'
 import core, { sceneTree } from '../../contexts'
 import { elementApis } from '../../common-apis'
 import { UI_PROPERTIES } from '../../constants'
@@ -26,7 +27,9 @@ let pendingFlushHandle: number | ReturnType<typeof setTimeout> | null = null
 let pendingRebuildAfterEdit = false
 
 const isPathEditingActive = () =>
-  (core.getSystemProperty<boolean>('pathEditingMode') ?? false) === true
+  (core.getSystemProperty<boolean>(
+    PresetSystemPropertyKeys.PATH_EDITING_MODE
+  ) ?? false) === true
 
 const scheduleFlush = () => {
   if (pendingFlushHandle !== null) {
@@ -143,8 +146,9 @@ export const initVectorIconData = (): void => {
     rebuildIconPathMap()
   })
 
-  const pathEditingObservable =
-    core.getSystemPropertyObservable<boolean>('pathEditingMode')
+  const pathEditingObservable = core.getSystemPropertyObservable<boolean>(
+    PresetSystemPropertyKeys.PATH_EDITING_MODE
+  )
   if (pathEditingObservable) {
     let previous = pathEditingObservable.getValue()
     pathEditingObservable.subscribe((next) => {

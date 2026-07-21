@@ -30,6 +30,7 @@ import {
 } from '../selection/ids'
 import { resolveSyntheticVectorHandlePosition } from '../vector/synthetic-handle'
 import type { PresetDependencies } from '../types'
+import { PresetSystemPropertyKeys } from '../system-property-keys'
 
 const VECTOR_EDITING_LAYER_NAME = 'vector-editing-layer'
 const POINT_RADIUS = 6
@@ -382,7 +383,7 @@ const getPathEditingVectorDataWithDeps = (
 ): OverlayVectorData | null => {
   const pathEditingVectorId = deps.systemContext.getManagedProperty<
     string | null
-  >('pathEditingVectorId')
+  >(PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID)
   if (!pathEditingVectorId) {
     if (cache) {
       cache.current = null
@@ -1135,11 +1136,11 @@ export const registerVectorPathEditingRenderLayer = (
       const snapshot = deps.systemContext.getSystemContextSnapshot()
       const pathEditingVectorId =
         deps.systemContext.getManagedProperty<string | null>(
-          'pathEditingVectorId'
+          PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID
         ) ?? null
       const selectedVectorPoint =
         deps.systemContext.getManagedProperty<SelectedVectorPointState | null>(
-          'selectedVectorPoint'
+          PresetSystemPropertyKeys.SELECTED_VECTOR_POINT
         ) ?? null
       const selectedVectorPointSelectionIds = Array.from(
         deps.getSelection(SelectionChannels.VECTOR_POINT)?.getSelectedIds() ??
@@ -1147,23 +1148,23 @@ export const registerVectorPathEditingRenderLayer = (
       ).sort()
       const hoveredVectorPoint =
         deps.systemContext.getManagedProperty<SelectedVectorPointState | null>(
-          'hoveredVectorPoint'
+          PresetSystemPropertyKeys.HOVERED_VECTOR_POINT
         ) ?? null
       const selectedVectorSegment =
         deps.systemContext.getManagedProperty<SelectedVectorSegmentState | null>(
-          'selectedVectorSegment'
+          PresetSystemPropertyKeys.SELECTED_VECTOR_SEGMENT
         ) ?? null
       const hoveredVectorSegment =
         deps.systemContext.getManagedProperty<SelectedVectorSegmentState | null>(
-          'hoveredVectorSegment'
+          PresetSystemPropertyKeys.HOVERED_VECTOR_SEGMENT
         ) ?? null
       const hoveredVectorSegmentInsertPoint =
         deps.systemContext.getManagedProperty<HoveredVectorSegmentInsertPointState | null>(
-          'hoveredVectorSegmentInsertPoint'
+          PresetSystemPropertyKeys.HOVERED_VECTOR_SEGMENT_INSERT_POINT
         ) ?? null
       const startNewSubpath =
         deps.systemContext.getManagedProperty<boolean>(
-          'pathEditingStartNewSubpath'
+          PresetSystemPropertyKeys.PATH_EDITING_START_NEW_SUBPATH
         ) ?? false
       const drawSignature = buildOverlayDrawSignature({
         vectorModelSignature,

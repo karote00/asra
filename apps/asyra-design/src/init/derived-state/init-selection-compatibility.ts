@@ -1,4 +1,5 @@
 import core from '../../contexts'
+import { PresetSystemPropertyKeys } from '@asyra/preset'
 import { elementApis } from '../../common-apis/element'
 import {
   type VectorPointSelectionRef,
@@ -93,19 +94,21 @@ const syncDerivedVectorSelectionProperties = () => {
     core.getUIProperty<Set<string>>('vectorSegmentSelection') ??
     new Set<string>()
   const pathEditingVectorId =
-    core.getSystemProperty<string | null>('pathEditingVectorId') ?? null
+    core.getSystemProperty<string | null>(
+      PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID
+    ) ?? null
 
   core.setUIProperty(
-    'selectedVectorSegment',
+    PresetSystemPropertyKeys.SELECTED_VECTOR_SEGMENT,
     toSelectedVectorSegmentState(vectorSegmentSelection, pathEditingVectorId)
   )
   core.setSystemProperty(
-    'selectedVectorSegment',
+    PresetSystemPropertyKeys.SELECTED_VECTOR_SEGMENT,
     toSelectedVectorSegmentState(vectorSegmentSelection, pathEditingVectorId)
   )
 
   core.setSystemProperty(
-    'selectedVectorPoint',
+    PresetSystemPropertyKeys.SELECTED_VECTOR_POINT,
     toSelectedVectorPointState(vectorPointSelection, pathEditingVectorId)
   )
 }
@@ -125,7 +128,7 @@ export const initSelectionCompatibility = () => {
 
   const pathEditingVectorObservable = core.getSystemPropertyObservable<
     string | null
-  >('pathEditingVectorId')
+  >(PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID)
   pathEditingVectorObservable?.subscribe(() => {
     syncDerivedVectorSelectionProperties()
   })

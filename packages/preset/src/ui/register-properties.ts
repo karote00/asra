@@ -29,6 +29,7 @@ import {
   createPresetPropertyDependencies,
   createPresetRegistration
 } from '../registration'
+import { PresetSystemPropertyKeys } from '../system-property-keys'
 
 const DEFAULT_PRIMARY_TOOL = 'select'
 
@@ -284,37 +285,6 @@ const createDefineUIProperty = (core: PresetCoreAPIs) => {
   }
 }
 
-export const PRESET_SYSTEM_PROPERTY_KEYS = Object.freeze([
-  'zoom',
-  'viewportPosition',
-  'primaryTool',
-  'systemMode',
-  'systemFeatureFlags',
-  'systemPermissions',
-  'mouseDragStart',
-  'mousePosition',
-  'mouseDelta',
-  'mouseButton',
-  'mouseDown',
-  'mouseDragging',
-  'keyShift',
-  'keyCtrl',
-  'keyAlt',
-  'keyMeta',
-  'hoveredElementId',
-  'selectedElementIds',
-  'activeElementId',
-  'pathEditingVectorId',
-  'pathEditingMode',
-  'pathEditingStartNewSubpath',
-  'selectedVectorPoint',
-  'hoveredVectorPoint',
-  'selectedVectorSegment',
-  'hoveredVectorSegment',
-  'hoveredVectorSegmentInsertPoint',
-  'pathEditingContinuation'
-] as const)
-
 export const registerUIContextProperties = (core: PresetCoreAPIs): void => {
   const defineUIProperty = createDefineUIProperty(core)
 
@@ -404,17 +374,22 @@ export const registerUIContextProperties = (core: PresetCoreAPIs): void => {
     compute: computeStrokesValue
   })
 
-  defineUIProperty<string | null>('hoveredElementId', {
+  defineUIProperty<string | null>(PresetSystemPropertyKeys.HOVERED_ELEMENT_ID, {
     defaultValue: null,
-    source$: core.getSystemPropertyObservable('hoveredElementId')
+    source$: core.getSystemPropertyObservable(
+      PresetSystemPropertyKeys.HOVERED_ELEMENT_ID
+    )
   })
 }
 
 export const registerViewportProperties = (core: PresetCoreAPIs): void => {
   const defineUIProperty = createDefineUIProperty(core)
 
-  const zoomObservable = core.defineSystemProperty<number>('zoom', 1)
-  defineUIProperty<number>('zoom', {
+  const zoomObservable = core.defineSystemProperty<number>(
+    PresetSystemPropertyKeys.ZOOM,
+    1
+  )
+  defineUIProperty<number>(PresetSystemPropertyKeys.ZOOM, {
     defaultValue: 1,
     source$: zoomObservable
   })
@@ -424,48 +399,81 @@ export const registerInputProperties = (core: PresetCoreAPIs): void => {
   const defineUIProperty = createDefineUIProperty(core)
 
   const primaryToolObservable = core.defineSystemProperty<string>(
-    'primaryTool',
+    PresetSystemPropertyKeys.PRIMARY_TOOL,
     DEFAULT_PRIMARY_TOOL
   )
-  defineUIProperty<string>('primaryTool', {
+  defineUIProperty<string>(PresetSystemPropertyKeys.PRIMARY_TOOL, {
     defaultValue: DEFAULT_PRIMARY_TOOL,
     source$: primaryToolObservable
   })
 
-  core.defineSystemProperty('systemMode', DefaultSystemSnapshot.mode)
   core.defineSystemProperty(
-    'systemFeatureFlags',
+    PresetSystemPropertyKeys.SYSTEM_MODE,
+    DefaultSystemSnapshot.mode
+  )
+  core.defineSystemProperty(
+    PresetSystemPropertyKeys.SYSTEM_FEATURE_FLAGS,
     DefaultSystemSnapshot.featureFlags
   )
   core.defineSystemProperty(
-    'systemPermissions',
+    PresetSystemPropertyKeys.SYSTEM_PERMISSIONS,
     DefaultSystemSnapshot.permissions
   )
 
-  core.defineSystemProperty('mouseDragStart', DefaultMoseSnapshot.dragStart)
-  core.defineSystemProperty('mousePosition', DefaultMoseSnapshot.position)
-  core.defineSystemProperty('mouseDelta', DefaultMoseSnapshot.delta)
-  core.defineSystemProperty('mouseButton', DefaultMoseSnapshot.button)
-  core.defineSystemProperty('mouseDown', DefaultMoseSnapshot.down)
-  core.defineSystemProperty('mouseDragging', DefaultMoseSnapshot.dragging)
+  core.defineSystemProperty(
+    PresetSystemPropertyKeys.MOUSE_DRAG_START,
+    DefaultMoseSnapshot.dragStart
+  )
+  core.defineSystemProperty(
+    PresetSystemPropertyKeys.MOUSE_POSITION,
+    DefaultMoseSnapshot.position
+  )
+  core.defineSystemProperty(
+    PresetSystemPropertyKeys.MOUSE_DELTA,
+    DefaultMoseSnapshot.delta
+  )
+  core.defineSystemProperty(
+    PresetSystemPropertyKeys.MOUSE_BUTTON,
+    DefaultMoseSnapshot.button
+  )
+  core.defineSystemProperty(
+    PresetSystemPropertyKeys.MOUSE_DOWN,
+    DefaultMoseSnapshot.down
+  )
+  core.defineSystemProperty(
+    PresetSystemPropertyKeys.MOUSE_DRAGGING,
+    DefaultMoseSnapshot.dragging
+  )
 
-  core.defineSystemProperty('keyShift', DefaultKeySnapshot.shift)
-  core.defineSystemProperty('keyCtrl', DefaultKeySnapshot.ctrl)
-  core.defineSystemProperty('keyAlt', DefaultKeySnapshot.alt)
-  core.defineSystemProperty('keyMeta', DefaultKeySnapshot.meta)
+  core.defineSystemProperty(
+    PresetSystemPropertyKeys.KEY_SHIFT,
+    DefaultKeySnapshot.shift
+  )
+  core.defineSystemProperty(
+    PresetSystemPropertyKeys.KEY_CTRL,
+    DefaultKeySnapshot.ctrl
+  )
+  core.defineSystemProperty(
+    PresetSystemPropertyKeys.KEY_ALT,
+    DefaultKeySnapshot.alt
+  )
+  core.defineSystemProperty(
+    PresetSystemPropertyKeys.KEY_META,
+    DefaultKeySnapshot.meta
+  )
 }
 
 export const registerSelectionProperties = (core: PresetCoreAPIs): void => {
   core.defineSystemProperty(
-    'hoveredElementId',
+    PresetSystemPropertyKeys.HOVERED_ELEMENT_ID,
     DefaultTargetSnapshot.hoveredElementId
   )
   core.defineSystemProperty(
-    'selectedElementIds',
+    PresetSystemPropertyKeys.SELECTED_ELEMENT_IDS,
     DefaultTargetSnapshot.selectedElementIds
   )
   core.defineSystemProperty(
-    'activeElementId',
+    PresetSystemPropertyKeys.ACTIVE_ELEMENT_ID,
     DefaultTargetSnapshot.activeElementId
   )
 }
@@ -482,54 +490,69 @@ export const registerVectorEditingProperties = (core: PresetCoreAPIs): void => {
   })
 
   const pathEditingVectorObservable = core.defineSystemProperty<string | null>(
-    'pathEditingVectorId',
+    PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID,
     null
   )
-  core.defineSystemProperty<boolean>('pathEditingMode', false)
-  core.defineSystemProperty<boolean>('pathEditingStartNewSubpath', false)
+  core.defineSystemProperty<boolean>(
+    PresetSystemPropertyKeys.PATH_EDITING_MODE,
+    false
+  )
+  core.defineSystemProperty<boolean>(
+    PresetSystemPropertyKeys.PATH_EDITING_START_NEW_SUBPATH,
+    false
+  )
 
   const selectedPointObservable =
     core.defineSystemProperty<SelectedVectorPointState | null>(
-      'selectedVectorPoint',
+      PresetSystemPropertyKeys.SELECTED_VECTOR_POINT,
       null
     )
   core.defineSystemProperty<SelectedVectorPointState | null>(
-    'hoveredVectorPoint',
+    PresetSystemPropertyKeys.HOVERED_VECTOR_POINT,
     null
   )
   core.defineSystemProperty<SelectedVectorSegmentState | null>(
-    'selectedVectorSegment',
+    PresetSystemPropertyKeys.SELECTED_VECTOR_SEGMENT,
     null
   )
   core.defineSystemProperty<SelectedVectorSegmentState | null>(
-    'hoveredVectorSegment',
+    PresetSystemPropertyKeys.HOVERED_VECTOR_SEGMENT,
     null
   )
   core.defineSystemProperty<HoveredVectorSegmentInsertPointState | null>(
-    'hoveredVectorSegmentInsertPoint',
+    PresetSystemPropertyKeys.HOVERED_VECTOR_SEGMENT_INSERT_POINT,
     null
   )
 
   const pathEditingContinuationObservable =
     core.defineSystemProperty<PathEditingContinuationState | null>(
-      'pathEditingContinuation',
+      PresetSystemPropertyKeys.PATH_EDITING_CONTINUATION,
       null
     )
 
-  defineUIProperty<string | null>('pathEditingVectorId', {
-    defaultValue: null,
-    source$: pathEditingVectorObservable
-  })
-  defineUIProperty<SelectedVectorPointState | null>('selectedVectorPoint', {
-    defaultValue: null,
-    source$: selectedPointObservable
-  })
-  defineUIProperty<SelectedVectorSegmentState | null>('selectedVectorSegment', {
-    defaultValue: null
-  })
+  defineUIProperty<string | null>(
+    PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID,
+    {
+      defaultValue: null,
+      source$: pathEditingVectorObservable
+    }
+  )
+  defineUIProperty<SelectedVectorPointState | null>(
+    PresetSystemPropertyKeys.SELECTED_VECTOR_POINT,
+    {
+      defaultValue: null,
+      source$: selectedPointObservable
+    }
+  )
+  defineUIProperty<SelectedVectorSegmentState | null>(
+    PresetSystemPropertyKeys.SELECTED_VECTOR_SEGMENT,
+    {
+      defaultValue: null
+    }
+  )
 
   defineUIProperty<PathEditingContinuationState | null>(
-    'pathEditingContinuation',
+    PresetSystemPropertyKeys.PATH_EDITING_CONTINUATION,
     {
       defaultValue: null,
       source$: pathEditingContinuationObservable

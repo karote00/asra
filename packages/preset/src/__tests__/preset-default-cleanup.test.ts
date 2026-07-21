@@ -9,6 +9,7 @@ import { installVectorEditingDefault } from '../defaults/modules/vector-editing'
 import { createPrivatePrerequisiteManager } from '../defaults/private-manager'
 import type { PrivatePrerequisiteInstaller } from '../defaults/types'
 import { PRESET_REGISTRATION_OWNER } from '../registration'
+import { PresetSystemPropertyKeys } from '../system-property-keys'
 import { SelectionChannels } from '../selection/channels'
 import {
   BASE_PROPERTY_COMPONENT_DEFINITIONS,
@@ -26,7 +27,7 @@ describe('Preset default cleanup ownership', () => {
         owner: appOwner
       }
     ]
-    const systemProperties = new Set(['primaryTool'])
+    const systemProperties = new Set([PresetSystemPropertyKeys.PRIMARY_TOOL])
     const calls: string[] = []
     const removeRegistration = (kind: string, key: string): void => {
       calls.push(`${kind}:${key}`)
@@ -69,20 +70,22 @@ describe('Preset default cleanup ownership', () => {
         owner: appOwner
       }
     )
-    systemProperties.add('zoom')
+    systemProperties.add(PresetSystemPropertyKeys.ZOOM)
 
     cleanup()
 
     expect(calls).toEqual([
       'render-strategy:rectangle',
       'component:rectangle',
-      'system-property:zoom'
+      `system-property:${PresetSystemPropertyKeys.ZOOM}`
     ])
     expect(registrations.map(({ ref }) => ref.key)).toEqual([
       'existing',
       'app-added'
     ])
-    expect(systemProperties).toEqual(new Set(['primaryTool']))
+    expect(systemProperties).toEqual(
+      new Set([PresetSystemPropertyKeys.PRIMARY_TOOL])
+    )
   })
 
   it('retries only cleanup resources that remain pending', () => {

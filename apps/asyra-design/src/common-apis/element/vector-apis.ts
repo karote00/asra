@@ -24,6 +24,7 @@ import {
   measureBrowserDragPhase
 } from '@asyra/utils'
 import { isEqual } from 'lodash'
+import { PresetSystemPropertyKeys } from '@asyra/preset'
 import core, { render, sceneTree } from '../../contexts'
 import {
   DEFAULT_VECTOR_STROKE_COLOR,
@@ -514,25 +515,35 @@ const isTransientVectorPointDragUpdate = (options?: EVENT_OPTIONS) => {
   }
 
   const pathEditingMode =
-    core.getSystemProperty<boolean>('pathEditingMode') ?? false
+    core.getSystemProperty<boolean>(
+      PresetSystemPropertyKeys.PATH_EDITING_MODE
+    ) ?? false
   if (!pathEditingMode) {
     return false
   }
 
   const mouseDragging =
-    core.getSystemProperty<boolean>('mouseDragging') ?? false
-  const mouseDown = core.getSystemProperty<boolean>('mouseDown') ?? false
+    core.getSystemProperty<boolean>(PresetSystemPropertyKeys.MOUSE_DRAGGING) ??
+    false
+  const mouseDown =
+    core.getSystemProperty<boolean>(PresetSystemPropertyKeys.MOUSE_DOWN) ??
+    false
   return mouseDragging || mouseDown
 }
 
 const canReadTransientWorkspaceTopologyCache = () => {
   const pathEditingMode =
-    core.getSystemProperty<boolean>('pathEditingMode') ?? false
+    core.getSystemProperty<boolean>(
+      PresetSystemPropertyKeys.PATH_EDITING_MODE
+    ) ?? false
   if (!pathEditingMode) {
     return false
   }
 
-  return core.getSystemProperty<boolean>('mouseDragging') ?? false
+  return (
+    core.getSystemProperty<boolean>(PresetSystemPropertyKeys.MOUSE_DRAGGING) ??
+    false
+  )
 }
 
 const getVectorOffset = (computed: { x?: number; y?: number }) => ({

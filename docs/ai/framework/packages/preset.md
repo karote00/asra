@@ -64,6 +64,13 @@ subscription prerequisites are private and never appear as selectable ids.
 `presetEngineId`; default entries expose `id`, `available`, and `requires`.
 Catalog engine ids are diagnostics, not dynamic-import paths.
 
+Official managed-property names have one public typed owner:
+`PresetSystemPropertyKeys`. The viewport, input, selection, and vector-editing
+group exports retain responsibility boundaries; `PRESET_SYSTEM_PROPERTY_KEYS`
+is derived from the flattened object for cleanup and lifecycle iteration. Apps
+that install these Preset defaults reuse the exported keys rather than declaring
+parallel string constants. App-only properties remain app-owned.
+
 ## Composition Order
 
 ```text

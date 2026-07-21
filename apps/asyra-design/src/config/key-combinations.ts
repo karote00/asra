@@ -10,6 +10,7 @@ import {
   type MouseSnapshot
 } from '@asyra/utils'
 import { keyMap } from '@asyra/core'
+import { PresetSystemPropertyKeys } from '@asyra/preset'
 import core from '../contexts'
 import { InputSystemEvents, PrimaryToolType } from '../constants'
 
@@ -23,51 +24,68 @@ const updateKeyState = (raw: RawInputEvent) => {
     meta: raw.modifiers.meta
   }
 
-  core.setSystemProperty('keyShift', nextKeyState.shift)
-  core.setSystemProperty('keyCtrl', nextKeyState.ctrl)
-  core.setSystemProperty('keyAlt', nextKeyState.alt)
-  core.setSystemProperty('keyMeta', nextKeyState.meta)
+  core.setSystemProperty(PresetSystemPropertyKeys.KEY_SHIFT, nextKeyState.shift)
+  core.setSystemProperty(PresetSystemPropertyKeys.KEY_CTRL, nextKeyState.ctrl)
+  core.setSystemProperty(PresetSystemPropertyKeys.KEY_ALT, nextKeyState.alt)
+  core.setSystemProperty(PresetSystemPropertyKeys.KEY_META, nextKeyState.meta)
 }
 
 const getCurrentMouseState = (): MouseSnapshot => ({
   dragStart:
-    core.getSystemProperty<MouseSnapshot['dragStart']>('mouseDragStart') ??
-    DefaultMoseSnapshot.dragStart,
+    core.getSystemProperty<MouseSnapshot['dragStart']>(
+      PresetSystemPropertyKeys.MOUSE_DRAG_START
+    ) ?? DefaultMoseSnapshot.dragStart,
   position:
-    core.getSystemProperty<MouseSnapshot['position']>('mousePosition') ??
-    DefaultMoseSnapshot.position,
+    core.getSystemProperty<MouseSnapshot['position']>(
+      PresetSystemPropertyKeys.MOUSE_POSITION
+    ) ?? DefaultMoseSnapshot.position,
   delta:
-    core.getSystemProperty<MouseSnapshot['delta']>('mouseDelta') ??
-    DefaultMoseSnapshot.delta,
+    core.getSystemProperty<MouseSnapshot['delta']>(
+      PresetSystemPropertyKeys.MOUSE_DELTA
+    ) ?? DefaultMoseSnapshot.delta,
   button:
-    core.getSystemProperty<MouseSnapshot['button']>('mouseButton') ??
-    DefaultMoseSnapshot.button,
+    core.getSystemProperty<MouseSnapshot['button']>(
+      PresetSystemPropertyKeys.MOUSE_BUTTON
+    ) ?? DefaultMoseSnapshot.button,
   down:
-    core.getSystemProperty<MouseSnapshot['down']>('mouseDown') ??
-    DefaultMoseSnapshot.down,
+    core.getSystemProperty<MouseSnapshot['down']>(
+      PresetSystemPropertyKeys.MOUSE_DOWN
+    ) ?? DefaultMoseSnapshot.down,
   dragging:
-    core.getSystemProperty<MouseSnapshot['dragging']>('mouseDragging') ??
-    DefaultMoseSnapshot.dragging
+    core.getSystemProperty<MouseSnapshot['dragging']>(
+      PresetSystemPropertyKeys.MOUSE_DRAGGING
+    ) ?? DefaultMoseSnapshot.dragging
 })
 
 const updateMouseState = (mouseState: MouseSnapshot) => {
   const currentDragStart =
-    core.getSystemProperty<MouseSnapshot['dragStart']>('mouseDragStart') ??
-    DefaultMoseSnapshot.dragStart
+    core.getSystemProperty<MouseSnapshot['dragStart']>(
+      PresetSystemPropertyKeys.MOUSE_DRAG_START
+    ) ?? DefaultMoseSnapshot.dragStart
 
   core.setSystemProperty(
-    'mouseDragStart',
+    PresetSystemPropertyKeys.MOUSE_DRAG_START,
     mouseState.dragStart
       ? { ...mouseState.dragStart }
       : {
           ...(currentDragStart ?? DefaultPosition)
         }
   )
-  core.setSystemProperty('mousePosition', { ...mouseState.position })
-  core.setSystemProperty('mouseDelta', { ...mouseState.delta })
-  core.setSystemProperty('mouseButton', mouseState.button)
-  core.setSystemProperty('mouseDown', mouseState.down)
-  core.setSystemProperty('mouseDragging', mouseState.dragging)
+  core.setSystemProperty(PresetSystemPropertyKeys.MOUSE_POSITION, {
+    ...mouseState.position
+  })
+  core.setSystemProperty(PresetSystemPropertyKeys.MOUSE_DELTA, {
+    ...mouseState.delta
+  })
+  core.setSystemProperty(
+    PresetSystemPropertyKeys.MOUSE_BUTTON,
+    mouseState.button
+  )
+  core.setSystemProperty(PresetSystemPropertyKeys.MOUSE_DOWN, mouseState.down)
+  core.setSystemProperty(
+    PresetSystemPropertyKeys.MOUSE_DRAGGING,
+    mouseState.dragging
+  )
 }
 
 export const keyCombinations = {

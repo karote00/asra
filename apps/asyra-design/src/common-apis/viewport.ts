@@ -10,6 +10,7 @@ import {
   calculateZoomToCenter,
   rectToBounds
 } from '@asyra/utils'
+import { PresetSystemPropertyKeys } from '@asyra/preset'
 import core from '../contexts'
 
 export const viewportApis = {
@@ -17,7 +18,7 @@ export const viewportApis = {
    * Get current viewport scale (zoom level)
    */
   getScale: () => {
-    return core.getSystemProperty<number>('zoom') ?? 1
+    return core.getSystemProperty<number>(PresetSystemPropertyKeys.ZOOM) ?? 1
   },
 
   /**
@@ -25,7 +26,9 @@ export const viewportApis = {
    */
   getPosition: (): PositionData => {
     return (
-      core.getSystemProperty<PositionData>('viewportPosition') ?? {
+      core.getSystemProperty<PositionData>(
+        PresetSystemPropertyKeys.VIEWPORT_POSITION
+      ) ?? {
         x: 0,
         y: 0
       }
@@ -60,15 +63,18 @@ export const viewportApis = {
       center: { x: centerX, y: centerY }
     })
 
-    core.setSystemProperty('zoom', nextState.scale)
-    core.setSystemProperty('viewportPosition', nextState.position)
+    core.setSystemProperty(PresetSystemPropertyKeys.ZOOM, nextState.scale)
+    core.setSystemProperty(
+      PresetSystemPropertyKeys.VIEWPORT_POSITION,
+      nextState.position
+    )
   },
 
   /**
    * Pan to a specific position
    */
   panTo: (x: number, y: number) => {
-    core.setSystemProperty('viewportPosition', { x, y })
+    core.setSystemProperty(PresetSystemPropertyKeys.VIEWPORT_POSITION, { x, y })
   },
 
   /**
@@ -84,7 +90,7 @@ export const viewportApis = {
     const viewportBounds = viewportAnchor.getBoundingClientRect()
     const elementsBounds = core.getAllElementsBounds()
     if (!elementsBounds) {
-      core.setSystemProperty('viewportPosition', {
+      core.setSystemProperty(PresetSystemPropertyKeys.VIEWPORT_POSITION, {
         x: viewportBounds.x + DEFAULT_CANVAS_PADDING,
         y: viewportBounds.y + DEFAULT_CANVAS_PADDING
       })
@@ -97,7 +103,10 @@ export const viewportApis = {
       padding: DEFAULT_CANVAS_PADDING
     })
 
-    core.setSystemProperty('zoom', nextState.scale)
-    core.setSystemProperty('viewportPosition', nextState.position)
+    core.setSystemProperty(PresetSystemPropertyKeys.ZOOM, nextState.scale)
+    core.setSystemProperty(
+      PresetSystemPropertyKeys.VIEWPORT_POSITION,
+      nextState.position
+    )
   }
 }

@@ -12,6 +12,7 @@ import {
   type HoveredVectorSegmentInsertPointState as CoreHoveredVectorSegmentInsertPointState
 } from '@asyra/core'
 import type { PositionData } from '@asyra/utils'
+import { PresetSystemPropertyKeys } from '@asyra/preset'
 import { selectionApis } from './selection'
 
 export type SelectedVectorPointState = CoreSelectedVectorPointState
@@ -74,7 +75,7 @@ export const systemContextApis = {
    * Switch the primary tool
    */
   switchPrimaryTool: (tool: string) => {
-    core.setSystemProperty('primaryTool', tool)
+    core.setSystemProperty(PresetSystemPropertyKeys.PRIMARY_TOOL, tool)
   },
 
   /**
@@ -88,7 +89,10 @@ export const systemContextApis = {
    * Update the hovered element ID in system state
    */
   updateHoveredElementId: (elementId: string | null) => {
-    core.setSystemProperty('hoveredElementId', elementId)
+    core.setSystemProperty(
+      PresetSystemPropertyKeys.HOVERED_ELEMENT_ID,
+      elementId
+    )
   },
 
   getAreaSelection: (): AreaSelectionState | null => {
@@ -109,85 +113,110 @@ export const systemContextApis = {
    * Current vector being edited by pen tool
    */
   getPathEditingVectorId: (): string | null => {
-    return core.getSystemProperty<string | null>('pathEditingVectorId') ?? null
+    return (
+      core.getSystemProperty<string | null>(
+        PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID
+      ) ?? null
+    )
   },
 
   getPathEditingMode: (): boolean => {
-    return core.getSystemProperty<boolean>('pathEditingMode') ?? false
+    return (
+      core.getSystemProperty<boolean>(
+        PresetSystemPropertyKeys.PATH_EDITING_MODE
+      ) ?? false
+    )
   },
 
   setPathEditingMode: (enabled: boolean) => {
-    core.setSystemProperty('pathEditingMode', enabled)
+    core.setSystemProperty(PresetSystemPropertyKeys.PATH_EDITING_MODE, enabled)
   },
 
   setPathEditingVectorId: (elementId: string | null) => {
-    core.setSystemProperty('pathEditingVectorId', elementId)
+    core.setSystemProperty(
+      PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID,
+      elementId
+    )
     systemContextApis.setPathEditingMode(elementId !== null)
   },
 
   getPathEditingStartNewSubpath: (): boolean => {
     return (
-      core.getSystemProperty<boolean>('pathEditingStartNewSubpath') ?? false
+      core.getSystemProperty<boolean>(
+        PresetSystemPropertyKeys.PATH_EDITING_START_NEW_SUBPATH
+      ) ?? false
     )
   },
 
   setPathEditingStartNewSubpath: (value: boolean) => {
-    core.setSystemProperty('pathEditingStartNewSubpath', value)
+    core.setSystemProperty(
+      PresetSystemPropertyKeys.PATH_EDITING_START_NEW_SUBPATH,
+      value
+    )
   },
 
   getSelectedVectorPoint: (): SelectedVectorPointState | null => {
     return (
       core.getSystemProperty<SelectedVectorPointState | null>(
-        'selectedVectorPoint'
+        PresetSystemPropertyKeys.SELECTED_VECTOR_POINT
       ) ?? null
     )
   },
 
   setSelectedVectorPoint: (point: SelectedVectorPointState | null) => {
-    core.setSystemProperty('selectedVectorPoint', point)
+    core.setSystemProperty(
+      PresetSystemPropertyKeys.SELECTED_VECTOR_POINT,
+      point
+    )
   },
 
   getHoveredVectorPoint: (): SelectedVectorPointState | null => {
     return (
       core.getSystemProperty<SelectedVectorPointState | null>(
-        'hoveredVectorPoint'
+        PresetSystemPropertyKeys.HOVERED_VECTOR_POINT
       ) ?? null
     )
   },
 
   setHoveredVectorPoint: (point: SelectedVectorPointState | null) => {
-    core.setSystemProperty('hoveredVectorPoint', point)
+    core.setSystemProperty(PresetSystemPropertyKeys.HOVERED_VECTOR_POINT, point)
   },
 
   getSelectedVectorSegment: (): SelectedVectorSegmentState | null => {
     return (
       core.getSystemProperty<SelectedVectorSegmentState | null>(
-        'selectedVectorSegment'
+        PresetSystemPropertyKeys.SELECTED_VECTOR_SEGMENT
       ) ?? null
     )
   },
 
   setSelectedVectorSegment: (segment: SelectedVectorSegmentState | null) => {
-    core.setSystemProperty('selectedVectorSegment', segment)
+    core.setSystemProperty(
+      PresetSystemPropertyKeys.SELECTED_VECTOR_SEGMENT,
+      segment
+    )
   },
 
   getHoveredVectorSegment: (): SelectedVectorSegmentState | null => {
     return (
       core.getSystemProperty<SelectedVectorSegmentState | null>(
-        'hoveredVectorSegment'
+        PresetSystemPropertyKeys.HOVERED_VECTOR_SEGMENT
       ) ?? null
     )
   },
 
   setHoveredVectorSegment: (segment: SelectedVectorSegmentState | null) => {
-    core.setSystemProperty('hoveredVectorSegment', segment)
+    core.setSystemProperty(
+      PresetSystemPropertyKeys.HOVERED_VECTOR_SEGMENT,
+      segment
+    )
   },
 
   getHoveredVectorSegmentInsertPoint:
     (): HoveredVectorSegmentInsertPointState | null => {
       return (
         core.getSystemProperty<HoveredVectorSegmentInsertPointState | null>(
-          'hoveredVectorSegmentInsertPoint'
+          PresetSystemPropertyKeys.HOVERED_VECTOR_SEGMENT_INSERT_POINT
         ) ?? null
       )
     },
@@ -195,7 +224,10 @@ export const systemContextApis = {
   setHoveredVectorSegmentInsertPoint: (
     point: HoveredVectorSegmentInsertPointState | null
   ) => {
-    core.setSystemProperty('hoveredVectorSegmentInsertPoint', point)
+    core.setSystemProperty(
+      PresetSystemPropertyKeys.HOVERED_VECTOR_SEGMENT_INSERT_POINT,
+      point
+    )
   },
 
   clearVectorPointState: () => {
@@ -323,7 +355,7 @@ export const systemContextApis = {
   getPathEditingContinuation: (): PathEditingContinuationState | null => {
     return (
       core.getSystemProperty<PathEditingContinuationState | null>(
-        'pathEditingContinuation'
+        PresetSystemPropertyKeys.PATH_EDITING_CONTINUATION
       ) ?? null
     )
   },
@@ -331,6 +363,9 @@ export const systemContextApis = {
   setPathEditingContinuation: (
     continuation: PathEditingContinuationState | null
   ) => {
-    core.setSystemProperty('pathEditingContinuation', continuation)
+    core.setSystemProperty(
+      PresetSystemPropertyKeys.PATH_EDITING_CONTINUATION,
+      continuation
+    )
   }
 }

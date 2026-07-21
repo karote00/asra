@@ -2,6 +2,7 @@ import type { Subscription } from 'rxjs'
 import type { PositionData } from '@asyra/utils'
 import type { PresetCoreAPIs, PresetDependencies } from '../types'
 import { createCleanupReporter } from '../cleanup-reporter'
+import { PresetSystemPropertyKeys } from '../system-property-keys'
 
 export const registerDefaultRenderSystemSubscriptions = (
   core: PresetCoreAPIs,
@@ -19,9 +20,11 @@ export const registerDefaultRenderSystemSubscriptions = (
     disposed = true
   }
   const cleanupReporter = createCleanupReporter(onCleanupReady, dispose)
-  const zoomObservable = core.getSystemPropertyObservable<number>('zoom')
+  const zoomObservable = core.getSystemPropertyObservable<number>(
+    PresetSystemPropertyKeys.ZOOM
+  )
   const viewportPositionObservable = core.defineSystemProperty<PositionData>(
-    'viewportPosition',
+    PresetSystemPropertyKeys.VIEWPORT_POSITION,
     { x: 0, y: 0 }
   )
 
