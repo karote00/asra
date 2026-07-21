@@ -1,4 +1,5 @@
 import type { SharedDelivery, SharedDeliveryOrigin } from '@asyra/factory'
+import { deepFreeze } from '../deep-freeze'
 import type { OperationDefinition } from './registry'
 import { OperationRegistry } from './registry'
 
@@ -106,17 +107,6 @@ const cloneValue = <T>(value: T, seen = new WeakMap<object, unknown>()): T => {
   return clone as T
 }
 
-const freezeValue = <T>(value: T, seen = new WeakSet<object>()): T => {
-  if (value === null || typeof value !== 'object') return value
-  const object = value as object
-  if (seen.has(object)) return value
-  seen.add(object)
-  Reflect.ownKeys(object).forEach((key) =>
-    freezeValue(Reflect.get(object, key), seen)
-  )
-  return Object.freeze(value)
-}
-
 const validateCompensation = (delivery: SharedDelivery): void => {
   const hasCompensation = delivery.compensatesDeliveryId !== undefined
   if (
@@ -205,7 +195,7 @@ export const createSharedOperationEnvelope = <TPayload>({
     )
   }
 
-  return freezeValue({
+  return deepFreeze({
     operationId,
     transactionId,
     documentId: identity.documentId,

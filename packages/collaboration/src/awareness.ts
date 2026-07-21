@@ -2,6 +2,7 @@ import type {
   ProviderAwarenessDisconnect,
   ProviderAwarenessMessage
 } from './provider'
+import { deepFreeze } from './deep-freeze'
 
 export interface AwarenessRecord {
   [key: string]: AwarenessValue
@@ -258,17 +259,6 @@ const cloneAwarenessValue = (
   return result
 }
 
-const freezeDeep = <T>(value: T, seen = new WeakSet<object>()): T => {
-  if (value === null || typeof value !== 'object') return value
-  const object = value as object
-  if (seen.has(object)) return value
-  seen.add(object)
-  Reflect.ownKeys(object).forEach((key) =>
-    freezeDeep(Reflect.get(object, key), seen)
-  )
-  return Object.freeze(value)
-}
-
 const requireActor = (actorId: unknown): string => {
   if (typeof actorId !== 'string' || !actorId.trim()) {
     throw new AwarenessValidationError(
@@ -292,13 +282,13 @@ const cloneState = (
       '[collaboration] awareness heartbeatAt is runtime-owned'
     )
   }
-  return freezeDeep(cloneAwarenessValue(input) as AwarenessState)
+  return deepFreeze(cloneAwarenessValue(input) as AwarenessState)
 }
 
 const cloneSnapshot = (
   snapshot: RemoteAwarenessSnapshot
 ): RemoteAwarenessSnapshot =>
-  freezeDeep({
+  deepFreeze({
     actorId: snapshot.actorId,
     clock: snapshot.clock,
     state: cloneState(snapshot.state as Record<string, unknown>, true),
@@ -342,7 +332,7 @@ export class Awareness {
       true
     )
     this.clock += 1
-    return freezeDeep({ actorId: this.actorId, clock: this.clock, state })
+    return deepFreeze({ actorId: this.actorId, clock: this.clock, state })
   }
 
   leaveLocal(): ProviderAwarenessMessage {
@@ -389,7 +379,7 @@ export class Awareness {
         '[collaboration] awareness state must be a record or null'
       )
     }
-    const snapshot = freezeDeep({
+    const snapshot = deepFreeze({
       actorId,
       clock,
       state: cloneState(candidate.state as Record<string, unknown>, true),
@@ -471,7 +461,7 @@ export class Awareness {
       try {
         subscriber(
           event.type === 'updated'
-            ? freezeDeep({
+            ? deepFreeze({
                 type: 'updated' as const,
                 snapshot: cloneSnapshot(event.snapshot)
               })

@@ -1,4 +1,5 @@
 import * as Y from 'yjs'
+import { deepFreeze } from './deep-freeze'
 import type { SharedOperationEnvelope } from './operations/envelope'
 
 export const YJS_OPERATION_LOG_NAME = 'asyra:collaboration:operations:v1'
@@ -188,17 +189,6 @@ export interface DecodedInboundYjsUpdate {
   readonly operations: readonly unknown[]
 }
 
-const freezeDecodedValue = <T>(value: T, seen = new WeakSet<object>()): T => {
-  if (value === null || typeof value !== 'object') return value
-  const object = value as object
-  if (seen.has(object)) return value
-  seen.add(object)
-  Reflect.ownKeys(object).forEach((key) =>
-    freezeDecodedValue(Reflect.get(object, key), seen)
-  )
-  return Object.freeze(value)
-}
-
 const decodeOperationEntry = (
   entry: unknown,
   source: InboundYjsUpdateSource
@@ -215,7 +205,7 @@ const decodeOperationEntry = (
     if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) {
       throw new Error('operation entry must decode to an object')
     }
-    return freezeDecodedValue(decoded)
+    return deepFreeze(decoded)
   } catch (error) {
     throw new InboundYjsDecodeFailure(
       'malformed-operation-entry',

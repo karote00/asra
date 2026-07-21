@@ -3,6 +3,7 @@ import {
   type SharedOperationEnvelope,
   type SharedOperationOrigin
 } from './envelope'
+import { deepFreeze } from '../deep-freeze'
 import { OperationRegistry } from './registry'
 import {
   fingerprintOperation,
@@ -124,17 +125,6 @@ const cloneJsonValue = (
   }
   seen.delete(value)
   return result
-}
-
-const freezeDeep = <T>(value: T, seen = new WeakSet<object>()): T => {
-  if (value === null || typeof value !== 'object') return value
-  const object = value as object
-  if (seen.has(object)) return value
-  seen.add(object)
-  Reflect.ownKeys(object).forEach((key) =>
-    freezeDeep(Reflect.get(object, key), seen)
-  )
-  return Object.freeze(value)
 }
 
 const stringField = (
@@ -343,7 +333,7 @@ export const validateRemoteOperation = ({
     }
   }
 
-  const immutableEnvelope = freezeDeep(candidate)
+  const immutableEnvelope = deepFreeze(candidate)
   outcomes.reserve(immutableEnvelope, fingerprint)
   return Object.freeze({ status: 'validated', envelope: immutableEnvelope })
 }
