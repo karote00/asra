@@ -1,5 +1,5 @@
 import { MapRegistry } from '@asyra/utils'
-import { cloneSharedValue } from './shared-delivery'
+import { cloneValue } from './value-clone'
 
 export type SharedDataChannelName = string
 
@@ -20,7 +20,7 @@ export class LocalSharedDataChannel implements SharedDataChannel {
   append(change: unknown): void {
     ;[...this.handlers].forEach((handler) => {
       try {
-        handler(cloneSharedValue(change))
+        handler(cloneValue(change))
       } catch {
         // Local projection observers cannot invalidate an applied change.
       }

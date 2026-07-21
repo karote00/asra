@@ -78,6 +78,7 @@ import {
   type TransactionValidator
 } from './transaction'
 import type { SharedDelivery, SharedPublication } from './shared-delivery'
+import { cloneValue } from './value-clone'
 
 const BUILT_IN_INVERTIBLE_EVENT_TYPES = new Set<string>([
   EventTypes.ADD_ELEMENT,
@@ -168,49 +169,7 @@ const invertComputedDataPatchChange = (
   return inverted
 }
 
-const cloneTransactionValue = <T>(
-  value: T,
-  seen = new WeakMap<object, unknown>()
-): T => {
-  if (value === null || typeof value !== 'object') {
-    return value
-  }
-
-  const source = value as object
-  const existing = seen.get(source)
-  if (existing) {
-    return existing as T
-  }
-
-  const clone: object = Array.isArray(value)
-    ? []
-    : Object.create(Object.getPrototypeOf(value))
-  seen.set(source, clone)
-  Reflect.ownKeys(source).forEach((key) => {
-    if (Array.isArray(source) && key === 'length') {
-      return
-    }
-    const descriptor = Object.getOwnPropertyDescriptor(source, key)
-    if (!descriptor) {
-      return
-    }
-    const snapshotValue =
-      'value' in descriptor ? descriptor.value : Reflect.get(source, key)
-    Object.defineProperty(clone, key, {
-      value: cloneTransactionValue(snapshotValue, seen),
-      enumerable: descriptor.enumerable,
-      configurable: true,
-      writable: true
-    })
-  })
-  if (Array.isArray(source) && Array.isArray(clone)) {
-    clone.length = source.length
-  }
-
-  return clone as T
-}
-
-const cloneEvent = (event: AllEvent): AllEvent => cloneTransactionValue(event)
+const cloneEvent = (event: AllEvent): AllEvent => cloneValue(event)
 
 const isReplayEvent = (value: unknown): value is AllEvent =>
   typeof value === 'object' &&
@@ -360,7 +319,7 @@ class DataTransact {
 
     const payload = event.payload as TransactionPayload
     const newType = event.eventName as AllEvent['type']
-    const newPayload = cloneTransactionValue(payload)
+    const newPayload = cloneValue(payload)
     const newEvent: AllEvent = {
       type: newType,
       payload: newPayload
@@ -395,7 +354,7 @@ class DataTransact {
         origin === 'remote'
           ? { ...event.options, undoable: false, rollbackable: true }
           : event.options
-      const sharedChange = cloneTransactionValue(
+      const sharedChange = cloneValue(
         toSharedChannelPayload(newPayload, sharedOptions)
       )
       journalEntry.shared = {
@@ -454,7 +413,7 @@ class DataTransact {
       kind: 'forward',
       channel: shared.name,
       eventName: entry.event.type,
-      payload: cloneTransactionValue(shared.change),
+      payload: cloneValue(shared.change),
       sharedDelivery: entry.options.sharedDelivery
     }
   }
@@ -559,7 +518,7 @@ class DataTransact {
       kind: 'compensation',
       channel: shared.name,
       eventName,
-      payload: cloneTransactionValue(payload),
+      payload: cloneValue(payload),
       sharedDelivery: entry.options.sharedDelivery,
       compensatesDeliveryId: this.forwardDeliveryId(entry)
     }
@@ -790,7 +749,7 @@ class DataTransact {
   }
 
   private recordReplaySharedChange(event: AllEvent, name: string): void {
-    const payload = cloneTransactionValue(
+    const payload = cloneValue(
       (event as AllEvent & { payload: TransactionPayload }).payload
     )
     const options: EffectiveMutationOptions = {
@@ -806,7 +765,7 @@ class DataTransact {
       source: 'replay',
       shared: {
         name,
-        change: cloneTransactionValue(
+        change: cloneValue(
           toSharedChannelPayload(payload, {
             undoable: false,
             rollbackable: true,
