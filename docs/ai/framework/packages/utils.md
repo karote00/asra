@@ -16,6 +16,9 @@ Provide shared types, ids, registry primitives, and low-level helpers.
     local namespace's counter; clearing the counter also clears the namespace
 - common registry utility primitives
 - framework-safe helper functions/constants
+- optional browser drag-phase measurement helpers that call the shared
+  diagnostics sink without owning phase names, product budgets, or reporting
+  policy
 
 ## Must Not Own
 

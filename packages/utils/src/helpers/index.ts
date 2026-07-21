@@ -1,4 +1,5 @@
 export * from './color'
+export * from './browser-drag-phase'
 export * from './string-utils'
 export * from './type-checks'
 export * from './validators'

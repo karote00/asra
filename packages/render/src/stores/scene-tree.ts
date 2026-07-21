@@ -6,7 +6,7 @@ import type {
   SceneTreeDataOwner,
   WorkspaceRawData
 } from '@asyra/utils'
-import { EntityTypes } from '@asyra/utils'
+import { EntityTypes, measureBrowserDragPhase } from '@asyra/utils'
 import sceneTree from '@asyra/scene-tree'
 import { RenderElementData } from '../types'
 
@@ -194,27 +194,6 @@ const isDataEqual = (
     (key) =>
       hasOwn(right, key) && isDataEqual(left[key], right[key], comparedPairs)
   )
-}
-
-const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
-  const sink = (
-    globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (
-        phaseName: string,
-        durationMs: number
-      ) => void
-    }
-  ).__asyraBrowserDragPhaseSink
-  if (!sink) {
-    return run()
-  }
-
-  const start = performance.now()
-  try {
-    return run()
-  } finally {
-    sink(phaseName, performance.now() - start)
-  }
 }
 
 const emitStrokePipelineCounter = (counterName: string, value = 1) => {

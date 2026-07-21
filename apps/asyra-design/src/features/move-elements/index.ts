@@ -1,8 +1,9 @@
-import type {
-  EVENT_OPTIONS,
-  PositionData,
-  Rect,
-  SystemContextSnapshot
+import {
+  measureBrowserDragPhase,
+  type EVENT_OPTIONS,
+  type PositionData,
+  type Rect,
+  type SystemContextSnapshot
 } from '@asyra/utils'
 import { defineFeature } from '@asyra/core'
 import {
@@ -25,27 +26,6 @@ interface MoveElementsState {
   isMoving: boolean
   startedFromSelectionBounds: boolean
   [key: string]: unknown
-}
-
-const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
-  const sink = (
-    globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (
-        phaseName: string,
-        durationMs: number
-      ) => void
-    }
-  ).__asyraBrowserDragPhaseSink
-  if (!sink) {
-    return run()
-  }
-
-  const start = performance.now()
-  try {
-    return run()
-  } finally {
-    sink(phaseName, performance.now() - start)
-  }
 }
 
 interface MoveElementsApi {

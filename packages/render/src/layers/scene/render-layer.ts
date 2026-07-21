@@ -3,34 +3,17 @@ import {
   RenderContainerData,
   RenderElementData
 } from '../../types'
-import { DataTypes, getElementGeometryLocalBounds } from '@asyra/utils'
+import {
+  DataTypes,
+  getElementGeometryLocalBounds,
+  measureBrowserDragPhase
+} from '@asyra/utils'
 import renderStrategyRegistry from '../../registries/render-strategy'
 import { defaultStrategy } from '../../strategies/default-strategy'
 import { RenderContainer, RenderGraphics } from '../../types/render-object'
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value)
-
-const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
-  const sink = (
-    globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (
-        phaseName: string,
-        durationMs: number
-      ) => void
-    }
-  ).__asyraBrowserDragPhaseSink
-  if (!sink) {
-    return run()
-  }
-
-  const start = performance.now()
-  try {
-    return run()
-  } finally {
-    sink(phaseName, performance.now() - start)
-  }
-}
 
 export class RenderLayer {
   private currentWorkspace: RenderContainer

@@ -21,6 +21,7 @@ import {
   type AddRemoveElementChange,
   type ComputedAttrs,
   type GroupRawData,
+  measureBrowserDragPhase,
   type SceneTreeChange,
   type SelectionChange,
   type UpdateElementBatchChange,
@@ -35,28 +36,6 @@ import {
   SelectionEventNames,
   type SelectionChannel
 } from '../selection/channels'
-
-const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
-  const sink = (
-    globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (
-        phaseName: string,
-        durationMs: number
-      ) => void
-    }
-  ).__asyraBrowserDragPhaseSink
-
-  if (!sink) {
-    return run()
-  }
-
-  const start = performance.now()
-  try {
-    return run()
-  } finally {
-    sink(phaseName, performance.now() - start)
-  }
-}
 
 const emitStrokePipelineCounter = (counterName: string, value = 1): void => {
   ;(

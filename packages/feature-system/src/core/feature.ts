@@ -1,8 +1,9 @@
-import type {
-  SystemContextSnapshot,
-  SystemContextSnapshotWithDetail
+import {
+  measureBrowserDragAsyncPhase,
+  type RawInputEvent,
+  type SystemContextSnapshot,
+  type SystemContextSnapshotWithDetail
 } from '@asyra/utils'
-import type { RawInputEvent } from '@asyra/utils'
 import type {
   FeatureDefinition,
   FeatureAPI,
@@ -17,30 +18,6 @@ import { interactionQueue } from './interaction-queue'
 
 const featureRegistry = new FeatureRegistry()
 const sessionManager = new SessionManager()
-
-const measureBrowserDragAsyncPhase = async <T>(
-  phaseName: string,
-  run: () => Promise<T>
-): Promise<T> => {
-  const sink = (
-    globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (
-        phaseName: string,
-        durationMs: number
-      ) => void
-    }
-  ).__asyraBrowserDragPhaseSink
-  if (!sink) {
-    return run()
-  }
-
-  const start = performance.now()
-  try {
-    return await run()
-  } finally {
-    sink(phaseName, performance.now() - start)
-  }
-}
 
 let corePackages: CorePackages = {}
 let isPackagesSet = false
