@@ -30,6 +30,7 @@ Framework-first rules:
 14. `PLANS.md`
 15. `plans/completed/*` (historical completed-plan archive)
 16. `decisions/releases/*` (framework decision history; global rules in `../decisions/README.md`)
+17. `audits/*` (historical point-in-time diagnostics; never current authority)
 
 ## Interpretation Priority
 

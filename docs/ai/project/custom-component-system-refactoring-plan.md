@@ -1780,7 +1780,9 @@ The custom component system is now fully functional and ready for use. Users can
 3. Provide custom render strategies or use default rectangle rendering
 4. Unregister components when no longer needed using `unregisterComponent()`
 
-See `docs/ai/custom-component-usage-guide.md` for complete documentation and examples.
+See the adjacent historical
+[custom-component usage guide](./custom-component-usage-guide.md) for the
+examples that accompanied this plan.
 
 ---
 

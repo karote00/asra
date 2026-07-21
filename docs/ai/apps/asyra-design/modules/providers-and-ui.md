@@ -21,6 +21,10 @@ Primary files:
 
 ## UI Composition
 
+App components compose presentation primitives from `@asyra/design-system`.
+The app still owns feature intent, controller/common-API calls, and state
+projection; the design-system package owns no canonical document behavior.
+
 - `src/app/index.tsx`
 
   - layout shell + canvas anchor

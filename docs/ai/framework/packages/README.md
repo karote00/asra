@@ -5,6 +5,7 @@ This folder describes framework package responsibilities, boundaries, and extens
 - `core.md`
 - `factory.md`
 - `collaboration.md`
+- `persistence.md`
 - `scene-tree.md`
 - `system-context.md`
 - `selection.md`
@@ -16,4 +17,5 @@ This folder describes framework package responsibilities, boundaries, and extens
 - `render.md`
 - `render-engine.md`
 - `render-engine-pixi.md`
+- `design-system.md`
 - `feature-system.md`

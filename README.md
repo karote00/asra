@@ -4,101 +4,60 @@
 
 ## Core Vision
 
-- **Information Model First**: Defines what an information model should contain for interactive design apps.  
-- **Framework for Product Extension**: Provides modular building blocks so developers can define their own interactive products.  
+- **Information Model First**: Defines what an information model should contain for interactive design apps.
+- **Framework for Product Extension**: Provides modular building blocks so developers can define their own interactive products.
 - **Modular and Customizable**: Developers have full control over how modules are combined and extended.
 
 ## Core Modules
 
-1. **Event Flow**: Decouples all repos; the foundation of modular communication.  
-2. **Scene Tree**: Represents the structured information model for interactive elements.  
-3. **Renderer**: Processes data context changes and calls the render engine to display content.  
-4. **Core**: Unified API entry point for system-level communication.  
-5. **Feature System + Input System**: Supports combo keys, user-defined shortcuts, and deterministic feature/session execution for context-specific actions.  
-6. **UI Context**: Processes data context changes specifically for UI rendering; can be replaced with custom modules if desired.  
-7. **UI**: Fully customizable presentation layer; developers choose how to display data.  
-8. **Undo Behaviours**: Immutable module to ensure system stability.  
-9. **CRDT**: Immutable core with optional extensibility via registry objects.  
-
-> There are over a dozen modular systems that can be assembled and extended to create new interactive products.  
-> The framework is intentionally conceptual, leaving full control to developers to define their own scene-tree, event flows, and system contexts.
+1. **Core** coordinates lifecycle, registration, persistence, and package
+   facades without owning app product decisions.
+2. **Factory** owns transaction boundaries, rollback journals, undo/redo, and
+   optional shared-action publication.
+3. **Scene Tree, Props Manager, Selection, and System Context** own canonical
+   document or runtime state in their respective domains.
+4. **Reactive Events** carries typed communication without becoming a product
+   state owner.
+5. **Input System + Feature System** normalize app-defined input and coordinate
+   deterministic feature sessions.
+6. **Render + Render Engine** project canonical state through a replaceable
+   rendering boundary.
+7. **UI Context** projects framework/app state for UI consumers; presentation
+   remains app-owned.
+8. **Persistence** is a replaceable provider boundary used by Core.
+9. **Collaboration** is optional. Apps that enable it explicitly compose the
+   Yjs operation pipeline and a replaceable network provider; apps that omit it
+   keep their ordinary load/save/backend path.
+10. **Preset** installs optional official defaults. Apps may compose, replace,
+    or omit those defaults.
 
 ## Architecture Overview
 
----
-mermaid
+```mermaid
 flowchart TD
-    %% Core modules
-    EventFlow["Event Flow"]
-    SceneTree["Scene Tree"]
-    Renderer["Renderer"]
-    CoreAPI["Core API"]
-    Interaction["Feature System + Input System"]
-    UIContext["UI Context"]
-    UI["UI"]
-    Undo["Undo Behaviours (Immutable)"]
-    CRDT["CRDT (Extensible Registry)"]
+    Input["App input"] --> Feature["App features and APIs"]
+    Feature --> Core["Core facade"]
+    Core --> Factory["Factory transaction"]
+    Factory --> Owners["Canonical state owners"]
+    Owners --> Render["Render projection"]
+    Owners --> UIContext["UI-context projection"]
+    Render --> AppUI["App UI"]
+    UIContext --> AppUI
+    Factory -. "optional persistence" .-> Persistence["Persistence provider"]
+    Factory -. "optional shared publication" .-> Collaboration["Collaboration pipeline"]
+    Collaboration -.-> Provider["App-selected network provider"]
+```
 
-    %% Data / control flows
-    EventFlow --> SceneTree
-    SceneTree --> Renderer
-    SceneTree --> UIContext
-    Renderer --> UI
-    UIContext --> UI
-    Interaction --> UI
-    CoreAPI --> EventFlow
-    CoreAPI --> SceneTree
-    Undo --> EventFlow
-    CRDT --> EventFlow
+The app defines product behavior and backend policy. Framework packages run the
+selected pipeline without inventing app operations, conflict semantics,
+authorization, or UI behavior.
 
-    %% Notes
-    classDef immutable fill:#f9f,stroke:#333,stroke-width:1px;
-    class Undo,CRDT immutable;
----
+## Documentation
 
-> This diagram is conceptual. It shows how Asyra's core modules interact and the main data flow paths. Developers are free to define their own scene-tree, event flows, and system contexts.
-
-## Modular Assembly Overview
-
----
-mermaid
-flowchart TD
-    %% Product Example
-    Product["Custom Interactive Product"]
-
-    %% Core Modules
-    EventFlow["Event Flow"]
-    SceneTree["Scene Tree"]
-    Renderer["Renderer"]
-    CoreAPI["Core API"]
-    Interaction["Feature System + Input System"]
-    UIContext["UI Context"]
-    UI["UI"]
-    Undo["Undo Behaviours (Immutable)"]
-    CRDT["CRDT (Extensible Registry)"]
-    ExtraModules["Other Optional Modules"]
-
-    %% Assembly Paths
-    Product --> EventFlow
-    Product --> SceneTree
-    Product --> Renderer
-    Product --> CoreAPI
-    Product --> Interaction
-    Product --> UIContext
-    Product --> UI
-    Product --> Undo
-    Product --> CRDT
-    Product --> ExtraModules
-
-    %% Notes
-    classDef immutable fill:#f9f,stroke:#333,stroke-width:1px;
-    class Undo,CRDT immutable;
----
-
-> This diagram illustrates how developers can assemble Asyra's modular systems to create a custom interactive product.  
-> Each module can be combined or extended according to the product's needs. Immutable modules (Undo Behaviours, CRDT) provide system stability while optional modules allow full customization.
-
-
+- Documentation map: [`docs/README.md`](docs/README.md)
+- Framework contracts: [`docs/ai/framework/README.md`](docs/ai/framework/README.md)
+- App contracts: [`docs/ai/apps/README.md`](docs/ai/apps/README.md)
+- Supported examples: [`docs/examples/README.md`](docs/examples/README.md)
 
 ## 🤝 Contribution Policy
 
@@ -112,10 +71,9 @@ for Communication-Driven Development (CDD) and AI-native workflows.
 
 You are welcome to fork the project and adapt it for your own needs.
 
-
 ---
-> Asyra is the evolution of Asra — consolidating previous experiences into a new, long-term vision.
 
+> Asyra is the evolution of Asra — consolidating previous experiences into a new, long-term vision.
 
 ## License
 
