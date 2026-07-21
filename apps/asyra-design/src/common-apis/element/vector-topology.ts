@@ -91,12 +91,12 @@ const omitKeys = <T extends Record<string, unknown>>(
 ): T => keys.reduce((acc, key) => omitKey(acc, key), source)
 
 const isAnchorNode = (
-  node: VectorPointNode | undefined
+  node: VectorPointNode | null | undefined
 ): node is VectorPointNode & { kind: typeof VECTOR_TOKENS.POINT.KIND.ANCHOR } =>
   !!node && node.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR
 
 const isControlNode = (
-  node: VectorPointNode | undefined
+  node: VectorPointNode | null | undefined
 ): node is VectorPointNode & {
   kind: typeof VECTOR_TOKENS.POINT.KIND.CONTROL
 } => !!node && node.kind === VECTOR_TOKENS.POINT.KIND.CONTROL

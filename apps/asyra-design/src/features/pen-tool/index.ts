@@ -991,7 +991,7 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
         setSelectedAnchorPoint(state.elementId, selectedPoint)
         return
       },
-      onCancel: (_snapshot, state) => {
+      onCancel: (_snapshot, state): undefined => {
         restoreVectorEditingRuntimeState(state.runtimeBefore)
         cursorApis.resetCanvasCursor()
       }
@@ -1295,7 +1295,7 @@ export const selectVectorPointFeature = defineFeature<
       }
       return
     },
-    onCancel: (_snapshot, state) => {
+    onCancel: (_snapshot, state): undefined => {
       state.dragTarget = null
       restoreVectorEditingRuntimeState(state.runtimeBefore)
       cursorApis.resetCanvasCursor()

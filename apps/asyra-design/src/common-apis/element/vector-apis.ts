@@ -161,6 +161,12 @@ type VectorTopologyOperationOptions = EVENT_OPTIONS &
     closed?: boolean
   }
 
+type VectorOperationOptions = EVENT_OPTIONS &
+  VectorOperationIntentOptions & {
+    skipResult?: boolean
+    closed?: boolean
+  }
+
 export interface ValidatedVectorComputedPatchRequest {
   kind: 'validated-computed-patch-request'
   routeId: 'common-api-domain-adapter'
@@ -186,9 +192,7 @@ export interface ValidatedVectorComputedPatchRequest {
 }
 
 const toVectorEventOptions = (
-  options?: (VectorPointMutationOptions | VectorTopologyOperationOptions) & {
-    closed?: boolean
-  }
+  options?: VectorOperationOptions
 ): EVENT_OPTIONS | undefined => {
   if (!options) {
     return undefined
@@ -598,7 +602,12 @@ const updateTransientComputedSnapshotFromPatch = (
       currentRecord &&
       typeof currentRecord === 'object' &&
       !Array.isArray(currentRecord)
-        ? { ...(currentRecord as unknown as Record<string, DataTypes>) }
+        ? {
+            ...(currentRecord as unknown as Record<
+              string,
+              DataTypes | undefined
+            >)
+          }
         : {}
 
     Object.entries(recordPatch.set ?? {}).forEach(([recordId, value]) => {

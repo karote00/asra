@@ -51,13 +51,12 @@ export const acquireInputEvents = (
 export const acquireBaseProperties = (
   context: PresetDefaultInstallContext
 ): void => {
-  context.privatePrerequisites.acquire('properties:base', () => {
+  context.privatePrerequisites.acquire('properties:base', (): undefined => {
     registerPropertySchemas(context.core, BASE_PROPERTY_SCHEMAS)
     registerPropertyComponents(
       context.core,
       BASE_PROPERTY_COMPONENT_DEFINITIONS
     )
-    return undefined
   })
 }
 
@@ -65,13 +64,12 @@ export const acquireVectorProperties = (
   context: PresetDefaultInstallContext
 ): void => {
   acquireBaseProperties(context)
-  context.privatePrerequisites.acquire('properties:vector', () => {
+  context.privatePrerequisites.acquire('properties:vector', (): undefined => {
     registerPropertySchemas(context.core, VECTOR_PROPERTY_SCHEMAS)
     registerPropertyComponents(
       context.core,
       VECTOR_PROPERTY_COMPONENT_DEFINITIONS
     )
-    return undefined
   })
 }
 

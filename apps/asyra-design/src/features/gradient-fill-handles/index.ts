@@ -595,7 +595,7 @@ export const dragGradientHandleFeature = defineFeature<
         finalGradient
       )
     },
-    onCancel: (_snapshot, state) => {
+    onCancel: (_snapshot, state): undefined => {
       cancelHandleDragUpdate(state)
     }
   }
@@ -726,7 +726,7 @@ export const dragGradientStopFeature = defineFeature<
         finalGradient
       )
     },
-    onCancel: (_snapshot, state) => {
+    onCancel: (_snapshot, state): undefined => {
       cancelStopDragUpdate(state)
     }
   }
