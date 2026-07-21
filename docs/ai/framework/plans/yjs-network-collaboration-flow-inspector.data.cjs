@@ -152,9 +152,9 @@
       implementationBoundary: [
         'packages/collaboration/package.json',
         'packages/collaboration/tsconfig.json',
-        'packages/collaboration/src/collaboration.ts',
+        'packages/collaboration/src/process.ts',
         'packages/collaboration/src/awareness.ts',
-        'packages/collaboration/src/__tests__/collaboration.test.ts',
+        'packages/collaboration/src/__tests__/process.test.ts',
         'packages/collaboration/src/index.ts',
         'packages/collaboration/src/composition.ts',
         'yarn.lock'
@@ -341,7 +341,7 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/collaboration/src/yjs-document.ts',
-        'packages/collaboration/src/collaboration.ts',
+        'packages/collaboration/src/process.ts',
         'packages/collaboration/src/__tests__/yjs-document.test.ts'
       ],
       specRefs: ['#shared-operation-envelope', '#origin-and-echo-prevention'],
@@ -465,7 +465,7 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/collaboration/src/yjs-document.ts',
-        'packages/collaboration/src/collaboration.ts',
+        'packages/collaboration/src/process.ts',
         'packages/collaboration/src/__tests__/decode.test.ts'
       ],
       specRefs: ['#remote-canonical-apply', '#canonical-collaboration-flows'],
@@ -524,7 +524,7 @@
         'packages/collaboration/src/operations/validation.ts',
         'packages/collaboration/src/operations/envelope.ts',
         'packages/collaboration/src/operations/registry.ts',
-        'packages/collaboration/src/collaboration.ts',
+        'packages/collaboration/src/process.ts',
         'packages/collaboration/src/__tests__/validation.test.ts'
       ],
       specRefs: [
@@ -577,7 +577,7 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/collaboration/src/operations/conflict.ts',
-        'packages/collaboration/src/collaboration.ts',
+        'packages/collaboration/src/process.ts',
         'packages/collaboration/src/__tests__/conflict.test.ts'
       ],
       specRefs: [
@@ -777,7 +777,7 @@
       implementationBoundary: [
         'packages/collaboration/src/durability.ts',
         'packages/collaboration/src/persistence.ts',
-        'packages/collaboration/src/collaboration.ts',
+        'packages/collaboration/src/process.ts',
         'packages/collaboration/src/provider.ts',
         'packages/collaboration/src/providers/memory/hub.ts',
         'packages/collaboration/src/providers/memory/provider.ts',
@@ -836,7 +836,7 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/collaboration/src/awareness.ts',
-        'packages/collaboration/src/collaboration.ts',
+        'packages/collaboration/src/process.ts',
         'packages/collaboration/src/__tests__/awareness.test.ts',
         'apps/asyra-design/src/collaboration'
       ],

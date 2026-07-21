@@ -1,8 +1,4 @@
-export {
-  Collaboration,
-  DisposalError,
-  createCollaboration
-} from './collaboration'
+export { Collaboration, DisposalError, createCollaboration } from './process'
 
 export { Awareness, AwarenessValidationError } from './awareness'
 export type {
@@ -15,7 +11,7 @@ export type {
   AwarenessValue,
   RemoteAwarenessSnapshot
 } from './awareness'
-export type { CollaborationOperationOutcome } from './collaboration'
+export type { CollaborationOperationOutcome } from './process'
 export type {
   AppConflictPolicy,
   ConflictPolicyContext,

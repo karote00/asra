@@ -524,7 +524,7 @@ test('inbound pipeline orders decode, dedupe, validation, policy, transaction, a
   )
   assert.ok(
     step('validate-origin-dedupe-protocol').implementationBoundary.includes(
-      'packages/collaboration/src/collaboration.ts'
+      'packages/collaboration/src/process.ts'
     ),
     'local publication must register its outcome before an own-operation replay'
   )
@@ -561,7 +561,7 @@ test('awareness is a separate ephemeral observational route', () => {
   )
   assert.ok(
     step('own-awareness-state').implementationBoundary.includes(
-      'packages/collaboration/src/collaboration.ts'
+      'packages/collaboration/src/process.ts'
     ),
     'awareness owner must bind the collaboration instance identity and lifecycle'
   )
