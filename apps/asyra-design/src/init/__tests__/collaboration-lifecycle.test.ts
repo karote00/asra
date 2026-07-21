@@ -5,14 +5,14 @@ import { CollaborationWebSocketProvider } from '../../collaboration/websocket-pr
 import {
   disposeCollaboration,
   startCollaboration
-} from '../../collaboration/runtime'
+} from '../../collaboration/lifecycle'
 
 const harness = {
   collaboration: {
     identity: {
-      documentId: 'file-runtime',
-      roomId: 'file-runtime',
-      actorId: 'actor-runtime'
+      documentId: 'file-lifecycle',
+      roomId: 'file-lifecycle',
+      actorId: 'actor-lifecycle'
     },
     provider: { getStatus: vi.fn(() => 'idle') },
     updateAwareness: vi.fn(),
@@ -47,8 +47,8 @@ it('starts the real app collaboration composition without an Awareness preview r
     .mockReturnValue(harness.collaboration as never)
 
   await startCollaboration({
-    fileId: 'file-runtime',
-    actorId: 'actor-runtime',
+    fileId: 'file-lifecycle',
+    actorId: 'actor-lifecycle',
     endpoint: 'ws://127.0.0.1:4101/asyra-design-collaboration'
   })
 
@@ -56,10 +56,10 @@ it('starts the real app collaboration composition without an Awareness preview r
   const composition = createCollaboration.mock.calls[0][0]
   expect(composition.provider).toBeInstanceOf(CollaborationWebSocketProvider)
   expect(composition.provider?.identity).toEqual({
-    documentId: 'file-runtime',
-    roomId: 'file-runtime',
-    actorId: 'actor-runtime',
-    connectionMetadata: { fileId: 'file-runtime' }
+    documentId: 'file-lifecycle',
+    roomId: 'file-lifecycle',
+    actorId: 'actor-lifecycle',
+    connectionMetadata: { fileId: 'file-lifecycle' }
   })
   expect(
     composition.operationDefinitions.map(
@@ -76,7 +76,7 @@ it('starts the real app collaboration composition without an Awareness preview r
   ])
   expect(composition.conflictPolicies).toBeUndefined()
   expect('frameworkInvariants' in composition).toBe(false)
-  expect(idCounter.current(IDTypes.ELEMENT)).toBe('el-actor-runtime-0')
+  expect(idCounter.current(IDTypes.ELEMENT)).toBe('el-actor-lifecycle-0')
   expect(harness.collaboration.updateAwareness).not.toHaveBeenCalled()
   expect(window.__AsyraCollaboration__).toBeDefined()
 })

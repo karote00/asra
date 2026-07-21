@@ -236,7 +236,7 @@ test('opt-in composition owns the disabled and provider-less cases', () => {
   )
   assert.match(
     compose,
-    /RenderApp owns unmount.*aborted-startup teardown requests.*runtime owns HMR teardown.*disposal.*provider.*Awareness.*Core.*not.*lifecycle/i
+    /RenderApp owns unmount.*aborted-startup teardown requests.*lifecycle module owns HMR teardown.*disposal.*provider.*Awareness.*Core.*not.*lifecycle/i
   )
   assert.match(compose, /composition setup failure.*dispose.*instance/i)
   assert.match(compose, /authentication.*authorization.*room access/i)

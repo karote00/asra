@@ -69,7 +69,7 @@ Expected behavior:
 4. Create, move, undo, redo, disconnect, and reconnect converge.
 5. A different `fileId` stays in a different room.
 
-The collaboration runtime console handle is intentionally retained for manual
+The collaboration console handle is intentionally retained for manual
 testing whenever `fileId` activates the composition:
 
 ```js
@@ -81,7 +81,7 @@ await window.__AsyraCollaboration__?.reconnect()
 ```
 
 `dispose()` is also available for teardown diagnostics. Reload the page to
-create a new app-owned collaboration runtime after disposal.
+create a new app-owned collaboration instance after disposal.
 
 ## Identity and Permission Boundary
 
@@ -157,10 +157,10 @@ or undo history.
 
 ## Lifecycle Ownership
 
-The optional runtime is dynamically imported for any app URL with a valid
+The optional lifecycle module is dynamically imported for any app URL with a valid
 `fileId`, including a deployed production build. URLs without `fileId` do not
 load it. `RenderApp` owns opt-in timing plus unmount and aborted-startup
-teardown requests. The collaboration runtime owns HMR teardown, partial-setup
+teardown requests. The collaboration lifecycle module owns HMR teardown, partial-setup
 cleanup, and explicit disposal. The provider owns connection-failure state,
 while the collaboration instance enforces borrowed/owned resource disposal.
 These paths unregister observers and destroy only resources owned by the app

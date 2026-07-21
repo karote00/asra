@@ -61,13 +61,15 @@ const RenderApp: React.FC = () => {
         }
 
         if (collaborationMode) {
-          const collaborationRuntime = await import('../collaboration/runtime')
-          collaborationDisposer = collaborationRuntime.disposeCollaboration
+          const collaborationLifecycle = await import(
+            '../collaboration/lifecycle'
+          )
+          collaborationDisposer = collaborationLifecycle.disposeCollaboration
           if (!active) {
             await disposeCollaboration()
             return
           }
-          await collaborationRuntime.startCollaboration(collaborationMode)
+          await collaborationLifecycle.startCollaboration(collaborationMode)
           if (!active) await disposeCollaboration()
         }
       })

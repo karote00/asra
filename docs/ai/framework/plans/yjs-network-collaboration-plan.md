@@ -182,7 +182,7 @@ End-state:
   app/server endpoint decides whether to accept or reject the connection and
   reports that result through provider status/failure.
 - Asyra Design RenderApp owns unmount and aborted-startup teardown requests.
-  The collaboration runtime owns HMR teardown, setup-failure cleanup, and
+  The collaboration lifecycle module owns HMR teardown, setup-failure cleanup, and
   explicit disposal of the activated instance, including its provider,
   Awareness observers, and owned resources. Core does not adopt that app-owned
   lifecycle.
@@ -252,7 +252,7 @@ End-state:
   app-domain permission and conflict extensions through the public
   collaboration boundary.
 - `@asyra/core` keeps document persistence acknowledgement separate and does
-  not import or re-export the optional collaboration runtime.
+  not import or re-export the optional collaboration package.
 - Render/UI consume canonical state and ephemeral awareness projections only.
   They cannot accept, repair, reject, authorize, or apply a document operation.
 - No provider implementation, Y.Doc content, operation log, awareness map,

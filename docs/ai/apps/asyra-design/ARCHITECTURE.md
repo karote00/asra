@@ -73,7 +73,7 @@
 - remains the sole runtime-start/ready owner; preset completion does not close
   registration composition or publish ready
 - owns the mount-lifetime teardown request for the Core renderer and optional
-  collaboration runtime; the runtime disposer owns idempotent resource cleanup.
+  collaboration lifecycle; the lifecycle disposer owns idempotent resource cleanup.
   Teardown does not reopen composition, and an unmount during pending startup
   cannot activate collaboration afterward
 - collaboration setup has one failure boundary; a partial setup is disposed
@@ -92,7 +92,7 @@ Input -> Feature -> Common API/Controller -> Core/Framework State -> Render/UI-c
 ## Optional Collaboration Ownership
 
 - RenderApp owns opt-in timing and mount-lifetime activation/teardown requests;
-  the collaboration runtime owns instance startup, failure cleanup, and
+  the collaboration lifecycle module owns instance startup, failure cleanup, and
   disposal, including HMR cleanup. Core and Preset do not activate
   collaboration implicitly.
 - `src/collaboration/factory-adapter.ts` exposes only the registered

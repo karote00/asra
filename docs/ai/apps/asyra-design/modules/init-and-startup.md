@@ -62,7 +62,7 @@
   `fileId` supplies internal
   document and room identity while a full UUID actor identity is generated per
   page and applied to the canonical ID-counter namespace
-- the collaboration runtime subscribes to Factory shared publications after
+- the collaboration lifecycle module subscribes to Factory shared publications after
   ordinary Core/Render startup; immediate publications may occur during an
   outer pointer transaction, while transaction-end publications wait for
   commit
@@ -72,7 +72,7 @@
   persistence load, features, and render-ready publication
 - effect cleanup calls `core.destroyRenderer()` and the app-owned collaboration
   disposer; teardown is idempotent, does not reopen composition, and an
-  unmount/aborted startup cannot later activate the optional runtime
+  unmount/aborted startup cannot later activate collaboration
 - collaboration disposal detaches publication and Awareness observers, clears
   timers/store state, and destroys only owned collaboration resources
 - setup failure disposes the partially composed instance; no failed setup

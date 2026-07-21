@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { providers } from '@asyra/reactive-events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import core from '../../contexts'
-import * as collaborationRuntime from '../../collaboration/runtime'
+import * as collaborationLifecycle from '../../collaboration/lifecycle'
 import RenderApp from '../index'
 
 const COLLABORATION_ENDPOINT = 'ws://127.0.0.1:4101/asyra-design-collaboration'
@@ -41,10 +41,10 @@ describe('RenderApp StrictMode lifecycle', () => {
     vi.spyOn(core, 'start').mockResolvedValue(undefined)
     vi.spyOn(core, 'destroyRenderer').mockImplementation(() => undefined)
     vi.spyOn(providers.memory, 'save')
-    vi.spyOn(collaborationRuntime, 'startCollaboration').mockResolvedValue(
+    vi.spyOn(collaborationLifecycle, 'startCollaboration').mockResolvedValue(
       collaborationHandle
     )
-    vi.spyOn(collaborationRuntime, 'disposeCollaboration').mockResolvedValue(
+    vi.spyOn(collaborationLifecycle, 'disposeCollaboration').mockResolvedValue(
       undefined
     )
     vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ACTOR_UUID)
@@ -120,14 +120,14 @@ describe('RenderApp StrictMode lifecycle', () => {
       props: {}
     })
     expect(core.setPersistence).toHaveBeenCalledWith(providers.memory)
-    expect(collaborationRuntime.startCollaboration).toHaveBeenCalledWith({
+    expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledWith({
       fileId: 'file-1',
       actorId: `actor-${ACTOR_UUID}`,
       endpoint: COLLABORATION_ENDPOINT
     })
 
     await act(async () => root.unmount())
-    expect(collaborationRuntime.disposeCollaboration).toHaveBeenCalledTimes(1)
+    expect(collaborationLifecycle.disposeCollaboration).toHaveBeenCalledTimes(1)
   })
 
   it('does not activate collaboration after unmount aborts startup', async () => {
@@ -158,6 +158,6 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
     })
 
-    expect(collaborationRuntime.startCollaboration).not.toHaveBeenCalled()
+    expect(collaborationLifecycle.startCollaboration).not.toHaveBeenCalled()
   })
 })
