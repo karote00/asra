@@ -28,6 +28,7 @@ import type {
 import {
   DEFAULT_VECTOR_FILLS,
   applyRenderableFill,
+  getRenderableFill,
   getRenderableFills
 } from './fills'
 import { PRESET_REGISTRATION } from '../registration'
@@ -1174,6 +1175,32 @@ const drawFillFaces = (
 const getFillPayload = (fills: FillAttrs[]): FillAttrs[] =>
   Array.isArray(fills) && fills.length > 0 ? fills : []
 
+const applyBaseVectorStroke = (
+  graphic: Parameters<RenderStrategy>[0],
+  strokes: StrokeAttrs[],
+  replayPath: () => void
+): void => {
+  for (const stroke of strokes) {
+    if (!isRecord(stroke)) {
+      continue
+    }
+
+    const width = stroke.width
+    if (typeof width !== 'number' || !Number.isFinite(width) || width <= 0) {
+      continue
+    }
+
+    const fill = getRenderableFill([stroke.fill])
+    if (!fill || fill.kind !== 'solid') {
+      continue
+    }
+
+    replayPath()
+    graphic.stroke({ color: fill.color, alpha: fill.alpha, width })
+    return
+  }
+}
+
 interface VectorFillHitCache {
   preparedFillShape: PreparedEvenOddShape
   points: Record<string, VectorPointNode>
@@ -1276,6 +1303,9 @@ const renderVectorGraphic = (
       cache.__asyraEvenOddFillCache.fill.dispose()
       cache.__asyraEvenOddFillCache = undefined
     }
+    applyBaseVectorStroke(graphic, renderData.strokes ?? [], () =>
+      drawVectorPath(graphic, orderedNetworks, points, segments)
+    )
     return
   }
 
@@ -1356,6 +1386,10 @@ const renderVectorGraphic = (
         drawVectorPath(graphic, orderedNetworks, points, segments)
     })
   }
+
+  applyBaseVectorStroke(graphic, renderData.strokes ?? [], () =>
+    drawVectorPath(graphic, orderedNetworks, points, segments)
+  )
 }
 
 export const VECTOR_RENDER_STRATEGY: RenderStrategy = (graphic, data) => {

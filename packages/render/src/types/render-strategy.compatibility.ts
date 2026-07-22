@@ -34,6 +34,7 @@ interface LegacyPixiGraphicsLike {
     width: number,
     height: number
   ): LegacyPixiGraphicsLike
+  stroke(style: unknown): LegacyPixiGraphicsLike
   hitArea?: unknown
   renderable: boolean
   visible: boolean
