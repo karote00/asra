@@ -49,7 +49,7 @@ const failureMessage = (error: unknown): CollaborationFailurePayload => ({
 })
 
 const hub = new MemoryHub()
-const activeActors = new Set<string>()
+const activeActors = new Map<string, symbol>()
 
 const httpServer = createHttpServer((request, response) => {
   if (request.method === 'GET' && request.url === '/health') {
@@ -88,7 +88,9 @@ httpServer.on('upgrade', (request, socket, head) => {
 
 webSocketServer.on('connection', (socket) => {
   let provider: MemoryProvider | undefined
-  let actorKey: string | undefined
+  let actorReservation:
+    | Readonly<{ actorKey: string; connectionToken: symbol }>
+    | undefined
   let queue: Promise<void> = Promise.resolve()
   let ready = false
 
@@ -96,9 +98,18 @@ webSocketServer.on('connection', (socket) => {
     if (!ready) socket.close(1008, 'hello timeout')
   }, 5_000)
 
+  const releaseActorReservation = (): void => {
+    if (!actorReservation) return
+    const { actorKey, connectionToken } = actorReservation
+    if (activeActors.get(actorKey) === connectionToken) {
+      activeActors.delete(actorKey)
+    }
+    actorReservation = undefined
+  }
+
   const cleanup = async (): Promise<void> => {
     clearTimeout(helloTimeout)
-    if (actorKey) activeActors.delete(actorKey)
+    releaseActorReservation()
     if (provider) await provider.destroy().catch(() => undefined)
   }
 
@@ -143,13 +154,16 @@ webSocketServer.on('connection', (socket) => {
       )
     }
 
-    actorKey = JSON.stringify([fileId, identity.actorId])
+    const actorKey = JSON.stringify([fileId, identity.actorId])
     if (activeActors.has(actorKey)) {
       throw new ProviderFailure(
         'connection-rejected',
         '[collaboration] actor is already connected to this room'
       )
     }
+    const connectionToken = Symbol('asyra-design-collaboration-connection')
+    activeActors.set(actorKey, connectionToken)
+    actorReservation = { actorKey, connectionToken }
 
     provider = new MemoryProvider(hub, {
       documentId: fileId,
@@ -187,7 +201,6 @@ webSocketServer.on('connection', (socket) => {
     })
 
     await provider.connect()
-    activeActors.add(actorKey)
     ready = true
     clearTimeout(helloTimeout)
     safeSend(socket, { type: CollaborationMessageTypes.READY })

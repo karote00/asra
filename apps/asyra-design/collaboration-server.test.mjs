@@ -128,7 +128,7 @@ const waitForMessage = (socket, predicate, description) =>
     socket.on('message', onMessage)
   })
 
-const connectPublicClient = async ({ port, origin, fileId, actorId }) => {
+const requestPublicClient = async ({ port, origin, fileId, actorId }) => {
   const socket = new WebSocket(
     `ws://127.0.0.1:${port}/asyra-design-collaboration`,
     { origin }
@@ -154,8 +154,21 @@ const connectPublicClient = async ({ port, origin, fileId, actorId }) => {
       }
     })
   )
-  assert.deepEqual(await ready, { type: 'ready' })
+  const result = await ready
+  return { socket, result }
+}
+
+const connectPublicClient = async (identity) => {
+  const { socket, result } = await requestPublicClient(identity)
+  assert.deepEqual(result, { type: 'ready' })
   return socket
+}
+
+const closeSocket = async (socket) => {
+  if (socket.readyState === WebSocket.CLOSED) return
+  const closed = new Promise((resolve) => socket.once('close', resolve))
+  socket.close()
+  await closed
 }
 
 test('public reference server accepts app-defined fileId without credentials', async () => {
@@ -217,6 +230,60 @@ test('compiled server loads the app .env without a Vite runtime', async () => {
     await waitForServer(child)
     assert.equal(child.exitCode, null)
   } finally {
+    await stopServer(child)
+  }
+})
+
+test('a rejected duplicate cannot release another connection actor reservation', async () => {
+  const port = await getAvailablePort()
+  const origin = 'http://localhost:4319'
+  const child = startServer({ port, origin })
+  const sockets = []
+
+  try {
+    await waitForServer(child)
+    const owner = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'reserved-file',
+      actorId: 'reserved-actor'
+    })
+    sockets.push(owner)
+
+    const duplicate = await requestPublicClient({
+      port,
+      origin,
+      fileId: 'reserved-file',
+      actorId: 'reserved-actor'
+    })
+    sockets.push(duplicate.socket)
+    assert.deepEqual(duplicate.result, {
+      type: 'connection-error',
+      code: 'connection-rejected',
+      message: '[collaboration] actor is already connected to this room'
+    })
+    await closeSocket(duplicate.socket)
+
+    const stillReserved = await requestPublicClient({
+      port,
+      origin,
+      fileId: 'reserved-file',
+      actorId: 'reserved-actor'
+    })
+    sockets.push(stillReserved.socket)
+    assert.deepEqual(stillReserved.result, duplicate.result)
+    await closeSocket(stillReserved.socket)
+
+    await closeSocket(owner)
+    const replacement = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'reserved-file',
+      actorId: 'reserved-actor'
+    })
+    sockets.push(replacement)
+  } finally {
+    await Promise.all(sockets.map((socket) => closeSocket(socket)))
     await stopServer(child)
   }
 })

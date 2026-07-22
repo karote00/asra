@@ -100,7 +100,8 @@ socket. It:
 
 - accepts the app-defined `fileId` identity;
 - prevents two simultaneous connections from claiming the same actor in one
-  file;
+  file; each accepted socket owns its reservation until its own cleanup, and a
+  rejected duplicate cannot release that reservation;
 - fans publications and Awareness only to currently connected peers in the
   same file room;
 - excludes sender echo;

@@ -229,6 +229,7 @@
       conditions: [
         'One connection preserves publication send and receive order.',
         'Only currently connected peers receive the publication.',
+        'A live room actor reservation is atomic and can be released only by its owning connection.',
         'Wire validation rejects incomplete Factory transport metadata and values that JSON cannot preserve without interpreting app meaning.',
         'Promise settlement is the acknowledgement boundary.'
       ],
@@ -256,6 +257,7 @@
         'apps/asyra-design/src/collaboration/protocol.ts',
         'apps/asyra-design/src/collaboration/websocket-provider.ts',
         'apps/asyra-design/collaboration-server.ts',
+        'apps/asyra-design/collaboration-server.test.mjs',
         'apps/asyra-design/src/init/__tests__/collaboration-websocket-provider.test.ts'
       ],
       specRefs: [
