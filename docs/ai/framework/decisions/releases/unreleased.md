@@ -1899,3 +1899,32 @@ unregister -> app migration -> core.start()` as the public app route.
   - `16f441157` (`refactor(asyra-design): reuse app boundary contracts`)
   - `67b34e31a` (`refactor(readability): finish empty return cleanup`)
   - `c4f6f8d3f` (`refactor(readability): consolidate repeated local workflows`)
+
+## 2026-07-22 - Close repository-wide maintenance plans
+
+- Context:
+  - The documentation-contract audit, duplicate/ownership consolidation, and
+    readability refactor were implementation-complete and retained as active
+    plans only for product-owner review.
+  - A second bounded review at baseline `478bec0be` repeated the frozen
+    candidate classes and search methods, found no new concrete finding, and
+    passed the applicable focused and repository gates.
+- Decision:
+  - Close all three maintenance plans and preserve their detailed records under
+    `docs/ai/framework/plans/completed/`.
+  - Remove the active maintenance block from `PLANS.md` and route future
+    equivalent requests to the completed records.
+  - Preserve preceding decision entries unchanged. This closeout does not close
+    or advance a Framework Release Gate.
+- Consequences:
+  - `PLANS.md` now tracks only active or deferred framework work.
+  - The completed audit scope, method, and evidence remain available without
+    being treated as an active or unlimited repository claim.
+  - Future repository-wide maintenance is new bounded work rather than an
+    implicit reopening of this completed snapshot.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/project-wide-documentation-contract-audit-plan.md`
+  - `docs/ai/framework/plans/completed/project-wide-duplicate-contract-and-ownership-consolidation-plan.md`
+  - `docs/ai/framework/plans/completed/project-wide-code-readability-analysis-and-refactor-plan.md`
+- Related Commit(s):
+  - `4308f12e7` (`docs(plans): archive repository maintenance plans`)
