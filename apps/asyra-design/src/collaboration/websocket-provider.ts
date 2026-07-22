@@ -140,8 +140,9 @@ export class CollaborationWebSocketProvider implements Provider {
           type: CollaborationMessageTypes.HELLO,
           identity: this.identity
         }
+        let encodedHello: string
         try {
-          socket.send(encodeCollaborationMessage(hello))
+          encodedHello = encodeCollaborationMessage(hello)
         } catch (error) {
           rejectConnection(
             new ProviderFailure(
@@ -151,6 +152,19 @@ export class CollaborationWebSocketProvider implements Provider {
             )
           )
           socket.close(1007, 'invalid hello payload')
+          return
+        }
+        try {
+          socket.send(encodedHello)
+        } catch (error) {
+          rejectConnection(
+            new ProviderFailure(
+              'transport-failed',
+              '[collaboration] WebSocket identity hello send failed',
+              error
+            )
+          )
+          socket.close(1011, 'hello send failed')
         }
       })
       socket.addEventListener('message', (event) => {

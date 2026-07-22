@@ -148,6 +148,29 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     await provider.destroy()
   })
 
+  it('reports a hello send failure as transport failure instead of invalid identity', async () => {
+    const server = await createLoopbackServer(() => undefined)
+    const provider = createProvider(server.endpoint)
+    const sendFailure = new Error('socket send failed')
+    const send = vi
+      .spyOn(NodeWebSocket.prototype, 'send')
+      .mockImplementationOnce(() => {
+        throw sendFailure
+      })
+
+    try {
+      await expect(provider.connect()).rejects.toMatchObject({
+        code: 'transport-failed',
+        message: '[collaboration] WebSocket identity hello send failed',
+        cause: sendFailure
+      })
+      expect(provider.getStatus()).toBe('failed')
+    } finally {
+      send.mockRestore()
+      await provider.destroy()
+    }
+  })
+
   it('sends one publication and settles only after server response', async () => {
     let sent: SharedPublication | undefined
     const server = await createLoopbackServer((socket, message) => {

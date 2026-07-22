@@ -253,8 +253,9 @@ const isFailurePayload = (
   isNonBlankString(value.code) &&
   isNonBlankString(value.message)
 
-const isOptionalString = (value: unknown): value is string | undefined =>
-  value === undefined || typeof value === 'string'
+const isOptionalNonBlankString = (
+  value: unknown
+): value is string | undefined => value === undefined || isNonBlankString(value)
 
 export const parseCollaborationClientMessage = (
   value: unknown
@@ -321,7 +322,7 @@ export const parseCollaborationServerMessage = (
           : undefined
     case CollaborationMessageTypes.PUBLICATION:
       return isSharedPublication(value.publication) &&
-        isOptionalString(value.fromActorId)
+        isOptionalNonBlankString(value.fromActorId)
         ? {
             type: value.type,
             publication: value.publication,
@@ -345,7 +346,7 @@ export const parseCollaborationServerMessage = (
     case CollaborationMessageTypes.CONNECTION_ERROR:
       return isNonBlankString(value.code) &&
         isNonBlankString(value.message) &&
-        isOptionalString(value.publicationId)
+        isOptionalNonBlankString(value.publicationId)
         ? {
             type: value.type,
             code: value.code,

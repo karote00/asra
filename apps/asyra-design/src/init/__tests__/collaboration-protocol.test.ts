@@ -47,6 +47,24 @@ describe('collaboration wire protocol', () => {
     expect(parseCollaborationServerMessage(message)).toEqual(message)
   })
 
+  it('rejects blank optional transport identifiers instead of omitting them', () => {
+    expect(
+      parseCollaborationServerMessage({
+        type: CollaborationMessageTypes.PUBLICATION,
+        publication,
+        fromActorId: ''
+      })
+    ).toBeUndefined()
+    expect(
+      parseCollaborationServerMessage({
+        type: CollaborationMessageTypes.FAILURE,
+        code: 'transport-failed',
+        message: 'failed',
+        publicationId: '   '
+      })
+    ).toBeUndefined()
+  })
+
   it('rejects malformed publication structure without app semantic filtering', () => {
     expect(
       parseCollaborationClientMessage({
