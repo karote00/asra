@@ -157,12 +157,8 @@ test('two real Asyra Design windows converge and reconnect through WebSocket/Yjs
       .toEqual(await getCanonicalSnapshot(first))
 
     await redo(first)
-    await expect
-      .poll(() => getCanonicalSnapshot(first))
-      .toEqual(movedSnapshot)
-    await expect
-      .poll(() => getCanonicalSnapshot(second))
-      .toEqual(movedSnapshot)
+    await expect.poll(() => getCanonicalSnapshot(first)).toEqual(movedSnapshot)
+    await expect.poll(() => getCanonicalSnapshot(second)).toEqual(movedSnapshot)
 
     await first.keyboard.press('Delete')
     await expect.poll(() => getElementCount(first)).toBe(0)
@@ -278,15 +274,12 @@ test('vector creation and anchor movement converge through the canonical collabo
       .poll(() => getCanonicalSnapshot(second))
       .toEqual(await getCanonicalSnapshot(first))
 
-    const remotePoint = await second.evaluate(
-      ({ vectorId, pointId }) => {
-        const point = window.__Core__?.deps?.sceneTree
-          ?.getElementById?.(vectorId)
-          ?.getAllComputedData?.()?.points?.[pointId]
-        return point ? { x: point.x, y: point.y } : null
-      },
-      before
-    )
+    const remotePoint = await second.evaluate(({ vectorId, pointId }) => {
+      const point = window.__Core__?.deps?.sceneTree
+        ?.getElementById?.(vectorId)
+        ?.getAllComputedData?.()?.points?.[pointId]
+      return point ? { x: point.x, y: point.y } : null
+    }, before)
     expect(remotePoint).not.toBeNull()
     expect(remotePoint).not.toEqual(before.point)
   } finally {
