@@ -255,6 +255,39 @@ describe('Factory local shared delivery contract', () => {
     ).toBe(false)
   })
 
+  it('omits unset fields from canonical payload mutation options', () => {
+    const { factory, deliveries } = createHarness()
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        id: 'shared-delivery',
+        before: 0,
+        after: 1,
+        options: {
+          undoable: false,
+          rollbackable: undefined,
+          shared: undefined,
+          sharedDelivery: undefined
+        }
+      },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+    factory.endTransaction()
+
+    expect(deliveries).toHaveLength(1)
+    expect(deliveries[0]?.payload).toEqual(
+      expect.objectContaining({ options: { undoable: false } })
+    )
+    expect(
+      Object.keys(
+        (deliveries[0]?.payload as { options?: Record<string, unknown> })
+          .options ?? {}
+      )
+    ).toEqual(['undoable'])
+  })
+
   it('isolates delivery subscriber failure from other subscribers and commit', () => {
     const factory = new Factory()
     factory.registerSharedDataChannel(

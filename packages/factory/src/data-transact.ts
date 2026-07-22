@@ -93,14 +93,43 @@ const BUILT_IN_INVERTIBLE_EVENT_TYPES = new Set<string>([
   EventTypes.SELECT_VECTOR_SEGMENTS
 ])
 
+type TransactionPayloadOptions = NonNullable<TransactionPayload['options']>
+
+const toDefinedMutationOptions = (
+  options: TransactionPayload['options']
+): TransactionPayloadOptions | undefined => {
+  if (!options) return
+
+  const definedOptions: TransactionPayloadOptions = {}
+  if (options.undoable !== undefined) {
+    definedOptions.undoable = options.undoable
+  }
+  if (options.rollbackable !== undefined) {
+    definedOptions.rollbackable = options.rollbackable
+  }
+  if (options.shared !== undefined) {
+    definedOptions.shared = options.shared
+  }
+  if (options.sharedDelivery !== undefined) {
+    definedOptions.sharedDelivery = options.sharedDelivery
+  }
+
+  if (Object.keys(definedOptions).length === 0) return
+  return definedOptions
+}
+
 const toSharedChannelPayload = (
   payload: TransactionPayload,
   options: UpdateTransactionEvent['options']
 ): TransactionPayload => {
-  const { options: existingPayloadOptions, ...payloadWithoutUnsetOptions } =
+  const { options: originalPayloadOptions, ...payloadWithoutUnsetOptions } =
     payload
-  const normalizedPayload =
-    existingPayloadOptions === undefined ? payloadWithoutUnsetOptions : payload
+  const existingPayloadOptions = toDefinedMutationOptions(
+    originalPayloadOptions
+  )
+  const normalizedPayload = existingPayloadOptions
+    ? { ...payloadWithoutUnsetOptions, options: existingPayloadOptions }
+    : payloadWithoutUnsetOptions
   if (!options) {
     return normalizedPayload as TransactionPayload
   }
