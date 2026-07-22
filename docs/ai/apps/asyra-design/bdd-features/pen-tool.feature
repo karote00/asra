@@ -94,6 +94,7 @@ Feature: Pen Tool and Path Editing
     And pen is disconnected from the current continuation
     When I press Escape
     Then path editing mode should exit
+    And the primary tool should be select
 
   Scenario: Point selection in path editing mode
     Given path editing mode is active

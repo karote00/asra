@@ -13,6 +13,7 @@ import {
 } from '@asyra/core'
 import type { PositionData } from '@asyra/utils'
 import { PresetSystemPropertyKeys } from '@asyra/preset'
+import { PrimaryToolType } from '../constants'
 import { selectionApis } from './selection'
 
 export type SelectedVectorPointState = CoreSelectedVectorPointState
@@ -350,6 +351,7 @@ export const systemContextApis = {
     selectionApis.clearVectorPointSelection({ undoable: false })
     selectionApis.clearVectorSegmentSelection({ undoable: false })
     systemContextApis.clearVectorPointState()
+    systemContextApis.switchPrimaryTool(PrimaryToolType.SELECT)
   },
 
   getPathEditingContinuation: (): PathEditingContinuationState | null => {

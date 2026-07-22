@@ -1405,7 +1405,6 @@ export const cancelPenEditingFeature = defineFeature(
         }
 
         systemContextApis.exitPathEditingMode()
-        systemContextApis.switchPrimaryTool(PrimaryToolType.SELECT)
         cursorApis.resetCanvasCursor()
         return { cancelled: true, elementId: editingVectorId }
       }

@@ -41,6 +41,7 @@
 
   - primary tool switching
   - path-editing mode and vector point state helpers
+  - canonical path-editing exit clears transient editing state and activates Select
 
 - `viewport.ts`
 

@@ -155,15 +155,19 @@ Handled by `cancelPenEditing`:
 2. pen tool + path editing mode + disconnected/new-subpath state
 
 - exit path editing mode
-- keep the pen tool active
+- activate the select tool
 
 3. path editing mode in non-pen tools
 
 - exit path editing mode
+- activate the select tool
 
 4. not in path editing mode + element selection
 
 - clear element selection
+
+Every formal path-editing exit routes through `exitPathEditingMode`; that helper
+clears path-editing transient state and makes Select the active primary tool.
 
 ## Path Editing State Keys
 

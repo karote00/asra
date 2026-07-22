@@ -1697,7 +1697,7 @@ test.describe('Pen Tool - Editing Flow', () => {
       })
   })
 
-  test('escape uses split-then-exit semantics before creating a new vector', async ({
+  test('escape disconnects then exits path editing to select before creating a new vector', async ({
     page
   }, testInfo) => {
     const initialCount = await getElementCount(page)
@@ -1739,9 +1739,9 @@ test.describe('Pen Tool - Editing Flow', () => {
       path: testInfo.outputPath('pen-escape-disconnect.png')
     })
 
-    // Second consecutive escape: exit path editing mode while staying in pen tool.
+    // Second consecutive escape: exit path editing mode and return to Select.
     await page.keyboard.press('Escape')
-    await expect.poll(() => getActiveTool(page)).toBe('pen')
+    await expect.poll(() => getActiveTool(page)).toBe('select')
     await expect
       .poll(async () => {
         return page.evaluate(() => {
@@ -1752,7 +1752,9 @@ test.describe('Pen Tool - Editing Flow', () => {
       })
       .toBeNull()
 
-    // Create a new vector while pen tool stays active.
+    // Select Pen again before creating a new vector.
+    await page.keyboard.press('p')
+    await expect.poll(() => getActiveTool(page)).toBe('pen')
     await clickCanvas(page, 0.65, 0.5)
     await expect.poll(async () => getElementCount(page)).toBe(initialCount + 2)
   })
