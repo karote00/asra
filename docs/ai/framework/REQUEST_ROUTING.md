@@ -97,6 +97,13 @@ Use this file to route a new framework request to the right docs first.
   - `plans/project-wide-documentation-contract-audit-plan.md`
   - affected framework/app source-of-truth documents
 
+- repository-wide duplicate contract, misplaced owner, or readability refactor
+  - `PLANS.md`
+  - `plans/project-wide-duplicate-contract-and-ownership-consolidation-plan.md`
+  - `plans/project-wide-code-readability-analysis-and-refactor-plan.md`
+  - `CODING_STANDARDS.md`
+  - affected framework/app/package owner documents
+
 - deprecated package behavior/removal timeline
   - `rules/deprecation-lifecycle.md`
   - deprecated package doc in `packages/*`
