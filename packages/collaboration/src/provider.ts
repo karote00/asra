@@ -1,4 +1,4 @@
-import type { YjsBinaryUpdate } from './yjs-document'
+import type { SharedPublication } from '@asyra/factory'
 
 export type ProviderStatus =
   | 'offline'
@@ -30,19 +30,9 @@ export const createProviderIdentitySnapshot = (
       : {})
   })
 
-export interface InboundBinaryUpdate extends YjsBinaryUpdate {
-  /** Authenticated operation author; omitted for multi-author sync aggregates. */
+export interface InboundPublication {
+  readonly publication: SharedPublication
   readonly fromActorId?: string
-}
-
-export interface ProviderAcknowledgement {
-  readonly operationId: string
-  readonly durability: 'durable'
-}
-
-export interface ProviderStateVectorExchange {
-  readonly remoteStateVector: Uint8Array
-  readonly missingRemoteUpdate: Uint8Array
 }
 
 export interface ProviderAwarenessMessage {
@@ -77,19 +67,19 @@ export const isProviderFailureCode = (
 export class ProviderFailure extends Error {
   readonly code: ProviderFailureCode
   readonly cause?: unknown
-  readonly operationId?: string
+  readonly publicationId?: string
 
   constructor(
     code: ProviderFailureCode,
     message: string,
     cause?: unknown,
-    operationId?: string
+    publicationId?: string
   ) {
     super(message)
     this.name = 'ProviderFailure'
     this.code = code
     this.cause = cause
-    this.operationId = operationId
+    this.publicationId = publicationId
   }
 }
 
@@ -101,15 +91,9 @@ export interface Provider {
   destroy(): Promise<void>
   getStatus(): ProviderStatus
   onStatusChange(subscriber: (status: ProviderStatus) => void): () => void
-  sendUpdate(update: YjsBinaryUpdate): Promise<void>
-  onUpdate(subscriber: (update: InboundBinaryUpdate) => void): () => void
-  requestSync(stateVector: Uint8Array): Promise<Uint8Array>
-  exchangeStateVector(
-    stateVector: Uint8Array
-  ): Promise<ProviderStateVectorExchange>
-  sendSyncUpdate(update: Uint8Array): Promise<void>
-  onAcknowledgement(
-    subscriber: (acknowledgement: ProviderAcknowledgement) => void
+  sendPublication(publication: SharedPublication): Promise<void>
+  onPublication(
+    subscriber: (publication: InboundPublication) => void
   ): () => void
   sendAwareness(message: ProviderAwarenessMessage): Promise<void>
   onAwareness(

@@ -6,7 +6,7 @@ contracts and backed by executable checks:
 - `app-owned-versioned-load-migration.mjs` demonstrates app-owned load
   migration; its `.test.cjs` and `.type-test.ts` companions validate the
   supported contract.
-- `yjs-network-collaboration.mjs` demonstrates the public optional
+- `network-collaboration-transport.mjs` demonstrates the public optional
   collaboration composition and is exercised by the Collaboration package
   documentation test.
 

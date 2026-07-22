@@ -10,10 +10,8 @@
 import { Factory, LocalSharedDataChannel } from '@asyra/factory'
 import {
   createCollaboration,
-  defineCanonicalOperationApply,
   MemoryHub,
-  MemoryProvider,
-  MemoryPersistence
+  MemoryProvider
 } from '@asyra/collaboration'
 
 const CHANNEL = 'document'
@@ -27,12 +25,12 @@ const isSetValuePayload = (payload) =>
       typeof payload.after === 'number'
   )
 
-// The hub represents an app/server-owned room, authentication, and durable-ack
+// The hub represents an app/server-owned live room and acknowledgement
 // boundary. Production apps can replace it with any Provider.
 export const createMemoryHub = (options = {}) => new MemoryHub(options)
 
 // Awareness is app-owned presentation state. It never authorizes or applies a
-// canonical mutation and it is absent from Y.Doc and update persistence.
+// canonical mutation and it is absent from document publications.
 export const projectRemotePresence = (awareness, present) =>
   awareness.observe((event) => {
     if (event.type === 'updated') {
@@ -46,9 +44,7 @@ export const createCollaboratingCounter = async ({
   hub,
   documentId,
   roomId,
-  actorId,
-  permissionPolicy = () => true,
-  conflictPolicies = []
+  actorId
 }) => {
   const factory = new Factory()
   factory.registerSharedDataChannel(CHANNEL, new LocalSharedDataChannel())
@@ -87,32 +83,30 @@ export const createCollaboratingCounter = async ({
     roomId,
     actorId
   })
-  const persistence = new MemoryPersistence()
   const collaboration = createCollaboration({
     documentId,
     roomId,
     actorId,
     factory,
     provider,
-    persistence,
-    operationDefinitions: [
-      {
-        channel: CHANNEL,
-        eventName: SET_VALUE,
-        schemaVersion: 1,
-        validate: isSetValuePayload,
-        apply: defineCanonicalOperationApply((envelope) => {
-          recordAndApply(envelope.payload)
-          return true
-        })
+    processRemotePublication: (publication) => {
+      const deliveries = publication.deliveries
+      if (
+        deliveries.length === 0 ||
+        deliveries.some(
+          (delivery) =>
+            delivery.channel !== CHANNEL ||
+            delivery.eventName !== SET_VALUE ||
+            !isSetValuePayload(delivery.payload)
+        )
+      ) {
+        throw new Error('Unsupported counter publication')
       }
-    ],
-    permissionPolicy,
-    conflictPolicies,
-    resourceOwnership: {
-      provider: 'owned',
-      persistence: 'owned'
-    }
+      factory.runRemoteTransaction(() => {
+        deliveries.forEach((delivery) => recordAndApply(delivery.payload))
+      })
+    },
+    resourceOwnership: { provider: 'owned' }
   })
   const remotePresence = new Map()
   const stopPresenceProjection = projectRemotePresence(
@@ -120,7 +114,7 @@ export const createCollaboratingCounter = async ({
     remotePresence
   )
 
-  // Construction is inert. start() is the explicit connection/recovery point.
+  // Construction is inert. start() is the explicit live-connection point.
   await collaboration.start()
 
   return Object.freeze({

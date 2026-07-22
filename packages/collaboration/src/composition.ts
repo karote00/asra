@@ -1,53 +1,28 @@
-import type { Factory } from '@asyra/factory'
+import type { Factory, SharedPublication } from '@asyra/factory'
 import type { Awareness } from './awareness'
-import type { AppConflictPolicy } from './operations/conflict'
-import type {
-  CanonicalOperationApply,
-  OperationDefinition
-} from './operations/registry'
-import type { SharedOperationEnvelope } from './operations/envelope'
-import type { UpdatePersistence } from './persistence'
-import type { Provider } from './provider'
+import type { InboundPublication, Provider } from './provider'
 
 export type CollaborationResourceOwnership = 'owned' | 'borrowed'
 
 export interface CollaborationResourceOwnershipMap {
   provider: CollaborationResourceOwnership
-  yDoc: CollaborationResourceOwnership
   awareness: CollaborationResourceOwnership
-  persistence: CollaborationResourceOwnership
 }
 
-export type CollaborationPermissionPolicy = (
-  operation: SharedOperationEnvelope
-) => boolean | Promise<boolean>
+export type CollaborationFactory = Pick<Factory, 'subscribeToSharedPublication'>
 
-export type CollaborationFactory = Pick<
-  Factory,
-  'subscribeToSharedPublication'
-> &
-  Partial<Pick<Factory, 'runRemoteTransaction' | 'isRemoteAsyncHandlerError'>>
-
-export type CollaborationOperationDefinition<TPayload = unknown> = Omit<
-  OperationDefinition<TPayload>,
-  'apply'
-> &
-  Readonly<{
-    apply: CanonicalOperationApply<TPayload>
-  }>
+export type ProcessRemotePublication = (
+  publication: SharedPublication,
+  context: Readonly<Omit<InboundPublication, 'publication'>>
+) => void
 
 export interface CreateCollaborationInput {
   documentId: string
   roomId: string
   actorId: string
   factory: CollaborationFactory
-  operationDefinitions: readonly CollaborationOperationDefinition[]
-  permissionPolicy: CollaborationPermissionPolicy
+  processRemotePublication: ProcessRemotePublication
   provider?: Provider
-  yDoc?: import('yjs').Doc
   awareness?: Awareness
-  persistence?: UpdatePersistence
-  sessionId?: string
-  conflictPolicies?: readonly AppConflictPolicy[]
   resourceOwnership?: Partial<CollaborationResourceOwnershipMap>
 }

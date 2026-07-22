@@ -1,7 +1,7 @@
 {
   "name": "@asyra/collaboration",
   "version": "0.2.5",
-  "description": "Optional provider-replaceable collaboration runtime for Asyra",
+  "description": "Optional provider-replaceable publication transport for Asyra",
   "author": "Asa Tsai",
   "license": "MIT",
   "packageManager": "yarn@4.3.1",
@@ -21,7 +21,6 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
-    "@asyra/factory": "workspace:*",
-    "yjs": "13.6.20"
+    "@asyra/factory": "workspace:*"
   }
 }

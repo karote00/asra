@@ -2,6 +2,13 @@ import { describe, expect, it, vi } from 'vitest'
 import { createProviderIdentitySnapshot, ProviderFailure } from '../provider'
 import { MemoryHub, MemoryProvider } from '../providers/memory'
 
+const publication = {
+  publicationId: 'publication-a',
+  transactionId: 1,
+  origin: 'action' as const,
+  deliveries: []
+}
+
 const identity = {
   documentId: 'document-a',
   roomId: 'room-a',
@@ -63,12 +70,7 @@ describe('collaboration provider lifecycle', () => {
     const hub = new MemoryHub()
     const provider = new MemoryProvider(hub, identity)
 
-    await expect(
-      provider.sendUpdate({
-        operationId: 'operation-a',
-        update: new Uint8Array()
-      })
-    ).rejects.toEqual(
+    await expect(provider.sendPublication(publication)).rejects.toEqual(
       expect.objectContaining<Partial<ProviderFailure>>({
         code: 'not-connected'
       })
@@ -76,12 +78,7 @@ describe('collaboration provider lifecycle', () => {
     await provider.connect()
     await provider.disconnect()
     await provider.reconnect()
-    await expect(
-      provider.sendUpdate({
-        operationId: 'operation-a',
-        update: new Uint8Array()
-      })
-    ).resolves.toBeUndefined()
+    await expect(provider.sendPublication(publication)).resolves.toBeUndefined()
   })
 
   it('disposes idempotently, detaches observers, and prevents reuse', async () => {
@@ -167,12 +164,7 @@ describe('collaboration provider lifecycle', () => {
     await Promise.all([first, second])
 
     expect(provider.getStatus()).toBe('connected')
-    await expect(
-      provider.sendUpdate({
-        operationId: 'empty-update',
-        update: new Uint8Array()
-      })
-    ).resolves.toBeUndefined()
+    await expect(provider.sendPublication(publication)).resolves.toBeUndefined()
   })
 
   it('settles a pending connection immediately when destroyed', async () => {

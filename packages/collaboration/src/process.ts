@@ -1,47 +1,17 @@
-import type { Factory, SharedPublication } from '@asyra/factory'
-import * as Y from 'yjs'
+import { cloneSharedPublication, type SharedPublication } from '@asyra/factory'
 import { Awareness, type AwarenessStateInput } from './awareness'
-import {
-  createConflictPolicy,
-  type AppConflictPolicy,
-  type ConflictOutcome
-} from './operations/conflict'
-import { applyOperation, type OperationApplyOutcome } from './operations/apply'
-import {
-  createOperationIdentitySource,
-  createSharedOperationEnvelope,
-  type SharedOperationEnvelope
-} from './operations/envelope'
-import { OperationOutcomeRegistry } from './operations/outcomes'
-import { OperationRegistry } from './operations/registry'
-import {
-  validateRemoteOperation,
-  type RemoteValidationResult
-} from './operations/validation'
-import {
-  Durability,
-  type DurabilityEvent,
-  type DurabilityOutcome
-} from './durability'
-import type { UpdatePersistence } from './persistence'
-import type {
-  Provider,
-  InboundBinaryUpdate,
-  ProviderAwarenessMessage
-} from './provider'
 import type {
   CollaborationFactory,
-  CollaborationOperationDefinition,
-  CollaborationPermissionPolicy,
   CollaborationResourceOwnership,
   CollaborationResourceOwnershipMap,
-  CreateCollaborationInput
+  CreateCollaborationInput,
+  ProcessRemotePublication
 } from './composition'
-import {
-  appendOperationsToYDoc,
-  applyInboundYjsUpdate,
-  type InboundYjsUpdateSource
-} from './yjs-document'
+import type {
+  InboundPublication,
+  Provider,
+  ProviderAwarenessMessage
+} from './provider'
 
 export class DisposalError extends Error {
   readonly failures: readonly unknown[]
@@ -53,56 +23,42 @@ export class DisposalError extends Error {
   }
 }
 
-type Definition = Readonly<
-  Omit<
-    CreateCollaborationInput,
-    'operationDefinitions' | 'conflictPolicies' | 'resourceOwnership'
-  > & {
-    operationDefinitions: readonly CollaborationOperationDefinition[]
-    conflictPolicies?: readonly AppConflictPolicy[]
-    resourceOwnership: Readonly<CollaborationResourceOwnershipMap>
-  }
->
-
 interface LifecycleResource {
   destroy?: () => void | Promise<void>
   dispose?: () => void | Promise<void>
 }
 
-export interface LocalPublishedOperationOutcome {
-  readonly direction: 'local'
-  readonly status: 'published'
-  readonly envelope: SharedOperationEnvelope
-  readonly durability: DurabilityOutcome
-}
+type Definition = Readonly<
+  Omit<CreateCollaborationInput, 'resourceOwnership'> & {
+    resourceOwnership: Readonly<CollaborationResourceOwnershipMap>
+  }
+>
 
-export interface LocalRejectedOperationOutcome {
-  readonly direction: 'local'
-  readonly status: 'rejected'
-  readonly error: unknown
-}
-
-export interface RemoteProcessedOperationOutcome {
-  readonly direction: 'remote'
-  readonly source: InboundYjsUpdateSource
-  readonly outcome:
-    | RemoteValidationResult
-    | ConflictOutcome
-    | OperationApplyOutcome
-}
-
-export interface RemoteFailedOperationOutcome {
-  readonly direction: 'remote'
-  readonly source: InboundYjsUpdateSource
-  readonly status: 'decode-failed' | 'runtime-failed'
-  readonly error: unknown
-}
-
-export type CollaborationOperationOutcome =
-  | LocalPublishedOperationOutcome
-  | LocalRejectedOperationOutcome
-  | RemoteProcessedOperationOutcome
-  | RemoteFailedOperationOutcome
+export type CollaborationPublicationOutcome =
+  | Readonly<{
+      direction: 'local'
+      status: 'sent' | 'skipped'
+      publicationId: string
+    }>
+  | Readonly<{
+      direction: 'local'
+      status: 'send-failed'
+      publicationId: string
+      error: unknown
+    }>
+  | Readonly<{
+      direction: 'remote'
+      status: 'processed'
+      publicationId: string
+      fromActorId?: string
+    }>
+  | Readonly<{
+      direction: 'remote'
+      status: 'process-failed'
+      publicationId: string
+      fromActorId?: string
+      error: unknown
+    }>
 
 const callLifecycle = async (
   resource: LifecycleResource | undefined
@@ -112,15 +68,11 @@ const callLifecycle = async (
     await resource.destroy()
     return
   }
-  if (typeof resource.dispose === 'function') {
-    await resource.dispose()
-  }
+  if (typeof resource.dispose === 'function') await resource.dispose()
 }
 
 const requireIdentity = (name: string, value: string): string => {
-  if (!value.trim()) {
-    throw new Error(`[collaboration] ${name} is required`)
-  }
+  if (!value.trim()) throw new Error(`[collaboration] ${name} is required`)
   return value
 }
 
@@ -135,10 +87,7 @@ const resolveOwnership = (
     )
   }
   if (requested) return requested
-  if (name === 'yDoc' || name === 'awareness') {
-    return injected ? 'borrowed' : 'owned'
-  }
-  return 'borrowed'
+  return name === 'awareness' && !injected ? 'owned' : 'borrowed'
 }
 
 const define = (input: CreateCollaborationInput): Definition => {
@@ -150,62 +99,31 @@ const define = (input: CreateCollaborationInput): Definition => {
       '[collaboration] factory.subscribeToSharedPublication is required'
     )
   }
-  if (!Array.isArray(input.operationDefinitions)) {
-    throw new Error('[collaboration] operationDefinitions must be an array')
+  if (typeof input.processRemotePublication !== 'function') {
+    throw new Error('[collaboration] processRemotePublication is required')
   }
-  if (typeof input.permissionPolicy !== 'function') {
-    throw new Error('[collaboration] permissionPolicy is required')
-  }
-
-  const resourceOwnership = Object.freeze({
-    provider: resolveOwnership(
-      'provider',
-      input.provider !== undefined,
-      input.resourceOwnership?.provider
-    ),
-    yDoc: resolveOwnership(
-      'yDoc',
-      input.yDoc !== undefined,
-      input.resourceOwnership?.yDoc
-    ),
-    awareness: resolveOwnership(
-      'awareness',
-      input.awareness !== undefined,
-      input.resourceOwnership?.awareness
-    ),
-    persistence: resolveOwnership(
-      'persistence',
-      input.persistence !== undefined,
-      input.resourceOwnership?.persistence
-    )
-  })
 
   return Object.freeze({
     documentId,
     roomId,
     actorId,
     factory: input.factory,
-    operationDefinitions: Object.freeze([...input.operationDefinitions]),
-    permissionPolicy: input.permissionPolicy,
-    ...(input.provider !== undefined ? { provider: input.provider } : {}),
-    ...(input.yDoc !== undefined ? { yDoc: input.yDoc } : {}),
-    ...(input.awareness !== undefined ? { awareness: input.awareness } : {}),
-    ...(input.persistence !== undefined
-      ? { persistence: input.persistence }
-      : {}),
-    ...(input.sessionId !== undefined ? { sessionId: input.sessionId } : {}),
-    ...(input.conflictPolicies !== undefined
-      ? { conflictPolicies: Object.freeze([...input.conflictPolicies]) }
-      : {}),
-    resourceOwnership
+    processRemotePublication: input.processRemotePublication,
+    ...(input.provider ? { provider: input.provider } : {}),
+    ...(input.awareness ? { awareness: input.awareness } : {}),
+    resourceOwnership: Object.freeze({
+      provider: resolveOwnership(
+        'provider',
+        input.provider !== undefined,
+        input.resourceOwnership?.provider
+      ),
+      awareness: resolveOwnership(
+        'awareness',
+        input.awareness !== undefined,
+        input.resourceOwnership?.awareness
+      )
+    })
   })
-}
-
-const requireSessionId = (value: string): string => {
-  if (!value.trim()) {
-    throw new Error('[collaboration] sessionId is required when supplied')
-  }
-  return value
 }
 
 const assertProviderIdentity = (
@@ -231,24 +149,17 @@ export class Collaboration {
     actorId: string
   }>
   readonly factory: CollaborationFactory
-  readonly yDoc: Y.Doc
   readonly provider?: Provider
   readonly awareness: Awareness
-  readonly persistence?: UpdatePersistence
-  readonly operationDefinitions: readonly CollaborationOperationDefinition[]
-  readonly permissionPolicy: CollaborationPermissionPolicy
 
   private readonly composition: Definition
-  private readonly operationRegistry: OperationRegistry
-  private readonly operationOutcomes = new OperationOutcomeRegistry()
-  private readonly identitySource
-  private readonly conflictPolicy
-  private readonly durability: Durability
+  private readonly processRemotePublication: ProcessRemotePublication
   private readonly disposers: (() => void | Promise<void>)[] = []
   private readonly outcomeSubscribers = new Set<
-    (outcome: CollaborationOperationOutcome) => void
+    (outcome: CollaborationPublicationOutcome) => void
   >()
-  private workQueue: Promise<void> = Promise.resolve()
+  private outboundQueue: Promise<void> = Promise.resolve()
+  private inboundQueue: Promise<void> = Promise.resolve()
   private observersBound = false
   private started = false
   private disposed = false
@@ -257,12 +168,6 @@ export class Collaboration {
 
   constructor(input: CreateCollaborationInput) {
     const composition = define(input)
-    if (
-      composition.yDoc !== undefined &&
-      !(composition.yDoc instanceof Y.Doc)
-    ) {
-      throw new Error('[collaboration] yDoc must be a Y.Doc')
-    }
     this.composition = composition
     this.identity = Object.freeze({
       documentId: composition.documentId,
@@ -270,47 +175,11 @@ export class Collaboration {
       actorId: composition.actorId
     })
     this.factory = composition.factory
-    this.yDoc = composition.yDoc ?? new Y.Doc()
     this.provider = composition.provider
     assertProviderIdentity(this.provider, this.identity)
     this.awareness =
       composition.awareness ?? new Awareness({ actorId: composition.actorId })
-    this.persistence = composition.persistence
-    this.operationDefinitions = composition.operationDefinitions
-    this.permissionPolicy = composition.permissionPolicy
-    if (
-      this.operationDefinitions.length > 0 &&
-      (typeof this.factory.runRemoteTransaction !== 'function' ||
-        typeof this.factory.isRemoteAsyncHandlerError !== 'function')
-    ) {
-      throw new Error(
-        '[collaboration] operation-enabled Factory requires the remote transaction boundary'
-      )
-    }
-    this.operationRegistry = new OperationRegistry(this.operationDefinitions)
-    this.operationDefinitions.forEach((definition) => {
-      if (typeof definition.apply !== 'function') {
-        throw new Error(
-          '[collaboration] every operation definition requires a canonical apply handler'
-        )
-      }
-    })
-    this.identitySource = createOperationIdentitySource(
-      requireSessionId(
-        composition.sessionId ?? `yjs-${this.yDoc.clientID.toString(36)}`
-      )
-    )
-    this.conflictPolicy = createConflictPolicy({
-      operationRegistry: this.operationRegistry,
-      permissionPolicy: this.permissionPolicy,
-      appPolicies: composition.conflictPolicies
-    })
-    this.durability = new Durability({
-      document: this.yDoc,
-      documentId: this.identity.documentId,
-      persistence: this.persistence,
-      provider: this.provider
-    })
+    this.processRemotePublication = composition.processRemotePublication
   }
 
   start(): Promise<void> {
@@ -340,10 +209,7 @@ export class Collaboration {
       return
     }
     await this.provider.reconnect()
-    if (this.disposed) return
-    await this.synchronizeProviderOperations()
-    if (this.disposed) return
-    this.started = true
+    if (!this.disposed) this.started = true
   }
 
   async updateAwareness(
@@ -367,23 +233,12 @@ export class Collaboration {
     return this.awareness.expire()
   }
 
-  observeOperationOutcomes(
-    subscriber: (outcome: CollaborationOperationOutcome) => void
+  observePublicationOutcomes(
+    subscriber: (outcome: CollaborationPublicationOutcome) => void
   ): () => void {
     this.requireUsable()
     this.outcomeSubscribers.add(subscriber)
     return () => this.outcomeSubscribers.delete(subscriber)
-  }
-
-  observeDurability(subscriber: (event: DurabilityEvent) => void): () => void {
-    this.requireUsable()
-    return this.durability.observe(subscriber)
-  }
-
-  private addDisposer(disposer: () => void | Promise<void>): () => void {
-    this.requireUsable()
-    this.disposers.push(disposer)
-    return disposer
   }
 
   isStarted(): boolean {
@@ -395,11 +250,13 @@ export class Collaboration {
   }
 
   async whenIdle(): Promise<void> {
-    let pending: Promise<void>
+    let outbound: Promise<void>
+    let inbound: Promise<void>
     do {
-      pending = this.workQueue
-      await pending
-    } while (pending !== this.workQueue)
+      outbound = this.outboundQueue
+      inbound = this.inboundQueue
+      await Promise.all([outbound, inbound])
+    } while (outbound !== this.outboundQueue || inbound !== this.inboundQueue)
   }
 
   dispose(): Promise<void> {
@@ -411,18 +268,8 @@ export class Collaboration {
 
   private async activate(): Promise<void> {
     this.bindObservers()
-    this.durability.start()
-    const recovered = await this.durability.recoverFromPersistence()
-    if (this.disposed) return
-    await this.processOperations(recovered, 'persistence')
-    if (this.disposed) return
-    if (this.provider) {
-      await this.provider.connect()
-      if (this.disposed) return
-      await this.synchronizeProviderOperations()
-      if (this.disposed) return
-    }
-    this.started = true
+    if (this.provider) await this.provider.connect()
+    if (!this.disposed) this.started = true
   }
 
   private bindObservers(): void {
@@ -430,190 +277,104 @@ export class Collaboration {
     this.observersBound = true
     this.addDisposer(
       this.factory.subscribeToSharedPublication((publication) => {
-        this.schedule(() => this.processPublication(publication))
+        this.scheduleOutbound(publication)
       })
     )
     if (!this.provider) return
     this.addDisposer(
-      this.provider.onUpdate((update) => {
-        this.schedule(() => this.processInboundUpdate(update))
+      this.provider.onPublication((inbound) => {
+        this.scheduleInbound(inbound)
       })
     )
     this.addDisposer(
       this.provider.onAwareness((message) => {
-        this.schedule(() => {
-          this.awareness.applyRemote(message)
-        })
+        if (!this.disposed) this.awareness.applyRemote(message)
       })
     )
     this.addDisposer(
       this.provider.onAwarenessDisconnect((event) => {
-        this.schedule(() => {
-          this.awareness.handleDisconnect(event)
-        })
+        if (!this.disposed) this.awareness.handleDisconnect(event)
       })
     )
     this.addDisposer(
       this.provider.onStatusChange((status) => {
-        if (status !== 'disconnected' && status !== 'failed') return
-        this.schedule(() => {
+        if (status === 'disconnected' || status === 'failed') {
           this.awareness.clearRemote('disconnect')
-        })
+        }
       })
     )
   }
 
-  private schedule(task: () => void | Promise<void>): void {
-    if (this.disposed) return
-    this.workQueue = this.workQueue
-      .then(async () => {
-        if (this.disposed) return
-        await task()
-      })
-      .catch((error) => {
-        this.emitOutcome({
-          direction: 'remote',
-          source: 'provider',
-          status: 'runtime-failed',
-          error
-        })
-      })
+  private addDisposer(disposer: () => void | Promise<void>): void {
+    this.disposers.push(disposer)
   }
 
-  private async processPublication(
-    publication: SharedPublication
-  ): Promise<void> {
-    try {
-      const envelopes = publication.deliveries.map((delivery) =>
-        createSharedOperationEnvelope({
-          delivery,
-          identity: this.identity,
-          identitySource: this.identitySource,
-          registry: this.operationRegistry
-        })
-      )
-      const publicationId = this.identitySource.operationId(
-        this.identity.actorId,
-        publication.publicationId
-      )
-      const binary = appendOperationsToYDoc(this.yDoc, publicationId, envelopes)
-      envelopes.forEach((envelope) =>
-        this.operationOutcomes.recordLocal(envelope)
-      )
-      const durability = await this.durability.settleLocalUpdate(binary)
-      envelopes.forEach((envelope) => {
+  private scheduleOutbound(publication: SharedPublication): void {
+    if (this.disposed) return
+    const detached = cloneSharedPublication(publication)
+    this.outboundQueue = this.outboundQueue.then(async () => {
+      if (this.disposed) return
+      if (!this.provider) {
         this.emitOutcome({
           direction: 'local',
-          status: 'published',
-          envelope,
-          durability
+          status: 'skipped',
+          publicationId: detached.publicationId
         })
-      })
-    } catch (error) {
-      this.emitOutcome({ direction: 'local', status: 'rejected', error })
-    }
-  }
-
-  private async processInboundUpdate(
-    update: InboundBinaryUpdate
-  ): Promise<void> {
-    let operations: readonly unknown[]
-    try {
-      operations = applyInboundYjsUpdate(
-        this.yDoc,
-        update.update,
-        'provider'
-      ).operations
-    } catch (error) {
-      this.emitOutcome({
-        direction: 'remote',
-        source: 'provider',
-        status: 'decode-failed',
-        error
-      })
-      return
-    }
-    await this.processOperations(operations, 'provider', update.fromActorId)
-  }
-
-  private async synchronizeProviderOperations(): Promise<void> {
-    const synchronization = await this.durability.synchronizeWithProvider()
-    await this.processOperations(synchronization.receivedOperations, 'provider')
-  }
-
-  private async processOperations(
-    operations: readonly unknown[],
-    source: InboundYjsUpdateSource,
-    authenticatedActorId?: string
-  ): Promise<void> {
-    for (const decoded of operations) {
-      const validation = validateRemoteOperation({
-        decoded,
-        documentId: this.identity.documentId,
-        authenticatedActorId,
-        registry: this.operationRegistry,
-        outcomes: this.operationOutcomes
-      })
-      if (validation.status !== 'validated') {
-        this.emitOutcome({ direction: 'remote', source, outcome: validation })
-        continue
+        return
       }
-
-      const decision = await this.conflictPolicy.decide(validation)
-      if (this.disposed) return
-      if (decision.status === 'rejected') {
-        this.operationOutcomes.record(validation.envelope, {
-          status: 'rejected',
-          operationId: validation.envelope.operationId,
-          applied: false,
-          code: `${decision.owner}:${decision.code}`
-        })
-        this.emitOutcome({ direction: 'remote', source, outcome: decision })
-        continue
-      }
-
-      const definition = this.operationRegistry.resolve(
-        decision.envelope.channel,
-        decision.envelope.eventName
-      )
-      if (!definition?.apply) {
-        const error = new Error(
-          '[collaboration] canonical apply handler is unavailable'
-        )
-        this.operationOutcomes.record(validation.envelope, {
-          status: 'apply-failed',
-          operationId: validation.envelope.operationId,
-          applied: false,
-          code: 'missing-canonical-apply-handler'
-        })
+      try {
+        await this.provider.sendPublication(detached)
         this.emitOutcome({
-          direction: 'remote',
-          source,
-          status: 'runtime-failed',
+          direction: 'local',
+          status: 'sent',
+          publicationId: detached.publicationId
+        })
+      } catch (error) {
+        this.emitOutcome({
+          direction: 'local',
+          status: 'send-failed',
+          publicationId: detached.publicationId,
           error
         })
-        continue
       }
-
-      const outcome = applyOperation({
-        operation: decision,
-        factory: this.factory as Factory,
-        apply: definition.apply,
-        outcomes: this.operationOutcomes
-      })
-      this.emitOutcome({ direction: 'remote', source, outcome })
-    }
+    })
   }
 
-  private emitOutcome(outcome: CollaborationOperationOutcome): void {
-    const immutable = Object.freeze({
-      ...outcome
-    }) as CollaborationOperationOutcome
+  private scheduleInbound(inbound: InboundPublication): void {
+    if (this.disposed) return
+    const publication = cloneSharedPublication(inbound.publication)
+    const context = Object.freeze({
+      ...(inbound.fromActorId ? { fromActorId: inbound.fromActorId } : {})
+    })
+    this.inboundQueue = this.inboundQueue.then(() => {
+      if (this.disposed) return
+      try {
+        this.processRemotePublication(publication, context)
+        this.emitOutcome({
+          direction: 'remote',
+          status: 'processed',
+          publicationId: publication.publicationId,
+          ...context
+        })
+      } catch (error) {
+        this.emitOutcome({
+          direction: 'remote',
+          status: 'process-failed',
+          publicationId: publication.publicationId,
+          ...context,
+          error
+        })
+      }
+    })
+  }
+
+  private emitOutcome(outcome: CollaborationPublicationOutcome): void {
+    const immutable = Object.freeze({ ...outcome })
     ;[...this.outcomeSubscribers].forEach((subscriber) => {
       try {
         subscriber(immutable)
       } catch {
-        // Outcome observers cannot alter collaboration settlement.
+        // Observers cannot alter collaboration settlement.
       }
     })
   }
@@ -632,29 +393,18 @@ export class Collaboration {
       await attempt(disposer)
     }
     this.disposers.length = 0
-    this.durability.dispose()
     this.outcomeSubscribers.clear()
 
     if (this.composition.resourceOwnership.provider === 'owned') {
       await attempt(() => callLifecycle(this.provider))
     }
-    if (this.composition.resourceOwnership.persistence === 'owned') {
-      await attempt(() => callLifecycle(this.persistence))
-    }
-    if (this.startPromise) {
-      await this.startPromise.catch(() => undefined)
-    }
+    if (this.startPromise) await this.startPromise.catch(() => undefined)
     await this.whenIdle()
     if (this.composition.resourceOwnership.awareness === 'owned') {
       await attempt(() => callLifecycle(this.awareness))
     }
-    if (this.composition.resourceOwnership.yDoc === 'owned') {
-      await attempt(() => this.yDoc.destroy())
-    }
 
-    if (failures.length > 0) {
-      throw new DisposalError(failures)
-    }
+    if (failures.length > 0) throw new DisposalError(failures)
   }
 
   private requireUsable(): void {

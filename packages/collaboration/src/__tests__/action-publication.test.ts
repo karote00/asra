@@ -1,13 +1,11 @@
-import * as Y from 'yjs'
-import { Factory, LocalSharedDataChannel } from '@asyra/factory'
-import { describe, expect, it, vi } from 'vitest'
 import {
-  createCollaboration,
-  defineCanonicalOperationApply,
-  MemoryHub,
-  MemoryProvider
-} from '..'
-import { applyInboundYjsUpdate, readOperationLog } from '../yjs-document'
+  Factory,
+  LocalSharedDataChannel,
+  type SharedPublication,
+  type SharedPublicationSubscriber
+} from '@asyra/factory'
+import { describe, expect, it, vi } from 'vitest'
+import { createCollaboration, MemoryHub, MemoryProvider } from '..'
 
 const CHANNEL = 'document'
 const SET_VALUE = 'set-value'
@@ -18,15 +16,9 @@ interface SetValuePayload {
   after: number
 }
 
-const createHarness = (registeredEvents: readonly string[] = [SET_VALUE]) => {
+const createFactoryHarness = () => {
   const factory = new Factory()
   factory.registerSharedDataChannel(CHANNEL, new LocalSharedDataChannel())
-  const provider = new MemoryProvider(new MemoryHub(), {
-    documentId: 'document-a',
-    roomId: 'room-a',
-    actorId: 'actor-a'
-  })
-  const sendUpdate = vi.spyOn(provider, 'sendUpdate')
   factory.registerTransactionInverter(SET_VALUE, (event) => {
     const payload = (event as unknown as { payload: SetValuePayload }).payload
     return {
@@ -38,140 +30,202 @@ const createHarness = (registeredEvents: readonly string[] = [SET_VALUE]) => {
       }
     } as typeof event
   })
+  const provider = new MemoryProvider(new MemoryHub(), {
+    documentId: 'document-a',
+    roomId: 'room-a',
+    actorId: 'actor-a'
+  })
+  const sendPublication = vi.spyOn(provider, 'sendPublication')
+  const processRemotePublication = vi.fn()
   const instance = createCollaboration({
     documentId: 'document-a',
     roomId: 'room-a',
     actorId: 'actor-a',
     factory,
     provider,
-    operationDefinitions: registeredEvents.map((eventName) => ({
-      channel: CHANNEL,
-      eventName,
-      schemaVersion: 1,
-      validate: (payload: unknown): payload is SetValuePayload => {
-        if (!payload || typeof payload !== 'object') return false
-        const value = payload as Partial<SetValuePayload>
-        return (
-          typeof value.id === 'string' &&
-          typeof value.before === 'number' &&
-          typeof value.after === 'number'
-        )
-      },
-      apply: defineCanonicalOperationApply(() => true)
-    })),
-    permissionPolicy: () => true,
+    processRemotePublication,
     resourceOwnership: { provider: 'owned' }
   })
-  const update = (
-    id: string,
-    after: number,
-    options: {
-      eventName?: string
-      rollbackable?: boolean
-    } = {}
-  ) => {
+  const update = (id: string, after: number, rollbackable = false) => {
     factory.updateTransaction({
       type: 'updateTransaction' as Parameters<
         Factory['updateTransaction']
       >[0]['type'],
-      eventName: options.eventName ?? SET_VALUE,
+      eventName: SET_VALUE,
       payload: { id, before: after - 1, after },
       options: {
         undoable: false,
-        rollbackable: options.rollbackable ?? false,
+        rollbackable,
         shared: CHANNEL,
         sharedDelivery: 'immediate'
       }
     })
   }
-  return { factory, instance, provider, sendUpdate, update }
+  return { factory, instance, provider, sendPublication, update }
 }
 
-describe('Collaboration action publication transport', () => {
-  it('sends one ordered immediate batch before the outer undo transaction ends', async () => {
-    const { factory, instance, sendUpdate, update } = createHarness()
+const publication = (): SharedPublication => ({
+  publicationId: 'publication-a',
+  transactionId: 1,
+  origin: 'action',
+  deliveries: [
+    {
+      deliveryId: 'delivery-a',
+      transactionId: 1,
+      origin: 'action',
+      kind: 'forward',
+      channel: CHANNEL,
+      eventName: SET_VALUE,
+      payload: { id: 'element-a', before: 0, after: 1 },
+      sharedDelivery: 'immediate'
+    }
+  ]
+})
+
+describe('Collaboration publication handoff', () => {
+  it('sends one intact ordered publication for one immediate Factory action', async () => {
+    const { factory, instance, sendPublication, update } =
+      createFactoryHarness()
     await instance.start()
 
     factory.startTransaction()
     update('element-a', 1)
     update('element-b', 2)
-    await Promise.resolve()
     await instance.whenIdle()
 
-    expect(sendUpdate).toHaveBeenCalledTimes(1)
-    expect(readOperationLog(instance.yDoc)).toEqual([
-      expect.objectContaining({
-        payload: expect.objectContaining({ id: 'element-a' })
-      }),
-      expect.objectContaining({
-        payload: expect.objectContaining({ id: 'element-b' })
-      })
-    ])
-
-    const transported = sendUpdate.mock.calls[0]?.[0]
-    expect(transported).toBeDefined()
-    if (!transported) throw new Error('expected one transported action update')
-    const receiver = new Y.Doc()
-    const decoded = applyInboundYjsUpdate(
-      receiver,
-      transported.update,
-      'provider'
-    )
-    expect(decoded.operations).toHaveLength(2)
-    expect(readOperationLog(receiver)).toEqual(readOperationLog(instance.yDoc))
+    expect(sendPublication).toHaveBeenCalledTimes(1)
+    expect(sendPublication.mock.calls[0]?.[0]).toMatchObject({
+      deliveries: [
+        expect.objectContaining({
+          payload: expect.objectContaining({ id: 'element-a', after: 1 })
+        }),
+        expect.objectContaining({
+          payload: expect.objectContaining({ id: 'element-b', after: 2 })
+        })
+      ]
+    })
+    expect('yDoc' in instance).toBe(false)
 
     factory.endTransaction()
     await instance.whenIdle()
-    expect(sendUpdate).toHaveBeenCalledTimes(1)
+    expect(sendPublication).toHaveBeenCalledTimes(1)
 
     await instance.dispose()
   })
 
-  it('transports one linked compensation batch after a flushed immediate action rolls back', async () => {
-    const { factory, instance, sendUpdate, update } = createHarness()
+  it('forwards Factory compensation as an ordinary second publication', async () => {
+    const { factory, instance, sendPublication, update } =
+      createFactoryHarness()
     await instance.start()
 
     factory.startTransaction()
-    update('element-a', 1, { rollbackable: true })
-    await Promise.resolve()
+    update('element-a', 1, true)
     await instance.whenIdle()
-
-    expect(sendUpdate).toHaveBeenCalledTimes(1)
     factory.endTransaction({ outcome: 'rollback' })
     await instance.whenIdle()
 
-    expect(sendUpdate).toHaveBeenCalledTimes(2)
-    expect(readOperationLog(instance.yDoc)).toEqual([
-      expect.objectContaining({
-        payload: expect.objectContaining({ id: 'element-a', after: 1 })
-      }),
-      expect.objectContaining({
-        origin: 'rollback-compensation',
-        payload: expect.objectContaining({ id: 'element-a', after: 0 }),
-        compensatesOperationId: expect.any(String)
-      })
+    expect(sendPublication).toHaveBeenCalledTimes(2)
+    expect(sendPublication.mock.calls[1]?.[0]).toMatchObject({
+      origin: 'rollback-compensation',
+      deliveries: [
+        expect.objectContaining({
+          kind: 'compensation',
+          origin: 'rollback-compensation',
+          payload: expect.objectContaining({
+            id: 'element-a',
+            before: 1,
+            after: 0
+          })
+        })
+      ]
+    })
+
+    await instance.dispose()
+  })
+
+  it('does not deduplicate repeated equal publications', async () => {
+    let subscriber: SharedPublicationSubscriber | undefined
+    const source = {
+      subscribeToSharedPublication: vi.fn(
+        (next: SharedPublicationSubscriber) => {
+          subscriber = next
+          return () => undefined
+        }
+      )
+    }
+    const provider = new MemoryProvider(new MemoryHub(), {
+      documentId: 'document-a',
+      roomId: 'room-a',
+      actorId: 'actor-a'
+    })
+    const sendPublication = vi.spyOn(provider, 'sendPublication')
+    const instance = createCollaboration({
+      documentId: 'document-a',
+      roomId: 'room-a',
+      actorId: 'actor-a',
+      factory: source,
+      provider,
+      processRemotePublication: vi.fn()
+    })
+    await instance.start()
+    const repeated = publication()
+
+    subscriber?.(repeated)
+    subscriber?.(repeated)
+    await instance.whenIdle()
+
+    expect(sendPublication).toHaveBeenCalledTimes(2)
+    expect(sendPublication.mock.calls.map(([sent]) => sent)).toEqual([
+      repeated,
+      repeated
     ])
 
     await instance.dispose()
   })
 
-  it('rejects the whole action before Y.Doc mutation when one delivery is invalid', async () => {
-    const { factory, instance, sendUpdate, update } = createHarness()
-    const outcomes: unknown[] = []
-    instance.observeOperationOutcomes((outcome) => outcomes.push(outcome))
+  it('does not hand off a later publication before the current send settles', async () => {
+    let subscriber: SharedPublicationSubscriber | undefined
+    let acknowledgeFirst: (() => void) | undefined
+    const firstAcknowledgement = new Promise<void>((resolve) => {
+      acknowledgeFirst = resolve
+    })
+    const hub = new MemoryHub({
+      acknowledgePublication: (received) =>
+        received.publicationId === 'publication-1'
+          ? firstAcknowledgement.then(() => true)
+          : true
+    })
+    const provider = new MemoryProvider(hub, {
+      documentId: 'document-a',
+      roomId: 'room-a',
+      actorId: 'actor-a'
+    })
+    const sendPublication = vi.spyOn(provider, 'sendPublication')
+    const instance = createCollaboration({
+      documentId: 'document-a',
+      roomId: 'room-a',
+      actorId: 'actor-a',
+      factory: {
+        subscribeToSharedPublication: (next) => {
+          subscriber = next
+          return () => undefined
+        }
+      },
+      provider,
+      processRemotePublication: vi.fn()
+    })
     await instance.start()
 
-    factory.startTransaction()
-    update('element-a', 1)
-    update('element-b', 2, { eventName: 'unregistered-event' })
-    factory.endTransaction()
+    subscriber?.({ ...publication(), publicationId: 'publication-1' })
+    subscriber?.({ ...publication(), publicationId: 'publication-2' })
+    await vi.waitFor(() => expect(sendPublication).toHaveBeenCalledOnce())
+
+    acknowledgeFirst?.()
     await instance.whenIdle()
 
-    expect(sendUpdate).not.toHaveBeenCalled()
-    expect(readOperationLog(instance.yDoc)).toEqual([])
-    expect(outcomes).toEqual([
-      expect.objectContaining({ direction: 'local', status: 'rejected' })
-    ])
+    expect(
+      sendPublication.mock.calls.map(([sent]) => sent.publicationId)
+    ).toEqual(['publication-1', 'publication-2'])
 
     await instance.dispose()
   })

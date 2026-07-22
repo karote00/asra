@@ -1,18 +1,16 @@
-import type { YjsBinaryUpdate } from '../../yjs-document'
+import type { SharedPublication } from '@asyra/factory'
 import {
+  createProviderIdentitySnapshot,
+  ProviderFailure,
+  type InboundPublication,
   type Provider,
-  type ProviderIdentity,
-  type ProviderStatus,
-  type InboundBinaryUpdate,
-  type ProviderAcknowledgement,
   type ProviderAwarenessDisconnect,
   type ProviderAwarenessMessage,
-  type ProviderStateVectorExchange,
-  createProviderIdentitySnapshot,
-  ProviderFailure
+  type ProviderIdentity,
+  type ProviderStatus
 } from '../../provider'
+import { cloneAwareness, clonePublication } from './cloning'
 import { MemoryHub, type MemoryPeer } from './hub'
-import { cloneAwareness, cloneBytes } from './cloning'
 
 export class MemoryProvider implements Provider, MemoryPeer {
   readonly identity: ProviderIdentity
@@ -25,11 +23,8 @@ export class MemoryProvider implements Provider, MemoryPeer {
   private readonly statusSubscribers = new Set<
     (status: ProviderStatus) => void
   >()
-  private readonly updateSubscribers = new Set<
-    (update: InboundBinaryUpdate) => void
-  >()
-  private readonly acknowledgementSubscribers = new Set<
-    (acknowledgement: ProviderAcknowledgement) => void
+  private readonly publicationSubscribers = new Set<
+    (publication: InboundPublication) => void
   >()
   private readonly awarenessSubscribers = new Set<
     (message: ProviderAwarenessMessage) => void
@@ -185,8 +180,7 @@ export class MemoryProvider implements Provider, MemoryPeer {
       new ProviderFailure('disposed', '[collaboration] provider is disposed')
     )
     this.statusSubscribers.clear()
-    this.updateSubscribers.clear()
-    this.acknowledgementSubscribers.clear()
+    this.publicationSubscribers.clear()
     this.awarenessSubscribers.clear()
     this.awarenessDisconnectSubscribers.clear()
     this.failureSubscribers.clear()
@@ -200,59 +194,19 @@ export class MemoryProvider implements Provider, MemoryPeer {
     return this.subscribe(this.statusSubscribers, subscriber)
   }
 
-  async sendUpdate(update: YjsBinaryUpdate): Promise<void> {
+  async sendPublication(publication: SharedPublication): Promise<void> {
     this.requireConnected()
     try {
-      await this.hub.receiveUpdate(this, {
-        operationId: update.operationId,
-        update: cloneBytes(update.update)
-      })
+      await this.hub.receivePublication(this, clonePublication(publication))
     } catch (error) {
       this.failTransport(error)
     }
   }
 
-  onUpdate(subscriber: (update: InboundBinaryUpdate) => void): () => void {
-    return this.subscribe(this.updateSubscribers, subscriber)
-  }
-
-  async requestSync(stateVector: Uint8Array): Promise<Uint8Array> {
-    this.requireConnected()
-    try {
-      return cloneBytes(this.hub.sync(this, cloneBytes(stateVector)))
-    } catch (error) {
-      return this.failTransport(error)
-    }
-  }
-
-  async exchangeStateVector(
-    stateVector: Uint8Array
-  ): Promise<ProviderStateVectorExchange> {
-    this.requireConnected()
-    try {
-      const result = this.hub.exchangeStateVector(this, cloneBytes(stateVector))
-      return Object.freeze({
-        remoteStateVector: cloneBytes(result.remoteStateVector),
-        missingRemoteUpdate: cloneBytes(result.missingRemoteUpdate)
-      })
-    } catch (error) {
-      return this.failTransport(error)
-    }
-  }
-
-  async sendSyncUpdate(update: Uint8Array): Promise<void> {
-    this.requireConnected()
-    try {
-      this.hub.receiveSyncUpdate(this, cloneBytes(update))
-    } catch (error) {
-      this.failTransport(error)
-    }
-  }
-
-  onAcknowledgement(
-    subscriber: (acknowledgement: ProviderAcknowledgement) => void
+  onPublication(
+    subscriber: (publication: InboundPublication) => void
   ): () => void {
-    return this.subscribe(this.acknowledgementSubscribers, subscriber)
+    return this.subscribe(this.publicationSubscribers, subscriber)
   }
 
   async sendAwareness(message: ProviderAwarenessMessage): Promise<void> {
@@ -288,23 +242,20 @@ export class MemoryProvider implements Provider, MemoryPeer {
     return this.subscribe(this.failureSubscribers, subscriber)
   }
 
-  receiveUpdate(update: InboundBinaryUpdate): void {
+  receivePublication(inbound: InboundPublication): void {
     if (this.status !== 'connected') return
-    ;[...this.updateSubscribers].forEach((subscriber) => {
+    ;[...this.publicationSubscribers].forEach((subscriber) => {
       try {
-        subscriber({ ...update, update: cloneBytes(update.update) })
+        subscriber(
+          Object.freeze({
+            publication: clonePublication(inbound.publication),
+            ...(inbound.fromActorId ? { fromActorId: inbound.fromActorId } : {})
+          })
+        )
       } catch {
         // Provider observers cannot alter transport settlement.
       }
     })
-  }
-
-  receiveAcknowledgement(acknowledgement: ProviderAcknowledgement): void {
-    if (this.status !== 'connected') return
-    this.emit(
-      this.acknowledgementSubscribers,
-      Object.freeze({ ...acknowledgement })
-    )
   }
 
   receiveAwareness(message: ProviderAwarenessMessage): void {

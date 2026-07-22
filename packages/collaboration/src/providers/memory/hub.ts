@@ -1,85 +1,45 @@
-import * as Y from 'yjs'
-import { applyInboundYjsUpdate, type YjsBinaryUpdate } from '../../yjs-document'
+import type { SharedPublication } from '@asyra/factory'
 import {
   ProviderFailure,
-  type InboundBinaryUpdate,
-  type ProviderAcknowledgement,
+  type InboundPublication,
   type ProviderAwarenessDisconnect,
   type ProviderAwarenessMessage,
-  type ProviderIdentity,
-  type ProviderStateVectorExchange
+  type ProviderIdentity
 } from '../../provider'
-import { cloneAwareness, cloneBytes } from './cloning'
+import { cloneAwareness, clonePublication } from './cloning'
 
 export interface MemoryHubOptions {
   authorizeConnection?: (
     identity: ProviderIdentity
   ) => boolean | Promise<boolean>
-  acknowledgeUpdate?: (
-    update: YjsBinaryUpdate,
+  acknowledgePublication?: (
+    publication: SharedPublication,
     identity: ProviderIdentity
   ) => boolean | Promise<boolean>
 }
 
 export interface MemoryPeer {
   readonly identity: ProviderIdentity
-  receiveUpdate(update: InboundBinaryUpdate): void
-  receiveAcknowledgement(acknowledgement: ProviderAcknowledgement): void
+  receivePublication(publication: InboundPublication): void
   receiveAwareness(message: ProviderAwarenessMessage): void
   receiveAwarenessDisconnect(event: ProviderAwarenessDisconnect): void
 }
 
 interface MemoryRoom {
-  readonly document: Y.Doc
   readonly providers: Map<MemoryPeer, symbol>
 }
 
 const roomKey = (identity: ProviderIdentity): string =>
   JSON.stringify([identity.documentId, identity.roomId])
 
-const validateUpdateAuthors = (
-  document: Y.Doc,
-  update: Uint8Array,
-  actorId: string
-): void => {
-  const stagedDocument = new Y.Doc()
-  try {
-    Y.applyUpdate(stagedDocument, Y.encodeStateAsUpdate(document))
-    const decoded = applyInboundYjsUpdate(stagedDocument, update, 'provider')
-    for (const operation of decoded.operations) {
-      if (
-        !operation ||
-        typeof operation !== 'object' ||
-        Array.isArray(operation)
-      ) {
-        throw new Error(
-          '[collaboration] provider history operation must be a record'
-        )
-      }
-      const descriptor = Object.getOwnPropertyDescriptor(operation, 'actorId')
-      if (
-        !descriptor ||
-        !('value' in descriptor) ||
-        descriptor.value !== actorId
-      ) {
-        throw new Error(
-          '[collaboration] provider history operation actor must match the authenticated sender'
-        )
-      }
-    }
-  } finally {
-    stagedDocument.destroy()
-  }
-}
-
 export class MemoryHub {
   private readonly rooms = new Map<string, MemoryRoom>()
   private readonly authorizeConnection?: MemoryHubOptions['authorizeConnection']
-  private readonly acknowledgeUpdate?: MemoryHubOptions['acknowledgeUpdate']
+  private readonly acknowledgePublication?: MemoryHubOptions['acknowledgePublication']
 
   constructor(options: MemoryHubOptions = {}) {
     this.authorizeConnection = options.authorizeConnection
-    this.acknowledgeUpdate = options.acknowledgeUpdate
+    this.acknowledgePublication = options.acknowledgePublication
   }
 
   async connect(peer: MemoryPeer, connectionToken: symbol): Promise<void> {
@@ -103,7 +63,8 @@ export class MemoryHub {
   }
 
   disconnect(peer: MemoryPeer, connectionToken?: symbol): void {
-    const room = this.rooms.get(roomKey(peer.identity))
+    const key = roomKey(peer.identity)
+    const room = this.rooms.get(key)
     if (!room) return
     if (
       connectionToken !== undefined &&
@@ -120,59 +81,47 @@ export class MemoryHub {
     room.providers.forEach((_token, connectedPeer) =>
       connectedPeer.receiveAwarenessDisconnect(event)
     )
+    if (room.providers.size === 0) this.rooms.delete(key)
   }
 
-  async receiveUpdate(
+  async receivePublication(
     sender: MemoryPeer,
-    binary: YjsBinaryUpdate
+    publication: SharedPublication
   ): Promise<void> {
     const room = this.room(sender.identity)
-    if (binary.update.byteLength > 0) {
-      validateUpdateAuthors(
-        room.document,
-        binary.update,
-        sender.identity.actorId
-      )
-      applyInboundYjsUpdate(room.document, binary.update, 'provider')
-      room.providers.forEach((_token, peer) => {
-        if (peer === sender) return
-        peer.receiveUpdate(
-          Object.freeze({
-            operationId: binary.operationId,
-            update: cloneBytes(binary.update),
-            fromActorId: sender.identity.actorId
-          })
-        )
-      })
-    }
-
     let acknowledged = true
     try {
       acknowledged =
-        (await this.acknowledgeUpdate?.(binary, sender.identity)) ?? true
+        (await this.acknowledgePublication?.(
+          clonePublication(publication),
+          sender.identity
+        )) ?? true
     } catch (error) {
       throw new ProviderFailure(
         'acknowledgement-failed',
-        '[collaboration] durable acknowledgement failed',
+        '[collaboration] publication acknowledgement failed',
         error,
-        binary.operationId
+        publication.publicationId
       )
     }
     if (!acknowledged) {
       throw new ProviderFailure(
         'acknowledgement-failed',
-        '[collaboration] durable acknowledgement was rejected',
+        '[collaboration] publication acknowledgement was rejected',
         undefined,
-        binary.operationId
+        publication.publicationId
       )
     }
 
-    sender.receiveAcknowledgement(
-      Object.freeze({
-        operationId: binary.operationId,
-        durability: 'durable'
-      })
-    )
+    room.providers.forEach((_token, peer) => {
+      if (peer === sender) return
+      peer.receivePublication(
+        Object.freeze({
+          publication: clonePublication(publication),
+          fromActorId: sender.identity.actorId
+        })
+      )
+    })
   }
 
   receiveAwareness(
@@ -186,48 +135,11 @@ export class MemoryHub {
     })
   }
 
-  sync(peer: MemoryPeer, stateVector: Uint8Array): Uint8Array {
-    const document = this.room(peer.identity).document
-    return stateVector.byteLength === 0
-      ? Y.encodeStateAsUpdate(document)
-      : Y.encodeStateAsUpdate(document, stateVector)
-  }
-
-  exchangeStateVector(
-    peer: MemoryPeer,
-    stateVector: Uint8Array
-  ): ProviderStateVectorExchange {
-    const document = this.room(peer.identity).document
-    return Object.freeze({
-      remoteStateVector: Y.encodeStateVector(document),
-      missingRemoteUpdate:
-        stateVector.byteLength === 0
-          ? Y.encodeStateAsUpdate(document)
-          : Y.encodeStateAsUpdate(document, stateVector)
-    })
-  }
-
-  receiveSyncUpdate(sender: MemoryPeer, update: Uint8Array): void {
-    if (update.byteLength <= 2) return
-    const room = this.room(sender.identity)
-    validateUpdateAuthors(room.document, update, sender.identity.actorId)
-    applyInboundYjsUpdate(room.document, update, 'provider')
-    room.providers.forEach((_token, peer) => {
-      if (peer === sender) return
-      peer.receiveUpdate(
-        Object.freeze({
-          operationId: `sync:${sender.identity.actorId}`,
-          update: cloneBytes(update)
-        })
-      )
-    })
-  }
-
   private room(identity: ProviderIdentity): MemoryRoom {
     const key = roomKey(identity)
     let room = this.rooms.get(key)
     if (!room) {
-      room = { document: new Y.Doc(), providers: new Map() }
+      room = { providers: new Map() }
       this.rooms.set(key, room)
     }
     return room

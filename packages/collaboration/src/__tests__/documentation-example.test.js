@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest'
 import {
   createCollaboratingCounter,
   createMemoryHub
-} from '../../../../docs/examples/yjs-network-collaboration.mjs'
+} from '../../../../docs/examples/network-collaboration-transport.mjs'
 
-describe('Yjs collaboration documentation example', () => {
+describe('network collaboration documentation example', () => {
   it('declares the supported workspace example runner', () => {
     const manifest = JSON.parse(
       fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8')

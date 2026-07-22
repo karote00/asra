@@ -1,8 +1,6 @@
-import * as Y from 'yjs'
 import { describe, expect, it, vi } from 'vitest'
 import { Awareness, AwarenessValidationError } from '../awareness'
 import { createCollaboration } from '..'
-import { readOperationLog } from '../yjs-document'
 
 const factory = () => ({
   subscribeToSharedPublication: vi.fn(() => () => undefined)
@@ -10,21 +8,18 @@ const factory = () => ({
 
 describe('ephemeral awareness ownership', () => {
   it('binds the default runtime to the collaboration instance actor without emitting presence', () => {
-    const yDoc = new Y.Doc()
     const instance = createCollaboration({
       documentId: 'document-a',
       roomId: 'room-a',
       actorId: 'actor-a',
       factory: factory(),
-      operationDefinitions: [],
-      permissionPolicy: () => true,
-      yDoc
+      processRemotePublication: vi.fn()
     })
     const awareness = instance.awareness as Awareness
 
     expect(awareness.actorId).toBe('actor-a')
     expect(awareness.localClock()).toBe(0)
-    expect(readOperationLog(yDoc)).toEqual([])
+    expect('yDoc' in instance).toBe(false)
   })
 
   it('creates detached outbound presence with a monotonic clock and runtime heartbeat only on update', () => {
@@ -341,8 +336,8 @@ describe('ephemeral awareness ownership', () => {
     }
   )
 
-  it('never writes Y.Doc, persistence, transaction, or permission state', () => {
-    const yDoc = new Y.Doc()
+  it('never writes canonical, persistence, transaction, or permission state', () => {
+    const canonicalDocument = Object.freeze({ elements: Object.freeze([]) })
     const persistence = { append: vi.fn() }
     const transaction = { update: vi.fn(), undo: vi.fn() }
     const permission = vi.fn(() => false)
@@ -358,11 +353,12 @@ describe('ephemeral awareness ownership', () => {
         identity: { claimedPermission: 'write' }
       })
     )
-    expect(readOperationLog(yDoc)).toEqual([])
+    expect(canonicalDocument).toEqual({ elements: [] })
     expect(persistence.append).not.toHaveBeenCalled()
     expect(transaction.update).not.toHaveBeenCalled()
     expect(transaction.undo).not.toHaveBeenCalled()
     expect(permission).not.toHaveBeenCalled()
+    expect('document' in runtime).toBe(false)
     expect('authorize' in runtime).toBe(false)
   })
 
@@ -393,7 +389,6 @@ describe('ephemeral awareness ownership', () => {
   })
 
   it('lets an app project and remove presence without changing canonical state', () => {
-    const yDoc = new Y.Doc()
     const canonicalDocument = Object.freeze({
       elements: Object.freeze([{ id: 'node-a', x: 10 }])
     })
@@ -423,6 +418,6 @@ describe('ephemeral awareness ownership', () => {
     })
     expect(projectedPresence.size).toBe(0)
     expect(canonicalDocument).toEqual({ elements: [{ id: 'node-a', x: 10 }] })
-    expect(readOperationLog(yDoc)).toEqual([])
+    expect('document' in runtime).toBe(false)
   })
 })
