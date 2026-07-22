@@ -2,16 +2,29 @@
 
 ## Status
 
-The authorized documentation repair and repository verification are complete.
-Current owner, path, plan-routing, Inspector navigation, and discoverability
-drift found by the final pass is repaired. The plan remains active only for the
-user-review condition in the Definition of Done and must not be archived until
-the user approves it.
+Completed and approved for closeout on 2026-07-22. Current owner, path,
+plan-routing, Inspector navigation, and discoverability drift found by the
+bounded audit was repaired without changing product behavior.
 
 This audit is not a product runtime flow, so it does not create a Flow
 Inspector, readiness matrix, audit ledger, or second semantic authority. If a
 finding touches an active product plan or Inspector-backed flow, that product's
 existing specification and Inspector remain authoritative.
+
+## Completion Record
+
+- Final decision: archive the documentation-contract audit after owner-bounded
+  repairs and two frozen-scope maintenance reviews.
+- Implementation summary: current framework, app, package, workflow, plan,
+  Inspector, README, routing, and source-coverage documents were reconciled
+  with their current owners; stale navigation and the final maintenance-plan
+  routing gap were repaired.
+- Review snapshot: the final no-finding repeat used baseline `478bec0be`, the
+  roots and exclusions in this plan, and the previously frozen reference,
+  routing, identifier, and ownership checks.
+- Exit criteria: path/reference checks, repository tests, dependency
+  validation, lint, build, focused TypeScript, and Chromium E2E passed; the
+  product owner approved closeout on 2026-07-22.
 
 ## Goal
 

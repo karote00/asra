@@ -2,18 +2,32 @@
 
 ## Status
 
-The authorized consolidation repair and repository verification are complete.
-The final pass reports no remaining concrete duplicate or misplaced owner that
-can be consolidated without erasing a trust boundary, app policy, or required
-test-runtime contract. The plan remains active only for the user-review
-condition in the Definition of Done and must not be archived until the user
-approves it.
+Completed and approved for closeout on 2026-07-22. The bounded audit found no
+remaining concrete duplicate or misplaced owner that can be consolidated
+without erasing a trust boundary, app policy, or required test-runtime
+contract.
 
 This maintenance plan is not a product runtime flow and does not create a new
 Flow Inspector, readiness matrix, audit ledger, or second semantic authority.
 If a finding touches an active product contract or Inspector-backed flow, that
 existing product specification and Inspector remain authoritative, and the
 affected implementation slice must follow their owner boundary.
+
+## Completion Record
+
+- Final decision: retain one canonical owner for genuinely shared contracts
+  while keeping adapter, trust-boundary, app-policy, and independent test-oracle
+  repetition local.
+- Implementation summary: shared geometry, numeric, diagnostic, load,
+  registration, collaboration, property, icon, and test-action contracts were
+  consolidated at their narrowest truthful owners; superseded local
+  declarations and workflows were removed.
+- Review snapshot: the final no-finding repeat used baseline `478bec0be`, the
+  roots and exclusions in this plan, and the frozen name-, structure-, body-,
+  contract-, and owner-based checks.
+- Exit criteria: duplicate clusters were classified by full semantics and
+  owner, all applicable repository gates passed, and the product owner approved
+  closeout on 2026-07-22.
 
 ## Goal
 

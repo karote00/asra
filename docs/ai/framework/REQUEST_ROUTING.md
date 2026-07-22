@@ -94,13 +94,13 @@ Use this file to route a new framework request to the right docs first.
 - repository-wide documentation contract, owner, or reality audit
   - `design-principles/docs-as-contract.md`
   - `docs/ai/workflows/docs-reality-check.md`
-  - `plans/project-wide-documentation-contract-audit-plan.md`
+  - `plans/completed/project-wide-documentation-contract-audit-plan.md`
   - affected framework/app source-of-truth documents
 
 - repository-wide duplicate contract, misplaced owner, or readability refactor
   - `PLANS.md`
-  - `plans/project-wide-duplicate-contract-and-ownership-consolidation-plan.md`
-  - `plans/project-wide-code-readability-analysis-and-refactor-plan.md`
+  - `plans/completed/project-wide-duplicate-contract-and-ownership-consolidation-plan.md`
+  - `plans/completed/project-wide-code-readability-analysis-and-refactor-plan.md`
   - `CODING_STANDARDS.md`
   - affected framework/app/package owner documents
 
