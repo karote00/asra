@@ -53,6 +53,9 @@ projection; the design-system package owns no canonical document behavior.
 - `header.tsx`: section header renderer
 - `position.tsx`, `dimension.tsx`, `rotation.tsx`: layout fields
 - `fills/*`: repeatable fill item editor (`visible`, `opacity`, `colorFormat`, `color`, color picker, gradient metadata seed/type)
+- `strokes/*`: repeatable stroke item editor; the panel currently displays only
+  the color row (`visible`, `opacity`, `colorFormat`, `color`, remove), while
+  geometry/style rows remain unavailable until stroke implementation is complete
 - `providers/properties.ts`: thin selectors over ui-context values; `useFills()` / `useFill()` read from computed ui-context `fills`
 - `vector-point.tsx`: point editing panel in path editing mode
   - supports selected target (`anchor` / `inHandle` / `outHandle`) coordinate editing
@@ -69,7 +72,7 @@ projection; the design-system package owns no canonical document behavior.
 ## Property Panel Contract
 
 - No selection -> no layout fields shown.
-- Element selection -> layout + fills fields shown.
+- Element selection -> layout, fills, and stroke color rows shown.
 - Selected vector element in element-properties mode -> fills section shown.
 - Selected vector point in active path editing -> point panel shown.
 - Invalid numeric input must not write computed data.

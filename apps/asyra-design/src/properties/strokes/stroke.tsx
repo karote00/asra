@@ -140,7 +140,10 @@ const StrokeItem = ({
         </button>
       </div>
 
-      <div className="grid grid-cols-[72px_minmax(0,1fr)_minmax(0,1fr)_60px] items-center gap-2 pl-4 pr-2 h-8 min-h-8">
+      <div
+        hidden
+        className="grid grid-cols-[72px_minmax(0,1fr)_minmax(0,1fr)_60px] items-center gap-2 pl-4 pr-2 h-8 min-h-8"
+      >
         <div className={`${strokeSelectWrapperClassName} w-[72px]`}>
           <select
             value={stroke.position}
@@ -231,6 +234,7 @@ const StrokeItem = ({
       </div>
 
       <div
+        hidden
         className={`grid items-center gap-1 pl-4 pr-2 h-8 min-h-8 ${
           stroke.style === StrokeStyles.DASHED
             ? 'grid-cols-[40px_minmax(72px,1fr)_48px_48px]'
