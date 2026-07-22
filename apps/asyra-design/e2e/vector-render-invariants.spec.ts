@@ -1,10 +1,11 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { resetCanvas, waitForAppReady } from './test-utils'
-
-interface BrowserTestInfo {
-  browserErrors?: string[]
-}
+import {
+  captureBrowserErrors,
+  getCapturedBrowserErrors,
+  resetCanvas,
+  waitForAppReady
+} from './test-utils'
 
 const createStarTopology = () => {
   const center = { x: 420, y: 300 }
@@ -369,28 +370,16 @@ const expectOnlyComputedPatchUndo = (summary: { changeTypes: string[] }) => {
 }
 
 test.describe('Vector app-flow invariants', () => {
-  test.beforeEach(async ({ page }, testInfo) => {
-    const browserErrors: string[] = []
-    ;(testInfo as typeof testInfo & BrowserTestInfo).browserErrors =
-      browserErrors
-    page.on('pageerror', (error) => {
-      browserErrors.push(error.message)
-    })
-    page.on('console', (message) => {
-      if (message.type() === 'error') {
-        browserErrors.push(message.text())
-      }
-    })
+  test.beforeEach(async ({ page }) => {
+    captureBrowserErrors(page)
 
     await page.goto('/')
     await waitForAppReady(page)
     await resetCanvas(page)
   })
 
-  test.afterEach(async ({ page: _page }, testInfo) => {
-    const browserErrors =
-      (testInfo as typeof testInfo & BrowserTestInfo).browserErrors ?? []
-    expect(browserErrors).toEqual([])
+  test.afterEach(async ({ page }) => {
+    expect(getCapturedBrowserErrors(page)).toEqual([])
   })
 
   test('keeps scene-tree, render graphic, and path-editing overlay aligned after star create and point update', async ({

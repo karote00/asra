@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test'
 
-import { resetCanvas, waitForAppReady } from './test-utils'
-
-interface BrowserTestInfo {
-  browserErrors?: string[]
-}
+import {
+  captureBrowserErrors,
+  getCapturedBrowserErrors,
+  resetCanvas,
+  waitForAppReady
+} from './test-utils'
 
 interface PhaseBudget {
   count: number
@@ -73,25 +74,16 @@ const expectPhaseWithinBudget = (
 }
 
 test.describe('Render delta performance budget', () => {
-  test.beforeEach(async ({ page }, testInfo) => {
-    const browserErrors: string[] = []
-    const extendedTestInfo = testInfo as typeof testInfo & BrowserTestInfo
-    extendedTestInfo.browserErrors = browserErrors
-    page.on('console', (message) => {
-      if (message.type() === 'error') {
-        browserErrors.push(message.text())
-      }
-    })
+  test.beforeEach(async ({ page }) => {
+    captureBrowserErrors(page)
 
     await page.goto('/')
     await waitForAppReady(page)
     await resetCanvas(page)
   })
 
-  test.afterEach(async ({ page: _page }, testInfo) => {
-    const browserErrors =
-      (testInfo as typeof testInfo & BrowserTestInfo).browserErrors ?? []
-    expect(browserErrors).toEqual([])
+  test.afterEach(async ({ page }) => {
+    expect(getCapturedBrowserErrors(page)).toEqual([])
   })
 
   test('profiles the current dense-vector owner phases without adding cache semantics', async ({

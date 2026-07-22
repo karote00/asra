@@ -9,6 +9,25 @@ import type { Rect } from '@asyra/utils'
 export const SIDEBAR_WIDTH = 240 // COLUMN_WIDTH * 4 = 60 * 4
 export const HEADER_HEIGHT = 48 // h-12 = 12 * 4 = 48px
 
+const browserErrorsByPage = new WeakMap<Page, string[]>()
+
+export const captureBrowserErrors = (page: Page): void => {
+  const browserErrors: string[] = []
+  browserErrorsByPage.set(page, browserErrors)
+
+  page.on('pageerror', (error) => {
+    browserErrors.push(error.message)
+  })
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      browserErrors.push(message.text())
+    }
+  })
+}
+
+export const getCapturedBrowserErrors = (page: Page): readonly string[] =>
+  browserErrorsByPage.get(page) ?? []
+
 /**
  * Get a safe canvas position that won't be intercepted by overlays
  * @param page - The Playwright page
