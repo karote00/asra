@@ -6593,3 +6593,32 @@ join` constrained dashed product path across:
     outputs.
 - Related Plan:
   - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
+
+## 2026-07-23 - Keep localStorage as the collaboration reference database
+
+- Context:
+  - The public collaboration startup replaced Core's localStorage provider with
+    an empty memory document whenever the URL contained `fileId`.
+  - The reference WebSocket server intentionally has no durable database, so a
+    refresh discarded collaboration-session changes instead of loading the
+    demo's existing local snapshot.
+- Decision:
+  - Select `providers.localStorage` before Core startup for both ordinary and
+    collaboration URLs.
+  - Treat `fileId` only as collaboration document/room identity; it must not
+    select persistence or overwrite an existing canonical document.
+  - If collaboration starts without a stored document, initialize the valid
+    empty workspace once so Core has a canonical creation target.
+  - Keep the reference WebSocket server live-only and memory-only. Browser
+    localStorage remains demo persistence, not shared backend durability.
+- Consequences:
+  - Refresh restores the browser-local demo snapshot before collaboration
+    reconnects.
+  - A first collaboration visit remains usable without requiring pre-existing
+    localStorage data.
+  - Forkers can replace localStorage with their own HTTP/database persistence
+    without changing the framework collaboration transport contract.
+  - Cross-device recovery, missed-publication recovery, and durable shared
+    snapshots remain production app/backend responsibilities.
+- Related Plan:
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`

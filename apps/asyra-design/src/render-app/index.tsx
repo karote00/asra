@@ -5,7 +5,7 @@ import { CANVAS_BACKGROUND_COLOR } from '../constants'
 import { getCollaborationMode } from './collaboration-mode'
 import type { CoreRawData } from '@asyra/utils'
 
-const EMPTY_COLLABORATION_DOCUMENT = {
+const EMPTY_DOCUMENT = {
   version: '1.0.0',
   sceneTree: { workspace: '', workspaceList: [], elements: {} },
   props: {}
@@ -37,16 +37,18 @@ const RenderApp: React.FC = () => {
         }
         const collaborationMode = getCollaborationMode()
 
-        // Configure persistence before Core-owned renderer startup. The
-        // ephemeral collaboration room still needs Core.load() to establish
-        // its canonical empty workspace before remote state can be applied.
-        if (collaborationMode) {
-          await providers.memory.save(EMPTY_COLLABORATION_DOCUMENT)
-          core.setPersistence(providers.memory)
-        } else {
-          core.setPersistence(providers.localStorage)
+        // LocalStorage remains the demo database. Initialize only an absent
+        // collaboration document so Core can establish its empty workspace;
+        // an existing document must survive refresh unchanged.
+        if (
+          collaborationMode &&
+          (await providers.localStorage.load()) === null
+        ) {
+          if (!active) return
+          await providers.localStorage.save(EMPTY_DOCUMENT)
         }
         if (!active) return
+        core.setPersistence(providers.localStorage)
 
         // Phase 3: Single startup call
         await core.start(container, {

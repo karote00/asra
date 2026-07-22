@@ -23,8 +23,14 @@ The app maps `fileId` to internal document and room identity. Each page creates
 its own actor ID and uses it as the canonical ID-counter namespace before any
 collaborative element or property creation.
 
-URLs without `fileId` do not create Collaboration or connect a Provider. Their
-ordinary app persistence path remains active.
+Core load/save keeps using `providers.localStorage` with or without `fileId`.
+That browser-local store is the open-source reference app's demo database: on
+refresh, Core loads it before collaboration connects. `fileId` selects only the
+live collaboration room and never replaces persistence with an empty memory
+document. On first collaboration startup, RenderApp initializes a canonical
+empty workspace only when localStorage has no document; it never overwrites an
+existing snapshot. URLs without `fileId` simply do not create Collaboration or
+connect a Provider.
 
 The browser endpoint comes from
 `VITE_ASYRA_DESIGN_COLLABORATION_WS_URL`. The reference server validates the
@@ -111,6 +117,11 @@ socket. It:
 If a peer disconnects, publications sent during that period are missed.
 Reconnect receives future live publications only.
 
+The server's memory-only contract describes live room transport, not browser
+persistence. The Asyra Design demo still saves canonical snapshots to
+localStorage; that local durability is not a production shared database or
+cross-device recovery mechanism.
+
 ## Awareness
 
 Awareness is a separate ephemeral route for presence. Disconnect, leave, and
@@ -144,9 +155,11 @@ transport contract.
 
 3. Open the same `fileId` in two windows.
 4. Verify create, delete, drag, drag-to-create, vector edits, undo, and redo.
-5. Verify local selection/presence behavior separately from canonical document
+5. Refresh a window and verify its localStorage snapshot loads before live
+   collaboration reconnects.
+6. Verify local selection/presence behavior separately from canonical document
    changes.
-6. Disconnect one window, mutate the other, reconnect, and confirm no hidden
+7. Disconnect one window, mutate the other, reconnect, and confirm no hidden
    history replay occurs; a production refresh would be app/backend work.
 
 ## Validation

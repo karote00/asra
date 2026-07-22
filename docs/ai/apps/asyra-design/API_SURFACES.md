@@ -37,9 +37,14 @@ This file is the app-level API contract map.
   public client/server unions, and runtime parsing of untrusted JSON
 - the memory-only public reference server performs no authentication or permission
   check and makes no production authorization claim
-- URLs without `fileId` keep the normal local persistence path and create no
-  collaboration connection; production builds retain the dynamically loaded
-  reference path so a deployed URL with `fileId` can use it
+- Core load/save uses `providers.localStorage` with or without `fileId`; the
+  browser-local store is the reference app's demo database, while `fileId`
+  selects only the live collaboration room; an absent collaboration document
+  is initialized as an empty workspace, while an existing snapshot is not
+  overwritten
+- URLs without `fileId` create no collaboration connection; production builds
+  retain the dynamically loaded reference path so a deployed URL with `fileId`
+  can use it without changing the persistence owner
 - URL-level `document`, `room`, and `actor` parameters are not collaboration
   identity inputs
 - `window.__AsyraCollaboration__` is an intentionally retained active-runtime

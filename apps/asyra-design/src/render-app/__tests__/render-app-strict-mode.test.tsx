@@ -8,6 +8,11 @@ import RenderApp from '../index'
 
 const COLLABORATION_ENDPOINT = 'ws://127.0.0.1:4101/asyra-design-collaboration'
 const ACTOR_UUID = '12345678-1234-4123-8123-123456789abc'
+const EMPTY_DOCUMENT = {
+  version: '1.0.0',
+  sceneTree: { workspace: '', workspaceList: [], elements: {} },
+  props: {}
+} as const
 const collaborationHandle = {
   identity: Object.freeze({
     documentId: 'file-1',
@@ -41,6 +46,8 @@ describe('RenderApp StrictMode lifecycle', () => {
     vi.spyOn(core, 'start').mockResolvedValue(undefined)
     vi.spyOn(core, 'destroyRenderer').mockImplementation(() => undefined)
     vi.spyOn(providers.memory, 'save')
+    vi.spyOn(providers.localStorage, 'load')
+    vi.spyOn(providers.localStorage, 'save')
     vi.spyOn(collaborationLifecycle, 'startCollaboration').mockResolvedValue(
       collaborationHandle
     )
@@ -96,7 +103,7 @@ describe('RenderApp StrictMode lifecycle', () => {
     expect(core.destroyRenderer).toHaveBeenCalledTimes(2)
   })
 
-  it('boots explicit DEV collaboration through an empty canonical memory document', async () => {
+  it('initializes an absent localStorage document before collaboration starts', async () => {
     vi.stubEnv('VITE_ASYRA_DESIGN_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
     window.history.replaceState({}, '', '/?fileId=file-1')
     const host = document.createElement('div')
@@ -114,12 +121,11 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
     })
 
-    expect(providers.memory.save).toHaveBeenCalledWith({
-      version: '1.0.0',
-      sceneTree: { workspace: '', workspaceList: [], elements: {} },
-      props: {}
-    })
-    expect(core.setPersistence).toHaveBeenCalledWith(providers.memory)
+    expect(providers.memory.save).not.toHaveBeenCalled()
+    expect(providers.localStorage.load).toHaveBeenCalledTimes(1)
+    expect(providers.localStorage.save).toHaveBeenCalledWith(EMPTY_DOCUMENT)
+    expect(core.setPersistence).toHaveBeenCalledWith(providers.localStorage)
+    expect(core.setPersistence).not.toHaveBeenCalledWith(providers.memory)
     expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledWith({
       fileId: 'file-1',
       actorId: `actor-${ACTOR_UUID}`,
@@ -128,6 +134,37 @@ describe('RenderApp StrictMode lifecycle', () => {
 
     await act(async () => root.unmount())
     expect(collaborationLifecycle.disposeCollaboration).toHaveBeenCalledTimes(1)
+  })
+
+  it('preserves an existing localStorage document when collaboration starts', async () => {
+    vi.stubEnv('VITE_ASYRA_DESIGN_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
+    window.history.replaceState({}, '', '/?fileId=file-1')
+    vi.mocked(providers.localStorage.load).mockResolvedValue({
+      version: '1.0.0',
+      sceneTree: {
+        workspace: 'workspace-1',
+        workspaceList: ['workspace-1'],
+        elements: {}
+      },
+      props: {}
+    })
+    const host = document.createElement('div')
+    document.body.append(host)
+    const root = createRoot(host)
+
+    await act(async () => {
+      root.render(<RenderApp />)
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(providers.localStorage.load).toHaveBeenCalledTimes(1)
+    expect(providers.localStorage.save).not.toHaveBeenCalled()
+    expect(core.setPersistence).toHaveBeenCalledWith(providers.localStorage)
+    expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledTimes(1)
+
+    await act(async () => root.unmount())
   })
 
   it('does not activate collaboration after unmount aborts startup', async () => {
