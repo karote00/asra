@@ -29,6 +29,10 @@ Goal: avoid mixed ownership and hidden coupling.
 
 Actions:
 
+- freeze the bounded task contract from
+  `rules/bounded-task-scope-and-closure.md`: objective, authorized mutation
+  scope, unchanged behavior, fixed discovery methods for audits/reviews,
+  required gates, exclusions, and stop conditions
 - classify the request as framework, app-level, or cross-cutting
 - classify ownership bucket for each concern:
   - user customization
@@ -44,6 +48,9 @@ Actions:
 
 Checklist:
 
+- [ ] the bounded task contract is fixed before the first edit
+- [ ] specialized rules have passed their applicability check and do not
+      independently expand mutation scope
 - [ ] bug fixes have a formal failing test/oracle before implementation
 - [ ] ownership boundaries are explicit
 - [ ] preset usage is justified as default initialization (not runtime/domain ownership)
@@ -91,6 +98,9 @@ Actions:
 - keep public API stable unless explicitly refactoring it
 - update exports/imports and compile after each slice
 - stop and report when unexpected unrelated changes appear
+- after the first edit, do not add new repository-wide discovery methods or
+  candidate classes; inspect only the current diff, direct consumers, defined
+  cases, and frozen gates
 
 Self-correction loop:
 
@@ -125,6 +135,7 @@ Quality gates:
 - [ ] no known regression left undocumented
 - [ ] visual/product fixes are validated through the normal pipeline, not through patch output
 - [ ] visual closure follows `rules/visual-review-microscope.md` when screenshots, zoom, viewport, or pixel evidence are involved
+- [ ] final review did not reopen discovery or expand the frozen mutation scope
 
 ## Phase 5: Documentation Sync
 

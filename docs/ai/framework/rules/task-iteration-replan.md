@@ -12,6 +12,11 @@ When a task has multiple failed implementation iterations, or when it exceeds a
 user-provided time limit, the agent must stop local patching and perform a task
 iteration before continuing.
 
+The iteration remains bounded by `bounded-task-scope-and-closure.md`. Failure
+evidence may replace the approach inside the authorized objective, but a task
+iteration does not authorize a new repository-wide discovery pass, a new
+candidate class, or broader mutation scope.
+
 A task iteration means:
 
 1. Re-audit the active contracts, specs, inspector flow, tests, and current
@@ -44,6 +49,8 @@ is being used.
 - After writing the revised plan, review it yourself for missing contracts,
   ambiguous owner boundaries, unbounded files, weak gates, downstream patching,
   or stale assumptions. Revise and review again until no concrete issue remains.
+- Limit that review to the failed owner boundary, its direct consumers, the
+  evidence that invalidated the prior plan, and the revised fixed gates.
 - If the affected work is inspector-backed, apply
   `inspector-contract-readiness.md`: do not resume implementation until the
   active slice has explicit product behavior, public inputs/outputs, owner
@@ -58,6 +65,8 @@ is being used.
   owner-step reason.
 - Replanning only in conversation while leaving the implementation direction
   unchanged.
+- Using task iteration to reopen previously classified candidates, switch to an
+  unrelated search heuristic, or start a broader cleanup task.
 - Starting the next implementation iteration after a task replan while the
   revised plan still has an identified flaw, missing gate, or unresolved
   ownership question.
@@ -71,6 +80,8 @@ Before continuing after a task iteration, verify:
 - [ ] the first unresolved owner boundary is named
 - [ ] the test that should fail or pass next is named
 - [ ] the next implementation files are bounded
+- [ ] the revised plan remains inside the authorized mutation scope and fixes
+      the discovery methods for the next iteration
 - [ ] downstream fixes, fallback output, and patch geometry remain forbidden
 - [ ] the old failed plan is replaced by the revised plan
 - [ ] the revised plan has been self-reviewed, updated for every concrete issue

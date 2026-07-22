@@ -1,8 +1,10 @@
 # Inspector Step Execution Rule
 
-This rule applies to every task that touches an active plan, inspector-backed
-workflow, stroke/vector product flow, render pipeline, or any implementation
-whose correctness is governed by an inspector flow.
+Subject to `bounded-task-scope-and-closure.md`, this rule applies when a task
+changes or proves an active plan or Inspector step's governed semantics,
+owner, handoff, product cases, or DoD. Merely editing an unrelated internal
+detail in a file named by an Inspector does not activate this rule, and the
+file must not be added to an Inspector boundary solely to authorize that edit.
 
 The purpose is to make spec-driven implementation enforceable. Agents must not
 start from intuition, performance pressure, or local code shape when an inspector

@@ -2,8 +2,12 @@
 
 ## Scope
 
-This rule applies to active plans, Inspector-backed workflows, product-flow
-Inspectors, and implementation slices governed by them.
+Subject to `bounded-task-scope-and-closure.md`, this rule applies when a task
+changes or proves the semantics, public contract, architecture flow, product
+cases, or DoD of an active plan, Inspector-backed workflow, product-flow
+Inspector, or implementation slice governed by one. A file merely appearing in
+an implementation boundary does not make every unrelated internal edit to that
+file Inspector-governed work.
 
 ## Core Rule
 
