@@ -1,4 +1,3 @@
-import { Buffer } from 'node:buffer'
 import console from 'node:console'
 import { createServer as createHttpServer } from 'node:http'
 import { resolve } from 'node:path'
@@ -32,11 +31,6 @@ const host = appEnvironment.collaborationWebSocketHost
 const port = appEnvironment.collaborationWebSocketPort
 const socketPath = '/asyra-design-collaboration'
 const allowedOrigin = appEnvironment.appURL
-
-const encodeBytes = (bytes: Uint8Array): string =>
-  Buffer.from(bytes).toString('base64')
-const decodeBytes = (value: string): Uint8Array =>
-  new Uint8Array(Buffer.from(value, 'base64'))
 
 const safeSend = (
   socket: WebSocket,
@@ -108,12 +102,11 @@ webSocketServer.on('connection', (socket) => {
     if (provider) await provider.destroy().catch(() => undefined)
   }
 
-  const sendResponse = (requestId: string, result?: unknown): void => {
+  const sendResponse = (requestId: string): void => {
     safeSend(socket, {
       type: CollaborationMessageTypes.RESPONSE,
       requestId,
-      ok: true,
-      ...(result === undefined ? {} : { result })
+      ok: true
     })
   }
   const sendResponseError = (requestId: string, error: unknown): void => {
@@ -164,18 +157,11 @@ webSocketServer.on('connection', (socket) => {
       actorId: identity.actorId,
       connectionMetadata: { ...connectionMetadata }
     })
-    provider.onUpdate((update) => {
+    provider.onPublication((inbound) => {
       safeSend(socket, {
-        type: CollaborationMessageTypes.UPDATE,
-        operationId: update.operationId,
-        update: encodeBytes(update.update),
-        ...(update.fromActorId ? { fromActorId: update.fromActorId } : {})
-      })
-    })
-    provider.onAcknowledgement((acknowledgement) => {
-      safeSend(socket, {
-        type: CollaborationMessageTypes.ACKNOWLEDGEMENT,
-        ...acknowledgement
+        type: CollaborationMessageTypes.PUBLICATION,
+        publication: inbound.publication,
+        ...(inbound.fromActorId ? { fromActorId: inbound.fromActorId } : {})
       })
     })
     provider.onAwareness((awareness) => {
@@ -194,7 +180,9 @@ webSocketServer.on('connection', (socket) => {
       safeSend(socket, {
         type: CollaborationMessageTypes.FAILURE,
         ...failureMessage(failure),
-        ...(failure.operationId ? { operationId: failure.operationId } : {})
+        ...(failure.publicationId
+          ? { publicationId: failure.publicationId }
+          : {})
       })
     })
 
@@ -217,32 +205,8 @@ webSocketServer.on('connection', (socket) => {
     const requestId = message.requestId
     try {
       switch (message.type) {
-        case CollaborationMessageTypes.SEND_UPDATE:
-          await provider.sendUpdate({
-            operationId: message.operationId,
-            update: decodeBytes(message.update)
-          })
-          sendResponse(requestId)
-          return
-        case CollaborationMessageTypes.REQUEST_SYNC: {
-          const update = await provider.requestSync(
-            decodeBytes(message.stateVector)
-          )
-          sendResponse(requestId, { update: encodeBytes(update) })
-          return
-        }
-        case CollaborationMessageTypes.EXCHANGE_STATE_VECTOR: {
-          const exchange = await provider.exchangeStateVector(
-            decodeBytes(message.stateVector)
-          )
-          sendResponse(requestId, {
-            remoteStateVector: encodeBytes(exchange.remoteStateVector),
-            missingRemoteUpdate: encodeBytes(exchange.missingRemoteUpdate)
-          })
-          return
-        }
-        case CollaborationMessageTypes.SEND_SYNC_UPDATE:
-          await provider.sendSyncUpdate(decodeBytes(message.update))
+        case CollaborationMessageTypes.SEND_PUBLICATION:
+          await provider.sendPublication(message.publication)
           sendResponse(requestId)
           return
         case CollaborationMessageTypes.SEND_AWARENESS:

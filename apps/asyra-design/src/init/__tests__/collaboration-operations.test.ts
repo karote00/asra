@@ -1,4 +1,4 @@
-import type { SharedOperationEnvelope } from '@asyra/collaboration'
+import type { SharedDelivery, SharedPublication } from '@asyra/factory'
 import { EventTypes } from '@asyra/reactive-events'
 import {
   PROPS_ACTIONS,
@@ -6,165 +6,138 @@ import {
   SharedDataChannelNames
 } from '@asyra/utils'
 import { describe, expect, it, vi } from 'vitest'
-import { createAsyraDesignOperationDefinitions } from '../../collaboration/operations'
+import { createAsyraDesignPublicationProcessor } from '../../collaboration/operations'
 
-const envelope = (
+const delivery = (
   channel: string,
   eventName: string,
-  payload: unknown
-): SharedOperationEnvelope => ({
-  operationId: 'actor-a:session-a:1:forward',
-  transactionId: '1',
-  documentId: 'document-a',
-  actorId: 'actor-a',
-  protocolVersion: 1,
-  schemaVersion: 1,
+  payload: unknown,
+  deliveryId = eventName
+): SharedDelivery => ({
+  deliveryId,
+  transactionId: 1,
   origin: 'action',
+  kind: 'forward',
   channel,
   eventName,
-  payload
+  payload,
+  sharedDelivery: 'immediate'
 })
 
-describe('Asyra Design collaboration document boundary', () => {
-  it('registers only the supported Scene Tree and Props routes', () => {
-    const definitions = createAsyraDesignOperationDefinitions(vi.fn())
+const publication = (
+  deliveries: readonly SharedDelivery[]
+): SharedPublication => ({
+  publicationId: 'publication-a',
+  transactionId: 1,
+  origin: 'action',
+  deliveries
+})
 
-    expect(
-      definitions.map(({ channel, eventName }) => `${channel}/${eventName}`)
-    ).toEqual([
-      'sceneTree/addElement',
-      'sceneTree/removeElement',
-      'sceneTree/updateComputedData',
-      'sceneTree/updateComputedDataPatch',
-      'props/addProperty',
-      'props/removeProperty',
-      'props/updateProperty'
-    ])
-    definitions.forEach((definition) => {
-      expect(definition.schemaVersion).toBe(1)
-      expect(definition.validate(null)).toBe(false)
-      expect(definition.validate({ eventName: definition.eventName })).toBe(
-        false
-      )
-    })
+const validDeliveries = (): readonly SharedDelivery[] => [
+  delivery(SharedDataChannelNames.SCENE_TREE, EventTypes.ADD_ELEMENT, {
+    action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
+    eventName: EventTypes.ADD_ELEMENT,
+    data: { id: 'rect-a', type: 'rect' }
+  }),
+  delivery(SharedDataChannelNames.SCENE_TREE, EventTypes.REMOVE_ELEMENT, {
+    action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
+    eventName: EventTypes.REMOVE_ELEMENT,
+    data: { id: 'rect-a', type: 'rect' }
+  }),
+  delivery(SharedDataChannelNames.SCENE_TREE, EventTypes.UPDATE_COMPUTED_DATA, {
+    action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+    eventName: EventTypes.UPDATE_COMPUTED_DATA,
+    id: 'rect-a',
+    changes: [
+      { owner: 'computed', key: 'x', before: 0, after: 10 },
+      { owner: 'computed', key: 'y', before: 0, after: 20 }
+    ]
+  }),
+  delivery(
+    SharedDataChannelNames.SCENE_TREE,
+    EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+    {
+      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
+      id: 'vector-a',
+      patch: { values: { x: { before: 0, after: 10 } } }
+    }
+  ),
+  delivery(SharedDataChannelNames.PROPS, EventTypes.ADD_PROPERTY, {
+    action: PROPS_ACTIONS.ADD_PROPERTY,
+    eventName: EventTypes.ADD_PROPERTY,
+    data: [{ id: 'prop-a', type: 'position' }]
+  }),
+  delivery(SharedDataChannelNames.PROPS, EventTypes.REMOVE_PROPERTY, {
+    action: PROPS_ACTIONS.REMOVE_PROPERTY,
+    eventName: EventTypes.REMOVE_PROPERTY,
+    data: [{ id: 'prop-a', type: 'position' }]
+  }),
+  delivery(SharedDataChannelNames.PROPS, EventTypes.UPDATE_PROPERTY, {
+    action: PROPS_ACTIONS.UPDATE_PROPERTY,
+    eventName: EventTypes.UPDATE_PROPERTY,
+    id: 'prop-a',
+    key: 'x',
+    before: 0,
+    after: 10
+  })
+]
+
+describe('Asyra Design app-owned collaboration processing', () => {
+  it('validates all supported Scene Tree and Props routes before one remote transaction', () => {
+    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
+    const process = vi.fn(() => true)
+    const processPublication = createAsyraDesignPublicationProcessor(
+      runRemoteTransaction,
+      process
+    )
+    const deliveries = validDeliveries()
+
+    processPublication(publication(deliveries))
+
+    expect(runRemoteTransaction).toHaveBeenCalledOnce()
+    expect(process).toHaveBeenCalledTimes(deliveries.length)
+    expect(process.mock.calls.map(([event]) => event.type)).toEqual(
+      deliveries.map((item) => item.eventName)
+    )
   })
 
-  it('accepts the app transaction payload shapes owned by each route', () => {
-    const definitions = createAsyraDesignOperationDefinitions(vi.fn())
-    const validPayloads = [
-      {
-        channel: SharedDataChannelNames.SCENE_TREE,
-        eventName: EventTypes.ADD_ELEMENT,
-        payload: {
-          action: SCENE_TREE_ACTIONS.ADD_ELEMENT,
-          eventName: EventTypes.ADD_ELEMENT,
-          data: { id: 'rect-a', type: 'rect' }
-        }
-      },
-      {
-        channel: SharedDataChannelNames.SCENE_TREE,
-        eventName: EventTypes.REMOVE_ELEMENT,
-        payload: {
-          action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
-          eventName: EventTypes.REMOVE_ELEMENT,
-          data: { id: 'rect-a', type: 'rect' }
-        }
-      },
-      {
-        channel: SharedDataChannelNames.SCENE_TREE,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA,
-        payload: {
-          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
-          eventName: EventTypes.UPDATE_COMPUTED_DATA,
-          id: 'rect-a',
-          changes: [
-            { owner: 'computed', key: 'x', before: 0, after: 10 },
-            { owner: 'computed', key: 'y', before: 0, after: 20 }
-          ]
-        }
-      },
-      {
-        channel: SharedDataChannelNames.SCENE_TREE,
-        eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-        payload: {
-          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH,
-          eventName: EventTypes.UPDATE_COMPUTED_DATA_PATCH,
-          id: 'vector-a',
-          patch: { values: { x: { before: 0, after: 10 } } }
-        }
-      },
-      {
-        channel: SharedDataChannelNames.PROPS,
-        eventName: EventTypes.ADD_PROPERTY,
-        payload: {
-          action: PROPS_ACTIONS.ADD_PROPERTY,
-          eventName: EventTypes.ADD_PROPERTY,
-          data: [{ id: 'prop-a', type: 'position' }]
-        }
-      },
-      {
-        channel: SharedDataChannelNames.PROPS,
-        eventName: EventTypes.REMOVE_PROPERTY,
-        payload: {
-          action: PROPS_ACTIONS.REMOVE_PROPERTY,
-          eventName: EventTypes.REMOVE_PROPERTY,
-          data: [{ id: 'prop-a', type: 'position' }]
-        }
-      },
-      {
-        channel: SharedDataChannelNames.PROPS,
-        eventName: EventTypes.UPDATE_PROPERTY,
-        payload: {
-          action: PROPS_ACTIONS.UPDATE_PROPERTY,
-          eventName: EventTypes.UPDATE_PROPERTY,
-          id: 'prop-a',
-          key: 'x',
-          before: 0,
-          after: 10
-        }
-      }
+  it('rejects the whole publication before remote transaction when one delivery is invalid', () => {
+    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
+    const process = vi.fn()
+    const processPublication = createAsyraDesignPublicationProcessor(
+      runRemoteTransaction,
+      process
+    )
+    const deliveries = [
+      validDeliveries()[0] as SharedDelivery,
+      delivery('unknown-channel', 'unknown-event', { value: 1 })
     ]
 
-    validPayloads.forEach(({ channel, eventName, payload }) => {
-      const definition = definitions.find(
-        (candidate) =>
-          candidate.channel === channel && candidate.eventName === eventName
-      )
-      expect(definition?.validate(payload)).toBe(true)
-    })
+    expect(() => processPublication(publication(deliveries))).toThrow(
+      'unsupported collaboration delivery'
+    )
+    expect(runRemoteTransaction).not.toHaveBeenCalled()
+    expect(process).not.toHaveBeenCalled()
   })
 
-  it('forwards the validated payload unchanged to the canonical app processor exactly once', () => {
-    const process = vi.fn(() => false)
-    const definitions = createAsyraDesignOperationDefinitions(process)
-    const definition = definitions.find(
-      ({ channel, eventName }) =>
-        channel === SharedDataChannelNames.SCENE_TREE &&
-        eventName === EventTypes.UPDATE_COMPUTED_DATA
+  it('preserves repeated app intent and delivery order', () => {
+    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
+    const process = vi.fn()
+    const processPublication = createAsyraDesignPublicationProcessor(
+      runRemoteTransaction,
+      process
     )
-    const payload = {
-      action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
-      eventName: EventTypes.UPDATE_COMPUTED_DATA,
-      id: 'rect-a',
-      changes: [
-        { owner: 'computed', key: 'x', before: 10, after: 35 },
-        { owner: 'computed', key: 'y', before: 20, after: 48 }
-      ]
-    }
+    const repeated = validDeliveries()[2] as SharedDelivery
 
-    const applied = definition?.apply?.(
-      envelope(
-        SharedDataChannelNames.SCENE_TREE,
-        EventTypes.UPDATE_COMPUTED_DATA,
-        payload
-      )
+    processPublication(
+      publication([
+        { ...repeated, deliveryId: 'delivery-a' },
+        { ...repeated, deliveryId: 'delivery-b' }
+      ])
     )
 
-    expect(applied).toBe(false)
-    expect(process).toHaveBeenCalledTimes(1)
-    expect(process).toHaveBeenCalledWith({
-      type: EventTypes.UPDATE_COMPUTED_DATA,
-      payload
-    })
+    expect(process).toHaveBeenCalledTimes(2)
+    expect(process.mock.calls[0]?.[0]).toEqual(process.mock.calls[1]?.[0])
   })
 })

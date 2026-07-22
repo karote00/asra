@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { SharedPublication } from '@asyra/factory'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WebSocket as NodeWebSocket, WebSocketServer, type RawData } from 'ws'
 import { CollaborationWebSocketProvider } from '../../collaboration/websocket-provider'
 
@@ -6,11 +7,30 @@ type ClientMessage = Readonly<{
   type: string
   requestId?: string
   identity?: unknown
+  publication?: SharedPublication
 }>
 
 interface LoopbackServer {
   readonly endpoint: string
   close(): Promise<void>
+}
+
+const publication: SharedPublication = {
+  publicationId: 'publication-a',
+  transactionId: 1,
+  origin: 'action',
+  deliveries: [
+    {
+      deliveryId: 'delivery-a',
+      transactionId: 1,
+      origin: 'action',
+      kind: 'forward',
+      channel: 'sceneTree',
+      eventName: 'updateComputedData',
+      payload: { value: 1 },
+      sharedDelivery: 'immediate'
+    }
+  ]
 }
 
 const servers = new Set<LoopbackServer>()
@@ -128,154 +148,88 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     await provider.destroy()
   })
 
-  it('rejects malformed payloads for known server message types', async () => {
-    const server = await createLoopbackServer((socket, message) => {
-      if (message.type !== 'hello') return
-      socket.send(JSON.stringify({ type: 'ready' }))
-      socket.send(
-        JSON.stringify({
-          type: 'update',
-          operationId: 42,
-          update: null
-        })
-      )
-    })
-    const provider = createProvider(server.endpoint)
-    const failures: string[] = []
-    const updates: unknown[] = []
-    provider.onFailure((failure) => failures.push(failure.code))
-    provider.onUpdate((update) => updates.push(update))
-
-    await provider.connect()
-    await new Promise((resolve) => setTimeout(resolve, 20))
-
-    expect(failures).toContain('transport-failed')
-    expect(updates).toEqual([])
-    await provider.destroy()
-  })
-
-  it('rejects a malformed sync response instead of treating it as an empty update', async () => {
+  it('sends one publication and settles only after server response', async () => {
+    let sent: SharedPublication | undefined
     const server = await createLoopbackServer((socket, message) => {
       if (message.type === 'hello') {
         socket.send(JSON.stringify({ type: 'ready' }))
         return
       }
-      if (message.type !== 'request-sync' || !message.requestId) return
+      if (message.type !== 'send-publication' || !message.requestId) return
+      sent = message.publication
       socket.send(
         JSON.stringify({
           type: 'response',
           requestId: message.requestId,
-          ok: true,
-          result: { update: 42 }
+          ok: true
         })
       )
     })
     const provider = createProvider(server.endpoint)
     await provider.connect()
 
-    await expect(provider.requestSync(new Uint8Array())).rejects.toMatchObject({
-      code: 'transport-failed'
-    })
+    await provider.sendPublication(publication)
+
+    expect(sent).toEqual(publication)
     await provider.destroy()
   })
 
-  it('rejects a pending request when the server sends an invalid protocol frame', async () => {
-    const server = await createLoopbackServer((socket, message) => {
-      if (message.type === 'hello') {
-        socket.send(JSON.stringify({ type: 'ready' }))
-        return
-      }
-      if (message.type === 'request-sync') {
-        socket.send('{"type":')
-      }
-    })
-    const provider = createProvider(server.endpoint)
-    await provider.connect()
-
-    try {
-      const outcome = await Promise.race([
-        provider.requestSync(new Uint8Array()).catch((error: unknown) => error),
-        new Promise<Error>((resolve) =>
-          setTimeout(() => resolve(new Error('request remained pending')), 100)
-        )
-      ])
-
-      expect(outcome).toMatchObject({ code: 'transport-failed' })
-    } finally {
-      await provider.destroy()
-    }
-  })
-
-  it('stays disposed when a real server sends ready after teardown begins', async () => {
-    let releaseReady: (() => void) | undefined
-    let helloReceived: (() => void) | undefined
-    const hello = new Promise<void>((resolve) => {
-      helloReceived = resolve
-    })
+  it('receives one detached live publication with sender context', async () => {
     const server = await createLoopbackServer((socket, message) => {
       if (message.type !== 'hello') return
-      helloReceived?.()
-      releaseReady = () => {
-        if (socket.readyState === NodeWebSocket.OPEN) {
-          socket.send(JSON.stringify({ type: 'ready' }))
-        }
-      }
-    })
-    const provider = createProvider(server.endpoint)
-    const connecting = provider.connect()
-    await hello
-
-    await provider.destroy()
-    releaseReady?.()
-
-    await expect(connecting).rejects.toMatchObject({ code: 'disposed' })
-    expect(provider.getStatus()).toBe('disposed')
-  })
-
-  it('keeps an explicit disconnect and reconnects with a new real socket', async () => {
-    let connectionCount = 0
-    let firstHelloReceived: (() => void) | undefined
-    const firstHello = new Promise<void>((resolve) => {
-      firstHelloReceived = resolve
-    })
-    const server = await createLoopbackServer((socket, message) => {
-      if (message.type !== 'hello') return
-      connectionCount += 1
-      if (connectionCount === 1) {
-        firstHelloReceived?.()
-        return
-      }
       socket.send(JSON.stringify({ type: 'ready' }))
+      socket.send(
+        JSON.stringify({
+          type: 'publication',
+          publication,
+          fromActorId: 'actor-b'
+        })
+      )
     })
     const provider = createProvider(server.endpoint)
-    const connecting = provider.connect()
-    const connectionOutcome = connecting.catch((error: unknown) => error)
-    await firstHello
-
-    await provider.disconnect()
-    expect(await connectionOutcome).toMatchObject({ code: 'not-connected' })
-    expect(provider.getStatus()).toBe('disconnected')
+    const inbound = vi.fn()
+    provider.onPublication(inbound)
 
     await provider.connect()
-    expect(connectionCount).toBe(2)
-    expect(provider.getStatus()).toBe('connected')
+    await vi.waitFor(() => expect(inbound).toHaveBeenCalledOnce())
+
+    expect(inbound).toHaveBeenCalledWith({
+      publication,
+      fromActorId: 'actor-b'
+    })
+    expect(inbound.mock.calls[0]?.[0].publication).not.toBe(publication)
     await provider.destroy()
   })
 
-  it('reports a real WebSocket constructor failure and permits retry', async () => {
-    const provider = createProvider('invalid-websocket-protocol://local')
+  it('rejects malformed publication messages as transport failure', async () => {
+    const server = await createLoopbackServer((socket, message) => {
+      if (message.type !== 'hello') return
+      socket.send(JSON.stringify({ type: 'ready' }))
+      socket.send(
+        JSON.stringify({
+          type: 'publication',
+          publication: { ...publication, deliveries: null }
+        })
+      )
+    })
+    const provider = createProvider(server.endpoint)
+    const failures = vi.fn()
+    const inbound = vi.fn()
+    provider.onFailure(failures)
+    provider.onPublication(inbound)
 
-    await expect(provider.connect()).rejects.toMatchObject({
-      code: 'connection-failed'
-    })
-    expect(provider.getStatus()).toBe('failed')
-    await expect(provider.connect()).rejects.toMatchObject({
-      code: 'connection-failed'
-    })
-    expect(provider.getStatus()).toBe('failed')
+    await provider.connect()
+    await vi.waitFor(() =>
+      expect(failures).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'transport-failed' })
+      )
+    )
+
+    expect(inbound).not.toHaveBeenCalled()
+    await provider.destroy()
   })
 
-  it('rejects a real pending request when its socket disconnects', async () => {
+  it('rejects a pending publication when its socket disconnects', async () => {
     let requestReceived: (() => void) | undefined
     const request = new Promise<void>((resolve) => {
       requestReceived = resolve
@@ -283,23 +237,40 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     const server = await createLoopbackServer((socket, message) => {
       if (message.type === 'hello') {
         socket.send(JSON.stringify({ type: 'ready' }))
-      } else if (message.type === 'send-update') {
+      } else if (message.type === 'send-publication') {
         requestReceived?.()
       }
     })
     const provider = createProvider(server.endpoint)
     await provider.connect()
     const sendingOutcome = provider
-      .sendUpdate({
-        operationId: 'pending-update',
-        update: new Uint8Array()
-      })
+      .sendPublication(publication)
       .catch((error: unknown) => error)
     await request
 
     await provider.disconnect()
 
     expect(await sendingOutcome).toMatchObject({ code: 'not-connected' })
+    await provider.destroy()
+  })
+
+  it('reconnects with a new socket and exposes no state-vector methods', async () => {
+    let connectionCount = 0
+    const server = await createLoopbackServer((socket, message) => {
+      if (message.type !== 'hello') return
+      connectionCount += 1
+      socket.send(JSON.stringify({ type: 'ready' }))
+    })
+    const provider = createProvider(server.endpoint)
+
+    await provider.connect()
+    await provider.disconnect()
+    await provider.reconnect()
+
+    expect(connectionCount).toBe(2)
+    expect('requestSync' in provider).toBe(false)
+    expect('exchangeStateVector' in provider).toBe(false)
+    expect('sendSyncUpdate' in provider).toBe(false)
     await provider.destroy()
   })
 })

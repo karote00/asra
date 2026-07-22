@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createDocumentCollaborationFactory } from '../../collaboration/factory-adapter'
 
 describe('Asyra Design collaboration composition', () => {
-  it('forwards only document channels and binds the intended Factory owner', () => {
+  it('forwards only app-owned document channels', () => {
     let publicationSubscriber:
       | ((publication: {
           publicationId: string
@@ -13,12 +13,6 @@ describe('Asyra Design collaboration composition', () => {
       subscribeToSharedPublication: vi.fn((subscriber) => {
         publicationSubscriber = subscriber
         return () => undefined
-      }),
-      runRemoteTransaction: vi.fn(function (this: unknown) {
-        return this
-      }),
-      isRemoteAsyncHandlerError: vi.fn(function (this: unknown) {
-        return this
       })
     }
     const filtered = createDocumentCollaborationFactory(owner as never)
@@ -43,7 +37,7 @@ describe('Asyra Design collaboration composition', () => {
       publicationId: 'mixed-action',
       deliveries: [{ channel: 'sceneTree' }, { channel: 'props' }]
     })
-    expect(filtered.runRemoteTransaction?.(() => undefined)).toBe(owner)
-    expect(filtered.isRemoteAsyncHandlerError?.(new Error('test'))).toBe(owner)
+    expect('runRemoteTransaction' in filtered).toBe(false)
+    expect('isRemoteAsyncHandlerError' in filtered).toBe(false)
   })
 })

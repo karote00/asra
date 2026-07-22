@@ -16,7 +16,7 @@ const harness = {
     },
     provider: { getStatus: vi.fn(() => 'idle') },
     updateAwareness: vi.fn(),
-    observeOperationOutcomes: vi.fn(() => vi.fn()),
+    observePublicationOutcomes: vi.fn(() => vi.fn()),
     start: vi.fn(async () => undefined),
     disconnect: vi.fn(async () => undefined),
     reconnect: vi.fn(async () => undefined),
@@ -61,21 +61,10 @@ it('starts the real app collaboration composition without an Awareness preview r
     actorId: 'actor-lifecycle',
     connectionMetadata: { fileId: 'file-lifecycle' }
   })
-  expect(
-    composition.operationDefinitions.map(
-      ({ channel, eventName }) => `${channel}/${eventName}`
-    )
-  ).toEqual([
-    'sceneTree/addElement',
-    'sceneTree/removeElement',
-    'sceneTree/updateComputedData',
-    'sceneTree/updateComputedDataPatch',
-    'props/addProperty',
-    'props/removeProperty',
-    'props/updateProperty'
-  ])
-  expect(composition.conflictPolicies).toBeUndefined()
-  expect('frameworkInvariants' in composition).toBe(false)
+  expect(composition.processRemotePublication).toEqual(expect.any(Function))
+  expect('operationDefinitions' in composition).toBe(false)
+  expect('permissionPolicy' in composition).toBe(false)
+  expect('conflictPolicies' in composition).toBe(false)
   expect(idCounter.current(IDTypes.ELEMENT)).toBe('el-actor-lifecycle-0')
   expect(harness.collaboration.updateAwareness).not.toHaveBeenCalled()
   expect(window.__AsyraCollaboration__).toBeDefined()

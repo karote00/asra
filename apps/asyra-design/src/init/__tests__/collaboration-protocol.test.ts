@@ -1,3 +1,4 @@
+import type { SharedPublication } from '@asyra/factory'
 import { describe, expect, it } from 'vitest'
 import {
   CollaborationMessageTypes,
@@ -7,15 +8,69 @@ import {
   type CollaborationServerMessage
 } from '../../collaboration/protocol'
 
+const publication: SharedPublication = {
+  publicationId: 'publication-a',
+  transactionId: 1,
+  origin: 'action',
+  deliveries: [
+    {
+      deliveryId: 'delivery-a',
+      transactionId: 1,
+      origin: 'action',
+      kind: 'forward',
+      channel: 'sceneTree',
+      eventName: 'updateComputedData',
+      payload: { value: 1 },
+      sharedDelivery: 'immediate'
+    }
+  ]
+}
+
 describe('collaboration wire protocol', () => {
-  it('parses every state-vector request as its named discriminated variant', () => {
+  it('parses a detached publication request as its named variant', () => {
     const request: CollaborationRequestMessage = {
-      type: CollaborationMessageTypes.REQUEST_SYNC,
+      type: CollaborationMessageTypes.SEND_PUBLICATION,
       requestId: 'request-1',
-      stateVector: ''
+      publication
     }
 
     expect(parseCollaborationClientMessage(request)).toEqual(request)
+  })
+
+  it('parses a live inbound publication with authenticated sender context', () => {
+    const message: CollaborationServerMessage = {
+      type: CollaborationMessageTypes.PUBLICATION,
+      publication,
+      fromActorId: 'actor-a'
+    }
+
+    expect(parseCollaborationServerMessage(message)).toEqual(message)
+  })
+
+  it('rejects malformed publication structure without app semantic filtering', () => {
+    expect(
+      parseCollaborationClientMessage({
+        type: CollaborationMessageTypes.SEND_PUBLICATION,
+        requestId: 'request-1',
+        publication: { ...publication, deliveries: 'not-an-array' }
+      })
+    ).toBeUndefined()
+    expect(
+      parseCollaborationClientMessage({
+        type: CollaborationMessageTypes.SEND_PUBLICATION,
+        requestId: 'request-1',
+        publication: {
+          ...publication,
+          deliveries: [
+            {
+              ...publication.deliveries[0],
+              channel: 'app-specific-channel',
+              eventName: 'app-specific-event'
+            }
+          ]
+        }
+      })
+    ).toBeDefined()
   })
 
   it('parses failed responses without flattening their failure payload', () => {
@@ -36,5 +91,11 @@ describe('collaboration wire protocol', () => {
         identity: { documentId: ' ', roomId: 'room', actorId: 'actor' }
       })
     ).toBeUndefined()
+  })
+
+  it('does not expose state-vector protocol variants', () => {
+    expect('REQUEST_SYNC' in CollaborationMessageTypes).toBe(false)
+    expect('EXCHANGE_STATE_VECTOR' in CollaborationMessageTypes).toBe(false)
+    expect('SEND_SYNC_UPDATE' in CollaborationMessageTypes).toBe(false)
   })
 })

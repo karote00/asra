@@ -17,7 +17,5 @@ export const createDocumentCollaborationFactory = (
       )
       if (deliveries.length === 0) return
       subscriber({ ...publication, deliveries })
-    }),
-  runRemoteTransaction: factory.runRemoteTransaction.bind(factory),
-  isRemoteAsyncHandlerError: factory.isRemoteAsyncHandlerError.bind(factory)
+    })
 })

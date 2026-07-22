@@ -1,23 +1,19 @@
+import type { SharedPublication } from '@asyra/factory'
 import type {
-  ProviderIdentity,
-  ProviderAcknowledgement,
   ProviderAwarenessDisconnect,
-  ProviderAwarenessMessage
+  ProviderAwarenessMessage,
+  ProviderIdentity
 } from '@asyra/collaboration'
 import { isRecord } from '@asyra/utils'
 import { isNonBlankString } from './wire-values'
 
 export const CollaborationMessageTypes = {
   HELLO: 'hello',
-  SEND_UPDATE: 'send-update',
-  REQUEST_SYNC: 'request-sync',
-  EXCHANGE_STATE_VECTOR: 'exchange-state-vector',
-  SEND_SYNC_UPDATE: 'send-sync-update',
+  SEND_PUBLICATION: 'send-publication',
   SEND_AWARENESS: 'send-awareness',
   READY: 'ready',
   RESPONSE: 'response',
-  UPDATE: 'update',
-  ACKNOWLEDGEMENT: 'acknowledgement',
+  PUBLICATION: 'publication',
   AWARENESS: 'awareness',
   AWARENESS_DISCONNECT: 'awareness-disconnect',
   FAILURE: 'failure',
@@ -29,29 +25,10 @@ export interface CollaborationHelloMessage {
   readonly identity: ProviderIdentity
 }
 
-export interface SendUpdateRequest {
-  readonly type: typeof CollaborationMessageTypes.SEND_UPDATE
+export interface SendPublicationRequest {
+  readonly type: typeof CollaborationMessageTypes.SEND_PUBLICATION
   readonly requestId: string
-  readonly operationId: string
-  readonly update: string
-}
-
-export interface RequestSyncRequest {
-  readonly type: typeof CollaborationMessageTypes.REQUEST_SYNC
-  readonly requestId: string
-  readonly stateVector: string
-}
-
-export interface ExchangeStateVectorRequest {
-  readonly type: typeof CollaborationMessageTypes.EXCHANGE_STATE_VECTOR
-  readonly requestId: string
-  readonly stateVector: string
-}
-
-export interface SendSyncUpdateRequest {
-  readonly type: typeof CollaborationMessageTypes.SEND_SYNC_UPDATE
-  readonly requestId: string
-  readonly update: string
+  readonly publication: SharedPublication
 }
 
 export interface SendAwarenessRequest {
@@ -61,10 +38,7 @@ export interface SendAwarenessRequest {
 }
 
 export type CollaborationRequestMessage =
-  | SendUpdateRequest
-  | RequestSyncRequest
-  | ExchangeStateVectorRequest
-  | SendSyncUpdateRequest
+  | SendPublicationRequest
   | SendAwarenessRequest
 
 type WithoutRequestId<T> = T extends CollaborationRequestMessage
@@ -91,7 +65,6 @@ export interface SuccessfulResponseMessage {
   readonly type: typeof CollaborationMessageTypes.RESPONSE
   readonly requestId: string
   readonly ok: true
-  readonly result?: unknown
 }
 
 export interface FailedResponseMessage {
@@ -101,18 +74,11 @@ export interface FailedResponseMessage {
   readonly error: CollaborationFailurePayload
 }
 
-export interface UpdateMessage {
-  readonly type: typeof CollaborationMessageTypes.UPDATE
-  readonly operationId: string
-  readonly update: string
+export interface PublicationMessage {
+  readonly type: typeof CollaborationMessageTypes.PUBLICATION
+  readonly publication: SharedPublication
   readonly fromActorId?: string
 }
-
-export type AcknowledgementMessage = Readonly<
-  {
-    type: typeof CollaborationMessageTypes.ACKNOWLEDGEMENT
-  } & ProviderAcknowledgement
->
 
 export type AwarenessMessage = Readonly<
   {
@@ -129,7 +95,7 @@ export type AwarenessDisconnectMessage = Readonly<
 interface ProviderFailureMessage {
   readonly code: string
   readonly message: string
-  readonly operationId?: string
+  readonly publicationId?: string
 }
 
 export interface FailureMessage extends ProviderFailureMessage {
@@ -144,20 +110,19 @@ export type CollaborationServerMessage =
   | ReadyMessage
   | SuccessfulResponseMessage
   | FailedResponseMessage
-  | UpdateMessage
-  | AcknowledgementMessage
+  | PublicationMessage
   | AwarenessMessage
   | AwarenessDisconnectMessage
   | FailureMessage
   | ConnectionErrorMessage
 
-const isOptionalString = (value: unknown): value is string | undefined =>
-  value === undefined || typeof value === 'string'
-
-const isBase64 = (value: unknown): value is string =>
-  typeof value === 'string' &&
-  value.length % 4 === 0 &&
-  /^(?:[A-Za-z\d+/]{4})*(?:[A-Za-z\d+/]{2}==|[A-Za-z\d+/]{3}=)?$/.test(value)
+export const isSharedPublication = (
+  value: unknown
+): value is SharedPublication =>
+  isRecord(value) &&
+  isNonBlankString(value.publicationId) &&
+  Array.isArray(value.deliveries) &&
+  value.deliveries.every(isRecord)
 
 const isProviderIdentity = (value: unknown): value is ProviderIdentity =>
   isRecord(value) &&
@@ -182,42 +147,25 @@ const isFailurePayload = (
   isNonBlankString(value.code) &&
   isNonBlankString(value.message)
 
+const isOptionalString = (value: unknown): value is string | undefined =>
+  value === undefined || typeof value === 'string'
+
 export const parseCollaborationClientMessage = (
   value: unknown
 ): CollaborationClientMessage | undefined => {
   if (!isRecord(value) || !isNonBlankString(value.type)) return
-
   switch (value.type) {
     case CollaborationMessageTypes.HELLO:
       return isProviderIdentity(value.identity)
         ? { type: value.type, identity: value.identity }
         : undefined
-    case CollaborationMessageTypes.SEND_UPDATE:
+    case CollaborationMessageTypes.SEND_PUBLICATION:
       return isNonBlankString(value.requestId) &&
-        isNonBlankString(value.operationId) &&
-        isBase64(value.update)
+        isSharedPublication(value.publication)
         ? {
             type: value.type,
             requestId: value.requestId,
-            operationId: value.operationId,
-            update: value.update
-          }
-        : undefined
-    case CollaborationMessageTypes.REQUEST_SYNC:
-    case CollaborationMessageTypes.EXCHANGE_STATE_VECTOR:
-      return isNonBlankString(value.requestId) && isBase64(value.stateVector)
-        ? {
-            type: value.type,
-            requestId: value.requestId,
-            stateVector: value.stateVector
-          }
-        : undefined
-    case CollaborationMessageTypes.SEND_SYNC_UPDATE:
-      return isNonBlankString(value.requestId) && isBase64(value.update)
-        ? {
-            type: value.type,
-            requestId: value.requestId,
-            update: value.update
+            publication: value.publication
           }
         : undefined
     case CollaborationMessageTypes.SEND_AWARENESS:
@@ -229,8 +177,6 @@ export const parseCollaborationClientMessage = (
             message: value.message
           }
         : undefined
-    default:
-      return
   }
 }
 
@@ -238,7 +184,6 @@ export const parseCollaborationServerMessage = (
   value: unknown
 ): CollaborationServerMessage | undefined => {
   if (!isRecord(value) || !isNonBlankString(value.type)) return
-
   switch (value.type) {
     case CollaborationMessageTypes.READY:
       return { type: value.type }
@@ -246,8 +191,9 @@ export const parseCollaborationServerMessage = (
       if (!isNonBlankString(value.requestId) || typeof value.ok !== 'boolean') {
         return
       }
-      if (!value.ok) {
-        return isFailurePayload(value.error)
+      return value.ok
+        ? { type: value.type, requestId: value.requestId, ok: true }
+        : isFailurePayload(value.error)
           ? {
               type: value.type,
               requestId: value.requestId,
@@ -255,33 +201,13 @@ export const parseCollaborationServerMessage = (
               error: value.error
             }
           : undefined
-      }
-      return {
-        type: value.type,
-        requestId: value.requestId,
-        ok: true,
-        ...(Object.prototype.hasOwnProperty.call(value, 'result')
-          ? { result: value.result }
-          : {})
-      }
-    case CollaborationMessageTypes.UPDATE:
-      return isNonBlankString(value.operationId) &&
-        isBase64(value.update) &&
+    case CollaborationMessageTypes.PUBLICATION:
+      return isSharedPublication(value.publication) &&
         isOptionalString(value.fromActorId)
         ? {
             type: value.type,
-            operationId: value.operationId,
-            update: value.update,
+            publication: value.publication,
             ...(value.fromActorId ? { fromActorId: value.fromActorId } : {})
-          }
-        : undefined
-    case CollaborationMessageTypes.ACKNOWLEDGEMENT:
-      return isNonBlankString(value.operationId) &&
-        value.durability === 'durable'
-        ? {
-            type: value.type,
-            operationId: value.operationId,
-            durability: value.durability
           }
         : undefined
     case CollaborationMessageTypes.AWARENESS:
@@ -295,25 +221,21 @@ export const parseCollaborationServerMessage = (
         : undefined
     case CollaborationMessageTypes.AWARENESS_DISCONNECT:
       return isNonBlankString(value.actorId) && value.reason === 'disconnect'
-        ? {
-            type: value.type,
-            actorId: value.actorId,
-            reason: value.reason
-          }
+        ? { type: value.type, actorId: value.actorId, reason: 'disconnect' }
         : undefined
     case CollaborationMessageTypes.FAILURE:
     case CollaborationMessageTypes.CONNECTION_ERROR:
       return isNonBlankString(value.code) &&
         isNonBlankString(value.message) &&
-        isOptionalString(value.operationId)
+        isOptionalString(value.publicationId)
         ? {
             type: value.type,
             code: value.code,
             message: value.message,
-            ...(value.operationId ? { operationId: value.operationId } : {})
+            ...(value.publicationId
+              ? { publicationId: value.publicationId }
+              : {})
           }
         : undefined
-    default:
-      return
   }
 }

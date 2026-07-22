@@ -1,3 +1,4 @@
+import type { SharedPublication } from '@asyra/factory'
 import {
   ProviderFailure,
   createProviderIdentitySnapshot,
@@ -5,12 +6,9 @@ import {
   type Provider,
   type ProviderIdentity,
   type ProviderStatus,
-  type InboundBinaryUpdate,
-  type ProviderAcknowledgement,
+  type InboundPublication,
   type ProviderAwarenessDisconnect,
-  type ProviderAwarenessMessage,
-  type ProviderStateVectorExchange,
-  type YjsBinaryUpdate
+  type ProviderAwarenessMessage
 } from '@asyra/collaboration'
 import {
   CollaborationMessageTypes,
@@ -33,53 +31,10 @@ export interface CollaborationWebSocketProviderOptions {
   identity: ProviderIdentity
 }
 
-const encodeBytes = (bytes: Uint8Array): string => {
-  let binary = ''
-  const chunkSize = 0x8000
-  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize))
-  }
-  return btoa(binary)
-}
-
-const decodeBytes = (value: string): Uint8Array => {
-  const binary = atob(value)
-  const bytes = new Uint8Array(binary.length)
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index)
-  }
-  return bytes
-}
-
-const decodeResponseBytes = (result: unknown, field: string): Uint8Array => {
-  if (!result || typeof result !== 'object') {
-    throw new ProviderFailure(
-      'transport-failed',
-      `[collaboration] WebSocket response is missing ${field}`
-    )
-  }
-  const value = Reflect.get(result, field)
-  if (typeof value !== 'string') {
-    throw new ProviderFailure(
-      'transport-failed',
-      `[collaboration] WebSocket response has invalid ${field}`
-    )
-  }
-  try {
-    return decodeBytes(value)
-  } catch (error) {
-    throw new ProviderFailure(
-      'transport-failed',
-      `[collaboration] WebSocket response has invalid ${field}`,
-      error
-    )
-  }
-}
-
 const toFailure = (
   code: unknown,
   message: unknown,
-  operationId?: string
+  publicationId?: string
 ): ProviderFailure =>
   new ProviderFailure(
     isProviderFailureCode(code) ? code : 'transport-failed',
@@ -87,7 +42,7 @@ const toFailure = (
       ? message
       : '[collaboration] WebSocket transport failed',
     undefined,
-    operationId
+    publicationId
   )
 
 export class CollaborationWebSocketProvider implements Provider {
@@ -102,11 +57,8 @@ export class CollaborationWebSocketProvider implements Provider {
   private requestSequence = 0
   private readonly pendingRequests = new Map<string, PendingRequest>()
   private readonly statusSubscribers = new Set<Subscriber<ProviderStatus>>()
-  private readonly updateSubscribers = new Set<
-    Subscriber<InboundBinaryUpdate>
-  >()
-  private readonly acknowledgementSubscribers = new Set<
-    Subscriber<ProviderAcknowledgement>
+  private readonly publicationSubscribers = new Set<
+    Subscriber<InboundPublication>
   >()
   private readonly awarenessSubscribers = new Set<
     Subscriber<ProviderAwarenessMessage>
@@ -320,8 +272,7 @@ export class CollaborationWebSocketProvider implements Provider {
       new ProviderFailure('disposed', '[collaboration] provider is disposed')
     )
     this.statusSubscribers.clear()
-    this.updateSubscribers.clear()
-    this.acknowledgementSubscribers.clear()
+    this.publicationSubscribers.clear()
     this.awarenessSubscribers.clear()
     this.awarenessDisconnectSubscribers.clear()
     this.failureSubscribers.clear()
@@ -335,50 +286,15 @@ export class CollaborationWebSocketProvider implements Provider {
     return this.subscribe(this.statusSubscribers, subscriber)
   }
 
-  async sendUpdate(update: YjsBinaryUpdate): Promise<void> {
+  async sendPublication(publication: SharedPublication): Promise<void> {
     await this.request({
-      type: CollaborationMessageTypes.SEND_UPDATE,
-      operationId: update.operationId,
-      update: encodeBytes(update.update)
+      type: CollaborationMessageTypes.SEND_PUBLICATION,
+      publication
     })
   }
 
-  onUpdate(subscriber: Subscriber<InboundBinaryUpdate>): () => void {
-    return this.subscribe(this.updateSubscribers, subscriber)
-  }
-
-  async requestSync(stateVector: Uint8Array): Promise<Uint8Array> {
-    const result = await this.request({
-      type: CollaborationMessageTypes.REQUEST_SYNC,
-      stateVector: encodeBytes(stateVector)
-    })
-    return decodeResponseBytes(result, 'update')
-  }
-
-  async exchangeStateVector(
-    stateVector: Uint8Array
-  ): Promise<ProviderStateVectorExchange> {
-    const result = await this.request({
-      type: CollaborationMessageTypes.EXCHANGE_STATE_VECTOR,
-      stateVector: encodeBytes(stateVector)
-    })
-    return Object.freeze({
-      remoteStateVector: decodeResponseBytes(result, 'remoteStateVector'),
-      missingRemoteUpdate: decodeResponseBytes(result, 'missingRemoteUpdate')
-    })
-  }
-
-  async sendSyncUpdate(update: Uint8Array): Promise<void> {
-    await this.request({
-      type: CollaborationMessageTypes.SEND_SYNC_UPDATE,
-      update: encodeBytes(update)
-    })
-  }
-
-  onAcknowledgement(
-    subscriber: Subscriber<ProviderAcknowledgement>
-  ): () => void {
-    return this.subscribe(this.acknowledgementSubscribers, subscriber)
+  onPublication(subscriber: Subscriber<InboundPublication>): () => void {
+    return this.subscribe(this.publicationSubscribers, subscriber)
   }
 
   async sendAwareness(message: ProviderAwarenessMessage): Promise<void> {
@@ -440,24 +356,16 @@ export class CollaborationWebSocketProvider implements Provider {
       if (!pending) return
       this.pendingRequests.delete(message.requestId)
       if (message.ok) {
-        pending.resolve(message.result)
+        pending.resolve(undefined)
       } else {
         pending.reject(toFailure(message.error?.code, message.error?.message))
       }
       return
     }
-    if (message.type === CollaborationMessageTypes.UPDATE) {
-      this.emit(this.updateSubscribers, {
-        operationId: message.operationId,
-        update: decodeBytes(message.update),
+    if (message.type === CollaborationMessageTypes.PUBLICATION) {
+      this.emit(this.publicationSubscribers, {
+        publication: structuredClone(message.publication),
         ...(message.fromActorId ? { fromActorId: message.fromActorId } : {})
-      })
-      return
-    }
-    if (message.type === CollaborationMessageTypes.ACKNOWLEDGEMENT) {
-      this.emit(this.acknowledgementSubscribers, {
-        operationId: message.operationId,
-        durability: message.durability
       })
       return
     }
@@ -479,7 +387,7 @@ export class CollaborationWebSocketProvider implements Provider {
     if (message.type === CollaborationMessageTypes.FAILURE) {
       this.emit(
         this.failureSubscribers,
-        toFailure(message.code, message.message, message.operationId)
+        toFailure(message.code, message.message, message.publicationId)
       )
     }
   }

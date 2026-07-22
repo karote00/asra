@@ -4,7 +4,7 @@ import { idCounter } from '@asyra/utils'
 import { factory } from '../contexts'
 import type { CollaborationMode } from '../render-app/collaboration-mode'
 import { createDocumentCollaborationFactory } from './factory-adapter'
-import { createAsyraDesignOperationDefinitions } from './operations'
+import { createAsyraDesignPublicationProcessor } from './operations'
 import { CollaborationWebSocketProvider } from './websocket-provider'
 
 let activeInstance: Collaboration | undefined
@@ -36,8 +36,9 @@ const start = async (
       connectionMetadata: { fileId: mode.fileId }
     }
   })
-  const operationDefinitions = createAsyraDesignOperationDefinitions((event) =>
-    factory.applyRemoteEvent(event, publishEvent)
+  const processRemotePublication = createAsyraDesignPublicationProcessor(
+    factory.runRemoteTransaction.bind(factory),
+    (event) => factory.applyRemoteEvent(event, publishEvent)
   )
   const collaboration = createCollaboration({
     documentId: mode.fileId,
@@ -45,8 +46,7 @@ const start = async (
     actorId: mode.actorId,
     factory: createDocumentCollaborationFactory(factory),
     provider,
-    operationDefinitions,
-    permissionPolicy: () => true,
+    processRemotePublication,
     resourceOwnership: { provider: 'owned' }
   })
   activeInstance = collaboration

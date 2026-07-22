@@ -76,7 +76,7 @@ const expectSelectedElementInteriorToConverge = async (
     .toBe(expected)
 }
 
-test('two real Asyra Design windows converge and reconnect through WebSocket/Yjs', async ({
+test('two real Asyra Design windows converge while connected and reconnect live-only', async ({
   browser
 }, testInfo) => {
   const fileId = `e2e-${Date.now()}-${testInfo.workerIndex}`
@@ -144,6 +144,7 @@ test('two real Asyra Design windows converge and reconnect through WebSocket/Yjs
       )
     ).toBe(0)
 
+    const unmovedSnapshot = await getCanonicalSnapshot(first)
     await dragSelectedElementBy(first, 90, 55, 12)
     await expect
       .poll(() => getCanonicalSnapshot(second))
@@ -151,10 +152,14 @@ test('two real Asyra Design windows converge and reconnect through WebSocket/Yjs
     expect(await getElementCount(isolated)).toBe(0)
 
     const movedSnapshot = await getCanonicalSnapshot(first)
+    expect(movedSnapshot).not.toEqual(unmovedSnapshot)
     await undo(first)
     await expect
+      .poll(() => getCanonicalSnapshot(first))
+      .toEqual(unmovedSnapshot)
+    await expect
       .poll(() => getCanonicalSnapshot(second))
-      .toEqual(await getCanonicalSnapshot(first))
+      .toEqual(unmovedSnapshot)
 
     await redo(first)
     await expect.poll(() => getCanonicalSnapshot(first)).toEqual(movedSnapshot)
@@ -181,10 +186,11 @@ test('two real Asyra Design windows converge and reconnect through WebSocket/Yjs
 
     await second.evaluate(() => window.__AsyraCollaboration__?.reconnect())
     await waitForCollaboration(second)
-    await expect
-      .poll(() => getCanonicalSnapshot(second))
-      .toEqual(await getCanonicalSnapshot(first))
-    await expectSelectedElementInteriorToConverge(first, second)
+    expect(await getElementCount(second)).toBe(0)
+
+    await createRectangle(first, 0.72, 0.62)
+    await expect.poll(() => getElementCount(first)).toBe(2)
+    await expect.poll(() => getElementCount(second)).toBe(1)
 
     await first.screenshot({
       path: testInfo.outputPath('actor-a-converged.png'),
