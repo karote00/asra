@@ -71,6 +71,44 @@ describe('collaboration wire protocol', () => {
         }
       })
     ).toBeDefined()
+
+    const incompletePublications = [
+      { publicationId: 'publication-a', deliveries: publication.deliveries },
+      { ...publication, origin: 'unsupported-origin' },
+      {
+        ...publication,
+        deliveries: [
+          {
+            transactionId: 1,
+            origin: 'action',
+            kind: 'forward',
+            channel: 'sceneTree',
+            eventName: 'updateComputedData',
+            payload: { value: 1 },
+            sharedDelivery: 'immediate'
+          }
+        ]
+      },
+      {
+        ...publication,
+        deliveries: [
+          {
+            ...publication.deliveries[0],
+            sharedDelivery: 'unsupported-delivery-mode'
+          }
+        ]
+      }
+    ]
+
+    incompletePublications.forEach((incompletePublication) => {
+      expect(
+        parseCollaborationClientMessage({
+          type: CollaborationMessageTypes.SEND_PUBLICATION,
+          requestId: 'request-1',
+          publication: incompletePublication
+        })
+      ).toBeUndefined()
+    })
   })
 
   it('parses failed responses without flattening their failure payload', () => {

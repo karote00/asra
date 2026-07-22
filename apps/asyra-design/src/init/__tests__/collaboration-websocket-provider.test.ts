@@ -174,6 +174,51 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     await provider.destroy()
   })
 
+  it('rejects a publication before JSON encoding can change its payload', async () => {
+    let publicationRequestCount = 0
+    const server = await createLoopbackServer((socket, message) => {
+      if (message.type === 'hello') {
+        socket.send(JSON.stringify({ type: 'ready' }))
+        return
+      }
+      if (message.type !== 'send-publication' || !message.requestId) return
+      publicationRequestCount += 1
+      socket.send(
+        JSON.stringify({
+          type: 'response',
+          requestId: message.requestId,
+          ok: true
+        })
+      )
+    })
+    const provider = createProvider(server.endpoint)
+    await provider.connect()
+    const unsafeValues: unknown[] = [
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      undefined,
+      Symbol('not-json-safe'),
+      () => 'not-json-safe'
+    ]
+
+    for (const value of unsafeValues) {
+      const unsafePublication: SharedPublication = {
+        ...publication,
+        deliveries: [
+          {
+            ...publication.deliveries[0],
+            payload: { value }
+          }
+        ]
+      }
+      await expect(
+        provider.sendPublication(unsafePublication)
+      ).rejects.toMatchObject({ code: 'transport-failed' })
+    }
+    expect(publicationRequestCount).toBe(0)
+    await provider.destroy()
+  })
+
   it('receives one detached live publication with sender context', async () => {
     const server = await createLoopbackServer((socket, message) => {
       if (message.type !== 'hello') return

@@ -84,8 +84,10 @@ user's ordinary local undo stack and suppresses a new outbound publication.
 - server: `ready`, `response`, `publication`, `awareness`,
   `awareness-disconnect`, `failure`, `connection-error`.
 
-The protocol validates structural transport integrity but does not whitelist
-app channel or event names. App semantics remain in the app processor.
+The protocol validates every Factory-owned publication and delivery field. The
+WebSocket Provider also rejects values that JSON would omit or change instead
+of acknowledging a different payload. Neither boundary whitelists app channel,
+event names, or payload meaning; app semantics remain in the app processor.
 
 `sendPublication()` settles only after the server returns its request response.
 Disconnect rejects pending requests. Reconnect creates a new live socket and

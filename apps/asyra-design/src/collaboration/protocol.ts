@@ -1,4 +1,4 @@
-import type { SharedPublication } from '@asyra/factory'
+import type { SharedDelivery, SharedPublication } from '@asyra/factory'
 import type {
   ProviderAwarenessDisconnect,
   ProviderAwarenessMessage,
@@ -116,13 +116,115 @@ export type CollaborationServerMessage =
   | FailureMessage
   | ConnectionErrorMessage
 
+const sharedDeliveryOrigins = new Set<SharedDelivery['origin']>([
+  'action',
+  'automation',
+  'remote',
+  'undo',
+  'redo',
+  'load-migration',
+  'rollback-compensation'
+])
+
+const isPositiveInteger = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value > 0
+
+const isSharedDelivery = (value: unknown): value is SharedDelivery =>
+  isRecord(value) &&
+  isNonBlankString(value.deliveryId) &&
+  isPositiveInteger(value.transactionId) &&
+  sharedDeliveryOrigins.has(value.origin as SharedDelivery['origin']) &&
+  (value.kind === 'forward' || value.kind === 'compensation') &&
+  isNonBlankString(value.channel) &&
+  isNonBlankString(value.eventName) &&
+  Object.prototype.hasOwnProperty.call(value, 'payload') &&
+  (value.sharedDelivery === 'transaction-end' ||
+    value.sharedDelivery === 'immediate') &&
+  (value.compensatesDeliveryId === undefined ||
+    isNonBlankString(value.compensatesDeliveryId))
+
 export const isSharedPublication = (
   value: unknown
 ): value is SharedPublication =>
   isRecord(value) &&
   isNonBlankString(value.publicationId) &&
+  isPositiveInteger(value.transactionId) &&
+  sharedDeliveryOrigins.has(value.origin as SharedDelivery['origin']) &&
   Array.isArray(value.deliveries) &&
-  value.deliveries.every(isRecord)
+  value.deliveries.every(
+    (delivery) =>
+      isSharedDelivery(delivery) &&
+      delivery.transactionId === value.transactionId &&
+      delivery.origin === value.origin
+  )
+
+const isJsonTransportValueInternal = (
+  value: unknown,
+  ancestors: Set<object>
+): boolean => {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') {
+    return true
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && !Object.is(value, -0)
+  }
+  if (typeof value !== 'object') return false
+
+  const objectValue = value as object
+  if (ancestors.has(objectValue)) return false
+  ancestors.add(objectValue)
+  try {
+    if (Array.isArray(value)) {
+      const keys = Reflect.ownKeys(value)
+      if (keys.length !== value.length + 1) return false
+      return keys.every((key) => {
+        if (key === 'length') return true
+        if (typeof key !== 'string') return false
+        const index = Number(key)
+        if (
+          !Number.isInteger(index) ||
+          index < 0 ||
+          index >= value.length ||
+          String(index) !== key
+        ) {
+          return false
+        }
+        const descriptor = Object.getOwnPropertyDescriptor(value, key)
+        return (
+          descriptor?.enumerable === true &&
+          'value' in descriptor &&
+          isJsonTransportValueInternal(descriptor.value, ancestors)
+        )
+      })
+    }
+
+    const prototype = Object.getPrototypeOf(value)
+    if (prototype !== Object.prototype && prototype !== null) return false
+    return Reflect.ownKeys(value).every((key) => {
+      if (typeof key !== 'string') return false
+      const descriptor = Object.getOwnPropertyDescriptor(value, key)
+      return (
+        descriptor?.enumerable === true &&
+        'value' in descriptor &&
+        isJsonTransportValueInternal(descriptor.value, ancestors)
+      )
+    })
+  } finally {
+    ancestors.delete(objectValue)
+  }
+}
+
+export const isJsonTransportValue = (value: unknown): boolean =>
+  isJsonTransportValueInternal(value, new Set())
+
+export const encodeCollaborationMessage = (value: unknown): string => {
+  if (!isJsonTransportValue(value)) {
+    throw new TypeError(
+      '[collaboration] message contains a value that JSON cannot preserve'
+    )
+  }
+  return JSON.stringify(value)
+}
 
 const isProviderIdentity = (value: unknown): value is ProviderIdentity =>
   isRecord(value) &&
@@ -153,7 +255,13 @@ const isOptionalString = (value: unknown): value is string | undefined =>
 export const parseCollaborationClientMessage = (
   value: unknown
 ): CollaborationClientMessage | undefined => {
-  if (!isRecord(value) || !isNonBlankString(value.type)) return
+  if (
+    !isJsonTransportValue(value) ||
+    !isRecord(value) ||
+    !isNonBlankString(value.type)
+  ) {
+    return
+  }
   switch (value.type) {
     case CollaborationMessageTypes.HELLO:
       return isProviderIdentity(value.identity)
@@ -183,7 +291,13 @@ export const parseCollaborationClientMessage = (
 export const parseCollaborationServerMessage = (
   value: unknown
 ): CollaborationServerMessage | undefined => {
-  if (!isRecord(value) || !isNonBlankString(value.type)) return
+  if (
+    !isJsonTransportValue(value) ||
+    !isRecord(value) ||
+    !isNonBlankString(value.type)
+  ) {
+    return
+  }
   switch (value.type) {
     case CollaborationMessageTypes.READY:
       return { type: value.type }

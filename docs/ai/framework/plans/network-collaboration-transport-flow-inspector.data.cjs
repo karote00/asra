@@ -229,7 +229,7 @@
       conditions: [
         'One connection preserves publication send and receive order.',
         'Only currently connected peers receive the publication.',
-        'Wire validation rejects malformed transport values without interpreting app meaning.',
+        'Wire validation rejects incomplete Factory transport metadata and values that JSON cannot preserve without interpreting app meaning.',
         'Promise settlement is the acknowledgement boundary.'
       ],
       bypasses: [

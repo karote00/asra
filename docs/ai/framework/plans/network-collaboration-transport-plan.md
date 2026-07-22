@@ -51,8 +51,9 @@ HTTP/load/save path and incur no collaboration runtime or network side effect.
   while disconnected is not replayed by Collaboration. Loading a canonical
   snapshot, asking a backend for missed domain changes, or replacing current
   state is an app/backend responsibility.
-- Provider implementations may reject malformed wire data and transport-unsafe
-  values. This is a wire integrity boundary only; it must not interpret an app
+- Provider implementations reject incomplete Factory publication/delivery
+  metadata and values that JSON cannot preserve without change. This is a wire
+  integrity boundary only; it must not interpret an app
   route, payload, event order, timestamp, entity, geometry, hierarchy, or
   conflict.
 - Awareness is a separate ephemeral observational route. It is never document
@@ -170,8 +171,8 @@ Awareness follows a separate observational route from steps 2–8.
 
 ### Invalid wire input
 
-- Malformed protocol messages and transport-unsafe values are rejected before
-  the app callback.
+- Protocol messages with incomplete Factory transport metadata or values that
+  JSON would omit or change are rejected before send or before the app callback.
 - A valid but unsupported app route reaches the app callback; the app owns that
   rejection.
 

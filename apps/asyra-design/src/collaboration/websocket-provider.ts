@@ -12,6 +12,7 @@ import {
 } from '@asyra/collaboration'
 import {
   CollaborationMessageTypes,
+  encodeCollaborationMessage,
   parseCollaborationServerMessage,
   type CollaborationHelloMessage,
   type CollaborationRequestInput,
@@ -139,7 +140,18 @@ export class CollaborationWebSocketProvider implements Provider {
           type: CollaborationMessageTypes.HELLO,
           identity: this.identity
         }
-        socket.send(JSON.stringify(hello))
+        try {
+          socket.send(encodeCollaborationMessage(hello))
+        } catch (error) {
+          rejectConnection(
+            new ProviderFailure(
+              'transport-failed',
+              '[collaboration] identity contains a value that JSON cannot preserve',
+              error
+            )
+          )
+          socket.close(1007, 'invalid hello payload')
+        }
       })
       socket.addEventListener('message', (event) => {
         if (generation !== this.connectionGeneration) return
@@ -334,10 +346,20 @@ export class CollaborationWebSocketProvider implements Provider {
       ...input,
       requestId
     }
+    let encodedMessage: string
+    try {
+      encodedMessage = encodeCollaborationMessage(message)
+    } catch (error) {
+      throw new ProviderFailure(
+        'transport-failed',
+        '[collaboration] request contains a value that JSON cannot preserve',
+        error
+      )
+    }
     return new Promise((resolve, reject) => {
       this.pendingRequests.set(requestId, { resolve, reject })
       try {
-        socket.send(JSON.stringify(message))
+        socket.send(encodedMessage)
       } catch (error) {
         this.pendingRequests.delete(requestId)
         reject(toFailure('transport-failed', String(error)))
