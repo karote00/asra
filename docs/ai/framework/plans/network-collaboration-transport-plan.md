@@ -114,7 +114,9 @@ mutate another participant's copy through shared object references.
 The inbound callback receives the exact detached publication and optional
 transport context such as the authenticated sender actor ID. Collaboration
 does not call the app once per delivery and does not split one publication into
-multiple remote transactions.
+multiple remote transactions. The callback may complete synchronously or return
+a Promise. Collaboration waits for that settlement before reporting the outcome
+or advancing the inbound FIFO queue.
 
 ## Canonical Flow
 

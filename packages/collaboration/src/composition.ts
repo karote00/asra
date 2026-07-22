@@ -14,7 +14,7 @@ export type CollaborationFactory = Pick<Factory, 'subscribeToSharedPublication'>
 export type ProcessRemotePublication = (
   publication: SharedPublication,
   context: Readonly<Omit<InboundPublication, 'publication'>>
-) => void
+) => void | Promise<void>
 
 export interface CreateCollaborationInput {
   documentId: string

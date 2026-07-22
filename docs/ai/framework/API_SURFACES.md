@@ -262,7 +262,9 @@ Managed property bridges:
 - composition: `createCollaboration(...)`, `Collaboration`,
   `CreateCollaborationInput`, `CollaborationFactory`,
   `ProcessRemotePublication`, `CollaborationResourceOwnershipMap`,
-  `CollaborationPublicationOutcome`, `DisposalError`
+  `CollaborationPublicationOutcome`, `DisposalError`;
+  `ProcessRemotePublication` returns `void | Promise<void>`, and inbound FIFO
+  advancement/outcome reporting wait for its settlement
 - lifecycle: `start`, `disconnect`, `reconnect`, `whenIdle`, `dispose`
 - provider contract: `Provider`, `ProviderIdentity`, `ProviderStatus`,
   `ProviderFailure`, `PROVIDER_FAILURE_CODES`,

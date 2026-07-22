@@ -113,6 +113,105 @@ describe('Collaboration ownership, processing, and disposal', () => {
     expect(received.deliveries).not.toBe(publication.deliveries)
   })
 
+  it('awaits an async app callback before reporting success or advancing FIFO', async () => {
+    let subscriber: ((inbound: InboundPublication) => void) | undefined
+    let releaseFirst: (() => void) | undefined
+    const firstSettled = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+    const secondPublication: SharedPublication = {
+      ...publication,
+      publicationId: 'publication-b'
+    }
+    const timeline: string[] = []
+    const provider = createProvider({
+      onPublication: vi.fn((next) => {
+        subscriber = next
+        return () => undefined
+      })
+    })
+    const processRemotePublication = vi.fn(
+      async (nextPublication: SharedPublication) => {
+        timeline.push(`start:${nextPublication.publicationId}`)
+        if (nextPublication.publicationId === 'publication-a') {
+          await firstSettled
+        }
+        timeline.push(`finish:${nextPublication.publicationId}`)
+      }
+    )
+    const instance = createCollaboration(
+      input({ provider, processRemotePublication })
+    )
+    const outcomes: unknown[] = []
+    instance.observePublicationOutcomes((outcome) => outcomes.push(outcome))
+    await instance.start()
+
+    subscriber?.({ publication, fromActorId: 'actor-b' })
+    subscriber?.({ publication: secondPublication, fromActorId: 'actor-b' })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(timeline).toEqual(['start:publication-a'])
+    expect(outcomes).toEqual([])
+
+    releaseFirst?.()
+    await instance.whenIdle()
+
+    expect(timeline).toEqual([
+      'start:publication-a',
+      'finish:publication-a',
+      'start:publication-b',
+      'finish:publication-b'
+    ])
+    expect(outcomes).toEqual([
+      {
+        direction: 'remote',
+        status: 'processed',
+        publicationId: 'publication-a',
+        fromActorId: 'actor-b'
+      },
+      {
+        direction: 'remote',
+        status: 'processed',
+        publicationId: 'publication-b',
+        fromActorId: 'actor-b'
+      }
+    ])
+  })
+
+  it('reports an asynchronously rejected app callback as failed', async () => {
+    let subscriber: ((inbound: InboundPublication) => void) | undefined
+    const failure = new Error('async app rejection')
+    const provider = createProvider({
+      onPublication: vi.fn((next) => {
+        subscriber = next
+        return () => undefined
+      })
+    })
+    const processRemotePublication = vi.fn(async () => {
+      throw failure
+    })
+    const instance = createCollaboration(
+      input({ provider, processRemotePublication })
+    )
+    const outcomes: unknown[] = []
+    instance.observePublicationOutcomes((outcome) => outcomes.push(outcome))
+    await instance.start()
+
+    subscriber?.({ publication, fromActorId: 'actor-b' })
+    await instance.whenIdle()
+
+    expect(outcomes).toEqual([
+      {
+        direction: 'remote',
+        status: 'process-failed',
+        publicationId: 'publication-a',
+        fromActorId: 'actor-b',
+        error: failure
+      }
+    ])
+  })
+
   it('reports app callback failure without retry or semantic handling', async () => {
     let subscriber: ((inbound: InboundPublication) => void) | undefined
     const failure = new Error('app rejected publication')

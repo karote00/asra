@@ -346,10 +346,10 @@ export class Collaboration {
     const context = Object.freeze({
       ...(inbound.fromActorId ? { fromActorId: inbound.fromActorId } : {})
     })
-    this.inboundQueue = this.inboundQueue.then(() => {
+    this.inboundQueue = this.inboundQueue.then(async () => {
       if (this.disposed) return
       try {
-        this.processRemotePublication(publication, context)
+        await this.processRemotePublication(publication, context)
         this.emitOutcome({
           direction: 'remote',
           status: 'processed',

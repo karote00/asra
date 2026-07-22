@@ -86,6 +86,10 @@ future live publications.
 - canonical state-owner application and projection updates;
 - snapshot load, missed-change recovery, and backend persistence.
 
+The callback may return `void` or `Promise<void>`. Collaboration waits for its
+settlement before reporting the publication outcome or advancing the inbound
+FIFO queue; it does not inspect how the app performs that work.
+
 When remote work must stay out of ordinary local undo and must not echo, the app
 callback uses its Factory `runRemoteTransaction` boundary. Factory owns that
 origin behavior; Collaboration does not infer it from app routes.

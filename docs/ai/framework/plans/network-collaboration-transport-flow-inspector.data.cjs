@@ -281,6 +281,7 @@
       conditions: [
         'The callback receives the exact detached publication plus optional transport sender context.',
         'A publication is not split into per-delivery callbacks.',
+        'A synchronous or asynchronous callback settles before its outcome is reported and before the next publication advances.',
         'Equal or repeated publications are each delivered.'
       ],
       bypasses: [
