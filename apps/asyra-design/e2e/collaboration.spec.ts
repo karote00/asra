@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
   createRectangle,
+  createVectorPath,
   dragSelectedElementBy,
   getCanvasPosition,
   getElementCount,
@@ -203,6 +204,93 @@ test('two real Asyra Design windows converge and reconnect through WebSocket/Yjs
       secondContext.close(),
       isolatedContext.close()
     ])
+  }
+})
+
+test('vector creation and anchor movement converge through the canonical collaboration pipeline', async ({
+  browser
+}, testInfo) => {
+  const fileId = `e2e-vector-${Date.now()}-${testInfo.workerIndex}`
+  const firstContext = await browser.newContext()
+  const secondContext = await browser.newContext()
+  const first = await firstContext.newPage()
+  const second = await secondContext.newPage()
+
+  try {
+    await Promise.all([
+      first.goto(collaborationUrl(fileId)),
+      second.goto(collaborationUrl(fileId))
+    ])
+    await Promise.all([waitForAppReady(first), waitForAppReady(second)])
+    await Promise.all([
+      waitForCollaboration(first),
+      waitForCollaboration(second)
+    ])
+
+    await createVectorPath(first, 0.32, 0.3, 0.18, 0.16)
+    await expect.poll(() => getElementCount(second)).toBe(1)
+    await expect
+      .poll(() => getCanonicalSnapshot(second))
+      .toEqual(await getCanonicalSnapshot(first))
+
+    await first.keyboard.press('Enter')
+    const before = await first.evaluate(() => {
+      const core = window.__Core__
+      const vectorId = core?.getSystemProperty?.('pathEditingVectorId')
+      const computed = vectorId
+        ? core?.deps?.sceneTree
+            ?.getElementById?.(vectorId)
+            ?.getAllComputedData?.()
+        : undefined
+      const anchor = Object.values(computed?.points ?? {}).find(
+        (point) =>
+          typeof point === 'object' && point !== null && point.kind === 'anchor'
+      ) as { id: string; x: number; y: number } | undefined
+      if (!vectorId || !anchor) {
+        throw new Error('Created vector has no editable anchor')
+      }
+      const zoom = core?.getSystemProperty?.('zoom') ?? 1
+      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
+        x: 0,
+        y: 0
+      }
+      const usesWorkspacePoints = computed?.pointCoordinateSpace === 'workspace'
+      const offsetX = usesWorkspacePoints ? 0 : (computed?.x ?? 0)
+      const offsetY = usesWorkspacePoints ? 0 : (computed?.y ?? 0)
+      return {
+        vectorId,
+        pointId: anchor.id,
+        point: { x: anchor.x, y: anchor.y },
+        client: {
+          x: (offsetX + anchor.x) * zoom + viewport.x,
+          y: (offsetY + anchor.y) * zoom + viewport.y
+        }
+      }
+    })
+
+    await first.mouse.move(before.client.x, before.client.y)
+    await first.mouse.down()
+    await first.mouse.move(before.client.x + 48, before.client.y + 24, {
+      steps: 12
+    })
+    await first.mouse.up()
+    await expect
+      .poll(() => getCanonicalSnapshot(second))
+      .toEqual(await getCanonicalSnapshot(first))
+
+    const remotePoint = await second.evaluate(
+      ({ vectorId, pointId }) => {
+        const point = window.__Core__?.deps?.sceneTree
+          ?.getElementById?.(vectorId)
+          ?.getAllComputedData?.()?.points?.[pointId]
+        return point ? { x: point.x, y: point.y } : null
+      },
+      before
+    )
+    expect(remotePoint).not.toBeNull()
+    expect(remotePoint).not.toEqual(before.point)
+  } finally {
+    await Promise.all([firstContext.close(), secondContext.close()])
   }
 })
 

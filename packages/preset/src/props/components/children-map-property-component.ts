@@ -271,7 +271,6 @@ export const createChildrenMapPropertyComponentDefinition = (
         return
       }
 
-      this.data[config.key] = childIds
       super.set(key, childIds as ChildrenMapAttrs[K])
       this.syncChildSubscriptions(childIds)
     }
