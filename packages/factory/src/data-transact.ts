@@ -97,20 +97,33 @@ const toSharedChannelPayload = (
   payload: TransactionPayload,
   options: UpdateTransactionEvent['options']
 ): TransactionPayload => {
+  const { options: existingPayloadOptions, ...payloadWithoutUnsetOptions } =
+    payload
+  const normalizedPayload =
+    existingPayloadOptions === undefined ? payloadWithoutUnsetOptions : payload
   if (!options) {
-    return payload
+    return normalizedPayload as TransactionPayload
   }
 
-  const { shared: _shared, ...payloadOptions } = options
+  const payloadOptions: Omit<NonNullable<typeof options>, 'shared'> = {}
+  if (options.undoable !== undefined) {
+    payloadOptions.undoable = options.undoable
+  }
+  if (options.rollbackable !== undefined) {
+    payloadOptions.rollbackable = options.rollbackable
+  }
+  if (options.sharedDelivery !== undefined) {
+    payloadOptions.sharedDelivery = options.sharedDelivery
+  }
   const hasPayloadOptions = Object.keys(payloadOptions).length > 0
   if (!hasPayloadOptions) {
-    return payload
+    return normalizedPayload as TransactionPayload
   }
 
   return {
-    ...payload,
+    ...normalizedPayload,
     options: {
-      ...(payload.options ?? {}),
+      ...(existingPayloadOptions ?? {}),
       ...payloadOptions
     }
   } as TransactionPayload

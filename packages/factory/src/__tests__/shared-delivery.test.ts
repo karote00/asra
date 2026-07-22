@@ -190,6 +190,71 @@ describe('Factory local shared delivery contract', () => {
     ])
   })
 
+  it('omits unset mutation options from an undo replay shared payload', () => {
+    const { factory, deliveries } = createHarness()
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_COMPUTED_DATA,
+      (event) => {
+        factory.updateTransaction({
+          type: TransactionEventTypes.UPDATE_TRANSACTION,
+          eventName: event.type,
+          payload: (event as { payload: unknown }).payload,
+          options: {
+            undoable: false,
+            rollbackable: true,
+            shared: SharedDataChannelNames.SCENE_TREE,
+            sharedDelivery: undefined
+          }
+        })
+        return true
+      }
+    )
+    factory.startTransaction()
+    update(factory, { sharedDelivery: 'immediate' })
+    factory.endTransaction()
+    deliveries.length = 0
+
+    factory.undo()
+
+    expect(deliveries).toHaveLength(1)
+    expect(deliveries[0]?.payload).toEqual(
+      expect.objectContaining({
+        options: {
+          undoable: false,
+          rollbackable: true
+        }
+      })
+    )
+    expect(
+      Object.prototype.hasOwnProperty.call(
+        (deliveries[0]?.payload as { options?: object }).options,
+        'sharedDelivery'
+      )
+    ).toBe(false)
+  })
+
+  it('omits an unset canonical payload options field from shared delivery', () => {
+    const { factory, deliveries } = createHarness()
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        id: 'shared-delivery',
+        before: 0,
+        after: 1,
+        options: undefined
+      },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+    factory.endTransaction()
+
+    expect(deliveries).toHaveLength(1)
+    expect(
+      Object.prototype.hasOwnProperty.call(deliveries[0]?.payload, 'options')
+    ).toBe(false)
+  })
+
   it('isolates delivery subscriber failure from other subscribers and commit', () => {
     const factory = new Factory()
     factory.registerSharedDataChannel(

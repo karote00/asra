@@ -5,6 +5,8 @@ import {
   getCanvasPosition,
   getElementCount,
   getSelectedElementClientCenter,
+  redo,
+  undo,
   waitForAppReady
 } from './test-utils'
 
@@ -146,6 +148,20 @@ test('two real Asyra Design windows converge and reconnect through WebSocket/Yjs
       .poll(() => getCanonicalSnapshot(second))
       .toEqual(await getCanonicalSnapshot(first))
     expect(await getElementCount(isolated)).toBe(0)
+
+    const movedSnapshot = await getCanonicalSnapshot(first)
+    await undo(first)
+    await expect
+      .poll(() => getCanonicalSnapshot(second))
+      .toEqual(await getCanonicalSnapshot(first))
+
+    await redo(first)
+    await expect
+      .poll(() => getCanonicalSnapshot(first))
+      .toEqual(movedSnapshot)
+    await expect
+      .poll(() => getCanonicalSnapshot(second))
+      .toEqual(movedSnapshot)
 
     await first.keyboard.press('Delete')
     await expect.poll(() => getElementCount(first)).toBe(0)
