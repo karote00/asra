@@ -1,4 +1,6 @@
 import {
+  type AddElementEvent,
+  type RemoveElementEvent,
   subscribeToAddElement,
   subscribeToChangeComputedData,
   subscribeToFileLoadComplete,
@@ -13,6 +15,7 @@ import { UI_PROPERTIES } from '../../constants'
 import { buildVectorIconPath } from '../../utils/vector-icon-path'
 
 type VectorIconPathMap = Record<string, string>
+type VectorIconInvalidationEvent = AddElementEvent | RemoveElementEvent
 
 const VECTOR_ICON_KEYS = new Set(['points', 'segments', 'networks', 'closed'])
 
@@ -104,9 +107,9 @@ const enqueueElementIconPathUpdate = (elementId: string) => {
   scheduleFlush()
 }
 
-const enqueueElementIconPathUpdateFromEvent = (event: {
-  payload: { data: { id: unknown } }
-}): void => {
+const enqueueElementIconPathUpdateFromEvent = (
+  event: VectorIconInvalidationEvent
+): void => {
   const elementId = event.payload.data.id
   if (typeof elementId === 'string' && elementId.length > 0) {
     enqueueElementIconPathUpdate(elementId)

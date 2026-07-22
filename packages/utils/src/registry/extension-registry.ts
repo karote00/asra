@@ -88,13 +88,9 @@ export class ExtensionContractError extends Error {
   }
 }
 
-interface TargetRecord<Context> extends ExtensionTargetMetadata {
-  install: ExtensionInstaller<Context>
-}
+type TargetRecord<Context> = ExtensionTargetDefinition<Context>
 
-interface ExtensionRecord<Context> extends ExtensionMetadata {
-  install: ExtensionInstaller<Context>
-}
+type ExtensionRecord<Context> = ExtensionRegistration<Context>
 
 interface AppliedCleanup {
   key: string

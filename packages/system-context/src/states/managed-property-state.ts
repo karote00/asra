@@ -1,5 +1,5 @@
 import { BehaviorSubject } from 'rxjs'
-import { isRecord } from '@asyra/utils'
+import { isRecord, type LoadDiagnostic } from '@asyra/utils'
 
 export type ManagedPropertyValidator<T> = (value: unknown) => value is T
 
@@ -21,10 +21,8 @@ export interface ManagedProperty<T> {
   runtime: boolean
 }
 
-export interface ManagedPropertyLoadDiagnostic {
+export interface ManagedPropertyLoadDiagnostic extends LoadDiagnostic {
   key: string
-  path: string
-  message: string
 }
 
 export interface ManagedPropertyLoadValidationResult {

@@ -562,6 +562,7 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/utils/src/types/load-diagnostic.ts',
         'packages/core/src/core.ts',
         'packages/core/src/types/load-migration.ts',
         'packages/core/src/types/load-validation.ts',

@@ -1,5 +1,9 @@
 import type { PositionData } from '@asyra/utils'
-import { VectorHandleModes, type VectorHandleMode } from '../../constants'
+import {
+  isVectorHandleMode,
+  VectorHandleModes,
+  type VectorHandleMode
+} from '../../constants'
 import { VECTOR_TOKENS } from '@asyra/core'
 import type { VectorPointNode } from '@asyra/core'
 import type { VectorPointTarget } from './types'
@@ -73,9 +77,7 @@ export const getVectorAnchorHandleMode = (
   point: VectorPointNode | undefined
 ): VectorHandleMode =>
   point?.kind === VECTOR_TOKENS.POINT.KIND.ANCHOR &&
-  (point.handleMode === VectorHandleModes.NONE ||
-    point.handleMode === VectorHandleModes.MIRROR_ANGLE ||
-    point.handleMode === VectorHandleModes.MIRROR_ANGLE_LENGTH)
+  isVectorHandleMode(point.handleMode)
     ? point.handleMode
     : VectorHandleModes.NONE
 

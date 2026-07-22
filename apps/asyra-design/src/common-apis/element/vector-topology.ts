@@ -22,7 +22,7 @@ import {
   isVectorControlNode as isControlNode,
   sortVectorItemsById
 } from '@asyra/core'
-import { clampUnit, id, type PositionData } from '@asyra/utils'
+import { clampUnit, id, isRecord, type PositionData } from '@asyra/utils'
 import { resolveSyntheticVectorHandlePosition } from '@asyra/preset'
 import { splitCubicBezierAtT } from './bezier-adapter'
 
@@ -53,8 +53,6 @@ export type VectorTopologyData = Pick<
 >
 
 type VectorTopologyLike = VectorTopologyData
-const hasObjectValue = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null
 
 const omitKey = <T extends Record<string, unknown>>(
   source: T,
@@ -97,14 +95,14 @@ export const createEmptyVectorTopology = (): VectorTopology => ({
 export const isVectorTopology = (
   value: unknown
 ): value is VectorTopologyData => {
-  if (!hasObjectValue(value)) {
+  if (!isRecord(value)) {
     return false
   }
 
   return (
-    hasObjectValue(value.points) &&
-    hasObjectValue(value.segments) &&
-    hasObjectValue(value.networks)
+    isRecord(value.points) &&
+    isRecord(value.segments) &&
+    isRecord(value.networks)
   )
 }
 

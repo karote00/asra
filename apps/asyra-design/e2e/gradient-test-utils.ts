@@ -1,15 +1,5 @@
 import { expect, type Page } from '@playwright/test'
-
-export interface GradientHandle {
-  x: number
-  y: number
-}
-
-export interface GradientStop {
-  position: number
-  color: string
-  opacity: number
-}
+import type { FillGradientHandle, FillGradientStop } from '@asyra/utils'
 
 export interface SelectedGradientSnapshot {
   elementId: string
@@ -28,8 +18,8 @@ export interface SelectedGradientSnapshot {
   }
   gradient: {
     gradientType: string
-    gradientHandles: GradientHandle[]
-    gradientStops: GradientStop[]
+    gradientHandles: FillGradientHandle[]
+    gradientStops: FillGradientStop[]
   } | null
 }
 

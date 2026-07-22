@@ -353,7 +353,8 @@ test('migration remains app-provided and precedes validation without CUSTOM fall
   assert.match(contract, /never performs or invents a data migration/i)
   ;[
     'packages/core/src/types/load-migration.ts',
-    'packages/core/src/types/load-validation.ts'
+    'packages/core/src/types/load-validation.ts',
+    'packages/utils/src/types/load-diagnostic.ts'
   ].forEach((implementationFile) => {
     assertImplementationBoundary(
       owner,

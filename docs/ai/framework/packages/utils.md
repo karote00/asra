@@ -11,6 +11,9 @@ Provide shared types, ids, registry primitives, and low-level helpers.
   `GeometryTransformMatrix`, and `RGBAColor` low-level contracts
 - semantic geometry aliases such as `FillGradientHandle` and `GeometryBounds`,
   which retain consumer meaning without parallel shape declarations
+- the domain-neutral `LoadDiagnostic` base shared by package-owned load
+  validators; validation scope, fallback, and migration policy stay with each
+  consuming owner
 - id generation and id loading helpers
   - `idCounter.setNamespace(value?)` optionally scopes every non-default
     registered counter prefix while preserving its numeric sequence

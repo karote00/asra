@@ -8,6 +8,7 @@ import type {
   GroupRawData,
   ElementInstanceTypes,
   GroupInstanceTypes,
+  LoadDiagnostic,
   SceneTreeChange,
   UpdateElementBatchChange,
   UpdateElementChange,
@@ -135,10 +136,7 @@ const validateComputedDataPatch = (
   validateComputedDataRecordPatches(patch, computedSnapshot)
 }
 
-export interface SceneTreeLoadDiagnostic {
-  path: string
-  message: string
-}
+export type SceneTreeLoadDiagnostic = LoadDiagnostic
 
 export interface SceneTreeLoadValidationResult {
   data: SceneTreeRawData

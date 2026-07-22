@@ -362,6 +362,12 @@ test('local timeline preserves Factory transaction ownership and formal compensa
     ),
     'the area-selection projection must consume the same completed rectangle'
   )
+  assert.ok(
+    step('publish-local-committed-change').implementationBoundary.includes(
+      'apps/asyra-design/src/render-layers/system-property-reader.ts'
+    ),
+    'the area-selection projection must use its public Core read contract'
+  )
   assert.match(
     envelope,
     /operation.*transaction.*document.*actor.*protocol.*schema.*origin.*channel.*event.*payload/i
@@ -437,6 +443,12 @@ test('provider boundary is replaceable and acknowledgement states are separate',
     ),
     'the app-owned client/server wire protocol must have one provider-boundary owner'
   )
+  assert.ok(
+    step('transport-provider-update').implementationBoundary.includes(
+      'apps/asyra-design/src/collaboration/wire-values.ts'
+    ),
+    'the app-owned wire value guards must remain in the provider boundary'
+  )
   assert.match(
     persistence,
     /stores binary document updates only and never awareness/i
@@ -501,6 +513,12 @@ test('inbound pipeline orders decode, dedupe, validation, policy, transaction, a
   assert.match(
     owner,
     /does not reread canonical state.*reconstruct.*rewrite.*app behavior/i
+  )
+  assert.ok(
+    step('apply-canonical-state-owner').implementationBoundary.includes(
+      'apps/asyra-design/src/collaboration/wire-values.ts'
+    ),
+    'the operation validator must consume the app-owned wire value guards'
   )
 
   const orderedRouteIds = [

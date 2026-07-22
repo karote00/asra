@@ -1,3 +1,3 @@
-import type { CoreBasicAPIs } from '@asyra/core'
+import type { CoreExtensionAPIs } from '@asyra/core'
 
-export type SystemPropertyReader = Pick<CoreBasicAPIs, 'getSystemProperty'>
+export type SystemPropertyReader = Pick<CoreExtensionAPIs, 'getSystemProperty'>

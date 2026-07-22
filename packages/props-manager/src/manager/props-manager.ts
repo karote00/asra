@@ -6,6 +6,7 @@ import {
 } from '@asyra/utils'
 import type {
   EVENT_OPTIONS,
+  LoadDiagnostic,
   UpdatePropertyChange,
   PropertyComponentInstanceTypes,
   PropertyComponentRawData,
@@ -18,10 +19,7 @@ import { createProperty } from '../factories/create-property'
 import { getPropertyComponent } from '../registries/property-component'
 import { setComponentAccessor } from './component-accessor'
 
-export interface PropsLoadDiagnostic {
-  path: string
-  message: string
-}
+export type PropsLoadDiagnostic = LoadDiagnostic
 
 export interface PropsLoadValidationResult {
   data: PropsComponentRawData

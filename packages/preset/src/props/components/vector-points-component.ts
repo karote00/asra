@@ -1,7 +1,8 @@
 import {
   VECTOR_HANDLE_MODES,
   VECTOR_TOKENS,
-  VECTOR_TOPOLOGY_POINT_ID_TYPE
+  VECTOR_TOPOLOGY_POINT_ID_TYPE,
+  isVectorHandleMode
 } from '@asyra/core'
 import type { VectorControlRole, VectorPointNode } from '@asyra/core'
 import { PropertyTypes } from '@asyra/utils'
@@ -14,11 +15,7 @@ const toAnchorType = (value: unknown): 'smooth' | 'sharp' =>
   value === 'smooth' ? 'smooth' : 'sharp'
 
 const toHandleMode = (value: unknown) =>
-  value === VECTOR_HANDLE_MODES.NONE ||
-  value === VECTOR_HANDLE_MODES.MIRROR_ANGLE ||
-  value === VECTOR_HANDLE_MODES.MIRROR_ANGLE_LENGTH
-    ? value
-    : VECTOR_HANDLE_MODES.NONE
+  isVectorHandleMode(value) ? value : VECTOR_HANDLE_MODES.NONE
 
 const toPointKind = (value: unknown): VectorPointKind =>
   value === VECTOR_TOKENS.POINT.KIND.CONTROL

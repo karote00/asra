@@ -146,6 +146,21 @@ test('each package validator owns an explicit terminal failure route and artifac
   })
 })
 
+test('package validators share only the domain-neutral diagnostic contract', () => {
+  ;[
+    'validate-props-data',
+    'validate-scene-data',
+    'validate-system-data'
+  ].forEach((stepId) => {
+    assert.ok(
+      step(stepId).implementationBoundary.includes(
+        'packages/utils/src/types/load-diagnostic.ts'
+      ),
+      `${stepId} must consume the shared diagnostic contract`
+    )
+  })
+})
+
 test('viewer preserves frozen data and exposes steps, routes, and artifacts', () => {
   const viewer = fs.readFileSync(
     path.resolve(__dirname, 'app-level-migration-flow-inspector.html'),

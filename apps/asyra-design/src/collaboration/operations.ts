@@ -9,17 +9,15 @@ import {
   SharedDataChannelNames,
   isRecord
 } from '@asyra/utils'
+import { isNonBlankString } from './wire-values'
 
 type ProcessOperation = (event: AllEvent) => boolean | undefined
-
-const isNonEmptyString = (value: unknown): value is string =>
-  typeof value === 'string' && value.trim().length > 0
 
 const owns = (value: object, key: string): boolean =>
   Object.prototype.hasOwnProperty.call(value, key)
 
 const isTypedData = (value: unknown): value is Record<string, unknown> =>
-  isRecord(value) && isNonEmptyString(value.id) && isNonEmptyString(value.type)
+  isRecord(value) && isNonBlankString(value.id) && isNonBlankString(value.type)
 
 const isAddRemoveElement = (
   value: unknown,
@@ -30,7 +28,7 @@ const isAddRemoveElement = (
   value.action === action &&
   value.eventName === eventName &&
   isTypedData(value.data) &&
-  (value.parentId === undefined || isNonEmptyString(value.parentId)) &&
+  (value.parentId === undefined || isNonBlankString(value.parentId)) &&
   (value.index === undefined ||
     (Number.isInteger(value.index) && Number(value.index) >= 0))
 
@@ -40,9 +38,9 @@ const isScalarComputedChange = (
   isRecord(value) &&
   value.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA &&
   value.eventName === EventTypes.UPDATE_COMPUTED_DATA &&
-  isNonEmptyString(value.id) &&
+  isNonBlankString(value.id) &&
   (value.owner === 'raw' || value.owner === 'computed') &&
-  isNonEmptyString(value.key) &&
+  isNonBlankString(value.key) &&
   owns(value, 'before') &&
   owns(value, 'after')
 
@@ -52,14 +50,14 @@ const isBatchComputedChange = (
   isRecord(value) &&
   value.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH &&
   value.eventName === EventTypes.UPDATE_COMPUTED_DATA &&
-  isNonEmptyString(value.id) &&
+  isNonBlankString(value.id) &&
   Array.isArray(value.changes) &&
   value.changes.length > 0 &&
   value.changes.every(
     (change) =>
       isRecord(change) &&
       (change.owner === 'raw' || change.owner === 'computed') &&
-      isNonEmptyString(change.key) &&
+      isNonBlankString(change.key) &&
       owns(change, 'before') &&
       owns(change, 'after')
   )
@@ -68,7 +66,7 @@ const isComputedPatch = (value: unknown): value is Record<string, unknown> =>
   isRecord(value) &&
   value.action === SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH &&
   value.eventName === EventTypes.UPDATE_COMPUTED_DATA_PATCH &&
-  isNonEmptyString(value.id) &&
+  isNonBlankString(value.id) &&
   isRecord(value.patch) &&
   (isRecord(value.patch.values) || isRecord(value.patch.records))
 
@@ -88,14 +86,14 @@ const isUpdateProperty = (value: unknown): value is Record<string, unknown> =>
   isRecord(value) &&
   value.action === PROPS_ACTIONS.UPDATE_PROPERTY &&
   value.eventName === EventTypes.UPDATE_PROPERTY &&
-  isNonEmptyString(value.id) &&
-  isNonEmptyString(value.key) &&
+  isNonBlankString(value.id) &&
+  isNonBlankString(value.key) &&
   owns(value, 'before') &&
   owns(value, 'after') &&
   (value.ownerElementId === undefined ||
-    isNonEmptyString(value.ownerElementId)) &&
+    isNonBlankString(value.ownerElementId)) &&
   (value.ownerPropertyName === undefined ||
-    isNonEmptyString(value.ownerPropertyName))
+    isNonBlankString(value.ownerPropertyName))
 
 const definition = (
   channel: string,

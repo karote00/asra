@@ -229,6 +229,7 @@
         'apps/asyra-design/src/features/move-elements/feature.ts',
         'apps/asyra-design/src/features/selection/feature.ts',
         'apps/asyra-design/src/render-layers/area-selection-render-layer.ts',
+        'apps/asyra-design/src/render-layers/system-property-reader.ts',
         'packages/props-manager/src/manager/props-manager.ts',
         'packages/props-manager/src/__tests__/property-type-redefinition.test.ts',
         'packages/scene-tree/src/sceneTree.ts',
@@ -413,6 +414,7 @@
         'apps/asyra-design/src/collaboration/lifecycle.ts',
         'apps/asyra-design/src/**/collaboration-mode.ts',
         'apps/asyra-design/src/collaboration/protocol.ts',
+        'apps/asyra-design/src/collaboration/wire-values.ts',
         'apps/asyra-design/*environment*.mjs',
         'apps/asyra-design/.env',
         'apps/asyra-design/*collaboration*.ts',
@@ -685,6 +687,7 @@
         'packages/selection/src/**',
         'packages/system-context/src/**',
         'apps/asyra-design/src/collaboration/operations.ts',
+        'apps/asyra-design/src/collaboration/wire-values.ts',
         'apps/asyra-design/src/init/__tests__/collaboration-operations.test.ts',
         'apps/asyra-design/e2e/*collaboration*.spec.ts',
         'packages/collaboration/src/__tests__/apply.test.ts'
