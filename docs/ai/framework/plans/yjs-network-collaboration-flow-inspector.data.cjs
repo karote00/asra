@@ -229,7 +229,6 @@
         'apps/asyra-design/src/features/move-elements/feature.ts',
         'apps/asyra-design/src/features/selection/feature.ts',
         'apps/asyra-design/src/render-layers/area-selection-render-layer.ts',
-        'apps/asyra-design/src/render-layers/system-property-reader.ts',
         'packages/props-manager/src/manager/props-manager.ts',
         'packages/props-manager/src/__tests__/property-type-redefinition.test.ts',
         'packages/scene-tree/src/sceneTree.ts',

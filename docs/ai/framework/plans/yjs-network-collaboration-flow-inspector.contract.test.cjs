@@ -362,12 +362,6 @@ test('local timeline preserves Factory transaction ownership and formal compensa
     ),
     'the area-selection projection must consume the same completed rectangle'
   )
-  assert.ok(
-    step('publish-local-committed-change').implementationBoundary.includes(
-      'apps/asyra-design/src/render-layers/system-property-reader.ts'
-    ),
-    'the area-selection projection must use its public Core read contract'
-  )
   assert.match(
     envelope,
     /operation.*transaction.*document.*actor.*protocol.*schema.*origin.*channel.*event.*payload/i
