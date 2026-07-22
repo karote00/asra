@@ -162,7 +162,11 @@ const isJsonTransportValueInternal = (
   value: unknown,
   ancestors: Set<object>
 ): boolean => {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') {
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'boolean'
+  ) {
     return true
   }
   if (typeof value === 'number') {
