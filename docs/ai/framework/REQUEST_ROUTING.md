@@ -33,11 +33,10 @@ Use this file to route a new framework request to the right docs first.
   - `packages/feature-system.md`
   - `plans/completed/transaction-atomicity-and-rollback-plan.md`
 
-- Yjs shared channels/network collaboration/presence/conflict policy
+- shared publications/network collaboration/presence/app-owned policy
   - `packages/factory.md`
   - `CONSTRAINTS.md`
-  - `plans/yjs-network-collaboration-plan.md`
-  - `plans/collaborative-conflict-policies-plan.md`
+  - `plans/network-collaboration-transport-plan.md`
 
 - group/ungroup/reparent/reorder/subtree hierarchy behavior
   - `packages/scene-tree.md`

@@ -2,7 +2,7 @@
 
 ## Status
 
-Framework Release Gate 5: queued after the migration, Yjs collaboration, Group
+Framework Release Gate 5: queued after the migration, network collaboration, Group
 hierarchy, and AI agent runtime plans are completed and closed.
 
 This gate audits and closes release readiness. It does not authorize a push,
@@ -25,7 +25,7 @@ The target release includes:
 - deterministic local feature, transaction, validation, persistence, render,
   preset, and extension contracts already marked complete;
 - the closed app-level migration contract;
-- optional-at-runtime Yjs network collaboration and conflict-policy foundation;
+- optional-at-runtime network collaboration transport foundation;
 - the official Preset Group component and basic hierarchy operations;
 - the optional AI agent runtime and its first production-capable replaceable
   provider adapter;
@@ -138,7 +138,7 @@ The framework is not release-ready when any of the following remains:
 - packed artifacts cannot build and run outside the monorepo;
 - public docs require an internal/deep import or an undeclared dependency;
 - generated templates are stale or require manual post-generation repair;
-- optional Yjs activation changes non-collaborative runtime behavior;
+- optional collaboration activation changes non-collaborative runtime behavior;
 - optional AI activation changes non-AI runtime behavior or leaks provider
   configuration/secrets;
 - Group hierarchy can orphan, duplicate, cycle, partially apply, diverge across

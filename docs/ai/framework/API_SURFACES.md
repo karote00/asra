@@ -174,9 +174,9 @@ Render bridge:
     into that Core instance; standalone observer helpers share the default
     Core's explicitly injected registry while custom Core registries remain
     isolated
-  - local channels are delivery-only and do not create or retain a Y.Doc;
-    network Yjs ownership belongs to explicit `@asyra/collaboration`
-    composition
+  - local channels are delivery-only and retain no collaboration history;
+    explicit `@asyra/collaboration` composition may transport their completed
+    publications
 - `renderIsReady(): void`
 
 Scene/model bridge:
@@ -260,34 +260,26 @@ Managed property bridges:
 `@asyra/collaboration` (optional runtime)
 
 - composition: `createCollaboration(...)`, `Collaboration`,
-  `CreateCollaborationInput`, `DisposalError`
+  `CreateCollaborationInput`, `CollaborationFactory`,
+  `ProcessRemotePublication`, `CollaborationResourceOwnershipMap`,
+  `CollaborationPublicationOutcome`, `DisposalError`
 - lifecycle: `start`, `disconnect`, `reconnect`, `whenIdle`, `dispose`
-- operation registration: `CollaborationOperationDefinition`,
-  `defineCanonicalOperationApply(...)`, `CanonicalOperationApply`,
-  `SharedOperationEnvelope`
 - provider contract: `Provider`, `ProviderIdentity`, `ProviderStatus`,
   `ProviderFailure`, `PROVIDER_FAILURE_CODES`,
   `isProviderFailureCode(...)`, `createProviderIdentitySnapshot(...)`,
-  `MemoryHub`, `MemoryProvider`, and optional
-  authenticated-author `InboundBinaryUpdate.fromActorId`
-- persistence/durability: `UpdatePersistence`, `MemoryPersistence`,
-  `PersistedUpdate`, and distinct `DurabilityEvent`, `DurabilityOutcome`, and
-  `DurabilityPhase` types
-- permission/conflict policy: `AppConflictPolicy`, `ConflictPolicyDecision`,
-  and related app policy contracts
+  `InboundPublication`, `MemoryHub`, and `MemoryProvider`
 - Awareness: `Awareness`, `AwarenessOptions`, validation/observation/state
   types, and collaboration `updateAwareness`, `leaveAwareness`,
   `expireAwareness`; `AwarenessStateInput` accepts app-selected JSON-safe
   fields and reserves `heartbeatAt` for runtime liveness
-- diagnostics-only outcomes: immutable local published/rejected and remote
-  duplicate/accepted/repaired/rejected/apply-failed outcomes, including the
-  recorded `applied` bit used by exact forward/compensation linkage
-- importing this root entry creates no collaboration, Y.Doc, provider, room,
-  persistence adapter, Awareness state, or network connection; Core and
+- publication outcomes: immutable local sent/skipped/send-failed and remote
+  processed/process-failed observations
+- importing this root entry creates no collaboration, provider, room,
+  Awareness state, or network connection; Core and
   Preset do not re-export it
 
 See `packages/collaboration.md` and
-`../../examples/yjs-network-collaboration.mjs`.
+`../../examples/network-collaboration-transport.mjs`.
 
 `@asyra/core`
 

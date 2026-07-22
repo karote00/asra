@@ -82,22 +82,24 @@
 - Persistence failure does not reverse runtime commit and has no built-in retry.
 - See `plans/completed/transaction-atomicity-and-rollback-plan.md`.
 
-8. Yjs network collaboration
+8. Network collaboration transport
 
-- Local Factory channels remain Y.Doc-free delivery/projection channels.
-- `@asyra/collaboration` provides explicit instance-owned Y.Doc transport,
-  replaceable provider lifecycle, Awareness, collaboration update persistence,
-  origin/dedupe/validation, permission/conflict policy, remote canonical apply,
-  and state-vector reconnect.
+- Local Factory channels remain delivery/projection channels with no retained
+  collaboration history.
+- `@asyra/collaboration` provides explicit instance-owned publication handoff,
+  replaceable Provider lifecycle/acknowledgement, inbound app callback delivery,
+  and Awareness.
 - Construction does not connect; apps call `start()` explicitly. Apps that omit
   the package create no collaboration resources or side effects.
-- Authentication, room access, durable backend policy, and app-domain conflict
-  semantics remain app/server owned. Awareness and Yjs are not canonical state
-  or authorization authorities.
+- App/backend code owns route/payload validation, remote transactions,
+  canonical apply, authentication, room access, persistence, recovery,
+  ordering, permission, and domain conflict semantics. Awareness and Provider
+  state are not canonical or authorization authorities.
+- Collaboration owns no Y.Doc, semantic operation history, state-vector replay,
+  dedupe, timestamp/LWW, TTL, permission, or conflict policy.
 - Framework Release Gate 2 remains active until user-directed closeout even
   when implementation and validation are ready.
-- See `plans/yjs-network-collaboration-plan.md` and
-  `plans/collaborative-conflict-policies-plan.md`.
+- See `plans/network-collaboration-transport-plan.md`.
 
 9. Group hierarchy operations
 

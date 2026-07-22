@@ -97,9 +97,9 @@ Input -> Feature -> Common API/Controller -> Core/Framework State -> Render/UI-c
   collaboration implicitly.
 - `src/collaboration/factory-adapter.ts` exposes only the registered
   Scene Tree and Props document channels to the collaboration instance.
-- `src/collaboration/operations.ts` owns thin route/schema
-  definitions that forward validated payloads through the app's ordinary
-  canonical state-application path. It does not reconstruct app behavior from
+- `src/collaboration/operations.ts` owns app route/payload validation and turns
+  one accepted remote publication into one Factory remote transaction through
+  the ordinary canonical event path. It does not reconstruct app behavior from
   canonical state.
 - `src/collaboration/protocol.ts` is the one typed browser/server
   wire boundary; the browser provider and reference server validate untrusted
@@ -107,6 +107,9 @@ Input -> Feature -> Common API/Controller -> Core/Framework State -> Render/UI-c
 - Factory owns shared-publication timing and batching. A synchronous immediate
   delivery action is one publication; an outer pointer session may contain
   several publications while remaining one local undo commit.
+- `@asyra/collaboration` and the WebSocket Provider preserve publications and
+  live connection order only. They own no app dedupe, permission, conflict,
+  persistence, recovery, or reconnect-replay policy.
 - Scene Tree and Props remain canonical state owners for local and remote
   changes. Awareness is ephemeral and cannot carry canonical create or move
   geometry; Render remains a downstream projection.

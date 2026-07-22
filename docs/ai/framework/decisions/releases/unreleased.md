@@ -1497,7 +1497,7 @@ unregister -> app migration -> core.start()` as the public app route.
 - Related Plan:
   - `docs/ai/framework/PLANS.md`
   - `docs/ai/framework/plans/props-manager-app-level-migration-plan.md`
-  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
   - `docs/ai/framework/plans/collaborative-conflict-policies-plan.md`
   - `docs/ai/framework/plans/group-component-and-hierarchy-behaviors-plan.md`
   - `docs/ai/framework/plans/ai-agent-runtime-plan.md`
@@ -1666,8 +1666,8 @@ unregister -> app migration -> core.start()` as the public app route.
     it does not move the plan, declare closeout, or authorize push, pull request,
     merge, tag, release, or publication.
 - Related Plan:
-  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
-  - `docs/ai/framework/plans/yjs-network-collaboration-flow-inspector.data.cjs`
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
+  - `docs/ai/framework/plans/network-collaboration-transport-flow-inspector.data.cjs`
   - `docs/ai/framework/plans/collaborative-conflict-policies-plan.md`
 - Related Commit(s):
   - local Gate 2 implementation commits on
@@ -1704,8 +1704,8 @@ unregister -> app migration -> core.start()` as the public app route.
     element transport.
   - Factory no longer rewrites a state-owner batch into scalar app operations.
 - Related Plan:
-  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
-  - `docs/ai/framework/plans/yjs-network-collaboration-flow-inspector.data.cjs`
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
+  - `docs/ai/framework/plans/network-collaboration-transport-flow-inspector.data.cjs`
 - Related Commit(s):
   - pending local Gate 2 validation
 
@@ -1742,8 +1742,8 @@ unregister -> app migration -> core.start()` as the public app route.
   - This decision does not close Gate 2 or authorize push, pull request, merge,
     tag, release, or publication.
 - Related Plan:
-  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
-  - `docs/ai/framework/plans/yjs-network-collaboration-flow-inspector.data.cjs`
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
+  - `docs/ai/framework/plans/network-collaboration-transport-flow-inspector.data.cjs`
 - Related Commit(s):
   - pending local Gate 2 validation
 
@@ -1765,7 +1765,7 @@ unregister -> app migration -> core.start()` as the public app route.
   - Collaboration continues to transport validated operations unchanged and
     owns no same-entity-ID winner policy.
 - Related Plan:
-  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
 - Related Commit(s):
   - pending local Gate 2 validation
 
@@ -1928,3 +1928,37 @@ unregister -> app migration -> core.start()` as the public app route.
   - `docs/ai/framework/plans/completed/project-wide-code-readability-analysis-and-refactor-plan.md`
 - Related Commit(s):
   - `4308f12e7` (`docs(plans): archive repository maintenance plans`)
+
+## 2026-07-22 - Limit framework collaboration to live publication transport
+
+- Context:
+  - The Gate 2 implementation stored app operation envelopes in a Y.Doc,
+    retained provider room history, replayed state vectors, and made framework
+    decisions about dedupe, permission, and conflict processing.
+  - Factory already defines the complete ordered `SharedPublication` boundary,
+    while app/backend owners have the context required for route validation,
+    canonical apply, authorization, persistence, recovery, ordering, and domain
+    conflict behavior.
+- Decision:
+  - Make one detached Factory `SharedPublication` the Provider transport unit.
+  - Preserve every publication and delivery in order, including repeated
+    values, undo, redo, and compensation; send once and discard after transport
+    settlement.
+  - Deliver one inbound publication to one app callback. The app owns one
+    remote transaction and all semantic validation or policy.
+  - Keep Provider lifecycle, live-room fanout, acknowledgement, failures, and
+    separate Awareness in `@asyra/collaboration`.
+  - Remove Yjs, semantic operation history, state vectors, reconnect replay,
+    update persistence, dedupe, permission, and conflict-policy APIs from the
+    collaboration package. Do not add TTL, timestamps, LWW, rebase, snapshots,
+    authentication, or authorization.
+- Consequences:
+  - Reconnect restores a live connection only; app/backend code owns canonical
+    refresh or missed-change recovery.
+  - Apps without collaboration keep their ordinary HTTP/load/save behavior.
+  - Release Gate 2 and its Inspector are renamed to the network collaboration
+    transport foundation; framework conflict policy is no longer an active
+    sub-plan.
+- Related Plan:
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
+  - `docs/ai/framework/plans/network-collaboration-transport-flow-inspector.html`

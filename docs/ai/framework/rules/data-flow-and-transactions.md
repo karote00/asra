@@ -155,7 +155,7 @@
   shared-publication boundary. Optional Yjs providers, room/auth,
   awareness/presence, remote origin/deduplication, reconnect/convergence, and
   collaborative conflict policy are owned by
-  `../plans/yjs-network-collaboration-plan.md`.
+  `../plans/network-collaboration-transport-plan.md`.
 
 See `../plans/completed/transaction-atomicity-and-rollback-plan.md` for the
 product cases and `../plans/transaction-flow-inspector.data.cjs` for the

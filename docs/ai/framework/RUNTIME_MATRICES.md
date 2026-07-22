@@ -18,11 +18,12 @@ Use these matrices for deterministic ownership and flow decisions.
 - transaction boundary depth/rollback-only owner: `@asyra/reactive-events`
 - reversible journal/validation/history/shared-settlement owner: `@asyra/factory`
 - commit persistence acknowledgement owner: injected `@asyra/core` + provider
-- optional collaboration Y.Doc/provider/Awareness/update-persistence composition
-  owner: `@asyra/collaboration`
-- collaboration authentication/room/durable backend owner: app/server
-- canonical remote mutation owner: the registered state-owner apply handler,
-  inside one Factory remote transaction
+- optional collaboration publication transport and Awareness composition owner:
+  `@asyra/collaboration`
+- collaboration authentication, room policy, persistence, recovery, ordering,
+  and conflict owner: app/server
+- canonical remote mutation owner: the app callback and selected state owners,
+  inside one app-owned Factory remote transaction
 
 ## Mutation Boundary Matrix
 
@@ -117,20 +118,18 @@ State-application path:
 
 Remote collaboration ordering:
 
-1. a replaceable provider or collaboration update persistence supplies a Yjs
-   binary update
-2. the instance decodes only operation-log appends with an explicit inbound
-   origin
-3. the instance-local outcome registry handles duplicate or collision before
-   permission or mutation
-4. protocol/schema/route/payload validation completes
-5. app/server permission runs before any explicitly registered app-domain
-   conflict policies; collaboration does not reconstruct package invariants
-6. accepted/repaired input enters one Factory remote transaction and the
-   registered canonical state-owner handler
+1. Factory settles one `SharedPublication`
+2. Collaboration hands that publication to Provider once and in FIFO order
+3. Provider acknowledges and fans out only to currently connected room peers
+4. receiving Collaboration invokes the app callback once per publication
+5. the app validates route/payload/permission/domain policy as required
+6. accepted input enters one app-owned Factory remote transaction and canonical
+   state-owner handlers
 7. canonical projections update; remote shared echo and ordinary local undo
    capture remain disabled
-8. Awareness follows a separate observational route
+8. Collaboration retains no semantic history; reconnect restores live
+   transport only, while app/backend owns recovery
+9. Awareness follows a separate observational route
 
 Load-specific ordering:
 

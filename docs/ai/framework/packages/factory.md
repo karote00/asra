@@ -167,7 +167,7 @@ infrastructure.
   and propagates the delivery error
 - if an earlier transaction-end append from the same flush was already applied,
   rollback compensates that delivered prefix exactly once in reverse order
-- registered shared observers are isolated from one another; if a raw Yjs
+- registered shared observers are isolated from one another; if a raw shared
   observer throws after the append is already present, the change remains
   classified as delivered so rollback can compensate it exactly once
 - shared channels transport detached committed payloads only; they do not own
@@ -196,12 +196,12 @@ infrastructure.
   framework runtime bundle.
 - Each `Factory` instance owns its transaction history and shared-channel
   registry, validators, inverters, and status subscriptions.
-- Creating or importing a `Factory` does not create or inject a Y.Doc.
+- Creating or importing a `Factory` does not create collaboration transport.
 - Preset/default local projections use `LocalSharedDataChannel`; the channel
   delivers changes to observers and does not retain a second document history.
 - Explicit collaboration subscribes to instance-local detached shared
-  publications and owns its Y.Doc in `@asyra/collaboration`; Factory remains
-  the transaction/history/shared-settlement owner.
+  publications and passes them to a replaceable Provider; Factory remains the
+  transaction/history/shared-settlement owner.
 - Each intended isolation boundary must explicitly choose its Factory, channel
   ownership, and event subscription wiring.
 - Default imports intentionally share the default factory transaction history
@@ -215,11 +215,12 @@ infrastructure.
 
 ## Optional Collaboration Boundary
 
-Factory still does not own provider/room/auth, Y.Doc, Awareness, remote policy,
-or network convergence. The explicit optional `@asyra/collaboration` instance
-subscribes to Factory's detached committed deliveries and owns those network
-concerns. Factory contributes the local transaction/history/shared-settlement
-boundary and the rollbackable, non-undoable remote transaction wrapper only.
+Factory still does not own Provider/room/auth, Awareness, remote policy,
+persistence, recovery, or network transport. The explicit optional
+`@asyra/collaboration` instance subscribes to Factory's detached completed
+publications and transports them without semantic interpretation. Factory
+contributes the local transaction/history/shared-settlement boundary and the
+rollbackable, non-undoable remote transaction wrapper only.
 That wrapper temporarily owns nested reactive transaction calls and forces
 remote-origin journal entries to remain rollbackable even when handler options
 request `rollbackable: false`.
@@ -227,8 +228,7 @@ request `rollbackable: false`.
 Collaboration contracts are:
 
 - `collaboration.md`
-- `../plans/yjs-network-collaboration-plan.md`
-- `../plans/collaborative-conflict-policies-plan.md`
+- `../plans/network-collaboration-transport-plan.md`
 
 ## Validation Checklist
 

@@ -6495,7 +6495,35 @@ join` constrained dashed product path across:
   - Mouse-up emits no duplicate when the final state already matches the last
     update, but sends a 100×100 reset or newer final pointer state when needed.
 - Related Plan:
-  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
+
+## 2026-07-22 - Process collaboration publications in the app boundary
+
+- Context:
+  - The reference app registered per-route operation definitions in the
+    framework collaboration package and transported Yjs binary updates through
+    the WebSocket server.
+  - The framework transport contract now preserves whole Factory publications
+    and leaves application meaning with the app/backend.
+- Decision:
+  - Send and receive typed `SharedPublication` messages over the existing real
+    WebSocket Provider and memory-only server.
+  - Validate every Scene Tree and Props delivery in Asyra Design before any
+    remote mutation, then process the whole publication inside one Factory
+    `runRemoteTransaction` through the ordinary canonical event path.
+  - Keep the reference server live-only and memory-only. Response settlement is
+    the publication acknowledgement; reconnect performs no state-vector or
+    publication-history request.
+- Consequences:
+  - The open-source reference stays directly usable for two-window live testing
+    without mock behavior.
+  - Unsupported app deliveries reject before mutation, while framework
+    Collaboration remains unaware of app routes and payload meaning.
+  - Authentication, permissions, durable snapshots, missed-publication
+    recovery, domain ordering, and conflict behavior remain production
+    app/backend responsibilities.
+- Related Plan:
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
 
 ## 2026-07-20 - Collaboration is a deployable open-source reference with one app URL
 
@@ -6535,7 +6563,7 @@ join` constrained dashed product path across:
   - Concurrent pages generate distinct element and property IDs even before
     either page receives the other's create operation.
 - Related Plan:
-  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
 
 ## 2026-07-20 - Compile the collaboration reference backend before Node runtime
 
@@ -6564,4 +6592,4 @@ join` constrained dashed product path across:
     before starting Node, so a clean checkout does not depend on stale package
     outputs.
 - Related Plan:
-  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`

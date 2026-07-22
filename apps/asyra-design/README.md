@@ -47,8 +47,8 @@ Open the URL configured by `ASYRA_DESIGN_APP_URL`.
 ## Run Collaboration in Two Windows
 
 The repository includes a real public, memory-only WebSocket reference server.
-It runs the same Asyra Design, Factory, state-owner, Yjs, and provider path that
-forked apps can extend or deploy.
+It runs the same Asyra Design, Factory publication, app-owned remote
+state-application, and Provider path that forked apps can extend or deploy.
 
 Start the server and app in separate terminals:
 
@@ -64,8 +64,9 @@ http://localhost:3000/?fileId=crdt-public-reference
 ```
 
 If `ASYRA_DESIGN_APP_URL` uses another origin, keep the same query string on
-that URL. Matching `fileId` values join the same in-memory document and room;
-different values stay isolated. You can inspect the connection in DevTools:
+that URL. Matching `fileId` values join the same live in-memory room; different
+values stay isolated. The server retains no publication history, so reconnect
+receives future publications only. You can inspect the connection in DevTools:
 
 ```js
 window.__AsyraCollaboration__?.getStatus()

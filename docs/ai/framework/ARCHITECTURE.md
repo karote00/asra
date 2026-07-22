@@ -157,51 +157,45 @@ Canonical shorthand:
 - Reactive transaction depth and rollback-only state are keyed by the resolved
   TransactionOwner, so a consumer-owned Factory replay remains independent from
   an active default-runtime boundary.
-- Factory local shared projection channels are delivery-only and create no
-  Y.Doc. The optional collaboration package owns Y.Doc/provider state only when
-  an app explicitly composes a collaboration instance.
+- Factory local shared projection channels are delivery-only. The optional
+  collaboration package transports completed publications only when an app
+  explicitly composes a collaboration instance.
 - A future runtime factory may be offered as optional composition convenience,
   but it is not the required ownership model.
 
 ### Optional network collaboration composition
 
 `@asyra/collaboration` is an optional sibling composition, not a Core or Preset
-startup dependency. Construction is inert; `Collaboration.start()` is the
-explicit observer-binding, recovery, provider-connect, and state-vector
-exchange point.
+startup dependency. Construction is inert; `Collaboration.start()` explicitly
+binds observers and connects the Provider. Reconnect restores live transport
+only.
 
 ```text
 Local canonical state-owner mutation
 -> Factory sharedDelivery boundary
 -> immediate publication, or outer commit then transaction-end publication
--> validated semantic envelope
--> instance Y.Doc binary update
--> optional collaboration persistence/provider
+-> Collaboration FIFO publication handoff
+-> optional Provider send and acknowledgement
+-> no retained collaboration history
 
-Provider/persisted binary update
--> Yjs decode with inbound origin
--> instance-local dedupe + protocol/schema/route/payload validation
--> permission -> optional ordered app-domain policies
--> Factory remote transaction -> registered canonical apply handler
+Live Provider publication
+-> Collaboration inbound callback once
+-> app route/payload/permission/domain-policy validation
+-> app-owned Factory remote transaction and canonical apply
 -> state owner -> Render/UI projection
 ```
 
-Y.Doc, provider state, Awareness, durability outcomes, Render, and UI remain
-non-authoritative. Locally published operation outcomes suppress own-operation
-replay. Remote apply is rollbackable, non-undoable in ordinary local history,
-and cannot emit another network operation. The wrapper routes reactive
-transaction calls to the intended Factory and does not let remote handler
-options disable rollbackability. Registered state-owner handlers use
-`defineCanonicalOperationApply(...)` to enforce the trusted synchronous apply
-contract before the remote transaction consumes them. This trusted boundary is
-not an asynchronous code sandbox: a runtime thenable rolls back synchronous
-journal mutations but cannot cancel effects scheduled by a contract-violating
-handler after return. Local undo/redo may publish their own inverse/forward
-operations; immediate rollback publishes one linked compensation through the
-same remote pipeline.
+Provider state, Awareness, Render, and UI remain non-authoritative.
+Collaboration preserves repeated publications and delivery order but owns no
+dedupe, schema, permission, conflict, or app ordering policy. The app callback
+uses Factory's remote transaction boundary so accepted remote changes stay out
+of ordinary local undo and cannot emit another shared publication. Local
+undo/redo and rollback compensation publish through the same ordinary Factory
+publication path.
 
-Provider transport, connection authentication, room access, server durability,
-and update compaction remain replaceable app/server boundaries. Awareness is a
+Provider transport, connection authentication, room access, snapshots,
+recovery, durable persistence, and domain ordering remain replaceable
+app/server boundaries. Reconnect restores live transport only. Awareness is a
 separate ephemeral observational route and never enters document persistence,
 authorization, or canonical apply.
 
@@ -314,12 +308,11 @@ applyPreset(core, { profile?, defaults? })
   the configured provider acknowledged storage.
 - These guarantees are local application semantics. They do not lock external
   processes or remote clients and do not provide database serializability.
-- Optional Yjs provider/room composition, Awareness, inbound origin/dedupe,
-  permission/conflict policy, remote canonical apply, update persistence, and
-  state-vector reconnect belong to `@asyra/collaboration`. Runtime
-  activation remains explicit and optional; app/server policy and
-  non-commutative domain conflict semantics remain consumer-owned extension
-  inputs.
+- Optional publication Provider/room composition, acknowledgement, inbound app
+  callback delivery, and Awareness belong to `@asyra/collaboration`. Runtime
+  activation remains explicit and optional. App/server code owns remote
+  validation, canonical apply, permission, persistence, recovery, ordering,
+  and non-commutative domain conflict semantics.
 
 ## Framework Release Sequence
 
@@ -327,7 +320,7 @@ The first public framework release is gated, in order, by:
 
 1. app-level migration pipeline formalization and closeout (completed July 19,
    2026);
-2. optional-at-runtime Yjs network collaboration and conflict-policy foundation;
+2. optional-at-runtime network collaboration transport foundation;
 3. canonical Group hierarchy behaviors plus Preset basic operations;
 4. optional AI agent runtime with replaceable provider and app-owned actions;
 5. framework release-readiness audit and closeout.

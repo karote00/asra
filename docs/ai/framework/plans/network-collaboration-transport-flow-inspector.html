@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Yjs Network Collaboration Inspector</title>
+    <title>Network Collaboration Transport Inspector</title>
     <style>
       :root {
         color-scheme: dark;
@@ -54,10 +54,9 @@
   </head>
   <body>
     <header>
-      <h1 id="title">Yjs Network Collaboration Inspector</h1>
+      <h1 id="title">Network Collaboration Transport Inspector</h1>
       <p id="subtitle"></p>
-      <a href="./yjs-network-collaboration-plan.md">Product contract</a>
-      <a href="./collaborative-conflict-policies-plan.md">Conflict policy</a>
+      <a href="./network-collaboration-transport-plan.md">Product contract</a>
     </header>
     <main id="flow"></main>
     <section class="inventory">
@@ -72,11 +71,11 @@
       <button class="close" autofocus>Close</button>
       <div id="detail-body"></div>
     </dialog>
-    <script src="./yjs-network-collaboration-flow-inspector.data.cjs"></script>
+    <script src="./network-collaboration-transport-flow-inspector.data.cjs"></script>
     <script>
       const data = globalThis.FLOW_INSPECTOR_DATA
       if (!data || data.schema?.id !== 'asyra.flow-inspector') {
-        throw new Error('Missing Yjs Network Collaboration Inspector data')
+        throw new Error('Missing Network Collaboration Transport Inspector data')
       }
       const escapeHtml = (value) =>
         String(value)

@@ -1,199 +1,158 @@
-# Module: Collaboration Reference Implementation
+# Collaboration Reference
 
 ## Purpose
 
-Asyra Design includes a real two-window Yjs/WebSocket composition as
-open-source reference code. It lets app developers inspect and extend the
-optional collaboration boundary while keeping ordinary app startup unchanged.
+Asyra Design includes a real two-window WebSocket collaboration composition.
+It is open-source reference code, not a fake or mock path. The browser app,
+Provider, typed wire protocol, and memory-only server all use the same
+publication transport contract available to product apps.
 
-The reference implementation is deliberately public and memory-only. It runs
-the real Asyra Design collaboration path and verifies CRDT transport,
-canonical application, shared publication, reconnect, and room isolation. It
-does not implement authentication, permission lookup,
-durable history, tenancy, rate limiting, or production deployment hardening.
+The reference proves live CRDT-oriented app behavior through ordinary app
+changes and remote canonical apply. It intentionally does not implement the
+production backend responsibilities listed below.
 
-## Shared Environment Contract
+## Activation
 
-`apps/asyra-design/.env` declares the defaults. `app-environment.mjs` owns
-loading those defaults plus parsing and validation for app-owned build, test,
-and server consumers. Visual review consumes the same canonical app URL rather
-than defining another URL authority:
-
-| Variable                                 | Owner and use                                                                                                       |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `ASYRA_DESIGN_APP_URL`                   | Single app origin for Vite, ordinary Playwright, visual review, collaboration E2E, and WebSocket Origin validation. |
-| `ASYRA_DESIGN_COLLABORATION_WS_HOST`     | Bind host for the reference WebSocket server.                                                                       |
-| `ASYRA_DESIGN_COLLABORATION_WS_PORT`     | Bind port and derived health-check port for the reference WebSocket server.                                         |
-| `VITE_ASYRA_DESIGN_COLLABORATION_WS_URL` | Browser-visible WebSocket endpoint used by the optional collaboration composition.                                  |
-
-`ASYRA_DESIGN_APP_URL` must be a root `http` or `https` origin. Shell values
-override `.env`. Changing this one value changes the Vite host/port and every
-app test base URL; it also changes which browser Origin the reference WebSocket
-server accepts. A deployed build can set a production app origin without
-introducing a second test-only URL variable.
-
-The WebSocket URL remains separate because it identifies a different service.
-For a deployed public composition, set it to the deployed `wss` endpoint. Add
-authentication, authorization, and durable storage before using the server for
-protected or durable documents.
-
-## Manual Two-Window Test
-
-From the repository root, start the server and app in separate terminals:
-
-```bash
-yarn workspace @asyra/asyra-design collaboration:server
-yarn workspace @asyra/asyra-design react:start
-```
-
-`collaboration:server` first type-checks and builds the TypeScript backend, then
-executes `dist/collaboration-server/collaboration-server.js` with Node.
-Vite participates only in this build step and is not a backend runtime
-dependency.
-
-The generated server reads `.env` from the app working directory, while
-explicit process environment values continue to take precedence.
-
-Open `${ASYRA_DESIGN_APP_URL}/?fileId=crdt-public-reference` in two windows. The
-actual URL does not contain the `${...}` syntax; substitute the configured
-origin, for example `http://localhost:3000/?fileId=crdt-public-reference`.
-
-Expected behavior:
-
-1. Both windows report `connected`.
-2. Mouse-down creation and applied drag geometry appear in the peer through
-   canonical Yjs operations before pointer-up.
-3. Pointer-up publishes only when it performs another canonical action, such
-   as a 100×100 click-create reset or a final pointer position not seen by the
-   last update.
-4. Create, move, undo, redo, disconnect, and reconnect converge.
-5. A different `fileId` stays in a different room.
-
-The collaboration console handle is intentionally retained for manual
-testing whenever `fileId` activates the composition:
-
-```js
-window.__AsyraCollaboration__?.getStatus()
-window.__AsyraCollaboration__?.identity
-await window.__AsyraCollaboration__?.whenIdle()
-await window.__AsyraCollaboration__?.disconnect()
-await window.__AsyraCollaboration__?.reconnect()
-```
-
-`dispose()` is also available for teardown diagnostics. Reload the page to
-create a new app-owned collaboration instance after disposal.
-
-## Identity and Permission Boundary
-
-The app developer chooses the connection metadata. This reference app chooses
-one non-empty `fileId` query parameter and forwards `{ fileId }` unchanged to the
-provider. It maps that value to internal `documentId` and `roomId`, and creates
-a full UUID actor ID for each page. Before collaborative actions begin, the app
-uses that actor ID as the canonical ID-counter namespace. Concurrent pages can
-therefore create elements and properties without generating the same app
-entity IDs; the collaboration framework does not inspect competing entity
-payloads to choose a winner.
-
-The server groups sockets by `fileId` and validates only protocol shape and the
-configured app Origin. It intentionally treats every valid `fileId` as public.
-In a production backend, the provider/server handshake must authenticate the
-user, resolve the file, verify the user's permission for that file, and only
-then join the room. That policy remains app/server owned; the framework does
-not assign meaning to `fileId` or other metadata.
-
-## Wire Protocol Boundary
-
-`src/collaboration/protocol.ts` is the single app-owned contract
-for browser-to-server and server-to-browser message discriminants and payload
-shapes. Both the browser provider and the Node reference server consume its
-named message variants, composed client/server unions, and runtime parsers.
-Incoming JSON is rejected at this boundary
-unless its complete message shape is valid; binary payload strings are
-validated before byte decoding. Successful sync responses must contain the
-expected encoded binary fields; a missing or malformed field fails with
-`transport-failed` and is never treated as an empty Yjs update. Any malformed
-server frame also fails the provider, rejects every pending request, and closes
-the invalid connection; startup and state-vector synchronization therefore
-cannot remain pending on an unusable transport. Framework collaboration remains
-transport neutral and does not own this WebSocket protocol.
-
-## Local Action Flow
+Collaboration activates only when the app URL contains one non-empty `fileId`:
 
 ```text
-mouse-down / each applied drag update / conditional mouse-up
-  -> canonical state-owner mutations with sharedDelivery: 'immediate'
-  -> one Factory publication for that synchronous delivery action
-  -> one Y.Doc transaction/update
-  -> one provider send
-
-outer pointer session
-  -> one Factory transaction
-  -> one undo commit
+http://localhost:3000/?fileId=crdt-public-demo
 ```
 
-One synchronous action can mutate several elements or state owners; Factory
-preserves those changes in order and publishes them as one batch. Remote
-forward apply, rollback, undo, and redo keep that batch as one state-owner
-event. Factory does not deduplicate a meaningful repeated sequence such as
-A -> B -> C -> B.
-Canonical element creation and geometry never use Awareness or a second Render
-preview layer.
+The app maps `fileId` to internal document and room identity. Each page creates
+its own actor ID and uses it as the canonical ID-counter namespace before any
+collaborative element or property creation.
 
-## Remote Canonical Flow
+URLs without `fileId` do not create Collaboration or connect a Provider. Their
+ordinary app persistence path remains active.
+
+The browser endpoint comes from
+`VITE_ASYRA_DESIGN_COLLABORATION_WS_URL`. The reference server validates the
+request Origin against `ASYRA_DESIGN_APP_URL`; server host and port remain
+separate environment settings because they identify a separate service.
+
+## Publication Flow
 
 ```text
-WebSocket binary update
-  -> provider identity and Yjs decode
-  -> operation ID dedupe and schema validation
-  -> permission and conflict policy
-  -> Factory remote transaction
-  -> registered Scene Tree / Props canonical apply
-  -> ordinary Render and UI projections
+local app mutation
+-> Factory immediate or transaction-end SharedPublication
+-> app channel filter (Scene Tree and Props)
+-> Collaboration FIFO handoff
+-> WebSocket Provider send-publication request
+-> reference server live-room fanout and response acknowledgement
+-> receiving WebSocket Provider publication message
+-> Collaboration app callback once
+-> app validates every delivery before mutation
+-> one Factory runRemoteTransaction
+-> ordinary publishEvent / canonical state-owner apply
+-> Render and UI projections
 ```
 
-Only registered Scene Tree and Props document channels are transported.
-Current tool, hover state, and other local UI state are excluded.
-Awareness is not stored in the Y.Doc operation log, save/load data, persistence,
-or undo history.
+One Factory publication remains one wire request and one receiving app
+callback. A multi-element or multi-owner publication is not split. Repeated
+routes and equal payloads remain repeated app intent and are forwarded in
+order.
 
-## Lifecycle Ownership
+Factory-produced undo, redo, and rollback compensation publications use the
+same route. Collaboration does not require feature-specific transport flags;
+the mutation owner decides `sharedDelivery` when it creates the canonical
+change.
 
-The optional lifecycle module is dynamically imported for any app URL with a valid
-`fileId`, including a deployed production build. URLs without `fileId` do not
-load it. `RenderApp` owns opt-in timing plus unmount and aborted-startup
-teardown requests. The collaboration lifecycle module owns HMR teardown, partial-setup
-cleanup, and explicit disposal. The provider owns connection-failure state,
-while the collaboration instance enforces borrowed/owned resource disposal.
-These paths unregister observers and destroy only resources owned by the app
-composition.
+## App-Owned Processing
 
-## Automated Verification
+`src/collaboration/operations.ts` owns the current document contract:
+
+- supported Scene Tree add/remove/computed-data/computed-patch routes;
+- supported Props add/remove/update routes;
+- payload validation for those routes;
+- validation of every delivery before any remote mutation;
+- one `runRemoteTransaction` for all deliveries in one publication;
+- ordinary `factory.applyRemoteEvent(..., publishEvent)` canonical apply.
+
+An invalid or unsupported delivery rejects the whole publication before the
+remote transaction begins. This is Asyra Design app policy, not
+`@asyra/collaboration` policy.
+
+Factory remote origin keeps accepted remote changes out of the receiving
+user's ordinary local undo stack and suppresses a new outbound publication.
+
+## Wire Protocol and Provider
+
+`src/collaboration/protocol.ts` accepts these message families:
+
+- client: `hello`, `send-publication`, `send-awareness`;
+- server: `ready`, `response`, `publication`, `awareness`,
+  `awareness-disconnect`, `failure`, `connection-error`.
+
+The protocol validates structural transport integrity but does not whitelist
+app channel or event names. App semantics remain in the app processor.
+
+`sendPublication()` settles only after the server returns its request response.
+Disconnect rejects pending requests. Reconnect creates a new live socket and
+does not request a state vector or publication history.
+
+## Reference Server
+
+`collaboration-server.ts` uses `MemoryHub` and one `MemoryProvider` per accepted
+socket. It:
+
+- accepts the app-defined `fileId` identity;
+- prevents two simultaneous connections from claiming the same actor in one
+  file;
+- fans publications and Awareness only to currently connected peers in the
+  same file room;
+- excludes sender echo;
+- responds after the memory transport accepts the publication;
+- retains no publication history.
+
+If a peer disconnects, publications sent during that period are missed.
+Reconnect receives future live publications only.
+
+## Awareness
+
+Awareness is a separate ephemeral route for presence. Disconnect, leave, and
+timeout remove remote observations. Awareness never carries element creation,
+geometry, vector topology, Props changes, permission, save/load data, or undo
+history.
+
+## Production Backend Responsibilities
+
+The public memory-only server does not implement:
+
+- user authentication or file permission lookup;
+- durable snapshots or database persistence;
+- missed-publication recovery;
+- timestamp/LWW/domain ordering or late-message policy;
+- app conflict merge/repair policy;
+- horizontal room coordination or operational monitoring.
+
+A production app/backend owns these decisions. It may load a canonical snapshot
+or request domain changes after reconnect without changing the framework
+transport contract.
+
+## Manual Test
+
+1. Start the app on the configured app URL, commonly port 3000.
+2. Start the reference server:
+
+   ```bash
+   yarn workspace @asyra/asyra-design collaboration:server
+   ```
+
+3. Open the same `fileId` in two windows.
+4. Verify create, delete, drag, drag-to-create, vector edits, undo, and redo.
+5. Verify local selection/presence behavior separately from canonical document
+   changes.
+6. Disconnect one window, mutate the other, reconnect, and confirm no hidden
+   history replay occurs; a production refresh would be app/backend work.
+
+## Validation
 
 ```bash
+yarn workspace @asyra/collaboration test:local
 yarn workspace @asyra/asyra-design test:local
-yarn workspace @asyra/asyra-design test:e2e:collaboration
+yarn workspace @asyra/asyra-design build:collaboration-server
 ```
 
-The browser suite runs three real app contexts through the same WebSocket
-server and verifies same-file canonical convergence before pointer-up,
-different-file room isolation, disconnect, and reconnect. Factory,
-collaboration, and app integration tests own the exact one-synchronous-action
-publication, one-Yjs-update, and one-provider-send assertions. The browser config reuses
-running servers, so the permanent manual workflow and the formal regression
-suite share the same reference implementation.
-
-## Forking Toward Production
-
-Keep the `Provider` boundary and extend or replace the public
-memory server and provider connection policy. A protected or durable
-production composition must decide and test:
-
-- authenticated session and verified actor identity;
-- file/room authorization and permission refresh or revocation;
-- durable Yjs update storage, compaction, and state-vector sync;
-- deterministic domain conflict policies;
-- reconnect/backoff, observability, abuse controls, and resource limits;
-- TLS, deployment topology, and WebSocket Origin policy.
-
-Do not treat the memory-only server or its unconditional app permission policy
-as a production default.
+Framework product contract:
+`docs/ai/framework/plans/network-collaboration-transport-plan.md`.

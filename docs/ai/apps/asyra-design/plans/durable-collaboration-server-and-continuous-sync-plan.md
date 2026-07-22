@@ -3,7 +3,7 @@
 ## Status
 
 Queued as the next Asyra Design app/server implementation stage after the
-current Yjs network collaboration Gate 2 changes are reviewed, staged, and
+current network collaboration transport Gate 2 changes are reviewed, staged, and
 committed.
 
 This is an app-owned reference implementation plan. It does not make durable
@@ -12,6 +12,16 @@ implementation, or close, archive, or renumber any framework release gate.
 When the user starts this plan, the first segment must create and validate its
 matching Inspector owner flow; after readiness passes, implementation proceeds
 through the ordered slices below without another report-only planning pause.
+
+## Contract Rebase Required
+
+This app/backend plan predates the transport-only Gate 2 contract and is not
+implementation-ready. Its Y.Doc, update-history, state-vector, and framework
+recovery assumptions are superseded. Before this plan can begin, its product
+contract and Inspector must be rewritten around app/backend-owned canonical
+snapshots, persistence, recovery, permission, and domain-order policy using the
+live `SharedPublication` Provider boundary. This note does not authorize that
+future rewrite during Gate 2.
 
 ## Decision
 
