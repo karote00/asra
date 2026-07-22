@@ -97,9 +97,9 @@
   state are not canonical or authorization authorities.
 - Collaboration owns no Y.Doc, semantic operation history, state-vector replay,
   dedupe, timestamp/LWW, TTL, permission, or conflict policy.
-- Framework Release Gate 2 remains active until user-directed closeout even
-  when implementation and validation are ready.
-- See `plans/network-collaboration-transport-plan.md`.
+- Framework Release Gate 2 is completed; its transport contract remains
+  authoritative for collaboration behavior.
+- See `plans/completed/network-collaboration-transport-plan.md`.
 
 9. Group hierarchy operations
 

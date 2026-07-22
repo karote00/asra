@@ -2,7 +2,7 @@
   'use strict'
 
   const specPath =
-    'docs/ai/framework/plans/network-collaboration-transport-plan.md'
+    'docs/ai/framework/plans/completed/network-collaboration-transport-plan.md'
   const inspectorPath =
     'docs/ai/framework/plans/network-collaboration-transport-flow-inspector.data.cjs'
 
@@ -791,7 +791,7 @@
       {
         id: 'product-contract',
         label: 'Product Contract',
-        href: './network-collaboration-transport-plan.md',
+        href: './completed/network-collaboration-transport-plan.md',
         kind: 'authority'
       },
       {

@@ -45,7 +45,7 @@ test('dedicated transport Inspector and product authorities resolve', () => {
   assert.equal(data.target.title, 'Network Collaboration Transport Inspector')
   assert.equal(
     data.authority.specPath,
-    'docs/ai/framework/plans/network-collaboration-transport-plan.md'
+    'docs/ai/framework/plans/completed/network-collaboration-transport-plan.md'
   )
   assert.equal(
     data.authority.inspectorPath,

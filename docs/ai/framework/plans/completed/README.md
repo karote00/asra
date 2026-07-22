@@ -23,6 +23,10 @@ This directory stores completed framework plans by category so `PLANS.md` stays 
   - `project-wide-duplicate-contract-and-ownership-consolidation-plan.md`
   - `project-wide-code-readability-analysis-and-refactor-plan.md`
 
+6. Framework release gates
+- Completed network collaboration transport foundation:
+  - `network-collaboration-transport-plan.md`
+
 ## Update Rule
 
 - When a plan is completed, remove it from `docs/ai/framework/PLANS.md` and

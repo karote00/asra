@@ -36,7 +36,7 @@ Use this file to route a new framework request to the right docs first.
 - shared publications/network collaboration/presence/app-owned policy
   - `packages/factory.md`
   - `CONSTRAINTS.md`
-  - `plans/network-collaboration-transport-plan.md`
+  - `plans/completed/network-collaboration-transport-plan.md`
 
 - group/ungroup/reparent/reorder/subtree hierarchy behavior
   - `packages/scene-tree.md`

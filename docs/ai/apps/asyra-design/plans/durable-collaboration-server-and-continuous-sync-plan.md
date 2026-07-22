@@ -3,12 +3,12 @@
 ## Status
 
 Queued as the next Asyra Design app/server implementation stage after the
-current network collaboration transport Gate 2 changes are reviewed, staged, and
-committed.
+completed network collaboration transport Gate 2. It remains inactive until
+the user explicitly starts it.
 
 This is an app-owned reference implementation plan. It does not make durable
-CRDT transport a framework requirement, expand the current uncommitted Gate 2
-implementation, or close, archive, or renumber any framework release gate.
+CRDT transport a framework requirement, reopen the completed Gate 2 contract,
+or close, archive, or renumber any framework release gate.
 When the user starts this plan, the first segment must create and validate its
 matching Inspector owner flow; after readiness passes, implementation proceeds
 through the ordered slices below without another report-only planning pause.
@@ -450,13 +450,15 @@ Stop and request a decision instead of silently changing scope when:
 - authentication or authorization semantics are required to judge storage
   correctness;
 - compaction cannot prove exact state-vector equivalence;
-- current Gate 2 public contracts must change beyond a demonstrated missing
-  durable capability;
-- the current uncommitted Gate 2 work has not yet been reviewed and committed.
+- the completed Gate 2 public contracts must change beyond a demonstrated
+  missing durable capability;
+- the completed Gate 2 contract or its formal gates regress before this plan
+  starts.
 
 ## Definition of Done
 
-- current Gate 2 work is committed before this plan's implementation begins;
+- the completed Gate 2 contract and formal gates remain green when this plan's
+  implementation begins;
 - the dedicated Inspector and product contract agree and pass their formal
   contract tests;
 - collaborative files connect regardless of peer count and have no HTTP

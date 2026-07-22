@@ -2,8 +2,8 @@
 
 ## Status
 
-Superseded on 2026-07-22 by the active
-`network-collaboration-transport-plan.md` product contract.
+Superseded on 2026-07-22 by the completed
+`completed/network-collaboration-transport-plan.md` product contract.
 
 This file remains only so historical decision links continue to resolve. It is
 not an active framework plan and authorizes no framework implementation.

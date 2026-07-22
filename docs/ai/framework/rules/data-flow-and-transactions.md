@@ -147,15 +147,15 @@
   deliveries.
 - Optional collaboration consumes each Factory shared publication. One
   synchronous immediate delivery action or transaction-end batch becomes one
-  Yjs update and one provider send; already-published immediate entries are not
-  replayed at the outer transaction end.
-- Observer exceptions do not redefine an already-applied local Yjs append as
-  undelivered; delivery accounting still permits exactly one compensation.
+  transport publication and at most one Provider send; already-published
+  immediate entries are not replayed at the outer transaction end.
+- Observer exceptions do not redefine an already-delivered local publication
+  as undelivered; delivery accounting still permits exactly one compensation.
 - The Factory guarantee ends at registered local shared channels and the
-  shared-publication boundary. Optional Yjs providers, room/auth,
-  awareness/presence, remote origin/deduplication, reconnect/convergence, and
-  collaborative conflict policy are owned by
-  `../plans/network-collaboration-transport-plan.md`.
+  shared-publication boundary. Optional Provider transport, room/auth,
+  awareness/presence, remote apply, recovery, and collaborative conflict policy
+  follow the ownership boundaries in
+  `../plans/completed/network-collaboration-transport-plan.md`.
 
 See `../plans/completed/transaction-atomicity-and-rollback-plan.md` for the
 product cases and `../plans/transaction-flow-inspector.data.cjs` for the

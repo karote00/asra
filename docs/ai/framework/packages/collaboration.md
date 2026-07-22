@@ -170,7 +170,7 @@ Executable example:
 `docs/examples/network-collaboration-transport.mjs`.
 
 Product contract:
-`../plans/network-collaboration-transport-plan.md`.
+`../plans/completed/network-collaboration-transport-plan.md`.
 
 Dedicated Inspector:
 `../plans/network-collaboration-transport-flow-inspector.html`.

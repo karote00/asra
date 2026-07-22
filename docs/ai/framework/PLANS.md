@@ -11,18 +11,6 @@ release. A release gate may begin implementation only after its product contract
 and matching Inspector owner flow satisfy
 `docs/ai/framework/rules/inspector-contract-readiness.md`.
 
-2. Network collaboration transport foundation
-
-- Ship optional-at-runtime, provider-replaceable publication transport as part
-  of the framework release: instance/provider ownership, live-room handoff,
-  app-owned remote canonical apply, acknowledgement, and separate Awareness.
-- The framework retains no semantic operation history and owns no dedupe,
-  ordering, permission, conflict, persistence, or reconnect-replay policy.
-- Apps that do not need collaboration remain free to omit provider/runtime
-  activation.
-- References:
-  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
-
 3. Group component and hierarchy behaviors
 
 - Complete canonical Scene Tree group, ungroup, reparent/reorder, subtree,

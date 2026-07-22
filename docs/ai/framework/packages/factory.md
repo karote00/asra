@@ -228,7 +228,7 @@ request `rollbackable: false`.
 Collaboration contracts are:
 
 - `collaboration.md`
-- `../plans/network-collaboration-transport-plan.md`
+- `../plans/completed/network-collaboration-transport-plan.md`
 
 ## Validation Checklist
 

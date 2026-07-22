@@ -173,4 +173,4 @@ yarn workspace @asyra/asyra-design build:collaboration-server
 ```
 
 Framework product contract:
-`docs/ai/framework/plans/network-collaboration-transport-plan.md`.
+`docs/ai/framework/plans/completed/network-collaboration-transport-plan.md`.

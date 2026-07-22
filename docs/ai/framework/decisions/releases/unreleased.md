@@ -1962,3 +1962,27 @@ unregister -> app migration -> core.start()` as the public app route.
 - Related Plan:
   - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
   - `docs/ai/framework/plans/network-collaboration-transport-flow-inspector.html`
+
+## 2026-07-23 - Close network collaboration transport Release Gate 2
+
+- Context:
+  - The transport-only collaboration implementation and its bounded corrective
+    work were complete, all formal Gate 2 gates passed, and the product owner
+    confirmed the real multi-window CRDT behavior was operating normally.
+- Decision:
+  - Close Framework Release Gate 2 and preserve its canonical product contract
+    under `docs/ai/framework/plans/completed/`.
+  - Keep the dedicated Inspector active as the architecture authority, pointed
+    at the completed product contract.
+  - Keep the durable Asyra Design collaboration server plan queued and inactive
+    until the user explicitly starts its required contract rebase.
+- Consequences:
+  - `PLANS.md` now starts with Framework Release Gate 3; this closeout does not
+    begin Gate 3 automatically.
+  - Optional live publication transport, app-owned remote apply, live-only
+    reconnect, and separate Awareness remain the supported Gate 2 contract.
+  - Historical decision links continue to resolve through the original plan
+    path, which now redirects to the canonical completed record.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/network-collaboration-transport-plan.md`
+  - `docs/ai/framework/plans/network-collaboration-transport-flow-inspector.html`
