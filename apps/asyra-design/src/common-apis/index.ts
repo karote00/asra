@@ -10,7 +10,12 @@
 
 export { transactionApis } from './transaction'
 export { selectionApis } from './selection'
-export { elementApis, vectorGeometry, type VectorPointUpdate } from './element'
+export {
+  elementApis,
+  vectorGeometry,
+  type AppendVectorAnchorPointOptions,
+  type VectorPointUpdate
+} from './element'
 export { fillApis, type FillPatch } from './fills'
 export { strokeApis, type StrokePatch } from './strokes'
 export { viewportApis } from './viewport'

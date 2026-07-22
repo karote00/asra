@@ -846,6 +846,7 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
             {
               startNewSubpath,
               continuation,
+              sharedDelivery: 'immediate',
               structuralOperationIntent
             }
           )

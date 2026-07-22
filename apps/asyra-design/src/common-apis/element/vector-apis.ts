@@ -175,6 +175,16 @@ type VectorOperationOptions = EVENT_OPTIONS &
     closed?: boolean
   }
 
+export interface AppendVectorAnchorPointOptions extends EVENT_OPTIONS {
+  startNewSubpath?: boolean
+  continuation?: {
+    networkId: string
+    pointId: string
+    side: VectorEndpointSide
+  } | null
+  structuralOperationIntent?: StructuralVectorOperationPatchIntent | null
+}
+
 export interface ValidatedVectorComputedPatchRequest {
   kind: 'validated-computed-patch-request'
   routeId: 'common-api-domain-adapter'
@@ -1062,8 +1072,12 @@ const commitVectorTopologyOperation = (
       patch
     })
     const commitPatch = validatedPatchRequest?.patch ?? patch
-    const eventOptions =
-      validatedPatchRequest?.eventOptions ?? toVectorEventOptions(options)
+    const eventOptions = validatedPatchRequest
+      ? {
+          ...toVectorEventOptions(options),
+          ...validatedPatchRequest.eventOptions
+        }
+      : toVectorEventOptions(options)
     runTransaction(() => {
       if (!transientVectorPointDrag) {
         reconcileVectorSelectionAfterTopologyChange(
@@ -1573,24 +1587,23 @@ export const vectorApis = {
   appendVectorAnchorPoint: (
     elementId: string,
     point: VectorAnchorPoint,
-    options?: {
-      startNewSubpath?: boolean
-      continuation?: {
-        networkId: string
-        pointId: string
-        side: VectorEndpointSide
-      } | null
-    } & VectorOperationIntentOptions
+    options?: AppendVectorAnchorPointOptions
   ): { point: VectorAnchorPoint; index: number } | null => {
+    const {
+      startNewSubpath,
+      continuation,
+      structuralOperationIntent,
+      ...eventOptions
+    } = options ?? {}
     const topology = getVectorTopologyWorkspace(elementId)
     const nextTopology = vectorGeometry.addPoint(
       topology,
       point.id,
       { x: point.x, y: point.y },
       {
-        startNewSubpath: options?.startNewSubpath,
+        startNewSubpath,
         anchorType: point.type,
-        continuation: options?.continuation
+        continuation
       }
     )
 
@@ -1603,7 +1616,8 @@ export const vectorApis = {
       topology,
       nextTopology,
       {
-        structuralOperationIntent: options?.structuralOperationIntent
+        ...eventOptions,
+        structuralOperationIntent
       }
     )
     return vectorApis.getVectorAnchorPointById(elementId, point.id)

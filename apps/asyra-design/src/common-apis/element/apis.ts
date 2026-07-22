@@ -24,7 +24,11 @@ import { vectorApis } from './vector-apis'
 import { changeComputedData as applyComputedDataChange } from './change-computed-data'
 
 export type { VectorPointTarget } from './types'
-export { vectorGeometry, type VectorPointUpdate } from './vector-apis'
+export {
+  vectorGeometry,
+  type AppendVectorAnchorPointOptions,
+  type VectorPointUpdate
+} from './vector-apis'
 
 const resolveEventOptions = (options?: EVENT_OPTIONS): EVENT_OPTIONS => {
   if (options) {

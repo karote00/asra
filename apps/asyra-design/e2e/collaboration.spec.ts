@@ -55,6 +55,32 @@ const getCanonicalRenderVisibility = (page: Page, elementId: string) =>
     elementId
   )
 
+const getVectorTopologySummary = (page: Page) =>
+  page.evaluate(() => {
+    const elements = window.__Core__?.deps?.sceneTree?.getAllElements?.()
+    if (!(elements instanceof Map)) return null
+    const vector = Array.from(elements.values()).find(
+      (element) => element.get?.('type') === 'vector'
+    )
+    const computed = vector?.getAllComputedData?.()
+    if (!computed) return null
+    const points = Object.values(computed.points ?? {}) as {
+      kind?: unknown
+    }[]
+    const segments = Object.values(computed.segments ?? {}) as {
+      inControlId?: unknown
+      outControlId?: unknown
+    }[]
+    return {
+      anchorCount: points.filter((point) => point.kind === 'anchor').length,
+      controlCount: points.filter((point) => point.kind === 'control').length,
+      segmentCount: segments.length,
+      curvedSegmentCount: segments.filter(
+        (segment) => segment.inControlId || segment.outControlId
+      ).length
+    }
+  })
+
 const expectSelectedElementInteriorToConverge = async (
   source: Page,
   peer: Page
@@ -355,6 +381,102 @@ test('mouse-down create and drag frames reach peer canonical state before pointe
       .poll(() => getCanonicalSnapshot(second))
       .toEqual(await getCanonicalSnapshot(first))
     expect(await getCanonicalRenderVisibility(second, elementId)).toBe(true)
+  } finally {
+    await Promise.all([firstContext.close(), secondContext.close()])
+  }
+})
+
+test('pen drag-to-add publishes real topology and curve frames before pointer-up', async ({
+  browser
+}, testInfo) => {
+  const fileId = `e2e-pen-drag-${Date.now()}-${testInfo.workerIndex}`
+  const firstContext = await browser.newContext()
+  const secondContext = await browser.newContext()
+  const first = await firstContext.newPage()
+  const second = await secondContext.newPage()
+
+  try {
+    await Promise.all([
+      first.goto(collaborationUrl(fileId)),
+      second.goto(collaborationUrl(fileId))
+    ])
+    await Promise.all([waitForAppReady(first), waitForAppReady(second)])
+    await Promise.all([
+      waitForCollaboration(first),
+      waitForCollaboration(second)
+    ])
+
+    const firstPoint = await getCanvasPosition(first, 0.3, 0.3)
+    const secondPoint = await getCanvasPosition(first, 0.48, 0.45)
+    const curveHandle = await getCanvasPosition(first, 0.58, 0.34)
+
+    await first.keyboard.press('p')
+    await first.mouse.click(firstPoint.x, firstPoint.y)
+    await expect
+      .poll(() => getVectorTopologySummary(second))
+      .toMatchObject({
+        anchorCount: 1,
+        segmentCount: 0
+      })
+    const undoDepthBeforeDrag = await first.evaluate(
+      () => window.__Core__?.deps?.factory?.transact?.undoStack?.length ?? 0
+    )
+
+    await first.mouse.move(secondPoint.x, secondPoint.y)
+    await first.mouse.down()
+    await expect
+      .poll(() => getVectorTopologySummary(second))
+      .toMatchObject({
+        anchorCount: 2,
+        segmentCount: 1
+      })
+
+    await first.mouse.move(curveHandle.x, curveHandle.y, { steps: 8 })
+    await expect
+      .poll(() => getCanonicalSnapshot(second))
+      .toEqual(await getCanonicalSnapshot(first))
+    expect(await getVectorTopologySummary(second)).toMatchObject({
+      anchorCount: 2,
+      controlCount: 3,
+      segmentCount: 1,
+      curvedSegmentCount: 1
+    })
+
+    await first.mouse.up()
+    await expect
+      .poll(() => getCanonicalSnapshot(second))
+      .toEqual(await getCanonicalSnapshot(first))
+    expect(
+      await first.evaluate(
+        () => window.__Core__?.deps?.factory?.transact?.undoStack?.length ?? 0
+      )
+    ).toBe(undoDepthBeforeDrag + 1)
+
+    await undo(first)
+    await expect
+      .poll(() => getVectorTopologySummary(second))
+      .toMatchObject({
+        anchorCount: 1,
+        controlCount: 0,
+        segmentCount: 0,
+        curvedSegmentCount: 0
+      })
+    await expect
+      .poll(() => getCanonicalSnapshot(second))
+      .toEqual(await getCanonicalSnapshot(first))
+
+    await redo(first)
+    await expect
+      .poll(() => getVectorTopologySummary(second))
+      .toMatchObject({
+        anchorCount: 2,
+        controlCount: 3,
+        segmentCount: 1,
+        curvedSegmentCount: 1
+      })
+    await expect
+      .poll(() => getCanonicalSnapshot(second))
+      .toEqual(await getCanonicalSnapshot(first))
   } finally {
     await Promise.all([firstContext.close(), secondContext.close()])
   }

@@ -103,7 +103,12 @@ Import boundary:
 - `isPointNearVectorPathAtWorkspacePos(elementId: string, workspacePos: PositionData, hitRadius?: number): boolean`
 - `isPointNearVectorPathAtClientPos(elementId: string, clientPos: PositionData, hitRadius?: number): boolean`
 - `getVectorAnchorPointById(elementId: string, pointId: string): { point: VectorAnchorPoint; index: number } | null`
-- `appendVectorAnchorPoint(elementId: string, point: VectorAnchorPoint, options?: { startNewSubpath?: boolean; continuation?: { networkId: string; pointId: string; side: VectorEndpointSide } | null }): { point: VectorAnchorPoint; index: number } | null`
+- `appendVectorAnchorPoint(elementId: string, point: VectorAnchorPoint, options?: AppendVectorAnchorPointOptions): { point: VectorAnchorPoint; index: number } | null`
+  - `AppendVectorAnchorPointOptions` combines subpath/continuation/structural
+    intent inputs with ordinary `EVENT_OPTIONS`
+  - structural intent validation owns the final `undoable` value while preserving
+    caller-selected `sharedDelivery`, `shared`, and `rollbackable` mutation
+    options
 - `getVectorAnchorContinuation(elementId: string, pointId: string): { networkId: string; pointId: string; side: VectorEndpointSide } | null`
 - `connectVectorAnchorEndpoints(elementId: string, sourcePointId: string, targetPointId: string): { closed: boolean } | null`
 - `connectVectorAnchorPoints(elementId: string, sourcePointId: string, targetPointId: string): { closed: boolean } | null`
@@ -125,7 +130,7 @@ Import boundary:
   - each applied create geometry update uses `sharedDelivery: 'immediate'`;
     pointer-up writes only a 100×100 click reset or a newer final pointer
     geometry, and the outer create session remains one undo commit
-- `createVectorElementFromSinglePoint(pointId: string, position: PositionData, mutationOptions?: { undoable: boolean }): string | null`
+- `createVectorElementFromSinglePoint(pointId: string, position: PositionData, mutationOptions?: EVENT_OPTIONS): string | null`
 - `deleteElement(elementId: string, options?: { undoable: boolean }): boolean`
 - `resetElementSize(elementId: string, options?: EVENT_OPTIONS): void`
 - `setElementPositions(positionsById: Record<string, PositionData>, options?: EVENT_OPTIONS): void`

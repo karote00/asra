@@ -51,6 +51,9 @@
 
 ### Update/End
 
+- pointer-down appends the real anchor/segment topology with
+  `sharedDelivery: 'immediate'`; peers receive the new canonical segment before
+  any curve-handle drag frame and before pointer-up
 - while mouse remains down, if new point has a connected previous point in the same subpath:
   - ignore micro pointer movement below pen feature drag threshold (`3` client px); no bezier handles are created in that case
   - drag motion updates bezier handles for both points
@@ -108,9 +111,12 @@
 - virtual preview segment (pen hover before commit) follows the same rule:
   - if preview start point has `outHandle`, render bezier preview
   - otherwise render straight preview line
-- active new-point handle and selected vector-point drag frames use explicit
-  `sharedDelivery: 'immediate'` while remaining `undoable: false`; pointer-up
-  still finalizes one undoable vector patch.
+- the new-point structural append is undoable and uses explicit
+  `sharedDelivery: 'immediate'`; active handle drag frames also use immediate
+  delivery while remaining `undoable: false`
+- pointer-up finalizes the handle geometry so the complete drag-to-add session
+  remains one undoable action; undo/redo publications use the same canonical
+  collaboration path
 - handle style:
   - same fill color/size as anchor points
   - white 1px stroke

@@ -155,6 +155,8 @@ transport contract.
 
 3. Open the same `fileId` in two windows.
 4. Verify create, delete, drag, drag-to-create, vector edits, undo, and redo.
+   For pen drag-to-add, verify the peer receives the real point/segment on
+   mouse-down and curve-handle changes during drag, before pointer-up.
 5. Refresh a window and verify its localStorage snapshot loads before live
    collaboration reconnects.
 6. Verify local selection/presence behavior separately from canonical document

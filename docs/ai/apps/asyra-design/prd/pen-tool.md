@@ -17,6 +17,8 @@ Users need a vector path workflow that supports creating vectors, appending poin
 
 1. Pen + mouse down outside active edit context creates new vector with first point.
 2. Pen + mouse down in active path edit context appends point to current vector.
+   The real anchor/segment topology must enter the shared data channel before
+   pointer-up so a connected peer can apply later curve-handle drag frames.
 3. Pen + mouse move while mouse is held on a newly appended connected point updates bezier handles for:
 
 - connected point (`outHandle`) with conditional update:
@@ -73,6 +75,9 @@ Users need a vector path workflow that supports creating vectors, appending poin
 24. After refresh/reload, each vector element id maps to exactly one render object (no duplicate render instances).
 25. Prepend-point drag in path-editing mode keeps the newly inserted anchor as selected target after drag completion.
 26. In non-pen path-editing mode, segment hover and segment selection should target only segments of the active editing vector.
+27. A connected drag-to-add action must publish its real point/segment on
+    pointer-down and each applied curve-handle frame during drag, while the
+    complete action remains one undo/redo commit.
 
 ## State Model
 

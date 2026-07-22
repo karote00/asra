@@ -6622,3 +6622,26 @@ join` constrained dashed product path across:
     snapshots remain production app/backend responsibilities.
 - Related Plan:
   - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
+
+## 2026-07-23 - Publish pen drag-to-add topology before pointer-up
+
+- Context:
+  - Pen drag-to-add created the new anchor and segment locally on pointer-down,
+    but their structural patch waited for transaction end.
+  - Immediate curve-handle patches therefore reached peers before the topology
+    records they referenced, so the remote curve could not update during drag.
+- Decision:
+  - Preserve caller-selected mutation delivery options after structural vector
+    intent validation while keeping the validated intent's `undoable` value
+    authoritative.
+  - Publish the pen append-anchor structural patch immediately on pointer-down;
+    keep applied handle drag frames immediate and non-undoable.
+  - Keep the complete pen session as one undoable action finalized on
+    pointer-up.
+- Consequences:
+  - Live peers receive the real anchor/segment before the first handle frame and
+    render canonical curve changes during drag.
+  - Undo and redo continue through the ordinary Factory publication path with
+    no pen-specific collaboration transport logic.
+- Related Plan:
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
