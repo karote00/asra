@@ -216,11 +216,11 @@ test.describe('Undo/Redo Actions', () => {
     await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const scope = window as any
-      scope.__movePreviewDeliveries = []
+      scope.__movePreviewPublications = []
       scope.__disposeMovePreviewObserver =
-        scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
-          'sceneTree',
-          (change: unknown) => scope.__movePreviewDeliveries.push(change)
+        scope.__Core__?.deps?.factory?.subscribeToSharedPublication?.(
+          (publication: unknown) =>
+            scope.__movePreviewPublications.push(publication)
         )
     })
     await page.mouse.move(start.x, start.y)
@@ -234,14 +234,34 @@ test.describe('Undo/Redo Actions', () => {
           : false
       })
       .toBe(true)
-    const previewDeliveries = await page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (window as any).__movePreviewDeliveries ?? []
-    })
-    expect(previewDeliveries).toContainEqual(
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (window as any).__movePreviewPublications?.length ?? 0
+        )
+      )
+      .toBeGreaterThan(0)
+    const previewPublications = await page.evaluate(
+      () =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (window as any).__movePreviewPublications ?? []
+    )
+    expect(previewPublications).toContainEqual(
       expect.objectContaining({
-        action: 'updateElementComputedDataBatch',
-        options: expect.objectContaining({ sharedDelivery: 'immediate' })
+        deliveries: expect.arrayContaining(
+          ['x', 'y'].map((key) =>
+            expect.objectContaining({
+              channel: 'sceneTree',
+              sharedDelivery: 'immediate',
+              payload: expect.objectContaining({
+                action: 'updateElementComputedData',
+                key
+              })
+            })
+          )
+        )
       })
     )
     const interrupted = await getSelectedElementRect(page)
@@ -268,7 +288,7 @@ test.describe('Undo/Redo Actions', () => {
       const scope = window as any
       scope.__disposeMovePreviewObserver?.()
       delete scope.__disposeMovePreviewObserver
-      delete scope.__movePreviewDeliveries
+      delete scope.__movePreviewPublications
     })
 
     await expect

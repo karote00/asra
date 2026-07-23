@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { EntityTypes } from '@asyra/utils'
+import { EntityTypes, SCENE_TREE_ACTIONS } from '@asyra/utils'
 import sceneTree from '@asyra/scene-tree'
 import render from '../render'
 
@@ -50,6 +50,7 @@ describe('RenderSceneTree computed data mirror', () => {
     vi.spyOn(render, 'switchWorkspace').mockImplementation(() => undefined)
     vi.spyOn(render, 'addElement').mockReturnValue({} as never)
     vi.spyOn(render, 'removeElement').mockReturnValue(undefined)
+    vi.spyOn(render, 'projectHierarchy').mockImplementation(() => undefined)
     vi.spyOn(render, 'updateElement').mockImplementation(() => undefined)
     vi.spyOn(render, 'getElementById').mockReturnValue({} as never)
     vi.spyOn(render, 'clearElements').mockImplementation(() => undefined)
@@ -349,6 +350,161 @@ describe('RenderSceneTree computed data mirror', () => {
       ['child-a', 0],
       ['child-b', 1],
       ['child-c', 2]
+    ])
+  })
+
+  it('projects exact hierarchy moves target-first without add/remove recreation', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const workspaceRaw = {
+      id: 'workspace-1',
+      type: EntityTypes.WORKSPACE,
+      children: ['source', 'target']
+    }
+    const sourceRaw = {
+      type: EntityTypes.GROUP,
+      parentId: 'workspace-1',
+      children: ['child']
+    }
+    const targetRaw = {
+      type: EntityTypes.GROUP,
+      parentId: 'workspace-1',
+      children: ['sibling']
+    }
+    const childRaw = {
+      type: 'rectangle',
+      parentId: 'source'
+    }
+    const siblingRaw = {
+      type: 'rectangle',
+      parentId: 'target'
+    }
+    const elements = new Map([
+      ['workspace-1', createElement('workspace-1', workspaceRaw, {})],
+      ['source', createElement('source', sourceRaw, {})],
+      ['target', createElement('target', targetRaw, {})],
+      ['child', createElement('child', childRaw, {})],
+      ['sibling', createElement('sibling', siblingRaw, {})]
+    ])
+    currentWorkspace = { save: () => ({ ...workspaceRaw }) }
+    sceneTreeMock.getAllElements.mockReturnValue(elements as never)
+    sceneTreeMock.getElementById.mockImplementation(
+      (elementId) => elements.get(elementId) as never
+    )
+    store.reload()
+    renderMock.addElement.mockClear()
+    renderMock.removeElement.mockClear()
+    renderMock.projectHierarchy.mockClear()
+
+    sourceRaw.children = []
+    targetRaw.children = ['sibling', 'child']
+    childRaw.parentId = 'target'
+
+    expect(
+      store.moveElements([
+        {
+          elementId: 'child',
+          before: { parentId: 'source', index: 0 },
+          after: { parentId: 'target', index: 1 }
+        }
+      ])
+    ).toEqual({ status: 'applied', elementId: 'child' })
+    expect(renderMock.projectHierarchy.mock.calls).toEqual([
+      ['target', ['sibling', 'child']],
+      ['source', []]
+    ])
+    expect(renderMock.addElement).not.toHaveBeenCalled()
+    expect(renderMock.removeElement).not.toHaveBeenCalled()
+  })
+
+  it('projects subtree removal descendant-first and restoration parent-first', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree')
+    const store = new RenderSceneTree()
+    const workspaceRaw = {
+      id: 'workspace-1',
+      type: EntityTypes.WORKSPACE,
+      children: ['group']
+    }
+    const groupRaw = {
+      id: 'group',
+      type: EntityTypes.GROUP,
+      parentId: 'workspace-1',
+      children: ['child']
+    }
+    const childRaw = {
+      id: 'child',
+      type: 'rectangle',
+      parentId: 'group'
+    }
+    const group = createElement('group', groupRaw, {})
+    const child = createElement('child', childRaw, {})
+    const elements = new Map([
+      ['workspace-1', createElement('workspace-1', workspaceRaw, {})],
+      ['group', group],
+      ['child', child]
+    ])
+    currentWorkspace = { save: () => ({ ...workspaceRaw }) }
+    sceneTreeMock.getAllElements.mockReturnValue(elements as never)
+    sceneTreeMock.getElementById.mockImplementation(
+      (elementId) => elements.get(elementId) as never
+    )
+    store.reload()
+    renderMock.addElement.mockClear()
+    renderMock.removeElement.mockClear()
+
+    const removed = [
+      {
+        elementId: 'child',
+        parentId: 'group',
+        index: 0,
+        data: { ...childRaw }
+      },
+      {
+        elementId: 'group',
+        parentId: 'workspace-1',
+        index: 0,
+        data: { ...groupRaw }
+      }
+    ]
+    elements.delete('group')
+    elements.delete('child')
+    workspaceRaw.children = []
+
+    expect(
+      store.applySubtreeChange({
+        action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+        undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+        eventName: 'changeSubtree',
+        elementId: 'group',
+        removed
+      })
+    ).toEqual({ status: 'removed', elementId: 'group' })
+    expect(
+      renderMock.removeElement.mock.calls.map(([elementId]) => elementId)
+    ).toEqual(['child', 'group'])
+
+    elements.set('group', group)
+    elements.set('child', child)
+    workspaceRaw.children = ['group']
+    renderMock.addElement.mockClear()
+
+    expect(
+      store.applySubtreeChange({
+        action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+        undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+        eventName: 'changeSubtree',
+        elementId: 'group',
+        removed
+      })
+    ).toEqual({ status: 'applied', elementId: 'group' })
+    expect(
+      renderMock.addElement.mock.calls.map(([data, siblingIndex]) => [
+        data.id,
+        siblingIndex
+      ])
+    ).toEqual([
+      ['group', 0],
+      ['child', 0]
     ])
   })
 

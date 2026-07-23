@@ -4,7 +4,7 @@ import {
   TransactionEventTypes,
   subscribeToUserActionCompleted
 } from '@asyra/reactive-events'
-import { SharedDataChannelNames } from '@asyra/utils'
+import { SCENE_TREE_ACTIONS, SharedDataChannelNames } from '@asyra/utils'
 import { Factory, LocalSharedDataChannel, type SharedPublication } from '..'
 
 const update = (
@@ -43,6 +43,57 @@ const createHarness = () => {
 }
 
 describe('Factory action-level shared publication', () => {
+  it('publishes hierarchy changes as one uninterpreted transaction group', () => {
+    const { factory, publications } = createHarness()
+
+    factory.startTransaction()
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.MOVE_ELEMENTS,
+      payload: {
+        action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
+        eventName: EventTypes.MOVE_ELEMENTS,
+        moves: [
+          {
+            elementId: 'element-a',
+            before: { parentId: 'workspace', index: 0 },
+            after: { parentId: 'group-a', index: 0 }
+          }
+        ]
+      },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+    factory.updateTransaction({
+      type: TransactionEventTypes.UPDATE_TRANSACTION,
+      eventName: EventTypes.CHANGE_SUBTREE,
+      payload: {
+        action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+        undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+        eventName: EventTypes.CHANGE_SUBTREE,
+        elementId: 'group-b',
+        removed: []
+      },
+      options: { shared: SharedDataChannelNames.SCENE_TREE }
+    })
+    factory.endTransaction()
+
+    expect(publications).toHaveLength(1)
+    expect(publications[0]?.deliveries).toEqual([
+      expect.objectContaining({
+        eventName: EventTypes.MOVE_ELEMENTS,
+        payload: expect.objectContaining({
+          action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS
+        })
+      }),
+      expect.objectContaining({
+        eventName: EventTypes.CHANGE_SUBTREE,
+        payload: expect.objectContaining({
+          action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE
+        })
+      })
+    ])
+  })
+
   it('batches synchronous immediate deliveries before the outer undo transaction ends', async () => {
     const { factory, projected, publications } = createHarness()
 

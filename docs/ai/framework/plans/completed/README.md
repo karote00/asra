@@ -26,6 +26,8 @@ This directory stores completed framework plans by category so `PLANS.md` stays 
 6. Framework release gates
 - Completed network collaboration transport foundation:
   - `network-collaboration-transport-plan.md`
+- Completed Group component and hierarchy behaviors:
+  - `group-component-and-hierarchy-behaviors-plan.md`
 
 ## Update Rule
 

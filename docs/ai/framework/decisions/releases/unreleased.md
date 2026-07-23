@@ -1986,3 +1986,29 @@ unregister -> app migration -> core.start()` as the public app route.
 - Related Plan:
   - `docs/ai/framework/plans/completed/network-collaboration-transport-plan.md`
   - `docs/ai/framework/plans/network-collaboration-transport-flow-inspector.html`
+
+## 2026-07-24 - Close Group component and hierarchy Release Gate 3
+
+- Context:
+  - Gate 3's canonical hierarchy, transaction, Preset Group geometry,
+    persistence, transport boundary, app-owned remote apply, and identity-safe
+    Render projection were complete.
+  - All local release gates and PR #93 checks passed, and the product owner
+    explicitly approved closeout.
+- Decision:
+  - Close Framework Release Gate 3 and preserve its canonical product contract
+    under `docs/ai/framework/plans/completed/`.
+  - Keep the dedicated Inspector active as the architecture authority, pointed
+    at the completed product contract.
+  - Keep Group interaction, selection, shortcuts, Layers presentation, and
+    remote permission/order/conflict policy app-owned.
+- Consequences:
+  - `PLANS.md` now starts with Framework Release Gate 4; this closeout does not
+    begin Gate 4 automatically.
+  - Asyra Design may now implement its two active Group app plans on top of the
+    merged Gate 3 framework contract.
+  - Historical links continue to resolve through the original plan path, which
+    now redirects to the canonical completed record.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/group-component-and-hierarchy-behaviors-plan.md`
+  - `docs/ai/framework/plans/group-component-and-hierarchy-flow-inspector.html`

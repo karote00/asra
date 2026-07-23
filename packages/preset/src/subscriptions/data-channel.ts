@@ -21,10 +21,12 @@ import {
   type AddRemoveElementChange,
   type ComputedAttrs,
   type GroupRawData,
+  type MoveElementsChange,
   emitDiagnosticCounter,
   measureBrowserDragPhase,
   type SceneTreeChange,
   type SelectionChange,
+  type SubtreeChange,
   type UpdateElementBatchChange,
   type UpdateElementChange,
   type UpdateElementPatchChange,
@@ -137,6 +139,17 @@ const updateRenderSceneTree = (change: SceneTreeChange) => {
         renderSceneTreeStore.removeElement(data, parentId, index)
       )
     }
+    case SCENE_TREE_ACTIONS.MOVE_ELEMENTS: {
+      const { moves } = change as MoveElementsChange
+      return recordRenderProjectionOutcome(
+        renderSceneTreeStore.moveElements(moves)
+      )
+    }
+    case SCENE_TREE_ACTIONS.REMOVE_SUBTREE:
+    case SCENE_TREE_ACTIONS.RESTORE_SUBTREE:
+      return recordRenderProjectionOutcome(
+        renderSceneTreeStore.applySubtreeChange(change as SubtreeChange)
+      )
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA: {
       const { id, owner, key, before, after, options } =
         change as UpdateElementChange

@@ -212,7 +212,8 @@ export const selectionFeature = defineFeature<
       )
 
       selectionApis.selectElements(nextSelectionIds, {
-        undoable: false
+        undoable: false,
+        sharedDelivery: 'immediate'
       })
 
       systemContextApis.setAreaSelection({

@@ -60,9 +60,10 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
       },
       { sharedDelivery: 'immediate' }
     )
-    expect(selectionApis.selectElements).toHaveBeenCalledWith([
-      'element-created'
-    ])
+    expect(selectionApis.selectElements).toHaveBeenCalledWith(
+      ['element-created'],
+      { sharedDelivery: 'immediate' }
+    )
 
     createElementSession.onUpdate?.(
       {

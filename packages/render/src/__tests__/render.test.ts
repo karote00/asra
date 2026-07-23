@@ -903,6 +903,67 @@ describe('Render', () => {
     expect(group.children.map((child) => child.label)).toEqual([targetData.id])
   })
 
+  it('projects canonical reparent and reorder with the same node and engine handle', async () => {
+    await render.init(100, 100, 0, {})
+    render.switchWorkspace({ label: 'workspace-1', x: 0, y: 0 })
+    const childData = {
+      id: 'identity-child',
+      type: 'rectangle',
+      visible: true,
+      width: 20,
+      height: 20,
+      parentId: 'identity-source'
+    } as unknown as RenderElementData
+    const siblingData = {
+      ...childData,
+      id: 'identity-sibling',
+      parentId: 'identity-target'
+    }
+    const sourceData = {
+      id: 'identity-source',
+      type: 'group',
+      visible: true,
+      children: [childData.id]
+    } as unknown as RenderElementData
+    const targetData = {
+      id: 'identity-target',
+      type: 'group',
+      visible: true,
+      children: [siblingData.id]
+    } as unknown as RenderElementData
+    const child = render.addElement(childData)
+    const sibling = render.addElement(siblingData)
+    const source = render.addElement(sourceData)
+    const target = render.addElement(targetData)
+    if (!child || !sibling || !source || !target) {
+      throw new Error('Expected identity-safe hierarchy nodes')
+    }
+    const childHandle = child.getEngineHandle()
+
+    render.projectHierarchy(targetData.id, [siblingData.id, childData.id])
+    render.projectHierarchy(sourceData.id, [])
+
+    expect(render.getElementById(childData.id)).toBe(child)
+    expect(child.getEngineHandle()).toBe(childHandle)
+    expect(child.parent).toBe(target)
+    expect(target.children).toEqual([sibling, child])
+
+    render.projectHierarchy(targetData.id, [childData.id, siblingData.id])
+
+    expect(render.getElementById(childData.id)).toBe(child)
+    expect(child.getEngineHandle()).toBe(childHandle)
+    expect(target.children).toEqual([child, sibling])
+    expect(
+      engine
+        .getOperations()
+        .filter(
+          (operation) =>
+            operation.type === 'destroy-object' &&
+            operation.command.object === childHandle
+        )
+    ).toHaveLength(0)
+  })
+
   it('clears workspace identity and transform with scene elements', async () => {
     const workspaceEngine = new RecordingRenderEngine({
       name: 'workspace-reset'

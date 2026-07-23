@@ -99,11 +99,14 @@ data-flow, configuration, and extension contract in
 
 ```bash
 yarn workspace @asyra/asyra-design test:local
+yarn workspace @asyra/asyra-design test:e2e
 yarn workspace @asyra/asyra-design test:e2e:collaboration
 ```
 
-The collaboration E2E suite may reuse already-running app and WebSocket
-servers. It never replaces the manual two-window test surface.
+The Playwright suites use the DEV app runtime for their diagnostic
+canonical-state assertions; production bundling remains a separate build gate.
+The collaboration E2E suite may reuse already-running app and WebSocket servers.
+It never replaces the manual two-window test surface.
 
 ## Project Structure
 

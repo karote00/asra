@@ -13,6 +13,10 @@ This file is the app-level API contract map.
   disposed
 - `destroyCanvasPipelineDebugger()` disposes the handle and is also registered
   for HMR cleanup
+- ordinary and collaboration Playwright suites run the DEV app runtime because
+  their canonical-state assertions use `window.__Core__` and
+  `window.__AsyraE2E__`; production exclusion and bundling remain separate
+  package/build gates
 - production startup has no debugger handle, trace, layer, or optional debugger
   implementation chunk
 
@@ -40,9 +44,9 @@ This file is the app-level API contract map.
 - Core load/save uses app-selected localStorage persistence. An ordinary URL
   retains the `FILE` key; a non-empty `fileId` selects
   `FILE:<encoded fileId>`, so the same file shares one browser-local demo
-  snapshot and different files remain isolated. An absent collaboration
-  document is initialized as an empty workspace, while an existing snapshot is
-  not overwritten
+  snapshot and different files remain isolated. An absent ordinary or
+  collaboration document is initialized as an empty workspace, while an
+  existing snapshot is not overwritten
 - URLs without `fileId` create no collaboration connection; production builds
   retain the dynamically loaded reference path so a deployed URL with `fileId`
   can use it without changing the persistence owner
@@ -75,6 +79,16 @@ Import boundary:
   before package validation
 - `unregisterPropertyRegistration(type, scope)` is low-level schema/runtime
   cleanup; `unregisterPropertyType(type)` removes a complete graph capability
+
+`hierarchyApis` (`src/common-apis/hierarchy.ts`)
+
+- `groupElements(elementIds: readonly string[], options?: EVENT_OPTIONS): GroupOperationResult`
+- `ungroupElement(groupId: string, options?: EVENT_OPTIONS): UngroupOperationResult`
+- `moveElements(request: MoveHierarchyRequest, options?: EVENT_OPTIONS): MoveHierarchyResult`
+- `removeSubtree(elementId: string, options?: EVENT_OPTIONS): RemoveSubtreeResult`
+- The app chooses ids and any selection/UI behavior. The common API delegates
+  canonical hierarchy validation to Core/Scene Tree and official Group
+  coordinate/bounds behavior to Preset.
 
 `elementApis` (`src/common-apis/element/apis.ts`)
 

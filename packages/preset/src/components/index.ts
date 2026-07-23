@@ -11,7 +11,17 @@ import {
 import { OVAL_COMPONENT_DEFINITION, OVAL_RENDER_STRATEGY } from './oval'
 import { VECTOR_COMPONENT_DEFINITION, VECTOR_RENDER_STRATEGY } from './vector'
 import { FRAME_COMPONENT_DEFINITION, FRAME_RENDER_STRATEGY } from './frame'
-import { GROUP_COMPONENT_DEFINITION, GROUP_RENDER_STRATEGY } from './group'
+import {
+  GROUP_COMPONENT_DEFINITION,
+  GROUP_RENDER_STRATEGY,
+  deriveGroupBounds,
+  groupElements,
+  moveElementsWithGroupGeometry,
+  normalizeGroupsForElements,
+  prepareGroupOperation,
+  prepareUngroupOperation,
+  ungroupElement
+} from './group'
 
 export {
   RECTANGLE_COMPONENT_DEFINITION,
@@ -23,8 +33,25 @@ export {
   OVAL_RENDER_STRATEGY,
   VECTOR_RENDER_STRATEGY,
   FRAME_RENDER_STRATEGY,
-  GROUP_RENDER_STRATEGY
+  GROUP_RENDER_STRATEGY,
+  deriveGroupBounds,
+  groupElements,
+  moveElementsWithGroupGeometry,
+  normalizeGroupsForElements,
+  prepareGroupOperation,
+  prepareUngroupOperation,
+  ungroupElement
 }
+export type {
+  GroupBounds,
+  GroupOperationCore,
+  GroupOperationResult,
+  GroupPlanningCore,
+  NormalizedGroupBounds,
+  PreparedGroupOperation,
+  PreparedUngroupOperation,
+  UngroupOperationResult
+} from './group'
 
 export const DEFAULT_COMPONENT_DEFINITIONS: readonly ComponentDefinition[] = [
   RECTANGLE_COMPONENT_DEFINITION,

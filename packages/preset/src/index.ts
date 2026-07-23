@@ -28,7 +28,24 @@ export {
   VECTOR_COMPONENT_DEFINITION,
   VECTOR_RENDER_STRATEGY,
   FRAME_RENDER_STRATEGY,
-  GROUP_RENDER_STRATEGY
+  GROUP_RENDER_STRATEGY,
+  deriveGroupBounds,
+  groupElements,
+  moveElementsWithGroupGeometry,
+  normalizeGroupsForElements,
+  prepareGroupOperation,
+  prepareUngroupOperation,
+  ungroupElement
+} from './components'
+export type {
+  GroupBounds,
+  GroupOperationCore,
+  GroupOperationResult,
+  GroupPlanningCore,
+  NormalizedGroupBounds,
+  PreparedGroupOperation,
+  PreparedUngroupOperation,
+  UngroupOperationResult
 } from './components'
 export { PRESET_REGISTRATION_OWNER } from './registration'
 export {

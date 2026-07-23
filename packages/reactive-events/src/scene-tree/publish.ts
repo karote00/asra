@@ -6,6 +6,7 @@ import type {
   EVENT_OPTIONS,
   ElementRawData,
   GroupInstanceTypes,
+  MoveHierarchyRequest,
   SceneTreeRawData
 } from '@asyra/utils'
 import { publishEvent } from '../event-bus'
@@ -49,6 +50,23 @@ export const addElement = (
   })
 }
 
+export const addElementByParentId = (
+  elementData: CreateElementData,
+  parentId: string,
+  index?: number,
+  options?: EVENT_OPTIONS
+) => {
+  publishEvent({
+    type: EventTypes.ADD_ELEMENT,
+    payload: {
+      data: elementData,
+      parentId,
+      index
+    },
+    options
+  })
+}
+
 export const removeElement = (
   elementData: Partial<ElementRawData>,
   parent?: GroupInstanceTypes,
@@ -59,6 +77,19 @@ export const removeElement = (
     payload: {
       data: elementData,
       parent
+    },
+    options
+  })
+}
+
+export const moveElements = (
+  request: MoveHierarchyRequest,
+  options?: EVENT_OPTIONS
+) => {
+  publishEvent({
+    type: EventTypes.MOVE_ELEMENTS,
+    payload: {
+      request
     },
     options
   })

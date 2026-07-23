@@ -1,5 +1,6 @@
 import core from '../contexts'
 import { elementApis } from './common-apis/element'
+import { hierarchyApis } from './common-apis/hierarchy'
 import { strokeApis } from './common-apis/strokes'
 import type { CanvasPipelineDebugger } from '@asyra/core/canvas-pipeline-debugger'
 import type { ProviderStatus } from '@asyra/collaboration'
@@ -11,6 +12,7 @@ declare global {
     __AsyraCanvasPipelineDebugger__?: CanvasPipelineDebugger
     __AsyraE2E__?: {
       elementApis: typeof elementApis
+      hierarchyApis: typeof hierarchyApis
       strokeApis: typeof strokeApis
     }
     __AsyraCollaboration__?: {

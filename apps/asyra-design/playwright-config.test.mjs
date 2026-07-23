@@ -6,14 +6,14 @@ import { fileURLToPath, URL } from 'node:url'
 
 const appDirectory = fileURLToPath(new URL('.', import.meta.url))
 
-const listTests = (config) => {
+const listTests = (config, environment = {}) => {
   const result = spawnSync(
     'yarn',
     ['playwright', 'test', '--list', '--config', config],
     {
       cwd: appDirectory,
       encoding: 'utf8',
-      env: process.env
+      env: { ...process.env, ...environment }
     }
   )
   assert.equal(
@@ -31,4 +31,51 @@ test('ordinary and collaboration Playwright suites have separate discovery', () 
   assert.doesNotMatch(ordinary, /collaboration\.spec\.ts/)
   assert.match(collaboration, /collaboration\.spec\.ts/)
   assert.match(collaboration, /Total: [1-9]\d* tests? in 1 file/)
+})
+
+test('CI can exclude the isolated render performance gate from the functional suite', () => {
+  const ordinary = listTests('playwright.config.ts')
+  const functional = listTests('playwright.config.ts', {
+    ASYRA_E2E_SKIP_PERFORMANCE: 'true'
+  })
+
+  assert.match(ordinary, /render-delta-performance\.spec\.ts/)
+  assert.doesNotMatch(functional, /render-delta-performance\.spec\.ts/)
+})
+
+test('ordinary Playwright runtime policy is local-friendly and CI fail-fast', async () => {
+  const { resolveOrdinaryPlaywrightRuntimePolicy } = await import(
+    './playwright-runtime-policy.mjs'
+  )
+
+  assert.deepEqual(resolveOrdinaryPlaywrightRuntimePolicy({}), {
+    maxFailures: undefined,
+    reporter: 'html',
+    retries: 0,
+    workers: undefined
+  })
+  assert.deepEqual(
+    resolveOrdinaryPlaywrightRuntimePolicy({
+      CI: 'true',
+      GITHUB_EVENT_NAME: 'pull_request'
+    }),
+    {
+      maxFailures: 1,
+      reporter: 'line',
+      retries: 0,
+      workers: 2
+    }
+  )
+  assert.deepEqual(
+    resolveOrdinaryPlaywrightRuntimePolicy({
+      CI: 'true',
+      GITHUB_EVENT_NAME: 'schedule'
+    }),
+    {
+      maxFailures: undefined,
+      reporter: 'line',
+      retries: 1,
+      workers: 2
+    }
+  )
 })

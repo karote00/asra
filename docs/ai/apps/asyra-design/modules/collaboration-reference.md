@@ -69,10 +69,14 @@ change.
 
 `src/collaboration/operations.ts` owns the current document contract:
 
-- supported Scene Tree add/remove/computed-data/computed-patch routes;
+- supported Scene Tree
+  add/remove/computed-data/computed-patch/move-elements/change-subtree routes;
 - supported Props add/remove/update routes;
 - payload validation for those routes;
 - validation of every delivery before any remote mutation;
+- an optional app-owned permission/domain-order/duplicate/conflict decision
+  that may reject or transform a publication, followed by validation of the
+  accepted result;
 - one `runRemoteTransaction` for all deliveries in one publication;
 - ordinary `factory.applyRemoteEvent(..., publishEvent)` canonical apply.
 
@@ -82,6 +86,9 @@ remote transaction begins. This is Asyra Design app policy, not
 
 Factory remote origin keeps accepted remote changes out of the receiving
 user's ordinary local undo stack and suppresses a new outbound publication.
+The default reference policy accepts repeated hierarchy publications. Any
+dedupe, last-write-wins, timestamp ordering, or concurrent hierarchy conflict
+policy is an app/backend responsibility and is not added to Collaboration.
 
 ## Wire Protocol and Provider
 

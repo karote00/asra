@@ -90,6 +90,13 @@ The callback may return `void` or `Promise<void>`. Collaboration waits for its
 settlement before reporting the publication outcome or advancing the inbound
 FIFO queue; it does not inspect how the app performs that work.
 
+Hierarchy publications use this unchanged boundary. Collaboration forwards
+`MOVE_ELEMENTS` and `CHANGE_SUBTREE` deliveries in publication order, including
+duplicates, but adds no dedupe, timestamp/LWW ordering, convergence registry,
+semantic history, or concurrent-parent conflict resolution. The receiving
+app/backend must accept, reject, or transform the publication before Scene Tree
+performs canonical validation and mutation.
+
 When remote work must stay out of ordinary local undo and must not echo, the app
 callback uses its Factory `runRemoteTransaction` boundary. Factory owns that
 origin behavior; Collaboration does not infer it from app routes.

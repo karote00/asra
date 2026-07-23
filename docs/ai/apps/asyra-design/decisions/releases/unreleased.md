@@ -6645,3 +6645,40 @@ join` constrained dashed product path across:
     no pen-specific collaboration transport logic.
 - Related Plan:
   - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
+
+## 2026-07-24 - Restore actionable ordinary E2E execution
+
+- Context:
+  - Pull request E2E used a production preview even though canonical-state
+    assertions require DEV-only diagnostic handles.
+  - A missing ordinary localStorage document left Core without the App-owned
+    empty workspace, causing element creation failures and repeated timeouts.
+  - PR CI used one worker, two retries, HTML-only reporting, and kept
+    superseded runs alive.
+- Decision:
+  - Initialize an absent ordinary or collaboration document with the canonical
+    empty document before Core startup, without changing Core's nullish
+    persistence bypass contract.
+  - Restore immediate selection projection for create and area-selection
+    previews.
+  - Run ordinary E2E against the DEV app runtime after the workspace build,
+    while keeping production bundle and diagnostic-exclusion checks separate.
+  - Use two workers, line reporting, no PR/manual retry, first-failure stopping,
+    Chromium-only installation, and same-PR/ref concurrency cancellation;
+    scheduled CI retains one retry and full-suite execution.
+  - Run the dense-vector Render timing budget first with one isolated worker,
+    then exclude it from the two-worker functional suite without changing its
+    formal timing thresholds.
+  - Calculate the bounded 12-frame p50/p95 with the lower sample quantile while
+    retaining the separately budgeted maximum sample.
+- Consequences:
+  - Reset and first-load ordinary documents always have a canonical workspace.
+  - Interactive selection UI is available during active pointer sessions.
+  - CI reports the first real regression promptly and no longer spends the
+    timeout budget retrying a cascade from one startup failure.
+  - Performance measurements no longer compete with a second browser worker,
+    while functional coverage still benefits from bounded parallelism.
+  - One allowed maximum-frame deviation cannot silently redefine p95, and the
+    existing max threshold continues to reject a real worst-frame regression.
+- Related Commit(s):
+  - pending

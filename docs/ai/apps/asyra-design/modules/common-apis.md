@@ -51,6 +51,13 @@
 
   - undo/redo wrappers
 
+- `hierarchy.ts`
+
+  - ID-based official Group and ungroup routing through Preset
+  - reorder/reparent routing through Preset's geometry-aware Core adapter
+  - atomic subtree removal through the public Core facade
+  - no selection, shortcut, menu, hover/click, naming, or post-operation policy
+
 - `render-layer.ts`
 
   - app-level render layer registration wrappers
@@ -79,6 +86,9 @@
   accept optional mutation options and forward them to Core.
 - Failure in a finite common-API mutation group rolls back all recorded
   rollbackable scene-tree, props, and selection changes before rethrowing.
+- `hierarchyApis` keeps one intended group, ungroup, move/reorder, or subtree
+  removal in one transaction. Preset owns only official Group coordinates and
+  bounds; Scene Tree remains the hierarchy validator/mutator.
 - Vector geometry updates normalize anchor points against computed bounds.
 - Canvas hit-testing uses renderer geometry (`getElementIdAtClientPos`) so
   hover targeting follows visible element fill or stroke geometry.

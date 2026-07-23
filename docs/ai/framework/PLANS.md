@@ -11,16 +11,6 @@ release. A release gate may begin implementation only after its product contract
 and matching Inspector owner flow satisfy
 `docs/ai/framework/rules/inspector-contract-readiness.md`.
 
-3. Group component and hierarchy behaviors
-
-- Complete canonical Scene Tree group, ungroup, reparent/reorder, subtree,
-  validation, replay, collaboration, load/save, and Render projection behavior.
-- Preset `CONTAINERS` provides the official Group component and basic
-  ID-driven operations; selection choice, shortcuts, hover/click behavior, and
-  UI presentation remain app-owned.
-- Reference:
-  `docs/ai/framework/plans/group-component-and-hierarchy-behaviors-plan.md`
-
 4. AI agent runtime
 
 - Ship an optional reusable package for natural-language planning, structured

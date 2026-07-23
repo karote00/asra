@@ -10,6 +10,9 @@ import { isNonBlankString } from './wire-values'
 
 type ProcessOperation = (event: AllEvent) => boolean | undefined
 type RunRemoteTransaction = <T>(mutate: () => T) => T
+export type DecideRemotePublication = (
+  publication: SharedPublication
+) => SharedPublication | false
 
 const owns = (value: object, key: string): boolean =>
   Object.prototype.hasOwnProperty.call(value, key)
@@ -68,6 +71,100 @@ const isComputedPatch = (value: unknown): value is Record<string, unknown> =>
   isRecord(value.patch) &&
   (isRecord(value.patch.values) || isRecord(value.patch.records))
 
+const isHierarchyLocation = (
+  value: unknown
+): value is Record<string, unknown> =>
+  isRecord(value) &&
+  isNonBlankString(value.parentId) &&
+  Number.isInteger(value.index) &&
+  Number(value.index) >= 0
+
+const isMoveElements = (value: unknown): value is Record<string, unknown> => {
+  if (
+    !isRecord(value) ||
+    value.action !== SCENE_TREE_ACTIONS.MOVE_ELEMENTS ||
+    value.eventName !== EventTypes.MOVE_ELEMENTS ||
+    !Array.isArray(value.moves) ||
+    value.moves.length === 0
+  ) {
+    return false
+  }
+
+  const elementIds = new Set<string>()
+  const beforeIndices = new Set<number>()
+  const afterIndices = new Set<number>()
+  let beforeParentId: string | undefined
+  let afterParentId: string | undefined
+
+  for (const move of value.moves) {
+    if (
+      !isRecord(move) ||
+      !isNonBlankString(move.elementId) ||
+      !isHierarchyLocation(move.before) ||
+      !isHierarchyLocation(move.after) ||
+      elementIds.has(move.elementId) ||
+      beforeIndices.has(Number(move.before.index)) ||
+      afterIndices.has(Number(move.after.index))
+    ) {
+      return false
+    }
+
+    beforeParentId ??= String(move.before.parentId)
+    afterParentId ??= String(move.after.parentId)
+    if (
+      move.before.parentId !== beforeParentId ||
+      move.after.parentId !== afterParentId
+    ) {
+      return false
+    }
+
+    elementIds.add(move.elementId)
+    beforeIndices.add(Number(move.before.index))
+    afterIndices.add(Number(move.after.index))
+  }
+
+  return true
+}
+
+const isSubtreeEntry = (value: unknown): value is Record<string, unknown> =>
+  isRecord(value) &&
+  isNonBlankString(value.elementId) &&
+  isNonBlankString(value.parentId) &&
+  Number.isInteger(value.index) &&
+  Number(value.index) >= 0 &&
+  isTypedData(value.data) &&
+  value.data.id === value.elementId &&
+  value.data.parentId === value.parentId
+
+const isSubtreeChange = (value: unknown): value is Record<string, unknown> => {
+  if (
+    !isRecord(value) ||
+    value.eventName !== EventTypes.CHANGE_SUBTREE ||
+    !isNonBlankString(value.elementId) ||
+    !Array.isArray(value.removed) ||
+    value.removed.length === 0 ||
+    !value.removed.every(isSubtreeEntry)
+  ) {
+    return false
+  }
+
+  const inverseAction =
+    value.action === SCENE_TREE_ACTIONS.REMOVE_SUBTREE
+      ? SCENE_TREE_ACTIONS.RESTORE_SUBTREE
+      : value.action === SCENE_TREE_ACTIONS.RESTORE_SUBTREE
+        ? SCENE_TREE_ACTIONS.REMOVE_SUBTREE
+        : undefined
+  if (value.undoAction !== inverseAction) {
+    return false
+  }
+
+  const elementIds = value.removed.map(({ elementId }) => elementId as string)
+  return (
+    new Set(elementIds).size === elementIds.length &&
+    elementIds.filter((elementId) => elementId === value.elementId).length === 1
+  )
+}
+
 const isAddRemoveProperties = (
   value: unknown,
   action: PROPS_ACTIONS,
@@ -115,6 +212,10 @@ const isSupportedPayload = (delivery: SharedDelivery): boolean => {
         )
       case EventTypes.UPDATE_COMPUTED_DATA_PATCH:
         return isComputedPatch(delivery.payload)
+      case EventTypes.MOVE_ELEMENTS:
+        return isMoveElements(delivery.payload)
+      case EventTypes.CHANGE_SUBTREE:
+        return isSubtreeChange(delivery.payload)
     }
   }
   if (delivery.channel === SharedDataChannelNames.PROPS) {
@@ -150,10 +251,17 @@ const toEvent = (delivery: SharedDelivery): AllEvent => {
 export const createAsyraDesignPublicationProcessor =
   (
     runRemoteTransaction: RunRemoteTransaction,
-    process: ProcessOperation
+    process: ProcessOperation,
+    decideRemotePublication: DecideRemotePublication = (publication) =>
+      publication
   ): ((publication: SharedPublication) => void) =>
   (publication) => {
-    const events = publication.deliveries.map(toEvent)
+    publication.deliveries.forEach(toEvent)
+    const acceptedPublication = decideRemotePublication(publication)
+    if (acceptedPublication === false) {
+      return
+    }
+    const events = acceptedPublication.deliveries.map(toEvent)
     runRemoteTransaction(() => {
       events.forEach((event) => process(event))
     })

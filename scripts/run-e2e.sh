@@ -37,12 +37,13 @@ trap cleanup EXIT INT TERM
 echo "Step 1: Building project..."
 yarn react:build
 
-# 2. Start test server (background)
-# Using 'preview' to serve the built artifacts, mimicking production-like environment
-echo "Step 2: Starting server at $ASYRA_E2E_APP_URL..."
-yarn workspace @asyra/asyra-design preview \
+# 2. Start the diagnostic-enabled app runtime used by the ordinary E2E suite.
+# Production bundle/exclusion behavior is covered by the build and package gates.
+echo "Step 2: Starting E2E server at $ASYRA_E2E_APP_URL..."
+yarn workspace @asyra/asyra-design react:start \
   --port "$ASYRA_E2E_PORT" \
-  --host "$ASYRA_E2E_HOST" &
+  --host "$ASYRA_E2E_HOST" \
+  --strictPort &
 ASYRA_E2E_SERVER_PID=$!
 
 # 3. Wait for server ready
@@ -50,6 +51,14 @@ echo "Step 3: Waiting for server to be ready..."
 # Using wait-on to ensure port is listening
 npx wait-on "$ASYRA_E2E_APP_URL" --timeout 60000
 
-# 4. Execute Playwright E2E tests
-echo "Step 4: Running Playwright tests..."
-yarn test:e2e
+# 4. Keep the formal timing budget free from another browser worker's CPU load,
+# then parallelize the remaining functional suite.
+if [ "${CI:-}" = "true" ]; then
+  echo "Step 4: Running isolated render performance gate..."
+  yarn workspace @asyra/asyra-design playwright test --config playwright.config.ts e2e/render-delta-performance.spec.ts --workers=1
+  echo "Step 5: Running functional Playwright tests..."
+  ASYRA_E2E_SKIP_PERFORMANCE=true yarn test:e2e
+else
+  echo "Step 4: Running Playwright tests..."
+  yarn test:e2e
+fi

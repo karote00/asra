@@ -1396,14 +1396,16 @@ describe('SceneTree', () => {
           id: 'ws-load',
           type: EntityTypes.WORKSPACE,
           name: 'ws-load',
+          parentId: '',
           visible: true,
           lock: false,
-          children: []
+          children: ['el-load-1']
         },
         'el-load-1': {
           id: 'el-load-1',
           type: 'rect',
           name: 'el-load-1',
+          parentId: 'ws-load',
           visible: true,
           lock: false
         }
@@ -1417,7 +1419,7 @@ describe('SceneTree', () => {
     expect(sceneTree.workspaceList).toHaveLength(1)
     expect(sceneTree.getAllElements().size).toBe(2)
 
-    // Verify elements are loaded (note: workspace ID may be auto-generated)
+    // Verify exact element and workspace identities are loaded.
     const elementIds = Array.from(sceneTree.getAllElements().keys())
     expect(elementIds).toContain('el-load-1')
 
@@ -1426,7 +1428,7 @@ describe('SceneTree', () => {
     expect(rectElement).toBeDefined()
     expect(rectElement?.get('type')).toBe('rect')
 
-    // Verify workspace element type (ID may differ from input)
+    // Verify workspace element type.
     const wsId = elementIds.find((id) => id !== 'el-load-1')
     if (wsId) {
       const wsElement = sceneTree.getElementById(wsId)
@@ -1447,14 +1449,16 @@ describe('SceneTree', () => {
           id: 'ws-load',
           type: EntityTypes.WORKSPACE,
           name: 'workspace',
+          parentId: '',
           visible: true,
           lock: false,
-          children: []
+          children: ['rect-1']
         },
         'rect-1': {
           id: 'rect-1',
           type: 'rect',
           name: 'Rect',
+          parentId: 'ws-load',
           visible: true,
           lock: false
         },
@@ -1477,15 +1481,269 @@ describe('SceneTree', () => {
     ])
   })
 
+  it('rejects malformed hierarchy artifacts before replace-style apply', () => {
+    const containerType = 'gate3-load-container'
+    const leafType = 'gate3-load-leaf'
+    componentRegistry.register({
+      type: containerType,
+      idPrefix: containerType,
+      namePrefix: 'Load Container',
+      constructor: createDynamicComponent(
+        containerType,
+        containerType,
+        'Load Container',
+        [],
+        {},
+        true
+      ),
+      properties: [],
+      defaults: {},
+      isContainer: true
+    })
+    componentRegistry.register({
+      type: leafType,
+      idPrefix: leafType,
+      namePrefix: 'Load Leaf',
+      constructor: createDynamicComponent(
+        leafType,
+        leafType,
+        'Load Leaf',
+        [],
+        {}
+      ),
+      properties: [],
+      defaults: {}
+    })
+
+    const createValidPayload = () => ({
+      workspace: 'workspace',
+      workspaceList: ['workspace'],
+      elements: {
+        workspace: {
+          id: 'workspace',
+          type: EntityTypes.WORKSPACE,
+          name: 'Workspace',
+          parentId: '',
+          visible: true,
+          lock: false,
+          children: ['container']
+        },
+        container: {
+          id: 'container',
+          type: containerType,
+          name: 'Container',
+          parentId: 'workspace',
+          visible: true,
+          lock: false,
+          props: {},
+          children: ['leaf']
+        },
+        leaf: {
+          id: 'leaf',
+          type: leafType,
+          name: 'Leaf',
+          parentId: 'container',
+          visible: true,
+          lock: false,
+          props: {}
+        }
+      }
+    })
+    const cases: [
+      string,
+      (payload: ReturnType<typeof createValidPayload>) => void
+    ][] = [
+      [
+        'missing parent',
+        (payload) => {
+          payload.elements.leaf.parentId = 'missing'
+        }
+      ],
+      [
+        'missing child',
+        (payload) => {
+          payload.elements.container.children = ['missing']
+        }
+      ],
+      [
+        'duplicate membership',
+        (payload) => {
+          payload.elements.workspace.children.push('leaf')
+        }
+      ],
+      [
+        'parent and child mismatch',
+        (payload) => {
+          payload.elements.leaf.parentId = 'workspace'
+        }
+      ],
+      [
+        'invalid workspace root',
+        (payload) => {
+          payload.workspace = 'missing-workspace'
+        }
+      ],
+      [
+        'duplicate normalized id',
+        (payload) => {
+          payload.elements.leaf.id = 'container'
+        }
+      ],
+      [
+        'cycle',
+        (payload) => {
+          payload.elements.workspace.children = []
+          payload.elements.container.parentId = 'leaf'
+          Object.assign(payload.elements.leaf, {
+            type: containerType,
+            parentId: 'container',
+            children: ['container']
+          })
+        }
+      ]
+    ]
+
+    sceneTree.init()
+    const originalWorkspace = sceneTree.workspace
+    for (const [label, mutate] of cases) {
+      const payload = createValidPayload()
+      mutate(payload)
+      const validation = sceneTree.validateLoadData(payload)
+
+      expect(validation.valid, label).toBe(false)
+      expect(validation.diagnostics.length, label).toBeGreaterThan(0)
+      expect(() => sceneTree.applyValidatedLoad(validation), label).toThrow(
+        /invalid hierarchy/i
+      )
+      expect(sceneTree.workspace, label).toBe(originalWorkspace)
+      expect(sceneTree.getAllElements().size, label).toBe(1)
+    }
+  })
+
+  it('round-trips exact nested hierarchy order and Group data', () => {
+    const containerType = 'gate3-round-trip-container'
+    const leafType = 'gate3-round-trip-leaf'
+    componentRegistry.register({
+      type: containerType,
+      idPrefix: containerType,
+      namePrefix: 'Round Trip Container',
+      constructor: createDynamicComponent(
+        containerType,
+        containerType,
+        'Round Trip Container',
+        [],
+        {},
+        true
+      ),
+      properties: [],
+      defaults: {},
+      isContainer: true
+    })
+    componentRegistry.register({
+      type: leafType,
+      idPrefix: leafType,
+      namePrefix: 'Round Trip Leaf',
+      constructor: createDynamicComponent(
+        leafType,
+        leafType,
+        'Round Trip Leaf',
+        [],
+        {}
+      ),
+      properties: [],
+      defaults: {}
+    })
+    const payload = {
+      workspace: 'workspace',
+      workspaceList: ['workspace'],
+      elements: {
+        workspace: {
+          id: 'workspace',
+          type: EntityTypes.WORKSPACE,
+          name: 'Workspace',
+          parentId: '',
+          visible: true,
+          lock: false,
+          children: ['outer']
+        },
+        outer: {
+          id: 'outer',
+          type: containerType,
+          name: 'Outer',
+          parentId: 'workspace',
+          visible: true,
+          lock: false,
+          props: {},
+          children: ['first', 'inner', 'last']
+        },
+        first: {
+          id: 'first',
+          type: leafType,
+          name: 'First',
+          parentId: 'outer',
+          visible: true,
+          lock: false,
+          props: {}
+        },
+        inner: {
+          id: 'inner',
+          type: containerType,
+          name: 'Inner',
+          parentId: 'outer',
+          visible: true,
+          lock: false,
+          props: {},
+          children: ['nested']
+        },
+        nested: {
+          id: 'nested',
+          type: leafType,
+          name: 'Nested',
+          parentId: 'inner',
+          visible: true,
+          lock: false,
+          props: {}
+        },
+        last: {
+          id: 'last',
+          type: leafType,
+          name: 'Last',
+          parentId: 'outer',
+          visible: true,
+          lock: false,
+          props: {}
+        }
+      }
+    }
+
+    const validation = sceneTree.validateLoadData(payload)
+    expect(validation.valid).toBe(true)
+    expect(validation.diagnostics).toEqual([])
+
+    sceneTree.applyValidatedLoad(validation)
+
+    expect(sceneTree.save()).toEqual(payload)
+  })
+
   it('applies only its own one-shot validated artifact without rerunning validation', () => {
     const validation = sceneTree.validateLoadData({
-      workspace: '',
-      workspaceList: [],
+      workspace: 'workspace',
+      workspaceList: ['workspace'],
       elements: {
+        workspace: {
+          id: 'workspace',
+          type: EntityTypes.WORKSPACE,
+          name: 'Workspace',
+          parentId: '',
+          visible: true,
+          lock: false,
+          children: ['rect-1']
+        },
         'rect-1': {
           id: 'rect-1',
           type: 'rect',
           name: 'Rect',
+          parentId: 'workspace',
           visible: true,
           lock: false
         }
@@ -1518,45 +1776,61 @@ describe('SceneTree', () => {
     )
   })
 
-  it('load should keep valid elements and create a safe workspace when workspace metadata is invalid', () => {
-    sceneTree.load({
-      workspace: 123 as unknown as string,
-      workspaceList: 'invalid' as unknown as string[],
-      elements: {
-        'rect-1': {
-          id: 'rect-1',
-          type: 'rect',
-          name: 'Rect 1',
-          visible: true,
-          lock: false
-        }
-      }
-    })
+  it('rejects invalid workspace metadata without replacing current hierarchy', () => {
+    sceneTree.init()
+    const originalWorkspace = sceneTree.workspace
 
-    // Invalid workspace metadata should not drop otherwise valid elements.
-    expect(sceneTree.workspace).not.toBe('')
-    expect(sceneTree.workspaceList.length).toBeGreaterThan(0)
-    expect(sceneTree.getElementById('rect-1')).toBeDefined()
-    const workspace = sceneTree.getElementById(sceneTree.workspace)
-    expect(workspace?.get('type')).toBe(EntityTypes.WORKSPACE)
+    expect(() =>
+      sceneTree.load({
+        workspace: 123 as unknown as string,
+        workspaceList: 'invalid' as unknown as string[],
+        elements: {
+          'rect-1': {
+            id: 'rect-1',
+            type: 'rect',
+            name: 'Rect 1',
+            parentId: 'missing-workspace',
+            visible: true,
+            lock: false
+          }
+        }
+      })
+    ).toThrow(/invalid hierarchy/i)
+
+    expect(sceneTree.workspace).toBe(originalWorkspace)
+    expect(sceneTree.getAllElements().size).toBe(1)
+    expect(sceneTree.getElementById('rect-1')).toBeUndefined()
+  })
+
+  it('refuses to serialize a non-canonical hierarchy', () => {
+    sceneTree.init()
+    const workspace = sceneTree.currentWorkspace as Workspace
+    workspace.set('children', ['missing-child'])
+    sceneTree.cleanChanges()
+
+    expect(() => sceneTree.save()).toThrow(/invalid canonical hierarchy/i)
   })
 
   it('should save data correctly', () => {
     sceneTree.init()
-    const elementData = { id: 'el-1', type: 'rect' }
-    const element = {
-      save: vi.fn(() => elementData),
-      get: vi.fn(() => 'el-1')
-    } as unknown as ElementInstanceTypes
     const workspace = sceneTree.currentWorkspace as Workspace
+    sceneTree.addNewElement(
+      { id: 'el-1', type: 'rect', x: 0, y: 0 },
+      workspace as GroupInstanceTypes
+    )
     const workspaceSaveData = workspace.save()
-    sceneTree.addToMap(element)
 
     const savedData = sceneTree.save()
 
     expect(savedData.workspace).toBe(workspaceSaveData.id)
     expect(savedData.workspaceList).toEqual([workspaceSaveData.id])
     expect(savedData.elements[workspaceSaveData.id]).toEqual(workspaceSaveData)
-    expect(savedData.elements['el-1']).toEqual(elementData)
+    expect(savedData.elements['el-1']).toEqual(
+      expect.objectContaining({
+        id: 'el-1',
+        type: 'rect',
+        parentId: workspaceSaveData.id
+      })
+    )
   })
 })

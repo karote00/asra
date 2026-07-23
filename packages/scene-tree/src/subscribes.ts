@@ -10,7 +10,9 @@ import {
   subscribeToUpdateTransaction,
   sceneTreeLoadComplete,
   type AddElementEvent,
+  type ChangeSubtreeEvent,
   type RemoveElementEvent,
+  type MoveElementsEvent,
   type UpdateComputedDataBatchEvent,
   type UpdateComputedDataEvent,
   type UpdateComputedDataPatchEvent
@@ -130,6 +132,21 @@ export const initSceneTreeSubscribes = () => {
       const { data, parent } = payload
       return sceneTree.removeElement(data, parent, options)
     }
+  )
+
+  subscribeToSynchronousEvent<MoveElementsEvent>(
+    EventTypes.MOVE_ELEMENTS,
+    ({ payload, options }) => {
+      if ('moves' in payload) {
+        return sceneTree.applyHierarchyMoves(payload.moves, options)
+      }
+      return sceneTree.moveElements(payload.request, options).moves.length > 0
+    }
+  )
+
+  subscribeToSynchronousEvent<ChangeSubtreeEvent>(
+    EventTypes.CHANGE_SUBTREE,
+    ({ payload, options }) => sceneTree.applySubtreeChange(payload, options)
   )
 
   subscribeToChangeComputedData(async ({ payload, options }) => {

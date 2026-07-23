@@ -101,6 +101,25 @@ describe('RenderApp StrictMode lifecycle', () => {
     expect(core.destroyRenderer).toHaveBeenCalledTimes(2)
   })
 
+  it('initializes an absent ordinary localStorage document before Core starts', async () => {
+    const host = document.createElement('div')
+    document.body.append(host)
+    const root = createRoot(host)
+
+    await act(async () => {
+      root.render(<RenderApp />)
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(localStorage.getItem('FILE')).toBe(JSON.stringify(EMPTY_DOCUMENT))
+    expect(core.setPersistence).toHaveBeenCalledWith(providers.localStorage)
+    expect(core.start).toHaveBeenCalledTimes(1)
+
+    await act(async () => root.unmount())
+  })
+
   it('initializes an absent localStorage document before collaboration starts', async () => {
     vi.stubEnv('VITE_ASYRA_DESIGN_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
     window.history.replaceState({}, '', '/?fileId=file-1')

@@ -67,8 +67,8 @@
 - selects app-owned localStorage persistence before Core startup; ordinary
   URLs retain the legacy `FILE` key, while a collaboration `fileId` selects
   `FILE:<encoded fileId>` so each public file keeps an independent browser-local
-  demo snapshot; when collaboration starts without a stored snapshot for that
-  file, RenderApp initializes the valid empty workspace once
+  demo snapshot; when either route has no stored snapshot, RenderApp initializes
+  the valid empty workspace once before Core startup
 - starts framework via `core.start(...)` using Core's default `RenderAdapter`;
   renderer/engine initialization must
   succeed before observers, persistence load, features, or ready publication
@@ -103,6 +103,11 @@ Input -> Feature -> Common API/Controller -> Core/Framework State -> Render/UI-c
   one accepted remote publication into one Factory remote transaction through
   the ordinary canonical event path. It does not reconstruct app behavior from
   canonical state.
+- For hierarchy deliveries, the same adapter also owns the optional
+  `DecideRemotePublication` permission/domain-order/duplicate/conflict decision.
+  Accepted or transformed `MOVE_ELEMENTS` and `CHANGE_SUBTREE` publications are
+  revalidated before one remote transaction; Collaboration remains
+  transport-only.
 - `src/collaboration/protocol.ts` is the one typed browser/server
   wire boundary; the browser provider and reference server validate untrusted
   messages against it before invoking provider operations.
