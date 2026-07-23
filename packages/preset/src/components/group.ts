@@ -262,6 +262,50 @@ const readPosition = (
   })
 }
 
+const getElementWorldPosition = (
+  core: GroupOperationCore,
+  data: SceneTreeRawData,
+  elementId: string
+): Readonly<{ x: number; y: number }> => {
+  let currentId = elementId
+  let x = 0
+  let y = 0
+  const visited = new Set<string>()
+
+  while (currentId) {
+    if (visited.has(currentId)) {
+      return failGroupGeometry(`hierarchy cycle reaches "${currentId}"`)
+    }
+    visited.add(currentId)
+    const element = data.elements[currentId]
+    if (!element) {
+      return failGroupGeometry(`element "${currentId}" is missing`)
+    }
+    if (element.type === EntityTypes.WORKSPACE) {
+      break
+    }
+    const position = readPosition(core, currentId)
+    x += position.x
+    y += position.y
+    currentId = element.parentId ?? ''
+  }
+
+  return Object.freeze({ x, y })
+}
+
+const getHierarchyDepth = (
+  data: SceneTreeRawData,
+  elementId: string
+): number => {
+  let depth = 0
+  let element = data.elements[elementId]
+  while (element?.parentId) {
+    depth += 1
+    element = data.elements[element.parentId]
+  }
+  return depth
+}
+
 export const deriveGroupBounds = (
   rectangles: readonly Pick<ElementRectangle, 'x' | 'y' | 'width' | 'height'>[]
 ): GroupBounds => {
@@ -504,17 +548,9 @@ export const normalizeGroupsForElements = (
     }
   })
 
-  const getDepth = (elementId: string): number => {
-    let depth = 0
-    let element = data.elements[elementId]
-    while (element?.parentId) {
-      depth += 1
-      element = data.elements[element.parentId]
-    }
-    return depth
-  }
   const deepestFirstGroupIds = [...groupIds].sort(
-    (first, second) => getDepth(second) - getDepth(first)
+    (first, second) =>
+      getHierarchyDepth(data, second) - getHierarchyDepth(data, first)
   )
 
   return runTransaction(() =>
@@ -524,4 +560,75 @@ export const normalizeGroupsForElements = (
       )
     )
   )
+}
+
+export const moveElementsWithGroupGeometry = (
+  core: GroupOperationCore,
+  request: MoveHierarchyRequest,
+  options?: EVENT_OPTIONS
+): MoveHierarchyResult => {
+  const beforeData = core.sceneTreeSaveData()
+
+  return runTransaction(() => {
+    const result = core.moveElements(request, options)
+    if (result.moves.length === 0) {
+      return result
+    }
+
+    const sourceParentId = result.moves[0].before.parentId
+    const targetParentId = result.moves[0].after.parentId
+    const afterData = core.sceneTreeSaveData()
+    const sourceIsGroup =
+      beforeData.elements[sourceParentId]?.type === EntityTypes.GROUP
+    const targetIsGroup =
+      afterData.elements[targetParentId]?.type === EntityTypes.GROUP
+    if (!sourceIsGroup && !targetIsGroup) {
+      return result
+    }
+
+    const worldPositions = result.elementIds.map((elementId) => ({
+      elementId,
+      ...getElementWorldPosition(core, beforeData, elementId)
+    }))
+    const targetOrigin =
+      afterData.elements[targetParentId]?.type === EntityTypes.WORKSPACE
+        ? { x: 0, y: 0 }
+        : getElementWorldPosition(core, afterData, targetParentId)
+
+    worldPositions.forEach(({ elementId, x, y }) => {
+      core.changeComputedData(
+        [elementId],
+        {
+          x: x - targetOrigin.x,
+          y: y - targetOrigin.y
+        },
+        options
+      )
+    })
+
+    const groupIds = new Set<string>()
+    const affectedParentIds = [sourceParentId, targetParentId]
+    affectedParentIds.forEach((parentId) => {
+      let element: SceneTreeRawData['elements'][string] | undefined =
+        afterData.elements[parentId]
+      while (element) {
+        if (element.type === EntityTypes.GROUP) {
+          groupIds.add(element.id)
+        }
+        element = element.parentId
+          ? afterData.elements[element.parentId]
+          : undefined
+      }
+    })
+    const deepestFirstGroupIds = [...groupIds].sort(
+      (first, second) =>
+        getHierarchyDepth(afterData, second) -
+        getHierarchyDepth(afterData, first)
+    )
+    deepestFirstGroupIds.forEach((groupId) => {
+      normalizeGroupBoundsInTransaction(core, afterData, groupId, options)
+    })
+
+    return result
+  })
 }

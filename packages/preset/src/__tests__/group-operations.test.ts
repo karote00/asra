@@ -10,6 +10,7 @@ import {
   prepareGroupOperation,
   prepareUngroupOperation,
   groupElements,
+  moveElementsWithGroupGeometry,
   normalizeGroupsForElements,
   ungroupElement,
   type GroupPlanningCore
@@ -105,6 +106,9 @@ describe('official Preset Group operation planning', () => {
     ).toEqual([GROUP_COMPONENT_DEFINITION])
     expect(presetPublicApi.groupElements).toBe(groupElements)
     expect(presetPublicApi.ungroupElement).toBe(ungroupElement)
+    expect(presetPublicApi.moveElementsWithGroupGeometry).toBe(
+      moveElementsWithGroupGeometry
+    )
     expect(presetPublicApi.normalizeGroupsForElements).toBe(
       normalizeGroupsForElements
     )
@@ -373,5 +377,108 @@ describe('official Preset Group geometry adapters', () => {
       { x: 80, y: 0 },
       options
     )
+  })
+
+  it('reparents through official Groups without changing child world positions', () => {
+    const snapshot = createSnapshot()
+    snapshot.elements.workspace.children = ['source', 'target']
+    snapshot.elements.source = {
+      id: 'source',
+      type: EntityTypes.GROUP,
+      name: 'Source',
+      parentId: 'workspace',
+      visible: true,
+      lock: false,
+      children: ['first']
+    }
+    snapshot.elements.target = {
+      id: 'target',
+      type: EntityTypes.GROUP,
+      name: 'Target',
+      parentId: 'workspace',
+      visible: true,
+      lock: false,
+      children: ['last']
+    }
+    snapshot.elements.first.parentId = 'source'
+    snapshot.elements.last.parentId = 'target'
+    const computed = {
+      source: { x: 100, y: 0, width: 10, height: 10 },
+      target: { x: 300, y: 0, width: 20, height: 20 },
+      first: { x: 10, y: 0, width: 10, height: 10 },
+      last: { x: 0, y: 0, width: 20, height: 20 }
+    }
+    const core = {
+      sceneTreeSaveData: () => structuredClone(snapshot),
+      getElementComputedData: vi.fn((elementId: keyof typeof computed) =>
+        structuredClone(computed[elementId])
+      ),
+      createElementInParent: vi.fn(),
+      moveElements: vi.fn(() => {
+        snapshot.elements.source.children = []
+        snapshot.elements.target.children = ['last', 'first']
+        snapshot.elements.first.parentId = 'target'
+        return {
+          elementIds: ['first'],
+          moves: [
+            {
+              elementId: 'first',
+              before: { parentId: 'source', index: 0 },
+              after: { parentId: 'target', index: 1 }
+            }
+          ]
+        }
+      }),
+      changeComputedData: vi.fn(
+        (
+          [elementId]: [keyof typeof computed],
+          data: Partial<(typeof computed)[keyof typeof computed]>
+        ) => {
+          Object.assign(computed[elementId], data)
+        }
+      ),
+      removeSubtree: vi.fn()
+    }
+
+    expect(
+      moveElementsWithGroupGeometry(core as never, {
+        elementIds: ['first'],
+        targetParentId: 'target',
+        targetIndex: 1
+      })
+    ).toEqual({
+      elementIds: ['first'],
+      moves: [
+        {
+          elementId: 'first',
+          before: { parentId: 'source', index: 0 },
+          after: { parentId: 'target', index: 1 }
+        }
+      ]
+    })
+    expect(computed.source).toEqual({
+      x: 100,
+      y: 0,
+      width: 0,
+      height: 0
+    })
+    expect(computed.target).toEqual({
+      x: 110,
+      y: 0,
+      width: 210,
+      height: 20
+    })
+    expect(computed.first).toEqual({
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10
+    })
+    expect(computed.last).toEqual({
+      x: 190,
+      y: 0,
+      width: 20,
+      height: 20
+    })
   })
 })

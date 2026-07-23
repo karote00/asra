@@ -31,6 +31,7 @@ export {
   GROUP_RENDER_STRATEGY,
   deriveGroupBounds,
   groupElements,
+  moveElementsWithGroupGeometry,
   normalizeGroupsForElements,
   prepareGroupOperation,
   prepareUngroupOperation,
