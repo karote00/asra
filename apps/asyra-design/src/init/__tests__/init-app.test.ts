@@ -10,6 +10,9 @@ import * as pathEditingContinuation from '../derived-state/init-path-editing-con
 import * as selectionCompatibility from '../derived-state/init-selection-compatibility'
 import * as features from '../foundation/init-features'
 import * as inputSystem from '../foundation/init-input-system'
+import { elementApis } from '../../common-apis/element'
+import { hierarchyApis } from '../../common-apis/hierarchy'
+import { strokeApis } from '../../common-apis/strokes'
 import { initApp } from '../init-app'
 
 const calls: string[] = []
@@ -78,6 +81,11 @@ describe('initApp preset composition', () => {
 
     expect(preset.applyPreset).toHaveBeenCalledOnce()
     expect(preset.applyPreset).toHaveBeenCalledWith(core)
+    expect(window.__AsyraE2E__).toEqual({
+      elementApis,
+      hierarchyApis,
+      strokeApis
+    })
     expect(calls).toEqual([
       'preset',
       'canvas-pipeline-debugger',

@@ -56,8 +56,11 @@
       cacheDimensions: [],
       implementationBoundary: [
         'apps/asyra-design/package.json',
+        'apps/asyra-design/e2e',
         'apps/asyra-design/src/common-apis',
+        'apps/asyra-design/src/init/init-app.ts',
         'apps/asyra-design/src/init/__tests__',
+        'apps/asyra-design/src/types.d.ts',
         'packages/core/src/apis/scene-tree.ts',
         'packages/core/src/types/scene-tree.ts'
       ],
