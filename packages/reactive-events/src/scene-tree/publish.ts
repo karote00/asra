@@ -50,6 +50,23 @@ export const addElement = (
   })
 }
 
+export const addElementByParentId = (
+  elementData: CreateElementData,
+  parentId: string,
+  index?: number,
+  options?: EVENT_OPTIONS
+) => {
+  publishEvent({
+    type: EventTypes.ADD_ELEMENT,
+    payload: {
+      data: elementData,
+      parentId,
+      index
+    },
+    options
+  })
+}
+
 export const removeElement = (
   elementData: Partial<ElementRawData>,
   parent?: GroupInstanceTypes,

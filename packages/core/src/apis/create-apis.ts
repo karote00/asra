@@ -37,6 +37,10 @@ export const createAPIs = (
 ): CoreAPIs => {
   const sceneTreeRequests = {
     sceneTreeSaveData: () => sceneTree.save(),
+    getElementComputedData: (elementId: string) =>
+      sceneTree.getElementById(elementId)?.getAllComputedData() as
+        | Record<string, unknown>
+        | undefined,
     moveElements: (request: MoveHierarchyRequest, options?: EVENT_OPTIONS) =>
       sceneTree.moveElements(request, options),
     removeSubtree: (elementId: string, options?: EVENT_OPTIONS) =>

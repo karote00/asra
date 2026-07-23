@@ -9,6 +9,7 @@ import { createSceneTreeAPIs, type SceneTreeRequests } from '../apis/scene-tree'
 
 const createRequests = (): SceneTreeRequests => ({
   sceneTreeSaveData: () => ({ workspace: '', workspaceList: [], elements: {} }),
+  getElementComputedData: vi.fn(() => undefined),
   moveElements: vi.fn(() => ({ elementIds: [], moves: [] })),
   removeSubtree: vi.fn((elementId: string) => ({
     elementId,
@@ -20,6 +21,62 @@ const createRequests = (): SceneTreeRequests => ({
 })
 
 describe('createSceneTreeAPIs hierarchy facade', () => {
+  it('publishes ID-based element creation with the exact parent slot and options', () => {
+    const apis = createSceneTreeAPIs(createRequests())
+    const subscriber = vi.fn()
+    const subscription = subscribeToAddElement(subscriber)
+
+    subscriber.mockClear()
+    const elementId = apis.createElementInParent(
+      {
+        id: 'group-1',
+        type: 'group',
+        x: 10,
+        y: 20
+      },
+      'workspace-1',
+      2,
+      { shared: 'sceneTree' }
+    )
+
+    expect(elementId).toBe('group-1')
+    expect(subscriber).toHaveBeenCalledTimes(1)
+    expect(subscriber).toHaveBeenCalledWith({
+      type: EventTypes.ADD_ELEMENT,
+      payload: {
+        data: expect.objectContaining({
+          id: 'group-1',
+          type: 'group',
+          x: 10,
+          y: 20
+        }),
+        parentId: 'workspace-1',
+        index: 2
+      },
+      options: { shared: 'sceneTree' }
+    })
+
+    subscription.unsubscribe()
+  })
+
+  it('returns a detached computed-data snapshot through the ID facade', () => {
+    const source = {
+      x: 10,
+      y: 20,
+      fills: [{ color: '#ffffff' }]
+    }
+    const requests = createRequests()
+    vi.mocked(requests.getElementComputedData).mockReturnValue(source)
+    const apis = createSceneTreeAPIs(requests)
+
+    const snapshot = apis.getElementComputedData('element-1')
+
+    expect(requests.getElementComputedData).toHaveBeenCalledWith('element-1')
+    expect(snapshot).toEqual(source)
+    expect(snapshot).not.toBe(source)
+    expect(snapshot?.fills).not.toBe(source.fills)
+  })
+
   it('delegates ID-based move requests and options to the supplied Scene Tree owner', () => {
     const requests = createRequests()
     const apis = createSceneTreeAPIs(requests)

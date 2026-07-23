@@ -269,7 +269,12 @@
         'packages/preset/src/defaults/modules/containers.ts',
         'packages/preset/src/__tests__',
         'packages/core/src/apis/scene-tree.ts',
-        'packages/core/src/types/scene-tree.ts'
+        'packages/core/src/apis/create-apis.ts',
+        'packages/core/src/types/scene-tree.ts',
+        'packages/core/src/core.ts',
+        'packages/core/src/index.ts',
+        'packages/core/src/__tests__/scene-tree-api.test.ts',
+        'packages/reactive-events/src/scene-tree/publish.ts'
       ],
       specRefs: [
         '#preset-group-operations',

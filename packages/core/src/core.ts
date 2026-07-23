@@ -209,6 +209,8 @@ class Core implements CoreAPIs {
   sceneTreeLoadData!: SceneTreeAPIs['sceneTreeLoadData']
   sceneTreeSaveData!: SceneTreeAPIs['sceneTreeSaveData']
   createElement!: SceneTreeAPIs['createElement']
+  createElementInParent!: SceneTreeAPIs['createElementInParent']
+  getElementComputedData!: SceneTreeAPIs['getElementComputedData']
   moveElements!: SceneTreeAPIs['moveElements']
   removeSubtree!: SceneTreeAPIs['removeSubtree']
   changeComputedData!: SceneTreeAPIs['changeComputedData']

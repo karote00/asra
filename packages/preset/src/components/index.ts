@@ -14,8 +14,12 @@ import { FRAME_COMPONENT_DEFINITION, FRAME_RENDER_STRATEGY } from './frame'
 import {
   GROUP_COMPONENT_DEFINITION,
   GROUP_RENDER_STRATEGY,
+  deriveGroupBounds,
+  groupElements,
+  normalizeGroupsForElements,
   prepareGroupOperation,
-  prepareUngroupOperation
+  prepareUngroupOperation,
+  ungroupElement
 } from './group'
 
 export {
@@ -29,13 +33,22 @@ export {
   VECTOR_RENDER_STRATEGY,
   FRAME_RENDER_STRATEGY,
   GROUP_RENDER_STRATEGY,
+  deriveGroupBounds,
+  groupElements,
+  normalizeGroupsForElements,
   prepareGroupOperation,
-  prepareUngroupOperation
+  prepareUngroupOperation,
+  ungroupElement
 }
 export type {
+  GroupBounds,
   GroupOperationCore,
+  GroupOperationResult,
+  GroupPlanningCore,
+  NormalizedGroupBounds,
   PreparedGroupOperation,
-  PreparedUngroupOperation
+  PreparedUngroupOperation,
+  UngroupOperationResult
 } from './group'
 
 export const DEFAULT_COMPONENT_DEFINITIONS: readonly ComponentDefinition[] = [

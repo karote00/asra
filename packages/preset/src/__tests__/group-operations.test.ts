@@ -1,14 +1,18 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { SceneTreeRawData } from '@asyra/utils'
 import { EntityTypes } from '@asyra/utils'
 import {
   CONTAINER_COMPONENT_DEFINITIONS,
   GROUP_COMPONENT_DEFINITION
 } from '../components'
+import * as presetPublicApi from '../index'
 import {
   prepareGroupOperation,
   prepareUngroupOperation,
-  type GroupOperationCore
+  groupElements,
+  normalizeGroupsForElements,
+  ungroupElement,
+  type GroupPlanningCore
 } from '../components/group'
 
 const createSnapshot = (): SceneTreeRawData => ({
@@ -86,7 +90,7 @@ const createSnapshot = (): SceneTreeRawData => ({
   }
 })
 
-const createCore = (snapshot: SceneTreeRawData): GroupOperationCore => ({
+const createCore = (snapshot: SceneTreeRawData): GroupPlanningCore => ({
   sceneTreeSaveData: () => structuredClone(snapshot)
 })
 
@@ -99,6 +103,11 @@ describe('official Preset Group operation planning', () => {
         ({ type }) => type === EntityTypes.GROUP
       )
     ).toEqual([GROUP_COMPONENT_DEFINITION])
+    expect(presetPublicApi.groupElements).toBe(groupElements)
+    expect(presetPublicApi.ungroupElement).toBe(ungroupElement)
+    expect(presetPublicApi.normalizeGroupsForElements).toBe(
+      normalizeGroupsForElements
+    )
   })
 
   it('plans non-contiguous grouping by canonical sibling order and first selected slot', () => {
@@ -160,6 +169,209 @@ describe('official Preset Group operation planning', () => {
     )
     expect(() => prepareUngroupOperation(core, 'missing')).toThrow(
       /official Group/i
+    )
+  })
+})
+
+describe('official Preset Group geometry adapters', () => {
+  it('groups canonical ids with direct-child bounds and world-position-preserving coordinates', () => {
+    const snapshot = createSnapshot()
+    const computed = {
+      first: { x: 10, y: 20, width: 30, height: 40 },
+      last: { x: 80, y: 10, width: 20, height: 15 }
+    }
+    const core = {
+      sceneTreeSaveData: () => structuredClone(snapshot),
+      getElementComputedData: vi.fn(
+        (elementId: keyof typeof computed) => computed[elementId]
+      ),
+      createElementInParent: vi.fn(() => 'created-group'),
+      moveElements: vi.fn(() => ({
+        elementIds: ['first', 'last'],
+        moves: []
+      })),
+      changeComputedData: vi.fn(),
+      removeSubtree: vi.fn()
+    }
+    const options = { shared: 'sceneTree' }
+
+    const result = groupElements(core as never, ['last', 'first'], options)
+
+    expect(core.createElementInParent).toHaveBeenCalledWith(
+      {
+        type: EntityTypes.GROUP,
+        x: 10,
+        y: 10,
+        width: 90,
+        height: 50
+      },
+      'workspace',
+      0,
+      options
+    )
+    expect(core.moveElements).toHaveBeenCalledWith(
+      {
+        elementIds: ['first', 'last'],
+        targetParentId: 'created-group',
+        targetIndex: 0
+      },
+      options
+    )
+    expect(core.changeComputedData).toHaveBeenNthCalledWith(
+      1,
+      ['first'],
+      { x: 0, y: 10 },
+      options
+    )
+    expect(core.changeComputedData).toHaveBeenNthCalledWith(
+      2,
+      ['last'],
+      { x: 70, y: 0 },
+      options
+    )
+    expect(result).toEqual({
+      groupId: 'created-group',
+      elementIds: ['first', 'last'],
+      bounds: { x: 10, y: 10, width: 90, height: 50 }
+    })
+  })
+
+  it('ungroups normal and empty Groups without changing child world positions', () => {
+    const snapshot = createSnapshot()
+    const normalComputed = {
+      'nested-group': { x: 100, y: 50, width: 20, height: 30 },
+      'nested-leaf': { x: 5, y: 10, width: 20, height: 30 },
+      empty: { x: 0, y: 0, width: 0, height: 0 }
+    }
+    const core = {
+      sceneTreeSaveData: () => structuredClone(snapshot),
+      getElementComputedData: vi.fn(
+        (elementId: keyof typeof normalComputed) => normalComputed[elementId]
+      ),
+      createElementInParent: vi.fn(),
+      moveElements: vi.fn(() => ({
+        elementIds: ['nested-leaf'],
+        moves: []
+      })),
+      changeComputedData: vi.fn(),
+      removeSubtree: vi.fn((elementId: string) => ({
+        elementId,
+        removed: []
+      }))
+    }
+
+    expect(ungroupElement(core as never, 'nested-group')).toEqual({
+      groupId: 'nested-group',
+      elementIds: ['nested-leaf'],
+      removed: true
+    })
+    expect(core.moveElements).toHaveBeenCalledWith(
+      {
+        elementIds: ['nested-leaf'],
+        targetParentId: 'outer',
+        targetIndex: 0
+      },
+      undefined
+    )
+    expect(core.changeComputedData).toHaveBeenCalledWith(
+      ['nested-leaf'],
+      { x: 105, y: 60 },
+      undefined
+    )
+    expect(core.removeSubtree).toHaveBeenCalledWith('nested-group', undefined)
+
+    core.moveElements.mockClear()
+    core.changeComputedData.mockClear()
+    core.removeSubtree.mockClear()
+
+    expect(ungroupElement(core as never, 'empty')).toEqual({
+      groupId: 'empty',
+      elementIds: [],
+      removed: true
+    })
+    expect(core.moveElements).not.toHaveBeenCalled()
+    expect(core.changeComputedData).not.toHaveBeenCalled()
+    expect(core.removeSubtree).toHaveBeenCalledWith('empty', undefined)
+  })
+
+  it('rejects non-finite child geometry before creating a Group', () => {
+    const snapshot = createSnapshot()
+    const core = {
+      sceneTreeSaveData: () => structuredClone(snapshot),
+      getElementComputedData: vi.fn(() => ({
+        x: Number.NaN,
+        y: 0,
+        width: 10,
+        height: 10
+      })),
+      createElementInParent: vi.fn(),
+      moveElements: vi.fn(),
+      changeComputedData: vi.fn(),
+      removeSubtree: vi.fn()
+    }
+
+    expect(() => groupElements(core as never, ['first'])).toThrow(
+      /finite 2D geometry/i
+    )
+    expect(core.createElementInParent).not.toHaveBeenCalled()
+  })
+
+  it('rederives direct-child bounds through one rebasing path without a visible jump', () => {
+    const snapshot = createSnapshot()
+    snapshot.elements.workspace.children = ['standalone-group']
+    snapshot.elements['standalone-group'] = {
+      id: 'standalone-group',
+      type: EntityTypes.GROUP,
+      name: 'Standalone Group',
+      parentId: 'workspace',
+      visible: true,
+      lock: false,
+      children: ['first', 'last']
+    }
+    snapshot.elements.first.parentId = 'standalone-group'
+    snapshot.elements.last.parentId = 'standalone-group'
+    const computed = {
+      'standalone-group': { x: 100, y: 50, width: 1, height: 1 },
+      first: { x: -10, y: 20, width: 30, height: 40 },
+      last: { x: 70, y: 0, width: 20, height: 15 }
+    }
+    const core = {
+      sceneTreeSaveData: () => structuredClone(snapshot),
+      getElementComputedData: vi.fn(
+        (elementId: keyof typeof computed) => computed[elementId]
+      ),
+      createElementInParent: vi.fn(),
+      moveElements: vi.fn(),
+      changeComputedData: vi.fn(),
+      removeSubtree: vi.fn()
+    }
+    const options = { shared: 'sceneTree' }
+
+    expect(
+      normalizeGroupsForElements(core as never, ['first'], options)
+    ).toEqual([
+      {
+        groupId: 'standalone-group',
+        bounds: { x: 90, y: 50, width: 100, height: 60 }
+      }
+    ])
+    expect(core.changeComputedData).toHaveBeenNthCalledWith(
+      1,
+      ['standalone-group'],
+      { x: 90, y: 50, width: 100, height: 60 },
+      options
+    )
+    expect(core.changeComputedData).toHaveBeenNthCalledWith(
+      2,
+      ['first'],
+      { x: 0, y: 20 },
+      options
+    )
+    expect(core.changeComputedData).toHaveBeenNthCalledWith(
+      3,
+      ['last'],
+      { x: 80, y: 0 },
+      options
     )
   })
 })

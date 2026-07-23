@@ -21,6 +21,15 @@ export interface SceneTreeRawAPIs {
     index?: number,
     options?: EVENT_OPTIONS
   ) => string
+  createElementInParent: (
+    data: CreateElementData,
+    parentId: string,
+    index?: number,
+    options?: EVENT_OPTIONS
+  ) => string
+  getElementComputedData: (
+    elementId: string
+  ) => Record<string, unknown> | undefined
   moveElements: (
     request: MoveHierarchyRequest,
     options?: EVENT_OPTIONS

@@ -29,13 +29,22 @@ export {
   VECTOR_RENDER_STRATEGY,
   FRAME_RENDER_STRATEGY,
   GROUP_RENDER_STRATEGY,
+  deriveGroupBounds,
+  groupElements,
+  normalizeGroupsForElements,
   prepareGroupOperation,
-  prepareUngroupOperation
+  prepareUngroupOperation,
+  ungroupElement
 } from './components'
 export type {
+  GroupBounds,
   GroupOperationCore,
+  GroupOperationResult,
+  GroupPlanningCore,
+  NormalizedGroupBounds,
   PreparedGroupOperation,
-  PreparedUngroupOperation
+  PreparedUngroupOperation,
+  UngroupOperationResult
 } from './components'
 export { PRESET_REGISTRATION_OWNER } from './registration'
 export {
