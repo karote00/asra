@@ -1,6 +1,6 @@
-import { uiContext } from '@asyra/ui-context'
-import { PrimaryToolType } from '@asyra/utils'
-import { createStore } from '../utils'
+import { useProperty } from '../../hooks'
+import { PresetSystemPropertyKeys } from '@asyra/preset'
 
-export const usePrimaryTool = (): PrimaryToolType =>
-  createStore(uiContext.primaryTool)
+export const usePrimaryTool = (): string => {
+  return useProperty<string>(PresetSystemPropertyKeys.PRIMARY_TOOL)
+}

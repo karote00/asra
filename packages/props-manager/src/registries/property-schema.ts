@@ -1,14 +1,11 @@
 import { MapRegistry } from '@asyra/utils'
 import type { PropertySchema } from '@asyra/utils'
-
-interface RegisterOptions {
-  duplicateErrorMessage?: string
-}
+import type { PropertyRegistrationOptions } from './registration-options'
 
 class PropertySchemaRegistry {
   private registry = new MapRegistry<string, PropertySchema>()
 
-  register(schema: PropertySchema, options: RegisterOptions = {}) {
+  register(schema: PropertySchema, options: PropertyRegistrationOptions = {}) {
     if (!schema?.type) {
       return
     }
@@ -57,7 +54,7 @@ export const propertySchemaRegistry = {
 
 export const registerPropertySchema = (
   schema: PropertySchema,
-  options?: RegisterOptions
+  options?: PropertyRegistrationOptions
 ) => propertySchemaRegistry.register(schema, options)
 
 export const getPropertySchema = (type: string) =>
@@ -70,5 +67,3 @@ export const restorePropertySchemaAfterFailedDeclarativeCommit = (
   schema: PropertySchema
 ): void =>
   propertySchemaRegistryOwner.restoreAfterFailedDeclarativeCommit(schema)
-
-export type { RegisterOptions as RegisterPropertySchemaOptions }

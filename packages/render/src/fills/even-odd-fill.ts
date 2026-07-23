@@ -2,8 +2,12 @@ import {
   FillGradientTypes,
   FillKinds,
   clampOpacity,
+  clampUnit,
   parseColor,
-  type FillAttrs
+  subdivideCubicBezierAtHalf,
+  type FillAttrs,
+  type PositionData,
+  type RGBAColor
 } from '@asyra/utils'
 import type { RenderFillStyle } from './gradient-fill'
 import { createRenderResourceStyle } from '../types/render-object'
@@ -36,23 +40,18 @@ export interface EvenOddFillResult {
   dispose: () => void
 }
 
-interface Vec2 {
-  x: number
-  y: number
-}
+type Vec2 = PositionData
+type RGBA = RGBAColor
 
-interface RGBA {
-  r: number
-  g: number
-  b: number
-  a: number
-}
-
-interface PreparedSegment {
+export interface PreparedEvenOddSegment {
   type: 'line' | 'cubicBezier'
   points: number[]
   minY: number
   maxY: number
+}
+
+export interface PreparedEvenOddShape {
+  segments: PreparedEvenOddSegment[]
 }
 
 const FLATNESS_EPSILON = 0.2
@@ -97,8 +96,6 @@ const getCanvasContext = (
 const normalizeFillEntries = (fills: FillAttrs[]): FillAttrs[] =>
   Array.isArray(fills) ? fills.filter((fill) => !!fill) : []
 
-const clamp01 = (value: number) => Math.max(0, Math.min(1, value))
-
 const toRGBA = (value: string, opacity: number): RGBA | null => {
   const parsed = parseColor(value)
   if (!parsed) {
@@ -139,7 +136,7 @@ const createGradientSampler = (
       }
 
       return {
-        position: clamp01(stop.position),
+        position: clampUnit(stop.position),
         color: rgba
       }
     })
@@ -202,7 +199,7 @@ const createGradientSampler = (
   }
 
   return (x, y) => {
-    const t = clamp01(getT(x, y))
+    const t = clampUnit(getT(x, y))
 
     if (stops.length === 1) {
       return stops[0].color
@@ -225,7 +222,7 @@ const createGradientSampler = (
       return upper.color
     }
 
-    const ratio = clamp01(
+    const ratio = clampUnit(
       (t - lower.position) / (upper.position - lower.position)
     )
     return {
@@ -251,8 +248,10 @@ const createFillSampler = (
   return createSolidSampler(fill)
 }
 
-const prepareSegments = (shape: EvenOddShape): PreparedSegment[] => {
-  const prepared: PreparedSegment[] = []
+export const prepareEvenOddShape = (
+  shape: EvenOddShape
+): PreparedEvenOddShape => {
+  const segments: PreparedEvenOddSegment[] = []
 
   shape.paths.forEach((path) => {
     path.segments.forEach((segment) => {
@@ -260,7 +259,7 @@ const prepareSegments = (shape: EvenOddShape): PreparedSegment[] => {
       if (segment.type === 'line' && points.length === 4) {
         const minY = Math.min(points[1], points[3])
         const maxY = Math.max(points[1], points[3])
-        prepared.push({
+        segments.push({
           type: segment.type,
           points,
           minY,
@@ -272,7 +271,7 @@ const prepareSegments = (shape: EvenOddShape): PreparedSegment[] => {
       if (segment.type === 'cubicBezier' && points.length === 8) {
         const minY = Math.min(points[1], points[3], points[5], points[7])
         const maxY = Math.max(points[1], points[3], points[5], points[7])
-        prepared.push({
+        segments.push({
           type: segment.type,
           points,
           minY,
@@ -282,7 +281,7 @@ const prepareSegments = (shape: EvenOddShape): PreparedSegment[] => {
     })
   })
 
-  return prepared
+  return { segments }
 }
 
 const collectLineIntersection = (
@@ -317,22 +316,6 @@ const distanceToLine = (point: Vec2, a: Vec2, b: Vec2): number => {
   return Math.abs(dy * point.x - dx * point.y + b.x * a.y - b.y * a.x) / denom
 }
 
-const subdivideCubic = (p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2) => {
-  const p01 = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 }
-  const p12 = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
-  const p23 = { x: (p2.x + p3.x) / 2, y: (p2.y + p3.y) / 2 }
-
-  const p012 = { x: (p01.x + p12.x) / 2, y: (p01.y + p12.y) / 2 }
-  const p123 = { x: (p12.x + p23.x) / 2, y: (p12.y + p23.y) / 2 }
-
-  const p0123 = { x: (p012.x + p123.x) / 2, y: (p012.y + p123.y) / 2 }
-
-  return {
-    left: [p0, p01, p012, p0123] as const,
-    right: [p0123, p123, p23, p3] as const
-  }
-}
-
 const collectCubicIntersections = (
   y: number,
   p0: Vec2,
@@ -355,7 +338,7 @@ const collectCubicIntersections = (
     return
   }
 
-  const { left, right } = subdivideCubic(p0, p1, p2, p3)
+  const { left, right } = subdivideCubicBezierAtHalf(p0, p1, p2, p3)
   collectCubicIntersections(
     y,
     left[0],
@@ -374,6 +357,60 @@ const collectCubicIntersections = (
     intersections,
     depth + 1
   )
+}
+
+const collectHorizontalIntersections = (
+  y: number,
+  preparedShape: PreparedEvenOddShape
+): number[] => {
+  const intersections: number[] = []
+
+  preparedShape.segments.forEach((segment) => {
+    if (y < segment.minY || y >= segment.maxY) {
+      return
+    }
+
+    if (segment.type === 'line') {
+      const [x1, y1, x2, y2] = segment.points
+      collectLineIntersection(
+        y,
+        { x: x1, y: y1 },
+        { x: x2, y: y2 },
+        intersections
+      )
+      return
+    }
+
+    const [x1, y1, cx1, cy1, cx2, cy2, x2, y2] = segment.points
+    collectCubicIntersections(
+      y,
+      { x: x1, y: y1 },
+      { x: cx1, y: cy1 },
+      { x: cx2, y: cy2 },
+      { x: x2, y: y2 },
+      intersections
+    )
+  })
+
+  intersections.sort((a, b) => a - b)
+  return intersections
+}
+
+export const isPointInsidePreparedEvenOddShape = (
+  point: PositionData,
+  preparedShape: PreparedEvenOddShape
+): boolean => {
+  const intersections = collectHorizontalIntersections(point.y, preparedShape)
+
+  for (let index = 0; index + 1 < intersections.length; index += 2) {
+    const startX = intersections[index]
+    const endX = intersections[index + 1]
+    if (point.x >= startX - EPSILON && point.x <= endX + EPSILON) {
+      return true
+    }
+  }
+
+  return false
 }
 
 const buildTextureFill = (
@@ -433,8 +470,8 @@ export const createEvenOddFillStyle = (
     return null
   }
 
-  const preparedSegments = prepareSegments(options.shape)
-  if (preparedSegments.length === 0) {
+  const preparedShape = prepareEvenOddShape(options.shape)
+  if (preparedShape.segments.length === 0) {
     return null
   }
 
@@ -451,40 +488,11 @@ export const createEvenOddFillStyle = (
 
   for (let row = 0; row < height; row += 1) {
     const y = offsetY + (row + 0.5) * scaleY
-    const intersections: number[] = []
-
-    preparedSegments.forEach((segment) => {
-      if (y < segment.minY || y >= segment.maxY) {
-        return
-      }
-
-      if (segment.type === 'line') {
-        const [x1, y1, x2, y2] = segment.points
-        collectLineIntersection(
-          y,
-          { x: x1, y: y1 },
-          { x: x2, y: y2 },
-          intersections
-        )
-        return
-      }
-
-      const [x1, y1, cx1, cy1, cx2, cy2, x2, y2] = segment.points
-      collectCubicIntersections(
-        y,
-        { x: x1, y: y1 },
-        { x: cx1, y: cy1 },
-        { x: cx2, y: cy2 },
-        { x: x2, y: y2 },
-        intersections
-      )
-    })
+    const intersections = collectHorizontalIntersections(y, preparedShape)
 
     if (intersections.length === 0) {
       continue
     }
-
-    intersections.sort((a, b) => a - b)
 
     for (let i = 0; i + 1 < intersections.length; i += 2) {
       const startX = intersections[i]
@@ -529,7 +537,7 @@ export const createEvenOddFillStyle = (
             return
           }
 
-          const srcA = clamp01(color.a)
+          const srcA = clampUnit(color.a)
           const outA = srcA + dstA * (1 - srcA)
           if (outA <= EPSILON) {
             dstR = 0

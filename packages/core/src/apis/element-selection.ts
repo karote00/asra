@@ -151,7 +151,7 @@ const buildSelectionChange = (
     before.length === after.length &&
     after.every((selectionId) => beforeSet.has(selectionId))
   ) {
-    return undefined
+    return
   }
   const action = selectionState.getSelectAction()
   return {

@@ -1,0 +1,27 @@
+{
+  "name": "@asyra/collaboration",
+  "version": "0.2.5",
+  "description": "Optional provider-replaceable publication transport for Asyra",
+  "author": "Asa Tsai",
+  "license": "MIT",
+  "packageManager": "yarn@4.3.1",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "tsc --watch --preserveWatchOutput",
+    "clean": "rm -rf dist",
+    "build:collaboration": "tsc",
+    "example:collaboration": "vitest run src/__tests__/documentation-example.test.js",
+    "test": "vitest",
+    "test:local": "vitest run",
+    "test:ci": "vitest run --coverage --reporter=default --reporter=junit"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.8",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "@asyra/factory": "workspace:*"
+  }
+}

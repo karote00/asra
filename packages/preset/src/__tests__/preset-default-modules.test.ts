@@ -1,49 +1,60 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PresetDefaults, PRESET_APPLY_ERROR_CODES } from '../constants'
-
-const installers = vi.hoisted(() => ({
-  basicShapes: vi.fn(),
-  containers: vi.fn(),
-  vector: vi.fn(),
-  input: vi.fn(),
-  selection: vi.fn(),
-  vectorEditing: vi.fn(),
-  viewport: vi.fn(),
-  uiContext: vi.fn()
-}))
-
-vi.mock('../defaults/modules/basic-shapes', () => ({
-  installBasicShapesDefault: installers.basicShapes
-}))
-vi.mock('../defaults/modules/containers', () => ({
-  installContainersDefault: installers.containers
-}))
-vi.mock('../defaults/modules/vector', () => ({
-  installVectorDefault: installers.vector
-}))
-vi.mock('../defaults/modules/input', () => ({
-  installInputDefault: installers.input
-}))
-vi.mock('../defaults/modules/selection', () => ({
-  installSelectionDefault: installers.selection
-}))
-vi.mock('../defaults/modules/vector-editing', () => ({
-  installVectorEditingDefault: installers.vectorEditing
-}))
-vi.mock('../defaults/modules/viewport', () => ({
-  installViewportDefault: installers.viewport
-}))
-vi.mock('../defaults/modules/ui-context', () => ({
-  installUIContextDefault: installers.uiContext
-}))
-
-import { PresetApplyError } from '../composition/error'
-import {
-  PRESET_DEFAULT_MODULES,
-  installPresetDefaults
-} from '../defaults/install'
 import { createPrivatePrerequisiteManager } from '../defaults/private-manager'
 import type { PrivatePrerequisiteInstaller } from '../defaults/types'
+
+const loadInstallHarness = async () => {
+  vi.resetModules()
+  const [
+    basicShapes,
+    containers,
+    vector,
+    input,
+    selection,
+    vectorEditing,
+    viewport,
+    uiContext
+  ] = await Promise.all([
+    import('../defaults/modules/basic-shapes'),
+    import('../defaults/modules/containers'),
+    import('../defaults/modules/vector'),
+    import('../defaults/modules/input'),
+    import('../defaults/modules/selection'),
+    import('../defaults/modules/vector-editing'),
+    import('../defaults/modules/viewport'),
+    import('../defaults/modules/ui-context')
+  ])
+  const installers = {
+    basicShapes: vi
+      .spyOn(basicShapes, 'installBasicShapesDefault')
+      .mockImplementation(() => undefined),
+    containers: vi
+      .spyOn(containers, 'installContainersDefault')
+      .mockImplementation(() => undefined),
+    vector: vi
+      .spyOn(vector, 'installVectorDefault')
+      .mockImplementation(() => undefined),
+    input: vi
+      .spyOn(input, 'installInputDefault')
+      .mockImplementation(() => undefined),
+    selection: vi
+      .spyOn(selection, 'installSelectionDefault')
+      .mockImplementation(() => undefined),
+    vectorEditing: vi
+      .spyOn(vectorEditing, 'installVectorEditingDefault')
+      .mockImplementation(() => undefined),
+    viewport: vi
+      .spyOn(viewport, 'installViewportDefault')
+      .mockImplementation(() => undefined),
+    uiContext: vi
+      .spyOn(uiContext, 'installUIContextDefault')
+      .mockImplementation(() => undefined)
+  }
+  const installModule = await import('../defaults/install')
+  const { PresetApplyError } = await import('../composition/error')
+
+  return { installers, PresetApplyError, ...installModule }
+}
 
 const createInstallInput = (appliedDefaults: readonly string[]) => ({
   core: {
@@ -57,10 +68,12 @@ const createInstallInput = (appliedDefaults: readonly string[]) => ({
 
 describe('Preset default modules', () => {
   beforeEach(() => {
-    Object.values(installers).forEach((installer) => installer.mockReset())
+    vi.restoreAllMocks()
   })
 
-  it('owns one fixed installer for each catalog default in canonical order', () => {
+  it('owns one fixed installer for each catalog default in canonical order', async () => {
+    const { PRESET_DEFAULT_MODULES } = await loadInstallHarness()
+
     expect(PRESET_DEFAULT_MODULES.map(({ id }) => id)).toEqual([
       PresetDefaults.BASIC_SHAPES,
       PresetDefaults.CONTAINERS,
@@ -77,7 +90,8 @@ describe('Preset default modules', () => {
     })
   })
 
-  it('installs only resolved defaults and preserves canonical module order', () => {
+  it('installs only resolved defaults and preserves canonical module order', async () => {
+    const { installers, installPresetDefaults } = await loadInstallHarness()
     const callOrder: string[] = []
     installers.vector.mockImplementation(() => callOrder.push('vector'))
     installers.selection.mockImplementation(() => callOrder.push('selection'))
@@ -104,7 +118,9 @@ describe('Preset default modules', () => {
     expect(installers.uiContext).not.toHaveBeenCalled()
   })
 
-  it('performs zero module installation for an empty applied set', () => {
+  it('performs zero module installation for an empty applied set', async () => {
+    const { installers, installPresetDefaults } = await loadInstallHarness()
+
     const installed = installPresetDefaults(createInstallInput([]))
 
     expect(installed).toEqual([])
@@ -113,7 +129,9 @@ describe('Preset default modules', () => {
     })
   })
 
-  it('stops at the failed module and preserves its id and cause', () => {
+  it('stops at the failed module and preserves its id and cause', async () => {
+    const { installers, installPresetDefaults, PresetApplyError } =
+      await loadInstallHarness()
     const cause = new Error('selection install failed')
     installers.selection.mockImplementation(() => {
       throw cause

@@ -1,5 +1,6 @@
 import { BaseSelection, type SelectionDefinition } from '@asyra/core'
 import type { PresetCoreAPIs } from '../types'
+import { createCleanupReporter } from '../cleanup-reporter'
 import {
   SelectionActions,
   SelectionChannels,
@@ -49,7 +50,6 @@ export const registerSelections = (
 ): (() => void) => {
   const registeredChannels: SelectionChannel[] = []
   let disposed = false
-  let cleanupReported = false
 
   const dispose = (): void => {
     if (disposed) return
@@ -59,11 +59,7 @@ export const registerSelections = (
     }
     disposed = true
   }
-  const reportCleanupReady = (): void => {
-    if (cleanupReported || !onCleanupReady) return
-    onCleanupReady(dispose)
-    cleanupReported = true
-  }
+  const cleanupReporter = createCleanupReporter(onCleanupReady, dispose)
 
   try {
     channels.forEach((selectionChannel) => {
@@ -71,11 +67,11 @@ export const registerSelections = (
       if (!core.getSelection(selectionChannel)) {
         core.defineSelection(selectionChannel, create())
         registeredChannels.push(selectionChannel)
-        reportCleanupReady()
+        cleanupReporter.report()
       }
     })
   } catch (error) {
-    if (!cleanupReported) dispose()
+    if (!cleanupReporter.hasReported()) dispose()
     throw error
   }
 

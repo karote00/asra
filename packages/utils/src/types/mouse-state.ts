@@ -1,5 +1,5 @@
 import { MouseButton } from '../constants'
-import { PositionData } from './common'
+import { PositionData } from './geometry'
 
 export interface MouseSnapshot {
   dragStart?: PositionData

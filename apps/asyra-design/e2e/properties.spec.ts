@@ -6,6 +6,7 @@ import {
   createVectorPath,
   clickCanvas,
   getPropertiesPanel,
+  getTransactionSnapshot,
   getContentsPanel,
   undo,
   redo
@@ -141,18 +142,6 @@ test.describe('Property Management', () => {
       },
       { strokePatch, strokeIndex }
     )
-
-  const getTransactionSnapshot = async (page: Page) =>
-    page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const core = (window as any).__Core__
-      const transact = core?.deps?.factory?.transact
-      const undoStack = transact?.undoStack ?? []
-      return {
-        undoCount: undoStack.length,
-        isTransacting: transact?.isTransacting ?? 0
-      }
-    })
 
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
@@ -355,6 +344,21 @@ test.describe('Property Management', () => {
       propertiesPanel.getByTestId('prop-stroke-color-picker-1')
     ).toBeVisible()
 
+    for (const control of [
+      'position',
+      'join',
+      'cap',
+      'miter',
+      'width',
+      'style',
+      'dash',
+      'gap'
+    ]) {
+      await expect(
+        propertiesPanel.getByTestId(`prop-stroke-${control}-0`)
+      ).toBeHidden()
+    }
+
     await propertiesPanel.getByTestId('prop-stroke-remove-0').click()
     await page.waitForTimeout(120)
     expect(await getSelectedStrokeCount(page)).toBe(1)
@@ -430,6 +434,11 @@ test.describe('Property Management', () => {
   test('should edit dashed stroke through Dash and Gap fields', async ({
     page
   }) => {
+    test.skip(
+      true,
+      'Stroke geometry controls stay hidden until stroke implementation is complete.'
+    )
+
     await createRectangle(page, 0.3, 0.3)
 
     const propertiesPanel = getPropertiesPanel(page)
@@ -486,6 +495,11 @@ test.describe('Property Management', () => {
   test('should edit every basic stroke geometry parameter with one-step undo and redo', async ({
     page
   }) => {
+    test.skip(
+      true,
+      'Stroke geometry controls stay hidden until stroke implementation is complete.'
+    )
+
     await createRectangle(page, 0.3, 0.3)
 
     const propertiesPanel = getPropertiesPanel(page)

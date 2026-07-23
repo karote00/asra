@@ -10,7 +10,8 @@ import {
   KeyboardKey,
   arrEqual,
   PointerEventData,
-  DefaultPointerEventData
+  DefaultPointerEventData,
+  measureBrowserDragPhase
 } from '@asyra/utils'
 import { InputFieldsList } from '@asyra/utils'
 import { PointerKey } from '@asyra/utils'
@@ -24,27 +25,6 @@ type Combinations = Record<string, string[]>
 
 const WHEEL_EVENT_OPTIONS: AddEventListenerOptions = { passive: false }
 const POINTER_KEYS = new Set<string>(Object.values(PointerKey))
-
-const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
-  const sink = (
-    globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (
-        phaseName: string,
-        durationMs: number
-      ) => void
-    }
-  ).__asyraBrowserDragPhaseSink
-  if (!sink) {
-    return run()
-  }
-
-  const start = performance.now()
-  try {
-    return run()
-  } finally {
-    sink(phaseName, performance.now() - start)
-  }
-}
 
 const getMouseButton = (button: number): MouseButton => {
   switch (button) {

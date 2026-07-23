@@ -8,6 +8,7 @@ import type {
   GroupRawData,
   ElementInstanceTypes,
   GroupInstanceTypes,
+  LoadDiagnostic,
   SceneTreeChange,
   UpdateElementBatchChange,
   UpdateElementChange,
@@ -21,7 +22,8 @@ import {
   EntityTypes,
   SCENE_TREE_ACTIONS,
   SharedDataChannelNames,
-  isRecord
+  isRecord,
+  setOwnEnumerableValue
 } from '@asyra/utils'
 import {
   acknowledgeTransactionReplayApplied,
@@ -36,7 +38,7 @@ import {
   createWorkspace,
   isGroupEntity,
   stripNonRawFields
-} from './utils'
+} from './entity-data'
 import type Workspace from './components/workspace'
 
 type SceneTreeDataType = SceneTreeRawData
@@ -69,19 +71,6 @@ const hasOwnRecordValue = (
   value: Record<string, unknown>,
   key: string
 ): boolean => Object.prototype.hasOwnProperty.call(value, key)
-
-const setOwnEnumerableValue = (
-  value: object,
-  key: string,
-  nextValue: unknown
-): void => {
-  Object.defineProperty(value, key, {
-    configurable: true,
-    enumerable: true,
-    value: nextValue,
-    writable: true
-  })
-}
 
 const getComputedSnapshot = (
   element: ElementInstanceTypes
@@ -147,10 +136,7 @@ const validateComputedDataPatch = (
   validateComputedDataRecordPatches(patch, computedSnapshot)
 }
 
-export interface SceneTreeLoadDiagnostic {
-  path: string
-  message: string
-}
+export type SceneTreeLoadDiagnostic = LoadDiagnostic
 
 export interface SceneTreeLoadValidationResult {
   data: SceneTreeRawData
@@ -605,8 +591,8 @@ class SceneTree {
       )
 
       acknowledgeTransactionReplayApplied()
-      this.commitSceneTreeTransaction(options)
       propsManager.commitChanges(options)
+      this.commitSceneTreeTransaction(options)
 
       return newElement.get('id')
     }

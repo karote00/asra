@@ -57,6 +57,14 @@ Use this file to quickly map a user request to app docs and source owners.
   - `modules/controllers-and-state.md`
   - `ARCHITECTURE.md`
 
+- collaboration, CRDT, or reference WebSocket composition
+  - `modules/collaboration-reference.md`
+  - `API_SURFACES.md`
+  - `ARCHITECTURE.md`
+  - `docs/ai/framework/packages/collaboration.md`
+  - `docs/ai/framework/PLANS.md` when an active collaboration plan or Inspector
+    is involved
+
 - stale pre-release app flow, legacy product branch, or legacy render/property behavior
   - `docs/ai/framework/rules/pre-release-legacy-removal.md`
   - affected `features/*`, `modules/*`, or `rules/*`

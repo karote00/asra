@@ -7,7 +7,7 @@ import {
   acquireFrameworkEvents,
   acquireSelectionProjection,
   registerTrackedRenderLayer
-} from '../helpers'
+} from '../installation'
 
 export const installSelectionDefault = (
   context: PresetDefaultInstallContext

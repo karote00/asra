@@ -273,6 +273,7 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/utils/src/types/load-diagnostic.ts',
         'packages/props-manager/src/manager/props-manager.ts',
         'packages/props-manager/src/__tests__/**',
         'docs/ai/framework/packages/props-manager.md'
@@ -311,6 +312,7 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/utils/src/types/load-diagnostic.ts',
         'packages/scene-tree/src/**',
         'packages/scene-tree/src/__tests__/**',
         'docs/ai/framework/packages/scene-tree.md'
@@ -351,6 +353,7 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/utils/src/types/load-diagnostic.ts',
         'packages/system-context/src/states/managed-property-state.ts',
         'packages/system-context/src/apis/managed-property-state.ts',
         'packages/system-context/src/types/managed-property-state.ts',
@@ -992,7 +995,7 @@
       {
         id: 'flow-inspector-contract',
         label: 'Flow Inspector Contract',
-        href: './flow-inspector-dashboard-plan.md',
+        href: '../FLOW_INSPECTOR.md',
         kind: 'framework'
       }
     ],

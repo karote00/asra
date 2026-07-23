@@ -1,4 +1,10 @@
 {
+  "globalEnv": [
+    "ASYRA_DESIGN_APP_URL",
+    "ASYRA_DESIGN_COLLABORATION_WS_HOST",
+    "ASYRA_DESIGN_COLLABORATION_WS_PORT",
+    "VITE_ASYRA_DESIGN_COLLABORATION_WS_URL"
+  ],
   "tasks": {
     "watch:design-system": {
       "cache": false,
@@ -27,194 +33,209 @@
     "test": {},
     "test:local": {},
     "test:ci": {},
-    "react:build": {
+    "@asyra/asyra-design#react:build": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
-        "^build:core",
-        "^build:design-system",
-        "^build:feature-system",
-        "^build:preset",
-        "^build:reactive-events",
-        "^build:render",
-        "^build:ui-context",
-        "^build:utils"
+        "@asyra/collaboration#build:collaboration",
+        "@asyra/core#build:core",
+        "@asyra/design-system#build:design-system",
+        "@asyra/factory#build:factory",
+        "@asyra/feature-system#build:feature-system",
+        "@asyra/input-system#build:input-system",
+        "@asyra/preset#build:preset",
+        "@asyra/reactive-events#build:reactive-events",
+        "@asyra/render#build:render",
+        "@asyra/ui-context#build:ui-context",
+        "@asyra/utils#build:utils"
       ]
     },
-    "build:core": {
+    "@asyra/collaboration#build:collaboration": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
-        "^build:factory",
-        "^build:feature-system",
-        "^build:input-system",
-        "^build:persistence",
-        "^build:props-manager",
-        "^build:reactive-events",
-        "^build:render",
-        "^build:scene-tree",
-        "^build:selection",
-        "^build:system-context",
-        "^build:ui-context",
-        "^build:utils"
+        "@asyra/factory#build:factory"
       ]
     },
-    "build:design-system": {
+    "@asyra/core#build:core": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
-        "^build:utils"
+        "@asyra/factory#build:factory",
+        "@asyra/feature-system#build:feature-system",
+        "@asyra/input-system#build:input-system",
+        "@asyra/persistence#build:persistence",
+        "@asyra/props-manager#build:props-manager",
+        "@asyra/reactive-events#build:reactive-events",
+        "@asyra/render#build:render",
+        "@asyra/render-engine#build:render-engine",
+        "@asyra/scene-tree#build:scene-tree",
+        "@asyra/selection#build:selection",
+        "@asyra/system-context#build:system-context",
+        "@asyra/ui-context#build:ui-context",
+        "@asyra/utils#build:utils"
       ]
     },
-    "build:factory": {
+    "@asyra/design-system#build:design-system": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
-        "^build:reactive-events",
-        "^build:utils"
+        "@asyra/utils#build:utils"
       ]
     },
-    "build:feature-system": {
+    "@asyra/factory#build:factory": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
-        "^build:reactive-events",
-        "^build:utils"
+        "@asyra/reactive-events#build:reactive-events",
+        "@asyra/utils#build:utils"
       ]
     },
-    "build:input-system": {
+    "@asyra/feature-system#build:feature-system": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
-        "^build:reactive-events",
-        "^build:utils"
+        "@asyra/reactive-events#build:reactive-events",
+        "@asyra/utils#build:utils"
       ]
     },
-    "build:persistence": {
+    "@asyra/input-system#build:input-system": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
-        "^build:utils"
+        "@asyra/reactive-events#build:reactive-events",
+        "@asyra/utils#build:utils"
       ]
     },
-    "build:preset": {
+    "@asyra/persistence#build:persistence": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
-        "^build:core",
-        "^build:render-engine",
-        "^build:render-engine-pixi",
-        "^build:utils"
+        "@asyra/utils#build:utils"
       ]
     },
-    "build:props-manager": {
+    "@asyra/preset#build:preset": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
-        "^build:reactive-events",
-        "^build:utils"
+        "@asyra/core#build:core",
+        "@asyra/render-engine#build:render-engine",
+        "@asyra/render-engine-pixi#build:render-engine-pixi",
+        "@asyra/ui-context#build:ui-context",
+        "@asyra/utils#build:utils",
+        "@asyra/reactive-events#build:reactive-events",
+        "@asyra/render#build:render"
       ]
     },
-    "build:reactive-events": {
+    "@asyra/props-manager#build:props-manager": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
-        "^build:persistence",
-        "^build:utils"
+        "@asyra/reactive-events#build:reactive-events",
+        "@asyra/utils#build:utils"
       ]
     },
-    "build:render": {
+    "@asyra/reactive-events#build:reactive-events": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
-        "^build:factory",
-        "^build:reactive-events",
-        "^build:render-engine",
-        "^build:scene-tree",
-        "^build:selection",
-        "^build:system-context",
-        "^build:utils"
+        "@asyra/persistence#build:persistence",
+        "@asyra/utils#build:utils"
       ]
     },
-    "build:render-engine": {
+    "@asyra/render#build:render": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "@asyra/factory#build:factory",
+        "@asyra/reactive-events#build:reactive-events",
+        "@asyra/render-engine#build:render-engine",
+        "@asyra/scene-tree#build:scene-tree",
+        "@asyra/selection#build:selection",
+        "@asyra/utils#build:utils"
+      ]
+    },
+    "@asyra/render-engine#build:render-engine": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": []
     },
-    "build:render-engine-pixi": {
+    "@asyra/render-engine-pixi#build:render-engine-pixi": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
-        "^build:render-engine"
+        "@asyra/render-engine#build:render-engine"
       ]
     },
-    "build:scene-tree": {
+    "@asyra/scene-tree#build:scene-tree": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
-        "^build:props-manager",
-        "^build:reactive-events",
-        "^build:utils"
+        "@asyra/props-manager#build:props-manager",
+        "@asyra/reactive-events#build:reactive-events",
+        "@asyra/utils#build:utils"
       ]
     },
-    "build:selection": {
+    "@asyra/selection#build:selection": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
-        "^build:utils"
+        "@asyra/utils#build:utils"
       ]
     },
-    "build:system-context": {
+    "@asyra/system-context#build:system-context": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
-        "^build:utils"
+        "@asyra/utils#build:utils"
       ]
     },
-    "build:ui-context": {
+    "@asyra/ui-context#build:ui-context": {
       "cache": false,
       "outputs": [
         "dist/**"
       ],
       "dependsOn": [
-        "^build:scene-tree",
-        "^build:selection",
-        "^build:utils"
+        "@asyra/scene-tree#build:scene-tree",
+        "@asyra/selection#build:selection",
+        "@asyra/utils#build:utils"
       ]
     },
-    "build:utils": {
+    "@asyra/utils#build:utils": {
       "cache": false,
       "outputs": [
         "dist/**"

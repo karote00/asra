@@ -6,6 +6,12 @@ Provide selectable official framework defaults and preset-owned render-engine
 profile policy before Core startup. Preset does not own app policy or runtime
 readiness.
 
+Preset also owns official vector-editing presentation defaults shared by the
+installed editing layer and an app using that preset: vector point and segment
+selection-id encoding, plus synthetic handle derivation for missing control
+points. These helpers do not create canonical vector data or move editing
+policy into Utils.
+
 ## Public Contract
 
 ```ts
@@ -57,6 +63,13 @@ subscription prerequisites are private and never appear as selectable ids.
 `PresetCatalog` is deeply frozen. Profile entries expose `id`, `available`, and
 `presetEngineId`; default entries expose `id`, `available`, and `requires`.
 Catalog engine ids are diagnostics, not dynamic-import paths.
+
+Official managed-property names have one public typed owner:
+`PresetSystemPropertyKeys`. The viewport, input, selection, and vector-editing
+group exports retain responsibility boundaries; `PRESET_SYSTEM_PROPERTY_KEYS`
+is derived from the flattened object for cleanup and lifecycle iteration. Apps
+that install these Preset defaults reuse the exported keys rather than declaring
+parallel string constants. App-only properties remain app-owned.
 
 ## Composition Order
 

@@ -2,6 +2,14 @@
 
 ## Entry Points
 
+- `.env`
+- `app-environment.mjs`
+- `vite.config.ts`
+- `playwright.config.ts`
+- `playwright.collaboration.config.ts`
+- `collaboration-server.ts`
+- `tsconfig.collaboration-server.json`
+- `vite.collaboration-server.config.ts`
 - `src/index.tsx`
 - `src/init/index.ts`
 - `src/init/init-app.ts`
@@ -15,6 +23,15 @@
 - `src/init/derived-state/init-selection-compatibility.ts`
 - `src/render-app/index.tsx`
 - `src/contexts/data-change.tsx`
+
+## Configuration Ownership
+
+- `app-environment.mjs` parses and validates `ASYRA_DESIGN_APP_URL` for Vite,
+  Playwright, and reference-server Origin validation. The visual-review
+  workflow consumes the same canonical input instead of defining another app
+  URL authority.
+- The WebSocket server host/port and browser-visible WebSocket URL remain
+  separate service configuration; RenderApp does not own them.
 
 ## Startup Order (Current)
 
@@ -39,13 +56,32 @@
 
 3. RenderApp effect
 
-- `core.setPersistence(providers.localStorage)`
+- app-selected localStorage persistence is passed to
+  `core.setPersistence(...)` before Core startup, so refresh loads the app's
+  demo database instead of an empty in-memory document
+- ordinary URLs use `FILE`; a collaboration URL uses
+  `FILE:<encoded fileId>`, and an absent snapshot for that file is initialized
+  with the canonical empty workspace while an existing snapshot is preserved
+  unchanged
+- a non-empty `fileId`, including in a deployed production build, additionally
+  supplies collaboration document and room identity while a full UUID actor
+  identity is generated per page and applied to the canonical ID-counter
+  namespace
+- the collaboration lifecycle module subscribes to Factory shared publications after
+  ordinary Core/Render startup; immediate publications may occur during an
+  outer pointer transaction, while transaction-end publications wait for
+  commit
 - `core.start(container, options)` uses the Core-owned default `RenderAdapter`;
   the app does not call `setRenderer()`
 - if renderer/engine initialization rejects, Core stops before observers,
   persistence load, features, and render-ready publication
-- effect cleanup calls `core.destroyRenderer()`; teardown does not reopen
-  composition
+- effect cleanup calls `core.destroyRenderer()` and the app-owned collaboration
+  disposer; teardown is idempotent, does not reopen composition, and an
+  unmount/aborted startup cannot later activate collaboration
+- collaboration disposal detaches publication and Awareness observers, clears
+  timers/store state, and destroys only owned collaboration resources
+- setup failure disposes the partially composed instance; no failed setup
+  remains attached to the app
 
 4. DataContexts effects
 

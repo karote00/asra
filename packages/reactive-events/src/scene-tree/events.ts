@@ -7,7 +7,8 @@ import type {
   ElementRawData,
   GroupInstanceTypes,
   SceneTreeDataOwner,
-  SceneTreeRawData
+  SceneTreeRawData,
+  UpdateElementBatchChange
 } from '@asyra/utils'
 import { EventTypes } from '../types'
 
@@ -57,6 +58,14 @@ export interface UpdateComputedDataEvent {
   }
 }
 
+export interface UpdateComputedDataBatchEvent {
+  type: EventTypes
+  payload: Pick<
+    UpdateElementBatchChange,
+    'action' | 'eventName' | 'id' | 'changes'
+  >
+}
+
 export interface UpdateComputedDataPatchEvent {
   type: EventTypes
   payload: {
@@ -100,6 +109,7 @@ export type SceneTreeEvents =
   | AddElementEvent
   | RemoveElementEvent
   | UpdateComputedDataEvent
+  | UpdateComputedDataBatchEvent
   | UpdateComputedDataPatchEvent
   | ChangeComputedDataEvent
   | ChangeComputedDataBatchEvent

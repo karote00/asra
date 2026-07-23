@@ -47,11 +47,13 @@ Own the document entity graph and computed entity data.
   target snapshot once, and prevalidates all targets before mutating the first;
   one invalid target rejects the full request without applying a canonical
   prefix, while each valid target applies once.
-- Standalone transaction replay consumes the carried `raw|computed` owner and
-  never infers it from the key or current data. `raw` routes through Element;
-  `computed` routes through Computed and its property bridge even when a raw
-  field has the same name. Missing or invalid owner provenance is rejected
-  before mutation. Both valid routes acknowledge semantic apply synchronously.
+- Standalone scalar and ordered-batch replay consume the carried
+  `raw|computed` owner and never infer it from the key or current data. A batch
+  remains one state-owner event: Scene Tree validates every entry, applies the
+  entries in order, and commits once. `raw` routes through Element; `computed`
+  routes through Computed and its property bridge even when a raw field has the
+  same name. Missing or invalid owner provenance is rejected before mutation.
+  Both valid routes acknowledge semantic apply synchronously.
   Patch replay materializes top-level keys and record ids as own enumerable data
   properties, including legal special names such as `__proto__`.
 - During add/remove, initialization plus parent/children/computed setter changes

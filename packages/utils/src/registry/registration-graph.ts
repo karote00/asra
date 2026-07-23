@@ -1,3 +1,5 @@
+import type { RegistrationOwnerMetadata } from './registration-owner'
+
 export const REGISTRATION_CONTRACT_ERROR_CODES = [
   'COMPOSITION_CLOSED',
   'REGISTRATION_NOT_FOUND',
@@ -18,10 +20,8 @@ export interface RegistrationRef {
   key: string
 }
 
-export interface RegistrationOwnerMetadata {
-  packageName: string
-  name: string
-}
+export const getRegistrationRefKey = (ref: RegistrationRef): string =>
+  `${ref.kind}\u0000${ref.key}`
 
 export type RegistrationRelationUnregisterPolicy =
   | 'detach'
@@ -153,13 +153,13 @@ interface PendingUnregister {
   removedOwnedRegistrations: string[]
 }
 
-const refKey = (ref: RegistrationRef): string => `${ref.kind}\u0000${ref.key}`
+const refKey = getRegistrationRefKey
 
 const compareRefs = (left: RegistrationRef, right: RegistrationRef): number =>
-  refKey(left).localeCompare(refKey(right))
+  getRegistrationRefKey(left).localeCompare(getRegistrationRefKey(right))
 
 const relationKey = (relation: RegistrationRelationMetadata): string =>
-  `${refKey(relation.source)}\u0000${relation.name}`
+  `${getRegistrationRefKey(relation.source)}\u0000${relation.name}`
 
 const compareRelations = (
   left: RegistrationRelationMetadata,
@@ -188,7 +188,7 @@ const cloneRelation = (
   onTargetUnregister: relation.onTargetUnregister
 })
 
-const relationFailure = (
+export const failRegistrationRelation = (
   code: RegistrationContractErrorCode,
   operation: RegistrationGraphOperation,
   message: string,
@@ -205,6 +205,8 @@ const relationFailure = (
     ...details
   })
 }
+
+const relationFailure = failRegistrationRelation
 
 export class RegistrationGraph {
   private readonly nodesByRef = new Map<string, NodeRecord>()
@@ -770,7 +772,7 @@ export class RegistrationGraph {
   private getPendingCleanup(
     pending: PendingUnregister | undefined
   ): string[] | undefined {
-    if (!pending) return undefined
+    if (!pending) return
     const keys: string[] = []
     for (const item of [...pending.queue].reverse()) {
       const node = this.nodesByRef.get(refKey(item))

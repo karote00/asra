@@ -16,14 +16,18 @@ import {
   GroupInstanceTypes,
   PositionAttrs,
   PositionComponentRawData,
+  PROPS_ACTIONS,
   PropertyTypes,
   SCENE_TREE_ACTIONS,
   SceneTreeChange,
   SharedDataChannelNames,
   Unit,
   resetIdCounter,
+  type AddRemoveElementChange,
+  type AddRemovePropertyChange,
   type ComputedAttrs,
-  type ElementRawData
+  type ElementRawData,
+  type PropsChange
 } from '@asyra/utils'
 import sceneTreeSingleton, { SceneTree } from '../sceneTree'
 import Element from '../components/element'
@@ -38,6 +42,7 @@ import {
   subscribeToEvents,
   wasTransactionReplayApplied,
   type AddElementEvent,
+  type UpdateComputedDataBatchEvent,
   type UpdateComputedDataEvent,
   type UpdateComputedDataPatchEvent,
   type UpdateTransactionEvent
@@ -575,6 +580,53 @@ describe('SceneTree', () => {
     subscription.unsubscribe()
   })
 
+  it('publishes referenced property adds before the element add', () => {
+    sceneTreeSingleton.init()
+    const events: UpdateTransactionEvent[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (event.type === EventTypes.UPDATE_TRANSACTION) {
+        events.push(event as UpdateTransactionEvent)
+      }
+    })
+
+    events.length = 0
+    sceneTreeSingleton.addNewElement({
+      id: 'property-order-owner',
+      type: 'rect',
+      x: 10,
+      y: 20
+    })
+
+    const changes = events.map(
+      (event) => event.payload as SceneTreeChange | PropsChange
+    )
+    const elementAddIndex = changes.findIndex(
+      (change) => change.action === SCENE_TREE_ACTIONS.ADD_ELEMENT
+    )
+    const elementAdd = changes[elementAddIndex] as AddRemoveElementChange
+    const referencedPropertyIds = Object.values(
+      elementAdd.data.props ?? {}
+    ).filter(
+      (propertyId): propertyId is string => typeof propertyId === 'string'
+    )
+    const propertyAddIndexById = new Map<string, number>()
+
+    changes.forEach((change, index) => {
+      if (change.action !== PROPS_ACTIONS.ADD_PROPERTY) return
+      ;(change as AddRemovePropertyChange).data.forEach((property) => {
+        propertyAddIndexById.set(property.id, index)
+      })
+    })
+
+    expect(elementAddIndex).toBeGreaterThan(-1)
+    expect(referencedPropertyIds.length).toBeGreaterThan(0)
+    referencedPropertyIds.forEach((propertyId) => {
+      expect(propertyAddIndexById.get(propertyId)).toBeLessThan(elementAddIndex)
+    })
+
+    subscription.unsubscribe()
+  })
+
   // Test delete map functionality
   it('should add an element to the deleted map', () => {
     const element = {
@@ -846,6 +898,41 @@ describe('SceneTree', () => {
 
     expect(element.get('visible')).toBe(true)
     expect(computedData.visible).toBe(false)
+  })
+
+  it('applies an ordered computed-data batch as one state-owner event', () => {
+    sceneTreeSingleton.init()
+    sceneTreeSingleton.addNewElement({
+      id: 'computed-batch-owner',
+      type: 'rect',
+      x: 0,
+      y: 0
+    })
+    const element = sceneTreeSingleton.getElementById('computed-batch-owner')
+    expect(element).toBeDefined()
+    if (!element) {
+      throw new Error('Expected computed-batch-owner element')
+    }
+
+    const applied = runInTransactionReplayMode('redo', () =>
+      publishEvent({
+        type: EventTypes.UPDATE_COMPUTED_DATA,
+        payload: {
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+          eventName: EventTypes.UPDATE_COMPUTED_DATA,
+          id: 'computed-batch-owner',
+          changes: [
+            { owner: 'computed', key: 'x', before: 0, after: 10 },
+            { owner: 'computed', key: 'y', before: 0, after: 20 },
+            { owner: 'computed', key: 'x', before: 10, after: 5 }
+          ]
+        }
+      } as UpdateComputedDataBatchEvent)
+    )
+
+    expect(applied).toBe(true)
+    expect(element.computed.get('x')).toBe(5)
+    expect(element.computed.get('y')).toBe(20)
   })
 
   it('preserves a special own record id during computed patch replay', () => {

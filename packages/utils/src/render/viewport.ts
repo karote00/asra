@@ -20,6 +20,25 @@ export interface ViewportState {
   position: PositionData
 }
 
+export const projectWorkspacePointToViewport = (
+  point: PositionData,
+  viewportPosition: PositionData,
+  viewportScale: number
+): PositionData => ({
+  x: point.x * viewportScale + viewportPosition.x,
+  y: point.y * viewportScale + viewportPosition.y
+})
+
+export const rectFromPoints = (
+  start: PositionData,
+  current: PositionData
+): Rect => ({
+  x: Math.min(start.x, current.x),
+  y: Math.min(start.y, current.y),
+  width: Math.abs(current.x - start.x),
+  height: Math.abs(current.y - start.y)
+})
+
 export const rectToBounds = (rect: Rect): Bounds => {
   return {
     minX: rect.x,

@@ -11,6 +11,11 @@ const baseConfigPath = path.join(workspaceRoot, 'turbo.base.json')
 
 const ignorePackages = ['create-app/*']
 
+const getBuildTask = (packageName) => {
+  const repoName = packageName.split('/').pop()
+  return repoName === 'asyra-design' ? 'react:build' : `build:${repoName}`
+}
+
 // Scan all packages in the monorepo workspaces
 function getWorkspacePackages() {
   const rootPkgJson = JSON.parse(
@@ -32,37 +37,40 @@ function getWorkspacePackages() {
 
       const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'))
 
-      // Only keep internal monorepo dependencies
-      const dependencies = Object.keys({
-        ...pkgJson.dependencies,
-        ...pkgJson.devDependencies
-      }).filter((dep) => dep.startsWith('@asyra/'))
-
       pkgs.push({
         name: pkgJson.name,
         dir: path.relative(workspaceRoot, pkgDir),
-        dependencies
+        scripts: pkgJson.scripts ?? {},
+        dependencies: Object.keys({
+          ...pkgJson.dependencies,
+          ...pkgJson.devDependencies
+        }).filter((dep) => dep.startsWith('@asyra/'))
       })
     }
   }
-  return pkgs
+  return pkgs.sort((left, right) => left.name.localeCompare(right.name))
 }
 
 // Generate build task config for each package based on its dependencies
 function generateTurboJson(packages) {
   const tasks = {}
+  const packagesByName = new Map(packages.map((pkg) => [pkg.name, pkg]))
 
   for (const pkg of packages) {
-    const repoName = pkg.name.split('/').pop()
-    const buildCmd =
-      repoName === 'asyra-design' ? 'react:build' : `build:${repoName}`
+    const buildCmd = getBuildTask(pkg.name)
+    if (!pkg.scripts[buildCmd]) {
+      throw new Error(`${pkg.name} must declare the canonical ${buildCmd} task`)
+    }
 
-    tasks[buildCmd] = {
+    tasks[`${pkg.name}#${buildCmd}`] = {
       cache: false,
       outputs: ['dist/**'],
       dependsOn: pkg.dependencies.map((dep) => {
-        const depName = dep.split('/').pop()
-        return `^build:${depName}`
+        const dependency = packagesByName.get(dep)
+        if (!dependency) {
+          throw new Error(`${pkg.name} references unknown workspace ${dep}`)
+        }
+        return `${dep}#${getBuildTask(dep)}`
       })
     }
   }
@@ -80,10 +88,28 @@ function generateTurboJson(packages) {
     }
   }
 
-  fs.writeFileSync(turboJsonPath, JSON.stringify(turboConfig, null, 2))
-  console.log('✅ turbo.json has been generated')
+  return turboConfig
 }
 
-// Main entry
+const args = process.argv.slice(2)
+if (args.length !== 1 || !['--write', '--check'].includes(args[0])) {
+  console.error('Usage: node scripts/gen-turbo.js --write|--check')
+  process.exit(1)
+}
+
 const packages = getWorkspacePackages()
-generateTurboJson(packages)
+const generated = `${JSON.stringify(generateTurboJson(packages), null, 2)}\n`
+
+if (args[0] === '--write') {
+  fs.writeFileSync(turboJsonPath, generated)
+  console.log('turbo.json generated')
+} else {
+  const current = fs.existsSync(turboJsonPath)
+    ? fs.readFileSync(turboJsonPath, 'utf8')
+    : ''
+  if (current !== generated) {
+    console.error('turbo.json is stale; run yarn gen:turbo and commit it')
+    process.exit(1)
+  }
+  console.log('turbo.json is synchronized')
+}

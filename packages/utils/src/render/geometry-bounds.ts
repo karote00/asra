@@ -1,18 +1,12 @@
-export interface GeometryBounds {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+import {
+  transformGeometryPoint,
+  type GeometryTransformMatrix
+} from './geometry'
+import type { Rect } from './viewport'
 
-export interface GeometryTransformMatrix {
-  a: number
-  b: number
-  c: number
-  d: number
-  tx: number
-  ty: number
-}
+export type { GeometryTransformMatrix } from './geometry'
+
+export type GeometryBounds = Rect
 
 export interface GeometryBoundsCarrier {
   __asyraGeometryLocalBounds?: GeometryBounds | null
@@ -34,14 +28,6 @@ const cloneBounds = (bounds: GeometryBounds): GeometryBounds => ({
   y: bounds.y,
   width: bounds.width,
   height: bounds.height
-})
-
-const transformPoint = (
-  matrix: GeometryTransformMatrix,
-  point: { x: number; y: number }
-) => ({
-  x: matrix.a * point.x + matrix.c * point.y + matrix.tx,
-  y: matrix.b * point.x + matrix.d * point.y + matrix.ty
 })
 
 export const setElementGeometryLocalBounds = (
@@ -92,7 +78,7 @@ export const getElementGeometryWorldBounds = (
             toGlobal.call(element, point, undefined, false)
         : worldTransform
           ? (point: { x: number; y: number }) =>
-              transformPoint(worldTransform, point)
+              transformGeometryPoint(worldTransform, point)
           : null
 
     if (projectPoint) {

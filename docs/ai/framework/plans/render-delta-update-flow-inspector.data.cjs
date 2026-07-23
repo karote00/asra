@@ -65,7 +65,8 @@
       allowedContributors: [
         '@asyra/scene-tree element and computed components',
         '@asyra/props-manager committed projection',
-        '@asyra/reactive-events transaction request'
+        '@asyra/reactive-events transaction request',
+        '@asyra/utils own-property primitive'
       ],
       forbiddenContributors: [
         '@asyra/render snapshot state',
@@ -75,6 +76,7 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/utils/src/helpers/own-property.ts',
         'packages/utils/src/types/scene-tree.ts',
         'docs/ai/framework/packages/utils.md',
         'packages/reactive-events/src/scene-tree/events.ts',
@@ -123,7 +125,8 @@
       allowedContributors: [
         '@asyra/factory transaction journal',
         'registered Scene Tree Yjs shared channel',
-        'shared-channel observer registry'
+        'shared-channel observer registry',
+        '@asyra/utils own-property primitive'
       ],
       forbiddenContributors: [
         'canonical element snapshots',
@@ -133,6 +136,7 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/utils/src/helpers/own-property.ts',
         'packages/factory/src/data-transact.ts',
         'packages/factory/src/shared-data-channel.ts',
         'packages/factory/src/__tests__/**',
@@ -503,6 +507,7 @@
         'Render issues only existing @asyra/render-engine commands and opaque handles.',
         'The frame handoff preserves command ordering and uses the normal layer/update/flush route.',
         'Local hierarchy parent and sibling-order bookkeeping commits only after the corresponding engine append and set-child-index handoff succeeds; a failed handoff retains the pre-command local state so the same complete snapshot can retry it.',
+        'A diagnostic sink failure is isolated and cannot change the product result.',
         'The dense-vector fixture meets count, total, p95, max, and combined p95 budgets.'
       ],
       bypasses: [
@@ -512,7 +517,7 @@
       allowedContributors: [
         '@asyra/render runtime and engine-neutral command buffer',
         '@asyra/render-engine public contract',
-        'formal profiling sink'
+        'formal diagnostic counter sink'
       ],
       forbiddenContributors: [
         '@asyra/render-engine-pixi changes',
@@ -522,6 +527,8 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'packages/utils/src/helpers/diagnostic-counter.ts',
+        'packages/utils/src/helpers/__tests__/diagnostic-counter.test.ts',
         'packages/render/src/render.ts',
         'packages/render/src/types/render-object.ts',
         'packages/render/src/__tests__/**',
@@ -1061,7 +1068,7 @@
       {
         id: 'flow-inspector-contract',
         label: 'Flow Inspector Contract',
-        href: './flow-inspector-dashboard-plan.md',
+        href: '../FLOW_INSPECTOR.md',
         kind: 'framework'
       }
     ],

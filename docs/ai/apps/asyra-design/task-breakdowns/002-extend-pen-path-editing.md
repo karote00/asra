@@ -10,7 +10,7 @@ Add/adjust one path-editing behavior (state transition, point behavior, or exit 
 - update `features/pen-tool.md` contract first
 
 2. feature change
-- update relevant handlers in `src/features/pen-tool/index.ts`
+- update relevant handlers in `src/features/pen-tool/feature.ts`
 
 3. state model
 - update `common-apis/system-context.ts` helpers if needed

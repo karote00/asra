@@ -1,18 +1,62 @@
 import { IDTypes } from './enum'
-import { DEFAULT_TYPE, FIRST_ID, CODE_SPLIT } from './constants'
+import { FIRST_ID, CODE_SPLIT } from './constants'
 import { isNumber } from '../helpers'
 
 class IDCounter {
   counter: Record<string, string> = {}
+  private prefixes: Record<string, string> = {}
+  private namespace: string | undefined
 
   constructor() {
     this.init()
   }
 
   init() {
+    this.namespace = undefined
+    this.prefixes = {}
     Object.values(IDTypes).forEach((type: string) => {
-      this.counter[type] =
-        type === IDTypes.DEFAULT ? FIRST_ID : `${type}${CODE_SPLIT}${FIRST_ID}`
+      this.prefixes[type] = type
+      this.counter[type] = this.initialId(type, type)
+    })
+  }
+
+  private scopedPrefix(prefix: string, type: string): string {
+    if (type === IDTypes.DEFAULT || !this.namespace) return prefix
+    return `${prefix}${CODE_SPLIT}${this.namespace}`
+  }
+
+  private initialId(type: string, prefix: string): string {
+    if (type === IDTypes.DEFAULT) return FIRST_ID
+    return `${this.scopedPrefix(prefix, type)}${CODE_SPLIT}${FIRST_ID}`
+  }
+
+  private splitId(
+    value: string
+  ): { prefix: string; count: number } | undefined {
+    const separatorIndex = value.lastIndexOf(CODE_SPLIT)
+    if (separatorIndex < 0) {
+      const count = Number(value)
+      return Number.isSafeInteger(count) && count >= 0
+        ? { prefix: '', count }
+        : undefined
+    }
+    const countText = value.slice(separatorIndex + CODE_SPLIT.length)
+    if (!countText) return
+    const count = Number(countText)
+    if (!Number.isSafeInteger(count) || count < 0) return
+    return { prefix: value.slice(0, separatorIndex), count }
+  }
+
+  setNamespace(namespace?: string): void {
+    const trimmed = namespace?.trim()
+    this.namespace = trimmed ? encodeURIComponent(trimmed) : undefined
+    Object.entries(this.counter).forEach(([type, currentId]) => {
+      if (type === IDTypes.DEFAULT) return
+      const current = this.splitId(currentId)
+      const prefix = this.prefixes[type] ?? type
+      this.counter[type] = `${this.scopedPrefix(prefix, type)}${CODE_SPLIT}${
+        current?.count ?? Number(FIRST_ID)
+      }`
     })
   }
 
@@ -27,8 +71,8 @@ class IDCounter {
   load(id: string, type: string) {
     // Initialize if not exists
     if (!this.counter[type]) {
-      this.counter[type] =
-        type === DEFAULT_TYPE ? FIRST_ID : `${type}${CODE_SPLIT}${FIRST_ID}`
+      this.prefixes[type] = type
+      this.counter[type] = this.initialId(type, type)
     }
 
     const currentId = this.current(type)
@@ -36,13 +80,11 @@ class IDCounter {
       return ''
     }
 
-    const currentSplits = currentId.split(CODE_SPLIT)
-    const currentCount = parseInt(currentSplits[currentSplits.length - 1])
+    const current = this.splitId(currentId)
+    const incoming = this.splitId(id)
+    if (!current || !incoming || current.prefix !== incoming.prefix) return
 
-    const newSplits = id.split(CODE_SPLIT)
-    const newCount = parseInt(newSplits[newSplits.length - 1])
-
-    if (newCount > currentCount) {
+    if (incoming.count > current.count) {
       this.update(type, id)
     }
   }
@@ -62,8 +104,8 @@ class IDCounter {
 
     // Initialize if not exists
     if (!this.counter[type]) {
-      this.counter[type] =
-        type === DEFAULT_TYPE ? FIRST_ID : `${type}${CODE_SPLIT}${FIRST_ID}`
+      this.prefixes[type] = type
+      this.counter[type] = this.initialId(type, type)
     }
 
     const currentId = this.counter[type]
@@ -71,11 +113,10 @@ class IDCounter {
       return ''
     }
 
-    const splits = currentId.split(CODE_SPLIT)
-    const count = parseInt(splits[splits.length - 1])
-    const next = count + 1
-
-    const prefix = splits.slice(0, -1).join(CODE_SPLIT)
+    const current = this.splitId(currentId)
+    if (!current) return ''
+    const next = current.count + 1
+    const prefix = current.prefix
     const newId =
       prefix === '' ? next.toString() : `${prefix}${CODE_SPLIT}${next}`
     this.update(type, newId)
@@ -92,16 +133,20 @@ class IDCounter {
       return isNumber(id)
     }
 
-    const currentId = this.counter[type]
-    const expectedPrefix = currentId ? currentId.split(CODE_SPLIT)[0] : type
-
-    const splits = id.split(CODE_SPLIT)
-    if (splits.length !== 2) return false
-    if (splits[0] === expectedPrefix) {
-      return isNumber(splits[1])
+    const parsed = this.splitId(id)
+    if (!parsed || !Number.isInteger(parsed.count) || parsed.count < 0) {
+      return false
     }
-
-    return false
+    const expectedPrefix = this.prefixes[type] ?? type
+    const scopedSuffix = parsed.prefix.slice(
+      expectedPrefix.length + CODE_SPLIT.length
+    )
+    return (
+      parsed.prefix === expectedPrefix ||
+      (parsed.prefix.startsWith(`${expectedPrefix}${CODE_SPLIT}`) &&
+        scopedSuffix.length > 0 &&
+        scopedSuffix.split(CODE_SPLIT).every(Boolean))
+    )
   }
 
   /**
@@ -136,7 +181,10 @@ class IDCounter {
     }
 
     const prefixId = `${idPrefix}${CODE_SPLIT}${initialValue}`
-    this.counter[type] = prefixId
+    this.prefixes[type] = idPrefix
+    this.counter[type] = this.namespace
+      ? `${this.scopedPrefix(idPrefix, type)}${CODE_SPLIT}${initialValue}`
+      : prefixId
   }
 
   hasType(type: string): boolean {
@@ -154,6 +202,8 @@ class IDCounter {
 
     const { [type]: _removed, ...nextCounter } = this.counter
     this.counter = nextCounter
+    const { [type]: _removedPrefix, ...nextPrefixes } = this.prefixes
+    this.prefixes = nextPrefixes
     return true
   }
 

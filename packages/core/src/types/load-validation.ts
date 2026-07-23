@@ -1,4 +1,4 @@
-import type { CoreRawData } from '@asyra/utils'
+import type { CoreRawData, LoadDiagnostic } from '@asyra/utils'
 
 export type LoadValidationScope =
   | 'core'
@@ -6,10 +6,8 @@ export type LoadValidationScope =
   | 'scene-tree'
   | 'system-context'
 
-export interface LoadValidationDiagnostic {
+export interface LoadValidationDiagnostic extends LoadDiagnostic {
   scope: LoadValidationScope
-  path: string
-  message: string
 }
 
 /**

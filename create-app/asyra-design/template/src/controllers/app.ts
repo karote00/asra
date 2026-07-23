@@ -1,23 +1,9 @@
+import { getFeature } from '@asyra/core'
 import { app, setPixiApp } from '../states/app'
-import { CANVAS_BACKGROUND_COLOR } from '../constants'
+import { FeatureNames, PrimaryToolType } from '../constants'
 import core from '../contexts'
-
-export const initRenderApp = async (
-  container: HTMLDivElement,
-  width: number,
-  height: number
-) => {
-  const newApp = await core.initRender(width, height, CANVAS_BACKGROUND_COLOR)
-
-  if (newApp && newApp.canvas && !container.children.length) {
-    container.appendChild(newApp.canvas)
-    setPixiApp(newApp)
-
-    return newApp.canvas
-  }
-
-  return null
-}
+import { getDocumentStorageKey } from '../document-persistence'
+import { getPublicFileId } from '../render-app/collaboration-mode'
 
 export const destroyRenderApp = () => {
   const renderApp = app.value
@@ -41,10 +27,19 @@ export const renderIsReady = () => {
 }
 
 export const resetData = () => {
-  localStorage.setItem('FILE', JSON.stringify({}))
+  localStorage.removeItem(getDocumentStorageKey(getPublicFileId()))
   location.reload()
 }
 
 export const switchPrimaryTool = (primaryTool: PrimaryToolType) => {
-  core.switchPrimaryTool(primaryTool)
+  try {
+    const featureAPI = getFeature(FeatureNames.SWITCH_PRIMARY_TOOL)
+
+    if (featureAPI?.switch) {
+      const switchFn = featureAPI.switch as (tool: string) => void
+      switchFn(primaryTool)
+    }
+  } catch (error) {
+    console.error('[app.controller.switchPrimaryTool] Error:', error)
+  }
 }

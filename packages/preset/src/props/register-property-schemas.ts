@@ -1,4 +1,8 @@
-import { VECTOR_HANDLE_MODES, VECTOR_TOKENS } from '@asyra/core'
+import {
+  VECTOR_HANDLE_MODES,
+  VECTOR_TOKENS,
+  isVectorHandleMode
+} from '@asyra/core'
 import {
   AnchorPointTypes,
   FillColorFormats,
@@ -11,24 +15,25 @@ import {
   StrokeStyles,
   createDefaultFill,
   createDefaultStroke,
+  isFiniteNumber,
   Unit
 } from '@asyra/utils'
 import type { PresetCoreAPIs } from '../types'
 import { PRESET_REGISTRATION } from '../registration'
 
 const isUnit = (value: unknown) => value === Unit.PX || value === Unit.PERCENT
-const isFiniteNumber = (value: unknown) =>
-  typeof value === 'number' && Number.isFinite(value)
 const isStringArray = (value: unknown) =>
   Array.isArray(value) && value.every((item) => typeof item === 'string')
-const isVectorHandleMode = (value: unknown) =>
-  value === VECTOR_HANDLE_MODES.NONE ||
-  value === VECTOR_HANDLE_MODES.MIRROR_ANGLE ||
-  value === VECTOR_HANDLE_MODES.MIRROR_ANGLE_LENGTH
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 const isOpacity = (value: unknown) =>
   isFiniteNumber(value) && (value as number) >= 0 && (value as number) <= 1
+const isNullableFinitePoint = (value: unknown) =>
+  value === null ||
+  (typeof value === 'object' &&
+    value !== null &&
+    Number.isFinite((value as { x?: unknown }).x) &&
+    Number.isFinite((value as { y?: unknown }).y))
 
 const COLOR_FORMAT_SET = new Set(Object.values(FillColorFormats))
 const isFillColorFormat = (value: unknown) =>
@@ -346,23 +351,13 @@ const anchorPointSchema: PropertySchema = {
     {
       key: 'inHandle',
       kind: 'object',
-      validate: (value) =>
-        value === null ||
-        (typeof value === 'object' &&
-          value !== null &&
-          Number.isFinite((value as { x?: unknown }).x) &&
-          Number.isFinite((value as { y?: unknown }).y)),
+      validate: isNullableFinitePoint,
       defaultValue: null
     },
     {
       key: 'outHandle',
       kind: 'object',
-      validate: (value) =>
-        value === null ||
-        (typeof value === 'object' &&
-          value !== null &&
-          Number.isFinite((value as { x?: unknown }).x) &&
-          Number.isFinite((value as { y?: unknown }).y)),
+      validate: isNullableFinitePoint,
       defaultValue: null
     }
   ]

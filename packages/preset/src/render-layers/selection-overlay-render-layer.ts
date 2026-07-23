@@ -2,43 +2,37 @@ import {
   VECTOR_TOKENS,
   createOverlayLayerRegistration,
   renderSelectionStore,
+  sortVectorItemsById,
   type OverlayCanvas
 } from '@asyra/core'
 import type {
-  RegisterRenderLayerOptions,
-  RenderLayerRegistration,
+  RegisterRenderLayer,
   VectorNetwork,
   VectorPointNode,
   VectorSegment
 } from '@asyra/core'
-import { getElementGeometryWorldBounds, type PositionData } from '@asyra/utils'
+import {
+  getElementGeometryWorldBounds,
+  projectWorkspacePointToViewport,
+  transformGeometryPoint,
+  type GeometryTransformMatrix,
+  type PositionData,
+  type Rect
+} from '@asyra/utils'
 import { SelectionChannels } from '../selection/channels'
 import type { PresetDependencies } from '../types'
+import { PresetSystemPropertyKeys } from '../system-property-keys'
 
 const SELECTION_OVERLAY_LAYER_NAME = 'selection-overlay-layer'
 const SELECTION_STROKE_COLOR = 0x157ae7
 export const SELECTION_OVERLAY_STROKE_WIDTH = 2
 export const SELECTION_OVERLAY_VECTOR_HOVER_STROKE_WIDTH = 2
 
-interface LocalBounds {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
-interface TransformMatrix {
-  a: number
-  b: number
-  c: number
-  d: number
-  tx: number
-  ty: number
-}
+type LocalBounds = Rect
 
 interface RenderElementShape {
   getBounds: () => LocalBounds
-  worldTransform: TransformMatrix
+  worldTransform: GeometryTransformMatrix
 }
 
 interface ElementSelectionReader {
@@ -55,11 +49,6 @@ interface VectorComputedData {
   segments?: Record<string, VectorSegment>
   networks?: Record<string, VectorNetwork>
 }
-
-type RegisterRenderLayer = (
-  registration: RenderLayerRegistration,
-  options?: RegisterRenderLayerOptions
-) => void
 
 interface SelectionOverlayRenderLayerDeps
   extends Pick<PresetDependencies, 'render' | 'sceneTree' | 'systemContext'> {
@@ -79,42 +68,12 @@ const getElementSelectionIds = (deps: SelectionOverlayRenderLayerDeps) => {
     : [...renderSelectionStore.elementSelection]
 }
 
-const getNumericSuffix = (value: string) => {
-  const match = value.match(/[-_](\d+)$/)
-  if (!match) {
-    return Number.NaN
-  }
-
-  return Number.parseInt(match[1], 10)
-}
-
-const sortByStableId = <T extends { id: string }>(items: T[]): T[] =>
-  [...items].sort((a, b) => {
-    const aRank = getNumericSuffix(a.id)
-    const bRank = getNumericSuffix(b.id)
-    if (!Number.isNaN(aRank) && !Number.isNaN(bRank)) {
-      return aRank - bRank
-    }
-
-    return a.id.localeCompare(b.id)
-  })
-
-const transformPoint = (
-  matrix: TransformMatrix,
-  point: PositionData
-): PositionData => ({
-  x: matrix.a * point.x + matrix.c * point.y + matrix.tx,
-  y: matrix.b * point.x + matrix.d * point.y + matrix.ty
-})
-
 export const projectWorkspacePointToOverlayScreen = (
   point: PositionData,
   viewportPosition: PositionData,
   viewportScale: number
-): PositionData => ({
-  x: point.x * viewportScale + viewportPosition.x,
-  y: point.y * viewportScale + viewportPosition.y
-})
+): PositionData =>
+  projectWorkspacePointToViewport(point, viewportPosition, viewportScale)
 
 const getBoundsCorners = (
   element: RenderElementShape
@@ -181,14 +140,14 @@ const getElementType = (
 
 const drawRectGeometryOutline = (
   canvas: OverlayCanvas,
-  matrix: TransformMatrix,
+  matrix: GeometryTransformMatrix,
   width: number,
   height: number
 ) => {
-  const p0 = transformPoint(matrix, { x: 0, y: 0 })
-  const p1 = transformPoint(matrix, { x: width, y: 0 })
-  const p2 = transformPoint(matrix, { x: width, y: height })
-  const p3 = transformPoint(matrix, { x: 0, y: height })
+  const p0 = transformGeometryPoint(matrix, { x: 0, y: 0 })
+  const p1 = transformGeometryPoint(matrix, { x: width, y: 0 })
+  const p2 = transformGeometryPoint(matrix, { x: width, y: height })
+  const p3 = transformGeometryPoint(matrix, { x: 0, y: height })
 
   drawOutline(
     canvas,
@@ -200,7 +159,7 @@ const drawRectGeometryOutline = (
 
 const drawOvalGeometryOutline = (
   canvas: OverlayCanvas,
-  matrix: TransformMatrix,
+  matrix: GeometryTransformMatrix,
   width: number,
   height: number
 ) => {
@@ -218,7 +177,7 @@ const drawOvalGeometryOutline = (
       x: center.x + Math.cos(t) * radiusX,
       y: center.y + Math.sin(t) * radiusY
     }
-    const worldPoint = transformPoint(matrix, localPoint)
+    const worldPoint = transformGeometryPoint(matrix, localPoint)
 
     if (!firstPoint) {
       firstPoint = worldPoint
@@ -268,7 +227,7 @@ const drawVectorHoverOutline = (
     return false
   }
 
-  const orderedNetworks = sortByStableId(Object.values(networks))
+  const orderedNetworks = sortVectorItemsById(Object.values(networks))
   if (orderedNetworks.length === 0) {
     return false
   }
@@ -547,14 +506,14 @@ export const registerSelectionOverlayRenderLayer = (
     update: (canvas: OverlayCanvas) => {
       const pathEditingVectorId =
         deps.systemContext.getManagedProperty<string | null>(
-          'pathEditingVectorId'
+          PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID
         ) ?? null
 
       const selectedIds = getElementSelectionIds(deps)
       const selectedElementId = selectedIds.length === 1 ? selectedIds[0] : null
       const hoveredElementId =
         deps.systemContext.getManagedProperty<string | null>(
-          'hoveredElementId'
+          PresetSystemPropertyKeys.HOVERED_ELEMENT_ID
         ) ?? null
       const drawSignatureParts = [
         pathEditingVectorId ?? '',

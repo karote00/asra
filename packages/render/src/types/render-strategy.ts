@@ -31,6 +31,7 @@ export interface RenderStrategyGraphic {
     width: number,
     height: number
   ): RenderStrategyGraphic
+  stroke(style: unknown): RenderStrategyGraphic
   hitArea?: unknown
   renderable: boolean
   visible: boolean

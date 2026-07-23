@@ -11,10 +11,15 @@
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
     "build:persistence": "tsc",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "vitest",
+    "test:local": "vitest run",
+    "test:ci": "vitest run --coverage --reporter=default --reporter=junit"
   },
   "devDependencies": {
-    "typescript": "^5.7.2"
+    "@vitest/coverage-v8": "^2.1.8",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   },
   "dependencies": {
     "@asyra/utils": "workspace:*"

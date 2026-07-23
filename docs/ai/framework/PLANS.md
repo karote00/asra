@@ -11,19 +11,6 @@ release. A release gate may begin implementation only after its product contract
 and matching Inspector owner flow satisfy
 `docs/ai/framework/rules/inspector-contract-readiness.md`.
 
-2. Yjs network collaboration and conflict-policy foundation
-
-- Ship optional-at-runtime, provider-replaceable CRDT collaboration as part of
-  the framework release: instance/provider ownership, room/auth boundary,
-  remote canonical apply, origin/dedupe, awareness, persistence interfaces,
-  reconnect/convergence, local-only undo, and deterministic framework conflict
-  handling.
-- Apps that do not need collaboration remain free to omit provider/runtime
-  activation.
-- References:
-  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
-  - `docs/ai/framework/plans/collaborative-conflict-policies-plan.md`
-
 3. Group component and hierarchy behaviors
 
 - Complete canonical Scene Tree group, ungroup, reparent/reorder, subtree,

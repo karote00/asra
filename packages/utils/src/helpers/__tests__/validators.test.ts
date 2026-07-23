@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isNumber, arrEqual } from '../validators'
+import { isNumber, isFiniteNumber, arrEqual } from '../validators'
 
 describe('Validators - Input Validation for Design Tools', () => {
   describe('isNumber', () => {
@@ -52,6 +52,16 @@ describe('Validators - Input Validation for Design Tools', () => {
       expect(arrEqual([1], [])).toBe(false) // Different lengths
       expect(arrEqual([null], [null])).toBe(true) // Null values
       expect(arrEqual([undefined], [undefined])).toBe(true) // Undefined values
+    })
+  })
+
+  describe('isFiniteNumber', () => {
+    it('accepts only finite number values', () => {
+      expect(isFiniteNumber(0)).toBe(true)
+      expect(isFiniteNumber(-1.25)).toBe(true)
+      expect(isFiniteNumber(Number.NaN)).toBe(false)
+      expect(isFiniteNumber(Number.POSITIVE_INFINITY)).toBe(false)
+      expect(isFiniteNumber('1')).toBe(false)
     })
   })
 })

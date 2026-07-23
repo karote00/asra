@@ -1,6 +1,8 @@
 import type { Subscription } from 'rxjs'
 import type { PositionData } from '@asyra/utils'
 import type { PresetCoreAPIs, PresetDependencies } from '../types'
+import { createCleanupReporter } from '../cleanup-reporter'
+import { PresetSystemPropertyKeys } from '../system-property-keys'
 
 export const registerDefaultRenderSystemSubscriptions = (
   core: PresetCoreAPIs,
@@ -9,7 +11,6 @@ export const registerDefaultRenderSystemSubscriptions = (
 ): (() => void) => {
   const subscriptions: Subscription[] = []
   let disposed = false
-  let cleanupReported = false
   const dispose = (): void => {
     if (disposed) return
     for (let index = subscriptions.length - 1; index >= 0; index--) {
@@ -18,14 +19,12 @@ export const registerDefaultRenderSystemSubscriptions = (
     }
     disposed = true
   }
-  const reportCleanupReady = (): void => {
-    if (cleanupReported || !onCleanupReady) return
-    onCleanupReady(dispose)
-    cleanupReported = true
-  }
-  const zoomObservable = core.getSystemPropertyObservable<number>('zoom')
+  const cleanupReporter = createCleanupReporter(onCleanupReady, dispose)
+  const zoomObservable = core.getSystemPropertyObservable<number>(
+    PresetSystemPropertyKeys.ZOOM
+  )
   const viewportPositionObservable = core.defineSystemProperty<PositionData>(
-    'viewportPosition',
+    PresetSystemPropertyKeys.VIEWPORT_POSITION,
     { x: 0, y: 0 }
   )
 
@@ -38,7 +37,7 @@ export const registerDefaultRenderSystemSubscriptions = (
           }
         })
       )
-      reportCleanupReady()
+      cleanupReporter.report()
     }
 
     subscriptions.push(
@@ -48,9 +47,9 @@ export const registerDefaultRenderSystemSubscriptions = (
         }
       })
     )
-    reportCleanupReady()
+    cleanupReporter.report()
   } catch (error) {
-    if (!cleanupReported) dispose()
+    if (!cleanupReporter.hasReported()) dispose()
     throw error
   }
 

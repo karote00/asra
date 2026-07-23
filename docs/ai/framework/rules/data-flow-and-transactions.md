@@ -31,15 +31,29 @@
   success commits and thrown/rejected work rolls back automatically.
 - Use manual `startTransaction()` / `endTransaction(...)` boundaries only when
   an interaction intentionally spans multiple input events.
-- Session updates may use non-undoable interim writes, but the final committed state must be grouped deliberately.
+- Session updates that are part of the intended user action may remain undoable;
+  the outer session boundary still groups them into one undo commit. A feature
+  may use non-undoable interim writes only when those writes are genuinely not
+  part of the action history.
 - `undoable: false` excludes a mutation from ordinary undo history but does not
   exclude it from failure rollback.
 - `rollbackable: false` opts out of failure rollback, but an event that remains
   undoable still requires an inverse contract. A documented intentionally
   irreversible commit-safe effect must set both `rollbackable: false` and
   `undoable: false`.
-- A shared change that must be visible before the outer transaction ends may opt into `sharedDelivery: 'immediate'`; an undoable immediate change remains part of the current undo commit and must not be published again at transaction end.
-- `sharedDelivery` defaults to `'transaction-end'` independently from `undoable`. Callers must opt in per change rather than making shared changes live globally.
+- A shared change that must complete the shared pipeline before the outer
+  transaction ends opts into `sharedDelivery: 'immediate'`. An undoable
+  immediate change remains part of the current undo commit and is not
+  published again at transaction end.
+- `sharedDelivery` defaults to `'transaction-end'` independently from
+  `undoable`. It selects complete shared-pipeline timing: local shared-channel
+  delivery plus optional collaboration publication.
+- One synchronous immediate delivery action emits at most one ordered shared
+  publication, even when it changes multiple elements or state owners. One
+  outer pointer session may therefore emit mouse-down, drag-update, and
+  conditional mouse-up publications while still producing one undo commit.
+- Factory preserves every app-authored semantic change in order. It does not
+  collapse or deduplicate sequences such as A -> B -> C -> B.
 - State-owner batching must preserve effective `rollbackable`, `shared`, and
   `sharedDelivery` semantics and partition changes whose options differ.
 - Cross-store mutations must be coordinated through API boundaries that preserve scene-tree, props-manager, selection, and render consistency.
@@ -63,6 +77,9 @@
   at its committed status, so later nested state mutation or active preview
   cannot alter it.
   `committed` and `persisted` are separate statuses.
+- Transaction status payloads retain the transaction id and counts captured for
+  their own outcome even when publication/completion observers commit another
+  action reentrantly.
 - Nested rollback marks the complete outer transaction rollback-only; unmatched
   end/rollback calls at depth zero are no-ops.
 - Nested undo/redo validates and records an inverse restoration plan per replay
@@ -124,14 +141,21 @@
   undo/history or normal completion effect, and propagates the delivery error
   after restoration. Any already-delivered prefix from that flush is
   compensated once in reverse order.
-- An immediate local shared projection is compensated exactly once by its
-  inverse during rollback.
-- Observer exceptions do not redefine an already-applied local Yjs append as
-  undelivered; delivery accounting still permits exactly one compensation.
-- The current guarantee ends at registered local shared channels. Yjs network
-  providers, room/auth lifecycle, awareness/presence, remote origin and
-  deduplication, reconnect/convergence, and collaborative conflict policy remain
-  deferred to `../plans/yjs-network-collaboration-plan.md`.
+- An immediate shared change discarded before its publication microtask emits
+  no network operation. If rollback occurs after publication, Factory emits
+  one ordered reverse compensation publication linked to the forward
+  deliveries.
+- Optional collaboration consumes each Factory shared publication. One
+  synchronous immediate delivery action or transaction-end batch becomes one
+  transport publication and at most one Provider send; already-published
+  immediate entries are not replayed at the outer transaction end.
+- Observer exceptions do not redefine an already-delivered local publication
+  as undelivered; delivery accounting still permits exactly one compensation.
+- The Factory guarantee ends at registered local shared channels and the
+  shared-publication boundary. Optional Provider transport, room/auth,
+  awareness/presence, remote apply, recovery, and collaborative conflict policy
+  follow the ownership boundaries in
+  `../plans/completed/network-collaboration-transport-plan.md`.
 
 See `../plans/completed/transaction-atomicity-and-rollback-plan.md` for the
 product cases and `../plans/transaction-flow-inspector.data.cjs` for the

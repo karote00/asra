@@ -12,6 +12,15 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
   const propNameToType = new Map<string, string>()
   const aliasToProperty = new Map<string, string>()
 
+  const createProperty = (prop: PropertyDefinition, id?: string) =>
+    propsManager.createProperty({
+      ...(id ? { id } : {}),
+      type: prop.type,
+      ...(prop.defaultValue === undefined
+        ? {}
+        : { [prop.name]: prop.defaultValue })
+    })
+
   properties.forEach((prop) => {
     propNameToType.set(prop.name, prop.type)
 
@@ -44,7 +53,7 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
     init() {
       // Create property components for each property and store by name
       properties.forEach((prop) => {
-        const component = propsManager.createProperty({ type: prop.type })
+        const component = createProperty(prop)
         propsManager.addToMap(component)
         this[prop.name] = component.get('id')
       })
@@ -62,7 +71,7 @@ export function createDynamicPropsClass(properties: PropertyDefinition[]) {
           this[prop.name] = propId
           propsManager.addToMap(propComponent)
         } else {
-          const component = propsManager.createProperty({ type: prop.type })
+          const component = createProperty(prop, propId)
           propsManager.addToMap(component)
           this[prop.name] = component.get('id')
         }

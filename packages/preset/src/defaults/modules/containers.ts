@@ -8,7 +8,7 @@ import {
   acquireFrameworkEvents,
   acquireRenderSceneProjection,
   installComponentsAndStrategies
-} from '../helpers'
+} from '../installation'
 
 export const installContainersDefault = (
   context: PresetDefaultInstallContext

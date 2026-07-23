@@ -713,7 +713,7 @@
       {
         id: 'flow-inspector-contract',
         label: 'Flow Inspector Contract',
-        href: '../../../../framework/plans/flow-inspector-dashboard-plan.md',
+        href: '../../../../framework/FLOW_INSPECTOR.md',
         kind: 'framework'
       }
     ],

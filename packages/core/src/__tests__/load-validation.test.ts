@@ -13,7 +13,7 @@ import type {
   VersionedLoadDocument
 } from '@asyra/persistence'
 import { subscribeToFileLoadComplete } from '@asyra/reactive-events'
-import type { CoreRawData } from '@asyra/utils'
+import type { CoreRawData, LoadDiagnostic } from '@asyra/utils'
 import { Core } from '../core'
 import {
   LOAD_HOOK_EXECUTION_ERROR_CODES,
@@ -21,18 +21,13 @@ import {
 } from '../types/load-migration'
 
 const createCoreForTest = () => {
-  interface PackageDiagnostic {
-    path: string
-    message: string
-  }
-
   const props = {
     save: vi.fn(() => ({})),
     load: vi.fn(),
     applyValidatedLoad: vi.fn(),
     validateLoadData: vi.fn(() => ({
       data: {},
-      diagnostics: [] as PackageDiagnostic[]
+      diagnostics: [] as LoadDiagnostic[]
     }))
   }
 
@@ -43,17 +38,17 @@ const createCoreForTest = () => {
     getAllElements: vi.fn(() => new Map()),
     validateLoadData: vi.fn(() => ({
       data: { workspace: 'ws-1', workspaceList: ['ws-1'], elements: {} },
-      diagnostics: [] as PackageDiagnostic[]
+      diagnostics: [] as LoadDiagnostic[]
     }))
   }
 
   const systemContext = {
     validateManagedProperties: vi.fn(() => ({
       data: {} as Record<string, unknown>,
-      diagnostics: [] as PackageDiagnostic[]
+      diagnostics: [] as LoadDiagnostic[]
     })),
     applyValidatedManagedProperties: vi.fn(),
-    loadManagedProperties: vi.fn(() => [] as PackageDiagnostic[]),
+    loadManagedProperties: vi.fn(() => [] as LoadDiagnostic[]),
     saveManagedProperties: vi.fn(() => ({}))
   }
 

@@ -3,6 +3,7 @@ import type {
   CanvasPipelineEvidence
 } from '../diagnostics/canvas-pipeline'
 import type { RenderLayerRegistration } from '../types/render-layer'
+import type { Rect } from '@asyra/utils'
 
 export type CanvasPipelineTraceEntry = CanvasPipelineEvidence & {
   readonly sequence: number
@@ -14,12 +15,7 @@ export interface CanvasPipelinePointSnapshot {
 }
 
 export interface CanvasPipelineFocusedProjection {
-  readonly localBounds: Readonly<{
-    x: number
-    y: number
-    width: number
-    height: number
-  }>
+  readonly localBounds: Readonly<Rect>
   readonly canvasCorners: readonly CanvasPipelinePointSnapshot[]
   readonly workspaceCorners: readonly CanvasPipelinePointSnapshot[]
 }

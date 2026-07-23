@@ -70,6 +70,33 @@ class InitialComponent extends BasePropertyComponent<PropertyComponentInstanceDa
   }
 }
 
+class ChildComponent extends BasePropertyComponent<PropertyComponentInstanceDataTypes> {
+  data = {
+    id: '',
+    type: CHILD_TYPE,
+    value: 0
+  } as PropertyComponentInstanceDataTypes
+
+  constructor(data: Partial<PropertyComponentRawData>) {
+    super()
+    this.load(data as PropertyComponentRawData)
+  }
+
+  load(data: PropertyComponentRawData): void {
+    this.data.id = typeof data.id === 'string' ? data.id : this.data.id
+    this._init(data as Partial<PropertyComponentInstanceDataTypes>)
+  }
+
+  getValue(): Record<string, DataTypes> {
+    const data = this.data as unknown as Record<string, DataTypes>
+    return { value: data.value }
+  }
+
+  getUnit(): Record<string, Unit> {
+    return {}
+  }
+}
+
 const schema: PropertySchema = {
   type: TYPE,
   fields: [
@@ -520,6 +547,35 @@ describe('declarative property type definition owner', () => {
     mutableCommitted.fields[0].defaultValue = { nested: [100] }
 
     expect(getDeclarativePropertyTypeDefinition(TYPE)).toEqual(nextDefinition())
+  })
+
+  it('journals a nested child add before the parent stores its reference', () => {
+    registerDeclarativeType()
+    registerPropertyComponent(CHILD_TYPE, ChildComponent)
+    commitDeclarativePropertyTypeDefinition(TYPE, nextDefinition())
+    const manager = new PropsManager()
+    const parent = manager.createProperty({
+      id: 'parent-property',
+      type: TYPE
+    })
+    manager.addProperty([parent])
+    manager.cleanChanges()
+
+    parent.set(
+      'children' as never,
+      [{ id: 'child-property', value: 7 }] as never
+    )
+
+    expect(manager.getPropertyById('child-property')?.save()).toEqual({
+      id: 'child-property',
+      type: CHILD_TYPE
+    })
+    expect(manager.changes).toEqual([
+      expect.objectContaining({
+        action: 'addProperty',
+        data: [expect.objectContaining({ id: 'child-property' })]
+      })
+    ])
   })
 
   it('treats validator exceptions as invalid runtime and load values', () => {

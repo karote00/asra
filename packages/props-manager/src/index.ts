@@ -5,6 +5,7 @@ import stateRegistry from './registries/state'
 import {
   propertyComponentRegistry,
   registerPropertyComponent,
+  clonePropertyComponentConfigRegistration,
   getPropertyComponent,
   getPropertyComponentConfigDefinition,
   unregisterPropertyComponent
@@ -24,6 +25,7 @@ export {
   stateRegistry,
   propertyComponentRegistry,
   registerPropertyComponent,
+  clonePropertyComponentConfigRegistration,
   getPropertyComponent,
   getPropertyComponentConfigDefinition,
   unregisterPropertyComponent,
@@ -38,13 +40,16 @@ export {
   getPropertySchema,
   unregisterPropertySchema
 } from './registries/property-schema'
-export type { RegisterPropertySchemaOptions } from './registries/property-schema'
-export type { RegisterPropertyComponentOptions } from './registries/property-component'
+export type { PropertyRegistrationOptions } from './registries/registration-options'
 export type {
   PropertyChildRelationDefinition,
   PropertyComponentConfigRegistration
 } from './registries/property-component'
 export type { PropertyComponentAccessor }
+export {
+  clonePropertyDefinitionRecord,
+  clonePropertyDefinitionValue
+} from './registries/property-definition-value'
 export {
   PROPERTY_REGISTRATION_ERROR_CODES,
   PROPERTY_REGISTRATION_SCOPES,

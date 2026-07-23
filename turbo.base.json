@@ -1,4 +1,10 @@
 {
+  "globalEnv": [
+    "ASYRA_DESIGN_APP_URL",
+    "ASYRA_DESIGN_COLLABORATION_WS_HOST",
+    "ASYRA_DESIGN_COLLABORATION_WS_PORT",
+    "VITE_ASYRA_DESIGN_COLLABORATION_WS_URL"
+  ],
   "tasks": {
     "watch:design-system": {
       "cache": false,

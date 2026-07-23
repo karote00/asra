@@ -5,7 +5,12 @@ import {
   type RenderEngineProvider,
   type RenderEngineObjectHandle
 } from '@asyra/render-engine'
-import { DataTypes, MouseData } from '@asyra/utils'
+import {
+  DataTypes,
+  MouseData,
+  emitDiagnosticCounter,
+  measureBrowserDragPhase
+} from '@asyra/utils'
 import type { RenderPointerPositions } from '@asyra/utils'
 import { RenderElementData, RenderContainerData } from './types'
 import { ViewportLayer } from './layers/viewport'
@@ -39,27 +44,6 @@ import {
   InvalidRenderEngineProviderResultError,
   MissingRenderEngineProviderError
 } from './errors'
-
-const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
-  const sink = (
-    globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (
-        phaseName: string,
-        durationMs: number
-      ) => void
-    }
-  ).__asyraBrowserDragPhaseSink
-  if (!sink) {
-    return run()
-  }
-
-  const start = performance.now()
-  try {
-    return run()
-  } finally {
-    sink(phaseName, performance.now() - start)
-  }
-}
 
 const isPointerSurface = (value: unknown): value is HTMLCanvasElement =>
   typeof value === 'object' &&
@@ -213,22 +197,8 @@ class Render {
     this.renderFrameId += 1
     this.currentFrameHandoffCount = 0
     this.publishFrameEvidence('start')
-    ;(
-      globalThis as typeof globalThis & {
-        __asyraStrokePipelineCounterSink?: (
-          counterName: string,
-          value: number
-        ) => void
-      }
-    ).__asyraStrokePipelineCounterSink?.('render-frame-count', 1)
-    ;(
-      globalThis as typeof globalThis & {
-        __asyraStrokePipelineCounterSink?: (
-          counterName: string,
-          value: number
-        ) => void
-      }
-    ).__asyraStrokePipelineCounterSink?.('render-frame-id', this.renderFrameId)
+    emitDiagnosticCounter('render-frame-count')
+    emitDiagnosticCounter('render-frame-id', this.renderFrameId)
     try {
       measureBrowserDragPhase('render:flush-frame', () => {
         const layersChanged = this.updateLayers()

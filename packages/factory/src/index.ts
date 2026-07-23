@@ -13,8 +13,8 @@ export const getSharedDataChannelStrict = (name: SharedDataChannelName) =>
 export const getSharedDataChannel = (name: SharedDataChannelName) =>
   factory.getSharedDataChannel(name)
 
-export const getYjsDataChannel = (name: SharedDataChannelName) =>
-  factory.getYjsDataChannel(name)
+export const createLocalSharedDataChannel = () =>
+  factory.createLocalSharedDataChannel()
 
 export const registerSharedDataChannel = (
   name: SharedDataChannelName,
@@ -46,7 +46,16 @@ export const subscribeToTransactionStatus = (
   subscriber: Parameters<Factory['subscribeToTransactionStatus']>[0]
 ) => factory.subscribeToTransactionStatus(subscriber)
 
+export const subscribeToSharedDelivery = (
+  subscriber: Parameters<Factory['subscribeToSharedDelivery']>[0]
+) => factory.subscribeToSharedDelivery(subscriber)
+
+export const subscribeToSharedPublication = (
+  subscriber: Parameters<Factory['subscribeToSharedPublication']>[0]
+) => factory.subscribeToSharedPublication(subscriber)
+
 export default factory
 export { Factory }
 export * from './shared-data-channel'
+export * from './shared-delivery'
 export * from './transaction'

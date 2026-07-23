@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RecordingRenderEngine } from '@asyra/render-engine/testing'
 import { FillKinds, createDefaultFill } from '@asyra/utils'
-import { createEvenOddFillStyle } from '../fills/even-odd-fill'
+import {
+  createEvenOddFillStyle,
+  isPointInsidePreparedEvenOddShape,
+  prepareEvenOddShape
+} from '../fills/even-odd-fill'
 import { createRenderGradientFillStyle } from '../fills/gradient-fill'
 import { RenderGraphics, RenderObjectRuntime } from '../types/render-object'
 
@@ -131,5 +135,39 @@ describe('render fill resources', () => {
     result?.dispose()
     expect(engine.getOwnedResourceCount()).toBe(0)
     expect(engine.getOperations().at(-1)?.type).toBe('destroy-resource')
+  })
+
+  it('prepares one even-odd geometry contract for raster and hit consumers', () => {
+    const prepared = prepareEvenOddShape({
+      paths: [
+        {
+          segments: [
+            { type: 'line', points: [0, 0, 10, 0] },
+            { type: 'line', points: [10, 0, 10, 10] },
+            { type: 'line', points: [10, 10, 0, 10] },
+            { type: 'line', points: [0, 10, 0, 0] }
+          ]
+        },
+        {
+          segments: [
+            { type: 'line', points: [3, 3, 7, 3] },
+            { type: 'line', points: [7, 3, 7, 7] },
+            { type: 'line', points: [7, 7, 3, 7] },
+            { type: 'line', points: [3, 7, 3, 3] },
+            { type: 'line', points: [1, 2, 3] }
+          ]
+        }
+      ]
+    })
+
+    expect(isPointInsidePreparedEvenOddShape({ x: 1, y: 1 }, prepared)).toBe(
+      true
+    )
+    expect(isPointInsidePreparedEvenOddShape({ x: 5, y: 5 }, prepared)).toBe(
+      false
+    )
+    expect(isPointInsidePreparedEvenOddShape({ x: 11, y: 5 }, prepared)).toBe(
+      false
+    )
   })
 })

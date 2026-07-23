@@ -2,7 +2,7 @@
 
 ## Source
 
-- `src/features/move-elements/index.ts`
+- `src/features/move-elements/feature.ts`
 
 ## Trigger
 
@@ -29,13 +29,19 @@
 - ignores micro movement below `FEATURE_MOVEMENT_THRESHOLD.moveElement`
 - computes workspace delta from drag start to current pointer
 - applies per-element `x/y` position updates for selected elements with
-  `undoable: false` and explicit `sharedDelivery: 'immediate'` so the active
-  preview reaches projection observers without closing the outer transaction
+  explicit `sharedDelivery: 'immediate'`; all selected-element changes produced
+  by one synchronous update are one ordered canonical publication without
+  closing the outer transaction
 
 3. End
 
 - if movement occurred, finalizes one intended undoable move commit
-- keeps final drag position on canvas while restoring undo/redo reversibility
+- does not replay positions that already match the latest applied drag update;
+  if pointer-up contains a newer final position, applies all final positions
+  once with `sharedDelivery: 'immediate'`
+- keeps final drag position on canvas while preserving one-session undo/redo
+- if a drag crossed the movement threshold but returns exactly to its initial
+  positions, the return update remains a real canonical delivery action
 - if no movement occurred after starting inside selection bounds, selects the
   hovered element on mouse up (or clears selection if nothing is hovered)
 
@@ -51,6 +57,10 @@
 
 - drag-to-move is intentionally separated from selection feature ownership
 - selection feature continues to own click/select/deselect and shift-toggle behavior
-- `onEnd` converts the current transient preview into one undoable final move;
-  `onCancel` performs no canonical write, and Factory reverses failure-path
-  preview writes including those marked `undoable: false`
+- all applied drag updates remain in one outer undo entry; `onEnd` only fills a
+  missing final pointer update and does not restore/replay state
+- canonical element position never travels through Awareness; one synchronous
+  multi-element update becomes one publication, one Yjs update, and one
+  provider send
+- `onCancel` performs no canonical write, and Factory reverses failure-path
+  mutations

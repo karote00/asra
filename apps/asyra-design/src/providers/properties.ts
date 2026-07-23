@@ -3,8 +3,12 @@ import {
   type FillRowAttrs,
   type StrokeRowAttrs
 } from '@asyra/utils'
+import { PresetSystemPropertyKeys } from '@asyra/preset'
 import { useProperty } from '../hooks'
-import type { SelectedVectorPointState } from '../common-apis/system-context'
+import type {
+  SelectedVectorPointState,
+  SelectedVectorSegmentState
+} from '../common-apis/system-context'
 
 type MixedNumber = number | typeof MIXED_STRING
 type MixedFills = FillRowAttrs[] | typeof MIXED_STRING
@@ -45,7 +49,7 @@ export const useStroke = (strokeId: string): StrokeRowAttrs | null => {
 }
 
 export const usePathEditingVectorId = (): string | null =>
-  useProperty<string | null>('pathEditingVectorId')
+  useProperty<string | null>(PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID)
 
 export const useVectorPointSelection = (): Set<string> =>
   useProperty<Set<string>>('vectorPointSelection')
@@ -53,16 +57,15 @@ export const useVectorPointSelection = (): Set<string> =>
 export const useVectorSegmentSelection = (): Set<string> =>
   useProperty<Set<string>>('vectorSegmentSelection')
 
-interface SelectedVectorSegmentState extends Record<string, unknown> {
-  elementId: string
-  segmentId: string
-}
-
 export const useSelectedVectorPoint = (): SelectedVectorPointState | null =>
-  useProperty<SelectedVectorPointState | null>('selectedVectorPoint')
+  useProperty<SelectedVectorPointState | null>(
+    PresetSystemPropertyKeys.SELECTED_VECTOR_POINT
+  )
 
 export const useSelectedVectorSegment = (): SelectedVectorSegmentState | null =>
-  useProperty<SelectedVectorSegmentState | null>('selectedVectorSegment')
+  useProperty<SelectedVectorSegmentState | null>(
+    PresetSystemPropertyKeys.SELECTED_VECTOR_SEGMENT
+  )
 
 export const useHoveredElementId = (): string | null =>
-  useProperty<string | null>('hoveredElementId')
+  useProperty<string | null>(PresetSystemPropertyKeys.HOVERED_ELEMENT_ID)

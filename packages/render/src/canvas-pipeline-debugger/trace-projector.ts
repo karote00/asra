@@ -1,4 +1,5 @@
 import type { Render } from '../render'
+import { transformGeometryPoint } from '@asyra/utils'
 import {
   subscribeToCanvasPipelineEvidence,
   type CanvasPipelineEvidence,
@@ -13,17 +14,9 @@ import type {
   CanvasPipelineSnapshot,
   CanvasPipelineTraceEntry
 } from './types'
+import { freezeEvidence as freezeDeep } from '../diagnostics/freeze-evidence'
 
 const DEFAULT_TRACE_CAPACITY = 256
-
-const freezeDeep = <T>(value: T): T => {
-  if (!value || typeof value !== 'object' || Object.isFrozen(value)) {
-    return value
-  }
-  Object.freeze(value)
-  Object.values(value).forEach(freezeDeep)
-  return value
-}
 
 const stableUnique = (ids: readonly string[]): string[] => {
   const seen = new Set<string>()
@@ -35,14 +28,6 @@ const stableUnique = (ids: readonly string[]): string[] => {
     return true
   })
 }
-
-const applyMatrix = (
-  matrix: CanvasPipelineMatrixSnapshot,
-  point: { x: number; y: number }
-) => ({
-  x: matrix.a * point.x + matrix.c * point.y + matrix.tx,
-  y: matrix.b * point.x + matrix.d * point.y + matrix.ty
-})
 
 const applyInverseMatrix = (
   matrix: CanvasPipelineMatrixSnapshot,
@@ -75,20 +60,20 @@ const projectGeometry = (
     { x: localBounds.x, y: localBounds.y + localBounds.height }
   ]
   const observedCanvasCorners = localCorners.map((point) =>
-    applyMatrix(worldTransform, point)
+    transformGeometryPoint(worldTransform, point)
   )
   const workspaceCorners = observedCanvasCorners.map((point) =>
     applyInverseMatrix(viewportTransform, point)
   )
   if (workspaceCorners.some((point) => point === null)) {
-    return undefined
+    return
   }
   const resolvedWorkspaceCorners = workspaceCorners as {
     x: number
     y: number
   }[]
   const canvasCorners = resolvedWorkspaceCorners.map((point) =>
-    applyMatrix(latestViewportTransform ?? viewportTransform, point)
+    transformGeometryPoint(latestViewportTransform ?? viewportTransform, point)
   )
   return freezeDeep({
     localBounds: { ...localBounds },

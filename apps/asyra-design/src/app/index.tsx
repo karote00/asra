@@ -3,7 +3,7 @@ import ToolBar from '../toolbar'
 import Contents from '../contents'
 import Properties from '../properties'
 import Animation from '../animation'
-import { realSize } from '../utils'
+import { toTailwindPixelSize } from '../tailwind-size'
 import { COLUMN_WIDTH } from '../constants'
 import RenderApp from '../render-app'
 
@@ -17,9 +17,9 @@ const App: React.FC = () => {
         "left-sidebar canvas right-sidebar"
         "footer footer footer"
       `,
-        gridTemplateColumns: `${realSize(COLUMN_WIDTH)}px 1fr ${realSize(
+        gridTemplateColumns: `${toTailwindPixelSize(
           COLUMN_WIDTH
-        )}px`,
+        )}px 1fr ${toTailwindPixelSize(COLUMN_WIDTH)}px`,
         gridTemplateRows: 'auto 1fr auto'
       }}
     >

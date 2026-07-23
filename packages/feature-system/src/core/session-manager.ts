@@ -6,10 +6,11 @@ import type {
   SessionParticipant,
   SessionState
 } from '../types/feature'
-import type {
-  SystemContextSnapshot,
-  SystemContextSnapshotWithDetail,
-  TransactionFailure
+import {
+  measureBrowserDragAsyncPhase,
+  type SystemContextSnapshot,
+  type SystemContextSnapshotWithDetail,
+  type TransactionFailure
 } from '@asyra/utils'
 import { endTransaction, startTransaction } from '@asyra/reactive-events'
 import { interactionQueue } from './interaction-queue'
@@ -25,30 +26,6 @@ export class FeatureHandlerTimeoutError extends Error {
     this.name = 'FeatureHandlerTimeoutError'
     this.label = label
     this.timeoutMs = timeoutMs
-  }
-}
-
-const measureBrowserDragAsyncPhase = async <T>(
-  phaseName: string,
-  run: () => Promise<T>
-): Promise<T> => {
-  const sink = (
-    globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (
-        phaseName: string,
-        durationMs: number
-      ) => void
-    }
-  ).__asyraBrowserDragPhaseSink
-  if (!sink) {
-    return run()
-  }
-
-  const start = performance.now()
-  try {
-    return await run()
-  } finally {
-    sink(phaseName, performance.now() - start)
   }
 }
 
@@ -98,7 +75,7 @@ export class SessionManager {
     abortController?: AbortController
   ): Promise<T | undefined> {
     if (!handler) {
-      return undefined
+      return
     }
 
     let timeoutId: ReturnType<typeof setTimeout> | undefined
@@ -344,10 +321,10 @@ export class SessionManager {
       }
       if (phase === 'update') {
         await this.handleUpdateNow(sessionName, snapshot)
-        return undefined
+        return
       }
       await this.handleEndNow(sessionName, snapshot)
-      return undefined
+      return
     })
   }
 

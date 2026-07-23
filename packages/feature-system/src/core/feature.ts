@@ -1,8 +1,9 @@
-import type {
-  SystemContextSnapshot,
-  SystemContextSnapshotWithDetail
+import {
+  measureBrowserDragAsyncPhase,
+  type RawInputEvent,
+  type SystemContextSnapshot,
+  type SystemContextSnapshotWithDetail
 } from '@asyra/utils'
-import type { RawInputEvent } from '@asyra/utils'
 import type {
   FeatureDefinition,
   FeatureAPI,
@@ -17,30 +18,6 @@ import { interactionQueue } from './interaction-queue'
 
 const featureRegistry = new FeatureRegistry()
 const sessionManager = new SessionManager()
-
-const measureBrowserDragAsyncPhase = async <T>(
-  phaseName: string,
-  run: () => Promise<T>
-): Promise<T> => {
-  const sink = (
-    globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (
-        phaseName: string,
-        durationMs: number
-      ) => void
-    }
-  ).__asyraBrowserDragPhaseSink
-  if (!sink) {
-    return run()
-  }
-
-  const start = performance.now()
-  try {
-    return await run()
-  } finally {
-    sink(phaseName, performance.now() - start)
-  }
-}
 
 let corePackages: CorePackages = {}
 let isPackagesSet = false
@@ -105,6 +82,17 @@ const cleanupUnusedEventBindings = (): void => {
   }
 }
 
+const createInputSnapshot = (
+  systemContext: NonNullable<CorePackages['systemContext']>,
+  raw: RawInputEvent
+): SystemContextSnapshotWithDetail => {
+  const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
+  return {
+    ...snapshot,
+    ...(raw.detail ? { detail: raw.detail } : {})
+  } as SystemContextSnapshotWithDetail
+}
+
 const registerSessionEventBinding = (
   eventName: string,
   sessionName: string,
@@ -125,13 +113,7 @@ const registerSessionEventBinding = (
       sessionManager.handleSessionInput(
         sessionName,
         phase,
-        () => {
-          const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
-          return {
-            ...snapshot,
-            ...(raw.detail ? { detail: raw.detail } : {})
-          } as SystemContextSnapshotWithDetail
-        },
+        () => createInputSnapshot(systemContext, raw),
         eventName
       )
     )
@@ -197,13 +179,7 @@ const registerExecutionEventBinding = (
 
   const inputCallback: InputCallback = async (raw) => {
     await sessionManager.runAfterCancellingActiveSessions(
-      () => {
-        const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
-        return {
-          ...snapshot,
-          ...(raw.detail ? { detail: raw.detail } : {})
-        } as SystemContextSnapshotWithDetail
-      },
+      () => createInputSnapshot(systemContext, raw),
       (mergedSnapshot) => executionRegistry.execute(eventName, mergedSnapshot),
       eventName
     )

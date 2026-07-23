@@ -1,5 +1,6 @@
 # Framework Rules
 
+- `bounded-task-scope-and-closure.md`
 - `bugfix-test-first.md`
 - `inspector-contract-readiness.md`
 - `inspector-step-execution.md`

@@ -18,6 +18,12 @@ Use these matrices for deterministic ownership and flow decisions.
 - transaction boundary depth/rollback-only owner: `@asyra/reactive-events`
 - reversible journal/validation/history/shared-settlement owner: `@asyra/factory`
 - commit persistence acknowledgement owner: injected `@asyra/core` + provider
+- optional collaboration publication transport and Awareness composition owner:
+  `@asyra/collaboration`
+- collaboration authentication, room policy, persistence, recovery, ordering,
+  and conflict owner: app/server
+- canonical remote mutation owner: the app callback and selected state owners,
+  inside one app-owned Factory remote transaction
 
 ## Mutation Boundary Matrix
 
@@ -109,6 +115,21 @@ State-application path:
 3. every affected package owner completes validation/fallback before apply
 4. apply APIs update the authoritative state owner
 5. render/ui-context and other projections react to state
+
+Remote collaboration ordering:
+
+1. Factory settles one `SharedPublication`
+2. Collaboration hands that publication to Provider once and in FIFO order
+3. Provider acknowledges and fans out only to currently connected room peers
+4. receiving Collaboration invokes the app callback once per publication
+5. the app validates route/payload/permission/domain policy as required
+6. accepted input enters one app-owned Factory remote transaction and canonical
+   state-owner handlers
+7. canonical projections update; remote shared echo and ordinary local undo
+   capture remain disabled
+8. Collaboration retains no semantic history; reconnect restores live
+   transport only, while app/backend owns recovery
+9. Awareness follows a separate observational route
 
 Load-specific ordering:
 

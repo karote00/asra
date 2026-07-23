@@ -27,61 +27,49 @@ yarn add @asyra/input-system
 
 ## Usage
 
-To get started with the Input System, follow these steps:
+The default browser singleton listens for raw input. Apps define named events by
+registering typed combinations, then attach and release listeners by callback
+identity:
 
-1. **Import the Input System**:
+```typescript
+import inputSystem, { keyMap } from '@asyra/input-system'
+import { InputType, ModifierKey, PointerKey } from '@asyra/utils'
 
-   ```typescript
-   import InputSystem from '@asyra/input-system'
-   ```
+inputSystem.registry.registerKeyCombinations({
+  UNDO: [
+    {
+      type: InputType.KEYBOARD,
+      keys: [keyMap.keys.KeyZ],
+      modifiers: [ModifierKey.META]
+    }
+  ],
+  DRAG_START: [
+    {
+      type: InputType.POINTER,
+      keys: [PointerKey.LEFT_MOUSE_DOWN]
+    }
+  ]
+})
 
-2. **Define Your Key Combinations**:
+const handleUndo = () => console.log('Undo triggered')
 
-   Create a record of key combinations that you want to listen for:
+inputSystem.on('UNDO', handleUndo)
+inputSystem.off('UNDO', handleUndo)
+```
 
-   ```typescript
-   const combinations: Record<string, string[]> = {
-     UNDO: ['Meta', 'Z'],
-     REDO: ['Meta', 'Shift', 'Z'],
-     SAVE: ['Control', 'S'],
-     DELETE: ['Delete'],
-     MOVE_UP: ['ArrowUp'],
-     MOVE_DOWN: ['ArrowDown'],
-     HOVER: ['LeftMouseMove'],
-     DRAG_START: ['LeftMouseDown'],
-     DRAG_UPDATE: ['LeftMouseDown', 'LeftMouseMove'],
-     DRAG_END: ['LeftMouseUp']
-   }
-   ```
-
-3. **Initialize the Input System**:
-
-   Create an instance of the Input System with your defined combinations:
-
-   ```typescript
-   const inputSystem = new InputSystem(combinations)
-   ```
-
-4. **Attach Event Listeners**:
-
-   Use the `on` method to listen for specific actions:
-
-   ```typescript
-   inputSystem.on('HOVER', () => console.log('Hover triggered'))
-   inputSystem.on('DRAG_START', () => console.log('Drag Start'))
-   inputSystem.on('DRAG_UPDATE', () => console.log('Drag Update'))
-   inputSystem.on('DRAG_END', () => console.log('Drag End'))
-   inputSystem.on('UNDO', () => console.log('Undo triggered'))
-   inputSystem.on('REDO', () => console.log('Redo triggered'))
-   ```
+Event names and combinations are app-owned. Register each event name once for a
+given registry. `off(...)` removes only the supplied listener and returns
+`false` when that listener is not registered.
 
 ## Contributing
 
-Contributions are welcome! If you have suggestions for improvements or new features, please open an issue or submit a pull request.
+This repository is not accepting external issues or pull requests at this time.
+You are welcome to fork the package and adapt it for your own application; see
+the repository root README for the current contribution policy.
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
 ## Acknowledgments
 

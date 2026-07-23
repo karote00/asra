@@ -1,5 +1,6 @@
 import { SharedDataChannelNames } from '@asyra/utils'
 import type { PresetCoreAPIs } from '../types'
+import { createCleanupReporter } from '../cleanup-reporter'
 
 type SharedDataChannelName = string
 
@@ -10,7 +11,7 @@ interface SharedChannelLifetime {
 
 type SharedChannelCore = Pick<
   PresetCoreAPIs,
-  | 'getYjsDataChannel'
+  | 'createLocalSharedDataChannel'
   | 'hasSharedDataChannel'
   | 'registerSharedDataChannel'
   | 'unregisterSharedDataChannel'
@@ -38,7 +39,6 @@ export const registerDefaultSharedDataChannels = (
   channelLifetimesByCore.set(core, channelLifetimes)
   const acquiredChannels: SharedDataChannelName[] = []
   let disposed = false
-  let cleanupReported = false
 
   const dispose = (): void => {
     if (disposed) return
@@ -68,11 +68,7 @@ export const registerDefaultSharedDataChannels = (
     }
     disposed = true
   }
-  const reportCleanupReady = (): void => {
-    if (cleanupReported || !onCleanupReady) return
-    onCleanupReady(dispose)
-    cleanupReported = true
-  }
+  const cleanupReporter = createCleanupReporter(onCleanupReady, dispose)
 
   try {
     channelNames.forEach((name) => {
@@ -80,21 +76,24 @@ export const registerDefaultSharedDataChannels = (
       if (lifetime) {
         lifetime.count += 1
         acquiredChannels.push(name)
-        reportCleanupReady()
+        cleanupReporter.report()
         return
       }
 
       const ownedByPreset = !core.hasSharedDataChannel(name)
       if (ownedByPreset) {
-        core.registerSharedDataChannel(name, core.getYjsDataChannel(name))
+        core.registerSharedDataChannel(
+          name,
+          core.createLocalSharedDataChannel()
+        )
       }
 
       channelLifetimes.set(name, { count: 1, ownedByPreset })
       acquiredChannels.push(name)
-      reportCleanupReady()
+      cleanupReporter.report()
     })
   } catch (error) {
-    if (!cleanupReported) dispose()
+    if (!cleanupReporter.hasReported()) dispose()
     throw error
   }
 

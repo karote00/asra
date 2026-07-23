@@ -32,25 +32,24 @@ Use this skill when requests include:
 - Expected viewport, zoom, selection/editing state, and overlay visibility when relevant.
 
 For Asyra Design:
-- Use `ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL` as the app-specific base URL variable.
+- Use `ASYRA_DESIGN_APP_URL` as the single app and visual-review URL variable.
 - Read it from `apps/asyra-design/.env` or an explicit shell override.
-- Do not use the older non-app-specific visual review base URL variable.
+- Vite and Playwright resolve it through `apps/asyra-design/app-environment.mjs`.
+- Do not introduce a parallel visual-review or Playwright base URL.
 
 For future apps:
-- Use the pattern `ASYRA_<APP_NAME>_VISUAL_REVIEW_BASE_URL`.
-- The app name segment must identify the product, for example `DESIGN`.
+- Prefer one app-owned URL contract reused by the app server and its browser
+  test/visual-review configurations.
 
 ## Preflight
 
 1. Read the project-owned `.env` file for the target app.
-2. Resolve the live app base URL from the app-specific visual review variable.
-3. If the app-specific visual review variable is missing, stop and tell the user which variable/file is missing.
+2. Resolve the live app base URL from the app-specific app URL variable.
+3. If the app-specific app URL variable is missing, stop and tell the user which variable/file is missing.
 4. Confirm the URL is reachable before collecting screenshots.
-5. If Playwright still requires a generic base URL, set it from the same value:
-   - `PLAYWRIGHT_TEST_BASE_URL="$ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL"`
-6. Select the visual test scope before screenshots.
-7. Record the selected scope, exact command, URL, and artifact directory.
-8. Confirm whether screenshots include selection outlines, path-edit handles, rulers, panels, or other overlays.
+5. Select the visual test scope before screenshots.
+6. Record the selected scope, exact command, URL, and artifact directory.
+7. Confirm whether screenshots include selection outlines, path-edit handles, rulers, panels, or other overlays.
 
 ## Visual Test Scope
 
@@ -70,21 +69,19 @@ Default scope:
 
 ## Asyra Design Visual Test Commands
 
-Always resolve `ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL` from `apps/asyra-design/.env` or an explicit shell override first.
+Always resolve `ASYRA_DESIGN_APP_URL` from `apps/asyra-design/.env` or an explicit shell override first.
 
-For Playwright, set both URLs to the same value:
+Playwright reads that same value directly:
 
 ```bash
-PLAYWRIGHT_TEST_BASE_URL="$ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL" \
-ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL="$ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL" \
+ASYRA_DESIGN_APP_URL="$ASYRA_DESIGN_APP_URL" \
 yarn workspace @asyra/asyra-design test:e2e <scope> --reporter=line
 ```
 
 Canonical stroke baseline scope:
 
 ```bash
-PLAYWRIGHT_TEST_BASE_URL="$ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL" \
-ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL="$ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL" \
+ASYRA_DESIGN_APP_URL="$ASYRA_DESIGN_APP_URL" \
 yarn workspace @asyra/asyra-design test:e2e e2e/stroke-canonical --reporter=line
 ```
 

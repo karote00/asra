@@ -24,7 +24,6 @@
   },
   "dependencies": {
     "@asyra/reactive-events": "workspace:*",
-    "@asyra/utils": "workspace:*",
-    "yjs": "13.6.20"
+    "@asyra/utils": "workspace:*"
   }
 }

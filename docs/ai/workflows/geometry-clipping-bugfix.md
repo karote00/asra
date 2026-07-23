@@ -50,7 +50,7 @@ Fix geometry/clipping regressions with rule-boundary TDD, explicit helper gating
 5. Implement at the first stage that actually corrupts geometry.
 6. Re-run rule tests, render-level tests, visual tests, and performance checks.
 7. For app-visible geometry, stroke, mask, or visual-correctness fixes, run the `app-visual-review-sync` procedure before completion claims:
-   - use `ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL` for Asyra Design
+   - use `ASYRA_DESIGN_APP_URL` for Asyra Design; Vite and Playwright share it
    - assert runtime computed data parity before screenshots when the report includes computed data
    - inspect live-app screenshots manually and report `E2E passed` separately from `manual app visual review passed`
 8. If visual validation still fails, loop back to step 1 automatically. Do not stop at a partially wired state.

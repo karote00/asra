@@ -42,6 +42,7 @@ Includes the shared global retrieval/search policy used by all workflows.
 
 Legacy reference docs.
 Use as historical context only; prefer `framework/*` and `apps/*` contracts.
+**Entry point**: `project/README.md`
 
 ## Getting Started
 

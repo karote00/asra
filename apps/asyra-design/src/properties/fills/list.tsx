@@ -1,5 +1,6 @@
 import type { FillRowAttrs } from '@asyra/utils'
 import FillItem from './fill'
+import { PlusIcon } from '../icons'
 
 interface FillListProps {
   fills: FillRowAttrs[]
@@ -8,20 +9,6 @@ interface FillListProps {
   onAdd: () => void
   onRemoveFill: (index: number) => void
 }
-
-const PlusIcon = () => (
-  <svg
-    width="12"
-    height="12"
-    viewBox="0 0 12 12"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-    strokeLinecap="round"
-  >
-    <path d="M6 2v8M2 6h8" />
-  </svg>
-)
 
 const FillList = ({
   fills,

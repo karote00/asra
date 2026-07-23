@@ -3,6 +3,8 @@ import type {
   RenderEngineDrawOperation,
   RenderEngineObjectType
 } from '@asyra/render-engine'
+import type { GeometryTransformMatrix, Rect } from '@asyra/utils'
+import { freezeEvidence as freezeDeep } from './freeze-evidence'
 
 let canvasPipelineDebuggerOwnedObjects: WeakSet<object> | undefined
 
@@ -50,21 +52,9 @@ export interface CanvasPipelineCommandContext {
   projection?: CanvasPipelineProjectionSnapshot
 }
 
-export interface CanvasPipelineMatrixSnapshot {
-  a: number
-  b: number
-  c: number
-  d: number
-  tx: number
-  ty: number
-}
+export type CanvasPipelineMatrixSnapshot = GeometryTransformMatrix
 
-export interface CanvasPipelineBoundsSnapshot {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+export type CanvasPipelineBoundsSnapshot = Rect
 
 export interface CanvasPipelineProjectionSnapshot {
   localBounds: CanvasPipelineBoundsSnapshot
@@ -142,15 +132,6 @@ const subscriptionsByOwner = new WeakMap<
   object,
   Set<CanvasPipelineEvidenceSubscription>
 >()
-
-const freezeDeep = <T>(value: T): T => {
-  if (!value || typeof value !== 'object' || Object.isFrozen(value)) {
-    return value
-  }
-  Object.freeze(value)
-  Object.values(value).forEach(freezeDeep)
-  return value
-}
 
 const detachValue = (
   value: unknown,

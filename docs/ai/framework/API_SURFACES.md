@@ -166,14 +166,17 @@ Render bridge:
 - `registerDataChannelObserver(registration: DataChannelObserverRegistration): void`
   - registration shape: `{ name: string; channel: string; onChange: (change) => void }`
 - `unregisterDataChannelObserver(name: string): boolean`
-- `registerSharedDataChannel(name, yArray): void`
+- `registerSharedDataChannel(name, channel): void`
 - `unregisterSharedDataChannel(name): boolean`
 - `hasSharedDataChannel(name): boolean`
-- `getYjsDataChannel(name): Y.Array<unknown>`
+- `createLocalSharedDataChannel(): LocalSharedDataChannel`
   - these methods and data-channel observers route through the Factory injected
     into that Core instance; standalone observer helpers share the default
     Core's explicitly injected registry while custom Core registries remain
     isolated
+  - local channels are delivery-only and retain no collaboration history;
+    explicit `@asyra/collaboration` composition may transport their completed
+    publications
 - `renderIsReady(): void`
 
 Scene/model bridge:
@@ -193,13 +196,23 @@ Scene/model bridge:
   - wrapper contract: channel must be resolvable from registered selection metadata (`action`/`eventName`); no built-in fallback channel defaults
 
 `EVENT_OPTIONS` supports `undoable`, `rollbackable`, `shared`, and
-`sharedDelivery`. `undoable: false` skips ordinary history but remains
+`sharedDelivery`; `SharedDeliveryMode` is the canonical
+`'transaction-end' | 'immediate'` timing type used by both mutation options and
+Factory delivery metadata. `undoable: false` skips ordinary history but remains
 rollbackable by default. `rollbackable: false` explicitly opts out of failure
 reversal, but does not opt an undoable event out of the inverse-contract
 requirement; intentionally irreversible effects must also set
-`undoable: false`. `sharedDelivery: 'immediate'` projects that shared change during an
-active transaction while retaining it in the current undo commit; the default
-is `'transaction-end'`.
+`undoable: false`. The Factory remote-apply wrapper is the exception: it forces
+remote-origin changes to remain rollbackable and ignores a remote handler's
+`rollbackable: false`. `sharedDelivery: 'immediate'` completes local
+shared-channel delivery and optional collaboration publication during an
+active transaction while retaining the change in the current undo commit; the
+default is `'transaction-end'`. All shared changes made by one synchronous
+immediate delivery action are one ordered publication. A pointer session may
+emit several such publications without splitting its undo commit. A committed
+local undo emits one ordered inverse publication and redo emits one forward
+publication for channels delivered by the original action. Remote-origin
+replay remains excluded.
 
 Transaction facade exports:
 
@@ -243,6 +256,32 @@ Managed property bridges:
 - `getSystemPropertyObservable<T>(key: string): BehaviorSubject<T> | undefined`
 
 ## Package Export Map
+
+`@asyra/collaboration` (optional runtime)
+
+- composition: `createCollaboration(...)`, `Collaboration`,
+  `CreateCollaborationInput`, `CollaborationFactory`,
+  `ProcessRemotePublication`, `CollaborationResourceOwnershipMap`,
+  `CollaborationPublicationOutcome`, `DisposalError`;
+  `ProcessRemotePublication` returns `void | Promise<void>`, and inbound FIFO
+  advancement/outcome reporting wait for its settlement
+- lifecycle: `start`, `disconnect`, `reconnect`, `whenIdle`, `dispose`
+- provider contract: `Provider`, `ProviderIdentity`, `ProviderStatus`,
+  `ProviderFailure`, `PROVIDER_FAILURE_CODES`,
+  `isProviderFailureCode(...)`, `createProviderIdentitySnapshot(...)`,
+  `InboundPublication`, `MemoryHub`, and `MemoryProvider`
+- Awareness: `Awareness`, `AwarenessOptions`, validation/observation/state
+  types, and collaboration `updateAwareness`, `leaveAwareness`,
+  `expireAwareness`; `AwarenessStateInput` accepts app-selected JSON-safe
+  fields and reserves `heartbeatAt` for runtime liveness
+- publication outcomes: immutable local sent/skipped/send-failed and remote
+  processed/process-failed observations
+- importing this root entry creates no collaboration, provider, room,
+  Awareness state, or network connection; Core and
+  Preset do not re-export it
+
+See `packages/collaboration.md` and
+`../../examples/network-collaboration-transport.mjs`.
 
 `@asyra/core`
 
@@ -339,7 +378,12 @@ Managed property bridges:
 - `EngineNeutralRenderStrategy<TAppData>` receives
   `RenderElementData & TAppData`; the app strategy owns custom-field drawing
   semantics and Render adds no engine-specific type or fallback behavior
-- `interactionHandlerRegistry`
+- `prepareEvenOddShape(shape)` prepares the shared engine-neutral segment
+  representation used by even-odd raster and hit-test consumers
+- `isPointInsidePreparedEvenOddShape(point, preparedShape)` evaluates the same
+  prepared even-odd geometry without reconstructing the intersection algorithm
+- `createEvenOddFillStyle(options)` rasterizes that canonical even-odd geometry
+  into an engine-neutral resource descriptor
 - overlay helper: `createOverlayLayerRegistration(...)`
 - overlay interaction helpers:
   - `createRenderInteractionPointTarget(...)`
@@ -399,6 +443,10 @@ Managed property bridges:
   - `updateTransaction(event)`
   - `endTransaction(options?)`
   - `undo()`, `redo()`
+  - `runRemoteTransaction(callback)` (rollbackable, non-undoable remote origin)
+  - `applyRemoteEvent(event, apply)` (one detached event forwarded unchanged to
+    the registered state-owner apply callback)
+  - `isRemoteAsyncHandlerError(error)`
   - `getTransactionOwner()` for explicit reactive boundary wiring
   - `registerTransactionInverter(eventName, inverter)`
   - `registerTransactionValidator(name, validator)`
@@ -408,13 +456,17 @@ Managed property bridges:
   - `registerTransactionValidator(name, validator)`
   - `subscribeToTransactionStatus(listener): () => void`
 - shared data channel APIs:
-  - `registerSharedDataChannel(name, yArray)`
+  - `registerSharedDataChannel(name, channel)`
   - `unregisterSharedDataChannel(name)`
   - `hasSharedDataChannel(name)`
   - `observeSharedDataChannel(name, handler)`
-  - `getYjsDataChannel(name)` (returns YJS array for a channel name from factory doc)
+  - `createLocalSharedDataChannel()` (fresh delivery-only local channel)
   - `getSharedDataChannelStrict(name)` (strict accessor; throws if not registered)
   - `getSharedDataChannel(name)` (safe accessor; returns `undefined` when missing)
+  - `subscribeToSharedDelivery(handler)` (detached delivery metadata for
+    local projection observation; observer failure cannot alter commit)
+  - `subscribeToSharedPublication(handler)` (one detached ordered batch per
+    synchronous immediate delivery action or committed transaction-end batch)
 
 `@asyra/props-manager`
 
@@ -461,6 +513,10 @@ Managed property bridges:
 - `PresetProfiles`: stable `2D`, `3D`, `HYBRID`, and `CUSTOM` ids; only `2D`
   and `CUSTOM` are currently available
 - `PresetDefaults`: eight official selectable default ids
+- grouped `ViewportSystemPropertyKeys`, `InputSystemPropertyKeys`,
+  `SelectionSystemPropertyKeys`, and `VectorEditingSystemPropertyKeys`, plus
+  flattened `PresetSystemPropertyKeys` and `PRESET_SYSTEM_PROPERTY_KEYS`, form
+  the typed contract for official Preset-managed property keys
 - deeply frozen `PresetCatalog` with separate profile/default availability and
   public dependency metadata
 - `applyPreset(core, { profile?, defaults? })`; omitted options mean `2D` plus

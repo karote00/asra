@@ -33,7 +33,7 @@ class SelectionManager {
         return channel
       }
     }
-    return undefined
+    return
   }
 
   clearAllSelections(): void {

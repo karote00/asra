@@ -1,5 +1,5 @@
-import * as Y from 'yjs'
 import {
+  runTransaction,
   runWithTransactionOwner,
   transactionStatusChanged,
   type AllEvent,
@@ -14,13 +14,23 @@ import type {
   TransactionStatusPayload
 } from '@asyra/utils'
 import DataTransact from './data-transact'
-import doc from './data'
 import {
+  LocalSharedDataChannel,
   SharedDataChannelRegistry,
+  type SharedDataChannel,
   type SharedDataChannelChangeHandler,
   type SharedDataChannelName
 } from './shared-data-channel'
+import {
+  cloneSharedDelivery,
+  cloneSharedPublication,
+  type SharedDelivery,
+  type SharedDeliverySubscriber,
+  type SharedPublication,
+  type SharedPublicationSubscriber
+} from './shared-delivery'
 import type {
+  CanonicalEventApply,
   TransactionInverter,
   TransactionReplayHandler,
   TransactionValidator
@@ -30,6 +40,13 @@ export interface FactoryOptions {
   bridgeToReactiveEvents?: boolean
 }
 
+class RemoteAsyncHandlerError extends Error {
+  constructor() {
+    super('[collaboration] remote canonical apply handler must be synchronous')
+    this.name = 'RemoteAsyncHandlerError'
+  }
+}
+
 class Factory {
   private readonly sharedDataChannels = new SharedDataChannelRegistry()
   private readonly bridgeToReactiveEvents: boolean
@@ -37,6 +54,10 @@ class Factory {
   private readonly transactionStatusSubscribers = new Set<
     (payload: TransactionStatusPayload) => void
   >()
+  private readonly sharedDeliverySubscribers =
+    new Set<SharedDeliverySubscriber>()
+  private readonly sharedPublicationSubscribers =
+    new Set<SharedPublicationSubscriber>()
   private readonly transactionReplayHandlers = new Map<
     string,
     TransactionReplayHandler
@@ -50,7 +71,10 @@ class Factory {
       onUserActionCompleted: this.bridgeToReactiveEvents
         ? userActionCompleted
         : undefined,
-      onReplayEvent: (event, mode) => this.handleReplayEvent(event, mode)
+      onReplayEvent: (event, mode) => this.handleReplayEvent(event, mode),
+      onSharedDelivery: (delivery) => this.emitSharedDelivery(delivery),
+      onSharedPublication: (publication) =>
+        this.emitSharedPublication(publication)
     })
     this.transactionOwner = {
       startTransaction: () => this.startTransaction(),
@@ -59,6 +83,26 @@ class Factory {
       undo: () => this.undo(),
       redo: () => this.redo()
     }
+  }
+
+  private emitSharedDelivery(delivery: SharedDelivery): void {
+    ;[...this.sharedDeliverySubscribers].forEach((subscriber) => {
+      try {
+        subscriber(cloneSharedDelivery(delivery))
+      } catch {
+        // Collaboration observers cannot alter local canonical settlement.
+      }
+    })
+  }
+
+  private emitSharedPublication(publication: SharedPublication): void {
+    ;[...this.sharedPublicationSubscribers].forEach((subscriber) => {
+      try {
+        subscriber(cloneSharedPublication(publication))
+      } catch {
+        // Collaboration observers cannot alter local canonical settlement.
+      }
+    })
   }
 
   private emitTransactionStatus(payload: TransactionStatusPayload) {
@@ -88,6 +132,56 @@ class Factory {
 
   endTransaction(options?: EndTransactionOptions) {
     this.transact.end(options)
+  }
+
+  runRemoteTransaction<T>(mutate: () => T): T {
+    this.transact.start('remote')
+    const reactiveBoundaryOwner: TransactionOwner = {
+      startTransaction: () => undefined,
+      updateTransaction: (event) => this.updateTransaction(event),
+      endTransaction: () => undefined,
+      undo: () => this.undo(),
+      redo: () => this.redo()
+    }
+
+    return runWithTransactionOwner(reactiveBoundaryOwner, () =>
+      runTransaction(
+        () => {
+          try {
+            const result = mutate()
+            if (
+              result !== null &&
+              (typeof result === 'object' || typeof result === 'function') &&
+              typeof (result as { then?: unknown }).then === 'function'
+            ) {
+              void Promise.resolve(result).catch(() => undefined)
+              throw new RemoteAsyncHandlerError()
+            }
+            this.transact.end()
+            return result
+          } catch (error) {
+            this.transact.end({
+              outcome: 'rollback',
+              failure: {
+                kind: 'handler-error',
+                message: error instanceof Error ? error.message : undefined,
+                cause: error
+              }
+            })
+            throw error
+          }
+        },
+        { failureKind: 'handler-error' }
+      )
+    )
+  }
+
+  applyRemoteEvent(event: AllEvent, apply: CanonicalEventApply): boolean {
+    return this.transact.applyForwardEvent(event, apply)
+  }
+
+  isRemoteAsyncHandlerError(error: unknown): boolean {
+    return error instanceof RemoteAsyncHandlerError
   }
 
   undo() {
@@ -184,7 +278,7 @@ class Factory {
 
   registerSharedDataChannel(
     name: SharedDataChannelName,
-    channel: Y.Array<unknown>
+    channel: SharedDataChannel
   ): void {
     this.sharedDataChannels.register(name, channel)
   }
@@ -197,17 +291,17 @@ class Factory {
     return this.sharedDataChannels.has(name)
   }
 
-  getYjsDataChannel(name: SharedDataChannelName): Y.Array<unknown> {
-    return doc.getArray(name)
+  createLocalSharedDataChannel(): LocalSharedDataChannel {
+    return new LocalSharedDataChannel()
   }
 
   getSharedDataChannel(
     name: SharedDataChannelName
-  ): Y.Array<unknown> | undefined {
+  ): SharedDataChannel | undefined {
     return this.sharedDataChannels.get(name)
   }
 
-  getSharedDataChannelStrict(name: SharedDataChannelName): Y.Array<unknown> {
+  getSharedDataChannelStrict(name: SharedDataChannelName): SharedDataChannel {
     return this.sharedDataChannels.import(name)
   }
 
@@ -216,6 +310,22 @@ class Factory {
     handler: SharedDataChannelChangeHandler<TChange>
   ): () => void {
     return this.sharedDataChannels.observe(name, handler)
+  }
+
+  subscribeToSharedDelivery(subscriber: SharedDeliverySubscriber): () => void {
+    this.sharedDeliverySubscribers.add(subscriber)
+    return () => {
+      this.sharedDeliverySubscribers.delete(subscriber)
+    }
+  }
+
+  subscribeToSharedPublication(
+    subscriber: SharedPublicationSubscriber
+  ): () => void {
+    this.sharedPublicationSubscribers.add(subscriber)
+    return () => {
+      this.sharedPublicationSubscribers.delete(subscriber)
+    }
   }
 }
 

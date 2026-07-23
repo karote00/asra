@@ -1,12 +1,7 @@
-import type {
-  PropertyComponentInstanceTypes,
-  PropertyComponentRawData
-} from '@asyra/utils'
 import { MapRegistry } from '@asyra/utils'
-
-type PropertyComponentConstructor = new (
-  data: Partial<PropertyComponentRawData>
-) => PropertyComponentInstanceTypes
+import type { PropertyComponentConstructor } from '../components'
+import { clonePropertyDefinitionRecord } from './property-definition-value'
+import type { PropertyRegistrationOptions } from './registration-options'
 
 export interface PropertyChildRelationDefinition {
   key: string
@@ -32,10 +27,6 @@ export interface PropertyComponentConfigRegistration {
   children?: PropertyChildRelationDefinition
 }
 
-interface RegisterOptions {
-  duplicateErrorMessage?: string
-}
-
 class PropertyComponentRegistry {
   private registry = new MapRegistry<string, PropertyComponentConstructor>()
   private configDefinitions = new Map<
@@ -46,7 +37,7 @@ class PropertyComponentRegistry {
   register(
     type: string,
     component: PropertyComponentConstructor,
-    options: RegisterOptions = {},
+    options: PropertyRegistrationOptions = {},
     configDefinition?: PropertyComponentConfigRegistration
   ): void {
     if (!type) {
@@ -59,7 +50,10 @@ class PropertyComponentRegistry {
         `Property component "${type}" is already registered`
     })
     if (configDefinition) {
-      this.configDefinitions.set(type, cloneConfigDefinition(configDefinition))
+      this.configDefinitions.set(
+        type,
+        clonePropertyComponentConfigRegistration(configDefinition)
+      )
     }
   }
 
@@ -75,7 +69,9 @@ class PropertyComponentRegistry {
     type: string
   ): PropertyComponentConfigRegistration | undefined {
     const definition = this.configDefinitions.get(type)
-    return definition ? cloneConfigDefinition(definition) : undefined
+    return definition
+      ? clonePropertyComponentConfigRegistration(definition)
+      : undefined
   }
 
   unregister(type: string): boolean {
@@ -89,7 +85,10 @@ class PropertyComponentRegistry {
     configDefinition: PropertyComponentConfigRegistration
   ): void {
     this.registry.set(type, component)
-    this.configDefinitions.set(type, cloneConfigDefinition(configDefinition))
+    this.configDefinitions.set(
+      type,
+      clonePropertyComponentConfigRegistration(configDefinition)
+    )
   }
 
   clear(): void {
@@ -98,34 +97,11 @@ class PropertyComponentRegistry {
   }
 }
 
-const cloneValue = (value: unknown): unknown => {
-  if (Array.isArray(value)) {
-    return value.map((item) => cloneValue(item))
-  }
-
-  if (value && typeof value === 'object') {
-    return Object.entries(value).reduce<Record<string, unknown>>(
-      (cloned, [key, item]) => {
-        cloned[key] = cloneValue(item)
-        return cloned
-      },
-      {}
-    )
-  }
-
-  return value
-}
-
-const cloneRecord = (
-  value: Record<string, unknown> | undefined
-): Record<string, unknown> | undefined =>
-  value ? (cloneValue(value) as Record<string, unknown>) : undefined
-
-const cloneConfigDefinition = (
+export const clonePropertyComponentConfigRegistration = (
   definition: PropertyComponentConfigRegistration
 ): PropertyComponentConfigRegistration => ({
   ...definition,
-  defaults: cloneRecord(definition.defaults),
+  defaults: clonePropertyDefinitionRecord(definition.defaults),
   persistKeys: definition.persistKeys ? [...definition.persistKeys] : undefined,
   valueKeys: definition.valueKeys ? [...definition.valueKeys] : undefined,
   unitKeys: definition.unitKeys ? [...definition.unitKeys] : undefined,
@@ -157,7 +133,7 @@ export const propertyComponentRegistry = {
 export const registerPropertyComponent = (
   type: string,
   component: PropertyComponentConstructor,
-  options?: RegisterOptions,
+  options?: PropertyRegistrationOptions,
   configDefinition?: PropertyComponentConfigRegistration
 ) =>
   propertyComponentRegistry.register(type, component, options, configDefinition)
@@ -182,7 +158,4 @@ export const restorePropertyComponentAfterFailedDeclarativeCommit = (
     configDefinition
   )
 
-export type {
-  PropertyComponentConstructor,
-  RegisterOptions as RegisterPropertyComponentOptions
-}
+export type { PropertyComponentConstructor }

@@ -112,3 +112,60 @@ Append-only rule: do not edit/delete prior entries; add a superseding entry when
   - `8009fb4c7`
   - `85915a539`
   - pending app/docs closeout commit
+
+## 2026-07-23 - Workspace automation validates exact build and publish artifacts
+
+- Context:
+  - Adding the optional Collaboration package exposed a mismatch between
+    package-specific build task names and Turbo's dependency-wide `^` syntax.
+  - Successful builds could reuse stale ignored `dist` files while CI,
+    deployment, E2E, generated templates, and registry publication followed
+    different command paths.
+- Decision:
+  - Generate package-qualified Turbo tasks with exact package-qualified edges,
+    and separate intentional graph rewriting from non-mutating graph checks.
+  - Require clean Collaboration builds and validate its actual packed ESM
+    artifact through extraction and Node import.
+  - Treat generated-template synchronization, template build, root gates, and
+    package artifact validation as pre-publication release gates.
+  - Restore workspace dependency ranges through a release `finally` boundary.
+- Consequences:
+  - Root, CI, E2E, server, and deployment builds share one checked workspace
+    graph instead of silently regenerating or bypassing it.
+  - Stale compiler output and stale generated templates can no longer make a
+    release validation appear successful.
+  - The future Framework Release Gate 5 still owns the complete all-package
+    clean-consumer audit; this decision provides the current automation
+    foundation without declaring that gate complete.
+- Related Docs:
+  - `docs/ai/workflows/package-release-validation.md`
+  - `docs/ai/framework/rules/generated-artifacts.md`
+  - `docs/ai/framework/packages/collaboration.md`
+
+## 2026-07-23 - Package artifact validation remains an all-package release gate
+
+- Context:
+  - A Collaboration-only tarball import check introduced package metadata and
+    TypeScript module settings that differed from every other pure TypeScript
+    framework package.
+  - The generated Asyra Design release template already proves the app's
+    consumer-facing public imports against local package builds, while
+    Framework Release Gate 5 explicitly owns tarball and clean-consumer
+    verification for every published package.
+- Decision:
+  - Keep Collaboration on the shared framework package build convention.
+  - Remove the Collaboration-only package artifact gate from current CI and
+    release validation.
+  - Validate all published package artifacts together under Framework Release
+    Gate 5 instead of establishing a special publication contract for one
+    package.
+- Consequences:
+  - Current release validation continues to cover the workspace graph,
+    generated template build, and Collaboration integration without duplicating
+    the future all-package release gate.
+  - Collaboration no longer carries package-specific Node ESM configuration
+    that other framework packages do not share.
+- Related Docs:
+  - `docs/ai/workflows/package-release-validation.md`
+  - `docs/ai/framework/plans/framework-release-readiness-and-closeout-plan.md`
+  - `docs/ai/framework/packages/collaboration.md`

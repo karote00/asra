@@ -33,11 +33,10 @@ Use this file to route a new framework request to the right docs first.
   - `packages/feature-system.md`
   - `plans/completed/transaction-atomicity-and-rollback-plan.md`
 
-- Yjs shared channels/network collaboration/presence/conflict policy
+- shared publications/network collaboration/presence/app-owned policy
   - `packages/factory.md`
   - `CONSTRAINTS.md`
-  - `plans/yjs-network-collaboration-plan.md`
-  - `plans/collaborative-conflict-policies-plan.md`
+  - `plans/completed/network-collaboration-transport-plan.md`
 
 - group/ungroup/reparent/reorder/subtree hierarchy behavior
   - `packages/scene-tree.md`
@@ -90,6 +89,19 @@ Use this file to route a new framework request to the right docs first.
   - `rules/generated-artifacts.md`
   - `rules/pre-release-legacy-removal.md`
   - `decisions/releases/README.md`
+
+- repository-wide documentation contract, owner, or reality audit
+  - `design-principles/docs-as-contract.md`
+  - `docs/ai/workflows/docs-reality-check.md`
+  - `plans/completed/project-wide-documentation-contract-audit-plan.md`
+  - affected framework/app source-of-truth documents
+
+- repository-wide duplicate contract, misplaced owner, or readability refactor
+  - `PLANS.md`
+  - `plans/completed/project-wide-duplicate-contract-and-ownership-consolidation-plan.md`
+  - `plans/completed/project-wide-code-readability-analysis-and-refactor-plan.md`
+  - `CODING_STANDARDS.md`
+  - affected framework/app/package owner documents
 
 - deprecated package behavior/removal timeline
   - `rules/deprecation-lifecycle.md`

@@ -1,41 +1,97 @@
 import React, { useEffect, useRef } from 'react'
-import {
-  initRenderApp,
-  destroyRenderApp,
-  renderIsReady,
-  setupInputSystem
-} from '../controllers/app'
+import core from '../contexts'
+import { CANVAS_BACKGROUND_COLOR } from '../constants'
+import { createDocumentPersistence } from '../document-persistence'
+import { getCollaborationMode } from './collaboration-mode'
+import type { CoreRawData } from '@asyra/utils'
+
+const EMPTY_DOCUMENT = {
+  version: '1.0.0',
+  sceneTree: { workspace: '', workspaceList: [], elements: {} },
+  props: {}
+} as const satisfies CoreRawData
 
 const RenderApp: React.FC = () => {
-  const pixiContainerRef = useRef<HTMLDivElement>(null)
-  const hasInit = useRef<boolean>(false)
+  const renderContainerRef = useRef<HTMLDivElement>(null)
+  const lifecycleRef = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
-    const initApp = async () => {
-      if (pixiContainerRef.current && !hasInit.current) {
-        hasInit.current = true
-        const canvas = await initRenderApp(
-          pixiContainerRef.current,
-          window.innerWidth,
-          window.innerHeight
-        )
-
-        setupInputSystem(canvas)
-        renderIsReady()
-      }
+    let active = true
+    let collaborationDisposer: (() => Promise<void>) | undefined
+    let collaborationDisposePromise: Promise<void> | undefined
+    const disposeCollaboration = (): Promise<void> => {
+      if (!collaborationDisposer) return Promise.resolve()
+      collaborationDisposePromise ??= collaborationDisposer()
+      return collaborationDisposePromise
     }
 
-    initApp()
+    const lifecycle = lifecycleRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        if (!active) {
+          return
+        }
+        const container = renderContainerRef.current
+        if (!container) {
+          return
+        }
+        const collaborationMode = getCollaborationMode()
+        const documentPersistence = createDocumentPersistence(
+          collaborationMode?.fileId
+        )
+
+        // LocalStorage remains the demo database. Initialize only an absent
+        // collaboration document so Core can establish its empty workspace;
+        // an existing document must survive refresh unchanged.
+        if (collaborationMode && (await documentPersistence.load()) === null) {
+          if (!active) return
+          await documentPersistence.save(EMPTY_DOCUMENT)
+        }
+        if (!active) return
+        core.setPersistence(documentPersistence)
+
+        // Phase 3: Single startup call
+        await core.start(container, {
+          width: window.innerWidth,
+          height: window.innerHeight,
+          backgroundColor: CANVAS_BACKGROUND_COLOR,
+          backgroundColorAlpha: 1
+        })
+        if (!active) {
+          core.destroyRenderer()
+          return
+        }
+
+        if (collaborationMode) {
+          const collaborationLifecycle = await import(
+            '../collaboration/lifecycle'
+          )
+          collaborationDisposer = collaborationLifecycle.disposeCollaboration
+          if (!active) {
+            await disposeCollaboration()
+            return
+          }
+          await collaborationLifecycle.startCollaboration(collaborationMode)
+          if (!active) await disposeCollaboration()
+        }
+      })
+    lifecycleRef.current = lifecycle
+    void lifecycle.catch((error: unknown) => {
+      if (active) {
+        console.error('[RenderApp] Render startup failed:', error)
+      }
+    })
 
     return () => {
-      if (pixiContainerRef.current) {
-        pixiContainerRef.current.innerHTML = ''
-        destroyRenderApp()
-      }
+      active = false
+      core.destroyRenderer()
+      void disposeCollaboration().catch((error: unknown) => {
+        console.error('[RenderApp] collaboration teardown failed:', error)
+      })
     }
   }, [])
 
-  return <div className="absolute top-0 left-0" ref={pixiContainerRef} />
+  return <div className="absolute top-0 left-0" ref={renderContainerRef} />
 }
 
 export default RenderApp

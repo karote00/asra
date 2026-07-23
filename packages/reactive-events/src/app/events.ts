@@ -62,40 +62,20 @@ export interface RedoEvent {
   type: EventTypes
 }
 
-export interface RenderPointerHoverEvent {
+export interface RenderPointerEvent<TPayload> {
   type: EventTypes
-  payload: RenderPointerPayload
+  payload: TPayload
 }
 
-export interface RenderPointerLeaveEvent {
-  type: EventTypes
-  payload: RenderPointerPayload
-}
-
-export interface RenderPointerDownEvent {
-  type: EventTypes
-  payload: RenderPointerPayload
-}
-
-export interface RenderPointerMoveEvent {
-  type: EventTypes
-  payload: RenderPointerPayload
-}
-
-export interface RenderPointerUpEvent {
-  type: EventTypes
-  payload: RenderPointerPayload
-}
-
-export interface RenderPointerCaptureStartEvent {
-  type: EventTypes
-  payload: RenderPointerCapturePayload
-}
-
-export interface RenderPointerCaptureEndEvent {
-  type: EventTypes
-  payload: RenderPointerCapturePayload
-}
+export type RenderPointerHoverEvent = RenderPointerEvent<RenderPointerPayload>
+export type RenderPointerLeaveEvent = RenderPointerEvent<RenderPointerPayload>
+export type RenderPointerDownEvent = RenderPointerEvent<RenderPointerPayload>
+export type RenderPointerMoveEvent = RenderPointerEvent<RenderPointerPayload>
+export type RenderPointerUpEvent = RenderPointerEvent<RenderPointerPayload>
+export type RenderPointerCaptureStartEvent =
+  RenderPointerEvent<RenderPointerCapturePayload>
+export type RenderPointerCaptureEndEvent =
+  RenderPointerEvent<RenderPointerCapturePayload>
 
 export type AppEvent =
   | RenderIsReadyEvent

@@ -130,7 +130,7 @@
         'packages/core/src/core.ts',
         'packages/core/src/define-property-component.ts',
         'packages/core/src/apis/props.ts',
-        'packages/core/src/apis/index.ts',
+        'packages/core/src/apis/create-apis.ts',
         'packages/core/src/index.ts',
         'packages/core/src/types/**',
         'packages/core/src/__tests__/**',
@@ -712,7 +712,7 @@
       {
         id: 'flow-inspector-contract',
         label: 'Flow Inspector Contract',
-        href: './flow-inspector-dashboard-plan.md',
+        href: '../FLOW_INSPECTOR.md',
         kind: 'framework'
       }
     ],

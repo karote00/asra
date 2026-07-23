@@ -7,9 +7,34 @@ Provide shared types, ids, registry primitives, and low-level helpers.
 ## Owns
 
 - shared type definitions used across packages
+- canonical `SharedDeliveryMode` timing plus `PositionData`, `Rect`, `Bounds`,
+  `GeometryTransformMatrix`, and `RGBAColor` low-level contracts
+- semantic geometry aliases such as `FillGradientHandle` and `GeometryBounds`,
+  which retain consumer meaning without parallel shape declarations
+- the domain-neutral `LoadDiagnostic` base shared by package-owned load
+  validators; validation scope, fallback, and migration policy stay with each
+  consuming owner
 - id generation and id loading helpers
+  - `idCounter.setNamespace(value?)` optionally scopes every non-default
+    registered counter prefix while preserving its numeric sequence
+  - IDs from another namespace remain valid owner data but do not advance the
+    local namespace's counter; clearing the counter also clears the namespace
 - common registry utility primitives
+- `RegistrationOwnerMetadata`, shared by extension and registration-graph
+  metadata
 - framework-safe helper functions/constants
+- the domain-neutral own-property primitive used when canonical state and
+  transaction replay must preserve special keys and explicit `undefined` as
+  writable enumerable own values
+- pure numeric and geometry primitives shared by render, preset, design-system,
+  and app owners, including unit clamping, point projection/distance, cubic
+  subdivision, and geometry bounds
+- the optional diagnostic-counter dispatch primitive; counter names, budgets,
+  and interpretation remain with the consuming owner, and diagnostics never
+  control product behavior
+- optional browser drag-phase measurement helpers that call the shared
+  diagnostics sink without owning phase names, product budgets, or reporting
+  policy
 
 ## Must Not Own
 

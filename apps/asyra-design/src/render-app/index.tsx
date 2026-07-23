@@ -1,7 +1,15 @@
 import React, { useEffect, useRef } from 'react'
 import core from '../contexts'
-import { providers } from '@asyra/reactive-events'
 import { CANVAS_BACKGROUND_COLOR } from '../constants'
+import { createDocumentPersistence } from '../document-persistence'
+import { getCollaborationMode } from './collaboration-mode'
+import type { CoreRawData } from '@asyra/utils'
+
+const EMPTY_DOCUMENT = {
+  version: '1.0.0',
+  sceneTree: { workspace: '', workspaceList: [], elements: {} },
+  props: {}
+} as const satisfies CoreRawData
 
 const RenderApp: React.FC = () => {
   const renderContainerRef = useRef<HTMLDivElement>(null)
@@ -9,6 +17,13 @@ const RenderApp: React.FC = () => {
 
   useEffect(() => {
     let active = true
+    let collaborationDisposer: (() => Promise<void>) | undefined
+    let collaborationDisposePromise: Promise<void> | undefined
+    const disposeCollaboration = (): Promise<void> => {
+      if (!collaborationDisposer) return Promise.resolve()
+      collaborationDisposePromise ??= collaborationDisposer()
+      return collaborationDisposePromise
+    }
 
     const lifecycle = lifecycleRef.current
       .catch(() => undefined)
@@ -20,9 +35,20 @@ const RenderApp: React.FC = () => {
         if (!container) {
           return
         }
+        const collaborationMode = getCollaborationMode()
+        const documentPersistence = createDocumentPersistence(
+          collaborationMode?.fileId
+        )
 
-        // Configure persistence before Core-owned renderer startup.
-        core.setPersistence(providers.localStorage)
+        // LocalStorage remains the demo database. Initialize only an absent
+        // collaboration document so Core can establish its empty workspace;
+        // an existing document must survive refresh unchanged.
+        if (collaborationMode && (await documentPersistence.load()) === null) {
+          if (!active) return
+          await documentPersistence.save(EMPTY_DOCUMENT)
+        }
+        if (!active) return
+        core.setPersistence(documentPersistence)
 
         // Phase 3: Single startup call
         await core.start(container, {
@@ -31,6 +57,23 @@ const RenderApp: React.FC = () => {
           backgroundColor: CANVAS_BACKGROUND_COLOR,
           backgroundColorAlpha: 1
         })
+        if (!active) {
+          core.destroyRenderer()
+          return
+        }
+
+        if (collaborationMode) {
+          const collaborationLifecycle = await import(
+            '../collaboration/lifecycle'
+          )
+          collaborationDisposer = collaborationLifecycle.disposeCollaboration
+          if (!active) {
+            await disposeCollaboration()
+            return
+          }
+          await collaborationLifecycle.startCollaboration(collaborationMode)
+          if (!active) await disposeCollaboration()
+        }
       })
     lifecycleRef.current = lifecycle
     void lifecycle.catch((error: unknown) => {
@@ -42,6 +85,9 @@ const RenderApp: React.FC = () => {
     return () => {
       active = false
       core.destroyRenderer()
+      void disposeCollaboration().catch((error: unknown) => {
+        console.error('[RenderApp] collaboration teardown failed:', error)
+      })
     }
   }, [])
 

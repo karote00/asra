@@ -1,13 +1,14 @@
 import {
   clampColorByte,
   clampOpacity,
+  clampUnit,
   parseColor as parseSharedColor,
   rgbaToHex as rgbaToSharedHex,
   rgbaToCssColor,
   type RGBAColor
 } from '@asyra/utils'
 
-export { rgbaToCssColor }
+export { clampUnit, rgbaToCssColor }
 
 export interface HSVAColor {
   h: number
@@ -109,8 +110,6 @@ export const createHsvaColor = (color: string, opacity = 1): HSVAColor => {
     a: clamp(opacity, 0, 1)
   }
 }
-
-export const clampUnit = (value: number) => clamp(value, 0, 1)
 
 export const rgbaToHex = (color: RGBAColor) =>
   rgbaToSharedHex(color, { uppercase: true })

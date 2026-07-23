@@ -2,7 +2,7 @@
 
 ## Responsibility
 
-Transaction grouping, undo/redo history, and Yjs-backed shared data-channel
+Transaction grouping, undo/redo history, and local shared data-channel
 infrastructure.
 
 ## Owns
@@ -14,7 +14,8 @@ infrastructure.
 - user-action completion emission after an undoable commit
 - pending shared-channel changes and transaction-end flush
 - shared data-channel registration/lookup/observation
-- module-level default Yjs document used by the `getYjsDataChannel(...)` helper
+- detached shared-delivery metadata for explicit collaboration subscribers
+- fresh delivery-only local channels that do not retain a document log
 
 ## Must Not Own
 
@@ -63,8 +64,9 @@ infrastructure.
 
 - undo replays committed changes in reverse order
 - redo replays committed changes in forward order
-- scalar events expanded from a batch retain each entry's `raw|computed` owner
-  unchanged across rollback, undo, and redo
+- an ordered batch remains one state-owner event across rollback, undo, redo,
+  and remote forward apply; inverse replay reverses the entry order and swaps
+  each `before`/`after` pair without interpreting owner-specific payload meaning
 - computed record-patch inversion distinguishes an addition from a replacement by
   own `before` property existence; a present `before: undefined` remains a set
   replacement during undo, while only an absent `before` becomes a remove
@@ -125,17 +127,35 @@ infrastructure.
 - canonical state-owner apply failures are acknowledged synchronously and are
   aggregated with other inverse failures
 
-4. Shared delivery
+4. Shared delivery and publication
 
+- `SharedDeliveryMode` comes from `@asyra/utils` and is shared by mutation
+  options, effective journal options, and public delivery metadata
 - local transaction recording is the default
 - changes append to a shared channel only when `options.shared` names a
   registered channel
 - `sharedDelivery: 'transaction-end'` buffers delivery until outer commit
-- `sharedDelivery: 'immediate'` exposes the change during the active transaction
+- `sharedDelivery: 'immediate'` completes local shared-channel delivery and
+  optional collaboration publication during the active transaction
 - delivery timing is independent from `undoable`; non-undoable shared changes
   also default to transaction-end unless immediate delivery is explicit
-- rollback discards pending transaction-end changes
-- rollback compensates each immediate local projection exactly once
+- all changes made by one synchronous immediate delivery action are batched in
+  journal order into one publication; a committed transaction-end batch is one
+  publication
+- a pointer session may emit multiple immediate publications while all of its
+  undoable journal entries remain one outer undo commit
+- already-published immediate entries are excluded from the transaction-end
+  batch; Factory never restores and replays final state solely to publish it
+- publication preserves repeated semantic changes such as A -> B -> C -> B and
+  does not deduplicate app-authored pipeline steps
+- rollback discards pending transaction-end changes and immediate changes that
+  have not reached their publication microtask
+- rollback after immediate publication emits one ordered reverse compensation
+  publication, linked to the forward delivery ids and produced by the same
+  inverse primitive
+- a committed local undo publishes inverse shared replay at transaction-end;
+  redo publishes the forward replay; only channels actually delivered by the
+  original committed action remain eligible
 - transaction-end shared delivery walks committed journal entries in mutation
   order; each registered observer receives one delivery per entry, and pending
   rolled-back or uncommitted entries are never exposed; scalar/batch
@@ -147,12 +167,15 @@ infrastructure.
   and propagates the delivery error
 - if an earlier transaction-end append from the same flush was already applied,
   rollback compensates that delivered prefix exactly once in reverse order
-- registered shared observers are isolated from one another; if a raw Yjs
+- registered shared observers are isolated from one another; if a raw shared
   observer throws after the append is already present, the change remains
   classified as delivered so rollback can compensate it exactly once
 - shared channels transport detached committed payloads only; they do not own
   canonical Scene Tree state, Render snapshots, or an independent revision
   authority
+- `subscribeToSharedPublication(...)` observes one batch per synchronous
+  immediate delivery action or committed transaction-end batch; a batch may
+  contain changes for multiple elements or state owners
 
 5. Status contract
 
@@ -161,6 +184,9 @@ infrastructure.
   exceptions cannot change a canonical outcome or block later listeners
 - statuses distinguish discarded, committed, rolled-back, rollback-failed,
   persistence-skipped, persisted, and persistence-failed outcomes
+- each status payload is a detached snapshot of its owning transaction before
+  external publication/completion observers run; a reentrant nested action
+  cannot replace the outer transaction id or change count
 - runtime commit does not mean the persistence provider durably stored data
 
 ## Instance Contract
@@ -170,11 +196,12 @@ infrastructure.
   framework runtime bundle.
 - Each `Factory` instance owns its transaction history and shared-channel
   registry, validators, inverters, and status subscriptions.
-- Creating a `Factory` does not currently create or inject another Y.Doc;
-  `getYjsDataChannel(...)` still resolves channels from the module-level default
-  document.
-- Consumers that need another Y.Doc may create channels from their consumer-owned
-  document and register those channels on the intended `Factory` instance.
+- Creating or importing a `Factory` does not create collaboration transport.
+- Preset/default local projections use `LocalSharedDataChannel`; the channel
+  delivers changes to observers and does not retain a second document history.
+- Explicit collaboration subscribes to instance-local detached shared
+  publications and passes them to a replaceable Provider; Factory remains the
+  transaction/history/shared-settlement owner.
 - Each intended isolation boundary must explicitly choose its Factory, channel
   ownership, and event subscription wiring.
 - Default imports intentionally share the default factory transaction history
@@ -186,19 +213,22 @@ infrastructure.
   their nested transaction calls back to that same instance; they do not touch
   the default Factory history or statuses.
 
-## Release-Blocking Planned Contracts
+## Optional Collaboration Boundary
 
-- Yjs network collaboration is required before the first framework release but
-  remains optional to activate at app runtime:
-  `../plans/yjs-network-collaboration-plan.md`
-- deterministic framework conflict policy and app extension points are part of
-  that same release gate:
-  `../plans/collaborative-conflict-policies-plan.md`
+Factory still does not own Provider/room/auth, Awareness, remote policy,
+persistence, recovery, or network transport. The explicit optional
+`@asyra/collaboration` instance subscribes to Factory's detached completed
+publications and transports them without semantic interpretation. Factory
+contributes the local transaction/history/shared-settlement boundary and the
+rollbackable, non-undoable remote transaction wrapper only.
+That wrapper temporarily owns nested reactive transaction calls and forces
+remote-origin journal entries to remain rollbackable even when handler options
+request `rollbackable: false`.
 
-These contracts are not implemented by the current local shared-channel
-infrastructure. Until the release gate closes, Factory must not be described as
-providing provider/room/auth, remote canonical apply, awareness, reconnect, or
-network convergence.
+Collaboration contracts are:
+
+- `collaboration.md`
+- `../plans/completed/network-collaboration-transport-plan.md`
 
 ## Validation Checklist
 

@@ -247,10 +247,10 @@ describe('Preset Selection Subscriptions', () => {
 
     const counters: string[] = []
     const runtimeGlobal = globalThis as typeof globalThis & {
-      __asyraStrokePipelineCounterSink?: (name: string) => void
+      __asyraDiagnosticCounterSink?: (name: string) => void
     }
-    const previousCounterSink = runtimeGlobal.__asyraStrokePipelineCounterSink
-    runtimeGlobal.__asyraStrokePipelineCounterSink = (name) => {
+    const previousCounterSink = runtimeGlobal.__asyraDiagnosticCounterSink
+    runtimeGlobal.__asyraDiagnosticCounterSink = (name) => {
       counters.push(name)
     }
 
@@ -356,7 +356,7 @@ describe('Preset Selection Subscriptions', () => {
       ])
     } finally {
       dispose()
-      runtimeGlobal.__asyraStrokePipelineCounterSink = previousCounterSink
+      runtimeGlobal.__asyraDiagnosticCounterSink = previousCounterSink
       add.mockRestore()
       remove.mockRestore()
       scalar.mockRestore()

@@ -2,8 +2,8 @@
 
 ## Status
 
-Framework Release Gate 3: queued after Yjs network collaboration and its
-conflict-policy foundation close.
+Framework Release Gate 3: queued after the network collaboration transport
+foundation closes.
 
 This plan is a product contract for data and pipeline behavior, not a Group UI
 specification. Before implementation begins, create a matching Inspector owner
@@ -184,8 +184,9 @@ hierarchy ownership.
   artifact, failure owner, and implementation boundary resolves;
 - Scene Tree formal tests cover hierarchy validation, atomicity, ordering,
   subtree lifecycle, replay, load, and instance isolation;
-- Factory/Yjs tests prove one transaction, exact inverse, remote canonical
-  apply, dedupe, conflict resolution, and convergence;
+- Factory/collaboration tests prove one transaction, exact inverse, publication
+  transport, and app-owned remote canonical apply; hierarchy conflict and
+  convergence policy remain app/backend contracts;
 - Preset tests prove component installation, operation adapters, coordinate and
   bounds behavior, cleanup, and app override boundaries;
 - Render/engine integration tests prove identity-safe hierarchy handoff and

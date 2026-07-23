@@ -1,3 +1,5 @@
+import { clampUnit } from '../number'
+
 export interface RGBAColor extends Record<string, unknown> {
   r: number
   g: number
@@ -12,7 +14,7 @@ interface ParseColorOptions {
 export const clampColorByte = (value: number) =>
   Math.max(0, Math.min(255, value))
 
-export const clampOpacity = (value: number) => Math.max(0, Math.min(1, value))
+export const clampOpacity = (value: number): number => clampUnit(value)
 
 const toHexPair = (value: number, uppercase = false) => {
   const hex = clampColorByte(Math.round(value)).toString(16).padStart(2, '0')

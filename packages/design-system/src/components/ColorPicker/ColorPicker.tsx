@@ -67,11 +67,6 @@ interface PanelPosition {
   maxHeight: number
 }
 
-interface EmittedValue {
-  color: string
-  opacity: number
-}
-
 const PANEL_WIDTH = 256
 const VIEWPORT_PADDING = 8
 const VIEWPORT_VERTICAL_PADDING = 16
@@ -149,10 +144,10 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
   const shouldIgnoreOutsidePointerDownRef = useRef(
     shouldIgnoreOutsidePointerDown
   )
-  const lastEmittedRef = useRef<EmittedValue | null>(null)
+  const lastEmittedRef = useRef<ColorPickerChange | null>(null)
   const isOpen = open ?? internalIsOpen
 
-  const getCurrentEmittedValue = (): EmittedValue =>
+  const getCurrentEmittedValue = (): ColorPickerChange =>
     lastEmittedRef.current ?? {
       color: rgbaToHex({ ...hsvaToRgba(hsvaRef.current), a: 1 }),
       opacity: hsvaRef.current.a

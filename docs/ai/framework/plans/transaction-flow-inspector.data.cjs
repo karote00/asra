@@ -60,7 +60,7 @@
         'packages/core/src/index.ts',
         'apps/asyra-design/src/common-apis/transaction.ts',
         'apps/asyra-design/src/common-apis/strokes.ts',
-        'apps/asyra-design/src/common-apis/element/index.ts',
+        'apps/asyra-design/src/common-apis/element/apis.ts',
         'apps/asyra-design/src/common-apis/element/change-computed-data.ts',
         'apps/asyra-design/src/common-apis/element/vector-apis.ts',
         'apps/asyra-design/src/properties/vector-point.tsx',
@@ -287,7 +287,7 @@
       implementationBoundary: [
         'packages/factory/src/**',
         'packages/core/src/apis/element-selection.ts',
-        'packages/core/src/apis/index.ts',
+        'packages/core/src/apis/create-apis.ts',
         'packages/core/src/core.ts',
         'packages/core/src/__tests__/element-selection-api.test.ts',
         'packages/reactive-events/src/event-bus.ts',
@@ -664,7 +664,7 @@
       {
         id: 'flow-inspector-contract',
         label: 'Flow Inspector Contract',
-        href: './flow-inspector-dashboard-plan.md',
+        href: '../FLOW_INSPECTOR.md',
         kind: 'framework'
       }
     ],

@@ -49,15 +49,18 @@ describe('@asyra/render-engine-pixi package boundary', () => {
       tasks: Record<string, { dependsOn?: string[] }>
     }
 
-    expect(turbo.tasks['build:render-engine-pixi'].dependsOn).toContain(
-      '^build:render-engine'
-    )
-    expect(turbo.tasks['build:preset'].dependsOn).toEqual(
+    expect(
+      turbo.tasks['@asyra/render-engine-pixi#build:render-engine-pixi']
+        .dependsOn
+    ).toContain('@asyra/render-engine#build:render-engine')
+    expect(turbo.tasks['@asyra/preset#build:preset'].dependsOn).toEqual(
       expect.arrayContaining([
-        '^build:render-engine',
-        '^build:render-engine-pixi'
+        '@asyra/render-engine#build:render-engine',
+        '@asyra/render-engine-pixi#build:render-engine-pixi'
       ])
     )
-    expect(turbo.tasks['react:build'].dependsOn).toContain('^build:render')
+    expect(turbo.tasks['@asyra/asyra-design#react:build'].dependsOn).toContain(
+      '@asyra/render#build:render'
+    )
   })
 })

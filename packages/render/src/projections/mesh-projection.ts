@@ -1,19 +1,16 @@
 import earcut from 'earcut'
+import {
+  getPointDistanceSquared,
+  type Bounds,
+  type PositionData
+} from '@asyra/utils'
 import { RenderContainer, RenderMesh } from '../types/render-object'
 
-export interface GeometryPoint {
-  x: number
-  y: number
-}
+export type GeometryPoint = PositionData
 
 export interface GeometryModel {
   polygons: GeometryPoint[][]
-  bounds?: {
-    minX: number
-    minY: number
-    maxX: number
-    maxY: number
-  }
+  bounds?: Bounds
 }
 
 export interface MeshProjectionPaintSolid {
@@ -41,12 +38,7 @@ export interface ProjectionMeshData {
   vertices: Float32Array
   indices: Uint32Array
   uvs: Float32Array
-  bounds: {
-    minX: number
-    minY: number
-    maxX: number
-    maxY: number
-  }
+  bounds: Bounds
 }
 
 const EMPTY_BOUNDS = {
@@ -89,19 +81,13 @@ const getModelBounds = (model: GeometryModel) => {
 
 const DEDUPE_DISTANCE_EPSILON_SQUARED = 1e-12
 
-const distanceSquared = (a: GeometryPoint, b: GeometryPoint) => {
-  const dx = a.x - b.x
-  const dy = a.y - b.y
-  return dx * dx + dy * dy
-}
-
 const normalizePolygon = (polygon: GeometryPoint[]) => {
   const deduped: GeometryPoint[] = []
   polygon.forEach((point) => {
     const previous = deduped[deduped.length - 1]
     if (
       !previous ||
-      distanceSquared(previous, point) > DEDUPE_DISTANCE_EPSILON_SQUARED
+      getPointDistanceSquared(previous, point) > DEDUPE_DISTANCE_EPSILON_SQUARED
     ) {
       deduped.push(point)
     }
@@ -109,7 +95,7 @@ const normalizePolygon = (polygon: GeometryPoint[]) => {
 
   if (
     deduped.length > 2 &&
-    distanceSquared(deduped[0], deduped[deduped.length - 1]) <=
+    getPointDistanceSquared(deduped[0], deduped[deduped.length - 1]) <=
       DEDUPE_DISTANCE_EPSILON_SQUARED
   ) {
     deduped.pop()

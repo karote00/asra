@@ -25,8 +25,9 @@ Users need quick, reliable switching between primary tools with clear active-sta
 4. While in path-editing mode:
    - switching to Select keeps path editing active and disconnects preview segment.
    - switching to Pen keeps path editing active.
-   - switching to other tools exits path editing.
+   - switching to other tools exits path editing and leaves Select active.
 5. Switching to pen does not automatically enter path editing.
+6. Every path-editing exit leaves Select as the active tool.
 
 ## Non-Functional Requirements
 

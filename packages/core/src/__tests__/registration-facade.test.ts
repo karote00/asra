@@ -31,7 +31,7 @@ const createCoreForTest = () => {
         sharedChannels.delete(name)
       ),
       hasSharedDataChannel: vi.fn((name: string) => sharedChannels.has(name)),
-      getYjsDataChannel: vi.fn((name: string) => ({ name }))
+      createLocalSharedDataChannel: vi.fn(() => ({ owner: 'local' }))
     } as never,
     props,
     render: {
@@ -180,7 +180,9 @@ describe('Core registration facade', () => {
       core.unregisterSharedDataChannel
     )
     expect(presetApi.hasSharedDataChannel).toBe(core.hasSharedDataChannel)
-    expect(presetApi.getYjsDataChannel).toBe(core.getYjsDataChannel)
+    expect(presetApi.createLocalSharedDataChannel).toBe(
+      core.createLocalSharedDataChannel
+    )
   })
 
   it('preserves render-layer shouldUpdate through the Core facade contract', () => {

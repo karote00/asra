@@ -21,6 +21,12 @@ packages/props-manager/src/
 - element property registry
 - property schema registry
 - load-time fallback and runtime reject logic
+- detached cloning of nested declarative property-definition values used by
+  the package owner and Core facade
+- detached cloning of property-component config registrations before Core
+  stores or returns declarative definitions
+- `PropertyRegistrationOptions`, the shared duplicate-registration option
+  contract used by schema and property-component registries
 
 ## Rules
 
@@ -96,6 +102,7 @@ packages/props-manager/src/
 
 - element property registration
 - property component registration
+- schema and property-component registration options
 - property component change subscriptions (Setter.on)
 - property schema registration
 - state registry for UI/derived helpers

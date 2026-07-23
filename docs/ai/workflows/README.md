@@ -18,6 +18,11 @@ This folder defines command entrypoints. These files should stay lightweight and
 - `/plan-done-closeout <plan>`
 - App visual review rule overlays: `app-visual-review-rule-overlay.md`
 
+Repository automation contracts:
+
+- workspace build, generated-template, and release validation:
+  `package-release-validation.md`
+
 ## Authoring Rule
 
 Workflow files should:
@@ -33,18 +38,22 @@ Workflow files should not:
 
 ## Shared Reference Order
 
-1. Route scope: framework / app / cross-cutting
-2. Load source-of-truth docs by scope:
+1. Freeze the bounded task contract and apply the project-wide scope rule:
+
+- `docs/ai/framework/rules/bounded-task-scope-and-closure.md`
+
+2. Route scope: framework / app / cross-cutting
+3. Load source-of-truth docs by scope:
 
 - framework: `docs/ai/framework/*`
 - app: `docs/ai/apps/asyra-design/*`
 
-3. Follow scope workflow:
+4. Follow scope workflow:
 
 - framework: `docs/ai/framework/WORKFLOW.md`
 - app: `docs/ai/apps/asyra-design/WORKFLOW.md`
 
-4. Follow the project-wide local commit and remote-operation policy:
+5. Follow the project-wide local commit and remote-operation policy:
 
 - `docs/ai/workflows/git-commit-push-policy.md`
 

@@ -41,6 +41,6 @@ Users need a predictable delete workflow that removes the intended target withou
 
 - `apps/asyra-design/src/features/delete-element/index.ts`
 - `apps/asyra-design/src/features/delete-vector-point/index.ts`
-- `apps/asyra-design/src/common-apis/element/index.ts`
+- `apps/asyra-design/src/common-apis/element/apis.ts`
 - `apps/asyra-design/src/common-apis/selection.ts`
 - `apps/asyra-design/e2e/delete-element.spec.ts`

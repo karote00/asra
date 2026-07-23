@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import * as Y from 'yjs'
 import { Factory } from '../factory'
+import { LocalSharedDataChannel } from '../shared-data-channel'
 import type _DataTransact from '../data-transact' // Keep this import for type inference
 import {
   EventTypes,
+  subscribeToEndTransaction,
   subscribeToEvents,
   subscribeToUserActionCompleted,
+  updateTransaction,
   UpdateTransactionEvent,
   TransactionEventTypes
 } from '@asyra/reactive-events'
@@ -45,6 +47,113 @@ describe('Factory', () => {
   it('should call DataTransact.end when endTransaction is called', () => {
     factory.endTransaction()
     expect(factory.transact.end).toHaveBeenCalledTimes(1)
+  })
+
+  it('routes remote state-owner updates to this Factory and forces rollbackability', () => {
+    const statuses: {
+      origin: string
+      status: string
+      rollbackableChangeCount: number
+    }[] = []
+    factory.subscribeToTransactionStatus((status) => statuses.push(status))
+
+    factory.runRemoteTransaction(() => {
+      updateTransaction(
+        EventTypes.UPDATE_COMPUTED_DATA,
+        { id: 'remote', before: 0, after: 1 },
+        { undoable: true, rollbackable: false }
+      )
+    })
+
+    expect(factory.transact.update).toHaveBeenCalledTimes(1)
+    expect(statuses).toEqual([
+      expect.objectContaining({
+        origin: 'remote',
+        status: 'committed',
+        rollbackableChangeCount: 1
+      })
+    ])
+  })
+
+  it('publishes the remote transaction end after shared projections settle', () => {
+    const projection = new LocalSharedDataChannel()
+    const order: string[] = []
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      projection
+    )
+    const disposeProjection = projection.observe(() => order.push('projection'))
+    const endSubscription = subscribeToEndTransaction(() => order.push('end'))
+    order.length = 0
+
+    try {
+      factory.runRemoteTransaction(() => {
+        updateTransaction(
+          EventTypes.UPDATE_COMPUTED_DATA,
+          { id: 'remote', before: 0, after: 1 },
+          { shared: SharedDataChannelNames.SCENE_TREE }
+        )
+      })
+
+      expect(order).toEqual(['projection', 'end'])
+    } finally {
+      endSubscription.unsubscribe()
+      disposeProjection()
+    }
+  })
+
+  it('forwards one remote event unchanged without state-owner payload interpretation', () => {
+    const appliedEvents: unknown[] = []
+    const event = {
+      type: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        id: 'remote-element',
+        changes: [
+          { owner: 'computed', key: 'x', before: 0, after: 1 },
+          { owner: 'computed', key: 'x', before: 1, after: 2 },
+          { owner: 'computed', key: 'x', before: 2, after: 1 }
+        ]
+      }
+    } as const
+
+    const applied = factory.runRemoteTransaction(() =>
+      factory.applyRemoteEvent(event, (forwardEvent) => {
+        appliedEvents.push(forwardEvent)
+        return true
+      })
+    )
+
+    expect(applied).toBe(true)
+    expect(appliedEvents).toEqual([event])
+    expect(appliedEvents[0]).not.toBe(event)
+    expect((appliedEvents[0] as typeof event).payload).not.toBe(event.payload)
+  })
+
+  it('reports the state owner result for the one forwarded remote event', () => {
+    const event = {
+      type: EventTypes.UPDATE_COMPUTED_DATA,
+      payload: {
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+        eventName: EventTypes.UPDATE_COMPUTED_DATA,
+        id: 'remote-element',
+        changes: [
+          { owner: 'computed', key: 'x', before: 0, after: 1 },
+          { owner: 'computed', key: 'y', before: 0, after: 1 }
+        ]
+      }
+    } as const
+
+    const noOp = factory.runRemoteTransaction(() =>
+      factory.applyRemoteEvent(event, () => false)
+    )
+    const applied = factory.runRemoteTransaction(() =>
+      factory.applyRemoteEvent(event, () => true)
+    )
+
+    expect(noOp).toBe(false)
+    expect(applied).toBe(true)
   })
 
   it('should call DataTransact.undo when undo is called', () => {
@@ -163,7 +272,7 @@ describe('Factory', () => {
   it('notifies channel observers when shared transaction changes are appended', () => {
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
-      factory.getYjsDataChannel(SharedDataChannelNames.SCENE_TREE)
+      factory.createLocalSharedDataChannel()
     )
 
     const handler = vi.fn()
@@ -192,7 +301,7 @@ describe('Factory', () => {
   it('defers non-undoable shared channel observers without explicit immediate delivery', () => {
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
-      factory.getYjsDataChannel(SharedDataChannelNames.SCENE_TREE)
+      factory.createLocalSharedDataChannel()
     )
 
     const handler = vi.fn()
@@ -230,7 +339,7 @@ describe('Factory', () => {
   it('delivers each committed journal snapshot once and in order to every observer', () => {
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
-      factory.getYjsDataChannel(SharedDataChannelNames.SCENE_TREE)
+      factory.createLocalSharedDataChannel()
     )
 
     interface OrderedChange {
@@ -315,7 +424,7 @@ describe('Factory', () => {
   it('commits undo before notifying shared channel observers', () => {
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
-      factory.getYjsDataChannel(SharedDataChannelNames.SCENE_TREE)
+      factory.createLocalSharedDataChannel()
     )
 
     const undoStackLengths: number[] = []
@@ -349,7 +458,7 @@ describe('Factory', () => {
   })
 
   it('isolates shared channel observer failures from later observers', () => {
-    const channel = new Y.Doc().getArray(SharedDataChannelNames.SCENE_TREE)
+    const channel = new LocalSharedDataChannel()
     const laterObserver = vi.fn()
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
@@ -382,8 +491,9 @@ describe('Factory', () => {
     )
   })
 
-  it('compensates an immediate append when a raw Yjs observer throws', () => {
-    const channel = new Y.Doc().getArray(SharedDataChannelNames.SCENE_TREE)
+  it('compensates an immediate append when a local projection observer throws', () => {
+    const channel = new LocalSharedDataChannel()
+    const changes: unknown[] = []
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
       channel
@@ -391,6 +501,7 @@ describe('Factory', () => {
     channel.observe(() => {
       throw new Error('raw Yjs observer failed')
     })
+    channel.observe((change) => changes.push(change))
 
     factory.startTransaction()
     expect(() =>
@@ -406,7 +517,7 @@ describe('Factory', () => {
     ).not.toThrow()
     expect(() => factory.endTransaction({ outcome: 'rollback' })).not.toThrow()
 
-    expect(channel.toArray()).toEqual([
+    expect(changes).toEqual([
       expect.objectContaining({ id: 'compensated', before: 0, after: 1 }),
       expect.objectContaining({ id: 'compensated', before: 1, after: 0 })
     ])

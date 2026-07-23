@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { interactionTargetRegistry } from '@asyra/render'
-import { createRenderInteractionPointTarget } from '@asyra/render'
+import {
+  createRenderInteractionCircleTarget,
+  createRenderInteractionPointTarget
+} from '@asyra/render'
 
 describe('InteractionTargetRegistry', () => {
   beforeEach(() => {
@@ -34,6 +37,18 @@ describe('InteractionTargetRegistry', () => {
     })
 
     expect(hit?.id).toBe('target-high')
+  })
+
+  it('uses the canonical point hit contract for circle targets', () => {
+    const target = createRenderInteractionCircleTarget({
+      id: 'circle',
+      type: 'handle',
+      center: { x: 10, y: 10 },
+      radius: 5
+    })
+
+    expect(target.hitTest({ x: 13, y: 14 })).toBe(true)
+    expect(target.hitTest({ x: 16, y: 10 })).toBe(false)
   })
 
   it('should update a target and reflect new hit test result', () => {

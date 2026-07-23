@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
+import type { Rect } from '@asyra/utils'
 
 /**
  * Shared test utilities for E2E tests
@@ -7,6 +8,25 @@ import type { Locator, Page } from '@playwright/test'
 // Layout constants (matching the UI constants)
 export const SIDEBAR_WIDTH = 240 // COLUMN_WIDTH * 4 = 60 * 4
 export const HEADER_HEIGHT = 48 // h-12 = 12 * 4 = 48px
+
+const browserErrorsByPage = new WeakMap<Page, string[]>()
+
+export const captureBrowserErrors = (page: Page): void => {
+  const browserErrors: string[] = []
+  browserErrorsByPage.set(page, browserErrors)
+
+  page.on('pageerror', (error) => {
+    browserErrors.push(error.message)
+  })
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      browserErrors.push(message.text())
+    }
+  })
+}
+
+export const getCapturedBrowserErrors = (page: Page): readonly string[] =>
+  browserErrorsByPage.get(page) ?? []
 
 /**
  * Get a safe canvas position that won't be intercepted by overlays
@@ -98,7 +118,12 @@ export async function setStrokeDiagnosticsMode(
  */
 export async function resetCanvas(page: Page) {
   await page.evaluate(() => {
-    localStorage.removeItem('FILE')
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index)
+      if (key === 'FILE' || key?.startsWith('FILE:')) {
+        localStorage.removeItem(key)
+      }
+    }
   })
 
   let resetButton = page.getByTestId('reset-button')
@@ -195,13 +220,13 @@ export async function createOval(page: Page, relativeX = 0.3, relativeY = 0.3) {
 /**
  * Get selected element computed position and size from core.
  */
-export async function getSelectedElementRect(page: Page): Promise<{
+export interface ElementRect extends Rect {
   id: string
-  x: number
-  y: number
-  width: number
-  height: number
-} | null> {
+}
+
+export async function getSelectedElementRect(
+  page: Page
+): Promise<ElementRect | null> {
   return page.evaluate(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const core = (window as any).__Core__
@@ -231,17 +256,10 @@ export async function getSelectedElementRect(page: Page): Promise<{
   })
 }
 
-/**
- * Resolve selected element center in client-space.
- */
-export async function getSelectedElementClientCenter(
-  page: Page
-): Promise<{ x: number; y: number } | null> {
-  const rect = await getSelectedElementRect(page)
-  if (!rect) {
-    return null
-  }
-
+export async function getElementRectClientCenter(
+  page: Page,
+  rect: Rect
+): Promise<{ x: number; y: number }> {
   return page.evaluate(({ x, y, width, height }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const core = (window as any).__Core__
@@ -256,6 +274,20 @@ export async function getSelectedElementClientCenter(
       y: (y + height / 2) * zoom + viewport.y
     }
   }, rect)
+}
+
+/**
+ * Resolve selected element center in client-space.
+ */
+export async function getSelectedElementClientCenter(
+  page: Page
+): Promise<{ x: number; y: number } | null> {
+  const rect = await getSelectedElementRect(page)
+  if (!rect) {
+    return null
+  }
+
+  return getElementRectClientCenter(page, rect)
 }
 
 /**
@@ -276,6 +308,52 @@ export async function dragSelectedElementBy(
   await page.mouse.down()
   await page.mouse.move(center.x + deltaX, center.y + deltaY, { steps })
   await page.mouse.up()
+}
+
+export const getTransactionSnapshot = async (page: Page) =>
+  page.evaluate(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const transact = core?.deps?.factory?.transact
+    const undoStack = transact?.undoStack ?? []
+
+    return {
+      undoCount: undoStack.length,
+      isTransacting: transact?.isTransacting ?? 0
+    }
+  })
+
+export const setSelectedGradient = async (
+  page: Page,
+  gradient: unknown
+): Promise<void> => {
+  await page.evaluate((nextGradient) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const core = (window as any).__Core__
+    const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+    if (!selectedId) {
+      return
+    }
+
+    const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+    const computed = element?.getAllComputedData?.() ?? {}
+    const fillId = computed?.fills?.[0]?.id
+    if (!fillId || !nextGradient) {
+      return
+    }
+
+    core.updatePropertyById(
+      fillId,
+      'gradient',
+      nextGradient,
+      {
+        ownerElementId: selectedId,
+        ownerPropertyName: 'fills'
+      },
+      { undoable: false }
+    )
+    core.commitPropertyChanges({ undoable: false })
+  }, gradient)
 }
 
 /**

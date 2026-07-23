@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const renderRuntime = vi.hoisted(() => ({
+const renderRuntime = {
   app: null as { canvas: HTMLCanvasElement; instance: unknown } | null,
   init: vi.fn(),
   start: vi.fn(),
@@ -12,14 +12,7 @@ const renderRuntime = vi.hoisted(() => ({
   zoomToCenter: vi.fn(),
   resize: vi.fn(),
   dispose: vi.fn()
-}))
-
-vi.mock('../render', () => ({
-  default: renderRuntime,
-  Render: class MockRender {
-    readonly name = 'mock-render'
-  }
-}))
+}
 
 import { PixiJSRenderer, RenderAdapter } from '../index'
 import type { Render } from '../render'
@@ -39,7 +32,7 @@ describe('Framework renderer facade', () => {
       renderRuntime.app = app
       return app
     })
-    const adapter = new RenderAdapter()
+    const adapter = new RenderAdapter(renderRuntime as unknown as Render)
 
     const result = await adapter.init(container, {
       width: 640,
@@ -98,11 +91,8 @@ describe('Framework renderer facade', () => {
     expect(adapter.getCanvas()).toBe(canvas)
     expect(adapter.getInstance()).toEqual({ name: 'selected-runtime' })
     expect(result.instance).toBe(adapter.getInstance())
-    expect(renderRuntime.init).not.toHaveBeenCalled()
-
     adapter.destroy()
     expect(selectedRuntime.dispose).toHaveBeenCalledOnce()
-    expect(renderRuntime.dispose).not.toHaveBeenCalled()
   })
 
   it('keeps PixiJSRenderer as a warn-once compatibility alias', () => {
@@ -128,7 +118,7 @@ describe('Framework renderer facade', () => {
       renderRuntime.app = app
       return app
     })
-    const adapter = new RenderAdapter()
+    const adapter = new RenderAdapter(renderRuntime as unknown as Render)
     await adapter.init(container, {
       width: 640,
       height: 480,
@@ -154,7 +144,7 @@ describe('Framework renderer facade', () => {
           resolveInitialization = resolve
         })
     )
-    const adapter = new RenderAdapter()
+    const adapter = new RenderAdapter(renderRuntime as unknown as Render)
 
     const initialization = adapter.init(container, {
       width: 640,

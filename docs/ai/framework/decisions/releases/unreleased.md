@@ -1497,7 +1497,7 @@ unregister -> app migration -> core.start()` as the public app route.
 - Related Plan:
   - `docs/ai/framework/PLANS.md`
   - `docs/ai/framework/plans/props-manager-app-level-migration-plan.md`
-  - `docs/ai/framework/plans/yjs-network-collaboration-plan.md`
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
   - `docs/ai/framework/plans/collaborative-conflict-policies-plan.md`
   - `docs/ai/framework/plans/group-component-and-hierarchy-behaviors-plan.md`
   - `docs/ai/framework/plans/ai-agent-runtime-plan.md`
@@ -1627,3 +1627,362 @@ unregister -> app migration -> core.start()` as the public app route.
   - `docs/ai/framework/PLANS.md`
 - Related Commit(s):
   - `19bbe2c51` (`feat(framework): formalize connected app migrations`, PR #90)
+
+## 2026-07-19 - Implement optional Yjs collaboration foundation without closeout
+
+- Context:
+  - Gate 2 began from PR #91 merged into the latest `main` and a dedicated Yjs
+    Network Collaboration Inspector that passed readiness before production
+    implementation.
+  - Existing Factory shared channels already owned local projection,
+    transaction-end buffering, immediate delivery, rollback, and transaction
+    history, but the old local Yjs convenience was not an explicit
+    provider/room/canonical-apply product contract.
+- Decision:
+  - Keep Factory as local transaction/history/shared-settlement owner and make
+    its local channels Y.Doc-free. A committed action, undo, redo, or formal
+    rollback compensation becomes detached semantic delivery only after the
+    owning transaction boundary permits it.
+  - Add explicit optional `@asyra/collaboration` composition for instance-owned
+    Y.Doc, replaceable provider, Awareness, collaboration update persistence,
+    stable operation envelopes, instance-local dedupe, permission/conflict
+    policy, and remote Factory transaction/canonical apply.
+  - Keep auth, room access, durable backend policy, and non-commutative domain
+    conflict semantics app/server owned. Keep Yjs, provider state, Awareness,
+    durability outcomes, Render, and UI non-authoritative.
+  - Distinguish runtime commit, local update persistence, network send and
+    convergence, and durable acknowledgement. Use state-vector exchange for
+    missing updates and a separate ephemeral Awareness route.
+- Consequences:
+  - Apps that omit collaboration create no Y.Doc, provider, room, Awareness,
+    collaboration persistence, or network side effect. Construction is inert;
+    `Collaboration.start()` is the explicit activation point.
+  - Identical local/remote replay is deterministic, operation-ID collision is
+    rejected, remote apply cannot echo or enter ordinary local undo, and
+    immediate rollback compensation re-enters the normal inbound pipeline.
+  - `MemoryProvider` and persistence adapters are reference implementations,
+    not mandatory authorities.
+  - This record documents implementation direction only. Gate 2 remains active;
+    it does not move the plan, declare closeout, or authorize push, pull request,
+    merge, tag, release, or publication.
+- Related Plan:
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
+  - `docs/ai/framework/plans/network-collaboration-transport-flow-inspector.data.cjs`
+  - `docs/ai/framework/plans/collaborative-conflict-policies-plan.md`
+- Related Commit(s):
+  - local Gate 2 implementation commits on
+    `codex/yjs-network-collaboration-foundation`
+
+## 2026-07-20 - Batch collaboration by synchronous delivery action
+
+- Context:
+  - One synchronous app action can create several low-level transactions across
+    elements or state owners. Sending each transaction independently creates
+    avoidable transport overhead.
+  - Remote peers need canonical element creation and geometry before pointer-up,
+    not a second Awareness-owned document preview.
+- Decision:
+  - `sharedDelivery` selects complete shared-pipeline timing. `immediate`
+    publishes without waiting for the outer transaction; `transaction-end`
+    waits for commit.
+  - Batch all changes made by one synchronous immediate delivery action into
+    one ordered publication, one Y.Doc transaction/update, and one provider
+    send. Do the same for one committed transaction-end batch.
+  - Preserve the app-authored timeline, including repeated A -> B -> C -> B;
+    Factory and collaboration do not semantically deduplicate it.
+  - Forward one remote event unchanged to its registered state owner. Keep an
+    ordered batch as one event through rollback, undo, and redo; the state owner
+    alone interprets and applies its entries.
+  - Keep canonical element creation and geometry out of Awareness.
+- Consequences:
+  - A pointer session may emit mouse-down, selected drag-update, and conditional
+    mouse-up publications while remaining one local undo commit.
+  - Already-published immediate entries are not sent again at transaction end.
+    Pre-flush rollback discards the pending batch; post-publication rollback
+    emits one linked reverse compensation batch.
+  - Awareness remains optional ephemeral presence and never becomes a canonical
+    element transport.
+  - Factory no longer rewrites a state-owner batch into scalar app operations.
+- Related Plan:
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
+  - `docs/ai/framework/plans/network-collaboration-transport-flow-inspector.data.cjs`
+- Related Commit(s):
+  - pending local Gate 2 validation
+
+## 2026-07-21 - Simplify collaboration ownership and public API boundaries
+
+- Context:
+  - A package-wide review found implementation-oriented names, mixed operation
+    pipeline responsibilities, combined provider/persistence owners, and root
+    exports for helpers that app composition does not consume.
+  - Framework Release Gate 2 is still pre-release, so compatibility aliases
+    would preserve an API that has not yet become a release contract.
+- Decision:
+  - Use `Collaboration` in `collaboration.ts` as the public lifecycle owner and
+    keep `createCollaboration(...)` as the composition entry. Process each
+    Factory publication through the internal `processPublication` boundary.
+  - Group envelope, registry, outcome, validation, conflict, and canonical
+    apply owners under `operations/`, and keep their pipeline helpers internal.
+  - Use the public `Provider`, `MemoryHub`, and `MemoryProvider` contracts. Split
+    memory room/author validation from client lifecycle/subscriptions.
+  - Keep `UpdatePersistence` and `MemoryPersistence` separate from the internal
+    `Durability` coordinator. Use `Awareness` as the ephemeral state owner with
+    app-owned JSON-safe fields and only `heartbeatAt` reserved for framework
+    liveness.
+  - Export only app composition, provider, persistence, policy, awareness,
+    durability observation, envelope type, and canonical apply contracts from
+    the package root; do not add aliases for the superseded names.
+- Consequences:
+  - App and reference-server consumers use shorter package-context names while
+    provider wire messages, room identity, operation envelopes, validation
+    order, transaction behavior, reconnect, acknowledgement, and Awareness
+    semantics remain unchanged.
+  - Each source file or folder has one primary owner, and Inspector
+    implementation boundaries point to the new canonical paths.
+  - This decision does not close Gate 2 or authorize push, pull request, merge,
+    tag, release, or publication.
+- Related Plan:
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
+  - `docs/ai/framework/plans/network-collaboration-transport-flow-inspector.data.cjs`
+- Related Commit(s):
+  - pending local Gate 2 validation
+
+## 2026-07-21 - Keep collaborative entity identity in the canonical ID owner
+
+- Context:
+  - Independent pages begin with the same local component and property
+    counters, so simultaneous creation can otherwise reuse an app entity ID.
+  - A collaboration-layer payload comparison or winner rule would duplicate
+    app state semantics and cannot repair every nested property identity.
+- Decision:
+  - Let the Utils ID owner optionally namespace non-default registered counters.
+  - Have Asyra Design use its full per-page actor identity as that namespace
+    before collaborative actions begin.
+  - Accept IDs from other namespaces without advancing the local namespace's
+    numeric counter; keep ordinary non-collaborative IDs unchanged.
+- Consequences:
+  - Concurrent element, component, and property creation is cross-actor unique.
+  - Collaboration continues to transport validated operations unchanged and
+    owns no same-entity-ID winner policy.
+- Related Plan:
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
+- Related Commit(s):
+  - pending local Gate 2 validation
+
+## 2026-07-21 - Consolidate repository contracts by semantic owner
+
+- Context:
+  - Repository-wide maintenance found repeated low-level geometry, numeric,
+    diagnostic, vector-selection, property-config, icon, and test-action
+    implementations, plus anonymous contract variants and filenames that did
+    not communicate their primary responsibility.
+  - Identical-looking helpers are not automatically the same contract: adapter
+    cloning, untrusted-input freezing, and renderer-local replay closures can
+    have different owners and change independently.
+- Decision:
+  - Centralize only behavior with the same semantics and owner. Put pure
+    numeric, geometry, registration-key, validation, and diagnostic dispatch
+    primitives in Utils; canonical vector control identifiers and point-target
+    projection in Core; official vector selection ids and synthetic-handle
+    presentation defaults in Preset; and property-component config cloning in
+    Props Manager.
+  - Share app property icons and E2E action helpers inside Asyra Design without
+    moving app behavior into framework packages.
+  - Keep separate identity clones at provider adapter boundaries, separate deep
+    freezes at distinct untrusted-data boundaries, and tiny renderer-local path
+    replay closures. Their similar implementation does not establish shared
+    ownership.
+  - Prefer named contract variants and responsibility-based module names.
+    Classify supported package contracts under `docs/ai/framework/packages/`
+    and archive historical audits or superseded notes under `docs/ai/project/`.
+- Consequences:
+  - Shared behavior now has one canonical implementation without creating a
+    miscellaneous cross-layer owner or changing product behavior.
+  - Remaining repetition is deliberate, local to its trust or adapter boundary,
+    and may evolve independently.
+  - The three repository-wide maintenance plans remain active until user review;
+    this decision does not authorize closeout, push, merge, tag, release, or
+    publication.
+- Related Plan:
+  - `docs/ai/framework/plans/project-wide-duplicate-contract-and-ownership-consolidation-plan.md`
+  - `docs/ai/framework/plans/project-wide-code-readability-analysis-and-refactor-plan.md`
+  - `docs/ai/framework/plans/project-wide-documentation-contract-audit-plan.md`
+- Related Commit(s):
+  - local repository-maintenance commits on
+    `codex/yjs-network-collaboration-foundation`
+
+## 2026-07-22 - Correct repository-maintenance review findings
+
+- Context:
+  - Independent review found that the maintenance plans still declared a
+    queued state after implementation, Factory and Scene Tree retained the
+    same own-value descriptor helper, and a public diagnostics primitive used
+    across Render, Preset, and the app still carried a stroke-specific name.
+- Decision:
+  - Keep all three maintenance plans active but mark implementation and repair
+    work complete while they await explicit user review and closeout approval.
+  - Put the domain-neutral `setOwnEnumerableValue(...)` primitive in Utils and
+    let Scene Tree canonical apply/replay and Factory patch inversion consume
+    that single owner. Keep patch meaning and special-key behavior unchanged.
+  - Name the optional observation primitive `emitDiagnosticCounter(...)`, its
+    callback `DiagnosticCounterSink`, and its global hook
+    `__asyraDiagnosticCounterSink`. Counter names, values, timing, budgets, and
+    product behavior remain unchanged; no compatibility alias is retained for
+    the unreleased stroke-specific vocabulary.
+- Consequences:
+  - Special own-property materialization now has one implementation while the
+    Render Delta Inspector still assigns semantic state and transport behavior
+    to Scene Tree and Factory respectively.
+  - The Utils diagnostics API now describes all current consumers without
+    implying that stroke owns Render, UI Context, vector, or projection
+    counters.
+  - This correction does not close or archive the maintenance plans and does
+    not authorize push, merge, tag, release, or publication.
+- Related Plan:
+  - `docs/ai/framework/plans/project-wide-duplicate-contract-and-ownership-consolidation-plan.md`
+  - `docs/ai/framework/plans/project-wide-code-readability-analysis-and-refactor-plan.md`
+  - `docs/ai/framework/plans/project-wide-documentation-contract-audit-plan.md`
+- Related Commit(s):
+  - `d46d7cc3c` (`refactor(utils): centralize own property writes`)
+  - `0eb306f91` (`refactor(utils): generalize diagnostic counters`)
+
+## 2026-07-22 - Complete bounded maintenance review corrections
+
+- Context:
+  - Final maintenance review found that an optional diagnostic sink could
+    still throw into product flow, Factory retained two implementations of the
+    same detached-value clone, several exact type contracts had parallel
+    declarations, and four existing Utils consumers repeated unit clamping.
+- Decision:
+  - Isolate diagnostic sink failures and prove the rule through the Utils test
+    and Render Delta Inspector contract.
+  - Use one Factory-internal clone primitive for transaction journals, local
+    shared channels, deliveries, and publications while preserving the
+    mutation-time detached snapshot contract.
+  - Keep raw render-layer registration owned by Render, Core facade callback
+    ownership in Core, structural vector intent ownership at the Asyra Design
+    element common-API boundary, and canonical vector selection/state shapes
+    in Core.
+  - Use Design System's public icon-name contract, one Props Manager
+    registration-options contract, one Utils registration-owner contract, and
+    Utils-owned point/rect/bounds/transform/RGBA primitives across Render,
+    Preset, and Asyra Design. Domain-specific public names remain aliases when
+    they communicate consumer meaning.
+  - Route Asyra Design overlay system-property reads through the Core facade and
+    keep one app E2E helper for workspace-rectangle center projection.
+  - Express empty function exits with `return` and keep explicit `undefined`
+    for expression/data positions. Reuse Utils `Bounds` for app Bézier bounds.
+  - Share repeated owner-local workflows for app property interaction
+    transactions, vector-icon snapshots/events, Feature System input snapshots,
+    and Preset computed-key pending state without moving their behavior across
+    package boundaries.
+  - Reuse the existing Utils `clampUnit(...)` primitive only in consumers that
+    already depend on Utils and implement the identical numeric contract.
+- Consequences:
+  - Optional diagnostics cannot change canonical product outcomes.
+  - The consolidated implementations and type declarations retain their
+    existing runtime payloads, transaction behavior, dependency direction, and
+    app-owned collaboration policy.
+  - Similar but independently owned adapter, trust-boundary, opacity, and
+    concrete-renderer code remains separate. The maintenance plans remain
+    active until user review and explicit closeout approval.
+- Related Plan:
+  - `docs/ai/framework/plans/project-wide-duplicate-contract-and-ownership-consolidation-plan.md`
+  - `docs/ai/framework/plans/project-wide-code-readability-analysis-and-refactor-plan.md`
+  - `docs/ai/framework/plans/project-wide-documentation-contract-audit-plan.md`
+- Related Commit(s):
+  - `b9e4b2869` (`fix(utils): isolate diagnostic observer failures`)
+  - `57ee6bb00` (`refactor(factory): centralize detached value cloning`)
+  - `45a922d2e` (`refactor(types): consolidate shared contracts`)
+  - `dcfc39194` (`refactor(utils): reuse canonical unit clamp`)
+  - `b471e1621` (`refactor(types): finish shared contract ownership`)
+  - `16f441157` (`refactor(asyra-design): reuse app boundary contracts`)
+  - `67b34e31a` (`refactor(readability): finish empty return cleanup`)
+  - `c4f6f8d3f` (`refactor(readability): consolidate repeated local workflows`)
+
+## 2026-07-22 - Close repository-wide maintenance plans
+
+- Context:
+  - The documentation-contract audit, duplicate/ownership consolidation, and
+    readability refactor were implementation-complete and retained as active
+    plans only for product-owner review.
+  - A second bounded review at baseline `478bec0be` repeated the frozen
+    candidate classes and search methods, found no new concrete finding, and
+    passed the applicable focused and repository gates.
+- Decision:
+  - Close all three maintenance plans and preserve their detailed records under
+    `docs/ai/framework/plans/completed/`.
+  - Remove the active maintenance block from `PLANS.md` and route future
+    equivalent requests to the completed records.
+  - Preserve preceding decision entries unchanged. This closeout does not close
+    or advance a Framework Release Gate.
+- Consequences:
+  - `PLANS.md` now tracks only active or deferred framework work.
+  - The completed audit scope, method, and evidence remain available without
+    being treated as an active or unlimited repository claim.
+  - Future repository-wide maintenance is new bounded work rather than an
+    implicit reopening of this completed snapshot.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/project-wide-documentation-contract-audit-plan.md`
+  - `docs/ai/framework/plans/completed/project-wide-duplicate-contract-and-ownership-consolidation-plan.md`
+  - `docs/ai/framework/plans/completed/project-wide-code-readability-analysis-and-refactor-plan.md`
+- Related Commit(s):
+  - `4308f12e7` (`docs(plans): archive repository maintenance plans`)
+
+## 2026-07-22 - Limit framework collaboration to live publication transport
+
+- Context:
+  - The Gate 2 implementation stored app operation envelopes in a Y.Doc,
+    retained provider room history, replayed state vectors, and made framework
+    decisions about dedupe, permission, and conflict processing.
+  - Factory already defines the complete ordered `SharedPublication` boundary,
+    while app/backend owners have the context required for route validation,
+    canonical apply, authorization, persistence, recovery, ordering, and domain
+    conflict behavior.
+- Decision:
+  - Make one detached Factory `SharedPublication` the Provider transport unit.
+  - Preserve every publication and delivery in order, including repeated
+    values, undo, redo, and compensation; send once and discard after transport
+    settlement.
+  - Deliver one inbound publication to one app callback. The app owns one
+    remote transaction and all semantic validation or policy.
+  - Keep Provider lifecycle, live-room fanout, acknowledgement, failures, and
+    separate Awareness in `@asyra/collaboration`.
+  - Remove Yjs, semantic operation history, state vectors, reconnect replay,
+    update persistence, dedupe, permission, and conflict-policy APIs from the
+    collaboration package. Do not add TTL, timestamps, LWW, rebase, snapshots,
+    authentication, or authorization.
+- Consequences:
+  - Reconnect restores a live connection only; app/backend code owns canonical
+    refresh or missed-change recovery.
+  - Apps without collaboration keep their ordinary HTTP/load/save behavior.
+  - Release Gate 2 and its Inspector are renamed to the network collaboration
+    transport foundation; framework conflict policy is no longer an active
+    sub-plan.
+- Related Plan:
+  - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
+  - `docs/ai/framework/plans/network-collaboration-transport-flow-inspector.html`
+
+## 2026-07-23 - Close network collaboration transport Release Gate 2
+
+- Context:
+  - The transport-only collaboration implementation and its bounded corrective
+    work were complete, all formal Gate 2 gates passed, and the product owner
+    confirmed the real multi-window CRDT behavior was operating normally.
+- Decision:
+  - Close Framework Release Gate 2 and preserve its canonical product contract
+    under `docs/ai/framework/plans/completed/`.
+  - Keep the dedicated Inspector active as the architecture authority, pointed
+    at the completed product contract.
+  - Keep the durable Asyra Design collaboration server plan queued and inactive
+    until the user explicitly starts its required contract rebase.
+- Consequences:
+  - `PLANS.md` now starts with Framework Release Gate 3; this closeout does not
+    begin Gate 3 automatically.
+  - Optional live publication transport, app-owned remote apply, live-only
+    reconnect, and separate Awareness remain the supported Gate 2 contract.
+  - Historical decision links continue to resolve through the original plan
+    path, which now redirects to the canonical completed record.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/network-collaboration-transport-plan.md`
+  - `docs/ai/framework/plans/network-collaboration-transport-flow-inspector.html`

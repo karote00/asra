@@ -23,7 +23,11 @@ export default tseslint.config(
   tseslint.configs.stylistic,
   eslintPluginPrettierRecommended,
   {
-    files: ['apps/**/*.{ts,tsx}', 'packages/**/*.{ts,tsx}'],
+    files: [
+      'apps/**/*.{ts,tsx}',
+      'create-app/**/*.{ts,tsx}',
+      'packages/**/*.{ts,tsx}'
+    ],
     plugins: {
       react
     },
@@ -64,7 +68,7 @@ export default tseslint.config(
     }
   },
   {
-    files: ['scripts/**/*.js', 'create-app/**/*.js'],
+    files: ['scripts/**/*.{js,mjs}', 'create-app/**/*.js'],
     languageOptions: {
       globals: {
         console: 'readonly',
@@ -72,6 +76,7 @@ export default tseslint.config(
         __dirname: 'readonly',
         __filename: 'readonly',
         Buffer: 'readonly',
+        structuredClone: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly'
       }

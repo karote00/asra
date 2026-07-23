@@ -7,6 +7,20 @@ const data = require('./extendable-preset-flow-inspector.data.cjs')
 
 const repoRoot = path.resolve(__dirname, '../../../..')
 
+const assertImplementationBoundary = (owner, implementationFile, label) => {
+  assert.ok(
+    owner.implementationBoundary.includes(implementationFile),
+    `Missing ${label} boundary: ${implementationFile}`
+  )
+  const concretePath = implementationFile.endsWith('/**')
+    ? implementationFile.slice(0, -3)
+    : implementationFile
+  assert.ok(
+    fs.existsSync(path.resolve(repoRoot, concretePath)),
+    `${label} boundary does not resolve: ${implementationFile}`
+  )
+}
+
 const step = (id) => {
   const value = data.steps.find((item) => item.id === id)
   assert.ok(value, `Missing Inspector step: ${id}`)
@@ -119,6 +133,29 @@ test('component owner preserves registrations while mutating exact property slot
       'packages/props-manager/src/registries/property-definition.ts'
     )
   )
+  ;[
+    'packages/scene-tree/src/components/**',
+    'packages/scene-tree/src/component-registry.ts',
+    'packages/scene-tree/src/create-dynamic-component.ts',
+    'packages/scene-tree/src/create-dynamic-props.ts'
+  ].forEach((implementationFile) => {
+    assertImplementationBoundary(
+      owner,
+      implementationFile,
+      'component relation'
+    )
+  })
+  ;[
+    'packages/scene-tree/src/component/**',
+    'packages/scene-tree/src/element/**',
+    'packages/scene-tree/src/registries/**'
+  ].forEach((retiredImplementationFile) => {
+    assert.equal(
+      owner.implementationBoundary.includes(retiredImplementationFile),
+      false,
+      `Retired component relation boundary must be removed: ${retiredImplementationFile}`
+    )
+  })
 })
 
 test('property owner rebuilds child relations without unknown CUSTOM fallback', () => {
@@ -136,6 +173,23 @@ test('property owner rebuilds child relations without unknown CUSTOM fallback', 
     owner.implementationBoundary.includes(
       'packages/core/src/define-property-component.ts'
     )
+  )
+  ;[
+    'packages/props-manager/src/components/**',
+    'packages/props-manager/src/index.ts'
+  ].forEach((implementationFile) => {
+    assertImplementationBoundary(
+      owner,
+      implementationFile,
+      'property child relation'
+    )
+  })
+  assert.equal(
+    owner.implementationBoundary.includes(
+      'packages/props-manager/src/types/**'
+    ),
+    false,
+    'Retired property child relation types directory must be removed'
   )
 })
 
@@ -219,6 +273,33 @@ test('preset owns explicit default installation and graph-backed failed-apply cl
       'docs/ai/framework/decisions/releases/unreleased.md'
     )
   )
+  ;[
+    'packages/preset/src/catalog.ts',
+    'packages/preset/src/cleanup-reporter.ts',
+    'packages/preset/src/composition/**',
+    'packages/preset/src/constants.ts',
+    'packages/preset/src/defaults/**',
+    'packages/preset/src/registration.ts',
+    'packages/preset/src/system-property-keys.ts',
+    'packages/preset/src/ui/**',
+    'packages/preset/src/vector/**'
+  ].forEach((implementationFile) => {
+    assertImplementationBoundary(
+      owner,
+      implementationFile,
+      'preset installation'
+    )
+  })
+  ;[
+    'packages/preset/src/render-strategies/**',
+    'packages/preset/src/ui-properties/**'
+  ].forEach((retiredImplementationFile) => {
+    assert.equal(
+      owner.implementationBoundary.includes(retiredImplementationFile),
+      false,
+      `Retired preset installation boundary must be removed: ${retiredImplementationFile}`
+    )
+  })
 })
 
 test('public docs describe relation composition without the retired preset extension surface', () => {
@@ -270,6 +351,22 @@ test('migration remains app-provided and precedes validation without CUSTOM fall
   assert.match(contract, /migrate.*before.*validation/i)
   assert.match(contract, /diagnostic.*skipped.*CUSTOM/i)
   assert.match(contract, /never performs or invents a data migration/i)
+  ;[
+    'packages/core/src/types/load-migration.ts',
+    'packages/core/src/types/load-validation.ts',
+    'packages/utils/src/types/load-diagnostic.ts'
+  ].forEach((implementationFile) => {
+    assertImplementationBoundary(
+      owner,
+      implementationFile,
+      'migration/load validation'
+    )
+  })
+  assert.equal(
+    owner.implementationBoundary.includes('packages/core/src/load-hooks.ts'),
+    false,
+    'Retired Core load-hooks boundary must be removed'
+  )
 })
 
 test('Inspector names bounded product cases and definition of done', () => {

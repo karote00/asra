@@ -4,21 +4,7 @@ on:
   push:
     branches:
       - main
-    paths:
-      - '**.ts'
-      - '**.tsx'
-      - '**.js'
-      - '**.jsx'
-      - 'package.json'
-      - 'yarn.lock'
   pull_request:
-    paths:
-      - '**.ts'
-      - '**.tsx'
-      - '**.js'
-      - '**.jsx'
-      - 'package.json'
-      - 'yarn.lock'
 
 jobs:
   validate:
@@ -39,8 +25,11 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
-      - name: Build turbo.json
-        run: yarn gen:turbo
+      - name: Validate workspace dependencies
+        run: yarn deps:validate
+
+      - name: Validate turbo.json
+        run: yarn gen:turbo:check
 
       - name: Build React
         run: yarn react:build
@@ -51,6 +40,9 @@ jobs:
       - name: Test
         if: success()
         run: yarn test:ci
+
+      - name: Validate generated app template
+        run: yarn release:app:check --prod=asyra-design
 
   deploy:
     if: github.ref == 'refs/heads/main'

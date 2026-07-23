@@ -20,16 +20,18 @@ Framework-first rules:
 4. `API_SURFACES.md`
 5. `design-principles/*`
 6. `WORKFLOW.md`
-7. `REQUEST_ROUTING.md`
-8. `RUNTIME_MATRICES.md`
-9. `CONSTRAINTS.md`
-10. `rules/*`
-11. `packages/*`
-12. `golden-paths/*`
-13. `BEST_PRACTICES.md`
-14. `PLANS.md`
-15. `plans/completed/*` (historical completed-plan archive)
-16. `decisions/releases/*` (framework decision history; global rules in `../decisions/README.md`)
+7. `FLOW_INSPECTOR.md`
+8. `REQUEST_ROUTING.md`
+9. `RUNTIME_MATRICES.md`
+10. `CONSTRAINTS.md`
+11. `rules/*`
+12. `packages/*`
+13. `golden-paths/*`
+14. `BEST_PRACTICES.md`
+15. `PLANS.md`
+16. `plans/completed/*` (historical completed-plan archive)
+17. `decisions/releases/*` (framework decision history; global rules in `../decisions/README.md`)
+18. `audits/*` (historical point-in-time diagnostics; never current authority)
 
 ## Interpretation Priority
 

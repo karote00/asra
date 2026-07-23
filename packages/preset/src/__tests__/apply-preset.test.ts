@@ -1,20 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPixiRenderEngine } from '@asyra/render-engine-pixi'
 import {
   PresetDefaults,
   PresetProfiles,
   PRESET_APPLY_ERROR_CODES
 } from '../constants'
-
-const pixi = vi.hoisted(() => ({ create: vi.fn(() => ({ name: 'pixi' })) }))
-const defaults = vi.hoisted(() => ({ install: vi.fn() }))
-
-vi.mock('@asyra/render-engine-pixi', () => ({
-  createPixiRenderEngine: pixi.create
-}))
-vi.mock('../defaults/install', async (loadOriginal) => {
-  const actual = await loadOriginal<typeof import('../defaults/install')>()
-  return { ...actual, installPresetDefaults: defaults.install }
-})
+import * as defaults from '../defaults/install'
 
 import { PresetApplyError } from '../composition/error'
 import { applyPreset } from '../preset'
@@ -60,11 +51,10 @@ const captureApplyError = (run: () => unknown): PresetApplyError => {
 
 describe('applyPreset', () => {
   beforeEach(() => {
-    defaults.install.mockReset()
-    defaults.install.mockImplementation(({ appliedDefaults }) =>
-      Object.freeze([...appliedDefaults])
+    vi.restoreAllMocks()
+    vi.spyOn(defaults, 'installPresetDefaults').mockImplementation(
+      ({ appliedDefaults }) => Object.freeze([...appliedDefaults])
     )
-    pixi.create.mockClear()
   })
 
   it('applies 2D plus all defaults when options are omitted', () => {
@@ -72,12 +62,11 @@ describe('applyPreset', () => {
 
     const result = applyPreset(core)
 
-    expect(defaults.install).toHaveBeenCalledOnce()
-    expect(defaults.install.mock.calls[0][0].appliedDefaults).toEqual(
-      allDefaults
-    )
-    expect(setRenderEngineProvider).toHaveBeenCalledWith(pixi.create)
-    expect(pixi.create).not.toHaveBeenCalled()
+    expect(defaults.installPresetDefaults).toHaveBeenCalledOnce()
+    expect(
+      vi.mocked(defaults.installPresetDefaults).mock.calls[0][0].appliedDefaults
+    ).toEqual(allDefaults)
+    expect(setRenderEngineProvider).toHaveBeenCalledWith(createPixiRenderEngine)
     expect(result).toEqual({
       profile: PresetProfiles['2D'],
       presetEngineId: '@asyra/render-engine-pixi',
@@ -96,9 +85,9 @@ describe('applyPreset', () => {
 
     const result = applyPreset(core, { profile: PresetProfiles.CUSTOM })
 
-    expect(defaults.install.mock.calls[0][0].appliedDefaults).toEqual(
-      allDefaults
-    )
+    expect(
+      vi.mocked(defaults.installPresetDefaults).mock.calls[0][0].appliedDefaults
+    ).toEqual(allDefaults)
     expect(setRenderEngineProvider).not.toHaveBeenCalled()
     expect(result).toEqual({
       profile: PresetProfiles.CUSTOM,
@@ -113,7 +102,9 @@ describe('applyPreset', () => {
 
     const result = applyPreset(core, { defaults: [] })
 
-    expect(defaults.install.mock.calls[0][0].appliedDefaults).toEqual([])
+    expect(
+      vi.mocked(defaults.installPresetDefaults).mock.calls[0][0].appliedDefaults
+    ).toEqual([])
     expect(setRenderEngineProvider).toHaveBeenCalledOnce()
     expect(result.selectedDefaults).toEqual([])
     expect(result.appliedDefaults).toEqual([])
@@ -142,7 +133,7 @@ describe('applyPreset', () => {
     )
 
     expect(error.code).toBe(PRESET_APPLY_ERROR_CODES.UNAVAILABLE_PROFILE)
-    expect(defaults.install).not.toHaveBeenCalled()
+    expect(defaults.installPresetDefaults).not.toHaveBeenCalled()
     expect(setRenderEngineProvider).not.toHaveBeenCalled()
   })
 
@@ -153,7 +144,7 @@ describe('applyPreset', () => {
     const error = captureApplyError(() => applyPreset(core))
 
     expect(error.code).toBe(PRESET_APPLY_ERROR_CODES.ALREADY_APPLIED)
-    expect(defaults.install).toHaveBeenCalledTimes(1)
+    expect(defaults.installPresetDefaults).toHaveBeenCalledTimes(1)
     expect(setRenderEngineProvider).toHaveBeenCalledTimes(1)
   })
 
@@ -164,11 +155,13 @@ describe('applyPreset', () => {
       PRESET_APPLY_ERROR_CODES.DEFAULT_INSTALL_FAILED,
       'module failed'
     )
-    defaults.install.mockImplementation(({ registerCleanup }) => {
-      registerCleanup('first', () => order.push('first'))
-      registerCleanup('second', () => order.push('second'))
-      throw applyFailure
-    })
+    vi.mocked(defaults.installPresetDefaults).mockImplementation(
+      ({ registerCleanup }) => {
+        registerCleanup('first', () => order.push('first'))
+        registerCleanup('second', () => order.push('second'))
+        throw applyFailure
+      }
+    )
 
     const received = captureApplyError(() => applyPreset(core))
 
@@ -180,20 +173,22 @@ describe('applyPreset', () => {
     const { core } = createCore()
     const order: string[] = []
     let failCleanup = true
-    defaults.install.mockImplementationOnce(({ registerCleanup }) => {
-      registerCleanup('first', () => order.push('first'))
-      registerCleanup('retry', () => {
-        order.push('retry')
-        if (failCleanup) {
-          failCleanup = false
-          throw new Error('cleanup failed')
-        }
-      })
-      throw new PresetApplyError(
-        PRESET_APPLY_ERROR_CODES.DEFAULT_INSTALL_FAILED,
-        'module failed'
-      )
-    })
+    vi.mocked(defaults.installPresetDefaults).mockImplementationOnce(
+      ({ registerCleanup }) => {
+        registerCleanup('first', () => order.push('first'))
+        registerCleanup('retry', () => {
+          order.push('retry')
+          if (failCleanup) {
+            failCleanup = false
+            throw new Error('cleanup failed')
+          }
+        })
+        throw new PresetApplyError(
+          PRESET_APPLY_ERROR_CODES.DEFAULT_INSTALL_FAILED,
+          'module failed'
+        )
+      }
+    )
 
     const cleanupError = captureApplyError(() => applyPreset(core))
 
@@ -208,7 +203,7 @@ describe('applyPreset', () => {
     })
 
     expect(order).toEqual(['retry', 'first', 'retry'])
-    expect(defaults.install).toHaveBeenCalledTimes(2)
+    expect(defaults.installPresetDefaults).toHaveBeenCalledTimes(2)
     expect(result.profile).toBe(PresetProfiles.CUSTOM)
   })
 
@@ -216,7 +211,7 @@ describe('applyPreset', () => {
     const providerFailure = new Error('provider failed')
     const { core } = createCore({ providerFailure })
     const cleanup = vi.fn()
-    defaults.install.mockImplementation(
+    vi.mocked(defaults.installPresetDefaults).mockImplementation(
       ({ registerCleanup, appliedDefaults }) => {
         registerCleanup('installed-defaults', cleanup)
         return Object.freeze([...appliedDefaults])

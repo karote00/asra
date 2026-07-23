@@ -31,7 +31,11 @@ Users need precise property editing that reflects current selection/mode state w
 15. When a gradient fill is active for editing, the canvas should show gradient handles and allow direct handle dragging to update `gradientHandles`.
 16. One canvas gradient-handle drag session must produce exactly one undo commit even if many drag-frame geometry updates occur.
 17. Selected element in element-properties mode shows a repeatable `strokes` section below fills.
-18. Stroke row supports `visible`, `opacity`, `colorFormat`, `color`, `width`, `style`, `position`, `dash`, `gap`, `joinType`, and `miterAngle`.
+18. Stroke rows currently expose the color row: `visible`, `opacity`,
+    `colorFormat`, `color`, and remove. The geometry/style rows for `width`,
+    `style`, `position`, `dash`, `gap`, `joinType`, `capType`, and `miterAngle`
+    remain unavailable in the panel until stroke implementation is complete;
+    their canonical attributes and mutation support remain intact.
 19. Stroke add/remove writes may replace the top-level `strokes` list through the computed/property runtime.
 20. Single-stroke field edits update the child `STROKE` property directly through the core props bridge with owner metadata.
 21. One stroke color-picker drag session must produce exactly one undo commit even if many drag-frame color updates occur.

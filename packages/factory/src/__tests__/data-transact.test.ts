@@ -496,9 +496,8 @@ describe('DataTransact user action completion', () => {
     const transact = new DataTransact()
     const order: string[] = []
 
-    transact.registerValidator('scene-tree', (context) => {
+    transact.registerValidator('scene-tree', (context): undefined => {
       order.push(`scene-tree:${context.changeCount}`)
-      return undefined
     })
     transact.registerValidator('selection', () => {
       order.push('selection')
@@ -648,7 +647,7 @@ describe('DataTransact user action completion', () => {
     completionSubscription.unsubscribe()
   })
 
-  it('expands a batch change in reverse field order during rollback', () => {
+  it('keeps one batch event and reverses its change order during rollback', () => {
     const transact = new DataTransact()
     const observed: unknown[] = []
     const subscription = subscribeToEvents((event) => {
@@ -675,24 +674,22 @@ describe('DataTransact user action completion', () => {
     expect(observed).toEqual([
       {
         id: 'element-1',
-        key: 'y',
-        before: 20,
-        after: 5,
-        owner: 'computed'
-      },
-      {
-        id: 'element-1',
-        key: 'x',
-        before: 10,
-        after: 0,
-        owner: 'raw'
+        changes: [
+          {
+            key: 'y',
+            before: 20,
+            after: 5,
+            owner: 'computed'
+          },
+          { key: 'x', before: 10, after: 0, owner: 'raw' }
+        ]
       }
     ])
 
     subscription.unsubscribe()
   })
 
-  it('uses scalar action metadata for batch rollback and immediate shared compensation', () => {
+  it('preserves batch metadata for rollback and immediate shared compensation', () => {
     const pushToSharedChannel = vi.fn().mockReturnValue(true)
     const transact = new DataTransact({ pushToSharedChannel })
     const observed: unknown[] = []
@@ -725,18 +722,11 @@ describe('DataTransact user action completion', () => {
 
     expect(observed).toEqual([
       expect.objectContaining({
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
-        key: 'y',
-        before: 20,
-        after: 5,
-        owner: 'computed'
-      }),
-      expect.objectContaining({
-        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
-        key: 'x',
-        before: 10,
-        after: 0,
-        owner: 'raw'
+        action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+        changes: [
+          { key: 'y', before: 20, after: 5, owner: 'computed' },
+          { key: 'x', before: 10, after: 0, owner: 'raw' }
+        ]
       })
     ])
     expect(pushToSharedChannel.mock.calls).toEqual([
@@ -749,21 +739,11 @@ describe('DataTransact user action completion', () => {
       [
         SharedDataChannelNames.SCENE_TREE,
         expect.objectContaining({
-          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
-          key: 'y',
-          before: 20,
-          after: 5,
-          owner: 'computed'
-        })
-      ],
-      [
-        SharedDataChannelNames.SCENE_TREE,
-        expect.objectContaining({
-          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA,
-          key: 'x',
-          before: 10,
-          after: 0,
-          owner: 'raw'
+          action: SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH,
+          changes: [
+            { key: 'y', before: 20, after: 5, owner: 'computed' },
+            { key: 'x', before: 10, after: 0, owner: 'raw' }
+          ]
         })
       ]
     ])
@@ -802,31 +782,17 @@ describe('DataTransact user action completion', () => {
     expect(observed).toEqual([
       {
         id: 'element-1',
-        key: 'y',
-        before: 20,
-        after: 5,
-        owner: 'computed'
+        changes: [
+          { key: 'y', before: 20, after: 5, owner: 'computed' },
+          { key: 'x', before: 10, after: 0, owner: 'raw' }
+        ]
       },
       {
         id: 'element-1',
-        key: 'x',
-        before: 10,
-        after: 0,
-        owner: 'raw'
-      },
-      {
-        id: 'element-1',
-        key: 'x',
-        before: 0,
-        after: 10,
-        owner: 'raw'
-      },
-      {
-        id: 'element-1',
-        key: 'y',
-        before: 5,
-        after: 20,
-        owner: 'computed'
+        changes: [
+          { key: 'x', before: 0, after: 10, owner: 'raw' },
+          { key: 'y', before: 5, after: 20, owner: 'computed' }
+        ]
       }
     ])
 

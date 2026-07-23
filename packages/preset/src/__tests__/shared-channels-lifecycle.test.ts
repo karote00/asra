@@ -44,7 +44,7 @@ describe('preset shared data channel lifecycle', () => {
     channelNames.forEach(unregisterChannel)
     coreFacade.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
-      coreFacade.getYjsDataChannel(SharedDataChannelNames.SCENE_TREE)
+      coreFacade.createLocalSharedDataChannel()
     )
 
     const dispose = registerDefaultSharedDataChannels(

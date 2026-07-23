@@ -49,7 +49,7 @@ abstract class BaseComponent<
   private getFieldSchema(key: keyof T): PropertyFieldSchema | undefined {
     const schema = getPropertySchema(this.data.type)
     if (!schema) {
-      return undefined
+      return
     }
 
     return schema.fields.find((field) => field.key === key)

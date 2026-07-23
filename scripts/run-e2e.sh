@@ -1,16 +1,33 @@
 #!/bin/bash
-set -e
+set -euo pipefail
+
+read -r ASYRA_E2E_HOST ASYRA_E2E_PORT ASYRA_E2E_APP_URL <<< "$(
+  node --input-type=module -e "
+    import {
+      loadAsyraDesignEnvironment,
+      resolveAsyraDesignEnvironment
+    } from './apps/asyra-design/app-environment.mjs'
+    const config = resolveAsyraDesignEnvironment(
+      loadAsyraDesignEnvironment()
+    )
+    process.stdout.write(
+      [config.viteHost, config.vitePort, config.appURL].join(' ')
+    )
+  "
+)"
+
+ASYRA_E2E_SERVER_PID=''
 
 # Cleanup function to kill the background server process
 cleanup() {
-  EXIT_CODE=$?
-  if [ -n "$SERVER_PID" ]; then
-    echo "Stopping server (PID: $SERVER_PID)..."
-    kill "$SERVER_PID" 2>/dev/null || true
-    # Wait a moment for the process to terminate
-    sleep 1
+  ASYRA_E2E_EXIT_CODE=$?
+  if [ -n "$ASYRA_E2E_SERVER_PID" ]; then
+    echo "Stopping server (PID: $ASYRA_E2E_SERVER_PID)..."
+    kill "$ASYRA_E2E_SERVER_PID" 2>/dev/null || true
+    wait "$ASYRA_E2E_SERVER_PID" 2>/dev/null || true
   fi
-  exit $EXIT_CODE
+  trap - EXIT INT TERM
+  exit "$ASYRA_E2E_EXIT_CODE"
 }
 
 # Trap exit signals to ensure cleanup
@@ -22,14 +39,16 @@ yarn react:build
 
 # 2. Start test server (background)
 # Using 'preview' to serve the built artifacts, mimicking production-like environment
-echo "Step 2: Starting server on port 3000..."
-yarn workspace @asyra/asyra-design preview --port 3000 --host 0.0.0.0 &
-SERVER_PID=$!
+echo "Step 2: Starting server at $ASYRA_E2E_APP_URL..."
+yarn workspace @asyra/asyra-design preview \
+  --port "$ASYRA_E2E_PORT" \
+  --host "$ASYRA_E2E_HOST" &
+ASYRA_E2E_SERVER_PID=$!
 
 # 3. Wait for server ready
 echo "Step 3: Waiting for server to be ready..."
 # Using wait-on to ensure port is listening
-npx wait-on http://localhost:3000 --timeout 60000
+npx wait-on "$ASYRA_E2E_APP_URL" --timeout 60000
 
 # 4. Execute Playwright E2E tests
 echo "Step 4: Running Playwright tests..."

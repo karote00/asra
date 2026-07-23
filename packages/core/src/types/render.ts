@@ -7,16 +7,11 @@ import type {
   MeshProjection,
   RenderInteractionTarget,
   RenderInteractionHandlerRegistration,
-  RenderInteractionEventType
+  RenderInteractionEventType,
+  RenderLayerRegistration
 } from '@asyra/render'
 
-export interface RenderLayerRegistration {
-  name: string
-  layer: unknown
-  zIndex?: number
-  shouldUpdate?: () => boolean
-  update?: () => boolean | undefined
-}
+export type { RenderLayerRegistration } from '@asyra/render'
 
 export interface RegisterRenderLayerOptions {
   override?: boolean
@@ -59,4 +54,5 @@ export interface RenderRawAPIs {
   ) => void
 }
 
+export type RegisterRenderLayer = RenderRawAPIs['registerRenderLayer']
 export type RenderAPIs = RenderRawAPIs

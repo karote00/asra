@@ -4,7 +4,7 @@ import {
   acquireBaseProperties,
   acquireFrameworkEvents,
   acquireUIContextProjection
-} from '../helpers'
+} from '../installation'
 
 export const installUIContextDefault = (
   context: PresetDefaultInstallContext

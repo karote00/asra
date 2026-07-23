@@ -21,6 +21,8 @@ import {
   type AddRemoveElementChange,
   type ComputedAttrs,
   type GroupRawData,
+  emitDiagnosticCounter,
+  measureBrowserDragPhase,
   type SceneTreeChange,
   type SelectionChange,
   type UpdateElementBatchChange,
@@ -29,45 +31,13 @@ import {
   type WorkspaceRawData
 } from '@asyra/utils'
 import type { PresetCoreAPIs, PresetDependencies } from '../types'
+import { createCleanupReporter } from '../cleanup-reporter'
 import {
   SelectionActions,
   SelectionChannels,
   SelectionEventNames,
   type SelectionChannel
 } from '../selection/channels'
-
-const measureBrowserDragPhase = <T>(phaseName: string, run: () => T): T => {
-  const sink = (
-    globalThis as typeof globalThis & {
-      __asyraBrowserDragPhaseSink?: (
-        phaseName: string,
-        durationMs: number
-      ) => void
-    }
-  ).__asyraBrowserDragPhaseSink
-
-  if (!sink) {
-    return run()
-  }
-
-  const start = performance.now()
-  try {
-    return run()
-  } finally {
-    sink(phaseName, performance.now() - start)
-  }
-}
-
-const emitStrokePipelineCounter = (counterName: string, value = 1): void => {
-  ;(
-    globalThis as typeof globalThis & {
-      __asyraStrokePipelineCounterSink?: (
-        counterName: string,
-        value?: number
-      ) => void
-    }
-  ).__asyraStrokePipelineCounterSink?.(counterName, value)
-}
 
 const ELEMENT_DATA_MAP_COMPUTED_KEYS = new Set([
   'name',
@@ -92,9 +62,9 @@ const recordRenderProjectionOutcome = (outcome: unknown) => {
       ? (outcome as { status?: unknown }).status
       : undefined
   if (typeof status === 'string' && RENDER_PROJECTION_OUTCOMES.has(status)) {
-    emitStrokePipelineCounter(`render-projection-outcome-${status}`)
+    emitDiagnosticCounter(`render-projection-outcome-${status}`)
   } else {
-    emitStrokePipelineCounter('render-projection-outcome-missing')
+    emitDiagnosticCounter('render-projection-outcome-missing')
   }
   return outcome
 }
@@ -442,7 +412,7 @@ const flushPendingUIContextSync = (
   deps: PresetDependencies
 ): void => {
   if (!hasPendingUIContextSync(lifetime)) {
-    emitStrokePipelineCounter('ui-context-transaction-flush-skip')
+    emitDiagnosticCounter('ui-context-transaction-flush-skip')
     return
   }
 
@@ -450,18 +420,18 @@ const flushPendingUIContextSync = (
   resetPendingUIContextSync(lifetime)
 
   measureBrowserDragPhase('ui-context:flush', () => {
-    emitStrokePipelineCounter('ui-context-transaction-flush')
+    emitDiagnosticCounter('ui-context-transaction-flush')
 
     if (pending.flattenedElementIds) {
-      emitStrokePipelineCounter('ui-context-sync-flattened-ids')
+      emitDiagnosticCounter('ui-context-sync-flattened-ids')
       syncFlattenedElementIds(deps)
     }
 
     if (pending.fullElementDataMap) {
-      emitStrokePipelineCounter('ui-context-sync-element-data-map-full')
+      emitDiagnosticCounter('ui-context-sync-element-data-map-full')
       syncElementDataMap(deps)
     } else if (pending.dirtyElementDataMapIds.size > 0) {
-      emitStrokePipelineCounter(
+      emitDiagnosticCounter(
         'ui-context-sync-element-data-map-entry',
         pending.dirtyElementDataMapIds.size
       )
@@ -469,12 +439,12 @@ const flushPendingUIContextSync = (
     }
 
     if (pending.elementSelectionAndDerived) {
-      emitStrokePipelineCounter('ui-context-sync-element-selection-derived')
+      emitDiagnosticCounter('ui-context-sync-element-selection-derived')
       syncElementSelectionAndDerived(core, deps)
     }
 
     if (pending.dirtyPropertyKeys.size > 0) {
-      emitStrokePipelineCounter(
+      emitDiagnosticCounter(
         'ui-context-recompute-property-key-count',
         pending.dirtyPropertyKeys.size
       )
@@ -523,6 +493,19 @@ const updateVectorEditingSelection = (
   }
 }
 
+const markComputedKeyPending = (
+  lifetime: UIContextSyncLifetime,
+  elementId: string,
+  key: string
+): void => {
+  if (shouldUpdateElementDataMapForComputedKey(key)) {
+    lifetime.pending.dirtyElementDataMapIds.add(elementId)
+  }
+  if (key === 'children') {
+    lifetime.pending.flattenedElementIds = true
+  }
+}
+
 // Scene-tree channel updates affect list/map mirrors, and may trigger aggregate recompute.
 const handleUIContextSceneTreeChange = (
   change: SceneTreeChange,
@@ -552,35 +535,20 @@ const handleUIContextSceneTreeChange = (
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA: {
       const { id, key } = change as UpdateElementChange
-      if (shouldUpdateElementDataMapForComputedKey(key)) {
-        lifetime.pending.dirtyElementDataMapIds.add(id)
-      }
-      if (key === 'children') {
-        lifetime.pending.flattenedElementIds = true
-      }
+      markComputedKeyPending(lifetime, id, key)
       break
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_BATCH: {
       const { id, changes } = change as UpdateElementBatchChange
       changes.forEach(({ key }) => {
-        if (shouldUpdateElementDataMapForComputedKey(key)) {
-          lifetime.pending.dirtyElementDataMapIds.add(id)
-        }
-        if (key === 'children') {
-          lifetime.pending.flattenedElementIds = true
-        }
+        markComputedKeyPending(lifetime, id, key)
       })
       break
     }
     case SCENE_TREE_ACTIONS.UPDATE_ELEMENT_COMPUTED_DATA_PATCH: {
       const { id, patch } = change as UpdateElementPatchChange
       Object.keys(patch.values ?? {}).forEach((key) => {
-        if (shouldUpdateElementDataMapForComputedKey(key)) {
-          lifetime.pending.dirtyElementDataMapIds.add(id)
-        }
-        if (key === 'children') {
-          lifetime.pending.flattenedElementIds = true
-        }
+        markComputedKeyPending(lifetime, id, key)
       })
       break
     }
@@ -667,7 +635,6 @@ export const registerDefaultDataChannelObservers = (
   const registeredObserverNames: string[] = []
   const uiContextSyncLifetime = createUIContextSyncLifetime()
   let disposed = false
-  let cleanupReported = false
 
   const dispose = (): void => {
     if (disposed) return
@@ -704,17 +671,13 @@ export const registerDefaultDataChannelObservers = (
     }
     disposed = true
   }
-  const reportCleanupReady = (): void => {
-    if (cleanupReported || !onCleanupReady) return
-    onCleanupReady(dispose)
-    cleanupReported = true
-  }
+  const cleanupReporter = createCleanupReporter(onCleanupReady, dispose)
   const registerObserver = <TChange>(
     registration: DataChannelObserverRegistration<TChange>
   ): void => {
     core.registerDataChannelObserver(registration)
     registeredObserverNames.push(registration.name)
-    reportCleanupReady()
+    cleanupReporter.report()
   }
 
   const uiContextSceneTreeDataChannelObserver = defineDataChannelObserver({
@@ -756,7 +719,7 @@ export const registerDefaultDataChannelObservers = (
           renderSceneTreeStore.reload()
         })
       )
-      reportCleanupReady()
+      cleanupReporter.report()
     }
 
     if (uiContextEnabled || vectorEditingEnabled) {
@@ -773,7 +736,7 @@ export const registerDefaultDataChannelObservers = (
           }
         })
       )
-      reportCleanupReady()
+      cleanupReporter.report()
     }
 
     if (uiContextEnabled) {
@@ -782,7 +745,7 @@ export const registerDefaultDataChannelObservers = (
           flushPendingUIContextSync(uiContextSyncLifetime, core, deps)
         })
       )
-      reportCleanupReady()
+      cleanupReporter.report()
     }
 
     // Undo/redo publishes selection events directly from transaction history.
@@ -817,7 +780,7 @@ export const registerDefaultDataChannelObservers = (
           }
         )
       )
-      reportCleanupReady()
+      cleanupReporter.report()
     }
 
     if (selectionEnabled || vectorEditingEnabled) {
@@ -848,7 +811,7 @@ export const registerDefaultDataChannelObservers = (
           }
         )
       )
-      reportCleanupReady()
+      cleanupReporter.report()
       eventSubscriptions.push(
         subscribeToSynchronousEvent<SelectVectorSegmentsEvent>(
           EventTypes.SELECT_VECTOR_SEGMENTS,
@@ -876,7 +839,7 @@ export const registerDefaultDataChannelObservers = (
           }
         )
       )
-      reportCleanupReady()
+      cleanupReporter.report()
     }
 
     if (renderSceneEnabled) {
@@ -895,7 +858,7 @@ export const registerDefaultDataChannelObservers = (
       registerObserver(vectorEditingSelectionDataChannelObserver)
     }
   } catch (error) {
-    if (!cleanupReported) dispose()
+    if (!cleanupReporter.hasReported()) dispose()
     throw error
   }
 

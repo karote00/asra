@@ -1,9 +1,7 @@
-import type { RegistrationRef } from '@asyra/utils'
+import { getRegistrationRefKey, type RegistrationRef } from '@asyra/utils'
 import { PRESET_REGISTRATION_OWNER } from '../registration'
-import { PRESET_SYSTEM_PROPERTY_KEYS } from '../ui/register-properties'
+import { PRESET_SYSTEM_PROPERTY_KEYS } from '../system-property-keys'
 import type { PresetCoreAPIs } from '../types'
-
-const refKey = (ref: RegistrationRef): string => `${ref.kind}\u0000${ref.key}`
 
 const unregisterRegistration = (
   core: PresetCoreAPIs,
@@ -34,7 +32,7 @@ const unregisterRegistration = (
 
 export const createOwnedStateCleanup = (core: PresetCoreAPIs): (() => void) => {
   const registrationsBefore = new Set(
-    core.getRegistrations().map(({ ref }) => refKey(ref))
+    core.getRegistrations().map(({ ref }) => getRegistrationRefKey(ref))
   )
   const systemPropertiesBefore = new Set(
     PRESET_SYSTEM_PROPERTY_KEYS.filter((key) => core.hasSystemProperty(key))
@@ -47,7 +45,7 @@ export const createOwnedStateCleanup = (core: PresetCoreAPIs): (() => void) => {
       .getRegistrations()
       .filter(
         ({ ref, owner }) =>
-          !registrationsBefore.has(refKey(ref)) &&
+          !registrationsBefore.has(getRegistrationRefKey(ref)) &&
           owner.packageName === PRESET_REGISTRATION_OWNER.packageName &&
           owner.name === PRESET_REGISTRATION_OWNER.name
       )

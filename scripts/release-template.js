@@ -30,12 +30,15 @@ import { sync as globSync } from 'glob'
 const args = process.argv.slice(2)
 let APP_NAME = 'asyra-design'
 let VERBOSE = false
+let CHECK = false
 
 for (const arg of args) {
   if (arg.startsWith('--prod=')) {
     APP_NAME = arg.split('=')[1]
   } else if (arg === '--verbose') {
     VERBOSE = true
+  } else if (arg === '--check') {
+    CHECK = true
   } else {
     console.error(`Unknown argument: ${arg}`)
     process.exit(1)
@@ -53,8 +56,19 @@ if (!fs.existsSync(CONFIG_FILE)) {
 
 const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'))
 const SRC_DIR = path.resolve(config.src)
-const DEST_DIR = path.resolve(config.dest)
+const CONFIGURED_DEST_DIR = path.resolve(config.dest)
+const CHECK_DIRECTORY = path.resolve(
+  'tmp',
+  `release-template-check-${APP_NAME}-${process.pid}`
+)
+const DEST_DIR = CHECK ? CHECK_DIRECTORY : CONFIGURED_DEST_DIR
 const CLEAN_FILES = config.cleanFiles || []
+
+if (CHECK) {
+  process.on('exit', () => {
+    fse.removeSync(CHECK_DIRECTORY)
+  })
+}
 
 console.log(`Releasing "${APP_NAME}"`)
 console.log(`SRC_DIR: ${SRC_DIR}`)
@@ -363,4 +377,58 @@ if (fs.existsSync(gitignoreSrc)) {
   if (VERBOSE) console.log('Copied .gitignore to template')
 }
 
-console.log(`Release of "${APP_NAME}" finished!`)
+const IGNORED_COMPARISON_DIRECTORIES = new Set([
+  '.turbo',
+  'coverage',
+  'dist',
+  'node_modules',
+  'playwright-report',
+  'test-results'
+])
+
+const collectFiles = (directory, prefix = '') => {
+  if (!fs.existsSync(directory)) return new Map()
+  const files = new Map()
+
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    if (entry.isDirectory() && IGNORED_COMPARISON_DIRECTORIES.has(entry.name)) {
+      continue
+    }
+    const relativePath = path.join(prefix, entry.name)
+    const entryPath = path.join(directory, entry.name)
+    if (entry.isDirectory()) {
+      for (const [nestedPath, value] of collectFiles(entryPath, relativePath)) {
+        files.set(nestedPath, value)
+      }
+    } else {
+      files.set(relativePath, fs.readFileSync(entryPath))
+    }
+  }
+
+  return files
+}
+
+if (CHECK) {
+  const expectedFiles = collectFiles(DEST_DIR)
+  const committedFiles = collectFiles(CONFIGURED_DEST_DIR)
+  const paths = new Set([...expectedFiles.keys(), ...committedFiles.keys()])
+  const differences = [...paths].sort().filter((relativePath) => {
+    const expected = expectedFiles.get(relativePath)
+    const committed = committedFiles.get(relativePath)
+    return !expected || !committed || !expected.equals(committed)
+  })
+
+  if (differences.length > 0) {
+    console.error(
+      `Generated template is stale (${differences.length} differing files):\n${differences
+        .slice(0, 30)
+        .map((file) => `- ${file}`)
+        .join('\n')}`
+    )
+    process.exitCode = 1
+  } else {
+    console.log(`Generated template for "${APP_NAME}" is synchronized`)
+  }
+} else {
+  console.log(`Release of "${APP_NAME}" finished!`)
+}

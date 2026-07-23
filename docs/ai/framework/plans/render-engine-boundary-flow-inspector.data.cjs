@@ -452,11 +452,9 @@
         'packages/render/src/render.ts',
         'packages/render/src/interaction/**',
         'packages/render/src/handlers/**',
-        'packages/render/src/layers/scene/element-interaction-handler.ts',
         'packages/render/src/layers/scene/render-layer.ts',
         'packages/render/src/registries/interaction-*.ts',
         'packages/render/src/registries/render-interaction-handler.ts',
-        'packages/render/src/types/interaction-handler.ts',
         'packages/render/src/types/render-interaction.ts',
         'packages/render/src/__tests__/interaction-*.test.ts',
         'packages/render/src/__tests__/render-engine-package-boundary.test.ts'
@@ -1097,7 +1095,7 @@
       {
         id: 'flow-inspector-contract',
         label: 'Flow Inspector Contract',
-        href: './flow-inspector-dashboard-plan.md',
+        href: '../FLOW_INSPECTOR.md',
         kind: 'framework'
       }
     ],

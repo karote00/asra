@@ -1,4 +1,9 @@
-import type { PositionData, RenderInteractionCaptureMode } from '@asyra/utils'
+import {
+  clampUnit,
+  getPointDistanceSquared,
+  type PositionData,
+  type RenderInteractionCaptureMode
+} from '@asyra/utils'
 import type {
   RenderInteractionTarget,
   RenderInteractionTargetBounds,
@@ -19,10 +24,7 @@ export interface PointTargetOptions extends BaseTargetOptions {
   radius: number
 }
 
-export interface CircleTargetOptions extends BaseTargetOptions {
-  center: PositionData
-  radius: number
-}
+export type CircleTargetOptions = PointTargetOptions
 
 export interface SegmentTargetOptions extends BaseTargetOptions {
   start: PositionData
@@ -64,12 +66,6 @@ const createBoundsForPoints = (
   return bounds
 }
 
-const distanceSquared = (a: PositionData, b: PositionData) => {
-  const dx = a.x - b.x
-  const dy = a.y - b.y
-  return dx * dx + dy * dy
-}
-
 const distanceSquaredToSegment = (
   point: PositionData,
   start: PositionData,
@@ -79,17 +75,17 @@ const distanceSquaredToSegment = (
   const dy = end.y - start.y
   const lengthSq = dx * dx + dy * dy
   if (lengthSq === 0) {
-    return distanceSquared(point, start)
+    return getPointDistanceSquared(point, start)
   }
 
   const t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSq
-  const clamped = Math.max(0, Math.min(1, t))
+  const clamped = clampUnit(t)
   const proj = {
     x: start.x + clamped * dx,
     y: start.y + clamped * dy
   }
 
-  return distanceSquared(point, proj)
+  return getPointDistanceSquared(point, proj)
 }
 
 export const createRenderInteractionPointTarget = (
@@ -106,27 +102,14 @@ export const createRenderInteractionPointTarget = (
     bounds,
     capture: options.capture,
     meta: options.meta,
-    hitTest: (point) => distanceSquared(point, options.center) <= radiusSquared
+    hitTest: (point) =>
+      getPointDistanceSquared(point, options.center) <= radiusSquared
   }
 }
 
 export const createRenderInteractionCircleTarget = (
   options: CircleTargetOptions
-): RenderInteractionTarget => {
-  const radiusSquared = options.radius * options.radius
-  const bounds = createBoundsForPoints([options.center], options.radius)
-
-  return {
-    id: options.id,
-    type: options.type,
-    zIndex: options.zIndex,
-    space: options.space,
-    bounds,
-    capture: options.capture,
-    meta: options.meta,
-    hitTest: (point) => distanceSquared(point, options.center) <= radiusSquared
-  }
-}
+): RenderInteractionTarget => createRenderInteractionPointTarget(options)
 
 export const createRenderInteractionSegmentTarget = (
   options: SegmentTargetOptions

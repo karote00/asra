@@ -24,6 +24,14 @@ Feature: Pen Tool and Path Editing
     Then bezier handles should be created for both the connected point and the new point
     And the selected point target should remain the new point anchor
 
+  Scenario: Connected drag-to-add reaches peers before pointer-up
+    Given two connected clients are editing the same vector
+    When one client mouse downs to append a connected point
+    Then the peer should receive the real anchor and segment before pointer-up
+    When that client drags to create bezier handles
+    Then the peer should receive each applied canonical curve frame
+    And the complete drag-to-add action should remain one undoable action
+
   Scenario: Second-point micro drag below threshold keeps first segment straight
     Given I have the "Pen" tool selected
     And path editing mode is active for one selected vector
@@ -86,6 +94,7 @@ Feature: Pen Tool and Path Editing
     And pen is disconnected from the current continuation
     When I press Escape
     Then path editing mode should exit
+    And the primary tool should be select
 
   Scenario: Point selection in path editing mode
     Given path editing mode is active

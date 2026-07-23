@@ -175,8 +175,13 @@ test('Scene Tree is canonical and Factory transports ordered changes only', () =
     contractText(commit),
     /special property names.*own enumerable data properties.*canonical apply and replay/i
   )
+  assert.match(
+    commit.allowedContributors.join(' '),
+    /Utils own-property primitive/i
+  )
   ;[
     'docs/ai/framework/packages/utils.md',
+    'packages/utils/src/helpers/own-property.ts',
     'packages/reactive-events/src/scene-tree/events.ts',
     'packages/reactive-events/src/scene-tree/publish.ts',
     'packages/reactive-events/src/__tests__/**',
@@ -201,6 +206,15 @@ test('Scene Tree is canonical and Factory transports ordered changes only', () =
   assert.match(
     contractText(delivery),
     /top-level key and record id.*own enumerable data property.*special property names/i
+  )
+  assert.match(
+    delivery.allowedContributors.join(' '),
+    /Utils own-property primitive/i
+  )
+  assert.ok(
+    delivery.implementationBoundary.includes(
+      'packages/utils/src/helpers/own-property.ts'
+    )
   )
 })
 
@@ -443,6 +457,24 @@ test('strategy ownership is complete-data, engine-neutral, and non-vector compat
     /Local hierarchy parent and sibling-order bookkeeping commits only after.*engine append and set-child-index.*succeeds.*failed handoff retains the pre-command local state.*same complete snapshot.*retry/i
   )
   assert.match(handoffContract, /@asyra\/render-engine-pixi changes/i)
+  assert.match(
+    handoff.allowedContributors.join(' '),
+    /formal diagnostic counter sink/i
+  )
+  assert.match(
+    handoffContract,
+    /diagnostic sink failure.*cannot change.*product result/i
+  )
+  assert.ok(
+    handoff.implementationBoundary.includes(
+      'packages/utils/src/helpers/diagnostic-counter.ts'
+    )
+  )
+  assert.ok(
+    handoff.implementationBoundary.includes(
+      'packages/utils/src/helpers/__tests__/diagnostic-counter.test.ts'
+    )
+  )
   assert.equal(
     handoff.implementationBoundary.some((entry) =>
       entry.startsWith('packages/render-engine')

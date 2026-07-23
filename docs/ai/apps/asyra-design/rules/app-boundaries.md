@@ -17,5 +17,7 @@
 
 ## Registry Boundary
 
-- App-specific UI/system property registrations belong in `src/registrations/*`.
-- Do not scatter property registrations across random feature files.
+- Official reusable UI/system properties belong to the responsible
+  `@asyra/preset` default.
+- App-only registrations belong to an explicit pre-start app composition
+  module when needed; do not scatter them across feature or UI files.

@@ -1,4 +1,5 @@
 import { MapRegistry } from './map-registry'
+import type { RegistrationOwnerMetadata } from './registration-owner'
 
 export const EXTENSION_STRATEGIES = ['before', 'after', 'append'] as const
 
@@ -24,23 +25,18 @@ export type ExtensionOperation =
   | 'unregister-target'
   | 'dispose'
 
-export interface ExtensionOwnerMetadata {
-  packageName: string
-  name: string
-}
-
 export interface ExtensionTargetMetadata {
   key: string
   name: string
   kind: string
-  owner: ExtensionOwnerMetadata
+  owner: RegistrationOwnerMetadata
   supportedStrategies: readonly ExtensionStrategy[]
 }
 
 export interface ExtensionMetadata {
   key: string
   targetKey: string
-  owner: ExtensionOwnerMetadata
+  owner: RegistrationOwnerMetadata
   strategy: ExtensionStrategy
 }
 
@@ -92,13 +88,9 @@ export class ExtensionContractError extends Error {
   }
 }
 
-interface TargetRecord<Context> extends ExtensionTargetMetadata {
-  install: ExtensionInstaller<Context>
-}
+type TargetRecord<Context> = ExtensionTargetDefinition<Context>
 
-interface ExtensionRecord<Context> extends ExtensionMetadata {
-  install: ExtensionInstaller<Context>
-}
+type ExtensionRecord<Context> = ExtensionRegistration<Context>
 
 interface AppliedCleanup {
   key: string
@@ -115,7 +107,9 @@ const isExtensionStrategy = (value: unknown): value is ExtensionStrategy =>
   typeof value === 'string' &&
   (EXTENSION_STRATEGIES as readonly string[]).includes(value)
 
-const cloneOwner = (owner: ExtensionOwnerMetadata): ExtensionOwnerMetadata => ({
+const cloneOwner = (
+  owner: RegistrationOwnerMetadata
+): RegistrationOwnerMetadata => ({
   packageName: owner.packageName,
   name: owner.name
 })

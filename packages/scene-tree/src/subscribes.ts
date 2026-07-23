@@ -11,12 +11,14 @@ import {
   sceneTreeLoadComplete,
   type AddElementEvent,
   type RemoveElementEvent,
+  type UpdateComputedDataBatchEvent,
   type UpdateComputedDataEvent,
   type UpdateComputedDataPatchEvent
 } from '@asyra/reactive-events'
 import propsManager from '@asyra/props-manager'
 import {
   PROPS_ACTIONS,
+  setOwnEnumerableValue,
   type DataTypes,
   type ComputedDataPatch,
   type ComputedDataPatchChange,
@@ -24,20 +26,7 @@ import {
   type GroupInstanceTypes
 } from '@asyra/utils'
 import sceneTree from './sceneTree'
-import { isGroupEntity } from './utils'
-
-const setOwnEnumerableValue = (
-  target: object,
-  key: PropertyKey,
-  value: unknown
-): void => {
-  Object.defineProperty(target, key, {
-    value,
-    enumerable: true,
-    configurable: true,
-    writable: true
-  })
-}
+import { isGroupEntity } from './entity-data'
 
 const toAppliedComputedDataPatch = (
   patch: ComputedDataPatchChange
@@ -186,42 +175,50 @@ export const initSceneTreeSubscribes = () => {
     sceneTree.commitSceneTreeTransaction(options)
   })
 
-  subscribeToSynchronousEvent<UpdateComputedDataEvent>(
-    EventTypes.UPDATE_COMPUTED_DATA,
-    ({ payload }) => {
-      const { id, key, after, owner } = payload
-      const options = undefined
-      if (owner !== 'raw' && owner !== 'computed') {
-        return false
-      }
-      const previousSceneChangeCount = sceneTree.changes.length
-      const previousPropsChangeCount = propsManager.changes.length
-      const element = sceneTree.getElementById(id)
-      if (!element) {
-        return false
-      }
-      const elementOwner = element as unknown as {
-        set: (key: string, value: DataTypes) => void
-      }
+  subscribeToSynchronousEvent<
+    UpdateComputedDataEvent | UpdateComputedDataBatchEvent
+  >(EventTypes.UPDATE_COMPUTED_DATA, ({ payload }) => {
+    const { id } = payload
+    const options = undefined
+    const previousSceneChangeCount = sceneTree.changes.length
+    const previousPropsChangeCount = propsManager.changes.length
+    const element = sceneTree.getElementById(id)
+    if (!element) {
+      return false
+    }
+    const changes = 'changes' in payload ? payload.changes : [payload]
+    if (
+      changes.length === 0 ||
+      changes.some(
+        ({ key, owner }) =>
+          typeof key !== 'string' || (owner !== 'raw' && owner !== 'computed')
+      )
+    ) {
+      return false
+    }
+    const elementOwner = element as unknown as {
+      set: (key: string, value: DataTypes) => void
+    }
 
+    changes.forEach(({ key, after, owner }) => {
       if (owner === 'raw') {
         elementOwner.set(key, after)
-      } else {
-        sceneTree.updateComputedData(
-          id,
-          key as keyof ComputedAttrs,
-          after as ComputedAttrs[keyof ComputedAttrs],
-          options
-        )
+        return
       }
-      const applied =
-        sceneTree.changes.length > previousSceneChangeCount ||
-        propsManager.changes.length > previousPropsChangeCount
-      propsManager.commitChanges(options)
-      sceneTree.commitSceneTreeTransaction(options)
-      return applied
-    }
-  )
+      sceneTree.updateComputedData(
+        id,
+        key as keyof ComputedAttrs,
+        after as ComputedAttrs[keyof ComputedAttrs],
+        options
+      )
+    })
+    const applied =
+      sceneTree.changes.length > previousSceneChangeCount ||
+      propsManager.changes.length > previousPropsChangeCount
+    propsManager.commitChanges(options)
+    sceneTree.commitSceneTreeTransaction(options)
+    return applied
+  })
 
   subscribeToSynchronousEvent<UpdateComputedDataPatchEvent>(
     EventTypes.UPDATE_COMPUTED_DATA_PATCH,

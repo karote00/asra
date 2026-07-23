@@ -12,80 +12,31 @@
  * Logs each package and which dependencies were updated.
  */
 
-import fs from 'fs'
-import path from 'path'
+import {
+  applyWorkspaceVersionPlan,
+  createWorkspaceVersionPlan
+} from './workspace-versions.js'
 
 const args = process.argv.slice(2)
-let ENV = 'prod'
+let environment = 'prod'
 
 args.forEach((arg) => {
-  if (arg.startsWith('--env=')) ENV = arg.split('=')[1]
+  if (arg.startsWith('--env=')) environment = arg.split('=')[1]
+  else {
+    console.error(`Unknown argument: ${arg}`)
+    process.exit(1)
+  }
 })
 
-const rootDir = process.cwd()
-const packagesDir = ['packages', 'apps'].map((d) => path.join(rootDir, d))
+const plan = createWorkspaceVersionPlan({
+  rootDirectory: process.cwd(),
+  environment
+})
+applyWorkspaceVersionPlan(plan)
 
-/** Helper to read JSON file */
-function readJson(filePath) {
-  return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+for (const { packageName, updates } of plan) {
+  console.log(`\nUpdated ${packageName}:`)
+  updates.forEach((update) => console.log(`   ${update}`))
 }
 
-/** Helper to write JSON file */
-function writeJson(filePath, data) {
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8')
-}
-
-// Step 1: scan all packages, cache their current version
-const versionCache = {} // packageName => version
-
-packagesDir.forEach((baseDir) => {
-  if (!fs.existsSync(baseDir)) return
-  fs.readdirSync(baseDir).forEach((pkgName) => {
-    const pkgPath = path.join(baseDir, pkgName, 'package.json')
-    if (!fs.existsSync(pkgPath)) return
-    const pkgJson = readJson(pkgPath)
-    versionCache[pkgJson.name] = pkgJson.version
-  })
-})
-
-// Step 2: traverse all packages and update @asyra/* dependencies
-packagesDir.forEach((baseDir) => {
-  if (!fs.existsSync(baseDir)) return
-  fs.readdirSync(baseDir).forEach((pkgName) => {
-    const pkgPath = path.join(baseDir, pkgName, 'package.json')
-    if (!fs.existsSync(pkgPath)) return
-    const pkgJson = readJson(pkgPath)
-    const modifiedDeps = []
-    const deps = ['dependencies', 'devDependencies', 'peerDependencies']
-
-    deps.forEach((depType) => {
-      if (!pkgJson[depType]) return
-      Object.keys(pkgJson[depType]).forEach((dep) => {
-        if (!dep.startsWith('@asyra/')) return
-
-        if (ENV === 'dev') {
-          if (pkgJson[depType][dep] !== 'workspace:*') {
-            pkgJson[depType][dep] = 'workspace:*'
-            modifiedDeps.push(`${depType}.${dep} -> workspace:*`)
-          }
-        } else {
-          if (
-            versionCache[dep] &&
-            pkgJson[depType][dep] !== `^${versionCache[dep]}`
-          ) {
-            pkgJson[depType][dep] = `^${versionCache[dep]}`
-            modifiedDeps.push(`${depType}.${dep} -> ^${versionCache[dep]}`)
-          }
-        }
-      })
-    })
-
-    if (modifiedDeps.length > 0) {
-      writeJson(pkgPath, pkgJson)
-      console.log(`\n📦 Updated ${pkgJson.name}:`)
-      modifiedDeps.forEach((dep) => console.log(`   ${dep}`))
-    }
-  })
-})
-
-console.log(`\n✅ bump-workspace-versions completed (env=${ENV})`)
+console.log(`\nbump-workspace-versions completed (env=${environment})`)

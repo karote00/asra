@@ -85,11 +85,40 @@ describe('Scene Tree canonical property projection', () => {
     expect(computed.save()).not.toHaveProperty('removedField')
   })
 
+  it('initializes a property component from its component definition default', () => {
+    const Props = createDynamicPropsClass([
+      {
+        name: 'customCount',
+        type: CUSTOM_TYPE,
+        defaultValue: 5
+      }
+    ])
+    const elementProps = new Props('defaulted-element')
+    const propertyId = elementProps.getPropId('customCount')
+    const property = propsManager.getPropertyById(
+      propertyId as string
+    ) as CustomPropertyComponent
+
+    expect(property.get('customCount')).toBe(5)
+  })
+
   it('bypasses projection when the component has no property relation', () => {
     const Props = createDynamicPropsClass([])
     const elementProps = new Props('unrelated-element')
     const computed = new Computed('unrelated-element', elementProps, [])
 
     expect(computed.save()).not.toHaveProperty('customCount')
+  })
+
+  it('preserves a referenced property id when the property arrives after the element', () => {
+    const Props = createDynamicPropsClass([
+      { name: 'style', type: CUSTOM_TYPE, alias: ['customCount'] }
+    ])
+    const elementProps = new Props('remote-element', {
+      style: 'remote-property-17'
+    })
+
+    expect(elementProps.getPropId('style')).toBe('remote-property-17')
+    expect(propsManager.getPropertyById('remote-property-17')).toBeDefined()
   })
 })

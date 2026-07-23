@@ -105,6 +105,8 @@ export {
   createRenderInteractionPolylineTarget,
   createRenderGradientFillStyle,
   createEvenOddFillStyle,
+  isPointInsidePreparedEvenOddShape,
+  prepareEvenOddShape,
   createMeshProjection,
   renderSceneTreeStore,
   renderSelectionStore,
@@ -124,6 +126,8 @@ export {
   type EvenOddSegment,
   type EvenOddPath,
   type EvenOddShape,
+  type PreparedEvenOddSegment,
+  type PreparedEvenOddShape,
   type EvenOddFillOptions,
   type EvenOddFillResult,
   type GeometryPoint,
@@ -138,7 +142,7 @@ export type {
   RenderStrategyGraphic
 } from '@asyra/render'
 export {
-  getYjsDataChannel,
+  createLocalSharedDataChannel,
   registerSharedDataChannel,
   unregisterSharedDataChannel,
   hasSharedDataChannel
@@ -190,14 +194,24 @@ export {
   VECTOR_ANCHOR_ID_TYPE,
   VECTOR_TOPOLOGY_NETWORK_ID_TYPE,
   VECTOR_TOPOLOGY_SEGMENT_ID_TYPE,
-  VECTOR_TOPOLOGY_POINT_ID_TYPE
+  VECTOR_TOPOLOGY_POINT_ID_TYPE,
+  isVectorAnchorNode,
+  isVectorControlNode,
+  isVectorHandleMode,
+  getVectorControlId,
+  getVectorPointTargetPosition,
+  sortVectorItemsById,
+  getVectorNetworkAnchorHandleRefs
 } from './types/vector'
 export type {
   VectorAnchorPoint,
+  VectorAnchorPointNode,
+  VectorAnchorHandleRefs,
   VectorAnchorType,
   VectorPathStyle,
   VectorHandleMode,
   VectorPointNode,
+  VectorControlPointNode,
   VectorPointTarget,
   VectorEndpointSide,
   VectorControlRole,
@@ -212,7 +226,8 @@ export type {
 } from './types/vector'
 export type {
   RenderLayerRegistration,
-  RegisterRenderLayerOptions
+  RegisterRenderLayerOptions,
+  RegisterRenderLayer
 } from './types/render'
 export type {
   LoadDiagnosticsHook,
@@ -320,7 +335,7 @@ type CoreExtensionApiKeys =
   | 'registerSharedDataChannel'
   | 'unregisterSharedDataChannel'
   | 'hasSharedDataChannel'
-  | 'getYjsDataChannel'
+  | 'createLocalSharedDataChannel'
 
 type CorePresetInstallApiKeys =
   | 'setRenderEngineProvider'
@@ -336,7 +351,7 @@ type CorePresetInstallApiKeys =
   | 'registerSharedDataChannel'
   | 'unregisterSharedDataChannel'
   | 'hasSharedDataChannel'
-  | 'getYjsDataChannel'
+  | 'createLocalSharedDataChannel'
   | 'registerPropertySchema'
   | 'getPropertyTypeDefinition'
   | 'redefinePropertyType'

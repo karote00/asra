@@ -1,63 +1,20 @@
 import { defineConfig, devices } from '@playwright/test'
-import { existsSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import {
+  loadAsyraDesignEnvironment,
+  resolveAsyraDesignEnvironment
+} from './app-environment.mjs'
 
-/**
- * Read app visual review defaults from the project-owned env file.
- * Shell-provided environment variables still take priority.
- */
-const appDir = fileURLToPath(new URL('.', import.meta.url))
-const visualReviewEnvPath = resolve(appDir, '.env')
-
-if (existsSync(visualReviewEnvPath)) {
-  for (const rawLine of readFileSync(visualReviewEnvPath, 'utf8').split(
-    /\r?\n/
-  )) {
-    const line = rawLine.trim()
-    if (!line || line.startsWith('#')) {
-      continue
-    }
-
-    const separatorIndex = line.indexOf('=')
-    if (separatorIndex <= 0) {
-      continue
-    }
-
-    const key = line.slice(0, separatorIndex).trim()
-    const value = line.slice(separatorIndex + 1).trim()
-    process.env[key] ??= value
-  }
-}
-
-const appVisualReviewBaseUrl = process.env.ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL
-const playwrightTestBaseUrl = process.env.PLAYWRIGHT_TEST_BASE_URL
-
-if (!appVisualReviewBaseUrl) {
-  throw new Error(
-    'Missing ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL. Define it in apps/asyra-design/.env or an explicit shell override.'
-  )
-}
-
-if (playwrightTestBaseUrl && playwrightTestBaseUrl !== appVisualReviewBaseUrl) {
-  throw new Error(
-    'PLAYWRIGHT_TEST_BASE_URL must match ASYRA_DESIGN_VISUAL_REVIEW_BASE_URL for Asyra Design visual review.'
-  )
-}
-
-process.env.PLAYWRIGHT_TEST_BASE_URL ??= appVisualReviewBaseUrl
-
-const visualReviewUrl = new URL(appVisualReviewBaseUrl)
-const visualReviewHost = visualReviewUrl.hostname
-const visualReviewPort =
-  visualReviewUrl.port || (visualReviewUrl.protocol === 'https:' ? '443' : '80')
-const visualReviewWebServerCommand = `yarn react:start --host ${visualReviewHost} --port ${visualReviewPort}`
+const appEnvironment = resolveAsyraDesignEnvironment(
+  loadAsyraDesignEnvironment()
+)
+const visualReviewWebServerCommand = `yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`
 
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: 'collaboration.spec.ts',
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -71,7 +28,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: appVisualReviewBaseUrl,
+    baseURL: appEnvironment.appURL,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry'
@@ -101,7 +58,7 @@ export default defineConfig({
     ? undefined
     : {
         command: visualReviewWebServerCommand,
-        url: appVisualReviewBaseUrl,
+        url: appEnvironment.appURL,
         reuseExistingServer: true,
         timeout: 120 * 1000
       }

@@ -12,7 +12,6 @@ export {
 } from './errors'
 export { RenderAdapter, PixiJSRenderer }
 export { renderStrategyRegistry } from './registries/render-strategy'
-export { interactionHandlerRegistry } from './registries/interaction-handler'
 export { interactionTargetRegistry } from './registries/interaction-target'
 export { renderInteractionHandlerRegistry } from './registries/render-interaction-handler'
 export {
@@ -22,7 +21,11 @@ export {
   type RenderGradientPoint,
   type RenderFillStyle
 } from './fills/gradient-fill'
-export { createEvenOddFillStyle } from './fills/even-odd-fill'
+export {
+  createEvenOddFillStyle,
+  isPointInsidePreparedEvenOddShape,
+  prepareEvenOddShape
+} from './fills/even-odd-fill'
 export {
   createMeshProjection,
   type GeometryPoint,
@@ -35,6 +38,8 @@ export type {
   EvenOddSegment,
   EvenOddPath,
   EvenOddShape,
+  PreparedEvenOddSegment,
+  PreparedEvenOddShape,
   EvenOddFillOptions,
   EvenOddFillResult
 } from './fills/even-odd-fill'
@@ -43,6 +48,7 @@ export type {
   RenderStrategy,
   RenderStrategyGraphic
 } from './types/render-strategy'
+export type { RenderLayerRegistration } from './types/render-layer'
 export type {
   RenderApplication,
   RenderEngineProviderCleanup,

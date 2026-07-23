@@ -112,7 +112,7 @@ class InteractionTargetRegistry {
   get(targetId: string): RenderInteractionTarget | undefined {
     const target = this.targets.get(targetId)
     if (!target) {
-      return undefined
+      return
     }
     const { __order, ...rest } = target
     return { ...rest }

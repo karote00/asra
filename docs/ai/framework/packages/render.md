@@ -25,6 +25,13 @@ results/interactions back to framework-facing APIs.
   never chooses headless or falls back to Pixi.
 - Render extension APIs should be surfaced through `@asyra/core` when a Core
   facade exists. Normal app bootstrap relies on the Core-owned adapter.
+- Render owns the engine-neutral `RenderLayerRegistration` shape. Core
+  re-exports that type and owns only its facade registration options and
+  callback surface.
+- Render-owned semantic aliases for points, rectangles, bounds, transforms, and
+  RGBA values reuse the canonical low-level contracts from `@asyra/utils`.
+  Concrete engine adapters may retain boundary-local wire shapes when importing
+  Utils would violate the engine package boundary.
 - Render should react to state changes, not become source-of-truth.
 - Render mutations should reflect state/system updates, not drive them.
 - Default subscription wiring is not owned here; preset/core registration flow owns channel observer setup.
@@ -57,6 +64,13 @@ drawing; Render adds no inferred mapping or fallback geometry.
 
 - consume scene/system state
 - update visual layers based on state deltas
+- `prepareEvenOddShape(...)` owns the engine-neutral line/cubic preparation and
+  intersection semantics shared by even-odd rasterization and downstream
+  strategy hit testing; consumers may cache the prepared shape but must not
+  recreate the intersection algorithm
+- `createEvenOddFillStyle(...)` and
+  `isPointInsidePreparedEvenOddShape(...)` consume that same prepared geometry,
+  keeping visible fill and hit-test parity under one Render-owned contract
 - overlays that project authored element bounds during an active interaction must
   use the current precise transform chain; a cached transform from the previous
   render pass is not authoritative after frame-aligned scene updates

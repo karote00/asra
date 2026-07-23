@@ -24,15 +24,18 @@ export const publishEventToObservers = (event: AllEvent) => {
 
 export const publishEvent = (event: AllEvent) => {
   const handlers = synchronousEventHandlers.get(event.type)
+  let applied = false
   if (handlers) {
     ;[...handlers].forEach((handler) => {
-      const applied = handler(event)
-      if (applied !== false) {
+      const result = handler(event)
+      if (result !== false) {
+        applied = true
         acknowledgeTransactionReplayApplied()
       }
     })
   }
   publishEventToObservers(event)
+  return applied
 }
 
 export const subscribeToSynchronousEvent = <T extends AllEvent>(

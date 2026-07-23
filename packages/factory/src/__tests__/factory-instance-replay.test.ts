@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import * as Y from 'yjs'
 import {
   endTransaction,
   EventTypes,
@@ -11,6 +10,7 @@ import {
 import type { TransactionStatusPayload } from '@asyra/utils'
 import { SharedDataChannelNames } from '@asyra/utils'
 import defaultFactory, { Factory } from '../index'
+import { LocalSharedDataChannel } from '../shared-data-channel'
 
 describe('Factory replay instance isolation', () => {
   it('does not route a custom Factory undo through the default owner', () => {
@@ -53,7 +53,9 @@ describe('Factory replay instance isolation', () => {
   it('keeps a custom Factory replay boundary independent from an active default boundary', () => {
     defaultFactory.transact.reset()
     const customFactory = new Factory()
-    const channel = new Y.Doc().getArray(SharedDataChannelNames.SCENE_TREE)
+    const channel = new LocalSharedDataChannel()
+    const delivered: unknown[] = []
+    channel.observe((change) => delivered.push(change))
     customFactory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
       channel
@@ -89,7 +91,7 @@ describe('Factory replay instance isolation', () => {
       startTransaction()
       customFactory.undo()
 
-      expect(channel.toArray()).toEqual([
+      expect(delivered).toEqual([
         expect.objectContaining({ id: 'custom', before: 1, after: 0 })
       ])
     } finally {
