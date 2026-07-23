@@ -31,8 +31,9 @@ transformation hooks used by Core.
   versioned document. App-owned migrations belong in this hook chain.
 - Provider failure is reported by the Core persistence lifecycle and does not
   redefine whether the preceding runtime transaction committed.
-- `MemoryPersistence` is ephemeral. `LocalStoragePersistence` uses the browser
-  storage key `FILE`; neither is a production backend policy.
+- `MemoryPersistence` is ephemeral. `LocalStoragePersistence` accepts an
+  app-selected browser storage key and defaults to `FILE`; neither provider is
+  a production backend policy.
 
 ## Authorities
 

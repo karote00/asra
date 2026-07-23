@@ -56,16 +56,17 @@
 
 3. RenderApp effect
 
-- `core.setPersistence(providers.localStorage)` runs before Core startup for
-  both ordinary and collaboration URLs, so refresh loads the app's demo
-  database instead of an empty in-memory document
-- before collaboration Core startup, an absent localStorage document is
-  initialized with the canonical empty workspace; an existing document is
-  preserved unchanged
+- app-selected localStorage persistence is passed to
+  `core.setPersistence(...)` before Core startup, so refresh loads the app's
+  demo database instead of an empty in-memory document
+- ordinary URLs use `FILE`; a collaboration URL uses
+  `FILE:<encoded fileId>`, and an absent snapshot for that file is initialized
+  with the canonical empty workspace while an existing snapshot is preserved
+  unchanged
 - a non-empty `fileId`, including in a deployed production build, additionally
   supplies collaboration document and room identity while a full UUID actor
   identity is generated per page and applied to the canonical ID-counter
-  namespace; it does not select persistence
+  namespace
 - the collaboration lifecycle module subscribes to Factory shared publications after
   ordinary Core/Render startup; immediate publications may occur during an
   outer pointer transaction, while transaction-end publications wait for

@@ -12,9 +12,11 @@ const queryValue = (
   return value ? value : undefined
 }
 
+export const getPublicFileId = (): string | undefined =>
+  queryValue(new URLSearchParams(window.location.search), 'fileId')
+
 export const getCollaborationMode = (): CollaborationMode | undefined => {
-  const search = new URLSearchParams(window.location.search)
-  const fileId = queryValue(search, 'fileId')
+  const fileId = getPublicFileId()
   if (!fileId) return
 
   const endpoint =

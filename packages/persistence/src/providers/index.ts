@@ -8,7 +8,8 @@ import type { IPersistenceProvider } from '../persistence'
  */
 export class LocalStoragePersistence implements IPersistenceProvider {
   readonly name = 'LocalStorage'
-  private readonly storageKey = 'FILE'
+
+  constructor(private readonly storageKey = 'FILE') {}
 
   async save(data: CoreRawData): Promise<void> {
     try {

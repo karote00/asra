@@ -118,7 +118,12 @@ export async function setStrokeDiagnosticsMode(
  */
 export async function resetCanvas(page: Page) {
   await page.evaluate(() => {
-    localStorage.removeItem('FILE')
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index)
+      if (key === 'FILE' || key?.startsWith('FILE:')) {
+        localStorage.removeItem(key)
+      }
+    }
   })
 
   let resetButton = page.getByTestId('reset-button')

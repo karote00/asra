@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import core from '../contexts'
-import { providers } from '@asyra/reactive-events'
 import { CANVAS_BACKGROUND_COLOR } from '../constants'
+import { createDocumentPersistence } from '../document-persistence'
 import { getCollaborationMode } from './collaboration-mode'
 import type { CoreRawData } from '@asyra/utils'
 
@@ -36,19 +36,19 @@ const RenderApp: React.FC = () => {
           return
         }
         const collaborationMode = getCollaborationMode()
+        const documentPersistence = createDocumentPersistence(
+          collaborationMode?.fileId
+        )
 
         // LocalStorage remains the demo database. Initialize only an absent
         // collaboration document so Core can establish its empty workspace;
         // an existing document must survive refresh unchanged.
-        if (
-          collaborationMode &&
-          (await providers.localStorage.load()) === null
-        ) {
+        if (collaborationMode && (await documentPersistence.load()) === null) {
           if (!active) return
-          await providers.localStorage.save(EMPTY_DOCUMENT)
+          await documentPersistence.save(EMPTY_DOCUMENT)
         }
         if (!active) return
-        core.setPersistence(providers.localStorage)
+        core.setPersistence(documentPersistence)
 
         // Phase 3: Single startup call
         await core.start(container, {

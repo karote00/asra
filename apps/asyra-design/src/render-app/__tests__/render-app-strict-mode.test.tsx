@@ -39,15 +39,13 @@ describe('RenderApp StrictMode lifecycle', () => {
     vi.restoreAllMocks()
     vi.unstubAllEnvs()
     window.history.replaceState({}, '', '/')
+    localStorage.clear()
     await providers.memory.clear()
-    await providers.localStorage.clear()
 
     vi.spyOn(core, 'setPersistence').mockImplementation(() => undefined)
     vi.spyOn(core, 'start').mockResolvedValue(undefined)
     vi.spyOn(core, 'destroyRenderer').mockImplementation(() => undefined)
     vi.spyOn(providers.memory, 'save')
-    vi.spyOn(providers.localStorage, 'load')
-    vi.spyOn(providers.localStorage, 'save')
     vi.spyOn(collaborationLifecycle, 'startCollaboration').mockResolvedValue(
       collaborationHandle
     )
@@ -64,8 +62,8 @@ describe('RenderApp StrictMode lifecycle', () => {
     document.body.replaceChildren()
     setReactActEnvironment(false)
     window.history.replaceState({}, '', '/')
+    localStorage.clear()
     await providers.memory.clear()
-    await providers.localStorage.clear()
     vi.unstubAllEnvs()
     vi.restoreAllMocks()
   })
@@ -122,9 +120,13 @@ describe('RenderApp StrictMode lifecycle', () => {
     })
 
     expect(providers.memory.save).not.toHaveBeenCalled()
-    expect(providers.localStorage.load).toHaveBeenCalledTimes(1)
-    expect(providers.localStorage.save).toHaveBeenCalledWith(EMPTY_DOCUMENT)
-    expect(core.setPersistence).toHaveBeenCalledWith(providers.localStorage)
+    expect(localStorage.getItem('FILE:file-1')).toBe(
+      JSON.stringify(EMPTY_DOCUMENT)
+    )
+    expect(localStorage.getItem('FILE')).toBeNull()
+    expect(vi.mocked(core.setPersistence).mock.calls[0]?.[0]).not.toBe(
+      providers.localStorage
+    )
     expect(core.setPersistence).not.toHaveBeenCalledWith(providers.memory)
     expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledWith({
       fileId: 'file-1',
@@ -139,7 +141,7 @@ describe('RenderApp StrictMode lifecycle', () => {
   it('preserves an existing localStorage document when collaboration starts', async () => {
     vi.stubEnv('VITE_ASYRA_DESIGN_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
     window.history.replaceState({}, '', '/?fileId=file-1')
-    vi.mocked(providers.localStorage.load).mockResolvedValue({
+    const existingDocument = {
       version: '1.0.0',
       sceneTree: {
         workspace: 'workspace-1',
@@ -147,7 +149,8 @@ describe('RenderApp StrictMode lifecycle', () => {
         elements: {}
       },
       props: {}
-    })
+    }
+    localStorage.setItem('FILE:file-1', JSON.stringify(existingDocument))
     const host = document.createElement('div')
     document.body.append(host)
     const root = createRoot(host)
@@ -159,9 +162,13 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
     })
 
-    expect(providers.localStorage.load).toHaveBeenCalledTimes(1)
-    expect(providers.localStorage.save).not.toHaveBeenCalled()
-    expect(core.setPersistence).toHaveBeenCalledWith(providers.localStorage)
+    expect(JSON.parse(localStorage.getItem('FILE:file-1') ?? '')).toEqual(
+      existingDocument
+    )
+    expect(localStorage.getItem('FILE')).toBeNull()
+    expect(vi.mocked(core.setPersistence).mock.calls[0]?.[0]).not.toBe(
+      providers.localStorage
+    )
     expect(collaborationLifecycle.startCollaboration).toHaveBeenCalledTimes(1)
 
     await act(async () => root.unmount())

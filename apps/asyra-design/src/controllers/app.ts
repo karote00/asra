@@ -2,6 +2,8 @@ import { getFeature } from '@asyra/core'
 import { app, setPixiApp } from '../states/app'
 import { FeatureNames, PrimaryToolType } from '../constants'
 import core from '../contexts'
+import { getDocumentStorageKey } from '../document-persistence'
+import { getPublicFileId } from '../render-app/collaboration-mode'
 
 export const destroyRenderApp = () => {
   const renderApp = app.value
@@ -25,7 +27,7 @@ export const renderIsReady = () => {
 }
 
 export const resetData = () => {
-  localStorage.setItem('FILE', JSON.stringify({}))
+  localStorage.removeItem(getDocumentStorageKey(getPublicFileId()))
   location.reload()
 }
 

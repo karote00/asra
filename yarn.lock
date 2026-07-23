@@ -197,7 +197,9 @@ __metadata:
   resolution: "@asyra/persistence@workspace:packages/persistence"
   dependencies:
     "@asyra/utils": "workspace:*"
+    "@vitest/coverage-v8": "npm:^2.1.8"
     typescript: "npm:^5.7.2"
+    vitest: "npm:^2.1.8"
   languageName: unknown
   linkType: soft
 
