@@ -25,9 +25,10 @@ const delivery = (
 })
 
 const publication = (
-  deliveries: readonly SharedDelivery[]
+  deliveries: readonly SharedDelivery[],
+  publicationId = 'publication-a'
 ): SharedPublication => ({
-  publicationId: 'publication-a',
+  publicationId,
   transactionId: 1,
   origin: 'action',
   deliveries
@@ -63,6 +64,42 @@ const validDeliveries = (): readonly SharedDelivery[] => [
       patch: { values: { x: { before: 0, after: 10 } } }
     }
   ),
+  delivery(SharedDataChannelNames.SCENE_TREE, EventTypes.MOVE_ELEMENTS, {
+    action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
+    eventName: EventTypes.MOVE_ELEMENTS,
+    moves: [
+      {
+        elementId: 'rect-a',
+        before: { parentId: 'workspace-a', index: 0 },
+        after: { parentId: 'group-a', index: 0 }
+      }
+    ]
+  }),
+  delivery(SharedDataChannelNames.SCENE_TREE, EventTypes.CHANGE_SUBTREE, {
+    action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+    undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+    eventName: EventTypes.CHANGE_SUBTREE,
+    elementId: 'group-a',
+    removed: [
+      {
+        elementId: 'rect-a',
+        parentId: 'group-a',
+        index: 0,
+        data: { id: 'rect-a', type: 'rect', parentId: 'group-a' }
+      },
+      {
+        elementId: 'group-a',
+        parentId: 'workspace-a',
+        index: 0,
+        data: {
+          id: 'group-a',
+          type: 'group',
+          parentId: 'workspace-a',
+          children: ['rect-a']
+        }
+      }
+    ]
+  }),
   delivery(SharedDataChannelNames.PROPS, EventTypes.ADD_PROPERTY, {
     action: PROPS_ACTIONS.ADD_PROPERTY,
     eventName: EventTypes.ADD_PROPERTY,
@@ -139,5 +176,91 @@ describe('Asyra Design app-owned collaboration processing', () => {
 
     expect(process).toHaveBeenCalledTimes(2)
     expect(process.mock.calls[0]?.[0]).toEqual(process.mock.calls[1]?.[0])
+  })
+
+  it('rejects malformed hierarchy evidence before the remote transaction', () => {
+    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
+    const process = vi.fn()
+    const processPublication = createAsyraDesignPublicationProcessor(
+      runRemoteTransaction,
+      process
+    )
+    const malformed = delivery(
+      SharedDataChannelNames.SCENE_TREE,
+      EventTypes.MOVE_ELEMENTS,
+      {
+        action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
+        eventName: EventTypes.MOVE_ELEMENTS,
+        moves: [
+          {
+            elementId: 'rect-a',
+            before: { parentId: 'workspace-a', index: 0 },
+            after: { parentId: 'group-a', index: 0 }
+          },
+          {
+            elementId: 'rect-a',
+            before: { parentId: 'workspace-a', index: 1 },
+            after: { parentId: 'group-a', index: 1 }
+          }
+        ]
+      }
+    )
+
+    expect(() => processPublication(publication([malformed]))).toThrow(
+      'unsupported collaboration delivery'
+    )
+    expect(runRemoteTransaction).not.toHaveBeenCalled()
+    expect(process).not.toHaveBeenCalled()
+  })
+
+  it('lets app policy reject unauthorized, duplicate, or conflicting publications without mutation', () => {
+    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
+    const process = vi.fn()
+    const acceptedPublicationIds = new Set<string>()
+    const decide = vi.fn((item: SharedPublication) => {
+      if (
+        item.publicationId.startsWith('unauthorized') ||
+        item.publicationId.startsWith('conflicting') ||
+        acceptedPublicationIds.has(item.publicationId)
+      ) {
+        return false
+      }
+      acceptedPublicationIds.add(item.publicationId)
+      return item
+    })
+    const processPublication = createAsyraDesignPublicationProcessor(
+      runRemoteTransaction,
+      process,
+      decide
+    )
+    const hierarchy = validDeliveries().slice(4, 6)
+
+    processPublication(publication(hierarchy, 'accepted-hierarchy'))
+    processPublication(publication(hierarchy, 'accepted-hierarchy'))
+    processPublication(publication(hierarchy, 'unauthorized-hierarchy'))
+    processPublication(publication(hierarchy, 'conflicting-hierarchy'))
+
+    expect(decide).toHaveBeenCalledTimes(4)
+    expect(runRemoteTransaction).toHaveBeenCalledOnce()
+    expect(process).toHaveBeenCalledTimes(2)
+  })
+
+  it('revalidates an app-transformed conflict decision before canonical apply', () => {
+    const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
+    const process = vi.fn()
+    const replacement = validDeliveries()[4] as SharedDelivery
+    const processPublication = createAsyraDesignPublicationProcessor(
+      runRemoteTransaction,
+      process,
+      () => publication([replacement], 'app-transformed')
+    )
+
+    processPublication(
+      publication([validDeliveries()[5] as SharedDelivery], 'conflicting')
+    )
+
+    expect(runRemoteTransaction).toHaveBeenCalledOnce()
+    expect(process).toHaveBeenCalledOnce()
+    expect(process.mock.calls[0]?.[0].type).toBe(EventTypes.MOVE_ELEMENTS)
   })
 })

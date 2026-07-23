@@ -10,6 +10,7 @@ import { initPathEditingContinuation } from './derived-state/init-path-editing-c
 import { initFeatures } from './foundation/init-features'
 import { initInputSystem } from './foundation/init-input-system'
 import { elementApis } from '../common-apis/element'
+import { hierarchyApis } from '../common-apis/hierarchy'
 import { strokeApis } from '../common-apis/strokes'
 
 /**
@@ -60,6 +61,7 @@ export const initApp = (): void => {
   if (import.meta.env.DEV) {
     window.__AsyraE2E__ = {
       elementApis,
+      hierarchyApis,
       strokeApis
     }
   }
