@@ -109,7 +109,7 @@ test('clean, CI, E2E, and Vercel include the collaboration integration gates', (
   const e2e = readText('.github/workflows/e2e.yml')
 
   assert.equal(collaboration.scripts.clean, 'rm -rf dist')
-  assert.equal(vercel.buildCommand, 'yarn react:build')
+  assert.equal(vercel.buildCommand, 'turbo run react:build')
   assert.match(ci, /yarn gen:turbo:check/)
   assert.match(ci, /yarn deps:validate/)
   assert.match(ci, /yarn release:app:check --prod=asyra-design/)
