@@ -84,9 +84,8 @@ owner.
 
 ## Release-Blocking Group Hierarchy Contract
 
-Scene Tree currently owns container membership and sibling order, but the first
-framework release additionally requires one atomic public contract for group,
-ungroup, reparent/reorder, and subtree lifecycle behavior.
+Scene Tree owns the canonical atomic contract for group-backed hierarchy
+mutation, reparent/reorder, and subtree lifecycle behavior.
 
 - Scene Tree owns validation, exact before/after parent/index evidence, cycle
   prevention, one-parent membership, deterministic order, and subtree
@@ -95,11 +94,16 @@ ungroup, reparent/reorder, and subtree lifecycle behavior.
   internal Group instances or mutate `parentId`/`children` directly.
 - A hierarchy move preserves entity identity and is not modeled as deleting and
   recreating a different entity.
+- `moveElements(...)` validates the complete request before the first mutation,
+  interprets `targetIndex` against the final target child list, and preserves
+  canonical source sibling order for contiguous or non-contiguous ids.
+- `removeSubtree(...)`, `restoreSubtree(...)`, and replay through
+  `applySubtreeChange(...)` retain exact identity, parent, index, child order,
+  and raw Group data. Stale replay evidence fails instead of partially applying.
 - Preset owns only official Group defaults and basic coordinate/bounds adapters;
   app interaction and UI policy remain outside Scene Tree.
 
-This target is not implemented yet. Its supported cases and release gate are
-defined by
+The supported cases and release-gate ownership are defined by
 `../plans/group-component-and-hierarchy-behaviors-plan.md`.
 
 ## Validation Checklist
@@ -109,7 +113,10 @@ defined by
 - Rollback/undo restoration preserves parent ownership and child order.
 - Rollback/undo restores both Element-owned flags/metadata and computed values.
 - Save/load round-trip preserves graph shape and computed data.
-- Load path skips malformed/unregistered elements and falls back to a safe workspace when metadata is invalid.
+- Load validation first applies its documented invalid/unregistered-record
+  normalization, then rejects any resulting missing or duplicate membership,
+  invalid parent, cycle, or malformed child order before replacing current
+  state.
 
 ## Component Relation Contract
 

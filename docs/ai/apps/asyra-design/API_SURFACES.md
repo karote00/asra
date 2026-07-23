@@ -76,6 +76,16 @@ Import boundary:
 - `unregisterPropertyRegistration(type, scope)` is low-level schema/runtime
   cleanup; `unregisterPropertyType(type)` removes a complete graph capability
 
+`hierarchyApis` (`src/common-apis/hierarchy.ts`)
+
+- `groupElements(elementIds: readonly string[], options?: EVENT_OPTIONS): GroupOperationResult`
+- `ungroupElement(groupId: string, options?: EVENT_OPTIONS): UngroupOperationResult`
+- `moveElements(request: MoveHierarchyRequest, options?: EVENT_OPTIONS): MoveHierarchyResult`
+- `removeSubtree(elementId: string, options?: EVENT_OPTIONS): RemoveSubtreeResult`
+- The app chooses ids and any selection/UI behavior. The common API delegates
+  canonical hierarchy validation to Core/Scene Tree and official Group
+  coordinate/bounds behavior to Preset.
+
 `elementApis` (`src/common-apis/element/apis.ts`)
 
 - `isContainerType(type: string): boolean`

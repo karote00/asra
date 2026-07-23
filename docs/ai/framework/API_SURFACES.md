@@ -185,6 +185,10 @@ Scene/model bridge:
 - `sceneTreeLoadData(data: SceneTreeRawData): void`
 - `sceneTreeSaveData(): SceneTreeRawData`
 - `createElement(data: CreateElementData, parent?: GroupInstanceTypes, index?: number, options?: EVENT_OPTIONS): string`
+- `createElementInParent(data: CreateElementData, parentId: string, index?: number, options?: EVENT_OPTIONS): string`
+- `getElementComputedData(elementId: string): Record<string, unknown> | undefined`
+- `moveElements(request: MoveHierarchyRequest, options?: EVENT_OPTIONS): MoveHierarchyResult`
+- `removeSubtree(elementId: string, options?: EVENT_OPTIONS): RemoveSubtreeResult`
 - `changeComputedData(elementIds: string[], data: Record<string, DataTypes>, options?: EVENT_OPTIONS): void`
 - `refreshComputedDataFromProperty(elementId: string, propertyName: string, options?: EVENT_OPTIONS): void`
 - `getAllElementsBounds(): Bounds | null`
@@ -534,6 +538,10 @@ See `packages/collaboration.md` and
 - exports pure component definitions and separate render strategies for
   Rectangle, Oval, Vector, Frame, and Group; importing preset modules has no
   component-registration side effect
+- exports official Group operation APIs:
+  `prepareGroupOperation`, `prepareUngroupOperation`, `groupElements`,
+  `ungroupElement`, `moveElementsWithGroupGeometry`, `deriveGroupBounds`, and
+  `normalizeGroupsForElements`
 - exports `PRESET_REGISTRATION_OWNER` for metadata inspection; daily app
   customization does not require owner input or preset target keys
 - app customization uses ordinary Core relation/registration APIs after

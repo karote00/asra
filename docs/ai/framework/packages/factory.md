@@ -213,6 +213,23 @@ infrastructure.
   their nested transaction calls back to that same instance; they do not touch
   the default Factory history or statuses.
 
+## Hierarchy Transaction Contract
+
+- `MOVE_ELEMENTS` records exact before/after parent and index evidence; its
+  inverse replays the exact prior hierarchy instead of issuing a best-effort
+  move.
+- `CHANGE_SUBTREE` records the complete removed subtree and restores or removes
+  it through the canonical Scene Tree replay boundary.
+- One group, ungroup, move, reorder, or subtree-removal request settles as one
+  intended transaction and one undo entry. Geometry writes performed by the
+  official Preset adapter remain in that same transaction.
+- A failed hierarchy or property write rolls the entire recorded request back;
+  semantic no-ops and pre-mutation validation failures add no history or shared
+  publication.
+- One committed local hierarchy request becomes one grouped shared publication.
+  Undo and redo publish their corresponding exact inverse/forward hierarchy
+  changes. Remote-origin replay stays non-undoable and suppresses outbound echo.
+
 ## Optional Collaboration Boundary
 
 Factory still does not own Provider/room/auth, Awareness, remote policy,

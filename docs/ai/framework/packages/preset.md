@@ -165,22 +165,26 @@ unregister-then-define route.
 
 ## Release-Blocking Group Operations
 
-`CONTAINERS` already installs the official invisible Group component and its
-Render projection. Before the first framework release it must also provide the
-basic ID-driven group/ungroup adapters defined by
+`CONTAINERS` installs the single official invisible Group component and its
+Render projection. Preset also exports the ID-driven Group adapters defined by
 `../plans/group-component-and-hierarchy-behaviors-plan.md`.
 
 - The adapters use public Core/Scene Tree/property boundaries and never mutate
   hierarchy or computed data directly.
+- `prepareGroupOperation(...)` and `prepareUngroupOperation(...)` produce
+  canonical plans; `groupElements(...)` and `ungroupElement(...)` execute them
+  inside one transaction.
+- `moveElementsWithGroupGeometry(...)` delegates hierarchy validation/mutation
+  to Core and performs translation-only coordinate conversion and bounds
+  normalization when direct official Group membership is involved.
+- `deriveGroupBounds(...)` and `normalizeGroupsForElements(...)` provide the
+  one direct-child rectangle-union/bounds path, deepest Group first.
 - Preset owns default 2D coordinate normalization and direct-child Group bounds
   for the supported basic operation contract.
 - Preset does not choose selected ids, register shortcuts or app commands,
   define post-operation selection, or own hover/click/hit/UI behavior.
 - Apps may replace the official Group capability through the ordinary
   pre-start composition route without patching Preset internals.
-
-These operation adapters and complete atomic hierarchy semantics are planned,
-not current runtime behavior.
 
 ## Validation Checklist
 

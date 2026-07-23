@@ -162,6 +162,18 @@ drawing; Render adds no inferred mapping or fallback geometry.
   engine append or set-child-index handoff succeeds; a failed handoff preserves
   the pre-command local hierarchy so the same complete snapshot can retry it
 
+### Canonical hierarchy projection
+
+- `projectHierarchy(parentId, childIds)` accepts one exact canonical final child
+  list and reuses every existing Render node and opaque engine handle.
+- Move projection applies the target parent first and then affected source
+  parents so cross-parent handoff never recreates entity identity.
+- Subtree removal projects descendants before ancestors; restoration projects
+  ancestors before descendants.
+- Preset's Scene Tree observer forwards committed `MOVE_ELEMENTS` and
+  `CHANGE_SUBTREE` deliveries to these Render store paths. Render owns no
+  fallback hierarchy, conflict policy, or second canonical state.
+
 3. Interaction bridge
 
 - pointer events from render are inputs, not authoritative selection/hit policy
