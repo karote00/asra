@@ -5,7 +5,11 @@ Never record completed plans here.
 ## Current Status
 
 - Current plan in this index: none.
-- Queued next implementation plan after the completed network collaboration
+- Proposed app validation plans for Framework Release Gate 3, both inactive
+  until user review:
+  1. `plans/group-interaction-mvp-plan.md`
+  2. `plans/layer-tree-reparent-reorder-plan.md` (depends on the first plan)
+- Separately queued app/server plan after the completed network collaboration
   transport Gate 2; it remains inactive until the user explicitly starts it:
   `plans/durable-collaboration-server-and-continuous-sync-plan.md`.
 - Deferred profiling candidate, neither active nor queued:
