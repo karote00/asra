@@ -143,20 +143,59 @@ export class RenderLayer {
       desiredChildren.push(child)
       desiredChildSet.add(child)
     })
-    ;[...element.children].forEach((child) => {
+    this.synchronizeChildren(element, desiredChildren)
+  }
+
+  private synchronizeChildren(
+    parent: SceneElement,
+    desiredChildren: readonly SceneElement[]
+  ) {
+    const desiredChildSet = new Set(desiredChildren)
+    ;[...parent.children].forEach((child) => {
       if (!desiredChildSet.has(child)) {
-        element.removeChild(child)
+        parent.removeChild(child)
       }
     })
     desiredChildren.forEach((child, index) => {
-      if (child.parent !== element) {
-        element.addChildAt(child, index)
+      if (child.parent !== parent) {
+        parent.addChildAt(child, index)
         return
       }
-      if (element.children[index] !== child) {
-        element.setChildIndex(child, index)
+      if (parent.children[index] !== child) {
+        parent.setChildIndex(child, index)
       }
     })
+  }
+
+  projectHierarchy(parentId: string, childIds: readonly string[]) {
+    const parent =
+      parentId === this.currentWorkspace.label
+        ? this.currentWorkspace
+        : this.getElementById(parentId)
+    if (!parent) {
+      throw new Error(
+        `[RenderLayer] Cannot project missing hierarchy parent "${parentId}"`
+      )
+    }
+    if (
+      !Array.isArray(childIds) ||
+      new Set(childIds).size !== childIds.length
+    ) {
+      throw new Error(
+        `[RenderLayer] Cannot project invalid children for "${parentId}"`
+      )
+    }
+
+    const desiredChildren = childIds.map((childId) => {
+      const child = this.getElementById(childId)
+      if (!child || child === parent) {
+        throw new Error(
+          `[RenderLayer] Cannot project invalid hierarchy child "${childId}"`
+        )
+      }
+      return child
+    })
+    this.synchronizeChildren(parent, desiredChildren)
   }
 
   addContainer(containerData: RenderContainerData) {

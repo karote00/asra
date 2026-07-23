@@ -62,6 +62,10 @@ export class ViewportLayer {
     return this.renderLayer.removeElement(elementId, parentId)
   }
 
+  projectHierarchy(parentId: string, childIds: readonly string[]) {
+    this.renderLayer.projectHierarchy(parentId, childIds)
+  }
+
   updateElement(
     elementId: string,
     key: string,

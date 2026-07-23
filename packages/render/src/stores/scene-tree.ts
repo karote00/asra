@@ -3,11 +3,14 @@ import type {
   ComputedDataRecordValue,
   DataTypes,
   ElementRawData,
+  HierarchyMove,
   SceneTreeDataOwner,
+  SubtreeChange,
   WorkspaceRawData
 } from '@asyra/utils'
 import {
   EntityTypes,
+  SCENE_TREE_ACTIONS,
   emitDiagnosticCounter,
   isRecord,
   measureBrowserDragPhase
@@ -222,7 +225,7 @@ class ComputedDataMirror {
 
   seed(
     elementId: string,
-    reason: 'reload' | 'add' | 'resync'
+    reason: 'reload' | 'add' | 'resync' | 'hierarchy'
   ): ComputedDataMirrorEntry | null {
     const element = sceneTree.getElementById(elementId)
     if (!element) {
@@ -280,6 +283,19 @@ class ComputedDataMirror {
 
     emitDiagnosticCounter('computed-mirror-cache-miss')
     return null
+  }
+
+  matchesElementParent(elementId: string, parentId: string): boolean {
+    return this.entries.get(elementId)?.rawDataSnapshot.parentId === parentId
+  }
+
+  matchesParentChild(
+    parentId: string,
+    childId: string,
+    index: number
+  ): boolean {
+    const children = this.entries.get(parentId)?.rawDataSnapshot.children
+    return Array.isArray(children) && children[index] === childId
   }
 
   private installSnapshot(
@@ -785,6 +801,153 @@ class RenderSceneTree {
     return parentOutcome?.status === 'failed'
       ? this.projectionOutcome(data.id, 'failed')
       : this.projectionOutcome(data.id, 'removed')
+  }
+
+  moveElements(moves: readonly HierarchyMove[]): RenderProjectionOutcome {
+    const elementId = moves[0]?.elementId ?? ''
+    if (
+      !Array.isArray(moves) ||
+      moves.length === 0 ||
+      new Set(moves.map((move) => move.elementId)).size !== moves.length
+    ) {
+      return this.projectionOutcome(elementId, 'failed')
+    }
+
+    const canonicalParents = new Map<string, readonly string[]>()
+    const affectedParentIds = [
+      moves[0].after.parentId,
+      ...moves.map((move) => move.before.parentId)
+    ].filter(
+      (parentId, index, parentIds) => parentIds.indexOf(parentId) === index
+    )
+
+    for (const parentId of affectedParentIds) {
+      const parent = sceneTree.getElementById(parentId)
+      const parentData = parent?.save() as
+        | (ElementRawData & { children?: unknown })
+        | undefined
+      const children = parentData?.children
+      if (!parent || !Array.isArray(children)) {
+        return this.projectionOutcome(elementId, 'failed')
+      }
+      canonicalParents.set(parentId, [...children])
+    }
+
+    const mirrorsMatchBefore = moves.every((move) => {
+      if (
+        !this.computedDataMirror.matchesElementParent(
+          move.elementId,
+          move.before.parentId
+        )
+      ) {
+        return false
+      }
+      const source = sceneTree.getElementById(move.before.parentId)
+      return (
+        source?.get('type') === EntityTypes.WORKSPACE ||
+        this.computedDataMirror.matchesParentChild(
+          move.before.parentId,
+          move.elementId,
+          move.before.index
+        )
+      )
+    })
+    const mirrorsMatchAfter = moves.every((move) =>
+      this.computedDataMirror.matchesElementParent(
+        move.elementId,
+        move.after.parentId
+      )
+    )
+    const canonicalMatchesAfter = moves.every(
+      (move) =>
+        sceneTree.getElementById(move.elementId)?.get('parentId') ===
+          move.after.parentId &&
+        canonicalParents.get(move.after.parentId)?.[move.after.index] ===
+          move.elementId
+    )
+    if ((!mirrorsMatchBefore && !mirrorsMatchAfter) || !canonicalMatchesAfter) {
+      return this.projectionOutcome(elementId, 'failed')
+    }
+
+    const affectedElementIds = new Set(moves.map((move) => move.elementId))
+    affectedParentIds.forEach((parentId) => {
+      if (
+        sceneTree.getElementById(parentId)?.get('type') !==
+        EntityTypes.WORKSPACE
+      ) {
+        affectedElementIds.add(parentId)
+      }
+    })
+
+    try {
+      affectedElementIds.forEach((affectedElementId) => {
+        if (!this.computedDataMirror.seed(affectedElementId, 'hierarchy')) {
+          throw new Error(
+            `Render hierarchy snapshot is missing for ${affectedElementId}`
+          )
+        }
+      })
+      affectedParentIds.forEach((parentId) => {
+        render.projectHierarchy(
+          parentId,
+          canonicalParents.get(parentId) as readonly string[]
+        )
+      })
+      return this.projectionOutcome(elementId, 'applied')
+    } catch {
+      return this.projectionOutcome(elementId, 'failed')
+    }
+  }
+
+  applySubtreeChange(change: SubtreeChange): RenderProjectionOutcome {
+    if (!Array.isArray(change.removed) || change.removed.length === 0) {
+      return this.projectionOutcome(change.elementId, 'failed')
+    }
+
+    if (change.action === SCENE_TREE_ACTIONS.REMOVE_SUBTREE) {
+      let failed = false
+      change.removed.forEach(({ data, parentId, index }) => {
+        failed ||= this.removeElement(data, parentId, index).status === 'failed'
+      })
+      return this.projectionOutcome(
+        change.elementId,
+        failed ? 'failed' : 'removed'
+      )
+    }
+
+    if (change.action === SCENE_TREE_ACTIONS.RESTORE_SUBTREE) {
+      const rootEntry = change.removed.find(
+        ({ elementId }) => elementId === change.elementId
+      )
+      if (!rootEntry) {
+        return this.projectionOutcome(change.elementId, 'failed')
+      }
+      const externalParent = sceneTree.getElementById(rootEntry.parentId)
+      if (
+        externalParent &&
+        externalParent.get('type') !== EntityTypes.WORKSPACE &&
+        !this.computedDataMirror.seed(rootEntry.parentId, 'hierarchy')
+      ) {
+        return this.projectionOutcome(change.elementId, 'failed')
+      }
+
+      try {
+        for (const { elementId, index } of [...change.removed].reverse()) {
+          const entry = this.computedDataMirror.seed(elementId, 'hierarchy')
+          if (!entry) {
+            throw new Error(
+              `Render subtree snapshot is missing for ${elementId}`
+            )
+          }
+          this.addElement(entry.renderDataSnapshot, index)
+        }
+        return this.projectionOutcome(change.elementId, 'applied')
+      } catch {
+        return this.projectionOutcome(change.elementId, 'failed')
+      }
+    }
+
+    return this.projectionOutcome(change.elementId, 'failed')
   }
 
   private synchronizeParentMembership(

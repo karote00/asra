@@ -392,6 +392,14 @@ class Render {
     return didRemove
   }
 
+  projectHierarchy(parentId: string, childIds: readonly string[]) {
+    this.publishElementEvidence('update', parentId, () => ({
+      children: [...childIds]
+    }))
+    this.viewport.projectHierarchy(parentId, childIds)
+    this.requestRender()
+  }
+
   updateElement(
     elementId: string,
     key: string,

@@ -6,7 +6,11 @@ import {
   renderSelectionStore,
   uiContext
 } from '@asyra/core'
-import { SCENE_TREE_ACTIONS, type SelectionChange } from '@asyra/utils'
+import {
+  EntityTypes,
+  SCENE_TREE_ACTIONS,
+  type SelectionChange
+} from '@asyra/utils'
 import {
   EventTypes,
   publishEvent,
@@ -236,6 +240,8 @@ describe('Preset Selection Subscriptions', () => {
     const scalar = vi.spyOn(renderSceneTreeStore, 'updateElement')
     const batch = vi.spyOn(renderSceneTreeStore, 'updateElementBatch')
     const patch = vi.spyOn(renderSceneTreeStore, 'updateElementPatch')
+    const move = vi.spyOn(renderSceneTreeStore, 'moveElements')
+    const subtree = vi.spyOn(renderSceneTreeStore, 'applySubtreeChange')
     const reload = vi
       .spyOn(renderSceneTreeStore, 'reload')
       .mockImplementation(() => undefined)
@@ -244,6 +250,8 @@ describe('Preset Selection Subscriptions', () => {
     scalar.mockReturnValue({ status: 'resynced', elementId: 'vector-1' })
     batch.mockReturnValue({ status: 'applied', elementId: 'vector-1' })
     patch.mockReturnValue({ status: 'failed', elementId: 'vector-1' })
+    move.mockReturnValue({ status: 'applied', elementId: 'vector-1' })
+    subtree.mockReturnValue({ status: 'removed', elementId: 'group-1' })
 
     const counters: string[] = []
     const runtimeGlobal = globalThis as typeof globalThis & {
@@ -311,6 +319,33 @@ describe('Preset Selection Subscriptions', () => {
         parentId: 'group-1',
         index: 1
       })
+      const moves = [
+        {
+          elementId: 'vector-1',
+          before: { parentId: 'workspace-1', index: 0 },
+          after: { parentId: 'group-1', index: 0 }
+        }
+      ]
+      observer?.onChange({
+        action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
+        eventName: EventTypes.MOVE_ELEMENTS,
+        moves
+      })
+      const subtreeChange = {
+        action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+        undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+        eventName: EventTypes.CHANGE_SUBTREE,
+        elementId: 'group-1',
+        removed: [
+          {
+            elementId: 'group-1',
+            parentId: 'workspace-1',
+            index: 0,
+            data: { id: 'group-1', type: EntityTypes.GROUP }
+          }
+        ]
+      }
+      observer?.onChange(subtreeChange)
 
       expect(add).toHaveBeenCalledWith('vector-1', 'group-1', 1)
       expect(scalar).toHaveBeenCalledWith(
@@ -347,11 +382,15 @@ describe('Preset Selection Subscriptions', () => {
         'group-1',
         1
       )
+      expect(move).toHaveBeenCalledWith(moves)
+      expect(subtree).toHaveBeenCalledWith(subtreeChange)
       expect(counters).toEqual([
         'render-projection-outcome-applied',
         'render-projection-outcome-resynced',
         'render-projection-outcome-applied',
         'render-projection-outcome-failed',
+        'render-projection-outcome-removed',
+        'render-projection-outcome-applied',
         'render-projection-outcome-removed'
       ])
     } finally {
@@ -362,6 +401,8 @@ describe('Preset Selection Subscriptions', () => {
       scalar.mockRestore()
       batch.mockRestore()
       patch.mockRestore()
+      move.mockRestore()
+      subtree.mockRestore()
       reload.mockRestore()
     }
   })
