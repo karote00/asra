@@ -23,14 +23,15 @@ The app maps `fileId` to internal document and room identity. Each page creates
 its own actor ID and uses it as the canonical ID-counter namespace before any
 collaborative element or property creation.
 
-Core load/save keeps using `providers.localStorage` with or without `fileId`.
-That browser-local store is the open-source reference app's demo database: on
-refresh, Core loads it before collaboration connects. `fileId` selects only the
-live collaboration room and never replaces persistence with an empty memory
-document. On first collaboration startup, RenderApp initializes a canonical
-empty workspace only when localStorage has no document; it never overwrites an
-existing snapshot. URLs without `fileId` simply do not create Collaboration or
-connect a Provider.
+Core load/save keeps using localStorage as the open-source reference app's demo
+database. An ordinary URL retains the legacy `FILE` key. A collaboration URL
+uses `FILE:<encoded fileId>`, so matching `fileId` values load the same
+browser-local snapshot and different files do not overwrite each other. On
+refresh, Core loads that file's snapshot before collaboration connects. On
+first collaboration startup, RenderApp initializes a canonical empty workspace
+only when the selected key has no document; it never overwrites an existing
+snapshot. URLs without `fileId` simply do not create Collaboration or connect a
+Provider.
 
 The browser endpoint comes from
 `VITE_ASYRA_DESIGN_COLLABORATION_WS_URL`. The reference server validates the
@@ -153,15 +154,24 @@ transport contract.
    yarn workspace @asyra/asyra-design collaboration:server
    ```
 
+   This command builds once and starts the server. After stopping it, restart
+   the already-built server without touching build output:
+
+   ```bash
+   yarn workspace @asyra/asyra-design collaboration:server:start
+   ```
+
 3. Open the same `fileId` in two windows.
 4. Verify create, delete, drag, drag-to-create, vector edits, undo, and redo.
    For pen drag-to-add, verify the peer receives the real point/segment on
    mouse-down and curve-handle changes during drag, before pointer-up.
 5. Refresh a window and verify its localStorage snapshot loads before live
    collaboration reconnects.
-6. Verify local selection/presence behavior separately from canonical document
+6. Open a different `fileId`, create different content, and verify switching
+   between the two URLs restores each file's own browser-local snapshot.
+7. Verify local selection/presence behavior separately from canonical document
    changes.
-7. Disconnect one window, mutate the other, reconnect, and confirm no hidden
+8. Disconnect one window, mutate the other, reconnect, and confirm no hidden
    history replay occurs; a production refresh would be app/backend work.
 
 ## Validation
@@ -170,6 +180,7 @@ transport contract.
 yarn workspace @asyra/collaboration test:local
 yarn workspace @asyra/asyra-design test:local
 yarn workspace @asyra/asyra-design build:collaboration-server
+yarn workspace @asyra/asyra-design test:e2e:collaboration
 ```
 
 Framework product contract:

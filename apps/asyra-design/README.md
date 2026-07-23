@@ -57,6 +57,14 @@ yarn workspace @asyra/asyra-design collaboration:server
 yarn workspace @asyra/asyra-design react:start
 ```
 
+`collaboration:server` builds the reference server before starting it. To test
+a server restart without rebuilding files or triggering app HMR, stop that
+process and run:
+
+```bash
+yarn workspace @asyra/asyra-design collaboration:server:start
+```
+
 Open the same `fileId` in two windows, for example:
 
 ```text
@@ -66,7 +74,14 @@ http://localhost:3000/?fileId=crdt-public-reference
 If `ASYRA_DESIGN_APP_URL` uses another origin, keep the same query string on
 that URL. Matching `fileId` values join the same live in-memory room; different
 values stay isolated. The server retains no publication history, so reconnect
-receives future publications only. You can inspect the connection in DevTools:
+receives future publications only.
+
+The browser-local demo database is isolated by the same identity: an ordinary
+URL uses localStorage key `FILE`, while a URL with `fileId` uses
+`FILE:<encoded fileId>`. Refreshing or switching between file URLs therefore
+restores each file's own local snapshot.
+
+You can inspect the connection in DevTools:
 
 ```js
 window.__AsyraCollaboration__?.getStatus()
