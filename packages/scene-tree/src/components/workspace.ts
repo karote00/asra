@@ -5,7 +5,7 @@ import type {
   GroupInstanceTypes,
   IElement
 } from '@asyra/utils'
-import { IDTypes, NameTypes, EntityTypes } from '@asyra/utils'
+import { IDTypes, NameTypes, EntityTypes, loadId, loadName } from '@asyra/utils'
 import { isGroupEntity } from '../entity-data'
 import Group from './group'
 import type { ISceneTreeRegistry } from '../types'
@@ -27,6 +27,21 @@ class Workspace extends Group {
 
   load(data: WorkspaceDataType): void {
     super.load(data)
+    if (data.id) {
+      this.data.id = data.id
+      loadId(data.id, IDTypes.WORKSPACE)
+    }
+    if (data.name) {
+      this.data.name = data.name
+      loadName(data.name, NameTypes.WORKSPACE)
+    }
+    if (typeof data.visible === 'boolean') {
+      this.data.visible = data.visible
+    }
+    if (typeof data.lock === 'boolean') {
+      this.data.lock = data.lock
+    }
+    this.data.parentId = typeof data.parentId === 'string' ? data.parentId : ''
   }
 
   get firstFrame(): ElementInstanceTypes | null {

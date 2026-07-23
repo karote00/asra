@@ -147,6 +147,7 @@ export type SceneTreeLoadDiagnostic = LoadDiagnostic
 export interface SceneTreeLoadValidationResult {
   data: SceneTreeRawData
   diagnostics: SceneTreeLoadDiagnostic[]
+  valid: boolean
 }
 
 const cloneSceneTreeValue = <T>(data: T): T => {
@@ -176,7 +177,10 @@ class SceneTree {
   changes: SceneTreeChange[] = []
   private validatedLoadArtifacts = new WeakMap<
     SceneTreeLoadValidationResult,
-    SceneTreeRawData
+    {
+      data: SceneTreeRawData
+      valid: boolean
+    }
   >()
 
   _init(): void {
@@ -196,15 +200,164 @@ class SceneTree {
 
   private createLoadValidationResult(
     data: SceneTreeRawData,
-    diagnostics: SceneTreeLoadDiagnostic[]
+    diagnostics: SceneTreeLoadDiagnostic[],
+    valid = true
   ): SceneTreeLoadValidationResult {
     const validatedSnapshot = cloneLoadData(data)
     const result = {
       data: cloneLoadData(validatedSnapshot),
-      diagnostics
+      diagnostics,
+      valid
     }
-    this.validatedLoadArtifacts.set(result, validatedSnapshot)
+    this.validatedLoadArtifacts.set(result, {
+      data: validatedSnapshot,
+      valid
+    })
     return result
+  }
+
+  private validateNormalizedLoadHierarchy(
+    data: SceneTreeRawData,
+    diagnostics: SceneTreeLoadDiagnostic[]
+  ): boolean {
+    let valid = true
+    const reject = (path: string, message: string): void => {
+      diagnostics.push({ path, message })
+      valid = false
+    }
+    const entries = Object.entries(data.elements)
+    const workspaceIds = entries
+      .filter(([, element]) => element.type === EntityTypes.WORKSPACE)
+      .map(([elementId]) => elementId)
+    const nonWorkspaceIds = entries
+      .filter(([, element]) => element.type !== EntityTypes.WORKSPACE)
+      .map(([elementId]) => elementId)
+
+    if (workspaceIds.length === 0) {
+      if (nonWorkspaceIds.length > 0) {
+        reject(
+          'sceneTree.workspace',
+          'Hierarchy with elements requires an existing workspace root'
+        )
+      }
+      if (data.workspace.length > 0 || data.workspaceList.length > 0) {
+        reject(
+          'sceneTree.workspace',
+          'Workspace metadata cannot reference missing workspace roots'
+        )
+      }
+    } else {
+      if (!workspaceIds.includes(data.workspace)) {
+        reject(
+          'sceneTree.workspace',
+          'Active workspace must reference an existing workspace element'
+        )
+      }
+      if (new Set(data.workspaceList).size !== data.workspaceList.length) {
+        reject(
+          'sceneTree.workspaceList',
+          'Workspace list cannot contain duplicate roots'
+        )
+      }
+      data.workspaceList.forEach((workspaceId, index) => {
+        if (!workspaceIds.includes(workspaceId)) {
+          reject(
+            `sceneTree.workspaceList.${index}`,
+            `Workspace root "${workspaceId}" is missing or has the wrong type`
+          )
+        }
+      })
+      workspaceIds.forEach((workspaceId) => {
+        if (!data.workspaceList.includes(workspaceId)) {
+          reject(
+            'sceneTree.workspaceList',
+            `Workspace root "${workspaceId}" is missing from workspaceList`
+          )
+        }
+      })
+    }
+
+    const membership = new Map<string, string>()
+    entries.forEach(([parentId, parent]) => {
+      if (!isGroupEntity(parent.type)) {
+        return
+      }
+      const children = (parent as GroupRawData).children
+      if (!Array.isArray(children)) {
+        reject(
+          `sceneTree.elements.${parentId}.children`,
+          'Registered containers require a children array'
+        )
+        return
+      }
+
+      const localChildren = new Set<string>()
+      children.forEach((childId, index) => {
+        const childPath = `sceneTree.elements.${parentId}.children.${index}`
+        if (localChildren.has(childId) || membership.has(childId)) {
+          reject(
+            childPath,
+            `Element "${childId}" has duplicate hierarchy membership`
+          )
+          return
+        }
+        localChildren.add(childId)
+        membership.set(childId, parentId)
+
+        const child = data.elements[childId]
+        if (!child) {
+          reject(childPath, `Hierarchy child "${childId}" is missing`)
+          return
+        }
+        if (child.type === EntityTypes.WORKSPACE) {
+          reject(childPath, 'Workspace roots cannot be hierarchy children')
+        }
+        if (child.parentId !== parentId) {
+          reject(
+            childPath,
+            `Hierarchy child "${childId}" disagrees with parentId`
+          )
+        }
+      })
+    })
+
+    nonWorkspaceIds.forEach((elementId) => {
+      const element = data.elements[elementId]
+      const parentId = element.parentId ?? ''
+      const parent = data.elements[parentId]
+      if (!parent || !isGroupEntity(parent.type)) {
+        reject(
+          `sceneTree.elements.${elementId}.parentId`,
+          `Element "${elementId}" requires an existing registered container parent`
+        )
+      }
+      if (membership.get(elementId) !== parentId) {
+        reject(
+          `sceneTree.elements.${elementId}.parentId`,
+          `Element "${elementId}" must appear exactly once in its parent children`
+        )
+      }
+
+      const visited = new Set<string>([elementId])
+      let ancestorId = parentId
+      while (ancestorId) {
+        if (visited.has(ancestorId)) {
+          reject(
+            `sceneTree.elements.${elementId}.parentId`,
+            `Hierarchy cycle detected at "${elementId}"`
+          )
+          break
+        }
+        visited.add(ancestorId)
+        const ancestor = data.elements[ancestorId]
+        if (!ancestor || ancestor.type === EntityTypes.WORKSPACE) {
+          break
+        }
+        ancestorId = ancestor.parentId ?? ''
+      }
+    })
+
+    return valid
   }
 
   validateLoadData(data: unknown): SceneTreeLoadValidationResult {
@@ -220,7 +373,7 @@ class SceneTree {
         path: 'sceneTree',
         message: 'Expected object payload for scene tree load'
       })
-      return this.createLoadValidationResult(fallback, diagnostics)
+      return this.createLoadValidationResult(fallback, diagnostics, false)
     }
 
     const workspace = typeof data.workspace === 'string' ? data.workspace : ''
@@ -243,6 +396,7 @@ class SceneTree {
     }
 
     const elements: Record<string, ElementRawData | GroupRawData> = {}
+    let hasDuplicateElementIds = false
     if (data.elements === undefined) {
       diagnostics.push({
         path: 'sceneTree.elements',
@@ -345,84 +499,70 @@ class SceneTree {
           }
         }
 
+        if (Object.prototype.hasOwnProperty.call(elements, normalizedId)) {
+          diagnostics.push({
+            path: `sceneTree.elements.${entryId}.id`,
+            message: `Duplicate normalized element id "${normalizedId}"`
+          })
+          hasDuplicateElementIds = true
+          return
+        }
+
         elements[normalizedId] = normalized as unknown as
           | ElementRawData
           | GroupRawData
       })
     }
 
-    return this.createLoadValidationResult(
-      {
-        workspace,
-        workspaceList,
-        elements
-      },
+    const normalizedData = {
+      workspace,
+      workspaceList,
+      elements
+    }
+    const hierarchyValid = this.validateNormalizedLoadHierarchy(
+      normalizedData,
       diagnostics
+    )
+    return this.createLoadValidationResult(
+      normalizedData,
+      diagnostics,
+      hierarchyValid && !hasDuplicateElementIds
     )
   }
 
   applyValidatedLoad(result: SceneTreeLoadValidationResult): void {
-    const validated = this.validatedLoadArtifacts.get(result)
-    if (!validated) {
+    const artifact = this.validatedLoadArtifacts.get(result)
+    if (!artifact) {
       throw new Error(
         '[SceneTree] Expected an owner-issued one-shot validated load artifact'
       )
     }
     this.validatedLoadArtifacts.delete(result)
-    this.dispose()
-
-    for (const elementId in validated.elements) {
-      const elementData = validated.elements[elementId]
-      try {
-        let element
-        if (elementData.type === EntityTypes.WORKSPACE) {
-          element = createWorkspace(this, elementData)
-        } else {
-          element = createElement(elementData)
-        }
-
-        if (element) {
-          this.addToMap(element as ElementInstanceTypes)
-        }
-      } catch {
-        // Validation should prevent this path. Keep safe fallback behavior if it happens.
+    if (!artifact.valid) {
+      throw new Error(
+        '[SceneTree] Cannot apply invalid hierarchy from validated load artifact'
+      )
+    }
+    const validated = artifact.data
+    const nextElements = new Map<string, ElementInstanceTypes>()
+    for (const [elementId, elementData] of Object.entries(validated.elements)) {
+      const element =
+        elementData.type === EntityTypes.WORKSPACE
+          ? createWorkspace(this, elementData)
+          : createElement(elementData)
+      if (!element) {
+        throw new Error(
+          `[SceneTree] Validated hierarchy element "${elementId}" could not be constructed`
+        )
       }
+      nextElements.set(elementId, element as ElementInstanceTypes)
     }
 
-    const workspaceIds = Array.from(this._elements.entries())
-      .filter(([, element]) => element.get('type') === EntityTypes.WORKSPACE)
-      .map(([id]) => id)
-
-    const validWorkspaceList = validated.workspaceList.filter((workspaceId) =>
-      workspaceIds.includes(workspaceId)
-    )
-
-    const preferredWorkspace =
-      workspaceIds.includes(validated.workspace) &&
-      validated.workspace.length > 0
-        ? validated.workspace
-        : ''
-
-    if (
-      preferredWorkspace &&
-      !validWorkspaceList.includes(preferredWorkspace)
-    ) {
-      validWorkspaceList.unshift(preferredWorkspace)
-    }
-
-    if (validWorkspaceList.length > 0) {
-      this.workspaceList = validWorkspaceList
-      this.workspace = validWorkspaceList[0]
-      return
-    }
-
-    if (workspaceIds.length > 0) {
-      this.workspaceList = workspaceIds
-      this.workspace = workspaceIds[0]
-      return
-    }
-
-    this._init()
+    this.dispose()
+    nextElements.forEach((element) => this.addToMap(element))
+    this.workspaceList = [...validated.workspaceList]
+    this.workspace = validated.workspace
+    if (nextElements.size === 0) this._init()
   }
 
   load(data: SceneTreeDataType | unknown) {
@@ -431,6 +571,7 @@ class SceneTree {
   }
 
   save() {
+    this.validateCanonicalHierarchy()
     const data: SceneTreeRawData = {
       workspace: this.workspace,
       workspaceList: this.workspaceList,

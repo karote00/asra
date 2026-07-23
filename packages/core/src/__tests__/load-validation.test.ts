@@ -38,7 +38,8 @@ const createCoreForTest = () => {
     getAllElements: vi.fn(() => new Map()),
     validateLoadData: vi.fn(() => ({
       data: { workspace: 'ws-1', workspaceList: ['ws-1'], elements: {} },
-      diagnostics: [] as LoadDiagnostic[]
+      diagnostics: [] as LoadDiagnostic[],
+      valid: true
     }))
   }
 
@@ -195,7 +196,8 @@ describe('Core load validation pipeline', () => {
           path: 'sceneTree.elements.invalid',
           message: 'Skipped malformed element'
         }
-      ]
+      ],
+      valid: true
     })
     systemContext.validateManagedProperties.mockReturnValue({
       data: {},
@@ -287,6 +289,32 @@ describe('Core load validation pipeline', () => {
         message: 'Ignored invalid managed property value during load'
       }
     ])
+  })
+
+  it('rejects an invalid Scene Tree artifact before any package apply', () => {
+    const { core, props, sceneTree, systemContext } = createCoreForTest()
+    sceneTree.validateLoadData.mockReturnValue({
+      data: { workspace: 'missing', workspaceList: [], elements: {} },
+      diagnostics: [
+        {
+          path: 'sceneTree.workspace',
+          message: 'Active workspace is missing'
+        }
+      ],
+      valid: false
+    })
+
+    expect(() =>
+      core.load({
+        version: '1.0.0',
+        sceneTree: { workspace: 'missing', workspaceList: [], elements: {} },
+        props: {}
+      })
+    ).toThrow(/Scene Tree.*invalid hierarchy/i)
+
+    expect(props.applyValidatedLoad).not.toHaveBeenCalled()
+    expect(sceneTree.applyValidatedLoad).not.toHaveBeenCalled()
+    expect(systemContext.applyValidatedManagedProperties).not.toHaveBeenCalled()
   })
 
   it('emits detached apply evidence without Props or Scene canonical readback', () => {

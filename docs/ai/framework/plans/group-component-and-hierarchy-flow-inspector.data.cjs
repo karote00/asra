@@ -424,6 +424,7 @@
       cacheDimensions: [],
       implementationBoundary: [
         'packages/scene-tree/src/sceneTree.ts',
+        'packages/scene-tree/src/components/workspace.ts',
         'packages/scene-tree/src/__tests__',
         'packages/core/src/core.ts',
         'packages/core/src/__tests__/load-validation.test.ts'

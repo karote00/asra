@@ -1762,6 +1762,11 @@ class Core implements CoreAPIs {
         message: item.message
       }))
     )
+    if (sceneValidation.valid === false) {
+      throw new Error(
+        '[Core] Scene Tree rejected invalid hierarchy before package apply'
+      )
+    }
 
     const systemValidation = this.deps.systemContext.validateManagedProperties(
       normalizedAfterHooks.systemContext
