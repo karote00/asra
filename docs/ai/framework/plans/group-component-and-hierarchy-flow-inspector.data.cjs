@@ -35,7 +35,8 @@
       conditions: [
         'App code chooses ids and the requested product action.',
         'Group and ungroup requests use the official Preset adapter when that default is installed.',
-        'Generic move, reorder, and subtree removal requests use the public ID-based Core hierarchy facade.'
+        'Generic move and reorder requests use the public Preset Group geometry adapter, which delegates canonical mutation to Core and bypasses geometry normalization when no official Group boundary is involved.',
+        'Subtree removal requests use the public ID-based Core hierarchy facade.'
       ],
       bypasses: [
         'Headless consumers may invoke the same public adapters without installing app UI.',
@@ -54,6 +55,7 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'apps/asyra-design/package.json',
         'apps/asyra-design/src/common-apis',
         'apps/asyra-design/src/init/__tests__',
         'packages/core/src/apis/scene-tree.ts',
