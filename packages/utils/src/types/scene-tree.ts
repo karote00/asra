@@ -6,6 +6,40 @@ import type { YjsChange } from './yjs'
 
 export type SceneTreeDataOwner = 'raw' | 'computed'
 
+export interface HierarchyLocation {
+  parentId: string
+  index: number
+}
+
+export interface HierarchyMove {
+  elementId: string
+  before: HierarchyLocation
+  after: HierarchyLocation
+}
+
+export interface MoveHierarchyRequest {
+  elementIds: readonly string[]
+  targetParentId: string
+  targetIndex: number
+}
+
+export interface MoveHierarchyResult {
+  elementIds: readonly string[]
+  moves: readonly HierarchyMove[]
+}
+
+export interface SubtreeRemovalEntry {
+  elementId: string
+  parentId: string
+  index: number
+  data: ElementRawData
+}
+
+export interface RemoveSubtreeResult {
+  elementId: string
+  removed: readonly SubtreeRemovalEntry[]
+}
+
 export interface AddRemoveElementChange {
   action: SCENE_TREE_ACTIONS
   undoType: string
@@ -14,6 +48,13 @@ export interface AddRemoveElementChange {
   data: ElementRawData
   parentId?: string
   index?: number
+  options?: MutationOptions
+}
+
+export interface MoveElementsChange {
+  action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS
+  eventName: string
+  moves: HierarchyMove[]
   options?: MutationOptions
 }
 
@@ -91,6 +132,7 @@ export interface UpdateElementPatchChange {
 
 export type SceneTreeChange =
   | AddRemoveElementChange
+  | MoveElementsChange
   | UpdateElementChange
   | UpdateElementBatchChange
   | UpdateElementPatchChange

@@ -6,6 +6,8 @@ import type {
   EVENT_OPTIONS,
   ElementRawData,
   GroupInstanceTypes,
+  HierarchyMove,
+  MoveHierarchyRequest,
   SceneTreeDataOwner,
   SceneTreeRawData,
   UpdateElementBatchChange
@@ -44,6 +46,18 @@ export interface RemoveElementEvent {
     data: Partial<ElementRawData>
     parent?: GroupInstanceTypes
   }
+  options?: EVENT_OPTIONS
+}
+
+export interface MoveElementsEvent {
+  type: EventTypes
+  payload:
+    | {
+        request: MoveHierarchyRequest
+      }
+    | {
+        moves: HierarchyMove[]
+      }
   options?: EVENT_OPTIONS
 }
 
@@ -108,6 +122,7 @@ export type SceneTreeEvents =
   | SceneTreeLoadCompleteEvent
   | AddElementEvent
   | RemoveElementEvent
+  | MoveElementsEvent
   | UpdateComputedDataEvent
   | UpdateComputedDataBatchEvent
   | UpdateComputedDataPatchEvent

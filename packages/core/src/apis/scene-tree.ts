@@ -15,7 +15,10 @@ import {
   GroupInstanceTypes,
   SceneTreeRawData,
   EntityTypes,
-  id
+  id,
+  MoveHierarchyRequest,
+  MoveHierarchyResult,
+  RemoveSubtreeResult
 } from '@asyra/utils'
 import { SceneTreeAPIs } from '../types'
 
@@ -28,6 +31,14 @@ export interface SceneTreeRequests {
   ) => void
   getAllElementsBounds: () => Bounds | null
   isContainerType: (type: string) => boolean
+  moveElements: (
+    request: MoveHierarchyRequest,
+    options?: EVENT_OPTIONS
+  ) => MoveHierarchyResult
+  removeSubtree: (
+    elementId: string,
+    options?: EVENT_OPTIONS
+  ) => RemoveSubtreeResult
 }
 
 export const createSceneTreeAPIs = (
@@ -65,6 +76,12 @@ export const createSceneTreeAPIs = (
     },
     sceneTreeSaveData() {
       return sceneTreeRequests.sceneTreeSaveData()
+    },
+    moveElements(request: MoveHierarchyRequest, options?: EVENT_OPTIONS) {
+      return sceneTreeRequests.moveElements(request, options)
+    },
+    removeSubtree(elementId: string, options?: EVENT_OPTIONS) {
+      return sceneTreeRequests.removeSubtree(elementId, options)
     },
     getAllElementsBounds() {
       return sceneTreeRequests.getAllElementsBounds()

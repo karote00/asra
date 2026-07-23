@@ -9,9 +9,42 @@ import { createSceneTreeAPIs, type SceneTreeRequests } from '../apis/scene-tree'
 
 const createRequests = (): SceneTreeRequests => ({
   sceneTreeSaveData: () => ({ workspace: '', workspaceList: [], elements: {} }),
+  moveElements: vi.fn(() => ({ elementIds: [], moves: [] })),
+  removeSubtree: vi.fn((elementId: string) => ({
+    elementId,
+    removed: []
+  })),
   refreshComputedDataFromProperty: () => undefined,
   getAllElementsBounds: () => null,
   isContainerType: () => false
+})
+
+describe('createSceneTreeAPIs hierarchy facade', () => {
+  it('delegates ID-based move requests and options to the supplied Scene Tree owner', () => {
+    const requests = createRequests()
+    const apis = createSceneTreeAPIs(requests)
+    const request = {
+      elementIds: ['element-2', 'element-1'],
+      targetParentId: 'group-1',
+      targetIndex: 0
+    }
+    const options = { undoable: false as const }
+
+    apis.moveElements(request, options)
+
+    expect(requests.moveElements).toHaveBeenCalledWith(request, options)
+  })
+
+  it('delegates subtree removal by id to the supplied Scene Tree owner', () => {
+    const requests = createRequests()
+    const apis = createSceneTreeAPIs(requests)
+
+    apis.removeSubtree('group-1', { rollbackable: false })
+
+    expect(requests.removeSubtree).toHaveBeenCalledWith('group-1', {
+      rollbackable: false
+    })
+  })
 })
 
 describe('createSceneTreeAPIs.changeComputedData', () => {

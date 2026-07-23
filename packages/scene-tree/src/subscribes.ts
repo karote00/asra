@@ -11,6 +11,7 @@ import {
   sceneTreeLoadComplete,
   type AddElementEvent,
   type RemoveElementEvent,
+  type MoveElementsEvent,
   type UpdateComputedDataBatchEvent,
   type UpdateComputedDataEvent,
   type UpdateComputedDataPatchEvent
@@ -129,6 +130,16 @@ export const initSceneTreeSubscribes = () => {
     ({ payload, options }) => {
       const { data, parent } = payload
       return sceneTree.removeElement(data, parent, options)
+    }
+  )
+
+  subscribeToSynchronousEvent<MoveElementsEvent>(
+    EventTypes.MOVE_ELEMENTS,
+    ({ payload, options }) => {
+      if ('moves' in payload) {
+        return sceneTree.applyHierarchyMoves(payload.moves, options)
+      }
+      return sceneTree.moveElements(payload.request, options).moves.length > 0
     }
   )
 

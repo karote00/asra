@@ -5,7 +5,10 @@ import {
   GroupInstanceTypes,
   SceneTreeRawData,
   DataTypes,
-  EVENT_OPTIONS
+  EVENT_OPTIONS,
+  MoveHierarchyRequest,
+  MoveHierarchyResult,
+  RemoveSubtreeResult
 } from '@asyra/utils'
 
 export interface SceneTreeRawAPIs {
@@ -18,6 +21,14 @@ export interface SceneTreeRawAPIs {
     index?: number,
     options?: EVENT_OPTIONS
   ) => string
+  moveElements: (
+    request: MoveHierarchyRequest,
+    options?: EVENT_OPTIONS
+  ) => MoveHierarchyResult
+  removeSubtree: (
+    elementId: string,
+    options?: EVENT_OPTIONS
+  ) => RemoveSubtreeResult
   changeComputedData: (
     elementIds: string[],
     data: Record<string, DataTypes>,

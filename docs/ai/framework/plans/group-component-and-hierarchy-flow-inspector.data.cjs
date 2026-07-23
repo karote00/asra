@@ -214,6 +214,7 @@
         'packages/utils/src/sceneTree',
         'packages/reactive-events/src/scene-tree',
         'packages/reactive-events/src/types.ts',
+        'packages/core/src/core.ts',
         'packages/core/src/apis/scene-tree.ts',
         'packages/core/src/types/scene-tree.ts',
         'packages/core/src/__tests__/scene-tree-api.test.ts'

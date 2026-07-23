@@ -8,8 +8,13 @@ import type {
   GroupRawData,
   ElementInstanceTypes,
   GroupInstanceTypes,
+  HierarchyMove,
   LoadDiagnostic,
+  MoveHierarchyRequest,
+  MoveHierarchyResult,
+  RemoveSubtreeResult,
   SceneTreeChange,
+  SubtreeRemovalEntry,
   UpdateElementBatchChange,
   UpdateElementChange,
   UpdateElementPatchChange,
@@ -451,6 +456,468 @@ class SceneTree {
     return this._elements.get(elementId)
   }
 
+  private getContainerChildren(
+    element: ElementInstanceTypes,
+    context: string
+  ): string[] {
+    if (!isGroupEntity(element.get('type'))) {
+      throw new Error(`[SceneTree] ${context} must be a registered container`)
+    }
+
+    const children = (element as GroupInstanceTypes).get('children')
+    if (
+      !Array.isArray(children) ||
+      children.some((childId) => typeof childId !== 'string')
+    ) {
+      throw new Error(
+        `[SceneTree] ${context} must expose a valid children list`
+      )
+    }
+
+    return [...children]
+  }
+
+  private validateCanonicalHierarchy(): void {
+    const membership = new Map<string, string>()
+
+    this._elements.forEach((parent, parentId) => {
+      if (!isGroupEntity(parent.get('type'))) {
+        return
+      }
+
+      const children = this.getContainerChildren(
+        parent,
+        `Container "${parentId}"`
+      )
+      const localChildren = new Set<string>()
+      children.forEach((childId) => {
+        if (localChildren.has(childId) || membership.has(childId)) {
+          throw new Error(
+            `[SceneTree] Invalid canonical hierarchy: duplicate membership for "${childId}"`
+          )
+        }
+        localChildren.add(childId)
+        membership.set(childId, parentId)
+
+        const child = this.getElementById(childId)
+        if (!child) {
+          throw new Error(
+            `[SceneTree] Invalid canonical hierarchy: missing child "${childId}"`
+          )
+        }
+        if (child.get('parentId') !== parentId) {
+          throw new Error(
+            `[SceneTree] Invalid canonical hierarchy: parent mismatch for "${childId}"`
+          )
+        }
+      })
+    })
+
+    this._elements.forEach((element, elementId) => {
+      if (element.get('type') === EntityTypes.WORKSPACE) {
+        return
+      }
+
+      const parentId = element.get('parentId')
+      const parent = this.getElementById(parentId)
+      if (!parent || !isGroupEntity(parent.get('type'))) {
+        throw new Error(
+          `[SceneTree] Invalid canonical hierarchy: missing container parent for "${elementId}"`
+        )
+      }
+      if (membership.get(elementId) !== parentId) {
+        throw new Error(
+          `[SceneTree] Invalid canonical hierarchy: missing membership for "${elementId}"`
+        )
+      }
+
+      const visited = new Set<string>([elementId])
+      let ancestorId = parentId
+      while (ancestorId) {
+        if (visited.has(ancestorId)) {
+          throw new Error(
+            `[SceneTree] Invalid canonical hierarchy: cycle at "${elementId}"`
+          )
+        }
+        visited.add(ancestorId)
+        const ancestor = this.getElementById(ancestorId)
+        if (!ancestor || ancestor.get('type') === EntityTypes.WORKSPACE) {
+          break
+        }
+        ancestorId = ancestor.get('parentId')
+      }
+    })
+  }
+
+  private assertMoveDoesNotCreateCycle(
+    elementIds: readonly string[],
+    targetParentId: string
+  ): void {
+    const movedIds = new Set(elementIds)
+    let ancestorId = targetParentId
+
+    while (ancestorId) {
+      if (movedIds.has(ancestorId)) {
+        throw new Error(
+          '[SceneTree] Invalid hierarchy request: self-parenting or descendant cycle'
+        )
+      }
+      const ancestor = this.getElementById(ancestorId)
+      if (!ancestor || ancestor.get('type') === EntityTypes.WORKSPACE) {
+        return
+      }
+      ancestorId = ancestor.get('parentId')
+    }
+  }
+
+  private applyValidatedHierarchyMoves(moves: readonly HierarchyMove[]): void {
+    const movedIds = new Set(moves.map(({ elementId }) => elementId))
+    const affectedParentIds = new Set<string>()
+    const originalChildren = new Map<string, string[]>()
+
+    moves.forEach(({ before, after }) => {
+      affectedParentIds.add(before.parentId)
+      affectedParentIds.add(after.parentId)
+    })
+
+    const nextChildren = new Map<string, string[]>()
+    affectedParentIds.forEach((parentId) => {
+      const parent = this.getElementById(parentId)
+      if (!parent) {
+        throw new Error(
+          `[SceneTree] Cannot apply hierarchy move: missing parent "${parentId}"`
+        )
+      }
+      const children = this.getContainerChildren(
+        parent,
+        `Hierarchy parent "${parentId}"`
+      )
+      originalChildren.set(parentId, children)
+      nextChildren.set(
+        parentId,
+        children.filter((childId) => !movedIds.has(childId))
+      )
+    })
+
+    moves
+      .slice()
+      .sort(
+        (left, right) =>
+          left.after.parentId.localeCompare(right.after.parentId) ||
+          left.after.index - right.after.index
+      )
+      .forEach(({ elementId, after }) => {
+        const children = nextChildren.get(after.parentId)
+        if (!children || after.index < 0 || after.index > children.length) {
+          throw new Error(
+            `[SceneTree] Cannot apply hierarchy move: invalid exact index for "${elementId}"`
+          )
+        }
+        children.splice(after.index, 0, elementId)
+      })
+
+    const operationChangeStart = this.changes.length
+    try {
+      nextChildren.forEach((children, parentId) => {
+        const parent = this.getElementById(parentId) as GroupInstanceTypes
+        parent.set('children', children)
+      })
+      moves.forEach(({ elementId, after }) => {
+        const element = this.getElementById(elementId)
+        if (!element) {
+          throw new Error(
+            `[SceneTree] Cannot apply hierarchy move: missing element "${elementId}"`
+          )
+        }
+        element.set('parentId', after.parentId, { undoable: false })
+      })
+    } catch (error) {
+      originalChildren.forEach((children, parentId) => {
+        const parent = this.getElementById(parentId) as GroupInstanceTypes
+        parent.set('children', children, { undoable: false })
+      })
+      moves.forEach(({ elementId, before }) => {
+        this.getElementById(elementId)?.set('parentId', before.parentId, {
+          undoable: false
+        })
+      })
+      this.changes.splice(operationChangeStart)
+      throw error
+    }
+  }
+
+  moveElements(
+    request: MoveHierarchyRequest,
+    options?: EVENT_OPTIONS
+  ): MoveHierarchyResult {
+    this.validateCanonicalHierarchy()
+
+    if (
+      !request ||
+      !Array.isArray(request.elementIds) ||
+      request.elementIds.length === 0 ||
+      request.elementIds.some(
+        (elementId) => typeof elementId !== 'string' || elementId.length === 0
+      )
+    ) {
+      throw new Error(
+        '[SceneTree] Invalid hierarchy request: elementIds must be a non-empty string array'
+      )
+    }
+
+    const requestedIds = [...request.elementIds]
+    if (new Set(requestedIds).size !== requestedIds.length) {
+      throw new Error(
+        '[SceneTree] Invalid hierarchy request: elementIds must be unique'
+      )
+    }
+
+    const elements = requestedIds.map((elementId) => {
+      const element = this.getElementById(elementId)
+      if (!element) {
+        throw new Error(
+          `[SceneTree] Invalid hierarchy request: missing element "${elementId}"`
+        )
+      }
+      if (element.get('type') === EntityTypes.WORKSPACE) {
+        throw new Error(
+          '[SceneTree] Invalid hierarchy request: workspace movement is forbidden'
+        )
+      }
+      return element
+    })
+
+    const sourceParentId = elements[0].get('parentId')
+    if (
+      elements.some((element) => element.get('parentId') !== sourceParentId)
+    ) {
+      throw new Error(
+        '[SceneTree] Invalid hierarchy request: elementIds must share one parent'
+      )
+    }
+
+    const sourceParent = this.getElementById(sourceParentId)
+    if (!sourceParent) {
+      throw new Error(
+        `[SceneTree] Invalid hierarchy request: missing source parent "${sourceParentId}"`
+      )
+    }
+    const sourceChildren = this.getContainerChildren(
+      sourceParent,
+      `Source parent "${sourceParentId}"`
+    )
+    const requestedIdSet = new Set(requestedIds)
+    const canonicalIds = sourceChildren.filter((childId) =>
+      requestedIdSet.has(childId)
+    )
+    if (canonicalIds.length !== requestedIds.length) {
+      throw new Error(
+        '[SceneTree] Invalid hierarchy request: source membership is incomplete'
+      )
+    }
+
+    const targetParent = this.getElementById(request.targetParentId)
+    if (!targetParent) {
+      throw new Error(
+        `[SceneTree] Invalid hierarchy request: missing target "${request.targetParentId}"`
+      )
+    }
+    const targetChildren = this.getContainerChildren(
+      targetParent,
+      `Target "${request.targetParentId}"`
+    )
+    const targetBase = targetChildren.filter(
+      (childId) => !requestedIdSet.has(childId)
+    )
+    if (
+      !Number.isInteger(request.targetIndex) ||
+      request.targetIndex < 0 ||
+      request.targetIndex > targetBase.length
+    ) {
+      throw new Error(
+        '[SceneTree] Invalid hierarchy request: targetIndex is outside the final target insertion range'
+      )
+    }
+
+    this.assertMoveDoesNotCreateCycle(canonicalIds, request.targetParentId)
+
+    const nextTargetChildren = [...targetBase]
+    nextTargetChildren.splice(request.targetIndex, 0, ...canonicalIds)
+    if (
+      sourceParentId === request.targetParentId &&
+      isEqual(nextTargetChildren, sourceChildren)
+    ) {
+      return { elementIds: canonicalIds, moves: [] }
+    }
+
+    const moves: HierarchyMove[] = canonicalIds.map((elementId, offset) => ({
+      elementId,
+      before: {
+        parentId: sourceParentId,
+        index: sourceChildren.indexOf(elementId)
+      },
+      after: {
+        parentId: request.targetParentId,
+        index: request.targetIndex + offset
+      }
+    }))
+
+    const operationChangeStart = this.changes.length
+    this.applyValidatedHierarchyMoves(moves)
+    this.changes.splice(operationChangeStart)
+    this.addChange({
+      action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
+      eventName: EventTypes.MOVE_ELEMENTS,
+      moves
+    })
+    acknowledgeTransactionReplayApplied()
+    this.commitSceneTreeTransaction(options)
+
+    return { elementIds: canonicalIds, moves }
+  }
+
+  applyHierarchyMoves(
+    moves: readonly HierarchyMove[],
+    options?: EVENT_OPTIONS
+  ): boolean {
+    this.validateCanonicalHierarchy()
+    if (!Array.isArray(moves) || moves.length === 0) {
+      return false
+    }
+
+    const elementIds = moves.map(({ elementId }) => elementId)
+    if (new Set(elementIds).size !== elementIds.length) {
+      throw new Error(
+        '[SceneTree] Cannot apply hierarchy move: duplicate element evidence'
+      )
+    }
+
+    moves.forEach(({ elementId, before, after }) => {
+      const element = this.getElementById(elementId)
+      if (
+        !element ||
+        element.get('parentId') !== before.parentId ||
+        this.getContainerChildren(
+          this.getElementById(before.parentId) as ElementInstanceTypes,
+          `Replay source "${before.parentId}"`
+        )[before.index] !== elementId
+      ) {
+        throw new Error(
+          `[SceneTree] Cannot apply hierarchy move: stale before image for "${elementId}"`
+        )
+      }
+      if (!this.getElementById(after.parentId)) {
+        throw new Error(
+          `[SceneTree] Cannot apply hierarchy move: missing target "${after.parentId}"`
+        )
+      }
+    })
+    this.assertMoveDoesNotCreateCycle(elementIds, moves[0].after.parentId)
+
+    const operationChangeStart = this.changes.length
+    this.applyValidatedHierarchyMoves(moves)
+    this.changes.splice(operationChangeStart)
+    this.addChange({
+      action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
+      eventName: EventTypes.MOVE_ELEMENTS,
+      moves: moves.map((move) => ({
+        elementId: move.elementId,
+        before: { ...move.before },
+        after: { ...move.after }
+      }))
+    })
+    acknowledgeTransactionReplayApplied()
+    this.commitSceneTreeTransaction(options)
+    return true
+  }
+
+  removeSubtree(
+    elementId: string,
+    options?: EVENT_OPTIONS
+  ): RemoveSubtreeResult {
+    this.validateCanonicalHierarchy()
+    const root = this.getElementById(elementId)
+    if (!root) {
+      throw new Error(
+        `[SceneTree] Invalid subtree request: missing element "${elementId}"`
+      )
+    }
+    if (root.get('type') === EntityTypes.WORKSPACE) {
+      throw new Error(
+        '[SceneTree] Invalid subtree request: workspace removal is forbidden'
+      )
+    }
+
+    const removed: SubtreeRemovalEntry[] = []
+    const visit = (current: ElementInstanceTypes): void => {
+      if (isGroupEntity(current.get('type'))) {
+        this.getContainerChildren(
+          current,
+          `Subtree container "${current.get('id')}"`
+        ).forEach((childId) => {
+          const child = this.getElementById(childId)
+          if (!child) {
+            throw new Error(
+              `[SceneTree] Invalid subtree request: missing child "${childId}"`
+            )
+          }
+          visit(child)
+        })
+      }
+
+      const currentId = current.get('id')
+      const parentId = current.get('parentId')
+      const parent = this.getElementById(parentId)
+      const index = parent
+        ? this.getContainerChildren(
+            parent,
+            `Subtree parent "${parentId}"`
+          ).indexOf(currentId)
+        : -1
+      if (index < 0) {
+        throw new Error(
+          `[SceneTree] Invalid subtree request: missing membership for "${currentId}"`
+        )
+      }
+      removed.push({
+        elementId: currentId,
+        parentId,
+        index,
+        data: current.save()
+      })
+    }
+    visit(root)
+
+    const workspace = this.currentWorkspace as Workspace
+    const operationChangeStart = this.changes.length
+    const removalChanges: SceneTreeChange[] = []
+    removed.forEach(({ elementId: removedId, parentId, index }) => {
+      const element = this.getElementById(removedId) as ElementInstanceTypes
+      const parent = this.getElementById(parentId) as GroupInstanceTypes
+      removalChanges.push({
+        eventName: EventTypes.REMOVE_ELEMENT,
+        data: element.save(),
+        parentId,
+        index,
+        action: SCENE_TREE_ACTIONS.REMOVE_ELEMENT,
+        undoType: EventTypes.ADD_ELEMENT,
+        undoAction: EventTypes.ADD_ELEMENT
+      })
+      workspace.removeElement(
+        element,
+        parent.get('type') === EntityTypes.WORKSPACE ? undefined : parent,
+        options
+      )
+    })
+    this.changes.splice(operationChangeStart)
+    this.changes.push(...removalChanges)
+    acknowledgeTransactionReplayApplied()
+    this.commitSceneTreeTransaction(options)
+    propsManager.commitChanges(options)
+
+    return { elementId, removed }
+  }
+
   addToMap(element: ElementInstanceTypes) {
     const elId = element.get('id')
     if (!element || !elId) {
@@ -605,11 +1072,6 @@ class SceneTree {
     parent?: GroupInstanceTypes,
     options?: EVENT_OPTIONS
   ): boolean {
-    const workspace = this.currentWorkspace as Workspace
-    if (!workspace) {
-      return false
-    }
-
     const elementId = data.id as string
     const element = this.getElementById(elementId)
     if (!element) {
@@ -620,35 +1082,11 @@ class SceneTree {
       parent?.get('id') ??
       (data.parentId as string | undefined) ??
       (element.get('parentId') as string)
-    const resolvedParent = resolvedParentId
-      ? (this.getElementById(resolvedParentId) as GroupInstanceTypes)
-      : undefined
-    const container = resolvedParent ?? workspace
-
-    if (!isGroupEntity(container.get('type'))) {
+    if (resolvedParentId !== element.get('parentId')) {
       return false
     }
 
-    const children = (container.get('children') as string[]) ?? []
-    if (!children.includes(elementId)) {
-      return false
-    }
-
-    const operationChangeStart = this.changes.length
-    this.addChangeForRemoveElement(
-      element,
-      resolvedParentId,
-      children.indexOf(elementId)
-    )
-    const removeChange = this.changes[operationChangeStart]
-    workspace.removeElement(element, resolvedParent, options)
-    this.changes.splice(operationChangeStart)
-    if (removeChange) {
-      this.changes.push(removeChange)
-    }
-    acknowledgeTransactionReplayApplied()
-    this.commitSceneTreeTransaction(options)
-    propsManager.commitChanges(options)
+    this.removeSubtree(elementId, options)
     return true
   }
 
