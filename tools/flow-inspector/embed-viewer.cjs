@@ -29,6 +29,10 @@ const targetEntries = [
   path.join(
     projectRoot,
     'docs/ai/framework/plans/property-type-redefinition-flow-inspector.html'
+  ),
+  path.join(
+    projectRoot,
+    'docs/ai/framework/plans/group-component-and-hierarchy-flow-inspector.html'
   )
 ]
 

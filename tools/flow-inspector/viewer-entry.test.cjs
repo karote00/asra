@@ -149,6 +149,15 @@ const targets = [
     ),
     dataScript: './property-type-redefinition-flow-inspector.data.cjs',
     filterLaneTitle: 'Property Runtime'
+  },
+  {
+    id: 'group-component-and-hierarchy',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/framework/plans/group-component-and-hierarchy-flow-inspector.html'
+    ),
+    dataScript: './group-component-and-hierarchy-flow-inspector.data.cjs',
+    filterLaneTitle: 'App Intent and Remote Policy'
   }
 ]
 

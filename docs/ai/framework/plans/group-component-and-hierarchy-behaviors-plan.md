@@ -2,8 +2,10 @@
 
 ## Status
 
-Framework Release Gate 3: queued after the network collaboration transport
-foundation closes.
+Framework Release Gate 3: active after the completed network collaboration
+transport foundation. Production implementation remains blocked until this
+product contract and the matching Inspector owner flow pass their readiness
+contract tests.
 
 This plan is a product contract for data and pipeline behavior, not a Group UI
 specification. Before implementation begins, create a matching Inspector owner
@@ -37,8 +39,8 @@ The release result must support:
 - moving or reordering existing elements and nested groups without changing
   their identities;
 - deterministic nested-container and subtree behavior;
-- exact rollback, undo/redo, save/load, CRDT convergence, and Render hierarchy
-  projection;
+- exact rollback, undo/redo, save/load, transport grouping, app-owned remote
+  apply, and Render hierarchy projection;
 - app-owned invocation, selection decisions, shortcuts, hover/click behavior,
   and presentation.
 
@@ -64,8 +66,14 @@ must not hardcode Preset Group UI or design-tool selection policy.
 - rollback and undo/redo restore exact membership, sibling order, identities,
   and canonical data;
 - shared delivery preserves transaction grouping and hierarchy provenance;
-- after Release Gate 2, remote apply validates and commits the same canonical
-  hierarchy operation without echo or partial peer-visible state.
+- after Release Gate 2, Collaboration transports every completed publication in
+  order without dedupe or semantic interpretation;
+- the receiving app validates route, payload, permission, domain order, and
+  conflict policy before asking Scene Tree to validate and apply the accepted
+  canonical hierarchy operation inside one Factory remote transaction;
+- Factory remote origin suppresses local undo capture and outbound echo, but
+  Factory and Collaboration do not decide whether a repeated or concurrent
+  hierarchy request is accepted.
 
 ### Preset
 
@@ -88,6 +96,90 @@ mutation APIs.
 - the app decides which ids to operate on, which feature/command triggers the
   request, post-operation selection, UI tree presentation, hover/click targets,
   menus, shortcuts, and product-specific interaction policy.
+
+## Public Input and Output Contracts
+
+### Scene Tree hierarchy request
+
+The Core-facing generic hierarchy operation is ID-based:
+
+```ts
+interface MoveHierarchyRequest {
+  elementIds: readonly string[]
+  targetParentId: string
+  targetIndex: number
+}
+
+interface HierarchyLocation {
+  parentId: string
+  index: number
+}
+
+interface HierarchyMove {
+  elementId: string
+  before: HierarchyLocation
+  after: HierarchyLocation
+}
+
+interface MoveHierarchyResult {
+  elementIds: readonly string[]
+  moves: readonly HierarchyMove[]
+}
+```
+
+- `elementIds` must be non-empty, unique, existing, non-workspace siblings with
+  one current parent.
+- `targetParentId` must identify an existing registered container.
+- `targetIndex` is an integer in the final target-parent insertion range after
+  the moved ids have been removed from that parent.
+- Scene Tree canonicalizes `elementIds` by current sibling order and returns
+  exact before/after locations. A same-parent no-op returns a successful result
+  with no canonical mutation or transaction entry.
+- Rejection throws before the first canonical mutation and exposes no partial
+  result. Preset, App, Collaboration, Factory, and Render must not reinterpret
+  an invalid request into a different hierarchy.
+
+The public subtree removal boundary accepts one existing non-workspace
+`elementId`. Its result identifies the deterministic descendant-first removal
+order and exact saved parent/index evidence used for rollback and undo/redo.
+Removing a container means removing its complete subtree; moving its children
+out is the separate ungroup operation.
+
+### Preset Group operations
+
+Preset exports ID-driven adapters bound to one supplied Core:
+
+```ts
+groupElements(core, elementIds, options?) =>
+  { groupId, elementIds, bounds }
+
+ungroupElement(core, groupId, options?) =>
+  { groupId, elementIds, removed: true }
+```
+
+- `groupElements` accepts only the Scene Tree sibling request defined above,
+  creates the already-registered official `GROUP`, inserts it at the first
+  selected sibling index, moves children in canonical order, and applies the
+  supported 2D coordinate/bounds normalization inside one transaction.
+- `ungroupElement` accepts one existing official Preset Group with a valid
+  container parent, moves its direct children to the Group slot, normalizes
+  coordinates, and removes the empty Group inside one transaction.
+- The adapters return detached operation results. They do not select elements,
+  name Groups for a product, register commands, or own UI policy.
+
+### Remote hierarchy apply
+
+One received Factory publication remains one Collaboration callback. The app
+may reject a repeated or concurrent hierarchy publication, accept it unchanged,
+or transform it according to app/backend policy. Only an accepted canonical
+request enters one Factory remote transaction and the same Scene Tree
+validation/mutation boundary used locally.
+
+Framework Collaboration must not add publication dedupe, hierarchy operation
+identity, timestamp ordering, last-write-wins, rebase, conflict resolution,
+semantic history, or a convergence registry. Therefore duplicate delivery and
+concurrent hierarchy convergence are app/backend product cases, not Framework
+convergence guarantees.
 
 ## Supported Product Contract
 
@@ -119,6 +211,9 @@ mutation APIs.
 
 - Move/reorder accepts existing ids, a valid target container id, and a bounded
   target index.
+- The target index is evaluated against the final target child list after the
+  moved siblings have been removed, so same-parent reorder and cross-parent
+  reparent use one unambiguous index contract.
 - A move preserves entity identity and cannot make an element its own parent,
   place a container under its descendant, duplicate membership, orphan an
   element, or create a cycle.
@@ -169,8 +264,13 @@ hierarchy ownership.
 - delete and undo a multi-level subtree with exact identities/order restored;
 - rollback a mid-operation failure with no partial parent/child/property state;
 - undo/redo and save/load reproduce the exact hierarchy and Group geometry;
-- two collaboration peers converge on group, ungroup, reorder, subtree delete,
-  duplicate delivery, and concurrent hierarchy conflict cases;
+- Factory publishes one grouped hierarchy action, undo, redo, or rollback
+  compensation without Collaboration splitting, deduplicating, or reordering
+  its hierarchy deliveries;
+- app-owned remote apply accepts or rejects group, ungroup, reorder, and
+  subtree-delete publications before canonical mutation; duplicate delivery
+  and concurrent hierarchy conflict outcomes are covered by explicit
+  app/backend policy tests rather than a Framework convergence guarantee;
 - Render reparent/reorder performs one abstract hierarchy handoff for the same
   canonical element identity and never leaves a duplicate visual or stale
   parent;
@@ -186,7 +286,8 @@ hierarchy ownership.
   subtree lifecycle, replay, load, and instance isolation;
 - Factory/collaboration tests prove one transaction, exact inverse, publication
   transport, and app-owned remote canonical apply; hierarchy conflict and
-  convergence policy remain app/backend contracts;
+  convergence policy remain app/backend contracts, and Collaboration gains no
+  dedupe, timestamp/LWW, ordering, conflict, or semantic-history owner;
 - Preset tests prove component installation, operation adapters, coordinate and
   bounds behavior, cleanup, and app override boundaries;
 - Render/engine integration tests prove identity-safe hierarchy handoff and
