@@ -18,6 +18,11 @@ This folder defines command entrypoints. These files should stay lightweight and
 - `/plan-done-closeout <plan>`
 - App visual review rule overlays: `app-visual-review-rule-overlay.md`
 
+Repository automation contracts:
+
+- workspace build, generated-template, and release validation:
+  `package-release-validation.md`
+
 ## Authoring Rule
 
 Workflow files should:

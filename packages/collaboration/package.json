@@ -9,6 +9,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev": "tsc --watch --preserveWatchOutput",
+    "clean": "rm -rf dist",
     "build:collaboration": "tsc",
     "example:collaboration": "vitest run src/__tests__/documentation-example.test.js",
     "test": "vitest",

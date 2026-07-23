@@ -41,6 +41,10 @@ test('reference server is a TypeScript build with no Vite runtime dependency', a
   assert.equal(manifest.devDependencies.vite, '^6.2.3')
   assert.match(
     manifest.scripts['build:collaboration-server'],
+    /gen:turbo:check/
+  )
+  assert.match(
+    manifest.scripts['build:collaboration-server'],
     /tsc -p tsconfig\.collaboration-server\.json/
   )
   assert.match(
@@ -50,6 +54,10 @@ test('reference server is a TypeScript build with no Vite runtime dependency', a
   assert.equal(
     manifest.scripts['collaboration:server'],
     `yarn build:collaboration-server && node ${compiledServerPath}`
+  )
+  assert.equal(
+    manifest.scripts['collaboration:server:start'],
+    `node ${compiledServerPath}`
   )
 })
 
