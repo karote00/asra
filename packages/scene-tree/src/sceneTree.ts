@@ -1026,11 +1026,7 @@ class SceneTree {
     restoreOrder.forEach(({ elementId, parentId, index }) => {
       const restored = this.getRestoreElementById(elementId, false)
       const parent = this.getElementById(parentId) as GroupInstanceTypes
-      workspace.addNewElement(
-        restored,
-        parent.get('type') === EntityTypes.WORKSPACE ? undefined : parent,
-        index
-      )
+      workspace.addNewElement(restored, parent, index)
     })
     this.changes.splice(operationChangeStart)
     const rootEntry = removed[removed.length - 1]

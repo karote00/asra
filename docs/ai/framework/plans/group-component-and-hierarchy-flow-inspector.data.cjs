@@ -326,7 +326,8 @@
         'packages/factory/src/shared-delivery.ts',
         'packages/factory/src/__tests__/data-transact.test.ts',
         'packages/factory/src/__tests__/shared-publication.test.ts',
-        'packages/factory/src/__tests__/factory-instance-replay.test.ts'
+        'packages/factory/src/__tests__/factory-instance-replay.test.ts',
+        'packages/core/src/__tests__/hierarchy-transaction.test.ts'
       ],
       specRefs: [
         '#factory-and-collaboration-pipeline',

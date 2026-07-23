@@ -14,6 +14,8 @@ import {
 import {
   SCENE_TREE_ACTIONS,
   SharedDataChannelNames,
+  type HierarchyMove,
+  type SubtreeRemovalEntry,
   type TransactionStatusPayload
 } from '@asyra/utils'
 import DataTransact from '../data-transact'
@@ -54,6 +56,117 @@ const runWithOwnedTransact = <T>(
     },
     callback
   )
+
+describe('DataTransact hierarchy replay', () => {
+  it('keeps move and subtree evidence in one undo unit with exact inverse and forward replay', () => {
+    const replayed: AllEvent[] = []
+    const transact = new DataTransact(undefined, {
+      onReplayEvent: (event) => {
+        replayed.push(event)
+        return true
+      }
+    })
+    const moves: HierarchyMove[] = [
+      {
+        elementId: 'element-a',
+        before: { parentId: 'workspace', index: 1 },
+        after: { parentId: 'group-a', index: 0 }
+      }
+    ]
+    const removed: SubtreeRemovalEntry[] = [
+      {
+        elementId: 'element-b',
+        parentId: 'group-b',
+        index: 0,
+        data: {
+          id: 'element-b',
+          type: 'rect',
+          name: 'Rectangle',
+          parentId: 'group-b',
+          visible: true,
+          lock: false
+        }
+      },
+      {
+        elementId: 'group-b',
+        parentId: 'workspace',
+        index: 2,
+        data: {
+          id: 'group-b',
+          type: 'group',
+          name: 'Group',
+          parentId: 'workspace',
+          visible: true,
+          lock: false,
+          children: ['element-b']
+        }
+      }
+    ]
+
+    runWithOwnedTransact(transact, () => {
+      transact.start()
+      transact.update({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.MOVE_ELEMENTS,
+        payload: {
+          action: SCENE_TREE_ACTIONS.MOVE_ELEMENTS,
+          eventName: EventTypes.MOVE_ELEMENTS,
+          moves
+        }
+      })
+      transact.update({
+        type: TransactionEventTypes.UPDATE_TRANSACTION,
+        eventName: EventTypes.CHANGE_SUBTREE,
+        payload: {
+          action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+          undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+          eventName: EventTypes.CHANGE_SUBTREE,
+          elementId: 'group-b',
+          removed
+        }
+      })
+      transact.end()
+
+      transact.undo()
+      transact.redo()
+    })
+
+    expect(replayed).toEqual([
+      {
+        type: EventTypes.CHANGE_SUBTREE,
+        payload: expect.objectContaining({
+          action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+          undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+          removed
+        })
+      },
+      {
+        type: EventTypes.MOVE_ELEMENTS,
+        payload: expect.objectContaining({
+          moves: [
+            {
+              elementId: 'element-a',
+              before: { parentId: 'group-a', index: 0 },
+              after: { parentId: 'workspace', index: 1 }
+            }
+          ]
+        })
+      },
+      {
+        type: EventTypes.MOVE_ELEMENTS,
+        payload: expect.objectContaining({ moves })
+      },
+      {
+        type: EventTypes.CHANGE_SUBTREE,
+        payload: expect.objectContaining({
+          action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+          undoAction: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+          removed
+        })
+      }
+    ])
+  })
+})
 
 describe('DataTransact user action completion', () => {
   it('reports discarded for an empty transaction', () => {

@@ -1,5 +1,5 @@
 import { SCENE_TREE_ACTIONS } from '../constants'
-import type { ElementRawData } from '../sceneTree'
+import type { ElementRawData, GroupRawData } from '../sceneTree'
 import { DataTypes } from './constants'
 import type { MutationOptions } from './change'
 import type { YjsChange } from './yjs'
@@ -32,7 +32,7 @@ export interface SubtreeRemovalEntry {
   elementId: string
   parentId: string
   index: number
-  data: ElementRawData
+  data: ElementRawData | GroupRawData
 }
 
 export interface RemoveSubtreeResult {

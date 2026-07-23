@@ -5,6 +5,7 @@ import type {
   SceneTreeChange,
   SharedDeliveryMode,
   ElementSelectionChange,
+  MoveElementsChange,
   TransactionFailure,
   TransactionOrigin,
   TransactionStatus,
@@ -83,6 +84,8 @@ import { cloneValue } from './value-clone'
 const BUILT_IN_INVERTIBLE_EVENT_TYPES = new Set<string>([
   EventTypes.ADD_ELEMENT,
   EventTypes.REMOVE_ELEMENT,
+  EventTypes.MOVE_ELEMENTS,
+  EventTypes.CHANGE_SUBTREE,
   EventTypes.UPDATE_COMPUTED_DATA,
   EventTypes.UPDATE_COMPUTED_DATA_PATCH,
   EventTypes.ADD_PROPERTY,
@@ -350,6 +353,7 @@ class DataTransact {
       'undoAction' in payload ||
       'after' in payload ||
       'patch' in payload ||
+      ('moves' in payload && Array.isArray(payload.moves)) ||
       ('changes' in payload && Array.isArray(payload.changes))
     )
   }
@@ -595,6 +599,29 @@ class DataTransact {
 
     const replayEvent = cloneEvent(event)
     const payload = (replayEvent as AllEvent & { payload: unknown }).payload
+    if (
+      direction === 'inverse' &&
+      replayEvent.type === EventTypes.MOVE_ELEMENTS &&
+      payload &&
+      typeof payload === 'object' &&
+      'moves' in payload &&
+      Array.isArray(payload.moves)
+    ) {
+      const movePayload = payload as MoveElementsChange
+      return [
+        {
+          type: replayEvent.type,
+          payload: {
+            ...movePayload,
+            moves: movePayload.moves.map((move) => ({
+              elementId: move.elementId,
+              before: { ...move.after },
+              after: { ...move.before }
+            }))
+          }
+        } as AllEvent
+      ]
+    }
     if (
       direction === 'inverse' &&
       payload &&
