@@ -28,7 +28,14 @@ export {
   VECTOR_COMPONENT_DEFINITION,
   VECTOR_RENDER_STRATEGY,
   FRAME_RENDER_STRATEGY,
-  GROUP_RENDER_STRATEGY
+  GROUP_RENDER_STRATEGY,
+  prepareGroupOperation,
+  prepareUngroupOperation
+} from './components'
+export type {
+  GroupOperationCore,
+  PreparedGroupOperation,
+  PreparedUngroupOperation
 } from './components'
 export { PRESET_REGISTRATION_OWNER } from './registration'
 export {
