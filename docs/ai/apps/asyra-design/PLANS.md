@@ -4,11 +4,13 @@ Never record completed plans here.
 
 ## Current Status
 
-- Current plan in this index: none.
-- Proposed app validation plans for Framework Release Gate 3, both inactive
-  until user review:
-  1. `plans/group-interaction-mvp-plan.md`
-  2. `plans/layer-tree-reparent-reorder-plan.md` (depends on the first plan)
+- Current approved plan:
+  `plans/group-interaction-mvp-plan.md`.
+- Approved follow-up in the same combined review branch:
+  `plans/layer-tree-reparent-reorder-plan.md`. Its readiness/implementation
+  remains blocked until the first plan's owner steps and required gates pass.
+- Both Group plans require one final user review before either closeout or
+  merge; this combined delivery must not be merged automatically.
 - Separately queued app/server plan after the completed network collaboration
   transport Gate 2; it remains inactive until the user explicitly starts it:
   `plans/durable-collaboration-server-and-continuous-sync-plan.md`.

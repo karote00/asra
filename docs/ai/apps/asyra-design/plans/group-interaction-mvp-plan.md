@@ -2,13 +2,18 @@
 
 ## Status
 
-Proposed for product-contract review. This plan is inactive until the user
-approves it and Framework Release Gate 3 is present on `main`.
+Approved and active on 2026-07-24. Framework Release Gate 3 is present on
+`main` at `d54fa92fa`.
 
-This document does not authorize production implementation. After approval,
-the first implementation segment must create a matching Inspector owner flow
+The first implementation segment must create a matching Inspector owner flow
 and executable readiness contract tests. Production edits may begin only after
 those readiness tests pass.
+
+Architecture authority:
+
+- `group-interaction-mvp-flow-inspector.data.cjs`
+- `group-interaction-mvp-flow-inspector.html`
+- `group-interaction-mvp-flow-inspector.contract.test.cjs`
 
 ## Sequence
 
@@ -16,9 +21,10 @@ This is the first app validation stage for Framework Release Gate 3. It makes
 the existing Group primitives usable through Asyra Design without starting the
 later layer-tree reparent/reorder interaction.
 
-The follow-up
-`layer-tree-reparent-reorder-plan.md` depends on this plan being completed and
-merged.
+The follow-up `layer-tree-reparent-reorder-plan.md` may proceed in the same
+combined review branch only after this plan's owner steps and required gates
+are complete. The user will review both plans together before either closeout
+or merge.
 
 ## Goal
 

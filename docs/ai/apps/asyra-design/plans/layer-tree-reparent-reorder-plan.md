@@ -2,17 +2,17 @@
 
 ## Status
 
-Proposed as the second app validation stage for Framework Release Gate 3. This
-plan is inactive until:
+Approved on 2026-07-24 as the second sequential stage in the same combined app
+review branch. Framework Release Gate 3 is present on `main` at `d54fa92fa`.
+Production implementation remains blocked until:
 
-1. the user approves this product contract;
-2. Framework Release Gate 3 is present on `main`; and
-3. `group-interaction-mvp-plan.md` is completed, reviewed, and merged.
+1. `group-interaction-mvp-plan.md` owner steps and required gates are complete;
+   and
+2. this plan's matching Inspector owner flow and executable readiness contract
+   tests pass.
 
-This document does not authorize production implementation. The first
-implementation segment must create the matching Inspector owner flow and
-executable readiness contract tests. Production edits remain blocked until
-readiness passes.
+Both plans remain open for one final user review. Neither plan may be closed or
+merged automatically.
 
 ## Goal
 
@@ -334,7 +334,8 @@ Layers or Render.
 
 ## Definition of Done
 
-- the prerequisite Group Interaction MVP is complete and Gate 3 is on `main`;
+- the prerequisite Group Interaction MVP implementation and required gates are
+  complete in this combined branch, and Gate 3 is on `main`;
 - the approved plan, exact Inspector, and readiness tests agree before
   implementation;
 - every Inspector owner step is implemented and reviewed separately;
@@ -364,7 +365,8 @@ Layers or Render.
 
 ## Stop Conditions
 
-- Gate 3 or the Group Interaction MVP prerequisite is not merged.
+- Gate 3 is not merged, or the Group Interaction MVP owner steps and required
+  gates are incomplete in this combined branch.
 - The product contract and Inspector disagree.
 - Readiness contract tests fail.
 - A canonical owner defect would require app/Render fallback state.

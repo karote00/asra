@@ -1,0 +1,772 @@
+;(function () {
+  'use strict'
+
+  const specPath =
+    'docs/ai/apps/asyra-design/plans/group-interaction-mvp-plan.md'
+  const inspectorPath =
+    'docs/ai/apps/asyra-design/plans/group-interaction-mvp-flow-inspector.data.cjs'
+
+  const lanes = [
+    { id: 'commands', title: 'App Command Intent', order: 1 },
+    { id: 'features', title: 'Feature Transaction', order: 2 },
+    { id: 'layers', title: 'Layers Interaction and Projection', order: 3 },
+    { id: 'integration', title: 'History and Collaboration', order: 4 },
+    {
+      id: 'verification',
+      title: 'Persistence and Render Verification',
+      order: 5
+    }
+  ]
+
+  const steps = [
+    {
+      id: 'derive-group-command-intent',
+      order: 1,
+      laneId: 'commands',
+      title: 'Derive Group command eligibility and intent',
+      ownerPackage: 'asyra-design command controller',
+      purpose:
+        'Derive Group and Ungroup availability from app selection plus the canonical UI projection, then emit one ID-only feature request while leaving Scene Tree as the final validator.',
+      inputs: [
+        'artifact:group-command-trigger',
+        'app-local selected element ids',
+        'canonical flattenedElementIds and elementDataMap projection'
+      ],
+      outputs: [
+        'artifact:group-command-availability',
+        'artifact:eligible-group-command-request',
+        'artifact:group-command-rejection'
+      ],
+      conditions: [
+        'Group availability requires a non-empty unique projected selection of existing non-workspace siblings with one common parent.',
+        'Ungroup availability requires exactly one projected official Preset Group with an existing container parent.',
+        'A valid trigger emits exactly one group or ungroup request containing canonical ids; caller selection order never defines child order.',
+        'Availability is presentation guidance only and Scene Tree remains the final complete hierarchy validator.'
+      ],
+      bypasses: [
+        'Empty, duplicate, missing, stale, workspace, mixed-parent, or non-Group ungroup selection emits an unavailable state and no feature request.',
+        'A disabled or stale invocation terminates without hierarchy, selection, history, publication, or Render mutation.'
+      ],
+      allowedContributors: [
+        'app-local selection query',
+        'canonical UI projection from Preset data channels',
+        'official Preset GROUP component identity',
+        'artifact:group-command-trigger'
+      ],
+      forbiddenContributors: [
+        'Render objects or hit-test hierarchy',
+        'a second mutable parent or children map',
+        'direct parentId or children writes',
+        'app-side replacement for Scene Tree validation'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'apps/asyra-design/package.json',
+        'apps/asyra-design/src/constants',
+        'apps/asyra-design/src/controllers',
+        'apps/asyra-design/src/providers',
+        'apps/asyra-design/src/common-apis'
+      ],
+      specRefs: [
+        '#group-command',
+        '#ungroup-command',
+        '#product-ownership',
+        '#required-inspector-readiness'
+      ],
+      failureOwnerStepId: 'derive-group-command-intent'
+    },
+    {
+      id: 'execute-group-command-transaction',
+      order: 1,
+      laneId: 'features',
+      title: 'Execute one Group or Ungroup transaction',
+      ownerPackage: 'asyra-design Group feature',
+      purpose:
+        'Execute one exclusive one-shot feature request through the app common API and include canonical hierarchy plus post-operation app selection in one Factory transaction and undo commit.',
+      inputs: ['artifact:eligible-group-command-request'],
+      outputs: [
+        'artifact:committed-group-command',
+        'artifact:group-command-transaction-failure'
+      ],
+      conditions: [
+        'The feature declares its registered trigger, priority 100, and exclusive one-shot execution; each serialized distinct trigger re-evaluates current eligibility without coalescing or dedupe.',
+        'Group calls hierarchyApis.groupElements and on success selects only the newly created Group.',
+        'Ungroup calls hierarchyApis.ungroupElement and on success selects former direct children in canonical order, or clears selection for an empty Group.',
+        'The hierarchy request and resulting selection update execute inside one intended Factory transaction and one undo commit.',
+        'Canonical validation remains in Scene Tree and Group coordinate/bounds normalization remains in Preset.'
+      ],
+      bypasses: [
+        'An app-ineligible request never enters the feature.',
+        'A canonical rejection or semantic no-op leaves hierarchy and selection unchanged and creates no history entry or publication.',
+        'A thrown failure after transaction open is owned by Factory rollback and restores hierarchy, properties, Group geometry, and selection completely.'
+      ],
+      allowedContributors: [
+        'artifact:eligible-group-command-request',
+        'app hierarchy common API',
+        'app selection common API',
+        'public Core runTransaction boundary'
+      ],
+      forbiddenContributors: [
+        'direct Scene Tree instance access',
+        'delete plus recreate hierarchy simulation',
+        'a second Group component',
+        'Render-only or app-specific fallback hierarchy'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'apps/asyra-design/package.json',
+        'apps/asyra-design/src/features',
+        'apps/asyra-design/src/common-apis',
+        'apps/asyra-design/src/constants',
+        'apps/asyra-design/src/init'
+      ],
+      specRefs: [
+        '#intended-transaction-and-selection',
+        '#group-command',
+        '#ungroup-command',
+        '#formal-test-plan'
+      ],
+      failureOwnerStepId: 'execute-group-command-transaction'
+    },
+    {
+      id: 'route-group-command-input',
+      order: 1,
+      laneId: 'layers',
+      title: 'Route shortcuts and visible Layers controls',
+      ownerPackage: 'asyra-design input and Layers UI',
+      purpose:
+        'Normalize visible Group/Ungroup controls and platform shortcuts into the same app trigger without performing model mutation in UI code.',
+      inputs: [
+        'Layers Group or Ungroup button activation',
+        'Meta/Ctrl+G keyboard input with optional Shift',
+        'artifact:group-command-availability'
+      ],
+      outputs: ['artifact:group-command-trigger'],
+      conditions: [
+        'The Layers header exposes stable accessible Group and Ungroup controls with stable data-testid values.',
+        'Meta+G or Ctrl+G routes Group and the Shift variant routes Ungroup through registered input constants.',
+        'A control is enabled only by its projected command availability and every enabled surface hands off to the same feature intent route.'
+      ],
+      bypasses: [
+        'Editable text, number, and color inputs keep native keyboard behavior and do not emit a Group trigger.',
+        'Disabled control activation and unavailable shortcuts emit no trigger and perform no canonical mutation.'
+      ],
+      allowedContributors: [
+        'artifact:group-command-availability',
+        'central InputSystem event constants',
+        'central key-combination registry',
+        'Layers accessible controls'
+      ],
+      forbiddenContributors: [
+        'direct hierarchy or selection mutation in React handlers',
+        'ad-hoc document keydown listener outside InputSystem',
+        'fixture-only command path',
+        'window.__AsyraE2E__ product execution'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'apps/asyra-design/package.json',
+        'apps/asyra-design/src/constants',
+        'apps/asyra-design/src/config/key-combinations.ts',
+        'apps/asyra-design/src/contents',
+        'apps/asyra-design/src/controllers'
+      ],
+      specRefs: [
+        '#command-surfaces',
+        '#explicit-non-goals',
+        '#formal-test-plan'
+      ],
+      failureOwnerStepId: 'route-group-command-input'
+    },
+    {
+      id: 'project-layers-hierarchy',
+      order: 2,
+      laneId: 'layers',
+      title: 'Project canonical hierarchy into Layers rows',
+      ownerPackage: 'asyra-design Layers projection',
+      purpose:
+        'Derive parent-before-descendant visible rows, visual depth, and expand/collapse presentation from the canonical app projection without retaining a second hierarchy.',
+      inputs: [
+        'canonical flattenedElementIds and elementDataMap projection',
+        'app-local collapsed Group id set',
+        'app-local selected element ids'
+      ],
+      outputs: [
+        'artifact:visible-layer-rows',
+        'artifact:layers-presentation-state',
+        'artifact:layers-projection-failure'
+      ],
+      conditions: [
+        'Rows retain canonical flattened order and derive depth by following projected parentId chains to the workspace root.',
+        'Official Group rows expose an expand/collapse control and default to expanded.',
+        'Collapsed descendants are omitted only from visible rows; canonical elements and existing hidden-descendant selections remain unchanged.',
+        'Shift-range selection uses the currently visible row order.',
+        'Group, Ungroup, undo, redo, load, and accepted remote changes refresh through the same canonical data-channel projection.'
+      ],
+      bypasses: [
+        'Workspace is not rendered as a Layers row.',
+        'Collapse and expand mutate UI-local presentation state only and never save, publish, select, deselect, or mutate hierarchy.',
+        'A missing, cyclic, or misordered supported projection stops at this owner and never fabricates hierarchy from Render state or a mutation-time cache.'
+      ],
+      allowedContributors: [
+        'Preset flattenedElementIds data channel',
+        'Preset elementDataMap data channel',
+        'app-local collapsed Group ids',
+        'app-local selection controller'
+      ],
+      forbiddenContributors: [
+        'independent mutable parent or children tree',
+        'Render display-object ancestry',
+        'hierarchy repair or fallback rows',
+        'canonical writes from expand/collapse'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'apps/asyra-design/package.json',
+        'apps/asyra-design/src/contents',
+        'apps/asyra-design/src/providers',
+        'apps/asyra-design/src/controllers'
+      ],
+      specRefs: [
+        '#layers-hierarchy-projection',
+        '#product-cases',
+        '#explicit-non-goals'
+      ],
+      failureOwnerStepId: 'project-layers-hierarchy'
+    },
+    {
+      id: 'settle-history-publication-and-remote-apply',
+      order: 1,
+      laneId: 'integration',
+      title: 'Settle history, publication, and app-owned remote apply',
+      ownerPackage: '@asyra/factory and asyra-design collaboration adapter',
+      purpose:
+        'Verify one local Group command settles as one undo/publication boundary and apply an app-accepted remote hierarchy publication through one remote Factory transaction without remote selection takeover.',
+      inputs: [
+        'artifact:committed-group-command',
+        'received hierarchy publication from transport-only Collaboration',
+        'app/backend remote permission, ordering, duplicate, and conflict decision'
+      ],
+      outputs: [
+        'artifact:settled-group-publication',
+        'artifact:accepted-remote-group-update',
+        'artifact:rejected-remote-group-publication'
+      ],
+      conditions: [
+        'One local Group or Ungroup command produces one Factory undo entry and one grouped publication with exact hierarchy/property evidence.',
+        'Undo and redo restore exact identity, parent, sibling index, child order, Group data, geometry, and app selection recorded by the local command.',
+        'The app validates an accepted remote publication before one remote non-undoable Factory transaction and ordinary Scene Tree mutation.',
+        'Accepted remote updates refresh canonical projection while receiving-app selection and collapsed state remain local.'
+      ],
+      bypasses: [
+        'Rejected, unauthorized, stale, duplicate, or conflicting remote publication performs no canonical mutation.',
+        'Collaboration transports repeated publications in FIFO order and does not dedupe, order by timestamp/LWW, resolve hierarchy conflicts, create semantic history, or own convergence policy.',
+        'UI-local selection and collapse changes do not enter shared publication.'
+      ],
+      allowedContributors: [
+        'artifact:committed-group-command',
+        'Factory transaction history and publication evidence',
+        'app collaboration publication processor',
+        'Scene Tree canonical remote mutation route'
+      ],
+      forbiddenContributors: [
+        '@asyra/collaboration dedupe or semantic policy',
+        'Provider timestamp authority or last-write-wins policy',
+        'remote selection takeover',
+        'partial remote apply before full publication validation'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'apps/asyra-design/package.json',
+        'apps/asyra-design/src/collaboration',
+        'apps/asyra-design/src/init/__tests__',
+        'apps/asyra-design/e2e'
+      ],
+      specRefs: [
+        '#saveload-and-collaboration',
+        '#intended-transaction-and-selection',
+        '#framework-owners-retained-from-gate-3'
+      ],
+      failureOwnerStepId: 'settle-history-publication-and-remote-apply'
+    },
+    {
+      id: 'verify-group-persistence-and-render',
+      order: 1,
+      laneId: 'verification',
+      title: 'Verify exact load and identity-safe Render handoff',
+      ownerPackage: 'asyra-design integration verification',
+      purpose:
+        'Prove save/load, Layers refresh, and Render consume the exact canonical Group hierarchy while preserving identity and rejecting invalid documents without fallback projection.',
+      inputs: [
+        'artifact:committed-group-command',
+        'artifact:accepted-remote-group-update',
+        'serialized canonical document',
+        'artifact:visible-layer-rows'
+      ],
+      outputs: [
+        'artifact:verified-group-document',
+        'artifact:identity-safe-render-projection',
+        'artifact:invalid-group-document-rejection'
+      ],
+      conditions: [
+        'Save/load preserves exact Group data, parent, index, child order, nested hierarchy, coordinates/bounds, props references, and entity identity.',
+        'A valid replace-style load refreshes Layers from canonical data channels and hands the same element identity and engine handle to Render.',
+        'Render projects committed hierarchy only, with no duplicate visual, stale parent, or visible coordinate jump.'
+      ],
+      bypasses: [
+        'Collapse state is UI-local and is not serialized or required to survive reload.',
+        'Invalid duplicate membership, missing reference, cycle, or invalid workspace root rejects before document apply.',
+        'Load or Render failure does not create patch hierarchy, fallback rows, delete-and-recreate handoff, or app-specific visual repair.'
+      ],
+      allowedContributors: [
+        'canonical Core save/load boundary',
+        'canonical Preset UI data channels',
+        'identity-safe Render hierarchy projection',
+        'synchronized app E2E and visual evidence'
+      ],
+      forbiddenContributors: [
+        'Render-owned hierarchy mutation',
+        'Layers-owned document hierarchy',
+        'patch or fallback projection',
+        'window.__AsyraE2E__ as the Group product command path'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'apps/asyra-design/package.json',
+        'apps/asyra-design/src/init/__tests__',
+        'apps/asyra-design/e2e',
+        'apps/asyra-design/src/contents',
+        'docs/ai/apps/asyra-design/bdd-features'
+      ],
+      specRefs: [
+        '#saveload-and-collaboration',
+        '#product-cases',
+        '#definition-of-done',
+        '#manual-review-checklist'
+      ],
+      failureOwnerStepId: 'verify-group-persistence-and-render'
+    }
+  ]
+
+  const routes = [
+    {
+      id: 'availability-to-layers-controls',
+      from: 'derive-group-command-intent',
+      to: 'route-group-command-input',
+      kind: 'projection',
+      predicate: 'canonical projected selection changes',
+      producedArtifacts: ['artifact:group-command-availability']
+    },
+    {
+      id: 'layers-trigger-to-command-intent',
+      from: 'route-group-command-input',
+      to: 'derive-group-command-intent',
+      kind: 'command',
+      predicate: 'enabled visible control or non-editable registered shortcut',
+      producedArtifacts: ['artifact:group-command-trigger']
+    },
+    {
+      id: 'eligible-intent-to-feature',
+      from: 'derive-group-command-intent',
+      to: 'execute-group-command-transaction',
+      kind: 'command',
+      predicate: 'current projected selection satisfies app eligibility',
+      producedArtifacts: ['artifact:eligible-group-command-request']
+    },
+    {
+      id: 'ineligible-command-terminates',
+      from: 'derive-group-command-intent',
+      kind: 'terminal',
+      predicate: 'selection is unavailable or stale',
+      producedArtifacts: ['artifact:group-command-rejection']
+    },
+    {
+      id: 'successful-command-to-history',
+      from: 'execute-group-command-transaction',
+      to: 'settle-history-publication-and-remote-apply',
+      kind: 'transaction',
+      predicate: 'canonical Group operation and post-selection commit',
+      producedArtifacts: ['artifact:committed-group-command']
+    },
+    {
+      id: 'successful-command-to-verification',
+      from: 'execute-group-command-transaction',
+      to: 'verify-group-persistence-and-render',
+      kind: 'verification',
+      predicate: 'committed hierarchy enters downstream app projections',
+      producedArtifacts: ['artifact:committed-group-command']
+    },
+    {
+      id: 'transaction-failure-terminates',
+      from: 'execute-group-command-transaction',
+      kind: 'terminal',
+      predicate: 'canonical rejection, semantic no-op, or rolled-back failure',
+      producedArtifacts: ['artifact:group-command-transaction-failure']
+    },
+    {
+      id: 'layers-visible-rows-to-verification',
+      from: 'project-layers-hierarchy',
+      to: 'verify-group-persistence-and-render',
+      kind: 'projection',
+      predicate: 'canonical hierarchy data channel refreshes',
+      producedArtifacts: ['artifact:visible-layer-rows']
+    },
+    {
+      id: 'layers-presentation-terminates-locally',
+      from: 'project-layers-hierarchy',
+      kind: 'terminal',
+      predicate: 'collapse, expand, depth, and visible selection projection',
+      producedArtifacts: ['artifact:layers-presentation-state']
+    },
+    {
+      id: 'malformed-layers-projection-terminates',
+      from: 'project-layers-hierarchy',
+      kind: 'terminal',
+      predicate: 'canonical projection is missing, cyclic, or misordered',
+      producedArtifacts: ['artifact:layers-projection-failure']
+    },
+    {
+      id: 'settled-publication-terminates',
+      from: 'settle-history-publication-and-remote-apply',
+      kind: 'terminal',
+      predicate: 'local command publication is grouped once',
+      producedArtifacts: ['artifact:settled-group-publication']
+    },
+    {
+      id: 'accepted-remote-to-verification',
+      from: 'settle-history-publication-and-remote-apply',
+      to: 'verify-group-persistence-and-render',
+      kind: 'remote',
+      predicate: 'app policy accepts and canonical remote transaction commits',
+      producedArtifacts: ['artifact:accepted-remote-group-update']
+    },
+    {
+      id: 'rejected-remote-terminates',
+      from: 'settle-history-publication-and-remote-apply',
+      kind: 'terminal',
+      predicate: 'app/backend policy rejects publication before mutation',
+      producedArtifacts: ['artifact:rejected-remote-group-publication']
+    },
+    {
+      id: 'verified-document-terminates',
+      from: 'verify-group-persistence-and-render',
+      kind: 'terminal',
+      predicate: 'exact save/load and Layers refresh are verified',
+      producedArtifacts: ['artifact:verified-group-document']
+    },
+    {
+      id: 'verified-render-terminates',
+      from: 'verify-group-persistence-and-render',
+      kind: 'terminal',
+      predicate: 'identity-safe Render projection is verified',
+      producedArtifacts: ['artifact:identity-safe-render-projection']
+    },
+    {
+      id: 'invalid-document-terminates',
+      from: 'verify-group-persistence-and-render',
+      kind: 'terminal',
+      predicate: 'canonical load validation rejects before apply',
+      producedArtifacts: ['artifact:invalid-group-document-rejection']
+    }
+  ]
+
+  const artifacts = [
+    {
+      id: 'artifact:group-command-trigger',
+      ownerStepId: 'route-group-command-input',
+      channel: 'InputSystem or Layers control',
+      consumerStepIds: ['derive-group-command-intent'],
+      terminal: false
+    },
+    {
+      id: 'artifact:group-command-availability',
+      ownerStepId: 'derive-group-command-intent',
+      channel: 'app projection',
+      consumerStepIds: ['route-group-command-input'],
+      terminal: false
+    },
+    {
+      id: 'artifact:eligible-group-command-request',
+      ownerStepId: 'derive-group-command-intent',
+      channel: 'feature request',
+      consumerStepIds: ['execute-group-command-transaction'],
+      terminal: false
+    },
+    {
+      id: 'artifact:group-command-rejection',
+      ownerStepId: 'derive-group-command-intent',
+      channel: 'terminal app result',
+      consumerStepIds: [],
+      terminal: true
+    },
+    {
+      id: 'artifact:committed-group-command',
+      ownerStepId: 'execute-group-command-transaction',
+      channel: 'Factory transaction result',
+      consumerStepIds: [
+        'settle-history-publication-and-remote-apply',
+        'verify-group-persistence-and-render'
+      ],
+      terminal: false
+    },
+    {
+      id: 'artifact:group-command-transaction-failure',
+      ownerStepId: 'execute-group-command-transaction',
+      channel: 'terminal rolled-back result',
+      consumerStepIds: [],
+      terminal: true
+    },
+    {
+      id: 'artifact:visible-layer-rows',
+      ownerStepId: 'project-layers-hierarchy',
+      channel: 'React view projection',
+      consumerStepIds: ['verify-group-persistence-and-render'],
+      terminal: false
+    },
+    {
+      id: 'artifact:layers-presentation-state',
+      ownerStepId: 'project-layers-hierarchy',
+      channel: 'terminal UI-local state',
+      consumerStepIds: [],
+      terminal: true
+    },
+    {
+      id: 'artifact:layers-projection-failure',
+      ownerStepId: 'project-layers-hierarchy',
+      channel: 'terminal projection failure',
+      consumerStepIds: [],
+      terminal: true
+    },
+    {
+      id: 'artifact:settled-group-publication',
+      ownerStepId: 'settle-history-publication-and-remote-apply',
+      channel: 'Factory shared publication',
+      consumerStepIds: [],
+      terminal: true
+    },
+    {
+      id: 'artifact:accepted-remote-group-update',
+      ownerStepId: 'settle-history-publication-and-remote-apply',
+      channel: 'app-owned remote Factory transaction',
+      consumerStepIds: ['verify-group-persistence-and-render'],
+      terminal: false
+    },
+    {
+      id: 'artifact:rejected-remote-group-publication',
+      ownerStepId: 'settle-history-publication-and-remote-apply',
+      channel: 'terminal app policy result',
+      consumerStepIds: [],
+      terminal: true
+    },
+    {
+      id: 'artifact:verified-group-document',
+      ownerStepId: 'verify-group-persistence-and-render',
+      channel: 'terminal persistence evidence',
+      consumerStepIds: [],
+      terminal: true
+    },
+    {
+      id: 'artifact:identity-safe-render-projection',
+      ownerStepId: 'verify-group-persistence-and-render',
+      channel: 'terminal Render evidence',
+      consumerStepIds: [],
+      terminal: true
+    },
+    {
+      id: 'artifact:invalid-group-document-rejection',
+      ownerStepId: 'verify-group-persistence-and-render',
+      channel: 'terminal load rejection',
+      consumerStepIds: [],
+      terminal: true
+    }
+  ]
+
+  const invariants = [
+    {
+      id: 'canonical-hierarchy-remains-framework-owned',
+      title: 'The app never becomes a second hierarchy owner',
+      statement:
+        'Scene Tree alone validates and mutates canonical parent membership and order; Preset alone adapts official Group geometry; UI and Render only consume projections.',
+      stepIds: [
+        'derive-group-command-intent',
+        'execute-group-command-transaction',
+        'project-layers-hierarchy',
+        'verify-group-persistence-and-render'
+      ],
+      artifactIds: [
+        'artifact:eligible-group-command-request',
+        'artifact:visible-layer-rows',
+        'artifact:identity-safe-render-projection'
+      ],
+      specRefs: ['#product-ownership', '#framework-owners-retained-from-gate-3']
+    },
+    {
+      id: 'one-command-one-transaction',
+      title: 'One Group command is one intended transaction',
+      statement:
+        'Hierarchy, Group geometry, and post-operation selection settle or roll back together as one undo commit and one grouped publication.',
+      stepIds: [
+        'execute-group-command-transaction',
+        'settle-history-publication-and-remote-apply'
+      ],
+      artifactIds: [
+        'artifact:committed-group-command',
+        'artifact:settled-group-publication'
+      ],
+      specRefs: ['#intended-transaction-and-selection']
+    },
+    {
+      id: 'collaboration-remains-transport-only',
+      title: 'Remote product policy remains app/backend-owned',
+      statement:
+        'Collaboration adds no dedupe, timestamp/LWW ordering, hierarchy conflict resolution, semantic history, or convergence registry.',
+      stepIds: ['settle-history-publication-and-remote-apply'],
+      artifactIds: [
+        'artifact:accepted-remote-group-update',
+        'artifact:rejected-remote-group-publication'
+      ],
+      specRefs: [
+        '#framework-owners-retained-from-gate-3',
+        '#saveload-and-collaboration'
+      ]
+    }
+  ]
+
+  const acceptanceContracts = [
+    {
+      id: 'group-command-product-cases',
+      title: 'Group command cases',
+      assertions: [
+        'Group one, contiguous, non-contiguous, and nested sibling selections in canonical sibling order.',
+        'Reject empty, duplicate, missing, stale, workspace, and mixed-parent inputs without partial state.',
+        'A successful Group selects only the new official Group and preserves child lock, visibility, identity, and world-space appearance.'
+      ],
+      stepIds: [
+        'derive-group-command-intent',
+        'execute-group-command-transaction'
+      ],
+      specRefs: ['#group-command', '#product-cases']
+    },
+    {
+      id: 'ungroup-command-product-cases',
+      title: 'Ungroup command cases',
+      assertions: [
+        'Ungroup a normal official Group and select former direct children in canonical order.',
+        'Ungroup an empty official Group and clear selection.',
+        'Nested Groups retain identity, data, descendants, order, and visible world-space output.'
+      ],
+      stepIds: [
+        'derive-group-command-intent',
+        'execute-group-command-transaction'
+      ],
+      specRefs: ['#ungroup-command', '#product-cases']
+    },
+    {
+      id: 'command-surface-product-cases',
+      title: 'Visible controls and shortcut parity',
+      assertions: [
+        'Visible Layers controls and Meta/Ctrl+G with the Shift variant route the same registered feature contract.',
+        'Controls expose stable accessible names and data-testid values.',
+        'Editable inputs and disabled or unavailable commands bypass without mutation.'
+      ],
+      stepIds: ['route-group-command-input', 'derive-group-command-intent'],
+      specRefs: ['#command-surfaces', '#formal-test-plan']
+    },
+    {
+      id: 'layers-projection-product-cases',
+      title: 'Nested Layers projection and local collapse state',
+      assertions: [
+        'Rows follow parent-before-descendant canonical child order with parent-chain visual depth.',
+        'Official Groups default expanded and collapse hides descendants without canonical or selection mutation.',
+        'Shift-range uses visible row order and hidden-descendant selection survives collapse and expand.'
+      ],
+      stepIds: ['project-layers-hierarchy'],
+      specRefs: ['#layers-hierarchy-projection', '#product-cases']
+    },
+    {
+      id: 'history-and-remote-product-cases',
+      title: 'Exact history, publication, and remote apply',
+      assertions: [
+        'One command is one undo entry and one grouped publication; rejection and no-op create neither.',
+        'Undo and redo restore exact hierarchy, Group data, geometry, identity, and command selection.',
+        'Accepted remote Group changes use ordinary canonical apply without selection takeover; rejected remote changes do not mutate.',
+        'Collaboration gains no dedupe, timestamp/LWW, conflict, convergence, or semantic-history policy.'
+      ],
+      stepIds: [
+        'execute-group-command-transaction',
+        'settle-history-publication-and-remote-apply'
+      ],
+      specRefs: [
+        '#intended-transaction-and-selection',
+        '#saveload-and-collaboration'
+      ]
+    },
+    {
+      id: 'persistence-render-and-dod',
+      title: 'Exact persistence, identity-safe Render, and completion gates',
+      assertions: [
+        'Save/load preserves exact nested Group document state and invalid hierarchy rejects before apply.',
+        'Layers and Render refresh from canonical hierarchy with stable identity, no duplicate visual, no stale parent, and no coordinate jump.',
+        'Separate app/Core instances remain isolated.',
+        'Inspector, app/package, integration, TypeScript/build, dependency, lint, root build, E2E, collaboration, and synchronized visual gates pass before manual review.',
+        'No second hierarchy state, Group component, Render fallback, or Collaboration conflict policy is introduced; user review precedes closeout.'
+      ],
+      stepIds: [
+        'project-layers-hierarchy',
+        'settle-history-publication-and-remote-apply',
+        'verify-group-persistence-and-render'
+      ],
+      specRefs: [
+        '#saveload-and-collaboration',
+        '#definition-of-done',
+        '#manual-review-checklist'
+      ]
+    }
+  ]
+
+  const flowInspectorData = {
+    schema: { id: 'asyra.flow-inspector', version: 2 },
+    target: {
+      id: 'asyra-design-group-interaction-mvp',
+      kind: 'feature',
+      title: 'Asyra Design Group Interaction MVP Inspector',
+      subtitle:
+        'Exact app command, transaction, Layers projection, collaboration, persistence, and Render handoffs for official Group operations.'
+    },
+    authority: {
+      specPath,
+      inspectorPath,
+      semanticOwner: 'Asyra Design Group Interaction MVP Plan',
+      inspectorOwner: 'Asyra Design Group Interaction owner flow'
+    },
+    links: [
+      {
+        id: 'group-interaction-plan',
+        kind: 'authority',
+        label: 'Product contract',
+        href: './group-interaction-mvp-plan.md'
+      }
+    ],
+    lanes,
+    steps,
+    routes,
+    artifacts,
+    invariants,
+    acceptanceContracts
+  }
+
+  const deepFreeze = (value) => {
+    if (!value || typeof value !== 'object' || Object.isFrozen(value)) {
+      return value
+    }
+    Object.values(value).forEach(deepFreeze)
+    return Object.freeze(value)
+  }
+
+  deepFreeze(flowInspectorData)
+  globalThis.FLOW_INSPECTOR_DATA = flowInspectorData
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = flowInspectorData
+  }
+})()

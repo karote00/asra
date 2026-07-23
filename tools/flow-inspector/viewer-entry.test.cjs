@@ -106,6 +106,15 @@ const createViewerDom = (entryPath, dataScript, data) => {
 
 const targets = [
   {
+    id: 'asyra-design-group-interaction-mvp',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/apps/asyra-design/plans/group-interaction-mvp-flow-inspector.html'
+    ),
+    dataScript: './group-interaction-mvp-flow-inspector.data.cjs',
+    filterLaneTitle: 'Layers Interaction and Projection'
+  },
+  {
     id: 'stroke-engine',
     entryPath: path.join(
       projectRoot,
