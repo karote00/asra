@@ -3,10 +3,12 @@ import {
   loadAsyraDesignEnvironment,
   resolveAsyraDesignEnvironment
 } from './app-environment.mjs'
+import { resolveOrdinaryPlaywrightRuntimePolicy } from './playwright-runtime-policy.mjs'
 
 const appEnvironment = resolveAsyraDesignEnvironment(
   loadAsyraDesignEnvironment()
 )
+const runtimePolicy = resolveOrdinaryPlaywrightRuntimePolicy(process.env)
 const visualReviewWebServerCommand = `yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`
 
 /**
@@ -19,12 +21,12 @@ export default defineConfig({
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
+  /* PR/manual CI fails at the first product regression; scheduled runs retain one retry. */
+  maxFailures: runtimePolicy.maxFailures,
+  retries: runtimePolicy.retries,
+  workers: runtimePolicy.workers,
+  /* CI streams the first assertion instead of hiding it in an HTML-only report. */
+  reporter: runtimePolicy.reporter,
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */

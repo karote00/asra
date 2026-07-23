@@ -6645,3 +6645,31 @@ join` constrained dashed product path across:
     no pen-specific collaboration transport logic.
 - Related Plan:
   - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
+
+## 2026-07-24 - Restore actionable ordinary E2E execution
+
+- Context:
+  - Pull request E2E used a production preview even though canonical-state
+    assertions require DEV-only diagnostic handles.
+  - A missing ordinary localStorage document left Core without the App-owned
+    empty workspace, causing element creation failures and repeated timeouts.
+  - PR CI used one worker, two retries, HTML-only reporting, and kept
+    superseded runs alive.
+- Decision:
+  - Initialize an absent ordinary or collaboration document with the canonical
+    empty document before Core startup, without changing Core's nullish
+    persistence bypass contract.
+  - Restore immediate selection projection for create and area-selection
+    previews.
+  - Run ordinary E2E against the DEV app runtime after the workspace build,
+    while keeping production bundle and diagnostic-exclusion checks separate.
+  - Use two workers, line reporting, no PR/manual retry, first-failure stopping,
+    Chromium-only installation, and same-PR/ref concurrency cancellation;
+    scheduled CI retains one retry and full-suite execution.
+- Consequences:
+  - Reset and first-load ordinary documents always have a canonical workspace.
+  - Interactive selection UI is available during active pointer sessions.
+  - CI reports the first real regression promptly and no longer spends the
+    timeout budget retrying a cascade from one startup failure.
+- Related Commit(s):
+  - pending

@@ -89,11 +89,11 @@ test.describe('Element Creation', () => {
       await page.evaluate(() => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const scope = window as any
-        scope.__createPreviewDeliveries = []
+        scope.__createPreviewPublications = []
         scope.__disposeCreatePreviewObserver =
-          scope.__Core__?.deps?.factory?.observeSharedDataChannel?.(
-            'sceneTree',
-            (change: unknown) => scope.__createPreviewDeliveries.push(change)
+          scope.__Core__?.deps?.factory?.subscribeToSharedPublication?.(
+            (publication: unknown) =>
+              scope.__createPreviewPublications.push(publication)
           )
       })
       await page.mouse.move(start.x, start.y)
@@ -129,7 +129,7 @@ test.describe('Element Creation', () => {
         })
         await page.evaluate(() => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ;(window as any).__createPreviewDeliveries = []
+          ;(window as any).__createPreviewPublications = []
         })
 
         await page.mouse.move(end.x, end.y, { steps: 2 })
@@ -151,14 +151,34 @@ test.describe('Element Creation', () => {
         expect(await getElementCount(page)).toBe(initialCount + 1)
         await expect(createdRow).toBeVisible()
         expect(await hasSelectedElement(page)).toBe(true)
-        const previewDeliveries = await page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          return (window as any).__createPreviewDeliveries ?? []
-        })
-        expect(previewDeliveries).toContainEqual(
+        await expect
+          .poll(() =>
+            page.evaluate(
+              () =>
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (window as any).__createPreviewPublications?.length ?? 0
+            )
+          )
+          .toBeGreaterThan(0)
+        const previewPublications = await page.evaluate(
+          () =>
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (window as any).__createPreviewPublications ?? []
+        )
+        expect(previewPublications).toContainEqual(
           expect.objectContaining({
-            action: 'updateElementComputedDataBatch',
-            options: expect.objectContaining({ sharedDelivery: 'immediate' })
+            deliveries: expect.arrayContaining(
+              ['x', 'y', 'width', 'height'].map((key) =>
+                expect.objectContaining({
+                  channel: 'sceneTree',
+                  sharedDelivery: 'immediate',
+                  payload: expect.objectContaining({
+                    action: 'updateElementComputedData',
+                    key
+                  })
+                })
+              )
+            )
           })
         )
         await page.screenshot({
@@ -171,7 +191,7 @@ test.describe('Element Creation', () => {
           const scope = window as any
           scope.__disposeCreatePreviewObserver?.()
           delete scope.__disposeCreatePreviewObserver
-          delete scope.__createPreviewDeliveries
+          delete scope.__createPreviewPublications
         })
       }
     })

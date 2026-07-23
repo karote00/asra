@@ -113,7 +113,9 @@ export const createElementSession = {
 
     const elementId = api.createElement(snapshot.mousePosition, primaryTool)
     if (elementId) {
-      selectionApis.selectElements([elementId])
+      selectionApis.selectElements([elementId], {
+        sharedDelivery: 'immediate'
+      })
     }
 
     return {

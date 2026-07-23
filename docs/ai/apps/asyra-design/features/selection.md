@@ -26,7 +26,8 @@
 - with Shift: toggle selection
 - without Shift: replace selection
 - drag start on empty canvas: begin area selection session
-- drag update on empty canvas: update area selection bounds and selection set
+- drag update on empty canvas: update area selection bounds and immediately
+  project the non-undoable preview selection set before pointer release
 - drag end on empty canvas: select elements intersecting bounds (Shift toggles membership)
 - area selection excludes locked or hidden elements
 - click-only empty hit: clear selection

@@ -116,6 +116,30 @@ test('clean, CI, E2E, and Vercel include the collaboration integration gates', (
   assert.match(e2e, /test:e2e:collaboration/)
 })
 
+test('E2E automation cancels superseded runs and installs only Chromium', () => {
+  const e2e = readText('.github/workflows/e2e.yml')
+  const chromiumInstallCount = (
+    e2e.match(/playwright install --with-deps chromium/g) ?? []
+  ).length
+
+  assert.match(e2e, /concurrency:/)
+  assert.match(
+    e2e,
+    /group: e2e-\$\{\{ github\.workflow \}\}-\$\{\{ github\.event\.pull_request\.number \|\| github\.ref \}\}/
+  )
+  assert.match(e2e, /cancel-in-progress: true/)
+  assert.equal(chromiumInstallCount, 2)
+  assert.doesNotMatch(e2e, /playwright install --with-deps\s*$/m)
+})
+
+test('ordinary E2E uses the diagnostic-enabled app runtime after the workspace build', () => {
+  const runner = readText('scripts/run-e2e.sh')
+
+  assert.match(runner, /yarn react:build/)
+  assert.match(runner, /yarn workspace @asyra\/asyra-design react:start/)
+  assert.doesNotMatch(runner, /workspace @asyra\/asyra-design preview/)
+})
+
 test('collaboration follows the shared TypeScript library build convention', () => {
   const collaboration = readJSON('packages/collaboration/package.json')
   const collaborationTypeScript = readJSON(

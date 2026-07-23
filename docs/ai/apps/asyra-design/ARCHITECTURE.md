@@ -67,8 +67,8 @@
 - selects app-owned localStorage persistence before Core startup; ordinary
   URLs retain the legacy `FILE` key, while a collaboration `fileId` selects
   `FILE:<encoded fileId>` so each public file keeps an independent browser-local
-  demo snapshot; when collaboration starts without a stored snapshot for that
-  file, RenderApp initializes the valid empty workspace once
+  demo snapshot; when either route has no stored snapshot, RenderApp initializes
+  the valid empty workspace once before Core startup
 - starts framework via `core.start(...)` using Core's default `RenderAdapter`;
   renderer/engine initialization must
   succeed before observers, persistence load, features, or ready publication

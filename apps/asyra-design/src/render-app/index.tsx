@@ -40,10 +40,10 @@ const RenderApp: React.FC = () => {
           collaborationMode?.fileId
         )
 
-        // LocalStorage remains the demo database. Initialize only an absent
-        // collaboration document so Core can establish its empty workspace;
-        // an existing document must survive refresh unchanged.
-        if (collaborationMode && (await documentPersistence.load()) === null) {
+        // LocalStorage remains the demo database. Initialize an absent
+        // document so Core can establish its empty workspace; an existing
+        // ordinary or collaboration document must survive refresh unchanged.
+        if ((await documentPersistence.load()) === null) {
           if (!active) return
           await documentPersistence.save(EMPTY_DOCUMENT)
         }

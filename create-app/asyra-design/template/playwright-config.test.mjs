@@ -32,3 +32,40 @@ test('ordinary and collaboration Playwright suites have separate discovery', () 
   assert.match(collaboration, /collaboration\.spec\.ts/)
   assert.match(collaboration, /Total: [1-9]\d* tests? in 1 file/)
 })
+
+test('ordinary Playwright runtime policy is local-friendly and CI fail-fast', async () => {
+  const { resolveOrdinaryPlaywrightRuntimePolicy } = await import(
+    './playwright-runtime-policy.mjs'
+  )
+
+  assert.deepEqual(resolveOrdinaryPlaywrightRuntimePolicy({}), {
+    maxFailures: undefined,
+    reporter: 'html',
+    retries: 0,
+    workers: undefined
+  })
+  assert.deepEqual(
+    resolveOrdinaryPlaywrightRuntimePolicy({
+      CI: 'true',
+      GITHUB_EVENT_NAME: 'pull_request'
+    }),
+    {
+      maxFailures: 1,
+      reporter: 'line',
+      retries: 0,
+      workers: 2
+    }
+  )
+  assert.deepEqual(
+    resolveOrdinaryPlaywrightRuntimePolicy({
+      CI: 'true',
+      GITHUB_EVENT_NAME: 'schedule'
+    }),
+    {
+      maxFailures: undefined,
+      reporter: 'line',
+      retries: 1,
+      workers: 2
+    }
+  )
+})
